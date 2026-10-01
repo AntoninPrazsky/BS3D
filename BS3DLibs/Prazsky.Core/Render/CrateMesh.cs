@@ -45,7 +45,10 @@ namespace Prazsky.Core.Render
         public CrateMesh(GraphicsDevice device, Vector3 size, Part part)
         {
             Vector3 half = size * Constants.HALF;
-            float beam = Math.Clamp(Math.Min(size.X, Math.Min(size.Y, size.Z)) * BEAM_FRACTION, MIN_BEAM, MAX_BEAM);
+            //Never more than two fifths of the smallest size (#257's review): a crate thinner than two beams drew its
+            //frame wider than the box a ball bounces off
+            float smallest = Math.Min(size.X, Math.Min(size.Y, size.Z));
+            float beam = Math.Min(Math.Clamp(smallest * BEAM_FRACTION, MIN_BEAM, MAX_BEAM), smallest * 0.4f);
 
             MeshBuilder builder = new();
 
@@ -140,7 +143,8 @@ namespace Prazsky.Core.Render
                 }
         }
 
-        //A steel bracket over each corner, a little proud of the frame
+        //A steel bracket over each corner, flush with the bounds like the frame it covers (#257's review: it stood a
+        //few hundredths proud of them, past the box a ball bounces off)
         private static void AddBrackets(MeshBuilder builder, Vector3 half, float beam)
         {
             float b = beam * 0.62f;
@@ -148,7 +152,7 @@ namespace Prazsky.Core.Render
             for (int sx = -1; sx <= 1; sx += 2)
                 for (int sy = -1; sy <= 1; sy += 2)
                     for (int sz = -1; sz <= 1; sz += 2)
-                        builder.AddBox(new Vector3(sx * (half.X - b * 0.9f), sy * (half.Y - b * 0.9f), sz * (half.Z - b * 0.9f)),
+                        builder.AddBox(new Vector3(sx * (half.X - b), sy * (half.Y - b), sz * (half.Z - b)),
                             new Vector3(b, 0f, 0f), new Vector3(0f, b, 0f), new Vector3(0f, 0f, b));
         }
 

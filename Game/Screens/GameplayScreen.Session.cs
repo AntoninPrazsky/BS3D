@@ -430,10 +430,6 @@ namespace BS3D.Screens
             ClusterHang.FitWorldOffset(map, out fieldTopY);
 
         /// <summary>
-        /// Derives everything the loaded field's size and depth decide, hanging the field by
-        /// <see cref="FitClusterWorldOffset"/>.
-        /// </summary>
-        /// <summary>
         /// Stands this level's crates (#257) — the physics' boxes and their drawing — or takes the last level's away with
         /// null. Each crate's centre is measured from the field's floor on its axis (<see cref="Prazsky.BS3D.Levels.CrateSpec"/>),
         /// so it needs the field fitted first.
@@ -463,6 +459,10 @@ namespace BS3D.Screens
             Console.WriteLine($"[crates] {_crates.Count} in this level");
         }
 
+        /// <summary>
+        /// Derives everything the loaded field's size and depth decide, hanging the field by
+        /// <see cref="FitClusterWorldOffset"/>.
+        /// </summary>
         private void FitFieldToMap()
         {
             _clusterWorldOffset = FitClusterWorldOffset(_map, out float fieldTopY);

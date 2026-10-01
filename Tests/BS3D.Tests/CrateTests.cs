@@ -103,7 +103,8 @@ namespace BS3D.Tests
             List<PhysicsBall> shots = new();
             PhysicsBall shot = new() { BallReference = hung.World.AddShotBall(muzzle.ToNumerics(), velocity.ToNumerics(), touch) };
             shots.Add(shot);
-            hung.World.PerStepForces = dt => crates.BounceShots(shots, hung.World.Events, dt, Constants.EARTH_GRAVITY);
+            hung.World.PerStepForces = dt => crates.BounceShots(shots, hung.World.Events, dt, Constants.EARTH_GRAVITY,
+                hung.Balls, null);
 
             for (int step = 0; step < 120 && touch.Other == null; step++)
                 hung.World.Step(HungLevel.TIMESTEP, () => { });
@@ -113,6 +114,52 @@ namespace BS3D.Tests
 
             //And it was the bounce that brought it there: the shot is moving back towards -X
             Assert.True(shot.BallReference.Velocity.Linear.X < 0f);
+        }
+
+        /// <summary>
+        /// A shot too slow to bounce is spent, not bounced (#257's review): a lossless bounce never decays, and a shot
+        /// dropped off the glass onto a crate's top would have bounced there for ever with the level held open.
+        /// </summary>
+        [Fact]
+        public void ASlowShotMeetingACrateIsSpentNotBounced()
+        {
+            using PhysicsWorld world = new();
+            Crates crates = OneCrate(NVector3.Zero, new NVector3(1f));
+            crates.AddStatics(world.Simulation, world.Events);
+
+            FirstTouch listener = new();
+            PhysicsBall shot = new() { BallReference = world.AddShotBall(new NVector3(0f, 1.52f, 0f), new NVector3(0f, -5f, 0f), listener) };
+            List<PhysicsBall> spent = new();
+
+            crates.BounceShots(new List<PhysicsBall> { shot }, world.Events, PhysicsWorld.FIXED_TIMESTEP, 0f, null, spent);
+
+            Assert.Single(spent);
+            Assert.False(world.Events.IsListener(shot.BallReference.CollidableReference));
+            Assert.Equal(-5f, shot.BallReference.Velocity.Linear.Y, 4);
+        }
+
+        /// <summary>
+        /// A step whose flight reaches a ball of the cluster before the face is not bounced (#257's review): the bounce
+        /// puts the ball behind the face for the integrator, so Bepu would sweep the mirrored leg and fly past the ball.
+        /// </summary>
+        [Fact]
+        public void AStepThatReachesTheClusterBeforeTheFaceIsNotBounced()
+        {
+            using PhysicsWorld world = new();
+            Crates crates = OneCrate(new NVector3(7f, 0f, 0f), new NVector3(1f));   //grown face at x = 5.5
+            crates.AddStatics(world.Simulation, world.Events);
+
+            FirstTouch listener = new();
+            PhysicsBall shot = new() { BallReference = world.AddShotBall(new NVector3(4f, 0f, 0f), new NVector3(200f, 0f, 0f), listener) };
+            PhysicsBall[,,] cluster = new PhysicsBall[1, 1, 1];
+            cluster[0, 0, 0] = new PhysicsBall { BallReference = world.AddShotBall(new NVector3(4.9f, 0.7f, 0f), NVector3.Zero, new FirstTouch()) };
+
+            crates.BounceShots(new List<PhysicsBall> { shot }, world.Events, PhysicsWorld.FIXED_TIMESTEP, 0f, cluster, null);
+            Assert.Equal(200f, shot.BallReference.Velocity.Linear.X, 3);
+
+            //And without the ball in the way, the same step bounces
+            crates.BounceShots(new List<PhysicsBall> { shot }, world.Events, PhysicsWorld.FIXED_TIMESTEP, 0f, null, null);
+            Assert.Equal(-200f, shot.BallReference.Velocity.Linear.X, 3);
         }
 
         private sealed class FirstTouch : IContactEventHandler
