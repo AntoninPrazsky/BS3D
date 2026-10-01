@@ -96,11 +96,25 @@ namespace BS3D.Screens
             Ask();
         }
 
-        /// <summary>Both periods at once: turning between them is then instant, and each is cached a minute by the session.</summary>
+        /// <summary>
+        /// Coming back on top asks again for what is missing (#685's review): Enter runs on a push and never on a pop, so the
+        /// player who opened Settings from here, opted in and came back would otherwise have waited on "Loading" for good -
+        /// the very path the page's Settings door offers. A period that failed is asked again the same way.
+        /// </summary>
+        public override void CoveredChanged()
+        {
+            base.CoveredChanged();
+            if (IsActive) Ask();
+        }
+
+        /// <summary>
+        /// Both periods at once, so turning between them is instant; each is cached a minute by the session. Only a period
+        /// with nothing on its way and nothing usable come back is asked, so a re-entry or a return asks no more than it must.
+        /// </summary>
         private void Ask()
         {
-            _monthTicket = Game.Online.RequestBoardsSummary(allTime: false);
-            _allTimeTicket = Game.Online.RequestBoardsSummary(allTime: true);
+            if (_monthTicket < 0 && _monthReply?.Summary == null) _monthTicket = Game.Online.RequestBoardsSummary(allTime: false);
+            if (_allTimeTicket < 0 && _allTimeReply?.Summary == null) _allTimeTicket = Game.Online.RequestBoardsSummary(allTime: true);
         }
 
         public override void Update(GameTime gameTime)
@@ -299,8 +313,11 @@ namespace BS3D.Screens
             return 0;
         }
 
+        /// <summary>Shows a period - and asks again for one that failed, which is the page's own "try again".</summary>
         private void SetPeriod(bool allTime)
         {
+            Ask();
+
             if (_allTime == allTime) return;
 
             _allTime = allTime;
@@ -414,10 +431,16 @@ namespace BS3D.Screens
             if (reply.NotOffered) return "The score server does not offer this overview yet. Each level's boards are still in Select Level.";
             if (reply.Summary == null) return "The score server did not answer. Try again in a moment.";
 
-            int on = 0, leads = 0;
-            foreach (BoardSummaryBody board in boards.Values)
+            //Only the boards the rows can show - this build's levels as they are, the ones the player has open (#685's
+            //review): the summary carries every version of every level any table names, and a count over those said "you
+            //lead 12 of 40" over rows that all read "No clears yet" after a level was edited or the rules moved
+            int on = 0, leads = 0, rules = ScoreKeeper.RulesVersion;
+            for (int level = 0; level < Game.LevelCount; level++)
             {
+                if (!Game.IsLevelUnlocked(level) || Identity(level) is not LevelIdentity id) continue;
+                if (!boards.TryGetValue(Key(id.File, id.Hash, rules), out BoardSummaryBody board)) continue;
                 if (board.Me == null || board.Me.Rank <= 0) continue;
+
                 on++;
                 if (board.Me.Rank == 1) leads++;
             }
@@ -440,7 +463,10 @@ namespace BS3D.Screens
 
         private static string Key(string file, string hash, int rules) => file + "#" + hash + "#" + rules.ToString(CultureInfo.InvariantCulture);
 
-        /// <summary>A level's board key, read once (it reads and hashes the level's file).</summary>
+        /// <summary>
+        /// A level's board key, read once (it reads and hashes the level's file). The status line asks it of every open
+        /// level, so the first summary to arrive reads that many files - once a run, since the set does not change.
+        /// </summary>
         private LevelIdentity Identity(int level)
         {
             if (!_identities.TryGetValue(level, out LevelIdentity identity))

@@ -76,7 +76,7 @@ namespace BS3D.Screens
         private const int TILE_WIDTH = 330;
         private const int TILE_HEIGHT = 260;
 
-        //The gap between the tile's three lines, in design units, fitted like every other gap on the page
+        //The gap between the tile's four lines (three until #684), in design units, fitted like every other gap on the page
         private const int TILE_LINE_GAP = 4;
 
         //Four to a row was cut for a column that scrolled; a chapter of ten wants FIVE, which is two full rows
@@ -919,8 +919,8 @@ namespace BS3D.Screens
                 //unlocked levels": the player's own, offline and always there, written the way the result page
                 //writes it. Only where there is a rating - a lock has none to show and must not hint at one
                 //(#266), a skip earned none, and an open level not yet cleared has nothing to report. The online
-                //board's top score is not here: contract v1 has no list endpoint, so it would cost a request per
-                //tile (#685 asks the same question).
+                //board's top score is not here: the High Scores page (#685) shows every board's #1, from one summary
+                //request (GET /v1/boards); a tile here is the player's own record, offline and always there.
                 _tileScores[slot].Text = rated ? ScoreText.Of(Game.LevelBestScore(level)) : string.Empty;
             }
         }
