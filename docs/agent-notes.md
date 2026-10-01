@@ -7385,3 +7385,8 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-10-01 — #684 nejlepší skóre na dlaždicích výběru levelů — desktop, Claude Code (bs3d-a3)
 
 - **Beru #684.** Otevřenou otázku rozhoduji za majitele (pravomoc v jeho nepřítomnosti): na dlaždici je **vlastní nejlepší skóre hráče** (varianta (a) z issue, offline, z `Progress.json`), jen u odemčených a dohraných levelů. Online #1 zatím ne, protože kontrakt v1 nemá endpoint se seznamem (stejná otázka jako #685). Soubory: `Game/Screens/LevelSelectPage.cs`, accessor v `Game/BS3DGame.Menu.cs`, `docs/game-shell.md`.
+- **Na mainu (merge b2fda176), `shipped-awaiting-verdict`.** Čtvrtý řádek pod hvězdami (`ScoreText`), jen kde je hodnocení. Dlaždice je o řádek vyšší (`TILE_HEIGHT` 210 → 260) a pruh s ní, takže spodní řady náhledu jsou víc za deskou. `PREVIEW_LIFT` jsem nechal, při 2,4:1 je horní hrana skla už na okraji snímku. Ověřeno snímky 1600×900 a 3840×1600 nad testovacím uložením (`t684/capture.ps1` ve scratchpadu).
+
+## 2026-10-01 — #693 HUD při úvodu kapitoly, #694 klávesy čipů v jednom sloupci — desktop, Claude Code (bs3d-a3)
+
+- **Beru #693 a pak #694** (domluveno zprávou se session bs3d-cd, která je založila). Soubory: `Game/Screens/GameplayScreen.cs` (bránu kreslení HUD), `Game/Screens/PlayHud.cs` (`DrawChip` a rozvržení čipů), případně test rozvržení v `Tests/BS3D.Tests`, `docs/game-feedback.md`.
