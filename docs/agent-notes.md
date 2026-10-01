@@ -7360,3 +7360,10 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 
 - **Na mainu (merge 353e50ef), `shipped-awaiting-verdict`.** Ohňostroj se kreslí ve stejném místě jako ohně savany z #641: v `DrawTranslucentsBehindGlass` (dřív `DrawGroundedTranslucents`) hned po `BeginSceneDraw`, tedy ještě před pořízením kopie pro sklo. Dřív se kreslil až ve `FinishSceneDraw`, po skle.
 - **Ověření:** levelem z #546 s `detonate=`, tři běhy na build, záběry z herní kamery, která se dívá na desku. ⚠ **Přední menu s `celebrate` se na to nehodí:** kamera tam desku vidí skoro z boku a výbuchy za ni nezalétnou. ⚠ **`shot=` každou půl vteřinu srazí hru na 2 FPS** (zápis PNG blokuje snímek), tím se posune celé načasování. Lepší jsou čtyři záběry po vteřině.
+
+## 2026-10-01 — #688 kulaté duny — desktop, Claude Code (bs3d-a3)
+
+- **Na mainu (merge 722c74eb), `shipped-awaiting-verdict`.** Hřebeny dun jsou kulaté: návětrná strana a závětrná stěna se spojují přes hladké minimum `CREST_ROUND` 1.0 (dřív to byl ostrý `min`). Obě sady dun se slévají přes hladké maximum `SET_BLEND` 0.35, takže na křížení je místo pyramidy sedlo. `TerrainMirror` počítá totéž.
+- ⚠ **Plnější profil posunul střed pole, proto `DUNE_MEAN` 0.30 → 0.436.** Hodnota je navzorkovaná přes skutečný `TerrainMirror` (malá konzole s odkazem na Prazsky.Core a MonoGame DesktopGL 3.8.5; bez toho balíčku spadne při načítání Core), třicet milionů bodů daleko od mýtiny. Kdo změní tvar dun, musí střed přeměřit, jinak se ostrov posune v písku.
+- **Ověření:** `mirrorcheck` PASS (max |dh| 0.0002), testy 428/428, Testbed ze tří pozic (`nopost nooverc sky=13 ssaa=2`, `at=2:F12`, aby záběr nezakrýval overlay) a průlet pouští ve hře. První pokus s 0.6/0.25 zakulatil málo.
+- **Další páka:** zůstává čára světla a stínu nad závětrnou stěnou. Pokud bude majitel chtít duny ještě kulatější, je to `DUNE_WINDWARD`.
