@@ -7348,3 +7348,4 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-10-01 — #682 přejmenovat level One (claim) — desktop, Claude Code (bs3d-a3)
 
 - **Beru #682**: zobrazované jméno „One“ změním na „Cannonball“, soubor `One.json` zůstane (podle něj se ukládají hvězdy). Měním `Tools/LevelGen/Designs/Block01_Meadow.cs`, `Game/Levels` přegeneruji a upravím příklad v `HelpPage`.
+- **Hotovo, merge 22710ccf, #682 zavřený.** Tabulka má nový klíč `One.json#1e913f0a50d358cb` (hash se počítá z obsahu souboru včetně jména). Na Pi leží v domovské složce nová dev tabulka stropů (`BS3D-dev-22710cc-ceilings.json`) a čeká na instalaci. ⚠ **LevelGen zapisuje CRLF**, takže `git status` po něm ukáže změněné všechny soubory, i když se nic nezměnilo. Rozhoduje `git diff`; soubory, které se liší jen konci řádků, se vrátí přes `git checkout -- Game/Levels`.
