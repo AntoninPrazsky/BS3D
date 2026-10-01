@@ -1,4 +1,4 @@
-﻿using Microsoft.Xna.Framework.Audio;
+using Microsoft.Xna.Framework.Audio;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -74,20 +74,14 @@ namespace BS3D.Audio
 
         /// <summary>
         /// How much of a layered recording one chunk of the feed is (#495): a quarter of a second, and
-        /// <see cref="LAYER_CHUNKS_AHEAD"/> of them kept queued — about a second, which is what the voice plays on through
-        /// a hitch before it would run dry (a level's build is the longest the game stalls), and also how late a change
-        /// of <see cref="Intensity"/> is heard, which the slow ramps below make no matter.
+        /// <see cref="LAYER_CHUNKS_AHEAD"/> of them kept queued — two seconds, which is what the voice plays on through a
+        /// stall before it would run dry. The whole-loop feed it replaces could not run dry at all, and a layered chain
+        /// is started in the middle of a level's build, before the physics, the cluster and the first frame (the review
+        /// of #495), so the margin is generous; the price is that a change of <see cref="Intensity"/> is heard up to two
+        /// seconds late, which the slow ramps below make little of.
         /// </summary>
         private const int LAYER_CHUNK_FRAMES = 12000;
-        private const int LAYER_CHUNKS_AHEAD = 5;
-
-        /// <summary>
-        /// The chunks' own buffers, written in turn and never while queued: XAudio2 plays a submitted buffer from the
-        /// array it was handed (MonoGame pins it rather than copying). Twice the queue and more, because a chain being
-        /// retired goes on playing what it has queued while it fades (#211), and the chain that replaces it fills its
-        /// own queue at once: half the ring for each, so the new chain never writes over a chunk the old one has yet to play.
-        /// </summary>
-        private const int LAYER_RING = 2 * LAYER_CHUNKS_AHEAD + 2;
+        private const int LAYER_CHUNKS_AHEAD = 8;
 
         //How fast the drums follow the danger, in units of full level a second: up in about two seconds - the cluster
         //coming down is heard promptly - and back down over five, so a good shot is a slow exhale rather than a cut.
@@ -210,8 +204,10 @@ namespace BS3D.Audio
         private byte[] _soundingDrums;
         private int _layerCursor;
         private float _layerGain = 1f;
-        private int _layerNext;
-        private readonly byte[][] _layerRing = new byte[LAYER_RING][];
+        //One chunk's scratch, reused: MonoGame's SubmitBuffer copies what it is handed into a pooled buffer of its own
+        //before XAudio2 reads it (read out of its IL by the review of #495), so a chunk can be rewritten the moment it
+        //is submitted. The first cut kept a ring of twelve on the belief that the array itself was pinned.
+        private readonly byte[] _layerChunk = new byte[LAYER_CHUNK_FRAMES * 4];
         private float _intensity = 1f;
 
         private bool _wanted;
@@ -804,13 +800,10 @@ namespace BS3D.Audio
                     ? Math.Min(target, from + DRUMS_RISE_PER_SECOND * seconds)
                     : Math.Max(target, from - DRUMS_FALL_PER_SECOND * seconds);
 
-                byte[] chunk = _layerRing[_layerNext] ??= new byte[LAYER_CHUNK_FRAMES * 4];
-                _layerNext = (_layerNext + 1) % LAYER_RING;
-
-                _layerCursor = DrumLayer.Mix(full, _soundingDrums, _layerCursor, LAYER_CHUNK_FRAMES, from, to, chunk);
+                _layerCursor = DrumLayer.Mix(full, _soundingDrums, _layerCursor, LAYER_CHUNK_FRAMES, from, to, _layerChunk);
                 _layerGain = to;
 
-                _voice.SubmitBuffer(chunk, 0, chunk.Length);
+                _voice.SubmitBuffer(_layerChunk, 0, _layerChunk.Length);
             }
         }
 
@@ -850,6 +843,17 @@ namespace BS3D.Audio
                     if (!track.IsCompleted || drums?.IsCompleted == false) return;
 
                     if (_pinned < 0) family.Next = (variant + 1) % family.Files.Length;
+
+                    //And every other recording of the family is let go - all but this one and the one after it (the
+                    //review of #495): nothing else freed a variant once it had played, so a chapter of ten levels on one
+                    //family ended up holding all ten decoded, and with their drums layers the Meadow's would be some
+                    //90 MB more. A chain that is still sounding keeps nothing of these: SubmitBuffer copied what it played.
+                    for (int other = 0; other < family.Files.Length; other++)
+                    {
+                        if (other == variant || (_pinned < 0 && other == (variant + 1) % family.Files.Length)) continue;
+                        family.Loads[other] = null;
+                        family.DrumLoads[other] = null;
+                    }
 
                     if (track.Result == null)
                     {

@@ -765,6 +765,16 @@ namespace BS3D.Screens
         }
 
         /// <summary>
+        /// The danger the music plays (#495), 0 with the lowest ball <see cref="MUSIC_CALM_STEPS"/> ceiling steps or
+        /// more above the line, rising evenly to 1 on it. An empty field is no danger.
+        /// </summary>
+        private static float MusicIntensity(float lowestBallY)
+        {
+            float height = lowestBallY - CEILING_DEATH_Y;
+            return 1f - Math.Clamp(height / (MUSIC_CALM_STEPS * CeilingDescent.CEILING_DESCENT_PER_STEP), 0f, 1f);
+        }
+
+        /// <summary>
         /// Arms or stands down the floor alarm from the cluster's lowest live ball: on when
         /// <see cref="LASER_WARN_STEPS"/> more ceiling steps would push it past the death line — the very
         /// comparison <see cref="CheckLevelLost"/> loses on, two descents early — and off with a little
@@ -777,16 +787,6 @@ namespace BS3D.Screens
         /// rescues a low cluster, and a warning frozen lit would outstay the danger by the whole shot.
         /// </para>
         /// </summary>
-        /// <summary>
-        /// The danger the music plays (#495), 0 with the lowest ball <see cref="MUSIC_CALM_STEPS"/> ceiling steps or
-        /// more above the line, rising evenly to 1 on it. An empty field is no danger.
-        /// </summary>
-        private static float MusicIntensity(float lowestBallY)
-        {
-            float height = lowestBallY - CEILING_DEATH_Y;
-            return 1f - Math.Clamp(height / (MUSIC_CALM_STEPS * CeilingDescent.CEILING_DESCENT_PER_STEP), 0f, 1f);
-        }
-
         private void UpdateLaserWarning(float lowestBallY)
         {
             float threshold = CEILING_DEATH_Y + LASER_WARN_STEPS * CeilingDescent.CEILING_DESCENT_PER_STEP;

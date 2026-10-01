@@ -272,9 +272,6 @@ namespace BS3D.Screens
 
             Game.Music?.SetTheme(namedTheme, index);
 
-            //A level opens calm (#495); its first frame says how calm, before the music's next chunk is mixed
-            if (Game.Music != null) Game.Music.Intensity = 0f;
-
             //The render set is the whole program's, and the front end hangs its own preview through it — so
             //this is stated on the way in rather than assumed, and stated again every frame this screen draws
             //(see Draw). Setting it to what it already is costs a comparison.
@@ -467,6 +464,11 @@ namespace BS3D.Screens
             //line, and how much air the layout's lowest ball starts with — the figure an author sizing a
             //deep map actually wants, and the record of whether the raise above fired.
             float lowestBallY = _map.GetLowestOccupiedLevel() / Constants.SQRT_TWO + _clusterWorldOffset.Y;
+
+            //And the music's danger as the level opens (#495), from the same figure: Play() starts a layered chain
+            //before the physics and the first frame, mixing its first two seconds at whatever this says, so it is said
+            //here rather than left to the first frame's loss check (the review of #495 found it opening calm)
+            if (Game.Music != null) Game.Music.Intensity = MusicIntensity(lowestBallY);
             Console.WriteLine($"[field] {_map.StageSizeX}x{_map.StageSizeZ}x{_map.Levels}: top Y {fieldTopY:F2}"
                 + (fieldTopY > FIELD_TOP_Y ? " (raised off the line)" : "") + $", floor Y {_clusterWorldOffset.Y:F2}"
                 + $", lowest ball Y {lowestBallY:F2} ({lowestBallY - CEILING_DEATH_Y:F2} above the line)");

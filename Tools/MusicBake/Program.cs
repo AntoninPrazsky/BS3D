@@ -461,7 +461,18 @@ namespace BS3D.Tools.MusicBake
             byte[] full = OggTrack.Decode(trackPath, TRACK_RATE);
             int frames = full.Length / 4;
 
-            (float[] stem, int rate) = ReadWav(wavPath);
+            float[] stem;
+            int rate;
+            try
+            {
+                (stem, rate) = ReadWav(wavPath);
+            }
+            catch (InvalidDataException exception)
+            {
+                Console.WriteLine($"MusicBake --drums: {exception.Message}");
+                return 1;
+            }
+
             if (rate != TRACK_RATE || stem.Length / 2 != frames)
             {
                 Console.WriteLine($"MusicBake --drums: {wavPath} is {stem.Length / 2} frames at {rate} Hz, the recording {frames} at {TRACK_RATE}");
@@ -485,12 +496,9 @@ namespace BS3D.Tools.MusicBake
 
             string dir = Path.Combine(repo, "Game", "Music", "Drums");
             string path = Path.Combine(dir, recording + ".ogg");
-            if (write)
-            {
-                Directory.CreateDirectory(dir);
-                File.WriteAllBytes(path, ogg);
-            }
 
+            //Everything is judged on the encoded bytes in memory, and only a layer that passes is written: a rebake whose
+            //calm mix clips must not overwrite the good layer that is there (the review of #495)
             byte[] back = OggTrack.Decode(new MemoryStream(ogg), rate);
 
             //The recording, its drums and the two told apart, as the decoder hands them to the game - and the calmest
@@ -508,15 +516,21 @@ namespace BS3D.Tools.MusicBake
             }
 
             double n = Math.Max(1, samples);
+            bool good = back.Length / 4 == frames && calmPeak < 1;
+
             Console.WriteLine($"{recording,-20} {frames / (double)rate,6:F2} s  full {Db(Math.Sqrt(fullSum / n)),6:F1}  drums {Db(Math.Sqrt(drumSum / n)),6:F1}"
                 + $"  without {Db(Math.Sqrt(restSum / n)),6:F1} dBFS  peak {peak / DrumLayer.STORED_SCALE:F2}  ogg {ogg.Length / 1024.0,7:F1} KB  decoded {back.Length / 4} of {frames} frames"
                 + $"  calm peak {calmPeak:F2}"
                 + (back.Length / 4 == frames ? "" : "  LENGTH DIFFERS") + (calmPeak < 1 ? "" : "  CLIPS WHEN CALM")
-                + (write ? "  -> " + path : "  (not written)"));
+                + (good && write ? "  -> " + path : "  (not written)"));
 
-            //A layer whose calm mix clips is refused AFTER it was written, so the line is there to read: delete it
-            if (calmPeak >= 1 && write) File.Delete(path);
-            return back.Length / 4 == frames && calmPeak < 1 ? 0 : 1;
+            if (good && write)
+            {
+                Directory.CreateDirectory(dir);
+                File.WriteAllBytes(path, ogg);
+            }
+
+            return good ? 0 : 1;
         }
 
         private static readonly string[] NOTE_NAMES = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
