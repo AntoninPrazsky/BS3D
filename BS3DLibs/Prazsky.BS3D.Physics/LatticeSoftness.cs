@@ -27,12 +27,19 @@ namespace Prazsky.BS3D.Physics
     /// </summary>
     public static class LatticeSoftness
     {
+        //Scratch for the walks below, per thread like the builder's own (#585): ApplyToBall runs on every landing of a soft
+        //lattice, on the contact path, and BestPractices.md keeps that path free of per-landing allocations
+        [System.ThreadStatic] private static List<ConstraintHandle> t_handles;
+        [System.ThreadStatic] private static HashSet<int> t_done;
+        private static List<ConstraintHandle> Handles => t_handles ??= new List<ConstraintHandle>(64);
+        private static HashSet<int> Done => t_done ??= new HashSet<int>();
         /// <summary>Re-describes every socket between two balls of <paramref name="balls"/> with <paramref name="spring"/>.</summary>
         /// <returns>How many sockets were re-described (a same-level pair is visited from both ends, and counted once).</returns>
         public static int Apply(PhysicsBall[,,] balls, Simulation simulation, SpringSettings spring)
         {
             int topLevel = balls.GetLength(2) - 1;
-            List<ConstraintHandle> handles = new();
+            List<ConstraintHandle> handles = Handles;
+            handles.Clear();
 
             for (int x = 0; x < balls.GetLength(0); x++)
                 for (int z = 0; z < balls.GetLength(1); z++)
@@ -56,7 +63,8 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         public static void ApplyToBall(PhysicsBall ball, int topLevel, Simulation simulation, SpringSettings spring)
         {
-            List<ConstraintHandle> handles = new();
+            List<ConstraintHandle> handles = Handles;
+            handles.Clear();
 
             ball.HandlesBottom.CollectStored(handles);
             ball.HandlesMiddle.CollectStored(handles);
@@ -68,7 +76,8 @@ namespace Prazsky.BS3D.Physics
         private static int Describe(Simulation simulation, List<ConstraintHandle> handles, SpringSettings spring)
         {
             Solver solver = simulation.Solver;
-            HashSet<int> done = new();
+            HashSet<int> done = Done;
+            done.Clear();
 
             foreach (ConstraintHandle handle in handles)
             {
