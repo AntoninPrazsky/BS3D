@@ -164,6 +164,13 @@ namespace BS3D
         internal static readonly Color MENU_TEXT_BODY = new(208, 208, 208);   //prose, a shade under a heading
         internal static readonly Color MENU_TEXT_DIM = new(146, 146, 146);    //asides, always on a dark plate
 
+        //The SECOND deliberate exception, the owner's call (#687, 2026-10-01): a setting the player has to act on is
+        //red. Online scores are opt-in and the boards are a reason to play, so "Off" and a nickname "Not set" must
+        //read as a thing left to do rather than as one more value among twenty-six greys - which is how the owner
+        //read the page, and he missed the rows entirely. Safe for the stars' second reason: it is only ever drawn
+        //on the settings page's own plate, never over a backdrop. Brightness still carries every other emphasis.
+        internal static readonly Color MENU_TEXT_ALERT = new(255, 104, 92);
+
         //The ONE deliberate exception to the greyscale rule above: the star rating (#139). Three things make
         //it safe where an accent anywhere else is not. It is a READOUT of what the player earned rather than
         //menu chrome — the hue IS the information, and brightness cannot carry it, because all four tiers have
