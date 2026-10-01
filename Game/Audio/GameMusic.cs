@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework.Audio;
+﻿using Microsoft.Xna.Framework.Audio;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -50,6 +50,12 @@ namespace BS3D.Audio
     /// their values: the mix the effects were tuned against did not move — until #467 raised the music, see
     /// <see cref="MUSIC_VOLUME"/>.
     /// </para>
+    /// <para>
+    /// <b>A recording with a drums layer is fed in chunks and mixed (#495).</b> When <c>Music/Drums/</c> holds a file of
+    /// the recording's own name (<see cref="DrumLayer"/>), the chain is not handed the whole loop again and again: it is
+    /// fed <see cref="LAYER_CHUNK_FRAMES"/> at a time, each chunk the recording with its drums at the gain
+    /// <see cref="Intensity"/> asks for, ramped across the chunk. A recording without one plays exactly as it always did.
+    /// </para>
     /// </summary>
     public sealed class GameMusic : IDisposable
     {
@@ -62,6 +68,31 @@ namespace BS3D.Audio
 
         /// <summary>The rate ACE-Step renders at and every track is written at; the procedural pieces are 44.1 kHz.</summary>
         private const int SAMPLE_RATE = 48000;
+
+        /// <summary>Where a recording's drums layer lives (#495): a folder under the tracks', so the families never count it.</summary>
+        private const string DRUMS_DIRECTORY = "Drums";
+
+        /// <summary>
+        /// How much of a layered recording one chunk of the feed is (#495): a quarter of a second, and
+        /// <see cref="LAYER_CHUNKS_AHEAD"/> of them kept queued — about a second, which is what the voice plays on through
+        /// a hitch before it would run dry (a level's build is the longest the game stalls), and also how late a change
+        /// of <see cref="Intensity"/> is heard, which the slow ramps below make no matter.
+        /// </summary>
+        private const int LAYER_CHUNK_FRAMES = 12000;
+        private const int LAYER_CHUNKS_AHEAD = 5;
+
+        /// <summary>
+        /// The chunks' own buffers, written in turn and never while queued: XAudio2 plays a submitted buffer from the
+        /// array it was handed (MonoGame pins it rather than copying). Twice the queue and more, because a chain being
+        /// retired goes on playing what it has queued while it fades (#211), and the chain that replaces it fills its
+        /// own queue at once: half the ring for each, so the new chain never writes over a chunk the old one has yet to play.
+        /// </summary>
+        private const int LAYER_RING = 2 * LAYER_CHUNKS_AHEAD + 2;
+
+        //How fast the drums follow the danger, in units of full level a second: up in about two seconds - the cluster
+        //coming down is heard promptly - and back down over five, so a good shot is a slow exhale rather than a cut.
+        private const float DRUMS_RISE_PER_SECOND = 0.5f;
+        private const float DRUMS_FALL_PER_SECOND = 0.2f;
 
         /// <summary>
         /// The authored level of the music, under the effects — a soundtrack is not an event. A constant so the
@@ -147,6 +178,10 @@ namespace BS3D.Audio
             public string[] Names;
             public Task<byte[]>[] Loads;
             public int Next;
+
+            /// <summary>Each recording's drums layer (#495), or null where it has none; decoded on demand beside it.</summary>
+            public string[] DrumFiles;
+            public Task<byte[]>[] DrumLoads;
         }
 
         private readonly Dictionary<string, Family> _families = new(StringComparer.OrdinalIgnoreCase);
@@ -169,6 +204,15 @@ namespace BS3D.Audio
 
         /// <summary>The recording the sounding chain was built from, which the feed submits again — never a sibling variant.</summary>
         private Task<byte[]> _sounding;
+
+        //The sounding chain's drums layer (#495), null when its recording has none and the feed submits it whole; where
+        //the next chunk starts, the drums' gain at the end of the last chunk, and the ring the chunks are written into
+        private byte[] _soundingDrums;
+        private int _layerCursor;
+        private float _layerGain = 1f;
+        private int _layerNext;
+        private readonly byte[][] _layerRing = new byte[LAYER_RING][];
+        private float _intensity = 1f;
 
         private bool _wanted;
         private bool _failed;
@@ -258,12 +302,22 @@ namespace BS3D.Audio
                     string[] names = new string[members.Count];
                     for (int i = 0; i < names.Length; i++) names[i] = Path.GetFileName(members[i]);
 
+                    //And each recording's drums layer, where there is one (#495)
+                    string[] drums = new string[members.Count];
+                    for (int i = 0; i < drums.Length; i++)
+                    {
+                        string layer = Path.Combine(directory, DRUMS_DIRECTORY, names[i]);
+                        if (File.Exists(layer)) drums[i] = layer;
+                    }
+
                     _families[family] = new Family
                     {
                         Name = family.ToLowerInvariant(),
                         Files = members.ToArray(),
                         Names = names,
                         Loads = new Task<byte[]>[members.Count],
+                        DrumFiles = drums,
+                        DrumLoads = new Task<byte[]>[members.Count],
                     };
                 }
             }
@@ -303,6 +357,21 @@ namespace BS3D.Audio
                 WriteVolumes();
             }
         }
+
+        /// <summary>
+        /// How much danger the level is in, 0 to 1 (#495): the session sets it every frame from how close the cluster
+        /// hangs to the line, and a recording with a drums layer plays its drums from <see cref="DrumLayer.CALM_GAIN"/> at 0 to
+        /// full at 1, following at <c>DRUMS_RISE_PER_SECOND</c> and <c>DRUMS_FALL_PER_SECOND</c> of the music's own
+        /// time. 1 until anything says otherwise, so music nobody asks about plays as recorded.
+        /// </summary>
+        public float Intensity
+        {
+            get => _intensity;
+            set => _intensity = Math.Clamp(value, 0f, 1f);
+        }
+
+        /// <summary>The drums' gain the current <see cref="Intensity"/> asks for.</summary>
+        private float DrumsTarget => DrumLayer.CALM_GAIN + (1f - DrumLayer.CALM_GAIN) * _intensity;
 
         /// <summary>
         /// Steps the game's music aside while the About page's player holds a piece, and brings it back when it
@@ -420,7 +489,11 @@ namespace BS3D.Audio
             //The same family again with the same pin is the same music — a retry, a Continue — and keeps its chain
             if (family == _family && pinned == _pinned) return;
 
-            if (_family != null && _family != family) Array.Clear(_family.Loads);
+            if (_family != null && _family != family)
+            {
+                Array.Clear(_family.Loads);
+                Array.Clear(_family.DrumLoads);
+            }
 
             _family = family;
             _pinned = pinned;
@@ -448,6 +521,7 @@ namespace BS3D.Audio
             _voice?.Dispose();
             _voice = null;
             _sounding = null;
+            _soundingDrums = null;
 
             _retiring?.Dispose();
             _retiring = null;
@@ -606,7 +680,19 @@ namespace BS3D.Audio
                 return;
             }
 
-            if (_sounding != null && _voice.PendingBufferCount < 2)
+            if (_soundingDrums != null)
+            {
+                try
+                {
+                    FeedLayered();
+                }
+                catch (Exception exception)
+                {
+                    Console.WriteLine($"[music] the theme could not be queued again, playing on without it: {exception.Message}");
+                    _failed = true;
+                }
+            }
+            else if (_sounding != null && _voice.PendingBufferCount < 2)
             {
                 try
                 {
@@ -695,6 +781,37 @@ namespace BS3D.Audio
 
             _voice = null;
             _sounding = null;
+            _soundingDrums = null;
+        }
+
+        /// <summary>
+        /// The layered feed (#495): chunks of the recording mixed with its drums at the gain <see cref="Intensity"/>
+        /// asks for, queued until <see cref="LAYER_CHUNKS_AHEAD"/> wait on the voice. The gain moves towards its
+        /// target by the chunk's own length of time at the rise or fall rate, ramped across the chunk, so how fast the
+        /// drums come and go is the music's time and not the frame rate's.
+        /// </summary>
+        private void FeedLayered()
+        {
+            byte[] full = _sounding.Result;
+            float seconds = LAYER_CHUNK_FRAMES / (float)SAMPLE_RATE;
+
+            //Bounded as well as counted: a voice whose pending count lagged its submits would otherwise spin here for good
+            for (int queued = 0; queued < LAYER_CHUNKS_AHEAD && _voice.PendingBufferCount < LAYER_CHUNKS_AHEAD; queued++)
+            {
+                float target = DrumsTarget;
+                float from = _layerGain;
+                float to = target > from
+                    ? Math.Min(target, from + DRUMS_RISE_PER_SECOND * seconds)
+                    : Math.Max(target, from - DRUMS_FALL_PER_SECOND * seconds);
+
+                byte[] chunk = _layerRing[_layerNext] ??= new byte[LAYER_CHUNK_FRAMES * 4];
+                _layerNext = (_layerNext + 1) % LAYER_RING;
+
+                _layerCursor = DrumLayer.Mix(full, _soundingDrums, _layerCursor, LAYER_CHUNK_FRAMES, from, to, chunk);
+                _layerGain = to;
+
+                _voice.SubmitBuffer(chunk, 0, chunk.Length);
+            }
         }
 
         /// <summary>
@@ -717,14 +834,20 @@ namespace BS3D.Audio
 
                     Task<byte[]> track = family.Loads[variant] ??= Load(family.Files[variant]);
 
+                    //Its drums layer beside it (#495), when it has one
+                    Task<byte[]> drums = family.DrumFiles[variant] == null
+                        ? null
+                        : family.DrumLoads[variant] ??= Load(family.DrumFiles[variant]);
+
                     //And the one after it starts decoding now, so the chapter's next level finds it ready (#486)
                     if (_pinned < 0 && family.Files.Length > 1)
                     {
                         int following = (variant + 1) % family.Files.Length;
                         family.Loads[following] ??= Load(family.Files[following]);
+                        if (family.DrumFiles[following] != null) family.DrumLoads[following] ??= Load(family.DrumFiles[following]);
                     }
 
-                    if (!track.IsCompleted) return;
+                    if (!track.IsCompleted || drums?.IsCompleted == false) return;
 
                     if (_pinned < 0) family.Next = (variant + 1) % family.Files.Length;
 
@@ -739,7 +862,15 @@ namespace BS3D.Audio
                     //plays, so the record stands even on a machine whose audio device is missing (the desktop's
                     //monitor asleep takes its HDMI endpoint with it, and XAudio2 then has no device to make a
                     //voice on) — the one case the catch below exists for.
-                    Console.WriteLine($"[music] {family.Name}: {family.Names[variant]}");
+                    //A layer that could not be read, or is not its recording's length, is dropped: the recording plays whole
+                    byte[] layer = drums?.Result;
+                    if (layer != null && layer.Length != track.Result.Length)
+                    {
+                        Console.WriteLine($"[music] the drums of {family.Names[variant]} are not its length, playing it without them");
+                        layer = null;
+                    }
+
+                    Console.WriteLine($"[music] {family.Name}: {family.Names[variant]}{(layer != null ? " (drums layered)" : "")}");
 
                     DynamicSoundEffectInstance old = _voice;
 
@@ -750,8 +881,17 @@ namespace BS3D.Audio
                     _voice = new DynamicSoundEffectInstance(SAMPLE_RATE, AudioChannels.Stereo);
                     _themeFade.Arrive(THEME_ARRIVAL_SECONDS);
                     _voice.Volume = ThemeVolume;
-                    _voice.SubmitBuffer(track.Result);
                     _sounding = track;
+                    _soundingDrums = layer;
+
+                    if (layer != null)
+                    {
+                        //A fresh chain starts where the danger already is rather than ramping to it from full
+                        _layerCursor = 0;
+                        _layerGain = DrumsTarget;
+                        FeedLayered();
+                    }
+                    else _voice.SubmitBuffer(track.Result);
 
                     //Disposed only once the replacement exists, so a failure part-way leaves the old chain playable
                     old?.Dispose();

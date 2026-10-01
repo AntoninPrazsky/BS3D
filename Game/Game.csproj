@@ -90,6 +90,8 @@
   the masters in Research/AI-Music; a track or an Ember variant can be replaced by dropping a file here.-->
   <ItemGroup>
     <Content Include="Music\*.ogg" CopyToOutputDirectory="PreserveNewest" />
+    <!--And the drums layers (#495) the music turns up as the cluster nears the line, one per recording that has one.-->
+    <Content Include="Music\Drums\*.ogg" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <!--The generated sound effects (#482): Ogg Vorbis files ProceduralAudio decodes at load and puts through its bakes'
   own loudness law and voices; a file that is missing leaves the procedural bake standing. Written by Tools/MusicBake's

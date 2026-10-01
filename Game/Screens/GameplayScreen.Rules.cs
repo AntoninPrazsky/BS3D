@@ -720,6 +720,9 @@ namespace BS3D.Screens
             //cinematic.
             UpdateLineTouch(lowestBallY, lowestBallAt);
 
+            //And the music tightens as the cluster nears the line (#495), off the same lowest ball
+            if (Game.Music != null) Game.Music.Intensity = MusicIntensity(lowestBallY);
+
             //A cinematic defers the endings, never the warning above: the walk already ran on this frame's
             //poses, and both losses will be re-asked the moment the cinematic lets go.
             if (!mayLose) return;
@@ -774,6 +777,16 @@ namespace BS3D.Screens
         /// rescues a low cluster, and a warning frozen lit would outstay the danger by the whole shot.
         /// </para>
         /// </summary>
+        /// <summary>
+        /// The danger the music plays (#495), 0 with the lowest ball <see cref="MUSIC_CALM_STEPS"/> ceiling steps or
+        /// more above the line, rising evenly to 1 on it. An empty field is no danger.
+        /// </summary>
+        private static float MusicIntensity(float lowestBallY)
+        {
+            float height = lowestBallY - CEILING_DEATH_Y;
+            return 1f - Math.Clamp(height / (MUSIC_CALM_STEPS * CeilingDescent.CEILING_DESCENT_PER_STEP), 0f, 1f);
+        }
+
         private void UpdateLaserWarning(float lowestBallY)
         {
             float threshold = CEILING_DEATH_Y + LASER_WARN_STEPS * CeilingDescent.CEILING_DESCENT_PER_STEP;

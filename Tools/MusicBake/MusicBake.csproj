@@ -24,6 +24,8 @@
     <!--The game's own track decoder (#444), so the tracks mode decodes every file it has just encoded the way the
         game will, and its length and loop-edge checks are about what actually plays.-->
     <Compile Include="..\..\Game\Audio\OggTrack.cs" />
+    <!--And the drums layer's scale and mix (#495): the drums mode stores a stem at the scale the game reads it at.-->
+    <Compile Include="..\..\Game\Audio\DrumLayer.cs" />
   </ItemGroup>
 
   <ItemGroup>
