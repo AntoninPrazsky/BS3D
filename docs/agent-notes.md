@@ -7467,3 +7467,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **#674: per-building losy města** (tón fasády, neonová barva a odstín, pás a jeho výška) mají celočíselný `BuildingRoll` místo `Hash21` (perioda 50 × 100 buněk = 6 opakování přes město), merge `f1ce0f6d`; snímky před/po z Testbedu: den stejný, neon přeházený se stejným poměrem barev.
 - **DocDrift**: 22 kandidátů, jediný skutečný drift `MENU_MIN_DESIGN_WIDTH` 2560 → 2600 v `game-shell.md` (merge `0e98daed`).
 - **#230 tvar v troskách**: nestavěn — analýza v issue (náhodou se netrefí nikdy, nebo pořád; obrázek visí na pozadí), dvě levné varianty nabídnuty majiteli.
+
+## 2026-10-02 — #257 bedna, krok 1 — desktop, Claude Code (bs3d-a3)
+
+- **Beru #257: bednu** (majitelův souhlas 2026-09-29: „bedna první, pak buckshot v levném čtení“). Krok 1: statický kvádr v hracím prostoru, od kterého se rána odrazí **jako od zrcadla** (analyticky, ne Bepu kontaktem — odraz musí být čitelný a náhled ho musí spočítat stejně: jedna funkce pro fyziku i ducha), bedna nakreslená, pole `crates` v souboru levelu a testovací páka. Žádný dodávaný level ji zatím nedostane (brány `ClearProbe`/`AimReachability` o ní nevědí — to je krok 2 s levelem). Soubory: `Prazsky.BS3D.Physics` (odraz, `ShotPlacement`), `PhysicsWorld`/callbacky, `Prazsky.BS3D/Levels/Level.cs`, `Game` (kreslení, sezení), testy.
