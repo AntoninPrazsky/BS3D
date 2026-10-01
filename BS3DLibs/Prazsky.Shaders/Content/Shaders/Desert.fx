@@ -126,17 +126,22 @@ float HorizonHazeDistance;
 //rounded lumps with no lee side at all and, repeated to the horizon, a lumpy wall.
 //
 //So each dune set is a SAWTOOTH along the wind (DuneProfile): the height climbs over DUNE_WINDWARD of the
-//period and falls over the rest, its crest a corner and its trough rounded flat. The crests are made sinuous by
-//warping the along-wind coordinate with slow noise across the wind, and their height wanders along the crest,
-//so no two dunes are the same and the rows never read as ploughing. A second, smaller set crossing at an angle
-//takes over where it stands taller (a max, not a sum, which keeps both sets' crests sharp where a sum would
-//round them into each other).
+//period and falls over the rest, its trough rounded flat. The crests are made sinuous by warping the along-wind
+//coordinate with slow noise across the wind, and their height wanders along the crest, so no two dunes are the
+//same and the rows never read as ploughing. A second, smaller set crossing at an angle takes over where it stands
+//taller.
 //
-//The grid holds it: a cell is ~2.8 units and the slip face alone runs over ~16, so the silhouette follows, and
-//the per-pixel normal below draws the crest as the sharp shading line it is even between vertices.
+//SINCE #688 THE CRESTS ARE ROUND. They were a corner, and the two sets met in a max, which put a little pyramid
+//wherever a major and a minor crest crossed; the owner flew the desert chapter's tour low over them and found the
+//dunes pointed, and asked for round, smooth dunes - which is his call over the references'. The windward slope and
+//the slip face still make each dune lean downwind, but they meet in a smooth minimum (CREST_ROUND) and the sets in
+//a smooth maximum (SET_BLEND), both with their exact gradients, so the per-pixel normal turns over the crest
+//instead of folding on a line.
+//
+//The grid holds it: a cell is ~2.8 units, the slip face runs over ~16 and the rounding over about twelve.
 static const float DUNE_SPACING = 64.0;       //crest to crest along the wind, world units
 static const float DUNE_WINDWARD = 0.75;      //the share of each period the windward slope takes
-static const float DUNE_MEAN = 0.30;          //the field's mean, sampled numerically, taken back off - see DuneField
+static const float DUNE_MEAN = 0.436;         //the field's mean, sampled numerically, taken back off - see DuneField (0.30 until #688 rounded the crests)
 
 //The shared gradient noise WITH ITS ANALYTIC GRADIENT: (value, d/dx, d/dy). The same hash and the same quintic fade
 //as Noise.fxh's GradientNoise2, so the value is that function's to the bit - it has to be, because the vertex shader
@@ -169,17 +174,41 @@ float3 GradientNoise2Grad(float2 p)
     return float3(value, gradient);
 }
 
+//How round a crest is, in the units of the profile's two slopes before they meet (#688): the windward rise and the slip
+//face's fall are joined by a smooth minimum over the stretch where they are within this of each other - about a fifth
+//of a period, a dozen units of DUNE_SPACING - instead of meeting on a corner. The owner's note, after flying the desert
+//chapter's tour low over the erg: the dunes were pointed, and should be round and smooth. Normalized back to a peak of
+//one, so a dune keeps its height.
+static const float CREST_ROUND = 1.0;
+
+//How softly the two dune sets hand over, in the field's units (#688): a smooth maximum instead of a max, whose corner
+//was the POINT where a major and a minor crest crossed - a little pyramid at every crossing, the "pointed" part.
+static const float SET_BLEND = 0.35;
+
 //One dune set's profile along its own cycle coordinate, and the profile's derivative with respect to that coordinate.
 float DuneProfile(float cycles, out float slope)
 {
     float t = frac(cycles);
     float rise = t / DUNE_WINDWARD;
     float fall = (1.0 - t) / (1.0 - DUNE_WINDWARD);
-    float h = saturate(min(rise, fall));
+    float riseSlope = 1.0 / DUNE_WINDWARD;
+    float fallSlope = -1.0 / (1.0 - DUNE_WINDWARD);
 
-    //h^1.5: flat in the interdune trough, a corner at the crest
+    //The rounded crest: min(rise, fall) less k/4 w^2, w the share of CREST_ROUND the two are apart by - the quadratic
+    //smooth minimum, continuous in value and slope. Its slope is the lower line's, pulled half way to the other's by w.
+    float d = rise - fall;
+    float side = d >= 0.0 ? 1.0 : -1.0;
+    float w = max(CREST_ROUND - abs(d), 0.0) / CREST_ROUND;
+    float peak = 1.0 - 0.25 * CREST_ROUND;
+    float m = (min(rise, fall) - 0.25 * CREST_ROUND * w * w) / peak;
+    float mSlope = ((d >= 0.0 ? fallSlope : riseSlope) + 0.5 * w * side * (riseSlope - fallSlope)) / peak;
+
+    float h = saturate(m);
+    mSlope = (m > 0.0 && m < 1.0) ? mSlope : 0.0;
+
+    //h^1.5: flat in the interdune trough; the crest is rounded above
     float root = sqrt(h);
-    slope = 1.5 * root * (rise < fall ? 1.0 / DUNE_WINDWARD : -1.0 / (1.0 - DUNE_WINDWARD));
+    slope = 1.5 * root * mSlope;
 
     return h * root;
 }
@@ -243,11 +272,17 @@ float DuneField(float2 p, out float2 gradient)
     float swell = 0.22 * sin(dot(p, k1)) + 0.12 * sin(dot(p, k2) + 1.7);
     float2 swellGradient = 0.22 * cos(dot(p, k1)) * k1 + 0.12 * cos(dot(p, k2) + 1.7) * k2;
 
-    //A max, not a sum (see above); the gradient is the taller set's
-    bool majorWins = major >= minor;
-    gradient = (majorWins ? majorGradient : minorGradient) + swellGradient;
+    //A smooth maximum, not a sum (see above) and since #688 not a plain max either: max + k/4 w^2, w the share of
+    //SET_BLEND the two sets are apart by, so a crossing is a saddle rather than a point. The gradient is the taller
+    //set's, pulled half way to the other's by w - the two agree where the sets are equal.
+    float apart = major - minor;
+    float majorSide = apart >= 0.0 ? 1.0 : -1.0;
+    float w = max(SET_BLEND - abs(apart), 0.0) / SET_BLEND;
+    float dunes = max(major, minor) + 0.25 * SET_BLEND * w * w;
+    gradient = (apart >= 0.0 ? majorGradient : minorGradient) - 0.5 * w * majorSide * (majorGradient - minorGradient)
+        + swellGradient;
 
-    return (majorWins ? major : minor) + swell - DUNE_MEAN;
+    return dunes + swell - DUNE_MEAN;
 }
 
 //The full displaced sand height at a world point, and its gradient: flat at DesertLevelY inside the clearing around
