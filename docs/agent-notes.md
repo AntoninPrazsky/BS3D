@@ -7367,3 +7367,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - ⚠ **Plnější profil posunul střed pole, proto `DUNE_MEAN` 0.30 → 0.436.** Hodnota je navzorkovaná přes skutečný `TerrainMirror` (malá konzole s odkazem na Prazsky.Core a MonoGame DesktopGL 3.8.5; bez toho balíčku spadne při načítání Core), třicet milionů bodů daleko od mýtiny. Kdo změní tvar dun, musí střed přeměřit, jinak se ostrov posune v písku.
 - **Ověření:** `mirrorcheck` PASS (max |dh| 0.0002), testy 428/428, Testbed ze tří pozic (`nopost nooverc sky=13 ssaa=2`, `at=2:F12`, aby záběr nezakrýval overlay) a průlet pouští ve hře. První pokus s 0.6/0.25 zakulatil málo.
 - **Další páka:** zůstává čára světla a stínu nad závětrnou stěnou. Pokud bude majitel chtít duny ještě kulatější, je to `DUNE_WINDWARD`.
+
+## 2026-10-01 — #686 nastavení po stránkách — desktop, Claude Code (bs3d-a3)
+
+- **Beru #686**: místo jedné stránky se třemi sloupci stránky podle kategorií s lištou záložek, Online jako první a otevřená. Soubory: `Game/Screens/SettingsPage.cs`, případně nová třída pro lištu záložek, `docs/game-shell.md`.
