@@ -7404,6 +7404,10 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-10-01 — #690 krok 1: prototyp měkkosti — desktop, Claude Code (bs3d-a3)
 
 - **Beru #690, jen krok 1 z issue:** prototyp měkkosti mřížky v Testbedu na dvou až třech ručně postavených tvarech (provaz mezi dvěma kotvami, hamaka, opona), změřit průvěs, houpání a stabilitu, ukázat majiteli. Formát levelu, LevelGen blok ani scéna zatím ne. Soubory: `BS3DLibs/Prazsky.BS3D.Physics/BallsConstraintsBuilder.cs` (pružina mřížky jako parametr), `Testbed` (páka `softness=`), `Tools/LevelGen/SagProbe.cs` (`--softness=`), mapy v `Testbed/Maps`.
+- **Na mainu (merge ac9d2e43), `shipped-awaiting-verdict`.** `LatticeSoftness` přepíše sockety mezi koulemi na danou pružinu (kotvy ke sklu zůstanou). V Testbedu je `softness=<Hz>[:<tlumení>]` se stopou `[softness]` (pokles nejnižší koule, nejrychlejší koule), v LevelGenu `--softness=`. Tvary jsou `Testbed/Maps/Sag_Chain|Bridge|Hammock.json`.
+- ⚠ **Hlavní zjištění: dnešních 15 Hz dlouhé tenké rozpětí už prověsí** do řetězovky a rozhoupe na sloupcích (0–4,5 j., perioda ~2,5 s). Provaz a látka jsou hlavně otázka tvaru. 6 Hz dá hluboké V, 3 Hz bungee a vlnění. Nic se nerozpadlo, nejrychlejší koule pod 15 j/s. Čára je limit: sonda se střelami při 14–16 prázdných patrech čáru zasáhla už při 15 Hz v 1–2 z 5 běhů.
+- **Animace** (WebP, kamera `campos=0,6,27 camtarget=0,7,0`, `shotframe=` každý pátý snímek) jsou ve scratchpadu `t690/anim-*.webp`. Krok fyziky v Testbedu je omezený na 1/60 s, takže zápis PNG simulaci jen zastaví a nerozhodí ji.
+- ⚠ **PowerShell nerozlišuje velikost písmen:** smyčková `$s` přepsala `$S` (cestu ke scratchpadu) a všech devět běhů skončilo na „term not recognized“.
 
 ## 2026-10-01 — #695 kapitola (block) v tabulce stropů — Pi, Claude Code (BS3D-API)
 
