@@ -1520,7 +1520,7 @@ namespace BS3D.Screens
             SceneFrame sceneFrame = Game.BeginSceneDraw();
 
             //The savanna's fires with the setting they stand in (#641), so the copy the ceiling's glass bends holds them
-            Game.DrawGroundedTranslucents(sceneFrame);
+            Game.DrawTranslucentsBehindGlass(sceneFrame);
 
             //Everything so far is the setting, which from under the plate is all that stands behind the ceiling's
             //glass: the copy it bends is taken here, before the gun and the cluster hang in front of it (#541).
