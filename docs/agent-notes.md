@@ -7422,3 +7422,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
   - kontrakt: jeden nový souhrnný endpoint v BS3D-API, `GET /v1/boards?period=&player=`, místo 133 GETů, které by narazily na limit Cloudflare (50 za 10 s);
   - položka v menu zůstane i bez online skóre, s výzvou k zapnutí.
 - Soubory: BS3D-API `Endpoints.cs`/`ScoreStore.cs`/`Contracts.cs` a testy (domluvě se session na Pi poslána zpráva). V BS3D `Game/Online/OnlineScores.cs`, nová `Game/Screens/HighScoresPage.cs`, `MainMenuPage.cs`, `docs/game-shell.md`. Nasazení API na Pi dělá majitel (`update.sh`), do té doby hra řekne, že server souhrn ještě nemá.
+
+- **Na mainu (merge 1515c789), `shipped-awaiting-verdict`. API: BS3D-API#7 sloučené (253c131), neotagované a nenasazené.** Pro nasazení otagovat vydání API a spustit `update.sh` na Pi, což dělá majitel; do té doby stránka hlásí, že server souhrn nemá. Ověřeno proti lokálnímu API s dočasnou DB, naplněnému skriptem `t685/api/seed.py` (ve scratchpadu). ⚠ Hashe levelů se od v0.2.1 změnily (Pennant `ba38be2e0044accb`), aktuální dá `ScoreSim --ceilings`.
+- ⚠ **Myra kreslí vypnutý `Button` vlastním světlým pozadím a šedým textem**, takže stránka bez online skóre byla deset nečitelných pruhů. Řádky proto mají `DisabledBackground`/`DisabledTextColor` nastavené ručně.
+- ⚠ **Pozadí položky v procházení padem přepisuje `ApplyNavHighlight` při každém průchodu.** Vybrané období se proto odlišuje jasem textu, ne obrácenými barvami jako záložky v Nastavení.
