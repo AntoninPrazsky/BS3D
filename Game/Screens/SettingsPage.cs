@@ -508,8 +508,10 @@ namespace BS3D.Screens
                         ? problem : "the server did not answer") + ". Try again when it is in reach.";
             }
 
+            //On with a name and still not enabled: no server resolved - a local build whose settings name none (a
+            //release has OnlineScores.DefaultServer), or a server the client refused
             if (Game.Online.IsOn && !Game.Online.Enabled && Game.Online.Nickname != null)
-                return "There is no score server yet, so nothing is sent. " + Game.Online.PrivacySentence;
+                return "This build has no score server to send to, so nothing is sent. " + Game.Online.PrivacySentence;
 
             return Game.Online.PrivacySentence;
         }

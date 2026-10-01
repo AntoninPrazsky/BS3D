@@ -66,12 +66,12 @@ namespace BS3D.Online
     internal sealed class OnlineScores : IDisposable
     {
         /// <summary>
-        /// The score service a <b>release</b> build submits to when <c>Settings.json</c> names none. <b>Null until
-        /// the service has a public hostname</b> — it needs a domain on Cloudflare's DNS for its tunnel (#544),
-        /// which does not exist yet — so today a release build submits nowhere unless its settings name a
-        /// server. Set it to the hostname, HTTPS, the day the tunnel answers.
+        /// The score service a <b>release</b> build submits to when <c>Settings.json</c> names none: the Raspberry
+        /// Pi's service behind its Cloudflare Tunnel (BS3D-API#2), on the owner's domain since 2026-10-01. HTTPS ends
+        /// at Cloudflare's edge; the Pi itself listens on loopback only. A local build still submits only to a server
+        /// its settings name, so a developer's runs never land here by accident.
         /// </summary>
-        internal const string DefaultServer = null;
+        internal const string DefaultServer = "https://scores.winphonew.eu/";
 
         internal const string OutboxFileName = "Outbox.json";
         internal const string OutboxBackupSuffix = ".bak";
