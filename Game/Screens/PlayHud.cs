@@ -1202,6 +1202,24 @@ namespace BS3D.Screens
         private const int HUD_SWAP_ROW_GAP = 8;
         private const float HUD_SWAP_SPENT_ALPHA = 0.42f;
 
+        //Every keycap or button a chip draws, either device's (#694): the column is as wide as the widest of them, so
+        //it holds when the hand moves between the keyboard and the pad
+        private static readonly string[] CHIP_GLYPHS =
+            { SWAP_GLYPH_KEY, SWAP_GLYPH_PAD, BRAKE_GLYPH_KEY, BRAKE_GLYPH_PAD, CUT_GLYPH_KEY, CUT_GLYPH_PAD };
+
+        //Every caption a chip can show, "×9" standing for any single-digit count (#694): the caption column is as
+        //wide as the widest, so it holds when "Swap" becomes "Swap used". A wider one (a testing powerups= of ten or
+        //more) widens it for the frames it is up rather than running past the strip's edge.
+        private static readonly string[] CHIP_CAPTIONS =
+        {
+            SWAP_READY, SWAP_SPENT, SWAP_READY + " ×9", BRAKE_READY, BRAKE_SPENT, BRAKE_READY + " ×9",
+            CUT_READY, CUT_SPENT, CUT_READY + " ×9",
+        };
+
+        //The two widths above, measured once per pair of fonts (a resize rebuilds the HUD's fonts), never per frame
+        private SpriteFontBase _chipGlyphFontFor, _chipCaptionFontFor;
+        private float _chipGlyphColumn, _chipCaptionColumn;
+
         //The count's text, built when the count changes and not per frame
         private int _swapTextFor = -1;
         private string _swapText = SWAP_READY;
@@ -1211,7 +1229,7 @@ namespace BS3D.Screens
         private string _cutText = CUT_READY;
 
         /// <summary>
-        /// The power-up chips (#213), above the magazine they act on and right-aligned to it — one row each, the Swap's
+        /// The power-up chips (#213), above the magazine they act on, the widest caption ending on its right edge and every keycap in one column (#694) — one row each, the Swap's
         /// nearest the strip and the ceiling's Brake on the row above it (or on the first when a level offers a brake and no
         /// swap): the key that does it, the word, and how many are left. They are the things in the HUD the player
         /// <i>carries</i> and may spend, so a spent one says so — dimmed and "Swap used" — rather than vanishing, which
@@ -1222,25 +1240,53 @@ namespace BS3D.Screens
         /// </summary>
         private void DrawSwap(int swapCharges, int brakeCharges, int cutCharges, bool onGamepad, Viewport viewport, int margin)
         {
+            if (swapCharges < 0 && brakeCharges < 0 && cutCharges < 0) return;
+
+            SpriteFontBase glyphFont = _game.HudFontPrompt;
+            SpriteFontBase captionFont = _game.HudFontTutorialDetail;
+            MeasureChipColumns(glyphFont, captionFont);
+
+            if (swapCharges >= 0) ChipText(swapCharges, SWAP_READY, SWAP_SPENT, ref _swapTextFor, ref _swapText);
+            if (brakeCharges >= 0) ChipText(brakeCharges, BRAKE_READY, BRAKE_SPENT, ref _brakeTextFor, ref _brakeText);
+            if (cutCharges >= 0) ChipText(cutCharges, CUT_READY, CUT_SPENT, ref _cutTextFor, ref _cutText);
+
+            //One column for every chip on the frame (#694): the widest caption a chip can show, or a wider one that is
+            //up now, ends on the strip's right edge, and every keycap stands in the column left of the captions
+            float captionColumn = _chipCaptionColumn;
+            if (swapCharges >= 0) captionColumn = MathF.Max(captionColumn, captionFont.MeasureString(_swapText).X);
+            if (brakeCharges >= 0) captionColumn = MathF.Max(captionColumn, captionFont.MeasureString(_brakeText).X);
+            if (cutCharges >= 0) captionColumn = MathF.Max(captionColumn, captionFont.MeasureString(_cutText).X);
+
+            ChipColumnLayout layout = ChipColumnLayout.Compute(viewport.Width - margin, _chipGlyphColumn, captionColumn,
+                Scaled(HUD_SWAP_GLYPH_GAP));
+
             int row = 0;
 
             if (swapCharges >= 0)
-            {
-                ChipText(swapCharges, SWAP_READY, SWAP_SPENT, ref _swapTextFor, ref _swapText);
-                DrawChip(row++, onGamepad ? SWAP_GLYPH_PAD : SWAP_GLYPH_KEY, _swapText, swapCharges > 0, viewport, margin);
-            }
+                DrawChip(row++, onGamepad ? SWAP_GLYPH_PAD : SWAP_GLYPH_KEY, _swapText, swapCharges > 0, in layout, viewport, margin);
 
             if (brakeCharges >= 0)
-            {
-                ChipText(brakeCharges, BRAKE_READY, BRAKE_SPENT, ref _brakeTextFor, ref _brakeText);
-                DrawChip(row++, onGamepad ? BRAKE_GLYPH_PAD : BRAKE_GLYPH_KEY, _brakeText, brakeCharges > 0, viewport, margin);
-            }
+                DrawChip(row++, onGamepad ? BRAKE_GLYPH_PAD : BRAKE_GLYPH_KEY, _brakeText, brakeCharges > 0, in layout, viewport, margin);
 
             if (cutCharges >= 0)
-            {
-                ChipText(cutCharges, CUT_READY, CUT_SPENT, ref _cutTextFor, ref _cutText);
-                DrawChip(row, onGamepad ? CUT_GLYPH_PAD : CUT_GLYPH_KEY, _cutText, cutCharges > 0, viewport, margin);
-            }
+                DrawChip(row, onGamepad ? CUT_GLYPH_PAD : CUT_GLYPH_KEY, _cutText, cutCharges > 0, in layout, viewport, margin);
+        }
+
+        /// <summary>
+        /// The keycap column's and the caption column's widths (#694), measured over every glyph and every caption a chip
+        /// can show - again only when the HUD's fonts are rebuilt, which a resize does.
+        /// </summary>
+        private void MeasureChipColumns(SpriteFontBase glyphFont, SpriteFontBase captionFont)
+        {
+            if (ReferenceEquals(glyphFont, _chipGlyphFontFor) && ReferenceEquals(captionFont, _chipCaptionFontFor)) return;
+
+            _chipGlyphFontFor = glyphFont;
+            _chipCaptionFontFor = captionFont;
+            _chipGlyphColumn = 0f;
+            _chipCaptionColumn = 0f;
+
+            foreach (string glyph in CHIP_GLYPHS) _chipGlyphColumn = MathF.Max(_chipGlyphColumn, glyphFont.MeasureString(glyph).X);
+            foreach (string caption in CHIP_CAPTIONS) _chipCaptionColumn = MathF.Max(_chipCaptionColumn, captionFont.MeasureString(caption).X);
         }
 
         /// <summary>A chip's words for <paramref name="charges"/>, rebuilt only when the count changes (never per frame).</summary>
@@ -1254,8 +1300,13 @@ namespace BS3D.Screens
                 : ready + " ×" + charges.ToString(CultureInfo.InvariantCulture);
         }
 
-        /// <summary>One power-up chip on <paramref name="row"/> above the magazine (0 nearest it), <see cref="DrawSwap"/>'s subject.</summary>
-        private void DrawChip(int row, string glyph, string text, bool ready, Viewport viewport, int margin)
+        /// <summary>
+        /// One power-up chip on <paramref name="row"/> above the magazine (0 nearest it), <see cref="DrawSwap"/>'s subject:
+        /// its keycap centred in the shared column and its caption from the shared left edge (<see cref="ChipColumnLayout"/>,
+        /// #694), so the keycaps of every chip stand in one column whatever their captions say.
+        /// </summary>
+        private void DrawChip(int row, string glyph, string text, bool ready, in ChipColumnLayout layout, Viewport viewport,
+            int margin)
         {
             float alpha = ready ? 1f : HUD_SWAP_SPENT_ALPHA;
 
@@ -1264,19 +1315,17 @@ namespace BS3D.Screens
 
             Vector2 glyphSize = glyphFont.MeasureString(glyph);
             Vector2 captionSize = captionFont.MeasureString(text);
-            float gap = Scaled(HUD_SWAP_GLYPH_GAP);
-            float width = glyphSize.X + gap + captionSize.X;
             float height = MathF.Max(glyphSize.Y, captionSize.Y);
 
-            //Right edge on the strip's own (the margin), bottom a little over the head's ring: the head is the tallest
-            //thing in the strip and its top is where the chip has to clear. Each row further up is a chip's height and a
-            //gap higher.
+            //Bottom a little over the head's ring: the head is the tallest thing in the strip and its top is where the
+            //chip has to clear. Each row further up is a chip's height and a gap higher.
             float stripTop = viewport.Height - margin - 2 * MagazineHeadOuter();
             float rise = Scaled(HUD_SWAP_ABOVE_STRIP) + row * (height + Scaled(HUD_SWAP_ROW_GAP));
-            Vector2 origin = new(MathF.Round(viewport.Width - margin - width), MathF.Round(stripTop - rise - height));
+            float top = MathF.Round(stripTop - rise - height);
 
-            DrawString(glyphFont, glyph, origin + new Vector2(0f, (height - glyphSize.Y) * 0.5f), BS3DGame.MENU_TEXT * alpha, 1f);
-            DrawString(captionFont, text, origin + new Vector2(glyphSize.X + gap, (height - captionSize.Y) * 0.5f),
+            DrawString(glyphFont, glyph, new Vector2(MathF.Round(layout.GlyphLeft(glyphSize.X)), top + (height - glyphSize.Y) * 0.5f),
+                BS3DGame.MENU_TEXT * alpha, 1f);
+            DrawString(captionFont, text, new Vector2(MathF.Round(layout.CaptionLeft), top + (height - captionSize.Y) * 0.5f),
                 (ready ? BS3DGame.MENU_TEXT : HUD_CAPTION) * alpha, 1f);
         }
 
