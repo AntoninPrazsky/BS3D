@@ -315,7 +315,7 @@ namespace BS3D.Tools.ScoreSim
 
                 playable.Add(new Playable(entry.Name ?? entry.File, balls, entry.Shots.Value,
                     LevelIdentity.Of(entry, File.ReadAllBytes(path)), ScoreKeeper.ScoreCeiling(balls, entry.Shots.Value),
-                    MinimumShots(map)));
+                    MinimumShots(map), entry.Block));
             }
 
             return playable;
@@ -336,13 +336,20 @@ namespace BS3D.Tools.ScoreSim
         /// would bother to send falls under. A real one needs a rule the game does not have, and is the owner's
         /// call.
         /// </para>
+        /// <para>
+        /// <b>And the chapter, for the service's admin page (#695).</b> The rows come in the set's play order, and each
+        /// names its level's <c>block</c> when the set names one, so the page can list the boards chapter by chapter
+        /// rather than by name. Nothing on either side checks or ranks by it, and it is not in the identity: a
+        /// re-chaptered level keeps its board. A set without blocks writes no such field, so the table it writes is the
+        /// one it always wrote.
+        /// </para>
         /// </summary>
         private static void WriteCeilings(List<Playable> levels, string path)
         {
             List<CeilingRow> rows = new();
             foreach (Playable level in levels)
                 rows.Add(new CeilingRow(level.Identity.File, level.Name, level.Identity.Hash, ScoreKeeper.RulesVersion,
-                    level.Shots, level.Ceiling, level.MinShots));
+                    level.Shots, level.Ceiling, level.MinShots, level.Block));
 
             CeilingTable table = new(CeilingTable.FormatMarker, CeilingTable.CurrentVersion, ScoreKeeper.RulesVersion,
                 LevelIdentity.HashLength, rows);
@@ -414,7 +421,7 @@ namespace BS3D.Tools.ScoreSim
         }
 
         private readonly record struct Playable(string Name, int Balls, int Shots, LevelIdentity Identity, int Ceiling,
-            int MinShots);
+            int MinShots, string Block);
 
         /// <summary>
         /// The ceiling table's file (#549), marked like every other file this project writes (<c>bs3d-levels</c>,
@@ -438,6 +445,7 @@ namespace BS3D.Tools.ScoreSim
             [property: JsonPropertyName("rulesVersion")] int RulesVersion,
             [property: JsonPropertyName("shots")] int Shots,
             [property: JsonPropertyName("ceiling")] int Ceiling,
-            [property: JsonPropertyName("minShots")] int MinShots);
+            [property: JsonPropertyName("minShots")] int MinShots,
+            [property: JsonPropertyName("block"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string Block);
     }
 }

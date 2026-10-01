@@ -7397,3 +7397,9 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-10-01 — #692 Cut a Brake v hraní — desktop, Claude Code (bs3d-a3)
 
 - **Beru #692**, nejdřív měření: `LevelGen` dostane přepínač se zprávou jen pro čtení, kolik koulí uvolní jeden řez na každém levelu od The Tower. Teprve podle čísel vyberu směr. Soubory: `Tools/LevelGen` (zpráva), případně `Game/Screens/PlayHud.cs` (čip Brake ztlumený, když `CanBrake` neplatí), `docs/game-session.md`.
+
+## 2026-10-01 — #695 kapitola (block) v tabulce stropů — Pi, Claude Code (BS3D-API)
+
+- **#695 na mainu (merge této větve), hotovo.** Řádek tabulky stropů (`ScoreSim --ceilings`) nese `block` svého záznamu z `Levels.json`, když ho set má; formát zůstává `bs3d-ceilings` verze 1, set bez bloků zapisuje přesně dosavadní tabulku. Služba pole čte od BS3D-API v0.1.11 a admin stránka podle něj dělí seznam desek na kapitoly (BS3D-API#5). Změněno jen `Tools/ScoreSim/Program.cs` a `docs/formats-and-tools.md`.
+- **Ověřeno na Pi** (ScoreSim je čistý `net10.0`): tabulka před změnou a po ní na stejném commitu se shoduje řádek po řádku kromě `block` (130 řádků ve stejném pořadí, 13 kapitol po 10), každý `block` sedí s `Levels.json` a report je beze změny. S kopií `Levels.json` bez bloků je výstup bajt po bajtu stejný jako dnešní. Vydaná služba v0.1.11 novou tabulku načetla a ukázala všech 13 kapitol.
+- **Co zůstává:** na Pi se tabulka s kapitolami dostane s příští verzí hry (release ji přikládá) nebo z ručně spuštěného `release.yml` (artefakt `BS3D-dev-<sha>-ceilings.json`), který majitel nainstaluje do `/var/lib/bs3d-api/ceilings`.
