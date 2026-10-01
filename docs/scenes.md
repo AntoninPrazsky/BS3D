@@ -710,6 +710,23 @@ The one thing it does deliberately, and the whole reason it can return: the base
 - **The haze fades into dust.** It went straight to `HorizonColor` on the argument that matching it hides the grid's edge, and under dome 13 that uniform is teal while the dome draws its horizon lilac-grey, in the Game and the Testbed alike: the far dunes stood against the sky as a teal band that matched nothing. They fade now into a murk of the horizon's brightness in the sand's hue (`HazeWarmth` 0.85), and so does the dust veil, which used to add the horizon colour itself.
 - **Cost:** against `main`, three alternating pairs each, dome 13, 1600×900 at ssaa 2× (3200×1800), `nocap`: **−0.02 ms** from the play camera (`campos=0,-4,30 camtarget=0,-2,-60`, the flat clearing), **+0.35 ms** looking across the dunes (2.11 against 1.76, `campos=35,-8,45 camtarget=70,-14,110`), **+0.27 ms** from above (2.45 against 2.18, `campos=0,25,60 camtarget=30,-14,140`). Checked under domes 1, 3 and 13 in the Testbed and on the Game's menu.
 
+### The sky, from references (#681)
+
+The #671 audit noted it and the owner chose (2026-10-01, *"Přebarvit do modra"*): the desert and the savanna were played under painted domes whose skies photographed **green**. Measured on the Game's own frames, the way #661 measured the mountains (1920×1080, `quality=high`, the sky either side of the cluster):
+- the desert under dome 6 (`level=Minaret`) at hue 168°, saturation 0.60;
+- the savanna under dome 14 (`level=Smiley`), its open sky between the clouds at hue 152°.
+
+Sixteen references of real skies (`C:\Users\panrd\AI\sd\out\sky-klein` and `sky-zimage`, both models) drew:
+- over dunes, pale blue into a warm whitish haze, hue 202–213° at saturation 0.16–0.32;
+- over the savanna, blue at 205–217° with crisp cumulus.
+
+Both domes are generated now, as dome 8 was (#661): colour as a function of each captured vertex's height, the stops in `SkyDome.Data.cs`.
+
+- **The bottom fifth is kept to the digit**: the first four stops are the old palettes' own lowest rings. That band is what the light rig reads as `HorizonColor`, so the sun's tint and the ground bounce on every dune and blade of grass are what they were, and so are the scenes the owner approved under them.
+- **The play camera sees a dome only to about ten degrees over the skyline** (t ≈ 0.6). The first cut kept the desert's pale haze up to t = 0.59, and the sky came out near white (saturation 0.06) whatever the zenith said. The blue now starts at t = 0.54.
+- **A saturated blue goes violet through the tonemap.** A savanna cut that carried as much blue as low on the dome came out violet in the Game (hue 235°), and the stronger blue sky ambient turned the yellow grass green. The shipped stops stop short of that.
+- **Measured after:** the desert at hue 205°, saturation 0.23; the savanna's open sky at 203°, saturation 0.30. Both chapters' intros and play frames were checked before and after; the page is linked from #681. The suns, the levels and the cost are unchanged, since a palette costs nothing per frame.
+
 ## The mountains (Testbed)
 
 The fifth setting in the NumPad2 cycle (or `scene=mountain`). A snow basin the arena sits in, ringed by tall snow-capped peaks that rise with distance and fade into an alpine haze — the city's clearing-among-towers rebuilt in rock and snow, the platform standing in the basin as it stands anywhere.
