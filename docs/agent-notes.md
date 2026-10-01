@@ -7426,3 +7426,16 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Na mainu (merge 1515c789), `shipped-awaiting-verdict`. API: BS3D-API#7 sloučené (253c131), neotagované a nenasazené.** Pro nasazení otagovat vydání API a spustit `update.sh` na Pi, což dělá majitel; do té doby stránka hlásí, že server souhrn nemá. Ověřeno proti lokálnímu API s dočasnou DB, naplněnému skriptem `t685/api/seed.py` (ve scratchpadu). ⚠ Hashe levelů se od v0.2.1 změnily (Pennant `ba38be2e0044accb`), aktuální dá `ScoreSim --ceilings`.
 - ⚠ **Myra kreslí vypnutý `Button` vlastním světlým pozadím a šedým textem**, takže stránka bez online skóre byla deset nečitelných pruhů. Řádky proto mají `DisabledBackground`/`DisabledTextColor` nastavené ručně.
 - ⚠ **Pozadí položky v procházení padem přepisuje `ApplyNavHighlight` při každém průchodu.** Vybrané období se proto odlišuje jasem textu, ne obrácenými barvami jako záložky v Nastavení.
+## 2026-10-01 — kritické čtení nočních mergí (#684–#694, #690, #685, #688) — desktop, Claude Code (bs3d-a3)
+
+- **Dva agenti přečetli všechny dnešní merge.** Opravy jsou v mainu:
+  - `685-review-fixes`, merge 3c204d7c:
+    - High Scores se po návratu ze Settings ptá znovu (dřív navždy „Loading“).
+    - `Restart` odpoví čekajícím souhrnům.
+    - Cache se zahodí po dohrání, přejmenování a nové identitě.
+    - Na jedno období je venku jen jeden dotaz.
+    - Status počítá jen tabulky aktuálních levelů.
+    - `MENU_MIN_DESIGN_WIDTH` je 2600.
+  - `688-true-peak`, merge be27f1e0: hřeben dělený skutečným maximem hladkého minima, `CREST_PEAK = 1 − k·W·(1 − W)`. **První verze #688 měla plochou plošinu 12 j. se dvěma zlomy.** `DUNE_MEAN` je 0,403.
+  - `690-review-fixes`, merge acc3a7c1: start swing vrací tuhou pružinu jen socketům, které pořád patří kouli, ze které je vzal. Bepu recykluje uvolněná čísla constraintů. Test na recyklaci jsem viděl selhat.
+- ⚠ **Ponaučení: merge bez nezávislého čtení nechal projít skutečné chyby ve třech z devíti mergí.** U větší změny se vyplatí pustit recenzenta hned po sloučení.
