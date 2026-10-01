@@ -12,11 +12,12 @@
 //  the POP    - a white flash with four rays when it shuts, drawn at the quad's own scale so it outlives the swirl
 //
 //⚠ THE COLOURS ARE KEPT LOW, and the first capture is why: driven at 3-7 the swirl came out a pale pink-white smear
-//(the tonemap's shoulder takes the hue off anything that bright) and its glare filled the throat with grey. Only the
-//sparks and the pop go over the glare threshold now.
+//(the tonemap's shoulder takes the hue off anything that bright) and its glare filled the throat with grey. The arms
+//peak at about 2 now and the pale edge at about 1.3 - still over the glare's threshold (a luminance of 0.55, see
+//BS3DGame), so they glow a little, but no longer enough to wash the hue out or fog the throat; the sparks and the
+//pop are the parts driven far over it, to bloom.
 //
-//Premultiplied alpha (BlendState.AlphaBlend), depth-read and writing no depth, in linear radiance driven over the
-//glare threshold where it is meant to bloom: the throat's rim and the pop. SM 5.0.
+//Premultiplied alpha (BlendState.AlphaBlend), depth-read and writing no depth, in linear radiance. SM 5.0.
 
 #define VS_SHADERMODEL vs_5_0
 #define PS_SHADERMODEL ps_5_0
@@ -114,7 +115,8 @@ float4 WormholePS(WormholeVertexOutput input) : COLOR0
         float armsA = 0.5 + 0.5 * cos(ARMS * (theta + TWIST * logR) - spin);
         float armsB = 0.5 + 0.5 * cos(ARMS_B * (theta + TWIST_B * logR) - spin * 1.37 + 1.3);
         float armsC = 0.5 + 0.5 * cos(ARMS_C * (theta + TWIST_C * logR) - spin * 1.9 + 4.1);
-        float arms = saturate(0.55 * armsA * armsA + 0.5 * pow(armsB, 6.0) + 0.35 * pow(armsC, 10.0));
+        //saturate()d before the pow: a cos that overshoots -1 by a rounding would hand pow a negative base and a NaN
+        float arms = saturate(0.55 * armsA * armsA + 0.5 * pow(saturate(armsB), 6.0) + 0.35 * pow(saturate(armsC), 10.0));
 
         //Gone at the rim, gone again just outside the throat; hotter inwards
         float envelope = smoothstep(1.0, 0.5, r) * smoothstep(THROAT, THROAT + 0.08, r);
@@ -128,6 +130,12 @@ float4 WormholePS(WormholeVertexOutput input) : COLOR0
         //Sparks drawn down the spiral: a lattice of cells in (log radius, angle along the arms) sliding inwards
         float2 cell = float2((logR + spin * 0.12) * SPARK_RINGS, (theta + TWIST * logR) / 6.2831853 * SPARK_SPOKES);
         float2 id = floor(cell);
+
+        //The cell round the circle is hashed by its place modulo SPARK_SPOKES (#230's review): the integer count keeps
+        //frac(cell) continuous across atan2's cut at ±pi, but the id there jumps by exactly SPARK_SPOKES, and hashed as
+        //it is, every spark crossing the cut - they all do, drawn round by the spin - vanished or turned into another,
+        //a seam from the throat to the rim on the hole's left
+        id.y = id.y - SPARK_SPOKES * floor(id.y / SPARK_SPOKES);
         float2 jitter = frac(sin(float2(dot(id, float2(127.1, 311.7)), dot(id, float2(269.5, 183.3)))) * 43758.5453);
         float2 local = frac(cell) - (0.2 + 0.6 * jitter);
         float spark = exp(-dot(local, local) * 160.0) * step(0.55, jitter.x * 0.6 + jitter.y * 0.4);

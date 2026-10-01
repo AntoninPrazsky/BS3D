@@ -94,10 +94,16 @@ namespace BS3D.Screens
                 BodyReference body = ball.BallReference;
 
                 Vector3 position = body.Pose.Position.ToXna();
+                Vector3 moving = body.Velocity.Linear.ToXna();
                 if (position.X * position.X + position.Z * position.Z < ESCAPE_RADIUS * ESCAPE_RADIUS) continue;
                 if (Vector3.DistanceSquared(position, centre) > SWALLOW_REACH * SWALLOW_REACH) continue;
 
-                _wormhole.Swallow(position, body.Velocity.Linear.ToXna(), ball.Type, ball.Kind);
+                //Leaving, as an escape is (#230's review): a gun standing past ESCAPE_RADIUS - a big field's orbit at a
+                //narrow window leaves the island - fires shots that start out here flying IN, and swallowing one of those
+                //would score as a miss a shot that may yet have landed
+                if (position.X * moving.X + position.Z * moving.Z <= 0f) continue;
+
+                _wormhole.Swallow(position, moving, ball.Type, ball.Kind);
 
                 _firedPoses.Remove(body.Handle.Value);
                 bool wasUndecided = _world.RetireBall(body);
