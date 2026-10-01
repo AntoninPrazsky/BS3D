@@ -7439,3 +7439,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
   - `688-true-peak`, merge be27f1e0: hřeben dělený skutečným maximem hladkého minima, `CREST_PEAK = 1 − k·W·(1 − W)`. **První verze #688 měla plochou plošinu 12 j. se dvěma zlomy.** `DUNE_MEAN` je 0,403.
   - `690-review-fixes`, merge acc3a7c1: start swing vrací tuhou pružinu jen socketům, které pořád patří kouli, ze které je vzal. Bepu recykluje uvolněná čísla constraintů. Test na recyklaci jsem viděl selhat.
 - ⚠ **Ponaučení: merge bez nezávislého čtení nechal projít skutečné chyby ve třech z devíti mergí.** U větší změny se vyplatí pustit recenzenta hned po sloučení.
+
+## 2026-10-01 — #230 červí díra po třech minech ze stejného úhlu — desktop, Claude Code (bs3d-a3)
+
+- **Beru z #230 „nemožnou ránu“ (červí díru), jen kosmeticky** podle dělicí čáry z komentáře k #230: tři miny po sobě vystřelené ze stejného místa a úhlu (bez přistání mezi nimi) otevřou ve vzduchu na linii výstřelu malou vířící díru, ta nasaje právě ty minuté koule a s puknutím se zavře. **Bez bodů** (bonus by prošel kolem stropů `ScoreSim --ceilings`, které online tabulky hlídají) a bez zásahu do clusteru. Soubory: nový `Game/Effects/Wormhole.cs` (+ případně shader v `Prazsky.Shaders`), `GameplayScreen.Rules.cs`/`.Physics.cs`, zvuk v `ProceduralAudio`, `docs/game-feedback.md`, testy detektoru.
