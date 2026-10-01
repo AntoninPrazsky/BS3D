@@ -7371,3 +7371,9 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-10-01 — #686 nastavení po stránkách — desktop, Claude Code (bs3d-a3)
 
 - **Beru #686**: místo jedné stránky se třemi sloupci stránky podle kategorií s lištou záložek, Online jako první a otevřená. Soubory: `Game/Screens/SettingsPage.cs`, případně nová třída pro lištu záložek, `docs/game-shell.md`.
+
+## 2026-10-01 — #692–#694 poznámky z hraní (Cut/Brake, HUD při průletu, čipy) — desktop, Claude Code
+
+- **Založeno, nic nestaví:** #692 (Cut a Brake nejsou pochopené: řez uvolní jednu kouli nebo žádnou, účel brzdy není jasný; **nejdřív změřit**, na kolika levelech od The Tower má nějaký řez cenu — `docs/game-session.md` sám psal „na redundantně zavěšené struktuře řez skoro nic nedělá“ a „žádná karta to neučí“; čip Brake svítí naplno, i když ho `CanBrake` odmítne), #693 (celé HUD se kreslí přes úvodní průlet kapitoly: `GameplayScreen.cs` `overlayUp = !LevelOver`, nic se neptá `_chapterIntro.Engaged`; potvrzeno snímky `level=31 shot=1.5,4`; drop kamera a ztráta zůstávají mimo rozsah, #639), #694 (klávesy Cut/Brake/Swap nejsou v jednom sloupci: `PlayHud.DrawChip` zarovnává každý čip doprava podle šířky jeho popisku).
+- Komentář na #213 (majitelův první verdikt na brzdu a řez; cena se nemá soudit dřív, než #692 řekne, co nástroje dělají). Duplicity: klíčové hledání v otevřených i zavřených issues + deník, jediný rodič #213; LM Studio bylo vypnuté.
+- ⚠ „Break“ v poznámce čtu jako **Brake** (Q, brzda stropu) — jediné slovo podobné tomu ve hře; řečeno v #692, ať majitel opraví, pokud myslel jiné.
