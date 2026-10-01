@@ -102,6 +102,22 @@ float3 WindowGlassColor;
 //pane behaves exactly as every polished surface elsewhere in the scene does.
 static const float WindowSmoothness = 1.0;
 
+//One building's own roll in [0,1) for each salt (#674): an integer hash of its cell, the very mixer City.FacadeRoll
+//runs on the CPU for the facade's kind. Hash21 is a float hash with an exact 50 x 100 period over integer ids - at
+//0.37 cells per world unit, 135 x 270 units - so the tone, the neon pick and hue, and the sign band and its height
+//each repeated in the same arrangement six times across the ~840-unit city. buildingId is floor()ed, so the cast is exact.
+float BuildingRoll(float2 buildingId, uint salt)
+{
+    int2 cell = (int2)buildingId;
+    uint h = asuint(cell.x) * 0x8da6b343u ^ asuint(cell.y) * 0xd8163841u ^ salt * 0xcb1ab31fu;
+    h ^= h >> 16;
+    h *= 0x7feb352du;
+    h ^= h >> 15;
+    h *= 0x846ca68bu;
+    h ^= h >> 16;
+    return (h >> 8) * (1.0 / 16777216.0);
+}
+
 //A fully saturated color from a hue in [0,1] - the neon signs' palette. Pure and bright; the brightness
 //that makes them bloom comes from CityWindowBrightness, not from here.
 float3 HueToRGB(float h)
@@ -480,7 +496,7 @@ float4 CityPS(CityVSOutput input) : COLOR
     //One tower is not the next. Real renders are mixed and painted and weathered per building, and once the
     //wall is matte its tone is the only variety it has left -- the tonal spread the skyline used to get came
     //from the mirror, and goes out with it. Off the building's own id, so it is one shade per tower.
-    float3 facadeColor = FacadeColor * (1.0 + FacadeColorVariation * (Hash21(buildingId + 13.9) - 0.5) * 2.0);
+    float3 facadeColor = FacadeColor * (1.0 + FacadeColorVariation * (BuildingRoll(buildingId, 1u) - 0.5) * 2.0);
 
     //Neon night city, gated at runtime by CityNeon; both the Testbed and the map editor drive it (V cycles
     //to the neon scene in the editor too). The skyline runs on magenta and cyan, the pink-and-blue of a neon
@@ -498,14 +514,14 @@ float4 CityPS(CityVSOutput input) : COLOR
         float3 neonMagenta = float3(1.0, 0.04, 0.85);
         float3 neonCyan = float3(0.05, 0.85, 1.0);
 
-        float pickBuilding = Hash21(buildingId + 5.0);
-        float3 buildingNeon = pickBuilding < 0.45 ? neonMagenta : (pickBuilding < 0.9 ? neonCyan : HueToRGB(Hash21(buildingId + 6.3)));
+        float pickBuilding = BuildingRoll(buildingId, 2u);
+        float3 buildingNeon = pickBuilding < 0.45 ? neonMagenta : (pickBuilding < 0.9 ? neonCyan : HueToRGB(BuildingRoll(buildingId, 3u)));
         float3 contrast = buildingNeon.r > buildingNeon.b ? neonCyan : neonMagenta;
         float3 neonWindow = lerp(buildingNeon, contrast, step(0.83, Hash21(windowId + 4.4)));
 
         //A bright solid sign band wrapping some towers at a hashed height, in the contrast colour
-        float hasSign = step(0.5, Hash21(buildingId + 21.0));
-        float signHeight = 5.0 + Hash21(buildingId + 22.0) * 34.0;
+        float hasSign = step(0.5, BuildingRoll(buildingId, 4u));
+        float signHeight = 5.0 + BuildingRoll(buildingId, 5u) * 34.0;
         float signBand = hasSign * vertical * (1.0 - smoothstep(1.1, 1.9, abs(facadeY - signHeight))) * resolvable;
 
         //A fraction of the windows buzz on and off, the way a tired neon tube does
