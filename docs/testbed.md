@@ -78,6 +78,17 @@ The hint beside `NumPad2` read `Switch scene (city/sea/savanna/desert/mountain/m
 - It counts as an unattended run (`InactiveSleepTime` 0), so it answers at full speed launched minimized and without focus.
 - The figures, the proof that it fails on a broken mirror, and why four of the ten fail today are in `docs/scenes.md`, "The terrain mirrors, in one copy and checked against the GPU". Run it on every mirrored scene after touching a terrain shader's height or its mirror.
 
+## Hanging a map as rope or cloth: `softness=` (#690, a prototype)
+
+**`softness=<Hz>[:<damping>]` re-describes every socket between two balls at that spring** (damping 0.3 when it is left out, under-damped so it swings). Without it, every socket is the builder's 15 Hz, critically damped.
+- The glass's own sockets stay as built. They are the anchors, and the start swing (#617) eases them back to the builder's spring.
+- A shot that lands joins at the softened spring too (`BallContactEventHandler.LatticeSpring`).
+- The mechanism is `Prazsky.BS3D.Physics.LatticeSoftness`, which walks the handle slots after the build rather than threading a spring through every connect call. `LatticeSoftnessTests` pins which sockets it touches: it tells anchors from ball sockets by the bodies they join, and was seen to fail with the anchors softened too.
+- The run logs `[softness] <n> lattice socket(s) at <Hz> Hz` once, then a trace every half second for twelve seconds of simulation: how far the lowest ball has dropped below where it was built, and the fastest ball's speed. Together they show the sag, whether it still swings, and whether it has come apart, which a speed running away would say.
+- `LevelGen --softness=` hangs the sag probe's structures the same way.
+
+The prototype shapes are `Testbed/Maps/Sag_Chain.json`, `Sag_Bridge.json` and `Sag_Hammock.json`. What they did is recorded under "Soft lattices" in `docs/game-session.md`.
+
 ## Sweeping variants inside one process: `alt=` (#151, generalized in #374)
 
 **`alt=<pins>;<pins>;…` draws the run a different way on every `[fps]` window**, and a variant is a little command line — a comma-separated list of the same `<dial>=<value>` pins the arguments themselves use, so there is no second vocabulary to keep in step:

@@ -190,6 +190,13 @@ namespace Testbed.Diagnostics
         /// <summary><c>sky=&lt;n&gt;</c>: the starting dome, pinned over a startup level's own. 0 = unset.</summary>
         public byte SkyNumber { get; private set; }
 
+        /// <summary>
+        /// <c>softness=&lt;Hz&gt;[:&lt;damping&gt;]</c> (#690, a prototype): the spring of every socket between two balls,
+        /// in place of the builder's 15 Hz critically damped - so a map can be hung as rope or cloth and watched. The glass's
+        /// own sockets keep theirs. Null for the builder's own. Damping defaults to 0.3, under-damped, so it swings.
+        /// </summary>
+        public (float Frequency, float Damping)? Softness { get; private set; }
+
         /// <summary><c>ssaa=&lt;n&gt;</c>: supersample factor, clamped to 1–4 by the game itself.</summary>
         public int SupersampleFactor { get; private set; } = 2;
 
@@ -446,6 +453,7 @@ namespace Testbed.Diagnostics
                 else if (arg.StartsWith("switchmap=", StringComparison.OrdinalIgnoreCase)) options.SwitchMapPath = arg.Substring("switchmap=".Length);
                 else if (arg.StartsWith("sky=", StringComparison.OrdinalIgnoreCase) && byte.TryParse(arg.Substring("sky=".Length), out byte parsedSky)) options.SkyNumber = parsedSky;
                 else if (arg.StartsWith("ssaa=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("ssaa=".Length), out int parsedSsaa)) options.SupersampleFactor = parsedSsaa;
+                else if (arg.StartsWith("softness=", StringComparison.OrdinalIgnoreCase) && TryParseSoftness(arg.Substring("softness=".Length), out (float, float) parsedSoftness)) options.Softness = parsedSoftness;
                 else if (arg.StartsWith("msaa=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("msaa=".Length), out int parsedMsaa)) options.MsaaSamples = parsedMsaa;
                 else if (arg.StartsWith("rscale=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("rscale=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedRscale)) options.RenderScale = parsedRscale;
                 else if (arg.StartsWith("detail=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("detail=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedDetail)) options.SceneDetail = parsedDetail;
@@ -720,6 +728,21 @@ namespace Testbed.Diagnostics
                     && from >= 0f && to > from)
                     holds.Add(new InputScript.AdsHold(from, to));
             }
+        }
+
+        /// <summary><c>&lt;Hz&gt;[:&lt;damping&gt;]</c>, both positive; damping 0.3 when it is left out (see <see cref="Softness"/>).</summary>
+        private static bool TryParseSoftness(string value, out (float Frequency, float Damping) softness)
+        {
+            softness = default;
+            string[] parts = value.Split(':');
+
+            if (!float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out float frequency) || frequency <= 0f) return false;
+
+            float damping = 0.3f;
+            if (parts.Length > 1 && (!float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out damping) || damping <= 0f)) return false;
+
+            softness = (frequency, damping);
+            return true;
         }
 
         private static bool TryParseVec3(string s, out Vector3 result)

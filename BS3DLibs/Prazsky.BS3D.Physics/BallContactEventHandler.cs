@@ -101,6 +101,13 @@ namespace Prazsky.BS3D.Physics
         private readonly BallsMap _map;
         private readonly PhysicsBall[,,] _physicsBalls;
 
+        /// <summary>
+        /// The spring a landed ball's sockets to its neighbours take, when the structure was softened after it was built
+        /// (<see cref="LatticeSoftness"/>, #690); null for the builder's own. Set by whoever softened the structure, so a
+        /// shot that lands joins the lattice at the lattice's own stiffness rather than as a rigid knot in a soft net.
+        /// </summary>
+        public BepuPhysics.Constraints.SpringSettings? LatticeSpring { get; set; }
+
         public BallContactEventHandler(Simulation simulation, ContactEvents contactEvents, KinematicBody ceiling,
             BallsMap map, PhysicsBall[,,] physicsBalls, List<PhysicsBall> shotBalls, List<PhysicsBall> fallingBalls,
             Vector3 worldOffset)
@@ -641,6 +648,9 @@ namespace Prazsky.BS3D.Physics
             //they are right even after the simulation has been running for a while
             BallsConstraintsBuilder.AttachBallToStructure(physicsBall, _physicsBalls, _map, _simulation, _ceiling.BodyReference,
                 _worldOffset.ToNumerics());
+
+            if (LatticeSpring is BepuPhysics.Constraints.SpringSettings lattice)
+                LatticeSoftness.ApplyToBall(physicsBall, _physicsBalls.GetLength(2) - 1, _simulation, lattice);
 
             if (_contactEvents.IsListener(contact.EventSource)) _contactEvents.Unregister(contact.EventSource);
 

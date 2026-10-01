@@ -103,6 +103,13 @@ namespace BS3D.Tools.LevelGen
         /// </summary>
         internal static WindField Wind { get; set; } = WindField.None;
 
+        /// <summary>
+        /// The lattice's spring for every structure this probe hangs (#690, a prototype): null for the builder's own, or
+        /// <c>--softness=&lt;Hz&gt;[:&lt;damping&gt;]</c>'s. Applied the game's way (<see cref="LatticeSoftness"/>) after the
+        /// build and after every attach, so a soft level is probed shot by shot as it would play.
+        /// </summary>
+        internal static BepuPhysics.Constraints.SpringSettings? Softness { get; set; }
+
         //The play clock the wind is read from, counted in steps from the start of a run: the game reads its own
         //fixed-step clock the same way, so the gust at the n-th step is the same gust
         private static float _windClock;
@@ -405,6 +412,8 @@ namespace BS3D.Tools.LevelGen
 
             PhysicsBall[,,] balls = BallsConstraintsBuilder.BuildBallsStructure(
                 map.GetStaticBallsArray(), world.Simulation, ceiling, worldOffset);
+
+            if (Softness is BepuPhysics.Constraints.SpringSettings soft) LatticeSoftness.Apply(balls, world.Simulation, soft);
 
             //And it springs from the glass exactly as the game's does (#617) — the settle below is where it runs,
             //so the gate sees the start the player sees.
@@ -1061,6 +1070,9 @@ namespace BS3D.Tools.LevelGen
 
             BallsConstraintsBuilder.AttachBallToStructure(landed, balls, map, world.Simulation, ceiling,
                 worldOffset.ToNumerics());
+
+            if (Softness is BepuPhysics.Constraints.SpringSettings soft)
+                LatticeSoftness.ApplyToBall(landed, balls.GetLength(2) - 1, world.Simulation, soft);
 
             //The glass takes the colour that just arrived (#325) - after the attach and BEFORE the group is
             //counted, which is BallContactEventHandler's own order and the whole of where this may go. It is
