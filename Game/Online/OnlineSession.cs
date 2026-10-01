@@ -147,6 +147,10 @@ namespace BS3D.Online
         {
             if (!Enabled) return -1;
 
+            //One request a period on its way at a time: a page left and opened again before the answer came takes the
+            //ticket already out rather than queuing a second request behind it on the one worker (#685's review)
+            if (_pendingSummaryByPeriod.TryGetValue(allTime, out int pending)) return pending;
+
             int ticket = ++_boardTicket;
 
             if (_summaryCache.TryGetValue(allTime, out var cached) && _wallClock() - cached.At < BOARD_CACHE_SECONDS)
@@ -156,15 +160,23 @@ namespace BS3D.Online
             }
 
             _pendingSummaryKeys[ticket] = allTime;
+            _pendingSummaryByPeriod[allTime] = ticket;
             _client.RequestSummary(new SummaryRequest(ticket, allTime, PlayerId));
             return ticket;
         }
+
+        /// <summary>
+        /// Forgets the cached summaries: a clear changed the boards, a rename changed a name on them, or the identity asking
+        /// is no longer the one they were asked for (#685's review). The next request asks the service again.
+        /// </summary>
+        private void ForgetSummaries() => _summaryCache.Clear();
 
         /// <summary>The reply to a <see cref="RequestBoardsSummary"/> ticket, once it has come; taken once.</summary>
         internal bool TryTakeBoardsSummary(int ticket, out SummaryReply reply) => _summaryReplies.Remove(ticket, out reply);
 
         private readonly Dictionary<int, SummaryReply> _summaryReplies = new();
         private readonly Dictionary<int, bool> _pendingSummaryKeys = new();
+        private readonly Dictionary<bool, int> _pendingSummaryByPeriod = new();
         private readonly Dictionary<bool, (SummaryReply Reply, float At)> _summaryCache = new();
 
         private static string IdentityPath => UserData.PathTo(OnlineIdentity.DefaultFileName);
@@ -234,6 +246,13 @@ namespace BS3D.Online
             foreach (int ticket in _pendingBoardKeys.Keys)
                 _boardReplies[ticket] = new BoardReply(ticket, null, "interrupted");
             _pendingBoardKeys.Clear();
+
+            //And a summary on its way, the same (#685's review): the High Scores page would otherwise wait for it for good
+            foreach (int ticket in _pendingSummaryKeys.Keys)
+                _summaryReplies[ticket] = new SummaryReply(ticket, null, "interrupted", NotOffered: false);
+            _pendingSummaryKeys.Clear();
+            _pendingSummaryByPeriod.Clear();
+            ForgetSummaries();
         }
 
         /// <summary>
@@ -255,6 +274,7 @@ namespace BS3D.Online
             ResultAllTimeBoard = null;
             _resultMonthTicket = _resultAllTimeTicket = -1;
             ResultGeneration++;
+            ForgetSummaries();
 
             _client.Submit(submission);
         }
@@ -291,6 +311,7 @@ namespace BS3D.Online
                 _identity.Name = name;
                 SaveIdentity();
                 _client?.RequestRename(name);
+                ForgetSummaries();
             }
             else
             {
@@ -395,8 +416,11 @@ namespace BS3D.Online
 
             while (_client.TryTakeSummary(out SummaryReply summary))
             {
-                if (_pendingSummaryKeys.Remove(summary.Ticket, out bool summaryAllTime) && summary.Summary != null)
-                    _summaryCache[summaryAllTime] = (summary, _wallClock());
+                if (_pendingSummaryKeys.Remove(summary.Ticket, out bool summaryAllTime))
+                {
+                    _pendingSummaryByPeriod.Remove(summaryAllTime);
+                    if (summary.Summary != null) _summaryCache[summaryAllTime] = (summary, _wallClock());
+                }
                 _summaryReplies[summary.Ticket] = summary;
             }
 
