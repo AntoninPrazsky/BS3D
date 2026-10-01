@@ -47,8 +47,9 @@ namespace Prazsky.Core.Render
 
         private const float DUNE_SPACING = 64f;
         private const float DUNE_WINDWARD = 0.75f;
-        private const float DUNE_MEAN = 0.436f; //sampled through this mirror over 30 million points far outside the clearing (0.30 until #688)
+        private const float DUNE_MEAN = 0.403f; //sampled through this mirror over 30 million points far outside the clearing (0.30 until #688, 0.436 before its CREST_PEAK fix)
         private const float CREST_ROUND = 1.0f;
+        private const float CREST_PEAK = 1f - CREST_ROUND * DUNE_WINDWARD * (1f - DUNE_WINDWARD);
         private const float SET_BLEND = 0.35f;
 
         /// <summary>World Y of the sand at a world XZ, as <c>Desert.fx</c>'s <c>DesertHeight</c> displaces it.</summary>
@@ -103,9 +104,10 @@ namespace Prazsky.Core.Render
             float rise = t / DUNE_WINDWARD;
             float fall = (1f - t) / (1f - DUNE_WINDWARD);
 
-            //Desert.fx's rounded crest (#688): the quadratic smooth minimum of the two slopes, normalized to a peak of one
+            //Desert.fx's rounded crest (#688): the quadratic smooth minimum of the two slopes, divided by its own maximum
+            //(CREST_PEAK, see Desert.fx for why not by its value at the crossing) so a crest stands at one
             float w = MathF.Max(CREST_ROUND - MathF.Abs(rise - fall), 0f) / CREST_ROUND;
-            float m = (MathF.Min(rise, fall) - 0.25f * CREST_ROUND * w * w) / (1f - 0.25f * CREST_ROUND);
+            float m = (MathF.Min(rise, fall) - 0.25f * CREST_ROUND * w * w) / CREST_PEAK;
             float h = MathHelper.Clamp(m, 0f, 1f);
 
             return h * MathF.Sqrt(h);
