@@ -1342,7 +1342,10 @@ namespace BS3D.Screens
                 //not a delivery leaves it still
                 SetStatus(answer?.Outcome switch
                 {
-                    OnlineOutcome.Offline => "Offline. This clear is saved and goes out with your next one.",
+                    //Not "Offline": the outcome is the score SERVICE not answering, and since #691 that includes a
+                    //network that works but reaches something else (the owner, online, read "Offline" while a stale
+                    //DNS record sent the game to a web host). Say what is known
+                    OnlineOutcome.Offline => "The score server did not answer. This clear is saved and goes out with your next one.",
                     OnlineOutcome.Refused => "The score server did not take this clear.",
                     _ => "Sending your score...",
                 }, answer == null ? OnlineSignal.SignalMode.Working : OnlineSignal.SignalMode.Idle);
