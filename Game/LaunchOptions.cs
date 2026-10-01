@@ -173,6 +173,10 @@ namespace BS3D
         internal int? Board { get; private set; }
         internal int BoardPage { get; private set; } = 1;
 
+        //Testing only: open High Scores at boot (#685), on a chapter and a period ("highscores=3", "highscores=3:all").
+        //Null means the argument was absent; empty means the page as it chooses.
+        internal string HighScores { get; private set; }
+
         //Testing only: open the Help screen at boot, and "help=<n>" on its nth page (#427). Null means
         //the argument was absent; the number is 1-based because that is what the page prints about itself.
         internal int? Help { get; private set; }
@@ -437,6 +441,10 @@ namespace BS3D
             //"board=<n>:<page>" opens it on that page, so the paging can be photographed too. Taken whatever its
             //value: a half that does not parse is left as it was, and the argument is not reported.
             Row.Text("board", ApplyBoard),
+            //"highscores" opens High Scores at boot (#685), "highscores=<chapter>[:all]" on that chapter and period - the
+            //page is a pager, so "a shot of it" means nothing without saying which chapter
+            Row.Flag("highscores", o => o.HighScores = string.Empty),
+            Row.Text("highscores", (o, v) => o.HighScores = v),
             //"help" opens the Help screen and "help=<n>" opens it on that page (#427) - the same reasoning
             //one turn further, since Help is six pages behind one entry and its Previous/Next stand side
             //by side, so a scripted walk has to guess a focus order to reach page four at all.

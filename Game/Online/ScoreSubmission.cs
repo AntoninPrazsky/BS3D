@@ -269,4 +269,54 @@ namespace BS3D.Online
 
     /// <summary>The worker's answer to a <see cref="BoardRequest"/>: the page, or why there is none.</summary>
     internal sealed record BoardReply(int Ticket, BoardPageBody Page, string Problem);
+
+    /// <summary>
+    /// Every board's #1 and the asking player's place, as <c>GET /v1/boards</c> answers it (#685, BS3D-API#7): additive to
+    /// contract v1, one request where the per-board GET would take one per level.
+    /// </summary>
+    internal sealed class BoardsSummaryBody
+    {
+        [JsonPropertyName("period")]
+        public string Period { get; set; }
+
+        /// <summary><c>YYYY-MM</c> for the month, null for all time.</summary>
+        [JsonPropertyName("month")]
+        public string Month { get; set; }
+
+        /// <summary>⚠ An explicit <c>"boards": null</c> overwrites this; <c>OnlineScores.SanitizeSummary</c> puts a list back.</summary>
+        [JsonPropertyName("boards")]
+        public List<BoardSummaryBody> Boards { get; set; } = new();
+    }
+
+    /// <summary>One board in a <see cref="BoardsSummaryBody"/>: its key, its count, its #1 and the asker's place (null off it).</summary>
+    internal sealed class BoardSummaryBody
+    {
+        [JsonPropertyName("file")]
+        public string File { get; set; }
+
+        [JsonPropertyName("hash")]
+        public string Hash { get; set; }
+
+        [JsonPropertyName("rules")]
+        public int Rules { get; set; }
+
+        [JsonPropertyName("total")]
+        public int Total { get; set; }
+
+        [JsonPropertyName("top")]
+        public BoardEntryBody Top { get; set; }
+
+        [JsonPropertyName("me")]
+        public BoardMeBody Me { get; set; }
+    }
+
+    /// <summary>What the High Scores page asks for: which period, and whose places to add.</summary>
+    internal readonly record struct SummaryRequest(int Ticket, bool AllTime, Guid? Player);
+
+    /// <summary>
+    /// The worker's answer to a <see cref="SummaryRequest"/>: the summary, or why there is none. <paramref name="NotOffered"/>
+    /// is a service that answered but has no summary - one older than BS3D-API#7 - which the page says differently from a
+    /// service that did not answer at all.
+    /// </summary>
+    internal sealed record SummaryReply(int Ticket, BoardsSummaryBody Summary, string Problem, bool NotOffered);
 }

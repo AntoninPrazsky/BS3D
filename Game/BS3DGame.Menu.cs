@@ -58,6 +58,7 @@ namespace BS3D
         private PausePage _pausePage;
         private SettingsPage _settingsPage;
         private LevelBoardPage _levelBoardPage;
+        private HighScoresPage _highScoresPage;
         private LevelSelectPage _levelSelectPage;
         private ScenePage _scenePage;
         private AboutPage _aboutPage;
@@ -541,6 +542,7 @@ namespace BS3D
             _scenePage = new ScenePage(this);
             _aboutPage = new AboutPage(this);
             _levelBoardPage = new LevelBoardPage(this);
+            _highScoresPage = new HighScoresPage(this);
             _helpPage = new HelpPage(this);
             _resultPage = new ResultPage(this);
 
@@ -1161,6 +1163,14 @@ namespace BS3D
         internal void OpenLevelSelect() => OpenPage(_levelSelectPage);
         internal void OpenSceneSelect() => OpenPage(_scenePage);
         internal void OpenSettings() => OpenPage(_settingsPage);
+        internal void OpenHighScores() => OpenPage(_highScoresPage);
+
+        /// <summary>Opens High Scores on a stated chapter (1-based) and period - the <c>highscores=</c> argument's (#685).</summary>
+        internal void OpenHighScoresAt(int chapter, bool allTime)
+        {
+            _highScoresPage.Pin(chapter, allTime);
+            OpenPage(_highScoresPage);
+        }
         internal void OpenAbout() => OpenPage(_aboutPage);
 
         //What StartupScript asks of the stack (#583), which it does not hold: whether the title card is still up

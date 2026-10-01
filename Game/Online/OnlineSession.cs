@@ -138,6 +138,35 @@ namespace BS3D.Online
         /// <summary>The reply to a <see cref="RequestLevelBoard"/> ticket, once it has come; taken once.</summary>
         internal bool TryTakeLevelBoard(int ticket, out BoardReply reply) => _boardReplies.Remove(ticket, out reply);
 
+        /// <summary>
+        /// Asks for every board's #1 and the player's place (#685), for the High Scores page, and returns the ticket its reply
+        /// will carry, or -1 when this run cannot see the boards. Cached as a board page is, so turning a chapter or coming
+        /// back to the page within the minute asks the service nothing.
+        /// </summary>
+        internal int RequestBoardsSummary(bool allTime)
+        {
+            if (!Enabled) return -1;
+
+            int ticket = ++_boardTicket;
+
+            if (_summaryCache.TryGetValue(allTime, out var cached) && _wallClock() - cached.At < BOARD_CACHE_SECONDS)
+            {
+                _summaryReplies[ticket] = cached.Reply with { Ticket = ticket };
+                return ticket;
+            }
+
+            _pendingSummaryKeys[ticket] = allTime;
+            _client.RequestSummary(new SummaryRequest(ticket, allTime, PlayerId));
+            return ticket;
+        }
+
+        /// <summary>The reply to a <see cref="RequestBoardsSummary"/> ticket, once it has come; taken once.</summary>
+        internal bool TryTakeBoardsSummary(int ticket, out SummaryReply reply) => _summaryReplies.Remove(ticket, out reply);
+
+        private readonly Dictionary<int, SummaryReply> _summaryReplies = new();
+        private readonly Dictionary<int, bool> _pendingSummaryKeys = new();
+        private readonly Dictionary<bool, (SummaryReply Reply, float At)> _summaryCache = new();
+
         private static string IdentityPath => UserData.PathTo(OnlineIdentity.DefaultFileName);
         private static string OutboxPath => UserData.PathTo(OnlineScores.OutboxFileName);
 
@@ -362,6 +391,13 @@ namespace BS3D.Online
                     _resultMonthTicket = RequestLevelBoard(_submittedLevel, allTime: false, offset: 0, limit: RESULT_BOARD_ROWS);
                     _resultAllTimeTicket = RequestLevelBoard(_submittedLevel, allTime: true, offset: 0, limit: RESULT_BOARD_ROWS);
                 }
+            }
+
+            while (_client.TryTakeSummary(out SummaryReply summary))
+            {
+                if (_pendingSummaryKeys.Remove(summary.Ticket, out bool summaryAllTime) && summary.Summary != null)
+                    _summaryCache[summaryAllTime] = (summary, _wallClock());
+                _summaryReplies[summary.Ticket] = summary;
             }
 
             while (_client.TryTakeBoard(out BoardReply board))

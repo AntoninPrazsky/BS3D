@@ -127,6 +127,9 @@ namespace BS3D
         private int? _board;
         private readonly int _boardPage;
 
+        //Testing only: High Scores at boot (highscores=<chapter>[:all], #685). Null for none.
+        private string _highScores;
+
         //Which Help page to open at boot, 1-based, or null for "not asked" (#427)
         private int? _help;
 
@@ -162,6 +165,7 @@ namespace BS3D
             _settingsRows = launch.SettingsRows;
             _board = launch.Board;
             _boardPage = launch.BoardPage;
+            _highScores = launch.HighScores;
             _help = launch.Help;
             _tour = launch.Tour;
             _toMenuAt = launch.ToMenuAt;
@@ -255,6 +259,16 @@ namespace BS3D
             {
                 _board = null;
                 game.OpenLevelBoard(boardLevel - 1, _boardPage - 1);
+            }
+
+            //High Scores (#685), past the title card for the same reason, on the chapter and period asked for
+            if (_highScores != null && !game.IsSplashUp)
+            {
+                string[] parts = _highScores.Split(':');
+                _highScores = null;
+
+                if (int.TryParse(parts[0], out int chapter)) game.OpenHighScoresAt(chapter, parts.Length > 1 && parts[1] == "all");
+                else game.OpenHighScores();
             }
 
             //And the Help screen, on whichever of its pages was asked for (#427)
