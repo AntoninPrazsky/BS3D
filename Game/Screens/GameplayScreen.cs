@@ -567,7 +567,7 @@ namespace BS3D.Screens
 
         /// <summary>
         /// How far above the line the cluster's lowest ball has to hang for the music to be at its calmest (#495), in
-        /// ceiling steps: from there down to the line, a recording's drums come in from <c>GameMusic.CALM_DRUMS</c> to
+        /// ceiling steps: from there down to the line, a recording's drums come in from <c>DrumLayer.CALM_GAIN</c> to
         /// full. Seven, about where a level opens (Pendant's lowest ball starts 4.67 above the line, 7.8 steps), so the
         /// music builds as the glass comes down — and the floor alarm's three steps are the last stretch of it.
         /// </summary>
