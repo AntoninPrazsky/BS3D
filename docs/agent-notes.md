@@ -7393,3 +7393,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **#693 na mainu (merge 4b6fc277), `shipped-awaiting-verdict`.** `ChapterIntro.HudOpacity`: během letu 0, potom `1 − Blend`, takže je HUD celý přesně ve chvíli, kdy dělo znovu reaguje. Prolínání jde přes overlay vrstvu z #438 (`BS3DGame.FadeOverlayLayer`, předem vynásobená alfa, jeden tint). Drop kamera a ztráta na lince zůstaly beze změny (#639). Ověřeno snímky The Tower `level=31` (1,5/4/14,6 s bez HUD, 15,5 s napůl, 17,5 s celý) a skutečným mezerníkem uprostřed prologu.
 - **#694 na mainu (merge f613a4c6), `shipped-awaiting-verdict`.** `ChipColumnLayout`: sloupec kláves podle nejširšího glyfu obou zařízení, popisky od jedné hrany podle nejširšího možného popisku. Test `ChipColumnLayoutTests` jsem viděl selhat. Ověřeno snímky `powerups=swap:3,brake:1,cut:2` proti obyčejným popiskům.
 - ⚠ **Majitel u počítače odmítl běh, který bral fokus** (keybd_event se SetForegroundWindow). Když nespí, scénáře řídit bez kláves: `swap=`/`brake=`/`powerups=` a `shot=` přes `quiet.ps1`.
+
+## 2026-10-01 — #692 Cut a Brake v hraní — desktop, Claude Code (bs3d-a3)
+
+- **Beru #692**, nejdřív měření: `LevelGen` dostane přepínač se zprávou jen pro čtení, kolik koulí uvolní jeden řez na každém levelu od The Tower. Teprve podle čísel vyberu směr. Soubory: `Tools/LevelGen` (zpráva), případně `Game/Screens/PlayHud.cs` (čip Brake ztlumený, když `CanBrake` neplatí), `docs/game-session.md`.
