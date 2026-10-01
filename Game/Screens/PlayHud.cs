@@ -853,9 +853,12 @@ namespace BS3D.Screens
         /// brake chip, drawn on the row above the Swap's.</param>
         /// <param name="cutCharges">The level's Cut charges left (#213), or −1 for a level that offers none — the anchor cut's
         /// chip, drawn on the row above the Brake's.</param>
+        /// <param name="brakeOwed">Whether the brake would act now: a pressure step to give back (#692). False dims a Brake
+        /// chip that still has its charge, because a press would be refused.</param>
         internal void Draw(ScoreKeeper score, ICamera camera, in ClusterProfile profile, ReadOnlySpan<BallMarker> balls,
             ReadOnlySpan<BallType> queue, Tutorial tutorial, bool previewsOnly = false,
-            ReadOnlySpan<BS3D.Effects.DozingGun.Z> snores = default, int swapCharges = -1, int brakeCharges = -1, int cutCharges = -1)
+            ReadOnlySpan<BS3D.Effects.DozingGun.Z> snores = default, int swapCharges = -1, int brakeCharges = -1, int cutCharges = -1,
+            bool brakeOwed = true)
         {
             _game.EnsureHudFonts();
 
@@ -899,7 +902,7 @@ namespace BS3D.Screens
             DrawStreak(score, viewport, margin, scoreAnchor.Y + scoreSize.Y * 0.5f + Scaled(HUD_LINE_GAP));
             DrawBallsLeft(score, viewport, margin);
             DrawMagazine(queue, score, viewport, margin);
-            DrawSwap(swapCharges, brakeCharges, cutCharges, tutorial.OnGamepad, viewport, margin);
+            DrawSwap(swapCharges, brakeCharges, cutCharges, brakeOwed, tutorial.OnGamepad, viewport, margin);
 
             //The card is given the score's left edge rather than measuring it again: it is what bounds the
             //strip the card may stand in (#461), and one measurement cannot disagree with the other.
@@ -1238,7 +1241,11 @@ namespace BS3D.Screens
         /// nothing to press. The glyph is the pad's button when the hand was last on the pad
         /// (<see cref="Tutorial.OnGamepad"/>), as every prompt outside the cards picks.
         /// </summary>
-        private void DrawSwap(int swapCharges, int brakeCharges, int cutCharges, bool onGamepad, Viewport viewport, int margin)
+        /// <param name="brakeOwed">Whether the glass hangs a pressure step down for the brake to give back (#692). Until it
+        /// does, a press is refused with the gun's dry "no" and keeps its charge, so the chip is dimmed rather than shown
+        /// ready: the owner's playtest met that "no" from a chip at full brightness and did not understand the brake.</param>
+        private void DrawSwap(int swapCharges, int brakeCharges, int cutCharges, bool brakeOwed, bool onGamepad, Viewport viewport,
+            int margin)
         {
             if (swapCharges < 0 && brakeCharges < 0 && cutCharges < 0) return;
 
@@ -1266,7 +1273,8 @@ namespace BS3D.Screens
                 DrawChip(row++, onGamepad ? SWAP_GLYPH_PAD : SWAP_GLYPH_KEY, _swapText, swapCharges > 0, in layout, viewport, margin);
 
             if (brakeCharges >= 0)
-                DrawChip(row++, onGamepad ? BRAKE_GLYPH_PAD : BRAKE_GLYPH_KEY, _brakeText, brakeCharges > 0, in layout, viewport, margin);
+                DrawChip(row++, onGamepad ? BRAKE_GLYPH_PAD : BRAKE_GLYPH_KEY, _brakeText, brakeCharges > 0 && brakeOwed, in layout,
+                    viewport, margin);
 
             if (cutCharges >= 0)
                 DrawChip(row, onGamepad ? CUT_GLYPH_PAD : CUT_GLYPH_KEY, _cutText, cutCharges > 0, in layout, viewport, margin);
