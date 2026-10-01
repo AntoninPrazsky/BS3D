@@ -585,6 +585,16 @@ namespace BS3D.Screens
         private readonly Wormhole _wormhole;
 
         /// <summary>
+        /// The level's crates (#257): the boxes a shot banks off, filled by <c>InstallLevel</c> from the level file and
+        /// stood in each level's world by <c>BuildPhysicsWorld</c>. Empty on every level that has none, which is every
+        /// level shipped today; the bounce and the preview then cost nothing.
+        /// </summary>
+        private readonly Crates _crates = new();
+
+        /// <summary>How they are drawn; null without any.</summary>
+        private CrateField _crateField;
+
+        /// <summary>
         /// How hard a full-size blast heaves the camera, as a <c>CameraShake.Rumble</c> strength. Under 1 so that a
         /// chain still reads as bigger than one bomb before the rumble saturates — each link adds its own as it
         /// goes off.
@@ -1564,6 +1574,9 @@ namespace BS3D.Screens
             //motion blur): the window's glazing is drawn with the barrel's own further down, so the one pose serves
             //both rather than being built a second time from a second read of the stroke.
             DrawGun(barrelWorld, carriageWorld);
+
+            //The level's crates (#257), opaque, with the gun
+            _crateField?.Draw(Camera, Game.SceneEffectParams);
 
             //Everything collected above, as one instanced draw per ball type and LOD level — and the frame's
             //collection is closed by it. The heartbeat runs on the WALL clock: the balls go on breathing while

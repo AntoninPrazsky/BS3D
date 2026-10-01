@@ -56,6 +56,11 @@ namespace Prazsky.BS3D.Physics
         //thread between steps and only read during one, like the listener flags beside it.
         IndexSet looseBodyFlags;
 
+        //The statics that are crates (#257): a shot in flight is kept off them by the narrow phase, because its bounce off
+        //one is solved by Crates itself, exactly, the way the landing preview solves it. Written when the level's world is
+        //built and only read during steps.
+        IndexSet crateStaticFlags;
+
         //For the purpose of this demo, we'll use some regular ol' interfaces rather than using the struct-implementing-interface for specialization.
         //This array will be GC tracked as a result, but that should be mostly fine. If you've got hundreds of thousands of event handlers, you may want to consider alternatives.
         struct Listener
@@ -211,6 +216,15 @@ namespace Prazsky.BS3D.Physics
         {
             if (looseBodyFlags.Flags.Allocated && looseBodyFlags.Contains(body.Value)) looseBodyFlags.Remove(body.Value);
         }
+
+        /// <summary>Marks a static as a crate (#257) — see <see cref="IsCrate"/>. Main thread, before any step.</summary>
+        public void MarkCrate(StaticHandle crate) => crateStaticFlags.Add(crate.Value, pool);
+
+        /// <summary>Whether a collidable is a static marked a crate. Safe to read during a step.</summary>
+        public bool IsCrate(CollidableReference collidable) =>
+            collidable.Mobility == CollidableMobility.Static
+            && crateStaticFlags.Flags.Allocated
+            && crateStaticFlags.Contains(collidable.RawHandleValue);
 
         /// <summary>Whether a collidable is a body marked loose. Safe to read during a step.</summary>
         public bool IsLoose(CollidableReference collidable) =>
@@ -481,6 +495,8 @@ namespace Prazsky.BS3D.Physics
                 bodyListenerFlags.Dispose(pool);
             if (looseBodyFlags.Flags.Allocated)
                 looseBodyFlags.Dispose(pool);
+            if (crateStaticFlags.Flags.Allocated)
+                crateStaticFlags.Dispose(pool);
             if (staticListenerFlags.Flags.Allocated)
                 staticListenerFlags.Dispose(pool);
             listenerIndices.Dispose();

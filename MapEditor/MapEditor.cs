@@ -124,6 +124,9 @@ namespace MapEditor
         private string _levelMusic;
         private string _levelAuthor;
 
+        //The crates a loaded level carried (#257), kept through a round-trip though the editor neither shows nor places them
+        private CrateSpec[] _levelCrates;
+
         //What the map's balls are made of (#258) — cycled by L, written into the level by F4 and read back off
         //one on load. Beach for a new map and for a plain map file, which carries no look at all.
         private BallStyle _ballStyle = BallStyle.Beach;
@@ -676,6 +679,7 @@ namespace MapEditor
             //A fresh map is not the loaded level any more — F4 must not write a stale theme onto it
             _levelMusic = null;
             _levelAuthor = null;
+            _levelCrates = null;
             SetBallStyle(BallStyle.Beach);
 
             Info.CustomText = $"New map {dialog.StageSizeX} x {dialog.StageSizeZ} x {dialog.Levels}";
@@ -747,6 +751,7 @@ namespace MapEditor
                 SkyDome = (byte)_skyDomeNumber,
                 Scene = _scene,
                 Music = _levelMusic,
+                Crates = _levelCrates,
                 //Written only when it is not the default (#258), so a level of ordinary vinyl balls stays
                 //byte-for-byte the file it was: the field is absent from every level authored before the style
                 //existed, and a round-trip through the editor must not start adding it to all of them.
@@ -852,6 +857,7 @@ namespace MapEditor
                 //onto it
                 _levelMusic = null;
                 _levelAuthor = null;
+                _levelCrates = null;
                 SetBallStyle(BallStyle.Beach);
                 return;
             }
@@ -875,6 +881,7 @@ namespace MapEditor
                 //and a round-trip through the editor no longer silently unpins a level's theme
                 _levelMusic = level.Music;
                 _levelAuthor = level.Author;
+                _levelCrates = level.Crates;
                 SetBallStyle(level.Balls ?? BallStyle.Beach);
 
                 //The level's dome wins over whatever is up (the sky key still cycles freely from here)

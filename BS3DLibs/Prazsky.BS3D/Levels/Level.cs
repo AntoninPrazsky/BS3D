@@ -123,6 +123,13 @@ namespace Prazsky.BS3D.Levels
         [JsonPropertyName("map")]
         public BallPositionTypes Map { get; set; }
 
+        /// <summary>
+        /// The crates standing in this level's play space (#257) — boxes a shot banks off like a mirror. Null in every
+        /// level written before they existed, and written only by a level that has some.
+        /// </summary>
+        [JsonPropertyName("crates")]
+        public CrateSpec[] Crates { get; set; }
+
         //AllowOutOfOrderMetadataProperties stood here while the scene was polymorphic, so a hand-edited file
         //that did not keep the "kind" discriminator first still loaded. Nothing in a level is polymorphic
         //since format 2 — a legacy scene object is read by SceneNameJsonConverter's own JsonDocument, never

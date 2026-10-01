@@ -96,6 +96,9 @@ namespace BS3D
         //clearing one can.
         internal bool Lasers { get; private set; }
 
+        //Testing only (#257): log every shot's resolution beside the cell its ghost promised when it was fired
+        internal bool LogShots { get; private set; }
+
         //Testing only: offer every tutorial card as if none had been taught, and record none (#189). The
         //cards are gated on the save — a lesson done is never shown again — so on a save that finished the
         //chapter months ago they are otherwise unreachable, and a run that taught them for real would write
@@ -365,6 +368,9 @@ namespace BS3D
             Row.Text("powerups", (o, v) => o.Powerups = v),
             //"lasers" pins the floor alarm's laser net on while a level is played, for the same reason.
             Row.Flag("lasers", o => o.Lasers = true),
+            //"logshots" prints where every shot landed beside the cell the landing ghost promised when it was fired
+            //(#257): the ghost's promise checked by a run nobody plays, a bank shot off a crate above all.
+            Row.Flag("logshots", o => o.LogShots = true),
             //"tutorial" offers every tutorial card and records nothing, "tutorial=demo" reels them (#189) —
             //see the property's own note.
             Row.Flag("tutorial", o => o.Tutorial = "force"),

@@ -301,6 +301,9 @@ namespace Prazsky.BS3D.Physics
         /// <param name="velocity">The shot's launch velocity — direction times the caller's speed, which is the
         /// thing that decides how far a well can bend it.</param>
         /// <param name="wells">This frame's snapshot. Null or empty takes the straight path.</param>
+        /// <param name="crates">The level's crates (#257), which the flight banks off as the simulation's shot does
+        /// (<see cref="Crates.BounceShots"/>) — off the same <see cref="Crates.TryFindFirstFace"/> and
+        /// <see cref="Crates.Reflect"/>. Null or empty, with no wells, takes the straight path.</param>
         /// <param name="path">Filled with the flight's knots — the muzzle first, then the end of every segment
         /// walked, and last the touch. Cleared first; left alone entirely when null, which is every caller that
         /// only wants the answer. <b>It is what lets the aim BEAM follow the curve</b>: a straight line drawn
@@ -308,7 +311,7 @@ namespace Prazsky.BS3D.Physics
         /// the flight while telling the truth about its end, which is worse than either.</param>
         public static bool TryFindFirstHitCurved(PhysicsBall[,,] balls, Vector3 origin, Vector3 velocity,
             float radiusSum, GravityWells wells, out PhysicsBall hit, out Vector3 worldContact,
-            List<Vector3> path = null)
+            List<Vector3> path = null, Crates crates = null)
         {
             hit = null;
             worldContact = Vector3.Zero;
@@ -318,8 +321,11 @@ namespace Prazsky.BS3D.Physics
 
             if (balls == null) return false;
 
-            //Every level shipped today, and most shots on a level that has wells: no field, no curve.
-            if (wells == null || wells.Count == 0)
+            bool noWells = wells == null || wells.Count == 0;
+            if (crates != null && crates.Count == 0) crates = null;
+
+            //Every level shipped today, and most shots on a level that has wells: no field, no curve, no crate.
+            if (noWells && crates == null)
             {
                 bool straightHit = TryFindFirstHit(balls, origin, velocity, radiusSum, out hit, out worldContact);
                 if (path != null && straightHit) path.Add(worldContact);
@@ -349,7 +355,12 @@ namespace Prazsky.BS3D.Physics
                 //reaching its bound, which is exactly what it did: the harness hung rather than failing.
                 //Taking the step instead is also the physically honest reading, since a step of that length
                 //crosses the boundary anyway.
-                float toField = wells.DistanceToField(position, heading);
+                //WITH CRATES THE WHOLE FLIGHT IS STEPPED, AND WORLD GRAVITY WITH IT (#257). A bank shot flies two legs
+                //where a plain one flies one, and the test that proved the bounce found the gravity this solver leaves
+                //out was a tenth of a unit by the time a 28-unit bank shot reached the cluster - enough to touch the
+                //ball under the one promised. So on a level with crates the flight is integrated as the simulation
+                //integrates it, gravity included, at the step; on every other level nothing here has changed.
+                float toField = crates != null ? 0f : noWells ? float.MaxValue : wells.DistanceToField(position, heading);
                 float stepReach = speed * INTEGRATION_STEP;
 
                 if (toField > stepReach)
@@ -387,21 +398,51 @@ namespace Prazsky.BS3D.Physics
                 //segment against the velocity as it was BEFORE the force would be a different integrator by
                 //one force application per step, and the ghost would sit a little short of the attach on
                 //every curved shot: the disagreement is small, systematic, and exactly the kind #70 records.
-                shotVelocity += wells.Acceleration(position) * INTEGRATION_STEP;
+                System.Numerics.Vector3 acceleration = noWells ? System.Numerics.Vector3.Zero : wells.Acceleration(position);
+                if (crates != null) acceleration.Y += Constants.EARTH_GRAVITY;
+                shotVelocity += acceleration * INTEGRATION_STEP;
 
                 speed = shotVelocity.Length();
                 if (speed < Constants.THOUSANDTH) return false;
 
                 heading = shotVelocity / speed;
 
-                if (TryFindFirstHitOnSegment(balls, position.ToXna(), heading.ToXna(), speed * INTEGRATION_STEP,
-                        radiusSum, out hit, out worldContact, out _))
+                //The step's flight, bounced off any crate inside it with no force between the bounces — what
+                //Crates.BounceShots does to the ball after the same force (#257). Each leg is asked about the cluster
+                //first, since a ball reached before the face is reached at all.
+                float stepLeft = INTEGRATION_STEP;
+                for (int bounce = 0; bounce <= Crates.MAX_BOUNCES && stepLeft > 0f; bounce++)
                 {
-                    path?.Add(worldContact);
-                    return true;
+                    float legSpeed = shotVelocity.Length();
+                    if (legSpeed < Constants.THOUSANDTH) return false;
+
+                    System.Numerics.Vector3 legHeading = shotVelocity / legSpeed;
+                    float reach = legSpeed * stepLeft;
+
+                    float toFace = reach;
+                    System.Numerics.Vector3 face = System.Numerics.Vector3.Zero;
+                    bool facing = bounce < Crates.MAX_BOUNCES && crates != null
+                        && crates.TryFindFirstFace(position, legHeading, reach, BallsConstraintsBuilder.BALL_RADIUS, out toFace, out face);
+
+                    if (TryFindFirstHitOnSegment(balls, position.ToXna(), legHeading.ToXna(), facing ? toFace : reach,
+                            radiusSum, out hit, out worldContact, out _))
+                    {
+                        path?.Add(worldContact);
+                        return true;
+                    }
+
+                    if (!facing)
+                    {
+                        position += legHeading * reach;
+                        break;
+                    }
+
+                    position += legHeading * toFace;
+                    shotVelocity = Crates.Reflect(shotVelocity, face);
+                    stepLeft -= toFace / legSpeed;
+                    path?.Add(position.ToXna());
                 }
 
-                position += shotVelocity * INTEGRATION_STEP;
                 flown += INTEGRATION_STEP;
                 path?.Add(position.ToXna());
             }

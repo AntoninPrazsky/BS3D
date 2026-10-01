@@ -64,6 +64,8 @@ namespace BS3D.Screens
     /// from — the magazine's deal, the transmute's replacements, the drop cinematic's and the chapter intro's
     /// rolls — or null to roll a fresh one per level, which is what a player gets. Either way the session prints
     /// it as <c>[session] seed N</c>, so a playtest report names the seed that replays its deal.</param>
+    /// <param name="LogShots">The <c>logshots</c> argument (#257): print every shot's landing cell (or its miss) beside
+    /// the cell the landing ghost promised when it was fired. One line a shot, so only on request.</param>
     internal sealed record SessionTestOptions(
         int? ForcedStreak,
         int ForcedWildcardEvery,
@@ -75,7 +77,8 @@ namespace BS3D.Screens
         Tutorial.Mode TutorialMode,
         BallStyle? BallStyleOverride,
         string StartupLevelFile,
-        int? Seed)
+        int? Seed,
+        bool LogShots = false)
     {
         /// <summary>
         /// Reads the levers out of what the command line said. The one place their interpretation lives: any
@@ -95,6 +98,7 @@ namespace BS3D.Screens
                 : Tutorial.Mode.Force,
             BallStyleOverride: launch.BallStyle,
             StartupLevelFile: string.IsNullOrWhiteSpace(launch.LevelFile) ? null : launch.LevelFile,
-            Seed: launch.Seed);
+            Seed: launch.Seed,
+            LogShots: launch.LogShots);
     }
 }

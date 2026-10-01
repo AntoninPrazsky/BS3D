@@ -82,6 +82,8 @@ namespace BS3D.Screens
             //A landing breaks the impossible shot's run (#230); the shot has already left _shotBalls, so the watch cannot see it
             _repeatMiss.Break();
 
+            LogResolution($"landed at ({landing.Cell.X},{landing.Cell.Z},{landing.Cell.Level})");
+
             //The landing's own sound, before anything is scored: it depends only on the colour that hit, what it
             //is MADE of (#314) and where — not on what came loose. Spoken from the cell it stuck to — the same
             //solved position the award is born on below — so a hit on the left of the field is heard on the
@@ -440,6 +442,7 @@ namespace BS3D.Screens
 
             _run.Score.Missed();
             if (_shotCode.Record(false)) CelebrateShotCode();
+            LogResolution("missed");
 
             //A MISS TICKS THE INFECTION TOO (#331), and the issue asks for that ruling to be stated rather
             //than fallen into. Two arguments and they agree. The first is the game's own precedent: the
