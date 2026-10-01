@@ -151,12 +151,14 @@ namespace BS3D.Screens
 
         /// <summary>
         /// Left or right on the arrow keys, the D-pad or the left stick (−1 / +1) — <b>the page's own axis</b>,
-        /// where up and down are always the focus cursor's. One page claims it: the level picker turns to the
-        /// previous or next chapter (#273). Raised by the host's <c>UpdateMenuNavigation</c> with the same
-        /// fire-once-then-walk treatment a held direction gets on the other axis.
+        /// where up and down are always the focus cursor's. Three pages claim it: the level picker turns to the
+        /// previous or next chapter (#273), Help to its previous or next page (#606) and Settings to its previous or
+        /// next tab (#686). Raised by the host's <c>UpdateMenuNavigation</c> with the same fire-once-then-walk
+        /// treatment a held direction gets on the other axis — and since #686 by the pad's shoulder buttons too, one
+        /// press a page.
         /// <para>
         /// Returns whether it acted, which is what decides whether the menu ticks: a page that ignores the axis
-        /// — every page but one — must not sound as though something moved, and neither must a picker whose set
+        /// — every page but those three — must not sound as though something moved, and neither must a picker whose set
         /// has one chapter to turn between.
         /// </para>
         /// </summary>

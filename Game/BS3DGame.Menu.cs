@@ -332,6 +332,11 @@ namespace BS3D
         /// window narrower than that used to keep its height's scale and push the level picker's tiles and the
         /// settings' columns off the right edge; below this the menu scales by width instead, and at any aspect
         /// wider than 2560:2160 (about 1.19) nothing changes.
+        /// <para>
+        /// Since #686 the settings page is one column under a tab row, its plate about 1880 units across, so it no
+        /// longer sets this. The figure is kept rather than lowered: the level picker's tiles ran off the same edge,
+        /// and the picker has not been measured against a smaller one.
+        /// </para>
         /// </summary>
         private const int MENU_MIN_DESIGN_WIDTH = 2560;
 
@@ -1421,7 +1426,10 @@ namespace BS3D
 
             if (widget is Button button)
             {
-                if (button.Enabled)
+                //A button with no action on its Tag for the pad to press is not an entry: the settings page's tabs
+                //(#686), which the sideways axis and the shoulders turn instead - in a walk that is one line down the
+                //page, five tabs ahead of the first row would be five presses before anything could be changed
+                if (button.Enabled && button.Tag is Action)
                 {
                     _navEntries.Add(button);
                     _navScrollers.Add(enclosing);
@@ -1550,6 +1558,13 @@ namespace BS3D
                 _audioDirector.Sfx.PlayUiTick();
 
             if (!edgeInputAllowed) return;
+
+            //The pad's shoulders page sideways too (#686): one press, one page, never a held walk - they are the keys a
+            //pad player turns a tab with, and the picker's chapters and Help's pages turn on them alike
+            int shoulder = (IsPadEdge(pad, Buttons.RightShoulder) ? 1 : 0) - (IsPadEdge(pad, Buttons.LeftShoulder) ? 1 : 0);
+
+            if (shoulder != 0 && _screens.Active is MenuPage shoulderPage && shoulderPage.PageSideways(shoulder))
+                _audioDirector.Sfx.PlayUiTick();
 
             //The Konami code, before B and A are acted on: the A that completes it must not also press the entry
             //the cursor is on, and up-up-down-down leaves that on the first — New Game / Continue, which starts
