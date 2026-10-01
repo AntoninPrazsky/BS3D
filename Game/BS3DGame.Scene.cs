@@ -102,7 +102,16 @@ namespace BS3D
 
         internal BasicEffectParams SceneEffectParams => _sceneEffectParams;
 
+        /// <summary>
+        /// The level's crates as they are drawn (#257), set by the session with each level and null without any. Held
+        /// here only so the sky-lit enrolment reaches renderers the session makes after the scene's lighting has run.
+        /// </summary>
+        internal BS3D.Effects.CrateField SessionCrates { get; set; }
+
         private Effect _instancingEffect;
+
+        /// <summary>The shared instanced effect, for a renderer the session makes of its own (#257's crates).</summary>
+        internal Effect InstancingEffect => _instancingEffect;
 
         private readonly CitySceneConfig _cityConfig = new();
 
@@ -382,6 +391,10 @@ namespace BS3D
             //The birthday hat, on the one day it is built (#230); it sits in the gun's light
             if (_partyHat != null)
                 foreach (InstancedModelRenderer renderer in _partyHat.Renderers) yield return renderer;
+
+            //The level's crates (#257), made with each level and so after the scene's lighting ran
+            if (SessionCrates != null)
+                foreach (InstancedModelRenderer renderer in SessionCrates.Renderers) yield return renderer;
 
             yield return _cityRenderer;
 

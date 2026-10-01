@@ -39,6 +39,11 @@ namespace Prazsky.BS3D.Physics
                     && ((_events.IsListener(a) && _events.IsLoose(b)) || (_events.IsListener(b) && _events.IsLoose(a))))
                     return false;
 
+                //And a shot in flight never meets a crate here (#257): its bounce off one is Crates' own exact reflection,
+                //the one the landing preview draws, and a Bepu contact beside it would be a second, different answer
+                if ((_events.IsListener(a) && _events.IsCrate(b)) || (_events.IsListener(b) && _events.IsCrate(a)))
+                    return false;
+
                 return true;
             }
 

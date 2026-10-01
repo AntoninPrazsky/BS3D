@@ -45,7 +45,14 @@ namespace BS3D.Screens
             //program down on the first launch, and it had already done exactly that in the Testbed an hour
             //earlier: the two executables build their worlds at different moments and neither builds it in a
             //constructor. Anything hung on `_world` belongs next to `_world`.
-            _world.PerStepForces = dt => _gravityWells.ApplyTo(_shotBalls, dt);
+            //And the crates (#257) after the wells, in the order the landing preview takes them: the step's forces, then
+            //the step's flight bounced off any crate in it
+            _world.PerStepForces = dt =>
+            {
+                _gravityWells.ApplyTo(_shotBalls, dt);
+                _crates.BounceShots(_shotBalls, _world.Events, dt, Prazsky.Core.Tools.Constants.EARTH_GRAVITY);
+            };
+            _crates.AddStatics(_world.Simulation, _world.Events);
 
             //The air over this level's scene (#95), from its own clock: read once a step below. The level has applied
             //its scene by now (InstallLevel), so this is the scene the player sees, and the clock starts at zero with

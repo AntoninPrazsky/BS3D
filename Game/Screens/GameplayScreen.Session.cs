@@ -139,6 +139,9 @@ namespace BS3D.Screens
             //draw a gun's shadow onto the stone with no gun standing on it, or a gun nobody can Continue.
             Game.StandingGun = null;
 
+            //The level's crates go with it (#257)
+            InstallCrates(null);
+
             //Idempotent, which is what this needs: DisposeResources runs it again on the way out of the program
             _world?.Dispose();
 
@@ -220,6 +223,9 @@ namespace BS3D.Screens
             //the fallback map is still level `index` and should sound like it.
             string namedTheme = null;
 
+            //The crates this level stands in its play space (#257), placed below once the field is fitted
+            Prazsky.BS3D.Levels.CrateSpec[] crateSpecs = null;
+
             //What this level's balls are made of (#258). Beach unless the file says otherwise — including when
             //the load fails below, so the fallback map is drawn in something rather than in whatever the front
             //end's last preview happened to leave standing on the shared render set.
@@ -253,6 +259,7 @@ namespace BS3D.Screens
 
                         namedTheme = level.Music;
                         ballStyle = level.Balls ?? BallStyle.Beach;
+                        crateSpecs = level.Crates;
                     }
                     else map = new BallsMap(path);
 
@@ -293,6 +300,7 @@ namespace BS3D.Screens
 
             FitFieldToMap();
             FitCeilingToMap();
+            InstallCrates(crateSpecs);
 
             //The gun and the lens both move with the field's size, and each is placed off the other
             FitCannonAndGameCameraToLevel();
@@ -425,6 +433,36 @@ namespace BS3D.Screens
         /// Derives everything the loaded field's size and depth decide, hanging the field by
         /// <see cref="FitClusterWorldOffset"/>.
         /// </summary>
+        /// <summary>
+        /// Stands this level's crates (#257) — the physics' boxes and their drawing — or takes the last level's away with
+        /// null. Each crate's centre is measured from the field's floor on its axis (<see cref="Prazsky.BS3D.Levels.CrateSpec"/>),
+        /// so it needs the field fitted first.
+        /// </summary>
+        private void InstallCrates(Prazsky.BS3D.Levels.CrateSpec[] specs)
+        {
+            _crates.Clear();
+            Game.SessionCrates = null;
+            _crateField?.Dispose();
+            _crateField = null;
+
+            if (specs == null || specs.Length == 0) return;
+
+            foreach (Prazsky.BS3D.Levels.CrateSpec spec in specs)
+            {
+                if (spec == null || spec.Width <= 0f || spec.Height <= 0f || spec.Depth <= 0f) continue;
+
+                _crates.Add(new Crates.Crate(
+                    new System.Numerics.Vector3(spec.X, _clusterWorldOffset.Y + spec.Y, spec.Z),
+                    new System.Numerics.Vector3(spec.Width, spec.Height, spec.Depth) * Constants.HALF));
+            }
+
+            if (_crates.Count == 0) return;
+
+            _crateField = new BS3D.Effects.CrateField(GraphicsDevice, Game.InstancingEffect, _crates);
+            Game.SessionCrates = _crateField;
+            Console.WriteLine($"[crates] {_crates.Count} in this level");
+        }
+
         private void FitFieldToMap()
         {
             _clusterWorldOffset = FitClusterWorldOffset(_map, out float fieldTopY);

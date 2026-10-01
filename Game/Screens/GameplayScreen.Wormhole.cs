@@ -149,9 +149,28 @@ namespace BS3D.Screens
             return Vector3.Transform(local, Matrix.Invert(view));
         }
 
+        //Testing only (#257, logshots): the cell each shot's ghost promised when it was fired, in firing order, so its
+        //resolution can be printed beside it. Shots resolve in about the order they leave; a run proving a promise fires
+        //one at a time anyway.
+        private readonly Queue<string> _promises = new();
+
+        private void NotePromise()
+        {
+            if (!_test.LogShots) return;
+            _promises.Enqueue(_previewHasCell ? $"({_previewCell.X},{_previewCell.Z},{_previewCell.Level})" : "none");
+        }
+
+        private void LogResolution(string what)
+        {
+            if (!_test.LogShots) return;
+            string promised = _promises.Count > 0 ? _promises.Dequeue() : "?";
+            Console.WriteLine($"[shotlog] {what}, the ghost promised {promised}");
+        }
+
         /// <summary>A fresh level: nothing watched, no run under way, no hole open.</summary>
         private void ResetWormhole()
         {
+            _promises.Clear();
             _firedPoses.Clear();
             _repeatMiss.Reset();
             _wormhole.Reset();

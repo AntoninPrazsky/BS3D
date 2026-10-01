@@ -215,6 +215,13 @@ namespace BS3D.Tools.WindingCheck
             yield return ("WireBoxMesh(editor AABB)", () => new WireBoxMesh(d, 4f, 3f, 2f, 0.05f));
             yield return ("TrophyMesh(plain)", () => new TrophyMesh(d, handles: false));
             yield return ("TrophyMesh(handles)", () => new TrophyMesh(d, handles: true));
+            //#257's crate, every part, at a long crate's proportions and a cube's
+            foreach (CrateMesh.Part part in Enum.GetValues<CrateMesh.Part>())
+            {
+                CrateMesh.Part p = part;
+                yield return ($"CrateMesh.{p}(1.2x8x10)", () => new CrateMesh(d, new Vector3(1.2f, 8f, 10f), p));
+                yield return ($"CrateMesh.{p}(cube 2)", () => new CrateMesh(d, new Vector3(2f), p));
+            }
             for (char c = ' '; c < (char)0x180; c++)
             {
                 if (c == ' ' || !LetterShapes.Supports(c)) continue;

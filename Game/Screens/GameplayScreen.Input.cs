@@ -410,6 +410,9 @@ namespace BS3D.Screens
             //Where it left from and along, for the impossible shot's watch (#230) - see WatchForEscapes
             _firedPoses[ball.BallReference.Handle.Value] = (muzzle, direction);
 
+            //And what its ghost promised, for a logshots run (#257)
+            NotePromise();
+
             //The ball is spent the instant it leaves the barrel. What it *did* takes a physics step or more to
             //resolve, so the budget and the score are driven by different events on purpose — see ScoreKeeper.
             _run.Score.Shot();

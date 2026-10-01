@@ -149,7 +149,7 @@ namespace BS3D.Screens
             //the question. It is the same SHOOT_SPEED the gun fires at, from the one constant.
             if (!ShotPlacement.TryFindFirstHitCurved(_physicsBalls, muzzle, aim * SHOOT_SPEED,
                     2f * BallsConstraintsBuilder.BALL_RADIUS, _gravityWells, out PhysicsBall hit,
-                    out Vector3 contact, _previewPath))
+                    out Vector3 contact, _previewPath, _crates))
             {
                 //Nothing out there. The beam still goes up, because in the overview it is the ONLY thing saying
                 //where the gun points — but open-ended, so it thins away instead of ending at a phantom.
