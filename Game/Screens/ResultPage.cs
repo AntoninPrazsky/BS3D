@@ -282,8 +282,13 @@ namespace BS3D.Screens
                 if (_revealClock >= RevealTotalSeconds) _revealSettled = true;
             }
 
-            //The boards come in after the reveal has settled, and punch in on their own clock (#547)
-            if (_boardsPlate != null && _boardsPlate.Visible) _boardsClock += elapsed;
+            //The boards come in after the reveal has settled, and punch in on their own clock (#547); the signal in
+            //front of their status line keeps time with them (#683)
+            if (_boardsPlate != null && _boardsPlate.Visible)
+            {
+                _boardsClock += elapsed;
+                _signal.Advance(elapsed);
+            }
             ApplyBoards();
 
             Game.Backdrop.AdvanceOrbit(elapsed, out Vector3 position, out Vector3 target, out float fieldOfView);
@@ -1230,8 +1235,16 @@ namespace BS3D.Screens
         private const int BOARD_SECTION_GAP = 40;
         private int _boardWidth;
 
+        //The signal in front of the status line (#683): the small face's whole line height, so it scales with the
+        //letters beside it at every layout - at their cap height (0.72) it was some twenty pixels at 1080p and easy to
+        //miss, which is the one thing it exists not to be - and a gap of design units between them
+        private const float SIGNAL_SIZE = 1.0f;
+        private const int SIGNAL_GAP = 22;
+
         private Panel _boardsPlate;
         private Label _boardsStatus;
+        private HorizontalStackPanel _statusRow;
+        private OnlineSignal _signal;
         private BoardView _month, _allTime;
         private bool _offerOnlineHint;
         private float _boardsClock;
@@ -1258,15 +1271,23 @@ namespace BS3D.Screens
             stack.Widgets.Add(_allTime.Root);
 
             //What the boards cannot show yet or at all — sending, offline, refused, or the offer to a player who has not
-            //opted in — in the plate's own small print
+            //opted in — in the plate's own small print, behind the signal that says whether anything is happening
+            //(#683): a still "Sending your score..." read as a stuck line
+            int signalSize = (int)(FontSmall.LineHeight * SIGNAL_SIZE);
+            int signalGap = Scaled(SIGNAL_GAP);
+            _signal = new OnlineSignal(signalSize);
             _boardsStatus = new Label
             {
                 Font = FontSmall,
                 TextColor = BS3DGame.MENU_TEXT_BODY,
                 Wrap = true,
-                Width = _boardWidth,
+                Width = _boardWidth - signalSize - signalGap,
+                VerticalAlignment = VerticalAlignment.Center,
             };
-            stack.Widgets.Add(_boardsStatus);
+            _statusRow = new HorizontalStackPanel { Spacing = signalGap };
+            _statusRow.Widgets.Add(_signal);
+            _statusRow.Widgets.Add(_boardsStatus);
+            stack.Widgets.Add(_statusRow);
 
             Panel plate = Plate(stack);
             plate.HorizontalAlignment = HorizontalAlignment.Right;
@@ -1307,7 +1328,7 @@ namespace BS3D.Screens
             if (!Game.Online.Enabled)
             {
                 ShowSections(false);
-                _boardsStatus.Text = "Online leaderboards are off. Turn on Online scores in Settings to see where your clears rank.";
+                SetStatus("Online leaderboards are off. Turn on Online scores in Settings to see where your clears rank.", signal: null);
                 return;
             }
 
@@ -1316,12 +1337,15 @@ namespace BS3D.Screens
             if (answer is not { Outcome: OnlineOutcome.Accepted } accepted)
             {
                 ShowSections(false);
-                _boardsStatus.Text = answer?.Outcome switch
+
+                //No answer yet is a request in flight, and the signal says so by moving (#683); an answer that is
+                //not a delivery leaves it still
+                SetStatus(answer?.Outcome switch
                 {
                     OnlineOutcome.Offline => "Offline. This clear is saved and goes out with your next one.",
                     OnlineOutcome.Refused => "The score server did not take this clear.",
                     _ => "Sending your score...",
-                };
+                }, answer == null ? OnlineSignal.SignalMode.Working : OnlineSignal.SignalMode.Idle);
                 return;
             }
 
@@ -1332,16 +1356,30 @@ namespace BS3D.Screens
             _allTime.Fill("ALL TIME", BoardView.AllTimePeriod, Game.Online.ResultAllTimeBoard,
                 accepted.AllTimeRank, accepted.AllTimeTotal);
 
+            //Accepted: the boards still loading keep the signal moving; once they are in, it turns gold for the line
+            //that is left (a personal best), and the line goes when there is nothing to add to the boards themselves
             bool loading = Game.Online.ResultMonthBoard == null || Game.Online.ResultAllTimeBoard == null;
-            _boardsStatus.Text = loading ? "Loading the boards..." : accepted.PersonalBest ? "A personal best on this level." : string.Empty;
-            _boardsStatus.Visible = _boardsStatus.Text.Length > 0;
+            SetStatus(loading ? "Loading the boards..." : accepted.PersonalBest ? "A personal best on this level." : string.Empty,
+                loading ? OnlineSignal.SignalMode.Working : OnlineSignal.SignalMode.Done);
         }
 
         private void ShowSections(bool visible)
         {
             _month.Root.Visible = visible;
             _allTime.Root.Visible = visible;
-            _boardsStatus.Visible = true;
+        }
+
+        /// <summary>
+        /// The status line under the boards and the signal in front of it (#683): the line is shown only when it says
+        /// something, and the signal only beside a line about the online client - not beside the offer to opt in.
+        /// </summary>
+        private void SetStatus(string text, OnlineSignal.SignalMode? signal)
+        {
+            _boardsStatus.Text = text;
+            _statusRow.Visible = text.Length > 0;
+
+            _signal.Visible = signal != null;
+            if (signal is OnlineSignal.SignalMode mode) _signal.Show(mode);
         }
 
         #endregion
