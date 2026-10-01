@@ -68,6 +68,15 @@ namespace BS3D.Effects
 
         public float Blend => _blend;
 
+        /// <summary>
+        /// How much of the game's 2D readout to show while this runs (#693): none for the whole tour and its
+        /// prologue, then back as the camera eases home - the inverse of <see cref="Blend"/> - so it is whole on
+        /// exactly the frame <see cref="Engaged"/> lets the gun answer again (both turn on the blend reaching 0).
+        /// A skip out of a prologue drops the blend to 0 and so brings it back at once, with the cut. 1 whenever
+        /// nothing is playing, which is every level but a chapter's first and every retry of that one.
+        /// </summary>
+        public float HudOpacity => _running ? 0f : 1f - _blend;
+
         public Vector3 Position { get; private set; }
 
         public Vector3 Target { get; private set; }

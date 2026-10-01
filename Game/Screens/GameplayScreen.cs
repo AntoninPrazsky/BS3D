@@ -1449,15 +1449,25 @@ namespace BS3D.Screens
             //to show. Drawn sharp and never into the blurred layer: they stand there to be READ while the page
             //is up, which is exactly what a softened copy would not allow (the running account #438 blurs is
             //the rest of the overlay, and that is gone on either ending).
-            bool overlayUp = !LevelOver;
+            //⚠ AND NOT OVER A CHAPTER'S OPENING TOUR (#693): the score, the balls left, the side cut, the magazine
+            //strip and the chips were readouts of a game nobody could touch yet, pinned over a flight across the
+            //scene. Hidden for the whole tour and faded back in as the camera eases home, whole by the frame the gun
+            //answers (ChapterIntro.HudOpacity). Only the intro: the drop cinematic and the line-loss takeover keep
+            //their HUD on purpose (#639), so this does not ask CameraTakeoverEngaged. The fade goes through the
+            //overlay layer, the one place the whole readout can be made translucent at once; under a page's blur
+            //the blur's own composite takes the layer and the fade is dropped for those frames - a pause taken
+            //in the second the HUD is coming back.
+            float hudOpacity = _chapterIntro.HudOpacity;
+            bool overlayUp = !LevelOver && hudOpacity > 0f;
             bool lossPreviews = LevelOver && _pendingFailure != LevelFailure.None;
             float overlayBlur = overlayUp ? OverlayBlur : 0f;
-            bool overlayLayered = overlayBlur > 0f && Game.BeginOverlayLayer();
+            bool overlayFading = overlayUp && overlayBlur <= 0f && hudOpacity < 1f;
+            bool overlayLayered = (overlayBlur > 0f || overlayFading) && Game.BeginOverlayLayer();
 
             if (overlayLayered)
             {
                 DrawOverlay();
-                Game.EndOverlayLayer(overlayBlur);
+                if (overlayBlur > 0f) Game.EndOverlayLayer(overlayBlur);
             }
 
             //This frame's ball collection, opened here and closed by the one Draw below. It is a ref struct and
@@ -1600,7 +1610,8 @@ namespace BS3D.Screens
             //
             //Blurred under a page, the overlay was drawn into its layer at the top of this method, and what
             //goes here is the layer softened (#438); sharp, it is drawn straight onto the frame as ever.
-            if (overlayLayered) Game.CompositeOverlayLayer(overlayBlur);
+            if (overlayLayered && overlayBlur > 0f) Game.CompositeOverlayLayer(overlayBlur);
+            else if (overlayLayered) Game.FadeOverlayLayer(hudOpacity);
             else if (overlayUp) DrawOverlay();
             else if (lossPreviews) DrawOverlay(previewsOnly: true);
         }

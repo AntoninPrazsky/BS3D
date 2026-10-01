@@ -668,6 +668,23 @@ namespace BS3D
         internal void CompositeOverlayLayer(float blur) => _pipeline.CompositeOverlay(blur);
 
         /// <summary>
+        /// Lays the frame's overlay layer over the resolved frame at <paramref name="opacity"/>, sharp (#693) — the
+        /// HUD fading back in as a chapter's opening tour hands the camera home. The layer holds premultiplied colour
+        /// (the overlay is drawn into it through SpriteBatch's premultiplied AlphaBlend), so a tint of white times the
+        /// opacity scales its colour and its coverage together: one translucent readout rather than each piece of it
+        /// faded over the others.
+        /// </summary>
+        internal void FadeOverlayLayer(float opacity)
+        {
+            RenderTarget2D layer = _pipeline.OverlayTarget;
+            if (layer == null) return;
+
+            OverlayBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
+            OverlayBatch.Draw(layer, Vector2.Zero, Color.White * opacity);
+            OverlayBatch.End();
+        }
+
+        /// <summary>
         /// Everything up to the frame's first gameplay slot: binds the HDR scene target, clears it to the
         /// dome's horizon, hands the clouds and the camera to the shaders, draws the sky, the backdrop and
         /// the island with its pit, and returns the <see cref="SceneFrame"/> the closing slices need. The
