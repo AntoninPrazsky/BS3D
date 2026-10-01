@@ -7447,3 +7447,12 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-10-02 — #495 hudba: řídká a plná varianta podle nebezpečí — desktop, Claude Code (bs3d-a3)
 
 - **Beru #495.** Plán jinou cestou, než issue navrhuje: místo druhé generace z ACE-Step (jiná tónina/tempo, nesynchronní) **oddělím z každé nahrávky bicí** (Demucs na CPU, vlastní venv v `C:\Users\panrd\AI\stems`), takže řídká varianta je *tatáž nahrávka bez bicích* a sedí na vzorek. Hra pak míchá v softwaru `plná − (1 − nebezpečí) × bicí` do jednoho hlasu po kouscích místo přehrávání celé smyčky naráz; nebezpečí = jak blízko čáry visí cluster (totéž, co čte poplach stropu). Jedna kapitola nejdřív, pak majitelův sluch. Soubory: `Game/Audio/GameMusic.cs`, `OggTrack.cs`, `Tools/MusicBake` (zápis stopy bicích), `Game/Music/Drums/*.ogg`, `GameplayScreen` (hodnota nebezpečí), `docs/game-feedback.md`.
+
+## 2026-10-02 — #230 červí díra na mainu — desktop, Claude Code (bs3d-a3)
+
+- **#230 šesté vajíčko na mainu (merge `2087d40d`, opravy po kritickém čtení `1c07aef3`), `shipped-awaiting-verdict`; issue zůstává otevřené (tvar v troskách).** Tři rány po sobě ze stejné pózy (1,5°, 0,5 j. od *první*), každá ven za ostrov (`ESCAPE_RADIUS` 29, letí ven, pořád neurčená), otevřou díru před třetí; pohltí všechny venkovní rány v dosahu 250 (vyřazené jako běžné miny přes `RetireBall` + `OnShotSpent`), stočí je do hrdla a pukne. **Bez bodů** (stropy ScoreSim pro online tabulky). Díra se posune do záběru (`KeepInView`, 72 % poloviny šířky, mimo sloupce HUD) — bez toho byla při ráně pod 45° proužek na kraji obrazu. Nová páka `aim=<t>:<elev>:<trav>` v `ScriptedPlay`.
+- ⚠ **Barvy přes 2 v HDR na jasné obloze zbělají a jejich záře zašedí černé hrdlo** — první záběr byl růžovobílá šmouha; `SWIRL_DIM` 0,85 + nízké radiance to spravily.
+- ⚠ **Hash buněk v polárních souřadnicích skáče na řezu atan2 o počet buněk po obvodu**, i když je počet celé číslo (frac je spojitý, id ne) — hashovat id modulo počet. Našel recenzent.
+- ⚠ **Snímek ve 4K zastaví hru na ~1,5 s a efekt na světovém čase poskočí o 0,5 s** (MonoGame `MaxElapsedTime`); sekvence se fotí v okně 1920×1080. Několik `shot=` časů splynulých za jednu zástavu dá jen jeden snímek.
+- ⚠ **Reference: dva běhy `render-references.ps1` naráz na jednom serveru** (první pokus z bashe přežil zabití rodiče) — druhý „použil" klein server a podepsal snímky jako Z-Image. Než se pustí další běh, ověřit `tasklist | grep sd-server` a že předchozí skript doběhl.
+- Neověřeno: zvuky (nikdo je neslyší), hraní rukou.
