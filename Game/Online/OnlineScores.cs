@@ -33,12 +33,14 @@ namespace BS3D.Online
     /// <para>
     /// <b>What an answer means is decided by its status, and the one judgment in it is which refusals are
     /// final.</b> A 2xx carrying the service's JSON is delivered. A 408, a 429, a 5xx, a timeout and no network
-    /// at all are not the submission's fault, so it stays. Any other 4xx is the service saying no for good — an
-    /// unknown level, a score over the ceiling, a wrong token — and resending it for ever would only block every
-    /// clear queued behind it, so it is dropped and <b>logged</b>: a 422 here means the game and the service
-    /// disagree about a level, which is a thing somebody has to go and look at. A 2xx that is not the service's
-    /// JSON (a captive portal answering everything with its login page) is treated as no answer rather than as
-    /// delivery, because a hotel's Wi-Fi must not eat a clear.
+    /// at all are not the submission's fault, so it stays. Any other 4xx <b>carrying the service's JSON reason</b>
+    /// is the service saying no for good — an unknown level, a score over the ceiling, a wrong token — and
+    /// resending it for ever would only block every clear queued behind it, so it is dropped and <b>logged</b>: a
+    /// 422 here means the game and the service disagree about a level, which is a thing somebody has to go and
+    /// look at. An answer that is not the service's is no answer, whatever its status: a 2xx without its JSON (a
+    /// captive portal answering everything with its login page), because a hotel's Wi-Fi must not eat a clear,
+    /// and a 4xx without its reason (#691), because the first evening on the public hostname a stale DNS record
+    /// sent seven clears to a web host that answered each one 404, and every one was dropped.
     /// </para>
     /// <para>
     /// <b>Nothing of this runs on the frame.</b> One worker task owns the outbox, the file and the
@@ -557,10 +559,12 @@ namespace BS3D.Online
         }
 
         /// <summary>
-        /// The player's "Remove scores" (#548). A 2xx is removed; so is a 404, which is a player the service has
-        /// never heard of — nothing of theirs is there to remove. Only then does the outbox go, file and all; on
-        /// anything else nothing is touched, so the player can try again and still holds the token that proves the
-        /// scores are theirs.
+        /// The player's "Remove scores" (#548). A 2xx is removed; so is the service's own 404, a player it has never
+        /// heard of — nothing of theirs is there to remove. Only then does the outbox go, file and all; on anything
+        /// else nothing is touched, so the player can try again and still holds the token that proves the scores are
+        /// theirs. <b>A 404 from anything but the service is not that answer</b> (#691): a web host behind a stale DNS
+        /// record answers 404 to everything, and taking it for "removed" would delete the identity, the one proof the
+        /// scores on the service are this player's, while every one of them is still there.
         /// </summary>
         /// <returns>Whether the removal happened, which ends this worker: the identity it sends under is gone.</returns>
         private async Task<bool> RemoveAsync(List<ScoreSubmission> outbox, CancellationToken stop)
@@ -568,7 +572,8 @@ namespace BS3D.Online
             Delivery delivery = await SendAsync(HttpMethod.Delete, $"v1/players/{_identity.PlayerId}", null, stop,
                 acceptWithoutBody: true);
 
-            bool removed = delivery.Kind == DeliveryKind.Delivered || delivery.Status == (int)HttpStatusCode.NotFound;
+            bool removed = delivery.Kind == DeliveryKind.Delivered
+                || (delivery.Kind == DeliveryKind.Refused && delivery.Status == (int)HttpStatusCode.NotFound);
 
             if (!removed)
             {
@@ -715,6 +720,14 @@ namespace BS3D.Online
                 if (status == (int)HttpStatusCode.RequestTimeout || status == (int)HttpStatusCode.TooManyRequests || status >= 500)
                     return new Delivery(DeliveryKind.NoAnswer, status, problem: $"{status} {response.ReasonPhrase}");
 
+                //#691: a refusal is final only when it is the SERVICE refusing, and every refusal it makes carries its
+                //JSON reason. A 4xx without one came from something else on the way - a stale DNS record still naming
+                //another host (the first evening on the public hostname lost seven clears to a web host's 404), a
+                //captive portal, a proxy, a parked domain - and must not eat a clear any more than a portal's 200 may
+                if (string.IsNullOrEmpty(body?.Reason))
+                    return new Delivery(DeliveryKind.NoAnswer, status,
+                        problem: $"{status} from {ServerName(response)} without the service's answer (not the score service?)");
+
                 return new Delivery(DeliveryKind.Refused, status, body);
             }
             catch (OperationCanceledException) when (!stop.IsCancellationRequested)
@@ -828,6 +841,16 @@ namespace BS3D.Online
 
             int cut = char.IsHighSurrogate(clean[max - 1]) ? max - 1 : max;
             return clean[..cut].TrimEnd();
+        }
+
+        /// <summary>
+        /// Who answered, for the line that says an answer was not the service's (#691): the response's <c>Server</c>
+        /// header, cleaned and cut, which names the web host or the proxy that stood in the service's place.
+        /// </summary>
+        private static string ServerName(HttpResponseMessage response)
+        {
+            string name = CleanText(response.Headers.Server.ToString(), MaxReasonLength);
+            return string.IsNullOrEmpty(name) ? "an unnamed server" : name;
         }
 
         private static ScoreAnswerBody TryParseAnswer(HttpResponseMessage response, string text)
