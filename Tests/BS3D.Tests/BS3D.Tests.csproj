@@ -48,6 +48,8 @@
     <Compile Include="..\..\Game\Effects\CityIntroShots.cs" />
     <!--What a nickname may be, and which words are secret (#548, #230): a string rule with no device in it.-->
     <Compile Include="..\..\Game\Online\Nickname.cs" />
+    <!--#495: the drums layer's mix, pure arithmetic over 16-bit buffers-->
+    <Compile Include="..\..\Game\Audio\DrumLayer.cs" />
   </ItemGroup>
 
   <ItemGroup>

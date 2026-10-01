@@ -197,6 +197,7 @@ namespace BS3D.Tools.MusicBake
             string extraMasters = null;
             string onlyTracks = null;
             string sfxWav = null, sfxName = null;
+            string drumsWav = null, drumsTrack = null;
             bool sfxMusic = false;
             int sfxRoot = -1;
             float sfxBpm = 0f;
@@ -215,6 +216,7 @@ namespace BS3D.Tools.MusicBake
                 else if (Is(arg, "--masters") && i + 1 < args.Length) extraMasters = args[++i];
                 else if (Is(arg, "--only") && i + 1 < args.Length) onlyTracks = args[++i];
                 else if (Is(arg, "--sfx") && i + 2 < args.Length) { sfxWav = args[++i]; sfxName = args[++i]; }
+                else if (Is(arg, "--drums") && i + 2 < args.Length) { drumsWav = args[++i]; drumsTrack = args[++i]; }
                 else if (Is(arg, "--music")) sfxMusic = true;
                 else if (Is(arg, "--root") && i + 1 < args.Length && int.TryParse(args[++i], out sfxRoot)) continue;
                 else if (Is(arg, "--bpm") && i + 1 < args.Length
@@ -224,13 +226,13 @@ namespace BS3D.Tools.MusicBake
                     && quality >= -0.1f && quality < OGG_QUALITY_LIMIT) continue;
                 else
                 {
-                    Console.WriteLine("usage: MusicBake [--out <dir>] [--theme <name>] [--no-write] | --tracks [--masters <dir>] [--only <prefix>] [--quality <-0.1..0.59>] [--no-write] | --shipped [--only <prefix>] | --sfx <wav> <name> [--music [--root <midi>] [--bpm <n>]] [--no-write]");
+                    Console.WriteLine("usage: MusicBake [--out <dir>] [--theme <name>] [--no-write] | --tracks [--masters <dir>] [--only <prefix>] [--quality <-0.1..0.59>] [--no-write] | --shipped [--only <prefix>] | --sfx <wav> <name> [--music [--root <midi>] [--bpm <n>]] [--no-write] | --drums <wav> <recording> [--no-write]");
                     return 2;
                 }
             }
 
             //#467: every table carries a loudness column, read off a meter that has just been held to its standard
-            if (sfxWav == null && !CheckMeter())
+            if (sfxWav == null && drumsWav == null && !CheckMeter())
             {
                 Console.WriteLine("The loudness meter is off its standard (above), so its lufs column would lie.");
                 return 5;
@@ -239,6 +241,7 @@ namespace BS3D.Tools.MusicBake
             if (shipped) return MeasureShipped(onlyTracks);
             if (tracks) return BuildTracks(write, quality, extraMasters, onlyTracks);
             if (sfxWav != null) return BuildSfx(sfxWav, sfxName, write, quality, sfxMusic, sfxRoot, sfxBpm);
+            if (drumsWav != null) return BuildDrums(drumsWav, drumsTrack, write, quality);
 
             if (write) Directory.CreateDirectory(outDir);
 
@@ -427,6 +430,93 @@ namespace BS3D.Tools.MusicBake
                 + $"  ogg {ogg.Length / 1024.0,6:F1} KB  decoded {back} of {frames} frames"
                 + (back == frames ? "" : "  LENGTH DIFFERS") + shape + (write ? "  -> " + path : "  (not written)"));
             return back == frames ? 0 : 1;
+        }
+
+        /// <summary>
+        /// One recording's drums (#495) -> <c>Game/Music/Drums/&lt;recording&gt;.ogg</c>, the layer the game turns down while
+        /// the cluster hangs safely high. The stem comes from <c>C:/Users/panrd/AI/stems/separate_drums.py</c>, which
+        /// separates the SHIPPED recording, so it is aligned to it sample for sample and has to be exactly as long: the
+        /// game plays <c>full - (1 - g) * drums</c> and a stem a frame off would leave every hit twice. Nothing is
+        /// normalised - its level IS its place in the mix - but it is stored at <see cref="DrumLayer.STORED_SCALE"/>,
+        /// because a separated stem can peak over full scale where its mix does not; a peak still over it is refused.
+        /// Written through the tracks' encoder and decoded straight back, as a track is, so the length is proved to survive,
+        /// and the line says how loud the drums are and how loud the recording is without them.
+        /// </summary>
+        private static int BuildDrums(string wavPath, string recording, bool write, float quality)
+        {
+            string repo = FindRepo();
+            if (repo == null)
+            {
+                Console.WriteLine("MusicBake --drums: run from inside the repository (no Game.sln with a docs folder above it)");
+                return 1;
+            }
+
+            string trackPath = Path.Combine(repo, "Game", "Music", recording + ".ogg");
+            if (!File.Exists(trackPath) || !File.Exists(wavPath))
+            {
+                Console.WriteLine($"MusicBake --drums: missing {(File.Exists(trackPath) ? wavPath : trackPath)}");
+                return 1;
+            }
+
+            byte[] full = OggTrack.Decode(trackPath, TRACK_RATE);
+            int frames = full.Length / 4;
+
+            (float[] stem, int rate) = ReadWav(wavPath);
+            if (rate != TRACK_RATE || stem.Length / 2 != frames)
+            {
+                Console.WriteLine($"MusicBake --drums: {wavPath} is {stem.Length / 2} frames at {rate} Hz, the recording {frames} at {TRACK_RATE}");
+                return 1;
+            }
+
+            float peak = 0f;
+            for (int i = 0; i < stem.Length; i++)
+            {
+                stem[i] *= DrumLayer.STORED_SCALE;
+                peak = Math.Max(peak, Math.Abs(stem[i]));
+            }
+
+            if (peak >= 1f)
+            {
+                Console.WriteLine($"MusicBake --drums: the stem peaks at {peak / DrumLayer.STORED_SCALE:F3}, over even its stored scale");
+                return 1;
+            }
+
+            byte[] ogg = EncodeOgg(stem, rate, quality, SerialFor("drums-" + recording), title: recording + " (drums)");
+
+            string dir = Path.Combine(repo, "Game", "Music", "Drums");
+            string path = Path.Combine(dir, recording + ".ogg");
+            if (write)
+            {
+                Directory.CreateDirectory(dir);
+                File.WriteAllBytes(path, ogg);
+            }
+
+            byte[] back = OggTrack.Decode(new MemoryStream(ogg), rate);
+
+            //The recording, its drums and the two told apart, as the decoder hands them to the game - and the calmest
+            //mix the game plays, whose peak is the one the layer can push over full scale
+            double fullSum = 0, drumSum = 0, restSum = 0, calmPeak = 0;
+            int samples = Math.Min(full.Length, back.Length) / 2;
+            for (int i = 0; i < samples; i++)
+            {
+                double f = (short)(full[i * 2] | (full[i * 2 + 1] << 8)) / 32768.0;
+                double d = (short)(back[i * 2] | (back[i * 2 + 1] << 8)) / 32768.0 / DrumLayer.STORED_SCALE;
+                fullSum += f * f;
+                drumSum += d * d;
+                restSum += (f - d) * (f - d);
+                calmPeak = Math.Max(calmPeak, Math.Abs(f - (1 - DrumLayer.CALM_GAIN) * d));
+            }
+
+            double n = Math.Max(1, samples);
+            Console.WriteLine($"{recording,-20} {frames / (double)rate,6:F2} s  full {Db(Math.Sqrt(fullSum / n)),6:F1}  drums {Db(Math.Sqrt(drumSum / n)),6:F1}"
+                + $"  without {Db(Math.Sqrt(restSum / n)),6:F1} dBFS  peak {peak / DrumLayer.STORED_SCALE:F2}  ogg {ogg.Length / 1024.0,7:F1} KB  decoded {back.Length / 4} of {frames} frames"
+                + $"  calm peak {calmPeak:F2}"
+                + (back.Length / 4 == frames ? "" : "  LENGTH DIFFERS") + (calmPeak < 1 ? "" : "  CLIPS WHEN CALM")
+                + (write ? "  -> " + path : "  (not written)"));
+
+            //A layer whose calm mix clips is refused AFTER it was written, so the line is there to read: delete it
+            if (calmPeak >= 1 && write) File.Delete(path);
+            return back.Length / 4 == frames && calmPeak < 1 ? 0 : 1;
         }
 
         private static readonly string[] NOTE_NAMES = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };

@@ -272,6 +272,9 @@ namespace BS3D.Screens
 
             Game.Music?.SetTheme(namedTheme, index);
 
+            //A level opens calm (#495); its first frame says how calm, before the music's next chunk is mixed
+            if (Game.Music != null) Game.Music.Intensity = 0f;
+
             //The render set is the whole program's, and the front end hangs its own preview through it — so
             //this is stated on the way in rather than assumed, and stated again every frame this screen draws
             //(see Draw). Setting it to what it already is costs a comparison.
