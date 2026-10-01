@@ -7456,3 +7456,14 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - ⚠ **Snímek ve 4K zastaví hru na ~1,5 s a efekt na světovém čase poskočí o 0,5 s** (MonoGame `MaxElapsedTime`); sekvence se fotí v okně 1920×1080. Několik `shot=` časů splynulých za jednu zástavu dá jen jeden snímek.
 - ⚠ **Reference: dva běhy `render-references.ps1` naráz na jednom serveru** (první pokus z bashe přežil zabití rodiče) — druhý „použil" klein server a podepsal snímky jako Z-Image. Než se pustí další běh, ověřit `tasklist | grep sd-server` a že předchozí skript doběhl.
 - Neověřeno: zvuky (nikdo je neslyší), hraní rukou.
+
+## 2026-10-02 — #495 bubny jako vrstva podle nebezpečí; #674 per-building hash; DocDrift — desktop, Claude Code (bs3d-a3)
+
+- **#495 na mainu pro Louku (merge `1f21677e`, opravy po recenzi `34924a98`), `shipped-awaiting-verdict`.** Bubny každé nahrávky odděleny Demucsem (`C:\Users\panrd\AI\stems`: venv, `separate_drums.py`, `preview_layer.py`), uloženy `MusicBake --drums` do `Game/Music/Drums/` v poloviční úrovni; hra míchá `plná − (1 − g) × bubny` po čtvrtsekundových kouscích (8 ve frontě), `g` z výšky nejnižší koule nad čárou (7 kroků = klid, 0,2). 8 z 10 nahrávek Louky má vrstvu; pastoral (bez bubnů) a waltz (v klidu přebuzuje) odmítnuty. **Neslyšeno ve hře — v noci nebyl zvukový výstup** (Sound Blaster i monitory *Unknown*); poslechové rendery poslány majiteli.
+- ⚠ **MonoGame `DynamicSoundEffectInstance.SubmitBuffer` KOPÍRUJE předaný buffer do vlastního poolu** (recenzent to přečetl z IL) — vlastní ring bufferů je zbytečný, stačí jeden scratch.
+- ⚠ **`GameMusic` nikdy neuvolnil odehranou variantu rodiny** — kapitola na jedné rodině držela dekódované všechny nahrávky (Louka ~10× ~10 MB) už od #486; teď se drží jen hraná a další.
+- ⚠ **Bash nástroj v heredocu i s `<<'EOF'` zhltne `\` na `\`** — Python skripty s cestami psát přes Write.
+- ⚠ **Demucs na smyčku: separovat ji třikrát za sebou a vzít prostřední kopii**, aby šev smyčky viděl obě strany; výsledek má přesně délku originálu. ~0,9 s CPU na sekundu hudby. Stem může mít špičku nad 1 i tam, kde mix ne (bloom 1,10).
+- **#674: per-building losy města** (tón fasády, neonová barva a odstín, pás a jeho výška) mají celočíselný `BuildingRoll` místo `Hash21` (perioda 50 × 100 buněk = 6 opakování přes město), merge `f1ce0f6d`; snímky před/po z Testbedu: den stejný, neon přeházený se stejným poměrem barev.
+- **DocDrift**: 22 kandidátů, jediný skutečný drift `MENU_MIN_DESIGN_WIDTH` 2560 → 2600 v `game-shell.md` (merge `0e98daed`).
+- **#230 tvar v troskách**: nestavěn — analýza v issue (náhodou se netrefí nikdy, nebo pořád; obrázek visí na pozadí), dvě levné varianty nabídnuty majiteli.
