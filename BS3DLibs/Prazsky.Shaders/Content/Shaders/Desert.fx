@@ -141,7 +141,7 @@ float HorizonHazeDistance;
 //The grid holds it: a cell is ~2.8 units, the slip face runs over ~16 and the rounding over about twelve.
 static const float DUNE_SPACING = 64.0;       //crest to crest along the wind, world units
 static const float DUNE_WINDWARD = 0.75;      //the share of each period the windward slope takes
-static const float DUNE_MEAN = 0.436;         //the field's mean, sampled numerically, taken back off - see DuneField (0.30 until #688 rounded the crests)
+static const float DUNE_MEAN = 0.403;         //the field's mean, sampled numerically, taken back off - see DuneField (0.30 until #688 rounded the crests; 0.436 while a crest was divided by the crossing's value, see CREST_PEAK)
 
 //The shared gradient noise WITH ITS ANALYTIC GRADIENT: (value, d/dx, d/dy). The same hash and the same quintic fade
 //as Noise.fxh's GradientNoise2, so the value is that function's to the bit - it has to be, because the vertex shader
@@ -175,11 +175,18 @@ float3 GradientNoise2Grad(float2 p)
 }
 
 //How round a crest is, in the units of the profile's two slopes before they meet (#688): the windward rise and the slip
-//face's fall are joined by a smooth minimum over the stretch where they are within this of each other - about a fifth
-//of a period, a dozen units of DUNE_SPACING - instead of meeting on a corner. The owner's note, after flying the desert
-//chapter's tour low over the erg: the dunes were pointed, and should be round and smooth. Normalized back to a peak of
-//one, so a dune keeps its height.
+//face's fall are joined by a smooth minimum over the stretch where they are within this of each other - three eighths
+//of a period at DUNE_WINDWARD 0.75 (t from 0.5625 to 0.9375), some 24 units of DUNE_SPACING - instead of meeting on a
+//corner. The owner's note, after flying the desert chapter's tour low over the erg: the dunes were pointed, and should be
+//round and smooth. Normalized back to a peak of one by CREST_PEAK, so a dune keeps its height.
 static const float CREST_ROUND = 1.0;
+
+//The smooth minimum's own maximum, 1 - CREST_ROUND W (1 - W) for W = DUNE_WINDWARD, which is what a crest is divided by
+//to stand at one (#688). NOT its value where the two slopes cross, 1 - CREST_ROUND / 4: the slopes are unequal (4/3 up,
+//4 down), so the maximum stands off the crossing and above it - 0.8125 against 0.75 - and dividing by the crossing's
+//value lifted every crest to 1.083 for the saturate below to cut off, a flat plateau some 12 units wide with a crease
+//at each edge (found by review; the closed form was checked against a numeric maximum for W 0.6-0.85, CREST_ROUND 0.5-1.5).
+static const float CREST_PEAK = 1.0 - CREST_ROUND * DUNE_WINDWARD * (1.0 - DUNE_WINDWARD);
 
 //How softly the two dune sets hand over, in the field's units (#688): a smooth maximum instead of a max, whose corner
 //was the POINT where a major and a minor crest crossed - a little pyramid at every crossing, the "pointed" part.
@@ -199,9 +206,8 @@ float DuneProfile(float cycles, out float slope)
     float d = rise - fall;
     float side = d >= 0.0 ? 1.0 : -1.0;
     float w = max(CREST_ROUND - abs(d), 0.0) / CREST_ROUND;
-    float peak = 1.0 - 0.25 * CREST_ROUND;
-    float m = (min(rise, fall) - 0.25 * CREST_ROUND * w * w) / peak;
-    float mSlope = ((d >= 0.0 ? fallSlope : riseSlope) + 0.5 * w * side * (riseSlope - fallSlope)) / peak;
+    float m = (min(rise, fall) - 0.25 * CREST_ROUND * w * w) / CREST_PEAK;
+    float mSlope = ((d >= 0.0 ? fallSlope : riseSlope) + 0.5 * w * side * (riseSlope - fallSlope)) / CREST_PEAK;
 
     float h = saturate(m);
     mSlope = (m > 0.0 && m < 1.0) ? mSlope : 0.0;
