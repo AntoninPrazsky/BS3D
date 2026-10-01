@@ -67,8 +67,14 @@ namespace BS3D.Screens
         //kept the type - a 124 number over two 58 lines, 252 units in 186 of inside - so the star row was cut
         //off the bottom of every tile, the one line the page exists to show. The type is sized to the box now
         //(see BuildTile); change either figure and redo that sum.
+        //⚠ AND TALLER AGAIN SINCE #684, by one line: the player's best score under the stars. It could not join the
+        //star row: at Fit's floor that row has 195 units of room, which already refused "Locked · 236 ★" at 279 (#496),
+        //and four stars and a score are longer still. So it is a fourth line, and the box grew by that line and its
+        //gap. The band grew with it, and the preview's lowest rows sit a little further behind the plate
+        //(photographed at 1600x900 and 3840x1600); PREVIEW_LIFT was left alone, since at 2.4:1 the glass top is
+        //already at the frame's edge.
         private const int TILE_WIDTH = 330;
-        private const int TILE_HEIGHT = 210;
+        private const int TILE_HEIGHT = 260;
 
         //The gap between the tile's three lines, in design units, fitted like every other gap on the page
         private const int TILE_LINE_GAP = 4;
@@ -161,6 +167,7 @@ namespace BS3D.Screens
         private readonly List<Label> _tileNames = new();
         private readonly List<Label> _tileStarsEarned = new();
         private readonly List<Label> _tileStarsRest = new();
+        private readonly List<Label> _tileScores = new();
         private readonly List<Label> _pips = new();
         private Label _chapterName, _chapterLine, _totalStars, _detail;
 
@@ -207,6 +214,7 @@ namespace BS3D.Screens
             _tileNames.Clear();
             _tileStarsEarned.Clear();
             _tileStarsRest.Clear();
+            _tileScores.Clear();
             _pips.Clear();
             _detailSlot = -1;
             _focused = null;
@@ -507,8 +515,8 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// One tile: the number loud, the name under it, the player's stars (or the lock's price) at the
-        /// bottom. Built over the host's <see cref="MenuPage.Game"/>.<c>MenuTile</c>, so it is a real menu
+        /// One tile: the number loud, the name under it, the player's stars (or the lock's price), and since #684
+        /// the player's best score at the bottom. Built over the host's <see cref="MenuPage.Game"/>.<c>MenuTile</c>, so it is a real menu
         /// entry — same brushes, same click sound, same pad activation — merely tile-shaped.
         /// <para>
         /// It is built for a <b>slot</b> and not for a level: which level the slot shows changes with the
@@ -518,8 +526,9 @@ namespace BS3D.Screens
         /// </summary>
         private Button BuildTile(int slot)
         {
-            //THE SUM THAT HAS TO HOLD (#496): number + name + star row + two gaps <= TILE_HEIGHT minus MenuTile's
-            //12 + 12 of padding. 80 + 46 + 46 + 2 x 4 = 180 of 186, the six left for each size's own rounding.
+            //THE SUM THAT HAS TO HOLD (#496): number + name + star row + score + three gaps <= TILE_HEIGHT minus
+            //MenuTile's 12 + 12 of padding. 80 + 46 + 46 + 46 + 3 x 4 = 230 of 236, the six left for each size's own
+            //rounding (the score line is #684's, and the box grew by exactly it and its gap).
             //It did not hold from #472 to #496 and nothing said so: Myra clips a stack that overflows its box, so
             //the LAST line - the stars - simply was not there. Heights only; Fit shrinks the gap, never the type.
             VerticalStackPanel content = new()
@@ -562,6 +571,16 @@ namespace BS3D.Screens
             starRow.Widgets.Add(starsRest);
             content.Widgets.Add(starRow);
 
+            //The player's own best score (#684), under the rating it earned - or empty, which still holds its line,
+            //so every tile's number stands at the same height whichever of them has a score
+            Label score = new()
+            {
+                Font = FontTile,
+                TextColor = BS3DGame.MENU_TEXT_BODY,
+                HorizontalAlignment = HorizontalAlignment.Center,
+            };
+            content.Widgets.Add(score);
+
             //The width fits, the HEIGHT does not: a tile's number over its name is font-bound, and the fonts are
             //the menu's - fitting the height clipped every name at 2.4:1 (photographed, #496)
             Button tile = Game.MenuTile(content, () => StartSlot(slot), Fit(TILE_WIDTH), TILE_HEIGHT);
@@ -576,6 +595,7 @@ namespace BS3D.Screens
             _tileNames.Add(name);
             _tileStarsEarned.Add(starsEarned);
             _tileStarsRest.Add(starsRest);
+            _tileScores.Add(score);
 
             return tile;
         }
@@ -866,7 +886,7 @@ namespace BS3D.Screens
                 _tileNumbers[slot].TextColor = unlocked ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM;
                 _tileNames[slot].TextColor = unlocked ? BS3DGame.MENU_TEXT_BODY : BS3DGame.MENU_TEXT_DIM;
 
-                //The bottom line earns its place or stays empty: stars once there are any (an untouched
+                //The star line earns its place or stays empty: stars once there are any (an untouched
                 //campaign is not a wall of hollow glyphs), the price on a lock, nothing on an open level
                 //not yet cleared. The earned run carries the tier's colour, the same one the result screen
                 //struck those stars in — so a level the player took to gold still reads gold here.
@@ -894,6 +914,14 @@ namespace BS3D.Screens
                 _tileStarsEarned[slot].TextColor = rated ? BS3DGame.StarTierColor(stars) : BS3DGame.MENU_TEXT_DIM;
 
                 _tileStarsRest[slot].Text = rated ? StarsRemaining(stars) : string.Empty;
+
+                //The best score the player has cleared it with (#684), the owner's "highest score, but only for
+                //unlocked levels": the player's own, offline and always there, written the way the result page
+                //writes it. Only where there is a rating - a lock has none to show and must not hint at one
+                //(#266), a skip earned none, and an open level not yet cleared has nothing to report. The online
+                //board's top score is not here: contract v1 has no list endpoint, so it would cost a request per
+                //tile (#685 asks the same question).
+                _tileScores[slot].Text = rated ? ScoreText.Of(Game.LevelBestScore(level)) : string.Empty;
             }
         }
 

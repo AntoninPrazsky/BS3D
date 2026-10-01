@@ -775,6 +775,12 @@ namespace BS3D
                 ? _progress.StarsFor(_levelSet.Levels[index].File)
                 : 0;
 
+        /// <summary>The best score one clear of the entry earned, or 0 for a level never cleared - the picker's tile (#684).</summary>
+        internal int LevelBestScore(int index) =>
+            _progress != null && _levelSet != null && index >= 0 && index < _levelSet.Count
+                ? _progress.ScoreFor(_levelSet.Levels[index].File)
+                : 0;
+
         /// <summary>
         /// The total stars the entry demands before it unlocks. Zero — an absent rule, a missing set and an
         /// index outside it — means open from the start, which is the read site the nullable rule is
