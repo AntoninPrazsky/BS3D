@@ -218,6 +218,8 @@ namespace BS3D.Tools.LevelGen
                 Scene = design.Scene,
                 Music = design.Music,
                 Balls = design.Balls,
+                Softness = design.Softness,
+                Crates = design.Crates,
                 Map = new BallPositionTypes { StageSizeX = n, StageSizeZ = n, Levels = fieldLevels, Balls = balls },
             };
 

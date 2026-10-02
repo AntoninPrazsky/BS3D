@@ -97,6 +97,12 @@ namespace BS3D.Tools.LevelGen
         internal const string MUSIC_GRID = "pulse";
         internal const string MUSIC_MIRAGE = "mirage";
 
+        //THE BIG TOP'S OWN FAMILY (#690), in Colossus's style on the owner's word: the eurodance Pulse it played when
+        //#292 named it the reference (the Grid has that family itself since #486), with a carnival colour over the
+        //groove - a calliope hook, a merry-go-round organ, music-box arpeggios - and deliberately no oompah brass,
+        //the dechovka the owner turned away twice (#264, #280).
+        internal const string MUSIC_BIGTOP = "bigtop";
+
         //THE SILHOUETTES' PUPPET (#558). The chapter borrowed the Quarry's LUNAR when #491 inserted it, the one
         //reprise left after #486; it has a family of its own now, briefed for the chapter's character rather
         //than its hour. Black paper cut-outs on a pale check are shadow-puppet theatre and a paper-cut picture
@@ -276,6 +282,11 @@ namespace BS3D.Tools.LevelGen
         internal const BallStyle BALLS_GRID = BallStyle.Ice;
 
         internal const BallStyle BALLS_MIRAGE = BallStyle.Porcelain;
+
+        //VINYL FOR THE BIG TOP (#690): the moulded beach ball with its gores and polar discs is the circus's own ball
+        //- the one a seal balances and a clown juggles - and under the tent's warm spots its gloss reads as a toy
+        //rather than as a gem. The Reveal wears it too, in a cavern dark enough that the two cannot be confused.
+        internal const BallStyle BALLS_BIGTOP = BallStyle.Beach;
 
         //WOOL FOR THE SILHOUETTES (#491), the Gallery's material a second time, and chosen by photograph: the
         //Fish hung on the aurora in wool, porcelain, gem and vinyl, and only the wool made the black shape one

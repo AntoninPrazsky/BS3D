@@ -468,7 +468,7 @@ namespace BS3D.Tools.LevelGen
             //around it. They pass the same per-level checks as everything above, but into Levels/Prototypes and
             //never into the set - played with the Game's `levelfile=`, hung with `--sagfile=`, walked with
             //`--arrivalfile=` - so nothing the campaign counts (unlocks, blocks, ScoreSim's ceilings) moves.
-            Design[] prototypes = { Butterfly() };
+            Design[] prototypes = { Butterfly(), Tightrope(), Bunting(), Hammock(), Sandbags() };
 
             string campaignDir = LevelEmitter.OutDir;
             LevelEmitter.OutDir = Path.Combine(campaignDir, PROTOTYPES_DIR);
