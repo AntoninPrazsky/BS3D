@@ -145,7 +145,7 @@ float3 HueToRGB(float h)
 }
 
 //The render's grain, and it has to be NOISE rather than a sum of waves. The scene's own SurfaceReliefWorld
-//sums seven sines along seven fixed 3D directions, which decorrelate handsomely over a ball or a triplanar
+//summed seven sines (noise too since #674, for the island's flat cap, which wove exactly as described here) along seven fixed 3D directions, which decorrelate handsomely over a ball or a triplanar
 //floor -- but a facade is a FLAT, axis-aligned plane, and on one of those only each direction's projection
 //into the plane survives. Several of the seven project alike, the sum interferes with itself, and the wall
 //comes out under a regular diagonal weave: woven cloth, not plaster. (It is the trap the cannon barrel

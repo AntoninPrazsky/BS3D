@@ -111,10 +111,15 @@ through the same `PerturbNormalFromHeight`. The triplanar paths read it through 
 together with the slab joints (`SlabSize`/`SlabJointWidth`/`SlabJointDepth`, `SlabGroove`), which are cut into
 the same height field so they are real recesses that light and shade from the side.
 
-- **Use seven octaves, not four.** Too few waves spaced too far apart interfere into a regular diagonal
-  weave rather than a surface; the cannon barrel showed it plainly at frequency 28. Ratios are ~1.47
-  apart and irrational. Slope ≈ `strength × frequency × 3.0`, which is the number to reason with when
-  tuning: ~0.2 reads as believable stone, past ~0.4 it looks like crumpled foil.
+- **It is noise, not a sum of waves (#674).** It was seven sines, and seven waves weave on a FLAT face —
+  only each direction's projection into the plane survives, and the island's cap wore a fine woven cloth
+  in every stone scene until a capture with the relief off found it. Now four octaves of `GradientNoise2`,
+  projected on the three planes the triplanar texture uses (a plane under `RELIEF_PLANE_FLOOR` skipped),
+  rotated between octaves. **3D noise was tried first and cost +0.83 ms** in the Game at High, 3840 × 1600,
+  on Pennant (over the 75 Hz budget); the projected 2D field is +0.24. The city's facades and the stone ball
+  (#623) had each learned the same: on a plane, no number of sines is enough. Slope ≈
+  `strength × frequency × 3.0`, which is the number to reason with when tuning: ~0.2 reads as believable
+  stone, past ~0.4 it looks like crumpled foil.
 - **Joints are recesses, not paint**, with a world-space bevel widened against the pixel's footprint
   (`SlabGrooveAxis` carries the #351 story). Give them a real width — collapsed to a one-pixel crease they
   just alias.

@@ -329,7 +329,7 @@ PatternVertexShaderOutput StoneVS(VertexShaderInput input, InstanceInput instanc
 //SIX OCTAVES SINCE #340, WHERE THERE WERE FOUR, and the reason is the owner's "the surface's resolution
 //is too low". Four octaves an octave apart do not describe a surface - they interfere into a regular
 //weave, which is the trap the scene relief's own header records at length (see SurfaceReliefWorld, and
-//why that one uses seven). The two added are the FINEST, so they cost nothing at distance: each octave
+//why that one used seven until #674 made it noise). The two added are the FINEST, so they cost nothing at distance: each octave
 //band-limits against its own wavelength, so they are present exactly while a pixel can hold them and
 //gone silently when it cannot, and what carries a rock across the arena is still the coarse end.
 //⚠ GRADIENT NOISE SINCE #623, NOT RECTIFIED SINES. Six rectified octaves were still a lattice of dimples at

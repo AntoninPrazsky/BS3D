@@ -128,34 +128,81 @@ float ReliefOctave(float3 position, float3 waveDirection, float frequency, float
     return sin(dot(position, waveDirection) * frequency) * saturate(1 - footprint * frequency / 3.14159265);
 }
 
-//The same octave, band-limited against the footprint measured *along the wave's own direction* instead
-//of against its overall extent. A pixel only fails to resolve a wave when it is wide across that wave's
-//crests; how far it stretches parallel to them costs nothing. One scalar footprint cannot express that,
-//and on a surface seen at a grazing angle — where a pixel covers meters along the view but stays
-//millimeters across it — it reports the long axis and fades out every octave at once. The floor then
-//becomes geometrically perfect exactly where it should look roughest, and takes the light like polished
-//glass: the milky smear this replaces. Directionally, the waves running across the view survive.
-float ReliefOctaveDirectional(float3 position, float3 waveDirection, float frequency, float3 dpdx, float3 dpdy)
-{
-    float footprint = abs(dot(dpdx, waveDirection)) + abs(dot(dpdy, waveDirection));
+//World-space grain for the scene surfaces: stone, marble and cast metal all read as an irregular surface rather than a
+//polished one. `frequency` is the coarsest swing's rate in radians a world unit, as it was for the sines it replaced.
+//
+//GRADIENT NOISE SINCE #674, AND IT WAS SEVEN SINES. Seven waves along seven fixed 3D directions decorrelate over a
+//curved object, but the island's cap is a flat plane, and on a plane only each direction's projection survives: the
+//finest three carried most of the slope (amplitude times frequency 0.45-0.69 against the coarsest's 0.26), and three
+//gratings crossing are a weave. It stood on the cap in every stone scene, a fine woven cloth over the rock, and a
+//capture with the relief off took it away where one with the stone texture off did not. The city's facades (FacadeNoise)
+//and the stone ball (#623) had each been through the same and come out at noise; "on a plane no number of them is
+//enough". A hashed lattice has no direction to interfere along.
+//
+//Four octaves of 2D gradient noise, projected the way the stone texture is (three planes, weighted by the normal) and
+//the domain rotated between octaves (Fbm2's rule) so their lattices never share an axis; one cell holds about one
+//swing (frequency / pi cells a unit), and the four span what the sines did (to 8.4 of the base against their 9.87).
+//RELIEF_AMPLITUDES rise in slope towards the fine end as the sines' did, and RELIEF_NOISE_GAIN gives the sum their
+//slope on a plane (measured on a port of GradientNoise2: 0.776 against 2.127), so SurfaceReliefStrength keeps the
+//height it named.
+//
+//⚠ 2D AND PROJECTED, NOT GradientNoise3, AND THAT IS A MEASURED COST. The first cut was four octaves of 3D noise -
+//eight Hoskins hashes an octave - and in the Game at High, 3840 x 1600, on Pennant it took the play frame from 12.97
+//to 13.80 ms: over the desktop's 75 Hz budget, on the one surface every level shows. A 2D octave is four hashes, and
+//the cap and every flat face need ONE plane of three: a plane's weight is eased to exactly zero under
+//RELIEF_PLANE_FLOOR, so the planes that carry nothing are skipped without a seam where they stop, and the blend is
+//renormalised by its own spread so the grain does not thin out where two planes share a face at 45 degrees.
+//
+//Each octave fades by Fbm2BandLimited's rule, gone at half a cell of footprint. The footprint is the geometric mean of
+//the pixel's two extents, not the longer one: an isotropic field cannot be faded per direction the way the sines were,
+//and against the long extent a floor seen at a grazing angle went smooth as glass all at once (the "milky smear" the
+//sines' directional fade had been written to cure); against the mean it keeps its grain until both have lost it.
+static const float RELIEF_AMPLITUDES[4] = { 0.40, 0.25, 0.16, 0.10 };
+static const float RELIEF_OCTAVE_STEP = 2.03;
+static const float RELIEF_NOISE_GAIN = 2.74;
+static const float RELIEF_PLANE_FLOOR = 0.03;
 
-    return sin(dot(position, waveDirection) * frequency) * saturate(1 - footprint * frequency / 3.14159265);
+//One plane's octaves, `footprint` in cells of the first
+float ReliefPlane(float2 p, float footprint, int octaves)
+{
+    float cells = 1.0;
+    float height = 0.0;
+
+    [unroll]
+    for (int i = 0; i < octaves; i++)
+    {
+        height += RELIEF_AMPLITUDES[i] * saturate(1.0 - 2.0 * cells * footprint) * GradientNoise2(p);
+        p = mul(NOISE_ROTATE2, p) * RELIEF_OCTAVE_STEP;
+        cells *= RELIEF_OCTAVE_STEP;
+    }
+
+    return height;
 }
 
-//World-space grain for the scene surfaces: stone, marble and cast metal all read as an irregular
-//surface rather than a polished one. Amplitudes sum to one, so SurfaceReliefStrength stays the peak
-//height in world units, and the frequency ratios are irrational so the sum never settles into a tile.
-//Seven octaves rather than a handful on purpose: too few waves spaced too far apart interfere into a
-//regular diagonal weave instead of a surface, which is exactly what the cannon barrel showed first.
-float SurfaceReliefWorld(float3 worldPosition, float frequency, float3 dpdx, float3 dpdy)
+float SurfaceReliefOctaves(float3 worldPosition, float3 worldNormal, float frequency, float3 dpdx, float3 dpdy, int octaves)
 {
-    return 0.26 * ReliefOctaveDirectional(worldPosition, float3(0.71, 0.52, -0.47), frequency, dpdx, dpdy)
-        + 0.20 * ReliefOctaveDirectional(worldPosition, float3(-0.36, 0.83, 0.42), frequency * 1.43, dpdx, dpdy)
-        + 0.16 * ReliefOctaveDirectional(worldPosition, float3(0.55, -0.44, 0.71), frequency * 2.11, dpdx, dpdy)
-        + 0.12 * ReliefOctaveDirectional(worldPosition, float3(-0.82, -0.31, 0.48), frequency * 3.07, dpdx, dpdy)
-        + 0.10 * ReliefOctaveDirectional(worldPosition, float3(0.31, 0.62, 0.72), frequency * 4.51, dpdx, dpdy)
-        + 0.09 * ReliefOctaveDirectional(worldPosition, float3(-0.64, 0.27, -0.72), frequency * 6.73, dpdx, dpdy)
-        + 0.07 * ReliefOctaveDirectional(worldPosition, float3(0.18, -0.91, 0.37), frequency * 9.87, dpdx, dpdy);
+    float cellsPerUnit = frequency / 3.14159265;
+    float3 p = worldPosition * cellsPerUnit;
+    float footprint = sqrt(length(dpdx) * length(dpdy)) * cellsPerUnit;
+
+    //The texture's weights, eased to zero under the floor so a skipped plane is one that weighs exactly nothing
+    float3 w = max(pow(abs(worldNormal), 4) - RELIEF_PLANE_FLOOR, 0.0);
+    w /= max(w.x + w.y + w.z, 1e-6);
+
+    //No gradient op in any branch: the derivatives these need were taken by the caller, and the height they add up
+    //to is differentiated after them, in uniform control flow
+    float height = 0.0;
+    [branch] if (w.x > 0.0) height += w.x * ReliefPlane(p.zy, footprint, octaves);
+    [branch] if (w.y > 0.0) height += w.y * ReliefPlane(p.xz + 17.3, footprint, octaves);
+    [branch] if (w.z > 0.0) height += w.z * ReliefPlane(p.xy + 41.9, footprint, octaves);
+
+    //Independent fields averaged lose spread (two at a half each keep 0.71 of it); this puts it back
+    return height * RELIEF_NOISE_GAIN * rsqrt(max(dot(w, w), 1e-6));
+}
+
+float SurfaceReliefWorld(float3 worldPosition, float3 worldNormal, float frequency, float3 dpdx, float3 dpdy)
+{
+    return SurfaceReliefOctaves(worldPosition, worldNormal, frequency, dpdx, dpdy, 4);
 }
 
 //The world-space relief of a scene object, ready to hand to PerturbNormalFromHeight.
@@ -230,9 +277,9 @@ float SlabGroove(float3 worldPosition, float3 dpdx, float3 dpdy)
 //The height field the whole surface is built from: micro-relief on the slab faces, joints cut below
 //them. The normal and the cavity shading both read this one function, so a feature added here is
 //automatically lit and occluded rather than needing to be handled twice.
-float SceneSurfaceHeight(float3 worldPosition, float3 dpdx, float3 dpdy)
+float SceneSurfaceHeight(float3 worldPosition, float3 worldNormal, float3 dpdx, float3 dpdy)
 {
-    float height = SurfaceReliefWorld(worldPosition, SurfaceReliefFrequency, dpdx, dpdy) * SurfaceReliefStrength;
+    float height = SurfaceReliefWorld(worldPosition, worldNormal, SurfaceReliefFrequency, dpdx, dpdy) * SurfaceReliefStrength;
 
     return height - SlabGroove(worldPosition, dpdx, dpdy) * SlabJointDepth;
 }
@@ -241,20 +288,18 @@ float SceneSurfaceHeight(float3 worldPosition, float3 dpdx, float3 dpdy)
 //twice - in the height, and in the joint glow - where the glow used to evaluate SlabGroove a second time, which
 //with the fractures' warp was two more noise reads on every island pixel (measured at half the cold family's
 //cost on the polar sheet).
-float SceneSurfaceHeightGroove(float3 worldPosition, float3 dpdx, float3 dpdy, out float groove)
+float SceneSurfaceHeightGroove(float3 worldPosition, float3 worldNormal, float3 dpdx, float3 dpdy, out float groove)
 {
     groove = SlabGroove(worldPosition, dpdx, dpdy);
-    return SurfaceReliefWorld(worldPosition, SurfaceReliefFrequency, dpdx, dpdy) * SurfaceReliefStrength - groove * SlabJointDepth;
+    return SurfaceReliefWorld(worldPosition, worldNormal, SurfaceReliefFrequency, dpdx, dpdy) * SurfaceReliefStrength - groove * SlabJointDepth;
 }
 
-float SceneSurfaceHeightCoarseGroove(float3 worldPosition, float3 dpdx, float3 dpdy, out float groove)
+float SceneSurfaceHeightCoarseGroove(float3 worldPosition, float3 worldNormal, float3 dpdx, float3 dpdy, out float groove)
 {
-    float frequency = SurfaceReliefFrequency;
     groove = SlabGroove(worldPosition, dpdx, dpdy);
 
-    float height = (0.26 * ReliefOctaveDirectional(worldPosition, float3(0.71, 0.52, -0.47), frequency, dpdx, dpdy)
-        + 0.20 * ReliefOctaveDirectional(worldPosition, float3(-0.36, 0.83, 0.42), frequency * 1.43, dpdx, dpdy)
-        + 0.16 * ReliefOctaveDirectional(worldPosition, float3(0.55, -0.44, 0.71), frequency * 2.11, dpdx, dpdy)) * SurfaceReliefStrength;
+    //The coarse two of the four octaves (it was the coarse three of the seven sines)
+    float height = SurfaceReliefOctaves(worldPosition, worldNormal, SurfaceReliefFrequency, dpdx, dpdy, 2) * SurfaceReliefStrength;
 
     return height - groove * SlabJointDepth;
 }
