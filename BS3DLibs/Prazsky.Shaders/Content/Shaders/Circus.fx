@@ -248,8 +248,8 @@ Hit Trace(float3 o, float3 d)
         if (r >= CurbRadius && r <= CurbRadius + CurbThickness) Consider(best, t, HIT_CURB, float3(0.0, 1.0, 0.0));
     }
 
-    //The seats: the rake, and the front riser under its first row - both cut away for the entrance, by trying again
-    //past a hit that falls in the gap
+    //The seats: the rake, and the front riser under its first row - both cut away for the entrance, a hit that falls in
+    //the gap simply dropped (the gap's two side walls are tested on their own below, and are what the eye meets there)
     Hit seats;
     seats.T = 1e6;
     seats.Kind = HIT_NONE;
@@ -599,8 +599,9 @@ float3 ShadeRoof(float3 p, float3 n, float footprint)
     float seamWidth = max(0.12, footprint) / max(r * TWO_PI / PanelCount, 1e-3);
     float seam = 1.0 - smoothstep(0.0, seamWidth, min(across, 1.0 - across));
 
-    //Creases running down the cloth, faint, and grime gathering towards the wall
-    float crease = Fbm2BandLimited(float2(bearing * 60.0, r * 0.05), 3, footprint * 0.05);
+    //Creases running down the cloth, faint, and grime gathering towards the wall. Sampled on a circle in the noise's
+    //own space rather than on the bearing, which jumps by two pi behind the island and stood there as a seam.
+    float crease = Fbm3(float3(cos(bearing) * 60.0, sin(bearing) * 60.0, r * 0.05), 3);
     albedo *= (0.92 + 0.10 * crease) * (1.0 - 0.18 * seam) * lerp(1.0, 0.82, depth * depth);
 
     //The canvas's edge at the crown, bound in gilded iron
@@ -628,8 +629,11 @@ float3 ShadeWall(float3 p, float3 n, float footprint)
     float3 valanceColor = lerp(CanvasRed, CanvasCream, StripeMix(arc / scallopPeriod, footprint / scallopPeriod));
     valanceColor = lerp(valanceColor, CurbGold * 0.8, 1.0 - smoothstep(0.15, 0.35, aboveValance));
 
-    //The curtain: red velvet hung in folds, a fold every two units, shaded as a cosine across it
-    float fold = sin(arc * PI / 1.1 + 0.6 * sin(arc * 0.13));
+    //The curtain: red velvet hung in folds, about one every two units, shaded as a cosine across it - a WHOLE NUMBER of
+    //folds round the wall, and of the slower wander in their spacing, so the pattern meets itself where the bearing
+    //wraps instead of standing there as a seam (it was a fold every 2.2 units exactly, which the circumference is not)
+    float folds = round(WallRadius * TWO_PI / 2.2);
+    float fold = sin(bearing * folds + 0.6 * sin(bearing * 13.0));
     float3 tangent = float3(-sin(bearing), 0.0, cos(bearing));
     float3 foldNormal = normalize(n + tangent * fold * 0.45);
     float sheen = pow(saturate(1.0 - abs(dot(foldNormal, normalize(CameraPosition - p)))), 3.0) * 0.35;
@@ -678,9 +682,11 @@ float3 ShadeSeats(float3 p, float3 n, float footprint)
     float aisleDistance = abs(frac(arc / aislePeriod + 0.5) - 0.5) * aislePeriod;
     float aisle = 1.0 - smoothstep(AisleWidth * 0.5 - max(0.1, footprint), AisleWidth * 0.5, aisleDistance);
 
-    //Individual seats along a row, with a dark gap between neighbours
-    float seatWidth = 1.15;
-    float seatAcross = frac(arc / seatWidth);
+    //Individual seats along a row, with a dark gap between neighbours: a whole number of seats in each row at that
+    //row's radius, so the last seat of a row is as wide as the first rather than cut short where the bearing wraps
+    float seatsInRow = max(round(TWO_PI * (SeatInner + (row + 0.5) * RowDepth) / 1.15), 1.0);
+    float seatWidth = TWO_PI * r / seatsInRow;
+    float seatAcross = frac(bearing / TWO_PI * seatsInRow);
     float gapWidth = max(0.06, footprint) / seatWidth;
     float gap = 1.0 - smoothstep(0.0, gapWidth, min(seatAcross, 1.0 - seatAcross));
 
@@ -692,7 +698,7 @@ float3 ShadeSeats(float3 p, float3 n, float footprint)
     float3 treadNormal = float3(0.0, 1.0, 0.0);
     float3 shadingNormal = normalize(lerp(treadNormal, backNormal, seatPart * (1.0 - aisle)));
 
-    float3 seatColor = SeatRed * (0.85 + 0.15 * Hash21(float2(row, floor(arc / seatWidth)))) * (1.0 - 0.55 * gap);
+    float3 seatColor = SeatRed * (0.85 + 0.15 * Hash21(float2(row, floor(bearing / TWO_PI * seatsInRow)))) * (1.0 - 0.55 * gap);
     float3 albedo = lerp(SeatWood, seatColor, seatPart);
     albedo = lerp(albedo, SeatWood * 1.25 * (0.8 + 0.2 * step(0.5, frac(rowCoord * 2.0))), aisle);
 
@@ -748,7 +754,7 @@ float3 ShadePole(float3 p, float3 n, float footprint)
 {
     //Painted wood, with a gilded band every eight units and grain running up it
     float band = 1.0 - smoothstep(0.35, 0.35 + max(0.05, footprint), abs(frac((p.y - FloorY) / 8.0) - 0.5) * 8.0 - 3.3);
-    float grain = GradientNoise2(float2(atan2(n.z, n.x) * 3.0, p.y * 0.3));
+    float grain = GradientNoise3(float3(n.x * 0.5, n.z * 0.5, p.y * 0.3));
     float3 albedo = lerp(PoleColor * (0.9 + 0.15 * grain), CurbGold * 0.8, band);
 
     float3 light = HouseIrradiance(n) + SpotLight(p, n);

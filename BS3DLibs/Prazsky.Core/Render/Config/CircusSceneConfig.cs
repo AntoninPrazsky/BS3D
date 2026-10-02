@@ -157,11 +157,12 @@ namespace Prazsky.Core.Render
     /// <summary>The spotlights, the bulb strings and the haze.</summary>
     public sealed class CircusLightsConfig
     {
-        /// <summary>The ring the spotlights hang from (a truss under the crown), and how high it is.</summary>
+        /// <summary>The ring the spotlights hang from (a truss under the canvas), and how high it is. Eight units under
+        /// the cloth at that radius: at 56 it sat exactly on the roof cone, and the beams began inside the canvas.</summary>
         public float SpotRigRadius { get; set; } = 30f;
 
         /// <summary>See <see cref="SpotRigRadius"/>.</summary>
-        public float SpotRigY { get; set; } = 56f;
+        public float SpotRigY { get; set; } = 48f;
 
         /// <summary>A spot's half-angle in degrees: narrow enough that each beam reads as a shaft of its own. At eleven the
         /// three that hold on the island overlapped into one veil over the whole middle of the frame.</summary>

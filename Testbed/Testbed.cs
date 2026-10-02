@@ -1588,8 +1588,6 @@ namespace Testbed
         {
             try
             {
-                //A plain map says nothing about its spring; a level sets its own below (#690)
-                _levelSoftness = null;
                 //A level file (format marker "bs3d-level") carries a map plus the scene/sky that reproduce its
                 //look; a plain map file carries just the layout. Both use .json, so the loader probes.
                 if (Level.IsLevelFile(filePath))
@@ -1598,7 +1596,12 @@ namespace Testbed
                     return;
                 }
 
-                InstallMap(new BallsMap(filePath));
+                //Parsed before anything changes, like a level: a broken file leaves the running structure and its spring
+                BallsMap map = new(filePath);
+
+                //A plain map says nothing about its spring (#690)
+                _levelSoftness = null;
+                InstallMap(map);
             }
             catch (Exception e)
             {
