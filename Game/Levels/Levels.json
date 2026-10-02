@@ -958,7 +958,7 @@
       "file": "BigTop.json",
       "name": "BigTop",
       "block": "The Big Top",
-      "shots": 32,
+      "shots": 36,
       "minStars": 236,
       "ceilingStep": 8
     },

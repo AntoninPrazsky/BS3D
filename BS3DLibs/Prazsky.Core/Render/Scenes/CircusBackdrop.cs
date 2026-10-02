@@ -23,11 +23,35 @@ namespace Prazsky.Core.Render
         /// key from the rig overhead grazes it - under the key alone it stood black against the ring. A ring of lamps
         /// lights it from every side the camera can orbit to.
         /// </summary>
-        public const int FOOTLIGHT_COUNT = 6;
+        public const int FOOTLIGHT_COUNT = 4;
+
+        /// <summary>
+        /// The pools the three spots holding on the island throw on its cap (the review of #690): the pass draws a spot's
+        /// beam and its pool on the floor and the seats, but the island and the cluster are not the pass's to light, so
+        /// those three beams ended in nothing. Each is a real light a few units over the spot's own wandering aim, moving
+        /// with it, in the spot's colour - which is what the shared effect can give: a point light, not a cone. Four
+        /// footlights and three pools are seven of <see cref="SceneLights.MaxLights"/>, the eighth left for a blast's
+        /// flash.
+        /// </summary>
+        public const int POOL_COUNT = 3;
+
+        //How far over the island's cap a pool's light hangs, how far it reaches and how strong it is against its spot
+        private const float POOL_LIFT = 3f;
+        private const float POOL_RANGE = 14f;
+        private const float POOL_SHARE = 0.8f;
+
+        //How far a lamp's apex (where its beam starts, at the lens) is from the pivot its rod hangs it by, on the ring:
+        //matched by FIXTURE_BACK * 0.5 in Circus.fx, which is where the shader stands the rod. The lamp turns about the
+        //middle of its can, as a lamp in a yoke does, so the rod meets the ring at every angle - it stood at the can's
+        //middle with the apex on the ring until the review of #690, and slid off the ring as the lamp turned.
+        private const float PIVOT_TO_APEX = 0.95f;
 
         /// <summary>How far a footlight reaches (the shared effect's (1 - d / range) squared): the drum strongly, and the
         /// cluster and the gun above it as a warm light from below, the way footlights light a stage.</summary>
         public const float FOOTLIGHT_RANGE = 60f;
+
+        /// <summary>How many real lights the scene hands <see cref="SceneLights"/>: the footlights, then the pools.</summary>
+        public int LightCount => FOOTLIGHT_COUNT + POOL_COUNT;
 
         //Where they stand: just inside the curb, a little over the sawdust, and their warm colour
         private const float FOOTLIGHT_INSET = 1.2f;
@@ -193,34 +217,42 @@ namespace Prazsky.Core.Render
 
             for (int i = 0; i < SPOT_COUNT; i++)
             {
-                float bearing = MathHelper.ToRadians(SPOT_BEARINGS[i]);
-                Vector3 position = new(MathF.Cos(bearing) * lights.SpotRigRadius, lights.SpotRigY, MathF.Sin(bearing) * lights.SpotRigRadius);
+                SpotAim(i, time, out Vector3 pivot, out Vector3 target);
+                Vector3 direction = Vector3.Normalize(target - pivot);
 
-                //EVERY LAMP TURNS (#690, the owner's ask): slowly, smoothly, never quite repeating, so the pools of light
-                //drift across the scene and the beams with them - a show warming up, not a disco. Each aim is a point
-                //moving on two incommensurate slow cycles of its own.
-                Vector3 target;
-                float speed = lights.SweepSpeed;
-                if (i < 3)
-                {
-                    //Three hold on the island and the cluster over it: their pools wander round its cap, one way round or
-                    //the other, now nearer the middle and now nearer the rim
-                    float wander = bearing + time * speed * (i == 1 ? -0.55f : 0.45f);
-                    float reach = 9f + 6f * MathF.Sin(time * speed * 0.37f + i * 2.4f);
-                    target = new Vector3(MathF.Cos(wander) * reach, ArenaIsland.TOP_Y, MathF.Sin(wander) * reach);
-                }
-                else
-                {
-                    //Two rove the ring and climb into the seats, round and out and back on their own phases
-                    float sweep = bearing + time * speed * (i == 3 ? 0.6f : -0.5f);
-                    float radius = 52f + 20f * MathF.Sin(time * speed * 0.29f + i * 1.7f);
-                    target = new Vector3(MathF.Cos(sweep) * radius, FloorOrSeatsY(radius), MathF.Sin(sweep) * radius);
-                }
-
-                _spotPositions[i] = position;
-                _spotDirections[i] = Vector3.Normalize(target - position);
+                _spotPositions[i] = pivot + direction * PIVOT_TO_APEX;
+                _spotDirections[i] = direction;
                 //The roving pair lands on pale sawdust and would burn it white at the island spots' strength
                 _spotColors[i] = SPOT_TINTS[i] * lights.SpotIntensity * (i < 3 ? 1f : ROVING_SHARE);
+            }
+        }
+
+        /// <summary>Spot <paramref name="i"/>'s pivot on the ring, and the point it aims at at <paramref name="time"/>.</summary>
+        private void SpotAim(int i, float time, out Vector3 pivot, out Vector3 target)
+        {
+            CircusLightsConfig lights = _config.Lights;
+            float bearing = MathHelper.ToRadians(SPOT_BEARINGS[i]);
+            pivot = new Vector3(MathF.Cos(bearing) * lights.SpotRigRadius, lights.SpotRigY, MathF.Sin(bearing) * lights.SpotRigRadius);
+
+            //EVERY LAMP TURNS (#690, the owner's ask): slowly, smoothly, never quite repeating, so the pools of light
+            //drift across the scene and the beams with them - a show warming up, not a disco. Each aim is a point
+            //moving on two incommensurate slow cycles of its own.
+            float speed = lights.SweepSpeed;
+            if (i < 3)
+            {
+                //Three hold on the island: their pools wander round its cap, one way round or the other, now nearer the
+                //drain and now nearer the rim - on the stone between the two (the drain's mouth is fourteen across,
+                //the cap twenty-six), where a pool can be seen; nearer the middle it lit the glass of the funnel
+                float wander = bearing + time * speed * (i == 1 ? -0.55f : 0.45f);
+                float reach = 19f + 4.5f * MathF.Sin(time * speed * 0.37f + i * 2.4f);
+                target = new Vector3(MathF.Cos(wander) * reach, ArenaIsland.TOP_Y, MathF.Sin(wander) * reach);
+            }
+            else
+            {
+                //Two rove the ring and climb into the seats, round and out and back on their own phases
+                float sweep = bearing + time * speed * (i == 3 ? 0.6f : -0.5f);
+                float radius = 52f + 20f * MathF.Sin(time * speed * 0.29f + i * 1.7f);
+                target = new Vector3(MathF.Cos(sweep) * radius, FloorOrSeatsY(radius), MathF.Sin(sweep) * radius);
             }
         }
 
@@ -391,6 +423,23 @@ namespace Prazsky.Core.Render
         /// a breath so slight it is only life.</summary>
         public Vector3 FootlightColor(int index, float time) =>
             FOOTLIGHT_COLOR * (0.96f + 0.04f * MathF.Sin(time * 0.7f + index * 2.3f));
+
+        /// <summary>Real light <paramref name="index"/> of <see cref="LightCount"/> at <paramref name="time"/>: a footlight,
+        /// then the pool of island spot <c>index - FOOTLIGHT_COUNT</c>, over its aim.</summary>
+        public Vector3 LightPosition(int index, float time)
+        {
+            if (index < FOOTLIGHT_COUNT) return FootlightPosition(index);
+            SpotAim(index - FOOTLIGHT_COUNT, time, out _, out Vector3 target);
+            return target + new Vector3(0f, POOL_LIFT, 0f);
+        }
+
+        /// <summary>See <see cref="LightPosition"/>.</summary>
+        public Vector3 LightColor(int index, float time) => index < FOOTLIGHT_COUNT
+            ? FootlightColor(index, time)
+            : SPOT_TINTS[index - FOOTLIGHT_COUNT] * _config.Lights.SpotIntensity * POOL_SHARE;
+
+        /// <summary>See <see cref="LightPosition"/>.</summary>
+        public float LightRange(int index) => index < FOOTLIGHT_COUNT ? FOOTLIGHT_RANGE : POOL_RANGE;
 
         /// <inheritdoc/>
         public override bool TryGetLightRig(float wallClock, out SceneLightRig rig)
