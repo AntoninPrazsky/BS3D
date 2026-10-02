@@ -40,7 +40,7 @@ namespace Prazsky.Core.Render
     /// without it (#580).
     /// </para>
     /// </summary>
-    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest, Space, Dream, Cavern, Moon, Outback, Tropical, Volcano, Mars, Storm, Polar, Aurora, Grid }
+    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest, Space, Dream, Cavern, Moon, Outback, Tropical, Volcano, Mars, Storm, Polar, Aurora, Grid, Circus }
 
     /// <summary>
     /// One row of <see cref="SceneCatalog"/>: everything about a <see cref="SceneKind"/> that is a fact of the
@@ -140,6 +140,9 @@ namespace Prazsky.Core.Render
             new(SceneKind.Polar, "Polar", "polar", aliases: new[] { "ice" }, solidTerrain: true),
             new(SceneKind.Aurora, "Aurora", "aurora", replacesSky: true, solidTerrain: true, animatedRig: true),
             new(SceneKind.Grid, "Grid", "grid", aliases: new[] { "tron" }, replacesSky: true, solidTerrain: true),
+            //The big top (#690): the canvas is its sky and the sawdust its ground, so it is in both families, the
+            //Moon's and the Grid's way. "bigtop" as well, which is what the owner called it ("šapitó").
+            new(SceneKind.Circus, "Big Top", "circus", aliases: new[] { "bigtop" }, replacesSky: true, solidTerrain: true),
         };
 
         //Every parse key and alias, built once by Check. Case-insensitive: the switch it replaced lowercased its input.

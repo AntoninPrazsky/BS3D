@@ -260,3 +260,9 @@
 /processorParam:DebugMode=Auto
 /build:Shaders/Grid.fx
 
+#begin Shaders/Circus.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Circus.fx
+

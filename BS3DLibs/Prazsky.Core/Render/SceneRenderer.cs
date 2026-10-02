@@ -596,6 +596,7 @@ namespace Prazsky.Core.Render
         private readonly CavernBackdrop _cavern;
         private readonly StormBackdrop _storm;
         private readonly GridBackdrop _grid;
+        private readonly CircusBackdrop _circus;
         private readonly MoonBackdrop _moon;
         private readonly OutbackBackdrop _outback;
         private readonly DesertBackdrop _desert;
@@ -764,6 +765,10 @@ namespace Prazsky.Core.Render
             //its code stood
             _grid = new GridBackdrop(_services, content);
             _backdrops[(int)SceneKind.Grid] = _grid;
+
+            //--- The big top (#690): the twenty-first scene, the seventh that replaces the sky
+            _circus = new CircusBackdrop(_services, content);
+            _backdrops[(int)SceneKind.Circus] = _circus;
 
             //Last, because it needs every effect above to exist: the one list of everything that reads the
             //sun's shadow map (#471).
@@ -1278,6 +1283,19 @@ namespace Prazsky.Core.Render
         /// sized for. Slot 0 is the crater; every other slot rides a river.
         /// </summary>
         public int VolcanoLightCount => _volcano.LightCount;
+
+        /// <summary>The big top's footlights (#690), the ring of lamps on the curb that light the island's drum: how many,
+        /// how far each reaches, where each stands and its colour now. See <see cref="CircusBackdrop.FOOTLIGHT_COUNT"/>.</summary>
+        public int CircusLightCount => CircusBackdrop.FOOTLIGHT_COUNT;
+
+        /// <inheritdoc cref="CircusLightCount"/>
+        public float CircusLightRange => CircusBackdrop.FOOTLIGHT_RANGE;
+
+        /// <inheritdoc cref="CircusLightCount"/>
+        public Vector3 CircusLightPosition(int index) => _circus.FootlightPosition(index);
+
+        /// <inheritdoc cref="CircusLightCount"/>
+        public Vector3 CircusLightColor(int index, float time) => _circus.FootlightColor(index, time);
 
         /// <summary>The volcano's point-light range (quadratic falloff), shared by the crater and the flows.</summary>
         public float VolcanoLightRange => _volcano.LightRange;
