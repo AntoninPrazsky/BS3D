@@ -102,31 +102,14 @@ float3 WindowGlassColor;
 //pane behaves exactly as every polished surface elsewhere in the scene does.
 static const float WindowSmoothness = 1.0;
 
-//A murmur3-style finaliser (Wellons' constants), the one mixer the city's integer rolls share
-uint CityMix(uint h)
-{
-    h ^= h >> 16;
-    h *= 0x7feb352du;
-    h ^= h >> 15;
-    h *= 0x846ca68bu;
-    h ^= h >> 16;
-    return h;
-}
-
-//The top 24 bits of a mixed value as a float in [0,1), exactly
-float CityUnit(uint h)
-{
-    return (h >> 8) * (1.0 / 16777216.0);
-}
-
-//One building's own roll in [0,1) for each salt (#674): an integer hash of its cell, the very mixer City.FacadeRoll
+//One building's own roll in [0,1) for each salt (#674): an integer hash of its cell, the very mixer (Noise.fxh HashMix) City.FacadeRoll
 //runs on the CPU for the facade's kind. Hash21 is a float hash with an exact 50 x 100 period over integer ids - at
 //0.37 cells per world unit, 135 x 270 units - so the tone, the neon pick and hue, and the sign band and its height
 //each repeated in the same arrangement six times across the ~840-unit city. buildingId is floor()ed, so the cast is exact.
 float BuildingRoll(float2 buildingId, uint salt)
 {
     int2 cell = (int2)buildingId;
-    return CityUnit(CityMix(asuint(cell.x) * 0x8da6b343u ^ asuint(cell.y) * 0xd8163841u ^ salt * 0xcb1ab31fu));
+    return HashUnit(HashMix(asuint(cell.x) * 0x8da6b343u ^ asuint(cell.y) * 0xd8163841u ^ salt * 0xcb1ab31fu));
 }
 
 //One window's own seed (#674): its building's cell and its own, mixed as integers, so every window of every tower
@@ -138,7 +121,7 @@ uint WindowSeed(float2 buildingId, float2 cell)
 {
     int2 b = (int2)buildingId;
     int2 c = (int2)cell;
-    return CityMix(CityMix(asuint(b.x) * 0x8da6b343u ^ asuint(b.y) * 0xd8163841u) ^ asuint(c.x) * 0x9e3779b1u ^ asuint(c.y) * 0x85ebca77u);
+    return HashMix(HashMix(asuint(b.x) * 0x8da6b343u ^ asuint(b.y) * 0xd8163841u) ^ asuint(c.x) * 0x9e3779b1u ^ asuint(c.y) * 0x85ebca77u);
 }
 
 //A window's roll in [0,1) for a salt: the lit state of each of its slots takes the slot's index, and the neon buzz
@@ -150,13 +133,7 @@ static const uint WINDOW_BUZZ_SALT = 0x7fffffffu;
 
 float WindowRoll(uint seed, uint salt)
 {
-    return CityUnit(CityMix(seed ^ salt * 0xcb1ab31fu));
-}
-
-//`count` bits of the seed from bit `first` up, as a fraction in [0,1)
-float WindowBits(uint seed, uint first, uint count)
-{
-    return ((seed >> first) & ((1u << count) - 1u)) * (1.0 / (1u << count));
+    return HashUnit(HashSalt(seed, salt));
 }
 
 //A fully saturated color from a hue in [0,1] - the neon signs' palette. Pure and bright; the brightness
@@ -412,8 +389,8 @@ float4 CityPS(CityVSOutput input) : COLOR
     //another comes on; the rest hold for the whole evening. A city whose windows never change reads as a
     //texture of a city, and one where every window re-rolls every few seconds read as a disco: thousands of
     //windows in view turn one window's calm rhythm into a hundred and fifty changes a second.
-    float rhythm = WindowBits(windowSeed, 20u, 12u);
-    float restless = step(WindowBits(windowSeed, 12u, 8u), WindowRestlessFraction);
+    float rhythm = HashBits(windowSeed, 20u, 12u);
+    float restless = step(HashBits(windowSeed, 12u, 8u), WindowRestlessFraction);
     float interval = WindowHoldSeconds + rhythm * WindowHoldVariation;
     float slot = restless * CityWindowTime / interval + rhythm * 37.0;
     float slotIndex = floor(slot);
@@ -428,7 +405,7 @@ float4 CityPS(CityVSOutput input) : COLOR
     float lit = lerp(wasLit, willBeLit, restless * smoothstep(1 - fade, 1, frac(slot)));
 
     //Ordinary warm/cool lamp for the plain daytime city
-    float3 lamp = lerp(WindowWarm, WindowCool, step(0.5, WindowBits(windowSeed, 11u, 1u)));
+    float3 lamp = lerp(WindowWarm, WindowCool, step(0.5, HashBits(windowSeed, 11u, 1u)));
 
     //Fading to the average keeps a distant tower a dim glowing block instead of a flickering one
     float coverage = lerp(fill.x * fill.y * WindowLitFraction * hasGrid * inside.x * inside.y, window * lit, resolvable);
@@ -558,7 +535,7 @@ float4 CityPS(CityVSOutput input) : COLOR
         float pickBuilding = BuildingRoll(buildingId, 2u);
         float3 buildingNeon = pickBuilding < 0.45 ? neonMagenta : (pickBuilding < 0.9 ? neonCyan : HueToRGB(BuildingRoll(buildingId, 3u)));
         float3 contrast = buildingNeon.r > buildingNeon.b ? neonCyan : neonMagenta;
-        float3 neonWindow = lerp(buildingNeon, contrast, step(0.83, WindowBits(windowSeed, 3u, 8u)));
+        float3 neonWindow = lerp(buildingNeon, contrast, step(0.83, HashBits(windowSeed, 3u, 8u)));
 
         //A bright solid sign band wrapping some towers at a hashed height, in the contrast colour
         float hasSign = step(0.5, BuildingRoll(buildingId, 4u));
