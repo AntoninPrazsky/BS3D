@@ -836,8 +836,7 @@ namespace BS3D.Screens
         /// for why asking both is safe.</summary>
         private void SkipCameraTakeover()
         {
-            //A skip that took is the player saying they know: the HUD's hint retires for the session (#499)
-            if (_cinematic.TrySkip()) _hud.NoteCinematicSkipped();
+            _cinematic.TrySkip();
             _chapterIntro.TrySkip();
         }
 
@@ -1307,7 +1306,11 @@ namespace BS3D.Screens
             _lineSparks.Update(elapsed);
 
             _hud.Update(elapsed, _run.Score);
-            _hud.UpdateSkipHint(elapsed, _cinematic.Running, _cinematic.Elapsed);
+            //The skip hint over whichever takeover a click can skip (#699): the drop or the chapter's tour
+            if (_cinematic.Running)
+                _hud.UpdateSkipHint(elapsed, true, chapterIntro: false, _cinematic.Elapsed, float.MaxValue);
+            else
+                _hud.UpdateSkipHint(elapsed, _chapterIntro.Running, chapterIntro: true, _chapterIntro.Elapsed, _chapterIntro.Remaining);
 
             //The tutorial's card (#189): the settings row read here every frame, a camera takeover hiding it, and
             //a decided level ending it. A lesson just done is answered the way a point scored is — the HUD's own
@@ -1657,6 +1660,8 @@ namespace BS3D.Screens
             else if (overlayLayered) Game.FadeOverlayLayer(hudOpacity);
             else if (overlayUp) DrawOverlay();
             else if (lossPreviews) DrawOverlay(previewsOnly: true);
+            //The tour hides the HUD, all but the line that says it can be skipped (#699)
+            else if (!LevelOver && _hud.SkipHintShowing) _hud.DrawSkipHintAlone(_tutorial);
         }
 
         /// <summary>
