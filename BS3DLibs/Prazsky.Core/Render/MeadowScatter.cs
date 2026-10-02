@@ -392,23 +392,18 @@ namespace Prazsky.Core.Render
                 MeadowTreeMesh tree = treeMeshes[m];
                 Vector3 leaf = m == WILLOW ? WILLOW_LEAF : OAK_LEAF, leafDry = m == WILLOW ? WILLOW_LEAF_DRY : OAK_LEAF_DRY;
                 buckets.Add(new ScatterBucket(device, tree.Wood, treeInstances[m], OAK_BARK, OAK_BARK * 1.2f, dapple: 0f, bark: 0.6f, detailOnly: false));
-                //The solid lumps for the Low tier; a smaller core under leaf cards for every other (the acacias' #610 split).
-                //The CORE is what casts, the cards never (the sun's map exists only at scene detail, where the core is
-                //drawn): the cards cost 0.065 ms more a second time into the map, and a dense oak throws a solid shade.
-                //⚠ The full lumps cast first, from where they are not drawn, and the leaf cards on a clump's upper
-                //flanks lie inside its lump's lobes - so every clump shaded its own sunny side
+                //The solid lumps for the Low tier, which casts nothing (the sun's map exists only at scene detail); at every
+                //other, twigs with leaves (#697, the acacias' #610 split)
                 buckets.Add(new ScatterBucket(device, tree.Crown, treeInstances[m], leaf, leafDry, dapple: 0.7f, bark: 0f,
                     detailOnly: false, lowOnly: true));
-                //The core: since #697 the crown's shade in the sun's map and nothing on screen - the crown is drawn as
-                //twigs and leaves, and the owner wanted no ball inside it
-                buckets.Add(new ScatterBucket(device, tree.Core, treeInstances[m], leaf * 0.55f, leafDry * 0.55f, dapple: 0.6f, bark: 0f,
-                    detailOnly: true, shadowOnly: true));
                 //The twigs every clump's leaves grow from (#697): bark, too thin to cast anything worth a second draw
                 buckets.Add(new ScatterBucket(device, tree.Twigs, treeInstances[m], OAK_BARK, OAK_BARK * 1.2f, dapple: 0f, bark: 0.3f,
                     detailOnly: true, castsShadow: false));
-                //Broad leaves, not the acacia's leaflets (LeafStrength 2, Acacia.fx's BroadLeafMask)
+                //Broad leaves, not the acacia's leaflets (LeafStrength 2, Acacia.fx's BroadLeafMask). They cast the crown's
+                //shade, cut by their own leaves (ShadowCaster clips the card mask): until #697 a lump under them cast it,
+                //and the cards inside its lobes lay in its shadow whatever the sun did
                 buckets.Add(new ScatterBucket(device, tree.Leaves, treeInstances[m], leaf, leafDry, dapple: 0f, bark: 0f,
-                    detailOnly: true, leaves: 2f, castsShadow: false));
+                    detailOnly: true, leaves: 2f));
             }
             buckets.Add(new ScatterBucket(device, Own(BenchMesh(device)), benchInstances, BENCH_WOOD, BENCH_WOOD * 1.2f, dapple: 0f, bark: 0.35f,
                 detailOnly: false));

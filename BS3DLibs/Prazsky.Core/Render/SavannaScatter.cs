@@ -40,16 +40,9 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Whether it casts into the sun's map. By default everything but a <see cref="LowOnly"/> bucket does; the
-        /// meadow's old trees (#609's third round) keep their leaf cards out of it and cast the solid core under
-        /// them instead — a dense oak throws a solid shade, and the cards cost a second time there.
+        /// meadow's old trees keep their thin twigs out of it (#697).
         /// </summary>
         public bool CastsShadow { get; }
-
-        /// <summary>
-        /// Cast into the sun's map and never drawn (#697): the meadow's old trees' cores, the solid shade a dense crown
-        /// throws, under a crown that is drawn as twigs and leaves with no ball inside it.
-        /// </summary>
-        public bool ShadowOnly { get; }
 
         /// <summary>
         /// 1 for leaf-spray cards (#610): <c>Acacia.fx</c> cuts the leaflets out of each card, shades both sides and
@@ -70,10 +63,9 @@ namespace Prazsky.Core.Render
 
         internal ScatterBucket(GraphicsDevice device, IProceduralMesh mesh, List<ModelInstance> instances,
             Vector3 diffuse, Vector3 diffuseDry, float dapple, float bark, bool detailOnly,
-            bool lowOnly = false, float leaves = 0f, bool earthed = false, bool? castsShadow = null, bool shadowOnly = false)
+            bool lowOnly = false, float leaves = 0f, bool earthed = false, bool? castsShadow = null)
         {
             Mesh = mesh;
-            ShadowOnly = shadowOnly;
             Earthed = earthed;
             LowOnly = lowOnly;
             CastsShadow = castsShadow ?? !lowOnly;
