@@ -185,14 +185,15 @@ namespace Prazsky.Core.Render
             else if (scene == SceneKind.Circus)
             {
                 //The big top's footlights (#690): a ring of warm lamps on the curb, so the island's drum - a vertical wall
-                //the key from the rig overhead only grazes - is lit from whichever side the camera stands on
+                //the key from the rig overhead only grazes - is lit from whichever side the camera stands on; and the
+                //pools the three island spots throw on its cap, moving with the spots' own wandering aim
                 count = Math.Min(sceneRenderer.CircusLightCount, MaxLights);
 
                 for (int i = 0; i < count; i++)
                 {
-                    _lightPosition[i] = sceneRenderer.CircusLightPosition(i);
+                    _lightPosition[i] = sceneRenderer.CircusLightPosition(i, wallClock);
                     _lightColor[i] = sceneRenderer.CircusLightColor(i, wallClock);
-                    _lightRange[i] = sceneRenderer.CircusLightRange;
+                    _lightRange[i] = sceneRenderer.CircusLightRange(i);
                 }
             }
             else if (scene == SceneKind.NeonCity)

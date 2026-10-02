@@ -1256,8 +1256,9 @@ namespace BS3D.Screens
             if (TryTakeForcedDetonation()) DetonateForTesting();
 
             //The level's own play clock (#546), on the frame's real seconds: here, beside the step, is exactly
-            //the time the level is being played
-            _run.Seconds += elapsed;
+            //the time the level is being played - and not while a chapter intro holds the release (#690's review), or a
+            //chapter opener's first attempt would submit a clear nine seconds longer than its retry
+            if (!_releasePending) _run.Seconds += elapsed;
 
             //NOT STEPPED WHILE THE RELEASE WAITS (#690's review): stepped through a chapter intro at the builder's stiff
             //springs, the cluster snapped up into its seat unseen, and the swing let go after the tour was only a dip from

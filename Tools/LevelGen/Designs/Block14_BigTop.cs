@@ -398,18 +398,22 @@ namespace BS3D.Tools.LevelGen
             //from the side the player is not standing on. Straight shots pass under them to the bar and the flyer.
             design.Crates = new[]
             {
-                new CrateSpec { X = -TRAPEZE_PLATFORM_X, Y = TRAPEZE_PLATFORM_Y, Z = -0.75f, Width = 3f, Height = 3f, Depth = 3f },
-                new CrateSpec { X = TRAPEZE_PLATFORM_X, Y = TRAPEZE_PLATFORM_Y, Z = -0.75f, Width = 3f, Height = 3f, Depth = 3f },
+                new CrateSpec { X = -TRAPEZE_PLATFORM_X, Y = TRAPEZE_PLATFORM_Y, Z = -0.75f, Width = 3f, Height = TRAPEZE_PLATFORM_H, Depth = 3f },
+                new CrateSpec { X = TRAPEZE_PLATFORM_X, Y = TRAPEZE_PLATFORM_Y, Z = -0.75f, Width = 3f, Height = TRAPEZE_PLATFORM_H, Depth = 3f },
             };
 
             return design;
         }
 
-        //Where the platforms stand, in world units from the field's floor on its axis: ten out (the field is seven and a
-        //half wide either side), and at the bar's own height - its layout level plus the field's offset, in levels of
-        //one over root two
-        private const float TRAPEZE_PLATFORM_X = 10f;
-        private const float TRAPEZE_PLATFORM_Y = (BIGTOP_FIELD_LEVELS - TRAPEZE_DEPTH + TRAPEZE_BAR + 0.5f) * 0.70710678f;
+        //Where the platforms stand, in world units from the field's floor on its axis: fourteen out (the field is seven
+        //and a half wide either side), and a little over the bar's own height - its layout level plus the field's offset,
+        //in levels of one over root two. TEN OUT WAS TOO NEAR, and the review of #690 said why by arithmetic before a
+        //capture showed it: from the low play camera at the end-on bearings, the line up to the top of the near rope
+        //crossed the near platform, which then hid the rig's top. At fourteen, and two and a half tall, that line passes
+        //under it by two units.
+        private const float TRAPEZE_PLATFORM_X = 14f;
+        private const float TRAPEZE_PLATFORM_H = 2.5f;
+        private const float TRAPEZE_PLATFORM_Y = (BIGTOP_FIELD_LEVELS - TRAPEZE_DEPTH + TRAPEZE_BAR + 1.6f) * 0.70710678f;
 
         private static Design TrapezeRig() => BigTop("Trapeze", TRAPEZE_DEPTH, shots: 22, ceilingStep: 8,
             hz: 7f, damping: 0.5f, fieldLevels: BIGTOP_FIELD_LEVELS,
@@ -615,7 +619,7 @@ namespace BS3D.Tools.LevelGen
         private static bool TentQuarterPole(int cx, int cz) =>
             (Math.Abs(cx + 0.5f) >= 3.4f && Math.Abs(cx + 0.5f) <= 4.6f) && (Math.Abs(cz + 0.5f) >= 3.4f && Math.Abs(cz + 0.5f) <= 4.6f);
 
-        private static Design BigTopTent() => BigTop("BigTop", TENT_DEPTH, shots: 32, ceilingStep: 8,
+        private static Design BigTopTent() => BigTop("BigTop", TENT_DEPTH, shots: 36, ceilingStep: 8,
             hz: 9f, damping: 0.6f, fieldLevels: BIGTOP_FIELD_LEVELS,
             occupied: (cx, cz, i) =>
             {
@@ -626,8 +630,10 @@ namespace BS3D.Tools.LevelGen
             colour: (cx, cz, i) =>
             {
                 if (TentKingPost(cx, cz)) return PostInk(cz) == 0 ? BallType.Type7 : BallType.Type9;
+                //The quarter poles in inks the canvas does not use (brown, silver): in the canvas's cream, a pole's row
+                //joined the panel beside it, and a shot at the panel took half the pole with it (the review of #690)
                 if (TentQuarterPole(cx, cz) && i > TentLevelAt(MathF.Sqrt(2f) * 4f) + 1)
-                    return PostInk(cz) == 0 ? BallType.Type4 : BallType.Type11;
+                    return PostInk(cz) == 0 ? BallType.Type10 : BallType.Type11;
                 float angle = MathF.Atan2(cz + 0.5f, cx + 0.5f);
                 int panel = (int)MathF.Floor((angle + MathF.PI) / (MathF.PI / 4f)) % 8;
                 return panel % 2 == 0 ? BallType.Type1 : BallType.Type4;

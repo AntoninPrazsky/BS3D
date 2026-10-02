@@ -1284,18 +1284,19 @@ namespace Prazsky.Core.Render
         /// </summary>
         public int VolcanoLightCount => _volcano.LightCount;
 
-        /// <summary>The big top's footlights (#690), the ring of lamps on the curb that light the island's drum: how many,
-        /// how far each reaches, where each stands and its colour now. See <see cref="CircusBackdrop.FOOTLIGHT_COUNT"/>.</summary>
-        public int CircusLightCount => CircusBackdrop.FOOTLIGHT_COUNT;
+        /// <summary>The big top's real lights (#690): the footlights on the curb that light the island's drum, then the pools
+        /// the three island spots throw on its cap - how many, where each is and its colour now, and how far it reaches.
+        /// See <see cref="CircusBackdrop.FOOTLIGHT_COUNT"/> and <see cref="CircusBackdrop.POOL_COUNT"/>.</summary>
+        public int CircusLightCount => _circus.LightCount;
 
         /// <inheritdoc cref="CircusLightCount"/>
-        public float CircusLightRange => CircusBackdrop.FOOTLIGHT_RANGE;
+        public float CircusLightRange(int index) => _circus.LightRange(index);
 
         /// <inheritdoc cref="CircusLightCount"/>
-        public Vector3 CircusLightPosition(int index) => _circus.FootlightPosition(index);
+        public Vector3 CircusLightPosition(int index, float time) => _circus.LightPosition(index, time);
 
         /// <inheritdoc cref="CircusLightCount"/>
-        public Vector3 CircusLightColor(int index, float time) => _circus.FootlightColor(index, time);
+        public Vector3 CircusLightColor(int index, float time) => _circus.LightColor(index, time);
 
         /// <summary>The volcano's point-light range (quadratic falloff), shared by the crater and the flows.</summary>
         public float VolcanoLightRange => _volcano.LightRange;

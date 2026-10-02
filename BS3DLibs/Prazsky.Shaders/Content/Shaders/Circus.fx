@@ -36,7 +36,7 @@
 #define SPOT_COUNT 5
 #define MAX_POLES 6
 #define MAX_STRINGS 24
-#define FOOTLIGHT_COUNT 6
+#define FOOTLIGHT_COUNT 4
 
 static const float PI = 3.14159265;
 static const float TWO_PI = 6.28318531;
@@ -227,14 +227,50 @@ void HitCone(inout Hit best, float3 o, float3 d, float ra, float rb, float y0, f
 static const float FIXTURE_RADIUS = 0.8;
 static const float LENS_GAIN = 2.4;        //a lens's radiance over its lamp's colour
 static const float GLOW_RADIUS = 2.2;      //the halo round a lens in the dusty air, world units
+static const float GLOW_MARGIN = 9.0;      //past four of its radii the glow is under e^-16 of its peak
 static const float FIXTURE_BACK = 1.9;     //the can behind the beam's apex
 static const float FIXTURE_FRONT = 0.2;    //the lens, just ahead of it
 static const float YOKE_RADIUS = 0.13;
 static const float TRUSS_HALF = 0.35;      //the ring's half-section
-static const float TRUSS_ABOVE = 2.4;      //how far over the lamps' apexes the ring runs
+static const float TRUSS_ABOVE = 1.5;      //how far over the lamps' pivots the ring runs
+static const float RIG_REACH = 2.0;        //how far any part of a lamp is from its pivot: the can's front end, and its radius
 
-float TrussY() { return SpotPosition[0].y + TRUSS_ABOVE; }
-float TrussRadius() { return length(SpotPosition[0].xz); }
+//Spot i's pivot, where its rod holds it: the middle of its can, PIVOT_TO_APEX behind the apex in CircusBackdrop. The
+//ring is placed by the pivot and not by the apex, which turns with the lamp - read off the apex, the ring rose, fell
+//and widened as spot 0 swept.
+float3 Pivot(int i) { return SpotPosition[i] - SpotDirection[i] * (FIXTURE_BACK * 0.5); }
+float TrussY() { return Pivot(0).y + TRUSS_ABOVE; }
+float TrussRadius() { return length(Pivot(0).xz); }
+
+//Whether the ray passes anywhere near the rig: the ring the lamps hang on, as an annulus of height round the axis,
+//widened by `margin`. The lamps, the ring and the glows round the lenses are tried only behind it, since most of the
+//frame never rises to the rig - tried on every pixel they cost 3.5 ms a frame at 3840x1600 (#690's review).
+bool NearRig(float3 o, float3 d, float margin)
+{
+    float radius = TrussRadius();
+    float reach = RIG_REACH + margin;
+    float y0 = Pivot(0).y - reach;
+    float y1 = TrussY() + TRUSS_HALF + margin;
+
+    //The span of the ray inside the slab of height
+    float t0 = 0.0, t1 = 1e5;
+    if (abs(d.y) > 1e-6)
+    {
+        float ta = (y0 - o.y) / d.y;
+        float tb = (y1 - o.y) / d.y;
+        t0 = max(min(ta, tb), 0.0);
+        t1 = min(max(ta, tb), 1e5);
+    }
+    else if (o.y < y0 || o.y > y1) return false;
+    if (t1 < t0) return false;
+
+    //The ray's distance from the axis over that span: least at its closest approach, greatest at one of the ends
+    float dd = dot(d.xz, d.xz);
+    float tc = dd > 1e-8 ? clamp(-dot(o.xz, d.xz) / dd, t0, t1) : t0;
+    float rMin = length(o.xz + tc * d.xz);
+    float rMax = max(length(o.xz + t0 * d.xz), length(o.xz + t1 * d.xz));
+    return rMin <= radius + reach && rMax >= radius - reach;
+}
 
 //One lamp: a capped cylinder along its beam's axis, the front cap its lens
 void HitFixture(inout Hit best, float3 o, float3 d, int spot)
@@ -276,8 +312,9 @@ void HitFixture(inout Hit best, float3 o, float3 d, int spot)
         if (dot(qBack, qBack) <= FIXTURE_RADIUS * FIXTURE_RADIUS) ConsiderSpot(best, tBack, HIT_FIXTURE, -axis, spot);
     }
 
-    //Its rod: straight up from the can's back to the ring
-    float3 back = SpotPosition[spot] - axis * (FIXTURE_BACK * 0.5);
+    //Its rod: straight up from the can's middle, the pivot the lamp turns about, to the ring (CircusBackdrop's
+    //PIVOT_TO_APEX stands the pivot on the ring, so the rod meets it at every angle)
+    float3 back = Pivot(spot);
     float2 oc = o.xz - back.xz;
     float ra = dot(d.xz, d.xz);
     float rb = dot(oc, d.xz);
@@ -436,11 +473,23 @@ Hit Trace(float3 o, float3 d)
         }
     }
 
-    //The spotlights and the ring they hang from
-    HitTruss(best, o, d);
+    //The spotlights and the ring they hang from, where the ray comes near them at all
+    [branch]
+    if (NearRig(o, d, 0.0))
+    {
+        HitTruss(best, o, d);
 
-    [unroll]
-    for (int spot = 0; spot < SPOT_COUNT; spot++) HitFixture(best, o, d, spot);
+        [unroll]
+        for (int spot = 0; spot < SPOT_COUNT; spot++)
+        {
+            //And each lamp only where the ray passes within RIG_REACH of its pivot
+            float3 op = Pivot(spot) - o;
+            float along = dot(op, d);
+
+            [branch]
+            if (dot(op, op) - along * along <= RIG_REACH * RIG_REACH) HitFixture(best, o, d, spot);
+        }
+    }
 
     return best;
 }
@@ -538,9 +587,9 @@ float3 LampGlows(float3 o, float3 d, float tMax)
         float3 lens = SpotPosition[i] + SpotDirection[i] * (FIXTURE_FRONT + 0.05);
         float3 ol = lens - o;
         float along = dot(ol, d);
-        if (along <= 0.0 || along > tMax + FIXTURE_RADIUS) continue;
-
         float h2 = max(dot(ol, ol) - along * along, 0.0);
+        if (along <= 0.0 || along > tMax + FIXTURE_RADIUS || h2 > GLOW_MARGIN * GLOW_MARGIN) continue;
+
         float facing = saturate(dot(-d, SpotDirection[i]));
         float size = max(GLOW_RADIUS, along * PixelAngle * 1.5);
         float energy = (GLOW_RADIUS * GLOW_RADIUS) / (size * size);
@@ -562,10 +611,16 @@ float3 Beams(float3 o, float3 d, float tMax)
         float outer = BeamIntegral(o, d, SpotPosition[i], SpotDirection[i], SpotCosOuter, tMax, tMid);
 
         //Dust in the beam: the density of the air the ray crosses it in, a slow 3D noise drifting up and across, so a
-        //beam is a shaft of lit dust that breathes rather than a flat cone of light
-        float3 dustAt = o + d * tMid;
-        float dust = 0.6 + 0.8 * saturate(0.5 + 0.6 * GradientNoise3(dustAt * 0.16 + float3(CircusTime * 0.04, -CircusTime * 0.11, 0.0)));
-        sum += SpotColor[i] * (0.5 * inner + 0.5 * outer) * dust;
+        //beam is a shaft of lit dust that breathes rather than a flat cone of light. Only where the ray is in the beam
+        //at all: five noises on every pixel were 2.9 ms a frame at 3840x1600 (#690's review), and a beam is a sliver
+        //of the frame.
+        [branch]
+        if (outer > 0.0)
+        {
+            float3 dustAt = o + d * tMid;
+            float dust = 0.6 + 0.8 * saturate(0.5 + 0.6 * GradientNoise3(dustAt * 0.16 + float3(CircusTime * 0.04, -CircusTime * 0.11, 0.0)));
+            sum += SpotColor[i] * (0.5 * inner + 0.5 * outer) * dust;
+        }
     }
 
     return sum * BeamStrength * SpotReach * SpotReach;
@@ -984,7 +1039,10 @@ float4 CircusScene(CircusVertexOutput input, uniform bool detail) : COLOR
     if (detail) color += Beams(o, d, hit.T);
     color += Bulbs(o, d, hit.T);
     color += Footlights(o, d, hit.T);
-    color += LampGlows(o, d, hit.T);
+
+    //The glow fades to nothing a few of its radii from a lens (exp(-h2 / size2)), so past GLOW_MARGIN it is never tried
+    [branch]
+    if (NearRig(o, d, GLOW_MARGIN)) color += LampGlows(o, d, hit.T);
 
     return float4(color, 1.0);
 }
