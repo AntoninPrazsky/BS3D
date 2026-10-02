@@ -1588,6 +1588,8 @@ namespace Testbed
         {
             try
             {
+                //A plain map says nothing about its spring; a level sets its own below (#690)
+                _levelSoftness = null;
                 //A level file (format marker "bs3d-level") carries a map plus the scene/sky that reproduce its
                 //look; a plain map file carries just the layout. Both use .json, so the loader probes.
                 if (Level.IsLevelFile(filePath))
@@ -1619,6 +1621,10 @@ namespace Testbed
         {
             Level level = Level.Load(filePath);
             BallsMap map = new(level.Map);
+
+            //The level's own spring (#690), before InstallMap builds and softens the structure: a soft level opened
+            //here hangs as it plays in the Game, unless softness= pinned another for the run
+            _levelSoftness = level.Softness is SoftnessSpec softness ? (softness.Frequency, softness.Damping) : null;
 
             InstallMap(map);
 
@@ -1669,11 +1675,11 @@ namespace Testbed
             //Hung the way the Game hangs it (#617): the glass's sockets spring for the first two seconds
             _world.BeginStartSwing(_physicsBalls);
 
-            //The lattice softened as rope or cloth (#690, a prototype): every socket between two balls re-described at
-            //softness='s spring, the glass's own left as built. Logged, and traced for a few seconds (see TraceSoftness)
+            //The lattice softened as rope or cloth (#690): every socket between two balls re-described at the level's own
+            //spring (Level.Softness) or softness='s, the glass's own left as built. Logged, and traced for a few seconds (see TraceSoftness)
             //so the sag and the swing are numbers and not only a picture.
             BepuPhysics.Constraints.SpringSettings? lattice = null;
-            if (_options.Softness is (float frequency, float damping))
+            if (Softness is (float frequency, float damping))
             {
                 lattice = new BepuPhysics.Constraints.SpringSettings(frequency, damping);
                 int sockets = LatticeSoftness.Apply(_physicsBalls, _world.Simulation, lattice.Value);

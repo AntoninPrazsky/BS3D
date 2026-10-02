@@ -78,6 +78,13 @@ namespace BS3D.Screens
         internal BallStyle BallStyle { get; set; } = BallStyle.Beach;
 
         /// <summary>
+        /// The spring between this level's balls (#690) — off the level file's <see cref="Level.Softness"/>, and null,
+        /// the builder's own stiff spring, for every file that says nothing. Applied once the cluster is built and to
+        /// every ball that lands after (see <c>BuildCluster</c>).
+        /// </summary>
+        internal BepuPhysics.Constraints.SpringSettings? LatticeSpring { get; set; }
+
+        /// <summary>
         /// Seconds of play on this level (#546): counted where the frame steps the world, which a pause, an
         /// unfocused window and the page over a finished level never reach — so it is time the player spent
         /// playing, not time the window was open. Real seconds, not the drop cinematic's slowed ones.

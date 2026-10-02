@@ -127,6 +127,11 @@ namespace MapEditor
         //The crates a loaded level carried (#257), kept through a round-trip though the editor neither shows nor places them
         private CrateSpec[] _levelCrates;
 
+        //And its spring (#690) and its sky (#221), on the same terms: the editor hangs nothing and draws no weather, but a
+        //round-trip must not quietly stiffen a soft level or put it back under its scene's usual sky
+        private SoftnessSpec _levelSoftness;
+        private string _levelWeather;
+
         //What the map's balls are made of (#258) — cycled by L, written into the level by F4 and read back off
         //one on load. Beach for a new map and for a plain map file, which carries no look at all.
         private BallStyle _ballStyle = BallStyle.Beach;
@@ -682,6 +687,8 @@ namespace MapEditor
             _levelMusic = null;
             _levelAuthor = null;
             _levelCrates = null;
+            _levelSoftness = null;
+            _levelWeather = null;
             SetBallStyle(BallStyle.Beach);
 
             Info.CustomText = $"New map {dialog.StageSizeX} x {dialog.StageSizeZ} x {dialog.Levels}";
@@ -754,6 +761,8 @@ namespace MapEditor
                 Scene = _scene,
                 Music = _levelMusic,
                 Crates = _levelCrates,
+                Softness = _levelSoftness,
+                Weather = _levelWeather,
                 //Written only when it is not the default (#258), so a level of ordinary vinyl balls stays
                 //byte-for-byte the file it was: the field is absent from every level authored before the style
                 //existed, and a round-trip through the editor must not start adding it to all of them.
@@ -860,6 +869,8 @@ namespace MapEditor
                 _levelMusic = null;
                 _levelAuthor = null;
                 _levelCrates = null;
+                _levelSoftness = null;
+                _levelWeather = null;
                 SetBallStyle(BallStyle.Beach);
                 return;
             }
@@ -884,6 +895,8 @@ namespace MapEditor
                 _levelMusic = level.Music;
                 _levelAuthor = level.Author;
                 _levelCrates = level.Crates;
+                _levelSoftness = level.Softness;
+                _levelWeather = level.Weather;
                 SetBallStyle(level.Balls ?? BallStyle.Beach);
 
                 //The level's dome wins over whatever is up (the sky key still cycles freely from here)
