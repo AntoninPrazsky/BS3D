@@ -213,9 +213,10 @@ namespace BS3D.Screens
         //needs and no more. Only where it would not fit even then is it narrowed, and under its floor it is not there -
         //a board laid across the tiles is worse than the Leaderboard button alone. Not fitted: a board is font-bound,
         //and the fonts are the menu's (BoardView's "Nobody is on this board yet" in the body face wants ~700 units).
+        //And CENTRED in the strip right of the band (#701's rule, the result page's): the same free width towards the
+        //band and towards the edge, where a margin capped at 150 units had leaned it right on a wide screen.
         private const int BOARD_WIDTH = 780;
         private const int BOARD_MIN_WIDTH = 520;
-        private const int BOARD_EDGE_MARGIN = 150;
         private const int BOARD_MIN_EDGE_MARGIN = 24;
         private const int BOARD_BAND_GAP = 40;
         private const int BOARD_PADDING = 56;
@@ -380,22 +381,32 @@ namespace BS3D.Screens
 
             int screen = Game.GraphicsDevice.PresentationParameters.BackBufferWidth;
             int bandWidth = band.Measure(new Point(int.MaxValue / 2, int.MaxValue / 2)).X;
-            int sides = Scaled(BOARD_BAND_GAP) + 2 * Scaled(BOARD_PADDING);
+            int padding = 2 * Scaled(BOARD_PADDING);
             int edgeFloor = Scaled(BOARD_MIN_EDGE_MARGIN);
+            int sideFloor = Math.Max(Scaled(BOARD_BAND_GAP), edgeFloor);
 
-            //The widest the board can be with the band pushed to the left edge's floor and the plate to the right's
-            int most = screen - bandWidth - sides - 2 * edgeFloor;
+            //The widest the board can be with the band pushed to the left edge's floor and the plate centred in what is
+            //left right of it, the larger floor on both its sides
+            int most = screen - bandWidth - edgeFloor - padding - 2 * sideFloor;
             if (most < Scaled(BOARD_MIN_WIDTH)) return null;
 
             int width = Math.Min(Scaled(BOARD_WIDTH), most);
+            int outer = width + padding;
 
-            //What a centred band leaves for it; where that is short, the band moves and the plate's edge margin splits
-            //what is left over with the band's own left side
-            int room = (screen - bandWidth) / 2 - sides;
-            int margin = room - width >= edgeFloor
-                ? Math.Min(room - width, Scaled(BOARD_EDGE_MARGIN))
-                : Math.Clamp((screen - bandWidth - sides - width) / 2, edgeFloor, Scaled(BOARD_EDGE_MARGIN));
-            shift = Math.Max(0, width + margin - room);
+            //Centred in the strip a centred band leaves (#701); where that strip is short, the band moves left and the
+            //three gaps - left of the band, band to plate, plate to edge - share what is free alike
+            int strip = (screen - bandWidth) / 2;
+            int margin;
+            if ((strip - outer) / 2 >= sideFloor)
+            {
+                margin = (strip - outer) / 2;
+            }
+            else
+            {
+                margin = Math.Max((screen - bandWidth - outer) / 3, sideFloor);
+                int bandLeft = screen - bandWidth - outer - 2 * margin;
+                shift = strip - bandLeft;
+            }
 
             VerticalStackPanel stack = new() { Spacing = Scaled(10), Width = width, ClipToBounds = true };
 
