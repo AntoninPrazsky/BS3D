@@ -284,7 +284,9 @@ namespace Prazsky.BS3D.Physics
             //the ball IS, this one asks which ball it IS, and it has to give one answer for a rock hanging in
             //the lattice, for that same rock in the frame it is released, and for it again halfway down
             //the drain.
-            if (ball.Kind == BallKind.Rock)
+            //A clump of buckshot takes the same table (#257): twenty pellets at a dodecahedron's corners are one stamp
+            //repeated unless each clump stands at a turn of its own.
+            if (ball.Kind == BallKind.Rock || ball.Kind == BallKind.Buckshot)
                 turned = Quaternion.Concatenate(RockTurns.For(ball.ArrayPosition), turned);
 
             frame.AddOriented(ball.Type, drawnAt.ToXna(), turned,

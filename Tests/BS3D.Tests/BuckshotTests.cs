@@ -68,6 +68,25 @@ namespace BS3D.Tests
             Assert.True(anchored.GetUncuttableFromCeiling()[1, 1, 1]);
         }
 
+        /// <summary>
+        /// A rock a bomb's blast or an acid's shaft can take is not a wall (the review of #257's merge): the caller marks
+        /// it breakable, and the clump under it can come down.
+        /// </summary>
+        [Fact]
+        public void ARockInABlastsReachIsNotAWall()
+        {
+            BallsMap walled = new(3, 3, 2);
+            walled.PutBallAt(1, 1, 1, kind: BallKind.Rock);
+            XZLevel under = Below(walled, new XZLevel(1, 1, 1));
+            walled.PutBallAt((byte)under.X, (byte)under.Z, (byte)under.Level, kind: BallKind.Buckshot);
+
+            bool[,,] breakable = new bool[3, 3, 2];
+            breakable[1, 1, 1] = true;
+
+            Assert.False(walled.GetUncuttableFromCeiling(breakable)[under.X, under.Z, under.Level]);
+            Assert.True(walled.GetUncuttableFromCeiling()[under.X, under.Z, under.Level]);
+        }
+
         //A lattice neighbour of a cell on the level below it
         private static XZLevel Below(BallsMap map, XZLevel cell)
         {

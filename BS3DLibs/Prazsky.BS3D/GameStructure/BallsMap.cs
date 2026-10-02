@@ -636,11 +636,19 @@ namespace Prazsky.BS3D.GameStructure
         /// <summary>
         /// Every rock and every clump of buckshot that hangs from the glass by rocks and buckshot alone (#257), marked in
         /// an array the field's size: flooded from those on the top level through their lattice neighbours, passing only
-        /// through those two kinds — the ones nothing removes but a cut. Anything matchable, glass, a bomb, a zap or an
-        /// acid on the way is a ball a shot can take out, which is all a cut needs. A clump marked here can never come
-        /// down, and since buckshot holds the level open (<see cref="BallKinds.Removable"/>), it is a level that never ends.
+        /// through those two kinds — the two no match removes. Anything matchable, glass, a bomb, a zap or an acid on the
+        /// way is a ball a shot can take out, which is all a cut needs. A clump marked here never comes down by matching,
+        /// and since buckshot holds the level open (<see cref="BallKinds.Removable"/>), that is a level that can only be
+        /// lost.
+        /// <para>
+        /// A blast and an acid's shaft take any kind, rocks and buckshot included, so a cell one of them reaches is not a
+        /// wall: the caller marks those in <paramref name="breakable"/>, because how far a blast reaches is the physics
+        /// library's figure and not this one's. The Cut power-up's round cuts a rock too, and is deliberately not
+        /// counted: its charges are the campaign's (<c>LevelSet</c>), and this question is asked of one level's layout.
+        /// </para>
         /// </summary>
-        public bool[,,] GetUncuttableFromCeiling()
+        /// <param name="breakable">Cells a bomb or an acid in the layout can take, or null for none.</param>
+        public bool[,,] GetUncuttableFromCeiling(bool[,,] breakable = null)
         {
             XZLevel size = new(StageSizeX, StageSizeZ, Levels);
             bool[,,] reached = new bool[StageSizeX, StageSizeZ, Levels];
@@ -649,7 +657,7 @@ namespace Prazsky.BS3D.GameStructure
 
             for (byte x = 0; x < StageSizeX; x++)
                 for (byte z = 0; z < StageSizeZ; z++)
-                    if (Uncuttable(_balls[x, z, top]))
+                    if (Uncuttable(x, z, top))
                     {
                         reached[x, z, top] = true;
                         frontier.Enqueue(new XZLevel(x, z, top));
@@ -662,7 +670,7 @@ namespace Prazsky.BS3D.GameStructure
                 foreach (XZLevel neighbour in GetNeighboringCells(cell, size))
                 {
                     if (reached[neighbour.X, neighbour.Z, neighbour.Level]) continue;
-                    if (!Uncuttable(_balls[neighbour.X, neighbour.Z, neighbour.Level])) continue;
+                    if (!Uncuttable(neighbour.X, neighbour.Z, neighbour.Level)) continue;
 
                     reached[neighbour.X, neighbour.Z, neighbour.Level] = true;
                     frontier.Enqueue(neighbour);
@@ -671,7 +679,12 @@ namespace Prazsky.BS3D.GameStructure
 
             return reached;
 
-            static bool Uncuttable(StaticBall ball) => ball != null && (ball.Kind == BallKind.Rock || ball.Kind == BallKind.Buckshot);
+            bool Uncuttable(int x, int z, int level)
+            {
+                StaticBall ball = _balls[x, z, level];
+                return ball != null && (ball.Kind == BallKind.Rock || ball.Kind == BallKind.Buckshot)
+                    && (breakable == null || !breakable[x, z, level]);
+            }
         }
 
         /// <summary>

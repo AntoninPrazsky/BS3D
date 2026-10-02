@@ -213,7 +213,10 @@ namespace BS3D.Tools.LevelGen
                 Console.WriteLine($"    wells a shot can fly near: {(stranded.BuriedWells == 0 ? "all" : $"NO - {stranded.BuriedWells} BURIED")}");
                 Console.WriteLine($"    heavy balls with a load: {(stranded.InertHeavy == 0 ? "all" : $"NO - {stranded.InertHeavy} CARRY NOTHING")}");
                 if (buckshot > 0)
+                {
                     Console.WriteLine($"    buckshot that can pour: {(stranded.StuckBuckshot == 0 ? "all" : $"NO - {stranded.StuckBuckshot} HELD BY NOTHING A SHOT CAN CUT")}");
+                    Console.WriteLine($"    buckshot apart from infection: {(stranded.InfectedBuckshot == 0 ? "yes" : $"NO - {stranded.InfectedBuckshot} BESIDE AN INFECTION")}");
+                }
                 foreach (string where in stranded.Examples) Console.WriteLine($"      {where}");
             }
 
@@ -273,7 +276,7 @@ namespace BS3D.Tools.LevelGen
             return !stanceRefused && !mirrorRefused && disconnected == 0 && lonely.Alone == 0 && !oneShot && margin >= 1
                    && stranded.Walled == 0 && stranded.Anchoring == 0 && stranded.CeilingRocks == 0
                    && stranded.AloneGlass == 0 && stranded.SealedIce == 0 && stranded.CeilingInfection == 0
-                   && stranded.BuriedWells == 0 && stranded.InertHeavy == 0 && stranded.StuckBuckshot == 0 && !clear.TooCheap;
+                   && stranded.BuriedWells == 0 && stranded.InertHeavy == 0 && stranded.StuckBuckshot == 0 && stranded.InfectedBuckshot == 0 && !clear.TooCheap;
         }
 
         /// <summary>
@@ -566,7 +569,9 @@ namespace BS3D.Tools.LevelGen
             //THE BUCKSHOT THAT CAN NEVER POUR (#257), found before the walk: everything a shot can never take away
             //except by cutting it down - rocks and other clumps - flooded from the anchor course along the lattice.
             //A clump this reaches hangs from the glass by nothing but such balls, so no cut can bring it down.
-            bool[,,] stuck = map.GetUncuttableFromCeiling();
+            bool[,,] stuck = map.GetUncuttableFromCeiling(BreakableByLayout(map, array, size));
+            bool infection = false;
+            foreach (StaticBall ball in array) infection |= ball != null && ball.Kind == BallKind.Infectious;
 
             //THE GLASS BODIES, labelled before anything else is asked, because #344 turned both questions
             //about the glass into questions about the BODY rather than about the ball. A landing colours
@@ -742,7 +747,21 @@ namespace BS3D.Tools.LevelGen
 
                                 if (report.Examples.Count < 3)
                                     report.Examples.Add($"buckshot at cell ({x},{z}) on level {l} hangs from the glass by"
-                                                        + " rocks and buckshot alone: nothing a shot does can cut it down");
+                                                        + " rocks and buckshot alone, out of every blast's and acid's reach:"
+                                                        + " no match can cut it down");
+                            }
+
+                            //⚠ AND AN INFECTION IN THE SAME LEVEL IS REFUSED OUTRIGHT, because the question above is asked
+                            //of the layout and the infection changes it: every tick a sick ball hardens into a rock and
+                            //passes the sickness up towards the glass, so its trail is a path of stone that can wall a clump
+                            //in halfway through the level, where no walk over the authored cells can see it.
+                            if (infection)
+                            {
+                                report.InfectedBuckshot++;
+
+                                if (report.Examples.Count < 3)
+                                    report.Examples.Add($"buckshot at cell ({x},{z}) on level {l} in a level with an"
+                                                        + " infection: its trail of stone can wall the clump in mid-level");
                             }
 
                             continue;
@@ -885,6 +904,47 @@ namespace BS3D.Tools.LevelGen
         /// <c>BallsMap.GetNeighboringCells</c> is the one place that knows it.
         /// </para>
         /// </summary>
+        /// <summary>
+        /// The cells a bomb's blast or an acid's shaft in the layout can take (#257): every cell within
+        /// <see cref="BallsConstraintsBuilder.BLAST_RADIUS"/> of a bomb, measured as the blast measures it, and every cell
+        /// <see cref="BallsMap.CollectAcidShaft"/> walks from an acid. Generous on purpose: a bomb is counted whether or
+        /// not a shot can reach it, so the buckshot question it feeds can only err towards passing a clump.
+        /// </summary>
+        private static bool[,,] BreakableByLayout(BallsMap map, StaticBall[,,] array, XZLevel size)
+        {
+            bool[,,] breakable = new bool[size.X, size.Z, size.Level];
+            List<XZLevel> shaft = new();
+            float reach = BallsConstraintsBuilder.BLAST_RADIUS;
+
+            for (int l = 0; l < size.Level; l++)
+                for (int x = 0; x < size.X; x++)
+                    for (int z = 0; z < size.Z; z++)
+                    {
+                        StaticBall ball = array[x, z, l];
+                        if (ball == null) continue;
+
+                        if (ball.Kind == BallKind.Bomb)
+                        {
+                            Vector3 centre = BallsMap.GetRealPosition((byte)x, (byte)z, (byte)l);
+
+                            for (int bl = 0; bl < size.Level; bl++)
+                                for (int bx = 0; bx < size.X; bx++)
+                                    for (int bz = 0; bz < size.Z; bz++)
+                                        if (Vector3.DistanceSquared(BallsMap.GetRealPosition((byte)bx, (byte)bz, (byte)bl), centre)
+                                            <= reach * reach)
+                                            breakable[bx, bz, bl] = true;
+                        }
+                        else if (ball.Kind == BallKind.Acid)
+                        {
+                            shaft.Clear();
+                            map.CollectAcidShaft(new XZLevel(x, z, l), shaft);
+                            foreach (XZLevel cell in shaft) breakable[cell.X, cell.Z, cell.Level] = true;
+                        }
+                    }
+
+            return breakable;
+        }
+
         private static bool HasBallBelow(StaticBall[,,] array, XZLevel size, XZLevel from)
         {
             foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(from, size))
@@ -903,10 +963,18 @@ namespace BS3D.Tools.LevelGen
             public int CeilingRocks;
 
             /// <summary>
-            /// Clumps of buckshot hanging from the glass by rocks and buckshot alone (#257): nothing a shot does can cut
-            /// them down, and a level is not cleared while one hangs. See <c>BallsMap.GetUncuttableFromCeiling</c>.
+            /// Clumps of buckshot hanging from the glass by rocks and buckshot alone, out of every blast's and acid's reach
+            /// (#257): no match can cut them down, and a level is not cleared while one hangs. See
+            /// <c>BallsMap.GetUncuttableFromCeiling</c>.
             /// </summary>
             public int StuckBuckshot;
+
+            /// <summary>
+            /// Clumps of buckshot in a level that also holds an infection (#257): the infection's trail of stone can wall
+            /// a clump in mid-level, which no question about the layout can see. See the buckshot branch in
+            /// <see cref="FindStrandedSpecials"/>.
+            /// </summary>
+            public int InfectedBuckshot;
 
             /// <summary>Panes some landing would colour by themselves — see the ALONE paragraph (#344).</summary>
             public int AloneGlass;
