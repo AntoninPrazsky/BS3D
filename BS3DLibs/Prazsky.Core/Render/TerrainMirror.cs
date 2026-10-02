@@ -47,9 +47,11 @@ namespace Prazsky.Core.Render
 
         private const float DUNE_SPACING = 64f;
         private const float DUNE_WINDWARD = 0.75f;
-        private const float DUNE_MEAN = 0.403f; //sampled through this mirror over 30 million points far outside the clearing (0.30 until #688, 0.436 before its CREST_PEAK fix)
+        private const float DUNE_MEAN = 0.337f; //sampled through this mirror over 30 million points far outside the clearing (0.30 with every crest sharp and a plain max, before #688; 0.403 while #688 rounded them all)
         private const float CREST_ROUND = 1.0f;
-        private const float CREST_PEAK = 1f - CREST_ROUND * DUNE_WINDWARD * (1f - DUNE_WINDWARD);
+        private const float CREST_REACH = 0.3f;
+        private const float CREST_GATE = 0.2f;
+        private const float CREST_GRID_WIDTH = 5.6f;
         private const float SET_BLEND = 0.35f;
 
         /// <summary>World Y of the sand at a world XZ, as <c>Desert.fx</c>'s <c>DesertHeight</c> displaces it.</summary>
@@ -83,13 +85,27 @@ namespace Prazsky.Core.Render
 
             float n3 = ShaderMath.Noise(new Vector2(side * 0.009f, along * 0.006f) + new Vector2(5.3f));
             float strength = ShaderMath.SmoothStep(0.2f, 0.75f, 0.6f + 1.2f * n3);
-            float major = DuneProfile(warped / DUNE_SPACING) * strength;
+            float majorCycles = warped / DUNE_SPACING;
 
             Vector2 wind2 = new(wind.X * 0.819f - wind.Y * 0.574f, wind.X * 0.574f + wind.Y * 0.819f);
             float n4 = ShaderMath.Noise(p * 0.017f + new Vector2(29f));
             float n5 = ShaderMath.Noise(p * 0.008f + new Vector2(41f));
             float minorStrength = ShaderMath.SmoothStep(0.2f, 0.75f, 0.45f + 1.2f * n5);
-            float minor = DuneProfile((Vector2.Dot(p, wind2) + n4 * 20f) / (DUNE_SPACING * 0.46f)) * 0.5f * minorStrength;
+            float minorCycles = (Vector2.Dot(p, wind2) + n4 * 20f) / (DUNE_SPACING * 0.46f);
+
+            //Desert.fx's crests (#688): sharp, and rounded only where the two sets come together in height
+            float majorHeight = DuneProfile(majorCycles, 0f) * strength;
+            float minorHeight = DuneProfile(minorCycles, 0f) * 0.5f * minorStrength;
+            float x = (majorHeight - minorHeight) / CREST_REACH;
+            float q = MathF.Max(1f - x * x, 0f);
+            float y = MathHelper.Clamp(majorHeight * minorHeight / (CREST_GATE * CREST_GATE), 0f, 1f);
+            float meeting = CREST_ROUND * q * q * y * y * (3f - 2f * y);
+
+            //And never narrower than the vertex grid resolves (Desert.fx's CREST_GRID_WIDTH): the vertices' field, not the normal's
+            float majorFloor = CrestRadiusFor(DUNE_SPACING);
+            float minorFloor = CrestRadiusFor(DUNE_SPACING * 0.46f);
+            float major = DuneProfile(majorCycles, MathF.Sqrt(meeting * meeting + majorFloor * majorFloor)) * strength;
+            float minor = DuneProfile(minorCycles, MathF.Sqrt(meeting * meeting + minorFloor * minorFloor)) * 0.5f * minorStrength;
 
             float swell = 0.22f * MathF.Sin(p.X * 0.017f + p.Y * 0.011f) + 0.12f * MathF.Sin(p.X * -0.009f + p.Y * 0.021f + 1.7f);
 
@@ -98,16 +114,19 @@ namespace Prazsky.Core.Render
             return MathF.Max(major, minor) + 0.25f * SET_BLEND * w * w + swell - DUNE_MEAN;
         }
 
-        private static float DuneProfile(float cycles)
+        private static float CrestRadiusFor(float spacing) => CREST_GRID_WIDTH / (2f * DUNE_WINDWARD * (1f - DUNE_WINDWARD) * spacing);
+
+        private static float DuneProfile(float cycles, float radius)
         {
             float t = cycles - MathF.Floor(cycles);
             float rise = t / DUNE_WINDWARD;
             float fall = (1f - t) / (1f - DUNE_WINDWARD);
 
-            //Desert.fx's rounded crest (#688): the quadratic smooth minimum of the two slopes, divided by its own maximum
-            //(CREST_PEAK, see Desert.fx for why not by its value at the crossing) so a crest stands at one
-            float w = MathF.Max(CREST_ROUND - MathF.Abs(rise - fall), 0f) / CREST_ROUND;
-            float m = (MathF.Min(rise, fall) - 0.25f * CREST_ROUND * w * w) / CREST_PEAK;
+            //Desert.fx's crest (#688): the quadratic smooth minimum of the two slopes within the radius of the corner, the
+            //radius held off zero by the same hair
+            float r = MathF.Max(radius, 1e-4f);
+            float w = MathF.Max(r - MathF.Abs(rise - fall), 0f) / r;
+            float m = MathF.Min(rise, fall) - 0.25f * r * w * w;
             float h = MathHelper.Clamp(m, 0f, 1f);
 
             return h * MathF.Sqrt(h);
