@@ -110,12 +110,19 @@ namespace BS3D.Tools.LevelGen
             RigRow(cz) && (cx == x0 || cx == x0 + Math.Sign(x0)) && i >= bottom && i <= depth - 1;
 
         /// <summary>
-        /// Which diagonal of a post's 2x2 section a cell is on, 0 or 1: the Coil's trick (RigDiagonal) for a post. Each
-        /// diagonal is a group of its own up the whole post, since on either parity a cell reaches its diagonal partner
-        /// a level up, so a post in two inks takes two shots to cut. In one ink it took one, and a level of two posts
-        /// was cleared in two shots, which the shortest-clear gate refuses.
+        /// Which ink a cell of a post is, 0 or 1: <b>by its row in z</b>, so each ink is one row of the post's section -
+        /// cells side by side on their level and straight above one another, one connected group up the whole post on
+        /// either parity. A post in two inks then takes exactly two shots to cut, and what one shot leaves is a row,
+        /// two chains side by side. In one ink a post went in one shot and a level of two posts cleared in two, which
+        /// the shortest-clear gate refuses.
+        /// <para>
+        /// ⚠ It split the posts by DIAGONAL first, the Coil's rope trick, and the review of the chapter's merge counted
+        /// what that does to a post: the lattice's next level never sits at the other diagonal's offset, so one of the
+        /// two inks was two separate one-cell columns - three groups a post, and two single chains of springs in
+        /// series left standing once the connected ink was gone. Rows have neither fault.
+        /// </para>
         /// </summary>
-        private static int PostDiagonal(int cx, int cz, int x0) => ((Math.Abs(cx - x0) + cz + 1) % 2 + 2) % 2;
+        private static int PostInk(int cz) => cz & 1;
 
         /// <summary>
         /// A rope two cells deep and two levels tall along x between the posts, its lower level at each column out from
@@ -145,7 +152,7 @@ namespace BS3D.Tools.LevelGen
             colour: (cx, cz, i) =>
             {
                 int a = Math.Abs(cx);
-                if (a >= 4) return PostDiagonal(cx, cz, Math.Sign(cx) * 4) == 0 ? BallType.Type1 : BallType.Type9;
+                if (a >= 4) return PostInk(cz) == 0 ? BallType.Type1 : BallType.Type9;
                 return a >= 2 ? BallType.Type7 : BallType.Type3;
             });
 
@@ -197,8 +204,8 @@ namespace BS3D.Tools.LevelGen
             colour: (cx, cz, i) =>
             {
                 if (Math.Abs(cx) >= BUNTING_POST)
-                    return PostDiagonal(cx, cz, Math.Sign(cx) * BUNTING_POST) == 0 ? BallType.Type4 : BallType.Type11;
-                if (BuntingMiddle(cx, cz, i)) return (cx + 1 + cz + 1) % 2 == 0 ? BallType.Type4 : BallType.Type11;
+                    return PostInk(cz) == 0 ? BallType.Type4 : BallType.Type11;
+                if (BuntingMiddle(cx, cz, i)) return PostInk(cz) == 0 ? BallType.Type4 : BallType.Type11;
                 if (BuntingRope(cx, cz, i)) return BallType.Type5;
                 return cx < 0 ? BallType.Type1 : BallType.Type7;
             },
@@ -223,11 +230,18 @@ namespace BS3D.Tools.LevelGen
         /// On the corners alone a cut stripe left each half hanging eleven cells long between two posts, and one run in
         /// five of the sag probe took it to the line; the middle posts halve that.
         /// </summary>
-        private static bool HammockCorner(int cx, int cz) =>
-            (Math.Abs(cx) == HAMMOCK_POST || Math.Abs(cx) == HAMMOCK_POST + 1)
-            && (Math.Abs(cz) == HAMMOCK_POST || Math.Abs(cz) == HAMMOCK_POST + 1 || cz == 0 || cz == -1);
+        private static bool HammockCorner(int cx, int cz)
+        {
+            bool edgeX = Math.Abs(cx) == HAMMOCK_POST || Math.Abs(cx) == HAMMOCK_POST + 1;
+            bool edgeZ = Math.Abs(cz) == HAMMOCK_POST || Math.Abs(cz) == HAMMOCK_POST + 1;
+            bool midX = cx == 0 || cx == -1, midZ = cz == 0 || cz == -1;
 
-        private static Design Hammock() => BigTop("Hammock", HAMMOCK_DEPTH, shots: 30, ceilingStep: 8,
+            //And since the chapter's review the middle of the other two sides too: the canvas spanned nine columns in x
+            //between its two lines of posts, past the chapter's seven, so every span is now five at most
+            return (edgeX && (edgeZ || midZ)) || (edgeZ && midX);
+        }
+
+        private static Design Hammock() => BigTop("Hammock", HAMMOCK_DEPTH, shots: 36, ceilingStep: 8,
             hz: 13f, damping: 0.6f, fieldLevels: BIGTOP_FIELD_LEVELS,
             occupied: (cx, cz, i) =>
             {
@@ -238,7 +252,8 @@ namespace BS3D.Tools.LevelGen
             },
             colour: (cx, cz, i) =>
             {
-                if (HammockCorner(cx, cz)) return BallType.Type7;
+                //The posts in two inks (PostInk): in one, six shots dropped the whole canvas on a level of thirty
+                if (HammockCorner(cx, cz)) return PostInk(cz) == 0 ? BallType.Type7 : BallType.Type9;
                 int stripe = (cx + HAMMOCK_POST) / 2;
                 return stripe % 2 == 0 ? BallType.Type1 : BallType.Type4;
             });
@@ -268,6 +283,10 @@ namespace BS3D.Tools.LevelGen
             //The beam, two levels under the glass from post to post
             if (Math.Abs(cx) <= 4 && (i == SANDBAGS_BEAM || i == SANDBAGS_BEAM + 1)) return true;
 
+            //And tied to the glass at its middle too (the chapter's review): from post to post it ran nine columns, past
+            //the chapter's seven, and a post cut late in the level let the beam swing its far sandbag under the line
+            if (Math.Abs(cx) <= 1 && i == SANDBAGS_BEAM + 2) return true;
+
             int rope = SandbagRope(cx);
             if (rope < 0) return false;
 
@@ -283,7 +302,7 @@ namespace BS3D.Tools.LevelGen
             {
                 //The posts white; the beam in three lengths, so no one colour carries the whole rig; the ropes red,
                 //yellow and blue; the bags' own colour is never read (a buckshot cell carries one like any cell)
-                if (Math.Abs(cx) >= 5) return PostDiagonal(cx, cz, Math.Sign(cx) * 5) == 0 ? BallType.Type4 : BallType.Type11;
+                if (Math.Abs(cx) >= 5) return PostInk(cz) == 0 ? BallType.Type4 : BallType.Type11;
                 int rope = SandbagRope(cx);
                 if (i < SANDBAGS_BEAM && rope >= 0)
                 {
@@ -379,7 +398,7 @@ namespace BS3D.Tools.LevelGen
             {
                 if (TrapezeFlyer(cx, cz, i)) return i >= 3 ? BallType.Type7 : BallType.Type3;
                 if (i > TRAPEZE_BAR + 1)
-                    return PostDiagonal(cx, cz, Math.Sign(cx) * TRAPEZE_ROPE) == 0 ? BallType.Type4 : BallType.Type11;
+                    return PostInk(cz) == 0 ? BallType.Type4 : BallType.Type11;
                 return Math.Abs(cx) >= 2 ? BallType.Type1 : BallType.Type9;
             });
 
@@ -412,7 +431,7 @@ namespace BS3D.Tools.LevelGen
         private static bool ChandelierPendant(int cx, int cz, int i) =>
             (cx == 0 || cx == -1) && (cz == 0 || cz == -1) && i >= 2;
 
-        private static Design Chandelier() => BigTop("Chandelier", CHANDELIER_DEPTH, shots: 30, ceilingStep: 8,
+        private static Design Chandelier() => BigTop("Chandelier", CHANDELIER_DEPTH, shots: 34, ceilingStep: 8,
             hz: 9f, damping: 0.6f, fieldLevels: BIGTOP_FIELD_LEVELS,
             occupied: (cx, cz, i) =>
                 ChandelierRing(cx, cz, i)
@@ -422,7 +441,7 @@ namespace BS3D.Tools.LevelGen
             {
                 int chain = ChandelierChain(cx, cz);
                 if (chain >= 0 && i > CHANDELIER_RING_LOW + 1)
-                    return (cx + cz + 100) % 2 == 0 ? BallType.Type7 : BallType.Type9;
+                    return PostInk(cz) == 0 ? BallType.Type7 : BallType.Type9;
                 if (chain >= 0 && i < CHANDELIER_RING_LOW) return BallType.Type5;
                 if (ChandelierPendant(cx, cz, i)) return i >= 6 ? BallType.Type4 : BallType.Type6;
 
@@ -478,7 +497,7 @@ namespace BS3D.Tools.LevelGen
                 || BridgeHanger(cx, cz, i) || (BridgeDeckEnd(cx, cz, i)),
             colour: (cx, cz, i) =>
             {
-                if (BridgeTower(cx, cz, i)) return (cx + cz + i + 100) % 2 == 0 ? BallType.Type4 : BallType.Type11;
+                if (BridgeTower(cx, cz, i)) return PostInk(cz) == 0 ? BallType.Type4 : BallType.Type11;
                 if (BridgeRail(cx, cz, i) || BridgeHanger(cx, cz, i)) return cz < 0 ? BallType.Type1 : BallType.Type3;
                 return Math.Abs(cx) % 2 == 0 ? BallType.Type10 : BallType.Type7;
             });
@@ -526,7 +545,7 @@ namespace BS3D.Tools.LevelGen
             Math.Abs(cx) <= NET_HALF && Math.Abs(cz) <= NET_HALF
             && ((cx + 100) % 2 == 0 || (cz + 100) % 2 == 0 || Math.Abs(cx) == NET_HALF || Math.Abs(cz) == NET_HALF);
 
-        private static Design SafetyNet() => BigTop("SafetyNet", NET_DEPTH, shots: 40, ceilingStep: 10,
+        private static Design SafetyNet() => BigTop("SafetyNet", NET_DEPTH, shots: 44, ceilingStep: 10,
             hz: 13f, damping: 0.6f, fieldLevels: BIGTOP_FIELD_LEVELS,
             occupied: (cx, cz, i) =>
             {
@@ -537,11 +556,10 @@ namespace BS3D.Tools.LevelGen
             },
             colour: (cx, cz, i) =>
             {
-                //The posts in two inks each, on the diagonals (PostDiagonal's reason): with one ink a post went in a single
-                //shot, a corner of the net was left on the posts beside it, and the probe hung it under the line four
-                //runs in five; at two shots a post it held in all five
+                //The posts in two inks each (PostInk's reason): with one ink a post went in a single shot, a corner of the
+                //net was left on the posts beside it, and the probe hung it under the line four runs in five
                 if (NetPost(cx, cz) && i > NetLow(cx, cz) + 1)
-                    return ((cx + cz) & 1) == 0 ? BallType.Type4 : BallType.Type11;
+                    return PostInk(cz) == 0 ? BallType.Type4 : BallType.Type11;
 
                 //The mesh in a check of nine tiles, four cells a side, in three colours: a third of the groups the
                 //three-cell tiles made, which left the level more groups than shots
@@ -584,9 +602,9 @@ namespace BS3D.Tools.LevelGen
             },
             colour: (cx, cz, i) =>
             {
-                if (TentKingPost(cx, cz)) return (cx + cz + i + 100) % 2 == 0 ? BallType.Type7 : BallType.Type9;
+                if (TentKingPost(cx, cz)) return PostInk(cz) == 0 ? BallType.Type7 : BallType.Type9;
                 if (TentQuarterPole(cx, cz) && i > TentLevelAt(MathF.Sqrt(2f) * 4f) + 1)
-                    return (cx + cz + i + 100) % 2 == 0 ? BallType.Type4 : BallType.Type11;
+                    return PostInk(cz) == 0 ? BallType.Type4 : BallType.Type11;
                 float angle = MathF.Atan2(cz + 0.5f, cx + 0.5f);
                 int panel = (int)MathF.Floor((angle + MathF.PI) / (MathF.PI / 4f)) % 8;
                 return panel % 2 == 0 ? BallType.Type1 : BallType.Type4;

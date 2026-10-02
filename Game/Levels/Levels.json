@@ -918,7 +918,7 @@
       "file": "Hammock.json",
       "name": "Hammock",
       "block": "The Big Top",
-      "shots": 30,
+      "shots": 36,
       "minStars": 226,
       "ceilingStep": 8
     },
@@ -942,7 +942,7 @@
       "file": "Chandelier.json",
       "name": "Chandelier",
       "block": "The Big Top",
-      "shots": 30,
+      "shots": 34,
       "minStars": 232,
       "ceilingStep": 8
     },
@@ -950,7 +950,7 @@
       "file": "SafetyNet.json",
       "name": "SafetyNet",
       "block": "The Big Top",
-      "shots": 40,
+      "shots": 44,
       "minStars": 234,
       "ceilingStep": 10
     },

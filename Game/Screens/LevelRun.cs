@@ -79,8 +79,8 @@ namespace BS3D.Screens
 
         /// <summary>
         /// The spring between this level's balls (#690) — off the level file's <see cref="Level.Softness"/>, and null,
-        /// the builder's own stiff spring, for every file that says nothing. Applied once the cluster is built and to
-        /// every ball that lands after (see <c>BuildCluster</c>).
+        /// the builder's own stiff spring, for every file that says nothing. Applied when the cluster is let go and to
+        /// every ball that lands after (see <c>ReleaseCluster</c>).
         /// </summary>
         internal BepuPhysics.Constraints.SpringSettings? LatticeSpring { get; set; }
 
