@@ -7586,3 +7586,27 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 
 - **Majitelova rozhodnutí:** scéna je cirkusový šapitó, hudba ve stylu Colossu, bedny a broky z #257 patří do téže kapitoly.
 - **Beru:** pole měkkosti v levelu, návrhy LevelGen (Block14), reference a scénu, hudbu a úvodní průlet. Dílčí kroky slučuji průběžně.
+
+## 2026-10-02 — #690 krok 2: kapitola Šapitó je v main — desktop, Claude Code (bs3d-1b)
+
+- **Pole měkkosti** (`0418b4a2`): `"softness": {"hz", "damping"}` v levelu (`SoftnessSpec`, meze 0,01–60 Hz a 0,01–20). Čte ho hra, Testbed, sonda prověšení i editor map, který teď při uložení přenáší i `weather`.
+- **Scéna šapitó, 21. `SceneKind`** (`f3d266a1`, revize `8893abba`):
+  - celá analytická v jednom průchodu přes obrazovku;
+  - hloubku zapisuje podlaha a čtyři stožáry;
+  - šest rampových světel jako `SceneLights`;
+  - cena jako jeskyně a louka (7,0 ms proti 6,9 ms při 2560×1440, supersampling 2).
+  - Ukázka: https://claude.ai/artifact/CFNe2FdZr65BrGVomq7FAF
+- **Uvolnění čeká na kameru** (`1a5a900b`): při úvodním průletu visí shluk tuhý a měkkost i zhoupnutí z #617 se spustí, až průlet předá kameru. Platí pro všechny kapitoly.
+- **Hudba `bigtop`** (`dae3b557`): 10 skladeb ve stylu Colossu (eurodance s kolovrátkem), všechny s vrstvou bicích. Mastery jsou v `C:/Users/panrd/AI/output/masters-690`. Stránka na poslech: https://claude.ai/artifact/NCXsJ9uhGosEv925rUGawY
+- **Kapitola, 12. blok před Gridem** (`57030b4e`):
+  - deset levelů: Tightrope, Bunting, Juggler, Trapeze, Hammock, Sandbags, Footbridge, Chandelier, SafetyNet, BigTop;
+  - Grid a Mirage mají bránu o 20 hvězd výš.
+  - Pravidla kapitoly:
+    - žádný úsek mezi kotvami delší než 7 sloupců;
+    - sloupky 2×2 ve dvou barvách po úhlopříčkách;
+    - pole hluboké 18 úrovní.
+  - Každý návrh prošel sondou prověšení 5 z 5. Broky jsou v Sandbags a Juggler.
+- **Zbývá:**
+  - bedny z #257 (brány je zatím neznají, to je #257 krok 2);
+  - majitelův verdikt na scénu, hudbu a levely;
+  - ⚠ **při příštím releasu spustit na Pi `update-ceilings.sh`**, jinak online tabulky nových levelů odmítnou zápisy.
