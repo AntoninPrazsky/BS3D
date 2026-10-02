@@ -7510,3 +7510,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **#257 cena broků změřena** (merge `3bf1a511`): 193 shluků vs. dvojče, hra High 3840×1600: 13,92 → 14,38 ms (+0,46), ~2,4 µs na shluk.
 - **#400 šestý průchod hygieny** (komentář na issue): 162 souborů od 28. 9., čisté.
 - **#674 ostrov ve všech 20 scénách** před/po reliéfu zkontrolován (stránka doplněna), bez regrese.
+
+## 2026-10-02 — #697 koruny stromů louky — desktop, Claude Code (bs3d-a3)
+
+- **Založeno #697 z majitelovy poznámky** (obdélníky v korunách, listy nerostou z větví = „nalepené papírky“). **Beru část 1, chybu masky:** `BroadLeafMask` násobí stonek `step(p.x, 0.74)` → za koncem stonku 0, ne záporné, a `clip(0)` pixel nechá → celá špičková čtvrtina každé karty je plný pruh. Stejný vzor má akácie (`LeafMask`, 2 % u řapíku). Oprava: záporná hodnota za koncem. Část 2 (listy z větví) je návrh s referencemi, nechávám na potom.
