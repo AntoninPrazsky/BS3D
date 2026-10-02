@@ -131,17 +131,25 @@ float HorizonHazeDistance;
 //same and the rows never read as ploughing. A second, smaller set crossing at an angle takes over where it stands
 //taller.
 //
-//SINCE #688 THE CRESTS ARE ROUND. They were a corner, and the two sets met in a max, which put a little pyramid
-//wherever a major and a minor crest crossed; the owner flew the desert chapter's tour low over them and found the
-//dunes pointed, and asked for round, smooth dunes - which is his call over the references'. The windward slope and
-//the slip face still make each dune lean downwind, but they meet in a smooth minimum (CREST_ROUND) and the sets in
-//a smooth maximum (SET_BLEND), both with their exact gradients, so the per-pixel normal turns over the crest
-//instead of folding on a line.
+//#688, TWICE. The owner flew the desert chapter's tour low over the erg and found the dunes pointed, and the first
+//answer rounded every crest - which his verdict (2026-10-02) turned back: a dune keeps its sharp break, the knife edge
+//between the windward slope and the slip face that the references have, and "no going back to little hills". What
+//was wrong was only the POINTS: where a major and a minor crest met at about the same height, the two corners and the
+//max between them made a little pyramid. So a crest is sharp along its dune and ROUNDED ONLY WHERE THE SETS MEET
+//(CREST_ROUND, CrestRoundness): its rounding radius is zero wherever one set stands clear of the other and grows to
+//CREST_ROUND as their heights come together, and the sets themselves meet in a smooth maximum (SET_BLEND) - all with
+//exact gradients, the radius's own included.
 //
-//The grid holds it: a cell is ~2.8 units, the slip face runs over ~16 and the rounding over about twelve.
+//⚠ AND A KNIFE EDGE IS ROUNDED TO WHAT ITS SAMPLER CAN RESOLVE, which is the other half of the points. The grid is
+//~2.8 units a cell, and a corner sampled at its vertices is a SAWTOOTH wherever the crest runs across the grid at a
+//slant: the original dunes' crests stood against the sky as rows of little spikes, the flyover's "pointed" seen
+//closest (photographed, #688). So the field takes the width a crest is drawn over (DuneField's crestWidth): two grid
+//cells for the vertices (CREST_GRID_WIDTH), and the pixel's own footprint for the per-pixel normal - which keeps the
+//light and shade meeting on a line while the silhouette under it is smooth. The two describe one surface but for the
+//few units each side of a crest, by design and by no more than the rounding takes off the top.
 static const float DUNE_SPACING = 64.0;       //crest to crest along the wind, world units
 static const float DUNE_WINDWARD = 0.75;      //the share of each period the windward slope takes
-static const float DUNE_MEAN = 0.403;         //the field's mean, sampled numerically, taken back off - see DuneField (0.30 until #688 rounded the crests; 0.436 while a crest was divided by the crossing's value, see CREST_PEAK)
+static const float DUNE_MEAN = 0.337;         //the field's mean, sampled numerically, taken back off - see DuneField (0.30 with every crest sharp and a plain max, before #688; 0.403 and 0.436 while #688 rounded them all)
 
 //The shared gradient noise WITH ITS ANALYTIC GRADIENT: (value, d/dx, d/dy). The same hash and the same quintic fade
 //as Noise.fxh's GradientNoise2, so the value is that function's to the bit - it has to be, because the vertex shader
@@ -174,26 +182,44 @@ float3 GradientNoise2Grad(float2 p)
     return float3(value, gradient);
 }
 
-//How round a crest is, in the units of the profile's two slopes before they meet (#688): the windward rise and the slip
-//face's fall are joined by a smooth minimum over the stretch where they are within this of each other - three eighths
-//of a period at DUNE_WINDWARD 0.75 (t from 0.5625 to 0.9375), some 24 units of DUNE_SPACING - instead of meeting on a
-//corner. The owner's note, after flying the desert chapter's tour low over the erg: the dunes were pointed, and should be
-//round and smooth. Normalized back to a peak of one by CREST_PEAK, so a dune keeps its height.
+//How round a crest is WHERE THE TWO SETS MEET (#688), in the units of the profile's two slopes before they meet: there
+//the windward rise and the slip face's fall are joined by a smooth minimum over the stretch where they are within this
+//of each other - three eighths of a period at DUNE_WINDWARD 0.75, some 24 units of DUNE_SPACING. Everywhere else the
+//radius is zero and the crest is the corner the references have. Not normalised back to a peak of one (as the first cut
+//of #688 was, through a CREST_PEAK): a crest rounded where the sets cross stands a little lower there - which is the
+//saddle a crossing should be - and the profile away from the meetings is the sharp one exactly, flanks included.
 static const float CREST_ROUND = 1.0;
 
-//The smooth minimum's own maximum, 1 - CREST_ROUND W (1 - W) for W = DUNE_WINDWARD, which is what a crest is divided by
-//to stand at one (#688). NOT its value where the two slopes cross, 1 - CREST_ROUND / 4: the slopes are unequal (4/3 up,
-//4 down), so the maximum stands off the crossing and above it - 0.8125 against 0.75 - and dividing by the crossing's
-//value lifted every crest to 1.083 for the saturate below to cut off, a flat plateau some 12 units wide with a crease
-//at each edge (found by review; the closed form was checked against a numeric maximum for W 0.6-0.85, CREST_ROUND 0.5-1.5).
-static const float CREST_PEAK = 1.0 - CREST_ROUND * DUNE_WINDWARD * (1.0 - DUNE_WINDWARD);
+//How close in height the two sets have to come, in the field's units, before their crests start to round: the radius
+//goes as (1 - (gap / CREST_REACH)^2)^2, which is flat where the sets are equal and where it lets go, so the radius field
+//has no crease of its own for the surface to inherit.
+static const float CREST_REACH = 0.3;
+
+//And both sets have to BE there: two sets equally near zero - an interdune flat, or a lone low dune with no other set
+//under it - are not a meeting, and without this the radius was non-zero over two thirds of the field (sampled) and
+//rounded every low dune's crest. Gated on the product of the two heights, which is smooth where a minimum would crease
+//the radius along the line the sets are equal on: a smoothstep from nothing to full at both this high.
+static const float CREST_GATE = 0.2;
 
 //How softly the two dune sets hand over, in the field's units (#688): a smooth maximum instead of a max, whose corner
 //was the POINT where a major and a minor crest crossed - a little pyramid at every crossing, the "pointed" part.
 static const float SET_BLEND = 0.35;
 
-//One dune set's profile along its own cycle coordinate, and the profile's derivative with respect to that coordinate.
-float DuneProfile(float cycles, out float slope)
+//The narrowest a crest is GEOMETRY, in world units: two cells of the desert's vertex grid (DesertBackdrop's
+//DESERT_EXTENT / DESERT_GRID_N, 1000 / 360 = 2.78). A constant rather than the GridCell uniform because the C#
+//mirror (TerrainMirror) has to displace by the same field and knows no grid; change the grid and change this.
+static const float CREST_GRID_WIDTH = 5.6;
+
+//The radius in a set's slope units that rounds its crest over `width` world units: the corner's stretch |d| < r is
+//2 r W (1 - W) of a period, W = DUNE_WINDWARD (the warp stretches it a little either way).
+float CrestRadiusFor(float width, float spacing)
+{
+    return width / (2.0 * DUNE_WINDWARD * (1.0 - DUNE_WINDWARD) * spacing);
+}
+
+//One dune set's profile along its own cycle coordinate at a crest radius (zero is the sharp break), the profile's
+//derivative with respect to that coordinate, and with respect to the radius.
+float DuneProfile(float cycles, float radius, out float slope, out float radiusSlope)
 {
     float t = frac(cycles);
     float rise = t / DUNE_WINDWARD;
@@ -201,22 +227,47 @@ float DuneProfile(float cycles, out float slope)
     float riseSlope = 1.0 / DUNE_WINDWARD;
     float fallSlope = -1.0 / (1.0 - DUNE_WINDWARD);
 
-    //The rounded crest: min(rise, fall) less k/4 w^2, w the share of CREST_ROUND the two are apart by - the quadratic
-    //smooth minimum, continuous in value and slope. Its slope is the lower line's, pulled half way to the other's by w.
+    //The crest: min(rise, fall) less (r - |d|)^2 / 4r within r of the corner - the quadratic smooth minimum, continuous
+    //in value and slope. Its slope is the lower line's pulled half way to the other's by w = (r - |d|) / r, and its
+    //derivative in r is -(1 - (d / r)^2) / 4 = -w (2 - w) / 4. A radius of zero is held off zero by a hair the mirror
+    //holds off it too, so the sharp profile is the same arithmetic and not a branch.
+    float r = max(radius, 1e-4);
     float d = rise - fall;
     float side = d >= 0.0 ? 1.0 : -1.0;
-    float w = max(CREST_ROUND - abs(d), 0.0) / CREST_ROUND;
-    float m = (min(rise, fall) - 0.25 * CREST_ROUND * w * w) / CREST_PEAK;
-    float mSlope = ((d >= 0.0 ? fallSlope : riseSlope) + 0.5 * w * side * (riseSlope - fallSlope)) / CREST_PEAK;
+    float w = max(r - abs(d), 0.0) / r;
+    float m = min(rise, fall) - 0.25 * r * w * w;
+    float mSlope = (d >= 0.0 ? fallSlope : riseSlope) + 0.5 * w * side * (riseSlope - fallSlope);
+    float mRadius = -0.25 * w * (2.0 - w);
 
     float h = saturate(m);
-    mSlope = (m > 0.0 && m < 1.0) ? mSlope : 0.0;
+    float inside = (m > 0.0 && m < 1.0) ? 1.0 : 0.0;
 
-    //h^1.5: flat in the interdune trough; the crest is rounded above
+    //h^1.5: flat in the interdune trough
     float root = sqrt(h);
-    slope = 1.5 * root * mSlope;
+    slope = 1.5 * root * mSlope * inside;
+    radiusSlope = 1.5 * root * mRadius * inside;
 
     return h * root;
+}
+
+//The crest radius where the two sets stand `gap` apart in height and their heights multiply to `both`, and its
+//derivatives with respect to each (#688)
+float CrestRoundness(float gap, float both, out float gapSlope, out float bothSlope)
+{
+    float x = gap / CREST_REACH;
+    float q = max(1.0 - x * x, 0.0);
+    float near = q * q;
+    float nearSlope = 2.0 * q * (-2.0 * x / CREST_REACH);
+
+    float gate = CREST_GATE * CREST_GATE;
+    float y = saturate(both / gate);
+    float present = y * y * (3.0 - 2.0 * y);
+    float presentSlope = 6.0 * y * (1.0 - y) / gate;
+
+    gapSlope = CREST_ROUND * nearSlope * present;
+    bothSlope = CREST_ROUND * near * presentSlope;
+
+    return CREST_ROUND * near * present;
 }
 
 //smoothstep(0.2, 0.75, x) with its derivative
@@ -231,7 +282,7 @@ float DuneStrength(float x, out float slope)
 //The dune field in units of DuneAmplitude, and its exact gradient. The mean goes back off because the whole field is
 //multiplied by the clearing ramp: a field with a mean would rise with the ramp and the desert would read as a shallow
 //bowl with the island at the bottom of it.
-float DuneField(float2 p, out float2 gradient)
+float DuneField(float2 p, float crestWidth, out float2 gradient)
 {
     float2 wind = normalize(WindDirection + float2(1e-4, 0.0));
     float2 across = float2(-wind.y, wind.x);
@@ -254,10 +305,8 @@ float DuneField(float2 p, out float2 gradient)
     float strength = DuneStrength(0.6 + 1.2 * n3.x, strengthSlope);
     float2 strengthGradient = strengthSlope * 1.2 * (n3.y * 0.009 * across + n3.z * 0.006 * wind);
 
-    float majorSlope;
-    float majorProfile = DuneProfile(warped / DUNE_SPACING, majorSlope);
-    float major = majorProfile * strength;
-    float2 majorGradient = majorSlope * warpedGradient / DUNE_SPACING * strength + majorProfile * strengthGradient;
+    float majorCycles = warped / DUNE_SPACING;
+    float2 majorCyclesGradient = warpedGradient / DUNE_SPACING;
 
     //The secondary set, 35 degrees off the wind and a little under half the spacing, let go the same way and more often
     float2 wind2 = float2(wind.x * 0.819 - wind.y * 0.574, wind.x * 0.574 + wind.y * 0.819);
@@ -265,12 +314,45 @@ float DuneField(float2 p, out float2 gradient)
     float3 n5 = GradientNoise2Grad(p * 0.008 + 41.0);
     float minorStrengthSlope;
     float minorStrength = DuneStrength(0.45 + 1.2 * n5.x, minorStrengthSlope);
+    float2 minorStrengthGradient = minorStrengthSlope * 1.2 * 0.008 * n5.yz;
     float minorSpacing = DUNE_SPACING * 0.46;
-    float minorSlope;
-    float minorProfile = DuneProfile((dot(p, wind2) + n4.x * 20.0) / minorSpacing, minorSlope);
+    float minorCycles = (dot(p, wind2) + n4.x * 20.0) / minorSpacing;
+    float2 minorCyclesGradient = (wind2 + 20.0 * 0.017 * n4.yz) / minorSpacing;
+
+    //Where do the sets meet (#688)? Both sharp first: the gap between their heights decides how round the crests are
+    //made, zero wherever one set stands clear of the other
+    float sharpSlopeA, sharpSlopeB, unusedA, unusedB;
+    float majorSharp = DuneProfile(majorCycles, 0.0, sharpSlopeA, unusedA);
+    float minorSharp = DuneProfile(minorCycles, 0.0, sharpSlopeB, unusedB);
+    float majorHeight = majorSharp * strength;
+    float minorHeight = minorSharp * 0.5 * minorStrength;
+    float2 majorHeightGradient = sharpSlopeA * majorCyclesGradient * strength + majorSharp * strengthGradient;
+    float2 minorHeightGradient = 0.5 * (sharpSlopeB * minorCyclesGradient * minorStrength + minorSharp * minorStrengthGradient);
+    float gapSlope, bothSlope;
+    float meeting = CrestRoundness(majorHeight - minorHeight, majorHeight * minorHeight, gapSlope, bothSlope);
+    float2 meetingGradient = gapSlope * (majorHeightGradient - minorHeightGradient)
+        + bothSlope * (minorHeight * majorHeightGradient + majorHeight * minorHeightGradient);
+
+    //Each set's radius: the meeting's, and never under what rounds its crest over crestWidth - joined as a root of
+    //squares, which is smooth where a max would crease the radius where the two cross
+    float majorFloor = CrestRadiusFor(crestWidth, DUNE_SPACING);
+    float majorRadius = sqrt(meeting * meeting + majorFloor * majorFloor);
+    float2 majorRadiusGradient = meeting / max(majorRadius, 1e-4) * meetingGradient;
+    float minorFloor = CrestRadiusFor(crestWidth, minorSpacing);
+    float minorRadius = sqrt(meeting * meeting + minorFloor * minorFloor);
+    float2 minorRadiusGradient = meeting / max(minorRadius, 1e-4) * meetingGradient;
+
+    float majorSlope, majorRadiusSlope;
+    float majorProfile = DuneProfile(majorCycles, majorRadius, majorSlope, majorRadiusSlope);
+    float major = majorProfile * strength;
+    float2 majorGradient = (majorSlope * majorCyclesGradient + majorRadiusSlope * majorRadiusGradient) * strength
+        + majorProfile * strengthGradient;
+
+    float minorSlope, minorRadiusSlope;
+    float minorProfile = DuneProfile(minorCycles, minorRadius, minorSlope, minorRadiusSlope);
     float minor = minorProfile * 0.5 * minorStrength;
-    float2 minorGradient = 0.5 * (minorSlope * (wind2 + 20.0 * 0.017 * n4.yz) / minorSpacing * minorStrength
-        + minorProfile * minorStrengthSlope * 1.2 * 0.008 * n5.yz);
+    float2 minorGradient = 0.5 * ((minorSlope * minorCyclesGradient + minorRadiusSlope * minorRadiusGradient) * minorStrength
+        + minorProfile * minorStrengthGradient);
 
     //A long low swell under the whole erg, so the dune rows ride over rises rather than lying on a table
     float2 k1 = float2(0.017, 0.011);
@@ -293,8 +375,9 @@ float DuneField(float2 p, out float2 gradient)
 
 //The full displaced sand height at a world point, and its gradient: flat at DesertLevelY inside the clearing around
 //the island, rising into dunes with distance. The vertex shader displaces by the height and the pixel shader lights
-//by the gradient - the one field, so the two can never drift apart.
-float DesertHeight(float2 p, out float2 gradient)
+//by the gradient - the one field, its crests drawn over crestWidth world units (#688: the grid's two cells for the
+//vertices, the pixel's footprint for the normal - see the dune field's opening).
+float DesertHeight(float2 p, float crestWidth, out float2 gradient)
 {
     float dist = max(length(p), 1e-3);
     float t = saturate((dist - ClearingRadius) / ClearingTransition);
@@ -302,7 +385,7 @@ float DesertHeight(float2 p, out float2 gradient)
     float2 rampGradient = (6.0 * t * (1.0 - t) / ClearingTransition) * (p / dist);
 
     float2 fieldGradient;
-    float field = DuneField(p, fieldGradient);
+    float field = DuneField(p, crestWidth, fieldGradient);
 
     gradient = DuneAmplitude * (rampGradient * field + ramp * fieldGradient);
 
@@ -328,7 +411,7 @@ DesertVertexOutput DesertVS(DesertVertexInput input)
     //still in the world while the grid slides under them
     float2 worldXZ = input.Position.xz + OriginXZ;
     float2 unusedGradient;
-    float3 worldPosition = float3(worldXZ.x, DesertHeight(worldXZ, unusedGradient), worldXZ.y);
+    float3 worldPosition = float3(worldXZ.x, DesertHeight(worldXZ, CREST_GRID_WIDTH, unusedGradient), worldXZ.y);
 
     output.WorldPosition = worldPosition;
     output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
@@ -471,8 +554,9 @@ float4 DesertPS(DesertVertexOutput input) : COLOR
     //the dune pass (see GradientNoise2Grad): it was three finite-difference taps of the field, which the dunes'
     //noise made fifteen noises a pixel. Exact, it also draws the crest as the corner it is rather than smearing it
     //over the taps' 1.5 units.
+    //Its crests drawn over two pixels rather than the grid's two cells (#688): sharp where the eye can see a line
     float2 duneSlope;
-    DesertHeight(worldPosition.xz, duneSlope);
+    DesertHeight(worldPosition.xz, 2.0 * footprint, duneSlope);
     float3 duneNormal = normalize(float3(-duneSlope.x, 1.0, -duneSlope.y));
 
     //The ripple field's domain: WARPED BY THE DUNE'S OWN SLOPE so the lines bend as they run over a crest and
@@ -603,7 +687,7 @@ technique Desert
 float DesertProbeHeight(float2 p)
 {
     float2 unusedGradient;
-    return DesertHeight(p, unusedGradient);
+    return DesertHeight(p, CREST_GRID_WIDTH, unusedGradient);
 }
 
 #define HEIGHT_PROBE_MIRRORED(p) DesertProbeHeight(p)
