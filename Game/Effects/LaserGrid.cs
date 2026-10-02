@@ -97,6 +97,13 @@ namespace BS3D.Effects
         /// <summary>Whether the net is currently armed — the trigger reads this for its hysteresis.</summary>
         internal bool Visible => _visible;
 
+        /// <summary>
+        /// The net that ended the level, standing under the result page (#702): it flared on a loss to the line and
+        /// the page has gone up over it (<see cref="NoticeLevelEnded"/>). Nowhere else - not on a clear, not on an
+        /// out-of-balls loss, not during the loss's own camera beat, where the cut is the sound.
+        /// </summary>
+        internal bool HoldsTheLoss => _visible && _flareAt < float.PositiveInfinity && _settleAt < float.PositiveInfinity;
+
         //The kill flare (#434): how bright the net goes when the cluster crosses it, and how long it takes
         //to get there. Well over the warning's own ceiling of 1 - the beam is drawn into the HDR target and
         //the glare pass reads it, so this is what makes the line BLOOM across the frame rather than merely

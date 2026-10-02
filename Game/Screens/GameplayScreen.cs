@@ -1438,6 +1438,11 @@ namespace BS3D.Screens
             StepPhysics(elapsed);
             NoteSimulated(1f);
 
+            //The net that ended the level is still cutting into the cluster under the page, and is heard doing so (#702).
+            //Asked for every frame, so every way off the page - Retry, Next Level, Main Menu with the session kept or
+            //torn down - silences it by not asking any more
+            if (_laserGrid.HoldsTheLoss) Game.Audio.HoldLineHum();
+
             //And a blast still going off when the page arrived (#389) carries on with the world it belongs to —
             //a flash frozen half-bright behind the numbers is this very issue, one effect further out. Its jolt is
             //dropped: the page is easing the lens out onto the front end's orbit, and the camera is not ours.

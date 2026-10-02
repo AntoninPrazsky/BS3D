@@ -165,6 +165,12 @@ namespace BS3D.Audio
         /// </summary>
         private readonly SoundEffect _lineTouch;
 
+        //The hum under a lost level's page (#702): its two loops and their voices, and how far up it stands
+        private readonly SoundEffect _lineHumA, _lineHumB;
+        private SoundEffectInstance _lineHumVoiceA, _lineHumVoiceB;
+        private float _lineHumPresence;
+        private bool _lineHumHeld;
+
         /// <summary>A bomb going off (#389) — until then it sounded exactly like a big release.</summary>
         private readonly SoundEffect _blast;
         private readonly SoundEffect _fireworkLaunch;
@@ -264,6 +270,17 @@ namespace BS3D.Audio
         private const int LINE_TOUCH_VOICES = 2;
         private const float LINE_TOUCH_LEVEL = 0.5f;
 
+        //The line's hum under the result page (#702): the cut's held body, looped, while the net that ended the level
+        //stays lit there (#614). A continuous layer, so authored QUIET - the ambience's first build buried the music
+        //and had to be cut to a quarter. Measured through a loopback of the game's output: the level's music plays at
+        //about -23 dBFS, and the defeat piece is a sting that is over within seconds, after which this is the page's
+        //only sound - so it sits some 12 dB under the music (at 0.12 it stood level with it, which is not a hum). It
+        //comes up over the second the net takes to settle from its flare to its pulse, so it takes over from the cut's
+        //own release rather than starting on top of it, and goes in a quarter of a second when the page is left.
+        private const float LINE_HUM_LEVEL = 0.03f;
+        private const float LINE_HUM_FADE_IN_SECONDS = 1.0f;
+        private const float LINE_HUM_FADE_OUT_SECONDS = 0.25f;
+
         //A blast's report is 1.8 s, and a chain sets one off per link a CHAIN_STAGGER apart (Blasts) — so one
         //landing wants as many voices at once as its chain is long. Five is the longest chain one landing sets
         //off in the campaign (Sill, Paroxysm); eight is that with room, and it is the effect's own slot count, so
@@ -349,6 +366,8 @@ namespace BS3D.Audio
             else lineLoss = BakeLineLoss();
             _lineLoss = ToSoundEffect(lineLoss);
             _lineTouch = ToSoundEffect(LineTouchFrom(lineLoss));
+            _lineHumA = ToSoundEffect(LineHumFrom(lineLoss, LINE_HUM_A_FROM_SECONDS, LINE_HUM_A_SECONDS, LINE_HUM_A_CROSSFADE_SECONDS));
+            _lineHumB = ToSoundEffect(LineHumFrom(lineLoss, LINE_HUM_B_FROM_SECONDS, LINE_HUM_B_SECONDS, LINE_HUM_B_CROSSFADE_SECONDS));
             _blast = BakeBlast();
             _fireworkLaunch = BakeFireworkLaunch();
             _fireworkBurst = FromSfxOrBake("firework-burst", BakeFireworkBurst, targetRms: BURST_TARGET_RMS, ceiling: 0.99f,
@@ -2605,6 +2624,128 @@ namespace BS3D.Audio
             Speak(_lineTouchRing, at, NEAR_WIDEN, MathHelper.Clamp(LINE_TOUCH_LEVEL * Level, 0f, 1f), NextPitch(0.06f));
         }
 
+        /// <summary>
+        /// The net that ended the level stands under the result page (#702): the session says so every frame it does.
+        /// A dead man's switch, consumed by <see cref="UpdateLineHum"/> - the hum lives exactly as long as it is said,
+        /// so every way off the page (Retry, Next Level, the main menu with the session kept or torn down) silences it
+        /// without anyone having to say stop.
+        /// </summary>
+        internal void HoldLineHum() => _lineHumHeld = true;
+
+        /// <summary>
+        /// The hum, once a frame from the audio director: up over <see cref="LINE_HUM_FADE_IN_SECONDS"/> while it was
+        /// held this frame (and the game is not paused), down over <see cref="LINE_HUM_FADE_OUT_SECONDS"/> when not, and
+        /// the one looped voice stopped once silent. One voice whatever happens, so three losses in a row cannot stack
+        /// three hums.
+        /// </summary>
+        internal void UpdateLineHum(bool paused, float elapsed)
+        {
+            bool wanted = _lineHumHeld && !paused;
+            _lineHumHeld = false;
+
+            float step = elapsed / (wanted ? LINE_HUM_FADE_IN_SECONDS : LINE_HUM_FADE_OUT_SECONDS);
+            _lineHumPresence = wanted ? MathF.Min(1f, _lineHumPresence + step) : MathF.Max(0f, _lineHumPresence - step);
+
+            if (_lineHumPresence <= 0f)
+            {
+                if (_lineHumVoiceA != null && _lineHumVoiceA.State != SoundState.Stopped) _lineHumVoiceA.Stop();
+                if (_lineHumVoiceB != null && _lineHumVoiceB.State != SoundState.Stopped) _lineHumVoiceB.Stop();
+                return;
+            }
+
+            _lineHumVoiceA ??= Looped(_lineHumA);
+            _lineHumVoiceB ??= Looped(_lineHumB);
+
+            //Smoothstepped, so it neither starts nor stops on a corner; the two loops at equal power, being two takes
+            //of a noise and not one signal twice
+            float shaped = _lineHumPresence * _lineHumPresence * (3f - 2f * _lineHumPresence);
+            float volume = MathHelper.Clamp(LINE_HUM_LEVEL * Level * shaped * 0.7071f, 0f, 1f);
+            _lineHumVoiceA.Volume = volume;
+            _lineHumVoiceB.Volume = volume;
+            if (_lineHumVoiceA.State != SoundState.Playing) _lineHumVoiceA.Play();
+            if (_lineHumVoiceB.State != SoundState.Playing) _lineHumVoiceB.Play();
+        }
+
+        private static SoundEffectInstance Looped(SoundEffect effect)
+        {
+            SoundEffectInstance voice = effect.CreateInstance();
+            voice.IsLooped = true;
+            return voice;
+        }
+
+        //Where in the cut the hum's loops are taken from (#702), measured on the recording. ONE loop, however smooth its
+        //seam, PULSED: a loop repeats its own swells exactly, and the 0.7 s one's 25 ms envelope varied by 32 % and
+        //correlated with itself at 0.96 a period on - a beat every 0.7 s. So the hum is TWO loops of incommensurate
+        //lengths sounding together, each ridden flat over 80 ms windows (LineHumFrom): the sum's envelope varies by 10 %,
+        //and its strongest repeat is 2.65 s on at 0.50 (sampled offline on the recording, and in the game's own output
+        //through a loopback). A is the body's steadiest 0.7 s (15 % in 50 ms windows, the least of any stretch that long),
+        //B a 0.53 s stretch overlapping it; both and their crossfades end inside the bake's 1.7 s hold too.
+        private const float LINE_HUM_A_FROM_SECONDS = 0.4f;
+        private const float LINE_HUM_A_SECONDS = 0.7f;
+        private const float LINE_HUM_A_CROSSFADE_SECONDS = 0.15f;
+        private const float LINE_HUM_B_FROM_SECONDS = 0.55f;
+        private const float LINE_HUM_B_SECONDS = 0.53f;
+        private const float LINE_HUM_B_CROSSFADE_SECONDS = 0.12f;
+        private const float LINE_HUM_FLATTEN_SECONDS = 0.08f;
+        private const float LINE_HUM_RMS = 0.2f;
+
+        /// <summary>
+        /// One of the hum's loops out of the cut's own <paramref name="cut"/> signal (#702): <paramref name="seconds"/> of
+        /// it from <paramref name="fromSeconds"/>, its first <paramref name="crossfadeSeconds"/> crossfaded at equal power
+        /// with what follows its end so the end runs on into the start, then ridden flat - divided by its own RMS over
+        /// <see cref="LINE_HUM_FLATTEN_SECONDS"/>, taken round the loop so the seam is ridden like the rest - and
+        /// peak-normalised as the touch is. A signal too short for the window gives what it has.
+        /// </summary>
+        private static float[] LineHumFrom(float[] cut, float fromSeconds, float seconds, float crossfadeSeconds)
+        {
+            int from = Math.Min((int)(fromSeconds * SAMPLE_RATE), cut.Length - 1);
+            int fade = (int)(crossfadeSeconds * SAMPLE_RATE);
+            int length = Math.Max(1, Math.Min((int)(seconds * SAMPLE_RATE), cut.Length - from - fade));
+            fade = Math.Max(0, Math.Min(fade, cut.Length - from - length));
+
+            float[] loop = new float[length];
+            for (int i = 0; i < length; i++)
+            {
+                float sample = cut[from + i];
+                if (i < fade)
+                {
+                    float t = (i + 0.5f) / fade;
+                    sample = sample * MathF.Sin(t * MathF.PI * 0.5f) + cut[from + length + i] * MathF.Cos(t * MathF.PI * 0.5f);
+                }
+                loop[i] = sample;
+            }
+
+            //Ridden flat: the running mean square over a window centred on each sample, round the loop
+            int window = Math.Max(1, Math.Min((int)(LINE_HUM_FLATTEN_SECONDS * SAMPLE_RATE), length));
+            double total = 0.0;
+            for (int i = 0; i < length; i++) total += loop[i] * (double)loop[i];
+            float meanRms = (float)Math.Sqrt(total / length);
+
+            double windowSum = 0.0;
+            for (int k = -window / 2; k < window - window / 2; k++)
+            {
+                float v = loop[((k % length) + length) % length];
+                windowSum += v * (double)v;
+            }
+
+            float[] flat = new float[length];
+            for (int i = 0; i < length; i++)
+            {
+                float rms = (float)Math.Sqrt(Math.Max(windowSum, 0.0) / window);
+                flat[i] = loop[i] * meanRms / Math.Max(rms, 1e-4f);
+
+                //Slide the window one sample on, round the loop
+                float leaving = loop[((i - window / 2) % length + length) % length];
+                float entering = loop[((i + window - window / 2) % length + length) % length];
+                windowSum += entering * (double)entering - leaving * (double)leaving;
+            }
+
+            //To one loudness and not one peak: the two loops have to stand equal or the longer one's beat rides over the
+            //other's (peak-normalised, the 0.7 s loop led and the sum still repeated at 0.75 every 0.7 s, in game)
+            Loudness(flat, targetRms: LINE_HUM_RMS, ceiling: 0.95f);
+            return flat;
+        }
+
         //Where in the cut the touch is taken from (#669): its held body, past the recording's slow rise, where the
         //hum and the sear are both full — with a click-free onset so it bites at once, and a release long enough not
         //to snap off. The window ends before BakeLineLoss's own hold lets go, so it is inside the bake's hold too -
@@ -2827,6 +2968,8 @@ namespace BS3D.Audio
             _ceilingRing?.Dispose();
             _lineLossRing?.Dispose();
             _lineTouchRing?.Dispose();
+            _lineHumVoiceA?.Dispose();
+            _lineHumVoiceB?.Dispose();
             _blastRing?.Dispose();
             _launchRing?.Dispose();
             _burstRing?.Dispose();
@@ -2843,6 +2986,8 @@ namespace BS3D.Audio
             _ceilingStep?.Dispose();
             _lineLoss?.Dispose();
             _lineTouch?.Dispose();
+            _lineHumA?.Dispose();
+            _lineHumB?.Dispose();
             _blast?.Dispose();
             _fireworkLaunch?.Dispose();
             _fireworkBurst?.Dispose();

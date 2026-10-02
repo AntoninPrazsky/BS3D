@@ -156,6 +156,9 @@ namespace BS3D.Audio
             //screen whether or not a session stands, so its sound is too, pause included.
             _ambience.Update(elapsed);
 
+            //The line's hum under a lost level's page (#702), held only by a frame that asked for it
+            _audio.UpdateLineHum(paused, elapsed);
+
             //Right after the bed, on the same wall clock, and for the same reason it is: the scene stages its
             //events whether or not a session stands, so a strike seen from the pause menu is heard from it.
             //The clock handed over is the one the SCENE draws from (BuildSceneFrame), which is what lets the
