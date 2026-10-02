@@ -636,9 +636,16 @@ namespace BS3D.Screens
         /// <summary>
         /// One frame of play. <paramref name="enabled"/> is the settings row, read here every frame so a
         /// change made from the pause lands at once; <paramref name="takeoverEngaged"/> hides the card under
-        /// a camera takeover and holds every clock, since a lesson shown during a drop cinematic is a lesson
-        /// shown to a player watching something else; <paramref name="levelDecided"/> clears the level's
-        /// remaining lessons and takes the card down, a decided level having nothing left to teach.
+        /// a camera takeover and holds the clocks of a card still needed, since a lesson shown during a drop
+        /// cinematic is a lesson shown to a player watching something else; <paramref name="levelDecided"/>
+        /// clears the level's remaining lessons and drops the card, a decided level having nothing left to teach.
+        /// <para>
+        /// ⚠ <b>A card on its way out runs to its end even under a takeover</b>, hidden by the suppress blend (#700).
+        /// Every clock used to hold, the leaving fade's included: the card was hidden as the takeover began and the
+        /// fade resumed from where it stood as the takeover lifted, so the card faded back in with the hiding and out
+        /// with the fade, about a third of the way up for a third of a second - a flash of text already dealt with,
+        /// after a drop cinematic mid-level and before the result page at a level's end.
+        /// </para>
         /// </summary>
         internal void Update(float elapsed, bool enabled, bool takeoverEngaged, bool levelDecided)
         {
@@ -647,25 +654,34 @@ namespace BS3D.Screens
             //The hiding blend runs whatever else is held, or a takeover that began mid-card would cut it
             _suppress = MoveTowards(_suppress, takeoverEngaged ? 1f : 0f, elapsed / SUPPRESS_SECONDS);
 
+            //A decided level drops the card outright (#700): no queue, no arrival, no praise finishing and no fade for a
+            //takeover to freeze and hand back. A lesson already done is recorded (Complete records it as it praises); one
+            //not done comes back with the next level's lessons as it always did. Its praise cue goes with it, so a lesson
+            //done by the very shot that decides the level does not chime for a card nobody is shown.
             if (levelDecided)
             {
                 _queue.Clear();
                 _armed.Clear();
+                _card = null;
+                _phase = Phase.None;
+                _presence = 0f;
+                _praiseCue = false;
+                return;
             }
 
-            if (!enabled || levelDecided)
+            if (!enabled)
             {
                 //The card steps aside unrecorded and keeps its place at the front of the queue, so the row
                 //switched back on resumes with the lesson that was up; a praise already earned is let finish.
-                //A decided level has cleared the queue above, so there the card simply goes.
                 if (_phase is Phase.Arriving or Phase.Shown) StepAside();
 
                 //Off means off: a card on its way out still leaves, and nothing arrives
                 if (_phase is not (Phase.Leaving or Phase.Praising)) return;
             }
 
-            //Every clock below holds while hidden. The blend above has already begun taking the card down.
-            if (takeoverEngaged) return;
+            //While hidden, the clocks of a card still needed hold, so it comes back after the takeover; a card on its
+            //way out (leaving, or praising towards it) runs to its end unseen, so nothing is there to come back (#700)
+            if (takeoverEngaged && _phase is not (Phase.Leaving or Phase.Praising)) return;
 
             switch (_phase)
             {
@@ -764,7 +780,7 @@ namespace BS3D.Screens
         /// <summary>
         /// The card up gives way — to a contextual card's event, or to the tutorial being switched off — and goes
         /// back to the front of the queue to return afterwards, unrecorded: its action was not done, or its
-        /// information not read out.
+        /// information not read out. Not on a decided level, which drops the card instead (#700).
         /// </summary>
         private void StepAside()
         {
