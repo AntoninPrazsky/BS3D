@@ -7610,3 +7610,27 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
   - bedny z #257 (brány je zatím neznají, to je #257 krok 2);
   - majitelův verdikt na scénu, hudbu a levely;
   - ⚠ **při příštím releasu spustit na Pi `update-ceilings.sh`**, jinak online tabulky nových levelů odmítnou zápisy.
+
+## 2026-10-02 — Šapitó po majitelových verdiktech, bedny z #257 — desktop, Claude Code (bs3d-1b)
+
+- **Majitel:**
+  - scéna „vypadá skvěle“;
+  - reflektory musí být vidět a pomalu se točit, geometrie co nejjednodušší, „podstatné je světlo“;
+  - hudba: Juggler, Ringmaster, Spotlight, Swing, Finale a Carousel OK;
+  - Calliope, Trapeze a Tightrope OK až ve 2. kole;
+  - Clowns až ve 3. kole: původní „infantilní“, prostorová verze bez „high“ momentu;
+  - přeje si víc sterea a prostoru (zadání to dnes žádá, model poslechne zčásti, +0,5 až 4,4 dB šířky).
+- **Lampy** (`4d98eee6`): válec s čočkou, tyč a kruh. Čočka svítí nad prahem bloomu, kolem je záře a v kuželu prach. Všech pět se točí, cena se nezměnila.
+- **Opravy z revize kapitoly** (`111eb749`):
+  - Sandbags měl trám 9 sloupců mezi kotvami a pozdě přeseknutý sloupek znamenal prohru, teď je uprostřed ukotvený;
+  - sloupky dělené po řadách (`PostInk`), protože úhlopříčka dávala 3 skupiny;
+  - Hammock má sloupky ve dvou barvách a 8 kotev;
+  - během průletu se fyzika nekrokuje.
+- **Hudba:** detektory jsou ve scratchpadu `690music`:
+  - `drumonly.py`: úseky jen s bubny proti Demucs stopě, zabral na „bušení“ 36 % / 28 s;
+  - `bands.py`: podíl energie pod 100 Hz, na „prdění“ basů 90 % proti 57–69 %;
+  - `peak.py`: kontrast obálky jako „high“ moment.
+- **#257 krok 2** (`8a84fde5`):
+  - `Crates.AddSpecs` je jediná instalace beden pro hru i sondy;
+  - sonda prověšení se od beden odráží, sonda příletu je bere jako zarážku;
+  - Trapeze má dvě plošiny.
