@@ -1,28 +1,29 @@
 {
-    "file":  "theme-bigtop-tightrope.wav",
-    "created":  "2026-10-02",
-    "issue":  690,
-    "family":  "bigtop",
-    "chapter":  "The Big Top (circus, #690) - in Colossus\u0027s style (#292: the eurodance Pulse it played then), a carnival colour over a dance groove, A minor",
-    "purpose":  "Master of Game/Music/bigtop-tightrope.ogg, one of the bigtop family\u0027s recordings (#690): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-690.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "Progressive house instrumental: steady kick, deep bass, a long evolving arpeggio that sways and balances, wide pads, suspenseful and glowing, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording, polka, oompah brass band, marching band",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  124,
-                    "keyscale":  "A minor",
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-690\\theme-bigtop-tightrope.wav: 81.0s loop = source 4.45s..85.50s (42.00 bars at 124.4 bpm), crossfade 0.96s | context match 0.351 (best 0.400) | crossfade rhythm r=0.24 vs the track a bar later r=0.26: in time | spectrum cos=0.34"
-                 ],
-    "measured":  "generate-music.ps1 end to end 62.6 s (ace-lm + ace-synth + loop cut)",
-    "rendered":  true
+    "file": "theme-bigtop-tightrope.wav",
+    "created": "2026-10-02",
+    "issue": 690,
+    "family": "bigtop",
+    "chapter": "The Big Top (circus, #690) - second round on the owner's ear: calliope less whiny, trapeze melodic throughout, tightrope lighter bass; every brief asks for a wide, spacious stereo mix",
+    "purpose": "Master of Game/Music/bigtop-tightrope.ogg, one of the bigtop family's recordings (#690): written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
+    "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-690.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
+    "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+    "license": "ACE-Step 1.5: MIT (code and weights)",
+    "request": {
+        "caption": "Progressive house instrumental: steady kick, a light tight bass line, a long evolving arpeggio that sways and balances, wide pads, suspenseful and glowing, wide stereo mix with the arpeggio panned left and right, spacious reverb, no vocals",
+        "lm_negative_prompt": "vocals, singing, audience applause, crowd noise, live recording, polka, oompah brass band, marching band, shrill whiny lead, pitch-bending lead, long drum-only sections, drum solo, boomy sub bass, distorted bass",
+        "instrumental": true,
+        "use_cot_caption": false,
+        "duration": 120,
+        "bpm": 124,
+        "keyscale": "A minor",
+        "inference_steps": 8,
+        "output_format": "wav32"
+    },
+    "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+    "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-690b\\theme-bigtop-tightrope-a.wav: 76.8s loop = source 18.80s..95.60s (40.00 bars at 125.0 bpm), crossfade 0.96s | context match 0.841 (best 0.888) | crossfade rhythm r=0.90 vs the track a bar later r=0.97: in time | spectrum cos=0.89"
+    ],
+    "measured": "generate-music.ps1 end to end 61.9 s (ace-lm + ace-synth + loop cut)",
+    "rendered": true,
+    "round": "Second round (2026-10-02) on the owner's ear: the first render's verdict was \"the bass too prominent, farting then kicking\" (measured: 90 % of the energy under 100 Hz against 57-69 % on the approved ones); candidate a of two chosen by measurement, the brief asking for a wide spacious stereo mix as well."
 }
