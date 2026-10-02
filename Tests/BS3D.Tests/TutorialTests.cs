@@ -291,5 +291,91 @@ namespace BS3D.Tests
             for (int i = 0; i < 60; i++) tutorial.Update(frame, enabled: true, takeoverEngaged: false, levelDecided: false);
             Assert.Equal(1f, tutorial.Presence, 3);
         }
+
+        //--- #700: a card dealt with does not come back when a camera takeover lifts ---
+
+        private const float FRAME = 1f / 75f;
+
+        /// <summary>A demo reel's first level: every card counts itself done on its own clock, so no player is needed.</summary>
+        private static Tutorial Reel()
+        {
+            Tutorial tutorial = new(key => false, key => { }, Tutorial.Mode.Demo);
+            tutorial.BeginLevel(1, 1, 10, ceilingStep: null);
+            return tutorial;
+        }
+
+        private static void Step(Tutorial tutorial, bool takeover, bool decided)
+        {
+            tutorial.Update(FRAME, enabled: true, takeoverEngaged: takeover, levelDecided: decided);
+            tutorial.TakePraiseCue();
+        }
+
+        private static void UpToFull(Tutorial tutorial)
+        {
+            for (int frame = 0; frame < 2000 && tutorial.Presence < 0.99f; frame++) Step(tutorial, false, false);
+            Assert.True(tutorial.Presence >= 0.99f, "no card came up");
+        }
+
+        /// <summary>
+        /// The level ends with a camera takeover while a card is up (the drop cinematic after the clearing shot): every
+        /// frame after the takeover lifts the card stays gone. It used to fade back in with the hiding and out again,
+        /// about a third of the way up (0.35 in this harness), just before the result page.
+        /// </summary>
+        [Fact]
+        public void ADecidedLevelsCardDoesNotFlashBackWhenTheTakeoverLifts()
+        {
+            Tutorial tutorial = Reel();
+            UpToFull(tutorial);
+
+            for (int frame = 0; frame < 150; frame++) Step(tutorial, takeover: true, decided: true);
+            for (int frame = 0; frame < 225; frame++)
+            {
+                Step(tutorial, takeover: false, decided: true);
+                Assert.Equal(0f, tutorial.Presence);
+            }
+        }
+
+        /// <summary>
+        /// A card already leaving when a takeover starts mid-level runs its fade to the end unseen: nothing of it comes
+        /// back as the hiding lifts (it came back to 0.32 before #700).
+        /// </summary>
+        [Fact]
+        public void ALeavingCardFinishesUnseenUnderATakeover()
+        {
+            Tutorial tutorial = Reel();
+            UpToFull(tutorial);
+
+            //Until the card starts to go: the reel counts it done on its own clock and it begins to leave
+            float previous = tutorial.Presence;
+            for (int frame = 0; frame < 20000 && tutorial.Presence >= previous; frame++)
+            {
+                previous = tutorial.Presence;
+                Step(tutorial, false, false);
+            }
+            Assert.True(tutorial.Presence > 0.5f && tutorial.Presence < 1f, "the card did not start to leave");
+
+            for (int frame = 0; frame < 150; frame++) Step(tutorial, takeover: true, decided: false);
+            for (int frame = 0; frame < 45; frame++)
+            {
+                Step(tutorial, takeover: false, decided: false);
+                Assert.Equal(0f, tutorial.Presence);
+            }
+        }
+
+        /// <summary>And the other half of the rule, which must not go with it: a card still NEEDED - up, not leaving - is
+        /// held under a takeover and comes back after it, a lesson shown to a player watching something else being no
+        /// lesson at all.</summary>
+        [Fact]
+        public void ACardStillNeededComesBackAfterATakeover()
+        {
+            Tutorial tutorial = Reel();
+            UpToFull(tutorial);
+
+            for (int frame = 0; frame < 75; frame++) Step(tutorial, takeover: true, decided: false);
+            Assert.Equal(0f, tutorial.Presence, 3);
+
+            for (int frame = 0; frame < 40; frame++) Step(tutorial, takeover: false, decided: false);
+            Assert.True(tutorial.Presence > 0.99f, $"the card did not come back ({tutorial.Presence})");
+        }
     }
 }
