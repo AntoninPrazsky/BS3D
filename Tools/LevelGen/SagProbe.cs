@@ -373,6 +373,9 @@ namespace BS3D.Tools.LevelGen
             Vector3 worldOffsetXna = ClusterHang.FitWorldOffset(map, out float fieldTopY);
             System.Numerics.Vector3 worldOffset = worldOffsetXna.ToNumerics();
 
+            _crates.Clear();
+            _crates.AddSpecs(level.Crates, worldOffset.Y);
+
             //THE GUN, and it is the real one: Cannon is pose arithmetic with no renderer in it, and it seats
             //its own trunnions off the island's stone (CannonRig.TrunnionHeightAt is static). What cannot be
             //asked for here is GameCameraFit's full four-bound solve, because that reads the built rig's
@@ -415,6 +418,8 @@ namespace BS3D.Tools.LevelGen
             //The island's floor. A cluster that has sagged this far has already lost, so nothing here turns on
             //it — but a released group landing on stone instead of falling through the world is what the game
             //does, and a probe that let its debris fall forever would be simulating a lighter island.
+            if (_crates.Count > 0) _crates.AddStatics(world.Simulation, world.Events);
+
             FunnelPhysics.Build(world.Simulation, world.BufferPool, ArenaIsland.TOP_Y, ArenaIsland.FUNNEL_BOTTOM_Y,
                 ArenaIsland.FUNNEL_TOP_RADIUS, ArenaIsland.FUNNEL_HOLE_RADIUS, ArenaIsland.FLOOR_RADIUS,
                 ArenaIsland.DISH_DEPTH, ArenaIsland.FUNNEL_SEGMENTS);
@@ -917,6 +922,11 @@ namespace BS3D.Tools.LevelGen
         /// </summary>
         private static readonly GravityWells _wells = new();
 
+        //The level's crates (#257), stood where the game stands them (Crates.AddSpecs) and handed to the shot's sweep -
+        //the game's own preview banks a shot off them, so the probe's landing must too - and to the world as statics,
+        //so what a shot releases falls round them rather than through them. Set per run like the wind clock.
+        private static readonly Crates _crates = new();
+
         /// <summary>
         /// What a shot leaves the barrel at, in world units a second — the Game's own <c>SHOOT_SPEED</c>.
         /// <para>
@@ -1037,7 +1047,7 @@ namespace BS3D.Tools.LevelGen
                 //the shot spends in the field.
                 if (!ShotPlacement.TryFindFirstHitCurved(balls, cannon.Position,
                         cannon.AimDirection * SHOT_SPEED, SHOT_RADIUS_SUM, _wells,
-                        out PhysicsBall hit, out Vector3 contact)) continue;
+                        out PhysicsBall hit, out Vector3 contact, crates: _crates)) continue;
 
                 if (!ShotPlacement.TrySolveAgainstBall(map, hit, contact, worldOffset, out XZLevel solved,
                         out Vector3 solvedDrift)) continue;                    //both rings full: it would bounce

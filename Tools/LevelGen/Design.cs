@@ -113,6 +113,13 @@ namespace BS3D.Tools.LevelGen
         /// </summary>
         public SoftnessSpec Softness;
 
+        /// <summary>
+        /// The crates standing in this level's play space (#257), written into <c>Level.Crates</c>; null for none. The
+        /// probes stand them through the game's own <c>Crates.AddSpecs</c>: the sag probe banks its shots off them, the
+        /// arrival probe counts a straight line that meets one as stopped.
+        /// </summary>
+        public CrateSpec[] Crates;
+
         public int Shots;
         public int CeilingStep;
 

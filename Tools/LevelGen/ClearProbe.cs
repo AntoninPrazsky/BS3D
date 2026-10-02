@@ -1,5 +1,6 @@
 ﻿using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
+using Prazsky.BS3D.Levels;
 using Prazsky.BS3D.Physics;
 using System;
 using System.Collections.Generic;
@@ -236,10 +237,10 @@ namespace BS3D.Tools.LevelGen
         /// </summary>
         private readonly ArrivalProbe _stance;
 
-        private ClearProbe(BallPositionTypes data, bool fromStance = false)
+        private ClearProbe(BallPositionTypes data, bool fromStance = false, CrateSpec[] crates = null)
         {
             BallsMap map = new(data);
-            if (fromStance) _stance = new ArrivalProbe(map);
+            if (fromStance) _stance = new ArrivalProbe(map, crates);
             StaticBall[,,] array = map.GetStaticBallsArray();
 
             _sizeX = map.StageSizeX;
@@ -348,9 +349,9 @@ namespace BS3D.Tools.LevelGen
         /// level needs the walk.
         /// </para>
         /// </summary>
-        internal static int FromOpeningStance(BallPositionTypes data)
+        internal static int FromOpeningStance(BallPositionTypes data, CrateSpec[] crates = null)
         {
-            ClearProbe probe = new(data, fromStance: true);
+            ClearProbe probe = new(data, fromStance: true, crates);
             return probe.Beam();
         }
 

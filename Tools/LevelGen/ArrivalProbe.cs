@@ -4,6 +4,7 @@ using Prazsky.BS3D.GameObjects;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Levels;
+using Prazsky.BS3D.Physics;
 using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
 using System;
@@ -91,7 +92,11 @@ namespace BS3D.Tools.LevelGen
         private readonly int[] _mark;
         private int _generation;
 
-        internal ArrivalProbe(BallsMap map)
+        //The level's crates (#257) and the runs they stop - see BuildRun
+        private readonly Crates _crates = new();
+        private readonly bool[] _runBlocked;
+
+        internal ArrivalProbe(BallsMap map, CrateSpec[] crates = null)
         {
             if (map == null) throw new ArgumentNullException(nameof(map));
 
@@ -104,11 +109,15 @@ namespace BS3D.Tools.LevelGen
             _mark = new int[_n];
             _runStart = new int[_n * STATIONS];
             _runCount = new int[_n * STATIONS];
+            _runBlocked = new bool[_n * STATIONS];
             Array.Fill(_runStart, -1);
 
             //Where the cluster actually hangs. The probe measures in world units because the gun does; the
             //lattice's own frame is centred on nothing the carriage knows about.
             Vector3 hang = ClusterHang.FitWorldOffset(map, out _);
+
+            //Where the game stands them, by the game's own installation
+            _crates.AddSpecs(crates, hang.Y);
 
             for (int level = 0; level < _levels; level++)
                 for (int x = 0; x < _sizeX; x++)
@@ -186,6 +195,8 @@ namespace BS3D.Tools.LevelGen
             int slot = cell * STATIONS + station;
             if (_runStart[slot] < 0) BuildRun(cell, station, slot);
 
+            if (_runBlocked[slot]) return false;
+
             int start = _runStart[slot];
             for (int i = 0; i < _runCount[slot]; i++)
                 if (present[_occluders[start + i]]) return false;
@@ -215,6 +226,19 @@ namespace BS3D.Tools.LevelGen
             if (length < 1e-3f) { _runCount[slot] = 0; return; }
 
             Vector3 direction = along / length;
+
+            //A CRATE IN THE WAY STOPS THE STRAIGHT SHOT, and for good (#257): crates never come down. A shot that meets
+            //one bounces off it in the game, and that bank shot may well reach the cell - but this probe answers what a
+            //STRAIGHT line reaches, so a level is promised only the landings it can be played to without a bank shot,
+            //and a crate can only ever take a landing away from the answer, never give one. Conservative on purpose.
+            if (_crates.Count > 0 && _crates.TryFindFirstFace(from.ToNumerics(), direction.ToNumerics(),
+                    length, BallsConstraintsBuilder.BALL_RADIUS, out _, out _))
+            {
+                _runBlocked[slot] = true;
+                _runCount[slot] = 0;
+                return;
+            }
+
             _generation++;
             int generation = _generation;
             int count = 0;

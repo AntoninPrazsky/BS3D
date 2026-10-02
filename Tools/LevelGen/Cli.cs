@@ -656,7 +656,7 @@ namespace BS3D.Tools.LevelGen
                         for (int z = 0; z < sizeZ; z++)
                             present[(l * sizeX + x) * sizeZ + z] = array[x, z, l] != null;
 
-                ArrivalProbe probe = new(map);
+                ArrivalProbe probe = new(map, level.Crates);
                 XZLevel size = new(sizeX, sizeZ, levels);
 
                 int landings = 0, unreachable = 0, needsWalk = 0, fromRest = 0;

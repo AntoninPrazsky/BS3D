@@ -452,16 +452,8 @@ namespace BS3D.Screens
 
             if (specs == null || specs.Length == 0) return;
 
-            foreach (Prazsky.BS3D.Levels.CrateSpec spec in specs)
-            {
-                if (spec == null || spec.Width <= 0f || spec.Height <= 0f || spec.Depth <= 0f) continue;
-
-                _crates.Add(new Crates.Crate(
-                    new System.Numerics.Vector3(spec.X, _clusterWorldOffset.Y + spec.Y, spec.Z),
-                    new System.Numerics.Vector3(spec.Width, spec.Height, spec.Depth) * Constants.HALF));
-            }
-
-            if (_crates.Count == 0) return;
+            //Through the one installation LevelGen's probes stand them through, so a gate judges the crates the player meets
+            if (_crates.AddSpecs(specs, _clusterWorldOffset.Y) == 0) return;
 
             _crateField = new BS3D.Effects.CrateField(GraphicsDevice, Game.InstancingEffect, _crates);
             Game.SessionCrates = _crateField;

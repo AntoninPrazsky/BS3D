@@ -388,7 +388,30 @@ namespace BS3D.Tools.LevelGen
 
         private static bool TrapezeFlyer(int cx, int cz, int i) => RigRow(cz) && Math.Abs(cx) <= 1 && i < TRAPEZE_BAR && i >= 1;
 
-        private static Design Trapeze() => BigTop("Trapeze", TRAPEZE_DEPTH, shots: 22, ceilingStep: 8,
+        private static Design Trapeze()
+        {
+            Design design = TrapezeRig();
+
+            //THE TWO PLATFORMS (#257's crate, its first level): the boards a flyer stands on high either side of a
+            //trapeze, here two crates level with the bar and out past the field's edge. Out past it so they never stand
+            //in the cluster's own cells; level with the bar so a shot banked off the inside face comes back into the rig
+            //from the side the player is not standing on. Straight shots pass under them to the bar and the flyer.
+            design.Crates = new[]
+            {
+                new CrateSpec { X = -TRAPEZE_PLATFORM_X, Y = TRAPEZE_PLATFORM_Y, Z = -0.75f, Width = 3f, Height = 3f, Depth = 3f },
+                new CrateSpec { X = TRAPEZE_PLATFORM_X, Y = TRAPEZE_PLATFORM_Y, Z = -0.75f, Width = 3f, Height = 3f, Depth = 3f },
+            };
+
+            return design;
+        }
+
+        //Where the platforms stand, in world units from the field's floor on its axis: ten out (the field is seven and a
+        //half wide either side), and at the bar's own height - its layout level plus the field's offset, in levels of
+        //one over root two
+        private const float TRAPEZE_PLATFORM_X = 10f;
+        private const float TRAPEZE_PLATFORM_Y = (BIGTOP_FIELD_LEVELS - TRAPEZE_DEPTH + TRAPEZE_BAR + 0.5f) * 0.70710678f;
+
+        private static Design TrapezeRig() => BigTop("Trapeze", TRAPEZE_DEPTH, shots: 22, ceilingStep: 8,
             hz: 7f, damping: 0.5f, fieldLevels: BIGTOP_FIELD_LEVELS,
             occupied: (cx, cz, i) =>
                 BigTopPost(cx, cz, i, -TRAPEZE_ROPE, TRAPEZE_BAR, TRAPEZE_DEPTH) || BigTopPost(cx, cz, i, TRAPEZE_ROPE, TRAPEZE_BAR, TRAPEZE_DEPTH)
