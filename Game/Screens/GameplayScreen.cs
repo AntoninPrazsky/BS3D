@@ -1259,8 +1259,14 @@ namespace BS3D.Screens
             //the time the level is being played
             _run.Seconds += elapsed;
 
-            StepPhysics(elapsed * _cinematic.TimeScale);
-            NoteSimulated(_cinematic.TimeScale);
+            //NOT STEPPED WHILE THE RELEASE WAITS (#690's review): stepped through a chapter intro at the builder's stiff
+            //springs, the cluster snapped up into its seat unseen, and the swing let go after the tour was only a dip from
+            //rest. Held exactly as built, it is let go by ReleaseCluster from the pose every other start begins at.
+            if (!_releasePending)
+            {
+                StepPhysics(elapsed * _cinematic.TimeScale);
+                NoteSimulated(_cinematic.TimeScale);
+            }
 
             //The blasts a landing inside that step set off (#389), on the step's own scaled time: the debris they
             //threw is moving at that speed, and a flash running at full speed over a slow-motion collapse is over

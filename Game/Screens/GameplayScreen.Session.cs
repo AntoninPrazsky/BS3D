@@ -602,8 +602,11 @@ namespace BS3D.Screens
         /// <b>It waits for the lens.</b> It ran as the cluster was built until #690, and on a chapter's first level the
         /// establishing tour has the camera for its first several seconds - so the swing #617 was built to show was over
         /// before the lens arrived, and on a soft level the drop, the bounce and the settle, which are the whole of what
-        /// its chapter shows, happened where nobody could see them. Until then the cluster hangs at the builder's stiff
-        /// springs, which is the still picture the preview showed, and is woken here because it has slept meanwhile.
+        /// its chapter shows, happened where nobody could see them. Until then the world is not stepped at all, so the
+        /// cluster stays exactly as it was built - the still picture the preview showed - and is let go from the pose
+        /// every other start begins at (it was stepped stiff at first, and snapped into its seat unseen, which left the
+        /// swing after the tour a dip from rest; the chapter's review found it). The wake is for safety: nothing sleeps
+        /// that was never stepped.
         /// </para>
         /// </summary>
         private void ReleaseCluster()

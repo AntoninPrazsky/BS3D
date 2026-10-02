@@ -40,9 +40,9 @@ namespace Prazsky.BS3D.Physics
     /// <b>A pure function of simulated time</b>, advanced by <see cref="PhysicsWorld.Step"/> on the fixed step, so
     /// it is the same motion at any refresh rate; and <b>in the world rather than in the Game</b>, so every
     /// caller that hangs a level hangs it the same way — the Game, the Testbed and the sag gate, which would
-    /// otherwise be measuring a start the game no longer has (#301/#302). A chapter's first level opens on its
-    /// establishing tour, so there the swing is over before the lens arrives; it is seen on every other start
-    /// and on every Retry.
+    /// otherwise be measuring a start the game no longer has (#301/#302). The Game begins it when it lets the cluster
+    /// go, which on a chapter's first level waits for the establishing tour to hand the lens back, the world held
+    /// unstepped and the cluster as built until then (#690) — so it is seen on every start and every Retry.
     /// </para>
     /// </summary>
     public sealed class ClusterStartSwing
