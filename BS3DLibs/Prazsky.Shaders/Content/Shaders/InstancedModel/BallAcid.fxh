@@ -157,11 +157,15 @@ float4 AcidPS(PatternVertexShaderOutput input) : COLOR
     float below = toward - front;
     float foamBand = fill * (1.0 - smoothstep(0.0, AcidFoamBand, below));
     float2 foamCoord = float2(angle * AcidFoamCells, below / AcidFoamBand * 2.0);
-    float2 foamCell = floor(foamCoord) + float2(0.0, floor(PulseTime * AcidFoamRate) * 7.0);
+    //The cell's integer seed, salted by which of the clock's foam steps this is (#674). It was Hash21(cell + step * 7):
+    //on whole numbers that hash comes back every 100 cells in y, so the seethe ran the same loop every 59 seconds, and
+    //the wall clock it reads never resets - by about fifty minutes into a session step * 7 * 456.21 is past float32's
+    //whole numbers, the hash's fraction is gone and the foam stops seething.
+    uint foamSeed = HashSalt(HashCell(floor(foamCoord)), (uint)floor(PulseTime * AcidFoamRate));
     float foamFade = saturate(1.0 - footprint * AcidFoamCells * 0.6);
 
     //A bubble is a DISC in its cell, not the cell: the first cut lit whole cells and the front was tiled.
-    float bubble = step(AcidFoamThreshold, Hash21(foamCell)) * (1.0 - smoothstep(0.22, 0.42, length(frac(foamCoord) - 0.5)));
+    float bubble = step(AcidFoamThreshold, HashUnit(foamSeed)) * (1.0 - smoothstep(0.22, 0.42, length(frac(foamCoord) - 0.5)));
     float foam = foamBand * lerp((1.0 - AcidFoamThreshold) * 0.4, bubble, foamFade);
 
     //THE COLOUR: the dry shell above, the wet shell tinted by what is standing on it below.
