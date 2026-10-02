@@ -571,29 +571,56 @@ static const float RIVER_AMP_SUM = 1.51;   //the weights above summed: the rippl
 //in CavernScene for why the warp exists at all.
 #define CAUSTIC_WARP 6.0
 
-//How high the surface stands over the mean plane at p, in world units - a figure only the NORMAL and the
-//crest glow read now, the surface itself being the plane. The amplitude still dies between 70 and 170 units
-//of horizontal distance from the lens, so the far river is dead flat: at that distance a ripple is under a
-//pixel and would alias, and the steam owns the distance anyway. WaveScale and WaveSpeed act as global
-//multipliers around their shipped defaults (0.16 and 0.8 map to 1.0), so a config that meant "calmer,
-//slower" still means it.
-float RiverHeight(float2 p, float t)
+//How high the surface stands over the mean plane at p, in world units (x), and its slope (yz) - figures only the
+//NORMAL, the caustic warp and the crest glow read, the surface itself being the plane. The amplitude still dies between
+//70 and 170 units of horizontal distance from the lens, so the far river is dead flat: at that distance a ripple is
+//under a pixel and would alias, and the steam owns the distance anyway. WaveScale and WaveSpeed act as global
+//multipliers around their shipped defaults (0.16 and 0.8 map to 1.0), so a config that meant "calmer, slower" still
+//means it.
+//
+//ONE SINE AND TWO OCTAVES OF NOISE SINCE #674, where it was three sines. Three plane waves with near-equal slope (the
+//weight over the wavelength: 0.038, 0.043, 0.042) cross into a lattice, and the crest glow - pow(crest, 5), lit only
+//where all three peak together - drew it as a regular grid of bright patches across the water, plain in a sweep
+//capture from the island. The swell stays a wave: one plane wave alone is stripes, not a grid. The mid wave and the chop
+//are gradient noise stretched RIVER_STRETCH times along their crests and drifting downstream at their own deep-water
+//phase speed, so the swell still outruns them; RIVER_NOISE_GAIN is Sea.fx's CHOP_NOISE_GAIN, the same measurement (a
+//noise cell holds about one swing, k / pi cells a unit, and the gain gives it the sine's slope across the crests).
+//Value and slope come out of one CloudNoiseD each (Clouds.fxh), where the sines were evaluated three times over for a
+//finite-difference gradient.
+static const float RIVER_NOISE_GAIN = 4.43;
+static const float RIVER_STRETCH = 2.0;
+
+float3 RiverRipple(float2 p, float t)
 {
     float freqScale = WaveScale * 6.25;
     float timeScale = WaveSpeed * 1.25;
     float fade = 1.0 - smoothstep(70.0, 170.0, length(p - CameraPosition.xz));
 
-    float h = 0.0;
+    //The swell, as it was
+    float2 swellDir = normalize(RIVER_DIR[0]);
+    float swellK = 6.2832 / RIVER_LEN[0] * freqScale;
+    float s, c;
+    sincos(dot(p, swellDir) * swellK + t * sqrt(9.81 * swellK) * timeScale + RIVER_PHASE[0], s, c);
+    float3 ripple = RIVER_AMP[0] * float3(s, c * swellK * swellDir);
 
     [unroll]
-    for (int w = 0; w < RIVER_WAVE_COUNT; w++)
+    for (int w = 1; w < RIVER_WAVE_COUNT; w++)
     {
+        float2 d = normalize(RIVER_DIR[w]);
+        float2 across = float2(-d.y, d.x);
         float k = 6.2832 / RIVER_LEN[w] * freqScale;
-        float omega = sqrt(9.81 * k) * timeScale;
-        h += RIVER_AMP[w] * sin(dot(p, normalize(RIVER_DIR[w])) * k + t * omega + RIVER_PHASE[w]);
+        float cells = k / 3.14159265;
+
+        //Carried downstream at the wave's own phase speed (omega / k), the swell's argument applied to the noise
+        float2 q = p - d * (t * sqrt(9.81 * k) * timeScale / k);
+        float3 n = CloudNoiseD(float2(dot(q, d) * cells, dot(q, across) * cells / RIVER_STRETCH) + RIVER_PHASE[w] * 11.0);
+
+        //The slope back in world units: the chain rule through the stretched, turned domain
+        float2 slope = n.y * cells * d + n.z * (cells / RIVER_STRETCH) * across;
+        ripple += RIVER_AMP[w] * RIVER_NOISE_GAIN * float3(n.x, slope);
     }
 
-    return h * (WaveAmplitude * fade);
+    return ripple * (WaveAmplitude * fade);
 }
 
 struct CavernVertexInput
@@ -673,14 +700,13 @@ float4 CavernScene(CavernVertexOutput input, uniform bool fullDetail)
         float2 p = hit.xz;
         float ampMax = WaveAmplitude * RIVER_AMP_SUM + 0.05;
 
-        //The ripple's normal: the height field's gradient at FULL strength - three evaluations of three
-        //components, where the marched version paid sixteen of seven before it could even find the surface.
-        //The full gradient is not an accident: the flat plane this scene shipped with once damped its fake
-        //normal to 0.18 and read as a patterned floor, and it was the damping that did that, not the
-        //flatness.
-        const float eW = 0.3;
-        float h = RiverHeight(p, t);
-        float2 grad = float2(RiverHeight(p + float2(eW, 0.0), t) - h, RiverHeight(p + float2(0.0, eW), t) - h) / eW;
+        //The ripple's normal: the height field's gradient at FULL strength, analytic since #674 (it was three
+        //evaluations for a finite difference; the marched version paid sixteen of seven before it could even find the
+        //surface). The full gradient is not an accident: the flat plane this scene shipped with once damped its fake
+        //normal to 0.18 and read as a patterned floor, and it was the damping that did that, not the flatness.
+        float3 ripple = RiverRipple(p, t);
+        float h = ripple.x;
+        float2 grad = ripple.yz;
         float3 normal = normalize(float3(-grad.x, 1.0, -grad.y));
 
         float3 bounced = reflect(direction, normal);
