@@ -1,4 +1,7 @@
-﻿using Myra.Graphics2D.UI;
+﻿using BS3D.Online;
+using Microsoft.Xna.Framework;
+using Myra.Graphics2D.UI;
+using Prazsky.BS3D.Levels;
 using Prazsky.BS3D.Scoring;
 using System;
 using System.Collections.Generic;
@@ -202,6 +205,40 @@ namespace BS3D.Screens
         private const int FOOTER_BUTTON_WIDTH = 490;
         private const int FOOTER_GAP = 20;
 
+        //The online boards of that level beside the band (#684), the result page's plate on the result page's side: this
+        //month and all time, the top OnlineSession.RESULT_BOARD_ROWS of each and the player's own place. The band is
+        //MEASURED rather than summed - its widest row is the pips, which are not fitted (see BuildPips), and thirteen of
+        //them are 2378 design units with the plate's padding. That leaves 731 either side at 16:9, short of the result
+        //page's board: so where the board does not fit beside a centred band THE BAND MOVES LEFT, by what the board
+        //needs and no more. Only where it would not fit even then is it narrowed, and under its floor it is not there -
+        //a board laid across the tiles is worse than the Leaderboard button alone. Not fitted: a board is font-bound,
+        //and the fonts are the menu's (BoardView's "Nobody is on this board yet" in the body face wants ~700 units).
+        private const int BOARD_WIDTH = 780;
+        private const int BOARD_MIN_WIDTH = 520;
+        private const int BOARD_EDGE_MARGIN = 150;
+        private const int BOARD_MIN_EDGE_MARGIN = 24;
+        private const int BOARD_BAND_GAP = 40;
+        private const int BOARD_PADDING = 56;
+        private const int BOARD_SECTION_GAP = 40;
+        private const int SIGNAL_GAP = 22;
+
+        private Panel _boardsPlate;
+        private Label _boardsHeading, _boardsStatus;
+        private OnlineSignal _boardsSignal;
+        private BoardView _boardMonth, _boardAllTime;
+
+        //The level the plate shows, the pair of requests for it and what has come back. One pair on its way at a time:
+        //a pointer swept along a row asks for the tile it comes to rest on, not for every tile it crossed, and the
+        //online client's one worker never queues behind requests nobody is still waiting for
+        private int _boardsLevel = -1;
+        private int _boardsFrontier = -1;
+        private bool _boardsStale = true;
+        private int _boardsMonthTicket = -1, _boardsAllTimeTicket = -1;
+        private BoardReply _boardsMonthReply, _boardsAllTimeReply;
+
+        //A level's board key is read off its file and hashed; the set does not change while the game runs, so once each
+        private readonly Dictionary<int, LevelIdentity> _identities = new();
+
         //The entry the focus cursor stands on, as the host last said. Kept for one job: a chapter turn has to
         //re-read the nav entries (a different chapter is a different set of playable tiles) and the cursor must
         //stay where it was, which means naming the button it was on.
@@ -311,7 +348,190 @@ namespace BS3D.Screens
             plate.VerticalAlignment = VerticalAlignment.Bottom;
             plate.Margin = ScaledThickness(0, 0, 0, PLATE_BOTTOM_MARGIN);
 
-            return ScreenRoot(plate);
+            int shift = 0;
+            _boardsPlate = Game.Online.Enabled && count > 0 ? BuildBoards(plate, out shift) : null;
+            _boardsStale = true;
+
+            //Off-centre by the board's need, through the margin: a centred child is centred in what its margin leaves
+            if (_boardsPlate != null) plate.Margin = new Myra.Graphics2D.Thickness(0, 0, 2 * shift, Scaled(PLATE_BOTTOM_MARGIN));
+
+            return _boardsPlate != null ? ScreenRoot(plate, _boardsPlate) : ScreenRoot(plate);
+        }
+
+        /// <summary>
+        /// The plate of online boards right of the band (#684), or null where the window leaves no room for it. Bottom-
+        /// aligned with the band, so the two read as one row of furniture under the preview. <paramref name="shift"/> is
+        /// how far left of centre the band has to stand to make that room, in pixels.
+        /// </summary>
+        private Panel BuildBoards(Panel band, out int shift)
+        {
+            shift = 0;
+
+            int screen = Game.GraphicsDevice.PresentationParameters.BackBufferWidth;
+            int bandWidth = band.Measure(new Point(int.MaxValue / 2, int.MaxValue / 2)).X;
+            int sides = Scaled(BOARD_BAND_GAP) + 2 * Scaled(BOARD_PADDING);
+            int edgeFloor = Scaled(BOARD_MIN_EDGE_MARGIN);
+
+            //The widest the board can be with the band pushed to the left edge's floor and the plate to the right's
+            int most = screen - bandWidth - sides - 2 * edgeFloor;
+            if (most < Scaled(BOARD_MIN_WIDTH)) return null;
+
+            int width = Math.Min(Scaled(BOARD_WIDTH), most);
+
+            //What a centred band leaves for it; where that is short, the band moves and the plate's edge margin splits
+            //what is left over with the band's own left side
+            int room = (screen - bandWidth) / 2 - sides;
+            int margin = room - width >= edgeFloor
+                ? Math.Min(room - width, Scaled(BOARD_EDGE_MARGIN))
+                : Math.Clamp((screen - bandWidth - sides - width) / 2, edgeFloor, Scaled(BOARD_EDGE_MARGIN));
+            shift = Math.Max(0, width + margin - room);
+
+            VerticalStackPanel stack = new() { Spacing = Scaled(10), Width = width, ClipToBounds = true };
+
+            //Which level the boards are of: the plate follows the cursor, so unlike the result page's it has to say
+            _boardsHeading = new Label { Font = FontBody, TextColor = BS3DGame.MENU_TEXT };
+            stack.Widgets.Add(_boardsHeading);
+
+            _boardMonth = new BoardView(FontBody, FontSmall, Scaled, OnlineSession.RESULT_BOARD_ROWS, width);
+            _boardAllTime = new BoardView(FontBody, FontSmall, Scaled, OnlineSession.RESULT_BOARD_ROWS, width);
+            _boardMonth.Root.Margin = ScaledThickness(0, BOARD_SECTION_GAP / 2, 0, 0);
+            _boardAllTime.Root.Margin = ScaledThickness(0, BOARD_SECTION_GAP, 0, 0);
+            stack.Widgets.Add(_boardMonth.Root);
+            stack.Widgets.Add(_boardAllTime.Root);
+
+            //The result page's status row (#683), whose signal moves while a board is on its way. It always holds its
+            //line, as the boards' own lines do while they wait: the plate stands on the band's bottom edge, so anything
+            //that changed its height would move its top under the pointer each time the cursor moved to another tile.
+            //Only the failure wraps to a second line (at 1080p "The score server did not answer." is wider than the
+            //plate), and a failure is a state the page stays in, not one it passes through between two tiles
+            int signalSize = FontSmall.LineHeight;
+            _boardsSignal = new OnlineSignal(signalSize);
+            _boardsStatus = new Label
+            {
+                Font = FontSmall,
+                TextColor = BS3DGame.MENU_TEXT_BODY,
+                Width = width - signalSize - Scaled(SIGNAL_GAP),
+                VerticalAlignment = VerticalAlignment.Center,
+                Wrap = true,
+            };
+            HorizontalStackPanel statusRow = new() { Spacing = Scaled(SIGNAL_GAP) };
+            statusRow.Widgets.Add(_boardsSignal);
+            statusRow.Widgets.Add(_boardsStatus);
+            stack.Widgets.Add(statusRow);
+
+            Panel plate = Plate(stack);
+            plate.HorizontalAlignment = HorizontalAlignment.Right;
+            plate.VerticalAlignment = VerticalAlignment.Bottom;
+            plate.Padding = ScaledThickness(BOARD_PADDING, BOARD_PADDING);
+            plate.Margin = new Myra.Graphics2D.Thickness(0, 0, margin, Scaled(PLATE_BOTTOM_MARGIN));
+            plate.Visible = false;
+            return plate;
+        }
+
+        public override void Update(GameTime gameTime)
+        {
+            base.Update(gameTime);
+
+            if (_boardsPlate == null) return;
+
+            UpdateBoards();
+            if (_boardsPlate.Visible) _boardsSignal.Advance((float)gameTime.ElapsedGameTime.TotalSeconds);
+        }
+
+        /// <summary>
+        /// Takes what has come back and, once nothing is on its way, asks for the level the cursor rests on now. Never
+        /// waits: a slow board is a board that is late, not a page that is.
+        /// </summary>
+        private void UpdateBoards()
+        {
+            bool changed = TakeBoards();
+
+            int wanted = BoardsLevel();
+
+            if ((wanted != _boardsLevel || _boardsStale) && _boardsMonthTicket < 0 && _boardsAllTimeTicket < 0)
+            {
+                _boardsLevel = wanted;
+                _boardsStale = false;
+                _boardsMonthReply = _boardsAllTimeReply = null;
+
+                LevelIdentity identity = IdentityOf(wanted);
+                _boardsMonthTicket = Game.Online.RequestLevelBoard(identity, allTime: false, 0, OnlineSession.RESULT_BOARD_ROWS);
+                _boardsAllTimeTicket = Game.Online.RequestLevelBoard(identity, allTime: true, 0, OnlineSession.RESULT_BOARD_ROWS);
+
+                //A page asked for in the last minute is in the cache and is there at once
+                TakeBoards();
+                changed = true;
+            }
+
+            if (changed) WriteBoards();
+        }
+
+        private bool TakeBoards()
+        {
+            bool taken = false;
+
+            if (_boardsMonthTicket >= 0 && Game.Online.TryTakeLevelBoard(_boardsMonthTicket, out BoardReply month))
+            {
+                _boardsMonthReply = month;
+                _boardsMonthTicket = -1;
+                taken = true;
+            }
+
+            if (_boardsAllTimeTicket >= 0 && Game.Online.TryTakeLevelBoard(_boardsAllTimeTicket, out BoardReply allTime))
+            {
+                _boardsAllTimeReply = allTime;
+                _boardsAllTimeTicket = -1;
+                taken = true;
+            }
+
+            return taken;
+        }
+
+        /// <summary>
+        /// The level whose boards the plate shows and the Leaderboard button opens: the last unlocked one the cursor rested
+        /// on, and before it has rested on any, the frontier - the level the player is most likely about to play. Never a
+        /// locked one (#266). Asked every frame, so the frontier is the one <see cref="Refresh"/> read, not a fresh walk.
+        /// </summary>
+        private int BoardsLevel() => _boardLevel >= 0 ? _boardLevel : _boardsFrontier;
+
+        private LevelIdentity IdentityOf(int level)
+        {
+            if (level < 0) return null;
+            if (_identities.TryGetValue(level, out LevelIdentity known)) return known;
+
+            //A file that will not read is asked again next time rather than remembered as boardless
+            LevelIdentity identity = Game.LevelIdentityOf(level);
+            if (identity != null) _identities[level] = identity;
+            return identity;
+        }
+
+        /// <summary>Writes the plate - only when something changed, because a Label's Text setter re-measures.</summary>
+        private void WriteBoards()
+        {
+            _boardsPlate.Visible = _boardsLevel >= 0;
+            if (_boardsLevel < 0) return;
+
+            _boardsHeading.Text = $"{_boardsLevel + 1}  {Game.LevelDisplayName(_boardsLevel)}".ToUpperInvariant();
+
+            BoardPageBody month = _boardsMonthReply?.Page, allTime = _boardsAllTimeReply?.Page;
+            bool waiting = _boardsMonthTicket >= 0 || _boardsAllTimeTicket >= 0;
+
+            //Nothing asked is a level without a board key (its file would not read) or a client that has gone offline
+            //since the page was built; a reply without a page is the service not answering
+            bool failed = !waiting && (month == null || allTime == null);
+
+            _boardMonth.Fill("THIS MONTH", BoardView.MonthName(month?.Month), month, month?.Me?.Rank ?? 0, month?.Total ?? 0);
+            _boardAllTime.Fill("ALL TIME", BoardView.AllTimePeriod, allTime, allTime?.Me?.Rank ?? 0, allTime?.Total ?? 0);
+
+            //"Nobody is on this board yet" is the answer of a board that came back empty, not of one still on its way
+            if (month == null) _boardMonth.You.Text = " ";
+            if (allTime == null) _boardAllTime.You.Text = " ";
+
+            _boardsStatus.Text = waiting ? "Loading the boards..."
+                : failed ? "The score server did not answer."
+                : " ";
+            _boardsSignal.Visible = waiting || failed;
+            _boardsSignal.Show(waiting ? OnlineSignal.SignalMode.Working : OnlineSignal.SignalMode.Idle);
         }
 
         /// <summary>
@@ -827,6 +1047,13 @@ namespace BS3D.Screens
             //The tree may not exist yet: the page is only built when it is first shown
             if (_totalStars == null) return;
 
+            //And the boards are asked again: coming back here is often coming back from a clear that moved them - and
+            //moved the frontier they fall back on
+            _boardsStale = true;
+            int frontier = Game.FirstUnfinishedLevel;
+            _boardsFrontier = frontier < Game.LevelCount && Game.IsLevelUnlocked(frontier) ? frontier : -1;
+            ShowBoardButton();
+
             _totalStars.Text = $"{STAR_FILLED} {Game.TotalStars} collected";
             _totalStars.Visible = Game.LevelCount > 0;
 
@@ -979,13 +1206,30 @@ namespace BS3D.Screens
         {
             if (_boardButton == null) return;
 
-            _boardButton.Enabled = _boardLevel >= 0;
-            _boardLabel.Text = _boardLevel >= 0 ? $"Board: {Game.LevelDisplayName(_boardLevel)}" : "Leaderboard";
+            int level = BoardsLevel();
+            _boardButton.Enabled = level >= 0;
+            _boardLabel.Text = level >= 0 ? $"Board: {Game.LevelDisplayName(level)}" : "Leaderboard";
         }
 
         private void OpenBoard()
         {
-            if (_boardLevel >= 0) Game.OpenLevelBoard(_boardLevel);
+            int level = BoardsLevel();
+            if (level >= 0) Game.OpenLevelBoard(level);
+        }
+
+        /// <summary>
+        /// Rests the pointer on a level's tile, exactly as its <c>MouseEntered</c> does - the <c>pickfocus=</c> argument's
+        /// (#684), since no script reaches the Game's pointer. A level not on the chapter showing is named and left.
+        /// </summary>
+        internal void PointAtForTesting(int level)
+        {
+            int slot = Array.IndexOf(_slotLevel, level);
+
+            Console.WriteLine(slot >= 0
+                ? $"[pick] Testing: the pointer on {level + 1} '{Game.LevelDisplayName(level)}'"
+                : $"[pick] Testing: level {level + 1} is not on the chapter showing");
+
+            if (slot >= 0) ShowDetail(slot);
         }
 
         /// <summary>The level a tile slot is showing, or -1 for no tile and for a slot this chapter leaves empty.</summary>

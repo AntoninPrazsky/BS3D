@@ -105,6 +105,25 @@ namespace BS3D
         /// </summary>
         private string _pick;
 
+        //Testing only: the picker's pointer, "pickfocus=<level>@<s>" (#684) - the level 1-based, and the second it moves
+        private int _pickFocusLevel;
+        private float? _pickFocusAt;
+
+        private void ParsePickFocus(string value)
+        {
+            if (value == null) return;
+
+            string[] parts = value.Split('@');
+            if (parts.Length == 2
+                && int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out int level) && level >= 1
+                && float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float at) && at >= 0f)
+            {
+                _pickFocusLevel = level;
+                _pickFocusAt = at;
+            }
+            else Console.WriteLine($"[pick] Testing: 'pickfocus={value}' dropped, expected <level>@<seconds>");
+        }
+
         //Testing only: the "tour" argument (#406) - the scene menu with the current scene's establishing
         //flight already running, which is the only way this can be photographed from a script.
         private bool _tour;
@@ -160,6 +179,7 @@ namespace BS3D
             _lost = launch.Lost;
             _nextLocked = launch.NextLocked;
             _pick = launch.Pick;
+            ParsePickFocus(launch.PickFocus);
             _about = launch.About;
             _settings = launch.Settings || launch.SettingsRows != null;
             _settingsRows = launch.SettingsRows;
@@ -213,6 +233,13 @@ namespace BS3D
                 _pick = null;
 
                 game.OpenLevelSelect();
+            }
+
+            //The picker's pointer on a level (#684), once the picker is up and the clock has come
+            if (_pickFocusAt is float pickFocusAt && game.WallClock >= pickFocusAt && !game.IsSplashUp)
+            {
+                _pickFocusAt = null;
+                game.PointPickerAtForTesting(_pickFocusLevel - 1);
             }
 
             //The About page and its player (#443), held back past the title card for the same reason.
