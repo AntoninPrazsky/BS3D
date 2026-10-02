@@ -145,9 +145,12 @@ namespace BS3D.Tests
             Assert.Equal(1f, Level.Load(path).Softness.Damping);
         }
 
-        /// <summary>A spring of no frequency or no damping is no spring: refused, like a colour this build does not have.</summary>
+        /// <summary>A spring of no frequency or no damping is no spring, and one past half the step rate is not resolved:
+        /// refused, like a colour this build does not have.</summary>
         [Theory]
         [InlineData("{\"hz\":0}")]
+        [InlineData("{\"hz\":100}")]
+        [InlineData("{\"hz\":6,\"damping\":1e-30}")]
         [InlineData("{\"hz\":-3,\"damping\":0.5}")]
         [InlineData("{\"hz\":6,\"damping\":0}")]
         [InlineData("{}")]
