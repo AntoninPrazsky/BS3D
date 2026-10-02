@@ -7553,3 +7553,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
   - jádro se kreslí jen do stínové mapy (`ScatterBucket.ShadowOnly`), koule zůstávají jen na Low;
   - cena: Pennant High 3840×1600, 14,31 → 14,11 ms, každý pár levnější.
   - ⚠ Zblízka to připomíná spíš jasan než dub (zpeřené snítky z `BroadLeafMask`); maska s dubovými laloky je možný další krok.
+
+## 2026-10-02 — beru #698–#702 (majitelovy poznámky z dneška) — desktop, Claude Code (bs3d-1b)
+
+- **Beru #701** (deska žebříčku na výsledku uprostřed pruhu vedle sloupce; zkontroluji i desku ve výběru levelu z #684), **#699** (nápověda přeskočení u každé animace), **#700** (karta tutoriálu problikne po animaci), **#702** (zvuk laserů trvá na stránce výsledku) a **#698** (plot na louce v měřítku stromů). Pořadí přesně takhle.
