@@ -293,6 +293,283 @@ namespace BS3D.Tools.LevelGen
                 return rope >= 0 && i < SANDBAGS_BEAM && i < SANDBAGS_ROPE_BOTTOM[rope] ? BallKind.Buckshot : BallKind.Normal;
             });
 
+
+        //--- 5. JUGGLER: five balls in the air ------------------------------------------------------------------
+        //Five juggling balls caught mid-throw, each a round body of its own colour on a chain of another, hung at five
+        //heights round the field. Each has a core of buckshot: take the ball's colour and the shell goes, the pellets
+        //inside pour out after it - and a chain cut first takes the whole ball, pellets and all.
+
+        private const byte JUGGLER_DEPTH = 10;
+
+        /// <summary>The five balls: centre column and row, the level of the ball's middle, its colour and its chain's.</summary>
+        private static readonly (int X, int Z, int Mid, BallType Body, BallType Chain)[] JUGGLER_BALLS =
+        {
+            (-4, -3, 6, BallType.Type1, BallType.Type4),
+            (-3, 3, 3, BallType.Type3, BallType.Type7),
+            (0, 0, 1, BallType.Type7, BallType.Type6),
+            (3, -3, 4, BallType.Type2, BallType.Type1),
+            (4, 3, 2, BallType.Type6, BallType.Type3),
+        };
+
+        /// <summary>Which ball a cell belongs to and whether it is the body (true) or the chain (false); -1 for neither.</summary>
+        private static int JugglerPart(int cx, int cz, int i, out bool body, out bool core)
+        {
+            body = false;
+            core = false;
+
+            for (int b = 0; b < JUGGLER_BALLS.Length; b++)
+            {
+                var ball = JUGGLER_BALLS[b];
+                int dx = cx - ball.X, dz = cz - ball.Z, dy = i - ball.Mid;
+
+                //The body: three cells across and three levels tall, its eight corners off so it reads as round
+                if (Math.Abs(dx) <= 1 && Math.Abs(dz) <= 1 && Math.Abs(dy) <= 1
+                    && !(Math.Abs(dx) == 1 && Math.Abs(dz) == 1 && Math.Abs(dy) == 1))
+                {
+                    body = true;
+                    core = dx == 0 && dz == 0 && dy == 0;
+                    return b;
+                }
+
+                //The chain: two by two from the ball's top up to the glass
+                if (i > ball.Mid + 1 && i <= JUGGLER_DEPTH - 1 && (dx == 0 || dx == 1) && (dz == 0 || dz == -1)) return b;
+            }
+
+            return -1;
+        }
+
+        private static Design Juggler() => BigTop("Juggler", JUGGLER_DEPTH, shots: 26, ceilingStep: 8,
+            hz: 9f, damping: 0.6f, fieldLevels: BIGTOP_FIELD_LEVELS,
+            occupied: (cx, cz, i) => JugglerPart(cx, cz, i, out _, out _) >= 0,
+            colour: (cx, cz, i) =>
+            {
+                int b = JugglerPart(cx, cz, i, out bool body, out _);
+                if (b < 0) return BallType.Type4;
+                return body ? JUGGLER_BALLS[b].Body : JUGGLER_BALLS[b].Chain;
+            },
+            kind: (cx, cz, i) =>
+            {
+                JugglerPart(cx, cz, i, out _, out bool core);
+                return core ? BallKind.Buckshot : BallKind.Normal;
+            });
+
+        //--- 6. TRAPEZE: a bar on two ropes, and the flyer hanging from it ---------------------------------------
+        //The trapeze: a bar slung on two long ropes from the glass, and the flyer hanging from its middle by the hands -
+        //a gold body, blue legs. Cut a rope and the bar swings down on the other like the real thing let go; the ropes
+        //are two inks each, so it takes two shots to do.
+
+        private const byte TRAPEZE_DEPTH = 10;
+        private const int TRAPEZE_ROPE = 3;
+        private const int TRAPEZE_BAR = 5;
+
+        private static bool TrapezeFlyer(int cx, int cz, int i) => RigRow(cz) && Math.Abs(cx) <= 1 && i < TRAPEZE_BAR && i >= 1;
+
+        private static Design Trapeze() => BigTop("Trapeze", TRAPEZE_DEPTH, shots: 22, ceilingStep: 8,
+            hz: 7f, damping: 0.5f, fieldLevels: BIGTOP_FIELD_LEVELS,
+            occupied: (cx, cz, i) =>
+                BigTopPost(cx, cz, i, -TRAPEZE_ROPE, TRAPEZE_BAR, TRAPEZE_DEPTH) || BigTopPost(cx, cz, i, TRAPEZE_ROPE, TRAPEZE_BAR, TRAPEZE_DEPTH)
+                || (RigRow(cz) && Math.Abs(cx) <= TRAPEZE_ROPE && (i == TRAPEZE_BAR || i == TRAPEZE_BAR + 1))
+                || TrapezeFlyer(cx, cz, i),
+            colour: (cx, cz, i) =>
+            {
+                if (TrapezeFlyer(cx, cz, i)) return i >= 3 ? BallType.Type7 : BallType.Type3;
+                if (i > TRAPEZE_BAR + 1)
+                    return PostDiagonal(cx, cz, Math.Sign(cx) * TRAPEZE_ROPE) == 0 ? BallType.Type4 : BallType.Type11;
+                return Math.Abs(cx) >= 2 ? BallType.Type1 : BallType.Type9;
+            });
+
+        //--- 7. CHANDELIER: a ring of crystal on four chains -------------------------------------------------------
+        //The tent's chandelier: a flat ring hung level on four chains, a drop of crystal under every chain and a
+        //pendant in the middle on a chain of its own. Take a chain's two inks and the ring tilts and swings from the
+        //other three. The ring is small enough that, left on one chain, it still hangs clear of the line.
+
+        private const byte CHANDELIER_DEPTH = 10;
+        private const float CHANDELIER_RING = 3.2f;
+        private const int CHANDELIER_RING_LOW = 4;
+
+        private static bool ChandelierRing(int cx, int cz, int i)
+        {
+            if (i != CHANDELIER_RING_LOW && i != CHANDELIER_RING_LOW + 1) return false;
+            float r = MathF.Sqrt(cx * cx + cz * cz);
+            return MathF.Abs(r - CHANDELIER_RING) <= 0.8f;
+        }
+
+        /// <summary>Which of the four chains a column is (the cells on the ring's diagonals, two by two), or -1.</summary>
+        private static int ChandelierChain(int cx, int cz)
+        {
+            int[] xs = { 2, -3, -3, 2 };
+            int[] zs = { 2, 2, -3, -3 };
+            for (int c = 0; c < 4; c++)
+                if ((cx == xs[c] || cx == xs[c] + 1) && (cz == zs[c] || cz == zs[c] + 1)) return c;
+            return -1;
+        }
+
+        private static bool ChandelierPendant(int cx, int cz, int i) =>
+            (cx == 0 || cx == -1) && (cz == 0 || cz == -1) && i >= 2;
+
+        private static Design Chandelier() => BigTop("Chandelier", CHANDELIER_DEPTH, shots: 30, ceilingStep: 8,
+            hz: 9f, damping: 0.6f, fieldLevels: BIGTOP_FIELD_LEVELS,
+            occupied: (cx, cz, i) =>
+                ChandelierRing(cx, cz, i)
+                || (ChandelierChain(cx, cz) >= 0 && i >= CHANDELIER_RING_LOW - 2)
+                || ChandelierPendant(cx, cz, i),
+            colour: (cx, cz, i) =>
+            {
+                int chain = ChandelierChain(cx, cz);
+                if (chain >= 0 && i > CHANDELIER_RING_LOW + 1)
+                    return (cx + cz + 100) % 2 == 0 ? BallType.Type7 : BallType.Type9;
+                if (chain >= 0 && i < CHANDELIER_RING_LOW) return BallType.Type5;
+                if (ChandelierPendant(cx, cz, i)) return i >= 6 ? BallType.Type4 : BallType.Type6;
+
+                //The ring in four arcs of two colours, so no one colour holds the whole round
+                int quadrant = (cx >= 0 ? 1 : 0) + (cz >= 0 ? 2 : 0);
+                return quadrant == 0 || quadrant == 3 ? BallType.Type1 : BallType.Type3;
+            });
+
+        //--- 8. BRIDGE: a rope bridge between two towers -------------------------------------------------------
+        //A plank deck slung between two towers, a handrail rope either side and a hanger every other plank. The planks
+        //alternate two woods, so each is a group: take one and the deck parts there, and what is left hangs on the
+        //handrails. Take a handrail's hangers and the deck swings down off it.
+
+        private const byte BRIDGE_TOP_DEPTH = 10;
+        private const int BRIDGE_TOWER = 4;
+        private static readonly int[] BRIDGE_DECK = { 2, 2, 3, 3 };
+        private const int BRIDGE_RAIL_RISE = 3;
+
+        private static bool BridgeTower(int cx, int cz, int i) =>
+            (cx == BRIDGE_TOWER || cx == BRIDGE_TOWER + 1 || cx == -BRIDGE_TOWER || cx == -BRIDGE_TOWER - 1)
+            && cz >= -3 && cz <= 2 && (cz <= -2 || cz >= 1) && i >= BRIDGE_DECK[3];
+
+        private static bool BridgeDeck(int cx, int cz, int i)
+        {
+            int a = Math.Abs(cx);
+            if (a >= BRIDGE_TOWER || cz < -2 || cz > 1) return false;
+            return i == BRIDGE_DECK[a] || i == BRIDGE_DECK[a] + 1;
+        }
+
+        private static bool BridgeRail(int cx, int cz, int i)
+        {
+            int a = Math.Abs(cx);
+            if (a >= BRIDGE_TOWER || (cz != -3 && cz != 2)) return false;
+            int rail = BRIDGE_DECK[a] + BRIDGE_RAIL_RISE;
+            return i == rail || i == rail + 1;
+        }
+
+        /// <summary>
+        /// A hanger: the rail's row and the deck's edge row beside it, on the level between the two. Two cells and not
+        /// one because a single cell under the rail touches the deck below it on one parity only.
+        /// </summary>
+        private static bool BridgeHanger(int cx, int cz, int i)
+        {
+            int a = Math.Abs(cx);
+            if (a >= BRIDGE_TOWER || a % 2 != 0 || (cz != -3 && cz != -2 && cz != 1 && cz != 2)) return false;
+            return i > BRIDGE_DECK[a] + 1 && i < BRIDGE_DECK[a] + BRIDGE_RAIL_RISE;
+        }
+
+        private static Design Footbridge() => BigTop("Footbridge", BRIDGE_TOP_DEPTH, shots: 32, ceilingStep: 8,
+            hz: 8f, damping: 0.6f, fieldLevels: BIGTOP_FIELD_LEVELS,
+            occupied: (cx, cz, i) =>
+                BridgeTower(cx, cz, i) || BridgeDeck(cx, cz, i) || BridgeRail(cx, cz, i)
+                || BridgeHanger(cx, cz, i) || (BridgeDeckEnd(cx, cz, i)),
+            colour: (cx, cz, i) =>
+            {
+                if (BridgeTower(cx, cz, i)) return (cx + cz + i + 100) % 2 == 0 ? BallType.Type4 : BallType.Type11;
+                if (BridgeRail(cx, cz, i) || BridgeHanger(cx, cz, i)) return cz < 0 ? BallType.Type1 : BallType.Type3;
+                return Math.Abs(cx) % 2 == 0 ? BallType.Type10 : BallType.Type7;
+            });
+
+        /// <summary>The deck's two ends, carried into the towers' gap so the planks seat on the towers.</summary>
+        private static bool BridgeDeckEnd(int cx, int cz, int i)
+        {
+            int a = Math.Abs(cx);
+            return (a == BRIDGE_TOWER || a == BRIDGE_TOWER + 1) && cz >= -1 && cz <= 0
+                && (i == BRIDGE_DECK[3] || i == BRIDGE_DECK[3] + 1);
+        }
+
+        //--- 9. SAFETY NET: the net under the flyers ----------------------------------------------------------------
+        //The safety net: a square mesh of rope on eight posts, bellying in the middle, its squares in a check of three
+        //colours so it is cut a tile at a time. Holes everywhere: a shot through a hole flies on to the far side.
+
+        private const byte NET_DEPTH = 8;
+        private const int NET_HALF = 6;
+
+        private static bool NetPost(int cx, int cz)
+        {
+            int ax = Math.Abs(cx), az = Math.Abs(cz);
+            bool atEdgeX = ax == NET_HALF, atEdgeZ = az == NET_HALF;
+            bool atMidX = cx == 0 || cx == -1, atMidZ = cz == 0 || cz == -1;
+            return (atEdgeX && (atEdgeZ || atMidZ)) || (atEdgeZ && atMidX);
+        }
+
+        private static int NetLow(int cx, int cz)
+        {
+            int edge = Math.Max(Math.Abs(cx), Math.Abs(cz));
+            return edge >= 5 ? 3 : edge >= 3 ? 2 : 1;
+        }
+
+        private static bool NetStrand(int cx, int cz) =>
+            Math.Abs(cx) <= NET_HALF && Math.Abs(cz) <= NET_HALF
+            && ((cx + 99) % 3 == 0 || (cz + 99) % 3 == 0 || Math.Abs(cx) == NET_HALF || Math.Abs(cz) == NET_HALF);
+
+        private static Design SafetyNet() => BigTop("SafetyNet", NET_DEPTH, shots: 34, ceilingStep: 8,
+            hz: 10f, damping: 0.6f, fieldLevels: BIGTOP_FIELD_LEVELS,
+            occupied: (cx, cz, i) =>
+            {
+                if (NetPost(cx, cz)) return i >= NetLow(cx, cz);
+                if (!NetStrand(cx, cz)) return false;
+                int low = NetLow(cx, cz);
+                return i == low || i == low + 1;
+            },
+            colour: (cx, cz, i) =>
+            {
+                if (NetPost(cx, cz) && i > NetLow(cx, cz) + 1) return (cx + cz + 100) % 2 == 0 ? BallType.Type4 : BallType.Type11;
+                int tx = (cx + NET_HALF + 1) / 3, tz = (cz + NET_HALF + 1) / 3;
+                return ((tx + 2 * tz) % 3) switch { 0 => BallType.Type1, 1 => BallType.Type5, _ => BallType.Type7 };
+            });
+
+        //--- 10. BIG TOP: the tent itself, the finale ----------------------------------------------------------------
+        //The tent the chapter plays in, hung upside down from the glass: a cone of canvas round a king post, its panels
+        //striped red and cream like the canvas overhead, held at its rim by four quarter poles. Each panel is a group;
+        //take them and the canvas that is left swings on the king post like an umbrella. Under it, a ring of bulbs.
+
+        private const byte TENT_DEPTH = 12;
+        private const int TENT_RIM = 5;
+
+        /// <summary>The canvas's level at a radius: never more than one level a cell, so the two-level canvas stays one
+        /// body from the king post to the rim on both parities.</summary>
+        private static int TentLevelAt(float r) => (int)MathF.Round(9f - r * 0.9f);
+
+        private static bool TentCanvas(int cx, int cz, int i, out float r)
+        {
+            r = MathF.Sqrt((cx + 0.5f) * (cx + 0.5f) + (cz + 0.5f) * (cz + 0.5f));
+            if (r > TENT_RIM + 0.6f) return false;
+            int level = TentLevelAt(r);
+            return i == level || i == level + 1;
+        }
+
+        private static bool TentKingPost(int cx, int cz) => (cx == 0 || cx == -1) && (cz == 0 || cz == -1);
+
+        private static bool TentQuarterPole(int cx, int cz) =>
+            (Math.Abs(cx + 0.5f) >= 3.4f && Math.Abs(cx + 0.5f) <= 4.6f) && (Math.Abs(cz + 0.5f) >= 3.4f && Math.Abs(cz + 0.5f) <= 4.6f);
+
+        private static Design BigTopTent() => BigTop("BigTop", TENT_DEPTH, shots: 40, ceilingStep: 8,
+            hz: 9f, damping: 0.6f, fieldLevels: BIGTOP_FIELD_LEVELS,
+            occupied: (cx, cz, i) =>
+            {
+                if (TentKingPost(cx, cz)) return i >= TentLevelAt(0f);
+                if (TentQuarterPole(cx, cz)) return i >= TentLevelAt(MathF.Sqrt(2f) * 4f);
+                return TentCanvas(cx, cz, i, out _);
+            },
+            colour: (cx, cz, i) =>
+            {
+                if (TentKingPost(cx, cz)) return (cx + cz + i + 100) % 2 == 0 ? BallType.Type7 : BallType.Type9;
+                if (TentQuarterPole(cx, cz) && i > TentLevelAt(MathF.Sqrt(2f) * 4f) + 1)
+                    return (cx + cz + i + 100) % 2 == 0 ? BallType.Type4 : BallType.Type11;
+                float angle = MathF.Atan2(cz + 0.5f, cx + 0.5f);
+                int panel = (int)MathF.Floor((angle + MathF.PI) / (MathF.PI / 4f)) % 8;
+                return panel % 2 == 0 ? BallType.Type1 : BallType.Type4;
+            });
+
         #endregion
     }
 }
