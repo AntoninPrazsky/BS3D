@@ -2,6 +2,7 @@ using BepuPhysics;
 using BepuPhysics.Collidables;
 using BepuPhysics.CollisionDetection;
 using Prazsky.BS3D.GameStructure;
+using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Physics;
 using Prazsky.Core.Tools;
 using System;
@@ -73,8 +74,17 @@ namespace BS3D.Tests
 
         /// <summary>
         /// The promise: a real level hung in the real simulation, a crate standing beside it, and a shot aimed so it banks
-        /// off the crate into the cluster. The ball the preview says the shot reaches is the ball the simulated shot,
-        /// bounced by <see cref="Crates.BounceShots"/> in the step, touches first — and where.
+        /// off the crate into the cluster. The simulated shot, bounced by <see cref="Crates.BounceShots"/> in the step,
+        /// flies the preview's reflected leg and reaches the cluster at the ball the preview names or a lattice neighbour
+        /// of it.
+        /// <para>
+        /// <b>A neighbour, not the ball, and that is #696 and not the crate.</b> A bank shot meets the cluster at a slant,
+        /// and on a slanting arrival Bepu's speculative contact can catch a ball beside the line before the one dead ahead;
+        /// which one it catches depends on the settled cluster's pose to the last bit, and that differs between machines -
+        /// this asserted the exact ball for a day, passed on the desktop and failed on the CI runner on three different
+        /// neighbours (7, 9 and 15 against the promised 3). What the crate itself promises is the flight, and that is held
+        /// tightly: every simulated step after the bounce lies on the preview's reflected leg.
+        /// </para>
         /// </summary>
         [Fact]
         public void ThePreviewAndTheSimulationBankOffACrateIntoTheSameBall()
@@ -106,14 +116,45 @@ namespace BS3D.Tests
             hung.World.PerStepForces = dt => crates.BounceShots(shots, hung.World.Events, dt, Constants.EARTH_GRAVITY,
                 hung.Balls, null);
 
+            //The preview's reflected leg: from its knot at the face along the launch velocity mirrored in that face. Not
+            //towards the next knot - that one is the CONTACT point on the ball's surface, up to a radius off the flight
+            //line, and a chord to it parted from the true flight by 0.4 across the bank.
+            int bounceKnot = path.FindIndex(knot => MathF.Abs(knot.X - 5.5f) < 1e-3f);
+            XVector3 legStart = path[bounceKnot];
+            XVector3 legDirection = XVector3.Normalize(new XVector3(-velocity.X, velocity.Y, velocity.Z));
+
+            float worstOffLeg = 0f;
+            int stepsOnLeg = 0;
             for (int step = 0; step < 120 && touch.Other == null; step++)
+            {
                 hung.World.Step(HungLevel.TIMESTEP, () => { });
+                if (touch.Other != null || shot.BallReference.Velocity.Linear.X >= 0f) continue;
+
+                //How far the simulated centre stands off the preview's leg: the straight line leaves out gravity, which
+                //drops the flight about 0.04 across the bank and bent it about as much before the face
+                XVector3 at = shot.BallReference.Pose.Position.ToXna() - legStart;
+                worstOffLeg = MathF.Max(worstOffLeg, (at - XVector3.Dot(at, legDirection) * legDirection).Length());
+                stepsOnLeg++;
+            }
 
             Assert.NotNull(touch.Other);
-            Assert.Equal(promised.BallReference.Handle, touch.Other.Value);
 
-            //And it was the bounce that brought it there: the shot is moving back towards -X
+            //It was the bounce that brought it there, and the flight after the bounce was the preview's
             Assert.True(shot.BallReference.Velocity.Linear.X < 0f);
+            Assert.True(stepsOnLeg > 0);
+            Assert.True(worstOffLeg < 0.15f, $"the simulated flight left the preview's leg by {worstOffLeg}");
+
+            //At the promised ball or a lattice neighbour of it (#696, the <para> above)
+            PhysicsBall touched = null;
+            foreach (PhysicsBall ball in hung.Balls)
+                if (ball != null && ball.BallReference.Handle.Equals(touch.Other.Value)) touched = ball;
+
+            Assert.NotNull(touched);
+            bool near = touched.ArrayPosition.Equals(promised.ArrayPosition);
+            XZLevel size = new(hung.Balls.GetLength(0), hung.Balls.GetLength(1), hung.Balls.GetLength(2));
+            foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(promised.ArrayPosition, size))
+                near |= neighbour.Equals(touched.ArrayPosition);
+            Assert.True(near, $"the shot reached {touched.ArrayPosition}, the preview named {promised.ArrayPosition}");
         }
 
         /// <summary>
