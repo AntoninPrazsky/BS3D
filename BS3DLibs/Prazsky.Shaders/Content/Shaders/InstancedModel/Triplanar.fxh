@@ -112,8 +112,10 @@ technique InstancedModelTriplanar
 //    third suspect this issue has named and measured at zero. The remaining ~0.83 ms is ShadePixel, which
 //    every surface in the game is lit through and which this is not the issue to cut.
 //  - Dropping the height field ENTIRELY saves twice as much and cannot ship: SlabGroove is part of the
-//    same field, so the cap loses its coursed slab joints with it - the only structure the stone has at a
-//    scale the eye can see. Three octaves keep the joints and give up the finest grain.
+//    same field, so the cap loses its coursed slab joints with it - the only structure the stone had at a
+//    scale the eye can see (it has had none since #550's outcrop, and the cut is the relief's alone now). The
+//    coarse octaves keep the shape and give up the finest grain. These figures are the seven sines'; the two
+//    noise octaves of four that #674 put here have not been measured on the weak machine.
 float4 TriplanarCoarsePS(VertexShaderOutput input) : COLOR
 {
     float3 worldNormal = normalize(input.WorldNormal);

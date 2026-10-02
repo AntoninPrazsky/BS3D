@@ -6,7 +6,7 @@
 //changes is that a surface catches light unevenly, the way a real material does.
 
 //Peak height of the relief on the scene objects, in world units (0 = flat shading), and the base wave
-//count per world unit — larger is finer grained. Four more octaves ride on top at rising frequencies.
+//count per world unit — larger is finer grained. Three more octaves ride on top at rising frequencies (SurfaceReliefWorld).
 float SurfaceReliefStrength;
 float SurfaceReliefFrequency;
 
@@ -143,8 +143,11 @@ float ReliefOctave(float3 position, float3 waveDirection, float frequency, float
 //the domain rotated between octaves (Fbm2's rule) so their lattices never share an axis; one cell holds about one
 //swing (frequency / pi cells a unit), and the four span what the sines did (to 8.4 of the base against their 9.87).
 //RELIEF_AMPLITUDES rise in slope towards the fine end as the sines' did, and RELIEF_NOISE_GAIN gives the sum their
-//slope on a plane (measured on a port of GradientNoise2: 0.776 against 2.127), so SurfaceReliefStrength keeps the
-//height it named.
+//RMS slope on a plane: measured on a port of GradientNoise2 at frequency 3.5, sampled every 0.004 units, 2.299 against
+//0.999. (It shipped at 2.74 for a merge, off the same comparison sampled every 0.05 units - under two samples a cell of
+//the finest octave, which under-read the noise's slope - and the review of the merge caught it: 19 % too steep.) The
+//height spread comes out a little under the sines' (0.246 against 0.292), so SurfaceReliefStrength stays a peak
+//height to within that.
 //
 //⚠ 2D AND PROJECTED, NOT GradientNoise3, AND THAT IS A MEASURED COST. The first cut was four octaves of 3D noise -
 //eight Hoskins hashes an octave - and in the Game at High, 3840 x 1600, on Pennant it took the play frame from 12.97
@@ -159,7 +162,7 @@ float ReliefOctave(float3 position, float3 waveDirection, float frequency, float
 //sines' directional fade had been written to cure); against the mean it keeps its grain until both have lost it.
 static const float RELIEF_AMPLITUDES[4] = { 0.40, 0.25, 0.16, 0.10 };
 static const float RELIEF_OCTAVE_STEP = 2.03;
-static const float RELIEF_NOISE_GAIN = 2.74;
+static const float RELIEF_NOISE_GAIN = 2.30;
 static const float RELIEF_PLANE_FLOOR = 0.03;
 
 //One plane's octaves, `footprint` in cells of the first
@@ -205,9 +208,6 @@ float SurfaceReliefWorld(float3 worldPosition, float3 worldNormal, float frequen
     return SurfaceReliefOctaves(worldPosition, worldNormal, frequency, dpdx, dpdy, 4);
 }
 
-//The world-space relief of a scene object, ready to hand to PerturbNormalFromHeight.
-//Takes the world-space screen derivatives rather than a scalar footprint so every octave can be
-//band-limited along its own direction (see ReliefOctaveDirectional).
 //Width of the run-out from a joint's floor up to the slab face
 static const float SlabJointBevel = 0.03;
 

@@ -789,10 +789,10 @@ namespace Prazsky.Core.Render
                 DetailBoost = 1f / _concreteTexture.LinearMean,
                 DetailStrength = 0.62f,
 
-                //The relief is a sum of sines, and past a certain amplitude the sum stops reading as a rough
-                //surface and starts reading as the waves it is made of — a regular diagonal weave across the
-                //whole drum, which is what a first pass at 0.045 gave. The texture carries the roughness; the
-                //relief only has to break the light over it.
+                //Kept low: the relief was a sum of sines until #674, and at 0.045 the sum read as the waves it was
+                //made of - a regular diagonal weave across the whole drum. It is projected noise now and cannot
+                //weave, but the figure stands: the texture carries the roughness, and the relief only has to break
+                //the light over it.
                 SurfaceReliefFrequency = 4.5f,
                 SurfaceReliefStrength = 0.012f,
                 SlabSize = 0f,
@@ -936,9 +936,10 @@ namespace Prazsky.Core.Render
         /// <b>The cap is the arena</b>: 88 % of its cost at a play camera (#151), and the first thing in
         /// this project's quality tier that reaches the arena at all — which is in every scene and on screen
         /// for every second of every level, and which the tier had never touched, because it is not a scene.
-        /// Reduced, the cap's height field drops from seven relief octaves to three
-        /// (<see cref="InstancedModelRenderer.CoarseSurfaceRelief"/>): <b>0.336 ms of a 10.971 ms frame</b>,
-        /// measured on the reference desktop at the play camera, windowed 1920×1080 at ssaa 4.
+        /// Reduced, the cap's height field drops from four relief octaves to two
+        /// (<see cref="InstancedModelRenderer.CoarseSurfaceRelief"/>). Measured when they were sines, seven to three:
+        /// <b>0.336 ms of a 10.971 ms frame</b> on the reference desktop at the play camera, windowed 1920×1080 at
+        /// ssaa 4; the noise octaves #674 put there have not been measured on the weak machine.
         /// </para>
         /// <para>
         /// <b>The cap alone, and deliberately not the drum.</b> The drum is triplanar too and its relief is
