@@ -7569,3 +7569,15 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **#495 uzavřeno (merge `e7b29e39`):** 107 ze 118 nahrávek má vrstvu bicích, 3 slabé, 8 odmítnuto kvůli přebuzení. +150 MB.
   - ⚠ Přepnutí z větve, kde byly vrstvy commitnuté, na main je z pracovního stromu smaže (jsou v commitu, ne ztracené).
 - **Majitel 2. 10.:** #677 jen duny (zavřeno), #257 a #690 nová kapitola s menší prioritou, #696 doporučeno (b) až po releasu. **Priorita dne: první release s online skóre** (v0.3.0). Návrh poznámek ve scratchpadu `release/whats-new-v0.3.0.md`. Zkouška workflow Release spuštěná na `e7b29e39`.
+
+## 2026-10-02 — v0.3.0, první release s online skóre — desktop, Claude Code (bs3d-1b)
+
+- **Vydáno:** https://github.com/AntoninPrazsky/BS3D/releases/tag/v0.3.0, tag na `7a25c3e0` na majitelovo „ano“. Workflow 4 min, zip 397 MB (115 vrstev bicích). Stažený zip: SHA256SUMS OK, sada shaderů `3e8fbc4a` stejná jako lokálně, roh menu „v0.3.0“, klient hlásí „submitting to https://scores.winphonew.eu/ … game v0.3.0, rules v1, the built-in server“.
+- **Pi (session „Update API script on Pi“, SendMessage):**
+  - snapshot DB ve 13:21;
+  - majitel smazal testovací skóre ve 13:24 (bokem v `/var/lib/bs3d-api/test-data/`);
+  - `update-ceilings.sh` ve 13:31: v0.3.0 má 130 tabulí, všechny s `block`, health hlásí 148;
+  - tři dev tabulky odstraní majitel.
+  - ⚠ **Od smazání jsou tabule skutečných hráčů: žádné testovací zápisy z dev buildů ani ze scratch profilů** (moje mají online vypnuté).
+- **Poznámky k releasu:** `release.yml` vkládá volitelný `Images/releases/<tag>.md` mezi obrázek a text ke stažení, takže v0.3.0 od první minuty začíná rámečkem „The first release with online scores“ s postupem Settings → ONLINE → Nickname → Online scores On. Totéž je v README.
+- **Obrázek README i releasu:** louka, Cannonball, 3840×1600, majitelova volba. Vyfoceno buildem orazítkovaným v0.3.0 v okně, které nebere fokus, s `tutorial: false` ve scratch profilu.
