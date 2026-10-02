@@ -7581,3 +7581,8 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
   - ⚠ **Od smazání jsou tabule skutečných hráčů: žádné testovací zápisy z dev buildů ani ze scratch profilů** (moje mají online vypnuté).
 - **Poznámky k releasu:** `release.yml` vkládá volitelný `Images/releases/<tag>.md` mezi obrázek a text ke stažení, takže v0.3.0 od první minuty začíná rámečkem „The first release with online scores“ s postupem Settings → ONLINE → Nickname → Online scores On. Totéž je v README.
 - **Obrázek README i releasu:** louka, Cannonball, 3840×1600, majitelova volba. Vyfoceno buildem orazítkovaným v0.3.0 v okně, které nebere fokus, s `tutorial: false` ve scratch profilu.
+
+## 2026-10-02 — beru #690 krok 2: nová kapitola v cirkusovém šapitó — desktop, Claude Code (bs3d-1b)
+
+- **Majitelova rozhodnutí:** scéna je cirkusový šapitó, hudba ve stylu Colossu, bedny a broky z #257 patří do téže kapitoly.
+- **Beru:** pole měkkosti v levelu, návrhy LevelGen (Block14), reference a scénu, hudbu a úvodní průlet. Dílčí kroky slučuji průběžně.
