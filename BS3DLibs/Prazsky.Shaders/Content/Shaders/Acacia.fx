@@ -134,7 +134,9 @@ float LeafMask(float2 uv, float2 seed)
     float side = step(0.5, v);
     leaflet -= 2.0 * step(0.88, LeafHash(seed + float2(id, side)));
 
-    float rachis = (MIDRIB_HALF - across) * 8.0 * step(0.0, uv.x - 0.02);
+    //Nothing at all before the stalk's own start: a term multiplied to ZERO there is not a cut, since clip() keeps a 0 -
+    //it kept a strip a fiftieth of the card long across its whole width at every spray's base (#697)
+    float rachis = uv.x >= 0.02 ? (MIDRIB_HALF - across) * 8.0 : -1.0;
     float fine = max(leaflet, rachis);
 
     //The spray as one outline: the same envelope, filled
@@ -158,7 +160,10 @@ float BroadLeafMask(float2 uv)
 {
     float layer = floor(uv.y * 0.5);
     float2 p = float2(uv.x, uv.y - 2.0 * layer - 0.5);     //x along the stem 0..1, y across it -0.5..0.5
-    float fine = (BROAD_STEM_HALF - abs(p.y)) * 20.0 * step(p.x, 0.74);
+    //The stem, and nothing past its end. It was this times step(p.x, 0.74), which is ZERO beyond the stem, not negative,
+    //and clip() keeps a 0: the whole tip quarter of every card drew solid across its full width, the "rectangles" of
+    //#697 - a twig with a flat strip stuck to its end, and on its own, seen edge-on, a paper scrap
+    float fine = p.x <= 0.74 ? (BROAD_STEM_HALF - abs(p.y)) * 20.0 : -1.0;
 
     [unroll]
     for (int i = 0; i < BROAD_LEAVES; i++)
