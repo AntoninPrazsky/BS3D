@@ -394,7 +394,7 @@ namespace BS3D.Tools.LevelGen
             //Its designs live in their own array for the same reason the Nebula's do - see WriteLevelSet.
             Design[] arcade = { Ziggurat(), Reel(), Donut(), Ghost(), Cabinet(), Cube(), Tetra(), Giza(), Trophy(), Globe() };
 
-            //13. THE DREAM - "The Mirage" (#323/#325), THE CAMPAIGN'S LAST BLOCK, and the first chapter in
+            //14. THE DREAM - "The Mirage" (#323/#325), THE CAMPAIGN'S LAST BLOCK, and the first chapter in
             //the game whose subject is a RULE rather than a shape. Ten levels, and they are two fives: the
             //first five hang the TRANSPARENT ball - the shell with no colour in it until a shot lands beside
             //it and gives it one - and the last five hang the ROCK, which takes no colour ever and which no
@@ -434,7 +434,7 @@ namespace BS3D.Tools.LevelGen
             //block at 2.94 shots a group against Cairn's 1.76. Cairn is also the level whose own doc asks
             //for "bookkeeping of a kind nothing before it has asked for" - four chambers, each with the
             //four colours in a different order - which is a finale's job.
-            //12. THE GRID (#420) - the arena inside the machine, and the one block whose style is a THESIS
+            //13. THE GRID (#420) - the arena inside the machine, and the one block whose style is a THESIS
             //rather than a family of silhouettes: every level is a NAMED MATHEMATICAL CONSTRUCTION. The scene
             //(#393) is built on that same sentence - its floor is a Hilbert curve rather than a noise field,
             //"named mathematics rather than noise" - so the chapter is the cluster answering the backdrop.
@@ -445,6 +445,20 @@ namespace BS3D.Tools.LevelGen
             {
                 Menger(), Sierpinski(), Cantor(), Koch(), Hilbert(),
                 Helicoid(), Phyllotaxis(), Gyroid(), Life(), Tesseract(),
+            };
+
+            //12. THE BIG TOP (#690) - the circus tent, and the chapter whose style is the PHYSICS one step past the Coil's:
+            //every level states a softer spring of its own (Design.Softness), so its spans sag into catenaries, bounce
+            //when hit and ripple along their length - rope, cloth and rubber, the owner's words. Drawn already hanging,
+            //never a span longer than seven columns between two anchors, every post in two inks. Buckshot arrives here
+            //(#257): the sandbags and the juggling balls' cores pour out when what holds them is cut. Inserted before
+            //the Grid, see BLOCKS. The order ramps by how much a player holds at once: one rope, then flags on two
+            //swags, five balls on chains, a bar on two ropes, a sheet on six posts, sandbags on a beam, a deck between
+            //towers, a ring on four chains, a net on eight posts, and the tent itself.
+            Design[] bigtop =
+            {
+                Tightrope(), Bunting(), Juggler(), Trapeze(), Hammock(),
+                Sandbags(), Footbridge(), Chandelier(), SafetyNet(), BigTopTent(),
             };
 
             Design[] mirage =
@@ -459,17 +473,17 @@ namespace BS3D.Tools.LevelGen
             foreach (Design design in volcano) ok &= LevelEmitter.Emit(design);
             foreach (Design design in spectrum) ok &= LevelEmitter.Emit(design);
             foreach (Design design in arcade) ok &= LevelEmitter.Emit(design);
+            foreach (Design design in bigtop) ok &= LevelEmitter.Emit(design);
             foreach (Design design in grid) ok &= LevelEmitter.Emit(design);
             foreach (Design design in mirage) ok &= LevelEmitter.Emit(design);
 
-            LevelSet set = CampaignSet.WriteLevelSet(designs, nebula, volcano, spectrum, arcade, grid, mirage);
+            LevelSet set = CampaignSet.WriteLevelSet(designs, nebula, volcano, spectrum, arcade, bigtop, grid, mirage);
 
             //PROTOTYPES (#604): designs built to put a direction in front of the owner before a chapter is rebuilt
             //around it. They pass the same per-level checks as everything above, but into Levels/Prototypes and
             //never into the set - played with the Game's `levelfile=`, hung with `--sagfile=`, walked with
             //`--arrivalfile=` - so nothing the campaign counts (unlocks, blocks, ScoreSim's ceilings) moves.
-            Design[] prototypes = { Butterfly(), Tightrope(), Bunting(), Juggler(), Hammock(), Sandbags(), Trapeze(), Chandelier(),
-                Footbridge(), SafetyNet(), BigTopTent() };
+            Design[] prototypes = { Butterfly() };
 
             string campaignDir = LevelEmitter.OutDir;
             LevelEmitter.OutDir = Path.Combine(campaignDir, PROTOTYPES_DIR);

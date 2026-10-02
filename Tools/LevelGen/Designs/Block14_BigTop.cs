@@ -215,18 +215,23 @@ namespace BS3D.Tools.LevelGen
         {
             //The belly: two levels deep in the middle, none at the corners, by the larger of the two offsets
             int edge = Math.Max(Math.Abs(cx), Math.Abs(cz));
-            return edge >= 4 ? 4 : edge >= 2 ? 3 : 2;
+            return edge >= 4 ? 5 : edge >= 2 ? 4 : 3;
         }
 
+        /// <summary>
+        /// The posts the canvas is slung from: the four corners and the middle of the two sides the stripes run along.
+        /// On the corners alone a cut stripe left each half hanging eleven cells long between two posts, and one run in
+        /// five of the sag probe took it to the line; the middle posts halve that.
+        /// </summary>
         private static bool HammockCorner(int cx, int cz) =>
             (Math.Abs(cx) == HAMMOCK_POST || Math.Abs(cx) == HAMMOCK_POST + 1)
-            && (Math.Abs(cz) == HAMMOCK_POST || Math.Abs(cz) == HAMMOCK_POST + 1);
+            && (Math.Abs(cz) == HAMMOCK_POST || Math.Abs(cz) == HAMMOCK_POST + 1 || cz == 0 || cz == -1);
 
         private static Design Hammock() => BigTop("Hammock", HAMMOCK_DEPTH, shots: 30, ceilingStep: 8,
-            hz: 11f, damping: 0.6f, fieldLevels: BIGTOP_FIELD_LEVELS,
+            hz: 13f, damping: 0.6f, fieldLevels: BIGTOP_FIELD_LEVELS,
             occupied: (cx, cz, i) =>
             {
-                if (HammockCorner(cx, cz)) return i >= 4;
+                if (HammockCorner(cx, cz)) return i >= 5;
                 if (Math.Abs(cx) > HAMMOCK_POST || Math.Abs(cz) > HAMMOCK_POST) return false;
                 int low = HammockLow(cx, cz);
                 return i == low || i == low + 1;
@@ -433,7 +438,7 @@ namespace BS3D.Tools.LevelGen
 
         private const byte BRIDGE_TOP_DEPTH = 10;
         private const int BRIDGE_TOWER = 4;
-        private static readonly int[] BRIDGE_DECK = { 2, 2, 3, 3 };
+        private static readonly int[] BRIDGE_DECK = { 3, 3, 4, 4 };
         private const int BRIDGE_RAIL_RISE = 3;
 
         private static bool BridgeTower(int cx, int cz, int i) =>
@@ -466,8 +471,8 @@ namespace BS3D.Tools.LevelGen
             return i > BRIDGE_DECK[a] + 1 && i < BRIDGE_DECK[a] + BRIDGE_RAIL_RISE;
         }
 
-        private static Design Footbridge() => BigTop("Footbridge", BRIDGE_TOP_DEPTH, shots: 32, ceilingStep: 8,
-            hz: 8f, damping: 0.6f, fieldLevels: BIGTOP_FIELD_LEVELS,
+        private static Design Footbridge() => BigTop("Footbridge", BRIDGE_TOP_DEPTH, shots: 32, ceilingStep: 9,
+            hz: 11f, damping: 0.6f, fieldLevels: BIGTOP_FIELD_LEVELS,
             occupied: (cx, cz, i) =>
                 BridgeTower(cx, cz, i) || BridgeDeck(cx, cz, i) || BridgeRail(cx, cz, i)
                 || BridgeHanger(cx, cz, i) || (BridgeDeckEnd(cx, cz, i)),
@@ -493,10 +498,15 @@ namespace BS3D.Tools.LevelGen
         private const byte NET_DEPTH = 8;
         private const int NET_HALF = 6;
 
+        /// <summary>
+        /// The eight posts, every one two by two: the four corners and the middle of each side. The corner posts were a
+        /// single cell once - one chain of springs in series - and under the finer mesh they stretched until the net's
+        /// corners hung under the line with the glass at rest, three probe runs in five.
+        /// </summary>
         private static bool NetPost(int cx, int cz)
         {
             int ax = Math.Abs(cx), az = Math.Abs(cz);
-            bool atEdgeX = ax == NET_HALF, atEdgeZ = az == NET_HALF;
+            bool atEdgeX = ax == NET_HALF || ax == NET_HALF - 1, atEdgeZ = az == NET_HALF || az == NET_HALF - 1;
             bool atMidX = cx == 0 || cx == -1, atMidZ = cz == 0 || cz == -1;
             return (atEdgeX && (atEdgeZ || atMidZ)) || (atEdgeZ && atMidX);
         }
@@ -504,15 +514,20 @@ namespace BS3D.Tools.LevelGen
         private static int NetLow(int cx, int cz)
         {
             int edge = Math.Max(Math.Abs(cx), Math.Abs(cz));
-            return edge >= 5 ? 3 : edge >= 3 ? 2 : 1;
+            return edge >= 5 ? 4 : edge >= 3 ? 3 : 2;
         }
 
+        /// <summary>
+        /// The mesh: a rope on every other row and column, so each hole is one cell. A rope every third cell was a net of
+        /// long single strands, springs in series, and a piece of it left on one post stretched down to the line in one
+        /// probe run in five; the finer mesh carries every piece on several paths at once.
+        /// </summary>
         private static bool NetStrand(int cx, int cz) =>
             Math.Abs(cx) <= NET_HALF && Math.Abs(cz) <= NET_HALF
-            && ((cx + 99) % 3 == 0 || (cz + 99) % 3 == 0 || Math.Abs(cx) == NET_HALF || Math.Abs(cz) == NET_HALF);
+            && ((cx + 100) % 2 == 0 || (cz + 100) % 2 == 0 || Math.Abs(cx) == NET_HALF || Math.Abs(cz) == NET_HALF);
 
-        private static Design SafetyNet() => BigTop("SafetyNet", NET_DEPTH, shots: 34, ceilingStep: 8,
-            hz: 10f, damping: 0.6f, fieldLevels: BIGTOP_FIELD_LEVELS,
+        private static Design SafetyNet() => BigTop("SafetyNet", NET_DEPTH, shots: 40, ceilingStep: 10,
+            hz: 13f, damping: 0.6f, fieldLevels: BIGTOP_FIELD_LEVELS,
             occupied: (cx, cz, i) =>
             {
                 if (NetPost(cx, cz)) return i >= NetLow(cx, cz);
@@ -522,8 +537,15 @@ namespace BS3D.Tools.LevelGen
             },
             colour: (cx, cz, i) =>
             {
-                if (NetPost(cx, cz) && i > NetLow(cx, cz) + 1) return (cx + cz + 100) % 2 == 0 ? BallType.Type4 : BallType.Type11;
-                int tx = (cx + NET_HALF + 1) / 3, tz = (cz + NET_HALF + 1) / 3;
+                //The posts in two inks each, on the diagonals (PostDiagonal's reason): with one ink a post went in a single
+                //shot, a corner of the net was left on the posts beside it, and the probe hung it under the line four
+                //runs in five; at two shots a post it held in all five
+                if (NetPost(cx, cz) && i > NetLow(cx, cz) + 1)
+                    return ((cx + cz) & 1) == 0 ? BallType.Type4 : BallType.Type11;
+
+                //The mesh in a check of nine tiles, four cells a side, in three colours: a third of the groups the
+                //three-cell tiles made, which left the level more groups than shots
+                int tx = Math.Clamp((cx + NET_HALF) / 4, 0, 2), tz = Math.Clamp((cz + NET_HALF) / 4, 0, 2);
                 return ((tx + 2 * tz) % 3) switch { 0 => BallType.Type1, 1 => BallType.Type5, _ => BallType.Type7 };
             });
 
@@ -537,7 +559,7 @@ namespace BS3D.Tools.LevelGen
 
         /// <summary>The canvas's level at a radius: never more than one level a cell, so the two-level canvas stays one
         /// body from the king post to the rim on both parities.</summary>
-        private static int TentLevelAt(float r) => (int)MathF.Round(9f - r * 0.9f);
+        private static int TentLevelAt(float r) => (int)MathF.Round(10f - r * 0.9f);
 
         private static bool TentCanvas(int cx, int cz, int i, out float r)
         {
@@ -552,7 +574,7 @@ namespace BS3D.Tools.LevelGen
         private static bool TentQuarterPole(int cx, int cz) =>
             (Math.Abs(cx + 0.5f) >= 3.4f && Math.Abs(cx + 0.5f) <= 4.6f) && (Math.Abs(cz + 0.5f) >= 3.4f && Math.Abs(cz + 0.5f) <= 4.6f);
 
-        private static Design BigTopTent() => BigTop("BigTop", TENT_DEPTH, shots: 40, ceilingStep: 8,
+        private static Design BigTopTent() => BigTop("BigTop", TENT_DEPTH, shots: 32, ceilingStep: 8,
             hz: 9f, damping: 0.6f, fieldLevels: BIGTOP_FIELD_LEVELS,
             occupied: (cx, cz, i) =>
             {

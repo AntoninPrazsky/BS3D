@@ -113,11 +113,6 @@ namespace BS3D.Tools.LevelGen
         /// </summary>
         public SoftnessSpec Softness;
 
-        /// <summary>
-        /// The crates standing in this level's play space (#257), written into <c>Level.Crates</c>; null for none.
-        /// </summary>
-        public CrateSpec[] Crates;
-
         public int Shots;
         public int CeilingStep;
 

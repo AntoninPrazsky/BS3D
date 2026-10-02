@@ -45,6 +45,12 @@ namespace BS3D.Tools.LevelGen
             //dream: the neon city, then a lattice that is nothing but made light, then the place that is not
             //a place. Every entry after it carries a gate twenty stars higher, which needed no retuning
             //because MinStarsAt is a function of POSITION (see it for the arithmetic that survives this).
+            //THE BIG TOP IS INSERTED TWELFTH (#690), after the Arcade and before the Grid: a night out in the neon city, then
+            //the circus tent's show, then the lattice of made light and the dream. Inserted rather than appended for the
+            //Grid's own reason - the Mirage keeps the campaign's last word (#420) - and here because the spots and the
+            //bulbs are made light too, so the run of night chapters does not break. Only the Grid's and the Mirage's
+            //gates move (twenty stars each, MinStarsAt being a function of position), the fewest of any insertion.
+            ("The Big Top", 10),
             ("The Grid", 10), ("The Mirage", 10),
         };
 

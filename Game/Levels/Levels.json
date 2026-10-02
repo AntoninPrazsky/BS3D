@@ -883,11 +883,91 @@
       "ceilingStep": 14
     },
     {
+      "file": "Tightrope.json",
+      "name": "Tightrope",
+      "block": "The Big Top",
+      "shots": 20,
+      "minStars": 218,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Bunting.json",
+      "name": "Bunting",
+      "block": "The Big Top",
+      "shots": 26,
+      "minStars": 220,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Juggler.json",
+      "name": "Juggler",
+      "block": "The Big Top",
+      "shots": 26,
+      "minStars": 222,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Trapeze.json",
+      "name": "Trapeze",
+      "block": "The Big Top",
+      "shots": 22,
+      "minStars": 224,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Hammock.json",
+      "name": "Hammock",
+      "block": "The Big Top",
+      "shots": 30,
+      "minStars": 226,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Sandbags.json",
+      "name": "Sandbags",
+      "block": "The Big Top",
+      "shots": 24,
+      "minStars": 228,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Footbridge.json",
+      "name": "Footbridge",
+      "block": "The Big Top",
+      "shots": 32,
+      "minStars": 230,
+      "ceilingStep": 9
+    },
+    {
+      "file": "Chandelier.json",
+      "name": "Chandelier",
+      "block": "The Big Top",
+      "shots": 30,
+      "minStars": 232,
+      "ceilingStep": 8
+    },
+    {
+      "file": "SafetyNet.json",
+      "name": "SafetyNet",
+      "block": "The Big Top",
+      "shots": 40,
+      "minStars": 234,
+      "ceilingStep": 10
+    },
+    {
+      "file": "BigTop.json",
+      "name": "BigTop",
+      "block": "The Big Top",
+      "shots": 32,
+      "minStars": 236,
+      "ceilingStep": 8
+    },
+    {
       "file": "Menger.json",
       "name": "Menger",
       "block": "The Grid",
       "shots": 44,
-      "minStars": 218,
+      "minStars": 238,
       "ceilingStep": 8
     },
     {
@@ -895,7 +975,7 @@
       "name": "Sierpinski",
       "block": "The Grid",
       "shots": 40,
-      "minStars": 220,
+      "minStars": 240,
       "ceilingStep": 7,
       "wildcardEvery": 5
     },
@@ -904,7 +984,7 @@
       "name": "Cantor",
       "block": "The Grid",
       "shots": 42,
-      "minStars": 222,
+      "minStars": 242,
       "ceilingStep": 7
     },
     {
@@ -912,7 +992,7 @@
       "name": "Koch",
       "block": "The Grid",
       "shots": 40,
-      "minStars": 224,
+      "minStars": 244,
       "ceilingStep": 8
     },
     {
@@ -920,7 +1000,7 @@
       "name": "Hilbert",
       "block": "The Grid",
       "shots": 44,
-      "minStars": 226,
+      "minStars": 246,
       "ceilingStep": 8
     },
     {
@@ -928,7 +1008,7 @@
       "name": "Helicoid",
       "block": "The Grid",
       "shots": 44,
-      "minStars": 228,
+      "minStars": 248,
       "ceilingStep": 7
     },
     {
@@ -936,7 +1016,7 @@
       "name": "Phyllotaxis",
       "block": "The Grid",
       "shots": 48,
-      "minStars": 230,
+      "minStars": 250,
       "ceilingStep": 8
     },
     {
@@ -944,7 +1024,7 @@
       "name": "Gyroid",
       "block": "The Grid",
       "shots": 52,
-      "minStars": 232,
+      "minStars": 252,
       "ceilingStep": 6,
       "wildcardEvery": 9
     },
@@ -953,7 +1033,7 @@
       "name": "Life",
       "block": "The Grid",
       "shots": 50,
-      "minStars": 234,
+      "minStars": 254,
       "ceilingStep": 7
     },
     {
@@ -961,7 +1041,7 @@
       "name": "Tesseract",
       "block": "The Grid",
       "shots": 54,
-      "minStars": 236,
+      "minStars": 256,
       "ceilingStep": 6,
       "wildcardEvery": 11
     },
@@ -970,7 +1050,7 @@
       "name": "Trefoil",
       "block": "The Mirage",
       "shots": 46,
-      "minStars": 238,
+      "minStars": 258,
       "ceilingStep": 8
     },
     {
@@ -978,7 +1058,7 @@
       "name": "Facet",
       "block": "The Mirage",
       "shots": 34,
-      "minStars": 240,
+      "minStars": 260,
       "ceilingStep": 7
     },
     {
@@ -986,7 +1066,7 @@
       "name": "Harlequin",
       "block": "The Mirage",
       "shots": 60,
-      "minStars": 242,
+      "minStars": 262,
       "ceilingStep": 10
     },
     {
@@ -994,7 +1074,7 @@
       "name": "Diadem",
       "block": "The Mirage",
       "shots": 54,
-      "minStars": 244,
+      "minStars": 264,
       "ceilingStep": 13
     },
     {
@@ -1002,7 +1082,7 @@
       "name": "Solitaire",
       "block": "The Mirage",
       "shots": 68,
-      "minStars": 246,
+      "minStars": 266,
       "ceilingStep": 12
     },
     {
@@ -1010,7 +1090,7 @@
       "name": "Anvil",
       "block": "The Mirage",
       "shots": 50,
-      "minStars": 248,
+      "minStars": 268,
       "ceilingStep": 9
     },
     {
@@ -1018,7 +1098,7 @@
       "name": "Keystone",
       "block": "The Mirage",
       "shots": 60,
-      "minStars": 250,
+      "minStars": 270,
       "ceilingStep": 10
     },
     {
@@ -1026,7 +1106,7 @@
       "name": "Seam",
       "block": "The Mirage",
       "shots": 54,
-      "minStars": 252,
+      "minStars": 272,
       "ceilingStep": 9
     },
     {
@@ -1034,7 +1114,7 @@
       "name": "Obsidian",
       "block": "The Mirage",
       "shots": 50,
-      "minStars": 254,
+      "minStars": 274,
       "ceilingStep": 9
     },
     {
@@ -1042,7 +1122,7 @@
       "name": "Cairn",
       "block": "The Mirage",
       "shots": 72,
-      "minStars": 256,
+      "minStars": 276,
       "ceilingStep": 12
     }
   ]
