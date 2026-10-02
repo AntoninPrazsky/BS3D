@@ -7557,3 +7557,15 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-10-02 — beru #698–#702 (majitelovy poznámky z dneška) — desktop, Claude Code (bs3d-1b)
 
 - **Beru #701** (deska žebříčku na výsledku uprostřed pruhu vedle sloupce; zkontroluji i desku ve výběru levelu z #684), **#699** (nápověda přeskočení u každé animace), **#700** (karta tutoriálu problikne po animaci), **#702** (zvuk laserů trvá na stránce výsledku) a **#698** (plot na louce v měřítku stromů). Pořadí přesně takhle.
+- **#701 na mainu (merge `8908737f`):** deska žebříčku na výsledku je uprostřed pruhu mezi sloupcem a okrajem. Okraj se dřív uzavíral na 150 j., takže na 3840×1600 bylo 407 / 59 px, teď 234 / 233. Totéž ve výběru levelu: když se deska vedle vycentrovaného okna nevejde, okno se posune a tři mezery jsou stejné.
+- **#699 na mainu (merge `41441044`):** nápověda přeskočení u každé přeskočitelné animace, pokaždé. Průlet kapitoly skrývá celé HUD (#693), takže tam se nápověda kreslí samostatně (`DrawSkipHintAlone`).
+- **#700 na mainu (merge `ac48ca93`):** pod převzetím kamery stály i hodiny odcházející karty, která se pak po animaci vynořila na 0,35. Odcházející karta teď doběhne neviditelně a rozhodnutý level kartu rovnou zahodí. Tři testy v `TutorialTests`, dva na starém kódu padají.
+- **#702 na mainu (merge `a4dc9b26`):** bzukot laserů pod stránkou výsledku po prohře na čáře.
+  - ⚠ Jedna smyčka pulzovala (obálka 32 %, r 0,96 po periodě); teď dvě smyčky (0,7 a 0,53 s), zploštělé a srovnané na RMS.
+  - Hlasitost −39 dBFS proti hudbě −23.
+  - Mrtvý muž: `HoldLineHum` každý snímek z `UpdateUnderResult`. Inscenovaná prohra potřebuje `lasers`, jinak síť nesvítí.
+  - Ověřeno loopbackem (`soundcard`, skript `669/rec.py` ze session d2900955).
+- **#697 po recenzi (merge `5ce6972f`):** třetina karet stínovala dovnitř trsu → snítky podél slupky, líc ven; třetina listů ležela v neviditelném jádru → jádro pryč, stín vrhají listy. 13,63 → 13,48 ms proti verzi před #697.
+- **#495 uzavřeno (merge `e7b29e39`):** 107 ze 118 nahrávek má vrstvu bicích, 3 slabé, 8 odmítnuto kvůli přebuzení. +150 MB.
+  - ⚠ Přepnutí z větve, kde byly vrstvy commitnuté, na main je z pracovního stromu smaže (jsou v commitu, ne ztracené).
+- **Majitel 2. 10.:** #677 jen duny (zavřeno), #257 a #690 nová kapitola s menší prioritou, #696 doporučeno (b) až po releasu. **Priorita dne: první release s online skóre** (v0.3.0). Návrh poznámek ve scratchpadu `release/whats-new-v0.3.0.md`. Zkouška workflow Release spuštěná na `e7b29e39`.
