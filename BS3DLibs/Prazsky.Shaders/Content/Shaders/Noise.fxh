@@ -44,6 +44,52 @@ float Hash21(float2 p)
     return frac(p.x * p.y);
 }
 
+//--- Integer hashes (#674) ------------------------------------------------------------------------------
+//For what is rolled once per CELL - a lit window, a flower, a lily pad. Hash21 above is a float hash, and on
+//whole-number input its frac(p * 123.34) and frac(p * 456.21) are frac(p * 0.34) and frac(p * 0.21): an exact period
+//of 50 cells in x and 100 in y, so a field laid out cell by cell through it repeats in exactly the same arrangement -
+//every 40 units across the meadow's small flowers, and six times across the city. These mix a cell's integer
+//coordinates instead and have no period any scene reaches. Shader Model 5 only (asuint, integer multiply).
+
+//Chris Wellons' lowbias32 finaliser: every output bit depends on every input bit. City.FacadeRoll runs the same
+//arithmetic on the CPU, which is what lets the city's generator and its shader roll one answer.
+uint HashMix(uint h)
+{
+    h ^= h >> 16;
+    h *= 0x7feb352du;
+    h ^= h >> 15;
+    h *= 0x846ca68bu;
+    h ^= h >> 16;
+    return h;
+}
+
+//The top 24 bits of a mixed value as a float in [0,1), exactly
+float HashUnit(uint h)
+{
+    return (h >> 8) * (1.0 / 16777216.0);
+}
+
+//`count` bits of a mixed value from bit `first` up, as a fraction in [0,1). A mixed value is a finished hash, so the
+//rolls that need few bits are cut from one word rather than each paying a mix of its own (the city's windows measured
+//a mix per roll at 0.11 ms on a screen of facades).
+float HashBits(uint h, uint first, uint count)
+{
+    return ((h >> first) & ((1u << count) - 1u)) * (1.0 / (1u << count));
+}
+
+//A cell's seed, its integer coordinates mixed. The caller floor()s `cell`, so the cast is exact.
+uint HashCell(float2 cell)
+{
+    int2 c = (int2)cell;
+    return HashMix(asuint(c.x) * 0x8da6b343u ^ asuint(c.y) * 0xd8163841u);
+}
+
+//A further word of a seed, independent of it and of every other salt's
+uint HashSalt(uint seed, uint salt)
+{
+    return HashMix(seed ^ salt * 0xcb1ab31fu);
+}
+
 //--- Gradient noise -----------------------------------------------------------------------------------
 //Perlin-style: a random unit-ish gradient per lattice corner, dotted with the offset and blended by a
 //QUINTIC fade (C2-continuous - the cubic's discontinuous second derivative shows as faint lattice creases

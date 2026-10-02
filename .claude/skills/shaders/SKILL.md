@@ -24,7 +24,9 @@ description: How to add and wire custom HLSL effects (.fx) in BS3D — content p
    private DesktopGL one would compile OpenGL effects). Every effect reaches every executable, used or not
    (the MapEditor never loads `Sky.fx`). MSAA is off while supersampling is on (the scene renders into an HDR
    target).
-4. **Do not copy a helper out of another shader — include it.** `Noise.fxh` (noise, hashes incl. `Hash21`,
+4. **Do not copy a helper out of another shader — include it.** `Noise.fxh` (noise, hashes incl. `Hash21` — and for
+   anything rolled once per CELL the integer `HashCell`/`HashSalt`/`HashBits`, since `Hash21` repeats exactly every
+   50 × 100 whole cells (#674) —
    `PerturbNormalFromHeight`), `Clouds.fxh`, `Shadows.fxh`, `FarField.fxh`, `HeightProbe.fxh`, `Stars.fxh`,
    and since #581 `Craters.fxh`, `Rocks.fxh`, `Grass.fxh` and `ForestGround.fxh` hold what two scenes share.
    A shared header carries functions and static constants only; the uniforms it reads are declared by each

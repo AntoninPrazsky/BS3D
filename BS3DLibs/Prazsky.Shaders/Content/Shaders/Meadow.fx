@@ -252,11 +252,15 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
     //two flowers in five ignore for a neighbour's - the edges of patches mix, as a real meadow's do.
     float driftField = saturate(CloudNoise(worldPosition.xz * 0.045 + 3.7) * 0.5 + 0.5);
     float density = FlowerDensity * (0.35 + 2.4 * driftField * driftField);
-    float present = step(1.0 - density, Hash21(cell));
+    //Every roll of a flower comes off two words of its cell's integer seed (#674): Hash21, which this rolled on, repeats
+    //exactly every 50 x 100 cells on whole-number cells, so the flowers' layout came back in the same arrangement.
+    uint flowerSeed = HashCell(cell);
+    uint flowerSeed2 = HashSalt(flowerSeed, 1u);
+    float present = step(1.0 - density, HashBits(flowerSeed, 0u, 12u));
 
-    float patchSpecies = floor(Hash21(floor(worldPosition.xz / FLOWER_PATCH) + 41.3) * FLOWER_SPECIES);
-    float ownSpecies = floor(Hash21(cell + 23.9) * FLOWER_SPECIES);
-    float species = Hash21(cell + 61.1) < 0.4 ? ownSpecies : patchSpecies;
+    float patchSpecies = floor(HashUnit(HashSalt(HashCell(floor(worldPosition.xz / FLOWER_PATCH)), 41u)) * FLOWER_SPECIES);
+    float ownSpecies = floor(HashBits(flowerSeed, 12u, 8u) * FLOWER_SPECIES);
+    float species = HashBits(flowerSeed, 20u, 6u) < 0.4 ? ownSpecies : patchSpecies;
 
     //The footpath (#609): trodden dirt down the middle, a verge of worn short grass either side, both with a
     //ragged edge. No flower grows on it.
@@ -333,19 +337,19 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
     float petalShape = species < 0.5 ? 2.2 : (species < 1.5 ? 0.6 : (species < 2.5 ? 0.35 : (species < 3.5 ? 3.0 : 0.0)));
     float speciesSize = species < 0.5 ? 1.0 : (species < 1.5 ? 0.75 : (species < 2.5 ? 1.35 : (species < 3.5 ? 0.85 : 0.6)));
     float eyeShare = species < 0.5 ? 0.38 : (species < 1.5 ? 0.22 : (species < 2.5 ? 0.26 : (species < 3.5 ? 0.24 : 0.0)));
-    float rotation = Hash21(cell + 9.9) * 6.2831853;
+    float rotation = HashBits(flowerSeed, 26u, 6u) * 6.2831853;
 
     //MOSTLY SMALL, A FEW BIG (#609's third round). The owner: the flowers are too big for what stands round them;
     //the big ones can stay, but most should be smaller, or small. The roll is cubed, so half the flowers are under a
     //quarter of the old middle size's worth above FLOWER_SMALLEST and one in ten reaches past three quarters of the
     //range; the largest are the largest they ever were (0.7 to 1.3 of the species' size, evenly, until then).
-    float sizeRoll = Hash21(cell + 2.2);
+    float sizeRoll = HashBits(flowerSeed2, 0u, 10u);
     float size = min(FlowerSize * speciesSize
         * (FLOWER_SMALLEST + (FLOWER_LARGEST - FLOWER_SMALLEST) * sizeRoll * sizeRoll * sizeRoll), 0.45);
 
     //The centre may only wander in [size, 1-size], so the whole flower stays inside its cell and no petal
     //is cut off by the cell edge (the flower is only evaluated within its own cell's fraction).
-    float2 flowerCentre = size + float2(Hash21(cell + 3.1), Hash21(cell + 7.7)) * (1.0 - 2.0 * size);
+    float2 flowerCentre = size + float2(HashBits(flowerSeed2, 10u, 8u), HashBits(flowerSeed2, 18u, 8u)) * (1.0 - 2.0 * size);
     float2 delta = within - flowerCentre;
     float radius = length(delta);
     float angle = atan2(delta.y, delta.x);
@@ -478,12 +482,12 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
     grass *= 1.0 + gust * WindRippleStrength;
 
     //The species' colours, a little varied flower to flower
-    float shade = 0.9 + 0.2 * Hash21(cell + 13.7);
+    float shade = 0.9 + 0.2 * HashBits(flowerSeed2, 26u, 6u);
     float3 petalColor = species < 0.5 ? float3(0.96, 0.96, 0.92)
         : (species < 1.5 ? float3(0.98, 0.82, 0.10)
         : (species < 2.5 ? float3(0.86, 0.09, 0.05)
         : (species < 3.5 ? float3(0.22, 0.34, 0.92)
-        : float3(0.78, 0.36, 0.62) * (0.8 + 0.4 * Hash21(floor(within * 40.0) + cell)))));
+        : float3(0.78, 0.36, 0.62) * (0.8 + 0.4 * HashUnit(HashSalt(flowerSeed, 2u + (uint)dot(floor(within * 40.0), float2(1.0, 40.0))))))));
     petalColor *= shade;
     float3 eyeColor = species < 0.5 ? float3(0.98, 0.74, 0.12)
         : (species < 1.5 ? float3(0.80, 0.78, 0.20)
@@ -522,15 +526,19 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
     {
         float2 smallCell = floor(worldPosition.xz / SMALL_FLOWER_SPACING);
         float2 smallWithin = frac(worldPosition.xz / SMALL_FLOWER_SPACING);
+        //Two words of the cell's integer seed, salted apart from the big flowers' cells it shares coordinates with.
+        //These repeated every 40 units on Hash21 (50 cells of 0.8), the plainest case of #674 in the game.
+        uint smallSeed = HashSalt(HashCell(smallCell), 7u);
+        uint smallSeed2 = HashSalt(smallSeed, 1u);
         //Their kind: the patch's where it is daisies or buttercups, three in four; otherwise daisy, buttercup or clover
-        float smallKind = Hash21(smallCell + 13.1) < 0.75 && patchSpecies < 1.5 ? patchSpecies : floor(Hash21(smallCell + 29.3) * 2.99);
+        float smallKind = HashBits(smallSeed, 12u, 6u) < 0.75 && patchSpecies < 1.5 ? patchSpecies : floor(HashBits(smallSeed, 18u, 8u) * 2.99);
         float3 smallColor = smallKind < 0.5 ? float3(0.95, 0.95, 0.9) : (smallKind < 1.5 ? float3(0.98, 0.8, 0.1) : float3(0.78, 0.36, 0.62));
-        float smallRadius = SMALL_FLOWER_RADIUS * (0.7 + 0.6 * Hash21(smallCell + 5.1)) / SMALL_FLOWER_SPACING;
-        float2 smallCentre = smallRadius + float2(Hash21(smallCell + 1.3), Hash21(smallCell + 2.7)) * (1.0 - 2.0 * smallRadius);
+        float smallRadius = SMALL_FLOWER_RADIUS * (0.7 + 0.6 * HashBits(smallSeed, 26u, 6u)) / SMALL_FLOWER_SPACING;
+        float2 smallCentre = smallRadius + float2(HashBits(smallSeed2, 0u, 8u), HashBits(smallSeed2, 8u, 8u)) * (1.0 - 2.0 * smallRadius);
         float smallDistance = length(smallWithin - smallCentre);
         //No derivative inside the branch: the footprint is the field's own, taken before any of them
         float smallAa = footprint / SMALL_FLOWER_SPACING + 1e-4;
-        float smallMask = step(1.0 - smallDensity, Hash21(smallCell + 71.3)) * smallResolvable
+        float smallMask = step(1.0 - smallDensity, HashBits(smallSeed, 0u, 12u)) * smallResolvable
             * (1.0 - smoothstep(smallRadius - smallAa, smallRadius + smallAa, smallDistance));
         //A daisy's yellow eye
         smallColor = lerp(smallColor, float3(0.98, 0.74, 0.12), (smallKind < 0.5 ? 1.0 : 0.0)
@@ -649,21 +657,23 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
         {
             float lilies = smoothstep(0.05, 0.35, GradientNoise2(worldPosition.xz * 0.09 + 11.0)) * saturate(pondDepth * 2.0);
             float2 padCell = floor(worldPosition.xz / LILY_SPACING);
-            float padRadius = 0.28 + 0.14 * Hash21(padCell + 8.1);
-            float2 padCentre = (float2(Hash21(padCell + 1.7), Hash21(padCell + 2.9)) - 0.5) * (1.0 - 2.0 * padRadius);
+            uint padSeed = HashSalt(HashCell(padCell), 11u);
+            uint padSeed2 = HashSalt(padSeed, 1u);
+            float padRadius = 0.28 + 0.14 * HashBits(padSeed, 0u, 8u);
+            float2 padCentre = (float2(HashBits(padSeed, 8u, 8u), HashBits(padSeed, 16u, 8u)) - 0.5) * (1.0 - 2.0 * padRadius);
             float2 dp = frac(worldPosition.xz / LILY_SPACING) - 0.5 - padCentre;
             float padDistance = length(dp);
             //No derivative inside the branch: the footprint is the field's own, taken before any of them
             float padAa = footprint / LILY_SPACING + 1e-4;
-            float notchBearing = Hash21(padCell + 4.4) * 6.2831853;
+            float notchBearing = HashBits(padSeed, 24u, 8u) * 6.2831853;
             float2 notchDir = float2(cos(notchBearing), sin(notchBearing));
             float notch = step(0.0, dot(dp, notchDir))
                 * (1.0 - smoothstep(padDistance * 0.2 - padAa, padDistance * 0.2 + padAa, abs(dp.x * notchDir.y - dp.y * notchDir.x)));
             float pad = (1.0 - smoothstep(padRadius - padAa, padRadius + padAa, padDistance)) * (1.0 - notch)
-                * step(1.0 - 0.7 * lilies, Hash21(padCell + 5.3)) * pondWater;
+                * step(1.0 - 0.7 * lilies, HashBits(padSeed2, 0u, 12u)) * pondWater;
             float bloom = (1.0 - smoothstep(padRadius * 0.35 - padAa, padRadius * 0.35 + padAa, padDistance))
-                * step(0.85, Hash21(padCell + 6.6));
-            float3 padColor = lerp(LILY_PAD * (0.8 + 0.4 * Hash21(padCell + 3.7)), LILY_FLOWER, bloom);
+                * step(0.85, HashBits(padSeed2, 12u, 8u));
+            float3 padColor = lerp(LILY_PAD * (0.8 + 0.4 * HashBits(padSeed2, 20u, 8u)), LILY_FLOWER, bloom);
             waterColor = lerp(waterColor, padColor * (skyAmbient * AmbientStrength + SunColor * saturate(SunDirection.y) * sunlight), pad);
         }
         color = lerp(color, waterColor, water);
