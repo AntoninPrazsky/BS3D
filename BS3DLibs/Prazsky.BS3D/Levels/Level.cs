@@ -130,6 +130,13 @@ namespace Prazsky.BS3D.Levels
         [JsonPropertyName("crates")]
         public CrateSpec[] Crates { get; set; }
 
+        /// <summary>
+        /// How soft the lattice between this level's balls is (#690). Null in every level written before it existed,
+        /// and for a level hung at the builder's own stiff spring; see <see cref="SoftnessSpec"/>.
+        /// </summary>
+        [JsonPropertyName("softness")]
+        public SoftnessSpec Softness { get; set; }
+
         //AllowOutOfOrderMetadataProperties stood here while the scene was polymorphic, so a hand-edited file
         //that did not keep the "kind" discriminator first still loaded. Nothing in a level is polymorphic
         //since format 2 — a legacy scene object is read by SceneNameJsonConverter's own JsonDocument, never
@@ -153,6 +160,12 @@ namespace Prazsky.BS3D.Levels
                 throw new InvalidDataException($"'{path}' is a version {level.Version} level; this build reads up to {CurrentVersion}");
             if (level.Map?.Balls == null)
                 throw new InvalidDataException($"'{path}' carries no ball map");
+
+            //Refused rather than clamped, like a ball of a colour this build does not have (#571): a spring of zero
+            //hertz or zero damping is no spring, and the solver would hang the level on NaNs rather than say so
+            if (level.Softness is SoftnessSpec softness && !softness.IsValid)
+                throw new InvalidDataException(
+                    $"'{path}' states a softness of {softness.Frequency} Hz, damping {softness.Damping}; both must be positive");
 
             return level;
         }

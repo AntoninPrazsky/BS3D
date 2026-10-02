@@ -66,7 +66,7 @@ namespace Testbed
 
                 _world.Step(_slowSimulation ? timeStep * Constants.HUNDREDTH : timeStep, _processContacts);
 
-                if (_options.Softness.HasValue) TraceSoftness(_slowSimulation ? timeStep * Constants.HUNDREDTH : timeStep);
+                if (Softness.HasValue) TraceSoftness(_slowSimulation ? timeStep * Constants.HUNDREDTH : timeStep);
 
                 #region Fallen balls cleanup
 
@@ -200,6 +200,12 @@ namespace Testbed
 
         //How long the softened lattice has hung, the next trace line's time, and the lowest ball's Y as it was built
         private float _softnessTraceClock, _softnessTraceNext, _softnessRestLowest;
+
+        //The loaded level's own spring (Level.Softness), null for a plain map or a level that states none
+        private (float Frequency, float Damping)? _levelSoftness;
+
+        /// <summary>The lattice's spring for this structure: <c>softness=</c>'s when the run pinned one, else the level's own.</summary>
+        private (float Frequency, float Damping)? Softness => _options.Softness ?? _levelSoftness;
 
         //Every half second for the first twelve: long enough to see the drop, the swing and the settle of the softest
         //spring tried, short enough that a capture run's log stays readable

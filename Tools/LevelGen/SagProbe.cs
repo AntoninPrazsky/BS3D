@@ -104,11 +104,17 @@ namespace BS3D.Tools.LevelGen
         internal static WindField Wind { get; set; } = WindField.None;
 
         /// <summary>
-        /// The lattice's spring for every structure this probe hangs (#690, a prototype): null for the builder's own, or
-        /// <c>--softness=&lt;Hz&gt;[:&lt;damping&gt;]</c>'s. Applied the game's way (<see cref="LatticeSoftness"/>) after the
-        /// build and after every attach, so a soft level is probed shot by shot as it would play.
+        /// The lattice's spring for every structure this probe hangs, overriding each level's own (#690): null, the
+        /// default, hangs each level at the spring its file states (<c>Level.Softness</c>, the builder's own where it
+        /// states none), and <c>--softness=&lt;Hz&gt;[:&lt;damping&gt;]</c> pins one for every level of the run - the
+        /// prototype's lever, kept for asking how a shape would hang at another figure.
         /// </summary>
         internal static BepuPhysics.Constraints.SpringSettings? Softness { get; set; }
+
+        //The spring the level being played hangs at - Softness when the run pinned one, else the file's own - set per
+        //run like the wind clock, and applied the game's way (LatticeSoftness) after the build and after every attach,
+        //so a soft level is probed shot by shot as it would play
+        private static BepuPhysics.Constraints.SpringSettings? _spring;
 
         //The play clock the wind is read from, counted in steps from the start of a run: the game reads its own
         //fixed-step clock the same way, so the gust at the n-th step is the same gust
@@ -346,6 +352,9 @@ namespace BS3D.Tools.LevelGen
             BallsMap map = new(level.Map);
             map.Center();
 
+            _spring = Softness ?? (level.Softness is SoftnessSpec softness
+                ? new BepuPhysics.Constraints.SpringSettings(softness.Frequency, softness.Damping) : null);
+
             //#333's baseline pass: the mass is the whole of what the kind does, so a heavy ball rewritten to
             //Normal IS the same level with the mechanic switched off. Rewritten through PutBallAt, the map's
             //one placement door, rather than by reaching into the array — it recomputes the position from the
@@ -413,7 +422,7 @@ namespace BS3D.Tools.LevelGen
             PhysicsBall[,,] balls = BallsConstraintsBuilder.BuildBallsStructure(
                 map.GetStaticBallsArray(), world.Simulation, ceiling, worldOffset);
 
-            if (Softness is BepuPhysics.Constraints.SpringSettings soft) LatticeSoftness.Apply(balls, world.Simulation, soft);
+            if (_spring is BepuPhysics.Constraints.SpringSettings soft) LatticeSoftness.Apply(balls, world.Simulation, soft);
 
             //And it springs from the glass exactly as the game's does (#617) — the settle below is where it runs,
             //so the gate sees the start the player sees.
@@ -1071,7 +1080,7 @@ namespace BS3D.Tools.LevelGen
             BallsConstraintsBuilder.AttachBallToStructure(landed, balls, map, world.Simulation, ceiling,
                 worldOffset.ToNumerics());
 
-            if (Softness is BepuPhysics.Constraints.SpringSettings soft)
+            if (_spring is BepuPhysics.Constraints.SpringSettings soft)
                 LatticeSoftness.ApplyToBall(landed, balls.GetLength(2) - 1, world.Simulation, soft);
 
             //The glass takes the colour that just arrived (#325) - after the attach and BEFORE the group is

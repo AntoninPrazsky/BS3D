@@ -36,6 +36,8 @@ namespace BS3D.Tests
             Assert.Equal(original.Music, reloaded.Music);
             Assert.Equal(original.Balls, reloaded.Balls);
             Assert.Equal(original.Weather, reloaded.Weather);
+            Assert.Equal((original.Softness?.Frequency, original.Softness?.Damping),
+                (reloaded.Softness?.Frequency, reloaded.Softness?.Damping));
 
             AssertSameMap(original.Map, reloaded.Map);
 
@@ -74,14 +76,14 @@ namespace BS3D.Tests
         /// <paramref name="kind"/> go on the first ball; <paramref name="kind"/> is left out when null, as a
         /// normal ball is written.
         /// </summary>
-        private static string LevelJson(int type, int? kind = null)
+        private static string LevelJson(int type, int? kind = null, string extra = null)
         {
             string first = kind == null
                 ? $"{{\"x\":0,\"y\":0,\"z\":0,\"t\":{type}}}"
                 : $"{{\"x\":0,\"y\":0,\"z\":0,\"t\":{type},\"k\":{kind}}}";
             const string ball = "{\"x\":0,\"y\":0,\"z\":0,\"t\":1}";
 
-            return "{\"format\":\"bs3d-level\",\"version\":2,\"map\":{\"sx\":2,\"sz\":2,\"l\":9,\"b\":["
+            return "{\"format\":\"bs3d-level\",\"version\":2," + (extra == null ? "" : extra + ",") + "\"map\":{\"sx\":2,\"sz\":2,\"l\":9,\"b\":["
                 + $"[[{first},{ball},{ball}],[{ball},{ball},{ball}]],"
                 + $"[[{ball},{ball},{ball}],[{ball},{ball},{ball}]]"
                 + "]}}";
@@ -110,6 +112,59 @@ namespace BS3D.Tests
         [Fact]
         public void BallOfAnUndefinedKindIsRefused() =>
             Assert.Throws<InvalidDataException>(() => BuildFromLevelText(LevelJson(type: 1, kind: 250)));
+
+        /// <summary>
+        /// A soft level (#690) keeps its spring through a save and a reload, and a level that states none writes no
+        /// <c>"softness"</c> at all — so every level shipped before the field existed stays the bytes it was, and its
+        /// <c>LevelIdentity</c>, which the online boards key by, does not move.
+        /// </summary>
+        [Fact]
+        public void SoftnessSurvivesSaveAndLoadAndIsAbsentWhenUnstated()
+        {
+            using TempDirectory temp = new();
+            string soft = temp.File("soft.json"), stiff = temp.File("stiff.json");
+            File.WriteAllText(soft, LevelJson(type: 1, extra: "\"softness\":{\"hz\":6,\"damping\":0.5}"));
+            File.WriteAllText(stiff, LevelJson(type: 1));
+
+            Level reloaded = SaveAndReload(Level.Load(soft), temp.File("soft-copy.json"));
+            Assert.Equal((6f, 0.5f), (reloaded.Softness.Frequency, reloaded.Softness.Damping));
+
+            string copy = temp.File("stiff-copy.json");
+            Assert.Null(SaveAndReload(Level.Load(stiff), copy).Softness);
+            Assert.DoesNotContain("softness", File.ReadAllText(copy));
+        }
+
+        /// <summary>A file that states the frequency alone is damped critically, the builder's own ratio.</summary>
+        [Fact]
+        public void SoftnessWithoutDampingIsCriticallyDamped()
+        {
+            using TempDirectory temp = new();
+            string path = temp.File("level.json");
+            File.WriteAllText(path, LevelJson(type: 1, extra: "\"softness\":{\"hz\":4}"));
+
+            Assert.Equal(1f, Level.Load(path).Softness.Damping);
+        }
+
+        /// <summary>A spring of no frequency or no damping is no spring: refused, like a colour this build does not have.</summary>
+        [Theory]
+        [InlineData("{\"hz\":0}")]
+        [InlineData("{\"hz\":-3,\"damping\":0.5}")]
+        [InlineData("{\"hz\":6,\"damping\":0}")]
+        [InlineData("{}")]
+        public void SoftnessThatIsNoSpringIsRefused(string softness)
+        {
+            using TempDirectory temp = new();
+            string path = temp.File("level.json");
+            File.WriteAllText(path, LevelJson(type: 1, extra: $"\"softness\":{softness}"));
+
+            Assert.Throws<InvalidDataException>(() => Level.Load(path));
+        }
+
+        private static Level SaveAndReload(Level level, string path)
+        {
+            level.Save(path);
+            return Level.Load(path);
+        }
 
         /// <summary>
         /// A legacy map carries no <c>sx</c>/<c>sz</c>/<c>l</c>: it gets extra empty levels below, an even

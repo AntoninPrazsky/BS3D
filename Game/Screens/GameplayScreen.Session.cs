@@ -260,6 +260,10 @@ namespace BS3D.Screens
                         namedTheme = level.Music;
                         ballStyle = level.Balls ?? BallStyle.Beach;
                         crateSpecs = level.Crates;
+
+                        //Level.Load has refused a spring that is no spring, so whatever arrives here is one
+                        if (level.Softness is SoftnessSpec softness)
+                            _run.LatticeSpring = new BepuPhysics.Constraints.SpringSettings(softness.Frequency, softness.Damping);
                     }
                     else map = new BallsMap(path);
 
@@ -545,6 +549,16 @@ namespace BS3D.Screens
             Console.WriteLine(_world.StartSwing == null ? "[swing] none"
                 : $"[swing] {_world.StartSwing.SocketCount} glass sockets at {_world.StartSwing.SoftFrequency:F2} Hz");
 
+            //A level hung like rope or cloth (#690): every socket between two balls takes the level's own spring, the
+            //glass's anchors keep the builder's (the swing above eases them back to it). The handler below is told the
+            //same spring, so a shot that lands joins the lattice at the lattice's stiffness and not as a rigid knot.
+            if (_run.LatticeSpring is BepuPhysics.Constraints.SpringSettings lattice)
+            {
+                int sockets = LatticeSoftness.Apply(_physicsBalls, _world.Simulation, lattice);
+                Console.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                    $"[softness] {sockets} lattice socket(s) at {lattice.Frequency:0.##} Hz, damping {lattice.DampingRatio:0.##}"));
+            }
+
             //A level with air over it (#95) has a cluster that never falls asleep - a sleeping island is not integrated, so
             //the wind would stop at the first lull. Decided here, once, with the wind BuildPhysicsWorld chose (none on a
             //tier that gives it up, and none in a scene without air): see PhysicsWorld.KeepClusterAwake for what it costs.
@@ -565,7 +579,10 @@ namespace BS3D.Screens
             //match rule. It gets the very list instances the frame draws from, and the same offset, so it can
             //take a world contact down into the grid frame to ask the map about it and bring the answer back up.
             _eventHandler = new BallContactEventHandler(_world.Simulation, _world.Events, _ceiling, _map,
-                _physicsBalls, _shotBalls, _fallingBalls, _clusterWorldOffset);
+                _physicsBalls, _shotBalls, _fallingBalls, _clusterWorldOffset)
+            {
+                LatticeSpring = _run.LatticeSpring,
+            };
 
             //The handler reports what a shot did; what it is worth is the scorer's business. Subscribed on the
             //handler the level just built, and the handler is rebuilt with it, so there is nothing to unhook.
