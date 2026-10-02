@@ -399,9 +399,13 @@ namespace Prazsky.Core.Render
                 //flanks lie inside its lump's lobes - so every clump shaded its own sunny side
                 buckets.Add(new ScatterBucket(device, tree.Crown, treeInstances[m], leaf, leafDry, dapple: 0.7f, bark: 0f,
                     detailOnly: false, lowOnly: true));
-                //The core darker than the leaves: where it shows between cards it is the inside of the crown, its shade
+                //The core: since #697 the crown's shade in the sun's map and nothing on screen - the crown is drawn as
+                //twigs and leaves, and the owner wanted no ball inside it
                 buckets.Add(new ScatterBucket(device, tree.Core, treeInstances[m], leaf * 0.55f, leafDry * 0.55f, dapple: 0.6f, bark: 0f,
-                    detailOnly: true));
+                    detailOnly: true, shadowOnly: true));
+                //The twigs every clump's leaves grow from (#697): bark, too thin to cast anything worth a second draw
+                buckets.Add(new ScatterBucket(device, tree.Twigs, treeInstances[m], OAK_BARK, OAK_BARK * 1.2f, dapple: 0f, bark: 0.3f,
+                    detailOnly: true, castsShadow: false));
                 //Broad leaves, not the acacia's leaflets (LeafStrength 2, Acacia.fx's BroadLeafMask)
                 buckets.Add(new ScatterBucket(device, tree.Leaves, treeInstances[m], leaf, leafDry, dapple: 0f, bark: 0f,
                     detailOnly: true, leaves: 2f, castsShadow: false));
