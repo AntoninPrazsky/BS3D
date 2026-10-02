@@ -239,6 +239,14 @@ namespace BS3D.Screens
         //A level's board key is read off its file and hashed; the set does not change while the game runs, so once each
         private readonly Dictionary<int, LevelIdentity> _identities = new();
 
+        //What the tree was built for besides the menu's layout size, which is the HEIGHT (#684's review): the window's
+        //width - the band's shift, the board's width and whether it is there at all are worked out from it, and so is
+        //Fit - and whether online scores were on, which decides the plate and the Leaderboard button. A window made
+        //narrower with its height kept, or the switch turned in Settings, would otherwise leave the old tree up: the
+        //plate laid across the tiles, or a plate of empty boards for a feature the player had turned off.
+        private int _builtWidth = -1;
+        private bool _builtOnline;
+
         //The entry the focus cursor stands on, as the host last said. Kept for one job: a chapter turn has to
         //re-read the nav entries (a different chapter is a different set of playable tiles) and the cursor must
         //stay where it was, which means naming the button it was on.
@@ -257,6 +265,9 @@ namespace BS3D.Screens
             _focused = null;
 
             int count = Game.LevelCount;
+
+            _builtWidth = Game.GraphicsDevice.PresentationParameters.BackBufferWidth;
+            _builtOnline = Game.Online.Enabled;
 
             //A chaptered set pages; anything else is the one grid it always was. Blocks are the same gate every
             //other block-aware corner of the game reads, and for the same reason: a set naming none has as many
@@ -432,6 +443,14 @@ namespace BS3D.Screens
         {
             base.Update(gameTime);
 
+            //A tree built for another width (the height rebuilds every page by itself) or another online switch
+            if (IsActive && IsBuilt && TreeIsStale())
+            {
+                InvalidateTree();
+                Game.RebuildPage(this, () => null);
+                return;
+            }
+
             if (_boardsPlate == null) return;
 
             UpdateBoards();
@@ -465,6 +484,9 @@ namespace BS3D.Screens
 
             if (changed) WriteBoards();
         }
+
+        private bool TreeIsStale() =>
+            _builtWidth != Game.GraphicsDevice.PresentationParameters.BackBufferWidth || _builtOnline != Game.Online.Enabled;
 
         private bool TakeBoards()
         {
@@ -1046,6 +1068,13 @@ namespace BS3D.Screens
         {
             //The tree may not exist yet: the page is only built when it is first shown
             if (_totalStars == null) return;
+
+            //Opened again on a tree built for another width or online switch: built anew by the Root read that follows
+            if (TreeIsStale()) InvalidateTree();
+
+            //A level looked at before, locked again since - the progress reset, or the unlock-all switch off - is not the
+            //plate's or the button's any more (#266)
+            if (_boardLevel >= 0 && (_boardLevel >= Game.LevelCount || !Game.IsLevelUnlocked(_boardLevel))) _boardLevel = -1;
 
             //And the boards are asked again: coming back here is often coming back from a clear that moved them - and
             //moved the frontier they fall back on

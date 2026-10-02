@@ -235,8 +235,10 @@ namespace BS3D
                 game.OpenLevelSelect();
             }
 
-            //The picker's pointer on a level (#684), once the picker is up and the clock has come
-            if (_pickFocusAt is float pickFocusAt && game.WallClock >= pickFocusAt && !game.IsSplashUp)
+            //The picker's pointer on a level (#684), once the clock has come and the picker is the page up with its tree
+            //built - a push lands a frame after it is asked for, and on any other page this would move the backdrop's
+            //preview behind a page that is not the picker
+            if (_pickFocusAt is float pickFocusAt && game.WallClock >= pickFocusAt && game.IsLevelSelectReady)
             {
                 _pickFocusAt = null;
                 game.PointPickerAtForTesting(_pickFocusLevel - 1);

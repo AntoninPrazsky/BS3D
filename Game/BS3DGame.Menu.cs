@@ -1186,6 +1186,9 @@ namespace BS3D
         /// <summary>Rests the picker's pointer on a level's tile - the <c>pickfocus=</c> argument's (#684).</summary>
         internal void PointPickerAtForTesting(int level) => _levelSelectPage.PointAtForTesting(level);
 
+        /// <summary>Whether the level picker is the page up, with its tree built - what <c>pickfocus=</c> waits for.</summary>
+        internal bool IsLevelSelectReady => _screens.Active == _levelSelectPage && _levelSelectPage.IsBuilt;
+
         /// <summary>Activates the Settings page's rows by name - the <c>settings=</c> argument's (#548).</summary>
         internal void ActivateSettingsRowsForTesting(string rows) => _settingsPage.ActivateForTesting(rows);
 
