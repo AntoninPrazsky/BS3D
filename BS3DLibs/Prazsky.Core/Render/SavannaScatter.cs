@@ -40,8 +40,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Whether it casts into the sun's map. By default everything but a <see cref="LowOnly"/> bucket does; the
-        /// meadow's old trees (#609's third round) keep their leaf cards out of it and cast the solid core under
-        /// them instead — a dense oak throws a solid shade, and the cards cost a second time there.
+        /// meadow's old trees keep their thin twigs out of it (#697).
         /// </summary>
         public bool CastsShadow { get; }
 

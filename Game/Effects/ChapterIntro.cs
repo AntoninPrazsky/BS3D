@@ -66,6 +66,15 @@ namespace BS3D.Effects
     {
         public bool Engaged => _running || _blend > 0f;
 
+        /// <summary>Whether the flight itself is still running (not only easing back), for the skip hint (#699).</summary>
+        public bool Running => _running;
+
+        /// <summary>How long the intro has run, prologue included.</summary>
+        public float Elapsed => _elapsed;
+
+        /// <summary>How long it still runs before it ends on its own, 0 when it is not running.</summary>
+        public float Remaining => _running ? MathF.Max(TotalSeconds - _elapsed, 0f) : 0f;
+
         public float Blend => _blend;
 
         /// <summary>

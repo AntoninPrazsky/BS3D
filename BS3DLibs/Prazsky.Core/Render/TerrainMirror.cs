@@ -93,17 +93,18 @@ namespace Prazsky.Core.Render
             float minorStrength = ShaderMath.SmoothStep(0.2f, 0.75f, 0.45f + 1.2f * n5);
             float minorCycles = (Vector2.Dot(p, wind2) + n4 * 20f) / (DUNE_SPACING * 0.46f);
 
-            //Desert.fx's crests (#688): sharp, and rounded only where the two sets come together in height
-            float majorHeight = DuneProfile(majorCycles, 0f) * strength;
-            float minorHeight = DuneProfile(minorCycles, 0f) * 0.5f * minorStrength;
+            //Desert.fx's crests (#688): sharp, and rounded only where the two sets come together in height - the gap read
+            //off heights at the grid's floor radius, smooth across a crest, as Desert.fx reads it
+            float majorFloor = CrestRadiusFor(DUNE_SPACING);
+            float minorFloor = CrestRadiusFor(DUNE_SPACING * 0.46f);
+            float majorHeight = DuneProfile(majorCycles, majorFloor) * strength;
+            float minorHeight = DuneProfile(minorCycles, minorFloor) * 0.5f * minorStrength;
             float x = (majorHeight - minorHeight) / CREST_REACH;
             float q = MathF.Max(1f - x * x, 0f);
             float y = MathHelper.Clamp(majorHeight * minorHeight / (CREST_GATE * CREST_GATE), 0f, 1f);
             float meeting = CREST_ROUND * q * q * y * y * (3f - 2f * y);
 
             //And never narrower than the vertex grid resolves (Desert.fx's CREST_GRID_WIDTH): the vertices' field, not the normal's
-            float majorFloor = CrestRadiusFor(DUNE_SPACING);
-            float minorFloor = CrestRadiusFor(DUNE_SPACING * 0.46f);
             float major = DuneProfile(majorCycles, MathF.Sqrt(meeting * meeting + majorFloor * majorFloor)) * strength;
             float minor = DuneProfile(minorCycles, MathF.Sqrt(meeting * meeting + minorFloor * minorFloor)) * 0.5f * minorStrength;
 

@@ -1980,42 +1980,64 @@ namespace BS3D.Screens
         /// </summary>
         internal void KickTutorial() => _tutorialPulse.Kick(HUD_TUTORIAL_PRAISE_KICK);
 
-        #region The drop cinematic's skip hint (#499)
+        #region The skip hint (#499, #699)
 
-        //The drop cinematic has been skippable since it existed (DropCinematic.TrySkip, past a 0.3 s lockout so the
-        //shot that triggered it cannot skip it), and nothing ever said so: the owner asked for a hint that appears a
-        //moment after the camera lets go. It waits a second — past the lockout, and long enough for the player to
-        //have seen what they did — and it does not nag: a session shows it on the first few cinematics, or until
-        //the player has skipped one, and then never again. Session-wide on purpose (statics): a hint is for the
-        //player who does not know, and a session is what they learn in; a new session is a new player as far as
-        //the game can tell.
+        //Every camera takeover a click can skip says so, a moment after it starts (#699): the drop cinematic
+        //(DropCinematic.TrySkip) and the chapter's flythrough (ChapterIntro.TrySkip), both past a 0.3 s lockout so the
+        //button that started them cannot skip them. #499 showed it on a session's first three drop cinematics or until
+        //the player skipped one, and then never again - "it does not nag"; the owner's verdict was the opposite: a
+        //reminder is wanted every time one is sat through, so the counter and the retirement are gone. The line loss
+        //is not skippable (LineLossCinematic: it is the explanation of the loss) and so has none.
+        //
+        //The drop's waits a second - past the lockout, and long enough for the player to have seen what they did. The
+        //tour's a second and a half: it is a flight of 9.5 s (4.5 s after a prologue), and a hint over its first
+        //instant is a hint over the scene's own arrival. Neither appears with less than SKIP_HINT_MIN_REMAINING left,
+        //where it would come up only to go.
         private const float SKIP_HINT_DELAY = 1.0f;
+        private const float SKIP_HINT_INTRO_DELAY = 1.5f;
+        private const float SKIP_HINT_MIN_REMAINING = 1.0f;
         private const float SKIP_HINT_FADE = 0.35f;
-        private const int SKIP_HINT_SHOWINGS = 3;
         private const string SKIP_HINT_MOUSE = "Click or Space to skip";
         private const string SKIP_HINT_PAD = "to skip";
         private const int HUD_SKIP_HINT_GAP = 10;
 
-        private static int s_skipHintShowings;
-        private static bool s_skipHintLearnt;
         private float _skipHintAlpha;
-        private bool _skipHintArmed;
+        private bool _skipHintShown;
 
-        /// <summary>The player skipped one: they know, and the hint retires for the session.</summary>
-        internal void NoteCinematicSkipped() => s_skipHintLearnt = true;
-
-        /// <summary>Once a frame from the screen, with the cinematic's own state — the HUD's Update knows no cinematic.</summary>
-        internal void UpdateSkipHint(float elapsed, bool cinematicRunning, float cinematicElapsed)
+        /// <summary>
+        /// Once a frame from the screen, with the running takeover's own state — the HUD's Update knows no takeover.
+        /// <paramref name="remaining"/> is how long the takeover still runs when that is known (the tour's), and
+        /// <see cref="float.MaxValue"/> when it is not (a drop ends when the drop is over).
+        /// </summary>
+        internal void UpdateSkipHint(float elapsed, bool running, bool chapterIntro, float sinceStart, float remaining)
         {
-            bool allowed = !s_skipHintLearnt && (_skipHintArmed || s_skipHintShowings < SKIP_HINT_SHOWINGS);
-            bool wanted = cinematicRunning && cinematicElapsed >= SKIP_HINT_DELAY && allowed;
+            float delay = chapterIntro ? SKIP_HINT_INTRO_DELAY : SKIP_HINT_DELAY;
+            bool wanted = running && sinceStart >= delay && (_skipHintShown || remaining >= SKIP_HINT_MIN_REMAINING);
 
-            if (wanted && !_skipHintArmed) { _skipHintArmed = true; s_skipHintShowings++; }
-            if (!cinematicRunning) _skipHintArmed = false;
+            //Once up, it stays up to the takeover's end however little is left
+            if (wanted) _skipHintShown = true;
+            if (!running) _skipHintShown = false;
 
             float target = wanted ? 1f : 0f;
             float step = elapsed / SKIP_HINT_FADE;
             _skipHintAlpha = _skipHintAlpha < target ? MathF.Min(target, _skipHintAlpha + step) : MathF.Max(target, _skipHintAlpha - step);
+        }
+
+        /// <summary>Whether the hint is on the frame at all (#699).</summary>
+        internal bool SkipHintShowing => _skipHintAlpha > 0.005f;
+
+        /// <summary>
+        /// The hint and nothing else, into the overlay batch: the chapter's tour hides the whole HUD (#693), and the
+        /// hint is the one line of it that belongs over the tour (#699).
+        /// </summary>
+        internal void DrawSkipHintAlone(Tutorial tutorial)
+        {
+            _game.EnsureHudFonts();
+
+            SpriteBatch batch = _game.OverlayBatch;
+            batch.Begin();
+            DrawSkipHint(tutorial, _game.GraphicsDevice.Viewport, Scaled(HUD_MARGIN));
+            batch.End();
         }
 
         //Bottom centre, under the action and clear of the queue and the score: a glyph and a short line in the

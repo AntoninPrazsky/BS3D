@@ -1222,13 +1222,15 @@ namespace BS3D.Screens
         #region The online boards (#547)
 
         //The plate is at most this wide — ranks, nicknames and scores in the small face, sixteen characters of a name
-        //with room — and stands off the frame's right edge by up to this much. Both give way to the width actually
-        //beside the column (see BuildBoards): at 16:9 there are about 1420 design units either side of it and both
-        //hold; at 4:3 there are about 940, and the first cut, which assumed they would always hold, was photographed
-        //laid across the score breakdown.
+        //with room — and gives way to the width actually beside the column (see BuildBoards): at 16:9 there are about
+        //1420 design units either side of it; at 4:3 about 940, and the first cut, which assumed the full width would
+        //always fit, was photographed laid across the score breakdown.
+        //⚠ CENTRED IN THAT STRIP since #701, the same free width towards the column and towards the edge. It was pinned
+        //to the right edge with a margin capped at 150 units, so every unit a wider screen gave went between the column
+        //and the plate: centred at 4:3, and leaning ever further right on the owner's 3840x1600. The two floors below
+        //are the least it may stand off either side before it narrows.
         private const int BOARD_WIDTH = 780;
         private const int BOARD_MIN_WIDTH = 520;
-        private const int BOARD_EDGE_MARGIN = 150;
         private const int BOARD_MIN_EDGE_MARGIN = 24;
         private const int BOARD_COLUMN_GAP = 24;
         private const int BOARD_PADDING = 56;
@@ -1253,12 +1255,16 @@ namespace BS3D.Screens
 
         private Panel BuildBoards()
         {
-            //What fits beside the column, in pixels at the layout in force: the plate's padding and its gap to the
-            //column come off first, then the edge margin gives way, then the plate's own width
+            //The strip beside the column, in pixels at the layout in force, and the plate centred in it (#701): as wide as
+            //it may be with the larger of the two floors on both sides, never under its own floor, and the margin to the
+            //edge half of what is left. The column's plate is cut to ColumnWidth (MenuColumnPlateContentWidth), so its
+            //right edge is the strip's left one; where the strip is narrower than the plate at its floor, the edge
+            //margin holds its floor and the plate is what crosses the gap, as it always did
             int beside = (Game.GraphicsDevice.PresentationParameters.BackBufferWidth - ColumnWidth) / 2;
-            int room = beside - Scaled(BOARD_COLUMN_GAP) - 2 * Scaled(BOARD_PADDING);
-            int margin = Math.Clamp(room - Scaled(BOARD_WIDTH), Scaled(BOARD_MIN_EDGE_MARGIN), Scaled(BOARD_EDGE_MARGIN));
-            _boardWidth = Math.Clamp(room - margin, Scaled(BOARD_MIN_WIDTH), Scaled(BOARD_WIDTH));
+            int padding = 2 * Scaled(BOARD_PADDING);
+            int sideFloor = Math.Max(Scaled(BOARD_COLUMN_GAP), Scaled(BOARD_MIN_EDGE_MARGIN));
+            _boardWidth = Math.Clamp(beside - padding - 2 * sideFloor, Scaled(BOARD_MIN_WIDTH), Scaled(BOARD_WIDTH));
+            int margin = Math.Max((beside - _boardWidth - padding) / 2, Scaled(BOARD_MIN_EDGE_MARGIN));
 
             //Held to the width worked out above: a stack sizes to its widest child, and one long line — the first cut's
             //"Every clear since the boards began" — widened the whole plate back across the column at 4:3

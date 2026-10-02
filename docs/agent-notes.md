@@ -7524,3 +7524,36 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
   - #684: online žebříček **vpravo** od okna výběru levelu, jako na stránce výsledku;
   - #688: duny s ostrými přeryvy, zakulatit jen špičky;
   - #697 část 2: koruna z větví s listy, trsy jen pro nižší kvalitu.
+
+## 2026-10-02 — #684 žebříček ve výběru levelu, #688 ostré duny — desktop, Claude Code (bs3d-a3)
+
+- **#684 na mainu (merge `5a959e41`, opravy po recenzi `ef2cad68`).** Deska s online žebříčkem vpravo od okna levelů, `BoardView` jako na stránce výsledku: tento měsíc a celkově, top 5 a hráčovo místo, nadpis jmenuje level. Jde za kurzorem (poslední odemčená dlaždice), před prvním najetím ukazuje frontu kampaně; tlačítko „Board: …“ jmenuje tentýž level hned.
+  - Na cestě je vždy jen jedna dvojice dotazů. Mezipaměť `OnlineSession` (60 s) odpovídá na dlaždici, na kterou se hráč díval znovu.
+  - ⚠ **Okno levelů je na 16:9 široké kvůli 13 puntíkům kapitol** (nefitované, 2378 j. i s paddingem). Vedle vycentrovaného okna zbývá 731 j. a deska potřebuje 892, takže se okno posune doleva (`BuildBoards`, šířka okna se měří přes `Widget.Measure`). Na 2,4:1 zůstává uprostřed.
+  - **Recenze našla pět chyb, všechny opravené:**
+    - mezipaměť žebříčku přežila zápis: stránka výsledku i výběr chtějí stejných top 5, takže po dohrání mohly ukázat staré řádky pod novým pořadím; teď `ForgetBoards` při `SubmitClear`;
+    - menu se přestavuje jen při změně VÝŠKY: zúžené okno nechalo desku přes dlaždice a vypnuté online prázdnou desku; stránka se teď přestaví sama;
+    - znovu zamčený level zůstával desce;
+    - `pickfocus=` vystřelil dřív, než byl výběr nahoře.
+  - **Nová páka `pickfocus=<level>@<s>`** posadí kurzor výběru na dlaždici, protože myš hry žádný skript nepohne.
+  - ⚠ **Rainbow, Zigzag, One a Shuttle mají v dev buildu jiný hash než majitelovy zápisy na serveru** (soubory změněné od v0.2.1), takže jejich žebříček je v dev buildu prázdný. Tak je to navržené. Diabolo, Five, Saturn a Amphora sedí.
+- **Scratch profil pro online snímky:** `settings=online,type:Probe684,enter` (první přezdívka jen lokálně vytvoří identitu, server nic nedostane) a v Settings.json `"server": "https://scores.winphonew.eu/"`, protože lokální build bez jmenovaného serveru neposílá nic.
+- **#688 na mainu (merge `f7221e64`).** Ostré hřebeny dun zpět, zakulacené jen špičky. Dva zdroje špiček, nalezené ve výřezu z pohledu `above`:
+  - pyramida, kde se hlavní a vedlejší řada potkají ve stejné výšce; poloměr hřebene se teď zvětšuje jen tam (mezera výšek pod `CREST_REACH`, součin výšek přes `CREST_GATE`);
+  - pilka, kde ostrý hřeben šikmo křižuje mřížku vrcholů 2,78 j.; tvar se zakulatí na dvě buňky (`CREST_GRID_WIDTH` 5,6, platí i pro zrcadlo), normála jen na dva pixely.
+  - Derivace přesné (numpy port, 40 000 bodů), `DUNE_MEAN` 0,337, `mirrorcheck` 0,00022, cena nulová (11,40 proti 11,39 ms).
+  - ⚠ Gradient pole bez brány měl nenulový poloměr na 2/3 plochy: dvě řady blízko nuly nejsou setkání.
+- ⚠ **Pády desktopu se vrátily i s podtaktovanou GPU** (Kernel-Power 41, bugcheck 0, bez WHEA a dumpu; dnes 10:18, 11:35, 11:36). Obě poslední přišly do minuty od spuštění sd-serveru, když Demucs vytěžoval všech 12 jader. Každá zátěž zvlášť běžela čistě. **Těžké úlohy proto pouštím po jedné.**
+  - Po pádu byl `Desert.xnb` nulový: mezivýstup v `Prazsky.Shaders/Content/bin` i kopie v Testbedu, Testbed padal na `ContentLoadException`. Smazat a přestavět.
+  - Kontrola po pádu: hlavička každého `.xnb` (`XNB`) a `.dll` (`MZ`), `git fsck`.
+- **#495:** 50 vrstev bicích commitnuto na větvi `495-drums-rollout`, aby je pád nevzal; dávka běží dál. Vrstva rozepsaná v okamžiku pádu (nebula-shoegaze) neměla řádek v logu a vznikla znovu.
+- **#688 po recenzi (merge `eeb584dc`):** poloměr se počítal z OSTRÝCH výšek, které mají roh na vlastním hřebeni, takže sklon poloměru skočil přesně na čáře, kterou měl zakulatit, a plocha záhyb zdědila. ⚠ Hladká funkce nestačí, hladké musí být i její vstupy. Test záhybu v numpy portu (normála přes 0,002 j. na hřebeni v místě setkání): sloučená verze medián 2,9°, max 38°, oprava 0,006°. Mezera se teď čte z výšek na poloměru mřížky. Normála pixelu je omezená na `CREST_GRID_WIDTH`, protože daleko footprint přerostl mřížku.
+- **#697 část 2 na mainu (merge `4a802a55`).** V korunách luk nejsou koule:
+  - každý trs je sprej 5–8 větviček z konce větve (`AddSpray`, vlastní síť `Twigs`, jen na plný detail) a karty visí stopkou na větvičkách;
+  - jádro se kreslí jen do stínové mapy (`ScatterBucket.ShadowOnly`), koule zůstávají jen na Low;
+  - cena: Pennant High 3840×1600, 14,31 → 14,11 ms, každý pár levnější.
+  - ⚠ Zblízka to připomíná spíš jasan než dub (zpeřené snítky z `BroadLeafMask`); maska s dubovými laloky je možný další krok.
+
+## 2026-10-02 — beru #698–#702 (majitelovy poznámky z dneška) — desktop, Claude Code (bs3d-1b)
+
+- **Beru #701** (deska žebříčku na výsledku uprostřed pruhu vedle sloupce; zkontroluji i desku ve výběru levelu z #684), **#699** (nápověda přeskočení u každé animace), **#700** (karta tutoriálu problikne po animaci), **#702** (zvuk laserů trvá na stránce výsledku) a **#698** (plot na louce v měřítku stromů). Pořadí přesně takhle.
