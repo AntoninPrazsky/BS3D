@@ -250,7 +250,7 @@ namespace BS3D.Tools.LevelGen
             bool stanceRefused = false;
             if (design.ClearFromStance)
             {
-                int fromStance = ClearProbe.FromOpeningStance(loaded.Map);
+                int fromStance = ClearProbe.FromOpeningStance(loaded.Map, loaded.Crates);
                 stanceRefused = fromStance == int.MaxValue;
                 Console.WriteLine("    cleared from the opening stance: "
                                   + (stanceRefused

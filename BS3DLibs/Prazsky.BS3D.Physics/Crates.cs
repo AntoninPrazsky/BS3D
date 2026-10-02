@@ -68,6 +68,31 @@ namespace Prazsky.BS3D.Physics
         public void Add(Crate crate) => _crates.Add(crate);
 
         /// <summary>
+        /// Stands a level's crates (<see cref="Prazsky.BS3D.Levels.CrateSpec"/>, #257) in the world a field was hung in:
+        /// each centre is measured from the field's floor on its axis, so its X and Z are the world's and its Y is the
+        /// floor's own height (<paramref name="fieldFloorY"/>, the hang's vertical offset) plus the spec's. A spec of no
+        /// size is skipped. <b>The one copy</b> the game's session and LevelGen's probes both stand crates through, so a
+        /// gate cannot judge a level with its crates somewhere the player does not meet them.
+        /// </summary>
+        /// <returns>How many crates were added.</returns>
+        public int AddSpecs(Prazsky.BS3D.Levels.CrateSpec[] specs, float fieldFloorY)
+        {
+            if (specs == null) return 0;
+
+            int added = 0;
+            foreach (Prazsky.BS3D.Levels.CrateSpec spec in specs)
+            {
+                if (spec == null || spec.Width <= 0f || spec.Height <= 0f || spec.Depth <= 0f) continue;
+
+                Add(new Crate(new Vector3(spec.X, fieldFloorY + spec.Y, spec.Z),
+                    new Vector3(spec.Width, spec.Height, spec.Depth) * Constants.HALF));
+                added++;
+            }
+
+            return added;
+        }
+
+        /// <summary>
         /// The first crate face a ball of <paramref name="radius"/> meets flying from <paramref name="origin"/> along the
         /// unit <paramref name="heading"/> within <paramref name="maxDistance"/>: how far along, and the face's outward
         /// normal. A ball starting inside a crate meets nothing — it can only be there by being put there, and pushing it
