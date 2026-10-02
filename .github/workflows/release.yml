@@ -173,6 +173,11 @@ jobs:
       # linked at the tag's own ref rather than at main, so the release keeps showing the build it describes
       # however the file changes later. Optional on purpose - a tag without one publishes anyway and says so in
       # the log, since a missing picture is no reason to hold a download back.
+      #
+      # And Images/releases/<tag>.md, when one was committed with the picture, goes between the picture and the
+      # download text: what this release says before anything else (v0.3.0's "the first release with online scores,
+      # and how to turn them on" had to be in the notes from their first minute, not edited in after them).
+      # Optional the same way.
       - name: Publish the GitHub Release
         if: github.ref_type == 'tag'
         shell: pwsh
@@ -207,7 +212,11 @@ jobs:
             }
           }
           if (-not $picture) { Write-Host "::notice::No Images/releases/$env:BUILD_VERSION.jpg (or .png) was committed, so the release notes carry no screenshot." }
-          Set-Content -Path release-notes.md -Value ($picture + $notes) -Encoding utf8
+          $written = ''
+          $writtenPath = "Images/releases/$env:BUILD_VERSION.md"
+          if (Test-Path $writtenPath) { $written = (Get-Content -Raw -Encoding utf8 $writtenPath).TrimEnd() + "`n`n" }
+          else { Write-Host "::notice::No $writtenPath was committed, so the release notes carry no written section." }
+          Set-Content -Path release-notes.md -Value ($picture + $written + $notes) -Encoding utf8
           $releaseArgs = @('release', 'create', $env:BUILD_VERSION, "$env:BUILD_NAME.zip", "BS3D-$env:BUILD_VERSION-ceilings.json", 'SHA256SUMS', '--title', "BS3D $env:BUILD_VERSION", '--notes-file', 'release-notes.md', '--generate-notes')
           # A tag carrying a suffix ("v0.2.0-beta") is a prerelease and GitHub should label it as one.
           if ($env:BUILD_VERSION -match '-') { $releaseArgs += '--prerelease' }

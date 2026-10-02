@@ -22,6 +22,10 @@ exe is not code-signed, so SmartScreen says "Windows protected your PC" the firs
 anyway**. Progress and settings live in `%LOCALAPPDATA%\BS3D` rather than in the game's folder, so that
 folder can be replaced or deleted without losing a save.
 
+**Online scores (from v0.3.0).** Every level has an online leaderboard, this month's and all time, but it is off
+until you turn it on: open **Settings** (it opens on its ONLINE page), set a **Nickname** and switch **Online
+scores** on. Nothing is sent before that, and **Remove scores** on the same page deletes it all again.
+
 Everything below is about building it yourself instead.
 
 ## What's in the repo
