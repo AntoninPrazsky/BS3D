@@ -1,28 +1,29 @@
 {
-    "file":  "theme-bigtop-trapeze.wav",
-    "created":  "2026-10-02",
-    "issue":  690,
-    "family":  "bigtop",
-    "chapter":  "The Big Top (circus, #690) - in Colossus\u0027s style (#292: the eurodance Pulse it played then), a carnival colour over a dance groove, A minor",
-    "purpose":  "Master of Game/Music/bigtop-trapeze.ogg, one of the bigtop family\u0027s recordings (#690): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-690.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "Uplifting trance instrumental: driving kick, rolling bass, soaring supersaw melody over a whirling music-box arpeggio, big breakdown and build, euphoric and airborne, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording, polka, oompah brass band, marching band",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  136,
-                    "keyscale":  "A minor",
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-690\\theme-bigtop-trapeze.wav: 78.0s loop = source 18.75s..96.75s (43.97 bars at 135.3 bpm), crossfade 0.89s | context match 0.865 (best 0.915) | crossfade rhythm r=0.81 vs the track a bar later r=0.70: in time | spectrum cos=0.87"
-                 ],
-    "measured":  "generate-music.ps1 end to end 60.7 s (ace-lm + ace-synth + loop cut)",
-    "rendered":  true
+    "file": "theme-bigtop-trapeze.wav",
+    "created": "2026-10-02",
+    "issue": 690,
+    "family": "bigtop",
+    "chapter": "The Big Top (circus, #690) - second round on the owner's ear: calliope less whiny, trapeze melodic throughout, tightrope lighter bass; every brief asks for a wide, spacious stereo mix",
+    "purpose": "Master of Game/Music/bigtop-trapeze.ogg, one of the bigtop family's recordings (#690): written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
+    "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-690.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
+    "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+    "license": "ACE-Step 1.5: MIT (code and weights)",
+    "request": {
+        "caption": "Uplifting trance instrumental: driving kick, rolling bass, a soaring supersaw melody that plays all the way through over a whirling music-box arpeggio, short builds, euphoric and airborne, wide stereo mix, stereo delays, spacious reverb, no vocals",
+        "lm_negative_prompt": "vocals, singing, audience applause, crowd noise, live recording, polka, oompah brass band, marching band, shrill whiny lead, pitch-bending lead, long drum-only sections, drum solo, boomy sub bass, distorted bass",
+        "instrumental": true,
+        "use_cot_caption": false,
+        "duration": 120,
+        "bpm": 136,
+        "keyscale": "A minor",
+        "inference_steps": 8,
+        "output_format": "wav32"
+    },
+    "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+    "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-690b\\theme-bigtop-trapeze-a.wav: 40.0s loop = source 43.20s..83.20s (23.02 bars at 138.1 bpm), crossfade 0.87s | context match 0.538 (best 0.586) | crossfade rhythm r=0.79 vs the track a bar later r=0.86: in time | spectrum cos=0.68"
+    ],
+    "measured": "generate-music.ps1 end to end 63 s (ace-lm + ace-synth + loop cut)",
+    "rendered": true,
+    "round": "Second round (2026-10-02) on the owner's ear: the first render's verdict was \"after a good start a very long pounding with no melody, like knocking on a door\" (measured: 36 % of the loop drum-only, a 28 s run); candidate a of two chosen by measurement, the brief asking for a wide spacious stereo mix as well."
 }
