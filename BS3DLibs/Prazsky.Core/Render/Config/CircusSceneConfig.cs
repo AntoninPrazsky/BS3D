@@ -172,9 +172,10 @@ namespace Prazsky.Core.Render
         public float SpotIntensity { get; set; } = 1.7f;
 
         /// <summary>See <see cref="SpotIntensity"/>.</summary>
-        public float BeamStrength { get; set; } = 0.00045f;
+        public float BeamStrength { get; set; } = 0.0008f;
 
-        /// <summary>How fast the two roving spots sweep (radians a second). Slow: a show waiting to start, not a disco.</summary>
+        /// <summary>How fast the spots turn (radians a second, before each one's own share of it). Slow: a show warming up,
+        /// not a disco - a lamp takes a minute and a half or more to come round.</summary>
         public float SweepSpeed { get; set; } = 0.11f;
 
         /// <summary>How many strings of bulbs run from the crown down to the wall, how far apart the bulbs are along one

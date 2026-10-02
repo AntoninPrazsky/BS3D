@@ -115,12 +115,16 @@ float3 FootlightColor;
 #define HIT_ROOF 5
 #define HIT_POLE 6
 #define HIT_GATE 7
+#define HIT_FIXTURE 8
+#define HIT_LENS 9
+#define HIT_TRUSS 10
 
 struct Hit
 {
     float T;
     int Kind;
     float3 Normal;
+    int Spot;        //which spotlight a fixture or lens hit is
 };
 
 void Consider(inout Hit best, float t, int kind, float3 normal)
@@ -130,8 +134,21 @@ void Consider(inout Hit best, float t, int kind, float3 normal)
         best.T = t;
         best.Kind = kind;
         best.Normal = normal;
+        best.Spot = 0;
     }
 }
+
+void ConsiderSpot(inout Hit best, float t, int kind, float3 normal, int spot)
+{
+    if (t > 0.0 && t < best.T)
+    {
+        best.T = t;
+        best.Kind = kind;
+        best.Normal = normal;
+        best.Spot = spot;
+    }
+}
+
 
 //A vertical cylinder of radius r about the Y axis, between y0 and y1: the nearest crossing in front of the ray, with
 //its normal turned to face the ray. Both roots are tried, so a ray from inside meets the far wall and one from outside
@@ -200,6 +217,102 @@ void HitCone(inout Hit best, float3 o, float3 d, float ra, float rb, float y0, f
     }
 }
 
+//--- The spotlights themselves (#690, the owner's eye) ------------------------------------------------------
+//A beam must come out of a LAMP. The first build drew the five beams from points under the canvas with nothing at them,
+//so each cone seemed to fall through a hole in the cloth. The lamps are deliberately the plainest geometry that reads
+//as one (the owner: "the geometry very simple and cheap - what matters is the light"): a dark can with a lens at its
+//front, on a rod down from a plain ring of truss. What sells them is the light - the lens over the glare threshold so
+//the bloom catches it, a glow round it strongest when the lens faces the lens of the camera, and the beam in the dust.
+
+static const float FIXTURE_RADIUS = 0.8;
+static const float LENS_GAIN = 2.4;        //a lens's radiance over its lamp's colour
+static const float GLOW_RADIUS = 2.2;      //the halo round a lens in the dusty air, world units
+static const float FIXTURE_BACK = 1.9;     //the can behind the beam's apex
+static const float FIXTURE_FRONT = 0.2;    //the lens, just ahead of it
+static const float YOKE_RADIUS = 0.13;
+static const float TRUSS_HALF = 0.35;      //the ring's half-section
+static const float TRUSS_ABOVE = 2.4;      //how far over the lamps' apexes the ring runs
+
+float TrussY() { return SpotPosition[0].y + TRUSS_ABOVE; }
+float TrussRadius() { return length(SpotPosition[0].xz); }
+
+//One lamp: a capped cylinder along its beam's axis, the front cap its lens
+void HitFixture(inout Hit best, float3 o, float3 d, int spot)
+{
+    float3 axis = SpotDirection[spot];
+    float3 co = o - SpotPosition[spot];
+    float a = dot(d, axis);
+    float b = dot(co, axis);
+    float3 dp = d - a * axis;
+    float3 op = co - b * axis;
+
+    float A = dot(dp, dp);
+    float B = dot(op, dp);
+    float C = dot(op, op) - FIXTURE_RADIUS * FIXTURE_RADIUS;
+    float disc = B * B - A * C;
+
+    if (A > 1e-8 && disc >= 0.0)
+    {
+        float s = sqrt(disc);
+
+        [unroll]
+        for (int k = 0; k < 2; k++)
+        {
+            float t = (-B + (k == 0 ? -s : s)) / A;
+            float along = b + t * a;
+            if (t > 0.0 && along >= -FIXTURE_BACK && along <= FIXTURE_FRONT)
+                ConsiderSpot(best, t, HIT_FIXTURE, normalize(op + t * dp), spot);
+        }
+    }
+
+    if (abs(a) > 1e-6)
+    {
+        float tLens = (FIXTURE_FRONT - b) / a;
+        float3 qLens = op + tLens * dp;
+        if (dot(qLens, qLens) <= FIXTURE_RADIUS * FIXTURE_RADIUS) ConsiderSpot(best, tLens, HIT_LENS, axis, spot);
+
+        float tBack = (-FIXTURE_BACK - b) / a;
+        float3 qBack = op + tBack * dp;
+        if (dot(qBack, qBack) <= FIXTURE_RADIUS * FIXTURE_RADIUS) ConsiderSpot(best, tBack, HIT_FIXTURE, -axis, spot);
+    }
+
+    //Its rod: straight up from the can's back to the ring
+    float3 back = SpotPosition[spot] - axis * (FIXTURE_BACK * 0.5);
+    float2 oc = o.xz - back.xz;
+    float ra = dot(d.xz, d.xz);
+    float rb = dot(oc, d.xz);
+    float rc = dot(oc, oc) - YOKE_RADIUS * YOKE_RADIUS;
+    float rdisc = rb * rb - ra * rc;
+    if (ra > 1e-8 && rdisc >= 0.0)
+    {
+        float t = (-rb - sqrt(rdisc)) / ra;
+        float y = o.y + t * d.y;
+        if (y >= back.y && y <= TrussY()) ConsiderSpot(best, t, HIT_FIXTURE, float3((oc + t * d.xz) / YOKE_RADIUS, 0.0).xzy, spot);
+    }
+}
+
+//The ring of truss the lamps hang from: a plain square section round the axis
+void HitTruss(inout Hit best, float3 o, float3 d)
+{
+    float radius = TrussRadius();
+    float y0 = TrussY() - TRUSS_HALF, y1 = TrussY() + TRUSS_HALF;
+
+    HitCylinder(best, o, d, radius - TRUSS_HALF, y0, y1, HIT_TRUSS);
+    HitCylinder(best, o, d, radius + TRUSS_HALF, y0, y1, HIT_TRUSS);
+
+    if (abs(d.y) > 1e-5)
+    {
+        [unroll]
+        for (int k = 0; k < 2; k++)
+        {
+            float y = k == 0 ? y0 : y1;
+            float t = (y - o.y) / d.y;
+            float r = length(o.xz + t * d.xz);
+            if (abs(r - radius) <= TRUSS_HALF) Consider(best, t, HIT_TRUSS, float3(0.0, k == 0 ? -1.0 : 1.0, 0.0));
+        }
+    }
+}
+
 //How tall the gilded band round the crown's opening is, up to the cupola
 static const float CROWN_BAND = 3.5;
 
@@ -233,6 +346,7 @@ Hit Trace(float3 o, float3 d)
     best.T = 1e6;
     best.Kind = HIT_NONE;
     best.Normal = float3(0.0, 1.0, 0.0);
+    best.Spot = 0;
 
     //The floor
     if (d.y < -1e-5) Consider(best, (FloorY - o.y) / d.y, HIT_FLOOR, float3(0.0, 1.0, 0.0));
@@ -254,6 +368,7 @@ Hit Trace(float3 o, float3 d)
     seats.T = 1e6;
     seats.Kind = HIT_NONE;
     seats.Normal = float3(0.0, 1.0, 0.0);
+    seats.Spot = 0;
     HitCone(seats, o, d, RakeA(), RakeB(), RakeFrontY(), RakeTopY(), HIT_SEATS);
     HitCylinder(seats, o, d, SeatInner, FloorY, RakeFrontY(), HIT_SEATS);
     if (seats.Kind != HIT_NONE && !InEntrance(o + seats.T * d)) Consider(best, seats.T, HIT_SEATS, seats.Normal);
@@ -321,6 +436,12 @@ Hit Trace(float3 o, float3 d)
         }
     }
 
+    //The spotlights and the ring they hang from
+    HitTruss(best, o, d);
+
+    [unroll]
+    for (int spot = 0; spot < SPOT_COUNT; spot++) HitFixture(best, o, d, spot);
+
     return best;
 }
 
@@ -350,8 +471,9 @@ float3 SpotLight(float3 p, float3 n)
 //How much of a spot's beam the ray scatters back between 0 and tMax, for one cone half-angle: the interval of the ray
 //inside the cone, found in closed form, and the point light's airlight integral over it,
 //integral of 1 / (h2 + (t - tc)2) dt = (atan((t - tc) / h)) / h.
-float BeamIntegral(float3 o, float3 d, float3 apex, float3 axis, float cosAngle, float tMax)
+float BeamIntegral(float3 o, float3 d, float3 apex, float3 axis, float cosAngle, float tMax, out float tMid)
 {
+    tMid = 0.0;
     float3 co = o - apex;
     float dd = dot(d, axis);
     float cd = dot(co, axis);
@@ -398,8 +520,34 @@ float BeamIntegral(float3 o, float3 d, float3 apex, float3 axis, float cosAngle,
 
     float tc = dot(apex - o, d);
     float h = sqrt(max(dot(apex - o, apex - o) - tc * tc, 0.25));
+    tMid = 0.5 * (t0 + t1);
 
     return (atan((t1 - tc) / h) - atan((t0 - tc) / h)) / h;
+}
+
+//Each lamp's glow in the dusty air round its lens - a closest-approach halo, widened to the pixel like the bulbs and
+//weighted by how squarely the lens faces the camera, so it flares when the lamp points at the lens and is a faint rim
+//from the side. Occluded by whatever stands nearer than the lens.
+float3 LampGlows(float3 o, float3 d, float tMax)
+{
+    float3 sum = 0.0;
+
+    [unroll]
+    for (int i = 0; i < SPOT_COUNT; i++)
+    {
+        float3 lens = SpotPosition[i] + SpotDirection[i] * (FIXTURE_FRONT + 0.05);
+        float3 ol = lens - o;
+        float along = dot(ol, d);
+        if (along <= 0.0 || along > tMax + FIXTURE_RADIUS) continue;
+
+        float h2 = max(dot(ol, ol) - along * along, 0.0);
+        float facing = saturate(dot(-d, SpotDirection[i]));
+        float size = max(GLOW_RADIUS, along * PixelAngle * 1.5);
+        float energy = (GLOW_RADIUS * GLOW_RADIUS) / (size * size);
+        sum += SpotColor[i] * (0.15 + 2.5 * facing * facing * facing) * energy * exp(-h2 / (size * size));
+    }
+
+    return sum;
 }
 
 float3 Beams(float3 o, float3 d, float tMax)
@@ -409,9 +557,15 @@ float3 Beams(float3 o, float3 d, float tMax)
     [unroll]
     for (int i = 0; i < SPOT_COUNT; i++)
     {
-        float inner = BeamIntegral(o, d, SpotPosition[i], SpotDirection[i], SpotCosInner, tMax);
-        float outer = BeamIntegral(o, d, SpotPosition[i], SpotDirection[i], SpotCosOuter, tMax);
-        sum += SpotColor[i] * (0.5 * inner + 0.5 * outer);
+        float tMid, unused;
+        float inner = BeamIntegral(o, d, SpotPosition[i], SpotDirection[i], SpotCosInner, tMax, unused);
+        float outer = BeamIntegral(o, d, SpotPosition[i], SpotDirection[i], SpotCosOuter, tMax, tMid);
+
+        //Dust in the beam: the density of the air the ray crosses it in, a slow 3D noise drifting up and across, so a
+        //beam is a shaft of lit dust that breathes rather than a flat cone of light
+        float3 dustAt = o + d * tMid;
+        float dust = 0.6 + 0.8 * saturate(0.5 + 0.6 * GradientNoise3(dustAt * 0.16 + float3(CircusTime * 0.04, -CircusTime * 0.11, 0.0)));
+        sum += SpotColor[i] * (0.5 * inner + 0.5 * outer) * dust;
     }
 
     return sum * BeamStrength * SpotReach * SpotReach;
@@ -709,6 +863,22 @@ float3 ShadeSeats(float3 p, float3 n, float footprint)
     return albedo * light;
 }
 
+//The lamps' cans, rods and the truss: dark painted metal, lit only by the house light and a little of the bulbs
+float3 ShadeRig(float3 n)
+{
+    return float3(0.035, 0.032, 0.03) * (HouseIrradiance(n) * 1.4 + BulbColor * 0.01);
+}
+
+//A lens, seen from in front: the lamp's own colour, hottest at its centre and over the glare threshold so it blooms
+float3 ShadeLens(float3 p, int spot)
+{
+    float3 axis = SpotDirection[spot];
+    float3 q = p - SpotPosition[spot];
+    float3 across = q - dot(q, axis) * axis;
+    float rim = saturate(length(across) / FIXTURE_RADIUS);
+    return SpotColor[spot] * LENS_GAIN * (0.35 + 0.65 * (1.0 - rim * rim));
+}
+
 float3 ShadeGate(float3 p, float3 n, float footprint)
 {
     float r = length(p.xz);
@@ -803,6 +973,8 @@ float4 CircusScene(CircusVertexOutput input, uniform bool detail) : COLOR
     else if (hit.Kind == HIT_ROOF) color = ShadeRoof(p, hit.Normal, footprint);
     else if (hit.Kind == HIT_POLE) color = ShadePole(p, hit.Normal, footprint);
     else if (hit.Kind == HIT_GATE) color = ShadeGate(p, hit.Normal, footprint);
+    else if (hit.Kind == HIT_FIXTURE || hit.Kind == HIT_TRUSS) color = ShadeRig(hit.Normal);
+    else if (hit.Kind == HIT_LENS) color = ShadeLens(p, hit.Spot);
 
     //The dusty air: what lies further off sinks into a warm haze lit by the house lights
     float haze = 1.0 - exp(-hit.T * HazeDensity);
@@ -812,6 +984,7 @@ float4 CircusScene(CircusVertexOutput input, uniform bool detail) : COLOR
     if (detail) color += Beams(o, d, hit.T);
     color += Bulbs(o, d, hit.T);
     color += Footlights(o, d, hit.T);
+    color += LampGlows(o, d, hit.T);
 
     return float4(color, 1.0);
 }
