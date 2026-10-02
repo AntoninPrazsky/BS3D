@@ -233,13 +233,14 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Base wave count per world unit of <see cref="SurfaceReliefStrength"/>: larger values give a
-        /// finer grain. Six more octaves ride on top at rising frequencies, each fading out on its own
-        /// once a screen pixel grows past half its wavelength.
+        /// finer grain. Three more octaves of projected gradient noise ride on top at rising frequencies (#674; it
+        /// was six more sines), each fading out on its own once a pixel grows past half a noise cell.
         /// </summary>
         public float SurfaceReliefFrequency { get; set; } = 10f;
 
         /// <summary>
-        /// The coarse height field on the triplanar path: three relief octaves instead of seven, which is
+        /// The coarse height field on the triplanar path: two relief octaves instead of four (three sines of seven until
+        /// #674), which is
         /// what a quality tier below <c>High</c> draws on the arena's stone cap and on nothing else. The
         /// coursed slab joints are unaffected — they are cut by <c>SlabGroove</c>, not by the octaves — so
         /// what is given up is the stone's finest grain and not its structure.
