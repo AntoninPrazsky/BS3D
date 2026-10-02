@@ -275,9 +275,33 @@ namespace BS3D.Online
             _resultMonthTicket = _resultAllTimeTicket = -1;
             ResultGeneration++;
             ForgetSummaries();
+            ForgetBoards(level);
 
             _client.Submit(submission);
         }
+
+        /// <summary>
+        /// Forgets every cached page of one level's boards, and stops caching the replies already on their way for it: the
+        /// clear about to go out moves them. Without it the result page's own request after the clear - the top five,
+        /// which since #684 the level picker asks for too - could be answered from the minute-old cache, the rows from
+        /// before the clear under the rank from after it, and someone else's row painted gold as "you" (#684's review).
+        /// A reply already asked for still reaches whoever holds its ticket; it is only not kept.
+        /// </summary>
+        private void ForgetBoards(LevelIdentity level)
+        {
+            _forgetKeys.Clear();
+            foreach (var key in _boardCache.Keys)
+                if (key.Item1 == level.File && key.Item2 == level.Hash) _forgetKeys.Add(key);
+            foreach (var key in _forgetKeys) _boardCache.Remove(key);
+
+            _forgetTickets.Clear();
+            foreach (var (ticket, key) in _pendingBoardKeys)
+                if (key.Item1 == level.File && key.Item2 == level.Hash) _forgetTickets.Add(ticket);
+            foreach (int ticket in _forgetTickets) _pendingBoardKeys.Remove(ticket);
+        }
+
+        private readonly List<(string, string, int, bool, int, int)> _forgetKeys = new();
+        private readonly List<int> _forgetTickets = new();
 
         /// <summary>
         /// The settings row's switch (#548). On needs a nickname, which the page asks for first; off keeps the
