@@ -14,8 +14,8 @@ namespace Prazsky.Core.Render
     /// until #75.
     /// <para>
     /// Some scenes carry lights of their own: the volcano's crater and its travelling flow fronts, the
-    /// savanna's campfire, the neon city's ring of magenta and cyan, space's planetshine and the Moon's
-    /// earthshine. The other ten push a count of zero once and then cost nothing — see the early-out in
+    /// savanna's campfire, the neon city's ring of magenta and cyan, space's planetshine, the Moon's
+    /// earthshine and the big top's footlights. The others push a count of zero once and then cost nothing — see the early-out in
     /// <see cref="Apply"/>.
     /// </para>
     /// <para>
@@ -115,10 +115,10 @@ namespace Prazsky.Core.Render
         {
             int count = 0;
 
-            //The six guards below are mutually exclusive by construction — a scene is the volcano, or the
-            //savanna, or the neon city, or space, or the Moon, or the storm (each TryGet returns false for
-            //every kind but its own), and no SceneKind satisfies two of them. So this order is an order and
-            //not a precedence: do not read it as one, and do not write a seventh branch that relies on being
+            //The seven guards below are mutually exclusive by construction — a scene is the volcano, or the
+            //savanna, or the neon city, or space, or the Moon, or the storm, or the big top (each TryGet returns
+            //false for every kind but its own), and no SceneKind satisfies two of them. So this order is an order
+            //and not a precedence: do not read it as one, and do not write an eighth branch that relies on being
             //tested last. The storm's own branch is additionally self-gating in TIME as well as in kind —
             //between strikes its TryGet returns false and the scene takes no slot at all.
             if (scene == SceneKind.Volcano)
@@ -181,6 +181,19 @@ namespace Prazsky.Core.Render
                 _lightColor[0] = flashColor;
                 _lightRange[0] = flashRange;
                 count = 1;
+            }
+            else if (scene == SceneKind.Circus)
+            {
+                //The big top's footlights (#690): a ring of warm lamps on the curb, so the island's drum - a vertical wall
+                //the key from the rig overhead only grazes - is lit from whichever side the camera stands on
+                count = Math.Min(sceneRenderer.CircusLightCount, MaxLights);
+
+                for (int i = 0; i < count; i++)
+                {
+                    _lightPosition[i] = sceneRenderer.CircusLightPosition(i);
+                    _lightColor[i] = sceneRenderer.CircusLightColor(i, wallClock);
+                    _lightRange[i] = sceneRenderer.CircusLightRange;
+                }
             }
             else if (scene == SceneKind.NeonCity)
             {

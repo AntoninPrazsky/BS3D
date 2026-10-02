@@ -38,6 +38,7 @@ namespace BS3D.Tests
             (SceneKind.Polar, "Polar", "polar", new[] { "ice" }, false, true, false),
             (SceneKind.Aurora, "Aurora", "aurora", new string[0], true, true, true),
             (SceneKind.Grid, "Grid", "grid", new[] { "tron" }, true, true, false),
+            (SceneKind.Circus, "Big Top", "circus", new[] { "bigtop" }, true, true, false),
         };
 
         [Fact]

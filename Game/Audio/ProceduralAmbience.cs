@@ -505,6 +505,16 @@ namespace BS3D.Audio
                     AddBand(mix, seed + 1, 3000f, 7000f, 0.20f, t => Swell(t, 2, 0.35f, 1.9f), WIDTH_AROUND);
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.11f);
 
+                case SceneKind.Circus:
+                    //The big top between shows (#690): the canvas taking the wind outside, a slow low breath that
+                    //comes in waves (the swell squared, the mountain's gusts at a tent's scale, all low because the
+                    //canvas filters the rest away), and the hall's own air over it - a soft, wide mid band, the room
+                    //tone of a large space with nobody in it yet. Quiet: the place is waiting for the show, and the
+                    //show is the music's.
+                    AddBand(mix, seed, 50f, 240f, 1.0f, t => Square(Swell(t, 2, 0.35f, 0f)), WIDTH_AIR);
+                    AddBand(mix, seed + 1, 280f, 1100f, 0.28f, t => Swell(t, 3, 0.55f, 0.7f), WIDTH_AROUND);
+                    return Seal(mix, loopSamples, tailSamples, targetRms: 0.08f);
+
                 default:
                     //A NEW SCENE LANDS HERE, AND IT IS MEANT TO BE OBVIOUS. This arm was the cavern's until
                     //#125 gave the Moon its own, and it was the Moon's until #112 gave the outback one — each

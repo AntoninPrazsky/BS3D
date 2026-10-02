@@ -418,6 +418,9 @@ namespace Prazsky.Core.Render
             SceneKind.Aurora => new(new Vector3(0.70f, 0.78f, 0.84f), new Vector3(0.54f, 0.66f, 0.76f), 0.36f, 0.26f, 2f),
             //Glossy black, for the grid's light to run in
             SceneKind.Grid => new(new Vector3(0.14f, 0.15f, 0.19f), new Vector3(0.12f, 0.13f, 0.16f), 0.45f, 0.30f, 3f),
+            //The big top's pedestal (#690): a performer's tub at the island's scale - an ivory varnished top on a lacquered
+            //circus-red drum, the two colours every reference's ring is painted in
+            SceneKind.Circus => new(new Vector3(0.80f, 0.72f, 0.58f), new Vector3(0.62f, 0.14f, 0.11f), 0.30f, 0.34f, 3f),
             _ => DEFAULT_LOOK
         };
 
@@ -517,7 +520,7 @@ namespace Prazsky.Core.Render
             SceneKind.Polar or SceneKind.Aurora => IslandShape.Ice,
             SceneKind.Tropical or SceneKind.Sea => IslandShape.Coral,
             SceneKind.Space or SceneKind.Grid => IslandShape.Machined,
-            SceneKind.City or SceneKind.NeonCity => IslandShape.Plinth,
+            SceneKind.City or SceneKind.NeonCity or SceneKind.Circus => IslandShape.Plinth,
             SceneKind.Outback => IslandShape.Monolith,
             SceneKind.Moon => IslandShape.Pad,
             _ => IslandShape.Stone
