@@ -7634,3 +7634,21 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
   - `Crates.AddSpecs` je jediná instalace beden pro hru i sondy;
   - sonda prověšení se od beden odráží, sonda příletu je bere jako zarážku;
   - Trapeze má dvě plošiny.
+
+## 2026-10-02 — Šapitó po třetí revizi, cena reflektorů; beru #716 — desktop, Claude Code (bs3d-1b)
+
+- **Oprava předchozího záznamu:** „cena lamp se nezměnila“ platilo jen v Testbedu při 2560×1440, kde snímek omezovalo něco jiného. Ve **3840×1600** (ssaa 2) stály lampy **5,4 ms** (19,74 proti 14,33 ms). Rozpad podle vypínání při kompilaci:
+  - prach v kuželech 2,9 ms;
+  - průsečíky lamp 2,95 ms;
+  - záře 0,55 ms.
+  - Úspory se sčítají, takže tenhle průchod je omezený výpočtem, ne obsazeností GPU (na rozdíl od lesa, jeskyně a snu) a každý řez se vyplatí sám.
+  - Teď se prach počítá jen v kuželu (`outer > 0`), rampa a záře jen za `NearRig` a každá lampa za testem vzdálenosti od čepu. Výsledek je **+0,3 až 0,7 ms** proti buildu bez lamp.
+  - Měřicí skripty jsou ve scratchpadu: `t690/ab.ps1` je A/B dvou buildů a `exp.ps1` řezy přes `#define`. Build bez lamp je ve worktree `../BS3D-prelamps`.
+- **Třetí revize** (`7b501eb3`):
+  - Tři ostrovní reflektory mají vlastní bodové světlo nad cílem. Bloudí nad kamenem v poloměru 14,5 až 23,5, ne nad sklem trychtýře.
+  - Rampová světla jsou 4 místo 6, osmý slot zůstává záblesku výbuchu.
+  - Lampa se otáčí kolem čepu a kruh rampy se odvozuje od čepů.
+  - Hodiny hry nepočítají průlet.
+  - Plošiny v Trapeze jsou na ±14 ve výšce 2,5.
+- **Beru #716** (herní strana, neúplné pokusy s 0 hvězdami). Služba v0.1.18 už běží na Pi. Testovat jen proti lokálnímu BS3D-API, nikdy proti živému.
+
