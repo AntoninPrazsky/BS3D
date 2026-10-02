@@ -196,18 +196,25 @@ namespace Prazsky.Core.Render
                 float bearing = MathHelper.ToRadians(SPOT_BEARINGS[i]);
                 Vector3 position = new(MathF.Cos(bearing) * lights.SpotRigRadius, lights.SpotRigY, MathF.Sin(bearing) * lights.SpotRigRadius);
 
+                //EVERY LAMP TURNS (#690, the owner's ask): slowly, smoothly, never quite repeating, so the pools of light
+                //drift across the scene and the beams with them - a show warming up, not a disco. Each aim is a point
+                //moving on two incommensurate slow cycles of its own.
                 Vector3 target;
+                float speed = lights.SweepSpeed;
                 if (i < 3)
                 {
-                    //On the island: a little off its centre towards the spot's own side, on its cap
-                    target = new Vector3(MathF.Cos(bearing) * 6f, ArenaIsland.TOP_Y, MathF.Sin(bearing) * 6f);
+                    //Three hold on the island and the cluster over it: their pools wander round its cap, one way round or
+                    //the other, now nearer the middle and now nearer the rim
+                    float wander = bearing + time * speed * (i == 1 ? -0.55f : 0.45f);
+                    float reach = 9f + 6f * MathF.Sin(time * speed * 0.37f + i * 2.4f);
+                    target = new Vector3(MathF.Cos(wander) * reach, ArenaIsland.TOP_Y, MathF.Sin(wander) * reach);
                 }
                 else
                 {
-                    //Roving the ring: a slow sweep round the sawdust between the island and the curb, each on its own phase
-                    float sweep = time * lights.SweepSpeed * (i == 3 ? 1f : -0.8f) + i * 2.1f;
-                    float radius = 33f + 4f * MathF.Sin(time * lights.SweepSpeed * 1.7f + i);
-                    target = new Vector3(MathF.Cos(sweep) * radius, _config.Ring.FloorY, MathF.Sin(sweep) * radius);
+                    //Two rove the ring and climb into the seats, round and out and back on their own phases
+                    float sweep = bearing + time * speed * (i == 3 ? 0.6f : -0.5f);
+                    float radius = 52f + 20f * MathF.Sin(time * speed * 0.29f + i * 1.7f);
+                    target = new Vector3(MathF.Cos(sweep) * radius, FloorOrSeatsY(radius), MathF.Sin(sweep) * radius);
                 }
 
                 _spotPositions[i] = position;
@@ -215,6 +222,14 @@ namespace Prazsky.Core.Render
                 //The roving pair lands on pale sawdust and would burn it white at the island spots' strength
                 _spotColors[i] = SPOT_TINTS[i] * lights.SpotIntensity * (i < 3 ? 1f : ROVING_SHARE);
             }
+        }
+
+        /// <summary>The height of what a roving spot lands on at <paramref name="radius"/>: the floor, or the rake of the seats.</summary>
+        private float FloorOrSeatsY(float radius)
+        {
+            CircusSeatingConfig seats = _config.Seating;
+            if (radius < seats.InnerRadius) return _config.Ring.FloorY;
+            return _config.Ring.FloorY + seats.RowRise + (radius - seats.InnerRadius) * seats.RowRise / seats.RowDepth;
         }
 
         /// <summary>
