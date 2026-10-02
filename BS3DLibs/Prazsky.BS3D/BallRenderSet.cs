@@ -2037,7 +2037,7 @@ namespace Prazsky.BS3D
         /// </para>
         /// </summary>
         private void DrawTintlessRegion(ICamera camera, int regionStart, BallShading shading, float emission,
-            float pulseDepth, float pulseSpeed, BasicEffectParams material, Vector3? tint = null)
+            float pulseDepth, float pulseSpeed, BasicEffectParams material, Vector3? tint = null, int instancesPerBall = 1)
         {
             bool any = false;
             for (int lod = 0; lod < LodCount && !any; lod++) any = _counts[regionStart + lod] > 0;
@@ -2052,8 +2052,10 @@ namespace Prazsky.BS3D
                 int count = _counts[bucketIndex];
                 if (count == 0) continue;
 
-                DrawnCount += count;
-                _lodTotals[lod] += count;
+                //The censuses count BALLS, as the bubble's two walls keep them: a clump of buckshot is BUCKSHOT_PELLETS instances and one
+                //ball, counted at its pellets' level of detail
+                DrawnCount += count / instancesPerBall;
+                _lodTotals[lod] += count / instancesPerBall;
 
                 _renderers[lod].Draw(camera, _buckets[bucketIndex], count, material, tint);
             }
@@ -2133,7 +2135,7 @@ namespace Prazsky.BS3D
             }
 
             DrawTintlessRegion(camera, BUCKSHOT_REGION_START, BallShading.Porcelain, PORCELAIN_EMISSION, 0f, 0f,
-                BasicEffectParamsProvider.Buckshot, BUCKSHOT_TINT);
+                BasicEffectParamsProvider.Buckshot, BUCKSHOT_TINT, BUCKSHOT_PELLETS);
         }
 
         /// <summary>The ordinary pulse speed back on every renderer, and the style's own look — see
@@ -3117,7 +3119,8 @@ namespace Prazsky.BS3D
                         //editor's heap and the menu's backdrop are the heap the level will be played with.
                         //It is the only ball here with a turn to draw at all, which is what leaves the
                         //translation-only path below standing for the other three thousand.
-                        if (ball.Kind == BallKind.Rock)
+                        //A clump of buckshot takes the rock's turn too (#257), here as in a session
+                        if (ball.Kind == BallKind.Rock || ball.Kind == BallKind.Buckshot)
                             AddOriented(ball.Type, position, RockTurns.For(new XZLevel(x, z, level)),
                                 occlusion, kind: ball.Kind);
                         else

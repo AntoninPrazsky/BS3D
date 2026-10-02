@@ -319,6 +319,8 @@ namespace BS3D.Screens
                 + "aim preview shows the bend."),
             (BallKind.Heavy, "Heavy — an ordinary ball many times heavier than the rest. Whatever hangs from it sits lower in "
                 + "the cluster, nearer the line."),
+            (BallKind.Buckshot, "Buckshot — a clump of grey pellets. No colour takes it and the level is not cleared while it "
+                + "hangs: cut away whatever holds it up and it pours out."),
         };
 
         private void BuildBalls(VerticalStackPanel column)

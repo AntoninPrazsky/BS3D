@@ -375,8 +375,10 @@ namespace Prazsky.BS3D.GameStructure
         /// <b>It answers NO to <see cref="BallKinds.Matchable"/> and YES to <see cref="BallKinds.Removable"/></b>, the
         /// rock's first answer and its opposite second: a level is not cleared while any buckshot still hangs, so a
         /// clump has to be brought down. That makes the rock's anchor-course refusal a harder one here — a clump with no
-        /// way down is not a wall but a level that never ends — so the generator refuses any clump whose every path to
-        /// the glass runs through rocks and other clumps (<c>LevelGates</c>, "buckshot that can pour"). Nothing else
+        /// way down is not a wall but a level that can only be lost — so the generator refuses any clump with a path to
+        /// the glass through rocks and other clumps alone, out of every blast's and acid's reach (<c>LevelGates</c>,
+        /// "buckshot that can pour"), and buckshot in a level with an infection, whose trail of stone can build such a
+        /// path mid-level ("buckshot apart from infection"). Nothing else
         /// in the rules asks: the disconnection walk has never cared what kind a ball is, so a cut clump falls with
         /// everything else the cut set loose.
         /// </para>
@@ -592,6 +594,11 @@ namespace Prazsky.BS3D.GameStructure
                 case "cut":
                 case "blade":
                     kind = BallKind.Cutter;
+                    return true;
+
+                case "buckshot":
+                case "pellets":
+                    kind = BallKind.Buckshot;
                     return true;
 
                 default:
