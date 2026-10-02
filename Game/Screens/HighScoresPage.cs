@@ -406,11 +406,11 @@ namespace BS3D.Screens
                 Paint(_rowTops[slot], BS3DGame.MENU_TEXT_BODY);
                 _rowTops[slot].Text = reply?.Summary == null ? string.Empty
                     : board == null ? "No clears yet"
-                    : $"#1  {board.Top.Name}   {ScoreText.Of(board.Top.Score)}";
+                    : $"#1  {board.Top.Name}   {ScoreText.Of(board.Top.Score)}{Unfinished(board.Top.Stars)}";
 
                 _rowMes[slot].Text = board?.Me is BoardMeBody me && me.Rank > 0
-                    ? me.Rank == 1 ? $"You lead   {ScoreText.Of(me.Score)}"
-                        : $"You: {Ordinal(me.Rank)} of {board.Total}   {ScoreText.Of(me.Score)}"
+                    ? (me.Rank == 1 ? $"You lead   {ScoreText.Of(me.Score)}"
+                        : $"You: {Ordinal(me.Rank)} of {board.Total}   {ScoreText.Of(me.Score)}") + Unfinished(me.Stars)
                     : string.Empty;
             }
 
@@ -446,7 +446,7 @@ namespace BS3D.Screens
             }
 
             string period = _allTime ? "All time" : "This month";
-            return on == 0 ? $"{period}: you are on no board yet. Clear a level to get on one."
+            return on == 0 ? $"{period}: you are on no board yet. Play a level to the end to get on one."
                 : leads == 0 ? $"{period}: you are on {on} board{(on == 1 ? "" : "s")}. Lead one to see your name at the top."
                 : $"{period}: you lead {leads} of the {on} board{(on == 1 ? "" : "s")} you are on.";
         }
@@ -474,6 +474,12 @@ namespace BS3D.Screens
 
             return identity;
         }
+
+        /// <summary>
+        /// The mark after a row that is an unfinished attempt (#716): zero stars, which no clear has. The service ranks
+        /// every clear above every attempt, so a "#1" that is one says nobody has cleared the level yet.
+        /// </summary>
+        private static string Unfinished(int stars) => stars == 0 ? ", " + BoardView.UnfinishedMark : string.Empty;
 
         private static string Ordinal(int n)
         {

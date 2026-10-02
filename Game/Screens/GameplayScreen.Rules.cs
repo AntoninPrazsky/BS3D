@@ -599,8 +599,8 @@ namespace BS3D.Screens
 
             //What the score service is told this clear took (#546), frozen now for LevelResult's reason: shots
             //fired into the emptied field during the beat cleared nothing
-            _run.ClearShots = _run.Score.ShotsFired;
-            _run.ClearSeconds = _run.Seconds;
+            _run.EndShots = _run.Score.ShotsFired;
+            _run.EndSeconds = _run.Seconds;
 
             //WHETHER THIS CLEAR FINISHES A BLOCK, decided ONCE and here (#184). Here because the celebration
             //starts here and the result page arrives LEVEL_CLEARED_BEAT later, so a decision taken on the page
@@ -974,6 +974,11 @@ namespace BS3D.Screens
 
             _pendingFailure = failure;
 
+            //What the score service is told this attempt took (#716), frozen at the loss as a clear's are at the clear:
+            //the line's loss holds its page back for a staged flight, and the world runs on under it
+            _run.EndShots = _run.Score.ShotsFired;
+            _run.EndSeconds = _run.Seconds;
+
             //⚠ THE LINE'S LOSS HOLDS THE ENDING BACK (#434). Every other ending goes up now; this one waits
             //while the camera flies at the point the cluster crossed and the net flares behind it. Until this
             //the loss went straight from the crossing frame to a page of numbers, and the owner's report was
@@ -1124,9 +1129,13 @@ namespace BS3D.Screens
             bool newBest = cleared && Game.RecordLevelResult(_run.Index, _run.Score.Score, stars);
 
             //And to the online boards (#546), beside the save's record and with the very figures it kept — every
-            //clear rather than only a new best, because the month's board ranks what was done this month. Returns
-            //at once: the send is the client's worker's, and the page never waits for its answer.
-            if (cleared) Game.Online.SubmitClear(_run.Identity, _run.Score.Score, stars, _run.ClearShots, _run.ClearSeconds);
+            //clear rather than only a new best, because the month's board ranks what was done this month — and since
+            //#716 a loss too, as an unfinished attempt with zero stars, when it beats the best attempt already sent for
+            //the board and the save holds no clear of the level (OnlineSession.SubmitEnding says why). Returns at once:
+            //the send is the client's worker's, and the page never waits for its answer. Whether anything went is the
+            //page's to know, so that it shows this ending's plate or none - never the last one's (#707).
+            bool submitted = Game.Online.SubmitEnding(_run.Identity, _run.Score.Score, stars, _run.EndShots, _run.EndSeconds,
+                savedClear: Game.LevelStars(_run.Index) > 0);
 
             Game.PresentResult(new LevelResult(
                 cleared: cleared,
@@ -1191,7 +1200,8 @@ namespace BS3D.Screens
                 streakBonus: _run.Score.StreakBonus,
                 hadBudget: _run.Score.ShotsRemaining.HasValue,
                 unusedShotsAwarded: _run.Score.UnusedShotsAwarded,
-                completionBonusAwarded: _run.Score.CompletionBonusAwarded));
+                completionBonusAwarded: _run.Score.CompletionBonusAwarded,
+                submitted: submitted));
 
             Console.WriteLine($"[level] Result for '{LevelName(_run.Index)}': " + (cleared ? "Cleared" : $"Failed ({_pendingFailure})")
                 + $", score {_run.Score.Score}"

@@ -92,15 +92,16 @@ namespace BS3D.Screens
         internal float Seconds { get; set; }
 
         /// <summary>
-        /// The shots at the moment the field emptied (#546), for the score service; <see cref="ClearSeconds"/>
-        /// is the time. Taken then and not when the result page goes up, for <see cref="LevelResult"/>'s own
-        /// reason: the level does not stop at the clear, and a player who keeps firing into the empty field
-        /// would otherwise send shots that cleared nothing.
+        /// The shots at the moment the level was decided (#546, #716) - the field emptied, or the loss - for the score
+        /// service; <see cref="EndSeconds"/> is the time. Taken then and not when the result page goes up, for
+        /// <see cref="LevelResult"/>'s own reason: the level does not stop at the clear, and a player who keeps firing
+        /// into the empty field would otherwise send shots that cleared nothing; nor at the line's loss, whose staged
+        /// flight runs on between the crossing and the page.
         /// </summary>
-        internal int ClearShots { get; set; }
+        internal int EndShots { get; set; }
 
-        /// <summary>The seconds of play at the moment the field emptied — see <see cref="ClearShots"/>.</summary>
-        internal float ClearSeconds { get; set; }
+        /// <summary>The seconds of play at the moment the level was decided — see <see cref="EndShots"/>.</summary>
+        internal float EndSeconds { get; set; }
 
         /// <summary>
         /// The biggest single release of <b>this</b> level so far, which is the bar the drop cinematic has to

@@ -224,7 +224,6 @@ namespace BS3D.Screens
             _offerOnlineHint = _result.Cleared && Game.Online.TakeHint();
             _boardsClock = 0f;
             _boardsShownGeneration = -1;
-            _boardsWereVisible = false;
             ApplyBoards();
 
             //⚠ A CLEARED field has nothing hanging any more (#639). The orbit was framed for the level's map
@@ -1251,7 +1250,6 @@ namespace BS3D.Screens
         private bool _offerOnlineHint;
         private float _boardsClock;
         private int _boardsShownGeneration = -1;
-        private bool _boardsWereVisible;
 
         private Panel BuildBoards()
         {
@@ -1312,11 +1310,16 @@ namespace BS3D.Screens
         {
             if (_boardsPlate == null) return;
 
-            bool wanted = _result.Cleared && _revealSettled && (Game.Online.Enabled || _offerOnlineHint);
+            //THIS ending's plate or none (#707, #716): the boards when this ending was handed to the service - a clear,
+            //or a loss sent as an unfinished attempt - and the offer to opt in on a clear. Online.Result is otherwise the
+            //answer to an EARLIER ending, which is how a loss came to stand under the last clear's "Sending your
+            //score...". And written against the widget's own Visible, every frame: a flag kept beside it could disagree
+            //with it (a rebuilt tree's new plate, a page entered again), and the plate then outlived its result.
+            bool online = _result.Submitted && Game.Online.Enabled;
+            bool wanted = _revealSettled && (online || (_result.Cleared && _offerOnlineHint));
 
-            if (wanted != _boardsWereVisible)
+            if (wanted != _boardsPlate.Visible)
             {
-                _boardsWereVisible = wanted;
                 _boardsPlate.Visible = wanted;
                 _boardsClock = 0f;
                 _boardsShownGeneration = -1;
@@ -1331,12 +1334,15 @@ namespace BS3D.Screens
             if (_boardsShownGeneration == Game.Online.ResultGeneration) return;
             _boardsShownGeneration = Game.Online.ResultGeneration;
 
-            if (!Game.Online.Enabled)
+            if (!online)
             {
                 ShowSections(false);
                 SetStatus("Online leaderboards are off. Turn on Online scores in Settings to see where your clears rank.", signal: null);
                 return;
             }
+
+            //What this ending is to the boards: a clear, or an unfinished attempt (#716)
+            string what = _result.Cleared ? "clear" : "attempt";
 
             OnlineAnswer? answer = Game.Online.Result;
 
@@ -1351,8 +1357,8 @@ namespace BS3D.Screens
                     //Not "Offline": the outcome is the score SERVICE not answering, and since #691 that includes a
                     //network that works but reaches something else (the owner, online, read "Offline" while a stale
                     //DNS record sent the game to a web host). Say what is known
-                    OnlineOutcome.Offline => "The score server did not answer. This clear is saved and goes out with your next one.",
-                    OnlineOutcome.Refused => "The score server did not take this clear.",
+                    OnlineOutcome.Offline => $"The score server did not answer. This {what} is saved and goes out with your next score.",
+                    OnlineOutcome.Refused => $"The score server did not take this {what}.",
                     _ => "Sending your score...",
                 }, answer == null ? OnlineSignal.SignalMode.Working : OnlineSignal.SignalMode.Idle);
                 return;
@@ -1361,14 +1367,15 @@ namespace BS3D.Screens
             ShowSections(true);
 
             _month.Fill("THIS MONTH", BoardView.MonthName(Game.Online.ResultMonthBoard?.Month), Game.Online.ResultMonthBoard,
-                accepted.MonthRank, accepted.MonthTotal);
+                accepted.MonthRank, accepted.MonthTotal, unfinished: !_result.Cleared);
             _allTime.Fill("ALL TIME", BoardView.AllTimePeriod, Game.Online.ResultAllTimeBoard,
-                accepted.AllTimeRank, accepted.AllTimeTotal);
+                accepted.AllTimeRank, accepted.AllTimeTotal, unfinished: !_result.Cleared);
 
             //Accepted: the boards still loading keep the signal moving; once they are in, it turns gold for the line
             //that is left (a personal best), and the line goes when there is nothing to add to the boards themselves
             bool loading = Game.Online.ResultMonthBoard == null || Game.Online.ResultAllTimeBoard == null;
-            SetStatus(loading ? "Loading the boards..." : accepted.PersonalBest ? "A personal best on this level." : string.Empty,
+            string best = _result.Cleared ? "A personal best on this level." : "Your best attempt at this level so far.";
+            SetStatus(loading ? "Loading the boards..." : accepted.PersonalBest ? best : string.Empty,
                 loading ? OnlineSignal.SignalMode.Working : OnlineSignal.SignalMode.Done);
         }
 
