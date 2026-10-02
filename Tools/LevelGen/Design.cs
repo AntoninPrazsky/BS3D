@@ -1,4 +1,5 @@
 using Prazsky.BS3D.GameStructure;
+using Prazsky.BS3D.Levels;
 using Prazsky.Core.Render;
 using System;
 
@@ -102,6 +103,15 @@ namespace BS3D.Tools.LevelGen
         /// </para>
         /// </summary>
         public BallStyle? Balls;
+
+        /// <summary>
+        /// <b>How soft the lattice between this level's balls is</b> (#690), written into <c>Level.Softness</c> — null,
+        /// the default, for the builder's own stiff spring, which is every level before the circus chapter. A property of
+        /// the <b>design</b> and not of the block, unlike <see cref="Music"/> and <see cref="Balls"/>: #617 and #690's
+        /// prototype measured that one figure cannot serve different shapes (a strand is springs in series), so each
+        /// level states the spring its own shape was probed at, and the sag gate hangs it at exactly that.
+        /// </summary>
+        public SoftnessSpec Softness;
 
         public int Shots;
         public int CeilingStep;
