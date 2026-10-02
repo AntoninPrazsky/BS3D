@@ -40,8 +40,24 @@ namespace Prazsky.BS3D.Levels
         [JsonPropertyName("damping")]
         public float Damping { get; set; } = 1f;
 
-        /// <summary>Both figures positive and finite: what a spring needs to be one at all.</summary>
+        /// <summary>
+        /// The stiffest spring a level may state: half the simulation's 120 Hz step, past which Bepu's own guidance is
+        /// that a spring is no longer resolved (and far enough past it, its springiness arithmetic overflows). The
+        /// builder's own is 15, so nothing softening a lattice comes near it; a typo of a hundred does.
+        /// </summary>
+        public const float MAX_FREQUENCY = 60f;
+
+        /// <summary>The heaviest damping a level may state: far past critical (1), a figure no softening needs, and the
+        /// bound that keeps the product of the two from underflowing in the solver's arithmetic.</summary>
+        public const float MAX_DAMPING = 20f;
+
+        /// <summary>The smallest figure of either: a spring this weak or this undamped is no spring the solver can hold.</summary>
+        public const float MIN_FIGURE = 0.01f;
+
+        /// <summary>Both figures finite and inside what the solver can hold (<see cref="MIN_FIGURE"/> up to
+        /// <see cref="MAX_FREQUENCY"/> and <see cref="MAX_DAMPING"/>).</summary>
         [JsonIgnore]
-        public bool IsValid => float.IsFinite(Frequency) && Frequency > 0f && float.IsFinite(Damping) && Damping > 0f;
+        public bool IsValid => float.IsFinite(Frequency) && Frequency >= MIN_FIGURE && Frequency <= MAX_FREQUENCY
+            && float.IsFinite(Damping) && Damping >= MIN_FIGURE && Damping <= MAX_DAMPING;
     }
 }

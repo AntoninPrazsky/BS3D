@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Photographs the twenty scenes at pinned vantages and runs the lattice probe over the pictures (#674).
+    Photographs the twenty-one scenes at pinned vantages and runs the lattice probe over the pictures (#674).
 
 .DESCRIPTION
     For every scene and every vantage it launches the Testbed once with `nopost` (the film grain would hide exactly what
@@ -28,7 +28,7 @@
     Where the pictures and the table go. Full path; created if missing.
 
 .PARAMETER Scenes
-    Which scenes, by their command-line spelling. Default: all twenty.
+    Which scenes, by their command-line spelling. Default: all twenty-one.
 
 .PARAMETER Vantages
     Which of out, sky, graze, down, play. Default: the first four.
@@ -50,7 +50,7 @@
 param(
     [Parameter(Mandatory)][string]$Out,
     [string[]]$Scenes = @('city', 'sea', 'savanna', 'desert', 'mountain', 'meadow', 'neon', 'forest', 'space', 'dream',
-        'cavern', 'moon', 'outback', 'tropical', 'volcano', 'mars', 'storm', 'polar', 'aurora', 'grid'),
+        'cavern', 'moon', 'outback', 'tropical', 'volcano', 'mars', 'storm', 'polar', 'aurora', 'grid', 'circus'),
     [string[]]$Vantages = @('out', 'sky', 'graze', 'down'),
     [int]$Frame = 240,
     [int]$Seed = 3,

@@ -8,8 +8,9 @@ namespace Prazsky.Core.Render
     /// <summary>
     /// The big top (#690), the twenty-first scene: <c>Circus.fx</c> over the renderer's shared full-screen quad — the
     /// canvas, the side wall, the seats, the ring, the king poles, the spotlights and the bulbs, all analytic — and then
-    /// the floor's depth, an annulus round the island drawn with colour writes off, so a ball that falls past the rim
-    /// vanishes into the sawdust. See "The big top" in docs/scenes.md.
+    /// the DEPTH of what can stand in front of the arena, drawn with colour writes off: the floor, an annulus round the
+    /// island, so a ball that falls past the rim vanishes into the sawdust, and the king poles, so a lens that passes
+    /// outside one sees it in front of the island rather than behind it. See "The big top" in docs/scenes.md.
     /// </summary>
     internal sealed class CircusBackdrop : Backdrop
     {
@@ -24,8 +25,8 @@ namespace Prazsky.Core.Render
         /// </summary>
         public const int FOOTLIGHT_COUNT = 6;
 
-        /// <summary>How far a footlight reaches (the shared effect's (1 - d / range) squared): past the drum, short of the
-        /// cluster's top.</summary>
+        /// <summary>How far a footlight reaches (the shared effect's (1 - d / range) squared): the drum strongly, and the
+        /// cluster and the gun above it as a warm light from below, the way footlights light a stage.</summary>
         public const float FOOTLIGHT_RANGE = 60f;
 
         //Where they stand: just inside the curb, a little over the sawdust, and their warm colour
@@ -36,6 +37,11 @@ namespace Prazsky.Core.Render
         //The floor's annulus: segments round, and how far past the wall it reaches so no edge of it is ever in view
         private const int FLOOR_SEGMENTS = 96;
         private const float FLOOR_REACH = 1.2f;
+
+        //The king poles' depth: sides round each, and how much thinner than the drawn pole the depth one is, so the
+        //depth never covers a pixel the pass shaded as something behind the pole
+        private const int POLE_SIDES = 16;
+        private const float POLE_DEPTH_SHARE = 0.96f;
 
         private readonly GraphicsDevice _graphicsDevice;
         private readonly CircusSceneConfig _config = new();
@@ -56,6 +62,10 @@ namespace Prazsky.Core.Render
         private readonly VertexBuffer _floorVertices;
         private readonly IndexBuffer _floorIndices;
         private float _floorInnerRadius = -1f;
+
+        private readonly VertexBuffer _poleVertices;
+        private readonly IndexBuffer _poleIndices;
+        private readonly int _polePrimitives;
 
         //Colour writes off: the floor pass writes depth and nothing anyone can see. Built once, never per frame.
         private static readonly BlendState DEPTH_ONLY = new() { ColorWriteChannels = ColorWriteChannels.None };
@@ -84,6 +94,7 @@ namespace Prazsky.Core.Render
 
             _floorVertices = new VertexBuffer(_graphicsDevice, typeof(VertexPosition), (FLOOR_SEGMENTS + 1) * 2, BufferUsage.WriteOnly);
             _floorIndices = BuildFloorIndices();
+            BuildPoles(out _poleVertices, out _poleIndices, out _polePrimitives);
         }
 
         /// <inheritdoc/>
@@ -161,7 +172,7 @@ namespace Prazsky.Core.Render
 
         //The distance a spot's pool has its stated intensity at: about the rig's height over the floor, so a spot aimed
         //straight down lands at the intensity the config states
-        private const float SPOT_REACH = 66f;
+        private const float SPOT_REACH = 62f;
 
         //The five spots: where on the rig each hangs (bearing, degrees), its colour, and what it aims at. The first three
         //hold on the island, from three sides, so it stands in a pool of crossed light; the last two rove the ring.
@@ -244,6 +255,18 @@ namespace Prazsky.Core.Render
             _effect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, FLOOR_SEGMENTS * 2);
 
+            //And the king poles'. The pass is behind everything, so without this a pole the lens stood outside of - the
+            //front end's wide orbit passes the poles' radius, and a chapter intro may - was drawn BEHIND the island it
+            //stood in front of (#690's review). With its depth the island fails the test where the pole is, and the
+            //pole the pass already shaded there stays.
+            if (_polePrimitives > 0)
+            {
+                _graphicsDevice.SetVertexBuffer(_poleVertices);
+                _graphicsDevice.Indices = _poleIndices;
+                _effect.CurrentTechnique.Passes[0].Apply();
+                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _polePrimitives);
+            }
+
             //Space's rule (SpaceBackdrop.Draw): the rest of the frame expects these
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
@@ -266,6 +289,59 @@ namespace Prazsky.Core.Render
 
             _floorVertices.SetData(vertices);
             _floorInnerRadius = innerRadius;
+        }
+
+        /// <summary>
+        /// The king poles as closed-sided cylinders for the depth pass, from the floor to where each meets the canvas -
+        /// the pass's own figures (<c>KingPoleRadius</c>, <c>KingPoleThickness</c>, the roof cone), built once.
+        /// </summary>
+        private void BuildPoles(out VertexBuffer vertices, out IndexBuffer indices, out int primitives)
+        {
+            CircusTentConfig tent = _config.Tent;
+            int count = Math.Clamp(tent.KingPoleCount, 0, 6);
+            primitives = count * POLE_SIDES * 2;
+            vertices = null;
+            indices = null;
+            if (count == 0) return;
+
+            //Where the canvas is at the poles' radius: r = a + b y over the roof, so y = (r - a) / b
+            float roofB = (tent.CrownRadius - tent.WallRadius) / (tent.CrownY - tent.WallTopY);
+            float roofA = tent.WallRadius - roofB * tent.WallTopY;
+            float top = (tent.KingPoleRadius - roofA) / roofB;
+            float bottom = _config.Ring.FloorY;
+            float radius = tent.KingPoleThickness * POLE_DEPTH_SHARE;
+
+            VertexPosition[] v = new VertexPosition[count * (POLE_SIDES + 1) * 2];
+            short[] index = new short[primitives * 3];
+            int vi = 0, ii = 0;
+
+            for (int pole = 0; pole < count; pole++)
+            {
+                //The pass's own placement: (i + 0.5) of a turn over the count
+                float angle = (pole + 0.5f) * MathHelper.TwoPi / count;
+                Vector2 centre = new(MathF.Cos(angle) * tent.KingPoleRadius, MathF.Sin(angle) * tent.KingPoleRadius);
+                int first = vi;
+
+                for (int side = 0; side <= POLE_SIDES; side++)
+                {
+                    float a = side * MathHelper.TwoPi / POLE_SIDES;
+                    float x = centre.X + MathF.Cos(a) * radius, z = centre.Y + MathF.Sin(a) * radius;
+                    v[vi++] = new VertexPosition(new Vector3(x, bottom, z));
+                    v[vi++] = new VertexPosition(new Vector3(x, top, z));
+                }
+
+                for (int side = 0; side < POLE_SIDES; side++)
+                {
+                    short b0 = (short)(first + side * 2), t0 = (short)(b0 + 1), b1 = (short)(b0 + 2), t1 = (short)(b0 + 3);
+                    index[ii++] = b0; index[ii++] = t0; index[ii++] = b1;
+                    index[ii++] = b1; index[ii++] = t0; index[ii++] = t1;
+                }
+            }
+
+            vertices = new VertexBuffer(_graphicsDevice, typeof(VertexPosition), v.Length, BufferUsage.WriteOnly);
+            vertices.SetData(v);
+            indices = new IndexBuffer(_graphicsDevice, IndexElementSize.SixteenBits, index.Length, BufferUsage.WriteOnly);
+            indices.SetData(index);
         }
 
         private IndexBuffer BuildFloorIndices()
@@ -338,6 +414,8 @@ namespace Prazsky.Core.Render
         {
             _floorVertices.Dispose();
             _floorIndices.Dispose();
+            _poleVertices?.Dispose();
+            _poleIndices?.Dispose();
         }
     }
 }

@@ -162,10 +162,12 @@ namespace Prazsky.BS3D.Levels
                 throw new InvalidDataException($"'{path}' carries no ball map");
 
             //Refused rather than clamped, like a ball of a colour this build does not have (#571): a spring of zero
-            //hertz or zero damping is no spring, and the solver would hang the level on NaNs rather than say so
+            //hertz or zero damping is no spring, one past half the step rate is not resolved, and at the extremes the
+            //solver would hang the level on NaNs rather than say so
             if (level.Softness is SoftnessSpec softness && !softness.IsValid)
                 throw new InvalidDataException(
-                    $"'{path}' states a softness of {softness.Frequency} Hz, damping {softness.Damping}; both must be positive");
+                    $"'{path}' states a softness of {softness.Frequency} Hz, damping {softness.Damping}; the frequency must be "
+                    + $"{SoftnessSpec.MIN_FIGURE} to {SoftnessSpec.MAX_FREQUENCY} Hz and the damping {SoftnessSpec.MIN_FIGURE} to {SoftnessSpec.MAX_DAMPING}");
 
             return level;
         }
