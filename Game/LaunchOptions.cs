@@ -164,6 +164,10 @@ namespace BS3D
         //why this is a string and not an int? — the two are different requests.
         internal string Pick { get; private set; }
 
+        //Testing only: rest the picker's pointer on a level at a wall-clock second (#684), "<level>@<seconds>", the level
+        //1-based. Null means absent.
+        internal string PickFocus { get; private set; }
+
         //Testing only: open the About page at boot, and with "about=play" start its player (#443). Null means
         //the argument was absent; empty means the page alone.
         internal string About { get; private set; }
@@ -432,6 +436,10 @@ namespace BS3D
             //chapters are several presses in and "a shot of the picker" means nothing without saying which.
             Row.Flag("pick", o => o.Pick = string.Empty),
             Row.Text("pick", (o, v) => o.Pick = v),
+            //"pickfocus=<level>@<s>" rests the picker's pointer on that level's tile at that wall-clock second (#684), the
+            //tile's own MouseEntered: the plate of online boards beside the band follows the pointer, and a script can
+            //neither move the Game's pointer nor press a key in it. On "shot="'s clock.
+            Row.Text("pickfocus", (o, v) => o.PickFocus = v),
             //"about" puts the About page up at boot and "about=play" starts its player of the original score
             //(#443) — pick's reasoning, plus the press a visualizer needs before there is anything to see.
             Row.Flag("about", o => o.About = string.Empty),

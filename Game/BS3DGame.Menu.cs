@@ -1183,6 +1183,9 @@ namespace BS3D
         /// <summary>Pins the level picker to a chapter (1-based) before it opens - the <c>pick=</c> argument's (#273).</summary>
         internal void PinLevelSelectChapter(int chapter) => _levelSelectPage.PinChapter(chapter);
 
+        /// <summary>Rests the picker's pointer on a level's tile - the <c>pickfocus=</c> argument's (#684).</summary>
+        internal void PointPickerAtForTesting(int level) => _levelSelectPage.PointAtForTesting(level);
+
         /// <summary>Activates the Settings page's rows by name - the <c>settings=</c> argument's (#548).</summary>
         internal void ActivateSettingsRowsForTesting(string rows) => _settingsPage.ActivateForTesting(rows);
 
