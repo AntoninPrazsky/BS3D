@@ -45,6 +45,9 @@ float SeaTime;
 float2 OriginXZ;
 float SeaLevelY;
 
+//The grid's vertex spacing in world units (TerrainPass sets it): what decides which waves the vertices can carry
+float GridCell;
+
 //Radius of the island's footprint cut out of the surface around the world origin, so the sea does not run
 //through the drain funnel's open throat. 0 keeps it all (the map editor draws no island). See IslandHoleRadius
 //in the terrain shaders, which cut the same footprint for the same reason.
@@ -110,19 +113,59 @@ float HorizonHazeDistance;
 static const float TWO_PI = 6.28318530718;
 static const float GRAVITY = 9.81;
 
-//The storm spectrum: a dominant long swell down to fine chop, directions fanned around and across the wind
-//so the sum never settles into a tile. Directions need not be unit here - they are normalized at use. The
-//amplitudes are weights on WaveAmplitude; the steepness weights ride on WaveSteepness. Kept few enough to
-//unroll cheaply, since every vertex evaluates the lot.
-//Wavelengths are kept short relative to the scene (a ball is ~1 unit) so several crests fall inside the
-//visible water and it reads as waves, not one flat tilt - a 100-unit swell only ever shows a corner of one
-//wave here. Steepness is high so the crests pinch sharp for a rough sea.
-static const int WAVE_COUNT = 6;
-static const float2 WAVE_DIR[6]   = { float2(1.0, 0.35), float2(0.7, 0.72), float2(1.0, -0.30), float2(0.35, 1.0), float2(-0.45, 1.0), float2(1.0, 0.85) };
-static const float  WAVE_LEN[6]   = { 52.0, 33.0, 21.0, 13.0, 8.5, 5.5 };
-static const float  WAVE_AMP[6]   = { 1.0, 0.72, 0.5, 0.34, 0.22, 0.14 };
-static const float  WAVE_STEEP[6] = { 0.9, 0.95, 1.0, 1.0, 1.0, 1.0 };
-static const float  WAVE_PHASE[6] = { 0.0, 1.7, 3.1, 4.2, 5.5, 0.9 };
+//The swell: a SPECTRUM of twenty waves (#674), a dominant long swell and nineteen shorter ones fanned about the wind.
+//Directions need not be unit here - they are normalized at use. The amplitudes are weights on WaveAmplitude, and
+//WAVE_STEEP_WEIGHT rides on WaveSteepness. Wavelengths are kept short relative to the scene (a ball is ~1 unit) so
+//several crests fall inside the visible water and it reads as waves, not one flat tilt.
+//
+//It was six waves, picked by hand, and from above the sea read as a lattice twice over. The six summed into an
+//interference pattern that came back almost exactly: the slope field correlated 0.971 with itself 68 units away, a
+//figure any six plane waves land near (random sets: 0.89-0.99 inside 120 units), because six lines in a spectrum ARE a
+//quasi-crystal. And the two shortest (8.5 and 5.5 units) were evaluated only at the vertices, 4.2 units apart, under
+//the grid's Nyquist limit of two cells: sampled that coarsely they folded into a honeycomb on the grid's own pitch,
+//which a capture with the chop turned off showed plainly.
+//
+//How these twenty were drawn (numpy's default_rng(1), once - the numbers are the result, not dials): the dominant swell
+//is the old one exactly, 52 units along (1, 0.35) at amplitude 1, so the foam streaks keep their fabric; the other
+//nineteen carry the old five's energy (their squared amplitudes sum to the same 0.952), one per step of a geometric
+//ladder from 46 down to 9.6 units with the length jittered inside its step, amplitude in proportion to length^0.8 as
+//the old set had it, at random phases, travelling within 75 degrees of the wind with a spread that widens from 22
+//degrees for the long waves to 55 for the short. The slope field's strongest self-likeness inside 250 units falls to
+//0.614, and it lies 242 units away. WAVE_STEEP_WEIGHT holds the summed pinch (q k a over the waves) at the old set's,
+//so the crests sharpen as far as they did. None is shorter than 9.6 units, a little over two cells, and a short one's
+//displacement is faded where the grid cannot carry it (GridCarries), and the normals of all but the longest are the
+//pixel's own (SwellNormal).
+static const int WAVE_COUNT = 20;
+static const float2 WAVE_DIR[WAVE_COUNT] = {
+    float2(1.0000, 0.3500), float2(0.9727, 0.2320), float2(0.9427, 0.3335), float2(0.9787, 0.2055), float2(0.5790, 0.8153),
+    float2(0.6477, 0.7619), float2(0.5634, -0.8262), float2(0.7371, -0.6758), float2(0.9738, 0.2273), float2(0.9978, 0.0664),
+    float2(0.8855, 0.4647), float2(0.8834, 0.4685), float2(-0.0748, 0.9972), float2(0.8691, -0.4946), float2(0.9992, 0.0404),
+    float2(-0.0748, 0.9972), float2(0.6296, 0.7769), float2(0.5976, 0.8018), float2(0.9909, -0.1345), float2(0.5634, -0.8262) };
+static const float WAVE_LEN[WAVE_COUNT] = {
+    52.00, 44.18, 42.19, 36.35, 35.77, 31.25, 29.04, 27.65, 24.60, 22.91,
+    20.21, 19.76, 17.88, 16.18, 15.47, 13.69, 12.76, 11.45, 10.78, 9.76 };
+static const float WAVE_AMP[WAVE_COUNT] = {
+    1.0000, 0.3573, 0.3443, 0.3056, 0.3017, 0.2708, 0.2554, 0.2456, 0.2236, 0.2113,
+    0.1911, 0.1877, 0.1732, 0.1600, 0.1543, 0.1399, 0.1323, 0.1213, 0.1156, 0.1068 };
+static const float WAVE_PHASE[WAVE_COUNT] = {
+    0.000, 0.392, 4.030, 5.357, 3.726, 1.634, 5.277, 3.201, 3.210, 4.731,
+    0.929, 5.150, 4.293, 4.945, 1.204, 5.041, 1.202, 0.512, 5.374, 5.412 };
+static const float WAVE_STEEP_WEIGHT = 0.70;
+
+//The first VERTEX_NORMAL_WAVES (52 down to 27.65 units, six and a half cells and more) are slow enough across the grid
+//for their normal to be interpolated from the vertices; the shorter rest are the pixel's own (SwellNormal)
+static const int VERTEX_NORMAL_WAVES = 8;
+
+//The old six's sum of amplitudes over the root of their summed squares (2.92 / 1.397): see the crest in OceanSurface
+static const float CREST_NORM = 2.09;
+
+//How much of a wave the vertex grid can carry: none below two cells a wavelength (the Nyquist limit - sampled coarser
+//it folds into a pattern on the grid's own pitch, the honeycomb above), all of it from four cells up. A GridCell of 0
+//(nothing set it) carries everything.
+float GridCarries(float wavelength)
+{
+    return GridCell > 0.0 ? saturate((wavelength / GridCell - 2.0) * 0.5) : 1.0;
+}
 
 //The foam streaks' fabric (#128): lanes per world unit, how many times longer a lane runs along a crest
 //than across it, and the crest line itself - crests run PERPENDICULAR to their wave's travel, so this is
@@ -175,36 +218,40 @@ struct SeaVertexOutput
 {
     float4 Position : SV_POSITION;
     float3 WorldPosition : TEXCOORD0;
-    float3 WorldNormal : TEXCOORD1;
+    //xy = the rest position the swell is evaluated at, z = the swell's fade there (the horizon and the island's calm)
+    float3 Rest : TEXCOORD1;
+    //The long waves' normal accumulators (SwellNormal finishes them with the short ones)
+    float3 Slope : TEXCOORD3;
     //x = whitecap fold factor (0..1), y = crest height normalized (0..1)
     float2 Foam : TEXCOORD2;
 };
 
-//Sum of Gerstner waves at the rest position p0. Returns the world-space displacement (horizontal AND
-//vertical - the horizontal pinch is what sharpens the crests over a plain height field), the analytic
-//surface normal (GPU Gems 1 form, WA = k*A), the horizontal Jacobian fold (drops below 1 as crests pinch,
-//negative where the surface overhangs - the whitecap generator) and the crest height normalized to 0..1.
-//ampScale fades the whole thing to flat towards the horizon.
-void OceanSurface(float2 p0, float ampScale, out float3 disp, out float3 normal, out float fold, out float crest)
+//Sum of Gerstner waves at the rest position p0, as far as the vertex grid can carry each (GridCarries). Returns the
+//world-space displacement (horizontal AND vertical - the horizontal pinch is what sharpens the crests over a plain
+//height field), the horizontal Jacobian fold (drops below 1 as crests pinch, negative where the surface overhangs -
+//the whitecap generator) and the crest height normalized to 0..1. ampScale fades the whole thing to flat towards the
+//horizon. Of the normal only the long waves' part is here (`slope`, see VERTEX_NORMAL_WAVES); the short ones are the
+//pixel's (SwellNormal), since interpolated between vertices 4.2 units apart they printed the grid into the shading.
+void OceanSurface(float2 p0, float ampScale, out float3 disp, out float3 slope, out float fold, out float crest)
 {
     disp = float3(0.0, 0.0, 0.0);
 
-    //Normal accumulators: N = normalize(-nx, 1 - nySub, -nz)
-    float nx = 0.0, nz = 0.0, nySub = 0.0;
+    //The long waves' normal accumulators (x, z, y-pinch), for SwellNormal to finish: see VERTEX_NORMAL_WAVES
+    slope = float3(0.0, 0.0, 0.0);
 
     //Jacobian accumulators for the horizontal displacement map (x,z) -> (x+dx, z+dz)
     float jxx = 0.0, jzz = 0.0, jxz = 0.0;
 
-    float sumAmp = 0.0;
+    float sumSquares = 0.0;
 
     [unroll]
     for (int i = 0; i < WAVE_COUNT; i++)
     {
         float2 d = normalize(WAVE_DIR[i]);
         float k = TWO_PI / WAVE_LEN[i];
-        float a = WaveAmplitude * WAVE_AMP[i] * ampScale;
+        float a = WaveAmplitude * WAVE_AMP[i] * ampScale * GridCarries(WAVE_LEN[i]);
         float w = sqrt(GRAVITY * k) * WaveSpeed;   //deep-water dispersion: long swells roll slower than chop
-        float q = WaveSteepness * WAVE_STEEP[i];
+        float q = WaveSteepness * WAVE_STEEP_WEIGHT;
 
         float phase = k * dot(d, p0) + w * SeaTime + WAVE_PHASE[i];
         float c = cos(phase);
@@ -216,24 +263,59 @@ void OceanSurface(float2 p0, float ampScale, out float3 disp, out float3 normal,
         disp.y += a * s;
 
         float wa = k * a;
-        nx += d.x * wa * c;
-        nz += d.y * wa * c;
-        nySub += q * wa * s;
+
+        if (i < VERTEX_NORMAL_WAVES)
+        {
+            float full = WaveAmplitude * WAVE_AMP[i] * ampScale * k;
+            slope += float3(d.x * full * c, d.y * full * c, q * full * s);
+        }
 
         //d(disp.x)/dx0 = -q*a*k*d.x*d.x*sin(phase); the map derivative subtracts that from the identity
         jxx += q * wa * d.x * d.x * s;
         jzz += q * wa * d.y * d.y * s;
         jxz += q * wa * d.x * d.y * s;
 
-        sumAmp += a;
+        sumSquares += a * a;
     }
-
-    normal = normalize(float3(-nx, 1.0 - nySub, -nz));
 
     float jacobian = (1.0 - jxx) * (1.0 - jzz) - jxz * jxz;
     fold = saturate((FoamJacobianThreshold - jacobian) / max(FoamJacobianThreshold, 1e-3));
 
-    crest = saturate(disp.y / max(sumAmp, 1e-3) * 0.5 + 0.5);
+    //Normalised by the spread of the height and not by the sum of the amplitudes (#674): the sum grows with the number of
+    //waves while the height's spread does not, so with twenty the crest parked near 0.5 and the whitecaps all but went.
+    //CREST_NORM makes the six-wave set's sum of amplitudes exactly, so the crest is distributed as it was (emulated:
+    //13.1 % above 0.7 before and after).
+    crest = saturate(disp.y / max(CREST_NORM * sqrt(sumSquares), 1e-3) * 0.5 + 0.5);
+}
+
+//The swell's analytic normal at the rest position p0 (GPU Gems 1 form, WA = k*A): the long waves' accumulators as the
+//vertices interpolated them (vertexSlope), and the short waves summed here at their full amplitude, each faded against
+//the pixel's footprint the way the chop is - a wave under two pixels a wavelength fades to flat rather than shimmer.
+//The rest position reaches the pixel interpolated across its triangle, which is exact, since the grid's rest
+//positions are affine in it. All twenty here looked the same and cost 0.23 ms more on the sea at 3840 x 1600, ssaa 2.
+float3 SwellNormal(float2 p0, float ampScale, float footprint, float3 vertexSlope)
+{
+    float nx = vertexSlope.x, nz = vertexSlope.y, nySub = vertexSlope.z;
+
+    [unroll]
+    for (int i = VERTEX_NORMAL_WAVES; i < WAVE_COUNT; i++)
+    {
+        float2 d = normalize(WAVE_DIR[i]);
+        float k = TWO_PI / WAVE_LEN[i];
+        float a = WaveAmplitude * WAVE_AMP[i] * ampScale * saturate(1.0 - footprint * k / 3.14159265);
+        float w = sqrt(GRAVITY * k) * WaveSpeed;
+        float q = WaveSteepness * WAVE_STEEP_WEIGHT;
+
+        float s, c;
+        sincos(k * dot(d, p0) + w * SeaTime + WAVE_PHASE[i], s, c);
+
+        float wa = k * a;
+        nx += d.x * wa * c;
+        nz += d.y * wa * c;
+        nySub += q * wa * s;
+    }
+
+    return normalize(float3(-nx, 1.0 - nySub, -nz));
 }
 
 SeaVertexOutput SeaVS(SeaVertexInput input)
@@ -254,28 +336,38 @@ SeaVertexOutput SeaVS(SeaVertexInput input)
     //makes this saturate to 0 and the open sea is untouched.
     float calm = saturate((IslandHoleRadius - length(restXZ)) / CALM_BAND);
 
-    float3 disp;
-    float3 normal;
+    float3 disp, slope;
     float fold, crest;
-    OceanSurface(restXZ, ampScale * (1.0 - calm), disp, normal, fold, crest);
+    OceanSurface(restXZ, ampScale * (1.0 - calm), disp, slope, fold, crest);
 
     float3 worldPosition = float3(restXZ.x + disp.x, SeaLevelY + disp.y, restXZ.y + disp.z);
 
     output.WorldPosition = worldPosition;
-    output.WorldNormal = normal;
+    output.Rest = float3(restXZ, ampScale * (1.0 - calm));
+    output.Slope = slope;
     output.Foam = float2(fold, crest);
     output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
 
     return output;
 }
 
-//One fine chop octave, band-limited against the pixel footprint like the ground relief, so the chop fades
-//into smooth water towards the horizon rather than aliasing into a shimmer. Accumulated as a height for
-//PerturbNormalFromHeight to tilt the Gerstner normal by.
-float ChopRipple(float2 xz, float2 dir, float frequency, float footprint)
+//One fine chop octave: gradient noise stretched CHOP_STRETCH times along its crests (#674), band-limited against the
+//pixel footprint like the ground relief, so the chop fades into smooth water towards the horizon rather than aliasing
+//into a shimmer. Accumulated as a height for PerturbNormalFromHeight to tilt the swell's normal by.
+//
+//It was a sine, four of them crossing at wide angles, and two crossing sines are a lattice of diamonds by definition;
+//four of them came back exactly every 50.6 units (the field correlated 1.000 with its own copy there, any four sines
+//land within 0.006 of that inside 60 units). Noise has no line spectrum to repeat. A gradient-noise cell holds about
+//one swing, so the domain is the sine's frequency over pi, and CHOP_NOISE_GAIN gives it the sine's slope across the
+//crests (measured over 400 000 samples of this noise: 0.501 of slope a unit, so the gain is pi / sqrt(2) / 0.501).
+static const float CHOP_STRETCH = 3.0;
+static const float CHOP_NOISE_GAIN = 4.43;
+
+float ChopRipple(float2 xz, float2 dir, float frequency, float footprint, float2 seed)
 {
     float resolvable = saturate(1.0 - footprint * frequency / 3.14159265);
-    return sin(dot(xz, dir) * frequency) * resolvable;
+    float2 domain = float2(dot(xz, dir), dot(xz, float2(-dir.y, dir.x)) / CHOP_STRETCH) * (frequency / 3.14159265);
+    return GradientNoise2(domain + seed) * CHOP_NOISE_GAIN * resolvable;
 }
 
 //The fine wind-chop height field: a few octaves crossing the wind, scrolling downwind so the surface crawls
@@ -284,10 +376,10 @@ float ChopHeight(float2 xz, float footprint)
     float2 p = xz + WindDirection * SeaTime * ChopSpeed;
     float f = ChopFrequency;
 
-    float h = 0.5 * ChopRipple(p, normalize(float2(0.9, 0.4)), f, footprint)
-        + 0.28 * ChopRipple(p, normalize(float2(0.6, -0.8)), f * 1.9, footprint)
-        + 0.15 * ChopRipple(p, normalize(float2(-0.5, 0.85)), f * 3.4, footprint)
-        + 0.09 * ChopRipple(p, normalize(float2(0.2, -0.98)), f * 5.7, footprint);
+    float h = 0.5 * ChopRipple(p, normalize(float2(0.9, 0.4)), f, footprint, float2(0.0, 0.0))
+        + 0.28 * ChopRipple(p, normalize(float2(0.6, -0.8)), f * 1.9, footprint, float2(37.1, 11.9))
+        + 0.15 * ChopRipple(p, normalize(float2(-0.5, 0.85)), f * 3.4, footprint, float2(74.2, 23.8))
+        + 0.09 * ChopRipple(p, normalize(float2(0.2, -0.98)), f * 5.7, footprint, float2(111.3, 35.7));
 
     return h * ChopAmplitude;
 }
@@ -320,7 +412,7 @@ float4 SeaPS(SeaVertexOutput input) : COLOR
     //is damped to a POOL_CHOP fraction — the sheltered water keeps a fine capillary ripple, nothing more.
     float chopFade = saturate(1.0 - (dist - WaveFadeStart) / max(WaveFadeEnd - WaveFadeStart, 1.0));
     float chop = ChopHeight(worldPosition.xz, footprint) * chopFade * lerp(1.0, POOL_CHOP, calm);
-    float3 normal = PerturbNormalFromHeight(normalize(input.WorldNormal), worldPosition, chop);
+    float3 normal = PerturbNormalFromHeight(SwellNormal(input.Rest.xy, input.Rest.z, footprint, input.Slope), worldPosition, chop);
 
     //Capillary climb at the glass (#132): over the last MENISCUS_BAND before the pool's edge the surface
     //reads as curling up the wall — the normal tilts away from the outward radial, so the rim catches the
