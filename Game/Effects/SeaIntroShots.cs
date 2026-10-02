@@ -8,7 +8,7 @@ namespace BS3D.Effects
     /// The sea's own shots for a chapter intro's prologue (#559): a low pass round the island's flank at the
     /// waterline, a skim over the swell into the sun's glint, and a flight low over the water that climbs to the
     /// sun the glint comes from (#652) — cut together, then cut to the tour's last leg. The sea has no landmark of
-    /// its own; what it builds is the swell (<c>Sea.fx</c>'s six Gerstner waves), the glint the sun lays across it,
+    /// its own; what it builds is the swell (<c>Sea.fx</c>'s twenty Gerstner waves), the glint the sun lays across it,
     /// and the one rock in it, which is the island.
     /// <para>
     /// <b>It opened on the island from far out and high, and the owner threw that shot out (#652):</b> "the high,
@@ -19,10 +19,13 @@ namespace BS3D.Effects
     /// viewer sees the glitter <i>come from</i> it.
     /// </para>
     /// <para>
-    /// <b>The water is the only ground, and it is bounded rather than mirrored.</b> The six waves' weights sum to
-    /// 2.92 of <see cref="SeaSceneConfig.WaveAmplitude"/> and the chop adds its own amplitude, so no crest stands
-    /// higher than <see cref="CrestHeight"/> over the mean level whatever the clock — a lens held that far plus a
-    /// margin over <see cref="SeaSceneConfig.LevelY"/> is never under water.
+    /// <b>The water is the only ground, and it is bounded rather than mirrored.</b> No crest stands higher than
+    /// <see cref="CrestHeight"/> over the mean level, so a lens held <see cref="LENS_CLEARANCE"/> over that above
+    /// <see cref="SeaSceneConfig.LevelY"/> is never under water. The bound was the six waves' weights summed (2.92 of
+    /// <see cref="SeaSceneConfig.WaveAmplitude"/>), every crest at once; #674's twenty sum to 5.0, and twenty waves at
+    /// independent phases never come near that — over eight million points at random times the highest stood at 3.93 —
+    /// so the bound is <see cref="CREST_REACH"/> above what was seen, and the clearance is what keeps the shots where
+    /// #652 framed them (the skim and the flank at their own heights, the climb starting 0.27 higher than it did).
     /// </para>
     /// </summary>
     internal static class SeaIntroShots
@@ -62,7 +65,14 @@ namespace BS3D.Effects
         private const float FLANK_SECONDS = 3.0f;
 
         /// <summary>The highest a crest can stand over the mean level, in units of the swell's amplitude, plus the chop's.</summary>
-        private static float CrestHeight(SeaSceneConfig sea) => sea.WaveAmplitude * 2.92f + sea.ChopAmplitude;
+        private static float CrestHeight(SeaSceneConfig sea) => sea.WaveAmplitude * CREST_REACH + sea.ChopAmplitude;
+
+    //How high the swell reaches, in its own amplitude: 3.93 seen over eight million samples of Sea.fx's twenty waves (their
+    //weights sum to 5.0, a crest of every wave at once that independent phases never approach). Re-measure on a new set.
+    private const float CREST_REACH = 4.2f;
+
+    //How far over the highest crest a lens is held
+    private const float LENS_CLEARANCE = 1.5f;
 
         /// <summary>
         /// The prologue for the sea being drawn, or null when there is no sea config. <paramref name="sunDirection"/>
@@ -105,7 +115,7 @@ namespace BS3D.Effects
             Vector2 from = abeam - heading * (CLIMB_RUN * AridIntroPaths.Roll(random, 0.25f, 0.6f));
             Vector2 to = from + heading * CLIMB_RUN;
 
-            float low = sea.LevelY + MathF.Max(CLIMB_FROM_HEIGHT, CrestHeight(sea) + 2f);
+            float low = sea.LevelY + MathF.Max(CLIMB_FROM_HEIGHT, CrestHeight(sea) + LENS_CLEARANCE);
             float high = sea.LevelY + CLIMB_TO_HEIGHT;
 
             Vector2[] plan = AridIntroPaths.Line(from, to);
@@ -143,7 +153,7 @@ namespace BS3D.Effects
             Vector2 from = abeam - heading * (SWELL_RUN * AridIntroPaths.Roll(random, 0.2f, 0.8f));
             Vector2 to = from + heading * SWELL_RUN;
 
-            float y = sea.LevelY + MathF.Max(SWELL_HEIGHT, CrestHeight(sea) + 2f);
+            float y = sea.LevelY + MathF.Max(SWELL_HEIGHT, CrestHeight(sea) + LENS_CLEARANCE);
             Vector2[] plan = AridIntroPaths.Line(from, to);
             var path = new Vector3[plan.Length];
             for (int i = 0; i < plan.Length; i++) path[i] = new Vector3(plan[i].X, y, plan[i].Y);
@@ -162,7 +172,7 @@ namespace BS3D.Effects
             float sign = random.Next(2) == 0 ? 1f : -1f;
 
             Vector2[] plan = AridIntroPaths.Arc(Vector2.Zero, from, from + sign * FLANK_SWEEP_RADIANS, FLANK_RADIUS, FLANK_RADIUS);
-            float y = sea.LevelY + MathF.Max(FLANK_HEIGHT, CrestHeight(sea) + 2f);
+            float y = sea.LevelY + MathF.Max(FLANK_HEIGHT, CrestHeight(sea) + LENS_CLEARANCE);
             var path = new Vector3[plan.Length];
             for (int i = 0; i < plan.Length; i++) path[i] = new Vector3(plan[i].X, y, plan[i].Y);
 

@@ -131,8 +131,9 @@ static const float GRAVITY = 9.81;
 //ladder from 46 down to 9.6 units with the length jittered inside its step, amplitude in proportion to length^0.8 as
 //the old set had it, at random phases, travelling within 75 degrees of the wind with a spread that widens from 22
 //degrees for the long waves to 55 for the short. The slope field's strongest self-likeness inside 250 units falls to
-//0.614, and it lies 242 units away. WAVE_STEEP_WEIGHT holds the summed pinch (q k a over the waves) at the old set's,
-//so the crests sharpen as far as they did. None is shorter than 9.6 units, a little over two cells, and a short one's
+//0.614, and it lies 242 units away. WAVE_STEEP_WEIGHT holds the summed pinch (q k a over the waves) at the old set's
+//(0.872 against 0.875) before GridCarries; after it the geometry pinches 18 % less, the old figure having counted the
+//two aliased waves. None is shorter than 9.6 units, a little over two cells, and a short one's
 //displacement is faded where the grid cannot carry it (GridCarries), and the normals of all but the longest are the
 //pixel's own (SwellNormal).
 static const int WAVE_COUNT = 20;
@@ -365,7 +366,10 @@ static const float CHOP_NOISE_GAIN = 4.43;
 
 float ChopRipple(float2 xz, float2 dir, float frequency, float footprint, float2 seed)
 {
-    float resolvable = saturate(1.0 - footprint * frequency / 3.14159265);
+    //Gone at HALF a noise cell, Fbm2BandLimited's rule: the sine's fade (gone at a whole cell, footprint * frequency / pi)
+    //was exact for a sine, whose energy is all at one frequency, and too loose for noise, whose spread puts half its
+    //slope above the pixel's Nyquist limit by three quarters of a cell (measured on a port of GradientNoise2)
+    float resolvable = saturate(1.0 - 2.0 * footprint * frequency / 3.14159265);
     float2 domain = float2(dot(xz, dir), dot(xz, float2(-dir.y, dir.x)) / CHOP_STRETCH) * (frequency / 3.14159265);
     return GradientNoise2(domain + seed) * CHOP_NOISE_GAIN * resolvable;
 }
@@ -494,7 +498,7 @@ float4 SeaPS(SeaVertexOutput input) : COLOR
     //Whitecap foam. Two per-vertex signals say where foam may LIVE - the Jacobian fold (the wave genuinely
     //breaking) and the crest gate (high on the combined swell) - and neither may draw its own silhouette:
     //both are smooth interpolated scalars, and thresholding the crest height painted the round white blobs
-    //#128 was opened for. Where the six fanned waves constructively interfere, their sum is a localized
+    //#128 was opened for. Where the six fanned waves (the set until #674) constructively interfered, their sum was a localized
     //round bump, and a height threshold on a round bump is a disc - a white ball drifting with the phase
     //speed, which is exactly how it was reported. So the gates set only the foam DENSITY, and the visible
     //shape comes from a streak field: band-limited fbm combed along the dominant swell's crest line
