@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
@@ -258,11 +258,13 @@ namespace Prazsky.Core.Render
                 Vector2 side = new(-dir.Y, dir.X);
                 float wander = 0.25f * ((float)rng.NextDouble() - 0.5f);
                 Vector2 p = dir * 105f;
-                for (int s = 0; s < 60; s++)
+                //A run is FENCE_RUN_LENGTH long whatever the span (#698 doubled the span; at sixty spans the runs went out
+                //twice as far), and wanders by distance rather than by span
+                for (int s = 0; s < (int)(FENCE_RUN_LENGTH / FENCE_SPAN); s++)
                 {
-                    Vector2 heading = Vector2.Normalize(dir + side * (wander * MathF.Sin(s * 0.13f)));
+                    Vector2 heading = Vector2.Normalize(dir + side * (wander * MathF.Sin(s * FENCE_SPAN * (0.13f / 3.2f))));
                     Vector2 q = p + heading * FENCE_SPAN;
-                    if (Free(p.X, p.Y, 0.3f))
+                    if (Free(p.X, p.Y, 0.3f * FENCE_SCALE))
                     {
                         float rise = height(q.X, q.Y) - height(p.X, p.Y);
                         float yaw = -MathF.Atan2(heading.Y, heading.X);
@@ -489,8 +491,19 @@ namespace Prazsky.Core.Render
             static Vector3 Abs(Vector3 a) => new(MathF.Abs(a.X), MathF.Abs(a.Y), MathF.Abs(a.Z));
         }
 
+        //How much bigger the fence is than a field fence would be at this world's metre (#698). The owner: the trees are the
+        //right size and the fence is not - at 1.35 a post it read as a thin line lying in the grass, shorter than a hay
+        //bale beside it (1.6 across), about an eighteenth of an oak, and it had stopped being the scene's scale cue.
+        //Twice, the mesh and the span together (the span is baked into the rails and steps both runs' planting points,
+        //so the instance's own scale stays 1 and a rail still meets the next post), the radii with them so a taller
+        //fence does not turn into spindly sticks.
+        private const float FENCE_SCALE = 2f;
+
         //A fence segment's length, post to post, in world units
-        private const float FENCE_SPAN = 3.2f;
+        private const float FENCE_SPAN = 3.2f * FENCE_SCALE;
+
+        //How far a free-standing run reaches from where it starts, in world units
+        private const float FENCE_RUN_LENGTH = 192f;
 
         //How far everything planted keeps off the footpath's centreline, past its own reach
         private const float PATH_CLEARANCE = 2.2f;
@@ -519,11 +532,13 @@ namespace Prazsky.Core.Render
         {
             var v = new List<VertexPositionNormalTexture>();
             var idx = new List<short>();
-            TubeGeometry.AddTube(v, idx, 6, new Vector3(0f, -0.3f, 0f), 0.10f, new Vector3(0f, 1.35f, 0f), 0.085f);
-            TubeGeometry.AddCap(v, idx, 6, new Vector3(0f, 1.35f, 0f), 0.085f, Vector3.Up);
-            foreach (float y in new[] { 0.55f, 1.05f })
-                TubeGeometry.AddTube(v, idx, 5, new Vector3(-0.05f, y, 0.06f), 0.055f, new Vector3(FENCE_SPAN + 0.05f, y, 0.06f), 0.055f);
-            return new UploadedMesh(device, v, idx, new BoundingSphere(new Vector3(FENCE_SPAN * 0.5f, 0.6f, 0f), FENCE_SPAN * 0.6f));
+            const float k = FENCE_SCALE;
+            TubeGeometry.AddTube(v, idx, 6, new Vector3(0f, -0.3f * k, 0f), 0.10f * k, new Vector3(0f, 1.35f * k, 0f), 0.085f * k);
+            TubeGeometry.AddCap(v, idx, 6, new Vector3(0f, 1.35f * k, 0f), 0.085f * k, Vector3.Up);
+            foreach (float y in new[] { 0.55f * k, 1.05f * k })
+                TubeGeometry.AddTube(v, idx, 5, new Vector3(-0.05f * k, y, 0.06f * k), 0.055f * k,
+                    new Vector3(FENCE_SPAN + 0.05f * k, y, 0.06f * k), 0.055f * k);
+            return new UploadedMesh(device, v, idx, new BoundingSphere(new Vector3(FENCE_SPAN * 0.5f, 0.6f * k, 0f), FENCE_SPAN * 0.6f));
         }
 
         private T Own<T>(T disposable) where T : IDisposable
