@@ -223,7 +223,8 @@ namespace Prazsky.Core.Render
         /// </para>
         /// <para>
         /// Measured a touch <b>above</b> the mean level (the 0.5), so partial submersion already begins to
-        /// count: the surface is a wave field displaced by up to ±0.76 units, so a lens exactly at the mean is
+        /// count: the surface is a wave field displaced by up to about ±2.4 units in practice (±3.0 if every wave crested at
+        /// once; it said ±0.76 until #674, a figure from an older amplitude), so a lens exactly at the mean is
         /// as likely to be inside a crest as in a trough's air, and the allowance is what keeps the answer from
         /// flickering as the swell passes.
         /// </para>
