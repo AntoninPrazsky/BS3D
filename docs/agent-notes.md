@@ -7514,3 +7514,13 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-10-02 — #697 koruny stromů louky — desktop, Claude Code (bs3d-a3)
 
 - **Založeno #697 z majitelovy poznámky** (obdélníky v korunách, listy nerostou z větví = „nalepené papírky“). **Beru část 1, chybu masky:** `BroadLeafMask` násobí stonek `step(p.x, 0.74)` → za koncem stonku 0, ne záporné, a `clip(0)` pixel nechá → celá špičková čtvrtina každé karty je plný pruh. Stejný vzor má akácie (`LeafMask`, 2 % u řapíku). Oprava: záporná hodnota za koncem. Část 2 (listy z větví) je návrh s referencemi, nechávám na potom.
+
+## 2026-10-02 — majitelovy verdikty a další dávka — desktop, Claude Code (bs3d-a3)
+
+- **Verdikty zapsány:** OK a zavřeno #674, #686, #687, #685, #694, #693, #669, #675, #95, #280. OK, ale otevřené kvůli dalšímu kroku nebo rozhodnutí: #257 (krok 2), #230 („tvar v troskách“), #690 (krok 2), #692 (co dělá řez, karty).
+- **Beru:**
+  - #495: bicí pro zbylých 12 rodin, `C:\Users\panrd\AI\stems\batch_drums.py`, vrstva jen při bicích nad −18 dB;
+  - #488: záběry do ulic výš, protože ulice a auta jsou 2D;
+  - #684: online žebříček **vpravo** od okna výběru levelu, jako na stránce výsledku;
+  - #688: duny s ostrými přeryvy, zakulatit jen špičky;
+  - #697 část 2: koruna z větví s listy, trsy jen pro nižší kvalitu.
