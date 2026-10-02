@@ -7,9 +7,9 @@ things out — nothing here is trying to be groundbreaking, it's just a small ga
 
 ## Screenshot
 
-![Screenshot](/Images/screenshot2.jpg)
+![Screenshot](/Images/screenshot3.jpg)
 
-*A level of the neon city chapter, captured in game at 1920×1080.*
+*Cannonball, a level of the meadow chapter, captured in game at 3840×1600.*
 
 ## Download and play
 
