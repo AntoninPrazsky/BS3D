@@ -112,6 +112,10 @@ namespace BS3D.Screens
             //Last, now that the field, the cannon and the game camera are all fit to this level: the one
             //thing here that reads the fit rather than only resetting state (#267).
             TryBeginChapterIntro();
+
+            //And the cluster let go - now, unless a chapter intro has just taken the lens, in which case the release
+            //waits for it to hand back (see ReleaseCluster; UpdatePlaying lets it go then)
+            if (!_chapterIntro.Running) ReleaseCluster();
         }
 
         /// <summary>
@@ -148,6 +152,7 @@ namespace BS3D.Screens
             _world = null;
             _eventHandler = null;
             _ceiling = null;
+            _releasePending = false;
             _map = null;
             _physicsBalls = null;
 
@@ -543,21 +548,9 @@ namespace BS3D.Screens
                 _map.GetStaticBallsArray(), _world.Simulation, _ceiling.BodyReference,
                 _clusterWorldOffset.ToNumerics());
 
-            //And it springs from the glass (#617): the sockets to the plate go soft for the first two seconds of
-            //simulated time and ease back, so the cluster rebounds into its seat instead of snapping to it.
-            _world.BeginStartSwing(_physicsBalls);
-            Console.WriteLine(_world.StartSwing == null ? "[swing] none"
-                : $"[swing] {_world.StartSwing.SocketCount} glass sockets at {_world.StartSwing.SoftFrequency:F2} Hz");
-
-            //A level hung like rope or cloth (#690): every socket between two balls takes the level's own spring, the
-            //glass's anchors keep the builder's (the swing above eases them back to it). The handler below is told the
-            //same spring, so a shot that lands joins the lattice at the lattice's stiffness and not as a rigid knot.
-            if (_run.LatticeSpring is BepuPhysics.Constraints.SpringSettings lattice)
-            {
-                int sockets = LatticeSoftness.Apply(_physicsBalls, _world.Simulation, lattice);
-                Console.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture,
-                    $"[softness] {sockets} lattice socket(s) at {lattice.Frequency:0.##} Hz, damping {lattice.DampingRatio:0.##}"));
-            }
+            //Hung stiff and still, at the builder's own springs: the release - the swing from the glass and a soft
+            //level's own spring - is ReleaseCluster's, and it waits for the lens when a chapter intro has it (#690)
+            _releasePending = true;
 
             //A level with air over it (#95) has a cluster that never falls asleep - a sleeping island is not integrated, so
             //the wind would stop at the first lull. Decided here, once, with the wind BuildPhysicsWorld chose (none on a
@@ -579,10 +572,7 @@ namespace BS3D.Screens
             //match rule. It gets the very list instances the frame draws from, and the same offset, so it can
             //take a world contact down into the grid frame to ask the map about it and bring the answer back up.
             _eventHandler = new BallContactEventHandler(_world.Simulation, _world.Events, _ceiling, _map,
-                _physicsBalls, _shotBalls, _fallingBalls, _clusterWorldOffset)
-            {
-                LatticeSpring = _run.LatticeSpring,
-            };
+                _physicsBalls, _shotBalls, _fallingBalls, _clusterWorldOffset);
 
             //The handler reports what a shot did; what it is worth is the scorer's business. Subscribed on the
             //handler the level just built, and the handler is rebuilt with it, so there is nothing to unhook.
@@ -600,6 +590,39 @@ namespace BS3D.Screens
             //not per session: the set runs from 225 balls to 959, so the cheap ones may hold a tier the heavy
             //ones cannot, and the answer is only ever "this level, this machine, this back buffer".
             Game.ReopenQualityProbe();
+        }
+
+        /// <summary>
+        /// <b>Lets the hung cluster go</b> (#617, #690): the sockets to the glass go soft for the first two seconds of
+        /// simulated time and ease back, so the cluster rebounds into its seat instead of snapping to it, and on a level
+        /// hung like rope or cloth every socket between two balls takes the level's own spring - the glass's anchors
+        /// keep the builder's, which the swing eases them back to. The contact handler is told the same spring, so a
+        /// shot that lands joins the lattice at the lattice's stiffness and not as a rigid knot.
+        /// <para>
+        /// <b>It waits for the lens.</b> It ran as the cluster was built until #690, and on a chapter's first level the
+        /// establishing tour has the camera for its first several seconds - so the swing #617 was built to show was over
+        /// before the lens arrived, and on a soft level the drop, the bounce and the settle, which are the whole of what
+        /// its chapter shows, happened where nobody could see them. Until then the cluster hangs at the builder's stiff
+        /// springs, which is the still picture the preview showed, and is woken here because it has slept meanwhile.
+        /// </para>
+        /// </summary>
+        private void ReleaseCluster()
+        {
+            if (!_releasePending || _physicsBalls == null) return;
+            _releasePending = false;
+
+            _world.WakeCluster(_physicsBalls);
+            _world.BeginStartSwing(_physicsBalls);
+            Console.WriteLine(_world.StartSwing == null ? "[swing] none"
+                : $"[swing] {_world.StartSwing.SocketCount} glass sockets at {_world.StartSwing.SoftFrequency:F2} Hz");
+
+            if (_run.LatticeSpring is BepuPhysics.Constraints.SpringSettings lattice)
+            {
+                int sockets = LatticeSoftness.Apply(_physicsBalls, _world.Simulation, lattice);
+                _eventHandler.LatticeSpring = lattice;
+                Console.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                    $"[softness] {sockets} lattice socket(s) at {lattice.Frequency:0.##} Hz, damping {lattice.DampingRatio:0.##}"));
+            }
         }
 
         #endregion

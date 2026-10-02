@@ -320,6 +320,17 @@ namespace Prazsky.BS3D.Physics
         }
 
         /// <summary>
+        /// Wakes every ball of <paramref name="balls"/> without touching its sleep threshold — what a release that comes
+        /// late needs (#690): a cluster left hanging still through a chapter intro has fallen asleep by the time the lens
+        /// hands back, and a socket re-described on a sleeping island moves nothing until something wakes it.
+        /// </summary>
+        public void WakeCluster(PhysicsBall[,,] balls)
+        {
+            foreach (PhysicsBall ball in balls)
+                if (ball != null) Simulation.Awakener.AwakenBody(ball.BallReference.Handle);
+        }
+
+        /// <summary>
         /// The start-of-level spring of a freshly hung cluster (#617), advanced inside <see cref="Step"/> on the
         /// fixed step and dropped once it has handed the sockets back. Null when none is running. See
         /// <see cref="ClusterStartSwing"/> for what it does and what it was measured against.

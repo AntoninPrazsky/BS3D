@@ -816,6 +816,10 @@ namespace BS3D.Screens
         //CameraTakeoverEngaged.
         private readonly ChapterIntro _chapterIntro = new();
 
+        //The level's cluster is built and still hangs stiff, waiting for ReleaseCluster (#690): set by BuildCluster,
+        //cleared when the release runs - at once, or when a chapter intro hands the lens back
+        private bool _releasePending;
+
         //Which blocks have already shown their intro this run of the program, keyed by the block's FIRST
         //level index rather than its name — a name is authored prose and not guaranteed unique across blocks,
         //where the first index always is. Deliberately not PlayerProgress and never cleared: a fresh launch
@@ -1231,6 +1235,9 @@ namespace BS3D.Screens
             //The chapter intro has no subject to read and no time scale to feed the step below — see the
             //class remarks on why. Just its own pose and blend, exactly like the line above.
             _chapterIntro.Update(elapsed);
+
+            //And the cluster it held still is let go the moment it hands the lens back (#690) - see ReleaseCluster
+            if (_releasePending && !_chapterIntro.Running) ReleaseCluster();
 
             //A step that came due while the shot was in the air waits here for its moment — see
             //CeilingDescent.Update. Before the physics step, so a released step slides on the same frame. The
