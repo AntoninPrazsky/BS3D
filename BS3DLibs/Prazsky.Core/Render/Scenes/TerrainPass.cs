@@ -49,7 +49,7 @@ namespace Prazsky.Core.Render
         private float _cell;
 
         private readonly EffectParameter _originXZ, _islandHoleRadius, _view, _projection, _cameraPosition,
-            _sunDirection, _zenithColor, _horizonColor, _time, _sunColor;
+            _sunDirection, _zenithColor, _horizonColor, _time, _sunColor, _gridCell;
 
         /// <summary>The scene's terrain effect, loaded (and owned) by the backdrop that draws through this pass.</summary>
         public Effect Effect { get; }
@@ -82,6 +82,10 @@ namespace Prazsky.Core.Render
             _horizonColor = effect.Parameters["HorizonColor"];
             _time = timeParameter == null ? null : effect.Parameters[timeParameter];
             _sunColor = effect.Parameters["SunColor"];
+
+            //The vertex spacing, for an effect that asks (the sea, #674: which waves its vertices can carry)
+            _gridCell = effect.Parameters["GridCell"];
+            _gridCell?.SetValue(_cell);
         }
 
         /// <summary>
@@ -98,6 +102,7 @@ namespace Prazsky.Core.Render
             _services.AcquireGridMesh(gridN, _extent, out _vertexBuffer, out _indexBuffer, out _indexCount);
             _gridN = gridN;
             _cell = _extent / (gridN - 1);
+            _gridCell?.SetValue(_cell);
         }
 
         /// <summary>
