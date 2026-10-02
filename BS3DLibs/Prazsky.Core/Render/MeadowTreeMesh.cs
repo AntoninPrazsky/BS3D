@@ -40,18 +40,17 @@ namespace Prazsky.Core.Render
     /// </para>
     /// <para>
     /// ⚠ <b>There is no solid core inside the leaves any more.</b> Until #697 the cards were laid round each clump's shell
-    /// over a smaller lump (<see cref="Core"/>), and the owner, close up: the leaves did not grow from the branches but
-    /// were "stuck onto those balls" like scraps of paper - the balls should not be there at all, only branches with
-    /// leaves, the lumps kept for the Low tier if that saves anything. So a card's stem now starts ON a twig, and the core
-    /// is drawn into the sun's map only (<c>ScatterBucket.ShadowOnly</c>): a dense oak still throws a solid shade, and the
-    /// cards, which would cost a second time there, still do not cast.
+    /// over a smaller lump, and the owner, close up: the leaves did not grow from the branches but were "stuck onto those
+    /// balls" like scraps of paper - the balls should not be there at all, only branches with leaves, the lumps kept for the
+    /// Low tier if that saves anything. So a card's stem now starts ON a twig, and the cards cast the crown's shade
+    /// themselves, cut by their own leaves. The lump stayed a shadow-only caster for one merge, and a review found a third
+    /// of the leaf area inside it: anything inside a caster is in the sun's shadow from every direction.
     /// </para>
     /// </summary>
     internal sealed class MeadowTreeMesh : IDisposable
     {
         public IProceduralMesh Wood { get; }
         public IProceduralMesh Crown { get; }
-        public IProceduralMesh Core { get; }
         public IProceduralMesh Twigs { get; }
         public IProceduralMesh Leaves { get; }
 
@@ -63,9 +62,6 @@ namespace Prazsky.Core.Render
 
         /// <summary>The root flare's radius at scale 1.</summary>
         public float BaseRadius { get; }
-
-        //How much smaller the core's lumps are than the Low tier's, inside the leaf cards
-        private const float CORE_SHARE = 0.66f;
 
         //The clumps' tessellation, coarser than a lone bush's (FoliageMesh's own 16 by 11): fifty-odd of them a tree
         private const int LUMP_SLICES = 10, LUMP_STACKS = 7;
@@ -79,6 +75,11 @@ namespace Prazsky.Core.Render
         //from how far along a twig its leaves start - the inner third is bare wood, as a twig's base is
         private const int TWIGS_MIN = 5, TWIGS_MAX = 8;
         private const float TWIG_RADIUS = 0.035f, LEAVES_FROM = 0.3f;
+
+        //How much of a sprig's lean OUT through the clump's shell is taken back, so it lies along the shell as a leaf held
+        //to the light does (#697's review): pointing straight out it kept no outward face once its own length was taken
+        //out of the face, and a third of the cards faced into the clump and shaded dark on its sunny side
+        private const float SPRIG_FLATTEN = 0.7f;
 
         //The share of the clumps set deeper in the dome than its shell, for the depth seen through the gaps
         private const float INNER_SHARE = 0.22f;
@@ -118,7 +119,7 @@ namespace Prazsky.Core.Render
         /// bole to <paramref name="trunkHeight"/> under a crown <paramref name="crownRadius"/> wide and
         /// <paramref name="crownHeight"/> tall, its limbs steep as a forest-grown tree's are. <b>Wood and crown
         /// only</b> — the forest draws through <c>InstancedModel.fx</c>, which cuts no leaf cards, so its crown is
-        /// the solid clumps, coarser still since a forest holds eighty of them. <see cref="Core"/> and
+        /// the solid clumps, coarser still since a forest holds eighty of them. <see cref="Twigs"/> and
         /// <see cref="Leaves"/> are null.
         /// </summary>
         public static MeadowTreeMesh ForForest(GraphicsDevice device, float trunkRadius, float trunkHeight,
@@ -275,14 +276,14 @@ namespace Prazsky.Core.Render
                 //Into the clump to a third of its radius short of the centre - where its spray of twigs starts (#697)
                 Vector3 to = centre - Vector3.Normalize(centre - from + new Vector3(0f, 1e-3f, 0f)) * (r * 0.33f);
                 Bough(from, fromRadius, to, trunk * 0.06f, 5, 0.06f);
+                //Capped: no lump hides the branch's end any more, and an open tube is a hole seen from inside the crown
+                TubeGeometry.AddCap(wv, widx, 5, to, trunk * 0.06f, to - from);
                 sprayBases.Add(to);
             }
 
             //--- The crowns
             var cv = new List<VertexPositionNormalTexture>();
             var cidx = new List<short>();
-            var kv = new List<VertexPositionNormalTexture>();
-            var kidx = new List<short>();
             var tv = new List<VertexPositionNormalTexture>();
             var tidx = new List<short>();
             var lv = new List<VertexPositionNormalTexture>();
@@ -293,8 +294,6 @@ namespace Prazsky.Core.Render
                 (Vector3 centre, float r, bool inner) = clumps[i];
                 FoliageMesh.Generate(cv, cidx, r, r * 0.8f, centre, seed * 17 + i, FoliageStyle.Crown, lumpSlices, lumpStacks);
                 if (!cards) continue;
-                FoliageMesh.Generate(kv, kidx, r * CORE_SHARE, r * 0.8f * CORE_SHARE, centre, seed * 17 + i, FoliageStyle.Crown,
-                    lumpSlices, lumpStacks);
                 AddSpray(tv, tidx, lv, lidx, sprayBases[i], centre, crownCentre, r, r * 0.8f, inner, trunk * TWIG_RADIUS, leafRng);
             }
 
@@ -306,7 +305,6 @@ namespace Prazsky.Core.Render
             Crown = new UploadedMesh(device, cv, cidx, bounds);
             if (cards)
             {
-                Core = new UploadedMesh(device, kv, kidx, bounds);
                 Twigs = new UploadedMesh(device, tv, tidx, bounds);
                 Leaves = new UploadedMesh(device, lv, lidx, bounds);
             }
@@ -377,6 +375,10 @@ namespace Prazsky.Core.Render
                     //The sprig leaves the twig forwards, at forty-odd degrees, and the last one carries straight on
                     float lean = k == cards - 1 ? 0.25f : 0.8f + 0.3f * (float)rng.NextDouble();
                     Vector3 along = Vector3.Normalize(tangent + outFromTwig * lean);
+                    Vector3 fromCentre = at - centre;
+                    Vector3 shellAt = Vector3.Normalize(new Vector3(fromCentre.X / radius, fromCentre.Y / halfHeight, fromCentre.Z / radius)
+                        + new Vector3(0f, 1e-4f, 0f));
+                    along = Vector3.Normalize(along - shellAt * (Vector3.Dot(along, shellAt) * SPRIG_FLATTEN));
 
                     //The card's face towards the shell's outside and the sky, turned square to its own length
                     float scale = 0.75f + 0.5f * (float)rng.NextDouble();
@@ -386,8 +388,12 @@ namespace Prazsky.Core.Render
                     Vector3 face = shell * 0.6f + Vector3.Up * 0.4f
                         + new Vector3((float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f) * 0.6f;
                     face -= Vector3.Dot(face, along) * along;
-                    if (face.LengthSquared() < 1e-6f) face = outFromTwig;
+                    if (face.LengthSquared() < 1e-6f) face = outFromTwig - Vector3.Dot(outFromTwig, along) * along;
                     face = Vector3.Normalize(face);
+
+                    //The front out of the clump whatever the jitter did: Acacia.fx shades a card from behind by its flipped
+                    //normal, so a front turned in would be a dark leaf on the sunny side (#697's review)
+                    if (Vector3.Dot(face, shell) < 0f) face = -face;
 
                     //face x along = across, so along x across = face: the card's front is the side the face points to
                     Vector3 width = Vector3.Cross(face, along);
@@ -413,7 +419,7 @@ namespace Prazsky.Core.Render
         {
             (Wood as IDisposable)?.Dispose();
             (Crown as IDisposable)?.Dispose();
-            (Core as IDisposable)?.Dispose();
+            (Twigs as IDisposable)?.Dispose();
             (Leaves as IDisposable)?.Dispose();
         }
     }

@@ -99,7 +99,6 @@ namespace Prazsky.Core.Render
                 ScatterBucket bucket = buckets[i];
                 if (bucket.DetailOnly && !detail) continue;
                 if (bucket.LowOnly && detail) continue;
-                if (bucket.ShadowOnly) continue;
 
                 _diffuse.SetValue(bucket.Diffuse);
                 _diffuseDry.SetValue(bucket.DiffuseDry);
