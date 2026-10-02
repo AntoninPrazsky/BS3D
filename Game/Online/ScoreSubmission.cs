@@ -5,13 +5,15 @@ using System.Text.Json.Serialization;
 namespace BS3D.Online
 {
     /// <summary>
-    /// One cleared level as the score service's <c>POST /v1/scores</c> takes it — contract v1 of #542, field
+    /// One ended level as the score service's <c>POST /v1/scores</c> takes it — contract v1 of #542, field
     /// for field. It is also what <c>Outbox.json</c> holds, so a clear waiting for the service is the very
     /// request that will be sent, not a note from which one will be rebuilt — but for <see cref="Name"/>, which is
     /// the player's rather than the clear's and is stamped again at every send (#572).
     /// <para>
     /// <b>Every clear is one, not only a new best</b>: the month's board ranks the best clear each player made
-    /// <i>in that month</i>, so a September clear below an all-time best still stands in September. The
+    /// <i>in that month</i>, so a September clear below an all-time best still stands in September. <b>A loss is
+    /// one with zero <see cref="Stars"/></b> since #716, an unfinished attempt, sent only when it can change a
+    /// board (<c>OnlineSession.SubmitEnding</c>); the service ranks every clear above every one of them. The
     /// service is idempotent on <see cref="SubmissionId"/>, which is what lets the outbox resend after a
     /// timeout without a clear ever counting twice.
     /// </para>
@@ -41,14 +43,16 @@ namespace BS3D.Online
         [JsonPropertyName("score")]
         public int Score { get; set; }
 
+        /// <summary>1 to <c>StarRating.MAX</c> for a clear; 0 marks an unfinished attempt (#716), which no clear can be.</summary>
         [JsonPropertyName("stars")]
         public int Stars { get; set; }
 
-        /// <summary>Shots fired up to the moment the field emptied — not the ones fired into the clear's beat.</summary>
+        /// <summary>Shots fired up to the moment the level was decided — not the ones fired into the clear's beat, nor
+        /// during the line's loss.</summary>
         [JsonPropertyName("shotsUsed")]
         public int ShotsUsed { get; set; }
 
-        /// <summary>Seconds of play from the level's start to the clear: a pause and an unfocused window are not play.</summary>
+        /// <summary>Seconds of play from the level's start to its end: a pause, an unfocused window and the chapter's tour are not play.</summary>
         [JsonPropertyName("durationSeconds")]
         public float DurationSeconds { get; set; }
 

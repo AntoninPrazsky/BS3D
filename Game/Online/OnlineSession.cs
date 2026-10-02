@@ -256,16 +256,47 @@ namespace BS3D.Online
         }
 
         /// <summary>
-        /// A level was cleared: hand it to the score service (#546). <b>Every clear, not only a new best</b> — the
-        /// month's board ranks what was done in that month — and never a loss, because the boards are boards of
-        /// clears. A level on no board (the built-in fallback map, whose identity is null) and a run that submits
-        /// nowhere both do nothing. Called from the one funnel both endings come through, beside the save's own
+        /// A level ended: hand it to the score service (#546, #716), and say whether anything went. <b>Every clear,
+        /// not only a new best</b> — the month's board ranks what was done in that month. <b>A loss goes as an
+        /// unfinished attempt</b>, its zero stars the mark (a clear always earns at least one), and only when it can
+        /// change what a board shows (the owner's rules on #716): never when <paramref name="savedClear"/> - the
+        /// service shows a player's unfinished rows only while they have no clear on the board, so it would keep the
+        /// attempt and show it nowhere - and only when its score beats the best attempt this identity already sent
+        /// for the board (<see cref="OnlineIdentity.Attempts"/>; an equal one is not sent again). That best is
+        /// counted when the attempt is handed over, not when it is delivered, so a player offline queues no rising
+        /// series of them. A level on no board (the built-in fallback map, whose identity is null) and a run that
+        /// submits nowhere send nothing. Called from the one funnel both endings come through, beside the save's own
         /// record, so the score and the stars sent are the ones the save kept.
         /// </summary>
-        internal void SubmitClear(LevelIdentity level, int score, int stars, int shotsUsed, float seconds)
+        /// <param name="savedClear">The save holds a clear of this level. It is keyed by the level's file and not
+        /// its hash, so it can also hold back a loss on a regenerated level's new board: an optimisation, not a rule,
+        /// as #716 calls it - the service is the authority on what it shows.</param>
+        /// <returns>Whether the ending was handed to the client: what the result page's plate stands on (#707).</returns>
+        internal bool SubmitEnding(LevelIdentity level, int score, int stars, int shotsUsed, float seconds, bool savedClear)
         {
+            if (!Enabled || level == null) return false;
+
+            string board = null;
+            if (stars == 0)
+            {
+                if (savedClear) return false;
+
+                board = OnlineIdentity.BoardKey(level.File, level.Hash, Prazsky.BS3D.Scoring.ScoreKeeper.RulesVersion);
+                if (_identity.Attempts != null && _identity.Attempts.TryGetValue(board, out int best) && score <= best)
+                {
+                    Console.WriteLine($"[online] An unfinished attempt at {score} is not sent: {best} was already sent for this board");
+                    return false;
+                }
+            }
+
             ScoreSubmission submission = _client?.NewSubmission(level, score, stars, shotsUsed, seconds);
-            if (submission == null) return;
+            if (submission == null) return false;
+
+            if (board != null)
+            {
+                (_identity.Attempts ??= new Dictionary<string, int>())[board] = score;
+                SaveIdentity();
+            }
 
             _submissionId = submission.SubmissionId;
             _submittedLevel = level;
@@ -278,6 +309,7 @@ namespace BS3D.Online
             ForgetBoards(level);
 
             _client.Submit(submission);
+            return true;
         }
 
         /// <summary>

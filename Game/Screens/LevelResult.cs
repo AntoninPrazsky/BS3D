@@ -145,6 +145,14 @@ namespace BS3D.Screens
         /// <summary>What was <b>awarded</b>, not what recomputing it now would give — see the type's summary.</summary>
         public readonly int UnusedShotsAwarded, CompletionBonusAwarded;
 
+        /// <summary>
+        /// This ending was handed to the score service (#716): a clear, or a loss sent as an unfinished attempt. The
+        /// result page's online plate is this ending's only when it is true - <c>OnlineSession.Result</c> otherwise
+        /// still holds the answer to an earlier ending, which is how a loss came to stand under a previous clear's
+        /// "Sending your score..." (#707).
+        /// </summary>
+        public readonly bool Submitted;
+
         public LevelResult(bool cleared, string failureText, int stars, bool newBest, int levelBalls,
             string levelName, int levelNumber,
             bool hasNextLevel, bool nextLevelUnlocked, int nextLevelMinStars, int totalStars,
@@ -154,7 +162,8 @@ namespace BS3D.Screens
             bool campaignComplete,
             bool blockComplete, string blockName, int blockNumber, int blockCount,
             int score, int matchedBalls, int orphanedBalls, int streakBonus,
-            bool hadBudget, int unusedShotsAwarded, int completionBonusAwarded)
+            bool hadBudget, int unusedShotsAwarded, int completionBonusAwarded,
+            bool submitted = false)
         {
             Cleared = cleared;
             FailureText = failureText ?? string.Empty;
@@ -187,6 +196,7 @@ namespace BS3D.Screens
             HadBudget = hadBudget;
             UnusedShotsAwarded = unusedShotsAwarded;
             CompletionBonusAwarded = completionBonusAwarded;
+            Submitted = submitted;
         }
 
         public bool Failed => !Cleared;

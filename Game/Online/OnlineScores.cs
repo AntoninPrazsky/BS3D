@@ -363,8 +363,10 @@ namespace BS3D.Online
         {
             string host = TryResolveServer(settings, out Uri server, out _, out _) ? server.Authority : "the score server";
 
-            return $"With online scores on, each cleared level sends your nickname, a random player id, the level, its score, stars, shots, time and the "
-                + $"game's version to {host}, which adds only when it arrived and a hashed network address. Remove scores deletes it all.";
+            //Unfinished attempts too since #716: the sentence is what a player agreed to, so it says so
+            return $"With online scores on, each cleared level, and your best attempt at a level you have not cleared yet, sends your nickname, "
+                + $"a random player id, the level, its score, stars, shots, time and the game's version to {host}, which adds only when it "
+                + "arrived and a hashed network address. Remove scores deletes it all.";
         }
 
         #region The worker
@@ -493,6 +495,17 @@ namespace BS3D.Online
             bool added = false;
             while (_incoming.TryDequeue(out ScoreSubmission submission))
             {
+                //A queued unfinished attempt is superseded by anything newer on its board (#716): a better attempt -
+                //the only kind the frame hands over - or a clear, which hides it on the service anyway. Safe here,
+                //because only this worker touches the outbox and never while a send of its head is in flight.
+                for (int i = outbox.Count - 1; i >= 0; i--)
+                {
+                    if (outbox[i].Stars != 0 || !SameBoard(outbox[i], submission)) continue;
+
+                    Console.WriteLine($"[online] {Describe(outbox[i])}: superseded in the outbox by a newer one; dropped");
+                    outbox.RemoveAt(i);
+                }
+
                 outbox.Add(submission);
                 added = true;
             }
@@ -508,6 +521,11 @@ namespace BS3D.Online
 
             SaveOutbox(outbox);
         }
+
+        /// <summary>Two submissions by one player to one board (#716).</summary>
+        private static bool SameBoard(ScoreSubmission a, ScoreSubmission b) =>
+            a.PlayerId == b.PlayerId && a.RulesVersion == b.RulesVersion
+            && a.Level?.File == b.Level?.File && a.Level?.Hash == b.Level?.Hash;
 
         /// <summary>
         /// Sends from the head of the outbox until it is empty or a submission gets no answer. A delivered or a
@@ -564,7 +582,7 @@ namespace BS3D.Online
                         NoticeRefusedName(delivery.Body);
                         Console.WriteLine($"[online] {Describe(submission)}: REFUSED {delivery.Status}"
                             + (string.IsNullOrEmpty(delivery.Body?.Reason) ? "" : $" ({delivery.Body.Reason})")
-                            + " — dropped; the game and the service disagree about this clear");
+                            + " — dropped; the game and the service disagree about this submission");
                         break;
 
                     default:

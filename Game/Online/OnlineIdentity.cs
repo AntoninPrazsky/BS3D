@@ -1,6 +1,7 @@
 using Prazsky.Core.Tools;
 using System;
 using System.Buffers.Text;
+using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -53,6 +54,20 @@ namespace BS3D.Online
 
         [JsonPropertyName("name")]
         public string Name { get; set; }
+
+        /// <summary>
+        /// The best unfinished attempt this identity has handed the service, per board (#716), keyed by
+        /// <see cref="BoardKey"/>: a loss goes to the boards only when its score beats this one. Kept <b>with the
+        /// identity</b> and not in the save, so removing one's scores or a new identity starts clean, and the save's
+        /// best stays the best clear. Null until the first one; an older build reads past the field and, renaming,
+        /// drops it, which costs no more than one loss sent again.
+        /// </summary>
+        [JsonPropertyName("attempts")]
+        public Dictionary<string, int> Attempts { get; set; }
+
+        /// <summary>One board's key in <see cref="Attempts"/>: the level's file and hash and the scoring rules' version.</summary>
+        internal static string BoardKey(string file, string hash, int rules) =>
+            file + "#" + hash + "#" + rules.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
         /// <summary>Whether this is an identity anything can be sent under: an id, a token and a name.</summary>
         [JsonIgnore]

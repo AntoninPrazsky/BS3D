@@ -13,7 +13,9 @@ namespace BS3D.Screens
     /// <summary>
     /// One online board as the game draws it (#547): its heading, the period it covers, a column of ranks, nicknames
     /// and scores, and the player's own place under them in the gold the stars are struck in. One copy, for the
-    /// result page's two top-five boards and the level picker's board page alike.
+    /// result page's two top-five boards and the level picker's board page alike. A row with zero stars is an
+    /// unfinished attempt (#716) - the service ranks every clear above all of them - and says so in a column of its
+    /// own, between the name and the score.
     /// <para>
     /// The nicknames are in the small face, which is Inter: the service takes any letter, and Inter carries Cyrillic
     /// and Greek where Anton — the display face every value button is set in — carries neither (BS3D#548's
@@ -23,7 +25,10 @@ namespace BS3D.Screens
     internal sealed class BoardView
     {
         private readonly Label _heading, _period, _you;
-        private readonly Label[] _rank, _name, _score;
+        private readonly Label[] _rank, _name, _mark, _score;
+
+        /// <summary>What an unfinished attempt's row and the player's own line say of it (#716).</summary>
+        public const string UnfinishedMark = "not finished";
 
         public Widget Root { get; }
 
@@ -43,9 +48,11 @@ namespace BS3D.Screens
             grid.ColumnsProportions.Add(new Proportion(ProportionType.Auto));
             grid.ColumnsProportions.Add(new Proportion(ProportionType.Fill));
             grid.ColumnsProportions.Add(new Proportion(ProportionType.Auto));
+            grid.ColumnsProportions.Add(new Proportion(ProportionType.Auto));
 
             _rank = new Label[rows];
             _name = new Label[rows];
+            _mark = new Label[rows];
             _score = new Label[rows];
 
             for (int i = 0; i < rows; i++)
@@ -53,7 +60,8 @@ namespace BS3D.Screens
                 grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
                 _rank[i] = Cell(grid, small, i, 0, HorizontalAlignment.Right);
                 _name[i] = Cell(grid, small, i, 1, HorizontalAlignment.Left);
-                _score[i] = Cell(grid, small, i, 2, HorizontalAlignment.Right);
+                _mark[i] = Cell(grid, small, i, 2, HorizontalAlignment.Right);
+                _score[i] = Cell(grid, small, i, 3, HorizontalAlignment.Right);
             }
 
             stack.Widgets.Add(grid);
@@ -83,7 +91,10 @@ namespace BS3D.Screens
         /// Writes the board. <paramref name="board"/> may still be null — the rows stay empty and the player's own line
         /// still says where they stand, from the submission's answer. The row at the player's rank is theirs, in gold.
         /// </summary>
-        public void Fill(string heading, string period, BoardPageBody board, int rank, int total)
+        /// <param name="unfinished">Whether the player's own place is an unfinished attempt, for as long as the board's
+        /// own row for them has not come to say (the result page's, from the ending it was for); the board's row wins
+        /// once it is in.</param>
+        public void Fill(string heading, string period, BoardPageBody board, int rank, int total, bool unfinished = false)
         {
             _heading.Text = heading;
             _period.Text = period;
@@ -96,11 +107,15 @@ namespace BS3D.Screens
 
                 _rank[i].Text = entry != null ? entry.Rank.ToString(CultureInfo.InvariantCulture) : string.Empty;
                 _name[i].Text = entry?.Name ?? string.Empty;
+                _mark[i].Text = entry != null && entry.Stars == 0 ? UnfinishedMark : string.Empty;
                 _score[i].Text = entry != null ? ScoreText.Of(entry.Score) : string.Empty;
                 _rank[i].TextColor = _name[i].TextColor = _score[i].TextColor = colour;
+                _mark[i].TextColor = colour == BS3DGame.BoardYouColor ? colour : BS3DGame.MENU_TEXT_DIM;
             }
 
-            _you.Text = rank > 0 ? $"You  #{rank} of {total}"
+            if (board?.Me is BoardMeBody me && me.Rank > 0) unfinished = me.Stars == 0;
+
+            _you.Text = rank > 0 ? $"You  #{rank} of {total}" + (unfinished ? ", " + UnfinishedMark : string.Empty)
                 : total > 0 ? "You are not on this board yet"
                 : "Nobody is on this board yet";
         }
