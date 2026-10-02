@@ -527,6 +527,7 @@ namespace Prazsky.Core.Render
                 ScatterBucket bucket = buckets[b];
                 if (bucket.DetailOnly && !detail) continue;
                 if (bucket.LowOnly && detail) continue;
+                if (bucket.ShadowOnly) continue;
 
                 _acaciaDiffuseParam.SetValue(bucket.Diffuse);
                 _acaciaDiffuseDryParam.SetValue(bucket.DiffuseDry);

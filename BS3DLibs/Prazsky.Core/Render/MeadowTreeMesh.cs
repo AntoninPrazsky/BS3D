@@ -32,11 +32,19 @@ namespace Prazsky.Core.Render
     /// spreading from one point like the fingers of a hand, which is what one fork of six limbs looked like.
     /// </para>
     /// <para>
-    /// <b>Three crowns from one layout</b>, the acacia's split (#610): <see cref="Crown"/>, the clumps as solid lumps
-    /// (the Low tier's); <see cref="Core"/>, the same lumps drawn smaller; and <see cref="Leaves"/>, cards over each
-    /// clump's shell that <c>Acacia.fx</c> cuts into twigs of broad leaves (<c>BroadLeafMask</c>) and lights through,
-    /// drawn round the core at every other tier. The core keeps the dome dense where a card-only crown would show the
-    /// sky through its middle; the cards give every clump the leafy, broken edge.
+    /// <b>Two crowns from one layout</b>, the acacia's split (#610): <see cref="Crown"/>, the clumps as solid lumps (the
+    /// Low tier's), and at every other tier <b>the clumps as what they are, twigs with leaves</b> (#697):
+    /// <see cref="Twigs"/>, a spray of thin twigs fanning out of every branch end through its clump to the shell, and
+    /// <see cref="Leaves"/>, cards hung along those twigs by their stems that <c>Acacia.fx</c> cuts into sprigs of broad
+    /// leaves (<c>BroadLeafMask</c>) and lights through.
+    /// </para>
+    /// <para>
+    /// ⚠ <b>There is no solid core inside the leaves any more.</b> Until #697 the cards were laid round each clump's shell
+    /// over a smaller lump (<see cref="Core"/>), and the owner, close up: the leaves did not grow from the branches but
+    /// were "stuck onto those balls" like scraps of paper - the balls should not be there at all, only branches with
+    /// leaves, the lumps kept for the Low tier if that saves anything. So a card's stem now starts ON a twig, and the core
+    /// is drawn into the sun's map only (<c>ScatterBucket.ShadowOnly</c>): a dense oak still throws a solid shade, and the
+    /// cards, which would cost a second time there, still do not cast.
     /// </para>
     /// </summary>
     internal sealed class MeadowTreeMesh : IDisposable
@@ -44,6 +52,7 @@ namespace Prazsky.Core.Render
         public IProceduralMesh Wood { get; }
         public IProceduralMesh Crown { get; }
         public IProceduralMesh Core { get; }
+        public IProceduralMesh Twigs { get; }
         public IProceduralMesh Leaves { get; }
 
         /// <summary>How far the crown reaches from the axis at scale 1.</summary>
@@ -63,9 +72,13 @@ namespace Prazsky.Core.Render
 
         //The leaf cards: a card's side against its clump's radius (square, so the leaves keep their shape), how many
         //cards a clump takes (its shell's cover, before the leaves are cut out of them - a card is about a third leaf),
-        //and the lowest point of the shell they cover (-1 the bottom pole): a clump's underside is its shade, and the
-        //lumps inside fill it
+        //and the lowest point of the shell they cover (-1 the bottom pole)
         private const float CARD_SIZE = 0.7f, CARD_COVER = 1.5f, CARD_LOWEST = -1f;
+
+        //A clump's spray (#697): how many twigs fan out of its branch end, how thick they leave it against the trunk, and
+        //from how far along a twig its leaves start - the inner third is bare wood, as a twig's base is
+        private const int TWIGS_MIN = 5, TWIGS_MAX = 8;
+        private const float TWIG_RADIUS = 0.035f, LEAVES_FROM = 0.3f;
 
         //The share of the clumps set deeper in the dome than its shell, for the depth seen through the gaps
         private const float INNER_SHARE = 0.22f;
@@ -233,6 +246,7 @@ namespace Prazsky.Core.Render
             Bough(fork, trunk * 0.5f, leaderTop, trunk * 0.22f, 8, 0.02f);
 
             //The branches: from the nearest knee by bearing into every clump, or off the leader over the middle
+            var sprayBases = new List<Vector3>(clumps.Count);
             foreach ((Vector3 centre, float r, bool inner) in clumps)
             {
                 Vector3 offset = centre - crownCentre;
@@ -258,9 +272,10 @@ namespace Prazsky.Core.Render
                     fromRadius = knees[best].Radius * 0.8f;
                 }
 
-                //Into the clump to a third of its radius short of the centre
+                //Into the clump to a third of its radius short of the centre - where its spray of twigs starts (#697)
                 Vector3 to = centre - Vector3.Normalize(centre - from + new Vector3(0f, 1e-3f, 0f)) * (r * 0.33f);
                 Bough(from, fromRadius, to, trunk * 0.06f, 5, 0.06f);
+                sprayBases.Add(to);
             }
 
             //--- The crowns
@@ -268,6 +283,8 @@ namespace Prazsky.Core.Render
             var cidx = new List<short>();
             var kv = new List<VertexPositionNormalTexture>();
             var kidx = new List<short>();
+            var tv = new List<VertexPositionNormalTexture>();
+            var tidx = new List<short>();
             var lv = new List<VertexPositionNormalTexture>();
             var lidx = new List<int>();
             Random leafRng = new(seed * 41 + 3);
@@ -278,7 +295,7 @@ namespace Prazsky.Core.Render
                 if (!cards) continue;
                 FoliageMesh.Generate(kv, kidx, r * CORE_SHARE, r * 0.8f * CORE_SHARE, centre, seed * 17 + i, FoliageStyle.Crown,
                     lumpSlices, lumpStacks);
-                AddLeafShell(lv, lidx, centre, r, r * 0.8f, inner, leafRng);
+                AddSpray(tv, tidx, lv, lidx, sprayBases[i], centre, crownCentre, r, r * 0.8f, inner, trunk * TWIG_RADIUS, leafRng);
             }
 
             CrownReach = reach;
@@ -290,61 +307,105 @@ namespace Prazsky.Core.Render
             if (cards)
             {
                 Core = new UploadedMesh(device, kv, kidx, bounds);
+                Twigs = new UploadedMesh(device, tv, tidx, bounds);
                 Leaves = new UploadedMesh(device, lv, lidx, bounds);
             }
         }
 
         /// <summary>
-        /// Leaf cards over one clump's shell, the acacia's cards (<see cref="LeafSprays"/>) laid round a lump instead of
-        /// in a flat tier: each card tangent to the shell give or take a tilt, some standing proud of it so the edge is
-        /// broken, its normal the shell's own so the clump shades as one rounded mass, lit on top and dark beneath. The
-        /// texture coordinate carries the card and its layer as <see cref="LeafSprays"/> does — the top of the clump the
-        /// top layer, its flanks the next, its underside and every clump inside the dome the deepest — which is what
-        /// <c>Acacia.fx</c> darkens by.
+        /// One clump as twigs with leaves (#697): <see cref="TWIGS_MIN"/> to <see cref="TWIGS_MAX"/> twigs fan out of
+        /// its branch end at <paramref name="basePoint"/> to points spread over its shell - the side facing out of the
+        /// crown and up first, as a spray reaches for the light - each a thin swept tube bowing up on its way, and the
+        /// clump's cards hung along their outer two thirds, every card's stem on the twig (a card's <c>u</c> = 0 end is
+        /// its stem's base, <c>Acacia.fx</c>'s <c>BroadLeafMask</c>) and its sprig leaving it forwards, turned round the
+        /// twig leaf by leaf. The card count is the shell's cover it had, so the leaf mass and the cost are what they were.
+        /// The shading normal is still mostly the clump's shell, so a spray shades as one rounded mass of leaves, lit on
+        /// top and dark beneath; the layer code the same as the shell's (top, flanks, underside and inside).
         /// </summary>
-        private static void AddLeafShell(List<VertexPositionNormalTexture> v, List<int> idx, Vector3 centre, float radius,
-            float halfHeight, bool inner, Random rng)
+        private static void AddSpray(List<VertexPositionNormalTexture> tv, List<short> tidx,
+            List<VertexPositionNormalTexture> lv, List<int> lidx, Vector3 basePoint, Vector3 centre, Vector3 crownCentre,
+            float radius, float halfHeight, bool inner, float twigRadius, Random rng)
         {
             float size = radius * CARD_SIZE;
-            //The shell's cap from CARD_LOWEST up is 2 pi r^2 (1 - lowest) on a sphere of the clump's radius
-            int count = (int)(CARD_COVER * MathHelper.TwoPi * radius * radius * (1f - CARD_LOWEST) / (size * size));
+            int cardsLeft = (int)(CARD_COVER * MathHelper.TwoPi * radius * radius * (1f - CARD_LOWEST) / (size * size));
+            int twigs = TWIGS_MIN + rng.Next(TWIGS_MAX - TWIGS_MIN + 1);
 
-            for (int i = 0; i < count; i++)
+            //Out of the crown and a little up: the side of the shell the twigs reach for first
+            Vector3 outward = centre - crownCentre;
+            outward.Y = MathF.Max(outward.Y, 0f) + radius;
+            outward = Vector3.Normalize(outward);
+
+            float golden = MathF.PI * (3f - MathF.Sqrt(5f));
+            float spin = (float)rng.NextDouble() * MathHelper.TwoPi;
+            for (int t = 0; t < twigs; t++)
             {
-                float y = CARD_LOWEST + (1f - CARD_LOWEST) * (float)rng.NextDouble();
-                float ring = MathF.Sqrt(1f - y * y);
-                float a = (float)rng.NextDouble() * MathHelper.TwoPi;
-                Vector3 d = new(MathF.Cos(a) * ring, y, MathF.Sin(a) * ring);
-                float proud = 0.85f + 0.3f * (float)rng.NextDouble();
-                Vector3 at = centre + new Vector3(d.X * radius, d.Y * halfHeight, d.Z * radius) * proud;
+                //The tip: spread evenly over the shell's cap facing outward (a cosine from 1 down to -0.35 off the outward
+                //direction, area-even, on the golden angle), shaken a little, and out to the shell give or take
+                float c = 1f - 1.35f * (t + 0.5f) / twigs;
+                float s = MathF.Sqrt(MathF.Max(1f - c * c, 0f));
+                float a = spin + golden * t + 0.4f * ((float)rng.NextDouble() - 0.5f);
+                Vector3 side = Vector3.Normalize(Vector3.Cross(outward, MathF.Abs(outward.Y) < 0.95f ? Vector3.Up : Vector3.UnitX));
+                Vector3 side2 = Vector3.Cross(outward, side);
+                Vector3 d = outward * c + (side * MathF.Cos(a) + side2 * MathF.Sin(a)) * s;
+                float reach = 0.85f + 0.25f * (float)rng.NextDouble();
+                Vector3 tip = centre + new Vector3(d.X * radius, d.Y * halfHeight, d.Z * radius) * reach;
 
-                //The shell's normal (an ellipsoid's), and the card turned about it at random, tilted off it a little
-                Vector3 normal = Vector3.Normalize(new Vector3(d.X / radius, d.Y / halfHeight, d.Z / radius));
-                Vector3 tilted = Vector3.Normalize(normal + new Vector3((float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f,
-                    (float)rng.NextDouble() - 0.5f) * 0.9f);
-                Vector3 reference = MathF.Abs(tilted.Y) < 0.9f ? Vector3.Up : Vector3.UnitX;
-                Vector3 along = Vector3.Normalize(Vector3.Cross(tilted, reference));
-                float turn = (float)rng.NextDouble() * MathHelper.TwoPi;
-                along = Vector3.Normalize(along * MathF.Cos(turn) + Vector3.Cross(tilted, along) * MathF.Sin(turn));
-                //along x across = tilted, so the card's front (the side its triangles face) is the shell's outside
-                Vector3 across = Vector3.Cross(tilted, along);
-                //Shaded mostly as the shell and a little as the card itself, so neighbouring twigs catch the light
-                //differently and the clump is not one smooth ball of leaves
-                Vector3 shading = Vector3.Normalize(normal * 0.65f + tilted * 0.35f);
+                //Bowing up on the way, as wood grown towards the light does, through a middle point shaken off the chord
+                float length = Vector3.Distance(basePoint, tip);
+                Vector3 jitter = new((float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f);
+                Vector3 mid = Vector3.Lerp(basePoint, tip, 0.5f) + new Vector3(0f, length * 0.12f, 0f) + jitter * (length * 0.15f);
+                Vector3 At(float f) => (1f - f) * (1f - f) * basePoint + 2f * f * (1f - f) * mid + f * f * tip;
+                Vector3 TangentAt(float f) => Vector3.Normalize(2f * (1f - f) * (mid - basePoint) + 2f * f * (tip - mid));
 
-                float scale = 0.75f + 0.5f * (float)rng.NextDouble();
-                Vector3 stem = at - along * (size * scale * 0.5f);
-                Vector3 tip = at + along * (size * scale * 0.5f);
-                Vector3 half = across * (size * scale * 0.5f);
+                TubeGeometry.AddSweep(tv, tidx, 4, new[] { basePoint, At(0.33f), At(0.67f), tip },
+                    new[] { twigRadius, twigRadius * 0.75f, twigRadius * 0.5f, twigRadius * 0.25f });
 
-                float layerCode = 2f * (inner || y < -0.2f ? 2 : y > 0.25f ? 0 : 1);
-                int b = v.Count;
-                v.Add(new VertexPositionNormalTexture(stem - half, shading, new Vector2(0f, layerCode)));
-                v.Add(new VertexPositionNormalTexture(stem + half, shading, new Vector2(0f, layerCode + 1f)));
-                v.Add(new VertexPositionNormalTexture(tip + half, shading, new Vector2(1f, layerCode + 1f)));
-                v.Add(new VertexPositionNormalTexture(tip - half, shading, new Vector2(1f, layerCode)));
-                idx.Add(b); idx.Add(b + 1); idx.Add(b + 2);
-                idx.Add(b); idx.Add(b + 2); idx.Add(b + 3);
+                //This twig's share of the clump's cards, along its outer part, turned round it leaf by leaf
+                int cards = cardsLeft / (twigs - t);
+                cardsLeft -= cards;
+                float roll = (float)rng.NextDouble() * MathHelper.TwoPi;
+                for (int k = 0; k < cards; k++)
+                {
+                    float f = LEAVES_FROM + (1f - LEAVES_FROM) * (k + 0.3f + 0.4f * (float)rng.NextDouble()) / cards;
+                    Vector3 at = At(f);
+                    Vector3 tangent = TangentAt(f);
+                    Vector3 across = Vector3.Normalize(Vector3.Cross(tangent, MathF.Abs(tangent.Y) < 0.95f ? Vector3.Up : Vector3.UnitX));
+                    Vector3 across2 = Vector3.Cross(tangent, across);
+                    float turn = roll + golden * k + 0.3f * ((float)rng.NextDouble() - 0.5f);
+                    Vector3 outFromTwig = across * MathF.Cos(turn) + across2 * MathF.Sin(turn);
+
+                    //The sprig leaves the twig forwards, at forty-odd degrees, and the last one carries straight on
+                    float lean = k == cards - 1 ? 0.25f : 0.8f + 0.3f * (float)rng.NextDouble();
+                    Vector3 along = Vector3.Normalize(tangent + outFromTwig * lean);
+
+                    //The card's face towards the shell's outside and the sky, turned square to its own length
+                    float scale = 0.75f + 0.5f * (float)rng.NextDouble();
+                    Vector3 middle = at + along * (size * scale * 0.5f);
+                    Vector3 o = middle - centre;
+                    Vector3 shell = Vector3.Normalize(new Vector3(o.X / radius, o.Y / halfHeight, o.Z / radius) + new Vector3(0f, 1e-4f, 0f));
+                    Vector3 face = shell * 0.6f + Vector3.Up * 0.4f
+                        + new Vector3((float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f) * 0.6f;
+                    face -= Vector3.Dot(face, along) * along;
+                    if (face.LengthSquared() < 1e-6f) face = outFromTwig;
+                    face = Vector3.Normalize(face);
+
+                    //face x along = across, so along x across = face: the card's front is the side the face points to
+                    Vector3 width = Vector3.Cross(face, along);
+                    Vector3 shading = Vector3.Normalize(shell * 0.65f + face * 0.35f);
+                    Vector3 half = width * (size * scale * 0.5f);
+                    Vector3 stem = at;
+                    Vector3 end = at + along * (size * scale);
+
+                    float height = o.Y / halfHeight;
+                    float layerCode = 2f * (inner || height < -0.2f ? 2 : height > 0.25f ? 0 : 1);
+                    int b = lv.Count;
+                    lv.Add(new VertexPositionNormalTexture(stem - half, shading, new Vector2(0f, layerCode)));
+                    lv.Add(new VertexPositionNormalTexture(stem + half, shading, new Vector2(0f, layerCode + 1f)));
+                    lv.Add(new VertexPositionNormalTexture(end + half, shading, new Vector2(1f, layerCode + 1f)));
+                    lv.Add(new VertexPositionNormalTexture(end - half, shading, new Vector2(1f, layerCode)));
+                    lidx.Add(b); lidx.Add(b + 1); lidx.Add(b + 2);
+                    lidx.Add(b); lidx.Add(b + 2); lidx.Add(b + 3);
+                }
             }
         }
 
