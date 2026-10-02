@@ -44,7 +44,7 @@ float4 TriplanarPS(VertexShaderOutput input) : COLOR
     float3 dpdy = ddy(input.WorldPosition);
 
     float groove;
-    float height = SceneSurfaceHeightGroove(input.WorldPosition, dpdx, dpdy, groove);
+    float height = SceneSurfaceHeightGroove(input.WorldPosition, worldNormal, dpdx, dpdy, groove);
 
     float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
 
@@ -97,7 +97,7 @@ technique InstancedModelTriplanar
     }
 };
 
-//The same surface with a COARSE height field: three relief octaves instead of seven. What a quality tier
+//The same surface with a COARSE height field: two relief octaves instead of four (three sines of seven until #674). What a quality tier
 //below High draws on the stone cap, and nothing else - see InstancedModelRenderer.CoarseSurfaceRelief and
 //ArenaIsland.SurfaceDetail. It is a second TECHNIQUE and not a branch inside TriplanarPS for the reason
 //the bubble's own header states and #155 measured: a runtime branch costs the union of both register
@@ -132,7 +132,7 @@ float4 TriplanarCoarsePS(VertexShaderOutput input) : COLOR
     float3 dpdy = ddy(input.WorldPosition);
 
     float groove;
-    float height = SceneSurfaceHeightCoarseGroove(input.WorldPosition, dpdx, dpdy, groove);
+    float height = SceneSurfaceHeightCoarseGroove(input.WorldPosition, worldNormal, dpdx, dpdy, groove);
 
     float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
 
@@ -222,7 +222,7 @@ float4 TriplanarProbe1PS(VertexShaderOutput input) : COLOR
     return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(texRgb, 1), 1, 1);
 }
 
-//2 - the height field, but not the normal it tilts: seven octaves and the joints are still evaluated
+//2 - the height field, but not the normal it tilts: the relief's octaves and the joints are still evaluated
 //and still shade the cavity, only PerturbNormalFromHeight is gone. Probe 1 against this is the cost
 //of the field; this against the shipped technique is the cost of the perturb's ddx/ddy pair.
 float4 TriplanarProbe2PS(VertexShaderOutput input) : COLOR
@@ -242,7 +242,7 @@ float4 TriplanarProbe2PS(VertexShaderOutput input) : COLOR
     float3 dpdx = ddx(input.WorldPosition);
     float3 dpdy = ddy(input.WorldPosition);
 
-    float height = SceneSurfaceHeight(input.WorldPosition, dpdx, dpdy);
+    float height = SceneSurfaceHeight(input.WorldPosition, worldNormal, dpdx, dpdy);
 
     float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
 
@@ -265,7 +265,7 @@ float4 TriplanarProbe4PS(VertexShaderOutput input) : COLOR
     float3 dpdx = ddx(input.WorldPosition);
     float3 dpdy = ddy(input.WorldPosition);
 
-    float height = SceneSurfaceHeight(input.WorldPosition, dpdx, dpdy);
+    float height = SceneSurfaceHeight(input.WorldPosition, worldNormal, dpdx, dpdy);
 
     float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
     float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
@@ -285,7 +285,7 @@ float4 TriplanarProbe5PS(VertexShaderOutput input) : COLOR
     float3 dpdx = ddx(input.WorldPosition);
     float3 dpdy = ddy(input.WorldPosition);
 
-    float height = SceneSurfaceHeight(input.WorldPosition, dpdx, dpdy);
+    float height = SceneSurfaceHeight(input.WorldPosition, worldNormal, dpdx, dpdy);
 
     float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
 

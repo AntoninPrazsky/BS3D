@@ -146,7 +146,7 @@ static const float IceRimPower = 2.6;
 //but STRIPES. The dense crack net used to hide them; once the plates were large and smooth the hatching
 //came straight out, in the same shot and for the same reason as the quilting it was drawn on top of. The
 //ratios are irrational-ish so the four never settle into a weave, which is the trap the scene surfaces'
-//own relief records (see SurfaceReliefWorld's header, and why it uses seven).
+//own relief recorded (see SurfaceReliefWorld's header: seven sines there, until a flat cap wove anyway and #674 made it noise).
 static const float IceFrostFrequency = 38.0;
 static const float IceFrostDepth = 0.2;
 static const float3 IceFrostA = float3(0.61, 0.55, -0.57);
