@@ -230,6 +230,24 @@ float3 ApplyGrain(float3 mapped, float2 texCoord)
 //a factor of one it collapses to a single tap at the center. tex2Dlod rather than tex2D so the aberration
 //branch below may call it - there are no mips here, and a gradient instruction inside a branch is not
 //allowed even when the branch is on a uniform.
+//The box filter itself, split from SampleScene below so that one can choose and return once (#713): a [branch] around an
+//early return in an inlined function is what fxc reports as X4000, "use of potentially uninitialized variable".
+float3 SampleSceneBox(float2 uv)
+{
+    float3 color = 0;
+
+    for (int y = 0; y < SupersampleFactor; y++)
+    {
+        for (int x = 0; x < SupersampleFactor; x++)
+        {
+            float2 offset = (float2(x, y) + 0.5 - SupersampleFactor * 0.5) * SourceTexelSize;
+            color += tex2Dlod(SceneSampler, float4(uv + offset, 0, 0)).rgb;
+        }
+    }
+
+    return color / (SupersampleFactor * SupersampleFactor);
+}
+
 float3 SampleScene(float2 uv)
 {
     //#298 PROBE: magnifying, so one bilinear tap and no box filter — there is no block of source texels
@@ -244,20 +262,13 @@ float3 SampleScene(float2 uv)
     //nothing moved between runs. The game in play at High resolves the motion blur's back-buffer-sized
     //output instead (factor 1), so what this buys is the menus, the pages over a level, and a level played
     //with motion blur off.
-    [branch] if (MagnifyScene > 0 || SupersampleFactor == 2) return tex2Dlod(SceneSamplerLinear, float4(uv, 0, 0)).rgb;
+    float3 scene = 0;
 
-    float3 color = 0;
+    [branch]
+    if (MagnifyScene > 0 || SupersampleFactor == 2) scene = tex2Dlod(SceneSamplerLinear, float4(uv, 0, 0)).rgb;
+    else scene = SampleSceneBox(uv);
 
-    for (int y = 0; y < SupersampleFactor; y++)
-    {
-        for (int x = 0; x < SupersampleFactor; x++)
-        {
-            float2 offset = (float2(x, y) + 0.5 - SupersampleFactor * 0.5) * SourceTexelSize;
-            color += tex2Dlod(SceneSampler, float4(uv + offset, 0, 0)).rgb;
-        }
-    }
-
-    return color / (SupersampleFactor * SupersampleFactor);
+    return scene;
 }
 
 //The same box filter over the sharp foreground layer, returning the coverage in the alpha the scene's

@@ -683,6 +683,11 @@ float4 MarsTerrain(MarsTerrainVertexOutput input, bool detail)
 //distance that gives the configured angular radius - but with none of the Earth's continents, weather or
 //atmosphere rim, because neither Phobos nor Deimos has an atmosphere of its own to put one on. Returns the
 //lit colour; `coverage` comes back as the antialiased 0..1 the caller composites by.
+//X4000 LEFT ON PURPOSE (#713): "use of potentially uninitialized variable (MoonDisc)" is the [branch] early return below, which Aurora()
+//and Glowworms() were split to get rid of (the body in a MoonDiscLit, a wrapper that chooses and returns once, as #587 did for the
+//clouds). Here the split compiles to different code and the picture could not be shown to stay the same:
+//the moon is not in the Testbed's default view, so no capture reached the function's body, only its early-out. Left as it
+//was until one does.
 float3 MoonDisc(float3 dir, float3 moonDirection, float angularRadius, float3 albedo, float pixelAngle, out float coverage)
 {
     coverage = 0.0;

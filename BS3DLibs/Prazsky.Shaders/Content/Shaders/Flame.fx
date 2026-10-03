@@ -153,6 +153,8 @@ float4 FlamePS(FlameVertexOutput input) : COLOR
         float c = (fi - 1.0) * 0.5 * (1.0 - 0.6 * v)
             + 0.22 * sin(v * (5.0 + fi * 1.7) * r - t * (7.0 + 2.0 * fi) * r + fi * 2.1)
             + turb * 0.7 * v;
+        //X3571 left on purpose (#713): v is the quad's own V, 0 at the base to 1, interpolated between values in that range, so it is
+        //never negative - a fact about the vertex data, not about this file, so it stays as it was rather than gaining an unshown saturate
         float w = lerp(0.8, 0.1, pow(v, 0.6)) * (0.85 + 0.15 * sin(t * (6.0 + fi) * r + fi * 1.3));
         body = max(body, 1.0 - abs(u - c) / w);
     }

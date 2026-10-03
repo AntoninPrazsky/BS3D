@@ -217,17 +217,22 @@ int HilbertIndex(int2 p)
 int2 HilbertPoint(int d)
 {
     int2 p = int2(0, 0);
-    int t = d;
+
+    //UNSIGNED for the walk (#713, X3556 "integer divides may be much slower, try using uints"): d is a cell's index along the
+    //curve, 0 up to the last cell, so it is not negative where it is used, and for a non-negative number a divide by 2 or 4 is
+    //the same signed or unsigned - the unsigned one is a shift. (The ?: at the call sites evaluates its unused arm too, so
+    //d - 1 at the first cell and d + 1 past the last do reach this, and their results are thrown away either way.)
+    uint t = (uint)d;
 
     [unroll]
     for (int s = 1; s < PorcelainHilbertN; s *= 2)
     {
-        int rx = 1 & (t / 2);
-        int ry = 1 & (t ^ rx);
+        int rx = (int)(1u & (t / 2u));
+        int ry = (int)(1u & (t ^ (uint)rx));
 
         p = HilbertRotate(s, p, rx, ry);
         p += s * int2(rx, ry);
-        t /= 4;
+        t /= 4u;
     }
 
     return p;

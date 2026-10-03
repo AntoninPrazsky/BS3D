@@ -398,6 +398,12 @@ static const float3x3 VOLUME_BASIS = float3x3(
     0.2115, -0.5292, 0.8218);
 
 //The volume, marched from the eye. Returns its emission; `transmittance` is what of the sky behind survives.
+//X4000 LEFT ON PURPOSE (#713): "use of potentially uninitialized variable (StarNestVolume)" is the [branch] early return below, which Aurora()
+//and Glowworms() were split to get rid of (the body in a StarNestVolumeLit, a wrapper that chooses and returns once, as #587 did for the
+//clouds). Here the split compiles to different code and the picture could not be shown to stay the same:
+//recompiling this file AT ALL moves the nebula's march by up to 19 levels of 255 (a baseline run against itself moves by 1),
+//which splitting Planet() alone reproduced, so a difference from a split could not be told from the loop's own sensitivity to
+//how the compiler schedules it. The same goes for Planet() below. Left as they were.
 float3 StarNestVolume(float3 dir, float3 eye, out float transmittance)
 {
     transmittance = 1.0;
@@ -570,6 +576,8 @@ float3 Galaxies(float3 dir, float pixelAngle)
 //Solved analytically rather than drawn: the planet is a unit sphere at the distance that gives it the
 //configured angular radius, so the ray test is a quadratic and the surface normal falls out of it. Coverage
 //comes back separately so the caller can composite it over the sky it hides.
+//X4000 LEFT ON PURPOSE (#713), like StarNestVolume above: the warning is the [branch] early return, and splitting it moves the
+//nebula's march in this same file, so the picture could not be shown unchanged.
 float3 Planet(float3 dir, float pixelAngle, out float coverage)
 {
     coverage = 0.0;

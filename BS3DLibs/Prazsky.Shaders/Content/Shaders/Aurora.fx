@@ -249,17 +249,8 @@ float AuroraRayStrength;
 //rotated vector has nothing to wrap), and the STREAKS are 3D noise on that rotated direction with its own
 //vertical axis compressed by CurtainWarp — Fbm2Combed's stretch-along-an-axis idea, carried into 3D so
 //there is no 2D chart anywhere underneath it to seam on.
-float3 Aurora(float3 dir, float time, float pixelAngle)
+float3 AuroraLit(float3 dir, float time, float pixelAngle, float elevation, float bandLow, float band)
 {
-    float elevation = saturate(dir.y);
-    float bandLow = 1.0 - AuroraBandHeight - AuroraBandSoftness;
-    float bandHigh = 1.0 - AuroraBandHeight;
-
-    float band = smoothstep(bandLow, bandHigh, elevation) * (1.0 - smoothstep(0.90, 1.0, elevation));
-
-    [branch]
-    if (band <= 0.001) return 0.0;
-
     float sinDrift, cosDrift;
     sincos(time * AuroraDriftSpeed, sinDrift, cosDrift);
     float3 rotated = float3(
@@ -303,6 +294,25 @@ float3 Aurora(float3 dir, float time, float pixelAngle)
     float3 colour = lerp(AuroraColorLow, AuroraColorHigh, withinBand);
 
     return colour * (AuroraIntensity * band * curtain * pulse);
+}
+
+//Aurora: the early-out decided here and a single return (#713). A [branch] around an early return in an inlined
+//function is what fxc reports as X4000, "use of potentially uninitialized variable", so the work - and the comment
+//above - is AuroraLit, and this only chooses. Same result on every path: the test is the early-out's own, negated (fxc may fold that into the opposite comparison, which differs only for a NaN, and nothing here is fed one).
+float3 Aurora(float3 dir, float time, float pixelAngle)
+{
+    float elevation = saturate(dir.y);
+    float bandLow = 1.0 - AuroraBandHeight - AuroraBandSoftness;
+    float bandHigh = 1.0 - AuroraBandHeight;
+
+    float band = smoothstep(bandLow, bandHigh, elevation) * (1.0 - smoothstep(0.90, 1.0, elevation));
+
+    float3 earlyOut = 0.0;
+
+    [branch]
+    if (!(band <= 0.001)) earlyOut = AuroraLit(dir, time, pixelAngle, elevation, bandLow, band);
+
+    return earlyOut;
 }
 
 struct AuroraSkyVertexOutput
