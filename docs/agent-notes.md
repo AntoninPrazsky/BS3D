@@ -7716,3 +7716,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-10-03 — beru #711 (Exposure jako jas v %, 100 % = výchozí) — desktop, Claude Code (bs3d-54)
 
 - **Beru:** #711. Řádek Exposure v Settings jako „Brightness“ v procentech (70…130, výchozí 100 uprostřed), vnitřní násobič `DEFAULT_EXPOSURE × procento`; jedno `DEFAULT_EXPOSURE` v Core místo tří; uložené `exposure` se mapuje na nejbližší příčku; `exposure=<f>` na příkazové řádce zůstává syrový násobič.
+
+## 2026-10-03 — beru #710 (milost čáry delší než 1 s) — desktop, Claude Code (bs3d-54)
+
+- **Beru:** #710. `ClusterHang.BELOW_LINE_GRACE` z 1,0 na 1,5 s (start, který issue navrhuje; ladí se hrou, takže zůstane otevřené pro majitele), `SHOT_SECONDS` v SagProbe zůstává 1,6 (0,1 s rezerva). Brána `--sag` se pustí **sama o sobě** (jedna těžká úloha najednou) před a po v oddělených worktrees; je to „ranking, not a verdict“, takže se porovná seznam úrovní „worth a look“ a devět známých neřešitelných + tři známé řešitelné z majitelova playtestu.
