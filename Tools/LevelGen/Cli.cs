@@ -17,7 +17,7 @@ namespace BS3D.Tools.LevelGen
     internal static partial class Program
     {
         /// <summary>The flags <see cref="Main"/> reads, exactly and by prefix — the one list the refusal below checks.</summary>
-        private static readonly string[] Flags = { "--sag", "--clear", "--arrival", "--cuts" };
+        private static readonly string[] Flags = { "--sag", "--clear", "--arrival", "--cuts", "--drops", "--drops=levels" };
         private static readonly string[] ValuedFlags = { "--sag=", "--sagfile=", "--clearfile=", "--arrivalfile=", "--wind=", "--softness=" };
 
         /// <summary>Where the prototypes (#604) are written, under the campaign's own directory. See <see cref="Main"/>.</summary>
@@ -40,7 +40,7 @@ namespace BS3D.Tools.LevelGen
                 foreach (string a in unknown) Console.WriteLine($"Unknown option '{a}'.");
                 if (plain.Length > 1) Console.WriteLine($"More than one output directory: {string.Join(", ", plain)}.");
                 Console.WriteLine("Usage: LevelGen [<output dir>] [--sag[=<name,...>]] [--sagfile=<file,...>] [--clear]"
-                    + " [--clearfile=<file,...>] [--arrival] [--arrivalfile=<file,...>] [--cuts] [--softness=<Hz>[:<damping>]]");
+                    + " [--clearfile=<file,...>] [--arrival] [--arrivalfile=<file,...>] [--cuts] [--drops[=levels]] [--softness=<Hz>[:<damping>]]");
                 return 2;
             }
 
@@ -152,6 +152,22 @@ namespace BS3D.Tools.LevelGen
                 try
                 {
                     return CutProbe.Run(FindLevelsDirectory()) ? 0 : 1;
+                }
+                catch (DirectoryNotFoundException e)
+                {
+                    Console.WriteLine(e.Message);
+                    return 1;
+                }
+            }
+
+            //HOW OFTEN THE DROP CINEMATIC FIRES (#719): every level played to a clear by a greedy and a casual player on the
+            //lattice, the trigger's dials and their candidates run over the same plays. Read-only, like --cuts; see
+            //DropProbe. `--drops=levels` adds one line a level.
+            if (args.Any(a => a == "--drops" || a == "--drops=levels"))
+            {
+                try
+                {
+                    return DropProbe.Run(FindLevelsDirectory(), args.Any(a => a == "--drops=levels")) ? 0 : 1;
                 }
                 catch (DirectoryNotFoundException e)
                 {

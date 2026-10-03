@@ -81,57 +81,9 @@ namespace BS3D.Effects
 
         #region Dials
 
-        /// <summary>
-        /// The floor under <see cref="MustBeatBestBy"/>: below this many released balls a shot is not a
-        /// spectacle however early in the level it lands. Matched and orphaned together — a shot that drops
-        /// three of its own colour and brings nine more down with it is exactly the shot worth watching, and
-        /// the scorer already pays double for the orphans.
-        /// <para>
-        /// <b>Neither bar applies to the shot that clears the level</b> (#424): the trigger lets that one through
-        /// whatever it drops, because both are about a drop in the middle of a level and the last three balls
-        /// are the whole ending. The player's own "Drop camera" row still refuses it.
-        /// </para>
-        /// </summary>
-        public const int MIN_BALLS = 12;
-
-        /// <summary>
-        /// The floor's other half (#615): a drop has to take at least this share of the balls the level
-        /// <b>started</b> with, as well as <see cref="MIN_BALLS"/>. Twelve is a big drop on a 250-ball level and a
-        /// small one on a 1600-ball level, so on its own it let the biggest levels treat every sizeable shot as a
-        /// spectacle; a share scales "big" with the level, as the record rule below already does, and needs no
-        /// per-level authoring. The absolute twelve still governs the small levels, where 5 % is fewer.
-        /// </summary>
-        public const float MIN_SHARE_OF_LEVEL = 0.05f;
-
-        /// <summary>
-        /// How much a drop has to beat the level's biggest so far to earn a cinematic — the rest of the
-        /// trigger, and the part that makes it rare.
-        /// <para>
-        /// <b>A fixed count cannot do this job, and the pattern levels are the proof.</b> The threshold was
-        /// six, and on <c>One.json</c> that measured as three cinematics in ninety seconds because most shots
-        /// there drop fewer. The pack that followed is built out of large primed groups — Pinwheel drops 92
-        /// balls on a good shot, Crown 72, Bullseye (retired in #649) 100 — so six fired on essentially every shot that landed,
-        /// and the reward for a good shot became the tax on every shot. Raising the number cannot fix it
-        /// either: any figure that keeps Pinwheel rare is one Mosaic (whose best possible shot is 24) can
-        /// never reach, and a level that never shows one is as wrong as a level that always does.
-        /// </para>
-        /// <para>
-        /// So the bar is the player's own best this level, which needs no per-level authoring and no
-        /// re-tuning when a level is added: <b>"the biggest thing you have done here yet"</b> is what "big"
-        /// means, whatever the level is made of. The margin stops a level whose drops creep upwards from
-        /// firing on every one of them; the first qualifying drop of a level always fires, because there is
-        /// no record to beat and one cinematic early is how the effect introduces itself.
-        /// </para>
-        /// <para>
-        /// <b>Doubled, from 1.25, by the owner's playtest (#615): "it shows up too often".</b> A quarter was
-        /// beaten by an ordinary ascending run of drops (12, 15, 19, 24, 30 …). Measured on the lattice — all 130
-        /// campaign levels played to a clear by a greedy and a casual model, six deals each, the real match and
-        /// orphan rule — 12 and ×1.25 gave 2.0–2.1 cinematics a level before the clearing shot (up to 3.5);
-        /// <see cref="MIN_SHARE_OF_LEVEL"/> and ×2 give 1.2–1.3 (at most 2.2), with 0–2 % of levels showing none
-        /// before the clearing shot, which always has one (#424).
-        /// </para>
-        /// </summary>
-        public const float MustBeatBestBy = 2f;
+        //The trigger's dials - the floor, the share of the level and the margin over the level's best - are
+        //Prazsky.BS3D.DropTrigger's since #719, with the reasoning for each: one copy of the rule, which the game, the
+        //tests and `LevelGen --drops` (the measurement the dials are set by) all read.
 
         //Wall-clock ceiling on one shot. It is a backstop rather than a pace: the game only culls at the
         //kill plane (see RemoveFallenBalls), and a ball can still come to rest short of it — rarely since

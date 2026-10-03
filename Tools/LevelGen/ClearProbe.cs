@@ -73,7 +73,7 @@ namespace BS3D.Tools.LevelGen
     /// make a clear look cheaper than it is, which is the one direction this gate must not err in.
     /// </para>
     /// </summary>
-    internal sealed class ClearProbe
+    internal sealed partial class ClearProbe
     {
         /// <summary>
         /// <b>A clear in fewer shots than this is a CHEAP clear</b> — half the refusal, and the half that was
@@ -484,7 +484,7 @@ namespace BS3D.Tools.LevelGen
         /// colour, the glass body it would colour and the group that completes — and two landings that take the
         /// same cells are one move however differently they were aimed.
         /// </summary>
-        private List<Move> Moves(bool[] present)
+        private List<Move> Moves(bool[] present, int onlyColour = -1)
         {
             FloodOpenSpace(present);
 
@@ -517,6 +517,9 @@ namespace BS3D.Tools.LevelGen
 
                 foreach (byte colour in _colours)
                 {
+                    //The colour in the cannon, when a player is being played (ClearProbe.Drops): the others are not offered
+                    if (onlyColour >= 0 && colour != onlyColour) continue;
+
                     //Against glass every colour the level plays is worth trying, since the landing makes the
                     //body its own; against ordinary balls only a colour already standing there can complete
                     //anything.
