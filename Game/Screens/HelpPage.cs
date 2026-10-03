@@ -42,6 +42,9 @@ namespace BS3D.Screens
     {
         private const int TEXT_WIDTH = 1860;
 
+        //The space between a keycap and its words on the controls page
+        private const int KEY_GAP = 24;
+
         //The two walking buttons stand side by side, where every other entry on a page is one column wide
         private const int WALK_BUTTON_WIDTH = 490;
         private const int WALK_BUTTON_GAP = 20;
@@ -97,19 +100,16 @@ namespace BS3D.Screens
             column.Widgets.Add(ScreenHeading(TITLES[_page]));
             column.Widgets.Add(Caption($"{_page + 1} of {TITLES.Length}"));
 
-            VerticalStackPanel body = MenuColumn();
-
-            switch (_page)
-            {
-                case 0: BuildPlaying(body); break;
-                case 1: BuildScoring(body); break;
-                case 2: BuildBalls(body); break;
-                case 3: BuildCampaign(body); break;
-                case 4: BuildCeiling(body); break;
-                default: BuildControls(body); break;
-            }
+            VerticalStackPanel body = BuildBody(_page);
 
             _body = MenuScroll(body, BODY_SURROUNDINGS);
+
+            //Every page stands in the same frame (#729): the scroller is as big as the biggest page's, so Previous, Next,
+            //Back and the plate's edges stay where they are as the pages turn. Minimums and not sizes, because
+            //MenuScroll's MaxHeight still bounds it - a window too short for the tallest page scrolls it, as before.
+            Point frame = BiggestPage();
+            _body.MinWidth = frame.X;
+            _body.MinHeight = frame.Y;
             column.Widgets.Add(_body);
 
             HorizontalStackPanel walk = new()
@@ -135,6 +135,49 @@ namespace BS3D.Screens
             column.Widgets.Add(MenuButton("Back", GoBack));
 
             return ScreenRoot(Plate(column));
+        }
+
+        private VerticalStackPanel BuildBody(int page)
+        {
+            VerticalStackPanel body = MenuColumn();
+
+            //Against the scroller's left edge rather than centred in it (#729): the scroller is as wide as the widest page
+            //needs it, scroll bar included, so on a page that fits the spare width is a gutter at the right and the text
+            //stands where it does on a page that scrolls
+            body.HorizontalAlignment = HorizontalAlignment.Left;
+
+            switch (page)
+            {
+                case 0: BuildPlaying(body); break;
+                case 1: BuildScoring(body); break;
+                case 2: BuildBalls(body); break;
+                case 3: BuildCampaign(body); break;
+                case 4: BuildCeiling(body); break;
+                default: BuildControls(body); break;
+            }
+
+            return body;
+        }
+
+        /// <summary>
+        /// The size of the biggest page's scroller, each page measured in a scroller of its own (#729) the way the Settings
+        /// page measures its tabs. Myra lays out only what is shown, so without this the plate shrinks round a short page
+        /// and the walking row jumps on every turn. <b>Width as well as height</b>: a page that overflows grows a scroll bar,
+        /// which is a scroll bar's width (17 px on the pages measured at 1920×1080) that the pages that fit do not have, and the plate was that much wider on those. The current
+        /// page's own scroller is <see cref="_body"/>, already built.
+        /// </summary>
+        private Point BiggestPage()
+        {
+            Point biggest = Point.Zero;
+
+            for (int page = 0; page < TITLES.Length; page++)
+            {
+                ScrollViewer scroller = page == _page ? _body : MenuScroll(BuildBody(page), BODY_SURROUNDINGS);
+                Point size = scroller.Measure(new Point(int.MaxValue / 2, int.MaxValue / 2));
+                biggest = new Point(Math.Max(biggest.X, size.X), Math.Max(biggest.Y, size.Y));
+            }
+
+            return biggest;
         }
 
         /// <summary>
@@ -377,16 +420,31 @@ namespace BS3D.Screens
                 + "which is time the ceiling took. It does nothing until the glass has stepped down."));
         }
 
+        private static readonly (string Glyph, string What)[] CONTROLS =
+        {
+            (MOUSE, "Move the mouse to aim"),
+            (MOUSE_LEFT, "Click to fire — Space fires too"),
+            (MOUSE_RIGHT, "Hold to look down the barrel, for the precise shot"),
+            (KEY_A + KEY_D, "Walk the gun round the field"),
+            (KEY_W + KEY_S, "Step in and out — closer means a steeper shot"),
+            (KEY_E, "Swap the next two balls — one swap a level, from the second chapter"),
+            (KEY_Q, "Brake the ceiling — lift the glass one step back, one a level, from the third chapter"),
+            (KEY_R, "Cut — the next ball destroys the one it hits, so what hung on it falls; one a level, from the fourth chapter"),
+        };
+
         private void BuildControls(VerticalStackPanel column)
         {
-            column.Widgets.Add(KeyLine(MOUSE, "Move the mouse to aim"));
-            column.Widgets.Add(KeyLine(MOUSE_LEFT, "Click to fire — Space fires too"));
-            column.Widgets.Add(KeyLine(MOUSE_RIGHT, "Hold to look down the barrel, for the precise shot"));
-            column.Widgets.Add(KeyLine(KEY_A + KEY_D, "Walk the gun round the field"));
-            column.Widgets.Add(KeyLine(KEY_W + KEY_S, "Step in and out — closer means a steeper shot"));
-            column.Widgets.Add(KeyLine(KEY_E, "Swap the next two balls — one swap a level, from the second chapter"));
-            column.Widgets.Add(KeyLine(KEY_Q, "Brake the ceiling — lift the glass one step back, one a level, from the third chapter"));
-            column.Widgets.Add(KeyLine(KEY_R, "Cut — the next ball destroys the one it hits, so what hung on it falls; one a level, from the fourth chapter"));
+            //One column of keycaps, as wide as the widest of them, with the words in a column beside it (#728). Each line
+            //used to be centred as a unit, so where a keycap landed depended on how long its own words were and the
+            //icons zig-zagged down the page.
+            int keyWidth = 0;
+
+            foreach ((string glyph, _) in CONTROLS)
+                keyWidth = Math.Max(keyWidth, (int)MathF.Ceiling(Game.MenuFontPrompt.MeasureString(glyph).X));
+
+            foreach ((string glyph, string what) in CONTROLS)
+                column.Widgets.Add(KeyLine(glyph, what, keyWidth));
+
             column.Widgets.Add(Paragraph(
                 "Escape pauses. F11 is fullscreen, F12 saves a screenshot, F10 hides the frame-rate counter."));
             column.Widgets.Add(Caption("A gamepad plays all of it too — the Swap is X, the Brake is Y and the Cut is the right bumper; the first chapter "
@@ -397,13 +455,19 @@ namespace BS3D.Screens
         /// One control: the key as PromptFont draws it, and what it does beside it. The glyph is its own label
         /// in its own face, because PromptFont fills its em with a rounded keycap while a line of body text
         /// stands well short of one — set as a single string they would not sit on the same line.
+        /// <para>
+        /// The glyph's label is <paramref name="keyWidth"/> wide and the words' label fills the rest of the text width and
+        /// wraps (#728), so every line is the same width and the keycaps stand at the same x whichever words follow them.
+        /// </para>
         /// </summary>
-        private Widget KeyLine(string glyph, string what)
+        private Widget KeyLine(string glyph, string what, int keyWidth)
         {
+            int gap = Scaled(KEY_GAP);
+
             HorizontalStackPanel line = new()
             {
-                Spacing = Scaled(24),
-                HorizontalAlignment = HorizontalAlignment.Center,
+                Spacing = gap,
+                HorizontalAlignment = HorizontalAlignment.Left,
                 Margin = ScaledThickness(0, 0, 0, 26),
             };
 
@@ -412,6 +476,7 @@ namespace BS3D.Screens
                 Text = glyph,
                 Font = Game.MenuFontPrompt,
                 TextColor = BS3DGame.MENU_TEXT,
+                Width = keyWidth,
                 VerticalAlignment = VerticalAlignment.Center,
             });
 
@@ -420,6 +485,8 @@ namespace BS3D.Screens
                 Text = what,
                 Font = FontBody,
                 TextColor = BS3DGame.MENU_TEXT_BODY,
+                Wrap = true,
+                Width = Scaled(TEXT_WIDTH) - keyWidth - gap,
                 VerticalAlignment = VerticalAlignment.Center,
             });
 
