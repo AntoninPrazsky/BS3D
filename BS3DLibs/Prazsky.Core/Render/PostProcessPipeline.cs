@@ -296,6 +296,16 @@ namespace Prazsky.Core.Render
             set { _glareIntensity = value; _tonemapGlareIntensityParam.SetValue(value); }
         }
 
+        /// <summary>
+        /// The exposure the scenes' look was tuned at (#711), one figure for all three executables - each used to
+        /// hold its own copy. Chosen so the daylight domes land at roughly the brightness the gamma-space renderer
+        /// used to show; it is a starting point for a rig that was lit by eye in the wrong space, not a photometric
+        /// value. <b>It is not "neutral" or "off"</b> (1.0 would be a slightly darker picture than the one the game
+        /// was made to show), so a player-facing dial states a setting as a share of this: the Game's Brightness row
+        /// reads 100 % here and scales it, the way the volume rows scale the authored mix.
+        /// </summary>
+        public const float DEFAULT_EXPOSURE = 1.1f;
+
         /// <summary>Linear scale applied before the tonemap curve — the renderer's shutter speed.</summary>
         public required float Exposure
         {

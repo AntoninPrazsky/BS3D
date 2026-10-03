@@ -355,7 +355,8 @@ namespace BS3D.Screens
             //half of the same answer — and because picking a tier above turns it off, which the player should
             //see happen rather than have to know.
             AddRow(grid, 2, "Auto quality", Game.ToggleAdaptiveQuality, out _adaptiveQualityValue);
-            AddRow(grid, 3, "Exposure", Game.CycleExposure, out _exposureValue);
+            //The tonemap's exposure, said as the brightness it is (#711): a percent of the authored look, 100 % the default
+            AddRow(grid, 3, "Brightness", Game.CycleExposure, out _exposureValue);
             AddRow(grid, 4, "Sky", Game.CycleSkyDome, out _skyValue);
             AddRow(grid, 5, "FPS counter", Game.ToggleFpsOverlay, out _fpsValue);
             //The presentation cap (#124): synced to the monitor's refresh (frames nobody can see cost only
@@ -629,7 +630,8 @@ namespace BS3D.Screens
             _fullscreenValue.Text = Game.IsFullscreen ? "On" : "Off";
             _qualityValue.Text = Game.Quality.ToString();
             _adaptiveQualityValue.Text = Game.IsAdaptiveQualityEnabled ? "On" : "Off";
-            _exposureValue.Text = Game.Exposure.ToString("0.0", CultureInfo.InvariantCulture);
+            //Percent of the authored look, 100 % the default (#711), not the raw multiplier
+            _exposureValue.Text = Game.BrightnessPercent.ToString(CultureInfo.InvariantCulture) + " %";
             _skyValue.Text = Game.SkyDomeNumber.ToString(CultureInfo.InvariantCulture);
             _fpsValue.Text = Game.IsFpsOverlayVisible ? "On" : "Off";
             //"Monitor", not a number: the cap is whatever the panel refreshes at, and naming the rate here
@@ -964,6 +966,7 @@ namespace BS3D.Screens
                     case "esc": OnTextInput('\x1b'); break;
                     case "online": ShowTab(TAB_ONLINE); KeepOrDropTyping(); OnOnline(); break;
                     case "intro": ShowTab(TAB_GAME); KeepOrDropTyping(); Game.ToggleIntroLogo(); break;
+                    case "brightness": ShowTab(TAB_DISPLAY); KeepOrDropTyping(); Game.CycleExposure(); break;
                     case "nickname": ShowTab(TAB_ONLINE); OnNickname(); break;
                     case "remove" when UserData.IsTestingDirectory: ShowTab(TAB_ONLINE); KeepOrDropTyping(); OnRemove(); break;
                     case "remove":

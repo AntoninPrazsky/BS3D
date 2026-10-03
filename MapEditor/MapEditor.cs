@@ -82,7 +82,6 @@ namespace MapEditor
         //are the game's own, so the two agree. See the "Color management" and "Ball rendering" sections in
         //CLAUDE.md, and the matching code in Testbed.cs.
         private const int SUPERSAMPLE_FACTOR = 2;
-        private const float DEFAULT_EXPOSURE = 1.1f;
 
         //0.55 is the figure the game and the Testbed ship (it moved there with the bloom pyramid, #69); the
         //editor sat at the older 0.38 for a while — a silent drift this section's own comment forbids, found
@@ -414,7 +413,7 @@ namespace MapEditor
             {
                 GlareThreshold = GLARE_THRESHOLD,
                 GlareIntensity = GLARE_INTENSITY,
-                Exposure = DEFAULT_EXPOSURE,
+                Exposure = PostProcessPipeline.DEFAULT_EXPOSURE,
                 ChromaticAberration = CHROMATIC_ABERRATION,
                 FilmGrain = FILM_GRAIN,
                 SupersampleFactor = SUPERSAMPLE_FACTOR,

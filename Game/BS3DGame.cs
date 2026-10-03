@@ -67,8 +67,6 @@ namespace BS3D
         private const int WINDOW_WIDTH = 1600;
         private const int WINDOW_HEIGHT = 900;
 
-        private const float DEFAULT_EXPOSURE = 1.1f;
-
         //The camera's whole shake, scaled off CameraShake's defaults through this one dial. The gun throws
         //itself back visibly when it fires, so the camera does not have to carry the shot's force on its
         //own — and carrying all of it read as the lens being hit rather than as a gun going off.
@@ -777,10 +775,12 @@ namespace BS3D
             _qualityPinnedByPlayer = launch.SupersampleFactor.HasValue || chosenQuality.HasValue || !_settings.AdaptiveQuality;
             _qualitySettled = _qualityPinnedByPlayer;
 
-            //exposure= first, then what the player set, then the game's own default
+            //exposure= first (a raw multiplier, which the capture contract depends on, and it may sit off the ladder), then
+            //what the player set - snapped onto the brightness ladder (#711), because the file holds a multiplier an older
+            //ladder wrote (0.7 0.9 1.1 1.3 1.5) or a hand edit - then the authored look
             _exposure = launch.Exposure > 0f ? launch.Exposure
-                : _settings.Exposure > 0f ? _settings.Exposure
-                : DEFAULT_EXPOSURE;
+                : _settings.Exposure > 0f ? BrightnessLadder.NearestExposure(_settings.Exposure)
+                : PostProcessPipeline.DEFAULT_EXPOSURE;
 
             //No argument competes for this one, so it is only the file — but it is snapped ONTO the ladder
             //rather than taken as read (#384). A file is a text file: a hand-edited 0 would leave the mouse

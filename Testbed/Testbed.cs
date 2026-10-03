@@ -211,13 +211,6 @@ namespace Testbed
         private InfoRenderer _info;
 
         /// <summary>
-        /// Chosen so the daylight domes land at roughly the brightness the gamma-space renderer used to
-        /// show. It is a starting point for a rig that was lit by eye in the wrong space, not a
-        /// photometric value — the whole lighting rig wants re-balancing now that it composes correctly.
-        /// </summary>
-        private const float DEFAULT_EXPOSURE = 1.1f;
-
-        /// <summary>
         /// The scene renders into a target this many times larger per axis and is box-filtered down on
         /// the way to the back buffer. The balls' relief is the reason: it is a high-frequency signal
         /// evaluated per pixel, so raising the sampling rate is the only thing that keeps its fine
@@ -548,7 +541,7 @@ namespace Testbed
             _cityConfig.NeonLayout.Seed += _sceneSeedOffset;
 
             if (SceneRenderer.TryParseScene(options.Scene, out SceneKind startupScene)) _scene = startupScene;
-            _exposure = options.Exposure > 0f ? options.Exposure : DEFAULT_EXPOSURE;
+            _exposure = options.Exposure > 0f ? options.Exposure : PostProcessPipeline.DEFAULT_EXPOSURE;
             _supersampleFactor = Math.Clamp(options.SupersampleFactor, 1, 4); //"ssaa=<n>" trades sharpness against fill rate
             _weatherFromCommandLine = options.Weather;  //Testing: "weather=<name>" pins the sky (#221)
             _ballStyleFromCommandLine = options.Balls;  //Testing: "balls=<name>" pins the ball material (#318)
