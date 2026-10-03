@@ -8,8 +8,8 @@ namespace BS3D
 {
     /// <summary>
     /// A flat slab of one colour, drawn from a texel of its own. It stands in for Myra's <c>SolidBrush</c> on every
-    /// plate, button and tag of the menu, and for <c>RenderContext.FillRectangle</c> in the two widgets that draw bars
-    /// (#712).
+    /// plate, button and tag of the menu, and for <c>RenderContext.FillRectangle</c> in the widget that draws bars of
+    /// its own (the music visualizer, #712; the online signal drew its bars the same way until #723 made it a globe).
     /// <para>
     /// <b>Why not Myra's.</b> <c>SolidBrush</c> and <c>FillRectangle</c> both stretch <c>Stylesheet.Current.WhiteRegion</c>,
     /// which is a <b>single texel of Myra's default skin atlas</b> (1×1 at (901, 1) of <c>default_ui_skin.png</c>), and
