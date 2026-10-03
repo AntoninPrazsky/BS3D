@@ -1200,9 +1200,16 @@ namespace BS3D.Screens
         private const string CUT_GLYPH_PAD = "↱";
         private const string CUT_READY = "Cut";
         private const string CUT_SPENT = "Cut used";
-        private const int HUD_SWAP_GLYPH_GAP = 14;
-        private const int HUD_SWAP_ABOVE_STRIP = 26;
-        private const int HUD_SWAP_ROW_GAP = 8;
+
+        //The space between a keycap and its words, and between two rows, a fifth under what they were beside the card-sized
+        //fonts (14 and 8): they scale with the text they separate (#703)
+        private const int HUD_SWAP_GLYPH_GAP = 11;
+        private const int HUD_SWAP_ROW_GAP = 6;
+
+        //The chips' lowest row stands the margin above the queue's head, the same air as under it (#703): the head's ring
+        //is flush on HUD_MARGIN above the frame's bottom, so this is that figure and not a second hand-picked one, and the
+        //two cannot drift apart again. It was 26, which left the queue 92 units of air under it and 26 over it
+        private const int HUD_SWAP_ABOVE_STRIP = HUD_MARGIN;
         private const float HUD_SWAP_SPENT_ALPHA = 0.42f;
 
         //Every keycap or button a chip draws, either device's (#694): the column is as wide as the widest of them, so
@@ -1249,8 +1256,8 @@ namespace BS3D.Screens
         {
             if (swapCharges < 0 && brakeCharges < 0 && cutCharges < 0) return;
 
-            SpriteFontBase glyphFont = _game.HudFontPrompt;
-            SpriteFontBase captionFont = _game.HudFontTutorialDetail;
+            SpriteFontBase glyphFont = _game.HudFontChipPrompt;
+            SpriteFontBase captionFont = _game.HudFontChipDetail;
             MeasureChipColumns(glyphFont, captionFont);
 
             if (swapCharges >= 0) ChipText(swapCharges, SWAP_READY, SWAP_SPENT, ref _swapTextFor, ref _swapText);
@@ -1318,8 +1325,8 @@ namespace BS3D.Screens
         {
             float alpha = ready ? 1f : HUD_SWAP_SPENT_ALPHA;
 
-            SpriteFontBase glyphFont = _game.HudFontPrompt;
-            SpriteFontBase captionFont = _game.HudFontTutorialDetail;
+            SpriteFontBase glyphFont = _game.HudFontChipPrompt;
+            SpriteFontBase captionFont = _game.HudFontChipDetail;
 
             Vector2 glyphSize = glyphFont.MeasureString(glyph);
             Vector2 captionSize = captionFont.MeasureString(text);
