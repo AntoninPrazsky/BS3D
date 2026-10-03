@@ -7738,3 +7738,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Zkouška na skutečné pipeline:** ruční „Run workflow“ na větvi (nic se nepublikuje): 456 souborů, 491 MB, **397,9 MB zipu** proti **417,0 MB** ve starém rozložení se stejným obsahem; stažený a rozbalený zip (s ručně přidaným `Zone.Identifier`) hraje Pennant, načte úrovně i hudbu, ukáže splash i About. Kontrola ve workflow („Check the published folder is playable“) teď selže na čemkoli jiném na nejvyšší úrovni; viděna při selhání na starém rozložení (312 položek) i na single-file s 2.1 zbytky. `CLAUDE.md` přepsáno: číslo „218,1 MB“ bylo z 23. 9., hudba mezitím vyrostla (`Music/` 350 MB).
 - ⚠ **Nezkoušeno a co udělat nemohu:** skutečně stažený zip z GitHub Release a dialog SmartScreen (skript ho neovládne). **První tag po tomhle mergi je první skutečné publikování z tohoto rozložení — sledovat ten běh `release.yml`.**
 - Poznámka k „Hotovo“ z issue: launcher (možnost 3) se nestavěl, nebyl potřeba.
+
+## 2026-10-03 — beru #713 (varování HLSL) — desktop, Claude Code (bs3d-54)
+
+- **Beru:** #713. Sedmnáct odlišných varování HLSL, u každého buď oprava s důkazem, že se obraz nezměnil (shodný zkompilovaný `.xnb` před/po, jinak párové snímky), nebo ponechat s důvodem v komentáři na místě. Základ: zkompilované `.xnb` všech shaderů před změnou uložené mimo repozitář.
