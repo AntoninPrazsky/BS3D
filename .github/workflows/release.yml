@@ -82,16 +82,23 @@ jobs:
           Add-Content -Path $env:GITHUB_ENV -Value "BUILD_VERSION=$version" -Encoding utf8
           Add-Content -Path $env:GITHUB_ENV -Value "BUILD_NAME=BS3D-$version-win-x64" -Encoding utf8
 
-      # Self-contained: the .NET runtime travels inside the folder, which is the whole promise of the
-      # download — the player installs nothing. Deliberately NOT trimmed and NOT packed into a single file:
-      # Myra, FontStashSharp and the content pipeline all reach for types by reflection, and Content/,
-      # Levels/ and Music/ have to sit beside the exe anyway, so one exe would buy nothing and could only
-      # break something. The .pdb files are kept on purpose — they are what turns a player's crash report
-      # into a stack trace with line numbers.
-      - name: Publish the game (self-contained, win-x64)
+      # Self-contained: the .NET runtime travels inside the exe, which is the whole promise of the download —
+      # the player installs nothing. Deliberately NOT trimmed: Myra, FontStashSharp and the content pipeline
+      # all reach for types by reflection. But a SINGLE FILE since #714: untrimmed, bundling removes no type,
+      # and the folder a player opens after extracting is BS3D.exe and the four folders the game reads at run
+      # time (Content, Levels, Music, Sfx) instead of 299 files with the right exe somewhere among them. No
+      # native library needs self-extraction (everything is managed or a system DLL), and the stale 2.1 runtime
+      # pack MonoGame still declares is kept out of the publish by Game.csproj's own target.
+      #
+      # DebugType=embedded keeps what the .pdb files were kept for - turning a player's crash report into a
+      # stack trace with line numbers - without a .pdb beside the exe: measured on a throwaway single-file app,
+      # a trace carries its file and line either way, and the debug info now travels inside the assemblies.
+      # Passed here on the command line, not set in a project, so it reaches the three libraries as well.
+      - name: Publish the game (self-contained, single file, win-x64)
         shell: pwsh
         run: |
-          $publishArgs = @('publish', 'Game/Game.csproj', '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true', '-o', "publish/$env:BUILD_NAME")
+          $publishArgs = @('publish', 'Game/Game.csproj', '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true',
+            '-p:PublishSingleFile=true', '-p:DebugType=embedded', '-o', "publish/$env:BUILD_NAME")
           # A plain numeric tag ("v1.2.3") also stamps the assembly, so the exe's own version matches the
           # release it came out of; anything else (a suffixed tag, a manual run) leaves the default alone.
           if ($env:BUILD_VERSION -match '^v(\d+(\.\d+){1,3})$') { $publishArgs += "-p:Version=$($Matches[1])" }
@@ -101,19 +108,26 @@ jobs:
           if ('${{ github.ref_type }}' -eq 'tag') { $publishArgs += "-p:BS3DReleaseVersion=$env:BUILD_VERSION" }
           dotnet @publishArgs
 
-      # A published folder missing its content is still a folder full of DLLs, and that failure would show
-      # up on a player's machine rather than here. These five are what a playable, install-nothing build
-      # cannot be without: the exe, the runtime beside it, the compiled shaders, the levels and the music.
-      # The shaders are the one of them the Game does not build itself: they are Prazsky.Shaders' content
-      # items (#618), copied in through the project reference, so this is also the check that the copy
-      # really reaches a publish.
+      # A published folder missing its content is still a folder of files, and that failure would show up on a
+      # player's machine rather than here. These are what a playable, install-nothing build cannot be without:
+      # the exe with the runtime inside it, the compiled shaders, the levels, the music and the sounds. The
+      # shaders are the one of them the Game does not build itself: they are Prazsky.Shaders' content items
+      # (#618), copied in through the project reference, so this is also the check that the copy really
+      # reaches a publish.
+      #
+      # And the way in (#714): the top level is BS3D.exe and the four folders, nothing else. The runtime check
+      # is the exe's size, since a single-file self-contained exe carries it (116 MB; a framework-dependent or
+      # unbundled one is a few hundred KB), and a stray item at the top - a DLL, a second exe, a folder of
+      # translations - is exactly the wall of files this layout exists to remove, so it fails the build.
       - name: Check the published folder is playable
         shell: pwsh
         run: |
           $root = "publish/$env:BUILD_NAME"
           $missing = @()
           if (-not (Test-Path "$root/BS3D.exe")) { $missing += 'BS3D.exe' }
-          if (-not (Test-Path "$root/coreclr.dll")) { $missing += 'the .NET runtime (coreclr.dll) - is this really a self-contained publish?' }
+          elseif ((Get-Item "$root/BS3D.exe").Length -lt 50MB) { $missing += 'the .NET runtime inside BS3D.exe - is this really a self-contained single-file publish?' }
+          $stray = @(Get-ChildItem $root | Where-Object { $_.Name -notin 'BS3D.exe', 'Content', 'Levels', 'Music', 'Sfx' } | ForEach-Object Name)
+          if ($stray.Count -gt 0) { $missing += "nothing else at the top level, but found: $($stray -join ', ')" }
           if (-not (Test-Path "$root/Content/Shaders/InstancedModel.xnb")) { $missing += 'the compiled shaders' }
           if (-not (Get-ChildItem "$root/Levels" -Filter *.json -ErrorAction SilentlyContinue)) { $missing += 'the levels' }
           if (-not (Get-ChildItem "$root/Music" -Filter *.ogg -ErrorAction SilentlyContinue)) { $missing += 'the music' }
@@ -123,7 +137,7 @@ jobs:
           "{0} published {1:N0} file(s), {2:N0} MB" -f $env:BUILD_NAME, $files.Count, (($files | Measure-Object Length -Sum).Sum / 1MB)
 
       # Compress-Archive on a *directory* keeps that directory inside the archive, which is the point:
-      # extracting drops one BS3D-... folder rather than spraying three hundred files into Downloads.
+      # extracting drops one BS3D-... folder rather than spraying its contents into Downloads.
       - name: Zip the published folder
         shell: pwsh
         run: |

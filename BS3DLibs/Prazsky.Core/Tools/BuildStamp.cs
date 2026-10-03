@@ -142,7 +142,9 @@ namespace Prazsky.Core.Tools
 
             if (libraries.Length == 0)
             {
-                Console.WriteLine($"[build] no {LIBRARY_PREFIX}* libraries beside the executable");
+                //A single-file publish (the release since #714) carries them inside the exe, so the hash on the first line
+                //is a hash of every one of them and this line has nothing to add
+                Console.WriteLine($"[build] no {LIBRARY_PREFIX}* libraries beside the executable (inside it, on a single-file publish)");
                 return;
             }
 
