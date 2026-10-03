@@ -85,6 +85,18 @@ namespace BS3D.Tests
         /// neighbours (7, 9 and 15 against the promised 3). What the crate itself promises is the flight, and that is held
         /// tightly: every simulated step after the bounce lies on the preview's reflected leg.
         /// </para>
+        /// <para>
+        /// <b>And "the ball it touched" is every ball it touched in that step, not the first one a callback names.</b> The
+        /// bank shot arrives touching four balls in one step (measured: the promised ball, two beside it on the next
+        /// level and one on the level above that, two levels from the promised one), and Bepu's workers report a step's
+        /// contacts in whatever order they finish, so "the first callback" was one of the four chosen by thread timing.
+        /// Thirty runs of the step on a 24-core desktop gave the same four balls every time and the promised one first
+        /// in 21 of them. The ball two levels away is the only one of the four that is not a neighbour, which is what the
+        /// runner's failures look like (they named a ball that was no neighbour; their cells were not printed until
+        /// now). The game's own handler orders a step's contacts by how far along the flight they lie for the same
+        /// reason (#578); this test asks the question that does not need an order: did the shot reach the promised ball
+        /// or one beside it.
+        /// </para>
         /// </summary>
         [Fact]
         public void ThePreviewAndTheSimulationBankOffACrateIntoTheSameBall()
@@ -144,17 +156,25 @@ namespace BS3D.Tests
             Assert.True(stepsOnLeg > 0);
             Assert.True(worstOffLeg < 0.15f, $"the simulated flight left the preview's leg by {worstOffLeg}");
 
-            //At the promised ball or a lattice neighbour of it (#696, the <para> above)
-            PhysicsBall touched = null;
+            //Reached the promised ball or a lattice neighbour of it, among the balls it touched in that step (#696, the
+            //<para>s above)
+            HashSet<int> handles = new(touch.All);
+            List<XZLevel> reached = new();
             foreach (PhysicsBall ball in hung.Balls)
-                if (ball != null && ball.BallReference.Handle.Equals(touch.Other.Value)) touched = ball;
+                if (ball != null && handles.Contains(ball.BallReference.Handle.Value)) reached.Add(ball.ArrayPosition);
 
-            Assert.NotNull(touched);
-            bool near = touched.ArrayPosition.Equals(promised.ArrayPosition);
+            Assert.NotEmpty(reached);
+
             XZLevel size = new(hung.Balls.GetLength(0), hung.Balls.GetLength(1), hung.Balls.GetLength(2));
-            foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(promised.ArrayPosition, size))
-                near |= neighbour.Equals(touched.ArrayPosition);
-            Assert.True(near, $"the shot reached {touched.ArrayPosition}, the preview named {promised.ArrayPosition}");
+            bool near = false;
+            foreach (XZLevel cell in reached)
+            {
+                near |= cell.Equals(promised.ArrayPosition);
+                foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(promised.ArrayPosition, size))
+                    near |= neighbour.Equals(cell);
+            }
+
+            Assert.True(near, $"the shot reached {string.Join(" ", reached.ConvertAll(Cell))}, the preview named {Cell(promised.ArrayPosition)}");
         }
 
         /// <summary>
@@ -207,18 +227,26 @@ namespace BS3D.Tests
         {
             public BodyHandle? Other;
 
+            /// <summary>Every dynamic body contacted, in the order the workers reported them, which is no order at all.</summary>
+            public readonly System.Collections.Concurrent.ConcurrentQueue<int> All = new();
+
             //OnContactAdded, as the game's own handler takes it: a shot's first contact is often speculative, and
             //OnStartedTouching would only report the ball it was pushed into afterwards
             public void OnContactAdded<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold,
                 XVector3 contactOffset, XVector3 contactNormal, float depth, int featureId, int contactIndex, int workerIndex)
                 where TManifold : unmanaged, IContactManifold<TManifold>
             {
-                if (Other != null) return;
-
                 CollidableReference other = pair.A.Equals(eventSource) ? pair.B : pair.A;
-                if (other.Mobility == CollidableMobility.Dynamic) Other = other.BodyHandle;
+                if (other.Mobility != CollidableMobility.Dynamic) return;
+
+                All.Enqueue(other.BodyHandle.Value);
+
+                //Which of a step's simultaneous contacts is "first" is the workers' race; only that there was one is a fact
+                Other ??= other.BodyHandle;
             }
         }
+
+        private static string Cell(XZLevel cell) => $"({cell.X}, {cell.Z}, {cell.Level})";
 
         private static float LowestBallY(PhysicsBall[,,] balls)
         {
