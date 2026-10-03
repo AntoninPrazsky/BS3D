@@ -344,6 +344,8 @@ namespace BS3D.Online
         {
             if (_settings.Online == on) return;
 
+            //Any decision ends the question, so the count of Esc presses that led up to it is not kept (#763)
+            _settings.NicknameDismissed = 0;
             _settings.Online = on;
             _saveSettings();
             Restart();
@@ -395,17 +397,12 @@ namespace BS3D.Online
         /// </summary>
         internal void AnswerNickname(string name)
         {
-            _settings.NicknameDismissed = 0;
             SetNickname(name);
             SetOn(true);
         }
 
         /// <summary>The question's other answer, Skip: an explicit Off, which is never asked about again.</summary>
-        internal void SkipNickname()
-        {
-            _settings.NicknameDismissed = 0;
-            SetOn(false);
-        }
+        internal void SkipNickname() => SetOn(false);
 
         /// <summary>
         /// Esc on the question: the first leaves the setting undecided, so the next launch asks again, and the second is
@@ -415,11 +412,13 @@ namespace BS3D.Online
         {
             bool skip = NicknamePrompt.Dismiss(_settings.NicknameDismissed, out int dismissed);
 
-            //A Skip is an answer like any other, so the count it ends on is not kept: the file says false and nothing more
-            _settings.NicknameDismissed = skip ? 0 : dismissed;
-
+            //A Skip is a decision like any other: SetOn drops the count, and the file says false and nothing more
             if (skip) SetOn(false);
-            else _saveSettings();
+            else
+            {
+                _settings.NicknameDismissed = dismissed;
+                _saveSettings();
+            }
 
             return skip;
         }

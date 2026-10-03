@@ -1205,8 +1205,8 @@ namespace BS3D
         /// come; a run that a script drives never gets it unless it said <c>nickprompt</c>.
         /// <para>
         /// Latched whatever the answer, so a player who answered, skipped or was not asked is never asked later in the
-        /// same run, however many times they come back to the front end. A scripted run's page opened at boot stands over
-        /// the splash's replacement and so is not "the front end standing alone": the latch waits for it to be.
+        /// same run, however many times they come back to the front end. A run a script drives is decided by the same call
+        /// and gets <c>Scripted</c> (said in the log), so the latch changes nothing for it but where the verdict is written.
         /// </para>
         /// </summary>
         private void AskForNicknameOnce()
