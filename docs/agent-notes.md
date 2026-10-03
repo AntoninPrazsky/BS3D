@@ -7652,3 +7652,9 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
   - Plošiny v Trapeze jsou na ±14 ve výšce 2,5.
 - **Beru #716** (herní strana, neúplné pokusy s 0 hvězdami). Služba v0.1.18 už běží na Pi. Testovat jen proti lokálnímu BS3D-API, nikdy proti živému.
 
+## 2026-10-03 — beru #712 #728 #729 #727 #719 #721 #722 #725 #723 (UI z majitelových poznámek) — desktop, Claude Code (bs3d-54)
+
+- **Beru:** devět drobností z poznámek z 2. 10., každou na vlastní větvi a v tomhle pořadí: #712 (pruh na plechu), #728 + #729 (Help), #727 (High Scores bez zacyklení), #719 (drop cinematic o 20 % vzácnější), #721 + #722 (stránka výsledku), #725 (pohár u pořadí), #723 (glóbus).
+- **Neberu:** #703, #715, #711, #710, #720, #704, #706, #726, #730, #714, #696; #716 a #707 mají bs3d-1b.
+- Pracuji v worktree `../BS3D-ui`, hlavní checkout je na větvi `crate-test-deflake` (podle reflogu ho tam přepnula session, která sloučila #716, tedy nejspíš bs3d-1b). Kdo sahá do `HelpPage`, `HighScoresPage` nebo stránky výsledku, ať mi napíše.
+
