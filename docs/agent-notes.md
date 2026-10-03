@@ -7679,3 +7679,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - ⚠ **Past, na kterou se narazilo při vzorkování CI:** push **commitu bez změny souboru** na novou větev workflow nespustí (`paths-ignore` ve `build.yml` vidí prázdnou sadu změn jako „vše ignorováno“), a stejný SHA na druhé větvi taky ne. Pro vzorkování je potřeba commit, který mění soubor mimo ignorované cesty.
 - **`Tools/play-latest.ps1`** (merge `e32411a2`): načte origin, postaví nejnovější `main` v **druhém checkoutu `..\BS3D-play`** (git worktree) v Release a spustí hru; pracovní složka zůstane na své větvi i se změnami (`-Ref <větev>`, `-NoRun`, `-NoFetch`). První běh 84 s, další 5 s. Hra běží na vlastním savu hráče. Řádek v `CLAUDE.md`.
 
+## 2026-10-03 — beru #708 #724 #703 #730 — desktop, Claude Code (bs3d-54)
+
+- **Beru:** #708 (sklo děla zapuštěné do stěn), #724 (korálky na poháru až k trubce), #703 (HUD čipy výš a menší), #730 (barevný vizualizér s padajícími špičkami). Každé na vlastní větvi, v tomhle pořadí. Pracuji ve worktree `../BS3D-ui`. Majitel povolil pro #725 a #723 poslat testovací skóre na živý server pod hráčem „Test“ a brát GPU úlohy.
+
