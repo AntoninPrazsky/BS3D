@@ -298,6 +298,47 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// How far either side of a handle's plane, in radians of azimuth, the tube of that handle comes within
+        /// <paramref name="clearance"/> of a ring at <paramref name="ringRadius"/> and <paramref name="ringY"/> (#724):
+        /// <b>zero when it never does.</b> The ornaments' rows ask it where to stop short of a handle - a bead on a ring
+        /// is a point at this radius and height, so it is the distance from that point to the tube that decides.
+        /// <para>
+        /// It is measured on the handle's own centreline and tube radius (<see cref="HandlePath"/> and
+        /// <see cref="TubeRadius"/>, the very figures the handle is swept from), as a union of spheres along it: a ring
+        /// point at azimuth <c>a</c> is within <c>r + clearance</c> of the centreline sample <c>(x, y)</c> when
+        /// <c>R² + x² + (ringY - y)² - (r + clearance)² &lt;= 2·R·x·cos a</c>, so the arc the tube blocks is the widest
+        /// <c>a</c> over the samples. A retune of the handle moves the gap with it, which a hand-picked angle could not;
+        /// before this the rows left 0.16 radians either side of both handles, twice what the tube needs on the upper
+        /// band row and all of it for nothing on the lower one.
+        /// </para>
+        /// </summary>
+        public static float HandleHalfAngle(float ringRadius, float ringY, float clearance)
+        {
+            const int SAMPLES = 400;
+
+            float half = 0f;
+
+            for (int i = 0; i <= SAMPLES; i++)
+            {
+                float t = i / (float)SAMPLES;
+                Vector2 centre = HandlePath(t).Path;
+                if (centre.X <= 0f) continue;
+
+                float reach = TubeRadius(t) + clearance;
+                float rise = ringY - centre.Y;
+                float cosine = (ringRadius * ringRadius + centre.X * centre.X + rise * rise - reach * reach)
+                    / (2f * ringRadius * centre.X);
+
+                //Beyond one the ring never comes within reach of this sample
+                if (cosine > 1f) continue;
+
+                half = MathF.Max(half, MathF.Acos(MathF.Max(cosine, -1f)));
+            }
+
+            return half;
+        }
+
+        /// <summary>
         /// The OUTSIDE surface at height <paramref name="y"/>: its radius and its outward normal in the
         /// radius–height plane, read off the densified profile that is actually drawn — so a stone placed on
         /// the curved calyx sits on the curve and not on the chord between two authored rings. Only the run
