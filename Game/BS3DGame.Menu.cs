@@ -149,6 +149,7 @@ namespace BS3D
         private FontSystem _menuFontSystemPrompt;
         private SpriteFontBase _menuFontBody, _menuFontSmall, _menuFontHeading, _menuFontTitle, _menuFontStars;
         private SpriteFontBase _menuFontPrompt;
+        private SpriteFontBase _menuFontPromptSmall;
         private SpriteFontBase _menuFontSection;
         private SpriteFontBase _menuFontFrontEntry;
         private SpriteFontBase _menuFontTile;
@@ -190,6 +191,18 @@ namespace BS3D
         /// plate that is theirs reads as a reward rather than as one more row.
         /// </summary>
         internal static Color BoardYouColor => STAR_GOLD;
+
+        /// <summary>
+        /// The metal of the cup beside a board's top three (#725): gold, silver and bronze in the tints the stars are struck
+        /// in, which are the game's own cups' metals (the podium's Gold, Silver and Bronze finishes) cooled or warmed to read
+        /// at the size of a line of small print. The shape is the signal and the colour tells the places apart.
+        /// </summary>
+        internal static Color PlaceColor(int rank) => rank switch
+        {
+            1 => STAR_GOLD,
+            2 => STAR_SILVER,
+            _ => STAR_BRONZE,
+        };
         private static readonly Color STAR_DIAMOND = new(140, 236, 255);      //above gold: the one cold, bright tier
 
         /// <summary>
@@ -587,6 +600,7 @@ namespace BS3D
             _menuFontSmall = _menuFontSystem.GetFont(Scaled(MENU_FONT_SMALL));
             _menuFontBody = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_BODY));
             _menuFontPrompt = _menuFontSystemPrompt.GetFont(Scaled(MENU_FONT_BODY * 6 / 5));
+            _menuFontPromptSmall = _menuFontSystemPrompt.GetFont(Scaled(MENU_FONT_SMALL));
             _menuFontHeading = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_HEADING));
             //The DISPLAY face, not the small one it replaced: a section label over display-face rows belongs to them.
             _menuFontSection = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_SECTION));
@@ -667,6 +681,12 @@ namespace BS3D
         /// </para>
         /// </summary>
         internal SpriteFontBase MenuFontPrompt => _menuFontPrompt;
+
+        /// <summary>
+        /// PromptFont at the small face's size (#725), for a glyph that stands in a line of small print: the cup beside a
+        /// board's top three. Not <see cref="MenuFontPrompt"/>, which is a fifth over the body size for a keycap.
+        /// </summary>
+        internal SpriteFontBase MenuFontPromptSmall => _menuFontPromptSmall;
         internal SpriteFontBase MenuFontSmall => _menuFontSmall;
         internal SpriteFontBase MenuFontHeading => _menuFontHeading;
         internal SpriteFontBase MenuFontSection => _menuFontSection;

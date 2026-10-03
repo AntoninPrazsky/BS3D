@@ -414,8 +414,8 @@ namespace BS3D.Screens
             _boardsHeading = new Label { Font = FontBody, TextColor = BS3DGame.MENU_TEXT };
             stack.Widgets.Add(_boardsHeading);
 
-            _boardMonth = new BoardView(FontBody, FontSmall, Scaled, OnlineSession.RESULT_BOARD_ROWS, width);
-            _boardAllTime = new BoardView(FontBody, FontSmall, Scaled, OnlineSession.RESULT_BOARD_ROWS, width);
+            _boardMonth = new BoardView(FontBody, FontSmall, Game.MenuFontPromptSmall, Scaled, OnlineSession.RESULT_BOARD_ROWS, width);
+            _boardAllTime = new BoardView(FontBody, FontSmall, Game.MenuFontPromptSmall, Scaled, OnlineSession.RESULT_BOARD_ROWS, width);
             _boardMonth.Root.Margin = ScaledThickness(0, BOARD_SECTION_GAP / 2, 0, 0);
             _boardAllTime.Root.Margin = ScaledThickness(0, BOARD_SECTION_GAP, 0, 0);
             stack.Widgets.Add(_boardMonth.Root);
