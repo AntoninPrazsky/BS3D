@@ -762,6 +762,9 @@ float StripeMix(float coordinate, float width)
     return saturate(0.5 - sin(PI * coordinate) / (2.0 * PI * max(width, 1e-4)));
 }
 
+//X4000 LEFT (#713, not attempted): "use of potentially uninitialized variable (ShadeRoof)" comes from the early returns inside nested ifs below.
+//Unlike the [branch] early-outs split in Aurora.fx and Cavern.fx this needs the body turned into if/else chains, and the
+//compiled code changes with it; nothing here has been compared against a capture, so it stays as it was until one is.
 float3 ShadeRoof(float3 p, float3 n, float footprint)
 {
     float bearing = atan2(p.z, p.x);
@@ -866,6 +869,9 @@ float3 ShadeWall(float3 p, float3 n, float footprint)
     return color;
 }
 
+//X4000 LEFT (#713, not attempted): "use of potentially uninitialized variable (ShadeSeats)" comes from the early returns inside nested ifs below.
+//Unlike the [branch] early-outs split in Aurora.fx and Cavern.fx this needs the body turned into if/else chains, and the
+//compiled code changes with it; nothing here has been compared against a capture, so it stays as it was until one is.
 float3 ShadeSeats(float3 p, float3 n, float footprint)
 {
     float r = length(p.xz);

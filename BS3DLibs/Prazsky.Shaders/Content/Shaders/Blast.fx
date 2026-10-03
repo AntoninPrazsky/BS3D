@@ -269,6 +269,9 @@ float4 BlastPS(BlastVertexOutput input) : COLOR
         float heat = (1.0 - cool) * (0.55 + 0.45 * body);
         float3 colour = lerp(EMBER, lerp(FIRE, HOT, saturate(heat * 1.6 - 0.7)), saturate(heat * 2.2));
 
+        //X3571 left on purpose (#713): cool is the fireball's age over its life, 0..1 from the CPU, so 1 - cool is not negative. It
+        //is a fact about the data and not about this file, which is why it is not made a saturate() the build could not show
+        //unchanged (the blast is time-driven); a cool over 1 would be the CPU's fault and would surface as a NaN here.
         float strength = FIRE_RADIANCE * pow(1.0 - cool, 1.5);
 
         return float4(colour * (strength * falloff), falloff);

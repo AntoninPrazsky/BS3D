@@ -168,6 +168,11 @@ ForestVertexOutput ForestVS(ForestVertexInput input)
 //point the ray reaches at an average crown's height - every crown that can shade the point is in it, whichever
 //cell the ray happens to pass through - each crown's height and width read off the hash remapped to 0..1, and
 //heights taken above the ground at the shaded point (a wooded slope's trees stand on the slope).
+//X4000 LEFT ON PURPOSE (#713): "use of potentially uninitialized variable (ForestShadow)" is the [branch] early return below, which Aurora()
+//and Glowworms() were split to get rid of (the body in a ForestShadowLit, a wrapper that chooses and returns once, as #587 did for the
+//clouds). Here the split compiles to different code and the picture could not be shown to stay the same:
+//the wind moves the trees, so two runs of the SAME build already differ by tens of levels in the Testbed, and the shadows
+//could not be compared. Left as it was until a capture can reach it.
 float ForestShadow(float3 worldPosition, float3 sunDir, float density)
 {
     //A flat clearing (density 0) is in full sun: the wood's trees stand outside it, and the procedural wood

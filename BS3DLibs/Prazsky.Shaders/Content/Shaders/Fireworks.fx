@@ -90,6 +90,7 @@ FireworkVertexOutput FireworkVS(FireworkVertexInput input)
         output.Position = float4(0.0, 0.0, 2.0, 1.0);   //behind the far plane
         output.Corner = float2(0.0, 0.0);
         output.Tint = float4(0.0, 0.0, 0.0, 0.0);
+        output.Head = float4(0.0, 0.0, 0.0, 0.0);   //X3578 (#713): the whole output is written, though nothing reads it - the triangle is gone
         return output;
     }
 

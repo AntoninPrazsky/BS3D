@@ -222,7 +222,9 @@ float4 LavaPS(PatternVertexShaderOutput input) : COLOR
         max(SeamLine(seamPosition, LavaSeamB, LavaSeamFrequency * LavaSeamRatio.x, heatWidth, footprint),
             SeamLine(seamPosition, LavaSeamC, LavaSeamFrequency * LavaSeamRatio.y, heatWidth, footprint)));
 
-    float halo = pow(hot, LavaHeatFalloff) * (1 - seam);
+    //max(.., 0) is a no-op (#713, X3571): hot is the largest of three SeamLines, each (1 - smoothstep) * saturate, so it is never
+    //negative; it says so to the compiler, which cannot see that through the calls and warns that pow fails for a negative base
+    float halo = pow(max(hot, 0.0), LavaHeatFalloff) * (1 - seam);
 
     //The crust's own broken-stone grain, plus the seams cut into it. Kept rather than removed - see the
     //header; this is the one new style that wants the vinyl's moulding machinery.

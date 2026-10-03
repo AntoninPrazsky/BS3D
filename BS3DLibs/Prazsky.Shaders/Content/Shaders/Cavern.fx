@@ -195,11 +195,8 @@ static const float GLOWWORM_CHANCE = 0.26;
 static const float GLOWWORM_RADIUS = 0.16;      //world units, the smallest a worm is drawn at
 static const float GLOWWORM_PIXEL = 0.0016;     //radians a pixel subtends, near enough for a point's size
 
-float Glowworms(float3 position, float3 normal, float distanceTravelled, float reach)
+float GlowwormsLit(float3 position, float3 normal, float distanceTravelled, float reach)
 {
-    [branch]
-    if (reach <= 0.02) return 0.0;
-
     float3 cell = position / GLOWWORM_CELL;
 
     //A POINT STAYS ABOUT A PIXEL AND A HALF WIDE at any distance, which is the snow sparkle's own rule (#278):
@@ -257,6 +254,19 @@ float Glowworms(float3 position, float3 normal, float distanceTravelled, float r
     }
 
     return worm;
+}
+
+//Glowworms: the early-out decided here and a single return (#713). A [branch] around an early return in an inlined
+//function is what fxc reports as X4000, "use of potentially uninitialized variable", so the work - and the comment
+//above - is GlowwormsLit, and this only chooses. Same result on every path: the test is the early-out's own, negated (fxc may fold that into the opposite comparison, which differs only for a NaN, and nothing here is fed one).
+float Glowworms(float3 position, float3 normal, float distanceTravelled, float reach)
+{
+    float earlyOut = 0.0;
+
+    [branch]
+    if (!(reach <= 0.02)) earlyOut = GlowwormsLit(position, normal, distanceTravelled, reach);
+
+    return earlyOut;
 }
 
 float3 ShadeWall(float3 position, float distanceTravelled, uniform bool fullDetail)

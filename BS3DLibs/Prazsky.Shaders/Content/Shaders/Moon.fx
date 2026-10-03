@@ -580,19 +580,8 @@ float4 MoonTerrainPS(MoonTerrainVertexOutput input) : COLOR
 //is different is the surface - continents under swirled weather instead of banded clouds - and the size:
 //this disc is ~30 pixels at the window the game usually runs, not half the frame, so its lit body stays
 //UNDER the glare threshold (see the header).
-float3 Earth(float3 dir, float pixelAngle, out float coverage)
+float3 EarthLit(float3 dir, float pixelAngle, out float coverage, float cosine, float cosLimb, float halo)
 {
-    coverage = 0.0;
-
-    float cosine = dot(dir, EarthDirection);
-    float cosLimb = cos(EarthAngularRadius);
-
-    //A little slack past the limb so the atmosphere's halo is reached as well
-    float halo = cos(EarthAngularRadius * 1.35);
-
-    [branch]
-    if (cosine <= halo || EarthAngularRadius <= 0.0) return 0.0;
-
     //The limb is where cos(angle) crosses cosLimb, antialiased over one pixel's worth of angle
     float edge = max(pixelAngle * sin(EarthAngularRadius) * 0.8, 1e-6);
     coverage = smoothstep(cosLimb - edge, cosLimb + edge, cosine);
@@ -678,6 +667,27 @@ float3 Earth(float3 dir, float pixelAngle, out float coverage)
     lit += RimColor * (RimStrength * pow(grazing, 3.0) * saturate(daylight + 0.1));
 
     return lit * coverage + outside;
+}
+
+//Earth: the early-out decided here and a single return (#713). A [branch] around an early return in an inlined
+//function is what fxc reports as X4000, "use of potentially uninitialized variable", so the work - and the comment
+//above - is EarthLit, and this only chooses. Same result on every path: the test is the early-out's own, negated (fxc may fold that into the opposite comparison, which differs only for a NaN, and nothing here is fed one).
+float3 Earth(float3 dir, float pixelAngle, out float coverage)
+{
+    coverage = 0.0;
+
+    float cosine = dot(dir, EarthDirection);
+    float cosLimb = cos(EarthAngularRadius);
+
+    //A little slack past the limb so the atmosphere's halo is reached as well
+    float halo = cos(EarthAngularRadius * 1.35);
+
+    float3 earlyOut = 0.0;
+
+    [branch]
+    if (!(cosine <= halo || EarthAngularRadius <= 0.0)) earlyOut = EarthLit(dir, pixelAngle, coverage, cosine, cosLimb, halo);
+
+    return earlyOut;
 }
 
 struct MoonSkyVertexOutput

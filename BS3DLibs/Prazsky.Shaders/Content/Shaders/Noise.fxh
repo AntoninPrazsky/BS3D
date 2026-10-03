@@ -145,6 +145,9 @@ float Fbm2(float2 p, int octaves)
     float value = 0.0;
     float amplitude = 0.5;
 
+    //X3557 left on purpose (#713): fxc says the loop runs for 0 or 1 iteration(s) and unrolls it, because some caller passes a
+    //constant octave count of 0 or 1 here. That is what it does with every constant-count loop and nothing is wrong; a
+    //one-octave twin of this function would be a second copy of the loop to keep in step.
     for (int i = 0; i < octaves; i++)
     {
         value += amplitude * GradientNoise2(p);
@@ -169,6 +172,9 @@ float Fbm2BandLimited(float2 p, int octaves, float footprint)
     float amplitude = 0.5;
     float frequency = 1.0;
 
+    //X3557 left on purpose (#713): fxc says the loop runs for 0 or 1 iteration(s) and unrolls it, because some caller passes a
+    //constant octave count of 0 or 1 here. That is what it does with every constant-count loop and nothing is wrong; a
+    //one-octave twin of this function would be a second copy of the loop to keep in step.
     for (int i = 0; i < octaves; i++)
     {
         value += amplitude * saturate(1.0 - 2.0 * frequency * footprint) * GradientNoise2(p);
@@ -248,6 +254,9 @@ float Fbm3(float3 p, int octaves)
     float value = 0.0;
     float amplitude = 0.5;
 
+    //X3557 left on purpose (#713): fxc says the loop runs for 0 or 1 iteration(s) and unrolls it, because some caller passes a
+    //constant octave count of 0 or 1 here. That is what it does with every constant-count loop and nothing is wrong; a
+    //one-octave twin of this function would be a second copy of the loop to keep in step.
     for (int i = 0; i < octaves; i++)
     {
         value += amplitude * GradientNoise3(p);
