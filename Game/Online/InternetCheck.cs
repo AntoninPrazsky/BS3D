@@ -48,8 +48,9 @@ namespace BS3D.Online
                 //No network list service on this machine, or it would not answer: the adapter test below
             }
 
-            how = "an adapter is up";
-            return NetworkInterface.GetIsNetworkAvailable();
+            bool adapterUp = NetworkInterface.GetIsNetworkAvailable();
+            how = adapterUp ? "an adapter is up" : "no adapter is up";
+            return adapterUp;
         }
 
         //The network list manager's coclass and interface. Only the vtable's order matters to the call, so every slot

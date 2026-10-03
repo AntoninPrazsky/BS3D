@@ -15,10 +15,20 @@ namespace BS3D.Screens
     /// the score boards on behind it (<see cref="OnlineSession.AnswerNickname"/>); what that sends is said where it
     /// has always been, on the Settings page's Online tab and on About.
     /// <para>
-    /// <b>Three ways out, and only two are answers.</b> Enter on a name is the yes. <b>Skip</b> (the button, or the pad's A
-    /// with nothing typed) is an explicit no, which is never asked about again. Esc, or the pad's B, is neither: the
-    /// first leaves the setting undecided so the next launch asks again, and the second counts as Skip
-    /// (<see cref="NicknamePrompt.Dismiss"/>), so the question is put to a player at most twice without an answer.
+    /// <b>Three ways out, and only two are answers.</b> Enter on a name is the yes, and so is the button while it reads
+    /// <b>OK</b>. <b>Skip</b> is an explicit no, which is never asked about again. <b>The one button is OK or Skip by what
+    /// the field holds</b> (the owner's ruling, after he typed a name and found Skip under it): OK when it holds a name,
+    /// Skip when it holds nothing or something that is not one (<see cref="NicknameEntry.IsKeepable"/>), and the pad's
+    /// A does what the button says. Esc, or the pad's B, is neither answer: the first leaves the setting undecided so
+    /// the next launch asks again, and the second counts as Skip (<see cref="NicknamePrompt.Dismiss"/>), so the
+    /// question is put to a player at most twice without an answer.
+    /// </para>
+    /// <para>
+    /// <b>The first answer is the only one.</b> A pop off the screen stack only queues, and the manager applies it to
+    /// whatever is on top the next frame, so two answers between two frames (an Enter and a click, a key's auto-repeat
+    /// under a slow frame) would queue two pops and the second would take the front end off with the dialog, leaving
+    /// the scene with no menu; two Esc would also be two dismissals. <c>_answered</c> closes the dialog to input from the
+    /// moment it answers.
     /// </para>
     /// <para>
     /// <b>It has the keyboard from the first frame</b> (<see cref="CapturesKeyboard"/>), because a field that has to be
@@ -50,8 +60,11 @@ namespace BS3D.Screens
         private const float INPUT_GRACE_SECONDS = 0.8f;
 
         private readonly NicknameEntry _entry = new();
-        private Label _field, _hint;
+        private Label _field, _hint, _buttonLabel;
         private float _arrivedAt;
+
+        //Whether the dialog has answered and is leaving: nothing it is given after that counts (see the class remarks)
+        private bool _answered;
 
         public NicknamePage(BS3DGame game) : base(game) { }
 
@@ -63,6 +76,7 @@ namespace BS3D.Screens
         public override void Enter()
         {
             _arrivedAt = Game.WallClock;
+            _answered = false;
             _entry.Begin(null);
         }
 
@@ -125,8 +139,9 @@ namespace BS3D.Screens
             };
             column.Widgets.Add(_hint);
 
-            //Through the grace too: a click that skipped the title card must not land on this button
-            column.Widgets.Add(MenuButton("Skip", () => { if (!InGrace) Skip(); }));
+            //One button, OK or Skip by what the field holds (Refresh), through the grace too: a click that skipped the title
+            //card must not land on it
+            column.Widgets.Add(MenuButton("Skip", () => { if (!InGrace) AnswerWithButton(); }, out _buttonLabel));
 
             return ScreenRoot(Plate(column));
         }
@@ -140,8 +155,11 @@ namespace BS3D.Screens
             //What the field wants, or what was wrong with what was kept: the complaint is in the alert colour, the way
             //Settings' "Not set" is, so it reads as something to fix and not as one more line of small print
             _hint.Text = _entry.Problem
-                ?? $"{Nickname.MinLength} to {Nickname.MaxLength} letters, digits, spaces, _ or -. Enter confirms. A pad cannot type, its A skips.";
+                ?? $"{Nickname.MinLength} to {Nickname.MaxLength} letters, digits, spaces, _ or -. Enter confirms. A pad cannot type; its A presses the button.";
             _hint.TextColor = _entry.Problem != null ? BS3DGame.MENU_TEXT_ALERT : BS3DGame.MENU_TEXT_DIM;
+
+            //Skip until there is a name to keep; the button's slab does not change size with its word
+            _buttonLabel.Text = _entry.IsKeepable ? "OK" : "Skip";
         }
 
         private void ShowField() => _field.Text = _entry.Field;
@@ -151,7 +169,7 @@ namespace BS3D.Screens
 
         internal override void OnTextInput(char character)
         {
-            if (InGrace) return;
+            if (InGrace || _answered) return;
 
             switch (_entry.Type(character))
             {
@@ -170,42 +188,54 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// The pad's half (#548): A keeps a name that has been typed (a keyboard is still the only way to type one) and with
-        /// nothing typed is Skip, which is the only way a pad reaches the button; B is Esc.
+        /// The pad's half (#548): A does what the button says - keeps a name that has been typed (a keyboard is still the
+        /// only way to type one) and otherwise is Skip, which is the only way a pad reaches the button; B is Esc.
         /// </summary>
         internal override void TypingButtons(bool keep, bool drop)
         {
-            if (InGrace) return;
+            if (InGrace || _answered) return;
 
             if (drop) Dismiss();
-            else if (keep)
-            {
-                if (_entry.Draft.Length == 0) Skip();
-                else Confirm();
-            }
+            else if (keep) AnswerWithButton();
         }
 
-        /// <summary>Enter: a name is the answer. One that is not says what is wrong and the plate stays up.</summary>
+        /// <summary>What the button does, and the pad's A: OK on a name, Skip on nothing or on something that is not one.</summary>
+        private void AnswerWithButton()
+        {
+            if (_entry.IsKeepable) Confirm();
+            else Skip();
+        }
+
+        /// <summary>Enter: a name is the answer. One that is not says what is wrong and the dialog stays up.</summary>
         private void Confirm()
         {
+            if (_answered) return;
+
             if (!_entry.TryKeep(out string name))
             {
                 Refresh();
                 return;
             }
 
+            _answered = true;
             Game.Online.AnswerNickname(name);
             GoBack();
         }
 
         private void Skip()
         {
+            if (_answered) return;
+
+            _answered = true;
             Game.Online.SkipNickname();
             GoBack();
         }
 
         private void Dismiss()
         {
+            if (_answered) return;
+
+            _answered = true;
             Game.Online.DismissNickname();
             GoBack();
         }
