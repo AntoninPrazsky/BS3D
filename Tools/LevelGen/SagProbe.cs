@@ -134,7 +134,8 @@ namespace BS3D.Tools.LevelGen
         /// How long the world runs after each shot lands, i.e. how fast this player shoots. It has to be past
         /// <see cref="ClusterHang.BELOW_LINE_GRACE"/> or a held crossing could never be seen at all — the
         /// probe would step past the very verdict it exists to collect — and past the fall itself, so the
-        /// remainder has re-hung rather than merely started to.
+        /// remainder has re-hung rather than merely started to. The grace is 1.5 s since #710, which leaves
+        /// 0.1 s here: a grace of 1.6 s or more has to raise this with it.
         /// </summary>
         private const float SHOT_SECONDS = 1.6f;
 

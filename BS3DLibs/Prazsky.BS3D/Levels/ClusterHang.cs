@@ -75,7 +75,9 @@ namespace Prazsky.BS3D.Levels
         /// the lowest ball against a centred moving average (the baseline descends all level, so a raw minimum
         /// reads the whole descent as one dip). 35 swings over 67 s: deepest 0.82 units below the trend,
         /// longest 0.76 s, median 0.40 s, 90th percentile 0.71 s. A dip shallower than a unit AND shorter than
-        /// a second is therefore forgiven; anything deeper or longer is the cluster genuinely arriving.
+        /// a second is therefore forgiven; anything deeper or longer is the cluster genuinely arriving. (The
+        /// time has been 1.5 s since #710, see <see cref="BELOW_LINE_GRACE"/>: the measurement is of swings and
+        /// stands, the figure is now also the player's last-chance window.)
         /// </para>
         /// <para>
         /// <b>⚠ What this pair cannot forgive, and #301 is the report of it:</b> shooting a group off removes
@@ -86,8 +88,30 @@ namespace Prazsky.BS3D.Levels
         /// </summary>
         public const float SWING_ALLOWANCE = 1f;
 
-        /// <inheritdoc cref="SWING_ALLOWANCE"/>
-        public const float BELOW_LINE_GRACE = 1f;
+        /// <summary>
+        /// <b>How long a crossing may be held under the line before the level is lost</b> (#239, #710) — the other
+        /// half of the pair above, and since #710 no longer the same figure as its measurement.
+        /// <para>
+        /// It was one second because that sat just above the longest swing measured on Chest (0.76 s, 90th percentile
+        /// 0.71 s): a bound for <i>forgiving a swing</i>. It is also the player's <b>last chance</b> — the time to
+        /// notice the cluster is on the line, aim and fire the saving shot — and for that a second is brisk: the shot's
+        /// flight is not what limits it (the sag probe models shots at 200 u/s), the player's reaction is. The owner
+        /// likes the grace and asked for it a bit longer, so it is <b>1.5 s</b>, a starting figure to be felt in play
+        /// rather than a measured one; the swing measurement above stays what it was, and a swing is still forgiven
+        /// with room to spare.
+        /// </para>
+        /// <para>
+        /// <b>The depth clause did not move</b> (<see cref="SWING_ALLOWANCE"/>, one unit): a cluster that is more than a
+        /// unit under the line has arrived, whatever the time says, so a deep crossing is lost as fast as before and
+        /// only a shallow one gets the longer window. Whether that feels patchy is the owner's to say.
+        /// </para>
+        /// <para>
+        /// The level generator's sag gate runs this very figure (<c>SagProbe</c>), and its <c>SHOT_SECONDS</c> has to
+        /// stay past it or a held crossing could never be seen at all: 1.6 s against this 1.5 leaves 0.1 s, so a figure
+        /// of 1.6 or more needs that one raised with it.
+        /// </para>
+        /// </summary>
+        public const float BELOW_LINE_GRACE = 1.5f;
 
         /// <summary>
         /// The lattice-to-world offset a field is hung by, and the Y its topmost level ends up at.
