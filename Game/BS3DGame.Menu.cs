@@ -1,4 +1,5 @@
 using BS3D.Audio;
+using BS3D.Online;
 using BS3D.Screens;
 using FontStashSharp;
 using Microsoft.Xna.Framework;
@@ -57,6 +58,7 @@ namespace BS3D
         private MainMenuPage _mainMenuPage;
         private PausePage _pausePage;
         private SettingsPage _settingsPage;
+        private NicknamePage _nicknamePage;
         private LevelBoardPage _levelBoardPage;
         private HighScoresPage _highScoresPage;
         private LevelSelectPage _levelSelectPage;
@@ -550,6 +552,7 @@ namespace BS3D
             _mainMenuPage = new MainMenuPage(this);
             _pausePage = new PausePage(this);
             _settingsPage = new SettingsPage(this);
+            _nicknamePage = new NicknamePage(this);
             _levelSelectPage = new LevelSelectPage(this);
             _scenePage = new ScenePage(this);
             _aboutPage = new AboutPage(this);
@@ -1195,11 +1198,39 @@ namespace BS3D
         }
         internal void OpenAbout() => OpenPage(_aboutPage);
 
+        /// <summary>
+        /// The first-launch nickname question (#763): put up over the front end, once a run, the first time it is the
+        /// page the player is on - which is the frame the title card hands over, or the first one when there is none. It
+        /// is asked of <see cref="OnlineSession.DecideNicknameQuestion"/>, which says in the log why it did or did not
+        /// come; a run that a script drives never gets it unless it said <c>nickprompt</c>.
+        /// <para>
+        /// Latched whatever the answer, so a player who answered, skipped or was not asked is never asked later in the
+        /// same run, however many times they come back to the front end. A scripted run's page opened at boot stands over
+        /// the splash's replacement and so is not "the front end standing alone": the latch waits for it to be.
+        /// </para>
+        /// </summary>
+        private void AskForNicknameOnce()
+        {
+            if (_nicknameDecided || _screens.Active != _mainMenuPage) return;
+
+            _nicknameDecided = true;
+
+            bool scripted = !_nickPrompt && (UserData.IsTestingDirectory || _startupScript.Drives);
+
+            if (_online.DecideNicknameQuestion(scripted, _noInternet) == NicknameAsk.Ask) OpenPage(_nicknamePage);
+        }
+
         //What StartupScript asks of the stack (#583), which it does not hold: whether the title card is still up
         //(every page it opens at boot waits for it to go), and whether the Settings page is on top with its tree
         //built (settings=<rows> activates its rows only then)
         internal bool IsSplashUp => _screens.Contains<SplashPage>();
         internal bool IsSettingsPageReady => _screens.Active == _settingsPage && _settingsPage.IsBuilt;
+
+        /// <summary>Whether the nickname question is the page up, built and past its grace - what <c>nickprompt=&lt;steps&gt;</c> waits for (#763).</summary>
+        internal bool IsNicknamePageReady => _screens.Active == _nicknamePage && _nicknamePage.IsBuilt && !_nicknamePage.InGrace;
+
+        /// <summary>Runs <c>nickprompt=&lt;steps&gt;</c> on the question - testing only (#763).</summary>
+        internal void ActivateNicknamePageForTesting(string steps) => _nicknamePage.ActivateForTesting(steps);
 
         /// <summary>Pins the level picker to a chapter (1-based) before it opens - the <c>pick=</c> argument's (#273).</summary>
         internal void PinLevelSelectChapter(int chapter) => _levelSelectPage.PinChapter(chapter);

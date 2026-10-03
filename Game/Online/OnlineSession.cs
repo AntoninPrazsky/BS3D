@@ -189,8 +189,8 @@ namespace BS3D.Online
         /// </summary>
         internal bool Enabled => _client?.Enabled == true;
 
-        /// <summary>The player's own switch (#548) — what the settings row shows, whether or not anything can be sent.</summary>
-        internal bool IsOn => _settings.Online;
+        /// <summary>The player's own switch (#548) — what the settings row shows, whether or not anything can be sent. Off until decided (#763).</summary>
+        internal bool IsOn => _settings.Online == true;
 
         /// <summary>The nickname this install sends under, or null when there is no identity.</summary>
         internal string Nickname => _identity?.IsUsable == true ? _identity.Name : null;
@@ -350,6 +350,81 @@ namespace BS3D.Online
 
             _changed();
         }
+
+        #region The first-launch nickname question (#763)
+
+        /// <summary>
+        /// Whether the game should put the nickname question up now, and if not why not (<see cref="NicknamePrompt.Decide"/>).
+        /// Asked once, when the front end first stands on its own after the title card, and said in the run's log either
+        /// way, so a capture or a scripted run can tell why the plate did or did not come.
+        /// </summary>
+        /// <param name="scripted">Whether a script is driving this run (<c>userdata=</c>, or any argument that opens a page
+        /// or plays a level) and not <c>nickprompt</c>, which asks for the question whatever drives the run.</param>
+        /// <param name="noInternet">Testing only: <c>nointernet</c>, the connection check answers no.</param>
+        internal NicknameAsk DecideNicknameQuestion(bool scripted, bool noInternet)
+        {
+            string how = null;
+            long started = System.Diagnostics.Stopwatch.GetTimestamp();
+
+            bool internet() => !noInternet && InternetCheck.IsConnected(out how);
+            bool serverResolves = OnlineScores.TryResolveServer(_settings, out _, out _, out _);
+
+            NicknameAsk verdict = NicknamePrompt.Decide(_settings.Online, serverResolves, scripted, internet);
+
+            //Once a launch and on the frame the front end first stands, so what it costs is said (the connection check is a
+            //call into Windows)
+            double milliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+
+            Console.WriteLine(verdict switch
+            {
+                NicknameAsk.Ask => $"[online] Asking for a nickname: nothing decided yet, a server to send to, and the internet is up ({how}); dismissed {_settings.NicknameDismissed} time(s) before",
+                NicknameAsk.Decided => $"[online] Not asking for a nickname: the player has already decided ({(_settings.Online == true ? "on" : "off")})",
+                NicknameAsk.Scripted => "[online] Not asking for a nickname: a script is driving this run (nickprompt asks anyway)",
+                NicknameAsk.NoServer => "[online] Not asking for a nickname: no score server resolves for this build",
+                _ => noInternet ? "[online] Not asking for a nickname: nointernet says the machine is offline"
+                    : $"[online] Not asking for a nickname: the machine is not connected to the internet ({how})",
+            } + $" [{milliseconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)} ms]");
+
+            return verdict;
+        }
+
+        /// <summary>
+        /// The question's answer: a nickname. Turns the boards on, the same two steps the Settings row takes
+        /// (<see cref="SetNickname"/> makes this install's identity, <see cref="SetOn"/> opens the switch), so a clear
+        /// from here on is sent. Nothing is created or sent before this.
+        /// </summary>
+        internal void AnswerNickname(string name)
+        {
+            _settings.NicknameDismissed = 0;
+            SetNickname(name);
+            SetOn(true);
+        }
+
+        /// <summary>The question's other answer, Skip: an explicit Off, which is never asked about again.</summary>
+        internal void SkipNickname()
+        {
+            _settings.NicknameDismissed = 0;
+            SetOn(false);
+        }
+
+        /// <summary>
+        /// Esc on the question: the first leaves the setting undecided, so the next launch asks again, and the second is
+        /// taken as Skip (<see cref="NicknamePrompt.Dismiss"/>). Returns whether this one was taken as Skip.
+        /// </summary>
+        internal bool DismissNickname()
+        {
+            bool skip = NicknamePrompt.Dismiss(_settings.NicknameDismissed, out int dismissed);
+
+            //A Skip is an answer like any other, so the count it ends on is not kept: the file says false and nothing more
+            _settings.NicknameDismissed = skip ? 0 : dismissed;
+
+            if (skip) SetOn(false);
+            else _saveSettings();
+
+            return skip;
+        }
+
+        #endregion
 
         /// <summary>
         /// The player's nickname, already normalized by <see cref="BS3D.Online.Nickname.TryNormalize"/>. The first one

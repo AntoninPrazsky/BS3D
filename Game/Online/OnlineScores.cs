@@ -200,8 +200,12 @@ namespace BS3D.Online
             bool usable = identity != null && identity.IsUsable;
             bool resolved = TryResolveServer(settings, out Uri server, out string serverProblem, out bool named);
 
-            if (!settings.Online)
-                Console.WriteLine("[online] Off: online scores are not turned on in the settings"
+            bool on = settings.Online == true;
+
+            if (!on)
+                Console.WriteLine("[online] Off: online scores are "
+                    + (settings.Online == null ? "not decided yet (the first-launch nickname question has not been answered)"
+                        : "turned off in the settings")
                     + (usable && resolved ? $" (a rename or a removal still reaches {server})" : ""));
             else if (!usable)
                 Console.WriteLine("[online] Off: turned on, but Online.json holds no usable identity (id, token and nickname)");
@@ -212,7 +216,7 @@ namespace BS3D.Online
                     + $" game {BuildVersion.Name}, rules v{ScoreKeeper.RulesVersion}"
                     + (named ? ", server named by the settings" : ", the built-in server"));
 
-            return new OnlineScores(settings.Online, resolved ? server : null, usable ? identity : null, outboxPath, previous);
+            return new OnlineScores(on, resolved ? server : null, usable ? identity : null, outboxPath, previous);
         }
 
         /// <summary>

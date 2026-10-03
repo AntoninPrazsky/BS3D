@@ -317,6 +317,12 @@ namespace BS3D
         //whatever the settings file's "Intro logo" row says, and the file is not touched. Read once, by BuildMenu.
         private readonly bool _noSplash;
 
+        //The first-launch nickname question (#763): the two levers a run can give it (nickprompt asks in a scripted run
+        //too, nointernet makes the connection check answer no), and whether the question has been decided this run -
+        //once, the first time the front end stands on its own. See AskForNicknameOnce.
+        private readonly bool _nickPrompt, _noInternet;
+        private bool _nicknameDecided;
+
         //One SpriteBatch for everything drawn over the resolve: the gameplay screen's HUD and its crosshair
         //both go into this one. The white texel that used to sit beside it went with the crosshair in #76 —
         //Prazsky.Core.Render.Crosshair makes its own, and it was the texel's only consumer, so the host no
@@ -740,6 +746,8 @@ namespace BS3D
             _shotSchedule = launch.ShotSeconds;
             _noFpsOverlay = launch.NoFpsOverlay;
             _noSplash = launch.NoSplash;
+            _nickPrompt = launch.NickPrompt;
+            _noInternet = launch.NoInternet;
             Birthday = launch.Birthday || IsBirthday(DateTime.Now);
 
             //A tier the player chose in Settings is honoured exactly as quality= is — it is the same kind of
@@ -1633,6 +1641,9 @@ namespace BS3D
             //The command line's one-shot actions (#583), each once at its moment: the startup level, then the
             //celebrations, then the pages held back past the title card. See StartupScript.
             _startupScript.Step(this);
+
+            //The first launch's one question, once the front end is the page the player is on (#763)
+            AskForNicknameOnce();
 
             //A page that has just arrived must not be handed a mouse button that was already held down when it
             //did. Myra keeps its own previous-state and is only fed input while a menu page is on top, so the
