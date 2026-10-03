@@ -503,7 +503,7 @@ namespace BS3D.Audio
         {
             //What counts as a FULL-SIZE release: well past this the sound has nothing more to say by getting
             //louder still. Deliberately independent of the drop cinematic's bar, which is a level's own best
-            //(DropCinematic.MustBeatBestBy) — the ear has no history, and a fifteen-ball collapse should sound
+            //(DropTrigger.MustBeatBestBy) — the ear has no history, and a fifteen-ball collapse should sound
             //the same whether or not the camera decided it was the biggest one yet.
             const float FULL_COUNT = 15f;
             float size = MathHelper.Clamp(count / FULL_COUNT, 0f, 1f);

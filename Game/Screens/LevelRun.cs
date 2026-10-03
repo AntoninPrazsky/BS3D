@@ -105,7 +105,7 @@ namespace BS3D.Screens
 
         /// <summary>
         /// The biggest single release of <b>this</b> level so far, which is the bar the drop cinematic has to
-        /// clear (see <see cref="DropCinematic.MustBeatBestBy"/>). Per level by construction: carried across, a
+        /// clear (see <see cref="Prazsky.BS3D.DropTrigger.MustBeatBestBy"/>). Per level by construction: carried across, a
         /// small level played after Crown would never show one, and "big" has to mean big <i>here</i> rather
         /// than big in the campaign.
         /// </summary>
