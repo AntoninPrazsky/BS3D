@@ -555,6 +555,15 @@ namespace BS3D
         private const int HUD_FONT_TUTORIAL_DETAIL = 120;
         private const int HUD_FONT_PROMPT = 228;
 
+        //THE POWER-UP CHIPS' OWN PAIR (#703), a fifth smaller than the card's. The permanent chips (Swap, Brake, Cut, #213 and
+        //#694) borrowed the cards' two figures above, which were sized on purpose for a line that MUST read for a few seconds
+        //(#461), and a hint that stays up the whole level at that size was "far too huge" by the owner's account: a keycap
+        //114 px tall at 1080p. His ruling is about 20 % smaller, "the words in step", so each is the card's figure times 0.8
+        //and the key-to-caption relation the card settled on (228 : 120, the keycap filling its em where the display face
+        //stands short of one) is kept: 182 : 96 is 1.90 against 1.90. The cards keep theirs.
+        private const int HUD_FONT_CHIP_DETAIL = 96;
+        private const int HUD_FONT_CHIP_PROMPT = 182;
+
         //The balls-left alarm's first step, which used to be a heavier weight and cannot be: the display face
         //has ONE weight, so a bold slot would resolve to the very same glyphs and the step would vanish in
         //silence — a documented escalation quietly reduced from three steps to two. It is a size step instead.
@@ -566,6 +575,7 @@ namespace BS3D
         private SpriteFontBase _hudFontScore, _hudFontLabel, _hudFontPopup;
         private SpriteFontBase _hudFontScoreLoud, _hudFontLabelLoud;
         private SpriteFontBase _hudFontTutorial, _hudFontTutorialDetail, _hudFontPrompt;
+        private SpriteFontBase _hudFontChipDetail, _hudFontChipPrompt;
         private int _hudFontsForHeight = -1;
 
         internal SpriteFontBase HudFontScore => _hudFontScore;
@@ -582,6 +592,10 @@ namespace BS3D
         internal SpriteFontBase HudFontTutorial => _hudFontTutorial;
         internal SpriteFontBase HudFontTutorialDetail => _hudFontTutorialDetail;
         internal SpriteFontBase HudFontPrompt => _hudFontPrompt;
+
+        /// <summary>The power-up chips' words and keycaps (#703): the card's pair a fifth smaller, see <see cref="HUD_FONT_CHIP_DETAIL"/>.</summary>
+        internal SpriteFontBase HudFontChipDetail => _hudFontChipDetail;
+        internal SpriteFontBase HudFontChipPrompt => _hudFontChipPrompt;
 
         /// <summary>
         /// Resolves the HUD's fonts for the viewport they are about to be drawn into. Called by the gameplay
@@ -604,6 +618,8 @@ namespace BS3D
             _hudFontTutorial = _menuFontSystemDisplay.GetFont(Scaled(HUD_FONT_TUTORIAL));
             _hudFontTutorialDetail = _menuFontSystemDisplay.GetFont(Scaled(HUD_FONT_TUTORIAL_DETAIL));
             _hudFontPrompt = _menuFontSystemPrompt.GetFont(Scaled(HUD_FONT_PROMPT));
+            _hudFontChipDetail = _menuFontSystemDisplay.GetFont(Scaled(HUD_FONT_CHIP_DETAIL));
+            _hudFontChipPrompt = _menuFontSystemPrompt.GetFont(Scaled(HUD_FONT_CHIP_PROMPT));
         }
 
         #endregion
