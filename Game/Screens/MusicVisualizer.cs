@@ -48,7 +48,7 @@ namespace BS3D.Screens
                 float level = MathF.Max(STUB, bands[b]);
                 int height = Math.Max(1, (int)(level * bounds.Height));
 
-                context.FillRectangle(new Rectangle(x, bounds.Bottom - height, barWidth, height),
+                FlatBrush.Fill(context, new Rectangle(x, bounds.Bottom - height, barWidth, height),
                     BS3DGame.MENU_TEXT * (0.3f + 0.7f * level));
 
                 x += barWidth + _gap;

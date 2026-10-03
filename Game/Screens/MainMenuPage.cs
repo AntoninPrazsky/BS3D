@@ -108,7 +108,7 @@ namespace BS3D.Screens
                 //Its own backing, because the front end deliberately has no scrim — the rotating scene is the
                 //point of that screen — and a line of small text over open water or a lit skyline is exactly
                 //what a plate exists for. Buttons carry their own; this is the only prose here that does not.
-                Background = new SolidBrush(BS3DGame.MENU_PLATE),
+                Background = new FlatBrush(BS3DGame.MENU_PLATE),
                 Padding = ScaledThickness(34, 18),
 
                 Visible = false,

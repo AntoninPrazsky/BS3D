@@ -99,7 +99,7 @@ namespace BS3D.Screens
         //The tab that is up reads as unmistakably chosen, inverted: the near-white of the type as the slab and a dark
         //grey as the type. Still the greyscale rule (BS3DGame's palette) — brightness, not hue — and the opposite of
         //a row's focus highlight, which lifts a grey slab a step and so can never be taken for it.
-        private static readonly IBrush TAB_SELECTED_BRUSH = new SolidBrush(BS3DGame.MENU_TEXT);
+        private static readonly IBrush TAB_SELECTED_BRUSH = new FlatBrush(BS3DGame.MENU_TEXT);
         private static readonly Color TAB_SELECTED_TEXT = new(30, 30, 30);
 
         private Label _fullscreenValue, _qualityValue, _adaptiveQualityValue, _exposureValue, _skyValue, _fpsValue, _fpsLimitValue;
