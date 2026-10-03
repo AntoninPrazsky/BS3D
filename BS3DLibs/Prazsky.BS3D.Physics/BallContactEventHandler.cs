@@ -215,6 +215,9 @@ namespace Prazsky.BS3D.Physics
         /// <summary>The body handle of the last shot whose refusal was logged, so the line prints once per shot (#696). -1 for none.</summary>
         private int _lastRefused = -1;
 
+        /// <summary>Refused shots to put back at their touch once the step's contacts are done (#696), reused so a refusal allocates nothing.</summary>
+        private readonly List<(PhysicsBall Ball, Vector3 Position)> _teleports = new(2);
+
         private readonly ConcurrentQueue<QueuedContact> _queuedContacts = new();
 
         private readonly struct QueuedContact
@@ -223,7 +226,8 @@ namespace Prazsky.BS3D.Physics
             public readonly CollidablePair Pair;
             public readonly Vector3 ContactOffset;
 
-            /// <summary>Penetration depth: negative for a near-touch (<see cref="OnContactAdded"/>), not for a touch.</summary>
+            /// <summary>Penetration depth: at least zero for every contact <see cref="OnTouching"/> queues, which is a touch; the sweep's own
+            /// landings (<see cref="LandSweptShots"/>) are queued as zero. Near touches are not recorded any more (#696).</summary>
             public readonly float Depth;
 
             /// <summary>
@@ -280,9 +284,8 @@ namespace Prazsky.BS3D.Physics
         /// feature id appearing and is raised for <i>speculative</i> contacts too, whose <c>depth</c> is simply
         /// negative — so attaching from there put the ball in a cell chosen around a contact that had not
         /// happened, against whichever ball the narrow phase paired first rather than the one the shot would
-        /// have reached. (What that measured was an <i>unbounded</i> margin. <see cref="OnContactAdded"/> now takes
-        /// the near-touches the swept shot's bounded margin produces against a ball, which is a different and much
-        /// smaller thing — see there, #410.)
+            /// have reached. (What that measured was an <i>unbounded</i> margin. <see cref="OnContactAdded"/> took the
+        /// near-touches the swept shot's bounded margin produces for a time (#410) and records nothing now, #696.)
         /// </para>
         /// <para>
         /// Measured before this changed, in a played level at <c>SHOOT_SPEED</c> 200 with a 1/120 s step
@@ -336,17 +339,17 @@ namespace Prazsky.BS3D.Physics
         /// <returns>How many balls attached to the structure.</returns>
         public int ProcessQueuedContacts()
         {
-            //IN AN ORDER THE WORKER THREADS DO NOT DECIDE (#578). The queue fills in thread-completion order, and a
-            //shot sliding into a pocket touches two or three things in one step - two balls, or a ball and the
-            //stone, with #410's near-touches queued beside the real ones - so whichever was enqueued first used to
-            //be the ball the cell was solved against: two identical shots could land in different cells, and a
-            //machine with another core count could disagree with this one. Ordered instead per shot, real touches
-            //before near ones, then the one met first along the shot's own flight, which is the preview's rule
-            //(ShotPlacement.TryFindFirstHitOnSegment asks for the first surface along the barrel's line). The
-            //first of a shot's contacts that attaches ends it, exactly as before.
-            //The sweep's landings first (#696): a shot whose flight met a ball this step has landed where the preview said,
-            //and its contacts below, which describe where the solver left it, find it no longer listening
+            //THE SWEEP'S LANDINGS FIRST (#696): a shot whose flight met a ball this step has landed where the preview said,
+            //and its contacts below, which describe where the solver left it, find it no longer listening.
             int attached = LandSweptShots();
+
+            //THE CONTACTS LEFT, IN AN ORDER THE WORKER THREADS DO NOT DECIDE (#578). The queue fills in thread-completion
+            //order, and a shot sliding into a pocket touches two or three things in one step - two balls, or a ball and the
+            //stone - so whichever was enqueued first used to be the ball the cell was solved against: two identical shots
+            //could land in different cells, and a machine with another core count could disagree with this one. Ordered
+            //instead per shot, then the one met first along the shot's own flight, which is the preview's rule
+            //(ShotPlacement.TryFindFirstHitOnSegment asks for the first surface along the barrel's line). The first of a
+            //shot's contacts that attaches ends it, exactly as before.
 
             _stepContacts.Clear();
             while (_queuedContacts.TryDequeue(out QueuedContact queued)) _stepContacts.Add(queued.WithAlong(AlongFlight(queued)));
@@ -357,6 +360,14 @@ namespace Prazsky.BS3D.Physics
                 if (ProcessContact(_stepContacts[i])) attached++;
 
             _stepContacts.Clear();
+
+            //Shots whose landing was refused go back to their touch only now (see the refusal in ProcessContact): a contact
+            //of the same step still in the queue is read against the pose the solver left, and moving the shot earlier
+            //would shift it by the whole move
+            for (int i = 0; i < _teleports.Count; i++)
+                _teleports[i].Ball.BallReference.Pose.Position = _teleports[i].Position.ToNumerics();
+
+            _teleports.Clear();
             return attached;
         }
 
@@ -384,16 +395,13 @@ namespace Prazsky.BS3D.Physics
         }
 
         /// <summary>
-        /// The step's order (#578): by shot, then real touches before near ones, then first along the flight, and
+        /// The step's order (#578): by shot, then first along the flight, and
         /// the other collidable's handle last so that no two contacts ever compare equal and the unstable sort
         /// cannot reorder them between runs.
         /// </summary>
         private static int CompareContacts(QueuedContact a, QueuedContact b)
         {
             int order = a.EventSource.Packed.CompareTo(b.EventSource.Packed);
-            if (order != 0) return order;
-
-            order = (a.Depth < 0f).CompareTo(b.Depth < 0f);
             if (order != 0) return order;
 
             order = a.Along.CompareTo(b.Along);
@@ -609,7 +617,7 @@ namespace Prazsky.BS3D.Physics
                 //THE PREVIEW'S OWN ANSWER DECIDES WHICH BALL AND WHERE (#696): not the ball Bepu paired this contact with and
                 //the point it put it at, which are wherever the shot happened to be when the step ended, but the first
                 //surface the shot's straight flight met over the step - the very sweep the aim preview runs from the barrel.
-                //A near touch the sweep does not explain is not a hit at all.
+                //A contact the sweep does not explain keeps Bepu's answer only when it is a real touch.
                 if (!SweepDecides(contact, ref hitBall, ref worldContact, out swept, out touchCentre)) return false;
 
                 //THE ANCHOR CUT (#213) does not place a ball at all: what it strikes is destroyed, and it takes its
@@ -651,8 +659,10 @@ namespace Prazsky.BS3D.Physics
                 //whole step, and it stands overlapping the structure by up to half a ball, which the solver would then push
                 //out slowly and badly - and from here it is an ordinary body again, turned by every contact it meets
                 //(ContactEvents.MarkBounced). It stays a listener, so a free cell it slides to is still a landing.
-                if (swept) physicsBall.BallReference.Pose.Position = touchCentre.ToNumerics();
-                _contactEvents.MarkBounced(physicsBall.BallReference.Handle);
+                //(Applied at the end of the step's contacts, and marked only while it still listens: a shot that has already
+                //touched the stone this step is no longer a listener, and a mark on one would outlive its body.)
+                if (swept) _teleports.Add((physicsBall, touchCentre));
+                if (_contactEvents.IsListener(contact.EventSource)) _contactEvents.MarkBounced(physicsBall.BallReference.Handle);
 
                 return false;
             }

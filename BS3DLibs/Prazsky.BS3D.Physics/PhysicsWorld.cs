@@ -465,6 +465,7 @@ namespace Prazsky.BS3D.Physics
 
             //And its loose mark (#410), before the handle goes back to Bepu to be handed to the next ball
             Events.ClearLoose(ball.Handle);
+            Events.ClearBounced(ball.Handle);
 
             Simulation.Bodies.Remove(ball.Handle);
 

@@ -137,8 +137,9 @@ namespace Prazsky.BS3D.Physics
                 //handler wants to hear of still reaches it - but there is no constraint until a contact has depth >= 0, so
                 //until then the solver has no say in where the shot goes: the simulated flight is the preview's integration
                 //to better than a thousandth of a unit at every step (TheSimulatedFlightIsTheFlightThePreviewIntegrates). A
-                //shot cannot pass through a ball in between: it travels 1.67 units a step and a ball is 1.0 across, so a flight
-                //that meets one overlaps it at the end of a step, and the handler's sweep sees it whether or not it does.
+                //shot cannot pass clean through a ball in between: it travels 1.67 units a step and a ball is 1.0 across, so a
+                //flight that meets one head on overlaps it at the end of a step. A graze whose chord lies inside one step
+                //overlaps it at neither end, and that is the handler's sweep to see, with or without a contact.
                 //(Not for a shot whose landing was refused: it bounces as a body does, and is turned from then on.)
                 bool shotIsA = _events.IsListener(pair.A);
 

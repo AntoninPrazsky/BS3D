@@ -118,6 +118,55 @@ namespace BS3D.Tests
         }
 
         /// <summary>
+        /// Bank shots (#257 and #696): a shot aimed at the mirror image of a ball in the face of a tall crate beside the
+        /// level, so it reaches the cluster off the crate at a slant. The bounce is the crates' own reflection, run in the
+        /// step before the integrator, which moves the ball - so the step's recorded start pose is not where the flight
+        /// began, and the handler's sweep over it has to find the same ball the preview's two-legged flight finds.
+        /// Measured: 23 of 24 land in the ghost's cell (the same 23 in five runs on the desktop); with the landing handed back
+        /// to Bepu's contacts and the narrow phase's constraints restored, but the segment fix and the gravity in the ghost
+        /// kept, 18 of 24. Held at 85 %.
+        /// </summary>
+        [Fact]
+        public void ABankShotLandsInTheCellItsGhostShowed()
+        {
+            int compared = 0, same = 0;
+            List<string> others = new();
+            Random rng = new(257);
+
+            for (int i = 0; i < 24; i++)
+            {
+                using ShotRig rig = new("Pennant.json");
+
+                float lowest = float.MaxValue;
+                List<PhysicsBall> low = new();
+                foreach (PhysicsBall ball in rig.Hung.Balls)
+                    if (ball != null) lowest = MathF.Min(lowest, ball.BallReference.Pose.Position.Y);
+                foreach (PhysicsBall ball in rig.Hung.Balls)
+                    if (ball != null && ball.BallReference.Pose.Position.Y < lowest + 4f) low.Add(ball);
+
+                float y = lowest + 1f;
+                rig.AddCrate(new System.Numerics.Vector3(7f, y, -12f), new System.Numerics.Vector3(1f, 4f, 16f));
+
+                //From out in front, along the line to the mirror image of a ball in the face at x = 5.5 (the crate grown by a radius)
+                PhysicsBall aimed = low[rng.Next(low.Count)];
+                XVector3 b = aimed.BallReference.Pose.Position.ToXna();
+                XVector3 muzzle = new(1f + (float)rng.NextDouble() * 3f, y, -30f);
+                XVector3 mirrored = new(2f * 5.5f - b.X, b.Y, b.Z);
+
+                ShotResult result = rig.Fire(muzzle, mirrored, 0f);
+                if (result.Outcome == ShotOutcome.NoGhost) continue;
+
+                compared++;
+                if (result.Outcome == ShotOutcome.SameCell) same++;
+                else others.Add($"{result.Outcome} promised {result.Promised} landed {result.Landed}");
+            }
+
+            output.WriteLine($"bank shots with a ghost: {compared}, same cell {same}; the others: {string.Join("; ", others)}");
+            Assert.True(compared >= 8, $"only {compared} of 24 bank aims had a ghost to compare");
+            Assert.True(same >= 0.85 * compared, $"{same} of {compared} bank shots landed in the ghost's cell; the others: {string.Join("; ", others)}");
+        }
+
+        /// <summary>
         /// What the ghost costs a frame (#696): the straight sweep it was, and the stepped flight with the world's gravity it is
         /// now, on the biggest shipped levels, per call. Off unless <c>BS3D_SHOT_COST=1</c>: a timing is not an assertion.
         /// </summary>
