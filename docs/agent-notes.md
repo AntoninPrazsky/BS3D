@@ -7754,3 +7754,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Nové #764** (easter egg: paleta Spectrum na narozeniny hry): **otevřená otázka, který den je narozeniny** — první commit repozitáře **30. 12. 2019**, první vydání v0.1.0 **18. 9. 2026**, v0.3.0 (online skóre) 2. 10. 2026; doporučení 30. 12., rozhodnutí je jeho. Do té doby se neimplementuje (`MusicVisualizer.Palette` už je vlastnost, nic ji zatím nenastavuje).
 - Čeká na verdikt z mých: **#710** (milost čáry 1,5 s; potřebuje pocit z hraní), **#714** (zip: první skutečný tag po mergi je první skutečné publikování z nového rozložení, sledovat běh `release.yml`; SmartScreen jen člověk), **#713** (6 X4000 ponecháno s důvodem na místě).
 - Odkaz na stránku s před/po (https://claude.ai/artifact/9ZaPTJafFiPSrSHa7VNoYM) majitel pod aktuálním účtem nevidí (artefakt „nenalezen“, účty se střídají); verdikty přesto přišly.
+
+## 2026-10-03 — beru #763 (první spuštění se zeptá na přezdívku pro žebříčky) — desktop, Claude Code (bs3d-aa)
+
+- **Beru:** #763 na majitelův pokyn („Vem #763 a udělej to“). Rozhodnutí majitele jsou v issue (souhlas je jen pole pro jméno, „online“ = připojení k internetu, druhé Esc = Skip). Soubory: `Game/GameSettings.cs` (`Online` na `bool?`, počítadlo zavření), `Game/Online/OnlineSession.cs`, nová deska nad hlavním menu a z ní vytažené pole přezdívky ze `Game/Screens/SettingsPage.cs`, `Game/LaunchOptions.cs`, `Game/BS3DGame.Menu.cs`, testy, `docs/game-shell.md`, `docs/formats-and-tools.md`.
