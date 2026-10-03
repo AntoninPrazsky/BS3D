@@ -233,6 +233,7 @@ namespace BS3D.Screens
             _offerOnlineHint = _result.Cleared && Game.Online.TakeHint();
             _boardsClock = 0f;
             _boardsShownGeneration = -1;
+            _boardsRevealed = false;
             ApplyBoards();
 
             //⚠ A CLEARED field has nothing hanging any more (#639). The orbit was framed for the level's map
@@ -290,8 +291,9 @@ namespace BS3D.Screens
                 if (_revealClock >= RevealTotalSeconds) _revealSettled = true;
             }
 
-            //The boards come in after the reveal has settled, and punch in on their own clock (#547); the signal in
-            //front of their status line keeps time with them (#683)
+            //The plate's status line is up from the first frame an ending was sent, its rows come in after the reveal has
+            //settled and punch in on their own clock (#547, #734); the signal in front of the status line keeps time
+            //with it (#683)
             if (_boardsPlate != null && _boardsPlate.Visible)
             {
                 _boardsClock += elapsed;
@@ -1264,6 +1266,10 @@ namespace BS3D.Screens
         private float _boardsClock;
         private int _boardsShownGeneration = -1;
 
+        //The reveal's state the plate was last written against (#734): the rows are held until it settles, so a flip
+        //rewrites the plate even when the service has said nothing new
+        private bool _boardsRevealed;
+
         private Panel BuildBoards()
         {
             //The strip beside the column, in pixels at the layout in force, and the plate centred in it (#701): as wide as
@@ -1329,7 +1335,13 @@ namespace BS3D.Screens
             //score...". And written against the widget's own Visible, every frame: a flag kept beside it could disagree
             //with it (a rebuilt tree's new plate, a page entered again), and the plate then outlived its result.
             bool online = _result.Submitted && Game.Online.Enabled;
-            bool wanted = _revealSettled && (online || (_result.Cleared && _offerOnlineHint));
+
+            //⚠ The plate of an ending that went to the service STANDS FROM THE PAGE'S FIRST FRAME (#734). It waited for the
+            //reveal to settle, so "Sending your score..." came up two to three seconds after the page - the one moment it
+            //exists for - and a player who left in those seconds (Retry, Next Level, the menu) never saw it. What waits
+            //for the reveal is the boards' rows and the offer to opt in, which are things to read and would compete with
+            //the stars for the eye; the status row is a small plate beside the column and does not
+            bool wanted = online || (_revealSettled && _result.Cleared && _offerOnlineHint);
 
             if (wanted != _boardsPlate.Visible)
             {
@@ -1339,6 +1351,15 @@ namespace BS3D.Screens
             }
 
             if (!wanted) return;
+
+            //The rows come in the moment the reveal settles, and the player's own lines punch in on a clock started then,
+            //not at the page's first frame, which is long gone by then
+            if (_revealSettled != _boardsRevealed)
+            {
+                _boardsRevealed = _revealSettled;
+                _boardsClock = 0f;
+                _boardsShownGeneration = -1;
+            }
 
             //The player's own lines punch in over their first moments, on the plate's own clock
             float punch = PunchScale(MathF.Min(1f, _boardsClock / REVEAL_PUNCH_SECONDS));
@@ -1350,7 +1371,14 @@ namespace BS3D.Screens
             if (!online)
             {
                 ShowSections(false);
-                SetStatus("Online leaderboards are off. Turn on Online scores in Settings to see where your clears rank.", signal: null);
+
+                //The switch ON and nothing sent is a build with no score server (a local build: only a release names one,
+                //see OnlineScores.DefaultServer), which is by design and exactly what "I no longer see the plate" looks
+                //like to a player who switched from a release to one built by hand (#734). "Off" would tell them to turn
+                //on what is already on
+                SetStatus(Game.Online.IsOn
+                    ? "Online scores are on, but this build has no score server to send to."
+                    : "Online leaderboards are off. Turn on Online scores in Settings to see where your clears rank.", signal: null);
                 return;
             }
 
@@ -1374,6 +1402,15 @@ namespace BS3D.Screens
                     OnlineOutcome.Refused => $"The score server did not take this {what}.",
                     _ => "Sending your score...",
                 }, answer == null ? OnlineSignal.SignalMode.Working : OnlineSignal.SignalMode.Idle);
+                return;
+            }
+
+            //Taken, but the stars are still landing: the rows wait for them (above), and the line says what is true now
+            //- that this ending is safe with the service, so the player may leave - in the gold of a thing done
+            if (!_revealSettled)
+            {
+                ShowSections(false);
+                SetStatus($"Your {what} was sent.", OnlineSignal.SignalMode.Done);
                 return;
             }
 
