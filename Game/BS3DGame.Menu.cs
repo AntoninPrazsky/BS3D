@@ -475,11 +475,9 @@ namespace BS3D
         //floor) - MEASURED with MeasureString, since Myra clips rather than shrinks. See LevelSelectPage.BuildTile.
         private const int MENU_FONT_TILE = 46;
 
-        //The exposure ladder the settings button walks. Centred on DEFAULT_EXPOSURE, wide enough either way
-        //to matter on a dim laptop panel and on a bright monitor without ever crushing or blowing the frame.
-        private const float EXPOSURE_MIN = 0.7f;
-        private const float EXPOSURE_MAX = 1.5f;
-        private const float EXPOSURE_STEP = 0.2f;
+        //The brightness ladder the settings button walks is Prazsky.Core.Render.BrightnessLadder (#711): percent of the
+        //authored look, 70 to 130 with the default 100 in the middle, which says why it exists and why it walks up. It
+        //lives in Core so the tests can state its promises; this file only shows it
 
         //The ladder the three volume rows walk: quarters from the authored mix down to silence, then back to
         //full. 100 % is the mix as tuned (the BASE/MUSIC/FANFARE constants in ProceduralAudio, GameMusic and
@@ -700,6 +698,9 @@ namespace BS3D
         internal bool IsFullscreen => _fullscreen;
         internal int SupersampleFactor => _supersampleFactor;
         internal float Exposure => _exposure;
+
+        /// <summary>The brightness the row shows (#711): the exposure as a whole percent of the authored look.</summary>
+        internal int BrightnessPercent => BrightnessLadder.PercentOf(_exposure);
         internal byte SkyDomeNumber => _skyDome;
         internal bool IsFpsOverlayVisible => _info.Visible;
         internal bool IsFpsUncapped => _uncappedFps;

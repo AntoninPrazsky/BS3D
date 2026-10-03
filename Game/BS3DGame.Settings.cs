@@ -18,13 +18,14 @@ namespace BS3D
     /// </remarks>
     public partial class BS3DGame
     {
+        /// <summary>
+        /// Steps the brightness up to the next rung and wraps from the top to the bottom (#711, see
+        /// <see cref="BrightnessLadder"/>). A command-line exposure can start anywhere (<c>exposure=1.0</c> is 91 %), and
+        /// from there the next click lands on 100, so the row is back on its ladder after one.
+        /// </summary>
         internal void CycleExposure()
         {
-            _exposure += EXPOSURE_STEP;
-
-            //A command-line exposure can start anywhere, so this wraps on the ceiling rather than assuming
-            //the value is already on the ladder
-            if (_exposure > EXPOSURE_MAX + Constants.THOUSANDTH) _exposure = EXPOSURE_MIN;
+            _exposure = BrightnessLadder.ExposureOf(BrightnessLadder.NextAbove(BrightnessPercent));
 
             _pipeline.Exposure = _exposure;
 
