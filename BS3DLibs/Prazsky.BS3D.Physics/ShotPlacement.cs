@@ -220,8 +220,15 @@ namespace Prazsky.BS3D.Physics
 
                         //How far along the aim the closest approach is. Behind the muzzle is not a hit: the gun
                         //sits under the cluster and half of it would otherwise be "hit" out of the back of the bore.
+                        //
+                        //And the closest approach is NOT bounded by the segment: the surfaces meet half a chord before it
+                        //(up to the radius sum), so a ball whose closest approach lies past this segment's end can still be
+                        //met inside it. Tested against `nearest` itself, such a ball was lost for good - not met in this
+                        //segment because its centre was beyond it, and not in the next because the touch had begun before
+                        //that one's start (#696). The unbounded straight line never saw it, which is why the preview was
+                        //honest until a flight was cut into steps (wells, crates, gravity).
                         float along = Vector3.Dot(toCentre, aim);
-                        if (along <= 0f || along >= nearest) continue;
+                        if (along <= 0f || along - radiusSum >= nearest) continue;
 
                         //Closest approach, squared. Grown by both radii, so this is the moving surface's touch.
                         float perpendicularSquared = toCentre.LengthSquared() - along * along;
@@ -292,10 +299,15 @@ namespace Prazsky.BS3D.Physics
         /// pays.
         /// </para>
         /// <para>
-        /// What it does <b>not</b> model is world gravity, and that is deliberate rather than an omission: at
-        /// 200 u/s the shot falls four thousandths of a cell over its whole flight, which is why the
-        /// straight-line preview was honest for six issues before this one. Adding it would change no answer
-        /// and would put a second constant in two places.
+        /// <b>World gravity is modelled only when asked for</b> (<paramref name="worldGravity"/>, or a level with crates,
+        /// which always steps the flight). It was left out on the reasoning that a shot falls four thousandths of a cell
+        /// over its flight; <b>measured in #696 it falls 0.03 to 0.06 of a unit over the 10 to 16 steps it takes to reach
+        /// a cluster</b> (the rig's shots, from the barrel's line to the first touch), which is enough to move a graze
+        /// from one ball to its neighbour and was a large part of why a shot landed in another cell than its ghost. The
+        /// Game's preview asks for it, so the ghost is the flight the simulation integrates (the rig measured the two to
+        /// agree to better than a thousandth of a unit at every step); the analysis tools that sweep thousands of
+        /// shots (<c>AimReachability</c>, <c>SagProbe</c>) do not, since a hundredth of a unit changes none of what they
+        /// ask. #741 will give scenes their own gravity: this then wants the world's, not <c>EARTH_GRAVITY</c>.
         /// </para>
         /// </remarks>
         /// <param name="velocity">The shot's launch velocity — direction times the caller's speed, which is the
@@ -303,7 +315,10 @@ namespace Prazsky.BS3D.Physics
         /// <param name="wells">This frame's snapshot. Null or empty takes the straight path.</param>
         /// <param name="crates">The level's crates (#257), which the flight banks off as the simulation's shot does
         /// (<see cref="Crates.BounceShots"/>) — off the same <see cref="Crates.TryFindFirstFace"/> and
-        /// <see cref="Crates.Reflect"/>. Null or empty, with no wells, takes the straight path.</param>
+        /// <see cref="Crates.Reflect"/>. Null or empty, with no wells and no gravity, takes the straight path.</param>
+        /// <param name="worldGravity">Whether the flight falls as the simulation's shot does (#696): stepped at the
+        /// simulation's own step, semi-implicit Euler, gravity included. False takes the straight path when nothing else
+        /// bends the flight, which is the cheap one.</param>
         /// <param name="path">Filled with the flight's knots — the muzzle first, then the end of every segment
         /// walked, and last the touch. Cleared first; left alone entirely when null, which is every caller that
         /// only wants the answer. <b>It is what lets the aim BEAM follow the curve</b>: a straight line drawn
@@ -311,7 +326,7 @@ namespace Prazsky.BS3D.Physics
         /// the flight while telling the truth about its end, which is worse than either.</param>
         public static bool TryFindFirstHitCurved(PhysicsBall[,,] balls, Vector3 origin, Vector3 velocity,
             float radiusSum, GravityWells wells, out PhysicsBall hit, out Vector3 worldContact,
-            List<Vector3> path = null, Crates crates = null)
+            List<Vector3> path = null, Crates crates = null, bool worldGravity = false)
         {
             hit = null;
             worldContact = Vector3.Zero;
@@ -323,9 +338,10 @@ namespace Prazsky.BS3D.Physics
 
             bool noWells = wells == null || wells.Count == 0;
             if (crates != null && crates.Count == 0) crates = null;
+            bool stepped = crates != null || worldGravity;
 
             //Every level shipped today, and most shots on a level that has wells: no field, no curve, no crate.
-            if (noWells && crates == null)
+            if (noWells && !stepped)
             {
                 bool straightHit = TryFindFirstHit(balls, origin, velocity, radiusSum, out hit, out worldContact);
                 if (path != null && straightHit) path.Add(worldContact);
@@ -344,7 +360,7 @@ namespace Prazsky.BS3D.Physics
             //levels where the gun is most often aimed at a wall. The cluster's bounds, grown by both radii, are taken
             //once here, and a step whose segment's box misses them cannot touch a ball.
             System.Numerics.Vector3 near = default, far = default;
-            if (crates != null) ClusterBounds(balls, radiusSum, out near, out far);
+            if (stepped) ClusterBounds(balls, radiusSum, out near, out far);
 
             while (flown < MAX_FLIGHT_SECONDS)
             {
@@ -367,7 +383,7 @@ namespace Prazsky.BS3D.Physics
                 //out was a tenth of a unit by the time a 28-unit bank shot reached the cluster - enough to touch the
                 //ball under the one promised. So on a level with crates the flight is integrated as the simulation
                 //integrates it, gravity included, at the step; on every other level nothing here has changed.
-                float toField = crates != null ? 0f : noWells ? float.MaxValue : wells.DistanceToField(position, heading);
+                float toField = stepped ? 0f : noWells ? float.MaxValue : wells.DistanceToField(position, heading);
                 float stepReach = speed * INTEGRATION_STEP;
 
                 if (toField > stepReach)
@@ -406,7 +422,7 @@ namespace Prazsky.BS3D.Physics
                 //one force application per step, and the ghost would sit a little short of the attach on
                 //every curved shot: the disagreement is small, systematic, and exactly the kind #70 records.
                 System.Numerics.Vector3 acceleration = noWells ? System.Numerics.Vector3.Zero : wells.Acceleration(position);
-                if (crates != null) acceleration.Y += Constants.EARTH_GRAVITY;
+                if (stepped) acceleration.Y += Constants.EARTH_GRAVITY;
                 shotVelocity += acceleration * INTEGRATION_STEP;
 
                 speed = shotVelocity.Length();
@@ -432,7 +448,7 @@ namespace Prazsky.BS3D.Physics
                         && crates.TryFindFirstFace(position, legHeading, reach, BallsConstraintsBuilder.BALL_RADIUS, out toFace, out face);
 
                     float leg = facing ? toFace : reach;
-                    if ((crates == null || SegmentNear(position, legHeading * leg, near, far))
+                    if ((!stepped || SegmentNear(position, legHeading * leg, near, far))
                         && TryFindFirstHitOnSegment(balls, position.ToXna(), legHeading.ToXna(), leg,
                             radiusSum, out hit, out worldContact, out _))
                     {

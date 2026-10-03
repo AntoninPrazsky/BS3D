@@ -147,9 +147,15 @@ namespace BS3D.Screens
             //that the straight one did not is the shot's VELOCITY rather than its direction: how far a well
             //bends a shot depends entirely on how long the shot spends in the field, so the speed is part of
             //the question. It is the same SHOOT_SPEED the gun fires at, from the one constant.
+            //
+            //AND IT FALLS SINCE #696 (worldGravity): the shot does, by 0.03 to 0.06 of a unit over a flight to the cluster
+            //(the preview had ignored it on the reasoning that it was four thousandths), which is enough to move a graze from
+            //one ball to its neighbour, so the ghost is now the flight the simulation integrates and no longer the straight
+            //line from the barrel. The step is the simulation's own; the cost is a stepped walk where a straight sweep was,
+            //which a segment's box test against the cluster's bounds keeps to the few steps near the cluster.
             if (!ShotPlacement.TryFindFirstHitCurved(_physicsBalls, muzzle, aim * SHOOT_SPEED,
                     2f * BallsConstraintsBuilder.BALL_RADIUS, _gravityWells, out PhysicsBall hit,
-                    out Vector3 contact, _previewPath, _crates))
+                    out Vector3 contact, _previewPath, _crates, worldGravity: true))
             {
                 //Nothing out there. The beam still goes up, because in the overview it is the ONLY thing saying
                 //where the gun points — but open-ended, so it thins away instead of ending at a phantom.

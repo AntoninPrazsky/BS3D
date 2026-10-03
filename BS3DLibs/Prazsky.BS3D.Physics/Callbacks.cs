@@ -124,6 +124,34 @@ namespace Prazsky.BS3D.Physics
                 pairMaterial.MaximumRecoveryVelocity = 2f;
                 pairMaterial.SpringSettings = new SpringSettings(30f, 1f);
                 _events.HandleManifold(workerIndex, pair, ref manifold);
+
+                //A SHOT IN FLIGHT IS NEVER TURNED BY A CONTACT IT HAS NOT REACHED (#696). Bepu makes a speculative contact with
+                //a ball up to the margin (or a whole step of travel, for a swept shot) before the surfaces meet, and its
+                //constraint then bends the shot's velocity so that it arrives just touching - which for a ball beside the
+                //line is a push sideways, off the straight flight the landing preview sweeps. The preview names the ball
+                //dead ahead and the shot, turned by a ball it was only going to pass, lands against another.
+                //
+                //MEASURED, over 238 aims at six shipped levels (ShotAgreementTests): with the landing decided by the preview's
+                //own sweep and the ghost's flight falling as the shot does, the shot stuck in the ghost's cell 95.8 % of the
+                //time with these contacts turning it, and 97.9 % without. The events above are unchanged - a contact the
+                //handler wants to hear of still reaches it - but there is no constraint until a contact has depth >= 0, so
+                //until then the solver has no say in where the shot goes: the simulated flight is the preview's integration
+                //to better than a thousandth of a unit at every step (TheSimulatedFlightIsTheFlightThePreviewIntegrates). A
+                //shot cannot pass through a ball in between: it travels 1.67 units a step and a ball is 1.0 across, so a flight
+                //that meets one overlaps it at the end of a step, and the handler's sweep sees it whether or not it does.
+                //(Not for a shot whose landing was refused: it bounces as a body does, and is turned from then on.)
+                bool shotIsA = _events.IsListener(pair.A);
+
+                if (shotIsA != _events.IsListener(pair.B)
+                    && pair.A.Mobility == CollidableMobility.Dynamic && pair.B.Mobility == CollidableMobility.Dynamic
+                    && !_events.IsBounced(shotIsA ? pair.A : pair.B))
+                {
+                    for (int contact = 0; contact < manifold.Count; contact++)
+                        if (manifold.GetDepth(contact) >= 0f) return true;
+
+                    return false;
+                }
+
                 return true;
             }
 

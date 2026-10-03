@@ -33,9 +33,10 @@ namespace Prazsky.BS3D.Physics
     /// </para>
     /// <list type="bullet">
     /// <item><b>It listens on <see cref="OnTouching"/>, not on every <c>OnContactAdded</c></b>, so it never attaches
-    /// off a contact a whole step early — see that method, which carries the measurement. (Since #410 it does take a
-    /// ball contact that stops within the speculative margin, which the swept shot bounds to a tenth of a unit — see
-    /// <see cref="OnContactAdded"/>.)</item>
+    /// off a contact a whole step early — see that method, which carries the measurement. (And since #696 a ball
+    /// landing is not decided by a contact at all but by the shot's own flight, swept every step against the structure
+    /// as the aim preview sweeps it — <see cref="LandSweptShots"/>; the contacts are what is left for the stone, the
+    /// glass and the overlap the flight does not explain.)</item>
     /// <item><b><see cref="ShotPlacement"/> decides the cell and this places it</b>, in two steps, where the
     /// Testbed asked <c>BallsMap</c> to decide and write at once. Deciding without writing is what lets the aim
     /// preview ask the identical question every frame (#70), and it is why the two <c>BallsMap</c> methods that
@@ -211,6 +212,9 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         private int _lastGlassBounce = -1;
 
+        /// <summary>The body handle of the last shot whose refusal was logged, so the line prints once per shot (#696). -1 for none.</summary>
+        private int _lastRefused = -1;
+
         private readonly ConcurrentQueue<QueuedContact> _queuedContacts = new();
 
         private readonly struct QueuedContact
@@ -247,42 +251,25 @@ namespace Prazsky.BS3D.Physics
         private static readonly Comparison<QueuedContact> ContactOrder = CompareContacts;
 
         /// <summary>
-        /// Runs on a Bepu worker thread, inside the timestep, for every contact a listening shot gains — and records
-        /// the ones <see cref="OnTouching"/> will never see: a shot meeting a <b>ball</b> within the speculative
-        /// margin without reaching <c>depth &gt;= 0</c> (#410). Records and returns, like its sibling.
+        /// Runs on a Bepu worker thread, inside the timestep, for every contact a listening shot gains. <b>It records
+        /// nothing now</b>: since #696 a shot lands when its own flight meets a ball (<see cref="LandSweptShots"/>), not
+        /// when the solver raises a contact, and a near touch the flight does not explain is not a hit.
         /// <para>
-        /// <b>Why a near-touch counts.</b> The landing preview decides a shot hits a ball when the two surfaces
-        /// meet (<see cref="ShotPlacement.TryFindFirstHitCurved"/> sweeps the sum of the radii), while
-        /// <c>OnTouching</c> is only raised once the solver lets the pair actually overlap. A grazing shot sits
-        /// exactly between the two: the speculative contact turns it away a fraction of a unit short of the
-        /// surface, so the preview drew a ghost and the shot flew on — past the ball to the glass, out through the
-        /// bottom, or wedged at rest in a pocket with nothing ever touching. Measured with the real handler and
-        /// simulation on twelve shipped levels (a scratchpad rig: the preview's own two calls, then a real shot, a
-        /// pause of 2.5 s between shots): <b>about 3 % of the shots the preview promised a cell were refused</b>
-        /// (43 of 1441 over three runs), fifteen of seventeen in one run with the preview's hit in the outer fifth
-        /// of the radius sum. Counting a contact down to the margin, with loose balls no longer in the way (see
-        /// <c>NarrowPhaseCallbacks</c>), took that to 0.8 % (8 of 987, two runs), and the share of shots landing in
-        /// the very cell the ghost showed did not get worse (43 % pooled before, 48 % after, inside what single runs
-        /// scatter by).
-        /// </para>
-        /// <para>
-        /// <b>It is not #70's early attach coming back</b>, and the difference is the bound. That attach fired on
-        /// contacts generated up to a whole step of travel early by an unbounded margin (worst placement 3.79
-        /// units); the shot's collidable is swept now and its margin is the structure's own
-        /// <see cref="BallsConstraintsBuilder.SPECULATIVE_MARGIN"/>, so a contact that reaches here is at most that
-        /// far from the surface. Balls only: a near-touch of the stone or the drain is not a touch of anything a
-        /// shot can land on, and the glass decides nothing (#432).
+        /// It used to queue the contacts <see cref="OnTouching"/> never sees - a shot meeting a <b>ball</b> within the
+        /// speculative margin without reaching <c>depth &gt;= 0</c> (#410) - because the landing preview decides a shot
+        /// hits a ball when the two surfaces meet while <c>OnTouching</c> waits for an overlap, and a grazing shot sits
+        /// between the two: the speculative contact turned it away a fraction of a unit short of the surface, so the
+        /// preview drew a ghost and the shot flew on. Measured with the real handler on twelve shipped levels, about 3 % of
+        /// the shots the preview promised a cell were refused that way (43 of 1441), 0.8 % once near touches counted. Both
+        /// halves of that are gone: the sweep lands the shot at the step its flight meets the ball, overlap or not, and
+        /// the narrow phase no longer turns a shot with a contact it has not reached
+        /// (<c>NarrowPhaseCallbacks.ConfigureContactManifold</c>).
         /// </para>
         /// </summary>
         public void OnContactAdded<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold,
             Vector3 contactOffset, Vector3 contactNormal, float depth, int featureId, int contactIndex, int workerIndex)
             where TManifold : unmanaged, IContactManifold<TManifold>
         {
-            //A real touch is OnTouching's, which also retries it every step the pair stays in contact
-            if (depth >= 0f || depth < -BallsConstraintsBuilder.SPECULATIVE_MARGIN) return;
-            if (pair.A.Mobility != CollidableMobility.Dynamic || pair.B.Mobility != CollidableMobility.Dynamic) return;
-
-            _queuedContacts.Enqueue(new QueuedContact(eventSource, pair, contactOffset, depth));
         }
 
         /// <summary>
@@ -357,12 +344,14 @@ namespace Prazsky.BS3D.Physics
             //before near ones, then the one met first along the shot's own flight, which is the preview's rule
             //(ShotPlacement.TryFindFirstHitOnSegment asks for the first surface along the barrel's line). The
             //first of a shot's contacts that attaches ends it, exactly as before.
+            //The sweep's landings first (#696): a shot whose flight met a ball this step has landed where the preview said,
+            //and its contacts below, which describe where the solver left it, find it no longer listening
+            int attached = LandSweptShots();
+
             _stepContacts.Clear();
             while (_queuedContacts.TryDequeue(out QueuedContact queued)) _stepContacts.Add(queued.WithAlong(AlongFlight(queued)));
 
             if (_stepContacts.Count > 1) _stepContacts.Sort(ContactOrder);
-
-            int attached = 0;
 
             for (int i = 0; i < _stepContacts.Count; i++)
                 if (ProcessContact(_stepContacts[i])) attached++;
@@ -415,6 +404,110 @@ namespace Prazsky.BS3D.Physics
             static CollidableReference Other(in QueuedContact c) =>
                 c.Pair.A.Packed == c.EventSource.Packed ? c.Pair.B : c.Pair.A;
         }
+
+        /// <summary>
+        /// How far behind the step's start the sweep begins, and how far past its end it runs, in world units: a touch that
+        /// lies exactly on a step's boundary (a shot that arrived at a surface the step before) must not be lost to the last
+        /// bit of a float.
+        /// </summary>
+        private const float SWEEP_SLACK = 0.02f;
+
+        /// <summary>
+        /// Settles which ball a contact means and where the shot met it, by asking <see cref="ShotPlacement"/> the question
+        /// the aim preview asks (#696): the first structure ball the shot's straight flight reaches, over the run of the
+        /// step that has just finished - from where the shot stood when the step began, along its velocity then, for as far
+        /// as it travelled. <b>That makes the landing the ghost, by construction</b>, wherever the solver put the shot at
+        /// the step's end and whichever ball Bepu happened to pair with it.
+        /// <para>
+        /// A contact the sweep does not explain is kept when it is a real touch (<c>depth &gt;= 0</c>): the shot overlaps a
+        /// ball its own line did not reach - the cluster swayed, or the shot was already inside - and the contact is then
+        /// the only answer there is. A <b>near</b> touch the sweep does not explain is dropped: the line passes the ball
+        /// beside it, which is what the preview says too, and attaching to it was #696's mismatch.
+        /// </para>
+        /// </summary>
+        /// <returns>False when the contact is to be ignored.</returns>
+        private bool SweepDecides(in QueuedContact contact, ref PhysicsBall hitBall, ref Vector3 worldContact,
+            out bool swept, out Vector3 touchCentre)
+        {
+            swept = false;
+            touchCentre = default;
+
+            //A shot whose landing was refused bounces as a body does and is not swept again: Bepu's contact is all there is
+            if (!_contactEvents.IsBounced(contact.EventSource)
+                && TrySweep(contact.EventSource, out PhysicsBall sweptHit, out Vector3 sweptContact, out touchCentre))
+            {
+                hitBall = sweptHit;
+                worldContact = sweptContact;
+                swept = true;
+                return true;
+            }
+
+            return contact.Depth >= 0f;
+        }
+
+        /// <summary>
+        /// The first structure ball a shot's flight met over the step that has just finished: the aim preview's own sweep
+        /// (<see cref="ShotPlacement.TryFindFirstHitOnSegment"/>), run over the step's segment - from where the shot stood
+        /// when the step began, along its velocity then, for as far as it travelled (<see cref="ContactEvents.TryGetStepStart"/>).
+        /// </summary>
+        private bool TrySweep(CollidableReference shot, out PhysicsBall hit, out Vector3 worldContact, out Vector3 shotCentre)
+        {
+            hit = null;
+            worldContact = default;
+            shotCentre = default;
+
+            if (!_contactEvents.TryGetStepStart(shot, out System.Numerics.Vector3 start, out System.Numerics.Vector3 velocity, out float dt))
+                return false;
+
+            float speed = velocity.Length();
+            if (speed <= Prazsky.Core.Tools.Constants.THOUSANDTH) return false;
+
+            Vector3 aim = (velocity / speed).ToXna();
+            Vector3 from = start.ToXna() - aim * SWEEP_SLACK;
+
+            if (!ShotPlacement.TryFindFirstHitOnSegment(_physicsBalls, from, aim, speed * dt + 2f * SWEEP_SLACK,
+                    2f * BallsConstraintsBuilder.BALL_RADIUS, out hit, out worldContact, out float distance))
+                return false;
+
+            //Where the shot's centre stood when the surfaces first met - where it would be, touching and not overlapping
+            shotCentre = from + aim * distance;
+            return true;
+        }
+
+        /// <summary>
+        /// Lands every shot whose flight met a structure ball over the step that has just finished, <b>whether or not Bepu
+        /// raised a contact for it</b> (#696). The solver's contacts arrive a step late for a pair that is first created
+        /// already overlapping (the pair's first manifold is raised as an added contact, and only a pair that already stood
+        /// is told it is touching), by which time the shot has gone on into the cluster, and a graze that enters and leaves
+        /// a ball inside one step is overlapping at neither end of it. The flight does not depend on either: it is the
+        /// straight line the preview sweeps, so it is swept, every step, for every shot that is still in the air.
+        /// </summary>
+        private int LandSweptShots()
+        {
+            int attached = 0;
+
+            //Backwards, because a landing takes the shot out of the list it is walking
+            for (int i = _shotBalls.Count - 1; i >= 0; i--)
+            {
+                if (i >= _shotBalls.Count) continue;
+
+                PhysicsBall shot = _shotBalls[i];
+                CollidableReference source = shot.BallReference.CollidableReference;
+
+                if (!_contactEvents.IsListener(source) || _contactEvents.IsBounced(source)) continue;
+                if (!TrySweep(source, out PhysicsBall hit, out Vector3 contactPoint, out _)) continue;
+
+                //Handed to the contact path as the touch it is: the pair is the shot and the ball it met, the offset is
+                //relative to the first of them, and a depth of zero is a real touch
+                Vector3 offset = contactPoint - shot.BallReference.Pose.Position.ToXna();
+                CollidablePair pair = new(source, hit.BallReference.CollidableReference);
+
+                if (ProcessContact(new QueuedContact(source, pair, offset, 0f))) attached++;
+            }
+
+            return attached;
+        }
+
 
         private bool ProcessContact(in QueuedContact contact)
         {
@@ -501,6 +594,10 @@ namespace Prazsky.BS3D.Physics
             bool solved;
             XZLevel cell;
 
+            //Whether the sweep named the ball, and where the shot's centre was when it first touched it (#696)
+            bool swept = false;
+            Vector3 touchCentre = default;
+
             //And WHERE that cell is, which the cell itself does not say: the lattice is where the level hung the
             //field, while the structure hangs stretched under the glass and is dragged further down with every
             //descent. The solve answers it from the hit ball's own pose. (There was a second branch here that
@@ -509,6 +606,12 @@ namespace Prazsky.BS3D.Physics
 
             if (other.Mobility == CollidableMobility.Dynamic && TryFindStructureBall(other.BodyHandle, out PhysicsBall hitBall))
             {
+                //THE PREVIEW'S OWN ANSWER DECIDES WHICH BALL AND WHERE (#696): not the ball Bepu paired this contact with and
+                //the point it put it at, which are wherever the shot happened to be when the step ended, but the first
+                //surface the shot's straight flight met over the step - the very sweep the aim preview runs from the barrel.
+                //A near touch the sweep does not explain is not a hit at all.
+                if (!SweepDecides(contact, ref hitBall, ref worldContact, out swept, out touchCentre)) return false;
+
                 //THE ANCHOR CUT (#213) does not place a ball at all: what it strikes is destroyed, and it takes its
                 //turn before any of the placement below, none of which applies to a round that leaves no ball behind
                 if (physicsBall.Kind == BallKind.Cutter) return LandCutter(physicsBall, hitBall, contact);
@@ -536,7 +639,21 @@ namespace Prazsky.BS3D.Physics
                 //exactly what it said the first time it was switched on: one refusal in 34 varied-angle shots
                 //on Pinwheel, whose disc was drawn to the edge of its field. LevelGen refuses that shape now
                 //(LateralMargin), and this line is what would catch the next one.
-                Console.WriteLine("[shot] bounced: no free cell in either ring");
+                //Once per shot: a refused shot goes on touching the structure for several steps, and a line a step buried the
+                //one that mattered (a Testbed run logged 184 of them for one shot)
+                if (_lastRefused != shotHandle.Value)
+                {
+                    _lastRefused = shotHandle.Value;
+                    Console.WriteLine("[shot] bounced: no free cell in either ring");
+                }
+
+                //A REFUSED SHOT BOUNCES (#696): it is put back where its surfaces first met the ball - the sweep let it fly the
+                //whole step, and it stands overlapping the structure by up to half a ball, which the solver would then push
+                //out slowly and badly - and from here it is an ordinary body again, turned by every contact it meets
+                //(ContactEvents.MarkBounced). It stays a listener, so a free cell it slides to is still a landing.
+                if (swept) physicsBall.BallReference.Pose.Position = touchCentre.ToNumerics();
+                _contactEvents.MarkBounced(physicsBall.BallReference.Handle);
+
                 return false;
             }
 

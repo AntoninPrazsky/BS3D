@@ -56,6 +56,12 @@ namespace Prazsky.BS3D.Physics
         //thread between steps and only read during one, like the listener flags beside it.
         IndexSet looseBodyFlags;
 
+        //Shots whose landing was REFUSED (#696): they bounce off the structure as an ordinary body does, so the narrow phase
+        //turns them by speculative contacts again and the handler no longer sweeps them. Cleared by Unregister, the one place a
+        //shot stops being a listener, so a recycled handle cannot inherit it. Written on the main thread between steps and
+        //only read during one.
+        IndexSet bouncedBodyFlags;
+
         //The statics that are crates (#257): a shot in flight is kept off them by the narrow phase, because its bounce off
         //one is solved by Crates itself, exactly, the way the landing preview solves it. Written when the level's world is
         //built and only read during steps.
@@ -68,6 +74,14 @@ namespace Prazsky.BS3D.Physics
             public CollidableReference Source;
             public IContactEventHandler Handler;
             public QuickList<PreviousCollision> PreviousCollisions;
+
+            //Where a body listener stood, and how it was moving, at the START of the step in progress (#696): written in the
+            //hook before collision detection, read on the main thread after the step by StepOf. A shot in flight is a
+            //straight line from here, which is what the landing preview sweeps; what the solver did to the shot during the
+            //step is not part of it.
+            public System.Numerics.Vector3 StepPosition;
+            public System.Numerics.Vector3 StepVelocity;
+            public float StepDt;
         }
         Listener[] listeners;
 
@@ -170,6 +184,10 @@ namespace Prazsky.BS3D.Physics
             else
             {
                 bodyListenerFlags.Remove(collidable.RawHandleValue);
+
+                //A shot that bounced is a shot no longer (#696), and its handle may be recycled
+                if (bouncedBodyFlags.Flags.Allocated && bouncedBodyFlags.Contains(collidable.RawHandleValue))
+                    bouncedBodyFlags.Remove(collidable.RawHandleValue);
             }
             var index = listenerIndices[collidable];
             --listenerCount;
@@ -211,6 +229,19 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         public void MarkLoose(BodyHandle body) => looseBodyFlags.Add(body.Value, pool);
 
+        /// <summary>
+        /// Marks a shot as <b>bounced</b>: its landing was refused (no free cell in either ring), so it is an ordinary body
+        /// from here, turned by every contact it meets (<see cref="IsBounced"/>) and no longer swept for a landing (#696).
+        /// Main thread, between steps. Cleared when the shot stops listening.
+        /// </summary>
+        public void MarkBounced(BodyHandle body) => bouncedBodyFlags.Add(body.Value, pool);
+
+        /// <summary>Whether a collidable is a body marked bounced. Safe to read during a step.</summary>
+        public bool IsBounced(CollidableReference collidable) =>
+            collidable.Mobility != CollidableMobility.Static
+            && bouncedBodyFlags.Flags.Allocated
+            && bouncedBodyFlags.Contains(collidable.RawHandleValue);
+
         /// <summary>Clears <see cref="MarkLoose"/>'s mark, if the body carries one. Main thread, between steps.</summary>
         public void ClearLoose(BodyHandle body)
         {
@@ -231,6 +262,29 @@ namespace Prazsky.BS3D.Physics
             collidable.Mobility != CollidableMobility.Static
             && looseBodyFlags.Flags.Allocated
             && looseBodyFlags.Contains(collidable.RawHandleValue);
+
+        /// <summary>
+        /// Where a listening body stood and how it was moving when the step that has just finished began, and how long that
+        /// step was (#696). False for a collidable that is not a listener, or has not yet been through a step. Main thread,
+        /// after <see cref="Flush"/>.
+        /// </summary>
+        public bool TryGetStepStart(CollidableReference collidable, out System.Numerics.Vector3 position,
+            out System.Numerics.Vector3 velocity, out float dt)
+        {
+            position = default;
+            velocity = default;
+            dt = 0f;
+
+            if (collidable.Mobility == CollidableMobility.Static || !IsListener(collidable)) return false;
+
+            ref Listener listener = ref listeners[listenerIndices[collidable]];
+            if (listener.StepDt <= 0f) return false;
+
+            position = listener.StepPosition;
+            velocity = listener.StepVelocity;
+            dt = listener.StepDt;
+            return true;
+        }
 
         /// <summary>
         /// Checks if a collidable is registered as a listener.
@@ -270,6 +324,13 @@ namespace Prazsky.BS3D.Physics
                 var sourceExpectsUpdates = source.Mobility != CollidableMobility.Static && bodyHandleToLocation[source.BodyHandle.Value].SetIndex == 0;
                 if (sourceExpectsUpdates)
                 {
+                    //The step's start (#696): nothing of this timestep has integrated a pose yet, so this is where the body
+                    //stood and how fast it was going when the step began
+                    BodyReference body = simulation.Bodies[source.BodyHandle];
+                    listener.StepPosition = body.Pose.Position;
+                    listener.StepVelocity = body.Velocity.Linear;
+                    listener.StepDt = dt;
+
                     var previousCollisions = listeners[listenerIndex].PreviousCollisions;
                     for (int j = 0; j < previousCollisions.Count; ++j)
                     {
@@ -495,6 +556,8 @@ namespace Prazsky.BS3D.Physics
                 bodyListenerFlags.Dispose(pool);
             if (looseBodyFlags.Flags.Allocated)
                 looseBodyFlags.Dispose(pool);
+            if (bouncedBodyFlags.Flags.Allocated)
+                bouncedBodyFlags.Dispose(pool);
             if (crateStaticFlags.Flags.Allocated)
                 crateStaticFlags.Dispose(pool);
             if (staticListenerFlags.Flags.Allocated)
