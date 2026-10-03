@@ -13,7 +13,23 @@
     <Copyright>Antonín Pražský</Copyright>
     <UseWindowsForms>True</UseWindowsForms>
     <ApplicationIcon>Icon.ico</ApplicationIcon>
+    <!--The game is in English, and WinForms ships its four resource assemblies in 13 languages beside it: 52 files in 13
+    folders that nothing here ever loads (#714).-->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
+  <!--What a PLAYER sees when they open the release folder (#714). MonoGame.Framework.WindowsDX 3.8.5 still declares a
+  dependency on Microsoft.NETCore.App 2.1.30, so NuGet restores that runtime pack and its DotNetAppHost beside the 10.0
+  one this game is self-contained on, and a publish copies their natives into the folder: forty-odd api-ms-win-*.dll,
+  ucrtbase.dll, clrcompression.dll, dbgshim.dll, sos and mscordaccore from 2018, and a second apphost.exe that is not the
+  game. None of it is ever loaded - the 10.0 runtime brings its own - and it is what made the folder look like a wall of
+  files with the right exe somewhere in it. Removed from the publish list by the package they come from, so a package that
+  starts shipping something we do need is not caught by a file name.-->
+  <Target Name="DropStaleRuntimePackFiles" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <_StaleRuntimePackFile Include="@(ResolvedFileToPublish)" Condition="'%(ResolvedFileToPublish.NuGetPackageId)' == 'runtime.win-x64.Microsoft.NETCore.App' Or '%(ResolvedFileToPublish.NuGetPackageId)' == 'runtime.win-x64.Microsoft.NETCore.DotNetAppHost'" />
+      <ResolvedFileToPublish Remove="@(_StaleRuntimePackFile)" />
+    </ItemGroup>
+  </Target>
   <!--Which release this build is (#546). release.yml passes the tag as BS3DReleaseVersion on a tag build and
   only then, and it becomes an assembly attribute the online client reads: a build that carries it may submit to
   the built-in score service, and any other build - a local one, a rehearsal zip - submits only to a server its
