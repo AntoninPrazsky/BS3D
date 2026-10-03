@@ -7702,3 +7702,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-10-03 — beru #734 (plate „Sending your score...“ s hotovou stránkou) — desktop, Claude Code (bs3d-54)
 
 - **Beru:** #734. Stav řádku plate (signál + „Sending your score...“) má být od prvního snímku výsledku, ne po `_revealSettled` (~3 s); desky se dosunou po odhalení jako dosud. Reprodukce bez živé služby: `userdata=` s `"online": true` a `"server": "http://127.0.0.1:9/"`.
+
+## 2026-10-03 — beru #731 (průhledné středy písmen ve startovním logu) — desktop, Claude Code (bs3d-54)
+
+- **Beru:** #731. Znovu vyříznout z masteru `logo-9110-x4.png` tak, aby devět středů (B,B,B,O,O,R) bylo průhledných a **fialový obrys zůstal** (rozhodnutí majitele v `Images/logo/README.md`). Skript `cutout-alpha.py` ze skillu `design-references`, ComfyUI venv; před/po snímky splashe přes světlou a tmavou scénu.
