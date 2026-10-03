@@ -30,7 +30,7 @@ namespace BS3D.Screens
         //THE UPPER STACK CARRIES ITS OWN BACKING (#465), because it is the one part of this page that has no
         //plate and cannot have the scrim back. Everything from the heading down to "New best" stands on the
         //LIVE arena — #178 swapped the darkening scrim for the defocus and gave the breakdown a plate at the
-        //same time, and the defocus is deliberately late (BLUR_DELAY_SECONDS, 8 s of sharp frame first since #639) so
+        //same time, and the defocus is deliberately late (BLUR_DELAY_SECONDS, 16 s of sharp frame first since #721) so
         //the fireworks and the star reveal arrive in focus. Which means that for the first several seconds,
         //exactly when the page is READ, its own text is white type over whatever the level happened to be
         //played under.
@@ -174,16 +174,25 @@ namespace BS3D.Screens
         //SLOWER since #480: the owner found the 1.6 s rise read as the camera falling onto its back, a comfort
         //complaint rather than a framing one. The rise (and the matching fall) is doubled, which halves the
         //peak rate of the SmoothStep — 43 world units a second at the top of the ease became 22 — and the
-        //period grows by the same 3.2 s so the level stretch between glances is what it was; the height and
-        //the hold stay, because #430's framing (the whole burst zone in shot) is settled and must not move.
+        //period grows by the same 3.2 s so the level stretch between glances is what it was; the hold stays.
         private const float GLANCE_PERIOD = 12.7f;
         private const float GLANCE_RISE = 3.2f;
         private const float GLANCE_HOLD = 3.2f;
 
-        //How far the aim point is lifted at the top of a glance, in world units. The burst zone's own floor,
-        //near enough: raising the aim by this puts the lower half of the zone across the frame's middle and
-        //the higher shells in its top, which is the whole zone in shot rather than the best part of it.
-        private const float GLANCE_HEIGHT = 46f;
+        //How far the aim point is lifted at the top of a glance, in world units. It was 46 until #722 - the burst
+        //zone's own floor, which put the whole zone in shot (#430) - and 46 measured, from the camera's own base
+        //position and target, as a pitch of 52 degrees at the top on a 60 degree lens: the top EDGE of the frame at
+        //82, which is what the owner meant by "almost 90 degrees upward" and "as if we had fallen on our backs"
+        //(the orbit's own pitch at rest is under 4 degrees, so it is the glance and only the glance). 28 is a pitch
+        //of 38 degrees, and the lens widens by GLANCE_FOV_WIDEN_DEGREES as the aim rises so the frame's top edge
+        //stays at 72 and most of the burst zone with it; what the smaller pitch costs is the highest shells, which
+        //now leave the top of the frame. Chosen by eye on a bright and a dark scene against the candidates 34, 28 and
+        //22 with the lens widened by 0, 8 and 10 degrees (the pictures are on the issue).
+        private const float GLANCE_HEIGHT = 28f;
+
+        //How much the lens widens at the top of a glance, in degrees, on the same smoothstep as the lift so there is
+        //nothing new to feel: the zone fits at the smaller pitch, and the page's own text and the cup are unaffected.
+        private const float GLANCE_FOV_WIDEN_DEGREES = 8f;
 
         private float _glanceClock;
 
@@ -306,11 +315,13 @@ namespace BS3D.Screens
             //air: a camera that pitches up at an empty sky reads as a fault, and the shells are finite.
             //Folded into the ORBIT's target before the release blend, so the first seconds - when the page is
             //still easing off the gun's pose - are not yanked upward as well.
-            target.Y += Glance(elapsed);
+            float glance = Glance(elapsed);
+            target.Y += glance;
 
             camera.BasePosition = Vector3.Lerp(_fromPosition, position, eased);
             camera.BaseTarget = Vector3.Lerp(_fromTarget, target, eased);
-            camera.FieldOfView = MathHelper.Lerp(_fromFov, fieldOfView, eased);
+            camera.FieldOfView = MathHelper.Lerp(_fromFov, fieldOfView, eased)
+                + MathHelper.ToRadians(GLANCE_FOV_WIDEN_DEGREES) * (glance / GLANCE_HEIGHT);
 
             //Back to a level horizon: a level can end mid-tilt if a drop cinematic was running, and a result
             //screen read over a dutched frame reads as a fault
@@ -374,9 +385,11 @@ namespace BS3D.Screens
         /// (<see cref="RevealTotalSeconds"/>, about 2 s) — so nothing is blurred while it is still arriving,
         /// and the softening reads as the moment settling rather than as a transition out of it. Well past
         /// both since #639 (it was 3.4 s): the owner wanted the ending watched for a good while before it
-        /// goes soft — a loss's field to be read, a clear's fireworks and cup to be seen.
+        /// goes soft — a loss's field to be read, a clear's fireworks and cup to be seen. Twice that again
+        /// since #721 (8 s, then 16): "about twice as long" on the next playtest, the ease untouched, so the
+        /// frame is fully soft 32 s after the page opens.
         /// </summary>
-        private const float BLUR_DELAY_SECONDS = 8f;
+        private const float BLUR_DELAY_SECONDS = 16f;
 
         /// <summary>
         /// How long the frame takes to go fully soft (#200: 4 s once, 4× that now). Slow on purpose, and the
