@@ -76,6 +76,8 @@ namespace BS3D.Screens
         private Button _monthButton, _allTimeButton;
         private Label _monthLabel, _allTimeLabel;
         private Label _chapterName;
+        private Button _previousArrow, _nextArrow;
+        private Label _previousGlyph, _nextGlyph;
         private readonly List<Button> _rows = new();
         private readonly List<Label> _rowNames = new(), _rowTops = new(), _rowMes = new();
         private Label _status;
@@ -188,12 +190,16 @@ namespace BS3D.Screens
             return ScreenRoot(Plate(column));
         }
 
-        /// <summary>The chapter's name between two arrows, which turn it - as the picker's do, and wrapping as they do.</summary>
+        /// <summary>
+        /// The chapter's name between two arrows, which turn it one chapter at a time and stop at the ends (#727): the picker
+        /// wraps, and it can afford to because its pips say where the player is, which this page has none of.
+        /// </summary>
         private Widget BuildPager()
         {
             HorizontalStackPanel row = new() { Spacing = Scaled(20), HorizontalAlignment = HorizontalAlignment.Center };
 
-            row.Widgets.Add(Arrow('◀', -1));
+            _previousArrow = Arrow('◀', -1, out _previousGlyph);
+            row.Widgets.Add(_previousArrow);
 
             _chapterName = new Label
             {
@@ -209,13 +215,14 @@ namespace BS3D.Screens
             name.Widgets.Add(_chapterName);
             row.Widgets.Add(name);
 
-            row.Widgets.Add(Arrow('▶', 1));
+            _nextArrow = Arrow('▶', 1, out _nextGlyph);
+            row.Widgets.Add(_nextArrow);
             return row;
         }
 
-        private Button Arrow(char glyph, int direction)
+        private Button Arrow(char glyph, int direction, out Label caption)
         {
-            Label caption = new()
+            caption = new Label
             {
                 Text = glyph.ToString(),
                 Font = FontStars,
@@ -224,7 +231,13 @@ namespace BS3D.Screens
                 VerticalAlignment = VerticalAlignment.Center,
             };
 
-            return Game.MenuTile(caption, () => Turn(direction), ARROW_SIZE, ARROW_SIZE);
+            Button arrow = Game.MenuTile(caption, () => Turn(direction), ARROW_SIZE, ARROW_SIZE);
+
+            //An arrow with nowhere to go keeps its slab and dims its glyph (see Refresh): Myra's own disabled slab and type
+            //read as a lock, which is what a disabled row of this page already means, and this one means "no further this way"
+            arrow.DisabledBackground = BS3DGame.MENU_BUTTON_BRUSH;
+
+            return arrow;
         }
 
         /// <summary>One row slot: three labels in a tile-shaped entry, which opens the level's full boards.</summary>
@@ -325,16 +338,27 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// The previous or next chapter, wrapping round. The entries are re-read, as a picker's chapter turn re-reads them (a
-        /// chapter's rows differ in number and in which are locked), with the cursor kept where it stood.
+        /// The previous or next chapter, <b>stopping at the ends</b> (#727): no wrap in either direction, so the way from the last
+        /// chapter back to the first is the arrow, a chapter at a time, and the player always knows where they are. A player who
+        /// wants the first chapter at once leaves the page and opens it again, which opens on the chapter they have reached. The
+        /// entries are re-read, as a picker's chapter turn re-reads them (a chapter's rows differ in number and in which are
+        /// locked), with the cursor kept where it stood - or on the other arrow, when the turn reached an end and disabled the
+        /// one it stood on, which has left the pad's walk.
         /// </summary>
         private void Turn(int direction)
         {
             if (_pageStart.Length <= 1) return;
 
-            _page = (_page + direction + _pageStart.Length) % _pageStart.Length;
+            int wanted = Math.Clamp(_page + direction, 0, _pageStart.Length - 1);
+            if (wanted == _page) return;
+
+            _page = wanted;
             Button focused = _focused;
             Refresh();
+
+            if (focused == _nextArrow && !_nextArrow.Enabled) focused = _previousArrow;
+            else if (focused == _previousArrow && !_previousArrow.Enabled) focused = _nextArrow;
+
             Game.RefreshNavEntries(focused);
         }
 
@@ -343,13 +367,15 @@ namespace BS3D.Screens
 
         internal override void NavFocusChanged(Button focused) => _focused = focused;
 
-        /// <summary>Left or right, the D-pad, the stick or the shoulders turn the chapter.</summary>
+        /// <summary>
+        /// Left or right, the D-pad, the stick or the shoulders turn the chapter. False at an end, where nothing moved, so the
+        /// host plays no tick and the cursor does not go anywhere (#727).
+        /// </summary>
         internal override bool PageSideways(int direction)
         {
-            if (_pageStart.Length <= 1) return false;
-
+            int before = _page;
             Turn(direction);
-            return true;
+            return _page != before;
         }
 
         private void OpenSlot(int slot)
@@ -365,6 +391,12 @@ namespace BS3D.Screens
             //The period up in the bright type, the other in the aside grey - emphasis by brightness, the menu's rule
             _monthLabel.TextColor = !_allTime ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM;
             _allTimeLabel.TextColor = _allTime ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM;
+
+            //The arrows: one that would leave the campaign is off, and dim rather than greyed out by Myra (see Arrow)
+            _previousArrow.Enabled = _page > 0;
+            _nextArrow.Enabled = _page < _pageStart.Length - 1;
+            Paint(_previousGlyph, _previousArrow.Enabled ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM);
+            Paint(_nextGlyph, _nextArrow.Enabled ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM);
 
             int first = _pageStart[_page], last = PageEnd(_page);
             _chapterName.Text = Game.CampaignHasBlocks
