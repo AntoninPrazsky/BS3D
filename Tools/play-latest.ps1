@@ -26,11 +26,16 @@
 .PARAMETER NoRun
     Build and stop, without starting the Game.
 
-.EXAMPLE
-    powershell -File Tools\play-latest.ps1
+.NOTES
+    A stock Windows refuses to load any .ps1 ("running scripts is disabled on this system"). Run it through
+    play-latest.cmd beside it, which lifts the policy for that one run and changes nothing on the machine, or pass
+    -ExecutionPolicy Bypass to powershell yourself.
 
 .EXAMPLE
-    powershell -File Tools\play-latest.ps1 -Ref origin/crate-test-deflake -NoRun
+    Tools\play-latest.cmd
+
+.EXAMPLE
+    powershell -NoProfile -ExecutionPolicy Bypass -File Tools\play-latest.ps1 -Ref origin/<branch> -NoRun
 #>
 param(
     [string]$Ref = 'origin/main',
