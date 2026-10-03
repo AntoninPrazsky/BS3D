@@ -239,14 +239,35 @@ namespace BS3D
         public bool AdaptiveQuality { get; set; } = true;
 
         /// <summary>
-        /// Whether the player's cleared levels go to the online score boards (#546, #542). <b>Off unless the
-        /// player turned it on</b> — the boards are opt-in, and a file written before the row existed says
-        /// nothing, which reads as off. The identity it sends under is not here but in <c>Online.json</c>
-        /// (<see cref="Online.OnlineIdentity"/>): this file is rewritten by every settings click and restored by
-        /// hand after test runs, and a token has to survive both. The settings row that sets this is #548's.
+        /// Whether the player's cleared levels go to the online score boards (#546, #542). <b>Nothing is sent
+        /// unless the player turned it on</b> — the boards are opt-in — and since #763 there are <b>three
+        /// states</b>, because the first-launch nickname question has to tell a player who never decided from one
+        /// who said no: <b>null</b> (the key absent) is "never decided", and is what a fresh install holds until the
+        /// question is answered; <b>true</b> is on, by a confirmed nickname or the Settings row; <b>false</b> is a
+        /// decision to stay off, by Skip, by the Settings row, by a second Esc on the question
+        /// (<see cref="NicknameDismissed"/>) or by removing the scores. Only null is ever asked about, so the
+        /// question stops for good once it is false. Everything that sends reads this as <c>== true</c>.
+        /// <para>
+        /// <b>A file written since #546 that says <c>"online": false</c> reads as a decision</b>: the key was written
+        /// for every player whether they had touched the row or not (a plain bool is never null), so such a file cannot
+        /// be told from an untouched one, and not asking is the safe way to be wrong. The identity it sends under is
+        /// not here but in <c>Online.json</c> (<see cref="Online.OnlineIdentity"/>): this file is rewritten by every
+        /// settings click and restored by hand after test runs, and a token has to survive both. The settings row that
+        /// sets this is #548's.
+        /// </para>
         /// </summary>
         [JsonPropertyName("online")]
-        public bool Online { get; set; }
+        public bool? Online { get; set; }
+
+        /// <summary>
+        /// How many times the player has closed the first-launch nickname question with Esc and no answer (#763). The
+        /// first leaves <see cref="Online"/> undecided so the next launch asks again; the second is taken as Skip and
+        /// writes <see cref="Online"/> false (<see cref="Online.NicknamePrompt.Dismiss"/>). Absent while zero, so a
+        /// player who never saw the question has no trace of it in the file, and cleared by any answer.
+        /// </summary>
+        [JsonPropertyName("nicknameDismissed")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public int NicknameDismissed { get; set; }
 
         /// <summary>
         /// The score service to submit to, overriding the built-in one (#546). <b>No settings row shows it,

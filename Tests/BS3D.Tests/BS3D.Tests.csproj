@@ -48,6 +48,12 @@
     <Compile Include="..\..\Game\Effects\CityIntroShots.cs" />
     <!--What a nickname may be, and which words are secret (#548, #230): a string rule with no device in it.-->
     <Compile Include="..\..\Game\Online\Nickname.cs" />
+    <!--The first-launch nickname question (#763): when it is asked, what an Esc on it counts for, the field's editing and
+        the three-state setting through its file. Plain values and a JSON file, no device.-->
+    <Compile Include="..\..\Game\Online\NicknamePrompt.cs" />
+    <Compile Include="..\..\Game\Screens\NicknameEntry.cs" />
+    <Compile Include="..\..\Game\GameSettings.cs" />
+    <Compile Include="..\..\Game\QualityLevel.cs" />
     <!--#495: the drums layer's mix, pure arithmetic over 16-bit buffers-->
     <Compile Include="..\..\Game\Audio\DrumLayer.cs" />
   </ItemGroup>

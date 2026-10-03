@@ -3,7 +3,6 @@ using Microsoft.Xna.Framework;
 using Myra.Graphics2D;
 using Myra.Graphics2D.Brushes;
 using Myra.Graphics2D.UI;
-using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -117,21 +116,12 @@ namespace BS3D.Screens
         //at all, because the server forgets the player and the id is never reused.
         private bool _removeArmed;
 
-        //Typing a nickname (#548): whether the page has the keyboard, what has been typed so far, whether the edit
-        //began from the Online row (so keeping a name also turns the boards on), and what was wrong with the last
-        //attempt to keep it.
+        //Typing a nickname (#548): whether the page has the keyboard, and whether the edit began from the Online row
+        //(so keeping a name also turns the boards on). The draft, the caret that blinks after it (#687) and what was
+        //wrong with the last attempt to keep it are the entry's, shared with the first-launch plate (#763).
         private bool _typing;
-        private string _nameDraft = string.Empty;
         private bool _turnOnAfterName;
-        private string _typingProblem;
-
-        //The caret while typing (#687): an underscore, because Anton's "|" reads as a lowercase L ("Karel|" was
-        //"Karell"), and blinking, because a still mark is not a place to type. Its clock restarts on every key, so
-        //the caret is always on while the player types.
-        private const string CARET = "_";
-        private const float CARET_PERIOD = 1.0f;
-        private float _caretClock;
-        private bool _caretShown = true;
+        private readonly NicknameEntry _entry = new();
 
         //Every row's own button, in build order (#517) — cleared and refilled by AddRow each time BuildTree
         //runs, since a resize rebuilds the whole tree and a stale reference here would still answer
@@ -164,7 +154,7 @@ namespace BS3D.Screens
             _removeArmed = false;
             _typing = false;
             _turnOnAfterName = false;
-            _typingProblem = null;
+            _entry.Begin(null);
             Game.Online.ForgetRemovalOutcome();
         }
 
@@ -194,12 +184,7 @@ namespace BS3D.Screens
 
             if (!_typing || _nicknameValue == null) return;
 
-            _caretClock += (float)gameTime.ElapsedGameTime.TotalSeconds;
-            bool shown = _caretClock % CARET_PERIOD < CARET_PERIOD * Constants.HALF;
-            if (shown == _caretShown) return;
-
-            _caretShown = shown;
-            ShowNickname();
+            if (_entry.Tick((float)gameTime.ElapsedGameTime.TotalSeconds)) ShowNickname();
         }
 
         internal override bool CapturesKeyboard => _typing;
@@ -716,9 +701,8 @@ namespace BS3D.Screens
         {
             if (_typing)
             {
-                string field = _nameDraft + CARET;
-                _nicknameValue.Text = _caretShown ? field : _nameDraft;
-                _nicknameValue.Font = FontBody.MeasureString(field).X <= Scaled(VALUE_WIDTH) * 0.9f ? FontBody : FontSmall;
+                _nicknameValue.Text = _entry.Field;
+                _nicknameValue.Font = FontBody.MeasureString(_entry.FieldWithCaret).X <= Scaled(VALUE_WIDTH) * 0.9f ? FontBody : FontSmall;
                 _nicknameValue.HorizontalAlignment = HorizontalAlignment.Left;
                 _nicknameValue.TextColor = BS3DGame.MENU_TEXT;
                 return;
@@ -740,7 +724,7 @@ namespace BS3D.Screens
             //The keys first (#687): the owner typed a name, did not know Enter was wanted, and left it behind. Moving
             //on keeps it now as well, and the line says so
             if (_typing)
-                return _typingProblem ?? $"Press Enter to keep the name, or Esc to cancel. Moving to another row keeps it too. "
+                return _entry.Problem ?? $"Press Enter to keep the name, or Esc to cancel. Moving to another row keeps it too. "
                     + $"{Nickname.MinLength} to {Nickname.MaxLength} letters, digits, spaces, _ or -, typed on the keyboard.";
 
             if (Game.Online.NameProblem != null)
@@ -816,19 +800,10 @@ namespace BS3D.Screens
         {
             _typing = true;
             _turnOnAfterName = turnOnAfter;
-            _nameDraft = Game.Online.Nickname ?? string.Empty;
-            _typingProblem = null;
+            _entry.Begin(Game.Online.Nickname);
             _removeArmed = false;
-            ShowCaret();
 
             Refresh();
-        }
-
-        /// <summary>The caret on, and its blink restarted - at the start of typing and on every key (#687).</summary>
-        private void ShowCaret()
-        {
-            _caretClock = 0f;
-            _caretShown = true;
         }
 
         /// <summary>
@@ -841,19 +816,18 @@ namespace BS3D.Screens
         {
             if (!_typing) return;
 
-            if (Nickname.TryNormalize(_nameDraft, out _, out _)) KeepTyping();
+            if (_entry.IsKeepable) KeepTyping();
             else CancelTyping();
         }
 
         /// <summary>
-        /// Keeps the name if it is one (<see cref="Nickname.TryNormalize"/>), and says what is wrong if it is not —
+        /// Keeps the name if it is one (<see cref="Nickname.TryNormalize"/>), and says what is wrong if it is not -
         /// the page stays in typing, so the player can fix it rather than start over.
         /// </summary>
         private void KeepTyping()
         {
-            if (!Nickname.TryNormalize(_nameDraft, out string name, out string problem))
+            if (!_entry.TryKeep(out string name))
             {
-                _typingProblem = problem;
                 Refresh();
                 return;
             }
@@ -862,7 +836,6 @@ namespace BS3D.Screens
 
             _typing = false;
             _turnOnAfterName = false;
-            _typingProblem = null;
 
             Game.Online.SetNickname(name);
             if (turnOn) Game.Online.SetOn(true);
@@ -876,7 +849,7 @@ namespace BS3D.Screens
 
             _typing = false;
             _turnOnAfterName = false;
-            _typingProblem = null;
+            _entry.ClearProblem();
 
             Refresh();
         }
@@ -884,35 +857,27 @@ namespace BS3D.Screens
         /// <summary>
         /// A character the window typed (#548), while this page has the keyboard. Enter and Escape come through
         /// here as the characters Windows sends for them, not as key edges, so one press cannot act twice; a
-        /// character no nickname may hold does nothing, and nothing past the longest name is taken.
+        /// character no nickname may hold does nothing, and nothing past the longest name is taken
+        /// (<see cref="NicknameEntry.Type"/>).
         /// </summary>
         internal override void OnTextInput(char character)
         {
             if (!_typing) return;
 
-            switch (character)
+            switch (_entry.Type(character))
             {
-                case '\r':
+                case NicknameKey.Enter:
                     KeepTyping();
-                    return;
-
-                case '\x1b':
-                    CancelTyping();
-                    return;
-
-                case '\b':
-                    if (_nameDraft.Length > 0) _nameDraft = _nameDraft[..^1];
                     break;
 
-                default:
-                    if (!Nickname.IsAllowed(character) || _nameDraft.Length >= Nickname.MaxLength) return;
-                    _nameDraft += character;
+                case NicknameKey.Escape:
+                    CancelTyping();
+                    break;
+
+                case NicknameKey.Edited:
+                    Refresh();
                     break;
             }
-
-            _typingProblem = null;
-            ShowCaret();
-            Refresh();
         }
 
         /// <summary>The pad's half of typing: A keeps, B drops (#548). A pad cannot type the name itself.</summary>

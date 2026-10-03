@@ -248,6 +248,20 @@ namespace BS3D
         //Program calls with it before anything resolves UserData.Directory.
         internal string UserDataDirectory { get; private set; }
 
+        //Testing only: ask the first-launch nickname question (#763) even in a run that would not - one a script drives,
+        //which includes every run with userdata=. The question is otherwise never asked of a script, which has nobody
+        //to answer it, so this is what a run that wants to look at the plate itself says. It still asks only an
+        //undecided setting and only for a build with a score server: it replaces the "no one is here" gate and no other.
+        internal bool NickPrompt { get; private set; }
+
+        //Testing only: "nickprompt=<steps>" (#763) - what to do on the question once it is up, in order and through the very
+        //handlers the keys and the button run: type:<text>, enter, esc, skip. Naming steps asks the question too. Null for none.
+        internal string NickPromptSteps { get; private set; }
+
+        //Testing only: the connection check the question makes answers "not connected" (#763), so the no-internet branch
+        //can be walked without taking the machine's network down
+        internal bool NoInternet { get; private set; }
+
         #endregion
 
         /// <summary>
@@ -483,6 +497,11 @@ namespace BS3D
             //player's own files. Applied by Program, before the game exists, because every one of them
             //resolves through UserData on first use.
             Row.Text("userdata", (o, v) => o.UserDataDirectory = v),
+            //"nickprompt" asks the first-launch nickname question in a scripted run too (#763), and "nointernet" makes
+            //its connection check answer no - the two levers that let the question be looked at and its gates walked.
+            Row.Flag("nickprompt", o => o.NickPrompt = true),
+            Row.Text("nickprompt", (o, v) => { o.NickPrompt = true; o.NickPromptSteps = v; }),
+            Row.Flag("nointernet", o => o.NoInternet = true),
         ];
 
         private static bool TryParseSkyDome(string text, out byte dome) =>
