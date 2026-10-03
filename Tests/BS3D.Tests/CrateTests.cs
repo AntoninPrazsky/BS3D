@@ -154,7 +154,7 @@ namespace BS3D.Tests
             XZLevel size = new(hung.Balls.GetLength(0), hung.Balls.GetLength(1), hung.Balls.GetLength(2));
             foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(promised.ArrayPosition, size))
                 near |= neighbour.Equals(touched.ArrayPosition);
-            Assert.True(near, $"the shot reached {touched.ArrayPosition}, the preview named {promised.ArrayPosition}");
+            Assert.True(near, $"the shot reached {Cell(touched.ArrayPosition)}, the preview named {Cell(promised.ArrayPosition)}");
         }
 
         /// <summary>
@@ -219,6 +219,8 @@ namespace BS3D.Tests
                 if (other.Mobility == CollidableMobility.Dynamic) Other = other.BodyHandle;
             }
         }
+
+        private static string Cell(XZLevel cell) => $"({cell.X}, {cell.Z}, {cell.Level})";
 
         private static float LowestBallY(PhysicsBall[,,] balls)
         {
