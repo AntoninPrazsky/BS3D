@@ -37,11 +37,23 @@ namespace Prazsky.Core.Render
     /// </para>
     /// <para>
     /// It is a shell rather than a surface: an outer face, the underside seen up the bore through the muzzle,
-    /// and rim strips closing the notch and the two long edges, so the glass has visible thickness where it
-    /// is cut and cannot be looked into edge-on. The pane is held off the steel it is set into by a small
-    /// reveal on every cut edge — the two cheeks of the window and the lip the window ends at — because a
-    /// glass face flush with a steel one is two coplanar surfaces fighting over the depth buffer. The reveal
-    /// reads as the shadow line of a pane seated in a frame, which is what it is.
+    /// and a rim strip closing the notch, so the glass has visible thickness where it is cut and cannot be
+    /// looked into edge-on.
+    /// </para>
+    /// <para>
+    /// <b>The pane is recessed into the steel, not held off it (#708).</b> It was held off by a 0.02 reveal on
+    /// every cut edge, because a glass face flush with a steel one is two coplanar surfaces fighting over the
+    /// depth buffer, and the reveal was meant to read as the shadow line of a pane seated in a frame. It read as
+    /// a pane fitted badly: the slit is 0.02 across and 0.14 deep, open onto the balls, and a sight line down it
+    /// reaches a round at full colour beside the rounds veiled by the glass — a thin saturated line along each
+    /// cheek from the azimuths where the camera looks along the cheek's plane (photographed at 20 to 36 degrees
+    /// off the top on either side, and at the owner's playing angle). The pane now runs <b>into</b> the steel past
+    /// both cheeks and past the lip the window ends at, by <c>embed</c>: the window's own edge is the glass's
+    /// visible edge, the steel closes over the rest, and no sight line can pass between them. That is an
+    /// intersection and not a coplanar pair, so it does not fight: the pane's outer face stands under the steel's
+    /// surface everywhere (the slimmest steel it meets is the chase dip) and its underside is lifted off the bore
+    /// by <see cref="UNDERSIDE_LIFT"/>, which is what keeps the buried part of it from sharing a surface with the
+    /// bore it passes through. The pane's long edges and its back edge are buried now, so they are not built.
     /// </para>
     /// <para>
     /// Sized so it stays <b>inside</b> the rebate at every station of the barrel's profile: the pane's outer
@@ -52,6 +64,14 @@ namespace Prazsky.Core.Render
     /// </summary>
     public class CannonGlassMesh : IProceduralMesh, IDisposable
     {
+        /// <summary>
+        /// How far the pane's underside stands off the bore (#708), in world units. The part of the pane that runs into
+        /// the steel passes through the bore surface, and a pane face level with it would be two coplanar surfaces
+        /// fighting over the depth buffer from inside the barrel; four thousandths is far below anything seen and far
+        /// above the depth buffer's grain at the distances the muzzle is looked up from.
+        /// </summary>
+        private const float UNDERSIDE_LIFT = 0.004f;
+
         public VertexBuffer VertexBuffer { get; private set; }
         public IndexBuffer IndexBuffer { get; private set; }
         public int PrimitiveCount { get; }
@@ -61,12 +81,14 @@ namespace Prazsky.Core.Render
         /// bottom of the window's rebate with the steel rim standing proud around it.</param>
         /// <param name="thickness">Radial thickness of the glass. Kept under the slimmest steel the window
         /// crosses, or the pane would prove proud of the tube where the chase dips.</param>
-        /// <param name="seat">The reveal the pane is held off the window's steel by, in world units, on both
-        /// cheeks and at the lip the window ends at — see the class remarks on why it is not flush.</param>
+        /// <param name="embed">How far the pane runs into the steel past each cheek and past the lip the window
+        /// ends at, in world units (an arc length at the bore across the window) — see the class remarks (#708).
+        /// Anything above zero closes the gap; it only has to stay within the wall, which is far thicker.</param>
         /// <param name="slotHalfAngle">Half-width of the window itself, in radians from straight up
-        /// (<c>CannonRig.SLOT_HALF_ANGLE</c>); the pane spans it less the reveal.</param>
-        /// <param name="slotEndZ">Where the window stops, towards the breech; the pane stops the reveal ahead
-        /// of it.</param>
+        /// (<c>CannonRig.SLOT_HALF_ANGLE</c>): where the glass is seen to end, and where the notch's ellipse
+        /// meets the cheek.</param>
+        /// <param name="slotEndZ">Where the window stops, towards the breech; the pane runs on past it into the
+        /// steel.</param>
         /// <param name="frontBallZ">Z of the head-of-queue ball's centre — what the notch is measured from, so
         /// the opening and the ball it uncovers cannot disagree.</param>
         /// <param name="ballRadius">One loaded ball's radius. The rim lands a radius back from the front ball's
@@ -79,17 +101,19 @@ namespace Prazsky.Core.Render
         /// <param name="segments">Steps across the pane, which are also the steps around the notch's ellipse
         /// (they are one and the same boundary) — the notch is the curve the eye reads, so this is its
         /// smoothness rather than the barrel's.</param>
-        public CannonGlassMesh(GraphicsDevice graphicsDevice, float boreRadius, float thickness, float seat,
+        public CannonGlassMesh(GraphicsDevice graphicsDevice, float boreRadius, float thickness, float embed,
             float slotHalfAngle, float slotEndZ, float frontBallZ, float ballRadius, float notchReach,
             int segments)
         {
-            float inner = boreRadius;
+            float inner = boreRadius + UNDERSIDE_LIFT;
             float outer = boreRadius + thickness;
 
-            //The pane's own span: the window's, pulled in by the reveal on each cheek (an arc length, so it is
-            //an angle at the bore) and ahead of the lip the window ends at
-            float halfAngle = MathF.Max(slotHalfAngle - seat / boreRadius, 0f);
-            float backZ = slotEndZ - seat;
+            //The pane's visible span is the window's own, so the notch's ellipse meets each cheek exactly where it
+            //always did; what is new is the part beyond it, which runs into the steel (an arc length at the bore,
+            //so an angle) and on past the lip the window ends at
+            float halfAngle = slotHalfAngle;
+            float embedAngle = embed / boreRadius;
+            float backZ = slotEndZ + embed;
 
             int spans = Math.Max(4, segments);
 
@@ -179,17 +203,14 @@ namespace Prazsky.Core.Render
 
                 builder.AddQuad(inner0Front, inner1Front, outer1Front, outer0Front,
                     rim0, rim1, rim1, rim0, Vector3.Normalize(rim0 + rim1));
-
-                //And the back edge, facing the lip the window ends at across the reveal
-                builder.AddQuad(inner0Back, inner1Back, outer1Back, outer0Back,
-                    Vector3.Backward, Vector3.Backward, Vector3.Backward, Vector3.Backward, Vector3.Backward);
             }
 
-            //The two long edges, each facing the window cheek it is seated against. They start on the first
-            //seam of the queue, the ellipse having landed there (it landed on the front ball's own centre plane
-            //until #204, which is precisely what left that ball glazed).
-            AddSideEdge(builder, dirs[0], inner, outer, frontZ[0], backZ, outward: -1f);
-            AddSideEdge(builder, dirs[spans], inner, outer, frontZ[spans], backZ, outward: +1f);
+            //The two strips of pane that run into the steel past the cheeks (#708): on the seam the ellipse lands on
+            //there (frontZ is the seam at both ends of it), out to the embed and back to the buried back edge. Their
+            //outer and under faces are never seen - the steel is over the one and the bore surface under the other -
+            //and they are built anyway, because a pane that ends exactly at the cheek is the slit again.
+            AddEmbeddedStrip(builder, dirs[spans], EmbedDirection(dirs[spans], embedAngle), inner, outer, seamZ, backZ);
+            AddEmbeddedStrip(builder, EmbedDirection(dirs[0], -embedAngle), dirs[0], inner, outer, seamZ, backZ);
 
             (VertexBuffer, IndexBuffer, PrimitiveCount) = builder.Build(graphicsDevice);
 
@@ -202,20 +223,35 @@ namespace Prazsky.Core.Render
                 MathF.Sqrt(outer * outer + halfLength * halfLength));
         }
 
-        /// <summary>One long edge of the pane: a pane-thick quad at a fixed angle, from where the rim lands at
-        /// the cheeks back to the pane's end, facing out of the window towards the cheek it is seated
-        /// against.</summary>
-        private static void AddSideEdge(MeshBuilder builder, Vector3 radial, float inner, float outer,
-            float frontZ, float backZ, float outward)
+        /// <summary>
+        /// The direction at <paramref name="by"/> radians further round the bore from <paramref name="from"/>, which
+        /// lies in the cross-section: the angle is read off the vector and moved, the way the stations' own are made.
+        /// </summary>
+        private static Vector3 EmbedDirection(Vector3 from, float by)
         {
-            Vector3 faceNormal = new Vector3(-radial.Y, radial.X, 0f) * outward;
+            float angle = MathF.Atan2(from.Y, from.X) + by;
+            return new Vector3(MathF.Cos(angle), MathF.Sin(angle), 0f);
+        }
+
+        /// <summary>
+        /// A strip of the pane between two directions, level with the seam at its front and ending at the buried
+        /// back edge: its outer face and its underside, wound as the main spans are. The directions run in the
+        /// order the stations do, so <paramref name="d0"/> is the one at the smaller angle.
+        /// </summary>
+        private static void AddEmbeddedStrip(MeshBuilder builder, Vector3 d0, Vector3 d1, float inner, float outer,
+            float frontZ, float backZ)
+        {
+            Vector3 mid = Vector3.Normalize(d0 + d1);
 
             builder.AddQuad(
-                radial * inner + new Vector3(0f, 0f, frontZ),
-                radial * inner + new Vector3(0f, 0f, backZ),
-                radial * outer + new Vector3(0f, 0f, backZ),
-                radial * outer + new Vector3(0f, 0f, frontZ),
-                faceNormal, faceNormal, faceNormal, faceNormal, faceNormal);
+                d0 * outer + new Vector3(0f, 0f, frontZ), d1 * outer + new Vector3(0f, 0f, frontZ),
+                d1 * outer + new Vector3(0f, 0f, backZ), d0 * outer + new Vector3(0f, 0f, backZ),
+                d0, d1, d1, d0, mid);
+
+            builder.AddQuad(
+                d0 * inner + new Vector3(0f, 0f, frontZ), d1 * inner + new Vector3(0f, 0f, frontZ),
+                d1 * inner + new Vector3(0f, 0f, backZ), d0 * inner + new Vector3(0f, 0f, backZ),
+                -d0, -d1, -d1, -d0, -mid);
         }
 
         public void Dispose()
