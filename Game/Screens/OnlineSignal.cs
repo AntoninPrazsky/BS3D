@@ -84,7 +84,7 @@ namespace BS3D.Screens
                     _ => BS3DGame.MENU_TEXT_DIM * UNLIT * 2f,
                 };
 
-                context.FillRectangle(bar, color);
+                FlatBrush.Fill(context, bar, color);
             }
         }
     }

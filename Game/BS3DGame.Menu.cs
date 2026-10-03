@@ -268,16 +268,16 @@ namespace BS3D
         //swaps an entry between the first two of these rather than minting a brush per frame. MENU_BUTTON_BRUSH
         //is internal because the pages name it: it is a page's default EntryRestBrush, the tone the pad-focus
         //highlight rests every unfocused entry to.
-        internal static readonly IBrush MENU_BUTTON_BRUSH = new SolidBrush(MENU_BUTTON);
-        private static readonly IBrush MENU_BUTTON_PRESSED_BRUSH = new SolidBrush(MENU_BUTTON_PRESSED);
+        internal static readonly IBrush MENU_BUTTON_BRUSH = new FlatBrush(MENU_BUTTON);
+        private static readonly IBrush MENU_BUTTON_PRESSED_BRUSH = new FlatBrush(MENU_BUTTON_PRESSED);
 
         //The front end's own rest brush, named by MainMenuPage as its EntryRestBrush so the focus highlight
         //rests each unfocused entry to a whisper instead of the shared grey. See MENU_FRONT_BUTTON.
-        internal static readonly IBrush MENU_FRONT_BUTTON_BRUSH = new SolidBrush(MENU_FRONT_BUTTON);
+        internal static readonly IBrush MENU_FRONT_BUTTON_BRUSH = new FlatBrush(MENU_FRONT_BUTTON);
 
         //The one of the three that is not a button's alone: AboutPage's link is a Label, not a Button, and it
         //answers the pointer with this same wash so the two read as one gesture rather than two inventions.
-        internal static readonly IBrush MENU_BUTTON_OVER_BRUSH = new SolidBrush(MENU_BUTTON_OVER);
+        internal static readonly IBrush MENU_BUTTON_OVER_BRUSH = new FlatBrush(MENU_BUTTON_OVER);
 
         //A pause dims the whole frame, because what is behind it is a stopped game and the menu is the thing
         //to look at. The front end does NOT: there the rotating scene is the point of the screen, and a
@@ -1827,7 +1827,7 @@ namespace BS3D
         {
             Panel plate = new()
             {
-                Background = new SolidBrush(MENU_PLATE),
+                Background = new FlatBrush(MENU_PLATE),
                 Padding = ScaledThickness(MENU_PLATE_PADDING_X, MENU_PLATE_PADDING_Y),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
@@ -1942,7 +1942,7 @@ namespace BS3D
             Text = BuildVersion.Name,
             Font = _menuFontSmall,
             TextColor = MENU_TEXT_DIM,
-            Background = new SolidBrush(MENU_PLATE),
+            Background = new FlatBrush(MENU_PLATE),
             Padding = ScaledThickness(24, 10),
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Bottom,
