@@ -33,9 +33,12 @@ seed came back with the same SHA-256.
 about eight seconds. The anime variant is trained for illustration, which is what this is; the general
 model invents photographic texture.
 
-**3. The cut** — `cutout-alpha.py <in> <out> 2048 45 95`. The thresholds come from this image's own
-histogram, where the distance from the background is cleanly bimodal: frame noise at ~1, the outer glow
-spanning 8 to 45, and drawn artwork above ~145.
+**3. The cut** — `cutout-alpha.py <in> <out> 2048 45 95 counters 0.65` (the design-references skill's).
+The thresholds come from this image's own histogram, where the distance from the background is cleanly
+bimodal: frame noise at ~1, the outer glow spanning 8 to 45, and drawn artwork above ~145. The last two
+arguments are #731's: the counters pass, and the share of the height below which it leaves the "3D" badge's
+own dark shadows alone. Without them the same command gives the logo as it was until 2026-10-03, byte for
+byte (checked: re-cutting the master reproduced the shipped file exactly before the pass was added).
 
 ## What was decided and must not be quietly undone
 
@@ -45,6 +48,13 @@ spanning 8 to 45, and drawn artwork above ~145.
   and makes the letter counters transparent; the owner compared both and chose the version that keeps
   the keyline, *"protoze zachovava fialovy obrys textu (alespon naznaky)"*. Those alternatives are
   alternatives, not improvements.
+- **The nine counters are transparent, and the keyline is still kept (#731).** The counters of the B, B,
+  B, O, O and R were an opaque dark violet - the cut keeps every enclosed region - so over the live scene the
+  picture read as a sticker, and the 3D wordmark that grows in as it leaves has open counters. The owner's
+  choice above was about the keyline; the counters were never part of it. The `counters` pass clears them
+  and leaves the thin dark rim round each as the counter's own keyline; nothing outside those nine regions
+  changed by one value (checked against the previous file). **The "3D" badge's shadows stay opaque** on
+  purpose: they are shadows on a solid disc, not holes. The D's counter shows the disc's own purple.
 - **Straight alpha, not premultiplied.** Every content project passes `PremultiplyAlpha=True`, so the
   pipeline premultiplies on build and `BlendState.AlphaBlend` is then correct. Loading this with
   `Texture2D.FromStream` instead skips that and the edges fringe.
