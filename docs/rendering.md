@@ -104,7 +104,7 @@ The savanna was the first scene, and #471 carried the map to nine more — see b
 
 **The city took a different mechanism, not a tenth copy of this one, and it is the eleventh backdrop.** The city is the one backdrop `SceneRenderer` does not own: `GetSceneConfig` answers **null** for `City`/`NeonCity` (the host holds the `CitySceneConfig`), the towers are the host's `InstancedModelRenderer`s, and `CityStreets.fx` is loaded by the host as well. So all three parts of a shadow — the config, the casters and the receiver — live outside this renderer, and `SceneRenderer.SetHostShadowScene(scene, shadows, groundY, below, above, receivers)` is the API a host calls once at load to hand them over: its own `ShadowConfig`, where its ground sits and how far the map's box reaches below and above it, and (optionally) whichever of its own effects should receive on top of it. Both hosts register the city and the neon city — the neon sun sits under `SHADOW_MIN_SUN_HEIGHT` by construction, so it costs nothing and the day/night split stays in one place rather than being restated as "the city only". See "The city's shadows" below for what it settled on.
 
-**What casts, and who draws it.** The split follows the one CLAUDE.md already draws between the renderer and the host:
+**What casts, and who draws it.** The split follows the one `docs/libraries.md` (the `Prazsky.Core` entry) already draws between the renderer and the host:
 
 | Scene | Casters | Drawn by |
 |---|---|---|
