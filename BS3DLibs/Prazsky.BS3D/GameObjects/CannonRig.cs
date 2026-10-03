@@ -242,10 +242,14 @@ namespace Prazsky.BS3D
         //0.665 at the shipped bore and wall) or the glass proves proud of the tube it is set into.
         private const float GLASS_THICKNESS = 0.05f;
 
-        //The reveal the pane is held off the window's steel by on both cheeks and at the lip the window ends
-        //at. Not a look: a glass face flush with a steel one is two coplanar surfaces fighting over the depth
-        //buffer, which flickers. It reads as the shadow line of a pane seated in a frame, which is what it is.
-        private const float GLASS_SEAT = 0.02f;
+        //How far the pane runs INTO the steel past both cheeks and the lip the window ends at (#708). It was held
+        //0.02 OFF them until then, to keep a glass face from lying flush with a steel one (two coplanar surfaces
+        //fight over the depth buffer), and the slit that left, 0.02 across and 0.14 deep, showed the loaded balls
+        //at full colour along both cheeks from the azimuths that look along them: a pane that looked badly fitted.
+        //Embedded, the window's own edge is the glass's edge and nothing can pass between them. Any positive figure
+        //does it and the wall is 0.14 thick, so this one is simply a generous fraction of the pane's own thickness
+        //on a bore of 0.6.
+        private const float GLASS_EMBED = 0.06f;
 
         //Steps across the pane, which are also the steps round the notch's ellipse - the oval is the curve the
         //eye reads on this prop, so it gets more of them than the tube's own wall does.
@@ -614,7 +618,7 @@ namespace Prazsky.BS3D
             //The window's glazing, cut to the very figures the window was: the front ball's centre is exactly
             //PivotToFrontBall ahead of the trunnions (which is what that figure means), so the notch is over
             //the round that fires by construction rather than by agreement — and it ends at the same lip.
-            _glassMesh = new CannonGlassMesh(graphicsDevice, BORE_RADIUS, GLASS_THICKNESS, GLASS_SEAT,
+            _glassMesh = new CannonGlassMesh(graphicsDevice, BORE_RADIUS, GLASS_THICKNESS, GLASS_EMBED,
                 SLOT_HALF_ANGLE, slotEndZ, -PivotToFrontBall, BALL_RADIUS, GLASS_NOTCH_REACH, GLASS_SEGMENTS);
 
             //The pane's own three figures — a deeper blue, a higher alpha and a sky reflection held down
