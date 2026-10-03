@@ -56,8 +56,8 @@ namespace BS3D.Screens
             column.Widgets.Add(_heading);
 
             HorizontalStackPanel boards = new() { Spacing = Scaled(BOARD_GAP), HorizontalAlignment = HorizontalAlignment.Center };
-            _month = new BoardView(FontBody, FontSmall, Scaled, ROWS, Scaled(BOARD_WIDTH));
-            _allTime = new BoardView(FontBody, FontSmall, Scaled, ROWS, Scaled(BOARD_WIDTH));
+            _month = new BoardView(FontBody, FontSmall, Game.MenuFontPromptSmall, Scaled, ROWS, Scaled(BOARD_WIDTH));
+            _allTime = new BoardView(FontBody, FontSmall, Game.MenuFontPromptSmall, Scaled, ROWS, Scaled(BOARD_WIDTH));
             boards.Widgets.Add(_month.Root);
             boards.Widgets.Add(_allTime.Root);
             column.Widgets.Add(boards);

@@ -1281,8 +1281,8 @@ namespace BS3D.Screens
             //"Every clear since the boards began" — widened the whole plate back across the column at 4:3
             VerticalStackPanel stack = new() { Spacing = Scaled(10), Width = _boardWidth, ClipToBounds = true };
 
-            _month = new BoardView(FontBody, FontSmall, Scaled, OnlineSession.RESULT_BOARD_ROWS, _boardWidth);
-            _allTime = new BoardView(FontBody, FontSmall, Scaled, OnlineSession.RESULT_BOARD_ROWS, _boardWidth);
+            _month = new BoardView(FontBody, FontSmall, Game.MenuFontPromptSmall, Scaled, OnlineSession.RESULT_BOARD_ROWS, _boardWidth);
+            _allTime = new BoardView(FontBody, FontSmall, Game.MenuFontPromptSmall, Scaled, OnlineSession.RESULT_BOARD_ROWS, _boardWidth);
             _allTime.Root.Margin = ScaledThickness(0, BOARD_SECTION_GAP, 0, 0);
             stack.Widgets.Add(_month.Root);
             stack.Widgets.Add(_allTime.Root);
