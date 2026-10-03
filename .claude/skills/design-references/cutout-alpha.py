@@ -10,6 +10,15 @@ counts as background only if it can be reached from the frame edge without cross
 groove and the letter counters are enclosed, so they stay opaque whatever their colour. The outer glow
 is the one place a soft edge is wanted, and there the pixel is un-composited against the modelled
 background so it comes out as translucent light rather than as a plum halo.
+
+The one thing connectivity cannot tell apart is a groove from a COUNTER (the hole of a B, an O, an R): both
+are enclosed, so both stayed opaque, and a counter is the one place a letter should show what is behind it.
+With the sixth argument `counters` a second pass tells them apart by thickness (#731): the groove is a few
+pixels wide and a counter is a hundred, so opening the enclosed regions with a disc wider than the groove
+leaves one blob per counter. Those are cleared with a short ramp, and the thin dark rim drawn round each one
+stays - it is the counter's own keyline, the inner twin of the purple one outside the lettering.
+
+    cutout-alpha.py <in> <out> [width] [t_lo] [t_hi] [counters]
 """
 import sys
 import numpy as np
@@ -28,6 +37,22 @@ BORDER = 40          # px of frame taken as pure background when fitting the gra
 T_LO = float(sys.argv[4]) if len(sys.argv) > 4 else 45.0
 T_HI = float(sys.argv[5]) if len(sys.argv) > 5 else 95.0
 MARGIN_FRAC = 0.015  # breathing room kept around the artwork when cropping
+COUNTERS = len(sys.argv) > 6 and sys.argv[6] == 'counters'
+# Counters below this share of the source's height are left alone. The logo's "3D" badge has four dark enclosed
+# regions of its own - the shadows its digits throw on the disc - which are as fat as a counter and are
+# nothing of the kind: cleared, they cut green-showing holes into the disc under the digits. Nothing about
+# the regions themselves tells the two apart (the ring round them is bright for some counters and dark for
+# others), so the lettering's extent is stated: its lowest counter is at 0.55 of the master's height and the
+# badge's shadows start at 0.75.
+COUNTERS_ABOVE = float(sys.argv[7]) if len(sys.argv) > 7 else 1.0
+# The counters pass, in px of the SOURCE (4864 wide for the logo master; the shipped 2048 is a 2.06x
+# reduction of the cropped drawing). The groove between a letter and its outline is under ~16 px thick at
+# that size and the smallest counter (the B's lower) is ~100 px across, so a disc of this radius removes the
+# one and keeps the other, and a blob must then be this big to count as a counter and not a speck.
+COUNTER_OPEN_RADIUS = 20
+COUNTER_MIN_AREA = 4000
+# How far the counter's alpha takes to go from opaque (at the dark rim drawn round it) to clear
+COUNTER_FEATHER = 6.0
 
 im = Image.open(SRC).convert('RGB')
 c = np.asarray(im).astype(np.float32)
@@ -68,15 +93,51 @@ del lab, near, outside
 alpha = np.clip((d - t_lo) / (T_HI - t_lo), 0.0, 1.0)
 alpha[d >= T_HI] = 1.0
 alpha[enclosed] = 1.0
-# Close single-pixel pinholes left by grain inside solid areas.
-alpha = np.maximum(alpha, ndimage.grey_closing(alpha, size=3))
-del enclosed, d
+
+# --- 2b. Counters: the fat enclosed regions, cleared with a ramp (#731) ---
+counter = None
+if COUNTERS:
+    # Opening by a disc, done with distance transforms because a 41 x 41 structuring element over 16 Mpix is
+    # minutes: the disc's centres are the pixels at least R from anything not enclosed, and the opened
+    # region is everything within R of a centre.
+    r = COUNTER_OPEN_RADIUS
+    centres = ndimage.distance_transform_edt(enclosed) >= r
+    grown = (ndimage.distance_transform_edt(~centres) <= r) & enclosed
+    lab_g, n_g = ndimage.label(grown)
+    sizes_g = np.bincount(lab_g.ravel())
+    sizes_g[0] = 0
+    big, left = [], []
+    for i in np.nonzero(sizes_g >= COUNTER_MIN_AREA)[0]:
+        cy, cx = ndimage.center_of_mass(lab_g == i)
+        (big if cy < COUNTERS_ABOVE * h else left).append((i, cx, cy))
+    counter = np.isin(lab_g, [i for i, _, _ in big])
+    print('counters: %d cleared, %d left alone below %.2f of the height' % (len(big), len(left), COUNTERS_ABOVE))
+    for i, cx, cy in big:
+        print('  cleared %6d px at (%d, %d) of the source' % (sizes_g[i], cx, cy))
+    for i, cx, cy in left:
+        print('  left    %6d px at (%d, %d) of the source' % (sizes_g[i], cx, cy))
+    # Opaque at the counter's edge, clear COUNTER_FEATHER px inside it
+    inside = ndimage.distance_transform_edt(counter)
+    ramp = np.clip(inside / COUNTER_FEATHER, 0.0, 1.0)
+    ramp = ramp * ramp * (3.0 - 2.0 * ramp)
+    alpha = np.where(counter, 1.0 - ramp, alpha)
+    del centres, grown, lab_g, inside, ramp
+
+# Close single-pixel pinholes left by grain inside solid areas - but not across a counter, where the
+# closing would fill the hole back in from its own rim
+closed = ndimage.grey_closing(alpha, size=3)
+alpha = np.where(counter, alpha, np.maximum(alpha, closed)) if counter is not None else np.maximum(alpha, closed)
+del enclosed, d, closed
 
 # --- 3. Un-composite: C = bg*(1-a) + F*a, so F = bg + (C-bg)/a ---
 safe = np.maximum(alpha, 1e-3)[..., None]
 fg = np.clip(bg + (c - bg) / safe, 0, 255)
 fg = np.where(alpha[..., None] > 0.995, c, fg)
-del bg, c, safe
+if counter is not None:
+    # A counter's fade is a cut, not a blend with the plum, so the colour there is the pixel's own: un-compositing
+    # it against the background model would invent a colour for every partly clear pixel
+    fg = np.where(counter[..., None], c, fg)
+del bg, c, safe, counter
 
 # --- 4. Crop to what is actually drawn ---
 # Single grains of film noise clear the threshold too, and one of them at the frame edge would stretch the
