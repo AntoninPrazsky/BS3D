@@ -173,10 +173,19 @@ namespace BS3D.Effects
         //beads are small enough that a row reads as texture along an edge, not as balls.
         private const float STONE = 0.021f, SMALL_STONE = 0.012f, CALYX_STONE = 0.017f, BEAD = 0.0065f;
 
-        //How far either side of a handle a BAND row leaves a gap, in radians: the handle's upper root lands
-        //in the band, and a bead half inside the tube reads as a burr on the casting. The plinth's drum rows
-        //do not take it — nothing of the handle comes within three quarters of the cup's height of them.
-        private const float HANDLE_CLEARANCE = 0.16f;
+        //How far a bead is left from a handle's tube, surface to surface (#724): one bead's radius. The handle's
+        //upper root lands in the band, and a bead half inside the tube reads as a burr on the casting, so a row stops
+        //short of the tube instead of running into the root - the owner's ruling - and the gap it leaves is read off
+        //the handle's own geometry (TrophyMesh.HandleHalfAngle), row by row. It was a hand-picked 0.16 radians either
+        //side of both handles on both band rows, which the arithmetic shows twice what the upper row needs and all
+        //of it for nothing on the lower, where the tube comes nowhere near. The plinth's drum rows have never needed
+        //one: nothing of the handle comes within three quarters of the cup's height of them.
+        private const float HANDLE_BEAD_MARGIN = BEAD;
+
+        //How far either side of a handle's azimuth the small emerald between two band stones is left out, in radians.
+        //The handle's root sits right on it (the tube is about 0.023 across at the wall against the setting's 0.016),
+        //and the next emerald is 0.52 radians away, so only the handle's own azimuth matters.
+        private const float EMERALD_CLEARANCE = 0.1f;
 
         /// <summary>
         /// One kind of ornament on one tier: which renderer draws it, in which material, where every copy sits
@@ -505,7 +514,7 @@ namespace BS3D.Effects
 
                     //The small emerald between two big stones — except where a handle's root sits
                     float between = (i + 1f) * step;
-                    if (!handles || !NearHandle(between, HANDLE_CLEARANCE))
+                    if (!handles || !NearHandle(between, EMERALD_CLEARANCE))
                         Stone(EMERALD, TrophyMesh.BAND_RADIUS, bandY, Vector2.UnitX, between, SMALL_STONE);
                 }
             }
@@ -535,10 +544,14 @@ namespace BS3D.Effects
             {
                 int count = (int)(MathHelper.TwoPi * radius / (2.3f * BEAD));
 
+                //Where a bead would sit inside the tube or closer to it than the margin: none on a row the handle does
+                //not reach (the band's lower one), a few beads either side on the one it crosses (the upper)
+                float gap = clearHandles ? TrophyMesh.HandleHalfAngle(radius, y, BEAD + HANDLE_BEAD_MARGIN) : 0f;
+
                 for (int i = 0; i < count; i++)
                 {
                     float angle = i * MathHelper.TwoPi / count;
-                    if (clearHandles && NearHandle(angle, HANDLE_CLEARANCE)) continue;
+                    if (NearHandle(angle, gap)) continue;
 
                     Place(_beadMesh, metal, TrophyMesh.Ornament(radius, y, Vector2.UnitX, angle, BEAD));
                 }
