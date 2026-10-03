@@ -49,5 +49,28 @@ namespace BS3D.Tests
             Assert.Equal(handle, second.Handle);
             Assert.False(world.Events.IsBounced(second.CollidableReference));
         }
+
+        /// <summary>
+        /// The leak the review of #696 found: a shot that touched the stone has stopped listening but stays in the handler's
+        /// list for the rest of the step, and a refusal of a structure contact queued behind the stone's marked it bounced. The
+        /// mark must go with the body all the same (<c>RetireBall</c> clears it), or the next shot to be handed the handle is
+        /// born bounced and never swept.
+        /// </summary>
+        [Fact]
+        public void AMarkOnAShotThatHadAlreadyStoppedListeningIsClearedWithItsBody()
+        {
+            using PhysicsWorld world = new();
+
+            BodyReference first = world.AddShotBall(NVector3.Zero, NVector3.Zero, new Silent());
+            BodyHandle handle = first.Handle;
+
+            world.Events.Unregister(first.CollidableReference);
+            world.Events.MarkBounced(handle);
+            world.RetireBall(first);
+
+            BodyReference second = world.AddShotBall(new NVector3(5f, 0f, 0f), NVector3.Zero, new Silent());
+            Assert.Equal(handle, second.Handle);
+            Assert.False(world.Events.IsBounced(second.CollidableReference));
+        }
     }
 }

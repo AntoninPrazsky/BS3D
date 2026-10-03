@@ -306,7 +306,7 @@ namespace Prazsky.BS3D.Physics
         /// from one ball to its neighbour and was a large part of why a shot landed in another cell than its ghost. The
         /// Game's preview asks for it, so the ghost is the flight the simulation integrates (the rig measured the two to
         /// agree to better than a thousandth of a unit at every step); the analysis tools that sweep thousands of
-        /// shots (<c>AimReachability</c>, <c>SagProbe</c>) do not, since a hundredth of a unit changes none of what they
+        /// shots (<c>SagProbe</c>) do not, since a hundredth of a unit changes none of what they
         /// ask. #741 will give scenes their own gravity: this then wants the world's, not <c>EARTH_GRAVITY</c>.
         /// </para>
         /// </remarks>

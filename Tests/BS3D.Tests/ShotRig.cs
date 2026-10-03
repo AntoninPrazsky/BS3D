@@ -59,6 +59,7 @@ namespace BS3D.Tests
         private readonly List<PhysicsBall> _falling = new();
         private XZLevel? _landed;
         private bool _spent;
+        private Crates _crates;
 
         public HungLevel Hung => _hung;
 
@@ -77,6 +78,19 @@ namespace BS3D.Tests
             _handler.ShotSpent += () => _spent = true;
         }
 
+        /// <summary>
+        /// Stands a crate beside the level (#257), and makes the world bank shots off it as the Game does: the crates' own
+        /// reflection, run in the step before the integrator (<see cref="Crates.BounceShots"/>), and the preview asked about them.
+        /// </summary>
+        public void AddCrate(System.Numerics.Vector3 centre, System.Numerics.Vector3 halfSize)
+        {
+            _crates ??= new Crates();
+            _crates.Add(new Crates.Crate(centre, halfSize));
+            _crates.AddStatics(_hung.World.Simulation, _hung.World.Events);
+
+            _hung.World.PerStepForces = dt => _crates.BounceShots(_shots, _hung.World.Events, dt, Constants.EARTH_GRAVITY, _hung.Balls, null);
+        }
+
         /// <summary>Fires one shot from <paramref name="muzzle"/> at <paramref name="target"/> (a point in world space) and plays it out.</summary>
         /// <param name="glance">Only carried into the result, for the report.</param>
         /// <param name="type">The ball's colour. One no level uses by default, so a landing completes no group and the structure
@@ -88,7 +102,7 @@ namespace BS3D.Tests
 
             XZLevel? promised = null;
             if (ShotPlacement.TryFindFirstHitCurved(_hung.Balls, muzzle, velocity, 2f * BallsConstraintsBuilder.BALL_RADIUS, null,
-                    out PhysicsBall hit, out XVector3 contact, worldGravity: true)
+                    out PhysicsBall hit, out XVector3 contact, null, _crates, worldGravity: true)
                 && ShotPlacement.TrySolveAgainstBall(_hung.Map, hit, contact, _hung.WorldOffset, out XZLevel cell, out _))
                 promised = cell;
 
@@ -111,6 +125,8 @@ namespace BS3D.Tests
             {
                 _hung.World.Step(HungLevel.TIMESTEP, () => _handler.ProcessQueuedContacts());
                 if (_landed != null || _spent) { steps++; break; }
+
+                if (_crates != null) continue;   //a banked flight is not a single Euler line
 
                 eulerVelocity.Y += Constants.EARTH_GRAVITY * HungLevel.TIMESTEP;
                 euler += eulerVelocity * HungLevel.TIMESTEP;

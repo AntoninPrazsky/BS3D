@@ -76,7 +76,7 @@ namespace Prazsky.BS3D.Physics
             public QuickList<PreviousCollision> PreviousCollisions;
 
             //Where a body listener stood, and how it was moving, at the START of the step in progress (#696): written in the
-            //hook before collision detection, read on the main thread after the step by StepOf. A shot in flight is a
+            //hook before collision detection, read on the main thread after the step by TryGetStepStart. A shot in flight is a
             //straight line from here, which is what the landing preview sweeps; what the solver did to the shot during the
             //step is not part of it.
             public System.Numerics.Vector3 StepPosition;
@@ -236,6 +236,12 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         public void MarkBounced(BodyHandle body) => bouncedBodyFlags.Add(body.Value, pool);
 
+        /// <summary>Clears <see cref="MarkBounced"/>'s mark, if the body carries one. Main thread, between steps.</summary>
+        public void ClearBounced(BodyHandle body)
+        {
+            if (bouncedBodyFlags.Flags.Allocated && bouncedBodyFlags.Contains(body.Value)) bouncedBodyFlags.Remove(body.Value);
+        }
+
         /// <summary>Whether a collidable is a body marked bounced. Safe to read during a step.</summary>
         public bool IsBounced(CollidableReference collidable) =>
             collidable.Mobility != CollidableMobility.Static
@@ -265,8 +271,8 @@ namespace Prazsky.BS3D.Physics
 
         /// <summary>
         /// Where a listening body stood and how it was moving when the step that has just finished began, and how long that
-        /// step was (#696). False for a collidable that is not a listener, or has not yet been through a step. Main thread,
-        /// after <see cref="Flush"/>.
+        /// step was (#696). False for a collidable that is not a listener, was not active in the step (a sleeping body keeps no
+        /// record of it), or has not yet been through a step. Main thread, after <see cref="Flush"/>.
         /// </summary>
         public bool TryGetStepStart(CollidableReference collidable, out System.Numerics.Vector3 position,
             out System.Numerics.Vector3 velocity, out float dt)
@@ -340,6 +346,10 @@ namespace Prazsky.BS3D.Physics
                 }
                 else
                 {
+                    //No step to speak of for this one (#696): a record left from the last step it was awake in would be swept
+                    //again and again
+                    listener.StepDt = 0f;
+
                     //The listener is either static or sleeping. We should only expect updates if the other collidable is awake.
                     var previousCollisions = listeners[listenerIndex].PreviousCollisions;
                     for (int j = 0; j < previousCollisions.Count; ++j)
