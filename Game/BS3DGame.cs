@@ -1207,7 +1207,7 @@ namespace BS3D
         /// </summary>
         internal void RetryLevel()
         {
-            _gameplayScreen.BuildLevel(_gameplayScreen.LevelIndex);
+            _gameplayScreen.BuildLevel(_gameplayScreen.LevelIndex, retry: true);
             EnterPlaying();
         }
 

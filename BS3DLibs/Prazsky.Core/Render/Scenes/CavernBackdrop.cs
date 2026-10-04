@@ -89,10 +89,13 @@ namespace Prazsky.Core.Render
             _cavernEffect.Parameters["CaveRadius"].SetValue(rock.CaveRadius);
 
             //Cavern.fx's own figures: the nearest stalactite group's anchor stands 0.3 of the radius off the axis, and a
-            //group spreads 15 round its anchor with cones up to 6.5 x 1.35 thick; the columns stand at 0.46 and further.
-            //So nothing of them comes nearer the axis than this, and a lens inside it has none between it and anything
-            //on the arena (#755) - the play camera, the menu's orbit; the chapter intro's first shot is 168 out.
-            _formationsClearRadius = 0.3f * rock.CaveRadius - 24f;
+            //group's cones stand up to 15 off its anchor on EACH axis (FormationSdf's (roll - 0.5) x 30) - 21.2 radially -
+            //and are up to 6.5 thick with a knob or so on top; the columns stand at 0.46 and further. So nothing of them
+            //comes nearer the axis than this, and a lens inside it has none between it and anything on the arena (#755) -
+            //the play camera, the menu's orbit; the chapter intro's first shot is 168 out. At the shipped radius (240) it
+            //is 42, where the nearest cone of the twelve actual groups stands 63.7 off the axis (the review of #755, which
+            //also caught the first figure's 15 taken radially). Never below zero: CaveRadius is a config file's to set.
+            _formationsClearRadius = MathF.Max(0f, 0.3f * rock.CaveRadius - 30f);
             _cavernEffect.Parameters["CaveCeilingY"].SetValue(rock.CeilingY);
             _cavernEffect.Parameters["RockColor"].SetValue(rock.RockColor.ToVector3());
             _cavernEffect.Parameters["VeinColor"].SetValue(rock.VeinColor.ToVector3());

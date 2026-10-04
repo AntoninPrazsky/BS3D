@@ -33,7 +33,9 @@ namespace BS3D.Screens
         /// Tears down whatever session is standing and builds the level at <paramref name="index"/> in its
         /// place — the path a first "Play", a "New Game", a retry and an advance all take.
         /// </summary>
-        internal void BuildLevel(int index)
+        /// <param name="retry">A Retry or a Restart of the level just played (#715): the tutorial then remembers the cards
+        /// this attempt's run already went through, where any other start shows the level's own cards again.</param>
+        internal void BuildLevel(int index, bool retry = false)
         {
             if (IsBuilt) TearDown();
 
@@ -94,7 +96,7 @@ namespace BS3D.Screens
             bool tutorialLevel = Tutorial.TryPlace(Game.LevelSet, index, out int chapter, out int levelInChapter,
                 out int chapterLength);
             _tutorial.BeginLevel(tutorialLevel ? chapter : -1, levelInChapter, chapterLength, LevelCeilingStep(index),
-                swapOffered: _run.SwapOffered);
+                swapOffered: _run.SwapOffered, retry: retry);
 
             //And no floor alarm either: whatever the last level's ending left lingering over the drain is
             //not this level's danger.
