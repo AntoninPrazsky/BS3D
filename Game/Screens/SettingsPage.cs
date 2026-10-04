@@ -35,8 +35,8 @@ namespace BS3D.Screens
     /// </para>
     /// <para>
     /// <b>Every page stands in the same frame</b>: the page area is as tall as the tallest page (DISPLAY's ten
-    /// rows) and every caption column as wide as the widest caption on any page, so a tab changes what the rows
-    /// say and not where they, the plate's edge or Back stand. Still no scroller (<see cref="MenuPage.MenuScroll"/>):
+    /// rows) and every page as wide as the tab row, its caption column filling what the value buttons leave (#770), so a
+    /// tab changes what the rows say and not where they, the plate's edge or Back stand. Still no scroller (<see cref="MenuPage.MenuScroll"/>):
     /// the pad can reach a row inside one since #245, but a page that fits needs none, and every page here fits.
     /// </para>
     /// <para>
@@ -372,7 +372,8 @@ namespace BS3D.Screens
         /// <summary>
         /// The mix: the master and the three parts under it. The pad's rumble stood here until #686 and is on CONTROLS
         /// now, where a player looking for it looks; the Track row (#279's piece picker) stood under the volumes until
-        /// the owner, who had never come across it, had it removed (#704) — the Jukebox is where the music is played by name.
+        /// the owner, who had never come across it, had it removed (#704) — the Jukebox (#704, not built yet) is to be where
+        /// the music is played by name.
         /// </summary>
         private Grid BuildAudioPage()
         {
@@ -754,7 +755,8 @@ namespace BS3D.Screens
         }
 
         //The note's longer texts, named so SizeOnlineNote can measure them beside the privacy sentence. The rest (a
-        //refusal, a removal under way or failed) are a line or two and never the tallest.
+        //refusal, a removal under way or failed) are a line or two as the score server words its reasons today; a reason
+        //the server sent at length would be cut, since what it says cannot be measured ahead of it.
         private static readonly string TYPING_NOTE = "Press Enter to keep the name, or Esc to cancel. Moving to another row keeps it too. "
             + $"{Nickname.MinLength} to {Nickname.MaxLength} letters, digits, spaces, _ or -, typed on the keyboard.";
 
