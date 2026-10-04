@@ -50,6 +50,7 @@ float HotCore;        //how far towards white a spark goes at its brightest (Fir
 float HotCoreFrom;    //the brightness the white starts at, and over how much more it arrives (HOT_CORE_FROM/_WIDTH)
 float HotCoreWidth;
 float SkyCover;       //how much of what is behind it a spark hides per unit of its own weight squared (Fireworks.SKY_COVER)
+float Visibility;     //1 with the lens in the air, down to 0 as it sinks under the sea (#761): the spark's light and cover together
 
 struct FireworkVertexInput
 {
@@ -264,7 +265,8 @@ float4 FireworkPS(FireworkVertexOutput input) : COLOR
     float weight = max(bodyWeight, head);
     float3 light = (input.Tint.rgb * bodyWeight + input.Head.rgb * head) * weight;
     float a = weight * input.Tint.a;
-    return float4(light, saturate(a * a * SkyCover));
+    //Under the water the whole spark goes, light and cover together - premultiplied, so one factor fades both (#761)
+    return float4(light, saturate(a * a * SkyCover)) * Visibility;
 }
 
 technique Fireworks

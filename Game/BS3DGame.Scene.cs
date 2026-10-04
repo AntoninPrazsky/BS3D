@@ -1070,7 +1070,10 @@ namespace BS3D
         internal void DrawTranslucentsBehindGlass(in SceneFrame sceneFrame)
         {
             _sceneRenderer.DrawGrounded(_scene, sceneFrame);
-            _fireworks?.Draw(_camera);
+
+            //Gone under the water (#761), fading with the murk as the lens goes down; the sea is the only scene with
+            //water a lens can get under, and everywhere else the figure is 0
+            _fireworks?.Draw(_camera, 1f - _sceneRenderer.LensSubmergedAmount(_scene, _camera.Position));
         }
 
         /// <summary>
