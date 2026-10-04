@@ -7828,3 +7828,43 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Spouštěč bez fokusu + snímky:** `scratchpad/launch.ps1` (CreateProcess, SW_SHOWMINNOACTIVE), `cap.sh`, `hum.sh` v session 6edf655a; nahrávání `rec.py` ze session d2900955 (`soundcard`). Dekódování ogg: `C:\Users\panrd\AI\sfx\venv` má `soundfile`, systémový python má `scipy`.
 - **Dodatek: #699 (merge `3d7db89e`), #770 zavřeno, #704 upřesněno.** Majitel: nápověda se neukáže nad padající animací **rány, která level dohrála** (přeskočit jde dál). `GameplayScreen` předá HUD padání nad rozhodnutým levelem jako neběžící. Nafoceno na zkušebním levelu (56 koulí, `detonate=18`, až po průletu kapitoly, jinak převzetí kamery padání zablokuje). Přeskočit jde dál, uprostřed levelu nápověda svítí. #704: Jukebox hraje **všechnu hudbu ve hře** bez ohledu na odemčení. #770: „vypadá to dobře“.
 - **Dodatek: dávka poznámek majitele (4. 10. večer) založena jako #772–#784, jen založit, nic nestavět.** Hudba na Měsíci (#772: **`lunar-idm.ogg` má 18,25 s ticha** uprostřed smyčky, bicí taky; sken všech 140 skladeb: další nejdelší mirage-electronica 5,75 s, magma-doom 5 s), Scene v pořadí kapitol (#773; volné scény: Sea, Forest, Outback, Tropical, Mars, Storm, Polar), konec města v ulicích (#774), Mars (#775), Outback (#776), kameny na Měsíci = ikosaedry ze sopky (#777), oválná jeskyně (#778), ostrov v Dream (#779), střechy v neonovém průletu (#780, záběr `Roofs` existuje, ale je nečitelný), hory na High/Ultra (#781), listí vždy z větví (#782), ulice v průletu výš (#783, nízká priorita), symboly místo slov v přehrávači (#784). K existujícím: #751 (jehličí a listí), #759 a #760 (záběr pod vodou s rybičkami do průletu Sea), #704. Bod „skip na konci levelu“ = #699, hotovo.
+
+## 2026-10-05 — noc bez majitele: #783, #784, #773, #772, #761, #762, #755, #715, #704 Jukebox, #782, #692 změřeno, #750, #743, #400 — desktop, Claude Code (6edf655a)
+
+Majitel večer 4. 10.: „zpracovávej až do rána issues, které můžeš zpracovat bez mého inputu“. Všechno přes větev → `--no-ff` merge → CI zelená; vzhledové změny nesou `shipped-awaiting-verdict`. **Fronta verdiktů je teď 15** (750, 784, 783, 782, 773, 772, 769, 762, 761, 715, 704, 520, 378, 257, 213), tedy na stropu: další vzhledové změny až po verdiktech.
+
+- **#783 (merge `28c106f2`):** záběr ulice v průletu města výš (`CityIntroShots.STREET_HEIGHT` 26, `STREET_PITCH_DEGREES` 36), město i neon nafoceno před/po.
+- **#784 (merge `9cd2e9b2`):** symboly místo slov na tlačítkách přehrávače (`Game/Screens/MediaGlyph.cs`: Play, Pause, Next, Previous kreslené řádky `FlatBrush`, `MenuPage.ButtonGlyph`, `BS3DGame.MenuButton(Widget, Action)`).
+- **#773 (merge `be39126a`):** obrazovka Scene v pořadí kapitol se jmény kapitol (`ScenePage.OrderByChapters`, `TryReadScene`), volné scény na konci; páka `scenes`.
+- **#772 (merge `7b642831`):** `lunar-idm` přestřižena z druhého hlasitého těla renderu (12 taktů, 28,8 s); master vyměněn v `C:\Users\panrd\AI\output\masters-486`, starý zůstal jako `theme-lunar-idm.loop-2026-09-23.wav`; bicí znovu oddělené. **MusicBake odmítá ticho** (`LongestQuiet`/`QuietRefusal`: −35 dBFS déle než 6 s) v `--tracks` i `--shipped`. Neslyšeno.
+- **#761 (merge `b7b0f1dd`):** pod hladinou žádný ohňostroj: `Fireworks.Draw(camera, visibility)`, uniform `Visibility` násobí premultiplikovaný výstup, předává se `1 − LensSubmergedAmount`.
+- **#762 (merge `c021be81`):** kreslené sklo trychtýře stojí 0,1 nad kolizním kuželem (`ArenaIsland.FUNNEL_GLASS_CLEARANCE`, `FUNNEL_DRAWN_HOLE_RADIUS` pro sklo, okraje, plášť jámy a vodu moře); fyzika beze změny. Naměřená největší penetrace koule do kužele byla 0,025.
+- **#755 (merge `4370cc9d`, zavřeno):** útvary jeskyně zapisují hloubku: `Cavern.fx` technika `CavernDepth` (`SV_Depth`, `discard`), `Backdrop.DrawDepth` volaný ze `SceneRenderer.DrawEnvironment`, jen na plném detailu a s čočkou mimo `_formationsClearRadius`, **scissor na box arény**: bez něj +1,37 ms, s ním +0,05 ms.
+- **#715 (merge `d258f4ce`):** level ukáže své tutorial karty znovu při každém vstupu; Retry/Restart si pamatuje, co tento pokus už viděl (`BuildLevel(index, retry: true)` jen z `RetryLevel`).
+- **#704 Jukebox (merge `b1cbe8a3`):** v hlavním menu „Extras“ místo „Scene“; Jukebox hraje **všechnu hudbu ve hře** po kapitolách (`RecordingPlayer`, `SpectrumAnalyser` + `IBandSource`, `ExtrasPage`, `JukeboxPage`), páky `extras`, `jukebox[=<kapitola>[:play]]`. ⚠ **V noci jsou audio výstupy desktopu vypnuté** (všechny endpointy „Unknown“), XAudio2 nemá zařízení a `DynamicSoundEffectInstance` hází NRE: ošetřeno, ale **přehrávání neslyšeno**.
+- **Review nočních merge (merge `24441319`):** #715 pamatoval karty na celé spuštění (teď jen retry), Amphora při rozloučení vracela lekce, které save neměl; #704 rozbitá nahrávka zastavila celý přehrávač (teď se přeskočí) a dekódování běželo paralelně (teď jedno naráz); #755 komentář k poloměru.
+- **#782 (merge `ae9f6283`):** listí savany roste z větviček: `AcaciaMesh`/`BaobabMesh` → `Build` bez zařízení, `LeafSprays.HangOnTwigs`. Test `LeafAttachmentTests` **před opravou vystřelil** (58–90 % karet listí mimo dřevo), po ní 0; hlídá i 16bitové indexy. Savana 3,29 → 3,34 ms.
+- **#692 změřeno (merge `a8c2f522`, `LevelGen --cuts`):** řez celým patrem bez ochrany: jedna rána vyčistí 88 ze 110 levelů. S chráněnými horními 1/2/3 patry: 0 vyčištění, medián nejlepší rány uvolní 398/355/302 koulí, medián rány 190/153/129. Rozhodnutí je majitelovo.
+- **#750 blesk v bouři (merge `448f19ae` a `fbb495de`).** Diagnóza ve hře (dočasná instrumentace, nikdy necommitnutá):
+  - **kanál se kreslí pokaždé, ale utopí ho vlastní záře** (buňka je bílá a aditivní kanál přes bílou nic nepřidá; se `FlashGlow` 0 je vidět);
+  - **ostrov ho schová** (všechno pod úrovní ostrova je z herní kamery za ostrovem);
+  - **polovina úderů je mimo záběr**.
+
+  Oprava:
+  - úder se vybírá mezi buňkami, které kamera vidí, 14–28° od osy (mimo dělo a shluk), a **fixuje se při začátku úderu** v paměti osmi slotů;
+  - kanál vychází z boku buňky kolmo k pohledu a padá mezerou;
+  - šířka v obrazovce: bílé jádro asi 2,5 px při 1080p ve fialovém halu, šest větví z kloubů kanálu;
+  - **záře mraku přijde 0,12 s po kanálu**.
+
+  Reference: `C:\Users\panrd\AI\sd\out\750-zimage` a `750-klein`. ⚠ Review po merge našel regresi: výhled úvodu kapitoly (`StormIntroShots.FindStrike`) přepisoval jediný slot a úder v průletu šel jinam. Opraveno osmi sloty, ověřeno `tour scene=storm` na seedech 1–3. ⚠ **Testovat krátkou událost přes `shot=` nejde** (start levelu posune hodiny); pomohlo dočasné přepsání sekund od začátku úderu proměnnou prostředí.
+- **#743 (merge `05fa782b`):** pravidla odhalení jsou **brána LevelGenu**. `Design.Payoff` (barvy odměny), `LevelGates.RevealFaults`:
+  - odměna se bez těla nezřítí;
+  - žádnou kouli odměny nejde na startu trefit (přes `ArrivalProbe`, 16 stanic na oběžné dráze).
+
+  Výsledky:
+  - Osm odhalení prošlo, kromě **kýlu lodi (Ship, 7 koulí zespodu)**: nádrž je dole otevřená záměrně, proto `PayoffInSight`.
+  - **Viděno vystřelit:** srdce Onionu dočasně deklarované → 161 padá, 10 trefitelných, LevelGen exit 1.
+  - ⚠ **Záplava prázdných buněk (jako v `ClearProbe`) je na „uzavřeno“ špatně:** krystal Sparku se zužuje o buňku na patro a záplava proklouzne mezi patry, kudy žádná koule neprojde. Hlásila 46 ze 46.
+  - Body 3 (přenést vzor do dalších kapitol) a „speciální koule“ jsou majitelovy.
+- **#400, sedmý průchod: čisté.** 66 nálezů hygieny snímku, žádný skutečný. Kontrola gradientů v `[branch]` byla viděna vystřelit na podstrčeném souboru. DocDrift: 21 kandidátů, žádný zastaralý. Další průchod od `448f19ae`.
+- ⚠ **LevelGen na Windows zapisuje CRLF**, takže po běhu jsou všechny levely „modified“. Obsah je stejný (`git diff --numstat Game/Levels/` je prázdné) a vrací se `git checkout -- Game/Levels/` (ne clean, ne reset).
