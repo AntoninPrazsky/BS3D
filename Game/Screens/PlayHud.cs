@@ -1994,7 +1994,9 @@ namespace BS3D.Screens
         //button that started them cannot skip them. #499 showed it on a session's first three drop cinematics or until
         //the player skipped one, and then never again - "it does not nag"; the owner's verdict was the opposite: a
         //reminder is wanted every time one is sat through, so the counter and the retirement are gone. The line loss
-        //is not skippable (LineLossCinematic: it is the explanation of the loss) and so has none.
+        //is not skippable (LineLossCinematic: it is the explanation of the loss) and so has none, and nor has the drop of
+        //the shot that cleared the level (the owner, 2026-10-04: the player has finished, there is nothing to skip to),
+        //though that one still skips - GameplayScreen hands it in as not running.
         //
         //The drop's waits a second - past the lockout, and long enough for the player to have seen what they did. The
         //tour's a second and a half: it is a flight of 9.5 s (4.5 s after a prologue), and a hint over its first
