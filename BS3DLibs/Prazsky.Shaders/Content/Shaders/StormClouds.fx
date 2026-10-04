@@ -315,56 +315,127 @@ float4 CloudPS(CloudVertexOutput input) : COLOR
 //the frame, and that reads as the sun blinking rather than as lightning.
 //
 //The channel is generated ENTIRELY IN THE VERTEX SHADER off the strike's own period index. Nothing is
-//uploaded per frame and nothing is stored: the buffer carries only which bolt a vertex belongs to, how far
-//down it stands and which side of the channel it is - the path is hashed, the same way every other thing
-//about a strike in this scene already is, so the Game, the Testbed and the map editor draw the same bolt at
-//the same second.
+//uploaded per frame but where the channel starts and which way it runs (the host latches both when the
+//strike begins, #750), and nothing is stored: the buffer carries only which bolt a vertex belongs to, how far
+//along it stands and which side of the channel it is - the kinks and the forks are hashed, the same way
+//every other thing about a strike in this scene already is.
+//
+//⚠ WHY IT RUNS WHERE IT RUNS (#750, measured in the Game). It used to drop straight down from inside its cell
+//to well under the field, and the owner reported seeing the flash's light and never the bolt. All three
+//reasons held: a channel inside its cell was drawn over the cell the glow had just lit white, and an additive
+//channel over white adds nothing the tonemap can show; below the cells it stood behind the island, since from
+//the play camera everything under the island's own level is; and half the strikes were outside the frame.
+//So the host picks a strike the camera sees, the channel leaves its cell sideways and dives across the open
+//gap beside it, and the cloud lights a beat after the channel's first stroke (StormBackdrop.GLOW_LAG_SECONDS).
 //
 //The vertex data is packed into the puffs' own layout, since the two differ in nothing but meaning:
 //  Centre = (bolt index, t along the channel 0..1, side -1/+1), Data unused.
 
+//The channel's two parts (#750): a hair-thin white CORE, whose radiance is far over the glare threshold so
+//the glare pass turns it into a stroke of light, and the violet-blue HALO round it, which is what a
+//photograph of a daylight strike shows the channel by where it crosses bright cloud. Both are drawn in
+//SCREEN space, as shares of the target's height - a channel is a filament far thinner than a pixel at any
+//distance in this scene, and what is drawn is its glare, which has the same width near or far.
 float3 BoltColor;
-float BoltWidth;
+float3 BoltHaloColor;
+float BoltHalo;
+float BoltCore;
 
-//Where a bolt's channel stands at parameter t: a straight fall from the cloud tops to well below the field,
-//kinked by two turns of hashed noise. The coarse turn is the bolt's overall lean and the fine one is the
-//zig-zag; both are frozen per strike, so a channel does not writhe within its own flash.
-float3 BoltPoint(float bolt, float t, float strike)
+//The channel's own envelope, which is not the cloud's: it holds bright for most of the strike and goes
+//dark between its strokes, where the glow in the cloud only dims (StormBackdrop.BoltFlash).
+float BoltEnvelope;
+
+//Where this strike's channel runs, as the host latched it when the strike began (#750): from BoltOrigin,
+//inside its cell, out through the cell's flank along BoltRun (unit, horizontal) for BoltReach units and
+//down BoltDrop units, leaving flat and diving - across the gap beside the cell, which is the one place a
+//channel can be seen from: inside the cell its own glow drowns it, and below the cells the island hides it.
+float3 BoltOrigin;
+float3 BoltRun;
+float BoltReach;
+float BoltDrop;
+
+//The bound target's size in pixels, so the widths above are a share of the frame at any resolution.
+float2 ViewportSize;
+
+//Joints along one channel; StormBackdrop.STORM_BOLT_SEGMENTS, kept in step by hand.
+#define BOLT_SEGMENTS 26.0
+
+//The main channel at joint k (0..BOLT_SEGMENTS): the run and the dive, a slow meander across four knots, a
+//walk across eight finer ones, and a jump of its own at every joint, uneven from joint to joint - so each
+//segment is a straight stroke between two kinks the way a stepped leader is, and the kinks do not repeat as
+//a sawtooth (the first cut gave every joint the same throw and read as a chart line, not as lightning).
+//Everything is hashed off the strike's index and frozen for its length.
+float3 BoltMainPoint(float k, float strike)
 {
-    float2 seed = float2(bolt * 17.3 + strike * 3.1, strike * 7.7);
+    float t = k / BOLT_SEGMENTS;
+    float2 seed = float2(strike * 3.1, strike * 7.7);
 
-    //Each bolt leaves the strike's own cell on its own bearing, so a fork spreads rather than doubling up.
-    float2 spread = (NoiseHash22(seed + 41.0)) * 26.0;
+    float3 up = float3(0.0, 1.0, 0.0);
+    float3 depth = float3(-BoltRun.z, 0.0, BoltRun.x);
 
-    //⚠ The channel has to run through the band the CELLS actually occupy, not from the top of the world to
-    //the bottom of it. Its first cut ran from above the arena down past the whole field, which put its
-    //brightest end in clear air over the island and its tail below anything the camera can see - so what
-    //reached the frame was a white line crossing the arena rather than a discharge inside the weather.
-    float top = LayerTopY + 8.0;
-    float bottom = LayerBottomY + 18.0;
+    //Leaves the cell flat and dives once out of it: a channel that came straight down would stand behind
+    //the island from the play camera for all but its first few units.
+    float3 p = BoltOrigin + BoltRun * (BoltReach * t) - up * (BoltDrop * pow(t, 1.4));
 
-    //A branch stops short: only the first channel runs the whole way down.
-    float reach = bolt < 0.5 ? 1.0 : 0.34 + 0.42 * frac(NoiseHash22(seed + 73.0).x * 0.5 + 0.5);
-    float u = t * reach;
+    //The local direction, for the kinks to be thrown across it in the plane the channel runs in (the one
+    //facing the camera) rather than along the line of sight, where they would not show.
+    float3 heading = normalize(BoltRun * BoltReach - up * (BoltDrop * 1.4 * pow(max(t, 0.02), 0.4)));
+    float3 side = cross(heading, depth);
 
-    float3 p;
-    p.y = lerp(top, bottom, u);
-    p.xz = FlashCenterXZ + spread * u;
+    float segment = (BoltReach + BoltDrop) / BOLT_SEGMENTS;
 
-    //The kinks. Amplitude falls off towards the top, so the channel leaves the cloud roughly where the glow
-    //is and gets wilder as it runs - which is the way a stepped leader actually looks.
-    float2 coarse = NoiseHash22(seed + floor(u * 4.0) * 13.7 + 5.0);
-    float2 fine = NoiseHash22(seed + floor(u * 14.0) * 29.3 + 11.0);
+    float knot = t * 4.0;
+    float knotIndex = floor(knot);
+    float2 meander = lerp(NoiseHash22(seed + knotIndex * 13.7 + 5.0), NoiseHash22(seed + (knotIndex + 1.0) * 13.7 + 5.0),
+        smoothstep(0.0, 1.0, frac(knot)));
+    p += (side * meander.x + depth * meander.y) * (segment * 1.4 * t);
 
-    p.xz += coarse * (14.0 * u) + fine * (5.5 * u);
+    float walk = NoiseHash22(seed + floor(t * 8.0 + 0.5) * 7.9 + 2.0).x;
+    p += side * walk * (segment * 0.9 * step(0.5, k));
+
+    float2 jump = NoiseHash22(seed + k * 29.3 + 11.0);
+    float throw_ = 0.08 + 0.4 * abs(NoiseHash22(seed + k * 5.1 + 17.0).x);
+    p += (side * jump.x * throw_ + depth * jump.y * 0.3) * (segment * step(0.5, k));
 
     return p;
+}
+
+//Joint k of channel `bolt`: channel 0 is the main one, every other a branch off one of its joints - turned
+//down and to a side, a fraction of its length, kinked in turn - so the forks leave the channel where a fork
+//does instead of all fanning out of one point at its top.
+float3 BoltPoint(float bolt, float k, float strike)
+{
+    if (bolt < 0.5) return BoltMainPoint(k, strike);
+
+    float2 seed = float2(bolt * 17.3 + strike * 3.1, strike * 7.7 + bolt * 5.3);
+    float2 pick = NoiseHash22(seed + 41.0) * 0.5 + 0.5;
+    float2 turn = NoiseHash22(seed + 73.0);
+
+    float fork = floor(lerp(3.0, BOLT_SEGMENTS * 0.78, pick.x));
+    float3 from = BoltMainPoint(fork, strike);
+    float3 along = normalize(BoltMainPoint(fork + 1.0, strike) - BoltMainPoint(fork - 1.0, strike));
+
+    float3 up = float3(0.0, 1.0, 0.0);
+    float3 depth = float3(-BoltRun.z, 0.0, BoltRun.x);
+    float3 side = normalize(cross(along, depth));
+
+    float3 heading = normalize(along + up * (-0.55 - 0.6 * abs(turn.x)) + side * (turn.y * 0.8) + depth * (turn.x * 0.35));
+    float reach = (BoltReach + BoltDrop) * (0.12 + 0.22 * pick.y);
+    float segment = reach / BOLT_SEGMENTS;
+
+    float t = k / BOLT_SEGMENTS;
+    float3 kinkSide = normalize(cross(heading, depth) + 1e-4);
+    float2 jump = NoiseHash22(seed + k * 23.9 + 3.0);
+    float throw_ = 0.25 + 0.9 * abs(NoiseHash22(seed + k * 6.7 + 9.0).x);
+
+    return from + heading * (reach * t) + (kinkSide * jump.x * throw_ + depth * jump.y * 0.5) * (segment * step(0.5, k));
 }
 
 struct BoltVertexOutput
 {
     float4 Position : SV_POSITION;
     float2 Along : TEXCOORD0;   //(t along the channel, side -1..1)
+    float3 Shape : TEXCOORD1;   //(the core's share of the half-width, the brightness here, 1 on the main channel)
 };
 
 BoltVertexOutput BoltVS(CloudVertexInput input)
@@ -379,37 +450,59 @@ BoltVertexOutput BoltVS(CloudVertexInput input)
     //the period is all it is; the host cannot pass an integer through a float uniform any more cheaply.
     float strike = FlashStrikeIndex;
 
-    float3 centre = BoltPoint(bolt, t, strike);
+    //The joint this vertex stands on. The buffer writes t as s / segments, so this is exact, and the two
+    //quads meeting at a joint compute the same point and the same screen direction - no gap, no overlap
+    //cut, at any kink.
+    float k = round(t * BOLT_SEGMENTS);
 
-    //Widened across the channel's own screen-space run, so it keeps its width whichever way it kinks. A
-    //billboarded ribbon rather than a tube: a lightning channel is a filament far thinner than one pixel at
-    //this distance, and what is being drawn is its glare, not its body.
-    float3 ahead = BoltPoint(bolt, saturate(t + 0.04), strike) - centre;
-    float3 towardsEye = normalize(CameraPosition - centre);
-    float3 across = normalize(cross(normalize(ahead + float3(1e-4, 0, 0)), towardsEye));
+    float3 here = BoltPoint(bolt, k, strike);
+    float3 before = BoltPoint(bolt, max(k - 1.0, 0.0), strike);
+    float3 after = BoltPoint(bolt, min(k + 1.0, BOLT_SEGMENTS), strike);
 
-    //Tapering: a channel is thickest where it leaves the cloud and thins as it runs.
-    float width = BoltWidth * lerp(1.25, 0.35, t);
+    float4 clip = mul(mul(float4(here, 1.0), View), Projection);
+    float4 clipBefore = mul(mul(float4(before, 1.0), View), Projection);
+    float4 clipAfter = mul(mul(float4(after, 1.0), View), Projection);
 
-    float3 world = centre + across * (side * width);
+    //Widened across the channel's run ON SCREEN, in pixels, so the core is a hair at every distance and at
+    //every resolution alike. A joint behind the lens has no screen direction; the ribbon collapses there.
+    float2 run = (clipAfter.xy / max(clipAfter.w, 1e-3) - clipBefore.xy / max(clipBefore.w, 1e-3)) * ViewportSize;
+    float2 across = normalize(float2(-run.y, run.x) + float2(1e-6, 0.0));
 
-    output.Position = mul(mul(float4(world, 1.0), View), Projection);
+    //A branch thins to a point; the main channel thins a little along its run.
+    float taper = bolt < 0.5 ? lerp(1.0, 0.6, t) : 0.6 * pow(1.0 - t, 0.8);
+    float halfPixels = BoltHalo * ViewportSize.y * (0.3 + 0.7 * taper);
+    halfPixels *= step(1e-3, clip.w) * step(1e-3, clipBefore.w) * step(1e-3, clipAfter.w);
+
+    clip.xy += across * (side * halfPixels) * (2.0 / ViewportSize) * clip.w;
+
+    output.Position = clip;
     output.Along = float2(t, side);
+
+    //The core never narrower than about a pixel across (three quarters each side), or it would crawl as it
+    //fell between pixel centres; a branch's tip fades rather than going thinner than that.
+    output.Shape = float3(max(BoltCore, 0.75 / max(halfPixels, 1e-3)), (bolt < 0.5 ? 1.0 : 0.5) * saturate(taper * 2.5),
+        bolt < 0.5 ? 1.0 : 0.0);
 
     return output;
 }
 
 float4 BoltPS(BoltVertexOutput input) : COLOR
 {
-    //Bright core, soft shoulder: the core is what the glare pass turns into a stroke of light, and the
-    //shoulder is what stops the ribbon reading as a hard-edged strip.
-    float core = 1.0 - saturate(abs(input.Along.y));
-    float fall = core * core * core;
+    float across = abs(input.Along.y);
 
-    //Fades out along its run, so a channel dies into the air below rather than stopping at a line.
-    float alongFade = saturate(1.0 - input.Along.x * input.Along.x * 0.8);
+    //The core: a hard-shouldered line, white and far over the glare threshold.
+    float core = saturate(1.0 - across / input.Shape.x);
+    core *= core;
 
-    return float4(BoltColor * (fall * alongFade * FlashEnvelope), 1.0);
+    //The halo: the channel's ionised air and the lens's own spread, falling to nothing at the ribbon's edge.
+    float halo = 1.0 - across;
+    halo *= halo;
+
+    //The main channel's far end dies into the air rather than stopping at a line, and its first stretch, still
+    //inside its cell, comes up out of the cloud rather than starting at a point in front of it.
+    float fade = saturate((1.0 - input.Along.x) * 4.0) * lerp(1.0, 0.15 + 0.85 * smoothstep(0.0, 0.3, input.Along.x), input.Shape.z);
+
+    return float4((BoltColor * core + BoltHaloColor * halo) * (input.Shape.y * fade * BoltEnvelope), 1.0);
 }
 
 technique StormClouds

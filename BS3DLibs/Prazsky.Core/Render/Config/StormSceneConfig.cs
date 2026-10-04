@@ -238,6 +238,8 @@ namespace Prazsky.Core.Render
     /// so the schedule is a pure function of the wall clock with no state at all, exactly as
     /// <c>SceneRenderer.VolcanoEruption</c> is and for the same reason: the Game, the Testbed and the map
     /// editor then all see the same strike at the same second, and nothing has to be saved or synchronised.
+    /// That holds for when a strike goes off and how big it is; which cell it goes off in has been picked
+    /// for the camera since #750, so that its channel is one a player can see.
     /// </summary>
     public sealed class StormFlashConfig
     {
@@ -312,17 +314,34 @@ namespace Prazsky.Core.Render
         /// The visible discharge itself: how many forked channels one strike draws. <b>This is what #219
         /// asked for in as many words</b> — the light of a flash with no source in the frame reads as the
         /// sun blinking, which is the note the first build left standing. Zero leaves the glow alone.
+        /// <para>
+        /// The first is the main channel and every other a branch off one of its joints (#750); seven since
+        /// then, when the forks stopped all fanning out of the channel's top. The owner's note on #750 asked for
+        /// "bright, sharp" bolts, and a channel with no branches reads as a scratch.
+        /// </para>
         /// </summary>
-        public int BoltCount { get; set; } = 3;
+        public int BoltCount { get; set; } = 7;
 
-        /// <summary>How wide a bolt's own channel is drawn, in world units. Thin: the channel is a
-        /// filament and everything that makes it read as bright is the glare pass blooming it.</summary>
-        public float BoltWidth { get; set; } = 4.0f;
+        /// <summary>
+        /// How wide the channel's halo is drawn, each side of the channel, as a share of the frame's height —
+        /// in screen space, not world units, since #750: 0.0065 is seven pixels at 1080p and fourteen at 2160p,
+        /// a channel's glare at any distance and any resolution alike. It was a 4-unit world-space rope with a
+        /// cubic falloff before, which read as a glowing tube, not a crack.
+        /// </summary>
+        public float BoltHalo { get; set; } = 0.0065f;
 
-        /// <summary>The channel's own radiance (linear, far over 1 — it is a spark, and it is meant to
-        /// bloom). Whiter than <see cref="Color"/>: the channel is the source and the blue is what the
-        /// cloud does to its light.</summary>
-        public Rgb BoltColor { get; set; } = new(9.0f, 9.6f, 12.0f);
+        /// <summary>The white core's half-width as a share of the halo's: 0.2 is a line about two and a half
+        /// pixels across at 1080p — the hair-thin crack the owner asked for. Never drawn under about a pixel
+        /// across, or it would crawl between pixel centres.</summary>
+        public float BoltCore { get; set; } = 0.2f;
+
+        /// <summary>The core's radiance (linear, far over 1 — it is a spark, and it is meant to bloom).
+        /// White: the channel is the source, and the colour is the halo's and the cloud's.</summary>
+        public Rgb BoltColor { get; set; } = new(16f, 16f, 18f);
+
+        /// <summary>The halo's radiance (linear): the violet-blue a daylight photograph shows round a channel,
+        /// and what makes it visible where it crosses cloud the glow has already lit near white.</summary>
+        public Rgb BoltHaloColor { get; set; } = new(1.5f, 1.1f, 3.4f);
     }
 
     /// <summary>The air the cells stand in: high, thin and clean, which is the whole reason the scene reads

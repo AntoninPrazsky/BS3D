@@ -1057,6 +1057,11 @@ namespace Prazsky.Core.Render
         /// within its period and its size are hashed off the period's own index, so it never becomes a
         /// metronome — the volcano's own rule.
         /// </para>
+        /// <para>
+        /// <b>When</b> a strike goes off is all this says, and it stays a pure function of the clock. <b>Where</b>
+        /// it goes off has read the camera since #750: the strike is taken among the cells the scene was last drawn
+        /// looking at, so that a player sees its channel, and held for the length of the strike.
+        /// </para>
         /// </summary>
         public float StormFlash(float time) => _storm.Flash(time);
 
