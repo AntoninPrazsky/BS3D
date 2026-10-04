@@ -156,6 +156,7 @@ namespace BS3D.Tools.LevelGen
             //level two of its six descents and puts it at 2.97, alongside Fossil - the level it is compared
             //against. The shape and its 630 balls are untouched: what was wrong here was the clock.
             CeilingStep = 12,
+            Payoff = new[] { BallType.Type4 },   //the pearl and its cord
             OccupiedBlock = (x, z, i, depth) => ChestPart(x, z, i) != 0,
             BlockColour = (x, z, i) => ChestPart(x, z, i) == 2
                 ? BallType.Type4
@@ -220,6 +221,7 @@ namespace BS3D.Tools.LevelGen
             //shots is a little over two a group.
             Shots = 36,
             CeilingStep = 9,
+            Payoff = new[] { BallType.Type2 },   //the frond
             OccupiedBlock = (x, z, i, depth) => FossilRock(x, z, i),
             BlockColour = (x, z, i) => FossilFern(x, z, i)
                 ? BallType.Type2
@@ -281,6 +283,7 @@ namespace BS3D.Tools.LevelGen
             //shots, so 36 puts four stars at about 0.6 of the budget.
             Shots = 36,
             CeilingStep = 7,
+            Payoff = new[] { BallType.Type10 },   //the stone and its stalk
             Occupied = (r, ang, i, depth) => r <= MangoRim(ang, i, depth),
             Colour = MangoInside,
         };
@@ -413,6 +416,7 @@ namespace BS3D.Tools.LevelGen
                 Balls = BALLS_REVEAL,
             Shots = 42,
             CeilingStep = 8,
+            Payoff = new[] { BallType.Type7, BallType.Type9 },   //the star and its threads
             OccupiedBlock = (x, z, i, depth) => SparkPart(x, z, i) != 0,
             BlockColour = SparkColour,
         };
@@ -581,6 +585,7 @@ namespace BS3D.Tools.LevelGen
                 Balls = BALLS_REVEAL,
             Shots = 52,
             CeilingStep = 10,
+            Payoff = new[] { BallType.Type5, BallType.Type6 },   //the spires
             OccupiedBlock = (x, z, i, depth) => GrottoPart(x, z, i, depth) != 0,
             BlockColour = (x, z, i) => GrottoColour(x, z, i, GROTTO_DEPTH),
         };
@@ -776,6 +781,7 @@ namespace BS3D.Tools.LevelGen
                 Balls = BALLS_REVEAL,
             Shots = 44,
             CeilingStep = 8,
+            Payoff = new[] { BallType.Type7, BallType.Type5, BallType.Type6 },   //the beam, the post and the two arms
             OccupiedBlock = (x, z, i, depth) => ScalesPart(x, z, i) != 0,
             BlockColour = ScalesColour,
         };
@@ -894,6 +900,9 @@ namespace BS3D.Tools.LevelGen
                 Balls = BALLS_REVEAL,
             Shots = 54,
             CeilingStep = 10,
+            Payoff = new[] { BallType.Type10, BallType.Type1, BallType.Type4 },   //the hull, the sail and the rigging
+            //The tank is open below, so the keel is in sight - and in reach of a shot - from the start
+            PayoffInSight = true,
             OccupiedBlock = (x, z, i, depth) => ShipPart(x, z, i, depth) != 0,
             BlockColour = (x, z, i) => ShipColour(x, z, i, SHIP_DEPTH),
         };
@@ -1017,6 +1026,7 @@ namespace BS3D.Tools.LevelGen
                 Balls = BALLS_REVEAL,
             Shots = 48,
             CeilingStep = 9,
+            Payoff = new[] { BallType.Type1, BallType.Type9, BallType.Type5 },   //the weight and its two coils
             Occupied = (r, ang, i, depth) => SpringPart(r, ang, i, depth) != 0,
             Colour = (r, ang, i, depth) => SpringColour(r, ang, i, depth),
         };

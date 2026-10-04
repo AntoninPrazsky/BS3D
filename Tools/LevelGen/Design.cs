@@ -157,6 +157,34 @@ namespace BS3D.Tools.LevelGen
         /// <summary>And the mirrored ball the same colour and kind, for a level whose colours are symmetric too (Pennant).</summary>
         public bool MirrorColours;
 
+        /// <summary>
+        /// <b>The level is a reveal</b> (#161, #743): an outer body with a differently-shaped thing standing inside it,
+        /// and clearing the outside is the payoff — The Reveal's pattern, which the owner's playtest of 2026-10-03
+        /// named the reference for the chapters after it ("balanced difficulty, and they entice the player"). These
+        /// are the payoff's colours, and LevelGen refuses the level unless the three rules that make it a reveal hold
+        /// (<see cref="LevelGates.RevealFaults"/>):
+        /// <list type="bullet">
+        /// <item><b>It hangs on its own.</b> With every ball of another colour taken away, none of the payoff falls:
+        /// it reaches the glass by its own cord, stalk or stem, so the peel cannot take it down with the shell.</item>
+        /// <item><b>It is sealed.</b> No payoff ball can be touched by a shot at the start: no empty cell beside one is
+        /// a cell a straight shot from anywhere on the gun's orbit arrives in (<see cref="ArrivalProbe"/>), so a cavity
+        /// inside the body, which no line of fire enters, does not count against it.</item>
+        /// <item><b>Its palette is its own.</b> Not checked apart, because it cannot fail apart: a body ball in a payoff
+        /// colour is counted as payoff, and with the body gone it falls, which the first rule refuses.</item>
+        /// </list>
+        /// Null for every other level. Measured by hand for the Reveal's designs when they were drawn; a gate since #743,
+        /// so a new design that takes up the pattern gets the same three answers without copying a block file.
+        /// </summary>
+        public BallType[] Payoff;
+
+        /// <summary>
+        /// The reveal's payoff is <b>meant</b> to be in sight from the start, so the sealed rule of <see cref="Payoff"/> is
+        /// reported rather than refused. Ship alone: its tank is "open at the top and the bottom so the reveal is the
+        /// walls coming away rather than a lid", and the gate's first run found its keel — 7 balls — touchable from
+        /// under it (#743), which that sentence chose. False for every other level.
+        /// </summary>
+        public bool PayoffInSight;
+
         /// <summary>Round radius, angle, layout level, layout depth -> is there a ball here.</summary>
         public Func<float, float, int, int, bool> Occupied;
 

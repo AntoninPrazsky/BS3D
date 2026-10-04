@@ -704,6 +704,34 @@ Colossus (the one hand-drawn level, which `Validate` never sees) and a design be
 - **⚠ What it does not play:** physics, the ceiling's descent, a blast or a zap. After a change, count the `[cinematic]` lines of real played levels as well; the probe says how far a dial moves the count, not what a level did.
 - **Measured 2026-10-03 for #719** (the owner's "still too often", about 20 % fewer): the share 5 % to 9 % gives 1.11 and 0.96 a level, -17 % and -23 %. The share is the lever because it scales with the level; the other candidates the probe prints are 6-10 %, x2.5 and x3, alone and together. The cost is at the low end: about one play in nine (greedy) to one in six (casual) now shows no cinematic before the clearing shot.
 
+### The reveal: the pattern the later chapters are designed against (#161, #255, #743)
+
+**The owner's playtest of 2026-10-03 named the Reveal (the cavern, levels 51–60) the reference for the chapters after it**: *"good level design: balanced difficulty, and they entice the player to use the special balls — we should take inspiration from these levels for the next chapters."* It is the fifth chapter confirmed good (the Coil was the fourth, #483), and the Quarry was faulted the same day for being its opposite (#742: blocks of one colour, no cavities, no depth). The pattern, as `Designs/Block05_Reveal.cs` states it at length:
+
+- **An outer body with a differently-shaped thing standing inside it, and clearing the outside is the payoff** (#161: "a mango, or a kinder surprise", not a smaller sphere of another colour). The first five payoffs rest (a ball in a box, a picture in a rock, a stone on a stalk, an open shaft, Onion's nested shell); the second five (#255) do something (a star, a roof of spires, a balance mid-tip, a ship at anchor, a weight on a double coil).
+- **The underside is the face the player sees**, so the body is closed underneath; **the payoff hangs from the glass on its own cord, stalk or stem**, so the peel cannot take it down with the shell; and **it is sealed**, so no shot touches it at the start.
+- **The body and the payoff are coloured out of disjoint palettes**, so no group spans both, and the payoff is painted hot (yellow, red, orange) against a body that is not, in a dark scene that makes the cluster the only lit thing.
+- **Chest teaches the block** (the plainest statement, set its budget from the measured groups rather than from a model), and the pacing follows the easy-opener, hard-closer rhythm the playtests asked for.
+
+**The three rules that make a level a reveal are a gate since #743**, so a new design that takes up the pattern gets them checked without copying a block file. `Design.Payoff` names the payoff's colours, and `LevelGates.RevealFaults` refuses the level unless (1) **with every ball of another colour taken away, none of the payoff falls**, and (2) **no payoff ball can be touched by a shot at the start**: no empty cell beside one is a cell a straight shot from any of `ArrivalProbe`'s sixteen stations round the orbit arrives in. The palette rule cannot fail apart from these: a body ball in a payoff colour counts as payoff, and with the body gone it falls. `Design.PayoffInSight` turns rule 2 from a refusal into a report, for a payoff meant to show.
+
+| Level | Payoff colours | Payoff balls | Fall with the body gone | Touchable at the start |
+|---|---|---|---|---|
+| Chest | white (the pearl and its cord) | 61 | 0 | 0 |
+| Fossil | green (the frond) | 92 | 0 | 0 |
+| Mango | brown (the stone and its stalk) | 52 | 0 | 0 |
+| Spark | yellow, orange (the star, its threads) | 46 | 0 | 0 |
+| Grotto | cyan, magenta (the spires) | 148 | 0 | 0 |
+| Scales | yellow, cyan, magenta | 20 | 0 | 0 |
+| Spring | red, orange, cyan | 114 | 0 | 0 |
+| Ship | brown, red, white | 75 | 0 | **7**, the keel, from under the tank — `PayoffInSight`: its doc chose a tank "open at the top and the bottom so the reveal is the walls coming away rather than a lid" |
+
+Onion and Lantern declare no payoff. Onion is the family's original and keeps the defect the block's own comments name. Its green heart, declared for a run, is refused: **all 161 balls fall** with the body gone, the hand-measured figure exactly, and **10 can be touched**; the comment's "20 on the outside" counted another way. Lantern's payoff is an absence, its shaft. That run is the gate **seen to fire** on rule 1, and Ship's keel on rule 2 (`BestPractices.md` §10). No level file changed (the regeneration check), and ScoreSim is unchanged.
+
+**⚠ Rule 2 is not the open-space flood, and the first cut used it.** Flooded from the field's walls and floor through empty neighbours, the way `ClearProbe` decides which pockets a shot can land in, every payoff of the second hang came out open — Spark's star 46 of 46 — because the crystal narrows a cell a course, and an empty cell inside one course's ring is a lattice neighbour of an empty cell outside the next one's: the flood slips between two courses where no ball can pass. That is the cheap, generous end, which is right for `ClearProbe` (an unreachable landing would make a clear look cheaper than it is) and wrong for a gate that refuses on openness; `ArrivalProbe`'s own doc says the flood "passes everything".
+
+**What is still the owner's**: the playtest's "special balls". The chapter holds none (its 6,206 balls are all ordinary), so the pull he felt is most likely the payoff's hot colours, or the Swap, Brake and Cut chips. Which one it is decides whether the lesson for the next chapter is "a payoff inside a hollow body" or "levels that make a special ball worth spending". Carrying the pattern into the Quarry (#742), the Silhouettes (#736), the Nebula and a new chapter (#690) is level design for his verdict.
+
 ### The coiled levels (#207)
 
 The Coil block is five layouts that hang on **slender links**, because that — and not the silhouette — is what makes a cluster spring. The cluster is one Bepu body per ball tied to its neighbours and to the glass along the field's top level, so a wide solid slab is stiff by construction and a long thin member is not. That is also the block's one structural danger, since slender links are exactly what the drop test refuses, and every design carries a **second load path**: Rope's four strands pinch together periodically so each hangs off the others; Minaret's ledge and core are tied at every level and coloured out of disjoint palettes so no group can span both; Basket's two rib families wind opposite ways, so the shell is a mesh rather than a set of lines; Pendulum's four ropes take two inks in diagonal pairs, so a colour taken cuts two and leaves two; Knot is a **closed loop** touching the glass three times, the one topology on which a single cut drops nothing.
