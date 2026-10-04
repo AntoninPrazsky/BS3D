@@ -316,7 +316,7 @@ namespace BS3D.Online
         /// Forgets every cached page of one level's boards, and stops caching the replies already on their way for it: the
         /// clear about to go out moves them. Without it the result page's own request after the clear - the top five,
         /// which since #684 the level picker asks for too - could be answered from the minute-old cache, the rows from
-        /// before the clear under the rank from after it, and someone else's row painted gold as "you" (#684's review).
+        /// before the clear under the rank from after it, and someone else's row painted in the player's colour as "you" (#684's review).
         /// A reply already asked for still reaches whoever holds its ticket; it is only not kept.
         /// </summary>
         private void ForgetBoards(LevelIdentity level)

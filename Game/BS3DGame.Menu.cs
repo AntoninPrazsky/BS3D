@@ -188,11 +188,22 @@ namespace BS3D
         private static readonly Color STAR_SILVER = new(190, 201, 216);       //cooled off MENU_TEXT, or it reads as plain type
         private static readonly Color STAR_GOLD = new(247, 199, 74);
 
+        //Another deliberate exception, the owner's pick (#739, 2026-10-04): "this is you" on the online boards is magenta.
+        //It was the stars' gold until #725 gave a board's top three a cup in gold, silver and bronze, and then a player's
+        //own row at first place said "you" and "first" in one colour - the owner read the name as a trophy's. It argues
+        //for itself as the stars do: it is a readout (whose row this is), not chrome; it is only drawn on the boards' own
+        //plates (the result page's, a level's board page, High Scores), never loose over a backdrop - photographed over
+        //the city, the sea and the savanna; and it is the one hue the menu does not already mean something by:
+        //not a cup's metal, not the diamond tier's cyan, not the alert red. Picked from violet, magenta and blue on the
+        //real plate; the violet read a step darker than the grey rows round it, the blue sat closest to silver and cyan.
+        private static readonly Color BOARD_YOU = new(240, 110, 230);
+
         /// <summary>
-        /// The player's own place on an online board (#547): the gold the stars are struck in, so the one line on the
-        /// plate that is theirs reads as a reward rather than as one more row.
+        /// The player's own place on an online board (#547, #739): their row, the "You #n of N" line under each board, the
+        /// High Scores page's own column, and the online signal once the service has taken their score - every mark on a
+        /// board's plate that is about the player, so gold is left on the plate only for the cups.
         /// </summary>
-        internal static Color BoardYouColor => STAR_GOLD;
+        internal static Color BoardYouColor => BOARD_YOU;
 
         /// <summary>
         /// The metal of the cup beside a board's top three (#725): gold, silver and bronze in the tints the stars are struck
