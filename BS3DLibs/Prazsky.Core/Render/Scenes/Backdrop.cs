@@ -43,6 +43,13 @@ namespace Prazsky.Core.Render
         /// <summary>The scene's opaque environment pass (<see cref="SceneRenderer.DrawEnvironment"/>).</summary>
         public abstract void Draw(in SceneFrame frame);
 
+        /// <summary>
+        /// The depth of a full-screen backdrop's solid things that can stand in front of the arena (#755), drawn into
+        /// the caller's own target right after <see cref="Draw"/> - after the scale-up when the backdrop was shaded at
+        /// display resolution, which is a target with no depth. Nothing by default: a backdrop is a background.
+        /// </summary>
+        public virtual void DrawDepth(in SceneFrame frame) { }
+
         /// <summary>The foreground weather drawn after the cluster (<see cref="SceneRenderer.DrawOverlays"/>);
         /// nothing by default.</summary>
         public virtual void DrawOverlays(in SceneFrame frame) { }

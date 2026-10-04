@@ -1392,6 +1392,9 @@ namespace Prazsky.Core.Render
                     DrawBackdropAtDisplayResolution(backdrop, frame, sceneTarget);
                 else
                     backdrop.Draw(frame);
+
+                //Into the bound target either way, which is the scene target with its depth (#755)
+                backdrop.DrawDepth(frame);
             }
         }
 
