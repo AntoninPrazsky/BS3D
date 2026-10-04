@@ -29,10 +29,11 @@ namespace BS3D.Tests
             new(key => save.Contains(key), key => save.Add(key), Tutorial.Mode.Normal);
 
         /// <summary>Begins the set's entry <paramref name="index"/> and returns every caption the level shows, in order.</summary>
-        private static List<string> Play(Tutorial tutorial, LevelSet set, int index, bool lightStreak = false, bool swapOffered = false)
+        private static List<string> Play(Tutorial tutorial, LevelSet set, int index, bool lightStreak = false, bool swapOffered = false,
+            bool retry = false)
         {
             bool placed = Tutorial.TryPlace(set, index, out int chapter, out int levelInChapter, out int length);
-            tutorial.BeginLevel(placed ? chapter : -1, levelInChapter, length, ceilingStep: 6, swapOffered: swapOffered);
+            tutorial.BeginLevel(placed ? chapter : -1, levelInChapter, length, ceilingStep: 6, swapOffered: swapOffered, retry: retry);
 
             List<string> shown = new();
             for (int frame = 0; frame < 4000; frame++)
@@ -86,16 +87,30 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void AmphoraSendsAFinishedPlayerOffAgainButOnlyOnceARun()
+        public void AmphoraSendsAFinishedPlayerOffAgainOnEveryEntryButNotOnARetry()
         {
             //The send-off is the closing level's own card, so a replay shows it - and NothingAfterTheSendOff must not
-            //cut it for being in the save. A retry in the same run has been through it, so it does not come back.
+            //cut it for being in the save. A retry has been through it, so it does not come back; the next entry into the
+            //level (the picker, a later visit in the same launch) shows it again.
             LevelSet set = ShippedSet();
             Tutorial tutorial = Finished(out System.Func<int> writes);
 
             Assert.Contains(SEND_OFF, Play(tutorial, set, 9));
-            Assert.DoesNotContain(SEND_OFF, Play(tutorial, set, 9));
+            Assert.DoesNotContain(SEND_OFF, Play(tutorial, set, 9, retry: true));
+            Assert.Contains(SEND_OFF, Play(tutorial, set, 9));
             Assert.Equal(0, writes());
+        }
+
+        [Fact]
+        public void TheSendOffsReplayDoesNotBringBackWhatTheChapterStillOwes()
+        {
+            //A save that went through the send-off without ever completing the walk (an action card that timed out): the
+            //walk is owed, but the player has been sent off, so Amphora's replay is the send-off alone (the review of #715)
+            HashSet<string> save = new(EVERY_LESSON);
+            save.Remove("walk");
+            Tutorial tutorial = new(key => save.Contains(key), key => save.Add(key), Tutorial.Mode.Normal);
+
+            Assert.Equal(new[] { SEND_OFF }, Play(tutorial, ShippedSet(), 9));
         }
 
         [Fact]

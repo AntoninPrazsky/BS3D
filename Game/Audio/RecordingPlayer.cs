@@ -47,8 +47,13 @@ namespace BS3D.Audio
         private int _index = -1;
 
         private Task<byte[]> _load;
+        private int _loadIndex = -1;
         private Task<byte[]> _ahead;
         private int _aheadIndex = -1;
+
+        //How many recordings in a row could not be read (the review of #704): a broken one is stepped past, and once every
+        //recording in the list has failed the player stops rather than going round for ever
+        private int _unreadable;
 
         private byte[] _pcm;
         private int _totalFrames;
@@ -98,18 +103,26 @@ namespace BS3D.Audio
         {
             if (_tracks.Count == 0) return;
 
-            Release();
+            ReleaseVoice();
             _index = ((index % _tracks.Count) + _tracks.Count) % _tracks.Count;
-
-            //The one decoded ahead, when it is the one asked for; otherwise its own decode, and the one ahead is dropped
-            if (_ahead != null && _aheadIndex == _index) _load = _ahead;
-            else _load = Decode(_index);
-
-            _ahead = null;
-            _aheadIndex = -1;
 
             Track track = _tracks[_index];
             Console.WriteLine($"[jukebox] {track.Group}: {track.Title} ({_index + 1} of {_tracks.Count})");
+
+            //One decode at a time (the review of #704): a press while one is still running leaves it to finish, and Update
+            //starts this recording's when it lands, so a pad held on Next walks the list instead of starting a decode a press
+            if (_load != null && !_load.IsCompleted) return;
+
+            StartLoad();
+        }
+
+        /// <summary>The chosen recording's decode: the one decoded ahead when it is that one, its own otherwise.</summary>
+        private void StartLoad()
+        {
+            _load = _ahead != null && _aheadIndex == _index ? _ahead : Decode(_index);
+            _loadIndex = _index;
+            _ahead = null;
+            _aheadIndex = -1;
         }
 
         /// <summary>Plays, or pauses and resumes. With nothing chosen yet it starts the list's first recording.</summary>
@@ -132,7 +145,8 @@ namespace BS3D.Audio
         /// <summary>Lets go of the recording — called when the page is left. The list and the index are kept.</summary>
         public void Stop()
         {
-            Release();
+            ReleaseVoice();
+            _load = null;
             _ahead = null;
             _aheadIndex = -1;
         }
@@ -143,7 +157,12 @@ namespace BS3D.Audio
         /// </summary>
         public void Update(float elapsed)
         {
-            if (_load != null && _load.IsCompleted && _voice == null) Open();
+            if (_load != null && _load.IsCompleted && _voice == null)
+            {
+                //A decode that landed for a recording the player has since moved on from: start the one now chosen
+                if (_loadIndex != _index) StartLoad();
+                else Open();
+            }
 
             Feed();
 
@@ -160,10 +179,20 @@ namespace BS3D.Audio
             _analyser.Step(elapsed, playing);
         }
 
+        //A file that cannot be read comes back as null rather than as a faulted task, so one decoded ahead and then dropped
+        //does not end up as an unobserved exception (the review of #704); Open says what failed
         private Task<byte[]> Decode(int index)
         {
             string path = _tracks[index].Path;
-            return Task.Run(() => OggTrack.Decode(path, SAMPLE_RATE));
+            return Task.Run(() =>
+            {
+                try { return OggTrack.Decode(path, SAMPLE_RATE); }
+                catch (Exception exception)
+                {
+                    Console.WriteLine($"[jukebox] '{path}' could not be read: {exception.Message}");
+                    return null;
+                }
+            });
         }
 
         /// <summary>The decode is in: opens the voice on it and starts decoding the next one, so the step to it waits for nothing.</summary>
@@ -174,10 +203,14 @@ namespace BS3D.Audio
 
             if (done.IsFaulted || done.Result == null || done.Result.Length < BYTES_PER_FRAME)
             {
-                Console.WriteLine($"[jukebox] '{_tracks[_index].Path}' could not be read: {done.Exception?.GetBaseException().Message}");
-                Release();
+                //A broken recording is stepped past, as a jukebox skips a scratched record - not the end of the music; but
+                //once every one has failed, it stops
+                ReleaseVoice();
+                if (++_unreadable < _tracks.Count) PlayAt(_index + 1);
                 return;
             }
+
+            _unreadable = 0;
 
             try
             {
@@ -186,8 +219,10 @@ namespace BS3D.Audio
             }
             catch (Exception exception)
             {
+                //The audio device, not the file (no endpoint at all on a machine whose outputs are off): the next recording
+                //would fail the same way, so the player stops here
                 Console.WriteLine($"[jukebox] the recording could not be played: {exception.Message}");
-                Release();
+                ReleaseVoice();
                 return;
             }
 
@@ -222,7 +257,7 @@ namespace BS3D.Audio
                 catch (Exception exception)
                 {
                     Console.WriteLine($"[jukebox] the recording could not be queued: {exception.Message}");
-                    Release();
+                    ReleaseVoice();
                     return;
                 }
 
@@ -236,10 +271,9 @@ namespace BS3D.Audio
                 Next();
         }
 
-        private void Release()
+        //The sounding recording and its PCM; a decode in flight is left alone (PlayAt, Stop)
+        private void ReleaseVoice()
         {
-            _load = null;
-
             _voice?.Dispose();
             _voice = null;
 

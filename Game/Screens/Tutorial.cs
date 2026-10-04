@@ -490,9 +490,17 @@ namespace BS3D.Screens
         /// <param name="chapterLength">How many levels the chapter has, which a lesson counted from its end is placed by.</param>
         /// <param name="ceilingStep">The level's ceiling cadence, for the glass lesson's caption; null skips that lesson.</param>
         /// <param name="swapOffered">Whether the level grants a Swap (#213); the swap lesson is skipped when it does not.</param>
-        internal void BeginLevel(int chapter, int levelInChapter, int chapterLength, int? ceilingStep, bool swapOffered = false)
+        /// <param name="retry">Whether this is a retry of the level just played (Retry, Restart). A retry remembers the cards
+        /// this run went through; any other start of a level is an entry into it, and shows its own cards again (#715).</param>
+        internal void BeginLevel(int chapter, int levelInChapter, int chapterLength, int? ceilingStep, bool swapOffered = false,
+            bool retry = false)
         {
             Reset();
+
+            //An entry, not a retry: what this run went through is forgotten, so the level's own cards come back (#715). In
+            //the normal mode every lesson taught is also in the save, so nothing still owed is offered again by this; the
+            //testing modes write nothing and keep the run's memory, which is all they have.
+            if (!retry && !_force) _taughtThisRun.Clear();
 
             _hasLevel = chapter >= 0;
             if (!_hasLevel) return;
@@ -508,7 +516,7 @@ namespace BS3D.Screens
                 if (!_demo && !Eligible(lesson, chapter, levelInChapter, chapterLength)) continue;
 
                 //A level's own cards come back on every entry into it (#715), the save notwithstanding - unless this
-                //run already went through them (a retry)
+                //attempt's run already went through them (a retry)
                 if (!_force && OwnLevel(lesson, chapter, levelInChapter, chapterLength) && _wasTaught(lesson.Key))
                     _replaying.Add(lesson.Key);
 
@@ -589,8 +597,10 @@ namespace BS3D.Screens
             int closes = sendOffLesson.Chapter;
 
             //Sent off already: nothing of that chapter is OWED any more - but a level's own cards shown again on
-            //entering it (#715) are not owed, they are this level's, and they stay
-            if (Taught(sendOffLesson))
+            //entering it (#715) are not owed, they are this level's, and they stay. Asked of the save and the run, not
+            //of Taught: on Amphora the send-off is itself a replay, and read as untaught it would bring back every
+            //lesson of the chapter still missing from the save, queued ahead of it (the review of #715)
+            if (_taughtThisRun.Contains(sendOffLesson.Key) || (!_force && _wasTaught(sendOffLesson.Key)))
             {
                 for (int i = _queue.Count - 1; i >= 0; i--)
                     if (_queue[i].Chapter == closes && !_replaying.Contains(_queue[i].Key)) _queue.RemoveAt(i);
