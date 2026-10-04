@@ -106,7 +106,7 @@ namespace BS3D
         private bool _navRevealPending;
 
         //Where the focused entry's scroller stood when the walk last looked, so a scroll the walk did not make (the
-        //wheel, the scroll bar) can be told from one it did (#740)
+        //wheel) can be told from one it did (#740)
         private ScrollViewer _navScrollerSeen;
         private int _navScrollSeen;
 
@@ -1818,8 +1818,9 @@ namespace BS3D
         /// Keeps the focused entry inside its scroller's view whatever moved (#740), once a frame before the walk reads
         /// its input, so what it reads was laid out by the frame just drawn. A focus that was set rather than stepped -
         /// a page arriving with its list still scrolled where the player left it - is revealed by scrolling to it. A
-        /// list the walk did not scroll - the wheel, the scroll bar - takes the focus with it instead, onto the nearest
-        /// entry still in view: the player moved the list, so the list stays where they put it.
+        /// list the walk did not scroll - the wheel - takes the focus with it instead, onto the first entry wholly in view
+        /// on the side it left by: the player moved the list, so the list stays where they put it. (Dragging the scroll
+        /// bar is the pointer moving, which puts the cursor away after a few pixels, so the wheel is the case.)
         /// </summary>
         private void KeepNavFocusInView()
         {
@@ -1850,9 +1851,10 @@ namespace BS3D
         }
 
         /// <summary>
-        /// Moves the focus onto the entry of <paramref name="scroller"/> nearest the one it was on that is wholly inside
-        /// <paramref name="window"/>: the topmost when the list has been scrolled down past it, the bottommost when up.
-        /// Silent, as an arrival is: the player turned the wheel, not the cursor.
+        /// Moves the focus onto an entry of <paramref name="scroller"/> wholly inside <paramref name="window"/>: the first
+        /// in walk order when the list has been scrolled down past the one it was on, the last when up. On a grid that is
+        /// the top visible row's leftmost tile or the bottom row's rightmost, not the same column. Silent, as an arrival
+        /// is: the player turned the wheel, not the cursor.
         /// </summary>
         private void FocusNavEntryInView(ScrollViewer scroller, Rectangle window)
         {
