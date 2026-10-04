@@ -48,6 +48,7 @@
 
 float4x4 ViewRayBasis;  //the lens's axes over the projection's slopes - see SkyRay.Basis
 float3 CameraPosition;
+float4x4 ViewProjection; //the lens's view x projection, for the formations' depth pass (#755, CavernDepth)
 float CavernTime;
 
 //--- The cave shell ---------------------------------------------------------------------------------------
@@ -438,6 +439,54 @@ float FormationSdf(float3 p, float k)
     return d;
 }
 
+//Where the ray first meets a formation (#676), no further than tLimit - tLimit when it meets none - and which group
+//(-1 for none). Each group is marched only where the ray crosses its bounding sphere. One copy for the scene pass and
+//for the depth pass (#755), so the depth written is the surface drawn.
+float FormationsHit(float3 direction, float tLimit, out float formationGroup)
+{
+    float formationT = tLimit;
+    formationGroup = -1.0;
+
+    [unroll]
+    for (int g = 0; g < FORMATION_COUNT; g++)
+    {
+        float fg = (float)g;
+        float3 anchor = FormationCenter(fg);
+        float3 center = anchor - float3(0.0, 26.0, 0.0);
+        float bound = 44.0;
+
+        float3 oc = CameraPosition - center;
+        float b = dot(oc, direction);
+        float c = dot(oc, oc) - bound * bound;
+        float disc = b * b - c;
+
+        [branch]
+        if (disc > 0.0)
+        {
+            float t0 = max(-b - sqrt(disc), 0.0);
+            float t1 = min(-b + sqrt(disc), formationT);
+            float rayT = t0;
+
+            //0.8 on the step: the knobs bend the round cone's exact distance a little
+            [loop]
+            for (int march = 0; march < 22; march++)
+            {
+                float d = FormationSdf(CameraPosition + direction * rayT - anchor, fg);
+                if (d < 0.04 * (1.0 + rayT * 0.01) || rayT > t1) break;
+                rayT += d * 0.8;
+            }
+
+            if (rayT <= t1)
+            {
+                formationT = rayT;
+                formationGroup = fg;
+            }
+        }
+    }
+
+    return formationT;
+}
+
 //--- The columns (#676's second step) --------------------------------------------------------------------------
 //The stalactites gave the ceiling formations and the play frame still had no ROCK MASS: from the arena the cave is
 //a dark void round a lit river, its wall 240 units off and mostly fog. A column - a stalactite grown down to the
@@ -481,6 +530,55 @@ float ColumnSdf(float3 p, float k)
     float c2 = c * c;
     float flutes = c * (16.0 * c2 * c2 - 20.0 * c2 + 5.0);
     return len - r - girth * 0.07 * flutes;
+}
+
+//Where the ray first meets a column, no further than tLimit (tLimit when it meets none), and which (-1 for none):
+//gated per column on its bounding cylinder, an infinite vertical one since a column runs the whole height of the
+//cave. Shared by the scene pass and the depth pass (#755).
+float ColumnsHit(float3 direction, float tLimit, out float columnIndex)
+{
+    float columnT = tLimit;
+    columnIndex = -1.0;
+
+    [unroll]
+    for (int n = 0; n < COLUMN_COUNT; n++)
+    {
+        float fn = (float)n;
+        float2 axis = ColumnAxis(fn);
+        float bound = ColumnGirth(fn) * 1.3;
+
+        float2 oxz = CameraPosition.xz - axis;
+        float a = max(dot(direction.xz, direction.xz), 1e-6);
+        float b = dot(oxz, direction.xz);
+        float c = dot(oxz, oxz) - bound * bound;
+        float disc = b * b - a * c;
+
+        [branch]
+        if (disc > 0.0)
+        {
+            float root = sqrt(disc);
+            float t0 = max((-b - root) / a, 0.0);
+            float t1 = min((-b + root) / a, columnT);
+            float rayT = t0;
+
+            [loop]
+            for (int march = 0; march < 24; march++)
+            {
+                float3 at = CameraPosition + direction * rayT;
+                float d = ColumnSdf(float3(at.x - axis.x, at.y, at.z - axis.y), fn);
+                if (d < 0.05 * (1.0 + rayT * 0.01) || rayT > t1) break;
+                rayT += d * 0.7;
+            }
+
+            if (rayT <= t1)
+            {
+                columnT = rayT;
+                columnIndex = fn;
+            }
+        }
+    }
+
+    return columnT;
 }
 
 //Its rock: the wall's own albedo, wet (formations drip), lit by the cool key from the gaps, the crystals as point
@@ -825,47 +923,13 @@ float4 CavernScene(CavernVertexOutput input, uniform bool fullDetail)
 
     //--- The formations (#676), gated per group like the crystals below, and before them: a crystal in front of a
     //formation wins, and the god rays and the spores clamp to whichever solid the ray ends on
-    float formationT = tSolid;
     float formationGroup = -1.0;
 
     //Not in the reduced program: the Low tier keeps the cave's shell, crystals, river and glowworms and gives up the
     //formations, the dearest term this adds (measured in docs/scenes.md, "The formations")
-    [unroll]
-    for (int g = 0; g < (fullDetail ? FORMATION_COUNT : 0); g++)
-    {
-        float fg = (float)g;
-        float3 anchor = FormationCenter(fg);
-        float3 center = anchor - float3(0.0, 26.0, 0.0);
-        float bound = 44.0;
-
-        float3 oc = CameraPosition - center;
-        float b = dot(oc, direction);
-        float c = dot(oc, oc) - bound * bound;
-        float disc = b * b - c;
-
-        [branch]
-        if (disc > 0.0)
-        {
-            float t0 = max(-b - sqrt(disc), 0.0);
-            float t1 = min(-b + sqrt(disc), formationT);
-            float rayT = t0;
-
-            //0.8 on the step: the knobs bend the round cone's exact distance a little
-            [loop]
-            for (int march = 0; march < 22; march++)
-            {
-                float d = FormationSdf(CameraPosition + direction * rayT - anchor, fg);
-                if (d < 0.04 * (1.0 + rayT * 0.01) || rayT > t1) break;
-                rayT += d * 0.8;
-            }
-
-            if (rayT <= t1)
-            {
-                formationT = rayT;
-                formationGroup = fg;
-            }
-        }
-    }
+    //An if on the uniform and not a ?: - HLSL's ?: evaluates both sides, and this one writes formationGroup
+    float formationT = tSolid;
+    if (fullDetail) formationT = FormationsHit(direction, tSolid, formationGroup);
 
     [branch]
     if (formationGroup >= 0.0)
@@ -885,46 +949,9 @@ float4 CavernScene(CavernVertexOutput input, uniform bool fullDetail)
 
     //--- The columns (#676's second step), gated per column on its bounding cylinder: the formations' pattern, with an
     //infinite vertical cylinder for the sphere, since a column runs the whole height of the cave
-    float columnT = tSolid;
     float columnIndex = -1.0;
-
-    [unroll]
-    for (int n = 0; n < (fullDetail ? COLUMN_COUNT : 0); n++)
-    {
-        float fn = (float)n;
-        float2 axis = ColumnAxis(fn);
-        float bound = ColumnGirth(fn) * 1.3;
-
-        float2 oxz = CameraPosition.xz - axis;
-        float a = max(dot(direction.xz, direction.xz), 1e-6);
-        float b = dot(oxz, direction.xz);
-        float c = dot(oxz, oxz) - bound * bound;
-        float disc = b * b - a * c;
-
-        [branch]
-        if (disc > 0.0)
-        {
-            float root = sqrt(disc);
-            float t0 = max((-b - root) / a, 0.0);
-            float t1 = min((-b + root) / a, columnT);
-            float rayT = t0;
-
-            [loop]
-            for (int march = 0; march < 24; march++)
-            {
-                float3 at = CameraPosition + direction * rayT;
-                float d = ColumnSdf(float3(at.x - axis.x, at.y, at.z - axis.y), fn);
-                if (d < 0.05 * (1.0 + rayT * 0.01) || rayT > t1) break;
-                rayT += d * 0.7;
-            }
-
-            if (rayT <= t1)
-            {
-                columnT = rayT;
-                columnIndex = fn;
-            }
-        }
-    }
+    float columnT = tSolid;
+    if (fullDetail) columnT = ColumnsHit(direction, tSolid, columnIndex);
 
     [branch]
     if (columnIndex >= 0.0)
@@ -1141,12 +1168,52 @@ float4 CavernScene(CavernVertexOutput input, uniform bool fullDetail)
 float4 CavernPS(CavernVertexOutput input) : COLOR { return CavernScene(input, true); }
 float4 CavernReducedPS(CavernVertexOutput input) : COLOR { return CavernScene(input, false); }
 
+//THE FORMATIONS' DEPTH (#755). The scene pass is a background and writes no depth (it runs with the depth state off,
+//and under supersampling it is shaded into a target of its own at the back buffer's size and scaled up), so every
+//stalactite and column stood at infinite depth and the island, the funnel and the gun drew over one standing in front
+//of them: the cavern chapter's first intro shot puts the lens out among the columns, 168 units off the axis. This
+//pass writes, into the caller's own target, the depth of the nearest formation or column along each ray - the same
+//marches the scene pass shades (FormationsHit, ColumnsHit), no further than the river - and nothing where the ray
+//meets neither (discarded, so the cleared depth stays). Colour writes are off on the host's side. Only the full
+//program has formations, and the host runs this only for a lens out where they can stand between it and the arena.
+struct CavernDepthOutput
+{
+    float4 Color : COLOR0;
+    float Depth : SV_Depth;
+};
+
+CavernDepthOutput CavernDepthPS(CavernVertexOutput input)
+{
+    float3 direction = normalize(input.Ray);
+    float tLimit = direction.y < -1e-4 ? (WaterLevelY - CameraPosition.y) / direction.y : 1e9;
+
+    float group, column;
+    float hitT = min(FormationsHit(direction, tLimit, group), ColumnsHit(direction, tLimit, column));
+    if (hitT >= tLimit) discard;
+
+    float4 clip = mul(float4(CameraPosition + direction * hitT, 1.0), ViewProjection);
+
+    CavernDepthOutput output;
+    output.Color = float4(0.0, 0.0, 0.0, 0.0);
+    output.Depth = saturate(clip.z / clip.w);
+    return output;
+}
+
 technique Cavern
 {
     pass P0
     {
         VertexShader = compile VS_SHADERMODEL CavernVS();
         PixelShader = compile PS_SHADERMODEL CavernPS();
+    }
+};
+
+technique CavernDepth
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL CavernVS();
+        PixelShader = compile PS_SHADERMODEL CavernDepthPS();
     }
 };
 
