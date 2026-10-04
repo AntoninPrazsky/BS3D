@@ -11,11 +11,13 @@ namespace BS3D.Effects
     /// height, and the storm's subject is below and around it: the cells stand a hundred and more units out
     /// and down, and the lightning is an event of half a second somewhere among them.
     /// <para>
-    /// <b>The strike is caught, not hoped for.</b> The flash is a pure function of the wall clock
+    /// <b>The strike is caught, not hoped for.</b> When a strike goes off is a pure function of the wall clock
     /// (<see cref="SceneRenderer.TryGetSceneEvent"/>, the very schedule the light and the thunder ride), so
     /// the builder looks ahead for the strike that will fall inside the prologue, lengthens or shortens the
     /// first two shots within their bounds so the third opens a second before it, and aims that shot at the
-    /// cell it goes off in. A strike falling where no split of the first two shots can reach puts the strike
+    /// cell it goes off in. Where it goes off reads the camera since #750, and is fixed the first time anyone
+    /// asks about the strike at or after its onset — <see cref="FindStrike"/> asks at the onset, so it is this
+    /// builder that fixes it, and the strike goes off in the cell the shot is aimed at. A strike falling where no split of the first two shots can reach puts the strike
     /// shot first instead, and failing that the shot still looks at the cell the next strike picks.
     /// </para>
     /// <para>
@@ -111,7 +113,7 @@ namespace BS3D.Effects
 
             IntroShot deck = Deck(scenes, deckStart, deckSeconds, fieldOfView, random);
             IntroShot tops = Tops(scenes, storm, topsStart, topsSeconds, fieldOfView, random);
-            IntroShot strike = strikeAt is Vector2 target ? Strike(scenes, storm, target, strikeStart, fieldOfView, random) : null;
+            IntroShot strike = strikeAt is Vector2 target ? Strike(scenes, target, strikeStart, fieldOfView, random) : null;
 
             //A shot that found no clear line is left out; the deck always has one.
             IntroShot[] order = strikeFirst ? new[] { strike, deck, tops } : new[] { deck, tops, strike };
@@ -226,7 +228,7 @@ namespace BS3D.Effects
         }
 
         /// <summary>A slow push in on the cell the strike goes off in.</summary>
-        private static IntroShot Strike(SceneRenderer scenes, StormSceneConfig storm, Vector2 strikeAt, float start, float fieldOfView, Random random)
+        private static IntroShot Strike(SceneRenderer scenes, Vector2 strikeAt, float start, float fieldOfView, Random random)
         {
             //The cell the strike stands in: the nearest middle to it at the shot's start.
             int count = scenes.StormCellCount;
@@ -238,10 +240,6 @@ namespace BS3D.Effects
                 float d = Vector2.Distance(new Vector2(foot.X, foot.Z), strikeAt);
                 if (d < nearest) { nearest = d; cell = c; }
             }
-
-            //The bolt runs down the layer (StormClouds.fx: LayerTopY + 8 to LayerBottomY + 18), so the look
-            //sits in the middle of that, where the channel and the glow are.
-            float boltY = (storm.Clouds.LayerTopY + 8f + storm.Clouds.LayerBottomY + 18f) * 0.5f;
 
             for (int attempt = 0; attempt < CANDIDATES; attempt++)
             {
@@ -262,7 +260,9 @@ namespace BS3D.Effects
 
                     Vector2 plan = middle + back * (r * 1.6f + MathHelper.Lerp(STRIKE_FROM, STRIKE_TO, s));
                     path[i] = new Vector3(plan.X, foot.Y + h * 0.45f + STRIKE_RISE, plan.Y);
-                    look[i] = new Vector3(foot.X, MathF.Min(boltY, foot.Y + h * 0.45f), foot.Z);
+                    //The middle of the channel's height: it leaves the cell part-way up and dives below its base
+                    //(#750), where it used to run down the whole layer through the cell's middle
+                    look[i] = new Vector3(foot.X, SceneRenderer.StormBoltMiddleY(foot.Y, h), foot.Z);
                 }
 
                 if (!ClearOfCells(scenes, path, start, STRIKE_SECONDS)) continue;

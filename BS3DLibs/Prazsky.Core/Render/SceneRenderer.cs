@@ -1169,6 +1169,12 @@ namespace Prazsky.Core.Render
         /// <summary>How many cumulus cells the storm's field was built with.</summary>
         public int StormCellCount => _storm.CellCount;
 
+        /// <summary>The height a strike's channel is halfway down, in a cell whose base stands at
+        /// <paramref name="baseY"/> and which is <paramref name="height"/> tall (<see cref="StormCell"/>'s foot and height):
+        /// what a lens framing the strike looks at. The channel leaves its cell part-way up it and dives to below its
+        /// base (#750).</summary>
+        public static float StormBoltMiddleY(float baseY, float height) => StormBackdrop.BoltMiddleY(baseY, height);
+
         /// <summary>
         /// Storm cell <paramref name="index"/> at a wall-clock time: its foot (the middle of its base, where
         /// <c>StormCellPosition</c> has carried it), its radius and its height. A puff stands up to
