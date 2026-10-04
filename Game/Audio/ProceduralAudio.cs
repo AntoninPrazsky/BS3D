@@ -274,10 +274,13 @@ namespace BS3D.Audio
         //stays lit there (#614). A continuous layer, so authored QUIET - the ambience's first build buried the music
         //and had to be cut to a quarter. Measured through a loopback of the game's output: the level's music plays at
         //about -23 dBFS, and the defeat piece is a sting that is over within seconds, after which this is the page's
-        //only sound - so it sits some 12 dB under the music (at 0.12 it stood level with it, which is not a hum). It
-        //comes up over the second the net takes to settle from its flare to its pulse, so it takes over from the cut's
-        //own release rather than starting on top of it, and goes in a quarter of a second when the page is left.
-        private const float LINE_HUM_LEVEL = 0.03f;
+        //only sound - so it sat some 12 dB under the music (at 0.12 it stood level with it, which is not a hum). The
+        //owner's verdict was "louder" (2026-10-04), and he listens on a monitor's built-in speakers, which carry little
+        //under 300 Hz: so the loops are voiced up into the mids (VoiceLineHum, about +10 dB between 300 Hz and 4 kHz at
+        //the same loudness) and the level goes from 0.03 to 0.04, about +2.5 dB on any speakers. It comes up over the
+        //second the net takes to settle from its flare to its pulse, so it takes over from the cut's own release rather
+        //than starting on top of it, and goes in a quarter of a second when the page is left.
+        private const float LINE_HUM_LEVEL = 0.04f;
         private const float LINE_HUM_FADE_IN_SECONDS = 1.0f;
         private const float LINE_HUM_FADE_OUT_SECONDS = 0.25f;
 
@@ -2689,6 +2692,17 @@ namespace BS3D.Audio
         private const float LINE_HUM_FLATTEN_SECONDS = 0.08f;
         private const float LINE_HUM_RMS = 0.2f;
 
+        //The hum's voicing (#702, VoiceLineHum). The cut's body is a mains hum - 100 Hz and its harmonics at 200, 400 and
+        //600 - with 89 % of its energy under 300 Hz and 7 % between 300 Hz and 4 kHz (measured on line-loss.ogg's 0.4-1.1
+        //s), so on speakers without bass it was all but gone. A fourth-order high-pass at 300 Hz keeps the 400 and 600
+        //harmonics, which carry the same pitch to an ear that does not get the fundamental; a second-order low-pass at
+        //3.5 kHz keeps the voicing from turning into hiss; a quarter of the untouched loop is mixed back for the body on
+        //speakers that have one. Measured on both loops' stretches at one loudness (this code's filters, ported): 300 Hz-4
+        //kHz +10.4 dB, under 300 Hz -7.0 dB, over 4 kHz -1.0 dB (the owner wants no hiss in the game's sounds).
+        private const float LINE_HUM_HIGH_PASS_HZ = 300f;
+        private const float LINE_HUM_LOW_PASS_HZ = 3500f;
+        private const float LINE_HUM_DRY = 0.25f;
+
         /// <summary>
         /// One of the hum's loops out of the cut's own <paramref name="cut"/> signal (#702): <paramref name="seconds"/> of
         /// it from <paramref name="fromSeconds"/>, its first <paramref name="crossfadeSeconds"/> crossfaded at equal power
@@ -2714,6 +2728,8 @@ namespace BS3D.Audio
                 }
                 loop[i] = sample;
             }
+
+            loop = VoiceLineHum(loop);
 
             //Ridden flat: the running mean square over a window centred on each sample, round the loop
             int window = Math.Max(1, Math.Min((int)(LINE_HUM_FLATTEN_SECONDS * SAMPLE_RATE), length));
@@ -2744,6 +2760,58 @@ namespace BS3D.Audio
             //other's (peak-normalised, the 0.7 s loop led and the sum still repeated at 0.75 every 0.7 s, in game)
             Loudness(flat, targetRms: LINE_HUM_RMS, ceiling: 0.95f);
             return flat;
+        }
+
+        /// <summary>
+        /// The hum's loop voiced up into the mids for speakers without bass (#702, see <see cref="LINE_HUM_HIGH_PASS_HZ"/>):
+        /// the loop band-passed, matched to the loop's own RMS, plus <see cref="LINE_HUM_DRY"/> of the loop. Every filter
+        /// runs round the loop (<see cref="PeriodicBiquad"/>), so the seam stays as clean as the crossfade made it.
+        /// </summary>
+        private static float[] VoiceLineHum(float[] loop)
+        {
+            float[] mids = (float[])loop.Clone();
+            PeriodicBiquad(mids, LINE_HUM_HIGH_PASS_HZ, highPass: true);
+            PeriodicBiquad(mids, LINE_HUM_HIGH_PASS_HZ, highPass: true);
+            PeriodicBiquad(mids, LINE_HUM_LOW_PASS_HZ, highPass: false);
+
+            double dry = 0.0, wet = 0.0;
+            for (int i = 0; i < loop.Length; i++)
+            {
+                dry += loop[i] * (double)loop[i];
+                wet += mids[i] * (double)mids[i];
+            }
+
+            float match = wet > 0.0 ? (float)Math.Sqrt(dry / wet) : 0f;
+            for (int i = 0; i < loop.Length; i++) mids[i] = mids[i] * match + LINE_HUM_DRY * loop[i];
+
+            return mids;
+        }
+
+        /// <summary>
+        /// A second-order Butterworth section (RBJ, Q 1/√2), high- or low-pass, in place, over a signal that LOOPS: one
+        /// pass round it first with the output thrown away, so the state the filter starts the kept pass with is the one
+        /// the loop's own end leaves - the steady periodic response, with no start-up transient at the head to click at
+        /// every seam. The sections here are a few hundred hertz and up, settled in milliseconds, so one lap is plenty.
+        /// </summary>
+        private static void PeriodicBiquad(float[] loop, float cutoff, bool highPass)
+        {
+            double w = 2.0 * Math.PI * cutoff / SAMPLE_RATE, cos = Math.Cos(w), alpha = Math.Sin(w) / (2.0 * 0.70710678);
+            double a0 = 1.0 + alpha;
+            double b0 = (highPass ? (1.0 + cos) : (1.0 - cos)) / 2.0 / a0;
+            double b1 = (highPass ? -(1.0 + cos) : (1.0 - cos)) / a0;
+            double b2 = b0, a1 = -2.0 * cos / a0, a2 = (1.0 - alpha) / a0;
+
+            double z1 = 0.0, z2 = 0.0;
+            for (int lap = 0; lap < 2; lap++)
+            {
+                for (int i = 0; i < loop.Length; i++)
+                {
+                    double x = loop[i], y = b0 * x + z1;
+                    z1 = b1 * x - a1 * y + z2;
+                    z2 = b2 * x - a2 * y;
+                    if (lap == 1) loop[i] = (float)y;
+                }
+            }
         }
 
         //Where in the cut the touch is taken from (#669): its held body, past the recording's slow rise, where the
