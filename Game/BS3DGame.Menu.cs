@@ -99,6 +99,17 @@ namespace BS3D
         private readonly List<ScrollViewer> _navScrollers = new();
 
         private int _navIndex = -1;
+
+        //Whether the focused entry still has to be brought into its scroller's view (#740): set wherever the focus is SET
+        //rather than stepped - a page arriving, a page's entries re-read - and honoured on the first frame the entry has
+        //been laid out, since a tree built this frame has no bounds yet. A step reveals its entry itself.
+        private bool _navRevealPending;
+
+        //Where the focused entry's scroller stood when the walk last looked, so a scroll the walk did not make (the
+        //wheel, the scroll bar) can be told from one it did (#740)
+        private ScrollViewer _navScrollerSeen;
+        private int _navScrollSeen;
+
         private float _navRepeatDelay;
         private int _navDirection;
         private Point _navMouseAt;
@@ -1442,7 +1453,13 @@ namespace BS3D
 
             CollectNavEntries(_desktop.Root, null);
 
-            if (cursorWasUp && _navEntries.Count > 0) _navIndex = 0;
+            //At the entry the page names (the Scene page: the scene in use, #740), or else at the top. Set rather than
+            //stepped, so it is revealed once the page has been laid out - a page's tree is kept between visits and so
+            //is its scroller's offset, and the top entry of a list left scrolled down was lit out of sight (#740).
+            if (cursorWasUp && _navEntries.Count > 0)
+                _navIndex = Math.Max(0, (_screens.Active as MenuPage)?.NavArrival is Button arrival ? _navEntries.IndexOf(arrival) : 0);
+
+            _navRevealPending = _navIndex >= 0;
 
             //Re-baseline the pointer, or the very next frame reads a move the PLAYER did not make and takes
             //the cursor straight back down: the game recentres the mouse every frame while it is being played,
@@ -1618,6 +1635,8 @@ namespace BS3D
                 }
             }
 
+            KeepNavFocusInView();
+
             int direction = 0;
 
             if (keyboard.IsKeyDown(Keys.Down) || pad.IsButtonDown(Buttons.DPadDown)
@@ -1792,7 +1811,88 @@ namespace BS3D
             _audioDirector.Sfx.PlayUiTick();
 
             ApplyNavHighlight();
-            ScrollNavEntryIntoView();
+            _navRevealPending = !ScrollNavEntryIntoView();
+        }
+
+        /// <summary>
+        /// Keeps the focused entry inside its scroller's view whatever moved (#740), once a frame before the walk reads
+        /// its input, so what it reads was laid out by the frame just drawn. A focus that was set rather than stepped -
+        /// a page arriving with its list still scrolled where the player left it - is revealed by scrolling to it. A
+        /// list the walk did not scroll - the wheel, the scroll bar - takes the focus with it instead, onto the nearest
+        /// entry still in view: the player moved the list, so the list stays where they put it.
+        /// </summary>
+        private void KeepNavFocusInView()
+        {
+            ScrollViewer scroller = _navIndex >= 0 && _navIndex < _navScrollers.Count ? _navScrollers[_navIndex] : null;
+
+            //Off every list (Back, the headings), or no cursor up: nothing to keep in view
+            if (scroller == null)
+            {
+                _navRevealPending = false;
+                _navScrollerSeen = null;
+                return;
+            }
+
+            if (_navRevealPending)
+            {
+                _navRevealPending = !ScrollNavEntryIntoView();
+                return;
+            }
+
+            if (scroller == _navScrollerSeen && scroller.ScrollPosition.Y != _navScrollSeen
+                && NavViewport(scroller, out Rectangle window) && !InView(_navEntries[_navIndex], window))
+            {
+                FocusNavEntryInView(scroller, window);
+            }
+
+            _navScrollerSeen = scroller;
+            _navScrollSeen = scroller.ScrollPosition.Y;
+        }
+
+        /// <summary>
+        /// Moves the focus onto the entry of <paramref name="scroller"/> nearest the one it was on that is wholly inside
+        /// <paramref name="window"/>: the topmost when the list has been scrolled down past it, the bottommost when up.
+        /// Silent, as an arrival is: the player turned the wheel, not the cursor.
+        /// </summary>
+        private void FocusNavEntryInView(ScrollViewer scroller, Rectangle window)
+        {
+            bool leftAbove = _navEntries[_navIndex].ToGlobal(Point.Zero).Y < window.Top;
+            int found = -1;
+
+            for (int i = 0; i < _navEntries.Count; i++)
+            {
+                if (_navScrollers[i] != scroller || !InView(_navEntries[i], window)) continue;
+
+                found = i;
+                if (leftAbove) break;
+            }
+
+            if (found < 0) return;
+
+            _navIndex = found;
+            ApplyNavHighlight();
+        }
+
+        /// <summary>
+        /// A scroller's viewport in GLOBAL coordinates, false before it has been laid out. Myra's
+        /// <c>ActualBounds</c> is in the widget's own space - measured at (0, 0) on the level picker, whose grid stood
+        /// at (462, 325) on the screen (#740) - so only its size is taken, and the corner comes from
+        /// <c>ToGlobal</c>, the same space an entry's own position is read in.
+        /// </summary>
+        private static bool NavViewport(ScrollViewer scroller, out Rectangle window)
+        {
+            Rectangle local = scroller.ActualBounds;
+            Point corner = scroller.ToGlobal(new Point(local.X, local.Y));
+
+            window = new Rectangle(corner.X, corner.Y, local.Width, local.Height);
+            return local.Height > 0;
+        }
+
+        /// <summary>Whether <paramref name="entry"/> lies wholly inside <paramref name="window"/>, top to bottom.</summary>
+        private static bool InView(Button entry, Rectangle window)
+        {
+            int top = entry.ToGlobal(Point.Zero).Y;
+            return entry.Bounds.Height > 0 && top >= window.Top && top + entry.Bounds.Height <= window.Bottom;
         }
 
         /// <summary>
@@ -1809,42 +1909,59 @@ namespace BS3D
         /// out of step with the library. An entry already fully in view is left alone, which is what keeps a
         /// step inside the visible rows from nudging the list.
         /// </para>
+        /// <para>
+        /// ⚠ <b>Both sides have to be global, and until #740 the viewport was not:</b> it was the scroller's
+        /// <c>ActualBounds</c>, which Myra keeps in the widget's own space, (0, 0) at its corner. The window was read
+        /// as high up the screen as the list stands below its top edge (about 90 pixels on the Scene page at 1600x900),
+        /// so walking down scrolled that much too far and walking up stopped scrolling while the lit entry was still
+        /// that far out of sight above the list - photographed: twelve steps up the Scene list lit Desert, hidden
+        /// above it. Where a list stands lower than it is tall, every step sent it to its bottom.
+        /// <see cref="NavViewport"/> is the global one.
+        /// </para>
         /// </summary>
-        private void ScrollNavEntryIntoView()
+        /// <returns>False only when nothing has been laid out yet to measure, so the caller can try again on a later
+        /// frame (<see cref="KeepNavFocusInView"/>); true once the entry is in view or has no scroller to be in.</returns>
+        private bool ScrollNavEntryIntoView()
         {
-            if (_navIndex < 0 || _navIndex >= _navScrollers.Count) return;
+            if (_navIndex < 0 || _navIndex >= _navScrollers.Count) return true;
 
             ScrollViewer scroller = _navScrollers[_navIndex];
 
             //Null for every entry outside a scroller — the headings and Back, which are outside on purpose
             //(the way out of a page must not be the thing that scrolled away). Nothing to do for those, and
             //deliberately NOT "scroll the list back": the list stays where the player left it.
-            if (scroller == null) return;
+            if (scroller == null) return true;
 
-            Rectangle window = scroller.ActualBounds;
-            Rectangle entry = _navEntries[_navIndex].Bounds;
+            int entryHeight = _navEntries[_navIndex].Bounds.Height;
 
             //Before the first layout pass a widget's bounds are zero, and a zero-height window would make
             //every entry read as out of view and send the scroll to a nonsense place. CollectNavEntries can
             //run on the frame a page is built, so this is reachable rather than theoretical.
-            if (window.Height <= 0 || entry.Height <= 0) return;
+            if (!NavViewport(scroller, out Rectangle window) || entryHeight <= 0) return false;
 
             int top = _navEntries[_navIndex].ToGlobal(Point.Zero).Y;
-            int bottom = top + entry.Height;
+            int bottom = top + entryHeight;
 
             //A row of context on the side being approached, so the focused tile is not flush against the edge
             //with nothing beyond it — walking a grid reads better when the next row is already showing.
             int margin = Scaled(MENU_SCROLL_INTO_VIEW_MARGIN);
 
-            int shift;
+            int shift = 0;
             if (top - margin < window.Top) shift = top - margin - window.Top;            //negative: scroll up
             else if (bottom + margin > window.Bottom) shift = bottom + margin - window.Bottom;
-            else return;
 
-            Point at = scroller.ScrollPosition;
-            int limit = scroller.ScrollMaximum.Y;
+            if (shift != 0)
+            {
+                Point at = scroller.ScrollPosition;
+                int limit = scroller.ScrollMaximum.Y;
 
-            scroller.ScrollPosition = new Point(at.X, Math.Clamp(at.Y + shift, 0, Math.Max(0, limit)));
+                scroller.ScrollPosition = new Point(at.X, Math.Clamp(at.Y + shift, 0, Math.Max(0, limit)));
+            }
+
+            //The walk's own scroll, so KeepNavFocusInView does not take it for the player's
+            _navScrollerSeen = scroller;
+            _navScrollSeen = scroller.ScrollPosition.Y;
+            return true;
         }
 
         /// <summary>

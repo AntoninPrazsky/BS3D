@@ -15,6 +15,7 @@ namespace BS3D.Screens
         //One label per SceneKind, indexed by the enum's own value — the count and the names are
         //SceneRenderer's since #75, so a new scene reaches this list without being added to it
         private readonly Label[] _sceneLabels = new Label[SceneRenderer.SceneCount];
+        private readonly Button[] _sceneButtons = new Button[SceneRenderer.SceneCount];
 
         //The page's own plate, kept so it can be hidden while a tour flies (#406).
         private Panel _plate;
@@ -43,7 +44,8 @@ namespace BS3D.Screens
             {
                 //Captured per iteration, not off the loop variable's final value
                 SceneKind scene = (SceneKind)i;
-                list.Widgets.Add(MenuButton(SceneRenderer.SceneName(scene), () => Choose(scene), out _sceneLabels[i]));
+                _sceneButtons[i] = MenuButton(SceneRenderer.SceneName(scene), () => Choose(scene), out _sceneLabels[i]);
+                list.Widgets.Add(_sceneButtons[i]);
             }
 
             column.Widgets.Add(MenuScroll(list, LIST_SURROUNDINGS));
@@ -79,6 +81,12 @@ namespace BS3D.Screens
             //only changes the scene, which is what it is for in the middle of a level.
             if (!InLevel) Manager?.Find<BackdropScreen>()?.PlayTour();
         }
+
+        /// <summary>
+        /// The pad's and the arrow keys' cursor arrives on the scene in use (#740), the one entry this page already marks,
+        /// rather than on the top of a list of twenty-one: the walk starts where the player is.
+        /// </summary>
+        internal override Button NavArrival => _sceneButtons[(int)Game.Scene];
 
         //Whether this page stands over a game in progress (reached from the pause) rather than over the front end
         private bool InLevel => Manager != null && Manager.Contains<GameplayScreen>();

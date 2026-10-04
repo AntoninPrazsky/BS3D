@@ -132,6 +132,13 @@ namespace BS3D.Screens
         internal virtual void NavFocusChanged(Button focused) { }
 
         /// <summary>
+        /// The entry the pad's and the arrow keys' cursor arrives on when the page comes up with the cursor already
+        /// showing (#740), or null for the top entry. The host reveals it once the page is laid out, scrolling a list
+        /// to it if need be.
+        /// </summary>
+        internal virtual Button NavArrival => null;
+
+        /// <summary>
         /// The mouse wheel turned by <paramref name="delta"/> notches this frame while this page is the active
         /// one (#352, #517) — positive away from the player, negative towards them, the raw
         /// <c>MouseState.ScrollWheelValue</c> delta rather than a sign alone, in case a future page ever wants
