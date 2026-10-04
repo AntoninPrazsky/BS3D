@@ -103,6 +103,9 @@ namespace BS3D.Screens
         //The width the note's text is laid out to, in pixels (SizeOnlineNote, #769)
         private int _noteTextWidth;
 
+        //The tab row's width in pixels, which every page is cut to (#770); set by BuildTabRow
+        private int _tabRowWidth;
+
         //The reset row asks twice. One click on a row that erases every star is an accident waiting beside
         //ten rows that are safe to click freely — so the first click only arms it and shows "Sure?", the
         //second wipes, and opening the page anew (Enter) stands it down again.
@@ -202,16 +205,25 @@ namespace BS3D.Screens
             _pages[TAB_CONTROLS] = BuildControlsPage();
             _pages[TAB_GAME] = BuildGamePage();
 
-            //One caption column for every page, as wide as the widest caption on any of them, so a value button stands
-            //at the same x whichever tab is up - and the note under the online rows is as wide as a row
+            //Every page as wide as the tab row (#770, the owner's call): the captions start under its left edge and the
+            //value buttons end under its right one, the caption column taking whatever the buttons leave, so a value
+            //button stands at the same x whichever tab is up and the rows read as one block with the tabs. They stood
+            //as a narrow block centred under the row, about 180 px in from either end at 1920x1080. Never narrower than
+            //the widest caption beside a button, though at these figures the row is the wider at every size, since
+            //every one of them is a design figure scaled by height. The note under the online rows is as wide as a row.
             int captionWidth = 0;
             foreach (Label caption in _captions)
                 captionWidth = Math.Max(captionWidth, (int)MathF.Ceiling(FontBody.MeasureString(caption.Text).X));
 
-            foreach (Grid page in _pages)
-                page.ColumnsProportions[0] = new Proportion(ProportionType.Pixels, captionWidth);
+            int pageWidth = Math.Max(_tabRowWidth, captionWidth + Scaled(COLUMN_SPACING) + Scaled(VALUE_WIDTH));
 
-            SizeOnlineNote(captionWidth + Scaled(COLUMN_SPACING) + Scaled(VALUE_WIDTH));
+            foreach (Grid page in _pages)
+            {
+                page.ColumnsProportions[0] = new Proportion(ProportionType.Fill);
+                page.Width = pageWidth;
+            }
+
+            SizeOnlineNote(pageWidth);
 
             //Every page in one place, only the chosen one shown (Refresh) - and the place as tall as the tallest page,
             //measured with every page laid out, so Back stands still as the tabs turn. Myra lays out only what is
@@ -277,6 +289,8 @@ namespace BS3D.Screens
                 _tabLabels[t] = label;
                 row.Widgets.Add(button);
             }
+
+            _tabRowWidth = TAB_NAMES.Length * (nameWidth + 2 * Scaled(TAB_PADDING_X)) + (TAB_NAMES.Length - 1) * row.Spacing;
 
             return row;
         }
@@ -480,8 +494,8 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// One page's grid: a caption column (cut to the widest caption on any page in <see cref="BuildTree"/>) and a
-        /// value column, topped out rather than centred so a short page's first row stands where a tall one's does
+        /// One page's grid: a caption column (the room the value buttons leave in a page as wide as the tab row, set in
+        /// <see cref="BuildTree"/>) and a value column, topped out rather than centred so a short page's first row stands where a tall one's does
         /// instead of floating half way down the page area.
         /// </summary>
         private Grid NewGroupGrid()
