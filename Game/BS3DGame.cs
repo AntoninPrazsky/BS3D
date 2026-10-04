@@ -1541,8 +1541,9 @@ namespace BS3D
 
         /// <summary>
         /// Whether the pause's own music is wanted (#668): the pause is on the stack, itself or the scene page opened
-        /// from it — but not the settings page over it, whose music row (#279) has to be HEARD to be chosen, so the
-        /// level's theme comes back for as long as that page is up.
+        /// from it — but not the settings page over it, whose Music row has to be HEARD against the level's theme to be
+        /// set, so the theme comes back for as long as that page is up. (It was #279's Track row that first asked for
+        /// this; that row is gone since #704, and the volume rows ask the same.)
         /// </summary>
         private bool PauseMusicWanted => _screens.Contains<PausePage>() && _screens.Active is not SettingsPage;
 

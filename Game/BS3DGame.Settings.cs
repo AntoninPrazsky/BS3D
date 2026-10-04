@@ -147,34 +147,6 @@ namespace BS3D
             OnVolumeRowChanged();
         }
 
-        /// <summary>
-        /// Which theme plays, cycled so it can be listened to (#279). It is a <b>preview</b> and not a
-        /// setting: nothing on this path reaches <c>_settings</c>, so it cannot outlive the run, and nothing
-        /// on it reaches a level's own <c>music</c> field either — what it changes is the next two minutes.
-        /// <para>
-        /// The values are the game's music families, named by their files (<see cref="GameMusic.Families"/>,
-        /// #486), plus <b>Auto</b> to wrap back to: the piece the moment would play unasked, which is the front end's loop in the menus
-        /// and the level's own theme in a level. Auto is offered <b>only on the front end</b>, because that
-        /// is the only place a pick silences something the game would otherwise be playing — inside a level
-        /// the theme comes back on its own at the next level, so the wrap there simply goes round again.
-        /// </para>
-        /// <para>
-        /// It keeps no state of its own. The row reads <see cref="MusicTrack"/> off the music, so a level
-        /// installing its theme over a preview — or a return to the menus taking the loop back — moves the
-        /// row with it, instead of leaving a name standing over a piece that stopped minutes ago.
-        /// </para>
-        /// </summary>
-        internal void CycleMusicTrack()
-        {
-            if (_audioDirector == null) return;
-
-            //The step and the hand-over it takes are the director's (#583) — it holds the front end's edge that
-            //decides whether Auto is on offer
-            _audioDirector.CycleMusicTrack();
-
-            _settingsPage.Refresh();
-        }
-
         private void OnVolumeRowChanged()
         {
             //The one place rows become gains is the director's (#583), which reads them through the file

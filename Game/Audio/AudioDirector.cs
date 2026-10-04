@@ -215,50 +215,6 @@ namespace BS3D.Audio
             _sceneEvents.Reset();
         }
 
-        /// <summary>Which family is sounding, or null for Auto — read straight off the music (#279).</summary>
-        internal string SoundingTrack => _music.SoundingTrack;
-
-        /// <summary>
-        /// Steps the music picker (#279) — see <c>BS3DGame.CycleMusicTrack</c>, the verb the settings row calls,
-        /// for what the row is and is not. Auto leads to the first composition, and the last leads back to Auto
-        /// so a stray click in the menus is one wrap from the loop it interrupted. In a level, where Auto has no
-        /// loop to mean, the wrap goes straight round to the first piece again.
-        /// </summary>
-        internal void CycleMusicTrack()
-        {
-            string next = NextMusicTrack(_music.SoundingTrack);
-
-            if (next == null)
-            {
-                //Exactly the handover the front end's own edge takes (see the music block in Update): the
-                //theme leaves under the loop's held pads rather than being cut.
-                _music.FadeOut();
-                _music.PlayMenu();
-            }
-            else
-            {
-                _music.StopMenu();
-                _music.SetTheme(next);
-
-                //Needed even when SetTheme found the piece already selected: on the front end the theme's
-                //chain was retired when the menus took over, so nothing is sounding for it to keep.
-                _music.Play();
-            }
-        }
-
-        private string NextMusicTrack(string current)
-        {
-            string[] families = _music.Families;
-            if (families.Length == 0) return null;
-
-            if (current == null) return families[0];
-
-            int next = Array.IndexOf(families, current) + 1;
-            if (next > 0 && next < families.Length) return families[next];
-
-            return _menuMusicOn ? null : families[0];
-        }
-
         /// <summary>
         /// The one place the player's gains reach the audio: effects and music each take master times their
         /// own row, so the two subsystems cannot disagree about what the master row means. The pad's row

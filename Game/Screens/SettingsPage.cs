@@ -95,7 +95,7 @@ namespace BS3D.Screens
         private static readonly Color TAB_SELECTED_TEXT = new(30, 30, 30);
 
         private Label _fullscreenValue, _qualityValue, _adaptiveQualityValue, _exposureValue, _skyValue, _fpsValue, _fpsLimitValue;
-        private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _rumbleValue, _trackValue, _sensitivityValue, _aimSensitivityValue, _tutorialValue;
+        private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _rumbleValue, _sensitivityValue, _aimSensitivityValue, _tutorialValue;
         private Label _aberrationValue, _grainValue, _motionBlurValue, _dropCinematicValue, _introLogoValue;
         private Label _progressValue, _unlockAllValue;
         private Label _onlineValue, _nicknameValue, _removeValue, _onlineNote;
@@ -370,8 +370,9 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// The mix: the master, the three parts under it, and which piece plays. The pad's rumble stood here until
-        /// #686 and is on CONTROLS now, where a player looking for it looks.
+        /// The mix: the master and the three parts under it. The pad's rumble stood here until #686 and is on CONTROLS
+        /// now, where a player looking for it looks; the Track row (#279's piece picker) stood under the volumes until
+        /// the owner, who had never come across it, had it removed (#704) — the Jukebox is where the music is played by name.
         /// </summary>
         private Grid BuildAudioPage()
         {
@@ -384,12 +385,6 @@ namespace BS3D.Screens
             AddRow(grid, 1, "Effects", Game.CycleSfxVolume, out _effectsValue);
             AddRow(grid, 2, "Music", Game.CycleMusicVolume, out _musicValue);
             AddRow(grid, 3, "Ambience", Game.CycleAmbienceVolume, out _ambienceValue);
-
-            //Which piece plays, so a composition can be heard in the game against the real mix rather
-            //than only in a .wav or by finding a level of the right chapter (#279). Under the volume rows
-            //because it is the same kind of thing the player hears them through — and a listening tool
-            //and not a setting: it writes nothing, and the game takes the choice back at the next level.
-            AddRow(grid, 4, "Track", Game.CycleMusicTrack, out _trackValue);
 
             return grid;
         }
@@ -643,10 +638,6 @@ namespace BS3D.Screens
             _musicValue.Text = FormatVolume(Game.MusicVolume);
             _ambienceValue.Text = FormatVolume(Game.AmbienceVolume);
             _rumbleValue.Text = FormatVolume(Game.RumbleStrength);
-            //"Auto" is not one of the pieces: it is whatever the moment plays unasked — the front end's
-            //loop in the menus, the level's own theme in a level. The rest name themselves off the music
-            //folder's families (#486), so a new family appears in this row with no wiring here at all.
-            _trackValue.Text = Game.MusicTrack is string family ? char.ToUpperInvariant(family[0]) + family.Substring(1) : "Auto";
             //As a percentage of the shipped feel, the volume rows' own idiom, and exact at every rung — the
             //ladder is written so that it is (0.75 is "75 %", where a multiplier would have to print "0.8×"
             //and lie, or "0.75×" and read as arithmetic).
