@@ -273,10 +273,81 @@ namespace BS3D.Tools.LevelGen
                                   + (mirrorRefused ? "  <-- NOT SYMMETRIC" : string.Empty));
             }
 
-            return !stanceRefused && !mirrorRefused && disconnected == 0 && lonely.Alone == 0 && !oneShot && margin >= 1
+            //A REVEAL (#743), for the levels that are one: the payoff hangs on its own and starts sealed.
+            bool revealRefused = false;
+            if (design.Payoff != null)
+            {
+                (int payoff, int falling, int open) = RevealFaults(new BallsMap(loaded.Map), design.Payoff, loaded.Crates);
+                revealRefused = payoff == 0 || falling > 0 || (open > 0 && !design.PayoffInSight);
+                Console.WriteLine($"    a reveal's payoff ({string.Join(", ", design.Payoff)}): {payoff} ball(s)"
+                                  + (payoff == 0 ? "  <-- NONE IN THE LEVEL" : string.Empty)
+                                  + (falling > 0 ? $", NO - {falling} fall with the body gone" : ", hangs on its own")
+                                  + (open == 0 ? ", sealed"
+                                      : design.PayoffInSight ? $", {open} a shot can touch at the start, as the design shows it"
+                                      : $", NO - {open} a shot can touch at the start")
+                                  + (revealRefused ? "  <-- NOT A REVEAL" : string.Empty));
+            }
+
+            return !stanceRefused && !mirrorRefused && !revealRefused && disconnected == 0 && lonely.Alone == 0 && !oneShot && margin >= 1
                    && stranded.Walled == 0 && stranded.Anchoring == 0 && stranded.CeilingRocks == 0
                    && stranded.AloneGlass == 0 && stranded.SealedIce == 0 && stranded.CeilingInfection == 0
                    && stranded.BuriedWells == 0 && stranded.InertHeavy == 0 && stranded.StuckBuckshot == 0 && stranded.InfectedBuckshot == 0 && !clear.TooCheap;
+        }
+
+        /// <summary>
+        /// A reveal's two faults (#743, <see cref="Design.Payoff"/>): of the <paramref name="payoff"/>-coloured balls of
+        /// <paramref name="map"/>, how many fall once every other ball is taken away, and how many a shot can touch at
+        /// the start — those with an empty cell beside them that a straight shot from some station on the orbit arrives
+        /// in (<see cref="ArrivalProbe"/>), so a shot comes to rest against them.
+        /// <para>
+        /// <b>⚠ Not the open-space flood, and the first cut used it.</b> Flooded from the field's walls and floor
+        /// through empty neighbours, every payoff of the Reveal's second hang came out open — Spark's star 46 of 46 —
+        /// because the crystal narrows a cell a course, and an empty cell inside one course's ring is a lattice
+        /// neighbour of an empty cell outside the next one's: the flood slips between two courses where no ball can.
+        /// <c>ArrivalProbe</c>'s own doc names the same fault ("both pass everything"); a gate that refuses on it errs
+        /// in the refusing direction, which this tool's standing rule says is worse than no gate.
+        /// </para>
+        /// The map is emptied of the body in place, so it is a fresh one the caller does not keep.
+        /// </summary>
+        internal static (int Payoff, int Falling, int Open) RevealFaults(BallsMap map, BallType[] payoff, CrateSpec[] crates)
+        {
+            StaticBall[,,] array = map.GetStaticBallsArray();
+            XZLevel size = map.GetStaticBallsArraySize();
+
+            bool IsPayoff(StaticBall ball) => ball != null && BallKinds.Matchable(ball.Kind) && Array.IndexOf(payoff, ball.Type) >= 0;
+            int Index(XZLevel cell) => (cell.Level * size.X + cell.X) * size.Z + cell.Z;
+
+            bool[] present = new bool[size.X * size.Z * size.Level];
+            for (int x = 0; x < size.X; x++)
+                for (int z = 0; z < size.Z; z++)
+                    for (int l = 0; l < size.Level; l++)
+                        present[Index(new XZLevel(x, z, l))] = array[x, z, l] != null;
+
+            ArrivalProbe arrival = new(map, crates);
+
+            int count = 0, open = 0;
+            for (int x = 0; x < size.X; x++)
+                for (int z = 0; z < size.Z; z++)
+                    for (int l = 0; l < size.Level; l++)
+                    {
+                        if (!IsPayoff(array[x, z, l])) continue;
+                        count++;
+
+                        foreach (XZLevel next in BallsMap.GetNeighboringCells(new XZLevel(x, z, l), size))
+                        {
+                            if (present[Index(next)] || arrival.ArrivalStation(present, Index(next)) < 0) continue;
+                            open++;
+                            break;
+                        }
+                    }
+
+            //The body taken away: what of the payoff is left hanging
+            for (int x = 0; x < size.X; x++)
+                for (int z = 0; z < size.Z; z++)
+                    for (int l = 0; l < size.Level; l++)
+                        if (array[x, z, l] != null && !IsPayoff(array[x, z, l])) array[x, z, l] = null;
+
+            return (count, map.GetCellsDisconnectedFromCeiling().Count, open);
         }
 
         /// <summary>
