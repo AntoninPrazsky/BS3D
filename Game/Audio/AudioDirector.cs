@@ -48,6 +48,7 @@ namespace BS3D.Audio
         //The About page's player of the original procedural score (#443). Here rather than on the page, like
         //the music: it has to be walked every frame and let go of cleanly when the game closes.
         private readonly ProceduralJukebox _jukebox;
+        private readonly RecordingPlayer _recordings;
 
         //Whether the front end's music is on — the edge detector for the stack question in Update (#46).
         private bool _menuMusicOn;
@@ -87,6 +88,7 @@ namespace BS3D.Audio
 
             _music = new GameMusic();
             _jukebox = new ProceduralJukebox();
+            _recordings = new RecordingPlayer();
 
             _ambience = new ProceduralAmbience();
             _sceneEvents = new SceneEventSounds(_audio);
@@ -105,6 +107,9 @@ namespace BS3D.Audio
 
         /// <summary>The About page's player of the original procedural score (#443).</summary>
         internal ProceduralJukebox Jukebox => _jukebox;
+
+        /// <summary>The Jukebox page's player of the game's recordings (#704).</summary>
+        internal RecordingPlayer Recordings => _recordings;
 
         /// <summary>The pad's two body motors (#378), fed a <c>Kick</c> from wherever a violent moment already is.</summary>
         internal GamepadRumble Rumble => _rumble;
@@ -146,7 +151,10 @@ namespace BS3D.Audio
             //every frame rather than told on a click, so a render landing, a pause or the page closing all reach
             //the music without anyone having to remember to say so (#443).
             _jukebox.Update(elapsed);
-            _music.Yielding = _jukebox.HoldsPiece;
+
+            //And the Jukebox's (#704), the same way: the game's music steps aside for either player holding something
+            _recordings.Update(elapsed);
+            _music.Yielding = _jukebox.HoldsPiece || _recordings.HoldsTrack;
 
             //And the pause's own music (#668), asked the same way: the stack says whether the pause is up, and every
             //way out of it — Resume, Restart, Main Menu — is the stack changing
@@ -231,6 +239,7 @@ namespace BS3D.Audio
 
             //The About page's player is music too, and takes the music row
             _jukebox.Gain = master * _settings.MusicVolume;
+            _recordings.Gain = master * _settings.MusicVolume;
 
             //The beds have a row of their own: how much atmosphere sits under the music is a taste, and
             //chaining it to the effects would turn the shot down with it.
@@ -253,6 +262,7 @@ namespace BS3D.Audio
             _audio.Dispose();
             _ambience.Dispose();
             _jukebox.Dispose();
+            _recordings.Dispose();
             _music.Dispose();
         }
     }

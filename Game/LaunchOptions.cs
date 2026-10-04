@@ -172,6 +172,11 @@ namespace BS3D
         //the argument was absent; empty means the page alone.
         internal string About { get; private set; }
 
+        //Testing only: Extras at boot ("extras"), or the Jukebox ("jukebox", "jukebox=<chapter>", "jukebox=<chapter>:play"), #704.
+        //Null means the argument was absent.
+        internal bool Extras { get; private set; }
+        internal string Jukebox { get; private set; }
+
         //Testing only: open the Settings page at boot (#189), on "about"'s and "pick"'s reasoning — three
         //presses reach it on a machine somebody is sitting at, and none reach it from a script.
         internal bool Settings { get; private set; }
@@ -461,6 +466,11 @@ namespace BS3D
             //(#443) — pick's reasoning, plus the press a visualizer needs before there is anything to see.
             Row.Flag("about", o => o.About = string.Empty),
             Row.Text("about", (o, v) => o.About = v),
+            //"extras" and "jukebox[=<chapter>[:play]]" open those pages at boot (#704) - about's wall, and the Jukebox's
+            //bars are only worth a shot while a recording plays, which takes presses nobody is there to make
+            Row.Flag("extras", o => o.Extras = true),
+            Row.Flag("jukebox", o => o.Jukebox = string.Empty),
+            Row.Text("jukebox", (o, v) => o.Jukebox = v),
             //"settings" puts the Settings page up at boot (#189), for photographing a row.
             Row.Flag("settings", o => o.Settings = true),
             //"settings=<row,...>" also activates those rows once the page is up (#548) — online, nickname, remove, intro (#621), brightness (#711) —

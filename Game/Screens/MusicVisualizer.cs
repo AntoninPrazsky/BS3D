@@ -9,7 +9,8 @@ using System.Diagnostics;
 namespace BS3D.Screens
 {
     /// <summary>
-    /// The About page's spectrum (#443, #730): one column of LED segments per <see cref="ProceduralJukebox"/> band,
+    /// The About page's and the Jukebox's spectrum (#443, #730, #704): one column of LED segments per band of a
+    /// <see cref="IBandSource"/> (<see cref="SpectrumAnalyser"/>, which both players feed),
     /// standing on a common baseline, with a <b>peak cap</b> over each that holds for a moment and then falls back onto
     /// the column — the spectrum display of an old radio or a hi-fi receiver, drawn straight into Myra's render pass so it
     /// lays out in the page's column like any other widget. It reads the bands the jukebox computed in its own update and
@@ -90,7 +91,7 @@ namespace BS3D.Screens
         //How much of a cap's colour is white, so it reads as the brightest thing in its column
         private const float CAP_WHITE = 0.55f;
 
-        private readonly ProceduralJukebox _jukebox;
+        private readonly IBandSource _source;
         private readonly int _gap;
 
         //The caps (Prazsky.Core.Tools.PeakHold): made once, and stepped from the draw because the widget has no Update
@@ -100,12 +101,12 @@ namespace BS3D.Screens
         /// <summary>How the segments are coloured; the Jukebox page sets its own (#704).</summary>
         public VisualizerPalette Palette { get; set; } = VisualizerPalette.Led;
 
-        public MusicVisualizer(ProceduralJukebox jukebox, int width, int height, int gap)
+        public MusicVisualizer(IBandSource source, int width, int height, int gap)
         {
-            _jukebox = jukebox;
+            _source = source;
             _gap = gap;
 
-            _caps = new PeakHold(jukebox.Bands.Length, HOLD_SECONDS, GRAVITY);
+            _caps = new PeakHold(source.Bands.Length, HOLD_SECONDS, GRAVITY);
 
             Width = width;
             Height = height;
@@ -113,7 +114,7 @@ namespace BS3D.Screens
 
         public override void InternalRender(RenderContext context)
         {
-            ReadOnlySpan<float> bands = _jukebox.Bands;
+            ReadOnlySpan<float> bands = _source.Bands;
             Rectangle bounds = ActualBounds;
 
             Step(bands);

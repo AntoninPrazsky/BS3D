@@ -136,6 +136,10 @@ namespace BS3D
         /// </summary>
         private string _about;
 
+        //Extras and the Jukebox at boot (#704)
+        private bool _extras;
+        private string _jukebox;
+
         //Testing only: the "settings" argument (#189) — the Settings page at boot, on _about's reasoning
         private bool _settings;
 
@@ -195,6 +199,8 @@ namespace BS3D
             _pick = launch.Pick;
             ParsePickFocus(launch.PickFocus);
             _about = launch.About;
+            _extras = launch.Extras;
+            _jukebox = launch.Jukebox;
             _settings = launch.Settings || launch.SettingsRows != null;
             _settingsRows = launch.SettingsRows;
             _nickSteps = launch.NickPromptSteps;
@@ -206,7 +212,7 @@ namespace BS3D
             _tour = launch.Tour;
             _toMenuAt = launch.ToMenuAt;
 
-            Drives = _celebrate || _confetti || _play || _result || _pick != null || _about != null || _settings
+            Drives = _celebrate || _confetti || _play || _result || _pick != null || _about != null || _extras || _jukebox != null || _settings
                 || _board != null || _highScores != null || _help != null || _scenes || _tour || _toMenuAt != null;
         }
 
@@ -264,6 +270,22 @@ namespace BS3D
             }
 
             //The About page and its player (#443), held back past the title card for the same reason.
+            //Extras, and the Jukebox over it on a chapter, playing if asked (#704)
+            if ((_extras || _jukebox != null) && !game.IsSplashUp)
+            {
+                _extras = false;
+                game.OpenExtras();
+
+                if (_jukebox != null)
+                {
+                    string[] parts = _jukebox.Split(':');
+                    _jukebox = null;
+
+                    int chapter = int.TryParse(parts[0], out int asked) ? asked : 1;
+                    game.OpenJukeboxAt(chapter, parts.Length > 1 && parts[1] == "play");
+                }
+            }
+
             if (_about != null && !game.IsSplashUp)
             {
                 if (string.Equals(_about, "play", StringComparison.OrdinalIgnoreCase)) game.Jukebox?.PlayPause();
