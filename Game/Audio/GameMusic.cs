@@ -333,13 +333,6 @@ namespace BS3D.Audio
         public bool IsFanfarePlaying => _fanfares.IsFanfarePlaying;
 
         /// <summary>
-        /// Which family the moment is sounding, and <b>null while it is not one</b>: the front end's own loop is
-        /// playing, or the music has failed. It reads what is WANTED, so a switch caught mid-fade already names
-        /// the arriving family — which is what the track picker in Settings (#279) shows.
-        /// </summary>
-        public string SoundingTrack => _failed || _menuWanted ? null : _family?.Name;
-
-        /// <summary>
         /// The player's volume settings (master × music), 1 for the authored level. Pushed onto whatever is already
         /// sounding — a minute-long loop is long enough that "on the next play" would mean a minute late.
         /// </summary>
