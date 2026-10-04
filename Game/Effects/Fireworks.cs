@@ -213,7 +213,7 @@ namespace BS3D.Effects
         private readonly EffectParameter _viewParam, _projectionParam, _cameraPositionParam;
         private readonly EffectParameter _cameraRightParam, _cameraUpParam;
         private readonly EffectParameter _originParam, _burstParam, _colorParam, _colorBParam, _shapeParam;
-        private readonly EffectParameter _pixelAngleParam;
+        private readonly EffectParameter _pixelAngleParam, _visibilityParam;
 
         private float _remaining;        //seconds of celebration left to launch into
         private float _untilNextLaunch;
@@ -266,6 +266,7 @@ namespace BS3D.Effects
             _colorBParam = effect.Parameters["ShellColorB"];
             _shapeParam = effect.Parameters["ShellShape"];
             _pixelAngleParam = effect.Parameters["PixelAngle"];
+            _visibilityParam = effect.Parameters["Visibility"];
 
             //Set once: none of these changes for the life of the display. The rising comet's spark size is in
             //WORLD units and a shell climbs to 40-120 units up, so it is far larger than it sounds.
@@ -480,8 +481,15 @@ namespace BS3D.Effects
         /// and the campfire flame use, and for the same reasons. Blended by <see cref="SparkBlend"/>: added
         /// light, plus the share of the sky behind a spark that it covers.
         /// </summary>
-        public void Draw(ICamera camera)
+        /// <param name="visibility">1 with the lens in the air, falling to 0 as it sinks under the sea (#761): the owner,
+        /// "if the camera is under water, the fireworks should either not be drawn at all, or very blurred". The sea
+        /// writes no depth, so from below nothing hid the shells and they showed through the murk as if the water were
+        /// glass; now they fade with the murk's own figure (<c>SceneRenderer.LensSubmergedAmount</c>) and are not drawn
+        /// at all once the lens is under.</param>
+        public void Draw(ICamera camera, float visibility = 1f)
         {
+            if (visibility <= 0f) return;
+
             bool any = false;
             for (int i = 0; i < _shells.Length; i++)
             {
@@ -517,6 +525,7 @@ namespace BS3D.Effects
             _cameraPositionParam.SetValue(camera.Position);
             _cameraRightParam.SetValue(right);
             _cameraUpParam.SetValue(up);
+            _visibilityParam.SetValue(MathF.Min(visibility, 1f));
 
             _originParam.SetValue(_origins);
             _burstParam.SetValue(_bursts);
