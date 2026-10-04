@@ -7801,3 +7801,9 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Oprava:** `NavViewport` (velikost z `ActualBounds`, roh z `ToGlobal`), `KeepNavFocusInView` jednou za snímek před čtením vstupu (nastavený kurzor se po rozvržení odhalí, seznam posunutý kolečkem vezme kurzor na nejbližší celou viditelnou položku), `MenuPage.NavArrival` a Scene stránka přichází na aktuální scénu. `docs/game-shell.md`.
 - **Ověřeno** dočasným skriptem přes skutečné `StepNavFocus` (bez fokusu okna, smazán): 16× dolů, 12× nahoru, seznam na konec, zpět a znovu dovnitř, na `main` i na opravě. Před: zvýraznění mimo obraz ve třech ze čtyř stavů; po: ve všech čtyřech vidět. 564 testů.
 - **Neověřeno:** skutečná klávesnice a pad, tažení posuvníku, skutečné kolečko (simulováno nastavením `ScrollPosition`).
+
+## 2026-10-04 — #738 je na mainu: nápověda má Back, Previous a Next v jednom řádku — desktop, Claude Code (6aa39589)
+
+- **#738** (majitelova poznámka): Back vlevo pod začátkem textu, Previous a Next vpravo, tři tlačítka po `WALK_BUTTON_WIDTH` (490) v řádku širokém jako rámec textu; uvolněný řádek dostal text (`BODY_SURROUNDINGS` 820 → 680: tlačítko 115 jednotek, změřeno, plus mezera 26). Kurzor přichází na Next, na poslední stránce na Previous (`HelpPage.NavArrival`, hák z #740), aby hráč nepřistál na odchodu.
+- **Snímky** 1600×900 a 3840×1600, stránka 1 a Controls, před/po: deska stejně velká, Controls ukáže o řádek víc (Escape/F11/F12), posouvá se dál, ale méně. `shipped-awaiting-verdict` (vzhled).
+- **Neověřeno:** klávesnice a pad v běhu (pořadí Back, Previous, Next je dané pořadím ve stromu).
