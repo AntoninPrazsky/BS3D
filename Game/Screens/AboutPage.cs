@@ -131,10 +131,14 @@ namespace BS3D.Screens
             };
             right.Widgets.Add(_pieceLabel);
 
+            //The LED meter, and on the game's birthday the rainbow (#764, the owner's easter egg): no label and no
+            //setting, the day the gun wears its hat (BS3DGame.Birthday), so the game has one birthday and the
+            //birthday launch argument shows both
             right.Widgets.Add(new MusicVisualizer(jukebox, ColumnWidth, Scaled(VISUALIZER_HEIGHT), Scaled(VISUALIZER_BAR_GAP))
             {
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 24),
+                Palette = Game.Birthday ? MusicVisualizer.VisualizerPalette.Spectrum : MusicVisualizer.VisualizerPalette.Led,
             });
 
             HorizontalStackPanel controls = new()
