@@ -17,7 +17,7 @@ namespace BS3D.Screens
     /// and each unlocked level one row: its board's #1 and the player's own place, for this month or for all time.
     /// <para>
     /// <b>What it ranks is the levels, decided in the owner's stead</b> (the issue's option (a)): a leaderboard to climb is a
-    /// row saying who leads a level and where the player stands on it, and a level the player leads says so in gold. A
+    /// row saying who leads a level and where the player stands on it, and a level the player leads says so in their colour. A
     /// ranking of players across the campaign (option (b)) needs a rule weighing levels with different ceilings against
     /// each other, and is left for later.
     /// </para>

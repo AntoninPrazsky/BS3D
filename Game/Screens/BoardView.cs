@@ -12,7 +12,7 @@ namespace BS3D.Screens
 {
     /// <summary>
     /// One online board as the game draws it (#547): its heading, the period it covers, a column of ranks, nicknames
-    /// and scores, and the player's own place under them in the gold the stars are struck in. One copy, for the
+    /// and scores, and the player's own place under them in their own colour (BS3DGame.BoardYouColor). One copy, for the
     /// result page's two top-five boards and the level picker's board page alike. A row with zero stars is an
     /// unfinished attempt (#716) - the service ranks every clear above all of them - and says so in a column of its
     /// own, between the name and the score. The first three ranks of a board wear a cup in gold, silver and bronze
@@ -108,9 +108,9 @@ namespace BS3D.Screens
 
         /// <summary>
         /// Writes the board. <paramref name="board"/> may still be null — the rows stay empty and the player's own line
-        /// still says where they stand, from the submission's answer. The row at the player's rank is theirs, in gold; the
+        /// still says where they stand, from the submission's answer. The row at the player's rank is theirs, in their colour; the
         /// first three ranks of the board wear a cup whoever they belong to (#725), and a player's own row at one of them
-        /// has both: its text in their gold and the cup in the place's metal.
+        /// has both: its text in their colour and the cup in the place's metal - two colours, which is why theirs is not gold (#739).
         /// </summary>
         /// <param name="unfinished">Whether the player's own place is an unfinished attempt, for as long as the board's
         /// own row for them has not come to say (the result page's, from the ending it was for); the board's row wins

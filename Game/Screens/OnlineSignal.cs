@@ -19,8 +19,9 @@ namespace BS3D.Screens
     /// <list type="bullet">
     /// <item><see cref="SignalMode.Working"/> - a request is in flight (the clear on its way, or the boards loading):
     /// the globe turns, in the menu's own text colour.</item>
-    /// <item><see cref="SignalMode.Done"/> - the service took the clear: the globe settles, in the gold of the player's own
-    /// row on the boards (<see cref="BS3DGame.BoardYouColor"/>), the one mark on the plate that is a reward.</item>
+    /// <item><see cref="SignalMode.Done"/> - the service took the clear: the globe settles, in the colour of the player's own
+    /// row on the boards (<see cref="BS3DGame.BoardYouColor"/>): their score is on the board now, said in the colour that
+    /// says "you" everywhere on the plate (#739).</item>
     /// <item><see cref="SignalMode.Idle"/> - offline or refused: the globe dim and still, because nothing is happening
     /// and a moving mark would promise that something is.</item>
     /// </list>

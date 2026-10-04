@@ -1406,7 +1406,7 @@ namespace BS3D.Screens
             }
 
             //Taken, but the stars are still landing: the rows wait for them (above), and the line says what is true now
-            //- that this ending is safe with the service, so the player may leave - in the gold of a thing done
+            //- that this ending is safe with the service, so the player may leave - in the player's own colour, a thing done
             if (!_revealSettled)
             {
                 ShowSections(false);
@@ -1421,7 +1421,7 @@ namespace BS3D.Screens
             _allTime.Fill("ALL TIME", BoardView.AllTimePeriod, Game.Online.ResultAllTimeBoard,
                 accepted.AllTimeRank, accepted.AllTimeTotal, unfinished: !_result.Cleared);
 
-            //Accepted: the boards still loading keep the signal moving; once they are in, it turns gold for the line
+            //Accepted: the boards still loading keep the signal moving; once they are in, it settles in the player's colour for the line
             //that is left (a personal best), and the line goes when there is nothing to add to the boards themselves
             bool loading = Game.Online.ResultMonthBoard == null || Game.Online.ResultAllTimeBoard == null;
             string best = _result.Cleared ? "A personal best on this level." : "Your best attempt at this level so far.";
