@@ -197,7 +197,7 @@ namespace Prazsky.Core.Render
             //TerrainHoleRadius 0 (the map editor) the shader cuts nothing and ignores this figure entirely.
             float drainRimY = ArenaIsland.TOP_Y - ArenaIsland.DISH_DEPTH;
             float poolT = Math.Clamp((drainRimY - _seaConfig.LevelY) / (drainRimY - ArenaIsland.FUNNEL_BOTTOM_Y), 0f, 1f);
-            float poolRadius = MathHelper.Lerp(ArenaIsland.FUNNEL_TOP_RADIUS, ArenaIsland.FUNNEL_HOLE_RADIUS, poolT)
+            float poolRadius = MathHelper.Lerp(ArenaIsland.FUNNEL_TOP_RADIUS, ArenaIsland.FUNNEL_DRAWN_HOLE_RADIUS, poolT)
                 + POOL_WALL_BIAS;
 
             //The camera, the sky, the clock, the clouds and the far fade are the pass's (#580); the pool is the sea's own
