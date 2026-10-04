@@ -38,11 +38,28 @@ namespace Prazsky.Core.Render
         private int _stormCloudPuffCount;
 
         //The visible discharge. Static too, and entirely procedural in the vertex shader off the strike's
-        //own period index — so a bolt costs no CPU work per frame and every executable draws the same one
-        //at the same second, which is the rule the whole flash schedule already follows.
+        //own period index — so a bolt's shape costs no CPU work per frame. Where it stands and which way it
+        //runs are the strike's latched cell and direction (#750), a handful of uniforms.
         private VertexBuffer _stormBoltVertexBuffer;
         private IndexBuffer _stormBoltIndexBuffer;
         private int _stormBoltQuadCount;
+
+        //The channel's per-frame uniforms, cached at load (BestPractices.md: the by-name indexer is a scan)
+        private readonly EffectParameter _boltOrigin, _boltRun, _boltReach, _boltDrop, _boltEnvelope, _viewportSize;
+
+        //The camera the scene was last drawn through, as the strike placement reads it (#750): where it stands
+        //and which way it looks in the XZ plane, and half its horizontal field of view. Unknown until the first
+        //frame and for a lens looking straight down, when a strike is placed the way it always was.
+        private bool _viewKnown;
+        private Vector2 _viewAt, _viewForward;
+        private float _viewHalfWidth;
+
+        //The strike now running, latched when its period began: which cell it went off in and which way its
+        //channel leaves that cell. Latched because the pick reads the camera, and a camera that moves during a
+        //strike (the front end's orbit, a player's aim) must not move the strike with it.
+        private float _strikeIndex = float.NaN;
+        private int _strikeCell = -1;
+        private Vector2 _strikeRun = Vector2.UnitX;
 
         //Segments a bolt's channel is drawn in. Enough that the jagged path reads as a filament with kinks
         //in it rather than as a polyline; the width is a config dial and the glare pass does the rest.
@@ -57,6 +74,35 @@ namespace Prazsky.Core.Render
         //where a cell stands NOW (StormCellPosition), not where it was built — the field moves (#532).
         private const float STORM_STRIKE_REACH = 420f;
 
+        //Where a strike goes off so a player sees its channel (#750). Measured from the Game's play camera, about
+        //half the strikes went off outside the frame, and one dead ahead stood behind the gun and the cluster,
+        //which fill the middle of it - so a strike is taken among the cells the camera looks at, off its centre
+        //line: between these two bearings off the view, the outer one counted in from the frustum's own edge. The
+        //gun's wheels reach about 11 degrees either side of the play camera's centre line at 16:9; at 9 a real
+        //strike's channel stood behind one of them.
+        private const float STRIKE_VIEW_MIN_DEGREES = 14f;
+        private const float STRIKE_VIEW_EDGE_DEGREES = 8f;
+
+        //...and preferably in a cell tall enough that the channel leaves it ABOVE the arena: from the play
+        //camera, whatever stands below the island's own level is behind the island. The channel leaves this far
+        //up its cell, and a cell whose leaving point is under the second figure is taken only when no taller one
+        //stands in view.
+        private const float BOLT_ORIGIN_SHARE = 0.6f;
+        private const float BOLT_ORIGIN_MIN_Y = 12f;
+
+        //The channel's run out of its cell: through nearly its radius (the part its own glow drowns), then across
+        //a gap of open air of between these two lengths, diving to this far under the cell's base - below the
+        //horizon from the play camera, so it ends behind the island rather than at a line.
+        private const float BOLT_RUN_THROUGH = 0.85f;
+        private const float BOLT_GAP_MIN = 30f;
+        private const float BOLT_GAP_SPAN = 45f;
+        private const float BOLT_DIVE_BELOW_BASE = 25f;
+
+        //How long the channel's first stroke has the sky to itself before its cloud lights (#750): nine frames
+        //at 75 Hz. Without it the glow came up with the channel and whitened the cloud the channel was
+        //seen against, which is what hid it.
+        private const float GLOW_LAG_SECONDS = 0.12f;
+
         //Look/tuning parameters (the cloud field, the material, the flash, the air) live in
         //StormSceneConfig; this class reads them from _stormConfig.
 
@@ -70,6 +116,12 @@ namespace Prazsky.Core.Render
             //so it is not a terrain draw at all: StormClouds.fx's header has why a height field could not
             //carry it and why the shared sky cloud field could not either.
             _stormEffect = content.Load<Effect>("Shaders/StormClouds");
+            _boltOrigin = _stormEffect.Parameters["BoltOrigin"];
+            _boltRun = _stormEffect.Parameters["BoltRun"];
+            _boltReach = _stormEffect.Parameters["BoltReach"];
+            _boltDrop = _stormEffect.Parameters["BoltDrop"];
+            _boltEnvelope = _stormEffect.Parameters["BoltEnvelope"];
+            _viewportSize = _stormEffect.Parameters["ViewportSize"];
             BuildStormCloudBuffers();
             BuildStormBoltBuffers();
 
@@ -105,7 +157,9 @@ namespace Prazsky.Core.Render
             _stormEffect.Parameters["FlashColor"].SetValue(_stormConfig.Flash.Color.ToVector3());
             _stormEffect.Parameters["FlashGlow"].SetValue(_stormConfig.Flash.CloudGlow);
             _stormEffect.Parameters["BoltColor"].SetValue(_stormConfig.Flash.BoltColor.ToVector3());
-            _stormEffect.Parameters["BoltWidth"].SetValue(MathF.Max(_stormConfig.Flash.BoltWidth, 0.02f));
+            _stormEffect.Parameters["BoltHaloColor"].SetValue(_stormConfig.Flash.BoltHaloColor.ToVector3());
+            _stormEffect.Parameters["BoltHalo"].SetValue(MathF.Max(_stormConfig.Flash.BoltHalo, 1e-4f));
+            _stormEffect.Parameters["BoltCore"].SetValue(Math.Clamp(_stormConfig.Flash.BoltCore, 0.02f, 1f));
 
             //How far a strike's glow carries through the field. ⚠ It is its OWN dial and not a figure
             //derived from anything else, which is what the first build did (a lattice spacing x 0.8 = 136
@@ -241,6 +295,9 @@ namespace Prazsky.Core.Render
             _stormCloudIndexBuffer = Services.BuildQuadIndexBuffer(_stormCloudPuffCount);
             _stormStrikeCells = strikeCells;
             _stormCellBodies = cellBodies;
+
+            //A new field: whatever strike was latched named a cell of the old one
+            _strikeIndex = float.NaN;
         }
 
         /// <summary>
@@ -319,9 +376,12 @@ namespace Prazsky.Core.Render
             StormFlashConfig flash = _stormConfig.Flash;
 
             float period = StormStrikeSchedule(time, out float index, out float start, out float length, out float size);
-            float u = time / period;
 
-            float p = (u - index - start) / length;
+            //The cloud lights a beat after the channel (#750): GLOW_LAG_SECONDS in, so the channel's first stroke
+            //is seen against cloud that is not yet lit - lit, it is white, and an additive channel over white
+            //adds nothing the tonemap can show. The glow keeps its whole length; it ends that much later.
+            float since = (time / period - index - start) * period;
+            float p = (since - GLOW_LAG_SECONDS) / (length * period);
             if (p <= 0f || p >= 1f) return 0f;
 
             //A hard attack over the first 6 % and a fast power decay after it.
@@ -335,6 +395,33 @@ namespace Prazsky.Core.Render
                 envelope *= 0.55f + 0.45f * MathF.Abs(MathF.Cos(p * MathHelper.Pi * flicker));
 
             //Not every strike is the same size: a scene whose every event is identical stops having events.
+            return envelope * size;
+        }
+
+        /// <summary>
+        /// The channel's own envelope (#750), off the same schedule as <see cref="Flash"/> but shaped for the eye
+        /// rather than for the cloud: a near-instant first stroke, held bright for most of the strike instead of
+        /// decaying at once (at <see cref="Flash"/>'s power 2.6 the channel was at half strength a seventh of the
+        /// way in, too brief to be seen), and dipping deeper between its return strokes, since the channel itself
+        /// goes dark between strokes where the lit cloud only dims.
+        /// </summary>
+        private float BoltFlash(float time)
+        {
+            StormFlashConfig flash = _stormConfig.Flash;
+
+            float period = StormStrikeSchedule(time, out float index, out float start, out float length, out float size);
+            float since = (time / period - index - start) * period;
+            float p = since / (length * period);
+            if (p <= 0f || p >= 1f) return 0f;
+
+            float envelope = (p < 0.03f ? p / 0.03f : 1f) * MathF.Pow(1f - p, 0.8f);
+
+            //The first stroke held whole through the glow's lag, the moment the channel is seen at all; the
+            //return strokes after it, counted from there
+            float flicker = MathF.Max(flash.Flicker, 0f);
+            if (flicker > 0f && since > GLOW_LAG_SECONDS)
+                envelope *= 0.3f + 0.7f * MathF.Abs(MathF.Cos((since - GLOW_LAG_SECONDS) / (length * period) * MathHelper.Pi * flicker));
+
             return envelope * size;
         }
 
@@ -417,40 +504,117 @@ namespace Prazsky.Core.Render
         /// </summary>
         private Vector2 StormFlashCenter(float time)
         {
-            float period = MathF.Max(_stormConfig.Flash.Period, 0.5f);
-            float index = MathF.Floor(time / period);
-
-            //⚠ IN A CELL, not at a hashed radius. Placed by radius and bearing alone a strike lands in clear
-            //air about as often as in cloud, and a discharge with nothing around it lights nothing - the
-            //glow IS the flash from most cameras, since the channel itself is usually inside the cell it
-            //went off in. The cells' own middles are kept when the field is built for exactly this.
-            //
-            //And in the cell where it stands NOW (#532): the hashed pick is walked on to the first cell
-            //within reach of the arena this second, so it is still a pure function of the period index and
-            //the clock. A cell drifts 0.7 units over one strike, so the bolt rides with it unnoticed.
-            int count = _stormStrikeCells.Length;
-            if (count > 0)
-            {
-                int first = Math.Clamp((int)(SceneRenderer.Hash01(index + 57f) * count), 0, count - 1);
-                Vector2 nearest = default;
-                float nearestDistance = float.MaxValue;
-
-                for (int step = 0; step < count; step++)
-                {
-                    Vector2 at = StormCellPosition(_stormStrikeCells[(first + step) % count], time);
-                    float distance = at.Length();
-                    if (distance <= STORM_STRIKE_REACH) return at;
-                    if (distance < nearestDistance) { nearestDistance = distance; nearest = at; }
-                }
-
-                return nearest;
-            }
+            int cell = StrikeCell(time, out _);
+            if (cell >= 0) return StormCellPosition(_stormStrikeCells[cell], time);
 
             //Nothing to strike (a field configured empty): fall back to a ring outside the arena.
+            float index = MathF.Floor(time / MathF.Max(_stormConfig.Flash.Period, 0.5f));
             float inner = MathF.Max(_stormConfig.Clouds.InnerRadius, 1f) + 40f;
             float bearing = SceneRenderer.Hash01(index + 57f) * MathHelper.TwoPi;
 
             return new Vector2(MathF.Cos(bearing) * inner, MathF.Sin(bearing) * inner);
+        }
+
+        /// <summary>
+        /// The cell the current strike went off in, and the horizontal direction its channel leaves it in; −1 for
+        /// a field with no cells. Picked once per strike, when its period is first asked about, and held for the
+        /// rest of it (<see cref="_strikeIndex"/>).
+        /// </summary>
+        private int StrikeCell(float time, out Vector2 run)
+        {
+            float index = MathF.Floor(time / MathF.Max(_stormConfig.Flash.Period, 0.5f));
+
+            if (index != _strikeIndex || _strikeCell >= _stormStrikeCells.Length)
+            {
+                _strikeIndex = index;
+                _strikeCell = PickStrikeCell(index, time, out _strikeRun);
+            }
+
+            run = _strikeRun;
+            return _strikeCell;
+        }
+
+        //⚠ IN A CELL, not at a hashed radius. Placed by radius and bearing alone a strike lands in clear air about
+        //as often as in cloud, and a discharge with nothing around it lights nothing - the glow IS the flash from
+        //most cameras. The cells' own middles are kept when the field is built for exactly this.
+        //
+        //And in the cell where it stands NOW (#532): the hashed pick is walked on to the first cell within reach
+        //of the arena this second. Since #750 the walk goes on past that one, to the first the camera sees off its
+        //centre line - and of those, to the first tall enough for its channel to leave it above the arena - so
+        //every strike's channel is one a player can see, the way a film cuts to the strike. The walk starts from
+        //the same hashed cell, so with no camera known it picks exactly what it always did.
+        private int PickStrikeCell(float index, float time, out Vector2 run)
+        {
+            int count = _stormStrikeCells.Length;
+            if (count == 0)
+            {
+                run = Vector2.UnitX;
+                return -1;
+            }
+
+            int first = Math.Clamp((int)(SceneRenderer.Hash01(index + 57f) * count), 0, count - 1);
+            float nearMost = MathHelper.ToRadians(STRIKE_VIEW_MIN_DEGREES);
+            float farMost = _viewHalfWidth - MathHelper.ToRadians(STRIKE_VIEW_EDGE_DEGREES);
+
+            int nearest = first, withinReach = -1, inView = -1, tall = -1;
+            float nearestDistance = float.MaxValue;
+
+            for (int step = 0; step < count && tall < 0; step++)
+            {
+                int cell = (first + step) % count;
+                Vector2 at = StormCellPosition(_stormStrikeCells[cell], time);
+                float distance = at.Length();
+
+                if (distance > STORM_STRIKE_REACH)
+                {
+                    if (distance < nearestDistance) { nearestDistance = distance; nearest = cell; }
+                    continue;
+                }
+
+                if (withinReach < 0) withinReach = cell;
+                if (!_viewKnown) break;
+
+                Vector2 toCell = at - _viewAt;
+                float off = MathF.Abs(MathF.Atan2(_viewForward.X * toCell.Y - _viewForward.Y * toCell.X, Vector2.Dot(_viewForward, toCell)));
+                if (off < nearMost || off > farMost) continue;
+
+                if (inView < 0) inView = cell;
+                if (BoltOriginY(cell) >= BOLT_ORIGIN_MIN_Y) tall = cell;
+            }
+
+            int pick = tall >= 0 ? tall : inView >= 0 ? inView : withinReach >= 0 ? withinReach : nearest;
+            run = BoltRunDirection(pick, index, time);
+            return pick;
+        }
+
+        //How high up its cell a channel leaves from.
+        private float BoltOriginY(int cell)
+        {
+            Vector3 body = _stormCellBodies[cell];
+            return body.X + BOLT_ORIGIN_SHARE * body.Z;
+        }
+
+        //Which way a channel leaves its cell, flat: square to the line of sight, so it is seen at its full length
+        //and against the open air beside the cell rather than in front of the cell's own glow - outward, away
+        //from the frame's middle, for a cell near that middle, and inward for one out towards the frame's edge,
+        //so the run stays in the frame. With no camera known, square to the line from the arena, either way.
+        private Vector2 BoltRunDirection(int cell, float index, float time)
+        {
+            Vector2 at = StormCellPosition(_stormStrikeCells[cell], time);
+
+            if (_viewKnown && Vector2.DistanceSquared(at, _viewAt) > 1f)
+            {
+                Vector2 toCell = at - _viewAt;
+                Vector2 square = Vector2.Normalize(new Vector2(-toCell.Y, toCell.X));
+                Vector2 lateral = toCell - _viewForward * Vector2.Dot(toCell, _viewForward);
+                float outward = Vector2.Dot(square, lateral) >= 0f ? 1f : -1f;
+
+                float off = MathF.Abs(MathF.Atan2(_viewForward.X * toCell.Y - _viewForward.Y * toCell.X, Vector2.Dot(_viewForward, toCell)));
+                return square * (off < 0.5f * _viewHalfWidth ? outward : -outward);
+            }
+
+            Vector2 tangent = at.LengthSquared() > 1f ? Vector2.Normalize(new Vector2(-at.Y, at.X)) : Vector2.UnitX;
+            return SceneRenderer.Hash01(index + 619f) < 0.5f ? tangent : -tangent;
         }
 
         /// <summary>The flash as a scene point light; see <see cref="SceneRenderer.TryGetStormFlash"/>.</summary>
@@ -511,6 +675,18 @@ namespace Prazsky.Core.Render
         {
             Matrix inverseView = Matrix.Invert(frame.Camera.View);
             float envelope = Flash(frame.Time);
+            float boltEnvelope = BoltFlash(frame.Time);
+
+            //The camera the next strike is placed for (#750). A lens looking straight down has no heading.
+            Vector3 forward = inverseView.Forward;
+            Vector2 heading = new(forward.X, forward.Z);
+            _viewKnown = heading.LengthSquared() > 0.01f;
+            if (_viewKnown)
+            {
+                _viewAt = new Vector2(frame.Camera.Position.X, frame.Camera.Position.Z);
+                _viewForward = Vector2.Normalize(heading);
+                _viewHalfWidth = MathF.Atan(1f / MathF.Max(frame.Camera.Projection.M11, 1e-3f));
+            }
 
             _stormEffect.Parameters["View"].SetValue(frame.Camera.View);
             _stormEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
@@ -544,8 +720,21 @@ namespace Prazsky.Core.Render
             //The channel, and only while one is running: between strikes this is the whole cost of the
             //lightning. Additive, because a discharge adds light to whatever is behind it and never hides
             //it — a channel drawn with alpha over cloud reads as a painted stripe.
-            if (envelope > 0f && _stormBoltQuadCount > 0)
+            int cell = StrikeCell(frame.Time, out Vector2 run);
+            if (boltEnvelope > 0f && _stormBoltQuadCount > 0 && cell >= 0)
             {
+                Vector3 body = _stormCellBodies[cell];
+                Vector2 at = StormCellPosition(_stormStrikeCells[cell], frame.Time);
+                float originY = BoltOriginY(cell);
+                float gap = BOLT_GAP_MIN + BOLT_GAP_SPAN * SceneRenderer.Hash01(_strikeIndex + 911f);
+
+                _boltOrigin.SetValue(new Vector3(at.X, originY, at.Y));
+                _boltRun.SetValue(new Vector3(run.X, 0f, run.Y));
+                _boltReach.SetValue(body.Y * BOLT_RUN_THROUGH + gap);
+                _boltDrop.SetValue(MathF.Max(originY - (body.X - BOLT_DIVE_BELOW_BASE), 10f));
+                _boltEnvelope.SetValue(boltEnvelope);
+                _viewportSize.SetValue(new Vector2(_graphicsDevice.Viewport.Width, _graphicsDevice.Viewport.Height));
+
                 _graphicsDevice.BlendState = BlendState.Additive;
 
                 _graphicsDevice.SetVertexBuffer(_stormBoltVertexBuffer);
