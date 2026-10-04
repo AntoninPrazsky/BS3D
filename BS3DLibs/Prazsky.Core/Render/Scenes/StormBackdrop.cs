@@ -52,14 +52,18 @@ namespace Prazsky.Core.Render
         //frame and for a lens looking straight down, when a strike is placed the way it always was.
         private bool _viewKnown;
         private Vector2 _viewAt, _viewForward;
-        private float _viewHalfWidth;
+        private float _viewHalfWidth, _viewY;
 
-        //The strike now running, latched when its period began: which cell it went off in and which way its
-        //channel leaves that cell. Latched because the pick reads the camera, and a camera that moves during a
-        //strike (the front end's orbit, a player's aim) must not move the strike with it.
-        private float _strikeIndex = float.NaN;
-        private int _strikeCell = -1;
-        private Vector2 _strikeRun = Vector2.UnitX;
+        //The strikes already fixed: which cell each went off in and which way its channel leaves that cell, by the
+        //strike's period index, in STRIKE_MEMORY slots. A strike is fixed the first time it is asked about at or
+        //after its onset (StrikeCell), because the pick reads the camera and a camera that moves during a strike
+        //(the front end's orbit, a player's aim) must not move the strike with it. Several slots and not one (the
+        //review of #750): the chapter intro's look-ahead asks about strikes seconds ahead, and with one slot each
+        //of its questions threw out the strike running now.
+        private const int STRIKE_MEMORY = 8;
+        private readonly float[] _fixedIndex = { float.NaN, float.NaN, float.NaN, float.NaN, float.NaN, float.NaN, float.NaN, float.NaN };
+        private readonly int[] _fixedCell = new int[STRIKE_MEMORY];
+        private readonly Vector2[] _fixedRun = new Vector2[STRIKE_MEMORY];
 
         //Segments a bolt's channel is drawn in. Enough that the jagged path reads as a filament with kinks
         //in it rather than as a polyline; the width is a config dial and the glare pass does the rest.
@@ -296,8 +300,8 @@ namespace Prazsky.Core.Render
             _stormStrikeCells = strikeCells;
             _stormCellBodies = cellBodies;
 
-            //A new field: whatever strike was latched named a cell of the old one
-            _strikeIndex = float.NaN;
+            //A new field: whatever strikes were fixed named cells of the old one
+            Array.Fill(_fixedIndex, float.NaN);
         }
 
         /// <summary>
@@ -516,22 +520,37 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// The cell the current strike went off in, and the horizontal direction its channel leaves it in; −1 for
-        /// a field with no cells. Picked once per strike, when its period is first asked about, and held for the
-        /// rest of it (<see cref="_strikeIndex"/>).
+        /// The cell the strike at <paramref name="time"/> goes off in, and the horizontal direction its channel leaves
+        /// it in; −1 for a field with no cells. <b>Fixed the first time it is asked about at or after its onset</b> and
+        /// held from then (<see cref="_fixedIndex"/>): before the onset nothing is drawn, lit or heard, so the pick
+        /// follows the camera until the moment it matters. Fixed at the period's start instead, the first cut's pick
+        /// had up to four seconds for the gun's orbit or the front end's to carry its cell behind the gun or out of
+        /// the frame (the review of #750). Whoever asks first at the onset fixes it — the frame, the thunder, or
+        /// the chapter intro looking ahead for the strike it frames, which is how that strike goes off in the cell
+        /// the intro's shot is aimed at.
         /// </summary>
         private int StrikeCell(float time, out Vector2 run)
         {
-            float index = MathF.Floor(time / MathF.Max(_stormConfig.Flash.Period, 0.5f));
+            float period = StormStrikeSchedule(time, out float index, out float start, out float _, out float _);
+            int slot = ((int)index % STRIKE_MEMORY + STRIKE_MEMORY) % STRIKE_MEMORY;
 
-            if (index != _strikeIndex || _strikeCell >= _stormStrikeCells.Length)
+            if (_fixedIndex[slot] == index && _fixedCell[slot] < _stormStrikeCells.Length)
             {
-                _strikeIndex = index;
-                _strikeCell = PickStrikeCell(index, time, out _strikeRun);
+                run = _fixedRun[slot];
+                return _fixedCell[slot];
             }
 
-            run = _strikeRun;
-            return _strikeCell;
+            int cell = PickStrikeCell(index, time);
+            run = cell >= 0 ? BoltRunDirection(cell, index, time) : Vector2.UnitX;
+
+            if (cell >= 0 && time >= (index + start) * period)
+            {
+                _fixedIndex[slot] = index;
+                _fixedCell[slot] = cell;
+                _fixedRun[slot] = run;
+            }
+
+            return cell;
         }
 
         //⚠ IN A CELL, not at a hashed radius. Placed by radius and bearing alone a strike lands in clear air about
@@ -543,18 +562,12 @@ namespace Prazsky.Core.Render
         //centre line - and of those, to the first tall enough for its channel to leave it above the arena - so
         //every strike's channel is one a player can see, the way a film cuts to the strike. The walk starts from
         //the same hashed cell, so with no camera known it picks exactly what it always did.
-        private int PickStrikeCell(float index, float time, out Vector2 run)
+        private int PickStrikeCell(float index, float time)
         {
             int count = _stormStrikeCells.Length;
-            if (count == 0)
-            {
-                run = Vector2.UnitX;
-                return -1;
-            }
+            if (count == 0) return -1;
 
             int first = Math.Clamp((int)(SceneRenderer.Hash01(index + 57f) * count), 0, count - 1);
-            float nearMost = MathHelper.ToRadians(STRIKE_VIEW_MIN_DEGREES);
-            float farMost = _viewHalfWidth - MathHelper.ToRadians(STRIKE_VIEW_EDGE_DEGREES);
 
             int nearest = first, withinReach = -1, inView = -1, tall = -1;
             float nearestDistance = float.MaxValue;
@@ -573,18 +586,28 @@ namespace Prazsky.Core.Render
 
                 if (withinReach < 0) withinReach = cell;
                 if (!_viewKnown) break;
-
-                Vector2 toCell = at - _viewAt;
-                float off = MathF.Abs(MathF.Atan2(_viewForward.X * toCell.Y - _viewForward.Y * toCell.X, Vector2.Dot(_viewForward, toCell)));
-                if (off < nearMost || off > farMost) continue;
+                if (!InViewBand(at)) continue;
 
                 if (inView < 0) inView = cell;
                 if (BoltOriginY(cell) >= BOLT_ORIGIN_MIN_Y) tall = cell;
             }
 
-            int pick = tall >= 0 ? tall : inView >= 0 ? inView : withinReach >= 0 ? withinReach : nearest;
-            run = BoltRunDirection(pick, index, time);
-            return pick;
+            return tall >= 0 ? tall : inView >= 0 ? inView : withinReach >= 0 ? withinReach : nearest;
+        }
+
+        //How far a point stands off the last-drawn camera's centre line, as seen from above, in radians.
+        private float OffView(Vector2 point)
+        {
+            Vector2 to = point - _viewAt;
+            return MathF.Abs(MathF.Atan2(_viewForward.X * to.Y - _viewForward.Y * to.X, Vector2.Dot(_viewForward, to)));
+        }
+
+        //Whether a point stands in the band a strike is taken from: off the gun's column and inside the frame.
+        private bool InViewBand(Vector2 point)
+        {
+            float off = OffView(point);
+            return off >= MathHelper.ToRadians(STRIKE_VIEW_MIN_DEGREES)
+                && off <= _viewHalfWidth - MathHelper.ToRadians(STRIKE_VIEW_EDGE_DEGREES);
         }
 
         //How high up its cell a channel leaves from.
@@ -594,10 +617,23 @@ namespace Prazsky.Core.Render
             return body.X + BOLT_ORIGIN_SHARE * body.Z;
         }
 
+        /// <summary>The middle of a channel's height in a cell whose base stands at <paramref name="baseY"/> and which
+        /// is <paramref name="height"/> tall: halfway from where it leaves the cell to where it dives to — what a lens
+        /// framing a strike looks at (<c>StormIntroShots</c>, through <see cref="SceneRenderer.StormBoltMiddleY"/>).</summary>
+        internal static float BoltMiddleY(float baseY, float height) =>
+            (baseY + BOLT_ORIGIN_SHARE * height + baseY - BOLT_DIVE_BELOW_BASE) * 0.5f;
+
+        //How far a strike's channel runs out of its cell, flat: through nearly its radius, then across a gap hashed
+        //off the strike's own index.
+        private float BoltReach(int cell, float index) =>
+            _stormCellBodies[cell].Y * BOLT_RUN_THROUGH + BOLT_GAP_MIN + BOLT_GAP_SPAN * SceneRenderer.Hash01(index + 911f);
+
         //Which way a channel leaves its cell, flat: square to the line of sight, so it is seen at its full length
-        //and against the open air beside the cell rather than in front of the cell's own glow - outward, away
-        //from the frame's middle, for a cell near that middle, and inward for one out towards the frame's edge,
-        //so the run stays in the frame. With no camera known, square to the line from the arena, either way.
+        //and against the open air beside the cell rather than in front of the cell's own glow - whichever way keeps
+        //the end of its run inside the band a strike is taken from, outward from the frame's middle when both do
+        //and when neither does. The first cut chose by the cell's bearing alone, and
+        //a run of 50-128 units at 150-420 sweeps 15-40 degrees: an inward run ended behind the gun's wheels and an
+        //outward one off the frame (the review of #750). With no camera known, square to the line from the arena.
         private Vector2 BoltRunDirection(int cell, float index, float time)
         {
             Vector2 at = StormCellPosition(_stormStrikeCells[cell], time);
@@ -607,10 +643,23 @@ namespace Prazsky.Core.Render
                 Vector2 toCell = at - _viewAt;
                 Vector2 square = Vector2.Normalize(new Vector2(-toCell.Y, toCell.X));
                 Vector2 lateral = toCell - _viewForward * Vector2.Dot(toCell, _viewForward);
-                float outward = Vector2.Dot(square, lateral) >= 0f ? 1f : -1f;
+                Vector2 outward = Vector2.Dot(square, lateral) >= 0f ? square : -square;
 
-                float off = MathF.Abs(MathF.Atan2(_viewForward.X * toCell.Y - _viewForward.Y * toCell.X, Vector2.Dot(_viewForward, toCell)));
-                return square * (off < 0.5f * _viewHalfWidth ? outward : -outward);
+                //The run as far as the eye follows it: to where the diving channel crosses the lens's own height,
+                //past which the island hides it from the play camera (the dive is StormClouds.fx's t^1.4). The
+                //first cut of this check tested the whole run's end, far below the horizon, and sent runs off the
+                //frame's edge to keep a hidden end in the band.
+                float originY = BoltOriginY(cell);
+                float drop = MathF.Max(originY - (_stormCellBodies[cell].X - BOLT_DIVE_BELOW_BASE), 10f);
+                float seen = MathF.Pow(Math.Clamp((originY - _viewY) / drop, 0.05f, 1f), 1f / 1.4f);
+                float reach = BoltReach(cell, index) * seen;
+                Vector2 outEnd = at + outward * reach, inEnd = at - outward * reach;
+                if (InViewBand(outEnd)) return outward;
+                if (InViewBand(inEnd)) return -outward;
+
+                //Neither end in the band: outward, off the frame's edge. A run leaving the frame still shows where it
+                //starts, where one ending behind the gun is hidden at the end the eye follows it to
+                return outward;
             }
 
             Vector2 tangent = at.LengthSquared() > 1f ? Vector2.Normalize(new Vector2(-at.Y, at.X)) : Vector2.UnitX;
@@ -684,6 +733,7 @@ namespace Prazsky.Core.Render
             if (_viewKnown)
             {
                 _viewAt = new Vector2(frame.Camera.Position.X, frame.Camera.Position.Z);
+                _viewY = frame.Camera.Position.Y;
                 _viewForward = Vector2.Normalize(heading);
                 _viewHalfWidth = MathF.Atan(1f / MathF.Max(frame.Camera.Projection.M11, 1e-3f));
             }
@@ -726,11 +776,10 @@ namespace Prazsky.Core.Render
                 Vector3 body = _stormCellBodies[cell];
                 Vector2 at = StormCellPosition(_stormStrikeCells[cell], frame.Time);
                 float originY = BoltOriginY(cell);
-                float gap = BOLT_GAP_MIN + BOLT_GAP_SPAN * SceneRenderer.Hash01(_strikeIndex + 911f);
 
                 _boltOrigin.SetValue(new Vector3(at.X, originY, at.Y));
                 _boltRun.SetValue(new Vector3(run.X, 0f, run.Y));
-                _boltReach.SetValue(body.Y * BOLT_RUN_THROUGH + gap);
+                _boltReach.SetValue(BoltReach(cell, MathF.Floor(frame.Time / MathF.Max(_stormConfig.Flash.Period, 0.5f))));
                 _boltDrop.SetValue(MathF.Max(originY - (body.X - BOLT_DIVE_BELOW_BASE), 10f));
                 _boltEnvelope.SetValue(boltEnvelope);
                 _viewportSize.SetValue(new Vector2(_graphicsDevice.Viewport.Width, _graphicsDevice.Viewport.Height));
