@@ -7,7 +7,7 @@ namespace BS3D.Effects
 {
     /// <summary>
     /// The city's own shots for a chapter intro's prologue (#488, and #433 inside it): a pass down a
-    /// street from three storeys up, an orbit over a plaza from above, a swing round a tower corner between the facades and a skim
+    /// street from four storeys up, an orbit over a plaza from above, a swing round a tower corner between the facades and a skim
     /// across the roofs with their masts and blinking beacons (#436) — in that order, which alternates what the
     /// lens sees so that no cut lands on the same picture nudged (the owner's second-round note) — cut together,
     /// then cut to the ordinary tour. Both cities have spent a whole issue's worth of detail on the street
@@ -40,11 +40,14 @@ namespace BS3D.Effects
         //the frame, shallow enough that the towers still rise up the rest of it. ⚠ From above, not at a car's roof: the
         //cars, the lane lines and the crossings are paint on the ground, and the owner's verdict on the first cut (5.5
         //units up, 13 degrees down) was that a lens that low sees them flat - "I would look at it a little more from
-        //above". Three storeys up and looking down, the paint is a plan of the street.
-        private const float STREET_HEIGHT = 18f;
+        //above". Three storeys up and looking down, the paint is a plan of the street. And once more (#783, 2026-10-04):
+        //from 18 units at 30 degrees the flat cars and markings still showed up close ("the detail on the streets is
+        //missing, and looking this close, it shows"), so 26 at 36 - still under the swing's lowest point (46 - 14 = 32)
+        //and the plaza's start (32), so the shot keeps its own height in the reel.
+        private const float STREET_HEIGHT = 26f;
         private const float STREET_START_BLOCKS = 6.5f, STREET_START_JITTER = 2f;
         private const float STREET_RUN_BLOCKS = 2.0f;
-        private const float STREET_PITCH_DEGREES = 30f;
+        private const float STREET_PITCH_DEGREES = 36f;
         private const float STREET_SECONDS = 4.5f;
 
         //The swing (#433's "like Spider-Man"): a run down one street, round the corner, off down the next,
@@ -108,7 +111,7 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// The street pass: down the middle of a street towards the centre, three storeys up and looking down. Of a few
+        /// The street pass: down the middle of a street towards the centre, four storeys up and looking down. Of a few
         /// rolled streets the one flanked by the most built blocks is taken — the deepest canyon — because a
         /// street with a plaza on each side is not the city the owner asked to see.
         /// </summary>
