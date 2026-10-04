@@ -257,6 +257,20 @@ namespace BS3D.Screens
 
         protected Button MenuButton(string text, Action onClick, out Label label) => Game.MenuButton(text, onClick, out label);
 
+        protected Button MenuButton(Widget content, Action onClick) => Game.MenuButton(content, onClick);
+
+        /// <summary>
+        /// A media symbol (#784) sized to stand in for a word on a menu button: the display face's cap height in a widget
+        /// as tall as the face's line, so the button keeps a worded one's height.
+        /// </summary>
+        protected MediaGlyph ButtonGlyph(MediaGlyph.Symbol symbol) =>
+            new(symbol, (int)MathF.Round(FontBody.LineHeight * ANTON_CAP_OF_LINE), FontBody.LineHeight);
+
+        //Anton's capitals as a fraction of its line, off the face's own tables: sCapHeight 1760 units in a line of
+        //ascent 2409 + descent 674 (no line gap). Taken of the line rather than the em, so it holds whichever of the two
+        //FontStashSharp sizes a font by
+        private const float ANTON_CAP_OF_LINE = 1760f / (2409f + 674f);
+
         protected Button FrontEndEntry(string text, Action onClick) => Game.FrontEndEntry(text, onClick);
 
         protected Button FrontEndEntry(string text, Action onClick, out Label label) =>

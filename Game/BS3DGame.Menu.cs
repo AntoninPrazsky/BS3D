@@ -2127,6 +2127,20 @@ namespace BS3D
 
         internal Button MenuButton(string text, Action onClick) => MenuButton(text, onClick, out _);
 
+        /// <summary>
+        /// A menu button around content of the caller's own (#784: a media symbol instead of a word) — the worded
+        /// button's width, padding, brushes, click sound and pad entry, so it stands in a row of worded ones as one of them.
+        /// </summary>
+        internal Button MenuButton(Widget content, Action onClick)
+        {
+            Button button = MenuClickable(content, onClick);
+
+            button.Width = Scaled(MENU_BUTTON_WIDTH);
+            button.Padding = ScaledThickness(43, 18);
+
+            return button;
+        }
+
         internal Button FrontEndEntry(string text, Action onClick) => FrontEndEntry(text, onClick, out _);
 
         /// <summary>
