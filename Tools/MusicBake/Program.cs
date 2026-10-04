@@ -92,6 +92,16 @@ namespace BS3D.Tools.MusicBake
         /// <summary>The rate <c>GameMusic</c> decodes its tracks at (its <c>SAMPLE_RATE</c>), which <c>--shipped</c> reads them back at.</summary>
         private const int TRACK_RATE = 48000;
 
+        //A recording may not fall silent for longer than this (#772): lunar-idm shipped with an 18.25 s breakdown at
+        //-40 to -62 dBFS in the middle of its loop, its drums layer silent with it, and a level on the Moon that rotated
+        //onto it played a quarter of every minute in silence - "in some levels on the Moon no music plays". Measured in
+        //quarter-second windows of the mono fold, round the loop (a quiet tail runs on into a quiet head). The limit sits
+        //over the longest deliberate-sounding breaks the rest of the music has (5.75 s at mirage-electronica's opening, 5
+        //s near magma-doom's end, both left to the owner's ear in #772) and far under the hole it exists for.
+        private const double QUIET_DBFS = -35.0;
+        private const double QUIET_WINDOW_SECONDS = 0.25;
+        private const double QUIET_LIMIT_SECONDS = 6.0;
+
         //The generated sound effects (#482): the game's effects are baked at 44.1 kHz (ProceduralAudio.SAMPLE_RATE), and
         //a render that is not is refused rather than resampled here. The file is written at a sane peak; the loudness
         //law is the game's own at load, so a chosen sound is stored as it was chosen.
@@ -675,6 +685,14 @@ namespace BS3D.Tools.MusicBake
 
                 double lufs = Report(track, mix, TRACK_RATE, clock.Elapsed.TotalMilliseconds, -1);
 
+                //A shipped track that falls silent too long fails the run (#772)
+                string silent = QuietRefusal(track, mix, TRACK_RATE);
+                if (silent != null)
+                {
+                    Console.WriteLine("                 " + silent);
+                    read = false;
+                }
+
                 //The front end's loop is a lobby, brought to its own lower level on purpose, so it is not in the range
                 if (!Is(track, MENU_TRACK) && !double.IsNegativeInfinity(lufs)) themes.Add((track, lufs));
             }
@@ -732,6 +750,7 @@ namespace BS3D.Tools.MusicBake
             double seconds = 0, decodeMs = 0;
             int trackRate = 0;
             bool framesHold = true;
+            bool quietHold = true;
 
             for (int t = 0; t < found.Count; t++)
             {
@@ -790,7 +809,14 @@ namespace BS3D.Tools.MusicBake
                     + $"{clipped} samples clipped; coding error at the loop edges {edgeRatio:0.00}x the body's; "
                     + $"step across the wrap {wrapGrowth:+0.0000;-0.0000;0.0000} of full scale");
 
-                if (write) File.WriteAllBytes(Path.Combine(tracks, track + ".ogg"), ogg);
+                //A master that falls silent too long is not written (#772); the run says so and fails
+                string silent = QuietRefusal(track, mix, rate);
+                if (silent != null)
+                {
+                    Console.WriteLine("                 " + silent);
+                    quietHold = false;
+                }
+                else if (write) File.WriteAllBytes(Path.Combine(tracks, track + ".ogg"), ogg);
 
                 encoded.Add(ogg);
                 wavBytes += 44 + frames * 4L;
@@ -817,9 +843,10 @@ namespace BS3D.Tools.MusicBake
                 + $"all at once on the thread pool as the game loads them ({Environment.ProcessorCount} logical processors)");
 
             if (!framesHold) Console.WriteLine("A track does not decode to its master's frames in place: its loop would jump or gap at every repeat");
+            if (!quietHold) Console.WriteLine("A master falls silent for longer than a recording may, and was not written (#772)");
             if (write) Console.WriteLine($"Written to {tracks}");
 
-            return framesHold ? 0 : 1;
+            return framesHold && quietHold ? 0 : 1;
         }
 
         /// <summary>
@@ -1059,6 +1086,62 @@ namespace BS3D.Tools.MusicBake
             else throw new InvalidDataException($"{path}: format tag {tag} at {bits} bits is neither float32 nor PCM16");
 
             return (mix, rate);
+        }
+
+        /// <summary>
+        /// The longest stretch of an interleaved stereo loop under <see cref="QUIET_DBFS"/>, in seconds, and where it
+        /// starts (#772). Windows of <see cref="QUIET_WINDOW_SECONDS"/> over the mono fold, walked twice round so a quiet
+        /// run across the wrap counts as one, capped at the loop's own length.
+        /// </summary>
+        private static double LongestQuiet(float[] mix, int rate, out double startsAt)
+        {
+            startsAt = 0;
+            int frames = mix.Length / 2;
+            int window = Math.Max(1, (int)(QUIET_WINDOW_SECONDS * rate));
+            int windows = frames / window;
+            if (windows == 0) return 0;
+
+            double threshold = Math.Pow(10, QUIET_DBFS / 20);
+            double longest = 0;
+            int run = 0, runStart = 0;
+
+            for (int w = 0; w < 2 * windows; w++)
+            {
+                int first = (w % windows) * window;
+                double sum = 0;
+                for (int f = first; f < first + window; f++)
+                {
+                    double mono = (mix[f * 2] + mix[f * 2 + 1]) * 0.5;
+                    sum += mono * mono;
+                }
+
+                if (Math.Sqrt(sum / window) >= threshold)
+                {
+                    run = 0;
+                    continue;
+                }
+
+                if (run == 0) runStart = w % windows;
+                run = Math.Min(run + 1, windows);
+
+                double seconds = run * QUIET_WINDOW_SECONDS;
+                if (seconds > longest)
+                {
+                    longest = seconds;
+                    startsAt = runStart * window / (double)rate;
+                }
+            }
+
+            return longest;
+        }
+
+        /// <summary>The line a recording that falls silent too long is refused with (#772), or null when it does not.</summary>
+        private static string QuietRefusal(string track, float[] mix, int rate)
+        {
+            double quiet = LongestQuiet(mix, rate, out double at);
+            return quiet > QUIET_LIMIT_SECONDS
+                ? FormattableString.Invariant($"{track} falls silent for {quiet:0.00} s from {at:0.0} s (under {QUIET_DBFS:0} dBFS) - over the {QUIET_LIMIT_SECONDS:0} s a recording may: REFUSED")
+                : null;
         }
 
         /// <summary>One line of numbers per rendering, with the envelope under it. Returns the integrated loudness.</summary>

@@ -19,9 +19,10 @@
                     "inference_steps":  8,
                     "output_format":  "wav32"
                 },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
+    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it). Re-cut 2026-10-04 (#772): the first cut (source 25.40..102.20 s) ran across the render\u0027s 18 s near-silent breakdown at 57.6..75.9 s, so the game played silence for a quarter of every loop; this one is cut from the second loud body alone (the render cropped to 74.0..118.0 s and cut there), and the first cut is kept beside the master as theme-lunar-idm.loop-2026-09-23.wav",
     "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-lunar-idm.wav: 76.8s loop = source 25.40s..102.20s (32.00 bars at 100.0 bpm), crossfade 1.20s | context match 0.653 (best 0.701) | crossfade rhythm r=0.90 vs the track a bar later r=0.86: in time | spectrum cos=0.64"
+                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-lunar-idm.wav: 76.8s loop = source 25.40s..102.20s (32.00 bars at 100.0 bpm), crossfade 1.20s | context match 0.653 (best 0.701) | crossfade rhythm r=0.90 vs the track a bar later r=0.86: in time | spectrum cos=0.64",
+                     "Re-cut 2026-10-04 (#772): 28.8s loop = source 80.65s..109.45s (12.00 bars at 100.0 bpm), crossfade 1.20s | context match 0.940 (best 0.988) | crossfade rhythm r=0.99 vs the track a bar later r=0.96: in time | spectrum cos=0.99"
                  ],
     "measured":  "generate-music.ps1 end to end 59.7 s (ace-lm + ace-synth + loop cut)",
     "rendered":  true
