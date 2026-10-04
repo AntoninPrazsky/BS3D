@@ -81,6 +81,11 @@ namespace Prazsky.Core.Render
         private const float TRUNK_MEAN = 1.2f;
         private const float CROWN_SOLID = 0.92f;
 
+        //The crown's twigs (#782): how thick one leaves its bough against the trunk at the fork, and how many sprays it
+        //carries - few, so a tier's twigs are many and its leaf spreads over the plate rather than in spokes
+        private const float TWIG_RADIUS = 0.07f;
+        private const int SPRAYS_PER_TWIG = 8;
+
         /// <summary>Every tier of foliage in one mesh; <c>null</c> for a <see cref="AcaciaKind.Dead"/> tree.</summary>
         public IProceduralMesh Canopy { get; }
 
@@ -92,9 +97,31 @@ namespace Prazsky.Core.Render
         public IProceduralMesh Leaves { get; }
 
         public AcaciaMesh(GraphicsDevice device, AcaciaKind kind, float trunkRadius, float treeHeight, float canopyRadius, int seed)
+            : this(device, Build(kind, trunkRadius, treeHeight, canopyRadius, seed))
         {
-            Kind = kind;
-            BaseRadius = trunkRadius * ROOT_FLARE;
+        }
+
+        private AcaciaMesh(GraphicsDevice device, AcaciaGeometry geometry)
+        {
+            Kind = geometry.Kind;
+            BaseRadius = geometry.BaseRadius;
+            Volume = geometry.Volume;
+            Wood = new UploadedMesh(device, geometry.WoodVertices, geometry.WoodIndices, geometry.WoodBounds);
+
+            if (geometry.CanopyVertices != null)
+            {
+                Canopy = new UploadedMesh(device, geometry.CanopyVertices, geometry.CanopyIndices, geometry.CanopyBounds);
+                Leaves = new UploadedMesh(device, geometry.LeafVertices, geometry.LeafIndices, geometry.CanopyBounds);
+            }
+        }
+
+        /// <summary>
+        /// The whole tree as vertex and index lists, with no device (#782): what the constructor uploads, and what a test
+        /// reads to hold the tree to its promises — every leaf spray's stem on the wood (<see cref="AcaciaGeometry.Skeleton"/>).
+        /// </summary>
+        internal static AcaciaGeometry Build(AcaciaKind kind, float trunkRadius, float treeHeight, float canopyRadius, int seed)
+        {
+            AcaciaGeometry geometry = new() { Kind = kind, BaseRadius = trunkRadius * ROOT_FLARE };
             Random rng = new(seed);
 
             //Where the tiers of foliage sit: each a flat plate at a height, a radius, and a sideways offset
@@ -148,34 +175,43 @@ namespace Prazsky.Core.Render
                 }
             }
 
-            Wood = new WoodMesh(device, trunkRadius, treeHeight, canopyRadius, forkY, boughs, tiers, spars, twigs, rng);
+            //The wood, and the points under each tier its boughs end at - what the tier's twigs grow out of (#782)
+            var supports = new List<Vector3>[tiers.Count];
+            for (int t = 0; t < tiers.Count; t++) supports[t] = new List<Vector3>();
+
+            float reach = BuildWood(geometry, supports, trunkRadius, treeHeight, canopyRadius, forkY, boughs, tiers, spars, twigs, rng);
+            geometry.WoodBounds = new BoundingSphere(new Vector3(0f, treeHeight * 0.55f, 0f), reach * 1.2f + treeHeight * 0.6f);
 
             var volume = new List<Slab> { new(0f, forkY, trunkRadius * TRUNK_MEAN) };
             foreach (TierSpec tier in tiers)
                 volume.Add(new Slab(tier.CentreY - tier.HalfHeight, tier.CentreY + tier.HalfHeight, tier.Radius * CROWN_SOLID, tier.Offset.X, tier.Offset.Y));
             if (tiers.Count == 0) volume.Add(new Slab(forkY, treeHeight, canopyRadius * 0.55f));
-            Volume = volume.ToArray();
+            geometry.Volume = volume.ToArray();
 
             if (tiers.Count > 0)
             {
-                var v = new List<VertexPositionNormalTexture>();
-                var idx = new List<short>();
+                geometry.CanopyVertices = new List<VertexPositionNormalTexture>();
+                geometry.CanopyIndices = new List<short>();
                 for (int t = 0; t < tiers.Count; t++)
                 {
                     TierSpec tier = tiers[t];
-                    FoliageMesh.Generate(v, idx, tier.Radius, tier.HalfHeight,
+                    FoliageMesh.Generate(geometry.CanopyVertices, geometry.CanopyIndices, tier.Radius, tier.HalfHeight,
                         new Vector3(tier.Offset.X, tier.CentreY, tier.Offset.Y), seed * 31 + 7 + t * 13, FoliageStyle.Tier);
                 }
-                Canopy = new UploadedMesh(device, v, idx,
-                    new BoundingSphere(new Vector3(0f, treeHeight * 0.85f, 0f), canopyRadius * 1.6f + treeHeight * 0.2f));
+                geometry.CanopyBounds = new BoundingSphere(new Vector3(0f, treeHeight * 0.85f, 0f), canopyRadius * 1.6f + treeHeight * 0.2f);
 
-                var lv = new List<VertexPositionNormalTexture>();
-                var lidx = new List<int>();
+                //The sprays on twigs grown from the boughs' ends under each tier (#782), the twigs into the wood
                 Random leafRng = new(seed * 37 + 11);
-                foreach (TierSpec tier in tiers)
-                    LeafSprays.Generate(lv, lidx, new Vector3(tier.Offset.X, tier.CentreY, tier.Offset.Y), tier.Radius, tier.HalfHeight, leafRng);
-                Leaves = new UploadedMesh(device, lv, lidx, Canopy.BoundingSphere);
+                for (int t = 0; t < tiers.Count; t++)
+                {
+                    TierSpec tier = tiers[t];
+                    LeafSprays.HangOnTwigs(geometry.WoodVertices, geometry.WoodIndices, geometry.Skeleton, geometry.LeafVertices,
+                        geometry.LeafIndices, supports[t], new Vector3(tier.Offset.X, tier.CentreY, tier.Offset.Y), tier.Radius,
+                        tier.HalfHeight, trunkRadius * TWIG_RADIUS, SPRAYS_PER_TWIG, leafRng);
+                }
             }
+
+            return geometry;
         }
 
         public void Dispose()
@@ -196,23 +232,25 @@ namespace Prazsky.Core.Render
 
         /// <summary>Trunk + boughs: a flared trunk to the fork, then several tapered boughs fanning up and out
         /// to the tiers' undersides, each with a slight upward bend so the crown sits on spread arms. A dead
-        /// tree's boughs branch on into twigs instead, and a broken tree's spar rises bare past the crown.</summary>
-        private sealed class WoodMesh : IProceduralMesh, IDisposable
+        /// tree's boughs branch on into twigs instead, and a broken tree's spar rises bare past the crown.
+        /// <para>Into <paramref name="geometry"/>'s wood lists, every tube also a segment of its <see cref="AcaciaGeometry.Skeleton"/>,
+        /// and each bough's and limb's end under a tier added to that tier's <paramref name="supports"/> (#782). Returns how far
+        /// the wood reaches off the axis.</para></summary>
+        private static float BuildWood(AcaciaGeometry geometry, List<Vector3>[] supports, float trunkRadius, float treeHeight,
+            float canopyRadius, float forkY, int boughs, List<TierSpec> tiers, List<Vector2> spars, bool twigs, Random rng)
         {
-            public VertexBuffer VertexBuffer { get; private set; }
-            public IndexBuffer IndexBuffer { get; private set; }
-            public int PrimitiveCount { get; }
-            public BoundingSphere BoundingSphere { get; }
-
-            public WoodMesh(GraphicsDevice device, float trunkRadius, float treeHeight, float canopyRadius,
-                float forkY, int boughs, List<TierSpec> tiers, List<Vector2> spars, bool twigs, Random rng)
-            {
-                var v = new List<VertexPositionNormalTexture>();
-                var idx = new List<short>();
+                List<VertexPositionNormalTexture> v = geometry.WoodVertices;
+                List<short> idx = geometry.WoodIndices;
                 const int SEG = 7;
 
+                void Tube(int seg, Vector3 from, float fromRadius, Vector3 to, float toRadius)
+                {
+                    TubeGeometry.AddTube(v, idx, seg, from, fromRadius, to, toRadius);
+                    geometry.Skeleton.Add((from, to));
+                }
+
                 //The trunk, flared at the root and holding most of its girth to the fork.
-                TubeGeometry.AddTube(v, idx, SEG, new Vector3(0f, 0f, 0f), trunkRadius * ROOT_FLARE,
+                Tube(SEG, new Vector3(0f, 0f, 0f), trunkRadius * ROOT_FLARE,
                     new Vector3(0f, forkY, 0f), trunkRadius * 0.9f);
 
                 //The foot (#670): surface roots leaving the flare, running out along the ground and diving into it,
@@ -231,8 +269,8 @@ namespace Prazsky.Core.Render
                     Vector3 leave = rd * (foot * 0.3f) + Vector3.Up * (foot * ROOT_RISE * (0.8f + 0.4f * (float)rootDice.NextDouble()));
                     Vector3 knee = rd * (foot * 1.1f) + Vector3.Up * (foot * 0.12f);
                     Vector3 end = rd * out_ - Vector3.Up * ((out_ - foot) * ROOT_DIVE + foot * 0.2f);
-                    TubeGeometry.AddTube(v, idx, 5, leave, foot * 0.42f, knee, foot * 0.24f);
-                    TubeGeometry.AddTube(v, idx, 5, knee, foot * 0.24f, end, foot * 0.08f);
+                    Tube(5, leave, foot * 0.42f, knee, foot * 0.24f);
+                    Tube(5, knee, foot * 0.24f, end, foot * 0.08f);
                 }
 
                 //The boughs: evenly spread with a jittered bearing, each rising in two bent segments to a point
@@ -249,14 +287,16 @@ namespace Prazsky.Core.Render
                     //The tier this bough carries: the one whose offset lies nearest its own bearing, so a
                     //crown that sits to one side is held up by the boughs under it and not by thin air.
                     float spread, tipY;
+                    int carried = -1;
                     if (tiers.Count > 0)
                     {
                         TierSpec tier = tiers[0];
+                        carried = 0;
                         float best = float.NegativeInfinity;
                         for (int t = 0; t < tiers.Count; t++)
                         {
                             float toward = Vector2.Dot(tiers[t].Offset, new Vector2(dir.X, dir.Z)) + (t == 0 ? 0.01f : 0f);
-                            if (toward > best) { best = toward; tier = tiers[t]; }
+                            if (toward > best) { best = toward; tier = tiers[t]; carried = t; }
                         }
                         float along = Vector2.Dot(tier.Offset, new Vector2(dir.X, dir.Z));
                         spread = along + tier.Radius * (0.5f + 0.35f * (float)rng.NextDouble());
@@ -271,8 +311,9 @@ namespace Prazsky.Core.Render
 
                     Vector3 mid = fork + dir * (spread * 0.5f) + Vector3.Up * ((tipY - forkY) * 0.55f);
                     Vector3 tip = fork + dir * spread + Vector3.Up * (tipY - forkY);
-                    TubeGeometry.AddTube(v, idx, SEG, fork, trunkRadius * 0.6f, mid, trunkRadius * 0.42f);
-                    TubeGeometry.AddTube(v, idx, SEG, mid, trunkRadius * 0.42f, tip, trunkRadius * 0.14f);
+                    Tube(SEG, fork, trunkRadius * 0.6f, mid, trunkRadius * 0.42f);
+                    Tube(SEG, mid, trunkRadius * 0.42f, tip, trunkRadius * 0.14f);
+                    if (carried >= 0) supports[carried].Add(tip);
 
                     //The second forking (#451): from the bough's middle two thinner limbs splay to either side
                     //and reach the rim, the spokes an umbrella acacia shows under its crown — the references
@@ -285,7 +326,8 @@ namespace Prazsky.Core.Render
                             float sSpread = spread * (0.85f + 0.3f * (float)rng.NextDouble());
                             Vector3 sDir = new(MathF.Cos(sa), 0f, MathF.Sin(sa));
                             Vector3 sTip = fork + sDir * sSpread + Vector3.Up * (tipY - forkY + (float)(rng.NextDouble() - 0.3) * treeHeight * 0.04f);
-                            TubeGeometry.AddTube(v, idx, 5, mid, trunkRadius * 0.3f, sTip, trunkRadius * 0.08f);
+                            Tube(5, mid, trunkRadius * 0.3f, sTip, trunkRadius * 0.08f);
+                            if (carried >= 0) supports[carried].Add(sTip);
                             reach = MathF.Max(reach, sSpread);
                         }
                     }
@@ -301,7 +343,7 @@ namespace Prazsky.Core.Render
                             float ta = a + (float)(rng.NextDouble() - 0.5) * 1.6f;
                             float len = canopyRadius * (0.25f + 0.25f * (float)rng.NextDouble());
                             Vector3 to = from + new Vector3(MathF.Cos(ta), 0f, MathF.Sin(ta)) * (len * 0.7f) + Vector3.Up * (len * 0.7f);
-                            TubeGeometry.AddTube(v, idx, 5, from, trunkRadius * 0.22f, to, trunkRadius * 0.05f);
+                            Tube(5, from, trunkRadius * 0.22f, to, trunkRadius * 0.05f);
                             reach = MathF.Max(reach, len + spread);
                         }
                     }
@@ -315,22 +357,37 @@ namespace Prazsky.Core.Render
                     float spread = canopyRadius * 0.35f;
                     Vector3 mid = fork + dir * (spread * 0.6f) + Vector3.Up * ((spars[s].Y - forkY) * 0.5f);
                     Vector3 top = fork + dir * spread + Vector3.Up * (spars[s].Y - forkY);
-                    TubeGeometry.AddTube(v, idx, SEG, fork, trunkRadius * 0.55f, mid, trunkRadius * 0.38f);
-                    TubeGeometry.AddTube(v, idx, SEG, mid, trunkRadius * 0.38f, top, trunkRadius * 0.06f);
+                    Tube(SEG, fork, trunkRadius * 0.55f, mid, trunkRadius * 0.38f);
+                    Tube(SEG, mid, trunkRadius * 0.38f, top, trunkRadius * 0.06f);
                 }
 
-                PrimitiveCount = idx.Count / 3;
-                BoundingSphere = new BoundingSphere(new Vector3(0f, treeHeight * 0.55f, 0f), reach * 1.2f + treeHeight * 0.6f);
-
-                (VertexBuffer, IndexBuffer) = TubeGeometry.Upload(device, v, idx);
-            }
-
-            public void Dispose()
-            {
-                VertexBuffer?.Dispose(); VertexBuffer = null;
-                IndexBuffer?.Dispose(); IndexBuffer = null;
-            }
+                return reach;
         }
+    }
+
+    /// <summary>
+    /// An acacia as lists, before any device (#782): <see cref="AcaciaMesh.Build"/>'s answer, which the mesh uploads and a
+    /// test reads. <see cref="Skeleton"/> is every piece of wood as the segment it was swept along — trunk, roots, boughs,
+    /// limbs, spars and the crown's twigs — so a leaf can be measured against the wood it should grow from.
+    /// </summary>
+    internal sealed class AcaciaGeometry
+    {
+        public AcaciaKind Kind;
+        public float BaseRadius;
+        public Slab[] Volume;
+
+        public readonly List<VertexPositionNormalTexture> WoodVertices = new();
+        public readonly List<short> WoodIndices = new();
+        public BoundingSphere WoodBounds;
+
+        public List<VertexPositionNormalTexture> CanopyVertices;
+        public List<short> CanopyIndices;
+        public BoundingSphere CanopyBounds;
+
+        public readonly List<VertexPositionNormalTexture> LeafVertices = new();
+        public readonly List<int> LeafIndices = new();
+
+        public readonly List<(Vector3 From, Vector3 To)> Skeleton = new();
     }
 
     /// <summary>
@@ -367,50 +424,108 @@ namespace Prazsky.Core.Render
         //A spray's length as a share of the tier's radius, and its width against its length.
         private const float SPRAY_LENGTH = 0.20f, SPRAY_ASPECT = 0.45f;
 
-        public static void Generate(List<VertexPositionNormalTexture> v, List<int> idx, Vector3 centre, float radius,
-            float halfHeight, Random rng)
+        //A twig's leafy part (#782): the inner share of it is bare wood, as a twig's base is, and the sprays hang along
+        //the rest; its taper, from its base to its tip, against the radius it leaves its support at
+        private const float LEAVES_FROM = 0.3f;
+        private static readonly float[] TWIG_TAPER = { 1f, 0.7f, 0.45f, 0.2f };
+
+        //How finely a twig is written into the skeleton: its curve in this many straight pieces, so a stem on the curve is
+        //on the skeleton too
+        private const int SKELETON_PIECES = 8;
+
+        /// <summary>
+        /// A tier's (or a tuft's) sprays on twigs (#782): the owner's "leaves always grow out of branches, never out of
+        /// the air". The sprays used to be laid uniformly over the disc with nothing under them but the boughs at its rim,
+        /// and on the savanna's trees up to nine in ten stood clear of any wood. Now twigs grow from the wood under the
+        /// disc (<paramref name="supports"/>: the boughs' and limbs' ends) to points spread over its three layers exactly
+        /// as the sprays were spread, each bowing up on the way, and the sprays hang along the outer part of the twig with
+        /// every stem — the card's <c>u</c> = 0 end, where <c>Acacia.fx</c>'s mask starts the spray — on it, pointing on
+        /// outward and drooping at the rim as they did. The layers keep their spray counts, so the leaf mass and its cost
+        /// are what they were; the twigs go into the wood lists (<paramref name="woodVertices"/>, the bark's material)
+        /// and their curves into <paramref name="skeleton"/>.
+        /// </summary>
+        /// <param name="spraysPerTwig">How many sprays a twig carries: few on a crown the eye walks across, so the twigs
+        /// spread the leaf over the disc rather than in spokes; more on a small tuft.</param>
+        public static void HangOnTwigs(List<VertexPositionNormalTexture> woodVertices, List<short> woodIndices,
+            List<(Vector3 From, Vector3 To)> skeleton, List<VertexPositionNormalTexture> v, List<int> idx,
+            IReadOnlyList<Vector3> supports, Vector3 centre, float radius, float halfHeight, float twigRadius, int spraysPerTwig,
+            Random rng)
         {
+            float length = radius * SPRAY_LENGTH;
+            float width = length * SPRAY_ASPECT;
+
             for (int layer = 0; layer < LAYERS.Length; layer++)
             {
                 (float layerY, float reach, float cover) = LAYERS[layer];
-                float length = radius * SPRAY_LENGTH;
-                float width = length * SPRAY_ASPECT;
                 float disc = MathF.PI * radius * reach * radius * reach;
-                int count = (int)(cover * disc / (length * width));
+                int sprays = (int)(cover * disc / (length * width));
+                int twigs = Math.Max(1, (sprays + spraysPerTwig - 1) / spraysPerTwig);
 
-                for (int i = 0; i < count; i++)
+                for (int t = 0; t < twigs; t++)
                 {
-                    //Uniform over the disc, and a ragged edge: the rim's sprays reach out or fall short
+                    //Where the twig reaches: over the layer's disc as a spray was laid, area-even with a ragged edge, drooping
+                    //at the rim
                     float r = radius * reach * MathF.Sqrt((float)rng.NextDouble()) * (0.88f + 0.24f * (float)rng.NextDouble());
                     float a = (float)rng.NextDouble() * MathHelper.TwoPi;
                     float rim = r / radius;
-
-                    Vector3 at = centre + new Vector3(MathF.Cos(a) * r,
+                    Vector3 tip = centre + new Vector3(MathF.Cos(a) * r,
                         halfHeight * (layerY + 0.35f * ((float)rng.NextDouble() - 0.5f)) - halfHeight * 0.5f * rim * rim,
                         MathF.Sin(a) * r);
 
-                    //Laid near flat, pointing roughly outward, drooping at the rim and tilting a little at random
-                    float yaw = a + ((float)rng.NextDouble() - 0.5f) * 1.6f;
-                    Vector3 along = new(MathF.Cos(yaw), -0.25f * rim + 0.3f * ((float)rng.NextDouble() - 0.5f), MathF.Sin(yaw));
-                    along.Normalize();
-                    Vector3 across = Vector3.Normalize(Vector3.Cross(Vector3.Up, along));
-                    across = Vector3.Normalize(across + Vector3.Up * (0.8f * ((float)rng.NextDouble() - 0.5f)));
-                    Vector3 normal = Vector3.Normalize(Vector3.Cross(along, across));
-                    if (normal.Y < 0f) normal = -normal;
+                    //From the wood nearest it, as seen from above: the support it would have grown out of
+                    Vector3 basePoint = centre;
+                    float best = float.MaxValue;
+                    for (int s = 0; s < supports.Count; s++)
+                    {
+                        float dx = supports[s].X - tip.X, dz = supports[s].Z - tip.Z;
+                        float d = dx * dx + dz * dz;
+                        if (d < best) { best = d; basePoint = supports[s]; }
+                    }
 
-                    float scale = 0.75f + 0.5f * (float)rng.NextDouble();
-                    Vector3 stem = at - along * (length * scale * 0.5f);
-                    Vector3 tip = at + along * (length * scale * 0.5f);
-                    Vector3 half = across * (width * scale * 0.5f);
+                    //Bowing up on the way, as wood grown towards the light does, through a middle point shaken off the chord
+                    float span = Vector3.Distance(basePoint, tip);
+                    Vector3 jitter = new((float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f);
+                    Vector3 mid = Vector3.Lerp(basePoint, tip, 0.5f) + new Vector3(0f, span * 0.1f, 0f) + jitter * (span * 0.1f);
+                    Vector3 At(float f) => (1f - f) * (1f - f) * basePoint + 2f * f * (1f - f) * mid + f * f * tip;
 
-                    float layerCode = 2f * layer;
-                    int b = v.Count;
-                    v.Add(new VertexPositionNormalTexture(stem - half, normal, new Vector2(0f, layerCode)));
-                    v.Add(new VertexPositionNormalTexture(stem + half, normal, new Vector2(0f, layerCode + 1f)));
-                    v.Add(new VertexPositionNormalTexture(tip + half, normal, new Vector2(1f, layerCode + 1f)));
-                    v.Add(new VertexPositionNormalTexture(tip - half, normal, new Vector2(1f, layerCode)));
-                    idx.Add(b); idx.Add(b + 1); idx.Add(b + 2);
-                    idx.Add(b); idx.Add(b + 2); idx.Add(b + 3);
+                    TubeGeometry.AddSweep(woodVertices, woodIndices, 3, new[] { basePoint, At(0.33f), At(0.67f), tip },
+                        new[] { twigRadius * TWIG_TAPER[0], twigRadius * TWIG_TAPER[1], twigRadius * TWIG_TAPER[2], twigRadius * TWIG_TAPER[3] });
+                    for (int piece = 0; piece < SKELETON_PIECES; piece++)
+                        skeleton.Add((At(piece / (float)SKELETON_PIECES), At((piece + 1) / (float)SKELETON_PIECES)));
+
+                    //This twig's share of the layer's sprays, along its outer part, each stem on the twig
+                    int cards = sprays / (twigs - t);
+                    sprays -= cards;
+                    for (int k = 0; k < cards; k++)
+                    {
+                        float f = LEAVES_FROM + (1f - LEAVES_FROM) * (k + 0.3f + 0.4f * (float)rng.NextDouble()) / cards;
+                        Vector3 stem = At(f);
+                        Vector2 out_ = new(stem.X - centre.X, stem.Z - centre.Z);
+                        float sa = out_.LengthSquared() > 1e-8f ? MathF.Atan2(out_.Y, out_.X) : a;
+                        float srim = MathF.Min(out_.Length() / radius, 1.2f);
+
+                        //Laid near flat, pointing roughly outward, drooping at the rim and tilting a little at random
+                        float yaw = sa + ((float)rng.NextDouble() - 0.5f) * 1.6f;
+                        Vector3 along = new(MathF.Cos(yaw), -0.25f * srim + 0.3f * ((float)rng.NextDouble() - 0.5f), MathF.Sin(yaw));
+                        along.Normalize();
+                        Vector3 across = Vector3.Normalize(Vector3.Cross(Vector3.Up, along));
+                        across = Vector3.Normalize(across + Vector3.Up * (0.8f * ((float)rng.NextDouble() - 0.5f)));
+                        Vector3 normal = Vector3.Normalize(Vector3.Cross(along, across));
+                        if (normal.Y < 0f) normal = -normal;
+
+                        float scale = 0.75f + 0.5f * (float)rng.NextDouble();
+                        Vector3 end = stem + along * (length * scale);
+                        Vector3 half = across * (width * scale * 0.5f);
+
+                        float layerCode = 2f * layer;
+                        int b = v.Count;
+                        v.Add(new VertexPositionNormalTexture(stem - half, normal, new Vector2(0f, layerCode)));
+                        v.Add(new VertexPositionNormalTexture(stem + half, normal, new Vector2(0f, layerCode + 1f)));
+                        v.Add(new VertexPositionNormalTexture(end + half, normal, new Vector2(1f, layerCode + 1f)));
+                        v.Add(new VertexPositionNormalTexture(end - half, normal, new Vector2(1f, layerCode)));
+                        idx.Add(b); idx.Add(b + 1); idx.Add(b + 2);
+                        idx.Add(b); idx.Add(b + 2); idx.Add(b + 3);
+                    }
                 }
             }
         }
