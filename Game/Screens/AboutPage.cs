@@ -36,7 +36,7 @@ namespace BS3D.Screens
         private const int VISUALIZER_BAR_GAP = 10;
 
         private Label _pieceLabel;
-        private Label _playLabel;
+        private MediaGlyph _playGlyph;
 
         //What the two labels last said, as one number, so their text is written when the player's state changes
         //rather than every frame — a Label's Text setter re-measures, and a string built per frame is garbage.
@@ -148,11 +148,13 @@ namespace BS3D.Screens
             };
 
             //Added left to right, the order the pad walks them in (CollectNavEntries follows insertion)
-            Button play = MenuButton("Play", jukebox.PlayPause, out _playLabel);
+            //Symbols, not words (#784, the owner: "one symbol is enough"): ▶ / ❚❚ on the one, ⏭ on the other
+            _playGlyph = ButtonGlyph(MediaGlyph.Symbol.Play);
+            Button play = MenuButton(_playGlyph, jukebox.PlayPause);
             play.Width = Scaled(PLAYER_BUTTON_WIDTH);
             controls.Widgets.Add(play);
 
-            Button next = MenuButton("Next", jukebox.Next);
+            Button next = MenuButton(ButtonGlyph(MediaGlyph.Symbol.Next), jukebox.Next);
             next.Width = Scaled(PLAYER_BUTTON_WIDTH);
             controls.Widgets.Add(next);
 
@@ -223,14 +225,11 @@ namespace BS3D.Screens
 
             _pieceLabel.Text = $"{jukebox.PieceName} · {jukebox.PieceNumber} / {ProceduralJukebox.PieceCount}";
 
-            //ASCII dots: the display face is Anton, and a glyph it lacks is dropped without a word by FontStashSharp
-            _playLabel.Text = action switch
-            {
-                1 => "Composing...",
-                2 => "Pause",
-                3 => "Resume",
-                _ => "Play",
-            };
+            //Pause while it sounds, play otherwise (resume is play again). While a piece is still being composed the
+            //button cannot act yet (ProceduralJukebox.PlayPause waits for the render), so it shows play in the aside
+            //grey - the words "Composing..." it used to say were the one state a symbol has to show by tone
+            _playGlyph.Shape = action == 2 ? MediaGlyph.Symbol.Pause : MediaGlyph.Symbol.Play;
+            _playGlyph.Tint = action == 1 ? BS3DGame.MENU_TEXT_DIM : BS3DGame.MENU_TEXT;
         }
 
         /// <summary>
