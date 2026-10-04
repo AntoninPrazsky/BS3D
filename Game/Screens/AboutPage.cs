@@ -232,17 +232,23 @@ namespace BS3D.Screens
         /// <summary>
         /// One paragraph of prose, cut to <see cref="MenuPage.ColumnWidth"/> (#463) — the same figure a button and the
         /// player's own widgets are cut to, so a column's text lines up with everything under it instead of
-        /// keeping a page-specific width of its own.
+        /// keeping a page-specific width of its own. Broken at spaces only (<see cref="SpaceWrap"/>, #769): the text's
+        /// own wrap breaks after a dot as well, which would part "MonoGame 3.8.5" or the score server's address.
         /// </summary>
-        private Label Paragraph(string text) => new()
+        private Label Paragraph(string text)
         {
-            Text = text,
-            Font = FontSmall,
-            TextColor = BS3DGame.MENU_TEXT_BODY,
-            Wrap = true,
-            Width = ColumnWidth,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            Margin = ScaledThickness(0, 0, 0, 34),
-        };
+            Label paragraph = new()
+            {
+                Font = FontSmall,
+                TextColor = BS3DGame.MENU_TEXT_BODY,
+                Wrap = true,
+                Width = ColumnWidth,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = ScaledThickness(0, 0, 0, 34),
+            };
+
+            paragraph.Text = SpaceWrap.Wrap(text, LaidOutWidth(paragraph), line => FontSmall.MeasureString(line).X);
+            return paragraph;
+        }
     }
 }
