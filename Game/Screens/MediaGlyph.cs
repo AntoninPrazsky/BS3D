@@ -26,7 +26,7 @@ namespace BS3D.Screens
     /// </summary>
     internal sealed class MediaGlyph : Widget
     {
-        internal enum Symbol : byte { Play, Pause, Next }
+        internal enum Symbol : byte { Play, Pause, Next, Previous }
 
         /// <summary>Which symbol is drawn; a page sets it as the player's state changes.</summary>
         public Symbol Shape { get; set; }
@@ -90,6 +90,19 @@ namespace BS3D.Screens
                     FlatBrush.Fill(context, new Rectangle(left + (int)MathF.Round(2f * width), top, bar, h), tint);
                     break;
                 }
+
+                case Symbol.Previous:
+                {
+                    //⏮, the next symbol mirrored: the bar, then two triangles pointing back at it (#704)
+                    float width = h * 0.46f;
+                    int bar = Math.Max(1, (int)MathF.Round(h * 0.14f));
+                    float total = 2f * width + bar;
+                    int left = (int)MathF.Round(centreX - total / 2f);
+                    FlatBrush.Fill(context, new Rectangle(left, top, bar, h), tint);
+                    Triangle(context, left + bar, top, h, width, tint, pointsRight: false);
+                    Triangle(context, left + bar + (int)MathF.Round(width), top, h, width, tint, pointsRight: false);
+                    break;
+                }
             }
         }
 
@@ -98,9 +111,10 @@ namespace BS3D.Screens
         /// width the row's middle crosses, and the row's last pixel at the coverage left over (the colour premultiplied,
         /// as the menu's batch blends), so the two slanted edges are smooth.
         /// </summary>
-        private static void Triangle(RenderContext context, int left, int top, int height, float width, Color tint)
+        private static void Triangle(RenderContext context, int left, int top, int height, float width, Color tint, bool pointsRight = true)
         {
             float half = height / 2f;
+            int span = (int)MathF.Ceiling(width);
 
             for (int row = 0; row < height; row++)
             {
@@ -108,8 +122,18 @@ namespace BS3D.Screens
                 int whole = (int)reach;
                 float partial = reach - whole;
 
-                if (whole > 0) FlatBrush.Fill(context, new Rectangle(left, top + row, whole, 1), tint);
-                if (partial > 0.02f) FlatBrush.Fill(context, new Rectangle(left + whole, top + row, 1, 1), tint * partial);
+                if (pointsRight)
+                {
+                    if (whole > 0) FlatBrush.Fill(context, new Rectangle(left, top + row, whole, 1), tint);
+                    if (partial > 0.02f) FlatBrush.Fill(context, new Rectangle(left + whole, top + row, 1, 1), tint * partial);
+                }
+                else
+                {
+                    //Pointing left: the upright edge on the right, at left + span, the point towards left
+                    int right = left + span;
+                    if (whole > 0) FlatBrush.Fill(context, new Rectangle(right - whole, top + row, whole, 1), tint);
+                    if (partial > 0.02f) FlatBrush.Fill(context, new Rectangle(right - whole - 1, top + row, 1, 1), tint * partial);
+                }
             }
         }
     }

@@ -63,6 +63,8 @@ namespace BS3D
         private HighScoresPage _highScoresPage;
         private LevelSelectPage _levelSelectPage;
         private ScenePage _scenePage;
+        private ExtrasPage _extrasPage;
+        private JukeboxPage _jukeboxPage;
         private AboutPage _aboutPage;
         private HelpPage _helpPage;
         private ResultPage _resultPage;
@@ -577,6 +579,8 @@ namespace BS3D
             _nicknamePage = new NicknamePage(this);
             _levelSelectPage = new LevelSelectPage(this);
             _scenePage = new ScenePage(this);
+            _extrasPage = new ExtrasPage(this);
+            _jukeboxPage = new JukeboxPage(this);
             _aboutPage = new AboutPage(this);
             _levelBoardPage = new LevelBoardPage(this);
             _highScoresPage = new HighScoresPage(this);
@@ -1203,6 +1207,18 @@ namespace BS3D
         //done, so a page reads as a list of choices.
         internal void OpenLevelSelect() => OpenPage(_levelSelectPage);
         internal void OpenSceneSelect() => OpenPage(_scenePage);
+
+        /// <summary>The main menu's Extras (#704): the Scene picker and the Jukebox.</summary>
+        internal void OpenExtras() => OpenPage(_extrasPage);
+
+        internal void OpenJukebox() => OpenPage(_jukeboxPage);
+
+        /// <summary>The Jukebox on a stated chapter (1-based), playing its first recording if asked - the <c>jukebox=</c> argument's (#704).</summary>
+        internal void OpenJukeboxAt(int chapter, bool play)
+        {
+            _jukeboxPage.Pin(chapter, play);
+            OpenPage(_jukeboxPage);
+        }
         internal void OpenSettings() => OpenPage(_settingsPage);
         internal void OpenHighScores() => OpenPage(_highScoresPage);
 

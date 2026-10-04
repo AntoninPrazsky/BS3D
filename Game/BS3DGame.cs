@@ -248,6 +248,9 @@ namespace BS3D
         /// <summary>The About page's player of the original procedural score (#443).</summary>
         internal ProceduralJukebox Jukebox => _audioDirector?.Jukebox;
 
+        /// <summary>The Jukebox page's player of the game's recordings (#704).</summary>
+        internal RecordingPlayer Recordings => _audioDirector?.Recordings;
+
         /// <summary>The online score boards (#546): what the result, board, settings and About pages read and ask of them.</summary>
         internal OnlineSession Online => _online;
 

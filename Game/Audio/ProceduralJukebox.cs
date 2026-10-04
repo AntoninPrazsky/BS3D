@@ -31,7 +31,7 @@ namespace BS3D.Audio
     /// this player's: at the end of the piece the queue goes back to its top, once the whole of it exists.
     /// </para>
     /// </summary>
-    internal sealed class ProceduralJukebox : IDisposable
+    internal sealed class ProceduralJukebox : IBandSource, IDisposable
     {
         private static readonly (string Name, MusicTheme? Theme)[] PIECES =
         {
@@ -45,30 +45,6 @@ namespace BS3D.Audio
 
         public static int PieceCount => PIECES.Length;
 
-        /// <summary>How many bars the visualizer draws.</summary>
-        public const int BAND_COUNT = 24;
-
-        private const int WINDOW = 2048;
-
-        //The bars span 40 Hz to 16 kHz on a log scale. A band's level is its mean power per bin against a full-scale
-        //sine's peak bin under the same window, TILTED by TILT_DB_PER_OCTAVE about 1 kHz, then mapped from FLOOR_DB
-        //(an empty bar) to TOP_DB (a full one). Measured over all six pieces, four readings a second: untilted, the
-        //bands' medians spread from -22 dB in the bass to -80 in the top octave, so one scale either pinned the
-        //bass bars or left the treble ones dead — which is exactly how the first version looked. Tilted by 6 dB an
-        //octave the medians sit within -57..-45 and the 95th percentiles within -38..-28, and -65..-25 puts a
-        //typical bar about a third of the way up and a loud moment near the top.
-        private const double LOW_HZ = 40;
-        private const double HIGH_HZ = 16000;
-        private const double TILT_DB_PER_OCTAVE = 6;
-        private const double TILT_PIVOT_HZ = 1000;
-        private const double FLOOR_DB = -65;
-        private const double TOP_DB = -25;
-
-        //A bar jumps up almost at once and falls at a steady rate, the way a meter's ballistics read — on the wall
-        //clock, so the bars move the same at 30 and at 240 frames a second.
-        private const float RISE_PER_SECOND = 28f;
-        private const float FALL_PER_SECOND = 1.8f;
-
         //=== The stream (#464) ===
         //A chunk is half a second and the queue holds three at most, so the first sound follows the first published
         //bar by one chunk and no more than 1.5 s ever sits queued ahead of the playhead. A frame converts at most
@@ -80,13 +56,8 @@ namespace BS3D.Audio
         private const int CONVERT_FRAMES_PER_UPDATE = ProceduralMusic.SAMPLE_RATE * 4;
         private const int BYTES_PER_FRAME = 4;
 
-        private readonly double[] _window = new double[WINDOW];
-        private readonly double[] _re = new double[WINDOW];
-        private readonly double[] _im = new double[WINDOW];
-        private readonly int[] _bandBins = new int[BAND_COUNT + 1];
-        private readonly double[] _bandTilt = new double[BAND_COUNT];
-        private readonly float[] _targets = new float[BAND_COUNT];
-        private readonly float[] _bands = new float[BAND_COUNT];
+        //The spectrum for the page's visualizer, shared with the Jukebox's recordings (#704)
+        private readonly SpectrumAnalyser _analyser = new(ProceduralMusic.SAMPLE_RATE);
 
         private int _index;
         private Task _render;
@@ -99,29 +70,8 @@ namespace BS3D.Audio
         private double _position;
         private float _gain = 1f;
 
-        public ProceduralJukebox()
-        {
-            for (int i = 0; i < WINDOW; i++) _window[i] = 0.5 - 0.5 * Math.Cos(2 * Math.PI * i / WINDOW);
-
-            //Log-spaced edges, each band at least one bin wide — at this window the low bands are narrower than a
-            //bin apart, and a band with no bin in it would be a bar that never moves.
-            double binHz = (double)ProceduralMusic.SAMPLE_RATE / WINDOW;
-            for (int b = 0; b <= BAND_COUNT; b++)
-            {
-                double hz = LOW_HZ * Math.Pow(HIGH_HZ / LOW_HZ, b / (double)BAND_COUNT);
-                int bin = (int)Math.Round(hz / binHz);
-                _bandBins[b] = b == 0 ? Math.Max(1, bin) : Math.Max(_bandBins[b - 1] + 1, bin);
-            }
-
-            for (int b = 0; b < BAND_COUNT; b++)
-            {
-                double centreHz = Math.Sqrt(_bandBins[b] * (double)_bandBins[b + 1]) * binHz;
-                _bandTilt[b] = TILT_DB_PER_OCTAVE * Math.Log2(centreHz / TILT_PIVOT_HZ);
-            }
-        }
-
         /// <summary>Each bar's height, 0–1, for this frame. Falls to nothing when nothing is playing.</summary>
-        public ReadOnlySpan<float> Bands => _bands;
+        public ReadOnlySpan<float> Bands => _analyser.Bands;
 
         public string PieceName => PIECES[_index].Name;
 
@@ -217,19 +167,13 @@ namespace BS3D.Audio
             if (playing)
             {
                 _position = (_position + elapsed) % (_totalFrames / (double)ProceduralMusic.SAMPLE_RATE);
-                Analyse();
+
+                //It reads only what has been converted so far (#464): a frame the render has not reached is silence,
+                //and the wrap onto the other end of the loop waits for the whole piece to exist
+                _analyser.Analyse(_pcm, _totalFrames, _convertedFrames, _position, loops: true);
             }
 
-            float rise = 1f - MathF.Exp(-RISE_PER_SECOND * elapsed);
-
-            for (int b = 0; b < BAND_COUNT; b++)
-            {
-                float target = playing ? _targets[b] : 0f;
-
-                _bands[b] = target > _bands[b]
-                    ? _bands[b] + (target - _bands[b]) * rise
-                    : MathF.Max(target, _bands[b] - FALL_PER_SECOND * elapsed);
-            }
+            _analyser.Step(elapsed, playing);
         }
 
         private void Start()
@@ -353,56 +297,6 @@ namespace BS3D.Audio
             _totalFrames = 0;
             _convertedFrames = 0;
             _submittedFrames = 0;
-        }
-
-        /// <summary>
-        /// The spectrum at the playing position: a window of the mono fold centred on it, through the shared FFT,
-        /// folded into each band's mean power and mapped onto a bar's 0–1. Allocation-free: every buffer is the
-        /// jukebox's own. It reads only what has been converted so far (#464): a frame the render has not reached
-        /// is silence, and the wrap onto the other end of the loop waits for the whole piece to exist.
-        /// </summary>
-        private void Analyse()
-        {
-            int frames = _totalFrames;
-            bool whole = _convertedFrames >= frames;
-            int start = (int)(_position * ProceduralMusic.SAMPLE_RATE) - WINDOW / 2;
-
-            for (int i = 0; i < WINDOW; i++)
-            {
-                int frame = start + i;
-
-                if (frame < 0 || frame >= frames)
-                {
-                    if (!whole) { _re[i] = 0; _im[i] = 0; continue; }
-                    frame = (frame % frames + frames) % frames;
-                }
-                else if (frame >= _convertedFrames) { _re[i] = 0; _im[i] = 0; continue; }
-
-                int at = frame * BYTES_PER_FRAME;
-
-                short left = (short)(_pcm[at] | (_pcm[at + 1] << 8));
-                short right = (short)(_pcm[at + 2] | (_pcm[at + 3] << 8));
-
-                _re[i] = (left + right) / 65536.0 * _window[i];
-                _im[i] = 0;
-            }
-
-            Spectrum.Fft(_re, _im);
-
-            //A full-scale sine's peak bin under a Hann window has magnitude N/4
-            double reference = (WINDOW / 4.0) * (WINDOW / 4.0);
-
-            for (int b = 0; b < BAND_COUNT; b++)
-            {
-                double power = 0;
-                int from = _bandBins[b], to = Math.Min(_bandBins[b + 1], WINDOW / 2);
-
-                for (int bin = from; bin < to; bin++) power += _re[bin] * _re[bin] + _im[bin] * _im[bin];
-
-                double db = 10 * Math.Log10(Math.Max(power / Math.Max(1, to - from), 1e-12) / reference) + _bandTilt[b];
-
-                _targets[b] = (float)Math.Clamp((db - FLOOR_DB) / (TOP_DB - FLOOR_DB), 0, 1);
-            }
         }
 
         public void Dispose() => Stop();

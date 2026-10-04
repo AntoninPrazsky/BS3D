@@ -127,7 +127,8 @@ namespace BS3D.Screens
             //Every level's board at a glance (#685), beside the picker it is the other half of: one chooses a level, the
             //other shows who leads each one and where the player stands
             column.Widgets.Add(FrontEndEntry("High Scores", Game.OpenHighScores));
-            column.Widgets.Add(FrontEndEntry("Scene", Game.OpenSceneSelect));
+            //Extras (#704) holds the Scene picker that stood here and the Jukebox: the owner wanted no ninth entry
+            column.Widgets.Add(FrontEndEntry("Extras", Game.OpenExtras));
             column.Widgets.Add(FrontEndEntry("Settings", Game.OpenSettings));
             //Before About and after the rest: a player who wants to know HOW should not have to read what
             //the game is built on first (#427).
