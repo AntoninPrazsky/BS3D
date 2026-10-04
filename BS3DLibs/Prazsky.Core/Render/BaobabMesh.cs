@@ -35,7 +35,7 @@ namespace Prazsky.Core.Render
         /// ring at the ground plus the irregularity it is wobbled by there; since #670 the foot flares on under the
         /// ground past it, which stays buried on any slope the plain has.
         /// </summary>
-        public float BaseRadius => ((WoodMesh)Wood).BaseRadius;
+        public float BaseRadius { get; }
 
         /// <summary>
         /// What the tree is made of, as slabs at scale 1 (#653): the bottle trunk in two (the swollen foot, then the taper to
@@ -47,13 +47,18 @@ namespace Prazsky.Core.Render
         /// <param name="height">The tree's full height, to the top of the crown.</param>
         /// <param name="seed">Rolls the limbs and the tufts.</param>
         public BaobabMesh(GraphicsDevice device, float height, int seed)
+            : this(device, Build(height, seed), height, seed)
         {
-            Random rng = new(seed);
-            Wood = new WoodMesh(device, height, rng);
-            Foliage = new TuftsMesh(device, height, ((WoodMesh)Wood).TwigTips, seed);
+        }
 
-            //The trunk as the profile has it: r at the foot, 0.78r a third of the way up and 0.55r by the neck (WoodMesh)
-            float r = ((WoodMesh)Wood).TrunkRadius;
+        private BaobabMesh(GraphicsDevice device, BaobabGeometry geometry, float height, int seed)
+        {
+            Wood = new UploadedMesh(device, geometry.WoodVertices, geometry.WoodIndices, geometry.WoodBounds);
+            Foliage = new TuftsMesh(device, height, geometry.TwigTips, seed);
+            BaseRadius = geometry.BaseRadius;
+
+            //The trunk as the profile has it: r at the foot, 0.78r a third of the way up and 0.55r by the neck (BuildWood)
+            float r = geometry.TrunkRadius;
             BoundingSphere crown = Foliage.BoundingSphere;
             Volume = new Slab[]
             {
@@ -62,19 +67,42 @@ namespace Prazsky.Core.Render
                 new(crown.Center.Y - crown.Radius * 0.5f, crown.Center.Y + crown.Radius * 0.5f, crown.Radius * 0.85f, crown.Center.X, crown.Center.Z),
             };
 
+            Leaves = new UploadedMesh(device, geometry.LeafVertices, geometry.LeafIndices, Foliage.BoundingSphere);
+        }
+
+        /// <summary>
+        /// The tree as lists, with no device (#782): the wood, its skeleton, the twig ends and the leaf sprays — what the
+        /// constructor uploads, and what a test reads to hold every leaf to the wood it grows from.
+        /// </summary>
+        internal static BaobabGeometry Build(float height, int seed)
+        {
+            BaobabGeometry geometry = new();
+            Random rng = new(seed);
+            BuildWood(geometry, height, rng);
+
             //Int indices: a crown of twenty-six leafy twig ends or more passes 65 536 vertices, and under short indices
             //the cards past that wrapped onto the first ones — a sixth of them never drawn, as many drawn twice (#670)
-            var lv = new List<VertexPositionNormalTexture>();
-            var lidx = new List<int>();
+            //Each leafy twig end a spray of twiglets with the leaf hung on them (#782): the sprays used to be a disc round the
+            //end with nothing in it, and on the savanna's baobabs nine in ten stood clear of any wood
             Random leafRng = new(seed * 41 + 5);
-            foreach (Vector3 tip in ((WoodMesh)Wood).TwigTips)
+            Vector3[] support = new Vector3[1];
+            foreach (Vector3 tip in geometry.TwigTips)
             {
                 if (leafRng.NextDouble() > LEAFY_TWIGS) continue;
                 float radius = height * (0.045f + 0.03f * (float)leafRng.NextDouble());
-                LeafSprays.Generate(lv, lidx, tip + Vector3.Up * (radius * 0.15f), radius, radius * 0.3f, leafRng);
+                support[0] = tip;
+                LeafSprays.HangOnTwigs(geometry.WoodVertices, geometry.WoodIndices, geometry.Skeleton, geometry.LeafVertices,
+                    geometry.LeafIndices, support, tip + Vector3.Up * (radius * 0.15f), radius, radius * 0.3f,
+                    geometry.TrunkRadius * TWIGLET_RADIUS, SPRAYS_PER_TWIGLET, leafRng);
             }
-            Leaves = new UploadedMesh(device, lv, lidx, Foliage.BoundingSphere);
+
+            return geometry;
         }
+
+        //The twiglets a leafy end carries its sprays on (#782): how thick one leaves the twig end against the trunk (the end
+        //itself is 0.01 of it) and how many sprays each holds - many, since a tuft is small and its twiglets fill it
+        private const float TWIGLET_RADIUS = 0.008f;
+        private const int SPRAYS_PER_TWIGLET = 24;
 
         //The share of the twig ends that carry leaves: sparse, as the references' cap is
         private const double LEAFY_TWIGS = 0.7;
@@ -101,31 +129,18 @@ namespace Prazsky.Core.Render
         private const float IRREGULARITY = 0.06f;
         private const float FOOT_FOLD = 2.3f;
 
-        /// <summary>The bottle trunk and the bare limbs, one material.</summary>
-        private sealed class WoodMesh : IProceduralMesh, IDisposable
+        /// <summary>
+        /// The bottle trunk and the bare limbs, one material: into <paramref name="geometry"/>'s wood lists, every limb and
+        /// twig also a segment of its skeleton (#782), and the twig ends into <see cref="BaobabGeometry.TwigTips"/>.
+        /// </summary>
+        private static void BuildWood(BaobabGeometry geometry, float height, Random rng)
         {
-            public VertexBuffer VertexBuffer { get; private set; }
-            public IndexBuffer IndexBuffer { get; private set; }
-            public int PrimitiveCount { get; }
-            public BoundingSphere BoundingSphere { get; }
-
-            /// <summary>Where the twigs end, for the leaf tufts to sit on.</summary>
-            public List<Vector3> TwigTips { get; } = new();
-
-            /// <summary>How far the foot reaches from the axis at the pivot: the profile's ring at the ground, wobble included (#658).</summary>
-            public float BaseRadius { get; }
-
-            /// <summary>The trunk's radius at its widest, before the foot's flare (#653).</summary>
-            public float TrunkRadius { get; }
-
-            public WoodMesh(GraphicsDevice device, float height, Random rng)
-            {
                 //The trunk: a bottle traced top → outside → underside. Widest low down, a slow taper, a
                 //neck at the top where the limbs leave it. The wobble is slight - a baobab is smooth.
                 float top = height * 0.6f;
                 float r = height * 0.19f * (0.9f + 0.2f * (float)rng.NextDouble());
-                BaseRadius = r * (BOTTOM_RING + IRREGULARITY * FOOT_FOLD);
-                TrunkRadius = r;
+                geometry.BaseRadius = r * (BOTTOM_RING + IRREGULARITY * FOOT_FOLD);
+                geometry.TrunkRadius = r;
                 var profile = new (float radius, float y, float wobble)[]
                 {
                     (0f,        top,            0f),
@@ -139,8 +154,17 @@ namespace Prazsky.Core.Render
                     (r * (BOTTOM_RING + 0.15f), -r * 0.2f, FOOT_FOLD),
                     (0f,        -r * 0.2f,      0f)
                 };
-                var v = new List<VertexPositionNormalTexture>(profile.Length * 15 + 600);
-                var idx = new List<short>(profile.Length * 90 + 1800);
+                List<VertexPositionNormalTexture> v = geometry.WoodVertices;
+                List<short> idx = geometry.WoodIndices;
+
+                void Tube(int seg, Vector3 from, float fromRadius, Vector3 to, float toRadius)
+                {
+                    TubeGeometry.AddTube(v, idx, seg, from, fromRadius, to, toRadius);
+                    geometry.Skeleton.Add((from, to));
+                }
+
+                //The trunk in the skeleton too: its axis from the ground to the neck
+                geometry.Skeleton.Add((Vector3.Zero, new Vector3(0f, top, 0f)));
                 //Folded into flutes since #610, the references' trunk: broad lobes with deep narrow grooves
                 //between them running up the bottle, fading out at the neck where the wobble does
                 TubeGeometry.AddRevolved(v, idx, TRUNK_SEGMENTS, profile, irregularityAmplitude: r * IRREGULARITY,
@@ -162,8 +186,8 @@ namespace Prazsky.Core.Render
                     float len = height * (0.24f + 0.1f * (float)rng.NextDouble());
                     Vector3 mid = neck + dir * (len * 0.45f) + Vector3.Up * (len * 0.6f);
                     Vector3 tip = mid + dir * (len * 0.5f) + Vector3.Up * (len * 0.3f);
-                    TubeGeometry.AddTube(v, idx, 7, neck + dir * (r * 0.2f), r * 0.28f, mid, r * 0.16f);
-                    TubeGeometry.AddTube(v, idx, 6, mid, r * 0.16f, tip, r * 0.09f);
+                    Tube(7, neck + dir * (r * 0.2f), r * 0.28f, mid, r * 0.16f);
+                    Tube(6, mid, r * 0.16f, tip, r * 0.09f);
 
                     int twigs = 3 + rng.Next(2);
                     for (int k = 0; k < twigs; k++)
@@ -173,30 +197,21 @@ namespace Prazsky.Core.Render
                         Vector3 tdir = Vector3.Normalize(new Vector3(MathF.Cos(ta) * 0.9f, 0.3f + 0.6f * (float)rng.NextDouble(), MathF.Sin(ta) * 0.9f));
                         Vector3 from = Vector3.Lerp(mid, tip, 0.5f + 0.5f * (float)rng.NextDouble());
                         Vector3 to = from + tdir * tl;
-                        TubeGeometry.AddTube(v, idx, 5, from, r * 0.07f, to, r * 0.03f);
+                        Tube(5, from, r * 0.07f, to, r * 0.03f);
                         for (int t = 0; t < 2; t++)
                         {
                             float wa = ta + (t == 0 ? 0.7f : -0.7f) + (float)(rng.NextDouble() - 0.5) * 0.5f;
                             float wl = height * (0.05f + 0.04f * (float)rng.NextDouble());
                             Vector3 wdir = Vector3.Normalize(new Vector3(MathF.Cos(wa) * 0.9f, 0.2f + 0.7f * (float)rng.NextDouble(), MathF.Sin(wa) * 0.9f));
                             Vector3 end = to + wdir * wl;
-                            TubeGeometry.AddTube(v, idx, 4, to, r * 0.03f, end, r * 0.01f);
-                            TwigTips.Add(end);
+                            Tube(4, to, r * 0.03f, end, r * 0.01f);
+                            geometry.TwigTips.Add(end);
                             reach = MathF.Max(reach, new Vector2(end.X, end.Z).Length());
                         }
                     }
                 }
 
-                PrimitiveCount = idx.Count / 3;
-                BoundingSphere = new BoundingSphere(new Vector3(0f, height * 0.5f, 0f), reach + height * 0.5f);
-                (VertexBuffer, IndexBuffer) = TubeGeometry.Upload(device, v, idx);
-            }
-
-            public void Dispose()
-            {
-                VertexBuffer?.Dispose(); VertexBuffer = null;
-                IndexBuffer?.Dispose(); IndexBuffer = null;
-            }
+                geometry.WoodBounds = new BoundingSphere(new Vector3(0f, height * 0.5f, 0f), reach + height * 0.5f);
         }
 
         /// <summary>The sparse leaf: a small scrub-style mass on about half the twig ends, one mesh.</summary>
@@ -241,5 +256,23 @@ namespace Prazsky.Core.Render
                 IndexBuffer?.Dispose(); IndexBuffer = null;
             }
         }
+    }
+
+    /// <summary>A baobab as lists, before any device (#782): <see cref="BaobabMesh.Build"/>'s answer.</summary>
+    internal sealed class BaobabGeometry
+    {
+        public float BaseRadius;
+        public float TrunkRadius;
+
+        public readonly List<VertexPositionNormalTexture> WoodVertices = new();
+        public readonly List<short> WoodIndices = new();
+        public BoundingSphere WoodBounds;
+
+        public readonly List<Vector3> TwigTips = new();
+
+        public readonly List<VertexPositionNormalTexture> LeafVertices = new();
+        public readonly List<int> LeafIndices = new();
+
+        public readonly List<(Vector3 From, Vector3 To)> Skeleton = new();
     }
 }
