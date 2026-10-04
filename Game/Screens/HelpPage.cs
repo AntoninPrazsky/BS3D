@@ -45,7 +45,8 @@ namespace BS3D.Screens
         //The space between a keycap and its words on the controls page
         private const int KEY_GAP = 24;
 
-        //The two walking buttons stand side by side, where every other entry on a page is one column wide
+        //Back and the two walking buttons share one row under the text (#738), each this wide, where every other entry on
+        //a page is one column wide
         private const int WALK_BUTTON_WIDTH = 490;
         private const int WALK_BUTTON_GAP = 20;
 
@@ -74,9 +75,11 @@ namespace BS3D.Screens
 
         private int _page;
 
-        //What sits around the scroller, in 2160p design units: the heading, the page counter, the walking row,
-        //Back and the plate's padding (#606)
-        private const int BODY_SURROUNDINGS = 820;
+        //What sits around the scroller, in 2160p design units: the heading, the page counter, the one row of Back,
+        //Previous and Next, and the plate's padding (#606). 820 while Back stood on a row of its own under the walking
+        //pair; #738 put the three in one row and gave the text what the second took, one button (115 units at the
+        //body face, measured) and one column spacing (26).
+        private const int BODY_SURROUNDINGS = 680;
 
         //Design pixels a second the right stick scrolls the body at full tilt, and one Page Up/Down step's share
         //of the scroller's own height
@@ -112,27 +115,37 @@ namespace BS3D.Screens
             _body.MinHeight = frame.Y;
             column.Widgets.Add(_body);
 
-            HorizontalStackPanel walk = new()
+            //One row under the text, the owner's call (#738): Back at its left, Previous and Next at its right, three
+            //buttons of one width. The row is as wide as the text's frame, so Back stands under the text's first letter
+            //and Next ends where the scroll bar does, and the row Back used to take on its own is the text's now.
+            Panel walk = new() { Width = frame.X, HorizontalAlignment = HorizontalAlignment.Center };
+
+            //Added left to right, the order the pad walks them in: Back, Previous, Next
+            Button back = MenuButton("Back", GoBack);
+            back.Width = Scaled(WALK_BUTTON_WIDTH);
+            back.HorizontalAlignment = HorizontalAlignment.Left;
+            walk.Widgets.Add(back);
+
+            HorizontalStackPanel pair = new()
             {
                 Spacing = Scaled(WALK_BUTTON_GAP),
-                HorizontalAlignment = HorizontalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Right,
             };
 
-            //Added left to right, the order the pad walks them in
             Button previous = MenuButton("Previous", () => Turn(-1));
             previous.Width = Scaled(WALK_BUTTON_WIDTH);
             previous.Enabled = _page > 0;
-            walk.Widgets.Add(previous);
+            pair.Widgets.Add(previous);
             _previous = previous;
 
             Button next = MenuButton("Next", () => Turn(1));
             next.Width = Scaled(WALK_BUTTON_WIDTH);
             next.Enabled = _page < TITLES.Length - 1;
-            walk.Widgets.Add(next);
+            pair.Widgets.Add(next);
             _next = next;
 
+            walk.Widgets.Add(pair);
             column.Widgets.Add(walk);
-            column.Widgets.Add(MenuButton("Back", GoBack));
 
             return ScreenRoot(Plate(column));
         }
@@ -217,6 +230,12 @@ namespace BS3D.Screens
             //neighbour, when the turn reached the end and disabled it
             Game.RebuildPage(this, () => by > 0 ? (_next.Enabled ? _next : _previous) : (_previous.Enabled ? _previous : _next));
         }
+
+        /// <summary>
+        /// The cursor arrives on Next, or on Previous on the last page (#738): Back leads the row now, and a player who opened
+        /// the help came to read on, not to leave the moment they arrive.
+        /// </summary>
+        internal override Button NavArrival => _next != null && _next.Enabled ? _next : _previous;
 
         /// <summary>Sideways on the arrows, the D-pad or the left stick turns the page (#606).</summary>
         internal override bool PageSideways(int direction)
