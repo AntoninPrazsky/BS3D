@@ -42,6 +42,8 @@
     <Compile Include="..\..\Game\Screens\TutorialCardLayout.cs" />
     <!--The power-up chips' keycap column (#694): arithmetic over measured widths, no device.-->
     <Compile Include="..\..\Game\Screens\ChipColumnLayout.cs" />
+    <!--The privacy note's wrap (#769): lines broken at spaces only, over a measure handed in.-->
+    <Compile Include="..\..\Game\Screens\SpaceWrap.cs" />
     <!--The ceiling's descent and the player's brake on it (#213): a state machine over floats, no device.-->
     <Compile Include="..\..\Game\Screens\CeilingDescent.cs" />
     <!--The city intro's shot builder (#488): plain geometry over City's block grid.-->

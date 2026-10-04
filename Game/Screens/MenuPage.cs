@@ -269,6 +269,18 @@ namespace BS3D.Screens
 
         protected Label ScreenHeading(string text) => Game.ScreenHeading(text);
 
+        /// <summary>
+        /// The width a label with a fixed <see cref="Widget.Width"/> lays its text out to: Myra wraps at its
+        /// <c>ActualBounds</c>, the width less its margin, border and padding. Not the width itself, even for a label
+        /// with no side margin of its own: <see cref="ScaledThickness(int, int, int, int)"/> makes a zero a pixel
+        /// (<c>Scaled</c> never returns less than 1), so the privacy note of 473 px laid its text out to 471, and a
+        /// line <see cref="SpaceWrap"/> had measured at exactly 473 lost its last word to a line of its own (#769).
+        /// </summary>
+        protected static int LaidOutWidth(Label label) => label.Width.GetValueOrDefault()
+            - label.Margin.Left - label.Margin.Right
+            - label.BorderThickness.Left - label.BorderThickness.Right
+            - label.Padding.Left - label.Padding.Right;
+
         /// <summary>The build's name, small, in the bottom-right corner — on the front end and About only.</summary>
         protected Label VersionTag() => Game.VersionTag();
 
