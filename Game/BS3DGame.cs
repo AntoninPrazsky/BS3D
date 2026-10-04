@@ -431,7 +431,8 @@ namespace BS3D
         /// <summary>
         /// Whether today is the game's birthday (#230's calendar surprise): the anniversary of the repository's first
         /// commit, 30 December 2019. Decided once at startup, so a run that crosses midnight keeps the day it
-        /// started with. Nothing about play reads it — only the party hat and the front end's dancing title.
+        /// started with. Nothing about play reads it — only the party hat, the front end's dancing title and the About page's
+        /// rainbow spectrum (#764).
         /// </summary>
         internal bool Birthday { get; }
 

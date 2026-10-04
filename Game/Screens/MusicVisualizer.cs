@@ -20,7 +20,8 @@ namespace BS3D.Screens
     /// the colourful analogue visualisers on old radios", so a segment is lit in the colour of the height it stands at
     /// (<see cref="VisualizerPalette"/>): the green-to-yellow-to-red stack of an LED meter, or one hue a band across the
     /// spectrum. It is an instrument, not menu chrome, and the exception is stated here and in <c>docs/game-shell.md</c> so
-    /// the rule does not read as broken. The palette is a property so the Jukebox page (#704) can set its own.
+    /// the rule does not read as broken. The palette is a property so the Jukebox page (#704) can set its own; the About page
+    /// shows <see cref="VisualizerPalette.Spectrum"/> on the game's birthday only (#764).
     /// </para>
     /// <para>
     /// <b>A column is segments, and a segment fades rather than switches.</b> Its brightness is how far the level has
