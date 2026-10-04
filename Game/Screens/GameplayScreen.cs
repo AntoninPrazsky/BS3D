@@ -1322,9 +1322,11 @@ namespace BS3D.Screens
             _hud.Update(elapsed, _run.Score);
             //The skip hint over whichever takeover a click can skip (#699): the drop or the chapter's tour. Not over the drop
             //of the shot that cleared the level (the owner, 2026-10-04): the player has finished and there is nothing left
-            //to skip to, so it says nothing, though a click still skips it. A decided level is the only way a drop can be
-            //running with the level decided: a loss waits for the drop to end (mayLose), and a drop never begins over a
-            //decided level (TryBeginDropCinematic), so this is exactly the clearing shot's.
+            //to skip to, so it says nothing, though a click still skips it. A drop running over a decided level is over a
+            //cleared one: a loss waits for the drop to end (mayLose), and a drop never begins over a decided level
+            //(TryBeginDropCinematic). It is usually the clearing shot's own drop, but not only: a second shot already in
+            //the air can land during another shot's drop and empty the field (CheckLevelCleared is not gated by the
+            //takeover), and then the hint goes part way through that drop - the level is over there too, which is the rule.
             if (_cinematic.Running)
                 _hud.UpdateSkipHint(elapsed, !LevelDecided, chapterIntro: false, _cinematic.Elapsed, float.MaxValue);
             else
