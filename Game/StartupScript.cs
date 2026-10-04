@@ -155,6 +155,9 @@ namespace BS3D
         //Which Help page to open at boot, 1-based, or null for "not asked" (#427)
         private int? _help;
 
+        //The Scene screen at boot (scenes, #773)
+        private bool _scenes;
+
         //Testing only: the wall-clock second the run goes to the main menu with its session kept (tomenu=, #650)
         private float? _toMenuAt;
 
@@ -199,11 +202,12 @@ namespace BS3D
             _boardPage = launch.BoardPage;
             _highScores = launch.HighScores;
             _help = launch.Help;
+            _scenes = launch.ScenePicker;
             _tour = launch.Tour;
             _toMenuAt = launch.ToMenuAt;
 
             Drives = _celebrate || _confetti || _play || _result || _pick != null || _about != null || _settings
-                || _board != null || _highScores != null || _help != null || _tour || _toMenuAt != null;
+                || _board != null || _highScores != null || _help != null || _scenes || _tour || _toMenuAt != null;
         }
 
         /// <summary>
@@ -331,6 +335,14 @@ namespace BS3D
                 _help = null;
 
                 game.OpenHelp(helpPage);
+            }
+
+            //And the Scene screen (#773)
+            if (_scenes && !game.IsSplashUp)
+            {
+                _scenes = false;
+
+                game.OpenSceneSelect();
             }
 
             //And the same for the result screen, over whatever is on the stack — the front end, unless "play"

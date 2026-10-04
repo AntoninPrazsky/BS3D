@@ -188,6 +188,9 @@ namespace BS3D
         //the argument was absent; the number is 1-based because that is what the page prints about itself.
         internal int? Help { get; private set; }
 
+        //Testing only: open the Scene screen at boot (#773), the way about and help open theirs.
+        internal bool ScenePicker { get; private set; }
+
         //Testing only: draw every ball in one style whatever the level files say (#258). Null means the
         //argument was absent, and then each map is drawn in what it is authored in, as a player sees it.
         //It exists because the two styles can otherwise only be compared across two DIFFERENT levels —
@@ -478,6 +481,9 @@ namespace BS3D
             //by side, so a scripted walk has to guess a focus order to reach page four at all.
             Row.Flag("help", o => o.Help = 1),
             Row.Int("help", (o, v) => o.Help = v),
+            //"scenes" opens the Scene screen at boot (#773): it is two presses from the main menu, and none on a
+            //desktop nobody is sitting at, the wall pick= and about exist for
+            Row.Flag("scenes", o => o.ScenePicker = true),
             //"preview=<n|name>" pins which map the FRONT END hangs, the way "level=" pins which one is
             //played. The menu's camera is framed for that map since #254, so without this two shots of
             //the front end are two shots of different maps at different stand-offs.
