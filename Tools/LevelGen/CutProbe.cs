@@ -84,7 +84,137 @@ namespace BS3D.Tools.LevelGen
             Console.WriteLine($"  A ring cut instead: the median level's best exposed ring frees {Median(ringBest)}, and its typical"
                 + $" (median) exposed ring frees {Median(ringMedians)}; the least any level's best ring frees is {(ringBest.Count > 0 ? ringBest[0] : 0)}.");
 
+            RunStorey(set, levelsDirectory);
+
             return true;
+        }
+
+        //The storey cut's guard, measured (#692): the top storeys a cut may not strike, from none to three
+        private static readonly int[] TOP_EXCLUDED = { 0, 1, 2, 3 };
+
+        /// <summary>
+        /// <b>The owner's rule for the Cut (#692, 2026-10-03): the whole storey at the struck ball</b> — every ball of the
+        /// struck ball's level connected to it through that level (a flood over same-level neighbours, so a separate clump
+        /// on the same level stays), then whatever no longer reaches the ceiling. The storey's balls count as destroyed (his
+        /// answer of 2026-10-04); here only how many go matters. Measured over the exposed balls of every level that grants a
+        /// Cut, because the issue's hazard is that a storey cut can pay too much: one strike under the anchor rows frees
+        /// nearly everything under it. So per level the best strike, the median one, and how many strikes CLEAR the level
+        /// outright (no removable ball left) - and the same with the top one, two or three storeys of the cluster struck
+        /// off the list, the guard the issue names first.
+        /// </summary>
+        private static void RunStorey(LevelSet set, string levelsDirectory)
+        {
+            Console.WriteLine();
+            Console.WriteLine("=== the storey cut (#692): the struck ball's whole connected storey goes, then what hung by it; exposed strikes only ===");
+            Console.Write($"    {"#",3}  {"level",-14} {"balls",5}");
+            foreach (int n in TOP_EXCLUDED) Console.Write($"  {"top" + n + " best",9} {"med",4} {"clears",6}");
+            Console.WriteLine();
+
+            int[] levelsClearable = new int[TOP_EXCLUDED.Length];
+            List<int>[] bests = new List<int>[TOP_EXCLUDED.Length];
+            List<int>[] medians = new List<int>[TOP_EXCLUDED.Length];
+            for (int i = 0; i < TOP_EXCLUDED.Length; i++) { bests[i] = new List<int>(); medians[i] = new List<int>(); }
+            int levels = 0;
+
+            for (int index = 0; index < set.Count; index++)
+            {
+                if (set.CutChargesAt(index) <= 0) continue;
+
+                Level level = Level.Load(Path.Combine(levelsDirectory, set.Levels[index].File));
+                BallsMap map = new(level.Map);
+                levels++;
+
+                Console.Write($"    {index + 1,3}  {Trim(set.DisplayName(index), 14),-14} {map.GetBallsCount(),5}");
+                for (int i = 0; i < TOP_EXCLUDED.Length; i++)
+                {
+                    MeasureStorey(map, TOP_EXCLUDED[i], out int best, out int median, out int clears);
+                    bests[i].Add(best);
+                    medians[i].Add(median);
+                    if (clears > 0) levelsClearable[i]++;
+                    Console.Write($"  {best,9} {median,4} {clears,6}");
+                }
+                Console.WriteLine();
+            }
+
+            Console.WriteLine();
+            for (int i = 0; i < TOP_EXCLUDED.Length; i++)
+            {
+                bests[i].Sort();
+                medians[i].Sort();
+                Console.WriteLine($"  top {TOP_EXCLUDED[i]} storey(s) uncuttable: one strike clears {levelsClearable[i]} of {levels} level(s) outright;"
+                    + $" the median level's best strike frees {Median(bests[i])}, its typical (median) strike {Median(medians[i])}");
+            }
+        }
+
+        /// <summary>
+        /// Every exposed ball of the cluster struck in turn under the storey rule, the top <paramref name="topExcluded"/>
+        /// storeys of the cluster left alone: the most one strike frees, the median strike, and how many strikes leave no
+        /// removable ball. The map is put back after each.
+        /// </summary>
+        private static void MeasureStorey(BallsMap map, int topExcluded, out int best, out int median, out int clears)
+        {
+            StaticBall[,,] cells = map.GetStaticBallsArray();
+            XZLevel size = map.GetStaticBallsArraySize();
+            List<int> freedAll = new();
+            List<(XZLevel At, StaticBall Ball)> taken = new();
+            Queue<XZLevel> walk = new();
+            bool[,,] seen = new bool[size.X, size.Z, size.Level];
+            clears = 0;
+
+            //The cluster's top storey: the highest level holding a ball
+            int top = -1;
+            for (int l = size.Level - 1; l >= 0 && top < 0; l--)
+                for (int x = 0; x < size.X && top < 0; x++)
+                    for (int z = 0; z < size.Z && top < 0; z++)
+                        if (cells[x, z, l] != null) top = l;
+
+            for (int l = 0; l < size.Level; l++)
+            {
+                if (l > top - topExcluded) continue;
+
+                for (int x = 0; x < size.X; x++)
+                    for (int z = 0; z < size.Z; z++)
+                    {
+                        StaticBall ball = cells[x, z, l];
+                        if (ball == null || ball.Kind == BallKind.Bomb) continue;
+
+                        XZLevel at = new(x, z, l);
+                        if (!IsExposed(cells, size, at)) continue;
+
+                        //The storey: a flood over same-level neighbours from the struck ball
+                        taken.Clear();
+                        Array.Clear(seen);
+                        walk.Enqueue(at);
+                        seen[x, z, l] = true;
+                        while (walk.Count > 0)
+                        {
+                            XZLevel cell = walk.Dequeue();
+                            taken.Add((cell, cells[cell.X, cell.Z, cell.Level]));
+                            foreach (XZLevel n in BallsMap.GetNeighboringCells(cell, size))
+                            {
+                                if (n.Level != l || seen[n.X, n.Z, n.Level] || cells[n.X, n.Z, n.Level] == null) continue;
+                                seen[n.X, n.Z, n.Level] = true;
+                                walk.Enqueue(n);
+                            }
+                        }
+
+                        foreach ((XZLevel cell, StaticBall _) in taken) cells[cell.X, cell.Z, cell.Level] = null;
+                        List<XZLevel> fallen = map.GetCellsDisconnectedFromCeiling();
+                        freedAll.Add(taken.Count + fallen.Count);
+
+                        //Cleared outright: with the storey and what fell gone, nothing removable is left
+                        List<(XZLevel At, StaticBall Ball)> fell = new(fallen.Count);
+                        foreach (XZLevel cell in fallen) { fell.Add((cell, cells[cell.X, cell.Z, cell.Level])); cells[cell.X, cell.Z, cell.Level] = null; }
+                        if (map.GetRemovableBallsCount() == 0) clears++;
+                        foreach ((XZLevel cell, StaticBall b) in fell) cells[cell.X, cell.Z, cell.Level] = b;
+
+                        foreach ((XZLevel cell, StaticBall b) in taken) cells[cell.X, cell.Z, cell.Level] = b;
+                    }
+            }
+
+            freedAll.Sort();
+            best = freedAll.Count > 0 ? freedAll[^1] : 0;
+            median = Median(freedAll);
         }
 
         /// <summary>
