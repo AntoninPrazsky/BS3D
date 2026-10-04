@@ -207,6 +207,19 @@ namespace Prazsky.Core.Render
         public const int FUNNEL_DRAWN_SEGMENTS = 256;
         public const int FUNNEL_GLASS_BANDS = 16;
 
+        //How much wider the DRAWN hole is than the collision hole (#762), the drawn mouth staying at FUNNEL_TOP_RADIUS: the
+        //glass and its gold hole band stand outside the surface the balls roll on by this much at the tip, tapering to
+        //nothing at the mouth. They used to coincide exactly, a sheet of no thickness, so any contact penetration at all
+        //put a cap of ball through the glass, and seen from below at the tip - the owner's vantage, the sea's and the drop
+        //cinematic's - the balls clipped through it. Measured over a staged clearing drop (55 balls through the funnel, two
+        //seeds): the deepest a ball's surface went past the wall was 0.025, against a collision of zero thickness. 0.1 at
+        //the hole is 0.08 off the wall at the tip (the wall leans 34 degrees off vertical) and 0.068 a fifth of the way up,
+        //where that deepest was measured - near three times it; a ball resting on the wall sits that far off the drawn
+        //glass, a tenth of its diameter at the very most. The physics keeps FUNNEL_HOLE_RADIUS (GameplayScreen,
+        //FunnelPhysics), so no ball's path changes.
+        public const float FUNNEL_GLASS_CLEARANCE = 0.1f;
+        public const float FUNNEL_DRAWN_HOLE_RADIUS = FUNNEL_HOLE_RADIUS + FUNNEL_GLASS_CLEARANCE;
+
         /// <summary>
         /// How far the stone top falls from its outer arris (<see cref="FLOOR_RADIUS"/>, which stays at
         /// <see cref="TOP_Y"/>) to the drain's mouth: the walkable ring is a shallow dish (~6.4° over the
@@ -818,7 +831,7 @@ namespace Prazsky.Core.Render
             //everything else.
             float funnelHeight = TOP_Y - DISH_DEPTH - FUNNEL_BOTTOM_Y;
 
-            _funnelMesh = new FunnelMesh(device, FUNNEL_TOP_RADIUS, FUNNEL_HOLE_RADIUS, funnelHeight, FUNNEL_DRAWN_SEGMENTS, 0f,
+            _funnelMesh = new FunnelMesh(device, FUNNEL_TOP_RADIUS, FUNNEL_DRAWN_HOLE_RADIUS, funnelHeight, FUNNEL_DRAWN_SEGMENTS, 0f,
                 FUNNEL_GLASS_BANDS);
 
             //TwoSidedNormals because the cone is one open single-sided wall drawn CullNone: without it the
@@ -840,7 +853,7 @@ namespace Prazsky.Core.Render
             //specular riding in as a per-draw effect-params override rather than the scene's white. The dish
             //grade goes in because the top band lies on the stone, which is the one surface here the mesh
             //cannot work out from the funnel's own figures.
-            _funnelRimsMesh = new FunnelRimsMesh(device, FUNNEL_TOP_RADIUS, FUNNEL_HOLE_RADIUS, funnelHeight,
+            _funnelRimsMesh = new FunnelRimsMesh(device, FUNNEL_TOP_RADIUS, FUNNEL_DRAWN_HOLE_RADIUS, funnelHeight,
                 FUNNEL_RIM_TOP_WIDTH, FUNNEL_RIM_HOLE_WIDTH, DISH_GRADE, FUNNEL_DRAWN_SEGMENTS);
 
             _funnelRimsRenderer = new InstancedModelRenderer(device, _funnelRimsMesh, FUNNEL_RIM_COLOR, instancingEffect)
@@ -883,7 +896,7 @@ namespace Prazsky.Core.Render
             //trapezoid per facet draws a fan of wedges - and the stations stay on one straight line, so every sub-band
             //carries the same cone normal and the sheath is the same surface it was.
             var pitProfile = new (float Radius, float Y)[FUNNEL_GLASS_BANDS + 2];
-            float sheathHole = FUNNEL_HOLE_RADIUS + PIT_SHEATH_CLEARANCE;
+            float sheathHole = FUNNEL_DRAWN_HOLE_RADIUS + PIT_SHEATH_CLEARANCE;
             for (int k = 0; k <= FUNNEL_GLASS_BANDS; k++)
             {
                 float radius = FUNNEL_TOP_RADIUS * MathF.Pow(sheathHole / FUNNEL_TOP_RADIUS, k / (float)FUNNEL_GLASS_BANDS);
