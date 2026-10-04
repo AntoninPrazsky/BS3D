@@ -49,6 +49,55 @@ namespace BS3D.Tests
             return shown;
         }
 
+        //Every lesson's key, as a save that has completed the whole tutorial holds them
+        private static readonly string[] EVERY_LESSON =
+            { "aim", "fire", "match", "lean", "ceiling", "line", "traverse", "walk", "combine", "linerule", "graduated", "streak", "budget", "swap" };
+
+        /// <summary>A save that has been through every card, and a count of what the tutorial writes to it.</summary>
+        private static Tutorial Finished(out System.Func<int> writes)
+        {
+            HashSet<string> save = new(EVERY_LESSON);
+            int written = 0;
+            writes = () => written;
+            return new Tutorial(key => save.Contains(key), key => { written++; save.Add(key); }, Tutorial.Mode.Normal);
+        }
+
+        [Fact]
+        public void AFinishedSaveSeesTheOpenersOwnCardsAgainAndWritesNothing()
+        {
+            //#715: a level shows the cards it introduces again on every entry, the save notwithstanding, and a replay
+            //records nothing - Lessons stays what the player really completed
+            Tutorial tutorial = Finished(out System.Func<int> writes);
+
+            List<string> pennant = Play(tutorial, ShippedSet(), 0);
+
+            Assert.Equal(new[] { "Move the mouse to aim", "Click to fire", "Three of a colour together fall" }, pennant);
+            Assert.Equal(0, writes());
+        }
+
+        [Fact]
+        public void AReplayShowsTheLevelsOwnLessonsNotTheWholeLadder()
+        {
+            //The sixth level introduces the combined move and nothing else; on a fresh save it would also carry every
+            //earlier card the player still owed, but a finished save owes none
+            List<string> sixth = Play(Finished(out _), ShippedSet(), 5);
+
+            Assert.Equal(new[] { "Hold the close-up and turn with it" }, sixth);
+        }
+
+        [Fact]
+        public void AmphoraSendsAFinishedPlayerOffAgainButOnlyOnceARun()
+        {
+            //The send-off is the closing level's own card, so a replay shows it - and NothingAfterTheSendOff must not
+            //cut it for being in the save. A retry in the same run has been through it, so it does not come back.
+            LevelSet set = ShippedSet();
+            Tutorial tutorial = Finished(out System.Func<int> writes);
+
+            Assert.Contains(SEND_OFF, Play(tutorial, set, 9));
+            Assert.DoesNotContain(SEND_OFF, Play(tutorial, set, 9));
+            Assert.Equal(0, writes());
+        }
+
         [Fact]
         public void TheShippedChaptersArePlacedByTheirBlocks()
         {

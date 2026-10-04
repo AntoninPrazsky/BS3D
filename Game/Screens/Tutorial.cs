@@ -43,14 +43,18 @@ namespace BS3D.Screens
     /// A contextual card interrupts whatever card is up, which goes back to the front of the queue behind it.
     /// </para>
     /// <para>
-    /// <b>Taught once, ever, and the save is what remembers</b> (<see cref="PlayerProgress.Lessons"/>): a lesson
-    /// completed — the action done, or the informational card read out in full — is written there and never
-    /// offered again, so replaying the opener for a better rating is not a second tutorial, and neither is a
-    /// second launch. A retry inside one run remembers the same way through <see cref="_taughtThisRun"/>, which
-    /// also carries the <c>tutorial</c> argument's run, where nothing is written (see <see cref="_force"/>). The
-    /// settings row (<c>BS3DGame.IsTutorialEnabled</c>, on by default) is read every frame, so switching it off
-    /// from the pause takes the card down at once and switching it back on resumes where it was; Reset
-    /// progress clears the record with the stars, so a fresh start is taught afresh.
+    /// <b>The save remembers what was taught, and a level shows its own cards again</b> (<see cref="PlayerProgress.Lessons"/>,
+    /// #715): a lesson completed — the action done, or the informational card read out in full — is written there,
+    /// and is not offered again as a lesson the player still owes (the deferral ladder skips it). But starting a
+    /// level shows again the cards that level itself introduces (<see cref="OwnLevel"/>: Pennant's aim, fire and
+    /// match, Rainbow's lean and its glass and line, Amphora's send-off), whatever the save says, while the
+    /// settings row is on: the owner, "a player may want to go over it again". A replay writes nothing to the
+    /// save, so <see cref="PlayerProgress.Lessons"/> stays what the player really completed. Once per entry into
+    /// the level: a retry inside one run remembers through <see cref="_taughtThisRun"/>, which also carries the
+    /// <c>tutorial</c> argument's run, where nothing is written (see <see cref="_force"/>). The settings row
+    /// (<c>BS3DGame.IsTutorialEnabled</c>, on by default) is read every frame, so switching it off from the pause
+    /// takes the card down at once and switching it back on resumes where it was; with it off no card shows, a
+    /// replay included. Reset progress clears the record with the stars, so a fresh start is taught afresh.
     /// </para>
     /// <para>
     /// <b>The device decides the picture.</b> The last device the player touched (<see cref="NoteDevice"/>)
@@ -333,6 +337,9 @@ namespace BS3D.Screens
         private readonly bool _demo;
 
         private readonly HashSet<string> _taughtThisRun = new();
+
+        //The lessons this level shows again although the save holds them (#715): its own (OwnLevel), set by BeginLevel
+        private readonly HashSet<string> _replaying = new();
         private readonly List<Definition> _queue = new(DEFINITIONS.Length);
         private readonly List<Definition> _armed = new(DEFINITIONS.Length);
 
@@ -499,6 +506,12 @@ namespace BS3D.Screens
             foreach (Definition lesson in DEFINITIONS)
             {
                 if (!_demo && !Eligible(lesson, chapter, levelInChapter, chapterLength)) continue;
+
+                //A level's own cards come back on every entry into it (#715), the save notwithstanding - unless this
+                //run already went through them (a retry)
+                if (!_force && OwnLevel(lesson, chapter, levelInChapter, chapterLength) && _wasTaught(lesson.Key))
+                    _replaying.Add(lesson.Key);
+
                 if (Taught(lesson)) continue;
                 if (lesson.Lesson == Lesson.Ceiling && _ceilingCaption == null) continue;
 
@@ -532,11 +545,25 @@ namespace BS3D.Screens
         {
             if (lesson.Chapter != chapter) return lesson.Chapter < chapter;
 
-            int from = lesson.FromLevel >= 0
+            return levelInChapter >= FirstLevel(lesson, chapterLength);
+        }
+
+        /// <summary>
+        /// Whether <paramref name="lesson"/> is one this level introduces (#715): its own chapter, and the very level it
+        /// first becomes eligible on — the cards a player re-entering the level is shown again, as opposed to the
+        /// lessons the ladder carries forward because they are still owed.
+        /// </summary>
+        private static bool OwnLevel(Definition lesson, int chapter, int levelInChapter, int chapterLength) =>
+            lesson.Chapter == chapter && levelInChapter == FirstLevel(lesson, chapterLength);
+
+        /// <summary>
+        /// The level of its chapter a lesson is first offered on, clamped into the chapter: counted from the start, no
+        /// later than its last level; counted from the end, no earlier than its first (see <see cref="Eligible"/>).
+        /// </summary>
+        private static int FirstLevel(Definition lesson, int chapterLength) =>
+            lesson.FromLevel >= 0
                 ? Math.Min(lesson.FromLevel, chapterLength - 1)
                 : Math.Max(0, chapterLength + lesson.FromLevel);
-            return levelInChapter >= from;
-        }
 
         /// <summary>
         /// Keeps the send-off (<see cref="Lesson.Graduated"/>) the last card of its chapter's ladder (#605). The
@@ -561,12 +588,14 @@ namespace BS3D.Screens
             //second chapter's own, so only the first chapter's are cut or pulled ahead of it.
             int closes = sendOffLesson.Chapter;
 
+            //Sent off already: nothing of that chapter is OWED any more - but a level's own cards shown again on
+            //entering it (#715) are not owed, they are this level's, and they stay
             if (Taught(sendOffLesson))
             {
                 for (int i = _queue.Count - 1; i >= 0; i--)
-                    if (_queue[i].Chapter == closes) _queue.RemoveAt(i);
+                    if (_queue[i].Chapter == closes && !_replaying.Contains(_queue[i].Key)) _queue.RemoveAt(i);
                 for (int i = _armed.Count - 1; i >= 0; i--)
-                    if (_armed[i].Chapter == closes) _armed.RemoveAt(i);
+                    if (_armed[i].Chapter == closes && !_replaying.Contains(_armed[i].Key)) _armed.RemoveAt(i);
                 return;
             }
 
@@ -617,14 +646,17 @@ namespace BS3D.Screens
 
             _queue.Clear();
             _armed.Clear();
+            _replaying.Clear();
         }
 
+        //A replayed card (#715) counts as untaught for this level, so the send-off's rules treat it as the card it is
         private bool Taught(Definition lesson) =>
-            _taughtThisRun.Contains(lesson.Key) || (!_force && _wasTaught(lesson.Key));
+            _taughtThisRun.Contains(lesson.Key) || (!_force && !_replaying.Contains(lesson.Key) && _wasTaught(lesson.Key));
 
+        //Recorded once, and never again for a lesson the save already holds: a replay writes nothing (#715)
         private void Teach(Definition lesson)
         {
-            if (!_taughtThisRun.Add(lesson.Key) || _force) return;
+            if (!_taughtThisRun.Add(lesson.Key) || _force || _wasTaught(lesson.Key)) return;
 
             _teach(lesson.Key);
         }
