@@ -790,6 +790,31 @@ namespace BS3D.Screens
         private const float SHOT_RUMBLE_RIGHT = 0.25f;
         private const float SHOT_RUMBLE_SECONDS = 0.12f;
 
+        //The trigger motors (#188): RT is the gun's own trigger, so it answers the shot under the finger that fired it — a
+        //full, short break, shorter than the body's thump so the two read as the trigger and then the recoil. A refused
+        //shot (the aim pressed into its stop, a cutter aimed where the Cut may not strike) is a dry click instead: weak and
+        //short, beside PlayShotRefused's own dry "no", so a pull that fires nothing still says it was heard.
+        private const float SHOT_TRIGGER_RUMBLE = 1f;
+        private const float SHOT_TRIGGER_RUMBLE_SECONDS = 0.09f;
+        private const float REFUSED_TRIGGER_RUMBLE = 0.35f;
+        private const float REFUSED_TRIGGER_RUMBLE_SECONDS = 0.05f;
+
+        //And LT, the aim's (#188): while the lens is leaned in, the barrel's travel is a ratchet felt under the finger that
+        //holds the lean — one tick per AIM_TICK_STEP of elevation and traverse together — so a fine adjustment can be
+        //counted. Out of the lean there are none: aiming there is coarse and quick, and the finger is not on LT. A sweep
+        //faster than one tick per AIM_TICK_MIN_SECONDS is held to that rate (the steps it crosses in between are dropped,
+        //not queued), which keeps a fast swing a quick ratchet and never a buzz.
+        private static readonly float AIM_TICK_STEP = MathHelper.ToRadians(0.75f);
+        private const float AIM_TICK_MIN_SECONDS = 0.05f;
+        private const float AIM_TICK_MIN_BLEND = 0.5f;
+        private const float AIM_TICK_RUMBLE = 0.45f;
+        private const float AIM_TICK_RUMBLE_SECONDS = 0.05f;
+
+        //And a detent where the left trigger's travel reaches a full lean (PreciseAim.TRIGGER_FULL): the analog pull has
+        //no stop of its own to feel there, so the lens being all the way in is said once under the finger
+        private const float LEAN_DETENT_RUMBLE = 0.6f;
+        private const float LEAN_DETENT_RUMBLE_SECONDS = 0.06f;
+
         //The gun's own recoil — the tube thrown back along its bore, and since #115 the undercarriage's
         //smaller, later shove under it — is the shared Cannon's now (Cannon.RECOIL_BACK/RECOIL_DECAY/
         //CARRIAGE_RECOIL_BACK): two responses off one clock only stay one clock if the gun owns it. This
@@ -894,6 +919,9 @@ namespace BS3D.Screens
 
         //Whether the barrel's next arrival at its stop is felt (#378) — spent by the knock, back once the strain lets go
         private bool _aimStopArmed = true;
+
+        //The aim's ratchet in LT (#188): the pose it was last measured from, the travel since the last tick and the time
+        private float _tickElevation, _tickTraverse, _aimTickTravel, _sinceAimTick;
 
         //Whether the cursor is the aim's or the desktop's (#99, #154). Taken on arrival at play when the
         //pointer is already in the picture — pressing the menu entry that put this screen on top is the
