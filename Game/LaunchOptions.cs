@@ -81,6 +81,11 @@ namespace BS3D
         //settles it, exactly as naming ssaa= does.
         internal QualityLevel? Quality { get; private set; }
 
+        //"potato" (#808): this run is the Raspberry Pi's renderer - the Potato path, held as GamePi is held - in the
+        //Windows build, so the Pi's picture can be looked at on a desktop. A different renderer and not a tier of the
+        //cycle, which is why it is not "quality=potato" (that is the tier's preset row on the desktop path, and stays).
+        internal bool Potato { get; private set; }
+
         //Left null when "ssaa=" is absent, which is how the game tells "the player wants two" from "nobody
         //said" — only the latter may be lowered for a machine that cannot afford the default. An explicit
         //ssaa= is never overridden.
@@ -402,6 +407,8 @@ namespace BS3D
             //name (low/medium/high/ultra); IsDefined because TryParse also takes any number, and a tier past
             //the last one would index off the end of QualityPreset.Presets.
             Row.Value<QualityLevel>("quality", TryParseQuality, (o, v) => o.Quality = v),
+            //"potato" runs the Windows build through the Pi's renderer (#808); in GamePi it asks for what already is
+            Row.Flag("potato", o => o.Potato = true),
             //"celebrate" fires the victory display at startup. Clearing a level is the only thing that
             //normally starts it, and clearing one cannot be scripted, so without this the fireworks can be
             //neither screenshotted nor measured — the same reason autoshoot and aimshoot exist.

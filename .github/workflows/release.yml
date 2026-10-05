@@ -152,6 +152,8 @@ jobs:
           $stray = @(Get-ChildItem $root | Where-Object { $_.Name -notin 'BS3D.exe', 'Content', 'Levels', 'Music', 'Sfx' } | ForEach-Object Name)
           if ($stray.Count -gt 0) { $missing += "nothing else at the top level, but found: $($stray -join ', ')" }
           if (-not (Test-Path "$root/Content/Shaders/InstancedModel.xnb")) { $missing += 'the compiled shaders' }
+          # The Potato tier's effects for a run started with "potato" (#808): a second set, in a folder of its own
+          if (-not (Test-Path "$root/Content/Potato/Shaders/PotatoModel.xnb")) { $missing += "the Potato tier's effects (Content/Potato/Shaders)" }
           if (-not (Get-ChildItem "$root/Levels" -Filter *.json -ErrorAction SilentlyContinue)) { $missing += 'the levels' }
           if (-not (Get-ChildItem "$root/Music" -Filter *.ogg -ErrorAction SilentlyContinue)) { $missing += 'the music' }
           if (-not (Get-ChildItem "$root/Sfx" -Filter *.ogg -ErrorAction SilentlyContinue)) { $missing += 'the sound effects' }

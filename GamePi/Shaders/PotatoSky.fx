@@ -46,7 +46,7 @@ technique PotatoSky
 {
     pass P0
     {
-        VertexShader = compile vs_3_0 SkyVS();
-        PixelShader = compile ps_3_0 SkyPS();
+        VertexShader = compile POTATO_VS SkyVS();
+        PixelShader = compile POTATO_PS SkyPS();
     }
 };

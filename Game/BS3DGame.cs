@@ -806,9 +806,10 @@ namespace BS3D
             //statement, made in a different place — and an argument outranks it, being this run's instruction.
             //The probe's own verdict is NOT stored (see GameSettings.Quality): it can only step a tier down,
             //so a remembered one would be a ratchet that a single unlucky measurement closed for good.
-            //A build that holds one tier outranks both (#788): GamePi is Potato whatever the file or the line says.
+            //A build that holds one tier outranks both (#788): GamePi is Potato whatever the file or the line says, and
+            //so is a Windows run started with "potato" (#808).
             QualityLevel? chosenQuality = QualityLock.Tier ?? launch.Quality ?? _settings.Quality;
-            if (QualityLock.Tier is QualityLevel locked) Console.WriteLine($"[quality] {locked}: this build's only tier, locked");
+            if (QualityLock.Tier is QualityLevel locked) Console.WriteLine($"[quality] {locked}: {QualityLock.Why}, locked");
 
             //The tier owns supersampling, so the tier's factor is taken first and an explicit ssaa= then
             //overrides that one entry of it — the expert override the benchmark and the screenshot harness use.
@@ -857,6 +858,8 @@ namespace BS3D
             _graphics = new GraphicsDeviceManager(this);
             _graphics.PreparingDeviceSettings += Graphics_PreparingDeviceSettings;
 
+            //A Potato run takes an effect from Content/Potato where there is one of its name (#808: PotatoContent)
+            if (PotatoPath) Content = new PotatoContent(Services, Content.RootDirectory);
             Content.RootDirectory = "Content";
 
             Window.AllowUserResizing = true;

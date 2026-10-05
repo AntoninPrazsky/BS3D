@@ -11,7 +11,7 @@ namespace BS3D
     /// The Potato render path (#789): how GamePi, the Raspberry Pi build, draws a frame. Everything of it that is the
     /// host's is in this file; the rest of the host branches into it at the few places a frame is put together.
     /// <para>
-    /// <b>What it is.</b> A forward path straight into the 8-bit back buffer. None of the desktop's 43 effects exists in
+    /// <b>What it is.</b> A forward path straight into the 8-bit back buffer. None of the desktop's effects exists in
     /// GamePi (Shader Model 5.0, which DesktopGL cannot compile), so it draws with its own small set
     /// (<c>GamePi/Shaders</c>): <c>PotatoModel</c> under every <see cref="InstancedModelRenderer"/> - the island, the
     /// gun, the balls, the glass, the wordmark - which recognises it and draws through its Potato path, and SM 3.0 ports
@@ -29,9 +29,11 @@ namespace BS3D
     /// instanced boxes the host's scene switch holds on to, but nothing draws them.
     /// </para>
     /// <para>
-    /// <b>When it runs.</b> In the build that is locked to <see cref="QualityLevel.Potato"/> (<see cref="QualityLock"/>),
-    /// which is GamePi. The Windows build has none of these effects, so <c>quality=potato</c> there is the tier's preset
-    /// row on the desktop path and nothing more.
+    /// <b>When it runs.</b> In a run held at <see cref="QualityLevel.Potato"/> (<see cref="QualityLock"/>): GamePi,
+    /// always, and the Windows build when it is started with <c>potato</c> (#808), which is how the Pi's picture is
+    /// looked at on a desktop. There the same nine sources are compiled for DirectX 11 by <c>Prazsky.Shaders</c> into
+    /// <c>Content/Potato/Shaders</c> and <see cref="PotatoContent"/> hands them to every loader under their usual names.
+    /// <c>quality=potato</c> on Windows is still only the tier's preset row on the desktop path.
     /// </para>
     /// </summary>
     public partial class BS3DGame

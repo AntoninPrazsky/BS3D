@@ -10,5 +10,12 @@ namespace BS3D.Platform
     {
         /// <summary>Potato, always.</summary>
         internal static QualityLevel? Tier => QualityLevel.Potato;
+
+        /// <summary>Why the tier is held, for the line the run prints when it is.</summary>
+        internal static string Why => "this build's only tier";
+
+        /// <summary>The Windows build's <c>potato</c> argument (#808) asks for what this build already is: false,
+        /// nothing was switched, and this build's effects are where they always were.</summary>
+        internal static bool HoldAtPotato() => false;
     }
 }

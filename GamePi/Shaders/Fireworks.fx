@@ -83,6 +83,8 @@ struct FireworkVertexOutput
 //What the pixel shader reads: the vertex output without its position
 struct FireworkPixelInput
 {
+    //Under DirectX the position the vertex output begins with (PotatoProfile.fxh, #808); nothing under OpenGL
+    POTATO_PIXEL_HEAD
     float2 Corner : TEXCOORD0;
     float4 Tint : TEXCOORD1;
     float4 Head : TEXCOORD2;
@@ -286,7 +288,7 @@ technique Fireworks
 {
     pass P0
     {
-        VertexShader = compile vs_3_0 FireworkVS();
-        PixelShader = compile ps_3_0 FireworkPS();
+        VertexShader = compile POTATO_VS FireworkVS();
+        PixelShader = compile POTATO_PS FireworkPS();
     }
 };

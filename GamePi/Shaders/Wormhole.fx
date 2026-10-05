@@ -93,6 +93,8 @@ struct WormholeVertexOutput
 //What the pixel shader reads: the vertex output without its position
 struct WormholePixelInput
 {
+    //Under DirectX the position the vertex output begins with (PotatoProfile.fxh, #808); nothing under OpenGL
+    POTATO_PIXEL_HEAD
     float2 Polar : TEXCOORD0;
 };
 
@@ -191,7 +193,7 @@ technique Wormhole
 {
     pass P0
     {
-        VertexShader = compile vs_3_0 WormholeVS();
-        PixelShader = compile ps_3_0 WormholePS();
+        VertexShader = compile POTATO_VS WormholeVS();
+        PixelShader = compile POTATO_PS WormholePS();
     }
 };

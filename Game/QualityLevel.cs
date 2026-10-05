@@ -20,8 +20,9 @@ namespace BS3D
     /// (<c>Platform/QualityLock</c>). Appended for Ultra's reason, so the numbers of the four do not move — which
     /// means the enum's order is NOT the ladder's order: nothing may compare tiers by number or step one by
     /// arithmetic past Low. The Windows build never offers it: the Quality row does not cycle to it and the probe
-    /// stops at Low. <c>quality=potato</c> still applies its preset there, which is all it is on Windows — what
-    /// Potato draws (its own OpenGL shader set, #789) exists only in GamePi.
+    /// stops at Low. <c>quality=potato</c> still applies its preset there and nothing more: what Potato DRAWS (its own
+    /// shader set and forward path, #789) is a renderer chosen when the process starts, which on Windows is the
+    /// <c>potato</c> argument's to ask for (#808, <c>Platform/QualityLock</c>) and no tier's.
     /// </para>
     /// </remarks>
     public enum QualityLevel

@@ -10,6 +10,9 @@
 //sum, so a translucent layer over another tonemaps a little differently, and an additive pile of sparks saturates
 //per spark rather than as a whole. The glare, the grain and the defocus of the resolve are not here at all.
 
+//Which compiler this is being read by, and so what a technique calls its shaders' profiles (#808)
+#include "PotatoProfile.fxh"
+
 //The player's brightness (#711). PostProcessPipeline.DEFAULT_EXPOSURE until the host pushes the setting; it is a
 //uniform of every Potato effect, so the host sets it on each.
 float Exposure = 1.1;
