@@ -1,0 +1,53 @@
+#----------------------------- Global Properties ----------------------------#
+# GamePi's OpenGL effects (#789). Compiled on Windows only, by compile.ps1 (which passes the output and intermediate
+# folders), into Compiled/, which is committed: see compile.ps1 for why.
+
+/platform:DesktopGL
+/config:
+/profile:HiDef
+/compress:False
+
+#---------------------------------- Content ---------------------------------#
+
+#begin PotatoModel.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:PotatoModel.fx
+
+#begin ShotTrail.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:ShotTrail.fx
+
+#begin LaserGrid.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:LaserGrid.fx
+
+#begin Blast.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Blast.fx
+
+#begin Wormhole.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Wormhole.fx
+
+#begin Fireworks.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Fireworks.fx
+
+#begin Confetti.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Confetti.fx
+

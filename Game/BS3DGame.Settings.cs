@@ -27,7 +27,9 @@ namespace BS3D
         {
             _exposure = BrightnessLadder.ExposureOf(BrightnessLadder.NextAbove(BrightnessPercent));
 
-            _pipeline.Exposure = _exposure;
+            //The Potato path (#789) has no resolve: each of its effects takes the exposure itself
+            if (PotatoPath) ApplyPotatoExposure();
+            else _pipeline.Exposure = _exposure;
 
             _settings.Exposure = _exposure;
             SaveSettings();
@@ -241,7 +243,8 @@ namespace BS3D
         internal void ToggleAberration()
         {
             _effective.Aberration = !_effective.Aberration;
-            _pipeline.ChromaticAberration = _effective.Aberration ? CHROMATIC_ABERRATION : 0f;
+            //Null on the Potato path (#789), which has no resolve to fringe: the toggle is stored and changes nothing there
+            if (_pipeline != null) _pipeline.ChromaticAberration = _effective.Aberration ? CHROMATIC_ABERRATION : 0f;
 
             SaveSettings();
 
@@ -256,7 +259,8 @@ namespace BS3D
         internal void ToggleGrain()
         {
             _effective.Grain = !_effective.Grain;
-            _pipeline.FilmGrain = _effective.Grain ? FILM_GRAIN : 0f;
+            //Null on the Potato path (#789), for the aberration's reason above
+            if (_pipeline != null) _pipeline.FilmGrain = _effective.Grain ? FILM_GRAIN : 0f;
 
             SaveSettings();
 

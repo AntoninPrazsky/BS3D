@@ -282,8 +282,12 @@ namespace BS3D
 
             //The street level under them (#399), on the same grid
             ShowLoading();
-            Effect streetEffect = Content.Load<Effect>("Shaders/CityStreets");
-            _streets = new CityStreets(GraphicsDevice, streetEffect, _city);
+            //Not on the Potato path (#789): its shader is SM 5.0, and Potato draws no city to stand it under
+            if (!PotatoPath)
+            {
+                Effect streetEffect = Content.Load<Effect>("Shaders/CityStreets");
+                _streets = new CityStreets(GraphicsDevice, streetEffect, _city);
+            }
 
             //The city's sun shadows (#471). It is the one backdrop SceneRenderer does not own — this config
             //and those towers are this file's — so the dials and the fit are handed over rather than found.
@@ -304,9 +308,9 @@ namespace BS3D
             //nothing and the day/night decision stays in one place (SHADOW_MIN_SUN_HEIGHT) rather than being
             //restated here as "the city only".
             ShadowConfig cityShadows = new(strength: 0.85f, extent: CITY_SHADOW_EXTENT);
-            _sceneRenderer.SetHostShadowScene(SceneKind.City, cityShadows, _cityConfig.BaseY,
+            _sceneRenderer?.SetHostShadowScene(SceneKind.City, cityShadows, _cityConfig.BaseY,
                 CITY_SHADOW_BELOW, CITY_SHADOW_ABOVE);
-            _sceneRenderer.SetHostShadowScene(SceneKind.NeonCity, cityShadows, _cityConfig.BaseY,
+            _sceneRenderer?.SetHostShadowScene(SceneKind.NeonCity, cityShadows, _cityConfig.BaseY,
                 CITY_SHADOW_BELOW, CITY_SHADOW_ABOVE);
 
             //The arena the gun stands on, all of it: the island's stone cap and concrete drum, the glass drain
@@ -330,18 +334,23 @@ namespace BS3D
             //#522 took the map editor's live grid, the one caller that needed a Replant. No stone texture handed
             //in: the component builds its own, since ArenaIsland's is that component's private business. The
             //ambient is the scene's, so it is handed over as it is to the island.
-            _forestScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
-                (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
-                seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
+            //None of the three on the Potato path (#789): they are planted from the scene renderer's configs, which it
+            //does not build, and they stand only in backdrops it does not draw. Null there, and every reader checks.
+            if (!PotatoPath)
+            {
+                _forestScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
+                    (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
+                    seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
 
-            //The aurora's own wood, a second planting from its own config - see AuroraSceneConfig's class doc.
-            _auroraScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
-                ((AuroraSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Aurora)).Terrain, SCENE_AMBIENT_INTENSITY,
-                seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
+                //The aurora's own wood, a second planting from its own config - see AuroraSceneConfig's class doc.
+                _auroraScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
+                    ((AuroraSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Aurora)).Terrain, SCENE_AMBIENT_INTENSITY,
+                    seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
 
-            _forestFireflies = new ForestFireflies(GraphicsDevice, _instancingEffect,
-                (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
-                seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
+                _forestFireflies = new ForestFireflies(GraphicsDevice, _instancingEffect,
+                    (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
+                    seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
+            }
 
             //Note the glass the cluster hangs from is NOT built here: its footprint is the loaded level's
             //field, so RebuildCeilingRenderer fits it (and refits it on every level) — which is why the
@@ -414,12 +423,15 @@ namespace BS3D
             //takes part — the one flat array the component exposes for exactly this — or a spruce of the variant
             //this missed would stand under the light rig of whatever dome was up when it was made. Dereferenced
             //unconditionally like the island's, and for the same reason: BuildScene makes it well before the
-            //startup SetScene, which is what first calls ApplySkyLighting.
-            foreach (InstancedModelRenderer renderer in _forestScatter.Renderers) yield return renderer;
+            //startup SetScene, which is what first calls ApplySkyLighting. Except on the Potato path (#789), which
+            //builds no wood at all.
+            if (_forestScatter != null)
+                foreach (InstancedModelRenderer renderer in _forestScatter.Renderers) yield return renderer;
 
             //The aurora's own wood, present only in that scene but always built - same reasoning, same
-            //unconditional dereference, the same construction-order guarantee.
-            foreach (InstancedModelRenderer renderer in _auroraScatter.Renderers) yield return renderer;
+            //unconditional dereference, the same construction-order guarantee, the same Potato exception.
+            if (_auroraScatter != null)
+                foreach (InstancedModelRenderer renderer in _auroraScatter.Renderers) yield return renderer;
 
             //The 3D title over the front end (#248), letters and keylines both. It takes the dome's light like
             //everything else in the frame ON PURPOSE — argued on TitleWordmark.Renderers, a wordmark stands
@@ -477,8 +489,10 @@ namespace BS3D
             //rig gives the scene — one sun, one number (see SkyLightRig.SunRadianceTinted). Since #220 the
             //sun's DIRECTION rides along, the dome having its own: the drawn disc, the deck's silver lining
             //and the shadow the instanced shader throws are all re-aimed in this one call.
-            _clouds.ApplyDome(_skyEffect, _instancingEffect, _rig.SunDirection,
-                _rig.SunRadianceTinted, _rig.ZenithLinear, _rig.HorizonLinear);
+            //No clouds on the Potato path (#789): neither effect there has a cloud uniform
+            if (!PotatoPath)
+                _clouds.ApplyDome(_skyEffect, _instancingEffect, _rig.SunDirection,
+                    _rig.SunRadianceTinted, _rig.ZenithLinear, _rig.HorizonLinear);
         }
 
         /// <summary>
@@ -547,7 +561,7 @@ namespace BS3D
             //scattered by falling through this).
             SceneConfig config = _scene is SceneKind.City or SceneKind.NeonCity
                 ? _cityConfig
-                : _sceneRenderer.GetSceneConfig(_scene);
+                : _sceneRenderer?.GetSceneConfig(_scene);
 
             WeatherPreset preset = WeatherLooks.TryParse(levelWeather)
                 ?? config?.Weather
@@ -631,6 +645,12 @@ namespace BS3D
         /// </summary>
         internal void CompositeForegroundLast()
         {
+            if (PotatoPath)
+            {
+                DrawPotatoForeground();
+                return;
+            }
+
             if (_foregroundToComposite == null)
             {
                 //The refraction belongs to the layer it bends, so it is spent with it even when there is none to spend
@@ -656,6 +676,9 @@ namespace BS3D
         /// into — the caller then draws its overlay straight onto the frame, as on any unblurred one.</returns>
         internal bool BeginOverlayLayer()
         {
+            //No layer on the Potato path (#789): the HUD goes straight onto the frame, unblurred
+            if (PotatoPath) return false;
+
             RenderTarget2D layer = _pipeline.OverlayTarget;
             if (layer == null) return false;
 
@@ -707,6 +730,9 @@ namespace BS3D
         /// </summary>
         internal SceneFrame BeginSceneDraw()
         {
+            //GamePi's own frame (#789): see BS3DGame.Potato.cs
+            if (PotatoPath) return BeginPotatoSceneDraw();
+
             //The won cup (#183), drawn since #225 into the pipeline's SHARP FOREGROUND target rather than
             // the scene, and FIRST — before the scene target is bound — for a reason that cost a black
             // result screen to learn: binding a target whose usage is DiscardContents CLEARS it (that is
@@ -968,7 +994,7 @@ namespace BS3D
             _cityIsNeon = neon;
             _city = new City(_cityConfig, neon, ArenaIsland.RADIUS);
             _rooftops.Rebuild(_city, _cityConfig);
-            _streets.Rebuild(_city);
+            _streets?.Rebuild(_city);
         }
 
         /// <summary>
@@ -1070,6 +1096,13 @@ namespace BS3D
         /// </summary>
         internal void DrawTranslucentsBehindGlass(in SceneFrame sceneFrame)
         {
+            //The Potato path (#789) has no scene renderer and no water to go under: the fireworks alone
+            if (PotatoPath)
+            {
+                _fireworks?.Draw(_camera, 1f);
+                return;
+            }
+
             _sceneRenderer.DrawGrounded(_scene, sceneFrame);
 
             //Gone under the water (#761), fading with the murk as the lens goes down; the sea is the only scene with
@@ -1093,7 +1126,7 @@ namespace BS3D
         /// so the scenes and the tier without a map carry no glass shadow either.
         /// </summary>
         internal void CastCeilingShadow(InstancedModelRenderer renderer, Matrix plateWorld) =>
-            _sceneRenderer.CastCeilingShadow(renderer, plateWorld.Translation);
+            _sceneRenderer?.CastCeilingShadow(renderer, plateWorld.Translation);
 
         /// <summary>
         /// The ceiling's glass plate, drawn <b>without writing depth</b> — the session's plate from
@@ -1228,6 +1261,12 @@ namespace BS3D
         /// screen that blurs, has nothing to stand on top, and the front end passes no velocity pass.</param>
         internal void FinishSceneDraw(SceneFrame sceneFrame, Action<MotionBlur> drawMotion = null, Action drawOnTop = null)
         {
+            if (PotatoPath)
+            {
+                FinishPotatoSceneDraw(drawOnTop);
+                return;
+            }
+
             //The cup's layer, filled by BeginSceneDraw if a cup is up this frame. Asked for here rather
             // than carried in a field: the pair of slices is one pipeline, and what the frame's close
             // consumes is what its opening produced.

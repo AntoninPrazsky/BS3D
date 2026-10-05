@@ -994,25 +994,30 @@ namespace BS3D
             //from this class; the schedule it runs was parsed by the command line (see BS3DGame.Screenshot.cs)
             CreateScreenshotWriter();
 
-            _instancingEffect = Content.Load<Effect>("Shaders/InstancedModel");
+            //GamePi's own on the Potato path (#789), which every InstancedModelRenderer recognises: see BS3DGame.Potato.cs
+            _instancingEffect = Content.Load<Effect>(PotatoPath ? "Shaders/PotatoModel" : "Shaders/InstancedModel");
 
             //The pipeline caches its parameters and sets each look value exactly once through the required
             //initializer — the aberration/grain toggles and the exposure ladder write the same properties
             //later, and everything else about the resolve lives in the class (see #74)
-            _pipeline = new PostProcessPipeline(GraphicsDevice,
-                Content.Load<Effect>("Shaders/Tonemap"), Content.Load<Effect>("Shaders/Glare"))
+            //None on the Potato path (#789): it draws straight into the back buffer, and every member below is null there
+            if (!PotatoPath)
             {
-                GlareThreshold = GLARE_THRESHOLD,
-                GlareIntensity = GLARE_INTENSITY,
-                Exposure = _exposure,
-                ChromaticAberration = _effective.Aberration ? CHROMATIC_ABERRATION : 0f,
-                FilmGrain = _effective.Grain ? FILM_GRAIN : 0f,
-                SupersampleFactor = _supersampleFactor,
-            };
+                _pipeline = new PostProcessPipeline(GraphicsDevice,
+                    Content.Load<Effect>("Shaders/Tonemap"), Content.Load<Effect>("Shaders/Glare"))
+                {
+                    GlareThreshold = GLARE_THRESHOLD,
+                    GlareIntensity = GLARE_INTENSITY,
+                    Exposure = _exposure,
+                    ChromaticAberration = _effective.Aberration ? CHROMATIC_ABERRATION : 0f,
+                    FilmGrain = _effective.Grain ? FILM_GRAIN : 0f,
+                    SupersampleFactor = _supersampleFactor,
+                };
 
-            //The motion blur (#402), the Game's alone: its shader is built only by this content project, and it costs
-            //nothing on a frame whose session opens no velocity pass — the menus, a paused level, a tier without it.
-            _pipeline.EnableMotionBlur(Content.Load<Effect>("Shaders/MotionBlur"));
+                //The motion blur (#402), the Game's alone: its shader is built only by this content project, and it costs
+                //nothing on a frame whose session opens no velocity pass — the menus, a paused level, a tier without it.
+                _pipeline.EnableMotionBlur(Content.Load<Effect>("Shaders/MotionBlur"));
+            }
 
             //Off the shared instanced effect, because one push of the scene's lights has to reach the balls, the
             //island, the gun and the city alike. It caches its four parameter references here, for the same
@@ -1069,7 +1074,9 @@ namespace BS3D
             //scene shader, compiled once in Prazsky.Shaders (#618). The hole radius is fixed (the island
             //never moves or resizes here), so it is set once rather than per frame.
             ShowLoading();
-            _sceneRenderer = new SceneRenderer(GraphicsDevice, Content, _sceneSeedOffset)
+            //None on the Potato path (#789): every backdrop is an SM 5.0 effect, and the rig, the wind and the audio
+            //take a null renderer as "no scene of its own to consult"
+            if (!PotatoPath) _sceneRenderer = new SceneRenderer(GraphicsDevice, Content, _sceneSeedOffset)
             {
                 TerrainHoleRadius = ArenaIsland.TERRAIN_HOLE_RADIUS,
                 SupersampleFactor = _supersampleFactor,
@@ -1101,17 +1108,23 @@ namespace BS3D
             //part of starting up and belong to a play session, so the GameplayScreen builds them on the first
             //"Play" and rebuilds them per level. Everything above is the scene, which the menu also stands in.
 
-            _skyEffect = Content.Load<Effect>("Shaders/Sky");
-            _skyCameraPositionParam = _skyEffect.Parameters["CameraPosition"];
-            _sky = new SkyDome(GraphicsDevice, _skyDome, linearVertexColors: true)
+            //The Potato path (#789) has no Sky.fx: the dome is drawn through SkyDome's own BasicEffect (a null Effect),
+            //from its stored sRGB palette straight into the back buffer, so its colours are NOT linearised there
+            if (!PotatoPath)
+            {
+                _skyEffect = Content.Load<Effect>("Shaders/Sky");
+                _skyCameraPositionParam = _skyEffect.Parameters["CameraPosition"];
+            }
+
+            _sky = new SkyDome(GraphicsDevice, _skyDome, linearVertexColors: !PotatoPath)
             {
                 Effect = _skyEffect
             };
 
             //Everything about the clouds that does not change frame to frame, pushed once. The per-frame half —
             //the clock and the camera — goes out in BeginSceneDraw, right before the dome; the colours and the
-            //sun's own direction follow the dome and are ApplySkyLighting's business.
-            _clouds.ApplyStaticParameters(_skyEffect);
+            //sun's own direction follow the dome and are ApplySkyLighting's business. No clouds on the Potato path.
+            if (!PotatoPath) _clouds.ApplyStaticParameters(_skyEffect);
 
             //The game's name as 3D lettering over the front end (#248). Its twenty-two meshes are built here,
             //once — eleven letters at the stroke weight and eleven again fatter, for the keyline behind them.
@@ -1148,7 +1161,7 @@ namespace BS3D
             //writes the config's own defaults back over themselves and rebuilds nothing.
             ApplyQuality(_quality);
 
-            _pipeline.EnsureTarget();
+            _pipeline?.EnsureTarget();
 
             //The order the levels are played in, read once here: a broken set is reported at startup rather
             //than at the moment the player presses Play, and the maps themselves are only parsed per level.
@@ -1181,6 +1194,9 @@ namespace BS3D
 
             //And the campaign's confetti, whose one static buffer is built here for the same reason (#215).
             _confetti = new Confetti(GraphicsDevice, Content.Load<Effect>("Shaders/Confetti"));
+
+            //The player's brightness onto every Potato effect, which the desktop's pipeline initializer above does there
+            if (PotatoPath) ApplyPotatoExposure();
 
             //Both display levers ("celebrate" and "confetti") are FIRED FROM Update, not from here — see
             //StartupScript.StartCelebrations, which also says why. The two displays are only built here.
@@ -1860,7 +1876,7 @@ namespace BS3D
                 //only be believed if it says which rung it was on, and neither of these two shows up in a
                 //screenshot at all.
                 + $", {_quality.ToString().ToLowerInvariant()}"
-                + $", msaa {_pipeline.SceneTarget?.MultiSampleCount ?? 0}x"
+                + $", msaa {_pipeline?.SceneTarget?.MultiSampleCount ?? 0}x"
                 + $", detail {(_sceneRenderer?.SceneDetail > 0.5f ? "full" : "reduced")}"
                 //The sun shadow map as built (#484): Ultra's one entry is its size, and nothing else says it
                 + $", shadow {(_sceneRenderer?.ActiveShadowMapSize is int map && map > 0 ? map.ToString() : "off")}"
