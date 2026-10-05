@@ -14,6 +14,15 @@ name: Release
 # level generator's regeneration check first, ScoreSim with the score ceiling table it writes beside the zip
 # (#549) later - and a failure in either stops the job before anything is released.
 #
+# Three jobs since #793, one tag and one score-ceilings table for all of them:
+#   * release - the Windows zip and the ceilings, behind both gates (and the check that GamePi's committed GL
+#     effects are what their sources compile to, since the Raspberry Pi package ships them);
+#   * release-linux-arm64 - GamePi (the Game on Linux ARM64, a Raspberry Pi 5) published self-contained on a native
+#     ARM64 runner and packed as a tar.gz, because only a tar keeps the executable bit;
+#   * publish - waits for both, writes ONE SHA256SUMS over everything and, on a tag, creates the release. Either
+#     package failing stops it, so a tag publishes both or nothing. A manual run ends here without a release and
+#     leaves SHA256SUMS beside the two packages as artifacts.
+#
 # It costs nothing: this repository is public, and GitHub bills neither standard-runner minutes nor
 # release storage and bandwidth for public repositories. (Windows minutes are billed at twice the Linux
 # rate on private ones, which is the only reason that sentence is worth writing down.)
@@ -71,6 +80,20 @@ jobs:
           # Same content, but the generator writes the platform's line ending; the zip ships the files exactly
           # as committed.
           git checkout -- Game/Levels
+
+      # GamePi's OpenGL effects are compiled on Windows and COMMITTED (#789): the Pi cannot compile them, so the
+      # Linux package below ships whatever is in GamePi/Shaders/Compiled. gamepi-shaders.yml checks that on every
+      # push that touches them, but a release must not lean on a push-time check it did not wait for - this is
+      # the same check, here, so a tag on a commit whose compiled effects went stale publishes nothing. A changed
+      # file and a never-committed one alike (the level gate's lesson: `git diff` alone does not see untracked).
+      - name: Gate - GamePi's committed GL effects are what their sources compile to
+        shell: pwsh
+        run: |
+          ./GamePi/Shaders/compile.ps1
+          git diff --stat --exit-code -- GamePi/Shaders/Compiled
+          if ($LASTEXITCODE -ne 0) { throw "GamePi/Shaders/Compiled differs from what the sources compile to: run GamePi/Shaders/fetch.sh (or compile.ps1 on Windows) and commit it" }
+          $stray = git ls-files --others --exclude-standard -- GamePi/Shaders/Compiled
+          if ($stray) { $stray; throw "The sources compile to effect(s) that were never committed" }
 
       # One step decides what this build is called and every step after it reads the answer out of the
       # environment rather than deriving it again. A tag names itself; a manual run is "dev-<short sha>",
@@ -155,18 +178,9 @@ jobs:
           dotnet run --project Tools/ScoreSim/ScoreSim.csproj -c Release -- --ceilings "BS3D-$env:BUILD_VERSION-ceilings.json"
           if ($LASTEXITCODE -ne 0) { throw "ScoreSim refused the level set" }
 
-      # A checksum beside the zip (#588), in the format `sha256sum -c` reads, so a download can be checked
-      # against the file the release actually published.
-      - name: Write SHA256SUMS
-        shell: pwsh
-        run: |
-          $files = @("$env:BUILD_NAME.zip", "BS3D-$env:BUILD_VERSION-ceilings.json")
-          $lines = foreach ($f in $files) { '{0}  {1}' -f (Get-FileHash -Algorithm SHA256 -LiteralPath $f).Hash.ToLowerInvariant(), $f }
-          [System.IO.File]::WriteAllText("$PWD/SHA256SUMS", (($lines -join "`n") + "`n"))
-          Get-Content SHA256SUMS
-
       # Every run keeps the zip, tagged or not, and this is what makes the manual run worth having: the
-      # pipeline can be rehearsed, downloaded and played without anything being published to anyone.
+      # pipeline can be rehearsed, downloaded and played without anything being published to anyone. The checksums
+      # are written by the publish job, over every package at once (#793).
       - name: Keep the zip as a workflow artifact
         uses: actions/upload-artifact@v7
         with:
@@ -174,24 +188,155 @@ jobs:
           path: |
             ${{ env.BUILD_NAME }}.zip
             BS3D-${{ env.BUILD_VERSION }}-ceilings.json
-            SHA256SUMS
           retention-days: 90
 
-      # Only a tag publishes. The notes open with a picture of this version when one was committed, then lead
-      # with what the download needs and what Windows will say about it, because an unsigned exe surprises
-      # people; GitHub's generated list of what changed since the previous tag is appended underneath by
-      # --generate-notes.
-      #
-      # The picture is Images/releases/<tag>.jpg (or .png), committed BEFORE the tag is pushed: a screenshot of
-      # the game the tag ships, from `Tools/release-screenshot.ps1`, whose corner names the version. It is
-      # linked at the tag's own ref rather than at main, so the release keeps showing the build it describes
-      # however the file changes later. Optional on purpose - a tag without one publishes anyway and says so in
-      # the log, since a missing picture is no reason to hold a download back.
-      #
-      # And Images/releases/<tag>.md, when one was committed with the picture, goes between the picture and the
-      # download text: what this release says before anything else (v0.3.0's "the first release with online scores,
-      # and how to turn them on" had to be in the notes from their first minute, not edited in after them).
-      # Optional the same way.
+  # The Raspberry Pi package (#793): GamePi, the Game's own sources on MonoGame DesktopGL for Linux ARM64, published
+  # self-contained so the Pi installs nothing. Built on a NATIVE ARM64 runner (the one build.yml's gamepi job already
+  # publishes on, #787) rather than cross-published from Windows, so the folder is made by the platform it runs on and
+  # keeps its executable bit, and packed as a tar.gz because only a tar remembers one (Compress-Archive on Windows
+  # loses it). It ships the GL effects committed in GamePi/Shaders/Compiled; the Windows job above refuses a tag on a
+  # commit where those are stale. Same tag, same BS3DReleaseVersion as the Windows build (the ARM64 mark is display
+  # only, BuildVersion.DisplayName), so the same ceilings table whitelists its scores.
+  release-linux-arm64:
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.2xx'
+
+      # GamePi pins the official dotnet-mgcb 3.8.5: the bad-echo-mgcb the Windows projects pin imports textures
+      # through FreeImage, which has no ARM64 build
+      - name: Restore content tools (GamePi)
+        run: dotnet tool restore
+        working-directory: GamePi
+
+      # The same naming rule as the Windows job: a tag names itself, a manual run is "dev-<short sha>"
+      - name: Name this build
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then version="${{ github.ref_name }}"; else version="dev-${GITHUB_SHA::7}"; fi
+          echo "BUILD_VERSION=$version" >> "$GITHUB_ENV"
+          echo "BUILD_NAME=BS3D-$version-linux-arm64" >> "$GITHUB_ENV"
+
+      # Self-contained, not trimmed (Myra, FontStashSharp and the content pipeline reflect), the debug info embedded so
+      # a crash report still names file and line - the Windows publish's reasons, and its version rules: a plain
+      # numeric tag stamps the assembly, and any tag names the release to the game (#546), so a rehearsal's
+      # "dev-<sha>" and every local build never land on the public boards. NOT a single file, unlike the Windows
+      # one: the SDL2 and OpenAL natives and the runtime sit beside the executable, a layout the Pi has been
+      # measured to run from (#785); a single-file Linux layout is a separate experiment.
+      - name: Publish GamePi (self-contained, linux-arm64)
+        run: |
+          args=(publish GamePi/GamePi.csproj -c Release -r linux-arm64 --self-contained true -p:DebugType=embedded -o "publish/$BUILD_NAME")
+          if [[ "$BUILD_VERSION" =~ ^v([0-9]+(\.[0-9]+){1,3})$ ]]; then args+=("-p:Version=${BASH_REMATCH[1]}"); fi
+          if [ "${{ github.ref_type }}" = "tag" ]; then args+=("-p:BS3DReleaseVersion=$BUILD_VERSION"); fi
+          dotnet "${args[@]}"
+
+      # What a Pi player cannot start without: the executable apphost (a lost mode bit is a "Permission denied" nobody
+      # can explain), the runtime beside it, the SDL and OpenAL natives the DesktopGL package carries for
+      # linux-arm64, GamePi's own compiled GL effects (the Potato path loads PotatoModel at its first frame), the two
+      # content assets, the levels, the music and the sounds.
+      - name: Check the published folder is playable
+        run: |
+          root="publish/$BUILD_NAME"
+          missing=()
+          for f in BS3D libcoreclr.so libSDL2-2.0.so.0 libopenal.so Content/Images/Logo.xnb Content/Fonts/segoeui.xnb \
+                   Content/Shaders/PotatoModel.xnb Content/Shaders/PotatoSky.xnb Levels/Levels.json; do
+            [ -e "$root/$f" ] || missing+=("$f")
+          done
+          [ -x "$root/BS3D" ] || missing+=("BS3D executable (mode bit)")
+          ls "$root"/Music/*.ogg > /dev/null 2>&1 || missing+=("the music")
+          ls "$root"/Sfx/*.ogg > /dev/null 2>&1 || missing+=("the sound effects")
+          if [ ${#missing[@]} -gt 0 ]; then echo "The published folder is missing: ${missing[*]}"; exit 1; fi
+          echo "$BUILD_NAME published $(find "$root" -type f | wc -l) file(s), $(du -sm "$root" | cut -f1) MB"
+
+      # One top-level folder, so extracting drops BS3D-...-linux-arm64/ rather than spraying its contents into the
+      # current directory. The listing check is what proves the executable bit made it INTO the archive.
+      - name: Pack the published folder
+        run: |
+          tar -czf "$BUILD_NAME.tar.gz" -C publish "$BUILD_NAME"
+          # Into a variable, not a pipe into `grep -q`: the runner's shell is `-o pipefail`, and a grep that quits on its
+          # first match can break the pipe behind it
+          listing="$(tar -tvzf "$BUILD_NAME.tar.gz" "$BUILD_NAME/BS3D")"
+          echo "$listing"
+          [[ "$listing" == -rwx* ]] || { echo "BS3D lost its executable bit in the archive"; exit 1; }
+          echo "$(du -m "$BUILD_NAME.tar.gz" | cut -f1) MB packed"
+
+      - name: Keep the package as a workflow artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.BUILD_NAME }}
+          path: ${{ env.BUILD_NAME }}.tar.gz
+          retention-days: 90
+          # Already compressed (a tar.gz of ogg): a second pass would cost time and save nothing
+          compression-level: 0
+
+  # Waits for both packages, writes the one SHA256SUMS over everything and - on a tag only - publishes (#793). Either
+  # job failing stops this one, so a tag publishes both packages or nothing. The notes open with a picture of this
+  # version when one was committed, then lead with what the download needs and what Windows will say about it,
+  # because an unsigned exe surprises people; GitHub's generated list of what changed since the previous tag is
+  # appended underneath by --generate-notes.
+  #
+  # The picture is Images/releases/<tag>.jpg (or .png), committed BEFORE the tag is pushed: a screenshot of
+  # the game the tag ships, from `Tools/release-screenshot.ps1`, whose corner names the version. It is
+  # linked at the tag's own ref rather than at main, so the release keeps showing the build it describes
+  # however the file changes later. Optional on purpose - a tag without one publishes anyway and says so in
+  # the log, since a missing picture is no reason to hold a download back.
+  #
+  # And Images/releases/<tag>.md, when one was committed with the picture, goes between the picture and the
+  # download text: what this release says before anything else (v0.3.0's "the first release with online scores,
+  # and how to turn them on" had to be in the notes from their first minute, not edited in after them).
+  # Optional the same way.
+  publish:
+    needs: [release, release-linux-arm64]
+    runs-on: ubuntu-latest
+
+    steps:
+      # For Images/releases/ and nothing else
+      - uses: actions/checkout@v7
+
+      - name: Name this build
+        shell: pwsh
+        run: |
+          $version = if ('${{ github.ref_type }}' -eq 'tag') { '${{ github.ref_name }}' } else { 'dev-' + '${{ github.sha }}'.Substring(0, 7) }
+          Add-Content -Path $env:GITHUB_ENV -Value "BUILD_VERSION=$version" -Encoding utf8
+
+      # Both packages and the ceilings table, side by side in dist/: each package job named its artifact BS3D-<...>
+      - name: Download the packages
+        uses: actions/download-artifact@v8
+        with:
+          pattern: BS3D-*
+          path: dist
+          merge-multiple: true
+
+      # A checksum for every file the release carries (#588), in the format `sha256sum -c` reads, so a download can
+      # be checked against what the release actually published. Names are bare, so it is checked from the folder the
+      # files were downloaded into.
+      - name: Write SHA256SUMS
+        shell: pwsh
+        run: |
+          $files = @("BS3D-$env:BUILD_VERSION-win-x64.zip", "BS3D-$env:BUILD_VERSION-linux-arm64.tar.gz", "BS3D-$env:BUILD_VERSION-ceilings.json")
+          foreach ($f in $files) { if (-not (Test-Path "dist/$f")) { throw "dist/$f was not produced" } }
+          $lines = foreach ($f in $files) { '{0}  {1}' -f (Get-FileHash -Algorithm SHA256 -LiteralPath "dist/$f").Hash.ToLowerInvariant(), $f }
+          [System.IO.File]::WriteAllText("$PWD/dist/SHA256SUMS", (($lines -join "`n") + "`n"))
+          Get-Content dist/SHA256SUMS
+          # The same check a player runs, here, so the format is proven rather than assumed
+          Push-Location dist
+          sha256sum -c SHA256SUMS
+          if ($LASTEXITCODE -ne 0) { throw "sha256sum -c refused the file it just wrote" }
+          Pop-Location
+
+      # The checksums stay with a manual run's artifacts, beside the two packages above: the rehearsal is
+      # downloaded and checked exactly as a release would be
+      - name: Keep the checksums as a workflow artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: BS3D-${{ env.BUILD_VERSION }}-SHA256SUMS
+          path: dist/SHA256SUMS
+          retention-days: 90
+
+      # Only a tag publishes
       - name: Publish the GitHub Release
         if: github.ref_type == 'tag'
         shell: pwsh
@@ -200,6 +345,8 @@ jobs:
         run: |
           $notes = @'
           ## Download and play
+
+          ### Windows
 
           **Windows 10 or 11, 64-bit. Nothing to install** — the .NET runtime, MonoGame and everything else
           the game needs travel inside the zip. A DirectX 11 capable graphics card is all it asks of the
@@ -216,6 +363,21 @@ jobs:
 
           Progress and settings live in `%LOCALAPPDATA%\BS3D`, not in the game's folder, so the folder can be
           replaced or deleted without losing a save.
+
+          ### Raspberry Pi 5 (Linux ARM64)
+
+          `BS3D-...-linux-arm64.tar.gz` is the same game, from the same tag, for a Raspberry Pi 5 running 64-bit
+          Raspberry Pi OS. It draws at one fixed graphics tier, **Potato** — a plainer picture than Windows' (no
+          shadows, no scenery behind the island, no post effects), which is what the Pi's GPU can hold at 1080p —
+          and shows `ARM64` beside its version in the menu. Nothing to install: the .NET runtime, SDL2 and OpenAL
+          travel inside it.
+
+          1. Download the `BS3D-...-linux-arm64.tar.gz` below and extract it: `tar xzf BS3D-*-linux-arm64.tar.gz`
+          2. From a desktop session, run it: `cd BS3D-*-linux-arm64 && ./BS3D`
+
+          Progress and settings live in `~/.local/share/BS3D`, not in the game's folder.
+
+          `SHA256SUMS` lists a checksum for every file below; check a download with `sha256sum -c SHA256SUMS`.
           '@
           $picture = ''
           foreach ($extension in 'jpg', 'png') {
@@ -231,7 +393,10 @@ jobs:
           if (Test-Path $writtenPath) { $written = (Get-Content -Raw -Encoding utf8 $writtenPath).TrimEnd() + "`n`n" }
           else { Write-Host "::notice::No $writtenPath was committed, so the release notes carry no written section." }
           Set-Content -Path release-notes.md -Value ($picture + $written + $notes) -Encoding utf8
-          $releaseArgs = @('release', 'create', $env:BUILD_VERSION, "$env:BUILD_NAME.zip", "BS3D-$env:BUILD_VERSION-ceilings.json", 'SHA256SUMS', '--title', "BS3D $env:BUILD_VERSION", '--notes-file', 'release-notes.md', '--generate-notes')
+          $releaseArgs = @('release', 'create', $env:BUILD_VERSION,
+            "dist/BS3D-$env:BUILD_VERSION-win-x64.zip", "dist/BS3D-$env:BUILD_VERSION-linux-arm64.tar.gz",
+            "dist/BS3D-$env:BUILD_VERSION-ceilings.json", 'dist/SHA256SUMS',
+            '--title', "BS3D $env:BUILD_VERSION", '--notes-file', 'release-notes.md', '--generate-notes')
           # A tag carrying a suffix ("v0.2.0-beta") is a prerelease and GitHub should label it as one.
           if ($env:BUILD_VERSION -match '-') { $releaseArgs += '--prerelease' }
           gh @releaseArgs
