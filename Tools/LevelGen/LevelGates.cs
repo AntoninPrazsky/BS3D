@@ -76,7 +76,7 @@ namespace BS3D.Tools.LevelGen
         /// no colour whose best single shot is the whole cluster, the margin, the specials, the shortest clear,
         /// and — for a level that promises them — the stance clear (#603) and the mirror image (#664).
         /// </returns>
-        internal static bool Validate(Design design, string path, int repaired)
+        internal static bool Validate(Design design, string path, int repaired, bool[,,] payoffCells = null)
         {
             Level loaded = Level.Load(path);
             BallsMap map = new(loaded.Map);
@@ -275,13 +275,15 @@ namespace BS3D.Tools.LevelGen
 
             //A REVEAL (#743), for the levels that are one: the payoff hangs on its own and starts sealed.
             bool revealRefused = false;
-            if (design.Payoff != null)
+            if (payoffCells != null)
             {
-                (int payoff, int falling, int open) = RevealFaults(new BallsMap(loaded.Map), design.Payoff, loaded.Crates);
-                revealRefused = payoff == 0 || falling > 0 || (open > 0 && !design.PayoffInSight);
-                Console.WriteLine($"    a reveal's payoff ({string.Join(", ", design.Payoff)}): {payoff} ball(s)"
+                RevealReading reveal = RevealFaults(new BallsMap(loaded.Map), payoffCells, loaded.Crates);
+                (int payoff, int falling, int open, int shared) = (reveal.Payoff, reveal.Falling, reveal.Open, reveal.Shared);
+                revealRefused = payoff == 0 || falling > 0 || shared > 0 || (open > 0 && !design.PayoffInSight);
+                Console.WriteLine($"    a reveal's payoff ({string.Join(", ", reveal.Colours)}): {payoff} ball(s)"
                                   + (payoff == 0 ? "  <-- NONE IN THE LEVEL" : string.Empty)
                                   + (falling > 0 ? $", NO - {falling} fall with the body gone" : ", hangs on its own")
+                                  + (shared > 0 ? $", NO - {shared} body ball(s) in a payoff colour" : ", palette its own")
                                   + (open == 0 ? ", sealed"
                                       : design.PayoffInSight ? $", {open} a shot can touch at the start, as the design shows it"
                                       : $", NO - {open} a shot can touch at the start")
@@ -294,11 +296,16 @@ namespace BS3D.Tools.LevelGen
                    && stranded.BuriedWells == 0 && stranded.InertHeavy == 0 && stranded.StuckBuckshot == 0 && stranded.InfectedBuckshot == 0 && !clear.TooCheap;
         }
 
+        /// <summary>What <see cref="RevealFaults"/> read: the payoff's balls and colours, how many fall with the body
+        /// gone, how many a shot can touch at the start, and how many body balls wear a payoff colour.</summary>
+        internal readonly record struct RevealReading(int Payoff, BallType[] Colours, int Falling, int Open, int Shared);
+
         /// <summary>
-        /// A reveal's two faults (#743, <see cref="Design.Payoff"/>): of the <paramref name="payoff"/>-coloured balls of
-        /// <paramref name="map"/>, how many fall once every other ball is taken away, and how many a shot can touch at
-        /// the start — those with an empty cell beside them that a straight shot from some station on the orbit arrives
-        /// in (<see cref="ArrivalProbe"/>), so a shot comes to rest against them.
+        /// A reveal's three faults (#743, <see cref="Design.Payoff"/>), with <paramref name="payoffCells"/> the cells the
+        /// design calls its payoff, in the field's levels: how many payoff balls fall once the body is taken away, how
+        /// many a shot can touch at the start — those with an empty cell beside them that a straight shot from some
+        /// station on the orbit arrives in (<see cref="ArrivalProbe"/>), so a shot comes to rest against them — and how
+        /// many body balls wear a colour the payoff wears.
         /// <para>
         /// <b>⚠ Not the open-space flood, and the first cut used it.</b> Flooded from the field's walls and floor
         /// through empty neighbours, every payoff of the Reveal's second hang came out open — Spark's star 46 of 46 —
@@ -309,30 +316,41 @@ namespace BS3D.Tools.LevelGen
         /// </para>
         /// The map is emptied of the body in place, so it is a fresh one the caller does not keep.
         /// </summary>
-        internal static (int Payoff, int Falling, int Open) RevealFaults(BallsMap map, BallType[] payoff, CrateSpec[] crates)
+        internal static RevealReading RevealFaults(BallsMap map, bool[,,] payoffCells, CrateSpec[] crates)
         {
             StaticBall[,,] array = map.GetStaticBallsArray();
             XZLevel size = map.GetStaticBallsArraySize();
 
-            bool IsPayoff(StaticBall ball) => ball != null && BallKinds.Matchable(ball.Kind) && Array.IndexOf(payoff, ball.Type) >= 0;
+            bool IsPayoff(int x, int z, int l) => array[x, z, l] != null && payoffCells[x, z, l];
             int Index(XZLevel cell) => (cell.Level * size.X + cell.X) * size.Z + cell.Z;
 
             bool[] present = new bool[size.X * size.Z * size.Level];
-            for (int x = 0; x < size.X; x++)
-                for (int z = 0; z < size.Z; z++)
-                    for (int l = 0; l < size.Level; l++)
-                        present[Index(new XZLevel(x, z, l))] = array[x, z, l] != null;
-
-            ArrivalProbe arrival = new(map, crates);
-
-            int count = 0, open = 0;
+            HashSet<BallType> colours = new();
             for (int x = 0; x < size.X; x++)
                 for (int z = 0; z < size.Z; z++)
                     for (int l = 0; l < size.Level; l++)
                     {
-                        if (!IsPayoff(array[x, z, l])) continue;
-                        count++;
+                        present[Index(new XZLevel(x, z, l))] = array[x, z, l] != null;
+                        if (IsPayoff(x, z, l) && BallKinds.Matchable(array[x, z, l].Kind)) colours.Add(array[x, z, l].Type);
+                    }
 
+            ArrivalProbe arrival = new(map, crates);
+
+            int count = 0, open = 0, shared = 0;
+            for (int x = 0; x < size.X; x++)
+                for (int z = 0; z < size.Z; z++)
+                    for (int l = 0; l < size.Level; l++)
+                    {
+                        StaticBall ball = array[x, z, l];
+                        if (ball == null) continue;
+
+                        if (!payoffCells[x, z, l])
+                        {
+                            if (BallKinds.Matchable(ball.Kind) && colours.Contains(ball.Type)) shared++;
+                            continue;
+                        }
+
+                        count++;
                         foreach (XZLevel next in BallsMap.GetNeighboringCells(new XZLevel(x, z, l), size))
                         {
                             if (present[Index(next)] || arrival.ArrivalStation(present, Index(next)) < 0) continue;
@@ -345,9 +363,13 @@ namespace BS3D.Tools.LevelGen
             for (int x = 0; x < size.X; x++)
                 for (int z = 0; z < size.Z; z++)
                     for (int l = 0; l < size.Level; l++)
-                        if (array[x, z, l] != null && !IsPayoff(array[x, z, l])) array[x, z, l] = null;
+                        if (array[x, z, l] != null && !payoffCells[x, z, l]) array[x, z, l] = null;
 
-            return (count, map.GetCellsDisconnectedFromCeiling().Count, open);
+            BallType[] sorted = new BallType[colours.Count];
+            colours.CopyTo(sorted);
+            Array.Sort(sorted);
+
+            return new RevealReading(count, sorted, map.GetCellsDisconnectedFromCeiling().Count, open, shared);
         }
 
         /// <summary>

@@ -151,6 +151,9 @@ namespace BS3D.Tools.LevelGen
 
             BallPositionType[,,] balls = new BallPositionType[n, n, depth];
 
+            //Which cells are a reveal's payoff (#743), in the field's own levels, for the gate to read beside the file
+            bool[,,] payoff = design.Payoff != null ? new bool[n, n, fieldLevels] : null;
+
             for (byte i = 0; i < depth; i++)
             {
                 byte fieldLevel = (byte)(i + offset);
@@ -171,6 +174,8 @@ namespace BS3D.Tools.LevelGen
                             : design.Occupied(r, ang, i, depth);
 
                         if (!occupied) continue;
+
+                        if (payoff != null) payoff[x, z, fieldLevel] = design.Payoff(x, z, r, ang, i, depth);
 
                         BallType type =
                             design.Colour != null ? design.Colour(r, ang, i, depth)
@@ -231,7 +236,7 @@ namespace BS3D.Tools.LevelGen
                 Console.WriteLine($"--- {design.File}: hollowed to a skin of {design.Hollow}, "
                                   + $"{hollowed} buried ball(s) taken out");
 
-            return LevelGates.Validate(design, path, repaired);
+            return LevelGates.Validate(design, path, repaired, payoff);
         }
 
         /// <summary>

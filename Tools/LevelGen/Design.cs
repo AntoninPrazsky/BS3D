@@ -160,28 +160,37 @@ namespace BS3D.Tools.LevelGen
         /// <summary>
         /// <b>The level is a reveal</b> (#161, #743): an outer body with a differently-shaped thing standing inside it,
         /// and clearing the outside is the payoff — The Reveal's pattern, which the owner's playtest of 2026-10-03
-        /// named the reference for the chapters after it ("balanced difficulty, and they entice the player"). These
-        /// are the payoff's colours, and LevelGen refuses the level unless the three rules that make it a reveal hold
-        /// (<see cref="LevelGates.RevealFaults"/>):
+        /// named the reference for the chapters after it ("balanced difficulty, and they entice the player"). This says
+        /// which cells are the payoff — column, row, round radius, angle, layout level, layout depth, the arguments the
+        /// design's own shapes take, so it is written with the same part function its colours are — and LevelGen
+        /// refuses the level unless the three rules that make it a reveal hold (<see cref="LevelGates.RevealFaults"/>):
         /// <list type="bullet">
-        /// <item><b>It hangs on its own.</b> With every ball of another colour taken away, none of the payoff falls:
-        /// it reaches the glass by its own cord, stalk or stem, so the peel cannot take it down with the shell.</item>
+        /// <item><b>It hangs on its own.</b> With the body taken away, none of the payoff falls: it reaches the glass by
+        /// its own cord, stalk or stem, so the peel cannot take it down with the shell.</item>
         /// <item><b>It is sealed.</b> No payoff ball can be touched by a shot at the start: no empty cell beside one is
         /// a cell a straight shot from anywhere on the gun's orbit arrives in (<see cref="ArrivalProbe"/>), so a cavity
         /// inside the body, which no line of fire enters, does not count against it.</item>
-        /// <item><b>Its palette is its own.</b> Not checked apart, because it cannot fail apart: a body ball in a payoff
-        /// colour is counted as payoff, and with the body gone it falls, which the first rule refuses.</item>
+        /// <item><b>Its palette is its own.</b> No body ball wears a colour the payoff wears, so no group can span the
+        /// two and a shot that opens the shell cannot take the payoff with it — read off the file as it was written,
+        /// so a ball the repair pass recoloured counts too.</item>
         /// </list>
+        /// <para>
+        /// <b>By cell and not by colour, and the first cut was by colour</b>: a list of the payoff's colours, with the
+        /// palette rule argued to follow from the first one — a body ball in a payoff colour would count as payoff and
+        /// fall with the body gone. The review of the merge showed it does not when that ball touches the payoff or the
+        /// glass (it hangs from either), and measured it: recoloured one at a time to the pearl's white, every one of
+        /// Chest's 64 body balls beside the pearl or its cord passed, as did 75 of Mango's 85 and 22 of Spark's 25.
+        /// </para>
         /// Null for every other level. Measured by hand for the Reveal's designs when they were drawn; a gate since #743,
         /// so a new design that takes up the pattern gets the same three answers without copying a block file.
         /// </summary>
-        public BallType[] Payoff;
+        public Func<int, int, float, float, int, int, bool> Payoff;
 
         /// <summary>
         /// The reveal's payoff is <b>meant</b> to be in sight from the start, so the sealed rule of <see cref="Payoff"/> is
         /// reported rather than refused. Ship alone: its tank is "open at the top and the bottom so the reveal is the
-        /// walls coming away rather than a lid", and the gate's first run found its keel — 7 balls — touchable from
-        /// under it (#743), which that sentence chose. False for every other level.
+        /// walls coming away rather than a lid", and the gate's first run found 7 balls touchable from under it — the
+        /// keel's five and the deck's bow and stern (#743) — which that sentence chose. False for every other level.
         /// </summary>
         public bool PayoffInSight;
 
