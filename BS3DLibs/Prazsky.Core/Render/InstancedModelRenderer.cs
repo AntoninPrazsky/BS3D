@@ -42,6 +42,13 @@ namespace Prazsky.Core.Render
         /// </summary>
         private readonly bool _potato;
 
+        /// <summary>
+        /// Whether this renderer draws through GamePi's Potato effect (#789). Every surface is opaque there and the
+        /// bubble's shell shading does not exist (<see cref="BubbleShell"/> is never read), so a caller that puts a
+        /// transparent material out in two walls has one wall's worth of work to do (#797).
+        /// </summary>
+        public bool Potato => _potato;
+
         private EffectTechnique _potatoTexturedTechnique, _potatoBallTechnique, _potatoBallDitherTechnique;
         private readonly MeshPartData[] _parts;
         private DynamicVertexBuffer _instanceBuffer;
