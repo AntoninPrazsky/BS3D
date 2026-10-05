@@ -42,7 +42,7 @@ namespace Prazsky.Core.Render
         /// </summary>
         private readonly bool _potato;
 
-        private EffectTechnique _potatoTexturedTechnique, _potatoBallTechnique;
+        private EffectTechnique _potatoTexturedTechnique, _potatoBallTechnique, _potatoBallDitherTechnique;
         private readonly MeshPartData[] _parts;
         private DynamicVertexBuffer _instanceBuffer;
         private readonly ModelInstance[] _singleInstance = new ModelInstance[1];
@@ -1831,6 +1831,8 @@ namespace Prazsky.Core.Render
             _mainTechnique = RequiredTechnique("PotatoLit");
             _potatoTexturedTechnique = RequiredTechnique("PotatoTextured");
             _potatoBallTechnique = RequiredTechnique("PotatoBall");
+            _potatoBallDitherTechnique = RequiredTechnique("PotatoBallDither");
+            _dissolvePixelSizeParam = Required("DissolvePixelSize");
             _effect.CurrentTechnique = _mainTechnique;
 
             SetLightTint(Vector3.One, Vector3.One);
@@ -1863,25 +1865,56 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// <paramref name="instances"/>' first <paramref name="count"/> ordered by distance from <paramref name="eye"/>,
-        /// nearest first, in a buffer this renderer keeps and grows (no allocation on a frame that does not grow it).
+        /// Whether a ball's <see cref="ModelInstance.Dissolve"/> asks for the dither (#794): anything but a settled ball
+        /// (zero) and a ghost (a size, not a cut). The one test that decides which Potato draw a ball goes in.
         /// </summary>
-        private ModelInstance[] SortedNearestFirst(ModelInstance[] instances, int count, Vector3 eye)
+        internal static bool NeedsDither(float dissolve) => dissolve != 0f && !ModelInstance.IsGhost(dissolve);
+
+        /// <summary>
+        /// <paramref name="source"/>'s first <paramref name="count"/> arranged for the Potato draw (#789, #794) into
+        /// <paramref name="ordered"/>: first the balls that need no dither, <b>nearest to <paramref name="eye"/> first</b>,
+        /// then the dithered ones in the order they came. Returns how many of the first kind there are, which is where
+        /// the second kind begins. A pure function of its arguments so the arrangement can be checked without a device;
+        /// the two buffers are the caller's, grown here when <paramref name="count"/> outruns them (no allocation on a
+        /// frame that does not).
+        /// <para>
+        /// Nearest first because a cluster is mostly balls behind other balls, and drawn near to far the GPU rejects their
+        /// hidden pixels by depth before shading them (the desktop draws in the order they come, its pixels being cheap
+        /// enough; on the Pi the balls were two thirds of a heavy level's frame). The dithered ones last and apart,
+        /// because a pixel shader with a <c>clip()</c> forfeits exactly that rejection for every draw that holds one:
+        /// the few balls that need it pay for it in a draw of their own, and the rest keep the gain.
+        /// </para>
+        /// </summary>
+        internal static int OrderForPotato(ModelInstance[] source, int count, Vector3 eye,
+            ref ModelInstance[] ordered, ref float[] depths)
         {
-            if (_sortedInstances.Length < count)
+            if (ordered.Length < count)
             {
-                _sortedInstances = new ModelInstance[instances.Length];
-                _sortDepths = new float[instances.Length];
+                ordered = new ModelInstance[source.Length];
+                depths = new float[source.Length];
             }
 
+            int clean = 0;
+            for (int i = 0; i < count; i++)
+                if (!NeedsDither(source[i].Dissolve)) clean++;
+
+            int cleanAt = 0, ditheredAt = clean;
             for (int i = 0; i < count; i++)
             {
-                _sortedInstances[i] = instances[i];
-                _sortDepths[i] = Vector3.DistanceSquared(eye, instances[i].World.Translation);
+                if (NeedsDither(source[i].Dissolve))
+                {
+                    ordered[ditheredAt++] = source[i];
+                    continue;
+                }
+
+                ordered[cleanAt] = source[i];
+                depths[cleanAt] = Vector3.DistanceSquared(eye, source[i].World.Translation);
+                cleanAt++;
             }
 
-            Array.Sort(_sortDepths, _sortedInstances, 0, count);
-            return _sortedInstances;
+            if (clean > 1) Array.Sort(depths, ordered, 0, clean);
+
+            return clean;
         }
 
         private ModelInstance[] _sortedInstances = Array.Empty<ModelInstance>();
@@ -1890,22 +1923,29 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// <see cref="Draw(ICamera, ModelInstance[], int, BasicEffectParams, Vector3?)"/> through the Potato effect (#789):
         /// the same instance upload, the same material arithmetic (the tint's luminance, BasicEffect's premultiply) and
-        /// the same per-draw restatement of every shared uniform, with three techniques in place of InstancedModel.fx's
-        /// thirty-five - a ball of any <see cref="BallShading"/> is <c>PotatoBall</c>, a detail-textured part is
-        /// <c>PotatoTextured</c>, everything else (city, glass, metal, crystal) is <c>PotatoLit</c>. Its own method
+        /// the same per-draw restatement of every shared uniform, with four techniques in place of InstancedModel.fx's
+        /// thirty-five - a ball of any <see cref="BallShading"/> is <c>PotatoBall</c> (and, for the few being dithered,
+        /// <c>PotatoBallDither</c> in a run of its own, #794), a detail-textured part is <c>PotatoTextured</c>,
+        /// everything else (city, glass, metal, crystal) is <c>PotatoLit</c>. Its own method
         /// rather than branches through the desktop draw, so the desktop path reads exactly as it did.
         /// </summary>
         private void DrawPotato(ICamera camera, ModelInstance[] instances, int instanceCount, BasicEffectParams effectParams, Vector3? diffuseTint)
         {
             EnsureInstanceBufferCapacity(instances.Length);
 
-            //Balls nearest first (#789): a cluster is mostly balls behind other balls, and drawn near to far the GPU
-            //rejects their hidden pixels by depth before shading them. The desktop draws its balls in the order they
-            //come, its pixels being cheap enough; on the Pi the balls were two thirds of a heavy level's frame.
-            //Sorted into this renderer's own buffer, so the caller's array keeps its order.
-            _instanceBuffer.SetData(PatternGoreCount > 0 && instanceCount > 1
-                ? SortedNearestFirst(instances, instanceCount, camera.Position) : instances,
-                0, instanceCount, SetDataOptions.Discard);
+            //Balls nearest first, and the dithered ones apart at the end (#789, #794): see OrderForPotato. Arranged
+            //into this renderer's own buffer, so the caller's array keeps its order. Everything that is not a ball
+            //renderer's is one run, in the order it came.
+            int clean = instanceCount;
+            ModelInstance[] ordered = instances;
+
+            if (PatternGoreCount > 0)
+            {
+                clean = OrderForPotato(instances, instanceCount, camera.Position, ref _sortedInstances, ref _sortDepths);
+                ordered = _sortedInstances;
+            }
+
+            _instanceBuffer.SetData(ordered, 0, instanceCount, SetDataOptions.Discard);
 
             _viewParam.SetValue(camera.View);
             _projectionParam.SetValue(camera.Projection);
@@ -1986,17 +2026,40 @@ namespace Prazsky.Core.Render
                 }
                 else _effect.CurrentTechnique = _mainTechnique;
 
-                _graphicsDevice.SetVertexBuffers(
-                    new VertexBufferBinding(part.VertexBuffer, part.VertexOffset, 0),
-                    new VertexBufferBinding(_instanceBuffer, 0, 1));
-                _graphicsDevice.Indices = part.IndexBuffer;
+                //A ball part is two runs of the one instance buffer: the balls with no dither (nearest first), then the
+                //dithered ones through the technique that has the clip. Anything else is one run.
+                if (!ball) DrawPotatoRun(part, 0, instanceCount);
+                else
+                {
+                    if (clean > 0) DrawPotatoRun(part, 0, clean);
 
-                _effect.CurrentTechnique.Passes[0].Apply();
-
-                _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, part.StartIndex, part.PrimitiveCount, instanceCount);
+                    if (clean < instanceCount)
+                    {
+                        _effect.CurrentTechnique = _potatoBallDitherTechnique;
+                        _dissolvePixelSizeParam.SetValue(DissolvePixelSize);
+                        DrawPotatoRun(part, clean, instanceCount - clean);
+                    }
+                }
             }
 
             _effect.CurrentTechnique = _mainTechnique;
+        }
+
+        /// <summary>
+        /// One instanced draw of <paramref name="part"/> through the effect's current technique, for
+        /// <paramref name="count"/> instances of the instance buffer starting at <paramref name="firstInstance"/>
+        /// (the binding's offset, in instances: DesktopGL has no base-instance draw on the Pi's GL 3.1).
+        /// </summary>
+        private void DrawPotatoRun(in MeshPartData part, int firstInstance, int count)
+        {
+            _graphicsDevice.SetVertexBuffers(
+                new VertexBufferBinding(part.VertexBuffer, part.VertexOffset, 0),
+                new VertexBufferBinding(_instanceBuffer, firstInstance, 1));
+            _graphicsDevice.Indices = part.IndexBuffer;
+
+            _effect.CurrentTechnique.Passes[0].Apply();
+
+            _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, part.StartIndex, part.PrimitiveCount, count);
         }
 
         private void EnsureInstanceBufferCapacity(int instanceCapacity)

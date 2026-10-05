@@ -80,6 +80,10 @@ float PulseWavelength;
 float RippleStrength;
 float3 RippleAlarmColor;
 
+//How wide one cell of the dissolve's dither is, in back-buffer pixels: BallCommon.fxh's DissolvePixelSize, the one
+//uniform the dithered draw reads (#794)
+float DissolvePixelSize = 1;
+
 struct VertexInput
 {
     float4 Position : POSITION0;
@@ -263,18 +267,35 @@ float Heartbeat(float t)
     return saturate(exp(-lubOffset * lubOffset) + 0.55 * exp(-dubOffset * dubOffset));
 }
 
-//The ball's dissolve, as a size rather than the desktop's dither (#789): a ball appearing (+, 1 down to 0) or going
-//(-, -1 up to 0) is drawn shrunk to the share of it the dither would show, round its own centre. The dither is a
-//clip(), and a pixel shader that can discard stops the GPU from rejecting a hidden pixel by depth before shading it -
-//on a cluster that is most of the balls it draws, which is what Potato cannot afford (measured: the balls are two
-//thirds of a heavy level's frame on the Pi). A settled ball (0) is whole.
+//A ghost's size (#794), carried in the dissolve channel below -1 (ModelInstance.GhostDissolve): the radius as a share of
+//a whole ball's, 1 for anything else. The aim preview is the only ghost; it is drawn SMALLER rather than dithered, round
+//the ball's own centre (the object position scaled before the world matrix takes it), which is what BallCommon.fxh's
+//PatternVS does on the desktop. The owner saw this look on the Pi first (#789, where every dissolve was a size) and kept it
+//for the ghost alone.
+float GhostScale(float dissolve)
+{
+    return dissolve < -1.0 ? -dissolve - 1.0 : 1.0;
+}
+
+//A ball with no dither: the settled ones and the ghost. No clip(), which is what the Pi's frame stands on (#789): a pixel
+//shader that can discard stops the GPU from rejecting a hidden pixel by depth before shading it, and on a cluster that is
+//most of the balls it draws (measured: they are two thirds of a heavy level's frame, and the dissolve as a size and not a
+//clip halved Girandole's). Every ball that IS dithered - a detached one, a colour cross-fade - goes in a draw of its own
+//through PotatoBallDither below, which InstancedModelRenderer.DrawPotato splits off, so only those few pay for the clip.
 VertexOutput PotatoBallVS(VertexInput input, InstanceInput instance)
 {
-    float dissolve = instance.Dissolve;
-    float shown = saturate(dissolve >= 0 ? 1 - dissolve : -dissolve);
-    input.Position.xyz *= shown;
+    input.Position.xyz *= GhostScale(instance.Dissolve);
 
     return PotatoVS(input, instance);
+}
+
+//BallCommon.fxh's DissolveNoise, verbatim: a hash with no sin in it, over cells of the screen
+float DissolveNoise(float2 cell)
+{
+    float3 p = frac(cell.xyx * float3(0.1031, 0.1030, 0.0973));
+    p += dot(p, p.yzx + 33.33);
+
+    return frac((p.x + p.y) * p.z);
 }
 
 float4 BallPS(VertexOutput input) : COLOR0
@@ -324,5 +345,29 @@ technique PotatoBall
     {
         VertexShader = compile vs_3_0 PotatoBallVS();
         PixelShader = compile ps_3_0 BallPS();
+    }
+};
+
+//The dithered balls (#794): the desktop's dissolve, pixel for pixel - a ball going (+d) keeps the pixels whose noise is
+//above d, one arriving (-d) those below |d|, so the two draws of a cross-fade partition the ball exactly. The cell is a
+//block of the SCREEN, snapped with floor so every sample in it takes the same decision; VPOS is the pixel's position in
+//the back buffer, which is what SV_POSITION is in a Shader Model 4 pixel shader. Drawn whole-sized (the vertex shader
+//scales only a ghost, and a ghost is never in this draw).
+float4 BallDitherPS(VertexOutput input, float2 vpos : VPOS) : COLOR0
+{
+    float noise = DissolveNoise(floor(vpos / DissolvePixelSize));
+    float dissolve = input.DissolveRipple.x;
+
+    clip(dissolve >= 0 ? noise - dissolve : -dissolve - noise);
+
+    return BallPS(input);
+}
+
+technique PotatoBallDither
+{
+    pass P0
+    {
+        VertexShader = compile vs_3_0 PotatoVS();
+        PixelShader = compile ps_3_0 BallDitherPS();
     }
 };
