@@ -599,15 +599,23 @@ namespace Prazsky.BS3D
             //The muzzle collar (#425), lathed in the barrel's own frame off the barrel's own figures, so the
             //ring that glows and the tube it rings cannot drift apart. The lathe turns about Y and the bore
             //runs along Z, so the profile's Y IS the local Z here and the draw turns it a quarter about X.
-            //Ordered from the muzzle face BACKWARDS, which is what puts the normals outwards.
+            //
+            //Ordered from its BACK edge forwards to the muzzle face - DOWN the lathe's axis, since the muzzle is the
+            //lower Y - which is what puts the normals outwards: LatheMesh's normal is the ring's tangent crossed into
+            //the profile's, and a wall described going up the axis faces the axis (the island's wall is described
+            //top to bottom for the same reason). It ran the other way from #425 until #812, with a note here saying
+            //it faced outwards, and every build drew the band's FAR INNER wall with the near outer one culled: the
+            //same ring seen from behind the gun, and from the side an arc past the tube's far outline with nothing
+            //across the near side of it. The band is emissive, so its colour never said, and an open band has no
+            //volume for WindingCheck to judge - what said so was #804's fins finding every edge of it concave.
             //Its outline takes fins too (#804): the glowing ring is the brightest edge on the gun
             using (EdgeFins.Wanted())
                 _collarMesh = new LatheMesh(graphicsDevice, new[]
                 {
-                    new LathePoint(COLLAR_ROOT_RADIUS, muzzleZ, crease: true),
-                    new LathePoint(COLLAR_CREST_RADIUS, muzzleZ + COLLAR_SHOULDER, crease: true),
-                    new LathePoint(COLLAR_CREST_RADIUS, muzzleZ + COLLAR_LENGTH - COLLAR_SHOULDER, crease: true),
                     new LathePoint(COLLAR_ROOT_RADIUS, muzzleZ + COLLAR_LENGTH, crease: true),
+                    new LathePoint(COLLAR_CREST_RADIUS, muzzleZ + COLLAR_LENGTH - COLLAR_SHOULDER, crease: true),
+                    new LathePoint(COLLAR_CREST_RADIUS, muzzleZ + COLLAR_SHOULDER, crease: true),
+                    new LathePoint(COLLAR_ROOT_RADIUS, muzzleZ, crease: true),
                 }, COLLAR_SEGMENTS);
 
             _collarRenderer = new InstancedModelRenderer(graphicsDevice, _collarMesh, COLLAR_STEEL, instancingEffect)
