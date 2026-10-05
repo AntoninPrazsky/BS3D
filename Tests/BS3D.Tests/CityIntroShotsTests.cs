@@ -43,7 +43,7 @@ namespace BS3D.Tests
             for (int seed = 1; seed <= ROLLS; seed++)
                 foreach (bool neon in new[] { false, true })
                 {
-                    IntroShot[] shots = CityIntroShots.Build(Build(neon, seed), FieldOfView, new Random(seed));
+                    IntroShot[] shots = CityIntroShots.Build(Build(neon, seed), null, false, FieldOfView, new Random(seed));
 
                     Assert.True(shots.Length >= 3, $"seed {seed}, neon {neon}: only {shots.Length} shots");
                     foreach (IntroShot shot in shots)
@@ -57,7 +57,7 @@ namespace BS3D.Tests
             for (int seed = 1; seed <= ROLLS; seed++)
                 foreach (bool neon in new[] { false, true })
                 {
-                    IntroShot[] shots = CityIntroShots.Build(Build(neon, seed), FieldOfView, new Random(seed));
+                    IntroShot[] shots = CityIntroShots.Build(Build(neon, seed), null, false, FieldOfView, new Random(seed));
 
                     for (int i = 0; i + 1 < shots.Length; i++)
                     {
@@ -85,7 +85,7 @@ namespace BS3D.Tests
                 foreach (bool neon in new[] { false, true })
                 {
                     City city = Build(neon, seed);
-                    IntroShot[] shots = CityIntroShots.Build(city, FieldOfView, new Random(seed));
+                    IntroShot[] shots = CityIntroShots.Build(city, null, false, FieldOfView, new Random(seed));
 
                     foreach (IntroShot shot in shots)
                         for (int step = 0; step <= 60; step++)
@@ -111,7 +111,7 @@ namespace BS3D.Tests
             //The alternation itself: street, plaza, swing, roofs — never the swing beside the street it is a variation of
             for (int seed = 1; seed <= ROLLS; seed++)
             {
-                IntroShot[] shots = CityIntroShots.Build(Build(false, seed), FieldOfView, new Random(seed));
+                IntroShot[] shots = CityIntroShots.Build(Build(false, seed), null, false, FieldOfView, new Random(seed));
 
                 for (int i = 0; i + 1 < shots.Length; i++)
                     Assert.NotEqual(shots[i].Name, shots[i + 1].Name);

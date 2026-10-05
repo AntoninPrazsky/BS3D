@@ -76,6 +76,20 @@ namespace BS3D.Effects
         //the masts and dishes their parallax as they pass.
         private const float ROOFS_SWAY_UNITS = 2.2f;
 
+        //The rooftop (#780): a slow arc round one dressed roof - its mast, dishes and beacon - close and from above, the
+        //owner's "the camera could circle round them for a moment and look at them more from above". The roof is the
+        //best-dressed one between these distances from the arena's axis (the island stands over the middle); the lens
+        //circles it this far out past the roof's edge, this high over the mast's middle, looking at the mast's lower
+        //third, through this many degrees. A roof whose arc a taller neighbour stands in is passed over for the next.
+        private const float ROOFTOP_NEAREST_BLOCKS = 2f, ROOFTOP_FARTHEST_BLOCKS = 6f;
+        private const float ROOFTOP_OUT = 9f;
+        private const float ROOFTOP_ABOVE = 10f;
+        private const float ROOFTOP_LOOK_SHARE = 0.3f;
+        private const float ROOFTOP_SWEEP_DEGREES = 85f;
+        private const float ROOFTOP_SECONDS = 5.0f;
+        private const float ROOFTOP_CLEARANCE = 3f;
+        private const int ROOFTOP_CANDIDATES = 8;
+
         //How many candidates each roll weighs; the best by its own measure is taken.
         private const int CANDIDATES = 12;
 
@@ -85,8 +99,10 @@ namespace BS3D.Effects
         /// <summary>
         /// The prologue for <paramref name="city"/>, or null when there is no city to shoot.
         /// <paramref name="fieldOfView"/> is the intro's own gameplay frame, which each shot widens from.
+        /// <paramref name="rooftops"/> is the city's roof equipment, for the rooftop's showcase (#780), and
+        /// <paramref name="neon"/> whether it is the neon city's, whose extra pieces count.
         /// </summary>
-        public static IntroShot[] Build(City city, float fieldOfView, Random random)
+        public static IntroShot[] Build(City city, CityRooftops rooftops, bool neon, float fieldOfView, Random random)
         {
             if (city == null) return null;
 
@@ -104,8 +120,9 @@ namespace BS3D.Effects
             if (swing != null) shots.Add(swing);
 
             //Last, because it is the highest: the cut from it to the tour's opening look down the canyon is
-            //the smallest jump of height the reel makes.
-            shots.Add(Roofs(city, fieldOfView, random));
+            //the smallest jump of height the reel makes. Since #780 an arc round one dressed roof, close and from above,
+            //where a roof can be found for it; the skim down a street at roof height where none can.
+            shots.Add(Rooftop(city, rooftops, neon, fieldOfView, random) ?? Roofs(city, fieldOfView, random));
 
             return shots.ToArray();
         }
@@ -338,6 +355,72 @@ namespace BS3D.Effects
 
             return new IntroShot("the roofs", path, ROOFS_SECONDS, fieldOfView * 1.1f,
                 lookAhead: 30f, pitchDownDegrees: ROOFS_PITCH_DEGREES);
+        }
+
+        /// <summary>
+        /// The rooftop (#780): an arc round the best-dressed roof in reach whose arc no other tower stands in, the lens
+        /// over the mast's middle and outside the roof's edge, looking down at the equipment. The skim it replaced ran
+        /// down a street at roof height, so the masts and dishes passed on both hands at speed and were never looked AT -
+        /// the owner did not see the roofs shown in either city. Null when no roof is dressed or every arc is blocked.
+        /// </summary>
+        private static IntroShot Rooftop(City city, CityRooftops rooftops, bool neon, float fieldOfView, Random random)
+        {
+            if (rooftops == null) return null;
+
+            float pitch = city.BlockPitch;
+            CityRooftops.RoofShowcase[] roofs = rooftops.Showcase(neon, ROOFTOP_NEAREST_BLOCKS * pitch,
+                ROOFTOP_FARTHEST_BLOCKS * pitch, ROOFTOP_CANDIDATES);
+
+            foreach (CityRooftops.RoofShowcase roof in roofs)
+            {
+                float radius = roof.HalfSpan + ROOFTOP_OUT;
+                float height = roof.Centre.Y + MathF.Max(roof.MastHeight, 4f) * 0.5f + ROOFTOP_ABOVE;
+                Vector3 look = roof.Centre + Vector3.Up * (roof.MastHeight * ROOFTOP_LOOK_SHARE);
+
+                //Two tries at the arc's start: from the side facing the arena first, which keeps the island behind the
+                //roof rather than behind the lens, then a rolled one
+                float facing = MathF.Atan2(-roof.Centre.Z, -roof.Centre.X);
+                for (int attempt = 0; attempt < 2; attempt++)
+                {
+                    float from = attempt == 0 ? facing : (float)(random.NextDouble() * MathHelper.TwoPi);
+                    float sweep = MathHelper.ToRadians(ROOFTOP_SWEEP_DEGREES) * (random.Next(2) == 0 ? 1f : -1f);
+
+                    var path = new Vector3[PATH_POINTS];
+                    bool clear = true;
+                    for (int i = 0; i < PATH_POINTS && clear; i++)
+                    {
+                        float u = i / (float)(PATH_POINTS - 1);
+                        float angle = from - sweep * 0.5f + sweep * u;
+                        path[i] = new Vector3(roof.Centre.X + MathF.Cos(angle) * radius, height + 2f * u,
+                            roof.Centre.Z + MathF.Sin(angle) * radius);
+                        clear = ClearOfTowers(city, path[i], roof.Building);
+                    }
+
+                    if (clear)
+                        return new IntroShot("the rooftop", path, ROOFTOP_SECONDS, fieldOfView * 1.05f, lookAt: look);
+                }
+            }
+
+            return null;
+        }
+
+        //Whether a lens point stands outside every tower but the showcased one, each grown by ROOFTOP_CLEARANCE, up to
+        //its roof's top - the cornices included, which stand round roofs
+        private static bool ClearOfTowers(City city, Vector3 point, int except)
+        {
+            for (int b = 0; b < city.Buildings.Length; b++)
+            {
+                if (b == except) continue;
+
+                Matrix box = city.Buildings[b].World;
+                float top = box.M42 + box.M22 * 0.5f + (b < city.TowerCount ? city.RoofRise(b) : 0f) + ROOFTOP_CLEARANCE;
+                if (point.Y > top) continue;
+
+                if (MathF.Abs(point.X - box.M41) < box.M11 * 0.5f + ROOFTOP_CLEARANCE
+                    && MathF.Abs(point.Z - box.M43) < box.M33 * 0.5f + ROOFTOP_CLEARANCE) return false;
+            }
+
+            return true;
         }
 
         //Whether the block on grid row/column (line, row) carries a tower, in the orientation of a street
