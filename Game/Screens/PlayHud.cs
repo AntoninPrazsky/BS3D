@@ -1231,6 +1231,16 @@ namespace BS3D.Screens
         private SpriteFontBase _chipGlyphFontFor, _chipCaptionFontFor;
         private float _chipGlyphColumn, _chipCaptionColumn;
 
+        //Where the chip glyphs' ink is centred down their line box, and where a caption's capitals are centred down
+        //theirs, measured with the widths. A keycap is set so the two centres meet: by its ink, not its line box. Set by
+        //line boxes, every keycap stood about a tenth of itself under its caption (two fonts, two boxes - 12 px at
+        //3840x1600), and it showed worst on the Cut chip's RB, a short pill whose drop under "Cut" the eye reads at once.
+        //One centre for all of them: PromptFont draws every glyph a chip uses - the X and Y buttons, the RB pill, the E,
+        //Q and R keycaps - with its ink centred on the same line (rendered and measured: 127.5 of 200 px for each). It is
+        //read off the Y button, whose stored box is its ink; the pill's stored box runs well below its ink, so a per-glyph
+        //TextBounds set RB 6 px too high.
+        private float _chipGlyphInkCentre, _chipCaptionCapCentre;
+
         //The count's text, built when the count changes and not per frame
         private int _swapTextFor = -1;
         private string _swapText = SWAP_READY;
@@ -1302,7 +1312,20 @@ namespace BS3D.Screens
             _chipCaptionColumn = 0f;
 
             foreach (string glyph in CHIP_GLYPHS) _chipGlyphColumn = MathF.Max(_chipGlyphColumn, glyphFont.MeasureString(glyph).X);
+
+            _chipGlyphInkCentre = InkCentreY(glyphFont, BRAKE_GLYPH_PAD);
+
+            //A capital with nothing above the cap height or below the baseline stands for every caption's capitals
+            _chipCaptionCapCentre = InkCentreY(captionFont, "H");
+
             foreach (string caption in CHIP_CAPTIONS) _chipCaptionColumn = MathF.Max(_chipCaptionColumn, captionFont.MeasureString(caption).X);
+        }
+
+        /// <summary>Where a glyph's ink is centred, down from the top of its line box, as the font rasterises it.</summary>
+        private static float InkCentreY(SpriteFontBase font, string glyph)
+        {
+            FontStashSharp.Bounds ink = font.TextBounds(glyph, Vector2.Zero);
+            return (ink.Y + ink.Y2) * 0.5f;
         }
 
         /// <summary>A chip's words for <paramref name="charges"/>, rebuilt only when the count changes (never per frame).</summary>
@@ -1339,9 +1362,13 @@ namespace BS3D.Screens
             float rise = Scaled(HUD_SWAP_ABOVE_STRIP) + row * (height + Scaled(HUD_SWAP_ROW_GAP));
             float top = MathF.Round(stripTop - rise - height);
 
-            DrawString(glyphFont, glyph, new Vector2(MathF.Round(layout.GlyphLeft(glyphSize.X)), top + (height - glyphSize.Y) * 0.5f),
+            //The caption by its line box as ever, and the keycap so its ink is centred on the caption's capitals (above)
+            float captionTop = top + (height - captionSize.Y) * 0.5f;
+            float glyphTop = captionTop + _chipCaptionCapCentre - _chipGlyphInkCentre;
+
+            DrawString(glyphFont, glyph, new Vector2(MathF.Round(layout.GlyphLeft(glyphSize.X)), MathF.Round(glyphTop)),
                 BS3DGame.MENU_TEXT * alpha, 1f);
-            DrawString(captionFont, text, new Vector2(MathF.Round(layout.CaptionLeft), top + (height - captionSize.Y) * 0.5f),
+            DrawString(captionFont, text, new Vector2(MathF.Round(layout.CaptionLeft), captionTop),
                 (ready ? BS3DGame.MENU_TEXT : HUD_CAPTION) * alpha, 1f);
         }
 

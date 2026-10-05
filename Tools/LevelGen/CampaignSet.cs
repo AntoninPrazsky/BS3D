@@ -36,22 +36,23 @@ namespace BS3D.Tools.LevelGen
             //the night the light ramp was missing between the two, under the aurora. See the designs array.
             ("The Silhouettes", 10),
             ("The Reveal", 10),
-            ("The Quarry", 10), ("The Nebula", 10), ("The Eruption", 10), ("The Spectrum", 10), ("The Arcade", 10),
-            //THE GRID IS INSERTED ELEVENTH RATHER THAN APPENDED (#420), and that is the owner's ruling on the
-            //one thing the position decides: the Mirage keeps the campaign's last word. Its own doc argues
-            //for it in a sentence nothing here beats - "the eleventh chapter is the one place the arena is
-            //not, and the balls stop obeying the rules the other hundred levels taught" - and a chapter of
-            //named constructions is not that. Where the Grid does belong is between the made light and the
-            //dream: the neon city, then a lattice that is nothing but made light, then the place that is not
-            //a place. Every entry after it carries a gate twenty stars higher, which needed no retuning
-            //because MinStarsAt is a function of POSITION (see it for the arithmetic that survives this).
-            //THE BIG TOP IS INSERTED TWELFTH (#690), after the Arcade and before the Grid: a night out in the neon city, then
-            //the circus tent's show, then the lattice of made light and the dream. Inserted rather than appended for the
-            //Grid's own reason - the Mirage keeps the campaign's last word (#420) - and here because the spots and the
-            //bulbs are made light too, so the run of night chapters does not break. Only the Grid's and the Mirage's
-            //gates move (twenty stars each, MinStarsAt being a function of position), the fewest of any insertion.
-            ("The Big Top", 10),
-            ("The Grid", 10), ("The Mirage", 10),
+            ("The Quarry", 10),
+            //THE ORDER AFTER THE QUARRY IS THE OWNER'S OF 2026-10-05: the Nebula and the Eruption stood side by side and
+            //read as the same chapter twice - two dark, epic, heavy skies in a row - and the campaign should climb from
+            //the gentle to the epic while it keeps stepping back to something lighter or different, a hard chapter
+            //followed by a breather. Measured by LevelGen's own figures (standing groups, shots a group, the best single
+            //shot's share), the hard ones are the Quarry, the Arcade and the Eruption, and the breathers after them are
+            //the Grid's puzzles, the Big Top's small hanging pieces and the Spectrum's dawn. So: the Quarry's moon, the
+            //Grid's machine, the Nebula's void, the circus tent's lights between the void and the volcano, the
+            //Eruption, and then the old ending untouched - the Spectrum's dawn, the Arcade's night, the Mirage's dream
+            //(which keeps the campaign's last word, #420). The first seven blocks do not move: the second, third and
+            //fourth are where the Swap, the Brake and the Cut arrive (LevelSet.SWAP_FROM_BLOCK and the two beside it),
+            //and the Quarry ends on the hand-drawn Colossus (WriteLevelSet). Every block from the fifth on carries all
+            //three, so no grant moved; the gates are a function of position (MinStarsAt) and a save survives by file.
+            //(The Grid had been inserted eleventh by #420 and the Big Top twelfth by #690; both rulings' one fixed
+            //point, the Mirage last, stands.)
+            ("The Grid", 10), ("The Nebula", 10), ("The Big Top", 10), ("The Eruption", 10),
+            ("The Spectrum", 10), ("The Arcade", 10), ("The Mirage", 10),
         };
 
         //THE BLOCKS' THEMES (#194). A block's music is named on every level of it, so the music changes
