@@ -56,12 +56,18 @@ namespace Prazsky.BS3D
         public const float TRIGGER_THRESHOLD = 0.5f;
 
         /// <summary>
-        /// The trigger's travel the lean is spread over (#520): below <see cref="TRIGGER_REST"/> is a finger resting
-        /// on it and leans nothing, past <see cref="TRIGGER_FULL"/> is all the way in, and between the two the lens
-        /// leans in as far as the trigger is pulled. The top is short of the stop so a full lean does not need the
-        /// last millimetre of a worn trigger.
+        /// The trigger's travel the lean is spread over (#520): from <see cref="TRIGGER_REST"/> the lens leans in as
+        /// far as the trigger is pulled, and past <see cref="TRIGGER_FULL"/> it is all the way in. The top is short of
+        /// the stop so a full lean does not need the last millimetre of a worn trigger.
+        /// <para>
+        /// <b>The bottom is the very first step the trigger reports</b> (the owner, with a pad in hand: the lean should
+        /// answer at once, as soon as the trigger registers anything). It was 0.08, a band for a finger resting on the
+        /// trigger, and that band was a dead zone on top of nothing: MonoGame 3.8.5 on WindowsDX hands the trigger's raw
+        /// byte over divided by 255 with no dead zone of its own (<c>GamePad.XInput.cs</c>), and a released Xbox trigger
+        /// reads exactly 0, so a lean that waits for anything above zero cannot be set off by a trigger nobody touches.
+        /// </para>
         /// </summary>
-        public const float TRIGGER_REST = 0.08f, TRIGGER_FULL = 0.9f;
+        public const float TRIGGER_REST = 0f, TRIGGER_FULL = 0.9f;
 
         /// <summary>
         /// A modest 1.19× lean-in on the game camera's own field of view — enough to read as leaning in, not
