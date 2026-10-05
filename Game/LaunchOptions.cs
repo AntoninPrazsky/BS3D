@@ -95,6 +95,10 @@ namespace BS3D
         //which leaves the build's default. See PotatoModel.fx's PotatoBallRim.
         internal float? Rims { get; private set; }
 
+        //"fins=<pixels>" (#804, the Potato path): the outline of everything that is not a ball - the island, the drain, the
+        //ceiling, the gun - finished with fins that wide, the companion of the balls' rims. Null when absent.
+        internal float? Fins { get; private set; }
+
         //Testing only, "ballflat" (#804): the Potato balls as their flat colour, unlit - the floor under any cheaper ball
         //shader, for the Pi to measure before one is written.
         internal bool BallFlat { get; private set; }
@@ -367,6 +371,8 @@ namespace BS3D
             Row.Int("render", (o, v) => o.RenderHeight = v, v => v >= 0),
             //"rims=<pixels>" finishes every Potato ball's outline with a blended ring that wide (#804): 0 none, 1 exact
             Row.Float("rims", (o, v) => o.Rims = v, v => v >= 0f && v <= 4f),
+            //"fins=<pixels>" does the same for every other mesh's outline (#804): 0 none, 1 exact
+            Row.Float("fins", (o, v) => o.Fins = v, v => v >= 0f && v <= 4f),
             //"ballflat" draws the Potato balls unlit, in their flat colour: a measurement, not a look (#804)
             Row.Flag("ballflat", o => o.BallFlat = true),
             //"ssaa=<n>" trades sharpness against fill rate; "exposure=<f>" is the renderer's shutter speed

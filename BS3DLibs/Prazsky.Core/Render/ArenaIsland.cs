@@ -739,6 +739,9 @@ namespace Prazsky.Core.Render
         {
             _device = device;
 
+            //The island's outline is the longest edge in the frame: its meshes take fins where a build draws them (#804)
+            using EdgeFins.Scope fins = EdgeFins.Wanted();
+
             //The arena is a small round island: a cast-concrete drum with a dressed stone top and a moulded
             //coping around its rim, the drain funnel bored through the middle (IslandMesh owns the whole
             //cross-section). It replaces the big square marble/glass plaza, whose panels ate the whole lower

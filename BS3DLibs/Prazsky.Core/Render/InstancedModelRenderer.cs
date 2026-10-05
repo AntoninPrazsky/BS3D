@@ -62,6 +62,20 @@ namespace Prazsky.Core.Render
         private EffectTechnique _potatoBallRimTechnique, _potatoBallFlatTechnique;
         private EffectParameter _rimShapeParam, _rimSecantParam;
 
+        //The fins of this renderer's mesh on the Potato path (#804): its outline's anti-aliasing, see EdgeFinMesh. Found
+        //by the mesh's vertex buffer when the renderer is built; null for a mesh that has none (every mesh, unless the
+        //host turned EdgeFins on before building its scene).
+        private EdgeFinMesh _fins;
+        private EffectTechnique _potatoFinLitTechnique, _potatoFinTexturedTechnique;
+        private EffectParameter _finShapeParam;
+
+        /// <summary>
+        /// The width of the fins' ramp in pixels of the target (#804), and their switch: 0, the default, draws none; 1
+        /// is the exact coverage of a pixel by an edge. One figure for every renderer, like
+        /// <see cref="RimRampPixels"/>, which it is the companion of: the balls have rims, everything else has fins.
+        /// </summary>
+        public static float FinRampPixels { get; set; }
+
         //What is constant over a Potato draw, multiplied out here and not per pixel (#804): see PotatoModel.fx's uniform
         //block for what each is. DrawPotato computes them; the effect has no uniform for the figures they are made of.
         private EffectParameter _potatoAmbientMidParam, _potatoAmbientTiltParam, _potatoEnvironmentMidParam,
@@ -1011,9 +1025,9 @@ namespace Prazsky.Core.Render
         /// Points a renderer built from one procedural mesh at another (#533): the island keeps one cap and
         /// one drum renderer — with their material, relief and joint settings, and their place in every
         /// host's sky-lit list — and swaps the lathe under them when the scene's shape changes. Only the
-        /// buffers, the primitive count and the bounds move; nothing this renderer caches refers to the old
-        /// mesh, since the bindings are built at draw time from the part. The mesh stays the caller's to
-        /// dispose, as it always was.
+        /// buffers, the primitive count, the bounds and the mesh's fins (#804) move; nothing else this renderer
+        /// caches refers to the old mesh, since the bindings are built at draw time from the part. The mesh stays
+        /// the caller's to dispose, as it always was.
         /// </summary>
         public void SetMesh(IProceduralMesh mesh)
         {
@@ -1027,6 +1041,7 @@ namespace Prazsky.Core.Render
             _parts[0] = part;
 
             BoundingSphere = mesh.BoundingSphere;
+            _fins = EdgeFins.Find(mesh.VertexBuffer);
         }
 
         /// <summary>
@@ -1039,6 +1054,8 @@ namespace Prazsky.Core.Render
         {
             _graphicsDevice = graphicsDevice;
             _effect = effect;
+
+            _fins = EdgeFins.Find(mesh.VertexBuffer);
 
             _parts = new[]
             {
@@ -1898,6 +1915,9 @@ namespace Prazsky.Core.Render
             _potatoBallTechnique = RequiredTechnique("PotatoBall");
             _potatoBallDitherTechnique = RequiredTechnique("PotatoBallDither");
             _dissolvePixelSizeParam = Required("DissolvePixelSize");
+            _potatoFinLitTechnique = RequiredTechnique("PotatoFinLit");
+            _potatoFinTexturedTechnique = RequiredTechnique("PotatoFinTextured");
+            _finShapeParam = Required("FinShape");
             _potatoBallRimTechnique = RequiredTechnique("PotatoBallRim");
             _potatoBallFlatTechnique = RequiredTechnique("PotatoBallFlat");
             _rimShapeParam = Required("RimShape");
@@ -2116,7 +2136,14 @@ namespace Prazsky.Core.Render
                 {
                     if (ball) DrawPotatoRims(camera, instanceCount);
                 }
-                else if (!ball) DrawPotatoRun(part, 0, instanceCount);
+                else if (!ball)
+                {
+                    DrawPotatoRun(part, 0, instanceCount);
+
+                    //And its outline's fins (#804), under the uniforms just set and by the pixel shader just used
+                    if (_fins != null && FinRampPixels > 0f)
+                        DrawPotatoFins(_effect.CurrentTechnique == _potatoTexturedTechnique, instanceCount);
+                }
                 else
                 {
                     if (clean > 0) DrawPotatoRun(part, 0, clean);
@@ -2148,6 +2175,43 @@ namespace Prazsky.Core.Render
             _effect.CurrentTechnique.Passes[0].Apply();
 
             _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, part.StartIndex, part.PrimitiveCount, count);
+        }
+
+        /// <summary>
+        /// The fins of the first <paramref name="instanceCount"/> instances of the instance buffer (#804): one instanced
+        /// draw of the mesh's <see cref="EdgeFinMesh"/> through <c>PotatoFinLit</c> or <c>PotatoFinTextured</c> - the
+        /// mesh's own pixel shader times the fin's coverage - blended, depth-tested and not depth-written, with no
+        /// culling. The states are put back as they were found, and the technique too: a caller's next part reads it.
+        /// </summary>
+        private void DrawPotatoFins(bool textured, int instanceCount)
+        {
+            Viewport viewport = _graphicsDevice.Viewport;
+            _finShapeParam.SetValue(new Vector4(viewport.Width * 0.5f, viewport.Height * 0.5f, FinRampPixels, 0f));
+
+            BlendState blend = _graphicsDevice.BlendState;
+            DepthStencilState depth = _graphicsDevice.DepthStencilState;
+            RasterizerState raster = _graphicsDevice.RasterizerState;
+            EffectTechnique technique = _effect.CurrentTechnique;
+
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            _effect.CurrentTechnique = textured ? _potatoFinTexturedTechnique : _potatoFinLitTechnique;
+
+            _graphicsDevice.SetVertexBuffers(
+                new VertexBufferBinding(_fins.VertexBuffer, 0, 0),
+                new VertexBufferBinding(_instanceBuffer, 0, 1));
+            _graphicsDevice.Indices = _fins.IndexBuffer;
+
+            _effect.CurrentTechnique.Passes[0].Apply();
+
+            _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, _fins.PrimitiveCount, instanceCount);
+
+            _effect.CurrentTechnique = technique;
+            _graphicsDevice.BlendState = blend;
+            _graphicsDevice.DepthStencilState = depth;
+            _graphicsDevice.RasterizerState = raster;
         }
 
         /// <summary>

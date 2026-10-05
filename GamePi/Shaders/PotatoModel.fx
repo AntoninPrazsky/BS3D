@@ -132,6 +132,10 @@ float DissolvePixelSize = 1;
 float4 RimShape = float4(0.001, 0.5, 0.01, 1);
 float RimSecant = 1.02;
 
+//The fins (#804, PotatoFinLit and PotatoFinTextured below): x and y half the target's width and height in pixels, z the
+//ramp's width in pixels
+float4 FinShape = float4(960, 540, 1, 0);
+
 struct VertexInput
 {
     float4 Position : POSITION0;
@@ -342,23 +346,131 @@ float4 LitPS(VertexOutput input) : COLOR0
     return ToScreen(Shade(input.WorldPosition, input.WorldNormal, input.OcclusionData, 1, input.SceneDiffuse, input.SceneSpecular));
 }
 
-float4 TexturedPS(VertexOutput input) : COLOR0
+//The island's stone at a place: what the detail texture multiplies the surface by there
+float3 StoneDetail(float3 worldPosition, float3 normal)
 {
     //Triplanar, as the desktop's: three taps, one along each world axis, blended by the sharpened normal. Each tap is
     //sampled from its own continuous coordinates - choosing ONE side projection per pixel before sampling (the first
     //cut, two taps) left a seam where the choice flipped and a lowest-mip column along it (#789's review)
-    float3 normal = normalize(input.WorldNormal);
     float3 blend = normal * normal;
     blend *= blend;
     blend /= blend.x + blend.y + blend.z;
-    float3 p = input.WorldPosition * DetailScale;
+    float3 p = worldPosition * DetailScale;
     float3 detail
         = SrgbToLinear(tex2D(TextureSampler, p.zy).rgb) * blend.x
         + SrgbToLinear(tex2D(TextureSampler, p.xz).rgb) * blend.y
         + SrgbToLinear(tex2D(TextureSampler, p.xy).rgb) * blend.z;
-    float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
 
-    return ToScreen(Shade(input.WorldPosition, normal, input.OcclusionData, texRgb, input.SceneDiffuse, input.SceneSpecular));
+    return lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
+}
+
+float4 TexturedPS(VertexOutput input) : COLOR0
+{
+    float3 normal = normalize(input.WorldNormal);
+
+    return ToScreen(Shade(input.WorldPosition, normal, input.OcclusionData, StoneDetail(input.WorldPosition, normal),
+        input.SceneDiffuse, input.SceneSpecular));
+}
+
+//THE FINS (#804): a ball's rim (PotatoBallRim, below) for a surface whose outline is not a formula - the island, the
+//drain, the ceiling's plate, the gun. EdgeFinMesh lays a quad, collapsed, on every edge of the mesh that can ever be an
+//outline; here it is opened by FinShape.z pixels, outwards on the screen, where the edge IS one from this eye, and its
+//alpha falls from 1 on the edge to 0 at its far side: the coverage of a pixel by the surface, blended (after the mesh, depth-
+//tested, not depth-written) over what is really beyond the edge. The mesh grows by half a pixel.
+//
+//WHICH EDGES OPEN, decided per vertex from the two faces that meet at the edge (EdgeFinMesh.Owner is this rule on the
+//CPU, and is what the tests hold): an OUTLINE - one face towards the eye and one away - belongs to the face that shows,
+//and opens away from it. A CREASE - a sharp convex edge, both faces showing - belongs to the face whose neighbour falls
+//away from the edge as the eye sees it: the fin lies at the edge's own depth, over that neighbour's first pixel, and
+//for a convex edge at least one of the two faces always qualifies. Every other edge stays collapsed, a triangle of no
+//area that costs its vertices' positions and nothing else.
+//
+//The colour is the surface's own at the edge, by the very pixel shader the mesh is drawn with, so a fin is the last
+//pixel of its face carried one pixel on.
+struct FinInput
+{
+    //xyz this end of the edge, w the row: 0 on the edge, 1 pushed out
+    float4 Position : POSITION0;
+    //xyz the other end, w 1 for a crease that opens when both faces show
+    float4 Other : TEXCOORD0;
+    float3 FaceA : NORMAL0;
+    float3 FaceB : NORMAL1;
+    float3 ShadeA : TANGENT0;
+    float3 ShadeB : BINORMAL0;
+    float3 OutA : TANGENT1;
+    float3 OutB : BINORMAL1;
+};
+
+VertexOutput PotatoFinVS(FinInput input, InstanceInput instance)
+{
+    VertexOutput output;
+
+    float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
+    float3 here = mul(float4(input.Position.xyz, 1), world).xyz;
+    float3 there = mul(float4(input.Other.xyz, 1), world).xyz;
+
+    float3 toEye = EyePosition - here;
+    float facingA = dot(NormalToWorld(input.FaceA, instance.WorldRow1.xyz, instance.WorldRow2.xyz, instance.WorldRow3.xyz), toEye);
+    float facingB = dot(NormalToWorld(input.FaceB, instance.WorldRow1.xyz, instance.WorldRow2.xyz, instance.WorldRow3.xyz), toEye);
+
+    //Directions of the mesh, carried as the positions are (not as normals: they lie IN their faces)
+    float3 outA = mul(float4(input.OutA, 0), world).xyz;
+    float3 outB = mul(float4(input.OutB, 0), world).xyz;
+
+    bool outline = facingA * facingB < 0;
+    bool crease = input.Other.w > 0.5 && facingA > 0 && facingB > 0;
+    bool ownerA = outline ? facingA > 0 : dot(toEye, outB) > 0;
+
+    float3 outward = ownerA ? outA : outB;
+    float3 shade = ownerA ? input.ShadeA : input.ShadeB;
+
+    float4 clipHere = mul(mul(float4(here, 1), View), Projection);
+    float4 clipThere = mul(mul(float4(there, 1), View), Projection);
+    float4 clipOut = mul(mul(float4(outward, 0), View), Projection);
+
+    //An edge with an end behind the eye has no place on the screen to stand a fin on
+    float opened = (outline || crease) && clipHere.w > 1e-3 && clipThere.w > 1e-3 ? 1.0 : 0.0;
+
+    //The edge on the screen, in pixels, and the direction across it - of the two, the one "outward" goes on the screen
+    //(the derivative of xy / w along it)
+    float2 screenEdge = (clipThere.xy / max(clipThere.w, 1e-3) - clipHere.xy / max(clipHere.w, 1e-3)) * FinShape.xy;
+    float2 across = float2(-screenEdge.y, screenEdge.x);
+    across /= max(length(across), 1e-6);
+    float2 screenOut = (clipOut.xy * clipHere.w - clipHere.xy * clipOut.w) * FinShape.xy;
+    if (dot(across, screenOut) < 0) across = -across;
+
+    //Pushed out by the ramp's width, at the edge's own depth: pixels to clip space is over half the target and times w
+    float row = input.Position.w;
+    output.Position = clipHere;
+    output.Position.xy += across * (row * FinShape.z * opened * clipHere.w) / FinShape.xy;
+
+    //The surface at the edge, for both rows: PotatoVS's outputs at this end
+    output.WorldPosition = here;
+    output.WorldNormal = NormalToWorld(shade, instance.WorldRow1.xyz, instance.WorldRow2.xyz, instance.WorldRow3.xyz);
+    output.OcclusionData = instance.Custom;
+
+    //x the coverage, which the pixel shader multiplies its whole premultiplied colour by
+    output.DissolveRipple = float3(1 - row, 0, 0);
+
+    float3 normal = output.WorldNormal;
+    float3 eye = normalize(toEye);
+    if (TwoSidedNormals > 0 && dot(normal, eye) < 0) normal = -normal;
+
+    output.SceneDiffuse = 0;
+    output.SceneSpecular = 0;
+    AddSceneLights(here, normal, eye, output.SceneDiffuse, output.SceneSpecular);
+
+    return output;
+}
+
+float4 FinLitPS(VertexOutput input) : COLOR0
+{
+    return LitPS(input) * saturate(input.DissolveRipple.x);
+}
+
+float4 FinTexturedPS(VertexOutput input) : COLOR0
+{
+    return TexturedPS(input) * saturate(input.DissolveRipple.x);
 }
 
 //BallCommon.fxh's Heartbeat and BallEmission: lub-dub, travelling along PulseDirection
@@ -613,6 +725,24 @@ technique PotatoBallDither
     {
         VertexShader = compile vs_3_0 PotatoBallVS();
         PixelShader = compile ps_3_0 BallDitherPS();
+    }
+};
+
+technique PotatoFinLit
+{
+    pass P0
+    {
+        VertexShader = compile vs_3_0 PotatoFinVS();
+        PixelShader = compile ps_3_0 FinLitPS();
+    }
+};
+
+technique PotatoFinTextured
+{
+    pass P0
+    {
+        VertexShader = compile vs_3_0 PotatoFinVS();
+        PixelShader = compile ps_3_0 FinTexturedPS();
     }
 };
 

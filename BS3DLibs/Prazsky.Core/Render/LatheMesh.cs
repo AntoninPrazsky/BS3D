@@ -250,6 +250,9 @@ namespace Prazsky.Core.Render
                 vertexCount, BufferUsage.WriteOnly);
             VertexBuffer.SetData(vertices);
 
+            //The outline's fins on the Potato path (#804); nothing unless the host asked for them
+            EdgeFins.Register(graphicsDevice, VertexBuffer, vertices, indices);
+
             //Sixteen-bit indices silently wrap past 65 535 vertices and send far triangles to the wrong
             //corners of the mesh - the bug that cost a long hunt on the mountain grid. A lathe crosses
             //that line at a few hundred segments, so the width is chosen rather than assumed.

@@ -64,6 +64,13 @@ namespace BS3D
         private const float POTATO_RIM_PIXELS = 0f;
 
         /// <summary>
+        /// The width of the fins on the Potato path - the rims' companion for every outline that is not a ball's (#804,
+        /// <see cref="EdgeFinMesh"/>) - when the command line names none: 0, off, until measured on the Pi, like
+        /// <see cref="POTATO_RIM_PIXELS"/>. <c>fins=1</c> is the exact coverage of a pixel by an edge.
+        /// </summary>
+        private const float POTATO_FIN_PIXELS = 0f;
+
+        /// <summary>
         /// Whether the frame being drawn presents the cup or the confetti, for <see cref="CompositeForegroundLast"/>.
         /// </summary>
         private bool _potatoPresenting;

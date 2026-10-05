@@ -300,7 +300,10 @@ namespace Prazsky.Core.Render
             float sizeX = FootprintFor(stageSizeX), sizeZ = FootprintFor(stageSizeZ);
 
             float cornerRadius = Math.Min(CORNER_RADIUS, Math.Min(sizeX, sizeZ) * Constants.HALF);
-            _mesh = new CutSlabMesh(_device, sizeX, sizeZ, EDGE_PROFILE, cornerRadius, CORNER_FACETS);
+
+            //The plate's long straight edges take fins where a build draws them (#804)
+            using (EdgeFins.Wanted())
+                _mesh = new CutSlabMesh(_device, sizeX, sizeZ, EDGE_PROFILE, cornerRadius, CORNER_FACETS);
             Renderer = new InstancedModelRenderer(_device, _mesh, GLASS_COLOR, _instancingEffect, alpha);
 
             //The figures the refracting technique traces the slab by (#541), stated on the renderer the mesh was
