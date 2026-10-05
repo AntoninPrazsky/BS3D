@@ -1195,9 +1195,10 @@ namespace BS3D.Screens
         private const string BRAKE_READY = "Brake";
         private const string BRAKE_SPENT = "Brake used";
 
-        //The Cut chip's (#213): R and the pad's right bumper
+        //The Cut chip's (#213): R and the pad's right bumper. U+2199 is PromptFont's RB; the U+21B1 this held was its
+        //PlayStation "R1", which the owner's Xbox pad has no button called
         private const string CUT_GLYPH_KEY = "Ｒ";
-        private const string CUT_GLYPH_PAD = "↱";
+        private const string CUT_GLYPH_PAD = "↙";
         private const string CUT_READY = "Cut";
         private const string CUT_SPENT = "Cut used";
 

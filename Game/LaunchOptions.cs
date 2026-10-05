@@ -107,6 +107,11 @@ namespace BS3D
         //nothing can press a key in. Null means the argument was absent. See SessionTestOptions.TutorialMode.
         internal string Tutorial { get; private set; }
 
+        //Testing only: every session's prompts on the pad's glyphs for the whole run - the tutorial's cards, the skip
+        //hint and the power-up chips. They follow the last device the player used, and a run nobody plays reads as a
+        //mouse (Tutorial.PinDevice), so without this the pad's half of every prompt is unphotographable.
+        internal bool PadPrompts { get; private set; }
+
         //Testing only: start with the master volume at zero. A scripted screenshot or benchmark run has
         //no business making noise. There IS a settings file since #354, and this deliberately does not
         //touch it — mute is a run's instruction, so it silences this run and is never written back. The
@@ -401,6 +406,8 @@ namespace BS3D
             //see the property's own note.
             Row.Flag("tutorial", o => o.Tutorial = "force"),
             Row.Text("tutorial", (o, v) => o.Tutorial = v),
+            //"pad" draws the prompts for a pad from the first frame - see the property's own note
+            Row.Flag("pad", o => o.PadPrompts = true),
             //"mute" starts silent, for the harnesses; the settings rows can still raise it.
             Row.Flag("mute", o => o.Mute = true),
             //"nofps" hides the FPS overlay for this run, for a picture somebody else will look at (#452).

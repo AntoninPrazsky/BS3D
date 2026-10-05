@@ -141,7 +141,12 @@ namespace BS3D.Screens
         private const string MOUSE = "⟼";
         private const string MOUSE_LEFT = "⟵";
         private const string MOUSE_RIGHT = "⟶";
-        private const string PAD_STICK = "⇍";
+        //Each stick by name, and the way the card asks it to be pushed: the right one any way (aim), the left one sideways
+        //(walk round) or up and down (step in). One plain stick with no letter stood for all three, so the aim card and
+        //the walk cards showed the same picture for two different sticks.
+        private const string PAD_RIGHT_STICK = "↻";
+        private const string PAD_LEFT_STICK_SIDEWAYS = "⇄";
+        private const string PAD_LEFT_STICK_UP_DOWN = "⇅";
         private const string PAD_LEFT_TRIGGER = "↖";
         private const string PAD_RIGHT_TRIGGER = "↗";
         private const string KEY_E = "Ｅ";
@@ -159,7 +164,7 @@ namespace BS3D.Screens
             {
                 Lesson = Lesson.Aim, Key = "aim", FromLevel = 0, Action = true,
                 Glyph = MOUSE, Caption = "Move the mouse to aim",
-                PadGlyph = PAD_STICK, PadCaption = "Aim with the right stick",
+                PadGlyph = PAD_RIGHT_STICK, PadCaption = "Aim with the right stick",
                 Praise = "Nice!",
             },
             new()
@@ -197,7 +202,7 @@ namespace BS3D.Screens
             {
                 Lesson = Lesson.Traverse, Key = "traverse", FromLevel = 3, Action = true,
                 Glyph = KEY_A + KEY_D, Caption = "Walk the gun round the field", Detail = "Come at the cluster from another side",
-                PadGlyph = PAD_STICK, PadCaption = "Push the left stick sideways to walk round",
+                PadGlyph = PAD_LEFT_STICK_SIDEWAYS, PadCaption = "Push the left stick sideways to walk round",
                 PadDetail = "Come at the cluster from another side",
                 Praise = "Smooth!",
             },
@@ -205,7 +210,7 @@ namespace BS3D.Screens
             {
                 Lesson = Lesson.Walk, Key = "walk", FromLevel = 4, Action = true,
                 Glyph = KEY_W + KEY_S, Caption = "Step in for a steeper shot", Detail = "Closer means a shot up into the underside",
-                PadGlyph = PAD_STICK, PadCaption = "Push the left stick up to step in",
+                PadGlyph = PAD_LEFT_STICK_UP_DOWN, PadCaption = "Push the left stick up to step in",
                 PadDetail = "Closer means a shot up into the underside",
                 Praise = "Closer!",
             },
@@ -218,7 +223,7 @@ namespace BS3D.Screens
                 Lesson = Lesson.Combine, Key = "combine", FromLevel = 5, Action = true,
                 Glyph = MOUSE_RIGHT + KEY_A + KEY_D, Caption = "Hold the close-up and turn with it",
                 Detail = "Line the shot up from inside the close-up",
-                PadGlyph = PAD_LEFT_TRIGGER + PAD_STICK, PadCaption = "Hold the left trigger and push the stick",
+                PadGlyph = PAD_LEFT_TRIGGER + PAD_LEFT_STICK_SIDEWAYS, PadCaption = "Hold the left trigger and push the left stick",
                 PadDetail = "Line the shot up from inside the close-up",
                 Praise = "Together!",
             },
@@ -358,6 +363,7 @@ namespace BS3D.Screens
         private bool _praised;
         private bool _hasLevel;
         private Device _device;
+        private bool _devicePinned;
         private string _ceilingCaption;
 
         /// <param name="wasTaught">Whether the save records a lesson, by key.</param>
@@ -857,7 +863,21 @@ namespace BS3D.Screens
         #region What the game reports
 
         /// <summary>The last device the player's hand was on. Cheap; called on every frame that saw input.</summary>
-        internal void NoteDevice(Device device) => _device = device;
+        internal void NoteDevice(Device device)
+        {
+            if (!_devicePinned) _device = device;
+        }
+
+        /// <summary>
+        /// Testing only (the <c>pad</c> argument): the prompts drawn for <paramref name="device"/> for the whole run,
+        /// whatever is touched. A run nobody plays still sees a mouse — the pointer resting off the centre the capture
+        /// recentres to reads as a hand on it — so a device merely noted at the start is gone by the first card.
+        /// </summary>
+        internal void PinDevice(Device device)
+        {
+            _device = device;
+            _devicePinned = true;
+        }
 
         /// <summary>
         /// The gun's aim this frame, for the aim lesson: it is done once the aim has travelled
