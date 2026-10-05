@@ -1,3 +1,4 @@
+using BS3D.Platform;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using System;
@@ -16,8 +17,11 @@ namespace BS3D
     /// at zero.
     /// </para>
     /// <para>
-    /// Reaching an Xbox One/Series pad's impulse <i>triggers</i> needs a different API entirely and stays
-    /// #188's unclaimed half — this is the two motors XInput already reaches.
+    /// <b>And the two impulse motors in the triggers (#188)</b>, fed by <see cref="KickTriggers"/> the same way: the right
+    /// answers the shot, the left the aim. XInput has no trigger motors, so all four go out through
+    /// <see cref="PadMotors"/> (Windows.Gaming.Input) whenever a pad answers there, and only the body's two through
+    /// <see cref="GamePad.SetVibration(PlayerIndex, float, float)"/> when none does — never both on one frame, since two
+    /// APIs writing the same body motors would each overwrite the other.
     /// </para>
     /// </summary>
     internal sealed class GamepadRumble
@@ -29,6 +33,13 @@ namespace BS3D
         private float _left, _right;
         private float _leftDecayRate, _rightDecayRate;
 
+        //The triggers' two (#188), decayed the same way
+        private float _leftTrigger, _rightTrigger;
+        private float _leftTriggerDecayRate, _rightTriggerDecayRate;
+
+        //Which route the last frame took, so the log says it once when it changes rather than every frame
+        private bool _throughPadMotors;
+
         //Whether the last call already sent (0, 0) — so an idle pad is not told to stop every single frame
         //of a level nobody is shooting in.
         private bool _silent = true;
@@ -39,6 +50,9 @@ namespace BS3D
         /// ringing on the very next frame instead of only the next event.
         /// </summary>
         public float Strength { get; set; } = 1f;
+
+        /// <summary>Starts listening for a pad whose trigger motors can be reached (<see cref="PadMotors.Start"/>).</summary>
+        public GamepadRumble() => PadMotors.Start();
 
         /// <summary>
         /// Adds one event's worth of pulse, <paramref name="left"/> and <paramref name="right"/> each 0 to 1.
@@ -52,17 +66,32 @@ namespace BS3D
         {
             float rate = 1f / MathF.Max(seconds, MIN_SECONDS);
 
-            if (left > 0f)
-            {
-                _left = MathHelper.Clamp(_left + left, 0f, 1f);
-                _leftDecayRate = _left * rate;
-            }
+            Add(ref _left, ref _leftDecayRate, left, rate);
+            Add(ref _right, ref _rightDecayRate, right, rate);
+        }
 
-            if (right > 0f)
-            {
-                _right = MathHelper.Clamp(_right + right, 0f, 1f);
-                _rightDecayRate = _right * rate;
-            }
+        /// <summary>
+        /// <see cref="Kick"/> for the impulse motors in the triggers (#188), <paramref name="left"/> and
+        /// <paramref name="right"/> each 0 to 1. Felt only on a pad that has them and only through
+        /// <see cref="PadMotors"/>; anywhere else it is accepted and goes nowhere, as the body's own kicks do on a pad
+        /// without motors.
+        /// </summary>
+        public void KickTriggers(float left, float right, float seconds)
+        {
+            float rate = 1f / MathF.Max(seconds, MIN_SECONDS);
+
+            Add(ref _leftTrigger, ref _leftTriggerDecayRate, left, rate);
+            Add(ref _rightTrigger, ref _rightTriggerDecayRate, right, rate);
+        }
+
+        //One channel's share of a kick: accumulated, clamped to 1, and given the fall that takes it to zero over the
+        //kick's own length from where it now stands
+        private static void Add(ref float channel, ref float decayRate, float amount, float rate)
+        {
+            if (amount <= 0f) return;
+
+            channel = MathHelper.Clamp(channel + amount, 0f, 1f);
+            decayRate = channel * rate;
         }
 
         /// <summary>
@@ -86,15 +115,38 @@ namespace BS3D
             {
                 _left = 0f;
                 _right = 0f;
+                _leftTrigger = 0f;
+                _rightTrigger = 0f;
             }
             else
             {
                 _left = MathF.Max(0f, _left - _leftDecayRate * elapsedSeconds);
                 _right = MathF.Max(0f, _right - _rightDecayRate * elapsedSeconds);
+                _leftTrigger = MathF.Max(0f, _leftTrigger - _leftTriggerDecayRate * elapsedSeconds);
+                _rightTrigger = MathF.Max(0f, _rightTrigger - _rightTriggerDecayRate * elapsedSeconds);
             }
 
-            bool silentNow = _left <= 0f && _right <= 0f;
+            bool silentNow = _left <= 0f && _right <= 0f && _leftTrigger <= 0f && _rightTrigger <= 0f;
             if (silentNow && _silent) return;
+
+            //All four through Windows.Gaming.Input when a pad answers there (#188) — the capabilities below are XInput's
+            //and know nothing of triggers, and a pad without some motor simply does not turn it
+            bool throughPadMotors = PadMotors.TrySet(_left * Strength, _right * Strength,
+                _leftTrigger * Strength, _rightTrigger * Strength);
+
+            if (throughPadMotors != _throughPadMotors)
+            {
+                _throughPadMotors = throughPadMotors;
+                Console.WriteLine(throughPadMotors
+                    ? "[pad] rumble through Windows.Gaming.Input: body and trigger motors"
+                    : "[pad] rumble through XInput: the body motors only");
+            }
+
+            if (throughPadMotors)
+            {
+                _silent = silentNow;
+                return;
+            }
 
             GamePadCapabilities capabilities = GamePad.GetCapabilities(PlayerIndex.One);
             if (!capabilities.HasLeftVibrationMotor && !capabilities.HasRightVibrationMotor)

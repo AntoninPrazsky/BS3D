@@ -1,6 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <!--The Windows SDK version in the TFM is what brings Windows.Gaming.Input, the one API that reaches an Xbox pad's
+    impulse triggers (#188; XInput, which MonoGame reads the pad through, has no trigger motors at all). Setting
+    TargetPlatformVersion alone does not do it - the SDK infers that property from this string and overwrites it.-->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <!--And the folder keeps its old name, net10.0-windows, without the SDK version: the skills, play-latest.ps1, the
+    benchmark scripts and every document find BS3D.exe there (#188).-->
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath Condition="'$(Configuration)' == 'Release'">bin\Release\net10.0-windows\</OutputPath>
     <OutputType>Exe</OutputType>
     <!--The shipped build has no console (#570): a console subsystem exe opens a window beside the game on
     every player's launch, closing it kills the game without an unload, and with QuickEdit on one click in it
@@ -39,7 +46,7 @@
     <AssemblyMetadata Include="BS3DReleaseVersion" Value="$(BS3DReleaseVersion)" />
   </ItemGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <OutputPath>bin\</OutputPath>
+    <OutputPath>bin\net10.0-windows\</OutputPath>
   </PropertyGroup>
   <ItemGroup>
     <MonoGameContentReference Include="**\*.mgcb" />

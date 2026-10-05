@@ -1916,6 +1916,9 @@ namespace BS3D
             //frame for a mixer to decay over, only one last word to the device.
             GamePad.SetVibration(PlayerIndex.One, 0f, 0f);
 
+            //And the trigger motors, which only Windows.Gaming.Input reaches (#188)
+            PadMotors.TrySet(0f, 0f, 0f, 0f);
+
             //Not a GPU resource, but it holds the process's timer resolution at 1 ms while it is limiting
             //anything, and timeBeginPeriod has to be paired with timeEndPeriod (#270)
             _frameLimiter.Dispose();

@@ -345,6 +345,33 @@ namespace BS3D.Screens
             }
             else _aimStopArmed = true;
 
+            //The aim's ratchet under the finger holding the lean (#188), measured off the pose both devices have now moved
+            float aimElevation = _cannon.Elevation, aimTraverse = _cannon.Traverse;
+            float travel = MathF.Abs(aimElevation - _tickElevation) + MathF.Abs(MathHelper.WrapAngle(aimTraverse - _tickTraverse));
+            _tickElevation = aimElevation;
+            _tickTraverse = aimTraverse;
+            _sinceAimTick += (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            if (_preciseAim.Blend >= AIM_TICK_MIN_BLEND)
+            {
+                _aimTickTravel += travel;
+
+                if (_aimTickTravel >= AIM_TICK_STEP && _sinceAimTick >= AIM_TICK_MIN_SECONDS)
+                {
+                    Game.Rumble.KickTriggers(AIM_TICK_RUMBLE, 0f, AIM_TICK_RUMBLE_SECONDS);
+                    _sinceAimTick = 0f;
+
+                    //The steps a fast sweep crossed since the last tick are dropped, not owed
+                    _aimTickTravel %= AIM_TICK_STEP;
+                }
+            }
+            else _aimTickTravel = 0f;
+
+            //And the detent at the end of the lean's travel (#188): the pull crossing into a full lean, once
+            if (pad.IsConnected && pad.Triggers.Left >= PreciseAim.TRIGGER_FULL
+                && Game.PreviousPad.Triggers.Left < PreciseAim.TRIGGER_FULL)
+                Game.Rumble.KickTriggers(LEAN_DETENT_RUMBLE, 0f, LEAN_DETENT_RUMBLE_SECONDS);
+
             //Testing only (#402): a scripted run's hands — the barrel swung, precise aim held, a shot fired — after the
             //mouse and the pad, so the script has the last word on the pose. Nothing at all without a script.
             if (ScriptedPlay.Current is ScriptedPlay script)
@@ -419,6 +446,7 @@ namespace BS3D.Screens
             if (_cannon.ElevationRefusesShot || cutterRefused)
             {
                 Game.Audio.PlayShotRefused();
+                Game.Rumble.KickTriggers(0f, REFUSED_TRIGGER_RUMBLE, REFUSED_TRIGGER_RUMBLE_SECONDS);
                 return;
             }
 
@@ -486,8 +514,9 @@ namespace BS3D.Screens
             //sees is unambiguously their own shot.
             Camera.Shake.Kick(RECOIL_KICK);
 
-            //And felt in the hands too (#378), the same moment.
+            //And felt in the hands too (#378), the same moment — and under the finger on the trigger (#188)
             Game.Rumble.Kick(SHOT_RUMBLE_LEFT, SHOT_RUMBLE_RIGHT, SHOT_RUMBLE_SECONDS);
+            Game.Rumble.KickTriggers(0f, SHOT_TRIGGER_RUMBLE, SHOT_TRIGGER_RUMBLE_SECONDS);
 
             //Heard as well as felt, and heard FROM THE MUZZLE — the same point the round is spawned at above
             //and the same one the smear is drawn from, so the crack, the ball and the streak cannot disagree
