@@ -628,8 +628,10 @@ namespace BS3D.Screens
             //"Monitor", not a number: the cap is whatever the panel refreshes at, and naming the rate here
             //would go stale the moment the window lands on another monitor
             _fpsLimitValue.Text = Game.IsFpsUncapped ? "Unlimited" : "Monitor";
-            _aberrationValue.Text = Game.IsAberrationEnabled ? "On" : "Off";
-            _grainValue.Text = Game.IsGrainEnabled ? "On" : "Off";
+            //A build with no resolve (the Potato path, #796) has neither look, and says so as the motion blur's row does
+            //rather than reading "On" over a click that changes nothing
+            _aberrationValue.Text = !BS3DGame.HasLensLooks ? "Off (tier)" : Game.IsAberrationEnabled ? "On" : "Off";
+            _grainValue.Text = !BS3DGame.HasLensLooks ? "Off (tier)" : Game.IsGrainEnabled ? "On" : "Off";
             _motionBlurValue.Text = !Game.IsMotionBlurEnabled ? "Off" : Game.MotionBlurActive ? "On" : "Off (tier)";
             _dropCinematicValue.Text = Game.IsDropCinematicEnabled ? "On" : "Off";
             _introLogoValue.Text = Game.IsIntroLogoEnabled ? "On" : "Off";
