@@ -225,7 +225,8 @@ namespace Testbed.Diagnostics
         /// <b>⚠ A MEASURING INSTRUMENT AND NOTHING ELSE.</b> The owner ruled on 2026-08-28, with these
         /// figures in front of him, that the game always renders at the display's native resolution and that
         /// no quality tier may ever lower it — a tier drops effects, not pixels. So this may be swept, and it
-        /// must not be shipped; see
+        /// must not be shipped (the Game's Resolution row, #801, is the player's choice and a lever of its own,
+        /// <c>PostProcessPipeline.RenderSize</c>); see
         /// <see cref="Prazsky.Core.Render.PostProcessPipeline.RenderScale"/> for the ruling in full.
         /// </para>
         /// </summary>

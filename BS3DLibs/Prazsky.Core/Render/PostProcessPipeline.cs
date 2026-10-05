@@ -410,7 +410,8 @@ namespace Prazsky.Core.Render
         /// (0.85× saved 0.59–1.05 ms across four scenes on the reference desktop, and it is the only thing
         /// that moved the cavern at all), and it is refused anyway, because a magnified frame looks ugly and
         /// no frame rate buys that back. Do not read the numbers in <c>docs/game-shell.md</c> as a case for
-        /// it; they are the record of a lever that was priced and turned down.
+        /// it; they are the record of a lever that was priced and turned down. The player's own Resolution row
+        /// (#801) is not this lever and does not reopen it for a tier: see <see cref="RenderSize"/>.
         /// </para>
         /// <para>
         /// What it is still good for is <b>measurement</b>, which is why it survives at all: it is the clean

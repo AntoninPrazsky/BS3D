@@ -764,9 +764,9 @@ namespace BS3D
             //perfectly plausible at the wrong size. Several issues ask for captures at the owner's own
             //panel (a HUD's type, a menu's layout) and could not have them.
             //
-            //It moves the WINDOWED size only. Fullscreen is the display's, which is this project's standing
-            //rule (the game always renders at the panel's native resolution), and a capture argument does
-            //not get to break it.
+            //It moves the WINDOWED size only. Fullscreen is the display's - the back buffer always is, borderless
+            //(#157), and only the player's Resolution row draws the 3D smaller inside it (#801, render=) - and a
+            //capture argument does not get to break it.
             if (launch.WindowWidth > 0 && launch.WindowHeight > 0)
                 _windowedSize = new Point(launch.WindowWidth, launch.WindowHeight);
 
