@@ -4,7 +4,8 @@ using System.IO;
 namespace BS3D
 {
     /// <summary>
-    /// Where this player's own files live: <c>%LOCALAPPDATA%\BS3D</c> (#353). One directory, so there is one
+    /// Where this player's own files live: <c>%LOCALAPPDATA%\BS3D</c> (#353), and in GamePi
+    /// <c>~/.local/share/BS3D</c> (<c>$XDG_DATA_HOME</c> when it is set, #798). One directory, so there is one
     /// thing to back up and one thing to migrate.
     /// <para>
     /// It exists because the save did not have a home of its own. Progress was written beside the level set,
@@ -40,7 +41,9 @@ namespace BS3D
         /// <para>
         /// Falls back to the executable's own directory when the profile cannot be found at all, which is a
         /// headless or oddly-configured session rather than anything a player will meet. That is the old
-        /// behaviour, so the fallback loses the durability rather than the game.
+        /// behaviour, so the fallback loses the durability rather than the game. On Linux it cannot work at all:
+        /// the apphost there is itself a file named <c>BS3D</c>, which is why <see cref="Resolve"/> must not
+        /// reach it for a home that merely lacks <c>~/.local/share</c> (#798).
         /// </para>
         /// </summary>
         internal static string Directory => _directory ??= _testingDirectory ?? Resolve();
@@ -88,7 +91,13 @@ namespace BS3D
 
             try
             {
-                local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                //DoNotVerify, because by default GetFolderPath answers an empty string for a folder that does not
+                //exist yet, and on Linux (GamePi) that is $XDG_DATA_HOME or ~/.local/share - absent on a fresh
+                //account. The fallback below then landed on the apphost itself, which is named BS3D there, and the
+                //save and the log could not be written (#798). Every writer creates the directory it writes into,
+                //parents included, so a path is all this needs; %LOCALAPPDATA% always exists, so Windows is unchanged
+                local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData,
+                    Environment.SpecialFolderOption.DoNotVerify);
             }
             catch (Exception e) when (e is PlatformNotSupportedException or ArgumentException)
             {
@@ -96,7 +105,7 @@ namespace BS3D
             }
 
             //GetFolderPath answers with an empty string rather than throwing when the folder is simply not
-            //known, so the empty case is the one that actually happens
+            //known (with DoNotVerify: no profile and no home at all), so the empty case is the one to handle
             return string.IsNullOrEmpty(local)
                 ? Path.Combine(AppContext.BaseDirectory, FOLDER_NAME)
                 : Path.Combine(local, FOLDER_NAME);
