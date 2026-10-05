@@ -2351,11 +2351,15 @@ namespace Prazsky.BS3D
             _device.BlendState = BlendState.AlphaBlend;
 
             //The far wall first, tested but not written; then the near one in the ordinary cull, writing depth.
-            //Same pair, same reasons, as the bubble's two walls.
-            _device.DepthStencilState = DepthStencilState.DepthRead;
-            _device.RasterizerState = RasterizerState.CullClockwise;
-            SetShell(BUBBLE_FAR_WALL);
-            DrawHollowPlane(camera);
+            //Same pair, same reasons, as the bubble's two walls - and the same exception: Potato's glass is
+            //opaque, so it has only the near one (#797)
+            if (!_renderers[0].Potato)
+            {
+                _device.DepthStencilState = DepthStencilState.DepthRead;
+                _device.RasterizerState = RasterizerState.CullClockwise;
+                SetShell(BUBBLE_FAR_WALL);
+                DrawHollowPlane(camera);
+            }
 
             _device.DepthStencilState = DepthStencilState.Default;
             _device.RasterizerState = RasterizerState.CullCounterClockwise;
@@ -2458,17 +2462,23 @@ namespace Prazsky.BS3D
             _device.BlendState = BlendState.AlphaBlend;
 
             //The far wall: tested against the opaque scene so the island and the gun still hide it, writing
-            //nothing, so the near wall of its own bubble is not rejected by it.
-            _device.DepthStencilState = DepthStencilState.DepthRead;
-            _device.RasterizerState = RasterizerState.CullClockwise;
-            SetShell(BUBBLE_FAR_WALL);
-            DrawBoth(camera);
+            //nothing, so the near wall of its own bubble is not rejected by it. Not on the Potato path (#797):
+            //its balls are opaque, so the near wall covers this one pixel for pixel, and on the Pi it was a
+            //second full draw of every ball for nothing
+            if (!_renderers[0].Potato)
+            {
+                _device.DepthStencilState = DepthStencilState.DepthRead;
+                _device.RasterizerState = RasterizerState.CullClockwise;
+                SetShell(BUBBLE_FAR_WALL);
+                DrawBoth(camera);
 
-            //The censuses count BALLS, not draws. Zeroing between the walls is what keeps that true of a style
-            //that puts every ball out twice: DrawnCount is what a caller compares against the number of bodies
-            //it collected, and LodTotals is what says whether the ladder is doing anything at this distance —
-            //both nonsense at twice their size, and neither is a measure of how much work the frame did.
-            ResetCounts();
+                //The censuses count BALLS, not draws. Zeroing between the walls is what keeps that true of a
+                //style that puts every ball out twice: DrawnCount is what a caller compares against the number
+                //of bodies it collected, and LodTotals is what says whether the ladder is doing anything at this
+                //distance — both nonsense at twice their size, and neither is a measure of how much work the
+                //frame did.
+                ResetCounts();
+            }
 
             //And the near one, in the ordinary cull and writing depth for everything that comes after the
             //balls. The procedural meshes wind clockwise seen from OUTSIDE — the convention in CLAUDE.md —
