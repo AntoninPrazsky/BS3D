@@ -915,6 +915,10 @@ namespace BS3D.Screens
             //And is heard cutting, from the crossing point the lens is flying to (#434)
             Game.Audio.PlayLineLoss(crossing);
 
+            //And felt (#378): the heavy motor's long fall under the buzz's short one
+            Game.Rumble.Kick(LINE_LOSS_RUMBLE_LEFT, 0f, LINE_LOSS_RUMBLE_LEFT_SECONDS);
+            Game.Rumble.Kick(0f, LINE_LOSS_RUMBLE_RIGHT, LINE_LOSS_RUMBLE_RIGHT_SECONDS);
+
             Console.WriteLine($"[lineloss] {_lineLoss.Describe()}");
         }
 

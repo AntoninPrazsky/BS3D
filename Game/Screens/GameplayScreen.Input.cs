@@ -247,6 +247,21 @@ namespace BS3D.Screens
                     && mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released)
                     SkipCameraTakeover();
 
+                //And the pad's fire, as the left button is the mouse's: the skip hint draws the right trigger on a pad
+                //(Tutorial.SkipGlyph) and until the owner pulled it with a pad in hand only A skipped, so the one button
+                //the hint showed did nothing. The same re-arm as a shot's: a pull spends the trigger until it comes back
+                //up, so the pull that fired the shot that started a drop cannot skip it, and a trigger still held when
+                //the camera is handed back does not loose a ball.
+                if (pad.IsConnected)
+                {
+                    if (edgeInputAllowed && pad.Triggers.Right > FIRE_TRIGGER_THRESHOLD && _padTriggerReleased)
+                    {
+                        SkipCameraTakeover();
+                        _padTriggerReleased = false;
+                    }
+                    else if (pad.Triggers.Right <= FIRE_TRIGGER_THRESHOLD) _padTriggerReleased = true;
+                }
+
                 //Forced rather than read: the lean is a hold, so a player still holding the right button when
                 //the takeover ends gets precise aim back, and one who let go during it does not
                 _adsHeld = false;
@@ -317,6 +332,18 @@ namespace BS3D.Screens
                 }
                 else if (pad.Triggers.Right <= FIRE_TRIGGER_THRESHOLD) _padTriggerReleased = true;
             }
+
+            //The barrel arriving at its stop is felt (#378): one knock as the strain goes full, re-armed once it has let
+            //go — after the mouse and the pad have both pushed, since either can be the one that reached it
+            if (_cannon.ElevationStrain >= 1f)
+            {
+                if (_aimStopArmed)
+                {
+                    Game.Rumble.Kick(AIM_STOP_RUMBLE_LEFT, AIM_STOP_RUMBLE_RIGHT, AIM_STOP_RUMBLE_SECONDS);
+                    _aimStopArmed = false;
+                }
+            }
+            else _aimStopArmed = true;
 
             //Testing only (#402): a scripted run's hands — the barrel swung, precise aim held, a shot fired — after the
             //mouse and the pad, so the script has the last word on the pose. Nothing at all without a script.

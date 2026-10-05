@@ -25,6 +25,9 @@ namespace BS3D.Tests
             Assert.Equal(1f, PreciseAim.LeanAmount(Mouse(false), Pad(PreciseAim.TRIGGER_FULL)));
             Assert.Equal(1f, PreciseAim.LeanAmount(Mouse(false), Pad(1f)));
 
+            //The very first step XInput reports (one of its 255) already leans: the pull answers at once
+            Assert.True(PreciseAim.LeanAmount(Mouse(false), Pad(1f / 255f)) > 0f);
+
             float mid = (PreciseAim.TRIGGER_REST + PreciseAim.TRIGGER_FULL) / 2f;
             Assert.Equal(0.5f, PreciseAim.LeanAmount(Mouse(false), Pad(mid)), 4);
         }
