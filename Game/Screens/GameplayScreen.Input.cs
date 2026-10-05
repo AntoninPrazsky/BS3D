@@ -394,7 +394,7 @@ namespace BS3D.Screens
                     _rattleHash ^= _rattleHash << 5;
                     float bump = MathHelper.Lerp(CARRIAGE_RATTLE_LOW, CARRIAGE_RATTLE_HIGH, (_rattleHash & 0xFFFF) / 65535f);
 
-                    Game.Rumble.Kick(bump, bump * 0.4f, CARRIAGE_RATTLE_SECONDS);
+                    Game.Rumble.Kick(0f, bump, CARRIAGE_RATTLE_SECONDS);
                     _sinceRattle = MathF.Min(_sinceRattle - CARRIAGE_RATTLE_MIN_SECONDS, CARRIAGE_RATTLE_MIN_SECONDS);
                     _rattleGround %= CARRIAGE_RATTLE_STEP;
                 }

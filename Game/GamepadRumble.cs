@@ -143,10 +143,13 @@ namespace BS3D
         //not the triggers. A step of the focus is the lightest thing the pad says; a page turn is felt on the side it
         //turns to (the left grip holds the heavy motor, the right the light one); a confirm is firmer and brighter; a
         //back is softer and lower.
-        private const float UI_STEP = 0.25f, UI_STEP_SECONDS = 0.04f;
-        private const float UI_PAGE = 0.3f, UI_PAGE_SECONDS = 0.05f;
-        private const float UI_ACCEPT_LEFT = 0.25f, UI_ACCEPT_RIGHT = 0.45f, UI_ACCEPT_SECONDS = 0.08f;
-        private const float UI_BACK_LEFT = 0.35f, UI_BACK_RIGHT = 0.1f, UI_BACK_SECONDS = 0.07f;
+        //The first cut's step (the light motor at 0.25 for 0.04 s) went unnoticed in the owner's hand (#800): a motor
+        //that is spun up from rest needs some tens of milliseconds before it is felt at all, and forty was most of them.
+        //Every word is longer now, and the step has a touch of the heavy motor under it.
+        private const float UI_STEP_LEFT = 0.12f, UI_STEP_RIGHT = 0.35f, UI_STEP_SECONDS = 0.07f;
+        private const float UI_PAGE = 0.4f, UI_PAGE_SECONDS = 0.07f;
+        private const float UI_ACCEPT_LEFT = 0.3f, UI_ACCEPT_RIGHT = 0.55f, UI_ACCEPT_SECONDS = 0.1f;
+        private const float UI_BACK_LEFT = 0.45f, UI_BACK_RIGHT = 0.15f, UI_BACK_SECONDS = 0.09f;
 
         private Pulse[] _pattern;
         private int _patternNext;
@@ -157,7 +160,7 @@ namespace BS3D
         private bool _padSeen;
 
         /// <summary>The menu's focus moved one entry (#800).</summary>
-        public void UiStep() => Kick(0f, UI_STEP, UI_STEP_SECONDS);
+        public void UiStep() => Kick(UI_STEP_LEFT, UI_STEP_RIGHT, UI_STEP_SECONDS);
 
         /// <summary>A page or a tab turned, felt on the side it turned to (#800).</summary>
         public void UiPage(int direction) =>
