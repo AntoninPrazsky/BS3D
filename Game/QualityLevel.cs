@@ -62,10 +62,13 @@ namespace BS3D
     /// <see cref="QualityLevel.High"/> carries one — it is only below 1× that is shut.
     /// </para>
     /// <para>
-    /// <b>One exception, and only one: <see cref="QualityLevel.Potato"/></b> (the owner's decision of 2026-10-05,
-    /// #785) may draw below native, because the Raspberry Pi it exists for has a GPU a desktop's ladder was never
-    /// measured against. The owner's aim is still the native 1920×1080 at 40–50 FPS, and whether the tier needs to
-    /// go below it is for #789 to measure on the Pi. Its row below does not do it today.
+    /// <b>What the ruling does not cover since 2026-10-05 (#801) is the PLAYER.</b> The owner asked for a Resolution row
+    /// in every build: the 3D drawn at a height the player picks, every rung at the display's own aspect, the menus and
+    /// the HUD staying native (<c>BS3DGame.ApplyRenderResolution</c>,
+    /// <see cref="Prazsky.Core.Render.PostProcessPipeline.RenderSize"/>). A tier still never lowers it, and neither does
+    /// the desktop's probe. <b>The one automatic step is the Raspberry Pi's</b>: there the tier is locked at
+    /// <see cref="QualityLevel.Potato"/>, so the probe's only lever is that row's Auto, which drops the 3D once to
+    /// 1280×720 when the refresh is not held. Potato's own row below draws at native, as every tier does.
     /// </para>
     /// <para>
     /// Every figure below was measured on this

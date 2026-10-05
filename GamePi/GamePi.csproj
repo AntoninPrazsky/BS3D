@@ -51,7 +51,7 @@
   have its namesake in Platform/; a new Win32 or WinForms file in Game/Platform belongs on this list too.-->
   <ItemGroup>
     <Compile Include="..\Game\**\*.cs"
-             Exclude="..\Game\bin\**;..\Game\obj\**;..\Game\Content\bin\**;..\Game\Content\obj\**;..\Game\Platform\AudioBackend.cs;..\Game\Platform\CrashDialog.cs;..\Game\Platform\DisplayRefresh.cs;..\Game\Platform\PadMotors.cs;..\Game\Platform\QualityLock.cs;..\Game\Platform\WindowIcon.cs" />
+             Exclude="..\Game\bin\**;..\Game\obj\**;..\Game\Content\bin\**;..\Game\Content\obj\**;..\Game\Platform\AudioBackend.cs;..\Game\Platform\CrashDialog.cs;..\Game\Platform\DisplayRefresh.cs;..\Game\Platform\PadMotors.cs;..\Game\Platform\QualityLock.cs;..\Game\Platform\TargetDiscard.cs;..\Game\Platform\WindowIcon.cs" />
     <Compile Include="Platform\**\*.cs" />
   </ItemGroup>
 

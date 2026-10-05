@@ -34,7 +34,7 @@ namespace BS3D.Screens
     /// and not entries for the pad is the host's rule: a button with no action on its <c>Tag</c> is not walked.
     /// </para>
     /// <para>
-    /// <b>Every page stands in the same frame</b>: the page area is as tall as the tallest page (DISPLAY's ten
+    /// <b>Every page stands in the same frame</b>: the page area is as tall as the tallest page (DISPLAY's eleven
     /// rows) and every page as wide as the tab row, its caption column filling what the value buttons leave (#770), so a
     /// tab changes what the rows say and not where they, the plate's edge or Back stand. Still no scroller (<see cref="MenuPage.MenuScroll"/>):
     /// the pad can reach a row inside one since #245, but a page that fits needs none, and every page here fits.
@@ -64,11 +64,12 @@ namespace BS3D.Screens
 
         private const int COLUMN_SPACING = 58;
 
-        //20 rather than the columns' 24, and PAGE_GAP under the 43 the columns stood above Back (#686): DISPLAY's ten
-        //rows under the tab row are the tallest page there has been, and at these figures the plate stands about 30 px
-        //clear of a 1600x900 client's top and bottom (photographed) where the columns' would have left about half of
-        //that. Every size here is a design figure scaled by height, so that is the margin at every resolution.
-        private const int ROW_SPACING = 20;
+        //12, down from 20 when DISPLAY took its eleventh row (Resolution, #801), and PAGE_GAP under the 43 the columns
+        //stood above Back (#686): DISPLAY's rows under the tab row are the tallest page there has been. At 20 its ten
+        //rows stood about 30 px clear of a 1600x900 client's top and bottom; the eleventh took that to nothing, and at
+        //12 the plate stands about 16 px clear of each (photographed at 1600x900 and 1280x720). Every size here is a
+        //design figure scaled by height, so that is the margin at every resolution.
+        private const int ROW_SPACING = 12;
 
         //Above Back, under the page area
         private const int PAGE_GAP = 24;
@@ -94,7 +95,7 @@ namespace BS3D.Screens
         private static readonly IBrush TAB_SELECTED_BRUSH = new FlatBrush(BS3DGame.MENU_TEXT);
         private static readonly Color TAB_SELECTED_TEXT = new(30, 30, 30);
 
-        private Label _fullscreenValue, _qualityValue, _adaptiveQualityValue, _exposureValue, _skyValue, _fpsValue, _fpsLimitValue;
+        private Label _fullscreenValue, _resolutionValue, _qualityValue, _adaptiveQualityValue, _exposureValue, _skyValue, _fpsValue, _fpsLimitValue;
         private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _rumbleValue, _sensitivityValue, _aimSensitivityValue, _tutorialValue;
         private Label _aberrationValue, _grainValue, _motionBlurValue, _dropCinematicValue, _introLogoValue;
         private Label _progressValue, _unlockAllValue;
@@ -342,29 +343,32 @@ namespace BS3D.Screens
             Grid grid = NewGroupGrid();
 
             AddRow(grid, 0, "Fullscreen", Game.ToggleFullscreen, out _fullscreenValue);
+            //The height the 3D is drawn at (#801), the menus and the HUD staying the display's: under Fullscreen, the other
+            //half of what size the game is. Every rung keeps the display's aspect; on the Raspberry Pi it starts at Auto.
+            AddRow(grid, 1, "Resolution", Game.CycleRenderResolution, out _resolutionValue);
             //One bundled tier rather than the antialiasing dial it replaces (#63). Supersampling was never a
             //performance setting — it is tied to a look decision — and it was the only thing here that reached
             //the rest of the frame at all; the tier reaches the city's per-pixel work and its skyline too.
-            AddRow(grid, 1, "Quality", Game.CycleQuality, out _qualityValue);
+            AddRow(grid, 2, "Quality", Game.CycleQuality, out _qualityValue);
             //Whether the game may lower that tier by itself (#390). Directly under it, because it is the other
             //half of the same answer — and because picking a tier above turns it off, which the player should
             //see happen rather than have to know.
-            AddRow(grid, 2, "Auto quality", Game.ToggleAdaptiveQuality, out _adaptiveQualityValue);
+            AddRow(grid, 3, "Auto quality", Game.ToggleAdaptiveQuality, out _adaptiveQualityValue);
             //The tonemap's exposure, said as the brightness it is (#711): a percent of the authored look, 100 % the default
-            AddRow(grid, 3, "Brightness", Game.CycleExposure, out _exposureValue);
-            AddRow(grid, 4, "Sky", Game.CycleSkyDome, out _skyValue);
-            AddRow(grid, 5, "FPS counter", Game.ToggleFpsOverlay, out _fpsValue);
+            AddRow(grid, 4, "Brightness", Game.CycleExposure, out _exposureValue);
+            AddRow(grid, 5, "Sky", Game.CycleSkyDome, out _skyValue);
+            AddRow(grid, 6, "FPS counter", Game.ToggleFpsOverlay, out _fpsValue);
             //The presentation cap (#124): synced to the monitor's refresh (frames nobody can see cost only
             //heat) or unlimited — the "nocap" launch argument's toggle, in the menu so a benchmarking session
             //is not the only way to lift it.
-            AddRow(grid, 6, "FPS limit", Game.ToggleFpsLimit, out _fpsLimitValue);
+            AddRow(grid, 7, "FPS limit", Game.ToggleFpsLimit, out _fpsLimitValue);
             //The lens's colour fringing at the frame edges — a taste toggle, and instant where it is made,
             //like every row here: the scene behind the panel is the preview.
-            AddRow(grid, 7, "Aberration", Game.ToggleAberration, out _aberrationValue);
-            AddRow(grid, 8, "Film grain", Game.ToggleGrain, out _grainValue);
+            AddRow(grid, 8, "Aberration", Game.ToggleAberration, out _aberrationValue);
+            AddRow(grid, 9, "Film grain", Game.ToggleGrain, out _grainValue);
             //What moves smeared along its motion (#402). With the lens's looks, being one; a tier that cannot
             //afford it says so on the row rather than leaving an "On" that does nothing.
-            AddRow(grid, 9, "Motion blur", Game.ToggleMotionBlur, out _motionBlurValue);
+            AddRow(grid, 10, "Motion blur", Game.ToggleMotionBlur, out _motionBlurValue);
 
             return grid;
         }
@@ -618,6 +622,7 @@ namespace BS3D.Screens
             if (_fullscreenValue == null) return;
 
             _fullscreenValue.Text = Game.IsFullscreen ? "On" : "Off";
+            _resolutionValue.Text = Game.RenderResolutionLabel;
             //A locked build (GamePi, #788) says so on both rows rather than offering a click that does nothing
             _qualityValue.Text = Game.IsQualityLocked ? $"{Game.Quality} (locked)" : Game.Quality.ToString();
             _adaptiveQualityValue.Text = Game.IsQualityLocked ? "Off (locked)" : Game.IsAdaptiveQualityEnabled ? "On" : "Off";
@@ -981,6 +986,7 @@ namespace BS3D.Screens
                     case "online": ShowTab(TAB_ONLINE); KeepOrDropTyping(); OnOnline(); break;
                     case "intro": ShowTab(TAB_GAME); KeepOrDropTyping(); Game.ToggleIntroLogo(); break;
                     case "brightness": ShowTab(TAB_DISPLAY); KeepOrDropTyping(); Game.CycleExposure(); break;
+                    case "resolution": ShowTab(TAB_DISPLAY); KeepOrDropTyping(); Game.CycleRenderResolution(); break;
                     case "nickname": ShowTab(TAB_ONLINE); OnNickname(); break;
                     case "remove" when UserData.IsTestingDirectory: ShowTab(TAB_ONLINE); KeepOrDropTyping(); OnRemove(); break;
                     case "remove":

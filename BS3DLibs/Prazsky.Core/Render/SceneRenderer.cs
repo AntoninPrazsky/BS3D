@@ -1756,8 +1756,10 @@ namespace Prazsky.Core.Render
         /// </summary>
         private void DrawBackdropAtDisplayResolution(Backdrop backdrop, in SceneFrame frame, RenderTarget2D sceneTarget)
         {
-            int width = _graphicsDevice.PresentationParameters.BackBufferWidth;
-            int height = _graphicsDevice.PresentationParameters.BackBufferHeight;
+            //The scene target's size without the supersample factor: the back buffer's, or the player's lower resolution
+            //(#801), which the backdrop is then drawn at like everything else in the scene
+            int width = sceneTarget.Width / Math.Max(SupersampleFactor, 1);
+            int height = sceneTarget.Height / Math.Max(SupersampleFactor, 1);
 
             //A minimized window reports a zero back buffer and a zero-sized target is a device error — the
             //same guard PostProcessPipeline.EnsureTarget carries, for the same reason. Falling through draws

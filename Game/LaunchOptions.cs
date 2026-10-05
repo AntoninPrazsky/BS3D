@@ -86,6 +86,10 @@ namespace BS3D
         //ssaa= is never overridden.
         internal int? SupersampleFactor { get; private set; }
 
+        //"render=<height>" (#801): the height the 3D is drawn at, the menus and the HUD staying the display's - 0 is
+        //native. Null when absent, so the player's stored choice (and the build's default) answer instead.
+        internal int? RenderHeight { get; private set; }
+
         //Testing only: start the victory display on the front end, which is otherwise reachable only by
         //clearing a level — and clearing one cannot be scripted, so this is how the fireworks get
         //screenshotted and measured at all.
@@ -349,6 +353,9 @@ namespace BS3D
             //came back at the default window and looked entirely plausible.
             Row.Int("width", (o, v) => o.WindowWidth = v, v => v > 0),
             Row.Int("height", (o, v) => o.WindowHeight = v, v => v > 0),
+            //"render=<height>" draws the 3D at that height and the display's own aspect, scaled up to the back buffer
+            //(#801); 0 is native. Independent of width=/height=, which still size the window.
+            Row.Int("render", (o, v) => o.RenderHeight = v, v => v >= 0),
             //"ssaa=<n>" trades sharpness against fill rate; "exposure=<f>" is the renderer's shutter speed
             Row.Int("ssaa", (o, v) => o.SupersampleFactor = v),
             Row.Float("exposure", (o, v) => o.Exposure = v),

@@ -236,6 +236,53 @@ namespace BS3D
         }
 
         /// <summary>
+        /// The Resolution row (#801): the height the 3D is drawn at, one rung of the display's ladder down per click and
+        /// round to native again - and on the Raspberry Pi, round to Auto, the build's own choice, before native. Every
+        /// rung keeps the display's aspect, so nothing is stretched; the menus and the HUD stay at the display's size.
+        /// <para>
+        /// A click is the player's answer and is written (#354), native as 0 and Auto as nothing, and it switches off the
+        /// Pi's automatic step as Auto quality's row does the desktop's probe (#390). It re-opens the probe like a
+        /// fullscreen switch does: a frame at another size costs something else.
+        /// </para>
+        /// </summary>
+        internal void CycleRenderResolution()
+        {
+            if (_renderLadder.Length == 0) return;
+
+            int current = EffectiveRenderHeight > 0 ? EffectiveRenderHeight : _renderLadder[0];
+            int next = RenderResolution.Next(_renderLadder, current);
+
+            if (IsResolutionAutomatic)
+            {
+                //Auto -> native, chosen: the first click from the build's choice is the display's own
+                _renderHeight = 0;
+                _renderHeightChosen = true;
+            }
+            else if (PotatoPath && next == _renderLadder[0])
+            {
+                //Round the bottom of the ladder back to Auto, which starts native and may step again
+                _renderHeight = 0;
+                _renderHeightChosen = false;
+                _resolutionStepped = false;
+            }
+            else
+            {
+                _renderHeight = next == _renderLadder[0] ? 0 : next;
+                _renderHeightChosen = true;
+            }
+
+            ApplyRenderResolution();
+            Console.WriteLine($"[resolution] {(IsResolutionAutomatic ? "Auto" : "Chosen")}: the 3D at {_renderSize.X}x{_renderSize.Y}");
+
+            _settings.RenderHeight = _renderHeightChosen ? _renderHeight : null;
+            SaveSettings();
+
+            ReopenQualityProbe();
+            _mainMenuPage.ClearQualityNotice();
+            _settingsPage.Refresh();
+        }
+
+        /// <summary>
         /// Toggles the lens's chromatic aberration. A taste setting: zero disables the shader's whole
         /// branch, so Off costs literally nothing. Not a per-frame path — the uniform persists on the
         /// effect, so it is written only here and at load.

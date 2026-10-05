@@ -145,6 +145,30 @@ namespace BS3D
         //pass applies, before there is a window whose size could be read.
         private Point _windowedSize = new(WINDOW_WIDTH, WINDOW_HEIGHT);
 
+        //The height the 3D is drawn at (#801), 0 for the display's own; the menus, the HUD and the cup stay the back
+        //buffer's whatever it is. A back buffer smaller than the display is not to be had in borderless fullscreen on
+        //either platform (MonoGame sizes it to the display), so the 3D goes into a target of its own and is scaled up.
+        //render= first, then the player's stored choice, then the build's default (native; the Pi's automatic step
+        //lowers it in place, see TuneQualityToFrameRate).
+        private int _renderHeight;
+
+        //Whether that height is an answer (render=, or a click on the Resolution row now or in an earlier run) rather
+        //than the build's default - which is what the Pi's automatic step may move, and nothing else
+        private bool _renderHeightChosen;
+
+        //render= is used as given, so a measurement can ask for any height; a stored one is snapped to the ladder
+        private readonly bool _renderHeightFromLaunch;
+
+        //The display's ladder (RenderResolution), native first: the Resolution row's rungs. Rebuilt with the render size.
+        private int[] _renderLadder = [];
+
+        //The display the ladder was built from: the back buffer in fullscreen, the desktop's mode in a window
+        private Point _renderDisplay;
+
+        //The size the 3D is drawn at this frame: the back buffer's when native, else the height at its aspect.
+        //Solved by ApplyRenderResolution whenever the back buffer may have changed.
+        private Point _renderSize;
+
         private RecoilCamera _camera;
 
         //Everything the game hears and the pad it shakes (#583): the effects, the music, the About page's
@@ -740,11 +764,15 @@ namespace BS3D
             //perfectly plausible at the wrong size. Several issues ask for captures at the owner's own
             //panel (a HUD's type, a menu's layout) and could not have them.
             //
-            //It moves the WINDOWED size only. Fullscreen is the display's, which is this project's standing
-            //rule (the game always renders at the panel's native resolution), and a capture argument does
-            //not get to break it.
+            //It moves the WINDOWED size only. Fullscreen is the display's - the back buffer always is, borderless
+            //(#157), and only the player's Resolution row draws the 3D smaller inside it (#801, render=) - and a
+            //capture argument does not get to break it.
             if (launch.WindowWidth > 0 && launch.WindowHeight > 0)
                 _windowedSize = new Point(launch.WindowWidth, launch.WindowHeight);
+
+            _renderHeight = launch.RenderHeight ?? _settings.RenderHeight ?? 0;
+            _renderHeightChosen = launch.RenderHeight.HasValue || _settings.RenderHeight.HasValue;
+            _renderHeightFromLaunch = launch.RenderHeight.HasValue;
             _startupPreview = launch.Preview;
 
             //What one argument implies about another (level= means play, lost means result) is the script's
@@ -827,6 +855,12 @@ namespace BS3D
             };
 
             SetGraphics();
+
+            //The Raspberry Pi's tier is locked, which settles the probe at once above - unless its resolution is still the
+            //build's to lower (#801), which only the device's size could say, so it is answered here
+            if (CanLowerResolution) _qualitySettled = false;
+            Console.WriteLine($"[resolution] {(IsResolutionAutomatic ? "Auto" : _renderHeightChosen ? "Chosen" : "Native")}: "
+                + $"the 3D at {_renderSize.X}x{_renderSize.Y}{(CanLowerResolution ? $", one step to {AutoRenderHeight} rows if the refresh is not held" : "")}");
         }
 
         private void Graphics_PreparingDeviceSettings(object sender, PreparingDeviceSettingsEventArgs e)
@@ -880,6 +914,7 @@ namespace BS3D
             _graphics.SynchronizeWithVerticalRetrace = false;
 
             _graphics.ApplyChanges();
+            ApplyRenderResolution();
 
             //Null-conditional for the constructor's call, which runs before LoadContent has built the
             //pipeline (the old in-class EnsureSceneTarget guarded on GraphicsDevice == null the same way)
@@ -921,7 +956,69 @@ namespace BS3D
             //The menu is authored the same way, and refits itself in Draw (EnsureMenuLayout).
             _info?.RecomputeScale();
 
+            ApplyRenderResolution();
             _pipeline?.EnsureTarget();
+        }
+
+        /// <summary>
+        /// Solves the size the 3D is drawn at (#801) from the back buffer and <see cref="_renderHeight"/>: the back
+        /// buffer's own when native or when the height asked for is not below it, otherwise that height at the back
+        /// buffer's aspect with both sides even. The balls budget their outlines in those pixels. Run whenever the back
+        /// buffer may have changed size; the targets that follow it rebuild on their next use.
+        /// </summary>
+        private void ApplyRenderResolution()
+        {
+            if (GraphicsDevice == null) return;
+
+            PresentationParameters buffer = GraphicsDevice.PresentationParameters;
+            int width = buffer.BackBufferWidth, height = buffer.BackBufferHeight;
+
+            //The ladder is the DISPLAY'S, which in a window is not the back buffer: the rule is the panel's aspect
+            DisplayMode display = GraphicsDevice.Adapter.CurrentDisplayMode;
+            _renderDisplay = _fullscreen ? new Point(width, height) : new Point(display.Width, display.Height);
+            _renderLadder = RenderResolution.Heights(_renderDisplay.X, _renderDisplay.Y);
+
+            int wanted = EffectiveRenderHeight;
+            if (wanted > 0 && wanted < height)
+            {
+                width = RenderResolution.WidthAt(width, height, wanted);
+                height = wanted;
+            }
+
+            _renderSize = new Point(width, height);
+            bool below = height < buffer.BackBufferHeight;
+            if (_balls != null) _balls.LodReferenceHeight = below ? height : 0;
+
+            //The desktop's scene target follows it; Potato's own target is sized off _renderSize each frame
+            if (_pipeline != null) _pipeline.RenderSize = below ? _renderSize : Point.Zero;
+        }
+
+        /// <summary>
+        /// The height this run draws the 3D at, 0 for native (#801): <c>render=</c> as given (made even), a stored choice
+        /// snapped to the display's ladder, or the build's default - which on the Pi the automatic step may have lowered.
+        /// </summary>
+        private int EffectiveRenderHeight =>
+            _renderHeight <= 0 ? 0
+            : _renderHeightFromLaunch ? _renderHeight & ~1
+            : RenderResolution.Nearest(_renderLadder, _renderHeight);
+
+        /// <summary>
+        /// Whether the resolution is still the build's to set rather than the player's (#801): on the Raspberry Pi only,
+        /// until <c>render=</c> or the Resolution row says otherwise. The automatic step to 1280x720 lives under it.
+        /// </summary>
+        internal bool IsResolutionAutomatic => PotatoPath && !_renderHeightChosen;
+
+        /// <summary>What the Resolution row shows (#801): the size the 3D is drawn at now, and whether that is native or automatic.</summary>
+        internal string RenderResolutionLabel
+        {
+            get
+            {
+                //An "x", not the multiplication sign: the menu's face has no glyph for it and drew a dot
+                string size = $"{_renderSize.X} x {_renderSize.Y}";
+                if (IsResolutionAutomatic) return $"Auto ({size})";
+
+                return _renderSize.Y >= GraphicsDevice.PresentationParameters.BackBufferHeight ? $"{size} (native)" : size;
+            }
         }
 
         /// <summary>
@@ -1068,6 +1165,7 @@ namespace BS3D
                 //Coarser meshes on the Potato path (#789), where a ball's vertices were a sixth of a heavy level's frame
                 LodBias = PotatoPath ? POTATO_BALL_LOD_BIAS : 1f
             };
+            ApplyRenderResolution();
 
             #endregion
 
@@ -1208,7 +1306,11 @@ namespace BS3D
             _confetti = new Confetti(GraphicsDevice, Content.Load<Effect>("Shaders/Confetti"));
 
             //The player's brightness onto every Potato effect, which the desktop's pipeline initializer above does there
-            if (PotatoPath) ApplyPotatoExposure();
+            if (PotatoPath)
+            {
+                ApplyPotatoExposure();
+                LoadPotatoUpscale();
+            }
 
             //Both display levers ("celebrate" and "confetti") are FIRED FROM Update, not from here — see
             //StartupScript.StartCelebrations, which also says why. The two displays are only built here.
@@ -1901,6 +2003,8 @@ namespace BS3D
                 //The sun shadow map as built (#484): Ultra's one entry is its size, and nothing else says it
                 + $", shadow {(_sceneRenderer?.ActiveShadowMapSize is int map && map > 0 ? map.ToString() : "off")}"
                 + $", {GraphicsDevice.PresentationParameters.BackBufferWidth}x{GraphicsDevice.PresentationParameters.BackBufferHeight}"
+                //The size the 3D is drawn at (#801), after the back buffer's so the benchmark scripts' match on it holds
+                + $", render {_renderSize.X}x{_renderSize.Y}"
                 //"vsync" left the line with #270 — the game does not vsync any more, and a line that still
                 //said so would misreport the one setting that decides what the number even means. What it
                 //carries instead is the limiter's actual target, and where that target came from, so a run

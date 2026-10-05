@@ -62,6 +62,26 @@ namespace BS3D
         private bool _potatoPresenting;
 
         /// <summary>
+        /// The 3D below native (#801): an 8-bit target of the render size the scene is drawn into instead of the back
+        /// buffer, then scaled up onto it, and the menus and the HUD drawn over that at the display's own size. Null at
+        /// native, where the scene goes straight into the back buffer as it always did. Rebuilt when the size changes.
+        /// </summary>
+        private RenderTarget2D _potatoSceneTarget;
+
+        //The pass that scales it up (#801, PotatoUpscale.fx's Bilinear: its Fxaa measured 3.3-3.8 ms more on the Pi at a
+        //1080p output, see docs/rendering.md) and the quad it is drawn on: the whole target in clip space, the texture's
+        //top-left at the top-left. Loaded with the rest of the Potato effects.
+        private Effect _potatoUpscale;
+        private EffectParameter _potatoUpscaleSource;
+        private static readonly VertexPositionTexture[] POTATO_UPSCALE_QUAD =
+        {
+            new(new Vector3(-1f, 1f, 0f), new Vector2(0f, 0f)),
+            new(new Vector3(1f, 1f, 0f), new Vector2(1f, 0f)),
+            new(new Vector3(-1f, -1f, 0f), new Vector2(0f, 1f)),
+            new(new Vector3(1f, -1f, 0f), new Vector2(1f, 1f)),
+        };
+
+        /// <summary>
         /// The player's brightness (#711) onto every Potato effect - the Potato path's half of what
         /// <see cref="PostProcessPipeline.Exposure"/> is on the desktop's. Run at load and on every change of it.
         /// </summary>
@@ -82,7 +102,7 @@ namespace BS3D
         {
             _ceilingGlassBehind = null;
 
-            GraphicsDevice.SetRenderTarget(null);
+            GraphicsDevice.SetRenderTarget(EnsurePotatoSceneTarget());
 
             //The dome below covers the whole frame (a full sphere, drawn with no depth test and no culling), so the clear is
             //never seen; it is the horizon, display-encoded, only so that a frame without the dome would still read as sky
@@ -121,6 +141,8 @@ namespace BS3D
         /// </summary>
         private void FinishPotatoSceneDraw(Action drawOnTop)
         {
+            if (_potatoSceneTarget != null) PresentPotatoSceneTarget();
+
             if (drawOnTop != null)
             {
                 GraphicsDevice.Clear(ClearOptions.DepthBuffer, Vector4.Zero, 1f, 0);
@@ -128,6 +150,69 @@ namespace BS3D
             }
 
             _potatoPresenting = (_trophy != null && _trophy.Active) || (_confetti != null && _confetti.Active);
+        }
+
+        /// <summary>The scale-up pass (#801), loaded once with the Potato path's other effects.</summary>
+        private void LoadPotatoUpscale()
+        {
+            _potatoUpscale = Content.Load<Effect>("Shaders/PotatoUpscale");
+            _potatoUpscale.CurrentTechnique = _potatoUpscale.Techniques["Bilinear"];
+            _potatoUpscaleSource = _potatoUpscale.Parameters["Source"];
+        }
+
+        /// <summary>
+        /// The target the 3D is drawn into this frame (#801): null, the back buffer, at native; otherwise one of the render
+        /// size, colour and depth, made on first use and again whenever the size changes. No MSAA and no stencil: the
+        /// Potato path has neither.
+        /// </summary>
+        private RenderTarget2D EnsurePotatoSceneTarget()
+        {
+            PresentationParameters buffer = GraphicsDevice.PresentationParameters;
+            bool native = _renderSize.X >= buffer.BackBufferWidth && _renderSize.Y >= buffer.BackBufferHeight;
+
+            if (native || (_potatoSceneTarget != null
+                && (_potatoSceneTarget.Width != _renderSize.X || _potatoSceneTarget.Height != _renderSize.Y)))
+            {
+                _potatoSceneTarget?.Dispose();
+                _potatoSceneTarget = null;
+            }
+
+            if (!native)
+            {
+                _potatoSceneTarget ??= new RenderTarget2D(GraphicsDevice, _renderSize.X, _renderSize.Y, false,
+                    SurfaceFormat.Color, DepthFormat.Depth24, 0, RenderTargetUsage.DiscardContents);
+            }
+
+            return _potatoSceneTarget;
+        }
+
+        /// <summary>
+        /// The 3D drawn below native scaled up onto the back buffer (#801), bilinear, covering every pixel of it - so
+        /// nothing the back buffer held matters - and the states <see cref="BeginPotatoSceneDraw"/> promised put back for
+        /// what is drawn after, as <c>SceneRenderer</c>'s own backdrop blit does.
+        /// </summary>
+        private void PresentPotatoSceneTarget()
+        {
+            //The scene's depth is spent: said before leaving, so the tiler does not write it out (TargetDiscard has the
+            //measurement). Nothing on the back buffer is cleared first - the quad below covers every pixel of it.
+            TargetDiscard.DiscardDepth();
+            GraphicsDevice.SetRenderTarget(null);
+
+            GraphicsDevice.BlendState = BlendState.Opaque;
+            GraphicsDevice.DepthStencilState = DepthStencilState.None;
+            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            _potatoUpscaleSource.SetValue(_potatoSceneTarget);
+            _potatoUpscale.CurrentTechnique.Passes[0].Apply();
+            GraphicsDevice.SamplerStates[0] = SamplerState.LinearClamp;
+            GraphicsDevice.DrawUserPrimitives(PrimitiveType.TriangleStrip, POTATO_UPSCALE_QUAD, 0, 2);
+
+            //Unbound, so the next frame can render into the target again without GL sampling what it writes
+            GraphicsDevice.Textures[0] = null;
+
+            GraphicsDevice.BlendState = BlendState.AlphaBlend;
+            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
         /// <summary>

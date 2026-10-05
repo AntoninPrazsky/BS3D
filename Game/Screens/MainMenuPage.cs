@@ -165,6 +165,17 @@ namespace BS3D.Screens
             Refresh();
         }
 
+        /// <summary>
+        /// The Raspberry Pi's automatic step (#801), said where the quality notice is said on the desktop: what changed,
+        /// and the row that changes it back.
+        /// </summary>
+        internal void ShowResolutionNotice(Microsoft.Xna.Framework.Point size)
+        {
+            _noticeText = $"Resolution lowered to {size.X} x {size.Y} for a smoother frame rate — change it in Settings.";
+
+            Refresh();
+        }
+
         /// <summary>The notice has been answered: the player has set the dial themselves.</summary>
         internal void ClearQualityNotice()
         {

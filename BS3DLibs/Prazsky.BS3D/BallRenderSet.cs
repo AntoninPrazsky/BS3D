@@ -1265,6 +1265,13 @@ namespace Prazsky.BS3D
         /// </summary>
         public float LodBias { get; set; } = 1f;
 
+        /// <summary>
+        /// The height the balls' outlines are resolved at, when that is not the back buffer's (#801): a game drawing its 3D
+        /// smaller than the display and scaling it up shows a ball's facets in those pixels, magnified, so the ladder budgets
+        /// in them. Zero, the default, is the back buffer's height - see <see cref="SolveLodDistances"/>.
+        /// </summary>
+        public int LodReferenceHeight { get; set; }
+
         private readonly float[] _lodDistanceSquared;
 
         /// <param name="instancingEffect">The shared <c>InstancedModel.fx</c>. Handed in and never disposed
@@ -1696,7 +1703,9 @@ namespace Prazsky.BS3D
         /// display pixel — and a facet is a <i>systematic</i> deviation of the outline that averaging softens
         /// but does not remove, unlike the stair-stepping supersampling is there for. Budgeting in target pixels
         /// would therefore make the balls finer the moment supersampling was turned up, for no visible gain, and
-        /// coarser on the weak machine that turned it off, where the outline is on show.
+        /// coarser on the weak machine that turned it off, where the outline is on show. The one exception is a 3D
+        /// drawn SMALLER than the display and scaled up (#801, <see cref="LodReferenceHeight"/>): a pixel of it is
+        /// several display pixels and a facet is magnified with it, so there the budget is stated in its pixels.
         /// </para>
         /// <para>
         /// It also happens to be the only reading that is <i>safe</i> here, and that is worth knowing before
@@ -1716,8 +1725,8 @@ namespace Prazsky.BS3D
         {
             //Half the back buffer's height times the projection's vertical scale: pixels per world unit at unit
             //depth, which divided by a threshold in pixels is the distance at which a ball shrinks to it.
-            float pixelScale = BALL_RADIUS * camera.Projection.M22
-                * _device.PresentationParameters.BackBufferHeight * Constants.HALF;
+            int height = LodReferenceHeight > 0 ? LodReferenceHeight : _device.PresentationParameters.BackBufferHeight;
+            float pixelScale = BALL_RADIUS * camera.Projection.M22 * height * Constants.HALF;
 
             for (int lod = 0; lod < _lodDistanceSquared.Length; lod++)
             {
