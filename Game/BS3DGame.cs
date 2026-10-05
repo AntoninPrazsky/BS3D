@@ -1619,7 +1619,8 @@ namespace BS3D
             //while no session screen is on it) and the fireworks giving way to the fanfare — in that order, after
             //the celebrations have advanced and before the stack. See AudioDirector.Update for each step's why.
             _audioDirector?.Update(elapsed, _scene, _sceneRenderer, _wallClock,
-                !_screens.Contains<GameplayScreen>(), _gameplayScreen != null && _gameplayScreen.IsBuilt, PauseMusicWanted);
+                !_screens.Contains<GameplayScreen>(), _gameplayScreen != null && _gameplayScreen.IsBuilt, PauseMusicWanted,
+                _screens.Contains<JukeboxPage>());
 
             //The very click that refocuses a windowed game would otherwise read as a fresh press against a
             //stale "released" state and fire an unintended shot, since input is not sampled while inactive.

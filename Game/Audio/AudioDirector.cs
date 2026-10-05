@@ -57,6 +57,12 @@ namespace BS3D.Audio
         //is the host's, and its sound runs pause included.
         private readonly ProceduralAmbience _ambience;
 
+        //How much of the scene's bed the moment lets through (#704): it fades to nothing over BED_QUIET_SECONDS while
+        //the Jukebox is open, and back after; and whether it was quiet last frame, for the one Reset on the way in
+        private const float BED_QUIET_SECONDS = 0.5f;
+        private float _bedLevel = 1f;
+        private bool _bedsWereQuiet;
+
         //The scene's own one-shots — the storm's thunder and the volcano's boom (#219, #223). Beside the bed
         //and NOT inside it: a bed is a sealed loop and an event baked into one is a metronome.
         private readonly SceneEventSounds _sceneEvents;
@@ -139,8 +145,10 @@ namespace BS3D.Audio
         /// <param name="onFrontEnd">True while no gameplay screen is on the stack.</param>
         /// <param name="sessionBuilt">Whether a level is standing, which is when returning to it re-wants its theme.</param>
         /// <param name="paused">Whether the pause's own loop is wanted (#668): the pause is up over a level.</param>
+        /// <param name="bedsQuiet">Whether the scene's own sound steps aside (#704): the Jukebox is open, and the owner
+        /// wants only its music heard there.</param>
         internal void Update(float elapsed, SceneKind scene, SceneRenderer scenes, float wallClock, bool onFrontEnd, bool sessionBuilt,
-            bool paused)
+            bool paused, bool bedsQuiet)
         {
             //The music's feed: the sounding loop is queued again before the current pass ends, so the repeat is
             //seamless (see GameMusic.Update). Up with the fireworks and for the same reason — it has to keep
@@ -161,7 +169,10 @@ namespace BS3D.Audio
             _music.Pausing = paused && !onFrontEnd;
 
             //The scene's bed and its crossfade, on the wall clock's frame like the clouds: the scene is on
-            //screen whether or not a session stands, so its sound is too, pause included.
+            //screen whether or not a session stands, so its sound is too, pause included - except under the
+            //Jukebox (#704), where it fades out over BED_QUIET_SECONDS and back when the page closes.
+            _bedLevel = Math.Clamp(_bedLevel + (bedsQuiet ? -elapsed : elapsed) / BED_QUIET_SECONDS, 0f, 1f);
+            _ambience.Duck = _bedLevel;
             _ambience.Update(elapsed);
 
             //The line's hum under a lost level's page (#702), held only by a frame that asked for it
@@ -170,8 +181,19 @@ namespace BS3D.Audio
             //Right after the bed, on the same wall clock, and for the same reason it is: the scene stages its
             //events whether or not a session stands, so a strike seen from the pause menu is heard from it.
             //The clock handed over is the one the SCENE draws from (BuildSceneFrame), which is what lets the
-            //flash and its thunder be one event rather than two schedules that drift.
-            _sceneEvents.Update(scene, scenes, wallClock, elapsed);
+            //flash and its thunder be one event rather than two schedules that drift. Not under the Jukebox
+            //(#704): the thunder is the scene's sound like its bed, and what was already on its way is dropped
+            //(Reset) rather than held, or it would roll in late the moment the page closed.
+            if (bedsQuiet)
+            {
+                if (!_bedsWereQuiet) _sceneEvents.Reset();
+            }
+            else
+            {
+                _sceneEvents.Update(scene, scenes, wallClock, elapsed);
+            }
+
+            _bedsWereQuiet = bedsQuiet;
 
             //Which music the moment wants is the stack question (#46): the front end's loop plays exactly
             //while no session screen is on it. The theme's own lifecycle stays the session's — BuildLevel
