@@ -146,6 +146,18 @@
 /processorParam:DebugMode=Auto
 /build:Shaders/Birds.fx
 
+#begin Shaders/Fish.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Fish.fx
+
+#begin Shaders/LightShafts.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/LightShafts.fx
+
 #begin Shaders/Mountain.fx
 /importer:EffectImporter
 /processor:EffectProcessor

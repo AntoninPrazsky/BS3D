@@ -6,7 +6,8 @@ namespace BS3D.Effects
 {
     /// <summary>
     /// The sea's own shots for a chapter intro's prologue (#559): a low pass round the island's flank at the
-    /// waterline, a skim over the swell into the sun's glint, and a flight low over the water that climbs to the
+    /// waterline, a drift under the water looking up at the island, with a school of fish wheeling round the
+    /// funnel's cone between the lens and the stone (#759, #760), and a flight low over the water that climbs to the
     /// sun the glint comes from (#652) — cut together, then cut to the tour's last leg. The sea has no landmark of
     /// its own; what it builds is the swell (<c>Sea.fx</c>'s twenty Gerstner waves), the glint the sun lays across it,
     /// and the one rock in it, which is the island.
@@ -19,13 +20,23 @@ namespace BS3D.Effects
     /// viewer sees the glitter <i>come from</i> it.
     /// </para>
     /// <para>
+    /// <b>The second shot was a skim over the swell into the glint, and the owner read the cut out of it as a glitch
+    /// (#759):</b> "the two scenes separated by a cut are almost identical, so the cut feels more like a jerk". Both ran
+    /// a straight line along the same heading into the sun at the lens's floor — the swell's 4.2 and the climb's 3.6
+    /// were both clamped up to 4.18, 3° down at 1.15 and 1.2 of the lens — and the only difference was a jump back
+    /// along the line and to one side, over featureless swell. His answer (4 Oct) was the shot the sea lacked: under
+    /// the water, with the fish (#760). It is a different place, not a different number, so the cut carries the
+    /// viewer somewhere instead of stuttering.
+    /// </para>
+    /// <para>
     /// <b>The water is the only ground, and it is bounded rather than mirrored.</b> No crest stands higher than
     /// <see cref="CrestHeight"/> over the mean level, so a lens held <see cref="LENS_CLEARANCE"/> over that above
     /// <see cref="SeaSceneConfig.LevelY"/> is never under water. The bound was the six waves' weights summed (2.92 of
     /// <see cref="SeaSceneConfig.WaveAmplitude"/>), every crest at once; #674's twenty sum to 5.0, and twenty waves at
     /// independent phases never come near that — over eight million points at random times the highest stood at 3.93 —
     /// so the bound is <see cref="CREST_REACH"/> above what was seen, and the clearance is what keeps the shots where
-    /// #652 framed them (the skim and the flank at their own heights, the climb starting 0.27 higher than it did).
+    /// #652 framed them (the flank at its own height, the climb starting 0.27 higher than it did). The depths are the
+    /// one shot under the water, and stand far enough under it that no trough reaches the lens.
     /// </para>
     /// </summary>
     internal static class SeaIntroShots
@@ -46,15 +57,18 @@ namespace BS3D.Effects
         //With no sun to climb to (a dome that gives none), the elevation the climb ends at
         private const float CLIMB_FALLBACK_ELEVATION_DEGREES = 32f;
 
-        //The swell: a run this long this high over the mean level, into the sun so the glint lies down the
-        //middle of the frame, abeam of the arena by this much (so the island is never on the line), pitched
-        //this far down so the waves fill the lower half.
-        private const float SWELL_RUN = 70f;
-        private const float SWELL_HEIGHT = 4.2f;
-        private const float SWELL_ABEAM_MIN = 85f;
-        private const float SWELL_ABEAM_MAX = 140f;
-        private const float SWELL_PITCH_DOWN_DEGREES = 3f;
-        private const float SWELL_SECONDS = 3.0f;
+        //The depths (#759, #760): an arc round under the island, from this far out from its axis to this far, from
+        //this far under the mean level up to this far, the look on the island's underside a little over the funnel's
+        //tip. From under the school's ring (FishSchool: round the cone, a couple of units over its tip) the lens
+        //looks up through the fish at the stone, the frame the references drew (C:\Users\panrd\AI\sd\out\760-klein):
+        //looking up is also what keeps the lower murk, a flat pale plain under the water, out of the frame.
+        private const float DEPTHS_RADIUS_FROM = 26f;
+        private const float DEPTHS_RADIUS_TO = 22f;
+        private const float DEPTHS_UNDER_FROM = 24f;
+        private const float DEPTHS_UNDER_TO = 20f;
+        private const float DEPTHS_SWEEP_RADIANS = 0.55f;
+        private const float DEPTHS_LOOK_Y = ArenaIsland.FUNNEL_BOTTOM_Y + 8f;
+        private const float DEPTHS_SECONDS = 3.2f;
 
         //The island: an arc round its flank at this radius (the rim is at ArenaIsland.RADIUS, 26), this low
         //over the water, the lens on the island's side a little under its rim, so the water meets the rock
@@ -96,7 +110,7 @@ namespace BS3D.Effects
             return new[]
             {
                 Flank(sea, fieldOfView, random),
-                Swell(sea, heading, fieldOfView, random),
+                Depths(sea, fieldOfView, random),
                 Climb(sea, heading, elevation, fieldOfView, random),
             };
         }
@@ -140,26 +154,25 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// Over the swell into the sun: a run a few units over the crests, abeam of the arena, the glint lying
-        /// down the frame ahead.
+        /// Under the water (#759, #760): an arc round under the island that rises a little as it closes in, looking up at
+        /// the stone's underside and the funnel's cone, the school wheeling between.
         /// </summary>
-        private static IntroShot Swell(SeaSceneConfig sea, Vector2 heading, float fieldOfView, Random random)
+        private static IntroShot Depths(SeaSceneConfig sea, float fieldOfView, Random random)
         {
-            Vector2 abeam = new Vector2(-heading.Y, heading.X) * (random.Next(2) == 0 ? 1f : -1f)
-                * AridIntroPaths.Roll(random, SWELL_ABEAM_MIN, SWELL_ABEAM_MAX);
+            float from = AridIntroPaths.Roll(random, 0f, MathHelper.TwoPi);
+            float sign = random.Next(2) == 0 ? 1f : -1f;
 
-            //Starting behind the arena's line and running along the heading: the closest the run comes to the
-            //island is the abeam distance itself.
-            Vector2 from = abeam - heading * (SWELL_RUN * AridIntroPaths.Roll(random, 0.2f, 0.8f));
-            Vector2 to = from + heading * SWELL_RUN;
-
-            float y = sea.LevelY + MathF.Max(SWELL_HEIGHT, CrestHeight(sea) + LENS_CLEARANCE);
-            Vector2[] plan = AridIntroPaths.Line(from, to);
+            Vector2[] plan = AridIntroPaths.Arc(Vector2.Zero, from, from + sign * DEPTHS_SWEEP_RADIANS, DEPTHS_RADIUS_FROM, DEPTHS_RADIUS_TO);
             var path = new Vector3[plan.Length];
-            for (int i = 0; i < plan.Length; i++) path[i] = new Vector3(plan[i].X, y, plan[i].Y);
+            for (int i = 0; i < plan.Length; i++)
+            {
+                float s = i / (float)(plan.Length - 1);
+                float under = MathHelper.Lerp(DEPTHS_UNDER_FROM, DEPTHS_UNDER_TO, s * s * (3f - 2f * s));
+                path[i] = new Vector3(plan[i].X, sea.LevelY - under, plan[i].Y);
+            }
 
-            return new IntroShot("the swell", path, SWELL_SECONDS, fieldOfView * 1.15f,
-                lookAhead: 20f, pitchDownDegrees: SWELL_PITCH_DOWN_DEGREES);
+            return new IntroShot("the depths", path, DEPTHS_SECONDS, fieldOfView * 1.15f,
+                lookAt: new Vector3(0f, DEPTHS_LOOK_Y, 0f));
         }
 
         /// <summary>
