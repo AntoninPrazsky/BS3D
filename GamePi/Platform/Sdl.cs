@@ -13,6 +13,17 @@ namespace BS3D.Platform
     {
         private const string LIBRARY = "libSDL2-2.0.so.0";
 
+        //GamePi is the Pi's build, but it also runs on Windows through DesktopGL, which is how the Potato picture is
+        //looked at on a machine that can compile its shaders (#804). There MonoGame's SDL is SDL2.dll, so the Linux name
+        //above is pointed at it; anywhere else the name resolves as it always did.
+        static Sdl()
+        {
+            if (!OperatingSystem.IsWindows()) return;
+
+            NativeLibrary.SetDllImportResolver(typeof(Sdl).Assembly, (name, assembly, path) =>
+                name == LIBRARY && NativeLibrary.TryLoad("SDL2", assembly, path, out IntPtr handle) ? handle : IntPtr.Zero);
+        }
+
         /// <summary><c>SDL_MESSAGEBOX_ERROR</c>.</summary>
         internal const uint MESSAGEBOX_ERROR = 0x10;
 

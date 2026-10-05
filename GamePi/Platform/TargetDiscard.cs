@@ -32,8 +32,19 @@ namespace BS3D.Platform
             if (!_resolved)
             {
                 _resolved = true;
-                IntPtr entry = Sdl.GlGetProcAddress("glInvalidateFramebuffer");
-                if (entry != IntPtr.Zero) _invalidate = Marshal.GetDelegateForFunctionPointer<InvalidateFramebuffer>(entry);
+
+                //No SDL to ask is no call to make, like a driver without it: a hint, never a reason to stop a frame.
+                //(GamePi run on Windows through DesktopGL - how the Potato picture is judged without a Pi - loads its
+                //SDL under another name, which Sdl resolves; this is for a machine where even that fails.)
+                try
+                {
+                    IntPtr entry = Sdl.GlGetProcAddress("glInvalidateFramebuffer");
+                    if (entry != IntPtr.Zero) _invalidate = Marshal.GetDelegateForFunctionPointer<InvalidateFramebuffer>(entry);
+                }
+                catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException)
+                {
+                    Console.WriteLine($"[render] No glInvalidateFramebuffer: {e.GetType().Name} - the scene target's depth is not discarded");
+                }
             }
 
             _invalidate?.Invoke(GL_FRAMEBUFFER, DEPTH_AND_STENCIL.Length, DEPTH_AND_STENCIL);
