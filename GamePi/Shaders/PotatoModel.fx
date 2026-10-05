@@ -383,7 +383,9 @@ float4 TexturedPS(VertexOutput input) : COLOR0
 //and opens away from it. A CREASE - a sharp convex edge, both faces showing - belongs to the face whose neighbour falls
 //away from the edge as the eye sees it: the fin lies at the edge's own depth, over that neighbour's first pixel, and
 //for a convex edge at least one of the two faces always qualifies. Every other edge stays collapsed, a triangle of no
-//area that costs its vertices' positions and nothing else.
+//area that costs its vertices' positions - and on V3D, whose binning runs this shader's position half for every vertex
+//it is handed, that was the whole price of the fins (+1.05 to +1.43 ms). So a draw of one instance is handed only the
+//fins the CPU found could be open (EdgeFinMesh.SelectLive), and this decides again for each of those.
 //
 //The colour is the surface's own at the edge, by the very pixel shader the mesh is drawn with, so a fin is the last
 //pixel of its face carried one pixel on.

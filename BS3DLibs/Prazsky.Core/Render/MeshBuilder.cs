@@ -258,9 +258,10 @@ namespace Prazsky.Core.Render
             var vertexBuffer = new VertexBuffer(device, VertexPositionNormalTexture.VertexDeclaration, _vertices.Count, BufferUsage.WriteOnly);
             vertexBuffer.SetData(_vertices.ToArray());
 
-            //The outline's fins on the Potato path (#804); nothing unless the host asked for them
+            //The outline's fins on the Potato path (#804); nothing unless the host asked for them. Assembled: what is
+            //built here is boxes, plates and tubes run into one another, and an edge may lie inside a wall two share
             EdgeFins.Register(device, vertexBuffer, System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_vertices),
-                System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_indices));
+                System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_indices), assembled: true);
 
             IndexBuffer indexBuffer;
 

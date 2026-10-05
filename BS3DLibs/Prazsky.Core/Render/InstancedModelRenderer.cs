@@ -2142,7 +2142,7 @@ namespace Prazsky.Core.Render
 
                     //And its outline's fins (#804), under the uniforms just set and by the pixel shader just used
                     if (_fins != null && FinRampPixels > 0f)
-                        DrawPotatoFins(_effect.CurrentTechnique == _potatoTexturedTechnique, instanceCount);
+                        DrawPotatoFins(_effect.CurrentTechnique == _potatoTexturedTechnique, camera.Position, ordered, instanceCount);
                 }
                 else
                 {
@@ -2182,9 +2182,29 @@ namespace Prazsky.Core.Render
         /// draw of the mesh's <see cref="EdgeFinMesh"/> through <c>PotatoFinLit</c> or <c>PotatoFinTextured</c> - the
         /// mesh's own pixel shader times the fin's coverage - blended, depth-tested and not depth-written, with no
         /// culling. The states are put back as they were found, and the technique too: a caller's next part reads it.
+        /// <para>
+        /// One instance - which is every mesh that has fins today - is handed only the fins that can be open from this
+        /// eye (<see cref="EdgeFinMesh.SelectLive(Vector3)"/>, and why it exists); several are handed every fin, each
+        /// instance being seen from a side of its own.
+        /// </para>
         /// </summary>
-        private void DrawPotatoFins(bool textured, int instanceCount)
+        private void DrawPotatoFins(bool textured, Vector3 eye, ModelInstance[] instances, int instanceCount)
         {
+            IndexBuffer finIndices = _fins.IndexBuffer;
+            int finPrimitives = _fins.PrimitiveCount;
+
+            if (instanceCount == 1 && EdgeFins.SelectOnCpu)
+            {
+                //The eye in the mesh's own space, where its edges and their faces' normals are
+                Matrix.Invert(ref instances[0].World, out Matrix toMesh);
+                Vector3.Transform(ref eye, ref toMesh, out Vector3 eyeInMesh);
+
+                finPrimitives = _fins.SelectLive(eyeInMesh);
+                if (finPrimitives == 0) return;
+
+                finIndices = _fins.LiveIndexBuffer;
+            }
+
             Viewport viewport = _graphicsDevice.Viewport;
             _finShapeParam.SetValue(new Vector4(viewport.Width * 0.5f, viewport.Height * 0.5f, FinRampPixels, 0f));
 
@@ -2202,11 +2222,11 @@ namespace Prazsky.Core.Render
             _graphicsDevice.SetVertexBuffers(
                 new VertexBufferBinding(_fins.VertexBuffer, 0, 0),
                 new VertexBufferBinding(_instanceBuffer, 0, 1));
-            _graphicsDevice.Indices = _fins.IndexBuffer;
+            _graphicsDevice.Indices = finIndices;
 
             _effect.CurrentTechnique.Passes[0].Apply();
 
-            _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, _fins.PrimitiveCount, instanceCount);
+            _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, finPrimitives, instanceCount);
 
             _effect.CurrentTechnique = technique;
             _graphicsDevice.BlendState = blend;

@@ -9,8 +9,10 @@ namespace BS3D.Tests
 {
     /// <summary>
     /// The fins of a mesh (#804, the Potato path's anti-aliasing of an outline): which edges get one, which way out of
-    /// each face is, and which face a fin belongs to from an eye - <see cref="EdgeFinMesh.Build"/> and
-    /// <see cref="EdgeFinMesh.Owner"/>, the vertex shader's decision on the CPU. Nothing is drawn here.
+    /// each face is, which face a fin belongs to from an eye and which fins a frame hands the GPU -
+    /// <see cref="EdgeFinMesh.Build"/>, <see cref="EdgeFinMesh.Owner"/> (the vertex shader's decision on the CPU) and
+    /// <see cref="EdgeFinMesh.SelectLive(ReadOnlySpan{EdgeFinMesh.Edge}, Vector3, Span{int})"/> with
+    /// <see cref="EdgeFinMesh.WriteIndices"/>. Nothing is drawn here.
     /// </summary>
     public class EdgeFinTests
     {
@@ -62,28 +64,41 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void AFlatSheetHasFinsOnlyRoundItsRim()
+        public void AFlatSheetHasFinsOnlyRoundItsRimWhereItsFaceIsDrawn()
         {
             Vector3[] positions = { new(0, 0, 0), new(1, 0, 0), new(1, 0, 1), new(0, 0, 1) };
             Vector3[] normals = { Vector3.Up, Vector3.Up, Vector3.Up, Vector3.Up };
             int[] indices = { 0, 2, 1, 0, 3, 2 };
 
-            (EdgeFinVertex[] vertices, _) = EdgeFinMesh.Build(positions, normals, indices);
+            //Drawn with culling off: a rim is an outline from above and from below alike
+            (EdgeFinVertex[] bothSides, _) = EdgeFinMesh.Build(positions, normals, indices, twoSided: true);
 
-            Assert.Equal(4 * 4, vertices.Length);
+            //Drawn from the side its normal is on: from above its rim is an outline, from below nothing of it is drawn
+            (EdgeFinVertex[] oneSide, _) = EdgeFinMesh.Build(positions, normals, indices);
 
-            //A rim is an outline from above and from below alike, and never a crease
-            Assert.All(vertices, vertex =>
+            Assert.Equal(4 * 4, bothSides.Length);
+            Assert.Equal(4 * 4, oneSide.Length);
+
+            foreach ((EdgeFinVertex[] vertices, bool below) in new[] { (bothSides, true), (oneSide, false) })
             {
-                Assert.Equal(0f, vertex.Other.W);
-                Assert.NotEqual(0, EdgeFinMesh.Owner(vertex, Place(vertex.Position) + new Vector3(0.3f, 4f, 0.2f)));
-                Assert.NotEqual(0, EdgeFinMesh.Owner(vertex, Place(vertex.Position) + new Vector3(0.3f, -4f, 0.2f)));
+                EdgeFinMesh.Edge[] edges = EdgeFinMesh.Edges(vertices);
+                int[] live = new int[edges.Length];
 
-                //Out of a sheet at its rim is off the sheet, whichever side shows
-                Assert.Equal(vertex.OutA, vertex.OutB);
-                Vector3 mid = (Place(vertex.Position) + Place(vertex.Other)) * 0.5f;
-                Assert.True(Vector3.Dot(vertex.OutA, mid - new Vector3(0.5f, 0f, 0.5f)) > 0f, "out of the rim points into the sheet");
-            });
+                Assert.All(vertices, vertex =>
+                {
+                    Assert.NotEqual(0, EdgeFinMesh.Owner(vertex, Place(vertex.Position) + new Vector3(0.3f, 4f, 0.2f)));
+                    Assert.Equal(below, EdgeFinMesh.Owner(vertex, Place(vertex.Position) + new Vector3(0.3f, -4f, 0.2f)) != 0);
+
+                    //Out of a sheet at its rim is off the sheet, whichever side shows
+                    Assert.Equal(vertex.OutA, vertex.OutB);
+                    Vector3 mid = (Place(vertex.Position) + Place(vertex.Other)) * 0.5f;
+                    Assert.True(Vector3.Dot(vertex.OutA, mid - new Vector3(0.5f, 0f, 0.5f)) > 0f, "out of the rim points into the sheet");
+                });
+
+                //And the choice of a frame's fins agrees: all four from above, all four or none from below
+                Assert.Equal(4, EdgeFinMesh.SelectLive(edges, new Vector3(0.4f, 4f, 0.6f), live));
+                Assert.Equal(below ? 4 : 0, EdgeFinMesh.SelectLive(edges, new Vector3(0.4f, -4f, 0.6f), live));
+            }
         }
 
         [Fact]
@@ -165,6 +180,240 @@ namespace BS3D.Tests
                 Assert.True(Vector3.Distance(eye, inOther) > Vector3.Distance(eye, onEdge),
                     $"from {eye} the fin's neighbour comes towards the eye, and would hide the fin");
             }
+        }
+
+        //Two slopes meeting along Z, `rise` degrees off level each: a ridge when the slopes fall away from the shared edge,
+        //a valley when they climb from it. Both wound and given normals so that "out of the surface" is up.
+        private static (Vector3[] Positions, Vector3[] Normals, int[] Indices) Fold(float rise, bool valley)
+        {
+            float sine = MathF.Sin(MathHelper.ToRadians(rise)), cosine = MathF.Cos(MathHelper.ToRadians(rise));
+            float lift = valley ? 2 * sine : -2 * sine;
+            Vector3 east = new(valley ? -sine : sine, cosine, 0f), west = new(valley ? sine : -sine, cosine, 0f);
+
+            Vector3[] positions =
+            {
+                new(0, 0, -1), new(0, 0, 1), new(2 * cosine, lift, 1), new(2 * cosine, lift, -1),
+                new(0, 0, -1), new(0, 0, 1), new(-2 * cosine, lift, 1), new(-2 * cosine, lift, -1),
+            };
+            Vector3[] normals = { east, east, east, east, west, west, west, west };
+            int[] indices = { 0, 1, 2, 0, 2, 3, 4, 6, 5, 4, 7, 6 };
+
+            return (positions, normals, indices);
+        }
+
+        [Fact]
+        public void AConcaveEdgeGetsNoFinAndTheSameEdgeFoldedTheOtherWayDoes()
+        {
+            //A valley's floor is never a visible outline: where one slope shows and the other does not, the one that
+            //shows is behind the other. Its six rim edges are open, and still get theirs.
+            (Vector3[] positions, Vector3[] normals, int[] indices) = Fold(20f, valley: true);
+            (EdgeFinVertex[] valley, _) = EdgeFinMesh.Build(positions, normals, indices);
+
+            Assert.Equal(6 * 4, valley.Length);
+            Assert.DoesNotContain(valley, v => v.Position.X == 0f && v.Other.X == 0f);
+
+            //The ridge is the valley with its slopes falling instead: seven, the shared edge among them
+            (positions, normals, indices) = Fold(20f, valley: false);
+            (EdgeFinVertex[] ridge, _) = EdgeFinMesh.Build(positions, normals, indices);
+
+            Assert.Equal(7 * 4, ridge.Length);
+            Assert.Contains(ridge, v => v.Position.X == 0f && v.Other.X == 0f);
+        }
+
+        //A box from `low` to `high` the way the procedural meshes build one: four vertices a face, the face's own normal
+        private static void AddBox(List<Vector3> positions, List<Vector3> normals, List<int> indices, Vector3 low, Vector3 high)
+        {
+            Vector3 centre = (low + high) * 0.5f, half = (high - low) * 0.5f;
+
+            foreach (Vector3 normal in new[] { Vector3.UnitX, -Vector3.UnitX, Vector3.UnitY, -Vector3.UnitY, Vector3.UnitZ, -Vector3.UnitZ })
+            {
+                Vector3 u = normal.X != 0f ? Vector3.UnitY : Vector3.UnitX;
+                Vector3 v = Vector3.Cross(normal, u);
+                int first = positions.Count;
+
+                foreach ((float a, float b) in new[] { (-1f, -1f), (1f, -1f), (1f, 1f), (-1f, 1f) })
+                {
+                    positions.Add(centre + (normal + u * a + v * b) * half);
+                    normals.Add(normal);
+                }
+
+                indices.AddRange(new[] { first, first + 1, first + 2, first, first + 2, first + 3 });
+            }
+        }
+
+        [Fact]
+        public void AnEdgeInsideAWallTwoSolidsShareGetsNoFinInAnAssembledMesh()
+        {
+            //A unit box and a half-height one against its +X side, flush with it in front, behind and underneath: the
+            //carriage's cheek and its socket. Where they meet, the tall box's front and back walls go on as the low one's.
+            var positions = new List<Vector3>();
+            var normals = new List<Vector3>();
+            var indices = new List<int>();
+            AddBox(positions, normals, indices, Vector3.Zero, Vector3.One);
+            AddBox(positions, normals, indices, new Vector3(1f, 0f, 0f), new Vector3(2f, 0.5f, 1f));
+
+            static bool InTheSeam(EdgeFinVertex v) => v.Position.X == 1f && v.Other.X == 1f;
+            static bool Upright(EdgeFinVertex v) => v.Position.Y != v.Other.Y;
+
+            //As one surface each (what a lathe is told): every edge of both but the one they have in common end to end
+            //underneath, which four faces meet at and no rule here reasons about
+            (EdgeFinVertex[] apart, _) = EdgeFinMesh.Build(positions.ToArray(), normals.ToArray(), indices.ToArray());
+            Assert.Equal(22 * 4, apart.Length);
+            Assert.Equal(4 * 4, apart.Count(v => InTheSeam(v) && Upright(v)));
+
+            //Assembled: the four upright edges in the seam - the tall box's two and the low one's two, each inside the
+            //wall the other continues - are gone, and nothing else is
+            (EdgeFinVertex[] assembled, _) = EdgeFinMesh.Build(positions.ToArray(), normals.ToArray(), indices.ToArray(), assembled: true);
+            Assert.Equal(18 * 4, assembled.Length);
+            Assert.DoesNotContain(assembled, v => InTheSeam(v) && Upright(v));
+
+            //The tall box's top edge over the low one stays: its top goes on nowhere, and it is the step's outline
+            Assert.Contains(assembled, v => InTheSeam(v) && v.Position.Y == 1f && v.Other.Y == 1f);
+        }
+
+        [Fact]
+        public void AFinIsShadedAtEachEndWithThatEndsOwnNormalOnEitherFace()
+        {
+            //A unit sphere's normal at a point is the point, so a fin vertex's two shading normals must both be its own
+            //place - not the edge's other end, which is what face B's were until the crease rule read them
+            (Vector3[] positions, int[] indices) = Sphere(12, 6);
+            (EdgeFinVertex[] vertices, _) = EdgeFinMesh.Build(positions, positions, indices);
+
+            Assert.NotEmpty(vertices);
+            //(To a hair: the vertices of a pole are one corner, and sin(pi) puts each a ten-millionth off the axis its own way)
+            Assert.All(vertices, vertex =>
+            {
+                Assert.True(Vector3.Distance(Place(vertex.Position), vertex.ShadeA) < 1e-5f, "face A's normal is the other end's");
+                Assert.True(Vector3.Distance(Place(vertex.Position), vertex.ShadeB) < 1e-5f, "face B's normal is the other end's");
+                Assert.Equal(0f, vertex.Other.W);
+            });
+        }
+
+        [Fact]
+        public void ACreaseIsWhereTheShadingBreaksAndNotWhereTheFacesMeetSharply()
+        {
+            //A six-sided pin along Y, its sides 60 degrees apart: once shaded as the cylinder it stands for (one normal a
+            //corner, pointing out from the axis) and once as the prism it is (every side its own normal)
+            const int sides = 6;
+            var round = (Positions: new List<Vector3>(), Normals: new List<Vector3>(), Indices: new List<int>());
+            var flat = (Positions: new List<Vector3>(), Normals: new List<Vector3>(), Indices: new List<int>());
+
+            for (int side = 0; side < sides; side++)
+            {
+                float from = MathHelper.TwoPi * side / sides, to = MathHelper.TwoPi * (side + 1) / sides, mid = (from + to) * 0.5f;
+                Vector3 a = new(MathF.Cos(from), 0f, MathF.Sin(from)), b = new(MathF.Cos(to), 0f, MathF.Sin(to));
+                Vector3 face = new(MathF.Cos(mid), 0f, MathF.Sin(mid));
+
+                foreach (var mesh in new[] { round, flat })
+                {
+                    int first = mesh.Positions.Count;
+                    mesh.Positions.AddRange(new[] { a, b, b + Vector3.Up, a + Vector3.Up });
+                    mesh.Normals.AddRange(mesh == round ? new[] { a, b, b, a } : new[] { face, face, face, face });
+                    mesh.Indices.AddRange(new[] { first, first + 1, first + 2, first, first + 2, first + 3 });
+                }
+            }
+
+            static bool Upright(EdgeFinVertex v) => v.Position.Y != v.Other.Y && v.Position.X == v.Other.X && v.Position.Z == v.Other.Z;
+
+            //The same six upright edges either way - each can be the pin's outline - and a crease only on the prism
+            EdgeFinVertex[] roundFins = EdgeFinMesh.Build(round.Positions.ToArray(), round.Normals.ToArray(), round.Indices.ToArray(), twoSided: true).Vertices;
+            EdgeFinVertex[] flatFins = EdgeFinMesh.Build(flat.Positions.ToArray(), flat.Normals.ToArray(), flat.Indices.ToArray(), twoSided: true).Vertices;
+
+            Assert.Equal(sides * 4, roundFins.Count(Upright));
+            Assert.Equal(sides * 4, flatFins.Count(Upright));
+            Assert.All(roundFins.Where(Upright), v => Assert.Equal(0f, v.Other.W));
+            Assert.All(flatFins.Where(Upright), v => Assert.Equal(1f, v.Other.W));
+        }
+
+        //A UV sphere's triangles, smooth: its own positions are its normals
+        private static (Vector3[] Positions, int[] Indices) Sphere(int slices, int stacks)
+        {
+            var positions = new List<Vector3>();
+            var indices = new List<int>();
+
+            for (int stack = 0; stack <= stacks; stack++)
+            {
+                float phi = MathF.PI * stack / stacks;
+                for (int slice = 0; slice < slices; slice++)
+                {
+                    float theta = MathHelper.TwoPi * slice / slices;
+                    positions.Add(new Vector3(MathF.Sin(phi) * MathF.Cos(theta), MathF.Cos(phi), MathF.Sin(phi) * MathF.Sin(theta)));
+                }
+            }
+
+            for (int stack = 0; stack < stacks; stack++)
+            {
+                for (int slice = 0; slice < slices; slice++)
+                {
+                    int a = stack * slices + slice, b = stack * slices + (slice + 1) % slices;
+                    int c = a + slices, d = b + slices;
+                    indices.AddRange(new[] { a, b, d, a, d, c });
+                }
+            }
+
+            return (positions.ToArray(), indices.ToArray());
+        }
+
+        [Fact]
+        public void TheFinsChosenForAnEyeLeaveOutNoneTheShaderWouldOpenAndMostOfTheRest()
+        {
+            (Vector3[] cubePositions, Vector3[] cubeNormals, int[] cubeIndices) = Cube();
+            (Vector3[] ridgePositions, Vector3[] ridgeNormals, int[] ridgeIndices) = Fold(20f, valley: false);
+            (Vector3[] spherePositions, int[] sphereIndices) = Sphere(48, 24);
+
+            var meshes = new[]
+            {
+                EdgeFinMesh.Build(cubePositions, cubeNormals, cubeIndices).Vertices,
+                EdgeFinMesh.Build(ridgePositions, ridgeNormals, ridgeIndices).Vertices,
+                EdgeFinMesh.Build(spherePositions, spherePositions, sphereIndices).Vertices,
+            };
+
+            var random = new Random(804);
+            int sphereEdges = 0, sphereChosen = 0;
+
+            foreach (EdgeFinVertex[] vertices in meshes)
+            {
+                EdgeFinMesh.Edge[] edges = EdgeFinMesh.Edges(vertices);
+                int[] chosen = new int[edges.Length], triangles = new int[edges.Length * 6];
+                Assert.Equal(vertices.Length / 4, edges.Length);
+
+                for (int trial = 0; trial < 200; trial++)
+                {
+                    //Eyes near and far, all round, a few of them inside the mesh
+                    Vector3 eye = new Vector3((float)random.NextDouble() - 0.5f, (float)random.NextDouble() - 0.5f, (float)random.NextDouble() - 0.5f)
+                        * (trial % 4 == 0 ? 1.5f : 24f);
+
+                    int count = EdgeFinMesh.SelectLive(edges, eye, chosen);
+
+                    //Each edge once, and its quad's two triangles in Build's own pattern
+                    var live = new HashSet<int>();
+                    EdgeFinMesh.WriteIndices(chosen.AsSpan(0, count), triangles);
+                    for (int i = 0; i < count; i++)
+                    {
+                        Assert.True(live.Add(chosen[i]), "an edge was chosen twice");
+
+                        int first = chosen[i] * 4;
+                        Assert.Equal(new[] { first, first + 1, first + 3, first, first + 3, first + 2 }, triangles[(i * 6)..(i * 6 + 6)]);
+                    }
+
+                    //Everything the vertex shader would open - at either end of the edge, which it decides separately
+                    for (int e = 0; e < edges.Length; e++)
+                    {
+                        bool opens = EdgeFinMesh.Owner(vertices[e * 4], eye) != 0 || EdgeFinMesh.Owner(vertices[e * 4 + 2], eye) != 0;
+                        if (opens) Assert.True(live.Contains(e), $"edge {e} opens from {eye} and was not chosen");
+                    }
+
+                    if (vertices == meshes[2] && trial % 4 != 0)
+                    {
+                        sphereEdges += edges.Length;
+                        sphereChosen += live.Count;
+                    }
+                }
+            }
+
+            //And it is a choice: a smooth ball's outline from outside is a loop, a twentieth of its edges at this fineness
+            Assert.True(sphereChosen * 10 < sphereEdges, $"{sphereChosen} of {sphereEdges} of a sphere's edges were chosen");
+            Assert.True(sphereChosen > 0);
         }
 
         [Fact]
