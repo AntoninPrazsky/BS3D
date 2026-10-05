@@ -906,6 +906,17 @@ namespace BS3D.Audio
             _emitter.Position = Finite(world) ? Placed(world, widen) : _listener.Position;
 
             voice.Volume = MathHelper.Clamp(volume, 0f, 1f);
+
+            //OpenAL (GamePi, #790) places a voice only while it holds a source, which it takes at Play: placed first,
+            //as below, every sound there played centred. Its placement leaves the pitch alone, so the pitch goes first.
+            if (Platform.AudioBackend.PlacesAfterPlay)
+            {
+                voice.Pitch = MathHelper.Clamp(pitch, -1f, 1f);
+                voice.Play();
+                voice.Apply3D(_listener, _emitter);
+                return;
+            }
+
             voice.Apply3D(_listener, _emitter);
 
             //After Apply3D, always. And still clamped to ±1, even though an instance would accept ten octaves
