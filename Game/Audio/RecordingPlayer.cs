@@ -215,6 +215,8 @@ namespace BS3D.Audio
             try
             {
                 _voice = new DynamicSoundEffectInstance(SAMPLE_RATE, AudioChannels.Stereo);
+                //A recycled OpenAL source keeps the last voice's pitch (GameMusic's arrival says how, #790).
+                _voice.Pitch = 0f;
                 _voice.Volume = GameMusic.MUSIC_VOLUME * _gain;
             }
             catch (Exception exception)
