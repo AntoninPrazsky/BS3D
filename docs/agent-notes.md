@@ -7881,3 +7881,17 @@ Majitel večer 4. 10.: „zpracovávej až do rána issues, které můžeš zpra
     - Rybičky jsou vidět i v padající animaci pod vodu (snímek z `detonate=17` na testovacím mořském levelu).
     - ⚠ **Ukazatel FPS na snímcích s `shot=` po sekundě lže:** ukazoval 42–48, měření ve Testbedu 2,8 ms; PNG ukládání průměr srazí.
   - **Stránka verdiktů:** https://claude.ai/artifact/6CtkPdXEenQk1GLK22Zhtr (Noční verdikty 5. 10.; patří účtu, pod kterým vznikla).
+
+## 2026-10-05 — verdikty majitele ráno: 11 zavřeno, rybky, Jukebox bez ambience, řez po patrech (#692) — desktop, Claude Code (6edf655a)
+
+- **Zavřeno jako OK:** #750 (napsal „758: OK“, ale #758 se nestavělo, čteno jako #750, řečeno na issue), #784, #773, #761, #715, #782, #772, #783, #759, #760, #704.
+- **#759 + #760 (merge `3b801672`):** některé ryby „plavou pozadu“. Každá se pohybuje hlavou napřed, ale vlna těla běžela `sin(t − x)`, tedy k hlavě; teď `sin(t + x)`, od hlavy k ocasu.
+- **#783:** OK; jeho poznámka (detailní záběr na vysílače na střechách, kroužit, spíš seshora) patří do #780. To rozšířeno na obě města a přejmenováno.
+- **#704 (merge `a6082ed1`):** na obrazovce Jukebox musí být slyšet jen hudba. Ambience scény se tam ztlumí za 0,5 s (`ProceduralAmbience.Duck`), jednorázové zvuky počasí (hrom) se zahodí i s čekajícím.
+  - Loopback (zvukový výstup tentokrát fungoval): menu −43,4 dBFS ambience, Jukebox digitální ticho, Jukebox hraje −17,9 dBFS. Tím je zavřená i noční mezera „přehrávání neslyšeno“.
+- **#692 (merge `b1cfea1c`):** řez bere **celé souvislé patro** zasažené koule (zničené), pak padá, co nevisí. **Horní 4 patra jsou chráněná:** zaměřovač a paprsek blikají jako při míření moc vysoko a výstřel neodejde (`IsCutProtected`, `_cutterRefused`, `AimStrain`).
+  - `--cuts` se 4 patry: 0 dohrání jednou ranou, nejlepší rána 240, běžná 105 (typický level asi 500 koulí).
+  - Ve hře: Column zničeno 24 a spadlo 45; na krátkém levelu řez míří do horních pater a nevyletí (30 koulí zůstává, normální výstřel 30 → 29).
+  - `LatticeSoftnessTests` potřeboval uvolnit jednu kotvu, proto zůstal interní `DestroyBall` (`InternalsVisibleTo BS3D.Tests`).
+  - Otevřené: tutorial karta řezu (#705) a jestli žebříčky od The Tower začít znovu (`RulesVersion`), rozhodne majitel.
+- **#743:** majitel myslí speciální koule v mapě, ale jeskyně (51–60) žádné nemá. Speciální koule jsou jen v Eruption (bomby, zapy), Big Top (broky) a Mirage (kameny, sklo). Otázka položena na issue.
