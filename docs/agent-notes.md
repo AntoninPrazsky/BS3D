@@ -8114,3 +8114,18 @@ Majitel večer 4. 10.: „zpracovávej až do rána issues, které můžeš zpra
   - ⚠ **Límec ústí hlavně (#425) je vysoustružený naruby:** profil běží po ose soustruhu nahoru, takže `LatheMesh` dá normály i přední stěny dovnitř. Kreslí se vzdálená vnitřní stěna, což zezadu vypadá jako tentýž kroužek. `WindingCheck` to nepozná (vinutí souhlasí s normálami, otevřený pás nemá objem). Neopraveno, issue teprve založím.
   - Deset mutací pravidel v `EdgeFinTests`, všech deset padá.
 - **Neověřeno:** cena druhého řezu ploutví na Pi (GPU i CPU při pohybu kamery). Švy u odtoku (zlatý pás proti kameni a šachtě), tmavé pruhy na hlavni, kola a válečky zůstávají schodovité.
+
+## 2026-10-05 — noc na Pi: všech 14 scén nativně v 62 FPS, 10min zátěž, měření #804 (ploutve, měkké roztažení) — Pi (BS3DServer), Claude Code (296408e3)
+
+- **Po #804 (merge `23acaf10`: lem koulí zapnutý a levnější shader koule) drží Pi nativní 1920×1080 na všech 14 scénách.** Jeden level z každé, čistý profil (Auto), s limitem, bez VNC, 45 s: 61,8–62,0 FPS v posledních 20 s a Auto nikde nesnížil.
+  - Zapsáno do „The resolution“ v docs/game-shell.md (merge `9fc8cea8`) a na #801. Plán v #785 je aktualizovaný.
+- **Pacing s limitem je klidný.** Rozptyl za sekundu je většinou pod 0,1 ms, občas jedno škubnutí za 20–40 s (sd 2,4–3,7 v té sekundě). Rozptyl ~5 ms při `nocap` je fronta bez limitu, ne hra.
+- **Deset minut na Cabinetu:** 62 FPS od druhé minuty, 55–60 °C, `get_throttled` 0x0.
+- **#804 ploutve (dělá notebook), měřeno nativně s `rims=1`:**
+  - První řez: +1,05–1,4 ms nativně i v 720p. Byl to binning: VERTEX_BIN 243 instrukcí na každý vrchol zkolabovaného quadu.
+  - Druhý řez (`c8bdbc43`: konkávní hrany pryč, švy podle stínování, CPU vybírá živé hrany): **+0,53–0,67 ms**. Starý způsob kreslení nad novými kandidáty +0,70; CPU výběr v obíhajícím menu v šumu.
+  - Na fotkách z Pi je obzor ostrova a lafeta hladká, vnitřní elipsa odtoku a kola ne. Fotky má majitel.
+- **`upscale=soft` (B-spline ve 4 tapech) stojí +1,5–1,8 ms v 720p.** Na V3D vychází ~0,5–0,6 ms za tap na 1080p výstupu, proto zůstává za argumentem.
+- **Fronta verdiktů 17**, takže jsem nezačínal nic, co se posuzuje okem.
+- **Čeká na majitele:** verdikty #801 a #804 (lem, ploutve) a starší pi-port (#788, #789, #793, #796); řádek `server` pro online.
+- **#808** (Potato na Windows) si vzal notebook.
