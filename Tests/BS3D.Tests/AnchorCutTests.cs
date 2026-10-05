@@ -178,7 +178,6 @@ namespace BS3D.Tests
             Assert.Empty(released);
         }
 
-        /// <summary>A fresh map holding only <paramref name="cells"/>: <see cref="HungLevel"/> centres and hangs the map it is given once.</summary>
         /// <summary>
         /// A field whose top level is full (every ball held by the glass) with <paramref name="rows"/> rows of three hanging
         /// under it on the next level down, each a storey of its own, and a rope of two hanging under the first row's middle.
@@ -266,6 +265,7 @@ namespace BS3D.Tests
             Assert.Equal(4, BallsConstraintsBuilder.CUT_PROTECTED_STOREYS);
         }
 
+        /// <summary>A fresh map holding only <paramref name="cells"/>: <see cref="HungLevel"/> centres and hangs the map it is given once.</summary>
         private static BallsMap RebuildFrom(BallsMap source, List<XZLevel> cells)
         {
             var map = new BallsMap(source.StageSizeX, source.StageSizeZ, source.Levels);

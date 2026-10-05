@@ -13,8 +13,8 @@ namespace BS3D.Tools.LevelGen
     /// report and not a gate: the owner's playtest was that a cutter "seems to do nothing, or at most disconnects a
     /// single ball", and <c>docs/game-session.md</c> had predicted exactly that and left the measurement undone.
     /// <para>
-    /// <b>The rule is the game's own, not a model of it.</b> A cutter destroys the one ball it strikes and lets go of
-    /// whatever hung by that ball alone (<c>BallsConstraintsBuilder.CutBall</c> → <c>ResolveDisconnected</c>); here
+    /// <b>The rule is the game's own, not a model of it.</b> Until #692 a cutter destroyed the one ball it struck and let
+    /// go of whatever hung by that ball alone (since then it takes the ball's storey, which <c>RunStorey</c> measures) (<c>BallsConstraintsBuilder.CutBall</c> → <c>ResolveDisconnected</c>); here
     /// that is the struck cell taken out of the <see cref="BallsMap"/> and
     /// <see cref="BallsMap.GetCellsDisconnectedFromCeiling"/> asked what no longer reaches the top level, which is the
     /// same touching-neighbour walk the release runs. A bomb is left out: a cutter that strikes one detonates it, and
@@ -89,7 +89,7 @@ namespace BS3D.Tools.LevelGen
             return true;
         }
 
-        //The storey cut's guard, measured (#692): the top storeys a cut may not strike, from none to three
+        //The storey cut's guard, measured (#692): the top storeys a cut may not strike, from none to four (the owner chose four)
         private static readonly int[] TOP_EXCLUDED = { 0, 1, 2, 3, 4 };
 
         /// <summary>

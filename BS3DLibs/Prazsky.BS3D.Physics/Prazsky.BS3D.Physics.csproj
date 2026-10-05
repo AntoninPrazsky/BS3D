@@ -18,8 +18,8 @@
     <ProjectReference Include="..\Prazsky.BS3D\Prazsky.BS3D.csproj" />
   </ItemGroup>
 
-  <!--BallsConstraintsBuilder.DestroyBall, the one-ball removal the storey cut replaced (#692), is kept for the tests that
-      need exactly one ball out of a lattice-->
+  <!--BallsConstraintsBuilder.DestroyBall, the one-ball removal the storey cut replaced (#692), is kept for a cutter's
+      stray flight into a protected storey and for the tests that need exactly one ball out of a lattice-->
   <ItemGroup>
     <InternalsVisibleTo Include="BS3D.Tests" />
   </ItemGroup>
