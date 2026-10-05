@@ -301,7 +301,7 @@ namespace BS3D.Tools.LevelGen
                 Mosaic(), Prism(), Hopper(), Trilithon(), Gantry(), Fault(), Crib(), Highwall(), Static()
             };
 
-            //8. THE NEBULA (#182) - the arena in deep space, and the block the five #152 colours arrive in,
+            //9. THE NEBULA (#182) - the arena in deep space, and the block the five #152 colours arrive in,
             //one or two per level until the finale plays all thirteen. Every level is TALL and OPEN in the
             //Helix's sense - the silhouette turns and changes as it descends, so the player reads what is
             //coming - and each is a different KIND of tall, the Tower's own rule (#160). See the block's
@@ -326,12 +326,14 @@ namespace BS3D.Tools.LevelGen
             //which is a level-design change and not an ordering one. #413 says so itself.
             Design[] nebula = { Comet(), Vortex(), Carousel(), Wishbone(), Sail(), Analemma(), Binary(), Kepler(), Garland(), Orrery() };
 
-            //9. THE VOLCANO - "The Eruption" (#295). THE GLOW IS THE LOAD: the molten seams are what
+            //11. THE VOLCANO - "The Eruption" (#295). THE GLOW IS THE LOAD: the molten seams are what
             //everything hangs by, so reading where a level shines is reading where it will break - and every
             //level here HAPPENED IN A DIRECTION, a bearing the shape carries (the torn flank, the downhill
             //run, the downwind rake, the leaning column). The arc job is the light returning after the void,
             //GEOLOGICALLY - the earth glowing by itself - one step before the dawn hands the light back
-            //received (and two before the finale's neon, since #300 put the cities in day order). Five
+            //received (and two before the neon, since #300 put the cities in day order). The void is two
+            //chapters back since 2026-10-05, with the circus tent's lights between: side by side, the Nebula
+            //and the Eruption read as one dark chapter twice (the owner), see CampaignSet.BLOCKS. Five
             //levels until #369, which filled the block to ten with the five that bring the BOMB and the ZAP
             //into the campaign (#368) - the volcano being the one place a bomb does not have to explain
             //itself. See the block's own region for the statement in full and for the engineering law every
@@ -347,7 +349,7 @@ namespace BS3D.Tools.LevelGen
             Design[] volcano =
                 { Breach(), Meander(), Volley(), Plume(), Vent(), Sill(), Fume(), Causeway(), Caldera(), Paroxysm() };
 
-            //10. THE CITY AT DAWN - "The Spectrum" (#253). One HUE FAMILY a level, swept through the whole
+            //12. THE CITY AT DAWN - "The Spectrum" (#253). One HUE FAMILY a level, swept through the whole
             //body as a gradient: white to cyan to blue to navy and back, a heat ramp, a green one, a twilight
             //one, and the wheel entire on the finale. No new colour is involved anywhere - a family is a
             //subset and an ordering of the fixed thirteen - and no sweep is a stack of floors, because a
@@ -386,7 +388,7 @@ namespace BS3D.Tools.LevelGen
             //WriteLevelSet.
             Design[] spectrum = { Icicle(), Pinecone(), Hourglass(), Kiln(), Trellis(), Pleat(), Totem(), Girandole(), Turbine(), Bolt() };
 
-            //11. THE NEON CITY - "The Arcade" - THE CAMPAIGN'S LAST BLOCK since #300. Five HOLLOW pixel-art
+            //13. THE NEON CITY - "The Arcade" - the campaign's last block from #300 until the Mirage took the last word. Five HOLLOW pixel-art
             //solids: the Gallery's drawn symbols given a third dimension, wrapped onto a die, a stepped
             //temple, a slot reel, a donut and a globe, so a level's picture is read by walking the gun round
             //it. Every one is framed whole, which is the deliberate opposite of the tall blocks before it -
@@ -434,7 +436,7 @@ namespace BS3D.Tools.LevelGen
             //
             //THE LIGHT RAMP does not continue, and that is deliberate rather than an oversight. The campaign
             //walked the day down from green noon to the neon city after dark (see the Arcade), and the day
-            //ENDED there. What follows a day is not a later hour of it; the eleventh chapter is the one
+            //ENDED there. What follows a day is not a later hour of it; the last chapter is the one
             //place the arena is not, and the balls stop obeying the rules the other hundred levels taught.
             //Its designs live in their own array for the reason the Nebula's, the Eruption's, the Spectrum's
             //and the Arcade's do - see WriteLevelSet.
@@ -450,11 +452,12 @@ namespace BS3D.Tools.LevelGen
             //block at 2.94 shots a group against Cairn's 1.76. Cairn is also the level whose own doc asks
             //for "bookkeeping of a kind nothing before it has asked for" - four chambers, each with the
             //four colours in a different order - which is a finale's job.
-            //13. THE GRID (#420) - the arena inside the machine, and the one block whose style is a THESIS
+            //8. THE GRID (#420) - the arena inside the machine, and the one block whose style is a THESIS
             //rather than a family of silhouettes: every level is a NAMED MATHEMATICAL CONSTRUCTION. The scene
             //(#393) is built on that same sentence - its floor is a Hilbert curve rather than a noise field,
             //"named mathematics rather than noise" - so the chapter is the cluster answering the backdrop.
-            //It is also the campaign's first block to carry a SPECIAL: the wildcard, taught the Eruption's
+            //It is also the campaign's first block to carry a SPECIAL - truly since 2026-10-05 moved it ahead of
+            //the Eruption's bombs (CampaignSet.BLOCKS) - the wildcard, taught the Eruption's
             //way, cheap and unmissable on Sierpinski and a tool on Gyroid. See Designs/Block12_Grid.cs for
             //what each construction is and for the block's one standing danger, which is thinness.
             Design[] grid =
@@ -463,12 +466,13 @@ namespace BS3D.Tools.LevelGen
                 Helicoid(), Phyllotaxis(), Gyroid(), Life(), Tesseract(),
             };
 
-            //12. THE BIG TOP (#690) - the circus tent, and the chapter whose style is the PHYSICS one step past the Coil's:
+            //10. THE BIG TOP (#690) - the circus tent, and the chapter whose style is the PHYSICS one step past the Coil's:
             //every level states a softer spring of its own (Design.Softness), so its spans sag into catenaries, bounce
             //when hit and ripple along their length - rope, cloth and rubber, the owner's words. Drawn already hanging,
             //never a span longer than seven columns between two anchors, every post in two inks. Buckshot arrives here
-            //(#257): the sandbags and the juggling balls' cores pour out when what holds them is cut. Inserted before
-            //the Grid, see BLOCKS. The order ramps by how much a player holds at once: one rope, then flags on two
+            //(#257): the sandbags and the juggling balls' cores pour out when what holds them is cut. Between the
+            //Nebula and the Eruption since 2026-10-05: the bright tent between the void and the volcano, a breather of
+            //small hanging pieces between two heavy chapters - see CampaignSet.BLOCKS. The order ramps by how much a player holds at once: one rope, then flags on two
             //swags, five balls on chains, a bar on two ropes, a sheet on six posts, sandbags on a beam, a deck between
             //towers, a ring on four chains, a net on eight posts, and the tent itself.
             Design[] bigtop =
@@ -493,7 +497,8 @@ namespace BS3D.Tools.LevelGen
             foreach (Design design in grid) ok &= LevelEmitter.Emit(design);
             foreach (Design design in mirage) ok &= LevelEmitter.Emit(design);
 
-            LevelSet set = CampaignSet.WriteLevelSet(designs, nebula, volcano, spectrum, arcade, bigtop, grid, mirage);
+            //The play order after the Quarry is CampaignSet.BLOCKS' (the owner's of 2026-10-05), and the two must agree
+            LevelSet set = CampaignSet.WriteLevelSet(designs, grid, nebula, bigtop, volcano, spectrum, arcade, mirage);
 
             //PROTOTYPES (#604): designs built to put a direction in front of the owner before a chapter is rebuilt
             //around it. They pass the same per-level checks as everything above, but into Levels/Prototypes and
