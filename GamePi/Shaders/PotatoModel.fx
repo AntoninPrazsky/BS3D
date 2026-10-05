@@ -6,8 +6,8 @@
 //whole Potato frame. This is its LIGHTING MODEL, kept - the same three-light rig the host tints from the sky dome,
 //the same hemisphere ambient and occlusion from the instance stream, the same Blinn-Phong and Fresnel environment,
 //so a scene's light reads the same - with everything a surface does on top of it given up: no relief, no ball
-//patterns or materials (every BallShading is one lit, coloured ball), no shadows, no clouds, no refraction, no
-//scene lights. InstancedModelRenderer recognises this effect by its techniques and draws through DrawPotato, which
+//patterns or materials (every BallShading is one lit, coloured ball), no shadows, no clouds, no refraction. The scene's
+//own point lights it keeps (#795), because on the scenes whose dome is dark they are the light. InstancedModelRenderer recognises this effect by its techniques and draws through DrawPotato, which
 //sets the uniforms below and no others; a uniform named here that a draw does not set keeps the value the last
 //draw left, so DrawPotato sets every one each draw, as InstancedModelRenderer.Draw does on the desktop.
 //
@@ -40,6 +40,14 @@ float3 DirLight2Direction;
 float3 DirLight2DiffuseColor;
 float3 DirLight2SpecularColor;
 float DirLightStrength;
+
+//The scene's own point lights (#795): SceneLights pushes them here under the desktop's names and sizes (its arrays are
+//MaxLights long, and SetValue writes every element), linear radiance, a range where each has fallen to nothing
+#define MAX_SCENE_LIGHTS 8
+float3 SceneLightPosition[MAX_SCENE_LIGHTS];
+float3 SceneLightColor[MAX_SCENE_LIGHTS];
+float SceneLightRange[MAX_SCENE_LIGHTS];
+int SceneLightCount;
 
 //The hemisphere ambient, linear, and the floor the ground occlusion fades towards
 float3 SkyColor;
@@ -149,6 +157,34 @@ void AddLight(float3 towardsLight, float3 lightDiffuse, float3 lightSpecular, fl
     specular += lightSpecular * pow(dotH * lit, SpecularPower);
 }
 
+//Lighting.fxh's AddSceneLights, unrolled: a ps_3_0 shader cannot index a uniform array by a loop counter, so each slot is
+//its own code behind a branch on the count - uniform for the whole draw, so a scene with no lights (most of them) pays
+//eight compares and nothing else. The array indices are constants after the unroll, which is not the dynamic indexing
+//the one-array rule is about (compile.ps1 still checks).
+void AddSceneLights(float3 worldPosition, float3 normal, float3 eye, inout float3 diffuse, inout float3 specular)
+{
+    [unroll]
+    for (int i = 0; i < MAX_SCENE_LIGHTS; i++)
+    {
+        [branch]
+        if (i < SceneLightCount)
+        {
+            float3 toLight = SceneLightPosition[i] - worldPosition;
+            float dist = length(toLight);
+            float3 towardsLight = toLight / max(dist, 1e-4);
+
+            //Quadratic to the light's range, as the desktop's: fades gently and dies at the edge
+            float atten = saturate(1.0 - dist / SceneLightRange[i]);
+            atten *= atten;
+
+            diffuse += SceneLightColor[i] * (saturate(dot(normal, towardsLight)) * atten);
+
+            float dotH = saturate(dot(normal, normalize(towardsLight + eye)));
+            specular += SceneLightColor[i] * (pow(dotH, SpecularPower) * atten);
+        }
+    }
+}
+
 float3 SkyRadiance(float3 direction)
 {
     return lerp(GroundColor, SkyColor, direction.y * 0.5 + 0.5);
@@ -175,7 +211,7 @@ struct Shaded
     float3 Added;
 };
 
-//Lighting.fxh's ShadePixel without its clouds, shadows, scene lights and per-surface specular: the key, fill and back
+//Lighting.fxh's ShadePixel without its clouds, shadows and per-surface specular: the key, fill and back
 //lights, the occluded hemisphere, the specular and the Fresnel environment, in linear radiance.
 Shaded Shade(float3 worldPosition, float3 rawNormal, float4 occlusionData, float3 texRgb)
 {
@@ -193,6 +229,9 @@ Shaded Shade(float3 worldPosition, float3 rawNormal, float4 occlusionData, float
     AddLight(-DirLight2Direction, DirLight2DiffuseColor, DirLight2SpecularColor, normal, eye, diffuse, specular);
     diffuse *= DirLightStrength;
     specular *= DirLightStrength;
+
+    //Not scaled by the rig's strength, as on the desktop: a lamp is not the sky
+    AddSceneLights(worldPosition, normal, eye, diffuse, specular);
 
     float occlusion = SurfaceOcclusion(worldPosition, normal, occlusionData);
     float burial = saturate((0.45 - occlusionData.w) / 0.35);

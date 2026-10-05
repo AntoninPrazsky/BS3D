@@ -36,28 +36,16 @@ namespace Prazsky.Core.Render
         private const int VOLCANO_GRID_N_REDUCED = 256;
         private const float VOLCANO_EXTENT = 1200f;
 
-        //Matched by MAX_RIVERS in Volcano.fx and MAX_VENTS in LavaFountain.fx. Both are shader array sizes:
-        //raising either here without raising it there writes past what the shader reads.
-        private const int MAX_RIVERS = 6;
-        private const int MAX_VENTS = 4;
-
         //Where a 16-bit index buffer runs out: four vertices a particle over 65 536 addressable ones. The
         //mountain's snow silently trusted a config to stay under a limit like this; a volcano's counts are
         //dials from day one (#209 defends a 75 FPS budget this scene spends particles against), so the cap
         //is stated rather than assumed.
         private const int MAX_BILLBOARD_PARTICLES = 16000;
 
-        //The rivers' bearings and reaches, solved once per config (BuildVolcanoBuffers) rather than per
-        //frame — the shader draws the flows from these and the scene lights ride the same figures, which is
-        //what keeps a lamp on the river it is lighting.
-        private readonly float[] _riverBearing = new float[MAX_RIVERS];
-        private readonly float[] _riverReach = new float[MAX_RIVERS];
-        private int _riverCount;
-
-        //The vents the fountains are thrown from: slot 0 the crater, the rest side vents on the flank.
-        private readonly Vector3[] _ventPosition = new Vector3[MAX_VENTS];
-        private readonly float[] _ventStrength = new float[MAX_VENTS];
-        private int _ventCount;
+        //The rivers, the vents, the eruption's clock and the lamps on the flows (#795): solved once from the config
+        //(BuildVolcanoBuffers), and the figures the shader draws the flows from are the ones the scene lights ride,
+        //which is what keeps a lamp on the river it is lighting. Its own class so a host with no backdrop can solve them.
+        private VolcanoLava _lava;
 
         //The lava fountains and the smoke plume: ONE static billboard buffer, its first PlumeFraction drawn
         //as the plume and the rest as the jets, so neither pass pays for the other's particles. Animated
@@ -247,78 +235,16 @@ namespace Prazsky.Core.Render
         private void BuildVolcanoBuffers()
         {
             VolcanoSceneConfig volcano = _volcanoConfig;
-            Random rng = new(4177 + Services.SeedOffset);
-
-            //--- The rivers. Radial from the cone's axis, and the FIRST one is aimed to pass the arena: that
-            //is the whole point of the scene's lighting, since a flow nobody stands beside lights nothing.
-            //RiverArenaOffset walks it past the island's near edge rather than straight over it.
-            _riverCount = Math.Clamp(volcano.RiverCount, 1, MAX_RIVERS);
-
+            _lava = new VolcanoLava(volcano, Services.SeedOffset);
             Vector2 cone = volcano.ConeCenter.ToVector2();
-            float bearingToArena = MathF.Atan2(-cone.Y, -cone.X);
-            float coneToArena = cone.Length();
-            float spacing = MathHelper.TwoPi / _riverCount;
-            float gullyCount = MathF.Round(MathF.Max(volcano.GullyCount, 1f));
 
-            for (int i = 0; i < _riverCount; i++)
-            {
-                //Evenly spread and then jittered by up to a quarter of the spacing, so the flank is not a
-                //starburst — and never enough to let one river swap sides with its neighbour.
-                float jitter = (float)(rng.NextDouble() - 0.5) * spacing * 0.5f;
-                float wanted = bearingToArena + volcano.RiverArenaOffset + i * spacing + (i == 0 ? 0f : jitter);
+            _volcanoEffect.Parameters["RiverBearing"].SetValue(_lava.RiverBearing);
+            _volcanoEffect.Parameters["RiverReach"].SetValue(_lava.RiverReach);
+            _volcanoEffect.Parameters["RiverCount"].SetValue(_lava.RiverCount);
 
-                //And then SNAPPED to the nearest gully, which is the whole difference between lava lying on
-                //a cone and lava running down one: water — and rock — go where the ground drains, and the
-                //gullies are where this ground drains. Without it the flows crossed the channels obliquely
-                //and read as paint.
-                _riverBearing[i] = SnapToGully(wanted, gullyCount);
-
-                //River 0 has to get past the arena to be worth aiming there; the others stop somewhere on the
-                //flank, each at its own reach, so the fronts are not one ring around the cone.
-                _riverReach[i] = i == 0
-                    ? coneToArena + 90f
-                    : volcano.ConeRadius * (0.70f + 0.55f * (float)rng.NextDouble());
-            }
-
-            //The snap can walk river 0 by up to half a gully, and half a gully at this distance is tens of
-            //units — enough to put the flow under the island instead of past it. If it lands too close, take
-            //the next gully out on the far side. The clearance wanted is the island plus a couple of river
-            //widths, so the flow passes beside the play field with dark ground between.
-            float clearance = ArenaIsland.RADIUS + volcano.RiverWidth * 2f;
-            float perpendicular = MathF.Abs(MathF.Sin(_riverBearing[0] - bearingToArena)) * coneToArena;
-            if (perpendicular < clearance)
-            {
-                float away = MathF.Sign(volcano.RiverArenaOffset == 0f ? 1f : volcano.RiverArenaOffset);
-                _riverBearing[0] = SnapToGully(bearingToArena + away * MathHelper.TwoPi * 1.5f / gullyCount, gullyCount);
-            }
-
-            _volcanoEffect.Parameters["RiverBearing"].SetValue(_riverBearing);
-            _volcanoEffect.Parameters["RiverReach"].SetValue(_riverReach);
-            _volcanoEffect.Parameters["RiverCount"].SetValue(_riverCount);
-
-            //--- The vents. Three, and fixed in code rather than being another dial: the crater, and two side
-            //vents part-way down the flank on two of the rivers — which is where a side vent is, since the
-            //fissure that opens is what feeds the flow. Their strengths taper so the crater is plainly the
-            //main event and the spatter cones read as spatter.
-            _ventCount = Math.Min(3, MAX_VENTS);
-
-            _ventPosition[0] = new Vector3(cone.X, GroundHeight(cone.X, cone.Y) + 2f, cone.Y);
-            _ventStrength[0] = 1f;
-
-            for (int v = 1; v < _ventCount; v++)
-            {
-                float bearing = _riverBearing[v % _riverCount];
-                float radius = volcano.ConeRadius * (0.34f + 0.16f * v);
-                float x = cone.X + MathF.Cos(bearing) * radius;
-                float z = cone.Y + MathF.Sin(bearing) * radius;
-
-                _ventPosition[v] = new Vector3(x, GroundHeight(x, z) + 1.5f, z);
-                _ventStrength[v] = 0.42f - 0.10f * (v - 1);
-            }
-
-            _fountainEffect.Parameters["VentPosition"].SetValue(_ventPosition);
-            _fountainEffect.Parameters["VentStrength"].SetValue(_ventStrength);
-            _fountainEffect.Parameters["VentCount"].SetValue(_ventCount);
+            _fountainEffect.Parameters["VentPosition"].SetValue(_lava.VentPosition);
+            _fountainEffect.Parameters["VentStrength"].SetValue(_lava.VentStrength);
+            _fountainEffect.Parameters["VentCount"].SetValue(_lava.VentCount);
 
             //--- The particles. One buffer for the fountains: its first slice is the plume and the rest are
             //the jets, drawn as two index ranges over the one buffer (see DrawLavaFountains) so neither pass
@@ -344,7 +270,7 @@ namespace Prazsky.Core.Render
                 float x = MathF.Cos(bearing) * reach, z = MathF.Sin(bearing) * reach;
                 float strength = 0.6f + 0.4f * (float)steamRng.NextDouble();
                 if (Vector2.Distance(new Vector2(x, z), cone) < volcano.ConeRadius * 0.35f) continue;
-                if (DistanceToRiver(new Vector2(x, z), cone, _riverBearing[0]) < volcano.RiverWidth * 2.5f) continue;
+                if (DistanceToRiver(new Vector2(x, z), cone, _lava.RiverBearing[0]) < volcano.RiverWidth * 2.5f) continue;
                 _fumarolePosition[fumaroles] = new Vector3(x, GroundHeight(x, z) + 0.3f, z);
                 _fumaroleStrength[fumaroles] = strength;
                 fumaroles++;
@@ -371,11 +297,11 @@ namespace Prazsky.Core.Render
             {
                 Vector2 p = new(x, z);
                 if (Vector2.Distance(p, cone) < volcano.ConeRadius * 0.3f) return true;
-                for (int r = 0; r < _riverCount; r++)
+                for (int r = 0; r < _lava.RiverCount; r++)
                 {
-                    Vector2 along = new(MathF.Cos(_riverBearing[r]), MathF.Sin(_riverBearing[r]));
+                    Vector2 along = new(MathF.Cos(_lava.RiverBearing[r]), MathF.Sin(_lava.RiverBearing[r]));
                     float t = Vector2.Dot(p - cone, along);
-                    if (t > 0f && t < _riverReach[r] && Vector2.Distance(p - cone, along * t) < volcano.RiverWidth * 1.6f) return true;
+                    if (t > 0f && t < _lava.RiverReach[r] && Vector2.Distance(p - cone, along * t) < volcano.RiverWidth * 1.6f) return true;
                 }
                 for (int f = 0; f < fumaroles; f++)
                     if (Vector2.Distance(p, new Vector2(_fumarolePosition[f].X, _fumarolePosition[f].Z)) < 3f) return true;
@@ -392,27 +318,6 @@ namespace Prazsky.Core.Render
             Services.BuildBillboardParticles(_steamQuads, 6792, ref _steamVertexBuffer, ref _steamIndexBuffer);
         }
 
-        /// <summary>
-        /// The bearing of the gully floor nearest <paramref name="bearing"/>, so a river can be laid in one.
-        /// <para>
-        /// A gully is deepest where <c>Volcano.fx</c>'s rake term peaks, i.e. where
-        /// <c>b·N + 2·sin(3b) ≡ π (mod 2π)</c>. There is no closed form for that, and none is needed: the
-        /// <c>2·sin(3b)</c> bend is small against <c>N</c>, so picking the branch nearest the wanted bearing
-        /// and iterating <c>b ← (target − 2·sin(3b)) / N</c> is a contraction with ratio <c>6/N</c> and four
-        /// passes land far inside a degree. Change the rake term in the shader and this has to change with it.
-        /// </para>
-        /// </summary>
-        private static float SnapToGully(float bearing, float gullyCount)
-        {
-            float branch = MathF.Round((bearing * gullyCount + 2f * MathF.Sin(bearing * 3f) - MathF.PI) / MathHelper.TwoPi);
-            float target = MathF.PI + branch * MathHelper.TwoPi;
-
-            float b = bearing;
-            for (int pass = 0; pass < 4; pass++) b = (target - 2f * MathF.Sin(b * 3f)) / gullyCount;
-
-            return b;
-        }
-
         //How far a point stands from a river's line: the ray from the cone's axis along its bearing (#679's vents keep off it)
         private static float DistanceToRiver(Vector2 point, Vector2 cone, float bearing)
         {
@@ -423,43 +328,15 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary><see cref="SceneRenderer.VolcanoGroundHeight"/>.</summary>
-        public float GroundHeight(float x, float z) => TerrainMirror.Volcano(x, z, _volcanoConfig);
+        public float GroundHeight(float x, float z) => _lava.GroundHeight(x, z);
 
         /// <summary><see cref="SceneRenderer.VolcanoEruption"/>.</summary>
-        public float Eruption(float time)
-        {
-            float period = VolcanoBurstSchedule(time, out float index, out float start, out float length, out float size);
-            float u = time / period;
-
-            float p = (u - index - start) / length;
-            if (p <= 0f || p >= 1f) return 0f;
-
-            float envelope = p < 0.14f ? p / 0.14f : MathF.Pow(1f - (p - 0.14f) / 0.86f, 1.7f);
-
-            //Not every burst is the same size: a scene whose every event is identical stops being an event.
-            return envelope * size;
-        }
-
-        //The burst's SCHEDULE, in one place, for StormStrikeSchedule's reason exactly: the light and the boom
-        //have to be one event, and they are only one event while one function decides when it starts.
-        private float VolcanoBurstSchedule(float time, out float index, out float start, out float length, out float size)
-        {
-            EruptionConfig eruption = _volcanoConfig.Eruption;
-
-            float period = MathF.Max(eruption.Period, 1f);
-
-            index = MathF.Floor(time / period);
-            start = 0.10f + 0.55f * SceneRenderer.Hash01(index);
-            length = Math.Clamp(eruption.Length / period, 0.02f, 0.85f);
-            size = 0.55f + 0.45f * SceneRenderer.Hash01(index + 101f);
-
-            return period;
-        }
+        public float Eruption(float time) => _lava.Eruption(time);
 
         /// <inheritdoc/>
         public override bool TryGetSceneEvent(float time, out SceneEvent staged)
         {
-            float period = VolcanoBurstSchedule(time, out float index, out float start, out float _, out float size);
+            float period = _lava.BurstSchedule(time, out float index, out float start, out float _, out float size);
 
             //Slot 0 is the crater and does not move, so the time is not read for it - see
             //VolcanoLightPosition. The boom comes from the crater and not from the flows: a river
@@ -480,7 +357,7 @@ namespace Prazsky.Core.Render
                 return false;
             }
 
-            position = _ventPosition[0];
+            position = _lava.VentPosition[0];
             //A shade towards the hot end of the lava's range: the cool end alone lit the deck blood-red, where
             //the references' clouds over a crater are orange.
             Vector3 lava = Vector3.Lerp(volcano.LavaCool.ToVector3(), volcano.LavaHot.ToVector3(), 0.15f);
@@ -490,68 +367,19 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary><see cref="SceneRenderer.VolcanoLightCount"/>.</summary>
-        public int LightCount => Math.Clamp(_volcanoConfig.LightCount, 1, SceneLights.MaxLights);
+        public int LightCount => _lava.LightCount;
 
         /// <summary><see cref="SceneRenderer.VolcanoLightRange"/>.</summary>
-        public float LightRange => _volcanoConfig.LightRange;
+        public float LightRange => _lava.LightRange;
 
         /// <summary><see cref="SceneRenderer.VolcanoLightPosition"/>.</summary>
-        public Vector3 LightPosition(int index, float time)
-        {
-            if (index <= 0) return _ventPosition[0];
-
-            VolcanoSceneConfig volcano = _volcanoConfig;
-            Vector2 cone = volcano.ConeCenter.ToVector2();
-
-            int river = index <= 2 ? 0 : (index - 2) % _riverCount;
-            float near = MathF.Max(volcano.CraterRadius, 1f) * 1.2f;
-            float span = MathF.Max(_riverReach[river] - near, 1f);
-
-            float phase = ShaderMath.Frac(time * volcano.RiverSpeed / span + index * 0.37f);
-            float r = near + phase * span;
-
-            float wander = volcano.RiverWander * MathF.Sin(r * 0.017f + river * 2.13f)
-                * Math.Clamp(r / MathF.Max(volcano.ConeRadius, 1f), 0f, 1f);
-            float bearing = _riverBearing[river] + wander;
-
-            float x = cone.X + MathF.Cos(bearing) * r;
-            float z = cone.Y + MathF.Sin(bearing) * r;
-
-            //A little over the surface: a lamp buried in the ground it is lighting throws nothing sideways,
-            //and the flow it stands for is a metre of molten rock lying on top of the flank, not inside it.
-            return new Vector3(x, GroundHeight(x, z) + 2.5f, z);
-        }
+        public Vector3 LightPosition(int index, float time) => _lava.LightPosition(index, time);
 
         /// <summary><see cref="SceneRenderer.VolcanoLightColor"/>.</summary>
-        public Vector3 LightColor(float time, int index)
-        {
-            VolcanoSceneConfig volcano = _volcanoConfig;
+        public Vector3 LightColor(float time, int index) => _lava.LightColor(time, index);
 
-            //Lava pulses where a fire flickers — slower rates than the campfire's, and each lamp on its own
-            //stride so the flank does not breathe in unison.
-            float t = time + index * 3.77f;
-            float rate = 1f + index * 0.037f;
-            float pulse = 0.82f + 0.18f * (0.5f * MathF.Sin(t * 3.1f * rate) + 0.3f * MathF.Sin(t * 5.3f * rate + 1.3f)
-                + 0.2f * MathF.Sin(t * 2.1f * rate));
-
-            float strength;
-            if (index <= 0)
-            {
-                strength = 0.75f + Eruption(time) * volcano.Eruption.LightBoost;
-            }
-            else
-            {
-                int river = index <= 2 ? 0 : (index - 2) % _riverCount;
-                float near = MathF.Max(volcano.CraterRadius, 1f) * 1.2f;
-                float span = MathF.Max(_riverReach[river] - near, 1f);
-                float phase = ShaderMath.Frac(time * volcano.RiverSpeed / span + index * 0.37f);
-
-                //Swells in and dies out over the run, so a front never appears or vanishes on the spot
-                strength = MathF.Sin(MathF.PI * phase);
-            }
-
-            return volcano.LavaHot.ToVector3() * (volcano.LightStrength * strength * pulse);
-        }
+        /// <summary>The flows as figures, for <see cref="SceneRenderer.VolcanoLava"/>.</summary>
+        public VolcanoLava Lava => _lava;
 
         /// <inheritdoc/>
         public override void OnDetailChanged(float sceneDetail)
