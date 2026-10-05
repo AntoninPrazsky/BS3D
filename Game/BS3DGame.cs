@@ -1661,12 +1661,12 @@ namespace BS3D
             //a page opened by a click lands here on the following frame, which is the deferred design.
             _screens.Update(gameTime);
 
-            //The pad's own decay, and the one SetVibration call a frame (#378). Read fresh rather than
+            //The pad's own decay, and the one write to its motors a frame (#378, #188). Read fresh rather than
             //latched: paused, unfocused or off the gameplay screen (the front end, a settings panel reached
             //some other way) all silence it on the spot regardless of what a covered session's own Update is
             //still feeding into it underneath — see GamepadRumble.Update. The result page stays allowed on
             //purpose: it covers the gameplay screen without leaving the stack (#241) and the star reveal it
-            //hosts is one of this feature's own five triggers.
+            //hosts is one of what this feature answers.
             _audioDirector.UpdateRumble(elapsed, IsActive && _screens.Contains<GameplayScreen>() && !_screens.Contains<PausePage>());
 
             //The command line's one-shot actions (#583), each once at its moment: the startup level, then the

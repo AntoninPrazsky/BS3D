@@ -117,7 +117,8 @@ namespace BS3D.Audio
         /// <summary>The Jukebox page's player of the game's recordings (#704).</summary>
         internal RecordingPlayer Recordings => _recordings;
 
-        /// <summary>The pad's two body motors (#378), fed a <c>Kick</c> from wherever a violent moment already is.</summary>
+        /// <summary>The pad's motors — the two in its body (#378) and the two in its triggers (#188) — fed a <c>Kick</c> or a
+        /// <c>KickTriggers</c> from wherever a violent moment already is.</summary>
         internal GamepadRumble Rumble => _rumble;
 
         /// <summary>
