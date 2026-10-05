@@ -34,7 +34,8 @@ finally {
 # plain text; any of them with more than one ARRAYBASE is refused here, before it can be committed.
 $bad = @()
 foreach ($file in Get-ChildItem "$here/Compiled" -Filter *.xnb) {
-    $text = [System.Text.Encoding]::Latin1.GetString([System.IO.File]::ReadAllBytes($file.FullName))
+    # ISO-8859-1 by code page: [Text.Encoding]::Latin1 is .NET 5+, and Windows PowerShell 5.1 (a stock Windows') has none
+    $text = [System.Text.Encoding]::GetEncoding(28591).GetString([System.IO.File]::ReadAllBytes($file.FullName))
     $programs = $text -split '#ifdef GL_ES'
     for ($i = 1; $i -lt $programs.Count; $i++) {
         $bases = @([regex]::Matches($programs[$i], '#define ARRAYBASE_\d+ \d+') | ForEach-Object { $_.Value } | Sort-Object -Unique)
