@@ -373,6 +373,34 @@ namespace BS3D.Screens
             }
             else _aimTickTravel = 0f;
 
+            //The carriage's rattle while it rolls (#800): a bump per CARRIAGE_RATTLE_STEP of ground the wheels cover, so its
+            //rate is the gun's speed. A unit or more in one frame is not a roll — the walk's counters restarting with a
+            //level — and is dropped rather than paid out as a bump.
+            float roll = _cannon.RollTravel, slide = _cannon.SlideTravel;
+            float ground = MathF.Abs(roll - _rattleRoll) + MathF.Abs(slide - _rattleSlide);
+            _rattleRoll = roll;
+            _rattleSlide = slide;
+            _sinceRattle += (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            if (_tutorial.OnGamepad && ground < 1f)
+            {
+                _rattleGround += ground;
+
+                if (_rattleGround >= CARRIAGE_RATTLE_STEP && _sinceRattle >= CARRIAGE_RATTLE_MIN_SECONDS)
+                {
+                    //xorshift32: a spare hash of the rattle's own, so the session's generator deals exactly what it did
+                    _rattleHash ^= _rattleHash << 13;
+                    _rattleHash ^= _rattleHash >> 17;
+                    _rattleHash ^= _rattleHash << 5;
+                    float bump = MathHelper.Lerp(CARRIAGE_RATTLE_LOW, CARRIAGE_RATTLE_HIGH, (_rattleHash & 0xFFFF) / 65535f);
+
+                    Game.Rumble.Kick(bump, bump * 0.4f, CARRIAGE_RATTLE_SECONDS);
+                    _sinceRattle = MathF.Min(_sinceRattle - CARRIAGE_RATTLE_MIN_SECONDS, CARRIAGE_RATTLE_MIN_SECONDS);
+                    _rattleGround %= CARRIAGE_RATTLE_STEP;
+                }
+            }
+            else _rattleGround = 0f;
+
             //And the detent at the end of the lean's travel (#188): the pull crossing into a full lean, once
             if (pad.IsConnected && pad.Triggers.Left >= PreciseAim.TRIGGER_FULL
                 && Game.PreviousPad.Triggers.Left < PreciseAim.TRIGGER_FULL)

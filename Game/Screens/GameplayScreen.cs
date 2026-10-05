@@ -542,11 +542,12 @@ namespace BS3D.Screens
         //own slide is a slower event than either. Left-heavy for the shove; halved on a feed step
         //(CEILING_RUMBLE_FEED_SCALE) for the same reason PlayCeilingStep and the flash colour go soft on one:
         //a feed is the game rewarding the player, not warning them.
-        //Brought down on the owner's first feel with a pad (2026-10-05: "maybe a little too pronounced"), from 0.6/0.25
-        //over 0.5 s — about three fifths of what it was, and still the heaviest of the in-play triggers short of the loss.
-        private const float CEILING_RUMBLE_LEFT = 0.45f;
-        private const float CEILING_RUMBLE_RIGHT = 0.18f;
-        private const float CEILING_RUMBLE_SECONDS = 0.4f;
+        //Brought down twice on the owner's feel with a pad (2026-10-05): "maybe a little too pronounced" at 0.6/0.25 over
+        //0.5 s, then "still too pronounced" at 0.45/0.18 over 0.4 s. Now about a shot's weight, and shorter than either
+        //of those — the length was most of what made a step loom (#800).
+        private const float CEILING_RUMBLE_LEFT = 0.28f;
+        private const float CEILING_RUMBLE_RIGHT = 0.1f;
+        private const float CEILING_RUMBLE_SECONDS = 0.25f;
         private const float CEILING_RUMBLE_FEED_SCALE = 0.5f;
 
         //The pad's answer to the loss at the line (#378, asked for on the owner's first feel): the one ending the player
@@ -807,8 +808,22 @@ namespace BS3D.Screens
         private static readonly float AIM_TICK_STEP = MathHelper.ToRadians(0.75f);
         private const float AIM_TICK_MIN_SECONDS = 0.05f;
         private const float AIM_TICK_MIN_BLEND = 0.5f;
-        private const float AIM_TICK_RUMBLE = 0.45f;
-        private const float AIM_TICK_RUMBLE_SECONDS = 0.05f;
+        //A third of the first cut's 0.45 over 0.05 s, which the owner found far too strong while turning in the close-up
+        //(#800): a ratchet is a texture under the finger, not a knock
+        private const float AIM_TICK_RUMBLE = 0.15f;
+        private const float AIM_TICK_RUMBLE_SECONDS = 0.035f;
+
+        //The carriage's rattle while it rolls (#800, the owner: "a light judder, so the player feels the gun moving"):
+        //one small bump of the body per CARRIAGE_RATTLE_STEP of ground the wheels cover (Cannon.RollTravel and
+        //SlideTravel — the walk, never a placed stance), so its rate follows the gun's own speed through the ease in and
+        //out and stops when the gun does. Each bump's strength wanders between the two figures, the way stone under an
+        //iron tyre is never two cobbles alike; a spare hash and not the session's generator, which deals the balls and
+        //must not be drawn from by a rumble. Left-heavy: it is the carriage's weight, not a buzz. Only for a player on the
+        //pad, whose hands it is in.
+        private const float CARRIAGE_RATTLE_STEP = 0.6f;
+        private const float CARRIAGE_RATTLE_MIN_SECONDS = 0.06f;
+        private const float CARRIAGE_RATTLE_LOW = 0.08f, CARRIAGE_RATTLE_HIGH = 0.16f;
+        private const float CARRIAGE_RATTLE_SECONDS = 0.05f;
 
         //And a detent where the left trigger's travel reaches a full lean (PreciseAim.TRIGGER_FULL): the analog pull has
         //no stop of its own to feel there, so the lens being all the way in is said once under the finger
@@ -923,6 +938,11 @@ namespace BS3D.Screens
 
         //The aim's ratchet in LT (#188): the hand's aim it was last measured from, the travel since the last tick and the time
         private float _tickElevation, _tickTraverse, _aimTickTravel, _sinceAimTick;
+
+        //The carriage's rattle (#800): the wheels' travel it was last measured from, the ground since the last bump, the
+        //time, and the hash's state
+        private float _rattleRoll, _rattleSlide, _rattleGround, _sinceRattle;
+        private uint _rattleHash = 0x9E3779B9u;
 
         //Whether the cursor is the aim's or the desktop's (#99, #154). Taken on arrival at play when the
         //pointer is already in the picture — pressing the menu entry that put this screen on top is the

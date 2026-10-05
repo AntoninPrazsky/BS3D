@@ -1668,8 +1668,16 @@ namespace BS3D
             else if (keyboard.IsKeyDown(Keys.Up) || pad.IsButtonDown(Buttons.DPadUp)
                 || pad.ThumbSticks.Left.Y > NAV_STICK_DEADZONE) direction = -1;
 
+            //Which of the two hands moved it: the pad answers its own steps (#800), never the arrow keys' — a pad lying on
+            //the desk beside a keyboard player stays still
+            bool padVertical = pad.IsButtonDown(Buttons.DPadDown) || pad.IsButtonDown(Buttons.DPadUp)
+                || Math.Abs(pad.ThumbSticks.Left.Y) > NAV_STICK_DEADZONE;
+
             if (HeldDirectionFires(direction, ref _navDirection, ref _navRepeatDelay, elapsed))
+            {
                 StepNavFocus(direction);
+                if (padVertical) _audioDirector.Rumble.UiStep();
+            }
 
             int sideways = 0;
 
@@ -1682,9 +1690,15 @@ namespace BS3D
             //acted, so the tick sounds where something moved and stays silent on the seven pages that ignore
             //it. The sound is played here rather than in the page for the same reason MenuClickable owns the
             //click: the audio is the frame's, and a page reaching for it would be a second copy of that rule.
+            bool padSideways = pad.IsButtonDown(Buttons.DPadRight) || pad.IsButtonDown(Buttons.DPadLeft)
+                || Math.Abs(pad.ThumbSticks.Left.X) > NAV_STICK_DEADZONE;
+
             if (HeldDirectionFires(sideways, ref _navSideDirection, ref _navSideRepeatDelay, elapsed)
                 && _screens.Active is MenuPage sidewaysPage && sidewaysPage.PageSideways(sideways))
+            {
                 _audioDirector.Sfx.PlayUiTick();
+                if (padSideways) _audioDirector.Rumble.UiPage(sideways);
+            }
 
             if (!edgeInputAllowed) return;
 
@@ -1693,7 +1707,10 @@ namespace BS3D
             int shoulder = (IsPadEdge(pad, Buttons.RightShoulder) ? 1 : 0) - (IsPadEdge(pad, Buttons.LeftShoulder) ? 1 : 0);
 
             if (shoulder != 0 && _screens.Active is MenuPage shoulderPage && shoulderPage.PageSideways(shoulder))
+            {
                 _audioDirector.Sfx.PlayUiTick();
+                _audioDirector.Rumble.UiPage(shoulder);
+            }
 
             //The Konami code, before B and A are acted on: the A that completes it must not also press the entry
             //the cursor is on, and up-up-down-down leaves that on the first — New Game / Continue, which starts
@@ -1707,17 +1724,29 @@ namespace BS3D
             //B is Escape. Read before A, since backing out changes the screen the accept below would act on.
             if (pad.IsButtonDown(Buttons.B) && !_previousPad.IsButtonDown(Buttons.B))
             {
+                _audioDirector.Rumble.UiBack();
                 MenuBack();
                 return;
             }
 
-            if ((pad.IsButtonDown(Buttons.A) && !_previousPad.IsButtonDown(Buttons.A)) || IsKeyEdge(keyboard, Keys.Enter))
+            bool padAccept = pad.IsButtonDown(Buttons.A) && !_previousPad.IsButtonDown(Buttons.A);
+
+            if (padAccept || IsKeyEdge(keyboard, Keys.Enter))
             {
                 //Pressing accept with the cursor down only raises it. Firing the top entry instead would make
                 //the pad's first press mean whatever happened to be first — a level started on the press that
                 //only meant to wake the menu (#607 made the top entry New Game / Continue, which starts one).
-                if (_navIndex < 0) StepNavFocus(1);
-                else ActivateNavEntry();
+                //Felt as what it did (#800): a raised cursor is a step, a press is a press.
+                if (_navIndex < 0)
+                {
+                    StepNavFocus(1);
+                    if (padAccept) _audioDirector.Rumble.UiStep();
+                }
+                else
+                {
+                    if (padAccept) _audioDirector.Rumble.UiAccept();
+                    ActivateNavEntry();
+                }
             }
         }
 
@@ -2331,6 +2360,11 @@ namespace BS3D
                 {
                     bool keep = pad.IsButtonDown(Buttons.A) && !_previousPad.IsButtonDown(Buttons.A);
                     bool drop = pad.IsButtonDown(Buttons.B) && !_previousPad.IsButtonDown(Buttons.B);
+
+                    //The same two words as everywhere else in the menus (#800)
+                    if (keep) _audioDirector.Rumble.UiAccept();
+                    else if (drop) _audioDirector.Rumble.UiBack();
+
                     if (keep || drop) typing.TypingButtons(keep, drop);
                 }
             }
