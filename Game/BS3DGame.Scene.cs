@@ -318,8 +318,9 @@ namespace BS3D
                 //Seeded here as well as written by ApplyQuality, for the reason SceneDetail beside it is: the
                 //tier is applied once in LoadContent BEFORE this exists, so a startup at Low would otherwise
                 //draw the full-price cap until the next tier change — which on a pinned tier never comes. Low
-                //alone, as ApplyQuality has it; "anything but High" until #484 put Ultra above High.
-                SurfaceDetail = _quality == QualityLevel.Low ? 0f : 1f
+                //alone, as ApplyQuality has it (and Potato below it, #788); "anything but High" until #484 put
+                //Ultra above High.
+                SurfaceDetail = _quality.DropsSceneDetail() ? 0f : 1f
             };
 
             //The forest's scattered trees, rocks and stumps, all of it: both procedural textures, the fifteen

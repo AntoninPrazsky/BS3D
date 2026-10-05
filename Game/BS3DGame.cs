@@ -758,7 +758,9 @@ namespace BS3D
             //statement, made in a different place — and an argument outranks it, being this run's instruction.
             //The probe's own verdict is NOT stored (see GameSettings.Quality): it can only step a tier down,
             //so a remembered one would be a ratchet that a single unlucky measurement closed for good.
-            QualityLevel? chosenQuality = launch.Quality ?? _settings.Quality;
+            //A build that holds one tier outranks both (#788): GamePi is Potato whatever the file or the line says.
+            QualityLevel? chosenQuality = QualityLock.Tier ?? launch.Quality ?? _settings.Quality;
+            if (QualityLock.Tier is QualityLevel locked) Console.WriteLine($"[quality] {locked}: this build's only tier, locked");
 
             //The tier owns supersampling, so the tier's factor is taken first and an explicit ssaa= then
             //overrides that one entry of it — the expert override the benchmark and the screenshot harness use.
@@ -768,7 +770,8 @@ namespace BS3D
 
             //Kept as well as applied: the tier is applied again in LoadContent (and again on every adaptive
             //step), and each of those would otherwise put the tier's factor back over this one.
-            if (launch.SupersampleFactor.HasValue)
+            //Not on a locked build (#788): the factor is the tier's there, and the tier is not the line's to move.
+            if (launch.SupersampleFactor.HasValue && !QualityLock.Tier.HasValue)
             {
                 _supersampleOverride = Math.Clamp(launch.SupersampleFactor.Value, 1, 4);
                 _supersampleFactor = _supersampleOverride.Value;
@@ -1075,9 +1078,10 @@ namespace BS3D
                 //the tier is applied once in LoadContent BEFORE this exists (a command-line quality= reaches it
                 //long before there is a renderer to write onto), so a startup at Low would otherwise draw the
                 //full-price floor until the next tier change — which on a pinned tier never comes. Low ALONE,
-                //ApplyQuality's own rule since #298; this seed said "anything but High" until #484 added a rung
-                //above High, where it would have started Ultra on the reduced programs.
-                SceneDetail = _quality == QualityLevel.Low ? 0f : 1f,
+                //ApplyQuality's own rule since #298 (and Potato below it, #788: QualityLevels.DropsSceneDetail);
+                //this seed said "anything but High" until #484 added a rung above High, where it would have
+                //started Ultra on the reduced programs.
+                SceneDetail = _quality.DropsSceneDetail() ? 0f : 1f,
 
                 //The shadow map's cap and Ultra's factor (#484), seeded for exactly the reason above: a Medium
                 //start would otherwise build a High map until the next tier change, and an Ultra one a High map

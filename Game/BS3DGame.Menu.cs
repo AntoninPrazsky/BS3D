@@ -2117,8 +2117,9 @@ namespace BS3D
         };
 
         /// <summary>
-        /// Which build this is (<see cref="BuildVersion.Name"/>: <c>v0.2.1</c>, or <c>dev-&lt;sha&gt;</c> off a local
-        /// build), in small type in the frame's bottom-right corner. Two pages carry it, the front end and About — the
+        /// Which build this is (<see cref="BuildVersion.DisplayName"/>: <c>v0.2.1</c>, or <c>dev-&lt;sha&gt;</c> off a
+        /// local build, and <c>ARM64</c> after either on the Raspberry Pi build, #788), in small type in the frame's
+        /// bottom-right corner. Two pages carry it, the front end and About — the
         /// places a player looks when they want to say which version they are running — and both add the same widget,
         /// so the tag is in the same place on each.
         /// <para>
@@ -2131,7 +2132,7 @@ namespace BS3D
         /// </summary>
         internal Label VersionTag() => new()
         {
-            Text = BuildVersion.Name,
+            Text = BuildVersion.DisplayName,
             Font = _menuFontSmall,
             TextColor = MENU_TEXT_DIM,
             Background = new FlatBrush(MENU_PLATE),

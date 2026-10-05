@@ -4,8 +4,9 @@
   rule, and compiles Game/'s own sources. What it owns is what cannot be shared:
 
   - this project file (net10.0 instead of net10.0-windows, the DesktopGL package instead of WindowsDX, no WinForms);
-  - Platform/, the few classes whose Windows implementation is nothing but Win32 or WinForms. Each is a file of
-    Game/Platform left out of the compile below and replaced here by one with the same name and the same members;
+  - Platform/, the few classes whose Windows implementation is nothing but Win32 or WinForms, and QualityLock, the
+    tier the build is held at (Potato, #788). Each is a file of Game/Platform left out of the compile below and
+    replaced here by one with the same name and the same members;
   - Content/Content.mgcb, because the Game's builds a "Segoe UI" spritefont, which no Linux machine has.
 
   Game.csproj does not know this project exists, so the Windows build is the one it was. A change to Game/ reaches
@@ -44,7 +45,7 @@
   have its namesake in Platform/; a new Win32 or WinForms file in Game/Platform belongs on this list too.-->
   <ItemGroup>
     <Compile Include="..\Game\**\*.cs"
-             Exclude="..\Game\bin\**;..\Game\obj\**;..\Game\Content\bin\**;..\Game\Content\obj\**;..\Game\Platform\CrashDialog.cs;..\Game\Platform\DisplayRefresh.cs;..\Game\Platform\WindowIcon.cs" />
+             Exclude="..\Game\bin\**;..\Game\obj\**;..\Game\Content\bin\**;..\Game\Content\obj\**;..\Game\Platform\CrashDialog.cs;..\Game\Platform\DisplayRefresh.cs;..\Game\Platform\QualityLock.cs;..\Game\Platform\WindowIcon.cs" />
     <Compile Include="Platform\**\*.cs" />
   </ItemGroup>
 

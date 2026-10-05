@@ -618,8 +618,9 @@ namespace BS3D.Screens
             if (_fullscreenValue == null) return;
 
             _fullscreenValue.Text = Game.IsFullscreen ? "On" : "Off";
-            _qualityValue.Text = Game.Quality.ToString();
-            _adaptiveQualityValue.Text = Game.IsAdaptiveQualityEnabled ? "On" : "Off";
+            //A locked build (GamePi, #788) says so on both rows rather than offering a click that does nothing
+            _qualityValue.Text = Game.IsQualityLocked ? $"{Game.Quality} (locked)" : Game.Quality.ToString();
+            _adaptiveQualityValue.Text = Game.IsQualityLocked ? "Off (locked)" : Game.IsAdaptiveQualityEnabled ? "On" : "Off";
             //Percent of the authored look, 100 % the default (#711), not the raw multiplier
             _exposureValue.Text = Game.BrightnessPercent.ToString(CultureInfo.InvariantCulture) + " %";
             _skyValue.Text = Game.SkyDomeNumber.ToString(CultureInfo.InvariantCulture);
