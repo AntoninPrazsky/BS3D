@@ -267,8 +267,11 @@ struct Shaded
 
 //Lighting.fxh's ShadePixel without its clouds, shadows and per-surface specular: the key, fill and back
 //lights, the occluded hemisphere, the specular and the Fresnel environment, in linear radiance.
+//
+//onPixel is a constant at every call: true from a pixel shader, false from the one vertex shader that shades (the fins',
+//PotatoFinVS), where there is no neighbouring pixel to take the facing's change from.
 Shaded Shade(float3 worldPosition, float3 rawNormal, float4 occlusionData, float3 texRgb, float3 sceneDiffuse,
-    float3 sceneSpecular)
+    float3 sceneSpecular, bool onPixel)
 {
     float3 eye = normalize(EyePosition - worldPosition);
     float3 normal = normalize(rawNormal);
@@ -310,7 +313,7 @@ Shaded Shade(float3 worldPosition, float3 rawNormal, float4 occlusionData, float
     //edge is a broken bright line that is the sampling's and not the surface's. What a pixel shows is the surface
     //across its whole width; half its own change in facing is the middle of that, and nowhere else is it reached.
     float facing = saturate(towardsEye);
-    facing = max(facing, 0.5 * fwidth(facing));
+    if (onPixel) facing = max(facing, 0.5 * fwidth(facing));
 
     //Schlick's fifth power, as three products: a pow of a constant exponent is a log and an exp on this GPU
     float grazing = 1 - facing;
@@ -343,7 +346,7 @@ float4 ToScreen(Shaded shaded)
 
 float4 LitPS(VertexOutput input) : COLOR0
 {
-    return ToScreen(Shade(input.WorldPosition, input.WorldNormal, input.OcclusionData, 1, input.SceneDiffuse, input.SceneSpecular));
+    return ToScreen(Shade(input.WorldPosition, input.WorldNormal, input.OcclusionData, 1, input.SceneDiffuse, input.SceneSpecular, true));
 }
 
 //The island's stone at a place: what the detail texture multiplies the surface by there
@@ -369,7 +372,7 @@ float4 TexturedPS(VertexOutput input) : COLOR0
     float3 normal = normalize(input.WorldNormal);
 
     return ToScreen(Shade(input.WorldPosition, normal, input.OcclusionData, StoneDetail(input.WorldPosition, normal),
-        input.SceneDiffuse, input.SceneSpecular));
+        input.SceneDiffuse, input.SceneSpecular, true));
 }
 
 //THE FINS (#804): a ball's rim (PotatoBallRim, below) for a surface whose outline is not a formula - the island, the
@@ -387,8 +390,13 @@ float4 TexturedPS(VertexOutput input) : COLOR0
 //it is handed, that was the whole price of the fins (+1.05 to +1.43 ms). So a draw of one instance is handed only the
 //fins the CPU found could be open (EdgeFinMesh.SelectLive), and this decides again for each of those.
 //
-//The colour is the surface's own at the edge, by the very pixel shader the mesh is drawn with, so a fin is the last
-//pixel of its face carried one pixel on.
+//The colour is the surface's own at the edge, so a fin is the last pixel of its face carried one pixel on - and it is
+//worked out AT THE VERTEX, by the very Shade the mesh's pixel shader calls. A fin is a pixel wide and its two rows stand
+//at one place on the surface, so nothing changes across it and along it the two ends' colours are all there is; and the
+//Pi measured what shading it per pixel cost: a third of a millisecond for a strip that thin, because a triangle half a
+//pixel wide is shaded over every two-by-two block it touches (the mesh's own pixel shader is 274 to 329 instructions on
+//V3D). What is left to the pixel is the coverage - and, for the island's stone, the detail texture, which cannot be
+//read at a vertex here: the surface's light comes down in the two parts the texture does and does not multiply.
 struct FinInput
 {
     //xyz this end of the edge, w the row: 0 on the edge, 1 pushed out
@@ -403,9 +411,34 @@ struct FinInput
     float3 OutB : BINORMAL1;
 };
 
-VertexOutput PotatoFinVS(FinInput input, InstanceInput instance)
+//What a fin's pixel shader is handed. Surface and Added are the screen's colour in PotatoFinLit (premultiplied, alpha in
+//Surface.a, Added unused) and, in PotatoFinTextured, the surface's light in linear radiance: the part the stone's
+//texture multiplies and the part it does not.
+struct FinOutput
 {
-    VertexOutput output;
+    float4 Position : POSITION0;
+    float4 Surface : TEXCOORD0;
+    //w the coverage: 1 on the edge, 0 at the fin's far side
+    float4 Added : TEXCOORD1;
+    //Where the stone's texture is read, and the normal it is blended by
+    float3 WorldPosition : TEXCOORD2;
+    float3 WorldNormal : TEXCOORD3;
+};
+
+//Everything a fin's two vertex shaders share: where the vertex goes, and the surface at this end of the edge
+struct FinEdge
+{
+    float4 Position;
+    float3 Here;
+    float3 Normal;
+    float3 SceneDiffuse;
+    float3 SceneSpecular;
+    float Coverage;
+};
+
+FinEdge PotatoFinEdge(FinInput input, InstanceInput instance)
+{
+    FinEdge edge;
 
     float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
     float3 here = mul(float4(input.Position.xyz, 1), world).xyz;
@@ -443,36 +476,72 @@ VertexOutput PotatoFinVS(FinInput input, InstanceInput instance)
 
     //Pushed out by the ramp's width, at the edge's own depth: pixels to clip space is over half the target and times w
     float row = input.Position.w;
-    output.Position = clipHere;
-    output.Position.xy += across * (row * FinShape.z * opened * clipHere.w) / FinShape.xy;
+    edge.Position = clipHere;
+    edge.Position.xy += across * (row * FinShape.z * opened * clipHere.w) / FinShape.xy;
 
-    //The surface at the edge, for both rows: PotatoVS's outputs at this end
-    output.WorldPosition = here;
-    output.WorldNormal = NormalToWorld(shade, instance.WorldRow1.xyz, instance.WorldRow2.xyz, instance.WorldRow3.xyz);
-    output.OcclusionData = instance.Custom;
+    //The surface at the edge, for both rows
+    edge.Here = here;
+    edge.Normal = NormalToWorld(shade, instance.WorldRow1.xyz, instance.WorldRow2.xyz, instance.WorldRow3.xyz);
+    edge.Coverage = 1 - row;
 
-    //x the coverage, which the pixel shader multiplies its whole premultiplied colour by
-    output.DissolveRipple = float3(1 - row, 0, 0);
-
-    float3 normal = output.WorldNormal;
+    //The scene's own lamps, as PotatoVS takes them: on the side facing the eye for an open surface
+    float3 normal = edge.Normal;
     float3 eye = normalize(toEye);
     if (TwoSidedNormals > 0 && dot(normal, eye) < 0) normal = -normal;
 
-    output.SceneDiffuse = 0;
-    output.SceneSpecular = 0;
-    AddSceneLights(here, normal, eye, output.SceneDiffuse, output.SceneSpecular);
+    edge.SceneDiffuse = 0;
+    edge.SceneSpecular = 0;
+    AddSceneLights(here, normal, eye, edge.SceneDiffuse, edge.SceneSpecular);
+
+    return edge;
+}
+
+//A fin of a PotatoLit surface: LitPS at this end of the edge, done here
+FinOutput PotatoFinLitVS(FinInput input, InstanceInput instance)
+{
+    FinEdge edge = PotatoFinEdge(input, instance);
+
+    FinOutput output;
+    output.Position = edge.Position;
+    output.Surface = ToScreen(Shade(edge.Here, edge.Normal, instance.Custom, 1, edge.SceneDiffuse, edge.SceneSpecular, false));
+    output.Added = float4(0, 0, 0, edge.Coverage);
+    output.WorldPosition = edge.Here;
+    output.WorldNormal = edge.Normal;
 
     return output;
 }
 
-float4 FinLitPS(VertexOutput input) : COLOR0
+//A fin of a PotatoTextured surface (opaque: a part with a detail texture is). Shade with the texture at 1 and at 0 is
+//the surface's light with and without the part the texture multiplies, so their difference is that part.
+FinOutput PotatoFinTexturedVS(FinInput input, InstanceInput instance)
 {
-    return LitPS(input) * saturate(input.DissolveRipple.x);
+    FinEdge edge = PotatoFinEdge(input, instance);
+
+    Shaded whole = Shade(edge.Here, edge.Normal, instance.Custom, 1, edge.SceneDiffuse, edge.SceneSpecular, false);
+    Shaded bare = Shade(edge.Here, edge.Normal, instance.Custom, 0, edge.SceneDiffuse, edge.SceneSpecular, false);
+
+    FinOutput output;
+    output.Position = edge.Position;
+    output.Surface = float4(whole.Covered.rgb - bare.Covered.rgb, 1);
+    output.Added = float4(bare.Covered.rgb + bare.Added, edge.Coverage);
+    output.WorldPosition = edge.Here;
+    output.WorldNormal = edge.Normal;
+
+    return output;
 }
 
-float4 FinTexturedPS(VertexOutput input) : COLOR0
+//The whole premultiplied colour times the coverage
+float4 FinLitPS(FinOutput input) : COLOR0
 {
-    return TexturedPS(input) * saturate(input.DissolveRipple.x);
+    return input.Surface * saturate(input.Added.w);
+}
+
+//TexturedPS with its light already worked out: the texture at this pixel, the curve, the coverage
+float4 FinTexturedPS(FinOutput input) : COLOR0
+{
+    float3 detail = StoneDetail(input.WorldPosition, normalize(input.WorldNormal));
+
+    return float4(ToDisplay(input.Surface.rgb * detail + input.Added.rgb), 1) * saturate(input.Added.w);
 }
 
 //BallCommon.fxh's Heartbeat and BallEmission: lub-dub, travelling along PulseDirection
@@ -529,7 +598,7 @@ float3 BallColour(VertexOutput input)
     float3 normal = normalize(input.WorldNormal);
 
     //A ball is opaque, so its added light simply joins it
-    Shaded parts = Shade(input.WorldPosition, normal, input.OcclusionData, BallCrust, input.SceneDiffuse, input.SceneSpecular);
+    Shaded parts = Shade(input.WorldPosition, normal, input.OcclusionData, BallCrust, input.SceneDiffuse, input.SceneSpecular, true);
     float3 shaded = parts.Covered.rgb + parts.Added;
     float occlusion = parts.Occlusion;
     float beat = input.DissolveRipple.z;
@@ -742,7 +811,7 @@ technique PotatoFinLit
 {
     pass P0
     {
-        VertexShader = compile POTATO_VS PotatoFinVS();
+        VertexShader = compile POTATO_VS PotatoFinLitVS();
         PixelShader = compile POTATO_PS FinLitPS();
     }
 };
@@ -751,7 +820,7 @@ technique PotatoFinTextured
 {
     pass P0
     {
-        VertexShader = compile POTATO_VS PotatoFinVS();
+        VertexShader = compile POTATO_VS PotatoFinTexturedVS();
         PixelShader = compile POTATO_PS FinTexturedPS();
     }
 };
