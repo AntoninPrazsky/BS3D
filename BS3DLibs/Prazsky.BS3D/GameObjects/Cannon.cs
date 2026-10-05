@@ -252,7 +252,7 @@ namespace Prazsky.BS3D.GameObjects
             if (Math.Sign(_delta) != 0)
             {
                 MoveCircular(gameTime);
-                if (_acceleration < 1f) _acceleration += ACCELERATION_DELTA * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+                _acceleration = RampTowards(_acceleration, Math.Min(Math.Abs(_delta), 1f), gameTime);
             }
 
             if (_delta == 0f && _acceleration > 0f)
@@ -275,7 +275,7 @@ namespace Prazsky.BS3D.GameObjects
             if (Math.Sign(_advanceDelta) != 0)
             {
                 MoveRadial(gameTime);
-                if (_advanceAcceleration < 1f) _advanceAcceleration += ACCELERATION_DELTA * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+                _advanceAcceleration = RampTowards(_advanceAcceleration, Math.Min(Math.Abs(_advanceDelta), 1f), gameTime);
             }
 
             if (_advanceDelta == 0f && _advanceAcceleration > 0f)
@@ -374,6 +374,25 @@ namespace Prazsky.BS3D.GameObjects
             MoveToOrbitAngle();
         }
 
+        /// <summary>
+        /// One held frame's step of a walk's speed towards what is asked (#802): up at the ramp's own rate, and down at the
+        /// glide's when the ask eases off without letting go — a stick drawn back from a full push slows the gun as a
+        /// released key does. A key asks 1 and gets exactly the ramp it always had; a stick asks how far it is pushed.
+        /// </summary>
+        private static float RampTowards(float speed, float target, GameTime gameTime)
+        {
+            float ms = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+            return speed < target
+                ? Math.Min(target, speed + ACCELERATION_DELTA * ms)
+                : Math.Max(target, speed - ACCELERATION_DELTA * 2f * ms);
+        }
+
+        /// <summary>
+        /// Turns the carriage round the field for this frame: the sign is the direction (positive is A's), the size how
+        /// fast, as a share of full speed — 1 for a key, the stick's push for the pad (#802). Same ramp, glide and
+        /// reversal brake either way.
+        /// </summary>
         public void Orbit(float delta)
         {
             if (Math.Sign(delta) != Math.Sign(_deltaLastSet) && _acceleration > 0f)
@@ -396,8 +415,9 @@ namespace Prazsky.BS3D.GameObjects
         /// in); the camera <b>gives way to the walk that backs off and never to the one that closes in</b>
         /// (<c>GameCameraFit.CameraPosition</c>, #322), and in height it does not follow at all, its lens
         /// being floored at the arris-stance height. So the gun still visibly advances on the cluster and
-        /// sinks down the dish, and a retreat now moves the frame with it. Same per-held-frame ±1 protocol as
-        /// <see cref="Orbit"/>, same ramp, glide and reversal brake — and the ends are rubber, not stops: see
+        /// sinks down the dish, and a retreat now moves the frame with it. Same per-held-frame protocol as
+        /// <see cref="Orbit"/> — the sign the direction, the size a share of full speed (±1 for a key, the stick's push
+        /// for the pad, #802) — same ramp, glide and reversal brake — and the ends are rubber, not stops: see
         /// <see cref="ADVANCE_EASE_ZONE"/>.
         /// </summary>
         public void Advance(float delta)
@@ -593,7 +613,8 @@ namespace Prazsky.BS3D.GameObjects
         {
             Vector3 before = Position;
 
-            _orbitAngle += RotationSpeed * _acceleration * _deltaLastSet * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+            //The direction only: how fast is the ramped speed, which a partial push holds below 1 (#802)
+            _orbitAngle += RotationSpeed * _acceleration * Math.Sign(_deltaLastSet) * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
             EnsureOrbitAngleInBounds();
             MoveToOrbitAngle();
@@ -651,7 +672,7 @@ namespace Prazsky.BS3D.GameObjects
         private void MoveRadial(GameTime gameTime)
         {
             //Positive step walks toward the field, i.e. shrinks the radius
-            float step = ADVANCE_SPEED * _advanceAcceleration * _advanceDeltaLastSet
+            float step = ADVANCE_SPEED * _advanceAcceleration * Math.Sign(_advanceDeltaLastSet)
                 * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
             if (step == 0f) return;
 
