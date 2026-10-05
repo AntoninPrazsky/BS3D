@@ -1143,19 +1143,28 @@ namespace Prazsky.BS3D.Physics
                 if (ball != null) Loosen(ball);
             }
 
-            //And what was only held up by it, down the one path every removal shares - through the blast first, when the
-            //storey held a bomb, whose own pass then asks the question
-            BallsReleased fell = _cutBombScratch.Count > 0
-                ? DetonateBombs(_cutBombScratch, physicsBalls, map, simulation, releasedInto, detonationsInto)
-                : ResolveDisconnected(null, physicsBalls, map, simulation, size, _handleScratch, releasedInto, detonationsInto);
+            //And what was only held up by it, down the one path every removal shares - walked BEFORE the storey's bombs go off,
+            //as a landing walks before it blasts: blasted first, a ball the cut had already let go of that stood in a blast's
+            //radius was paid as destroyed (10) where it had fallen (20) (the review of #692). A storey bomb the walk itself
+            //found hanging on nothing has gone off in it already (#396); the ones still standing go off after.
+            BallsReleased fell = ResolveDisconnected(null, physicsBalls, map, simulation, size, _handleScratch, releasedInto,
+                detonationsInto);
 
-            return new BallsReleased(0, fell.Orphaned, destroyed + fell.Destroyed);
+            for (int i = _cutBombScratch.Count - 1; i >= 0; i--)
+                if (cells[_cutBombScratch[i].X, _cutBombScratch[i].Z, _cutBombScratch[i].Level] == null) _cutBombScratch.RemoveAt(i);
+
+            BallsReleased blast = _cutBombScratch.Count > 0
+                ? DetonateBombs(_cutBombScratch, physicsBalls, map, simulation, releasedInto, detonationsInto)
+                : default;
+
+            return new BallsReleased(0, fell.Orphaned + blast.Orphaned, destroyed + fell.Destroyed + blast.Destroyed);
         }
 
         /// <summary>
         /// Destroys the ONE ball at <paramref name="at"/> and lets the disconnection pass find what it held up — what the
-        /// Cut did until #692 made it a storey, kept for the tests that need exactly one ball taken out of a lattice (a
-        /// freed anchor's handle, LatticeSoftnessTests). A bomb there goes off, as under the cutter.
+        /// Cut did until #692 made it a storey. Kept for a cutter whose flight strayed into a protected storey (the contact
+        /// handler's <c>LandCutter</c>), and for the tests that need exactly one ball taken out of a lattice (a freed
+        /// anchor's handle, LatticeSoftnessTests). A bomb there goes off, as under the cutter.
         /// </summary>
         internal static BallsReleased DestroyBall(
             XZLevel at,
@@ -1199,8 +1208,9 @@ namespace Prazsky.BS3D.Physics
         /// Whether <paramref name="cell"/> stands in one of the <see cref="CUT_PROTECTED_STOREYS"/> storeys under the glass,
         /// which a cutter may not be fired at (#692). <b>The gun's rule, not <see cref="CutBall"/>'s</b>: the aim that would
         /// strike there is refused the way an aim past the elevation clamp is — the marks blink and the trigger answers with
-        /// the dry "no" — so a cutter never leaves for one of these storeys, and a method that cut nothing when one did
-        /// anyway would only spend a charge for nothing on the rare flight that strays.
+        /// the dry "no" — so a cutter never leaves for one of these storeys. A flight that strays into one anyway (the cluster
+        /// swung while it flew) takes the one ball it struck (<see cref="DestroyBall"/>, chosen by the contact handler) and
+        /// not its storey.
         /// </summary>
         public static bool IsCutProtected(XZLevel cell, BallsMap map) =>
             cell.Level >= map.GetStaticBallsArraySize().Level - CUT_PROTECTED_STOREYS;

@@ -377,9 +377,19 @@ namespace BS3D.Screens
             //straight into the band the limit closes. Said out loud rather than silently eaten: the marks are already
             //blinking red, and a click that does nothing and says nothing reads as a dropped input.
             //And a cutter aimed into the storeys the Cut may not strike (#692), on the owner's word "the effect as if shooting too
-            //high, and it cannot be fired": the same blink (AimStrain) and the same dry "no", read off the preview's answer for
-            //the frame the player is looking at
-            if (_cannon.ElevationRefusesShot || _cutterRefused)
+            //high, and it cannot be fired": the same blink (AimStrain) and the same dry "no". Asked again HERE, of the aim and
+            //the round as they stand at the trigger, and not read off the preview: that is solved after the step, a frame
+            //before the input, so R and a click in one frame fired a cutter the preview had not seen loaded, a flick across the
+            //boundary fired one at the storey it crossed into, and a Swap that took the cutter out refused the ball after it
+            //(the review of #692). One sweep a click.
+            bool cutterRefused = false;
+            if (CutterLoaded)
+            {
+                UpdateShotPreview();
+                cutterRefused = _cutterRefused;
+            }
+
+            if (_cannon.ElevationRefusesShot || cutterRefused)
             {
                 Game.Audio.PlayShotRefused();
                 return;
