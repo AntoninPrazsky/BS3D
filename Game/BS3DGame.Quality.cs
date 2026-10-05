@@ -39,6 +39,13 @@ namespace BS3D
         internal bool IsAdaptiveQualityEnabled => !_qualityPinnedByPlayer;
 
         /// <summary>
+        /// Whether this build holds one tier the player cannot change (#788): GamePi, at Potato. The Quality and Auto
+        /// quality rows still stand on the page, so it keeps its shape, and say so instead of cycling. See
+        /// <see cref="QualityLock"/>.
+        /// </summary>
+        internal bool IsQualityLocked => QualityLock.Tier.HasValue;
+
+        /// <summary>
         /// True once the quality tier is not to be touched again: the player named one on the command line, the
         /// player set one in Settings or turned Auto quality off, the machine proved fast enough, or there is
         /// nothing left to lower. It is a one-way latch on purpose — a dial that keeps moving under the player is
@@ -246,8 +253,11 @@ namespace BS3D
 
             //Nothing left to give, and the step below would "lower" Low to Low — a [quality] line and a notice for
             //a change that never happened. Reachable because a re-open does not ask which tier is in force: a
-            //level built at Low, or Auto quality turned back on over a pinned Low (#390).
-            if (_quality == QualityLevel.Low)
+            //level built at Low, or Auto quality turned back on over a pinned Low (#390). And Potato (#788), which
+            //is below Low but LAST in the enum, so the arithmetic step below would "lower" it to Ultra. The probe
+            //never runs at Potato - GamePi locks it, pinned and settled, and Windows never offers it - so this is
+            //insurance rather than a live path, like the general step it guards.
+            if (_quality is QualityLevel.Low or QualityLevel.Potato)
             {
                 _qualitySettled = true;
                 return;
@@ -323,6 +333,9 @@ namespace BS3D
         /// </summary>
         internal void CycleQuality()
         {
+            //The row reads the locked tier and does nothing (#788): GamePi's Potato is not the player's to step
+            if (IsQualityLocked) return;
+
             ApplyQuality(_quality switch
             {
                 QualityLevel.Low => QualityLevel.Medium,
@@ -374,6 +387,9 @@ namespace BS3D
         /// </summary>
         internal void ToggleAdaptiveQuality()
         {
+            //Nothing to hand to the probe on a locked build (#788), and nothing to store: the lock is not a choice
+            if (IsQualityLocked) return;
+
             if (_qualityPinnedByPlayer)
             {
                 //The probe's ceiling is High — it starts there and only steps down — so handing it an Ultra tier
@@ -451,7 +467,8 @@ namespace BS3D
             //two dials, worth nothing at all in thirteen of the sixteen scenes. Spent here instead, Medium
             //keeps every scene's authored look and Low is where the detail goes — which is also the shape the
             //owner asked for, a tier that drops effects.
-            if (_sceneRenderer != null) _sceneRenderer.SceneDetail = quality == QualityLevel.Low ? 0f : 1f;
+            //Potato gives it up too (#788), being below Low: QualityLevels.DropsSceneDetail is the one copy of that rule.
+            if (_sceneRenderer != null) _sceneRenderer.SceneDetail = quality.DropsSceneDetail() ? 0f : 1f;
 
             //And the sun shadow map's size (#484): a factor and a cap over every scene's ShadowConfig.MapSize —
             //8192 at Ultra, 4096 at High, 2048 below it — rebuilt on the next shadowed frame when it changes. The
@@ -471,7 +488,7 @@ namespace BS3D
             //Low alone since #298, for the reason above. Safe to hand back to Medium, and that was checked
             //rather than assumed: at Medium's own resolution and supersampling this measures 0.00-0.05 ms on
             //the weak machine, so returning it costs that rung nothing it can feel.
-            if (_island != null) _island.SurfaceDetail = quality == QualityLevel.Low ? 0f : 1f;
+            if (_island != null) _island.SurfaceDetail = quality.DropsSceneDetail() ? 0f : 1f;
 
             //The samples the scene target carries below High (#298) — the first entry that reaches every scene
             //without touching a pixel count, which is the one thing a tier may never do (see QualityLevel).

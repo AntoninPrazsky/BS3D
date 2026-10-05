@@ -14,6 +14,15 @@ namespace BS3D
     /// adaptive probe — which starts at High and only ever steps down — can never reach it, and turning Auto
     /// quality back on over it hands the tier back at High. Appended rather than inserted so the numeric
     /// values of the three older tiers do not move; <c>Settings.json</c> stores the name anyway.
+    /// <para>
+    /// <b>Potato is last in the list and BELOW Low in what it draws</b> (#788, the owner's decision of 2026-10-05,
+    /// #785): the tier of the Raspberry Pi build, GamePi, where it is the only tier and cannot be changed
+    /// (<c>Platform/QualityLock</c>). Appended for Ultra's reason, so the numbers of the four do not move — which
+    /// means the enum's order is NOT the ladder's order: nothing may compare tiers by number or step one by
+    /// arithmetic past Low. The Windows build never offers it: the Quality row does not cycle to it and the probe
+    /// stops at Low. <c>quality=potato</c> still applies its preset there, which is all it is on Windows — what
+    /// Potato draws (its own OpenGL shader set, #789) exists only in GamePi.
+    /// </para>
     /// </remarks>
     public enum QualityLevel
     {
@@ -21,6 +30,21 @@ namespace BS3D
         Medium,
         High,
         Ultra,
+        Potato,
+    }
+
+    /// <summary>What a tier means beyond its row of <see cref="QualityPreset.Presets"/>.</summary>
+    internal static class QualityLevels
+    {
+        /// <summary>
+        /// Whether the tier gives up the scene detail <c>BS3DGame.ApplyQuality</c> owns outside the preset
+        /// table: the reduced scene programs (<c>SceneRenderer.SceneDetail</c>) and the stone cap's coarse relief
+        /// (<c>ArenaIsland.SurfaceDetail</c>). Low alone since #298, and Potato below it (#788). One question
+        /// asked in one place, because it was four copies of <c>== QualityLevel.Low</c> and a fifth tier would
+        /// have had to find all of them.
+        /// </summary>
+        internal static bool DropsSceneDetail(this QualityLevel quality) =>
+            quality is QualityLevel.Low or QualityLevel.Potato;
     }
 
     /// <summary>
@@ -36,6 +60,12 @@ namespace BS3D
     /// <see cref="Prazsky.Core.Render.PostProcessPipeline.RenderScale"/> exists as a measuring instrument and
     /// must stay one. <b>Note the direction</b>: supersampling ABOVE native is a legitimate entry and
     /// <see cref="QualityLevel.High"/> carries one — it is only below 1× that is shut.
+    /// </para>
+    /// <para>
+    /// <b>One exception, and only one: <see cref="QualityLevel.Potato"/></b> (the owner's decision of 2026-10-05,
+    /// #785) may draw below native, because the Raspberry Pi it exists for has a GPU a desktop's ladder was never
+    /// measured against. The owner's aim is still the native 1920×1080 at 40–50 FPS, and whether the tier needs to
+    /// go below it is for #789 to measure on the Pi. Its row below does not do it today.
     /// </para>
     /// <para>
     /// Every figure below was measured on this
@@ -315,6 +345,13 @@ namespace BS3D
             //that could go further — supersampling 3 — is 2.25x High's shaded pixels at 3840x1600, the whole
             //frame's biggest cost bought for relief detail High already resolves. See ShadowMapScale.
             new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, motionBlur: true, shadowMapScale: 2),
+            //Potato (#788) — Low with the last of its multisampling gone, for the Raspberry Pi build (GamePi), where
+            //it is the only tier. A placeholder of the desktop pipeline's own dials and nothing more: what the tier
+            //actually draws is its own OpenGL shader set and render path (#789), which GamePi needs because none of
+            //the effects this table tunes can be compiled for OpenGL at all, and the samples are #789's to choose by
+            //measurement (4x cost 6 ms at 1080p in the Pi's proxy scene, #785). It is last in this table because it
+            //is last in the enum; see QualityLevel for why that is not its place on the ladder.
+            new(supersampleFactor: 1, facadeGrainStrength: 0f, windowFrameWidth: 0f, cityRadiusBlocks: 14, msaaSamples: 0, shadowMapCap: 2048, ceilingRefraction: false, motionBlur: false, clusterWind: false),
         };
     }
 }

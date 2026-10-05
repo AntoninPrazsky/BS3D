@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Runtime.InteropServices;
 
 namespace BS3D
 {
@@ -34,6 +35,15 @@ namespace BS3D
         /// which build produced them.
         /// </summary>
         internal static string Name { get; } = Release ?? DevName();
+
+        /// <summary>
+        /// <see cref="Name"/> as the menu shows it: with <c> ARM64</c> after it in an ARM64 process (#788) - the
+        /// Raspberry Pi build, GamePi, which the owner asked the menu to mark (#785). <b>Display only</b>: Name is
+        /// also the <c>gameVersion</c> and the User-Agent the score server reads, and the ARM build submits under the
+        /// same name as the Windows one, being the same release (#793).
+        /// </summary>
+        internal static string DisplayName { get; } =
+            RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? Name + " ARM64" : Name;
 
         private static string ReadRelease()
         {
