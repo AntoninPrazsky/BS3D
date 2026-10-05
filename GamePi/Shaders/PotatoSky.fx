@@ -23,19 +23,23 @@ struct VertexOutput
     float3 Color : TEXCOORD0;
 };
 
+//The curve per VERTEX, not per pixel: the dome is the whole background, every pixel of the frame, and the exposure, the
+//ACES fit and the sRGB curve on each of them measured as part of a 1-2.5 ms rise on the Pi at 1080p (#789's review
+//fixes against the build before them). Its palette is a smooth vertical gradient over a few dozen vertices, so the
+//curve interpolated between them is the same picture to the eye at a cost of nothing.
 VertexOutput SkyVS(VertexInput input)
 {
     VertexOutput output;
 
     output.Position = mul(mul(mul(input.Position, World), View), Projection);
-    output.Color = input.Color.rgb;
+    output.Color = ToDisplay(input.Color.rgb);
 
     return output;
 }
 
 float4 SkyPS(VertexOutput input) : COLOR0
 {
-    return float4(ToDisplay(input.Color), 1);
+    return float4(input.Color, 1);
 }
 
 technique PotatoSky
