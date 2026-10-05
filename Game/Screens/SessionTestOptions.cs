@@ -66,6 +66,8 @@ namespace BS3D.Screens
     /// it as <c>[session] seed N</c>, so a playtest report names the seed that replays its deal.</param>
     /// <param name="LogShots">The <c>logshots</c> argument (#257): print every shot's landing cell (or its miss) beside
     /// the cell the landing ghost promised when it was fired. One line a shot, so only on request.</param>
+    /// <param name="PadPrompts">The <c>pad</c> argument: the session draws the pad's prompts for the whole run, whatever
+    /// is touched (<see cref="Tutorial.PinDevice"/>).</param>
     internal sealed record SessionTestOptions(
         int? ForcedStreak,
         int ForcedWildcardEvery,
@@ -78,7 +80,8 @@ namespace BS3D.Screens
         BallStyle? BallStyleOverride,
         string StartupLevelFile,
         int? Seed,
-        bool LogShots = false)
+        bool LogShots = false,
+        bool PadPrompts = false)
     {
         /// <summary>
         /// Reads the levers out of what the command line said. The one place their interpretation lives: any
@@ -99,6 +102,7 @@ namespace BS3D.Screens
             BallStyleOverride: launch.BallStyle,
             StartupLevelFile: string.IsNullOrWhiteSpace(launch.LevelFile) ? null : launch.LevelFile,
             Seed: launch.Seed,
-            LogShots: launch.LogShots);
+            LogShots: launch.LogShots,
+            PadPrompts: launch.PadPrompts);
     }
 }
