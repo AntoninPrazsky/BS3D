@@ -660,6 +660,9 @@ namespace BS3D
             set => _previousKeyboard = value;
         }
 
+        //Whether the last frame was play as the rumble counts it — see the silence in Update (#800)
+        private bool _rumbleWasInPlay;
+
         internal GamePadState PreviousPad
         {
             get => _previousPad;
@@ -1661,13 +1664,21 @@ namespace BS3D
             //a page opened by a click lands here on the following frame, which is the deferred design.
             _screens.Update(gameTime);
 
-            //The pad's own decay, and the one write to its motors a frame (#378, #188). Read fresh rather than
-            //latched: paused, unfocused or off the gameplay screen (the front end, a settings panel reached
-            //some other way) all silence it on the spot regardless of what a covered session's own Update is
-            //still feeding into it underneath — see GamepadRumble.Update. The result page stays allowed on
-            //purpose: it covers the gameplay screen without leaving the stack (#241) and the star reveal it
-            //hosts is one of what this feature answers.
-            _audioDirector.UpdateRumble(elapsed, IsActive && _screens.Contains<GameplayScreen>() && !_screens.Contains<PausePage>());
+            //The pad's own decay, and the one write to its motors a frame (#378, #188). Play's rumble belongs to play:
+            //the frame a pause goes up or the level is left, whatever play started is silenced on the spot rather than
+            //left to decay under a menu. The result page counts as play on purpose: it covers the gameplay screen without
+            //leaving the stack (#241) and the star reveal it hosts is one of what this feature answers. Since #800 the
+            //pad is otherwise allowed whenever the window is the active one, because the menus answer it too.
+            bool inPlay = IsActive && _screens.Contains<GameplayScreen>() && !_screens.Contains<PausePage>();
+            if (_rumbleWasInPlay && !inPlay) _audioDirector.Rumble.Silence();
+            _rumbleWasInPlay = inPlay;
+
+            //And the pad greeted when it arrives (#800) — at the start or plugged in later — off the snapshot the menus and
+            //the play loop already take, or Windows.Gaming.Input's own list (which knows the pad during the logo, before
+            //either polls). Only while active: a greeting played into a window that cannot vibrate is a greeting lost.
+            if (IsActive) _audioDirector.Rumble.NotePad(_previousPad.IsConnected || PadMotors.HasPad);
+
+            _audioDirector.UpdateRumble(elapsed, IsActive);
 
             //The command line's one-shot actions (#583), each once at its moment: the startup level, then the
             //celebrations, then the pages held back past the title card. See StartupScript.

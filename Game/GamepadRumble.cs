@@ -97,12 +97,131 @@ namespace BS3D
             decayRate = channel * rate;
         }
 
+        #region Patterns, the menus' vocabulary and the pad's arrival (#800)
+
+        /// <summary>One pulse of a pattern: when it starts, its four motors and how long they take to fall.</summary>
+        private readonly struct Pulse
+        {
+            public readonly float At, Left, Right, LeftTrigger, RightTrigger, Seconds;
+
+            public Pulse(float at, float left, float right, float leftTrigger, float rightTrigger, float seconds)
+            {
+                At = at;
+                Left = left;
+                Right = right;
+                LeftTrigger = leftTrigger;
+                RightTrigger = rightTrigger;
+                Seconds = seconds;
+            }
+        }
+
+        //The game saying hello through the pad when it starts with one plugged in (#800, the owner's sketch: "left trigger,
+        //right trigger, left, right, the main motors…"): the triggers called in turn, a little firmer the second time
+        //round, and then the whole pad at once — a warm swell of the body under both triggers — so it lands as a flourish
+        //and not as four separate buzzes. About a second. A pad without trigger motors feels only the last pulse.
+        private static readonly Pulse[] SIGNATURE =
+        {
+            new(0.00f, 0f, 0f, 0.5f, 0f, 0.10f),
+            new(0.16f, 0f, 0f, 0f, 0.5f, 0.10f),
+            new(0.32f, 0f, 0f, 0.7f, 0f, 0.10f),
+            new(0.48f, 0f, 0f, 0f, 0.7f, 0.10f),
+            new(0.68f, 0.45f, 0.3f, 0.4f, 0.4f, 0.45f),
+        };
+
+        //A pad plugged in after the start: a short "ba-dum" of the whole pad, the confirmation, not the greeting
+        private static readonly Pulse[] CONNECTED =
+        {
+            new(0.00f, 0.25f, 0.35f, 0.35f, 0.35f, 0.14f),
+            new(0.20f, 0.25f, 0.35f, 0.35f, 0.35f, 0.14f),
+        };
+
+        //How long after the start a pad seen for the first time still gets the greeting rather than the confirmation:
+        //the logo and the first menu, which is where a player who launched with the pad in hand is
+        private const float SIGNATURE_WINDOW_SECONDS = 15f;
+
+        //The menus' four words (#800), all on the body motors — a hand in a menu is on the sticks and the face buttons,
+        //not the triggers. A step of the focus is the lightest thing the pad says; a page turn is felt on the side it
+        //turns to (the left grip holds the heavy motor, the right the light one); a confirm is firmer and brighter; a
+        //back is softer and lower.
+        private const float UI_STEP = 0.25f, UI_STEP_SECONDS = 0.04f;
+        private const float UI_PAGE = 0.3f, UI_PAGE_SECONDS = 0.05f;
+        private const float UI_ACCEPT_LEFT = 0.25f, UI_ACCEPT_RIGHT = 0.45f, UI_ACCEPT_SECONDS = 0.08f;
+        private const float UI_BACK_LEFT = 0.35f, UI_BACK_RIGHT = 0.1f, UI_BACK_SECONDS = 0.07f;
+
+        private Pulse[] _pattern;
+        private int _patternNext;
+        private float _patternClock;
+
+        //Seconds this mixer has been updated for, and whether a pad was there on the last NotePad
+        private float _clock;
+        private bool _padSeen;
+
+        /// <summary>The menu's focus moved one entry (#800).</summary>
+        public void UiStep() => Kick(0f, UI_STEP, UI_STEP_SECONDS);
+
+        /// <summary>A page or a tab turned, felt on the side it turned to (#800).</summary>
+        public void UiPage(int direction) =>
+            Kick(direction < 0 ? UI_PAGE : 0f, direction > 0 ? UI_PAGE : 0f, UI_PAGE_SECONDS);
+
+        /// <summary>An entry pressed (#800).</summary>
+        public void UiAccept() => Kick(UI_ACCEPT_LEFT, UI_ACCEPT_RIGHT, UI_ACCEPT_SECONDS);
+
+        /// <summary>Backed out of a page (#800).</summary>
+        public void UiBack() => Kick(UI_BACK_LEFT, UI_BACK_RIGHT, UI_BACK_SECONDS);
+
         /// <summary>
-        /// Decays both channels and pushes the one call a frame this type exists for.
+        /// Whether a pad is there this frame, from the host's own snapshots (no device poll of its own). The first time one
+        /// is — at the start or later — the pad is greeted: the signature within <see cref="SIGNATURE_WINDOW_SECONDS"/> of
+        /// the start, the short confirmation after it. A pad unplugged and plugged back is confirmed again.
+        /// </summary>
+        public void NotePad(bool connected)
+        {
+            if (connected && !_padSeen) Play(_clock < SIGNATURE_WINDOW_SECONDS ? SIGNATURE : CONNECTED);
+            _padSeen = connected;
+        }
+
+        /// <summary>
+        /// Everything stops: every channel and any pattern still playing. For a moment that takes what was ringing away
+        /// from the player — a pause, leaving a level — where letting it decay would be play still answering.
+        /// </summary>
+        public void Silence()
+        {
+            _left = _right = _leftTrigger = _rightTrigger = 0f;
+            _pattern = null;
+        }
+
+        private void Play(Pulse[] pattern)
+        {
+            _pattern = pattern;
+            _patternNext = 0;
+            _patternClock = 0f;
+        }
+
+        //The pattern's pulses that have come due, fired as ordinary kicks so they blend with anything else ringing
+        private void StepPattern(float elapsedSeconds)
+        {
+            if (_pattern == null) return;
+
+            _patternClock += elapsedSeconds;
+
+            while (_patternNext < _pattern.Length && _pattern[_patternNext].At <= _patternClock)
+            {
+                Pulse pulse = _pattern[_patternNext++];
+                Kick(pulse.Left, pulse.Right, pulse.Seconds);
+                KickTriggers(pulse.LeftTrigger, pulse.RightTrigger, pulse.Seconds);
+            }
+
+            if (_patternNext >= _pattern.Length) _pattern = null;
+        }
+
+        #endregion
+
+        /// <summary>
+        /// Steps a pattern, decays every channel and pushes the one write a frame this type exists for.
         /// <paramref name="allowed"/> is the caller's own answer to whether the pad should feel anything right
-        /// now — unfocused, paused or off the gameplay screen reads false regardless of what is still ringing,
-        /// since vibration is a device state that outlives the frame that asked for it and has to be told to
-        /// stop rather than merely left alone.
+        /// now — since #800 that is the window being the active one, the menus answering the pad too; what play started
+        /// is stopped by <see cref="Silence"/> where play stops — since vibration is a device state that outlives the
+        /// frame that asked for it and has to be told to stop rather than merely left alone.
         /// <para>
         /// <b>Gated by <see cref="GamePad.GetCapabilities(PlayerIndex)"/> since #516</b> — until then this fired blind: a
         /// connected pad with no vibration motors at all (a wheel, a generic pad through an XInput shim) got
@@ -114,8 +233,14 @@ namespace BS3D
         /// </summary>
         public void Update(float elapsedSeconds, bool allowed)
         {
+            _clock += elapsedSeconds;
+
+            //A pattern's due pulses first, so a pulse that starts this frame is written this frame
+            if (allowed) StepPattern(elapsedSeconds);
+
             if (!allowed)
             {
+                _pattern = null;
                 _left = 0f;
                 _right = 0f;
                 _leftTrigger = 0f;
