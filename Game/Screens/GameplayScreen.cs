@@ -805,25 +805,28 @@ namespace BS3D.Screens
         //input (Cannon.ElevationAim, Traverse) and not the barrel's pose — so a fine adjustment can be counted. Out of the lean there are none: aiming there is coarse and quick, and the finger is not on LT. A sweep
         //faster than one tick per AIM_TICK_MIN_SECONDS is held to that rate (the steps it crosses in between are dropped,
         //not queued), which keeps a fast swing a quick ratchet and never a buzz.
-        private static readonly float AIM_TICK_STEP = MathHelper.ToRadians(0.75f);
-        private const float AIM_TICK_MIN_SECONDS = 0.05f;
+        //Twice cut on the owner's hand (#800): 0.45 over 0.05 s at up to 20 ticks a second was "far too strong", 0.15 over
+        //0.035 s at the same rate still "buzzes terribly" — at 20 Hz any tick is a buzz, so the rate came down with the
+        //strength: a coarser step, at most eight a second, and a tick barely there
+        private static readonly float AIM_TICK_STEP = MathHelper.ToRadians(1.5f);
+        private const float AIM_TICK_MIN_SECONDS = 0.12f;
         private const float AIM_TICK_MIN_BLEND = 0.5f;
-        //A third of the first cut's 0.45 over 0.05 s, which the owner found far too strong while turning in the close-up
-        //(#800): a ratchet is a texture under the finger, not a knock
-        private const float AIM_TICK_RUMBLE = 0.15f;
-        private const float AIM_TICK_RUMBLE_SECONDS = 0.035f;
+        private const float AIM_TICK_RUMBLE = 0.05f;
+        private const float AIM_TICK_RUMBLE_SECONDS = 0.025f;
 
         //The carriage's rattle while it rolls (#800, the owner: "a light judder, so the player feels the gun moving"):
         //one small bump of the body per CARRIAGE_RATTLE_STEP of ground the wheels cover (Cannon.RollTravel and
         //SlideTravel — the walk, never a placed stance), so its rate follows the gun's own speed through the ease in and
         //out and stops when the gun does. Each bump's strength wanders between the two figures, the way stone under an
         //iron tyre is never two cobbles alike; a spare hash and not the session's generator, which deals the balls and
-        //must not be drawn from by a rumble. Left-heavy: it is the carriage's weight, not a buzz. Only for a player on the
-        //pad, whose hands it is in.
-        private const float CARRIAGE_RATTLE_STEP = 0.6f;
-        private const float CARRIAGE_RATTLE_MIN_SECONDS = 0.06f;
-        private const float CARRIAGE_RATTLE_LOW = 0.08f, CARRIAGE_RATTLE_HIGH = 0.16f;
-        private const float CARRIAGE_RATTLE_SECONDS = 0.05f;
+        //must not be drawn from by a rumble. Only for a player on the pad, whose hands it is in.
+        //The first cut put it on the heavy motor at 0.08-0.16 up to sixteen bumps a second, and the owner found it
+        //"extremely strong — it should be much, much less" (#800): it is the light motor alone now, a fifth of that at
+        //most, and no more than ten a second — a texture of the ground, not the gun being shaken.
+        private const float CARRIAGE_RATTLE_STEP = 1f;
+        private const float CARRIAGE_RATTLE_MIN_SECONDS = 0.1f;
+        private const float CARRIAGE_RATTLE_LOW = 0.03f, CARRIAGE_RATTLE_HIGH = 0.07f;
+        private const float CARRIAGE_RATTLE_SECONDS = 0.035f;
 
         //And a detent where the left trigger's travel reaches a full lean (PreciseAim.TRIGGER_FULL): the analog pull has
         //no stop of its own to feel there, so the lens being all the way in is said once under the finger
