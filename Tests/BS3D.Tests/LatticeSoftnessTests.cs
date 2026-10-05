@@ -74,7 +74,8 @@ namespace BS3D.Tests
             List<ConstraintHandle> anchor = new();
             hung.Balls[3, 2, topLevel].HandlesTop.CollectStored(anchor);
             List<PhysicsBall> released = new();
-            BallsConstraintsBuilder.CutBall(new XZLevel(3, 2, topLevel), hung.Balls, hung.Map, hung.World.Simulation, released);
+            //One ball and not the Cut: since #692 a cut takes the struck ball's whole storey, which here is the whole top row
+            BallsConstraintsBuilder.DestroyBall(new XZLevel(3, 2, topLevel), hung.Balls, hung.Map, hung.World.Simulation, released);
             PhysicsBall landed = Land(hung, new XZLevel(2, 2, 2));
             List<ConstraintHandle> landedSockets = new();
             landed.CollectConstraintHandles(landedSockets);

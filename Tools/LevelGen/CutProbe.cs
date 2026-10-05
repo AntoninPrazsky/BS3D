@@ -90,7 +90,7 @@ namespace BS3D.Tools.LevelGen
         }
 
         //The storey cut's guard, measured (#692): the top storeys a cut may not strike, from none to three
-        private static readonly int[] TOP_EXCLUDED = { 0, 1, 2, 3 };
+        private static readonly int[] TOP_EXCLUDED = { 0, 1, 2, 3, 4 };
 
         /// <summary>
         /// <b>The owner's rule for the Cut (#692, 2026-10-03): the whole storey at the struck ball</b> — every ball of the

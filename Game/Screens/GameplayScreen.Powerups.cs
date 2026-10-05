@@ -34,8 +34,9 @@ namespace BS3D.Screens
 
         /// <summary>
         /// The anchor cut (#213, the third of its order): turns the round in the bore into a
-        /// <see cref="BallKind.Cutter"/>, which destroys the one ball it strikes instead of sticking, so what hung on that
-        /// ball alone falls. Refused while the round is already a cutter or a wildcard (a wildcard turned into a cutter
+        /// <see cref="BallKind.Cutter"/>, which destroys the whole storey of the ball it strikes instead of sticking, so what
+        /// hung on that storey falls (#692); aimed into the four storeys under the glass it is refused like an aim past the
+        /// elevation clamp (<c>_cutterRefused</c>). Refused while the round is already a cutter or a wildcard (a wildcard turned into a cutter
         /// would be a charge spent to lose a wildcard).
         /// </summary>
         Cut = 3,

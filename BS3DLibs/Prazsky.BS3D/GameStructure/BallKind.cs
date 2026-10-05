@@ -354,9 +354,11 @@ namespace Prazsky.BS3D.GameStructure
         /// The anchor cut (#213's third step) — <b>the second kind the player SHOOTS rather than one a level places</b>,
         /// and the wildcard's twin in that: it exists only on the gun's side of the game. The Cut power-up
         /// (<c>PowerupKind.Cut</c>) turns the round in the bore into one; when it strikes a ball of the structure it does
-        /// not stick and does not match, it <b>destroys that one ball</b> and the disconnection pass runs over what is
-        /// left (<c>BallsConstraintsBuilder.CutBall</c>), so whatever hung on that ball alone falls with it. It is the
-        /// lesson the whole game teaches — a support falls with what holds it — played on purpose.
+        /// not stick and does not match, it <b>destroys that ball's whole storey</b> — every ball of its level joined to it
+        /// through that level, since #692 (it was the one ball until then, and that almost never freed anything) — and the
+        /// disconnection pass runs over what is left (<c>BallsConstraintsBuilder.CutBall</c>), so whatever hung on that
+        /// storey falls with it. The four storeys under the glass refuse it (<c>BallsConstraintsBuilder.IsCutProtected</c>).
+        /// It is the lesson the whole game teaches — a support falls with what holds it — played on purpose.
         /// <para>
         /// <b>⚠ No ball in the lattice is ever a cutter</b>, for the wildcard's reason (see <see cref="Wildcard"/>): it is
         /// spent in the striking, so a cell holding one is a state nothing means to produce, and one hanging in a level

@@ -930,6 +930,10 @@ namespace BS3D.Screens
         /// </summary>
         private bool _previewReachesCluster;
 
+        //A cutter aimed into the storeys the Cut may not strike (#692, BallsConstraintsBuilder.IsCutProtected): the aim
+        //is refused the way one past the elevation clamp is - the marks blink, the trigger answers with the dry "no"
+        private bool _cutterRefused;
+
         /// <summary>
         /// The dashed line of light out of the muzzle, and the two ends it is drawn between. It exists for the
         /// <b>overview</b>, where there is no crosshair and the barrel's foreshortened angle was the only clue to
