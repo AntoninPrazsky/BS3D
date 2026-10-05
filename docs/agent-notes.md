@@ -8101,3 +8101,16 @@ Majitel večer 4. 10.: „zpracovávej až do rána issues, které můžeš zpra
   - **#765 a #767 (efekty power-upů):** haptika je další kanál, který nepopisuje ani anatomie, ani definice hotového. Pozor na klouby (#810). Jeho „nejvýš jednou za kapitolu“ se **liší od kódu**: náboje se dávají **za level** (`GrantPowerupCharges`). To patří k otevřené otázce §5 v #765; neptal jsem se.
   - **#788, #378, #431, #463:** zpětné odkazy a jeho odpověď na otázku Potato.
 - Majitel šel spát a **prosil, ať je desktop k dispozici session na Pi**, kdyby potřebovala větší stroj. V okamžiku zápisu žádná jiná session na tomhle stroji neběžela (`ListAgents` prázdný). Tahle session nedrží GPU ani nic těžkého.
+
+## 2026-10-05 (noc) — claim #808; #804: lem je na mainu, druhý řez ploutví čeká na měření Pi — notebook, Claude Code (github-cf)
+
+- **CLAIM #808** (Potato volitelný ve Windows buildu), na žádost session na Pi; majitel spí a řekl, ať jsem jí k dispozici s Windows. První krok podle issue: zjistit, jestli se osm zdrojů z `GamePi/Shaders` přeloží pro WindowsDX. Větev `808-potato-on-windows`.
+- **#804, stav:** `pi-aa-rims` je na mainu (`23acaf10`): lem koulí výchozí zapnutý, konstanty na CPU, ploutve a `upscale=soft` za argumentem. Session na Pi potvrdila nativní 1080p při 60 FPS na těžkých levelech.
+- **`upscale=soft` na Pi: +1,5 až +1,8 ms** (720p → 1080p). Celoobrazovkový průchod na V3D stojí zhruba 0,5–0,6 ms za každý tap navíc. Zůstává za argumentem.
+- **Ploutve, druhý řez: větev `804-fins-live-edges` (`c8bdbc43`), NENÍ na mainu, čeká na měření Pi.** Hran na snímek: Pennant 18 507 → 6 762 kandidátů → 1 944 předaných GPU; Cabinet 11 671 → 5 511 → 1 828.
+  - Konkávní hrana ploutev nedostane; šev je tam, kde se láme stínování; otevřený okraj se otvírá jen tam, kde se jeho stěna kreslí; sklo odtoku a šachta ploutve nemají; v síti složené z těles žádná hrana uvnitř společné stěny; CPU vybírá živé hrany (`EdgeFinMesh.SelectLive`), a když se nehne oko ani síť, nepočítá nic. `finsall` kreslí postaru.
+  - ⚠ **Chyba prvního řezu, opravená:** stínovací normály stěny B se četly z opačného konce hrany. Vyšlo to najevo až s pravidlem pro šev: 497 hran podél profilu jednoho bubnu vyšlo jako šev.
+  - ⚠ **Tmavá čárkovaná linka na bočnici lafety** byla ploutev hrany uvnitř společné zadní stěny bočnice a patky. Na snímku vidět, v testech ne, dokud nevznikl test se dvěma kvádry.
+  - ⚠ **Límec ústí hlavně (#425) je vysoustružený naruby:** profil běží po ose soustruhu nahoru, takže `LatheMesh` dá normály i přední stěny dovnitř. Kreslí se vzdálená vnitřní stěna, což zezadu vypadá jako tentýž kroužek. `WindingCheck` to nepozná (vinutí souhlasí s normálami, otevřený pás nemá objem). Neopraveno, issue teprve založím.
+  - Deset mutací pravidel v `EdgeFinTests`, všech deset padá.
+- **Neověřeno:** cena druhého řezu ploutví na Pi (GPU i CPU při pohybu kamery). Švy u odtoku (zlatý pás proti kameni a šachtě), tmavé pruhy na hlavni, kola a válečky zůstávají schodovité.
