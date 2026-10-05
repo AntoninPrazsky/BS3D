@@ -9,14 +9,14 @@ namespace Prazsky.Core.Render
     /// <summary>
     /// The sea's school of fish (#760): the owner's "simple little fish as an easter egg" for a sea that can be looked
     /// at from under the water, seen in the Sea's chapter intro (its shot under the island, #759) and in the drop
-    /// cinematic's dive. A loose ring of small silver fish circling the funnel's cone under the island, the swirl the
+    /// cinematic's dive. Drawn only with the lens under every trough of the swell (<c>SeaBackdrop.LensUnderEveryTrough</c>). A loose ring of small silver fish circling the funnel's cone under the island, the swirl the
     /// references drew (<c>C:\Users\panrd\AI\sd\out\760-klein</c>: a school wheeling under a floating platform's dark
     /// underside with the sun's light coming down past it).
     /// <para>
     /// <b>No CPU per fish.</b> Every fish is baked into one static buffer, each vertex carrying which fish it belongs to,
     /// and <c>Fish.fx</c> places, turns and swims each one off the clock and a hash of its index: one draw for the whole
-    /// school. <b>Drawn only with the lens under the water</b> (<see cref="SceneRenderer.LensSubmergedAmount"/>), so in
-    /// play, where the lens never goes under, it costs nothing.
+    /// school. <b>Drawn only with the lens under the water</b>, so in play, where the lens never goes under, it costs
+    /// nothing.
     /// </para>
     /// </summary>
     internal sealed class FishSchool : IDisposable
@@ -34,7 +34,7 @@ namespace Prazsky.Core.Render
         private const float SCHOOL_DEPTH = 6f;
 
         //How fast they swim along the ring, in units a second, and how fast a tail beats. Unhurried: a lap of the
-        //middle of the ring is about forty seconds.
+        //middle of the ring (17 out) is about 33 seconds.
         private const float SWIM_SPEED = 3.2f;
         private const float TAIL_HZ = 2.6f;
 

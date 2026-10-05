@@ -79,7 +79,8 @@ namespace Prazsky.Core.Render
             _indices = services.BuildQuadIndexBuffer(SHAFT_COUNT);
         }
 
-        /// <summary>Draws the shafts hanging from a surface at <paramref name="surfaceY"/>, additive and depth-read.</summary>
+        /// <summary>Draws the shafts hanging from a surface at <paramref name="surfaceY"/>, additive and depth-read: drawn
+        /// with the overlays, after everything opaque, so the island hides the shafts behind it and not the ones in front.</summary>
         public void Draw(in SceneFrame frame, float surfaceY)
         {
             //The sun's light, bent down by the water; a sun under the horizon puts none down

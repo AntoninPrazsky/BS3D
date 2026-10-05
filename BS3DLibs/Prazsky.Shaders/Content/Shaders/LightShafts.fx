@@ -37,6 +37,7 @@ struct ShaftVertexOutput
 {
     float4 Position : SV_POSITION;
     float3 Shape : TEXCOORD0;    //(across, along, brightness)
+    float3 World : TEXCOORD1;
 };
 
 ShaftVertexOutput ShaftVS(ShaftVertexInput input)
@@ -66,10 +67,10 @@ ShaftVertexOutput ShaftVS(ShaftVertexInput input)
 
     //A shimmer of its own: the surface's waves focus and spread the light it carries
     float shimmer = 0.55 + 0.45 * sin(Time * (0.6 + 0.8 * h.x) + shaft * 3.7);
-    float near = saturate((length(toEye) - NearFade) / NearFade);
 
     output.Position = mul(mul(float4(world, 1.0), View), Projection);
-    output.Shape = float3(across, along, shimmer * near);
+    output.Shape = float3(across, along, shimmer);
+    output.World = world;
 
     return output;
 }
@@ -81,7 +82,11 @@ float4 ShaftPS(ShaftVertexOutput input) : COLOR
     across *= across;
     float along = smoothstep(0.0, 0.06, input.Shape.y) * pow(saturate(1.0 - input.Shape.y), 1.6);
 
-    return float4(ShaftColor * (across * along * input.Shape.z), 1.0);
+    //Gone near the lens, per pixel: a shaft is a quad with corners only at its two ends, 42 to 70 apart, so a fade
+    //worked out per vertex never fired with the lens beside a shaft's middle (the review of #760)
+    float near = saturate((length(CameraPosition - input.World) - NearFade) / NearFade);
+
+    return float4(ShaftColor * (across * along * input.Shape.z * near), 1.0);
 }
 
 technique LightShafts
