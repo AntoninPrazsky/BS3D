@@ -841,8 +841,8 @@ namespace BS3D.Screens
 
         private const float CANNON_ORBIT_RATE = 1.0f;
 
-        //The walk's held rate, the same ±1 protocol as the orbit's — the speed itself is the shared
-        //Cannon.ADVANCE_SPEED, so the walk feels the same in the Testbed
+        //The walk's full rate, the same protocol as the orbit's — a key asks all of it, the left stick as much as it is
+        //pushed (#802); the speed itself is the shared Cannon.ADVANCE_SPEED, so the walk feels the same in the Testbed
         private const float CANNON_ADVANCE_RATE = 1.0f;
 
         //Balls in flight, and balls that have been let go and are falling. Both are real Bepu bodies with no

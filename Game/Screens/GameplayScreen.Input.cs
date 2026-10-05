@@ -41,14 +41,22 @@ namespace BS3D.Screens
         private const float FIRE_TRIGGER_THRESHOLD = 0.5f;
 
         /// <summary>
-        /// How far the pad's left stick has to be pushed before it turns or walks the gun (#189), and past which
-        /// its right stick counts as the player's hand being on the pad. A hold and not a rate: past it the stick
-        /// is a key held down, so a stick and a key move the carriage identically and neither player has a faster
-        /// gun. Lower than the menu's <c>NAV_STICK_DEADZONE</c> (0.55), because a menu step is an edge to
-        /// debounce and this is a hold to keep up; well above zero, because a stick at rest must not creep the
-        /// carriage round the field.
+        /// How far a stick has to be pushed before it counts as the player's hand being on the pad — which device the
+        /// tutorial draws for (#189). It no longer gates the gun's walk (#802): that follows the left stick's push from
+        /// the first step MonoGame reports past its own circular dead zone, see <see cref="StickSpeed"/>.
         /// </summary>
         private const float PAD_WALK_DEADZONE = 0.35f;
+
+        /// <summary>
+        /// The left stick's response (#802): the push past MonoGame's own dead zone (it rescales from 0 there, 0.24 of the
+        /// travel on WindowsDX) raised to this power, so the first part of the travel is a slow, fine walk and a full push
+        /// is exactly a key's full speed. 1.5 rather than a square: a square makes the first third of the travel all but
+        /// dead, and the owner's ask was a walk that answers from the first touch.
+        /// </summary>
+        private const float STICK_SPEED_EXPONENT = 1.5f;
+
+        /// <summary>A stick axis's push, -1 to 1, as a share of the walk's full speed with its sign kept (#802).</summary>
+        private static float StickSpeed(float axis) => MathF.Sign(axis) * MathF.Pow(MathF.Abs(axis), STICK_SPEED_EXPONENT);
 
         /// <summary>
         /// The time constant the cursor's travel is handed to the gun over with the lens fully leaned in (#644) —
@@ -143,22 +151,22 @@ namespace BS3D.Screens
             //and up/down, which was the one thing a pad could not do: the right stick aims, the triggers fire and
             //lean, and nothing turned or walked the gun, so the tutorial's pad cards would have promised a
             //binding that did not exist. Turning orbits the field, walking closes on it — standing nearer
-            //steepens the shot up into the cluster's underside, standing further flattens it. All of them are
-            //holds at the same ±1 protocol (a stick past its deadzone is a key held down, not a rate), and the
-            //walk's ends are rubber (Cannon.ADVANCE_EASE_ZONE), not stops.
+            //steepens the shot up into the cluster's underside, standing further flattens it. A key asks the full
+            //speed; since #802 the stick asks as much of it as it is pushed, from the first step it reports, so a
+            //slow walk is possible (it was a key held down past 0.35, and a gentle push did nothing and then set
+            //the gun off for full speed). A key wins over the stick on its axis. The walk's ends are rubber
+            //(Cannon.ADVANCE_EASE_ZONE), not stops.
             float stickX = pad.IsConnected ? pad.ThumbSticks.Left.X : 0f;
             float stickY = pad.IsConnected ? pad.ThumbSticks.Left.Y : 0f;
 
-            bool traverseLeft = keyboard.IsKeyDown(Keys.A) || stickX < -PAD_WALK_DEADZONE;
-            bool traverseRight = keyboard.IsKeyDown(Keys.D) || stickX > PAD_WALK_DEADZONE;
-            bool walkIn = keyboard.IsKeyDown(Keys.W) || stickY > PAD_WALK_DEADZONE;
-            bool walkOut = keyboard.IsKeyDown(Keys.S) || stickY < -PAD_WALK_DEADZONE;
+            float turn = keyboard.IsKeyDown(Keys.A) ? 1f : keyboard.IsKeyDown(Keys.D) ? -1f : -StickSpeed(stickX);
+            float walk = keyboard.IsKeyDown(Keys.W) ? 1f : keyboard.IsKeyDown(Keys.S) ? -1f : StickSpeed(stickY);
 
-            if (traverseLeft) _cannon.Orbit(CANNON_ORBIT_RATE);
-            else if (traverseRight) _cannon.Orbit(-CANNON_ORBIT_RATE);
+            if (turn != 0f) _cannon.Orbit(turn * CANNON_ORBIT_RATE);
+            if (walk != 0f) _cannon.Advance(walk * CANNON_ADVANCE_RATE);
 
-            if (walkIn) _cannon.Advance(CANNON_ADVANCE_RATE);
-            else if (walkOut) _cannon.Advance(-CANNON_ADVANCE_RATE);
+            bool traverseLeft = turn > 0f, traverseRight = turn < 0f;
+            bool walkIn = walk > 0f, walkOut = walk < 0f;
 
             //What the tutorial's traverse and walk lessons wait for (#189), and which device's card it draws: a
             //key here is the keyboard's hand, a stick past its deadzone the pad's
