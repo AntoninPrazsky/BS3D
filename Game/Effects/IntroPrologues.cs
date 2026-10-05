@@ -12,11 +12,12 @@ namespace BS3D.Effects
     /// </summary>
     /// <param name="Renderer">The live scene renderer; null before there is one.</param>
     /// <param name="City">The city being drawn, the day one's or the neon one's.</param>
+    /// <param name="Rooftops">The city's roof equipment, for the showcase of one dressed roof (#780); null without a city.</param>
     /// <param name="ForestScatter">The forest's planting.</param>
     /// <param name="AuroraScatter">The aurora's wood.</param>
     /// <param name="SunDirection">The dome's sun, when there is a rig.</param>
     /// <param name="WallClock">The game's wall clock now, which the moving subjects are laid out on.</param>
-    internal sealed record IntroContext(SceneRenderer Renderer, City City, ForestScatterRenderer ForestScatter,
+    internal sealed record IntroContext(SceneRenderer Renderer, City City, CityRooftops Rooftops, ForestScatterRenderer ForestScatter,
         ForestScatterRenderer AuroraScatter, Vector3? SunDirection, float WallClock);
 
     /// <summary>
@@ -55,7 +56,8 @@ namespace BS3D.Effects
 
             return scene switch
             {
-                SceneKind.City or SceneKind.NeonCity => CityIntroShots.Build(context.City, fieldOfView, random),
+                SceneKind.City or SceneKind.NeonCity => CityIntroShots.Build(context.City, context.Rooftops,
+                    scene == SceneKind.NeonCity, fieldOfView, random),
                 SceneKind.Volcano => VolcanoIntroShots.Build(renderer, fieldOfView, random),
                 SceneKind.Aurora => AuroraIntroShots.Build(context.AuroraScatter,
                     renderer?.GetSceneConfig(SceneKind.Aurora) as AuroraSceneConfig, fieldOfView, random),

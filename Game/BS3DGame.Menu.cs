@@ -806,7 +806,7 @@ namespace BS3D
         /// <param name="random">The intro's own roll.</param>
         internal BS3D.Effects.IntroShot[] IntroPrologue(float fieldOfView, Random random) =>
             BS3D.Effects.IntroPrologues.For(_scene,
-                new BS3D.Effects.IntroContext(_sceneRenderer, _city, _forestScatter, _auroraScatter, _rig?.SunDirection, _wallClock),
+                new BS3D.Effects.IntroContext(_sceneRenderer, _city, _rooftops, _forestScatter, _auroraScatter, _rig?.SunDirection, _wallClock),
                 fieldOfView, random);
 
         internal int LevelCount => _levelSet?.Count ?? 0;

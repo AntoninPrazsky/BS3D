@@ -99,6 +99,51 @@ namespace Prazsky.Core.Render
         /// <summary>How many pieces the layout holds, neon extras included.</summary>
         public int Total { get; private set; }
 
+        /// <summary>
+        /// One tower's roof as a chapter intro's showcase would frame it (#780): the middle of the roof (on the cornice's
+        /// slab where it has one), half the roof's larger span, the mast's height (0 for a roof without one) and how much
+        /// equipment stands on it, a mast counting most. See <see cref="Showcase"/>.
+        /// </summary>
+        public readonly record struct RoofShowcase(int Building, Vector3 Centre, float HalfSpan, float MastHeight, float Score);
+
+        //Every tower's roof, as Rebuild dressed it: the day's dressing, and the neon city's extras on top of it; and how far
+        //each roof stands over the tallest other roof round it
+        private RoofShowcase[] _roofs = Array.Empty<RoofShowcase>();
+        private float[] _neonScore = Array.Empty<float>();
+        private float[] _standout = Array.Empty<float>();
+
+        //A showcased roof stands at least this high over every other roof within SHOW_NEIGHBOURHOOD of its middle: the
+        //first cut took the best-dressed roof whatever stood round it, and on half the seeds the lens over it looked
+        //down a canyon of taller towers at walls, the roof a small dark square at the bottom
+        private const float SHOW_STANDOUT = 0f;
+        private const float SHOW_NEIGHBOURHOOD = 26f;
+
+        //What a piece is worth to a showcase: the mast and its beacon are the roof's silhouette, a dish its shape
+        private const float SHOW_MAST = 4f, SHOW_DISH = 2f, SHOW_SECTOR = 1.5f, SHOW_HVAC = 0.5f;
+
+        /// <summary>
+        /// The <paramref name="count"/> best-dressed roofs whose middles stand between <paramref name="nearest"/> and
+        /// <paramref name="farthest"/> from the arena's axis and over every other roof round them, best first — for a shot that circles one roof's equipment
+        /// close and from above (#780: "close shots of the building roofs, of the antennas, the camera circling round
+        /// them, looking at them more from above"). With <paramref name="neon"/> the neon city's extra pieces count too.
+        /// Allocates its answer: it is asked once when an intro is built, never per frame.
+        /// </summary>
+        public RoofShowcase[] Showcase(bool neon, float nearest, float farthest, int count)
+        {
+            List<RoofShowcase> found = new();
+            for (int b = 0; b < _roofs.Length; b++)
+            {
+                RoofShowcase roof = _roofs[b];
+                float distance = new Vector2(roof.Centre.X, roof.Centre.Z).Length();
+                if (distance < nearest || distance > farthest || roof.Score <= 0f || _standout[b] < SHOW_STANDOUT) continue;
+                found.Add(neon ? roof with { Score = roof.Score + _neonScore[b] } : roof);
+            }
+
+            found.Sort((a, b) => b.Score.CompareTo(a.Score));
+            if (found.Count > count) found.RemoveRange(count, found.Count - count);
+            return found.ToArray();
+        }
+
         public CityRooftops(GraphicsDevice device, Effect instancingEffect, City city, CitySceneConfig config,
             float ambientIntensity, int seed = DEFAULT_SEED)
         {
@@ -157,6 +202,9 @@ namespace Prazsky.Core.Render
             for (int k = 0; k < worlds.Length; k++) { worlds[k] = new List<Matrix>(); neon[k] = new List<Matrix>(); }
 
             RooftopConfig roof = config.Rooftops;
+            _roofs = new RoofShowcase[city.TowerCount];
+            _neonScore = new float[city.TowerCount];
+            _standout = new float[city.TowerCount];
 
             //The towers alone: the cornices after them are slabs round roofs, not roofs (City.TowerCount)
             for (int b = 0; b < city.TowerCount; b++)
@@ -173,10 +221,40 @@ namespace Prazsky.Core.Render
 
                 Random random = new(RoofSeed(_seed, centre.X, centre.Z));
 
+                int masts = worlds[(int)Kind.MastRed].Count, dishes = worlds[(int)Kind.Dish0].Count + worlds[(int)Kind.Dish1].Count;
+                int sectors = worlds[(int)Kind.Sector].Count, hvac = worlds[(int)Kind.Hvac].Count;
+
                 Dress(worlds, random, centre, halfX, halfZ, roofY, tall, roof, 1f);
 
+                //What this roof was given, for the showcase (#780)
+                bool mast = worlds[(int)Kind.MastRed].Count > masts;
+                float score = SHOW_MAST * (worlds[(int)Kind.MastRed].Count - masts)
+                    + SHOW_DISH * (worlds[(int)Kind.Dish0].Count + worlds[(int)Kind.Dish1].Count - dishes)
+                    + SHOW_SECTOR * (worlds[(int)Kind.Sector].Count - sectors) + SHOW_HVAC * (worlds[(int)Kind.Hvac].Count - hvac);
+                _roofs[b] = new RoofShowcase(b, new Vector3(centre.X, roofY, centre.Z), MathF.Max(halfX, halfZ),
+                    mast ? worlds[(int)Kind.MastRed][^1].M22 : 0f, score);
+
                 //The neon extras, rolled on the same roof with what is left of the chance
+                int neonBefore = 0;
+                for (int k = 0; k < neon.Length; k++) neonBefore += neon[k].Count;
                 Dress(neon, random, centre, halfX, halfZ, roofY, tall, roof, MathF.Max(0f, roof.NeonExtra - 1f));
+                int neonAfter = 0;
+                for (int k = 0; k < neon.Length; k++) neonAfter += neon[k].Count;
+                _neonScore[b] = SHOW_DISH * 0.5f * (neonAfter - neonBefore);
+            }
+
+            //How far each roof stands over the tallest other roof round it, for the showcase (#780)
+            for (int b = 0; b < _roofs.Length; b++)
+            {
+                float highest = float.MinValue;
+                for (int o = 0; o < _roofs.Length; o++)
+                {
+                    if (o == b) continue;
+                    Vector3 other = _roofs[o].Centre;
+                    float dx = other.X - _roofs[b].Centre.X, dz = other.Z - _roofs[b].Centre.Z;
+                    if (dx * dx + dz * dz < SHOW_NEIGHBOURHOOD * SHOW_NEIGHBOURHOOD && other.Y > highest) highest = other.Y;
+                }
+                _standout[b] = highest == float.MinValue ? float.MaxValue : _roofs[b].Centre.Y - highest;
             }
 
             _worlds = new Matrix[(int)Kind.Count][];
