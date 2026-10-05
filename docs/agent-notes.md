@@ -7895,3 +7895,14 @@ Majitel večer 4. 10.: „zpracovávej až do rána issues, které můžeš zpra
   - `LatticeSoftnessTests` potřeboval uvolnit jednu kotvu, proto zůstal interní `DestroyBall` (`InternalsVisibleTo BS3D.Tests`).
   - Otevřené: tutorial karta řezu (#705) a jestli žebříčky od The Tower začít znovu (`RulesVersion`), rozhodne majitel.
 - **#743:** majitel myslí speciální koule v mapě, ale jeskyně (51–60) žádné nemá. Speciální koule jsou jen v Eruption (bomby, zapy), Big Top (broky) a Mirage (kameny, sklo). Otázka položena na issue.
+- **Dodatek (dopoledne 5. 10.): #780 a review #692.**
+  - **#780 (merge `f00323d0`):** poslední záběr průletu obou měst krouží 85° kolem jedné vybavené střechy, zblízka a seshora.
+    - `CityRooftops.Showcase` hodnotí střechy: stožár 4, talíř 2, 5G 1,5, klimatizace 0,5.
+    - Bere jen střechy ve 2–6 blocích, které převyšují ostatní v okolí 26 jednotek; jinak záložní průlet nad ulicí.
+    - První verze bez podmínky převýšení koukala na polovině seedů do kaňonu na stěny.
+    - Nafoceno: seedy 1–3 v obou městech. Před je ze stejného seedu na buildu před merge (dočasný worktree).
+  - **Review #692 (merge po `b1cfea1c`):**
+    - Zákaz chráněných pater se četl z náhledu o snímek starého, takže R + klik v jednom snímku vystřelil řez do horního patra. Teď si spoušť zaměření přepočítá.
+    - Zbloudilý let do chráněného patra bere jen jednu kouli (`DestroyBall`).
+    - Bomba v patře vybuchne až po vyhodnocení toho, co spadlo.
+  - Fronta verdiktů: 8. Stránka https://claude.ai/artifact/1iHNpAZWYT4AVYaAvbPnr9 (nový účet).
