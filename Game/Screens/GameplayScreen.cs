@@ -884,8 +884,9 @@ namespace BS3D.Screens
         /// for why asking both is safe.</summary>
         private void SkipCameraTakeover()
         {
-            _cinematic.TrySkip();
-            _chapterIntro.TrySkip();
+            //Said in the run log, one line a skip, so a report that a button did not skip can be checked against what did
+            if (_cinematic.TrySkip()) Console.WriteLine("[skip] drop cinematic");
+            if (_chapterIntro.TrySkip()) Console.WriteLine("[skip] chapter intro");
         }
 
         //The template a shot is stamped from — the sphere, its inertia, its bare shape index and its sleep
@@ -1191,6 +1192,11 @@ namespace BS3D.Screens
                 //read from this one state - the right (aim, MouseAim.Update) and the left (advance,
                 //GameplayScreen.Input.cs) - and a circular zone is the more correct shape for either.
                 GamePadState pad = GamePad.GetState(PlayerIndex.One, GamePadDeadZone.Circular);
+
+                //Testing only: a scripted pull of the right trigger, written into the state itself so every reader of the
+                //frame's pad sees it (ScriptedPlay's padrt=)
+                if (ScriptedPlay.Current is ScriptedPlay padScript && padScript.PadRightTrigger(WallClock))
+                    pad = new GamePadState(pad.ThumbSticks, new GamePadTriggers(pad.Triggers.Left, 1f), pad.Buttons, pad.DPad);
 
                 //A pause takes effect at the top of the NEXT frame, because that is where ScreenManager applies
                 //stack changes — so without stopping here the rest of THIS frame would go on running against a
