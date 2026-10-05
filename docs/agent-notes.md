@@ -7934,3 +7934,29 @@ Majitel večer 4. 10.: „zpracovávej až do rána issues, které můžeš zpra
   - #785 je souhrnné.
   - #786–#793 jsou kostra, CI, Potato tier, shadery a renderer, zvuk, vstup, pacing a ikona, release.
 - **Dál:** #787, GamePi v CI na ARM64 runneru.
+
+## 2026-10-05 — #787 #788 #789 Potato na Pi: CI na ARM64, zamčený stupeň, vlastní GL shadery, 64 FPS na Girandole — Pi (BS3DServer), Claude Code (296408e3)
+
+- **#787 (merge `8b9dadbd`):**
+  - `build.yml` má druhý job `gamepi` na `ubuntu-24.04-arm`: GamePi.sln v Debug i Release, logické testy na ARM64 a kontrolu publish složky.
+  - `GamePi.csproj` má CA1416 jako chybu. Viděno vystřelit: bez podmínky v `InternetCheck` build spadne.
+- **#788 (merge `ff424e20`):**
+  - `QualityLevel.Potato` je přidaný na konec výčtu. `QualityLevels.DropsSceneDetail` nahrazuje čtyři `== Low`.
+  - Zámek je platformní šev `Platform/QualityLock`: na Windows null, v GamePi Potato.
+  - V menu je `BuildVersion.DisplayName` s „ARM64“; `Name` zůstává pro server.
+  - Na Pi viděno: „Potato (locked)“, „Off (locked)“, „dev-… ARM64“.
+- **#789 (merge `f581b102`), Potato render path:**
+  - `GamePi/Shaders` má 8 efektů SM 3.0: PotatoModel, PotatoSky a porty ShotTrail, LaserGrid, Blast, Wormhole, Fireworks a Confetti.
+  - Kompilují se jen na Windows (`compile.ps1`, `gamepi-shaders.yml`) a **commitují se** do `Compiled/`; na Pi je stáhne `fetch.sh`. Kompilace je deterministická.
+  - Hostitel je `BS3DGame.Potato.cs`: bez SceneRenderer, PostProcessPipeline, Sky.fx a mraků. `InstancedModelRenderer.DrawPotato` se zapne podle efektu.
+- **Změřeno na Pi (1920×1080, bez stropu):**
+  - Girandole: 30,8 → 15,5 ms (64 FPS). Příspěvky: LodBias 2 (25,0 ms), řazení odpředu dozadu a rozpad jako zmenšení místo `clip()` ditheru.
+  - Pennant: 19,7 → 17,0 ms.
+  - Profil přes `dotnet-trace` (uživatelsky, bez sudo): Pennant čeká ~79 % v Present, tedy na GPU. Girandole je fyzika ~14 ms plus GPU.
+- ⚠ **MojoShader a mgfxc se neshodnou, kde jsou dvě dynamicky indexovaná uniform pole.** Fireworks a Blast četly cizí sloty, tiše a bez varování. Teď je jedno pole na shader a `compile.ps1` dvě odmítne.
+- ⚠ **Obsahová úloha si sama najde každý `.mgcb`** a na Linuxu kompilace efektu chce Wine (MGFXC0001). GamePi proto má `EnableMGCBItems=false`.
+- ⚠ **`BuildStamp` hledal `Content\Shaders` s backslashem**, na Linuxu to nefungovalo. Opraveno.
+- **Revize (workflow, 4 pohledy a skeptik na každý nález):** pády 0; 7 nálezů opraveno (pole, světlo přidané na sklo, šev ostrova, žolík, koule bez barvy, expozice oblohy).
+- **Majitel:** zvětšování a zmenšování místo ditheru chce i na Windows, odpojené koule zůstanou s ditherem (#794).
+- **Nové issues:** #794, #795 (tmavé scény bez světel scény, sopka), #796 (řádky Aberration a Film grain), #797 (Bubble kreslí dvakrát).
+- **#788 a #789 čekají na verdikt.** Dál: #790 zvuk, #791 myš.
