@@ -22,6 +22,9 @@ namespace BS3D
     /// mouse cannot move it. Written for #230's impossible shot, which wants three shots off one pose that miss.</item>
     /// <item><c>rmb=&lt;from&gt;:&lt;to&gt;</c> — holds precise aim across the interval, as the right button would.</item>
     /// <item><c>fire=&lt;t1,t2,…&gt;</c> — fires at those seconds, the shot a left click would fire.</item>
+    /// <item><c>padrt=&lt;from&gt;:&lt;to&gt;</c> — holds the pad's right trigger fully down across the interval, written into
+    /// the frame's own pad state so every reader sees a real pull: the fire, the camera takeover's skip, the trigger
+    /// motors' answer. Written when the owner's RT did not skip a takeover and reading the code could not say why.</item>
     /// <item><c>swap=&lt;t1,t2,…&gt;</c> — presses the swap key at those seconds (#213), through the very call E makes, so
     /// a second press on a level with one swap is the refusal a player would hear.</item>
     /// <item><c>brake=&lt;t1,t2,…&gt;</c> — presses the ceiling's brake key at those seconds (#213), through the very call Q
@@ -49,6 +52,7 @@ namespace BS3D
         private float _sweepFrom = float.NaN, _sweepTo, _sweepAmplitude = 30f, _sweepPeriod = 1.6f;
         private float _sweepElevation = float.NaN;
         private float _rmbFrom = float.NaN, _rmbTo;
+        private float _padRtFrom = float.NaN, _padRtTo;
         private readonly System.Collections.Generic.List<(float At, float Elevation, float Traverse)> _aims = new();
         private float[] _fire;
         private int _nextFire;
@@ -99,6 +103,17 @@ namespace BS3D
                 ScriptedPlay script = Current ??= new ScriptedPlay();
                 script._rmbFrom = from;
                 script._rmbTo = to;
+                return true;
+            }
+
+            if (arg.StartsWith("padrt=", StringComparison.OrdinalIgnoreCase))
+            {
+                string[] parts = arg.Substring("padrt=".Length).Split(':');
+                if (parts.Length != 2 || !TryFloat(parts[0], out float from) || !TryFloat(parts[1], out float to)) return false;
+
+                ScriptedPlay script = Current ??= new ScriptedPlay();
+                script._padRtFrom = from;
+                script._padRtTo = to;
                 return true;
             }
 
@@ -260,6 +275,9 @@ namespace BS3D
 
             return any;
         }
+
+        /// <summary>Whether the pad's right trigger is held at this instant (<c>padrt=</c>).</summary>
+        internal bool PadRightTrigger(float clock) => !float.IsNaN(_padRtFrom) && clock >= _padRtFrom && clock <= _padRtTo;
 
         /// <summary>Whether precise aim is held at this instant.</summary>
         internal bool Rmb(float clock) => !float.IsNaN(_rmbFrom) && clock >= _rmbFrom && clock <= _rmbTo;
