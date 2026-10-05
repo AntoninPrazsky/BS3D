@@ -23,10 +23,16 @@ float4x4 View;
 float4x4 Projection;
 float3 EyePosition;
 
-//The material, as InstancedModelRenderer hands it over: sRGB, the diffuse and the ambient premultiplied by alpha
-//(as BasicEffect does on the CPU), decoded to linear here the way InstancedModel.fx's ShadePixel does it
+//WHAT IS CONSTANT OVER A DRAW IS COMPUTED BY THE CPU (#804). MonoGame compiles an effect with no preshader, so an
+//expression of uniforms alone written in a pixel shader runs for every PIXEL: the sRGB decode of five material colours, the
+//hemisphere's two lerps, the reflectance, the roughness, a ball's crust, its emission and its ripple's flash were about a
+//fifth of the 390 instructions a ball's pixel cost on the Pi's V3D (shaderdb, #801). InstancedModelRenderer.DrawPotato now
+//does that arithmetic once a draw, in the same order and with the same constants, and hands over its results - so the
+//uniforms below are those results, and none of them is an authored colour any more.
+//
+//The material, LINEAR: decoded as PotatoOutput.fxh's SrgbToLinear decodes (Hejl's fit), the diffuse premultiplied by alpha
+//BEFORE the decode, as BasicEffect premultiplies on the CPU and as InstancedModel.fx's ShadePixel reads it
 float4 DiffuseColor;
-float3 AmbientColor;
 float3 EmissiveColor;
 float3 SpecularColor;
 float SpecularPower;
@@ -51,13 +57,23 @@ float3 SceneLightColor[MAX_SCENE_LIGHTS];
 float SceneLightRange[MAX_SCENE_LIGHTS];
 int SceneLightCount;
 
-//The hemisphere ambient, linear, and the floor the ground occlusion fades towards
-float3 SkyColor;
-float3 GroundColor;
+//The hemisphere, multiplied out. The dome's light from a direction is lerp(Ground, Sky, y / 2 + 1 / 2), which is its
+//middle plus half its range times y - so the ambient a normal takes is AmbientMid + AmbientTilt * normal.y, both already
+//times the material's linear ambient colour, and what a mirror direction shows is EnvironmentMid + EnvironmentTilt * its y,
+//the tilt already scaled by how sharp the surface is (a rough one reflects the dome's average, which is its middle).
+float3 AmbientMid;
+float3 AmbientTilt;
+float3 EnvironmentMid;
+float3 EnvironmentTilt;
+
+//The Fresnel reflectance, both already times SpecularAmbientStrength: at the normal (lerp(0.04 * specular, specular,
+//Metalness)), and what a grazing view adds to it (max(1, that) - that), which the fifth power of (1 - facing) scales
+float3 Reflectance;
+float3 ReflectanceRise;
+
+//The floor the ground occlusion fades towards
 float GroundHeight;
 
-float SpecularAmbientStrength;
-float Metalness;
 float TwoSidedNormals;
 float SpecularAlphaWeight;
 float3 EmissiveTint;
@@ -78,25 +94,31 @@ float DetailScale;
 float DetailStrength;
 float DetailBoost;
 
-//What every ball is whatever it is made of (BallCommon.fxh): its colour, its heartbeat, its ripple, its dissolve
-float3 PatternPrimaryColor;
-float EmissiveStrength;
-float StillEmission = 1;
-float PulseTime;
-float PulseSpeed;
-float PulseDepth;
-float3 PulseDirection;
-float PulseWavelength;
-float RippleStrength;
-float3 RippleAlarmColor;
-
-//A style whose colour is its own glow and not its surface (#795): the lava, a near-black crust lit only by its molten
-//seams, which Potato does not draw. The crust is BallLava.fxh's (BallCrustTint and BallCrustDark are its LavaCrustTint and
-//LavaCrustDark) and BallGlow lays the seams' light over the whole ball as their average share of it. Every other style
-//leaves them at 1, 1 and 0: its own colour, and no glow.
-float BallCrustTint = 1;
-float BallCrustDark = 1;
-float BallGlow;
+//What every ball is whatever it is made of (BallCommon.fxh) - its colour, its heartbeat, its ripple - as DrawPotato
+//multiplied it out from the ball's linear colour ("primary" below is SrgbToLinear of the tint it is drawn with):
+//
+//  BallCrust          what the light falls on. primary for every style but the lava (#795), whose colour is its own glow:
+//                     a near-black crust, primary * tint * dark + dark * (1 - tint), BallLava.fxh's LavaCrustTint and Dark.
+//  BallEmissionStill  primary * EmissiveStrength * StillEmission * (1 - PulseDepth): the resting glow, which the pixel
+//                     occludes squared (#303).
+//  BallEmissionBeat   primary * EmissiveStrength * StillEmission * PulseDepth: what the heartbeat adds, unoccluded.
+//  BallGlowStill and
+//  BallGlowBeat       the lava's seams as their average over the ball (#795): its hue cut by LavaHuePower, as bright as its
+//                     tint's luminance lets it, times (1 - PulseDepth) and times PulseDepth, occluded linearly. Zero for
+//                     every other style.
+//  BallFlash          the landing ripple (#331): lerp(primary / its peak, 1, 1/2) * RippleStrength.
+//  BallAlarm          the ceiling's alarm: rgb the colour a ball is carried towards (RippleAlarmColor * 1.7), a how far a
+//                     full ripple carries it (0.95). Both ripples are zero when RippleStrength is.
+//  PulsePhase         xyz PulseDirection / PulseWavelength, w PulseTime * PulseSpeed: the heartbeat's phase at a point is
+//                     w - dot(point, xyz), taken at the VERTEX (PotatoBallVS), its two exp with it.
+float3 BallCrust = float3(1, 1, 1);
+float3 BallEmissionStill;
+float3 BallEmissionBeat;
+float3 BallGlowStill;
+float3 BallGlowBeat;
+float3 BallFlash;
+float4 BallAlarm;
+float4 PulsePhase;
 
 //How wide one cell of the dissolve's dither is, in back-buffer pixels: BallCommon.fxh's DissolvePixelSize, the one
 //uniform the dithered draw reads (#794)
@@ -133,7 +155,8 @@ struct VertexOutput
     float3 WorldPosition : TEXCOORD0;
     float3 WorldNormal : TEXCOORD1;
     float4 OcclusionData : TEXCOORD2;
-    float2 DissolveRipple : TEXCOORD3;
+    //x the dissolve, y the ripple, z the heartbeat (0 for everything that is not a ball)
+    float3 DissolveRipple : TEXCOORD3;
     float3 SceneDiffuse : TEXCOORD4;
     float3 SceneSpecular : TEXCOORD5;
 };
@@ -188,7 +211,7 @@ VertexOutput PotatoVS(VertexInput input, InstanceInput instance)
     output.Position = mul(mul(worldPosition, View), Projection);
     output.WorldNormal = NormalToWorld(input.Normal, instance.WorldRow1.xyz, instance.WorldRow2.xyz, instance.WorldRow3.xyz);
     output.OcclusionData = instance.Custom;
-    output.DissolveRipple = float2(instance.Dissolve, instance.Ripple);
+    output.DissolveRipple = float3(instance.Dissolve, instance.Ripple, 0);
 
     //The scene's own lamps (#795), at the vertex: see AddSceneLights. The side facing the eye for an open surface, as Shade
     float3 normal = normalize(output.WorldNormal);
@@ -215,11 +238,6 @@ void AddLight(float3 towardsLight, float3 lightDiffuse, float3 lightSpecular, fl
     specular += lightSpecular * pow(dotH * lit, SpecularPower);
 }
 
-float3 SkyRadiance(float3 direction)
-{
-    return lerp(GroundColor, SkyColor, direction.y * 0.5 + 0.5);
-}
-
 //Lighting.fxh's SurfaceOcclusion and its constants: the instance's own occluder, and the ground's
 float SurfaceOcclusion(float3 worldPosition, float3 normal, float4 occlusionData)
 {
@@ -239,6 +257,8 @@ struct Shaded
 {
     float4 Covered;
     float3 Added;
+    //The surface's occlusion, which a ball's emission is occluded by too
+    float Occlusion;
 };
 
 //Lighting.fxh's ShadePixel without its clouds, shadows and per-surface specular: the key, fill and back
@@ -270,26 +290,29 @@ Shaded Shade(float3 worldPosition, float3 rawNormal, float4 occlusionData, float
     float diffuseOcclusion = lerp(0.6, 1.0, occlusion) * lerp(1.0, 0.4, burial);
 
     Shaded shaded;
-    shaded.Covered = float4((diffuse * SrgbToLinear(DiffuseColor.rgb) * diffuseOcclusion
-        + SkyRadiance(normal) * SrgbToLinear(AmbientColor) * occlusion
-        + SrgbToLinear(EmissiveColor)) * texRgb, DiffuseColor.a);
+    shaded.Occlusion = occlusion;
+    shaded.Covered = float4((diffuse * DiffuseColor.rgb * diffuseOcclusion
+        + (AmbientMid + AmbientTilt * normal.y) * occlusion
+        + EmissiveColor) * texRgb, DiffuseColor.a);
 
-    //The specular and the environment: the sky dome reflected, rough surfaces seeing its average
-    float3 linearSpecular = SrgbToLinear(SpecularColor);
-    float roughness = sqrt(2.0 / (SpecularPower + 2.0));
-    float3 environment = lerp(SkyRadiance(reflect(-eye, normal)), (SkyColor + GroundColor) * 0.5, saturate(roughness));
-    float3 reflectanceAtNormal = lerp(0.04 * linearSpecular, linearSpecular, Metalness);
+    //The specular and the environment: the sky dome reflected, rough surfaces seeing its average. The mirror direction
+    //is reflect(-eye, normal), and its height is all the dome's gradient asks of it.
+    float towardsEye = dot(normal, eye);
+    float3 environment = EnvironmentMid + EnvironmentTilt * (2 * towardsEye * normal.y - eye.y);
 
     //How squarely the surface faces the eye, never less than it turns across half this pixel (#804). The Fresnel term
     //below is the fifth power of what is left, so within the last fifth of a pixel of a silhouette it climbs to 1: a pixel
     //whose centre happens to fall there is the dome's full reflection, its neighbour along the outline is not, and the
     //edge is a broken bright line that is the sampling's and not the surface's. What a pixel shows is the surface
     //across its whole width; half its own change in facing is the middle of that, and nowhere else is it reached.
-    float facing = saturate(dot(normal, eye));
+    float facing = saturate(towardsEye);
     facing = max(facing, 0.5 * fwidth(facing));
 
-    float3 fresnel = reflectanceAtNormal + (max(1.0, reflectanceAtNormal) - reflectanceAtNormal) * pow(1 - facing, 5);
-    float3 glints = (specular * linearSpecular + environment * fresnel * SpecularAmbientStrength) * occlusion;
+    //Schlick's fifth power, as three products: a pow of a constant exponent is a log and an exp on this GPU
+    float grazing = 1 - facing;
+    float grazing2 = grazing * grazing;
+    float3 fresnel = Reflectance + ReflectanceRise * (grazing2 * grazing2 * grazing);
+    float3 glints = (specular * SpecularColor + environment * fresnel) * occlusion;
 
     //The desktop scales them by lerp(1, alpha, SpecularAlphaWeight): this splits that same total into the share the
     //alpha scales (covered) and the share it does not (added)
@@ -325,7 +348,8 @@ float4 TexturedPS(VertexOutput input) : COLOR0
     //sampled from its own continuous coordinates - choosing ONE side projection per pixel before sampling (the first
     //cut, two taps) left a seam where the choice flipped and a lowest-mip column along it (#789's review)
     float3 normal = normalize(input.WorldNormal);
-    float3 blend = pow(abs(normal), 4);
+    float3 blend = normal * normal;
+    blend *= blend;
     blend /= blend.x + blend.y + blend.z;
     float3 p = input.WorldPosition * DetailScale;
     float3 detail
@@ -366,7 +390,13 @@ VertexOutput PotatoBallVS(VertexInput input, InstanceInput instance)
 {
     input.Position.xyz *= GhostScale(instance.Dissolve);
 
-    return PotatoVS(input, instance);
+    VertexOutput output = PotatoVS(input, instance);
+
+    //The heartbeat, here and not per pixel (#804): its phase turns by a tenth across a ball and its two exp were a
+    //pixel's dearest instructions; between two vertices it is as good as straight
+    output.DissolveRipple.z = Heartbeat(PulsePhase.w - dot(output.WorldPosition, PulsePhase.xyz));
+
+    return output;
 }
 
 //BallCommon.fxh's DissolveNoise, verbatim: a hash with no sin in it, over cells of the screen
@@ -382,35 +412,24 @@ float DissolveNoise(float2 cell)
 //same ball's and must come out of the same arithmetic, or the ring would show against the ball it finishes
 float3 BallColour(VertexOutput input)
 {
-    float3 primary = SrgbToLinear(PatternPrimaryColor);
     float3 normal = normalize(input.WorldNormal);
-    float3 crust = primary * BallCrustTint * BallCrustDark + BallCrustDark * (1 - BallCrustTint);
+
     //A ball is opaque, so its added light simply joins it
-    Shaded parts = Shade(input.WorldPosition, normal, input.OcclusionData, crust, input.SceneDiffuse, input.SceneSpecular);
+    Shaded parts = Shade(input.WorldPosition, normal, input.OcclusionData, BallCrust, input.SceneDiffuse, input.SceneSpecular);
     float3 shaded = parts.Covered.rgb + parts.Added;
-    float occlusion = SurfaceOcclusion(input.WorldPosition, normal, input.OcclusionData);
+    float occlusion = parts.Occlusion;
+    float beat = input.DissolveRipple.z;
 
-    float beat = Heartbeat(PulseTime * PulseSpeed - dot(input.WorldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
-    shaded += primary * EmissiveStrength * StillEmission * ((1 - PulseDepth) * occlusion * occlusion + PulseDepth * beat);
-
-    //The lava's seams as their average (#795), BallLava.fxh's arithmetic without the seams: the ball's own hue cut by
-    //LavaHuePower, as bright as its tint's luminance lets it (LavaTintEmission), breathing with the beat and occluded
-    //linearly as the desktop's seams are. Zero for every other style.
-    float peak = max(primary.r, max(primary.g, primary.b));
-
-    [branch]
-    if (BallGlow > 0)
-    {
-        float3 hue = pow(saturate(primary / max(peak, 1e-3)), 1.7);
-        float emission = lerp(0.18, 1.0, saturate(dot(primary, float3(0.2126, 0.7152, 0.0722))));
-        shaded += hue * (BallGlow * emission * lerp(1 - PulseDepth, 1, beat) * StillEmission * occlusion);
-    }
+    //BallCommon.fxh's BallEmission and, for the lava (#795), BallLava.fxh's seams as their average: the resting glow
+    //occluded squared and the seams' linearly, the beat's own share of each riding through. See the uniforms for what
+    //each of the four is; a style with no glow has zeros in two of them.
+    shaded += (BallEmissionStill * occlusion + BallGlowStill) * occlusion + (BallEmissionBeat + BallGlowBeat * occlusion) * beat;
 
     //The ripple through the cluster (#331): a flash towards the ball's own hue, or the ceiling's alarm red
     float ripple = input.DissolveRipple.y;
-    float amount = abs(ripple) * step(1e-4, RippleStrength);
-    float3 lit = shaded + lerp(primary / max(peak, 1e-3), 1.0, 0.5) * (RippleStrength * amount);
-    float3 alarmed = lerp(shaded, RippleAlarmColor * 1.7, amount * 0.95);
+    float amount = abs(ripple);
+    float3 lit = shaded + BallFlash * amount;
+    float3 alarmed = lerp(shaded, BallAlarm.rgb, amount * BallAlarm.a);
     shaded = ripple < 0 ? alarmed : lit;
 
     return ToDisplay(shaded);
@@ -426,7 +445,7 @@ float4 BallPS(VertexOutput input) : COLOR0
 //ball's pixel costs nothing.
 float4 BallFlatPS(VertexOutput input) : COLOR0
 {
-    return float4(PatternPrimaryColor, 1);
+    return float4(BallCrust, 1);
 }
 
 //THE BALL'S RIM (#804): the anti-aliasing of a ball's outline, without a multisampled target and without a full-screen
@@ -460,7 +479,7 @@ struct RimVertexOutput
     float3 WorldPosition : TEXCOORD0;
     float3 WorldNormal : TEXCOORD1;
     float4 OcclusionData : TEXCOORD2;
-    float2 DissolveRipple : TEXCOORD3;
+    float3 DissolveRipple : TEXCOORD3;
     float3 SceneDiffuse : TEXCOORD4;
     float3 SceneSpecular : TEXCOORD5;
     //xy: the place on the limb's plane, in limb radii (1 is the outline). z: the limb's radius in pixels
@@ -517,7 +536,8 @@ RimVertexOutput PotatoBallRimVS(float4 corner : POSITION0, InstanceInput instanc
     output.WorldNormal = normal;
     output.WorldPosition = centre + normal * radius;
     output.OcclusionData = instance.Custom;
-    output.DissolveRipple = float2(dissolve, instance.Ripple);
+    output.DissolveRipple = float3(dissolve, instance.Ripple,
+        Heartbeat(PulsePhase.w - dot(output.WorldPosition, PulsePhase.xyz)));
 
     output.SceneDiffuse = 0;
     output.SceneSpecular = 0;
@@ -591,7 +611,7 @@ technique PotatoBallDither
 {
     pass P0
     {
-        VertexShader = compile vs_3_0 PotatoVS();
+        VertexShader = compile vs_3_0 PotatoBallVS();
         PixelShader = compile ps_3_0 BallDitherPS();
     }
 };
