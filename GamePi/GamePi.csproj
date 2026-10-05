@@ -31,6 +31,10 @@
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <!--The Game's sources live one directory up; nothing under this folder is globbed by default except Platform/.-->
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <!--The content task would otherwise glob every .mgcb under this folder, Shaders/Shaders.mgcb included, and compiling
+    an effect off Windows needs Wine (MGFXC0001): those are compiled by Shaders/compile.ps1 and committed (#789). The
+    one content build this project runs is named below.-->
+    <EnableMGCBItems>false</EnableMGCBItems>
     <!--A Windows-only .NET API reached from a shared Game/ file is a build error here, not a warning (#787): a warning
     in a build nobody watches is a crash on the Pi found weeks later. It is what found InternetCheck's COM call (#786);
     the Windows build is net10.0-windows and never sees it.-->
