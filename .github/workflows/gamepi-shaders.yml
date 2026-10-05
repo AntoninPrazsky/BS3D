@@ -1,0 +1,53 @@
+name: GamePi GL shaders
+
+# GamePi's OpenGL effects (#789): compiled here on Windows, because the Pi cannot compile them (mgfxc needs the Windows
+# D3D compiler), and committed in GamePi/Shaders/Compiled. This proves the committed files are what the sources
+# compile to - a source edited and its compile forgotten is otherwise found only as a wrong picture on the Pi - and
+# leaves the compile as the run's artifact either way, which is how a Linux checkout gets a new one
+# (GamePi/Shaders/fetch.sh). The compile is deterministic (byte-identical across two compiles, #789's spike), so a
+# difference is a real one. A workflow of its own rather than a step of build.yml: a shader edit then answers in about
+# two minutes instead of after every solution has built.
+on:
+  push:
+    paths:
+      - 'GamePi/Shaders/**'
+      - 'GamePi/.config/dotnet-tools.json'
+      - '.github/workflows/gamepi-shaders.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gamepi-shaders-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.2xx'
+
+      - name: Compile GamePi's GL effects
+        run: ./GamePi/Shaders/compile.ps1
+
+      # Before the check, so a run that fails it still hands over what it compiled
+      - name: Upload the compiled effects
+        uses: actions/upload-artifact@v4
+        with:
+          name: gamepi-gl-shaders
+          path: GamePi/Shaders/Compiled/*.xnb
+          if-no-files-found: error
+
+      # A changed file and a new one alike: git diff alone does not see an untracked file (the level gate's lesson, #588)
+      - name: Check the committed effects are what the sources compile to
+        run: |
+          git diff --stat --exit-code -- GamePi/Shaders/Compiled
+          if ($LASTEXITCODE -ne 0) { throw "GamePi/Shaders/Compiled differs from what the sources compile to: run GamePi/Shaders/fetch.sh (or compile.ps1 on Windows) and commit it" }
+          $stray = git ls-files --others --exclude-standard -- GamePi/Shaders/Compiled
+          if ($stray) { $stray; throw "The sources compile to effect(s) that were never committed: run GamePi/Shaders/fetch.sh and commit them" }

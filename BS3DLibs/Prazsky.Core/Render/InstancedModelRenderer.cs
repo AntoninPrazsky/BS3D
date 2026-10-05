@@ -33,6 +33,16 @@ namespace Prazsky.Core.Render
 
         private readonly GraphicsDevice _graphicsDevice;
         private readonly Effect _effect;
+
+        /// <summary>
+        /// Whether <see cref="_effect"/> is GamePi's Potato effect (#789, <c>GamePi/Shaders/PotatoModel.fx</c>) rather
+        /// than InstancedModel.fx: then <see cref="Draw(ICamera, ModelInstance[], int, BasicEffectParams, Vector3?)"/>
+        /// goes through <see cref="DrawPotato"/>, the depth and refraction passes do nothing, and only the uniforms
+        /// <see cref="InitializePotatoEffect"/> caches exist. Recognised by the effect, set once at construction.
+        /// </summary>
+        private readonly bool _potato;
+
+        private EffectTechnique _potatoTexturedTechnique, _potatoBallTechnique;
         private readonly MeshPartData[] _parts;
         private DynamicVertexBuffer _instanceBuffer;
         private readonly ModelInstance[] _singleInstance = new ModelInstance[1];
@@ -983,7 +993,12 @@ namespace Prazsky.Core.Render
 
             BoundingSphere = mesh.BoundingSphere;
 
-            InitializeEffect();
+            //GamePi's Potato effect (#789) is recognised by its own technique, so no caller has to say which of the two
+            //it is handing over: the host loads one or the other and every renderer built on it follows
+            _potato = effect.Techniques["PotatoLit"] != null;
+
+            if (_potato) InitializePotatoEffect();
+            else InitializeEffect();
         }
 
         private void InitializeEffect()
@@ -1257,7 +1272,8 @@ namespace Prazsky.Core.Render
         /// </summary>
         public void DrawDepth(Matrix lightViewProjection, ModelInstance[] instances, int instanceCount)
         {
-            if (instanceCount <= 0) return;
+            //Potato draws no shadow map (#789), and its effect has no caster to draw one with
+            if (instanceCount <= 0 || _potato) return;
 
             EnsureInstanceBufferCapacity(instances.Length);
             _instanceBuffer.SetData(instances, 0, instanceCount, SetDataOptions.Discard);
@@ -1316,6 +1332,9 @@ namespace Prazsky.Core.Render
         /// <param name="depth">How far through the glass the eye is carried, in world units: the bending's strength.</param>
         public void DrawRefraction(ICamera camera, Matrix world, float depth)
         {
+            //Potato bends nothing (#789): its tier turns the refraction off, and its effect has no technique for it
+            if (_potato) return;
+
             _singleInstance[0] = new ModelInstance(world, new Vector4(0f, 0f, 0f, 1f));
             EnsureInstanceBufferCapacity(1);
             _instanceBuffer.SetData(_singleInstance, 0, 1, SetDataOptions.Discard);
@@ -1393,6 +1412,12 @@ namespace Prazsky.Core.Render
         public void Draw(ICamera camera, ModelInstance[] instances, int instanceCount, BasicEffectParams effectParams, Vector3? diffuseTint = null)
         {
             if (instanceCount <= 0) return;
+
+            if (_potato)
+            {
+                DrawPotato(camera, instances, instanceCount, effectParams, diffuseTint);
+                return;
+            }
 
             EnsureInstanceBufferCapacity(instances.Length);
             _instanceBuffer.SetData(instances, 0, instanceCount, SetDataOptions.Discard);
@@ -1742,6 +1767,236 @@ namespace Prazsky.Core.Render
         {
             _singleInstance[0] = new ModelInstance(world, new Vector4(0f, 0f, 0f, 1f));
             DrawDepth(shadowViewProjection, _singleInstance, 1);
+        }
+
+        /// <summary>
+        /// The Potato effect's uniforms (#789): the lighting model's, the island's texture and every ball's colour,
+        /// heartbeat, ripple and dissolve - the subset of InstancedModel.fx's that PotatoModel.fx keeps, cached into the
+        /// same fields so <see cref="SetLightTint"/> serves both. Each must exist: a uniform the shader compiler found
+        /// unused is stripped and comes back null, and that is said here, at load, rather than as a null reference in
+        /// the middle of a frame.
+        /// </summary>
+        private void InitializePotatoEffect()
+        {
+            EffectParameter Required(string name) => _effect.Parameters[name] ?? throw new InvalidOperationException(
+                $"PotatoModel.fx has no uniform \"{name}\", or the compiler stripped it as unused; InstancedModelRenderer's Potato path sets it.");
+
+            EffectTechnique RequiredTechnique(string name) => _effect.Techniques[name] ?? throw new InvalidOperationException(
+                $"PotatoModel.fx has no technique \"{name}\", which InstancedModelRenderer's Potato path draws with.");
+
+            _viewParam = Required("View");
+            _projectionParam = Required("Projection");
+            _eyePositionParam = Required("EyePosition");
+            _diffuseColorParam = Required("DiffuseColor");
+            _emissiveColorParam = Required("EmissiveColor");
+            _ambientColorParam = Required("AmbientColor");
+            _specularColorParam = Required("SpecularColor");
+            _specularPowerParam = Required("SpecularPower");
+            _skyColorParam = Required("SkyColor");
+            _groundColorParam = Required("GroundColor");
+            _keyLightPositionParam = Required("KeyLightPosition");
+            _groundHeightParam = Required("GroundHeight");
+            _specularAmbientStrengthParam = Required("SpecularAmbientStrength");
+            _metalnessParam = Required("Metalness");
+            _twoSidedNormalsParam = Required("TwoSidedNormals");
+            _specularAlphaWeightParam = Required("SpecularAlphaWeight");
+            _dirLightStrengthParam = Required("DirLightStrength");
+            _emissiveTintParam = Required("EmissiveTint");
+
+            _textureParam = Required("Texture");
+            _detailScaleParam = Required("DetailScale");
+            _detailStrengthParam = Required("DetailStrength");
+            _detailBoostParam = Required("DetailBoost");
+
+            _patternPrimaryColorParam = Required("PatternPrimaryColor");
+            _emissiveStrengthParam = Required("EmissiveStrength");
+            _stillEmissionParam = Required("StillEmission");
+            _pulseTimeParam = Required("PulseTime");
+            _pulseSpeedParam = Required("PulseSpeed");
+            _pulseDepthParam = Required("PulseDepth");
+            _pulseDirectionParam = Required("PulseDirection");
+            _pulseWavelengthParam = Required("PulseWavelength");
+            _rippleStrengthParam = Required("RippleStrength");
+            _rippleAlarmColorParam = Required("RippleAlarmColor");
+
+            Required("DirLight1Direction").SetValue(DefaultLighting.Light1Direction);
+            Required("DirLight2Direction").SetValue(DefaultLighting.Light2Direction);
+            _dirLight0DiffuseParam = Required("DirLight0DiffuseColor");
+            _dirLight0SpecularParam = Required("DirLight0SpecularColor");
+            _dirLight1DiffuseParam = Required("DirLight1DiffuseColor");
+            _dirLight1SpecularParam = Required("DirLight1SpecularColor");
+            _dirLight2DiffuseParam = Required("DirLight2DiffuseColor");
+            _dirLight2SpecularParam = Required("DirLight2SpecularColor");
+
+            _mainTechnique = RequiredTechnique("PotatoLit");
+            _potatoTexturedTechnique = RequiredTechnique("PotatoTextured");
+            _potatoBallTechnique = RequiredTechnique("PotatoBall");
+            _effect.CurrentTechnique = _mainTechnique;
+
+            SetLightTint(Vector3.One, Vector3.One);
+        }
+
+        /// <summary>
+        /// <see cref="Draw(ICamera, ModelInstance[], int, BasicEffectParams, Vector3?)"/> through the Potato effect (#789):
+        /// the same instance upload, the same material arithmetic (the tint's luminance, BasicEffect's premultiply) and
+        /// the same per-draw restatement of every shared uniform, with three techniques in place of InstancedModel.fx's
+        /// thirty-five - a ball of any <see cref="BallShading"/> is <c>PotatoBall</c>, a detail-textured part is
+        /// <c>PotatoTextured</c>, everything else (city, glass, metal, crystal) is <c>PotatoLit</c>. Its own method
+        /// rather than branches through the desktop draw, so the desktop path reads exactly as it did.
+        /// </summary>
+        /// <summary>
+        /// The one colour a Potato ball is (#789), its desktop technique's look being out of reach: the tint it is drawn
+        /// with - flowing into the next colour across a wildcard's crossing, as the desktop's wildcard does, rather than
+        /// holding the colour it is leaving while the aim beam already shows the next (#789's review) - and, for the kinds
+        /// the desktop draws with no tint at all because their technique supplies the colour (the rock, the bomb, the zap
+        /// and the Cut round drawn as one, the acid, the hollow glass), a stand-in of their own, so they are not every one
+        /// a white ball glowing at its own pulse. Authored sRGB, as a tint is.
+        /// </summary>
+        private Vector3 PotatoBallColor(Vector3? tint)
+        {
+            if (tint.HasValue)
+                return Shading == BallShading.Wildcard
+                    ? Vector3.Lerp(tint.Value, PatternSecondaryColor, MathHelper.Clamp(WildcardProgress, 0f, 1f))
+                    : tint.Value;
+
+            return Shading switch
+            {
+                BallShading.Stone => new Vector3(0.55f, 0.53f, 0.50f),
+                BallShading.Bomb => new Vector3(0.16f, 0.16f, 0.18f),
+                BallShading.Zap => new Vector3(0.22f, 0.25f, 0.42f),
+                BallShading.Acid => new Vector3(0.45f, 0.85f, 0.15f),
+                BallShading.Hollow => new Vector3(0.80f, 0.86f, 0.92f),
+                _ => new Vector3(0.85f, 0.85f, 0.85f),
+            };
+        }
+
+        /// <summary>
+        /// <paramref name="instances"/>' first <paramref name="count"/> ordered by distance from <paramref name="eye"/>,
+        /// nearest first, in a buffer this renderer keeps and grows (no allocation on a frame that does not grow it).
+        /// </summary>
+        private ModelInstance[] SortedNearestFirst(ModelInstance[] instances, int count, Vector3 eye)
+        {
+            if (_sortedInstances.Length < count)
+            {
+                _sortedInstances = new ModelInstance[instances.Length];
+                _sortDepths = new float[instances.Length];
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                _sortedInstances[i] = instances[i];
+                _sortDepths[i] = Vector3.DistanceSquared(eye, instances[i].World.Translation);
+            }
+
+            Array.Sort(_sortDepths, _sortedInstances, 0, count);
+            return _sortedInstances;
+        }
+
+        private ModelInstance[] _sortedInstances = Array.Empty<ModelInstance>();
+        private float[] _sortDepths = Array.Empty<float>();
+
+        private void DrawPotato(ICamera camera, ModelInstance[] instances, int instanceCount, BasicEffectParams effectParams, Vector3? diffuseTint)
+        {
+            EnsureInstanceBufferCapacity(instances.Length);
+
+            //Balls nearest first (#789): a cluster is mostly balls behind other balls, and drawn near to far the GPU
+            //rejects their hidden pixels by depth before shading them. The desktop draws its balls in the order they
+            //come, its pixels being cheap enough; on the Pi the balls were two thirds of a heavy level's frame.
+            //Sorted into this renderer's own buffer, so the caller's array keeps its order.
+            _instanceBuffer.SetData(PatternGoreCount > 0 && instanceCount > 1
+                ? SortedNearestFirst(instances, instanceCount, camera.Position) : instances,
+                0, instanceCount, SetDataOptions.Discard);
+
+            _viewParam.SetValue(camera.View);
+            _projectionParam.SetValue(camera.Projection);
+            _eyePositionParam.SetValue(camera.Position);
+
+            Vector3 ambientLightColor = DefaultLighting.AmbientLightColor;
+            bool overrideSpecular = false;
+            Vector3 specularColor = DEFAULT_SPECULAR_COLOR;
+            float specularPower = DEFAULT_SPECULAR_POWER;
+            Vector3 emissiveColor = Vector3.Zero;
+
+            if (effectParams != null)
+            {
+                if (effectParams.AmbientLightColor != Vector3.Zero) ambientLightColor = effectParams.AmbientLightColor;
+                if (effectParams.SpecularColor != Vector3.Zero)
+                {
+                    overrideSpecular = true;
+                    specularColor = effectParams.SpecularColor;
+                    specularPower = effectParams.SpecularPower;
+                }
+                if (effectParams.EmissiveColor != Vector3.Zero) emissiveColor = effectParams.EmissiveColor;
+            }
+
+            //Every shared uniform, every draw, for the desktop draw's reason: the effect is one object under every
+            //renderer, and a value one renderer left standing would show on the next
+            _skyColorParam.SetValue(SkyColor);
+            _groundColorParam.SetValue(GroundColor);
+            _keyLightPositionParam.SetValue(KeyLightPosition);
+            _groundHeightParam.SetValue(GroundHeight);
+            _specularAmbientStrengthParam.SetValue(SpecularAmbientStrength);
+            _metalnessParam.SetValue(Metalness);
+            _twoSidedNormalsParam.SetValue(TwoSidedNormals);
+            _specularAlphaWeightParam.SetValue(SpecularAlphaWeight);
+            _emissiveTintParam.SetValue(EmissiveTint);
+            _dirLightStrengthParam.SetValue(DirLightStrength);
+
+            for (int i = 0; i < _parts.Length; i++)
+            {
+                ref MeshPartData part = ref _parts[i];
+
+                Vector3 diffuse = new(part.DiffuseColor.X, part.DiffuseColor.Y, part.DiffuseColor.Z);
+                bool ball = PatternGoreCount > 0 && part.DiffuseColor.W >= 1f;
+
+                if (diffuseTint.HasValue && !ball)
+                {
+                    float luminance = diffuse.X * 0.299f + diffuse.Y * 0.587f + diffuse.Z * 0.114f;
+                    diffuse = diffuseTint.Value * (luminance * 1.25f);
+                }
+
+                float alpha = part.DiffuseColor.W;
+                _diffuseColorParam.SetValue(new Vector4(diffuse * alpha, alpha));
+                _ambientColorParam.SetValue(ambientLightColor * diffuse * alpha);
+                _emissiveColorParam.SetValue((part.EmissiveColor + emissiveColor) * alpha);
+                _specularColorParam.SetValue(overrideSpecular ? specularColor : part.SpecularColor);
+                _specularPowerParam.SetValue(overrideSpecular ? specularPower : part.SpecularPower);
+
+                if (ball)
+                {
+                    _effect.CurrentTechnique = _potatoBallTechnique;
+                    _patternPrimaryColorParam.SetValue(PotatoBallColor(diffuseTint));
+                    _emissiveStrengthParam.SetValue(EmissiveStrength);
+                    _stillEmissionParam.SetValue(StillEmission);
+                    _pulseTimeParam.SetValue(PulseTime);
+                    _pulseSpeedParam.SetValue(PulseSpeed);
+                    _pulseDepthParam.SetValue(PulseDepth);
+                    _pulseDirectionParam.SetValue(PulseDirection);
+                    _pulseWavelengthParam.SetValue(PulseWavelength);
+                    _rippleStrengthParam.SetValue(RippleStrength);
+                    _rippleAlarmColorParam.SetValue(RippleAlarmColor);
+                }
+                else if (DetailTexture != null && alpha >= 1f)
+                {
+                    _effect.CurrentTechnique = _potatoTexturedTechnique;
+                    _textureParam.SetValue(DetailTexture);
+                    _detailScaleParam.SetValue(DetailScale);
+                    _detailStrengthParam.SetValue(DetailStrength);
+                    _detailBoostParam.SetValue(DetailBoost);
+                }
+                else _effect.CurrentTechnique = _mainTechnique;
+
+                _graphicsDevice.SetVertexBuffers(
+                    new VertexBufferBinding(part.VertexBuffer, part.VertexOffset, 0),
+                    new VertexBufferBinding(_instanceBuffer, 0, 1));
+                _graphicsDevice.Indices = part.IndexBuffer;
+
+                _effect.CurrentTechnique.Passes[0].Apply();
+
+                _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, part.StartIndex, part.PrimitiveCount, instanceCount);
+            }
+
+            _effect.CurrentTechnique = _mainTechnique;
         }
 
         private void EnsureInstanceBufferCapacity(int instanceCapacity)

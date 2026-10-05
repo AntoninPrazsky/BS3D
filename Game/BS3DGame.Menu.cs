@@ -784,7 +784,13 @@ namespace BS3D
 
         //DropCinematic's own submerge pull (#193) reads this once at Begin rather than holding a
         //SceneRenderer reference — meaningless off the sea, where nothing asks for it.
-        internal float SeaLevelY => _sceneRenderer.SeaLevelY;
+        internal float SeaLevelY => _sceneRenderer?.SeaLevelY ?? POTATO_NO_SEA_Y;
+
+        /// <summary>
+        /// <see cref="SeaLevelY"/> on the Potato path (#789), which has no sea to stand a level on: far enough below
+        /// anything a camera reaches that the drop cinematic's pull under the water never starts.
+        /// </summary>
+        private const float POTATO_NO_SEA_Y = -10000f;
 
         /// <summary>
         /// Where the live scene would have a camera look to show itself off, and null when it has no such
@@ -805,7 +811,8 @@ namespace BS3D
         /// <param name="fieldOfView">The frame the tour ends on, which each shot widens from.</param>
         /// <param name="random">The intro's own roll.</param>
         internal BS3D.Effects.IntroShot[] IntroPrologue(float fieldOfView, Random random) =>
-            BS3D.Effects.IntroPrologues.For(_scene,
+            //None on the Potato path (#789): the shots are of the backdrop's own features, which it does not draw
+            PotatoPath ? null : BS3D.Effects.IntroPrologues.For(_scene,
                 new BS3D.Effects.IntroContext(_sceneRenderer, _city, _rooftops, _forestScatter, _auroraScatter, _rig?.SunDirection, _wallClock),
                 fieldOfView, random);
 

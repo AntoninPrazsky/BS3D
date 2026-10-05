@@ -160,7 +160,9 @@ namespace Prazsky.Core.Tools
         /// </summary>
         private static void ReportShaders()
         {
-            string directory = Path.Combine(AppContext.BaseDirectory, CONTENT_SHADERS);
+            //Joined by the platform's separator, not through CONTENT_SHADERS, which is how the line names the folder: the
+            //backslash in it is a character of a file name on Linux (GamePi, #789), and the folder was never found there
+            string directory = Path.Combine(AppContext.BaseDirectory, "Content", "Shaders");
 
             if (!Directory.Exists(directory))
             {

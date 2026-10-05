@@ -495,7 +495,8 @@ namespace BS3D
             //BEFORE the factor below, because both size or rebuild the same target and the last writer wins:
             //SetSupersampleFactor ends by asking the pipeline for a target, so the sample count has to be
             //standing by then or the rebuild happens twice on every tier step.
-            _pipeline.MsaaSamples = preset.MsaaSamples;
+            //No scene target on the Potato path (#789), so nothing to sample: the back buffer's own count is the device's
+            if (_pipeline != null) _pipeline.MsaaSamples = preset.MsaaSamples;
 
             //The tier owns supersampling unless the command line pinned it, which is the one case the tier must
             //not write over — see _supersampleOverride. A tier step still changes everything else it owns, so a
@@ -513,7 +514,8 @@ namespace BS3D
 
             //The pipeline's setter writes the tonemap uniform and recreates the scene target in one move —
             //the factor is the target's size, so changing it is exactly what makes the recreate happen
-            _pipeline.SupersampleFactor = _supersampleFactor;
+            //No scene target on the Potato path (#789), and its tier's factor is 1
+            if (_pipeline != null) _pipeline.SupersampleFactor = _supersampleFactor;
 
             //The space scene sizes its stars in OUTPUT pixels rather than in texels, so it has to be told the
             //factor too — sized in texels a star would come out four times dimmer on High than on Medium.

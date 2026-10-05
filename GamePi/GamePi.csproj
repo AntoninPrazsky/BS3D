@@ -14,9 +14,11 @@
   an error below), which is the point of building it - build.yml builds it on an ARM64 runner on every push (#787).
   A DllImport into user32 is invisible to both and fails only when it runs.
 
-  Not here yet: the shaders. Every effect in Prazsky.Shaders is Shader Model 5.0, and DesktopGL compiles through
-  MojoShader, which stops at 3.0 - so this project references no Prazsky.Shaders, ships no Content/Shaders, and the
-  game stops at its first Load<Effect>. The Potato tier's own OpenGL shader set is what fills that in.-->
+  The shaders are its own (#789). Every effect in Prazsky.Shaders is Shader Model 5.0, and DesktopGL compiles through
+  MojoShader, which stops at 3.0 - so this project references no Prazsky.Shaders, and the Potato tier draws with a
+  small set of SM 3.0 effects in Shaders/. Those cannot be compiled on the Pi either (mgfxc needs the Windows D3D
+  compiler), so they are compiled on Windows (Shaders/compile.ps1, and gamepi-shaders.yml on every push that touches
+  them) and the compiled .xnb are committed in Shaders/Compiled, which this project only copies.-->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <OutputType>Exe</OutputType>
@@ -29,6 +31,10 @@
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <!--The Game's sources live one directory up; nothing under this folder is globbed by default except Platform/.-->
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <!--The content task would otherwise glob every .mgcb under this folder, Shaders/Shaders.mgcb included, and compiling
+    an effect off Windows needs Wine (MGFXC0001): those are compiled by Shaders/compile.ps1 and committed (#789). The
+    one content build this project runs is named below.-->
+    <EnableMGCBItems>false</EnableMGCBItems>
     <!--A Windows-only .NET API reached from a shared Game/ file is a build error here, not a warning (#787): a warning
     in a build nobody watches is a crash on the Pi found weeks later. It is what found InternetCheck's COM call (#786);
     the Windows build is net10.0-windows and never sees it.-->
@@ -47,6 +53,12 @@
     <Compile Include="..\Game\**\*.cs"
              Exclude="..\Game\bin\**;..\Game\obj\**;..\Game\Content\bin\**;..\Game\Content\obj\**;..\Game\Platform\CrashDialog.cs;..\Game\Platform\DisplayRefresh.cs;..\Game\Platform\QualityLock.cs;..\Game\Platform\WindowIcon.cs" />
     <Compile Include="Platform\**\*.cs" />
+  </ItemGroup>
+
+  <!--The Potato tier's OpenGL effects, compiled on Windows and committed (see the comment at the top), copied to
+  Content/Shaders where Load<Effect>("Shaders/...") looks - the same place Prazsky.Shaders puts the Windows build's.-->
+  <ItemGroup>
+    <Content Include="Shaders\Compiled\*.xnb" Link="Content\Shaders\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
