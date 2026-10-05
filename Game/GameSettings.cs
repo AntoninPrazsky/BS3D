@@ -27,7 +27,7 @@ namespace BS3D
     /// development switch that survives a restart is one that is eventually left on, and the single thing it
     /// must never do is make a real save look further along than it is. And the command-line pins
     /// (<c>quality=</c>, <c>ssaa=</c>, <c>scene=</c>, <c>sky=</c>, <c>exposure=</c>, <c>mute</c>,
-    /// <c>fullscreen</c>, <c>nocap</c>), which are a <i>run's</i> arguments and not the player's answers.
+    /// <c>fullscreen</c>, <c>nocap</c>, <c>render=</c>), which are a <i>run's</i> arguments and not the player's answers.
     /// </para>
     /// <para>
     /// Lenient like <c>PlayerProgress</c> and for a stronger reason: an unreadable save costs a campaign, but
@@ -145,6 +145,18 @@ namespace BS3D
         /// </summary>
         [JsonPropertyName("fpsOverlay")]
         public bool FpsOverlay { get; set; } = true;
+
+        /// <summary>
+        /// The height the 3D is drawn at (#801), the menus and the HUD staying the display's. <b>Null (absent) until the
+        /// player chooses</b>, and the build's default answers: native on Windows; on the Raspberry Pi native too, with one
+        /// automatic step down to 1280x720 when the game measures that it is not holding the refresh (the owner's rule, so
+        /// a faster Pi simply stays native). <b>0 is native, chosen</b>, which switches that step off as surely as any
+        /// height does. A height rather than a share of the display, because the cost follows pixels: a Pi moved to a 4K
+        /// television keeps its 720 rows. Snapped in memory to the display's own ladder (<c>RenderResolution</c>), never in
+        /// the file; a negative value reads as not chosen.
+        /// </summary>
+        [JsonPropertyName("renderHeight")]
+        public int? RenderHeight { get; set; }
 
         [JsonPropertyName("uncappedFps")]
         public bool UncappedFps { get; set; }
@@ -335,6 +347,7 @@ namespace BS3D
                         //A tier this build does not have reads as "none chosen" rather than as an index off the
                         //end of QualityPreset.Presets: the string converter also accepts a bare number (#484)
                         if (settings.Quality.HasValue && !Enum.IsDefined(settings.Quality.Value)) settings.Quality = null;
+                        if (settings.RenderHeight < 0) settings.RenderHeight = null;
 
                         //The mix's rows are 0..1 and go straight to SoundEffectInstance.Volume, which refuses
                         //anything outside that - a hand-edited "master": 4 must not be the reason a click throws

@@ -1,4 +1,5 @@
 ﻿using BS3D.Platform;
+using Microsoft.Xna.Framework;
 using Prazsky.Core.Render;
 using System;
 
@@ -133,6 +134,25 @@ namespace BS3D
         /// </summary>
         private const float QUALITY_RAMP_FRACTION = 0.03f;
 
+        /// <summary>
+        /// The frame rate under which the Raspberry Pi's automatic step lowers the resolution (#801): the refresh less
+        /// <see cref="RESOLUTION_REFRESH_MARGIN"/>. Closer to the refresh than the quality floor, by the owner's rule: the
+        /// Pi steps down when it is <i>not holding 60</i>, where the desktop spends image quality only when well short.
+        /// </summary>
+        private float _resolutionMinFps = DEFAULT_QUALITY_MIN_FPS;
+
+        /// <summary>
+        /// The share of the refresh the resolution step forgives: 60 Hz gives 57. A machine holding the refresh sits on the
+        /// limiter's cap a few per cent above it (<see cref="Platform.FrameLimiter"/>), so its jitter stays above this.
+        /// </summary>
+        private const float RESOLUTION_REFRESH_MARGIN = 0.05f;
+
+        /// <summary>The height the Pi's automatic step goes to, or the display's rung nearest it (#801).</summary>
+        private const int AUTO_RENDER_HEIGHT = 720;
+
+        /// <summary>Whether the automatic step has been taken this run: once, and never back up (#801).</summary>
+        private bool _resolutionStepped;
+
         #endregion
 
         /// <summary>
@@ -149,6 +169,7 @@ namespace BS3D
             float refresh = 0f;
             if (DisplayRefresh.TryGetForWindow(Window?.Handle ?? IntPtr.Zero, out int hz)) refresh = hz;
             _qualityMinFps = Math.Max(refresh * (1f - QUALITY_REFRESH_MARGIN), QUALITY_MIN_FPS_FLOOR);
+            _resolutionMinFps = Math.Max(refresh * (1f - RESOLUTION_REFRESH_MARGIN), QUALITY_MIN_FPS_FLOOR);
 
             //The frame limiter's target comes off the SAME reading (#270), so there is one place that answers
             //"what is this monitor's refresh" and the two cannot drift apart. Kept raw rather than floored the
@@ -200,7 +221,8 @@ namespace BS3D
             _qualityWindowSeconds = 0f;
             _qualityWindowFrames = 0;
 
-            if (fps >= _qualityMinFps)
+            //On a pinned tier the probe runs at all only for the Pi's resolution (#801), and judges against its floor
+            if (fps >= (_qualityPinnedByPlayer ? _resolutionMinFps : _qualityMinFps))
             {
                 //Fast enough for what is on screen NOW. The latch closes here rather than the probe watching
                 //for ever — a dial that keeps moving under the player is worse than one merely set wrong once
@@ -248,6 +270,16 @@ namespace BS3D
             if (fps > _qualityPrevWindowFps * (1f + QUALITY_RAMP_FRACTION))
             {
                 _qualityPrevWindowFps = fps;
+                return;
+            }
+
+            //The Raspberry Pi's lever (#801): its tier is locked, so what it spends is resolution, in one step to 1280x720
+            //(the display's rung nearest it), and only while the player has chosen none - see GameSettings.RenderHeight
+            if (_qualityPinnedByPlayer)
+            {
+                if (CanLowerResolution) LowerResolution(fps, where);
+
+                _qualitySettled = true;
                 return;
             }
 
@@ -309,13 +341,42 @@ namespace BS3D
         /// </summary>
         internal void ReopenQualityProbe()
         {
-            if (_qualityPinnedByPlayer) return;
+            //A pinned tier is the player's decision; the Pi's resolution step (#801) is the one reason to measure anyway
+            if (_qualityPinnedByPlayer && !CanLowerResolution) return;
 
             _qualitySettled = false;
             _qualityWarmupLeft = QUALITY_WARMUP_SECONDS;
             _qualityWindowSeconds = 0f;
             _qualityWindowFrames = 0;
             _qualityPrevWindowFps = 0f;
+        }
+
+        /// <summary>
+        /// Whether the probe may still lower the resolution (#801): on the Pi, at the build's own choice, not stepped yet
+        /// this run, and above the step's height.
+        /// </summary>
+        private bool CanLowerResolution =>
+            IsResolutionAutomatic && !_resolutionStepped && _renderSize.Y > AutoRenderHeight;
+
+        //The step's height on this display: 720, or the rung nearest it on a ladder without one
+        private int AutoRenderHeight => RenderResolution.Nearest(_renderLadder, AUTO_RENDER_HEIGHT);
+
+        /// <summary>
+        /// The Pi's one automatic step (#801): the 3D to 1280x720, the menus and the HUD staying at the display's size.
+        /// Not stored - a measured verdict that was stored would be a ratchet, the quality probe's own argument - so the
+        /// next launch measures again, and a Pi that holds the refresh stays native.
+        /// </summary>
+        private void LowerResolution(float fps, string where)
+        {
+            Point from = _renderSize;
+            _renderHeight = AutoRenderHeight;
+            _resolutionStepped = true;
+            ApplyRenderResolution();
+
+            Console.WriteLine($"[resolution] {fps:F0} FPS in the {where} at {from.X}x{from.Y} (floor {_resolutionMinFps:F0}) — lowering the 3D to {_renderSize.X}x{_renderSize.Y}");
+
+            _mainMenuPage.ShowResolutionNotice(_renderSize);
+            _settingsPage.Refresh();
         }
 
         /// <summary>

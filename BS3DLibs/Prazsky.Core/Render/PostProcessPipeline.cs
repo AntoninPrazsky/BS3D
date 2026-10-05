@@ -197,6 +197,10 @@ namespace Prazsky.Core.Render
         //#298 PROBE: the fraction of the back buffer the scene target is, below 1. See RenderScale.
         private float _renderScale = 1f;
 
+        //The player's resolution (#801): the size the 3D is drawn at before the supersample factor, Zero for the back
+        //buffer's own. See RenderSize.
+        private Point _renderSize;
+
         //What the tonemap was last told the defocus mix is. Held so the uniform is written on the frames it
         //actually moves, per the caching discipline in BestPractices.md: a frame with no blur up — most of
         //play — sends nothing, and a held precise aim (#214, the one in-play caller) settles at its peak and
@@ -346,6 +350,35 @@ namespace Prazsky.Core.Render
             {
                 _supersampleFactor = Math.Clamp(value, 1, 4);
                 _tonemapSupersampleFactorParam.SetValue(_supersampleFactor);
+                EnsureTarget();
+            }
+        }
+
+        /// <summary>
+        /// The size the 3D is drawn at before <see cref="SupersampleFactor"/> (#801): the Game's Resolution row, which the
+        /// player sets below the display's own, the scene target then being this size times the factor and the resolve
+        /// scaling it to the back buffer. <see cref="Point.Zero"/>, or anything not smaller than the back buffer, is the
+        /// back buffer's own, exactly as before it existed.
+        /// <para>
+        /// <b>The player's own choice, and only that.</b> #298 shut the lever below for the tiers and the adaptive probe,
+        /// and that stands: a tier lowers what is drawn, never how many pixels. What the owner opened (#801) is a row the
+        /// player sets, every rung at the display's own aspect so nothing is stretched. The bloom, the defocus, the motion
+        /// blur, the grab and the foreground layers keep the back buffer's size: the cup composited over a scaled scene is
+        /// as sharp as it ever was, and the menus and the HUD are drawn after all of it at the display's own resolution.
+        /// </para>
+        /// <para>
+        /// Ahead of <see cref="RenderScale"/>, which stays the Testbed's instrument and applies only while this is unset.
+        /// Setting it recreates the target.
+        /// </para>
+        /// </summary>
+        public Point RenderSize
+        {
+            get => _renderSize;
+            set
+            {
+                if (value == _renderSize) return;
+
+                _renderSize = value;
                 EnsureTarget();
             }
         }
@@ -510,13 +543,20 @@ namespace Prazsky.Core.Render
             //both hold — a supersampled target is already larger than the buffer, so the factor wins and the
             //scale is ignored above 1. Floored at one pixel, since a scale on a narrow window can round an
             //axis to zero on its own.
+            //#801: the player's resolution, when it is below the buffer, is the base the factor multiplies, and the probe's
+            //scale is not consulted - the Testbed's instrument and the player's row are never asked for at once
+            bool sized = _renderSize.X > 0 && _renderSize.Y > 0
+                && (_renderSize.X < bufferWidth || _renderSize.Y < bufferHeight);
+            int baseWidth = sized ? Math.Min(_renderSize.X, bufferWidth) : bufferWidth;
+            int baseHeight = sized ? Math.Min(_renderSize.Y, bufferHeight) : bufferHeight;
+
             int width = _supersampleFactor > 1
-                ? bufferWidth * _supersampleFactor
-                : Math.Max(1, (int)MathF.Round(bufferWidth * _renderScale));
+                ? baseWidth * _supersampleFactor
+                : sized ? baseWidth : Math.Max(1, (int)MathF.Round(bufferWidth * _renderScale));
 
             int height = _supersampleFactor > 1
-                ? bufferHeight * _supersampleFactor
-                : Math.Max(1, (int)MathF.Round(bufferHeight * _renderScale));
+                ? baseHeight * _supersampleFactor
+                : sized ? baseHeight : Math.Max(1, (int)MathF.Round(bufferHeight * _renderScale));
 
             //The sample count is part of what the target IS, so it is compared beside the size — a change of
             //samples alone (MsaaSamples) has to rebuild a target whose dimensions have not moved.
@@ -620,13 +660,12 @@ namespace Prazsky.Core.Render
             //resolve read the scene target by the factor as set
             if (_resolvedFromMotion) _tonemapSupersampleFactorParam.SetValue(1);
 
-            //#298 PROBE: whether the resolve is magnifying rather than averaging. Read off the TARGET against
-            //the buffer rather than off _renderScale, so it is true of what was actually built — a rounded
-            //scale on an odd window can leave the two the same size, and a box filter is right whenever they
-            //are. Written per resolve like the texel size above and for the same reason: both follow a target
-            //that any resize recreates.
-            _tonemapMagnifyParam.SetValue(
-                source.Width < _device.PresentationParameters.BackBufferWidth ? 1f : 0f);
+            //Whether the resolve takes one bilinear tap rather than the box (#298's probe, #801's resolution): whenever the
+            //scene is not exactly the back buffer times the factor it is read at, there is no whole block of texels under
+            //an output pixel to average. Read off the TARGET, so it is true of what was actually built - a rounded scale
+            //on an odd window can leave the two the same size, and a box filter is right whenever they are. Written per
+            //resolve like the texel size above and for the same reason: both follow a target any resize recreates.
+            _tonemapMagnifyParam.SetValue(ScaledScene(source, _resolvedFromMotion ? 1 : _supersampleFactor));
 
             //The grain re-rolls every frame and lands one grain per OUTPUT pixel, so the seed and the
             //back-buffer size go out here
@@ -769,8 +808,7 @@ namespace Prazsky.Core.Render
             //previous frame's, and a resize in between would have left them describing a disposed target.
             _tonemapSceneTextureParam.SetValue(_sceneTarget);
             _tonemapSourceTexelSizeParam.SetValue(new Vector2(1f / _sceneTarget.Width, 1f / _sceneTarget.Height));
-            _tonemapMagnifyParam.SetValue(
-                _sceneTarget.Width < _device.PresentationParameters.BackBufferWidth ? 1f : 0f);
+            _tonemapMagnifyParam.SetValue(ScaledScene(_sceneTarget, _supersampleFactor));
 
             _tonemapEffect.CurrentTechnique = _sceneGrabTechnique;
             DrawFullScreenQuad(_tonemapEffect);
@@ -785,13 +823,20 @@ namespace Prazsky.Core.Render
             return grab;
         }
 
+        //1 when the scene target is not exactly the back buffer times the factor it is read at (#298, #801): the tonemap
+        //then reads it with one bilinear tap, there being no whole block of texels under an output pixel to average
+        private float ScaledScene(Texture2D scene, int factor) =>
+            scene.Width != _device.PresentationParameters.BackBufferWidth * factor
+            || scene.Height != _device.PresentationParameters.BackBufferHeight * factor ? 1f : 0f;
+
         /// <summary>
         /// Composites the sharp foreground layer over the resolved frame — the layer's own exit from linear
         /// light, run by the same effect and the same figures (exposure, ACES, grain, sRGB) as the resolve
         /// itself, so all the move out of the HDR pass changed about the object is that the defocus no
         /// longer takes it. Call immediately after <see cref="Resolve"/> handed it the layer: the composite
-        /// samples with the texel size the resolve just sent, which is the layer's own (the two targets are
-        /// the same size by construction), and it draws on top of everything the resolve left behind.
+        /// reuses the resolve's figures and states the layer's own texel size (the layer is the back buffer times the
+        /// factor; the scene is the same size only at native, #801), and it draws on top of everything the resolve left
+        /// behind.
         /// </summary>
         /// <param name="foreground">The layer this frame drew into <see cref="ForegroundTarget"/>. What is
         /// being presented is the caller's knowledge; where it lives is the pipeline's.</param>
@@ -816,10 +861,13 @@ namespace Prazsky.Core.Render
             if (_resolvedFromMotion)
             {
                 _tonemapSceneTextureParam.SetValue(_sceneTarget);
-                _tonemapSourceTexelSizeParam.SetValue(new Vector2(1f / _sceneTarget.Width, 1f / _sceneTarget.Height));
-                _tonemapMagnifyParam.SetValue(
-                    _sceneTarget.Width < _device.PresentationParameters.BackBufferWidth ? 1f : 0f);
+                _tonemapMagnifyParam.SetValue(ScaledScene(_sceneTarget, _supersampleFactor));
             }
+
+            //The box filter below reads the LAYERS, which are the back buffer times the factor whatever the scene is: their
+            //own texel size, then. The same figure as the scene's at native, so nothing changes there; under a player's
+            //lower resolution (#801) the scene is read with one bilinear tap that needs none (ScaledScene).
+            _tonemapSourceTexelSizeParam.SetValue(new Vector2(1f / foreground.Width, 1f / foreground.Height));
 
             _tonemapForegroundTextureParam.SetValue(foreground);
             _tonemapRefractionEnabledParam.SetValue(refraction != null ? 1f : 0f);
