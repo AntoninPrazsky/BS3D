@@ -67,8 +67,10 @@ namespace BS3D
 
         /// <summary>
         /// The width of the fins on the Potato path - the rims' companion for every outline that is not a ball's (#804,
-        /// <see cref="EdgeFinMesh"/>) - when the command line names none: 0, off, until measured on the Pi, like
-        /// <see cref="POTATO_RIM_PIXELS"/>. <c>fins=1</c> is the exact coverage of a pixel by an edge.
+        /// <see cref="EdgeFinMesh"/>) - when the command line names none: 0, off. The Pi measured them at +1.05 to +1.43 ms
+        /// a frame, the same at native and at 720p: V3D's binning runs their vertex shader for every vertex of every
+        /// collapsed quad, and with them Cabinet's native frame is 16.0 ms against the limiter's 16.1 ("The Potato path"
+        /// in <c>docs/rendering.md</c>). <c>fins=1</c> is the exact coverage of a pixel by an edge.
         /// </summary>
         private const float POTATO_FIN_PIXELS = 0f;
 
