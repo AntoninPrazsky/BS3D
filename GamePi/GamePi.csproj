@@ -79,6 +79,13 @@
     <PackageReference Include="NVorbis" />
   </ItemGroup>
 
+  <!--The window's icon (#792): MonoGame's SDL window loads an embedded "<assembly name>.Icon.bmp" for itself
+  (SdlGameWindow), so naming it is all it takes - the Windows build's WindowIcon publishes the exe's icon frames through
+  user32 instead. Made from Game/Icon.ico's 256-pixel frame, at 128.-->
+  <ItemGroup>
+    <EmbeddedResource Include="Icon.bmp" LogicalName="BS3D.Icon.bmp" />
+  </ItemGroup>
+
   <!--The menu's fonts, embedded under the names the Game's LoadEmbeddedFont asks for (the Link is what makes the
   manifest name BS3D.Content.Fonts.<file> for a file outside this folder).-->
   <ItemGroup>
