@@ -159,6 +159,11 @@ namespace BS3D
         //render= is used as given, so a measurement can ask for any height; a stored one is snapped to the ladder
         private readonly bool _renderHeightFromLaunch;
 
+        //"rims=" and "ballflat" (#804), as the command line gave them: the balls' rim width on the Potato path, null for the
+        //build's own, and the unlit-ball measurement. Read where the ball set is built.
+        private readonly float? _launchRims;
+        private readonly bool _launchBallFlat;
+
         //The display's ladder (RenderResolution), native first: the Resolution row's rungs. Rebuilt with the render size.
         private int[] _renderLadder = [];
 
@@ -773,6 +778,8 @@ namespace BS3D
             _renderHeight = launch.RenderHeight ?? _settings.RenderHeight ?? 0;
             _renderHeightChosen = launch.RenderHeight.HasValue || _settings.RenderHeight.HasValue;
             _renderHeightFromLaunch = launch.RenderHeight.HasValue;
+            _launchRims = launch.Rims;
+            _launchBallFlat = launch.BallFlat;
             _startupPreview = launch.Preview;
 
             //What one argument implies about another (level= means play, lost means result) is the script's
@@ -1163,8 +1170,18 @@ namespace BS3D
             _balls = new BallRenderSet(GraphicsDevice, _instancingEffect, ripples: true)
             {
                 //Coarser meshes on the Potato path (#789), where a ball's vertices were a sixth of a heavy level's frame
-                LodBias = PotatoPath ? POTATO_BALL_LOD_BIAS : 1f
+                LodBias = PotatoPath ? POTATO_BALL_LOD_BIAS : 1f,
+
+                //The balls' rims (#804), the Potato path's anti-aliasing: a width asked for on the command line, or the
+                //build's own. Nothing on the desktop path, whose target is multisampled or supersampled.
+                Rims = PotatoPath && (_launchRims ?? POTATO_RIM_PIXELS) > 0f
             };
+
+            if (PotatoPath)
+            {
+                InstancedModelRenderer.RimRampPixels = _launchRims is float rims && rims > 0f ? rims : Math.Max(POTATO_RIM_PIXELS, 1f);
+                InstancedModelRenderer.PotatoFlatBalls = _launchBallFlat;
+            }
             ApplyRenderResolution();
 
             #endregion

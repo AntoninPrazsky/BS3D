@@ -59,6 +59,48 @@ namespace Prazsky.Core.Render
         private const float POTATO_LAVA_SEAM_SHARE = 0.3f;
         private EffectParameter _ballCrustTintParam, _ballCrustDarkParam, _ballGlowParam;
 
+        //The balls' rims on the Potato path (#804): see PotatoModel.fx's PotatoBallRim for what a rim is
+        private EffectTechnique _potatoBallRimTechnique, _potatoBallFlatTechnique;
+        private EffectParameter _rimShapeParam, _rimSecantParam;
+
+        /// <summary>
+        /// The strip this renderer's balls' rims are drawn on (#804), and the switch: with one set, and
+        /// <see cref="RimPass"/> on, <see cref="Draw(ICamera, ModelInstance[], int, BasicEffectParams, Vector3?)"/> on the
+        /// Potato path draws the outlines' rings in place of the balls themselves. Null, the default, is no rims; only a
+        /// ball renderer is ever given one. The mesh is the caller's to dispose.
+        /// </summary>
+        public BallRimMesh RimMesh { get; set; }
+
+        /// <summary>
+        /// Whether a draw is the balls' rims and not the balls (#804). The caller - <c>BallRenderSet</c> - draws every
+        /// bucket once as it always did and then, with this on, every bucket once more: the same calls with the same
+        /// per-bucket uniforms, so a ring is shaded exactly as the ball it finishes, and all of them after all of the
+        /// balls, which is what a ring's blend needs to find behind it.
+        /// </summary>
+        public bool RimPass { get; set; }
+
+        /// <summary>
+        /// How far this renderer's mesh may fall short of the true circle, as a share of the radius:
+        /// <c>1 - cos(pi / slices)</c> for a sphere of that many slices. The rim's strip reaches that far inside the
+        /// outline (and a pixel more), so it fills the slivers a coarse mesh leaves and the outline is a circle.
+        /// </summary>
+        public float RimMeshShortfall { get; set; }
+
+        /// <summary>The sphere mesh's radius in its own units, which the rim's shader scales by the instance's.</summary>
+        public float RimMeshRadius { get; set; } = 0.5f;
+
+        /// <summary>
+        /// The width of the rims' ramp in pixels of the target (#804): 1 is the exact coverage of a pixel by an edge,
+        /// more is softer. One figure for every renderer, being a property of the picture and not of a mesh.
+        /// </summary>
+        public static float RimRampPixels { get; set; } = 1f;
+
+        /// <summary>
+        /// Testing only (#804): every Potato ball drawn as its flat colour, no light at all - the floor under any cheaper
+        /// ball shader, measured on the Pi before one is written.
+        /// </summary>
+        public static bool PotatoFlatBalls { get; set; }
+
         private EffectTechnique _potatoTexturedTechnique, _potatoBallTechnique, _potatoBallDitherTechnique;
         private readonly MeshPartData[] _parts;
         private DynamicVertexBuffer _instanceBuffer;
@@ -1853,6 +1895,10 @@ namespace Prazsky.Core.Render
             _potatoBallTechnique = RequiredTechnique("PotatoBall");
             _potatoBallDitherTechnique = RequiredTechnique("PotatoBallDither");
             _dissolvePixelSizeParam = Required("DissolvePixelSize");
+            _potatoBallRimTechnique = RequiredTechnique("PotatoBallRim");
+            _potatoBallFlatTechnique = RequiredTechnique("PotatoBallFlat");
+            _rimShapeParam = Required("RimShape");
+            _rimSecantParam = Required("RimSecant");
             _effect.CurrentTechnique = _mainTechnique;
 
             SetLightTint(Vector3.One, Vector3.One);
@@ -1951,15 +1997,21 @@ namespace Prazsky.Core.Render
         /// </summary>
         private void DrawPotato(ICamera camera, ModelInstance[] instances, int instanceCount, BasicEffectParams effectParams, Vector3? diffuseTint)
         {
+            //The rims' pass (#804) draws a ring for every ball of a bucket in place of the bucket: only a ball renderer
+            //that was given the strip has any
+            bool rims = RimPass;
+            if (rims && (RimMesh == null || PatternGoreCount <= 0)) return;
+
             EnsureInstanceBufferCapacity(instances.Length);
 
             //Balls nearest first, and the dithered ones apart at the end (#789, #794): see OrderForPotato. Arranged
             //into this renderer's own buffer, so the caller's array keeps its order. Everything that is not a ball
-            //renderer's is one run, in the order it came.
+            //renderer's is one run, in the order it came - and so are the rims, whose shader drops the ring of a ball
+            //being dithered and whose blend, depth-tested against every ball already drawn, needs no order.
             int clean = instanceCount;
             ModelInstance[] ordered = instances;
 
-            if (PatternGoreCount > 0)
+            if (PatternGoreCount > 0 && !rims)
             {
                 clean = OrderForPotato(instances, instanceCount, camera.Position, ref _sortedInstances, ref _sortDepths);
                 ordered = _sortedInstances;
@@ -2024,7 +2076,7 @@ namespace Prazsky.Core.Render
 
                 if (ball)
                 {
-                    _effect.CurrentTechnique = _potatoBallTechnique;
+                    _effect.CurrentTechnique = PotatoFlatBalls ? _potatoBallFlatTechnique : _potatoBallTechnique;
                     _patternPrimaryColorParam.SetValue(PotatoBallColor(diffuseTint));
                     _emissiveStrengthParam.SetValue(EmissiveStrength);
                     _stillEmissionParam.SetValue(StillEmission);
@@ -2052,8 +2104,13 @@ namespace Prazsky.Core.Render
                 else _effect.CurrentTechnique = _mainTechnique;
 
                 //A ball part is two runs of the one instance buffer: the balls with no dither (nearest first), then the
-                //dithered ones through the technique that has the clip. Anything else is one run.
-                if (!ball) DrawPotatoRun(part, 0, instanceCount);
+                //dithered ones through the technique that has the clip. Anything else is one run. In the rims' pass a ball
+                //part is its rings, under the very uniforms just set for it, and anything else is nothing.
+                if (rims)
+                {
+                    if (ball) DrawPotatoRims(camera, instanceCount);
+                }
+                else if (!ball) DrawPotatoRun(part, 0, instanceCount);
                 else
                 {
                     if (clean > 0) DrawPotatoRun(part, 0, clean);
@@ -2085,6 +2142,45 @@ namespace Prazsky.Core.Render
             _effect.CurrentTechnique.Passes[0].Apply();
 
             _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, part.StartIndex, part.PrimitiveCount, count);
+        }
+
+        /// <summary>
+        /// The rings of the first <paramref name="instanceCount"/> balls of the instance buffer (#804), one instanced draw
+        /// of <see cref="RimMesh"/> through <c>PotatoBallRim</c> under the ball uniforms the caller has just set: blended
+        /// (premultiplied, as every Potato surface is), depth-tested and not depth-written, with no culling since the
+        /// strip has no facing. The states are put back as they were found.
+        /// </summary>
+        private void DrawPotatoRims(ICamera camera, int instanceCount)
+        {
+            //What one pixel of the BOUND target spans in the world at a clip w of 1: the scene target's own height below
+            //native (#801), the back buffer's otherwise - the viewport is whichever is bound
+            float pixel = 2f / (camera.Projection.M22 * _graphicsDevice.Viewport.Height);
+
+            _rimShapeParam.SetValue(new Vector4(pixel, RimMeshRadius, RimMeshShortfall, Math.Max(RimRampPixels, 0.25f)));
+            _rimSecantParam.SetValue(RimMesh.Secant);
+
+            BlendState blend = _graphicsDevice.BlendState;
+            DepthStencilState depth = _graphicsDevice.DepthStencilState;
+            RasterizerState raster = _graphicsDevice.RasterizerState;
+
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            _effect.CurrentTechnique = _potatoBallRimTechnique;
+
+            _graphicsDevice.SetVertexBuffers(
+                new VertexBufferBinding(RimMesh.VertexBuffer, 0, 0),
+                new VertexBufferBinding(_instanceBuffer, 0, 1));
+            _graphicsDevice.Indices = RimMesh.IndexBuffer;
+
+            _effect.CurrentTechnique.Passes[0].Apply();
+
+            _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, RimMesh.PrimitiveCount, instanceCount);
+
+            _graphicsDevice.BlendState = blend;
+            _graphicsDevice.DepthStencilState = depth;
+            _graphicsDevice.RasterizerState = raster;
         }
 
         private void EnsureInstanceBufferCapacity(int instanceCapacity)

@@ -57,6 +57,13 @@ namespace BS3D
         private const float POTATO_BALL_LOD_BIAS = 2f;
 
         /// <summary>
+        /// The width of the balls' rims on the Potato path, in pixels of the target (#804), when the command line names
+        /// none: <b>0, off, until its cost has been measured on the Pi</b> - the picture was judged on Windows through
+        /// DesktopGL, the price on V3D is the Pi's to say. <c>rims=1</c> is the exact coverage of a pixel by an edge.
+        /// </summary>
+        private const float POTATO_RIM_PIXELS = 0f;
+
+        /// <summary>
         /// Whether the frame being drawn presents the cup or the confetti, for <see cref="CompositeForegroundLast"/>.
         /// </summary>
         private bool _potatoPresenting;

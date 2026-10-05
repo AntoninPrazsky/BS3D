@@ -102,6 +102,14 @@ float BallGlow;
 //uniform the dithered draw reads (#794)
 float DissolvePixelSize = 1;
 
+//The ball's rim (#804, PotatoBallRim below): x the world units one pixel of the target spans at a clip w of 1
+//(2 / (Projection._22 * the target's height)), y the sphere mesh's radius in its own units, z the share of its radius the
+//mesh's outline may fall short of the true circle (1 - cos(pi / slices): the strip reaches that far inside the limb, and a
+//pixel more), w the ramp's width in pixels. And the secant of half a segment of the strip, which its outer row is pushed
+//out by so that the CHORD between two of its vertices still covers the ramp.
+float4 RimShape = float4(0.001, 0.5, 0.01, 1);
+float RimSecant = 1.02;
+
 struct VertexInput
 {
     float4 Position : POSITION0;
@@ -271,7 +279,16 @@ Shaded Shade(float3 worldPosition, float3 rawNormal, float4 occlusionData, float
     float roughness = sqrt(2.0 / (SpecularPower + 2.0));
     float3 environment = lerp(SkyRadiance(reflect(-eye, normal)), (SkyColor + GroundColor) * 0.5, saturate(roughness));
     float3 reflectanceAtNormal = lerp(0.04 * linearSpecular, linearSpecular, Metalness);
-    float3 fresnel = reflectanceAtNormal + (max(1.0, reflectanceAtNormal) - reflectanceAtNormal) * pow(1 - saturate(dot(normal, eye)), 5);
+
+    //How squarely the surface faces the eye, never less than it turns across half this pixel (#804). The Fresnel term
+    //below is the fifth power of what is left, so within the last fifth of a pixel of a silhouette it climbs to 1: a pixel
+    //whose centre happens to fall there is the dome's full reflection, its neighbour along the outline is not, and the
+    //edge is a broken bright line that is the sampling's and not the surface's. What a pixel shows is the surface
+    //across its whole width; half its own change in facing is the middle of that, and nowhere else is it reached.
+    float facing = saturate(dot(normal, eye));
+    facing = max(facing, 0.5 * fwidth(facing));
+
+    float3 fresnel = reflectanceAtNormal + (max(1.0, reflectanceAtNormal) - reflectanceAtNormal) * pow(1 - facing, 5);
     float3 glints = (specular * linearSpecular + environment * fresnel * SpecularAmbientStrength) * occlusion;
 
     //The desktop scales them by lerp(1, alpha, SpecularAlphaWeight): this splits that same total into the share the
@@ -361,7 +378,9 @@ float DissolveNoise(float2 cell)
     return frac((p.x + p.y) * p.z);
 }
 
-float4 BallPS(VertexOutput input) : COLOR0
+//What a ball's pixel is, display-encoded: BallPS's whole body, a function because the rim's pixels (PotatoBallRim) are the
+//same ball's and must come out of the same arithmetic, or the ring would show against the ball it finishes
+float3 BallColour(VertexOutput input)
 {
     float3 primary = SrgbToLinear(PatternPrimaryColor);
     float3 normal = normalize(input.WorldNormal);
@@ -394,7 +413,136 @@ float4 BallPS(VertexOutput input) : COLOR0
     float3 alarmed = lerp(shaded, RippleAlarmColor * 1.7, amount * 0.95);
     shaded = ripple < 0 ? alarmed : lit;
 
-    return float4(ToDisplay(shaded), 1);
+    return ToDisplay(shaded);
+}
+
+float4 BallPS(VertexOutput input) : COLOR0
+{
+    return float4(BallColour(input), 1);
+}
+
+//Testing only (#804): a ball as its flat colour, no light at all. Drawn in place of BallPS (InstancedModelRenderer.
+//PotatoFlatBalls, the Game's "ballflat"), it is the floor under any cheaper ball shader: what the frame costs when a
+//ball's pixel costs nothing.
+float4 BallFlatPS(VertexOutput input) : COLOR0
+{
+    return float4(PatternPrimaryColor, 1);
+}
+
+//THE BALL'S RIM (#804): the anti-aliasing of a ball's outline, without a multisampled target and without a full-screen
+//pass. A ball is a sphere, so where its outline is, is a formula: after every opaque thing is in the target, one thin ring
+//is drawn over each ball's outline, blended, depth-TESTED and not depth-written, whose alpha falls from 1 on the outline to
+//0 one pixel outside it. That is exact coverage of the pixel by the ball (a box filter over a straight edge), blended
+//against what is really behind it - which a hard-edged mesh cannot have, having already replaced it. ("Discontinuity
+//edge overdraw", Sander, Hoppe, Snyder and Gortler 2001, with no silhouette to search for.) The ball grows by half a pixel.
+//
+//THE GEOMETRY. From an eye at distance d a sphere of radius R shows the circle where the eye's rays touch it: nearer than
+//the centre by R*R/d and smaller, R*sqrt(1 - (R/d)^2), in the plane across the line of sight. The strip is two rows of
+//vertices on that plane: one a pixel and the mesh's own shortfall INSIDE the limb, one the ramp's width OUTSIDE it. Every
+//point of it lies at the limb's own depth, which is what makes the depth test right with no bias at all: just inside its
+//outline a ball's own surface is much nearer than its limb (a pixel inside, by 0.4 of the radius for a ball 12 pixels in
+//radius), so the ring is hidden behind its own ball wherever the mesh covers, and shows in the slivers an inscribed LOD
+//mesh leaves short of the true circle (filling them: the outline becomes a circle whatever the mesh) and outside; and a
+//neighbour's surface is in front of this ball's limb exactly where that neighbour really is in front of it.
+//
+//THE ALPHA is measured per pixel, not interpolated: the strip carries its place on the limb's plane in units of the limb's
+//radius, the pixel shader takes that vector's length, and the ramp is a true circle whatever the strip's segment count.
+//
+//THE COLOUR is BallColour's, at the normal the sphere has there: its own inside the limb, and at and beyond it the one
+//half a pixel inside - what the part of the ball in a partly covered pixel looks like, not the limb's own grazing normal,
+//where the Fresnel term is at its peak and a ring shaded so would be an outline drawn round the ball.
+//
+//A ball being dithered has no ring (its outline is not an edge) and neither has one stretched off round (the shot's
+//smear): both collapse the strip to a point, here, so the instance stream is the ball draw's own, as uploaded.
+struct RimVertexOutput
+{
+    float4 Position : POSITION0;
+    float3 WorldPosition : TEXCOORD0;
+    float3 WorldNormal : TEXCOORD1;
+    float4 OcclusionData : TEXCOORD2;
+    float2 DissolveRipple : TEXCOORD3;
+    float3 SceneDiffuse : TEXCOORD4;
+    float3 SceneSpecular : TEXCOORD5;
+    //xy: the place on the limb's plane, in limb radii (1 is the outline). z: the limb's radius in pixels
+    float3 Rim : TEXCOORD6;
+};
+
+//corner.xy is a point of the unit circle, corner.z the row: 0 inside the limb, 1 outside it
+RimVertexOutput PotatoBallRimVS(float4 corner : POSITION0, InstanceInput instance)
+{
+    RimVertexOutput output;
+
+    float3 centre = instance.WorldRow4.xyz;
+    float3 axes = float3(dot(instance.WorldRow1.xyz, instance.WorldRow1.xyz),
+        dot(instance.WorldRow2.xyz, instance.WorldRow2.xyz), dot(instance.WorldRow3.xyz, instance.WorldRow3.xyz));
+    float dissolve = instance.Dissolve;
+
+    //1 for a ball that has a ring: round, and whole or a ghost (below -1, a size and not a cut)
+    float ringed = step(abs(axes.x - axes.y) + abs(axes.x - axes.z), 0.02 * axes.x)
+        * (dissolve == 0 || dissolve < -1.0 ? 1.0 : 0.0);
+
+    float radius = RimShape.y * sqrt(axes.x) * GhostScale(dissolve);
+
+    float3 toEye = EyePosition - centre;
+    float eyeDistance = max(length(toEye), 1e-4);
+    float3 view = toEye / eyeDistance;
+    float sine = min(radius / eyeDistance, 0.98);
+    float3 limbCentre = centre + view * (radius * sine);
+    float limbRadius = radius * sqrt(1 - sine * sine);
+
+    //Any two directions across the line of sight: which is which only turns the ring about its own centre
+    float3 across = normalize(cross(view, abs(view.y) < 0.99 ? float3(0, 1, 0) : float3(1, 0, 0)));
+    float3 along = cross(view, across);
+    float3 radial = corner.x * across + corner.y * along;
+
+    float pixel = mul(mul(float4(limbCentre, 1), View), Projection).w * RimShape.x;
+    float limbPixels = limbRadius / max(pixel, 1e-6);
+
+    float reachPixels = corner.z > 0.5
+        ? (limbPixels + RimShape.w) * RimSecant
+        : max(limbPixels * (1 - RimShape.z) - 1.0, 0);
+    float reach = reachPixels / max(limbPixels, 1e-4) * ringed;
+
+    float3 ringPosition = limbCentre + radial * (limbRadius * reach);
+    output.Position = mul(mul(float4(ringPosition, 1), View), Projection);
+    output.Rim = float3(corner.xy * reach, limbPixels);
+
+    //The sphere's normal half a pixel inside its limb, on this radius (see THE COLOUR), and the point of the sphere
+    //that has it. The same for both rows: the strip shows only where its own ball's mesh does not, which is at the
+    //limb and beyond it, and a normal that turned across the strip would dim the ring towards its inner row - a dark
+    //line between the ball's own bright last pixel and the ring (seen, in the first cut).
+    float inside = 1 - 0.5 / max(limbPixels, 1.0);
+    float3 normal = radial * inside + view * sqrt(saturate(1 - inside * inside));
+
+    output.WorldNormal = normal;
+    output.WorldPosition = centre + normal * radius;
+    output.OcclusionData = instance.Custom;
+    output.DissolveRipple = float2(dissolve, instance.Ripple);
+
+    output.SceneDiffuse = 0;
+    output.SceneSpecular = 0;
+    AddSceneLights(output.WorldPosition, normal, normalize(EyePosition - output.WorldPosition), output.SceneDiffuse,
+        output.SceneSpecular);
+
+    return output;
+}
+
+//Premultiplied, for BlendState.AlphaBlend. The coverage is 1 everywhere inside the outline (the slivers a coarse mesh
+//leaves) and falls to nothing across the ramp outside it.
+float4 BallRimPS(RimVertexOutput input) : COLOR0
+{
+    VertexOutput ball;
+    ball.Position = 0;
+    ball.WorldPosition = input.WorldPosition;
+    ball.WorldNormal = input.WorldNormal;
+    ball.OcclusionData = input.OcclusionData;
+    ball.DissolveRipple = input.DissolveRipple;
+    ball.SceneDiffuse = input.SceneDiffuse;
+    ball.SceneSpecular = input.SceneSpecular;
+
+    float coverage = saturate(1 - (length(input.Rim.xy) - 1) * input.Rim.z / RimShape.w);
+
+    return float4(BallColour(ball) * coverage, coverage);
 }
 
 technique PotatoLit
@@ -445,5 +593,23 @@ technique PotatoBallDither
     {
         VertexShader = compile vs_3_0 PotatoVS();
         PixelShader = compile ps_3_0 BallDitherPS();
+    }
+};
+
+technique PotatoBallFlat
+{
+    pass P0
+    {
+        VertexShader = compile vs_3_0 PotatoBallVS();
+        PixelShader = compile ps_3_0 BallFlatPS();
+    }
+};
+
+technique PotatoBallRim
+{
+    pass P0
+    {
+        VertexShader = compile vs_3_0 PotatoBallRimVS();
+        PixelShader = compile ps_3_0 BallRimPS();
     }
 };
