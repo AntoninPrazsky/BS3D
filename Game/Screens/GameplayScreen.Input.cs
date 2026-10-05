@@ -376,7 +376,10 @@ namespace BS3D.Screens
             //the barrel run up to ~6° past a tall level's limit, and a shot fired from the top of that stretch went
             //straight into the band the limit closes. Said out loud rather than silently eaten: the marks are already
             //blinking red, and a click that does nothing and says nothing reads as a dropped input.
-            if (_cannon.ElevationRefusesShot)
+            //And a cutter aimed into the storeys the Cut may not strike (#692), on the owner's word "the effect as if shooting too
+            //high, and it cannot be fired": the same blink (AimStrain) and the same dry "no", read off the preview's answer for
+            //the frame the player is looking at
+            if (_cannon.ElevationRefusesShot || _cutterRefused)
             {
                 Game.Audio.PlayShotRefused();
                 return;

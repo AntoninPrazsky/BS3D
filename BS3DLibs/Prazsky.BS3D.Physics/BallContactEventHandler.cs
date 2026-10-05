@@ -926,8 +926,8 @@ namespace Prazsky.BS3D.Physics
         }
 
         /// <summary>
-        /// A cutter round (<see cref="BallKind.Cutter"/>) has struck a ball of the structure: destroy that ball, let the
-        /// disconnection pass bring down what hung on it alone (<see cref="BallsConstraintsBuilder.CutBall"/>), and report
+        /// A cutter round (<see cref="BallKind.Cutter"/>) has struck a ball of the structure: destroy that ball's storey (#692),
+        /// let the disconnection pass bring down what hung on it (<see cref="BallsConstraintsBuilder.CutBall"/>), and report
         /// the landing like any other so the score, the sound and the recount answer it as they answer a blast.
         /// <para>
         /// <b>The cutter is spent in the striking and takes no cell.</b> It is put among the falling balls — the list the

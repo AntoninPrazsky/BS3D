@@ -1059,15 +1059,24 @@ namespace Prazsky.BS3D.Physics
         }
 
         /// <summary>
-        /// <b>The anchor cut (#213):</b> destroys the ONE ball a cutter shot struck and lets the disconnection pass find
-        /// what that was holding up. The shot is the Cut power-up's round (<see cref="BallKind.Cutter"/>); this is what it
-        /// does when it lands, in the shape every removal in this game takes — choose a set of cells (here, one), release
-        /// them, run <see cref="ResolveDisconnected"/> over what is left — so it needed no new path.
+        /// <b>The storey cut (#692):</b> destroys the struck ball's whole <b>storey</b> — every ball of its level joined to it
+        /// through that level — and lets the disconnection pass find what that was holding up. The shot is the Cut power-up's
+        /// round (<see cref="BallKind.Cutter"/>); this is what it does when it lands, in the shape every removal in this game
+        /// takes — choose a set of cells, release them, run <see cref="ResolveDisconnected"/> over what is left — so it
+        /// needed no new path.
         /// <para>
-        /// <b>Anything can be cut, the rock included, and that is the point</b>: a rock is a wall no colour removes, and it is
-        /// very often the anchor an anchor-starved level hangs from, which is exactly what "cut the anchor" means. A
-        /// <see cref="BallKind.Bomb"/> struck by the cutter goes off instead of being destroyed quietly — it has been
-        /// reached, the rule the kind always meant — through <see cref="DetonateBombs"/>, and that call's own
+        /// <b>It cut one ball until #692, and that cut almost never paid</b>: the owner's playtest, "it does nothing, or at
+        /// most disconnects a single ball", and `LevelGen --cuts` measured it — on 98 of the 100 levels that grant a Cut no
+        /// strike anywhere freed three balls, since every ball hangs by up to twelve neighbours. His rule (2026-10-03): the
+        /// whole storey at the place shot, <i>only the attached balls</i> — a flood over the struck level's own neighbours,
+        /// so a separate clump on the same level stays. Its balls count as destroyed (his answer of 2026-10-04); what falls
+        /// after is released as orphans, as from every removal. The top storeys are the gun's to refuse, not this method's:
+        /// see <see cref="IsCutProtected"/>.
+        /// </para>
+        /// <para>
+        /// <b>Anything in the storey goes, the rock included</b>: a rock is a wall no colour removes, and it is very often what
+        /// an anchor-starved level hangs from. A <see cref="BallKind.Bomb"/> in it goes off instead of being destroyed
+        /// quietly — reached, the rule the kind always meant — through <see cref="DetonateBombs"/>, whose own
         /// disconnection pass does the rest.
         /// </para>
         /// <para>
@@ -1076,8 +1085,8 @@ namespace Prazsky.BS3D.Physics
         /// </para>
         /// </summary>
         /// <param name="at">The struck ball's cell in the lattice.</param>
-        /// <returns>No matches, the ball itself and anything else destroyed (a bomb's blast), and everything the
-        /// disconnection pass then found hanging on nothing.</returns>
+        /// <returns>No matches, the storey and anything else destroyed (a bomb's blast), and everything the disconnection
+        /// pass then found hanging on nothing.</returns>
         public static BallsReleased CutBall(
             XZLevel at,
             PhysicsBall[,,] physicsBalls,
@@ -1085,6 +1094,75 @@ namespace Prazsky.BS3D.Physics
             Simulation simulation,
             List<PhysicsBall> releasedInto,
             List<Detonation> detonationsInto = null)
+        {
+            XZLevel size = map.GetStaticBallsArraySize();
+            StaticBall[,,] cells = map.GetStaticBallsArray();
+
+            if (at.X < 0 || at.Z < 0 || at.Level < 0 || at.X >= size.X || at.Z >= size.Z || at.Level >= size.Level) return default;
+            if (cells[at.X, at.Z, at.Level] == null) return default;
+
+            //The storey: a flood from the struck cell over neighbours on its own level, marked on a grid of the level's
+            //columns and rows (one level, so two indices say which cell; XZLevel has no equality of its own to hash)
+            List<XZLevel> storey = _storeyScratch;
+            if (t_storeySeen == null || t_storeySeen.GetLength(0) < size.X || t_storeySeen.GetLength(1) < size.Z)
+                t_storeySeen = new bool[size.X, size.Z];
+            bool[,] seen = t_storeySeen;
+
+            storey.Clear();
+            storey.Add(at);
+            seen[at.X, at.Z] = true;
+
+            for (int i = 0; i < storey.Count; i++)
+                foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(storey[i], size))
+                {
+                    if (neighbour.Level != at.Level || seen[neighbour.X, neighbour.Z]
+                        || cells[neighbour.X, neighbour.Z, neighbour.Level] == null) continue;
+                    seen[neighbour.X, neighbour.Z] = true;
+                    storey.Add(neighbour);
+                }
+
+            foreach (XZLevel cell in storey) seen[cell.X, cell.Z] = false;
+
+            //Its balls destroyed, each nudged off the lattice like a zapped ball (see ZAP_SPEED) and drawn falling; its
+            //bombs kept for the blast
+            _cutBombScratch.Clear();
+            int destroyed = 0;
+
+            foreach (XZLevel cell in storey)
+            {
+                if (cells[cell.X, cell.Z, cell.Level].Kind == BallKind.Bomb)
+                {
+                    _cutBombScratch.Add(cell);
+                    continue;
+                }
+
+                PhysicsBall ball = physicsBalls[cell.X, cell.Z, cell.Level];
+                ReleaseBall(cell, physicsBalls, map, simulation, size, _handleScratch, releasedInto);
+                destroyed++;
+
+                if (ball != null) Loosen(ball);
+            }
+
+            //And what was only held up by it, down the one path every removal shares - through the blast first, when the
+            //storey held a bomb, whose own pass then asks the question
+            BallsReleased fell = _cutBombScratch.Count > 0
+                ? DetonateBombs(_cutBombScratch, physicsBalls, map, simulation, releasedInto, detonationsInto)
+                : ResolveDisconnected(null, physicsBalls, map, simulation, size, _handleScratch, releasedInto, detonationsInto);
+
+            return new BallsReleased(0, fell.Orphaned, destroyed + fell.Destroyed);
+        }
+
+        /// <summary>
+        /// Destroys the ONE ball at <paramref name="at"/> and lets the disconnection pass find what it held up — what the
+        /// Cut did until #692 made it a storey, kept for the tests that need exactly one ball taken out of a lattice (a
+        /// freed anchor's handle, LatticeSoftnessTests). A bomb there goes off, as under the cutter.
+        /// </summary>
+        internal static BallsReleased DestroyBall(
+            XZLevel at,
+            PhysicsBall[,,] physicsBalls,
+            BallsMap map,
+            Simulation simulation,
+            List<PhysicsBall> releasedInto)
         {
             XZLevel size = map.GetStaticBallsArraySize();
             StaticBall[,,] cells = map.GetStaticBallsArray();
@@ -1098,27 +1176,42 @@ namespace Prazsky.BS3D.Physics
             {
                 _cutBombScratch.Clear();
                 _cutBombScratch.Add(at);
-                return DetonateBombs(_cutBombScratch, physicsBalls, map, simulation, releasedInto, detonationsInto);
+                return DetonateBombs(_cutBombScratch, physicsBalls, map, simulation, releasedInto);
             }
-
-            _handleScratch.Clear();
 
             PhysicsBall ball = physicsBalls[at.X, at.Z, at.Level];
             ReleaseBall(at, physicsBalls, map, simulation, size, _handleScratch, releasedInto);
-
-            //Nudged off the lattice like a zapped ball (see ZAP_SPEED): it is gone from the field, and drawn falling
             if (ball != null) Loosen(ball);
 
-            BallsReleased fell = ResolveDisconnected(null, physicsBalls, map, simulation, size, _handleScratch,
-                releasedInto, detonationsInto);
-
+            BallsReleased fell = ResolveDisconnected(null, physicsBalls, map, simulation, size, _handleScratch, releasedInto, null);
             return new BallsReleased(0, fell.Orphaned, 1 + fell.Destroyed);
         }
+
+        /// <summary>
+        /// How many storeys under the glass the Cut may not strike (#692): the owner's guard, 2026-10-05. Unguarded, one
+        /// strike on the top storey dropped the whole cluster on 88 of the 110 levels that grant a Cut (`LevelGen --cuts`):
+        /// everything hangs from it. With the top one, two or three guarded the median level's best strike still freed
+        /// 398, 355 or 302 balls of about 500, and he chose four.
+        /// </summary>
+        public const int CUT_PROTECTED_STOREYS = 4;
+
+        /// <summary>
+        /// Whether <paramref name="cell"/> stands in one of the <see cref="CUT_PROTECTED_STOREYS"/> storeys under the glass,
+        /// which a cutter may not be fired at (#692). <b>The gun's rule, not <see cref="CutBall"/>'s</b>: the aim that would
+        /// strike there is refused the way an aim past the elevation clamp is — the marks blink and the trigger answers with
+        /// the dry "no" — so a cutter never leaves for one of these storeys, and a method that cut nothing when one did
+        /// anyway would only spend a charge for nothing on the rare flight that strays.
+        /// </summary>
+        public static bool IsCutProtected(XZLevel cell, BallsMap map) =>
+            cell.Level >= map.GetStaticBallsArraySize().Level - CUT_PROTECTED_STOREYS;
 
         //Per thread like the other scratch lists (#585): a cut is asked of one landing at a time today, but the sag probe and the
         //tests run whole worlds side by side
         [ThreadStatic] private static List<XZLevel> t_cutBombScratch;
-        private static List<XZLevel> _cutBombScratch => t_cutBombScratch ??= new(1);
+        private static List<XZLevel> _cutBombScratch => t_cutBombScratch ??= new(4);
+        [ThreadStatic] private static List<XZLevel> t_storeyScratch;
+        private static List<XZLevel> _storeyScratch => t_storeyScratch ??= new(64);
+        [ThreadStatic] private static bool[,] t_storeySeen;
 
         /// <summary>How fast the cutter round is sent down once it has struck (#213): the released balls' own nudge, not a blast's shove.</summary>
         public const float CUT_DROP_SPEED = 1.6f;

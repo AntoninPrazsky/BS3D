@@ -90,7 +90,8 @@ namespace BS3D.Screens
         /// left it, while both marks go on being drawn under the page on the wall clock — a player who paused
         /// mid-push would be blinked at for as long as the page stood.
         /// </summary>
-        private float AimStrain => IsActive ? _cannon.ElevationStrain : 0f;
+        //A cutter aimed at a protected storey (#692) strains the marks as the clamp does, held for as long as it is aimed there
+        private float AimStrain => IsActive ? MathF.Max(_cannon.ElevationStrain, _cutterRefused ? 1f : 0f) : 0f;
 
         /// <summary>
         /// How far the beam is drawn when the aim reaches nothing at all. Only roughly meaningful: the dashes are
@@ -131,6 +132,7 @@ namespace BS3D.Screens
             _previewHasCell = false;
             _previewReachesCluster = false;
             _previewBeamVisible = false;
+            _cutterRefused = false;
 
             if (CameraTakeoverEngaged || _run.Score.OutOfShots || LevelDecided || _physicsBalls == null || _map == null) return;
 
@@ -190,8 +192,13 @@ namespace BS3D.Screens
             if (_cannon.ElevationRefusesShot) _previewHasCell = false;
 
             //And none for a cutter (#213): it does not land in a cell, so the ghost would show a ball that will not be there.
-            //The beam ends at the ball it will strike, which is the promise a cutter can keep
-            if (CutterLoaded) _previewHasCell = false;
+            //The beam ends at the ball it will strike, which is the promise a cutter can keep - and when that ball stands in
+            //one of the storeys under the glass the Cut may not strike (#692), the aim is refused as one past the clamp is
+            if (CutterLoaded)
+            {
+                _previewHasCell = false;
+                _cutterRefused = BallsConstraintsBuilder.IsCutProtected(hit.ArrayPosition, _map);
+            }
         }
 
         /// <summary>Whether the round in the bore is an anchor cutter (#213): the ghost is hidden and the aim is not "refused" (the beam's and the crosshair's tint both read this).</summary>
