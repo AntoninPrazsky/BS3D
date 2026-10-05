@@ -11,8 +11,7 @@
 //    frame (BS3DGame.DrawPotatoForeground), so this pixel shader does the composite's step itself: it curves Color *
 //    alpha and returns alpha unchanged under the same AlphaBlend. That is the desktop's composite step without its
 //    grain, and it differs only where chips overlap, which the desktop's layer summed before the curve.
-//    It is deliberately not ToDisplayPremultiplied, which curves the paper's own colour and multiplies the alpha back
-//    in afterwards. That is the more physical rule for coverage, but where a chip is only partly there (the
+//    It deliberately does not curve the paper's own colour (rgb / alpha) and multiply the alpha back in afterwards. That is the more physical rule for coverage, but where a chip is only partly there (the
 //    feathered rim, the near fade, the celebration's ramp in and out) it would come out darker than the desktop shows.
 //
 //The box follows the camera rather than being pinned to the world, which trades a little translational parallax for

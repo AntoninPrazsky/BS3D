@@ -38,8 +38,12 @@ float3 CameraUp;
 //                   as a dead slot instead), so zero is the instant it went off
 //  BlastShape.x     size 0..1, from how much the blast took
 //  BlastShape.y     1 for a live slot, 0 for a dead one - which collapses all its quads and costs no pixels
-float4 BlastCentre[MAX_BLASTS];
-float4 BlastShape[MAX_BLASTS];
+//
+//ONE array here, where the desktop's Blast.fx has two (#789's review): BlastData[blast * 2] is the centre and
+//BlastData[blast * 2 + 1] the shape (Blasts.cs fills it when the effect has this parameter). With two dynamically
+//indexed arrays, mgfxc's layout of the uniform block and MojoShader's GLSL disagree about which is where - they were
+//seen swapped, so every blast froze at full white in the wrong place. See Fireworks.fx; compile.ps1 refuses two.
+float4 BlastData[MAX_BLASTS * 2];
 
 //The three lifetimes. The C# side frees a slot at Blasts.LIFE_SECONDS, which has to cover the longest-lived part
 //below (a spark at the top of its jitter, SPARK_SECONDS * 1.45) or it would be cut off mid-fade.
@@ -114,8 +118,8 @@ BlastVertexOutput BlastVS(BlastVertexInput input)
     int blast = (int)(input.Slot.x + 0.5);
     float part = input.Slot.y;
 
-    float4 centre = BlastCentre[blast];
-    float4 shape = BlastShape[blast];
+    float4 centre = BlastData[blast * 2];
+    float4 shape = BlastData[blast * 2 + 1];
 
     float age = centre.w;
 

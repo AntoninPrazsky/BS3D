@@ -46,12 +46,6 @@ float3 ToDisplay(float3 radiance)
     return LinearToSrgb(ACESFilmic(radiance * Exposure));
 }
 
-//The same for a premultiplied colour (what every blended Potato surface outputs, as BasicEffect does): the curve is
-//applied to the colour the alpha stands over, then the alpha multiplied back in, so a half-transparent surface is
-//not also half as bright before the curve
-float4 ToDisplayPremultiplied(float4 color)
-{
-    float3 straight = color.rgb / max(color.a, 1e-4);
-
-    return float4(ToDisplay(straight) * color.a, color.a);
-}
+//No premultiplied variant (curving rgb / alpha and multiplying the alpha back in): it is right for a surface's own
+//colour and wrong for light added over the background, which it caps at the surface's alpha - the trails, the
+//wormhole, the confetti and PotatoModel's glass each say how they end instead (#789's review).

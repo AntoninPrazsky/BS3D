@@ -51,3 +51,9 @@
 /processorParam:DebugMode=Auto
 /build:Confetti.fx
 
+#begin PotatoSky.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:PotatoSky.fx
+

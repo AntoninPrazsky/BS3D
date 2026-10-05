@@ -26,3 +26,22 @@ try {
 finally {
     Pop-Location
 }
+
+# ONE dynamically indexed uniform array per shader, at most (#789's review). On DesktopGL a shader's uniforms go up as one
+# block laid out by mgfxc in register order, while the GLSL MojoShader writes reads each indexed array from a base of its
+# own (#define ARRAYBASE_<register> <index>) - and with two or more the two orders were seen to disagree, so Fireworks
+# and Blast read each array from another's slots and compiled without a word. A compiled effect is a few GLSL programs as
+# plain text; any of them with more than one ARRAYBASE is refused here, before it can be committed.
+$bad = @()
+foreach ($file in Get-ChildItem "$here/Compiled" -Filter *.xnb) {
+    $text = [System.Text.Encoding]::Latin1.GetString([System.IO.File]::ReadAllBytes($file.FullName))
+    $programs = $text -split '#ifdef GL_ES'
+    for ($i = 1; $i -lt $programs.Count; $i++) {
+        $bases = @([regex]::Matches($programs[$i], '#define ARRAYBASE_\d+ \d+') | ForEach-Object { $_.Value } | Sort-Object -Unique)
+        if ($bases.Count -gt 1) { $bad += "$($file.Name), program $($i): $($bases -join '; ')" }
+    }
+}
+if ($bad.Count -gt 0) {
+    $bad
+    throw "A GL shader indexes more than one uniform array, which DesktopGL lays out differently from MojoShader's GLSL: pack them into one (see GamePi/Shaders/Fireworks.fx)"
+}

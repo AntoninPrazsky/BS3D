@@ -213,6 +213,15 @@ namespace BS3D.Effects
         private readonly EffectParameter _viewParam, _projectionParam, _cameraPositionParam;
         private readonly EffectParameter _cameraRightParam, _cameraUpParam;
         private readonly EffectParameter _originParam, _burstParam, _colorParam, _colorBParam, _shapeParam;
+
+        /// <summary>
+        /// GamePi's Fireworks.fx (#789) takes the five per-shell vectors as ONE array, shell by shell (origin, burst,
+        /// colour, colour B, shape), because DesktopGL lays out two dynamically indexed arrays differently from the GLSL
+        /// MojoShader writes for them and every shell read another's slots. Null on the desktop, whose effect takes the
+        /// five arrays as they always were; when it is there, <see cref="_packed"/> is what goes up.
+        /// </summary>
+        private readonly EffectParameter _packedParam;
+        private readonly Vector4[] _packed;
         private readonly EffectParameter _pixelAngleParam, _visibilityParam;
 
         private float _remaining;        //seconds of celebration left to launch into
@@ -265,6 +274,8 @@ namespace BS3D.Effects
             _colorParam = effect.Parameters["ShellColor"];
             _colorBParam = effect.Parameters["ShellColorB"];
             _shapeParam = effect.Parameters["ShellShape"];
+            _packedParam = effect.Parameters["ShellData"];
+            if (_packedParam != null) _packed = new Vector4[MAX_SHELLS * 5];
             _pixelAngleParam = effect.Parameters["PixelAngle"];
             _visibilityParam = effect.Parameters["Visibility"];
 
@@ -527,11 +538,27 @@ namespace BS3D.Effects
             _cameraUpParam.SetValue(up);
             _visibilityParam.SetValue(MathF.Min(visibility, 1f));
 
-            _originParam.SetValue(_origins);
-            _burstParam.SetValue(_bursts);
-            _colorParam.SetValue(_colors);
-            _colorBParam.SetValue(_colorsB);
-            _shapeParam.SetValue(_shapes);
+            if (_packedParam != null)
+            {
+                for (int i = 0; i < MAX_SHELLS; i++)
+                {
+                    _packed[i * 5] = _origins[i];
+                    _packed[i * 5 + 1] = _bursts[i];
+                    _packed[i * 5 + 2] = _colors[i];
+                    _packed[i * 5 + 3] = _colorsB[i];
+                    _packed[i * 5 + 4] = _shapes[i];
+                }
+
+                _packedParam.SetValue(_packed);
+            }
+            else
+            {
+                _originParam.SetValue(_origins);
+                _burstParam.SetValue(_bursts);
+                _colorParam.SetValue(_colors);
+                _colorBParam.SetValue(_colorsB);
+                _shapeParam.SetValue(_shapes);
+            }
 
             BlendState blend = _device.BlendState;
             DepthStencilState depth = _device.DepthStencilState;

@@ -1845,6 +1845,32 @@ namespace Prazsky.Core.Render
         /// rather than branches through the desktop draw, so the desktop path reads exactly as it did.
         /// </summary>
         /// <summary>
+        /// The one colour a Potato ball is (#789), its desktop technique's look being out of reach: the tint it is drawn
+        /// with - flowing into the next colour across a wildcard's crossing, as the desktop's wildcard does, rather than
+        /// holding the colour it is leaving while the aim beam already shows the next (#789's review) - and, for the kinds
+        /// the desktop draws with no tint at all because their technique supplies the colour (the rock, the bomb, the zap
+        /// and the Cut round drawn as one, the acid, the hollow glass), a stand-in of their own, so they are not every one
+        /// a white ball glowing at its own pulse. Authored sRGB, as a tint is.
+        /// </summary>
+        private Vector3 PotatoBallColor(Vector3? tint)
+        {
+            if (tint.HasValue)
+                return Shading == BallShading.Wildcard
+                    ? Vector3.Lerp(tint.Value, PatternSecondaryColor, MathHelper.Clamp(WildcardProgress, 0f, 1f))
+                    : tint.Value;
+
+            return Shading switch
+            {
+                BallShading.Stone => new Vector3(0.55f, 0.53f, 0.50f),
+                BallShading.Bomb => new Vector3(0.16f, 0.16f, 0.18f),
+                BallShading.Zap => new Vector3(0.22f, 0.25f, 0.42f),
+                BallShading.Acid => new Vector3(0.45f, 0.85f, 0.15f),
+                BallShading.Hollow => new Vector3(0.80f, 0.86f, 0.92f),
+                _ => new Vector3(0.85f, 0.85f, 0.85f),
+            };
+        }
+
+        /// <summary>
         /// <paramref name="instances"/>' first <paramref name="count"/> ordered by distance from <paramref name="eye"/>,
         /// nearest first, in a buffer this renderer keeps and grows (no allocation on a frame that does not grow it).
         /// </summary>
@@ -1939,7 +1965,7 @@ namespace Prazsky.Core.Render
                 if (ball)
                 {
                     _effect.CurrentTechnique = _potatoBallTechnique;
-                    _patternPrimaryColorParam.SetValue(diffuseTint ?? Vector3.One);
+                    _patternPrimaryColorParam.SetValue(PotatoBallColor(diffuseTint));
                     _emissiveStrengthParam.SetValue(EmissiveStrength);
                     _stillEmissionParam.SetValue(StillEmission);
                     _pulseTimeParam.SetValue(PulseTime);

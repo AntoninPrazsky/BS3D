@@ -111,6 +111,14 @@ namespace BS3D.Effects
         private readonly EffectParameter _cameraRightParam, _cameraUpParam;
         private readonly EffectParameter _centreParam, _shapeParam;
 
+        /// <summary>
+        /// GamePi's Blast.fx (#789) takes the centre and the shape as ONE array, blast by blast, for Fireworks.cs's reason:
+        /// DesktopGL and MojoShader disagree about where two dynamically indexed arrays are, and every blast read the
+        /// other's slots. Null on the desktop.
+        /// </summary>
+        private readonly EffectParameter _packedParam;
+        private readonly Vector4[] _packed;
+
         public Blasts(GraphicsDevice device, Effect effect)
         {
             _device = device;
@@ -123,6 +131,8 @@ namespace BS3D.Effects
             _cameraUpParam = effect.Parameters["CameraUp"];
             _centreParam = effect.Parameters["BlastCentre"];
             _shapeParam = effect.Parameters["BlastShape"];
+            _packedParam = effect.Parameters["BlastData"];
+            if (_packedParam != null) _packed = new Vector4[MAX_BLASTS * 2];
 
             _quadCount = MAX_BLASTS * QUADS_PER_BLAST;
             BuildBuffers(out _vertexBuffer, out _indexBuffer);
@@ -294,8 +304,21 @@ namespace BS3D.Effects
             _cameraRightParam.SetValue(new Vector3(view.M11, view.M21, view.M31));
             _cameraUpParam.SetValue(new Vector3(view.M12, view.M22, view.M32));
 
-            _centreParam.SetValue(_centres);
-            _shapeParam.SetValue(_shapes);
+            if (_packedParam != null)
+            {
+                for (int i = 0; i < MAX_BLASTS; i++)
+                {
+                    _packed[i * 2] = _centres[i];
+                    _packed[i * 2 + 1] = _shapes[i];
+                }
+
+                _packedParam.SetValue(_packed);
+            }
+            else
+            {
+                _centreParam.SetValue(_centres);
+                _shapeParam.SetValue(_shapes);
+            }
 
             BlendState blend = _device.BlendState;
             DepthStencilState depth = _device.DepthStencilState;

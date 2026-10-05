@@ -97,7 +97,7 @@ float4 TrailPS(TrailPixelInput input) : COLOR
     //the desktop's curve exactly (its glare aside). Over a bright one the 8-bit sum clips sooner than the desktop's
     //curve would bend, which no additive blend in display space can avoid.
     //
-    //It does not curve TrailColor alone and weight it by a afterwards. That is ToDisplayPremultiplied's rule, right
+    //It does not curve TrailColor alone and weight it by a afterwards. That is the premultiplied-surface rule, right
     //for a surface's coverage but wrong for a glow: this radiance sits on the curve's flat shoulder, so the soft body
     //would shrink to a thin core. At a = 0.5 and a colour of 4, that rule gives 0.25 of full white where the desktop
     //shows 0.92 (PotatoOutput's curve at its default exposure). Nothing reads the back buffer's alpha, so the 1

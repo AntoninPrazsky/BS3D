@@ -159,10 +159,21 @@ float SurfaceOcclusion(float3 worldPosition, float3 normal, float4 occlusionData
     return saturate(occlusion - 0.55 * groundProximity * saturate(-normal.y));
 }
 
+//What a surface puts on the screen, in two parts, because the desktop adds two kinds of light. Covered is the surface
+//itself over the share of the pixel it covers, premultiplied by its alpha as the material is. Added is light laid OVER
+//the background whatever the surface's alpha - its EmissiveTint (the ceiling's alarm flash, which on a half-clear plate
+//must still read full red) and the share of its specular and reflections SpecularAlphaWeight leaves unscaled (the
+//crystal cup's glints, #228). The desktop's resolve curves the sum; folding both into one premultiplied colour and
+//curving that capped the added light at the surface's alpha (#789's review).
+struct Shaded
+{
+    float4 Covered;
+    float3 Added;
+};
+
 //Lighting.fxh's ShadePixel without its clouds, shadows, scene lights and per-surface specular: the key, fill and back
-//lights, the occluded hemisphere, the specular and the Fresnel environment, in linear radiance. The returned colour
-//is premultiplied, as the material is.
-float4 Shade(float3 worldPosition, float3 rawNormal, float4 occlusionData, float3 texRgb)
+//lights, the occluded hemisphere, the specular and the Fresnel environment, in linear radiance.
+Shaded Shade(float3 worldPosition, float3 rawNormal, float4 occlusionData, float3 texRgb)
 {
     float3 eye = normalize(EyePosition - worldPosition);
     float3 normal = normalize(rawNormal);
@@ -183,44 +194,63 @@ float4 Shade(float3 worldPosition, float3 rawNormal, float4 occlusionData, float
     float burial = saturate((0.45 - occlusionData.w) / 0.35);
     float diffuseOcclusion = lerp(0.6, 1.0, occlusion) * lerp(1.0, 0.4, burial);
 
-    float4 color = float4((diffuse * SrgbToLinear(DiffuseColor.rgb) * diffuseOcclusion
+    Shaded shaded;
+    shaded.Covered = float4((diffuse * SrgbToLinear(DiffuseColor.rgb) * diffuseOcclusion
         + SkyRadiance(normal) * SrgbToLinear(AmbientColor) * occlusion
         + SrgbToLinear(EmissiveColor)) * texRgb, DiffuseColor.a);
 
-    float specularAlpha = lerp(1.0, color.a, SpecularAlphaWeight);
+    //The specular and the environment: the sky dome reflected, rough surfaces seeing its average
     float3 linearSpecular = SrgbToLinear(SpecularColor);
-    color.rgb += specular * linearSpecular * specularAlpha * occlusion;
-
-    //The environment: the sky dome reflected, rough surfaces seeing its average
     float roughness = sqrt(2.0 / (SpecularPower + 2.0));
     float3 environment = lerp(SkyRadiance(reflect(-eye, normal)), (SkyColor + GroundColor) * 0.5, saturate(roughness));
     float3 reflectanceAtNormal = lerp(0.04 * linearSpecular, linearSpecular, Metalness);
     float3 fresnel = reflectanceAtNormal + (max(1.0, reflectanceAtNormal) - reflectanceAtNormal) * pow(1 - saturate(dot(normal, eye)), 5);
-    color.rgb += environment * fresnel * SpecularAmbientStrength * specularAlpha * occlusion;
+    float3 glints = (specular * linearSpecular + environment * fresnel * SpecularAmbientStrength) * occlusion;
 
-    color.rgb += EmissiveTint;
+    //The desktop scales them by lerp(1, alpha, SpecularAlphaWeight): this splits that same total into the share the
+    //alpha scales (covered) and the share it does not (added)
+    shaded.Covered.rgb += glints * (SpecularAlphaWeight * DiffuseColor.a);
+    shaded.Added = glints * (1 - SpecularAlphaWeight) + EmissiveTint;
 
-    return color;
+    return shaded;
+}
+
+//The two parts onto the 8-bit back buffer, premultiplied for BlendState.AlphaBlend: the surface curved with its own added
+//light over the share it covers, and the added light curved alone over the share the background shows through. Opaque
+//(the uniform alpha is 1, so the branch is the same for the whole draw) is the first term alone.
+float4 ToScreen(Shaded shaded)
+{
+    float alpha = shaded.Covered.a;
+    float3 surface = ToDisplay(shaded.Covered.rgb / max(alpha, 1e-4) + shaded.Added);
+
+    [branch]
+    if (alpha < 0.999)
+        return float4(surface * alpha + ToDisplay(shaded.Added) * (1 - alpha), alpha);
+
+    return float4(surface, 1);
 }
 
 float4 LitPS(VertexOutput input) : COLOR0
 {
-    return ToDisplayPremultiplied(Shade(input.WorldPosition, input.WorldNormal, input.OcclusionData, 1));
+    return ToScreen(Shade(input.WorldPosition, input.WorldNormal, input.OcclusionData, 1));
 }
 
 float4 TexturedPS(VertexOutput input) : COLOR0
 {
-    //Two taps rather than the desktop's three: from above for the cap, and along whichever horizontal axis faces the
-    //surface for the drum, blended by the normal
+    //Triplanar, as the desktop's: three taps, one along each world axis, blended by the sharpened normal. Each tap is
+    //sampled from its own continuous coordinates - choosing ONE side projection per pixel before sampling (the first
+    //cut, two taps) left a seam where the choice flipped and a lowest-mip column along it (#789's review)
     float3 normal = normalize(input.WorldNormal);
+    float3 blend = pow(abs(normal), 4);
+    blend /= blend.x + blend.y + blend.z;
     float3 p = input.WorldPosition * DetailScale;
-    float3 top = SrgbToLinear(tex2D(TextureSampler, p.xz).rgb);
-    float3 side = SrgbToLinear(tex2D(TextureSampler, abs(normal.x) > abs(normal.z) ? p.zy : p.xy).rgb);
-    float up = pow(abs(normal.y), 4);
-    float3 detail = lerp(side, top, up / (up + pow(1 - abs(normal.y), 4) + 1e-4));
+    float3 detail
+        = SrgbToLinear(tex2D(TextureSampler, p.zy).rgb) * blend.x
+        + SrgbToLinear(tex2D(TextureSampler, p.xz).rgb) * blend.y
+        + SrgbToLinear(tex2D(TextureSampler, p.xy).rgb) * blend.z;
     float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
 
-    return ToDisplayPremultiplied(Shade(input.WorldPosition, normal, input.OcclusionData, texRgb));
+    return ToScreen(Shade(input.WorldPosition, normal, input.OcclusionData, texRgb));
 }
 
 //BallCommon.fxh's Heartbeat and BallEmission: lub-dub, travelling along PulseDirection
@@ -251,21 +281,23 @@ float4 BallPS(VertexOutput input) : COLOR0
 {
     float3 primary = SrgbToLinear(PatternPrimaryColor);
     float3 normal = normalize(input.WorldNormal);
-    float4 shaded = Shade(input.WorldPosition, normal, input.OcclusionData, primary);
+    //A ball is opaque, so its added light simply joins it
+    Shaded parts = Shade(input.WorldPosition, normal, input.OcclusionData, primary);
+    float3 shaded = parts.Covered.rgb + parts.Added;
     float occlusion = SurfaceOcclusion(input.WorldPosition, normal, input.OcclusionData);
 
     float beat = Heartbeat(PulseTime * PulseSpeed - dot(input.WorldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
-    shaded.rgb += primary * EmissiveStrength * StillEmission * ((1 - PulseDepth) * occlusion * occlusion + PulseDepth * beat);
+    shaded += primary * EmissiveStrength * StillEmission * ((1 - PulseDepth) * occlusion * occlusion + PulseDepth * beat);
 
     //The ripple through the cluster (#331): a flash towards the ball's own hue, or the ceiling's alarm red
     float ripple = input.DissolveRipple.y;
     float amount = abs(ripple) * step(1e-4, RippleStrength);
     float peak = max(primary.r, max(primary.g, primary.b));
-    float3 lit = shaded.rgb + lerp(primary / max(peak, 1e-3), 1.0, 0.5) * (RippleStrength * amount);
-    float3 alarmed = lerp(shaded.rgb, RippleAlarmColor * 1.7, amount * 0.95);
-    shaded.rgb = ripple < 0 ? alarmed : lit;
+    float3 lit = shaded + lerp(primary / max(peak, 1e-3), 1.0, 0.5) * (RippleStrength * amount);
+    float3 alarmed = lerp(shaded, RippleAlarmColor * 1.7, amount * 0.95);
+    shaded = ripple < 0 ? alarmed : lit;
 
-    return ToDisplayPremultiplied(shaded);
+    return float4(ToDisplay(shaded), 1);
 }
 
 technique PotatoLit

@@ -39,11 +39,14 @@ float3 CameraUp;
 //  ShellShape.x     burst radius, .y spark life, .z flatten (1 = a sphere, <1 = a disc, seen edge-on as a ring)
 //  ShellShape.w     twinkle strength
 //  ShellColorB.rgb  the shell's SECOND colour; each spark takes one or the other (see Random.w)
-float4 ShellOrigin[MAX_SHELLS];
-float4 ShellBurst[MAX_SHELLS];
-float4 ShellColor[MAX_SHELLS];
-float4 ShellColorB[MAX_SHELLS];
-float4 ShellShape[MAX_SHELLS];
+//
+//ONE array here, where the desktop's Fireworks.fx has five (#789's review): the five per-shell vectors packed shell by
+//shell, ShellData[shell * 5 + k] for k = origin, burst, colour, colour B, shape (Fireworks.cs fills it when the effect
+//has this parameter). On DesktopGL the uniforms of a vertex shader go up as one block, laid out by mgfxc in register
+//order, while the GLSL MojoShader writes reads each dynamically indexed array from a base of its own choosing - and with
+//more than one such array the two orders disagree (they were seen reversed by name), so every shell read another
+//array's slots and none was ever drawn. With one array they cannot disagree. compile.ps1 refuses an effect with two.
+float4 ShellData[MAX_SHELLS * 5];
 
 float SparkSize;      //world half-size of a rising shell's comet sparks
 float TrailWidth;     //world half-width of a burst spark's trail (Fireworks.TRAIL_WIDTH)
@@ -92,10 +95,10 @@ FireworkVertexOutput FireworkVS(FireworkVertexInput input)
     //The slot's shell number, used only as the arrays' index (see the header)
     int shell = (int)input.Slot.x;
 
-    float4 origin = ShellOrigin[shell];
-    float4 burst = ShellBurst[shell];
-    float4 colour = ShellColor[shell];
-    float4 shape = ShellShape[shell];
+    float4 origin = ShellData[shell * 5];
+    float4 burst = ShellData[shell * 5 + 1];
+    float4 colour = ShellData[shell * 5 + 2];
+    float4 shape = ShellData[shell * 5 + 4];
 
     float age = burst.w;
     float life = shape.y;
@@ -215,7 +218,7 @@ FireworkVertexOutput FireworkVS(FireworkVertexInput input)
     //kinds. White at the palette's own luminance, so it burns as they do.
     float kind = input.Random.w;
     float3 shellColour = kind < WhiteShare ? float3(1.5, 1.5, 1.5)
-        : ((kind - WhiteShare) < 0.5 * (1.0 - WhiteShare) ? colour.rgb : ShellColorB[shell].rgb);
+        : ((kind - WhiteShare) < 0.5 * (1.0 - WhiteShare) ? colour.rgb : ShellData[shell * 5 + 3].rgb);
 
     //The hot core: a FRESH spark flashes towards white and shows its own colour as it cools - only a flash, and only
     //part of the way (#612): the palette's own zero channel is what keeps the rest of the life coloured.

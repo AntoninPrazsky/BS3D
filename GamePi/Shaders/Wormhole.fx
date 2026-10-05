@@ -182,8 +182,8 @@ float4 WormholePS(WormholePixelInput input) : COLOR0
     //THE OUTPUT. AlphaBlend keeps (1 - dark) of the backdrop and adds light on top, so light is added radiance and dark
     //is a cover; light is not a colour premultiplied by dark. So the light alone goes through the curve, as an additive
     //effect's added light does (ShotTrail.fx's port explains why), and dark goes out unchanged. Over a dark sky that
-    //matches the desktop's curve exactly (its glare aside). ToDisplayPremultiplied would divide the light by dark,
-    //and the pop's rays outside the swirl, which take nothing away, would vanish.
+    //matches the desktop's curve exactly (its glare aside). Curving light / dark and multiplying dark back in would
+    //divide the light by dark, and the pop's rays outside the swirl, which take nothing away, would vanish.
     return float4(ToDisplay(light), dark);
 }
 

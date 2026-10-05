@@ -1112,15 +1112,16 @@ namespace BS3D
             //part of starting up and belong to a play session, so the GameplayScreen builds them on the first
             //"Play" and rebuilds them per level. Everything above is the scene, which the menu also stands in.
 
-            //The Potato path (#789) has no Sky.fx: the dome is drawn through SkyDome's own BasicEffect (a null Effect),
-            //from its stored sRGB palette straight into the back buffer, so its colours are NOT linearised there
-            if (!PotatoPath)
+            //The Potato path (#789) has no Sky.fx: the dome is drawn through GamePi's PotatoSky, its gradient alone, curved
+            //with the player's exposure like everything else there - and with no cloud deck or sun disc to place, no camera
+            if (PotatoPath) _skyEffect = Content.Load<Effect>("Shaders/PotatoSky");
+            else
             {
                 _skyEffect = Content.Load<Effect>("Shaders/Sky");
                 _skyCameraPositionParam = _skyEffect.Parameters["CameraPosition"];
             }
 
-            _sky = new SkyDome(GraphicsDevice, _skyDome, linearVertexColors: !PotatoPath)
+            _sky = new SkyDome(GraphicsDevice, _skyDome, linearVertexColors: true)
             {
                 Effect = _skyEffect
             };

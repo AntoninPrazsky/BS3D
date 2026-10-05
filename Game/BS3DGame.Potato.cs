@@ -22,7 +22,7 @@ namespace BS3D
     /// <para>
     /// <b>What it does not build.</b> No <see cref="SceneRenderer"/> - the twenty-one backdrops are the desktop's most
     /// expensive pixels and each is its own SM 5.0 effect - so the island stands under the dome's gradient alone, drawn
-    /// through <see cref="Prazsky.Core.SkyDome"/>'s own <c>BasicEffect</c> (no <c>Sky.fx</c>, so no cloud deck and no sun disc). No
+    /// through <c>PotatoSky</c>, the player's exposure and all (no <c>Sky.fx</c>, so no cloud deck and no sun disc). No
     /// <see cref="PostProcessPipeline"/>: no bloom, no defocus, no motion blur, no grain, and the HUD's layer is drawn
     /// straight. No street level, and no forest or aurora wood (they are planted from the scene renderer's configs, and
     /// only those scenes' backdrops would show them). The city's towers and roofs are still generated, being plain
@@ -46,8 +46,8 @@ namespace BS3D
         /// </summary>
         private static readonly string[] POTATO_EXPOSED_EFFECTS =
         {
-            "Shaders/PotatoModel", "Shaders/ShotTrail", "Shaders/LaserGrid", "Shaders/Blast", "Shaders/Wormhole",
-            "Shaders/Fireworks", "Shaders/Confetti",
+            "Shaders/PotatoModel", "Shaders/PotatoSky", "Shaders/ShotTrail", "Shaders/LaserGrid", "Shaders/Blast",
+            "Shaders/Wormhole", "Shaders/Fireworks", "Shaders/Confetti",
         };
 
         /// <summary>
@@ -56,7 +56,9 @@ namespace BS3D
         /// </summary>
         private const float POTATO_BALL_LOD_BIAS = 2f;
 
-        /// <summary>Whether the frame being drawn presents the cup or the confetti, for <see cref="CompositeForegroundLast"/>.</summary>
+        /// <summary>
+        /// Whether the frame being drawn presents the cup or the confetti, for <see cref="CompositeForegroundLast"/>.
+        /// </summary>
         private bool _potatoPresenting;
 
         /// <summary>
@@ -81,9 +83,8 @@ namespace BS3D
 
             GraphicsDevice.SetRenderTarget(null);
 
-            //The horizon as the dome's own gradient has it, display-encoded, which is what the back buffer holds: the
-            //dome below is drawn from its stored sRGB palette (built with linearVertexColors: false) and the clear has
-            //to meet it where the dome ends
+            //The dome below covers the whole frame (a full sphere, drawn with no depth test and no culling), so the clear is
+            //never seen; it is the horizon, display-encoded, only so that a frame without the dome would still read as sky
             GraphicsDevice.Clear(new Color(ColorSpace.LinearToSrgb(_rig.HorizonLinear)));
 
             //Stated rather than inherited, for BeginSceneDraw's reason: SkyDome.Draw sets neither
