@@ -57,6 +57,8 @@ struct LaserVertexOutput
 //What the pixel shader reads: the vertex output without its position
 struct LaserPixelInput
 {
+    //Under DirectX the position the vertex output begins with (PotatoProfile.fxh, #808); nothing under OpenGL
+    POTATO_PIXEL_HEAD
     float2 UV : TEXCOORD0;
     float AlongWorld : TEXCOORD1;
 };
@@ -119,7 +121,7 @@ technique LaserGrid
 {
     pass P0
     {
-        VertexShader = compile vs_3_0 LaserVS();
-        PixelShader = compile ps_3_0 LaserPS();
+        VertexShader = compile POTATO_VS LaserVS();
+        PixelShader = compile POTATO_PS LaserPS();
     }
 };

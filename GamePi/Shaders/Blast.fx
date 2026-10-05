@@ -95,6 +95,8 @@ struct BlastVertexOutput
 //What the pixel shader reads: the vertex output without its position
 struct BlastPixelInput
 {
+    //Under DirectX the position the vertex output begins with (PotatoProfile.fxh, #808); nothing under OpenGL
+    POTATO_PIXEL_HEAD
     float3 Corner : TEXCOORD0;
     float3 Tint : TEXCOORD1;
     float2 Fire : TEXCOORD2;
@@ -313,7 +315,7 @@ technique Blast
 {
     pass P0
     {
-        VertexShader = compile vs_3_0 BlastVS();
-        PixelShader = compile ps_3_0 BlastPS();
+        VertexShader = compile POTATO_VS BlastVS();
+        PixelShader = compile POTATO_PS BlastPS();
     }
 };

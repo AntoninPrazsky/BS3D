@@ -83,6 +83,8 @@ struct ConfettiVertexOutput
 //What the pixel shader reads: the vertex output without its position
 struct ConfettiPixelInput
 {
+    //Under DirectX the position the vertex output begins with (PotatoProfile.fxh, #808); nothing under OpenGL
+    POTATO_PIXEL_HEAD
     float3 Color : TEXCOORD0;
     float2 Corner : TEXCOORD1;
     float Alpha : TEXCOORD2;
@@ -175,7 +177,7 @@ technique Confetti
 {
     pass P0
     {
-        VertexShader = compile vs_3_0 ConfettiVS();
-        PixelShader = compile ps_3_0 ConfettiPS();
+        VertexShader = compile POTATO_VS ConfettiVS();
+        PixelShader = compile POTATO_PS ConfettiPS();
     }
 };
