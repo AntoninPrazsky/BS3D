@@ -8002,3 +8002,32 @@ Majitel večer 4. 10.: „zpracovávej až do rána issues, které můžeš zpra
 - **⚠ LevelGen na Windows přepíše všech 141 levelů na CRLF** — obsah stejný (`git diff --ignore-cr-at-eol` prázdný); vráceno `git checkout -- Game/Levels`.
 - **Neověřeno rukou:** zjemněný strop, puls prohry, knock dorazu, RT skip, čtyři efekty spouští, plynulé LT od nuly; release a hvězda z prvního kola. Bluetooth ani Series pad nezkoušeny. #188, #378 a #520 nesou `shipped-awaiting-verdict` + `needs-gamepad`.
 - **Doplněk téhož dne — ikony a revize.** Majitel chtěl zkontrolovat ikony padu v UI. Vykreslil jsem PromptFont a podíval se: **čip Cut ukazoval PlayStation „R1" (U+21B1), ne RB (U+2199)** — doc tvrdil „ověřeno v cmapu", jenže cmap říká jen, že kód existuje, ne co kreslí. A **jedna obecná páčka bez písmene (U+21CD) stála za pravou i levou**; teď U+21BB / U+21C4 / U+21C5. Nová testovací páka **`pad`** (`Tutorial.PinDevice`) — bez ní běh, který nikdo nehraje, čte jako myš (merge `20050fc6`). **Revize tří merge našla dvě skutečné vady** v rohatce LT: četla pózu hlavně (pružina gumy po dorazu a chůze tikaly bez ruky) a tikala padu na stole pod myší s pravým tlačítkem; teď čte `Cannon.ElevationAim` (nové) a chce LT padu. Plus `TRIGGER_REST` 3/255 (opotřebená spoušť by držela defocus), znovuzápis stavu po návratu fokusu, zámek v `PadMotors` (merge `5b941aea`). Neřešeno: dva pady, cena `Vibration` setteru za snímek.
+
+## 2026-10-05 — #790 #791 #792 #797 #798 na Pi: zvuk přes OpenAL, myš, ikona, Bubble jedna stěna, složka dat, zkouška tarballu #793 — Pi (BS3DServer), Claude Code (296408e3)
+
+- **#790, zvuk (merge `c6e0531e` a `92b4dc58`):**
+  - ⚠ **OpenAL Soft umístí hlas jen tehdy, když drží zdroj, a ten dostane až při `Play`.** `Apply3D` před `Play` se na GL nepoužije a výstřely hrály ze středu. Platformní šev `Platform/AudioBackend.PlacesAfterPlay`: v GamePi `ProceduralAudio.Speak` umístí hlas až po `Play`, na Windows se pořadí nemění.
+  - ⚠ **Recyklovaný zdroj si nese `AL_PITCH` posledního hlasu.** Nový `DynamicSoundEffectInstance` na stejném zdroji ho zdědí. Změřeno: one-shot s pitch −0,7 nechal na zdroji 256 hodnotu 0,616 a nový stream ji převzal. Po `Pitch = 0` je 1,000. Opraveno u všech tří streamů (`GameMusic`, `ProceduralJukebox`, `RecordingPlayer`).
+  - Majitel hlásil ticho ve hře, ale nahrávka výstupu (`pw-record` z HDMI sinku) zvuk měla: menu −30 dBFS, hudba v levelu −25, výstřely −14. Majitel pak napsal, že zvuky i hudbu slyší. Příčina byla nejspíš mimo kód (HDMI nebo monitor).
+  - Čeká na verdikt, jestli zvuk jde ze správné strany.
+- **#791, myš:** warp kurzoru pod Xwayland funguje a majitel míření ověřil. Zavřeno.
+- **#792, ikona, načítání a tempo snímků (merge `834c38c7`):**
+  - `GamePi/Icon.bmp` (128 × 128 z 256px rámce `Icon.ico`) je vložený jako `BS3D.Icon.bmp`. SDL okno si ho vezme samo a `_NET_WM_ICON` čte 128 × 128.
+  - Od spuštění po první snímek 6,2 s (na desktopu 4,2).
+  - Vsync přes Mesu (`vblank_mode=3`) je horší než limiter: 30 FPS, střídání 8 a 60 ms, odchylka 22 ms. Limiter drží ~45 FPS s odchylkou 1,4 ms, takže zůstává.
+  - Zavřeno.
+- **#789, obloha (merge `5a2e116a`):** tonemap oblohy po revizi běžel pro každý pixel a stál ~1 ms. Teď běží po vrcholech (gradient je stejně po vrcholech). Pennant 22,0 → 20,8 ms, Girandole 21,5 → 20,8 ms.
+- **#793, tarball z čisté složky (pro notebook session):**
+  - Součet sedí, menu ukazuje `dev-bac893b ARM64` a level hraje.
+  - Spuštěno přes `env -i` a `ldd` nic nehlásí.
+  - libicu76 a libssl3t64 jsou v desktopovém obrazu (datum dpkg souborů je den obrazu a instalace SDK přidala jen balíky dotnet-*).
+- **#798, složka dat (merge `678b4a5c`):**
+  - ⚠ **`GetFolderPath(LocalApplicationData)` vrátí na Linuxu prázdný řetězec, když `~/.local/share` ještě neexistuje.** Záložní cesta `AppContext.BaseDirectory/BS3D` je na Linuxu soubor apphostu `BS3D`, takže log ani save nešly zapsat.
+  - Teď se cesta ptá s `DoNotVerify`. S prázdným HOME vznikne `~/.local/share/BS3D/Logs`. Zavřeno.
+- **#797, Bubble jedna stěna (merge `5114210b`):**
+  - Na Potato byly obě stěny bubliny neprůhledné, takže se každá koule kreslila dvakrát. `DrawShell` a `DrawHollow` teď vzdálenou stěnu přeskočí, když `InstancedModelRenderer.Potato`.
+  - **Pennant je Bubble level**, tedy první level hráče: 22,2 → 18,7 ms (45 → 53 FPS). Girandole (porcelán, kontrola) beze změny.
+  - Snímek Pennantu ve stejné sekundě z obou buildů ukazuje stejný shluk.
+- ⚠ **Vlastní chyba:** při mergi #792 jsem poslal `git merge … | tail` a pak `&& git push --delete`. Konflikt neukončil řetěz (návratový kód měl `tail`), takže se větev na remote smazala nemergnutá. Hned jsem ji obnovil z lokální větve (`0b52eba8`), vyřešil konflikt v docs (věta „Six files“ s PadMotors z #188) a mergnul. Při merge nepoužívat rouru.
+- **Absolutní čísla dnes kolísají o 3–5 ms** podle prostředí (VNC). Srovnávat jen A/B ve stejném sezení.
+- **Dál #795 (tmavé scény):** na Pi jsou Caldera (sopka) a Cabinet (neon) skoro černé, Balloon (savana) a BigTop (cirkus) vypadají dobře. Potato nemá `SceneRenderer`, takže ani pozice světel sopky a ohňů. Návrh: dvě směrová difúzní „fill“ světla na scénu v PotatoModel. Desktopové referenční snímky stejných levelů pořídí notebook session.
