@@ -24,28 +24,32 @@ namespace BS3D.Online
         /// </summary>
         internal static bool IsConnected(out string how)
         {
-            try
+            //The network list is COM and Windows' alone; GamePi (Linux) goes straight to the adapter test
+            if (OperatingSystem.IsWindows())
             {
-                INetworkListManager manager = (INetworkListManager)new NetworkListManagerClass();
-
                 try
                 {
-                    int result = manager.get_IsConnectedToInternet(out bool connected);
-                    if (result >= 0)
+                    INetworkListManager manager = (INetworkListManager)new NetworkListManagerClass();
+
+                    try
                     {
-                        how = "Windows network list";
-                        return connected;
+                        int result = manager.get_IsConnectedToInternet(out bool connected);
+                        if (result >= 0)
+                        {
+                            how = "Windows network list";
+                            return connected;
+                        }
+                    }
+                    finally
+                    {
+                        Marshal.FinalReleaseComObject(manager);
                     }
                 }
-                finally
+                catch (Exception e) when (e is COMException or InvalidCastException or PlatformNotSupportedException
+                    or TypeLoadException or UnauthorizedAccessException)
                 {
-                    Marshal.FinalReleaseComObject(manager);
+                    //No network list service on this machine, or it would not answer: the adapter test below
                 }
-            }
-            catch (Exception e) when (e is COMException or InvalidCastException or PlatformNotSupportedException
-                or TypeLoadException or UnauthorizedAccessException)
-            {
-                //No network list service on this machine, or it would not answer: the adapter test below
             }
 
             bool adapterUp = NetworkInterface.GetIsNetworkAvailable();

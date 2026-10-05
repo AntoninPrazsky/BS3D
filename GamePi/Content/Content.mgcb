@@ -1,0 +1,38 @@
+
+#----------------------------- Global Properties ----------------------------#
+# GamePi's content: the Game's two assets, built for DesktopGL. Its own file rather than Game/Content/Content.mgcb
+# because that one builds the InfoRenderer's font from "Segoe UI", which no Linux machine has; the font here is
+# built from Inter, the menu's own small print, under the asset name the Game loads (Fonts/segoeui). The task passes
+# /platform:$(MonoGamePlatform) after the line below, so DesktopGL's package is what decides either way.
+
+/outputDir:bin/$(Platform)/Content
+/intermediateDir:obj/$(Platform)
+/platform:DesktopGL
+/config:
+/profile:HiDef
+/compress:False
+
+#-------------------------------- References --------------------------------#
+
+
+#---------------------------------- Content ---------------------------------#
+
+#begin Fonts/segoeui.spritefont
+/importer:FontDescriptionImporter
+/processor:FontDescriptionProcessor
+/processorParam:PremultiplyAlpha=True
+/processorParam:TextureFormat=Color
+/build:Fonts/segoeui.spritefont
+
+#begin ../../Images/logo/bs3d-logo-2048.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=False
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:../../Images/logo/bs3d-logo-2048.png;Images/Logo.png
+

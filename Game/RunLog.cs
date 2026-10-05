@@ -138,10 +138,9 @@ namespace BS3D
 
             try
             {
-                System.Windows.Forms.MessageBox.Show(
+                Platform.CrashDialog.Show(
                     "BS3D ran into a problem and has to close."
-                    + (crashPath != null ? $"{Environment.NewLine}{Environment.NewLine}A report was saved to:{Environment.NewLine}{crashPath}" : string.Empty),
-                    "BS3D", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+                    + (crashPath != null ? $"{Environment.NewLine}{Environment.NewLine}A report was saved to:{Environment.NewLine}{crashPath}" : string.Empty));
             }
             catch
             {

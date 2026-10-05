@@ -23,7 +23,8 @@ namespace BS3D.Platform
     /// <para>
     /// <b>It peeks the message queue, it does not pump it.</b> Windows marks a window hung when its thread has not
     /// looked at its queue for five seconds; <c>PeekMessage</c> with <c>PM_NOREMOVE</c> is that look, and it
-    /// dispatches nothing, so no resize or key reaches a game that is still half built.
+    /// dispatches nothing, so no resize or key reaches a game that is still half built. Windows only: GamePi's SDL
+    /// window has no such queue to look at, and no user32 to look with.
     /// </para>
     /// <para>
     /// Black, and the menu's Inter in the menu's dim grey, so it hands over to the splash without a seam: the
@@ -62,7 +63,7 @@ namespace BS3D.Platform
         {
             if (_disposed) return;
 
-            PeekMessage(out _, IntPtr.Zero, 0, 0, PM_NOREMOVE);
+            if (OperatingSystem.IsWindows()) PeekMessage(out _, IntPtr.Zero, 0, 0, PM_NOREMOVE);
 
             Viewport viewport = _device.Viewport;
             if (viewport.Width <= 0 || viewport.Height <= 0) return;
