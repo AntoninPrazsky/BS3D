@@ -124,6 +124,8 @@ struct VertexOutput
     float3 WorldNormal : TEXCOORD1;
     float4 OcclusionData : TEXCOORD2;
     float2 DissolveRipple : TEXCOORD3;
+    float3 SceneDiffuse : TEXCOORD4;
+    float3 SceneSpecular : TEXCOORD5;
 };
 
 //The normal by the world matrix's cofactor, as Common.fxh's NormalToWorld: right under a non-uniform scale and a
@@ -136,39 +138,11 @@ float3 NormalToWorld(float3 objectNormal, float3 r0, float3 r1, float3 r2)
     return normalize(dot(r0, c0) < 0.0 ? -normal : normal);
 }
 
-VertexOutput PotatoVS(VertexInput input, InstanceInput instance)
-{
-    VertexOutput output;
-
-    float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
-    float4 worldPosition = mul(input.Position, world);
-
-    output.WorldPosition = worldPosition.xyz;
-    output.Position = mul(mul(worldPosition, View), Projection);
-    output.WorldNormal = NormalToWorld(input.Normal, instance.WorldRow1.xyz, instance.WorldRow2.xyz, instance.WorldRow3.xyz);
-    output.OcclusionData = instance.Custom;
-    output.DissolveRipple = float2(instance.Dissolve, instance.Ripple);
-
-    return output;
-}
-
-//Lighting.fxh's AddLight: a hard terminator, Blinn-Phong on the lit side only
-void AddLight(float3 towardsLight, float3 lightDiffuse, float3 lightSpecular, float3 normal, float3 eye,
-    inout float3 diffuse, inout float3 specular)
-{
-    float dotL = dot(normal, towardsLight);
-    float lit = step(0, dotL);
-
-    diffuse += lightDiffuse * (dotL * lit);
-
-    float dotH = max(dot(normal, normalize(towardsLight + eye)), 0);
-    specular += lightSpecular * pow(dotH * lit, SpecularPower);
-}
-
-//Lighting.fxh's AddSceneLights, unrolled: a ps_3_0 shader cannot index a uniform array by a loop counter, so each slot is
-//its own code behind a branch on the count - uniform for the whole draw, so a scene with no lights (most of them) pays
-//eight compares and nothing else. The array indices are constants after the unroll, which is not the dynamic indexing
-//the one-array rule is about (compile.ps1 still checks).
+//Lighting.fxh's AddSceneLights, run PER VERTEX (PotatoVS) and interpolated: per pixel, six lamps took the volcano and the
+//neon city from 21 to 34 ms a frame on the Pi, and a scene with none paid 1.4 ms on Girandole for the eight branches alone.
+//Unrolled, each slot its own code behind a branch on the count (uniform for the whole draw), so the array indices are
+//constants: a loop indexing three arrays by its counter is the dynamic indexing mgfxc and MojoShader disagree about (see
+//compile.ps1). The specular is the same arithmetic at the vertex, a broad highlight rather than a sharp one.
 void AddSceneLights(float3 worldPosition, float3 normal, float3 eye, inout float3 diffuse, inout float3 specular)
 {
     [unroll]
@@ -191,6 +165,44 @@ void AddSceneLights(float3 worldPosition, float3 normal, float3 eye, inout float
             specular += SceneLightColor[i] * (pow(dotH, SpecularPower) * atten);
         }
     }
+}
+
+VertexOutput PotatoVS(VertexInput input, InstanceInput instance)
+{
+    VertexOutput output;
+
+    float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
+    float4 worldPosition = mul(input.Position, world);
+
+    output.WorldPosition = worldPosition.xyz;
+    output.Position = mul(mul(worldPosition, View), Projection);
+    output.WorldNormal = NormalToWorld(input.Normal, instance.WorldRow1.xyz, instance.WorldRow2.xyz, instance.WorldRow3.xyz);
+    output.OcclusionData = instance.Custom;
+    output.DissolveRipple = float2(instance.Dissolve, instance.Ripple);
+
+    //The scene's own lamps (#795), at the vertex: see AddSceneLights. The side facing the eye for an open surface, as Shade
+    float3 normal = normalize(output.WorldNormal);
+    float3 eye = normalize(EyePosition - output.WorldPosition);
+    if (TwoSidedNormals > 0 && dot(normal, eye) < 0) normal = -normal;
+
+    output.SceneDiffuse = 0;
+    output.SceneSpecular = 0;
+    AddSceneLights(output.WorldPosition, normal, eye, output.SceneDiffuse, output.SceneSpecular);
+
+    return output;
+}
+
+//Lighting.fxh's AddLight: a hard terminator, Blinn-Phong on the lit side only
+void AddLight(float3 towardsLight, float3 lightDiffuse, float3 lightSpecular, float3 normal, float3 eye,
+    inout float3 diffuse, inout float3 specular)
+{
+    float dotL = dot(normal, towardsLight);
+    float lit = step(0, dotL);
+
+    diffuse += lightDiffuse * (dotL * lit);
+
+    float dotH = max(dot(normal, normalize(towardsLight + eye)), 0);
+    specular += lightSpecular * pow(dotH * lit, SpecularPower);
 }
 
 float3 SkyRadiance(float3 direction)
@@ -221,7 +233,8 @@ struct Shaded
 
 //Lighting.fxh's ShadePixel without its clouds, shadows and per-surface specular: the key, fill and back
 //lights, the occluded hemisphere, the specular and the Fresnel environment, in linear radiance.
-Shaded Shade(float3 worldPosition, float3 rawNormal, float4 occlusionData, float3 texRgb)
+Shaded Shade(float3 worldPosition, float3 rawNormal, float4 occlusionData, float3 texRgb, float3 sceneDiffuse,
+    float3 sceneSpecular)
 {
     float3 eye = normalize(EyePosition - worldPosition);
     float3 normal = normalize(rawNormal);
@@ -238,8 +251,9 @@ Shaded Shade(float3 worldPosition, float3 rawNormal, float4 occlusionData, float
     diffuse *= DirLightStrength;
     specular *= DirLightStrength;
 
-    //Not scaled by the rig's strength, as on the desktop: a lamp is not the sky
-    AddSceneLights(worldPosition, normal, eye, diffuse, specular);
+    //The scene's lamps, from the vertex; not scaled by the rig's strength, as on the desktop: a lamp is not the sky
+    diffuse += sceneDiffuse;
+    specular += sceneSpecular;
 
     float occlusion = SurfaceOcclusion(worldPosition, normal, occlusionData);
     float burial = saturate((0.45 - occlusionData.w) / 0.35);
@@ -283,7 +297,7 @@ float4 ToScreen(Shaded shaded)
 
 float4 LitPS(VertexOutput input) : COLOR0
 {
-    return ToScreen(Shade(input.WorldPosition, input.WorldNormal, input.OcclusionData, 1));
+    return ToScreen(Shade(input.WorldPosition, input.WorldNormal, input.OcclusionData, 1, input.SceneDiffuse, input.SceneSpecular));
 }
 
 float4 TexturedPS(VertexOutput input) : COLOR0
@@ -301,7 +315,7 @@ float4 TexturedPS(VertexOutput input) : COLOR0
         + SrgbToLinear(tex2D(TextureSampler, p.xy).rgb) * blend.z;
     float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
 
-    return ToScreen(Shade(input.WorldPosition, normal, input.OcclusionData, texRgb));
+    return ToScreen(Shade(input.WorldPosition, normal, input.OcclusionData, texRgb, input.SceneDiffuse, input.SceneSpecular));
 }
 
 //BallCommon.fxh's Heartbeat and BallEmission: lub-dub, travelling along PulseDirection
@@ -351,7 +365,7 @@ float4 BallPS(VertexOutput input) : COLOR0
     float3 normal = normalize(input.WorldNormal);
     float3 crust = primary * BallCrustTint * BallCrustDark + BallCrustDark * (1 - BallCrustTint);
     //A ball is opaque, so its added light simply joins it
-    Shaded parts = Shade(input.WorldPosition, normal, input.OcclusionData, crust);
+    Shaded parts = Shade(input.WorldPosition, normal, input.OcclusionData, crust, input.SceneDiffuse, input.SceneSpecular);
     float3 shaded = parts.Covered.rgb + parts.Added;
     float occlusion = SurfaceOcclusion(input.WorldPosition, normal, input.OcclusionData);
 
