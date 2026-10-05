@@ -23,7 +23,9 @@
 //  1. THE DISSOLVE CLIP, on BOTH signs of input.Dissolve, over cells of DissolvePixelSize. It is the
 //     magazine re-colouring a loaded ball; the sign says which direction. Screen space, and the cell
 //     is a whole DISPLAY pixel or more - an object-space cell is a lumpy 3D mottling and a one-target-
-//     pixel cell is averaged straight back into a smooth cross-fade by the supersample resolve.
+//     pixel cell is averaged straight back into a smooth cross-fade by the supersample resolve. The
+//     clip must stay the form `-d - noise` on the negative side: a value BELOW -1 is the aim ghost (#794),
+//     drawn smaller by PatternVS's GhostScale, and that form keeps every pixel of it.
 //  2. THE HEARTBEAT, normally as the whole of BallEmission(primary, worldPosition, occlusion): the
 //     position term in the phase is what makes it a wave THROUGH the cluster (without it the cluster
 //     strobes in lockstep, a lamp rather than something breathing), and since #303 the RESTING emission
@@ -225,6 +227,16 @@ float DissolveNoise(float2 cell)
     return frac((p.x + p.y) * p.z);
 }
 
+//A GHOST's size (#794), carried in the dissolve channel below -1 where no dither value is (ModelInstance.GhostDissolve):
+//the radius as a share of a whole ball's, 1 for anything else. The aim preview is the only ghost, and it is drawn
+//SMALLER than a ball rather than dithered. Every pixel shader's clip keeps all of a value under -1 (-d - noise is
+//positive there), so this vertex-side scale is the whole of the ghost; it is the form that costs nothing in the pixel
+//shader, which on the Raspberry Pi's build is the point (PotatoModel.fx draws the same ghost the same way).
+float GhostScale(float dissolve)
+{
+    return dissolve < -1.0 ? -dissolve - 1.0 : 1.0;
+}
+
 PatternVertexShaderOutput PatternVS(VertexShaderInput input, InstanceInput instance)
 {
     PatternVertexShaderOutput output;
@@ -233,6 +245,12 @@ PatternVertexShaderOutput PatternVS(VertexShaderInput input, InstanceInput insta
 
     float4 bonePosition = mul(input.Position, Bone);
     float4 worldPosition = mul(bonePosition, world);
+
+    //Round the ball's own centre, which is the matrix's translation; the object position and the normal stay a whole
+    //ball's, so the pattern and the lighting are those of a ball seen smaller. Written as an ADDED difference, not as
+    //centre + offset * scale: for every ball that is not a ghost (scale 1) the term is exactly zero and the position
+    //exactly what the matrix gave, where the other form can move it an ulp - and nothing but the ghost may move.
+    worldPosition.xyz += (worldPosition.xyz - instance.WorldRow4.xyz) * (GhostScale(instance.Dissolve) - 1.0);
 
     output.ObjectPosition = bonePosition.xyz;
     output.WorldPosition = worldPosition.xyz;

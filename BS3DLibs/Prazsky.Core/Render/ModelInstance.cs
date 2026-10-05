@@ -25,8 +25,13 @@ namespace Prazsky.Core.Render
         /// eats itself away as it climbs to 1.</item>
         /// <item>Negative: <i>arriving</i>. Keeps the pixels whose noise is below the magnitude, so the
         /// instance fills in as that climbs to 1.</item>
+        /// <item>Below <c>-1</c>: a <b>ghost</b> (#794) — not dithered at all but drawn <i>smaller</i>, its radius
+        /// <c>-Dissolve - 1</c> of a whole ball's, round its own centre; see <see cref="GhostDissolve"/>. Only the
+        /// aim preview is one. It lives in this channel because the channel is free for it (the ghost is never
+        /// mid-transition), and it needs no change to any pixel shader: the clip above already keeps every pixel of
+        /// a value under <c>-1</c>, so only the vertex shader has anything to do.</item>
         /// </list>
-        /// The two are exact complements, which is the point: drawing one object twice, at <c>+t</c> and at
+        /// The two dithers are exact complements, which is the point: drawing one object twice, at <c>+t</c> and at
         /// <c>-t</c>, covers every pixel exactly once. That is what makes a cross-fade between two ball
         /// colours possible at all — a colour is a <i>per-draw</i> uniform here, so blending two of them means
         /// drawing the object in both buckets, and two coincident <i>translucent</i> spheres would need depth
@@ -38,6 +43,32 @@ namespace Prazsky.Core.Render
         /// </para>
         /// </summary>
         public float Dissolve;
+
+        /// <summary>
+        /// The <see cref="Dissolve"/> that makes an instance a <b>ghost</b> of radius <paramref name="scale"/> (a share of
+        /// a whole ball's, kept inside <c>(0, 1]</c>): <c>-(1 + scale)</c>. Below <c>-1</c>, where no dither value is, so
+        /// the two uses of the channel cannot be mistaken for each other (see <see cref="IsGhost"/>).
+        /// </summary>
+        public static float GhostDissolve(float scale) => -(1f + MathHelper.Clamp(scale, GHOST_MIN_SCALE, 1f));
+
+        /// <summary>
+        /// Whether a <see cref="Dissolve"/> value is a ghost's, not a dither's: strictly below <c>-1</c>, where the
+        /// arriving dither's range ends. The one test the Potato draw makes to tell the balls it can draw without a
+        /// <c>clip()</c> from the ones that need one (#794).
+        /// </summary>
+        public static bool IsGhost(float dissolve) => dissolve < -1f;
+
+        /// <summary>
+        /// The radius a <see cref="GhostDissolve"/> value stands for, as a share of a whole ball's; 1 for any value that
+        /// is not a ghost's. What the vertex shaders compute (<c>GhostScale</c> in BallCommon.fxh, PotatoModel.fx).
+        /// </summary>
+        public static float GhostScale(float dissolve) => IsGhost(dissolve) ? -dissolve - 1f : 1f;
+
+        /// <summary>
+        /// The smallest ghost <see cref="GhostDissolve"/> encodes. A ghost of radius 0 would be <c>-1</c>, which is
+        /// the arriving dither at its end - a whole ball - and so the one value that cannot be told from "not a ghost".
+        /// </summary>
+        public const float GHOST_MIN_SCALE = 0.01f;
 
         /// <summary>
         /// How brightly this instance is flaring right now, 0…1 — the light running through the cluster from

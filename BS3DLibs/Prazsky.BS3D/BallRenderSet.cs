@@ -1196,20 +1196,21 @@ namespace Prazsky.BS3D
         }
 
         //How much of a dead ball is dithered away (#620), at the end of its ease-in. A dead ball keeps its colour
-        //and its level's own material and loses the same thing the landing preview's ghost loses — pixels, in
-        //display-pixel blocks, through the shader's dissolve — which is a language the player has already
-        //learned: "this is a ball that is not really there". Nothing about it is blended, so it needs no sorting
-        //and no second draw; it goes out through its own colour's bucket with a steady dissolve on its instance.
+        //and its level's own material and loses pixels, in display-pixel blocks, through the shader's dissolve —
+        //which is the language the landing preview's ghost spoke until #794 gave the ghost a size of its own, and
+        //the one the colour cross-fades still speak: "this is a ball that is not really there". Nothing about it is
+        //blended, so it needs no sorting and no second draw; it goes out through its own colour's bucket with a
+        //steady dissolve on its instance.
         //
         //It is #412's transparency turned round, and the reason is the one the owner gave from play: a see-through
         //ball is what the clear glass of the transparent kind is, so a player who met a dead ball inside the
         //first level's pyramid took it for a special and could not say what it did. The colour is what says the
         //ball is still one of theirs; the missing pixels say it has left the map.
         //
-        //Not the ghost's 0.5, and steady where the ghost blinks (GameplayScreen's PREVIEW_DISSOLVE and
-        //PREVIEW_BLINK_DEPTH): the two must not be taken for each other, and the ghost's whole job is to swing.
-        //Not much lower either — the ghost's own remarks record that a ball with most of itself intact reads as a
-        //ball that is already there, which is exactly the mistake a dead ball is there to prevent.
+        //Steady where the ghost blinks (GameplayScreen's PREVIEW_SCALE and PREVIEW_BLINK_DEPTH), and a dither where
+        //the ghost is a size: the two must not be taken for each other, and the ghost's whole job is to swing.
+        //Not much lower than half either — a ball with most of itself intact reads as a ball that is already
+        //there (the ghost's own remarks record it), which is exactly the mistake a dead ball is there to prevent.
         internal const float DEAD_DISSOLVE = 0.5f;
 
         private readonly ModelInstance[][] _buckets;

@@ -26,21 +26,25 @@ namespace BS3D.Screens
         #region The landing preview
 
         /// <summary>
-        /// How much of the ghost is clipped away. It is the shader's <b>dissolve</b> — a noise cut over 7³ cells of
-        /// the ball's own surface, not a transparency — which is why the preview needs no blend state, no sorting
-        /// and no shader change: it is ordinary opaque geometry with most of itself missing, and it reads as "not
-        /// there yet" rather than as a ball that is somehow faint.
+        /// How big the ghost is: its radius as a share of a whole ball's. It is drawn <b>smaller</b>, round its own
+        /// centre, rather than a whole ball with pixels dithered out of it (#794: the owner wants that dither kept for
+        /// the detached balls and the colour cross-fades, and the size for the ghost alone) — which is why the preview
+        /// needs no blend state, no sorting and no pixel shader work: it is ordinary opaque geometry, and it reads as
+        /// "not there yet" rather than as a ball that is somehow faint. It travels in the dissolve channel, below
+        /// <c>-1</c>, where no dither value is (<see cref="ModelInstance.GhostDissolve"/>).
         /// <para>
         /// Tuned against the <b>overview</b> and not against precise aim. Leaning in over the barrel the ghost is
-        /// large and unmissable at almost any value; from the overview stand-off it is a few dozen pixels, and at
-        /// 0.62 it was present but easy to miss. Going much lower is the opposite failure — a ghost with most of
-        /// itself intact reads as a ball that is already there, which would have the player aiming somewhere else.
+        /// large and unmissable at almost any value; from the overview stand-off it is a few dozen pixels, and a
+        /// ghost much larger than this was present but easy to miss. Going much lower is the opposite failure — a
+        /// ghost nearly the size of a ball reads as a ball that is already there, which would have the player aiming
+        /// somewhere else. Half a ball's radius is what the Raspberry Pi build's tier, which could not afford the
+        /// dither, drew first, and the owner kept it.
         /// </para>
         /// </summary>
-        private const float PREVIEW_DISSOLVE = 0.5f;
+        private const float PREVIEW_SCALE = 0.5f;
 
         /// <summary>
-        /// How far the ghost's dissolve swings either side of <see cref="PREVIEW_DISSOLVE"/>, and how often —
+        /// How far the ghost's scale swings either side of <see cref="PREVIEW_SCALE"/>, and how often —
         /// the <b>blink</b>, and it is the ghost telling the truth about itself.
         /// <para>
         /// <b>Measured, because the honest answer turned out to be worse than the docs assumed.</b> Fired with
@@ -71,8 +75,9 @@ namespace BS3D.Screens
         /// </para>
         /// <para>
         /// The depth is what makes it unmissable at the overview stand-off, where the ghost is a few dozen pixels
-        /// — the same argument that set <see cref="PREVIEW_DISSOLVE"/> itself. At ±0.22 the ball swings between
-        /// mostly-there and mostly-gone; much less and the swing is lost in the dither's own noise at that size.
+        /// — the same argument that set <see cref="PREVIEW_SCALE"/> itself. At ±0.22 the ball swings between
+        /// nearly three quarters of a ball's radius and little over a quarter of it; much less and the swing is lost
+        /// at that size (it was lost in the dither's own noise when the ghost was dithered).
         /// </para>
         /// </summary>
         private const float PREVIEW_BLINK_DEPTH = 0.22f;
@@ -274,7 +279,7 @@ namespace BS3D.Screens
 
         /// <summary>
         /// Adds the ghost to the frame's collection: the colour actually loaded at the muzzle, in the cell it would
-        /// land in, mostly dissolved away.
+        /// land in, drawn small (<see cref="PREVIEW_SCALE"/>).
         /// </summary>
         /// <remarks>
         /// The colour is the magazine's front ball rather than a neutral grey on purpose — the useful question is
@@ -306,7 +311,7 @@ namespace BS3D.Screens
             //And the blink: the ghost swings between mostly-there and mostly-gone rather than standing still,
             //because standing still would be a promise it cannot keep — 3 of 10 measured landings hit the cell it
             //showed. See PREVIEW_BLINK_DEPTH for the measurement and for why this is a swing and not an on/off.
-            float dissolve = PREVIEW_DISSOLVE
+            float scale = PREVIEW_SCALE
                 + PREVIEW_BLINK_DEPTH * MathF.Sin(MathHelper.TwoPi * PREVIEW_BLINK_HZ * WallClock);
 
             //⚠ A wildcard's ghost is drawn as an ORDINARY ball in the colour the cycle is showing (#330), and
@@ -316,7 +321,7 @@ namespace BS3D.Screens
             //for — "does it stick NEXT TO TWO MORE OF ITS OWN" — and it comes through LoadedColour like every
             //other tint, so it agrees with the muzzle and the strip.
             frame.Add(LoadedColour(0), position, Matrix.CreateTranslation(position),
-                BallRenderSet.UNOCCLUDED, dissolve);
+                BallRenderSet.UNOCCLUDED, ModelInstance.GhostDissolve(scale));
         }
 
         #endregion
