@@ -85,11 +85,14 @@ FishVertexOutput FishVS(FishVertexInput input)
     float3 across = normalize(cross(forward, up));
     up = cross(across, forward);
 
-    //The swimming wave: a travelling bend that grows towards the tail, at the fish's own beat
+    //The swimming wave: a travelling bend that grows towards the tail, at the fish's own beat, and travelling FROM
+    //THE HEAD TO THE TAIL (phase t + x, so a crest's x falls as time runs), the way a fish pushes the water back.
+    //The first cut had t - x, a wave running up the body towards the nose, and the owner saw fish swimming tail
+    //first (#760, 2026-10-05) although every one moves nose first along the ring.
     float3 local = input.Position;
     float tail = saturate((0.3 - local.x) / 1.08);
     float beat = TailHz * (0.85 + 0.3 * h.w);
-    local.z += 0.09 * tail * tail * sin(Time * beat * 6.2831853 + fish * 2.1 - local.x * 8.0);
+    local.z += 0.09 * tail * tail * sin(Time * beat * 6.2831853 + fish * 2.1 + local.x * 8.0);
 
     float size = FishLength * (0.75 + 0.5 * h.w);
     float3 world = place + (forward * local.x + up * local.y + across * local.z) * size;
