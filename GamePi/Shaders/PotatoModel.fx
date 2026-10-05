@@ -6,10 +6,12 @@
 //whole Potato frame. This is its LIGHTING MODEL, kept - the same three-light rig the host tints from the sky dome,
 //the same hemisphere ambient and occlusion from the instance stream, the same Blinn-Phong and Fresnel environment,
 //so a scene's light reads the same - with everything a surface does on top of it given up: no relief, no ball
-//patterns or materials (every BallShading is one lit, coloured ball), no shadows, no clouds, no refraction. The scene's
-//own point lights it keeps (#795), because on the scenes whose dome is dark they are the light. InstancedModelRenderer recognises this effect by its techniques and draws through DrawPotato, which
-//sets the uniforms below and no others; a uniform named here that a draw does not set keeps the value the last
-//draw left, so DrawPotato sets every one each draw, as InstancedModelRenderer.Draw does on the desktop.
+//patterns or materials (every BallShading is one lit, coloured ball, the lava's glow aside), no shadows, no clouds, no
+//refraction. The scene's own point lights it keeps (#795), at the vertex, because on the scenes whose dome is dark they
+//are the light. InstancedModelRenderer recognises this effect by its techniques and draws through DrawPotato, which
+//sets the uniforms below and no others but the scene's lamps (SceneLights pushes those, once a frame, for every draw);
+//a uniform named here that a draw does not set keeps the value the last draw left, so DrawPotato sets every one each
+//draw, as InstancedModelRenderer.Draw does on the desktop.
 //
 //The instance stream is InstancedModel.fx's exactly (ModelInstance, 88 bytes): the world matrix's four rows in
 //TEXCOORD1-4, the occluder direction and base occlusion in TEXCOORD5, the dissolve in TEXCOORD6, the ripple in
