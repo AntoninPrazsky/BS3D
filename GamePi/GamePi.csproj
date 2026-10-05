@@ -1,0 +1,89 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--The Game, built for Linux ARM64 (a Raspberry Pi 5) on MonoGame DesktopGL - SDL2 for the window and the input,
+  OpenAL Soft for the sound, OpenGL for the picture. It is NOT a second game: it owns no gameplay, no screen and no
+  rule, and compiles Game/'s own sources. What it owns is what cannot be shared:
+
+  - this project file (net10.0 instead of net10.0-windows, the DesktopGL package instead of WindowsDX, no WinForms);
+  - Platform/, the few classes whose Windows implementation is nothing but Win32 or WinForms. Each is a file of
+    Game/Platform left out of the compile below and replaced here by one with the same name and the same members;
+  - Content/Content.mgcb, because the Game's builds a "Segoe UI" spritefont, which no Linux machine has.
+
+  Game.csproj does not know this project exists, so the Windows build is the one it was. A change to Game/ reaches
+  both; WinForms added to a shared file fails this build and another Windows-only .NET API warns in it (CA1416, left
+  on deliberately), which is the point of building it. A DllImport into user32 is invisible to both and fails only
+  when it runs.
+
+  Not here yet: the shaders. Every effect in Prazsky.Shaders is Shader Model 5.0, and DesktopGL compiles through
+  MojoShader, which stops at 3.0 - so this project references no Prazsky.Shaders, ships no Content/Shaders, and the
+  game stops at its first Load<Effect>. The Potato tier's own OpenGL shader set is what fills that in.-->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <StartupObject>BS3D.Program</StartupObject>
+    <!--The Game's own names: the player's profile, the run log and the online client read these, and an assembly
+    called anything else would be a different game to all three.-->
+    <AssemblyName>BS3D</AssemblyName>
+    <RootNamespace>BS3D</RootNamespace>
+    <Copyright>Antonín Pražský</Copyright>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <!--The Game's sources live one directory up; nothing under this folder is globbed by default except Platform/.-->
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <!--Which release this build is, exactly as in Game.csproj (#546): release.yml passes the tag, and a build without
+  one submits only to a server its settings name.-->
+  <ItemGroup Condition="'$(BS3DReleaseVersion)' != ''">
+    <AssemblyMetadata Include="BS3DReleaseVersion" Value="$(BS3DReleaseVersion)" />
+  </ItemGroup>
+
+  <!--Every source of the Game but the Windows-only Platform files this project replaces. A file named here must
+  have its namesake in Platform/; a new Win32 or WinForms file in Game/Platform belongs on this list too.-->
+  <ItemGroup>
+    <Compile Include="..\Game\**\*.cs"
+             Exclude="..\Game\bin\**;..\Game\obj\**;..\Game\Content\bin\**;..\Game\Content\obj\**;..\Game\Platform\CrashDialog.cs;..\Game\Platform\DisplayRefresh.cs;..\Game\Platform\WindowIcon.cs" />
+    <Compile Include="Platform\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <MonoGameContentReference Include="Content\Content.mgcb" />
+    <None Remove="Content\bin\**" />
+    <None Remove="Content\obj\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BepuPhysics" />
+    <PackageReference Include="BepuUtilities" />
+    <PackageReference Include="FontStashSharp.MonoGame" />
+    <PackageReference Include="MonoGame.Content.Builder.Task" />
+    <!--The one MonoGame platform package, as Game.csproj insists: both ship an assembly named MonoGame.Framework, and
+    two of them make NuGet pick one silently.-->
+    <PackageReference Include="MonoGame.Framework.DesktopGL" />
+    <PackageReference Include="Myra" />
+    <PackageReference Include="NVorbis" />
+  </ItemGroup>
+
+  <!--The menu's fonts, embedded under the names the Game's LoadEmbeddedFont asks for (the Link is what makes the
+  manifest name BS3D.Content.Fonts.<file> for a file outside this folder).-->
+  <ItemGroup>
+    <EmbeddedResource Include="..\Game\Content\Fonts\Anton-Regular.ttf" Link="Content\Fonts\Anton-Regular.ttf" />
+    <EmbeddedResource Include="..\Game\Content\Fonts\Inter-Regular.ttf" Link="Content\Fonts\Inter-Regular.ttf" />
+    <EmbeddedResource Include="..\Game\Content\Fonts\Inter-Bold.ttf" Link="Content\Fonts\Inter-Bold.ttf" />
+    <EmbeddedResource Include="..\Game\Content\Fonts\PromptFont.ttf" Link="Content\Fonts\PromptFont.ttf" />
+  </ItemGroup>
+
+  <!--The levels, the music and the sound effects: the Game's own files, copied beside the binary at the paths the
+  Game reads them from.-->
+  <ItemGroup>
+    <Content Include="..\Game\Levels\**\*.json" Link="Levels\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="..\Game\Levels\Prototypes\**" CopyToPublishDirectory="Never" />
+    <Content Include="..\Game\Music\*.ogg" Link="Music\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\Game\Music\Drums\*.ogg" Link="Music\Drums\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\Game\Sfx\*.ogg" Link="Sfx\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BS3DLibs\Prazsky.BS3D.Physics\Prazsky.BS3D.Physics.csproj" />
+    <ProjectReference Include="..\BS3DLibs\Prazsky.BS3D\Prazsky.BS3D.csproj" />
+    <ProjectReference Include="..\BS3DLibs\Prazsky.Core\Prazsky.Core.csproj" />
+  </ItemGroup>
+</Project>

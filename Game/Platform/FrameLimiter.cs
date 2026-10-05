@@ -114,8 +114,12 @@ namespace BS3D.Platform
         /// <see cref="EndFrame"/>'s ordinary schedule behind it - which is why
         /// <see cref="REFRESH_MARGIN"/> keeps its shipped value: it now governs only that fallback.
         /// </para>
+        /// <para>
+        /// Off Windows (GamePi) there is no DWM to wait on, so the answer is always false and the schedule alone
+        /// paces the frame.
+        /// </para>
         /// </summary>
-        public bool WaitForCompositor() => DwmFlush() == 0;
+        public bool WaitForCompositor() => OperatingSystem.IsWindows() && DwmFlush() == 0;
 
         /// <summary>
         /// The default target for a display refreshing at <paramref name="refreshHz"/>: the refresh plus
@@ -183,7 +187,9 @@ namespace BS3D.Platform
         {
             if (_timerResolutionRaised || _disposed) return;
 
-            TimeBeginPeriod(1);
+            //Windows only: Linux's sleep is already that fine - Sleep(1) measured 1.06 ms on average on the Pi 5
+            //GamePi runs on - and there is no winmm to ask
+            if (OperatingSystem.IsWindows()) TimeBeginPeriod(1);
             _timerResolutionRaised = true;
         }
 
@@ -194,7 +200,7 @@ namespace BS3D.Platform
 
             if (_timerResolutionRaised)
             {
-                TimeEndPeriod(1);
+                if (OperatingSystem.IsWindows()) TimeEndPeriod(1);
                 _timerResolutionRaised = false;
             }
         }
