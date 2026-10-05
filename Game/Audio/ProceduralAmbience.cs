@@ -90,6 +90,24 @@ namespace BS3D.Audio
         }
 
         /// <summary>
+        /// How much of the bed the moment lets through, 0–1, on top of the player's <see cref="Gain"/>: the Jukebox
+        /// takes it to nothing while it is open (#704), so only its music is heard. Written by the director, which
+        /// fades it; a write that changes nothing touches no voice.
+        /// </summary>
+        public float Duck
+        {
+            get => _duck;
+            set
+            {
+                if (value == _duck) return;
+                _duck = value;
+                _volumesDirty = true;
+            }
+        }
+
+        private float _duck = 1f;
+
+        /// <summary>
         /// Names the scene whose bed should be sounding. Callable before its bed exists — the wish is kept, the
         /// bed is baked off the frame, and it fades in the frame it lands (the bed already sounding, if any,
         /// plays on until then). Called from the host's <c>SetScene</c>, the one scene writer.
@@ -185,7 +203,7 @@ namespace BS3D.Audio
 
             //Equal-power: the weights are square roots, so the summed loudness holds through the middle of
             //the fade instead of dipping.
-            float level = AMBIENCE_VOLUME * _gain;
+            float level = AMBIENCE_VOLUME * _gain * _duck;
             if (_to != null) _to.Volume = MathHelper.Clamp(MathF.Sqrt(_blend) * level, 0f, 1f);
             if (_from != null) _from.Volume = MathHelper.Clamp(MathF.Sqrt(1f - _blend) * level, 0f, 1f);
         }
