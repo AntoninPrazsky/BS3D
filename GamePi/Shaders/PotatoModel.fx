@@ -189,7 +189,11 @@ VertexOutput PotatoVS(VertexInput input, InstanceInput instance)
 
     output.SceneDiffuse = 0;
     output.SceneSpecular = 0;
-    AddSceneLights(output.WorldPosition, normal, eye, output.SceneDiffuse, output.SceneSpecular);
+
+    //One compare for the twelve scenes with no lamps, rather than one per slot
+    [branch]
+    if (SceneLightCount > 0)
+        AddSceneLights(output.WorldPosition, normal, eye, output.SceneDiffuse, output.SceneSpecular);
 
     return output;
 }
