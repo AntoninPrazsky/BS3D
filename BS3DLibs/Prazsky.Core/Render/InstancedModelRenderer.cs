@@ -1837,14 +1837,6 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// <see cref="Draw(ICamera, ModelInstance[], int, BasicEffectParams, Vector3?)"/> through the Potato effect (#789):
-        /// the same instance upload, the same material arithmetic (the tint's luminance, BasicEffect's premultiply) and
-        /// the same per-draw restatement of every shared uniform, with three techniques in place of InstancedModel.fx's
-        /// thirty-five - a ball of any <see cref="BallShading"/> is <c>PotatoBall</c>, a detail-textured part is
-        /// <c>PotatoTextured</c>, everything else (city, glass, metal, crystal) is <c>PotatoLit</c>. Its own method
-        /// rather than branches through the desktop draw, so the desktop path reads exactly as it did.
-        /// </summary>
-        /// <summary>
         /// The one colour a Potato ball is (#789), its desktop technique's look being out of reach: the tint it is drawn
         /// with - flowing into the next colour across a wildcard's crossing, as the desktop's wildcard does, rather than
         /// holding the colour it is leaving while the aim beam already shows the next (#789's review) - and, for the kinds
@@ -1895,6 +1887,14 @@ namespace Prazsky.Core.Render
         private ModelInstance[] _sortedInstances = Array.Empty<ModelInstance>();
         private float[] _sortDepths = Array.Empty<float>();
 
+        /// <summary>
+        /// <see cref="Draw(ICamera, ModelInstance[], int, BasicEffectParams, Vector3?)"/> through the Potato effect (#789):
+        /// the same instance upload, the same material arithmetic (the tint's luminance, BasicEffect's premultiply) and
+        /// the same per-draw restatement of every shared uniform, with three techniques in place of InstancedModel.fx's
+        /// thirty-five - a ball of any <see cref="BallShading"/> is <c>PotatoBall</c>, a detail-textured part is
+        /// <c>PotatoTextured</c>, everything else (city, glass, metal, crystal) is <c>PotatoLit</c>. Its own method
+        /// rather than branches through the desktop draw, so the desktop path reads exactly as it did.
+        /// </summary>
         private void DrawPotato(ICamera camera, ModelInstance[] instances, int instanceCount, BasicEffectParams effectParams, Vector3? diffuseTint)
         {
             EnsureInstanceBufferCapacity(instances.Length);
