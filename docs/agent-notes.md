@@ -7960,3 +7960,13 @@ Majitel večer 4. 10.: „zpracovávej až do rána issues, které můžeš zpra
 - **Majitel:** zvětšování a zmenšování místo ditheru chce i na Windows, odpojené koule zůstanou s ditherem (#794).
 - **Nové issues:** #794, #795 (tmavé scény bez světel scény, sopka), #796 (řádky Aberration a Film grain), #797 (Bubble kreslí dvakrát).
 - **#788 a #789 čekají na verdikt.** Dál: #790 zvuk, #791 myš.
+
+## 2026-10-05 — Windows ověření Pi práce (#788, #789) a `compile.ps1` na PowerShellu 5.1 — notebook, Claude Code (github-cf)
+
+- **Proč:** Pi session nemá Windows, takže sdílený kód po #788/#789 na Windows nikdo nespustil (CI ho jen staví a spouští testy). Notebook (Ryzen 7 5700U) po 6 dnech: `main` f581b102 byl o 271 commitů dál.
+- **Na Windows čisté (Release, `main` f581b102):** `Game.sln` 0 varování 0 chyb, `BS3D.Tests` 597/597, `level=Girandole shot=12` se načte a běží (1204 koulí, 5093 vazeb, žádná výjimka, snímek v pořádku). Adaptivní sonda na APU 1080p High → Medium → Low, Low 55–58 FPS. Diff sdílených souborů přečtený: na Windows cestě jen bool `_potato` a null kontroly, `QualityLock.Tier` je null.
+- **Opraveno na mainu (`c3069c46`):** `GamePi/Shaders/compile.ps1` padal na Windows PowerShellu 5.1 (stock Windows nemá `pwsh`): `[Text.Encoding]::Latin1` je .NET 5+. Teď `GetEncoding(28591)`. Kompilace i kontrola jednoho pole pod 5.1 prošly; kontrola nad vadným kompilátem z `0fcc82b5` pod 5.1 odmítla přesně Blast a Fireworks (PotatoModel ne).
+- **Změřeno:** lokální kompilace všech osmi GL efektů 3,5 s a sha256 všech osmi `Compiled/*.xnb` **bajt po bajtu stejné** jako commitnuté z CI. Notebook tedy umí shadery pro Pi kompilovat sám.
+- **Neměřeno:** APU benchmark Windows cesty (main proti `cc0b25d1`) — zbývá, nabídnuto Pi session.
+- **Nechané Pi session:** dvojitý `<summary>` u `InstancedModelRenderer.PotatoBallColor` (ten první patří k `DrawPotato`).
+- **Otevřené otázky:** #794 (grow/shrink na Windows) neberu, dokud neodpoví Pi session a majitel nepotvrdí, zda se křížové přechody barev mění taky; issue to sama označuje.
