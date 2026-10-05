@@ -34,6 +34,10 @@ namespace BS3D.Platform
         [DllImport(LIBRARY, EntryPoint = "SDL_GetCurrentDisplayMode", CallingConvention = CallingConvention.Cdecl)]
         internal static extern int GetCurrentDisplayMode(int displayIndex, out DisplayMode mode);
 
+        /// <summary>The address of a GL entry point in the current context, or zero when the driver has none by that name.</summary>
+        [DllImport(LIBRARY, EntryPoint = "SDL_GL_GetProcAddress", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern IntPtr GlGetProcAddress([MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+
         /// <summary>A modal message box; it needs no window and no running event loop. Zero on success.</summary>
         [DllImport(LIBRARY, EntryPoint = "SDL_ShowSimpleMessageBox", CallingConvention = CallingConvention.Cdecl)]
         internal static extern int ShowSimpleMessageBox(uint flags,

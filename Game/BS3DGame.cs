@@ -145,6 +145,15 @@ namespace BS3D
         //pass applies, before there is a window whose size could be read.
         private Point _windowedSize = new(WINDOW_WIDTH, WINDOW_HEIGHT);
 
+        //The height the 3D is drawn at (#801), 0 for the display's own; the menus, the HUD and the cup stay the back
+        //buffer's whatever it is. A back buffer smaller than the display is not to be had in borderless fullscreen on
+        //either platform (MonoGame sizes it to the display), so the 3D goes into a target of its own and is scaled up.
+        private readonly int _renderHeight;
+
+        //The size the 3D is drawn at this frame: the back buffer's when native, else _renderHeight at its aspect.
+        //Solved by ApplyRenderResolution whenever the back buffer may have changed.
+        private Point _renderSize;
+
         private RecoilCamera _camera;
 
         //Everything the game hears and the pad it shakes (#583): the effects, the music, the About page's
@@ -745,6 +754,8 @@ namespace BS3D
             //not get to break it.
             if (launch.WindowWidth > 0 && launch.WindowHeight > 0)
                 _windowedSize = new Point(launch.WindowWidth, launch.WindowHeight);
+
+            _renderHeight = launch.RenderHeight ?? 0;
             _startupPreview = launch.Preview;
 
             //What one argument implies about another (level= means play, lost means result) is the script's
@@ -880,6 +891,7 @@ namespace BS3D
             _graphics.SynchronizeWithVerticalRetrace = false;
 
             _graphics.ApplyChanges();
+            ApplyRenderResolution();
 
             //Null-conditional for the constructor's call, which runs before LoadContent has built the
             //pipeline (the old in-class EnsureSceneTarget guarded on GraphicsDevice == null the same way)
@@ -921,7 +933,32 @@ namespace BS3D
             //The menu is authored the same way, and refits itself in Draw (EnsureMenuLayout).
             _info?.RecomputeScale();
 
+            ApplyRenderResolution();
             _pipeline?.EnsureTarget();
+        }
+
+        /// <summary>
+        /// Solves the size the 3D is drawn at (#801) from the back buffer and <see cref="_renderHeight"/>: the back
+        /// buffer's own when native or when the height asked for is not below it, otherwise that height at the back
+        /// buffer's aspect with both sides even. The balls budget their outlines in those pixels. Run whenever the back
+        /// buffer may have changed size; the targets that follow it rebuild on their next use.
+        /// </summary>
+        private void ApplyRenderResolution()
+        {
+            if (GraphicsDevice == null) return;
+
+            PresentationParameters buffer = GraphicsDevice.PresentationParameters;
+            int width = buffer.BackBufferWidth, height = buffer.BackBufferHeight;
+
+            if (_renderHeight > 0 && _renderHeight < height)
+            {
+                int scaled = _renderHeight & ~1;
+                width = (int)MathF.Round(width * (float)scaled / height * Constants.HALF) * 2;
+                height = scaled;
+            }
+
+            _renderSize = new Point(width, height);
+            if (_balls != null) _balls.LodReferenceHeight = height < buffer.BackBufferHeight ? height : 0;
         }
 
         /// <summary>
@@ -1068,6 +1105,7 @@ namespace BS3D
                 //Coarser meshes on the Potato path (#789), where a ball's vertices were a sixth of a heavy level's frame
                 LodBias = PotatoPath ? POTATO_BALL_LOD_BIAS : 1f
             };
+            ApplyRenderResolution();
 
             #endregion
 
@@ -1208,7 +1246,11 @@ namespace BS3D
             _confetti = new Confetti(GraphicsDevice, Content.Load<Effect>("Shaders/Confetti"));
 
             //The player's brightness onto every Potato effect, which the desktop's pipeline initializer above does there
-            if (PotatoPath) ApplyPotatoExposure();
+            if (PotatoPath)
+            {
+                ApplyPotatoExposure();
+                LoadPotatoUpscale();
+            }
 
             //Both display levers ("celebrate" and "confetti") are FIRED FROM Update, not from here — see
             //StartupScript.StartCelebrations, which also says why. The two displays are only built here.
@@ -1901,6 +1943,8 @@ namespace BS3D
                 //The sun shadow map as built (#484): Ultra's one entry is its size, and nothing else says it
                 + $", shadow {(_sceneRenderer?.ActiveShadowMapSize is int map && map > 0 ? map.ToString() : "off")}"
                 + $", {GraphicsDevice.PresentationParameters.BackBufferWidth}x{GraphicsDevice.PresentationParameters.BackBufferHeight}"
+                //The size the 3D is drawn at (#801), after the back buffer's so the benchmark scripts' match on it holds
+                + $", render {_renderSize.X}x{_renderSize.Y}"
                 //"vsync" left the line with #270 — the game does not vsync any more, and a line that still
                 //said so would misreport the one setting that decides what the number even means. What it
                 //carries instead is the limiter's actual target, and where that target came from, so a run
