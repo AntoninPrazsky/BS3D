@@ -7906,3 +7906,31 @@ Majitel večer 4. 10.: „zpracovávej až do rána issues, které můžeš zpra
     - Zbloudilý let do chráněného patra bere jen jednu kouli (`DestroyBall`).
     - Bomba v patře vybuchne až po vyhodnocení toho, co spadlo.
   - Fronta verdiktů: 8. Stránka https://claude.ai/artifact/1iHNpAZWYT4AVYaAvbPnr9 (nový účet).
+
+## 2026-10-05 — #785 #786 port na Raspberry Pi 5: kostra GamePi je na mainu, issues #785–#793 — Pi (BS3DServer), Claude Code (296408e3)
+
+- **Rozhodnutí majitele (#785):**
+  - Hra poběží na Raspberry Pi 5 8GB (Linux ARM64).
+  - Nový grafický stupeň **Potato**. V OpenGL buildu je jediný a nejde změnit.
+  - V menu u verze bude „ARM64“.
+  - Potato smí kreslit pod nativním rozlišením (výjimka z #298), cílem je ale 1920×1080 na 40–50 FPS.
+  - Port zůstává **v tomhle repu**, žádný fork.
+  - Potato dostane **vlastní sadu GL shaderů**. 43 efektů SM 5.0 se nepřevádí a `#if OPENGL` se nevrací.
+- **#786 (merge `1a5cb00d`):**
+  - `GamePi/GamePi.csproj` (net10.0, DesktopGL) překládá všechny zdroje z `Game/`.
+  - Nahrazuje jen tři soubory z `Game/Platform`: `DisplayRefresh` přes SDL, `WindowIcon` jako no-op a nový `CrashDialog` jako SDL message box.
+  - Ve sdíleném kódu: `RunLog` volá `CrashDialog`; `FrameLimiter`, `LoadingIndicator` a `InternetCheck` jsou za `OperatingSystem.IsWindows()`.
+  - `Game.csproj` se nezměnil.
+  - Hra na Pi doběhne k prvnímu `Load<Effect>` (`Shaders/InstancedModel`) a skončí crash reportem a SDL dialogem.
+- **Změřeno na Pi:**
+  - MonoGame DesktopGL 3.8.5 běží nativně: GL 3.1, HiDef, max textura 4096, max MSAA 4×.
+  - Proxy scéna 1080p: 4,5–5,5 ms, s MSAA 4× 11–12 ms, přes RGBA16F 9 ms.
+  - Bepu headless: medián 1,2 ms na krok, nejhorší Girandole 4,6 ms.
+  - `Sleep(1)` trvá 1,06 ms. Logické testy prošly (588).
+  - Podrobnosti jsou v #785.
+- ⚠ **`bad-echo-mgcb` 3.8.2.1 na ARM64 nefunguje:** `libFreeImage.so` existuje jen pro x64. GamePi proto pinuje oficiální `dotnet-mgcb` 3.8.5, ten na Pi funguje.
+- ⚠ **GL shadery nejde zkompilovat na Pi:** mgfxc potřebuje D3D kompilátor z Windows. Musí je kompilovat CI na windows-latest nebo desktop (#789).
+- **Issues se štítkem `pi-port`:**
+  - #785 je souhrnné.
+  - #786–#793 jsou kostra, CI, Potato tier, shadery a renderer, zvuk, vstup, pacing a ikona, release.
+- **Dál:** #787, GamePi v CI na ARM64 runneru.
