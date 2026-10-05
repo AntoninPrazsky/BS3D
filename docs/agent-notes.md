@@ -7868,3 +7868,16 @@ Majitel večer 4. 10.: „zpracovávej až do rána issues, které můžeš zpra
   - Body 3 (přenést vzor do dalších kapitol) a „speciální koule“ jsou majitelovy.
 - **#400, sedmý průchod: čisté.** 66 nálezů hygieny snímku, žádný skutečný. Kontrola gradientů v `[branch]` byla viděna vystřelit na podstrčeném souboru. DocDrift: 21 kandidátů, žádný zastaralý. Další průchod od `448f19ae`.
 - ⚠ **LevelGen na Windows zapisuje CRLF**, takže po běhu jsou všechny levely „modified“. Obsah je stejný (`git diff --numstat Game/Levels/` je prázdné) a vrací se `git checkout -- Game/Levels/` (ne clean, ne reset).
+- **Dodatek (ráno 5. 10.): #743 opraveno po review, #759 + #760 hotovo, fronta verdiktů 17.**
+  - **#743 review (merge `870b9a9c`).** Barvami definovaná odměna nestačila: tělo v barvě odměny, které se dotýká odměny nebo skla, s tělem nespadne, takže brána ho pustila. Review to změřilo: Chest 64 z 64, Mango 75 z 85, Spark 22 z 25 přebarvení prošlo. `Design.Payoff` je teď **predikát buňky** (z part funkce designu), emitor předá bráně masku a brána odmítne i kouli těla v barvě odměny. Viděno vystřelit: špička Sparku obarvená žlutě dala 24 koulí a exit 1. Ship: 7 trefitelných = pět kýlu plus příď a záď paluby.
+  - **#759 + #760 (merge `179abc3c`):** v průletu Sea nahrazuje „swell“ záběr **pod vodou**. Kamera krouží pod ostrovem a dívá se nahoru na spodek, kužel trychtýře a shluk přes sklo.
+    - **Hejno 110 rybiček:** `FishSchool` + `Fish.fx` + `FishMesh` (75 trojúhelníků, `CullNone`, jeden draw, pohyb ve vertex shaderu).
+    - **Paprsky slunce:** `SeaLightShafts` + `LightShafts.fx` (40 aditivních quadů).
+    - Obojí jen s kamerou pod hladinou; náklad nulový (2,80 ms s hejnem i bez).
+    - Reference `C:\Users\panrd\AI\sd\out\760-*` (obě modely).
+    - Nafoceno: `tour scene=sea` seed 1–3 před/po a padající animace pod vodu (rybičky u špičky trychtýře).
+    - ⚠ **Pohled dolů pod vodou je plochá světlá pláň** (spodní půlka kopule přes jednotný zákal, žádné dno), proto se záběr dívá nahoru.
+    - **Review po merge (merge `87d505a2`):** paprsky se kreslily před ostrovem, takže je kámen přemaloval; teď jdou v `DrawOverlays`. Útlum u kamery byl po vrcholech quadu s rohy jen na koncích; teď je po pixelech. Brána `LensSubmergedAmount > 0` se otevírá 0,5 *nad* hladinou a hladina nezapisuje hloubku, takže rybičky prosvítaly vodou (chyba #761); teď kreslit jen pod každým údolím vlny.
+    - Rybičky jsou vidět i v padající animaci pod vodu (snímek z `detonate=17` na testovacím mořském levelu).
+    - ⚠ **Ukazatel FPS na snímcích s `shot=` po sekundě lže:** ukazoval 42–48, měření ve Testbedu 2,8 ms; PNG ukládání průměr srazí.
+  - **Stránka verdiktů:** https://claude.ai/artifact/6CtkPdXEenQk1GLK22Zhtr (Noční verdikty 5. 10.; patří účtu, pod kterým vznikla).
