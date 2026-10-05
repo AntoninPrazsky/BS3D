@@ -542,10 +542,29 @@ namespace BS3D.Screens
         //own slide is a slower event than either. Left-heavy for the shove; halved on a feed step
         //(CEILING_RUMBLE_FEED_SCALE) for the same reason PlayCeilingStep and the flash colour go soft on one:
         //a feed is the game rewarding the player, not warning them.
-        private const float CEILING_RUMBLE_LEFT = 0.6f;
-        private const float CEILING_RUMBLE_RIGHT = 0.25f;
-        private const float CEILING_RUMBLE_SECONDS = 0.5f;
+        //Brought down on the owner's first feel with a pad (2026-10-05: "maybe a little too pronounced"), from 0.6/0.25
+        //over 0.5 s — about three fifths of what it was, and still the heaviest of the in-play triggers short of the loss.
+        private const float CEILING_RUMBLE_LEFT = 0.45f;
+        private const float CEILING_RUMBLE_RIGHT = 0.18f;
+        private const float CEILING_RUMBLE_SECONDS = 0.4f;
         private const float CEILING_RUMBLE_FEED_SCALE = 0.5f;
+
+        //The pad's answer to the loss at the line (#378, asked for on the owner's first feel): the one ending the player
+        //is cut out of, so the heaviest pulse the game sends — the heavy motor long, under the net's sear, and the buzz
+        //short over it, the way PlayLineLoss is a burst on a long tail. Two kicks, because one Kick decays both motors
+        //over one length.
+        private const float LINE_LOSS_RUMBLE_LEFT = 0.9f;
+        private const float LINE_LOSS_RUMBLE_LEFT_SECONDS = 1.1f;
+        private const float LINE_LOSS_RUMBLE_RIGHT = 0.7f;
+        private const float LINE_LOSS_RUMBLE_RIGHT_SECONDS = 0.45f;
+
+        //And to the barrel arriving at its stop (#378, the other ask): a short knock, buzz-led so it is not mistaken for
+        //a shot's thump, once per push into the clamp — Cannon.ElevationStrain going full is the arrival, and it re-arms
+        //only once the strain has let go (the push stopped for ELEVATION_STRAIN_HOLD), so a hand holding the stick
+        //against the stop gets one knock and not a buzz.
+        private const float AIM_STOP_RUMBLE_LEFT = 0.2f;
+        private const float AIM_STOP_RUMBLE_RIGHT = 0.45f;
+        private const float AIM_STOP_RUMBLE_SECONDS = 0.09f;
 
         /// <summary>The flat colour the cluster's ripple carries, as opposed to the plate's own emissive.</summary>
         private static readonly Vector3 RIPPLE_ALARM_COLOR = new(1f, 0.07f, 0.05f);
@@ -872,6 +891,9 @@ namespace BS3D.Screens
 
         private MouseState _previousMouse;
         private bool _padTriggerReleased = true;
+
+        //Whether the barrel's next arrival at its stop is felt (#378) — spent by the knock, back once the strain lets go
+        private bool _aimStopArmed = true;
 
         //Whether the cursor is the aim's or the desktop's (#99, #154). Taken on arrival at play when the
         //pointer is already in the picture — pressing the menu entry that put this screen on top is the
