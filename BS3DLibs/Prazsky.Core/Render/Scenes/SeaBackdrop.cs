@@ -47,6 +47,11 @@ namespace Prazsky.Core.Render
 
         private readonly Effect _sprayEffect;
 
+        //The school of fish under the island and the sun's light coming down round it (#760), drawn only with the lens
+        //under the water
+        private readonly FishSchool _fish;
+        private readonly SeaLightShafts _shafts;
+
         //The six values the spray takes every frame, resolved once at load (BestPractices §1: the by-name indexer is a
         //linear scan). The look it takes once is pushed by ApplySprayParameters and needs no reference kept.
         private readonly EffectParameter _sprayView, _sprayProjection, _sprayCameraPosition, _sprayCameraRight,
@@ -88,6 +93,9 @@ namespace Prazsky.Core.Render
             ApplySprayParameters();
 
             BuildSprayBuffers();
+
+            _fish = new FishSchool(_graphicsDevice, content);
+            _shafts = new SeaLightShafts(_graphicsDevice, content, services);
         }
 
         /// <inheritdoc/>
@@ -219,6 +227,17 @@ namespace Prazsky.Core.Render
             _seaPass.Draw(frame, Services.TerrainHoleRadius);
 
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+
+            //The school (#760), with the lens under the water and only then: from above, the surface hides it, and in
+            //play the lens never goes under. After the surface, which writes no depth, so a fish between the lens and
+            //the surface is drawn over it, as it is.
+            if (LensSubmergedAmount(SceneKind.Sea, frame.Camera.Position) > 0f)
+            {
+                _fish.Draw(frame, _seaConfig.WaterShallow.ToVector3());
+
+                //The light last, additive over the water, the fish and the stone's flank, and hidden by the island
+                _shafts.Draw(frame, _seaConfig.LevelY);
+            }
         }
 
         /// <summary>The blown spray and spindrift over the water.</summary>
@@ -269,6 +288,8 @@ namespace Prazsky.Core.Render
             _seaEffect?.Dispose();
             _sprayVertexBuffer?.Dispose();
             _sprayIndexBuffer?.Dispose();
+            _fish?.Dispose();
+            _shafts?.Dispose();
         }
     }
 }
