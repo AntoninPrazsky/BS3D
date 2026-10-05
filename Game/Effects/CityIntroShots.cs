@@ -7,8 +7,8 @@ namespace BS3D.Effects
 {
     /// <summary>
     /// The city's own shots for a chapter intro's prologue (#488, and #433 inside it): a pass down a
-    /// street from four storeys up, an orbit over a plaza from above, a swing round a tower corner between the facades and a skim
-    /// across the roofs with their masts and blinking beacons (#436) — in that order, which alternates what the
+    /// street from four storeys up, an orbit over a plaza from above, a swing round a tower corner between the facades and an
+    /// arc round one dressed roof, its mast, dishes and beacon close and from above (#780; #436's equipment) — in that order, which alternates what the
     /// lens sees so that no cut lands on the same picture nudged (the owner's second-round note) — cut together,
     /// then cut to the ordinary tour. Both cities have spent a whole issue's worth of detail on the street
     /// level (#399: lane lines, crossings, parked cars, plazas of trees, and at night the sodium lamps and the
