@@ -1256,6 +1256,14 @@ namespace Prazsky.BS3D
         //of them on the stress map. Allocated once and refilled by BeginFrame: the projection changes every
         //frame (precise aim leans the lens in, the recoil punches the FOV), so these cannot be static, but
         //nothing about them may allocate either.
+        /// <summary>
+        /// How much coarser than <c>LOD_MIN_PIXEL_RADIUS</c> asks the meshes may be: 1, the authored budget, everywhere
+        /// but the Raspberry Pi build, whose Potato tier sets 2 (#789) - a ball's silhouette may then miss its true circle
+        /// by twice the pixel budget before the next mesh up is taken. Measured on the Pi at 1080p on the 1204-ball
+        /// Girandole: 30.8 ms a frame at 1, 25.0 at 2, and no further gain at 4 or at the coarsest mesh everywhere.
+        /// </summary>
+        public float LodBias { get; set; } = 1f;
+
         private readonly float[] _lodDistanceSquared;
 
         /// <param name="instancingEffect">The shared <c>InstancedModel.fx</c>. Handed in and never disposed
@@ -1712,7 +1720,7 @@ namespace Prazsky.BS3D
 
             for (int lod = 0; lod < _lodDistanceSquared.Length; lod++)
             {
-                float distance = pixelScale / LOD_MIN_PIXEL_RADIUS[lod];
+                float distance = pixelScale / (LOD_MIN_PIXEL_RADIUS[lod] * LodBias);
 
                 _lodDistanceSquared[lod] = distance * distance;
             }

@@ -50,6 +50,12 @@ namespace BS3D
             "Shaders/Fireworks", "Shaders/Confetti",
         };
 
+        /// <summary>
+        /// <see cref="Prazsky.BS3D.BallRenderSet.LodBias"/> on the Potato path: twice the desktop's silhouette budget. See
+        /// there for the measurement.
+        /// </summary>
+        private const float POTATO_BALL_LOD_BIAS = 2f;
+
         /// <summary>Whether the frame being drawn presents the cup or the confetti, for <see cref="CompositeForegroundLast"/>.</summary>
         private bool _potatoPresenting;
 

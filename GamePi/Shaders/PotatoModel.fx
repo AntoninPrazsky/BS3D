@@ -79,7 +79,6 @@ float3 PulseDirection;
 float PulseWavelength;
 float RippleStrength;
 float3 RippleAlarmColor;
-float DissolvePixelSize;
 
 struct VertexInput
 {
@@ -234,22 +233,22 @@ float Heartbeat(float t)
     return saturate(exp(-lubOffset * lubOffset) + 0.55 * exp(-dubOffset * dubOffset));
 }
 
-//BallCommon.fxh's DissolveNoise: a hash of the screen cell, so a dissolving ball is a dither in blocks
-float DissolveNoise(float2 cell)
+//The ball's dissolve, as a size rather than the desktop's dither (#789): a ball appearing (+, 1 down to 0) or going
+//(-, -1 up to 0) is drawn shrunk to the share of it the dither would show, round its own centre. The dither is a
+//clip(), and a pixel shader that can discard stops the GPU from rejecting a hidden pixel by depth before shading it -
+//on a cluster that is most of the balls it draws, which is what Potato cannot afford (measured: the balls are two
+//thirds of a heavy level's frame on the Pi). A settled ball (0) is whole.
+VertexOutput PotatoBallVS(VertexInput input, InstanceInput instance)
 {
-    float3 p = frac(cell.xyx * float3(0.1031, 0.1030, 0.0973));
-    p += dot(p, p.yzx + 33.33);
+    float dissolve = instance.Dissolve;
+    float shown = saturate(dissolve >= 0 ? 1 - dissolve : -dissolve);
+    input.Position.xyz *= shown;
 
-    return frac((p.x + p.y) * p.z);
+    return PotatoVS(input, instance);
 }
 
-float4 BallPS(VertexOutput input, float2 screen : VPOS) : COLOR0
+float4 BallPS(VertexOutput input) : COLOR0
 {
-    //The dissolve first, as the desktop's balls have it: a ball appearing (+) or going (-) is a dither, settled at 0
-    float dissolve = input.DissolveRipple.x;
-    float noise = DissolveNoise(floor(screen / max(DissolvePixelSize, 1)));
-    clip(dissolve >= 0 ? noise - dissolve : -dissolve - noise);
-
     float3 primary = SrgbToLinear(PatternPrimaryColor);
     float3 normal = normalize(input.WorldNormal);
     float4 shaded = Shade(input.WorldPosition, normal, input.OcclusionData, primary);
@@ -291,7 +290,7 @@ technique PotatoBall
 {
     pass P0
     {
-        VertexShader = compile vs_3_0 PotatoVS();
+        VertexShader = compile vs_3_0 PotatoBallVS();
         PixelShader = compile ps_3_0 BallPS();
     }
 };

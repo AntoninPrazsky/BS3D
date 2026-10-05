@@ -1818,7 +1818,6 @@ namespace Prazsky.Core.Render
             _pulseWavelengthParam = Required("PulseWavelength");
             _rippleStrengthParam = Required("RippleStrength");
             _rippleAlarmColorParam = Required("RippleAlarmColor");
-            _dissolvePixelSizeParam = Required("DissolvePixelSize");
 
             Required("DirLight1Direction").SetValue(DefaultLighting.Light1Direction);
             Required("DirLight2Direction").SetValue(DefaultLighting.Light2Direction);
@@ -1845,10 +1844,42 @@ namespace Prazsky.Core.Render
         /// <c>PotatoTextured</c>, everything else (city, glass, metal, crystal) is <c>PotatoLit</c>. Its own method
         /// rather than branches through the desktop draw, so the desktop path reads exactly as it did.
         /// </summary>
+        /// <summary>
+        /// <paramref name="instances"/>' first <paramref name="count"/> ordered by distance from <paramref name="eye"/>,
+        /// nearest first, in a buffer this renderer keeps and grows (no allocation on a frame that does not grow it).
+        /// </summary>
+        private ModelInstance[] SortedNearestFirst(ModelInstance[] instances, int count, Vector3 eye)
+        {
+            if (_sortedInstances.Length < count)
+            {
+                _sortedInstances = new ModelInstance[instances.Length];
+                _sortDepths = new float[instances.Length];
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                _sortedInstances[i] = instances[i];
+                _sortDepths[i] = Vector3.DistanceSquared(eye, instances[i].World.Translation);
+            }
+
+            Array.Sort(_sortDepths, _sortedInstances, 0, count);
+            return _sortedInstances;
+        }
+
+        private ModelInstance[] _sortedInstances = Array.Empty<ModelInstance>();
+        private float[] _sortDepths = Array.Empty<float>();
+
         private void DrawPotato(ICamera camera, ModelInstance[] instances, int instanceCount, BasicEffectParams effectParams, Vector3? diffuseTint)
         {
             EnsureInstanceBufferCapacity(instances.Length);
-            _instanceBuffer.SetData(instances, 0, instanceCount, SetDataOptions.Discard);
+
+            //Balls nearest first (#789): a cluster is mostly balls behind other balls, and drawn near to far the GPU
+            //rejects their hidden pixels by depth before shading them. The desktop draws its balls in the order they
+            //come, its pixels being cheap enough; on the Pi the balls were two thirds of a heavy level's frame.
+            //Sorted into this renderer's own buffer, so the caller's array keeps its order.
+            _instanceBuffer.SetData(PatternGoreCount > 0 && instanceCount > 1
+                ? SortedNearestFirst(instances, instanceCount, camera.Position) : instances,
+                0, instanceCount, SetDataOptions.Discard);
 
             _viewParam.SetValue(camera.View);
             _projectionParam.SetValue(camera.Projection);
@@ -1918,7 +1949,6 @@ namespace Prazsky.Core.Render
                     _pulseWavelengthParam.SetValue(PulseWavelength);
                     _rippleStrengthParam.SetValue(RippleStrength);
                     _rippleAlarmColorParam.SetValue(RippleAlarmColor);
-                    _dissolvePixelSizeParam.SetValue(DissolvePixelSize);
                 }
                 else if (DetailTexture != null && alpha >= 1f)
                 {

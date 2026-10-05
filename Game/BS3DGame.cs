@@ -1056,7 +1056,11 @@ namespace BS3D
             //it. The ground the balls' bellies darken against is the island's own top, which is the set's
             //default and the one thing every ball in this game hangs over.
             ShowLoading();
-            _balls = new BallRenderSet(GraphicsDevice, _instancingEffect, ripples: true);
+            _balls = new BallRenderSet(GraphicsDevice, _instancingEffect, ripples: true)
+            {
+                //Coarser meshes on the Potato path (#789), where a ball's vertices were a sixth of a heavy level's frame
+                LodBias = PotatoPath ? POTATO_BALL_LOD_BIAS : 1f
+            };
 
             #endregion
 
