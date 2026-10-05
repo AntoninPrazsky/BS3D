@@ -49,6 +49,16 @@ namespace Prazsky.Core.Render
         /// </summary>
         public bool Potato => _potato;
 
+        //The lava on the Potato path (#795): BallLava.fxh's LavaCrustTint and LavaCrustDark, the near-black basalt its seams
+        //glow through, and the share of a ball's surface those seams and the hot crust round them light, on average. Potato
+        //draws no seams, and the lava's EmissiveStrength is 0 (its seams ARE its glow), so without these a lava ball was a
+        //plain lit ball in the scene's dusk and the volcano's cluster near black. The share is matched to the desktop's
+        //Caldera captured at the same moment (#795): see "The Potato path" in docs/rendering.md.
+        private const float POTATO_LAVA_CRUST_TINT = 0.62f;
+        private const float POTATO_LAVA_CRUST_DARK = 0.16f;
+        private const float POTATO_LAVA_SEAM_SHARE = 0.3f;
+        private EffectParameter _ballCrustTintParam, _ballCrustDarkParam, _ballGlowParam;
+
         private EffectTechnique _potatoTexturedTechnique, _potatoBallTechnique, _potatoBallDitherTechnique;
         private readonly MeshPartData[] _parts;
         private DynamicVertexBuffer _instanceBuffer;
@@ -1825,6 +1835,9 @@ namespace Prazsky.Core.Render
             _pulseWavelengthParam = Required("PulseWavelength");
             _rippleStrengthParam = Required("RippleStrength");
             _rippleAlarmColorParam = Required("RippleAlarmColor");
+            _ballCrustTintParam = Required("BallCrustTint");
+            _ballCrustDarkParam = Required("BallCrustDark");
+            _ballGlowParam = Required("BallGlow");
 
             Required("DirLight1Direction").SetValue(DefaultLighting.Light1Direction);
             Required("DirLight2Direction").SetValue(DefaultLighting.Light2Direction);
@@ -2022,6 +2035,11 @@ namespace Prazsky.Core.Render
                     _pulseWavelengthParam.SetValue(PulseWavelength);
                     _rippleStrengthParam.SetValue(RippleStrength);
                     _rippleAlarmColorParam.SetValue(RippleAlarmColor);
+
+                    bool lava = Shading == BallShading.Lava;
+                    _ballCrustTintParam.SetValue(lava ? POTATO_LAVA_CRUST_TINT : 1f);
+                    _ballCrustDarkParam.SetValue(lava ? POTATO_LAVA_CRUST_DARK : 1f);
+                    _ballGlowParam.SetValue(lava ? LavaGlow * POTATO_LAVA_SEAM_SHARE : 0f);
                 }
                 else if (DetailTexture != null && alpha >= 1f)
                 {

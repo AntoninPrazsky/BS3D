@@ -88,6 +88,14 @@ float PulseWavelength;
 float RippleStrength;
 float3 RippleAlarmColor;
 
+//A style whose colour is its own glow and not its surface (#795): the lava, a near-black crust lit only by its molten
+//seams, which Potato does not draw. The crust is BallLava.fxh's (BallCrustTint and BallCrustDark are its LavaCrustTint and
+//LavaCrustDark) and BallGlow lays the seams' light over the whole ball as their average share of it. Every other style
+//leaves them at 1, 1 and 0: its own colour, and no glow.
+float BallCrustTint = 1;
+float BallCrustDark = 1;
+float BallGlow;
+
 //How wide one cell of the dissolve's dither is, in back-buffer pixels: BallCommon.fxh's DissolvePixelSize, the one
 //uniform the dithered draw reads (#794)
 float DissolvePixelSize = 1;
@@ -341,18 +349,31 @@ float4 BallPS(VertexOutput input) : COLOR0
 {
     float3 primary = SrgbToLinear(PatternPrimaryColor);
     float3 normal = normalize(input.WorldNormal);
+    float3 crust = primary * BallCrustTint * BallCrustDark + BallCrustDark * (1 - BallCrustTint);
     //A ball is opaque, so its added light simply joins it
-    Shaded parts = Shade(input.WorldPosition, normal, input.OcclusionData, primary);
+    Shaded parts = Shade(input.WorldPosition, normal, input.OcclusionData, crust);
     float3 shaded = parts.Covered.rgb + parts.Added;
     float occlusion = SurfaceOcclusion(input.WorldPosition, normal, input.OcclusionData);
 
     float beat = Heartbeat(PulseTime * PulseSpeed - dot(input.WorldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
     shaded += primary * EmissiveStrength * StillEmission * ((1 - PulseDepth) * occlusion * occlusion + PulseDepth * beat);
 
+    //The lava's seams as their average (#795), BallLava.fxh's arithmetic without the seams: the ball's own hue cut by
+    //LavaHuePower, as bright as its tint's luminance lets it (LavaTintEmission), breathing with the beat and occluded
+    //linearly as the desktop's seams are. Zero for every other style.
+    float peak = max(primary.r, max(primary.g, primary.b));
+
+    [branch]
+    if (BallGlow > 0)
+    {
+        float3 hue = pow(saturate(primary / max(peak, 1e-3)), 1.7);
+        float emission = lerp(0.18, 1.0, saturate(dot(primary, float3(0.2126, 0.7152, 0.0722))));
+        shaded += hue * (BallGlow * emission * lerp(1 - PulseDepth, 1, beat) * StillEmission * occlusion);
+    }
+
     //The ripple through the cluster (#331): a flash towards the ball's own hue, or the ceiling's alarm red
     float ripple = input.DissolveRipple.y;
     float amount = abs(ripple) * step(1e-4, RippleStrength);
-    float peak = max(primary.r, max(primary.g, primary.b));
     float3 lit = shaded + lerp(primary / max(peak, 1e-3), 1.0, 0.5) * (RippleStrength * amount);
     float3 alarmed = lerp(shaded, RippleAlarmColor * 1.7, amount * 0.95);
     shaded = ripple < 0 ? alarmed : lit;
