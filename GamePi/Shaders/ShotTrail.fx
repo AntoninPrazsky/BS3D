@@ -43,6 +43,8 @@ struct TrailVertexOutput
 //What the pixel shader reads: the vertex output without its position
 struct TrailPixelInput
 {
+    //Under DirectX the position the vertex output begins with (PotatoProfile.fxh, #808); nothing under OpenGL
+    POTATO_PIXEL_HEAD
     float2 UV : TEXCOORD0;
 };
 
@@ -109,7 +111,7 @@ technique ShotTrail
 {
     pass P0
     {
-        VertexShader = compile vs_3_0 TrailVS();
-        PixelShader = compile ps_3_0 TrailPS();
+        VertexShader = compile POTATO_VS TrailVS();
+        PixelShader = compile POTATO_PS TrailPS();
     }
 };

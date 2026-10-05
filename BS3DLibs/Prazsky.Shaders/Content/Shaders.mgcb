@@ -278,3 +278,64 @@
 /processorParam:DebugMode=Auto
 /build:Shaders/Circus.fx
 
+# The Potato tier's effects, for the Windows build's "potato" run (#808): the Raspberry Pi's picture on a desktop.
+# The SOURCES are GamePi's - GamePi/Shaders, where compile.ps1 builds them for OpenGL and commits the result - and here
+# the same files are compiled for DirectX 11 (PotatoProfile.fxh names the profiles for each). They land under
+# Content/Potato/Shaders, apart from the desktop's, because six of the nine have a desktop effect of the same name:
+# the Game's content manager looks under Content/Potato first when the run is a Potato one (PotatoContent), and
+# nowhere near it otherwise. The second path of each /build is that destination.
+
+#begin ../../../GamePi/Shaders/PotatoModel.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../../GamePi/Shaders/PotatoModel.fx;Potato/Shaders/PotatoModel.fx
+
+#begin ../../../GamePi/Shaders/PotatoSky.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../../GamePi/Shaders/PotatoSky.fx;Potato/Shaders/PotatoSky.fx
+
+#begin ../../../GamePi/Shaders/PotatoUpscale.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../../GamePi/Shaders/PotatoUpscale.fx;Potato/Shaders/PotatoUpscale.fx
+
+#begin ../../../GamePi/Shaders/ShotTrail.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../../GamePi/Shaders/ShotTrail.fx;Potato/Shaders/ShotTrail.fx
+
+#begin ../../../GamePi/Shaders/LaserGrid.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../../GamePi/Shaders/LaserGrid.fx;Potato/Shaders/LaserGrid.fx
+
+#begin ../../../GamePi/Shaders/Blast.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../../GamePi/Shaders/Blast.fx;Potato/Shaders/Blast.fx
+
+#begin ../../../GamePi/Shaders/Wormhole.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../../GamePi/Shaders/Wormhole.fx;Potato/Shaders/Wormhole.fx
+
+#begin ../../../GamePi/Shaders/Fireworks.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../../GamePi/Shaders/Fireworks.fx;Potato/Shaders/Fireworks.fx
+
+#begin ../../../GamePi/Shaders/Confetti.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../../GamePi/Shaders/Confetti.fx;Potato/Shaders/Confetti.fx
+

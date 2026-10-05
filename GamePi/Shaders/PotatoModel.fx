@@ -683,8 +683,8 @@ technique PotatoLit
 {
     pass P0
     {
-        VertexShader = compile vs_3_0 PotatoVS();
-        PixelShader = compile ps_3_0 LitPS();
+        VertexShader = compile POTATO_VS PotatoVS();
+        PixelShader = compile POTATO_PS LitPS();
     }
 };
 
@@ -692,8 +692,8 @@ technique PotatoTextured
 {
     pass P0
     {
-        VertexShader = compile vs_3_0 PotatoVS();
-        PixelShader = compile ps_3_0 TexturedPS();
+        VertexShader = compile POTATO_VS PotatoVS();
+        PixelShader = compile POTATO_PS TexturedPS();
     }
 };
 
@@ -701,18 +701,26 @@ technique PotatoBall
 {
     pass P0
     {
-        VertexShader = compile vs_3_0 PotatoBallVS();
-        PixelShader = compile ps_3_0 BallPS();
+        VertexShader = compile POTATO_VS PotatoBallVS();
+        PixelShader = compile POTATO_PS BallPS();
     }
 };
 
 //The dithered balls (#794): the desktop's dissolve, pixel for pixel - a ball going (+d) keeps the pixels whose noise is
 //above d, one arriving (-d) those below |d|, so the two draws of a cross-fade partition the ball exactly. The cell is a
 //block of the SCREEN, snapped with floor so every sample in it takes the same decision; VPOS is the pixel's position in
-//the back buffer, which is what SV_POSITION is in a Shader Model 4 pixel shader. Drawn whole-sized (the vertex shader
-//scales only a ghost, and a ghost is never in this draw).
+//the back buffer, which is what SV_POSITION is in a Shader Model 4 pixel shader - and there it is the only spelling:
+//the DirectX build (#808) reads the position it was handed, as the desktop's own dissolve does, where OpenGL's Shader
+//Model 3 may not read a position in a pixel shader at all. Drawn whole-sized (the vertex shader scales only a ghost,
+//and a ghost is never in this draw).
+#if OPENGL
 float4 BallDitherPS(VertexOutput input, float2 vpos : VPOS) : COLOR0
 {
+#else
+float4 BallDitherPS(VertexOutput input) : COLOR0
+{
+    float2 vpos = input.Position.xy;
+#endif
     float noise = DissolveNoise(floor(vpos / DissolvePixelSize));
     float dissolve = input.DissolveRipple.x;
 
@@ -725,8 +733,8 @@ technique PotatoBallDither
 {
     pass P0
     {
-        VertexShader = compile vs_3_0 PotatoBallVS();
-        PixelShader = compile ps_3_0 BallDitherPS();
+        VertexShader = compile POTATO_VS PotatoBallVS();
+        PixelShader = compile POTATO_PS BallDitherPS();
     }
 };
 
@@ -734,8 +742,8 @@ technique PotatoFinLit
 {
     pass P0
     {
-        VertexShader = compile vs_3_0 PotatoFinVS();
-        PixelShader = compile ps_3_0 FinLitPS();
+        VertexShader = compile POTATO_VS PotatoFinVS();
+        PixelShader = compile POTATO_PS FinLitPS();
     }
 };
 
@@ -743,8 +751,8 @@ technique PotatoFinTextured
 {
     pass P0
     {
-        VertexShader = compile vs_3_0 PotatoFinVS();
-        PixelShader = compile ps_3_0 FinTexturedPS();
+        VertexShader = compile POTATO_VS PotatoFinVS();
+        PixelShader = compile POTATO_PS FinTexturedPS();
     }
 };
 
@@ -752,8 +760,8 @@ technique PotatoBallFlat
 {
     pass P0
     {
-        VertexShader = compile vs_3_0 PotatoBallVS();
-        PixelShader = compile ps_3_0 BallFlatPS();
+        VertexShader = compile POTATO_VS PotatoBallVS();
+        PixelShader = compile POTATO_PS BallFlatPS();
     }
 };
 
@@ -761,7 +769,7 @@ technique PotatoBallRim
 {
     pass P0
     {
-        VertexShader = compile vs_3_0 PotatoBallRimVS();
-        PixelShader = compile ps_3_0 BallRimPS();
+        VertexShader = compile POTATO_VS PotatoBallRimVS();
+        PixelShader = compile POTATO_PS BallRimPS();
     }
 };

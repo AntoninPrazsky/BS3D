@@ -8084,3 +8084,62 @@ Majitel večer 4. 10.: „zpracovávej až do rána issues, které můžeš zpra
   - Další krok (nová větev): konkávní hrany vůbec nestavět (konkávní hrana uzavřené sítě není nikdy viditelný obrys) a živé hrany vybírat na CPU do dynamického index bufferu, aby binning viděl stovky hran místo desítek tisíc.
 - **`upscale=soft`** (`5e9c8652`): kubický B-spline ve čtyřech bilineárních tapech pro cestu pod nativním rozlišením; bilineární zvětšení dělá z tenké světlé linky korálky na mřížce zdroje. Výchozí je bilineár, cena na Pi se měří.
 - **Neověřeno:** cena `upscale=soft` na Pi, švy mezi dvěma sítěmi (zlatý pás odtoku proti kameni a šachtě) a vnitřní tvrdé hrany děla zůstávají schodovité, kola a válečky nemají ploutve, jiný poměr stran než 16:9 u #801.
+
+## 2026-10-05 — poznámky majitele z hraní založeny jako #805–#811 a sedm komentářů (jen založit, nic nestaveno) — desktop, Claude Code (bs3d-a3)
+
+- Majitel poslal osm poznámek se zadáním „založ issues“. Výsledek: **7 nových issues a 7 komentářů**, žádná větev, žádný claim, nic se nespouštělo ani nefotilo; všechno je přečtené z kódu na `main`. Před založením prošly všechny issues (otevřené i zavřené) a žurnál; čerstvé issues se před založením zkontrolovaly ještě jednou.
+- **Nová issues:**
+  - **#805 (bug):** na About a v Jukeboxu nefunguje na padu ◀ ▶. `AboutPage` nepřepisuje `PageSideways` (výchozí `false`, `MenuPage.cs:172`), host krokuje fokus jen svisle, a tlačítka Play a Next stojí vedle sebe v jedné řadě. Návrh: obecné pravidlo pro řady vedle sebe, ne přepis na každé stránce.
+  - **#806:** typografie pro všechny obrazovky. Žádné issue o pravidlech sazby neexistovalo, jen jednotlivé příznaky (#769, #479, #461…). Obsahuje otázku, co umí FontStashSharp 1.5.6 (kerning, OpenType funkce), než se cokoli slíbí.
+  - **#807:** About rozdělit na stránky jako Help, přehrávač první. Dnes je to ~160 slov v jedné velikosti, jedné barvě a vystředěné, bez nadpisů. **Otevřená otázka majiteli:** „Jukebox“ = přehrávač originální procedurální skladby na About (#443), nebo Jukebox v Extras (#704)?
+  - **#808:** Potato volitelné z Windows, tedy odpověď na otevřenou otázku v #788 („Potato on Windows too?“). ⚠ Potato cesta se volí **při startu** (`QualityLock` → `PotatoPath`), takže je to argument nebo restart, ne řádek, který se přepne hned. **Neznámé, zda se `GamePi/Shaders` (SM 3.0, dnes přeložené jen pro DesktopGL) přeloží pro DirectX.** To je první věc ke zjištění.
+  - **#809:** mraky letí moc rychle. Sopka má výchozí počasí Storm: vítr 12,1 u/s ve výšce 140, tedy **4,9 °/s nad hlavou, 3,3× rychleji než Scattered** (1,5 °/s). Druhá oktáva jede 1,6× rychleji než velké tvary (`Clouds.fxh`), což čte jako „závod“. Spočítáno z kódu, **ne změřeno ve snímku**.
+  - **#810:** vibrace při uvolnění skupiny jsou moc silné. Váha je přímka `0,22 + 0,04 × koule` oříznutá na 1, takže **od 20 koulí je to vždy plná síla těžkého motoru**; s ťuknutím přistání ve stejném snímku se oba motory na papíře žádají naplno. Návrh: konkávní křivka s ceilingem hluboko pod plnou, případně delší místo silnější.
+  - **#811:** zvuk, když míření narazí na zarážku. Zamítnutý *výstřel* už zvuk má (`PlayShotRefused`) a majitel ho chválí; zarážka má jen blik zaměřovače a od dneška ťuknutí padu. Majitel chce vrznutí a vzdušné povzdechnutí v duchu Half-Life 1, procedurálně. ⚠ Pravidlo „žádné syčení“ a jeho „pfft“ se tu tahají; rozhodne ucho.
+- **Komentáře:**
+  - **#748 (sopka):** je to to issue, které myslí. Reference pro něj **nejsou vyrenderované** (v `C:\Users\panrd\AI\sd\out` je jen #679) a nikdo ho nemá. Majitel přidal **hory a lidská obydlí**; přidán štítek `local-ai`.
+  - **#765 a #767 (efekty power-upů):** haptika je další kanál, který nepopisuje ani anatomie, ani definice hotového. Pozor na klouby (#810). Jeho „nejvýš jednou za kapitolu“ se **liší od kódu**: náboje se dávají **za level** (`GrantPowerupCharges`). To patří k otevřené otázce §5 v #765; neptal jsem se.
+  - **#788, #378, #431, #463:** zpětné odkazy a jeho odpověď na otázku Potato.
+- Majitel šel spát a **prosil, ať je desktop k dispozici session na Pi**, kdyby potřebovala větší stroj. V okamžiku zápisu žádná jiná session na tomhle stroji neběžela (`ListAgents` prázdný). Tahle session nedrží GPU ani nic těžkého.
+
+## 2026-10-05 (noc) — claim #808; #804: lem je na mainu, druhý řez ploutví čeká na měření Pi — notebook, Claude Code (github-cf)
+
+- **CLAIM #808** (Potato volitelný ve Windows buildu), na žádost session na Pi; majitel spí a řekl, ať jsem jí k dispozici s Windows. První krok podle issue: zjistit, jestli se osm zdrojů z `GamePi/Shaders` přeloží pro WindowsDX. Větev `808-potato-on-windows`.
+- **#804, stav:** `pi-aa-rims` je na mainu (`23acaf10`): lem koulí výchozí zapnutý, konstanty na CPU, ploutve a `upscale=soft` za argumentem. Session na Pi potvrdila nativní 1080p při 60 FPS na těžkých levelech.
+- **`upscale=soft` na Pi: +1,5 až +1,8 ms** (720p → 1080p). Celoobrazovkový průchod na V3D stojí zhruba 0,5–0,6 ms za každý tap navíc. Zůstává za argumentem.
+- **Ploutve, druhý řez: větev `804-fins-live-edges` (`c8bdbc43`), NENÍ na mainu, čeká na měření Pi.** Hran na snímek: Pennant 18 507 → 6 762 kandidátů → 1 944 předaných GPU; Cabinet 11 671 → 5 511 → 1 828.
+  - Konkávní hrana ploutev nedostane; šev je tam, kde se láme stínování; otevřený okraj se otvírá jen tam, kde se jeho stěna kreslí; sklo odtoku a šachta ploutve nemají; v síti složené z těles žádná hrana uvnitř společné stěny; CPU vybírá živé hrany (`EdgeFinMesh.SelectLive`), a když se nehne oko ani síť, nepočítá nic. `finsall` kreslí postaru.
+  - ⚠ **Chyba prvního řezu, opravená:** stínovací normály stěny B se četly z opačného konce hrany. Vyšlo to najevo až s pravidlem pro šev: 497 hran podél profilu jednoho bubnu vyšlo jako šev.
+  - ⚠ **Tmavá čárkovaná linka na bočnici lafety** byla ploutev hrany uvnitř společné zadní stěny bočnice a patky. Na snímku vidět, v testech ne, dokud nevznikl test se dvěma kvádry.
+  - ⚠ **Límec ústí hlavně (#425) je vysoustružený naruby:** profil běží po ose soustruhu nahoru, takže `LatheMesh` dá normály i přední stěny dovnitř. Kreslí se vzdálená vnitřní stěna, což zezadu vypadá jako tentýž kroužek. `WindingCheck` to nepozná (vinutí souhlasí s normálami, otevřený pás nemá objem). Neopraveno, issue teprve založím.
+  - Deset mutací pravidel v `EdgeFinTests`, všech deset padá.
+- **Neověřeno:** cena druhého řezu ploutví na Pi (GPU i CPU při pohybu kamery). Švy u odtoku (zlatý pás proti kameni a šachtě), tmavé pruhy na hlavni, kola a válečky zůstávají schodovité.
+
+## 2026-10-05 — noc na Pi: všech 14 scén nativně v 62 FPS, 10min zátěž, měření #804 (ploutve, měkké roztažení) — Pi (BS3DServer), Claude Code (296408e3)
+
+- **Po #804 (merge `23acaf10`: lem koulí zapnutý a levnější shader koule) drží Pi nativní 1920×1080 na všech 14 scénách.** Jeden level z každé, čistý profil (Auto), s limitem, bez VNC, 45 s: 61,8–62,0 FPS v posledních 20 s a Auto nikde nesnížil.
+  - Zapsáno do „The resolution“ v docs/game-shell.md (merge `9fc8cea8`) a na #801. Plán v #785 je aktualizovaný.
+- **Pacing s limitem je klidný.** Rozptyl za sekundu je většinou pod 0,1 ms, občas jedno škubnutí za 20–40 s (sd 2,4–3,7 v té sekundě). Rozptyl ~5 ms při `nocap` je fronta bez limitu, ne hra.
+- **Deset minut na Cabinetu:** 62 FPS od druhé minuty, 55–60 °C, `get_throttled` 0x0.
+- **#804 ploutve (dělá notebook), měřeno nativně s `rims=1`:**
+  - První řez: +1,05–1,4 ms nativně i v 720p. Byl to binning: VERTEX_BIN 243 instrukcí na každý vrchol zkolabovaného quadu.
+  - Druhý řez (`c8bdbc43`: konkávní hrany pryč, švy podle stínování, CPU vybírá živé hrany): **+0,53–0,67 ms**. Starý způsob kreslení nad novými kandidáty +0,70; CPU výběr v obíhajícím menu v šumu.
+  - Na fotkách z Pi je obzor ostrova a lafeta hladká, vnitřní elipsa odtoku a kola ne. Fotky má majitel.
+- **`upscale=soft` (B-spline ve 4 tapech) stojí +1,5–1,8 ms v 720p.** Na V3D vychází ~0,5–0,6 ms za tap na 1080p výstupu, proto zůstává za argumentem.
+- **Fronta verdiktů 17**, takže jsem nezačínal nic, co se posuzuje okem.
+- **Čeká na majitele:** verdikty #801 a #804 (lem, ploutve) a starší pi-port (#788, #789, #793, #796); řádek `server` pro online.
+- **#808** (Potato na Windows) si vzal notebook.
+
+## 2026-10-05 (noc) — #808: Windows build umí `potato` (renderer Raspberry Pi na desktopu) — notebook, Claude Code (github-cf)
+
+- **Hotovo, větev `808-potato-on-windows`:** `BS3D.exe potato` spustí Windows hru přes cestu Potato, drženou stejně jako GamePi (`[quality] Potato: held for this run by the potato argument, locked`). Nic se neukládá a ze hry se tam nedá dostat; bez argumentu je build stejný jako dřív. Issue zůstává otevřené se štítkem `shipped-awaiting-verdict`: varianta (b), řádek „Potato (restart)“ v Settings, je rozhodnutí majitele.
+- **Odpověď na první otázku issue:** devět zdrojů z `GamePi/Shaders` se pro DirectX 11 nepřeložilo ani jeden (`Invalid profile 'vs_3_0'`). Stačily tři úpravy, všechny v `PotatoProfile.fxh`: jména profilů přes makro, dither čte pozici místo `VPOS`, a vstup pixel shaderu u šesti portů začíná pod DirectX pozicí.
+- ⚠ **Past, která nic nehlásí:** DirectX 11 páruje výstupy vertex shaderu se vstupy pixel shaderu podle POŘADÍ, ne podle sémantiky. Šest portů má pro pixel shader vlastní strukturu bez pozice (SM3 mu ji nedovolí), takže každý vstup četl hodnotu souseda. Všech šest se přeložilo, načetlo a kreslilo; **konfety padaly černé** a jen podle nich se na to přišlo. `PotatoShaderSourceTests` to drží v textu zdrojů (pět pokažení, pět selhání).
+- **GL xnb se nezměnily ani o bajt**, takže Pi se změna netýká a nic se necommituje do `GamePi/Shaders/Compiled`.
+- **Jak se efekty dostanou k loaderům:** `Prazsky.Shaders` je překládá podruhé do `Content/Potato/Shaders` (zápis `/build:zdroj;cíl` v `.mgcb`) a `Game/PotatoContent.cs` se dívá do `Content/Potato` dřív než do `Content`. Šest z devíti má stejné jméno jako desktopový efekt a načítá se podle něj z tuctu míst; žádné jsem neměnil.
+- **Čtvrtý řádek `[build]`** jen u takového běhu: `[build] potato shaders 9 set …`. Třetí řádek se do `Content\Potato\Shaders` nedívá, takže snímek by nesl otisk 41 efektů, které nenačetl.
+- **Ověřeno na notebooku, DirectX vedle GamePi přes DesktopGL, stejná vteřina stejného levelu (`seed=5 sceneseed=1`):** obloha a obzor ostrova se shodují na 1/255 v každém pixelu (nativně, s ploutvemi, v 720p oběma zvětšeními). Po dvojicích prohlédnuto: zaměřovací paprsek a stopa střely, laserová síť, výbuch bomby (`level=Vent detonate=9`), červí díra (`aim=10:25:70 fire=11,11.6,12.2`), ohňostroj, konfety, ditherovaný přechod (`level=Facet fire=9`), ploché koule, menu s nápisem. Běží i z jednosouborového publishe (`release.yml` teď kontroluje, že `Content/Potato/Shaders` v něm je).
+- **Neověřeno:** záložka Display v Settings pod `potato` (žádný argument záložku neotevře; řádky čtou stejný `IsQualityLocked` jako na GamePi). Jiná grafická karta než Vega tohoto notebooku.
+- ⚠ **`CLAUDE.md` jsem neměnil** a dvě jeho věty už neplatí přesně: „three `[build]` lines“ (běh s `potato` má čtyři) a „There is no OPENGL build of any shader now, and the `#if OPENGL` branches are gone“ (platí pro `Prazsky.Shaders`; `GamePi/Shaders` jsou od #789 GL a od teď mají `#if OPENGL` v `PotatoProfile.fxh`). Je to na majiteli.
+- ⚠ **Snímky během sekundy, kdy se ukládá PNG, kazí `[fps]`:** šest `shot=` po 0,1 s dalo řádek 137 ms při jinak rovných 16,67. Čas měřit z běhu bez snímků.
+- **#804, měření Pi k druhému řezu ploutví (`c8bdbc43`):** +0,53 až +0,67 ms nativně (první řez +1,05 až +1,43), výběr na CPU není vidět ani v menu, kde kamera obíhá. Pokus `fins=0.01` rozdělil zbytek na ~0,25 ms pevné režie (drawy, stavy) a ~0,35 ms pixelů. Větev zatím není na mainu; další krok je osvětlení ploutve ve vertex shaderu a méně drawů.

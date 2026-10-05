@@ -8,6 +8,8 @@
 //all - and an edge is blended along its own direction from four more. Its luma is the display-encoded colour's, which is
 //what FXAA is tuned on.
 
+#include "PotatoProfile.fxh"
+
 float2 SourceTexel;
 
 texture Source;
@@ -126,8 +128,8 @@ technique Bilinear
 {
     pass P0
     {
-        VertexShader = compile vs_3_0 UpscaleVS();
-        PixelShader = compile ps_3_0 BilinearPS();
+        VertexShader = compile POTATO_VS UpscaleVS();
+        PixelShader = compile POTATO_PS BilinearPS();
     }
 };
 
@@ -135,8 +137,8 @@ technique Soft
 {
     pass P0
     {
-        VertexShader = compile vs_3_0 UpscaleVS();
-        PixelShader = compile ps_3_0 SoftPS();
+        VertexShader = compile POTATO_VS UpscaleVS();
+        PixelShader = compile POTATO_PS SoftPS();
     }
 };
 
@@ -144,7 +146,7 @@ technique Fxaa
 {
     pass P0
     {
-        VertexShader = compile vs_3_0 UpscaleVS();
-        PixelShader = compile ps_3_0 FxaaPS();
+        VertexShader = compile POTATO_VS UpscaleVS();
+        PixelShader = compile POTATO_PS FxaaPS();
     }
 };
