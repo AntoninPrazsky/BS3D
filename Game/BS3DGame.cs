@@ -164,6 +164,9 @@ namespace BS3D
         private readonly float? _launchRims;
         private readonly bool _launchBallFlat;
 
+        //"upscale=soft" (#804): the Potato path's scale-up through the cubic B-spline instead of one bilinear tap
+        private readonly bool _launchSoftUpscale;
+
         //The display's ladder (RenderResolution), native first: the Resolution row's rungs. Rebuilt with the render size.
         private int[] _renderLadder = [];
 
@@ -780,6 +783,7 @@ namespace BS3D
             _renderHeightFromLaunch = launch.RenderHeight.HasValue;
             _launchRims = launch.Rims;
             _launchBallFlat = launch.BallFlat;
+            _launchSoftUpscale = string.Equals(launch.Upscale, "soft", StringComparison.OrdinalIgnoreCase);
 
             //The fins (#804) are built with the meshes, so the switch is thrown here, before any mesh exists: the Potato
             //path's alone, and only when asked for (the build's own width is 0 until the Pi has measured them)

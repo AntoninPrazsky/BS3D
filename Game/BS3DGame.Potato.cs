@@ -88,7 +88,7 @@ namespace BS3D
         //1080p output, see docs/rendering.md) and the quad it is drawn on: the whole target in clip space, the texture's
         //top-left at the top-left. Loaded with the rest of the Potato effects.
         private Effect _potatoUpscale;
-        private EffectParameter _potatoUpscaleSource;
+        private EffectParameter _potatoUpscaleSource, _potatoUpscaleTexel;
         private static readonly VertexPositionTexture[] POTATO_UPSCALE_QUAD =
         {
             new(new Vector3(-1f, 1f, 0f), new Vector2(0f, 0f)),
@@ -172,8 +172,11 @@ namespace BS3D
         private void LoadPotatoUpscale()
         {
             _potatoUpscale = Content.Load<Effect>("Shaders/PotatoUpscale");
-            _potatoUpscale.CurrentTechnique = _potatoUpscale.Techniques["Bilinear"];
+            //Bilinear, or the soft cubic the command line asks for (#804: "upscale=soft", four taps for one, which the Pi
+            //has still to price)
+            _potatoUpscale.CurrentTechnique = _potatoUpscale.Techniques[_launchSoftUpscale ? "Soft" : "Bilinear"];
             _potatoUpscaleSource = _potatoUpscale.Parameters["Source"];
+            _potatoUpscaleTexel = _potatoUpscale.Parameters["SourceTexel"];
         }
 
         /// <summary>
@@ -219,6 +222,7 @@ namespace BS3D
             GraphicsDevice.RasterizerState = RasterizerState.CullNone;
 
             _potatoUpscaleSource.SetValue(_potatoSceneTarget);
+            _potatoUpscaleTexel?.SetValue(new Vector2(1f / _potatoSceneTarget.Width, 1f / _potatoSceneTarget.Height));
             _potatoUpscale.CurrentTechnique.Passes[0].Apply();
             GraphicsDevice.SamplerStates[0] = SamplerState.LinearClamp;
             GraphicsDevice.DrawUserPrimitives(PrimitiveType.TriangleStrip, POTATO_UPSCALE_QUAD, 0, 2);
