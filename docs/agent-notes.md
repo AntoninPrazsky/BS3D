@@ -7982,3 +7982,8 @@ Majitel večer 4. 10.: „zpracovávej až do rána issues, které můžeš zpra
 - **GamePi se dá postavit a spustit i na Windows** (`dotnet build GamePi\GamePi.csproj`, DesktopGL): Potato zamčené, Girandole na APU 1080p ~7 ms. Potato obraz jde posoudit bez Pi (jen ne jeho cena na V3D).
 - **Buňka ditheru zůstává 1 px** (`DISSOLVE_DISPLAY_PIXELS`, sdílená s desktopem): majitel hrubší chtěl jen kvůli ceně a ta se na Pi neukázala.
 - **Neověřeno:** mrtvá váha na Windows (koule z Sill spadly do odtoku), kolik koulí šlo na Pi dithrovaným během, vzhled ducha u majitele — `shipped-awaiting-verdict`.
+
+## 2026-10-05 — dělba pi-port issues, #796 řádky Aberration a Film grain na Potato — notebook, Claude Code (github-cf)
+
+- **Dělba s Pi session:** já **#793** (linux-arm64 balík v `release.yml`) a **#796**; ona #792, #795, #797 a měření na Pi. Do `GamePi/Platform`, `Game/Audio` a `BS3DGame.Potato.cs` nesahám.
+- **#796 na mainu:** na Potato cestě čtou řádky Aberration a Film grain `Off (tier)` (slovo, které už má Motion blur) a jejich přepínače se vrátí hned na začátku (`BS3DGame.HasLensLooks`, `!PotatoPath`), takže klik nic nedělá a uložená volba hráče zůstane. Vzor: zamčené řádky Quality (#788). Windows beze změny. Viděno na snímku Settings → DISPLAY: GamePi (přes DesktopGL na Windows) `Off (tier)` ×3, Windows hra `On` ×3. 617/617 testů.

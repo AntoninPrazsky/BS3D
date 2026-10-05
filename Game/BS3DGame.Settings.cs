@@ -242,9 +242,12 @@ namespace BS3D
         /// </summary>
         internal void ToggleAberration()
         {
+            //The Potato path (#789) has no resolve to fringe, and its row reads "Off (tier)" (#796): nothing to toggle,
+            //and the player's stored preference stays what it was
+            if (!HasLensLooks) return;
+
             _effective.Aberration = !_effective.Aberration;
-            //Null on the Potato path (#789), which has no resolve to fringe: the toggle is stored and changes nothing there
-            if (_pipeline != null) _pipeline.ChromaticAberration = _effective.Aberration ? CHROMATIC_ABERRATION : 0f;
+            _pipeline.ChromaticAberration = _effective.Aberration ? CHROMATIC_ABERRATION : 0f;
 
             SaveSettings();
 
@@ -258,9 +261,11 @@ namespace BS3D
         /// </summary>
         internal void ToggleGrain()
         {
+            //Nothing to toggle on the Potato path, for the aberration's reason above
+            if (!HasLensLooks) return;
+
             _effective.Grain = !_effective.Grain;
-            //Null on the Potato path (#789), for the aberration's reason above
-            if (_pipeline != null) _pipeline.FilmGrain = _effective.Grain ? FILM_GRAIN : 0f;
+            _pipeline.FilmGrain = _effective.Grain ? FILM_GRAIN : 0f;
 
             SaveSettings();
 

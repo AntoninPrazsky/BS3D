@@ -758,6 +758,13 @@ namespace BS3D
 
         internal bool IsAberrationEnabled => _effective.Aberration;
         internal bool IsGrainEnabled => _effective.Grain;
+
+        /// <summary>
+        /// Whether this build has the resolve the lens's two looks (the aberration and the grain) are made in. The Potato
+        /// path has none (#789): it draws straight into the back buffer, so its two Settings rows read "Off (tier)" and do
+        /// nothing, as the Quality rows do when locked (#796).
+        /// </summary>
+        internal static bool HasLensLooks => !PotatoPath;
         internal bool IsMotionBlurEnabled => _effective.MotionBlur;
 
         /// <summary>
