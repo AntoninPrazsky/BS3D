@@ -231,17 +231,31 @@ namespace Prazsky.Core.Render
             //The school (#760), with the lens under the water and only then: from above, the surface hides it, and in
             //play the lens never goes under. After the surface, which writes no depth, so a fish between the lens and
             //the surface is drawn over it, as it is.
-            if (LensSubmergedAmount(SceneKind.Sea, frame.Camera.Position) > 0f)
-            {
-                _fish.Draw(frame, _seaConfig.WaterShallow.ToVector3());
-
-                //The light last, additive over the water, the fish and the stone's flank, and hidden by the island
-                _shafts.Draw(frame, _seaConfig.LevelY);
-            }
+            if (LensUnderEveryTrough(frame.Camera.Position)) _fish.Draw(frame, _seaConfig.WaterShallow.ToVector3());
         }
 
-        /// <summary>The blown spray and spindrift over the water.</summary>
-        public override void DrawOverlays(in SceneFrame frame) => DrawSpray(frame);
+        /// <summary>The blown spray and spindrift over the water, and with the lens under it the sun's light coming down.</summary>
+        public override void DrawOverlays(in SceneFrame frame)
+        {
+            DrawSpray(frame);
+
+            //The light (#760) here and not with the school: additive and writing no depth, it has to come after the
+            //island, the gun and the balls, which both hosts draw after the environment and before the overlays.
+            //Drawn with the school, the opaque stone painted over every shaft between the lens and it (the review of
+            //the merge); here the stone's depth occludes the shafts behind it and the ones in front of it stay.
+            if (LensUnderEveryTrough(frame.Camera.Position)) _shafts.Draw(frame, _seaConfig.LevelY);
+        }
+
+        //Whether the lens is under the water wherever the swell stands: deeper than its lowest trough. The surface
+        //writes no depth, so anything under it drawn while the lens is still above it shows through the water as
+        //through glass - the fault #761 fixed for the fireworks - and LensSubmergedAmount opens half a unit ABOVE the
+        //mean level (the review of #760). The swell's reach is the crest bound SeaIntroShots.CREST_REACH states (4.2
+        //of the wave amplitude, plus the chop), which bounds a trough too: a Gerstner trough is shallower than its crest.
+        private bool LensUnderEveryTrough(Vector3 lens) =>
+            lens.Y < _seaConfig.LevelY - (_seaConfig.WaveAmplitude * SWELL_REACH + _seaConfig.ChopAmplitude);
+
+        //The swell's reach in its own amplitude (SeaIntroShots.CREST_REACH, kept in step by hand)
+        private const float SWELL_REACH = 4.2f;
 
         /// <summary>
         /// Draws the sea's blown spray and spindrift: the static billboard buffer animated in the shader, in a
