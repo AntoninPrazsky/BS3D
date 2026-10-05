@@ -155,3 +155,55 @@ jobs:
         run: |
           dotnet run --project Tools/LatticeProbe/LatticeProbe.csproj --no-build -- --selftest
           if ($LASTEXITCODE -ne 0) { throw "LatticeProbe --selftest failed (exit $LASTEXITCODE)" }
+
+  # GamePi (#786, #787): the Game's own sources built for Linux ARM64 on MonoGame DesktopGL, on the platform it runs
+  # on, beside the Windows job rather than after it. It is how a change to Game/ that breaks the Raspberry Pi build is
+  # caught on the push that made it: WinForms in a shared file fails the compile, and any other Windows-only .NET API
+  # is CA1416, which GamePi.csproj makes an error. A DllImport into user32 passes both and is not caught here (see
+  # "GamePi" in docs/build-and-release.md). The ARM64 runner is free on a public repository, as the Windows one is.
+  gamepi:
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.2xx'
+
+      # Its own key: the Windows job's cache holds win-x64 runtime packs and a Windows mgcb, none of which this reads
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.csproj', 'Directory.Packages.props', '**/.config/dotnet-tools.json') }}
+          restore-keys: nuget-${{ runner.os }}-${{ runner.arch }}-
+
+      # GamePi pins the official dotnet-mgcb 3.8.5: the bad-echo-mgcb the Windows projects pin imports textures
+      # through FreeImage, which has no ARM64 build
+      - name: Restore content tools (GamePi)
+        run: dotnet tool restore
+        working-directory: GamePi
+
+      - name: Build GamePi.sln
+        run: dotnet build GamePi.sln
+
+      - name: Build GamePi.sln (Release)
+        run: dotnet build GamePi.sln -c Release
+
+      # The logic tests once more, on ARM64: what they check is the same code, but Bepu's wide types are four lanes
+      # here (NEON) and eight on the Windows runner (AVX2)
+      - name: Run the logic tests (linux-arm64)
+        run: dotnet test Tests/BS3D.Tests/BS3D.Tests.csproj
+
+      # The folder a Pi player would run, self-contained, and the files without which it cannot start: the apphost
+      # (executable - a lost mode bit is a "Permission denied" nobody can explain), the SDL and OpenAL natives the
+      # DesktopGL package carries for linux-arm64, the two content assets and the level set. No shaders: GamePi has
+      # none until #789.
+      - name: Publish GamePi (linux-arm64, self-contained) and check the folder
+        run: |
+          dotnet publish GamePi/GamePi.csproj -c Release -r linux-arm64 --self-contained -o publish
+          for f in BS3D libSDL2-2.0.so.0 libopenal.so Content/Images/Logo.xnb Content/Fonts/segoeui.xnb Levels/Levels.json; do
+            test -e "publish/$f" || { echo "The published folder has no $f"; exit 1; }
+          done
+          test -x publish/BS3D || { echo "publish/BS3D is not executable"; exit 1; }
