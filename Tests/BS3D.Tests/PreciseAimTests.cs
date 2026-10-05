@@ -25,8 +25,10 @@ namespace BS3D.Tests
             Assert.Equal(1f, PreciseAim.LeanAmount(Mouse(false), Pad(PreciseAim.TRIGGER_FULL)));
             Assert.Equal(1f, PreciseAim.LeanAmount(Mouse(false), Pad(1f)));
 
-            //The very first step XInput reports (one of its 255) already leans: the pull answers at once
-            Assert.True(PreciseAim.LeanAmount(Mouse(false), Pad(1f / 255f)) > 0f);
+            //A pull answers a hair past the trigger's own zero - the step after TRIGGER_REST already leans - while a
+            //trigger resting at a count or two leans nothing at all, so the blend can settle at exactly 0
+            Assert.True(PreciseAim.LeanAmount(Mouse(false), Pad(4f / 255f)) > 0f);
+            Assert.Equal(0f, PreciseAim.LeanAmount(Mouse(false), Pad(2f / 255f)));
 
             float mid = (PreciseAim.TRIGGER_REST + PreciseAim.TRIGGER_FULL) / 2f;
             Assert.Equal(0.5f, PreciseAim.LeanAmount(Mouse(false), Pad(mid)), 4);

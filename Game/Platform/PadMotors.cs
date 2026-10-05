@@ -32,6 +32,10 @@ namespace BS3D.Platform
         private static volatile Gamepad _pad;
         private static bool _started;
 
+        //The list read and the field written as one step: Start's own read on the game thread and an event's on WGI's
+        //worker could otherwise interleave so that a stale empty read lands last and leaves no pad for the session
+        private static readonly object _refreshLock = new();
+
         /// <summary>Whether a pad answers here, so the mixer can say once which route it takes.</summary>
         internal static bool HasPad => _pad != null;
 
@@ -62,14 +66,17 @@ namespace BS3D.Platform
         //stated correspondence; with one pad, as this game is played, they agree by having nothing else to choose.
         private static void Refresh()
         {
-            try
+            lock (_refreshLock)
             {
-                var pads = Gamepad.Gamepads;
-                _pad = pads.Count > 0 ? pads[0] : null;
-            }
-            catch (Exception)
-            {
-                _pad = null;
+                try
+                {
+                    var pads = Gamepad.Gamepads;
+                    _pad = pads.Count > 0 ? pads[0] : null;
+                }
+                catch (Exception)
+                {
+                    _pad = null;
+                }
             }
         }
 

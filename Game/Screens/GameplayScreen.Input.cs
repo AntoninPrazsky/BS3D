@@ -345,21 +345,27 @@ namespace BS3D.Screens
             }
             else _aimStopArmed = true;
 
-            //The aim's ratchet under the finger holding the lean (#188), measured off the pose both devices have now moved
-            float aimElevation = _cannon.Elevation, aimTraverse = _cannon.Traverse;
-            float travel = MathF.Abs(aimElevation - _tickElevation) + MathF.Abs(MathHelper.WrapAngle(aimTraverse - _tickTraverse));
+            //The aim's ratchet under the finger holding the lean (#188). The motion is the HAND's (Cannon.ElevationAim and
+            //Traverse), not the barrel's pose: the pose also carries the rubber's spring after a push into the stop and the
+            //rest a walk steepens, and both ticked with no hand on the aim. And the lean has to be the PAD's — the right
+            //mouse button leans in just as far, and a pad lying on the desk beside a mouse player must not tick.
+            float aimElevation = _cannon.ElevationAim, aimTraverse = _cannon.Traverse;
+            float travel = MathF.Abs(aimElevation - _tickElevation) + MathF.Abs(aimTraverse - _tickTraverse);
             _tickElevation = aimElevation;
             _tickTraverse = aimTraverse;
             _sinceAimTick += (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-            if (_preciseAim.Blend >= AIM_TICK_MIN_BLEND)
+            if (_preciseAim.Blend >= AIM_TICK_MIN_BLEND && PreciseAim.LeanAmount(default, pad) >= AIM_TICK_MIN_BLEND)
             {
                 _aimTickTravel += travel;
 
                 if (_aimTickTravel >= AIM_TICK_STEP && _sinceAimTick >= AIM_TICK_MIN_SECONDS)
                 {
                     Game.Rumble.KickTriggers(AIM_TICK_RUMBLE, 0f, AIM_TICK_RUMBLE_SECONDS);
-                    _sinceAimTick = 0f;
+
+                    //The interval's carry kept rather than dropped, so the top rate is 1 / AIM_TICK_MIN_SECONDS at any frame
+                    //rate and not whatever whole number of frames first passes it (15 Hz at 60, 19 at 144)
+                    _sinceAimTick = MathF.Min(_sinceAimTick - AIM_TICK_MIN_SECONDS, AIM_TICK_MIN_SECONDS);
 
                     //The steps a fast sweep crossed since the last tick are dropped, not owed
                     _aimTickTravel %= AIM_TICK_STEP;

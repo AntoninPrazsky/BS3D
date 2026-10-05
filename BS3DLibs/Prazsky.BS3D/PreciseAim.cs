@@ -60,14 +60,17 @@ namespace Prazsky.BS3D
         /// far as the trigger is pulled, and past <see cref="TRIGGER_FULL"/> it is all the way in. The top is short of
         /// the stop so a full lean does not need the last millimetre of a worn trigger.
         /// <para>
-        /// <b>The bottom is the very first step the trigger reports</b> (the owner, with a pad in hand: the lean should
-        /// answer at once, as soon as the trigger registers anything). It was 0.08, a band for a finger resting on the
-        /// trigger, and that band was a dead zone on top of nothing: MonoGame 3.8.5 on WindowsDX hands the trigger's raw
-        /// byte over divided by 255 with no dead zone of its own (<c>GamePad.XInput.cs</c>), and a released Xbox trigger
-        /// reads exactly 0, so a lean that waits for anything above zero cannot be set off by a trigger nobody touches.
+        /// <b>The bottom is a hair above the trigger's own zero</b> (the owner, with a pad in hand: the lean should answer
+        /// at once, as soon as the trigger registers anything). It was 0.08, a band for a finger resting on the trigger, and
+        /// most of that band was a dead zone on top of nothing: MonoGame 3.8.5 on WindowsDX hands the trigger's raw byte
+        /// over divided by 255 with no dead zone of its own (<c>GamePad.XInput.cs</c>), and a released Xbox trigger reads
+        /// 0. Three of the 255 steps rather than none, because a lean that never settles at 0 never lets go of what rides
+        /// it: a worn trigger resting at a count or two would hold the blend a hair above zero, and the pipeline's
+        /// full-screen defocus runs at any blend above zero (the review of #520). Three steps is a hundredth of the travel,
+        /// under anything a finger can feel.
         /// </para>
         /// </summary>
-        public const float TRIGGER_REST = 0f, TRIGGER_FULL = 0.9f;
+        public const float TRIGGER_REST = 3f / 255f, TRIGGER_FULL = 0.9f;
 
         /// <summary>
         /// A modest 1.19× lean-in on the game camera's own field of view — enough to read as leaning in, not

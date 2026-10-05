@@ -40,6 +40,9 @@ namespace BS3D
         //Which route the last frame took, so the log says it once when it changes rather than every frame
         private bool _throughPadMotors;
 
+        //Whether the last frame was allowed to feel anything — see the re-entry in Update
+        private bool _wasAllowed;
+
         //Whether the last call already sent (0, 0) — so an idle pad is not told to stop every single frame
         //of a level nobody is shooting in.
         private bool _silent = true;
@@ -125,6 +128,12 @@ namespace BS3D
                 _leftTrigger = MathF.Max(0f, _leftTrigger - _leftTriggerDecayRate * elapsedSeconds);
                 _rightTrigger = MathF.Max(0f, _rightTrigger - _rightTriggerDecayRate * elapsedSeconds);
             }
+
+            //Coming back (focus regained, a pause left) the pad is told the state once more, zero included: the stop sent
+            //as the window lost focus went to Windows.Gaming.Input as the app stopped being the foreground one, which is
+            //exactly when WGI stops listening, and a motor whose zero was dropped could resume on the pad's return to us
+            if (allowed && !_wasAllowed) _silent = false;
+            _wasAllowed = allowed;
 
             bool silentNow = _left <= 0f && _right <= 0f && _leftTrigger <= 0f && _rightTrigger <= 0f;
             if (silentNow && _silent) return;

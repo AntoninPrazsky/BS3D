@@ -799,9 +799,9 @@ namespace BS3D.Screens
         private const float REFUSED_TRIGGER_RUMBLE = 0.35f;
         private const float REFUSED_TRIGGER_RUMBLE_SECONDS = 0.05f;
 
-        //And LT, the aim's (#188): while the lens is leaned in, the barrel's travel is a ratchet felt under the finger that
-        //holds the lean — one tick per AIM_TICK_STEP of elevation and traverse together — so a fine adjustment can be
-        //counted. Out of the lean there are none: aiming there is coarse and quick, and the finger is not on LT. A sweep
+        //And LT, the aim's (#188): while the pad's own trigger has the lens leaned in, the hand's aim is a ratchet felt
+        //under the finger that holds the lean — one tick per AIM_TICK_STEP of elevation and traverse together, read off the
+        //input (Cannon.ElevationAim, Traverse) and not the barrel's pose — so a fine adjustment can be counted. Out of the lean there are none: aiming there is coarse and quick, and the finger is not on LT. A sweep
         //faster than one tick per AIM_TICK_MIN_SECONDS is held to that rate (the steps it crosses in between are dropped,
         //not queued), which keeps a fast swing a quick ratchet and never a buzz.
         private static readonly float AIM_TICK_STEP = MathHelper.ToRadians(0.75f);
@@ -920,7 +920,7 @@ namespace BS3D.Screens
         //Whether the barrel's next arrival at its stop is felt (#378) — spent by the knock, back once the strain lets go
         private bool _aimStopArmed = true;
 
-        //The aim's ratchet in LT (#188): the pose it was last measured from, the travel since the last tick and the time
+        //The aim's ratchet in LT (#188): the hand's aim it was last measured from, the travel since the last tick and the time
         private float _tickElevation, _tickTraverse, _aimTickTravel, _sinceAimTick;
 
         //Whether the cursor is the aim's or the desktop's (#99, #154). Taken on arrival at play when the

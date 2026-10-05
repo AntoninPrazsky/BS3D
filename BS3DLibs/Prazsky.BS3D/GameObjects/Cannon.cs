@@ -922,6 +922,15 @@ namespace Prazsky.BS3D.GameObjects
         public float Traverse => _rotationAim.Y;
 
         /// <summary>
+        /// The hand's own share of <see cref="Elevation"/>, in radians: what the aim input has moved, without the rest
+        /// elevation a walk steepens or flattens and without the rubber's overshoot (<see cref="ElevationOvershoot"/>).
+        /// <see cref="Traverse"/> is already only the hand's. What reads it wants motion the player made — the
+        /// Game's ratchet in the pad's left trigger (#188), which on <see cref="Elevation"/> ticked through a spring the
+        /// hand had let go of and through every step of a walk.
+        /// </summary>
+        public float ElevationAim => _rotationAim.X;
+
+        /// <summary>
         /// Puts the aim at a stated pose — <see cref="Elevation"/> and <see cref="Traverse"/>, both in radians
         /// — and returns whether it fitted inside the clamps rather than being cut short by them.
         /// <para>
