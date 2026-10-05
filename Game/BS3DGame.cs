@@ -1027,6 +1027,10 @@ namespace BS3D
             //per-frame reason it always did: the campfire flickers, so this is not a set-once.
             _sceneLights = new SceneLights(_instancingEffect);
 
+            //The Potato path builds no backdrop, so it solves the volcano's flows itself (#795), on the desktop's config
+            //and this run's seed: the lamps on them are what lights the cluster under the volcano's dusk dome
+            if (PotatoPath) _sceneLights.Volcano = new VolcanoLava(new VolcanoSceneConfig(), _sceneSeedOffset);
+
             //Nothing is built here — the plate's footprint is the loaded field's, so the first Fit is a level's
             _ceilingPlate = new CeilingPlate(GraphicsDevice, _instancingEffect);
 

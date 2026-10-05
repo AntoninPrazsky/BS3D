@@ -6,10 +6,12 @@
 //whole Potato frame. This is its LIGHTING MODEL, kept - the same three-light rig the host tints from the sky dome,
 //the same hemisphere ambient and occlusion from the instance stream, the same Blinn-Phong and Fresnel environment,
 //so a scene's light reads the same - with everything a surface does on top of it given up: no relief, no ball
-//patterns or materials (every BallShading is one lit, coloured ball), no shadows, no clouds, no refraction, no
-//scene lights. InstancedModelRenderer recognises this effect by its techniques and draws through DrawPotato, which
-//sets the uniforms below and no others; a uniform named here that a draw does not set keeps the value the last
-//draw left, so DrawPotato sets every one each draw, as InstancedModelRenderer.Draw does on the desktop.
+//patterns or materials (every BallShading is one lit, coloured ball, the lava's glow aside), no shadows, no clouds, no
+//refraction. The scene's own point lights it keeps (#795), at the vertex, because on the scenes whose dome is dark they
+//are the light. InstancedModelRenderer recognises this effect by its techniques and draws through DrawPotato, which
+//sets the uniforms below and no others but the scene's lamps (SceneLights pushes those, once a frame, for every draw);
+//a uniform named here that a draw does not set keeps the value the last draw left, so DrawPotato sets every one each
+//draw, as InstancedModelRenderer.Draw does on the desktop.
 //
 //The instance stream is InstancedModel.fx's exactly (ModelInstance, 88 bytes): the world matrix's four rows in
 //TEXCOORD1-4, the occluder direction and base occlusion in TEXCOORD5, the dissolve in TEXCOORD6, the ripple in
@@ -40,6 +42,14 @@ float3 DirLight2Direction;
 float3 DirLight2DiffuseColor;
 float3 DirLight2SpecularColor;
 float DirLightStrength;
+
+//The scene's own point lights (#795): SceneLights pushes them here under the desktop's names and sizes (its arrays are
+//MaxLights long, and SetValue writes every element), linear radiance, a range where each has fallen to nothing
+#define MAX_SCENE_LIGHTS 8
+float3 SceneLightPosition[MAX_SCENE_LIGHTS];
+float3 SceneLightColor[MAX_SCENE_LIGHTS];
+float SceneLightRange[MAX_SCENE_LIGHTS];
+int SceneLightCount;
 
 //The hemisphere ambient, linear, and the floor the ground occlusion fades towards
 float3 SkyColor;
@@ -80,6 +90,14 @@ float PulseWavelength;
 float RippleStrength;
 float3 RippleAlarmColor;
 
+//A style whose colour is its own glow and not its surface (#795): the lava, a near-black crust lit only by its molten
+//seams, which Potato does not draw. The crust is BallLava.fxh's (BallCrustTint and BallCrustDark are its LavaCrustTint and
+//LavaCrustDark) and BallGlow lays the seams' light over the whole ball as their average share of it. Every other style
+//leaves them at 1, 1 and 0: its own colour, and no glow.
+float BallCrustTint = 1;
+float BallCrustDark = 1;
+float BallGlow;
+
 //How wide one cell of the dissolve's dither is, in back-buffer pixels: BallCommon.fxh's DissolvePixelSize, the one
 //uniform the dithered draw reads (#794)
 float DissolvePixelSize = 1;
@@ -108,6 +126,8 @@ struct VertexOutput
     float3 WorldNormal : TEXCOORD1;
     float4 OcclusionData : TEXCOORD2;
     float2 DissolveRipple : TEXCOORD3;
+    float3 SceneDiffuse : TEXCOORD4;
+    float3 SceneSpecular : TEXCOORD5;
 };
 
 //The normal by the world matrix's cofactor, as Common.fxh's NormalToWorld: right under a non-uniform scale and a
@@ -118,6 +138,35 @@ float3 NormalToWorld(float3 objectNormal, float3 r0, float3 r1, float3 r2)
     float3 normal = objectNormal.x * c0 + objectNormal.y * cross(r2, r0) + objectNormal.z * cross(r0, r1);
 
     return normalize(dot(r0, c0) < 0.0 ? -normal : normal);
+}
+
+//Lighting.fxh's AddSceneLights, run PER VERTEX (PotatoVS) and interpolated: per pixel, six lamps took the volcano and the
+//neon city from 21 to 34 ms a frame on the Pi, and a scene with none paid 1.4 ms on Girandole for the eight branches alone.
+//Unrolled, each slot its own code behind a branch on the count (uniform for the whole draw), so the array indices are
+//constants: a loop indexing three arrays by its counter is the dynamic indexing mgfxc and MojoShader disagree about (see
+//compile.ps1). The specular is the same arithmetic at the vertex, a broad highlight rather than a sharp one.
+void AddSceneLights(float3 worldPosition, float3 normal, float3 eye, inout float3 diffuse, inout float3 specular)
+{
+    [unroll]
+    for (int i = 0; i < MAX_SCENE_LIGHTS; i++)
+    {
+        [branch]
+        if (i < SceneLightCount)
+        {
+            float3 toLight = SceneLightPosition[i] - worldPosition;
+            float dist = length(toLight);
+            float3 towardsLight = toLight / max(dist, 1e-4);
+
+            //Quadratic to the light's range, as the desktop's: fades gently and dies at the edge
+            float atten = saturate(1.0 - dist / SceneLightRange[i]);
+            atten *= atten;
+
+            diffuse += SceneLightColor[i] * (saturate(dot(normal, towardsLight)) * atten);
+
+            float dotH = saturate(dot(normal, normalize(towardsLight + eye)));
+            specular += SceneLightColor[i] * (pow(dotH, SpecularPower) * atten);
+        }
+    }
 }
 
 VertexOutput PotatoVS(VertexInput input, InstanceInput instance)
@@ -132,6 +181,15 @@ VertexOutput PotatoVS(VertexInput input, InstanceInput instance)
     output.WorldNormal = NormalToWorld(input.Normal, instance.WorldRow1.xyz, instance.WorldRow2.xyz, instance.WorldRow3.xyz);
     output.OcclusionData = instance.Custom;
     output.DissolveRipple = float2(instance.Dissolve, instance.Ripple);
+
+    //The scene's own lamps (#795), at the vertex: see AddSceneLights. The side facing the eye for an open surface, as Shade
+    float3 normal = normalize(output.WorldNormal);
+    float3 eye = normalize(EyePosition - output.WorldPosition);
+    if (TwoSidedNormals > 0 && dot(normal, eye) < 0) normal = -normal;
+
+    output.SceneDiffuse = 0;
+    output.SceneSpecular = 0;
+    AddSceneLights(output.WorldPosition, normal, eye, output.SceneDiffuse, output.SceneSpecular);
 
     return output;
 }
@@ -175,9 +233,10 @@ struct Shaded
     float3 Added;
 };
 
-//Lighting.fxh's ShadePixel without its clouds, shadows, scene lights and per-surface specular: the key, fill and back
+//Lighting.fxh's ShadePixel without its clouds, shadows and per-surface specular: the key, fill and back
 //lights, the occluded hemisphere, the specular and the Fresnel environment, in linear radiance.
-Shaded Shade(float3 worldPosition, float3 rawNormal, float4 occlusionData, float3 texRgb)
+Shaded Shade(float3 worldPosition, float3 rawNormal, float4 occlusionData, float3 texRgb, float3 sceneDiffuse,
+    float3 sceneSpecular)
 {
     float3 eye = normalize(EyePosition - worldPosition);
     float3 normal = normalize(rawNormal);
@@ -193,6 +252,10 @@ Shaded Shade(float3 worldPosition, float3 rawNormal, float4 occlusionData, float
     AddLight(-DirLight2Direction, DirLight2DiffuseColor, DirLight2SpecularColor, normal, eye, diffuse, specular);
     diffuse *= DirLightStrength;
     specular *= DirLightStrength;
+
+    //The scene's lamps, from the vertex; not scaled by the rig's strength, as on the desktop: a lamp is not the sky
+    diffuse += sceneDiffuse;
+    specular += sceneSpecular;
 
     float occlusion = SurfaceOcclusion(worldPosition, normal, occlusionData);
     float burial = saturate((0.45 - occlusionData.w) / 0.35);
@@ -236,7 +299,7 @@ float4 ToScreen(Shaded shaded)
 
 float4 LitPS(VertexOutput input) : COLOR0
 {
-    return ToScreen(Shade(input.WorldPosition, input.WorldNormal, input.OcclusionData, 1));
+    return ToScreen(Shade(input.WorldPosition, input.WorldNormal, input.OcclusionData, 1, input.SceneDiffuse, input.SceneSpecular));
 }
 
 float4 TexturedPS(VertexOutput input) : COLOR0
@@ -254,7 +317,7 @@ float4 TexturedPS(VertexOutput input) : COLOR0
         + SrgbToLinear(tex2D(TextureSampler, p.xy).rgb) * blend.z;
     float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
 
-    return ToScreen(Shade(input.WorldPosition, normal, input.OcclusionData, texRgb));
+    return ToScreen(Shade(input.WorldPosition, normal, input.OcclusionData, texRgb, input.SceneDiffuse, input.SceneSpecular));
 }
 
 //BallCommon.fxh's Heartbeat and BallEmission: lub-dub, travelling along PulseDirection
@@ -302,18 +365,31 @@ float4 BallPS(VertexOutput input) : COLOR0
 {
     float3 primary = SrgbToLinear(PatternPrimaryColor);
     float3 normal = normalize(input.WorldNormal);
+    float3 crust = primary * BallCrustTint * BallCrustDark + BallCrustDark * (1 - BallCrustTint);
     //A ball is opaque, so its added light simply joins it
-    Shaded parts = Shade(input.WorldPosition, normal, input.OcclusionData, primary);
+    Shaded parts = Shade(input.WorldPosition, normal, input.OcclusionData, crust, input.SceneDiffuse, input.SceneSpecular);
     float3 shaded = parts.Covered.rgb + parts.Added;
     float occlusion = SurfaceOcclusion(input.WorldPosition, normal, input.OcclusionData);
 
     float beat = Heartbeat(PulseTime * PulseSpeed - dot(input.WorldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
     shaded += primary * EmissiveStrength * StillEmission * ((1 - PulseDepth) * occlusion * occlusion + PulseDepth * beat);
 
+    //The lava's seams as their average (#795), BallLava.fxh's arithmetic without the seams: the ball's own hue cut by
+    //LavaHuePower, as bright as its tint's luminance lets it (LavaTintEmission), breathing with the beat and occluded
+    //linearly as the desktop's seams are. Zero for every other style.
+    float peak = max(primary.r, max(primary.g, primary.b));
+
+    [branch]
+    if (BallGlow > 0)
+    {
+        float3 hue = pow(saturate(primary / max(peak, 1e-3)), 1.7);
+        float emission = lerp(0.18, 1.0, saturate(dot(primary, float3(0.2126, 0.7152, 0.0722))));
+        shaded += hue * (BallGlow * emission * lerp(1 - PulseDepth, 1, beat) * StillEmission * occlusion);
+    }
+
     //The ripple through the cluster (#331): a flash towards the ball's own hue, or the ceiling's alarm red
     float ripple = input.DissolveRipple.y;
     float amount = abs(ripple) * step(1e-4, RippleStrength);
-    float peak = max(primary.r, max(primary.g, primary.b));
     float3 lit = shaded + lerp(primary / max(peak, 1e-3), 1.0, 0.5) * (RippleStrength * amount);
     float3 alarmed = lerp(shaded, RippleAlarmColor * 1.7, amount * 0.95);
     shaded = ripple < 0 ? alarmed : lit;

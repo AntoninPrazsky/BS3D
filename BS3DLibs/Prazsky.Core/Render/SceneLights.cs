@@ -72,6 +72,15 @@ namespace Prazsky.Core.Render
         private float _flashRange;
 
         /// <summary>
+        /// The volcano's flows for a host that draws no <see cref="SceneRenderer"/> (#795): the Raspberry Pi's Potato
+        /// path builds no backdrop, and without one it had no lamps to light the cluster with, which on a dusk dome left
+        /// the balls near black. It solves a <see cref="VolcanoLava"/> of its own, on the same config and seed, and
+        /// <see cref="Apply"/> takes the lamps from it when it is handed no renderer. A host with a renderer leaves this
+        /// null and the renderer's own is read.
+        /// </summary>
+        public VolcanoLava Volcano { get; set; }
+
+        /// <summary>
         /// Adds one short-lived light to the <b>next</b> <see cref="Apply"/> only (#389) — a blast lighting up
         /// the balls, the island and the gun around it for the fraction of a second it lasts. It takes the
         /// first slot the scene has left free and is dropped when there is none: the savanna's ring of
@@ -105,7 +114,10 @@ namespace Prazsky.Core.Render
         /// </summary>
         /// <param name="scene">The scene being drawn; decides which set of lights (if any) is built.</param>
         /// <param name="sceneRenderer">Where the campfire and the planetshine come from — the same source the
-        /// grass shader and the flame billboard read, which is what keeps them consistent.</param>
+        /// grass shader and the flame billboard read, which is what keeps them consistent. Null on the Potato path
+        /// (#795), which has none: then the volcano's lamps come from <see cref="Volcano"/>, the neon ring from
+        /// <paramref name="neonLook"/> as always, and the scenes whose lights only a backdrop knows (the campfires, the
+        /// big top, the planetshine, the earthshine, the lightning) push none.</param>
         /// <param name="neonLook">The neon city's ring (count, range, radius, height, colours), read only when
         /// <paramref name="scene"/> is <see cref="SceneKind.NeonCity"/>. Passed by reference, never copied.</param>
         /// <param name="wallClock">Must be the same clock the caller feeds <see cref="SceneFrame.Time"/>, or
@@ -120,22 +132,29 @@ namespace Prazsky.Core.Render
             //false for every kind but its own), and no SceneKind satisfies two of them. So this order is an order
             //and not a precedence: do not read it as one, and do not write an eighth branch that relies on being
             //tested last. The storm's own branch is additionally self-gating in TIME as well as in kind —
-            //between strikes its TryGet returns false and the scene takes no slot at all.
-            if (scene == SceneKind.Volcano)
+            //between strikes its TryGet returns false and the scene takes no slot at all. The ONE branch that is a
+            //precedence is the renderer-less one (#795): it has to stand after the volcano, which can light without
+            //a renderer, and before every branch that reads one.
+            if (scene == SceneKind.Volcano && (sceneRenderer?.VolcanoLava ?? Volcano) is VolcanoLava lava)
             {
                 //The volcano is the scene whose GROUND is the light, and the only one whose lamps MOVE: the
                 //crater sits still while the rest are flow fronts travelling down the flank, so a slot is a
-                //front rather than a fixture. Everything comes out of the renderer for the same reason the
-                //campfire does — the flank's own shader draws those rivers, and a lamp beside the river it is
-                //lighting is worse than no lamp at all.
-                count = sceneRenderer.VolcanoLightCount;
+                //front rather than a fixture. Everything comes out of the flows' own figures for the same reason
+                //the campfire's light comes out of the renderer — the flank's own shader draws those rivers, and a
+                //lamp beside the river it is lighting is worse than no lamp at all.
+                count = lava.LightCount;
 
                 for (int light = 0; light < count; light++)
                 {
-                    _lightPosition[light] = sceneRenderer.VolcanoLightPosition(light, wallClock);
-                    _lightColor[light] = sceneRenderer.VolcanoLightColor(wallClock, light);
-                    _lightRange[light] = sceneRenderer.VolcanoLightRange;
+                    _lightPosition[light] = lava.LightPosition(light, wallClock);
+                    _lightColor[light] = lava.LightColor(wallClock, light);
+                    _lightRange[light] = lava.LightRange;
                 }
+            }
+            else if (sceneRenderer == null)
+            {
+                //No renderer (the Potato path): only the neon ring, which is config, and not a backdrop's
+                if (scene == SceneKind.NeonCity) count = BuildNeonRing(neonLook);
             }
             else if (scene == SceneKind.Savanna)
             {
@@ -198,17 +217,7 @@ namespace Prazsky.Core.Render
             }
             else if (scene == SceneKind.NeonCity)
             {
-                //A ring of alternating magenta and cyan around the island, so the near towers, the island and
-                //the balls actually take the neon's colour rather than the windows merely glowing at them
-                count = Math.Min(neonLook.LightCount, MaxLights);
-
-                for (int i = 0; i < count; i++)
-                {
-                    float angle = i / (float)count * MathHelper.TwoPi;
-                    _lightPosition[i] = new Vector3(MathF.Cos(angle) * neonLook.LightRadius, neonLook.LightHeight, MathF.Sin(angle) * neonLook.LightRadius);
-                    _lightColor[i] = (i % 2 == 0) ? neonLook.Magenta.ToVector3() : neonLook.Cyan.ToVector3();
-                    _lightRange[i] = neonLook.LightRange;
-                }
+                count = BuildNeonRing(neonLook);
             }
 
             //And a flash over the scene's own lamps, in the first slot they left free (#389). Consumed here
@@ -238,6 +247,23 @@ namespace Prazsky.Core.Render
             _lightCountParam.SetValue(count);
 
             _lastCount = count;
+        }
+
+        //A ring of alternating magenta and cyan around the island, so the near towers, the island and the balls
+        //actually take the neon's colour rather than the windows merely glowing at them. Answers how many slots it took.
+        private int BuildNeonRing(NeonConfig neonLook)
+        {
+            int count = Math.Min(neonLook.LightCount, MaxLights);
+
+            for (int i = 0; i < count; i++)
+            {
+                float angle = i / (float)count * MathHelper.TwoPi;
+                _lightPosition[i] = new Vector3(MathF.Cos(angle) * neonLook.LightRadius, neonLook.LightHeight, MathF.Sin(angle) * neonLook.LightRadius);
+                _lightColor[i] = (i % 2 == 0) ? neonLook.Magenta.ToVector3() : neonLook.Cyan.ToVector3();
+                _lightRange[i] = neonLook.LightRange;
+            }
+
+            return count;
         }
     }
 }

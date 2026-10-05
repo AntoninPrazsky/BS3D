@@ -1295,6 +1295,13 @@ namespace Prazsky.Core.Render
         /// </summary>
         public int VolcanoLightCount => _volcano.LightCount;
 
+        /// <summary>
+        /// The volcano's flows as figures (#795): the rivers, the vents, the eruption's clock and the lamps that ride the
+        /// flows, which every <c>Volcano*</c> query above and below answers from. <see cref="SceneLights"/> reads the
+        /// lamps off it, and a host with no renderer builds its own (<see cref="SceneLights.Volcano"/>).
+        /// </summary>
+        public VolcanoLava VolcanoLava => _volcano.Lava;
+
         /// <summary>The big top's real lights (#690): the footlights on the curb that light the island's drum, then the pools
         /// the three island spots throw on its cap - how many, where each is and its colour now, and how far it reaches.
         /// See <see cref="CircusBackdrop.FOOTLIGHT_COUNT"/> and <see cref="CircusBackdrop.POOL_COUNT"/>.</summary>

@@ -74,7 +74,8 @@ namespace BS3D
         /// <summary>
         /// <see cref="BeginSceneDraw"/> on the Potato path: the back buffer cleared to the dome's horizon, the dome's
         /// gradient, then the island and its pit - and the frame the rest of the draw needs. No shadow maps, no clouds,
-        /// no backdrop, no scene lights, no sea or kill-plane fade. The cup and the confetti are drawn last of all
+        /// no backdrop, no sea or kill-plane fade; of the scene's own lamps only those no backdrop has to be built for
+        /// (#795, <see cref="SceneLights.Apply"/> with no renderer). The cup and the confetti are drawn last of all
         /// instead of first into a layer (<see cref="CompositeForegroundLast"/>).
         /// </summary>
         private SceneFrame BeginPotatoSceneDraw()
@@ -97,6 +98,10 @@ namespace BS3D
             GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
 
             SceneFrame sceneFrame = BuildSceneFrame();
+
+            //The volcano's flows and the neon ring (#795): the two scenes whose dome is dark and whose own lamps carry the
+            //cluster on the desktop, and the two whose lamps need no backdrop. A blast's flash rides the same push.
+            _sceneLights.Apply(_scene, null, _cityConfig.NeonLook, _wallClock);
 
             _island.EventGlow = 0f;
             _island.DrawIsland(_camera, _sceneEffectParams, _scene);
