@@ -575,8 +575,12 @@ namespace Prazsky.BS3D
             //window ends at, and two copies of it are two things free to drift.
             float slotEndZ = breechZ - CHAMBER_DEPTH;
 
-            _mesh = new CannonMesh(graphicsDevice, BORE_RADIUS, WALL_THICKNESS, muzzleZ, breechZ, SLOT_HALF_ANGLE,
-                slotEndZ, CHAMBER_DEPTH, WALL_SEGMENTS);
+            //The barrel and the carriage stand in the middle of the frame, and their outlines take fins where a build draws
+            //them (#804). NOT the wheels and their rollers: a roller is drawn several dozen times a frame, and fins on it
+            //measured over a million vertices and half the frame again on the laptop, for outlines a few pixels long.
+            using (EdgeFins.Wanted())
+                _mesh = new CannonMesh(graphicsDevice, BORE_RADIUS, WALL_THICKNESS, muzzleZ, breechZ, SLOT_HALF_ANGLE,
+                    slotEndZ, CHAMBER_DEPTH, WALL_SEGMENTS);
 
             //Since the dome and its cascabel, the breech side outreaches the muzzle side — taken off the mesh
             //actually built, so the tube that is drawn and the box that frames it cannot disagree
@@ -596,13 +600,15 @@ namespace Prazsky.BS3D
             //ring that glows and the tube it rings cannot drift apart. The lathe turns about Y and the bore
             //runs along Z, so the profile's Y IS the local Z here and the draw turns it a quarter about X.
             //Ordered from the muzzle face BACKWARDS, which is what puts the normals outwards.
-            _collarMesh = new LatheMesh(graphicsDevice, new[]
-            {
-                new LathePoint(COLLAR_ROOT_RADIUS, muzzleZ, crease: true),
-                new LathePoint(COLLAR_CREST_RADIUS, muzzleZ + COLLAR_SHOULDER, crease: true),
-                new LathePoint(COLLAR_CREST_RADIUS, muzzleZ + COLLAR_LENGTH - COLLAR_SHOULDER, crease: true),
-                new LathePoint(COLLAR_ROOT_RADIUS, muzzleZ + COLLAR_LENGTH, crease: true),
-            }, COLLAR_SEGMENTS);
+            //Its outline takes fins too (#804): the glowing ring is the brightest edge on the gun
+            using (EdgeFins.Wanted())
+                _collarMesh = new LatheMesh(graphicsDevice, new[]
+                {
+                    new LathePoint(COLLAR_ROOT_RADIUS, muzzleZ, crease: true),
+                    new LathePoint(COLLAR_CREST_RADIUS, muzzleZ + COLLAR_SHOULDER, crease: true),
+                    new LathePoint(COLLAR_CREST_RADIUS, muzzleZ + COLLAR_LENGTH - COLLAR_SHOULDER, crease: true),
+                    new LathePoint(COLLAR_ROOT_RADIUS, muzzleZ + COLLAR_LENGTH, crease: true),
+                }, COLLAR_SEGMENTS);
 
             _collarRenderer = new InstancedModelRenderer(graphicsDevice, _collarMesh, COLLAR_STEEL, instancingEffect)
             {
@@ -637,13 +643,14 @@ namespace Prazsky.BS3D
             float cheekReliefX = _mesh.WidestRadius + CHEEK_RELIEF_CLEARANCE;
             float cheekHubRadius = _mesh.NearestSteelWiderThan(CHEEK_INNER_X, GameObjects.Cannon.RECOIL_BACK) - CHEEK_HUB_CLEARANCE;
 
-            _carriageMesh = new GunCarriageMesh(graphicsDevice, CHEEK_INNER_X, cheekReliefX, cheekHubRadius,
-                CHEEK_THICKNESS, CHEEK_TOP_Y,
-                //The axle reaches a plate's thickness past each wheel's centre, so its end is swallowed by the
-                //hub and the joint never shows a crack. It was the spoked wheel's half-hub-width; the omni
-                //wheel's hub is far wider (it spans both plates), so this is buried with room to spare.
-                AXLE_DROP, CHEEK_HALF_LENGTH, AXLE_RADIUS, WHEEL_TRACK + PLATE_THICKNESS, TRAIL_END,
-                TRUNNION_RADIUS, TRUNNION_INNER_X, cheekReliefX + CHEEK_THICKNESS + TRUNNION_BOSS);
+            using (EdgeFins.Wanted())
+                _carriageMesh = new GunCarriageMesh(graphicsDevice, CHEEK_INNER_X, cheekReliefX, cheekHubRadius,
+                    CHEEK_THICKNESS, CHEEK_TOP_Y,
+                    //The axle reaches a plate's thickness past each wheel's centre, so its end is swallowed by the
+                    //hub and the joint never shows a crack. It was the spoked wheel's half-hub-width; the omni
+                    //wheel's hub is far wider (it spans both plates), so this is buried with room to spare.
+                    AXLE_DROP, CHEEK_HALF_LENGTH, AXLE_RADIUS, WHEEL_TRACK + PLATE_THICKNESS, TRAIL_END,
+                    TRUNNION_RADIUS, TRUNNION_INNER_X, cheekReliefX + CHEEK_THICKNESS + TRUNNION_BOSS);
 
             _carriageRenderer = new InstancedModelRenderer(graphicsDevice, _carriageMesh, FRAME_COLOR, instancingEffect)
             {

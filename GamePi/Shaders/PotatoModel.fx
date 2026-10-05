@@ -23,10 +23,16 @@ float4x4 View;
 float4x4 Projection;
 float3 EyePosition;
 
-//The material, as InstancedModelRenderer hands it over: sRGB, the diffuse and the ambient premultiplied by alpha
-//(as BasicEffect does on the CPU), decoded to linear here the way InstancedModel.fx's ShadePixel does it
+//WHAT IS CONSTANT OVER A DRAW IS COMPUTED BY THE CPU (#804). MonoGame compiles an effect with no preshader, so an
+//expression of uniforms alone written in a pixel shader runs for every PIXEL: the sRGB decode of five material colours, the
+//hemisphere's two lerps, the reflectance, the roughness, a ball's crust, its emission and its ripple's flash were about a
+//fifth of the 390 instructions a ball's pixel cost on the Pi's V3D (shaderdb, #801). InstancedModelRenderer.DrawPotato now
+//does that arithmetic once a draw, in the same order and with the same constants, and hands over its results - so the
+//uniforms below are those results, and none of them is an authored colour any more.
+//
+//The material, LINEAR: decoded as PotatoOutput.fxh's SrgbToLinear decodes (Hejl's fit), the diffuse premultiplied by alpha
+//BEFORE the decode, as BasicEffect premultiplies on the CPU and as InstancedModel.fx's ShadePixel reads it
 float4 DiffuseColor;
-float3 AmbientColor;
 float3 EmissiveColor;
 float3 SpecularColor;
 float SpecularPower;
@@ -51,13 +57,23 @@ float3 SceneLightColor[MAX_SCENE_LIGHTS];
 float SceneLightRange[MAX_SCENE_LIGHTS];
 int SceneLightCount;
 
-//The hemisphere ambient, linear, and the floor the ground occlusion fades towards
-float3 SkyColor;
-float3 GroundColor;
+//The hemisphere, multiplied out. The dome's light from a direction is lerp(Ground, Sky, y / 2 + 1 / 2), which is its
+//middle plus half its range times y - so the ambient a normal takes is AmbientMid + AmbientTilt * normal.y, both already
+//times the material's linear ambient colour, and what a mirror direction shows is EnvironmentMid + EnvironmentTilt * its y,
+//the tilt already scaled by how sharp the surface is (a rough one reflects the dome's average, which is its middle).
+float3 AmbientMid;
+float3 AmbientTilt;
+float3 EnvironmentMid;
+float3 EnvironmentTilt;
+
+//The Fresnel reflectance, both already times SpecularAmbientStrength: at the normal (lerp(0.04 * specular, specular,
+//Metalness)), and what a grazing view adds to it (max(1, that) - that), which the fifth power of (1 - facing) scales
+float3 Reflectance;
+float3 ReflectanceRise;
+
+//The floor the ground occlusion fades towards
 float GroundHeight;
 
-float SpecularAmbientStrength;
-float Metalness;
 float TwoSidedNormals;
 float SpecularAlphaWeight;
 float3 EmissiveTint;
@@ -78,29 +94,47 @@ float DetailScale;
 float DetailStrength;
 float DetailBoost;
 
-//What every ball is whatever it is made of (BallCommon.fxh): its colour, its heartbeat, its ripple, its dissolve
-float3 PatternPrimaryColor;
-float EmissiveStrength;
-float StillEmission = 1;
-float PulseTime;
-float PulseSpeed;
-float PulseDepth;
-float3 PulseDirection;
-float PulseWavelength;
-float RippleStrength;
-float3 RippleAlarmColor;
-
-//A style whose colour is its own glow and not its surface (#795): the lava, a near-black crust lit only by its molten
-//seams, which Potato does not draw. The crust is BallLava.fxh's (BallCrustTint and BallCrustDark are its LavaCrustTint and
-//LavaCrustDark) and BallGlow lays the seams' light over the whole ball as their average share of it. Every other style
-//leaves them at 1, 1 and 0: its own colour, and no glow.
-float BallCrustTint = 1;
-float BallCrustDark = 1;
-float BallGlow;
+//What every ball is whatever it is made of (BallCommon.fxh) - its colour, its heartbeat, its ripple - as DrawPotato
+//multiplied it out from the ball's linear colour ("primary" below is SrgbToLinear of the tint it is drawn with):
+//
+//  BallCrust          what the light falls on. primary for every style but the lava (#795), whose colour is its own glow:
+//                     a near-black crust, primary * tint * dark + dark * (1 - tint), BallLava.fxh's LavaCrustTint and Dark.
+//  BallEmissionStill  primary * EmissiveStrength * StillEmission * (1 - PulseDepth): the resting glow, which the pixel
+//                     occludes squared (#303).
+//  BallEmissionBeat   primary * EmissiveStrength * StillEmission * PulseDepth: what the heartbeat adds, unoccluded.
+//  BallGlowStill and
+//  BallGlowBeat       the lava's seams as their average over the ball (#795): its hue cut by LavaHuePower, as bright as its
+//                     tint's luminance lets it, times (1 - PulseDepth) and times PulseDepth, occluded linearly. Zero for
+//                     every other style.
+//  BallFlash          the landing ripple (#331): lerp(primary / its peak, 1, 1/2) * RippleStrength.
+//  BallAlarm          the ceiling's alarm: rgb the colour a ball is carried towards (RippleAlarmColor * 1.7), a how far a
+//                     full ripple carries it (0.95). Both ripples are zero when RippleStrength is.
+//  PulsePhase         xyz PulseDirection / PulseWavelength, w PulseTime * PulseSpeed: the heartbeat's phase at a point is
+//                     w - dot(point, xyz), taken at the VERTEX (PotatoBallVS), its two exp with it.
+float3 BallCrust = float3(1, 1, 1);
+float3 BallEmissionStill;
+float3 BallEmissionBeat;
+float3 BallGlowStill;
+float3 BallGlowBeat;
+float3 BallFlash;
+float4 BallAlarm;
+float4 PulsePhase;
 
 //How wide one cell of the dissolve's dither is, in back-buffer pixels: BallCommon.fxh's DissolvePixelSize, the one
 //uniform the dithered draw reads (#794)
 float DissolvePixelSize = 1;
+
+//The ball's rim (#804, PotatoBallRim below): x the world units one pixel of the target spans at a clip w of 1
+//(2 / (Projection._22 * the target's height)), y the sphere mesh's radius in its own units, z the share of its radius the
+//mesh's outline may fall short of the true circle (1 - cos(pi / slices): the strip reaches that far inside the limb, and a
+//pixel more), w the ramp's width in pixels. And the secant of half a segment of the strip, which its outer row is pushed
+//out by so that the CHORD between two of its vertices still covers the ramp.
+float4 RimShape = float4(0.001, 0.5, 0.01, 1);
+float RimSecant = 1.02;
+
+//The fins (#804, PotatoFinLit and PotatoFinTextured below): x and y half the target's width and height in pixels, z the
+//ramp's width in pixels
+float4 FinShape = float4(960, 540, 1, 0);
 
 struct VertexInput
 {
@@ -125,7 +159,8 @@ struct VertexOutput
     float3 WorldPosition : TEXCOORD0;
     float3 WorldNormal : TEXCOORD1;
     float4 OcclusionData : TEXCOORD2;
-    float2 DissolveRipple : TEXCOORD3;
+    //x the dissolve, y the ripple, z the heartbeat (0 for everything that is not a ball)
+    float3 DissolveRipple : TEXCOORD3;
     float3 SceneDiffuse : TEXCOORD4;
     float3 SceneSpecular : TEXCOORD5;
 };
@@ -180,7 +215,7 @@ VertexOutput PotatoVS(VertexInput input, InstanceInput instance)
     output.Position = mul(mul(worldPosition, View), Projection);
     output.WorldNormal = NormalToWorld(input.Normal, instance.WorldRow1.xyz, instance.WorldRow2.xyz, instance.WorldRow3.xyz);
     output.OcclusionData = instance.Custom;
-    output.DissolveRipple = float2(instance.Dissolve, instance.Ripple);
+    output.DissolveRipple = float3(instance.Dissolve, instance.Ripple, 0);
 
     //The scene's own lamps (#795), at the vertex: see AddSceneLights. The side facing the eye for an open surface, as Shade
     float3 normal = normalize(output.WorldNormal);
@@ -207,11 +242,6 @@ void AddLight(float3 towardsLight, float3 lightDiffuse, float3 lightSpecular, fl
     specular += lightSpecular * pow(dotH * lit, SpecularPower);
 }
 
-float3 SkyRadiance(float3 direction)
-{
-    return lerp(GroundColor, SkyColor, direction.y * 0.5 + 0.5);
-}
-
 //Lighting.fxh's SurfaceOcclusion and its constants: the instance's own occluder, and the ground's
 float SurfaceOcclusion(float3 worldPosition, float3 normal, float4 occlusionData)
 {
@@ -231,6 +261,8 @@ struct Shaded
 {
     float4 Covered;
     float3 Added;
+    //The surface's occlusion, which a ball's emission is occluded by too
+    float Occlusion;
 };
 
 //Lighting.fxh's ShadePixel without its clouds, shadows and per-surface specular: the key, fill and back
@@ -262,17 +294,29 @@ Shaded Shade(float3 worldPosition, float3 rawNormal, float4 occlusionData, float
     float diffuseOcclusion = lerp(0.6, 1.0, occlusion) * lerp(1.0, 0.4, burial);
 
     Shaded shaded;
-    shaded.Covered = float4((diffuse * SrgbToLinear(DiffuseColor.rgb) * diffuseOcclusion
-        + SkyRadiance(normal) * SrgbToLinear(AmbientColor) * occlusion
-        + SrgbToLinear(EmissiveColor)) * texRgb, DiffuseColor.a);
+    shaded.Occlusion = occlusion;
+    shaded.Covered = float4((diffuse * DiffuseColor.rgb * diffuseOcclusion
+        + (AmbientMid + AmbientTilt * normal.y) * occlusion
+        + EmissiveColor) * texRgb, DiffuseColor.a);
 
-    //The specular and the environment: the sky dome reflected, rough surfaces seeing its average
-    float3 linearSpecular = SrgbToLinear(SpecularColor);
-    float roughness = sqrt(2.0 / (SpecularPower + 2.0));
-    float3 environment = lerp(SkyRadiance(reflect(-eye, normal)), (SkyColor + GroundColor) * 0.5, saturate(roughness));
-    float3 reflectanceAtNormal = lerp(0.04 * linearSpecular, linearSpecular, Metalness);
-    float3 fresnel = reflectanceAtNormal + (max(1.0, reflectanceAtNormal) - reflectanceAtNormal) * pow(1 - saturate(dot(normal, eye)), 5);
-    float3 glints = (specular * linearSpecular + environment * fresnel * SpecularAmbientStrength) * occlusion;
+    //The specular and the environment: the sky dome reflected, rough surfaces seeing its average. The mirror direction
+    //is reflect(-eye, normal), and its height is all the dome's gradient asks of it.
+    float towardsEye = dot(normal, eye);
+    float3 environment = EnvironmentMid + EnvironmentTilt * (2 * towardsEye * normal.y - eye.y);
+
+    //How squarely the surface faces the eye, never less than it turns across half this pixel (#804). The Fresnel term
+    //below is the fifth power of what is left, so within the last fifth of a pixel of a silhouette it climbs to 1: a pixel
+    //whose centre happens to fall there is the dome's full reflection, its neighbour along the outline is not, and the
+    //edge is a broken bright line that is the sampling's and not the surface's. What a pixel shows is the surface
+    //across its whole width; half its own change in facing is the middle of that, and nowhere else is it reached.
+    float facing = saturate(towardsEye);
+    facing = max(facing, 0.5 * fwidth(facing));
+
+    //Schlick's fifth power, as three products: a pow of a constant exponent is a log and an exp on this GPU
+    float grazing = 1 - facing;
+    float grazing2 = grazing * grazing;
+    float3 fresnel = Reflectance + ReflectanceRise * (grazing2 * grazing2 * grazing);
+    float3 glints = (specular * SpecularColor + environment * fresnel) * occlusion;
 
     //The desktop scales them by lerp(1, alpha, SpecularAlphaWeight): this splits that same total into the share the
     //alpha scales (covered) and the share it does not (added)
@@ -302,22 +346,131 @@ float4 LitPS(VertexOutput input) : COLOR0
     return ToScreen(Shade(input.WorldPosition, input.WorldNormal, input.OcclusionData, 1, input.SceneDiffuse, input.SceneSpecular));
 }
 
-float4 TexturedPS(VertexOutput input) : COLOR0
+//The island's stone at a place: what the detail texture multiplies the surface by there
+float3 StoneDetail(float3 worldPosition, float3 normal)
 {
     //Triplanar, as the desktop's: three taps, one along each world axis, blended by the sharpened normal. Each tap is
     //sampled from its own continuous coordinates - choosing ONE side projection per pixel before sampling (the first
     //cut, two taps) left a seam where the choice flipped and a lowest-mip column along it (#789's review)
-    float3 normal = normalize(input.WorldNormal);
-    float3 blend = pow(abs(normal), 4);
+    float3 blend = normal * normal;
+    blend *= blend;
     blend /= blend.x + blend.y + blend.z;
-    float3 p = input.WorldPosition * DetailScale;
+    float3 p = worldPosition * DetailScale;
     float3 detail
         = SrgbToLinear(tex2D(TextureSampler, p.zy).rgb) * blend.x
         + SrgbToLinear(tex2D(TextureSampler, p.xz).rgb) * blend.y
         + SrgbToLinear(tex2D(TextureSampler, p.xy).rgb) * blend.z;
-    float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
 
-    return ToScreen(Shade(input.WorldPosition, normal, input.OcclusionData, texRgb, input.SceneDiffuse, input.SceneSpecular));
+    return lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
+}
+
+float4 TexturedPS(VertexOutput input) : COLOR0
+{
+    float3 normal = normalize(input.WorldNormal);
+
+    return ToScreen(Shade(input.WorldPosition, normal, input.OcclusionData, StoneDetail(input.WorldPosition, normal),
+        input.SceneDiffuse, input.SceneSpecular));
+}
+
+//THE FINS (#804): a ball's rim (PotatoBallRim, below) for a surface whose outline is not a formula - the island, the
+//drain, the ceiling's plate, the gun. EdgeFinMesh lays a quad, collapsed, on every edge of the mesh that can ever be an
+//outline; here it is opened by FinShape.z pixels, outwards on the screen, where the edge IS one from this eye, and its
+//alpha falls from 1 on the edge to 0 at its far side: the coverage of a pixel by the surface, blended (after the mesh, depth-
+//tested, not depth-written) over what is really beyond the edge. The mesh grows by half a pixel.
+//
+//WHICH EDGES OPEN, decided per vertex from the two faces that meet at the edge (EdgeFinMesh.Owner is this rule on the
+//CPU, and is what the tests hold): an OUTLINE - one face towards the eye and one away - belongs to the face that shows,
+//and opens away from it. A CREASE - a sharp convex edge, both faces showing - belongs to the face whose neighbour falls
+//away from the edge as the eye sees it: the fin lies at the edge's own depth, over that neighbour's first pixel, and
+//for a convex edge at least one of the two faces always qualifies. Every other edge stays collapsed, a triangle of no
+//area that costs its vertices' positions and nothing else.
+//
+//The colour is the surface's own at the edge, by the very pixel shader the mesh is drawn with, so a fin is the last
+//pixel of its face carried one pixel on.
+struct FinInput
+{
+    //xyz this end of the edge, w the row: 0 on the edge, 1 pushed out
+    float4 Position : POSITION0;
+    //xyz the other end, w 1 for a crease that opens when both faces show
+    float4 Other : TEXCOORD0;
+    float3 FaceA : NORMAL0;
+    float3 FaceB : NORMAL1;
+    float3 ShadeA : TANGENT0;
+    float3 ShadeB : BINORMAL0;
+    float3 OutA : TANGENT1;
+    float3 OutB : BINORMAL1;
+};
+
+VertexOutput PotatoFinVS(FinInput input, InstanceInput instance)
+{
+    VertexOutput output;
+
+    float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
+    float3 here = mul(float4(input.Position.xyz, 1), world).xyz;
+    float3 there = mul(float4(input.Other.xyz, 1), world).xyz;
+
+    float3 toEye = EyePosition - here;
+    float facingA = dot(NormalToWorld(input.FaceA, instance.WorldRow1.xyz, instance.WorldRow2.xyz, instance.WorldRow3.xyz), toEye);
+    float facingB = dot(NormalToWorld(input.FaceB, instance.WorldRow1.xyz, instance.WorldRow2.xyz, instance.WorldRow3.xyz), toEye);
+
+    //Directions of the mesh, carried as the positions are (not as normals: they lie IN their faces)
+    float3 outA = mul(float4(input.OutA, 0), world).xyz;
+    float3 outB = mul(float4(input.OutB, 0), world).xyz;
+
+    bool outline = facingA * facingB < 0;
+    bool crease = input.Other.w > 0.5 && facingA > 0 && facingB > 0;
+    bool ownerA = outline ? facingA > 0 : dot(toEye, outB) > 0;
+
+    float3 outward = ownerA ? outA : outB;
+    float3 shade = ownerA ? input.ShadeA : input.ShadeB;
+
+    float4 clipHere = mul(mul(float4(here, 1), View), Projection);
+    float4 clipThere = mul(mul(float4(there, 1), View), Projection);
+    float4 clipOut = mul(mul(float4(outward, 0), View), Projection);
+
+    //An edge with an end behind the eye has no place on the screen to stand a fin on
+    float opened = (outline || crease) && clipHere.w > 1e-3 && clipThere.w > 1e-3 ? 1.0 : 0.0;
+
+    //The edge on the screen, in pixels, and the direction across it - of the two, the one "outward" goes on the screen
+    //(the derivative of xy / w along it)
+    float2 screenEdge = (clipThere.xy / max(clipThere.w, 1e-3) - clipHere.xy / max(clipHere.w, 1e-3)) * FinShape.xy;
+    float2 across = float2(-screenEdge.y, screenEdge.x);
+    across /= max(length(across), 1e-6);
+    float2 screenOut = (clipOut.xy * clipHere.w - clipHere.xy * clipOut.w) * FinShape.xy;
+    if (dot(across, screenOut) < 0) across = -across;
+
+    //Pushed out by the ramp's width, at the edge's own depth: pixels to clip space is over half the target and times w
+    float row = input.Position.w;
+    output.Position = clipHere;
+    output.Position.xy += across * (row * FinShape.z * opened * clipHere.w) / FinShape.xy;
+
+    //The surface at the edge, for both rows: PotatoVS's outputs at this end
+    output.WorldPosition = here;
+    output.WorldNormal = NormalToWorld(shade, instance.WorldRow1.xyz, instance.WorldRow2.xyz, instance.WorldRow3.xyz);
+    output.OcclusionData = instance.Custom;
+
+    //x the coverage, which the pixel shader multiplies its whole premultiplied colour by
+    output.DissolveRipple = float3(1 - row, 0, 0);
+
+    float3 normal = output.WorldNormal;
+    float3 eye = normalize(toEye);
+    if (TwoSidedNormals > 0 && dot(normal, eye) < 0) normal = -normal;
+
+    output.SceneDiffuse = 0;
+    output.SceneSpecular = 0;
+    AddSceneLights(here, normal, eye, output.SceneDiffuse, output.SceneSpecular);
+
+    return output;
+}
+
+float4 FinLitPS(VertexOutput input) : COLOR0
+{
+    return LitPS(input) * saturate(input.DissolveRipple.x);
+}
+
+float4 FinTexturedPS(VertexOutput input) : COLOR0
+{
+    return TexturedPS(input) * saturate(input.DissolveRipple.x);
 }
 
 //BallCommon.fxh's Heartbeat and BallEmission: lub-dub, travelling along PulseDirection
@@ -349,7 +502,13 @@ VertexOutput PotatoBallVS(VertexInput input, InstanceInput instance)
 {
     input.Position.xyz *= GhostScale(instance.Dissolve);
 
-    return PotatoVS(input, instance);
+    VertexOutput output = PotatoVS(input, instance);
+
+    //The heartbeat, here and not per pixel (#804): its phase turns by a tenth across a ball and its two exp were a
+    //pixel's dearest instructions; between two vertices it is as good as straight
+    output.DissolveRipple.z = Heartbeat(PulsePhase.w - dot(output.WorldPosition, PulsePhase.xyz));
+
+    return output;
 }
 
 //BallCommon.fxh's DissolveNoise, verbatim: a hash with no sin in it, over cells of the screen
@@ -361,40 +520,161 @@ float DissolveNoise(float2 cell)
     return frac((p.x + p.y) * p.z);
 }
 
-float4 BallPS(VertexOutput input) : COLOR0
+//What a ball's pixel is, display-encoded: BallPS's whole body, a function because the rim's pixels (PotatoBallRim) are the
+//same ball's and must come out of the same arithmetic, or the ring would show against the ball it finishes
+float3 BallColour(VertexOutput input)
 {
-    float3 primary = SrgbToLinear(PatternPrimaryColor);
     float3 normal = normalize(input.WorldNormal);
-    float3 crust = primary * BallCrustTint * BallCrustDark + BallCrustDark * (1 - BallCrustTint);
+
     //A ball is opaque, so its added light simply joins it
-    Shaded parts = Shade(input.WorldPosition, normal, input.OcclusionData, crust, input.SceneDiffuse, input.SceneSpecular);
+    Shaded parts = Shade(input.WorldPosition, normal, input.OcclusionData, BallCrust, input.SceneDiffuse, input.SceneSpecular);
     float3 shaded = parts.Covered.rgb + parts.Added;
-    float occlusion = SurfaceOcclusion(input.WorldPosition, normal, input.OcclusionData);
+    float occlusion = parts.Occlusion;
+    float beat = input.DissolveRipple.z;
 
-    float beat = Heartbeat(PulseTime * PulseSpeed - dot(input.WorldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
-    shaded += primary * EmissiveStrength * StillEmission * ((1 - PulseDepth) * occlusion * occlusion + PulseDepth * beat);
-
-    //The lava's seams as their average (#795), BallLava.fxh's arithmetic without the seams: the ball's own hue cut by
-    //LavaHuePower, as bright as its tint's luminance lets it (LavaTintEmission), breathing with the beat and occluded
-    //linearly as the desktop's seams are. Zero for every other style.
-    float peak = max(primary.r, max(primary.g, primary.b));
-
-    [branch]
-    if (BallGlow > 0)
-    {
-        float3 hue = pow(saturate(primary / max(peak, 1e-3)), 1.7);
-        float emission = lerp(0.18, 1.0, saturate(dot(primary, float3(0.2126, 0.7152, 0.0722))));
-        shaded += hue * (BallGlow * emission * lerp(1 - PulseDepth, 1, beat) * StillEmission * occlusion);
-    }
+    //BallCommon.fxh's BallEmission and, for the lava (#795), BallLava.fxh's seams as their average: the resting glow
+    //occluded squared and the seams' linearly, the beat's own share of each riding through. See the uniforms for what
+    //each of the four is; a style with no glow has zeros in two of them.
+    shaded += (BallEmissionStill * occlusion + BallGlowStill) * occlusion + (BallEmissionBeat + BallGlowBeat * occlusion) * beat;
 
     //The ripple through the cluster (#331): a flash towards the ball's own hue, or the ceiling's alarm red
     float ripple = input.DissolveRipple.y;
-    float amount = abs(ripple) * step(1e-4, RippleStrength);
-    float3 lit = shaded + lerp(primary / max(peak, 1e-3), 1.0, 0.5) * (RippleStrength * amount);
-    float3 alarmed = lerp(shaded, RippleAlarmColor * 1.7, amount * 0.95);
+    float amount = abs(ripple);
+    float3 lit = shaded + BallFlash * amount;
+    float3 alarmed = lerp(shaded, BallAlarm.rgb, amount * BallAlarm.a);
     shaded = ripple < 0 ? alarmed : lit;
 
-    return float4(ToDisplay(shaded), 1);
+    return ToDisplay(shaded);
+}
+
+float4 BallPS(VertexOutput input) : COLOR0
+{
+    return float4(BallColour(input), 1);
+}
+
+//Testing only (#804): a ball as its flat colour, no light at all. Drawn in place of BallPS (InstancedModelRenderer.
+//PotatoFlatBalls, the Game's "ballflat"), it is the floor under any cheaper ball shader: what the frame costs when a
+//ball's pixel costs nothing.
+float4 BallFlatPS(VertexOutput input) : COLOR0
+{
+    return float4(BallCrust, 1);
+}
+
+//THE BALL'S RIM (#804): the anti-aliasing of a ball's outline, without a multisampled target and without a full-screen
+//pass. A ball is a sphere, so where its outline is, is a formula: after every opaque thing is in the target, one thin ring
+//is drawn over each ball's outline, blended, depth-TESTED and not depth-written, whose alpha falls from 1 on the outline to
+//0 one pixel outside it. That is exact coverage of the pixel by the ball (a box filter over a straight edge), blended
+//against what is really behind it - which a hard-edged mesh cannot have, having already replaced it. ("Discontinuity
+//edge overdraw", Sander, Hoppe, Snyder and Gortler 2001, with no silhouette to search for.) The ball grows by half a pixel.
+//
+//THE GEOMETRY. From an eye at distance d a sphere of radius R shows the circle where the eye's rays touch it: nearer than
+//the centre by R*R/d and smaller, R*sqrt(1 - (R/d)^2), in the plane across the line of sight. The strip is two rows of
+//vertices on that plane: one a pixel and the mesh's own shortfall INSIDE the limb, one the ramp's width OUTSIDE it. Every
+//point of it lies at the limb's own depth, which is what makes the depth test right with no bias at all: just inside its
+//outline a ball's own surface is much nearer than its limb (a pixel inside, by 0.4 of the radius for a ball 12 pixels in
+//radius), so the ring is hidden behind its own ball wherever the mesh covers, and shows in the slivers an inscribed LOD
+//mesh leaves short of the true circle (filling them: the outline becomes a circle whatever the mesh) and outside; and a
+//neighbour's surface is in front of this ball's limb exactly where that neighbour really is in front of it.
+//
+//THE ALPHA is measured per pixel, not interpolated: the strip carries its place on the limb's plane in units of the limb's
+//radius, the pixel shader takes that vector's length, and the ramp is a true circle whatever the strip's segment count.
+//
+//THE COLOUR is BallColour's, at the normal the sphere has there: its own inside the limb, and at and beyond it the one
+//half a pixel inside - what the part of the ball in a partly covered pixel looks like, not the limb's own grazing normal,
+//where the Fresnel term is at its peak and a ring shaded so would be an outline drawn round the ball.
+//
+//A ball being dithered has no ring (its outline is not an edge) and neither has one stretched off round (the shot's
+//smear): both collapse the strip to a point, here, so the instance stream is the ball draw's own, as uploaded.
+struct RimVertexOutput
+{
+    float4 Position : POSITION0;
+    float3 WorldPosition : TEXCOORD0;
+    float3 WorldNormal : TEXCOORD1;
+    float4 OcclusionData : TEXCOORD2;
+    float3 DissolveRipple : TEXCOORD3;
+    float3 SceneDiffuse : TEXCOORD4;
+    float3 SceneSpecular : TEXCOORD5;
+    //xy: the place on the limb's plane, in limb radii (1 is the outline). z: the limb's radius in pixels
+    float3 Rim : TEXCOORD6;
+};
+
+//corner.xy is a point of the unit circle, corner.z the row: 0 inside the limb, 1 outside it
+RimVertexOutput PotatoBallRimVS(float4 corner : POSITION0, InstanceInput instance)
+{
+    RimVertexOutput output;
+
+    float3 centre = instance.WorldRow4.xyz;
+    float3 axes = float3(dot(instance.WorldRow1.xyz, instance.WorldRow1.xyz),
+        dot(instance.WorldRow2.xyz, instance.WorldRow2.xyz), dot(instance.WorldRow3.xyz, instance.WorldRow3.xyz));
+    float dissolve = instance.Dissolve;
+
+    //1 for a ball that has a ring: round, and whole or a ghost (below -1, a size and not a cut)
+    float ringed = step(abs(axes.x - axes.y) + abs(axes.x - axes.z), 0.02 * axes.x)
+        * (dissolve == 0 || dissolve < -1.0 ? 1.0 : 0.0);
+
+    float radius = RimShape.y * sqrt(axes.x) * GhostScale(dissolve);
+
+    float3 toEye = EyePosition - centre;
+    float eyeDistance = max(length(toEye), 1e-4);
+    float3 view = toEye / eyeDistance;
+    float sine = min(radius / eyeDistance, 0.98);
+    float3 limbCentre = centre + view * (radius * sine);
+    float limbRadius = radius * sqrt(1 - sine * sine);
+
+    //Any two directions across the line of sight: which is which only turns the ring about its own centre
+    float3 across = normalize(cross(view, abs(view.y) < 0.99 ? float3(0, 1, 0) : float3(1, 0, 0)));
+    float3 along = cross(view, across);
+    float3 radial = corner.x * across + corner.y * along;
+
+    float pixel = mul(mul(float4(limbCentre, 1), View), Projection).w * RimShape.x;
+    float limbPixels = limbRadius / max(pixel, 1e-6);
+
+    float reachPixels = corner.z > 0.5
+        ? (limbPixels + RimShape.w) * RimSecant
+        : max(limbPixels * (1 - RimShape.z) - 1.0, 0);
+    float reach = reachPixels / max(limbPixels, 1e-4) * ringed;
+
+    float3 ringPosition = limbCentre + radial * (limbRadius * reach);
+    output.Position = mul(mul(float4(ringPosition, 1), View), Projection);
+    output.Rim = float3(corner.xy * reach, limbPixels);
+
+    //The sphere's normal half a pixel inside its limb, on this radius (see THE COLOUR), and the point of the sphere
+    //that has it. The same for both rows: the strip shows only where its own ball's mesh does not, which is at the
+    //limb and beyond it, and a normal that turned across the strip would dim the ring towards its inner row - a dark
+    //line between the ball's own bright last pixel and the ring (seen, in the first cut).
+    float inside = 1 - 0.5 / max(limbPixels, 1.0);
+    float3 normal = radial * inside + view * sqrt(saturate(1 - inside * inside));
+
+    output.WorldNormal = normal;
+    output.WorldPosition = centre + normal * radius;
+    output.OcclusionData = instance.Custom;
+    output.DissolveRipple = float3(dissolve, instance.Ripple,
+        Heartbeat(PulsePhase.w - dot(output.WorldPosition, PulsePhase.xyz)));
+
+    output.SceneDiffuse = 0;
+    output.SceneSpecular = 0;
+    AddSceneLights(output.WorldPosition, normal, normalize(EyePosition - output.WorldPosition), output.SceneDiffuse,
+        output.SceneSpecular);
+
+    return output;
+}
+
+//Premultiplied, for BlendState.AlphaBlend. The coverage is 1 everywhere inside the outline (the slivers a coarse mesh
+//leaves) and falls to nothing across the ramp outside it.
+float4 BallRimPS(RimVertexOutput input) : COLOR0
+{
+    VertexOutput ball;
+    ball.Position = 0;
+    ball.WorldPosition = input.WorldPosition;
+    ball.WorldNormal = input.WorldNormal;
+    ball.OcclusionData = input.OcclusionData;
+    ball.DissolveRipple = input.DissolveRipple;
+    ball.SceneDiffuse = input.SceneDiffuse;
+    ball.SceneSpecular = input.SceneSpecular;
+
+    float coverage = saturate(1 - (length(input.Rim.xy) - 1) * input.Rim.z / RimShape.w);
+
+    return float4(BallColour(ball) * coverage, coverage);
 }
 
 technique PotatoLit
@@ -443,7 +723,43 @@ technique PotatoBallDither
 {
     pass P0
     {
-        VertexShader = compile vs_3_0 PotatoVS();
+        VertexShader = compile vs_3_0 PotatoBallVS();
         PixelShader = compile ps_3_0 BallDitherPS();
+    }
+};
+
+technique PotatoFinLit
+{
+    pass P0
+    {
+        VertexShader = compile vs_3_0 PotatoFinVS();
+        PixelShader = compile ps_3_0 FinLitPS();
+    }
+};
+
+technique PotatoFinTextured
+{
+    pass P0
+    {
+        VertexShader = compile vs_3_0 PotatoFinVS();
+        PixelShader = compile ps_3_0 FinTexturedPS();
+    }
+};
+
+technique PotatoBallFlat
+{
+    pass P0
+    {
+        VertexShader = compile vs_3_0 PotatoBallVS();
+        PixelShader = compile ps_3_0 BallFlatPS();
+    }
+};
+
+technique PotatoBallRim
+{
+    pass P0
+    {
+        VertexShader = compile vs_3_0 PotatoBallRimVS();
+        PixelShader = compile ps_3_0 BallRimPS();
     }
 };

@@ -8063,3 +8063,24 @@ Majitel večer 4. 10.: „zpracovávej až do rána issues, které můžeš zpra
   - shaderdb: FS koule 391 → 250 instrukcí.
   - Snímky Caldery a Cabinetu jsou stejné; jeden odlehlý běh staré verze dělal šum.
 - **Dál:** majitelův verdikt k lemu a k 720p (#801). #804 mergne notebook nad aktuální main.
+
+## 2026-10-05 — #804 AA pro Pi: lem koulí, ploutve hran, konstanty na CPU; Windows ověření #801 — notebook, Claude Code (github-cf)
+
+- **Zadání majitele:** hráč nesmí vidět hranaté pixely, ani rozmazané; měkký obraz nevadí. Návrh (lem, ploutve, rozpočet) napsala desktopová session do `Research/pi-antialiasing`, postavil ho notebook, měřila Pi session.
+- **Proč notebook:** GL shadery kompiluje za 3 s a GamePi tu běží přes DesktopGL, takže Potato obraz jde posoudit bez Pi. Cenu na V3D umí změřit jen Pi.
+- **Lem koulí (`rims=`, výchozí 1):** po všech koulích druhý průchod stejnými buckety, pásek na kružnici obrysu, alfa po pixelu z přesné kružnice, blend, depth test bez zápisu, bez biasu.
+  - ⚠ První řez měl dvě vady, obě vidět až na snímku: barva lemu na okrajové normále je vrchol Fresnelu (bílá linka), a normála otáčená přes pásek dělala tmavou linku. Správně: normála půl pixelu uvnitř obrysu pro obě řady.
+  - ⚠ Krajní pixel koule byl přesvícený už bez lemu (pátá mocnina šplhá k 1 v poslední pětině pixelu): `facing` je teď zdola omezený polovinou své změny přes pixel (`fwidth`).
+- **Konstanty na CPU:** MonoGame nemá preshader, takže výraz jen z uniformů běží na každém pixelu. Pixel koule 391 → 250 instrukcí, nativně −2,3 až −3,0 ms (čísla Pi session výše). Rovnost obrazu: `Research/pi-port/804/ball-pixel-before-and-after.py` (20 000 náhodných vstupů, 5,5e-14; na pokaženém znaménku selže).
+- **Ploutve (`fins=`, zatím výchozí 0):** `EdgeFinMesh` pro ostrov, desku, hlaveň, límec a lafetu; obrys se hledá po hranách ze dvou stěn.
+  - ⚠ Ploutve na všech sítích: 142 000 hran a 177 ms načítání; válečky kol (desítky instancí) přes milion vrcholů a +1 ms i na notebooku. Proto jen uvnitř `EdgeFins.Wanted()`.
+  - ⚠ Práh „skoro v rovině“ 1,5° sebral ploutve oblým stěnám (ostrov má 512 segmentů, 0,7° na fazetu). Je 0,25°.
+  - ⚠ Test pravidla pro záhyb na krychli prošel i s obráceným pravidlem (u pravého úhlu ustupují obě stěny). Rozliší to až tupý hřeben.
+- **Windows ověření #801** (větev je na mainu): regrese při `render=0` šest buněk v ±0,05 ms; 720p na Low/Medium/High, pohár, sklo, motion blur, jeskyně, sen, menu, řádek Resolution, F11, alt-tab, pauza v pořádku; APU Low 18,06 → 10,03 ms, High 57,58 → 30,22.
+  - Nález a oprava (`e937b44d`): GamePi na Windows padal s `render=720` (`TargetDiscard` volal SDL pod linuxovým jménem).
+- ⚠ **Bash heredoc v téhle session padá na apostrofech v delším textu** („unexpected EOF“). Skripty psát přes Write a pak spustit.
+- ⚠ **Rebase už pushnuté větve jsem lokálně udělal a vrátil** (`git switch -C` na origin). Větev stojí na commitu, který je v mainu, takže stačí `--no-ff` merge.
+- **Ploutve na Pi změřeny (session na Pi, `2adfe52a`): +1,05 až +1,43 ms, nativně i v 720p stejně** - cena za vrcholy, ne za pixely. Shaderdb: binning pouští coordinate shader ploutví (243 instrukcí) pro každý vrchol každého zkolabovaného quadu. Doba do prvního snímku se nehnula (3,9 s). Nativně s lemem i ploutvemi Pennant 13,9, Girandole 15,5, Cabinet 16,0 ms proti 16,1 limiteru, takže **ploutve zůstávají vypnuté** (`POTATO_FIN_PIXELS` = 0).
+  - Další krok (nová větev): konkávní hrany vůbec nestavět (konkávní hrana uzavřené sítě není nikdy viditelný obrys) a živé hrany vybírat na CPU do dynamického index bufferu, aby binning viděl stovky hran místo desítek tisíc.
+- **`upscale=soft`** (`5e9c8652`): kubický B-spline ve čtyřech bilineárních tapech pro cestu pod nativním rozlišením; bilineární zvětšení dělá z tenké světlé linky korálky na mřížce zdroje. Výchozí je bilineár, cena na Pi se měří.
+- **Neověřeno:** cena `upscale=soft` na Pi, švy mezi dvěma sítěmi (zlatý pás odtoku proti kameni a šachtě) a vnitřní tvrdé hrany děla zůstávají schodovité, kola a válečky nemají ploutve, jiný poměr stran než 16:9 u #801.

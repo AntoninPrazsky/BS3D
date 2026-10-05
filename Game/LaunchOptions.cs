@@ -90,6 +90,23 @@ namespace BS3D
         //native. Null when absent, so the player's stored choice (and the build's default) answer instead.
         internal int? RenderHeight { get; private set; }
 
+        //"rims=<pixels>" (#804, the Potato path): every ball's outline finished with a blended ring of that width, its
+        //anti-aliasing - 1 is the exact coverage of a pixel by an edge, more is softer, 0 is none. Null when absent,
+        //which leaves the build's default. See PotatoModel.fx's PotatoBallRim.
+        internal float? Rims { get; private set; }
+
+        //"fins=<pixels>" (#804, the Potato path): the outline of everything that is not a ball - the island, the drain, the
+        //ceiling, the gun - finished with fins that wide, the companion of the balls' rims. Null when absent.
+        internal float? Fins { get; private set; }
+
+        //"upscale=<bilinear|soft>" (#804, the Potato path below native): how the 3D is scaled up onto the back buffer - one
+        //bilinear tap, or the cubic B-spline in four, which shows nothing of the source's pixel grid. Null when absent.
+        internal string Upscale { get; private set; }
+
+        //Testing only, "ballflat" (#804): the Potato balls as their flat colour, unlit - the floor under any cheaper ball
+        //shader, for the Pi to measure before one is written.
+        internal bool BallFlat { get; private set; }
+
         //Testing only: start the victory display on the front end, which is otherwise reachable only by
         //clearing a level — and clearing one cannot be scripted, so this is how the fireworks get
         //screenshotted and measured at all.
@@ -356,6 +373,14 @@ namespace BS3D
             //"render=<height>" draws the 3D at that height and the display's own aspect, scaled up to the back buffer
             //(#801); 0 is native. Independent of width=/height=, which still size the window.
             Row.Int("render", (o, v) => o.RenderHeight = v, v => v >= 0),
+            //"rims=<pixels>" finishes every Potato ball's outline with a blended ring that wide (#804): 0 none, 1 exact
+            Row.Float("rims", (o, v) => o.Rims = v, v => v >= 0f && v <= 4f),
+            //"fins=<pixels>" does the same for every other mesh's outline (#804): 0 none, 1 exact
+            Row.Float("fins", (o, v) => o.Fins = v, v => v >= 0f && v <= 4f),
+            //"upscale=soft" scales the Potato path's 3D up through a cubic B-spline rather than bilinearly (#804)
+            Row.Text("upscale", (o, v) => o.Upscale = v, v => v is "bilinear" or "soft"),
+            //"ballflat" draws the Potato balls unlit, in their flat colour: a measurement, not a look (#804)
+            Row.Flag("ballflat", o => o.BallFlat = true),
             //"ssaa=<n>" trades sharpness against fill rate; "exposure=<f>" is the renderer's shutter speed
             Row.Int("ssaa", (o, v) => o.SupersampleFactor = v),
             Row.Float("exposure", (o, v) => o.Exposure = v),

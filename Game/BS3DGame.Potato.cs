@@ -57,6 +57,24 @@ namespace BS3D
         private const float POTATO_BALL_LOD_BIAS = 2f;
 
         /// <summary>
+        /// The width of the balls' rims on the Potato path, in pixels of the target (#804), when the command line names
+        /// none: 1, the exact coverage of a pixel by an edge. On, because the owner asked for the port's edges not to be
+        /// blocky and the Pi measured what it costs: +0.3 to +0.8 ms a frame at 720p and +0.5 to +1.2 at native, the
+        /// frame with them under 15 ms at native on the three levels measured ("The Potato path" in
+        /// <c>docs/rendering.md</c>). <c>rims=0</c> is none, more than 1 is softer.
+        /// </summary>
+        private const float POTATO_RIM_PIXELS = 1f;
+
+        /// <summary>
+        /// The width of the fins on the Potato path - the rims' companion for every outline that is not a ball's (#804,
+        /// <see cref="EdgeFinMesh"/>) - when the command line names none: 0, off. The Pi measured them at +1.05 to +1.43 ms
+        /// a frame, the same at native and at 720p: V3D's binning runs their vertex shader for every vertex of every
+        /// collapsed quad, and with them Cabinet's native frame is 16.0 ms against the limiter's 16.1 ("The Potato path"
+        /// in <c>docs/rendering.md</c>). <c>fins=1</c> is the exact coverage of a pixel by an edge.
+        /// </summary>
+        private const float POTATO_FIN_PIXELS = 0f;
+
+        /// <summary>
         /// Whether the frame being drawn presents the cup or the confetti, for <see cref="CompositeForegroundLast"/>.
         /// </summary>
         private bool _potatoPresenting;
@@ -72,7 +90,7 @@ namespace BS3D
         //1080p output, see docs/rendering.md) and the quad it is drawn on: the whole target in clip space, the texture's
         //top-left at the top-left. Loaded with the rest of the Potato effects.
         private Effect _potatoUpscale;
-        private EffectParameter _potatoUpscaleSource;
+        private EffectParameter _potatoUpscaleSource, _potatoUpscaleTexel;
         private static readonly VertexPositionTexture[] POTATO_UPSCALE_QUAD =
         {
             new(new Vector3(-1f, 1f, 0f), new Vector2(0f, 0f)),
@@ -156,8 +174,11 @@ namespace BS3D
         private void LoadPotatoUpscale()
         {
             _potatoUpscale = Content.Load<Effect>("Shaders/PotatoUpscale");
-            _potatoUpscale.CurrentTechnique = _potatoUpscale.Techniques["Bilinear"];
+            //Bilinear, or the soft cubic the command line asks for (#804: "upscale=soft", four taps for one, which the Pi
+            //has still to price)
+            _potatoUpscale.CurrentTechnique = _potatoUpscale.Techniques[_launchSoftUpscale ? "Soft" : "Bilinear"];
             _potatoUpscaleSource = _potatoUpscale.Parameters["Source"];
+            _potatoUpscaleTexel = _potatoUpscale.Parameters["SourceTexel"];
         }
 
         /// <summary>
@@ -203,6 +224,7 @@ namespace BS3D
             GraphicsDevice.RasterizerState = RasterizerState.CullNone;
 
             _potatoUpscaleSource.SetValue(_potatoSceneTarget);
+            _potatoUpscaleTexel?.SetValue(new Vector2(1f / _potatoSceneTarget.Width, 1f / _potatoSceneTarget.Height));
             _potatoUpscale.CurrentTechnique.Passes[0].Apply();
             GraphicsDevice.SamplerStates[0] = SamplerState.LinearClamp;
             GraphicsDevice.DrawUserPrimitives(PrimitiveType.TriangleStrip, POTATO_UPSCALE_QUAD, 0, 2);

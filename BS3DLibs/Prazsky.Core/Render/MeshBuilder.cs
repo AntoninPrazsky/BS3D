@@ -258,6 +258,10 @@ namespace Prazsky.Core.Render
             var vertexBuffer = new VertexBuffer(device, VertexPositionNormalTexture.VertexDeclaration, _vertices.Count, BufferUsage.WriteOnly);
             vertexBuffer.SetData(_vertices.ToArray());
 
+            //The outline's fins on the Potato path (#804); nothing unless the host asked for them
+            EdgeFins.Register(device, vertexBuffer, System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_vertices),
+                System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_indices));
+
             IndexBuffer indexBuffer;
 
             if (_vertices.Count <= ushort.MaxValue)

@@ -81,6 +81,9 @@ namespace Prazsky.Core.Render
             VertexBuffer = new VertexBuffer(graphicsDevice, VertexPositionNormalTexture.VertexDeclaration, vertices.Length, BufferUsage.WriteOnly);
             VertexBuffer.SetData(vertices);
 
+            //The outline's fins on the Potato path (#804); nothing unless the host asked for them
+            EdgeFins.Register(graphicsDevice, VertexBuffer, vertices, indices);
+
             IndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
             IndexBuffer.SetData(indices);
 
@@ -192,6 +195,9 @@ namespace Prazsky.Core.Render
 
             VertexBuffer = new VertexBuffer(graphicsDevice, VertexPositionNormalTexture.VertexDeclaration, vertices.Length, BufferUsage.WriteOnly);
             VertexBuffer.SetData(vertices);
+
+            //The outline's fins on the Potato path (#804); nothing unless the host asked for them
+            EdgeFins.Register(graphicsDevice, VertexBuffer, vertices, indices);
 
             IndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
             IndexBuffer.SetData(indices);

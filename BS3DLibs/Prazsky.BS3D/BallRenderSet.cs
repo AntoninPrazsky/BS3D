@@ -1313,6 +1313,18 @@ namespace Prazsky.BS3D
                     RippleStrength = ripples ? RIPPLE_STRENGTH : 0f,
                     GroundHeight = groundHeight
                 };
+
+                //The rims' strips (#804), on the Potato path alone: its effect is the one that has the technique. A level's
+                //strip is as fine as the balls it is used for are big, and says how far its mesh falls short of a circle.
+                if (_renderers[lod].Potato)
+                {
+                    _rimMeshes ??= new BallRimMesh[LodCount];
+                    _rimMeshes[lod] = new BallRimMesh(graphicsDevice, RIM_SEGMENTS[Math.Min(lod, RIM_SEGMENTS.Length - 1)]);
+
+                    _renderers[lod].RimMesh = _rimMeshes[lod];
+                    _renderers[lod].RimMeshRadius = BALL_RADIUS;
+                    _renderers[lod].RimMeshShortfall = 1f - MathF.Cos(MathF.PI / LOD_RESOLUTIONS[lod, 0]);
+                }
             }
 
             _pulseDepth = ripples ? PULSE_DEPTH_RIPPLING : PULSE_DEPTH_RESTING;
@@ -1329,6 +1341,25 @@ namespace Prazsky.BS3D
             _lodTotals = new int[LodCount];
             _lodDistanceSquared = new float[LOD_MIN_PIXEL_RADIUS.Length];
         }
+
+        //Segments of a rim's strip by LOD (#804): the two finest levels are the close-ups, where a ball is a hundred
+        //pixels across and a coarse strip would waste a strip's width of blended pixels at every corner; in play a ball is
+        //a dozen pixels in radius and sixteen clear its outline by a fifth of a pixel. The ring's edge is round at any
+        //count - its alpha is measured from the circle per pixel - so this is cost, not shape.
+        private static readonly int[] RIM_SEGMENTS = { 32, 24, 16, 16 };
+
+        private BallRimMesh[] _rimMeshes;
+
+        //The LOD census as the balls' own walk left it, kept across the rims' walk, which counts the same buckets again
+        private int[] _rimLodTotals;
+
+        /// <summary>
+        /// Whether every ball's outline is finished with a <b>rim</b> (#804): the Potato path's anti-aliasing, a thin
+        /// blended ring over each ball's outline drawn after all of the balls (see <c>PotatoModel.fx</c>'s
+        /// <c>PotatoBallRim</c>). Off by default, and nothing on the desktop path, which multisamples or supersamples
+        /// its target instead. The caller's order already serves it: <see cref="Draw"/> stands over the opaque scene.
+        /// </summary>
+        public bool Rims { get; set; }
 
         /// <summary>
         /// Whether the frames collected from now on keep a <b>motion record</b> for the motion blur's velocity pass
@@ -1877,6 +1908,32 @@ namespace Prazsky.BS3D
                 _renderers[lod].DissolvePixelSize = dissolvePixels;
             }
 
+            DrawBuckets(camera);
+
+            //The rims (#804): every bucket once more, the renderers drawing each ball's ring in place of the ball - the
+            //same walk with the same uniforms, so a ring is its ball's own colour and light, and after ALL the balls, so
+            //a ring blends over the ball that is really behind it. The census of balls is the first walk's.
+            if (Rims && _renderers[0].Potato)
+            {
+                int drawn = DrawnCount;
+                _rimLodTotals ??= new int[LodCount];
+                Array.Copy(_lodTotals, _rimLodTotals, LodCount);
+
+                for (int lod = 0; lod < LodCount; lod++) _renderers[lod].RimPass = true;
+                DrawBuckets(camera);
+                for (int lod = 0; lod < LodCount; lod++) _renderers[lod].RimPass = false;
+
+                DrawnCount = drawn;
+                Array.Copy(_rimLodTotals, _lodTotals, LodCount);
+            }
+        }
+
+        /// <summary>
+        /// Every bucket of the frame through its renderer, in the order the transparency of some of them needs.
+        /// <see cref="Draw"/>'s body, a method of its own since the rims (#804) walk the same buckets a second time.
+        /// </summary>
+        private void DrawBuckets(ICamera camera)
+        {
             //The rocks first, and OPAQUE first is the reason (#324): on a transparent style the films below are
             //blended over whatever is already in the target, so a rock drawn after them would be laid on top of
             //the bubbles it stands behind. It costs nothing on the opaque styles, where the order does not
@@ -2565,6 +2622,7 @@ namespace Prazsky.BS3D
         {
             if (_meshes != null) foreach (SphereMesh mesh in _meshes) mesh?.Dispose();
             if (_renderers != null) foreach (InstancedModelRenderer renderer in _renderers) renderer?.Dispose();
+            if (_rimMeshes != null) foreach (BallRimMesh rim in _rimMeshes) rim?.Dispose();
 
             _meshes = null;
             _renderers = null;

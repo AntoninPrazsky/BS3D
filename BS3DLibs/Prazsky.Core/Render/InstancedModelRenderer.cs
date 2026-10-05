@@ -57,7 +57,70 @@ namespace Prazsky.Core.Render
         private const float POTATO_LAVA_CRUST_TINT = 0.62f;
         private const float POTATO_LAVA_CRUST_DARK = 0.16f;
         private const float POTATO_LAVA_SEAM_SHARE = 0.3f;
-        private EffectParameter _ballCrustTintParam, _ballCrustDarkParam, _ballGlowParam;
+
+        //The balls' rims on the Potato path (#804): see PotatoModel.fx's PotatoBallRim for what a rim is
+        private EffectTechnique _potatoBallRimTechnique, _potatoBallFlatTechnique;
+        private EffectParameter _rimShapeParam, _rimSecantParam;
+
+        //The fins of this renderer's mesh on the Potato path (#804): its outline's anti-aliasing, see EdgeFinMesh. Found
+        //by the mesh's vertex buffer when the renderer is built; null for a mesh that has none (every mesh, unless the
+        //host turned EdgeFins on before building its scene).
+        private EdgeFinMesh _fins;
+        private EffectTechnique _potatoFinLitTechnique, _potatoFinTexturedTechnique;
+        private EffectParameter _finShapeParam;
+
+        /// <summary>
+        /// The width of the fins' ramp in pixels of the target (#804), and their switch: 0, the default, draws none; 1
+        /// is the exact coverage of a pixel by an edge. One figure for every renderer, like
+        /// <see cref="RimRampPixels"/>, which it is the companion of: the balls have rims, everything else has fins.
+        /// </summary>
+        public static float FinRampPixels { get; set; }
+
+        //What is constant over a Potato draw, multiplied out here and not per pixel (#804): see PotatoModel.fx's uniform
+        //block for what each is. DrawPotato computes them; the effect has no uniform for the figures they are made of.
+        private EffectParameter _potatoAmbientMidParam, _potatoAmbientTiltParam, _potatoEnvironmentMidParam,
+            _potatoEnvironmentTiltParam, _potatoReflectanceParam, _potatoReflectanceRiseParam;
+        private EffectParameter _potatoBallCrustParam, _potatoBallEmissionStillParam, _potatoBallEmissionBeatParam,
+            _potatoBallGlowStillParam, _potatoBallGlowBeatParam, _potatoBallFlashParam, _potatoBallAlarmParam,
+            _potatoPulsePhaseParam;
+
+        /// <summary>
+        /// The strip this renderer's balls' rims are drawn on (#804), and the switch: with one set, and
+        /// <see cref="RimPass"/> on, <see cref="Draw(ICamera, ModelInstance[], int, BasicEffectParams, Vector3?)"/> on the
+        /// Potato path draws the outlines' rings in place of the balls themselves. Null, the default, is no rims; only a
+        /// ball renderer is ever given one. The mesh is the caller's to dispose.
+        /// </summary>
+        public BallRimMesh RimMesh { get; set; }
+
+        /// <summary>
+        /// Whether a draw is the balls' rims and not the balls (#804). The caller - <c>BallRenderSet</c> - draws every
+        /// bucket once as it always did and then, with this on, every bucket once more: the same calls with the same
+        /// per-bucket uniforms, so a ring is shaded exactly as the ball it finishes, and all of them after all of the
+        /// balls, which is what a ring's blend needs to find behind it.
+        /// </summary>
+        public bool RimPass { get; set; }
+
+        /// <summary>
+        /// How far this renderer's mesh may fall short of the true circle, as a share of the radius:
+        /// <c>1 - cos(pi / slices)</c> for a sphere of that many slices. The rim's strip reaches that far inside the
+        /// outline (and a pixel more), so it fills the slivers a coarse mesh leaves and the outline is a circle.
+        /// </summary>
+        public float RimMeshShortfall { get; set; }
+
+        /// <summary>The sphere mesh's radius in its own units, which the rim's shader scales by the instance's.</summary>
+        public float RimMeshRadius { get; set; } = 0.5f;
+
+        /// <summary>
+        /// The width of the rims' ramp in pixels of the target (#804): 1 is the exact coverage of a pixel by an edge,
+        /// more is softer. One figure for every renderer, being a property of the picture and not of a mesh.
+        /// </summary>
+        public static float RimRampPixels { get; set; } = 1f;
+
+        /// <summary>
+        /// Testing only (#804): every Potato ball drawn as its flat colour, no light at all - the floor under any cheaper
+        /// ball shader, measured on the Pi before one is written.
+        /// </summary>
+        public static bool PotatoFlatBalls { get; set; }
 
         private EffectTechnique _potatoTexturedTechnique, _potatoBallTechnique, _potatoBallDitherTechnique;
         private readonly MeshPartData[] _parts;
@@ -962,9 +1025,9 @@ namespace Prazsky.Core.Render
         /// Points a renderer built from one procedural mesh at another (#533): the island keeps one cap and
         /// one drum renderer — with their material, relief and joint settings, and their place in every
         /// host's sky-lit list — and swaps the lathe under them when the scene's shape changes. Only the
-        /// buffers, the primitive count and the bounds move; nothing this renderer caches refers to the old
-        /// mesh, since the bindings are built at draw time from the part. The mesh stays the caller's to
-        /// dispose, as it always was.
+        /// buffers, the primitive count, the bounds and the mesh's fins (#804) move; nothing else this renderer
+        /// caches refers to the old mesh, since the bindings are built at draw time from the part. The mesh stays
+        /// the caller's to dispose, as it always was.
         /// </summary>
         public void SetMesh(IProceduralMesh mesh)
         {
@@ -978,6 +1041,7 @@ namespace Prazsky.Core.Render
             _parts[0] = part;
 
             BoundingSphere = mesh.BoundingSphere;
+            _fins = EdgeFins.Find(mesh.VertexBuffer);
         }
 
         /// <summary>
@@ -990,6 +1054,8 @@ namespace Prazsky.Core.Render
         {
             _graphicsDevice = graphicsDevice;
             _effect = effect;
+
+            _fins = EdgeFins.Find(mesh.VertexBuffer);
 
             _parts = new[]
             {
@@ -1806,15 +1872,16 @@ namespace Prazsky.Core.Render
             _eyePositionParam = Required("EyePosition");
             _diffuseColorParam = Required("DiffuseColor");
             _emissiveColorParam = Required("EmissiveColor");
-            _ambientColorParam = Required("AmbientColor");
             _specularColorParam = Required("SpecularColor");
             _specularPowerParam = Required("SpecularPower");
-            _skyColorParam = Required("SkyColor");
-            _groundColorParam = Required("GroundColor");
+            _potatoAmbientMidParam = Required("AmbientMid");
+            _potatoAmbientTiltParam = Required("AmbientTilt");
+            _potatoEnvironmentMidParam = Required("EnvironmentMid");
+            _potatoEnvironmentTiltParam = Required("EnvironmentTilt");
+            _potatoReflectanceParam = Required("Reflectance");
+            _potatoReflectanceRiseParam = Required("ReflectanceRise");
             _keyLightPositionParam = Required("KeyLightPosition");
             _groundHeightParam = Required("GroundHeight");
-            _specularAmbientStrengthParam = Required("SpecularAmbientStrength");
-            _metalnessParam = Required("Metalness");
             _twoSidedNormalsParam = Required("TwoSidedNormals");
             _specularAlphaWeightParam = Required("SpecularAlphaWeight");
             _dirLightStrengthParam = Required("DirLightStrength");
@@ -1825,19 +1892,14 @@ namespace Prazsky.Core.Render
             _detailStrengthParam = Required("DetailStrength");
             _detailBoostParam = Required("DetailBoost");
 
-            _patternPrimaryColorParam = Required("PatternPrimaryColor");
-            _emissiveStrengthParam = Required("EmissiveStrength");
-            _stillEmissionParam = Required("StillEmission");
-            _pulseTimeParam = Required("PulseTime");
-            _pulseSpeedParam = Required("PulseSpeed");
-            _pulseDepthParam = Required("PulseDepth");
-            _pulseDirectionParam = Required("PulseDirection");
-            _pulseWavelengthParam = Required("PulseWavelength");
-            _rippleStrengthParam = Required("RippleStrength");
-            _rippleAlarmColorParam = Required("RippleAlarmColor");
-            _ballCrustTintParam = Required("BallCrustTint");
-            _ballCrustDarkParam = Required("BallCrustDark");
-            _ballGlowParam = Required("BallGlow");
+            _potatoBallCrustParam = Required("BallCrust");
+            _potatoBallEmissionStillParam = Required("BallEmissionStill");
+            _potatoBallEmissionBeatParam = Required("BallEmissionBeat");
+            _potatoBallGlowStillParam = Required("BallGlowStill");
+            _potatoBallGlowBeatParam = Required("BallGlowBeat");
+            _potatoBallFlashParam = Required("BallFlash");
+            _potatoBallAlarmParam = Required("BallAlarm");
+            _potatoPulsePhaseParam = Required("PulsePhase");
 
             Required("DirLight1Direction").SetValue(DefaultLighting.Light1Direction);
             Required("DirLight2Direction").SetValue(DefaultLighting.Light2Direction);
@@ -1853,6 +1915,13 @@ namespace Prazsky.Core.Render
             _potatoBallTechnique = RequiredTechnique("PotatoBall");
             _potatoBallDitherTechnique = RequiredTechnique("PotatoBallDither");
             _dissolvePixelSizeParam = Required("DissolvePixelSize");
+            _potatoFinLitTechnique = RequiredTechnique("PotatoFinLit");
+            _potatoFinTexturedTechnique = RequiredTechnique("PotatoFinTextured");
+            _finShapeParam = Required("FinShape");
+            _potatoBallRimTechnique = RequiredTechnique("PotatoBallRim");
+            _potatoBallFlatTechnique = RequiredTechnique("PotatoBallFlat");
+            _rimShapeParam = Required("RimShape");
+            _rimSecantParam = Required("RimSecant");
             _effect.CurrentTechnique = _mainTechnique;
 
             SetLightTint(Vector3.One, Vector3.One);
@@ -1951,15 +2020,21 @@ namespace Prazsky.Core.Render
         /// </summary>
         private void DrawPotato(ICamera camera, ModelInstance[] instances, int instanceCount, BasicEffectParams effectParams, Vector3? diffuseTint)
         {
+            //The rims' pass (#804) draws a ring for every ball of a bucket in place of the bucket: only a ball renderer
+            //that was given the strip has any
+            bool rims = RimPass;
+            if (rims && (RimMesh == null || PatternGoreCount <= 0)) return;
+
             EnsureInstanceBufferCapacity(instances.Length);
 
             //Balls nearest first, and the dithered ones apart at the end (#789, #794): see OrderForPotato. Arranged
             //into this renderer's own buffer, so the caller's array keeps its order. Everything that is not a ball
-            //renderer's is one run, in the order it came.
+            //renderer's is one run, in the order it came - and so are the rims, whose shader drops the ring of a ball
+            //being dithered and whose blend, depth-tested against every ball already drawn, needs no order.
             int clean = instanceCount;
             ModelInstance[] ordered = instances;
 
-            if (PatternGoreCount > 0)
+            if (PatternGoreCount > 0 && !rims)
             {
                 clean = OrderForPotato(instances, instanceCount, camera.Position, ref _sortedInstances, ref _sortDepths);
                 ordered = _sortedInstances;
@@ -1991,16 +2066,16 @@ namespace Prazsky.Core.Render
 
             //Every shared uniform, every draw, for the desktop draw's reason: the effect is one object under every
             //renderer, and a value one renderer left standing would show on the next
-            _skyColorParam.SetValue(SkyColor);
-            _groundColorParam.SetValue(GroundColor);
             _keyLightPositionParam.SetValue(KeyLightPosition);
             _groundHeightParam.SetValue(GroundHeight);
-            _specularAmbientStrengthParam.SetValue(SpecularAmbientStrength);
-            _metalnessParam.SetValue(Metalness);
             _twoSidedNormalsParam.SetValue(TwoSidedNormals);
             _specularAlphaWeightParam.SetValue(SpecularAlphaWeight);
             _emissiveTintParam.SetValue(EmissiveTint);
             _dirLightStrengthParam.SetValue(DirLightStrength);
+
+            //The dome as its middle and half its range: what lerp(Ground, Sky, y / 2 + 1 / 2) is, as a + b * y
+            Vector3 domeMid = (SkyColor + GroundColor) * 0.5f;
+            Vector3 domeTilt = (SkyColor - GroundColor) * 0.5f;
 
             for (int i = 0; i < _parts.Length; i++)
             {
@@ -2015,31 +2090,34 @@ namespace Prazsky.Core.Render
                     diffuse = diffuseTint.Value * (luminance * 1.25f);
                 }
 
+                //The material, decoded and multiplied out HERE (#804): what the pixel shader did with these for every
+                //pixel, done once a draw, in its order and with its constants - see PotatoModel.fx's uniform block
                 float alpha = part.DiffuseColor.W;
-                _diffuseColorParam.SetValue(new Vector4(diffuse * alpha, alpha));
-                _ambientColorParam.SetValue(ambientLightColor * diffuse * alpha);
-                _emissiveColorParam.SetValue((part.EmissiveColor + emissiveColor) * alpha);
-                _specularColorParam.SetValue(overrideSpecular ? specularColor : part.SpecularColor);
-                _specularPowerParam.SetValue(overrideSpecular ? specularPower : part.SpecularPower);
+                Vector3 ambient = PotatoSrgbToLinear(ambientLightColor * diffuse * alpha);
+                Vector3 specular = PotatoSrgbToLinear(overrideSpecular ? specularColor : part.SpecularColor);
+                float power = overrideSpecular ? specularPower : part.SpecularPower;
+
+                _diffuseColorParam.SetValue(new Vector4(PotatoSrgbToLinear(diffuse * alpha), alpha));
+                _emissiveColorParam.SetValue(PotatoSrgbToLinear((part.EmissiveColor + emissiveColor) * alpha));
+                _specularColorParam.SetValue(specular);
+                _specularPowerParam.SetValue(power);
+
+                _potatoAmbientMidParam.SetValue(domeMid * ambient);
+                _potatoAmbientTiltParam.SetValue(domeTilt * ambient);
+
+                //A rough surface reflects the dome's average, a sharp one the dome at its mirror direction
+                float roughness = MathHelper.Clamp(MathF.Sqrt(2f / (power + 2f)), 0f, 1f);
+                _potatoEnvironmentMidParam.SetValue(domeMid);
+                _potatoEnvironmentTiltParam.SetValue(domeTilt * (1f - roughness));
+
+                Vector3 reflectance = Vector3.Lerp(0.04f * specular, specular, Metalness);
+                _potatoReflectanceParam.SetValue(reflectance * SpecularAmbientStrength);
+                _potatoReflectanceRiseParam.SetValue((Vector3.Max(Vector3.One, reflectance) - reflectance) * SpecularAmbientStrength);
 
                 if (ball)
                 {
-                    _effect.CurrentTechnique = _potatoBallTechnique;
-                    _patternPrimaryColorParam.SetValue(PotatoBallColor(diffuseTint));
-                    _emissiveStrengthParam.SetValue(EmissiveStrength);
-                    _stillEmissionParam.SetValue(StillEmission);
-                    _pulseTimeParam.SetValue(PulseTime);
-                    _pulseSpeedParam.SetValue(PulseSpeed);
-                    _pulseDepthParam.SetValue(PulseDepth);
-                    _pulseDirectionParam.SetValue(PulseDirection);
-                    _pulseWavelengthParam.SetValue(PulseWavelength);
-                    _rippleStrengthParam.SetValue(RippleStrength);
-                    _rippleAlarmColorParam.SetValue(RippleAlarmColor);
-
-                    bool lava = Shading == BallShading.Lava;
-                    _ballCrustTintParam.SetValue(lava ? POTATO_LAVA_CRUST_TINT : 1f);
-                    _ballCrustDarkParam.SetValue(lava ? POTATO_LAVA_CRUST_DARK : 1f);
-                    _ballGlowParam.SetValue(lava ? LavaGlow * POTATO_LAVA_SEAM_SHARE : 0f);
+                    _effect.CurrentTechnique = PotatoFlatBalls ? _potatoBallFlatTechnique : _potatoBallTechnique;
+                    SetPotatoBallUniforms(PotatoSrgbToLinear(PotatoBallColor(diffuseTint)));
                 }
                 else if (DetailTexture != null && alpha >= 1f)
                 {
@@ -2052,8 +2130,20 @@ namespace Prazsky.Core.Render
                 else _effect.CurrentTechnique = _mainTechnique;
 
                 //A ball part is two runs of the one instance buffer: the balls with no dither (nearest first), then the
-                //dithered ones through the technique that has the clip. Anything else is one run.
-                if (!ball) DrawPotatoRun(part, 0, instanceCount);
+                //dithered ones through the technique that has the clip. Anything else is one run. In the rims' pass a ball
+                //part is its rings, under the very uniforms just set for it, and anything else is nothing.
+                if (rims)
+                {
+                    if (ball) DrawPotatoRims(camera, instanceCount);
+                }
+                else if (!ball)
+                {
+                    DrawPotatoRun(part, 0, instanceCount);
+
+                    //And its outline's fins (#804), under the uniforms just set and by the pixel shader just used
+                    if (_fins != null && FinRampPixels > 0f)
+                        DrawPotatoFins(_effect.CurrentTechnique == _potatoTexturedTechnique, instanceCount);
+                }
                 else
                 {
                     if (clean > 0) DrawPotatoRun(part, 0, clean);
@@ -2085,6 +2175,136 @@ namespace Prazsky.Core.Render
             _effect.CurrentTechnique.Passes[0].Apply();
 
             _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, part.StartIndex, part.PrimitiveCount, count);
+        }
+
+        /// <summary>
+        /// The fins of the first <paramref name="instanceCount"/> instances of the instance buffer (#804): one instanced
+        /// draw of the mesh's <see cref="EdgeFinMesh"/> through <c>PotatoFinLit</c> or <c>PotatoFinTextured</c> - the
+        /// mesh's own pixel shader times the fin's coverage - blended, depth-tested and not depth-written, with no
+        /// culling. The states are put back as they were found, and the technique too: a caller's next part reads it.
+        /// </summary>
+        private void DrawPotatoFins(bool textured, int instanceCount)
+        {
+            Viewport viewport = _graphicsDevice.Viewport;
+            _finShapeParam.SetValue(new Vector4(viewport.Width * 0.5f, viewport.Height * 0.5f, FinRampPixels, 0f));
+
+            BlendState blend = _graphicsDevice.BlendState;
+            DepthStencilState depth = _graphicsDevice.DepthStencilState;
+            RasterizerState raster = _graphicsDevice.RasterizerState;
+            EffectTechnique technique = _effect.CurrentTechnique;
+
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            _effect.CurrentTechnique = textured ? _potatoFinTexturedTechnique : _potatoFinLitTechnique;
+
+            _graphicsDevice.SetVertexBuffers(
+                new VertexBufferBinding(_fins.VertexBuffer, 0, 0),
+                new VertexBufferBinding(_instanceBuffer, 0, 1));
+            _graphicsDevice.Indices = _fins.IndexBuffer;
+
+            _effect.CurrentTechnique.Passes[0].Apply();
+
+            _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, _fins.PrimitiveCount, instanceCount);
+
+            _effect.CurrentTechnique = technique;
+            _graphicsDevice.BlendState = blend;
+            _graphicsDevice.DepthStencilState = depth;
+            _graphicsDevice.RasterizerState = raster;
+        }
+
+        /// <summary>
+        /// <c>PotatoOutput.fxh</c>'s <c>SrgbToLinear</c> (Jim Hejl's cubic fit), the same arithmetic on the CPU (#804):
+        /// what the Potato pixel shader decoded its material colours with, now done once a draw. The same fit and not
+        /// the exact curve, so a colour comes out as it did when the shader decoded it.
+        /// </summary>
+        internal static Vector3 PotatoSrgbToLinear(Vector3 color) =>
+            color * (color * (color * 0.305306011f + new Vector3(0.682171111f)) + new Vector3(0.012522878f));
+
+        /// <summary>
+        /// A Potato ball's uniforms from its linear colour (#804): the crust the light falls on, the emission at rest and
+        /// on the beat, the lava's glow, the ripple's flash and alarm and the heartbeat's phase - everything
+        /// <c>PotatoModel.fx</c>'s <c>BallColour</c> multiplied out per pixel from the style's figures, in its order.
+        /// </summary>
+        private void SetPotatoBallUniforms(Vector3 primary)
+        {
+            bool lava = Shading == BallShading.Lava;
+
+            //The lava's crust (#795): a near-black basalt carrying a little of the ball's colour. Every other style's
+            //crust is its colour.
+            float crustTint = lava ? POTATO_LAVA_CRUST_TINT : 1f;
+            float crustDark = lava ? POTATO_LAVA_CRUST_DARK : 1f;
+            _potatoBallCrustParam.SetValue(primary * (crustTint * crustDark) + new Vector3(crustDark * (1f - crustTint)));
+
+            Vector3 emission = primary * (EmissiveStrength * StillEmission);
+            _potatoBallEmissionStillParam.SetValue(emission * (1f - PulseDepth));
+            _potatoBallEmissionBeatParam.SetValue(emission * PulseDepth);
+
+            float peak = MathF.Max(primary.X, MathF.Max(primary.Y, primary.Z));
+            Vector3 hue = primary / MathF.Max(peak, 1e-3f);
+
+            //The lava's seams as their average (#795), BallLava.fxh's arithmetic without the seams: the hue cut by
+            //LavaHuePower, as bright as the tint's luminance lets it (LavaTintEmission)
+            Vector3 glow = Vector3.Zero;
+            if (lava)
+            {
+                Vector3 cut = new(MathF.Pow(MathHelper.Clamp(hue.X, 0f, 1f), 1.7f), MathF.Pow(MathHelper.Clamp(hue.Y, 0f, 1f), 1.7f),
+                    MathF.Pow(MathHelper.Clamp(hue.Z, 0f, 1f), 1.7f));
+                float luminance = MathHelper.Clamp(Vector3.Dot(primary, new Vector3(0.2126f, 0.7152f, 0.0722f)), 0f, 1f);
+
+                glow = cut * (LavaGlow * POTATO_LAVA_SEAM_SHARE * MathHelper.Lerp(0.18f, 1f, luminance) * StillEmission);
+            }
+
+            _potatoBallGlowStillParam.SetValue(glow * (1f - PulseDepth));
+            _potatoBallGlowBeatParam.SetValue(glow * PulseDepth);
+
+            //Both ripples are nothing when the renderer has no ripple at all (the shader's step(1e-4, RippleStrength))
+            float rippling = RippleStrength >= 1e-4f ? 1f : 0f;
+            _potatoBallFlashParam.SetValue(Vector3.Lerp(hue, Vector3.One, 0.5f) * (RippleStrength * rippling));
+            _potatoBallAlarmParam.SetValue(new Vector4(RippleAlarmColor * 1.7f, 0.95f * rippling));
+
+            Vector3 phase = PulseDirection / MathF.Max(PulseWavelength, 1e-4f);
+            _potatoPulsePhaseParam.SetValue(new Vector4(phase, PulseTime * PulseSpeed));
+        }
+
+        /// <summary>
+        /// The rings of the first <paramref name="instanceCount"/> balls of the instance buffer (#804), one instanced draw
+        /// of <see cref="RimMesh"/> through <c>PotatoBallRim</c> under the ball uniforms the caller has just set: blended
+        /// (premultiplied, as every Potato surface is), depth-tested and not depth-written, with no culling since the
+        /// strip has no facing. The states are put back as they were found.
+        /// </summary>
+        private void DrawPotatoRims(ICamera camera, int instanceCount)
+        {
+            //What one pixel of the BOUND target spans in the world at a clip w of 1: the scene target's own height below
+            //native (#801), the back buffer's otherwise - the viewport is whichever is bound
+            float pixel = 2f / (camera.Projection.M22 * _graphicsDevice.Viewport.Height);
+
+            _rimShapeParam.SetValue(new Vector4(pixel, RimMeshRadius, RimMeshShortfall, Math.Max(RimRampPixels, 0.25f)));
+            _rimSecantParam.SetValue(RimMesh.Secant);
+
+            BlendState blend = _graphicsDevice.BlendState;
+            DepthStencilState depth = _graphicsDevice.DepthStencilState;
+            RasterizerState raster = _graphicsDevice.RasterizerState;
+
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            _effect.CurrentTechnique = _potatoBallRimTechnique;
+
+            _graphicsDevice.SetVertexBuffers(
+                new VertexBufferBinding(RimMesh.VertexBuffer, 0, 0),
+                new VertexBufferBinding(_instanceBuffer, 0, 1));
+            _graphicsDevice.Indices = RimMesh.IndexBuffer;
+
+            _effect.CurrentTechnique.Passes[0].Apply();
+
+            _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, RimMesh.PrimitiveCount, instanceCount);
+
+            _graphicsDevice.BlendState = blend;
+            _graphicsDevice.DepthStencilState = depth;
+            _graphicsDevice.RasterizerState = raster;
         }
 
         private void EnsureInstanceBufferCapacity(int instanceCapacity)
