@@ -876,6 +876,10 @@ namespace BS3D.Audio
                     //is exactly what an arrival is, whether it is level one's own or a switch's (RetireVoice
                     //has already moved whatever was sounding off to _retiring, which fades on its own terms).
                     _voice = new DynamicSoundEffectInstance(SAMPLE_RATE, AudioChannels.Stereo);
+                    //Said outright, not left to the default: on OpenAL (GamePi, #790) a new stream is handed a recycled
+                    //source that still holds the last voice's AL_PITCH (a pitched-down shot left 0.616 on it, measured),
+                    //and the theme would play that much slower and lower. XAudio2's new voice is at 0 anyway.
+                    _voice.Pitch = 0f;
                     _themeFade.Arrive(THEME_ARRIVAL_SECONDS);
                     _voice.Volume = ThemeVolume;
                     _sounding = track;
