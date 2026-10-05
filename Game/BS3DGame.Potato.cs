@@ -58,10 +58,12 @@ namespace BS3D
 
         /// <summary>
         /// The width of the balls' rims on the Potato path, in pixels of the target (#804), when the command line names
-        /// none: <b>0, off, until its cost has been measured on the Pi</b> - the picture was judged on Windows through
-        /// DesktopGL, the price on V3D is the Pi's to say. <c>rims=1</c> is the exact coverage of a pixel by an edge.
+        /// none: 1, the exact coverage of a pixel by an edge. On, because the owner asked for the port's edges not to be
+        /// blocky and the Pi measured what it costs: +0.3 to +0.8 ms a frame at 720p and +0.5 to +1.2 at native, the
+        /// frame with them under 15 ms at native on the three levels measured ("The Potato path" in
+        /// <c>docs/rendering.md</c>). <c>rims=0</c> is none, more than 1 is softer.
         /// </summary>
-        private const float POTATO_RIM_PIXELS = 0f;
+        private const float POTATO_RIM_PIXELS = 1f;
 
         /// <summary>
         /// The width of the fins on the Potato path - the rims' companion for every outline that is not a ball's (#804,
