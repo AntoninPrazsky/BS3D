@@ -1,4 +1,5 @@
-﻿using Prazsky.Core.Tools;
+﻿using BS3D.Platform;
+using Prazsky.Core.Tools;
 using System;
 
 namespace BS3D
@@ -19,6 +20,11 @@ namespace BS3D
             //Every argument, in one object (#583): the table of spellings, kinds and the reasons each exists is
             //LaunchOptions', and it prints an [args] Ignored line for anything it did not take (#574)
             LaunchOptions options = LaunchOptions.Parse(args);
+
+            //"potato" (#808): the Pi's renderer for this run. Here, before the game object exists, because which
+            //renderer a run is gets asked from its first line on (BS3DGame.PotatoPath) - and a fourth [build] line,
+            //for the effects such a run draws with are not the ones the third line fingerprinted
+            if (options.Potato && QualityLock.HoldAtPotato()) BuildStamp.ReportShaderOverlay(PotatoContent.OVERLAY);
 
             if (ScriptedPlay.Current != null) Console.WriteLine(ScriptedPlay.Current.Describe());
 

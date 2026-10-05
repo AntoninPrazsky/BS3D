@@ -155,18 +155,45 @@ namespace Prazsky.Core.Tools
         }
 
         /// <summary>
+        /// One more line, for a run that draws with a second set of compiled shaders (#808): the Windows build's
+        /// <c>potato</c> run takes its effects from <c>Content\Potato\Shaders</c>, which the third line does not look
+        /// into - so a capture of the Pi's picture taken on a desktop would carry the fingerprint of forty-one effects
+        /// it never loaded and none of the nine it drew with. The same grammar as the shaders line, with the set's
+        /// name in front: <c>[build] potato shaders 9 set ...</c>. Only such a run calls it, so every other run opens
+        /// with the three lines it always did.
+        /// </summary>
+        /// <param name="overlay">The folder between <c>Content</c> and <c>Shaders</c>.</param>
+        public static void ReportShaderOverlay(string overlay)
+        {
+            try
+            {
+                ReportShaders(overlay);
+            }
+            catch (Exception exception)
+            {
+                Console.WriteLine($"[build] failed: {exception.Message}");
+            }
+        }
+
+        /// <summary>
         /// The compiled shaders beside the exe: how many, one hash over the whole set, and the two entries a
         /// reader wants named — the newest (which a rebuild should have just made) and the oldest.
         /// </summary>
-        private static void ReportShaders()
+        /// <param name="overlay">Null for <c>Content\Shaders</c> itself, or the folder of a second set
+        /// (<see cref="ReportShaderOverlay"/>), which the line then names.</param>
+        private static void ReportShaders(string overlay = null)
         {
             //Joined by the platform's separator, not through CONTENT_SHADERS, which is how the line names the folder: the
             //backslash in it is a character of a file name on Linux (GamePi, #789), and the folder was never found there
-            string directory = Path.Combine(AppContext.BaseDirectory, "Content", "Shaders");
+            string directory = overlay == null
+                ? Path.Combine(AppContext.BaseDirectory, "Content", "Shaders")
+                : Path.Combine(AppContext.BaseDirectory, "Content", overlay, "Shaders");
+            string named = overlay == null ? CONTENT_SHADERS : $@"Content\{overlay}\Shaders";
+            string label = overlay == null ? "shaders" : overlay.ToLowerInvariant() + " shaders";
 
             if (!Directory.Exists(directory))
             {
-                Console.WriteLine($"[build] no {CONTENT_SHADERS} beside the executable");
+                Console.WriteLine($"[build] no {named} beside the executable");
                 return;
             }
 
@@ -179,14 +206,14 @@ namespace Prazsky.Core.Tools
 
             if (shaders.Length == 0)
             {
-                Console.WriteLine($"[build] {CONTENT_SHADERS} is empty");
+                Console.WriteLine($"[build] {named} is empty");
                 return;
             }
 
             FileInfo newest = shaders.OrderByDescending(file => file.LastWriteTime).First();
             FileInfo oldest = shaders.OrderBy(file => file.LastWriteTime).First();
 
-            Console.WriteLine($"[build] shaders {shaders.Length} set {HashSet(shaders)}"
+            Console.WriteLine($"[build] {label} {shaders.Length} set {HashSet(shaders)}"
                 + $", newest {Name(newest)} {Stamp(newest.LastWriteTime)}"
                 + $", oldest {Name(oldest)} {Stamp(oldest.LastWriteTime)}");
         }
