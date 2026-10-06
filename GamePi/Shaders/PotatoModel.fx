@@ -387,9 +387,11 @@ float4 TexturedPS(VertexOutput input) : COLOR0
 //
 //WHICH EDGES OPEN, decided per vertex from the two faces that meet at the edge (EdgeFinMesh.Owner is this rule on the
 //CPU, and is what the tests hold): an OUTLINE - one face towards the eye and one away - belongs to the face that shows,
-//and opens away from it. A CREASE - a sharp convex edge, both faces showing - belongs to the face whose neighbour falls
+//and opens away from it. A CREASE - a hard convex edge, both faces showing - belongs to the face whose neighbour falls
 //away from the edge as the eye sees it: the fin lies at the edge's own depth, over that neighbour's first pixel, and
-//for a convex edge at least one of the two faces always qualifies. Every other edge stays collapsed, a triangle of no
+//for a convex edge at least one of the two always qualifies. A CONCAVE crease, both faces showing, belongs to the face
+//that faces the eye less, and its fin lies in the other's plane (both come towards the eye from the edge, so at the
+//edge's depth it would be behind either), drawn with a decal's depth bias. Every other edge stays collapsed, a triangle of no
 //area that costs its vertices' positions - and on V3D, whose binning runs this shader's position half for every vertex
 //it is handed, that was the whole price of the fins (+1.05 to +1.43 ms). So a draw of one instance is handed only the
 //fins the CPU found could be open (EdgeFinMesh.SelectLive), and this decides again for each of those.
@@ -456,11 +458,17 @@ FinEdge PotatoFinEdge(FinInput input, InstanceInput instance)
     float3 outA = mul(float4(input.OutA, 0), world).xyz;
     float3 outB = mul(float4(input.OutB, 0), world).xyz;
 
-    bool outline = facingA * facingB < 0;
+    //A concave crease is never an outline: it opens only with both faces showing, lies in the plane of the one facing
+    //the eye MORE and carries the other's colour (EdgeFinMesh's remarks and Owner)
+    bool concave = input.Other.w > 1.5;
+    bool outline = !concave && facingA * facingB < 0;
     bool crease = input.Other.w > 0.5 && facingA > 0 && facingB > 0;
-    bool ownerA = outline ? facingA > 0 : dot(toEye, outB) > 0;
+    bool ownerA = outline ? facingA > 0 : concave ? facingA < facingB : dot(toEye, outB) > 0;
 
+    //Where the fin goes from the edge: out of the owner's face over its neighbour, or - concave - into the neighbour's
+    //face along that face, which is the way out of the owner's reversed
     float3 outward = ownerA ? outA : outB;
+    if (concave) outward = ownerA ? -outB : -outA;
     float3 shade = ownerA ? input.ShadeA : input.ShadeB;
 
     float4 clipHere = mul(mul(float4(here, 1), View), Projection);
@@ -471,17 +479,33 @@ FinEdge PotatoFinEdge(FinInput input, InstanceInput instance)
     float opened = (outline || crease) && clipHere.w > 1e-3 && clipThere.w > 1e-3 ? 1.0 : 0.0;
 
     //The edge on the screen, in pixels, and the direction across it - of the two, the one "outward" goes on the screen
-    //(the derivative of xy / w along it)
+    //(the derivative of xy / w along it, times w squared)
     float2 screenEdge = (clipThere.xy / max(clipThere.w, 1e-3) - clipHere.xy / max(clipHere.w, 1e-3)) * FinShape.xy;
     float2 across = float2(-screenEdge.y, screenEdge.x);
     across /= max(length(across), 1e-6);
     float2 screenOut = (clipOut.xy * clipHere.w - clipHere.xy * clipOut.w) * FinShape.xy;
     if (dot(across, screenOut) < 0) across = -across;
 
-    //Pushed out by the ramp's width, at the edge's own depth: pixels to clip space is over half the target and times w
     float row = input.Position.w;
     edge.Position = clipHere;
-    edge.Position.xy += across * (row * FinShape.z * opened * clipHere.w) / FinShape.xy;
+    if (concave)
+    {
+        //Pushed along the neighbour's face, far enough that it stands the ramp's width from the edge ACROSS it on the
+        //screen, at that face's own depth there: the depth is what the decal bias is given to work with. Never further
+        //than a few times what the push would be straight along the face, for an edge seen nearly end-on
+        float onScreen = length(screenOut);
+        float along = max(abs(dot(screenOut, across)), 0.25 * onScreen);
+        float step = row * FinShape.z * opened * clipHere.w * clipHere.w / max(along, 1e-4);
+        //...and nothing at all for a face whose own direction barely moves on the screen (seen end-on): a step along
+        //it would run off the screen
+        step = onScreen < 1e-3 * clipHere.w * clipHere.w ? 0 : step;
+        edge.Position += clipOut * step;
+    }
+    else
+    {
+        //Pushed out by the ramp's width, at the edge's own depth: pixels to clip space is over half the target and times w
+        edge.Position.xy += across * (row * FinShape.z * opened * clipHere.w) / FinShape.xy;
+    }
 
     //The surface at the edge, for both rows
     edge.Here = here;

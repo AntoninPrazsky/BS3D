@@ -79,6 +79,9 @@ namespace BS3D.Tests
             Assert.Equal(4 * 4, bothSides.Length);
             Assert.Equal(4 * 4, oneSide.Length);
 
+            //And a sheet whose rims are buried in something else gets none at all
+            Assert.Empty(EdgeFinMesh.Build(positions, normals, indices, rims: false).Vertices);
+
             foreach ((EdgeFinVertex[] vertices, bool below) in new[] { (bothSides, true), (oneSide, false) })
             {
                 EdgeFinMesh.Edge[] edges = EdgeFinMesh.Edges(vertices);
@@ -202,22 +205,54 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void AConcaveEdgeGetsNoFinAndTheSameEdgeFoldedTheOtherWayDoes()
+        public void AConcaveEdgeIsNeverAnOutlineAndIsACreaseOnlyWhereTheShadingBreaks()
         {
             //A valley's floor is never a visible outline: where one slope shows and the other does not, the one that
-            //shows is behind the other. Its six rim edges are open, and still get theirs.
+            //shows is behind the other. Shaded smoothly across (one normal for both slopes at the floor) nothing of it
+            //is ever seen, and it gets no fin; its six rim edges are open, and still get theirs.
             (Vector3[] positions, Vector3[] normals, int[] indices) = Fold(20f, valley: true);
-            (EdgeFinVertex[] valley, _) = EdgeFinMesh.Build(positions, normals, indices);
+            Vector3[] smooth = (Vector3[])normals.Clone();
+            for (int i = 0; i < smooth.Length; i++) if (positions[i].X == 0f) smooth[i] = Vector3.Up;
+            (EdgeFinVertex[] valley, _) = EdgeFinMesh.Build(positions, smooth, indices);
 
             Assert.Equal(6 * 4, valley.Length);
             Assert.DoesNotContain(valley, v => v.Position.X == 0f && v.Other.X == 0f);
 
-            //The ridge is the valley with its slopes falling instead: seven, the shared edge among them
+            //With each slope's own normal the shading breaks at the floor: a concave crease, drawn when both show, and
+            //never an outline - from over the east slope, high, both show; from low over the east slope the west one is
+            //hidden behind the east, and the fin stays shut
+            (EdgeFinVertex[] hard, _) = EdgeFinMesh.Build(positions, normals, indices);
+            EdgeFinVertex floor = hard.First(v => v.Position.X == 0f && v.Other.X == 0f);
+
+            Assert.Equal(7 * 4, hard.Length);
+            Assert.Equal(2f, floor.Other.W);
+            Assert.NotEqual(0, EdgeFinMesh.Owner(floor, new Vector3(3f, 9f, 0f)));
+            Assert.Equal(0, EdgeFinMesh.Owner(floor, new Vector3(10f, 1f, 0f)));
+
+            //The ridge is the valley with its slopes falling instead: seven, the shared edge among them a convex crease
             (positions, normals, indices) = Fold(20f, valley: false);
             (EdgeFinVertex[] ridge, _) = EdgeFinMesh.Build(positions, normals, indices);
 
             Assert.Equal(7 * 4, ridge.Length);
-            Assert.Contains(ridge, v => v.Position.X == 0f && v.Other.X == 0f);
+            Assert.Equal(1f, ridge.First(v => v.Position.X == 0f && v.Other.X == 0f).Other.W);
+        }
+
+        [Fact]
+        public void AConcaveCreaseBelongsToTheFaceThatFacesTheEyeLess()
+        {
+            //Its colour is laid over the first pixel of the face that faces the eye more, in that face's own plane:
+            //from over the east slope the west slope faces the eye less and owns the fin, and the other way round
+            (Vector3[] positions, Vector3[] normals, int[] indices) = Fold(20f, valley: true);
+            (EdgeFinVertex[] vertices, _) = EdgeFinMesh.Build(positions, normals, indices);
+            EdgeFinVertex floor = vertices.First(v => v.Position.X == 0f && v.Other.X == 0f);
+
+            foreach (Vector3 eye in new[] { new Vector3(4f, 8f, 0.3f), new Vector3(-4f, 8f, -0.2f), new Vector3(1f, 12f, 0f) })
+            {
+                float facingA = Vector3.Dot(floor.FaceA, eye - Place(floor.Position)), facingB = Vector3.Dot(floor.FaceB, eye - Place(floor.Position));
+                Assert.True(facingA > 0f && facingB > 0f, "the eye was meant to see both slopes");
+
+                Assert.Equal(facingA < facingB ? 1 : 2, EdgeFinMesh.Owner(floor, eye));
+            }
         }
 
         //A box from `low` to `high` the way the procedural meshes build one: four vertices a face, the face's own normal
@@ -359,12 +394,14 @@ namespace BS3D.Tests
         {
             (Vector3[] cubePositions, Vector3[] cubeNormals, int[] cubeIndices) = Cube();
             (Vector3[] ridgePositions, Vector3[] ridgeNormals, int[] ridgeIndices) = Fold(20f, valley: false);
+            (Vector3[] valleyPositions, Vector3[] valleyNormals, int[] valleyIndices) = Fold(20f, valley: true);
             (Vector3[] spherePositions, int[] sphereIndices) = Sphere(48, 24);
 
             var meshes = new[]
             {
                 EdgeFinMesh.Build(cubePositions, cubeNormals, cubeIndices).Vertices,
                 EdgeFinMesh.Build(ridgePositions, ridgeNormals, ridgeIndices).Vertices,
+                EdgeFinMesh.Build(valleyPositions, valleyNormals, valleyIndices).Vertices,
                 EdgeFinMesh.Build(spherePositions, spherePositions, sphereIndices).Vertices,
             };
 
@@ -403,7 +440,7 @@ namespace BS3D.Tests
                         if (opens) Assert.True(live.Contains(e), $"edge {e} opens from {eye} and was not chosen");
                     }
 
-                    if (vertices == meshes[2] && trial % 4 != 0)
+                    if (vertices == meshes[3] && trial % 4 != 0)
                     {
                         sphereEdges += edges.Length;
                         sphereChosen += live.Count;
