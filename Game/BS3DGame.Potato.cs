@@ -70,8 +70,9 @@ namespace BS3D
         /// <summary>
         /// The width of the fins on the Potato path - the rims' companion for every outline that is not a ball's (#804,
         /// <see cref="EdgeFinMesh"/>) - when the command line names none: 1, the exact coverage of a pixel by an edge,
-        /// as the rims'. On, for the rims' reason and at a price the Pi measured: +0.42 ms a frame on Pennant, +0.28 on
-        /// Girandole and +0.48 on Cabinet at native, whose frame is then 15.2 ms against the limiter's 16.1 ("The Potato path" in
+        /// as the rims'. On, for the rims' reason and at a price the Pi measured: +0.66 ms a frame on Pennant, +0.75 on
+        /// Girandole and +0.78 on Cabinet at native with every part of them, whose frame is then 15.5 ms against the
+        /// limiter's 16.1 ("The Potato path" in
         /// <c>docs/rendering.md</c> - the first cut cost +1.05 to +1.43, V3D's binning running their vertex shader for
         /// every collapsed quad, until the CPU chose the frame's fins and the vertex shaded them). <c>fins=0</c> is none.
         /// </summary>
