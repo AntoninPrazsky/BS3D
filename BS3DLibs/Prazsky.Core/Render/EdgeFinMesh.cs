@@ -305,8 +305,9 @@ namespace Prazsky.Core.Render
         /// buried in other meshes (the drain's gold band, its edges sunk into the stone and the glass): a rim is an
         /// outline from everywhere, so every one of them would be handed to the GPU every frame to be hidden by the
         /// depth test - a thousand of the band's.</param>
+        /// <param name="concave">Whether a concave crease gets a fin (<see cref="EdgeFins.ConcaveCreases"/>).</param>
         public static (EdgeFinVertex[] Vertices, int[] Indices) Build(ReadOnlySpan<Vector3> positions, ReadOnlySpan<Vector3> normals,
-            ReadOnlySpan<int> indices, bool assembled = false, bool twoSided = false, bool rims = true)
+            ReadOnlySpan<int> indices, bool assembled = false, bool twoSided = false, bool rims = true, bool concave = true)
         {
             //Corners: vertices welded by place
             var corners = new Dictionary<(int, int, int), int>();
@@ -386,7 +387,7 @@ namespace Prazsky.Core.Render
                 //Convex: the other face's third corner is behind this face's plane. A concave edge is never a visible
                 //outline (the class remarks): with the shading smooth across it, nothing of it is ever seen
                 bool convex = open || Vector3.Dot(normalA, positions[faceB.Third] - p) < 0f;
-                if (!convex && !hard) continue;
+                if (!convex && (!hard || !concave)) continue;
 
                 //Inside a wall two solids of the mesh share: not an edge of anything the eye sees
                 if (assembled)
@@ -546,6 +547,18 @@ namespace Prazsky.Core.Render
         public static bool Enabled { get; set; }
 
         /// <summary>
+        /// Whether concave creases get fins (<see cref="EdgeFinMesh"/>): true, unless a run says "finsless=concave" to
+        /// measure them apart. Read as a mesh is built, like <see cref="Enabled"/>.
+        /// </summary>
+        public static bool ConcaveCreases { get; set; } = true;
+
+        /// <summary>
+        /// Whether the gun's wheels get fins: true, unless a run says "finsless=wheels" to measure them apart (two
+        /// draws a frame, chosen instance by instance). Read by <c>CannonRig</c> as the wheels are built.
+        /// </summary>
+        public static bool Wheels { get; set; } = true;
+
+        /// <summary>
         /// Whether a draw of one instance hands the GPU only the fins <see cref="EdgeFinMesh.SelectLive(Vector3)"/>
         /// chose for this eye (the default), or every fin of the mesh for the vertex shader to collapse - the first cut,
         /// kept behind a launch argument so the one can be measured against the other.
@@ -616,7 +629,7 @@ namespace Prazsky.Core.Render
                 normals[i] = vertices[i].Normal;
             }
 
-            (EdgeFinVertex[] finVertices, int[] finIndices) = EdgeFinMesh.Build(positions, normals, indices, assembled, _twoSided, _rims);
+            (EdgeFinVertex[] finVertices, int[] finIndices) = EdgeFinMesh.Build(positions, normals, indices, assembled, _twoSided, _rims, ConcaveCreases);
             if (finVertices.Length == 0) return;
 
             _fins.AddOrUpdate(meshVertices, new EdgeFinMesh(device, finVertices, finIndices));

@@ -108,6 +108,10 @@ namespace BS3D
         //first cut did, instead of the few the CPU chose for this eye - so the Pi can measure the one against the other.
         internal bool FinsAll { get; private set; }
 
+        //Testing only, "finsless=<concave,wheels,offset>" (#804): the fins without one or more of their later parts - the
+        //concave creases, the wheels', the depth bias - so the Pi can price each apart. Null when absent.
+        internal string FinsLess { get; private set; }
+
         //"upscale=<bilinear|soft>" (#804, the Potato path below native): how the 3D is scaled up onto the back buffer - one
         //bilinear tap, or the cubic B-spline in four, which shows nothing of the source's pixel grid. Null when absent.
         internal string Upscale { get; private set; }
@@ -388,6 +392,8 @@ namespace BS3D
             Row.Float("fins", (o, v) => o.Fins = v, v => v >= 0f && v <= 4f),
             //"finsall" hands the GPU every fin instead of the ones the CPU chose: a measurement (#804)
             Row.Flag("finsall", o => o.FinsAll = true),
+            //"finsless=<concave,wheels,offset>" leaves those parts of the fins out: a measurement (#804)
+            Row.Text("finsless", (o, v) => o.FinsLess = v),
             //"upscale=soft" scales the Potato path's 3D up through a cubic B-spline rather than bilinearly (#804)
             Row.Text("upscale", (o, v) => o.Upscale = v, v => v is "bilinear" or "soft"),
             //"ballflat" draws the Potato balls unlit, in their flat colour: a measurement, not a look (#804)

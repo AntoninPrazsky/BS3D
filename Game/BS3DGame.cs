@@ -713,6 +713,10 @@ namespace BS3D
         /// and, for the one-shot actions, in <see cref="StartupScript"/>'s constructor (<c>level=</c> means
         /// <c>play</c>, <c>lost</c> means <c>result</c>) - never by the parser.
         /// </param>
+        //Whether "finsless=" names a part of the fins (#804): a measurement's switch, see LaunchOptions
+        private static bool FinsLess(LaunchOptions launch, string part) =>
+            launch.FinsLess != null && Array.IndexOf(launch.FinsLess.Split(','), part) >= 0;
+
         internal BS3DGame(LaunchOptions launch)
         {
             //The scene's procedural roll (see _sceneSeedOffset): rolled once per launch unless the command
@@ -790,6 +794,9 @@ namespace BS3D
             float fins = PotatoPath ? launch.Fins ?? POTATO_FIN_PIXELS : 0f;
             EdgeFins.Enabled = fins > 0f;
             EdgeFins.SelectOnCpu = !launch.FinsAll;
+            EdgeFins.ConcaveCreases = !FinsLess(launch, "concave");
+            EdgeFins.Wheels = !FinsLess(launch, "wheels");
+            InstancedModelRenderer.FinDepthBias = !FinsLess(launch, "offset");
             InstancedModelRenderer.FinRampPixels = fins;
             _startupPreview = launch.Preview;
 
