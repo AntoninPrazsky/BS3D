@@ -98,6 +98,10 @@ namespace BS3D.Screens
 
             left.Widgets.Add(MenuButton("github.com/AntoninPrazsky/BS3D", OpenRepository));
 
+            //The way to the author from the front end (#813): the main menu has no ninth entry (#704), and About is where
+            //a player looks for who made the game. In a level it is the pause menu's
+            left.Widgets.Add(MenuButton("Send a Note", () => Game.OpenNote("about")));
+
             return left;
         }
 
