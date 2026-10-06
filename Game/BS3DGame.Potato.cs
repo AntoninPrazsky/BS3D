@@ -69,14 +69,13 @@ namespace BS3D
 
         /// <summary>
         /// The width of the fins on the Potato path - the rims' companion for every outline that is not a ball's (#804,
-        /// <see cref="EdgeFinMesh"/>) - when the command line names none: 0, off. The Pi measured them at +1.05 to +1.43 ms
-        /// a frame, the same at native and at 720p: V3D's binning runs their vertex shader for every vertex of every
-        /// collapsed quad, and with them Cabinet's native frame is 16.0 ms against the limiter's 16.1 ("The Potato path"
-        /// in <c>docs/rendering.md</c>). The CPU now hands it a tenth to a sixth of those vertices
-        /// (<see cref="EdgeFinMesh.SelectLive(Microsoft.Xna.Framework.Vector3)"/>), which the Pi has still to time.
-        /// <c>fins=1</c> is the exact coverage of a pixel by an edge.
+        /// <see cref="EdgeFinMesh"/>) - when the command line names none: 1, the exact coverage of a pixel by an edge,
+        /// as the rims'. On, for the rims' reason and at a price the Pi measured: +0.42 ms a frame on Pennant and +0.48
+        /// on Cabinet at native, whose frame is then 15.2 ms against the limiter's 16.1 ("The Potato path" in
+        /// <c>docs/rendering.md</c> - the first cut cost +1.05 to +1.43, V3D's binning running their vertex shader for
+        /// every collapsed quad, until the CPU chose the frame's fins and the vertex shaded them). <c>fins=0</c> is none.
         /// </summary>
-        private const float POTATO_FIN_PIXELS = 0f;
+        private const float POTATO_FIN_PIXELS = 1f;
 
         /// <summary>
         /// Whether the frame being drawn presents the cup or the confetti, for <see cref="CompositeForegroundLast"/>.
