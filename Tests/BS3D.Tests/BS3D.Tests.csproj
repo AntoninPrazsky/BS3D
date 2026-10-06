@@ -58,6 +58,8 @@
     <Compile Include="..\..\Game\QualityLevel.cs" />
     <!--#495: the drums layer's mix, pure arithmetic over 16-bit buffers-->
     <Compile Include="..\..\Game\Audio\DrumLayer.cs" />
+    <!--#811: the aim stop's creak and puff, pure arithmetic whose spectrum the tests measure-->
+    <Compile Include="..\..\Game\Audio\AimStopSynth.cs" />
   </ItemGroup>
 
   <ItemGroup>

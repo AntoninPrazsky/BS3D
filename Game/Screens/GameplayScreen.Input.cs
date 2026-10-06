@@ -341,12 +341,15 @@ namespace BS3D.Screens
                 else if (pad.Triggers.Right <= FIRE_TRIGGER_THRESHOLD) _padTriggerReleased = true;
             }
 
-            //The barrel arriving at its stop is felt (#378): one knock as the strain goes full, re-armed once it has let
-            //go — after the mouse and the pad have both pushed, since either can be the one that reached it
+            //The barrel arriving at its stop is felt (#378) and heard (#811): one knock and one creak as the strain goes
+            //full, re-armed once it has let go — after the mouse and the pad have both pushed, since either can be the
+            //one that reached it. One edge for both, so the ear and the hand agree and a hand held against the stop
+            //neither buzzes nor creaks on and on.
             if (_cannon.ElevationStrain >= 1f)
             {
                 if (_aimStopArmed)
                 {
+                    Game.Audio.PlayAimStop();
                     Game.Rumble.Kick(AIM_STOP_RUMBLE_LEFT, AIM_STOP_RUMBLE_RIGHT, AIM_STOP_RUMBLE_SECONDS);
                     _aimStopArmed = false;
                 }

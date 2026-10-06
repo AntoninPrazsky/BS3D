@@ -130,6 +130,10 @@ namespace BS3D.Audio
         //heard over the level's own sound — and well under the shot it replaces, because it is a "no", not an event.
         private const float SHOT_REFUSED_VOLUME = 0.5f;
 
+        //The barrel meeting its stop (#811) just under the refusal: it answers a push the player makes again and again, not
+        //a trigger pulled, and its creak sits in the mids where the ear is keen, so it needs no more than the low "no" does
+        private const float AIM_STOP_VOLUME = 0.45f;
+
         private readonly SoundEffect _shoot;
 
         //The generated sound effects (#482): Sfx/<name>.ogg beside the executable, written by Tools/MusicBake --sfx from
@@ -145,6 +149,9 @@ namespace BS3D.Audio
 
         /// <summary>The gun refusing a shot at the elevation clamp (#431); see <see cref="BakeShotRefused"/>.</summary>
         private readonly SoundEffect _shotRefused;
+
+        /// <summary>The barrel pressed into its stop (#811); see <see cref="AimStopSynth"/>.</summary>
+        private readonly SoundEffect _aimStop;
 
         //[style][type]: what a ball of that material in that colour sounds like landing (#314). A row is baked
         //on demand by PrepareLanded and then kept for the life of the process — see that method for why this is
@@ -381,6 +388,7 @@ namespace BS3D.Audio
             _wormholePop = BakeWormholePop();
             _uiClick = BakeUiClick();
             _shotRefused = BakeShotRefused();
+            _aimStop = ToSoundEffect(AimStopSynth.Render(SAMPLE_RATE));
             _starEarned = BakeStarEarned();
             _thunder = BakeThunder();
             _eruption = BakeEruption();
@@ -772,6 +780,19 @@ namespace BS3D.Audio
         public void PlayShotRefused()
         {
             _shotRefused.Play(SHOT_REFUSED_VOLUME * Level * NON_SPATIAL_TRIM, NextPitch(0.02f), 0f);
+        }
+
+        /// <summary>
+        /// The barrel meeting its stop (#811), once as the player's push into the elevation clamp goes full: a strained
+        /// creak that climbs and a soft puff of air (<see cref="AimStopSynth"/>). The sibling of
+        /// <see cref="PlayShotRefused"/>, and deliberately unlike it - pressing into the stop creaks, pulling the trigger
+        /// there says no - and dry and unplaced for the same reason: it is the player's own hand being told, not an
+        /// event out in the scene. A wider pitch nudge than the refusal's, since a hand that keeps pushing hears it
+        /// again and again and the same creak each time would read as a sample.
+        /// </summary>
+        public void PlayAimStop()
+        {
+            _aimStop.Play(AIM_STOP_VOLUME * Level * NON_SPATIAL_TRIM, NextPitch(0.06f), 0f);
         }
 
         /// <summary>
@@ -3076,6 +3097,7 @@ namespace BS3D.Audio
             _wormholePop?.Dispose();
             _uiClick?.Dispose();
             _shotRefused?.Dispose();
+            _aimStop?.Dispose();
             _starEarned?.Dispose();
             _thunder?.Dispose();
             _eruption?.Dispose();

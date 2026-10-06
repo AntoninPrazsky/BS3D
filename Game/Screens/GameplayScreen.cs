@@ -562,7 +562,7 @@ namespace BS3D.Screens
         //And to the barrel arriving at its stop (#378, the other ask): a short knock, buzz-led so it is not mistaken for
         //a shot's thump, once per push into the clamp — Cannon.ElevationStrain going full is the arrival, and it re-arms
         //only once the strain has let go (the push stopped for ELEVATION_STRAIN_HOLD), so a hand holding the stick
-        //against the stop gets one knock and not a buzz.
+        //against the stop gets one knock and not a buzz. The same edge carries its sound (#811, AimStopSynth).
         private const float AIM_STOP_RUMBLE_LEFT = 0.2f;
         private const float AIM_STOP_RUMBLE_RIGHT = 0.45f;
         private const float AIM_STOP_RUMBLE_SECONDS = 0.09f;
