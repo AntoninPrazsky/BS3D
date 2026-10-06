@@ -8155,3 +8155,11 @@ Majitel večer 4. 10.: „zpracovávej až do rána issues, které můžeš zpra
 - ⚠ **Snímky v sekundě, kdy se píše PNG, kazí `[fps]`:** ten řádek čte z běhu bez `shot=`.
 - **Fronta verdiktů má 18 položek.** Lem i ploutve jsou jeden verdikt na #804 (jeden pohled: hrany Potato cesty), ne dva.
 - **Neověřeno:** Girandole ve třetím řezu, shaderdb třetího řezu (FS ploutví by měl spadnout z 329/274). Švy u odtoku (zlatý pás proti kameni a šachtě), tmavé pruhy na hlavni, kola a válečky zůstávají schodovité.
+
+## 2026-10-06 — #804: švy odtoku (zlatý pás × kámen, límec × šachta) vyhlazené analyticky — notebook, Claude Code (github-cf)
+
+- **Šev, podél kterého nevede hrana žádné sítě** (pás jde POD kámen a pod šachtu, #109), nenajde žádná ploutev. Každý vrchol pásu nese v texturové souřadnici **výšku nad plochou, na které leží** (offset prstence, `FunnelRimsMesh`) a druh švu (`SEAM_NONE / SEAM_SOLID / SEAM_PIT`); technika `PotatoBand` (`PotatoLit` + šest instrukcí) pás rozpustí přes poslední pixel nad plochou: pokrytí = (výška − `SEAM_HEIGHT`) / `fwidth(výška)`. `SEAM_HEIGHT` 0,004 je nad prohyby fazet vrtání (tisíciny) a pod zdvihem rtu (0,012).
+- Límec se rozpouští jen ve scénách se šachtou (`PotatoBandUnderPit`); pod samotným sklem má zůstat vidět (#237). Prstenec u dna nikdy. Ret (obrys pásu na bližší straně díry) má ploutve: pás se staví v `EdgeFins.Wanted(twoSided: true)`.
+- ⚠ **Dvě slepé uličky, obě viděné na snímku:** (1) napůl pokryté pixely límce zapisovaly hloubku nad sklem, sklo kreslené po nich na nich neprošlo testem a šachta prosvítala neprosklená — řada tmavých teček podél švu. (2) Pás bez zápisu hloubky to spravil, ale bližší stěna skleněného kužele pak překreslila ret. Řešení: ve scénách se šachtou jde na cestě Potato **sklo před pásem** (`ArenaIsland.DrawGlass`), pás zapisuje hloubku jako dřív. Desktop má pořadí beze změny a jeho odtok je stejný až na zrno.
+- Třináct programů efektu zůstalo bajt po bajtu (hash GLSL v xnb), přibyly dva. Desktop texturovou souřadnici nečte (jeho vertex input ji nemá).
+- **Neověřeno:** cena na Pi (pás je 2 560 trojúhelníků, čekám nic měřitelného); třetí řez ploutví na Girandole. Zbývá: tmavé pruhy na hlavni, kola a válečky.

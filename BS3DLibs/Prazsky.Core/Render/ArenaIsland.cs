@@ -860,13 +860,17 @@ namespace Prazsky.Core.Render
             //specular riding in as a per-draw effect-params override rather than the scene's white. The dish
             //grade goes in because the top band lies on the stone, which is the one surface here the mesh
             //cannot work out from the funnel's own figures.
-            _funnelRimsMesh = new FunnelRimsMesh(device, FUNNEL_TOP_RADIUS, FUNNEL_DRAWN_HOLE_RADIUS, funnelHeight,
-                FUNNEL_RIM_TOP_WIDTH, FUNNEL_RIM_HOLE_WIDTH, DISH_GRADE, FUNNEL_DRAWN_SEGMENTS);
+            //Drawn with culling off, so its fins (#804) open from either side; and on the Potato path its seams with the
+            //stone and with the pit are faded by the band itself (FunnelRimsMesh's remarks)
+            using (EdgeFins.Wanted(twoSided: true))
+                _funnelRimsMesh = new FunnelRimsMesh(device, FUNNEL_TOP_RADIUS, FUNNEL_DRAWN_HOLE_RADIUS, funnelHeight,
+                    FUNNEL_RIM_TOP_WIDTH, FUNNEL_RIM_HOLE_WIDTH, DISH_GRADE, FUNNEL_DRAWN_SEGMENTS);
 
             _funnelRimsRenderer = new InstancedModelRenderer(device, _funnelRimsMesh, FUNNEL_RIM_COLOR, instancingEffect)
             {
                 Metalness = 1f,
-                SpecularAmbientStrength = 1f
+                SpecularAmbientStrength = 1f,
+                PotatoBand = true
             };
 
             //The desert's drift (#550), against the face the scene's own wind arrives from. Sand: the stone's
@@ -1181,6 +1185,21 @@ namespace Prazsky.Core.Render
         {
             _device.RasterizerState = RasterizerState.CullNone;
 
+            //Where the collar's seam is (#804): the pit sheath hugs the glass from below in the solid-terrain scenes
+            //(DrawPit), and nowhere else is anything opaque under the collar
+            bool underPit = SceneRenderer.IsSolidTerrainScene(scene) && (Members & ArenaMembers.Pit) != 0;
+            _funnelRimsRenderer.PotatoBandUnderPit = underPit;
+
+            //On the Potato path, in those scenes, the glass goes down FIRST (#804). The band's collar fades out over its
+            //last pixel above the sheath; drawn before the glass, those half-covered pixels stood in the depth buffer
+            //and the glass failed the test on them, so the sheath showed through them unglazed - a row of dark specks
+            //along the seam (seen). Drawn after, the fade blends over the glazed sheath. Nothing else moves: the lip
+            //stands above the glass and still covers it, and under the sheath the collar's run beneath the glass is a
+            //hundredth of a unit before the sheath cuts it. The desktop keeps the order below: it multisamples the cut,
+            //and its glare is tuned on the gold going down first.
+            bool glassFirst = underPit && _funnelRimsRenderer.Potato;
+            if (glassFirst && (Members & ArenaMembers.Glass) != 0) _funnelRenderer.Draw(camera, _drainWorld, sceneParams);
+
             if ((Members & ArenaMembers.Rims) != 0)
             {
                 //The ring's metal, per scene (#404). Mutated rather than rebuilt: BasicEffectParams is a
@@ -1195,7 +1214,7 @@ namespace Prazsky.Core.Render
                     drain.Rim == FUNNEL_RIM_COLOR ? null : TintFor(drain.Rim, FUNNEL_RIM_COLOR));
             }
 
-            if ((Members & ArenaMembers.Glass) != 0) _funnelRenderer.Draw(camera, _drainWorld, sceneParams);
+            if (!glassFirst && (Members & ArenaMembers.Glass) != 0) _funnelRenderer.Draw(camera, _drainWorld, sceneParams);
 
             _device.RasterizerState = RasterizerState.CullCounterClockwise;
         }
