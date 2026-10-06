@@ -860,9 +860,10 @@ namespace Prazsky.Core.Render
             //specular riding in as a per-draw effect-params override rather than the scene's white. The dish
             //grade goes in because the top band lies on the stone, which is the one surface here the mesh
             //cannot work out from the funnel's own figures.
-            //Drawn with culling off, so its fins (#804) open from either side; and on the Potato path its seams with the
-            //stone and with the pit are faded by the band itself (FunnelRimsMesh's remarks)
-            using (EdgeFins.Wanted(twoSided: true))
+            //Drawn with culling off, so its fins (#804) open from either side - but none on its rims, every one of which
+            //is sunk into the stone or the glass and would be handed over every frame to be hidden; and on the Potato
+            //path its seams with the stone and with the pit are faded by the band itself (FunnelRimsMesh's remarks)
+            using (EdgeFins.Wanted(twoSided: true, rims: false))
                 _funnelRimsMesh = new FunnelRimsMesh(device, FUNNEL_TOP_RADIUS, FUNNEL_DRAWN_HOLE_RADIUS, funnelHeight,
                     FUNNEL_RIM_TOP_WIDTH, FUNNEL_RIM_HOLE_WIDTH, DISH_GRADE, FUNNEL_DRAWN_SEGMENTS);
 

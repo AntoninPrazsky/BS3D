@@ -657,8 +657,11 @@ namespace Prazsky.BS3D
                 SpecularAmbientStrength = FRAME_SPECULAR_AMBIENT
             };
 
-            _wheelMesh = new OmniWheelMesh(graphicsDevice, WHEEL_RADIUS, ROLLER_RADIUS, ROLLER_ROW_OFFSET,
-                HUB_RADIUS, PLATE_THICKNESS);
+            //The two wheels take fins (#804): two instances, each handed the fins its own side of the eye opens. NOT the
+            //rollers below, dozens of instances that would each be handed every fin of the mesh.
+            using (EdgeFins.Wanted())
+                _wheelMesh = new OmniWheelMesh(graphicsDevice, WHEEL_RADIUS, ROLLER_RADIUS, ROLLER_ROW_OFFSET,
+                    HUB_RADIUS, PLATE_THICKNESS);
 
             _wheelRenderer = new InstancedModelRenderer(graphicsDevice, _wheelMesh, WHEEL_COLOR, instancingEffect)
             {

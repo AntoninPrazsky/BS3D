@@ -2205,28 +2205,14 @@ namespace Prazsky.Core.Render
         /// mesh's own pixel shader times the fin's coverage - blended, depth-tested and not depth-written, with no
         /// culling. The states are put back as they were found, and the technique too: a caller's next part reads it.
         /// <para>
-        /// One instance - which is every mesh that has fins today - is handed only the fins that can be open from this
-        /// eye (<see cref="EdgeFinMesh.SelectLive(Vector3)"/>, and why it exists); several are handed every fin, each
-        /// instance being seen from a side of its own.
+        /// A draw of a few instances (<see cref="FIN_INSTANCES_APART"/> at most: the two wheels) is handed, instance by
+        /// instance, only the fins that can be open from this eye (<see cref="EdgeFinMesh.SelectLive(Vector3)"/>, and
+        /// why it exists); more than that - the rollers, which have none - would be handed every fin, each instance
+        /// being seen from a side of its own.
         /// </para>
         /// </summary>
         private void DrawPotatoFins(bool textured, Vector3 eye, ModelInstance[] instances, int instanceCount)
         {
-            IndexBuffer finIndices = _fins.IndexBuffer;
-            int finPrimitives = _fins.PrimitiveCount;
-
-            if (instanceCount == 1 && EdgeFins.SelectOnCpu)
-            {
-                //The eye in the mesh's own space, where its edges and their faces' normals are
-                Matrix.Invert(ref instances[0].World, out Matrix toMesh);
-                Vector3.Transform(ref eye, ref toMesh, out Vector3 eyeInMesh);
-
-                finPrimitives = _fins.SelectLive(eyeInMesh);
-                if (finPrimitives == 0) return;
-
-                finIndices = _fins.LiveIndexBuffer;
-            }
-
             Viewport viewport = _graphicsDevice.Viewport;
             _finShapeParam.SetValue(new Vector4(viewport.Width * 0.5f, viewport.Height * 0.5f, FinRampPixels, 0f));
 
@@ -2237,24 +2223,67 @@ namespace Prazsky.Core.Render
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+            _graphicsDevice.RasterizerState = FinRasterizer;
 
             _effect.CurrentTechnique = textured ? _potatoFinTexturedTechnique : _potatoFinLitTechnique;
 
-            _graphicsDevice.SetVertexBuffers(
-                new VertexBufferBinding(_fins.VertexBuffer, 0, 0),
-                new VertexBufferBinding(_instanceBuffer, 0, 1));
-            _graphicsDevice.Indices = finIndices;
+            if (instanceCount <= FIN_INSTANCES_APART && EdgeFins.SelectOnCpu)
+            {
+                for (int i = 0; i < instanceCount; i++)
+                {
+                    //The eye in the mesh's own space, where its edges and their faces' normals are
+                    Matrix.Invert(ref instances[i].World, out Matrix toMesh);
+                    Vector3.Transform(ref eye, ref toMesh, out Vector3 eyeInMesh);
 
-            _effect.CurrentTechnique.Passes[0].Apply();
+                    int primitives = _fins.SelectLive(eyeInMesh);
+                    if (primitives == 0) continue;
 
-            _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, finPrimitives, instanceCount);
+                    DrawFins(_fins.LiveIndexBuffer, primitives, i, 1);
+                }
+            }
+            else DrawFins(_fins.IndexBuffer, _fins.PrimitiveCount, 0, instanceCount);
 
             _effect.CurrentTechnique = technique;
             _graphicsDevice.BlendState = blend;
             _graphicsDevice.DepthStencilState = depth;
             _graphicsDevice.RasterizerState = raster;
         }
+
+        //One instanced draw of fins: the fins' vertices with the instance buffer from `firstInstance` on
+        private void DrawFins(IndexBuffer indices, int primitives, int firstInstance, int count)
+        {
+            _graphicsDevice.SetVertexBuffers(
+                new VertexBufferBinding(_fins.VertexBuffer, 0, 0),
+                new VertexBufferBinding(_instanceBuffer, firstInstance, 1));
+            _graphicsDevice.Indices = indices;
+
+            _effect.CurrentTechnique.Passes[0].Apply();
+
+            _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, primitives, count);
+        }
+
+        /// <summary>
+        /// How many instances a draw may have and still get its fins chosen instance by instance (#804): a draw each.
+        /// The wheels are two; the rollers, dozens, have no fins.
+        /// </summary>
+        private const int FIN_INSTANCES_APART = 4;
+
+        /// <summary>
+        /// The fins' rasterizer (#804): no culling, since a fin opens whichever way the screen needs, and the depth bias
+        /// of a decal, so that a concave crease's fin - which lies IN the plane of the face it covers the first pixel
+        /// of (<see cref="EdgeFinMesh"/>) - passes the depth test against that face's own triangles: two steps of the
+        /// depth buffer's precision nearer, plus one unit of the triangle's own depth slope. ⚠ <c>DepthBias</c> is in
+        /// the depth buffer's [0, 1], NOT in steps: the framework multiplies it by 2^24 for the GL polygon offset (and
+        /// for Direct3D's integer bias), so -2 here was two whole depth ranges and every fin stood in front of
+        /// everything (seen: fins of hidden edges drawn through the gun). The framework's cached statics for every
+        /// other state (BestPractices.md §2); this one is this class's own, made once.
+        /// </summary>
+        private static readonly RasterizerState FinRasterizer = new()
+        {
+            CullMode = CullMode.None,
+            DepthBias = -2f / (1 << 24),
+            SlopeScaleDepthBias = -1f
+        };
 
         /// <summary>
         /// <c>PotatoOutput.fxh</c>'s <c>SrgbToLinear</c> (Jim Hejl's cubic fit), the same arithmetic on the CPU (#804):

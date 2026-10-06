@@ -18,8 +18,8 @@ namespace Prazsky.Core.Render
         /// <summary>This end of the edge, and in W the row: 0 for the vertex on the edge, 1 for the one pushed out of it.</summary>
         public Vector4 Position;
 
-        /// <summary>The other end, and in W whether the edge is a crease: 1 for one that is drawn when both of its faces
-        /// show, 0 for an edge that is drawn only as an outline.</summary>
+        /// <summary>The other end, and in W what the edge is: 0 an outline only, 1 a crease (convex, drawn when both
+        /// of its faces show), 2 a concave crease (drawn when both show, lying on the one that faces the eye more).</summary>
         public Vector4 Other;
 
         /// <summary>The geometric (flat) normals of the two faces sharing the edge, pointing out of the surface.</summary>
@@ -62,14 +62,18 @@ namespace Prazsky.Core.Render
     /// <b>Which edges.</b> Every <b>convex</b> edge between two faces that are not coplanar (two coplanar faces turn
     /// their backs together, so their shared edge is never an outline), and every edge that has only one face (the rim
     /// of an open surface: an outline whenever its face is drawn - from the side its normal is on, or from both where
-    /// the mesh is drawn with culling off). A <b>concave</b> edge gets none: where one of its faces shows and the
-    /// other does not, the one that shows is behind the other's plane as the eye sees it, so the outline it would be
-    /// is always hidden by the surface itself (Sander, Hoppe, Snyder and Gortler 2001 leave them out for the same
-    /// reason) - and they were more than half of the edges a frame's meshes had (18 507 with them, 8 042 without, on
-    /// the meadow's island with the gun and the plate). A <b>crease</b> - a convex edge across which the SHADING
-    /// breaks, the two faces' normals at it more than <see cref="CREASE_COSINE"/> apart - is drawn as well when both
-    /// of its faces show: there the staircase is between two surfaces lit differently, and the fin lays the one over
-    /// the first pixel of the other.
+    /// the mesh is drawn with culling off). A <b>concave</b> edge is never an outline: where one of its faces shows
+    /// and the other does not, the one that shows is behind the other's plane as the eye sees it, so the outline it
+    /// would be is always hidden by the surface itself (Sander, Hoppe, Snyder and Gortler 2001 leave them out for the
+    /// same reason) - and they were more than half of the edges a frame's meshes had (18 507 with them, 8 042 without,
+    /// on the meadow's island with the gun and the plate). A <b>crease</b> - an edge across which the SHADING breaks,
+    /// the two faces' normals at it more than <see cref="CREASE_COSINE"/> apart - is drawn when both of its faces
+    /// show, convex or concave: there the staircase is between two surfaces lit differently, and the fin lays the one
+    /// over the first pixel of the other. A convex crease's fin stands at the edge's depth, over the face that falls
+    /// away; a <b>concave</b> crease's lies IN the plane of the face that faces the eye more, since at a concave edge
+    /// both faces come towards the eye and a fin at the edge's depth would be behind either - which is why it is drawn
+    /// with a depth bias, as a decal is (<c>InstancedModelRenderer.DrawPotatoFins</c>). The gun's dark bands are
+    /// such edges: a step face between two faces of one mesh, concave on one side.
     /// </para>
     /// <para>
     /// <b>And in a mesh assembled of several solids, no edge a wall runs on past.</b> The gun's carriage is plates,
@@ -160,21 +164,28 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// What deciding whether an edge's fin can open takes: a point of the edge, its two faces' normals and whether
-        /// it is a crease. <see cref="EdgeFinVertex"/> without what only the shader needs.
+        /// What deciding whether an edge's fin can open takes: a point of the edge, its two faces' normals and what
+        /// the edge is (<see cref="EdgeFinVertex.Other"/>'s W). <see cref="EdgeFinVertex"/> without what only the
+        /// shader needs.
         /// </summary>
         public readonly struct Edge
         {
             public readonly Vector3 At, NormalA, NormalB;
-            public readonly bool Crease;
+            public readonly float Kind;
 
-            public Edge(Vector3 at, Vector3 normalA, Vector3 normalB, bool crease)
+            public Edge(Vector3 at, Vector3 normalA, Vector3 normalB, float kind)
             {
                 At = at;
                 NormalA = normalA;
                 NormalB = normalB;
-                Crease = crease;
+                Kind = kind;
             }
+
+            /// <summary>Drawn when both faces show.</summary>
+            public bool Crease => Kind > 0.5f;
+
+            /// <summary>Never an outline: only ever drawn with both faces showing.</summary>
+            public bool Concave => Kind > 1.5f;
         }
 
         /// <summary>The edges of a built fin mesh, in the order of their quads: one for every four vertices.</summary>
@@ -185,7 +196,7 @@ namespace Prazsky.Core.Render
             {
                 ref readonly EdgeFinVertex vertex = ref vertices[e * 4];
                 edges[e] = new Edge(new Vector3(vertex.Position.X, vertex.Position.Y, vertex.Position.Z), vertex.FaceA, vertex.FaceB,
-                    vertex.Other.W > 0.5f);
+                    vertex.Other.W);
             }
 
             return edges;
@@ -217,10 +228,13 @@ namespace Prazsky.Core.Render
                 float facingA = Vector3.Dot(edge.NormalA, toEye), facingB = Vector3.Dot(edge.NormalB, toEye);
                 float edgeOn = EDGE_ON_SQUARED * toEye.LengthSquared();
 
-                //Collapsed for certain: both faces plainly away, or both plainly towards and nothing to draw between them
-                bool open = facingA * facingB < 0f
-                    || facingA * facingA < edgeOn || facingB * facingB < edgeOn
-                    || (edge.Crease && facingA > 0f && facingB > 0f);
+                //Collapsed for certain: both faces plainly away, or both plainly towards and nothing to draw between
+                //them; a concave crease, never an outline, only with both towards
+                bool open = edge.Concave
+                    ? facingA > 0f && facingB > 0f
+                    : facingA * facingB < 0f
+                        || facingA * facingA < edgeOn || facingB * facingB < edgeOn
+                        || (edge.Crease && facingA > 0f && facingB > 0f);
                 if (open) live[count++] = e;
             }
 
@@ -287,8 +301,12 @@ namespace Prazsky.Core.Render
         /// <param name="twoSided">Whether the mesh is drawn with culling off, so that the back of an open surface shows
         /// and the surface's rim is an outline from there too. Otherwise a rim's fin opens only where its face is
         /// towards the eye: the back of a culled face is not drawn, and neither is the last pixel of it.</param>
+        /// <param name="rims">Whether the edges with one face get fins at all. False for a surface whose rims are
+        /// buried in other meshes (the drain's gold band, its edges sunk into the stone and the glass): a rim is an
+        /// outline from everywhere, so every one of them would be handed to the GPU every frame to be hidden by the
+        /// depth test - a thousand of the band's.</param>
         public static (EdgeFinVertex[] Vertices, int[] Indices) Build(ReadOnlySpan<Vector3> positions, ReadOnlySpan<Vector3> normals,
-            ReadOnlySpan<int> indices, bool assembled = false, bool twoSided = false)
+            ReadOnlySpan<int> indices, bool assembled = false, bool twoSided = false, bool rims = true)
         {
             //Corners: vertices welded by place
             var corners = new Dictionary<(int, int, int), int>();
@@ -337,6 +355,7 @@ namespace Prazsky.Core.Render
 
                 EdgeFace faceA = faces[0];
                 bool open = faces.Count == 1;
+                if (open && !rims) continue;
                 EdgeFace faceB = open ? faceA : faces[1];
 
                 Vector3 p = positions[faceA.From], q = positions[faceA.To];
@@ -354,10 +373,20 @@ namespace Prazsky.Core.Render
                 Vector3 outA = OutOf(normalA, edge, positions[faceA.Third] - p);
                 Vector3 outB = open ? outA : OutOf(normalB, edge, positions[faceB.Third] - p);
 
+                //Each face's own vertex at each end. AddFace stored both faces from the edge's lower corner to its higher,
+                //so "From" is at P for B as it is for A. (This read B's the other way round until the crease rule looked
+                //at them: a fin that belonged to B was shaded with the far end's normal, and every edge along a lathe's
+                //profile - its two ends on rings that face differently - came out a crease.)
+                Vector3 shadeAP = normals[faceA.From], shadeAQ = normals[faceA.To];
+                Vector3 shadeBP = open ? shadeAP : normals[faceB.From], shadeBQ = open ? shadeAQ : normals[faceB.To];
+
+                //Hard: the shading breaks across the edge, at either end
+                bool hard = !open && (Vector3.Dot(shadeAP, shadeBP) < CREASE_COSINE || Vector3.Dot(shadeAQ, shadeBQ) < CREASE_COSINE);
+
                 //Convex: the other face's third corner is behind this face's plane. A concave edge is never a visible
-                //outline (the class remarks), so it gets no fin at all
+                //outline (the class remarks): with the shading smooth across it, nothing of it is ever seen
                 bool convex = open || Vector3.Dot(normalA, positions[faceB.Third] - p) < 0f;
-                if (!convex) continue;
+                if (!convex && !hard) continue;
 
                 //Inside a wall two solids of the mesh share: not an edge of anything the eye sees
                 if (assembled)
@@ -366,17 +395,9 @@ namespace Prazsky.Core.Render
                     if (GoesOnPast(all, p, q, normalA, outA) || (!open && GoesOnPast(all, p, q, normalB, outB))) continue;
                 }
 
-                //Each face's own vertex at each end. AddFace stored both faces from the edge's lower corner to its higher,
-                //so "From" is at P for B as it is for A. (This read B's the other way round until the crease rule looked
-                //at them: a fin that belonged to B was shaded with the far end's normal, and every edge along a lathe's
-                //profile - its two ends on rings that face differently - came out a crease.)
-                Vector3 shadeAP = normals[faceA.From], shadeAQ = normals[faceA.To];
-                Vector3 shadeBP = open ? shadeAP : normals[faceB.From], shadeBQ = open ? shadeAQ : normals[faceB.To];
-
-                //A crease: (convex, and) the shading breaks across it, at either end
-                bool crease = open
-                    ? !twoSided
-                    : Vector3.Dot(shadeAP, shadeBP) < CREASE_COSINE || Vector3.Dot(shadeAQ, shadeBQ) < CREASE_COSINE;
+                //What the edge is (EdgeFinVertex.Other's W): a rim of a one-sided surface is carried as a crease of its
+                //face with itself (above), a hard edge as a crease, convex or concave, and the rest is an outline only
+                float kind = open ? (twoSided ? 0f : 1f) : hard ? (convex ? 1f : 2f) : 0f;
 
                 int first = vertices.Count;
                 for (int end = 0; end < 2; end++)
@@ -386,7 +407,7 @@ namespace Prazsky.Core.Render
                         vertices.Add(new EdgeFinVertex
                         {
                             Position = new Vector4(end == 0 ? p : q, row),
-                            Other = new Vector4(end == 0 ? q : p, crease ? 1f : 0f),
+                            Other = new Vector4(end == 0 ? q : p, kind),
                             FaceA = normalA,
                             FaceB = normalB,
                             ShadeA = end == 0 ? shadeAP : shadeAQ,
@@ -485,20 +506,24 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Which face a fin belongs to from this eye, as <c>PotatoFinVS</c> decides it: 0 for none (the fin stays
-        /// collapsed), 1 for face A, 2 for face B. The shader's arithmetic on the CPU, so the rule is tested where a
-        /// test can run.
+        /// Which face a fin belongs to from this eye - whose colour it carries - as <c>PotatoFinEdge</c> decides it: 0
+        /// for none (the fin stays collapsed), 1 for face A, 2 for face B. The shader's arithmetic on the CPU, so the
+        /// rule is tested where a test can run.
         /// <para>
         /// An <b>outline</b> - one face towards the eye, one away - belongs to the face that shows. A <b>crease</b> with
         /// both faces showing belongs to the face whose neighbour falls away from the edge as the eye sees it, because
         /// the fin lies at the edge's own depth and is drawn over that neighbour's first pixel: for a convex edge at
-        /// least one of the two always does.
+        /// least one of the two always does. A <b>concave crease</b> with both showing belongs to the face that faces
+        /// the eye less: its colour is laid over the first pixel of the one that faces it more, in that face's own
+        /// plane, where a depth bias lets it stand.
         /// </para>
         /// </summary>
         public static int Owner(in EdgeFinVertex vertex, Vector3 eye)
         {
             Vector3 toEye = eye - new Vector3(vertex.Position.X, vertex.Position.Y, vertex.Position.Z);
             float facingA = Vector3.Dot(vertex.FaceA, toEye), facingB = Vector3.Dot(vertex.FaceB, toEye);
+
+            if (vertex.Other.W > 1.5f) return facingA > 0f && facingB > 0f ? (facingA < facingB ? 1 : 2) : 0;
 
             if (facingA * facingB < 0f) return facingA > 0f ? 1 : 2;
 
@@ -530,7 +555,7 @@ namespace Prazsky.Core.Render
         //How many Wanted() scopes are open: a mesh gets fins only when it is built inside one. And whether the innermost
         //said its meshes are drawn with culling off.
         private static int _wanted;
-        private static bool _twoSided;
+        private static bool _twoSided, _rims = true;
 
         /// <summary>
         /// Says the meshes built until the returned scope is disposed are ones whose outline shows in play - the island,
@@ -540,12 +565,15 @@ namespace Prazsky.Core.Render
         /// </summary>
         /// <param name="twoSided">Whether the meshes built inside are drawn with culling off
         /// (<see cref="EdgeFinMesh.Build"/>'s parameter of the name).</param>
-        public static Scope Wanted(bool twoSided = false)
+        /// <param name="rims">Whether their edges with one face get fins (<see cref="EdgeFinMesh.Build"/>'s
+        /// parameter of the name).</param>
+        public static Scope Wanted(bool twoSided = false, bool rims = true)
         {
-            var scope = new Scope(_twoSided);
+            var scope = new Scope(_twoSided, _rims);
 
             _wanted++;
             _twoSided = twoSided;
+            _rims = rims;
 
             return scope;
         }
@@ -553,14 +581,19 @@ namespace Prazsky.Core.Render
         /// <summary>See <see cref="Wanted"/>.</summary>
         public readonly struct Scope : IDisposable
         {
-            private readonly bool _outerTwoSided;
+            private readonly bool _outerTwoSided, _outerRims;
 
-            internal Scope(bool outerTwoSided) => _outerTwoSided = outerTwoSided;
+            internal Scope(bool outerTwoSided, bool outerRims)
+            {
+                _outerTwoSided = outerTwoSided;
+                _outerRims = outerRims;
+            }
 
             public void Dispose()
             {
                 _wanted--;
                 _twoSided = _outerTwoSided;
+                _rims = _outerRims;
             }
         }
 
@@ -583,7 +616,7 @@ namespace Prazsky.Core.Render
                 normals[i] = vertices[i].Normal;
             }
 
-            (EdgeFinVertex[] finVertices, int[] finIndices) = EdgeFinMesh.Build(positions, normals, indices, assembled, _twoSided);
+            (EdgeFinVertex[] finVertices, int[] finIndices) = EdgeFinMesh.Build(positions, normals, indices, assembled, _twoSided, _rims);
             if (finVertices.Length == 0) return;
 
             _fins.AddOrUpdate(meshVertices, new EdgeFinMesh(device, finVertices, finIndices));
