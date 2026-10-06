@@ -8202,3 +8202,20 @@ Majitel večer 4. 10.: „zpracovávej až do rána issues, které můžeš zpra
   - Notebook nechal všechno výchozí. Cabinet nativně 15,5 ms.
 - **#808** (Potato na Windows, notebook): na Pi ověřeno, že GamePi je beze změny (xnb bajt po bajtu stejné, A/B v šumu).
 - **Pro měření** mám od rána oddělený worktree v scratchpadu (`measure-wt`), takže majitelův build v `~/BS3D-gamepi/GamePi/bin` se během měření nepřepisuje.
+
+## 2026-10-06 — #none Pravidla verdiktů: co potřebuje majitele, jedna stránka, mlčení o vzhledu = souhlas — desktop, Claude Code
+
+- **Majitel: úzké hrdlo je, že verdikty dává jen on; s návrhem souhlasil („ta pravidla se mi líbí a zavedeme je“).** Pravidla jsou v `CLAUDE.md` („How work is run“, dvě odrážky), důvody a čísla v `docs/repo-conventions.md` („What needs the owner's verdict“).
+- **Co platí:**
+  - **Objektivní** věc (zachycení, měření, test, běh workflow) agent zavře s důkazem a do fronty vůbec nejde.
+  - **Rozhodnutí** dostane `owner-decision`.
+  - **Verdikt** = `shipped-awaiting-verdict` + právě jeden druh: `verdict-eye`, `verdict-hands` nebo `verdict-newcomer`. Nováček se do stropu 15 nepočítá.
+  - **Odpovídá se na jedné stránce** (OK / Vrať / Je mi to jedno). Každá odpověď se zkopíruje do issue.
+  - `verdict-eye` se po **7 dnech** bez námitky (nebo vydáním, co dřív) zavře se štítkem `accepted-by-silence`. Podmínka: verdikt jde vynést do minuty a vlastní kontrola agenta nic nenašla. Pro dnešních 15 běží lhůta od dávkové stránky, takže nejdřív 2026-10-13.
+- **Štítky založené:** `verdict-eye`, `verdict-hands`, `verdict-newcomer`, `owner-decision`, `accepted-by-silence`. Dotaz na strop: `gh issue list --label shipped-awaiting-verdict --search "-label:verdict-newcomer"` (dnes 15).
+- **Dělba s relací bs3d-f3** (dávková stránka pro 15 čekajících): f3 roztřídí issues podle dosudů a skeptiků, dá štítky, objektivní zavře s důkazem a stránku vyvěsí na každé issue. Já jsem sahal jen na pravidla, štítky a tenhle zápis. Vlastního třídicího agenta jsem zastavil, aby se práce nedělala dvakrát.
+- **Změřeno:**
+  - Zip vydání byl stažen 0–4× na verzi (v0.1.0 3, v0.2.0 0, v0.2.1 2, v0.3.0 4, v0.3.5 2).
+  - Od spuštění žebříčků (2. 10.) mají záznam na 66 deskách tři přezdívky: majitel (60) a dva další hráči (11 a 5).
+  - #768 (cizí hráči) zůstává nedotčené.
+- ⚠ **Python na tomhle stroji** odmítl certifikát `scores.winphonew.eu` jako prošlý. openssl ho vidí platný (Let's Encrypt YE1, do 30. 12. 2026) a curl i hra fungují. Dál jsem to nezkoumal.
