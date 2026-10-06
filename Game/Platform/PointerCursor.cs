@@ -70,6 +70,10 @@ namespace BS3D.Platform
         //display would get a pointer too fine to see, and Windows draws a cursor bitmap at its own size with
         //no say in the matter, so there is no upper limit but good taste.
         private const float MIN_HEIGHT = 26f;
+
+        //The side a display's hardware cursor plane takes (64 on the Raspberry Pi 5's, and the size every desktop
+        //cursor path handles): the bitmap is padded to a multiple of it, see Apply
+        private const int CURSOR_PLANE = 64;
         private const float MAX_HEIGHT = 72f;
 
         //The dark ring, as a fraction of the height. It sits entirely OUTSIDE the silhouette, so the arrow
@@ -128,6 +132,13 @@ namespace BS3D.Platform
                 //Square, and sized by the height — the arrow is 0.56 as wide as it is tall, so this is the one
                 //dimension that has to fit.
                 int side = lead + (int)MathF.Ceiling(height) + trail;
+
+                //And padded, transparent, to a whole multiple of the 64 x 64 a display's cursor plane takes: the
+                //Raspberry Pi 5 draws the pointer on a 64 x 64 hardware plane (DRM_CAP_CURSOR_WIDTH and HEIGHT, read
+                //on the Pi), and the game's 39 x 39 arrow reached the screen there as a scatter of random pixels
+                //though Xwayland held it intact (XFixesGetCursorImage). The arrow keeps its size and its tip; only
+                //empty pixels are added right and below, which no platform draws.
+                side = (side + CURSOR_PLANE - 1) / CURSOR_PLANE * CURSOR_PLANE;
 
                 //The tip at the CENTRE of pixel [lead, lead], which is then the hot spot: the point the player
                 //believes they are clicking has to be the point the arrow's own tip is drawn at, and half a
