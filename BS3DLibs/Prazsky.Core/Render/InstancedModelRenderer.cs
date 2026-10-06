@@ -2223,7 +2223,7 @@ namespace Prazsky.Core.Render
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-            _graphicsDevice.RasterizerState = FinRasterizer;
+            _graphicsDevice.RasterizerState = FinDepthBias ? FinRasterizer : RasterizerState.CullNone;
 
             _effect.CurrentTechnique = textured ? _potatoFinTexturedTechnique : _potatoFinLitTechnique;
 
@@ -2261,6 +2261,12 @@ namespace Prazsky.Core.Render
 
             _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, primitives, count);
         }
+
+        /// <summary>
+        /// Whether the fins are drawn with <see cref="FinRasterizer"/>'s depth bias: true, unless a run says
+        /// "finsless=offset" to measure the polygon offset apart (a concave crease's fin then fights its face).
+        /// </summary>
+        public static bool FinDepthBias { get; set; } = true;
 
         /// <summary>
         /// How many instances a draw may have and still get its fins chosen instance by instance (#804): a draw each.
