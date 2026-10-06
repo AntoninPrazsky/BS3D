@@ -8171,3 +8171,19 @@ Majitel večer 4. 10.: „zpracovávej až do rána issues, které můžeš zpra
 - **Kola mají ploutve:** draw do čtyř instancí dostane ploutve po instancích, každá vybraná pro svoji stranu oka (`FIN_INSTANCES_APART`); válečky (desítky instancí) ne. **Pás odtoku nemá ploutve na okrajích** (`EdgeFins.Wanted(rims: false)`): všechny čtyři jsou zasunuté do kamene nebo skla a jako okraje byly obrysem odevšad — tisíc ploutví každý snímek schovaných testem hloubky.
 - Počty na snímek (notebook): Pennant 8 322 kandidátů → 2 520 předaných (kola dvakrát), Cabinet 7 167 → 2 491; před švy a koly 1 944 / 1 828. Třináct mutací pravidel v `EdgeFinTests`, všech třináct padá. Třináct programů efektu beze změny, jen dva VS ploutví.
 - **Neověřeno:** cena na Pi (session na Pi skončila s majitelovým limitem). Zbývá: válečky (záměrně), okno hlavně (šev sklo × ocel).
+
+## 2026-10-06 — #811 vrznutí, když míření narazí na zarážku; odpovědi majitele k #807, #765 a #811 — desktop, Claude Code (bs3d-a3)
+
+- **Odpovědi majitele na tři otevřené otázky ze včerejška** (každá zapsaná jako komentář do svého issue):
+  - **#807 „oba“.** Čteno jako: oba přehrávače zůstávají. Přehrávač originální procedurální skladby jde na první stránku About, Jukebox v Extras se nemění. Komentář to říká otevřeně a nechává opravu, kdyby myslel něco jiného.
+  - **#765 „myslel jsem jednou za level, dlouhý efekt si můžeme dovolit“.** Zodpovídá §5 (kód dává náboje za level, jak bylo uvedeno): efekt power-upového náboje smí být několikasekundový, jen se musí škálovat podle výsledku, protože se uvidí zhruba stokrát.
+  - **#811 „udělej, co navrhuješ“.** Zvuk jako krátký dolně filtrovaný dech, ne syčení.
+- **#811 hotovo, merge `40be61c6`, `shipped-awaiting-verdict`.**
+  - `Game/Audio/AimStopSynth.cs` je čistá aritmetika v samostatném souboru jako `DrumLayer`, takže ji testy kompilují: stick-slip vrznutí (34→58 slipů za s, dvě rezonance 650→1100 Hz) a od 0,20 s pufnutí vzduchu (350–1700 Hz). `PlayAimStop` hraje jednou na hraně `_aimStopArmed`, na které už jede ťuknutí padu.
+  - **Změřeno:** 95 % energie v 300–4000 Hz, 0,25 % nad 5 kHz, 4,3 % pod 300 Hz (odmítnutý výstřel jich má 93 % mezi 60 a 300 Hz); těžiště vrznutí stoupá 812→962 Hz. Test selhal na mutantu, který syčel a byl basový, a **první návrh selhal u „dvou událostí“**: pufnutí bylo neslyšné, jakmile vrznutí skončilo (0,013 proti 0,09 RMS), takže byl hotový jen 0,33 s dlouhý rachot. Proto se vrznutí zkrátilo na 0,28 s a pufnutí zesílilo.
+  - ⚠ **Neslyšeno.** Spektrum říká jen, kde zvuk je, ne že je příjemný. Konstanty k ladění sluchem jsou nahoře v `AimStopSynth`: `PUFF_WEIGHT`, rychlost slipů, stoupání rezonance.
+  - ⚠ **Hák se ve hře nespustil.** Nic nedokáže zatlačit míření do zarážky (`aim=` nastavuje pózu, a to napětí nezvedá). Hra se s novým bakem spustila a 14 s hrála level bez výjimky. Pokud se to bude hodit víckrát (zarážka, ťuknutí, blik), stačí `push=<od>:<do>` v `ScriptedPlay`, které volá `Cannon.Aim`.
+  - Fronta `shipped-awaiting-verdict` je na **19** (strop 15); šlo se na to výslovným zadáním.
+- **Past:** `python3 - <<EOF` v Git Bash visí (zástupný python z Windows Store, čeká na stdin) a zablokuje celé volání nástroje. Na úpravy souborů Edit nebo `sed -i`, bez skriptových heredoců.
+- **Peer session mezitím udělala #808** (`f71cae14`: devět Potato efektů se překládá i pro DirectX 11 ze stejných zdrojů). Tím je zodpovězena otázka z mého issue, kterou jsem tam nechal jako první věc ke zjištění. Neřeším, patří jim.
+- Pi session: celou dobu neběžela žádná jiná, nic těžkého jsem nedržel.
