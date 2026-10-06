@@ -8187,3 +8187,18 @@ Majitel večer 4. 10.: „zpracovávej až do rána issues, které můžeš zpra
 - **Past:** `python3 - <<EOF` v Git Bash visí (zástupný python z Windows Store, čeká na stdin) a zablokuje celé volání nástroje. Na úpravy souborů Edit nebo `sed -i`, bez skriptových heredoců.
 - **Peer session mezitím udělala #808** (`f71cae14`: devět Potato efektů se překládá i pro DirectX 11 ze stejných zdrojů). Tím je zodpovězena otázka z mého issue, kterou jsem tam nechal jako první věc ke zjištění. Neřeším, patří jim.
 - Pi session: celou dobu neběžela žádná jiná, nic těžkého jsem nedržel.
+
+## 2026-10-06 — Pi: kurzor myši, online zapnutý, měření ploutví #804 — Pi (BS3DServer), Claude Code (296408e3)
+
+- **Kurzor myši (merge `4f53370d`):** majitel hlásil kurzor na Pi jako „náhodnou změť pixelů“.
+  - Xwayland držel šipku 39×39 v pořádku (`XFixesGetCursorImage`, šest spuštění po sobě).
+  - ⚠ **Kurzorová vrstva Pi 5 je 64×64** (`DRM_CAP_CURSOR_WIDTH/HEIGHT` na card1). `PointerCursor` teď bitmapu průhledně doplní na násobek 64; šipka i hot spot zůstávají.
+  - Majitel potvrdil, že je kurzor v pořádku.
+  - ⚠ labwc kurzor do screencopy nevkládá (`grim -c`), takže kurzor na obrazovce se snímkem nedá zkontrolovat.
+- **Online na Pi:** s majitelovým svolením jsem do jeho `~/.local/share/BS3D/Settings.json` přidal `"server": "https://scores.winphonew.eu/"`. Na kopii nastavení s `nickprompt` se hra zeptá na přezdívku a internet test na Linuxu projde. Odeslání skóre zatím nikdo neviděl.
+- **#804 ploutve, měřeno pro notebook** (nativně, bez VNC):
+  - Třetí řez (`0df9dcef`, stínování ploutve ve vrcholu): +0,28 až +0,48 ms; FS FinLit 15 a FinTextured 125 instrukcí, 4 vlákna.
+  - Main s koly, konkávními švy a pásem odtoku: +0,66 až +0,78 ms. Rozklad přes `finsless`: offset ~0, konkávní švy ~0, kola ~0,1–0,2 ms, základ +0,5–0,6 ms.
+  - Notebook nechal všechno výchozí. Cabinet nativně 15,5 ms.
+- **#808** (Potato na Windows, notebook): na Pi ověřeno, že GamePi je beze změny (xnb bajt po bajtu stejné, A/B v šumu).
+- **Pro měření** mám od rána oddělený worktree v scratchpadu (`measure-wt`), takže majitelův build v `~/BS3D-gamepi/GamePi/bin` se během měření nepřepisuje.
