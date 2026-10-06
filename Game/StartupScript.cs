@@ -165,6 +165,10 @@ namespace BS3D
         //Testing only: the wall-clock second the run goes to the main menu with its session kept (tomenu=, #650)
         private float? _toMenuAt;
 
+        //Testing only: the wall-clock second a level is paused into the note page, and the steps run on it (note=, #813)
+        private float? _noteAt;
+        private string _noteSteps;
+
         /// <summary>
         /// Whether this run has any lever armed - a level to play, a page to open at boot, a staged result, a celebration
         /// (#763). Decided once, from the arguments, since each lever clears itself as it fires: it says "a script is
@@ -211,9 +215,11 @@ namespace BS3D
             _scenes = launch.ScenePicker;
             _tour = launch.Tour;
             _toMenuAt = launch.ToMenuAt;
+            _noteAt = launch.NoteAt;
+            _noteSteps = launch.NoteSteps;
 
             Drives = _celebrate || _confetti || _play || _result || _pick != null || _about != null || _extras || _jukebox != null || _settings
-                || _board != null || _highScores != null || _help != null || _scenes || _tour || _toMenuAt != null;
+                || _board != null || _highScores != null || _help != null || _scenes || _tour || _toMenuAt != null || _noteAt != null;
         }
 
         /// <summary>
@@ -244,6 +250,20 @@ namespace BS3D
             {
                 _toMenuAt = null;
                 game.ReturnToMainMenu();
+            }
+
+            //The note page over a level being played (#813), as its pause button opens it, then its steps once the page is
+            //past its picture and its grace
+            if (_noteAt is float noteAt && game.WallClock >= noteAt && game.HasSession)
+            {
+                _noteAt = null;
+                game.OpenNoteForTesting();
+            }
+            else if (_noteAt == null && _noteSteps != null && game.IsNotePageReady)
+            {
+                string steps = _noteSteps;
+                _noteSteps = null;
+                game.ActivateNotePageForTesting(steps);
             }
 
             //The level picker, over the front end (#273). Held back until the title card has gone, as every page

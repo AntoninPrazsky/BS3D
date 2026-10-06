@@ -180,6 +180,9 @@ namespace BS3D.Online
         private readonly Dictionary<bool, (SummaryReply Reply, float At)> _summaryCache = new();
 
         private static string IdentityPath => UserData.PathTo(OnlineIdentity.DefaultFileName);
+
+        /// <summary>The install's identity, or null: what signs a note (#813) when it is sent.</summary>
+        internal OnlineIdentity Identity => _identity;
         private static string OutboxPath => UserData.PathTo(OnlineScores.OutboxFileName);
 
         /// <summary>

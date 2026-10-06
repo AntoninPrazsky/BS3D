@@ -305,6 +305,12 @@ namespace BS3D
         //handlers the keys and the button run: type:<text>, enter, esc, skip. Naming steps asks the question too. Null for none.
         internal string NickPromptSteps { get; private set; }
 
+        //Testing only: "note=<seconds>:<steps>" (#813) - at that wall-clock second, with a level being played, pause it and
+        //open the note page as its button does; once the page is past its picture, run the steps through the very handlers
+        //the keys and the buttons run: type:<text>, newline, untick, send. Null when absent.
+        internal float? NoteAt { get; private set; }
+        internal string NoteSteps { get; private set; }
+
         //Testing only: the connection check the question makes answers "not connected" (#763), so the no-internet branch
         //can be walked without taking the machine's network down
         internal bool NoInternet { get; private set; }
@@ -576,6 +582,17 @@ namespace BS3D
             Row.Flag("nickprompt", o => o.NickPrompt = true),
             Row.Text("nickprompt", (o, v) => { o.NickPrompt = true; o.NickPromptSteps = v; }),
             Row.Flag("nointernet", o => o.NoInternet = true),
+            //"note=<seconds>:<steps>" (#813): the seconds before the first colon, the steps after it
+            Row.Text("note", (o, v) =>
+            {
+                int colon = v.IndexOf(':');
+                if (colon > 0 && float.TryParse(v[..colon], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float at) && at >= 0f)
+                {
+                    o.NoteAt = at;
+                    o.NoteSteps = v[(colon + 1)..];
+                }
+                else Console.WriteLine($"[note] Testing: 'note={v}' dropped, expected <seconds>:<steps>");
+            }),
         ];
 
         private static bool TryParseSkyDome(string text, out byte dome) =>

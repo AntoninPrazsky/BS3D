@@ -59,6 +59,10 @@ namespace BS3D.Screens
             column.Widgets.Add(MenuButton("Settings", Game.OpenSettings));
             column.Widgets.Add(MenuButton("Scene", Game.OpenSceneSelect));
 
+            //With the entries that leave the run standing (#813): a note is about the moment the game stopped on, and
+            //the page comes back here
+            column.Widgets.Add(MenuButton("Send a Note", () => Game.OpenNote("pause")));
+
             //Two entries clear of Resume rather than under it (#383): Resume is the one a player hits without
             //reading, and the entry right below it must not throw the run away. Grouped instead with Main Menu
             //and Quit below it — all three end the run in progress, where Settings and Scene above do not.

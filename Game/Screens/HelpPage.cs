@@ -465,7 +465,9 @@ namespace BS3D.Screens
                 column.Widgets.Add(KeyLine(glyph, what, keyWidth));
 
             column.Widgets.Add(Paragraph(
-                "Escape pauses. F11 is fullscreen, F12 saves a screenshot, F10 hides the frame-rate counter."));
+                "Escape pauses. In the pause menu, Send a Note tells the author what you just saw — something unclear, "
+                + "something broken, something you liked — with a picture of that moment. F11 is fullscreen, F12 saves a "
+                + "screenshot, F10 hides the frame-rate counter."));
             column.Widgets.Add(Caption("A gamepad plays all of it too — the Swap is X, the Brake is Y and the Cut is the right bumper; the first chapter "
                 + "teaches the other bindings for whichever you are holding."));
         }

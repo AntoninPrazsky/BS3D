@@ -755,6 +755,10 @@ namespace BS3D
             //draining an outbox left by an earlier run straight away, off this thread.
             _online = new OnlineSession(_settings, () => _wallClock, SaveSettings, () => _settingsPage?.Refresh());
 
+            //The notes (#813), whether or not the boards are on: sending one is its own consent. Its worker sends what an
+            //earlier run left in the outbox, off this thread
+            StartNotes();
+
             //The eleven rows that are only the player's answer are read through the file from here on (#583), with
             //"mute" held over the master as a flag and never stored — see EffectiveSettings
             _effective = new EffectiveSettings(_settings, launch.Mute);
@@ -1924,6 +1928,10 @@ namespace BS3D
             //Last, so it counts a frame that has actually been drawn end to end
             if (_logFrameRate) LogFrameRate((float)gameTime.ElapsedGameTime.TotalSeconds);
 
+            //A note's picture (#813): the frame the note page drew without itself, read back like a screenshot and for
+            //its reason, before the screenshot so a shot asked for on this frame is not the one read first
+            ServiceNoteShot();
+
             //And after even that, so a saved frame is the finished one — the scene, the overlay and whatever
             //page is over them (#191). It reads the back buffer, so it has to be the last thing in the frame
             //that touches the device.
@@ -2083,6 +2091,9 @@ namespace BS3D
             //The score submitter stops without waiting: a clear in flight is still in the outbox and goes again at
             //the next start (#546)
             _online?.Dispose();
+
+            //And the note sender, the same way: a note in flight is in its outbox (#813)
+            _notes?.Dispose();
 
             _pipeline?.Dispose();
             _spriteBatch?.Dispose();
