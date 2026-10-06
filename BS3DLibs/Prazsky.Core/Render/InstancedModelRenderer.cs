@@ -67,6 +67,8 @@ namespace Prazsky.Core.Render
         //host turned EdgeFins on before building its scene).
         private EdgeFinMesh _fins;
         private EffectTechnique _potatoFinLitTechnique, _potatoFinTexturedTechnique;
+        private EffectTechnique _potatoBandTechnique;
+        private EffectParameter _potatoBandSeamParam;
         private EffectParameter _finShapeParam;
 
         /// <summary>
@@ -499,6 +501,18 @@ namespace Prazsky.Core.Render
         /// band inside the mouth - and a few seeds and a faint cord. The drain funnel sets it.
         /// </summary>
         public bool DrainGlass { get; set; }
+
+        /// <summary>
+        /// Draws through <c>PotatoBand</c> on the Potato path (#804): <c>PotatoLit</c> for a mesh whose vertices carry
+        /// their height off the surface they lie on, faded out over one pixel where that height comes down to it, so
+        /// the seam where the mesh goes under another is not left to the depth test (the drain's gold band,
+        /// <see cref="FunnelRimsMesh"/>). Nothing on the desktop, which multisamples.
+        /// </summary>
+        public bool PotatoBand { get; set; }
+
+        /// <summary>Whether a <see cref="PotatoBand"/>'s runs of the kind that goes under the pit have the pit under
+        /// them this frame: <see cref="FunnelRimsMesh.SEAM_PIT"/>.</summary>
+        public bool PotatoBandUnderPit { get; set; }
 
         /// <summary>
         /// 1 flips the shading normal on back faces, for a mesh that is one <b>open single-sided wall</b>
@@ -1918,6 +1932,8 @@ namespace Prazsky.Core.Render
             _potatoFinLitTechnique = RequiredTechnique("PotatoFinLit");
             _potatoFinTexturedTechnique = RequiredTechnique("PotatoFinTextured");
             _finShapeParam = Required("FinShape");
+            _potatoBandTechnique = RequiredTechnique("PotatoBand");
+            _potatoBandSeamParam = Required("BandSeam");
             _potatoBallRimTechnique = RequiredTechnique("PotatoBallRim");
             _potatoBallFlatTechnique = RequiredTechnique("PotatoBallFlat");
             _rimShapeParam = Required("RimShape");
@@ -2126,6 +2142,12 @@ namespace Prazsky.Core.Render
                     _detailScaleParam.SetValue(DetailScale);
                     _detailStrengthParam.SetValue(DetailStrength);
                     _detailBoostParam.SetValue(DetailBoost);
+                }
+                else if (PotatoBand)
+                {
+                    //The seams' height, and whether the runs that go under the pit have it under them (#804)
+                    _effect.CurrentTechnique = _potatoBandTechnique;
+                    _potatoBandSeamParam.SetValue(new Vector2(FunnelRimsMesh.SEAM_HEIGHT, PotatoBandUnderPit ? 1f : 0f));
                 }
                 else _effect.CurrentTechnique = _mainTechnique;
 

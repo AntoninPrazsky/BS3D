@@ -48,6 +48,17 @@ namespace Prazsky.Core.Render
     /// it. This is the trim piece #237 asked for in as many words. The outer edge keeps its sink: outside the
     /// band the front-most thing is stone, which is exactly what belongs there.
     /// </para>
+    /// <para>
+    /// <b>Where a band goes under a surface is a seam no edge of either mesh runs along</b> (#804): the stone cuts the
+    /// band where the band's rings happen to cross it, pixel by pixel, and on the Potato path, which has no
+    /// multisampling, that cut was the longest staircase in the frame. So every vertex carries, in its texture
+    /// coordinate, <b>how high it stands off the surface it lies on</b> (the ring's offset, <see cref="BandRing.Offset"/>)
+    /// and which kind of seam its run makes (<see cref="SEAM_NONE"/>, <see cref="SEAM_SOLID"/>,
+    /// <see cref="SEAM_PIT"/>), and <c>PotatoModel.fx</c>'s <c>PotatoBand</c> fades the band out over one pixel just
+    /// above the surface - at <see cref="SEAM_HEIGHT"/>, over the dips of the stone's facets - instead of letting the
+    /// depth test cut it. The desktop reads neither (its vertex input has no texture coordinate), and the mesh is what
+    /// it was.
+    /// </para>
     /// </summary>
     public class FunnelRimsMesh : IProceduralMesh, IDisposable
     {
@@ -78,6 +89,28 @@ namespace Prazsky.Core.Render
         /// </para>
         /// </summary>
         private const float EDGE_SINK = 0.04f;
+
+        /// <summary>The texture coordinate's second value: a run of the band that goes under nothing opaque - the hole
+        /// band, whose edges sink into the glass and are seen through it - and so never fades.</summary>
+        public const float SEAM_NONE = 0f;
+
+        /// <summary>A run that goes under the stone (the top band's outer edge): fades at <see cref="SEAM_HEIGHT"/>.</summary>
+        public const float SEAM_SOLID = 1f;
+
+        /// <summary>
+        /// The collar, which goes under the glass: fades there only in the scenes that draw the dark pit sheath hugging
+        /// the glass from below (<c>ArenaIsland.DrawPit</c>, the solid-terrain ones), since under the glass alone it is
+        /// meant to show through as the under-lip. The shader is told which by a uniform.
+        /// </summary>
+        public const float SEAM_PIT = 2f;
+
+        /// <summary>
+        /// The height above its surface at which a band's fade ends (its alpha is 0 from here down): above the chord
+        /// dips of the island's bore (a few thousandths, <see cref="EDGE_SINK"/>'s own remark), so the stone's facets
+        /// never cut through what is left, and a sixth of the lip's own lift, so the mouth ring stands clear of it
+        /// at any pixel size a level's camera has (the fade is one pixel wide, measured by the shader).
+        /// </summary>
+        public const float SEAM_HEIGHT = 0.004f;
 
         /// <summary>
         /// How far the top band's <b>mouth ring</b> stands off the stone at the lip. It is not buried (#237)
@@ -111,19 +144,20 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// One ring of a band's cross-section: where it sits in the funnel's (radius, y) half-plane, the
-        /// grade of the surface it lies on there, and how far it stands off that surface along the surface's
-        /// own normal — positive out of the material, negative into it.
+        /// grade of the surface it lies on there, how far it stands off that surface along the surface's
+        /// own normal — positive out of the material, negative into it — and which seam the run it begins makes.
         /// </summary>
         private readonly struct BandRing
         {
-            public readonly float Radius, Y, Grade, Offset;
+            public readonly float Radius, Y, Grade, Offset, Seam;
 
-            public BandRing(float radius, float y, float grade, float offset)
+            public BandRing(float radius, float y, float grade, float offset, float seam)
             {
                 Radius = radius;
                 Y = y;
                 Grade = grade;
                 Offset = offset;
+                Seam = seam;
             }
 
             /// <summary>The upward normal of a surface rising <see cref="Grade"/> per unit of radius:
@@ -165,12 +199,15 @@ namespace Prazsky.Core.Render
             //keeps stone out from between the gold and the glass (#237); everything from the mouth ring
             //outwards is #109's crown.
             float halfTop = topWidth * Constants.HALF;
+            //The seam a ring names is the one of the run it shares with the NEXT ring, and the mouth ring's is the
+            //collar's: across the top band (mouth to crown) the kind interpolates from the collar's to the stone's,
+            //and both fade at the one height, which that run stands clear of by the lip's lift
             BandRing[] topRings =
             {
-                new(topRadius - COLLAR_DROP, -COLLAR_DROP * coneGrade, coneGrade, -COLLAR_SINK),
-                new(topRadius, 0f, dishGrade, LIP_LIFT),
-                new(topRadius + halfTop, halfTop * dishGrade, dishGrade, SURFACE_LIFT),
-                new(topRadius + topWidth, topWidth * dishGrade, dishGrade, -EDGE_SINK),
+                new(topRadius - COLLAR_DROP, -COLLAR_DROP * coneGrade, coneGrade, -COLLAR_SINK, SEAM_PIT),
+                new(topRadius, 0f, dishGrade, LIP_LIFT, SEAM_PIT),
+                new(topRadius + halfTop, halfTop * dishGrade, dishGrade, SURFACE_LIFT, SEAM_SOLID),
+                new(topRadius + topWidth, topWidth * dishGrade, dishGrade, -EDGE_SINK, SEAM_SOLID),
             };
 
             //The bottom band keeps the plain three-ring crown: inside its inner edge is the drain hole, so
@@ -178,9 +215,9 @@ namespace Prazsky.Core.Render
             float halfHole = holeWidth * Constants.HALF;
             BandRing[] holeRings =
             {
-                new(holeRadius, -height, coneGrade, -EDGE_SINK),
-                new(holeRadius + halfHole, -height + halfHole * coneGrade, coneGrade, SURFACE_LIFT),
-                new(holeRadius + holeWidth, -height + holeWidth * coneGrade, coneGrade, -EDGE_SINK),
+                new(holeRadius, -height, coneGrade, -EDGE_SINK, SEAM_NONE),
+                new(holeRadius + halfHole, -height + halfHole * coneGrade, coneGrade, SURFACE_LIFT, SEAM_NONE),
+                new(holeRadius + holeWidth, -height + holeWidth * coneGrade, coneGrade, -EDGE_SINK, SEAM_NONE),
             };
 
             //Sized from the cross-sections rather than from a literal, so a ring added to either band cannot
@@ -226,14 +263,15 @@ namespace Prazsky.Core.Render
                 {
                     float u = (float)(s / (double)segments * Math.PI * 2.0);
                     float cosU = (float)Math.Cos(u), sinU = (float)Math.Sin(u);
-                    float uv = s / (float)segments;
 
                     for (int r = 0; r < rings.Length; r++)
                     {
+                        //The texture coordinate is the ring's height off its surface and its seam (the class remarks):
+                        //nothing maps a texture over the gold
                         vertices[v++] = new VertexPositionNormalTexture(
                             new Vector3(points[r].X * cosU, points[r].Y, points[r].X * sinU),
                             new Vector3(normals[r].X * cosU, normals[r].Y, normals[r].X * sinU),
-                            new Vector2(uv, r / (float)last));
+                            new Vector2(rings[r].Offset, rings[r].Seam));
                     }
                 }
 
@@ -261,6 +299,9 @@ namespace Prazsky.Core.Render
 
             IndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
             IndexBuffer.SetData(indices);
+
+            //The outline's fins on the Potato path (#804), where a build draws them: the lip is the near edge of the hole
+            EdgeFins.Register(graphicsDevice, VertexBuffer, vertices, indices);
 
             float outer = topRadius + topWidth;
             BoundingSphere = new BoundingSphere(new Vector3(0f, -height * Constants.HALF, 0f),

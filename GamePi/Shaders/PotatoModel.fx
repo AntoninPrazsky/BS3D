@@ -136,6 +136,10 @@ float RimSecant = 1.02;
 //ramp's width in pixels
 float4 FinShape = float4(960, 540, 1, 0);
 
+//The drain's band (#804, PotatoBand below): x the height off its surface at which a run's fade ends, y 1 when the pit
+//sheath is under the collar this frame (the host sets both from FunnelRimsMesh's figures and the scene)
+float2 BandSeam = float2(0.004, 0);
+
 struct VertexInput
 {
     float4 Position : POSITION0;
@@ -804,6 +808,53 @@ technique PotatoBallDither
     {
         VertexShader = compile POTATO_VS PotatoBallVS();
         PixelShader = compile POTATO_PS BallDitherPS();
+    }
+};
+
+//THE BAND (#804): PotatoLit for the drain's gold band, whose seams with the stone and with the pit sheath are no edge of
+//any mesh - the band goes UNDER them, and where the depth test cut it was the longest staircase left in the frame once
+//the outlines had their fins. Every vertex of the band says how high it stands off the surface it lies on and which
+//kind of seam its run makes (FunnelRimsMesh), and the pixel fades the band out over its last pixel above that surface
+//instead: the coverage is the height above the seam's, over the height's change across one pixel.
+struct BandInput
+{
+    float4 Position : POSITION0;
+    float3 Normal : NORMAL0;
+    //x the height off the surface, y the seam: 0 none (the glass), 1 the stone, 2 the pit, when it is there
+    float2 Band : TEXCOORD0;
+};
+
+//PotatoVS, with the band's two figures riding where a ball's dissolve and ripple do
+VertexOutput PotatoBandVS(BandInput input, InstanceInput instance)
+{
+    VertexInput plain;
+    plain.Position = input.Position;
+    plain.Normal = input.Normal;
+
+    VertexOutput output = PotatoVS(plain, instance);
+    output.DissolveRipple = float3(input.Band, 0);
+
+    return output;
+}
+
+float4 BandPS(VertexOutput input) : COLOR0
+{
+    float height = input.DissolveRipple.x;
+    float seam = input.DissolveRipple.y;
+
+    //The stone's seam always, the pit's when the pit is there, the glass's never
+    float fades = seam > 1.5 ? BandSeam.y : step(0.5, seam);
+    float coverage = saturate((height - BandSeam.x) / max(fwidth(height), 1e-5));
+
+    return LitPS(input) * lerp(1, coverage, fades);
+}
+
+technique PotatoBand
+{
+    pass P0
+    {
+        VertexShader = compile POTATO_VS PotatoBandVS();
+        PixelShader = compile POTATO_PS BandPS();
     }
 };
 
