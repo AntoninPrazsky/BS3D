@@ -8143,3 +8143,15 @@ Majitel večer 4. 10.: „zpracovávej až do rána issues, které můžeš zpra
 - ⚠ **`CLAUDE.md` jsem neměnil** a dvě jeho věty už neplatí přesně: „three `[build]` lines“ (běh s `potato` má čtyři) a „There is no OPENGL build of any shader now, and the `#if OPENGL` branches are gone“ (platí pro `Prazsky.Shaders`; `GamePi/Shaders` jsou od #789 GL a od teď mají `#if OPENGL` v `PotatoProfile.fxh`). Je to na majiteli.
 - ⚠ **Snímky během sekundy, kdy se ukládá PNG, kazí `[fps]`:** šest `shot=` po 0,1 s dalo řádek 137 ms při jinak rovných 16,67. Čas měřit z běhu bez snímků.
 - **#804, měření Pi k druhému řezu ploutví (`c8bdbc43`):** +0,53 až +0,67 ms nativně (první řez +1,05 až +1,43), výběr na CPU není vidět ani v menu, kde kamera obíhá. Pokus `fins=0.01` rozdělil zbytek na ~0,25 ms pevné režie (drawy, stavy) a ~0,35 ms pixelů. Větev zatím není na mainu; další krok je osvětlení ploutve ve vertex shaderu a méně drawů.
+
+## 2026-10-06 (noc) — #804: ploutve ve třetím řezu, výchozí zapnuté; #812 založeno — notebook, Claude Code (github-cf)
+
+- **Ploutve (`fins=`) jsou na mainu a výchozí zapnuté** (`POTATO_FIN_PIXELS` = 1, `fins=0` vrátí snímek bez nich). Měření Pi (session na Pi, nativně, `rims=1`, dvě kola): druhý řez +0,53 / +0,55 / +0,67 ms na Pennant / Girandole / Cabinet; třetí řez **+0,42 (Pennant) a +0,48 (Cabinet)**, Girandole nestihla. Cabinet s lemem i ploutvemi 15,2 ms proti limitu 16,1.
+- **Třetí řez:** ploutev se stínuje ve vertex shaderu týmž `Shade` jako pixely (dostane konstantu `onPixel`, protože `fwidth` ve VS není); pixel shader je pokrytí × barva (16 řádků GLSL místo 214), u kamene navíc detailní textura a křivka (85 místo 245). Devět ostatních programů vyšlo z MojoShaderu bajt po bajtu stejně (hash GLSL v xnb před a po, `glsl_programs.py` ve scratchpadu session). Obzor ostrova shodný na pixel.
+  - `fins=0.01` na Pi rozdělilo zbytek druhého řezu na ~0,25 ms drawů a ~0,35 ms pixelů; třetí řez vzal většinu pixelů. Co zbývá, je šest instancovaných drawů navíc (15 atributů, vlastní uniformy) a to levně nejde.
+  - Výběr živých hran na CPU na Pi vidět není ani v menu, kde kamera pořád obíhá.
+- **#812 založeno** (límec ústí hlavně naruby, důkaz zboku na desktopové i Potato cestě). Oprava je na větvi `812-collar-inside-out`, **nemergovaná**: horní část kroužku po ní zesvětlá (ocel odráží oblohu) a tu barvu majitel ladil v #478. Před/po poslány majiteli.
+- ⚠ **Při merge #808 jsem smazal vzdálenou větev dřív, než byl merge pushnutý** — řetěz s `;` místo `&&` po neúspěšném kroku. Nic se neztratilo (lokální větev to měla), ale pravidlo platí: smazání větve jen jako poslední článek `&&` za pushem mainu.
+- ⚠ **Snímky v sekundě, kdy se píše PNG, kazí `[fps]`:** ten řádek čte z běhu bez `shot=`.
+- **Fronta verdiktů má 18 položek.** Lem i ploutve jsou jeden verdikt na #804 (jeden pohled: hrany Potato cesty), ne dva.
+- **Neověřeno:** Girandole ve třetím řezu, shaderdb třetího řezu (FS ploutví by měl spadnout z 329/274). Švy u odtoku (zlatý pás proti kameni a šachtě), tmavé pruhy na hlavni, kola a válečky zůstávají schodovité.

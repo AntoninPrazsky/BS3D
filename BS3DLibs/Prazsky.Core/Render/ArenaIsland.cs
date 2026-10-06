@@ -739,9 +739,6 @@ namespace Prazsky.Core.Render
         {
             _device = device;
 
-            //The island's outline is the longest edge in the frame: its meshes take fins where a build draws them (#804)
-            using EdgeFins.Scope fins = EdgeFins.Wanted();
-
             //The arena is a small round island: a cast-concrete drum with a dressed stone top and a moulded
             //coping around its rim, the drain funnel bored through the middle (IslandMesh owns the whole
             //cross-section). It replaces the big square marble/glass plaza, whose panels ate the whole lower
@@ -755,9 +752,16 @@ namespace Prazsky.Core.Render
             _stoneTexture = SurfaceTexture.Stone(device);
             _concreteTexture = SurfaceTexture.Concrete(device);
 
+            //The island's outline is the longest edge in the frame: the stone and the concrete take fins where a build
+            //draws them (#804). NOT the drain's glass and the pit behind it: seen from above the island they are the
+            //inside of a cone - no outline of theirs shows, and their rims lie under the gold band - and their thousand
+            //rim edges were a third of the fins a frame drew.
             _islandMeshes = new IslandMesh[IslandMesh.SHAPE_COUNT];
-            for (int shape = 0; shape < _islandMeshes.Length; shape++)
-                _islandMeshes[shape] = new IslandMesh(device, FUNNEL_TOP_RADIUS, RADIUS, EDGE_HEIGHT, SEGMENTS, DISH_DEPTH, (IslandShape)shape);
+            using (EdgeFins.Wanted())
+            {
+                for (int shape = 0; shape < _islandMeshes.Length; shape++)
+                    _islandMeshes[shape] = new IslandMesh(device, FUNNEL_TOP_RADIUS, RADIUS, EDGE_HEIGHT, SEGMENTS, DISH_DEPTH, (IslandShape)shape);
+            }
             IslandMesh _islandMesh = _islandMeshes[(int)IslandShape.Stone];
 
             //The dressed stone: the dished top and the coping that finishes it, coursed into slabs. The detail
@@ -868,8 +872,9 @@ namespace Prazsky.Core.Render
             //The desert's drift (#550), against the face the scene's own wind arrives from. Sand: the stone's
             //grain at a finer scale carries the texture, a soft relief breaks the light, no joints, dull.
             Vec2 wind = new DesertSceneConfig().Wind;
-            _driftMesh = new SandDriftMesh(device, new Vector2(wind.X, wind.Y), DRIFT_INNER_RADIUS, -EDGE_HEIGHT,
-                DRIFT_HEIGHT, DRIFT_REACH, DRIFT_HALF_ARC);
+            using (EdgeFins.Wanted())
+                _driftMesh = new SandDriftMesh(device, new Vector2(wind.X, wind.Y), DRIFT_INNER_RADIUS, -EDGE_HEIGHT,
+                    DRIFT_HEIGHT, DRIFT_REACH, DRIFT_HALF_ARC);
             _driftRenderer = new InstancedModelRenderer(device, _driftMesh, SAND_DRIFT_COLOR, instancingEffect)
             {
                 DetailTexture = _stoneTexture.Texture,

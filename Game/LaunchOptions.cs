@@ -104,6 +104,10 @@ namespace BS3D
         //ceiling, the gun - finished with fins that wide, the companion of the balls' rims. Null when absent.
         internal float? Fins { get; private set; }
 
+        //Testing only, "finsall" (#804): every fin of a mesh handed to the GPU for its vertex shader to collapse, as the
+        //first cut did, instead of the few the CPU chose for this eye - so the Pi can measure the one against the other.
+        internal bool FinsAll { get; private set; }
+
         //"upscale=<bilinear|soft>" (#804, the Potato path below native): how the 3D is scaled up onto the back buffer - one
         //bilinear tap, or the cubic B-spline in four, which shows nothing of the source's pixel grid. Null when absent.
         internal string Upscale { get; private set; }
@@ -382,6 +386,8 @@ namespace BS3D
             Row.Float("rims", (o, v) => o.Rims = v, v => v >= 0f && v <= 4f),
             //"fins=<pixels>" does the same for every other mesh's outline (#804): 0 none, 1 exact
             Row.Float("fins", (o, v) => o.Fins = v, v => v >= 0f && v <= 4f),
+            //"finsall" hands the GPU every fin instead of the ones the CPU chose: a measurement (#804)
+            Row.Flag("finsall", o => o.FinsAll = true),
             //"upscale=soft" scales the Potato path's 3D up through a cubic B-spline rather than bilinearly (#804)
             Row.Text("upscale", (o, v) => o.Upscale = v, v => v is "bilinear" or "soft"),
             //"ballflat" draws the Potato balls unlit, in their flat colour: a measurement, not a look (#804)

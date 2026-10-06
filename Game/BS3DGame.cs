@@ -786,9 +786,10 @@ namespace BS3D
             _launchSoftUpscale = string.Equals(launch.Upscale, "soft", StringComparison.OrdinalIgnoreCase);
 
             //The fins (#804) are built with the meshes, so the switch is thrown here, before any mesh exists: the Potato
-            //path's alone, and only when asked for (the build's own width is 0 until the Pi has measured them)
+            //path's alone, and only when asked for (the build's own width is 0: see POTATO_FIN_PIXELS)
             float fins = PotatoPath ? launch.Fins ?? POTATO_FIN_PIXELS : 0f;
             EdgeFins.Enabled = fins > 0f;
+            EdgeFins.SelectOnCpu = !launch.FinsAll;
             InstancedModelRenderer.FinRampPixels = fins;
             _startupPreview = launch.Preview;
 
