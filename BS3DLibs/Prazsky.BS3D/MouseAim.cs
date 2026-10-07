@@ -61,6 +61,30 @@ namespace Prazsky.BS3D
         public const float PAD_RATE = 1.0f;
 
         /// <summary>
+        /// The right stick's response (#819): its push raised to this power along the push's own direction, so the first
+        /// part of the travel is a fine aim and a full push is still <see cref="PAD_RATE"/>. The left stick's walk took the
+        /// same 1.5 for the same reason (#802): a square leaves the first third of the travel all but dead.
+        /// </summary>
+        public const float PAD_STICK_EXPONENT = 1.5f;
+
+        /// <summary>
+        /// What the right stick asks of <see cref="Cannon.Aim"/>: pitch and yaw, from the stick's push shaped by
+        /// <see cref="PAD_STICK_EXPONENT"/> (radially, so a diagonal keeps its direction) and scaled by
+        /// <paramref name="rateScale"/>. The Game hands the lens's own ratio there (<c>PreciseAim.CursorRateScale</c>),
+        /// 1 in the overview, so leaning in slows the stick by exactly what the lens magnifies, as it does the mouse.
+        /// The owner found the pad's precise aim far too quick (#819): the magnified view swung as many degrees a
+        /// second as the overview, several times faster on screen. No player's dial reaches it, for PAD_RATE's reason.
+        /// </summary>
+        public static Vector2 PadAimRate(Vector2 stick, float rateScale)
+        {
+            float push = stick.Length();
+            if (push <= 0f) return Vector2.Zero;
+
+            Vector2 shaped = stick * (MathF.Pow(MathF.Min(push, 1f), PAD_STICK_EXPONENT) / push);
+            return new Vector2(shaped.Y, -shaped.X) * (PAD_RATE * rateScale);
+        }
+
+        /// <summary>
         /// Whether a captured frame has been seen yet. False means the next delta is thrown away — which is what
         /// makes grabbing the cursor, returning focus, or a viewport change a no-op for the aim rather than a
         /// lurch. Cleared through <see cref="Invalidate"/>.
@@ -137,12 +161,15 @@ namespace Prazsky.BS3D
             if (pitch != 0f || yaw != 0f) cannon.Aim(new Vector2(pitch, yaw), gameTime);
         }
 
-        /// <summary>The pad's right stick, fed straight in as a rate.</summary>
-        public static void ApplyPad(Cannon cannon, in GamePadState pad, GameTime gameTime)
+        /// <summary>
+        /// The pad's right stick, fed in as a rate (<see cref="PadAimRate"/>). <paramref name="rateScale"/> is the lens's
+        /// ratio while leaning in, 1 otherwise (the Testbed's).
+        /// </summary>
+        public static void ApplyPad(Cannon cannon, in GamePadState pad, GameTime gameTime, float rateScale = 1f)
         {
             if (!pad.IsConnected || pad.ThumbSticks.Right.LengthSquared() <= 0f) return;
 
-            cannon.Aim(new Vector2(pad.ThumbSticks.Right.Y, -pad.ThumbSticks.Right.X) * PAD_RATE, gameTime);
+            cannon.Aim(PadAimRate(pad.ThumbSticks.Right, rateScale), gameTime);
         }
 
         /// <summary>
