@@ -1010,3 +1010,17 @@ Majitel poslal odkaz na admin stránku poznámek (`127.0.0.1:5002/notes`, jednor
   - pad (není připojený);
   - Enter z klávesnice: xdotool doručí klávesy do hry jen občas. Cesta je ale tentýž `Tag`, kterým prošel klik na popisek.
 - ⚠ **Při spuštění rovnou do Nastavení (`settings`) s novým userdata ukazuje řádek FPS opačně, než je skutečný stav.** `_info.Visible` je true (výchozí `FpsOverlay`), ale řádek je nezaškrtnutý, takže první klik ho „nezmění“. Platilo to i se slovy On/Off a s #816 to nesouvisí, nehledal jsem to.
+
+## 2026-10-07 — #808 Potato na řádku Quality a řádek Scenery, opravy po revizi — desktop, Claude Code (bs3d-c5)
+
+- **Na mainu (merge `b772ac17` a opravy `92cb9d41`), čeká na verdikt (oko), karta #808 je na stránce verdiktů ve verzi 7.**
+  - Quality cyklí Low, Medium, High, Ultra, Potato (`QualityLevels.NextOnRow`). Potato se zapne až dalším startem: `Program.Main` přečte `Settings.json` (`GameSettings.ChoosesPotato`) a zavolá `QualityLock.ChooseAtPotato`. Takový běh není zamčený (`ChosenInSettings`), řádek z něj vede zpět.
+  - Scenery (`GameSettings.Scenery`, ukládá se jen `false`): vypnutá nechá oblohu, ostrov, sklo, shluk a dělo. Quality pak čte `Custom`.
+- ⚠ **Revize po mergi našla pět chyb, všechny opravené v `92cb9d41`:**
+  - Auto quality zapnutá nad čekajícím Potato nechala desktopový renderer na presetu Potato s nápisem „Potato“. Teď vrací High jako nad Ultra.
+  - Potato vybrané v nastavení dostalo automatický krok rozlišení Pi na 1280x720 (řádek četl „Auto (3840 x 1600)“). `IsResolutionAutomatic` ho teď nechá jen Pi a argumentu `potato`.
+  - Bez scenérie mířily prohlídky menu na památku, která není vidět, erupce svítila na ostrov a hrály zvuky událostí scény. Všechno tři se teď řídí `SceneryShown`.
+  - Výběr stupně na běhu Potato nevracel scenérii. Zastaralé věty v `QualityLevel.cs` a `docs/game-shell.md`.
+- ⚠ **Dvanáct řádků Display se na 1600x900 nevešlo**, Back byl uříznutý na proužek (vyfoceno s #816 i bez něj). Řádky mají svislé odsazení 12 místo 18 (`ROW_PADDING_Y`), deska je 24 px od okrajů při 1600x900 a 15 px při 1280x720. Zaškrtávátka z #816 jsem vyfotil i ve 3840x1600 na Windows (Display, běh Potato i desktop), vypadají správně.
+- `settings=` má novou páku `auto` (řádek Auto quality). Tou se oprava Auto nad Potato ověřila: `Settings.json` má `adaptiveQuality: true` bez uloženého stupně.
+- BS3D-play má build `dev-92cb9d4`.
