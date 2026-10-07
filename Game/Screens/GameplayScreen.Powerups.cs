@@ -182,6 +182,7 @@ namespace BS3D.Screens
                 case PowerupKind.Brake:
                     _ceilingDescent.Brake();
                     AnnounceCeilingBrake();
+                    _tutorial.Report(Tutorial.Lesson.Brake);
                     break;
 
                 case PowerupKind.Cut:
@@ -190,6 +191,7 @@ namespace BS3D.Screens
                     _magazine.SetKind(0, BallKind.Cutter);
                     Game.Audio.PlayUiClick();
                     Console.WriteLine("[cut] the round in the bore is a cutter, " + _run.PowerupCharges[(int)PowerupKind.Cut] + " left");
+                    _tutorial.Report(Tutorial.Lesson.Cut);
                     break;
             }
         }

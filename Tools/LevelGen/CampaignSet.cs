@@ -45,9 +45,9 @@ namespace BS3D.Tools.LevelGen
             //the Grid's puzzles, the Big Top's small hanging pieces and the Spectrum's dawn. So: the Quarry's moon, the
             //Grid's machine, the Nebula's void, the circus tent's lights between the void and the volcano, the
             //Eruption, and then the old ending untouched - the Spectrum's dawn, the Arcade's night, the Mirage's dream
-            //(which keeps the campaign's last word, #420). The first seven blocks do not move: the second, third and
-            //fourth are where the Swap, the Brake and the Cut arrive (LevelSet.SWAP_FROM_BLOCK and the two beside it),
-            //and the Quarry ends on the hand-drawn Colossus (WriteLevelSet). Every block from the fifth on carries all
+            //(which keeps the campaign's last word, #420). The first seven blocks do not move: the third, fourth and
+            //fifth are where the Swap, the Brake and the Cut arrive since #705 (LevelSet.SWAP_FROM_BLOCK and the two beside it),
+            //and the Quarry ends on the hand-drawn Colossus (WriteLevelSet). Every block from the sixth on carries all
             //three, so no grant moved; the gates are a function of position (MinStarsAt) and a save survives by file.
             //(The Grid had been inserted eleventh by #420 and the Big Top twelfth by #690; both rulings' one fixed
             //point, the Mirage last, stands.)

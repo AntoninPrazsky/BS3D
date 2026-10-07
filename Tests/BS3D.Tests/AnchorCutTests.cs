@@ -381,16 +381,16 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void TheShippedFourthChapterOnwardHasACutAndNothingBeforeIt()
+        public void TheShippedFifthChapterOnwardHasACutAndNothingBeforeIt()
         {
             LevelSet set = ShippedSet();
 
-            //The Tower opens the fourth chapter at index 30 (The Meadow, the Gallery and the Coil are ten each)
-            set.BlockRange(30, out int firstOfFourth, out _);
-            Assert.Equal(30, firstOfFourth);
+            //The Silhouettes open the fifth chapter at index 40 (the first four are ten each); #705 moved each tool a chapter on
+            set.BlockRange(40, out int firstOfFifth, out _);
+            Assert.Equal(40, firstOfFifth);
 
-            for (int index = 0; index < 30; index++) Assert.Equal(0, set.CutChargesAt(index));
-            for (int index = 30; index < set.Count; index++) Assert.Equal(1, set.CutChargesAt(index));
+            for (int index = 0; index < 40; index++) Assert.Equal(0, set.CutChargesAt(index));
+            for (int index = 40; index < set.Count; index++) Assert.Equal(1, set.CutChargesAt(index));
 
             Assert.Equal(0, set.CutChargesAt(-1));
             Assert.Equal(0, set.CutChargesAt(set.Count));

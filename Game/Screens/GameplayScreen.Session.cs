@@ -97,7 +97,8 @@ namespace BS3D.Screens
                 out int chapterLength);
             ReadKindsOnMap();
             _tutorial.BeginLevel(tutorialLevel ? chapter : -1, levelInChapter, chapterLength, LevelCeilingStep(index),
-                swapOffered: _run.SwapOffered, retry: retry, kindsOnMap: _kindsOnMap);
+                swapOffered: _run.SwapOffered, retry: retry, kindsOnMap: _kindsOnMap, brakeOffered: _run.BrakeOffered,
+                cutOffered: _run.CutOffered);
 
             //And no floor alarm either: whatever the last level's ending left lingering over the drain is
             //not this level's danger.

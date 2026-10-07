@@ -76,6 +76,9 @@ namespace BS3D.Screens
         {
             Aim, Fire, Match, LeanIn, Ceiling, Line, Traverse, Walk, Combine, Streak, Budget, LineRule, Graduated, Swap,
 
+            //The other two power-ups' cards, beside the Swap's (#705) - see Definition.Tool
+            Brake, Cut,
+
             //A card per special kind, the first time it is met (#735) - see Definition.Kind
             KindStone, KindGlass, KindBomb, KindZap, KindAcid, KindFrozen, KindInfectious, KindGravity, KindHeavy, KindBuckshot,
             KindWildcard,
@@ -148,6 +151,15 @@ namespace BS3D.Screens
             /// a look that has since been redrawn (#622). <see cref="Chapter"/> and <see cref="FromLevel"/> mean nothing on it.
             /// </summary>
             public BallKind? Kind;
+
+            /// <summary>
+            /// A <b>power-up's card</b> (#705): the Swap's, the Brake's or the Cut's. Like a kind card it belongs to no chapter
+            /// and is taught once per player, and it is offered on the first level that grants the tool - the chip and its
+            /// card arrive together, never the chip alone (the owner: "one new thing at a time, each taught the first time
+            /// the player sees it"). The Swap and the Cut are queued as the level opens; the Brake is contextual, armed and
+            /// shown on the glass's first pressure step, the one moment it has something to give back.
+            /// </summary>
+            public bool Tool;
         }
 
         //PromptFont's own codepoints (Game/Content/Fonts/PromptFont.ttf, glyphs.json in its release): the keycaps
@@ -169,6 +181,12 @@ namespace BS3D.Screens
         private const string PAD_RIGHT_TRIGGER = "↗";
         private const string KEY_E = "Ｅ";
         private const string PAD_X = "⇐";
+        private const string KEY_Q = "Ｑ";
+        private const string PAD_Y = "⇑";
+        private const string KEY_R = "Ｒ";
+
+        //U+2199 is PromptFont's RB (PlayHud's Cut chip draws the same)
+        private const string PAD_RIGHT_BUMPER = "↙";
 
         //The glass lesson's caption, formatted once per level with that level's own cadence
         private const string CEILING_CAPTION = "The glass steps down every {0} shots";
@@ -293,17 +311,39 @@ namespace BS3D.Screens
             },
             new()
             {
-                //THE SWAP (#213), the third idea of the second chapter and the first thing in the game the player
-                //carries rather than has done to them. It is offered on the level it becomes available (every level from
-                //the second chapter grants one, LevelSet.SwapChargesAt) and only there: an action card, done when the
-                //key is pressed. The detail says the price, because a player who spends the one swap on the level's
-                //first shot has nothing left for the shot that needed it. Two levels in, so the score's two lessons
-                //have each had a level to themselves before a third idea arrives.
-                Lesson = Lesson.Swap, Key = "swap", Chapter = 1, FromLevel = 2, Action = true,
+                //THE SWAP (#213), the first thing in the game the player carries rather than has done to them. Since #705 a
+                //tool's card (Definition.Tool): offered on the first level that grants one (the third chapter's,
+                //LevelSet.SwapChargesAt), with its chip; until then it was the second chapter's third level, two levels
+                //after its chip. An action card, done when the key is pressed. The detail says the price, because a player
+                //who spends the one swap on the level's first shot has nothing left for the shot that needed it. Its key
+                //stays "swap", so a player taught it on the old schedule is not taught it again.
+                Lesson = Lesson.Swap, Key = "swap", Tool = true, Action = true,
                 Glyph = KEY_E, Caption = "Swap the next two balls", Detail = "One swap a level, for when the queue lets you down",
                 PadGlyph = PAD_X, PadCaption = "Press X to swap the next two balls",
                 PadDetail = "One swap a level, for when the queue lets you down",
                 Praise = "Swapped!",
+            },
+            new()
+            {
+                //THE BRAKE (#213, #705): the fourth chapter's tool. Contextual - the glass's first pressure step is the moment it
+                //has a step to give back, and the moment its chip lights - and an action card from there, done when the key is
+                //pressed.
+                Lesson = Lesson.Brake, Key = "brake", Tool = true, Contextual = true, Action = true,
+                Glyph = KEY_Q, Caption = "Lift the glass back one step", Detail = "One brake a level, once the glass has come down",
+                PadGlyph = PAD_Y, PadCaption = "Press Y to lift the glass back one step",
+                PadDetail = "One brake a level, once the glass has come down",
+                Praise = "Lifted!",
+            },
+            new()
+            {
+                //THE CUT (#213, #692, #705): the fifth chapter's tool, on the rule the owner settled on #692 - the whole storey
+                //the cutter strikes, never more than the cluster's lower half, previewed lit as it is aimed. Done when the key
+                //is pressed, which arms the round in the bore.
+                Lesson = Lesson.Cut, Key = "cut", Tool = true, Action = true,
+                Glyph = KEY_R, Caption = "Turn the next ball into a cutter", Detail = "It takes the whole storey it hits, and all that hangs on it",
+                PadGlyph = PAD_RIGHT_BUMPER, PadCaption = "Press the right bumper for a cutter",
+                PadDetail = "It takes the whole storey it hits, and all that hangs on it",
+                Praise = "Armed!",
             },
 
             //THE KIND CARDS (#735, the owner's playtest notes of 2026-10-03 and 2026-10-07: "a tutorial has to be shown for
@@ -578,14 +618,16 @@ namespace BS3D.Screens
         /// <param name="levelInChapter">How far into that chapter the level is, from 0.</param>
         /// <param name="chapterLength">How many levels the chapter has, which a lesson counted from its end is placed by.</param>
         /// <param name="ceilingStep">The level's ceiling cadence, for the glass lesson's caption; null skips that lesson.</param>
-        /// <param name="swapOffered">Whether the level grants a Swap (#213); the swap lesson is skipped when it does not.</param>
+        /// <param name="swapOffered">Whether the level grants a Swap (#213): the Swap's card is offered where it does (#705).</param>
+        /// <param name="brakeOffered">Whether it grants a Brake: the Brake's card is armed for the glass's first step.</param>
+        /// <param name="cutOffered">Whether it grants a Cut: the Cut's card is offered.</param>
         /// <param name="retry">Whether this is a retry of the level just played (Retry, Restart). A retry remembers the cards
         /// this run went through; any other start of a level is an entry into it, and shows its own cards again (#715).</param>
         /// <param name="kindsOnMap">The level's map by kind (#735), indexed by <see cref="BallKind"/>: the colour of the first
         /// ball of that kind, or zero for a kind the map does not carry. Its kind cards are offered on any level, chapter or
         /// none.</param>
         internal void BeginLevel(int chapter, int levelInChapter, int chapterLength, int? ceilingStep, bool swapOffered = false,
-            bool retry = false, ReadOnlySpan<BallType> kindsOnMap = default)
+            bool retry = false, ReadOnlySpan<BallType> kindsOnMap = default, bool brakeOffered = false, bool cutOffered = false)
         {
             Reset();
 
@@ -599,6 +641,9 @@ namespace BS3D.Screens
             //The kind cards first (#735): offered on any level, the ladder's chapters or none, so they are queued before
             //the chapter gate below and ahead of the ladder's own cards - a kind on the map is this level's business
             QueueKinds(kindsOnMap);
+
+            //And the tools' (#705), for the same reason: the level that first grants one is past the ladder's chapters
+            QueueTools(swapOffered, brakeOffered, cutOffered);
 
             if (!_hasLevel)
             {
@@ -615,7 +660,7 @@ namespace BS3D.Screens
 
             foreach (Definition lesson in DEFINITIONS)
             {
-                if (lesson.Kind != null) continue;
+                if (Chapterless(lesson)) continue;
                 if (!_demo && !Eligible(lesson, chapter, levelInChapter, chapterLength)) continue;
 
                 //A level's own cards come back on every entry into it (#715), the save notwithstanding - unless this
@@ -626,10 +671,6 @@ namespace BS3D.Screens
                 if (Taught(lesson)) continue;
                 if (lesson.Lesson == Lesson.Ceiling && _ceilingCaption == null) continue;
 
-                //A swap is only taught where there is one to press (#213): a set with no chapters, or the testing
-                //argument's zero, grants none, and a card about a key that does nothing would be a lie
-                if (lesson.Lesson == Lesson.Swap && !swapOffered && !_demo) continue;
-
                 //The reel has no events to wait for, so its contextual cards are queued like the rest
                 if (lesson.Contextual && !_demo) _armed.Add(lesson);
                 else _queue.Add(lesson);
@@ -638,6 +679,33 @@ namespace BS3D.Screens
             if (!_demo) NothingAfterTheSendOff();
 
             _gap = FIRST_CARD_DELAY;
+        }
+
+        /// <summary>
+        /// Offers the card of every tool this level grants that the player has not been taught (#705): the Swap's and the
+        /// Cut's queued, the Brake's armed for the glass's first pressure step. A card about a key that does nothing would
+        /// be a lie, so a level that grants none - a set with no chapters, the testing argument's zero - offers none. The
+        /// reel queues all three.
+        /// </summary>
+        private void QueueTools(bool swapOffered, bool brakeOffered, bool cutOffered)
+        {
+            foreach (Definition lesson in DEFINITIONS)
+            {
+                if (!lesson.Tool || Taught(lesson)) continue;
+
+                bool offered = lesson.Lesson switch
+                {
+                    Lesson.Swap => swapOffered,
+                    Lesson.Brake => brakeOffered,
+                    Lesson.Cut => cutOffered,
+                    _ => false,
+                };
+
+                if (_demo) _queue.Add(lesson);
+                else if (!offered) continue;
+                else if (lesson.Contextual) _armed.Add(lesson);
+                else _queue.Add(lesson);
+            }
         }
 
         /// <summary>
@@ -746,9 +814,9 @@ namespace BS3D.Screens
             //contextual, would interrupt it the moment it lit. Neither is taught here: they are offered on the next
             //level, after the player has been sent off, which is the order the chapters promise.
             for (int i = _queue.Count - 1; i >= 0; i--)
-                if (_queue[i].Kind == null && _queue[i].Chapter > closes) _queue.RemoveAt(i);
+                if (!Chapterless(_queue[i]) && _queue[i].Chapter > closes) _queue.RemoveAt(i);
             for (int i = _armed.Count - 1; i >= 0; i--)
-                if (_armed[i].Kind == null && _armed[i].Chapter > closes) _armed.RemoveAt(i);
+                if (!Chapterless(_armed[i]) && _armed[i].Chapter > closes) _armed.RemoveAt(i);
 
             sendOff = _queue.IndexOf(sendOffLesson);
 
@@ -767,7 +835,10 @@ namespace BS3D.Screens
         /// are about the ladder alone. A kind card (#735) has no chapter: it is not cut by a send-off already read, nor
         /// pulled ahead of one, nor held back for a later chapter.
         /// </summary>
-        private static bool OnLadder(Definition lesson, int chapter) => lesson.Kind == null && lesson.Chapter == chapter;
+        private static bool OnLadder(Definition lesson, int chapter) => !Chapterless(lesson) && lesson.Chapter == chapter;
+
+        /// <summary>A kind's card (#735) or a tool's (#705): offered where the thing is met, at no chapter of the ladder.</summary>
+        private static bool Chapterless(Definition lesson) => lesson.Kind != null || lesson.Tool;
 
         /// <summary>Drops everything, for a session being torn down under it — and the first thing a new level does.</summary>
         internal void Reset()
