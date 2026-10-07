@@ -136,6 +136,7 @@ namespace BS3D.Screens
             //this with music still sounding is a SWITCH — a retry from the pause menu — and the next level
             //opens over the old pass's last second instead of over its stump.
             Game.Music?.FadeOut();
+            ClearCutPreview();
             Game.Fireworks?.Stop();
             Game.Confetti?.Stop();
             Game.Trophy?.Hide();

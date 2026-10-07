@@ -357,7 +357,7 @@ namespace Prazsky.BS3D.GameStructure
         /// not stick and does not match, it <b>destroys that ball's whole storey</b> — every ball of its level joined to it
         /// through that level, since #692 (it was the one ball until then, and that almost never freed anything) — and the
         /// disconnection pass runs over what is left (<c>BallsConstraintsBuilder.CutBall</c>), so whatever hung on that
-        /// storey falls with it. The four storeys under the glass refuse it (<c>BallsConstraintsBuilder.IsCutProtected</c>).
+        /// storey falls with it. It may take at most the lower half of the cluster (<c>CutReach.IsProtected</c>, since 2026-10-07).
         /// It is the lesson the whole game teaches — a support falls with what holds it — played on purpose.
         /// <para>
         /// <b>⚠ No ball in the lattice is ever a cutter</b>, for the wildcard's reason (see <see cref="Wildcard"/>): it is

@@ -961,7 +961,7 @@ namespace Prazsky.BS3D.Physics
             _fallingBalls.Add(cutter);
 
             //A cutter the gun let go of only strikes the storeys it may cut, but a flight is not the preview: a cluster that swung
-            //while it flew can put a ball of the four storeys under the glass in its way. Then it takes that ball alone and not its
+            //while it flew can put a ball of the upper half it may not cut in its way. Then it takes that ball alone and not its
             //storey (#692, the review), so a stray flight can never do what the gun refuses - a top storey cut drops the whole
             //cluster on most levels - and the charge still does something.
             BallsReleased released = BallsConstraintsBuilder.IsCutProtected(cell, _map)

@@ -89,8 +89,10 @@ namespace BS3D.Tools.LevelGen
             return true;
         }
 
-        //The storey cut's guard, measured (#692): the top storeys a cut may not strike, from none to four (the owner chose four)
-        private static readonly int[] TOP_EXCLUDED = { 0, 1, 2, 3, 4 };
+        //The storey cut's guard, measured (#692): the top storeys a cut may not strike, from none to four (the owner chose four on
+        //2026-10-05), and HALF_RULE, the owner's rule of 2026-10-07 that replaced them: at most the lower half of the cluster
+        private const int HALF_RULE = -1;
+        private static readonly int[] TOP_EXCLUDED = { 0, 1, 2, 3, 4, HALF_RULE };
 
         /// <summary>
         /// <b>The owner's rule for the Cut (#692, 2026-10-03): the whole storey at the struck ball</b> — every ball of the
@@ -107,7 +109,7 @@ namespace BS3D.Tools.LevelGen
             Console.WriteLine();
             Console.WriteLine("=== the storey cut (#692): the struck ball's whole connected storey goes, then what hung by it; exposed strikes only ===");
             Console.Write($"    {"#",3}  {"level",-14} {"balls",5}");
-            foreach (int n in TOP_EXCLUDED) Console.Write($"  {"top" + n + " best",9} {"med",4} {"clears",6}");
+            foreach (int n in TOP_EXCLUDED) Console.Write($"  {(n == HALF_RULE ? "half" : "top" + n) + " best",9} {"med",4} {"clears",6}");
             Console.WriteLine();
 
             int[] levelsClearable = new int[TOP_EXCLUDED.Length];
@@ -141,7 +143,7 @@ namespace BS3D.Tools.LevelGen
             {
                 bests[i].Sort();
                 medians[i].Sort();
-                Console.WriteLine($"  top {TOP_EXCLUDED[i]} storey(s) uncuttable: one strike clears {levelsClearable[i]} of {levels} level(s) outright;"
+                Console.WriteLine($"  {(TOP_EXCLUDED[i] == HALF_RULE ? "the lower half only (the rule since 2026-10-07)" : "top " + TOP_EXCLUDED[i] + " storey(s) uncuttable")}: one strike clears {levelsClearable[i]} of {levels} level(s) outright;"
                     + $" the median level's best strike frees {Median(bests[i])}, its typical (median) strike {Median(medians[i])}");
             }
         }
@@ -170,7 +172,7 @@ namespace BS3D.Tools.LevelGen
 
             for (int l = 0; l < size.Level; l++)
             {
-                if (l > top - topExcluded) continue;
+                if (topExcluded == HALF_RULE ? CutReach.IsProtected(new XZLevel(0, 0, l), map) : l > top - topExcluded) continue;
 
                 for (int x = 0; x < size.X; x++)
                     for (int z = 0; z < size.Z; z++)

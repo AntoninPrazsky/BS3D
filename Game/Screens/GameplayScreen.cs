@@ -1052,7 +1052,7 @@ namespace BS3D.Screens
         //The ripple hook is what this game adds to it and the Testbed does not — handed over ONCE here rather
         //than per frame, since a method group written at a per-frame call site builds a fresh delegate every
         //time it is evaluated.
-        private readonly ClusterCollector _clusterCollector = new(ClusterRipple.Advance);
+        private readonly ClusterCollector _clusterCollector = new(RippleOrCutPreview);
 
         //The wave a landing (and a ceiling step, and an infection's spread) sends through the cluster — its
         //walk and its figures are ClusterRipple's since #582; the screen only says where it starts and, for

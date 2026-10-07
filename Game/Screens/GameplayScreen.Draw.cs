@@ -139,6 +139,9 @@ namespace BS3D.Screens
             _previewBeamVisible = false;
             _cutterRefused = false;
 
+            //The cut's preview is the last frame's until the branch below lights this one's (#692)
+            ClearCutPreview();
+
             if (CameraTakeoverEngaged || _run.Score.OutOfShots || LevelDecided || _physicsBalls == null || _map == null) return;
 
             Vector3 muzzle = _cannon.MuzzlePosition(Game.CannonRig.PivotToFrontBall);
@@ -198,11 +201,15 @@ namespace BS3D.Screens
 
             //And none for a cutter (#213): it does not land in a cell, so the ghost would show a ball that will not be there.
             //The beam ends at the ball it will strike, which is the promise a cutter can keep - and when that ball stands in
-            //one of the storeys under the glass the Cut may not strike (#692), the aim is refused as one past the clamp is
+            //a storey the Cut may not strike (more than the lower half of the cluster, #692), the aim is refused as one past
+            //the clamp is
             if (CutterLoaded)
             {
                 _previewHasCell = false;
                 _cutterRefused = BallsConstraintsBuilder.IsCutProtected(hit.ArrayPosition, _map);
+
+                //And what it would cut off, lit before the shot (#692, the owner's ask) - only where the gun would fire
+                if (!_cutterRefused && !_cannon.ElevationRefusesShot) LightCutPreview(hit.ArrayPosition);
             }
         }
 

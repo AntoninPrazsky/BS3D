@@ -448,7 +448,7 @@ namespace BS3D.Screens
             (KEY_W + KEY_S, "Step in and out — closer means a steeper shot"),
             (KEY_E, "Swap the next two balls — one swap a level, from the second chapter"),
             (KEY_Q, "Brake the ceiling — lift the glass one step back, one a level, from the third chapter"),
-            (KEY_R, "Cut — the next ball destroys the whole storey it hits, so what hung on it falls; not the top four storeys; one a level, from the fourth chapter"),
+            (KEY_R, "Cut — the next ball destroys the whole storey it hits, so what hung on it falls; what it would cut off lights up as you aim, never more than the lower half; one a level, from the fourth chapter"),
         };
 
         private void BuildControls(VerticalStackPanel column)
