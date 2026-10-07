@@ -1225,8 +1225,14 @@ namespace BS3D.Screens
 
                 //Testing only: a scripted pull of the right trigger, written into the state itself so every reader of the
                 //frame's pad sees it (ScriptedPlay's padrt=)
-                if (ScriptedPlay.Current is ScriptedPlay padScript && padScript.PadRightTrigger(WallClock))
-                    pad = new GamePadState(pad.ThumbSticks, new GamePadTriggers(pad.Triggers.Left, 1f), pad.Buttons, pad.DPad);
+                if (ScriptedPlay.Current is ScriptedPlay padScript)
+                {
+                    if (padScript.PadRightTrigger(WallClock))
+                        pad = new GamePadState(pad.ThumbSticks, new GamePadTriggers(pad.Triggers.Left, 1f), pad.Buttons, pad.DPad);
+
+                    //And its button presses (padpress=, #818)
+                    pad = padScript.WithPadPresses(WallClock, pad);
+                }
 
                 //A pause takes effect at the top of the NEXT frame, because that is where ScreenManager applies
                 //stack changes — so without stopping here the rest of THIS frame would go on running against a
@@ -1480,7 +1486,8 @@ namespace BS3D.Screens
                 || Game.PreviousKeyboard.GetPressedKeyCount() > 0
                 || _previousMouse.LeftButton == ButtonState.Pressed
                 || _previousMouse.RightButton == ButtonState.Pressed
-                || _previousMouse.MiddleButton == ButtonState.Pressed;
+                || _previousMouse.MiddleButton == ButtonState.Pressed
+                || PadTouched(Game.PreviousPad);
 
             _dozeAim = aim;
             _dozeStand = stand;
@@ -1494,6 +1501,18 @@ namespace BS3D.Screens
 
             _cannon.Droop = _dozing.Droop;
         }
+
+        /// <summary>
+        /// The pad's "any key" for the sleeping gun (#818): a button or the D-pad down, a trigger touched or a stick off its
+        /// rest. The play loop reads the pad with a circular dead zone and the triggers past their own, so anything
+        /// above zero is a hand and not drift. Without it a pad player's buttons never woke the gun - only the aim moving
+        /// did, and a stick pressed against an aim stop moves nothing.
+        /// </summary>
+        private static bool PadTouched(GamePadState pad) =>
+            pad.IsConnected
+            && (pad.Buttons != default || pad.DPad != default
+                || pad.Triggers.Left > 0f || pad.Triggers.Right > 0f
+                || pad.ThumbSticks.Left != Vector2.Zero || pad.ThumbSticks.Right != Vector2.Zero);
 
         private void StepGunHardware(GameTime gameTime, float elapsed)
         {

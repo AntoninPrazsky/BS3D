@@ -1,5 +1,8 @@
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input;
 using Prazsky.Core.Render;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 
 namespace BS3D
@@ -25,6 +28,14 @@ namespace BS3D
     /// <item><c>padrt=&lt;from&gt;:&lt;to&gt;</c> — holds the pad's right trigger fully down across the interval, written into
     /// the frame's own pad state so every reader sees a real pull: the fire, the camera takeover's skip, the trigger
     /// motors' answer. Written when the owner's RT did not skip a takeover and reading the code could not say why.</item>
+    /// <item><c>padpress=&lt;start&gt;:&lt;step&gt;:&lt;name,name,…&gt;</c> — presses pad buttons one after another, the first at
+    /// <c>start</c> and each <c>step</c> seconds after the one before, each held for half a step (#818): <c>up</c>,
+    /// <c>down</c>, <c>left</c>, <c>right</c> on the D-pad, <c>a</c>, <c>b</c>, <c>x</c>, <c>y</c>, <c>lb</c>, <c>rb</c>,
+    /// <c>start</c>, <c>back</c>, and <c>lsup</c>, <c>lsdown</c>, <c>lsleft</c>, <c>lsright</c> for the left stick pushed
+    /// all the way. Written into the frame's pad state like <c>padrt=</c>, in the menus and in play, so everything
+    /// downstream of the XInput read sees a real press; while one is down it stands in for the pad's buttons and left
+    /// stick. Several accumulate. Written when the owner's Konami code did nothing on a pad and no pad here can be
+    /// pressed by a script.</item>
     /// <item><c>swap=&lt;t1,t2,…&gt;</c> — presses the swap key at those seconds (#213), through the very call E makes, so
     /// a second press on a level with one swap is the refusal a player would hear.</item>
     /// <item><c>brake=&lt;t1,t2,…&gt;</c> — presses the ceiling's brake key at those seconds (#213), through the very call Q
@@ -53,6 +64,7 @@ namespace BS3D
         private float _sweepElevation = float.NaN;
         private float _rmbFrom = float.NaN, _rmbTo;
         private float _padRtFrom = float.NaN, _padRtTo;
+        private readonly List<(float From, float To, Buttons Button, Vector2 Stick)> _padPresses = new();
         private readonly System.Collections.Generic.List<(float At, float Elevation, float Traverse)> _aims = new();
         private float[] _fire;
         private int _nextFire;
@@ -114,6 +126,29 @@ namespace BS3D
                 ScriptedPlay script = Current ??= new ScriptedPlay();
                 script._padRtFrom = from;
                 script._padRtTo = to;
+                return true;
+            }
+
+            if (arg.StartsWith("padpress=", StringComparison.OrdinalIgnoreCase))
+            {
+                string[] parts = arg.Substring("padpress=".Length).Split(':');
+                if (parts.Length != 3 || !TryFloat(parts[0], out float start) || !TryFloat(parts[1], out float step) || step <= 0f)
+                    return false;
+
+                string[] names = parts[2].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                var presses = new List<(float, float, Buttons, Vector2)>(names.Length);
+
+                for (int i = 0; i < names.Length; i++)
+                {
+                    if (!TryPadName(names[i], out Buttons button, out Vector2 stick)) return false;
+
+                    float from = start + i * step;
+                    presses.Add((from, from + step * 0.5f, button, stick));
+                }
+
+                if (presses.Count == 0) return false;
+
+                (Current ??= new ScriptedPlay())._padPresses.AddRange(presses);
                 return true;
             }
 
@@ -204,6 +239,41 @@ namespace BS3D
             return true;
         }
 
+        /// <summary>One of <c>padpress=</c>'s names: a button (the D-pad's four among them), or the left stick pushed one way.</summary>
+        private static bool TryPadName(string name, out Buttons button, out Vector2 stick)
+        {
+            stick = Vector2.Zero;
+            button = name.ToLowerInvariant() switch
+            {
+                "up" => Buttons.DPadUp,
+                "down" => Buttons.DPadDown,
+                "left" => Buttons.DPadLeft,
+                "right" => Buttons.DPadRight,
+                "a" => Buttons.A,
+                "b" => Buttons.B,
+                "x" => Buttons.X,
+                "y" => Buttons.Y,
+                "lb" => Buttons.LeftShoulder,
+                "rb" => Buttons.RightShoulder,
+                "start" => Buttons.Start,
+                "back" => Buttons.Back,
+                _ => 0,
+            };
+
+            if (button != 0) return true;
+
+            stick = name.ToLowerInvariant() switch
+            {
+                "lsup" => Vector2.UnitY,
+                "lsdown" => -Vector2.UnitY,
+                "lsleft" => -Vector2.UnitX,
+                "lsright" => Vector2.UnitX,
+                _ => Vector2.Zero,
+            };
+
+            return stick != Vector2.Zero;
+        }
+
         private static bool TryFloat(string text, out float value) =>
             float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
 
@@ -215,6 +285,7 @@ namespace BS3D
             + (_aims.Count == 0 ? "" : $"aim {string.Join(", ", _aims.ConvertAll(a => $"{a.Elevation:0.#}°/{a.Traverse:0.#}° from {a.At:0.##} s"))}; ")
             + (float.IsNaN(_walkFrom) ? "" : $"walk {(_walkSign > 0f ? "in" : "out")} {_walkFrom:0.##}-{_walkTo:0.##} s; ")
             + (float.IsNaN(_turnFrom) ? "" : $"turn {(_turnSign > 0f ? "left" : "right")} {_turnFrom:0.##}-{_turnTo:0.##} s; ")
+            + (_padPresses.Count == 0 ? "" : $"{_padPresses.Count} pad press(es) from {_padPresses[0].From:0.##} s; ")
             + (_fire == null ? "" : $"fire at {string.Join(", ", Array.ConvertAll(_fire, t => t.ToString("0.##", CultureInfo.InvariantCulture)))} s");
 
         /// <summary>
@@ -278,6 +349,37 @@ namespace BS3D
 
         /// <summary>Whether the pad's right trigger is held at this instant (<c>padrt=</c>).</summary>
         internal bool PadRightTrigger(float clock) => !float.IsNaN(_padRtFrom) && clock >= _padRtFrom && clock <= _padRtTo;
+
+        /// <summary>
+        /// The frame's pad with <c>padpress=</c>'s presses written in: unchanged while none is down, and while one is, its
+        /// buttons and left stick in place of the pad's own (the triggers and the right stick stay the pad's).
+        /// </summary>
+        internal GamePadState WithPadPresses(float clock, GamePadState pad)
+        {
+            if (_padPresses.Count == 0) return pad;
+
+            Buttons buttons = 0;
+            Vector2 stick = Vector2.Zero;
+            bool any = false;
+
+            foreach ((float from, float to, Buttons button, Vector2 push) in _padPresses)
+            {
+                if (clock < from || clock >= to) continue;
+
+                any = true;
+                buttons |= button;
+                stick += push;
+            }
+
+            if (!any) return pad;
+
+            static ButtonState Down(Buttons all, Buttons one) => (all & one) != 0 ? ButtonState.Pressed : ButtonState.Released;
+
+            GamePadDPad dpad = new(Down(buttons, Buttons.DPadUp), Down(buttons, Buttons.DPadDown),
+                Down(buttons, Buttons.DPadLeft), Down(buttons, Buttons.DPadRight));
+
+            return new GamePadState(new GamePadThumbSticks(stick, pad.ThumbSticks.Right), pad.Triggers, new GamePadButtons(buttons), dpad);
+        }
 
         /// <summary>Whether precise aim is held at this instant.</summary>
         internal bool Rmb(float clock) => !float.IsNaN(_rmbFrom) && clock >= _rmbFrom && clock <= _rmbTo;

@@ -126,5 +126,57 @@ namespace BS3D.Tests
             })
                 Assert.False(code.Record(key));
         }
+
+        /// <summary>
+        /// The left stick spells the code in taps (#818): one direction a push from rest, nothing while held or while
+        /// a thumb trembles on the press zone's edge, the axis pushed further on a diagonal, and nothing from a stick
+        /// already held when the menu came up. A run of frames as a pad reports them spells the whole code.
+        /// </summary>
+        [Fact]
+        public void TheStickTapsOnceAPush()
+        {
+            StickTap stick = new(press: 0.55f, release: 0.3f);
+
+            //Held from before: nothing until it has been at rest
+            Assert.Null(stick.Feed(0f, 1f));
+            Assert.Null(stick.Feed(0f, 0f));
+
+            //One push, held for several frames, is one tap
+            Assert.Equal(KonamiKey.Up, stick.Feed(0f, 0.9f));
+            Assert.Null(stick.Feed(0f, 1f));
+            Assert.Null(stick.Feed(0.2f, 1f));
+
+            //Trembling on the edge of the press zone after the tap taps nothing more
+            Assert.Null(stick.Feed(0f, 0.5f));
+            Assert.Null(stick.Feed(0f, 0.6f));
+
+            //Back to rest re-arms; a diagonal taps the axis pushed further
+            Assert.Null(stick.Feed(0f, 0.1f));
+            Assert.Equal(KonamiKey.Left, stick.Feed(-0.8f, 0.6f));
+            Assert.Null(stick.Feed(0f, 0f));
+            Assert.Equal(KonamiKey.Down, stick.Feed(0.3f, -0.7f));
+
+            //Reset disarms it again, as leaving the main menu does
+            stick.Reset();
+            Assert.Null(stick.Feed(1f, 0f));
+
+            //The whole code off the stick, with B and A from the buttons
+            stick.Reset();
+            KonamiCode code = new();
+            bool found = false;
+            (float X, float Y)[] pushes = { (0, 1), (0, 1), (0, -1), (0, -1), (-1, 0), (1, 0), (-1, 0), (1, 0) };
+
+            stick.Feed(0f, 0f);
+            foreach ((float x, float y) in pushes)
+            {
+                for (int frame = 0; frame < 6; frame++)
+                    if (stick.Feed(x, y) is KonamiKey tap) found |= code.Record(tap);
+                for (int frame = 0; frame < 3; frame++) stick.Feed(0f, 0f);
+            }
+
+            Assert.False(found);
+            Assert.False(code.Record(KonamiKey.B));
+            Assert.True(code.Record(KonamiKey.A));
+        }
     }
 }
