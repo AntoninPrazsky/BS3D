@@ -144,11 +144,19 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// <b>Scattered is the weather the game had</b>, and its numbers are the pre-#221 defaults to the
         /// last digit — so a scene that says nothing about its sky renders exactly what it rendered before
-        /// there was anything to say. Every other preset is stated as a departure from it, and the four
+        /// there was anything to say — except the wind (#809).
+        /// <para>
+        /// <b>Every wind is slower since #809</b>, the owner's playtest: "the clouds fly as if racing, and no real wind is
+        /// like that - we want the animation, but not so fast". Halved for the four calm skies (a form overhead crossed
+        /// 90 degrees in about a minute; it takes about two now, as a real deck's does) and cut to 0.4 for the Storm, the
+        /// volcano's sky, which was the fastest and the lowest at 4.9 degrees a second overhead and is about 2 now - still
+        /// the fastest, as a storm should be. Measured on the volcano from a pinned Testbed camera, the forms' shift a
+        /// second apart: 107 px/s before (correlation 0.86).
+        /// </para> Every other preset is stated as a departure from it, and the four
         /// departures are the four things a sky can do: go away, close in, close over, and turn ugly.
         /// </summary>
         private static readonly WeatherLook Scattered = new(
-            planeY: 190f, scale: 1f / 450f, wind: new Vector2(4.5f, 2f),
+            planeY: 190f, scale: 1f / 450f, wind: new Vector2(2.25f, 1f),
             coverageBias: 0.02f, coverageGain: 2.8f,
             shadowFloor: 0.38f, shadowGain: 1.3f,
             detailStrength: 2.3f, opacity: 2.4f,
@@ -162,7 +170,7 @@ namespace Prazsky.Core.Render
         //deliberately: with no cloud to draw, none of it is reachable, and a preset whose unreachable
         //values differ from its neighbour's is a preset that jumps when it is faded through.
         private static readonly WeatherLook Clear = new(
-            planeY: 190f, scale: 1f / 450f, wind: new Vector2(4.5f, 2f),
+            planeY: 190f, scale: 1f / 450f, wind: new Vector2(2.25f, 1f),
             coverageBias: -1.2f, coverageGain: 2.8f,
             shadowFloor: 0.38f, shadowGain: 1.3f,
             detailStrength: 2.3f, opacity: 2.4f,
@@ -175,7 +183,7 @@ namespace Prazsky.Core.Render
         //scale is a bigger cloud) and a touch more billow, because at this cover the eye reads the deck's
         //underside rather than its silhouette.
         private static readonly WeatherLook Broken = new(
-            planeY: 175f, scale: 1f / 520f, wind: new Vector2(6f, 2.6f),
+            planeY: 175f, scale: 1f / 520f, wind: new Vector2(3f, 1.3f),
             coverageBias: 0.30f, coverageGain: 2.2f,
             shadowFloor: 0.30f, shadowGain: 1.5f,
             detailStrength: 2.1f, opacity: 2.6f,
@@ -190,7 +198,7 @@ namespace Prazsky.Core.Render
         //overcast palette records (a cloud deck is a big diffuse source, so losing the sun spreads the light
         //rather than removing it).
         private static readonly WeatherLook Overcast = new(
-            planeY: 215f, scale: 1f / 620f, wind: new Vector2(5f, 2.2f),
+            planeY: 215f, scale: 1f / 620f, wind: new Vector2(2.5f, 1.1f),
             coverageBias: 0.85f, coverageGain: 1.6f,
             shadowFloor: 0.55f, shadowGain: 0.9f,
             detailStrength: 1.4f, opacity: 3.0f,
@@ -208,7 +216,7 @@ namespace Prazsky.Core.Render
         //has no term for. Calling it Storm is a promise about how it FEELS, which it keeps; a promise about
         //its structure would not be.
         private static readonly WeatherLook Storm = new(
-            planeY: 140f, scale: 1f / 560f, wind: new Vector2(11f, 5f),
+            planeY: 140f, scale: 1f / 560f, wind: new Vector2(4.4f, 2f),
             coverageBias: 0.72f, coverageGain: 2.4f,
             shadowFloor: 0.16f, shadowGain: 2.1f,
             detailStrength: 3.2f, opacity: 3.4f,

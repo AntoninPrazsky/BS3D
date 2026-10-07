@@ -101,13 +101,14 @@ float3 CloudNoiseD(float2 p)
 }
 
 //The weather layer: two octaves drifting at different speeds, so the sky evolves instead of sliding past
-//as one rigid sheet. Keep this in step with CloudField.Weather on the C# side.
+//as one rigid sheet. Keep this in step with CloudField.Weather on the C# side. The second's lead was 1.6x the
+//wind until #809: the finer forms sliding over the large ones read as a sky racing, and 1.25x still evolves it.
 float CloudWeather(float2 world)
 {
     float2 drift = CloudWind * CloudTime;
 
     float w = 0.62 * CloudNoise((world + drift) * CloudScale);
-    w += 0.38 * CloudNoise((world + drift * 1.6) * CloudScale * 2.7 + 31.4);
+    w += 0.38 * CloudNoise((world + drift * 1.25) * CloudScale * 2.7 + 31.4);
 
     return w;
 }
@@ -120,7 +121,7 @@ float3 CloudWeatherD(float2 world)
     float2 drift = CloudWind * CloudTime;
 
     float3 n1 = CloudNoiseD((world + drift) * CloudScale);
-    float3 n2 = CloudNoiseD((world + drift * 1.6) * CloudScale * 2.7 + 31.4);
+    float3 n2 = CloudNoiseD((world + drift * 1.25) * CloudScale * 2.7 + 31.4);
 
     return float3(
         0.62 * n1.x + 0.38 * n2.x,
@@ -169,7 +170,9 @@ float3 CloudDetailD(float2 world, float footprint)
     {
         float resolvable = saturate(1.0 - footprint * frequency * 1.2);
 
-        float3 n = CloudNoiseD((world + drift * (1.0 + octave * 0.4)) * frequency + octave * 17.3);
+        //Each finer octave drifts a little faster, so the detail shears and boils on the forms - 0.15 a step since #809
+        //(it was 0.4: the finest slid at 3.4x the wind, which is what "racing" was as much as the wind itself)
+        float3 n = CloudNoiseD((world + drift * (1.0 + octave * 0.15)) * frequency + octave * 17.3);
 
         sum.x += amplitude * resolvable * n.x;
         if (octave < 4) sum.yz += amplitude * resolvable * frequency * n.yz;

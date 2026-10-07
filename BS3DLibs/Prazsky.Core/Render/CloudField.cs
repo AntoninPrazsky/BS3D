@@ -480,7 +480,7 @@ namespace Prazsky.Core.Render
             Vector2 drift = Wind * Time;
 
             float w = 0.62f * ShaderMath.Noise((world + drift) * Scale);
-            w += 0.38f * (ShaderMath.Noise((world + drift * 1.6f) * (Scale * 2.7f) + new Vector2(31.4f)));
+            w += 0.38f * (ShaderMath.Noise((world + drift * 1.25f) * (Scale * 2.7f) + new Vector2(31.4f)));
 
             return w;
         }
