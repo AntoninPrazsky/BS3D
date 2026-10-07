@@ -821,7 +821,8 @@ namespace BS3D
             //A build that holds one tier outranks both (#788): GamePi is Potato whatever the file or the line says, and
             //so is a Windows run started with "potato" (#808).
             QualityLevel? chosenQuality = QualityLock.Tier ?? launch.Quality ?? _settings.Quality;
-            if (QualityLock.Tier is QualityLevel locked) Console.WriteLine($"[quality] {locked}: {QualityLock.Why}, locked");
+            if (QualityLock.Tier is QualityLevel locked)
+                Console.WriteLine($"[quality] {locked}: {QualityLock.Why}{(QualityLock.ChosenInSettings ? "" : ", locked")}");
 
             //The tier owns supersampling, so the tier's factor is taken first and an explicit ssaa= then
             //overrides that one entry of it — the expert override the benchmark and the screenshot harness use.

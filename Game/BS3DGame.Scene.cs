@@ -784,7 +784,8 @@ namespace BS3D
             // has to exist before the scene target is bound and cannot be made between two binds of it.
             // The effect is what makes everything drawn through it RECEIVE, and the callback is what the
             // island and a live session's gun CAST with (#470).
-            _sceneRenderer.DrawShadowMaps(_scene, _camera, _rig.SunDirection, _instancingEffect, DrawShadowCasters);
+            _sceneRenderer.DrawShadowMaps(_scene, _camera, _rig.SunDirection, _instancingEffect, DrawShadowCasters,
+                sceneryCasts: SceneryShown);
 
             //No copy of this frame for the ceiling's glass yet (#541) - see _ceilingGlassBehind
             _ceilingGlassBehind = null;
@@ -836,7 +837,10 @@ namespace BS3D
             //colour shows up as a band instead of blending into the hazed skyline.
             //The sky-replacing scenes (space, the dream, the cavern, the Moon) have no dome, so they clear to black
             //instead: their pass covers every pixel of the frame, and black is what would show if it ever did not.
-            GraphicsDevice.Clear(SceneRenderer.ReplacesSky(_scene) ? Color.Black : new Color(_rig.HorizonLinear));
+            //With the Scenery row off (#808) every scene stands under the dome, as on the Potato path: a sky-replacing scene's
+            //sky is its backdrop, and without it the frame was a black void round the island.
+            bool sceneSky = SceneRenderer.ReplacesSky(_scene) && SceneryShown;
+            GraphicsDevice.Clear(sceneSky ? Color.Black : new Color(_rig.HorizonLinear));
 
             //The weather runs off the same wall clock the balls pulse to, so it keeps drifting whatever the
             //game does. Handed to both shaders from the one field, which is what keeps the cloud the player
@@ -848,7 +852,7 @@ namespace BS3D
             //unconditionally, and a gain left standing from the scene before would go on shadowing this one.
             _clouds.Time = _wallClock;
 
-            if (SceneRenderer.ReplacesSky(_scene)) _clouds.SuppressOn(_instancingEffect);
+            if (sceneSky) _clouds.SuppressOn(_instancingEffect);
             else
             {
                 //The ground's light on the deck (#509), stated every frame so no scene inherits the last one's.
@@ -874,8 +878,7 @@ namespace BS3D
             //The sea's submerge fade for missed balls — a no-op off the sea scene (see SceneRenderer.ApplySeaSubmerge).
             //It takes how far the LENS is under the water, because since #159 the fade is released by exactly what
             //the tonemap's murk takes over (the same call answers both, at the resolve below).
-            _sceneRenderer.ApplySeaSubmerge(_instancingEffect, _scene,
-                _sceneRenderer.LensSubmergedAmount(_scene, _camera.Position));
+            _sceneRenderer.ApplySeaSubmerge(_instancingEffect, _scene, LensUnderwater, seaShown: SceneryShown);
 
             //The kill plane's own fade for a ball about to be culled (#192) — scene-independent and pushed every
             //frame, including on the front end, which has no ball anywhere near it: see
@@ -900,7 +903,11 @@ namespace BS3D
             //clock is the balls' own, so the campfire's light and its flame billboard cannot drift.
             _sceneLights.Apply(_scene, _sceneRenderer, _cityConfig.NeonLook, _wallClock);
 
-            if (_scene == SceneKind.City || _scene == SceneKind.NeonCity)
+            //The Scenery row off (#808): none of the setting's own world - the backdrop or the city here, the wood, the
+            //aurora's stand, what stands on the ground, the shaft under the drain and the weather below - only the sky,
+            //the island and what plays on it. The lights and the light rig stay the scene's.
+            if (!SceneryShown) { }
+            else if (_scene == SceneKind.City || _scene == SceneKind.NeonCity)
             {
                 //The city's windows keep their own rhythm off the wall clock — a city's lamps do not stop
                 //because the game is paused
@@ -929,11 +936,11 @@ namespace BS3D
             //before the island: one draw per kind per mesh variant, and per material within a tree. The scene
             //gate stays here because the component draws the wood whenever it is called — where it sits in the
             //frame and whether this frame wants it at all are this file's business, not its.
-            if (_scene == SceneKind.Forest) _forestScatter.Draw(_camera);
+            if (_scene == SceneKind.Forest && SceneryShown) _forestScatter.Draw(_camera);
 
             //The forest's firefly-like blinking lights (#487), on the same wall clock the roof beacon and the
             //campfire blink and flicker on.
-            if (_scene == SceneKind.Forest) _forestFireflies?.Draw(_camera, _wallClock);
+            if (_scene == SceneKind.Forest && SceneryShown) _forestFireflies?.Draw(_camera, _wallClock);
 
             if (_scene == SceneKind.Aurora)
             {
@@ -948,7 +955,7 @@ namespace BS3D
                 //so the re-light — whose walk is an iterator — runs about once a second at most, not per frame.
                 if (_rig.StepSceneLight(_wallClock)) ApplySkyLighting();
 
-                _auroraScatter.Draw(_camera);
+                if (SceneryShown) _auroraScatter.Draw(_camera);
             }
 
             //The round island, opaque: its stone cap and concrete drum. Then the dark well behind the glass
@@ -961,7 +968,7 @@ namespace BS3D
             //thunder read, so the cracks in the basalt brighten with the crater. Zero in every other scene.
             _island.EventGlow = _scene == SceneKind.Volcano ? _sceneRenderer.VolcanoEruption(_wallClock) : 0f;
             _island.DrawIsland(_camera, _sceneEffectParams, _scene);
-            _island.DrawPit(_camera, _sceneEffectParams, _scene);
+            if (SceneryShown) _island.DrawPit(_camera, _sceneEffectParams, _scene);
 
             //THE TRANSLUCENT BASELINE, STATED AGAIN ON THE WAY OUT (#667). Everything the caller draws after this -
             //the drain's glass, the ceiling's, the gun's window pane - inherits these three, and they were stated at
@@ -1026,13 +1033,14 @@ namespace BS3D
             StandingGun?.CastShadow(shadowViewProjection);
             _balls?.DrawShadow(shadowViewProjection);
 
-            if (_scene == SceneKind.Forest) _forestScatter?.DrawShadow(shadowViewProjection);
+            //Scenery only where it is drawn (#808): the wood and the towers stay out of the map with the Scenery row off
+            if (_scene == SceneKind.Forest && SceneryShown) _forestScatter?.DrawShadow(shadowViewProjection);
 
             //And the city's towers (#471). ⚠ ALL of them, not City.Visible: that set is culled to the
             //CAMERA's frustum, and a tower just off the side of the screen is exactly the one whose shadow
             //falls across the street the player is looking at. It is one instanced draw of some 1800 boxes
             //into the map either way, so the cull would buy nothing and cost the shadows that matter most.
-            if (_scene == SceneKind.City || _scene == SceneKind.NeonCity)
+            if ((_scene == SceneKind.City || _scene == SceneKind.NeonCity) && SceneryShown)
                 _cityRenderer?.DrawDepth(shadowViewProjection, _city.Buildings, _city.Buildings.Length);
         }
 
@@ -1075,6 +1083,13 @@ namespace BS3D
         internal void DrawSettingGlass() => _island.DrawGlass(_camera, _sceneEffectParams, _scene);
 
         /// <summary>
+        /// How far the lens is under the sea this frame, 0 to 1: <see cref="SceneRenderer.LensSubmergedAmount"/>, the one
+        /// figure the balls' submerge fade, the tonemap's murk and the fireworks all read (#159). And 0 with the Scenery row
+        /// off (#808), which draws no water to be under.
+        /// </summary>
+        private float LensUnderwater => SceneryShown ? _sceneRenderer.LensSubmergedAmount(_scene, _camera.Position) : 0f;
+
+        /// <summary>
         /// The translucent things that stand behind the ceiling's glass from the play camera — the savanna's fires
         /// (#641, <see cref="SceneRenderer.DrawGrounded"/>) and the victory fireworks (#689) — drawn by a screen straight
         /// after <see cref="BeginSceneDraw"/>, with the setting and <b>before</b> <see cref="GrabCeilingBackground"/>, so
@@ -1103,11 +1118,11 @@ namespace BS3D
                 return;
             }
 
-            _sceneRenderer.DrawGrounded(_scene, sceneFrame);
+            if (SceneryShown) _sceneRenderer.DrawGrounded(_scene, sceneFrame);
 
             //Gone under the water (#761), fading with the murk as the lens goes down; the sea is the only scene with
             //water a lens can get under, and everywhere else the figure is 0
-            _fireworks?.Draw(_camera, 1f - _sceneRenderer.LensSubmergedAmount(_scene, _camera.Position));
+            _fireworks?.Draw(_camera, 1f - LensUnderwater);
         }
 
         /// <summary>
@@ -1278,7 +1293,7 @@ namespace BS3D
                 : null;
 
             //A no-op in the two cities and the desert, which carry no overlay weather
-            _sceneRenderer.DrawOverlays(_scene, sceneFrame);
+            if (SceneryShown) _sceneRenderer.DrawOverlays(_scene, sceneFrame);
 
             //The victory display is not drawn here since #689: it goes with the setting, before the ceiling glass's copy
             //is taken, so the glass bends a burst behind it (DrawTranslucentsBehindGlass) - still inside the HDR pass.
@@ -1310,7 +1325,7 @@ namespace BS3D
             //is released by the same figure the murk arrives with (see ApplySeaSubmerge above), and two effects
             //that have to hand over cannot be reading two copies of one expression — this one and the Testbed's
             //were already two.
-            float underwater = _sceneRenderer.LensSubmergedAmount(_scene, _camera.Position);
+            float underwater = LensUnderwater;
 
             //And how far the frame has gone out of focus — the ACTIVE screen's answer and nobody else's,
             //amount and shape together (Screens.IFrameBlurSource: a page blurs the whole frame, the session

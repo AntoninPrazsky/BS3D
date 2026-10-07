@@ -17,5 +17,11 @@ namespace BS3D.Platform
         /// <summary>The Windows build's <c>potato</c> argument (#808) asks for what this build already is: false,
         /// nothing was switched, and this build's effects are where they always were.</summary>
         internal static bool HoldAtPotato() => false;
+
+        /// <summary>Never: the Pi's tier is this build's, not a choice from the Quality row (#808).</summary>
+        internal static bool ChosenInSettings => false;
+
+        /// <summary>The Windows build's Quality-row Potato (#808) asks for what this build already is: false.</summary>
+        internal static bool ChooseAtPotato() => false;
     }
 }

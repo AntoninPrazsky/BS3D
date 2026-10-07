@@ -237,6 +237,14 @@ namespace BS3D
         public QualityLevel? Quality { get; set; }
 
         /// <summary>
+        /// Whether the scene's scenery is drawn (#808, the owner's verdict of 2026-10-07): null or true, its default on
+        /// every desktop tier; false, the player's "Custom" - the island, the cluster, the gun and the sky stand alone, as
+        /// they do on the Potato path, which never draws scenery. Absent from a file unless turned off.
+        /// </summary>
+        [JsonPropertyName("scenery")]
+        public bool? Scenery { get; set; }
+
+        /// <summary>
         /// Whether the game may lower the tier on its own (#390), for the player who would rather keep one —
         /// High included — at whatever frame rate it costs. <b>True by default, because that is what the game
         /// already did</b>, so nobody who never opens the page sees a change.
@@ -332,6 +340,14 @@ namespace BS3D
 
             return settings;
         }
+
+        /// <summary>
+        /// Whether the file at <paramref name="path"/> (or its backup) names Potato on the Quality row (#808): what
+        /// <c>Program.Main</c> asks before the game object exists, since the renderer is chosen there. Read only, with none
+        /// of <see cref="Load"/>'s keeping of an unreadable file, which the game's own load does a moment later.
+        /// </summary>
+        internal static bool ChoosesPotato(string path) =>
+            (TryRead(path) ?? TryRead(path + BackupSuffix))?.Quality == QualityLevel.Potato;
 
         private static float UnitRow(float value) => float.IsNaN(value) ? 1f : Math.Clamp(value, 0f, 1f);
 

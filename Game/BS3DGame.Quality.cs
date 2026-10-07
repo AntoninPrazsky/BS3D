@@ -40,11 +40,37 @@ namespace BS3D
         internal bool IsAdaptiveQualityEnabled => !_qualityPinnedByPlayer;
 
         /// <summary>
-        /// Whether this build holds one tier the player cannot change (#788): GamePi, at Potato. The Quality and Auto
-        /// quality rows still stand on the page, so it keeps its shape, and say so instead of cycling. See
+        /// Whether this build holds one tier the player cannot change (#788): GamePi, at Potato, and a Windows run started
+        /// with <c>potato</c>. The Quality and Auto quality rows still stand on the page, so it keeps its shape, and say so
+        /// instead of cycling. Not a run on Potato the player chose on the Quality row (#808): that row stays theirs. See
         /// <see cref="QualityLock"/>.
         /// </summary>
-        internal bool IsQualityLocked => QualityLock.Tier.HasValue;
+        internal bool IsQualityLocked => QualityLock.Tier.HasValue && !QualityLock.ChosenInSettings;
+
+        /// <summary>
+        /// What the Quality row says (#808). A locked build says so. A tier stored for the next start that needs the other
+        /// renderer - Potato picked on the desktop path, or a desktop tier picked on a Potato run - says "(restart)",
+        /// since the renderer is chosen when the process starts. The desktop path with its scenery turned off reads
+        /// "Custom" (the owner's word): the tier is still in force, but the look is no longer the tier's own.
+        /// </summary>
+        internal string QualityLabel
+        {
+            get
+            {
+                if (IsQualityLocked) return $"{_quality} (locked)";
+
+                if (_settings.Quality is QualityLevel stored && (stored == QualityLevel.Potato) != PotatoPath)
+                    return $"{stored} (restart)";
+
+                if (PotatoPath) return QualityLevel.Potato.ToString();
+
+                return SceneryShown ? _quality.ToString() : "Custom";
+            }
+        }
+
+        /// <summary>What the Auto quality row says: the probe never runs on the Potato path, chosen or held (#808).</summary>
+        internal string AdaptiveQualityLabel =>
+            IsQualityLocked ? "Off (locked)" : PotatoPath ? "Off (Potato)" : IsAdaptiveQualityEnabled ? "On" : "Off";
 
         /// <summary>
         /// True once the quality tier is not to be touched again: the player named one on the command line, the
@@ -388,22 +414,31 @@ namespace BS3D
         private void ShowQualityNotice(QualityLevel quality) => _mainMenuPage.ShowQualityNotice(quality);
 
         /// <summary>
-        /// Steps the quality tier, which is the setting the player sees. Wraps Low → Medium → High → Ultra → Low —
-        /// and this row is the only thing in the game that reaches Ultra (#484), which is the owner's ruling: the
-        /// rung above the authored look costs half a gigabyte of card memory, and that is the player's to spend.
+        /// Steps the quality tier, which is the setting the player sees. Wraps Low → Medium → High → Ultra → Potato → Low
+        /// (<see cref="QualityLevels.NextOnRow"/>) — and this row is the only thing in the game that reaches Ultra (#484),
+        /// which is the owner's ruling: the rung above the authored look costs half a gigabyte of card memory, and that is
+        /// the player's to spend. Potato joined it on the owner's verdict of 2026-10-07 (#808): picked here it is stored and
+        /// drawn through the Raspberry Pi's renderer from the next start, and the desktop path applies its preset meanwhile.
+        /// A tier picked here is the tier's own look, so the scenery comes back on with it.
         /// </summary>
         internal void CycleQuality()
         {
             //The row reads the locked tier and does nothing (#788): GamePi's Potato is not the player's to step
             if (IsQualityLocked) return;
 
-            ApplyQuality(_quality switch
+            //A Potato run the player chose (#808) cannot change its renderer while it runs: the next tier is stored for the
+            //next start, and the row says "(restart)" until then
+            if (PotatoPath)
             {
-                QualityLevel.Low => QualityLevel.Medium,
-                QualityLevel.Medium => QualityLevel.High,
-                QualityLevel.High => QualityLevel.Ultra,
-                _ => QualityLevel.Low,
-            });
+                _settings.Quality = (_settings.Quality ?? QualityLevel.Potato).NextOnRow();
+                _settings.AdaptiveQuality = false;
+                SaveSettings();
+                _settingsPage.Refresh();
+                return;
+            }
+
+            _settings.Scenery = null;
+            ApplyQuality(_quality.NextOnRow());
 
             //The player has now said what they want, so the adaptive path stops second-guessing them — and the
             //notice about what it did has been answered and goes away. Marked as pinned, so a later fullscreen
@@ -448,8 +483,10 @@ namespace BS3D
         /// </summary>
         internal void ToggleAdaptiveQuality()
         {
-            //Nothing to hand to the probe on a locked build (#788), and nothing to store: the lock is not a choice
-            if (IsQualityLocked) return;
+            //Nothing to hand to the probe on a locked build (#788), and nothing to store: the lock is not a choice. Nor on a
+            //Potato run the player chose (#808): the probe steps the desktop's tiers, which this renderer does not draw, and
+            //the way back is the Quality row
+            if (IsQualityLocked || PotatoPath) return;
 
             if (_qualityPinnedByPlayer)
             {

@@ -63,5 +63,67 @@ namespace BS3D.Tests
             Assert.Contains("\"quality\": \"Potato\"", File.ReadAllText(settings.Path));
             Assert.Equal(QualityLevel.Potato, GameSettings.Load(settings.Path).Quality);
         }
+
+        /// <summary>
+        /// The Quality row on Windows (#808): Low, Medium, High, Ultra, Potato and round again, by name - the enum's order
+        /// is not the ladder's - and every tier reached exactly once in a full turn.
+        /// </summary>
+        [Fact]
+        public void TheRowWalksTheLadderThroughPotatoAndBack()
+        {
+            QualityLevel[] expected = { QualityLevel.Medium, QualityLevel.High, QualityLevel.Ultra, QualityLevel.Potato, QualityLevel.Low };
+            QualityLevel tier = QualityLevel.Low;
+
+            foreach (QualityLevel next in expected)
+            {
+                tier = tier.NextOnRow();
+                Assert.Equal(next, tier);
+            }
+        }
+
+        /// <summary>
+        /// What <c>Program.Main</c> reads before the game exists (#808): Potato named on the row starts the Pi's renderer,
+        /// any other tier, none, or no file at all does not; and the backup answers for a file that would not read.
+        /// </summary>
+        [Fact]
+        public void OnlyAStoredPotatoChoosesThePotatoRenderer()
+        {
+            using TempDirectory temp = new();
+            string path = temp.File("Settings.json");
+
+            Assert.False(GameSettings.ChoosesPotato(path));
+
+            GameSettings settings = GameSettings.Load(path);
+            settings.Quality = QualityLevel.Ultra;
+            settings.Save();
+            Assert.False(GameSettings.ChoosesPotato(path));
+
+            settings.Quality = QualityLevel.Potato;
+            settings.Save();
+            Assert.True(GameSettings.ChoosesPotato(path));
+
+            //A damaged file: the backup answers for it. A save keeps the file it replaces as the backup, so a second save
+            //of the same choice is what puts Potato there too
+            settings.Save();
+            File.WriteAllText(path, "{ not json");
+            Assert.True(GameSettings.ChoosesPotato(path));
+        }
+
+        /// <summary>The Scenery row (#808): absent from the file while on, stored as false when off, and read back so.</summary>
+        [Fact]
+        public void SceneryOffIsStoredAndOnIsTheDefault()
+        {
+            using TempDirectory temp = new();
+            GameSettings settings = GameSettings.Load(temp.File("Settings.json"));
+
+            Assert.Null(settings.Scenery);
+            settings.Save();
+            Assert.DoesNotContain("scenery", File.ReadAllText(settings.Path));
+
+            settings.Scenery = false;
+            settings.Save();
+            Assert.Contains("\"scenery\": false", File.ReadAllText(settings.Path));
+            Assert.False(GameSettings.Load(settings.Path).Scenery);
+        }
     }
 }

@@ -208,8 +208,9 @@ namespace Prazsky.Core.Render
         /// number the caller hands the tonemap for its murk. The fade is released by exactly this (#159), so the
         /// two effects hand over rather than one of them leaning on the other being there: see the shader.
         /// </param>
-        public void ApplySeaSubmerge(Effect effect, SceneKind scene, float lensSubmerged) =>
-            _sea.ApplySubmerge(effect, scene, lensSubmerged);
+        /// <param name="seaShown">False when the host draws no scenery (#808): there is no water, so no fade either.</param>
+        public void ApplySeaSubmerge(Effect effect, SceneKind scene, float lensSubmerged, bool seaShown = true) =>
+            _sea.ApplySubmerge(effect, scene, lensSubmerged, seaShown);
 
         /// <summary>
         /// How far the <b>lens</b> is under the sea, 0 above the surface to 1 well below it — <b>the</b> figure
@@ -1525,8 +1526,10 @@ namespace Prazsky.Core.Render
         /// <param name="extraCasters">Draws the host's own casters into the map, handed the map's world →
         /// clip matrix. Called with the target bound and the states set; see
         /// <see cref="ArenaIsland.DrawShadow"/>.</param>
+        /// <param name="sceneryCasts">False when the host draws no scenery (the Game's Scenery row off, #808): the backdrop's
+        /// own casters stay out of the map, so nothing that is not drawn casts a shadow.</param>
         public void DrawShadowMaps(SceneKind scene, ICamera camera, Vector3 sunDirection,
-            Effect instancedEffect = null, Action<Matrix> extraCasters = null)
+            Effect instancedEffect = null, Action<Matrix> extraCasters = null, bool sceneryCasts = true)
         {
             //The shared effect's parameters, cached on the first frame one is handed in (#470). It is the
             //caller's effect, so it cannot be registered at load with the rest (RegisterShadowReceivers).
@@ -1543,7 +1546,7 @@ namespace Prazsky.Core.Render
             //none of them — the MAP EDITOR, which draws no island, no gun and no wood — would render an empty
             //map and then pay nine taps a pixel to read that everything is lit. The editor is the caller this
             //spares, and it is the only one: both other executables always hand a callback in.
-            bool sceneCasts = BackdropFor(scene)?.HasShadowCasters == true;
+            bool sceneCasts = sceneryCasts && BackdropFor(scene)?.HasShadowCasters == true;
 
             //Then the gates that cost least to fail first: does this scene ask for a map at all, is the tier
             //high enough, is the sun above the horizon, and does the scene have a ground to fit a map round.
@@ -1607,7 +1610,7 @@ namespace Prazsky.Core.Render
             //peter-pan out of its own shadow. The FOREST's wood is not here because it is no backdrop's: the
             //hosts own their ForestScatterRenderer, so it casts through extraCasters below with the island and
             //the gun.
-            BackdropFor(scene)?.DrawShadowCasters(_sunShadowMap.ViewProjection);
+            if (sceneryCasts) BackdropFor(scene)?.DrawShadowCasters(_sunShadowMap.ViewProjection);
 
             //And whatever the caller casts (#470): the island and the gun, which are the executable's objects
             //and not this renderer's ("the setting, in one copy" — the renderer draws the scene's own scatter
