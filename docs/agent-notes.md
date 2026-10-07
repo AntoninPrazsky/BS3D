@@ -921,3 +921,17 @@ Majitel večer 4. 10.: „zpracovávej až do rána issues, které můžeš zpra
 - **Inventura** (majitel se ptal na rozdělanou práci): kromě mainu žádná větev, žádný stash, CI zelené. Tři worktree ve scratchpadech starých sezení jsou čisté a detached na commitech mainu. Nemazal jsem je, protože v `bin` můžou mít snímky.
 - ⚠ **Dávka verdiktů ze 6. 10. nemá štítky ani odkaz na issues.** Žádné z 15 issues nenese `verdict-*` ani `owner-decision` a stránka „Verdikty 6. 10.“ není odkázaná na žádném z nich. Klasifikace bs3d-f3 čeká na majitelovo svolení a databáze stránky (`verdicts`) je prázdná, takže majitel zatím neodpověděl.
 - ⚠ **Deník za září se zrotoval až 7. 10.** (448 zápisů, #358, teď `docs/agent-notes-archive/2026-09.md`). Měl to udělat první zápis října, a nikdo to neudělal: deník narostl na 1,44 MB, teď má 175 kB. Obě půlky složené za sebe dají původní soubor bajt po bajtu (chybí jen prázdný řádek mezi zářím a říjnem).
+
+## 2026-10-07 — dávka verdiktů ze 6. 10. provedena, #762 sklo 0,2, testovací poznámka #813 — desktop, Claude Code (bs3d-c5)
+
+- **Majitel dal svolení („Ano, proveď to“), dávka ze 6. 10. je provedená.** Na každé z 15 issues je odkaz na stránku „Verdikty 6. 10.“ a druh.
+  - `verdict-hands`: #188, #378, #800, #520, #802.
+  - `verdict-eye`: #780, #811, #257. Mlčením se může zavřít jen #780, nejdřív 2026-10-14. #811 čeká, až někdo uvidí hák ve hře; #257 čeká na bedny.
+  - `owner-decision` místo `shipped-awaiting-verdict`: #803, #213, #692, #808.
+  - **Zavřeno s důkazem:** #769 (snímky bs3d-f3, `SpaceWrapTests` 8/8) a #793 (zkouška release na dnešním mainu, run 37582683923: tři zelené joby, oba balíky a SHA256SUMS, poprvé i s řádky z #808).
+  - **Fronta mimo nováčka má teď 9 položek** (bylo 16 i s #813, které je `verdict-eye`).
+- **#762 (merge `cfbec3de`): vůle kresleného skla 0,1 → 0,2.** Dočasná sonda (necommitnutá) měřila v každém kroku průnik každé padající koule do kolizní stěny a ke kreslenému sklu. Scénář: City `level=112 seed=3 powerups=cut:4`, čtyři trojice `aim=`/`cut=`/`fire=`, pády 240, 311 a 284 koulí. Průnik do stěny byl 0,055 a v dalším běhu 0,069 (řešič není deterministický), vždy v dolní třetině (r ≈ 4), kde se hromada vzpříčí v otvoru. Se starou vůlí chybělo ke sklu 0,007 a 0,069 by jím už prošlo. S 0,2 je nejblíž 0,060 a v 900 000 vzorcích sklem neprošla žádná koule. Snímky zespodu (průlet pádu v City) jsou čisté před i po.
+  - ⚠ **`shot=` během průletu pádu:** uložení PNG ve 4K trvá asi 2 s a hodiny hry poskočí nejvýš o 0,5 s, takže série snímků se za průletem opožďuje. Pohled zespodu zachytilo `shot=13,14.5` při `fire=9`.
+- **#813: testovací poznámka do živé služby prošla** (svolení majitele): `[note] Sent 0c20ef9b (201)`. Je to jediná poznámka v živé databázi (záložka Notes admin stránky přes `bs3d-admin`). **Smazat ji agent neumí:** admin CLI chce sudo heslo, bez hesla jdou jen `update.sh`, `update-ceilings.sh`, snapshot databáze a admin stránka, která jen čte. Smaže ji majitel (`admin notes`, pak `admin delete-note <id>`).
+  - ⚠ **Admin stránka přes SSH tunel vrací 400, když lokální port není stejný jako vzdálený** (`-L 15008:127.0.0.1:5008`). Se stejným číslem portu (`-L 5009:127.0.0.1:5009`, `bs3d-admin --port 5009`) jde přihlášení klíčem z výpisu i stránka.
+- BS3D-API#10 zavřené s důkazem nasazení (v0.1.22).
