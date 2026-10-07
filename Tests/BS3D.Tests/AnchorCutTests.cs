@@ -251,18 +251,95 @@ namespace BS3D.Tests
             ClusterInvariants.Verify(hung.Balls, hung.Map, hung.World.Simulation, hung.Ceiling.Handle);
         }
 
-        /// <summary>The owner's guard (#692, 2026-10-05): the four storeys under the glass refuse the Cut, the fifth does not.</summary>
-        [Fact]
-        public void TheFourStoreysUnderTheGlassAreProtected()
+        /// <summary>
+        /// The owner's guard (#692, 2026-10-07): a cut may take at most the lower half of the cluster, from its lowest ball
+        /// to its highest - the storey struck and every one under it. It replaced the four storeys under the glass.
+        /// </summary>
+        [Theory]
+        [InlineData(8, 4)]
+        [InlineData(12, 6)]
+        [InlineData(5, 2)]
+        [InlineData(4, 2)]
+        [InlineData(1, 0)]
+        public void AtMostTheLowerHalfOfTheClusterMayBeCut(int storeys, int cuttable)
         {
             var map = new BallsMap(7, 7, 12);
-            int top = map.GetStaticBallsArraySize().Level - 1;
+            List<XZLevel> rope = Chain(map, storeys);   //top to bottom
 
-            for (int below = 0; below < BallsConstraintsBuilder.CUT_PROTECTED_STOREYS; below++)
-                Assert.True(BallsConstraintsBuilder.IsCutProtected(new XZLevel(3, 3, top - below), map));
+            for (int i = 0; i < rope.Count; i++)
+            {
+                int fromTheBottom = rope.Count - 1 - i;  //0 for the lowest ball
+                bool protectedHere = BallsConstraintsBuilder.IsCutProtected(rope[i], map);
+                Assert.Equal(fromTheBottom >= cuttable, protectedHere);
+            }
+        }
 
-            Assert.False(BallsConstraintsBuilder.IsCutProtected(new XZLevel(3, 3, top - BallsConstraintsBuilder.CUT_PROTECTED_STOREYS), map));
-            Assert.Equal(4, BallsConstraintsBuilder.CUT_PROTECTED_STOREYS);
+        /// <summary>
+        /// The preview the gun lights before the shot (#692, <see cref="CutReach"/>) is what the cut then takes: the storey
+        /// and every ball left reaching nothing, counted against <see cref="BallsConstraintsBuilder.CutBall"/> on the same
+        /// cluster hung for real, at every cell a cutter may strike.
+        /// </summary>
+        [Theory]
+        [InlineData(11)]
+        [InlineData(23)]
+        [InlineData(47)]
+        public void ThePreviewIsWhatTheCutTakes(int seed)
+        {
+            List<XZLevel> cluster = RandomCluster(seed);
+            BallsMap probe = RebuildFrom(new BallsMap(7, 7, 9), cluster);
+            var reach = new CutReach();
+            int withFall = 0, withoutFall = 0;
+
+            //Every cell a cutter may strike, compared where something falls (that is the half a preview can get wrong) and a
+            //couple where nothing does, each against a cluster hung afresh
+            foreach (XZLevel cell in cluster)
+            {
+                if (CutReach.IsProtected(cell, probe)) continue;
+
+                reach.Measure(probe, cell);
+                bool falls = reach.Cells.Count > reach.StoreyCount;
+                if (falls ? withFall >= 6 : withoutFall >= 2) continue;
+                if (falls) withFall++; else withoutFall++;
+
+                using HungLevel hung = new(RebuildFrom(probe, cluster));
+                var released = new List<PhysicsBall>();
+                BallsReleased result = BallsConstraintsBuilder.CutBall(cell, hung.Balls, hung.Map, hung.World.Simulation, released);
+
+                Assert.Equal(result.Destroyed + result.Orphaned, reach.Cells.Count);
+                Assert.Equal(result.Destroyed, reach.StoreyCount);
+            }
+
+            Assert.True(withFall > 0, "no cut the cluster allows lets anything fall, so the comparison proves nothing");
+        }
+
+        /// <summary>
+        /// A cluster that hangs together: the top level full, and below it each cell kept now and then if a ball it touches
+        /// on the level above is there - a seeded scatter, so the cuts compared run through ropes, ledges and clumps.
+        /// </summary>
+        private static List<XZLevel> RandomCluster(int seed)
+        {
+            var random = new System.Random(seed);
+            var map = new BallsMap(7, 7, 9);
+            XZLevel size = map.GetStaticBallsArraySize();
+            var cells = new List<XZLevel>();
+            StaticBall[,,] balls = map.GetStaticBallsArray();
+
+            for (int level = size.Level - 1; level >= 1; level--)
+                for (int x = 0; x < size.X; x++)
+                    for (int z = 0; z < size.Z; z++)
+                    {
+                        bool hangs = level == size.Level - 1;
+                        if (!hangs)
+                            foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(new XZLevel(x, z, level), size))
+                                if (neighbour.Level == level + 1 && balls[neighbour.X, neighbour.Z, neighbour.Level] != null) hangs = true;
+
+                        if (!hangs || (level < size.Level - 1 && random.NextDouble() > 0.55)) continue;
+
+                        map.PutBallAt((byte)x, (byte)z, (byte)level, BallType.Type1);
+                        cells.Add(new XZLevel(x, z, level));
+                    }
+
+            return cells;
         }
 
         /// <summary>A fresh map holding only <paramref name="cells"/>: <see cref="HungLevel"/> centres and hangs the map it is given once.</summary>

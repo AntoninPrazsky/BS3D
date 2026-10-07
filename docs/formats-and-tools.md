@@ -694,6 +694,7 @@ Colossus (the one hand-drawn level, which `Validate` never sees) and a design be
   - Every ball of a lattice cluster hangs by up to twelve neighbours, so taking one out leaves every other ball still reaching the ceiling.
 - **The report also measures the alternative #692 names,** a "ring": the struck ball and every ball touching it go, then what hung by them. The median level's best exposed ring frees 12, its typical (median) exposed ring 8, and the least any level's best ring frees is 9. Four levels have one that brings down a mass: Kepler 227, Belfry 188, Comet 77 and Organ 76.
   - Measured first, then adopted on the owner's word (the storey with four storeys protected). It moved neither ScoreSim's ceilings nor the online boards' whitelist (#549): the ceiling already counts every ball at the richest rate.
+  - **Its last row is the rule since 2026-10-07, the lower half only** (`CutReach.IsProtected`, the owner's answer to the verdict page: at most half the cluster's height, from its lowest ball to its highest, may be cut). Measured that day: one strike clears none of the 110 levels outright; the median level's best strike frees **154** and its typical strike **77**, against 240 and 105 with the four storeys under the glass guarded. It moves neither the ceilings nor the whitelist, for the reason above.
 
 ### How often the drop cinematic fires (#719)
 

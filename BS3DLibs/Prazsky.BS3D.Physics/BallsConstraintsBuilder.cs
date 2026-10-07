@@ -1197,23 +1197,18 @@ namespace Prazsky.BS3D.Physics
         }
 
         /// <summary>
-        /// How many storeys under the glass the Cut may not strike (#692): the owner's guard, 2026-10-05. Unguarded, one
-        /// strike on the top storey dropped the whole cluster on 88 of the 110 levels that grant a Cut (`LevelGen --cuts`):
-        /// everything hangs from it. With the top one, two or three guarded the median level's best strike still freed
-        /// 398, 355 or 302 balls of about 500, and he chose four.
+        /// Whether a cutter may not be fired at <paramref name="cell"/> (#692): whether the storey there and everything
+        /// under it would be more than half the cluster's height, from its lowest ball to its highest
+        /// (<see cref="CutReach.IsProtected"/>, the owner's rule of 2026-10-07). Until then it was the four storeys under
+        /// the glass, his guard of 2026-10-05: unguarded, one strike on the top storey dropped the whole cluster on 88 of
+        /// the 110 levels that grant a Cut (`LevelGen --cuts`), and four of them guarded matched half of an eight-storey
+        /// cluster but let a cut take two thirds of a twelve-storey one and left a four-storey one nothing to cut.
+        /// <b>The gun's rule, not <see cref="CutBall"/>'s</b>: the aim that would strike there is refused the way an aim past
+        /// the elevation clamp is — the marks blink and the trigger answers with the dry "no" — so a cutter never leaves for
+        /// one of these storeys. A flight that strays into one anyway (the cluster swung while it flew) takes the one ball it
+        /// struck (<see cref="DestroyBall"/>, chosen by the contact handler) and not its storey.
         /// </summary>
-        public const int CUT_PROTECTED_STOREYS = 4;
-
-        /// <summary>
-        /// Whether <paramref name="cell"/> stands in one of the <see cref="CUT_PROTECTED_STOREYS"/> storeys under the glass,
-        /// which a cutter may not be fired at (#692). <b>The gun's rule, not <see cref="CutBall"/>'s</b>: the aim that would
-        /// strike there is refused the way an aim past the elevation clamp is — the marks blink and the trigger answers with
-        /// the dry "no" — so a cutter never leaves for one of these storeys. A flight that strays into one anyway (the cluster
-        /// swung while it flew) takes the one ball it struck (<see cref="DestroyBall"/>, chosen by the contact handler) and
-        /// not its storey.
-        /// </summary>
-        public static bool IsCutProtected(XZLevel cell, BallsMap map) =>
-            cell.Level >= map.GetStaticBallsArraySize().Level - CUT_PROTECTED_STOREYS;
+        public static bool IsCutProtected(XZLevel cell, BallsMap map) => CutReach.IsProtected(cell, map);
 
         //Per thread like the other scratch lists (#585): a cut is asked of one landing at a time today, but the sag probe and the
         //tests run whole worlds side by side

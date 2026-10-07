@@ -1,4 +1,8 @@
+using Microsoft.Xna.Framework;
 using Prazsky.BS3D.GameStructure;
+using Prazsky.BS3D.GameStructure.DataBags;
+using Prazsky.BS3D.Physics;
+using System.Collections.Generic;
 using System;
 
 namespace BS3D.Screens
@@ -35,7 +39,7 @@ namespace BS3D.Screens
         /// <summary>
         /// The anchor cut (#213, the third of its order): turns the round in the bore into a
         /// <see cref="BallKind.Cutter"/>, which destroys the whole storey of the ball it strikes instead of sticking, so what
-        /// hung on that storey falls (#692); aimed into the four storeys under the glass it is refused like an aim past the
+        /// hung on that storey falls (#692); aimed where it would take more than the lower half of the cluster it is refused like an aim past the
         /// elevation clamp (<c>_cutterRefused</c>). Refused while the round is already a cutter or a wildcard (a wildcard turned into a cutter
         /// would be a charge spent to lose a wildcard).
         /// </summary>
@@ -226,5 +230,64 @@ namespace BS3D.Screens
             if (CanActivate(PowerupKind.Brake)) Activate(PowerupKind.Brake);
             else if (_run.BrakeOffered && !CameraTakeoverEngaged && !LevelDecided) Game.Audio.PlayShotRefused();
         }
+
+        #region The cut's preview (#692)
+
+        //How brightly the balls a loaded cutter would cut off are lit, through the ripple's channel (RIPPLE_STRENGTH times
+        //this is added to the ball's linear colour): well under a landing wave's peak, since a strike can light hundreds at
+        //once and the wave's own history (#244) is what a few hundred bright balls do to the glare
+        private const float CUT_PREVIEW_GLOW = 0.32f;
+
+        //And how it breathes, so a lit set reads as "these, if you fire" rather than as a colour the balls have: the glow
+        //dips by this share once every period
+        private const float CUT_PREVIEW_BREATH = 0.35f;
+        private const float CUT_PREVIEW_PERIOD = 1.1f;
+
+        private readonly CutReach _cutReach = new();
+        private readonly List<PhysicsBall> _cutLit = new(256);
+
+        /// <summary>
+        /// The ripple hook the cluster's walk is built with (<see cref="ClusterCollector"/>): the landing wave's own flare,
+        /// or the cut's preview where that is brighter. Static, so the collector holds one delegate for good.
+        /// </summary>
+        private static float RippleOrCutPreview(PhysicsBall ball, float elapsed)
+        {
+            float ripple = ClusterRipple.Advance(ball, elapsed);
+            return ball.CutPreviewGlow > ripple ? ball.CutPreviewGlow : ripple;
+        }
+
+        /// <summary>Puts out the last frame's preview: every ball it lit back to 0.</summary>
+        private void ClearCutPreview()
+        {
+            for (int i = 0; i < _cutLit.Count; i++) _cutLit[i].CutPreviewGlow = 0f;
+            _cutLit.Clear();
+        }
+
+        /// <summary>
+        /// Lights what a cutter striking <paramref name="struck"/> would cut off (#692, the owner's ask: brighten the balls
+        /// that will be cut off, before the shot): its storey and everything that would no longer reach the glass
+        /// (<see cref="CutReach"/>). Asked on every frame the preview is, which is a walk over the cluster's cells and
+        /// nothing allocated; a bomb's blast is not foretold.
+        /// </summary>
+        private void LightCutPreview(XZLevel struck)
+        {
+            _cutReach.Measure(_map, struck);
+
+            float breath = 0.5f + 0.5f * MathF.Cos(WallClock * MathHelper.TwoPi / CUT_PREVIEW_PERIOD);
+            float glow = CUT_PREVIEW_GLOW * (1f - CUT_PREVIEW_BREATH * breath);
+
+            List<XZLevel> cells = _cutReach.Cells;
+            for (int i = 0; i < cells.Count; i++)
+            {
+                XZLevel cell = cells[i];
+                PhysicsBall ball = _physicsBalls[cell.X, cell.Z, cell.Level];
+                if (ball == null) continue;
+
+                ball.CutPreviewGlow = glow;
+                _cutLit.Add(ball);
+            }
+        }
+
+        #endregion
     }
 }

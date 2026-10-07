@@ -142,6 +142,13 @@ namespace Prazsky.BS3D.Physics
         public float RippleAmplitude;
 
         /// <summary>
+        /// How brightly this ball is lit as one a loaded cutter would cut off (#692, the owner's ask: show what will go
+        /// before the shot), 0 for every other ball. The gun sets it each frame it previews a cut and zeroes it the next,
+        /// and the draw reads it through the ripple's own channel, so it brightens a ball the way the wave does.
+        /// </summary>
+        public float CutPreviewGlow;
+
+        /// <summary>
         /// Seconds left of this ball's clear-to-colour crossing (#325), counting down to zero — nonzero only
         /// on a <see cref="BallKind.Transparent"/> ball that a landing has just coloured, and only for
         /// <c>ClusterCollector.COLOUR_FADE_SECONDS</c>.
