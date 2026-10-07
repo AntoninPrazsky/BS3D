@@ -1083,7 +1083,11 @@ namespace BS3D.Screens
             //verbs, so the write goes the one way every save write goes. The testing argument offers every card
             //and writes nothing.
             _tutorial = new Tutorial(game.WasLessonTaught, game.RecordLessonTaught, test.TutorialMode);
-            if (test.PadPrompts) _tutorial.PinDevice(Tutorial.Device.Gamepad);
+            if (test.PadPrompts)
+            {
+                _tutorial.PinDevice(Tutorial.Device.Gamepad);
+                if (Game.Rumble != null) Game.Rumble.HandOnPad = true;
+            }
 
             //Orbit centre is the field the cluster hangs over. No trunnion height goes in: the gun stands on
             //the island's dished stone, so its height is the carriage's own figure of its radius

@@ -182,13 +182,24 @@ namespace BS3D.Screens
 
             if (keyboard.IsKeyDown(Keys.A) || keyboard.IsKeyDown(Keys.D) || keyboard.IsKeyDown(Keys.W)
                 || keyboard.IsKeyDown(Keys.S) || keyboard.IsKeyDown(Keys.Space))
-                _tutorial.NoteDevice(Tutorial.Device.KeyboardMouse);
+                NoteDevice(Tutorial.Device.KeyboardMouse);
             else if (MathF.Abs(stickX) > PAD_WALK_DEADZONE || MathF.Abs(stickY) > PAD_WALK_DEADZONE)
-                _tutorial.NoteDevice(Tutorial.Device.Gamepad);
+                NoteDevice(Tutorial.Device.Gamepad);
 
             Game.PreviousKeyboard = keyboard;
 
             return false;
+        }
+
+        /// <summary>
+        /// Which hand the player is using, said once to both things that care: the tutorial, which draws its glyphs for
+        /// it (#189), and the rumble, which answers the game's events only while the hand is on the pad (#817). One
+        /// decision, so the prompts and the motors cannot disagree about what the player is holding.
+        /// </summary>
+        private void NoteDevice(Tutorial.Device device)
+        {
+            _tutorial.NoteDevice(device);
+            Game.Rumble.HandOnPad = _tutorial.OnGamepad;
         }
 
         /// <summary>
@@ -220,12 +231,12 @@ namespace BS3D.Screens
             //UpdateInput. Read before the recentre below, which is what puts the pointer back on the centre.
             if ((_cursorCaptured && (mouse.X != centreX || mouse.Y != centreY))
                 || mouse.LeftButton == ButtonState.Pressed || mouse.RightButton == ButtonState.Pressed)
-                _tutorial.NoteDevice(Tutorial.Device.KeyboardMouse);
+                NoteDevice(Tutorial.Device.KeyboardMouse);
             else if (pad.IsConnected
                 && (pad.ThumbSticks.Right.LengthSquared() > PAD_WALK_DEADZONE * PAD_WALK_DEADZONE
                     || pad.Triggers.Left > PreciseAim.TRIGGER_THRESHOLD || pad.Triggers.Right > FIRE_TRIGGER_THRESHOLD
                     || pad.IsButtonDown(Buttons.A)))
-                _tutorial.NoteDevice(Tutorial.Device.Gamepad);
+                NoteDevice(Tutorial.Device.Gamepad);
 
             //The click that takes the cursor. Gated on edgeInputAllowed like every other edge, which is what
             //keeps the click that merely brings the window forward from also capturing — that one lands on a

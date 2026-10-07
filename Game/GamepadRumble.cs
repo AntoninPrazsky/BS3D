@@ -54,18 +54,46 @@ namespace BS3D
         /// </summary>
         public float Strength { get; set; } = 1f;
 
+        /// <summary>
+        /// Whether the player's hand is on the pad (#817): the play's own answer, the one the tutorial draws its glyphs
+        /// for (<c>GameplayScreen.NoteDevice</c>). A game event (<see cref="Kick"/>, <see cref="KickTriggers"/>) is felt
+        /// only while it is true. A pad lying beside a keyboard player used to answer every shot, landing and ceiling
+        /// step, and the owner's rule is that it says nothing then but the startup signature. The signature, the connect
+        /// pulse and the menu's words go out whatever this says: the first two are the pad announcing itself, and the
+        /// menu speaks only when the pad itself moved it.
+        /// </summary>
+        public bool HandOnPad { get; set; }
+
         /// <summary>Starts listening for a pad whose trigger motors can be reached (<see cref="PadMotors.Start"/>).</summary>
         public GamepadRumble() => PadMotors.Start();
 
         /// <summary>
-        /// Adds one event's worth of pulse, <paramref name="left"/> and <paramref name="right"/> each 0 to 1.
-        /// Accumulates and saturates at 1 per channel like <see cref="Prazsky.Core.Camera.CameraShake.Kick"/>,
-        /// so two events landing in the same frame blend rather than one clobbering the other's timing.
-        /// <paramref name="seconds"/> is how long the channel takes to fall back to zero from here — the
-        /// heavier events (a ceiling step) ask for longer than the light ones (a ball landing), which a single
-        /// fixed decay rate could not tell apart.
+        /// A game event's pulse, <paramref name="left"/> and <paramref name="right"/> each 0 to 1, felt only while the
+        /// hand is on the pad (<see cref="HandOnPad"/>). Accumulates and saturates at 1 per channel like
+        /// <see cref="Prazsky.Core.Camera.CameraShake.Kick"/>, so two events landing in the same frame blend rather than
+        /// one clobbering the other's timing. <paramref name="seconds"/> is how long the channel takes to fall back to
+        /// zero from here — the heavier events (a ceiling step) ask for longer than the light ones (a ball landing),
+        /// which a single fixed decay rate could not tell apart.
         /// </summary>
         public void Kick(float left, float right, float seconds)
+        {
+            if (HandOnPad) Feel(left, right, seconds);
+        }
+
+        /// <summary>
+        /// <see cref="Kick"/> for the impulse motors in the triggers (#188), <paramref name="left"/> and
+        /// <paramref name="right"/> each 0 to 1, and gated the same way. Felt only on a pad that has them and only
+        /// through <see cref="PadMotors"/>; anywhere else it is accepted and goes nowhere, as the body's own kicks do on
+        /// a pad without motors.
+        /// </summary>
+        public void KickTriggers(float left, float right, float seconds)
+        {
+            if (HandOnPad) FeelTriggers(left, right, seconds);
+        }
+
+        //The pulse itself, whoever asked for it: the game's kicks through the gate above, the patterns and the menu's
+        //words straight
+        private void Feel(float left, float right, float seconds)
         {
             float rate = 1f / MathF.Max(seconds, MIN_SECONDS);
 
@@ -73,13 +101,7 @@ namespace BS3D
             Add(ref _right, ref _rightDecayRate, right, rate);
         }
 
-        /// <summary>
-        /// <see cref="Kick"/> for the impulse motors in the triggers (#188), <paramref name="left"/> and
-        /// <paramref name="right"/> each 0 to 1. Felt only on a pad that has them and only through
-        /// <see cref="PadMotors"/>; anywhere else it is accepted and goes nowhere, as the body's own kicks do on a pad
-        /// without motors.
-        /// </summary>
-        public void KickTriggers(float left, float right, float seconds)
+        private void FeelTriggers(float left, float right, float seconds)
         {
             float rate = 1f / MathF.Max(seconds, MIN_SECONDS);
 
@@ -160,17 +182,17 @@ namespace BS3D
         private bool _padSeen;
 
         /// <summary>The menu's focus moved one entry (#800).</summary>
-        public void UiStep() => Kick(UI_STEP_LEFT, UI_STEP_RIGHT, UI_STEP_SECONDS);
+        public void UiStep() => Feel(UI_STEP_LEFT, UI_STEP_RIGHT, UI_STEP_SECONDS);
 
         /// <summary>A page or a tab turned, felt on the side it turned to (#800).</summary>
         public void UiPage(int direction) =>
-            Kick(direction < 0 ? UI_PAGE : 0f, direction > 0 ? UI_PAGE : 0f, UI_PAGE_SECONDS);
+            Feel(direction < 0 ? UI_PAGE : 0f, direction > 0 ? UI_PAGE : 0f, UI_PAGE_SECONDS);
 
         /// <summary>An entry pressed (#800).</summary>
-        public void UiAccept() => Kick(UI_ACCEPT_LEFT, UI_ACCEPT_RIGHT, UI_ACCEPT_SECONDS);
+        public void UiAccept() => Feel(UI_ACCEPT_LEFT, UI_ACCEPT_RIGHT, UI_ACCEPT_SECONDS);
 
         /// <summary>Backed out of a page (#800).</summary>
-        public void UiBack() => Kick(UI_BACK_LEFT, UI_BACK_RIGHT, UI_BACK_SECONDS);
+        public void UiBack() => Feel(UI_BACK_LEFT, UI_BACK_RIGHT, UI_BACK_SECONDS);
 
         /// <summary>
         /// Whether a pad is there this frame, from the host's own snapshots (no device poll of its own). The first time one
@@ -210,8 +232,8 @@ namespace BS3D
             while (_patternNext < _pattern.Length && _pattern[_patternNext].At <= _patternClock)
             {
                 Pulse pulse = _pattern[_patternNext++];
-                Kick(pulse.Left, pulse.Right, pulse.Seconds);
-                KickTriggers(pulse.LeftTrigger, pulse.RightTrigger, pulse.Seconds);
+                Feel(pulse.Left, pulse.Right, pulse.Seconds);
+                FeelTriggers(pulse.LeftTrigger, pulse.RightTrigger, pulse.Seconds);
             }
 
             if (_patternNext >= _pattern.Length) _pattern = null;
