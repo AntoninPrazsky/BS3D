@@ -1769,8 +1769,11 @@ namespace BS3D.Screens
             else if (overlayLayered) Game.FadeOverlayLayer(hudOpacity);
             else if (overlayUp) DrawOverlay();
             else if (lossPreviews) DrawOverlay(previewsOnly: true);
-            //The tour hides the HUD, all but the line that says it can be skipped (#699)
-            else if (!LevelOver && _hud.SkipHintShowing) _hud.DrawSkipHintAlone(_tutorial);
+            //The tour hides the HUD, all but the line that says it can be skipped (#699) - and that line only while
+            //this screen is on top (#814). It is drawn straight onto the frame, past the blur a page puts over the rest,
+            //and its fade is stepped by an Update a covered screen does not get, so under the pause it stood sharp at
+            //full strength telling the player a click would skip what the page had stopped
+            else if (!LevelOver && IsActive && _hud.SkipHintShowing) _hud.DrawSkipHintAlone(_tutorial);
         }
 
         /// <summary>
