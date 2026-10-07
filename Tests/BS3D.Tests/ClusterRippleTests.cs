@@ -222,5 +222,20 @@ namespace BS3D.Tests
             Assert.Equal(turn + ClusterRipple.ATTACK_SECONDS, peakAt, 0.0025f);
             Assert.Equal(turn + ClusterRipple.ATTACK_SECONDS + ClusterRipple.DECAY_SECONDS, outAt, 0.0025f);
         }
+
+        /// <summary>
+        /// The cut's preview shares the ripple's channel (#692) and must not take the alarm away: the review found the
+        /// first cut handing every ball outside a preview a 0 that beat the alarm's negative values, so the ceiling's wave
+        /// went dark everywhere. The alarm is kept, under a glow too; a glow shows where it outshines the landing wave.
+        /// </summary>
+        [Theory]
+        [InlineData(-0.6f, 0f, -0.6f)]    //an alarm, no preview: the alarm (the bug answered 0)
+        [InlineData(-0.6f, 0.32f, -0.6f)] //an alarm on a lit ball: the warning outranks the preview
+        [InlineData(0f, 0f, 0f)]          //at rest
+        [InlineData(0.1f, 0.32f, 0.32f)]  //a fading landing wave under a brighter glow: the glow
+        [InlineData(0.8f, 0.32f, 0.8f)]   //a landing wave's peak over the glow: the wave
+        [InlineData(0f, 0.32f, 0.32f)]    //a lit ball at rest: the glow
+        public void ACutPreviewNeverHidesTheAlarm(float ripple, float glow, float shown) =>
+            Assert.Equal(shown, ClusterRipple.WithCutPreview(ripple, glow));
     }
 }

@@ -203,6 +203,15 @@ namespace Prazsky.BS3D.Physics
         }
 
         /// <summary>
+        /// What one ball's ripple channel carries when a cut is previewed too (#692): the preview's glow where it is
+        /// brighter than the landing wave, and <b>the alarm wave untouched</b>. The sign is the alarm's meaning, and the
+        /// first cut took the larger of the two: every ball outside a preview carries a glow of 0, which beat every
+        /// negative alarm value, and the ceiling's red wave went dark on the whole cluster (the review of #692). A
+        /// warning outranks a preview, so a lit ball under an alarm shows the alarm.
+        /// </summary>
+        public static float WithCutPreview(float ripple, float glow) => ripple < 0f || glow <= ripple ? ripple : glow;
+
+        /// <summary>
         /// Advances one ball's flare and returns how brightly it is burning this frame (negative in the alarm
         /// wave). It advances state on the ball itself, exactly as the occlusion ease and the attach glide do,
         /// so it must run once per ball per frame and no more — which is why it is the hook

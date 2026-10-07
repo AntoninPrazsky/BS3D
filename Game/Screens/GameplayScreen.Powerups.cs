@@ -248,12 +248,13 @@ namespace BS3D.Screens
 
         /// <summary>
         /// The ripple hook the cluster's walk is built with (<see cref="ClusterCollector"/>): the landing wave's own flare,
-        /// or the cut's preview where that is brighter. Static, so the collector holds one delegate for good.
+        /// or the cut's preview where that is brighter, the alarm wave always kept (<see cref="ClusterRipple.WithCutPreview"/>).
+        /// Static, so the collector holds one delegate for good.
         /// </summary>
         private static float RippleOrCutPreview(PhysicsBall ball, float elapsed)
         {
             float ripple = ClusterRipple.Advance(ball, elapsed);
-            return ball.CutPreviewGlow > ripple ? ball.CutPreviewGlow : ripple;
+            return ClusterRipple.WithCutPreview(ripple, ball.CutPreviewGlow);
         }
 
         /// <summary>Puts out the last frame's preview: every ball it lit back to 0.</summary>
