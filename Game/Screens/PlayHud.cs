@@ -865,6 +865,9 @@ namespace BS3D.Screens
             ReadOnlySpan<BS3D.Effects.DozingGun.Z> snores = default, int swapCharges = -1, int brakeCharges = -1, int cutCharges = -1,
             bool brakeOwed = true, ReadOnlySpan<BallKind> kinds = default)
         {
+            //No card's ball unless this frame's card asks for one (#735)
+            _tutorialBallRadius = 0f;
+
             _game.EnsureHudFonts();
 
             Viewport viewport = _game.GraphicsDevice.Viewport;
@@ -2245,6 +2248,27 @@ namespace BS3D.Screens
         /// </para>
         /// </summary>
         /// <param name="scoreLeft">The left edge of the score block, which is what the card may not reach.</param>
+        //THE KIND CARD'S BALL (#735): a card introducing a kind shows the ball itself where a keycap would stand, drawn LIVE
+        //in the frame by the session (GameplayScreen.CollectTutorialBall) rather than as a picture, so the card always shows
+        //the kind's current look. This HUD only says where: the glyph's square, kept here as the frame's own coordinates
+        //(-1..1, y up) for the next frame's 3D draw. One frame late, which no eye reads on a card that bobs this slowly.
+        private Vector2 _tutorialBallAt;
+        private float _tutorialBallRadius;
+
+        //The ball's square on the card, design units: between the caption's 200 and a keycap's 228
+        private const int HUD_TUTORIAL_BALL = 200;
+
+        /// <summary>
+        /// Where the card's ball goes (#735), in the frame's normalised coordinates (x and y −1..1, y up), and its radius
+        /// as a share of the frame's half-height; false while no kind card is up. What the HUD drew last.
+        /// </summary>
+        internal bool TryGetTutorialBall(out Vector2 at, out float radius)
+        {
+            at = _tutorialBallAt;
+            radius = _tutorialBallRadius;
+            return radius > 0f;
+        }
+
         private void DrawTutorial(Tutorial tutorial, Viewport viewport, int margin, float scoreLeft)
         {
             float presence = tutorial.Presence;
@@ -2261,7 +2285,10 @@ namespace BS3D.Screens
             SpriteFontBase captionFont = _game.HudFontTutorial;
             SpriteFontBase detailFont = _game.HudFontTutorialDetail;
 
-            Vector2 glyphSize = string.IsNullOrEmpty(glyph) ? Vector2.Zero : glyphFont.MeasureString(glyph);
+            //A kind card keeps a square for its ball where the keycap would be (#735)
+            bool ballCard = tutorial.CardKind != null;
+            Vector2 glyphSize = ballCard ? new Vector2(Scaled(HUD_TUTORIAL_BALL))
+                : string.IsNullOrEmpty(glyph) ? Vector2.Zero : glyphFont.MeasureString(glyph);
             Vector2 captionSize = captionFont.MeasureString(caption);
             Vector2 detailSize = string.IsNullOrEmpty(detail) ? Vector2.Zero : detailFont.MeasureString(detail);
             Vector2 praiseSize = string.IsNullOrEmpty(praise) ? Vector2.Zero : captionFont.MeasureString(praise);
@@ -2285,7 +2312,15 @@ namespace BS3D.Screens
                 HUD_TUTORIAL_BOB_PERIOD, arrive, _tutorialPulse.Scale, halfStrip);
             float scale = card.Scale;
 
-            if (glyphSize.X > 0f)
+            if (ballCard)
+            {
+                //Shrunk with the card's presence as well as scaled with it: the ball is opaque, so it cannot fade with
+                //the text and leaves by growing small instead
+                Vector2 centre = card.GlyphAt + glyphSize * (scale * 0.5f);
+                _tutorialBallAt = new Vector2(centre.X / viewport.Width * 2f - 1f, 1f - centre.Y / viewport.Height * 2f);
+                _tutorialBallRadius = glyphSize.Y * scale * 0.5f * alpha / (viewport.Height * 0.5f);
+            }
+            else if (glyphSize.X > 0f)
                 DrawString(glyphFont, glyph, card.GlyphAt, BS3DGame.MENU_TEXT * alpha, scale);
 
             Vector2 captionAt = card.CaptionAt;

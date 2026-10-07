@@ -95,8 +95,9 @@ namespace BS3D.Screens
             //and the glass lesson only with this level's own cadence to name
             bool tutorialLevel = Tutorial.TryPlace(Game.LevelSet, index, out int chapter, out int levelInChapter,
                 out int chapterLength);
+            ReadKindsOnMap();
             _tutorial.BeginLevel(tutorialLevel ? chapter : -1, levelInChapter, chapterLength, LevelCeilingStep(index),
-                swapOffered: _run.SwapOffered, retry: retry);
+                swapOffered: _run.SwapOffered, retry: retry, kindsOnMap: _kindsOnMap);
 
             //And no floor alarm either: whatever the last level's ending left lingering over the drain is
             //not this level's danger.

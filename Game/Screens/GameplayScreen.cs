@@ -507,6 +507,69 @@ namespace BS3D.Screens
         //And what kind each loaded round is, for the strip's rays behind a special one (#820)
         private readonly BallKind[] _magazineKinds = new BallKind[Magazine.SIZE];
 
+        //The level's map by kind, for the tutorial's kind cards (#735): the colour of the first ball of each kind, or zero
+        private readonly BallType[] _kindsOnMap = new BallType[Tutorial.KIND_COUNT];
+
+        //How far in front of the lens a kind card's ball hangs, world units (#735): nearer than anything in the frame at
+        //that spot - the glass, the cluster, the gun - from the overview and from precise aim alike, and far past the
+        //near plane
+        private const float TUTORIAL_BALL_DEPTH = 3f;
+
+        //How fast it turns on the camera's up axis, radians a second: enough to show its look all round
+        private const float TUTORIAL_BALL_SPIN = 0.8f;
+
+        /// <summary>
+        /// The kind card's ball (#735): the kind itself, live, where the card keeps a square for it - one more ball in the
+        /// frame, hung <see cref="TUTORIAL_BALL_DEPTH"/> in front of the lens on the ray through the card's square and
+        /// sized to fill it, so it is lit, glows and breathes as that kind does on the map. The HUD says where
+        /// (<see cref="PlayHud.TryGetTutorialBall"/>), from the frame before. Out of the motion record (no shutter pose):
+        /// it moves with the lens, so it has nothing to smear.
+        /// </summary>
+        private void CollectTutorialBall(BallDrawFrame frame)
+        {
+            if (_tutorial.CardKind is not BallKind kind || !_hud.TryGetTutorialBall(out Vector2 at, out float radius)) return;
+
+            Matrix projection = Camera.Projection;
+            Matrix toWorld = Matrix.Invert(Camera.View);
+
+            //The point on the ray through the card's square at the chosen depth, in view space and then in the world
+            Vector3 inView = new(at.X * TUTORIAL_BALL_DEPTH / projection.M11, at.Y * TUTORIAL_BALL_DEPTH / projection.M22,
+                -TUTORIAL_BALL_DEPTH);
+            Vector3 position = Vector3.Transform(inView, toWorld);
+            float worldRadius = radius * TUTORIAL_BALL_DEPTH / projection.M22;
+
+            Matrix world = Matrix.CreateScale(worldRadius / Constants.HALF)
+                * Matrix.CreateFromAxisAngle(toWorld.Up, WallClock * TUTORIAL_BALL_SPIN);
+            world.M41 = position.X;
+            world.M42 = position.Y;
+            world.M43 = position.Z;
+
+            frame.Add(_tutorial.CardColour, position, world, BallRenderSet.UNOCCLUDED, kind: kind);
+        }
+
+        /// <summary>
+        /// Reads which kinds this level's map carries, and the colour of the first ball of each (#735) - the cards a level
+        /// opens with, and the colour each card's ball is drawn in. Once a level, before the tutorial is told of it.
+        /// </summary>
+        private void ReadKindsOnMap()
+        {
+            Array.Clear(_kindsOnMap);
+
+            StaticBall[,,] balls = _map?.GetStaticBallsArray();
+            if (balls == null) return;
+
+            for (int x = 0; x < balls.GetLength(0); x++)
+                for (int z = 0; z < balls.GetLength(1); z++)
+                    for (int level = 0; level < balls.GetLength(2); level++)
+                    {
+                        StaticBall ball = balls[x, z, level];
+                        if (ball == null || ball.Kind == BallKind.Normal) continue;
+
+                        int kind = (int)ball.Kind;
+                        if (kind < _kindsOnMap.Length && _kindsOnMap[kind] == 0) _kindsOnMap[kind] = ball.Type;
+                    }
+        }
+
         //The cluster profile's horizontal axis is the GAMEPLAY camera's right vector — the lens the player aims
         //with, not whatever a drop cinematic has swung the lens to. A cinematic blends the camera away from the
         //overview pose (UpdateCamera Lerps towards _cinematic.Position/Target), and the profile drawn from that
@@ -1442,6 +1505,9 @@ namespace BS3D.Screens
             //The tutorial's card (#189): the settings row read here every frame, a camera takeover hiding it, and
             //a decided level ending it. A lesson just done is answered the way a point scored is — the HUD's own
             //kick, and the rating's chime at its root — because the card is a small dare and doing it wins it.
+            //The wildcard's card (#735) is the first one at the muzzle's: armed until taught, so this fires it once
+            if (_magazine.Slot(0).Kind == BallKind.Wildcard) _tutorial.Trigger(Tutorial.Lesson.KindWildcard);
+
             _tutorial.Update(elapsed, Game.IsTutorialEnabled, CameraTakeoverEngaged, LevelDecided);
 
             if (_tutorial.TakePraiseCue())
@@ -1746,6 +1812,9 @@ namespace BS3D.Screens
 
             //The level's crates (#257), opaque, with the gun
             _crateField?.Draw(Camera, Game.SceneEffectParams);
+
+            //A kind card's ball (#735), into the same frame AFTER the shadow pass BeginSceneDraw ran, so it casts nothing
+            CollectTutorialBall(ballFrame);
 
             //Everything collected above, as one instanced draw per ball type and LOD level — and the frame's
             //collection is closed by it. The heartbeat runs on the WALL clock: the balls go on breathing while
