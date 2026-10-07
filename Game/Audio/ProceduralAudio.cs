@@ -131,7 +131,7 @@ namespace BS3D.Audio
         private const float SHOT_REFUSED_VOLUME = 0.5f;
 
         //The barrel meeting its stop (#811) just under the refusal: it answers a push the player makes again and again, not
-        //a trigger pulled, and its creak sits in the mids where the ear is keen, so it needs no more than the low "no" does
+        //a trigger pulled, and its beats sit in the mids where the ear is keen, so it needs no more than the low "no" does
         private const float AIM_STOP_VOLUME = 0.45f;
 
         private readonly SoundEffect _shoot;
@@ -783,16 +783,16 @@ namespace BS3D.Audio
         }
 
         /// <summary>
-        /// The barrel meeting its stop (#811), once as the player's push into the elevation clamp goes full: a strained
-        /// creak that climbs and a soft puff of air (<see cref="AimStopSynth"/>). The sibling of
-        /// <see cref="PlayShotRefused"/>, and deliberately unlike it - pressing into the stop creaks, pulling the trigger
-        /// there says no - and dry and unplaced for the same reason: it is the player's own hand being told, not an
-        /// event out in the scene. A wider pitch nudge than the refusal's, since a hand that keeps pushing hears it
-        /// again and again and the same creak each time would read as a sample.
+        /// The barrel meeting its stop (#811), once as the player's push into the elevation clamp goes full: two short
+        /// technical beats, the second lower, an "uh-uh" (<see cref="AimStopSynth"/>). The sibling of
+        /// <see cref="PlayShotRefused"/> - the refusal's figure an octave up and tighter, so the two read as one family
+        /// saying two things: pressing into the stop says "uh-uh", pulling the trigger there says no - and dry and unplaced
+        /// for the same reason: it is the player's own hand being told, not an event out in the scene. The refusal's own
+        /// small pitch nudge: a signal keeps its pitch.
         /// </summary>
         public void PlayAimStop()
         {
-            _aimStop.Play(AIM_STOP_VOLUME * Level * NON_SPATIAL_TRIM, NextPitch(0.06f), 0f);
+            _aimStop.Play(AIM_STOP_VOLUME * Level * NON_SPATIAL_TRIM, NextPitch(0.02f), 0f);
         }
 
         /// <summary>
