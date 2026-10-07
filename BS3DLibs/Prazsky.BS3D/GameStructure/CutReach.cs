@@ -50,7 +50,7 @@ namespace Prazsky.BS3D.GameStructure
             return taken * 2 > span;
         }
 
-        /// <summary>The highest level holding a ball, or the lowest one for an empty map.</summary>
+        /// <summary>The highest level holding a ball, or 0 for an empty map (which has no ball to strike).</summary>
         public static int HighestOccupiedLevel(BallsMap map)
         {
             StaticBall[,,] cells = map.GetStaticBallsArray();
