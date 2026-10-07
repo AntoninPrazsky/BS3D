@@ -858,10 +858,12 @@ namespace BS3D.Screens
         /// chip, drawn on the row above the Brake's.</param>
         /// <param name="brakeOwed">Whether the brake would act now: a pressure step to give back (#692). False dims a Brake
         /// chip that still has its charge, because a press would be refused.</param>
+        /// <param name="kinds">What kind each loaded round is, slot 0 first, beside <paramref name="queue"/>: a special one
+        /// (the wildcard, the Cutter) turns a burst of rays behind its disc (#820). Empty draws none.</param>
         internal void Draw(ScoreKeeper score, ICamera camera, in ClusterProfile profile, ReadOnlySpan<BallMarker> balls,
             ReadOnlySpan<BallType> queue, Tutorial tutorial, bool previewsOnly = false,
             ReadOnlySpan<BS3D.Effects.DozingGun.Z> snores = default, int swapCharges = -1, int brakeCharges = -1, int cutCharges = -1,
-            bool brakeOwed = true)
+            bool brakeOwed = true, ReadOnlySpan<BallKind> kinds = default)
         {
             _game.EnsureHudFonts();
 
@@ -880,7 +882,7 @@ namespace BS3D.Screens
 
             if (previewsOnly)
             {
-                DrawMagazine(queue, score, viewport, margin);
+                DrawMagazine(queue, kinds, score, viewport, margin);
                 batch.End();
                 return;
             }
@@ -904,7 +906,7 @@ namespace BS3D.Screens
 
             DrawStreak(score, viewport, margin, scoreAnchor.Y + scoreSize.Y * 0.5f + Scaled(HUD_LINE_GAP));
             DrawBallsLeft(score, viewport, margin);
-            DrawMagazine(queue, score, viewport, margin);
+            DrawMagazine(queue, kinds, score, viewport, margin);
             DrawSwap(swapCharges, brakeCharges, cutCharges, brakeOwed, tutorial.OnGamepad, viewport, margin);
 
             //The card is given the score's left edge rather than measuring it again: it is what bounds the
@@ -1096,7 +1098,8 @@ namespace BS3D.Screens
         /// the corner, which is the truth about what is happening, and the disc that matters stays put.
         /// </para>
         /// </summary>
-        private void DrawMagazine(ReadOnlySpan<BallType> queue, ScoreKeeper score, Viewport viewport, int margin)
+        private void DrawMagazine(ReadOnlySpan<BallType> queue, ReadOnlySpan<BallKind> kinds, ScoreKeeper score, Viewport viewport,
+            int margin)
         {
             if (queue.Length == 0) return;
 
@@ -1143,6 +1146,18 @@ namespace BS3D.Screens
             float x = MathF.Round(viewport.Width - margin - restOuter - toLastCentre);
             float middle = MathF.Round(viewport.Height - margin - headOuter);
 
+            //A special round's rays (#820), every one of them before any disc: a burst reaches past its own disc into its
+            //neighbours' room, and it goes under them rather than over. The muzzle's burst, in the strip's own layer, so a
+            //player reading the HUD sees the special round coming before it reaches the bore.
+            float rayX = x;
+            for (int i = 0; i < shown && i < kinds.Length; i++)
+            {
+                if (kinds[i] == BallKind.Wildcard || kinds[i] == BallKind.Cutter)
+                    DrawRoundRays(batch, rayX, middle, (i == 0 ? head : rest) + rim, kinds[i] == BallKind.Wildcard);
+
+                rayX += StepRight(i);
+            }
+
             for (int i = 0; i < shown; i++)
             {
                 bool next = i == 0;
@@ -1171,13 +1186,104 @@ namespace BS3D.Screens
                         ringOuter - Scaled(HUD_MAG_RING_THICKNESS));
                 }
 
-                //Rightwards: clear this disc's own drawn reach, the gap, and the next one's. Written from both
-                //reaches rather than from one, because the head is bigger than the rest — and from the REACH
-                //rather than the fill radius, because the halo and the head's ring are drawn there and a gap
-                //measured inside them is not the gap anyone sees. Everything after the head is a resting round.
-                x += (next ? headOuter : restOuter) + gap + (i + 1 < shown ? restOuter : 0);
+                x += StepRight(i);
             }
+
+            //Rightwards from slot i: clear its own drawn reach, the gap, and the next one's. Written from both reaches
+            //rather than from one, because the head is bigger than the rest — and from the REACH rather than the fill
+            //radius, because the halo and the head's ring are drawn there and a gap measured inside them is not the gap
+            //anyone sees. Everything after the head is a resting round. One copy for the rays' walk and the discs'.
+            float StepRight(int i) => (i == 0 ? headOuter : restOuter) + gap + (i + 1 < shown ? restOuter : 0);
         }
+
+        //THE SPECIAL ROUND'S RAYS in the strip (#820): the burst the muzzle turns, behind the round's disc - a rainbow for
+        //the wildcard, which counts as any colour, and the zap's cyan for the Cutter.
+
+        /// <summary>How far a burst reaches, as a multiple of its disc's halo radius.</summary>
+        private const float HUD_RAYS_REACH = 2.1f;
+
+        /// <summary>How fast it turns, radians a second: the muzzle's own wheel, a little quicker at this size.</summary>
+        private const float HUD_RAYS_SPIN = 0.9f;
+
+        /// <summary>How many rays a burst has; two sets of lengths alternate, so it reads as rays and not a cog.</summary>
+        private const int HUD_RAYS_COUNT = 10;
+
+        /// <summary>The Cutter's burst: the zap's arcs' cyan, as the muzzle's (<c>CUTTER_RAYS_HUE</c>).</summary>
+        private static readonly Color HUD_CUTTER_RAYS = new(40, 200, 255);
+
+        /// <summary>One special round's burst, centred on its disc and turning on the wall clock.</summary>
+        private void DrawRoundRays(SpriteBatch batch, float cx, float cy, int discReach, bool rainbow)
+        {
+            int reach = Math.Max(4, (int)MathF.Round(discReach * HUD_RAYS_REACH));
+            Texture2D burst = RayBurstTexture(reach, rainbow);
+
+            batch.Draw(burst, new Vector2(cx, cy), null, rainbow ? Color.White : HUD_CUTTER_RAYS,
+                _game.WallClock * HUD_RAYS_SPIN, new Vector2(reach + 1f), 1f, SpriteEffects.None, 0f);
+        }
+
+        /// <summary>
+        /// The burst's texture for one reach, baked once like <see cref="DiscTexture"/>: <see cref="HUD_RAYS_COUNT"/>
+        /// tapered rays, every other one shorter, with a glow at their roots, premultiplied. A rainbow one carries its own
+        /// hues, one a ray round the wheel; a plain one is white, for the draw to tint.
+        /// </summary>
+        private Texture2D RayBurstTexture(int reach, bool rainbow)
+        {
+            int key = reach * 2 + (rainbow ? 1 : 0);
+            if (_rayBursts.TryGetValue(key, out Texture2D cached)) return cached;
+
+            int size = 2 * reach + 2;
+            float centre = reach + 1f;
+            byte[] data = new byte[size * size * 4];
+
+            //The disc's halo, as a share of the reach: where the rays come out from under it
+            const float DISC = 1f / HUD_RAYS_REACH;
+
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = x + 0.5f - centre, dy = y + 0.5f - centre;
+                    float t = MathF.Sqrt(dx * dx + dy * dy) / reach;
+                    if (t >= 1f) continue;
+
+                    float angle = MathF.Atan2(dy, dx);
+                    float phase = angle * HUD_RAYS_COUNT / MathF.Tau;
+                    float index = MathF.Floor(phase + 0.5f);
+                    float length = ((int)index & 1) == 0 ? 1f : 0.72f;
+
+                    //Measured from the disc's halo outwards, where the burst is seen: everything inside it is under the
+                    //disc, and the first cut, faded from the centre, had spent most of each ray there and showed slivers
+                    float along = (t - DISC) / (length - DISC);
+                    float lobe = MathF.Pow(MathF.Max(0f, MathF.Cos(MathF.Tau * (phase - index))), 5f);
+                    float ray = along < 0f ? 1f : along >= 1f ? 0f : MathF.Pow(1f - along, 1.5f);
+                    float glow = 0.6f * MathF.Exp(-MathF.Pow(MathF.Max(0f, t - DISC) / 0.12f, 2f));
+                    float alpha = Math.Min(1f, lobe * ray + glow);
+
+                    Vector3 colour = Vector3.One;
+                    if (rainbow)
+                    {
+                        float h = (angle / MathF.Tau + 1f) % 1f;
+                        colour = new Vector3(Hue(h), Hue(h + 2f / 3f), Hue(h + 1f / 3f));
+                    }
+
+                    int o = (y * size + x) * 4;
+                    data[o] = (byte)(255f * colour.X * alpha);
+                    data[o + 1] = (byte)(255f * colour.Y * alpha);
+                    data[o + 2] = (byte)(255f * colour.Z * alpha);
+                    data[o + 3] = (byte)(255f * alpha);
+                }
+
+            Texture2D texture = new(_game.GraphicsDevice, size, size);
+            texture.SetData(data);
+
+            _rayBursts[key] = texture;
+            return texture;
+
+            //One channel of a fully saturated hue round the wheel, MuzzleRays.fx's Rainbow
+            static float Hue(float h) => Math.Clamp(MathF.Abs((h % 1f) * 6f - 3f) - 1f, 0f, 1f);
+        }
+
+        //The bursts baked so far, keyed by reach and kind - a couple of small textures per window size
+        private readonly Dictionary<int, Texture2D> _rayBursts = new();
 
         /// <summary>
         /// How far the magazine's head reaches from its centre, ring and all — the one figure the strip's own layout and

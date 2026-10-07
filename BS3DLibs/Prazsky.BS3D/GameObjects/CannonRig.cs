@@ -567,6 +567,7 @@ namespace Prazsky.BS3D
             //Cannon.BarrelWorld). Pivoting about the muzzle instead swings the whole barrel and its loaded queue
             //from the tip, which is the one place a gun does not pivot.
             float muzzleZ = -(PivotToFrontBall + BALL_RADIUS);
+            MuzzleFaceZ = muzzleZ;
             float breechZ = (magazineSize - 1) * magazineSpacing - PivotToFrontBall + BALL_RADIUS;
 
             //The slot stops a chamber's depth ahead of the breech face, and the dome behind that face hides a
@@ -717,6 +718,21 @@ namespace Prazsky.BS3D
         /// Game's birthday hat does (#230). Barrel space is the frame <see cref="Draw"/>'s <c>world</c> carries.
         /// </summary>
         public Vector3 BreechCrown { get; }
+
+        /// <summary>
+        /// Where the muzzle face stands along the bore in barrel space (negative: the bore runs along -Z) - the plane the
+        /// Game's special-round rays lie in (#820), so they radiate from the very face the collar ends at.
+        /// </summary>
+        public float MuzzleFaceZ { get; }
+
+        /// <summary>The collar's crest radius, barrel space: where anything that radiates from the collar starts (#820).</summary>
+        public float CollarRadius => COLLAR_CREST_RADIUS;
+
+        /// <summary>
+        /// How hard the collar pushes its colour under this sky (<see cref="SetCollarSky"/>), for a mark that radiates
+        /// from it and has to be as loud as it is in the same light (#820).
+        /// </summary>
+        public float CollarBrightness => _collarBrightness;
 
         /// <summary>
         /// The renderer, exposed for the one thing <see cref="Draw"/> cannot do for a caller: enrolling it in

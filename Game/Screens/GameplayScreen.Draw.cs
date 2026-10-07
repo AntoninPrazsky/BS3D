@@ -459,10 +459,74 @@ namespace BS3D.Screens
         /// lean; a collar on the gun covers nothing the lens is reading, so that half is gone — see above.)
         /// </para>
         /// </summary>
+        /// <remarks>A Cutter's collar is its rays' cyan (#820): the colour it was dealt means nothing to a round that cuts
+        /// instead of sticking, and a red collar under cyan rays told the player it was a red ball.</remarks>
         private void DrawMuzzleCollar(Matrix barrelWorld) =>
             Game.CannonRig.DrawMuzzleCollar(Camera, barrelWorld, Game.SceneEffectParams,
-                BasicEffectParamsProvider.GetDiffuseTintByType(LoadedColour(0)),
+                CutterLoaded ? CUTTER_RAYS_HUE : BasicEffectParamsProvider.GetDiffuseTintByType(LoadedColour(0)),
                 MuzzleGlowStrength());
+
+        //THE SPECIAL ROUND'S RAYS (#820). The owner met the wildcard in play and did not notice it was special: "whenever
+        //I have any special ball loaded (even Cut), I want a strong rotating glow from the cannon, in rays". So a round
+        //that is not a plain colour - the wildcard, the Cutter - is announced by a burst turning round the muzzle, on
+        //top of the collar, which keeps saying the colour. See MuzzleRays for the shape and why it is bolted to the gun.
+
+        /// <summary>
+        /// How far the rays reach from the bore's axis in the overview, world units: three and a half times the collar's
+        /// crest radius. 2.3 was tried first, and past the tube each ray was a stub (photographed, #820).
+        /// </summary>
+        private const float MUZZLE_RAYS_REACH = 3.0f;
+
+        /// <summary>
+        /// The reach once precise aim is fully leaned in (#321's lesson for anything at the muzzle: the lens is behind and
+        /// above it there, and a burst its overview size would sit over the cells the mode exists to read).
+        /// </summary>
+        private const float MUZZLE_RAYS_ADS_REACH = 1.35f;
+
+        /// <summary>
+        /// The radiance at a broad ray's root before the sky's push (<c>CannonRig.CollarBrightness</c>, 1.0 at night to 1.6
+        /// in daylight): over the glare's threshold, so the burst blooms, and short of the tonemap's shoulder, where a hue
+        /// goes white (#478). 1.5 was tried first and both bursts came out white at the muzzle (photographed, #820).
+        /// </summary>
+        private const float MUZZLE_RAYS_RADIANCE = 0.9f;
+
+        /// <summary>What is left of the rays' strength fully leaned in: a mark, no longer an announcement (#321).</summary>
+        private const float MUZZLE_RAYS_ADS_STRENGTH = 0.25f;
+
+        /// <summary>How fast the broad rays turn, radians a second: a turn in about nine seconds, a slow wheel and not a spinner.</summary>
+        private const float MUZZLE_RAYS_SPIN = 0.7f;
+
+        /// <summary>
+        /// The Cutter's burst colour (#213): the cyan of the zap's arcs it is drawn with (<c>ZapCharge</c> in
+        /// <c>BallZap.fxh</c>, 0.62, 0.86, 1), pushed further from grey as the collar pushes a round's hue (#478), so it
+        /// reads as cyan and not as white-blue against a bright sky.
+        /// </summary>
+        private static readonly Vector3 CUTTER_RAYS_HUE = new(0.12f, 0.75f, 1f);
+
+        /// <summary>
+        /// The rays for this frame, or nothing: only while a special round is in the bore and a shot would leave it this
+        /// instant (<see cref="_previewBeamVisible"/>, the collar's own gate). On the wall clock, like the collar's breath:
+        /// it is what the round is, so it turns on while a pause holds the frame.
+        /// </summary>
+        private void DrawMuzzleRays(in Matrix barrelWorld)
+        {
+            if (_muzzleRays == null || !_previewBeamVisible) return;
+
+            BallKind kind = _magazine.Slot(0).Kind;
+            if (kind != BallKind.Wildcard && kind != BallKind.Cutter) return;
+
+            float lean = _preciseAim.Blend;
+            float strength = MathHelper.Lerp(1f, MUZZLE_RAYS_ADS_STRENGTH, lean);
+            float reach = MathHelper.Lerp(MUZZLE_RAYS_REACH, MUZZLE_RAYS_ADS_REACH, lean);
+
+            //The wildcard's burst is a rainbow, one hue a broad ray, because the ball counts as any colour; the shader
+            //takes only the brightness of a rainbow's light
+            bool rainbow = kind == BallKind.Wildcard;
+            Vector3 hue = rainbow ? Vector3.One : CUTTER_RAYS_HUE;
+
+            _muzzleRays.Draw(Camera, barrelWorld, Game.CannonRig.MuzzleFaceZ, Game.CannonRig.CollarRadius, reach,
+                WallClock * MUZZLE_RAYS_SPIN, hue * (MUZZLE_RAYS_RADIANCE * Game.CannonRig.CollarBrightness * strength), rainbow);
+        }
 
         #endregion
 

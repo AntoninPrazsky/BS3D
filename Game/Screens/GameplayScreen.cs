@@ -504,6 +504,9 @@ namespace BS3D.Screens
         //also step it.
         private readonly BallType[] _magazineQueue = new BallType[Magazine.SIZE];
 
+        //And what kind each loaded round is, for the strip's rays behind a special one (#820)
+        private readonly BallKind[] _magazineKinds = new BallKind[Magazine.SIZE];
+
         //The cluster profile's horizontal axis is the GAMEPLAY camera's right vector — the lens the player aims
         //with, not whatever a drop cinematic has swung the lens to. A cinematic blends the camera away from the
         //overview pose (UpdateCamera Lerps towards _cinematic.Position/Target), and the profile drawn from that
@@ -606,6 +609,9 @@ namespace BS3D.Screens
 
         /// <summary>The impossible shot's wormhole (#230), on the world's clock like the blasts: see GameplayScreen.Wormhole.cs.</summary>
         private readonly Wormhole _wormhole;
+
+        //The special round's rays round the muzzle (#820); null on the Potato path, which has no effect for them
+        private readonly MuzzleRays _muzzleRays;
 
         /// <summary>
         /// The level's crates (#257): the boxes a shot banks off, filled by <c>InstallLevel</c> from the level file and
@@ -1139,6 +1145,10 @@ namespace BS3D.Screens
             //passed to each Update instead of being captured here as a null.
             _blasts = new Blasts(GraphicsDevice, Game.Content.Load<Effect>("Shaders/Blast"));
             _wormhole = new Wormhole(GraphicsDevice, Game.Content.Load<Effect>("Shaders/Wormhole"));
+
+            //The special round's rays (#820). Not on the Potato path: GamePi has no MuzzleRays effect to load
+            if (!BS3DGame.PotatoPath)
+                _muzzleRays = new MuzzleRays(GraphicsDevice, Game.Content.Load<Effect>("Shaders/MuzzleRays"));
         }
 
         //A level is played with nothing above this screen. A pause is pushed OVER it and freezes it with its
@@ -1738,6 +1748,10 @@ namespace BS3D.Screens
             //reason: a shot's flare should sit over the guide that aimed it, not under it.
             DrawShotPreviewBeam();
 
+            //A special round's rays (#820), in the beam's slot for its reasons: added light, depth-read, so the cluster in
+            //front of the muzzle covers them and they bloom through the glare
+            DrawMuzzleRays(barrelWorld);
+
             //The blasts (#389), in the same slot and the same states: additive and depth-read, so what stands
             //nearer the lens than a blast hides it, and before the drain's glass so the funnel composites over a
             //blast seen down its throat exactly as it does over a smear.
@@ -1873,7 +1887,11 @@ namespace BS3D.Screens
             //is the only place the queue can be read while the eye is on the cluster, so it is exactly where
             //the two must not disagree — a disc showing the dealt colour under a wildcard would be a wrong
             //answer in the one readout built to be trusted at a glance (#236).
-            for (int i = 0; i < _magazineQueue.Length; i++) _magazineQueue[i] = LoadedColour(i);
+            for (int i = 0; i < _magazineQueue.Length; i++)
+            {
+                _magazineQueue[i] = LoadedColour(i);
+                _magazineKinds[i] = _magazine.Slot(i).Kind;
+            }
 
             _hud.Draw(_run.Score, Camera, in profile,
                 new ReadOnlySpan<PlayHud.BallMarker>(_profileBalls, 0, ballCount),
@@ -1881,7 +1899,7 @@ namespace BS3D.Screens
                 swapCharges: _run.SwapOffered ? _run.PowerupCharges[(int)PowerupKind.Swap] : -1,
                 brakeCharges: _run.BrakeOffered ? _run.PowerupCharges[(int)PowerupKind.Brake] : -1,
                 cutCharges: _run.CutOffered ? _run.PowerupCharges[(int)PowerupKind.Cut] : -1,
-                brakeOwed: _ceilingDescent.CanBrake);
+                brakeOwed: _ceilingDescent.CanBrake, kinds: _magazineKinds);
 
             if (previewsOnly) return;
 
