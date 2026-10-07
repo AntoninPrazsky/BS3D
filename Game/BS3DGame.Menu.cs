@@ -807,13 +807,14 @@ namespace BS3D
 
         /// <summary>
         /// Where the live scene would have a camera look to show itself off, and null when it has no such
-        /// point or there is no renderer yet (#289). Forwarded one answer at a time the way
+        /// point, there is no renderer yet (#289), or the scenery is not drawn (#808: the tours aimed at a landmark that is
+        /// not there). Forwarded one answer at a time the way
         /// <see cref="SeaLevelY"/> is, rather than handing the renderer out: what the chapter intro wants is
         /// a viewpoint, not a scene renderer, and the scene it wants it for is this game's own.
         /// </summary>
         /// <param name="bearing">The caller's rolled bearing — half the scenes build their point out of it.</param>
         internal SceneViewpoint? SceneViewpointAt(float bearing) =>
-            _sceneRenderer != null && _sceneRenderer.TryGetViewpoint(_scene, bearing, out SceneViewpoint viewpoint)
+            SceneryShown && _sceneRenderer != null && _sceneRenderer.TryGetViewpoint(_scene, bearing, out SceneViewpoint viewpoint)
                 ? viewpoint
                 : null;
 
