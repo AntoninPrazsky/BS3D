@@ -1154,45 +1154,99 @@ namespace Prazsky.BS3D
         private static readonly int BUCKSHOT_REGION_START = WILDCARD_REGION_START + 2 * LodCount;
 
         /// <summary>
-        /// Where each pellet of a clump sits, in the ball's own frame, and how big it is: the twenty corners of a
-        /// dodecahedron, which cover a sphere evenly with no pellet standing out, at a radius that keeps the clump's
-        /// outline inside the ball's (0.5) so it never draws past the cell the simulation gives it - the rock's rule.
-        /// Twenty is what the design references drew: enough that it reads as a handful, few enough that a field of
-        /// clumps costs a few thousand small instances.
+        /// Where each pellet of a clump sits, in the ball's own frame, and how big it is (#257). <b>Since the owner's verdict
+        /// of 2026-10-07</b> - "I didn't quite understand what buckshot is; it looks like some rubbery bubbly tangle" - it is
+        /// a handful of small lead shot packed tight, not twenty pearly beads: thirty-two pellets on the outside (the twelve
+        /// corners of an icosahedron and the twenty of a dodecahedron, which together cover a sphere evenly) touching their
+        /// neighbours, and six inside to fill what the gaps show, each a size and a place of its own within a few percent
+        /// (#640: a perfect pile reads as a mould, not as shot). The outline stays inside the ball's (0.5), so it never draws
+        /// past the cell the simulation gives it - the rock's rule.
         /// </summary>
-        public const int BUCKSHOT_PELLETS = 20;
-        private const float BUCKSHOT_PELLET_SCALE = 0.36f;      //of a ball: a pellet of radius 0.18
+        public const int BUCKSHOT_PELLETS = 38;
+        private const float BUCKSHOT_PELLET_SCALE = 0.25f;      //of a ball: a pellet of radius 0.125
+        private const float BUCKSHOT_PELLET_REACH = 0.355f;     //an outer pellet's centre from the ball's
+        private const float BUCKSHOT_INNER_REACH = 0.15f;       //an inner one's
+        private const float BUCKSHOT_SIZE_JITTER = 0.12f;       //how far a pellet's size strays from the rest, either way
+        private const float BUCKSHOT_PLACE_JITTER = 0.018f;     //and its place, in ball units
 
-        //The pellets' colour: a pearly grey, the references' - light enough to read against a dark sky and a dark
-        //cluster alike, and no colour a player could take for one of the thirteen they match
-        private static readonly Vector3 BUCKSHOT_TINT = new(0.82f, 0.82f, 0.86f);
+        //The pellets' colour: lead, a blue-grey, and no colour a player could take for one of the thirteen. The metal shading
+        //mirrors what is round it, so the tint is set lighter than lead looks: at 0.46 (and 0.08 emission) the shot came out
+        //black as caviar under the big top's dark canvas (photographed). It was a pearly 0.82 grey on porcelain until the
+        //owner's verdict: pearly beads are what read as bubbles
+        private static readonly Vector3 BUCKSHOT_TINT = new(0.74f, 0.76f, 0.8f);
+
+        //Lead is polished by handling, not brushed: the metal shading with no brush lines, and a reflection a little under the
+        //metal balls' so the shot stays duller than a ball bearing
+        private const float BUCKSHOT_METAL_REFLECTANCE = 1.4f;
+        private const float BUCKSHOT_EMISSION = 0.22f;
 
         //How far a falling clump's pellets stand out from its centre, against a hanging one's: loosened into a spray
         private const float BUCKSHOT_LOOSE_SPREAD = 1.9f;
-        private const float BUCKSHOT_PELLET_REACH = 0.31f;      //its centre from the ball's
-        private static readonly Vector3[] BUCKSHOT_OFFSETS = DodecahedronCorners(BUCKSHOT_PELLET_REACH);
+        private static readonly Vector3[] BUCKSHOT_OFFSETS = PelletPlaces(out BUCKSHOT_SIZES);
+        private static readonly float[] BUCKSHOT_SIZES;
 
-        private static Vector3[] DodecahedronCorners(float radius)
+        private static Vector3[] PelletPlaces(out float[] sizes)
         {
             float phi = (1f + MathF.Sqrt(5f)) * 0.5f, inv = 1f / phi;
-            List<Vector3> corners = new();
+            List<Vector3> outer = new();
 
+            //The dodecahedron's twenty corners
             for (int a = -1; a <= 1; a += 2)
                 for (int b = -1; b <= 1; b += 2)
                     for (int c = -1; c <= 1; c += 2)
-                        corners.Add(new Vector3(a, b, c));
+                        outer.Add(new Vector3(a, b, c));
 
             for (int a = -1; a <= 1; a += 2)
                 for (int b = -1; b <= 1; b += 2)
                 {
-                    corners.Add(new Vector3(0f, a * inv, b * phi));
-                    corners.Add(new Vector3(a * inv, b * phi, 0f));
-                    corners.Add(new Vector3(a * phi, 0f, b * inv));
+                    outer.Add(new Vector3(0f, a * inv, b * phi));
+                    outer.Add(new Vector3(a * inv, b * phi, 0f));
+                    outer.Add(new Vector3(a * phi, 0f, b * inv));
                 }
 
-            Vector3[] result = corners.ToArray();
-            for (int i = 0; i < result.Length; i++) result[i] = Vector3.Normalize(result[i]) * radius;
-            return result;
+            //And the icosahedron's twelve, which sit over the dodecahedron's faces
+            for (int a = -1; a <= 1; a += 2)
+                for (int b = -1; b <= 1; b += 2)
+                {
+                    outer.Add(new Vector3(0f, a, b * phi));
+                    outer.Add(new Vector3(a, b * phi, 0f));
+                    outer.Add(new Vector3(a * phi, 0f, b));
+                }
+
+            List<Vector3> places = new();
+            foreach (Vector3 corner in outer) places.Add(Vector3.Normalize(corner) * BUCKSHOT_PELLET_REACH);
+
+            //Six inside, on the axes
+            places.Add(new Vector3(BUCKSHOT_INNER_REACH, 0f, 0f));
+            places.Add(new Vector3(-BUCKSHOT_INNER_REACH, 0f, 0f));
+            places.Add(new Vector3(0f, BUCKSHOT_INNER_REACH, 0f));
+            places.Add(new Vector3(0f, -BUCKSHOT_INNER_REACH, 0f));
+            places.Add(new Vector3(0f, 0f, BUCKSHOT_INNER_REACH));
+            places.Add(new Vector3(0f, 0f, -BUCKSHOT_INNER_REACH));
+
+            //Each pellet its own size and a little off its place, from a hash of its index: the same every run
+            sizes = new float[places.Count];
+            for (int i = 0; i < places.Count; i++)
+            {
+                sizes[i] = 1f + BUCKSHOT_SIZE_JITTER * Hash(i, 1);
+                Vector3 nudge = new(Hash(i, 2), Hash(i, 3), Hash(i, 4));
+                places[i] += nudge * BUCKSHOT_PLACE_JITTER;
+
+                //Never past the ball's outline, however the two strays add up
+                float reach = places[i].Length() + BUCKSHOT_PELLET_SCALE * 0.5f * sizes[i];
+                if (reach > 0.49f) places[i] *= (places[i].Length() - (reach - 0.49f)) / places[i].Length();
+            }
+
+            return places.ToArray();
+
+            static float Hash(int i, int salt)
+            {
+                uint h = (uint)(i * 2654435761u) ^ (uint)(salt * 374761393u);
+                h ^= h >> 13;
+                h *= 0x85EBCA6Bu;
+                h ^= h >> 16;
+                return h / (float)uint.MaxValue * 2f - 1f;
+            }
         }
 
         //How much of a dead ball is dithered away (#620), at the end of its ease-in. A dead ball keeps its colour
@@ -2193,10 +2247,11 @@ namespace Prazsky.BS3D
         }
 
         /// <summary>
-        /// The buckshot's pellets (#257): glazed like porcelain, smooth and pearly grey, whatever the level's balls are
-        /// made of. The porcelain style's own figures are stated here first — a level of vinyl or bubble balls has never
-        /// set them, and the first cut drew every pellet near-black on exactly that — with no crackle, which on a
-        /// pellet a third of a ball across is only noise. The level's style is put back after, as every special draw does.
+        /// The buckshot's pellets (#257): lead shot, in the metal shading with no brush lines, whatever the level's balls are
+        /// made of. Glazed porcelain in a pearly grey until the owner's verdict of 2026-10-07, which read the clump as "a
+        /// rubbery bubbly tangle". The metal style's own figures are stated here first - a level of vinyl or bubble balls has
+        /// never set them, which is how the porcelain's first cut drew every pellet near-black - and the level's style is
+        /// put back after, as every special draw does.
         /// </summary>
         private void DrawBuckshot(ICamera camera)
         {
@@ -2206,13 +2261,12 @@ namespace Prazsky.BS3D
 
             foreach (InstancedModelRenderer renderer in _renderers)
             {
-                renderer.PorcelainCrackFrequency = PORCELAIN_CRACK_FREQUENCY;
-                renderer.PorcelainCrackWidth = 0f;
-                renderer.PorcelainGlaze = PORCELAIN_GLAZE;
-                renderer.TranslucencyStrength = PORCELAIN_TRANSLUCENCY;
+                renderer.MetalBrushFrequency = METAL_BRUSH_FREQUENCY;
+                renderer.MetalBrushDepth = 0f;
+                renderer.MetalReflectance = BUCKSHOT_METAL_REFLECTANCE;
             }
 
-            DrawTintlessRegion(camera, BUCKSHOT_REGION_START, BallShading.Porcelain, PORCELAIN_EMISSION, 0f, 0f,
+            DrawTintlessRegion(camera, BUCKSHOT_REGION_START, BallShading.Metal, BUCKSHOT_EMISSION, 0f, 0f,
                 BasicEffectParamsProvider.Buckshot, BUCKSHOT_TINT, BUCKSHOT_PELLETS);
         }
 
@@ -2686,12 +2740,13 @@ namespace Prazsky.BS3D
             {
                 Vector3 offset = BUCKSHOT_OFFSETS[i] * spread;
                 Matrix pellet = ball;
+                float scale = BUCKSHOT_PELLET_SCALE * BUCKSHOT_SIZES[i];
 
                 //Scaled in the ball's frame, and moved to the pellet's place in it: the rotation's rows times the scale,
                 //the translation the offset carried through the ball's own matrix
-                pellet.M11 *= BUCKSHOT_PELLET_SCALE; pellet.M12 *= BUCKSHOT_PELLET_SCALE; pellet.M13 *= BUCKSHOT_PELLET_SCALE;
-                pellet.M21 *= BUCKSHOT_PELLET_SCALE; pellet.M22 *= BUCKSHOT_PELLET_SCALE; pellet.M23 *= BUCKSHOT_PELLET_SCALE;
-                pellet.M31 *= BUCKSHOT_PELLET_SCALE; pellet.M32 *= BUCKSHOT_PELLET_SCALE; pellet.M33 *= BUCKSHOT_PELLET_SCALE;
+                pellet.M11 *= scale; pellet.M12 *= scale; pellet.M13 *= scale;
+                pellet.M21 *= scale; pellet.M22 *= scale; pellet.M23 *= scale;
+                pellet.M31 *= scale; pellet.M32 *= scale; pellet.M33 *= scale;
 
                 Vector3 at = Vector3.Transform(offset, ball);
                 pellet.M41 = at.X;

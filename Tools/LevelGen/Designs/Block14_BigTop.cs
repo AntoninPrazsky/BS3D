@@ -321,7 +321,13 @@ namespace BS3D.Tools.LevelGen
         //--- 5. JUGGLER: five balls in the air ------------------------------------------------------------------
         //Five juggling balls caught mid-throw, each a round body of its own colour on a chain of another, hung at five
         //heights round the field. Each has a core of buckshot: take the ball's colour and the shell goes, the pellets
-        //inside pour out after it - and a chain cut first takes the whole ball, pellets and all.
+        //inside pour out after it - and a chain cut first takes the whole ball, pellets and all. The core is the ball's
+        //whole middle storey, a band of shot round its equator between a coloured cap above and one below (#257, the
+        //owner's verdict of 2026-10-07: "in Juggler I did not see them - hidden by the other balls"): one cell in the very
+        //middle was all of it until then, walled in on every side by the shell, so the level's whole idea could not be
+        //seen from anywhere. A cross through the middle storey was tried first and left its four corners each a colour
+        //standing alone, which no one shot can take (LevelGen's "reachable in one ball" refused it). Take the upper cap's
+        //colour and the band and the lower cap fall with it.
 
         private const byte JUGGLER_DEPTH = 10;
 
@@ -351,7 +357,7 @@ namespace BS3D.Tools.LevelGen
                     && !(Math.Abs(dx) == 1 && Math.Abs(dz) == 1 && Math.Abs(dy) == 1))
                 {
                     body = true;
-                    core = dx == 0 && dz == 0 && dy == 0;
+                    core = dy == 0;
                     return b;
                 }
 
