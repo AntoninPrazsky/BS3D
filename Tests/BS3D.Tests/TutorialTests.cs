@@ -1,4 +1,5 @@
 using BS3D.Screens;
+using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.Levels;
 using System.Collections.Generic;
 using System.IO;
@@ -440,6 +441,108 @@ namespace BS3D.Tests
 
             for (int frame = 0; frame < 40; frame++) Step(tutorial, takeover: false, decided: false);
             Assert.True(tutorial.Presence > 0.99f, $"the card did not come back ({tutorial.Presence})");
+        }
+
+        //THE KIND CARDS (#735)
+
+        /// <summary>A map by kind, the way the session hands it over: the colour of the first ball of each kind, or zero.</summary>
+        private static BallType[] MapWith(params BallKind[] kinds)
+        {
+            BallType[] map = new BallType[Tutorial.KIND_COUNT];
+            foreach (BallKind kind in kinds) map[(int)kind] = BallType.Type3;
+            return map;
+        }
+
+        /// <summary>Begins a level the ladder does not reach (chapter −1) with <paramref name="map"/>, steps it through, and
+        /// returns every kind a card showed, in order; <paramref name="wildcardAt"/> fires the wildcard's event at that frame.</summary>
+        private static List<BallKind> KindsShown(Tutorial tutorial, BallType[] map, int chapter = -1, int levelInChapter = 0,
+            int chapterLength = 10, int wildcardAt = -1)
+        {
+            tutorial.BeginLevel(chapter, levelInChapter, chapterLength, ceilingStep: 6, kindsOnMap: map);
+
+            List<BallKind> shown = new();
+            for (int frame = 0; frame < 4000; frame++)
+            {
+                if (frame == wildcardAt) tutorial.Trigger(Tutorial.Lesson.KindWildcard);
+                tutorial.Update(0.1f, enabled: true, takeoverEngaged: false, levelDecided: false);
+
+                if (tutorial.CardKind is BallKind kind && (shown.Count == 0 || shown[^1] != kind)) shown.Add(kind);
+            }
+
+            return shown;
+        }
+
+        /// <summary>
+        /// Every kind a player can meet has its card (#735, in the manner of #584's per-kind check): each one a map can
+        /// carry, shown on a level past the ladder's chapters the first time it is on the map, and the wildcard, which
+        /// arrives in the gun, on its event. The Cutter is a power-up's round and #705's; Normal needs none.
+        /// </summary>
+        [Fact]
+        public void EveryKindAPlayerCanMeetHasACard()
+        {
+            foreach (BallKind kind in System.Enum.GetValues<BallKind>())
+            {
+                if (kind is BallKind.Normal or BallKind.Cutter) continue;
+
+                HashSet<string> save = new();
+                Tutorial tutorial = Fresh(save);
+
+                List<BallKind> shown = kind == BallKind.Wildcard
+                    ? KindsShown(tutorial, MapWith(), wildcardAt: 30)
+                    : KindsShown(tutorial, MapWith(kind));
+
+                Assert.Equal(new[] { kind }, shown);
+                Assert.Single(save);
+                Assert.StartsWith("kind-", string.Join("", save));
+            }
+        }
+
+        /// <summary>A kind card is shown where the kind is and nowhere else, taught once, and drawn in the map's colour.</summary>
+        [Fact]
+        public void AKindCardIsShownOnlyWhereItsKindIsAndOnlyOnce()
+        {
+            HashSet<string> save = new();
+            Tutorial tutorial = Fresh(save);
+
+            Assert.Empty(KindsShown(tutorial, MapWith()));
+            Assert.Empty(KindsShown(tutorial, MapWith(BallKind.Normal)));
+
+            Assert.Equal(new[] { BallKind.Bomb }, KindsShown(tutorial, MapWith(BallKind.Bomb)));
+            Assert.Contains("kind-bomb", save);
+            Assert.Empty(KindsShown(tutorial, MapWith(BallKind.Bomb)));
+
+            //Two kinds new on one level: both, in the order the campaign meets them
+            Assert.Equal(new[] { BallKind.Zap, BallKind.Rock }, KindsShown(tutorial, MapWith(BallKind.Rock, BallKind.Zap, BallKind.Bomb)));
+
+            //Its ball is drawn in the colour of the first one on the map
+            tutorial.BeginLevel(-1, 0, 10, ceilingStep: 6, kindsOnMap: MapWith(BallKind.Heavy));
+            for (int frame = 0; frame < 40 && tutorial.CardKind == null; frame++)
+                tutorial.Update(0.1f, enabled: true, takeoverEngaged: false, levelDecided: false);
+            Assert.Equal(BallKind.Heavy, tutorial.CardKind);
+            Assert.Equal(BallType.Type3, tutorial.CardColour);
+        }
+
+        /// <summary>
+        /// The wildcard's card waits for its event and fires once a level; and a kind card is offered on a level of the
+        /// ladder's chapters as on any other, ahead of the ladder's own cards, untouched by the send-off's rules - a save
+        /// that has been sent off still meets the bomb on Amphora (#605's cut is for the ladder alone).
+        /// </summary>
+        [Fact]
+        public void TheWildcardWaitsForTheMuzzleAndTheSendOffDoesNotCutAKindCard()
+        {
+            HashSet<string> save = new();
+            Tutorial tutorial = Fresh(save);
+
+            Assert.Empty(KindsShown(tutorial, MapWith()));
+            Assert.DoesNotContain("kind-wildcard", save);
+            Assert.Equal(new[] { BallKind.Wildcard }, KindsShown(tutorial, MapWith(), wildcardAt: 50));
+            Assert.Empty(KindsShown(tutorial, MapWith(), wildcardAt: 50));
+
+            Tutorial finished = Finished(out System.Func<int> _);
+            LevelSet set = ShippedSet();
+            Tutorial.TryPlace(set, 9, out int chapter, out int levelInChapter, out int length);
+
+            Assert.Equal(new[] { BallKind.Bomb }, KindsShown(finished, MapWith(BallKind.Bomb), chapter, levelInChapter, length));
         }
     }
 }

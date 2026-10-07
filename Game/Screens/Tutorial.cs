@@ -1,4 +1,5 @@
 ﻿using Prazsky.BS3D.Levels;
+using Prazsky.BS3D.GameStructure;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -71,7 +72,14 @@ namespace BS3D.Screens
     /// </summary>
     internal sealed class Tutorial
     {
-        internal enum Lesson { Aim, Fire, Match, LeanIn, Ceiling, Line, Traverse, Walk, Combine, Streak, Budget, LineRule, Graduated, Swap }
+        internal enum Lesson
+        {
+            Aim, Fire, Match, LeanIn, Ceiling, Line, Traverse, Walk, Combine, Streak, Budget, LineRule, Graduated, Swap,
+
+            //A card per special kind, the first time it is met (#735) - see Definition.Kind
+            KindStone, KindGlass, KindBomb, KindZap, KindAcid, KindFrozen, KindInfectious, KindGravity, KindHeavy, KindBuckshot,
+            KindWildcard,
+        }
 
         /// <summary>What the player's hand was last on, which is what the card draws for.</summary>
         internal enum Device { KeyboardMouse, Gamepad }
@@ -130,6 +138,16 @@ namespace BS3D.Screens
             public string Caption, PadCaption;
             public string Detail, PadDetail;
             public string Praise;
+
+            /// <summary>
+            /// The kind a <b>kind card</b> introduces (#735), or null for every lesson of the ladder. A kind card belongs
+            /// to no chapter: it is offered on any level, the first time the kind is in front of the player - queued at
+            /// the start of a level whose map carries it, or, for the wildcard, which arrives in the gun, armed and shown
+            /// when the first one reaches the muzzle - and taught once per player. Its glyph is the ball itself, drawn
+            /// live in the frame where a keycap would stand (<see cref="BallKind"/>), so the card never shows a still of
+            /// a look that has since been redrawn (#622). <see cref="Chapter"/> and <see cref="FromLevel"/> mean nothing on it.
+            /// </summary>
+            public BallKind? Kind;
         }
 
         //PromptFont's own codepoints (Game/Content/Fonts/PromptFont.ttf, glyphs.json in its release): the keycaps
@@ -287,7 +305,57 @@ namespace BS3D.Screens
                 PadDetail = "One swap a level, for when the queue lets you down",
                 Praise = "Swapped!",
             },
+
+            //THE KIND CARDS (#735, the owner's playtest notes of 2026-10-03 and 2026-10-07: "a tutorial has to be shown for
+            //them as soon as they first appear on the map", and of the wildcard, "I would expect a cue card saying I got a
+            //rainbow ball that counts as any colour"). One per kind that can be met, informational, each a shortened
+            //HelpPage.KIND_ENTRIES line checked against BallKind.cs; the Help page keeps the full sentence. In the order
+            //the campaign meets them, which is the order two on one level are shown in.
+            Kind(Lesson.KindBomb, "kind-bomb", BallKind.Bomb,
+                "Land a ball beside a bomb to set it off", "It blasts every ball around it, any colour"),
+            Kind(Lesson.KindZap, "kind-zap", BallKind.Zap,
+                "Land a ball beside a zap to fire it", "It takes every ball of your shot's colour"),
+            Kind(Lesson.KindGlass, "kind-glass", BallKind.Transparent,
+                "Glass takes the first colour that touches it", "From then on it is an ordinary ball"),
+            Kind(Lesson.KindStone, "kind-stone", BallKind.Rock,
+                "Stone can't be matched or shot down", "It falls only when what holds it up goes"),
+            Kind(Lesson.KindBuckshot, "kind-buckshot", BallKind.Buckshot,
+                "Buckshot has to come down to clear the level", "Cut away what holds it up and it pours out"),
+            Kind(Lesson.KindAcid, "kind-acid", BallKind.Acid,
+                "Land a ball beside acid to set it off", "It eats straight down until it reaches a gap"),
+            Kind(Lesson.KindFrozen, "kind-frozen", BallKind.Frozen,
+                "Clear a group beside the ice to break it", "Then the ball inside is an ordinary ball"),
+            Kind(Lesson.KindInfectious, "kind-infectious", BallKind.Infectious,
+                "A sick ball spreads every time you fire", "Each one it passes it to turns to stone - match it early"),
+            Kind(Lesson.KindGravity, "kind-gravity", BallKind.Gravity,
+                "This ball bends the shots that pass near it", "The aim beam shows the bend"),
+            Kind(Lesson.KindHeavy, "kind-heavy", BallKind.Heavy,
+                "A heavy ball drags the cluster down", "What hangs from it sits nearer the line"),
+
+            //The wildcard arrives in the gun, so its card is contextual: armed on every level until taught, and fired by the
+            //first one to reach the muzzle (GameplayScreen) - the moment the owner expected it
+            new()
+            {
+                Lesson = Lesson.KindWildcard, Key = "kind-wildcard", Kind = BallKind.Wildcard, Contextual = true,
+                Caption = "The rainbow ball counts as any colour", Detail = "It becomes whatever completes a group where it lands",
+            },
         };
+
+        /// <summary>A kind card's definition (#735): informational, at no chapter, its glyph the ball.</summary>
+        private static Definition Kind(Lesson lesson, string key, BallKind kind, string caption, string detail) => new()
+        {
+            Lesson = lesson, Key = key, Kind = kind, Caption = caption, Detail = detail,
+        };
+
+        /// <summary>How many kinds there are, for the per-kind colour table <see cref="BeginLevel"/> is handed.</summary>
+        internal static readonly int KIND_COUNT = MaxKind() + 1;
+
+        private static int MaxKind()
+        {
+            int max = 0;
+            foreach (BallKind kind in Enum.GetValues<BallKind>()) max = Math.Max(max, (int)kind);
+            return max;
+        }
 
         /// <summary>How long a chapter of a set without chapters is — the shipped chapter's own length.</summary>
         private const int UNCHAPTERED_LEVELS = 10;
@@ -366,6 +434,9 @@ namespace BS3D.Screens
         private bool _devicePinned;
         private string _ceilingCaption;
 
+        //The colour each kind card's ball is drawn in this level (#735): the first ball of that kind on the map, by kind
+        private readonly BallType[] _kindColours = new BallType[KIND_COUNT];
+
         /// <param name="wasTaught">Whether the save records a lesson, by key.</param>
         /// <param name="teach">Records a lesson in the save, by key.</param>
         /// <param name="mode">See <see cref="Mode"/>.</param>
@@ -412,6 +483,17 @@ namespace BS3D.Screens
         /// moment it disappeared.
         /// </summary>
         internal string Praise => Praising && _card != null ? _card.Praise : null;
+
+        /// <summary>
+        /// The kind the card up introduces, or null (#735): the HUD reserves the glyph's place for it and the session draws
+        /// the ball there, live, in the frame - see <see cref="Definition.Kind"/>.
+        /// </summary>
+        internal BallKind? CardKind => _card?.Kind;
+
+        /// <summary>The colour of the card's ball (<see cref="CardKind"/>): the first one of its kind on this level's map.</summary>
+        internal BallType CardColour => _card?.Kind is BallKind kind && (int)kind < _kindColours.Length && _kindColours[(int)kind] != 0
+            ? _kindColours[(int)kind]
+            : BallType.Type1;
 
         /// <summary>Whether the last input was the pad: what any prompt outside the cards asks to pick its glyph (#499).</summary>
         internal bool OnGamepad => _device == Device.Gamepad;
@@ -498,8 +580,11 @@ namespace BS3D.Screens
         /// <param name="swapOffered">Whether the level grants a Swap (#213); the swap lesson is skipped when it does not.</param>
         /// <param name="retry">Whether this is a retry of the level just played (Retry, Restart). A retry remembers the cards
         /// this run went through; any other start of a level is an entry into it, and shows its own cards again (#715).</param>
+        /// <param name="kindsOnMap">The level's map by kind (#735), indexed by <see cref="BallKind"/>: the colour of the first
+        /// ball of that kind, or zero for a kind the map does not carry. Its kind cards are offered on any level, chapter or
+        /// none.</param>
         internal void BeginLevel(int chapter, int levelInChapter, int chapterLength, int? ceilingStep, bool swapOffered = false,
-            bool retry = false)
+            bool retry = false, ReadOnlySpan<BallType> kindsOnMap = default)
         {
             Reset();
 
@@ -509,7 +594,17 @@ namespace BS3D.Screens
             if (!retry && !_force) _taughtThisRun.Clear();
 
             _hasLevel = chapter >= 0;
-            if (!_hasLevel) return;
+
+            //The kind cards first (#735): offered on any level, the ladder's chapters or none, so they are queued before
+            //the chapter gate below and ahead of the ladder's own cards - a kind on the map is this level's business
+            QueueKinds(kindsOnMap);
+
+            if (!_hasLevel)
+            {
+                _hasLevel = _queue.Count > 0 || _armed.Count > 0;
+                _gap = FIRST_CARD_DELAY;
+                return;
+            }
 
             //The one string built per level. A level whose glass holds still cannot fire the lesson anyway,
             //and it must not be armed with nothing to say.
@@ -519,6 +614,7 @@ namespace BS3D.Screens
 
             foreach (Definition lesson in DEFINITIONS)
             {
+                if (lesson.Kind != null) continue;
                 if (!_demo && !Eligible(lesson, chapter, levelInChapter, chapterLength)) continue;
 
                 //A level's own cards come back on every entry into it (#715), the save notwithstanding - unless this
@@ -541,6 +637,29 @@ namespace BS3D.Screens
             if (!_demo) NothingAfterTheSendOff();
 
             _gap = FIRST_CARD_DELAY;
+        }
+
+        /// <summary>
+        /// Queues a card for every kind on this level's map that the player has not been taught (#735), in
+        /// <see cref="DEFINITIONS"/>' order, and arms the wildcard's for the first one to reach the muzzle. The reel queues
+        /// all of them, each in the first colour, so one run can photograph every kind's card.
+        /// </summary>
+        private void QueueKinds(ReadOnlySpan<BallType> kindsOnMap)
+        {
+            Array.Clear(_kindColours);
+
+            foreach (Definition lesson in DEFINITIONS)
+            {
+                if (lesson.Kind is not BallKind kind || Taught(lesson)) continue;
+
+                int index = (int)kind;
+                BallType colour = index < kindsOnMap.Length ? kindsOnMap[index] : 0;
+                _kindColours[index] = colour != 0 ? colour : BallType.Type1;
+
+                if (_demo) _queue.Add(lesson);
+                else if (lesson.Contextual) _armed.Add(lesson);
+                else if (colour != 0) _queue.Add(lesson);
+            }
         }
 
         /// <summary>
@@ -609,9 +728,9 @@ namespace BS3D.Screens
             if (_taughtThisRun.Contains(sendOffLesson.Key) || (!_force && _wasTaught(sendOffLesson.Key)))
             {
                 for (int i = _queue.Count - 1; i >= 0; i--)
-                    if (_queue[i].Chapter == closes && !_replaying.Contains(_queue[i].Key)) _queue.RemoveAt(i);
+                    if (OnLadder(_queue[i], closes) && !_replaying.Contains(_queue[i].Key)) _queue.RemoveAt(i);
                 for (int i = _armed.Count - 1; i >= 0; i--)
-                    if (_armed[i].Chapter == closes && !_replaying.Contains(_armed[i].Key)) _armed.RemoveAt(i);
+                    if (OnLadder(_armed[i], closes) && !_replaying.Contains(_armed[i].Key)) _armed.RemoveAt(i);
                 return;
             }
 
@@ -626,21 +745,28 @@ namespace BS3D.Screens
             //contextual, would interrupt it the moment it lit. Neither is taught here: they are offered on the next
             //level, after the player has been sent off, which is the order the chapters promise.
             for (int i = _queue.Count - 1; i >= 0; i--)
-                if (_queue[i].Chapter > closes) _queue.RemoveAt(i);
+                if (_queue[i].Kind == null && _queue[i].Chapter > closes) _queue.RemoveAt(i);
             for (int i = _armed.Count - 1; i >= 0; i--)
-                if (_armed[i].Chapter > closes) _armed.RemoveAt(i);
+                if (_armed[i].Kind == null && _armed[i].Chapter > closes) _armed.RemoveAt(i);
 
             sendOff = _queue.IndexOf(sendOffLesson);
 
             for (int i = 0; i < _armed.Count; i++)
             {
                 Definition armed = _armed[i];
-                if (armed.Chapter != closes) continue;
+                if (!OnLadder(armed, closes)) continue;
 
                 if (armed.Lesson != Lesson.Line) _queue.Insert(sendOff++, armed);
                 _armed.RemoveAt(i--);
             }
         }
+
+        /// <summary>
+        /// Whether <paramref name="lesson"/> is on the ladder of chapter <paramref name="chapter"/> - the send-off's rules
+        /// are about the ladder alone. A kind card (#735) has no chapter: it is not cut by a send-off already read, nor
+        /// pulled ahead of one, nor held back for a later chapter.
+        /// </summary>
+        private static bool OnLadder(Definition lesson, int chapter) => lesson.Kind == null && lesson.Chapter == chapter;
 
         /// <summary>Drops everything, for a session being torn down under it — and the first thing a new level does.</summary>
         internal void Reset()
