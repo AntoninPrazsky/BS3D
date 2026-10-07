@@ -30,6 +30,10 @@ namespace BS3D.Screens
         //magazine's collection, the gun's draw and the velocity pass alike, so no two of them can disagree.
         private Matrix _motionBarrel, _motionBarrelThen, _motionCarriage, _motionCarriageThen, _motionCameraThen;
 
+        //This frame's camera carried back out through the shutter camera's share, VP_now x VP_then_share^-1: what holds a
+        //thing exactly where it stands on screen now (the kind card's ball, #735; precise aim's pinned barrel)
+        private Matrix _motionPinnedBack;
+
         //inverse(barrel now) × barrel then: what carries anything set in the tube back to where it was
         private Matrix _motionBarrelBack;
 
@@ -121,6 +125,7 @@ namespace BS3D.Screens
             Matrix cameraThen = _cameraShutter.At(then, viewProjection);
             _motionCameraThen = Matrix.Lerp(viewProjection, cameraThen, CAMERA_SHARE * lensRatio);
             Matrix shareBack = Matrix.Invert(_motionCameraThen);
+            _motionPinnedBack = viewProjection * shareBack;
 
             //The gun is measured against the camera's WHOLE motion rather than its share (#611): the pose that, seen
             //through the cut-down shutter camera, lands where the gun really stood in the frame a shutter ago
