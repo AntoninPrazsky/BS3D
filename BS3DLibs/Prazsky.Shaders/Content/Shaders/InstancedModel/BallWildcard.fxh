@@ -11,7 +11,8 @@
 // same thing in the same pixels. The generated references (#632: a fire opal, an oil-slick marble) said what
 // a wildcard is instead: colours MIXING, never settling. So the crossing is drawn as a marble: the colour it
 // is going to (PatternSecondaryColor) spreads along the veins as WildcardProgress runs 0 -> 1, over the one it
-// is leaving (PatternPrimaryColor), and at progress 1 the next crossing starts from exactly that picture.
+// is leaving (PatternPrimaryColor), and at progress 1 the next crossing starts from exactly that picture -
+// its front where this one's stopped, since every other crossing sweeps the veins back down (#821).
 // The dissolve stays what it is everywhere else - the instance's own, so a wildcard ghost dithers like any
 // ghost and the #437 lock-in still crosses out of this into an ordinary colour.
 //
@@ -25,6 +26,10 @@
 //How far through the current crossing the shared cycle is, 0 at the colour it is leaving and 1 at the one it
 //is going to. Set by the render set once a frame, off WildcardCycle, for every wildcard at once (#330).
 float WildcardProgress;
+
+//1 on every other crossing, which sweeps the veins back down from their crests (#821), 0 on the rest; see THE
+//CROSSING below.
+float WildcardReturning;
 
 //The marble: the axis its bands run across, how many bands, how hard the warp swirls them, the warp's cell
 //size, and how fast the whole figure drifts.
@@ -75,10 +80,20 @@ float4 WildcardPS(PatternVertexShaderOutput input) : COLOR
         + 0.5 * GradientNoise3(mul(NOISE_ROTATE3, direction) * (WildcardWarpCells * 2.1) - drift)) * warpLimit;
     float field = 0.5 + 0.5 * sin((dot(direction, WildcardVeinAxis) * WildcardVeinBands + warp * WildcardVeinWarp) * 3.14159265);
 
-    //THE CROSSING: the colour it is going to fills every part of the field under the progress, so it
-    //arrives ALONG the veins rather than as a wipe. One pixel soft on the field's own derivative.
+    //THE CROSSING: the colour it is going to arrives ALONG the veins rather than as a wipe - a front at a level of
+    //the field, everything on its far side the new colour. One pixel soft on the field's own derivative.
+    //⚠ IT SWEEPS UP, THEN BACK DOWN (#821). Every crossing used to fill the field from its troughs (0) to its crests
+    //(1), so the next began at the troughs again and the front, with the opal line drawn on it, jumped across the
+    //ball - "the animation plays to its end and starts over", the owner's words. Every other crossing now fills from
+    //the crests down (WildcardReturning), so a crossing starts where the last one's front stopped, and the front is
+    //eased to rest at both ends, so it slows into the turn rather than bouncing off it. The ball is wholly the
+    //arriving colour at the end either way, and half of it at the middle, so what WildcardCycle.Showing says still
+    //holds.
     float fieldWidth = max(fwidth(field), 1e-4);
-    float arrived = smoothstep(field - fieldWidth, field + fieldWidth, WildcardProgress);
+    float eased = smoothstep(0.0, 1.0, WildcardProgress);
+    float front = lerp(eased, 1.0 - eased, WildcardReturning);
+    float arrived = lerp(smoothstep(field - fieldWidth, field + fieldWidth, front),
+        smoothstep(front - fieldWidth, front + fieldWidth, field), WildcardReturning);
 
     float3 leaving = SrgbToLinear(PatternPrimaryColor);
     float3 going = SrgbToLinear(PatternSecondaryColor);
@@ -88,7 +103,7 @@ float4 WildcardPS(PatternVertexShaderOutput input) : COLOR
     //its hue travelling with the view and the clock - so even at the instant the crossing sits at one end,
     //the ball still shows it is never one colour. Band-limited to a faint mean on the vein.
     float facing = saturate(dot(normal, eyeVector));
-    float boundary = BandCoverage(field - WildcardProgress, WildcardOpalWidth, fieldWidth) * warpLimit;
+    float boundary = BandCoverage(field - front, WildcardOpalWidth, fieldWidth) * warpLimit;
     float hue = frac(field * 1.7 + (1.0 - facing) * 0.9 + PulseTime * WildcardOpalSpeed);
     float3 opal = WildcardRainbow(hue);
     float rim = pow(1.0 - facing, 2.5);

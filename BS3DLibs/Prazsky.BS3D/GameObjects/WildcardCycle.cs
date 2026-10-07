@@ -45,6 +45,7 @@ namespace Prazsky.BS3D.GameObjects
 
         private int _index;      //which colour the crossing is coming FROM
         private float _phase;    //0 at the start of that crossing, approaching 1 at its end
+        private bool _returning; //whether this crossing sweeps the veins back down (#821)
 
         public WildcardCycle()
         {
@@ -61,6 +62,15 @@ namespace Prazsky.BS3D.GameObjects
 
         /// <summary>How far through that crossing, 0 to 1 — the dissolve's own progress.</summary>
         public float Progress => _phase;
+
+        /// <summary>
+        /// Whether this crossing runs the other way across the marble's veins (#821). Every crossing used to sweep the
+        /// arriving colour from the veins' troughs up to their crests, so the next one began back at the troughs and the
+        /// front, with the opal line drawn on it, jumped across the ball: the owner saw the animation "play to its end and
+        /// start over". Alternate crossings now sweep back down from the crests, so the front starts each crossing where
+        /// the last one left it. It flips on every crossing rather than following the colour's index, which wraps.
+        /// </summary>
+        public bool Returning => _returning;
 
         /// <summary>
         /// The one colour a wildcard reads as this instant: whichever half of the crossing holds most of the
@@ -109,6 +119,7 @@ namespace Prazsky.BS3D.GameObjects
             {
                 _phase -= 1f;
                 _index = (_index + 1) % _count;
+                _returning = !_returning;
             }
         }
     }

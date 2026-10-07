@@ -1647,6 +1647,7 @@ namespace Prazsky.BS3D
         private int _wildcardFrom;
         private int _wildcardTo;
         private float _wildcardProgress;
+        private bool _wildcardReturning;
 
         /// <summary>
         /// Tells the set what a <see cref="BallKind.Wildcard"/> is showing this frame — call it once before
@@ -1655,10 +1656,11 @@ namespace Prazsky.BS3D
         /// It is a per-<i>frame</i> value and not a per-instance one deliberately, and that is the same call the
         /// emissive heartbeat made (#252): a property shared by every wildcard in the frame is what makes them
         /// unable to disagree. A caller that never sets it — the Testbed, which has no wildcards — draws one as
-        /// an ordinary ball instead of as nothing.
+        /// an ordinary ball instead of as nothing. <c>returning</c> is <see cref="GameObjects.WildcardCycle.Returning"/>:
+        /// every other crossing sweeps the veins back down, so the marble flows on instead of restarting (#821).
         /// </para>
         /// </summary>
-        public void SetWildcardCrossing(BallType from, BallType to, float progress)
+        public void SetWildcardCrossing(BallType from, BallType to, float progress, bool returning = false)
         {
             int fromIndex = (int)from - 1;
             int toIndex = (int)to - 1;
@@ -1668,6 +1670,7 @@ namespace Prazsky.BS3D
             _wildcardFrom = fromIndex >= 0 && fromIndex < TYPE_COUNT ? fromIndex : 0;
             _wildcardTo = toIndex >= 0 && toIndex < TYPE_COUNT ? toIndex : 0;
             _wildcardProgress = MathHelper.Clamp(progress, 0f, 1f);
+            _wildcardReturning = returning;
         }
 
         /// <summary>
@@ -2335,6 +2338,7 @@ namespace Prazsky.BS3D
                     renderer.Shading = BallShading.Wildcard;
                     renderer.PatternSecondaryColor = toTint;
                     renderer.WildcardProgress = _wildcardProgress;
+                    renderer.WildcardReturning = _wildcardReturning;
                     renderer.PulseDepth = still ? 0f : _pulseDepth;
                     renderer.StillEmission = still ? 1f - _pulseDepth : 1f;
 

@@ -184,6 +184,7 @@ namespace Prazsky.Core.Render
         private EffectParameter _patternPrimaryColorParam;
         private EffectParameter _patternSecondaryColorParam;
         private EffectParameter _wildcardProgressParam;
+        private EffectParameter _wildcardReturningParam;
         private EffectParameter _patternGoreCountParam;
         private EffectParameter _patternGoreThresholdParam;
         private EffectParameter _patternCapExtentParam;
@@ -639,6 +640,13 @@ namespace Prazsky.Core.Render
         /// <see cref="BallShading.Wildcard"/> alone: 0 shows the colour it is leaving (the draw's tint), 1 the one it is
         /// going to (<see cref="PatternSecondaryColor"/>).</summary>
         public float WildcardProgress { get; set; }
+
+        /// <summary>
+        /// Whether this crossing sweeps the wildcard's veins back down (#821): every other crossing runs the other way,
+        /// so the front that ended one on the veins' crests starts the next from them instead of jumping back to their
+        /// troughs. The progress keeps its meaning either way, so the Potato path's flat colour ignores this.
+        /// </summary>
+        public bool WildcardReturning { get; set; }
 
         /// <summary>
         /// <b>What the patterned parts are made of</b> — which of the shader's ball techniques shades them
@@ -1155,6 +1163,7 @@ namespace Prazsky.Core.Render
             _patternPrimaryColorParam = _effect.Parameters["PatternPrimaryColor"];
             _patternSecondaryColorParam = _effect.Parameters["PatternSecondaryColor"];
             _wildcardProgressParam = _effect.Parameters["WildcardProgress"];
+            _wildcardReturningParam = _effect.Parameters["WildcardReturning"];
             _patternGoreCountParam = _effect.Parameters["PatternGoreCount"];
             _patternGoreThresholdParam = _effect.Parameters["PatternGoreThreshold"];
             _patternCapExtentParam = _effect.Parameters["PatternCapExtent"];
@@ -1783,6 +1792,7 @@ namespace Prazsky.Core.Render
                     case BallShading.Wildcard:
                         _patternSecondaryColorParam.SetValue(PatternSecondaryColor);
                         _wildcardProgressParam.SetValue(WildcardProgress);
+                        _wildcardReturningParam.SetValue(WildcardReturning ? 1f : 0f);
                         break;
 
                     case BallShading.Vinyl:
