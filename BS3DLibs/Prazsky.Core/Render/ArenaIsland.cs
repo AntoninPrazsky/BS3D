@@ -211,13 +211,14 @@ namespace Prazsky.Core.Render
         //glass and its gold hole band stand outside the surface the balls roll on by this much at the tip, tapering to
         //nothing at the mouth. They used to coincide exactly, a sheet of no thickness, so any contact penetration at all
         //put a cap of ball through the glass, and seen from below at the tip - the owner's vantage, the sea's and the drop
-        //cinematic's - the balls clipped through it. Measured over a staged clearing drop (55 balls through the funnel, two
-        //seeds): the deepest a ball's surface went past the wall was 0.025, against a collision of zero thickness. 0.1 at
-        //the hole is 0.08 off the wall at the tip (the wall leans 34 degrees off vertical) and 0.068 a fifth of the way up,
-        //where that deepest was measured - near three times it; a ball resting on the wall sits that far off the drawn
-        //glass, a tenth of its diameter at the very most. The physics keeps FUNNEL_HOLE_RADIUS (GameplayScreen,
-        //FunnelPhysics), so no ball's path changes.
-        public const float FUNNEL_GLASS_CLEARANCE = 0.1f;
+        //cinematic's - the balls clipped through it. How deep a ball's surface goes past the wall grows with the pile
+        //pressing on it: 0.025 under a 55-ball drop, 0.055 under the 284- and 311-ball drops a Cut lets go in City
+        //(2026-10-07, a temporary probe over every falling ball each step), always in the lower third where the pile
+        //jams at the hole. 0.1 here left that drop 0.007 short of the drawn glass, so it is 0.2: 0.165 off the wall at the
+        //tip (the wall leans 34 degrees off vertical) and about 0.13 a fifth of the way up, where the deepest was measured
+        //- over twice it; a ball resting on the wall sits that far off the drawn glass, a sixth of its diameter at the very
+        //most. The physics keeps FUNNEL_HOLE_RADIUS (GameplayScreen, FunnelPhysics), so no ball's path changes.
+        public const float FUNNEL_GLASS_CLEARANCE = 0.2f;
         public const float FUNNEL_DRAWN_HOLE_RADIUS = FUNNEL_HOLE_RADIUS + FUNNEL_GLASS_CLEARANCE;
 
         /// <summary>
