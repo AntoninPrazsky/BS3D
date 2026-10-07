@@ -1067,3 +1067,13 @@ Majitel poslal odkaz na admin stránku poznámek (`127.0.0.1:5002/notes`, jednor
 - **#805 (merge `5e6b671c`, ruce).** Šipky doleva a doprava, které stránka nevyužije, posouvají kurzor po řadě (`StepNavAcrossRow`, podle polohy na obrazovce). Ověřeno na About přes `padpress=`.
 - ⚠ **Bash tool a zpětná lomítka:** Python v heredocu uvnitř Bash toolu ztratil `\` a `\b` se stalo znakem backspace (cesta `C:\Temp\bs3d` na stránce verdiktů). Skripty s Windows cestami zapisovat přes Write tool, ne heredocem.
 - Stránka verdiktů je ve verzi 12: oko #808, #816, #820, #735, #257, #705, ucho #811, ruce #800, #378, #818, #805. BS3D-play má `dev-d255846`.
+
+## 2026-10-07 — #none v0.3.6 vydán — notebook (THINKPAD), Claude Code (github-a9)
+
+- **Vydáno na majitelův pokyn:** https://github.com/AntoninPrazsky/BS3D/releases/tag/v0.3.6, anotovaný tag na `07f87913` (od zeleného `a6989c2b` se liší jen `Images/releases/v0.3.6.jpg` a `.md`). Workflow Release (běh 37664492570) prošel všemi třemi joby. **Je to první ostré publikování se dvěma balíčky (#793):** zip 422,3 MB, `linux-arm64.tar.gz` 404,1 MB, tabulka stropů a jeden `SHA256SUMS`.
+- **Snímek:** louka, Pinwheel, stejné parametry jako u v0.3.5 (`seed=917045606 sweep=0:40:0 shot=20 quality=ultra`, scratch profil s `tutorial:false`). Build orazítkovaný v0.3.6 jsem spustil bez fokusu (CreateProcess, SW_SHOWMINNOACTIVE). Fronta, cluster i HUD jsou stejné jako na v0.3.5. Stromy stojí jinde, protože `sceneseed` se losuje.
+  - ⚠ **Notebook má displej 1920×1080**, a přesto `windowed width=3840 height=1600` dá back buffer i PNG 3840×1600 (`[resolution] Native: the 3D at 3840x1600`). Snímek vydání tedy jde udělat i mimo desktop.
+- **Stropy:** 140 tabulí jako u v0.3.5 a `rules v1`. Jediná změna je **Juggler**: hash `2b69f2b19e6d13da` → `8cc416c8cbe39cb4` (#257), takže má novou tabuli. Formát odesílání je beze změny (`OnlineSession` přidal jen `Identity` pro poznámky #813). Živý server před aktualizací hlásil `/v1/health` `boards: 158`.
+- **Pi:** `update-ceilings.sh` přes SSH z notebooku zamítl klasifikátor oprávnění, takže ho spouští majitel přes Connect: `sudo /opt/bs3d-api/current/deploy/update-ceilings.sh`. Čekám `boards: 159` (nový Juggler).
+- **Ověřeno jako hráč:** zip stažený přes `gh release download`, `SHA256SUMS` OK pro zip i stropy. Zip obsahuje `BS3D.exe` a složky `Content`, `Levels`, `Music`, `Sfx`. Tabulka stropů z releasu je shodná se `ScoreSim --ceilings` z mainu. Spuštěno na scratch profilu: sada shaderů `671a27a2` jako lokální build, v rohu menu „v0.3.6“.
+- **Neověřeno:** tarball na Pi, dialog SmartScreen a odeslání skóre z vydaného buildu (scratch profil měl online vypnuté).
