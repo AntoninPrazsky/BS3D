@@ -860,10 +860,14 @@ namespace BS3D.Screens
         /// chip that still has its charge, because a press would be refused.</param>
         /// <param name="kinds">What kind each loaded round is, slot 0 first, beside <paramref name="queue"/>: a special one
         /// (the wildcard, the Cutter) turns a burst of rays behind its disc (#820). Empty draws none.</param>
+        /// <param name="queueFrom">The colour each round is dissolving out of (#705), beside <paramref name="queue"/>.</param>
+        /// <param name="queueFade">How far each has come, 0 just begun to 1 settled: the disc cross-fades from
+        /// <paramref name="queueFrom"/> to <paramref name="queue"/> as the ball in the bore dithers. Empty fades none.</param>
         internal void Draw(ScoreKeeper score, ICamera camera, in ClusterProfile profile, ReadOnlySpan<BallMarker> balls,
             ReadOnlySpan<BallType> queue, Tutorial tutorial, bool previewsOnly = false,
             ReadOnlySpan<BS3D.Effects.DozingGun.Z> snores = default, int swapCharges = -1, int brakeCharges = -1, int cutCharges = -1,
-            bool brakeOwed = true, ReadOnlySpan<BallKind> kinds = default)
+            bool brakeOwed = true, ReadOnlySpan<BallKind> kinds = default, ReadOnlySpan<BallType> queueFrom = default,
+            ReadOnlySpan<float> queueFade = default)
         {
             //No card's ball unless this frame's card asks for one (#735)
             _tutorialBallRadius = 0f;
@@ -885,7 +889,7 @@ namespace BS3D.Screens
 
             if (previewsOnly)
             {
-                DrawMagazine(queue, kinds, score, viewport, margin);
+                DrawMagazine(queue, kinds, queueFrom, queueFade, score, viewport, margin);
                 batch.End();
                 return;
             }
@@ -909,7 +913,7 @@ namespace BS3D.Screens
 
             DrawStreak(score, viewport, margin, scoreAnchor.Y + scoreSize.Y * 0.5f + Scaled(HUD_LINE_GAP));
             DrawBallsLeft(score, viewport, margin);
-            DrawMagazine(queue, kinds, score, viewport, margin);
+            DrawMagazine(queue, kinds, queueFrom, queueFade, score, viewport, margin);
             DrawSwap(swapCharges, brakeCharges, cutCharges, brakeOwed, tutorial.OnGamepad, viewport, margin);
 
             //The card is given the score's left edge rather than measuring it again: it is what bounds the
@@ -1101,8 +1105,8 @@ namespace BS3D.Screens
         /// the corner, which is the truth about what is happening, and the disc that matters stays put.
         /// </para>
         /// </summary>
-        private void DrawMagazine(ReadOnlySpan<BallType> queue, ReadOnlySpan<BallKind> kinds, ScoreKeeper score, Viewport viewport,
-            int margin)
+        private void DrawMagazine(ReadOnlySpan<BallType> queue, ReadOnlySpan<BallKind> kinds, ReadOnlySpan<BallType> queueFrom,
+            ReadOnlySpan<float> queueFade, ScoreKeeper score, Viewport viewport, int margin)
         {
             if (queue.Length == 0) return;
 
@@ -1166,6 +1170,14 @@ namespace BS3D.Screens
                 bool next = i == 0;
                 int radius = next ? head : rest;
                 Color colour = TypeColor(queue[i]);
+
+                //A disc whose round is dissolving into another colour - a swap's or a re-colour's (#705) - fades with it,
+                //smoothed, so the strip shows the trade the bore shows instead of jumping on the frame of the press
+                if (i < queueFade.Length && i < queueFrom.Length && queueFade[i] < 1f)
+                {
+                    float t = queueFade[i] * queueFade[i] * (3f - 2f * queueFade[i]);
+                    colour = Color.Lerp(TypeColor(queueFrom[i]), colour, t);
+                }
 
                 //The dark halo first, then the fill: one is what makes a pale round read over a white glacier,
                 //the other is the answer the strip exists to give.

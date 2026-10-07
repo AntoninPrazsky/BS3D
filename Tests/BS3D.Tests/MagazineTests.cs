@@ -116,6 +116,46 @@ namespace BS3D.Tests
         }
 
         /// <summary>
+        /// The Swap the player presses is seen to trade (#705): each slot holds the other's round at once and dissolves into
+        /// it from the colour it was showing, over the swap's own shorter time; a swap with a wildcard is the whole exchange
+        /// alone, as it was; and a slot caught mid-dissolve fades from the colour it was fading out of.
+        /// </summary>
+        [Fact]
+        public void ASwapSeenToTradeDissolvesEachIntoTheOthersColour()
+        {
+            //Colours 1 and 2 in the first two slots, a wildcard in the third (the dealer's every third)
+            Magazine magazine = Build();
+            magazine.SwapSlots(0, 1, crossFade: true);
+
+            MagazineSlot first = magazine.Slot(0), second = magazine.Slot(1);
+            Assert.Equal((BallType)2, first.Type);
+            Assert.Equal((BallType)1, first.FadingFrom);
+            Assert.Equal(1f, first.Transmute);
+            Assert.Equal(Magazine.SWAP_FADE_SECONDS, first.TransmuteSeconds);
+            Assert.Equal((BallType)1, second.Type);
+            Assert.Equal((BallType)2, second.FadingFrom);
+
+            magazine.Step(Magazine.SWAP_FADE_SECONDS * 0.5f);
+            Assert.InRange(magazine.Slot(0).Transmute, 0.49f, 0.51f);
+            magazine.Step(Magazine.SWAP_FADE_SECONDS * 0.5f + 1e-4f);
+            Assert.Equal(0f, magazine.Slot(0).Transmute);
+
+            MagazineSlot plain = magazine.Slot(1), wildcard = magazine.Slot(2);
+            Assert.Equal(BallKind.Wildcard, wildcard.Kind);
+            magazine.SwapSlots(1, 2, crossFade: true);
+            Assert.Equal(wildcard, magazine.Slot(1));
+            Assert.Equal(plain, magazine.Slot(2));
+
+            magazine = Build();
+            magazine.Recolour(0, (BallType)9);
+            magazine.SwapSlots(0, 1, crossFade: true);
+            Assert.Equal((BallType)2, magazine.Slot(0).Type);
+            Assert.Equal((BallType)1, magazine.Slot(0).FadingFrom);
+            Assert.Equal((BallType)9, magazine.Slot(1).Type);
+            Assert.Equal((BallType)2, magazine.Slot(1).FadingFrom);
+        }
+
+        /// <summary>
         /// A re-colour fades out of the colour on screen — for a slot caught mid-fade, the one it was already
         /// fading out of — and the countdown runs linearly to exactly zero.
         /// </summary>

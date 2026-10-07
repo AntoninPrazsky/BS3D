@@ -170,7 +170,8 @@ namespace BS3D.Screens
             switch (kind)
             {
                 case PowerupKind.Swap:
-                    _magazine.SwapSlots(SWAP_SLOT_A, SWAP_SLOT_B);
+                    //Seen to trade (#705): the two dissolve into each other's colour, the re-colour's own dithered cross-fade
+                    _magazine.SwapSlots(SWAP_SLOT_A, SWAP_SLOT_B, crossFade: true);
 
                     //Heard and taught (#213): the mechanism's own click, dry and unplaced like the UI's (it is the
                     //player's hand on the gun, not something out in the scene), and the tutorial card up, if it is
