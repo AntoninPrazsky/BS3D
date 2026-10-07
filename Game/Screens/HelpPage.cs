@@ -394,10 +394,10 @@ namespace BS3D.Screens
                 column.Widgets.Add(Paragraph(text));
 
             column.Widgets.Add(Paragraph(
-                "And one that arrives in your cannon rather than in the cluster: the wildcard, a ball that "
+                "And one that arrives in your cannon rather than in the cluster: the rainbow ball, a ball that "
                 + "never settles on a colour while it is loaded. It becomes whatever completes a group where it "
-                + "lands. The last chapter hands them out."));
-            column.Widgets.Add(Caption("Power-ups are coming later and are not in the game yet."));
+                + "lands. A few of the later levels hand them out, and a card says so the first time one is loaded."));
+            column.Widgets.Add(Caption("And the power-ups — the Swap, the Brake and the Cut — are on the Controls page."));
         }
 
         private void BuildCampaign(VerticalStackPanel column)
