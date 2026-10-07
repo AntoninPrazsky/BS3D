@@ -935,3 +935,23 @@ Majitel večer 4. 10.: „zpracovávej až do rána issues, které můžeš zpra
 - **#813: testovací poznámka do živé služby prošla** (svolení majitele): `[note] Sent 0c20ef9b (201)`. Je to jediná poznámka v živé databázi (záložka Notes admin stránky přes `bs3d-admin`). **Smazat ji agent neumí:** admin CLI chce sudo heslo, bez hesla jdou jen `update.sh`, `update-ceilings.sh`, snapshot databáze a admin stránka, která jen čte. Smaže ji majitel (`admin notes`, pak `admin delete-note <id>`).
   - ⚠ **Admin stránka přes SSH tunel vrací 400, když lokální port není stejný jako vzdálený** (`-L 15008:127.0.0.1:5008`). Se stejným číslem portu (`-L 5009:127.0.0.1:5009`, `bs3d-admin --port 5009`) jde přihlášení klíčem z výpisu i stránka.
 - BS3D-API#10 zavřené s důkazem nasazení (v0.1.22).
+
+## 2026-10-07 — verdikty majitele zapsané; #814 #813 #817 #800c #819 #821 na mainu; #816–#821 založené — desktop, Claude Code (bs3d-c5)
+
+- **Majitelovy odpovědi z dávkové stránky** (vložené i do chatu, v databázi stránky stejné) jsou opsané do všech 13 issues.
+  - Přijaté a zavřené: #780, #188, #378, #520, #802.
+  - „Je mi to jedno“: #803 nové pořadí zůstává; #213 platí rozvrh z #705 (Swap od 3. kapitoly, Brake od 4., Cut od 5.); u #692 b zůstává červené odmítnutí.
+  - Vrácené do práce: #813 c, #811 a+c, #257 a, #800 c, #692 d, #808 a. Poznámky majitele jsou doslova v jejich komentářích.
+- **Hotové a na mainu:**
+  - **#814** (nápis „Click or Space to skip“ zůstával ostrý pod pauzou během průletu kapitoly): kreslí se jen, když je hra navrchu (`IsActive`). Zavřené se snímkem před a po.
+  - **#813**: tlačítko je **Write to the Author** v tyrkysové (`MENU_TEXT_NOTE`), je i v Extras a pole ukazuje posledních šest *měřených* řádků (`FieldTail`, `FieldTailTests`, starý ocas 220 znaků v testech 7 z 8 selže). `note=` umí krok `back`.
+  - **#817**: pad vibruje při herních událostech jen s rukou na padu (`GamepadRumble.HandOnPad` z `GameplayScreen.NoteDevice`). Podpis, puls po připojení a menu jdou dál. Změřeno dočasnou sondou: bez ruky po podpisu nic, s `pad` 31 pulsů. Zavřené.
+  - **#800 c**: otočení záložky má sílu pro každý motor (těžký 0,26, lehký 0,55) a trvá 0,1 s.
+  - **#819**: pravá páčka se v přiblížení zpomalí podle objektivu (`CursorRateScale`) a má křivku 1,5 (`PadAimRate`, `PadAimRateTests`, lineární verze 5 z 8 selže).
+  - **#821**: každý druhý přechod duhové koule jde opačným směrem a na koncích zpomalí (`WildcardCycle.Returning`, `WildcardReturning` v shaderu, `WildcardCycleTests`; směr podle indexu barvy selže při 3 a 5 barvách).
+  - **#808 b**: opravené řádky o Potato v CLAUDE.md.
+- **Založené z majitelových poznámek:** #816 checkbox, #817, #818 Konami na padu, #819, #820 paprsky z ústí a značka ve frontě u speciální koule, #821. Karta pro chameleona je komentář v #735, které ji už obsahovalo. Majitel říká wildcardu „chameleon“ nebo „duhová kulička“.
+- **Stránka verdiktů má verzi 3:** na majitele čekají #813 a #821 (oko) a #800 a #819 (ruce). Fronta mimo nováčka má 4 položky.
+- ⚠ **Pad majitele je u desktopu připojený.** Každé spuštění hry posílá úvodní podpis, a dokud neplatilo #817, vibrovaly v něm i skriptované výstřely (`fire=`, řezy u #762).
+- ⚠ **`shot=` ve 4K stíhá jen asi jeden snímek za 0,4 s** (z 31 plánovaných jich vzniklo 7) a hra při tom běží na 2 fps. Na pohyb kratší než ~1 s se snímkovou řadou měřit nedá; `width=`/`height=` velikost snímku nezmenší.
+- ⚠ **Heredoc v jednom Bash volání s několika `cat > … <<'EOF'` spadl na „unexpected EOF“** a nic se nezaložilo. Těla issues jdou spolehlivě přes Write do souborů a `gh issue create --body-file`.
