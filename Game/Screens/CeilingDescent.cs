@@ -37,6 +37,9 @@ namespace BS3D.Screens
         internal const float CEILING_DESCENT_PER_STEP = 0.6f;        //world units the glass drops each step
         private const float CEILING_DESCENT_SPEED = 1.5f;           //units/sec while a step is sliding in
 
+        //How long one step's slide lasts: what the pad's buzz for a step is stretched over (#378, 2026-10-07)
+        internal const float SLIDE_SECONDS = CEILING_DESCENT_PER_STEP / CEILING_DESCENT_SPEED;
+
         //The line the glass is never walked past — the very figure GameplayScreen.CEILING_DEATH_Y decides the
         //loss by, asked of ClusterHang rather than copied (see that constant for why it lives there).
         private const float DEATH_Y = ClusterHang.DEATH_Y;

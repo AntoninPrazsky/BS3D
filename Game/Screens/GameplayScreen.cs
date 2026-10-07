@@ -538,16 +538,19 @@ namespace BS3D.Screens
         //does not sizzle every frame.
         private const float LINE_TOUCH_REARM = CLUSTER_SWING_ALLOWANCE * 0.1f;
 
-        //The pad's answer to a step (#378) — heavier and longer than a shot or a landing, the way the plate's
-        //own slide is a slower event than either. Left-heavy for the shove; halved on a feed step
+        //The pad's answer to a step (#378) — longer than a shot or a landing, the way the plate's
+        //own slide is a slower event than either: a buzz over that slide (below); halved on a feed step
         //(CEILING_RUMBLE_FEED_SCALE) for the same reason PlayCeilingStep and the flash colour go soft on one:
         //a feed is the game rewarding the player, not warning them.
         //Brought down twice on the owner's feel with a pad (2026-10-05): "maybe a little too pronounced" at 0.6/0.25 over
-        //0.5 s, then "still too pronounced" at 0.45/0.18 over 0.4 s. Now about a shot's weight, and shorter than either
-        //of those — the length was most of what made a step loom (#800).
-        private const float CEILING_RUMBLE_LEFT = 0.28f;
-        private const float CEILING_RUMBLE_RIGHT = 0.1f;
-        private const float CEILING_RUMBLE_SECONDS = 0.25f;
+        //0.5 s, then "still too pronounced" at 0.45/0.18 over 0.4 s. Then about a shot's weight (0.28/0.1 over 0.25 s),
+        //and still "too strong" (2026-10-07): "it should be a weaker buzz, a little stronger than the gun moving". So it is
+        //a buzz now and not a shove: the light motor, a touch of the heavy one under it, over the plate's own slide
+        //(CeilingDescent.SLIDE_SECONDS). The gun's rattle is bumps of the light motor at 0.03-0.07
+        //(CARRIAGE_RATTLE_LOW/HIGH); this is a little above it and lasts the slide instead of a bump.
+        private const float CEILING_RUMBLE_LEFT = 0.03f;
+        private const float CEILING_RUMBLE_RIGHT = 0.12f;
+        private const float CEILING_RUMBLE_SECONDS = CeilingDescent.SLIDE_SECONDS;
         private const float CEILING_RUMBLE_FEED_SCALE = 0.5f;
 
         //The pad's answer to the loss at the line (#378, asked for on the owner's first feel): the one ending the player

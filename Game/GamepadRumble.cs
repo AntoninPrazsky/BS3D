@@ -162,20 +162,20 @@ namespace BS3D
         private const float SIGNATURE_WINDOW_SECONDS = 15f;
 
         //The menus' four words (#800), all on the body motors — a hand in a menu is on the sticks and the face buttons,
-        //not the triggers. A step of the focus is the lightest thing the pad says; a page turn is felt on the side it
-        //turns to (the left grip holds the heavy motor, the right the light one); a confirm is firmer and brighter; a
+        //not the triggers. A step of the focus is the lightest thing the pad says; a page turn is a little firmer, the
+        //same whichever way it turns; a confirm is firmer and brighter; a
         //back is softer and lower.
         //The first cut's step (the light motor at 0.25 for 0.04 s) went unnoticed in the owner's hand (#800): a motor
         //that is spun up from rest needs some tens of milliseconds before it is felt at all, and forty was most of them.
         //Every word is longer now, and the step has a touch of the heavy motor under it.
-        //The page turn was one figure for both sides (0.4 for 0.07 s), and the owner felt LB and RB differ, and each
-        //press differ from the last (#800 c). Both were the motors: the heavy one at 0.4 is a much bigger thing in the
-        //hand than the light one at 0.4, so each side now has its own figure, the light motor's about twice the heavy
-        //one's (the accept's own ratio); and 0.07 s is barely past a motor's spin-up from rest,
-        //so how much of a pulse was felt depended on whether the motor was still turning from the press before. It is
-        //longer now, as the accept is.
+        //The page turn was felt on the side it turned to, and the owner felt LB and RB differ twice (#800 c, f): first at
+        //one figure for both sides (0.4 for 0.07 s), then at a figure per motor (0.26 heavy, 0.55 light, 0.1 s). The two
+        //body motors are different machines, a heavy rumble and a light buzz, so no pair of figures makes the two grips
+        //feel alike. A page turn is now one pulse on both motors, the same for LB and RB, between the step and the accept,
+        //and the direction is the screen's to show. It stays past a motor's spin-up (0.07 s was barely past it, so a press
+        //felt different depending on whether the motor still turned from the last one).
         private const float UI_STEP_LEFT = 0.12f, UI_STEP_RIGHT = 0.35f, UI_STEP_SECONDS = 0.07f;
-        private const float UI_PAGE_LEFT = 0.26f, UI_PAGE_RIGHT = 0.55f, UI_PAGE_SECONDS = 0.1f;
+        private const float UI_PAGE_LEFT = 0.2f, UI_PAGE_RIGHT = 0.45f, UI_PAGE_SECONDS = 0.09f;
         private const float UI_ACCEPT_LEFT = 0.3f, UI_ACCEPT_RIGHT = 0.55f, UI_ACCEPT_SECONDS = 0.1f;
         private const float UI_BACK_LEFT = 0.45f, UI_BACK_RIGHT = 0.15f, UI_BACK_SECONDS = 0.09f;
 
@@ -190,9 +190,9 @@ namespace BS3D
         /// <summary>The menu's focus moved one entry (#800).</summary>
         public void UiStep() => Feel(UI_STEP_LEFT, UI_STEP_RIGHT, UI_STEP_SECONDS);
 
-        /// <summary>A page or a tab turned, felt on the side it turned to (#800).</summary>
+        /// <summary>A page or a tab turned (#800): one pulse whichever way, <paramref name="direction"/> being the screen's to show.</summary>
         public void UiPage(int direction) =>
-            Feel(direction < 0 ? UI_PAGE_LEFT : 0f, direction > 0 ? UI_PAGE_RIGHT : 0f, UI_PAGE_SECONDS);
+            Feel(UI_PAGE_LEFT, UI_PAGE_RIGHT, UI_PAGE_SECONDS);
 
         /// <summary>An entry pressed (#800).</summary>
         public void UiAccept() => Feel(UI_ACCEPT_LEFT, UI_ACCEPT_RIGHT, UI_ACCEPT_SECONDS);
