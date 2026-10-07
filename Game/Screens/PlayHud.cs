@@ -2219,6 +2219,27 @@ namespace BS3D.Screens
 
         #endregion
 
+        //THE KIND CARD'S BALL (#735): a card introducing a kind shows the ball itself where a keycap would stand, drawn LIVE
+        //in the frame by the session (GameplayScreen.CollectTutorialBall) rather than as a picture, so the card always shows
+        //the kind's current look. This HUD only says where: the glyph's square, kept here as the frame's own coordinates
+        //(-1..1, y up) for the next frame's 3D draw. One frame late, which no eye reads on a card that bobs this slowly.
+        private Vector2 _tutorialBallAt;
+        private float _tutorialBallRadius;
+
+        //The ball's square on the card, design units: between the caption's 200 and a keycap's 228
+        private const int HUD_TUTORIAL_BALL = 200;
+
+        /// <summary>
+        /// Where the card's ball goes (#735), in the frame's normalised coordinates (x and y −1..1, y up), and its radius
+        /// as a share of the frame's half-height; false while no kind card is up. What the HUD drew last.
+        /// </summary>
+        internal bool TryGetTutorialBall(out Vector2 at, out float radius)
+        {
+            at = _tutorialBallAt;
+            radius = _tutorialBallRadius;
+            return radius > 0f;
+        }
+
         /// <summary>
         /// The tutorial's card, if one is up: the glyphs, the line and the smaller line laid out as one block
         /// and scaled about its own centre, so the arrival's bounce swells it in place rather than shouldering
@@ -2248,27 +2269,6 @@ namespace BS3D.Screens
         /// </para>
         /// </summary>
         /// <param name="scoreLeft">The left edge of the score block, which is what the card may not reach.</param>
-        //THE KIND CARD'S BALL (#735): a card introducing a kind shows the ball itself where a keycap would stand, drawn LIVE
-        //in the frame by the session (GameplayScreen.CollectTutorialBall) rather than as a picture, so the card always shows
-        //the kind's current look. This HUD only says where: the glyph's square, kept here as the frame's own coordinates
-        //(-1..1, y up) for the next frame's 3D draw. One frame late, which no eye reads on a card that bobs this slowly.
-        private Vector2 _tutorialBallAt;
-        private float _tutorialBallRadius;
-
-        //The ball's square on the card, design units: between the caption's 200 and a keycap's 228
-        private const int HUD_TUTORIAL_BALL = 200;
-
-        /// <summary>
-        /// Where the card's ball goes (#735), in the frame's normalised coordinates (x and y −1..1, y up), and its radius
-        /// as a share of the frame's half-height; false while no kind card is up. What the HUD drew last.
-        /// </summary>
-        internal bool TryGetTutorialBall(out Vector2 at, out float radius)
-        {
-            at = _tutorialBallAt;
-            radius = _tutorialBallRadius;
-            return radius > 0f;
-        }
-
         private void DrawTutorial(Tutorial tutorial, Viewport viewport, int margin, float scoreLeft)
         {
             float presence = tutorial.Presence;

@@ -522,12 +522,22 @@ namespace BS3D.Screens
         /// The kind card's ball (#735): the kind itself, live, where the card keeps a square for it - one more ball in the
         /// frame, hung <see cref="TUTORIAL_BALL_DEPTH"/> in front of the lens on the ray through the card's square and
         /// sized to fill it, so it is lit, glows and breathes as that kind does on the map. The HUD says where
-        /// (<see cref="PlayHud.TryGetTutorialBall"/>), from the frame before. Out of the motion record (no shutter pose):
-        /// it moves with the lens, so it has nothing to smear.
+        /// (<see cref="PlayHud.TryGetTutorialBall"/>), from the frame before, and it shrinks with the HUD's own opacity, since
+        /// the HUD fades through a layer the ball is not drawn in.
+        /// <para>
+        /// ⚠ <b>It is IN the motion record, pinned</b> (the review of #735): a pixel the velocity pass leaves empty takes the
+        /// camera's share of the motion at the cluster's depth (<c>MotionBlur.fx</c>'s background velocity), so a ball left
+        /// out of the record smeared like the scenery under a walk or a kick while the card's text beside it stood sharp. Its
+        /// shutter pose is the one that projects to the very pixel it stands on now, precise aim's pinned pose for the barrel
+        /// (<see cref="AgainstCamera"/>). Leaned in, the frame's soft periphery (#214) still takes it with the scenery.
+        /// </para>
         /// </summary>
-        private void CollectTutorialBall(BallDrawFrame frame)
+        private void CollectTutorialBall(BallDrawFrame frame, float hudOpacity)
         {
             if (_tutorial.CardKind is not BallKind kind || !_hud.TryGetTutorialBall(out Vector2 at, out float radius)) return;
+
+            radius *= hudOpacity;
+            if (radius <= 0f) return;
 
             Matrix projection = Camera.Projection;
             Matrix toWorld = Matrix.Invert(Camera.View);
@@ -544,7 +554,8 @@ namespace BS3D.Screens
             world.M42 = position.Y;
             world.M43 = position.Z;
 
-            frame.Add(_tutorial.CardColour, position, world, BallRenderSet.UNOCCLUDED, kind: kind);
+            frame.Add(_tutorial.CardColour, position, world, BallRenderSet.UNOCCLUDED, kind: kind,
+                shutterWorld: _motionThisFrame ? world * _motionPinnedBack : default);
         }
 
         /// <summary>
@@ -1814,7 +1825,7 @@ namespace BS3D.Screens
             _crateField?.Draw(Camera, Game.SceneEffectParams);
 
             //A kind card's ball (#735), into the same frame AFTER the shadow pass BeginSceneDraw ran, so it casts nothing
-            CollectTutorialBall(ballFrame);
+            CollectTutorialBall(ballFrame, hudOpacity);
 
             //Everything collected above, as one instanced draw per ball type and LOD level — and the frame's
             //collection is closed by it. The heartbeat runs on the WALL clock: the balls go on breathing while

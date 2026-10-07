@@ -511,8 +511,11 @@ namespace BS3D.Tests
             Assert.Contains("kind-bomb", save);
             Assert.Empty(KindsShown(tutorial, MapWith(BallKind.Bomb)));
 
-            //Two kinds new on one level: both, in the order the campaign meets them
+            //Two kinds new on one level: both, in the order the campaign meets them - buckshot (Juggler, 93) before
+            //everything, the zap before stone
             Assert.Equal(new[] { BallKind.Zap, BallKind.Rock }, KindsShown(tutorial, MapWith(BallKind.Rock, BallKind.Zap, BallKind.Bomb)));
+            Assert.Equal(new[] { BallKind.Buckshot, BallKind.Transparent },
+                KindsShown(Fresh(new HashSet<string>()), MapWith(BallKind.Transparent, BallKind.Buckshot)));
 
             //Its ball is drawn in the colour of the first one on the map
             tutorial.BeginLevel(-1, 0, 10, ceilingStep: 6, kindsOnMap: MapWith(BallKind.Heavy));
