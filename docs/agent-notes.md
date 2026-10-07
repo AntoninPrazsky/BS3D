@@ -8219,3 +8219,12 @@ Majitel večer 4. 10.: „zpracovávej až do rána issues, které můžeš zpra
   - Od spuštění žebříčků (2. 10.) mají záznam na 66 deskách tři přezdívky: majitel (60) a dva další hráči (11 a 5).
   - #768 (cizí hráči) zůstává nedotčené.
 - ⚠ **Python na tomhle stroji** odmítl certifikát `scores.winphonew.eu` jako prošlý. openssl ho vidí platný (Let's Encrypt YE1, do 30. 12. 2026) a curl i hra fungují. Dál jsem to nezkoumal.
+
+## 2026-10-07 — #813 Send a Note: dokumentace a stav API; inventura rozdělané práce — desktop, Claude Code (bs3d-c5)
+
+- **#813 je na mainu od 6. 10. (`59cf5aed`), chyběl jen ocas.** Do `docs/game-shell.md` jsem dopsal oddíl „Send a Note“: kde tlačítko je, snímek jako závěrka, kontext, podpis identitou, psaní, outbox a jeho pravidla a páka `note=`. Do `docs/formats-and-tools.md` přibyla složka `Notes/`.
+- **API je nasazené:** BS3D-API v0.1.22 (2026-10-07 06:12) obsahuje poznámky (`8f17b2c`). Živá služba odpovídá na `POST /v1/notes` s prázdným tělem `400 bad-request`, neznámá cesta dává 404. BS3D-API#10 je ale pořád otevřené.
+- **Neověřeno:** poznámka z release buildu do živé služby. Testovací poznámku jsem bez svolení majitele neposlal, stejně jako se neposílá testovací clear.
+- **Inventura** (majitel se ptal na rozdělanou práci): kromě mainu žádná větev, žádný stash, CI zelené. Tři worktree ve scratchpadech starých sezení jsou čisté a detached na commitech mainu. Nemazal jsem je, protože v `bin` můžou mít snímky.
+- ⚠ **Dávka verdiktů ze 6. 10. nemá štítky ani odkaz na issues.** Žádné z 15 issues nenese `verdict-*` ani `owner-decision` a stránka „Verdikty 6. 10.“ není odkázaná na žádném z nich. Klasifikace bs3d-f3 čeká na majitelovo svolení a databáze stránky (`verdicts`) je prázdná, takže majitel zatím neodpověděl.
+- ⚠ **Deník nebyl za září zrotovaný** (448 zápisů, #358). Rotace jde samostatnou větví.
