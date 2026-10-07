@@ -1700,18 +1700,23 @@ namespace BS3D
             else if (keyboard.IsKeyDown(Keys.Left) || pad.IsButtonDown(Buttons.DPadLeft)
                 || pad.ThumbSticks.Left.X < -NAV_STICK_DEADZONE) sideways = -1;
 
-            //Sideways is the PAGE's, not the focus cursor's: a page that wants it says so and says whether it
-            //acted, so the tick sounds where something moved and stays silent on the seven pages that ignore
-            //it. The sound is played here rather than in the page for the same reason MenuClickable owns the
-            //click: the audio is the frame's, and a page reaching for it would be a second copy of that rule.
+            //Sideways is the PAGE's first: a page that wants it says so and says whether it acted, so the tick sounds where
+            //something moved. The sound is played here rather than in the page for the same reason MenuClickable owns the
+            //click: the audio is the frame's, and a page reaching for it would be a second copy of that rule. What a page
+            //leaves is the ROW's (#805): the focus moves to the entry beside it in the same row, so About's Play and Next,
+            //the Jukebox's controls and any other row a page lays out side by side are walked with the arrows the player
+            //sees them in - one rule for every page rather than an override each page has to remember.
             bool padSideways = pad.IsButtonDown(Buttons.DPadRight) || pad.IsButtonDown(Buttons.DPadLeft)
                 || Math.Abs(pad.ThumbSticks.Left.X) > NAV_STICK_DEADZONE;
 
-            if (HeldDirectionFires(sideways, ref _navSideDirection, ref _navSideRepeatDelay, elapsed)
-                && _screens.Active is MenuPage sidewaysPage && sidewaysPage.PageSideways(sideways))
+            if (HeldDirectionFires(sideways, ref _navSideDirection, ref _navSideRepeatDelay, elapsed))
             {
-                _audioDirector.Sfx.PlayUiTick();
-                if (padSideways) _audioDirector.Rumble.UiPage(sideways);
+                if (_screens.Active is MenuPage sidewaysPage && sidewaysPage.PageSideways(sideways))
+                {
+                    _audioDirector.Sfx.PlayUiTick();
+                    if (padSideways) _audioDirector.Rumble.UiPage(sideways);
+                }
+                else if (StepNavAcrossRow(sideways) && padSideways) _audioDirector.Rumble.UiStep();
             }
 
             if (!edgeInputAllowed) return;
@@ -1878,6 +1883,48 @@ namespace BS3D
                 _audioDirector.Sfx.PlayStarEarned(_konamiJingleNote, KONAMI_JINGLE.Length, KONAMI_JINGLE[_konamiJingleNote]);
                 _konamiJingleNote++;
             }
+        }
+
+        /// <summary>
+        /// The row rule (#805): moves the focus to the nearest entry beside the focused one on the side asked - an entry
+        /// whose middle stands within the focused one's height, so the two are one row as the player reads it - and says
+        /// whether there was one. Nothing moves at a row's end or with no cursor up; the press is then simply nothing, as
+        /// it was on every such page before. Read off where the entries stand on screen, so it is the layout the player
+        /// sees and not the order the tree was walked in.
+        /// </summary>
+        private bool StepNavAcrossRow(int direction)
+        {
+            if (_navIndex < 0 || _navIndex >= _navEntries.Count) return false;
+
+            Button here = _navEntries[_navIndex];
+            Point at = here.ToGlobal(Point.Zero);
+            int top = at.Y, bottom = at.Y + here.Bounds.Height, middle = at.X + here.Bounds.Width / 2;
+
+            int found = -1, nearest = int.MaxValue;
+            for (int i = 0; i < _navEntries.Count; i++)
+            {
+                if (i == _navIndex) continue;
+
+                Button other = _navEntries[i];
+                Point corner = other.ToGlobal(Point.Zero);
+                int otherMiddleY = corner.Y + other.Bounds.Height / 2;
+                if (otherMiddleY < top || otherMiddleY > bottom) continue;
+
+                int ahead = (corner.X + other.Bounds.Width / 2 - middle) * direction;
+                if (ahead > 0 && ahead < nearest)
+                {
+                    nearest = ahead;
+                    found = i;
+                }
+            }
+
+            if (found < 0) return false;
+
+            _navIndex = found;
+            _audioDirector.Sfx.PlayUiTick();
+            ApplyNavHighlight();
+            _navRevealPending = !ScrollNavEntryIntoView();
+            return true;
         }
 
         private void StepNavFocus(int direction)
