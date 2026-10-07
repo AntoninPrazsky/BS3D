@@ -89,7 +89,10 @@ namespace BS3D.Screens
         private bool _caretShown = true;
         private string _problem;
 
-        private Label _field, _hint, _attachLabel, _status;
+        private Label _field, _hint, _status;
+
+        /// <summary>The picture's checkbox (#816): ticked while the picture goes with the note.</summary>
+        private CheckGlyph _attachCheck;
         private Image _image;
         private Button _send, _back;
 
@@ -188,7 +191,8 @@ namespace BS3D.Screens
 
         protected override Widget BuildTree()
         {
-            _field = _hint = _attachLabel = _status = null;
+            _field = _hint = _status = null;
+            _attachCheck = null;
             _image = null;
             _send = _back = null;
 
@@ -249,7 +253,8 @@ namespace BS3D.Screens
                     Height = width * _thumbnail.Height / _thumbnail.Width,
                 };
                 right.Widgets.Add(_image);
-                Button toggle = MenuButton("Picture: sent with the note", ToggleAttach, out _attachLabel);
+                //A checkbox since #816: the tick says whether it goes, where two sentences took turns on the button
+                Button toggle = CheckBox("Send the picture", ToggleAttach, out _attachCheck, out _);
                 toggle.Width = width;
                 right.Widgets.Add(toggle);
             }
@@ -294,9 +299,9 @@ namespace BS3D.Screens
                 ?? $"Enter sends. Shift+Enter starts a new line. {_draft.Length} / {OnlineNotes.MaxTextLength}. A pad cannot type.";
             _hint.TextColor = _problem != null ? BS3DGame.MENU_TEXT_ALERT : BS3DGame.MENU_TEXT_DIM;
 
-            if (_attachLabel != null)
+            if (_attachCheck != null)
             {
-                _attachLabel.Text = _attach ? "Picture: sent with the note" : "Picture: left out";
+                _attachCheck.Checked = _attach;
                 _image.Opacity = _attach ? 1f : 0.35f;
             }
         }

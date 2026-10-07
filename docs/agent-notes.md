@@ -988,3 +988,25 @@ Majitel poslal odkaz na admin stránku poznámek (`127.0.0.1:5002/notes`, jednor
 - ⚠ **Rozdíl proti dřívějšku:** střela, která nikdy nebyla nad čarou, se pod ní už nekreslí ani při pádu (dřív ano, když padala). Na Pennantu taková nenastala: stoupající střela pod čarou se neobjevila v žádném z šesti běhů, ústí hlavně je tam nad čarou.
 - ⚠ **Skriptované výstřely během úvodního průletu (9,5 s na Pennantu) se nevystřelí**, `fire=` tedy začínat až po něm. Střely, které letí ven z ostrova, polyká po třech netrefených střelách z téže pozice červí díra (#230), takže do trychtýře se nevrátí. Vrací se jen ty, které se odrazí od skla.
 - Ověřeno jen na GamePi (Potato). Windows build sdílí kód, zkompiluje ho CI.
+
+## 2026-10-07 — #816 zaškrtávátko pro dvoustavové řádky — Raspberry Pi 5 (BS3DServer), Claude Code
+
+- **Na mainu, čeká na verdikt (oko).** Řádky, které četly On/Off, mají místo slova políčko s fajfkou:
+  - DISPLAY: Fullscreen, Auto quality, FPS counter, Aberration, Film grain, Motion blur;
+  - GAME: Tutorial, Intro logo, Drop camera, Unlock all;
+  - na stránce poznámky (#813) „Send the picture“ místo dvou střídajících se vět.
+- **Slova si nechávají** Resolution, Quality, Brightness, Sky, FPS limit (Monitor/Unlimited), hlasitosti, citlivosti, Rumble a Online scores (třetí stav „No server“).
+- **Políčko je `MenuButton` s jiným obsahem** (`MenuPage.CheckBox`), takže má stejnou desku, kurzor padu, zvuk i haptiku.
+  - Rámeček a fajfka jsou kreslené tvary (`CheckGlyph`), protože Anton nemá ☐ ani ✓.
+  - Úseky fajfky po řádcích pixelů počítá `CheckTick` předem. `CheckTickTests` je porovnávají s hrubým pokrytím po 0,01 px. Vynechané kulaté konce i nesloučené překryvy test chytí.
+- **Celý řádek přepíná:** stisk na popisku jde přes `Tag` tlačítka, takže zní a funguje stejně.
+- **Výhrada se zobrazuje ztlumeně:** řádek, který drží tier nebo build, ukazuje nezaškrtnuté políčko a vedle něj „(tier)“ nebo „(locked)“, jako dřív „Off (tier)“.
+- **Ověřeno na GamePi** (snímky 1600×900 a fullscreen 1920×1080):
+  - klik myší na políčko i na popisek přepne hodnotu a `Settings.json` ji uloží;
+  - kurzor navigace se rozsvítí i na řádku s políčkem;
+  - poznámka ukazuje zaškrtnuté i odškrtnuté (`note=…,untick`).
+- **Neověřeno:**
+  - 3840×1600: Pi okno ořízne na 1920×1027;
+  - pad (není připojený);
+  - Enter z klávesnice: xdotool doručí klávesy do hry jen občas. Cesta je ale tentýž `Tag`, kterým prošel klik na popisek.
+- ⚠ **Při spuštění rovnou do Nastavení (`settings`) s novým userdata ukazuje řádek FPS opačně, než je skutečný stav.** `_info.Visible` je true (výchozí `FpsOverlay`), ale řádek je nezaškrtnutý, takže první klik ho „nezmění“. Platilo to i se slovy On/Off a s #816 to nesouvisí, nehledal jsem to.

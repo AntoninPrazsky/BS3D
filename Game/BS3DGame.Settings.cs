@@ -289,7 +289,7 @@ namespace BS3D
         /// </summary>
         internal void ToggleAberration()
         {
-            //The Potato path (#789) has no resolve to fringe, and its row reads "Off (tier)" (#796): nothing to toggle,
+            //The Potato path (#789) has no resolve to fringe, and its row shows "(tier)" by an unticked box (#796, #816): nothing to toggle,
             //and the player's stored preference stays what it was
             if (!HasLensLooks) return;
 

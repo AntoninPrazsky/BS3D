@@ -266,6 +266,43 @@ namespace BS3D.Screens
         protected MediaGlyph ButtonGlyph(MediaGlyph.Symbol symbol) =>
             new(symbol, (int)MathF.Round(FontBody.LineHeight * ANTON_CAP_OF_LINE), FontBody.LineHeight);
 
+        /// <summary>
+        /// A checkbox (#816): a menu button around a <see cref="CheckGlyph"/> and the label beside it, so it is a member of
+        /// the menu's button family in all but its content. The slab, the brushes the pad's focus swaps, the click sound,
+        /// the pad's entry and #800's haptics all come with <see cref="MenuButton(Widget, Action)"/>. For a row with two
+        /// states whose words would be On and Off; a row with more values, or two states of other names, keeps a button
+        /// that cycles its words (<c>docs/game-shell.md</c>, "Two kinds of control").
+        /// </summary>
+        /// <param name="text">What the tick says, beside the box; empty for a row whose caption already says it, and the
+        /// label is then hidden until a page writes a qualifier into it.</param>
+        protected Button CheckBox(string text, Action onClick, out CheckGlyph glyph, out Label label)
+        {
+            glyph = new CheckGlyph((int)MathF.Round(FontBody.LineHeight * ANTON_CAP_OF_LINE), FontBody.LineHeight);
+            label = new Label
+            {
+                Text = text,
+                Font = FontBody,
+                TextColor = BS3DGame.MENU_TEXT,
+                VerticalAlignment = VerticalAlignment.Center,
+                Visible = !string.IsNullOrEmpty(text),
+            };
+
+            //The box a word's space from its label, both centred on the slab as a worded button's label is
+            HorizontalStackPanel content = new()
+            {
+                Spacing = Scaled(CHECK_GAP),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            content.Widgets.Add(glyph);
+            content.Widgets.Add(label);
+
+            return MenuButton(content, onClick);
+        }
+
+        /// <summary>Between a checkbox's box and its label, in design units: about a space of the body face.</summary>
+        private const int CHECK_GAP = 24;
+
         //Anton's capitals as a fraction of its line, off the face's own tables: sCapHeight 1760 units in a line of
         //ascent 2409 + descent 674 (no line gap). Taken of the line rather than the em, so it holds whichever of the two
         //FontStashSharp sizes a font by

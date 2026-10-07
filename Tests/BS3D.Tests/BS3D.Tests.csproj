@@ -45,6 +45,8 @@
     <!--The privacy note's wrap (#769): lines broken at spaces only, over a measure handed in.-->
     <Compile Include="..\..\Game\Screens\SpaceWrap.cs" />
     <Compile Include="..\..\Game\Screens\FieldTail.cs" />
+    <!--A checkbox's tick (#816): which part of each row of pixels two round-ended strokes cover, no device.-->
+    <Compile Include="..\..\Game\Screens\CheckTick.cs" />
     <!--The ceiling's descent and the player's brake on it (#213): a state machine over floats, no device.-->
     <Compile Include="..\..\Game\Screens\CeilingDescent.cs" />
     <!--The city intro's shot builder (#488): plain geometry over City's block grid.-->

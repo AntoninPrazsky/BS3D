@@ -95,10 +95,29 @@ namespace BS3D.Screens
         private static readonly IBrush TAB_SELECTED_BRUSH = new FlatBrush(BS3DGame.MENU_TEXT);
         private static readonly Color TAB_SELECTED_TEXT = new(30, 30, 30);
 
-        private Label _fullscreenValue, _resolutionValue, _qualityValue, _adaptiveQualityValue, _exposureValue, _skyValue, _fpsValue, _fpsLimitValue;
-        private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _rumbleValue, _sensitivityValue, _aimSensitivityValue, _tutorialValue;
-        private Label _aberrationValue, _grainValue, _motionBlurValue, _dropCinematicValue, _introLogoValue;
-        private Label _progressValue, _unlockAllValue;
+        private Label _resolutionValue, _qualityValue, _exposureValue, _skyValue, _fpsLimitValue;
+        private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _rumbleValue, _sensitivityValue, _aimSensitivityValue;
+        private Label _progressValue;
+
+        //The rows with two states, On and Off, as checkboxes (#816)
+        private CheckRow _fullscreenCheck, _adaptiveQualityCheck, _fpsCheck, _aberrationCheck, _grainCheck, _motionBlurCheck;
+        private CheckRow _tutorialCheck, _introLogoCheck, _dropCinematicCheck, _unlockAllCheck;
+
+        /// <summary>
+        /// A two-state row's checkbox (#816): its tick, and the dim word beside the box when the tier or the build holds
+        /// the row off whatever it is set to ("(tier)", "(locked)"), the box dimmed with it. The tick says what the word
+        /// "On" said, so a row the tier holds off is unticked with its reason, as it read "Off (tier)".
+        /// </summary>
+        private sealed record CheckRow(CheckGlyph Glyph, Label Note)
+        {
+            public void Show(bool on, string heldOffBy = null)
+            {
+                Glyph.Checked = on;
+                Glyph.Tint = heldOffBy == null ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM;
+                Note.Text = heldOffBy == null ? string.Empty : $"({heldOffBy})";
+                Note.Visible = heldOffBy != null;
+            }
+        }
         private Label _onlineValue, _nicknameValue, _removeValue, _onlineNote;
 
         //The width the note's text is laid out to, in pixels (SizeOnlineNote, #769)
@@ -342,7 +361,7 @@ namespace BS3D.Screens
         {
             Grid grid = NewGroupGrid();
 
-            AddRow(grid, 0, "Fullscreen", Game.ToggleFullscreen, out _fullscreenValue);
+            AddCheckRow(grid, 0, "Fullscreen", Game.ToggleFullscreen, out _fullscreenCheck);
             //The height the 3D is drawn at (#801), the menus and the HUD staying the display's: under Fullscreen, the other
             //half of what size the game is. Every rung keeps the display's aspect; on the Raspberry Pi it starts at Auto.
             AddRow(grid, 1, "Resolution", Game.CycleRenderResolution, out _resolutionValue);
@@ -353,22 +372,22 @@ namespace BS3D.Screens
             //Whether the game may lower that tier by itself (#390). Directly under it, because it is the other
             //half of the same answer — and because picking a tier above turns it off, which the player should
             //see happen rather than have to know.
-            AddRow(grid, 3, "Auto quality", Game.ToggleAdaptiveQuality, out _adaptiveQualityValue);
+            AddCheckRow(grid, 3, "Auto quality", Game.ToggleAdaptiveQuality, out _adaptiveQualityCheck);
             //The tonemap's exposure, said as the brightness it is (#711): a percent of the authored look, 100 % the default
             AddRow(grid, 4, "Brightness", Game.CycleExposure, out _exposureValue);
             AddRow(grid, 5, "Sky", Game.CycleSkyDome, out _skyValue);
-            AddRow(grid, 6, "FPS counter", Game.ToggleFpsOverlay, out _fpsValue);
+            AddCheckRow(grid, 6, "FPS counter", Game.ToggleFpsOverlay, out _fpsCheck);
             //The presentation cap (#124): synced to the monitor's refresh (frames nobody can see cost only
             //heat) or unlimited — the "nocap" launch argument's toggle, in the menu so a benchmarking session
-            //is not the only way to lift it.
+            //is not the only way to lift it. Two states, but not On and Off, so it keeps its words (#816)
             AddRow(grid, 7, "FPS limit", Game.ToggleFpsLimit, out _fpsLimitValue);
             //The lens's colour fringing at the frame edges — a taste toggle, and instant where it is made,
             //like every row here: the scene behind the panel is the preview.
-            AddRow(grid, 8, "Aberration", Game.ToggleAberration, out _aberrationValue);
-            AddRow(grid, 9, "Film grain", Game.ToggleGrain, out _grainValue);
+            AddCheckRow(grid, 8, "Aberration", Game.ToggleAberration, out _aberrationCheck);
+            AddCheckRow(grid, 9, "Film grain", Game.ToggleGrain, out _grainCheck);
             //What moves smeared along its motion (#402). With the lens's looks, being one; a tier that cannot
             //afford it says so on the row rather than leaving an "On" that does nothing.
-            AddRow(grid, 10, "Motion blur", Game.ToggleMotionBlur, out _motionBlurValue);
+            AddCheckRow(grid, 10, "Motion blur", Game.ToggleMotionBlur, out _motionBlurCheck);
 
             return grid;
         }
@@ -467,16 +486,16 @@ namespace BS3D.Screens
             Grid grid = NewGroupGrid();
 
             //The tutorial's opt-out (#189): what the first chapter's cards teach is how the game is played.
-            AddRow(grid, 0, "Tutorial", Game.ToggleTutorial, out _tutorialValue);
+            AddCheckRow(grid, 0, "Tutorial", Game.ToggleTutorial, out _tutorialCheck);
 
             //Whether the game opens on the 2D logo (#621), beside the tutorial because the two are the same kind of
             //switch — what the game puts in front of the player before letting them get on with it. It takes effect
             //at the next launch, since the splash is decided when the stack is built.
-            AddRow(grid, 1, "Intro logo", Game.ToggleIntroLogo, out _introLogoValue);
+            AddCheckRow(grid, 1, "Intro logo", Game.ToggleIntroLogo, out _introLogoCheck);
 
             //Whether a big collapse takes the camera (#290). #290 kept it among the looks rather than under a
             //"GAMEPLAY" heading over a single row; with a page for what the game does round play it has one.
-            AddRow(grid, 2, "Drop camera", Game.ToggleDropCinematic, out _dropCinematicValue);
+            AddCheckRow(grid, 2, "Drop camera", Game.ToggleDropCinematic, out _dropCinematicCheck);
 
             AddGroupHeading(grid, 3, "CAMPAIGN", first: false);
 
@@ -488,7 +507,7 @@ namespace BS3D.Screens
             //is - the player's record - and it is a DEVELOPMENT convenience: it is off at every launch and writes
             //nothing, so it can never make a real save read further along than it is. Hiding it behind a build
             //flag is a shipping concern and not one yet.
-            AddRow(grid, 5, "Unlock all", Game.ToggleUnlockAll, out _unlockAllValue);
+            AddCheckRow(grid, 5, "Unlock all", Game.ToggleUnlockAll, out _unlockAllCheck);
 
             return grid;
         }
@@ -552,6 +571,47 @@ namespace BS3D.Screens
         /// moved on, and only Escape says "not this name".</param>
         private void AddRow(Grid grid, int row, string caption, Action onClick, out Label value, bool typingRow = false)
         {
+            AddCaption(grid, row, caption);
+
+            //"Off" until Refresh writes the real value: the page area is measured as soon as the tree is built
+            //(BuildTree), and a button round an empty label measures a line shorter than it will stand - ten of those
+            //cut DISPLAY's last row in half (photographed at 1600x900, #686)
+            Button button = MenuButton("Off", typingRow ? onClick : () =>
+            {
+                KeepOrDropTyping();
+                onClick();
+            }, out value);
+
+            AddValue(grid, row, button);
+        }
+
+        /// <summary>
+        /// A row with two states, On and Off, as a checkbox (#816): the box in the value column where the word stood, and
+        /// the whole row toggling it — a press on the caption is a press on the box, the caption being what the tick says.
+        /// The box is as tall as a worded button's line, so the page measures the same with either kind of row.
+        /// </summary>
+        private void AddCheckRow(Grid grid, int row, string caption, Action onClick, out CheckRow check)
+        {
+            Label captionLabel = AddCaption(grid, row, caption);
+
+            Button button = CheckBox(string.Empty, () =>
+            {
+                KeepOrDropTyping();
+                onClick();
+            }, out CheckGlyph glyph, out Label note);
+            note.TextColor = BS3DGame.MENU_TEXT_DIM;
+            check = new CheckRow(glyph, note);
+
+            AddValue(grid, row, button);
+
+            //Through the button's own press (its Tag), so the caption sounds and acts as the box does. Stretched across
+            //its column, so the gap between the words and the box answers too
+            captionLabel.HorizontalAlignment = HorizontalAlignment.Stretch;
+            captionLabel.TouchDown += (_, _) => (button.Tag as Action)?.Invoke();
+        }
+
+        private Label AddCaption(Grid grid, int row, string caption)
+        {
             grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
 
             Label captionLabel = new()
@@ -567,14 +627,11 @@ namespace BS3D.Screens
             grid.Widgets.Add(captionLabel);
             _captions.Add(captionLabel);
 
-            //"Off" until Refresh writes the real value: the page area is measured as soon as the tree is built
-            //(BuildTree), and a button round an empty label measures a line shorter than it will stand - ten of those
-            //cut DISPLAY's last row in half (photographed at 1600x900, #686)
-            Button button = MenuButton("Off", typingRow ? onClick : () =>
-            {
-                KeepOrDropTyping();
-                onClick();
-            }, out value);
+            return captionLabel;
+        }
+
+        private void AddValue(Grid grid, int row, Button button)
+        {
             button.Width = Scaled(VALUE_WIDTH);
 
             Grid.SetColumn(button, 1);
@@ -619,29 +676,30 @@ namespace BS3D.Screens
         internal override void Refresh()
         {
             //A display hotkey works before this page has ever been opened, so there may be nothing to write onto
-            if (_fullscreenValue == null) return;
+            if (_fullscreenCheck == null) return;
 
-            _fullscreenValue.Text = Game.IsFullscreen ? "On" : "Off";
+            _fullscreenCheck.Show(Game.IsFullscreen);
             _resolutionValue.Text = Game.RenderResolutionLabel;
             //A locked build (GamePi, #788) says so on both rows rather than offering a click that does nothing
             _qualityValue.Text = Game.IsQualityLocked ? $"{Game.Quality} (locked)" : Game.Quality.ToString();
-            _adaptiveQualityValue.Text = Game.IsQualityLocked ? "Off (locked)" : Game.IsAdaptiveQualityEnabled ? "On" : "Off";
+            _adaptiveQualityCheck.Show(!Game.IsQualityLocked && Game.IsAdaptiveQualityEnabled, Game.IsQualityLocked ? "locked" : null);
             //Percent of the authored look, 100 % the default (#711), not the raw multiplier
             _exposureValue.Text = Game.BrightnessPercent.ToString(CultureInfo.InvariantCulture) + " %";
             _skyValue.Text = Game.SkyDomeNumber.ToString(CultureInfo.InvariantCulture);
-            _fpsValue.Text = Game.IsFpsOverlayVisible ? "On" : "Off";
+            _fpsCheck.Show(Game.IsFpsOverlayVisible);
             //"Monitor", not a number: the cap is whatever the panel refreshes at, and naming the rate here
             //would go stale the moment the window lands on another monitor
             _fpsLimitValue.Text = Game.IsFpsUncapped ? "Unlimited" : "Monitor";
             //A build with no resolve (the Potato path, #796) has neither look, and says so as the motion blur's row does
             //rather than reading "On" over a click that changes nothing
-            _aberrationValue.Text = !BS3DGame.HasLensLooks ? "Off (tier)" : Game.IsAberrationEnabled ? "On" : "Off";
-            _grainValue.Text = !BS3DGame.HasLensLooks ? "Off (tier)" : Game.IsGrainEnabled ? "On" : "Off";
-            _motionBlurValue.Text = !Game.IsMotionBlurEnabled ? "Off" : Game.MotionBlurActive ? "On" : "Off (tier)";
-            _dropCinematicValue.Text = Game.IsDropCinematicEnabled ? "On" : "Off";
-            _introLogoValue.Text = Game.IsIntroLogoEnabled ? "On" : "Off";
-            _tutorialValue.Text = Game.IsTutorialEnabled ? "On" : "Off";
-            _unlockAllValue.Text = Game.IsUnlockAllEnabled ? "On" : "Off";
+            _aberrationCheck.Show(BS3DGame.HasLensLooks && Game.IsAberrationEnabled, BS3DGame.HasLensLooks ? null : "tier");
+            _grainCheck.Show(BS3DGame.HasLensLooks && Game.IsGrainEnabled, BS3DGame.HasLensLooks ? null : "tier");
+            _motionBlurCheck.Show(Game.IsMotionBlurEnabled && Game.MotionBlurActive,
+                Game.IsMotionBlurEnabled && !Game.MotionBlurActive ? "tier" : null);
+            _dropCinematicCheck.Show(Game.IsDropCinematicEnabled);
+            _introLogoCheck.Show(Game.IsIntroLogoEnabled);
+            _tutorialCheck.Show(Game.IsTutorialEnabled);
+            _unlockAllCheck.Show(Game.IsUnlockAllEnabled);
             _volumeValue.Text = FormatVolume(Game.MasterVolume);
             _effectsValue.Text = FormatVolume(Game.SfxVolume);
             _musicValue.Text = FormatVolume(Game.MusicVolume);
