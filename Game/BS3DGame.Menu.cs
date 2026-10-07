@@ -15,6 +15,7 @@ using Prazsky.Core.Render;
 using Prazsky.Core.Screens;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Reflection;
 using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
@@ -132,6 +133,11 @@ namespace BS3D
         private const float KONAMI_NOTE_GAP = 0.085f;
         private float _konamiJingleClock;
         private int _konamiJingleNote = KONAMI_JINGLE.Length;
+
+        //The left stick as taps for the code (#818): a pad player walks the menu with it, so that is the hand the code is
+        //tried with. It taps where the navigation steps (NAV_STICK_DEADZONE) and re-arms inside half of it, where a stick
+        //let go always comes back to: the menu's read zeroes a resting stick by its own dead zone
+        private readonly StickTap _konamiStick = new(NAV_STICK_DEADZONE, NAV_STICK_DEADZONE * 0.5f);
 
         //THE GAME'S BIRTHDAY on the front end (#230's calendar surprise, see Birthday): the confetti falls with the
         //party popper's crack the first time the main menu comes up, and the title dances the Konami code's dance
@@ -1727,7 +1733,11 @@ namespace BS3D
             {
                 if (FeedKonamiCode(keyboard, pad)) return;
             }
-            else _konamiCode.Reset();
+            else
+            {
+                _konamiCode.Reset();
+                _konamiStick.Reset();
+            }
 
             //B is Escape. Read before A, since backing out changes the screen the accept below would act on.
             if (pad.IsButtonDown(Buttons.B) && !_previousPad.IsButtonDown(Buttons.B))
@@ -1795,22 +1805,32 @@ namespace BS3D
 
         /// <summary>
         /// Hands this frame's presses of the code's ten keys to <see cref="KonamiCode"/> and answers a completed
-        /// code (#230): the arrow keys or the D-pad for the directions, the B and A keys or the pad's face buttons.
-        /// Presses, never a held key's repeats, and never the stick — a code is spelled in taps.
+        /// code (#230): the arrow keys, the D-pad or the left stick for the directions, the B and A keys or the pad's face
+        /// buttons. Presses, never a held key's repeats - a code is spelled in taps, so the stick counts once a push from
+        /// rest (<see cref="StickTap"/>, #818: the owner tried the code on a pad, where the stick is the hand that walks
+        /// this menu, and nothing happened).
         /// </summary>
         /// <returns>True on the frame the code is completed, so the caller can swallow the press that did it.</returns>
         private bool FeedKonamiCode(KeyboardState keyboard, GamePadState pad)
         {
+            KonamiKey? stick = _konamiStick.Feed(pad.ThumbSticks.Left.X, pad.ThumbSticks.Left.Y);
+
             //| and not ||: every press this frame is recorded, in the code's own order, whichever completes it
             bool found =
-                KonamiPress(IsKeyEdge(keyboard, Keys.Up) || IsPadEdge(pad, Buttons.DPadUp), KonamiKey.Up)
-                | KonamiPress(IsKeyEdge(keyboard, Keys.Down) || IsPadEdge(pad, Buttons.DPadDown), KonamiKey.Down)
-                | KonamiPress(IsKeyEdge(keyboard, Keys.Left) || IsPadEdge(pad, Buttons.DPadLeft), KonamiKey.Left)
-                | KonamiPress(IsKeyEdge(keyboard, Keys.Right) || IsPadEdge(pad, Buttons.DPadRight), KonamiKey.Right)
+                KonamiPress(IsKeyEdge(keyboard, Keys.Up) || IsPadEdge(pad, Buttons.DPadUp) || stick == KonamiKey.Up, KonamiKey.Up)
+                | KonamiPress(IsKeyEdge(keyboard, Keys.Down) || IsPadEdge(pad, Buttons.DPadDown) || stick == KonamiKey.Down,
+                    KonamiKey.Down)
+                | KonamiPress(IsKeyEdge(keyboard, Keys.Left) || IsPadEdge(pad, Buttons.DPadLeft) || stick == KonamiKey.Left,
+                    KonamiKey.Left)
+                | KonamiPress(IsKeyEdge(keyboard, Keys.Right) || IsPadEdge(pad, Buttons.DPadRight) || stick == KonamiKey.Right,
+                    KonamiKey.Right)
                 | KonamiPress(IsKeyEdge(keyboard, Keys.B) || IsPadEdge(pad, Buttons.B), KonamiKey.B)
                 | KonamiPress(IsKeyEdge(keyboard, Keys.A) || IsPadEdge(pad, Buttons.A), KonamiKey.A);
 
             if (!found) return false;
+
+            //One line for a found secret, so a scripted run (padpress=) can be read for it rather than photographed
+            Console.WriteLine($"[konami] The code is complete at {WallClock.ToString("0.00", CultureInfo.InvariantCulture)} s: the title dances");
 
             _titleWordmark?.Celebrate(WallClock);
             _konamiJingleClock = 0f;
@@ -2355,6 +2375,10 @@ namespace BS3D
 
             KeyboardState keyboard = Keyboard.GetState();
             GamePadState pad = GamePad.GetState(PlayerIndex.One);
+
+            //Testing only: scripted pad presses, written into the state itself so the menu reads them as a real pad's
+            //(ScriptedPlay's padpress=, #818)
+            if (ScriptedPlay.Current is ScriptedPlay padScript) pad = padScript.WithPadPresses(WallClock, pad);
 
             //One mouse snapshot for the navigation's wake test and the wheel below (#400 found them polling it
             //twice a frame, BestPractices.md #5)
