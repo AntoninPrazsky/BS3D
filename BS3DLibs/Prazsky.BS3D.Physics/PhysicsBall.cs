@@ -265,6 +265,15 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         public float DeadWeight;
 
+        /// <summary>
+        /// Whether this ball, as a shot, has been above the death line: set by the game on the step it is seen there,
+        /// and never cleared (#822). A shot under the line that has been above it has crossed it on its way down —
+        /// it missed, or came off the glass — where one that has not is still climbing from the gun, which stands
+        /// under the line. The side cut's cull turns on it. It read the sign of the vertical velocity on every frame
+        /// before, and in the funnel every contact turns that sign over: a ball there blinked.
+        /// </summary>
+        public bool RoseAboveDeathLine;
+
         public void SetEmptyConstraints()
         {
             HandlesTop.Handle1.Value = -1;

@@ -503,13 +503,16 @@ namespace BS3D.Screens
             public bool InFlight;
 
             /// <summary>
-            /// Whether the body is actually moving <b>downwards</b> this frame. It is what tells a shot still
-            /// climbing at the cluster from one that has been let go or has missed and is on its way to the
-            /// drain — the two are otherwise the same thing to this panel, and they must not be drawn the same
-            /// way under the death line (see the cull in <c>DrawClusterProfile</c>). Read from the live body
-            /// rather than remembered, so the profile stays what it is: rebuilt from scratch every frame.
+            /// Whether the ball <b>came down</b> to where it is: the cluster let it go, or it is a shot that has
+            /// been above the death line. It is what tells a shot still climbing at the cluster from one that has
+            /// been let go or has missed and is on its way to the drain — the two are otherwise the same thing to
+            /// this panel, and they must not be drawn the same way under the death line (see the cull in
+            /// <c>DrawClusterProfile</c>). Decided once per ball and remembered on it (#822), not read off the
+            /// body's velocity each frame as it was: in the funnel every contact turns the velocity's sign over, so
+            /// a ball rolling down the wall was drawn on one frame and culled on the next, and one at rest was not
+            /// drawn at all.
             /// </summary>
-            public bool Falling;
+            public bool FromAbove;
         }
 
         /// <summary>
@@ -1676,8 +1679,10 @@ namespace BS3D.Screens
                 //it. So it goes on falling out of the panel, whole for the first PROFILE_SINK_HOLD of sinkFade
                 //and dissolving over the rest (#428).
                 //
-                //Which of the two this is comes off the body's own velocity (BallMarker.Falling), not off the
-                //list it came from: a shot that missed is still in _shotBalls on the way back down.
+                //Which of the two this is is where the ball came from (BallMarker.FromAbove), decided once per ball
+                //(#822): read off the sign of its vertical velocity every frame, it flipped at every contact in the
+                //funnel, and the ball blinked. Not the list alone either: a shot that missed is still in _shotBalls
+                //on the way back down.
                 //
                 //⚠ A CLUSTER ball under the line is a third case, and it is DRAWN (#643). It gets there in a swing
                 //the line forgives (#239) and, above all, when the cluster has reached the line and lost: the panel
@@ -1693,7 +1698,7 @@ namespace BS3D.Screens
                 if (sink > 0f)
                 {
                     if (!marker.InFlight) crossed = true;
-                    else if (!marker.Falling || sink >= sinkFade) continue;
+                    else if (!marker.FromAbove || sink >= sinkFade) continue;
                     else alpha = sink <= sinkHold ? 1f : 1f - (sink - sinkHold) / (sinkFade - sinkHold);
                 }
 

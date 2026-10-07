@@ -964,3 +964,14 @@ Majitel poslal odkaz na admin stránku poznámek (`127.0.0.1:5002/notes`, jednor
 - **#824** (č. 4, Phyllotaxis, úroveň 77): hudba Gridu „občas příšerně“. Všech deset úrovní Gridu (71–80) hraje rodinu `pulse` (deset nahrávek z #486), která se střídá při každém otevření úrovně, a **poznámka neříká, která nahrávka hrála** (`DescribeForNote` nemá stopu). Issue žádá `music` v kontextu poznámky, pak majitelův poslech v Jukeboxu (#704) a výměnu jako u #706. Jediné číslo, které `pulse` odlišuje: šum kódování na švu smyčky 2,11× (`docs/game-feedback.md`), jen holé `pulse.ogg`. Komentáře v #706 a #813.
 - ⚠ **Skript `aim=0:E:T` při elevaci ≥ 25° řez Cutem tiše nevystřelí** (žádný `[shot] cutter struck`; chrání horní čtyři patra, #692), při 55° `bounced off the glass`. Na Gyroidu zasáhne patro 4 elevace 12–18°.
 - ⚠ **Hra běží v 3840×1600 i s `width=1920 height=1080`** a snímek má ~15 MB; na prohlížení je zmenšit (`System.Drawing`, Pillow ve venv chybí).
+
+## 2026-10-07 — #822 boční profil: koule v trychtýři neblikají — Raspberry Pi 5 (BS3DServer), Claude Code
+
+- **Příčina potvrzená logem na GamePi:** řez pod čarou smrti kreslil volnou kouli podle znaménka svislé rychlosti, čteného každý snímek. V trychtýři se to znaménko otočí při každém nárazu, takže koule blikala. Klidná hromádka se nekreslila vůbec. Dočasná sonda (necommitnutá) v `AddBallsInFlight`, Pennant, `fire=` každých 0,7 s: **8 přepnutí u 29 padajících koulí** v okně panelu (`sinkFade` 33,7 jednotky při 1280×720).
+- **Oprava:** odkud koule přišla, se rozhodne jednou pro každou kouli (`BallMarker.FromAbove`, dřív `Falling`):
+  - koule puštěná shlukem (`_fallingBalls`) přišla shora vždy;
+  - střela až poté, co byla nad čarou: `PhysicsBall.RoseAboveDeathLine` se zamyká v každém fyzikálním kroku v `StepPhysics`, ne při kreslení, aby se nezmeškal ani při skrytém panelu.
+- **Po opravě (stejný skript): 0 přepnutí u 28 koulí.** Při náměru `aim=1:30:25` se 10 střel odrazilo od skla a spadlo pod čáru: 566 vzorků, všechny kreslené, žádné přepnutí. Série snímků po 0,5 s ukazuje kroužky v trychtýři souvisle, ke dnu panelu mizí podle hloubky (#428).
+- ⚠ **Rozdíl proti dřívějšku:** střela, která nikdy nebyla nad čarou, se pod ní už nekreslí ani při pádu (dřív ano, když padala). Na Pennantu taková nenastala: stoupající střela pod čarou se neobjevila v žádném z šesti běhů, ústí hlavně je tam nad čarou.
+- ⚠ **Skriptované výstřely během úvodního průletu (9,5 s na Pennantu) se nevystřelí**, `fire=` tedy začínat až po něm. Střely, které letí ven z ostrova, polyká po třech netrefených střelách z téže pozice červí díra (#230), takže do trychtýře se nevrátí. Vrací se jen ty, které se odrazí od skla.
+- Ověřeno jen na GamePi (Potato). Windows build sdílí kód, zkompiluje ho CI.

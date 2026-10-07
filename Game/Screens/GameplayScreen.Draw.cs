@@ -639,8 +639,8 @@ namespace BS3D.Screens
                         };
                     }
 
-            AddBallsInFlight(_shotBalls, ref count);
-            AddBallsInFlight(_fallingBalls, ref count);
+            AddBallsInFlight(_shotBalls, letGo: false, ref count);
+            AddBallsInFlight(_fallingBalls, letGo: true, ref count);
 
             return new PlayHud.ClusterProfile
             {
@@ -665,7 +665,9 @@ namespace BS3D.Screens
         /// the panel is a far better failure than writing past the array.
         /// </para>
         /// </summary>
-        private void AddBallsInFlight(List<PhysicsBall> balls, ref int count)
+        /// <param name="letGo">True for <see cref="_fallingBalls"/>: the cluster let them go, so every one of them came
+        /// down to where it is (<see cref="PlayHud.BallMarker.FromAbove"/>).</param>
+        private void AddBallsInFlight(List<PhysicsBall> balls, bool letGo, ref int count)
         {
             for (int i = 0; i < balls.Count && count < _profileBalls.Length; i++)
             {
@@ -682,10 +684,11 @@ namespace BS3D.Screens
                     Type = ball.Type,
                     InFlight = true,
 
-                    //Which way it is going, not which list it came from: a shot that missed is still in
-                    //_shotBalls on the way back down, so the list cannot answer this. The panel's floor cull
-                    //turns on it (#134).
-                    Falling = ball.BallReference.Velocity.Linear.Y < 0f,
+                    //Where it came from, decided once per ball rather than read off its velocity every frame (#822):
+                    //a ball the cluster let go of always came down, and a shot once it has been above the death line,
+                    //since one that missed is still in _shotBalls on the way back down. The panel's floor cull turns
+                    //on it (#134)
+                    FromAbove = letGo || ball.RoseAboveDeathLine,
                 };
             }
         }
