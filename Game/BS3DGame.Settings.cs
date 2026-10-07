@@ -258,9 +258,10 @@ namespace BS3D
                 _renderHeight = 0;
                 _renderHeightChosen = true;
             }
-            else if (PotatoPath && next == _renderLadder[0])
+            else if (ResolutionHasAuto && next == _renderLadder[0])
             {
-                //Round the bottom of the ladder back to Auto, which starts native and may step again
+                //Round the bottom of the ladder back to Auto, which starts native and may step again. Only where there is
+                //an Auto: a Windows player's chosen Potato comes round to native, chosen, as every desktop tier does
                 _renderHeight = 0;
                 _renderHeightChosen = false;
                 _resolutionStepped = false;
