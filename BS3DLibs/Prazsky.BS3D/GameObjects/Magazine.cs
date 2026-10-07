@@ -100,6 +100,13 @@ namespace Prazsky.BS3D
         /// </summary>
         public const float TRANSMUTE_SECONDS = 0.75f;
 
+        /// <summary>
+        /// How long a swap's dissolve takes (#705): the two rounds of a swap trade colours through the same dithered
+        /// cross-fade as a re-coloured round, in under half the time - a swap is pressed to fire straight after it, and a
+        /// three-quarter-second dissolve would still be running as the round left the muzzle.
+        /// </summary>
+        public const float SWAP_FADE_SECONDS = 0.35f;
+
         private readonly MagazineSlot[] _slots = new MagazineSlot[SIZE];
 
         private readonly Func<BallType> _nextType;
@@ -233,7 +240,7 @@ namespace Prazsky.BS3D
         public void SetKind(int slot, BallKind kind)
         {
             MagazineSlot current = _slots[slot];
-            _slots[slot] = new MagazineSlot(current.Type, kind, current.FadingFrom, current.Transmute);
+            _slots[slot] = new MagazineSlot(current.Type, kind, current.FadingFrom, current.Transmute, current.TransmuteSeconds);
         }
 
         /// <summary>
@@ -248,15 +255,44 @@ namespace Prazsky.BS3D
         /// arrays, a swap wired as two one-way copies left both slots holding the same state rather than
         /// exchanged. A no-op on <c>a == b</c>: nothing has actually moved.
         /// </para>
+        /// <para>
+        /// <b>With <paramref name="crossFade"/></b> (#705, the Swap the player presses) the two are seen to trade: each slot
+        /// holds the other's round at once, exactly as above, and dissolves into it from the colour it was showing over
+        /// <see cref="SWAP_FADE_SECONDS"/> - the re-colour's dithered cross-fade, so the balls in the bore visibly swap
+        /// rather than simply being the other colour on the next frame. From the colour on screen, as
+        /// <see cref="Recolour"/> starts: a slot caught mid-dissolve fades from what it was fading out of. Only between two
+        /// plain rounds: a wildcard or a cutter is drawn by its kind and has no colour to dissolve, so a swap with one is
+        /// the whole exchange alone, as it always was; two of one colour have nothing to fade.
+        /// </para>
         /// </summary>
         /// <param name="a">One slot, 0 at the muzzle.</param>
         /// <param name="b">The other.</param>
-        public void SwapSlots(int a, int b)
+        /// <param name="crossFade">Whether the two are seen to trade colours (the Swap's own press).</param>
+        public void SwapSlots(int a, int b, bool crossFade = false)
         {
             if (a == b) return;
 
-            (_slots[a], _slots[b]) = (_slots[b], _slots[a]);
+            MagazineSlot first = _slots[a], second = _slots[b];
+
+            if (crossFade && first.Kind == BallKind.Normal && second.Kind == BallKind.Normal)
+            {
+                _slots[a] = Arriving(second, Showing(first));
+                _slots[b] = Arriving(first, Showing(second));
+                return;
+            }
+
+            (_slots[a], _slots[b]) = (second, first);
         }
+
+        //The colour a slot is showing: its own once settled, and while it dissolves the one it is fading out of - the
+        //choice Recolour makes, for its reason
+        private static BallType Showing(MagazineSlot slot) => slot.Transmute <= 0f ? slot.Type : slot.FadingFrom;
+
+        //A round arriving in a slot that was showing another colour: the round whole, dissolving in from that colour
+        private static MagazineSlot Arriving(MagazineSlot round, BallType from) =>
+            from == round.Type
+                ? new MagazineSlot(round.Type, round.Kind, round.Type, 0f)
+                : new MagazineSlot(round.Type, round.Kind, from, 1f, SWAP_FADE_SECONDS);
 
         //Loads one slot from the injected policies. The one place a slot's colour is written by anything but the
         //transmute, so it is the one place the invariant can be enforced: a policy that answered the unused zero
@@ -299,7 +335,7 @@ namespace Prazsky.BS3D
                 if (s.Transmute <= 0f) continue;
 
                 _slots[slot] = new MagazineSlot(s.Type, s.Kind, s.FadingFrom,
-                    MathF.Max(0f, s.Transmute - elapsedSeconds / TRANSMUTE_SECONDS));
+                    MathF.Max(0f, s.Transmute - elapsedSeconds / s.TransmuteSeconds), s.TransmuteSeconds);
             }
 
             if (Slide <= 0f) return;
@@ -352,13 +388,20 @@ namespace Prazsky.BS3D
         /// <param name="kind">What it is — <see cref="BallKind.Normal"/>, a <see cref="BallKind.Wildcard"/> dealt by the level, or a <see cref="BallKind.Cutter"/> the player turned it into (#213).</param>
         /// <param name="fadingFrom">The colour it is dissolving out of; its own colour when settled.</param>
         /// <param name="transmute">The dissolve's countdown, 1 just re-coloured to 0 settled.</param>
-        public MagazineSlot(BallType type, BallKind kind, BallType fadingFrom, float transmute)
+        /// <param name="transmuteSeconds">How long the dissolve takes: <see cref="Magazine.TRANSMUTE_SECONDS"/>, or a swap's
+        /// shorter <see cref="Magazine.SWAP_FADE_SECONDS"/> (#705).</param>
+        public MagazineSlot(BallType type, BallKind kind, BallType fadingFrom, float transmute,
+            float transmuteSeconds = Magazine.TRANSMUTE_SECONDS)
         {
             Type = type;
             Kind = kind;
             FadingFrom = fadingFrom;
             Transmute = transmute;
+            TransmuteSeconds = transmuteSeconds;
         }
+
+        /// <summary>How long this slot's dissolve takes from start to settled, in seconds (#705).</summary>
+        public float TransmuteSeconds { get; }
 
         /// <summary>The colour loaded in this slot, and the one that fires — never the one it is fading out of.</summary>
         public BallType Type { get; }
@@ -372,7 +415,7 @@ namespace Prazsky.BS3D
 
         /// <summary>
         /// How far the dissolve still has to go: <b>1</b> on the frame of the re-colour, running down to <b>0</b>
-        /// (settled, nothing to draw twice) over <see cref="Magazine.TRANSMUTE_SECONDS"/>. A <i>countdown</i> —
+        /// (settled, nothing to draw twice) over <see cref="TransmuteSeconds"/>. A <i>countdown</i> —
         /// see <see cref="TransmuteProgress"/> for the value the dissolve itself takes.
         /// </summary>
         public float Transmute { get; }

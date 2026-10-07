@@ -507,6 +507,10 @@ namespace BS3D.Screens
         //And what kind each loaded round is, for the strip's rays behind a special one (#820)
         private readonly BallKind[] _magazineKinds = new BallKind[Magazine.SIZE];
 
+        //And what each is dissolving out of and how far it has come (#705), so the strip's discs cross-fade with the balls
+        private readonly BallType[] _magazineFrom = new BallType[Magazine.SIZE];
+        private readonly float[] _magazineFade = new float[Magazine.SIZE];
+
         //The level's map by kind, for the tutorial's kind cards (#735): the colour of the first ball of each kind, or zero
         private readonly BallType[] _kindsOnMap = new BallType[Tutorial.KIND_COUNT];
 
@@ -1987,8 +1991,14 @@ namespace BS3D.Screens
             //answer in the one readout built to be trusted at a glance (#236).
             for (int i = 0; i < _magazineQueue.Length; i++)
             {
+                MagazineSlot slot = _magazine.Slot(i);
                 _magazineQueue[i] = LoadedColour(i);
-                _magazineKinds[i] = _magazine.Slot(i).Kind;
+                _magazineKinds[i] = slot.Kind;
+
+                //A plain round mid-dissolve - a swap's or a re-colour's - fades its disc too (#705); everything else is settled
+                bool fading = slot.Kind == BallKind.Normal && slot.Transmute > 0f;
+                _magazineFrom[i] = fading ? slot.FadingFrom : _magazineQueue[i];
+                _magazineFade[i] = fading ? slot.TransmuteProgress : 1f;
             }
 
             _hud.Draw(_run.Score, Camera, in profile,
@@ -1997,7 +2007,7 @@ namespace BS3D.Screens
                 swapCharges: _run.SwapOffered ? _run.PowerupCharges[(int)PowerupKind.Swap] : -1,
                 brakeCharges: _run.BrakeOffered ? _run.PowerupCharges[(int)PowerupKind.Brake] : -1,
                 cutCharges: _run.CutOffered ? _run.PowerupCharges[(int)PowerupKind.Cut] : -1,
-                brakeOwed: _ceilingDescent.CanBrake, kinds: _magazineKinds);
+                brakeOwed: _ceilingDescent.CanBrake, kinds: _magazineKinds, queueFrom: _magazineFrom, queueFade: _magazineFade);
 
             if (previewsOnly) return;
 
