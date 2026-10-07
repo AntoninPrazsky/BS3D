@@ -1054,3 +1054,16 @@ Majitel poslal odkaz na admin stránku poznámek (`127.0.0.1:5002/notes`, jednor
 - **Help (merge `0026d9ab`):** tvrdil „Power-ups … are not in the game yet“ a že chameleony rozdává poslední kapitola (ve skutečnosti levely 72, 78 a 80). Opraveno, chameleon se tam teď jmenuje „rainbow ball“ jako na kartě.
 - ⚠ Jednou GitHub odmítl push na main („remote rejected … failed“) bez souběhu; druhý pokus prošel.
 - Stránka verdiktů je ve verzi 10: oko #808, #816, #820, #735, ucho #811, ruce #800, #378, #818. BS3D-play má `dev-8e218d9`.
+
+## 2026-10-07 — #257 broky jako olovo a Juggler, #705 power-upy po kapitolách a prohození, #805 řady v menu, čtvrtá kontrola — desktop, Claude Code (bs3d-c5)
+
+- **#257 (merge `6967b8cb`, oko).** Broky: místo 20 perleťových porcelánových kuliček je 38 menších olověných (32 venku, 6 uvnitř), každá trochu jiná, v kovovém stínování. První verze olova (šeď 0,46) byla ve stanu černá jako kaviár; teď je šeď 0,74 a emise 0,22.
+  - Juggler: jádro bylo jedna buňka obklopená skořápkou. Teď je jádrem celé prostřední patro koule (pás broků). Kříž jsem zkusil nejdřív, ale nechal osamocené rohy, které LevelGen odmítl.
+  - LevelGen i ScoreSim prošly; změnil se jen `Juggler.json`. ⚠ LevelGen píše CRLF: po přegenerování ukáže `git status` všech 140 levelů jako změněné. Skutečné změny ukáže `git diff --ignore-cr-at-eol` a `git add --renormalize Game/Levels` stav srovná.
+  - Tabulka stropů žebříčků se s Juggler mění: při příštím vydání spustit update-ceilings na Pi.
+- **#705 (merge `748aa787` A, `407f69bc` B, opravy `d2558460`, oko).** Swap od 3. kapitoly, Brake od 4., Cut od 5. Karty nástrojů jsou nezávislé na kapitole (`Definition.Tool`): Swap a Cut na začátku levelu, Brake při prvním kroku skla. Karta Cut uzavírá poslední část #692.
+  - Prohození: `SwapSlots(…, crossFade: true)` a dithered prolnutí 0,35 s, délka per slot (`TransmuteSeconds`). Prolnou se i kotouče v HUD.
+  - Kontrola našla, že karta nástroje, kterou hráč nechal vypršet, se vracela na každém levelu celé kampaně. Teď se po vypršení počítá jako přečtená a stisk klávesy předem kartu naučí. Dál našla v Help „brake od třetí kapitoly“ a zastaralé texty.
+- **#805 (merge `5e6b671c`, ruce).** Šipky doleva a doprava, které stránka nevyužije, posouvají kurzor po řadě (`StepNavAcrossRow`, podle polohy na obrazovce). Ověřeno na About přes `padpress=`.
+- ⚠ **Bash tool a zpětná lomítka:** Python v heredocu uvnitř Bash toolu ztratil `\` a `\b` se stalo znakem backspace (cesta `C:\Temp\bs3d` na stránce verdiktů). Skripty s Windows cestami zapisovat přes Write tool, ne heredocem.
+- Stránka verdiktů je ve verzi 12: oko #808, #816, #820, #735, #257, #705, ucho #811, ruce #800, #378, #818, #805. BS3D-play má `dev-d255846`.
