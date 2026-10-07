@@ -977,3 +977,14 @@ Majitel poslal odkaz na admin stránku poznámek (`127.0.0.1:5002/notes`, jednor
   - Ze stejné kontroly: `HandOnPad` se nastaví z tutoriálu nového levelu už při jeho stavbě (#817), a opravená dokumentace u `HighestOccupiedLevel`. Ostatní dnešní merge kontrola prošla bez nálezu.
 - **#823 (merge `e1718de8`, zavřené)**: vystřelená řezací koule se odklidí hned v kroku zásahu (`RemoveFallenBalls(…, retireSpentCutters: true)`, jen ze seznamu padajících). Na Gyroidu u řezu, který nic neuvolnil, sonda zapsala „retired at y −2,71“. Na problém upozornila session bs3d-0a zprávou.
 - Stránka verdiktů je ve verzi 5 a čeká na ní pět věcí: #813, #821 a #692 na oko, #800 a #819 na ruce. BS3D-play má build `dev-780d2df`.
+
+## 2026-10-07 — #822 boční profil: koule v trychtýři neblikají — Raspberry Pi 5 (BS3DServer), Claude Code
+
+- **Příčina potvrzená logem na GamePi:** řez pod čarou smrti kreslil volnou kouli podle znaménka svislé rychlosti, čteného každý snímek. V trychtýři se to znaménko otočí při každém nárazu, takže koule blikala. Klidná hromádka se nekreslila vůbec. Dočasná sonda (necommitnutá) v `AddBallsInFlight`, Pennant, `fire=` každých 0,7 s: **8 přepnutí u 29 padajících koulí** v okně panelu (`sinkFade` 33,7 jednotky při 1280×720).
+- **Oprava:** odkud koule přišla, se rozhodne jednou pro každou kouli (`BallMarker.FromAbove`, dřív `Falling`):
+  - koule puštěná shlukem (`_fallingBalls`) přišla shora vždy;
+  - střela až poté, co byla nad čarou: `PhysicsBall.RoseAboveDeathLine` se zamyká v každém fyzikálním kroku v `StepPhysics`, ne při kreslení, aby se nezmeškal ani při skrytém panelu.
+- **Po opravě (stejný skript): 0 přepnutí u 28 koulí.** Při náměru `aim=1:30:25` se 10 střel odrazilo od skla a spadlo pod čáru: 566 vzorků, všechny kreslené, žádné přepnutí. Série snímků po 0,5 s ukazuje kroužky v trychtýři souvisle, ke dnu panelu mizí podle hloubky (#428).
+- ⚠ **Rozdíl proti dřívějšku:** střela, která nikdy nebyla nad čarou, se pod ní už nekreslí ani při pádu (dřív ano, když padala). Na Pennantu taková nenastala: stoupající střela pod čarou se neobjevila v žádném z šesti běhů, ústí hlavně je tam nad čarou.
+- ⚠ **Skriptované výstřely během úvodního průletu (9,5 s na Pennantu) se nevystřelí**, `fire=` tedy začínat až po něm. Střely, které letí ven z ostrova, polyká po třech netrefených střelách z téže pozice červí díra (#230), takže do trychtýře se nevrátí. Vrací se jen ty, které se odrazí od skla.
+- Ověřeno jen na GamePi (Potato). Windows build sdílí kód, zkompiluje ho CI.

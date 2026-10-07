@@ -124,6 +124,11 @@ namespace BS3D.Screens
 
                 _world.Step(PHYSICS_TIMESTEP, _processContacts);
 
+                //A shot seen above the death line has crossed it for real when it comes back under (#822): what the
+                //side cut's cull asks, rather than which way the ball is moving. Per step, like the poses above
+                for (int i = 0; i < _shotBalls.Count; i++)
+                    if (_shotBalls[i].BallReference.Pose.Position.Y > CEILING_DEATH_Y) _shotBalls[i].RoseAboveDeathLine = true;
+
                 _physicsAccumulator -= PHYSICS_TIMESTEP;
                 steps++;
             }
