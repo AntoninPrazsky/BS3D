@@ -931,8 +931,9 @@ namespace Prazsky.BS3D.Physics
         /// the landing like any other so the score, the sound and the recount answer it as they answer a blast.
         /// <para>
         /// <b>The cutter is spent in the striking and takes no cell.</b> It is put among the falling balls — the list the
-        /// released ones go into — so it is drawn dropping away and culled when it settles, exactly like what it cut
-        /// loose, and marked loose so that a shot behind it passes through. It does not arm the bombs and zaps beside
+        /// released ones go into — and the Game retires it from there on this very step (#823): it waited for a fall that
+        /// only exists when the cut orphaned something, and a cut that orphaned nothing left it wedged in the cluster. It is
+        /// marked loose so that a shot behind it passes through. It does not arm the bombs and zaps beside
         /// the struck cell, which a landing does: it occupies no cell for them to be beside, and a bomb it strikes
         /// itself goes off (see <c>CutBall</c>).
         /// </para>
@@ -950,8 +951,8 @@ namespace Prazsky.BS3D.Physics
 
             //Spent, and dropped: the normal landing zeroes both velocities because its ball becomes part of the lattice, and
             //a cutter left at the speed it struck with (the gun's 200 u/s, softened by a soft contact) would plough on
-            //through the hole it made, jolt the cluster behind it or fly up to the glass. A nudge down, the size of a
-            //released ball's (BallsConstraintsBuilder.LOOSEN_SPEED), so it falls away with what it cut loose.
+            //through the hole it made, jolt the cluster behind it or fly up to the glass, for what is left of this step. A nudge down, the size of a
+            //released ball's (BallsConstraintsBuilder.LOOSEN_SPEED); the Game retires it once the step is over (#823).
             cutter.BallReference.Velocity.Linear = new System.Numerics.Vector3(0f, -BallsConstraintsBuilder.CUT_DROP_SPEED, 0f);
             cutter.BallReference.Velocity.Angular = default;
 

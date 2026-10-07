@@ -1,4 +1,5 @@
 using BepuPhysics;
+using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Physics;
 using Prazsky.Core.Render;
@@ -148,7 +149,7 @@ namespace BS3D.Screens
             //under the result page too (#241), and the figures on it were taken off the keeper when the level
             //ended. The culling itself carries on — that is exactly what empties the drain behind the numbers.
             RemoveFallenBalls(_shotBalls, scoreMisses: !LevelOver);
-            RemoveFallenBalls(_fallingBalls, scoreMisses: false);
+            RemoveFallenBalls(_fallingBalls, scoreMisses: false, retireSpentCutters: true);
 
             //A shot a crate spent for being too slow to bounce (#257's review): already unregistered inside the step,
             //resolved here as the miss it is, through the one door every miss goes through
@@ -185,7 +186,7 @@ namespace BS3D.Screens
         /// Drops the balls that have left the game: those below <see cref="KILL_PLANE_Y"/>, having gone down
         /// the drain or over the island's edge.
         /// <para>
-        /// <b>Falling below the map is the only thing that removes a ball</b> — deliberately, and this is where
+        /// <b>Falling below the map is the only thing that removes a ball</b>, but for one exception — deliberately, and this is where
         /// the game parts company with the Testbed. The Testbed also culls any ball whose body has gone to
         /// sleep, i.e. come to rest anywhere, which is cheap and keeps the scene tidy but means a ball that
         /// settles on the island's stone winks out in front of the player. A ball vanishing while it is plainly
@@ -198,6 +199,12 @@ namespace BS3D.Screens
         /// but barely simulated.
         /// </para>
         /// <para>
+        /// <b>The exception is a spent cutter (#823)</b>, retired on the step it struck: it has done its work there, and
+        /// dropped among the falling balls it waited for a fall that only exists when the cut orphaned something. A cut that
+        /// orphaned nothing left it pressed into balls still hung by their sockets, a black ball wedged in the cluster that
+        /// the owner photographed on Gyroid.
+        /// </para>
+        /// <para>
         /// Only ever handed <see cref="_shotBalls"/> and <see cref="_fallingBalls"/>. Handing it the structure
         /// array would delete the cluster.
         /// </para>
@@ -206,14 +213,16 @@ namespace BS3D.Screens
         /// True for shot balls, which may still be undecided when they go over the edge. A released ball was
         /// unregistered when it attached, so it can never be still listening and has no miss to score.
         /// </param>
-        private void RemoveFallenBalls(List<PhysicsBall> balls, bool scoreMisses)
+        /// <param name="retireSpentCutters">True for the falling balls alone: a cutter there has struck and is spent (#823). A
+        /// cutter among the shot balls is still flying.</param>
+        private void RemoveFallenBalls(List<PhysicsBall> balls, bool scoreMisses, bool retireSpentCutters = false)
         {
             for (int i = balls.Count - 1; i >= 0; i--)
             {
                 BodyReference body = balls[i].BallReference;
 
-                //No sleep cull here, deliberately — see the remarks above
-                if (body.Pose.Position.Y >= KILL_PLANE_Y) continue;
+                //No sleep cull here, deliberately; but a spent cutter goes at once (#823) - see the remarks above
+                if (body.Pose.Position.Y >= KILL_PLANE_Y && !(retireSpentCutters && balls[i].Kind == BallKind.Cutter)) continue;
 
                 //Unregisters the listener if there still is one and then removes the body, in that one order
                 //that is safe (PhysicsWorld.RetireBall owns it), and answers whether the ball was STILL
