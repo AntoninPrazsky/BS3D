@@ -339,7 +339,9 @@ namespace BS3D.Screens
 
             if (pad.IsConnected)
             {
-                MouseAim.ApplyPad(_cannon, pad, gameTime);
+                //Slowed by the lens's own ratio as the lean comes in (#819), as the cursor is: the stick's rate is in
+                //degrees, and a magnified view swung at the overview's rate is several times faster on screen
+                MouseAim.ApplyPad(_cannon, pad, gameTime, _preciseAim.CursorRateScale(GAME_FOV));
 
                 //Gated like the keyboard and the mouse: XInput reports a held trigger whether the window has
                 //focus or not, so without this the click that refocuses the game would arrive alongside a
