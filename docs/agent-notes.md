@@ -1036,4 +1036,4 @@ Majitel poslal odkaz na admin stránku poznámek (`127.0.0.1:5002/notes`, jednor
   - `padpress=` (jako `padrt=`) potřebuje fokus okna; zapsáno v jeho dokumentaci.
 - **#816 (session na Pi)**: zaškrtávátka jsem vyfotil ve 3840×1600 na Windows a přidal na stránku verdiktů; dvanáct řádků Display se nevešlo na 1600×900, opraveno už v `92cb9d41`.
 - Stránka verdiktů je ve verzi 9: na oko #808, #816, #820, na ruce #800, #378, #818. BS3D-play má `dev-66cdfe6`.
-- ⚠ Pennant v High ve 3840×1600 má teď 14,0 ms na snímek (dřív 12,9–13,25), tedy nad rozpočtem 75 Hz (13,33 ms). Neřešeno, jen naměřeno.
+- ⚠ **Pennant v High ve 3840×1600 (celá obrazovka, `fpscap=200 logfps sceneseed=7 seed=7`) měří 14,0 ms, nad rozpočtem 75 Hz (13,33 ms), ale není to regrese.** Commit z 2. 10. (`7a78e7b9`, Release ve vlastním worktree) dal stejným příkazem 14,26 a 14,22 ms, dnešní main (`66cdfe6`) 14,04 a 14,00 (střídavě, dvakrát). Údaj 12,9–13,25 ms z 2. 10. byl z jiného příkazu (`play … width=3840 height=1600 fpscap=1000`, nepřipnutá scéna), takže se s ním srovnávat nedá.
