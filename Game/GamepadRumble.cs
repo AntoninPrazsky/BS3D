@@ -168,8 +168,14 @@ namespace BS3D
         //The first cut's step (the light motor at 0.25 for 0.04 s) went unnoticed in the owner's hand (#800): a motor
         //that is spun up from rest needs some tens of milliseconds before it is felt at all, and forty was most of them.
         //Every word is longer now, and the step has a touch of the heavy motor under it.
+        //The page turn was one figure for both sides (0.4 for 0.07 s), and the owner felt LB and RB differ, and each
+        //press differ from the last (#800 c). Both were the motors: the heavy one at 0.4 is a much bigger thing in the
+        //hand than the light one at 0.4, so each side now has its own figure, the light motor's about twice the heavy
+        //one's (the accept's own ratio); and 0.07 s is barely past a motor's spin-up from rest,
+        //so how much of a pulse was felt depended on whether the motor was still turning from the press before. It is
+        //longer now, as the accept is.
         private const float UI_STEP_LEFT = 0.12f, UI_STEP_RIGHT = 0.35f, UI_STEP_SECONDS = 0.07f;
-        private const float UI_PAGE = 0.4f, UI_PAGE_SECONDS = 0.07f;
+        private const float UI_PAGE_LEFT = 0.26f, UI_PAGE_RIGHT = 0.55f, UI_PAGE_SECONDS = 0.1f;
         private const float UI_ACCEPT_LEFT = 0.3f, UI_ACCEPT_RIGHT = 0.55f, UI_ACCEPT_SECONDS = 0.1f;
         private const float UI_BACK_LEFT = 0.45f, UI_BACK_RIGHT = 0.15f, UI_BACK_SECONDS = 0.09f;
 
@@ -186,7 +192,7 @@ namespace BS3D
 
         /// <summary>A page or a tab turned, felt on the side it turned to (#800).</summary>
         public void UiPage(int direction) =>
-            Feel(direction < 0 ? UI_PAGE : 0f, direction > 0 ? UI_PAGE : 0f, UI_PAGE_SECONDS);
+            Feel(direction < 0 ? UI_PAGE_LEFT : 0f, direction > 0 ? UI_PAGE_RIGHT : 0f, UI_PAGE_SECONDS);
 
         /// <summary>An entry pressed (#800).</summary>
         public void UiAccept() => Feel(UI_ACCEPT_LEFT, UI_ACCEPT_RIGHT, UI_ACCEPT_SECONDS);
