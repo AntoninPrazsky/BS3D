@@ -1633,7 +1633,7 @@ namespace BS3D.Screens
             //reason (#330): the set is the whole program's, the crossing belongs to this session, and every
             //wildcard the frame draws — in the bore, at the muzzle, in the air — reads it from here, so no two
             //of them can show different colours at one instant.
-            Game.Balls.SetWildcardCrossing(_wildcard.From, _wildcard.To, _wildcard.Progress);
+            Game.Balls.SetWildcardCrossing(_wildcard.From, _wildcard.To, _wildcard.Progress, _wildcard.Returning);
 
             //THE MOTION BLUR (#402): this frame's gun poses, taken once here — the rounds in the bore about to be
             //collected are carried back by the barrel's motion, and the gun's own draw below uses the same two
@@ -1824,7 +1824,7 @@ namespace BS3D.Screens
 
             //A wildcard in the bore is crossing between the session's two colours, and the set is the whole
             //program's — the same statement the session makes before it collects its own frame
-            Game.Balls.SetWildcardCrossing(_wildcard.From, _wildcard.To, _wildcard.Progress);
+            Game.Balls.SetWildcardCrossing(_wildcard.From, _wildcard.To, _wildcard.Progress, _wildcard.Returning);
 
             CollectMagazineBalls(frame);
         }
