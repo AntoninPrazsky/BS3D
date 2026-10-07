@@ -307,7 +307,7 @@ namespace BS3D
 
         //Testing only: "note=<seconds>:<steps>" (#813) - at that wall-clock second, with a level being played, pause it and
         //open the note page as its button does; once the page is past its picture, run the steps through the very handlers
-        //the keys and the buttons run: type:<text>, newline, untick, send. Null when absent.
+        //the keys and the buttons run: type:<text>, newline, untick, send, back. Null when absent.
         internal float? NoteAt { get; private set; }
         internal string NoteSteps { get; private set; }
 

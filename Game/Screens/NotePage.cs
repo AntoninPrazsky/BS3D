@@ -17,7 +17,8 @@ namespace BS3D.Screens
     /// <summary>
     /// <b>Send a Note</b> (#813): the player types a line about what they just saw, and it goes to the author with the
     /// game's context and, unless they untick it, a picture of that moment (the owner's answers, 2026-10-06: anyone may
-    /// send one, and the picture is theirs to leave out). Opened from the pause menu and from About.
+    /// send one, and the picture is theirs to leave out). Opened from the pause menu, About and Extras, by the entry
+    /// <see cref="BS3DGame.NoteEntry"/> builds (its words say to whom, and it is teal).
     /// <para>
     /// <b>The picture is the frame the player was looking at, not the menu over it.</b> The page's first frame draws the
     /// game sharp, with no scrim and no widgets (<see cref="WantsShot"/>), the host reads that frame back at the end of
@@ -41,14 +42,12 @@ namespace BS3D.Screens
         private const int FIELD_PADDING_X = 43, FIELD_PADDING_Y = 18;
         private const int GAP = 24;
 
-        /// <summary>Lines of the field: enough for a few sentences to stay in view while they are written.</summary>
-        private const int FIELD_LINES = 6;
-
         /// <summary>
-        /// The end of a long note the field shows, with an ellipsis before it: the caret is always at the end, and a
-        /// field that scrolled would be machinery for a few hundred characters. Sized to fit <see cref="FIELD_LINES"/>.
+        /// Lines of the field: enough for a few sentences to stay in view while they are written. A longer note shows
+        /// its last lines with an ellipsis before them (<see cref="FieldTail"/>): the caret is always at the end, and a
+        /// field that scrolled would be machinery for a few hundred characters.
         /// </summary>
-        private const int FIELD_TAIL = 220;
+        private const int FIELD_LINES = 6;
 
         /// <summary>The picture's width on the page, in design units: the text column's own.</summary>
         private const int PICTURE_WIDTH = 1000;
@@ -80,6 +79,12 @@ namespace BS3D.Screens
         private NoteOutcome? _outcome;
 
         private readonly StringBuilder _draft = new();
+
+        //The draft laid out in the field's lines with the caret at its end (FieldTail), null when the draft or the field
+        //has changed since: laid out once per change, never per caret blink
+        private string _laid;
+        private int _fieldWidth;
+
         private float _caretClock;
         private bool _caretShown = true;
         private string _problem;
@@ -106,6 +111,7 @@ namespace BS3D.Screens
             _problem = null;
             _state = State.Capturing;
             _draft.Clear().Append(Game.NoteDraft ?? string.Empty);
+            _laid = null;
             InvalidateTree();
         }
 
@@ -199,20 +205,23 @@ namespace BS3D.Screens
                 return ScreenRoot(Plate(column));
             }
 
-            column.Widgets.Add(ScreenHeading("SEND A NOTE"));
+            column.Widgets.Add(ScreenHeading("WRITE TO THE AUTHOR"));
             column.Widgets.Add(BodyLabel("Tell the author what you just saw: what was unclear, what went wrong, what you liked.",
                 BS3DGame.MENU_TEXT_BODY, ColumnWidth + Scaled(GAP) + Scaled(PICTURE_WIDTH)));
 
             HorizontalStackPanel row = new() { Spacing = Scaled(GAP), HorizontalAlignment = HorizontalAlignment.Center };
 
             VerticalStackPanel left = new() { Spacing = Scaled(GAP), VerticalAlignment = VerticalAlignment.Top };
-            //Inter, the face sentences are read in (About's paragraphs), not the display face a nickname is set in
+            //Inter, the face sentences are read in (About's paragraphs), not the display face a nickname is set in.
+            //Every line FieldTail hands it is measured to fit, so its own wrap is only a backstop
+            _fieldWidth = ColumnWidth - Scaled(FIELD_PADDING_X) * 2;
+            _laid = null;
             _field = new Label
             {
                 Font = FontSmall,
                 TextColor = BS3DGame.MENU_TEXT,
                 Wrap = true,
-                Width = ColumnWidth - Scaled(FIELD_PADDING_X) * 2,
+                Width = _fieldWidth,
                 Height = FontSmall.LineHeight * FIELD_LINES,
                 VerticalAlignment = VerticalAlignment.Top,
             };
@@ -294,8 +303,11 @@ namespace BS3D.Screens
 
         private void ShowField()
         {
-            string text = _draft.Length > FIELD_TAIL ? "…" + _draft.ToString(_draft.Length - FIELD_TAIL, FIELD_TAIL) : _draft.ToString();
-            _field.Text = _caretShown ? text + CARET : text;
+            //Counted in measured lines, not characters (#813): the 220-character tail this replaced ran past six lines on
+            //a note of short lines or long words, and the line being typed went on below the field. The caret is laid out
+            //with the text, so its line is the last one shown, and a blink only takes it off the end.
+            _laid ??= FieldTail.Show(_draft + CARET, _fieldWidth, FIELD_LINES, line => FontSmall.MeasureString(line).X);
+            _field.Text = _caretShown ? _laid : _laid[..^CARET.Length];
         }
 
         private void ToggleAttach()
@@ -335,6 +347,7 @@ namespace BS3D.Screens
             }
 
             _problem = null;
+            _laid = null;
             _caretClock = 0f;
             _caretShown = true;
             Refresh();
@@ -379,7 +392,7 @@ namespace BS3D.Screens
 
         /// <summary>
         /// Testing only (<c>note=&lt;seconds&gt;:&lt;steps&gt;</c>, #813): <c>type:&lt;text&gt;</c>, <c>newline</c>,
-        /// <c>untick</c> and <c>send</c> in order, through the very handlers the keyboard and the buttons run, as the
+        /// <c>untick</c>, <c>send</c> and <c>back</c> in order, through the very handlers the keyboard and the buttons run, as the
         /// nickname plate's <c>nickprompt=</c> does and for its reason: a synthetic keystroke lands in whatever window
         /// has the focus.
         /// </summary>
@@ -399,8 +412,12 @@ namespace BS3D.Screens
                     case "newline": OnTextInput('\n'); break;
                     case "untick": if (_attach) ToggleAttach(); break;
                     case "send": Send(); break;
+                    case "back":
+                        Console.WriteLine("[note] Testing: did 'back'");
+                        GoBack();
+                        return;
                     default:
-                        Console.WriteLine($"[note] Testing: no step '{step}' (type:<text>, newline, untick, send)");
+                        Console.WriteLine($"[note] Testing: no step '{step}' (type:<text>, newline, untick, send, back)");
                         continue;
                 }
                 Console.WriteLine($"[note] Testing: did '{step}'");
