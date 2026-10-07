@@ -1037,3 +1037,20 @@ Majitel poslal odkaz na admin stránku poznámek (`127.0.0.1:5002/notes`, jednor
 - **#816 (session na Pi)**: zaškrtávátka jsem vyfotil ve 3840×1600 na Windows a přidal na stránku verdiktů; dvanáct řádků Display se nevešlo na 1600×900, opraveno už v `92cb9d41`.
 - Stránka verdiktů je ve verzi 9: na oko #808, #816, #820, na ruce #800, #378, #818. BS3D-play má `dev-66cdfe6`.
 - ⚠ **Pennant v High ve 3840×1600 (celá obrazovka, `fpscap=200 logfps sceneseed=7 seed=7`) měří 14,0 ms, nad rozpočtem 75 Hz (13,33 ms), ale není to regrese.** Commit z 2. 10. (`7a78e7b9`, Release ve vlastním worktree) dal stejným příkazem 14,26 a 14,22 ms, dnešní main (`66cdfe6`) 14,04 a 14,00 (střídavě, dvakrát). Údaj 12,9–13,25 ms z 2. 10. byl z jiného příkazu (`play … width=3840 height=1600 fpscap=1000`, nepřipnutá scéna), takže se s ním srovnávat nedá.
+
+## 2026-10-07 — #735 karty druhů s živou koulí, #811 „e-e“ u dorazu, třetí kontrola — desktop, Claude Code (bs3d-c5)
+
+- **#735 (merge `f853d1d3`, opravy `8e218d9d`, čeká na verdikt oka).** Jedenáct karet (`kind-…` v save), jedna pro každý druh. Karta přijde na začátku kteréhokoli levelu, jehož mapa druh nese, i za druhou kapitolou, a před kartami žebříčku. Chameleon má kartu, jakmile první dorazí k ústí.
+  - Místo klávesy je na kartě skutečná koule ve 3D scéně 3 jednotky před kamerou: přidá se po stínovém průchodu a se záznamem pohybu připnutým k pixelu.
+  - Pořadí podle kampaně: broky Juggler 93, bomba Vent 105, zap Fume 107, sklo Trefoil 131, kámen Anvil 136; ostatních pět zatím žádný level nemá.
+  - Ověřeno skriptem: reel, Juggler podruhé bez karty, Vent s `wildcard=2 fire=16`.
+- ⚠ **Třetí kontrola (agent nad `11c8f17b` #820 a `f853d1d3` #735) našla tři chyby v #735:**
+  - Koule mimo záznam pohybu se rozmazávala: `MotionBlur.fx` dává prázdným pixelům rychlost kamery v hloubce shluku. Teď je v záznamu připnutá (`_motionPinnedBack`).
+  - Vložený blok rozdělil `DrawTutorial` od jeho dokumentace (CS1572).
+  - Broky byly v pořadí až pátý.
+  - Moje vlastní chyba navíc: věta u nakažené koule byla obráceně.
+  - Nezvládnuté: při přesném míření okraj obrazu kouli trochu rozostří (#214).
+- **#811 (merge `b8dd1f0a`, verdikt oka).** Místo vrzání s „pfff“ dva technické tóny „e-e“: figura odmítnutého výstřelu o oktávu výš, 440→415 Hz a 392→349 Hz, bez šumu. Test dvou úderů čte mezeru z obálky. Jeho první verze četla konstanty syntézy a mutanta propustila. Oba zvuky jsou na stránce verdiktů jako WAV (scratchpad `wavbake` kompiluje přímo `AimStopSynth.cs`).
+- **Help (merge `0026d9ab`):** tvrdil „Power-ups … are not in the game yet“ a že chameleony rozdává poslední kapitola (ve skutečnosti levely 72, 78 a 80). Opraveno, chameleon se tam teď jmenuje „rainbow ball“ jako na kartě.
+- ⚠ Jednou GitHub odmítl push na main („remote rejected … failed“) bez souběhu; druhý pokus prošel.
+- Stránka verdiktů je ve verzi 10: oko #808, #816, #820, #735, ucho #811, ruce #800, #378, #818. BS3D-play má `dev-8e218d9`.
