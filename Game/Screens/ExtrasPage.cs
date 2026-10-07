@@ -33,6 +33,10 @@ namespace BS3D.Screens
 
             column.Widgets.Add(FrontEndEntry("Scene", Game.OpenSceneSelect));
             column.Widgets.Add(FrontEndEntry("Jukebox", Game.OpenJukebox));
+
+            //The way to the author from the front end, beside About's (#813, the owner's ask): Extras is where a player
+            //looks for what else there is
+            column.Widgets.Add(Game.NoteEntry("extras", frontEnd: true));
             column.Widgets.Add(FrontEndEntry("Back", GoBack));
 
             return ScreenRoot(column, VersionTag());

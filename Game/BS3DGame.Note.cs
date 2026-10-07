@@ -2,6 +2,7 @@ using BS3D.Online;
 using BS3D.Screens;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Myra.Graphics2D.UI;
 using System;
 using System.Globalization;
 using System.IO;
@@ -25,8 +26,29 @@ namespace BS3D
         /// <summary>A picture bigger than this is taken again at a smaller scale: the service refuses one over 400 KB.</summary>
         private const int NOTE_SHOT_MAX_BYTES = 360_000;
 
+        /// <summary>
+        /// The entry's words, the same wherever it stands. The owner returned "Send a Note" (2026-10-07): it did not say
+        /// to whom, and the whole point is that it goes to the author.
+        /// </summary>
+        internal const string NOTE_ENTRY = "Write to the Author";
+
         private OnlineNotes _notes;
         private NotePage _notePage;
+
+        /// <summary>
+        /// The entry that opens the note page from <paramref name="where"/> (<c>pause</c>, <c>about</c>, <c>extras</c>), its
+        /// words in <see cref="MENU_TEXT_NOTE"/>. <paramref name="frontEnd"/> is the front end's larger, left-set entry
+        /// (Extras); every other page's is the ordinary menu button.
+        /// </summary>
+        internal Button NoteEntry(string where, bool frontEnd = false)
+        {
+            Button entry = frontEnd
+                ? FrontEndEntry(NOTE_ENTRY, () => OpenNote(where), out Label label)
+                : MenuButton(NOTE_ENTRY, () => OpenNote(where), out label);
+
+            label.TextColor = MENU_TEXT_NOTE;
+            return entry;
+        }
 
         /// <summary>The note worker, or null before <c>LoadContent</c>.</summary>
         internal OnlineNotes Notes => _notes;

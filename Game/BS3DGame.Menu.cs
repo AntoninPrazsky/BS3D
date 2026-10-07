@@ -188,6 +188,12 @@ namespace BS3D
         //on the settings page's own plate, never over a backdrop. Brightness still carries every other emphasis.
         internal static readonly Color MENU_TEXT_ALERT = new(255, 104, 92);
 
+        //ANOTHER, the owner's call too (#813, 2026-10-07): the entry that writes to the author is sea teal, "so a player
+        //notices it". It is one entry wherever it stands (the pause, About, Extras) and the hue is what says it is not one
+        //more grey control but an invitation. Bright enough to hold on the front end's near-transparent slab over a scene
+        //(Extras), where the other two are never drawn.
+        internal static readonly Color MENU_TEXT_NOTE = new(86, 226, 210);
+
         //The ONE deliberate exception to the greyscale rule above: the star rating (#139). Three things make
         //it safe where an accent anywhere else is not. It is a READOUT of what the player earned rather than
         //menu chrome — the hue IS the information, and brightness cannot carry it, because all four tiers have
