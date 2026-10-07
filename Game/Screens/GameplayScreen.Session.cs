@@ -91,8 +91,9 @@ namespace BS3D.Screens
             //Seeded from the fresh scorer, so a new budget is not read as a ball just spent.
             _hud.Reset(_run.Score);
 
-            //And what this level may teach (#189): nothing past the second chapter (#666), nothing already taught,
-            //and the glass lesson only with this level's own cadence to name
+            //And what this level may teach (#189): the ladder nothing past the second chapter (#666), the kinds' and the
+            //tools' cards wherever they are first met (#735, #705), nothing already taught, and the glass lesson only with
+            //this level's own cadence to name
             bool tutorialLevel = Tutorial.TryPlace(Game.LevelSet, index, out int chapter, out int levelInChapter,
                 out int chapterLength);
             ReadKindsOnMap();

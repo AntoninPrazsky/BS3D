@@ -271,8 +271,8 @@ namespace BS3D
         internal int WildcardEvery { get; private set; }
 
         //Testing only: this level's power-up charges (#392), "kind:count" pairs separated by commas
-        //("powerups=swap:1"). Null grants only what the campaign's own rule does (#213: a Swap from the second chapter, a
-        //Brake from the third and a Cut from the fourth); no level file authors a charge.
+        //("powerups=swap:1"). Null grants only what the campaign's own rule does (#213, #705: a Swap from the third chapter,
+        //a Brake from the fourth and a Cut from the fifth); no level file authors a charge.
         internal string Powerups { get; private set; }
 
         //Testing only: wall-clock seconds at which the game saves a PNG of its own frame. Null means the

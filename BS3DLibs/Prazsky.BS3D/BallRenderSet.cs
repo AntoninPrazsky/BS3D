@@ -2724,7 +2724,7 @@ namespace Prazsky.BS3D
 
         /// <summary>
         /// One clump of buckshot (#257) as <see cref="BUCKSHOT_PELLETS"/> pellets, each placed in the ball's own frame so
-        /// the clump turns and swings with the body the simulation gives it. A pellet is a third of a ball across, so it is
+        /// the clump turns and swings with the body the simulation gives it. A pellet is a quarter of a ball across, so it is
         /// drawn a level of detail coarser than the ball's own - the projected-size rule the LODs are chosen by.
         /// </summary>
         internal void StoreBuckshot(int lod, in ModelInstance instance, bool loose = false)

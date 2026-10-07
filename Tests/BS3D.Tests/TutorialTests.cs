@@ -233,6 +233,42 @@ namespace BS3D.Tests
             Assert.DoesNotContain(BRAKE, Play(Fresh(new HashSet<string>()), set, 30, brakeOffered: false, glassStepsAt: 100));
         }
 
+        /// <summary>
+        /// A tool's card does not follow the player through the whole campaign (#705, the review): left unpressed until it
+        /// times out it counts as read, and a key pressed before the card came up teaches it there and then. A ladder's
+        /// action card, by contrast, still comes back within its chapter.
+        /// </summary>
+        [Fact]
+        public void AToolsCardIsNotOfferedForEver()
+        {
+            LevelSet set = ShippedSet();
+
+            //Shown, never pressed, timed out: recorded, and the next level offers it no more
+            HashSet<string> save = new();
+            Tutorial tutorial = Fresh(save);
+            Assert.Contains(SWAP, Play(tutorial, set, 20, swapOffered: true));
+            Assert.Contains("swap", save);
+            Assert.DoesNotContain(SWAP, Play(tutorial, set, 21, swapOffered: true));
+
+            //Pressed during the first-card delay, before its card is up: taught, and no card is shown at all
+            HashSet<string> early = new();
+            Tutorial eager = Fresh(early);
+            eager.BeginLevel(-1, 0, 10, ceilingStep: 6, cutOffered: true);
+            eager.Report(Tutorial.Lesson.Cut);
+            for (int frame = 0; frame < 400; frame++)
+            {
+                eager.Update(0.1f, enabled: true, takeoverEngaged: false, levelDecided: false);
+                Assert.NotEqual(CUT, eager.Caption);
+            }
+            Assert.Contains("cut", early);
+
+            //A ladder's action card left undone is not recorded: the aim card times out and comes back on the next level
+            HashSet<string> ladder = new();
+            Tutorial first = Fresh(ladder);
+            Play(first, set, 0);
+            Assert.DoesNotContain("aim", ladder);
+        }
+
         /// <summary>A press of the Brake's key and of the Cut's completes its card and records it (#705), as the Swap's does.</summary>
         [Fact]
         public void APressOfTheBrakeOrTheCutCompletesItsCard()
