@@ -320,6 +320,29 @@ namespace BS3D
         }
 
         /// <summary>
+        /// Whether this frame draws the scene's scenery (#808, the owner's verdict of 2026-10-07): the backdrop, the city,
+        /// the wood, the weather, what stands on the ground and the shaft under the drain, and the shadows of all of it.
+        /// On by default on every desktop tier; turned off on the Scenery row, it leaves the island, the cluster, the gun,
+        /// the glass and the sky (or a sky-replacing scene's own background colour), and the Quality row reads "Custom".
+        /// Never on the Potato path, which draws no scenery at all (see <c>BS3DGame.Potato.cs</c>).
+        /// </summary>
+        internal bool SceneryShown => !PotatoPath && _settings.Scenery != false;
+
+        /// <summary>What the Scenery row says.</summary>
+        internal string SceneryLabel => PotatoPath ? "Off (Potato)" : SceneryShown ? "On" : "Off";
+
+        /// <summary>The Scenery row (#808): off is the player's Custom; on is the tier's own look again.</summary>
+        internal void ToggleScenery()
+        {
+            if (PotatoPath) return;
+
+            _settings.Scenery = SceneryShown ? false : null;
+            SaveSettings();
+
+            _settingsPage.Refresh();
+        }
+
+        /// <summary>
         /// Toggles the motion blur (#402). Nothing to write to the pipeline: the session asks
         /// <see cref="MotionBlurActive"/> each frame and simply opens no velocity pass while it is off, which costs
         /// nothing at all.

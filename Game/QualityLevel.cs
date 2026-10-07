@@ -46,6 +46,20 @@ namespace BS3D
         /// </summary>
         internal static bool DropsSceneDetail(this QualityLevel quality) =>
             quality is QualityLevel.Low or QualityLevel.Potato;
+
+        /// <summary>
+        /// The Quality row's next tier on the Windows build: Low, Medium, High, Ultra, Potato, and round again (#808, the
+        /// owner's verdict of 2026-10-07: Potato is to be chosen in the menu too). The enum's order is not the ladder's
+        /// (Potato was appended), so the row steps by name and never by number.
+        /// </summary>
+        internal static QualityLevel NextOnRow(this QualityLevel quality) => quality switch
+        {
+            QualityLevel.Low => QualityLevel.Medium,
+            QualityLevel.Medium => QualityLevel.High,
+            QualityLevel.High => QualityLevel.Ultra,
+            QualityLevel.Ultra => QualityLevel.Potato,
+            _ => QualityLevel.Low,
+        };
     }
 
     /// <summary>

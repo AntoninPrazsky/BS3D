@@ -537,7 +537,8 @@ namespace BS3D
             Row.Text("jukebox", (o, v) => o.Jukebox = v),
             //"settings" puts the Settings page up at boot (#189), for photographing a row.
             Row.Flag("settings", o => o.Settings = true),
-            //"settings=<row,...>" also activates those rows once the page is up (#548) — online, nickname, remove, intro (#621), brightness (#711) —
+            //"settings=<row,...>" also activates those rows once the page is up (#548) — online, nickname, remove, intro (#621), brightness (#711),
+            //resolution, quality and scenery (#808) —
             //through the page's own click handlers, since a run nobody is sitting at cannot click one. "remove" is
             //refused outside a userdata= folder: it would take the player's own scores off the server.
             Row.Text("settings", (o, v) => o.SettingsRows = v),

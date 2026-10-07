@@ -108,10 +108,10 @@ namespace Prazsky.Core.Render
         public float LevelY => _seaConfig.LevelY;
 
         /// <summary><see cref="SceneRenderer.ApplySeaSubmerge"/>.</summary>
-        public void ApplySubmerge(Effect effect, SceneKind scene, float lensSubmerged)
+        public void ApplySubmerge(Effect effect, SceneKind scene, float lensSubmerged, bool seaShown = true)
         {
             var p = effect.Parameters;
-            if (scene != SceneKind.Sea)
+            if (scene != SceneKind.Sea || !seaShown)
             {
                 p["SeaFadeDepth"]?.SetValue(0f);
                 return;

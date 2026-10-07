@@ -95,7 +95,8 @@ namespace BS3D.Screens
         private static readonly IBrush TAB_SELECTED_BRUSH = new FlatBrush(BS3DGame.MENU_TEXT);
         private static readonly Color TAB_SELECTED_TEXT = new(30, 30, 30);
 
-        private Label _fullscreenValue, _resolutionValue, _qualityValue, _adaptiveQualityValue, _exposureValue, _skyValue, _fpsValue, _fpsLimitValue;
+        private Label _fullscreenValue, _resolutionValue, _qualityValue, _adaptiveQualityValue, _sceneryValue, _exposureValue, _skyValue, _fpsValue,
+            _fpsLimitValue;
         private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _rumbleValue, _sensitivityValue, _aimSensitivityValue, _tutorialValue;
         private Label _aberrationValue, _grainValue, _motionBlurValue, _dropCinematicValue, _introLogoValue;
         private Label _progressValue, _unlockAllValue;
@@ -354,21 +355,24 @@ namespace BS3D.Screens
             //half of the same answer — and because picking a tier above turns it off, which the player should
             //see happen rather than have to know.
             AddRow(grid, 3, "Auto quality", Game.ToggleAdaptiveQuality, out _adaptiveQualityValue);
+            //Whether the scene's scenery is drawn (#808): under the two rows it changes the meaning of, since turning it
+            //off makes the Quality row read Custom. The Potato path never draws it, and says so here.
+            AddRow(grid, 4, "Scenery", Game.ToggleScenery, out _sceneryValue);
             //The tonemap's exposure, said as the brightness it is (#711): a percent of the authored look, 100 % the default
-            AddRow(grid, 4, "Brightness", Game.CycleExposure, out _exposureValue);
-            AddRow(grid, 5, "Sky", Game.CycleSkyDome, out _skyValue);
-            AddRow(grid, 6, "FPS counter", Game.ToggleFpsOverlay, out _fpsValue);
+            AddRow(grid, 5, "Brightness", Game.CycleExposure, out _exposureValue);
+            AddRow(grid, 6, "Sky", Game.CycleSkyDome, out _skyValue);
+            AddRow(grid, 7, "FPS counter", Game.ToggleFpsOverlay, out _fpsValue);
             //The presentation cap (#124): synced to the monitor's refresh (frames nobody can see cost only
             //heat) or unlimited — the "nocap" launch argument's toggle, in the menu so a benchmarking session
             //is not the only way to lift it.
-            AddRow(grid, 7, "FPS limit", Game.ToggleFpsLimit, out _fpsLimitValue);
+            AddRow(grid, 8, "FPS limit", Game.ToggleFpsLimit, out _fpsLimitValue);
             //The lens's colour fringing at the frame edges — a taste toggle, and instant where it is made,
             //like every row here: the scene behind the panel is the preview.
-            AddRow(grid, 8, "Aberration", Game.ToggleAberration, out _aberrationValue);
-            AddRow(grid, 9, "Film grain", Game.ToggleGrain, out _grainValue);
+            AddRow(grid, 9, "Aberration", Game.ToggleAberration, out _aberrationValue);
+            AddRow(grid, 10, "Film grain", Game.ToggleGrain, out _grainValue);
             //What moves smeared along its motion (#402). With the lens's looks, being one; a tier that cannot
             //afford it says so on the row rather than leaving an "On" that does nothing.
-            AddRow(grid, 10, "Motion blur", Game.ToggleMotionBlur, out _motionBlurValue);
+            AddRow(grid, 11, "Motion blur", Game.ToggleMotionBlur, out _motionBlurValue);
 
             return grid;
         }
@@ -624,8 +628,9 @@ namespace BS3D.Screens
             _fullscreenValue.Text = Game.IsFullscreen ? "On" : "Off";
             _resolutionValue.Text = Game.RenderResolutionLabel;
             //A locked build (GamePi, #788) says so on both rows rather than offering a click that does nothing
-            _qualityValue.Text = Game.IsQualityLocked ? $"{Game.Quality} (locked)" : Game.Quality.ToString();
-            _adaptiveQualityValue.Text = Game.IsQualityLocked ? "Off (locked)" : Game.IsAdaptiveQualityEnabled ? "On" : "Off";
+            _qualityValue.Text = Game.QualityLabel;
+            _adaptiveQualityValue.Text = Game.AdaptiveQualityLabel;
+            _sceneryValue.Text = Game.SceneryLabel;
             //Percent of the authored look, 100 % the default (#711), not the raw multiplier
             _exposureValue.Text = Game.BrightnessPercent.ToString(CultureInfo.InvariantCulture) + " %";
             _skyValue.Text = Game.SkyDomeNumber.ToString(CultureInfo.InvariantCulture);
@@ -987,6 +992,8 @@ namespace BS3D.Screens
                     case "intro": ShowTab(TAB_GAME); KeepOrDropTyping(); Game.ToggleIntroLogo(); break;
                     case "brightness": ShowTab(TAB_DISPLAY); KeepOrDropTyping(); Game.CycleExposure(); break;
                     case "resolution": ShowTab(TAB_DISPLAY); KeepOrDropTyping(); Game.CycleRenderResolution(); break;
+                    case "quality": ShowTab(TAB_DISPLAY); KeepOrDropTyping(); Game.CycleQuality(); break;
+                    case "scenery": ShowTab(TAB_DISPLAY); KeepOrDropTyping(); Game.ToggleScenery(); break;
                     case "nickname": ShowTab(TAB_ONLINE); OnNickname(); break;
                     case "remove" when UserData.IsTestingDirectory: ShowTab(TAB_ONLINE); KeepOrDropTyping(); OnRemove(); break;
                     case "remove":

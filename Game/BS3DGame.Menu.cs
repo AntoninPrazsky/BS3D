@@ -824,8 +824,9 @@ namespace BS3D
         /// <param name="fieldOfView">The frame the tour ends on, which each shot widens from.</param>
         /// <param name="random">The intro's own roll.</param>
         internal BS3D.Effects.IntroShot[] IntroPrologue(float fieldOfView, Random random) =>
-            //None on the Potato path (#789): the shots are of the backdrop's own features, which it does not draw
-            PotatoPath ? null : BS3D.Effects.IntroPrologues.For(_scene,
+            //None where no scenery is drawn (the Potato path, #789, and the Scenery row off, #808): the shots are of the
+            //backdrop's own features
+            !SceneryShown ? null : BS3D.Effects.IntroPrologues.For(_scene,
                 new BS3D.Effects.IntroContext(_sceneRenderer, _city, _rooftops, _forestScatter, _auroraScatter, _rig?.SunDirection, _wallClock),
                 fieldOfView, random);
 
