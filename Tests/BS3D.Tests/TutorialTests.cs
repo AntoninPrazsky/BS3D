@@ -21,6 +21,8 @@ namespace BS3D.Tests
         private const string LINE_RULE = "If the cluster reaches the line, the level is lost";
         private const string SEND_OFF = "That's the basics — you know how to play";
         private const string SWAP = "Swap the next two balls";
+        private const string BRAKE = "Lift the glass back one step";
+        private const string CUT = "Turn the next ball into a cutter";
 
         private static LevelSet ShippedSet() =>
             LevelSet.Load(Path.Combine(Shipped.LevelsDirectory, LevelSet.DefaultFileName));
@@ -31,16 +33,24 @@ namespace BS3D.Tests
 
         /// <summary>Begins the set's entry <paramref name="index"/> and returns every caption the level shows, in order.</summary>
         private static List<string> Play(Tutorial tutorial, LevelSet set, int index, bool lightStreak = false, bool swapOffered = false,
-            bool retry = false)
+            bool retry = false, bool brakeOffered = false, bool cutOffered = false, int glassStepsAt = -1)
         {
             bool placed = Tutorial.TryPlace(set, index, out int chapter, out int levelInChapter, out int length);
-            tutorial.BeginLevel(placed ? chapter : -1, levelInChapter, length, ceilingStep: 6, swapOffered: swapOffered, retry: retry);
+            tutorial.BeginLevel(placed ? chapter : -1, levelInChapter, length, ceilingStep: 6, swapOffered: swapOffered, retry: retry,
+                brakeOffered: brakeOffered, cutOffered: cutOffered);
 
             List<string> shown = new();
             for (int frame = 0; frame < 4000; frame++)
             {
                 //The streak lights a little way in, as it would after a couple of landings
                 if (lightStreak && frame == 20) tutorial.Trigger(Tutorial.Lesson.Streak);
+
+                //The glass's pressure step, which fires the glass's card and the Brake's (GameplayScreen.AnnounceCeilingStep)
+                if (frame == glassStepsAt)
+                {
+                    tutorial.Trigger(Tutorial.Lesson.Ceiling);
+                    tutorial.Trigger(Tutorial.Lesson.Brake);
+                }
 
                 tutorial.Update(0.1f, enabled: true, takeoverEngaged: false, levelDecided: false);
 
@@ -53,7 +63,8 @@ namespace BS3D.Tests
 
         //Every lesson's key, as a save that has completed the whole tutorial holds them
         private static readonly string[] EVERY_LESSON =
-            { "aim", "fire", "match", "lean", "ceiling", "line", "traverse", "walk", "combine", "linerule", "graduated", "streak", "budget", "swap" };
+            { "aim", "fire", "match", "lean", "ceiling", "line", "traverse", "walk", "combine", "linerule", "graduated", "streak", "budget", "swap",
+              "brake", "cut" };
 
         /// <summary>A save that has been through every card, and a count of what the tutorial writes to it.</summary>
         private static Tutorial Finished(out System.Func<int> writes)
@@ -190,29 +201,69 @@ namespace BS3D.Tests
             Assert.Empty(Play(tutorial, set, 12, lightStreak: true));
         }
 
+        /// <summary>
+        /// One tool a chapter, each taught where its chip first stands (#705): the Swap's card on a level that grants one,
+        /// past the ladder's two chapters as on them (the shipped third chapter's first level is past them); the Cut's
+        /// likewise; the Brake's on the glass's first pressure step and not before; none where nothing is granted, so the
+        /// Gallery - which grants nothing now - teaches none; and a save that holds the old "swap" key sees no second card.
+        /// </summary>
         [Fact]
-        public void TheSwapIsTaughtOnTheSecondChaptersThirdLevelAndOnlyWhereThereIsOne()
+        public void EachToolIsTaughtWhereItsChipFirstStandsAndNowhereElse()
         {
             LevelSet set = ShippedSet();
-            HashSet<string> everythingElse = new()
-                { "aim", "fire", "match", "lean", "ceiling", "line", "traverse", "walk", "combine", "linerule", "graduated", "streak", "budget" };
 
-            //The Gallery's third level (#213), with a swap to press: the card, and it is recorded once taught by doing
-            HashSet<string> save = new(everythingElse);
+            Assert.False(Tutorial.TryPlace(set, 20, out _, out _, out _));
+            Assert.Contains(SWAP, Play(Fresh(new HashSet<string>()), set, 20, swapOffered: true));
+            Assert.DoesNotContain(SWAP, Play(Fresh(new HashSet<string>()), set, 20, swapOffered: false));
+            Assert.DoesNotContain(SWAP, Play(Fresh(new HashSet<string> { "swap" }), set, 20, swapOffered: true));
+
+            //The Gallery grants nothing since #705, and so teaches no tool
+            for (int index = 10; index < 20; index++)
+            {
+                Assert.Equal(0, set.SwapChargesAt(index));
+                Assert.DoesNotContain(SWAP, Play(Fresh(new HashSet<string>()), set, index, swapOffered: set.SwapChargesAt(index) > 0));
+            }
+
+            Assert.Contains(CUT, Play(Fresh(new HashSet<string>()), set, 40, cutOffered: true));
+            Assert.DoesNotContain(CUT, Play(Fresh(new HashSet<string>()), set, 40, cutOffered: false));
+
+            //The Brake waits for the glass to step: no step, no card
+            Assert.DoesNotContain(BRAKE, Play(Fresh(new HashSet<string>()), set, 30, brakeOffered: true));
+            Assert.Contains(BRAKE, Play(Fresh(new HashSet<string>()), set, 30, brakeOffered: true, glassStepsAt: 100));
+            Assert.DoesNotContain(BRAKE, Play(Fresh(new HashSet<string>()), set, 30, brakeOffered: false, glassStepsAt: 100));
+        }
+
+        /// <summary>A press of the Brake's key and of the Cut's completes its card and records it (#705), as the Swap's does.</summary>
+        [Fact]
+        public void APressOfTheBrakeOrTheCutCompletesItsCard()
+        {
+            HashSet<string> save = new();
             Tutorial tutorial = Fresh(save);
-            Assert.Contains(SWAP, Play(tutorial, set, 12, swapOffered: true));
 
-            //Without one (a set with no chapters, the testing argument's zero) it would be a card about a key that does
-            //nothing, so it is not shown
-            Assert.DoesNotContain(SWAP, Play(Fresh(new HashSet<string>(everythingElse)), set, 12, swapOffered: false));
+            tutorial.BeginLevel(-1, 0, 10, ceilingStep: 6, cutOffered: true);
+            for (int frame = 0; frame < 60 && tutorial.Caption != CUT; frame++)
+                tutorial.Update(0.1f, enabled: true, takeoverEngaged: false, levelDecided: false);
+            Assert.Equal(CUT, tutorial.Caption);
 
-            //Not before its level: the Gallery's first two teach the score, a level each
-            Assert.DoesNotContain(SWAP, Play(Fresh(new HashSet<string>(everythingElse)), set, 10, swapOffered: true));
-            Assert.DoesNotContain(SWAP, Play(Fresh(new HashSet<string>(everythingElse)), set, 11, swapOffered: true));
+            tutorial.Report(Tutorial.Lesson.Cut);
+            tutorial.Update(0.1f, enabled: true, takeoverEngaged: false, levelDecided: false);
+            Assert.Equal("Armed!", tutorial.Praise);
+            for (int frame = 0; frame < 200; frame++)
+                tutorial.Update(0.1f, enabled: true, takeoverEngaged: false, levelDecided: false);
+            Assert.Contains("cut", save);
 
-            //And never in the first chapter, whatever the level grants
-            for (int index = 0; index < 10; index++)
-                Assert.DoesNotContain(SWAP, Play(Fresh(new HashSet<string>()), set, index, swapOffered: true));
+            tutorial.BeginLevel(-1, 0, 10, ceilingStep: 6, brakeOffered: true);
+            tutorial.Trigger(Tutorial.Lesson.Brake);
+            for (int frame = 0; frame < 60 && tutorial.Caption != BRAKE; frame++)
+                tutorial.Update(0.1f, enabled: true, takeoverEngaged: false, levelDecided: false);
+            Assert.Equal(BRAKE, tutorial.Caption);
+
+            tutorial.Report(Tutorial.Lesson.Brake);
+            tutorial.Update(0.1f, enabled: true, takeoverEngaged: false, levelDecided: false);
+            Assert.Equal("Lifted!", tutorial.Praise);
+            for (int frame = 0; frame < 200; frame++)
+                tutorial.Update(0.1f, enabled: true, takeoverEngaged: false, levelDecided: false);
+            Assert.Contains("brake", save);
         }
 
         [Fact]
@@ -222,9 +273,10 @@ namespace BS3D.Tests
             HashSet<string> save = new() { "aim", "fire", "match", "lean", "ceiling", "line", "traverse", "walk", "combine", "linerule", "graduated", "streak", "budget" };
             Tutorial tutorial = Fresh(save);
 
-            bool placed = Tutorial.TryPlace(set, 12, out int chapter, out int levelInChapter, out int length);
-            Assert.True(placed);
-            tutorial.BeginLevel(chapter, levelInChapter, length, ceilingStep: 6, swapOffered: true);
+            //The Coil's first level, the first that grants a Swap since #705 - past the ladder's chapters
+            bool placed = Tutorial.TryPlace(set, 20, out int chapter, out int levelInChapter, out int length);
+            Assert.False(placed);
+            tutorial.BeginLevel(-1, levelInChapter, length, ceilingStep: 6, swapOffered: true);
 
             //Up, and waiting for the action: an action card stands until it is done or times out
             for (int frame = 0; frame < 60 && tutorial.Caption != SWAP; frame++)
@@ -243,7 +295,7 @@ namespace BS3D.Tests
             Assert.Contains("swap", save);
 
             //A taught swap is not offered again on the next level
-            Assert.DoesNotContain(SWAP, Play(tutorial, set, 13, swapOffered: true));
+            Assert.DoesNotContain(SWAP, Play(tutorial, set, 21, swapOffered: true));
         }
 
         [Fact]

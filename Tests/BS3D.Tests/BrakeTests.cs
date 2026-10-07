@@ -49,7 +49,7 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void TheShippedThirdChapterOnwardHasABrakeWhereTheCeilingSteps()
+        public void TheShippedFourthChapterOnwardHasABrakeWhereTheCeilingSteps()
         {
             LevelSet set = ShippedSet();
 
@@ -59,13 +59,16 @@ namespace BS3D.Tests
                 Assert.Equal(wanted ? 1 : 0, set.BrakeChargesAt(index));
             }
 
-            //And the boundary is pinned to the shipped set itself rather than to the constant: The Coil (Rope, a level whose
-            //ceiling steps every 8 shots) opens the third chapter at index 20, and the Gallery's last level before it grants none
-            set.BlockRange(20, out int firstOfThird, out _);
-            Assert.Equal(20, firstOfThird);
-            Assert.Equal(0, set.BrakeChargesAt(19));
-            Assert.Equal(1, set.BrakeChargesAt(20));
-            for (int index = 0; index < 20; index++) Assert.Equal(0, set.BrakeChargesAt(index));
+            //And the boundary is pinned to the shipped set itself rather than to the constant (#705: one tool a chapter, the
+            //Brake the fourth's): the Tower opens the fourth chapter at index 30, the Coil's last level before it grants none,
+            //and the first of the Tower's levels whose glass steps grants one
+            set.BlockRange(30, out int firstOfFourth, out _);
+            Assert.Equal(30, firstOfFourth);
+            for (int index = 0; index < 30; index++) Assert.Equal(0, set.BrakeChargesAt(index));
+            int firstStepping = 30;
+            while (!set.Levels[firstStepping].CeilingStep.HasValue) firstStepping++;
+            Assert.True(firstStepping < 40, "no level of the Tower steps its glass");
+            Assert.Equal(1, set.BrakeChargesAt(firstStepping));
             Assert.Contains(Grants(set), granted => granted > 0);
         }
 
@@ -73,16 +76,17 @@ namespace BS3D.Tests
         public void ALevelWhoseCeilingHoldsHasNoBrakeAndNeitherHasAnIndexOutsideOrASetWithoutChapters()
         {
             LevelSet set = new();
-            //Every block's ceiling steps except one level's in the third, so a constant set lower than the third block
-            //would grant in the first two and fail here
+            //Every block's ceiling steps except one level's in the fourth, so a constant set lower than the fourth block
+            //would grant in the first three and fail here
             for (int i = 0; i < 3; i++) set.Levels.Add(new LevelSetEntry { File = $"a{i}.json", Name = $"A{i}", Block = "A", CeilingStep = 8 });
             for (int i = 0; i < 3; i++) set.Levels.Add(new LevelSetEntry { File = $"b{i}.json", Name = $"B{i}", Block = "B", CeilingStep = 8 });
+            for (int i = 0; i < 3; i++) set.Levels.Add(new LevelSetEntry { File = $"c{i}.json", Name = $"C{i}", Block = "C", CeilingStep = 8 });
             for (int i = 0; i < 3; i++)
-                set.Levels.Add(new LevelSetEntry { File = $"c{i}.json", Name = $"C{i}", Block = "C", CeilingStep = i == 1 ? null : 8 });
-            for (int i = 0; i < 3; i++) set.Levels.Add(new LevelSetEntry { File = $"d{i}.json", Name = $"D{i}", Block = "D", CeilingStep = 8 });
+                set.Levels.Add(new LevelSetEntry { File = $"d{i}.json", Name = $"D{i}", Block = "D", CeilingStep = i == 1 ? null : 8 });
+            for (int i = 0; i < 3; i++) set.Levels.Add(new LevelSetEntry { File = $"e{i}.json", Name = $"E{i}", Block = "E", CeilingStep = 8 });
 
-            //The third block on grants where the glass steps and not where it holds still
-            Assert.Equal(new[] { 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1 }, new List<int>(Grants(set)).ToArray());
+            //The fourth block on grants where the glass steps and not where it holds still
+            Assert.Equal(new[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1 }, new List<int>(Grants(set)).ToArray());
 
             Assert.Equal(0, set.BrakeChargesAt(-1));
             Assert.Equal(0, set.BrakeChargesAt(set.Count));

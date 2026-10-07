@@ -219,12 +219,14 @@ namespace Prazsky.BS3D.Levels
         public int BlockCount => Count == 0 ? 0 : BlockNumber(Count - 1);
 
         /// <summary>
-        /// The first block (counted from 1) whose levels come with a Swap charge (#213): the second chapter, after the
-        /// first has taught the controls and the rules with nothing to swap. The price of the swap is that it is one
-        /// a level — the queue is a constraint only because "play what comes" is the one thing it asks, and a swap
-        /// that could be spent any number of times, or held over from one level to the next, would end that.
+        /// The first block (counted from 1) whose levels come with a Swap charge (#213): the third chapter since #705, the
+        /// owner's wish - one new thing at a time, each taught the first time the player sees it, and nothing beside the
+        /// score, which the second chapter teaches (#666). It was the second until then, and its chip stood unexplained in
+        /// the corner while the Gallery taught the streak and the budget. The price of the swap is that it is one a level
+        /// — the queue is a constraint only because "play what comes" is the one thing it asks, and a swap that could be
+        /// spent any number of times, or held over from one level to the next, would end that.
         /// </summary>
-        public const int SWAP_FROM_BLOCK = 2;
+        public const int SWAP_FROM_BLOCK = 3;
 
         /// <summary>
         /// How many Swap charges the level at <paramref name="index"/> starts with (#213): one from
@@ -237,20 +239,20 @@ namespace Prazsky.BS3D.Levels
             index >= 0 && index < Count && HasBlocks && BlockNumber(index) >= SWAP_FROM_BLOCK ? 1 : 0;
 
         /// <summary>
-        /// The first block (counted from 1) whose levels come with a Brake charge (#213): the third chapter, one tool
-        /// per chapter after the Swap's second, so the player has the queue's tool in hand before the ceiling's
+        /// The first block (counted from 1) whose levels come with a Brake charge (#213): the fourth chapter since #705, one
+        /// tool per chapter after the Swap's third, so the player has the queue's tool in hand before the ceiling's
         /// arrives. The price is the same shape as the Swap's — one a level, never carried over — because a brake that
         /// could be pressed at will would take the pressure the ceiling exists to apply out of the game.
         /// </summary>
-        public const int BRAKE_FROM_BLOCK = 3;
+        public const int BRAKE_FROM_BLOCK = 4;
 
         /// <summary>
-        /// The first block (counted from 1) whose levels come with an anchor cut (#213's third step): the fourth chapter,
-        /// after the queue's tool (the second) and the ceiling's (the third) — one new tool a chapter, so the player has
+        /// The first block (counted from 1) whose levels come with an anchor cut (#213's third step): the fifth chapter since
+        /// #705, after the queue's tool (the third) and the ceiling's (the fourth) — one new tool a chapter, so the player has
         /// met what a support is (the Coil's ropes, the Tower's frames) before a tool that cuts one. One a level, never
         /// carried over, like the other two.
         /// </summary>
-        public const int CUT_FROM_BLOCK = 4;
+        public const int CUT_FROM_BLOCK = 5;
 
         /// <summary>
         /// How many Cut charges the level at <paramref name="index"/> starts with (#213): one from

@@ -5,7 +5,7 @@ using Xunit;
 namespace BS3D.Tests
 {
     /// <summary>
-    /// Which levels come with a Swap (#213): one from the second chapter on, none before it. A rule of the campaign's
+    /// Which levels come with a Swap (#213): one from the third chapter on since #705, none before it. A rule of the campaign's
     /// shape (<see cref="LevelSet.SwapChargesAt"/>) rather than a field of each level file, so what is checked here is
     /// the shape: the shipped set's own boundary, and that a set with no chapters, or an index outside the set, grants
     /// nothing. The price the rule pays for the swap being worth having is that it is one a level - see the doc
@@ -17,16 +17,17 @@ namespace BS3D.Tests
             LevelSet.Load(Path.Combine(Shipped.LevelsDirectory, LevelSet.DefaultFileName));
 
         [Fact]
-        public void TheShippedFirstChapterHasNoSwapAndEveryLevelAfterItHasOne()
+        public void TheShippedFirstTwoChaptersHaveNoSwapAndEveryLevelAfterThemHasOne()
         {
             LevelSet set = ShippedSet();
 
-            //The Meadow is ten levels since #649; the Gallery opens the second chapter
-            set.BlockRange(0, out _, out int lastOfFirst);
-            Assert.Equal(9, lastOfFirst);
+            //The Meadow and the Gallery are ten levels each; the Coil opens the third chapter (#705: the second teaches the
+            //score and nothing beside it)
+            set.BlockRange(10, out _, out int lastOfSecond);
+            Assert.Equal(19, lastOfSecond);
 
-            for (int index = 0; index <= lastOfFirst; index++) Assert.Equal(0, set.SwapChargesAt(index));
-            for (int index = lastOfFirst + 1; index < set.Count; index++) Assert.Equal(1, set.SwapChargesAt(index));
+            for (int index = 0; index <= lastOfSecond; index++) Assert.Equal(0, set.SwapChargesAt(index));
+            for (int index = lastOfSecond + 1; index < set.Count; index++) Assert.Equal(1, set.SwapChargesAt(index));
         }
 
         [Fact]
@@ -51,13 +52,14 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void AChapteredSetOfTwoBlocksGrantsFromTheSecond()
+        public void AChapteredSetOfThreeBlocksGrantsFromTheThird()
         {
             LevelSet set = new();
-            for (int i = 0; i < 3; i++) set.Levels.Add(new LevelSetEntry { File = $"a{i}.json", Name = $"A{i}", Block = "A" });
-            for (int i = 0; i < 3; i++) set.Levels.Add(new LevelSetEntry { File = $"b{i}.json", Name = $"B{i}", Block = "B" });
+            for (int i = 0; i < 2; i++) set.Levels.Add(new LevelSetEntry { File = $"a{i}.json", Name = $"A{i}", Block = "A" });
+            for (int i = 0; i < 2; i++) set.Levels.Add(new LevelSetEntry { File = $"b{i}.json", Name = $"B{i}", Block = "B" });
+            for (int i = 0; i < 2; i++) set.Levels.Add(new LevelSetEntry { File = $"c{i}.json", Name = $"C{i}", Block = "C" });
 
-            Assert.Equal(new[] { 0, 0, 0, 1, 1, 1 }, new[]
+            Assert.Equal(new[] { 0, 0, 0, 0, 1, 1 }, new[]
             {
                 set.SwapChargesAt(0), set.SwapChargesAt(1), set.SwapChargesAt(2),
                 set.SwapChargesAt(3), set.SwapChargesAt(4), set.SwapChargesAt(5),
