@@ -435,7 +435,7 @@ namespace BS3D.Screens
                 + "anything or not, which is the other reason a miss is expensive. Clearing from the bottom "
                 + "buys height; clearing from the top does not."));
             column.Widgets.Add(Paragraph(
-                "From the third chapter you also have a brake: one press a level lifts the glass a step back up, "
+                "From the fourth chapter you also have a brake: one press a level lifts the glass a step back up, "
                 + "which is time the ceiling took. It does nothing until the glass has stepped down."));
         }
 

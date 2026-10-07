@@ -63,7 +63,7 @@ namespace BS3D.Screens
         private const int SWAP_SLOT_B = 1;
 
         /// <summary>
-        /// Grants this level's starting charges. <b>One Swap a level from the second chapter (#213)</b>, by
+        /// Grants this level's starting charges. <b>One Swap a level from the third chapter (#213, #705)</b>, by
         /// <see cref="Prazsky.BS3D.Levels.LevelSet.SwapChargesAt"/> — a rule of the campaign and not a field of each
         /// level, so none of the 130 shipped files carries one — and, on top of it, the testing argument
         /// (<c>powerups=swap:1</c>, <see cref="SessionTestOptions.ForcedPowerups"/>) in <c>wildcard=</c>'s own shape,
@@ -79,7 +79,7 @@ namespace BS3D.Screens
         private void GrantPowerupCharges(int index)
         {
             //Onto the run's own array (LevelRun.PowerupCharges), which a new level starts at zero by construction.
-            //The campaign's own grant first (#213: one Swap a level from the second chapter), then the testing
+            //The campaign's own grant first (#213, #705: one Swap a level from the third chapter), then the testing
             //argument on top of it — which assigns, so powerups=swap:3 is three and powerups=swap:0 is none.
             _run.PowerupCharges[(int)PowerupKind.Swap] = LevelSwapCharges(index);
             _run.PowerupCharges[(int)PowerupKind.Brake] = LevelBrakeCharges(index);

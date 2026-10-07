@@ -23,8 +23,9 @@ namespace BS3D.Screens
     /// chapter into the next one (#666), until that chapter's send-off has been read; only then is what it still
     /// owed let go. <b>The score is the second chapter's
     /// (#666)</b>: the streak and the spare shots' bonus wait for it, so the first chapter is played before it
-    /// is explained (<see cref="Definition.Chapter"/>), and past the second chapter nothing is offered at all —
-    /// the first two chapters <i>are</i> the tutorial, which is what the owner asked for.
+    /// is explained (<see cref="Definition.Chapter"/>), and past the second chapter the ladder offers nothing —
+    /// the first two chapters <i>are</i> the tutorial, which is what the owner asked for. What reaches past them are the
+    /// chapterless cards, of a kind (#735) or a tool (#705) met for the first time.
     /// </para>
     /// <para>
     /// <b>Two kinds of lesson, told apart by how they end.</b> An <see cref="Definition.Action"/> lesson stays
@@ -964,7 +965,10 @@ namespace BS3D.Screens
                     }
                     else if (_card.Action)
                     {
-                        if (_age >= ACTION_TIMEOUT) Retreat(taught: false);
+                        //A tool's card that times out has been read even if its key was not pressed (#705, the review): it
+                        //belongs to no chapter, so unrecorded it would come back on every level of the campaign - the chip
+                        //stays on screen as the reminder. A ladder's action card comes back, within its chapter, as before
+                        if (_age >= ACTION_TIMEOUT) Retreat(taught: _card.Tool);
                     }
                     else if (_age >= INFO_SECONDS) Retreat(taught: true);
                     break;
@@ -1119,10 +1123,33 @@ namespace BS3D.Screens
             if (_held >= HOLD_SECONDS) Complete();
         }
 
-        /// <summary>An action that is its own event — a shot fired, a group dropped — done if it is the card up.</summary>
+        /// <summary>
+        /// An action that is its own event — a shot fired, a group dropped — done if it is the card up. A tool used before
+        /// its card came up (#705, the review: the key pressed in the first-card delay, or behind a kind's card) is taught
+        /// then and there: the player knows it, and the card would only stand over a spent chip. A ladder's lesson reported
+        /// while another card is up is ignored, as ever - a shot fired under the aim card does not complete the fire card.
+        /// </summary>
         internal void Report(Lesson lesson)
         {
-            if (IsUp(lesson)) Complete();
+            if (IsUp(lesson))
+            {
+                Complete();
+                return;
+            }
+
+            for (int i = _queue.Count - 1; i >= 0; i--)
+                if (_queue[i].Lesson == lesson && _queue[i].Tool)
+                {
+                    Teach(_queue[i]);
+                    _queue.RemoveAt(i);
+                }
+
+            for (int i = _armed.Count - 1; i >= 0; i--)
+                if (_armed[i].Lesson == lesson && _armed[i].Tool)
+                {
+                    Teach(_armed[i]);
+                    _armed.RemoveAt(i);
+                }
         }
 
         /// <summary>

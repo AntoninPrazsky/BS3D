@@ -25,9 +25,9 @@ namespace BS3D.Audio
     /// <item><description><b>The tone</b> is a fundamental with odd harmonics a square wave would have, softened (the third at
     /// 0.42, the fifth at 0.16), and a little second harmonic for body: a buzzer's edge, which is what "technical" asks
     /// for, rounded by two one-pole low-passes at <see cref="ROUNDING_CUTOFF_HZ"/> so it is never harsh.</description></item>
-    /// <item><description><b>The beats</b>: 440 down to 415 Hz for 0.11 s, then from 0.16 s 392 down to 349 Hz for 0.14 s -
-    /// the refusal's 220 to 208 and 185 to 165 an octave up, and its 0.16 s spacing kept, so the ear hears the
-    /// relation.</description></item>
+    /// <item><description><b>The beats</b>: 440 down to 415 Hz for 0.11 s - the refusal's first note, 220 to 208, an
+    /// octave up - then from 0.16 s 392 down to 349 Hz for 0.14 s, a step below the first where the refusal's second note
+    /// falls a third; its 0.16 s spacing kept, so the ear hears the relation.</description></item>
     /// </list>
     /// </summary>
     internal static class AimStopSynth
@@ -45,7 +45,7 @@ namespace BS3D.Audio
         /// <summary>The peak the sound is normalised to, which leaves the headroom the other effects leave.</summary>
         public const float PEAK = 0.9f;
 
-        //The two glides, the refusal's an octave up
+        //The two glides: the first the refusal's first note an octave up, the second a step below it
         private const float FIRST_FROM_HZ = 440f;
         private const float FIRST_TO_HZ = 415f;
         private const float SECOND_FROM_HZ = 392f;
