@@ -1041,7 +1041,13 @@ namespace BS3D
         /// for a Windows player who chose Potato on the Quality row (#808): there the owner's rule holds, the display's own
         /// size and never less, and only the <c>potato</c> argument, which shows the Pi's picture as the Pi makes it, steps.
         /// </summary>
-        internal bool IsResolutionAutomatic => PotatoPath && !QualityLock.ChosenInSettings && !_renderHeightChosen;
+        internal bool IsResolutionAutomatic => ResolutionHasAuto && !_renderHeightChosen;
+
+        /// <summary>
+        /// Whether this run's Resolution row has an Auto at all (#801, #808): the Raspberry Pi and the <c>potato</c>
+        /// argument, and not a Windows player's chosen Potato, which keeps the display's own size.
+        /// </summary>
+        internal bool ResolutionHasAuto => PotatoPath && !QualityLock.ChosenInSettings;
 
         /// <summary>What the Resolution row shows (#801): the size the 3D is drawn at now, and whether that is native or automatic.</summary>
         internal string RenderResolutionLabel
@@ -1797,9 +1803,9 @@ namespace BS3D
             //one-shots, which music the moment wants (the stack question, #46: the front end's loop plays exactly
             //while no session screen is on it) and the fireworks giving way to the fanfare — in that order, after
             //the celebrations have advanced and before the stack. See AudioDirector.Update for each step's why.
-            //No renderer for the scene's events where its scenery is not drawn (#808): the storm's thunder and the volcano's
-            //rumble answer bolts and eruptions nobody can see, as on the Potato path, which has no renderer at all
-            _audioDirector?.Update(elapsed, _scene, SceneryShown ? _sceneRenderer : null, _wallClock,
+            //With the scenery off too (#808): the storm's flashes and the eruption's surge still light the island, so the
+            //thunder and the rumble that answer them stay. (The Potato path has no renderer and stages none.)
+            _audioDirector?.Update(elapsed, _scene, _sceneRenderer, _wallClock,
                 !_screens.Contains<GameplayScreen>(), _gameplayScreen != null && _gameplayScreen.IsBuilt, PauseMusicWanted,
                 _screens.Contains<JukeboxPage>());
 

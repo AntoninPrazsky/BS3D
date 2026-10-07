@@ -1513,16 +1513,34 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// The pad's "any key" for the sleeping gun (#818): a button or the D-pad down, a trigger touched or a stick off its
-        /// rest. The play loop reads the pad with a circular dead zone and the triggers past their own, so anything
-        /// above zero is a hand and not drift. Without it a pad player's buttons never woke the gun - only the aim moving
-        /// did, and a stick pressed against an aim stop moves nothing.
+        /// The pad's "any key" for the sleeping gun (#818): a button or the D-pad down, a trigger pulled past
+        /// <see cref="PAD_TOUCH_TRIGGER"/> or a stick off its rest. Without it a pad player's buttons never woke the gun -
+        /// only the aim moving did, and a stick pressed against an aim stop moves nothing.
+        /// <para>
+        /// ⚠ The triggers come raw, with no dead zone on either platform (MonoGame 3.8.5: the reading over 255 on DirectX,
+        /// the SDL axis over 32767 on DesktopGL, where the trigger BUTTON bits are also set for any reading above zero),
+        /// and a worn or third-party trigger rests at a few counts: read above zero, it would keep the gun awake for
+        /// ever. So the buttons are named one by one, the trigger bits left out, and the triggers held to a threshold.
+        /// The sticks are read through the play loop's circular dead zone, so off zero is a hand.
+        /// </para>
         /// </summary>
-        private static bool PadTouched(GamePadState pad) =>
-            pad.IsConnected
-            && (pad.Buttons != default || pad.DPad != default
-                || pad.Triggers.Left > 0f || pad.Triggers.Right > 0f
-                || pad.ThumbSticks.Left != Vector2.Zero || pad.ThumbSticks.Right != Vector2.Zero);
+        private static bool PadTouched(GamePadState pad)
+        {
+            if (!pad.IsConnected) return false;
+
+            GamePadButtons b = pad.Buttons;
+
+            return b.A == ButtonState.Pressed || b.B == ButtonState.Pressed || b.X == ButtonState.Pressed
+                || b.Y == ButtonState.Pressed || b.LeftShoulder == ButtonState.Pressed || b.RightShoulder == ButtonState.Pressed
+                || b.Back == ButtonState.Pressed || b.Start == ButtonState.Pressed || b.BigButton == ButtonState.Pressed
+                || b.LeftStick == ButtonState.Pressed || b.RightStick == ButtonState.Pressed
+                || pad.DPad != default
+                || pad.Triggers.Left > PAD_TOUCH_TRIGGER || pad.Triggers.Right > PAD_TOUCH_TRIGGER
+                || pad.ThumbSticks.Left != Vector2.Zero || pad.ThumbSticks.Right != Vector2.Zero;
+        }
+
+        /// <summary>How far a trigger has to be pulled to count as a touch: XInput's own threshold, 30 of 255.</summary>
+        private const float PAD_TOUCH_TRIGGER = 30f / 255f;
 
         private void StepGunHardware(GameTime gameTime, float elapsed)
         {

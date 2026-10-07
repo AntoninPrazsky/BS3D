@@ -35,7 +35,9 @@ namespace BS3D
     /// all the way. Written into the frame's pad state like <c>padrt=</c>, in the menus and in play, so everything
     /// downstream of the XInput read sees a real press; while one is down it stands in for the pad's buttons and left
     /// stick. Several accumulate. Written when the owner's Konami code did nothing on a pad and no pad here can be
-    /// pressed by a script.</item>
+    /// pressed by a script. ⚠ Like <c>padrt=</c>, it needs the window's focus: the pad is read only inside the menus' and
+    /// the play loop's focus gates, so a press in a run that never had focus is never seen (the runs that verified it had
+    /// it; <c>walk=</c> and <c>turn=</c> sit outside the gate on purpose and do not).</item>
     /// <item><c>swap=&lt;t1,t2,…&gt;</c> — presses the swap key at those seconds (#213), through the very call E makes, so
     /// a second press on a level with one swap is the refusal a player would hear.</item>
     /// <item><c>brake=&lt;t1,t2,…&gt;</c> — presses the ceiling's brake key at those seconds (#213), through the very call Q
