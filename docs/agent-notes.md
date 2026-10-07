@@ -964,3 +964,16 @@ Majitel poslal odkaz na admin stránku poznámek (`127.0.0.1:5002/notes`, jednor
 - **#824** (č. 4, Phyllotaxis, úroveň 77): hudba Gridu „občas příšerně“. Všech deset úrovní Gridu (71–80) hraje rodinu `pulse` (deset nahrávek z #486), která se střídá při každém otevření úrovně, a **poznámka neříká, která nahrávka hrála** (`DescribeForNote` nemá stopu). Issue žádá `music` v kontextu poznámky, pak majitelův poslech v Jukeboxu (#704) a výměnu jako u #706. Jediné číslo, které `pulse` odlišuje: šum kódování na švu smyčky 2,11× (`docs/game-feedback.md`), jen holé `pulse.ogg`. Komentáře v #706 a #813.
 - ⚠ **Skript `aim=0:E:T` při elevaci ≥ 25° řez Cutem tiše nevystřelí** (žádný `[shot] cutter struck`; chrání horní čtyři patra, #692), při 55° `bounced off the glass`. Na Gyroidu zasáhne patro 4 elevace 12–18°.
 - ⚠ **Hra běží v 3840×1600 i s `width=1920 height=1080`** a snímek má ~15 MB; na prohlížení je zmenšit (`System.Drawing`, Pillow ve venv chybí).
+
+## 2026-10-07 — #692 řez nejvýš do poloviny s náhledem, #823 odklizení řezací koule, kontrola po mergi našla chybu — desktop, Claude Code (bs3d-c5)
+
+- **#692 (merge `8cdd8e0c`, oprava `780d2dfe`): řez vezme nejvýš dolní polovinu shluku a koule, které by odřízl, se před výstřelem zesvětlí** (majitelovo Vrať u d).
+  - Pravidlo je `CutReach.IsProtected`: zasažené patro a vše pod ním smí být nejvýš polovina pater od nejnižší koule po nejvyšší. Nahradilo čtyři chráněná patra pod sklem.
+  - `LevelGen --cuts` (nový řádek „half“) na 110 levelech: nejlepší rána typického levelu uvolní 154, běžná 77 (se čtyřmi patry 240 a 105). Jednou ranou se nedohraje žádný level.
+  - Náhled: `CutReach.Measure` udělá na logické mapě stejné dvě procházky jako `CutBall`. `PhysicsBall.CutPreviewGlow` jde kanálem vlny (`Ripple`), nic nealokuje a pomalu dýchá. `AnchorCutTests` ho porovnávají se skutečným řezem na třech náhodných shlucích. Mutant, který vynechá padající koule, selže ve všech třech.
+  - Ve hře vyfoceno v City: zesvětlená část je přesně to, co rána vzala (61 zničených a 179 spadlých).
+- ⚠ **Kontrola po mergi (agent nad sedmi dnešními merge) našla skutečnou chybu v #692**: háček vlny bral větší z vlny a záře. Výstražná vlna stropu má ale záporné znaménko, takže nula u každé nerozsvícené koule ji přebila a červená vlna zhasla na celém shluku. Na mainu to bylo asi 45 minut.
+  - Oprava: `ClusterRipple.WithCutPreview`, kde výstraha vždy vyhraje. `ClusterRippleTests` ji hlídají; původní `max()` selže v obou případech s výstrahou.
+  - Ze stejné kontroly: `HandOnPad` se nastaví z tutoriálu nového levelu už při jeho stavbě (#817), a opravená dokumentace u `HighestOccupiedLevel`. Ostatní dnešní merge kontrola prošla bez nálezu.
+- **#823 (merge `e1718de8`, zavřené)**: vystřelená řezací koule se odklidí hned v kroku zásahu (`RemoveFallenBalls(…, retireSpentCutters: true)`, jen ze seznamu padajících). Na Gyroidu u řezu, který nic neuvolnil, sonda zapsala „retired at y −2,71“. Na problém upozornila session bs3d-0a zprávou.
+- Stránka verdiktů je ve verzi 5 a čeká na ní pět věcí: #813, #821 a #692 na oko, #800 a #819 na ruce. BS3D-play má build `dev-780d2df`.
