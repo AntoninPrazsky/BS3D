@@ -1019,8 +1019,21 @@ Majitel poslal odkaz na admin stránku poznámek (`127.0.0.1:5002/notes`, jednor
 - ⚠ **Revize po mergi našla pět chyb, všechny opravené v `92cb9d41`:**
   - Auto quality zapnutá nad čekajícím Potato nechala desktopový renderer na presetu Potato s nápisem „Potato“. Teď vrací High jako nad Ultra.
   - Potato vybrané v nastavení dostalo automatický krok rozlišení Pi na 1280x720 (řádek četl „Auto (3840 x 1600)“). `IsResolutionAutomatic` ho teď nechá jen Pi a argumentu `potato`.
-  - Bez scenérie mířily prohlídky menu na památku, která není vidět, erupce svítila na ostrov a hrály zvuky událostí scény. Všechno tři se teď řídí `SceneryShown`.
+  - Bez scenérie mířily prohlídky menu na památku, která není vidět, erupce svítila na ostrov a hrály zvuky událostí scény. Všechny tři se teď řídí `SceneryShown` (dvě z nich vrácené po další kontrole, viz níž).
   - Výběr stupně na běhu Potato nevracel scenérii. Zastaralé věty v `QualityLevel.cs` a `docs/game-shell.md`.
 - ⚠ **Dvanáct řádků Display se na 1600x900 nevešlo**, Back byl uříznutý na proužek (vyfoceno s #816 i bez něj). Řádky mají svislé odsazení 12 místo 18 (`ROW_PADDING_Y`), deska je 24 px od okrajů při 1600x900 a 15 px při 1280x720. Zaškrtávátka z #816 jsem vyfotil i ve 3840x1600 na Windows (Display, běh Potato i desktop), vypadají správně.
 - `settings=` má novou páku `auto` (řádek Auto quality). Tou se oprava Auto nad Potato ověřila: `Settings.json` má `adaptiveQuality: true` bez uloženého stupně.
 - BS3D-play má build `dev-92cb9d4`.
+
+## 2026-10-07 — #818 Konami na padu, #820 paprsky u speciálního náboje, druhá kontrola #808 a #818 — desktop, Claude Code (bs3d-c5)
+
+- **#818 (merge `5ceb2651`, čeká na verdikt rukou).** D-pad cesta kódu je v pořádku: nová testovací páka `padpress=<start>:<krok>:<tlačítka>` zapisuje skriptované stisky do stavu padu (menu i hra, jako `padrt=`) a kód D-padem titulek roztančil. Levou páčku kód schválně ignoroval; teď ji čte `StickTap` jako ťuknutí (přes 0,55, znovu až pod 0,275). Skriptem kód páčkou projde, o krok kratší ne. Spící dělo probudí i tlačítko padu (`PadTouched`), vyfoceno na Zebře. Ostatní easter eggy na zařízení nezávisí.
+- **#820 (merge `11c8f17b`, čeká na verdikt oka).** Paprsky kolem ústí pro chameleona (duhové) a řezací kouli (azurové, i její prstenec), připevněné k hlavni v rovině kolmé na vývrt; při míření 25 % a kratší; jiskra za kotoučem ve frontě HUD. První verze přepalovala do bílé a jiskra v HUD byla pod kotoučem; vyfoceno znovu po úpravě. Cena ve 3840×1600 asi 0,015 ms (A/B dvakrát, scéna připnutá `sceneseed=7 seed=7`; bez připnutí se dva běhy stejného buildu lišily o 0,14 ms). Na Potato cestě paprsky u ústí nejsou.
+- ⚠ **Druhá kontrola (agent nad `5ceb2651` a `92cb9d41`) našla čtyři věci, opravené v `66cdfe69`:**
+  - `PadTouched` četl spoušť nad nulou. MonoGame 3.8.5 dává spouště bez mrtvé zóny na obou platformách (na DesktopGL navíc nastaví bity tlačítek spouští při jakékoli hodnotě), takže opotřebovaná spoušť by nenechala dělo nikdy usnout. Teď tlačítka jmenovitě a spoušť přes 30/255.
+  - Scenery vypnutá: první oprava ztišila hrom a dunění sopky, ale záblesky a světlo erupce na ostrově zůstaly. Světlo i zvuky scény teď zůstávají spolu; pryč je jen cíl prohlídek. Dokumentace tvrdila, že erupce ostrov nesvítí, a to nebyla pravda.
+  - Řádek Resolution na Potato vybraném v nastavení se v kole vracel na „Auto“; `ResolutionHasAuto` říká, kde Auto je. Ověřeno skriptem: samé „Chosen“.
+  - `padpress=` (jako `padrt=`) potřebuje fokus okna; zapsáno v jeho dokumentaci.
+- **#816 (session na Pi)**: zaškrtávátka jsem vyfotil ve 3840×1600 na Windows a přidal na stránku verdiktů; dvanáct řádků Display se nevešlo na 1600×900, opraveno už v `92cb9d41`.
+- Stránka verdiktů je ve verzi 9: na oko #808, #816, #820, na ruce #800, #378, #818. BS3D-play má `dev-66cdfe6`.
+- ⚠ Pennant v High ve 3840×1600 má teď 14,0 ms na snímek (dřív 12,9–13,25), tedy nad rozpočtem 75 Hz (13,33 ms). Neřešeno, jen naměřeno.
