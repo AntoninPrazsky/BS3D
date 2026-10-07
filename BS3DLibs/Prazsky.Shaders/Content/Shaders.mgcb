@@ -22,7 +22,7 @@
 # on the development instrument's content directory.
 #
 # Every effect is built for every referencer, including the ones an executable never loads (the MapEditor has
-# no gun and no Sky.fx dome, so ShotTrail, Fireworks, Confetti, LaserGrid, Blast, Wormhole, MotionBlur and Sky sit
+# no gun and no Sky.fx dome, so ShotTrail, Fireworks, Confetti, LaserGrid, Blast, Wormhole, MuzzleRays, MotionBlur and Sky sit
 # unused beside it): a few hundred kilobytes of unused .xnb is the price of one list instead of three.
 #
 # /platform:Windows is DirectX 11, Shader Model 5.0. The content task passes /platform:$(MonoGamePlatform)
@@ -91,6 +91,12 @@
 /processor:EffectProcessor
 /processorParam:DebugMode=Auto
 /build:Shaders/Wormhole.fx
+
+#begin Shaders/MuzzleRays.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/MuzzleRays.fx
 
 #begin Shaders/Sky.fx
 /importer:EffectImporter
