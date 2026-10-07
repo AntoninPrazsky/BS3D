@@ -141,7 +141,8 @@ namespace BS3D.Audio
         /// </summary>
         /// <param name="elapsed">The frame's own time: the fades and the crossfades move on it.</param>
         /// <param name="scene">The scene on screen, for its one-shots.</param>
-        /// <param name="scenes">The renderer that stages the scene's events (the lightning the thunder answers).</param>
+        /// <param name="scenes">The renderer that stages the scene's events (the lightning the thunder answers); null where none
+        /// is drawn - the Potato path, and a scene whose scenery the player turned off (#808) - and then nothing is staged.</param>
         /// <param name="wallClock">The clock the scene draws from.</param>
         /// <param name="onFrontEnd">True while no gameplay screen is on the stack.</param>
         /// <param name="sessionBuilt">Whether a level is standing, which is when returning to it re-wants its theme.</param>

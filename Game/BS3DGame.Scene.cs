@@ -966,7 +966,7 @@ namespace BS3D
             //ArenaIsland hands them over separately.
             //The island's own event (#535): the volcano's eruption, off the wall clock the scene lights and the
             //thunder read, so the cracks in the basalt brighten with the crater. Zero in every other scene.
-            _island.EventGlow = _scene == SceneKind.Volcano ? _sceneRenderer.VolcanoEruption(_wallClock) : 0f;
+            _island.EventGlow = _scene == SceneKind.Volcano && SceneryShown ? _sceneRenderer.VolcanoEruption(_wallClock) : 0f;
             _island.DrawIsland(_camera, _sceneEffectParams, _scene);
             if (SceneryShown) _island.DrawPit(_camera, _sceneEffectParams, _scene);
 

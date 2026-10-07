@@ -67,9 +67,15 @@ namespace BS3D.Screens
         //12, down from 20 when DISPLAY took its eleventh row (Resolution, #801), and PAGE_GAP under the 43 the columns
         //stood above Back (#686): DISPLAY's rows under the tab row are the tallest page there has been. At 20 its ten
         //rows stood about 30 px clear of a 1600x900 client's top and bottom; the eleventh took that to nothing, and at
-        //12 the plate stands about 16 px clear of each (photographed at 1600x900 and 1280x720). Every size here is a
+        //12 the plate stood about 16 px clear of each (photographed at 1600x900 and 1280x720). Every size here is a
         //design figure scaled by height, so that is the margin at every resolution.
         private const int ROW_SPACING = 12;
+
+        //The value buttons' own padding: the menu button's 43 across, and 12 above and below rather than its 18, since
+        //DISPLAY took its twelfth row (Scenery, #808). At 18 the twelve rows ran the plate off a 1600x900 client and cut
+        //Back to a sliver (photographed); 6 off each of twelve rows gives the page 144 design units back, and the plate
+        //stands about 24 px clear of a 1600x900 client's top and bottom again (15 at 1280x720, photographed).
+        private const int ROW_PADDING_X = 43, ROW_PADDING_Y = 12;
 
         //Above Back, under the page area
         private const int PAGE_GAP = 24;
@@ -644,6 +650,7 @@ namespace BS3D.Screens
         private void AddValue(Grid grid, int row, Button button)
         {
             button.Width = Scaled(VALUE_WIDTH);
+            button.Padding = ScaledThickness(ROW_PADDING_X, ROW_PADDING_Y);
 
             Grid.SetColumn(button, 1);
             Grid.SetRow(button, row);
@@ -1058,6 +1065,7 @@ namespace BS3D.Screens
                     case "brightness": ShowTab(TAB_DISPLAY); KeepOrDropTyping(); Game.CycleExposure(); break;
                     case "resolution": ShowTab(TAB_DISPLAY); KeepOrDropTyping(); Game.CycleRenderResolution(); break;
                     case "quality": ShowTab(TAB_DISPLAY); KeepOrDropTyping(); Game.CycleQuality(); break;
+                    case "auto": ShowTab(TAB_DISPLAY); KeepOrDropTyping(); Game.ToggleAdaptiveQuality(); break;
                     case "scenery": ShowTab(TAB_DISPLAY); KeepOrDropTyping(); Game.ToggleScenery(); break;
                     case "nickname": ShowTab(TAB_ONLINE); OnNickname(); break;
                     case "remove" when UserData.IsTestingDirectory: ShowTab(TAB_ONLINE); KeepOrDropTyping(); OnRemove(); break;

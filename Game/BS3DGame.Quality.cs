@@ -68,7 +68,7 @@ namespace BS3D
             }
         }
 
-        /// <summary>What the Auto quality row says: the probe never runs on the Potato path, chosen or held (#808).</summary>
+        /// <summary>What the Auto quality row says: the tier probe never runs on the Potato path, chosen or held (#808).</summary>
         internal string AdaptiveQualityLabel =>
             IsQualityLocked ? "Off (locked)" : PotatoPath ? "Off (Potato)" : IsAdaptiveQualityEnabled ? "On" : "Off";
 
@@ -313,7 +313,8 @@ namespace BS3D
             //a change that never happened. Reachable because a re-open does not ask which tier is in force: a
             //level built at Low, or Auto quality turned back on over a pinned Low (#390). And Potato (#788), which
             //is below Low but LAST in the enum, so the arithmetic step below would "lower" it to Ultra. The probe
-            //never runs at Potato - GamePi locks it, pinned and settled, and Windows never offers it - so this is
+            //never runs at Potato - GamePi and the potato argument lock it, pinned and settled, a Potato chosen on the row
+            //is pinned too, and turning Auto quality on over it goes back to High (#808) - so this is
             //insurance rather than a live path, like the general step it guards.
             if (_quality is QualityLevel.Low or QualityLevel.Potato)
             {
@@ -431,6 +432,7 @@ namespace BS3D
             if (PotatoPath)
             {
                 _settings.Quality = (_settings.Quality ?? QualityLevel.Potato).NextOnRow();
+                _settings.Scenery = null;
                 _settings.AdaptiveQuality = false;
                 SaveSettings();
                 _settingsPage.Refresh();
@@ -493,8 +495,10 @@ namespace BS3D
                 //The probe's ceiling is High — it starts there and only steps down — so handing it an Ultra tier
                 //would leave this run above anything Auto quality can choose while the next launch starts at
                 //High. Brought down to High on the spot instead (#484), so the row means the same thing now as
-                //after a restart. Before the pin is released, so ApplyQuality's page refresh is not the last word.
-                if (_quality == QualityLevel.Ultra) ApplyQuality(QualityLevel.High);
+                //after a restart. Before the pin is released, so ApplyQuality's page refresh is not the last word. And Potato
+                //waiting for a restart (#808, the review): the stored choice goes with the pin, so the next start is High
+                //and so is this run - left at Potato's preset, the row read a plain "Potato" over the desktop renderer.
+                if (_quality is QualityLevel.Ultra or QualityLevel.Potato) ApplyQuality(QualityLevel.High);
 
                 _qualityPinnedByPlayer = false;
                 ReopenQualityProbe();

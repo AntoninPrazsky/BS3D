@@ -1037,9 +1037,11 @@ namespace BS3D
 
         /// <summary>
         /// Whether the resolution is still the build's to set rather than the player's (#801): on the Raspberry Pi only,
-        /// until <c>render=</c> or the Resolution row says otherwise. The automatic step to 1280x720 lives under it.
+        /// until <c>render=</c> or the Resolution row says otherwise. The automatic step to 1280x720 lives under it. Not
+        /// for a Windows player who chose Potato on the Quality row (#808): there the owner's rule holds, the display's own
+        /// size and never less, and only the <c>potato</c> argument, which shows the Pi's picture as the Pi makes it, steps.
         /// </summary>
-        internal bool IsResolutionAutomatic => PotatoPath && !_renderHeightChosen;
+        internal bool IsResolutionAutomatic => PotatoPath && !QualityLock.ChosenInSettings && !_renderHeightChosen;
 
         /// <summary>What the Resolution row shows (#801): the size the 3D is drawn at now, and whether that is native or automatic.</summary>
         internal string RenderResolutionLabel
@@ -1795,7 +1797,9 @@ namespace BS3D
             //one-shots, which music the moment wants (the stack question, #46: the front end's loop plays exactly
             //while no session screen is on it) and the fireworks giving way to the fanfare — in that order, after
             //the celebrations have advanced and before the stack. See AudioDirector.Update for each step's why.
-            _audioDirector?.Update(elapsed, _scene, _sceneRenderer, _wallClock,
+            //No renderer for the scene's events where its scenery is not drawn (#808): the storm's thunder and the volcano's
+            //rumble answer bolts and eruptions nobody can see, as on the Potato path, which has no renderer at all
+            _audioDirector?.Update(elapsed, _scene, SceneryShown ? _sceneRenderer : null, _wallClock,
                 !_screens.Contains<GameplayScreen>(), _gameplayScreen != null && _gameplayScreen.IsBuilt, PauseMusicWanted,
                 _screens.Contains<JukeboxPage>());
 
