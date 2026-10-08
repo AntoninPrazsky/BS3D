@@ -1,0 +1,29 @@
+[build] BS3D.dll 2026-10-08 22:29:45 fed10a98
+[build] libraries 3 set bb7efe52, newest Prazsky.BS3D.Physics 2026-10-08 22:29:36
+[build] shaders 9 set 3f43341f, newest Confetti 2026-10-08 22:26:17, oldest Blast 2026-10-08 22:26:17
+[resolution] Auto: the 3D at 1600x900, one step to 720 rows if the refresh is not held
+[fps] 15.7 (63.60 ms) — Storm, dome 20, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 36.1 (27.69 ms) — Storm, dome 20, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[resolution] 30 FPS in the menu at 1600x900 (floor 57) — under the floor, lowering after 10 s of it
+[fps] 28.9 (34.55 ms) — Storm, dome 20, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 37.6 (26.56 ms) — Storm, dome 20, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 41.8 (23.91 ms) — Storm, dome 20, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 42.3 (23.63 ms) — Storm, dome 20, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 41.9 (23.85 ms) — Storm, dome 20, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 42.0 (23.83 ms) — Storm, dome 20, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 42.0 (23.80 ms) — Storm, dome 20, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 62.7 (15.94 ms) — Storm, dome 20, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 62.0 (16.13 ms) — Storm, dome 20, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 62.0 (16.13 ms) — Storm, dome 20, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 62.0 (16.13 ms) — Storm, dome 20, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 62.0 (16.13 ms) — Storm, dome 20, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 62.0 (16.13 ms) — Storm, dome 20, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 62.0 (16.13 ms) — Storm, dome 20, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 62.0 (16.13 ms) — Storm, dome 20, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 62.0 (16.13 ms) — Storm, dome 20, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 62.0 (16.13 ms) — Storm, dome 20, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 62.0 (16.13 ms) — Storm, dome 20, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 62.0 (16.13 ms) — Storm, dome 20, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 62.0 (16.13 ms) — Storm, dome 20, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 62.0 (16.13 ms) — Storm, dome 20, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 62.0 (16.13 ms) — Storm, dome 20, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
