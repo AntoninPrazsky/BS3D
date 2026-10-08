@@ -68,9 +68,18 @@ namespace BS3D
             }
         }
 
-        /// <summary>What the Auto quality row says: the tier probe never runs on the Potato path, chosen or held (#808).</summary>
+        /// <summary>
+        /// What the Auto quality row says. On the Potato path the tier probe never steps a tier, chosen or held (#808) - but
+        /// on a locked run it is the very probe that steps the Pi's resolution (#801), so while the Resolution row stands at
+        /// Auto the row says what the probe governs here, "On (resolution)", and "Off (locked)" only once the player has
+        /// pinned a resolution, which is the one state where the probe has nothing left to do (#832: it read "Off (locked)"
+        /// while the resolution was being lowered under it, the owner's choice of wording). Either way the row does nothing
+        /// when clicked.
+        /// </summary>
         internal string AdaptiveQualityLabel =>
-            IsQualityLocked ? "Off (locked)" : PotatoPath ? "Off (Potato)" : IsAdaptiveQualityEnabled ? "On" : "Off";
+            IsQualityLocked ? (IsResolutionAutomatic ? "On (resolution)" : "Off (locked)")
+            : PotatoPath ? "Off (Potato)"
+            : IsAdaptiveQualityEnabled ? "On" : "Off";
 
         /// <summary>
         /// True once the quality tier is not to be touched again: the player named one on the command line, the
