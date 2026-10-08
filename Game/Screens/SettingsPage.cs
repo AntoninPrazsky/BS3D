@@ -6,6 +6,7 @@ using Myra.Graphics2D.UI;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using FontStashSharp.RichText;
 using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
 using Label = Myra.Graphics2D.UI.Label;
 
@@ -57,9 +58,10 @@ namespace BS3D.Screens
     /// </summary>
     internal sealed class SettingsPage : MenuPage
     {
-        //The value buttons. One column again since #686, so back to the 560 the single column had before #138 split
-        //it (420 was what a third column on a 4:3 viewport left) — no value is long ("Unlimited" is the widest), and
-        //a nickname too long for it drops to the small face (see ShowNickname).
+        //The value column's least width. One column again since #686, so back to the 560 the single column had before
+        //#138 split it (420 was what a third column on a 4:3 viewport left) — no value is long ("Unlimited" is the
+        //widest), and a nickname too long for it drops to the small face (see ShowNickname). Since #833 the column is
+        //half the page less the spacing, which at every size here is wider than this (BuildTree).
         private const int VALUE_WIDTH = 560;
 
         private const int COLUMN_SPACING = 58;
@@ -170,6 +172,9 @@ namespace BS3D.Screens
         //also carries the Back button, which is not a value to cycle and must not answer to the wheel.
         private readonly List<Button> _rows = new();
 
+        /// <summary>The value column's width at the last build (#833): what a row's button is sized to, and what a nickname has to fit.</summary>
+        private int _valueWidth;
+
         //The tabs, their labels and the pages they pick (#686), rebuilt with the tree; which page is up, and a pick
         //waiting for Update to put it up (-1 for none — see SelectTab).
         private readonly Button[] _tabs = new Button[TAB_NAMES.Length];
@@ -247,23 +252,33 @@ namespace BS3D.Screens
             _pages[TAB_CONTROLS] = BuildControlsPage();
             _pages[TAB_GAME] = BuildGamePage();
 
-            //Every page as wide as the tab row (#770, the owner's call): the captions start under its left edge and the
-            //value buttons end under its right one, the caption column taking whatever the buttons leave, so a value
-            //button stands at the same x whichever tab is up and the rows read as one block with the tabs. They stood
-            //as a narrow block centred under the row, about 180 px in from either end at 1920x1080. Never narrower than
-            //the widest caption beside a button, though at these figures the row is the wider at every size, since
-            //every one of them is a design figure scaled by height. The note under the online rows is as wide as a row.
+            //Two columns of one width, the seam between them on the page's centre line (#833, the owner's call): every
+            //caption ends at the seam, right-aligned, and every value starts from it, left-aligned in a button as wide as
+            //the column - so the eye reads one line down the middle with the names on its left and the values on its
+            //right, the same line on every tab. The page stays as wide as the tab row (#770), so the rows still read as
+            //one block with the tabs; #770 had the captions start under the row's left edge and the values centred in a
+            //560 button, two ragged edges with a gap of a different width in every row. A column is never narrower than
+            //the widest caption or the value button's design width, though at these figures the tab row is the wider at
+            //every size. The note under the online rows is as wide as the page.
             int captionWidth = 0;
             foreach (Label caption in _captions)
                 captionWidth = Math.Max(captionWidth, (int)MathF.Ceiling(FontBody.MeasureString(caption.Text).X));
 
-            int pageWidth = Math.Max(_tabRowWidth, captionWidth + Scaled(COLUMN_SPACING) + Scaled(VALUE_WIDTH));
+            int columnWidth = Math.Max(captionWidth, Scaled(VALUE_WIDTH));
+            int pageWidth = Math.Max(_tabRowWidth, 2 * columnWidth + Scaled(COLUMN_SPACING));
+            columnWidth = (pageWidth - Scaled(COLUMN_SPACING)) / 2;
+            pageWidth = 2 * columnWidth + Scaled(COLUMN_SPACING);
+            _valueWidth = columnWidth;
 
             foreach (Grid page in _pages)
             {
-                page.ColumnsProportions[0] = new Proportion(ProportionType.Fill);
+                page.ColumnsProportions[0] = new Proportion(ProportionType.Pixels, columnWidth);
+                page.ColumnsProportions[1] = new Proportion(ProportionType.Pixels, columnWidth);
                 page.Width = pageWidth;
             }
+
+            foreach (Button row in _rows)
+                row.Width = columnWidth;
 
             SizeOnlineNote(pageWidth);
 
@@ -576,11 +591,14 @@ namespace BS3D.Screens
         {
             grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
 
+            //Centred over the seam between the two columns (#833): a heading at the page's left edge stood over the empty
+            //half of the caption column once the captions moved to the seam
             Label heading = new()
             {
                 Text = text,
                 Font = FontSection,
                 TextColor = BS3DGame.MENU_TEXT_DIM,
+                HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = ScaledThickness(0, first ? 0 : GROUP_HEADING_GAP, 0, 0),
             };
@@ -607,6 +625,9 @@ namespace BS3D.Screens
                 onClick();
             }, out value);
 
+            //From the seam, not centred in the slab (#833): every value begins at the same x
+            value.HorizontalAlignment = HorizontalAlignment.Left;
+
             AddValue(grid, row, button);
         }
 
@@ -627,10 +648,13 @@ namespace BS3D.Screens
             note.TextColor = BS3DGame.MENU_TEXT_DIM;
             check = new CheckRow(glyph, note);
 
+            //The box from the seam, where a worded value's first letter stands (#833)
+            button.Content.HorizontalAlignment = HorizontalAlignment.Left;
+
             AddValue(grid, row, button);
 
             //Through the button's own press (its Tag), so the caption sounds and acts as the box does. Stretched across
-            //its column, so the gap between the words and the box answers too
+            //its column, so the whole caption column answers too; its words stay at the seam (AddCaption's TextAlign)
             captionLabel.HorizontalAlignment = HorizontalAlignment.Stretch;
             captionLabel.TouchDown += (_, _) => (button.Tag as Action)?.Invoke();
         }
@@ -639,11 +663,14 @@ namespace BS3D.Screens
         {
             grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
 
+            //Right against the seam (#833), and the text as well, for the check rows' captions stretched across the column
             Label captionLabel = new()
             {
                 Text = caption,
                 Font = FontBody,
                 TextColor = BS3DGame.MENU_TEXT,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                TextAlign = TextHorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Center,
             };
 
@@ -796,7 +823,7 @@ namespace BS3D.Screens
             if (_typing)
             {
                 _nicknameValue.Text = _entry.Field;
-                _nicknameValue.Font = FontBody.MeasureString(_entry.FieldWithCaret).X <= Scaled(VALUE_WIDTH) * 0.9f ? FontBody : FontSmall;
+                _nicknameValue.Font = FontBody.MeasureString(_entry.FieldWithCaret).X <= _valueWidth * 0.9f ? FontBody : FontSmall;
                 _nicknameValue.HorizontalAlignment = HorizontalAlignment.Left;
                 _nicknameValue.TextColor = BS3DGame.MENU_TEXT;
                 return;
@@ -804,8 +831,9 @@ namespace BS3D.Screens
 
             string text = Game.Online.Nickname ?? "Not set";
             _nicknameValue.Text = text;
-            _nicknameValue.Font = FontBody.MeasureString(text).X <= Scaled(VALUE_WIDTH) * 0.9f ? FontBody : FontSmall;
-            _nicknameValue.HorizontalAlignment = HorizontalAlignment.Center;
+            _nicknameValue.Font = FontBody.MeasureString(text).X <= _valueWidth * 0.9f ? FontBody : FontSmall;
+            //Left at rest as well since #833: every value starts from the seam
+            _nicknameValue.HorizontalAlignment = HorizontalAlignment.Left;
             _nicknameValue.TextColor = Game.Online.Nickname == null ? BS3DGame.MENU_TEXT_ALERT : BS3DGame.MENU_TEXT;
         }
 
