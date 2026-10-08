@@ -111,25 +111,33 @@ namespace BS3D.Screens
 
         /// <summary>
         /// A two-state row's checkbox (#816): its tick, and the dim word beside the box when the tier or the build holds
-        /// the row off whatever it is set to ("(tier)", "(locked)"), the box dimmed with it. The tick says what the word
-        /// "On" said, so a row the tier holds off is unticked with its reason, as it read "Off (tier)".
+        /// the row where it is, whatever it is set to ("(tier)", "(locked)"), the box dimmed with it. The tick says what the
+        /// word "On" said, so a row the tier holds off is unticked with its reason, as it read "Off (tier)" - and a row the
+        /// build holds ON is ticked and dimmed with its reason the same way (#832: Auto quality "On (resolution)" on the
+        /// Pi, where the probe is running and resolution is what it may lower).
         /// </summary>
         private sealed record CheckRow(CheckGlyph Glyph, Label Note)
         {
             /// <summary>
             /// A row whose state the game words itself (#808's <c>AdaptiveQualityLabel</c>, <c>SceneryLabel</c>): "On"
-            /// ticks the box, "Off" leaves it empty, and "Off (why)" leaves it empty and dimmed with the reason beside it,
-            /// so the reasons stay written in one place.
+            /// ticks the box, "Off" leaves it empty, and "On (why)" or "Off (why)" does the same dimmed with the reason
+            /// beside it, so the reasons stay written in one place.
             /// </summary>
-            public void Show(string label) =>
-                Show(label == "On", label.StartsWith("Off (", StringComparison.Ordinal) && label.EndsWith(')') ? label[5..^1] : null);
+            public void Show(string label)
+            {
+                int reason = label.IndexOf(" (", StringComparison.Ordinal);
+                string state = reason < 0 ? label : label[..reason];
+                string heldBy = reason >= 0 && label.EndsWith(')') ? label[(reason + 2)..^1] : null;
 
-            public void Show(bool on, string heldOffBy = null)
+                Show(state == "On", heldBy);
+            }
+
+            public void Show(bool on, string heldBy = null)
             {
                 Glyph.Checked = on;
-                Glyph.Tint = heldOffBy == null ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM;
-                Note.Text = heldOffBy == null ? string.Empty : $"({heldOffBy})";
-                Note.Visible = heldOffBy != null;
+                Glyph.Tint = heldBy == null ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM;
+                Note.Text = heldBy == null ? string.Empty : $"({heldBy})";
+                Note.Visible = heldBy != null;
             }
         }
         private Label _onlineValue, _nicknameValue, _removeValue, _onlineNote;
