@@ -1,0 +1,29 @@
+[build] BS3D.dll 2026-10-07 20:09:18 c1d5d855
+[build] libraries 3 set 94075cb6, newest Prazsky.BS3D.Physics 2026-10-07 20:09:09
+[build] shaders 9 set 3f43341f, newest Blast 2026-10-07 20:08:38, oldest Blast 2026-10-07 20:08:38
+[resolution] Auto: the 3D at 1600x900, one step to 720 rows if the refresh is not held
+[fps] 23.8 (42.02 ms) — Space, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 36.3 (27.55 ms) — Space, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 36.7 (27.23 ms) — Space, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 38.9 (25.71 ms) — Space, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[fps] 41.5 (24.08 ms) — Space, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600x90
+[resolution] 41 FPS in the menu at 1600x900 (floor 57) — lowering the 3D to 1280x720
+[fps] 39.6 (25.25 ms) — Space, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280x72
+[fps] 40.7 (24.58 ms) — Space, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280x72
+[fps] 42.9 (23.29 ms) — Space, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280x72
+[fps] 44.0 (22.75 ms) — Space, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280x72
+[fps] 62.0 (16.13 ms) — Space, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280x72
+[fps] 62.0 (16.13 ms) — Space, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280x72
+[fps] 62.0 (16.13 ms) — Space, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280x72
+[fps] 62.0 (16.13 ms) — Space, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280x72
+[fps] 62.0 (16.13 ms) — Space, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280x72
+[fps] 62.0 (16.13 ms) — Space, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280x72
+[fps] 62.0 (16.13 ms) — Space, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280x72
+[fps] 62.0 (16.13 ms) — Space, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280x72
+[fps] 62.0 (16.13 ms) — Space, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280x72
+[fps] 62.0 (16.13 ms) — Space, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280x72
+[fps] 62.0 (16.13 ms) — Space, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280x72
+[fps] 62.0 (16.13 ms) — Space, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280x72
+[fps] 62.0 (16.13 ms) — Space, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280x72
+[fps] 62.0 (16.13 ms) — Space, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280x72
+[fps] 62.0 (16.13 ms) — Space, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280x72

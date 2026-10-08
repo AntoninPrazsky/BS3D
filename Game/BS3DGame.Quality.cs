@@ -188,6 +188,24 @@ namespace BS3D
         /// <summary>Whether the automatic step has been taken this run: once, and never back up (#801).</summary>
         private bool _resolutionStepped;
 
+        /// <summary>
+        /// How long the frame rate has to stay under <see cref="_resolutionMinFps"/> before the resolution is lowered (#834):
+        /// seconds of verdict windows in a row, every one under the floor. One window was enough until then, and one
+        /// window is what a window being dragged across the desktop costs - the owner's v0.3.6 run stepped to 720p at 37 FPS
+        /// on a level the Pi holds at the refresh fullscreen. The owner's rule: we would rather not lower the resolution at
+        /// all, so only a machine that has been short of the refresh for a sustained stretch is answered with the step. A
+        /// window at or above the floor ends the stretch (and settles the probe, as it always did: a drop that recovered was
+        /// not the machine). The desktop's tier step keeps its own one-window verdict (#298); this is the resolution's rule.
+        /// </summary>
+        private const float RESOLUTION_SUSTAIN_SECONDS = 10f;
+
+        /// <summary>
+        /// The stretch so far: seconds of consecutive verdict windows under the resolution floor, ramp windows included,
+        /// since they are under it too (#834). Zero outside a stretch. Only meaningful on a pinned tier, where the probe's
+        /// verdict is the resolution (#801).
+        /// </summary>
+        private float _resolutionLowSeconds;
+
         #endregion
 
         /// <summary>
@@ -252,6 +270,7 @@ namespace BS3D
             if (_qualityWindowSeconds < QUALITY_WINDOW_SECONDS) return;
 
             float fps = _qualityWindowFrames / _qualityWindowSeconds;
+            float windowSeconds = _qualityWindowSeconds;
 
             _qualityWindowSeconds = 0f;
             _qualityWindowFrames = 0;
@@ -288,8 +307,21 @@ namespace BS3D
                 //probe and the ladder are load-bearing here even though nothing on the desktop needs them, and
                 //neither of those two readings can be quoted for the other machine. See "The quality tier" in
                 //docs/game-shell.md for the whole matrix and for the hole it found in the ladder.
+                _resolutionLowSeconds = 0f;
                 _qualitySettled = true;
                 return;
+            }
+
+            //Under the floor on a pinned tier: the stretch the resolution step waits for (#834) grows by this window, ramp
+            //or not - a ramp window is under the floor as well, and the stretch is how long the machine has been short of
+            //the refresh, not how many plateaued windows it has shown. Said once, at the stretch's first window, so a run
+            //that never steps still says what it watched and why; the step itself has its own line (LowerResolution).
+            if (_qualityPinnedByPlayer && CanLowerResolution)
+            {
+                if (_resolutionLowSeconds == 0f)
+                    Console.WriteLine($"[resolution] {fps:F0} FPS in the {where} at {_renderSize.X}x{_renderSize.Y} (floor {_resolutionMinFps:F0}) — under the floor, lowering after {RESOLUTION_SUSTAIN_SECONDS:F0} s of it");
+
+                _resolutionLowSeconds += windowSeconds;
             }
 
             //Below the floor — but a GPU still spinning its clocks up reads below it too, and stepping the tier
@@ -309,9 +341,13 @@ namespace BS3D
             }
 
             //The Raspberry Pi's lever (#801): its tier is locked, so what it spends is resolution, in one step to 1280x720
-            //(the display's rung nearest it), and only while the player has chosen none - see GameSettings.RenderHeight
+            //(the display's rung nearest it), and only while the player has chosen none - see GameSettings.RenderHeight -
+            //and only once the frame rate has been under the floor for RESOLUTION_SUSTAIN_SECONDS of windows in a row (#834):
+            //until then the probe keeps measuring, and a window at or above the floor settles it at native above
             if (_qualityPinnedByPlayer)
             {
+                if (CanLowerResolution && _resolutionLowSeconds < RESOLUTION_SUSTAIN_SECONDS) return;
+
                 if (CanLowerResolution) LowerResolution(fps, where);
 
                 _qualitySettled = true;
@@ -385,6 +421,7 @@ namespace BS3D
             _qualityWindowSeconds = 0f;
             _qualityWindowFrames = 0;
             _qualityPrevWindowFps = 0f;
+            _resolutionLowSeconds = 0f;
         }
 
         /// <summary>
@@ -400,10 +437,12 @@ namespace BS3D
         /// <summary>
         /// The Pi's one automatic step (#801): the 3D to 1280x720, the menus and the HUD staying at the display's size.
         /// Not stored - a measured verdict that was stored would be a ratchet, the quality probe's own argument - so the
-        /// next launch measures again, and a Pi that holds the refresh stays native.
+        /// next launch measures again, and a Pi that holds the refresh stays native. Taken only after
+        /// <see cref="RESOLUTION_SUSTAIN_SECONDS"/> under the floor (#834).
         /// </summary>
         private void LowerResolution(float fps, string where)
         {
+            _resolutionLowSeconds = 0f;
             Point from = _renderSize;
             _renderHeight = AutoRenderHeight;
             _resolutionStepped = true;

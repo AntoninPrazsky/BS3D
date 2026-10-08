@@ -1,0 +1,42 @@
+[build] BS3D.dll 2026-10-08 22:29:45 fed10a98
+[build] libraries 3 set bb7efe52, newest Prazsky.BS3D.Physics 2026-10-08 22:29:36
+[build] shaders 9 set 3f43341f, newest Confetti 2026-10-08 22:26:17, oldest Blast 2026-10-08 22:26:17
+[resolution] Auto: the 3D at 1600x900, one step to 720 rows if the refresh is not held
+[fps] 25.9 (38.59 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600
+[fps] 33.0 (30.28 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600
+[resolution] 34 FPS in the menu at 1600x900 (floor 57) — under the floor, lowering after 10 s of it
+[fps] 35.9 (27.89 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600
+[fps] 37.2 (26.92 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600
+[fps] 39.3 (25.47 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600
+[fps] 39.9 (25.06 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600
+[fps] 39.9 (25.04 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600
+[fps] 39.8 (25.15 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600
+[fps] 39.7 (25.18 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600
+[fps] 39.1 (25.57 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600
+[fps] 39.6 (25.27 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1600
+[resolution] 40 FPS in the menu at 1600x900 (floor 57) — lowering the 3D to 1280x720
+[fps] 38.5 (25.97 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280
+[fps] 39.7 (25.18 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280
+[fps] 40.2 (24.87 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280
+[fps] 41.0 (24.36 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280
+[fps] 40.6 (24.63 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280
+[fps] 40.6 (24.64 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280
+[fps] 40.9 (24.43 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280
+[fps] 41.8 (23.90 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280
+[fps] 42.9 (23.30 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280
+[fps] 45.1 (22.19 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280
+[fps] 45.6 (21.95 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280
+[fps] 45.4 (22.04 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280
+[fps] 45.0 (22.25 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280
+[fps] 44.7 (22.37 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280
+[fps] 46.8 (21.36 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280
+[fps] 62.0 (16.13 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280
+[fps] 62.0 (16.13 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280
+[fps] 62.0 (16.13 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280
+[fps] 62.0 (16.13 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280
+[fps] 62.0 (16.13 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280
+[fps] 62.0 (16.13 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280
+[fps] 62.0 (16.13 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280
+[fps] 62.0 (16.13 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280
+[fps] 61.5 (16.25 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280
+[fps] 62.0 (16.12 ms) — NeonCity, dome 13, ssaa 1x, potato, msaa 0x, detail reduced, shadow off, 1600x900, render 1280
