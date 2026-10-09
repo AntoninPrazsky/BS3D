@@ -20,6 +20,14 @@
     <Copyright>Antonín Pražský</Copyright>
     <UseWindowsForms>True</UseWindowsForms>
     <ApplicationIcon>Icon.ico</ApplicationIcon>
+    <!--Per-monitor DPI awareness (#825): without it a display scaled above 100 % hands the game a virtual, smaller
+    resolution and stretches its frame. Why a manifest and not an API call is in the file.-->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!--WFO0003 asks a WinForms app to set its DPI mode through Application.SetHighDpiMode instead, so that WinForms
+    scales its controls by a mode it was told. The game has no WinForms controls to scale: the form is MonoGame's host
+    for a swap chain, and the one dialog (CrashDialog) is a system MessageBox. And the call would have to go into
+    Program.Main, which GamePi compiles without WinForms. The manifest is the Win32 declaration the call makes anyway.-->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
     <!--The game is in English, and WinForms ships its four resource assemblies in 13 languages beside it: 52 files in 13
     folders that nothing here ever loads (#714).-->
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>

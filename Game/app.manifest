@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+  <assemblyIdentity version="1.0.0.0" name="BS3D.app"/>
+  <!--What the SDK's default manifest carried, kept: the game runs as whoever started it and never asks to elevate.-->
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
+    <security>
+      <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
+        <requestedExecutionLevel level="asInvoker" uiAccess="false"/>
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+  <!--The reason this file exists (#825): the game sees the display's real pixels. A process that does not say it is
+  DPI-aware is virtualized by Windows on any display scaled above 100 %: every size it reads is divided by the scale
+  and the window it draws is stretched back up by the compositor. A player's WUXGA laptop at the 125 % Windows
+  recommends for it read CurrentDisplayMode as 1536x960, drew the fullscreen frame at that and saw everything soft,
+  and the mouse aim turned 1/1.25 as far for the same hand. Declared here rather than by an API call in Program.Main,
+  because the manifest applies before the process makes any window and cannot be called in the wrong order; and here
+  rather than in shared code, because GamePi (Linux, DesktopGL) compiles the same sources and has no such thing.
+  PerMonitorV2 where Windows 10 1703 and later know it, PerMonitor before that, and the older dpiAware element for a
+  Windows that knows neither.-->
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2, PerMonitor</dpiAwareness>
+    </windowsSettings>
+  </application>
+</assembly>

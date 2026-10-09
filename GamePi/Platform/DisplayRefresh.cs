@@ -35,5 +35,17 @@ namespace BS3D.Platform
                 return false;
             }
         }
+
+        /// <summary>
+        /// The Windows version's display scale and DPI awareness (#825), which this platform does not have: Windows
+        /// virtualizes a DPI-unaware window's sizes, and nothing on the Pi's desktop does that to the game. Always no
+        /// answer, so the run log's display line and a note's context leave the scale out.
+        /// </summary>
+        internal static bool TryGetScale(IntPtr windowHandle, out float scale, out bool perMonitorAware)
+        {
+            scale = 1f;
+            perMonitorAware = false;
+            return false;
+        }
     }
 }
