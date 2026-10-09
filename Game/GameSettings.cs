@@ -130,8 +130,8 @@ namespace BS3D
         /// that ran it had a settings file, and the `false` this used to inherit from <c>bool</c> was an
         /// omission rather than an answer — a stranger's first impression was a 1600×900 window on a 4K panel.
         /// Fullscreen here costs nothing it would not cost anyway: <c>SetGraphics</c> is borderless at
-        /// <c>CurrentDisplayMode</c> (#157), so it is the panel's own resolution with nothing scaled and no
-        /// display mode to lose (the 3D alone is drawn smaller when the player's <see cref="RenderHeight"/> says so,
+        /// <c>CurrentDisplayMode</c> (#157), so it is the panel's own resolution with nothing scaled (on a display
+        /// scaled above 100 % only since the game declared itself DPI-aware, #825) and no display mode to lose (the 3D alone is drawn smaller when the player's <see cref="RenderHeight"/> says so,
         /// #801). The moment the player answers — F11 or the Settings row, both of which write
         /// through <c>ToggleFullscreen</c> — this default never speaks again.
         /// </summary>

@@ -889,11 +889,31 @@ namespace BS3D
 
             SetGraphics();
 
+            //What the display is and how its scale reaches the game (#825), once: whether the 3D below is the panel's own
+            //pixels or a size Windows divided by the scale is on this line, not something anyone has to infer
+            Console.WriteLine(DisplayLine());
+
             //The Raspberry Pi's tier is locked, which settles the probe at once above - unless its resolution is still the
             //build's to lower (#801), which only the device's size could say, so it is answered here
             if (CanLowerResolution) _qualitySettled = false;
             Console.WriteLine($"[resolution] {(IsResolutionAutomatic ? "Auto" : _renderHeightChosen ? "Chosen" : "Native")}: "
                 + $"the 3D at {_renderSize.X}x{_renderSize.Y}{(CanLowerResolution ? $", one step to {AutoRenderHeight} rows if the refresh is not held" : "")}");
+        }
+
+        /// <summary>
+        /// The run log's <c>[display]</c> line (#825): the display mode, its refresh and, where the platform has one, the
+        /// scale the window is on and whether the game sees it. A DPI-unaware run is told 96 DPI on every display, so its
+        /// line says what that costs instead of printing a scale that is not the panel's.
+        /// </summary>
+        private string DisplayLine()
+        {
+            DisplayMode display = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode;
+            string line = $"[display] {display.Width}x{display.Height}{(_displayRefreshHz > 0 ? $" at {_displayRefreshHz} Hz" : "")}";
+            if (!DisplayRefresh.TryGetScale(Window.Handle, out float scale, out bool aware)) return line;
+
+            return aware
+                ? line + string.Create(CultureInfo.InvariantCulture, $", scale {scale * 100f:0} % ({scale * 96f:0} DPI), DPI-aware per monitor")
+                : line + ", DPI-UNAWARE: on a display scaled above 100 % Windows hands this run a smaller size and stretches its frame";
         }
 
         private void Graphics_PreparingDeviceSettings(object sender, PreparingDeviceSettingsEventArgs e)

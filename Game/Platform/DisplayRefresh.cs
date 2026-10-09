@@ -111,5 +111,50 @@ namespace BS3D.Platform
             refreshHz = (int)dm.dmDisplayFrequency;
             return true;
         }
+
+        [DllImport("user32.dll")]
+        private static extern uint GetDpiForWindow(IntPtr window);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetWindowDpiAwarenessContext(IntPtr window);
+
+        [DllImport("user32.dll")]
+        private static extern int GetAwarenessFromDpiAwarenessContext(IntPtr context);
+
+        //DPI_AWARENESS_PER_MONITOR_AWARE, what GetAwarenessFromDpiAwarenessContext answers for PerMonitor and PerMonitorV2 alike
+        private const int DPI_AWARENESS_PER_MONITOR_AWARE = 2;
+
+        /// <summary>
+        /// The scale Windows sets for the monitor <paramref name="windowHandle"/> is on, its DPI over 96 (1.25 at 125 %),
+        /// and whether the window is DPI-aware per monitor (#825). False on any failure, or before the window exists.
+        /// <para>
+        /// The awareness is what makes the scale mean anything: a DPI-unaware window is told 96 DPI on every display, and
+        /// is handed every size divided by the real scale while its frame is stretched back up. <c>Game/app.manifest</c>
+        /// is what makes the game aware; a compatibility override in the exe's Properties can still take it away, which
+        /// is why the run log reads the window's own context rather than taking the manifest's word for it.
+        /// </para>
+        /// </summary>
+        internal static bool TryGetScale(IntPtr windowHandle, out float scale, out bool perMonitorAware)
+        {
+            scale = 1f;
+            perMonitorAware = false;
+            if (windowHandle == IntPtr.Zero) return false;
+
+            try
+            {
+                uint dpi = GetDpiForWindow(windowHandle);
+                if (dpi == 0) return false;
+
+                scale = dpi / 96f;
+                perMonitorAware = GetAwarenessFromDpiAwarenessContext(GetWindowDpiAwarenessContext(windowHandle))
+                    == DPI_AWARENESS_PER_MONITOR_AWARE;
+                return true;
+            }
+            catch (EntryPointNotFoundException)
+            {
+                //Windows 10 before 1607 has neither function; that is no reason to fail a startup line
+                return false;
+            }
+        }
     }
 }

@@ -1,4 +1,5 @@
 using BS3D.Online;
+using BS3D.Platform;
 using BS3D.Screens;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -93,6 +94,13 @@ namespace BS3D
                 ["scene"] = _scene.ToString(),
                 ["online"] = _settings.Online == true,
             };
+            //The display's scale (#825), where the platform has one: a note from a scaled laptop says whether the size
+            //above is the panel's own, and "dpiAware" false would mean Windows divided it by this scale
+            if (DisplayRefresh.TryGetScale(Window.Handle, out float scale, out bool aware))
+            {
+                context["scale"] = MathF.Round(scale, 2);
+                context["dpiAware"] = aware;
+            }
             if (HasSession) _gameplayScreen.DescribeForNote(context);
             return context;
         }
