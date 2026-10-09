@@ -41,6 +41,12 @@ namespace Prazsky.Core.Render
         /// <summary>The gap between two boards, where the dark core shows, as a fraction of a board.</summary>
         private const float BOARD_GAP = 0.08f;
 
+        /// <summary>
+        /// A corner bracket's size along each axis, in beams. Over 1, so the bracket covers a beam's whole cross-section
+        /// and the beams can end at its inner faces (see <see cref="AddFrame"/>).
+        /// </summary>
+        private const float BRACKET_BEAMS = 1.24f;
+
         /// <param name="size">The crate's full size along each axis, world units.</param>
         public CrateMesh(GraphicsDevice device, Vector3 size, Part part)
         {
@@ -80,21 +86,26 @@ namespace Prazsky.Core.Render
             BoundingSphere = new BoundingSphere(Vector3.Zero, half.Length());
         }
 
-        //The twelve beams along the edges, flush with the bounds, and a brace across each face from corner to corner
+        //The twelve beams along the edges, flush with the bounds, and a brace across each face from corner to corner.
+        //Every beam ends at the inner faces of the corner brackets rather than running on under them (#837): a bracket is
+        //flush with the same bounds, so a beam inside it put two parts' faces in one plane over the same area, and the
+        //depth test picked the steel or the wood by rounding, frame by frame - the corners flickered. The bracket covers
+        //the beam's whole cross-section (BRACKET_BEAMS over 1), so the edge reads exactly as it did.
         private static void AddFrame(MeshBuilder builder, Vector3 half, float beam)
         {
             float b = beam * Constants.HALF;
+            float bracket = beam * BRACKET_BEAMS;
 
             for (int sx = -1; sx <= 1; sx += 2)
                 for (int sy = -1; sy <= 1; sy += 2)
                 {
                     //Along Z at each (x, y) edge, along Y at each (x, z), along X at each (y, z)
                     builder.AddBox(new Vector3(sx * (half.X - b), sy * (half.Y - b), 0f),
-                        new Vector3(b, 0f, 0f), new Vector3(0f, b, 0f), new Vector3(0f, 0f, half.Z));
+                        new Vector3(b, 0f, 0f), new Vector3(0f, b, 0f), new Vector3(0f, 0f, half.Z - bracket));
                     builder.AddBox(new Vector3(sx * (half.X - b), 0f, sy * (half.Z - b)),
-                        new Vector3(b, 0f, 0f), new Vector3(0f, half.Y - beam, 0f), new Vector3(0f, 0f, b));
+                        new Vector3(b, 0f, 0f), new Vector3(0f, half.Y - bracket, 0f), new Vector3(0f, 0f, b));
                     builder.AddBox(new Vector3(0f, sx * (half.Y - b), sy * (half.Z - b)),
-                        new Vector3(half.X - beam, 0f, 0f), new Vector3(0f, b, 0f), new Vector3(0f, 0f, b));
+                        new Vector3(half.X - bracket, 0f, 0f), new Vector3(0f, b, 0f), new Vector3(0f, 0f, b));
                 }
 
             //A brace on each face, lying on the boards and a little under the frame's face
@@ -143,11 +154,11 @@ namespace Prazsky.Core.Render
                 }
         }
 
-        //A steel bracket over each corner, flush with the bounds like the frame it covers (#257's review: it stood a
-        //few hundredths proud of them, past the box a ball bounces off)
+        //A steel bracket on each corner, flush with the bounds like the frame it joins (#257's review: it stood a few
+        //hundredths proud of them, past the box a ball bounces off), and the frame's beams ending at its inner faces (#837)
         private static void AddBrackets(MeshBuilder builder, Vector3 half, float beam)
         {
-            float b = beam * 0.62f;
+            float b = beam * BRACKET_BEAMS * Constants.HALF;
 
             for (int sx = -1; sx <= 1; sx += 2)
                 for (int sy = -1; sy <= 1; sy += 2)
