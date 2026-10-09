@@ -646,10 +646,17 @@ namespace BS3D.Screens
         //And to the barrel arriving at its stop (#378, the other ask): a short knock, buzz-led so it is not mistaken for
         //a shot's thump, once per push into the clamp — Cannon.ElevationStrain going full is the arrival, and it re-arms
         //only once the strain has let go (the push stopped for ELEVATION_STRAIN_HOLD), so a hand holding the stick
-        //against the stop gets one knock and not a buzz. The same edge carries its sound (#811, AimStopSynth).
+        //against the stop gets one knock, not a train of them. The same edge carries its sound (#811, AimStopSynth).
         private const float AIM_STOP_RUMBLE_LEFT = 0.2f;
         private const float AIM_STOP_RUMBLE_RIGHT = 0.45f;
         private const float AIM_STOP_RUMBLE_SECONDS = 0.09f;
+
+        //And the steady buzz after it while the hand keeps pushing where the gun will not fire (#835): the owner felt
+        //nothing from the knock alone (2026-10-09) and asked for a constant vibration until the push stops. The light
+        //motor with a touch of the heavy one, above the carriage's rattle (0.03-0.07) and the ceiling step's buzz (0.12),
+        //and well under the knock, since this one lasts as long as the hand insists.
+        private const float AIM_REFUSED_HOLD_LEFT = 0.06f;
+        private const float AIM_REFUSED_HOLD_RIGHT = 0.22f;
 
         /// <summary>The flat colour the cluster's ripple carries, as opposed to the plate's own emissive.</summary>
         private static readonly Vector3 RIPPLE_ALARM_COLOR = new(1f, 0.07f, 0.05f);
