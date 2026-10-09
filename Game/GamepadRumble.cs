@@ -162,20 +162,20 @@ namespace BS3D
         private const float SIGNATURE_WINDOW_SECONDS = 15f;
 
         //The menus' four words (#800), all on the body motors — a hand in a menu is on the sticks and the face buttons,
-        //not the triggers. A step of the focus is the lightest thing the pad says; a page turn is a little firmer, the
-        //same whichever way it turns; a confirm is firmer and brighter; a
-        //back is softer and lower.
+        //not the triggers. A step of the focus is the lightest thing the pad says; a page turn is about as light and a
+        //little longer, the same whichever way it turns; a confirm is firmer and brighter; a back is softer and lower.
         //The first cut's step (the light motor at 0.25 for 0.04 s) went unnoticed in the owner's hand (#800): a motor
         //that is spun up from rest needs some tens of milliseconds before it is felt at all, and forty was most of them.
         //Every word is longer now, and the step has a touch of the heavy motor under it.
         //The page turn was felt on the side it turned to, and the owner felt LB and RB differ twice (#800 c, f): first at
         //one figure for both sides (0.4 for 0.07 s), then at a figure per motor (0.26 heavy, 0.55 light, 0.1 s). The two
         //body motors are different machines, a heavy rumble and a light buzz, so no pair of figures makes the two grips
-        //feel alike. A page turn is now one pulse on both motors, the same for LB and RB, between the step and the accept,
-        //and the direction is the screen's to show. It stays past a motor's spin-up (0.07 s was barely past it, so a press
-        //felt different depending on whether the motor still turned from the last one).
+        //feel alike. A page turn is now one pulse on both motors, the same for LB and RB, and the direction is the screen's
+        //to show. It stays past a motor's spin-up (0.07 s was barely past it, so a press felt different depending on
+        //whether the motor still turned from the last one). The owner accepted that shape and asked for it "a little
+        //weaker still" (#800, 2026-10-09): from 0.2 heavy and 0.45 light to about a step's strength, kept the longer.
         private const float UI_STEP_LEFT = 0.12f, UI_STEP_RIGHT = 0.35f, UI_STEP_SECONDS = 0.07f;
-        private const float UI_PAGE_LEFT = 0.2f, UI_PAGE_RIGHT = 0.45f, UI_PAGE_SECONDS = 0.09f;
+        private const float UI_PAGE_LEFT = 0.13f, UI_PAGE_RIGHT = 0.31f, UI_PAGE_SECONDS = 0.09f;
         private const float UI_ACCEPT_LEFT = 0.3f, UI_ACCEPT_RIGHT = 0.55f, UI_ACCEPT_SECONDS = 0.1f;
         private const float UI_BACK_LEFT = 0.45f, UI_BACK_RIGHT = 0.15f, UI_BACK_SECONDS = 0.09f;
 
