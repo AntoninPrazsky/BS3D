@@ -47,6 +47,10 @@ namespace BS3D
         //of a level nobody is shooting in.
         private bool _silent = true;
 
+        //The steady levels asked for this frame (Hold), the floor the body motors are written at; taken and cleared by
+        //Update, so a state nobody asks for any more stops on the next write
+        private float _holdLeft, _holdRight;
+
         /// <summary>
         /// The player's own row in Settings (#378), 0 for off. Applied where <see cref="Update"/> writes
         /// rather than where a <see cref="Kick"/> is taken, so turning it down silences what is already
@@ -89,6 +93,20 @@ namespace BS3D
         public void KickTriggers(float left, float right, float seconds)
         {
             if (HandOnPad) FeelTriggers(left, right, seconds);
+        }
+
+        /// <summary>
+        /// A steady level on the body motors, <paramref name="left"/> and <paramref name="right"/> each 0 to 1, for this
+        /// frame only (#835): asked for on every frame a state lasts — the aim pushed where the gun will not fire — and
+        /// gone on the first frame it is not asked for, which a decaying <see cref="Kick"/> cannot say. A floor rather than
+        /// a sum: the louder of two holds is felt, and a kick ringing on top of one rings over it. Gated like a kick.
+        /// </summary>
+        public void Hold(float left, float right)
+        {
+            if (!HandOnPad) return;
+
+            _holdLeft = MathF.Max(_holdLeft, left);
+            _holdRight = MathF.Max(_holdRight, right);
         }
 
         //The pulse itself, whoever asked for it: the game's kicks through the gate above, the patterns and the menu's
@@ -218,6 +236,7 @@ namespace BS3D
         public void Silence()
         {
             _left = _right = _leftTrigger = _rightTrigger = 0f;
+            _holdLeft = _holdRight = 0f;
             _pattern = null;
         }
 
@@ -276,6 +295,8 @@ namespace BS3D
                 _right = 0f;
                 _leftTrigger = 0f;
                 _rightTrigger = 0f;
+                _holdLeft = 0f;
+                _holdRight = 0f;
             }
             else
             {
@@ -291,12 +312,16 @@ namespace BS3D
             if (allowed && !_wasAllowed) _silent = false;
             _wasAllowed = allowed;
 
-            bool silentNow = _left <= 0f && _right <= 0f && _leftTrigger <= 0f && _rightTrigger <= 0f;
+            //The body motors at this frame's hold where it is above what is ringing, and the hold spent
+            float bodyLeft = MathF.Max(_left, _holdLeft), bodyRight = MathF.Max(_right, _holdRight);
+            _holdLeft = _holdRight = 0f;
+
+            bool silentNow = bodyLeft <= 0f && bodyRight <= 0f && _leftTrigger <= 0f && _rightTrigger <= 0f;
             if (silentNow && _silent) return;
 
             //All four through Windows.Gaming.Input when a pad answers there (#188) — the capabilities below are XInput's
             //and know nothing of triggers, and a pad without some motor simply does not turn it
-            bool throughPadMotors = PadMotors.TrySet(_left * Strength, _right * Strength,
+            bool throughPadMotors = PadMotors.TrySet(bodyLeft * Strength, bodyRight * Strength,
                 _leftTrigger * Strength, _rightTrigger * Strength);
 
             if (throughPadMotors != _throughPadMotors)
@@ -320,8 +345,8 @@ namespace BS3D
                 return;
             }
 
-            float left = capabilities.HasLeftVibrationMotor ? _left * Strength : 0f;
-            float right = capabilities.HasRightVibrationMotor ? _right * Strength : 0f;
+            float left = capabilities.HasLeftVibrationMotor ? bodyLeft * Strength : 0f;
+            float right = capabilities.HasRightVibrationMotor ? bodyRight * Strength : 0f;
 
             GamePad.SetVibration(PlayerIndex.One, left, right);
             _silent = silentNow;

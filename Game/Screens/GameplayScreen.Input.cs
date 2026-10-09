@@ -356,8 +356,8 @@ namespace BS3D.Screens
 
             //The barrel arriving at its stop is felt (#378) and heard (#811): one knock and one "uh-uh" as the strain goes
             //full, re-armed once it has let go — after the mouse and the pad have both pushed, since either can be the
-            //one that reached it. One edge for both, so the ear and the hand agree and a hand held against the stop
-            //neither buzzes nor sounds on and on.
+            //one that reached it. One edge for both, so the ear and the hand agree and a hand held against the stop gets
+            //neither a train of knocks nor a sound on and on (what it gets while it pushes is the steady buzz below).
             if (_cannon.ElevationStrain >= 1f)
             {
                 if (_aimStopArmed)
@@ -368,6 +368,16 @@ namespace BS3D.Screens
                 }
             }
             else _aimStopArmed = true;
+
+            //And held (#835), the owner's ask: the pad buzzes "constantly, until the player stops pushing the stick or is back
+            //in the window he may fire from". Past the clamp at either end that is the strain itself: full while the push
+            //lasts, and let go over ELEVATION_STRAIN_RELEASE once it stops, so the buzz fades with the crosshair's blink. A
+            //cutter aimed into the storeys the Cut may not strike (#692) has no clamp to push against, so there it is the
+            //right stick pushed up or down while the cutter is refused. The knock above stays the arrival.
+            float refusedPush = _cannon.ElevationStrain;
+            if (_cutterRefused && pad.IsConnected && MathF.Abs(pad.ThumbSticks.Right.Y) > PAD_WALK_DEADZONE) refusedPush = 1f;
+            if (refusedPush > 0f)
+                Game.Rumble.Hold(AIM_REFUSED_HOLD_LEFT * refusedPush, AIM_REFUSED_HOLD_RIGHT * refusedPush);
 
             //The aim's ratchet under the finger holding the lean (#188). The motion is the HAND's (Cannon.ElevationAim and
             //Traverse), not the barrel's pose: the pose also carries the rubber's spring after a push into the stop and the
