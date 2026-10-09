@@ -154,6 +154,9 @@ namespace BS3D.Screens
 
             Game.Audio.PlayCeilingStep(new Microsoft.Xna.Framework.Vector3(0f, _ceilingDescent.Y, 0f), feed: true);
 
+            //And felt (#836: the owner felt nothing when the Brake lifted the glass), over the same slide a descent takes
+            Game.Rumble.Kick(BRAKE_RUMBLE_LEFT, BRAKE_RUMBLE_RIGHT, CEILING_RUMBLE_SECONDS);
+
             Console.WriteLine($"[ceiling] Brake to {_ceilingDescent.TargetY:F2} (rest {_ceilingDescent.RestY:F2}"
                 + $", death line {CEILING_DEATH_Y:F2}), {_run.PowerupCharges[(int)PowerupKind.Brake]} left");
 

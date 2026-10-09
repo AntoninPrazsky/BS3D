@@ -634,6 +634,12 @@ namespace BS3D.Screens
         private const float CEILING_RUMBLE_SECONDS = CeilingDescent.SLIDE_SECONDS;
         private const float CEILING_RUMBLE_FEED_SCALE = 0.5f;
 
+        //The Brake's lift (#836), over the same slide: firmer than the descent's buzz and led by the heavy motor, so the
+        //glass heaving back up under the player's own press reads as a different thing from the pressure stepping down,
+        //and a reward rather than a warning. One a level at most, so it can be felt properly without becoming a nuisance.
+        private const float BRAKE_RUMBLE_LEFT = 0.14f;
+        private const float BRAKE_RUMBLE_RIGHT = 0.16f;
+
         //The pad's answer to the loss at the line (#378, asked for on the owner's first feel): the one ending the player
         //is cut out of, so the heaviest pulse the game sends — the heavy motor long, under the net's sear, and the buzz
         //short over it, the way PlayLineLoss is a burst on a long tail. Two kicks, because one Kick decays both motors
@@ -717,6 +723,16 @@ namespace BS3D.Screens
         /// goes off.
         /// </summary>
         private const float BLAST_RUMBLE = 0.55f;
+
+        /// <summary>
+        /// The pad's answer to a blast (#836), per unit of its size (0.35-1), on the frame its report and its jolt arrive: a
+        /// heavy-led thud with the buzz under it, the explosion felt rather than heard as a rattle. Each link of a chain
+        /// kicks again as it goes off, so a chain reads as bigger than one bomb; capped well below full on purpose, the
+        /// owner's rule from the group release (#810), "it must not shake the player's joints".
+        /// </summary>
+        private const float BLAST_PAD_LEFT = 0.32f;
+        private const float BLAST_PAD_RIGHT = 0.16f;
+        private const float BLAST_PAD_SECONDS = 0.35f;
 
         #endregion
 
@@ -1465,7 +1481,13 @@ namespace BS3D.Screens
             //threw is moving at that speed, and a flash running at full speed over a slow-motion collapse is over
             //before its fragments have left the hole. The rumble goes to the camera as each blast goes off.
             float blastJolt = _blasts.Update(elapsed * _cinematic.TimeScale, Game.Audio);
-            if (blastJolt > 0f) Camera.Shake.Rumble(BLAST_RUMBLE * blastJolt);
+            if (blastJolt > 0f)
+            {
+                Camera.Shake.Rumble(BLAST_RUMBLE * blastJolt);
+
+                //And the hand (#836): the owner asked whether a bomb is felt, and it was not
+                Game.Rumble.Kick(BLAST_PAD_LEFT * blastJolt, BLAST_PAD_RIGHT * blastJolt, BLAST_PAD_SECONDS);
+            }
 
             //The impossible shot (#230): the shots in the air watched for three escapes in a row from one pose, and a
             //hole that is open stepped on the same scaled time as the blasts, being a thing in the world like them
