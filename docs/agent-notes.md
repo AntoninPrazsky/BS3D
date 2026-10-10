@@ -1114,3 +1114,11 @@ Majitel poslal odkaz na admin stránku poznámek (`127.0.0.1:5002/notes`, jednor
 - **#835** (merge c260f22f): majitel u dorazu necítil nic (jeden náraz 0,09 s) a chtěl stálou vibraci, dokud tlačí. `GamepadRumble.Hold` = úroveň na jeden snímek, podlaha pod doznívajícími kopanci, mizí první snímek bez žádosti. `UpdateAim`: `ElevationStrain` × 0,22 lehký / 0,06 těžký; řezací koule v zakázaném patře (`_cutterRefused`) naplno, dokud pravá páčka tlačí nahoru/dolů. ⚠ Skriptem nevyvolatelné: `aim=`/`sweep=` volají `AimTo`, ten strain nezvedá, a `padpress=` zná jen levou páčku a tlačítka. verdict-hands.
 - **#836** (merge 9a258ad1): Brake zvedá sklo bez vibrace a bomba měla jen otřes kamery. Brake 0,14/0,16 přes `CEILING_RUMBLE_SECONDS`, výbuch 0,32/0,16 × velikost (0,35–1) na 0,35 s v `blastJolt`. Viděno projít na Vent: `fire=` ×10, `brake=14`, `detonate=16`. verdict-hands.
 - **#837** (merge 14053827, zavřeno na důkaz): rohy beden blikaly z-fightingem, protože ocelové rohy i trámy rámu stojí na hranici bedny a trámy běžely pod rohy. Trámy teď končí na `half - BRACKET_BEAMS * beam`. Snímek Trapeze `level=94 aim=1:25:37 rmb=2:30` ve 3840×1600, grain/aberace/motion blur vypnuté v `userdata` Settings.json: před opravou pruhy na všech rozích, po ní čistá šedá.
+
+## 2026-10-10 — projektová revize: štítky `priority-now` a `parked`, brána šíře do #768, #838 itch.io, podklady k #768 — desktop (RDT-PC), Claude Code (bs3d-5a)
+
+- **Majitel po revizi potvrdil:** zmrazit šíři do prvního kola cizích hráčů (#768) a zavést prioritní štítky. Pravidlo je v `CLAUDE.md` („How work is run“), důvody s čísly v `docs/repo-conventions.md`. Zip byl stažen 13× za šest vydání a na deskách jsou tři přezdívky.
+- **Roztřídění 58 otevřených:** `priority-now` dostaly #768, #737, #692, #736, #742, #743 a #799. `parked` dostalo 34 issues (polish scén, easter eggy, Pi #785/#828–#830, #690, #741, #827, #251, #230, #292, #717, #771). Zbytek je bez štítku.
+- **#838** (owner-decision): majitel si nejdřív sám prostuduje itch.io, agenti do té doby nic nestaví.
+- **#768:** podklady jsou v komentáři issue (zpráva hráčům, 8 otázek, pozorovací list, data bez ptaní). Oslovení hráčů je na majiteli.
+- **Další krok:** dokumentační dieta (vlastní issue). Majitel chce kratší dokumenty a deník rozdělené tak, aby se nemuselo číst všechno.
