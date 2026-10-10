@@ -1122,3 +1122,14 @@ Majitel poslal odkaz na admin stránku poznámek (`127.0.0.1:5002/notes`, jednor
 - **#838** (owner-decision): majitel si nejdřív sám prostuduje itch.io, agenti do té doby nic nestaví.
 - **#768:** podklady jsou v komentáři issue (zpráva hráčům, 8 otázek, pozorovací list, data bez ptaní). Oslovení hráčů je na majiteli.
 - **Další krok:** dokumentační dieta (vlastní issue). Majitel chce kratší dokumenty a deník rozdělené tak, aby se nemuselo číst všechno.
+
+## 2026-10-10 — #826 Quit se ptá: stránka „Quit BS3D?“ nad pauzou i hlavním menu — desktop (RDT-PC), Claude Code (bs3d-52)
+
+- **Převzato rozdělané:** včerejší session na desktopu (claim na issue z 9. 10.) nechala kód #826 necommitnutý v hlavním checkoutu na větvi `826-quit-confirm`. Dodělána dokumentace, ověření a merge.
+- **Změna (merge do mainu):** obě položky Quit (pauza i hlavní menu) otevřou `QuitConfirmPage` nad stránkou, která ji otevřela: nadpis „QUIT BS3D?“, řádek „This run will not be kept.“ jen když je session (`HasSession`), pak Cancel a Quit. Cancel je první a je `NavArrival`, Escape i B dělají pop. `Game.Exit` je teď ve hře jediné volání. Restart, zavírací tlačítko okna a Alt+F4 zůstaly beze změny (podle issue mimo rozsah). verdict-eye.
+- **Páka `quitconfirm[=<s>[:<kroky>]]`:** kroky `back`, `cancel` a `quit` jdou přes tytéž handlery jako Escape a obě položky. Každý krok vypíše stránku, která po něm zůstala nahoře.
+- **Viděno** (Debug, spuštěno přes `CreateProcess` se SW_SHOWNOACTIVATE, vlastní `userdata=`, `nosplash mute nofps sceneseed=7 seed=7`): stránka nad menu i nad session (`level=61`) v 1600×900 a v 3840×1600 (`windowed width=3840 height=1600`). `back` nechal nahoře `MainMenuPage`, `cancel` `PausePage` a po `quit` proces skončil sám (`[quit] Quit confirmed`).
+  - Dvojklik na Quit pauzy hru nezavře: v 1600×900 deska dialogu končí na řádku 599 a Quit pauzy leží na řádcích 646–695 (změřeno z pixelů snímku).
+  - ⚠ Nad hlavním menu je deska průsvitná a slaby Cancel a Quit se od ní skoro neliší (50 proti 42), stejně jako u Settings nad menu. Text je čitelný, ale posoudit to musí majitelovo oko.
+- **Neověřeno:** ruční průchod klávesnicí, myší a padem (kroky jdou přes handlery, ne přes vstup), zvuk, GamePi a Release build (ten ověří CI).
+- **#825** (merge 6e6ccd98 z 9. 10.) zůstal otevřený se štítkem `in-progress` a bez záznamu v deníku. Štítek je sundaný a na issue je komentář s tím, co zbývá: škálovaný displej (125 %) a navazující body (velikost okna, `WM_DPICHANGED`, kurzor, ikona) zatím nikdo neověřil.
