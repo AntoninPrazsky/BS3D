@@ -1,5 +1,6 @@
 using BS3D.Screens;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 
 namespace BS3D
@@ -169,6 +170,13 @@ namespace BS3D
         private float? _noteAt;
         private string _noteSteps;
 
+        //Testing only: the wall-clock second the Quit confirm page is opened, and the steps run on it (quitconfirm=, #826)
+        private float? _quitAt;
+        private Queue<string> _quitSteps;
+
+        //A step lands on the stack on its next update, so the page it left up is said a frame later
+        private bool _quitReportDue;
+
         /// <summary>
         /// Whether this run has any lever armed - a level to play, a page to open at boot, a staged result, a celebration
         /// (#763). Decided once, from the arguments, since each lever clears itself as it fires: it says "a script is
@@ -217,9 +225,12 @@ namespace BS3D
             _toMenuAt = launch.ToMenuAt;
             _noteAt = launch.NoteAt;
             _noteSteps = launch.NoteSteps;
+            _quitAt = launch.QuitAt;
+            _quitSteps = launch.QuitSteps == null ? null
+                : new Queue<string>(launch.QuitSteps.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 
             Drives = _celebrate || _confetti || _play || _result || _pick != null || _about != null || _extras || _jukebox != null || _settings
-                || _board != null || _highScores != null || _help != null || _scenes || _tour || _toMenuAt != null || _noteAt != null;
+                || _board != null || _highScores != null || _help != null || _scenes || _tour || _toMenuAt != null || _noteAt != null || _quitAt != null;
         }
 
         /// <summary>
@@ -264,6 +275,28 @@ namespace BS3D
                 string steps = _noteSteps;
                 _noteSteps = null;
                 game.ActivateNotePageForTesting(steps);
+            }
+
+            //The Quit confirm page (#826), past the title card and at the script's second, then its steps once it is built
+            if (_quitAt is float quitAt && game.WallClock >= quitAt && !game.IsSplashUp)
+            {
+                _quitAt = null;
+                game.AskQuitForTesting();
+            }
+            else if (_quitAt == null)
+            {
+                if (_quitReportDue)
+                {
+                    _quitReportDue = false;
+                    Console.WriteLine($"[quit] Testing: the page up is {game.ActiveScreenName}");
+                }
+
+                //One a frame, each once the page is up and built; steps after one that left the page wait for good
+                if (_quitSteps is { Count: > 0 } && game.IsQuitConfirmReady)
+                {
+                    game.StepQuitConfirmForTesting(_quitSteps.Dequeue());
+                    _quitReportDue = true;
+                }
             }
 
             //The level picker, over the front end (#273). Held back until the title card has gone, as every page

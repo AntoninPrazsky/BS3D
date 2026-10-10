@@ -58,6 +58,7 @@ namespace BS3D
         private SplashPage _splashPage;
         private MainMenuPage _mainMenuPage;
         private PausePage _pausePage;
+        private QuitConfirmPage _quitConfirmPage;
         private SettingsPage _settingsPage;
         private NicknamePage _nicknamePage;
         private LevelBoardPage _levelBoardPage;
@@ -587,6 +588,7 @@ namespace BS3D
             _splashPage = new SplashPage(this);
             _mainMenuPage = new MainMenuPage(this);
             _pausePage = new PausePage(this);
+            _quitConfirmPage = new QuitConfirmPage(this);
             _settingsPage = new SettingsPage(this);
             _nicknamePage = new NicknamePage(this);
             _levelSelectPage = new LevelSelectPage(this);
@@ -1257,6 +1259,49 @@ namespace BS3D
             OpenPage(_highScoresPage);
         }
         internal void OpenAbout() => OpenPage(_aboutPage);
+
+        /// <summary>
+        /// What the Quit entries do, on the pause page and the main menu (#826): ask first, over the page the player is on.
+        /// The game closes only from the confirm page's own Quit.
+        /// </summary>
+        internal void AskQuit() => OpenPage(_quitConfirmPage);
+
+        /// <summary>
+        /// <c>quitconfirm</c>'s page (#826), over whatever is up - a level being played is paused first, as Escape would, so
+        /// the page stands over the pause the way the pause's own Quit puts it there. Testing only.
+        /// </summary>
+        internal void AskQuitForTesting()
+        {
+            if (_screens.Active is GameplayScreen) PauseGame();
+            AskQuit();
+            Console.WriteLine($"[quit] Testing: the confirm page is up over {(HasSession ? "a session" : "the front end")}");
+        }
+
+        /// <summary>Whether the Quit confirm page is the one up, with its tree built - what <c>quitconfirm=</c>'s steps wait for.</summary>
+        internal bool IsQuitConfirmReady => _screens.Active is QuitConfirmPage { IsBuilt: true };
+
+        /// <summary>
+        /// Runs one of <c>quitconfirm=</c>'s steps (#826) through the handler the page's input runs: <c>back</c> is Escape's
+        /// and the pad's B (<see cref="MenuBack"/>), <c>cancel</c> and <c>quit</c> the two entries' own. One a frame, because
+        /// the stack takes a pop on its next update and a second step in the same frame would still find this page up.
+        /// Testing only.
+        /// </summary>
+        internal void StepQuitConfirmForTesting(string step)
+        {
+            if (_screens.Active is not QuitConfirmPage page) return;
+
+            Console.WriteLine($"[quit] Testing: doing '{step}'");
+            switch (step.ToLowerInvariant())
+            {
+                case "back": MenuBack(); break;
+                case "cancel": page.Cancel(); break;
+                case "quit": page.Quit(); break;
+                default: Console.WriteLine($"[quit] Testing: no step '{step}' (back, cancel, quit)"); break;
+            }
+        }
+
+        /// <summary>The type of the screen up, for a testing lever's log line (#826).</summary>
+        internal string ActiveScreenName => _screens.Active?.GetType().Name ?? "none";
 
         /// <summary>
         /// The first-launch nickname question (#763): put up over the front end, once a run, the first time it is the

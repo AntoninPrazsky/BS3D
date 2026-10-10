@@ -134,7 +134,8 @@ namespace BS3D.Screens
             //the game is built on first (#427).
             column.Widgets.Add(FrontEndEntry("Help", Game.OpenHelp));
             column.Widgets.Add(FrontEndEntry("About", Game.OpenAbout));
-            column.Widgets.Add(FrontEndEntry("Quit", Game.Exit));
+            //Asks first (#826): a player wrote that the game should always ask before it quits
+            column.Widgets.Add(FrontEndEntry("Quit", Game.AskQuit));
 
             //The build's name, bottom-right — after the column, so it is nowhere in the pad's walk (a label is no entry,
             //and this one stays a footnote to it)
