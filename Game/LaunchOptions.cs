@@ -311,6 +311,13 @@ namespace BS3D
         internal float? NoteAt { get; private set; }
         internal string NoteSteps { get; private set; }
 
+        //Testing only: "quitconfirm[=<seconds>[:<steps>]]" (#826) - the Quit confirm page, over the main menu once the title
+        //card has gone, or at that wall-clock second over whatever is up (a level being played is paused first, as Escape
+        //would); then the steps, through the very handlers the page's entries and Escape run: back, cancel, quit. QuitAt is
+        //null when absent, and 0 for the bare flag.
+        internal float? QuitAt { get; private set; }
+        internal string QuitSteps { get; private set; }
+
         //Testing only: the connection check the question makes answers "not connected" (#763), so the no-internet branch
         //can be walked without taking the machine's network down
         internal bool NoInternet { get; private set; }
@@ -593,6 +600,20 @@ namespace BS3D
                     o.NoteSteps = v[(colon + 1)..];
                 }
                 else Console.WriteLine($"[note] Testing: 'note={v}' dropped, expected <seconds>:<steps>");
+            }),
+            //"quitconfirm" (#826): the confirm page is a press away from two pages, and none on a desktop nobody is sitting
+            //at; its steps are how "Escape cancels and only Quit quits" is seen without a key reaching the window
+            Row.Flag("quitconfirm", o => o.QuitAt = 0f),
+            Row.Text("quitconfirm", (o, v) =>
+            {
+                int colon = v.IndexOf(':');
+                string seconds = colon >= 0 ? v[..colon] : v;
+                if (float.TryParse(seconds, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float at) && at >= 0f)
+                {
+                    o.QuitAt = at;
+                    o.QuitSteps = colon >= 0 ? v[(colon + 1)..] : null;
+                }
+                else Console.WriteLine($"[quit] Testing: 'quitconfirm={v}' dropped, expected <seconds>[:<steps>]");
             }),
         ];
 

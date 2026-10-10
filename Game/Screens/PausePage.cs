@@ -65,16 +65,18 @@ namespace BS3D.Screens
 
             //Two entries clear of Resume rather than under it (#383): Resume is the one a player hits without
             //reading, and the entry right below it must not throw the run away. Grouped instead with Main Menu
-            //and Quit below it — all three end the run in progress, where Settings and Scene above do not.
-            //No confirm dialog: nothing on this page has one, Main Menu and Quit sit one click away and are
-            //already more final than this, and building dialog machinery for one button would be new
-            //infrastructure the codebase does not otherwise carry. No key either — WASD belong to the gameplay
-            //screen underneath, the result screen's own Retry sets the precedent of menu-only, and no pause
-            //entry has ever bound a letter.
+            //and Quit below it — the entries that leave the run, where Settings and Scene above do not (Main
+            //Menu keeps the session for Continue; Restart and Quit lose it). Restart asks nothing: the player
+            //asked to start again, and the two entries between it and Resume are its guard. No key either —
+            //WASD belong to the gameplay screen underneath, the result screen's own Retry sets the precedent of
+            //menu-only, and no pause entry has ever bound a letter.
             column.Widgets.Add(MenuButton("Restart", Game.RetryLevel));
 
             column.Widgets.Add(MenuButton("Main Menu", Game.ReturnToMainMenu));
-            column.Widgets.Add(MenuButton("Quit", Game.Exit));
+
+            //Quit asks first (#826, which reverses #383's "no confirm dialog" for this entry alone): a player wrote from
+            //this page that the game should always ask before it quits, and here it throws the run away besides
+            column.Widgets.Add(MenuButton("Quit", Game.AskQuit));
 
             return ScreenRoot(column);
         }
