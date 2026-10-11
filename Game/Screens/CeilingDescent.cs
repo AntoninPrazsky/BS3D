@@ -422,10 +422,25 @@ namespace BS3D.Screens
 
         /// <summary>
         /// Whether there is a <b>pressure</b> step to give back — one the shot count forced and the brake has not
-        /// returned — and the glass hangs below its rest height: what the brake's activation asks, so a charge is never
-        /// spent on a lift that would move nothing, and never on one that would undo a feed step (#213).
+        /// returned — and the glass hangs below its rest height: so a charge is never spent on a lift that would move
+        /// nothing, and never on one that would undo a feed step (#213). Whether the glass is still is
+        /// <see cref="Moving"/>'s, and <see cref="CanBrake"/> asks both.
         /// </summary>
-        public bool CanBrake => _pressureDepth > 0 && TargetY < RestY - BRAKE_REST_TOLERANCE;
+        public bool HasStepToGiveBack => _pressureDepth > 0 && TargetY < RestY - BRAKE_REST_TOLERANCE;
+
+        /// <summary>
+        /// Whether the glass is on its way somewhere: sliding to its target, or with a step queued that has not come down
+        /// yet (the one a shot just owed waits out its hold). While it is, the brake waits (#844).
+        /// </summary>
+        public bool Moving => _sliding || _stepsPending > 0;
+
+        /// <summary>
+        /// What the brake's activation asks: a step to give back (<see cref="HasStepToGiveBack"/>) and the glass <b>still</b>
+        /// (#844, the owner's rule: "it can be used only when the ceiling is not moving"). Pressed mid-slide it used to
+        /// turn the slide round, and pressed during a tall level's pour its lift was taken by the steps still queued, so
+        /// the charge looked spent on nothing. Refused, it keeps the charge and the chip says to wait.
+        /// </summary>
+        public bool CanBrake => HasStepToGiveBack && !Moving;
 
         /// <summary>
         /// <b>The brake (#213): lifts the glass one step back up</b> — <see cref="CEILING_DESCENT_PER_STEP"/> towards

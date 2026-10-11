@@ -201,17 +201,25 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void ABrakePressedMidDescentLiftsTheTargetBackFromWhereTheGlassIsGoing()
+        public void ABrakePressedMidDescentWaitsForTheGlassToStop()
         {
             CeilingDescent glass = Hanging();
             float rest = glass.RestY;
 
-            //Two steps begun and the glass only partway down when the brake is pressed: the target moves back up a
-            //step from where the glass was going, and it arrives there rather than where it started
+            //Two steps begun and the glass only partway down when the brake is pressed: refused, the charge kept (#844,
+            //"only when the ceiling is not moving") — there is a step to give back, the glass is simply not still
             TakeAStep(glass);
             TakeAStep(glass);
             for (int i = 0; i < 30; i++) glass.Slide(PHYSICS_STEP);
 
+            Assert.True(glass.Moving);
+            Assert.True(glass.HasStepToGiveBack);
+            Assert.False(glass.CanBrake);
+            Assert.False(glass.Brake());
+
+            //Once it has stopped, the same press lifts it a step from where it came to rest
+            SlideToArrival(glass);
+            Assert.False(glass.Moving);
             Assert.True(glass.Brake());
             SlideToArrival(glass);
             Assert.Equal(rest - STEP, glass.Y, 4);
@@ -244,7 +252,8 @@ namespace BS3D.Tests
             Assert.False(glass.FlashIsFeed);
             Assert.Equal(CeilingDescent.CEILING_FLASH_COLOR, glass.FlashColor);
 
-            glass.Brake();
+            SlideToArrival(glass);
+            Assert.True(glass.Brake());
 
             Assert.True(glass.FlashIsFeed);
             Assert.Equal(CeilingDescent.CEILING_FEED_COLOR, glass.FlashColor);
@@ -252,20 +261,24 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void TheBrakeLeavesAStepTheLastShotOwesAlone()
+        public void ABrakeWaitsOutAStepTheLastShotOwes()
         {
             CeilingDescent glass = Hanging();
             TakeAStep(glass);
             SlideToArrival(glass);
 
-            //A step the last shot owes, still waiting out its hold
+            //A step the last shot owes, still waiting out its hold: the glass is about to move, so the brake waits (#844)
             glass.QueuePressureStep();
-            Assert.True(glass.Brake());
+            Assert.True(glass.Moving);
+            Assert.False(glass.Brake());
 
-            //It comes down after the lift, as it would have: the brake bought back one step and the owed one is a
-            //different debt, so the glass ends where it was
+            //It comes down; once it has, the brake gives one of the two back
             Assert.True(glass.Update(1f, levelDecided: false, takeoverEngaged: false, out bool feeding, out _));
             Assert.False(feeding);
+            SlideToArrival(glass);
+            Assert.Equal(glass.RestY - 2 * STEP, glass.Y, 4);
+
+            Assert.True(glass.Brake());
             SlideToArrival(glass);
             Assert.Equal(glass.RestY - STEP, glass.Y, 4);
         }
