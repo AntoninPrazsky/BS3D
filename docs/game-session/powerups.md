@@ -25,7 +25,7 @@ Exchanges the muzzle slot with the one behind it: no ball, no budget, no ceiling
 
 **Lifts the glass one `CEILING_DESCENT_PER_STEP` towards `RestY`, never past it: it gives back exactly one step** (`CeilingDescent.Brake`; a lift, not a delay, which would only move the next step). It announces itself like a **feed** step (cold blue-white, soft sound, no rumble): good news.
 
-- ⚠ **It gives back a PRESSURE step, never a feed step, and is refused (charge kept) while there is none** (`CeilingDescent.CanBrake`). A tall level's feed holds the column at its framed height, so undoing one would leave it too high for the rest of the level. The chip is **dimmed, still reading "Brake", while `CanBrake` is false** (#692).
+- ⚠ **It gives back a PRESSURE step, never a feed step, and is refused (charge kept) while there is none** (`CeilingDescent.CanBrake`). A tall level's feed brings the column's underside just into reach (#843), so undoing one would leave it out of reach until the next landing fed it again. **On a tall level it is also refused while the lift would take the underside out of reach** (`BrakeCanLift`, #843): at the reach's edge a lift would be fed straight back down and the charge spent on nothing. One cached answer for the press and the chip, asked again on a landing, a queued or begun step, a brake, a lifted clamp, a load or a resize. The chip is **dimmed, still reading "Brake", while `BrakeCanLift` is false** (#692).
 - ⚠ **`WakeForDescent` wakes every ball**: a shot-apart cluster is several islands and a kinematic plate joins none, so on a tier where balls sleep a column stayed at its old height.
 
 ## Cut (the cutter round)

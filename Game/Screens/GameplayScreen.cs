@@ -442,7 +442,7 @@ namespace BS3D.Screens
         /// decorative: a band cut high in the window orphans the whole visible column beneath it, so the
         /// tallest level in the game could be taken in two or three shots. Held to a band just above the
         /// underside, the column has to be eaten from the bottom and <see cref="FeedTallColumn"/> — which
-        /// keeps that underside at the height the level hung it — is what hands over the next of it. The band
+        /// brings that underside back into the band's reach (#843) — is what hands over the next of it. The band
         /// is the one at the load, held for the attempt (#842): the clamp stops a tall level being cut loose in
         /// its opening shots and does not tighten as the glass comes down.
         /// </para>
@@ -2042,7 +2042,7 @@ namespace BS3D.Screens
                 swapCharges: _run.SwapOffered ? _run.PowerupCharges[(int)PowerupKind.Swap] : -1,
                 brakeCharges: _run.BrakeOffered ? _run.PowerupCharges[(int)PowerupKind.Brake] : -1,
                 cutCharges: _run.CutOffered ? _run.PowerupCharges[(int)PowerupKind.Cut] : -1,
-                brakeOwed: _ceilingDescent.CanBrake, kinds: _magazineKinds, queueFrom: _magazineFrom, queueFade: _magazineFade);
+                brakeOwed: BrakeCanLift, kinds: _magazineKinds, queueFrom: _magazineFrom, queueFade: _magazineFade);
 
             if (previewsOnly) return;
 

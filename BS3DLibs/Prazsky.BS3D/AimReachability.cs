@@ -81,8 +81,8 @@ namespace Prazsky.BS3D
         /// there the column reaches up out of shot and is delivered by the descending glass, so its upper
         /// levels are unreachable <i>now</i> by design and will be at the bottom of the frame by the time
         /// they matter. Asked of the whole of such a field the answer is "unfinishable", which is false —
-        /// the caller passes the top of the window instead, and the question becomes the one worth asking:
-        /// can the gun reach everything that is <i>in play</i>?
+        /// the caller passes the top of the band in play instead (the Game: the working band its clamp holds), and
+        /// the question becomes the one worth asking: can the gun reach everything that is <i>in play</i>?
         /// </param>
         /// <param name="worldOffset">
         /// Where the lattice sits in the world. Zero — the default — is the Testbed's case, where the lattice

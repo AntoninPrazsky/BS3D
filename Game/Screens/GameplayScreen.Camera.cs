@@ -292,6 +292,7 @@ namespace BS3D.Screens
             //only re-angles it for where the gun now stands
             if (!keepStance) HoldTallAimBand();
             _cannon.ElevationLimit = SolveElevationLimit();
+            MarkBrakeReachStale();
 
             //The lens's trail starts behind the gun rather than easing in from where the last level left it
             //(#366) — a placed gun is a placed camera, the same rule Cannon.RestRadius follows for the walk
@@ -327,8 +328,8 @@ namespace BS3D.Screens
             //the aim's headroom, where the level hung it — and against the limit the gun is held to there.
             //Everything above that band is unreachable by design until the descent brings it down into the
             //same height, and asking about it where it hangs returns "unfinishable" for a level that finishes.
-            //Once the clamp has lifted (the column hangs whole in the frame) the level is asked whole, as a
-            //short one is.
+            //Once the clamp has lifted (the column hangs whole in the frame) every level is asked, where it hangs
+            //now, still within the cluster's held reach: the field's empty corners are growth room no shot needs.
             //
             //⚠ BUT ON A TALL FIELD THIS COMPARISON IS AGAINST ITSELF, and this comment claimed otherwise
             //until #527. SolveElevationLimit below returns min(MaxElevation, WorstElevation + margin) off
@@ -340,7 +341,7 @@ namespace BS3D.Screens
             bool banded = FieldIsTallerThanFrame && !_tallAimLifted;
 
             AimReachabilityResult reach = AimReachability.Check(
-                _map, _cannon.OrbitRadius, _cannon.Position.Y, _cannon.ElevationLimit,
+                _map, _cannon.RestRadius, RestTrunnionY, _cannon.ElevationLimit,
                 banded ? _tallAimHeldBandTop : int.MaxValue,
                 banded ? _clusterWorldOffset : AimWorldOffset(),
                 FieldIsTallerThanFrame ? _tallAimHeldHorizontal : float.MaxValue);
@@ -408,12 +409,21 @@ namespace BS3D.Screens
             //WorstElevation is what the steepest cell in the working band needs and does not depend on the
             //clamp it is compared against, so passing the gun's full range here asks "how steep does this
             //level actually get", not "does it fit".
+            //From the gun's REST stance, which a load stands it at and a resize re-solves: a resize keeps the
+            //player's walk, and a clamp solved from wherever they had walked to would reach another height (#842)
             AimReachabilityResult needed = AimReachability.Check(
-                _map, _cannon.OrbitRadius, _cannon.Position.Y, Cannon.MaxElevation,
+                _map, _cannon.RestRadius, RestTrunnionY, Cannon.MaxElevation,
                 _tallAimHeldBandTop, _clusterWorldOffset, _tallAimHeldHorizontal);
 
             return MathF.Min(Cannon.MaxElevation, needed.WorstElevation + TALL_AIM_MARGIN);
         }
+
+        /// <summary>
+        /// Where the barrel pivots with the gun at its rest stance: the island's floor is a dish, so the trunnions'
+        /// height follows the radius (<see cref="CannonRig.TrunnionHeightAt"/>), and the clamp and the feed's reach are
+        /// asked from the rest and not from wherever the player has walked to.
+        /// </summary>
+        private float RestTrunnionY => CannonRig.TrunnionHeightAt(_cannon.RestRadius);
 
         /// <summary>
         /// Takes a tall level's working band as the level hangs at its load — the glass at rest, nothing shot —
@@ -458,6 +468,7 @@ namespace BS3D.Screens
 
             _tallAimLifted = true;
             _cannon.ElevationLimit = SolveElevationLimit();
+            MarkBrakeReachStale();
 
             Console.WriteLine($"[aimlimit] lifted {before * RAD_TO_DEG:F1} -> {_cannon.ElevationLimit * RAD_TO_DEG:F1} deg:"
                 + $" the cluster hangs whole in the frame (glass {_ceilingDescent.RestY - _ceilingDescent.TargetY:F2} below rest,"

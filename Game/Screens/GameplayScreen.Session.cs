@@ -481,6 +481,7 @@ namespace BS3D.Screens
             //step queued or glowing from the last level, and the tall-level feed measured from where this map
             //hangs its underside — see CeilingDescent.Reset.
             _ceilingDescent.Reset(CeilingPlate.CentreYAbove(fieldTopY), _map.GetLowestOccupiedLevel());
+            _feedWatchedLowest = _map.GetLowestOccupiedLevel();
             //Where precise aim converges its crosshair: the middle of the play space in world Y. On a field
             //taller than the camera frames that is the middle of the FRAMED window and not of the field —
             //the lens converging halfway up a forty-level column would be aiming at balls the player cannot
