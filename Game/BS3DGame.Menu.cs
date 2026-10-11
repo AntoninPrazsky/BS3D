@@ -1891,7 +1891,11 @@ namespace BS3D
                 //turned by the shoulders, as the prompts under the page's arrows say. The first press only raises the cursor.
                 if (padSideways && padWalksGrid)
                 {
-                    if (_navIndex < 0) StepNavFocus(1);
+                    if (_navIndex < 0)
+                    {
+                        StepNavFocus(1);
+                        _audioDirector.Rumble.UiStep();
+                    }
                     else if (StepNavToward(sideways, 0)) _audioDirector.Rumble.UiStep();
                 }
                 else if (_screens.Active is MenuPage sidewaysPage && sidewaysPage.PageSideways(sideways))

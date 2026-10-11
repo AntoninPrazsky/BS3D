@@ -153,7 +153,7 @@ namespace BS3D.Screens
 
         //The pip's mark across, in design units (#847): the owner found Inter's ●/○ in FontStars "needlessly huge"
         //(a 64 px ring on a 111 px plate at 3840x1600). A drawn ring keeps its hole at any size, so the two states
-        //stay apart at a fraction of that: 37 px at 3840x1600, 21 px on a 1600x900 window.
+        //stay apart at a fraction of that: 27 px at 3840x1600 (Fit(50) is 37 units there), 21 px on a 1600x900 window.
         private const int PIP_DOT = 50;
 
         //The name and its readout sit in a block of FIXED width, so the arrows stand in the same place on
@@ -1022,16 +1022,16 @@ namespace BS3D.Screens
         #endregion
 
         /// <summary>
-        /// Left or right, wherever it came from: the previous or the next chapter. False on a page with nothing
-        /// to turn between — an unchaptered set, or a set of one chapter — so the menu does not tick as though
-        /// something had moved.
-        /// </summary>
-        /// <summary>
         /// The picker is a grid (#848): the pad's D-pad and stick move the cursor over the tiles, the pips and the arrows
         /// in the direction pressed, and its shoulders turn the chapter; the arrow keys turn it on left and right.
         /// </summary>
         internal override bool PadWalksGrid => true;
 
+        /// <summary>
+        /// Left or right, wherever it came from: the previous or the next chapter. False on a page with nothing
+        /// to turn between — an unchaptered set, or a set of one chapter — so the menu does not tick as though
+        /// something had moved.
+        /// </summary>
         internal override bool PageSideways(int direction)
         {
             if (!_chaptered || _chapterStart.Length <= 1) return false;

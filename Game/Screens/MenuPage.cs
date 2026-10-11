@@ -299,7 +299,14 @@ namespace BS3D.Screens
         /// keyboard is the hand, drawing nothing, so nothing moves when the hand changes; it dims with an arrow that has
         /// nowhere to go. Stacked from the top, so a row aligned to its top keeps the slab level with what stands beside it.
         /// </summary>
-        protected Widget ArrowWithShoulder(Button arrow, string shoulder)
+        protected Widget ArrowWithShoulder(Button arrow, string shoulder) => PageTurnUnder(arrow, shoulder, string.Empty);
+
+        /// <summary>
+        /// A page-turn entry with what turns it drawn under it (#848): <see cref="ArrowWithShoulder"/>'s layout for an entry
+        /// that is a word rather than an arrow — the level boards' Previous and Next, too narrow to carry a shoulder's pill
+        /// beside their word inside them — where the arrow keys repeat nothing and keep their prompt.
+        /// </summary>
+        protected Widget PageTurnUnder(Button entry, string pad, string keys)
         {
             VerticalStackPanel stack = new()
             {
@@ -307,9 +314,9 @@ namespace BS3D.Screens
                 VerticalAlignment = VerticalAlignment.Top,
             };
 
-            stack.Widgets.Add(arrow);
+            stack.Widgets.Add(entry);
 
-            PromptGlyph prompt = PageTurnPrompt(shoulder, string.Empty, arrow);
+            PromptGlyph prompt = PageTurnPrompt(pad, keys, entry);
             prompt.HorizontalAlignment = HorizontalAlignment.Center;
             stack.Widgets.Add(prompt);
 
