@@ -89,6 +89,24 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void TheBoundIsWhatTheClimbStillOwesAndAsksForNothing()
+        {
+            CeilingDescent glass = Hanging();
+
+            //No climb, no bound — the case the session skips its reach search on
+            Assert.Equal(0, glass.FeedHeightOwed(lowest: 0, out float none));
+            Assert.Equal(0f, none);
+
+            //Asking queues nothing, and the bound falls by exactly what a feed then takes
+            Assert.Equal(11, glass.FeedHeightOwed(lowest: 10, out _));
+            Assert.Equal(11, glass.FeedHeightOwed(lowest: 10, out _));
+            Assert.Equal(glass.RestY, glass.QueuedTargetY);
+
+            Assert.Equal(4, glass.Feed(lowest: 10, intoReach: 4, out _, out _));
+            Assert.Equal(7, glass.FeedHeightOwed(lowest: 10, out _));
+        }
+
+        [Fact]
         public void TheQueuedHangNeverPassesTheDeathLine()
         {
             CeilingDescent glass = new();

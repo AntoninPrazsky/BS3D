@@ -32,7 +32,8 @@ namespace BS3D.Screens
         /// Lifts the ceiling's glass one step back up (#213, the second of its order after Swap): the only thing the
         /// player can do about the game's one pressure, so it returns time the ceiling took rather than adding a ball.
         /// Not spent, and refused with the gun's dry "no", while the glass is still where the level hung it (there is
-        /// no step to give back), and never lifts it past that height. See <see cref="CeilingDescent.Brake"/>.
+        /// no step to give back) or, on a tall level, while the lift would take the column's underside out of reach
+        /// (#843, <c>GameplayScreen.BrakeCanLift</c>), and never lifts it past that height. See <see cref="CeilingDescent.Brake"/>.
         /// </summary>
         Brake = 2,
 
@@ -225,8 +226,9 @@ namespace BS3D.Screens
 
         /// <summary>
         /// The press of the brake key (or the pad's Y) (#213): lifts the glass a step when it can, and says no when this level
-        /// offers a brake and it cannot fire — spent, or with the glass still at rest (nothing to give back, and the charge is
-        /// kept). Silent on a level that offers none.
+        /// offers a brake and it cannot fire — spent, with the glass still at rest (nothing to give back), or on a tall level
+        /// with the lift taking the underside out of reach (#843); the charge is kept in both of the last two. Silent on a level
+        /// that offers none.
         /// </summary>
         private void PressBrake()
         {
