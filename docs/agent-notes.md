@@ -468,3 +468,10 @@ Pravidla:
 - ⚠ PromptFont: LB/RB jsou U+2B98/2B99 (U+2198/2199 z HUD je poloviční a u záložek se ztrácí); jedna šipková klávesa jako klávesa neexistuje.
 - Otevřené: přepnutí ruky na skutečném vstupu (chce fokus okna), stránka tabulek levelu (otevře se jen online), pad v rukou majitele.
 - ⚠ Review po merge (#799) našla dvě díry, opraveno: první level po spuštění přepsal ruku padu na myš (ukazatel před prvním vystředěním se bral jako pohyb, teď až po `_mouseAim.Initialized`); Escape a B/Start v jednom snímku vrátily o dvě obrazovky (navigace snímek vynechá, když Escape odešel). Obojí potřebuje fokus okna, během hry neověřeno.
+
+## 2026-10-11 — #839 dokumentační dieta hotová — desktop (RDT-PC), Claude Code (bs3d-5a, bs3d-68)
+- Sedm velkých dokumentů je index + `docs/<oblast>/*.md` (merge testbed fdee8dbd, rendering 8cef1117, game-session f190d933, formats-and-tools 31cc931d, scenes ede53a0d, game-feedback 3c00b33c, game-shell 612fc476). `docs/` mají 475k → 156k slov, deník 277k → 46k (ad7af939). Index mapuje každý starý nadpis na soubor, takže citace v kódu dál platí. Plné znění je v gitu (`git show ad7af939:docs/<oblast>.md`, u game-shell/-feedback `f1183681`).
+- `CLAUDE.md`: číst index a jen dotčené pod-dokumenty; dokument říká, co platí teď, historie patří do issue a commitu. SemanticSearch a DocDrift čtou `docs/` rekurzivně.
+- ⚠ 11–13 souběžných agentů vyčerpalo limit sezení dvakrát; nejvýš 3 najednou a pevný strop slov předem.
+- Otevřené: scenes, game-feedback a game-shell mají ~36 % původní délky (ostatní 22–28 %); další utažení je možné, ale úkol čte jen 2–6 tisíc slov.
+
