@@ -200,9 +200,9 @@ namespace BS3D.Screens
 
             _previousArrow = Arrow('◀', -1, out _previousGlyph);
 
-            //What turns the chapter, outside the arrows (#799), dimmed with an arrow that has nowhere to go
-            row.Widgets.Add(PageTurnPrompt(PromptGlyph.PAD_LB, PromptGlyph.KEY_LEFT, _previousArrow));
-            row.Widgets.Add(_previousArrow);
+            //What turns the chapter, under the arrows (#799, #848): the pad's shoulders, dimmed with an arrow that has nowhere
+            //to go, and nothing for the keyboard (an arrow key beside an arrow only repeated it)
+            row.Widgets.Add(ArrowWithShoulder(_previousArrow, PromptGlyph.PAD_LB));
 
             _chapterName = new Label
             {
@@ -214,13 +214,13 @@ namespace BS3D.Screens
 
             //The name centred in a block of fixed width, so the arrows stand still between "THE MEADOW" and "THE SPECTRUM" -
             //a label given a width of its own draws its text from the left, so the width is the block's
-            Panel name = new() { Width = Scaled(CHAPTER_NAME_WIDTH), VerticalAlignment = VerticalAlignment.Center };
+            //Level with the arrows' slabs, the shoulders hanging under them (ArrowWithShoulder stacks from the top)
+            Panel name = new() { Width = Scaled(CHAPTER_NAME_WIDTH), Height = Scaled(ARROW_SIZE), VerticalAlignment = VerticalAlignment.Top };
             name.Widgets.Add(_chapterName);
             row.Widgets.Add(name);
 
             _nextArrow = Arrow('▶', 1, out _nextGlyph);
-            row.Widgets.Add(_nextArrow);
-            row.Widgets.Add(PageTurnPrompt(PromptGlyph.PAD_RB, PromptGlyph.KEY_RIGHT, _nextArrow));
+            row.Widgets.Add(ArrowWithShoulder(_nextArrow, PromptGlyph.PAD_RB));
             return row;
         }
 
