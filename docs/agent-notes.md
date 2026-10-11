@@ -475,3 +475,10 @@ Pravidla:
 - ⚠ 11–13 souběžných agentů vyčerpalo limit sezení dvakrát; nejvýš 3 najednou a pevný strop slov předem.
 - Otevřené: scenes, game-feedback a game-shell mají ~36 % původní délky (ostatní 22–28 %); další utažení je možné, ale úkol čte jen 2–6 tisíc slov.
 
+
+## 2026-10-11 — #842 #843 limit míření a krmení vysokých levelů — desktop (RDT-PC), Claude Code (bs3d-b1)
+- majitel: limit míření nahoru platí na vysokém levelu stejný od začátku a zmizí, jakmile mapa klesne dost nízko; modré krmení jen na dostřel, nízko smí strop jen červeně. Založeno z jeho hraní #840–#848.
+- #842 (merge 2ab13c59): pásmo se drží z načtení, kroky limit nepřepočítávají; na 80° se zvedne, jakmile celý cluster visí v záběru (Plume na 3. kroku).
+- #843 (merge a4ed6ac1, opravy z review 03d199be): krmení jen do dosahu (dvoubarevný Totem: pás 6 úrovní 0 kroků místo 7, 12 úrovní 6 místo 14); Brake na vysokém levelu odmítnut, když by zdvih vynesl spodek z dosahu (`BrakeCanLift`).
+- ⚠ Rozptýlené skriptované střely spodek vysokého levelu nikdy neuvolní; krmení vyvolá jen kopie levelu s jednobarevným spodním pásem (`levelfile=`).
+- Otevřené: obojí verdict-hands; #844 staví na `BrakeCanLift`.
