@@ -1,0 +1,33 @@
+# Physics in the game
+
+Part of [The game: a session](../game-session.md).
+
+The simulation is the Testbed's, ported: `Prazsky.BS3D.Physics` already implements the match rule (`ReleaseSameTypeCluster`, `MINIMUM_CLUSTER_SIZE`) and the release of everything left unanchored, with the contact material in one copy.
+
+## The timestep and the frame
+
+- **The Game does not step like the Testbed.** The Testbed takes one `Timestep(min(frameTime, 1/60))` a frame (slow motion under 60 FPS, a varying dt). The Game accumulates frame time and spends whole steps of `PHYSICS_TIMESTEP` (`PhysicsWorld.FIXED_TIMESTEP`, 1/120 s, also what the preview's curved solver integrates at), capped at `PHYSICS_MAX_STEPS_PER_FRAME` so a hitch drops the remainder. `IsFixedTimeStep = false`; the rate is held by `Platform/FrameLimiter.cs` (not vsync, #270), which the fixed step makes safe.
+- **The drawn frame interpolates between steps** (#293, `_renderAlpha`); nothing reads drawn positions for decisions, and a placed body resets its history so no blend straddles a teleport.
+- **The frame waits for the compositor at its END, with its work flushed to the GPU (#634)**: `BS3DGame.PaceFrame` flushes (`GpuFlush`, through MonoGame's private `_d3dContext`; D3D11 otherwise holds commands until Present) and waits at the end of `Draw`. With the wait at the top of `Update`, DWM discarded finished frames. **Judder is motion and no capture shows it**: use the `[pace]` line `logfps` writes beside `[fps]`, and PresentMon.
+- **The simulation does not stop when the level does (#241).** `ResultPage` answers `UpdatesUnderlying` true, the only page over a session that does (an ending is the arena carrying on; a pause is a game put down). `UpdateUnderResult` runs the simulation and the gun's answer to the last shot (`StepGunHardware`) and **nothing else**: no input, aim, preview, descent, ending or **camera** (two writers of one pose is one losing). ⚠ **Leaving the rules out of that method does not hold them**: contacts are processed inside the step, so a shot in the air still lands into `OnBallLanded`; `LevelOver` holds each door (silent stick, no score, no miss).
+
+## Frames and the hanging cluster
+
+- **The frame question.** The lattice and world frames differ by `_clusterWorldOffset`; the simulation lives in **world**, and only the positions `BuildBallsStructure` reads from the `BallsMap` are lattice-framed. So its `worldOffset` applies to the body positions **and nothing else** (`ConnectBalls`' anchors are differences, `ConnectBallToCeiling` reads only X and Z). ⚠ Applied twice, the structure tears apart on the first step; forgotten on the ceiling body, every ball is yanked five units into the glass.
+- **The cluster does not settle on its lattice**: the ceiling `BallSocket` anchors a ball's top to the plate's bottom face, so the top level rests a unit below the plate's centre, stretched, decaying down (`CeilingPlate.CLEARANCE`, `BallsConstraintsBuilder.CeilingRestY`), and **the plate walks down over a level while the lattice stays put**. ⚠ **Nothing may derive a world position from `cell + _clusterWorldOffset`**: use `ShotPlacement.CellWorldPosition` with the measured drift ([The shot, the landing and the landing preview](landing-and-preview.md)); anything asking where balls are reads the bodies (`ClusterCollector`, the death-line walk).
+- **`BallContactEventHandler` is one copy** in `Prazsky.BS3D.Physics` (#68). Bepu runs contact callbacks on worker threads inside `Timestep`, so `OnTouching` only enqueues and everything touching the simulation, map or listener set happens in `ProcessQueuedContacts` on the main thread. ⚠ **`Timestep` -> `Flush()` -> `ProcessQueuedContacts()` is mandatory, per step** (a listener is only safely unregistered once the per-worker adds are applied); it is `PhysicsWorld.Step`'s own order. It listens on `OnTouching`, not every `OnContactAdded`, and every field on it is `readonly` (both callers rebuild one per field). A manifold offset is relative to the pair's **first** collidable.
+- **A landed ball's body is PUT in its cell** (#265): the ceiling socket anchors the ball's own **north pole**, a pair with **two solutions** (hanging under the anchor, or inverted on top of it), and a ball dragged in from above settled into the wrong one when it had few neighbours, was stable, and **went to sleep there** 1.16 units above its cell. The surface-anchored socket also turns the correction into a **torque** nothing damps. Placing the body first makes the constraint error zero; velocities are zeroed on attach.
+- **The shot's collidable is swept** (`SPECULATIVE_MARGIN` plus `ContinuousDetection.Continuous`). A bare `TypedIndex` is `Passive`: an unbounded speculative margin that stops tunnelling but not landing (the early contact's normal is wrong and the manifold never reaches `depth >= 0`, the gate `OnTouching` fires on); on Static it gave **0 attaches**. It is geometry-specific (One attached either way), so a rig that plays only the opening level sees nothing.
+- **What is drawn is the simulation** (`ClusterCollector.Collect` takes each ball's matrix from its body pose, orientation included); each ball is visited exactly once a frame ("The hardware shared with the Game" in `docs/testbed.md`).
+
+## Culling
+
+**Falling below `KILL_PLANE_Y` is the only thing that removes a ball** (the Testbed also culls sleeping balls). ⚠ **`_shotBalls` holds shot *bodies*, not shots in flight** (#66): a ball resting on the stone stays in it for the session, so a loss gated on `_shotBalls.Count == 0` could never fire. Ask `AnyShotUndecided`: the **contact-listener flag** (a ball stops listening exactly when its shot resolves) plus `Awake` (a ball resting on another loose shot touched nothing static).
+
+## Wind (#95)
+
+The air moves the cluster **at High and up, and small**: `QualityPreset.ClusterWind` is a tier's to give up because keeping the cluster awake costs CPU (975 balls: 10.1 ms against 0.83 asleep).
+
+- **`WindField`**: a fixed heading and a gusting strength. **It has to vary**: a constant push is absorbed by the sockets, which lean and stay leant. `PhysicsWorld.Wind` joins gravity in the integrator's per-step broadcast. **`SceneWind`** (`Game/SceneWind.cs`) gives each scene a strength and heading, **none** in space, Moon, Mars, cavern, dream and Grid; `wind=<scale>` multiplies it.
+- ⚠ **A sleeping island is not integrated**, so `PhysicsWorld.KeepClusterAwake` sets every ball's sleep threshold negative at the build (waking one ball wakes only its own island).
+- The strengths are small (sway is the *level's* answer more than the wind's) and the sag gate is undisturbed. Shots do not integrate wind.

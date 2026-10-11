@@ -1,0 +1,27 @@
+# Online scores: what is sent and how it survives
+
+Part of [The game: a session](../game-session.md).
+
+Every cleared level goes to the online score service **off the frame** and survives the service being away (contract v1: #542). Client `Game/Online/OnlineScores.cs`, identity `OnlineIdentity.cs`, the host's seam `OnlineSession.cs` (`Game.Online`). What the player sees: [Boards and High Scores](online-boards-ui.md).
+
+## What is sent
+
+- **One call at the funnel both endings pass**, beside `RecordLevelResult` (`OnlineSession.SubmitEnding`; `LevelResult.Submitted` says whether anything went). **Every clear, not only a new best**: the month's board ranks the best clear *in that month*. A level on no board (the fallback) sends nothing.
+- **Shots and seconds are frozen at the clear and at the loss** (`LevelRun.EndShots`/`EndSeconds`): shots fired into the cleared beat cleared nothing; pauses, an unfocused window and the cinematic's slow motion are not play time.
+- **A loss goes too, as an unfinished attempt (#716), marked by zero stars** (a clear always earns one). The owner's rules, applied by the service: every clear outranks every attempt; an unfinished row shows only for a player with no clear on that board; **a loss is sent only when its score beats the best attempt already sent** (kept with the identity in `Online.json`, `OnlineIdentity.Attempts`, never in the save, so "Remove scores" starts clean); a loss on a level the save has cleared is not sent. The privacy sentence on Settings and About says so.
+- **Whether and where it submits is decided once at start** and printed as one `[online]` line (`On: submitting to ...` / `Off: ...`; read it first on any "plate is gone" report). Needs `online` in `Settings.json` (off unless turned on), an identity in `Online.json` and a server: `Settings.json`'s `server`, else `OnlineScores.DefaultServer`, **but only for a build that came out of a release** (`release.yml` passes `-p:BS3DReleaseVersion=<tag>`), so a developer's runs never reach the public boards. Only `https://`, or `http://` to this machine (the token would cross the network in the clear).
+
+## The outbox and what an answer means
+
+- **Every submission is written to `Outbox.json` before it is sent** and leaves only when the service has answered for it; it drains in order from its head, **stopping at the first with no answer**, at start and after each clear only (no retry timer). Capped at 200. The service's idempotence on `submissionId` makes a resend harmless.
+- **A 2xx with the service's JSON is delivered. A 408, 429, 5xx, timeout (5 s) or no network keeps the clear. Any other 4xx carrying the service's JSON reason is final**: dropped, logged `REFUSED` (resending would block every clear behind it; a 422 means game and service disagree about a level).
+- ⚠ **An answer that is not the service's is no answer, whatever its status**: a captive portal answers 200 with a login page, and **a 4xx without `{"reason": ...}` is not a refusal (#691)** (a stale resolver sent the domain to a web host whose bare 404s dropped seven clears the service never refused). The same check stops a stranger's 404 to a removal counting as "removed", which deleted the identity, the one proof the scores are the player's.
+- ⚠ **`localhost` costs two seconds on Windows when the server listens on IPv4 only** (`::1` is tried first): name a stand-in `http://127.0.0.1:<port>`.
+
+## The worker
+
+- **Nothing runs on the frame.** One worker task owns the outbox, its file and the `HttpClient`; the frame hands work over a queue and takes answers back once a frame in `OnlineSession.Update`, allocating nothing when idle. `OnlineSession.Result` is **null while the answer is on its way and from the moment a new clear is submitted**, so a page never shows the previous level's ranks.
+- **It survives what it did not foresee (#572)**: every request catches whatever it throws as no answer (a bad `charset` once ended the worker while clears queued in memory nothing wrote); a worker that still ends is **replaced once a session**; clears go to disk at the top of every drain step, and **whatever ended the worker, it writes the clears it held as it ends** (`Dispose` waits `OnlineScores.DisposeWait`). A submission goes under the name **as it stands when sent**.
+- **Nothing the service sends reaches the frame unshaped (#572)**: `SanitizeBoard`/`SanitizeAnswer`/`SanitizeSummary` null-proof lists, clamp ranks and stars, strip control and RTL-override characters and cut names. The player's **own** normalized name is written back only if `Nickname.TryNormalize` accepts it as is (Anton draws no Cyrillic). A response over `MaxResponseBytes` fails the request.
+- **The player's own requests use the same worker (#548)**: only an `Enabled` client (identity, server and the switch) submits or drains; one that merely `CanReachServer` carries a **rename** (`PUT /v1/players/{id}`) and a **removal** (`DELETE`, handled before anything queued so a clear cannot put the name back; the outbox goes only on a 2xx or the service's own 404). **A settings change replaces the client**, the new one waiting for the old worker, so two are never on the file.
+- Testing: `userdata=<dir>` on every run ([Controls, launch arguments and driving the Game](controls-and-testing.md)); `Tools/score-standin.py <port> <post-delay> [board-delay]` is a loopback stand-in.
