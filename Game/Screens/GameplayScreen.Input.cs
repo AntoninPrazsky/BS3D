@@ -569,7 +569,11 @@ namespace BS3D.Screens
             //
             //QUEUED rather than started, because the shot has not landed yet and the descent must not collide
             //with what it is about to do — see CeilingDescent.Update.
-            if (_run.Score.StepCeilingThisShot()) _ceilingDescent.QueuePressureStep();
+            if (_run.Score.StepCeilingThisShot())
+            {
+                _ceilingDescent.QueuePressureStep();
+                MarkBrakeReachStale();
+            }
 
             //The shot's launch smear. Only the ball's authored tint goes over: decoding it to linear, lifting
             //its peak off the floor so even the black ball leaves a mark and boosting it to a glowing radiance

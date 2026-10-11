@@ -1,6 +1,7 @@
 using BepuPhysics.Collidables;
 using BepuPhysics;
 using Microsoft.Xna.Framework;
+using Prazsky.BS3D;
 using Prazsky.BS3D.Physics;
 using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
@@ -134,6 +135,7 @@ namespace BS3D.Screens
 
             //And a tall level's aim clamp, held since the load, lets go once the column hangs whole in the frame (#842)
             LiftTallAimOnceFramed();
+            MarkBrakeReachStale();
         }
 
         /// <summary>
@@ -157,6 +159,8 @@ namespace BS3D.Screens
 
             Console.WriteLine($"[ceiling] Brake to {_ceilingDescent.TargetY:F2} (rest {_ceilingDescent.RestY:F2}"
                 + $", death line {CEILING_DEATH_Y:F2}), {_run.PowerupCharges[(int)PowerupKind.Brake]} left");
+
+            MarkBrakeReachStale();
         }
 
         /// <summary>
@@ -168,15 +172,23 @@ namespace BS3D.Screens
         /// takes is not a function of how many shots were fired. One good ball into a band can cut fifty
         /// loose and lift the underside four levels in an instant; a fixed cadence then leaves the player
         /// staring at a ceiling of empty lattice with the next band still overhead, and the level stalls.
-        /// So the feed answers the <i>state</i>: however far the underside has climbed since the level was
-        /// authored, the glass owes that many descents, and it is asked for them the moment it happens.
+        /// So the feed answers the <i>state</i>: once the underside has climbed out of the gun's reach, the glass
+        /// owes the descents that bring it back <b>into reach</b> (<see cref="StepsIntoReach"/>), and it is asked
+        /// for them the moment it happens.
+        /// </para>
+        /// <para>
+        /// <b>Into reach and no further (#843, the owner's rule).</b> Until then it owed as many descents as the
+        /// underside had climbed since the level was authored, so it walked the column all the way back to the
+        /// height it opened at — 193 blue steps against 15 red over The Spectrum in the owner's run, the feed and
+        /// not the shot count bringing a tall level's glass low. A feed exists so the player can shoot something
+        /// at all; only the pressure may bring the glass very low.
         /// </para>
         /// <para>
         /// It only ever adds descents. The shot-driven <c>ceilingStep</c> still runs underneath it and is
         /// still the pressure — the feed cannot relieve it, cannot raise the glass (only the player's brake does, #213, and never
         /// past where the level hung it), and cannot push the
-        /// cluster past the death line either: it brings the underside back to a height the level started
-        /// at and stops, so what it hands the player is the same clearance they opened with.
+        /// cluster past the death line either: it brings the underside back into reach and stops, never lower than
+        /// the height the level started at, so what it hands the player is never less clearance than they opened with.
         /// </para>
         /// <para>
         /// The steps are <b>queued</b> rather than taken (<see cref="CeilingDescent.Feed"/>), so a cascade that
@@ -188,6 +200,9 @@ namespace BS3D.Screens
         {
             if (!FieldIsTallerThanFrame || _map == null) return;
 
+            //The cluster has just changed, and with it what a brake's lift would leave in reach
+            MarkBrakeReachStale();
+
             //An empty map answers GetLowestOccupiedLevel with the field's TOP level — "the layout hangs
             //nowhere" — which reads here as the underside having climbed the whole field and queues a descent
             //for every level of it. Measured: 20 steps on the frame the column was cleared. There is nothing
@@ -195,15 +210,113 @@ namespace BS3D.Screens
             if (_map.GetBallsCount() == 0) return;
 
             byte lowest = _map.GetLowestOccupiedLevel();
-            int owed = _ceilingDescent.Feed(lowest, out float risen);
+            int owed = _ceilingDescent.Feed(lowest, StepsIntoReach(lowest), out float risen, out int heightOwed);
 
-            if (owed <= 0) return;
+            //A rare-event line like the rest of the [ceiling] family: it fires when a band goes, not per frame, and
+            //it is the one figure that says whether the feed is keeping up with the player — and, beside it, how
+            //many the climb alone would have asked for before #843. Printed too when the underside has just climbed
+            //and stayed in reach, so a band that went WITHOUT a feed is as visible as one that brought one
+            bool climbed = lowest > _feedWatchedLowest;
+            _feedWatchedLowest = lowest;
 
-            //A rare-event line like the rest of the [ceiling] family: it fires when a band goes, not per
-            //frame, and it is the one figure that says whether the feed is keeping up with the player.
-            Console.WriteLine($"[ceiling] feeding {owed} step(s): the underside has climbed to level {lowest}, "
-                + $"{risen:F1} above where the level hung it");
+            if (owed <= 0 && !(climbed && heightOwed > 0)) return;
+
+            Console.WriteLine($"[ceiling] feeding {owed} step(s) into reach: the underside has climbed to level {lowest}, "
+                + $"{risen:F1} above where the level hung it ({heightOwed} would have taken it back there)");
         }
+
+        //The underside's level at the last landing the feed was asked about: what tells a landing that lifted the
+        //underside from one that did not, for the log line above. Taken at the load (FitFieldToMap).
+        private byte _feedWatchedLowest;
+
+        /// <summary>
+        /// How many descents bring a tall column's underside, at <paramref name="lowest"/>, within the gun's reach
+        /// (#843): the fewest steps, counted from where the glass will hang once every queued step has come down
+        /// (<see cref="CeilingDescent.QueuedTargetY"/>), after which every cell of the underside's level is a shot
+        /// the gun can take facing it under its clamp — zero when it already is.
+        /// <para>
+        /// The same question in the same arithmetic the clamp was solved with (<see cref="AimReachability"/>, the
+        /// gun at its rest stance, the cluster's horizontal reach held at the load), so the feed and the clamp
+        /// cannot disagree about what "in reach" means: a feed that stopped a hair short of what the clamp allows
+        /// would leave the underside one degree out of reach for good. The whole level and not one ball, because
+        /// the gun orbits and the facing shot is the steepest one; asked of a level, the player can take the
+        /// underside from wherever the gun stands.
+        /// </para>
+        /// <para>
+        /// On every landing of a tall level, never per frame; the first step asked about passes on almost every
+        /// landing, and the walk is bounded by the glass reaching the death line.
+        /// </para>
+        /// </summary>
+        private int StepsIntoReach(byte lowest)
+        {
+            float hangY = QueuedHangY;
+
+            //No further than the glass can go: past the death line BeginStep takes nothing, so a step asked for there
+            //would only be a log line
+            int most = Math.Max(0, (int)MathF.Ceiling(
+                (_ceilingDescent.QueuedTargetY - CEILING_DEATH_Y) / CeilingDescent.CEILING_DESCENT_PER_STEP));
+
+            for (int steps = 0; steps < most; steps++)
+                if (UndersideInReachAt(lowest, hangY - steps * CeilingDescent.CEILING_DESCENT_PER_STEP))
+                    return steps;
+
+            return most;
+        }
+
+        /// <summary>
+        /// Where level 0 of the lattice will hang once every step already queued has come down: the cluster's load-time
+        /// offset lowered by <see cref="CeilingDescent.QueuedTargetY"/>'s descent below rest.
+        /// </summary>
+        private float QueuedHangY => _clusterWorldOffset.Y - (_ceilingDescent.RestY - _ceilingDescent.QueuedTargetY);
+
+        /// <summary>
+        /// Whether every cell of a tall column's underside level, with level 0 of the lattice hung at
+        /// <paramref name="hangY"/>, is a facing shot the gun can take under its clamp — <see cref="StepsIntoReach"/>'s one
+        /// question, asked from the gun's rest stance and within the cluster's horizontal reach held at the load (#843).
+        /// </summary>
+        private bool UndersideInReachAt(byte lowest, float hangY) =>
+            AimReachability.Check(_map, _cannon.RestRadius, RestTrunnionY, _cannon.ElevationLimit, lowest,
+                new Vector3(_clusterWorldOffset.X, hangY, _clusterWorldOffset.Z), _tallAimHeldHorizontal).Pass;
+
+        //Whether a brake's lift would still leave a tall column's underside in reach (#843), and whether that answer has
+        //to be asked again. Read every frame by the HUD's chip and on every press; asked again only when something it
+        //depends on moves (MarkBrakeReachStale's callers), so the frame pays for one reachability walk per event
+        private bool _brakeKeepsReach = true;
+        private bool _brakeReachStale = true;
+
+        /// <summary>
+        /// Whether the brake has a step to give back <b>and</b>, on a tall level, giving it back leaves the column's
+        /// underside in reach (#843) — what the press asks and what the chip shows, one answer for both.
+        /// <para>
+        /// The second half exists because the feed stops the underside just inside the gun's reach. A pressure step
+        /// lowers it past that edge, and the brake may give that back; but once the underside sits at the edge, a lift
+        /// takes it out of reach, and the next landing's feed brings it straight back down — the glass rising blue and
+        /// falling blue, and the charge spent on nothing. Refused instead, the charge is kept, as for any brake with
+        /// nothing to give.
+        /// </para>
+        /// </summary>
+        private bool BrakeCanLift => _ceilingDescent.CanBrake && BrakeKeepsReach();
+
+        /// <summary>The cached half of <see cref="BrakeCanLift"/>; see there.</summary>
+        private bool BrakeKeepsReach()
+        {
+            if (!_brakeReachStale) return _brakeKeepsReach;
+            _brakeReachStale = false;
+
+            if (!FieldIsTallerThanFrame || _map == null || _map.GetBallsCount() == 0) return _brakeKeepsReach = true;
+
+            //The lift the brake would make (CeilingDescent.Brake: one step, never past the rest), carried onto where the
+            //glass will hang once the steps still queued have come down, which the brake does not cancel
+            float lift = MathF.Min(CeilingDescent.CEILING_DESCENT_PER_STEP, _ceilingDescent.RestY - _ceilingDescent.TargetY);
+
+            return _brakeKeepsReach = UndersideInReachAt(_map.GetLowestOccupiedLevel(), QueuedHangY + lift);
+        }
+
+        /// <summary>
+        /// Says <see cref="BrakeKeepsReach"/> has to be asked again: a landing (the underside moved), a step queued or
+        /// begun, a brake, a lifted clamp, a load or a resize.
+        /// </summary>
+        private void MarkBrakeReachStale() => _brakeReachStale = true;
 
         /// <summary>
         /// Slides the ceiling body by one physics step's worth of <see cref="CeilingDescent.Slide"/> and refreshes

@@ -856,7 +856,8 @@ namespace BS3D.Screens
         /// brake chip, drawn on the row above the Swap's.</param>
         /// <param name="cutCharges">The level's Cut charges left (#213), or −1 for a level that offers none — the anchor cut's
         /// chip, drawn on the row above the Brake's.</param>
-        /// <param name="brakeOwed">Whether the brake would act now: a pressure step to give back (#692). False dims a Brake
+        /// <param name="brakeOwed">Whether the brake would act now: a pressure step to give back (#692), and on a tall level
+        /// one whose lift leaves the column in reach (#843). False dims a Brake
         /// chip that still has its charge, because a press would be refused.</param>
         /// <param name="kinds">What kind each loaded round is, slot 0 first, beside <paramref name="queue"/>: a special one
         /// (the wildcard, the Cutter) turns a burst of rays behind its disc (#820). Empty draws none.</param>

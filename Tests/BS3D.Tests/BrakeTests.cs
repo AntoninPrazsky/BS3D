@@ -179,9 +179,9 @@ namespace BS3D.Tests
         {
             CeilingDescent glass = Hanging();
 
-            //A tall level's feed lowers the glass to keep the column where the level was authored for it; five levels
-            //of the underside cleared (3.5 units) owe five whole steps, and they come down one at a time
-            Assert.Equal(5, glass.Feed(lowest: 5, out _));
+            //A tall level's feed lowers the glass to bring the column back into reach; five levels of the underside
+            //cleared (3.5 units) owe at most five whole steps, here all of them, and they come down one at a time
+            Assert.Equal(5, glass.Feed(lowest: 5, intoReach: int.MaxValue, out _, out _));
             for (int i = 0; i < 5; i++) Assert.True(glass.Update(1f, false, false, out bool feeding, out _) && feeding);
             SlideToArrival(glass);
             Assert.True(glass.TargetY < glass.RestY);

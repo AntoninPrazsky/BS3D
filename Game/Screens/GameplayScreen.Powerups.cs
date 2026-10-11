@@ -145,7 +145,7 @@ namespace BS3D.Screens
         internal bool CanActivate(PowerupKind kind) =>
             kind != PowerupKind.None && _run.PowerupCharges[(int)kind] > 0 && !CameraTakeoverEngaged && !LevelDecided
             //A brake has to have a step to give back: pressed with the glass at rest it is refused and keeps its charge (#213)
-            && (kind != PowerupKind.Brake || _ceilingDescent.CanBrake)
+            && (kind != PowerupKind.Brake || BrakeCanLift)
             //A cut needs an ordinary round in the bore to turn: never one that already is a cutter, and not a wildcard (#213)
             && (kind != PowerupKind.Cut || (_magazine.Slot(0).Kind == BallKind.Normal && !_run.Score.OutOfShots));
 

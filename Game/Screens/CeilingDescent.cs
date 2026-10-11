@@ -140,8 +140,9 @@ namespace BS3D.Screens
         private bool _sliding;
 
         /// <summary>
-        /// The lowest occupied level the tall level was authored with — the height its underside is <b>fed
-        /// back down to</b> as the player clears it. See <see cref="Feed"/>.
+        /// The lowest occupied level the tall level was authored with — the lowest its underside is ever <b>fed
+        /// back down to</b> as the player clears it; the feed stops sooner, once the underside is in reach (#843).
+        /// See <see cref="Feed"/>.
         /// </summary>
         private byte _feedFloorLevel;
 
@@ -159,9 +160,9 @@ namespace BS3D.Screens
         /// <summary>
         /// How many of the steps taken so far were the <b>pressure's</b> (the shot count's) and have not been given back
         /// by the brake (#213). What <see cref="CanBrake"/> reads: the brake returns time the ceiling took as a
-        /// punishment, and never a feed step — a tall level's feed lowers the glass to keep the column at the height
-        /// the level was authored for, and a lift that undid one would leave the column higher than the level was ever
-        /// framed for (the feed counts the grid and would never owe it again).
+        /// punishment, and never a feed step — a tall level's feed lowers the glass to bring the column's underside
+        /// into reach (#843), and a lift that undid one would leave it out of reach with the climb's count already
+        /// spent (the feed's bound counts the grid and would never owe that step again).
         /// </summary>
         private int _pressureDepth;
 
@@ -210,23 +211,45 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// Queues however many descents a tall column's underside, now at <paramref name="lowest"/>, is owed —
-        /// the arithmetic of <c>GameplayScreen.FeedTallColumn</c>, which says why the feed exists and when it is
-        /// asked.
+        /// Where the glass will hang once every step already queued has come down — <see cref="TargetY"/> lowered by
+        /// the steps still waiting, and never past the death line, as <see cref="BeginStep"/> never takes it. What a
+        /// tall level's feed measures the column's reach from (#843), so a landing that comes while a pour is still
+        /// coming down does not ask again for the steps already on their way.
+        /// </summary>
+        public float QueuedTargetY => MathF.Max(DEATH_Y, TargetY - _stepsPending * CEILING_DESCENT_PER_STEP);
+
+        /// <summary>
+        /// Queues the descents a tall column's underside, now at <paramref name="lowest"/>, is owed: as many as
+        /// bring it back <b>into reach</b> (<paramref name="intoReach"/>, the caller's geometry, #843) and never more
+        /// than bring it back to where the level hung it. The arithmetic of <c>GameplayScreen.FeedTallColumn</c>,
+        /// which says why the feed exists and when it is asked.
         /// </summary>
         /// <param name="lowest">The cluster's lowest occupied level right now.</param>
+        /// <param name="intoReach">
+        /// How many steps, counted from <see cref="QueuedTargetY"/>, bring the underside within the gun's reach — zero
+        /// when it already is. The owner's rule (#843): a feed exists so the player can shoot anything at all, and
+        /// stops there; only the pressure may bring the glass lower.
+        /// </param>
         /// <param name="risen">How far, in world units, the underside has climbed above where the level hung it.</param>
+        /// <param name="heightOwed">The steps the climb alone would owe (the bound): what the feed queued before #843.</param>
         /// <returns>How many steps were queued by this call; zero when nothing new is owed.</returns>
-        public int Feed(byte lowest, out float risen)
+        public int Feed(byte lowest, int intoReach, out float risen, out int heightOwed)
         {
             risen = 0f;
+            heightOwed = 0;
             if (lowest <= _feedFloorLevel) return 0;
 
-            //How far the underside has climbed out of reach, in world units, and how many whole descents
-            //cover it. Whole ones only: a part-step owed now is owed again next landing, and rounding up
-            //would walk the glass down a little further than the level was ever cleared.
+            //How far the underside has climbed, in world units, and how many whole descents cover it: the most the
+            //feed may ever have asked for, so it cannot walk the underside below the height the level hung it.
+            //Whole ones only: a part-step owed now is owed again next landing, and rounding up would walk the glass
+            //down a little further than the level was ever cleared.
             risen = (lowest - _feedFloorLevel) / Constants.SQRT_TWO;
-            int owed = (int)(risen / CEILING_DESCENT_PER_STEP) - _feedStepsQueued;
+            heightOwed = (int)(risen / CEILING_DESCENT_PER_STEP) - _feedStepsQueued;
+
+            //And of those, only the ones the column needs to come within the gun's reach (#843). Until then the feed
+            //brought the underside all the way back to its authored height, and on a tall level it did nearly all
+            //the descending: 193 blue steps against 15 red over The Spectrum in the owner's run.
+            int owed = Math.Min(heightOwed, intoReach);
 
             if (owed <= 0) return 0;
 
@@ -402,8 +425,10 @@ namespace BS3D.Screens
         /// <para>
         /// It does not touch the queued steps, the feed's own count or the shot cadence: a step the last shot owes still
         /// comes down after it (a lift and a step in the same second net to the glass where it was, which is the
-        /// honest reading of spending a brake on a shot that owed a step), and the tall level's feed measures the
-        /// <i>grid</i> — how far the underside has climbed in levels — which lifting the plate does not change.
+        /// honest reading of spending a brake on a shot that owed a step), and the tall level's feed is bounded by the
+        /// <i>grid</i> — how far the underside has climbed in levels — which lifting the plate does not change. Its
+        /// reach is measured from where the glass will hang (<see cref="QueuedTargetY"/>, #843), so a lift that takes
+        /// the underside out of reach is fed back at the next landing, within that bound.
         /// </para>
         /// </summary>
         /// <returns>False, and nothing moved, when there is no pressure step to give back (<see cref="CanBrake"/>).</returns>
