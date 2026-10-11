@@ -12,9 +12,10 @@ namespace BS3D.Screens
     /// that is not — its centre inside the current entry's span across the axis, or the current centre inside its span —
     /// and among those the nearest, a step across the axis counting twice. So down from a tile is the tile under it, up
     /// from a tile is the pip nearest above it, and an entry with nothing in line ahead still goes to the nearest one that
-    /// way within 45° of the direction, edge to edge (a pip at the row's end down to the grid's corner, a corner tile
-    /// down to Back) — never to one further across than ahead, which is how right from the grid's last tile would have
-    /// jumped up to the next-chapter arrow. Nothing that way: −1, and nothing moves.
+    /// way within about 27° of the direction, edge to edge (a pip at the row's end down to the grid's corner, a corner
+    /// tile down to Back): the gap across may be at most half the way ahead. Wider, right from the grid's last tile jumped
+    /// up to the next-chapter arrow, and right along the top row of tiles climbed to the last pip. Nothing that way: −1,
+    /// and nothing moves.
     /// </para>
     /// </summary>
     internal static class NavWalk
@@ -50,13 +51,13 @@ namespace BS3D.Screens
                     ? (otherY >= here.Top && otherY <= here.Bottom) || (centreY >= other.Top && centreY <= other.Bottom)
                     : (otherX >= here.Left && otherX <= here.Right) || (centreX >= other.Left && centreX <= other.Right);
 
-                //Out of line, only within 45° of the direction pressed, measured between the two spans' edges rather than
-                //their centres: down from the grid's corner tile reaches the wide Back its span overlaps, while right from
-                //the grid's last tile does not reach the arrow standing far above it
+                //Out of line, only close to the direction pressed — the gap across at most half the way ahead, measured
+                //between the two spans' edges rather than their centres: down from the grid's corner tile reaches the wide
+                //Back its span overlaps, while right along the top row of tiles does not climb to the pips above it
                 int gap = dx != 0
                     ? Math.Max(0, Math.Max(here.Top, other.Top) - Math.Min(here.Bottom, other.Bottom))
                     : Math.Max(0, Math.Max(here.Left, other.Left) - Math.Min(here.Right, other.Right));
-                if (!inLine && gap > ahead) continue;
+                if (!inLine && 2 * gap > ahead) continue;
 
                 long score = ahead + 2L * across;
                 if ((inLine && !bestInLine) || (inLine == bestInLine && score < best))

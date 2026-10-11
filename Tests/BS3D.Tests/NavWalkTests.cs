@@ -65,6 +65,11 @@ namespace BS3D.Tests
             //than ahead), and left from a row's first tile is nothing
             Assert.Equal(-1, NavWalk.Toward(picker, Tile(1, 4), 1, 0));
             Assert.Equal(-1, NavWalk.Toward(picker, Tile(1, 0), -1, 0));
+
+            //And on the top row, under the wider row of pips: its ends do not climb to the pips (the review of #848 found
+            //them doing so under a 45° allowance)
+            Assert.Equal(-1, NavWalk.Toward(picker, Tile(0, 4), 1, 0));
+            Assert.Equal(-1, NavWalk.Toward(picker, Tile(0, 0), -1, 0));
         }
 
         [Fact]

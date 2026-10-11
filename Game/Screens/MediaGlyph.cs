@@ -71,10 +71,11 @@ namespace BS3D.Screens
                 case Symbol.Back:
                 {
                     //Play mirrored (#847), for the level picker's chapter arrows: the same triangle pointing left, nudged
-                    //left by the same twelfth for the same reason
+                    //left by the same twelfth for the same reason. Placed by its upright edge, which Triangle draws at
+                    //left + the width rounded up, so the edge stands where Play's mirrored would
                     float width = h * 0.87f;
-                    int left = (int)MathF.Round(centreX - width / 2f - width / 12f);
-                    Triangle(context, left, top, h, width, tint, pointsRight: false);
+                    int upright = (int)MathF.Round(centreX + width / 2f - width / 12f);
+                    Triangle(context, upright - (int)MathF.Ceiling(width), top, h, width, tint, pointsRight: false);
                     break;
                 }
 

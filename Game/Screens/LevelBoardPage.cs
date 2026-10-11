@@ -72,15 +72,15 @@ namespace BS3D.Screens
 
             //Side by side, the About page's own pair: two entries of a little under half a column each
             HorizontalStackPanel pager = new() { Spacing = Scaled(PAGER_BUTTON_GAP), HorizontalAlignment = HorizontalAlignment.Center };
-            //What turns the boards, inside each entry at its outer end (#799, #848), as Back carries B: the shoulders and the
-            //arrow keys turn them as Previous and Next do (PageSideways). Words and not arrows here, so the arrow keys
-            //repeat nothing and keep their prompt
-            _previous = MenuButton("Previous", () => Page(-1), Prompt(PromptGlyph.PAD_LB, PromptGlyph.KEY_LEFT), HorizontalAlignment.Left);
-            _next = MenuButton("Next", () => Page(+1), Prompt(PromptGlyph.PAD_RB, PromptGlyph.KEY_RIGHT), HorizontalAlignment.Right);
+            _previous = MenuButton("Previous", () => Page(-1));
+            _next = MenuButton("Next", () => Page(+1));
             _previous.Width = _next.Width = Scaled(PAGER_BUTTON_WIDTH);
 
-            pager.Widgets.Add(_previous);
-            pager.Widgets.Add(_next);
+            //What turns the boards, under each entry (#799, #848; the owner's answer: the glyph in or under the plate): the
+            //shoulders and the arrow keys turn them as Previous and Next do (PageSideways). Not inside: a shoulder's pill beside
+            //"Previous" does not fit the slab. Words and not arrows, so the arrow keys repeat nothing and keep their prompt
+            pager.Widgets.Add(PageTurnUnder(_previous, PromptGlyph.PAD_LB, PromptGlyph.KEY_LEFT));
+            pager.Widgets.Add(PageTurnUnder(_next, PromptGlyph.PAD_RB, PromptGlyph.KEY_RIGHT));
             column.Widgets.Add(pager);
 
             column.Widgets.Add(BackButton());
