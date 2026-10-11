@@ -265,7 +265,7 @@ namespace BS3D.Tools.SemanticSearch
             if (Directory.Exists(archive)) files.AddRange(Directory.GetFiles(archive, "*.md").OrderBy(f => f));
 
             var chunks = new List<Doc>();
-            foreach (string file in files) ChunkMarkdown(file, subsections: false, "(before the first entry)", chunks);
+            foreach (string file in files) ChunkMarkdown(file, Path.GetFileName(file), subsections: false, "(before the first entry)", chunks);
             return chunks;
         }
 
@@ -278,11 +278,19 @@ namespace BS3D.Tools.SemanticSearch
         private static List<Doc> ChunkDocs(string repo)
         {
             var files = new List<string> { Path.Combine(repo, "CLAUDE.md"), Path.Combine(repo, "BestPractices.md") };
-            files.AddRange(Directory.GetFiles(Path.Combine(repo, "docs"), "*.md")
-                .Where(f => !Path.GetFileName(f).StartsWith("agent-notes")).OrderBy(f => f));
+            //Recursive since #839: an area's document is an index and its sub-documents live in docs/<area>/. The
+            //journal and its archive folder are the journal's corpus, not this one
+            string docs = Path.Combine(repo, "docs");
+            files.AddRange(Directory.GetFiles(docs, "*.md", SearchOption.AllDirectories)
+                .Where(f => !Path.GetRelativePath(docs, f).StartsWith("agent-notes")).OrderBy(f => f));
 
             var chunks = new List<Doc>();
-            foreach (string file in files) ChunkMarkdown(file, subsections: true, "(before the first heading)", chunks);
+            foreach (string file in files)
+            {
+                //A sub-document's own name ("cannon.md") does not say which area it is in, so it is labelled from docs/
+                string label = Path.GetRelativePath(file.StartsWith(docs) ? docs : repo, file).Replace('\\', '/');
+                ChunkMarkdown(file, label, subsections: true, "(before the first heading)", chunks);
+            }
             return chunks;
         }
 
@@ -291,11 +299,11 @@ namespace BS3D.Tools.SemanticSearch
         /// <paramref name="subsections"/>, labelled "section › subsection"), each stretch then at paragraph breaks into
         /// pieces under <see cref="MAX_CHARS"/>, and a paragraph longer than a piece at its sentence ends — this
         /// project's documents run to paragraphs of several thousand characters, and clipping one would index only its
-        /// opening. Every piece's text opens with its heading, and its label says file, heading and part.
+        /// opening. Every piece's text opens with its heading, and its label says <paramref name="name"/> (the file as
+        /// the caller wants it shown), heading and part.
         /// </summary>
-        private static void ChunkMarkdown(string file, bool subsections, string opening, List<Doc> chunks)
+        private static void ChunkMarkdown(string file, string name, bool subsections, string opening, List<Doc> chunks)
         {
-            string name = Path.GetFileName(file);
             string section = opening, subsection = null;
             var stretch = new StringBuilder();
 
