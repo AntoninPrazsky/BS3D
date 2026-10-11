@@ -510,7 +510,7 @@
       "file": "Trilithon.json",
       "name": "Archway",
       "block": "The Quarry",
-      "shots": 34,
+      "shots": 30,
       "minStars": 124,
       "ceilingStep": 6
     },
@@ -526,7 +526,7 @@
       "file": "Fault.json",
       "name": "Hoist",
       "block": "The Quarry",
-      "shots": 42,
+      "shots": 40,
       "minStars": 128,
       "ceilingStep": 7
     },
@@ -534,7 +534,7 @@
       "file": "Crib.json",
       "name": "Eclipse",
       "block": "The Quarry",
-      "shots": 46,
+      "shots": 44,
       "minStars": 130,
       "ceilingStep": 7
     },
@@ -550,7 +550,7 @@
       "file": "Nine.json",
       "name": "Locket",
       "block": "The Quarry",
-      "shots": 46,
+      "shots": 44,
       "minStars": 134,
       "ceilingStep": 7
     },

@@ -248,7 +248,7 @@ namespace BS3D.Tools.LevelGen
             Sky = QUARRY_SKY,
             Music = MUSIC_QUARRY,
             Balls = BALLS_QUARRY,
-            Shots = 34,
+            Shots = 30,
             CeilingStep = 6,
             OccupiedBlock = (x, z, i, depth) => ArchwayPart(x, z, i) != 0,
             BlockColour = ArchwayColour,
@@ -393,7 +393,7 @@ namespace BS3D.Tools.LevelGen
             Sky = QUARRY_SKY,
             Music = MUSIC_QUARRY,
             Balls = BALLS_QUARRY,
-            Shots = 42,
+            Shots = 40,
             CeilingStep = 7,
             OccupiedBlock = (x, z, i, depth) => HoistPart(x, z, i) != 0,
             BlockColour = HoistColour,
@@ -460,7 +460,7 @@ namespace BS3D.Tools.LevelGen
             Sky = QUARRY_SKY,
             Music = MUSIC_QUARRY,
             Balls = BALLS_QUARRY,
-            Shots = 46,
+            Shots = 44,
             CeilingStep = 7,
             OccupiedBlock = (x, z, i, depth) => EclipsePart(x, z, i, depth) != 0,
             BlockColour = EclipseColour,
@@ -478,7 +478,7 @@ namespace BS3D.Tools.LevelGen
         private const int ECLIPSE_FAR_Z_LO = 3;
         private const float ECLIPSE_NEAR_RADIUS = 3f;
         private const float ECLIPSE_NEAR_CENTRE = 2.2f;
-        private const float ECLIPSE_NEAR_OFFSET = -0.5f;
+        private const float ECLIPSE_NEAR_OFFSET = -1f;
         private const int ECLIPSE_NEAR_Z_LO = 9;
 
         private static readonly BallType[] ECLIPSE_FAR = { BallType.Type1, BallType.Type7, BallType.Type6 };    //red, yellow, magenta
@@ -513,7 +513,7 @@ namespace BS3D.Tools.LevelGen
 
         /// <summary>
         /// A dull boulder that is hollow, with a crystal hung in the hollow: The Reveal's payoff (#743) brought to the
-        /// quarry. The shell is quarried in three dull colours and the crystal is the two hottest the chapter has, so
+        /// quarry. The shell is quarried in three stone colours, dark to light, and the crystal in two the shell never wears, so
         /// the first tile that comes away shows colour where there was stone. Sealed at the start: no straight shot
         /// from anywhere on the gun's walk touches the crystal, and it hangs from the glass on a cord of its own through
         /// the lid, so peeling the shell never takes it down (<see cref="LevelGates.RevealFaults"/>).
@@ -544,19 +544,21 @@ namespace BS3D.Tools.LevelGen
         private const float GEODE_HEIGHT = 3.8f;
         private const float GEODE_CENTRE = 2.6f;
 
-        //The cavity: a flatter ellipsoid two cells in from the shell everywhere, a lid of two courses above it
+        //The cavity: a flatter ellipsoid at least two cells in from the shell everywhere, which leaves it four courses
+        //tall between a floor of three and a lid of three
         private const float GEODE_CAVITY_RADIUS = 2.4f;
         private const float GEODE_CAVITY_HEIGHT = 1.6f;
         private const float GEODE_CAVITY_CENTRE = 3.4f;
 
-        //The crystal: a square column of GEODE_CORD from the glass down into the cavity, to GEODE_TIP below the glass,
-        //magenta down to GEODE_YELLOW and yellow below it
+        //The crystal: a square column of GEODE_CORD from the glass down into the cavity, to GEODE_TIP below the glass
+        //(a course of air clear of the floor), magenta down to GEODE_TIP_COLOUR and cyan below it
         private const float GEODE_CORD = 1f;
         private const float GEODE_TIP = 3.6f;
-        private const float GEODE_YELLOW = 2.5f;
+        private const float GEODE_TIP_COLOUR = 2.5f;
 
-        //Three dull colours for the stone, so the crystal is the only hot thing in it
-        private static readonly BallType[] GEODE_SHELL = { BallType.Type10, BallType.Type11, BallType.Type12 };   //brown, slate, navy
+        //Three stone colours at three lightnesses. Navy stood where white does until the first capture: brown and navy
+        //both go nearly black on the Moon's metal and could not be told apart at the stand.
+        private static readonly BallType[] GEODE_SHELL = { BallType.Type10, BallType.Type11, BallType.Type4 };   //brown, slate, white
 
         /// <summary>0 for air, 1 for the shell, 2 for the crystal and its cord.</summary>
         private static int GeodePart(int x, int z, int i, int depth)
@@ -577,7 +579,7 @@ namespace BS3D.Tools.LevelGen
         private static BallType GeodeColour(int x, int z, int i, int depth)
         {
             if (GeodePart(x, z, i, depth) == 2)
-                return QuarryDepth(i, depth) <= GEODE_YELLOW ? BallType.Type6 : BallType.Type7;   //magenta : yellow
+                return QuarryDepth(i, depth) <= GEODE_TIP_COLOUR ? BallType.Type6 : BallType.Type5;   //magenta : cyan
 
             return QuarryBand(x, z, i, 0, 0, 1, 1, 1, GEODE_SHELL);
         }
@@ -595,12 +597,11 @@ namespace BS3D.Tools.LevelGen
             Name = "Locket",
             Grid = LOCKET_GRID,
             Depth = LOCKET_DEPTH,
-            FieldLevels = LOCKET_FIELD_LEVELS,
             Scene = SceneKind.Moon,
             Sky = QUARRY_SKY,
             Music = MUSIC_QUARRY,
             Balls = BALLS_QUARRY,
-            Shots = 46,
+            Shots = 44,
             CeilingStep = 7,
             Payoff = (x, z, r, ang, i, depth) => LocketPart(x, z, i) == 4,
             OccupiedBlock = (x, z, i, depth) => LocketPart(x, z, i) != 0,
@@ -608,12 +609,11 @@ namespace BS3D.Tools.LevelGen
         };
 
         private const byte LOCKET_GRID = 13;
-        private const byte LOCKET_DEPTH = 12;
-        private const byte LOCKET_FIELD_LEVELS = 18;
+        private const byte LOCKET_DEPTH = 10;
 
-        //From the glass down: the mount (two courses), the neck (three), then the stone: its lid (two), the cavity
+        //From the glass down: the mount (one course), the neck (two), then the stone: its lid (two), the cavity
         //(three, the crystal in its top two) and its floor (two)
-        private const int LOCKET_MOUNT_BASE = 10;
+        private const int LOCKET_MOUNT_BASE = 9;
         private const int LOCKET_NECK_BASE = 7;
         private const int LOCKET_LID_BASE = 5;
         private const int LOCKET_CAVITY_BASE = 2;
@@ -627,9 +627,9 @@ namespace BS3D.Tools.LevelGen
         private const float LOCKET_CRYSTAL = 1f;
         private const float LOCKET_SLEEVE = 1.6f;
         private const float LOCKET_CAVITY = 2.3f;
-        private const float LOCKET_NECK = 3.6f;
+        private const float LOCKET_NECK = 2.6f;
 
-        //The mount and the stone, round in plan; the stone's bottom two courses are drawn in to round it off
+        //The mount and the stone, round in plan; the stone's top two courses and bottom two are drawn in to round it
         private const float LOCKET_MOUNT = 4.2f;
         private const float LOCKET_STONE = 4.5f;
 
@@ -645,7 +645,15 @@ namespace BS3D.Tools.LevelGen
             if (i >= LOCKET_MOUNT_BASE) return square <= LOCKET_CORD ? 4 : r <= LOCKET_MOUNT ? 1 : 0;
             if (i >= LOCKET_NECK_BASE) return square <= LOCKET_CORD ? 4 : r <= LOCKET_SLEEVE ? 0 : r <= LOCKET_NECK ? 2 : 0;
 
-            float outer = i == 0 ? LOCKET_STONE - 1.5f : i == 1 ? LOCKET_STONE - 0.5f : LOCKET_STONE;
+            //Round above as well as below, so the neck stands clear of the lid where the camera looks up at it
+            float outer = i switch
+            {
+                0 => LOCKET_STONE - 1.5f,
+                1 => LOCKET_STONE - 0.5f,
+                LOCKET_LID_BASE => LOCKET_STONE - 0.3f,
+                LOCKET_LID_BASE + 1 => LOCKET_STONE - 0.9f,
+                _ => LOCKET_STONE,
+            };
             if (r > outer) return 0;
 
             //The lid: the sleeve runs on through it, so not one stone ball touches the cord
