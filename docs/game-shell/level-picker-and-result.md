@@ -1,0 +1,33 @@
+# The level picker and the result page
+
+Part of [The game: shell](../game-shell.md).
+
+## The level picker (`LevelSelectPage`)
+
+Select Level opens a grid of `MenuTile`s (`MenuButton`'s behaviour in tile shape over `MenuClickable`), **one chapter to a page, paged left and right** (#273). A tile carries the number, the name, a star line and the player's own best score where rated (#684).
+
+- **Locks**: a locked tile is `Button.Enabled = false` (Myra presses no disabled button and the nav walk skips it) and dimmed to the aside grey. It names its reason (#347): the price ("8 ★") or the sequence ("#38 first"), and must name the right one; a **skipped** level says `Skipped` (the only place it is found again); a lock shows no score (#266: no hint of a level ahead).
+- ★/☆ are Inter's (`FontTile`, `MenuFontStars`): Anton has neither and FontStashSharp silently draws blanks.
+- **The backdrop turns to the level looked at** (#405): the tile under the pointer or cursor asks `BackdropScreen.RequestPreview` to hang that level in **its own scene, dome, weather and material** (reversing #249 for this page only). It **settles** (`PREVIEW_SETTLE_SECONDS`), **does not restart the flight** (on the close pass the map waits for room, #408), and **locked tiles ask nothing**.
+- **The level's online boards stand right of the band** (#684): month and all time, top five and the player's place, for the level the Leaderboard button opens. The plate holds its height in every state. ⚠ **The band moves left to make room**: it is *measured* (`Widget.Measure`; its widest row is the thirteen pips), the plate is centred in the strip right of it (#701's rule), the band shifts through its right margin so the three gaps match, the board narrows, and under `BOARD_MIN_WIDTH` is absent. A board is keyed by the level file's hash; a clear calls `OnlineSession.ForgetBoards` (a cached page would put pre-clear rows under the post-clear rank).
+- **The pager**: the chapter's name is the heading between two wrapping arrow slabs, with a readout in a **fixed-width block** so the arrows do not jump (data from `LevelSet`'s `Block*` members). **The pips** (`●` cleared, `○` not, the shown one bright) are each a `MenuTile` that jumps to its chapter (#348). ⚠ **A Myra button smaller than its label lets it overflow instead of clipping**, so the visible plate and the mouse's rectangle part ways (a click on the ring read as a dead control); the pips use `FontStars`.
+- **It opens on the frontier** (the *last* chapter holding an unlocked level, not "the first with an uncleared one": a skipped level would send the player back to chapter 1) **and stays where they left it**; an **unchaptered set** is one scrolling grid (`CampaignHasBlocks`).
+- **One detail line under the grid** holds what does not fit a tile (the rules, a lock's arithmetic), fed by the pointer (Myra's `MouseEntered`, which fires on disabled tiles) or the cursor (`MenuPage.NavFocusChanged`).
+- ⚠ **It is the one page pulled DOWN into a band and it takes the camera's framing** (#472): tiles are smaller, the plate bottom-aligned. `BackdropScreen.FramingLift` lowers the wide leg's aim (a fraction of the frame's half-height, so the same share at every aspect) and `HoldWideLeg` stops the flight at its wide leg's end. **Both are given back in `Leave`.**
+
+### Sideways, the row and the scroller
+
+Walk rules: [Menu navigation](menu-navigation.md). The picker exposed these:
+
+- **`MenuPage.PageSideways` returns whether it acted** (the menu ticks only then). A turn calls `BS3DGame.RefreshNavEntries(keepFocusOn)` and must keep the **focused entry** (else the cursor falls to ◀) and the **held-direction state** (else a held Right pages the campaign in frames). **What a page leaves, the row takes** (#805): when `PageSideways` declines, `StepNavAcrossRow` moves to the nearest entry beside the focused one *on screen* (`ToGlobal`, `Bounds`, not walk order): About's Play/Next, the Jukebox's controls.
+- **The walk descends into `ScrollViewer.Content` by name** (it is not among an `IContainer`'s `Widgets`; the first Down used to land on Back) and **`ScrollNavEntryIntoView`** shifts `ScrollPosition` by how far the entry is outside the viewport, clamped to `ScrollMaximum`. ⚠ **Both sides of that comparison must be global (#740)**: `ScrollViewer.ActualBounds` is in the widget's own space, so `NavViewport` takes only its size and the corner from `ToGlobal`.
+- **`KeepNavFocusInView`** runs each frame: a focus *set* rather than stepped is revealed on its first laid-out frame, and a list the wheel moved takes the focus to the first entry wholly in view, silently. `MenuPage.NavArrival` names where the cursor arrives.
+
+## The result page
+
+- **The camera is let go, driven from the page** (the session keeps updating under it, #241, so its `UpdateCamera` would be a second writer). `ResultPage` flies the lens onto **`BackdropScreen`'s own orbit** so Main Menu continues rather than cuts. **On a clear the level's framing is wrong** (it aims at a cluster that went down the drain): `Enter` reframes as the bare island (`FrameOrbitFor(null)`, #639); a loss keeps it.
+- **It takes a snapshot (`LevelResult`), not the session**: the level does not stop at the clear, so a live read printed a breakdown that did not add up. A clear's headline is its **star rating** (#111), then "New best", a note projecting the next star (`NextStarScore`/`NextStarGap`, `StarRating.Rate` in reverse, #385) and, exactly when the next level is shut, `UnlockNote` (#397). **A clear does not always open the next level's sequence lock** (the frontier moves only when the level cleared *was* the frontier), so the note must not quote the star gate unconditionally; `nextlocked=<stars|sequence>` on `result` shows both.
+- It names the level (#313: `Level 13 · Star`; the button reads `Next: Elephant`); **a failure adds `Skip to: Elephant`** (#347) under Retry, with `Skipping spends this chapter's one skip` as its own line.
+- ⚠ **On this page, outside the plate, there is no dim**: `MENU_TEXT_DIM` is for asides on a dark plate, and this page has neither plate nor scrim, so the failure reason, `New best` and the skip note vanished over a bright sky. Use `MENU_TEXT` or `MENU_TEXT_BODY`.
+- **The stars are struck, four widgets (#139)**: a `Label` is one colour, so one per slot, written from a single `_revealClock` in `ApplyStars`; the clock is the **only** state (a resize mid-reveal resumes) and the cue fires from a `while` (a long frame still owes every sound).
+- **The breakdown lands in a final layout (#665)**: `PinBreakdownColumns` fixes each column at its widest *final* string (`CacheBreakdownText`), so captions do not slide as numbers arrive.
