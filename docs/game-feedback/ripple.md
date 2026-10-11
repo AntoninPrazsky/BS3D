@@ -1,0 +1,25 @@
+# The ripple: the cluster answers a landing
+
+Part of [The game: feedback](../game-feedback.md).
+
+Every ball that lands sends a wave of light through the cluster: the balls touching the impact flare first, then the ones touching those. It makes the cluster read as one connected body instead of a heap of spheres, because the thing the shot stuck to answers. While it runs the resting heartbeat is turned down (`PULSE_DEPTH_RESTING` to `PULSE_DEPTH_RIPPLING` in `BallRenderSet`), because a breath swinging over half the emission drowns the event. The same wave also carries the ceiling's alarm (below, and [The ceiling and the floor alarm](ceiling-and-floor-alarms.md)).
+
+## How it travels
+
+- **By connectivity, not distance.** `ClusterRipple.StartAt` (`Prazsky.BS3D.Physics`; `ClusterRippleTests`) is a breadth-first walk over the balls that touch (`BallsMap.GetNeighboringCells`) outwards from the landed cell, and a ball's hop count is its delay. A wave evaluated from a world-space radius in the shader would cross the holes a played cluster is full of as if they were not there; the walk goes around them, the hole the matched group just left included. It is started after the release, so it walks the cluster that is left.
+- **The origin cell seeds the walk whether or not a ball stands in it.** A shot that completes a group is released with it, so the cell it landed in is usually empty and the wave starts from the balls round the gap.
+- **The state lives on `PhysicsBall`** (`RippleTime`, counting up from a negative delay, and `RippleAmplitude`), as `Occlusion` does: a ball crosses between the structure and the falling balls in one step, and a group cut loose mid-wave should keep glowing on the way down.
+- **It is advanced inside the shared `ClusterCollector` walk**, through the one hook that component takes at construction (`ClusterRipple.Advance`; the Game hands it over, the Testbed and the editor hand none). That walk is the one place every ball is visited exactly once a frame, the contract the occlusion ease, the attach glide and the dead-weight timer share, and `BallRenderSet.BeginFrame` enforces it. A ball reached again while lit takes the newer wave: the nearest impact wins.
+- **`BallLanding` is the event's payload** (world position, ball type, lattice cell, and `Detonations`, see [A bomb goes off](bomb-blast.md)). It carries the lattice cell because that cannot be recovered from a world position; the world-to-map conversions were deleted ("Physics in the game" in `docs/game-session.md`).
+
+## What reaches the GPU
+
+- Only the brightness rides on the GPU: `ModelInstance.Ripple`, a `Single` in TEXCOORD7 beside `Dissolve`, zero meaning "not flaring". The shader term is behind `[branch] if (RippleStrength > 0)`, a uniform, so the Testbed and the map editor (which never set it) pay nothing.
+- ⚠ **The flare has to be mostly white.** Adding light in the ball's own colour piles it into the channel already near the top of the ACES curve: a red ball at a flare of 0.97 was in the instance data and invisible on screen. The hue is normalised to peak 1 and carried towards white (`RippleWhiten` in `BallCommon.fxh`); lifting the channels the ball does not have is what "lighting up" looks like, and it settles the dark types for free (the 8-ball would otherwise sit the wave out).
+- ⚠ **Three numbers decide wave versus flash**: the lit band is as many balls deep as the flare's length over the hop delay. Keep it at three or four balls: `ClusterRipple.HOP_SECONDS`, `ATTACK_SECONDS`, `DECAY_SECONDS`, `MAX_HOPS` (the ball at the reach is armed with zero amplitude). A 0.36 s flare stepping every 0.045 s was nine balls deep against a reach of twelve and read as the shot flashing the lot.
+- ⚠ **The amplitude falloff is squared**, a glare problem before a look problem: the count of balls at a hop grows as its square, so a linear falloff leaves hundreds near full brightness a few hops out. At a strength of 1.1 they flooded the glare's bright pass, whose six streak arms overlapped, and blew the entire frame white for one frame; it looked like a rendering fault, not an effect. The shipped `RIPPLE_STRENGTH` (`BallRenderSet`) holds the whole-frame mean flat while the cluster clearly flares.
+
+## The alarm shares the channel
+
+- **The sign of the per-instance float says which meaning it has**: positive is the landing's light, negative the alarm, as `Dissolve` encodes its two directions. A ball can only be in one wave at a time anyway, and the shader picks the colour with a select instead of a second uniform.
+- **The alarm replaces the ball's colour rather than adding to it**, which is the difference between a warning and a wash. Added, a red flare on a green ball is yellow, on a red one a brighter red, on black a pale grey, and no ball says "red". Blended at `RippleAlarmCoverage` (short of 1 so the balls still read as balls), the cluster momentarily turns red. The colour is the uniform `RippleAlarmColor`, stated by the caller with the wave (the renderer defaults to the red).

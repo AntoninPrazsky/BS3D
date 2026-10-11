@@ -1,0 +1,27 @@
+# The chapter intro
+
+Part of [The game: feedback](../game-feedback.md).
+
+The campaign's other camera takeover (#267). When the level about to be built is the **first index of a new block** (new scene, dome, music theme and style; "The campaign is nine blocks of five" in `docs/formats-and-tools.md`), the camera tours the arena first. `Game/Effects/ChapterIntro.cs` owns the flight; `GameplayScreen` owns the trigger, the block detection and the gun not answering. Scene-specific shots: [prologues](chapter-intro-prologues.md) and [the other scenes' shots](chapter-intro-scene-shots.md).
+
+## Trigger, log line, replay
+
+- **The trigger reads the milestone celebration's block query.** `LevelSet.HasBlocks` false refuses the feature (`BlockRange`'s fallback would open an intro before every level); otherwise `BlockRange(index, out first, out _); first == index` is the whole test.
+- **Shown once a run of the program, never persisted**: `_chapterIntroShown`, a `HashSet<int>` keyed by the block's **first index** (names are not unique), never cleared, so a retry does not replay it; `Add`'s return value is test and record at once. Not `PlayerProgress`: a fresh launch shows every opening again.
+- **One `[intro]` line per opening**, with the block's name and place and the net turn: `[intro] block 'The Meadow' (1/11), 'the flowers' 46 out at 6deg -> in -> map 40 out at 42deg -> game pose, 9.5s`.
+- **Photograph an opening with `level=` alone**: ⚠ `tour` with `level=` held the intro on its first frame, HUD up (cause not chased). Launch without taking focus (a keystroke typed into the terminal once landed in the window and skipped the intro).
+- **Replay from the scene menu (#406).** Picking a scene on `ScenePage` flies its tour against the menu's backdrop; it is the very same `ChapterIntro` and the page hides while it flies. ⚠ **`tour` on the command line** opens the scene menu with the flight already running: a synthetic click never reaches this window, so a script cannot photograph a replay otherwise. `sceneseed=` pins a scene's scatter, not the shot rolled through it (`BackdropScreen.TOUR_RANDOM`).
+
+## The shot
+
+- **A pose and a blend, the drop cinematic's shape** ([The drop cinematic](drop-cinematic.md)): the level's solved figures go in at `Begin`, `UpdateCamera` Lerps the pose over the gameplay pose, and at a blend of 0 the gameplay pose returns bit for bit. No `TimeScale` (the cluster hangs).
+- **An arc of the scene, not the map**: **four Catmull-Rom keys of position and look-at**: the environment (wide, low, across the rim), the arena (the bowl and drain), the map (one proper look from a high bearing) and the **arrival, the gameplay pose verbatim**. The first two legs are the scene's own (#289): `SceneRenderer.TryGetViewpoint` ("The scenes' observation points" in `docs/scenes.md`). `DURATION_SECONDS` is 9.5.
+- **The wide legs scale off the level's solved stand-off** (`GameCameraFit.Solve` has run inside `InstallLevel`): the environment key at that distance x a rolled 1.9-2.4, the map key at 1.25-1.45x, look-ats off `ArenaIsland.RADIUS`/`TOP_Y`.
+- ⚠ **The stands are swept in polar terms (#409).** In Cartesian terms two near-opposite stands put the chord through the arena's axis and the floor pushed the lens *up* over the island, looking down the funnel (81 degrees). `Begin`/`Frame` spline (azimuth, elevation, radius), so no leg bows inward; the azimuths are **one continuous turn ending on the gun** and `ChooseTurn` picks the direction against it. `Frame`'s floor (`gameDistance * 0.92`) never fires now and reports `[intro] WARNING` if it does (#519).
+- ⚠ **A hitch holds the flight (#645)**: `ChapterIntro.MAX_INTRO_STEP` (a 20 fps frame) caps one frame's advance.
+
+## Handing control back
+
+- ⚠ **The release must not be gentler than the drop cinematic's.** `Engaged` gates the gun on `_blend > 0f` and an exponential crosses the 0.002 snap only about 6.2 taus in: a `BLEND_OUT_TAU` of 0.5 left a **3.1 s dead zone** where a skipped tour held a gun that would not fire. It is 0.16; the grab, `BLEND_IN_TAU` 0.35, is gentle on purpose.
+- **Skip is Space / LMB / gamepad A or right trigger**, through the same gate: `GameplayScreen.CameraTakeoverEngaged` is `_cinematic.Engaged || _chapterIntro.Engaged` and `SkipCameraTakeover` tries both `TrySkip`s. **At most one is ever engaged** (the intro blocks the shot the drop cinematic needs; `TearDown` resets it). `SKIP_LOCKOUT` is 0.3 s (the button that advanced into the level also skips). Hint: "The skip hint" in [the drop cinematic](drop-cinematic.md).
+- **The HUD is not over the tour (#693).** `ChapterIntro.HudOpacity` is 0 for the tour and prologue, then `1 - Blend`, whole on the frame `Engaged` lets the gun answer; a skip out of a prologue brings it back at once. The fade goes through the overlay layer (#438, [defocus](level-end-defocus.md)) via `BS3DGame.FadeOverlayLayer` (premultiplied, so one white tint fades the readout as a sheet); under a page's blur the blur's composite takes the layer. **Only the intro is gated**: the drop cinematic and line-loss takeover keep their HUD (#639), so the gate reads the intro's own opacity, not `CameraTakeoverEngaged`.
