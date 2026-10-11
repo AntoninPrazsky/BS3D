@@ -11,7 +11,7 @@ namespace BS3D.Tools.DocDrift
     /// A hand-run triage sweep for numbers the documents quote beside a name that the code defines with a
     /// different value (#525). It pulls every named numeric out of the tree — a C# <c>const</c>, a config
     /// property's initialiser (<c>{ get; set; } = n;</c>), a <c>static readonly</c> field, a shader
-    /// <c>static const</c> — keeps the names defined exactly once, finds the lines in <c>docs/*.md</c> and
+    /// <c>static const</c> — keeps the names defined exactly once, finds the lines in <c>docs/**/*.md</c> and
     /// <c>CLAUDE.md</c> that quote such a name in backticks with a number close after it, and prints the pairs
     /// that disagree as candidates with file:line.
     ///
@@ -153,8 +153,10 @@ namespace BS3D.Tools.DocDrift
             Dictionary<string, Def> unique = defs.Where(p => p.Value.Count == 1).ToDictionary(p => p.Key, p => p.Value[0]);
             Console.WriteLine($"[drift] {defs.Values.Sum(l => l.Count)} named numerics in {filesRead} source files, {unique.Count} names defined exactly once");
 
-            List<string> docs = Directory.GetFiles(Path.Combine(root, "docs"), "*.md", SearchOption.TopDirectoryOnly)
-                .Where(f => !Path.GetFileName(f).Equals("agent-notes.md", StringComparison.OrdinalIgnoreCase))
+            //Recursive since #839 split each document into an index and docs/<area>/ sub-documents; the journal's
+            //archive folder sits under docs/ too and is skipped with the journal itself
+            List<string> docs = Directory.GetFiles(Path.Combine(root, "docs"), "*.md", SearchOption.AllDirectories)
+                .Where(f => !Rel(root, f).StartsWith("docs/agent-notes", StringComparison.OrdinalIgnoreCase))
                 .OrderBy(f => f, StringComparer.Ordinal)
                 .ToList();
             string claude = Path.Combine(root, "CLAUDE.md");
