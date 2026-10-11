@@ -26,7 +26,7 @@ namespace BS3D.Screens
     /// </summary>
     internal sealed class MediaGlyph : Widget
     {
-        internal enum Symbol : byte { Play, Pause, Next, Previous }
+        internal enum Symbol : byte { Play, Pause, Next, Previous, Back }
 
         /// <summary>Which symbol is drawn; a page sets it as the player's state changes.</summary>
         public Symbol Shape { get; set; }
@@ -65,6 +65,16 @@ namespace BS3D.Screens
                     float width = h * 0.87f;
                     int left = (int)MathF.Round(centreX - width / 2f + width / 12f);
                     Triangle(context, left, top, h, width, tint);
+                    break;
+                }
+
+                case Symbol.Back:
+                {
+                    //Play mirrored (#847), for the level picker's chapter arrows: the same triangle pointing left, nudged
+                    //left by the same twelfth for the same reason
+                    float width = h * 0.87f;
+                    int left = (int)MathF.Round(centreX - width / 2f - width / 12f);
+                    Triangle(context, left, top, h, width, tint, pointsRight: false);
                     break;
                 }
 
