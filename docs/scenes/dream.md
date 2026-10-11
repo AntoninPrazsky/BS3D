@@ -1,0 +1,38 @@
+# The dream
+
+Part of [The scenes](../scenes.md).
+
+The tenth `SceneKind` and the second sky-replacing one ([The sky-replacing family](space.md#the-sky-replacing-family): the full-screen quad, the `ViewRayBasis` ray, `DepthStencilState.None` restored to `Default`, no dome, no weather, black clear and its own light rig all apply, and the two scenes share one quad). Where space is the picture of space, this is the picture of a hallucination: slow marbled colour across the whole sky sphere, hard glassy solids tumbling and melting into one another, soft luminous orbs breathing through the murk and fast sparks whipping between them.
+
+`Dream.fx` + `DreamBackdrop` + `DreamSceneConfig` (named groups `Palette`, `Background`, `Shapes`, `Glows`, `Lighting`: [the named-groups shape](space.md#the-config-shape-named-groups)); `scene=dream` on either command line, the Game's scene menu and random pick. `OpenBelow` includes it (the drop cinematic dives under the island against the flowing sky); it is not an `IsSolidTerrainScene`, so no pit shaft.
+
+## What holds it together
+
+The scene is a set of **contrasts**, each carried by a different element: sharp against blurred (the solids are raymarched with crisp silhouettes and fresnel rims; the orbs are closest-approach gaussians with no edge) and fast against slow (the marbling drifts over minutes while sparks cross the sky in seconds; thin ribbons race through the slow flow, `pow`-sharpened so only their crests survive).
+
+- **Everything is analytic 3D** (fields on the view direction, ray-sphere tests, closest-approach glows), never a 2D chart of the sphere, so there are no pole seams.
+- **The marbling is twice-warped fractal noise** (`Noise.fxh`, see "The noise library" in `docs/rendering.md`). ⚠ Plane-wave sines under a sine warp read as the plasma effect of a 1994 demo: summed plane waves keep their planes however many there are. Two fBm warp layers give filaments and mixing; the time rides *inside* the domains, so the fluid evolves rather than scrolls; and the **warp intermediates shade the colour** (where the domain was dragged furthest the fluid "mixed"), which is most of why it reads as a substance.
+- **One cosine palette** (`colour(t) = A + B·cos(2π(C·t + D))`) is the scene's whole colour identity: every element indexes the same ramp at its own phase.
+- **The solids morph as distance fields**: each melts between a sphere, a rounded box and a torus on its own slow cycle (half sphere↔box, half box↔torus); lerping SDFs makes the change a melt rather than a swap. They carry **SDF ambient occlusion** (four probes up the normal), so the torus's inner ring and the melt seams sit deeper than the open faces.
+- **The march is gated per shape**: each solid has an analytic bounding sphere, the ray is tested against those first (eight quadratics) and only a crossed bound is sphere-traced, inside its own interval. Most pixels march nothing.
+- **The solids write no depth** (the pass draws behind the scene), so they must roam well outside anything the camera can stand near: `OrbitRadius` is 130 against the island's 26 and the menu orbit's 44. A solid between the lens and the island would draw *behind* it.
+- **The light rig is coloured** (`DreamLightingConfig`: violet sky ambient over teal ground bounce, a rose key against a cyan fill), so the island, gun and balls sit *in* the hallucination.
+
+## The glare policy
+
+The background stays well under `GLARE_THRESHOLD` (`Background.Brightness` 0.30; at 0.32 it washed out everything hung on it). The **orbs may go over** (smooth areas hundreds of pixels wide bloom steadily). The **sparks stay at the threshold's edge** and read as fast through their three-sample trails, because a small point over the threshold is sampled stochastically by the glare's sparse grid and flickers.
+
+## The look: dark, with colour gathered into plumes (#506)
+
+References (glass, liquid chrome, a lava lamp's plume, orbs in a dark room, ink in water) agree that the picture is mostly **dark** with colour gathered into plumes and filaments. No layer, loop or march was added; the contrast and the shading were rewritten in place.
+
+- ⚠ **A cosine palette whose three channels sit a third of a cycle apart is a hue wheel at constant lightness** (the mean is `A` per channel whatever `t` is), so rotating the hue cannot darken it and lowering `Brightness` only greys the whole frame. The contrast must be a **density over the palette**: the warp intermediates say where the fluid gathered, `saturate(length(r) · 2.4 − 0.18)` squared, multiplying the broad colour. `SwirlScale` 2.1 (2.6 drew a fine even mottle).
+- ⚠ **Set the ribbon threshold from the field's real distribution.** A three-octave `RidgedFbm3` is not centred (each octave is `(1−|n|)²`): it runs about 0.63 typical against a 0.875 maximum. A threshold of 0.30 turned the layer into a continuous pale-green wash with holes, which read as mould. The shipped 0.58 with the gain that maps the rest of the band onto 0..1 leaves the typical pixel dark and lights only the crests; gain 1.4, three quarters of the ribbon multiplied by the density so a strand is lit where the ink is. The cores stay under the glare threshold: the canvas must not bloom.
+- **The solids are glass** (#506): the sky seen through the body and stained by **Beer absorption over how face-on the surface is** (the only thickness measure without a second march: a ray meeting the body square crosses the most glass), `exp(−facing · Absorption · (1 − own))`, a narrow fresnel rim, and the marbled sky mirrored off the surface with a superlinear response `m · (0.5 + 4m)` so a bright ribbon reads as a glint. ⚠ A flat tint of the transmission came back as flat as the paint it replaced, because the sky behind a solid barely changes across its twenty degrees: the gradient has to come from thickness. `Shapes.Absorption` (2.4) is the dial to reach for first if they go flat. The transmission and glints are free (`color` at that point is the ray's sky already gathered, so an orb drifting behind a solid shines through it), and the emission floor fell from 0.55 to 0.05 because a body that shows the sky through it cannot vanish into it.
+
+## Cost
+
+- **Occupancy-bound (#103).** On the desktop GPU (front end, 1600×900, dome 13, `nocap`, `High` at 4.40 ms) dropping `Background()` from the reflection (4.42), sparks 14 → 4 (4.47) or each trail 3 → 1 (4.43) buys nothing; **an octave off both warp layers (4.08) pays alone**, being the only reduction evaluated on every pixel; all four together reach 3.15. Do not carry an attribution across machine classes ("Shaded at the display's resolution" in [The cavern](cavern.md#shaded-at-the-displays-resolution-155)).
+- **The reduced program** (`DreamReduced`) takes all four cuts: the reflection mirrors a flat `DeepColor`, sparks drop to 4 with one trail sample, both warp layers lose an octave. With supersampling pinned, `High` 4.39 ms against reduced 2.84; on the real `Medium` 1.21 → 0.81 ms. `High` is untouched.
+- **It is shaded at the back buffer's size and scaled up** (#155; `DrawsAtDisplayResolution`), which took fullscreen `High` on the 6900 XT from 18.6 ms (53.7 FPS) to 5.8 ms (172.5 FPS). Mechanism and what it gives up: "Shaded at the display's resolution" in [The cavern](cavern.md#shaded-at-the-displays-resolution-155).
+- The #506 colour pass was free (desktop, fixed camera, 3840×1600, `nopost nooverc`, `fpscap=400`, medians of 12): 5.95 / 5.95 ms before against 5.93 / 5.96, as an occupancy-bound pass predicts (all the new work is ALU, almost all of it inside the branch only a hit solid takes).
