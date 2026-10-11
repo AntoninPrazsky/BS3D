@@ -72,16 +72,15 @@ namespace BS3D.Screens
 
             //Side by side, the About page's own pair: two entries of a little under half a column each
             HorizontalStackPanel pager = new() { Spacing = Scaled(PAGER_BUTTON_GAP), HorizontalAlignment = HorizontalAlignment.Center };
-            _previous = MenuButton("Previous", () => Page(-1));
-            _next = MenuButton("Next", () => Page(+1));
+            //What turns the boards, inside each entry at its outer end (#799, #848), as Back carries B: the shoulders and the
+            //arrow keys turn them as Previous and Next do (PageSideways). Words and not arrows here, so the arrow keys
+            //repeat nothing and keep their prompt
+            _previous = MenuButton("Previous", () => Page(-1), Prompt(PromptGlyph.PAD_LB, PromptGlyph.KEY_LEFT), HorizontalAlignment.Left);
+            _next = MenuButton("Next", () => Page(+1), Prompt(PromptGlyph.PAD_RB, PromptGlyph.KEY_RIGHT), HorizontalAlignment.Right);
             _previous.Width = _next.Width = Scaled(PAGER_BUTTON_WIDTH);
 
-            //What turns the boards, beside the pair (#799) - and since then it does: the shoulders and the arrows turn
-            //them as Previous and Next do (PageSideways)
-            pager.Widgets.Add(PageTurnPrompt(PromptGlyph.PAD_LB, PromptGlyph.KEY_LEFT, _previous));
             pager.Widgets.Add(_previous);
             pager.Widgets.Add(_next);
-            pager.Widgets.Add(PageTurnPrompt(PromptGlyph.PAD_RB, PromptGlyph.KEY_RIGHT, _next));
             column.Widgets.Add(pager);
 
             column.Widgets.Add(BackButton());

@@ -674,15 +674,16 @@ namespace BS3D.Screens
                 Margin = ScaledThickness(0, 0, 0, 20),
             };
 
-            //Added in the order the pad should step through them, since CollectNavEntries follows the order
-            //widgets were added — so the walk reads left to right across the row, as it is drawn.
-            //What turns the chapter, outside the two arrows (#799): the shoulders for a pad player, the arrow keys for a
-            //keyboard one. The arrows never disable here - the pager wraps - so neither does a prompt.
-            row.Widgets.Add(Prompt(PromptGlyph.PAD_LB, PromptGlyph.KEY_LEFT));
-            row.Widgets.Add(ChapterArrow(MediaGlyph.Symbol.Back, -1));
+            //Aligned to the top, so the arrows' slabs stand level with the heading while the shoulders hang under them
+            header.VerticalAlignment = VerticalAlignment.Top;
+
+            //Added in the order the pad's list walk would step through them, left to right across the row as it is drawn.
+            //What turns the chapter, under the two arrows (#799, #848): the pad's shoulders, nothing for the keyboard —
+            //an arrow key beside an arrow only repeated it (the owner, 2026-10-12). The arrows never disable here - the
+            //pager wraps - so neither does a prompt.
+            row.Widgets.Add(ArrowWithShoulder(ChapterArrow(MediaGlyph.Symbol.Back, -1), PromptGlyph.PAD_LB));
             row.Widgets.Add(header);
-            row.Widgets.Add(ChapterArrow(MediaGlyph.Symbol.Play, 1));
-            row.Widgets.Add(Prompt(PromptGlyph.PAD_RB, PromptGlyph.KEY_RIGHT));
+            row.Widgets.Add(ArrowWithShoulder(ChapterArrow(MediaGlyph.Symbol.Play, 1), PromptGlyph.PAD_RB));
 
             return row;
         }
@@ -1025,6 +1026,12 @@ namespace BS3D.Screens
         /// to turn between — an unchaptered set, or a set of one chapter — so the menu does not tick as though
         /// something had moved.
         /// </summary>
+        /// <summary>
+        /// The picker is a grid (#848): the pad's D-pad and stick move the cursor over the tiles, the pips and the arrows
+        /// in the direction pressed, and its shoulders turn the chapter; the arrow keys turn it on left and right.
+        /// </summary>
+        internal override bool PadWalksGrid => true;
+
         internal override bool PageSideways(int direction)
         {
             if (!_chaptered || _chapterStart.Length <= 1) return false;
