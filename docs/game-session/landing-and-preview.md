@@ -1,0 +1,36 @@
+# The shot, the landing and the landing preview
+
+Part of [The game: a session](../game-session.md).
+
+## Where a shot lands
+
+- **The shot is a swept sphere test**: at `SHOOT_SPEED` a ball crosses several diameters a frame, so `TryHitCluster` solves the **moment of contact** (smaller root of the quadratic in the step parameter); ranking by clamped closest approach ties the whole field on the first approaching frame.
+- **A landed ball snaps into the lattice**: `ShotPlacement.TrySolveAgainstBall` returns the free cell touching the ball hit, nearest the contact (stuck at the raw contact point, balls chain into an icicle). Deciding without writing lets the preview ask the identical question.
+- **The first ring is not always enough**: on the field's wall an edge ball has no cell beyond it and later balls were silently eaten. `TryFindCellInSecondRing` searches free cells touching the balls that touch the one hit, nearest the contact first. **A third ring is rejected**: locality keeps a ball from attaching visibly behind what was aimed at.
+- **A shot attaches to balls and never to the glass (#432, the owner's ruling).** A glass landing hung a ball alone off its ceiling socket. A glass contact is no longer an event: the ball bounces, keeps listening, and is otherwise a miss at the stone or kill plane. The level's top course is hung by `BuildBallsStructure`, and a landing in a top-level cell **beside a ball** still takes a ceiling socket (`GetCellsDisconnectedFromCeiling` counts the top level as anchored; the physics must agree).
+- **A refused shot bounces, a state of its own** (`ContactEvents.MarkBounced`): put back where its surfaces first met the ball and no longer swept (else it was refused every step). Cleared in `ContactEvents.Unregister`, so a recycled handle cannot inherit it.
+
+## The landing is the preview's own sweep (#696)
+
+`ShotPlacement` owns the rule and **one function decides, twice**: the handler when a ball touches, the preview every frame. A line over behaviour it does not share would disagree with the outcome and be worse than nothing. The shot sticks in the ghost's cell **97.9 %** of the time (`ShotAgreementTests`; 63.6 % before). What made it so:
+
+- `TryFindFirstHitOnSegment` tests the **touch** (`along - radiusSum >= nearest`), not closest approach, or a ball met inside a step is skipped.
+- `BallContactEventHandler.LandSweptShots` sweeps every shot in the air every step with the preview's function (`ContactEvents.TryGetStepStart`), because Bepu's contact comes a step late and from the wrong ball. The contact path remains for stone, glass and overlaps the sweep does not explain.
+- The Game's preview passes `worldGravity: true`.
+- `NarrowPhaseCallbacks.ConfigureContactManifold` makes **no constraint for a contact the shot has not reached** (a speculative contact beside the line bent the shot off the swept line).
+- **A shot in flight passes through loose balls** (`ContactEvents.MarkLoose`; `PhysicsWorld.RetireBall` clears the mark before Bepu recycles the handle).
+
+No ghost promises the cluster's sway, wind, the **mouse path one frame stale** (`MouseAim.ApplyCursor` applies the delta before the click edge; Space is right), or two shots in the air at once.
+
+## The ghost and the beam
+
+- **The ghost is the signal; the crosshair only confirms it.** A **small** ball (`PREVIEW_SCALE`) in the landing cell in the colour at the muzzle (the useful question is "does it stick next to two more of its own"). Its size rides the shader's dissolve channel **below -1** (`ModelInstance.GhostDissolve`): opaque, no blend or sorting, reading as "not there yet". It appears exactly when a shot sticks, so its absence covers every refusal, and only when a shot would leave the barrel (not in a drop cinematic, at `Score.OutOfShots`, or once `LevelDecided`).
+- **It blinks** (`PREVIEW_BLINK_DEPTH` about `PREVIEW_SCALE` at `PREVIEW_BLINK_HZ`, wall clock), a smooth swing so its colour stays readable. The original reason is gone since #696; the owner chose the look.
+- **Where it is drawn differs from which cell.** The balls hang stretched under the anchor and the glass **descends** (`CEILING_DESCENT_PER_STEP` a step) while the lattice stays put, so a lattice-drawn ghost climbed out through the top. It is drawn in the cluster's **live** frame (`ShotPlacement.CellWorldPosition`, off the drift `TrySolveAgainstBall` measured), whole not just Y, so it sways with its pocket; `PhysicsBall.StartRenderGlide` and `BallLanding.World` needed the same. The *decision* was never wrong (`worldOffset` cancels out of the anchored contact).
+- **`AimBeam` is the overview's substitute for a crosshair** (that lens looks at the cluster, not along the bore): a dashed line crawling to the **touch**, red when a refusal is **certain** (the aim reaches a ball and neither ring has room). **Beam and crosshair hand over** (`1 - PreciseAim.Blend`): leaning in, the beam foreshortens into dashes over the ghost. It borrows `ShotTrail.fx` from `LaunchSmears`: ⚠ **a shared effect turns "set it once" into a race** (parameters belong to the `Effect`; the smear tapers, the beam does not), so both push the widths once per `Draw`. With gravity wells it follows the flight ([Special balls: shot and mass](special-balls-shot-and-mass.md)).
+
+## The elevation clamp: rubber, strain, refusal (#431)
+
+- **`Cannon.ElevationStrain`** is raised by `Cannon.Aim` alone (cursor, pad) when input asks past the clamp in the direction it moved (never by a walk, the eased reset, `aim=`, or a traverse along the cap). It holds `ELEVATION_STRAIN_HOLD`, falls over `ELEVATION_STRAIN_RELEASE`: **a timed flag, not a magnitude** (one call's overshoot shrinks as frame rate rises).
+- **The barrel is rubber (the owner's ruling)**: a push stretches the pose past the clamp towards `Cannon.ELEVATION_OVERSHOOT`, then a ~3 Hz damped spring pulls it back, in steps of at most 1/240 s so every frame rate draws the same swing. **One pose**: barrel, `AimDirection`, ghost, beam, shot and ADS lens all take it.
+- **The gun refuses the exploit found in play** (a shot from the top of the stretch left ~6 degrees past the limit into the band a tall level closes): `Cannon.ElevationRefusesShot` holds while the strain lasts and while the pose stands past the clamp by more than `ELEVATION_FIRE_TOLERANCE`. `Shoot` plays `ProceduralAudio.PlayShotRefused`; the Testbed prints `[shot] refused`; the ghost is withheld. At rest on the clamp the gun fires.
