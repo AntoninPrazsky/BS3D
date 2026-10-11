@@ -339,7 +339,7 @@ namespace BS3D.Screens
                 HorizontalStackPanel footer = new() { Spacing = Scaled(FOOTER_GAP), HorizontalAlignment = HorizontalAlignment.Center };
                 _boardButton = MenuButton("Leaderboard", OpenBoard, out _boardLabel);
                 _boardButton.Width = Scaled(FOOTER_BUTTON_WIDTH);
-                Button back = MenuButton("Back", GoBack);
+                Button back = BackButton();
                 back.Width = Scaled(FOOTER_BUTTON_WIDTH);
                 footer.Widgets.Add(_boardButton);
                 footer.Widgets.Add(back);
@@ -349,7 +349,7 @@ namespace BS3D.Screens
             else
             {
                 _boardButton = null;
-                page.Widgets.Add(MenuButton("Back", GoBack));
+                page.Widgets.Add(BackButton());
             }
 
             //⚠ PULLED DOWN INTO A BAND rather than centred like every other page (#472). This is the one
@@ -668,9 +668,13 @@ namespace BS3D.Screens
 
             //Added in the order the pad should step through them, since CollectNavEntries follows the order
             //widgets were added — so the walk reads left to right across the row, as it is drawn.
+            //What turns the chapter, outside the two arrows (#799): the shoulders for a pad player, the arrow keys for a
+            //keyboard one. The arrows never disable here - the pager wraps - so neither does a prompt.
+            row.Widgets.Add(Prompt(PromptGlyph.PAD_LB, PromptGlyph.KEY_LEFT));
             row.Widgets.Add(ChapterArrow('◀', -1));
             row.Widgets.Add(header);
             row.Widgets.Add(ChapterArrow('▶', 1));
+            row.Widgets.Add(Prompt(PromptGlyph.PAD_RB, PromptGlyph.KEY_RIGHT));
 
             return row;
         }

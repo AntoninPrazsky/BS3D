@@ -89,6 +89,7 @@ namespace BS3D.Screens
         //Built with the tree, so a turn can put the focus back on the button that made it and the pad can scroll
         private Button _previous, _next;
         private ScrollViewer _body;
+        private Widget _scrollPrompt;
 
         //A turn waiting for Update to put the rebuilt tree up — +1/-1, 0 for none (see Turn)
         private int _pendingTurn;
@@ -101,7 +102,14 @@ namespace BS3D.Screens
             VerticalStackPanel column = MenuColumn();
 
             column.Widgets.Add(ScreenHeading(TITLES[_page]));
-            column.Widgets.Add(Caption($"{_page + 1} of {TITLES.Length}"));
+
+            //The page counter, and at the same line's right what scrolls the text (#799): the right stick for a pad player,
+            //the wheel for one with the mouse. Shown only while the page is longer than its frame (Update), and in the
+            //small face, so the line keeps the counter's height and the frame below does not move when it appears.
+            Panel counter = new() { Width = Scaled(TEXT_WIDTH), HorizontalAlignment = HorizontalAlignment.Center };
+            counter.Widgets.Add(Caption($"{_page + 1} of {TITLES.Length}"));
+            counter.Widgets.Add(_scrollPrompt = ScrollPrompt());
+            column.Widgets.Add(counter);
 
             VerticalStackPanel body = BuildBody(_page);
 
@@ -121,7 +129,7 @@ namespace BS3D.Screens
             Panel walk = new() { Width = frame.X, HorizontalAlignment = HorizontalAlignment.Center };
 
             //Added left to right, the order the pad walks them in: Back, Previous, Next
-            Button back = MenuButton("Back", GoBack);
+            Button back = BackButton();
             back.Width = Scaled(WALK_BUTTON_WIDTH);
             back.HorizontalAlignment = HorizontalAlignment.Left;
             walk.Widgets.Add(back);
@@ -135,14 +143,19 @@ namespace BS3D.Screens
             Button previous = MenuButton("Previous", () => Turn(-1));
             previous.Width = Scaled(WALK_BUTTON_WIDTH);
             previous.Enabled = _page > 0;
-            pair.Widgets.Add(previous);
             _previous = previous;
 
             Button next = MenuButton("Next", () => Turn(1));
             next.Width = Scaled(WALK_BUTTON_WIDTH);
             next.Enabled = _page < TITLES.Length - 1;
-            pair.Widgets.Add(next);
             _next = next;
+
+            //What turns the page, outside the pair (#799): a shoulder's pill inside a walking button would stand on its word.
+            //The row has the room - the three buttons leave a gap between Back and the pair wider than both glyphs.
+            pair.Widgets.Add(PageTurnPrompt(PromptGlyph.PAD_LB, PromptGlyph.KEY_LEFT, previous));
+            pair.Widgets.Add(previous);
+            pair.Widgets.Add(next);
+            pair.Widgets.Add(PageTurnPrompt(PromptGlyph.PAD_RB, PromptGlyph.KEY_RIGHT, next));
 
             walk.Widgets.Add(pair);
             column.Widgets.Add(walk);
@@ -217,6 +230,11 @@ namespace BS3D.Screens
         public override void Update(GameTime gameTime)
         {
             base.Update(gameTime);
+
+            //The scroll prompt while there is something to scroll: the page is laid out by the frame just drawn, so a page
+            //that fits its frame, or a window tall enough for it, shows none
+            bool scrolls = _body != null && _body.ScrollMaximum.Y > 0;
+            if (_scrollPrompt != null && _scrollPrompt.Visible != scrolls) _scrollPrompt.Visible = scrolls;
 
             if (_pendingTurn == 0) return;
 
@@ -439,49 +457,56 @@ namespace BS3D.Screens
                 + "which is time the ceiling took. It does nothing until the glass has stepped down."));
         }
 
-        private static readonly (string Glyph, string What)[] CONTROLS =
+        //The pad's half of every line (#799), the tutorial's bindings exactly (Tutorial.cs): the right stick aims, the right
+        //trigger fires, the left holds the precise aim, the left stick walks and steps, X, Y and the right bumper are the
+        //three power-ups, and the Menu button pauses
+        private static readonly (string Keys, string Pad, string What)[] CONTROLS =
         {
-            (MOUSE, "Move the mouse to aim"),
-            (MOUSE_LEFT, "Click to fire — Space fires too"),
-            (MOUSE_RIGHT, "Hold to look down the barrel, for the precise shot"),
-            (KEY_A + KEY_D, "Walk the gun round the field"),
-            (KEY_W + KEY_S, "Step in and out — closer means a steeper shot"),
-            (KEY_E, "Swap the next two balls — one swap a level, from the third chapter"),
-            (KEY_Q, "Brake the ceiling — lift the glass one step back, one a level, from the fourth chapter"),
-            (KEY_R, "Cut — the next ball destroys the whole storey it hits, so what hung on it falls; what it would cut off lights up as you aim, never more than the lower half; one a level, from the fifth chapter"),
+            (MOUSE, PromptGlyph.PAD_RIGHT_STICK, "Aim"),
+            (MOUSE_LEFT, PromptGlyph.PAD_RT, "Fire — Space fires too"),
+            (MOUSE_RIGHT, PromptGlyph.PAD_LT, "Hold to look down the barrel, for the precise shot"),
+            (KEY_A + KEY_D, PromptGlyph.PAD_LEFT_STICK_SIDEWAYS, "Walk the gun round the field"),
+            (KEY_W + KEY_S, PromptGlyph.PAD_LEFT_STICK_UP_DOWN, "Step in and out — closer means a steeper shot"),
+            (KEY_E, PromptGlyph.PAD_X, "Swap the next two balls — one swap a level, from the third chapter"),
+            (KEY_Q, PromptGlyph.PAD_Y, "Brake the ceiling — lift the glass one step back, one a level, from the fourth chapter"),
+            (KEY_R, PromptGlyph.PAD_RB, "Cut — the next ball destroys the whole storey it hits, so what hung on it falls; what it would cut off lights up as you aim, never more than the lower half; one a level, from the fifth chapter"),
+            (PromptGlyph.KEY_ESCAPE, PromptGlyph.PAD_MENU, "Pause"),
         };
 
         private void BuildControls(VerticalStackPanel column)
         {
-            //One column of keycaps, as wide as the widest of them, with the words in a column beside it (#728). Each line
-            //used to be centred as a unit, so where a keycap landed depended on how long its own words were and the
-            //icons zig-zagged down the page.
-            int keyWidth = 0;
+            //A column of keycaps and a column of the pad's buttons, each as wide as the widest of it, with the words in a
+            //column beside them (#728, #799). Each line used to be centred as a unit, so where a keycap landed depended on
+            //how long its own words were and the icons zig-zagged down the page. Both hands at once rather than the one on
+            //the menus: this is the page a player reads to learn the other one.
+            int keyWidth = 0, padWidth = 0;
 
-            foreach ((string glyph, _) in CONTROLS)
-                keyWidth = Math.Max(keyWidth, (int)MathF.Ceiling(Game.MenuFontPrompt.MeasureString(glyph).X));
+            foreach ((string keys, string pad, _) in CONTROLS)
+            {
+                keyWidth = Math.Max(keyWidth, (int)MathF.Ceiling(Game.MenuFontPrompt.MeasureString(keys).X));
+                padWidth = Math.Max(padWidth, (int)MathF.Ceiling(Game.MenuFontPrompt.MeasureString(pad).X));
+            }
 
-            foreach ((string glyph, string what) in CONTROLS)
-                column.Widgets.Add(KeyLine(glyph, what, keyWidth));
+            foreach ((string keys, string pad, string what) in CONTROLS)
+                column.Widgets.Add(KeyLine(keys, pad, what, keyWidth, padWidth));
 
             column.Widgets.Add(Paragraph(
-                "Escape pauses. In the pause menu, Write to the Author sends a line about what you just saw — something "
-                + "unclear, something broken, something you liked — with a picture of that moment. F11 is fullscreen, F12 saves a "
-                + "screenshot, F10 hides the frame-rate counter."));
-            column.Widgets.Add(Caption("A gamepad plays all of it too — the Swap is X, the Brake is Y and the Cut is the right bumper; the first chapter "
-                + "teaches the other bindings for whichever you are holding."));
+                "In the pause menu, Write to the Author sends a line about what you just saw — something unclear, something "
+                + "broken, something you liked — with a picture of that moment. F11 is fullscreen, F12 saves a screenshot, F10 "
+                + "hides the frame-rate counter."));
         }
 
         /// <summary>
-        /// One control: the key as PromptFont draws it, and what it does beside it. The glyph is its own label
-        /// in its own face, because PromptFont fills its em with a rounded keycap while a line of body text
+        /// One control: the key and the pad's button as PromptFont draws them, and what they do beside them. Each glyph is
+        /// its own label in its own face, because PromptFont fills its em with a rounded keycap while a line of body text
         /// stands well short of one — set as a single string they would not sit on the same line.
         /// <para>
-        /// The glyph's label is <paramref name="keyWidth"/> wide and the words' label fills the rest of the text width and
-        /// wraps (#728), so every line is the same width and the keycaps stand at the same x whichever words follow them.
+        /// The glyphs' labels are <paramref name="keyWidth"/> and <paramref name="padWidth"/> wide and the words' label
+        /// fills the rest of the text width and wraps (#728), so every line is the same width and the glyphs stand at the
+        /// same x whichever words follow them.
         /// </para>
         /// </summary>
-        private Widget KeyLine(string glyph, string what, int keyWidth)
+        private Widget KeyLine(string keys, string pad, string what, int keyWidth, int padWidth)
         {
             int gap = Scaled(KEY_GAP);
 
@@ -492,14 +517,8 @@ namespace BS3D.Screens
                 Margin = ScaledThickness(0, 0, 0, 26),
             };
 
-            line.Widgets.Add(new Label
-            {
-                Text = glyph,
-                Font = Game.MenuFontPrompt,
-                TextColor = BS3DGame.MENU_TEXT,
-                Width = keyWidth,
-                VerticalAlignment = VerticalAlignment.Center,
-            });
+            line.Widgets.Add(GlyphLabel(keys, keyWidth));
+            line.Widgets.Add(GlyphLabel(pad, padWidth));
 
             line.Widgets.Add(new Label
             {
@@ -507,12 +526,51 @@ namespace BS3D.Screens
                 Font = FontBody,
                 TextColor = BS3DGame.MENU_TEXT_BODY,
                 Wrap = true,
-                Width = Scaled(TEXT_WIDTH) - keyWidth - gap,
+                Width = Scaled(TEXT_WIDTH) - keyWidth - padWidth - 2 * gap,
                 VerticalAlignment = VerticalAlignment.Center,
             });
 
             return line;
         }
+
+        /// <summary>
+        /// "Scroll" with the right stick pushed up and down before it for a pad player, the mouse's wheel for one with the
+        /// mouse (#799), set flush right on the counter's line. Hidden until <see cref="Update"/> finds the page longer
+        /// than its frame.
+        /// </summary>
+        private Widget ScrollPrompt()
+        {
+            HorizontalStackPanel prompt = new()
+            {
+                Spacing = Scaled(KEY_GAP),
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Top,
+                Visible = false,
+            };
+
+            //At the keycap size every other prompt is drawn at, in a widget only as tall as the small line: at the small
+            //face's own size the stick's R read as a dot (photographed), and the glyph may stand past the line's box
+            prompt.Widgets.Add(new PromptGlyph(Game, Game.MenuFontPrompt, PromptGlyph.PAD_RIGHT_STICK_UP_DOWN,
+                PromptGlyph.MOUSE_WHEEL, FontSmall.LineHeight));
+            prompt.Widgets.Add(new Label
+            {
+                Text = "Scroll",
+                Font = FontSmall,
+                TextColor = BS3DGame.MENU_TEXT_DIM,
+                VerticalAlignment = VerticalAlignment.Center,
+            });
+
+            return prompt;
+        }
+
+        private Label GlyphLabel(string glyph, int width) => new()
+        {
+            Text = glyph,
+            Font = Game.MenuFontPrompt,
+            TextColor = BS3DGame.MENU_TEXT,
+            Width = width,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
 
         private Label Caption(string text) => new()
         {

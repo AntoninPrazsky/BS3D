@@ -54,7 +54,8 @@ namespace BS3D.Screens
             };
             column.Widgets.Add(_loss);
 
-            _cancel = MenuButton("Cancel", Cancel);
+            //B and Escape on it (#799), the stack's back, which here is Cancel
+            _cancel = BackButton("Cancel", Cancel);
             column.Widgets.Add(_cancel);
             column.Widgets.Add(MenuButton("Quit", Quit));
 

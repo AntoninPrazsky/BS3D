@@ -125,6 +125,29 @@ namespace BS3D
         private float _navSideRepeatDelay;
         private int _navSideDirection;
 
+        //Which hand the menus draw their prompts for (#799, see PromptsForPad), whether the "pad" argument pinned it, and
+        //where the pointer stood when that was last asked - re-baselined on a screen change with the walk's own
+        private bool _promptsForPad;
+        private bool _promptsPinned;
+        private Point _promptMouseAt;
+
+        //A and Enter at the menu's keycap size, measured with the fonts (DrawFocusPrompt)
+        private float _focusPromptInkCentre, _focusPromptPadWidth, _focusPromptKeysWidth;
+
+        //The focus prompt's entries are this share of a column wide at least: a level tile or a chapter arrow is too small
+        //to carry a glyph beside what it already shows, where Help's walking buttons and High Scores' periods (490 and
+        //470 of the column's 1000) have the room
+        private const float FOCUS_PROMPT_MIN_SHARE = 0.4f;
+
+        //The pad's buttons any one of which says the hand is on the pad (#799). The sticks and the triggers are read past
+        //their dead zones beside these.
+        private static readonly Buttons[] PROMPT_PAD_BUTTONS =
+        {
+            Buttons.A, Buttons.B, Buttons.X, Buttons.Y, Buttons.LeftShoulder, Buttons.RightShoulder, Buttons.Start,
+            Buttons.Back, Buttons.DPadUp, Buttons.DPadDown, Buttons.DPadLeft, Buttons.DPadRight, Buttons.LeftStick,
+            Buttons.RightStick,
+        };
+
         //THE KONAMI CODE (#230's menu edition), read on the main menu off the same edges the navigation acts on.
         //Answered with the title's dance and a quick run up the star chime, a fifth under the root to an octave
         //over it: the rating's own triad with a note in front, played fast enough to be a found secret rather than
@@ -641,6 +664,9 @@ namespace BS3D
             _menuFontSmall = _menuFontSystem.GetFont(Scaled(MENU_FONT_SMALL));
             _menuFontBody = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_BODY));
             _menuFontPrompt = _menuFontSystemPrompt.GetFont(Scaled(MENU_FONT_BODY * 6 / 5));
+            _focusPromptInkCentre = PromptGlyph.InkCentreY(_menuFontPrompt);
+            _focusPromptPadWidth = _menuFontPrompt.MeasureString(PromptGlyph.PAD_A).X;
+            _focusPromptKeysWidth = _menuFontPrompt.MeasureString(PromptGlyph.KEY_ENTER).X;
             _menuFontPromptSmall = _menuFontSystemPrompt.GetFont(Scaled(MENU_FONT_SMALL));
             _menuFontHeading = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_HEADING));
             //The DISPLAY face, not the small one it replaced: a section label over display-face rows belongs to them.
@@ -722,6 +748,42 @@ namespace BS3D
         /// </para>
         /// </summary>
         internal SpriteFontBase MenuFontPrompt => _menuFontPrompt;
+
+        /// <summary>
+        /// Whether the menus draw the pad's prompts rather than the keyboard's (#799): B rather than Escape on Back, LB and
+        /// RB rather than the arrow keys beside a page turn, A rather than Enter on the focused entry. The last device that
+        /// gave a menu any input decides (<see cref="NotePromptHand"/>), so the prompts follow the hand the way the
+        /// tutorial's cards do, and a pad lying beside a keyboard player changes nothing until it is touched (#817's rule).
+        /// A pause starts from the session's hand and a level starts from this one, so the menus and the cards agree about
+        /// what the player is holding. The <c>pad</c> argument pins it for the run.
+        /// </summary>
+        internal bool PromptsForPad => _promptsForPad;
+
+        /// <summary>
+        /// Moves <see cref="PromptsForPad"/> to whichever device gave input this frame: a pad button, a stick or a trigger
+        /// past its dead zone is the pad; a key held, a mouse button or the pointer moving further than the walk's own
+        /// wake distance is the keyboard and mouse. The pad is asked first, so a frame with both says pad - the one that
+        /// shows the player the buttons they cannot otherwise find. Nothing is allocated.
+        /// </summary>
+        private void NotePromptHand(KeyboardState keyboard, GamePadState pad, MouseState mouse)
+        {
+            bool pointerMoved = Math.Abs(mouse.X - _promptMouseAt.X) > NAV_MOUSE_WAKE_PIXELS
+                || Math.Abs(mouse.Y - _promptMouseAt.Y) > NAV_MOUSE_WAKE_PIXELS;
+            if (pointerMoved) _promptMouseAt = new Point(mouse.X, mouse.Y);
+
+            if (_promptsPinned) return;
+
+            bool padTouched = Math.Abs(pad.ThumbSticks.Left.X) > NAV_STICK_DEADZONE || Math.Abs(pad.ThumbSticks.Left.Y) > NAV_STICK_DEADZONE
+                || Math.Abs(pad.ThumbSticks.Right.X) > NAV_STICK_DEADZONE || Math.Abs(pad.ThumbSticks.Right.Y) > NAV_STICK_DEADZONE
+                || pad.Triggers.Left > NAV_STICK_DEADZONE || pad.Triggers.Right > NAV_STICK_DEADZONE;
+
+            for (int i = 0; !padTouched && i < PROMPT_PAD_BUTTONS.Length; i++)
+                padTouched = pad.IsButtonDown(PROMPT_PAD_BUTTONS[i]);
+
+            if (padTouched) _promptsForPad = true;
+            else if (pointerMoved || keyboard.GetPressedKeyCount() > 0
+                || mouse.LeftButton == ButtonState.Pressed || mouse.RightButton == ButtonState.Pressed) _promptsForPad = false;
+        }
 
         /// <summary>
         /// PromptFont at the small face's size (#725), for a glyph that stands in a line of small print: the cup beside a
@@ -1300,6 +1362,25 @@ namespace BS3D
             }
         }
 
+        /// <summary>
+        /// <c>menucursor=</c>'s lever (#799): raises the pad's and the arrow keys' cursor on the page that is up and steps it
+        /// <paramref name="steps"/> entries on, through the walk's own step, so the focus prompt can be photographed on a
+        /// desktop nobody is sitting at - without the window's focus the menus read no input at all. Testing only.
+        /// </summary>
+        internal void RaiseMenuCursorForTesting(int steps)
+        {
+            if (_navEntries.Count == 0)
+            {
+                Console.WriteLine($"[cursor] Testing: {ActiveScreenName} has no entries to put the cursor on");
+                return;
+            }
+
+            _navIndex = -1;
+            for (int i = 0; i <= steps; i++) StepNavFocus(1);
+
+            Console.WriteLine($"[cursor] Testing: the cursor is up on entry {_navIndex + 1} of {_navEntries.Count} on {ActiveScreenName}");
+        }
+
         /// <summary>The type of the screen up, for a testing lever's log line (#826).</summary>
         internal string ActiveScreenName => _screens.Active?.GetType().Name ?? "none";
 
@@ -1551,6 +1632,9 @@ namespace BS3D
             MouseState mouse = Mouse.GetState();
             _navMouseAt = new Point(mouse.X, mouse.Y);
 
+            //And the prompts' hand for the same reason (#799): the session's recentring is not the player taking the mouse
+            _promptMouseAt = _navMouseAt;
+
             ApplyNavHighlight();
         }
 
@@ -1684,6 +1768,38 @@ namespace BS3D
         }
 
         /// <summary>
+        /// A or Enter on the entry the pad's or the arrow keys' cursor stands on (#799): what presses it, at the slab's right
+        /// inner edge. Drawn by the host's batch after the desktop, the scrim's way, so no page's tree changes with the
+        /// cursor and a walk down a column moves one glyph rather than relaying a page. Only while the cursor is up - the
+        /// pointer clicks, and a prompt under it would be one more thing on the slab it is already pointing at - and not
+        /// on an entry that carries its own prompt (<see cref="PromptedContent"/>: Back already says B) or one too small to
+        /// hold a glyph beside what it shows.
+        /// </summary>
+        private void DrawFocusPrompt()
+        {
+            if (_navIndex < 0 || _navIndex >= _navEntries.Count) return;
+            if (_screens.Active is MenuPage { CapturesKeyboard: true }) return;
+
+            Button entry = _navEntries[_navIndex];
+            if (entry.Content is PromptedContent || !entry.Enabled) return;
+
+            if (entry.Bounds.Width < Scaled(MENU_BUTTON_WIDTH) * FOCUS_PROMPT_MIN_SHARE) return;
+
+            Rectangle content = entry.ActualBounds;
+
+            Point right = entry.ToGlobal(new Point(content.Right, content.Y + content.Height / 2));
+
+            bool pad = _promptsForPad;
+            string glyph = pad ? PromptGlyph.PAD_A : PromptGlyph.KEY_ENTER;
+            float width = pad ? _focusPromptPadWidth : _focusPromptKeysWidth;
+
+            OverlayBatch.Begin();
+            OverlayBatch.DrawString(_menuFontPrompt, glyph,
+                new Vector2(MathF.Round(right.X - width), MathF.Round(right.Y - _focusPromptInkCentre)), MENU_TEXT);
+            OverlayBatch.End();
+        }
+
+        /// <summary>
         /// The menu's directional input: the D-pad, the left stick and the arrow keys move the focus, A or
         /// Enter presses the focused entry, B backs out exactly as Escape does. <b>Left and right are the
         /// page's own</b> (#273) — the level picker pages between chapters on them — and nothing happens on a
@@ -1789,8 +1905,10 @@ namespace BS3D
                 _konamiStick.Reset();
             }
 
-            //B is Escape. Read before A, since backing out changes the screen the accept below would act on.
-            if (pad.IsButtonDown(Buttons.B) && !_previousPad.IsButtonDown(Buttons.B))
+            //B is Escape. Read before A, since backing out changes the screen the accept below would act on. On the pause
+            //the Menu button that paused the game resumes it as well (#799) - a pad player's pause is one button, both ways.
+            if ((pad.IsButtonDown(Buttons.B) && !_previousPad.IsButtonDown(Buttons.B))
+                || (_screens.Active is PausePage && IsPadEdge(pad, Buttons.Start)))
             {
                 _audioDirector.Rumble.UiBack();
                 MenuBack();
@@ -2321,6 +2439,55 @@ namespace BS3D
             return button;
         }
 
+        /// <summary>
+        /// A prompt for the menus (#799): <paramref name="pad"/> drawn for a pad player and <paramref name="keys"/> for a
+        /// keyboard one (<see cref="PromptsForPad"/>), at the keycap size, as tall as a line of the body face.
+        /// </summary>
+        internal PromptGlyph Prompt(string pad, string keys) => new(this, _menuFontPrompt, pad, keys, _menuFontBody.LineHeight);
+
+        /// <summary>
+        /// A worded menu button with the key or pad button that presses it at one end of its slab (#799): B on Back, LB on
+        /// Previous. The word stays centred where every other entry's is, so a column of entries still reads as one, and
+        /// the glyph stands at the slab's inner edge on <paramref name="side"/>. The content is a
+        /// <see cref="PromptedContent"/>, which is how the focus cursor knows not to draw A over an entry that already
+        /// says what presses it.
+        /// </summary>
+        internal Button MenuButton(string text, Action onClick, PromptGlyph prompt, HorizontalAlignment side, out Label label)
+        {
+            label = new Label
+            {
+                Text = text,
+                Font = _menuFontBody,
+                TextColor = MENU_TEXT,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+
+            prompt.HorizontalAlignment = side;
+
+            PromptedContent content = new();
+            content.Widgets.Add(label);
+            content.Widgets.Add(prompt);
+
+            Button button = MenuClickable(content, onClick);
+
+            button.Width = Scaled(MENU_BUTTON_WIDTH);
+            button.Padding = ScaledThickness(43, 18);
+
+            return button;
+        }
+
+        /// <summary>
+        /// <see cref="FrontEndEntry(string, Action, out Label)"/> with its prompt at the slab's right end (#799) - the front
+        /// end's words stand at the left, so the right is where nothing is.
+        /// </summary>
+        internal Button FrontEndEntry(string text, Action onClick, PromptGlyph prompt)
+        {
+            Button entry = MenuButton(text, onClick, prompt, HorizontalAlignment.Right, out Label label);
+
+            return AsFrontEndEntry(entry, label);
+        }
+
         internal Button FrontEndEntry(string text, Action onClick) => FrontEndEntry(text, onClick, out _);
 
         /// <summary>
@@ -2341,6 +2508,12 @@ namespace BS3D
         {
             Button entry = MenuButton(text, onClick, out label);
 
+            return AsFrontEndEntry(entry, label);
+        }
+
+        /// <summary>A worded menu button turned into a front-end entry: the larger type, set flush left, on a lighter rest.</summary>
+        private Button AsFrontEndEntry(Button entry, Label label)
+        {
             label.Font = _menuFontFrontEntry;
             label.HorizontalAlignment = HorizontalAlignment.Left;
 
@@ -2475,6 +2648,9 @@ namespace BS3D
             //One mouse snapshot for the navigation's wake test and the wheel below (#400 found them polling it
             //twice a frame, BestPractices.md #5)
             MouseState mouse = Mouse.GetState();
+
+            //Before anything acts on them, so a press that changes the page is drawn with the hand that made it (#799)
+            NotePromptHand(keyboard, pad, mouse);
 
             //A page typing into itself has the keyboard (#548): no key of the menu's own is read, only the pad's A
             //and B are handed over, and the snapshots below still advance so nothing fires on the way out

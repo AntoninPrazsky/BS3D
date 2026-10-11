@@ -177,6 +177,10 @@ namespace BS3D
         //A step lands on the stack on its next update, so the page it left up is said a frame later
         private bool _quitReportDue;
 
+        //Testing only: the wall-clock second the menus' cursor comes up, and how many entries it walks (menucursor=, #799)
+        private float? _menuCursorAt;
+        private readonly int _menuCursorSteps;
+
         /// <summary>
         /// Whether this run has any lever armed - a level to play, a page to open at boot, a staged result, a celebration
         /// (#763). Decided once, from the arguments, since each lever clears itself as it fires: it says "a script is
@@ -228,9 +232,12 @@ namespace BS3D
             _quitAt = launch.QuitAt;
             _quitSteps = launch.QuitSteps == null ? null
                 : new Queue<string>(launch.QuitSteps.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+            _menuCursorAt = launch.MenuCursorAt;
+            _menuCursorSteps = launch.MenuCursorSteps;
 
             Drives = _celebrate || _confetti || _play || _result || _pick != null || _about != null || _extras || _jukebox != null || _settings
-                || _board != null || _highScores != null || _help != null || _scenes || _tour || _toMenuAt != null || _noteAt != null || _quitAt != null;
+                || _board != null || _highScores != null || _help != null || _scenes || _tour || _toMenuAt != null || _noteAt != null || _quitAt != null
+                || _menuCursorAt != null;
         }
 
         /// <summary>
@@ -436,6 +443,14 @@ namespace BS3D
             {
                 _result = false;
                 PresentResult(game);
+            }
+
+            //The pad's and the arrow keys' cursor (#799), last, on whatever page the levers above have put up by the
+            //script's second
+            if (_menuCursorAt is float cursorAt && game.WallClock >= cursorAt && !game.IsSplashUp)
+            {
+                _menuCursorAt = null;
+                game.RaiseMenuCursorForTesting(_menuCursorSteps);
             }
         }
 

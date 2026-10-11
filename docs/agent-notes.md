@@ -461,3 +461,9 @@ Pravidla:
 - #826 (merge do mainu, verdict-eye): obě položky Quit otevřou `QuitConfirmPage` (Cancel první, Escape/B = pop; Restart, zavírací tlačítko a Alt+F4 beze změny); dodělán kód necommitnutý včerejší session na `826-quit-confirm`; páka `quitconfirm[=<s>[:<kroky>]]`.
 - ⚠ Nad hlavním menu je deska průsvitná a Cancel/Quit se od ní skoro neliší (50 proti 42); posoudit musí majitelovo oko.
 - Otevřené: #825 (merge 6e6ccd98 z 9. 10.) zůstal s `in-progress` bez záznamu; štítek sundán, komentář: škálovaný displej (125 %) a navazující body (velikost okna, `WM_DPICHANGED`, kurzor, ikona) nikdo neověřil.
+
+## 2026-10-11 — #799 #826 klávesy a tlačítka padu přímo v menu — desktop (RDT-PC), Claude Code (bs3d-90)
+- majitel: #826 OK (zavřeno 10. 10.).
+- #799 (merge do mainu, verdict-eye): `PromptGlyph` kreslí glyf podle ruky, která naposledy ovládala menu (`PromptsForPad`; pauza přebírá ruku hry, level ruku menu). B/Esc na Back, Resume a Cancel; LB/RB nebo ←/→ u záložek Settings, u Previous/Next v Help a v tabulkách levelu a u šipek kapitol; A/Enter na položce s kurzorem; pravá páčka nebo kolečko u „Scroll“; sloupec padu v Help › Controls. Tlačítko Menu na padu pauzuje i pouští. Páka `menucursor=`, `pad` připíná i menu.
+- ⚠ PromptFont: LB/RB jsou U+2B98/2B99 (U+2198/2199 z HUD je poloviční a u záložek se ztrácí); jedna šipková klávesa jako klávesa neexistuje.
+- Otevřené: přepnutí ruky na skutečném vstupu (chce fokus okna), stránka tabulek levelu (otevře se jen online), pad v rukou majitele.

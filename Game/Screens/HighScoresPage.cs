@@ -185,7 +185,7 @@ namespace BS3D.Screens
             _settingsButton = MenuButton("Settings", Game.OpenSettings);
             column.Widgets.Add(_settingsButton);
 
-            column.Widgets.Add(MenuButton("Back", GoBack));
+            column.Widgets.Add(BackButton());
 
             return ScreenRoot(Plate(column));
         }
@@ -199,6 +199,9 @@ namespace BS3D.Screens
             HorizontalStackPanel row = new() { Spacing = Scaled(20), HorizontalAlignment = HorizontalAlignment.Center };
 
             _previousArrow = Arrow('◀', -1, out _previousGlyph);
+
+            //What turns the chapter, outside the arrows (#799), dimmed with an arrow that has nowhere to go
+            row.Widgets.Add(PageTurnPrompt(PromptGlyph.PAD_LB, PromptGlyph.KEY_LEFT, _previousArrow));
             row.Widgets.Add(_previousArrow);
 
             _chapterName = new Label
@@ -217,6 +220,7 @@ namespace BS3D.Screens
 
             _nextArrow = Arrow('▶', 1, out _nextGlyph);
             row.Widgets.Add(_nextArrow);
+            row.Widgets.Add(PageTurnPrompt(PromptGlyph.PAD_RB, PromptGlyph.KEY_RIGHT, _nextArrow));
             return row;
         }
 

@@ -55,7 +55,8 @@ namespace BS3D.Screens
             VerticalStackPanel column = MenuColumn();
 
             column.Widgets.Add(ScreenHeading("PAUSED"));
-            column.Widgets.Add(MenuButton("Resume", Game.ResumeGame));
+            //With B and Escape on it (#799): the pause's back is a resume, so they are what does what Resume does
+            column.Widgets.Add(BackButton("Resume", Game.ResumeGame));
             column.Widgets.Add(MenuButton("Settings", Game.OpenSettings));
             column.Widgets.Add(MenuButton("Scene", Game.OpenSceneSelect));
 
