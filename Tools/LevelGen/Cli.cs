@@ -298,7 +298,7 @@ namespace BS3D.Tools.LevelGen
                 //7. THE MOON - "The Quarry". Chunky lattice-aligned blocks of colour, five or six of them, and
                 //no plate to trigger anywhere: every shot is a shot at a handful of balls. Colossus closes it,
                 //from WriteLevelSet.
-                Mosaic(), Prism(), Hopper(), Trilithon(), Gantry(), Fault(), Crib(), Highwall(), Static()
+                Mosaic(), Prism(), Hopper(), Archway(), Cornice(), Hoist(), Eclipse(), Geode(), Locket()
             };
 
             //9. THE NEBULA (#182) - the arena in deep space, and the block the five #152 colours arrive in,

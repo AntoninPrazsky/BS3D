@@ -508,51 +508,51 @@
     },
     {
       "file": "Trilithon.json",
-      "name": "Trilithon",
+      "name": "Archway",
       "block": "The Quarry",
-      "shots": 30,
+      "shots": 34,
       "minStars": 124,
-      "ceilingStep": 5
+      "ceilingStep": 6
     },
     {
       "file": "Gantry.json",
-      "name": "Gantry",
+      "name": "Cornice",
       "block": "The Quarry",
-      "shots": 48,
+      "shots": 28,
       "minStars": 126,
       "ceilingStep": 6
     },
     {
       "file": "Fault.json",
-      "name": "Fault",
+      "name": "Hoist",
       "block": "The Quarry",
-      "shots": 46,
+      "shots": 42,
       "minStars": 128,
-      "ceilingStep": 6
-    },
-    {
-      "file": "Crib.json",
-      "name": "Crib",
-      "block": "The Quarry",
-      "shots": 60,
-      "minStars": 130,
-      "ceilingStep": 6
-    },
-    {
-      "file": "Highwall.json",
-      "name": "Highwall",
-      "block": "The Quarry",
-      "shots": 44,
-      "minStars": 132,
       "ceilingStep": 7
     },
     {
-      "file": "Nine.json",
-      "name": "Static",
+      "file": "Crib.json",
+      "name": "Eclipse",
       "block": "The Quarry",
-      "shots": 34,
+      "shots": 46,
+      "minStars": 130,
+      "ceilingStep": 7
+    },
+    {
+      "file": "Highwall.json",
+      "name": "Geode",
+      "block": "The Quarry",
+      "shots": 50,
+      "minStars": 132,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Nine.json",
+      "name": "Locket",
+      "block": "The Quarry",
+      "shots": 46,
       "minStars": 134,
-      "ceilingStep": 5
+      "ceilingStep": 7
     },
     {
       "file": "Colossus.json",
