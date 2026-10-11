@@ -300,6 +300,13 @@ namespace BS3D.Screens
             new(symbol, (int)MathF.Round(FontBody.LineHeight * ANTON_CAP_OF_LINE), FontBody.LineHeight);
 
         /// <summary>
+        /// The height of a display-face font's capitals in pixels (Anton's, off its own tables): what a drawn shape standing
+        /// beside a word of that face is sized to so it reads at the word's weight. Measured on the level picker's heading
+        /// at 3840×1600 (#847): 53 px, which is this.
+        /// </summary>
+        protected static int CapHeightOf(FontStashSharp.SpriteFontBase font) => (int)MathF.Round(font.LineHeight * ANTON_CAP_OF_LINE);
+
+        /// <summary>
         /// A checkbox (#816): a menu button around a <see cref="CheckGlyph"/> and the label beside it, so it is a member of
         /// the menu's button family in all but its content. The slab, the brushes the pad's focus swaps, the click sound,
         /// the pad's entry and #800's haptics all come with <see cref="MenuButton(Widget, Action)"/>. For a row with two
