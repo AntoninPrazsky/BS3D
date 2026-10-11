@@ -32,8 +32,9 @@ namespace Prazsky.BS3D.GameObjects
         /// <para>
         /// It exists for the <b>tall</b> levels, whose column reaches up out of the camera's frame. There the
         /// full 80° lets the player aim at balls they cannot see and shoot blind into the part of the level
-        /// that has not arrived yet; the game lowers this to the steepest aim that still reaches the top of
-        /// what is framed. Clamped into the gun's own range on the way in, so a caller cannot hand it an
+        /// that has not arrived yet, or cut the column off the glass in its opening shots; the game lowers this
+        /// to the steepest aim the column's working band needs as the level hangs at its load, holds it there,
+        /// and lifts it once the column hangs whole in the frame (#842). Clamped into the gun's own range on the way in, so a caller cannot hand it an
         /// elevation the mount does not have — or, by passing something huge, quietly remove the limit.
         /// </para>
         /// </summary>
