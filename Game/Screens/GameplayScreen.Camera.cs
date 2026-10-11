@@ -288,6 +288,9 @@ namespace BS3D.Screens
                 _cannon.OrbitRadius = fit.CannonOrbitRadius;
                 _cannon.SetAdvanceRange(fit.CannonMinRadius, fit.CannonMaxRadius);
             }
+            //A load holds a tall level's working band where the level hangs it (#842); a resize keeps what was held and
+            //only re-angles it for where the gun now stands
+            if (!keepStance) HoldTallAimBand();
             _cannon.ElevationLimit = SolveElevationLimit();
 
             //The lens's trail starts behind the gun rather than easing in from where the last level left it
@@ -320,10 +323,12 @@ namespace BS3D.Screens
         /// </summary>
         private void LogAimReachability()
         {
-            //On a tall field the question is asked of the WORKING BAND — the underside plus the aim's
-            //headroom — and against the limit the gun is actually held to there. Everything above that band
-            //is unreachable now by design; the descent is what brings it into the band, and asking about it
-            //where it currently hangs returns "unfinishable" for a level that finishes.
+            //On a tall field the question is asked of the WORKING BAND the load held (#842) — the underside plus
+            //the aim's headroom, where the level hung it — and against the limit the gun is held to there.
+            //Everything above that band is unreachable by design until the descent brings it down into the
+            //same height, and asking about it where it hangs returns "unfinishable" for a level that finishes.
+            //Once the clamp has lifted (the column hangs whole in the frame) the level is asked whole, as a
+            //short one is.
             //
             //⚠ BUT ON A TALL FIELD THIS COMPARISON IS AGAINST ITSELF, and this comment claimed otherwise
             //until #527. SolveElevationLimit below returns min(MaxElevation, WorstElevation + margin) off
@@ -332,15 +337,17 @@ namespace BS3D.Screens
             //gun's clamp and nothing to do with the band. The line is still worth printing (it is what would
             //say so the day a fit stands the gun too close), but a PASS on a tall level is not evidence the
             //level is playable. AimReachability's own class doc and BestPractices.md §10 carry it.
+            bool banded = FieldIsTallerThanFrame && !_tallAimLifted;
+
             AimReachabilityResult reach = AimReachability.Check(
                 _map, _cannon.OrbitRadius, _cannon.Position.Y, _cannon.ElevationLimit,
-                FieldIsTallerThanFrame ? TallAimBandTop() : int.MaxValue,
-                AimWorldOffset(),
-                FieldIsTallerThanFrame ? TallAimHorizontalLimit() : float.MaxValue);
+                banded ? _tallAimHeldBandTop : int.MaxValue,
+                banded ? _clusterWorldOffset : AimWorldOffset(),
+                FieldIsTallerThanFrame ? _tallAimHeldHorizontal : float.MaxValue);
 
             const float RAD_TO_DEG = 180f / MathF.PI;
 
-            Console.WriteLine($"[aimcheck]{(FieldIsTallerThanFrame ? " (the working band only)" : string.Empty)}"
+            Console.WriteLine($"[aimcheck]{(banded ? " (the working band only)" : string.Empty)}"
                 + $" steepest cell ({reach.WorstCell.X},{reach.WorstCell.Z},{reach.WorstCell.Level})"
                 + $" at Y={reach.WorstCellY:F1} needs {reach.WorstElevation * RAD_TO_DEG:F1} deg"
                 + $" of the limit's {_cannon.ElevationLimit * RAD_TO_DEG:F1}  ->  "
@@ -349,14 +356,27 @@ namespace BS3D.Screens
                     : $"FAIL - {reach.UnreachableCells}/{reach.TotalCells} cells out of reach (unfinishable)"));
         }
 
+        //What a tall level's aim was solved for at the load (#842): the working band's top level and how far out the
+        //cluster reached, both as the level hung before its first descent. Held for the whole attempt, so the clamp
+        //reaches the same height in the world from the first shot to the last; a resize only re-angles it for where
+        //the gun now stands.
+        private int _tallAimHeldBandTop;
+        private float _tallAimHeldHorizontal;
+
+        //Set once what is left of the cluster hangs whole inside the framed window (#842): from then on the tall level
+        //is aimed the way a short one is, at the gun's full range, until the next load. A ratchet, so a brake that lifts
+        //the glass back a step does not take the freedom away again.
+        private bool _tallAimLifted;
+
         /// <summary>
         /// How steeply the gun may be aimed on this level: its full <see cref="Cannon.MaxElevation"/> on any
         /// field the camera frames whole, and only as far as the <b>working band</b> on a tall one — the
-        /// column's underside plus <see cref="TALL_AIM_HEADROOM_LEVELS"/>, where it hangs <i>now</i>.
+        /// column's underside plus <see cref="TALL_AIM_HEADROOM_LEVELS"/>, <b>as the level hung it at the load</b>
+        /// (<see cref="HoldTallAimBand"/>) — until the column hangs whole in the frame, when the clamp lifts
+        /// (<see cref="LiftTallAimOnceFramed"/>).
         /// <para>
-        /// A tall level's column reaches up out of shot, and with the full 80° the player can aim at balls
-        /// they cannot see — shooting blind into the part of the level that has not arrived yet, which reads
-        /// as the level being cheatable rather than as a rule. The limit is the same geometry
+        /// A tall level's column reaches up out of shot, and with the full 80° the player could cut it off the
+        /// glass in the first shots and aim at balls they cannot see. The limit is the same geometry
         /// <see cref="AimReachability"/> measures with, run backwards: the steepest <i>facing</i> shot, from
         /// the gun's stand-off to the band's nearest cell, plus <see cref="TALL_AIM_MARGIN"/>. So everything
         /// inside the band stays reachable — including the near edge, which is the steepest legitimate shot
@@ -365,18 +385,20 @@ namespace BS3D.Screens
         /// shots, because a band cut high in the window orphans the entire visible column under it.
         /// </para>
         /// <para>
-        /// Solved rather than authored per level, because its inputs are the fit's and the cluster's: the orbit
-        /// radius follows the field's size and the band follows the column. And <b>re-solved whenever the
-        /// column moves</b> — on every ceiling step (<see cref="ResolveTallAimLimit"/>) and on a resize — off
-        /// where the glass has taken it (<see cref="AimWorldOffset"/>) and the underside as it stands. Until
-        /// #582 it was solved at the load and the resize only, at the lattice's load-time height, so each
-        /// pressure step lowered the band under a clamp that stayed put, and a resize re-solved it above the
-        /// band — the clamp loosened with every step, opening exactly the blind shots it exists to refuse.
+        /// <b>Held, not re-solved, as the glass descends (#842, the owner's ruling).</b> From #582 to #842 it was
+        /// re-solved on every ceiling step for the band where it hung then, so every step lowered the band and the
+        /// clamp with it: measured in play, about 2° a step, Totem from 24.9° at the load to 10.5° by its end,
+        /// while every short level kept its 80° — "in smaller levels I could shoot higher". The clamp exists so a
+        /// tall level is not cut loose in its opening shots, and that is a fact about the start: held at the
+        /// load's height, the descent brings more of the column into the same reach rather than taking reach
+        /// away. Solved against the field's <b>cells</b> and not its balls, so the band at the load's hang
+        /// (<see cref="_clusterWorldOffset"/>) is pure geometry: a resize re-solves exactly the same height in the
+        /// world for the gun's new stand-off.
         /// </para>
         /// </summary>
         private float SolveElevationLimit()
         {
-            if (!FieldIsTallerThanFrame) return Cannon.MaxElevation;
+            if (!FieldIsTallerThanFrame || _tallAimLifted) return Cannon.MaxElevation;
 
             //Asked of AimReachability rather than derived alongside it, and that is the point: the limit and
             //the check that polices it are then the SAME arithmetic and cannot disagree. Written by hand they
@@ -388,44 +410,68 @@ namespace BS3D.Screens
             //level actually get", not "does it fit".
             AimReachabilityResult needed = AimReachability.Check(
                 _map, _cannon.OrbitRadius, _cannon.Position.Y, Cannon.MaxElevation,
-                TallAimBandTop(), AimWorldOffset(), TallAimHorizontalLimit());
+                _tallAimHeldBandTop, _clusterWorldOffset, _tallAimHeldHorizontal);
 
             return MathF.Min(Cannon.MaxElevation, needed.WorstElevation + TALL_AIM_MARGIN);
         }
 
         /// <summary>
-        /// Re-solves a tall level's <see cref="Cannon.ElevationLimit"/> for the column where it now hangs, on the
-        /// frame a ceiling step begins (#582), or the brake lifts it (#213) — see <see cref="SolveElevationLimit"/> for why it has to follow.
-        /// The step is taken as already arrived: the glass slides the one <see cref="CeilingDescent.CEILING_DESCENT_PER_STEP"/>
-        /// in well under a second, and a clamp that tightens at the start of that slide rather than at its end
-        /// is the conservative side of the difference. (For the brake's lift it is the other side — the limit loosens
-        /// as the lift starts, the column arriving 0.4 s later — which only lets the gun tilt up at a column not yet
-        /// there and blocks no shot.) Once per step and never per frame; the log line is a
-        /// rare event of the <c>[ceiling]</c> kind, and the one figure that says the clamp is following.
+        /// Takes a tall level's working band as the level hangs at its load — the glass at rest, nothing shot —
+        /// for <see cref="SolveElevationLimit"/> to hold for the whole attempt (#842), and clears the last attempt's
+        /// lift. Called by a load's fit only: a resize keeps what was held.
         /// </summary>
-        private void ResolveTallAimLimit()
+        private void HoldTallAimBand()
         {
-            //An empty map answers GetLowestOccupiedLevel with the field's top level (FeedTallColumn's own trap),
-            //which would lift the band out of the frame; and a cleared level takes no more steps anyway
-            if (!FieldIsTallerThanFrame || _map.GetBallsCount() == 0) return;
+            _tallAimLifted = false;
+            if (!FieldIsTallerThanFrame) return;
+
+            _tallAimHeldBandTop = TallAimBandTop();
+            _tallAimHeldHorizontal = TallAimHorizontalLimit();
+        }
+
+        /// <summary>
+        /// Lifts a tall level's clamp to the gun's full range once what is left of the cluster hangs <b>whole
+        /// inside the framed window</b> (#842): its highest occupied level at or under the window's top, where the
+        /// glass is taking it. The owner's ruling — "once the level has descended low enough, the player may aim
+        /// anywhere" — and the measure of "low enough" is the one the clamp exists for: nothing is left above the
+        /// frame to shoot blind into, so the level has become what a short one is, and is aimed as one.
+        /// <para>
+        /// Asked on the frame a ceiling step begins, the one thing that brings the column down (a shot cannot take
+        /// the top level away without the whole cluster falling with it), and the step is taken as already
+        /// arrived — the glass slides it in well under a second. Once per step and never per frame; the log line
+        /// is a rare event of the <c>[ceiling]</c> kind.
+        /// </para>
+        /// </summary>
+        private void LiftTallAimOnceFramed()
+        {
+            //An empty map answers GetHighestOccupiedLevel with level 0, which would read as "framed"; and a cleared
+            //level takes no more steps anyway
+            if (!FieldIsTallerThanFrame || _tallAimLifted || _map.GetBallsCount() == 0) return;
+
+            int highest = _map.GetHighestOccupiedLevel();
+            int framed = FramedLevelTop();
+
+            if (highest > framed) return;
 
             const float RAD_TO_DEG = 180f / MathF.PI;
             float before = _cannon.ElevationLimit;
 
+            _tallAimLifted = true;
             _cannon.ElevationLimit = SolveElevationLimit();
 
-            Console.WriteLine($"[aimlimit] {before * RAD_TO_DEG:F1} -> {_cannon.ElevationLimit * RAD_TO_DEG:F1} deg"
-                + $" (glass {_ceilingDescent.RestY - _ceilingDescent.TargetY:F2} below rest,"
-                + $" underside level {_map.GetLowestOccupiedLevel()}, band top level {TallAimBandTop()})");
+            Console.WriteLine($"[aimlimit] lifted {before * RAD_TO_DEG:F1} -> {_cannon.ElevationLimit * RAD_TO_DEG:F1} deg:"
+                + $" the cluster hangs whole in the frame (glass {_ceilingDescent.RestY - _ceilingDescent.TargetY:F2} below rest,"
+                + $" top level {highest}, framed up to level {framed})");
         }
 
         /// <summary>
         /// Where the lattice hangs in the world <b>now</b>: <see cref="_clusterWorldOffset"/>, fixed at the load,
         /// lowered by every ceiling descent since and raised by every brake (<see cref="CeilingDescent.RestY"/> less its
-        /// <see cref="CeilingDescent.TargetY"/>). What the aim limit and its check measure the band at — measured
-        /// at the load-time offset, a tall level's band read higher than it hangs by the whole descent so far.
-        /// The structure's own stretch under the plate is not in it, and need not be: it is there at the load
-        /// too, so the limit's error from it does not grow with the steps.
+        /// <see cref="CeilingDescent.TargetY"/>). What says which levels the frame holds now
+        /// (<see cref="FramedLevelTop"/>), and so when a tall level's clamp lifts. The clamp itself is measured at
+        /// the load's hang on purpose (<see cref="SolveElevationLimit"/>, #842). The structure's own stretch under
+        /// the plate is not in it, and need not be: it is there at the load too, so the error from it does not grow
+        /// with the steps.
         /// </summary>
         private Vector3 AimWorldOffset() =>
             _clusterWorldOffset - new Vector3(0f, _ceilingDescent.RestY - _ceilingDescent.TargetY, 0f);
@@ -434,29 +480,25 @@ namespace BS3D.Screens
         /// The topmost level a tall level's gun is solved and policed for — the working band's roof, the
         /// column's underside plus <see cref="TALL_AIM_HEADROOM_LEVELS"/>. Held to a band just above the
         /// underside, the player has to eat the column from the bottom, and the descent is what hands them the
-        /// next of it.
+        /// next of it. Read once per attempt, at the load (<see cref="HoldTallAimBand"/>, #842).
         /// <para>
-        /// <b>Never above the top of what is framed</b> (<see cref="FramedTopY"/>), which is the rule the band
-        /// narrows and must not break. It binds in one moment only, and it is the moment a band that follows
-        /// the column (#582) opened: a shot that cuts a large group loose lifts the underside several levels at
-        /// once, and the feed hands the column back down one step at a time. On the first of those steps the
-        /// underside is still up where the cut left it — measured on Kepler, 7 levels up with 0.6 of the owed
-        /// 4.8 descended — and its band reached about 3 units over the window, a limit of 51.4° against the
-        /// load's 41.2°, blind shots for the length of the pour. Capped, the band ends at the window until the
-        /// feed brings the underside back under it.
+        /// <b>Never above the top of what is framed</b> (<see cref="FramedLevelTop"/>), which is the rule the band
+        /// narrows and must not break: a band reaching past the window is a clamp that lets the player shoot blind
+        /// into the column that has not arrived. At the load it binds only on a level authored with its underside
+        /// within <see cref="TALL_AIM_HEADROOM_LEVELS"/> of the window's top.
         /// </para>
         /// </summary>
-        private int TallAimBandTop()
-        {
-            int band = _map.GetLowestOccupiedLevel() + TALL_AIM_HEADROOM_LEVELS;
+        private int TallAimBandTop() => Math.Min(_map.GetLowestOccupiedLevel() + TALL_AIM_HEADROOM_LEVELS, FramedLevelTop());
 
-            //The highest level whose cells hang at or under the framed top where the column is now. A hair of
-            //tolerance, because at no descent the window is exactly FRAMED_LEVELS - 1 levels up and the
+        /// <summary>
+        /// The highest level whose cells hang at or under the framed top (<see cref="FramedTopY"/>) where the glass
+        /// is taking the column now (<see cref="AimWorldOffset"/>) — the band's ceiling at the load, and what
+        /// <see cref="LiftTallAimOnceFramed"/> compares the cluster's top against.
+        /// </summary>
+        private int FramedLevelTop() =>
+            //A hair of tolerance, because at no descent the window is exactly FRAMED_LEVELS - 1 levels up and the
             //division must not round that level out
-            int framed = (int)MathF.Floor((FramedTopY() - AimWorldOffset().Y) * Constants.SQRT_TWO + 1e-3f);
-
-            return Math.Min(band, framed);
-        }
+            (int)MathF.Floor((FramedTopY() - AimWorldOffset().Y) * Constants.SQRT_TWO + 1e-3f);
 
         /// <summary>
         /// How far out the working band reaches: the cluster's own half-extent plus the ring a shot can land

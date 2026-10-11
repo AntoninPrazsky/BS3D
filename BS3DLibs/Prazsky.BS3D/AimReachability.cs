@@ -86,10 +86,10 @@ namespace Prazsky.BS3D
         /// </param>
         /// <param name="worldOffset">
         /// Where the lattice sits in the world. Zero — the default — is the Testbed's case, where the lattice
-        /// frame <i>is</i> the world frame; the Game hangs level 0 at its cluster offset and must pass it — and
-        /// pass where it hangs <b>now</b>, lowered by every descent of the glass since the load, since nothing
-        /// here knows the cluster moved (#582: measured at the load-time offset, a tall level's limit loosened
-        /// with every ceiling step).
+        /// frame <i>is</i> the world frame; the Game hangs level 0 at its cluster offset and must pass it — the
+        /// hang the question is about, since nothing here knows the cluster moved. The Game's tall-level clamp
+        /// asks about the band it held at the load, so it passes the load's hang (#842); a question about where
+        /// the column is <i>now</i> passes the offset lowered by every descent of the glass since.
         /// <para>
         /// <b>Only Y matters and all three are taken anyway</b>, because the horizontal term is measured from
         /// the gun's orbit centre and the field is centred on it — so X and Z cancel today and would not if a

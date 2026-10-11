@@ -442,7 +442,9 @@ namespace BS3D.Screens
         /// decorative: a band cut high in the window orphans the whole visible column beneath it, so the
         /// tallest level in the game could be taken in two or three shots. Held to a band just above the
         /// underside, the column has to be eaten from the bottom and <see cref="FeedTallColumn"/> — which
-        /// keeps that underside at the height the level hung it — is what hands over the next of it.
+        /// keeps that underside at the height the level hung it — is what hands over the next of it. The band
+        /// is the one at the load, held for the attempt (#842): the clamp stops a tall level being cut loose in
+        /// its opening shots and does not tighten as the glass comes down.
         /// </para>
         /// <para>
         /// <b>Five, tried at three.</b> Three was the first tightening and it was measured too tight in play:

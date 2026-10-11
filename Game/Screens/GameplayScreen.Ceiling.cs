@@ -88,7 +88,7 @@ namespace BS3D.Screens
         /// Announces a step <see cref="CeilingDescent.Update"/> has just begun — everything a step does besides
         /// moving the glass, which <see cref="CeilingDescent"/> owns. The plate is about to be moved by writing its
         /// pose, so this wakes it first; then the wave, the sound, the rumble, the tutorial card and the log line,
-        /// and last a tall level's aim clamp re-solved for where the step takes the column.
+        /// and last a tall level's aim clamp lifted, if the step brings the column whole into the frame (#842).
         /// </summary>
         /// <param name="feeding">Whether the step is one the tall-level feed asked for rather than the pressure.</param>
         /// <param name="waited">
@@ -132,18 +132,16 @@ namespace BS3D.Screens
                 + $", {(feeding ? "feeding" : "pressure")}"
                 + $", shots fired {_run.Score.ShotsFired}, waited {waited:F2} s");
 
-            //And a tall level's aim clamp follows the column down (#582) — it was solved once at the load and
-            //loosened by every step after it
-            ResolveTallAimLimit();
+            //And a tall level's aim clamp, held since the load, lets go once the column hangs whole in the frame (#842)
+            LiftTallAimOnceFramed();
         }
 
         /// <summary>
         /// Announces the brake <see cref="CeilingDescent.Brake"/> has just begun (#213) — the lift's counterpart of
         /// <see cref="AnnounceCeilingStep"/>, in the feed's own soft blue for the same reason: it is good news the
         /// player asked for. The plate and the cluster are woken first (both are very likely asleep, and the plate
-        /// is about to be moved by writing its pose), then the wave, the plate's sound and a tall level's aim clamp
-        /// re-solved for where the lift takes the column. No rumble: a lift is not something the hands should be
-        /// told about the way a blow is.
+        /// is about to be moved by writing its pose), then the wave, the plate's sound and a soft rumble (#836). A tall
+        /// level's aim clamp is held at the load's height (#842), so a lift leaves it alone.
         /// </summary>
         private void AnnounceCeilingBrake()
         {
@@ -159,8 +157,6 @@ namespace BS3D.Screens
 
             Console.WriteLine($"[ceiling] Brake to {_ceilingDescent.TargetY:F2} (rest {_ceilingDescent.RestY:F2}"
                 + $", death line {CEILING_DEATH_Y:F2}), {_run.PowerupCharges[(int)PowerupKind.Brake]} left");
-
-            ResolveTallAimLimit();
         }
 
         /// <summary>

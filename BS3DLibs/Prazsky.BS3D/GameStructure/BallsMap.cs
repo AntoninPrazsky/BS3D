@@ -753,6 +753,23 @@ namespace Prazsky.BS3D.GameStructure
             return (byte)(Levels - 1);
         }
 
+        /// <summary>
+        /// The highest level index holding at least one ball — <see cref="GetLowestOccupiedLevel"/>'s other end, and
+        /// how far up what is left of the cluster reaches. An empty map answers with level 0, for the same reason
+        /// the other end answers with the top: an empty layout reaches nowhere, so ask <see cref="GetBallsCount"/>
+        /// first where that matters.
+        /// </summary>
+        public byte GetHighestOccupiedLevel()
+        {
+            for (int level = Levels - 1; level >= 0; level--)
+                for (byte x = 0; x < StageSizeX; x++)
+                    for (byte z = 0; z < StageSizeZ; z++)
+                        if (_balls[x, z, level] != null)
+                            return (byte)level;
+
+            return 0;
+        }
+
         public void Clear()
         {
             if (_balls == null) return;
