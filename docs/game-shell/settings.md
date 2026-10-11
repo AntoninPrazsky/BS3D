@@ -1,0 +1,36 @@
+# The Settings page: tabs, layout and the rows' rules
+
+Part of [The game: shell](../game-shell.md).
+
+`SettingsPage` is reached from the front end and from a pause (pushed over whatever was up, so Back is a `Pop`). The ONLINE rows are in [Online rows and the nickname plate](online-and-nickname.md), the window in [The window](window-and-dpi.md).
+
+## Pages by category (#686)
+
+- Five tabs (`TAB_NAMES`): **ONLINE · DISPLAY · AUDIO · CONTROLS · GAME**. The page **opens on ONLINE every time**, because the first online test could not find the rows among the display toggles.
+- **DISPLAY:** Fullscreen, Resolution (#801) … Motion blur, twelve rows with Scenery (#808). **AUDIO:** the four volumes. **CONTROLS:** Sensitivity, Aim sensitivity, Rumble. **GAME:** Tutorial, Intro logo, Drop camera, then the CAMPAIGN pair under its own heading. The destructive rows are each last on their page.
+
+## The tab row
+
+- **It is not in the pad's walk** (five tabs ahead of the first row would cost five presses). The tabs are turned, wrapping, by left/right (arrows, D-pad, left stick: `PageSideways`), LB/RB (one press, one page), the mouse wheel over the row, and a click.
+- A tab is a `MenuButton` whose `Tag` is cleared: `CollectNavEntries` walks only buttons with an `Action` on their `Tag`, so the mouse keeps hover, press and click sound and the pad never lands on one. The LB/RB prompts stand outside the tabs ([The keys are drawn in the UI](menu-navigation.md#the-keys-are-drawn-in-the-ui-799)).
+- **The chosen tab is inverted** (`TAB_SELECTED_BRUSH`), the opposite of a row's focus highlight. **ONLINE stays red from any other tab while the boards still want something done** (Off, or No server, #687). A tab turn is "moving on": a typed name is kept if it is one, and an armed "Sure?" stands down.
+
+## Every page stands in the same frame
+
+- The page area is a `Panel` holding all five grids, one shown, fixed at the tallest page's measured height and the tab row's width (#770), so a tab never moves Back.
+- **Two columns of one width, the seam on the centre line (#833).** Captions end at the seam, right-aligned; values start from it, left-aligned; a group heading (CAMPAIGN) is centred over it.
+- ⚠ Myra lays out only what is visible, so the height is **measured with every page in the tree at build**, and **value labels read "Off" until `Refresh` writes them**: a button round an empty label measures shorter than it stands.
+- ⚠ **The page area carries no margin; the gap above Back is Back's own.** Myra counts a `Margin` *inside* an explicit `Height`, so a gap under the area cut DISPLAY's last row.
+- **The vertical budget is the trap.** Sizes are 2160p design figures scaled by the viewport's height, so a page that overruns overruns at every resolution and aspect, and rows that run off the bottom take Back, the only way out, with them (#138, #548). **Adding a row to DISPLAY means checking Back is whole at 1600×900 and 1280×720** (about 24 px and 15 px clear today).
+
+## Sensitivity and aim sensitivity (#384, #497)
+
+- `SENSITIVITY_LADDER` is 50/75/100/125/150/200/300 % of the shipped feel, 100 % the default; **ratios, not an even step** (about √2 apart). `MouseAim.SENSITIVITY` is an angle per *pixel*, so a 4K panel and a 1600×900 one differ 2.4× in sweep.
+- **Read per frame** off `BS3DGame.MouseSensitivity`, not pushed into the session: the page opens from the pause, so the row can move under a running level. From disk a value is snapped **by ratio** (`NearestSensitivityRung`, boundary the geometric mean); anything unusable (zero, negative, NaN) becomes 100 %, since a mouse that cannot turn the gun looks like a broken game.
+- **Aim sensitivity** is a second rung off the same ladder (`aimSensitivity`), multiplied in **as the lean blends in** (`Lerp(1, AimSensitivity, Blend)`) on top of the general rung and the FOV ratio.
+- ⚠ **1.25 is the rung that was missing.** `PreciseAim.CursorRateScale` slows the leaned cursor by 0.828 (the ratio of the half-angle tangents, 42.86° overview against 36° leaned), compensated by 1.208. With rungs 1 → 1.5 a player answering "too slow" could only leave 17 % of the slowdown in or overshoot to 24 % *faster* than the overview; 0.828 × 1.25 = 1.035 is parity. `GameSettings.AimSensitivity` defaults to 1.5 since #644, a little faster than parity. **A new default does not touch a save that already has the key**, on purpose: a settings file is the player's.
+
+## Tutorial and Intro logo rows
+
+- **Tutorial (#189)** is the opt-out for the tutorial's cards (the first chapter's, and the score's two since #666), on by default. `GameSettings.Tutorial` is **read per frame** (`BS3DGame.IsTutorialEnabled`), so off takes a card down at once and back on resumes the lesson that was up. What was *taught* is `PlayerProgress.Lessons`, cleared by **Reset progress** ("The tutorial" in `docs/game-feedback.md`).
+- **Intro logo (#621)** is whether the game opens on the splash: `GameSettings.IntroLogo` (`"introLogo"`), absent reads as on. ⚠ **Read once**, when `BuildMenu` builds the stack (`BS3DGame.ShowsSplash`), so a click takes effect at the next launch. `nosplash` skips the splash for one run.
