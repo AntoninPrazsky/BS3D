@@ -1579,9 +1579,10 @@ namespace BS3D
         /// meaning; Retry, Next Level and Main Menu are the only ways off it.
         /// </para>
         /// </summary>
-        private void MenuBack()
+        /// <returns>Whether it went back: false on a screen with no back.</returns>
+        private bool MenuBack()
         {
-            if (_screens.Active is not MenuPage page || !page.CanGoBack) return;
+            if (_screens.Active is not MenuPage page || !page.CanGoBack) return false;
 
             //After the guard, so a screen with no back stays silent as well as still.
             _audioDirector.Sfx.PlayUiBack();
@@ -1591,6 +1592,8 @@ namespace BS3D
             //whatever opened it.
             if (page is PausePage) ResumeGame();
             else _screens.Pop();
+
+            return true;
         }
 
         #region Menu navigation (pad and arrow keys)
@@ -2652,6 +2655,9 @@ namespace BS3D
             //Before anything acts on them, so a press that changes the page is drawn with the hand that made it (#799)
             NotePromptHand(keyboard, pad, mouse);
 
+            //Whether Escape went back this frame - see the walk below, which then sits the frame out
+            bool backedOut = false;
+
             //A page typing into itself has the keyboard (#548): no key of the menu's own is read, only the pad's A
             //and B are handed over, and the snapshots below still advance so nothing fires on the way out
             if (_screens.Active is MenuPage { CapturesKeyboard: true } typing)
@@ -2671,7 +2677,7 @@ namespace BS3D
             else if (EdgeInputAllowed)
             {
                 //Escape backs out one level; MenuBack owns which screens have a back at all
-                if (IsKeyEdge(keyboard, Keys.Escape)) MenuBack();
+                if (IsKeyEdge(keyboard, Keys.Escape)) backedOut = MenuBack();
 
                 //The same three display keys the game has, because a player who wants windowed mode, no FPS
                 //line or a picture of the title card wants them before pressing Play as much as after.
@@ -2681,10 +2687,12 @@ namespace BS3D
                 if (IsKeyEdge(keyboard, Keys.F12)) RequestScreenshot();
             }
 
-            //After the keys above, so an Escape and a B press in the same frame cannot both act, and
-            //before the snapshots below, which are what its own edge tests are read against. Not while a page is
-            //typing: its arrows, Enter and Space are text, and a walking cursor would take them (#548).
-            if (_screens.Active is not MenuPage { CapturesKeyboard: true })
+            //After the keys above and before the snapshots below, which are what its own edge tests are read against.
+            //Not on a frame Escape went back on: the stack takes a pop on its next update, so the page that was left is
+            //still the active one here, and a B or (on the pause) a Start in the same frame went back a second time -
+            //the pause and the game under it both popped, leaving the backdrop with no page (#799's review). Not while
+            //a page is typing either: its arrows, Enter and Space are text, and a walking cursor would take them (#548).
+            if (!backedOut && _screens.Active is not MenuPage { CapturesKeyboard: true })
                 UpdateMenuNavigation(elapsed, keyboard, pad, mouse, EdgeInputAllowed);
 
             //The wheel, the one mouse input nothing here read before #517. ScrollWheelValue is cumulative

@@ -233,7 +233,10 @@ namespace BS3D.Screens
             //Which device the tutorial draws its card for (#189): the mouse moved off the centre it was put back
             //to last frame, or a button on it; else the pad's sticks, triggers or A. The keys say so in
             //UpdateInput. Read before the recentre below, which is what puts the pointer back on the centre.
-            if ((_cursorCaptured && (mouse.X != centreX || mouse.Y != centreY))
+            //Only once it HAS been put back (_mouseAim.Initialized): on the frame the cursor is taken, the pointer
+            //still stands wherever the menu left it, and reading that as the mouse overwrote the hand a level
+            //starts from (#799's review) - a pad player's first level drew the keyboard's cards.
+            if ((_cursorCaptured && _mouseAim.Initialized && (mouse.X != centreX || mouse.Y != centreY))
                 || mouse.LeftButton == ButtonState.Pressed || mouse.RightButton == ButtonState.Pressed)
                 NoteDevice(Tutorial.Device.KeyboardMouse);
             else if (pad.IsConnected
