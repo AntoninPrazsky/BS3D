@@ -60,7 +60,7 @@ namespace BS3D.Screens
             columns.Widgets.Add(BuildCreditsColumn());
 
             column.Widgets.Add(columns);
-            column.Widgets.Add(MenuButton("Back", GoBack));
+            column.Widgets.Add(BackButton());
 
             //The same tag, in the same corner, as the front end's — About is where a player looks for which version
             //they run, once they have found the entry

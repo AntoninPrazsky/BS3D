@@ -75,11 +75,16 @@ namespace BS3D.Screens
             _previous = MenuButton("Previous", () => Page(-1));
             _next = MenuButton("Next", () => Page(+1));
             _previous.Width = _next.Width = Scaled(PAGER_BUTTON_WIDTH);
+
+            //What turns the boards, beside the pair (#799) - and since then it does: the shoulders and the arrows turn
+            //them as Previous and Next do (PageSideways)
+            pager.Widgets.Add(PageTurnPrompt(PromptGlyph.PAD_LB, PromptGlyph.KEY_LEFT, _previous));
             pager.Widgets.Add(_previous);
             pager.Widgets.Add(_next);
+            pager.Widgets.Add(PageTurnPrompt(PromptGlyph.PAD_RB, PromptGlyph.KEY_RIGHT, _next));
             column.Widgets.Add(pager);
 
-            column.Widgets.Add(MenuButton("Back", GoBack));
+            column.Widgets.Add(BackButton());
 
             return ScreenRoot(Plate(column));
         }
@@ -149,6 +154,19 @@ namespace BS3D.Screens
 
             _previous.Enabled = _offset > 0;
             _next.Enabled = _offset + ROWS < longest;
+        }
+
+        /// <summary>
+        /// The shoulders and the left and right keys turn the boards as Previous and Next do (#799), which the prompts
+        /// beside the pair say. Only while a page lies that way; at an end the arrows step across the pair instead.
+        /// </summary>
+        internal override bool PageSideways(int direction)
+        {
+            Button turn = direction > 0 ? _next : _previous;
+            if (turn == null || !turn.Enabled) return false;
+
+            Page(direction);
+            return true;
         }
     }
 }

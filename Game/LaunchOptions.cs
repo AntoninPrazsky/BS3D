@@ -141,9 +141,10 @@ namespace BS3D
         //nothing can press a key in. Null means the argument was absent. See SessionTestOptions.TutorialMode.
         internal string Tutorial { get; private set; }
 
-        //Testing only: every session's prompts on the pad's glyphs for the whole run - the tutorial's cards, the skip
-        //hint and the power-up chips. They follow the last device the player used, and a run nobody plays reads as a
-        //mouse (Tutorial.PinDevice), so without this the pad's half of every prompt is unphotographable.
+        //Testing only: every prompt on the pad's glyphs for the whole run - the tutorial's cards, the skip hint and the
+        //power-up chips, and since #799 the menus' (B on Back, LB and RB on the page turns, A on the focused entry). They
+        //follow the last device the player used, and a run nobody plays reads as a mouse (Tutorial.PinDevice), so without
+        //this the pad's half of every prompt is unphotographable.
         internal bool PadPrompts { get; private set; }
 
         //Testing only: start with the master volume at zero. A scripted screenshot or benchmark run has
@@ -317,6 +318,11 @@ namespace BS3D
         //null when absent, and 0 for the bare flag.
         internal float? QuitAt { get; private set; }
         internal string QuitSteps { get; private set; }
+
+        //Testing only: "menucursor=<seconds>[:<steps>]" (#799) - at that wall-clock second the pad's and the arrow keys'
+        //cursor comes up on the page that is up and walks that many entries down, as presses would; null when absent
+        internal float? MenuCursorAt { get; private set; }
+        internal int MenuCursorSteps { get; private set; }
 
         //Testing only: the connection check the question makes answers "not connected" (#763), so the no-internet branch
         //can be walked without taking the machine's network down
@@ -614,6 +620,21 @@ namespace BS3D
                     o.QuitSteps = colon >= 0 ? v[(colon + 1)..] : null;
                 }
                 else Console.WriteLine($"[quit] Testing: 'quitconfirm={v}' dropped, expected <seconds>[:<steps>]");
+            }),
+            //"menucursor" (#799): the focus prompt is drawn only while the cursor is up, and the cursor comes up only on a
+            //press the window must be focused to read
+            Row.Text("menucursor", (o, v) =>
+            {
+                int colon = v.IndexOf(':');
+                string seconds = colon >= 0 ? v[..colon] : v;
+                int steps = 0;
+                if (float.TryParse(seconds, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float at) && at >= 0f
+                    && (colon < 0 || int.TryParse(v[(colon + 1)..], out steps)) && steps >= 0)
+                {
+                    o.MenuCursorAt = at;
+                    o.MenuCursorSteps = steps;
+                }
+                else Console.WriteLine($"[cursor] Testing: 'menucursor={v}' dropped, expected <seconds>[:<steps>]");
             }),
         ];
 

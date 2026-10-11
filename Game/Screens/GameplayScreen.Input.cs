@@ -79,7 +79,11 @@ namespace BS3D.Screens
             {
                 //Escape (or the gamepad's Back button) pauses rather than quitting outright: quitting is a
                 //menu item now, and a game that closes the instant Escape is tapped is one that loses a game.
-                if (Game.IsKeyEdge(keyboard, Keys.Escape) || (pad.IsButtonDown(Buttons.Back) && !Game.PreviousPad.IsButtonDown(Buttons.Back)))
+                //The pad's Menu button (Start) pauses too since #799: it is the one a pad player reaches for, and
+                //the controls page names it.
+                if (Game.IsKeyEdge(keyboard, Keys.Escape)
+                    || (pad.IsButtonDown(Buttons.Back) && !Game.PreviousPad.IsButtonDown(Buttons.Back))
+                    || (pad.IsButtonDown(Buttons.Start) && !Game.PreviousPad.IsButtonDown(Buttons.Start)))
                 {
                     Game.PreviousKeyboard = keyboard;
                     Game.PreviousPad = pad;

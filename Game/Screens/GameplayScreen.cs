@@ -1193,6 +1193,10 @@ namespace BS3D.Screens
             //verbs, so the write goes the one way every save write goes. The testing argument offers every card
             //and writes nothing.
             _tutorial = new Tutorial(game.WasLessonTaught, game.RecordLessonTaught, test.TutorialMode);
+
+            //The first card draws for the hand the menus last saw (#799): a pad player who started the level with A is
+            //shown the pad's buttons before their first push of a stick, as every page before it showed them
+            _tutorial.NoteDevice(game.PromptsForPad ? Tutorial.Device.Gamepad : Tutorial.Device.KeyboardMouse);
             if (test.PadPrompts) _tutorial.PinDevice(Tutorial.Device.Gamepad);
 
             //The rumble starts from the hand this tutorial starts from (#817), so the motors and the glyphs agree before the

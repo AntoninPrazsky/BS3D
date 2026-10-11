@@ -205,7 +205,7 @@ namespace BS3D.Screens
             {
                 column.Widgets.Add(ScreenHeading("THANK YOU"));
                 column.Widgets.Add(_status = BodyLabel(string.Empty, BS3DGame.MENU_TEXT_BODY, ColumnWidth));
-                column.Widgets.Add(_back = MenuButton("Back", GoBack));
+                column.Widgets.Add(_back = BackButton());
                 return ScreenRoot(Plate(column));
             }
 
@@ -239,7 +239,7 @@ namespace BS3D.Screens
             left.Widgets.Add(field);
             left.Widgets.Add(_hint = BodyLabel(string.Empty, BS3DGame.MENU_TEXT_DIM, ColumnWidth));
             left.Widgets.Add(_send = MenuButton("Send", Send));
-            left.Widgets.Add(_back = MenuButton("Back", GoBack));
+            left.Widgets.Add(_back = BackButton());
             row.Widgets.Add(left);
 
             VerticalStackPanel right = new() { Spacing = Scaled(GAP), VerticalAlignment = VerticalAlignment.Top };

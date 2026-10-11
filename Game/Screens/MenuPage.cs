@@ -259,6 +259,39 @@ namespace BS3D.Screens
 
         protected Button MenuButton(Widget content, Action onClick) => Game.MenuButton(content, onClick);
 
+        /// <summary>A prompt (#799): what a pad player and a keyboard player press, drawn for whichever hand is on the menus.</summary>
+        protected PromptGlyph Prompt(string pad, string keys) => Game.Prompt(pad, keys);
+
+        /// <summary>
+        /// A worded button with its prompt at one end of the slab (#799) - see <c>BS3DGame.MenuButton</c>'s prompted form.
+        /// </summary>
+        protected Button MenuButton(string text, Action onClick, PromptGlyph prompt, HorizontalAlignment side) =>
+            Game.MenuButton(text, onClick, prompt, side, out _);
+
+        /// <summary>
+        /// What turns a page, standing beside the entry that turns it rather than in it (#799): LB or ← beside Previous, RB
+        /// or → beside Next, dimmed with the entry when there is no page that way.
+        /// </summary>
+        protected PromptGlyph PageTurnPrompt(string pad, string keys, Widget entry)
+        {
+            PromptGlyph prompt = Prompt(pad, keys);
+            prompt.StandsFor = entry;
+            return prompt;
+        }
+
+        /// <summary>
+        /// The Back entry every sub-page ends on, with B and Escape on it (#799), the two presses that do what it does
+        /// from anywhere on the page.
+        /// </summary>
+        protected Button BackButton() => BackButton("Back", GoBack);
+
+        /// <summary>
+        /// An entry that does what B and Escape do on this page, worded for it: the pause's Resume, the Quit confirm's
+        /// Cancel (#799).
+        /// </summary>
+        protected Button BackButton(string text, Action onClick) =>
+            MenuButton(text, onClick, Prompt(PromptGlyph.PAD_B, PromptGlyph.KEY_ESCAPE), HorizontalAlignment.Left);
+
         /// <summary>
         /// A media symbol (#784) sized to stand in for a word on a menu button: the display face's cap height in a widget
         /// as tall as the face's line, so the button keeps a worded one's height.

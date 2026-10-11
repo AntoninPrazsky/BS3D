@@ -306,7 +306,7 @@ namespace BS3D.Screens
 
             column.Widgets.Add(pageArea);
 
-            _back = MenuButton("Back", GoBack);
+            _back = BackButton();
             _back.Margin = ScaledThickness(0, PAGE_GAP, 0, 0);
             column.Widgets.Add(_back);
 
@@ -331,6 +331,11 @@ namespace BS3D.Screens
                 Margin = ScaledThickness(0, 0, 0, TAB_GAP),
             };
 
+            //What turns the tabs, at the row's two ends (#799, the owner's "LB ◂ AUDIO · CONTROLS ▸ RB"): the shoulders for
+            //a pad player, the arrow keys for a keyboard one. Outside the tabs, so the pages below stay as wide as the tabs
+            //themselves (#770) and only the row reaches past them.
+            row.Widgets.Add(Prompt(PromptGlyph.PAD_LB, PromptGlyph.KEY_LEFT));
+
             for (int t = 0; t < TAB_NAMES.Length; t++)
             {
                 //Captured per iteration, so five tabs are five destinations
@@ -346,6 +351,8 @@ namespace BS3D.Screens
                 _tabLabels[t] = label;
                 row.Widgets.Add(button);
             }
+
+            row.Widgets.Add(Prompt(PromptGlyph.PAD_RB, PromptGlyph.KEY_RIGHT));
 
             _tabRowWidth = TAB_NAMES.Length * (nameWidth + 2 * Scaled(TAB_PADDING_X)) + (TAB_NAMES.Length - 1) * row.Spacing;
 

@@ -76,7 +76,7 @@ namespace BS3D.Screens
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 29, 0, 29),
             });
-            column.Widgets.Add(MenuButton("Back", GoBack));
+            column.Widgets.Add(BackButton());
 
             _plate = Plate(column);
             return ScreenRoot(_plate);

@@ -810,6 +810,8 @@ namespace BS3D
             _shotSchedule = launch.ShotSeconds;
             _noFpsOverlay = launch.NoFpsOverlay;
             _noSplash = launch.NoSplash;
+            //"pad" pins the menus' prompts to the pad for the run as it pins the session's (#799)
+            _promptsForPad = _promptsPinned = launch.PadPrompts;
             _nickPrompt = launch.NickPrompt;
             _noInternet = launch.NoInternet;
             Birthday = launch.Birthday || IsBirthday(DateTime.Now);
@@ -1745,8 +1747,17 @@ namespace BS3D
             ShowLevelInTitle(_gameplayScreen.LevelIndex);
         }
 
-        /// <summary>Puts the pause menu over the frame the player was looking at; the stack freezes the game under it.</summary>
-        internal void PauseGame() => _screens.Push(_pausePage);
+        /// <summary>
+        /// Puts the pause menu over the frame the player was looking at; the stack freezes the game under it. The menus'
+        /// prompts start from the hand the session last saw (#799), so a pause the window's focus loss opened, with no
+        /// press of its own, still shows the pad's buttons to a pad player.
+        /// </summary>
+        internal void PauseGame()
+        {
+            if (!_promptsPinned && Rumble != null) _promptsForPad = Rumble.HandOnPad;
+
+            _screens.Push(_pausePage);
+        }
 
         /// <summary>
         /// Whether the pause's own music is wanted (#668): the pause is on the stack, itself or the scene page opened
@@ -1945,6 +1956,9 @@ namespace BS3D
                     _desktop.UpdateLayout();
                     _desktop.RenderVisual();
                 }
+
+                //A or Enter on the entry the cursor stands on (#799), over the page that has just laid it out
+                DrawFocusPrompt();
             }
 
             //THE SHARP FOREGROUND LAYER GOES OVER EVERYTHING, the UI included (#242). It used to be composited

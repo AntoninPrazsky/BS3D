@@ -116,7 +116,7 @@ namespace BS3D.Screens
             columns.Widgets.Add(BuildPlayer());
 
             column.Widgets.Add(columns);
-            column.Widgets.Add(MenuButton("Back", GoBack));
+            column.Widgets.Add(BackButton());
 
             return ScreenRoot(Plate(column));
         }
