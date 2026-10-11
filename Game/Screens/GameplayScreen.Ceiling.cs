@@ -117,6 +117,14 @@ namespace BS3D.Screens
             Game.Rumble.Kick(CEILING_RUMBLE_LEFT * ceilingRumbleScale, CEILING_RUMBLE_RIGHT * ceilingRumbleScale,
                 CEILING_RUMBLE_SECONDS);
 
+            Console.WriteLine($"[ceiling] Step to {_ceilingDescent.TargetY:F2} (death line {CEILING_DEATH_Y:F2})"
+                + $", {(feeding ? "feeding" : "pressure")}"
+                + $", shots fired {_run.Score.ShotsFired}, waited {waited:F2} s");
+
+            //And a tall level's aim clamp, held since the load, lets go once the column hangs whole in the frame (#842)
+            LiftTallAimOnceFramed();
+            MarkBrakeReachStale();
+
             //The tutorial's glass lesson fires on the step the shot count forced, on the frame the plate lights
             //(#189) — never on a feed step, which is a tall level's reward and would teach the pressure in the
             //wrong colour
@@ -125,17 +133,11 @@ namespace BS3D.Screens
                 _tutorial.Trigger(Tutorial.Lesson.Ceiling);
 
                 //And the Brake's card (#705), armed only on a level that grants one: a pressure step is the moment it has a
-                //step to give back
-                _tutorial.Trigger(Tutorial.Lesson.Brake);
+                //step to give back — unless, on a tall level, giving it back would lift the column out of reach (#843),
+                //when a press is refused and a card telling the player to press would be a lie. Asked after the clamp's
+                //lift and the stale mark above, so it reads the glass as this step leaves it.
+                if (BrakeCanLift) _tutorial.Trigger(Tutorial.Lesson.Brake);
             }
-
-            Console.WriteLine($"[ceiling] Step to {_ceilingDescent.TargetY:F2} (death line {CEILING_DEATH_Y:F2})"
-                + $", {(feeding ? "feeding" : "pressure")}"
-                + $", shots fired {_run.Score.ShotsFired}, waited {waited:F2} s");
-
-            //And a tall level's aim clamp, held since the load, lets go once the column hangs whole in the frame (#842)
-            LiftTallAimOnceFramed();
-            MarkBrakeReachStale();
         }
 
         /// <summary>
@@ -210,7 +212,12 @@ namespace BS3D.Screens
             if (_map.GetBallsCount() == 0) return;
 
             byte lowest = _map.GetLowestOccupiedLevel();
-            int owed = _ceilingDescent.Feed(lowest, StepsIntoReach(lowest), out float risen, out int heightOwed);
+
+            //The reach is searched no further than the climb still owes, which Feed holds itself to anyway: on most
+            //landings that is nothing, and no reachability walk is made at all
+            int bound = _ceilingDescent.FeedHeightOwed(lowest, out _);
+            int intoReach = bound > 0 ? StepsIntoReach(lowest, bound) : 0;
+            int owed = _ceilingDescent.Feed(lowest, intoReach, out float risen, out int heightOwed);
 
             //A rare-event line like the rest of the [ceiling] family: it fires when a band goes, not per frame, and
             //it is the one figure that says whether the feed is keeping up with the player — and, beside it, how
@@ -247,14 +254,15 @@ namespace BS3D.Screens
         /// landing, and the walk is bounded by the glass reaching the death line.
         /// </para>
         /// </summary>
-        private int StepsIntoReach(byte lowest)
+        private int StepsIntoReach(byte lowest, int bound)
         {
             float hangY = QueuedHangY;
 
-            //No further than the glass can go: past the death line BeginStep takes nothing, so a step asked for there
-            //would only be a log line
-            int most = Math.Max(0, (int)MathF.Ceiling(
-                (_ceilingDescent.QueuedTargetY - CEILING_DEATH_Y) / CeilingDescent.CEILING_DESCENT_PER_STEP));
+            //No further than the caller's bound (what the climb still owes, CeilingDescent.FeedHeightOwed) and no further
+            //than the glass can go: past the death line BeginStep takes nothing, so a step asked for there would only be
+            //a log line. Bounded, the worst landing is a handful of walks over the levels under the underside.
+            int most = Math.Min(bound, Math.Max(0, (int)MathF.Ceiling(
+                (_ceilingDescent.QueuedTargetY - CEILING_DEATH_Y) / CeilingDescent.CEILING_DESCENT_PER_STEP)));
 
             for (int steps = 0; steps < most; steps++)
                 if (UndersideInReachAt(lowest, hangY - steps * CeilingDescent.CEILING_DESCENT_PER_STEP))

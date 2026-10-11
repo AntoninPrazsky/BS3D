@@ -190,8 +190,8 @@ namespace BS3D.Screens
             _stepHold = 0f;
             _stepWaited = 0f;
 
-            //Where this level hangs its underside is what a tall one is fed back down to, so it is read off
-            //the installed map rather than being a constant — see Feed
+            //Where this level hangs its underside is the lowest a tall one is ever fed back down to (the feed stops
+            //sooner, in reach, #843), so it is read off the installed map rather than being a constant — see Feed
             _feedFloorLevel = feedFloorLevel;
             _feedStepsQueued = 0;
             _feedStepsPending = 0;
@@ -219,6 +219,25 @@ namespace BS3D.Screens
         public float QueuedTargetY => MathF.Max(DEATH_Y, TargetY - _stepsPending * CEILING_DESCENT_PER_STEP);
 
         /// <summary>
+        /// The most the feed may still ask for with the underside at <paramref name="lowest"/>: the whole descents that
+        /// cover how far it has climbed above where the level hung it, less those already asked for — the bound
+        /// <see cref="Feed"/> holds itself to, and how far the caller's reach search need look. Zero, and no climb, while
+        /// the underside is at or under its authored level.
+        /// </summary>
+        /// <param name="lowest">The cluster's lowest occupied level right now.</param>
+        /// <param name="risen">How far, in world units, the underside has climbed above where the level hung it.</param>
+        public int FeedHeightOwed(byte lowest, out float risen)
+        {
+            risen = 0f;
+            if (lowest <= _feedFloorLevel) return 0;
+
+            //Whole descents only: a part-step owed now is owed again next landing, and rounding up would walk the
+            //glass down a little further than the level was ever cleared.
+            risen = (lowest - _feedFloorLevel) / Constants.SQRT_TWO;
+            return Math.Max(0, (int)(risen / CEILING_DESCENT_PER_STEP) - _feedStepsQueued);
+        }
+
+        /// <summary>
         /// Queues the descents a tall column's underside, now at <paramref name="lowest"/>, is owed: as many as
         /// bring it back <b>into reach</b> (<paramref name="intoReach"/>, the caller's geometry, #843) and never more
         /// than bring it back to where the level hung it. The arithmetic of <c>GameplayScreen.FeedTallColumn</c>,
@@ -235,16 +254,8 @@ namespace BS3D.Screens
         /// <returns>How many steps were queued by this call; zero when nothing new is owed.</returns>
         public int Feed(byte lowest, int intoReach, out float risen, out int heightOwed)
         {
-            risen = 0f;
-            heightOwed = 0;
+            heightOwed = FeedHeightOwed(lowest, out risen);
             if (lowest <= _feedFloorLevel) return 0;
-
-            //How far the underside has climbed, in world units, and how many whole descents cover it: the most the
-            //feed may ever have asked for, so it cannot walk the underside below the height the level hung it.
-            //Whole ones only: a part-step owed now is owed again next landing, and rounding up would walk the glass
-            //down a little further than the level was ever cleared.
-            risen = (lowest - _feedFloorLevel) / Constants.SQRT_TWO;
-            heightOwed = (int)(risen / CEILING_DESCENT_PER_STEP) - _feedStepsQueued;
 
             //And of those, only the ones the column needs to come within the gun's reach (#843). Until then the feed
             //brought the underside all the way back to its authored height, and on a tall level it did nearly all
