@@ -1,0 +1,48 @@
+# The city
+
+Part of [The scenes](../scenes.md).
+
+The default of the twenty-one settings: the round stone island ([The island](island.md)) in a clearing between the towers of a procedural city, `Prazsky.Core.Render.City`, shared with the map editor. The neon city is the same layout relit. Both are **host-owned**: no `Backdrop` class ([Backdrops and the registry](backdrop-architecture.md)); each executable draws them through an `InstancedModelRenderer` it sky-lights like the balls (`CityWindowBrightness > 0` selects the city technique, `CityNeon` the neon one).
+
+## Layout and drawing
+
+- **The city stands over the arena** and does not fall away under it: no camera looks down the funnel's throat far enough to see a shaft there (#275). ⚠ `CitySceneConfig.RooflineY` sits well above the play surface; with the roofline below the floor no tower was seen against the sky and the roofs read as holes in a white plain (it was reported as inverted normals).
+- **No assets.** One 1x1x1 `BoxMesh` under a different instance matrix per building, one instanced draw fed a frustum-culled near-to-far array ("Drawing the city near to far" in `docs/rendering.md`). Non-uniform scale is safe because the boxes are axis-aligned: `normalize` in the pixel shader recovers the normal without an inverse transpose.
+- **Windows are laid out relative to each building**, not on a world grid (which jammed windows into corners): `CityVS` hands the pixel shader the offset from the building's centre and its world size; `CityPS` keeps `WindowMargin` clear at every edge and solves the floor and column count from the size against `WindowPitchX/Y`, nudging the pitch so a whole number fits. `buildingId` comes from the tower's centre. Coverage is band-limited so a far tower is a dim block, not a moire.
+- **Specular ambient is not multiplied by albedo**, so at grazing angles (nearly every facade) it washes a skyline in sky colour; the city runs the term at 0.07.
+
+## Window rhythm (#619)
+
+Windows keep their own rhythm off `CityWindowTime` (wall clock: a city's lamps do not stop when the simulation pauses). **Rarely, and only some**: a play view holds thousands of windows and one window's calm rhythm made about 71 change per second ("like a disco"). Now only `WindowRestlessFraction` of windows ever change, they hold for `WindowHoldSeconds` plus up to `WindowHoldVariation`, and the switch lasts `WindowSwitchSeconds` (about 2 changes a second in view). The switch is a **duration**, not a fraction of the interval (a fraction would have stretched into a 20-second crawl); the shader fades over the last `WindowSwitchSeconds / interval` of a slot. The neon buzz runs on `NeonConfig.WindowBuzzFraction` of windows. ⚠ The day city's `WindowBrightness` stays under the glare threshold: a window that glares veils the tower behind it, and a thousand turn the skyline into white haze (the neon city's is deliberately over it).
+
+## Towers: setbacks, facades, cornices (#678)
+
+The audit found every tower was one box. Each step is rolled from data the layout does not share, so **block layout, gaps and heights are the same city as before**.
+
+- **Setbacks.** A tower over `SETBACK_MIN_HEIGHT` rises in two or three tiers (chance `SETBACK_CHANCE`), each 0.66-0.82 of the one below, all reaching the same top; tiers are rolled from the plot's own seed. Each tier is its own box laying out its own windows; all share the tower's centre, hue and pattern.
+- **Facade kinds**, rolled once per tower and carried to `CityPS` in `Style.x`: classic punched windows (half), glass curtain wall (18 %), ribbon (16 %), piers (16 %). All of a tower's faces, tiers and cornice share the roll; frames, sills, lit share and distance fade read the kind's `fill` and `pitch`.
+- **Cornices** crown every tier of every classic-windowed tower: a slab `CORNICE_OUT` wider, `CORNICE_HEIGHT` tall, its top `CORNICE_OVER_ROOF` over the roof. It is solid over the whole roof, so it raises the roof and rooftop equipment stands on it (`City.RoofRise`). The profile is **painted** (`Style.y` marks the slab; `CityPS` gives a lit crown, pale fascia and dark cove), because the slab faces the wall's way in the wall's stone and vanished into the blank band under the roof.
+  - ⚠ **Cornices come after the towers in `City.Buildings`; `City.TowerCount` says where the towers end.** Anything standing on a roof or reading a roofline (`CityRooftops`, the intro's rooftop run) walks the towers alone, or a cornice would be dressed as a roof and carry a second set of dishes.
+- ⚠ **Integer inputs use an integer mixer, never `Hash21`** (#674): on integer input it repeats every 50 cells in x and 100 in y, six copies across the city. The facade kind is `City.FacadeRoll` (a murmur finaliser, CPU only: a copy on each side of the CPU/GPU line stays right only while both are kept in step); the other rolls use `BuildingRoll` in `City.fxh` (one salt each) and each window one integer seed (`WindowSeed`).
+- **Cost** (the Game, 1920x1080, `nocap`, `level=Bolt`/`Cabinet`): each step at most about +0.1 ms at High; cornices at Low on Cabinet +0.12 ms (1,432 more boxes through the cull and sort).
+
+## Rooftop equipment (#436)
+
+`CityRooftops`, meshes in `RooftopMesh`, knobs in `CitySceneConfig.Rooftops`: lattice masts (red and white, aircraft beacon), dishes on posts, 5G poles of three sector panels, air-conditioning units; one instanced draw per mesh, frustum-culled, drawn after the city in its opaque state.
+
+- **Placement follows the skyline** (the play camera looks up, so a roof is a silhouette): a tower above the generator's own roofline takes a mast at 17 %, a lower one 2.5 %. Dishes and 5G poles stop at `EquipmentDistance`, air conditioning at `ClutterDistance` (only a camera looking down sees it). A roof is split into cells so no two pieces overlap; every dish faces the same stretch of sky (+-0.35 rad), like real ones.
+- **Placement is a function of the tower**, seeded from the roof's centre, so a rebuild at another radius (a quality step) keeps the equipment. ⚠ The seed is an integer mix, **not `HashCode.Combine`**, which .NET seeds per process (7,880 pieces in one launch, 7,800 in the next).
+- The neon city rolls extras at `NeonExtra` times the chances, with a neon ring on every dish (`NeonRingBrightness`). Beacons flash together on the wall clock (`BeaconPeriod`), over the glare threshold so each blooms.
+- **Cost at most 0.06 ms**; the pinned layout (`sceneseed=0`) is 7,075 pieces. Not done: guy wires and the second diagonal of a lattice (sub-pixel shimmer at a mast's distance).
+
+## The street under the towers (#399)
+
+`CityStreets`, `CityStreets.fx`, `CitySceneConfig.Streets`. Towers ran down to -420 and ended over nothing; **`CitySceneConfig.BaseY` is -100**, the street level. ⚠ Moving it reshuffles which windows are lit (rows run from the base); the neon hue is keyed off the footprint and does not move.
+
+- **One flat quad drawn last of the city**, after towers and roofs, so any street a tower stands in front of fails the depth test before the shader runs; it fades to its average, then the horizon colour, past the last block.
+- **The pattern is the city's own grid**, evaluated per pixel from `City.BlockPitch` and `City.StreetWidth` (a snapshot taken at build, so a changed config cannot draw streets through towers not rebuilt): paved squares, `SidewalkWidth`, curbs of `CornerRadius`, centre and stop lines, zebras, manholes, cars at `CarChance`. **A one-texel-per-block texture (`City.BlockBuilt`)** adds what the grid cannot say (a block without a tower is stone with trees) and **stands in for canyon shadows**: sampled bilinearly and a block out, it takes the sky down to `CanyonSkyView` and the sun to `CanyonSunView`, with `FacadeBounce` putting some back (a street 9 wide between towers 100 tall sees a few percent of the sky).
+- ⚠ **No haze inside the city**: it read as a brown veil over asphalt; the ground only fades past the last block.
+- **The neon city** replaces the dome's light with `NeonAmbient`: sodium lamps every `LampSpacing` along each curb (as two lattices; overlapping pools made one orange floor), shop spill at tower feet, head and tail lights **kept under the glare threshold** (a glow a few pixels across is what glare catches on some frames and misses on others).
+- ⚠ **A dark car is seen by what it reflects (#651).** Lit like asphalt at night, dark paints were black on black and only the lights showed. `CarBody` in `CityStreets.fx` returns `rim`, `ridge` and `glass`, and the night adds `spillColor * CAR_SHEEN * (rim*0.8 + ridge*0.3 + glass*1.2)`. **`CAR_SHEEN` is 0.012; 0.05 made every car glow like a toy.** Behind a `[branch]` on `Neon`; cost unmeasured.
+- Shown by the chapter intro's "the canyon" viewpoint, through the drain's glass from above and any free camera; not by the menu or play cameras or the drop cinematic.
+- **Cost: none, it got cheaper**: the play view (`campos=0,-4,30 camtarget=0,6,-60`, 1600x900 at ssaa 2, `nocap`) went 2.27 to 1.96 ms, since the old towers were shaded far below -100 past the island's rim and that area is now street.

@@ -1,0 +1,24 @@
+# The island's dressing per scene family
+
+Part of [The scenes](../scenes.md).
+
+On top of material and shape ([The island](island.md)), `ArenaIsland.DressingFor(scene)` states per-scene dials on the triplanar surface (#534-#538). All are zero by default, sit behind `[branch]`es on their uniforms, and exist in the two shipping triplanar techniques only (never the cost probes, which must stay what they measure).
+
+## The dials
+
+- `JointGlow` (the joints' floors glow, read at the groove squared) with `JointGlowPatchiness` (1 = gated by world-space patch noise); `TopDustTint`/`TopDustStrength` (up-facing, keyed to the geometric normal), `TopDustClear` (swept clear round the axis) and `SideDustTint`/`SideDustStrength` (rime on verticals); height bands (`BandTopY`, `BandFade`, `BandTint`, `BandWet`, extra environment reflection so a wet face is a mirror) and strata (`StrataSpacing`, `StrataStrength`); `SlabWarp` only for runnels.
+- The height field hands the groove out (`SceneSurfaceHeightGroove`, `...CoarseGroove`) so the glow reuses it; evaluating it twice cost +0.5 ms.
+
+## Families
+
+- **Volcano and cavern (#535).** The volcano's joints are cooling cracks, and **every eruption burst pushes light up through them**: the hosts write `ArenaIsland.EventGlow` from `SceneRenderer.VolcanoEruption` on the same wall clock as the crater lamp and thunder, so the cracks never beat on a clock of their own; ash lies on top. The cavern's joints carry the walls' mineral veins and the cap is wet (higher polish). ⚠ **Glow in patches, not along every joint**: lit evenly the joints photographed as a neon grid, while a cooling crack glows where the crust is thinnest, so a `GradientNoise3` gates about a third of the grid.
+- **Built family (#537).** *A seam in a made thing is lit evenly*: `JointGlowPatchiness` 0. The grid's seams carry its vector palette; space's plates faint cool running light; the neon granite is wet after rain so signs mirror into it; the day city's expansion joints are its dressing. Not done, and forbidden by the shape rules: a rim rail (it would stand above the floor's plane outside the physics arris) and a flush hatch (no decal channel).
+- **Cold family (#534).** ⚠ **No fractures**: bending a joint grid with noise on the ice tops was ruled out as wavy paving ([The island](island.md)); `DressingFor` zeroes the fracture light and ice tops carry no joints. Rime on the drums stays. The aurora's island is lake ice, a shade darker and greener than the glacier.
+- **Coastal family (#536).** Rock at the sea is marked by where the water reaches (the bands). The sea is a sea stack: layered rock with a **tide line** over `SeaSceneConfig.LevelY`, read off the config so it cannot drift off the sea. The beach is a weathered foot a unit up from the sand plus blown sand; no tide mark, since the island stands on dry sand. ⚠ The bands sit behind branches on the uniform **and the side weight**, so the flat top pays nothing (the first cut cost about 1 ms on the APU).
+- **Off-world and arid (#538).**
+  - **Craters are geometry** (`IslandMesh.PadCraters`): the Moon's dish is lathed in rings 0.22 apart at four times the facets and a height field lifts up to sixteen parabolic bowls with raised rims, inside the bore's lip and the floor's arris and faded out over the last half unit so those stay exact circles; depth capped at 0.20, normals from the drawn positions, physics floor the plain dish. ⚠ Craters drawn in the shader's height field were rejected ("a crater is never bent, it is a hole"). Cost: +1.0 ms on the APU at `Low` (tens of thousands of small triangles, likely quad overshading); not acted on (the Moon is 11.8 ms against Low's 16.1 budget); a coarser ring step is the lever.
+  - Mars and the desert tops have **no joints** and wear dust as a film (`TopDust`); the Moon's regolith is blown clear round the drain (`TopDustClear`); Mars has a darker crust over a drum in beds; the outback is the monolith's stub. Not done: varnish streaks (no channel), a regolith ring on the Moon's top (nothing stands above y = 0 at the rim).
+
+## Costs to compare against
+
+Testbed, play pose, `nopost nooverc`, alternating pairs: the glow branch on every island pixel +0.21-0.27 ms (volcano, 3840x1600) and +0.22 ms (grid: use `nocap`); the polar bend and rime +0.35 ms; the desert's cap bend +0.28 ms; the sea's bands +0.07-0.11 ms (APU); the Moon +0.01-0.03 ms. Undressed scenes pay nothing measurable. The drain ring's contrast was re-checked after every family ([The drain funnel](drain.md)).

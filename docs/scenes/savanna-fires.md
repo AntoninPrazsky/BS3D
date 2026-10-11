@@ -1,0 +1,34 @@
+# The savanna's campfires
+
+Part of [The scenes](../scenes.md).
+
+The savanna lights itself with a **ring of campfires** (`CampfireConfig`): the flame (`Flame.fx`), its sparks, the point light each one carries into the grass and the balls, and the hearth it stands in. The ground they burn on is in [The savanna](savanna.md).
+
+## The ring
+
+- `CampfireConfig.Count` (8 by default) fires evenly spaced round the island. One fire lit a single flank of the stone; eight light it all the way round, and the island's drum takes a warm rim wherever the camera orbits to.
+- **The ring is derived from the one config point.** `GroundXZ` is fire zero; the radius and the ring's rotation come out of it, so the fire a single-fire config authored stands where it did. Range, flame size, colour and height above the terrain are shared across the ring: a range or colour per fire would be a config nobody could tune.
+- **Eight is the shader's cap, not a taste figure.** Each fire is a real point light and `SceneLights.MaxLights` (8) matches `MAX_SCENE_LIGHTS` in the instancing shader's lighting include. The savanna can spend the whole budget because nothing else in the scene lights.
+- ⚠ **Each fire burns on its own clock**, which is what makes the ring read as fire and not as decoration. The light's flicker (`SceneRenderer.CampfireColor`) and the flame's shape (`Flame.fx`'s `FlameSeed`) take the fire's index, which offsets the time **and** stretches every rate (the vertical frequencies too) by a few per cent. A time offset alone leaves eight flames licking one pattern a moment apart, which the eye reads as a single wave travelling round the island as soon as two are in shot.
+- Cost: 1.75 to 1.85 ms for one fire against eight (Testbed, dome 13, `nocap`, fixed low camera): +0.10 ms for eight point lights in the grass's per-pixel loop and eight billboard draws.
+
+## The flame
+
+`Flame.fx` draws **three tongues** (each its own centre and width, on rates stretched by `FlameSeed`, bent by the turbulence more the higher they reach, so where two overlap they read as one splitting or two rejoining) over **two fBm fields scrolling upward**. The turbulence *cuts* the body more with height: solid and broad at the base, separate licking tips and detached shreds above. The colour ramp runs red, orange, yellow-white by heat and is hotter low down, so the core stays at the base. The mass sits in the lower two thirds of the billboard; the reference fire is a pyramid about twice as tall as its base.
+
+- ⚠ **Radiances must sit a stop under what looks right in isolation.** Core 2.6/2.0/0.85 and an orange at 2.0 came out as a white column under a daytime dome: the flame is additive over a bright sky and the tonemap's shoulder takes everything over about 1.5 to white, so the red never showed.
+- **Sparks** (`CampfireConfig.SparkCount`, 20 of a shared buffer of 32): a second technique over one buffer of billboards built on the fountain's pattern (`BuildBillboardParticles`), each spark a camera-facing quad on a looping life off the wall clock, born in the base, climbing on a swirl, cooling from yellow-white to red. No particle state anywhere. One draw per fire after its flame.
+- **Three billboards per fire** (`SUBFLAME_COUNT` = 3 in `Flame.fx`, `FLAME_SUBFLAME_COUNT` quads in one static buffer in `SceneRenderer`). A single camera-facing quad never shows a different face as the camera orbits round it, which a real fire always does, and the intro and the front end both orbit fire 0. The sub-flames sit at fixed world-space offsets from the hearth centre (`SUBFLAME_OFFSET`, `SUBFLAME_SCALE`, `SUBFLAME_SEED_OFFSET`), each its own quad with its own scale and seed; the depth comes from the three offsets parallaxing against each other and the ground. Sub-flame 0 is the single quad exactly (zero offset, full scale, no seed shift), so the tuned front-on view is unchanged. `LavaFountain.fx`'s jets use the same pattern.
+- **The height is a config value, decided by the game's camera.** `FlameHeightScale` (6) is the billboard's height as a multiple of `FlameSize`, separate from the width. The fires stand some five units below the island's stone and the play camera sits about level with it, so a flame at the old 2.4 times cleared the rim by half a unit and showed only its tip. Growing `FlameSize` instead raises the tip by widening the fire into a bonfire. 4.5 is present but slight, 8 becomes a beam standing in the sky. The flame is about 14 units tall; the eye judges it against the island beside it, since the fires are 33 units out.
+- Cost (13 units from a fire, flame across the lens: `campos=38,-10,-10 camtarget=28,-8,-18`, dome 14, 1600 x 900 at ssaa 4, `nopost`, `fpscap=400`, desktop): +0.13 ms. The sub-flames' added cost is under the notebook's own noise (no discrete GPU: 105.6 against 101.2 ms at ssaa 4, 30.5 both ways at ssaa 2): a clean number needs the desktop.
+
+## The hearth (#282)
+
+A fire with a point light under it and nothing else on the ground reads as fire burning out of a lawn. Each fire stands in a hearth made of two parts that live in different places:
+
+- **The stones**: a ring of `RockMesh` boulders (the forest's boulder, re-proportioned; `CampfireConfig.StoneCount`, 7 per fire) set into the ground, drawn on the **acacia's own instanced path** (same shader, same sun-and-dome lighting as everything planted on this terrain), one draw per fire.
+- **The scorched ground**: `Savanna.fx`'s own burn field ashes the grass over the ring and chars it nearly black at the fire's foot, with the grass relief and the wind's combing fading out with it. Everything is sized off `FlameSize`, never in world units, so a hearth belongs to the fire in it.
+- **The firelight on the stones is a per-draw additive, not a ninth point light** (`Acacia.fx`'s `AddedLight`, zero for every plant). All stones of a ring stand at one distance from one fire, so the attenuation is a constant: the same quadratic falloff the ground uses, times the stone's own albedo, riding `CampfireColor` at this frame's time. It does not favour the flame-facing side of a stone.
+- **The hearth positions are pushed at config time, not per frame**, and the grass's per-pixel loop is bounded by an early-out on the ring's own extent (`HearthNear`/`HearthFar`), measured in C# **from the fires' own positions**. ⚠ Never re-derive the config's ring rule inside the shader: a second copy of a placement rule is how a scene grows a fault nobody can see (#297).
+- **From the play camera you will not see it.** The fires are 33 units out and below the island's rim from where the gun stands, so a player sees only the flame against the sky. The hearth reads from the front end's orbit, a chapter intro and any elevated vantage.
+- Cost (dome 1, `nocap`, `nopost`, 1600 x 900 at ssaa 4, a fixed elevated camera with all eight hearths in frame): +0.14 ms for the rings and the burn term.
