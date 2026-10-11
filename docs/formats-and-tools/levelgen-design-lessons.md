@@ -1,0 +1,37 @@
+# Designing levels: the lessons each block taught
+
+Part of [Formats and tools](../formats-and-tools.md).
+
+Each rule was paid for by a level that passed the gates and failed in play ([what the tool refuses](levelgen-gates.md), [the probes](levelgen-probes.md)). **Hang every new design unshot in the running game for about 35 s** and check `aimcheck` and a photograph in its own scene and dome: a level can pass every gate and lose itself with no shot fired.
+
+## Lattice facts every shape meets
+
+- **A cross-level neighbour is a diagonal in (x, z)**, so same-colour blocks of a plain sum or a two-entry dither weld across levels into sheets. Cure: a third entry in the band, or **strides coprime with the palette length**.
+- **A ring coloured on the radius alone is one connected shell from glass to point**: three rings are three shots however deep it hangs (#234). Cut rings into sectors so each group reaches the ceiling alone.
+- **A level's length is its standing-group count, because one shot takes one group.** Hollowing (`Design.Hollow`) made the Quarry *longer*; its tile did the work (`QUARRY_TILE`, `QUARRY_COURSE`, #398). **A checker is a group factory** (same-colour squares touch only diagonally): size the check to the structure.
+- **A one-cell-thick hollow ring does not survive its weight**; two cells hold, and a closed box is braced by its corners. **A hollow body's anchor is its top**: every cap carries at least two interleaved colours.
+- **Links existing is not links sufficing**: a jog of five columns against a section reaching two either side overlapped nowhere (Bolt; three columns holds); a ring has fewer sockets than a solid body (Diadem).
+- **Field depth past 16 is a lever on hanging height, not growth room** (#203): `GameplayScreen.FitFieldToMap` raises the whole field until its floor clears the death line by `FIELD_FLOOR_MARGIN`. Pictures take `PICTURE_FIELD_LEVELS` (18) so the lowest ball starts with the budget's descents of air. **18 is the lever's ceiling**: `FRAMED_LEVELS` is 18 and `Levels > FRAMED_LEVELS` makes a *tall* level (`FeedTallColumn`, `TALL_AIM_HEADROOM`), a different kind; 18 − 14 is even, keeping row parity.
+
+## Pictures (the Gallery, the Silhouettes, the flat opening)
+
+`Picture()` builds the lambdas from a bitmap written as text, top line first (`#o+=` index the palette `SYMBOL_INK`; a space, `PICTURE_EMPTY`, is empty; `Design.OccupiedBlock` is the raw-index form).
+
+⚠ **A space and a background symbol are not interchangeable**: the colour lambda reads both as background, the occupancy lambda reads a space as empty. A tidy-up that rewrote Balloon's spaces as background dots shipped the campaign's finale as a full rectangle for a month, passing every gate; the sag probe found it.
+
+- The plane is (x, level), **two cells thick** in Z (the thinnest slab that holds at either parity); draw rows **about 1.4× taller** than they should look (levels sit 1/√2 apart); **the symbol must not reach the wall's edge and the top rows must be background** (a symbol touching the top is one group holding everything: 93 % in one shot); the ground is a 2×2 check of **two colours, never one, never more**.
+- **The number of inks in the symbol is the difficulty dial; the ground's palette is not** (one ink is one connected group, a 40–52 % best shot; more inks leave no single payoff). Legibility is in the *ground*.
+- **No ground under a drawing** (#556): a full rectangle leaves a band under the symbol that, once it is shot, hangs by the margins and swings through the line; the bitmaps carry the cut (⚠ a tidy-up once rewrote Balloon's spaces as dots: true of the colour lambda, false of the occupancy one).
+- **The flat opening** (#603, #664): the Meadow opens on three sheets (`FlatOpener`, `FlatBitmap`), **mirror images**: the lattice shifts alternate rows half a cell, so `FlatBitmap` asks each rule at the cell's true place (`FLAT_ROW_SHIFT`) and `MirrorOutline`/`MirrorColours` gate it. Tutorial cards are keyed to Meadow levels by name ("The tutorial" in `docs/game-feedback.md`). ⚠ A player with progress meets the sheets first (`IsLevelUnlocked`).
+
+## The blocks' own laws
+
+- **The Coil**: a second load path in every layout; a **palette needs a subject**, not one ink per member (#285; check pairs with `.claude/skills/screenshot/palette.ps1 -Focus`); a closed loop is not a formula on its parameter (`KNOT_INKS` is solved against contact pairs **measured on the emitted cells**).
+- **The Reveal** (#161, #743): a body closed underneath, a differently shaped payoff inside hanging from the glass on its own cord, sealed, in disjoint palettes (the gate); the owner's reference for later chapters.
+- **The Spectrum** (#253): no new ball colour, ever (each #152 colour sits at a *measured* distance from an existing one); a family is a subset and ordering of the thirteen. **Every stop must stand on the top level**, so the sweep is a **helicoid** (pitch of one folded family a turn), not a tilted plane or a fold over the angle (staves weld through the core).
+- **The Mirage** (#325): **glass on the skin** (never buried, never on the anchor course); **stone stops one course short of the glass**; a rock stops the flood fill like an empty cell, and a field of only rock is a *cleared* field. A diagonal wall one cell thick has a door in every course (a cross-level step changes `dx + dz` by −1, 0 or +1) and needs three; an axis-aligned one is written `|dx| ≤ ½`, never `dx == 0` (alternate courses shift half a cell).
+- **The Big Top** (#690): **never a span over seven columns between two anchors** (a span cut at one end hangs from the other).
+
+## Play order inside a block (#413)
+
+**Order is a question only playing can answer.** The owner's instruction: difficulty may trend up if hard and easy levels **alternate at a pleasant rhythm**; one run's luck can make a level easy or punishing; where a call is unclear, **ask**. The tool corroborates and never decides: **shots per group tracked felt difficulty**. A block's style is stated by its **first** level. Reordering rewrites `Levels.json` only.

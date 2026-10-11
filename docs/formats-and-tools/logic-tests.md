@@ -1,0 +1,22 @@
+# The logic tests (Tests/BS3D.Tests)
+
+Part of [Formats and tools](../formats-and-tools.md).
+
+`Tests/BS3D.Tests` checks **the rules the libraries state as holding "by construction"** (#586): ScoreSim and LevelGen's regeneration check gate the shipped *data*; nothing gated the *rules*. Run `dotnet test Tests\BS3D.Tests` (seconds); `build.yml` runs it on every push.
+
+xUnit, not a console gate, because most checks are one assertion over every shipped level or lattice cell and `[Theory]` + `MemberData` gives each its own named result; `dotnet test` exits non-zero as a gate should. Plain `net10.0`, MonoGame DesktopGL compile-only, referencing the three libraries and Bepu; it draws nothing and finds `Game\Levels` by landmark. **Tests run in parallel** (serial until #585): `BallsConstraintsBuilder.GetSphereShapeIndex` caches per simulation in a `ConditionalWeakTable` and the release path's scratch lists are `[ThreadStatic]` (a simulation is driven from one thread).
+
+## What it checks
+
+- **`NeighbourTests`**: b ∈ N(a) ⇔ a ∈ N(b); at most four cells per group; every neighbour exactly 1.0 away in `GetRealPosition`, every other cell of the 3×3×3 window further; the allocation-free enumerator and `CountOccupiedNeighbors` agree with `FillNeighboringCells`.
+- **`ConstraintTests`** (every shipped level and `Full.json`, hung as the Game hangs it): the solver's constraint count equals the neighbour graph's edges plus the top level's balls, and each ball's stored handles equal its occupied neighbours (a failed `TryStore` shows here).
+- **`LevelFormatTests`**: every shipped level survives `Save` → `Load` unchanged; colour 14 or 0 or an undefined kind is refused (#571); a legacy map is padded by an even number of levels keeping parity.
+- **`SaveFileTests`**: `AtomicFile` keeps one `.bak` and no `.tmp`; `PlayerProgress.Load` reports each outcome; the `KeepUnreadable` copy survives two later saves.
+- **`ScoringTests`**, every figure derived from `ScoreKeeper`'s constants: award before multiplier rise (capped), a miss resets, `ScoreCeiling` above a hand-built best run, the rating never falls as the score rises.
+- **`SleepAndSecretTests`** (#230): `Cannon.Droop` never moves `AimDirection`/`MuzzlePosition`; the secret codes fire on their sequence alone.
+- **`TopLevelAttachTests`** (#561): a ball landed beside a top-level neighbour on `Anchor.json` stays within 0.1 of its lattice offset after 6 s (0.009 off; with a **zero offset**, the defect, 3.339); it asserts the world offset is over 1 so a near-zero offset cannot pass for the wrong reason.
+- **`ClusterInvariantTests`** (#585): `Anchor`, `Kiln`, `Vent` and `Full.json` take **300 seeded operations** each (a landing, `ReleaseSameTypeCluster`, three world steps, released bodies removed so handles are reused); after the build and **every** operation `ClusterInvariants.Check` must be empty (map and physics agree; every stored handle is a live `BallSocket` joining its ball to one lattice neighbour or the ceiling; every neighbouring pair exactly one socket). Floors on landings, matches and releases stop a sequence that no longer reaches the release path from passing.
+
+## Seen to fail, and two lessons
+
+Every test was seen to fail by a hand-made break (`BestPractices.md` §10; the per-break table is in the old `docs/formats-and-tools.md` in git). **A break only proves a check if it reaches data the check reads**: connecting cross-level pairs twice from level 1 failed nothing, since no shipped level has a ball on level 1. **A round-trip test proves writing and reading are symmetric, not that a field is persisted**: `[JsonIgnore]` on `"k"` and `"weather"` failed nothing, since an attribute that drops a field on write drops it on read.
