@@ -148,7 +148,22 @@ namespace BS3D.Screens
             //A brake has to have a step to give back: pressed with the glass at rest it is refused and keeps its charge (#213)
             && (kind != PowerupKind.Brake || BrakeCanLift)
             //A cut needs an ordinary round in the bore to turn: never one that already is a cutter, and not a wildcard (#213)
-            && (kind != PowerupKind.Cut || (_magazine.Slot(0).Kind == BallKind.Normal && !_run.Score.OutOfShots));
+            && (kind != PowerupKind.Cut || CutRoundFits);
+
+        /// <summary>
+        /// Whether the round in the bore can be turned into a cutter (#213): an ordinary one, with shots left. The press asks
+        /// it, and since #844 the Cut chip shows "not now" while it does not hold, where it used to look ready and say no.
+        /// </summary>
+        private bool CutRoundFits => _magazine.Slot(0).Kind == BallKind.Normal && !_run.Score.OutOfShots;
+
+        /// <summary>
+        /// Why the brake cannot act now, for its chip (#844): the glass moving (it waits), or nothing it would lift — no
+        /// pressure step to give back, or on a tall level a lift that would take the column out of reach (#843).
+        /// </summary>
+        private PlayHud.BrakeBlock BrakeBlockNow() =>
+            BrakeCanLift ? PlayHud.BrakeBlock.None
+            : _ceilingDescent.Moving && _ceilingDescent.HasStepToGiveBack ? PlayHud.BrakeBlock.Wait
+            : PlayHud.BrakeBlock.NotNeeded;
 
         /// <summary>
         /// Spends one charge of <paramref name="kind"/> and applies its effect. A no-op, not an exception, on

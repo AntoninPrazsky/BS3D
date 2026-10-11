@@ -134,9 +134,10 @@ namespace BS3D.Screens
 
                 //And the Brake's card (#705), armed only on a level that grants one: a pressure step is the moment it has a
                 //step to give back — unless, on a tall level, giving it back would lift the column out of reach (#843),
-                //when a press is refused and a card telling the player to press would be a lie. Asked after the clamp's
-                //lift and the stale mark above, so it reads the glass as this step leaves it.
-                if (BrakeCanLift) _tutorial.Trigger(Tutorial.Lesson.Brake);
+                //when a press is refused and a card telling the player to press would be a lie. Not BrakeCanLift: the glass
+                //is sliding on this very frame, and the brake waits for it to stop (#844) — well before the card is read.
+                //Asked after the clamp's lift and the stale mark above, so it reads the glass as this step leaves it.
+                if (_ceilingDescent.HasStepToGiveBack && BrakeKeepsReach()) _tutorial.Trigger(Tutorial.Lesson.Brake);
             }
         }
 
