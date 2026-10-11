@@ -1,0 +1,50 @@
+# The drop cinematic
+
+Part of [The game: feedback](../game-feedback.md).
+
+The reward for a good shot: the camera lets go of the gun and follows the wreckage down the fall, into the glass drain and, where the scene allows, out under the island. `Game/Effects/DropCinematic.cs` owns the camera; the trigger's rule and dials are `Prazsky.BS3D.DropTrigger`'s (one copy: game, tests, `LevelGen --drops`); `GameplayScreen` owns the call, the subject, `LevelRun.BiggestDrop` and the gun not answering.
+
+## When it fires
+
+- **The bar is a record, not a count.** A drop fires it when it beats the level's biggest so far by `DropTrigger.MustBeatBestBy` (2x) and is at least `MIN_BALLS` (12) and `MIN_SHARE_OF_LEVEL` (9 %) of the balls the level started with, or when it clears the level. A flat count cannot survive a new level (Pinwheel drops 102, Mosaic's best is 24), and a per-level figure is a dial to get wrong. The first qualifying drop always fires.
+- **Measured on the lattice** (`LevelGen --drops`): about one a level before the clearing shot; the old 1.25x margin gave about two, too often (#615).
+- **Every release raises the record**, even ones the gates refuse; the `[cinematic]` line prints the bar it beat. **A blast counts** (#326): `BallsReleased.Total` has a third category, balls a bomb destroyed by geometry, and the bar and `Audio.PlayRelease` read the total.
+- **The clearing shot always gets it (#424)**: `GetRemovableBallsCount() == 0` (the count `CheckLevelCleared` reads a line later) and something fell; the trigger runs *before* `CheckLevelCleared`. The line says `cleared the level`. Other gates stand.
+- **Both level endings wait for it** (`CheckLevelLost`, the cleared countdown).
+- **Settings, Drop camera (#290)**, on by default, is read only in `TryBeginDropCinematic` (a running one finishes; `BiggestDrop` moves either way).
+
+## The camera
+
+- **A pose, a time scale and a blend, not a mode.** It holds no camera, simulation or input; `UpdateCamera` Lerps the gameplay pose into its pose, a **second** Lerp stacked on precise aim's: at a blend of 0 the gameplay pose returns bit for bit, so an ended or skipped cinematic cannot strand the camera (`BLEND_IN_TAU` 0.09, `BLEND_OUT_TAU` 0.16).
+- **The arc follows the balls, not a stopwatch**: each framing parameter is a three-key curve over how far the subject has fallen, against three anchors (release height, the island's stone, the drain's throat). **Each leg and the dive and submerge pulls are held at their furthest (#616)**: a subject whose lowest balls are culled first *rises*, and the arc stepped back.
+- **The subject is a weighted focus and the drain wins whenever anything is in it (#616, `Prazsky.BS3D.DropFocus`).** The plain mean hopped at every cull and framed a split group over the throat's wall. Each ball's weight fades continuously (over `RIM_FADE` past the arris; for a ball outside the mouth with depth, `OFF_STONE_REACH`/`OFF_STONE_DEPTH`; over the last `KILL_FADE` above the kill plane); a zero-weight ball off the stone is a latched **stray**; the whole group frames the shot only when no funnel weight is left (`FunnelShare`); the drain emptying **ends** it. `DropFocusTests` requires the focus to stay steady, with the plain mean required to *fail*.
+- **The shot ends when the drop stops being one**: `Stalled` (under a unit of descent over about 0.9 **simulated** seconds; wall-clock would cut a just-released group in slow motion). `MAX_SECONDS` is the only clock: a pile can rest near the mouth, and the game culls only at the kill plane.
+- **The subject is held by body handle, not list index** (indices shift as the kill plane removes balls). Bepu recycles handles; safe **only here**, since nothing is added to the simulation during a cinematic.
+- **Variety is rolled per shot.** A third stay level (a tilt every time reads as a broken horizon); the swing never exceeds a quarter turn from the player's bearing. `RecoilCamera.BaseRoll` carries the tilt, added to the shake's roll.
+- **One `[cinematic]` line per shot**, ASCII and `InvariantCulture` (an arrow came back as `r` on a Czech console).
+
+## Slow motion and its judder
+
+- **Slow motion scales the accumulated time, never the timestep**: `StepPhysics(elapsed * TimeScale)`, the 1/120 s step untouched. The ceiling's descent is **not** scaled.
+- ⚠ **That scaling juddered the shot until #293; the cure is render interpolation.** The scaled time crosses a step boundary only every few frames, so half of all slow-motion frames moved the subject 0. Every drawn ball interpolates between the pose before the last step and the live one (`PhysicsBall.InterpolatedPose`, `_renderAlpha`) and `TryGetDropCentre` feeds the camera the same read. The drawn world runs up to one step behind the simulation, which nothing reads; a *placed* body resets its history so no blend straddles a teleport.
+
+## Where the lens can go
+
+**`SceneRenderer.OpenBelow` is the exact complement of `IsSolidTerrainScene`**, not a second list: the question is what is opaque under the island, and the whole shot is bounded by keeping the balls on screen.
+
+- **Open scenes** (the cities, the sea, space, the storm): the glass is translucent, so balls read through the cone and pour out, the shot looking up past the island ("The drain funnel" in `docs/scenes.md`).
+- **The ten solid-terrain scenes** have a near-black pit shaft hugging the glass; no vantage below sees a ball (#75). Their shots climb (elevation +48...72 degrees against -38...-18) and end looking down the throat. A lens above the mouth sees a ball below only through it, so it must lie in the cone from the ball up through the rim; the platform is solid (`PushOutOfIsland`, the last resort). ⚠ A per-scene floor on lens Y alone put the camera inside the stone.
+- ⚠ **In open scenes the cone and push-out caused "gets too close, then jumps back" (#407)** (reach 27.7 to 12.7 in eight frames, a 15.9 jump, a 5.5 snap). Now the lens goes **round the outside of the drum**: `KeepOutsideRim` holds the reach past the rim within the drum's band, easing over `RIM_APPROACH`; the cone is skipped; `StoneDivePull` pulls the elevation towards the OUT leg's angle over `STONE_DIVE_DEPTH`. ⚠ The weight scales the **move**, not the floor (scaling the floor put the whole push into two frames).
+- ⚠ **The sea's underwater murk** (`FinishSceneDraw` ramps it by how far the lens is under `SceneRenderer.SeaLevelY`) **hid the balls from the camera (#193)**: the fall leg looks down, so a subject that sank early left the lens above a surface the fade was closing over the cluster. `DropCinematic.SubmergeElevationPull` pulls the **elevation** (clamping Y would leave X/Z at the wide fall radius) towards the OUT leg's diving angle over `SUBMERGE_PULL_DEPTH`; it gates on the sea (`SceneRenderer.LensSubmergedAmount`), the cities having no surface.
+
+## Skip
+
+- **Skip is LMB / Space / gamepad A or right trigger; Escape stays pause** (one key must not mean two things). The trigger is spent like a shot's pull, so the pull that fired the triggering shot cannot skip it.
+- **`SKIP_LOCKOUT` (0.3 s)**: the triggering shot was fired with the very button that skips, so a burst-firing player would never see one.
+- Scripted tests: Myra reads input once per frame, so a press must be **held across a frame**.
+
+### The skip hint (#499, #699, #814)
+
+- A HUD line at the bottom centre, the fire glyph + "Click or Space to skip" (the trigger glyph + "to skip" on a pad), in after `SKIP_HINT_DELAY` (1 s) and out when the takeover ends. **Every skippable takeover, every time**, no count or retirement.
+- **Not over the shot that cleared the level** (a click still skips): `GameplayScreen` hands the HUD a drop running over a decided level as not running. Neither appears with under `SKIP_HINT_MIN_REMAINING` left (known for the tour, not a drop). The line loss has none.
+- **The chapter flythrough shows it too**, `SKIP_HINT_INTRO_DELAY` (1.5 s) in. The tour hides the HUD (#693), so it is drawn alone (`PlayHud.DrawSkipHintAlone`), **only while the gameplay screen is on top (#814)**: drawn onto the frame it skipped a page's blur and its fade (stepped by `Update`) froze, so a pause showed it sharp at full strength.

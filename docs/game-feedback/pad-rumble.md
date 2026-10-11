@@ -1,0 +1,43 @@
+# The pad: rumble and haptics
+
+Part of [The game: feedback](../game-feedback.md).
+
+The pad answers through `Game/GamepadRumble.cs` (#378), a mixer over four motors: the two body motors (left the heavy low-frequency one, right the light buzz) and the two impulse motors in the triggers. **The strengths are the owner's verdicts, not design reasoning**: each was brought down on his hand (Xbox One S, USB, from 2026-10-05). Do not raise a figure without his hand on the pad.
+
+## The mixer
+
+- Each channel is **accumulated and clamped to 1** on `Kick(left, right, seconds)` and **decayed linearly to zero over its own `seconds`** (`CameraShake`'s shape). One `SetVibration` call a frame, so two kicks on one frame blend instead of the second overwriting the first.
+- `KickTriggers` does the same for the trigger motors. `Hold(left, right)` is a level asked **every frame** and gone the first frame it is not. `Play` steps a pattern of timed pulses. `Silence()` zeroes everything. `Feel`/`FeelTriggers` bypass the hand gate.
+- Every trigger is a `Game.Rumble.Kick` **beside a sound or flash that already answers the same moment**. `RumbleStrength` in `GameSettings` sits beside the volumes.
+
+## What triggers it (`GameplayScreen`)
+
+- **Shot** (`Shoot`, `SHOT_RUMBLE_*`), **landing** (`OnBallLanded`), **a group releasing** (weighted by balls let go), **a star landing** (`ResultPage.AnnounceLandedStars`).
+- **Ceiling step** (`AnnounceCeilingStep`): halved on a feed step; lowered three times on the owner's feel to a light-motor buzz (`CEILING_RUMBLE_*`) over `CeilingDescent.SLIDE_SECONDS`, just above the carriage's rattle. **The Brake lifting the glass** (#836, `BRAKE_RUMBLE_*`): heavy-led and firmer, so the lift reads differently from the pressure.
+- **Each blast** (`BLAST_PAD_*`): per unit of its size, so a chain reads bigger than one bomb, which stays under full (#810's rule).
+- **The loss at the line** (`BeginLineLoss`): the heaviest pulse, as two kicks (heavy long, buzz short) because one kick decays both motors over one length (`LINE_LOSS_RUMBLE_*`).
+- **The elevation stop**: one buzz-led knock (`AIM_STOP_RUMBLE_*`) as `Cannon.ElevationStrain` goes full, re-armed only once the strain lets go, **plus a steady `Hold` while the hand keeps pushing** (#835, `AIM_REFUSED_HOLD_*` times the strain). It holds full while a cutter is aimed into the storeys the Cut may not strike (#692), since no clamp stops the aim there.
+
+## The triggers (#188)
+
+- **Only `Windows.Gaming.Input` reaches the trigger motors.** XInput has the two body speeds only, and MonoGame's four-argument `SetVibration` drops the trigger pair on WindowsDX **and still returns `true`**.
+- `Game/Platform/PadMotors.cs` keeps the first pad it lists (from its added/removed events; `Gamepad.Gamepads` builds a new vector view per call). All four motors go through it whenever a pad answers there; the body's two go through XInput only when none does, **never both on one frame** (two APIs overwrite each other). The log says the route once: `[pad] rumble through Windows.Gaming.Input: body and trigger motors`.
+- It needs the Game's TFM to carry the Windows SDK version (`net10.0-windows10.0.19041.0`). Tried over USB; Bluetooth not (impulse triggers historically fail on a PC).
+- **RT is the gun's trigger**: a short full break on the shot (`SHOT_TRIGGER_RUMBLE`, shorter than the body's thump, so they read trigger then recoil) and a weak dry click on a refused one.
+- **LT is the aim's.** While the lens is leaned in past `AIM_TICK_MIN_BLEND` **by the pad's own trigger** (the mouse button leans in as far, and a pad beside a mouse player must not tick) the aim is a ratchet: one faint tick per `AIM_TICK_STEP` of `Cannon.ElevationAim` and `Traverse`, at most one per `AIM_TICK_MIN_SECONDS`, so a fast swing never buzzes (#800: the first cuts "buzzed terribly"). It counts the **input's** motion, not the barrel's pose, which carries the rubber's spring and ticked with no hand on the aim. A detent marks a full lean (`PreciseAim.TRIGGER_FULL`).
+
+## What gates the output
+
+- **The window must be active**, read fresh each frame in `BS3DGame.Update` and passed to `AudioDirector.UpdateRumble`; menus answer the pad too, so gating on gameplay would mute them. **Play's rumble stops where play stops**: the frame a pause goes up or the level is left, `Silence()` zeroes it rather than letting a step decay under the pause menu. The result page still counts as play.
+- **Vibration is a device state, not a frame state.** `UnloadContent` sends a last `SetVibration(0, 0)` and `PadMotors.TrySet(0, 0, 0, 0)`; on the frame the condition returns true the state is written once more, zero included, because Windows.Gaming.Input stops listening as the window leaves the foreground and a dropped zero could resume a motor.
+- **Events are felt only while the hand is on the pad** (#817, the owner's rule). `GamepadRumble.HandOnPad` gates `Kick`, `KickTriggers` and `Hold`; it is set where play decides which hand is in use for the tutorial glyphs (`GameplayScreen.NoteDevice`: a key or mouse input is the keyboard's; a stick past its dead zone, a trigger or A is the pad's), so prompts and motors cannot disagree. The `pad` launch argument pins the hand on the pad.
+
+## The rest of the vocabulary (#800)
+
+- **Menus**: a focus step is the lightest thing (`UI_STEP_*`; 0.04 s went unnoticed, since a motor spun from rest needs tens of milliseconds); a page turn is one pulse, the same whichever way it turns (`UI_PAGE_*`; two unlike motors cannot make the grips feel alike); confirm firmer (`UI_ACCEPT_*`), back softer (`UI_BACK_*`). Only for the pad's own presses.
+- **The greeting**: the first time a pad is there within `SIGNATURE_WINDOW_SECONDS`, a signature plays; a pad plugged in later gets a short "ba-dum". Only while the window is active.
+- **The carriage's rattle**: while the gun rolls (never a placed stance), one light-motor bump per `CARRIAGE_RATTLE_STEP` of `Cannon.RollTravel`/`SlideTravel`, at most one per `CARRIAGE_RATTLE_MIN_SECONDS`, strength between `CARRIAGE_RATTLE_LOW` and `CARRIAGE_RATTLE_HIGH` off a spare xorshift, **never the session's generator, which deals the balls**. The first cut ("extremely strong") used the heavy motor. Only for a player on the pad (`Tutorial.OnGamepad`).
+
+## Felt and not felt
+
+The owner's hand has judged: the shot and landing (kept); the ceiling step, page turn, aim tick and rattle (each too strong, lowered); the line loss and elevation stop (added; the knock alone was not enough, hence the hold). **Everything else is reasoning about the event's shape**, unfelt: release, star, brake, blast, trigger detent, greeting.

@@ -1,0 +1,37 @@
+# Losing on the line
+
+Part of [The game: feedback](../game-feedback.md).
+
+Losing to the death line is a moment, not a frame (#434): the cluster crosses the floor's net and the lens flies to the crossing point while the net cuts, sparks fly and the cut is heard. It is the loss-side counterpart of `DropCinematic`, which is built for the opposite outcome. The net itself is in [The ceiling and the floor alarm](ceiling-and-floor-alarms.md).
+
+## The camera: `LineLossCinematic`
+
+- It is a pose and a blend, not a mode, like its sibling: the camera path composes it with the same `Lerp` and `CameraTakeoverEngaged` counts it, so the gun stops answering through the gate that already exists.
+- On the frame the cluster crosses, the lens is flown to the **crossing point**, the cluster's own lowest ball (the loss walk already has it), over `MOVE_IN` (0.55 s) and held `HOLD` (1.15 s); the ending goes up when the beat ends.
+- **The stand is outside the crossing point**, so the shot looks inward across the beam with the island's rim behind it and not the open sky. It is flattened to the horizontal: a stand computed in three dimensions would put the lens under the island whenever the crossing was low, and the line is low.
+- ⚠ **It is not skippable**, where the drop cinematic is. That one runs on a win and a player who wants the next level should not sit through it; this one is under two seconds and is the only answer the game gives to why the level ended.
+
+## The net cuts, and sparks fly
+
+- **The net stops warning and starts cutting.** `LaserGrid.Flare` takes it to `FLARE_INTENSITY` (3.2) over `FLARE_IN` (a third of a second), well over the warning's ceiling of 1, so it blooms across the frame (the glare reads the HDR target). It rides over the ordinary envelope instead of replacing it, so a net already at full warning does not dip on the frame it kills.
+- **`LineSparks`** throws `COUNT` (40) short bright streaks off the crossing point, outward along the net and arced down, gone inside `LIFETIME` (0.62 s): over while the camera is still there to see it and long dead before the result page. It is built on `LaunchSmears`' mechanism (the `ShotTrail.fx` streak), not on `Blasts`', because a blast is bomb-specific and a shower wants many short streaks. Each spark is drawn as the streak from where it is back along its own velocity, so it shortens as the drag takes it, which reads as thrown rather than fired.
+- **It is the third component through `ShotTrail.fx`, so all three push the trail widths per draw.** The parameters belong to the effect, not to whoever set them last (`LaunchSmears`' constructor carries the incident from when `AimBeam` became the second).
+- ⚠ **The throw is biased up.** The crossing point is the cluster's lowest ball, a fraction above the island's stone (measured on a staged loss: y = 0.26), so a downward throw is inside the floor within a tenth of a second. Gravity makes a spark fall; the throw runs outward along the plane that struck it.
+- ⚠ **The first cut was invisible because of scale.** The shower was struck, updated and drawn (44 frames, confirmed from a diagnostic line) and could not be seen: its widths were five times thinner than anything that had drawn through `ShotTrail.fx` (`AimBeam` 0.15, `LaunchSmears` 0.72), sub-pixel at the cinematic's 13-unit stand-off (`STAND_OFF`), and the supersample resolve averages a sub-pixel streak to nothing. What settled the figures was a deliberately absurd pass (width 1.0, 0.25 s streak, six-second life), which proved the mechanism whole in one run. A figure chosen by eye here is invisible or absurd with nothing in between.
+
+## Staging a loss
+
+- **`lineloss=<seconds>`** stages a loss on a running level, making the same two calls the real crossing makes and aiming at the cluster's own lowest ball; it needs no edited level set, and it is the lever for a picture. The staged loss does not bring the cluster to the line, so the net must be pinned on (`lasers`) to see it.
+- A real line loss takes a descending ceiling and a couple of dozen shots. One can be forced with `fire=` and a scratch build's `Levels.json` whose entry has `ceilingStep` 1 (#643, #669 did).
+- A staged run that listens for the hum needs `nofocuspause` as well as `lasers`: an unfocused window pauses the game, and a paused game holds no hum.
+
+## The sound
+
+- **The cut** (`PlayLineLoss`) speaks on the crossing frame, placed at the crossing the lens is flying to, on a flat law at `LINE_LOSS_LEVEL` of the master (there is exactly one loss, and the lens ends 13 units from it whatever the stand was). The sound is `Sfx/line-loss.ogg` (a Stable Audio render, "an electric arc welder striking metal", loaded through `Loudness` at 0.22 RMS like the reports), with `BakeLineLoss` when the file is missing.
+  - It was chosen by measurement from twelve renders: the "laser / plasma cutter" prompts rendered hiss (30-57 % of the energy above 8 kHz, the top end the owner hears as digital), the "laser fence" prompt a thrum alone, and the arc-welder family fits, a hum that rises over 0.2 s and holds 1.7-1.9 s, which is the cinematic's own 0.55 + 1.15.
+- **The touch** (`PlayLineTouch`, #669). The net hovers where a ball's surface meets it at the death line's centre height, so every swing the line forgives ("A cluster that merely swings has not lost" in `docs/game-session.md`) visibly cuts into a ball, and only the loss had a sound. `UpdateLineTouch` sounds on the frame the lowest ball reaches the line and re-arms once it is back above by `LINE_TOUCH_REARM`. It never fires on a frame already past the allowance (that frame belongs to the loss), and it fires under a cinematic too, since it is the cluster's geometry like the warning. The sound is the cut's own held body at `LINE_TOUCH_LEVEL`, two voices, and a cut that begins while it still sounds stops it.
+- **The hum under the page** (#702). The net stays lit under FAILED until the page is left, while the cut is a one-shot whose hum lets go with the camera's beat, so the page would sit in silence over a net cutting into the cluster. A quiet hum takes over as the cut lets go: two loops cut from the cut's own signal, each crossfaded at equal power and ridden flat, sounding together.
+  - ⚠ **One loop pulsed however smooth its seam**, because a loop repeats its own swells exactly; two incommensurate loops do not.
+  - **It lives exactly as long as it is asked for.** `GameplayScreen.UpdateUnderResult` asks every frame `LaserGrid.HoldsTheLoss` is true (the net flared and the page is up over it), and the audio director lets it fade the frame nobody asks, so every way off the page silences it with no "stop" to forget, including the main menu with the session kept. One pair of voices whatever happens, so losses in a row cannot stack.
+  - It rides the effects row and is authored quiet (`LINE_HUM_LEVEL`): after a line loss the defeat piece is over within seconds, so the hum is the page's only sound, and at four times the level it stood as loud as the music.
+  - **It is voiced into the mids**: the cut's body is a mains hum, 100 Hz and harmonics, with about 89 % of its energy under 300 Hz, and the owner's monitor speakers carry little there. `ProceduralAudio.VoiceLineHum` band-passes each loop (fourth-order high-pass at 300 Hz, which keeps the 400 and 600 Hz harmonics that carry the pitch, and a low-pass at 3.5 kHz against hiss) and mixes a quarter of the untouched loop back; each section runs round the loop once before the kept pass (`PeriodicBiquad`) so the seam gains no click.
