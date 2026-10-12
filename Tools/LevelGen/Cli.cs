@@ -278,13 +278,15 @@ namespace BS3D.Tools.LevelGen
                 //nothing; the gates and ScoreSim ran over the regenerated set.
                 Column(), Crown(), Horn(), Helix(), Spyglass(), Belfry(), Organ(), Pylon(), Lean(), Pagoda(),
 
-                //5. THE AURORA - "The Silhouettes" (#491). Picture walls again, but drawn by the local image
-                //generator rather than by hand: black cut-outs over a pale check, painted from the fourth level
-                //on. INSERTED rather than appended - the Mirage keeps the campaign's last word (#420's ruling) -
-                //and inserted HERE because it is the night between the Tower's dusk and the Reveal's cavern, and
-                //a picture chapter is the breather after the Tower's long climbs. Fish opens (the plainest shape,
-                //one ink), Anchor closes (four parts in three inks). Every gate after it moves up twenty stars,
-                //which MinStarsAt does by position and a save survives by file name.
+                //5. THE AURORA - "The Silhouettes" (#491, rebuilt in #736). Black figures again, but as SOLIDS
+                //since #736, each hung from the glass its own way (a screen, its own crown, a shoulder, a lid, a
+                //board, a stock), and the chapter the campaign's first glass is met in: the Umbrella's icicles,
+                //the level after the Fish whose card is the Cut, so one new thing arrives a level. INSERTED rather
+                //than appended - the Mirage keeps the campaign's last word (#420's ruling) - and inserted HERE
+                //because it is the night between the Tower's dusk and the Reveal's cavern, and the breather after
+                //the Tower's long climbs. Fish opens (one ink, the figure swelling out of its screen), Anchor
+                //closes. Every gate after it moves up twenty stars, which MinStarsAt does by position and a save
+                //survives by file name.
                 Fish(), Umbrella(), Bell(), Cat(), Teapot(), Key(), Rocket(), Coronet(), Guitar(), Anchor(),
 
 

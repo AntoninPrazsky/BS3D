@@ -14,7 +14,79 @@ namespace BS3D.Tools.LevelGen
     {
         #region The silhouette levels (#491, #736)
 
-        //DRAFT
+        //THE CHAPTER WITH DEPTH (#736). The owner's playtest of 2026-10-03: "The Aurora levels will need refactoring -
+        //they are quite boring, similar to one another, flat. They lack pyramid shapes and any spatiality. There could
+        //also already be some special balls in an Aurora level." What stood here since #491 were ten picture walls two
+        //cells thick, a black image-model silhouette over a pale check: from the gun a poster, and walked round (two
+        //seconds of A or D turn the gun about ninety degrees) a wall seen edge-on. His answer of 2026-10-11 was to
+        //rebuild all ten at once, not a prototype first, and to make this the chapter the campaign meets glass in.
+        //
+        //EVERY LEVEL IS A SOLID, AND EACH HANGS FROM THE GLASS A DIFFERENT WAY. The subjects and the names stay:
+        //  Fish      a relief: the fish swells out of its lit screen a cell a step in from its outline, front and back
+        //  Umbrella  a solid of revolution hung by its own crown, twelve gores, a hooked handle, glass icicles on the rim
+        //  Bell      a hollow bell hung by its shoulder, its red clapper sealed behind a floor of four glass panes
+        //  Cat       a black cat puppet in the round in front of the lit screen, hung by its ears too, glass eyes
+        //  Teapot    a pot hung by its lid, striped in twelve staves, with the tea sealed inside on its own cord
+        //  Key       a key hung by its bow under a board, and the bow is the only black
+        //  Rocket    flying level with its back against the glass: crossed fins, glass portholes, a sealed core
+        //  Coronet   a crown hung from its five gold points, a velvet cap inside, diamonds of glass in the band
+        //  Guitar    a guitar four cells deep set into its screen, a hollow sound box, its two strings of glass
+        //  Anchor    hung by its stock against the glass, its arms crossing it, the flukes lashed up to the stock
+        //
+        //THE CHAPTER'S LOOK IS STILL ONE IDEA, a shadow play under the northern lights: black figures, and where a
+        //figure needs a ground to read against, the lit screen behind or round it in pale colours (Fish, Cat, Guitar).
+        //A solid in black alone shows no depth from the stand - the eye reads black as a hole whatever its shape - so
+        //a body that has to read as round wears its form in two colours (the umbrella's gores, the bell's and the
+        //teapot's staves, the rocket's rings), and the black is what the figure is cut from.
+        //
+        //WHAT READS FROM THE WALK. Ninety degrees round, a flat thing goes edge-on whatever is done to it, so the
+        //bodies of revolution (Umbrella, Bell, Teapot, Coronet) are the ones that read the same from everywhere; the
+        //others are drawn to read from the stand and at forty-five degrees, and to be a sensible solid from the side
+        //(the cat's profile, the rocket nose-on with its fins in a cross, the anchor's stock across its arms).
+        //
+        //THE CAMPAIGN'S FIRST GLASS IS THE UMBRELLA'S, the second level: the Fish is where the Cut's card comes up
+        //(LevelSet.CUT_FROM_BLOCK), so one new thing arrives a level. Its icicles are the lowest, outermost thing on
+        //the canopy - where the first shots arrive - and each is two balls long, so the first landing beside one
+        //colours both and makes three with itself: the rule states itself on the first shot, the Mirage's Facet
+        //lesson brought forward. After it, glass is what a thing in the picture is made of: the bell's floor, the
+        //cat's eyes, the rocket's portholes, the crown's diamonds, the guitar's strings. Every pane is on the skin and
+        //none on the anchor course (the Mirage's law, FindStrandedSpecials), and the kind card (#735) fires on the
+        //Umbrella, the first level whose map carries it.
+        //
+        //WHAT IS SEALED. Three levels take up the Reveal's payoff (#743, Design.Payoff): the bell's clapper behind its
+        //glass floor - seen through the glass, and opened by colouring a pane - the teapot's tea and the rocket's core,
+        //each hung from the glass on a cord of its own, in a colour nothing else in the level wears.
+        //
+        //WHAT THE LATTICE TAUGHT ON THE WAY, each a draft that passed or failed a gate for a reason worth keeping:
+        //  - Wedges of two colours round an axis converge where the radius gets small, and two of a colour touch there:
+        //    the teapot's black staves met just under its lid as one 126-ball group. Every body of
+        //    revolution keeps a cap or a ring of another colour where its staves would meet (the umbrella's ferrule,
+        //    the bell's crown, the teapot's lid and foot).
+        //  - A two-colour checker of wedge and course welds along a diagonal through the cross-level contacts, as the
+        //    Quarry's tiles do: the rocket's first hull and the basket a cat once sat in came out one spiral of a colour.
+        //  - Heavy parts on thin links fold: the first anchor, hung by a ring and two cords one cell thick, swung over
+        //    in the start swing and crossed the line with no shot fired, 5 runs of 5. Hung by its stock against the
+        //    glass, on a shank three cells square, it reads 0 of 5. The cat leaning on its screen alone came 0.03
+        //    from the line once the screen behind it was cut; with its ears to the glass as well, 1.95.
+        //  - A body hung from a few groups clears in two or three cuts and the shortest-clear gate passes it (the
+        //    matched share is small): a guitar on a bracket emptied in 3 shots, the cat on a moon disc in 2. Read the
+        //    line on every level, not only on the refused ones; both now hang from many groups.
+        //
+        //WHAT THEY MEASURE (LevelGen, 2026-10-12): balls / standing groups / shots, the one shot that drops most,
+        //and the glass.
+        //  Fish      368 / 18 / 46   51 %, the black body          Umbrella  368 / 13 / 36   13 %, 24 glass
+        //  Bell      352 / 15 / 40   39 %, lip, ribs and panes     Cat       331 / 11 / 30   37 %, the cat; 4 glass
+        //  Teapot    344 / 17 / 40    9 %                          Key       223 / 13 / 32   48 %, the black bow
+        //  Rocket    244 / 12 / 28   29 %, 11 glass                Coronet   367 / 21 / 42   24 %, the cap; 19 glass
+        //  Guitar    269 / 16 / 34   37 %, 28 glass                Anchor    252 / 14 / 28   13 %
+        //⚠ THE WEIGHT IS KEPT, THE LENGTH IS NOT. The ten carry 3,118 balls against the 3,254 of the walls they replace
+        //(#742's lesson: a rebuild that adds balls changes the difficulty unasked), but a solid comes apart in fewer,
+        //larger pieces than a check does: 150 standing groups against 211, so the budgets follow them down, 356 shots
+        //against 524, each level keeping roughly its old place on the ramp of shots a group (2.6 to 2.8 on the first
+        //four, 2.0 to 2.3 on the last four). Every level hung 0 times in 5 in the sag probe at its own budget and step.
+        //
+        //THE FILES ARE THE OLD ONES: a save is keyed by the file, and a level that changes under its file keeps the
+        //road open. The online boards start again (LevelIdentity hashes the bytes), and the ceilings table changes.
 
         private const byte SIL_GRID = 17;
 
@@ -135,7 +207,14 @@ namespace BS3D.Tools.LevelGen
         //How many cells the body swells out of the screen on each side at most, a cell per step in from its outline
         private const int FISH_SWELL = 2;
 
-        private static Design Fish() => SilhouetteSolid("Fish", FISH_DEPTH, shots: 48, ceilingStep: 9,
+        /// <summary>
+        /// The fish, and the chapter's opener: the picture the chapter used to be, swelling into a solid. The black fish
+        /// stands a cell proud of its screen for every step in from its outline, front and back, up to <see cref="FISH_SWELL"/>,
+        /// so from the stand it is the picture the player knows and walked round it is a body with a back. One ink: the
+        /// whole fish is one group, half the level on the first black ball - the gentle opener's own payoff - and the
+        /// screen's check (white and cyan, nothing under the fish, #556) is the work.
+        /// </summary>
+        private static Design Fish() => SilhouetteSolid("Fish", FISH_DEPTH, shots: 46, ceilingStep: 9,
             (x, z, i) => FishPart(x, z, i), FishColour);
 
         private static readonly string[] FISH =
@@ -191,6 +270,13 @@ namespace BS3D.Tools.LevelGen
         private const float UMBRELLA_ICICLE_R = 5.8f;
         private const int UMBRELLA_ICICLE = 2;          //balls of glass an icicle is long
 
+        /// <summary>
+        /// An umbrella, a solid of revolution hung by its own crown: a stepped canopy of twelve gores in black and white,
+        /// each reaching the glass alone, a red ferrule, shaft and hook in one group, and the campaign's FIRST GLASS - an
+        /// icicle two balls long under the middle of every gore. The icicles are the lowest, outermost thing on the
+        /// canopy, so the first landing beside one colours both and the three fall; landed in the colour of the gore
+        /// above, the gore comes down with them. It reads as an umbrella from every side of the walk.
+        /// </summary>
         private static Design Umbrella() => SilhouetteSolid("Umbrella", UMBRELLA_DEPTH, shots: 36, ceilingStep: 7,
             (x, z, i) => UmbrellaPart(x, z, i), UmbrellaColour, UmbrellaKind);
 
@@ -254,6 +340,12 @@ namespace BS3D.Tools.LevelGen
         private const int BELL_CLAPPER = 5;           //the clapper's first course
         private const float BELL_RIB = HALF;          //the floor's cross of ribs
 
+        /// <summary>
+        /// A hollow bell hung by its shoulder, staves of black and yellow round a white crown, its mouth closed by a floor
+        /// of glass in four panes on a white cross of ribs, and the red clapper sealed inside on its own cord (a reveal,
+        /// <see cref="Design.Payoff"/>): the payoff is seen through the glass from the first frame. A landing under a pane
+        /// colours it; in white it joins the lip band and the ribs and the whole floor drops at once, which is the way in.
+        /// </summary>
         private static Design Bell() => SilhouetteSolid("Bell", BELL_DEPTH, shots: 40, ceilingStep: 8,
             (x, z, i) => BellPart(x, z, i), BellColour, BellKind, payoff: (x, z, i) => BellPart(x, z, i) == 5);
 
@@ -309,11 +401,17 @@ namespace BS3D.Tools.LevelGen
         private const byte CAT_DEPTH = 14;
 
         //The screen behind the puppet: two cells thick, hung from the glass by its top edge
-        private const float CAT_SCREEN = 5.6f;
-        private const int CAT_SCREEN_COURSES = 9;
+        private const float CAT_SCREEN = 4.6f;
+        private const int CAT_SCREEN_COURSES = 11;
         private const int CAT_SCREEN_Z = 5;
 
-        private static Design Cat() => SilhouetteSolid("Cat", CAT_DEPTH, shots: 34, ceilingStep: 7,
+        /// <summary>
+        /// A black cat puppet in the round, sitting in front of the lit screen - the chapter's shadow play made solid: a
+        /// head with two glass eyes and ears that reach the glass (it hangs by them as well as against the screen), the
+        /// body it sits on, a tail curled round its feet, against a screen checked in three pale colours. The cat is one
+        /// group, the attractive shot; the screen is the work.
+        /// </summary>
+        private static Design Cat() => SilhouetteSolid("Cat", CAT_DEPTH, shots: 30, ceilingStep: 7,
             (x, z, i) => CatPart(x, z, i), CatColour, CatKind);
 
         /// <summary>0 air, 1 the screen, 2 the cat, 3 an eye (glass).</summary>
@@ -332,14 +430,15 @@ namespace BS3D.Tools.LevelGen
             //The head, its ears, the body it sits on and the tail curled round its feet
             float hy = below - 3.6f;
             if (dx * dx + dz * dz + hy * hy <= 1.9f * 1.9f) return 2;
-            if ((k == 1 || k == 2) && MathF.Abs(MathF.Abs(dx) - 1.2f) <= (k == 1 ? 0.5f : 0.9f) && MathF.Abs(dz) <= 0.6f) return 2;
+            //The ears reach the glass: the puppet hangs by them as well as against its screen, a second load path
+            if (k <= 2 && MathF.Abs(MathF.Abs(dx) - 1.2f) <= (k < 2 ? 0.5f : 0.9f) && MathF.Abs(dz) <= 0.6f) return 2;
 
-            float by = (below - 7.0f) / 2.3f;
+            float by = (below - 6.5f) / 2.0f;
             if (dx * dx / (2.6f * 2.6f) + dz * dz / (2.0f * 2.0f) + by * by <= 1f) return 2;
 
             if (MathF.Abs(dz - 0.6f) <= 0.6f
-                && (SegmentDistance(dx, below, 2.0f, 8.6f, 4.0f, 8.9f) <= 0.65f
-                    || SegmentDistance(dx, below, 4.0f, 8.9f, 4.7f, 7.0f) <= 0.65f))
+                && (SegmentDistance(dx, below, 2.0f, 8.0f, 4.0f, 8.3f) <= 0.65f
+                    || SegmentDistance(dx, below, 4.0f, 8.3f, 4.7f, 6.4f) <= 0.65f))
                 return 2;
 
             return 0;
@@ -372,7 +471,13 @@ namespace BS3D.Tools.LevelGen
         private const float TEAPOT_FOOT = 4.9f;
         private const float TEAPOT_LID_DEPTH = 1.2f;
 
-        private static Design Teapot() => SilhouetteSolid("Teapot", TEAPOT_DEPTH, shots: 44, ceilingStep: 8,
+        /// <summary>
+        /// A teapot hung by its lid: a squat round pot in twelve staves of black and white, the lid, spout, handle and a
+        /// foot ring red, and the tea sealed inside - orange, hung from the glass on a cord through the lid, in a cavity
+        /// no shot reaches until a stave is opened (a reveal). Seventeen groups and no big single shot: the chapter's
+        /// middle is worked, not triggered.
+        /// </summary>
+        private static Design Teapot() => SilhouetteSolid("Teapot", TEAPOT_DEPTH, shots: 40, ceilingStep: 8,
             (x, z, i) => TeapotPart(x, z, i), TeapotColour, payoff: (x, z, i) => TeapotPart(x, z, i) == 5);
 
         /// <summary>0 air, 1 the pot, 2 the lid and the foot, 3 the spout, 4 the handle, 5 the tea and its cord.</summary>
@@ -432,7 +537,12 @@ namespace BS3D.Tools.LevelGen
 
         private const byte KEY_DEPTH = 14;
 
-        private static Design Key() => SilhouetteSolid("Key", KEY_DEPTH, shots: 34, ceilingStep: 7,
+        /// <summary>
+        /// A key hung by its bow under a pale board: the bow a ring the board shows through, the shank and the warded bit
+        /// in bands of red and yellow. The bow is the only black in the level, so one black ball lets the shank and the
+        /// bit go - the key colour the Quarry's Hoist plays later - and the board's check is the work.
+        /// </summary>
+        private static Design Key() => SilhouetteSolid("Key", KEY_DEPTH, shots: 32, ceilingStep: 7,
             (x, z, i) => KeyPart(x, z, i), KeyColour);
 
         /// <summary>0 air, 1 the board, 2 the bow, 3 the shank, 4 the bit.</summary>
@@ -476,13 +586,19 @@ namespace BS3D.Tools.LevelGen
         private const byte ROCKET_DEPTH = 12;
 
         private const float ROCKET_AXIS = 2.0f;          //how far below the glass its long axis lies
-        private const float ROCKET_R = 2.5f;
-        private const float ROCKET_TAIL = -4.0f, ROCKET_SHOULDER = 3.0f, ROCKET_TIP = 6.4f;
-        private const float ROCKET_CABIN = 1.2f;
-        private const float ROCKET_CABIN_END = 2.4f;
-        private const float ROCKET_FIN_ROOT = -1.4f;
+        private const float ROCKET_R = 2.3f;
+        private const float ROCKET_TAIL = -4.6f, ROCKET_SHOULDER = 1.6f, ROCKET_TIP = 6.8f;
+        private const float ROCKET_CABIN = 1.1f;
+        private const float ROCKET_CABIN_END = 2.0f;
+        private const float ROCKET_FIN_ROOT = -2.2f;
 
-        private static Design Rocket() => SilhouetteSolid("Rocket", ROCKET_DEPTH, shots: 32, ceilingStep: 7,
+        /// <summary>
+        /// A rocket flying level, its back against the glass: a white hull with two black bands, a long red nose, three red fins in a
+        /// cross (down, towards the gun and away from it; the glass takes the fourth), an orange flame streaming behind,
+        /// and two glass portholes in the side facing the gun with the magenta core sealed behind them on its own cord (a
+        /// reveal). Seen nose-on from the walk, the fins make the cross.
+        /// </summary>
+        private static Design Rocket() => SilhouetteSolid("Rocket", ROCKET_DEPTH, shots: 28, ceilingStep: 6,
             (x, z, i) => RocketPart(x, z, i), RocketColour, RocketKind, payoff: (x, z, i) => RocketPart(x, z, i) == 6);
 
         /// <summary>0 air, 1 the hull, 2 the nose, 3 a fin, 4 the flame, 5 a porthole, 6 the core and its cord.</summary>
@@ -494,11 +610,11 @@ namespace BS3D.Tools.LevelGen
             float dy = below - ROCKET_AXIS;
             float rad = MathF.Sqrt(dz * dz + dy * dy);
 
-            //The hull's radius along its length: a cylinder, an elliptic nose and a narrower nozzle
+            //The hull's radius along its length: a nozzle, a cylinder and a long nose drawn to a point
             float hull = dx < ROCKET_TAIL - HALF ? -1f
-                : dx < ROCKET_TAIL ? 1.6f
+                : dx < ROCKET_TAIL ? 1.5f
                 : dx <= ROCKET_SHOULDER ? ROCKET_R
-                : dx <= ROCKET_TIP ? ROCKET_R * MathF.Sqrt(1f - (dx - ROCKET_SHOULDER) * (dx - ROCKET_SHOULDER) / ((ROCKET_TIP - ROCKET_SHOULDER) * (ROCKET_TIP - ROCKET_SHOULDER)))
+                : dx <= ROCKET_TIP ? ROCKET_R * MathF.Pow(1f - (dx - ROCKET_SHOULDER) / (ROCKET_TIP - ROCKET_SHOULDER), 0.6f)
                 : -1f;
 
             bool cord = MathF.Abs(dx) <= HALF && MathF.Abs(dz) <= HALF && dy <= 0f;
@@ -511,22 +627,22 @@ namespace BS3D.Tools.LevelGen
                 if (cord) return 6;
 
                 //Two round portholes in the wall that faces the gun
-                if (dz > 0.8f && (Near(dx, dy, -1.4f) || Near(dx, dy, 1.4f))) return 5;
+                if (dz > 0.8f && (Near(dx, dy, -1.5f) || Near(dx, dy, 1.1f))) return 5;
 
                 return dx > ROCKET_SHOULDER ? 2 : 1;
             }
 
             //The flame streaming out behind
-            if (dx < ROCKET_TAIL - HALF && dx >= -7.2f)
+            if (dx < ROCKET_TAIL - HALF && dx >= -7.0f)
             {
-                float flame = 1.9f * (dx + 7.2f) / 2.7f;
+                float flame = 1.6f * (dx + 7.2f) / 2.1f;
                 if (rad <= flame) return 4;
             }
 
             //Three fins at the tail, swept back: one down, one towards the gun, one away (the glass cuts the fourth)
             if (dx >= ROCKET_TAIL && dx <= ROCKET_FIN_ROOT)
             {
-                float reach = ROCKET_R + 2.6f * (ROCKET_FIN_ROOT - dx) / (ROCKET_FIN_ROOT - ROCKET_TAIL);
+                float reach = ROCKET_R + 2.4f * (ROCKET_FIN_ROOT - dx) / (ROCKET_FIN_ROOT - ROCKET_TAIL);
                 if (MathF.Abs(dz) <= 0.6f && dy > 0f && dy <= reach) return 3;
                 if (MathF.Abs(dy) <= 0.75f && MathF.Abs(dz) <= reach) return 3;
             }
@@ -536,7 +652,12 @@ namespace BS3D.Tools.LevelGen
             static bool Near(float px, float py, float cx) => (px - cx) * (px - cx) + py * py <= 0.85f * 0.85f;
         }
 
-        private static readonly BallType[] ROCKET_PAINT = { BallType.Type4, SILHOUETTE_INK };   //white, black
+        /// <summary>Whether a hull cell is in one of its two black bands: round the tail, and between the portholes.</summary>
+        private static bool RocketBand(int x, int i)
+        {
+            SilPlan(x, 0, i, out float dx, out _);
+            return (dx >= ROCKET_TAIL && dx < ROCKET_TAIL + 0.9f) || (dx >= -0.6f && dx < 0.4f);
+        }
 
         private static BallType RocketColour(int x, int z, int i) => RocketPart(x, z, i) switch
         {
@@ -545,7 +666,7 @@ namespace BS3D.Tools.LevelGen
             4 => BallType.Type9,                                                   //orange flame
             3 => BallType.Type1,                                                   //red fins
             2 => BallType.Type1,                                                   //red nose
-            _ => ROCKET_PAINT[((x + 1) / 2) % 2],                                  //white and black rings
+            _ => RocketBand(x, i) ? SILHOUETTE_INK : BallType.Type4,               //a white hull with two black bands
         };
 
         private static BallKind RocketKind(int x, int z, int i) =>
@@ -560,7 +681,12 @@ namespace BS3D.Tools.LevelGen
         private const float CORONET_OUTER = 5.4f;
         private const int CORONET_BAND = 6;              //the band's first course
 
-        private static Design Coronet() => SilhouetteSolid("Coronet", CORONET_DEPTH, shots: 44, ceilingStep: 8,
+        /// <summary>
+        /// A crown hung from its five gold points: a band of black and blue below them, set with rubies under the points
+        /// and diamonds of glass between, and a magenta velvet cap inside, hung from the glass on its own. The band hangs
+        /// from the points alone, so the points are the cuts that matter; the most groups in the chapter.
+        /// </summary>
+        private static Design Coronet() => SilhouetteSolid("Coronet", CORONET_DEPTH, shots: 42, ceilingStep: 8,
             (x, z, i) => CoronetPart(x, z, i), CoronetColour, CoronetKind);
 
         /// <summary>0 air, 1 the band, 2 a point, 3 a ruby, 4 a diamond (glass), 5 the cap.</summary>
@@ -592,7 +718,7 @@ namespace BS3D.Tools.LevelGen
             }
 
             //The points narrow from the band up to the glass
-            float half = 0.02f + 0.0045f * k;
+            float half = 0.032f + 0.003f * k;
             return off <= half ? 2 : 0;
         }
 
@@ -625,7 +751,13 @@ namespace BS3D.Tools.LevelGen
         private const float GUITAR_SCREEN = 6.8f;        //the screen's half width
         private const int GUITAR_SCREEN_Z = 7;
 
-        private static Design Guitar() => SilhouetteSolid("Guitar", GUITAR_DEPTH, shots: 36, ceilingStep: 7,
+        /// <summary>
+        /// A guitar lying on its back, four cells deep and set into a pale screen: a hollow sound box with the hole in its
+        /// face, a brown neck, an orange headstock, a body striped black and red, and two strings of glass from the bridge
+        /// to the headstock that touch each other, so one landing colours both, and in the colour of what they lie on it
+        /// takes that too. The screen round it holds it at many places, so no handful of cuts drops the guitar.
+        /// </summary>
+        private static Design Guitar() => SilhouetteSolid("Guitar", GUITAR_DEPTH, shots: 34, ceilingStep: 7,
             (x, z, i) => GuitarPart(x, z, i), GuitarColour, GuitarKind);
 
         /// <summary>Whether the guitar's outline, seen from the stand, covers a point of the picture plane.</summary>
@@ -690,46 +822,53 @@ namespace BS3D.Tools.LevelGen
         private static BallKind GuitarKind(int x, int z, int i) =>
             GuitarPart(x, z, i) == 5 ? BallKind.Transparent : BallKind.Normal;
 
-        //=== 10. ANCHOR: hung from a beam by its ring and its stock, crossing walls ======================
+        //=== 10. ANCHOR: hung by its stock against the glass, its arms crossing it =======================
 
         private const byte ANCHOR_DEPTH = 14;
 
-        private static Design Anchor() => SilhouetteSolid("Anchor", ANCHOR_DEPTH, shots: 36, ceilingStep: 7,
+        private const float ANCHOR_STOCK = 5.6f;          //the stock's half length, along x against the glass
+        private const float ANCHOR_SHANK = 1.6f;          //the shank's square half width
+        private const float ANCHOR_CROWN = 4.6f;          //how far below the glass the arms' circle is centred
+        private const float ANCHOR_ARM_IN = 3.4f, ANCHOR_ARM_OUT = 4.6f;
+        private const float ANCHOR_FLUKE_X = 4.7f, ANCHOR_FLUKE_Y = -0.4f;   //each fluke's middle, from the arms' centre
+
+        /// <summary>
+        /// An anchor, the chapter's closer, hung by its stock against the glass with its arms crossing it: a shank three
+        /// cells square in bands of black and blue, arms of blue and black, red flukes, and each fluke lashed up to the
+        /// stock's end with a yellow rope. Two load paths, so no single cut drops the arms, and the tightest budget in the
+        /// chapter, two shots a group.
+        /// </summary>
+        private static Design Anchor() => SilhouetteSolid("Anchor", ANCHOR_DEPTH, shots: 28, ceilingStep: 6,
             (x, z, i) => AnchorPart(x, z, i), AnchorColour);
 
-        /// <summary>0 air, 1 the ring, 2 the stock's cords, 3 the stock, 4 the shank, 5 the arms, 6 a fluke, 7 the beam.</summary>
+        /// <summary>0 air, 2 a lashing, 3 the stock, 4 the shank, 5 the arms, 6 a fluke.</summary>
         private static int AnchorPart(int x, int z, int i)
         {
             int k = SilCourse(i, ANCHOR_DEPTH);
             float below = k * INV_SQRT_TWO;
             SilPlan(x, z, i, out float dx, out float dz);
 
-            //The beam against the glass, running towards the gun, crossing the anchor's own plane
-            if (k < 2) return MathF.Abs(dx) <= 2.6f && MathF.Abs(dz) <= 5.6f ? 7 : 0;
+            //The stock: a bar across the top, against the glass, rounded at its ends
+            if (k < 2) return MathF.Abs(dz) <= 1.6f && MathF.Abs(dx) <= ANCHOR_STOCK - (k == 1 ? 0.6f : 0f) ? 3 : 0;
 
-            //The stock across the shank's head, along z, and the two cords that hang it from the beam
-            if (k >= 5 && k <= 6 && MathF.Abs(dx) <= 0.8f && MathF.Abs(dz) <= 5.6f) return 3;
-            if (k < 5 && MathF.Abs(dx) <= HALF && MathF.Abs(MathF.Abs(dz) - 5.0f) <= 0.6f) return 2;
+            //The arms and flukes, in the picture plane, and the lashings that tie each fluke up to the stock's end
+            float ay = below - ANCHOR_CROWN;
+            if (MathF.Abs(dz) <= 1.1f)
+            {
+                float arm = MathF.Sqrt(dx * dx + ay * ay);
+                float spade = MathF.Abs(MathF.Abs(dx) - ANCHOR_FLUKE_X) + MathF.Abs(ay - ANCHOR_FLUKE_Y) * 0.8f;
+                if (spade <= 1.5f) return 6;
+                if (ay > 0.4f && arm >= ANCHOR_ARM_IN && arm <= ANCHOR_ARM_OUT) return 5;
+            }
+            if (MathF.Abs(MathF.Abs(dx) - ANCHOR_FLUKE_X) <= 0.6f && MathF.Abs(dz) <= 0.6f && ay < ANCHOR_FLUKE_Y) return 2;
 
-            if (MathF.Abs(dz) > 1.1f) return 0;
-
-            //The ring under the beam
-            float ry = below - 2.2f;
-            float ring = MathF.Sqrt(dx * dx + ry * ry);
-            if (k < 5) return ring <= 1.7f && ring >= 0.8f ? 1 : 0;
-
-            //The arms: the lower half of a circle round the shank, ending in flukes that point up and out
-            float ay = below - 4.6f;
-            float arm = MathF.Sqrt(dx * dx + ay * ay);
-            if (MathF.Abs(dx) >= 3.6f && MathF.Abs(dx) <= 6.2f && ay >= -1.6f && ay <= 1.0f
-                && MathF.Abs(dx) - 3.6f <= (ay + 1.6f) * 1.0f + 0.4f) return 6;
-            if (ay > 0.6f && arm >= 3.6f && arm <= 4.7f) return 5;
-
-            if (MathF.Abs(dx) <= 1.1f && below <= 8.6f) return 4;
+            //The shank, three cells square on every course
+            if (x >= 7 && x <= 9 && z >= 7 && z <= 9 && below <= ANCHOR_CROWN + ANCHOR_ARM_IN + 0.2f) return 4;
             return 0;
         }
 
-        private static readonly BallType[] ANCHOR_BEAM = { BallType.Type4, BallType.Type5, BallType.Type10 };   //white, cyan, brown
+        private static readonly BallType[] ANCHOR_STOCK_WOOD = { BallType.Type10, BallType.Type4 };              //brown, white
+        private static readonly BallType[] ANCHOR_IRON = { SILHOUETTE_INK, BallType.Type3 };   //black, blue
 
         private static BallType AnchorColour(int x, int z, int i)
         {
@@ -739,13 +878,11 @@ namespace BS3D.Tools.LevelGen
 
             return part switch
             {
-                7 => Band(z / 2, ANCHOR_BEAM),
-                1 => BallType.Type7,                     //yellow ring
-                2 => BallType.Type7,                     //and cords
-                3 => BallType.Type10,                    //brown stock
-                6 => BallType.Type1,                     //red flukes
+                3 => ANCHOR_STOCK_WOOD[((x + 1) / 3) % 2],
+                2 => BallType.Type7,                                     //yellow lashings
+                6 => BallType.Type1,                                     //red flukes
                 5 => dx < 0f ? BallType.Type3 : SILHOUETTE_INK,
-                _ => (k / 2) % 2 == 0 ? SILHOUETTE_INK : BallType.Type3,
+                _ => ANCHOR_IRON[(k / 2) % 2],
             };
         }
 

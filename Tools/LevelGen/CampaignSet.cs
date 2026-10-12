@@ -298,8 +298,8 @@ namespace BS3D.Tools.LevelGen
         //WOOL FOR THE SILHOUETTES (#491), the Gallery's material a second time, and chosen by photograph: the
         //Fish hung on the aurora in wool, porcelain, gem and vinyl, and only the wool made the black shape one
         //solid silhouette - the glazed, faceted and gored styles each put a highlight on every black ball, so the
-        //cut-out read as a heap of shiny balls. A chapter of drawn pictures on the soft material is also the
-        //Gallery's own argument (BALLS_GALLERY) holding twice.
+        //cut-out read as a heap of shiny balls. The figures became solids in #736 and kept it: black wool is still
+        //the one finish that reads as a cut-out rather than as a heap, and the Gallery's argument (BALLS_GALLERY) holds.
         internal const BallStyle BALLS_SILHOUETTES = BallStyle.Wool;
 
         /// <summary>

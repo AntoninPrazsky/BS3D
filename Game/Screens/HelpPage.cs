@@ -368,10 +368,11 @@ namespace BS3D.Screens
         /// <summary>
         /// What the Balls page says about each kind that is not ordinary (#633), <b>keyed by the kind</b> so the
         /// list is one place and a check can ask whether every <see cref="BallKind"/> has an entry — #584's
-        /// deferred per-kind check, whose Help half this is. In the order a player meets them: the four the
-        /// campaign places, then the five no shipped level uses yet (#633 counted: bomb from level 85, zap 87,
-        /// glass 121, stone 126, the rest nowhere). <see cref="BallKind.Normal"/> needs no entry and the wildcard
-        /// has its own paragraph, since it arrives in the cannon rather than in the cluster.
+        /// deferred per-kind check, whose Help half this is. In the order a player meets them: the five the
+        /// campaign places, then the five no shipped level uses yet (glass from level 42, the Silhouettes' Umbrella,
+        /// since #736; buckshot 93, bomb 105, zap 107, stone 136; the rest nowhere). <see cref="BallKind.Normal"/>
+        /// needs no entry and the wildcard has its own paragraph, since it arrives in the cannon rather than in the
+        /// cluster.
         /// <para>
         /// The look clauses are deliberately short: the looks are being redrawn one kind at a time (#622), and a
         /// sentence describing a finish that has since changed would be wrong on the one page that explains it.
@@ -379,14 +380,16 @@ namespace BS3D.Screens
         /// </summary>
         private static readonly (BallKind Kind, string Text)[] KIND_ENTRIES =
         {
-            (BallKind.Rock, "Stone — colourless, and it cannot be matched. It never falls to a colour, only to losing "
-                + "whatever was holding it up. A wall of stone is a wall you have to go around."),
             (BallKind.Transparent, "Glass — clear, with no colour of its own yet. The first ball that lands against it colours it, "
                 + "and from that moment it is an ordinary ball of that colour. It is a cell you get to choose."),
+            (BallKind.Buckshot, "Buckshot — a clump of grey pellets. No colour takes it and the level is not cleared while it "
+                + "hangs: cut away whatever holds it up and it pours out."),
             (BallKind.Bomb, "Bomb — dark, and it beats harder than the cluster around it. Set it off and it destroys its "
                 + "neighbours outright, colour regardless."),
             (BallKind.Zap, "Zap — dark and flickering, with hard bright arcs across it. It fires along a colour rather "
                 + "than a shape."),
+            (BallKind.Rock, "Stone — colourless, and it cannot be matched. It never falls to a colour, only to losing "
+                + "whatever was holding it up. A wall of stone is a wall you have to go around."),
             (BallKind.Acid, "Acid — land a shot beside it and it eats straight down through the cluster beneath it until it "
                 + "reaches a gap. Whatever it was holding up comes down with it."),
             (BallKind.Frozen, "Frozen — a coloured ball sealed in a block of ice. Nothing matches it and no shot removes it "
@@ -399,8 +402,6 @@ namespace BS3D.Screens
                 + "aim preview shows the bend."),
             (BallKind.Heavy, "Heavy — an ordinary ball many times heavier than the rest. Whatever hangs from it sits lower in "
                 + "the cluster, nearer the line."),
-            (BallKind.Buckshot, "Buckshot — a clump of grey pellets. No colour takes it and the level is not cleared while it "
-                + "hangs: cut away whatever holds it up and it pours out."),
         };
 
         private void BuildBalls(VerticalStackPanel column)
