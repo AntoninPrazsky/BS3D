@@ -9,21 +9,22 @@ namespace Prazsky.BS3D.GameStructure
     /// when the round in the bore has nowhere, a streak is running and the round behind it has somewhere.
     /// <para>
     /// <b>The question, in the terms that bound it</b> (BestPractices.md §10): is there an empty cell that is joined to the
-    /// field's walls or floor through empty cells, touches at least one ball, and where a ball of this colour would either
-    /// complete a group of <c>minimumGroup</c> by the match rule's own walk (<see cref="BallsMap.CountGroupIfPlaced"/>)
-    /// or land beside a ball a landing sets off or turns? It does <b>not</b> ask whether the gun can be laid on that cell:
-    /// the elevation clamps, the crates a shot banks off and the wells that bend it are all left out, and every one of
-    /// them could only take landings away. So <b>"none" is certain and "some" is only possible</b>, which is the direction
-    /// a hint has to err in: a chip that flashed while a match was there to be had would teach the player to spend the
-    /// Swap on nothing.
+    /// field's walls or floor through empty cells, touches a ball, and where a ball of this colour would either complete a
+    /// group of <c>minimumGroup</c> by the match rule's own walk (<see cref="BallsMap.CountGroupIfPlaced"/>) or land
+    /// beside a ball a landing sets off or turns? It does <b>not</b> ask whether the gun can be laid on that cell or a shot
+    /// can thread its way there: the elevation clamps, the crates a shot banks off, the wells that bend it and the gaps
+    /// between courses too narrow for a ball are all left out, and every one of them could only take landings away. So
+    /// <b>"none" is certain and "some" is only possible</b>, which is the direction a hint has to err in: a chip that
+    /// flashed while a match was there to be had would teach the player to spend the Swap on nothing.
     /// </para>
     /// <list type="bullet">
-    /// <item><description><b>The open space</b> is flooded from the empty cells on the field's walls and floor, never its top
-    /// (the glass), as <c>Tools/LevelGen</c>'s <c>ClearProbe</c> floods it. A flying ball's centre never enters the region
-    /// of an occupied cell, so it travels only through empty cells that touch, and a pocket the flood cannot reach is one
-    /// no shot can. ⚠ On nearly every field that is every empty cell: the ring of space round a cluster joins every wall
-    /// to every other (§10 records the flood passing the whole pack). It shuts out only a pocket walled in on all sides,
-    /// which is why it is here and also why it is not where the answer comes from.</description></item>
+    /// <item><description><b>The open space</b> is what <c>Tools/LevelGen</c>'s <c>ClearProbe</c> floods: the empty cells
+    /// joined to the field's walls or floor (never its top, the glass) through empty neighbours. A flying ball's centre
+    /// never enters the region of an occupied cell, so it travels only through empty cells that touch, and a pocket no such
+    /// path reaches is one no shot can. The path slips between courses where no ball could pass
+    /// (<c>docs/formats-and-tools/levelgen-gates.md</c>), which errs the safe way. On the shipped levels at their start it
+    /// shuts out the hold of a reveal level and little else: Chest's white lines a sealed hold, so a white round there has
+    /// nowhere to score (<c>MatchReachTests</c>).</description></item>
     /// <item><description><b>A special a landing sets off or turns counts as somewhere to score</b> without asking what it
     /// would do: glass takes the shot's colour and may complete a group through itself, and a bomb, a zap and an acid go off
     /// and take balls, which the keeper pays as destroyed. Only the kinds a landing does nothing to are walked past
@@ -31,24 +32,48 @@ namespace Prazsky.BS3D.GameStructure
     /// says otherwise, the safe default for a hint that must not cry wolf.</description></item>
     /// </list>
     /// <para>
-    /// The answer is a walk over the whole field, cheap enough for a landing and too dear for every frame: the caller keeps
-    /// it until <see cref="BallsMap.Revision"/> or the round changes. The buffers are kept and only regrown for a larger
-    /// field, so a call allocates nothing once warm.
+    /// <b>Cheap enough for the frame a landing lands on</b>, because that is when the hint asks again, for both rounds it
+    /// reads. A flood of the whole open space before each answer cost 1.4 ms a field on average and 3.1 ms at most over the
+    /// shipped levels (Release), twice a landing. So the field is <b>surveyed</b> once per state (one pass listing every
+    /// matchable ball by colour and every special, kept until <see cref="BallsMap.Revision"/> or the map changes), the
+    /// match rule's walk is asked first of the empty cells beside the colour's own balls, and only a cell that would score
+    /// is asked whether it is open: by a search that heads for the floor, ends on reaching a wall, the floor or a cell
+    /// whose answer is known, and gives every cell it visited its answer, since they are all one piece of space. Measured
+    /// the same way (<c>MatchReachTests</c> prints it): 0.06 ms for the first ask on a field, survey included, 0.9 ms at
+    /// most (the first call of the run), and about 30 microseconds for an ask on a surveyed field. The buffers are kept
+    /// and regrown only for a larger field, so a warm call allocates nothing.
     /// </para>
     /// </summary>
     public sealed class MatchReach
     {
-        private bool[,,] _open;
+        //What is known of each empty cell's reach in the surveyed field, flat (index (level * X + x) * Z + z): not asked yet,
+        //open, sealed, or being searched now
+        private const byte UNKNOWN = 0, OPEN = 1, SEALED = 2, SEARCHING = 3;
+        private byte[] _reach = Array.Empty<byte>();
+        private XZLevel _size;
+
+        //The match rule's walk marks the cells it has visited in this buffer, a fresh mark per walk
         private byte[,,] _stamp;
         private byte _mark;
-        private readonly Stack<XZLevel> _flood = new(256);
+
+        //The survey: every matchable ball's cell by colour (index = the BallType's value), and every special a landing
+        //would answer; kept until the field changes
+        private readonly List<XZLevel>[] _byType = new List<XZLevel>[byte.MaxValue + 1];
+        private readonly List<XZLevel> _specials = new(16);
+
+        private BallsMap _surveyed;
+        private int _surveyedRevision;
+
+        private readonly Stack<XZLevel> _search = new(64);
+        private readonly List<int> _visited = new(64);
         private readonly Queue<XZLevel> _walk = new(64);
 
         /// <summary>
         /// Whether a shot of <paramref name="type"/> has an open landing that would score — see the class doc for exactly
         /// what that asks and what it leaves out.
         /// </summary>
-        /// <param name="map">The field as it stands.</param>
+        /// <param name="map">The field as it stands. Only its own writes move <see cref="BallsMap.Revision"/>, which is what
+        /// tells this the survey it keeps is stale, so the map must not be changed through the array it hands out.</param>
         /// <param name="type">The colour of the round being asked about. Only an ordinary round asks: a wildcard takes the
         /// colour of whatever it lands beside and a cutter takes a storey, so neither needs a match.</param>
         /// <param name="minimumGroup">The match rule's group size, the shot itself included
@@ -57,39 +82,36 @@ namespace Prazsky.BS3D.GameStructure
         {
             if (map == null) throw new ArgumentNullException(nameof(map));
 
+            Survey(map);
+
             StaticBall[,,] cells = map.GetStaticBallsArray();
-            XZLevel size = map.GetStaticBallsArraySize();
-            Prepare(size);
-            FloodOpenSpace(cells, size);
+            Span<XZLevel> beside = stackalloc XZLevel[BallsMap.MAX_NEIGHBORS];
 
-            Span<XZLevel> touching = stackalloc XZLevel[BallsMap.MAX_NEIGHBORS];
+            //A special a landing would answer, with open space beside it: every colour has somewhere
+            for (int s = 0; s < _specials.Count; s++)
+            {
+                int count = BallsMap.FillNeighboringCells(_specials[s], _size, beside);
+                for (int i = 0; i < count; i++)
+                    if (cells[beside[i].X, beside[i].Z, beside[i].Level] == null && IsOpen(cells, beside[i])) return true;
+            }
 
-            for (int level = 0; level < size.Level; level++)
-                for (int x = 0; x < size.X; x++)
-                    for (int z = 0; z < size.Z; z++)
-                    {
-                        if (!_open[x, z, level]) continue;
+            List<XZLevel> balls = _byType[(byte)type];
+            if (balls == null) return false;
 
-                        XZLevel cell = new(x, z, level);
-                        int count = BallsMap.FillNeighboringCells(cell, size, touching);
+            //Every empty cell beside a ball of this colour: the match rule's walk first, which for a lone ball is a cell or
+            //two, and the reach only of a cell that would score
+            for (int b = 0; b < balls.Count; b++)
+            {
+                int count = BallsMap.FillNeighboringCells(balls[b], _size, beside);
+                for (int i = 0; i < count; i++)
+                {
+                    XZLevel cell = beside[i];
+                    if (cells[cell.X, cell.Z, cell.Level] != null || _reach[Index(cell)] == SEALED) continue;
 
-                        //A pocket with nothing beside it is open air the shot would sail through; one beside the type it is
-                        //asked about may complete a group; one beside a special that goes off or turns on a landing scores
-                        bool beside = false, besideType = false;
-                        for (int i = 0; i < count; i++)
-                        {
-                            StaticBall ball = cells[touching[i].X, touching[i].Z, touching[i].Level];
-                            if (ball == null) continue;
-
-                            beside = true;
-                            if (BallKinds.Matchable(ball.Kind)) besideType |= ball.Type == type;
-                            else if (!IsInert(ball.Kind)) return true;
-                        }
-
-                        if (!beside || !besideType) continue;
-
-                        if (map.CountGroupIfPlaced(cell, type, size, _stamp, NextMark(), _walk) >= minimumGroup) return true;
-                    }
+                    if (map.CountGroupIfPlaced(cell, type, _size, _stamp, NextMark(), _walk) >= minimumGroup && IsOpen(cells, cell))
+                        return true;
+                }
+            }
 
             return false;
         }
@@ -102,16 +124,120 @@ namespace Prazsky.BS3D.GameStructure
         public static bool IsInert(BallKind kind) =>
             kind == BallKind.Rock || kind == BallKind.Frozen || kind == BallKind.Buckshot;
 
-        /// <summary>The buffers, sized to the field: regrown only when a larger field arrives, cleared every call.</summary>
+        /// <summary>
+        /// Lists every matchable ball by colour and every special a landing would answer, and forgets every cell's reach,
+        /// once per state of the field: nothing is done while <paramref name="map"/> and its <see cref="BallsMap.Revision"/>
+        /// are the ones last surveyed.
+        /// </summary>
+        private void Survey(BallsMap map)
+        {
+            if (ReferenceEquals(map, _surveyed) && map.Revision == _surveyedRevision) return;
+
+            _surveyed = map;
+            _surveyedRevision = map.Revision;
+
+            StaticBall[,,] cells = map.GetStaticBallsArray();
+            _size = map.GetStaticBallsArraySize();
+            Prepare(_size);
+
+            for (int i = 0; i < _byType.Length; i++) _byType[i]?.Clear();
+            _specials.Clear();
+
+            for (int level = 0; level < _size.Level; level++)
+                for (int x = 0; x < _size.X; x++)
+                    for (int z = 0; z < _size.Z; z++)
+                    {
+                        StaticBall ball = cells[x, z, level];
+                        if (ball == null) continue;
+
+                        if (BallKinds.Matchable(ball.Kind)) (_byType[(byte)ball.Type] ??= new List<XZLevel>(64)).Add(new XZLevel(x, z, level));
+                        else if (!IsInert(ball.Kind)) _specials.Add(new XZLevel(x, z, level));
+                    }
+        }
+
+        /// <summary>
+        /// Whether the empty cell <paramref name="start"/> is joined to a wall or the floor through empty cells. A search that
+        /// tries the cells below first (under a hanging cluster the floor is the nearest way out) and ends on reaching a
+        /// wall, the floor or a cell already known to be open; every cell it visited is one piece of space with the start,
+        /// so all of them take its answer, and no cell is searched twice in one state of the field.
+        /// </summary>
+        private bool IsOpen(StaticBall[,,] cells, XZLevel start)
+        {
+            int first = Index(start);
+            if (_reach[first] == OPEN || _reach[first] == SEALED) return _reach[first] == OPEN;
+
+            Span<XZLevel> next = stackalloc XZLevel[BallsMap.MAX_NEIGHBORS];
+            _search.Clear();
+            _visited.Clear();
+
+            _reach[first] = SEARCHING;
+            _visited.Add(first);
+            _search.Push(start);
+
+            //Sealed until a way out is found: a search that runs out of cells, or meets a cell already known to be sealed
+            //(the same piece of space, searched to its end before), has none
+            byte answer = SEALED;
+            bool done = false;
+            while (_search.Count > 0 && !done)
+            {
+                XZLevel cell = _search.Pop();
+                if (OnBoundary(cell))
+                {
+                    answer = OPEN;
+                    break;
+                }
+
+                int count = BallsMap.FillNeighboringCells(cell, _size, next);
+
+                //Pushed level and higher first, then lower, so the lower cells are taken next
+                for (int pass = 0; pass < 2 && !done; pass++)
+                    for (int i = 0; i < count && !done; i++)
+                    {
+                        XZLevel neighbour = next[i];
+                        if ((neighbour.Level < cell.Level) != (pass == 1)) continue;
+                        if (cells[neighbour.X, neighbour.Z, neighbour.Level] != null) continue;
+
+                        int index = Index(neighbour);
+                        byte known = _reach[index];
+                        if (known == OPEN || known == SEALED)
+                        {
+                            answer = known;
+                            done = true;
+                        }
+                        else if (known == UNKNOWN)
+                        {
+                            _reach[index] = SEARCHING;
+                            _visited.Add(index);
+                            _search.Push(neighbour);
+                        }
+                    }
+            }
+
+            for (int i = 0; i < _visited.Count; i++) _reach[_visited[i]] = answer;
+
+            return answer == OPEN;
+        }
+
+        /// <summary>Whether <paramref name="cell"/> is on a wall or the floor of the field, where a shot arrives from outside.</summary>
+        private bool OnBoundary(XZLevel cell) =>
+            cell.X == 0 || cell.Z == 0 || cell.X == _size.X - 1 || cell.Z == _size.Z - 1 || cell.Level == 0;
+
+        /// <summary>The reach buffer's index of <paramref name="cell"/> in the surveyed field.</summary>
+        private int Index(XZLevel cell) => (cell.Level * _size.X + cell.X) * _size.Z + cell.Z;
+
+        /// <summary>The buffers, sized to the field: regrown only when a larger field arrives, the reach forgotten every survey.</summary>
         private void Prepare(XZLevel size)
         {
-            if (_open == null || _open.GetLength(0) < size.X || _open.GetLength(1) < size.Z || _open.GetLength(2) < size.Level)
+            int cells = size.X * size.Z * size.Level;
+            if (_reach.Length < cells) _reach = new byte[cells];
+            else Array.Clear(_reach, 0, cells);
+
+            if (_stamp == null || _stamp.GetLength(0) < size.X || _stamp.GetLength(1) < size.Z || _stamp.GetLength(2) < size.Level)
             {
-                _open = new bool[size.X, size.Z, size.Level];
-                _stamp = new byte[size.X, size.Z, size.Level];
+                _stamp = new byte[Math.Max(size.X, _stamp?.GetLength(0) ?? 0), Math.Max(size.Z, _stamp?.GetLength(1) ?? 0),
+                    Math.Max(size.Level, _stamp?.GetLength(2) ?? 0)];
                 _mark = 0;
             }
-            else Array.Clear(_open);
         }
 
         /// <summary>
@@ -127,44 +253,6 @@ namespace Prazsky.BS3D.GameStructure
             }
 
             return ++_mark;
-        }
-
-        /// <summary>
-        /// Marks every empty cell joined to the field's walls or floor through empty cells. A shot arrives from outside, so
-        /// the flood starts at the walls and the floor, and never at the top, which is the glass the cluster hangs from.
-        /// </summary>
-        private void FloodOpenSpace(StaticBall[,,] cells, XZLevel size)
-        {
-            _flood.Clear();
-
-            for (int level = 0; level < size.Level; level++)
-                for (int x = 0; x < size.X; x++)
-                    for (int z = 0; z < size.Z; z++)
-                    {
-                        bool wall = x == 0 || z == 0 || x == size.X - 1 || z == size.Z - 1 || level == 0;
-                        if (!wall || cells[x, z, level] != null) continue;
-
-                        _open[x, z, level] = true;
-                        _flood.Push(new XZLevel(x, z, level));
-                    }
-
-            Span<XZLevel> next = stackalloc XZLevel[BallsMap.MAX_NEIGHBORS];
-
-            while (_flood.Count > 0)
-            {
-                XZLevel cell = _flood.Pop();
-                int count = BallsMap.FillNeighboringCells(cell, size, next);
-
-                for (int i = 0; i < count; i++)
-                {
-                    XZLevel neighbour = next[i];
-                    if (_open[neighbour.X, neighbour.Z, neighbour.Level]) continue;
-                    if (cells[neighbour.X, neighbour.Z, neighbour.Level] != null) continue;
-
-                    _open[neighbour.X, neighbour.Z, neighbour.Level] = true;
-                    _flood.Push(neighbour);
-                }
-            }
         }
     }
 }

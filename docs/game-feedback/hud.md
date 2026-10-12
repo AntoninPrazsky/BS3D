@@ -36,9 +36,13 @@ Amber (`HUD_ACCENT`) survives every scene palette; it goes on the score's arriva
 
 ## The streak
 
-- Warms ×2 to ×5 (`MENU_TEXT` to `HUD_ACCENT`) over `ScoreKeeper.MaxMultiplier`; held back at ×1; a break is **held** `STREAK_BREAK_TIME`, sliding and fading.
+- Warms ×2 to ×5 (`MENU_TEXT` to `HUD_ACCENT`) over `ScoreKeeper.MaxMultiplier`; held back at ×1.
 - **At the cap** the badge changes face (the loud label), takes a travelling colour sweep and flares once. The sweep is a **hot arc, not a rainbow** (a full wheel's cyan vanished against the meadow's sky); stagger a sixth of the ramp per glyph (a third read as two colours), so it is drawn glyph by glyph, dropping kerning. The glow keeps a floor, or a held ×5 looks ordinary.
-- `streak=<n>` pins what the readout **shows**, never the scoring.
+- **A lost streak breaks, and is heard breaking** (#845): the owner's playtest found the old loss (the value sliding 44 units and fading in 0.45 s, a lost ×5 the same as a lost ×3) "passed almost unnoticed". Now the badge **cracks** (`STREAK_BREAK_CRACK`, 0.16 s: it swells about its right edge, jolts sideways, flashes white-hot, dark cracks run across it) and **shatters**: its glyphs are thrown apart (the × to the left, the digit dropping) and tumble down with shards of it, keeping the colours they wore for a beat, then cooling to `STREAK_LOST` grey and going out, while **"×5 lost"** rises where it stood in the loud face. `ProceduralAudio.PlayStreakBreak` plays the falling run ([sound effects](sound-effects.md#a-streak-breaking-845)). **Everything scales with what was lost** (`StreakCues.Severity`, ½ for ×3, 1 for the cap): a lost ×3 swells to 1.6 times, throws 11 shards and lasts 1.1 s; a lost ×5 swells to 1.9 times, throws 16 and lasts 1.4 s, and its sound is two notes longer and louder.
+  - ⚠ **Size is what makes it seen.** The first cut squeezed the badge as it cracked and threw label-sized pieces that cooled to grey at once: at 1600×900 the whole break was a smudge twenty pixels high, pale on a pale sky. The badge is the HUD's smallest figure, so it grows as it breaks, the pieces keep its size and colour for a while, and every shard has a dark copy of itself under it.
+  - **The session decides whether it is told** (`GameplayScreen.AnswerLostStreak`, at the very end of both doors a shot resolves through without scoring, `OnShotSpent` and `OnBallLanded`): never once the level is decided or its last shot spent (`StreakCues.BreakIsTold`), where it would play over the result; there the badge simply goes.
+  - Every piece is a closed-form throw from a hash of the break's seed, drawn from the break's age alone: nothing listed, nothing allocated per frame.
+- `streak=<n>` pins what the readout **shows**, never the scoring, **until a shot breaks it**: the first shot that resolves without scoring breaks the pinned streak as it would a real one and lifts the pin, so a script can photograph the break of a ×5 nobody earned.
 
 ## When it stops
 
@@ -47,5 +51,6 @@ A **won** level drops the HUD (`!LevelOver`, #582): the result page states the s
 ## Testing it
 
 - A popup lives about 1.05 s: capture in a burst, cropped to the corner.
+- **The break** (#845): `level=23 seed=1 streak=5 aim=5:-5:0 fire=7 logshots` fires into the drain, and `[streak] x5 lost at 7.29 s, told` says when the break began on `shot=`'s clock; a 1600×900 burst at 7.33, 7.42, 7.6, 7.8 and 8.1 catches the crack, the shatter and the words. At 3840×1600 take one shot a run: a PNG that size blocks the frame long enough to move the next.
 - **Drive menus with Enter alone, never Down** (a held Down passes `NAV_REPEAT_DELAY` and can open the Scene page), and confirm focus first (`UpdateMenuChrome`'s `IsActive` block).
 - A scripted `rmbdown` never released stays held at OS level after the process is killed; the next run's menu clicks vanish.

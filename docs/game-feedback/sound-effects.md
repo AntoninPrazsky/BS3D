@@ -68,6 +68,15 @@ It is **bass and nothing else**, and it is the fifth bake: an undriven sine boom
   - The first design (a stick-slip creak ending in a puff of air) read as "a croak, or a grotesque burp". The owner asked for something more technical, closer to the refusal: "'you can't go here', 'e-e'".
   - **Checked by `AimStopSynthTests`** (99.9 % of the energy at 300-4000 Hz, the second beat lower than the first, two beats with silence between them read off the envelope and not off the synth's own constants).
 
+### A streak breaking (#845)
+
+`PlayStreakBreak(lost)` sounds with the badge breaking on the HUD ([the streak](hud.md#the-streak)), dry and unplaced like the aim stop: it answers the readout in the corner, not a place in the scene. It is `StreakBreakSynth`, pure arithmetic in a file of its own so the tests compile the lines the game plays.
+
+- **A run of struck notes falling**, one a step of the multiplier lost, down an A minor arpeggio: A5 E5 C5 A4 E4. A lost ×5 plays all five, a lost ×3 the last three, so both end on the same E4: the run is the streak falling back to ×1, and ending on the fifth leaves it unresolved. Each note glides a further 3 % down as it rings.
+- **A soft mallet's tone**: the fundamental, a quiet octave and the struck bar's inharmonic 2.76 (the glassy edge of something breaking; the landing's metal row uses the same ratio), rolled off twice at 3 kHz. No noise, no drive, peak-normalised.
+- **It starts 30 ms in**, so the thud of the landing that broke the streak, or the moment of the miss, is heard first. It plays at `STREAK_BREAK_VOLUME` (0.4, under the aim stop), a lost ×3 at `STREAK_BREAK_LOW_LEVEL` (0.6) of a lost cap: the cap is louder as well as longer (0.73 s heard against 0.54 s).
+- **Checked by `StreakBreakSynthTests`**: 99.8 % of the energy at 300-4000 Hz and none above 5 kHz for both; every note lower than the one before, read off the signal; the same run at a fifth of its pitch puts only 1.3 % in that band and fails the threshold the real one passes, which is the band check seen to refuse a bass-only sound.
+
 ### The menu's clicks (#46)
 
 `MenuButton` wraps each entry's action, so a press sounds whether it arrived through Myra's `Click` (the mouse) or the `Tag` that `ActivateNavEntry` invokes (the pad and the keys), and an entry added later cannot forget its click. One 90 ms buffer serves all three UI sounds: the press plays it straight, the focus step plays it pitched up (`PlayUiTick`; faster is also shorter and far quieter, which a held direction walking the list needs), backing out plays it pitched down. A dry "thock" (a low-passed knock over a fast 900 to 420 Hz drop) with **no reverb and no pan**: the UI lives at the player's hand. A screen change restores the focus cursor by assignment, not through `StepNavFocus`, so arriving on a page does not tick.

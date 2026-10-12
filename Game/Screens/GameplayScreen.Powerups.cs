@@ -255,9 +255,9 @@ namespace BS3D.Screens
         #region The Swap's hint (#845)
 
         //"Has a round of this colour anywhere to score?", kept per colour until the field changes (BallsMap.Revision, or
-        //another map): the answer is a walk over the whole field (MatchReach), cheap on a landing and too dear for every
-        //frame, and kept by COLOUR rather than by magazine slot so a swap, which trades two slots' colours, asks nothing
-        //again. 0 is not asked yet, 1 nowhere, 2 somewhere.
+        //another map): MatchReach surveys the whole field for it, a fraction of a millisecond on the frame a landing changes
+        //the field and nothing to spend on every frame. Kept by COLOUR rather than by magazine slot, so a swap, which trades
+        //two slots' colours, asks nothing again. 0 is not asked yet, 1 nowhere, 2 somewhere.
         private readonly MatchReach _matchReach = new();
         private readonly byte[] _scoringByType = new byte[BallRenderSet.TYPE_COUNT + 1];
         private BallsMap _scoringMap;
@@ -271,7 +271,7 @@ namespace BS3D.Screens
         /// </summary>
         private bool SwapIsTheCure()
         {
-            bool canAct = CanActivate(PowerupKind.Swap) && !_run.Score.OutOfShots;
+            bool canAct = _map != null && CanActivate(PowerupKind.Swap) && !_run.Score.OutOfShots;
             int streak = _hud.StreakShown(_run.Score);
             if (!canAct || streak <= 1) return false;
 

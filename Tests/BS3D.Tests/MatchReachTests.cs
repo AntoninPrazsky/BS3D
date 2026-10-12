@@ -158,20 +158,46 @@ namespace BS3D.Tests
         public void It_agrees_with_the_match_rule_on_every_shipped_level()
         {
             MatchReach reach = new();
-            int somewhere = 0, nowhere = 0;
+            int somewhere = 0, nowhere = 0, warmAsks = 0;
+            double surveys = 0.0, slowestSurvey = 0.0, warm = 0.0;
+            List<(BallType Type, bool Answer)> answers = new();
 
             foreach (string file in Shipped.LevelFiles())
             {
                 BallsMap map = new(Level.Load(file).Map);
-                bool[,,] open = OpenSpace(map);
 
                 HashSet<BallType> colours = new();
                 foreach (StaticBall ball in map.GetStaticBallsArray())
                     if (ball != null && BallKinds.Matchable(ball.Kind)) colours.Add(ball.Type);
 
+                //Every colour asked first, on the field as loaded: the first ask pays for the survey, the rest ride on it
+                answers.Clear();
+                bool first = true;
                 foreach (BallType type in colours)
                 {
+                    long started = System.Diagnostics.Stopwatch.GetTimestamp();
                     bool answer = reach.HasScoringLanding(map, type, GROUP);
+                    double ms = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+
+                    if (first)
+                    {
+                        surveys += ms;
+                        slowestSurvey = Math.Max(slowestSurvey, ms);
+                        first = false;
+                    }
+                    else
+                    {
+                        warm += ms;
+                        warmAsks++;
+                    }
+
+                    answers.Add((type, answer));
+                }
+
+                //Then the oracle, which places and removes balls and so moves the field's revision
+                bool[,,] open = OpenSpace(map);
+                foreach ((BallType type, bool answer) in answers)
+                {
                     if (answer) somewhere++;
                     else
                     {
@@ -184,7 +210,10 @@ namespace BS3D.Tests
                 }
             }
 
+            int levels = Shipped.LevelFiles().Count;
             _output.WriteLine($"colours with somewhere to score: {somewhere}, nowhere: {nowhere}");
+            _output.WriteLine($"the first ask on a field (the survey): {surveys / levels:F3} ms on average, {slowestSurvey:F3} ms at most;"
+                + $" an ask on a surveyed field: {warm / Math.Max(1, warmAsks) * 1000.0:F1} us on average");
             Assert.True(somewhere > 0);
         }
 

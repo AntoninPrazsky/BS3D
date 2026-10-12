@@ -473,7 +473,8 @@ namespace BS3D.Screens
             //A rare-event line for a run that logs its shots: when a break was told, on shot='s clock, which is what a
             //capture of it is scheduled against
             if (_test.LogShots)
-                Console.WriteLine($"[streak] x{lost} lost at {WallClock:F2} s, " + (told ? "told" : "not told: the level is decided or out of shots"));
+                Console.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                    $"[streak] x{lost} lost at {WallClock:F2} s, ") + (told ? "told" : "not told: the level is decided or out of shots"));
 
             if (!told)
             {

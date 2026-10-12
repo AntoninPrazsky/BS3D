@@ -21,6 +21,8 @@ A **special ball is a map kind; a power-up is the player's E/Q/R** (#213, #392).
 
 Exchanges the muzzle slot with the one behind it: no ball, no budget, no ceiling. **The price keeps "play what comes" a constraint.** `Magazine.SwapSlots(a, b, crossFade: true)` exchanges the slots at once, then each dissolves into its new colour over `Magazine.SWAP_FADE_SECONDS` (plain rounds only).
 
+**Its chip points at the cure** (#845): while a streak runs, the round in the bore has nowhere to score and the round behind has somewhere, it flashes "Swap · keep ×3" ([the chips](../game-feedback/hud-magazine-and-muzzle.md#the-power-up-chips)). A swap that would load a second round with nowhere to score is no cure, so the chip stays dark then.
+
 ## Brake
 
 **Lifts the glass one `CEILING_DESCENT_PER_STEP` towards `RestY`, never past it: it gives back exactly one step** (`CeilingDescent.Brake`; a lift, not a delay, which would only move the next step). It announces itself like a **feed** step (cold blue-white, soft sound, no rumble): good news.

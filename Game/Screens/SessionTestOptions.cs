@@ -26,7 +26,8 @@ namespace BS3D.Screens
     /// <param name="ForcedStreak">The <c>streak=</c> argument (#180): the multiplier the HUD's streak readout
     /// shows, or null for the keeper's own. The capped state takes five consecutive scoring shots to reach, and
     /// this changes the display only, never the scoring, so the lever cannot alter the thing it is there to look
-    /// at.</param>
+    /// at. It holds until the first shot that resolves without scoring, which breaks it as it would break a real streak
+    /// (#845).</param>
     /// <param name="ForcedWildcardEvery">The <c>wildcard=</c> argument (#330): one in how many loaded balls is a
     /// wildcard, overriding every level entry's own <c>wildcardEvery</c>; 0 leaves each level's rule alone. The
     /// kind is built and no shipped level hands one out, and a wildcard cannot be authored into a map — it is a

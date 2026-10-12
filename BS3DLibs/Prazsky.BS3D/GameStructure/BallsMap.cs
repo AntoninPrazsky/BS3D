@@ -489,7 +489,7 @@ namespace Prazsky.BS3D.GameStructure
         /// <see cref="GetConnectedSameTypeCells"/>' exactly — same neighbour rule, same
         /// <see cref="BallKinds.Matchable"/> gate — differing only in that the start cell is hypothetical, so it
         /// is counted and its neighbours seeded without being read out of the map. Shared with
-        /// <see cref="MatchReach"/> (#845), which asks it of every open cell, so the match rule has one walk.
+        /// <see cref="MatchReach"/> (#845), which asks it of the empty cells beside a colour's balls, so the match rule has one walk.
         /// <paramref name="stamp"/> cells holding <paramref name="mark"/> count as walked already: a caller reusing
         /// one buffer gives every walk its own mark.
         /// </summary>
