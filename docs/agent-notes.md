@@ -546,4 +546,5 @@ Pravidla:
 - Bez majitele, konzervativně: About bez prokladu do #807 (stojí na plné výšce); pomlčka s mezerami, protože tak byla psaná většina textu.
 - ⚠ FontStashSharp počítá U+00A0 jako bílý znak: nedělitelná mezera drží jen v textu přes `SpaceWrap`.
 - ⚠ Nástroj Write převádí `\u00A0` v obsahu na skutečný znak; escape do zdrojáků vkládat skriptem.
+- ⚠ Review: průchod minul stavové řádky žebříčků a výsledku („Loading the boards...“, „chapter's one skip“); opraveny. Nadpis nad blokem = sekční velikost, klávesy bez vazby.
 - Otevřené: tabulky čísel (žebříčky, rozpis výsledku) a výběr úrovně neprošly.

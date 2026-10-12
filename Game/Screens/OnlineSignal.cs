@@ -10,7 +10,7 @@ namespace BS3D.Screens
 {
     /// <summary>
     /// What the online client is doing, as a picture (#683, #723): a wire globe in front of the boards plate's status
-    /// line. A still "Sending your score..." read as a stuck line - the owner's note was that it should visibly move, "so
+    /// line. A still "Sending your score…" read as a stuck line - the owner's note was that it should visibly move, "so
     /// you can see the sending is really happening" - and the first picture, a phone's signal-strength bars, read as being
     /// about to phone somebody (#723). The globe is a circle, an equator and three meridians whose widths follow the
     /// rotation: a meridian is a great circle, which seen from the side is an ellipse as tall as the globe and as wide as

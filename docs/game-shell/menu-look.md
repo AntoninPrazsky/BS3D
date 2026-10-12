@@ -102,6 +102,7 @@ FontStashSharp 1.5.6 under Myra 1.6.3, read off the assemblies and the faces' ow
 
 - **Hierarchy is size, face and colour together**, not a gap alone: Anton for headings, entries and values, Inter for reading; `MENU_TEXT` for what is loud, `MENU_TEXT_BODY` for prose, `MENU_TEXT_DIM` for an aside (a caption, a note beside the rows, what a field wants).
 - **The sizes are steps of one scale of about 1.3**: 46, 58, 80, 96, 124 and 170 lie within 6 % of 45, 58, 75, 98, 127 and 166, a 1.3 ratio from the small face. They are kept rather than snapped to it, because each was measured against a budget (the Settings rows, #138; the picker's tile, #496) and a few per cent is under what reads as a different step. **New text takes a role** (small, body, section, heading, title), never a new figure.
+- **A label over a block is the section role**: capitals in Anton at `MENU_FONT_SECTION`, such as the Settings groups' headings (CAMPAIGN) and the boards' chapter name. A small label is not used: set in the small face over rows in the display face, the Settings headings read as too small (#243, "Typefaces" above).
 
 ### Alignment and the rag
 
@@ -115,6 +116,7 @@ FontStashSharp 1.5.6 under Myra 1.6.3, read off the assemblies and the faces' ow
 - **The dash is a spaced em dash, " — "**, the form most of the copy was written in. A range of numbers takes an en dash, "3–16"; in prose a range reads "3 to 16". A hyphen belongs inside a word.
 - **An ellipsis is …**, one character. **One space** after a sentence, as between words.
 - **Ties.** A no-break space (U+00A0, written in C# as its `\u` escape so it can be seen) holds a name to its version ("MonoGame 3.8.5", "SIL OFL 1.1", "DirectX 11"), a number to what it counts ("385 balls", "10 points"), a range ("3 to 16") and a label to its number ("Shot 1"). `SpaceWrap` adds two of its own: a lone dash or operator (— – + = × ÷ −) never starts a line, and a one-letter word (a, A, I) never ends one. A tie is drawn as a plain space.
+- **A key name needs no tie of its own**: the copy names a key in one word (Enter, Esc, Space, F12), and a pad's A is held by the one-letter rule. A key named in two words would take one.
 - ⚠ **A tie holds only in prose set through `SpaceWrap`.** FontStashSharp's own wrap counts U+00A0 as white space, so in a label that wraps by itself it is a break like any other.
 - **`CopyRules.Fault`** names the first of these a string breaks; `CopyRulesTests` holds every string a tutorial card draws to it. The Myra pages' copy is held to it by review, since a page's strings are built inside a tree no test constructs.
 
