@@ -42,8 +42,9 @@
 //    c                     bands:   (share of a dash period drawn, 0, 0, coverage)
 //                          others:  (0, 0, 0, coverage)
 //
-//c.w is the share of the sphere the figure covers: where a ball is too small to carry its figure, the figure
-//fades to this share of its ink rather than to nothing, so a far ball still averages its plain colour.
+//c.w is the share of the ball the play camera sees the figure cover (Prazsky.BS3D.ColourCues.Figure says how it
+//is measured): where a ball is too small to carry its figure, the figure fades to this share of its ink rather
+//than to nothing, so a far ball still averages its plain colour.
 struct ColourCuePaint
 {
     float4 a;
@@ -312,7 +313,7 @@ float ColourCueMotifField(float3 direction, ColourCuePaint cue)
 }
 
 //How much of this pixel the painted figure covers, 0..1: a one-pixel soft edge, and on a ball too small to carry
-//the figure, the figure's own share of the sphere, so that the two inks mix to the ball's plain colour.
+//the figure, the figure's own share of the ball (cue.c.w), so that the two inks mix to the ball's plain colour.
 float ColourCueMotif(float3 direction, float footprint, ColourCuePaint cue)
 {
     float field = ColourCueMotifField(direction, cue);

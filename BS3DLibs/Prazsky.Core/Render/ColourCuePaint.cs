@@ -23,7 +23,7 @@ namespace Prazsky.Core.Render
         /// <summary>The figure's second parameters.</summary>
         public Vector4 B { get; }
 
-        /// <summary>The figure's third parameters; W is the share of the sphere it covers.</summary>
+        /// <summary>The figure's third parameters; W is the share of the ball the play camera sees it cover.</summary>
         public Vector4 C { get; }
 
         /// <summary>The frame the figure is read in: its first three rows are the axes, in object space.</summary>

@@ -42,8 +42,12 @@ namespace Prazsky.BS3D.GameStructure
         /// <summary>How much brighter than the plain colour a darker-ink figure's ground may go to balance it.</summary>
         public const float GROUND_MAX = 1.5f;
 
-        /// <summary>How dark a paler-ink figure's ground may go to balance it; below it the ball's average rises.</summary>
-        public const float GROUND_MIN = 0.3f;
+        /// <summary>
+        /// How dark a paler-ink figure's ground may go to balance it; below it the ball's average rises. The silver's
+        /// broad pale stripes and bands (about 0.42 of the ball in a 2.0 ink) need 0.26 and the brown's twelve dots
+        /// 0.29, so this sits just under them; black is held here whatever its figure (nothing balances black).
+        /// </summary>
+        public const float GROUND_MIN = 0.25f;
 
         /// <summary>The figure kinds, numbered as <c>BallColourCue.fxh</c> branches on them.</summary>
         public enum Kind
@@ -75,10 +79,18 @@ namespace Prazsky.BS3D.GameStructure
 
         /// <summary>
         /// One colour's figure in one set: a short name for a page or a log, its kind and parameters packed as the
-        /// shader reads them (<see cref="ColourCuePaint"/>; <c>C.W</c> is the share of the sphere it covers), and
-        /// which of the frames it is read in. The coverage is the field's own, measured on 200,000 even points of the
-        /// sphere with a line-for-line port of <c>BallColourCue.fxh</c>: the ink balance rests on it, and a figure
-        /// changed without measuring it again leaves its ball's average colour off by the difference.
+        /// shader reads them (<see cref="ColourCuePaint"/>; <c>C.W</c> is the share of the ball it covers), and
+        /// which of the frames it is read in.
+        /// <para>
+        /// The coverage is the share of the ball <b>the play camera sees</b> the figure cover, not its share of the
+        /// sphere: a hanging ball stays upright and is seen from the side and from below, so a band round the
+        /// upright axis faces the camera across its middle and shows 15-18 % more than its share of the sphere
+        /// (the broad band covers 0.374 of what is seen against 0.320 of the sphere), while spots and emblems show
+        /// their share within 0.01. It is measured with a line-for-line port of <c>BallColourCue.fxh</c> on 400,000
+        /// even points, each weighted by its projected area seen from every side at 0 to 30 degrees below the ball.
+        /// The ink balance rests on it, and a figure changed without measuring it again leaves its ball's average
+        /// colour off by the difference.
+        /// </para>
         /// </summary>
         public readonly record struct Figure(string Name, Vector4 A, Vector4 B, Vector4 C, int Frame);
 
@@ -135,67 +147,67 @@ namespace Prazsky.BS3D.GameStructure
         {
             new[]
             {
-                Bands("one wavy band", 5, 1f, 0.20f, 0.200f, waveAmplitude: 0.16f, waves: 5f),
+                Bands("one wavy band", 5, 1f, 0.20f, 0.234f, waveAmplitude: 0.16f, waves: 5f),
                 Mark("chevrons", Emblem.Chevron, 0.62f, 0.149f),
-                Mark("diamonds", Emblem.Diamond, 0.62f, 0.214f),
-                Checks("checks", 1, 0.500f),
-                Mark("crosses", Emblem.Saltire, 0.58f, 0.218f),
-                Mark("hexagons", Emblem.Hexagon, 0.60f, 0.287f),
-                Mark("stars", Emblem.Star, 0.62f, 0.228f, frame: 2),
-                Mark("small squares", Emblem.Square, 0.42f, 0.121f),
-                Spots("six rings", 1, 6, 27f, 0.211f, ringInnerDegrees: 16f),
+                Mark("diamonds", Emblem.Diamond, 0.62f, 0.212f),
+                Checks("checks", 1, 0.498f),
+                Mark("crosses", Emblem.Saltire, 0.58f, 0.216f),
+                Mark("hexagons", Emblem.Hexagon, 0.60f, 0.285f),
+                Mark("stars", Emblem.Star, 0.62f, 0.229f, frame: 2),
+                Mark("small squares", Emblem.Square, 0.42f, 0.120f),
+                Spots("six rings", 1, 6, 27f, 0.210f, ringInnerDegrees: 16f),
                 Spots("twelve dots", 6, 12, 19.5f, 0.344f),
-                Bands("three stripes", 0, 3f, 0.42f, 0.420f),
-                Mark("moons", Emblem.Moon, 0.62f, 0.169f),
-                Mark("triangles", Emblem.Triangle, 0.60f, 0.164f),
+                Bands("three stripes", 0, 3f, 0.42f, 0.424f),
+                Mark("moons", Emblem.Moon, 0.62f, 0.172f),
+                Mark("triangles", Emblem.Triangle, 0.60f, 0.163f),
             },
             new[]
             {
-                Mark("hearts", Emblem.Heart, 0.62f, 0.254f),
-                Mark("clubs", Emblem.Club, 0.62f, 0.204f),
-                Mark("hexagons", Emblem.Hexagon, 0.62f, 0.304f),
-                Mark("flowers", Emblem.Flower, 0.62f, 0.271f),
-                Mark("crosses", Emblem.Saltire, 0.62f, 0.244f),
-                Mark("spades", Emblem.Spade, 0.62f, 0.207f),
-                Mark("stars", Emblem.Star, 0.62f, 0.228f),
-                Mark("rings", Emblem.Ring, 0.62f, 0.212f),
+                Mark("hearts", Emblem.Heart, 0.62f, 0.246f),
+                Mark("clubs", Emblem.Club, 0.62f, 0.203f),
+                Mark("hexagons", Emblem.Hexagon, 0.62f, 0.302f),
+                Mark("flowers", Emblem.Flower, 0.62f, 0.269f),
+                Mark("crosses", Emblem.Saltire, 0.62f, 0.242f),
+                Mark("spades", Emblem.Spade, 0.62f, 0.206f),
+                Mark("stars", Emblem.Star, 0.62f, 0.227f),
+                Mark("rings", Emblem.Ring, 0.62f, 0.210f),
                 Mark("chevrons", Emblem.Chevron, 0.62f, 0.149f),
-                Mark("diamonds", Emblem.Diamond, 0.62f, 0.214f),
-                Mark("moons", Emblem.Moon, 0.62f, 0.169f),
-                Mark("drops", Emblem.Drop, 0.62f, 0.198f),
-                Mark("triangles", Emblem.Triangle, 0.62f, 0.174f),
+                Mark("diamonds", Emblem.Diamond, 0.62f, 0.212f),
+                Mark("moons", Emblem.Moon, 0.62f, 0.172f),
+                Mark("drops", Emblem.Drop, 0.62f, 0.200f),
+                Mark("triangles", Emblem.Triangle, 0.62f, 0.173f),
             },
             new[]
             {
-                Bands("one broad band", 5, 1f, 0.32f, 0.320f),
-                Bands("a dashed band", 5, 1f, 0.24f, 0.120f, dashes: 8f, dashShare: 0.5f),
-                Bands("two wavy bands", 5, 2f, 0.20f, 0.200f, phase: 1f, waveAmplitude: 0.10f, waves: 5f),
-                Bands("one wavy band", 5, 1f, 0.22f, 0.220f, waveAmplitude: 0.14f, waves: 4f),
-                Bands("a double line", 5, 1f, 0.36f, 0.220f, hollow: 0.14f),
-                Bands("a dotted line", 5, 1f, 0.16f, 0.067f, dashes: 14f, dashShare: 0.42f),
-                Bands("four broad bands", 5, 4f, 0.50f, 0.500f),
-                Bands("one thin line", 5, 1f, 0.12f, 0.120f),
-                Bands("a wavy line", 5, 1f, 0.14f, 0.140f, waveAmplitude: 0.12f, waves: 6f),
-                Bands("two bands", 5, 2f, 0.30f, 0.300f, phase: 1f),
-                Bands("three bands", 5, 3f, 0.42f, 0.420f),
-                Bands("a seam", 5, 1f, 0.16f, 0.160f, waveAmplitude: 0.55f, waves: 2f),
+                Bands("one broad band", 5, 1f, 0.32f, 0.374f),
+                Bands("a dashed band", 5, 1f, 0.24f, 0.141f, dashes: 8f, dashShare: 0.5f),
+                Bands("two wavy bands", 5, 2f, 0.20f, 0.211f, phase: 1f, waveAmplitude: 0.10f, waves: 5f),
+                Bands("one wavy band", 5, 1f, 0.22f, 0.257f, waveAmplitude: 0.14f, waves: 4f),
+                Bands("a double line", 5, 1f, 0.36f, 0.254f, hollow: 0.14f),
+                Bands("a dotted line", 5, 1f, 0.16f, 0.079f, dashes: 14f, dashShare: 0.42f),
+                Bands("four broad bands", 5, 4f, 0.50f, 0.494f),
+                Bands("one thin line", 5, 1f, 0.12f, 0.141f),
+                Bands("a wavy line", 5, 1f, 0.14f, 0.165f, waveAmplitude: 0.12f, waves: 6f),
+                Bands("two bands", 5, 2f, 0.30f, 0.315f, phase: 1f),
+                Bands("three bands", 5, 3f, 0.42f, 0.427f),
+                Bands("a seam", 5, 1f, 0.16f, 0.176f, waveAmplitude: 0.55f, waves: 2f),
                 Bands("pinstripes", 4, 7f, 0.22f, 0.220f),
             },
             new[]
             {
-                Spots("eight dots", 1, 8, 22f, 0.291f),
-                Spots("thirty-two tiny dots", 1, 20, 9f, 0.176f, secondSolid: 12, secondRadiusDegrees: 9f),
+                Spots("eight dots", 1, 8, 22f, 0.292f),
+                Spots("thirty-two tiny dots", 1, 20, 9f, 0.177f, secondSolid: 12, secondRadiusDegrees: 9f),
                 Spots("six rings and eight dots", 1, 6, 26f, 0.260f, ringInnerDegrees: 17f, secondSolid: 8, secondRadiusDegrees: 12f),
-                Spots("twenty small dots", 2, 20, 13f, 0.256f),
-                Spots("four big and four small", 2, 4, 33f, 0.400f, secondSolid: -4, secondRadiusDegrees: 16f),
+                Spots("twenty small dots", 2, 20, 13f, 0.257f),
+                Spots("four big and four small", 2, 4, 33f, 0.399f, secondSolid: -4, secondRadiusDegrees: 16f),
                 Spots("eight rings", 0, 8, 23f, 0.182f, ringInnerDegrees: 15f),
-                Spots("six big and eight small", 2, 6, 27f, 0.430f, secondSolid: 8, secondRadiusDegrees: 13f),
-                Spots("six small rings", 2, 6, 22f, 0.116f, ringInnerDegrees: 15f),
-                Spots("four big spots", 1, 4, 34f, 0.342f),
+                Spots("six big and eight small", 2, 6, 27f, 0.431f, secondSolid: 8, secondRadiusDegrees: 13f),
+                Spots("six small rings", 2, 6, 22f, 0.117f, ringInnerDegrees: 15f),
+                Spots("four big spots", 1, 4, 34f, 0.343f),
                 Spots("twelve dots", 6, 12, 19.5f, 0.344f),
-                Spots("four big rings", 1, 4, 36f, 0.209f, ringInnerDegrees: 24f),
+                Spots("four big rings", 1, 4, 36f, 0.210f, ringInnerDegrees: 24f),
                 Spots("six dots", 0, 6, 21f, 0.200f),
-                Spots("twelve rings", 2, 12, 17f, 0.171f, ringInnerDegrees: 10f),
+                Spots("twelve rings", 2, 12, 17f, 0.170f, ringInnerDegrees: 10f),
             },
         };
 
