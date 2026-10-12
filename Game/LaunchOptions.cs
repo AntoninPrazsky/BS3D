@@ -48,6 +48,11 @@ namespace BS3D
         //on an 8-bit panel is how the writer's decode of the 10-bit back buffer is checked where no such panel is.
         internal bool? TenBit { get; private set; }
 
+        //Testing only: "ramp" (#859) draws a grey ramp, 0 to 1 across the width, over the lower third of every frame, straight
+        //into the back buffer - 256 steps on an 8-bit one, 1024 on a 10-bit one where the panel and DWM show them. The one
+        //way to see with the eye whether a 10-bit back buffer reaches the glass; a screenshot cannot show it (PNG is 8-bit).
+        internal bool Ramp { get; private set; }
+
         //Testing only: "fpscap=N" is "nocap" with a ceiling — it presents immediately, so nothing
         //quantizes the reading, and idles out the rest of each frame's period, so a cheap frame does not
         //leave the card flat out. The Testbed has had it since #250; the Game needed it for #270, where a
@@ -390,6 +395,8 @@ namespace BS3D
             //"tenbit" asks for the 10-bit back buffer whatever the panel reports, "tenbit=off" refuses it (#859)
             Row.Flag("tenbit", o => o.TenBit = true),
             Row.Text("tenbit", (o, v) => o.TenBit = !string.Equals(v, "off", StringComparison.OrdinalIgnoreCase)),
+            //"ramp" draws the grey ramp that shows a back buffer's depth to the eye (#859)
+            Row.Flag("ramp", o => o.Ramp = true),
             //"fpscap=N" is that same ceiling set by hand, and it wins over "nocap" outright rather than
             //being reconciled with it (BS3DGame.FrameLimitHz), so the two cannot be given inconsistently.
             Row.Int("fpscap", (o, v) => o.FpsCap = v, v => v > 0),

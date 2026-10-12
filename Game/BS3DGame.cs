@@ -899,6 +899,7 @@ namespace BS3D
             //overrides what the panel reports so the 10-bit path can be driven on an 8-bit laptop
             _tenBitWanted = launch.TenBit ?? _settings.TenBitColour;
             _tenBitForced = launch.TenBit == true;
+            _ramp = launch.Ramp;
 
             _graphics = new GraphicsDeviceManager(this);
             _graphics.PreparingDeviceSettings += Graphics_PreparingDeviceSettings;
@@ -1016,6 +1017,43 @@ namespace BS3D
             string held = _tenBitWanted && !TenBitBackBuffer ? $", 10-bit colour on but held by the {TenBitHeldBy}" : _tenBitWanted ? "" : ", 10-bit colour off";
 
             return $"[display] {panel}, {buffer}{held}{(_tenBitForced ? " (forced by tenbit)" : "")}";
+        }
+
+        //THE RAMP (#859, the "ramp" argument): whether a 10-bit back buffer reaches the glass is a question for the eye on a
+        //10-bit panel - DWM may re-quantise a windowed or borderless swap chain to 8 bits, and a screenshot cannot tell
+        //(a PNG is 8-bit, and the writer decodes the words to it). So a grey ramp, 0 to 1 across the whole width, is drawn
+        //over the lower third of every frame straight into the back buffer from a 16-bit texture through SpriteBatch's
+        //own shader: 256 steps on an 8-bit buffer, 1024 on a 10-bit one that is shown as such. Compared with the row on
+        //and off (or tenbit against tenbit=off), the steps either halve in width or they do not.
+        private bool _ramp;
+        private Texture2D _rampTexture;
+        private const int RAMP_STEPS = 4096;
+        private const float RAMP_SHARE = 1f / 3f;
+
+        private void DrawRamp()
+        {
+            if (_rampTexture == null)
+            {
+                //Sixteen bits a channel, so the texture holds more steps than any back buffer and the quantisation seen is the buffer's
+                _rampTexture = new Texture2D(GraphicsDevice, RAMP_STEPS, 1, false, SurfaceFormat.Rgba64);
+                var ramp = new Microsoft.Xna.Framework.Graphics.PackedVector.Rgba64[RAMP_STEPS];
+                for (int i = 0; i < RAMP_STEPS; i++)
+                {
+                    float v = i / (float)(RAMP_STEPS - 1);
+                    ramp[i] = new Microsoft.Xna.Framework.Graphics.PackedVector.Rgba64(v, v, v, 1f);
+                }
+                _rampTexture.SetData(ramp);
+                Console.WriteLine($"[ramp] a grey ramp over the lower third of the frame, 0 to 1 across the width, straight into the "
+                    + $"{(TenBitBackBuffer ? "10-bit" : "8-bit")} back buffer: {(TenBitBackBuffer ? 1024 : 256)} steps if the panel and DWM show them");
+            }
+
+            int width = GraphicsDevice.PresentationParameters.BackBufferWidth;
+            int height = GraphicsDevice.PresentationParameters.BackBufferHeight;
+            int band = (int)(height * RAMP_SHARE);
+
+            _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.LinearClamp, DepthStencilState.None, RasterizerState.CullNone);
+            _spriteBatch.Draw(_rampTexture, new Rectangle(0, height - band, width, band), Color.White);
+            _spriteBatch.End();
         }
 
         /// <summary>
@@ -2138,6 +2176,10 @@ namespace BS3D
             //otherwise save a frame without the thing the page is about. A no-op on every frame that presented
             //nothing, which is nearly all of them.
             CompositeForegroundLast();
+
+            //The grey ramp that shows the back buffer's depth to the eye (#859, the "ramp" argument), over everything
+            //and before the screenshot writer - though a shot cannot show it, a PNG being 8-bit
+            if (_ramp) DrawRamp();
 
             //Last, so it counts a frame that has actually been drawn end to end
             if (_logFrameRate) LogFrameRate((float)gameTime.ElapsedGameTime.TotalSeconds);
