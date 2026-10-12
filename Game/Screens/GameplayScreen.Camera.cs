@@ -201,12 +201,24 @@ namespace BS3D.Screens
         //The overview's tilt with the aim (#720), reseeded by a level's fit like the bearing's trail above
         private readonly AimTilt _aimTilt = new();
 
-        //What the last frame's tilt was asked for and allowed, kept for the logtilt line only
-        private float _aimTiltTarget, _aimTiltRoomUp, _aimTiltRoomDown;
+        //The elevation clamp the level opened against (#842), as the fit solved it (OpeningElevationLimit): the tilt's
+        //zero stands under it. Held for the attempt and not read off Cannon.ElevationLimit, which LiftTallAimOnceFramed
+        //raises mid-attempt while the barrel stays where it is: a zero read live would jump up to the rest there and dip
+        //the frame with no hand on the aim
+        private float _aimTiltOpeningLimit = Cannon.MaxElevation;
+
+        //What the last frame's tilt measured from, was asked for and was allowed, kept for the logtilt line only
+        private float _aimTiltZero, _aimTiltTarget, _aimTiltRoomUp, _aimTiltRoomDown;
+
+        //The elevation the hand has put the barrel at: the rest plus the aim, without the rubber's overshoot (#431). The
+        //rubber is the clamp refusing a push, and the gun will not fire while it is out (Cannon.ElevationRefusesShot), so
+        //it is not where a shot will go; a lens that followed it would bob each time a held tall level's clamp is pushed
+        private float AimedElevation => _cannon.RestElevation + _cannon.ElevationAim;
 
         /// <summary>
-        /// The overview look-at, tilted with the barrel's elevation (<see cref="AimTilt"/>, #720): measured from the aim
-        /// the level opens on — the gun's rest from where it stands, or a tall level's clamp where that is lower — so an
+        /// The overview look-at, tilted with the barrel's elevation (<see cref="AimTilt"/>, #720): the hand's
+        /// (<see cref="AimedElevation"/>), measured from the aim the level opens on — the gun's rest from where it stands,
+        /// or the clamp a tall level opened against where that is lower (<see cref="_aimTiltOpeningLimit"/>) — so an
         /// untouched gun leaves the solved frame exactly as it is; stopped on the way up wherever the muzzle would sink
         /// under <see cref="AimTilt.GUN_KEEP_FRACTION"/> of the frame (the owner: some of the gun stays in view), and on
         /// the way down wherever the cluster's top row would rise past <see cref="AimTilt.TOP_KEEP_FRACTION"/> of it
@@ -225,12 +237,12 @@ namespace BS3D.Screens
         {
             //The zero moves with the walk (the rest steepens as the gun walks in) so a walk does not tilt the frame — the
             //walk has its own answer (#322); and on a tall level it is the clamp the level opened against (#842), which
-            //is where that gun rests
-            float zero = MathF.Min(_cannon.RestElevation, _cannon.ElevationLimit);
+            //is where that gun rests, and it stays there when the clamp lifts, so the raise past it is what tilts
+            _aimTiltZero = MathF.Min(_cannon.RestElevation, _aimTiltOpeningLimit);
 
             _aimTiltRoomUp = AimTilt.GunKeepLimit(lens, lookAt, muzzle, GAME_FOV);
             _aimTiltRoomDown = TopRowKeepRoom(lens, lookAt);
-            _aimTiltTarget = AimTilt.Bounded(AimTilt.TargetFor(_cannon.Elevation - zero), _aimTiltRoomUp, _aimTiltRoomDown);
+            _aimTiltTarget = AimTilt.Bounded(AimTilt.TargetFor(AimedElevation - _aimTiltZero), _aimTiltRoomUp, _aimTiltRoomDown);
 
             return AimTilt.Tilted(lens, lookAt, _aimTilt.Step(_aimTiltTarget, elapsed));
         }
@@ -273,7 +285,8 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// The <c>logtilt</c> line (#720), once a frame and only on request: the barrel against the tilt's zero, what the
+        /// The <c>logtilt</c> line (#720), once a frame and only on request: the hand's elevation
+        /// (<see cref="AimedElevation"/>) against the tilt's zero, what the
         /// tilt was asked for, the room up and down it was allowed and what it gave, the lean's blend, the camera's
         /// pitch, and where the cluster's top row, the muzzle and the beam's end land in the frame (0 the top edge, 1 the
         /// bottom, outside that range off the frame). What a press or a release does to the pose is read off
@@ -287,7 +300,7 @@ namespace BS3D.Screens
             float pitch = MathF.Atan2(forward.Y, MathF.Sqrt(forward.X * forward.X + forward.Z * forward.Z));
 
             Console.WriteLine(FormattableString.Invariant(
-                $"[tilt] t {WallClock:F3} elev {_cannon.Elevation * RAD_TO_DEG:F2} zero {MathF.Min(_cannon.RestElevation, _cannon.ElevationLimit) * RAD_TO_DEG:F2}")
+                $"[tilt] t {WallClock:F3} elev {AimedElevation * RAD_TO_DEG:F2} zero {_aimTiltZero * RAD_TO_DEG:F2}")
                 + FormattableString.Invariant(
                 $" target {_aimTiltTarget * RAD_TO_DEG:F3} up {_aimTiltRoomUp * RAD_TO_DEG:F2} down {_aimTiltRoomDown * RAD_TO_DEG:F2} tilt {_aimTilt.Angle * RAD_TO_DEG:F3}")
                 + FormattableString.Invariant(
@@ -410,6 +423,9 @@ namespace BS3D.Screens
             //only re-angles it for where the gun now stands
             if (!keepStance) HoldTallAimBand();
             _cannon.ElevationLimit = SolveElevationLimit();
+            //The overview tilt's zero sits under the clamp the level opens against (#720): re-angled with it on a resize,
+            //and held through the attempt when the clamp lifts
+            _aimTiltOpeningLimit = OpeningElevationLimit();
             MarkBrakeReachStale();
 
             //The lens's trail starts behind the gun rather than easing in from where the last level left it
@@ -517,9 +533,17 @@ namespace BS3D.Screens
         /// world for the gun's new stand-off.
         /// </para>
         /// </summary>
-        private float SolveElevationLimit()
+        private float SolveElevationLimit() => _tallAimLifted ? Cannon.MaxElevation : OpeningElevationLimit();
+
+        /// <summary>
+        /// The clamp a level opens against: <see cref="Cannon.MaxElevation"/> on a field the camera frames whole, and the
+        /// working band's (<see cref="SolveElevationLimit"/> says how it is solved) on a tall one, whether or not the
+        /// clamp has lifted since (<see cref="LiftTallAimOnceFramed"/>). It is also where the overview's tilt measures
+        /// from (#720), which must not move when the clamp does.
+        /// </summary>
+        private float OpeningElevationLimit()
         {
-            if (!FieldIsTallerThanFrame || _tallAimLifted) return Cannon.MaxElevation;
+            if (!FieldIsTallerThanFrame) return Cannon.MaxElevation;
 
             //Asked of AimReachability rather than derived alongside it, and that is the point: the limit and
             //the check that polices it are then the SAME arithmetic and cannot disagree. Written by hand they

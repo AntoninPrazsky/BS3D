@@ -12,9 +12,12 @@ namespace BS3D.Screens
     /// <para>
     /// <b>A tilt and not a lift.</b> Only the look-at turns, about the lens, so nothing hides behind anything that did
     /// not before and the fit's stand-off, the walk's follow and the bearing's trail (#322, #366) are untouched. Its
-    /// zero is the aim the level opens on (<see cref="Prazsky.BS3D.GameObjects.Cannon.RestElevation"/>, or the tall
-    /// level's clamp if that is lower), so the opening frame — and the chapter intro's arrival, which is that frame
-    /// verbatim — is the solved fit, bit for bit; the tilt is what the hand has done since.
+    /// zero is the aim the level opens on (<see cref="Prazsky.BS3D.GameObjects.Cannon.RestElevation"/>, or the clamp a
+    /// tall level opened against if that is lower — held there for the attempt, so when #842's clamp lifts and the
+    /// barrel stays put, the frame stays put too), so the opening frame — and the chapter intro's arrival, which is
+    /// that frame verbatim — is the solved fit, bit for bit; the tilt is what the hand has done since. What it reads is
+    /// the hand's elevation, not the #431 rubber's overshoot past a clamp: the gun refuses to fire while that is out,
+    /// so it is not where a shot will go.
     /// </para>
     /// <para>
     /// <b>Bounded at both ends by what the frame must keep.</b> Up, by the gun (<see cref="GunKeepLimit"/>, the owner's
@@ -40,8 +43,9 @@ namespace BS3D.Screens
     {
         /// <summary>
         /// How much the lens pitches per unit of barrel elevation near the opening aim. Under one by a wide margin: the
-        /// barrel sweeps 86° from its floor to its ceiling and the frame is 43° tall, so a lens that followed it one to
-        /// one would lose the field. At 0.3 a raise of ten degrees leans the frame three, which reads as the view
+        /// barrel's sweep (<see cref="Prazsky.BS3D.GameObjects.Cannon.MinElevation"/> to
+        /// <see cref="Prazsky.BS3D.GameObjects.Cannon.MaxElevation"/>) is twice the frame's height
+        /// (<see cref="GameplayScreen.GAME_FOV"/>), so a lens that followed it one to one would lose the field. At 0.3 a raise of ten degrees leans the frame three, which reads as the view
         /// following the gun rather than as the gun dragging the view.
         /// </summary>
         public const float GAIN = 0.3f;
@@ -65,8 +69,9 @@ namespace BS3D.Screens
 
         /// <summary>
         /// The chase's time constant in seconds, <c>1/ω</c> of a critically damped follow: about 90 % of a sudden
-        /// change is taken up in 0.5 s and 95 % in 0.6 s, and a steady sweep is trailed by twice this (0.25 s) — the
-        /// bearing's own trail is 0.22 s (#366), so the two axes of the overview feel like one camera. Second order
+        /// change is taken up in 0.5 s and 95 % in 0.6 s, and a steady sweep is trailed by twice this — about the
+        /// bearing's own trail (<see cref="GameplayScreen.BEARING_TRAIL_SECONDS"/>, #366), so the two axes of the
+        /// overview feel like one camera. Second order
         /// rather than the bearing's first: a flick of the mouse steps the target, and a first-order chase would start
         /// moving at full speed on that frame; this one accelerates into it, which is what keeps a camera fastened to a
         /// mouse axis from being the kind that makes people sick.
