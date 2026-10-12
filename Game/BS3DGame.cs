@@ -922,6 +922,25 @@ namespace BS3D
                 : line + ", DPI-UNAWARE: on a display scaled above 100 % Windows hands this run a smaller size and stretches its frame";
         }
 
+        /// <summary>
+        /// The window's scale changed while the game runs (#825, <c>WM_DPICHANGED</c>), and WinForms has already answered
+        /// it: the window icon is published again at the new scale's sizes, and the run log says the scale the rest of
+        /// the run is played at. Nothing else needs to follow: the window keeps its size in pixels (measured: windowed it
+        /// gains or loses only the thinner or thicker frame, so the back buffer follows through the ordinary resize, and
+        /// borderless fullscreen stays the panel's size), and the pointer and the menus are sized off the panel, not the
+        /// scale.
+        /// </summary>
+        private void OnWindowScaleChanged()
+        {
+            WindowIcon.Apply(Window.Handle);
+
+            //Its own line rather than DisplayLine again: that one's mode is the primary display's, and a window dragged
+            //onto a second monitor is not on it
+            if (DisplayRefresh.TryGetScale(Window.Handle, out float scale, out _))
+                Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                    $"[display] the window's scale changed: now {scale * 100f:0} % ({scale * 96f:0} DPI)"));
+        }
+
         private void Graphics_PreparingDeviceSettings(object sender, PreparingDeviceSettingsEventArgs e)
         {
             //Immediate unconditionally since #270 — it used to read _uncappedFps and hand back PresentInterval.One
@@ -1017,6 +1036,12 @@ namespace BS3D
 
             ApplyRenderResolution();
             _pipeline?.EnsureTarget();
+
+            //The Resolution row reads the size the 3D is drawn at, which has just changed. A page is refreshed when it is
+            //shown and when its tree is rebuilt, and a resize is neither while the menu's height stays inside one rebuild
+            //step: a width-only drag, or the few pixels of frame a change of scale moves (#825, 1600x900 became 1602x908),
+            //left the row on the old size until the page was opened again
+            if (_screens.Active is SettingsPage settings) settings.Refresh();
         }
 
         /// <summary>
@@ -1140,6 +1165,10 @@ namespace BS3D
             //After base.Initialize, so the window's handle exists and MonoGame's own icon assignment has
             //already been published — this has to win that race, not lose it.
             WindowIcon.Apply(Window.Handle);
+
+            //And again whenever the scale of the window's monitor changes under it or it is dragged onto a monitor of
+            //another scale (#825), which WinForms answers by stretching the large icon back into the title bar
+            DisplayRefresh.WatchScale(Window.Handle, OnWindowScaleChanged);
 
             //And the pointer the front end is clicked with, in place of the stock arrow (#350). Set exactly
             //once, here: it is a GDI cursor handle, so a per-frame call would build and abandon one per frame.

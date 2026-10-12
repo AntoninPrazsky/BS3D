@@ -520,8 +520,14 @@ Pravidla:
 - ⚠ Hustotu střech měř po druzích, které herní kamera vidí jako siluetu (stěžně, talíře, sloupy), ne obsazenými buňkami: ty rostly s klimatizacemi.
 - Otevřené: verdikt majitele (1,45 nebo 1,70); intro neonu při daném `sceneseed` teď rámuje jinou střechu.
 
+## 2026-10-12 — #825 kontrola DPI na škálovaném displeji — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #825 (merge následuje): sloučená oprava DPI ověřena živě při 125 %: `[display]` hlásí 3840x1600 a 120 DPI, aware; řádek Rozlišení „3840 x 1600 (native)“ proti 3072x1280 v unaware běhu; back buffer = fyzický klient. Kontrola našla vadu: po každé změně měřítka nebo přesunu mezi monitory dal WinForms do malého slotu titulku velký rámec ikony. Nově `DisplayRefresh.WatchScale` (na Pi prázdné) ikonu znovu nasadí a `WindowIcon` bere rámce pro DPI okna (`GetSystemMetricsForDpi`). Z review: řádek Rozlišení v Nastavení teď sleduje změnu velikosti okna.
+- Bez majitele (spí), konzervativně: kurzor, výchozích 1600x900 a pixelová velikost okna při změně měřítka nechány.
+- ⚠ Callback přes `BeginInvoke` z `Form.DpiChanged` spoléhá na pořadí WinForms 10 (událost, ikona, rozměry).
+- Otevřené: #851 (řádek do release notes, kontrola na skutečném notebooku se 125 %); co DWM skutečně vykreslí na panel, nikdo neviděl.
+
 ## 2026-10-12 — #737 druhé vodítko barvy, prototypy — desktop (RDT-PC), Claude Code (bs3d-71, noc)
-- #737 (větev `737-colour-cue-prototypes`, `owner-decision`; do main jdou jen přepínatelné prototypy, výchozí vypnuto): `colourcue=<none|motif|shape>` v Testbedu i Game. Stříbrná, hnědá, bílá, žlutá (černá bez figury); (a) malovaný motiv, (b) vyřezaný tvar, na vinylu, vlně a mramoru. Vypnuto = 45 vstupních bodů efektu instrukci po instrukci jako main. Stránka: https://claude.ai/artifact/FbJry9FNp1JdGeREWxfkZ6
+- #737 jde na main (merge následuje), `owner-decision`; jen přepínatelné prototypy, výchozí vypnuto: `colourcue=<none|motif|shape>` v Testbedu i Game. Stříbrná, hnědá, bílá, žlutá (černá bez figury); (a) malovaný motiv, (b) vyřezaný tvar, na vinylu, vlně a mramoru. Vypnuto = 45 vstupních bodů efektu instrukci po instrukci jako main. Stránka: https://claude.ai/artifact/FbJry9FNp1JdGeREWxfkZ6
 - ⚠ Koule je z velké části vlastní emise: emise v čisté barvě smyla tmavý inkoust (vlna pod kopulí 13, vinyl béžová/žlutá i pod kopulí 1). Motiv svítí svým inkoustem.
 - ⚠ Vyřezaný obrys je jen tak dobrý jako síť: na LOD2 žebro padlo mezi vrcholy. Vyřezané barvy jdou na LOD0, cena +0,2–0,3 ms.
 - ⚠ Motiv táhne světlé barvy k tmavým (bílá/hnědá až 4,8, bílá/stříbrná 7,9–11,6 dE).
