@@ -589,9 +589,9 @@ namespace BS3D.Screens
             //The beat, the frozen figures, the milestone and the whole celebration - see BeginClearedBeat
             EnterPhase(LevelPhase.ClearedBeat);
 
-            //The bonus has no popup to fly in and land on the readout, so it would otherwise be the one award
-            //the score takes without being hit — it counts up out of nowhere while the collapse plays
-            if (bonus > 0) _hud.FlashScore();
+            //What the unused balls were worth, shown like any award (#846): born out of the balls-left count once the
+            //clearing shot's own award has been read, and flown into the score, which takes it on arrival
+            if (bonus > 0) _hud.AddBonus(bonus);
 
             Console.WriteLine($"[level] Cleared '{LevelName(_run.Index)}' with {_run.Score.Score}"
                 + $" (+{bonus} for {_run.Score.ShotsRemaining?.ToString() ?? "unlimited"} unused)"
