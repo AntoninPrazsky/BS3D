@@ -704,6 +704,155 @@ namespace BS3D.Tools.LevelGen
             _ => QuarryBand(x, z, i, LOCKET_STONE_TILE_FROM, LOCKET_STONE_TILE_FROM, 1, 1, 1, LOCKET_BODY),
         };
 
+        /// <summary>
+        /// The chapter's closer (#849): a giant of quarried blocks holding the glass up on both arms, its head between
+        /// them and its legs astride under it, with its heart buried in its chest. <b>Two of the ramp's ideas in one body
+        /// and the body is the third</b>: the gap between the legs is Archway's opening, the heart is Geode's crystal (a
+        /// magenta crystal on a cord of its own that climbs through the shoulders and the head to the glass, so quarrying
+        /// the stone never takes it down, <see cref="LevelGates.RevealFaults"/>), and the figure is air the gun can see:
+        /// the stars show between each arm and the head and between the legs, from the stand and from a walk round either
+        /// way, since the figure is a mirror image across the gun's axis (<see cref="Design.MirrorOutline"/>).
+        /// <para>
+        /// <b>The limbs wear colours of their own</b>, two in bands a course pair deep, so the arms read as arms and the
+        /// legs as legs against the body's tiles; the head, the chest with its shoulders and the hips are the block's tile in
+        /// three more, and the heart a sixth. The chapter's key colour is not used (white is Hoist's and Locket's key, and no
+        /// member here is one).
+        /// </para>
+        /// <para>
+        /// <b>The legs are the clock and the heart is the prize.</b> The feet hang lowest, so the descending glass brings
+        /// them to the line first: cut a thigh band and the shin under it falls with it. The heart's colour is dealt from the
+        /// start and can be matched nowhere until the stone round the crystal or its cord is cut into, so digging for it early
+        /// turns dead draws live; the player chooses which to spend the first shots on.
+        /// </para>
+        /// <para>
+        /// <b>The chest and the head are solid, and both were hollow first.</b> Drawn as Geode and Locket are, the crystal in
+        /// a cavity two cells inside a shell and the cord in a sleeve of air up a ring of a head, the sag probe lost two to
+        /// four runs in five: a shell eaten a tile at a time comes apart in strips, and a strip hanging from a few balls of a
+        /// lid that hangs from the arms and a one-cell ring unrolls under the line (a dump of one run found a shoulder nine
+        /// units below where it hung). Buried in stone with no air round it the crystal is still sealed (no empty cell
+        /// touches it) and still hangs by its cord alone, and the same weight in a solid chest and head hung 0 and 1 times
+        /// in 5.
+        /// </para>
+        /// </summary>
+        private static Design Colossus() => new()
+        {
+            File = "Colossus.json",
+            Name = "Colossus",
+            Grid = COLOSSUS_GRID,
+            Depth = COLOSSUS_DEPTH,
+            Scene = SceneKind.Moon,
+            Sky = QUARRY_SKY,
+            Music = MUSIC_QUARRY,
+            Balls = BALLS_QUARRY,
+            Shots = 42,
+            CeilingStep = 4,
+            MirrorOutline = true,
+            Payoff = (x, z, r, ang, i, depth) => ColossusPart(x, z, i) == COLOSSUS_HEART,
+            OccupiedBlock = (x, z, i, depth) => ColossusPart(x, z, i) != 0,
+            BlockColour = ColossusColour,
+        };
+
+        //Fifteen, for arms reaching six cells either side of the axis and a free column beyond them
+        private const byte COLOSSUS_GRID = 15;
+
+        //Twelve courses, from the glass down: the arms and the head (four), the shoulders (one), the chest with the crystal
+        //in it (three), the hips (one) and the legs (three). Twelve and not more because the lowest ball starts 5.38 above
+        //the line and the glass comes down 0.71 a step: the feet reach it on the budget's eighth step, which is the clock.
+        private const byte COLOSSUS_DEPTH = 12;
+        private const int COLOSSUS_HEAD_BASE = 8;
+        private const int COLOSSUS_SHOULDERS = 7;
+        private const int COLOSSUS_CHEST_BASE = 4;
+        private const int COLOSSUS_HIPS_COURSE = 3;
+
+        //The parts, as ColossusPart answers them
+        private const int COLOSSUS_HEAD = 1;
+        private const int COLOSSUS_ARM = 2;
+        private const int COLOSSUS_STONE = 3;
+        private const int COLOSSUS_LEG = 4;
+        private const int COLOSSUS_HEART = 5;
+
+        //The cord and the crystal as square half extents about the axis: the cord one ball on the shifted courses and two
+        //by two on the others, the crystal three by three and two by two, with two cells of stone in front of it
+        private const float COLOSSUS_CORD = 0.5f;
+        private const float COLOSSUS_CRYSTAL = 1f;
+
+        //The head, round in plan and as wide as Locket's neck, so a cell of air stands between it and each arm
+        private const float COLOSSUS_HEAD_RADIUS = 2.6f;
+
+        //The arms, raised in a V: the middle of each is COLOSSUS_ARM_BASE off the axis where it leaves the shoulders and
+        //leans out COLOSSUS_ARM_LEAN a course to the glass, two cells wide and two or three deep. Against the head at the
+        //shoulder, with air opening between them to two cells at the glass.
+        private const float COLOSSUS_ARM_BASE = 4f;
+        private const float COLOSSUS_ARM_LEAN = 0.5f;
+        private const float COLOSSUS_ARM_HALF = 0.75f;
+        private const float COLOSSUS_ARM_DEPTH = 1f;
+
+        //The chest, round in plan; the shoulders' course runs out under the arms within their depth
+        private const float COLOSSUS_CHEST = 3.2f;
+        private const float COLOSSUS_SHOULDERS_HALF = 4f;
+
+        //The hips, round and narrower than the chest
+        private const float COLOSSUS_HIPS = 2.6f;
+
+        //The legs at the hips, |dx| between the first two, stepping out by the third a course down: astride, so the gap
+        //between them widens to the feet
+        private const float COLOSSUS_LEG_IN = 1.5f;
+        private const float COLOSSUS_LEG_OUT = 3.5f;
+        private const float COLOSSUS_LEG_SPREAD = 0.5f;
+        private const float COLOSSUS_LEG_DEPTH = 1f;
+
+        //Where the stone's tiles are counted from, in raw x and z. Of the three phases a tile can take, 1 leaves one ball
+        //alone (the repair pass recolours it) and four pairs in 36 groups; 0 leaves none alone but four groups fewer, and
+        //2 leaves four alone.
+        private const int COLOSSUS_TILE_FROM = 1;
+
+        private static readonly BallType[] COLOSSUS_BODY = { BallType.Type1, BallType.Type3, BallType.Type7 };   //red, blue, yellow
+        private static readonly BallType[] COLOSSUS_LIMBS = { BallType.Type5, BallType.Type2 };                 //cyan, green
+
+        /// <summary>0 for air, else one of the <c>COLOSSUS_</c> parts: head, arm, stone (the chest, the shoulders and the
+        /// hips), leg, or the heart (the crystal and its cord).</summary>
+        private static int ColossusPart(int x, int z, int i)
+        {
+            Centred(x, z, i, COLOSSUS_GRID, out float dx, out float dz);
+            float across = MathF.Abs(dx), deep = MathF.Abs(dz);
+            float square = MathF.Max(across, deep);
+            float r = MathF.Sqrt(dx * dx + dz * dz);
+
+            if (i >= COLOSSUS_HEAD_BASE)
+            {
+                float arm = COLOSSUS_ARM_BASE + COLOSSUS_ARM_LEAN * (i - COLOSSUS_HEAD_BASE);
+                if (MathF.Abs(across - arm) <= COLOSSUS_ARM_HALF && deep <= COLOSSUS_ARM_DEPTH) return COLOSSUS_ARM;
+                if (square <= COLOSSUS_CORD) return COLOSSUS_HEART;
+                return r <= COLOSSUS_HEAD_RADIUS ? COLOSSUS_HEAD : 0;
+            }
+
+            if (i >= COLOSSUS_CHEST_BASE)
+            {
+                if (r > COLOSSUS_CHEST)
+                    return i == COLOSSUS_SHOULDERS && across <= COLOSSUS_SHOULDERS_HALF && deep <= COLOSSUS_ARM_DEPTH ? COLOSSUS_STONE : 0;
+
+                //The cord through the shoulders and the crystal under it, stone touching both on every side
+                if (i == COLOSSUS_SHOULDERS) return square <= COLOSSUS_CORD ? COLOSSUS_HEART : COLOSSUS_STONE;
+                return square <= COLOSSUS_CRYSTAL ? COLOSSUS_HEART : COLOSSUS_STONE;
+            }
+
+            if (i == COLOSSUS_HIPS_COURSE) return r <= COLOSSUS_HIPS ? COLOSSUS_STONE : 0;
+
+            float step = COLOSSUS_LEG_SPREAD * (COLOSSUS_HIPS_COURSE - 1 - i);
+            return across >= COLOSSUS_LEG_IN + step && across <= COLOSSUS_LEG_OUT + step && deep <= COLOSSUS_LEG_DEPTH
+                ? COLOSSUS_LEG
+                : 0;
+        }
+
+        //The limbs are banded by the course pair, so each band is a ring round the limb and the next one down is the other
+        //colour; the stone is the block's tile summed over all three axes
+        private static BallType ColossusColour(int x, int z, int i) => ColossusPart(x, z, i) switch
+        {
+            COLOSSUS_HEART => BallType.Type6,   //magenta, the crystal and its cord
+            COLOSSUS_ARM or COLOSSUS_LEG => COLOSSUS_LIMBS[i / QUARRY_COURSE % COLOSSUS_LIMBS.Length],
+            _ => QuarryBand(x, z, i, COLOSSUS_TILE_FROM, COLOSSUS_TILE_FROM, 1, 1, 1, COLOSSUS_BODY),
+        };
+
         #endregion
 
         /// <summary>
