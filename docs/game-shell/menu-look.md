@@ -70,6 +70,58 @@ Myra measures in pixels, so without scaling the menu would be a postage stamp at
 - **Headings are `MENU_FONT_SECTION`** (the display face, #243): as the small face over larger rows, each heading was smaller than the rows it headed.
 - **No 240-unit title font.** `MENU_FONT_GAME_TITLE` is gone with the Myra label the 3D wordmark replaced; `GAME_TITLE` is no longer set as a heading anywhere (it survives as About's prose and the window's title bar).
 
+## Typesetting (#806)
+
+The rules every page's text is set by. A rule the text engine cannot draw is said with it.
+
+### What the engine can do
+
+FontStashSharp 1.5.6 under Myra 1.6.3, read off the assemblies and the faces' own tables:
+
+- **Kerning: yes**, from the faces' GPOS pair tables (`FontSystem.UseKernings`, on by default), each pair truncated to whole pixels at its size.
+- **Leading: `Label.VerticalSpacing` only**, pixels added between lines. A face's `LineHeight` is its ascent-to-descent at the size asked for, because FontStashSharp sizes a face by that and not by its em: Inter's line is 1.21 em, Anton's 1.51.
+- **No tracking on a label.** `characterSpacing` exists on `DrawString`, not on a Myra `Label`, so an all-caps heading cannot be letter-spaced.
+- **No OpenType features.** They need text shaping (HarfBuzz), which the game does not ship: no tabular figures, small caps or ligatures. Inter's figures are proportional (its 1 is 833 units, its 0 1292); Anton's are tabular but for the 1 (677 against 1012).
+- **No hyphenation and no justification**, so prose is set ragged right.
+- ⚠ **A label parses commands** (`SupportsCommands`): `/n` in copy is a line break and `/c[...]` a colour. A slash before one of `c e f i s t v n` is written `//`.
+
+### Measure
+
+**45 to 75 characters a line; prose is set at most `MENU_PROSE_MEASURE` wide**, 1500 units, 67 characters of Inter at `MENU_FONT_SMALL` (22.3 units a character over the game's own copy). Every size scales with the height, so a column holds the same number of characters at 1600×900 and at 3840×1600.
+
+- Help's frame is 1860 units, 83 characters, which the controls page's lines and the walking row need. Its paragraphs are set at the measure against the frame's left edge, so Back stands under the text's first letter, and the rag runs into a gutter at the right.
+- The Settings note is the page's width, about 1590 units, up to the measure. About's columns are `MenuColumnWidth`, 1000 units, 45 characters: the short end, kept so the text lines up with the player and the buttons under it.
+
+### Leading and paragraphs
+
+- **Prose has a line pitch of 1.46 em**: Inter's own 1.21 plus `MENU_PROSE_LEADING` (12 at size 58, a pitch of 70). That is the open end of the usual 1.3 to 1.5, because it is light type on a dark plate. Anton keeps its own 1.51 em (the words on Help's controls page).
+- **One gap between paragraphs, `MENU_PARAGRAPH_GAP`**: one em of the small face (48), two thirds of a line. It is tied to the face, not a per-page figure. A block carries the gap under itself and a stack of prose adds none (Help's body has `Spacing` 0).
+- ⚠ **About is set without the prose leading until #807 splits it.** Its two columns already stand at the full design height (Back's lower edge 28 px from the frame's at 1600×900), and 12 units on each of the left column's 19 line breaks would push Back off the frame. Its paragraphs keep their own gap (34 under each, plus the column's 24).
+
+### Hierarchy and the scale
+
+- **Hierarchy is size, face and colour together**, not a gap alone: Anton for headings, entries and values, Inter for reading; `MENU_TEXT` for what is loud, `MENU_TEXT_BODY` for prose, `MENU_TEXT_DIM` for an aside (a caption, a note beside the rows, what a field wants).
+- **The sizes are steps of one scale of about 1.3**: 46, 58, 80, 96, 124 and 170 lie within 6 % of 45, 58, 75, 98, 127 and 166, a 1.3 ratio from the small face. They are kept rather than snapped to it, because each was measured against a budget (the Settings rows, #138; the picker's tile, #496) and a few per cent is under what reads as a different step. **New text takes a role** (small, body, section, heading, title), never a new figure.
+
+### Alignment and the rag
+
+- **Prose is left-aligned and ragged right**; only a line that stands alone (a heading, a button's word, a value) is centred.
+- **`SpaceWrap` chooses the breaks** (`Game/Screens/SpaceWrap.cs`, `SpaceWrapTests`), in order of weight: the fewest lines (what a greedy fill takes, so no page's height grows); no last line of one word where two fit; the evenest rag (the squared slack of every line but the last, plus a penalty on a last line under 30 % of the measure). It breaks at spaces only: FontStashSharp's own wrap breaks after a `.` and split the score server's address (#769).
+- **A page asks for prose, it does not set it**: `MenuPage.Paragraph` and `Aside` (the small face, the colour, the measure the page passes, the leading, the gap), `Prose` for a page that places it otherwise, `SetProse` for a label whose text changes, `ProseHeight` for a label whose height must hold every text it can show.
+
+### Characters
+
+- **Apostrophes and quotes are ’ ‘ “ ”**, never `'` or `"`.
+- **The dash is a spaced em dash, " — "**, the form most of the copy was written in. A range of numbers takes an en dash, "3–16"; in prose a range reads "3 to 16". A hyphen belongs inside a word.
+- **An ellipsis is …**, one character. **One space** after a sentence, as between words.
+- **Ties.** A no-break space (U+00A0, written in C# as its `\u` escape so it can be seen) holds a name to its version ("MonoGame 3.8.5", "SIL OFL 1.1", "DirectX 11"), a number to what it counts ("385 balls", "10 points"), a range ("3 to 16") and a label to its number ("Shot 1"). `SpaceWrap` adds two of its own: a lone dash or operator (— – + = × ÷ −) never starts a line, and a one-letter word (a, A, I) never ends one. A tie is drawn as a plain space.
+- ⚠ **A tie holds only in prose set through `SpaceWrap`.** FontStashSharp's own wrap counts U+00A0 as white space, so in a label that wraps by itself it is a break like any other.
+- **`CopyRules.Fault`** names the first of these a string breaks; `CopyRulesTests` holds every string a tutorial card draws to it. The Myra pages' copy is held to it by review, since a page's strings are built inside a tree no test constructs.
+
+### Numbers
+
+**Without tabular figures, a column of numbers that is compared is right-aligned**, so the units line up whatever the 1s do.
+
 ## The pointer is the game's own (#350)
 
 `Game/Platform/PointerCursor.cs` builds a stylized arrow at load as a `Texture2D` from a signed distance field (outline, drop shadow and antialiasing all read off the one distance) and publishes it through `Mouse.SetCursor`. It is the one piece of chrome **Windows** draws.

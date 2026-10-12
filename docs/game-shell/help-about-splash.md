@@ -11,6 +11,7 @@ How it is played, scoring, the odd balls, the campaign, the glass and the line, 
 - ⚠ **The scoring page's worked example is computed from `ScoreKeeper`'s constants**, never typed: a hand-written one is wrong the first time the scoring is tuned and nothing says so.
 - ⚠ **The controls page draws keycaps through `BS3DGame.MenuFontPrompt`, not `HudFontPrompt`**: the HUD's fonts are built by `EnsureHudFonts`, which only the gameplay screen calls, so on a menu page it is null, and **a Myra label with a null font draws nothing, silently**. Two columns (#728): keycaps (as wide as the widest pair, `MenuFontPrompt.MeasureString`), the pad's buttons (#799) and wrapping words; both hands shown.
 - **Every page stands in the same frame (#728, #729)**: `HelpPage.BiggestPage` builds every page into a scroller, measures it (`Widget.Measure`) and gives the shown scroller the biggest width and height as `MinWidth`/`MinHeight` (minimums, so `MenuScroll`'s `MaxHeight` still scrolls a short window).
+- **The paragraphs are set at the prose measure inside the frame** ([Typesetting](menu-look.md#typesetting-806)), against its left edge, and the body's blocks carry their own gaps (`KEY_LINE_GAP` under a control's line).
 - **Back, Previous, Next are one row under the text** (#738); the pad arrives on Next (`HelpPage.NavArrival`), so a player who opened Help is not put on the way out.
 
 ## About: two columns (#463)

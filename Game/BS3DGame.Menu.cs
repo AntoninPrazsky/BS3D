@@ -472,6 +472,15 @@ namespace BS3D
         /// </summary>
         internal int MenuColumnPlateContentWidth => MenuColumnWidth - 2 * Scaled(MENU_PLATE_PADDING_X);
 
+        /// <summary>The space added between two lines of prose (#806), in pixels at the layout in force.</summary>
+        internal int ProseLeading => Scaled(MENU_PROSE_LEADING);
+
+        /// <summary>The space between two paragraphs (#806), one em of the small face, in pixels at the layout in force.</summary>
+        internal int ParagraphGap => Scaled(MENU_PARAGRAPH_GAP);
+
+        /// <summary>The widest a paragraph is set (#806), about 67 characters, in pixels at the layout in force.</summary>
+        internal int ProseMeasure => Scaled(MENU_PROSE_MEASURE);
+
         //Held direction repeats: one step, a pause long enough that a deliberate single press stays single,
         //then a steady walk. Both are wall-clock seconds and not frame counts, or the list would run faster on
         //a faster machine — the same rule the rattle's phase and the menu's orbit follow.
@@ -499,6 +508,17 @@ namespace BS3D
         private const int MENU_FONT_SECTION = 96;
         private const int MENU_FONT_HEADING = 124;
         private const int MENU_FONT_TITLE = 170;
+
+        //PROSE (#806, "Typesetting" in docs/game-shell/menu-look.md): a paragraph is the small face, and three figures
+        //more set it. FontStashSharp sizes a face by its ascent-to-descent, so Inter at 58 has a line of 58 and an em of
+        //48 (2048 of its 2478 units): a pitch of 1.21 em, tight for light type on a dark plate. MENU_PROSE_LEADING is
+        //added between lines (Label.VerticalSpacing) for a pitch of 70, 1.46 em. MENU_PARAGRAPH_GAP is one em of the
+        //face, two thirds of a line, between paragraphs. MENU_PROSE_MEASURE is the widest a paragraph is set: 67
+        //characters of Inter at this size (22.3 units a character over the game's own copy, off the face's advance
+        //widths), inside the 45 to 75 a reader's eye finds the next line from.
+        private const int MENU_PROSE_LEADING = 12;
+        private const int MENU_PARAGRAPH_GAP = 48;
+        private const int MENU_PROSE_MEASURE = 1500;
 
         //The front end gets its own two sizes rather than growing the shared pair, and that is a constraint
         //rather than tidiness (#217). MENU_FONT_BODY is every button in the game, and the SETTINGS page is

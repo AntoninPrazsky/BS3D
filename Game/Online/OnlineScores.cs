@@ -369,7 +369,7 @@ namespace BS3D.Online
 
             //Unfinished attempts too since #716: the sentence is what a player agreed to, so it says so
             return $"With online scores on, each cleared level, and your best attempt at a level you have not cleared yet, sends your nickname, "
-                + $"a random player id, the level, its score, stars, shots, time and the game's version to {host}, which adds only when it "
+                + $"a random player id, the level, its score, stars, shots, time and the game’s version to {host}, which adds only when it "
                 + "arrived and a hashed network address. Remove scores deletes it all.";
         }
 

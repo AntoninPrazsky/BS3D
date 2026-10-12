@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Myra.Graphics2D;
 using Myra.Graphics2D.UI;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.Scoring;
@@ -40,10 +41,16 @@ namespace BS3D.Screens
     /// </summary>
     internal sealed class HelpPage : MenuPage
     {
+        //The frame's width: the controls page's lines and the row under the text are this wide. The paragraphs are set at
+        //the prose measure inside it (ProseWidth, #806): across the whole 1860 a line of the small face held 83 characters
         private const int TEXT_WIDTH = 1860;
 
         //The space between a keycap and its words on the controls page
         private const int KEY_GAP = 24;
+
+        //Under each of the controls page's lines: the 26 of its own and the 26 of the column it stood in before #806 let
+        //every block carry its own space
+        private const int KEY_LINE_GAP = 52;
 
         //Back and the two walking buttons share one row under the text (#738), each this wide, where every other entry on
         //a page is one column wide
@@ -107,7 +114,7 @@ namespace BS3D.Screens
             //the wheel for one with the mouse. Shown only while the page is longer than its frame (Update), and in the
             //small face, so the line keeps the counter's height and the frame below does not move when it appears.
             Panel counter = new() { Width = Scaled(TEXT_WIDTH), HorizontalAlignment = HorizontalAlignment.Center };
-            counter.Widgets.Add(Caption($"{_page + 1} of {TITLES.Length}"));
+            counter.Widgets.Add(CounterLabel($"{_page + 1} of {TITLES.Length}"));
             counter.Widgets.Add(_scrollPrompt = ScrollPrompt());
             column.Widgets.Add(counter);
 
@@ -171,6 +178,10 @@ namespace BS3D.Screens
             //needs it, scroll bar included, so on a page that fits the spare width is a gutter at the right and the text
             //stands where it does on a page that scrolls
             body.HorizontalAlignment = HorizontalAlignment.Left;
+
+            //Each block carries the space under it (#806): a paragraph its ParagraphGap, a control's line KEY_LINE_GAP, so
+            //the stack adds none of its own on top
+            body.Spacing = 0;
 
             switch (page)
             {
@@ -320,10 +331,10 @@ namespace BS3D.Screens
             //Every figure below is ScoreKeeper's own. Written through string interpolation rather than typed
             //out, so a tuned constant cannot leave a stale number standing on this page.
             column.Widgets.Add(Paragraph(
-                $"Matched — the balls in the group you completed. {ScoreKeeper.MatchedBallPoints} points each."));
+                $"Matched — the balls in the group you completed. {ScoreKeeper.MatchedBallPoints}\u00A0points each."));
             column.Widgets.Add(Paragraph(
                 $"Orphaned — the balls that fell because the group was the last thing holding them up. "
-                + $"{ScoreKeeper.OrphanedBallPoints} points each, twice a matched one: bringing a mass down by "
+                + $"{ScoreKeeper.OrphanedBallPoints}\u00A0points each, twice a matched one: bringing a mass down by "
                 + "cutting its anchor is the better shot and the score says so."));
             column.Widgets.Add(Paragraph(
                 $"Streak — every landing that scores raises your multiplier by {ScoreKeeper.MultiplierStep}, up "
@@ -331,7 +342,7 @@ namespace BS3D.Screens
                 + "matches nothing puts it back to ×1."));
             column.Widgets.Add(Paragraph(
                 "Shots unused — what you did not need. Worth a great deal, and worth more on a big level: one "
-                + $"unused shot is priced at {ScoreKeeper.UnusedShotWorthInShots} average shots of that level, "
+                + $"unused shot is priced at {ScoreKeeper.UnusedShotWorthInShots}\u00A0average shots of that level, "
                 + $"i.e. {ScoreKeeper.UnusedShotWorthInShots} × {ScoreKeeper.MatchedBallPoints} × (balls ÷ "
                 + "shots)."));
 
@@ -346,21 +357,21 @@ namespace BS3D.Screens
                             * ScoreKeeper.MaxMultiplier;
             int bonus = 6 * unusedShotValue;
 
-            column.Widgets.Add(Caption("A worked example, on " + EXAMPLE_LEVEL
-                + $" — {EXAMPLE_BALLS} balls, {EXAMPLE_SHOTS} shots"));
+            column.Widgets.Add(Aside("A worked example, on " + EXAMPLE_LEVEL
+                + $" — {EXAMPLE_BALLS}\u00A0balls, {EXAMPLE_SHOTS}\u00A0shots", ProseWidth));
             column.Widgets.Add(Paragraph(
-                $"Shot 1 matches 5 and orphans 3, at ×1:  5×{ScoreKeeper.MatchedBallPoints} + "
+                $"Shot\u00A01 matches 5 and orphans 3, at ×1: 5×{ScoreKeeper.MatchedBallPoints} + "
                 + $"3×{ScoreKeeper.OrphanedBallPoints} = {firstShot}."));
             column.Widgets.Add(Paragraph(
-                $"Shot 2 matches 4 and orphans nothing, now at ×{1 + ScoreKeeper.MultiplierStep}:  "
+                $"Shot\u00A02 matches 4 and orphans nothing, now at ×{1 + ScoreKeeper.MultiplierStep}: "
                 + $"4×{ScoreKeeper.MatchedBallPoints} × {1 + ScoreKeeper.MultiplierStep} = {secondShot}."));
             column.Widgets.Add(Paragraph(
-                $"Shot 3 cuts an anchor — 3 matched, 11 orphaned — at the ×{ScoreKeeper.MaxMultiplier} cap:  "
+                $"Shot\u00A03 cuts an anchor — 3\u00A0matched, 11\u00A0orphaned — at the ×{ScoreKeeper.MaxMultiplier} cap: "
                 + $"(3×{ScoreKeeper.MatchedBallPoints} + 11×{ScoreKeeper.OrphanedBallPoints}) × "
                 + $"{ScoreKeeper.MaxMultiplier} = {thirdShot}. Three balls matched, and the shot is worth more "
                 + "than the first two together."));
             column.Widgets.Add(Paragraph(
-                $"Finish with 6 shots in hand and each is worth {unusedShotValue} here:  6 × {unusedShotValue} "
+                $"Finish with 6\u00A0shots in hand and each is worth {unusedShotValue} here: 6 × {unusedShotValue} "
                 + $"= {bonus}, which on this level is more than the three shots above put together. Efficiency "
                 + "outweighs a streak you could farm by taking longer — that is deliberate."));
         }
@@ -416,7 +427,7 @@ namespace BS3D.Screens
                 "And one that arrives in your cannon rather than in the cluster: the rainbow ball, a ball that "
                 + "never settles on a colour while it is loaded. It becomes whatever completes a group where it "
                 + "lands. A few of the later levels hand them out, and a card says so the first time one is loaded."));
-            column.Widgets.Add(Caption("And the power-ups — the Swap, the Brake and the Cut — are on the Controls page."));
+            column.Widgets.Add(Aside("And the power-ups — the Swap, the Brake and the Cut — are on the Controls page.", ProseWidth));
         }
 
         private void BuildCampaign(VerticalStackPanel column)
@@ -424,7 +435,7 @@ namespace BS3D.Screens
             //Read from the level set rather than typed: the page said 120 levels in 12 chapters and 236 stars for
             //the last level while the game shipped 130, 13 and 256 (#606)
             column.Widgets.Add(Paragraph(
-                $"The campaign is {Game.LevelCount} levels in {Game.BlockCount} chapters. Each chapter is ten levels against one backdrop, "
+                $"The campaign is {Game.LevelCount}\u00A0levels in {Game.BlockCount}\u00A0chapters. Each chapter is ten levels against one backdrop, "
                 + "and each has its own shape of puzzle — a chapter of towers, a chapter of things hidden "
                 + "inside other things, a chapter of mathematics."));
             column.Widgets.Add(Paragraph(
@@ -447,7 +458,7 @@ namespace BS3D.Screens
                 + "the glass at the top of it, and how far down it has come."));
             column.Widgets.Add(Paragraph(
                 "At the bottom of that panel is a red line. If the cluster reaches it, the level is lost. You "
-                + "get a moment's warning — the floor lights up — and under the line you have about a second "
+                + "get a moment’s warning — the floor lights up — and under the line you have about a second "
                 + "to drop something and lift the cluster back."));
             column.Widgets.Add(Paragraph(
                 "So the clock is your own shots. Every shot brings the glass nearer, whether it matched "
@@ -515,21 +526,24 @@ namespace BS3D.Screens
             {
                 Spacing = gap,
                 HorizontalAlignment = HorizontalAlignment.Left,
-                Margin = ScaledThickness(0, 0, 0, 26),
+                Margin = new Thickness(0, 0, 0, Scaled(KEY_LINE_GAP)),
             };
 
             line.Widgets.Add(GlyphLabel(keys, keyWidth));
             line.Widgets.Add(GlyphLabel(pad, padWidth));
 
-            line.Widgets.Add(new Label
+            //The words' lines chosen for their shape like a paragraph's (#806): the Cut's took three lines with one word
+            //on the last. In the display face at its own pitch, which is 1.5 of its em already
+            Label words = new()
             {
-                Text = what,
                 Font = FontBody,
                 TextColor = BS3DGame.MENU_TEXT_BODY,
                 Wrap = true,
                 Width = Scaled(TEXT_WIDTH) - keyWidth - padWidth - 2 * gap,
                 VerticalAlignment = VerticalAlignment.Center,
-            });
+            };
+            SetProse(words, what);
+            line.Widgets.Add(words);
 
             return line;
         }
@@ -573,26 +587,23 @@ namespace BS3D.Screens
             VerticalAlignment = VerticalAlignment.Center,
         };
 
-        private Label Caption(string text) => new()
+        /// <summary>The page counter over the text, "2 of 6", across the frame's width.</summary>
+        private Label CounterLabel(string text) => new()
         {
             Text = text,
             Font = FontSmall,
             TextColor = BS3DGame.MENU_TEXT_DIM,
-            Wrap = true,
             Width = Scaled(TEXT_WIDTH),
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = ScaledThickness(0, 0, 0, 30),
         };
 
-        private Label Paragraph(string text) => new()
-        {
-            Text = text,
-            Font = FontSmall,
-            TextColor = BS3DGame.MENU_TEXT_BODY,
-            Wrap = true,
-            Width = Scaled(TEXT_WIDTH),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            Margin = ScaledThickness(0, 0, 0, 30),
-        };
+        /// <summary>
+        /// How wide the pages' prose is set (#806): the prose measure, inside the frame, against its left edge so Back
+        /// stands under the text's first letter (#738) and the rag runs into the gutter at the right.
+        /// </summary>
+        private int ProseWidth => Math.Min(Scaled(TEXT_WIDTH), ProseMeasure);
+
+        private Label Paragraph(string text) => Paragraph(text, ProseWidth);
     }
 }

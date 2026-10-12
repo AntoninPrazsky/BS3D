@@ -1,5 +1,6 @@
 using BS3D.Online;
 using Microsoft.Xna.Framework;
+using Myra.Graphics2D;
 using Myra.Graphics2D.UI;
 using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
 using Label = Myra.Graphics2D.UI.Label;
@@ -50,11 +51,11 @@ namespace BS3D.Screens
         //Above the field and under the hint, so the question, the field and the way out read as three things
         private const int FIELD_GAP = 24;
 
-        //A fixed number of the small face's lines, so a complaint in place of the hint cannot move Skip under the
-        //pointer: the field is where the player is looking, and the button below it is where they might click. Four,
-        //for a hint of three lines: the line pitch is more than the face's LineHeight (the Settings note's finding,
-        //#548), and three of them showed two lines and a half of this one (photographed at 1920x1080)
-        private const int HINT_LINES = 4;
+        //What the field wants. The hint's height is this text's, measured as it is laid out (BuildTree), so a complaint in
+        //its place cannot move Skip under the pointer: the field is where the player is looking, and the button below it
+        //is where they might click. Every complaint Nickname.TryNormalize words is one line of the small face
+        private static readonly string HINT = $"{Nickname.MinLength}\u00A0to\u00A0{Nickname.MaxLength} letters, digits, spaces, _ or -. "
+            + "Enter confirms. A pad cannot type; its A presses the button.";
 
         /// <summary>How long a key or pad button typed after the plate arrives is ignored - see the class remarks.</summary>
         private const float INPUT_GRACE_SECONDS = 0.8f;
@@ -94,16 +95,8 @@ namespace BS3D.Screens
 
             column.Widgets.Add(ScreenHeading("NICKNAME"));
 
-            column.Widgets.Add(new Label
-            {
-                Text = "Pick a nickname for the leaderboards.",
-                Font = FontSmall,
-                TextColor = BS3DGame.MENU_TEXT_BODY,
-                Wrap = true,
-                Width = ColumnWidth,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = ScaledThickness(0, 0, 0, FIELD_GAP),
-            });
+            column.Widgets.Add(Prose("Pick a nickname for the leaderboards.", ColumnWidth, BS3DGame.MENU_TEXT_BODY, ProseLeading,
+                new Thickness(0, 0, 0, Scaled(FIELD_GAP))));
 
             //Not a button: nothing happens when it is clicked, and a slab that lifts under the pointer promises it does.
             //Its label is a line tall even when empty, so the plate does not change height as the caret blinks
@@ -126,17 +119,10 @@ namespace BS3D.Screens
             field.Widgets.Add(_field);
             column.Widgets.Add(field);
 
-            _hint = new Label
-            {
-                Font = FontSmall,
-                TextColor = BS3DGame.MENU_TEXT_DIM,
-                Wrap = true,
-                Width = ColumnWidth,
-                Height = FontSmall.LineHeight * HINT_LINES,
-                VerticalAlignment = VerticalAlignment.Top,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = ScaledThickness(0, FIELD_GAP, 0, 0),
-            };
+            //As tall as the hint it shows when nothing is wrong, measured (#806); a complaint is one line of it
+            _hint = Prose(string.Empty, ColumnWidth, BS3DGame.MENU_TEXT_DIM, ProseLeading, new Thickness(0, Scaled(FIELD_GAP), 0, 0));
+            _hint.VerticalAlignment = VerticalAlignment.Top;
+            _hint.Height = ProseHeight(_hint, HINT);
             column.Widgets.Add(_hint);
 
             //One button, OK or Skip by what the field holds (Refresh), through the grace too: a click that skipped the title
@@ -154,8 +140,7 @@ namespace BS3D.Screens
 
             //What the field wants, or what was wrong with what was kept: the complaint is in the alert colour, the way
             //Settings' "Not set" is, so it reads as something to fix and not as one more line of small print
-            _hint.Text = _entry.Problem
-                ?? $"{Nickname.MinLength} to {Nickname.MaxLength} letters, digits, spaces, _ or -. Enter confirms. A pad cannot type; its A presses the button.";
+            SetProse(_hint, _entry.Problem ?? HINT);
             _hint.TextColor = _entry.Problem != null ? BS3DGame.MENU_TEXT_ALERT : BS3DGame.MENU_TEXT_DIM;
 
             //Skip until there is a name to keep; the button's slab does not change size with its word

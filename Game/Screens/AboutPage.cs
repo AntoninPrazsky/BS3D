@@ -2,6 +2,7 @@ using BS3D.Audio;
 using Microsoft.Xna.Framework;
 using System;
 using System.Diagnostics;
+using Myra.Graphics2D;
 using Myra.Graphics2D.UI;
 using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
 using Label = Myra.Graphics2D.UI.Label;
@@ -27,6 +28,10 @@ namespace BS3D.Screens
         //The gap between the two columns, on GROUP_GAP's own figure from SettingsPage — wide enough that it
         //reads as the seam between two groups rather than one more paragraph's own margin.
         private const int COLUMN_GAP = 110;
+
+        //Under each paragraph, with SubColumn's own 24 above the next: a line of the small face between the two, its pitch
+        //without the prose leading (see Paragraph)
+        private const int PARAGRAPH_GAP = 34;
 
         //Two entries side by side where every other entry on a page is one column wide, so each is a little under
         //half of one and the row spans the same column the visualizer does.
@@ -77,14 +82,14 @@ namespace BS3D.Screens
             VerticalStackPanel left = SubColumn();
 
             left.Widgets.Add(Paragraph(
-                text: BS3DGame.GAME_TITLE + " is a 3D arcade puzzle. Aim, match, and collapse color clusters hanging beneath a glass ceiling. "
-                                          + "Matching three or more drops them—severing everything anchored below. "
+                text: BS3DGame.GAME_TITLE.Replace(' ', SpaceWrap.TIE) + " is a 3D arcade puzzle. Aim, match, and collapse color clusters hanging beneath a glass ceiling. "
+                                          + "Matching three or more drops them — severing everything anchored below. "
                                           + "The first chapter teaches the controls as you play."));
             left.Widgets.Add(Paragraph(
-                text: "Built on .NET 10, MonoGame 3.8.5 (DirectX 11) and BepuPhysics 2.5, with Myra for the interface, "
-                      + "FontStashSharp for the text and NVorbis for the music. Everything you see—from the spheres "
-                      + "to the city—is procedural: no 3D models, only pure code. Typefaces Anton, Inter and "
-                      + "PromptFont (all SIL OFL 1.1)."));
+                text: "Built on .NET\u00A010, MonoGame\u00A03.8.5 (DirectX\u00A011) and BepuPhysics\u00A02.5, with Myra for the interface, "
+                      + "FontStashSharp for the text and NVorbis for the music. Everything you see — from the spheres "
+                      + "to the city — is procedural: no 3D models, only pure code. Typefaces Anton, Inter and "
+                      + "PromptFont (all SIL\u00A0OFL\u00A01.1)."));
 
             //TODO(#463): MonoGame's and BepuPhysics' logos go here, beside their credit above — waiting on the
             //owner's own artwork, which this issue does not carry. An image widget each, through the content
@@ -115,13 +120,13 @@ namespace BS3D.Screens
             VerticalStackPanel right = SubColumn();
 
             right.Widgets.Add(Paragraph(
-                text: "Made with Claude (Anthropic), through Claude Code—the code, the shaders, the level designs, "
-                      + "the tools and the documentation. The rest was generated locally: the music with ACE-Step 1.5, "
+                text: "Made with Claude (Anthropic), through Claude Code — the code, the shaders, the level designs, "
+                      + "the tools and the documentation. The rest was generated locally: the music with ACE-Step\u00A01.5, "
                       + "the opening logo and every design reference with Z-Image-Turbo (the logo upscaled with "
-                      + "RealESRGAN), and small local models—Gemma, nomic-embed—as development tools."));
+                      + "RealESRGAN), and small local models — Gemma, nomic-embed — as development tools."));
 
             right.Widgets.Add(Paragraph(
-                text: "The game's original score was written as code too—oscillators and arrays, synthesized the moment it plays. "
+                text: "The game’s original score was written as code too — oscillators and arrays, synthesized the moment it plays. "
                       + "It is still in here:"));
 
             ProceduralJukebox jukebox = Game.Jukebox;
@@ -239,23 +244,13 @@ namespace BS3D.Screens
         /// <summary>
         /// One paragraph of prose, cut to <see cref="MenuPage.ColumnWidth"/> (#463) — the same figure a button and the
         /// player's own widgets are cut to, so a column's text lines up with everything under it instead of
-        /// keeping a page-specific width of its own. Broken at spaces only (<see cref="SpaceWrap"/>, #769): the text's
-        /// own wrap breaks after a dot as well, which would part "MonoGame 3.8.5" or the score server's address.
+        /// keeping a page-specific width of its own: about 45 characters of the small face, the short end of a measure.
+        /// Set as every page's prose is (#806, <see cref="MenuPage.Prose"/>): lines chosen for the paragraph's shape, a tie
+        /// where a name meets its number. <b>But at the face's own pitch, without the prose leading</b>, until #807 splits
+        /// the page: its two columns already stand at the full design height (Back's lower edge 28 px from the frame's at
+        /// 1600×900), and the leading's 12 units on each of the left column's 19 line breaks would push Back off the frame.
         /// </summary>
-        private Label Paragraph(string text)
-        {
-            Label paragraph = new()
-            {
-                Font = FontSmall,
-                TextColor = BS3DGame.MENU_TEXT_BODY,
-                Wrap = true,
-                Width = ColumnWidth,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = ScaledThickness(0, 0, 0, 34),
-            };
-
-            paragraph.Text = SpaceWrap.Wrap(text, LaidOutWidth(paragraph), line => FontSmall.MeasureString(line).X);
-            return paragraph;
-        }
+        private Label Paragraph(string text) =>
+            Prose(text, ColumnWidth, BS3DGame.MENU_TEXT_BODY, 0, new Thickness(0, 0, 0, Scaled(PARAGRAPH_GAP)));
     }
 }
