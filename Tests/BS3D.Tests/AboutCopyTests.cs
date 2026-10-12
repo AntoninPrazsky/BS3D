@@ -75,11 +75,15 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void The_player_is_the_first_page()
+        public void The_player_is_the_last_page()
         {
-            //The owner's "Jukebox first": the first thing a player sees is the thing they can use
-            Assert.Contains(AboutCopy.Pages(TITLE)[0].Blocks, block => block.Kind == AboutCopy.BlockKind.Player);
+            //The owner, 2026-10-12: the player is a small easter egg, so it waits at the end for whoever turns that far, and
+            //About opens on what the game is
+            AboutCopy.Page[] pages = AboutCopy.Pages(TITLE);
+
+            Assert.Contains(pages[^1].Blocks, block => block.Kind == AboutCopy.BlockKind.Player);
             Assert.Single(Blocks(AboutCopy.BlockKind.Player));
+            Assert.Contains(pages[0].Blocks, block => block.Text == AboutCopy.Game(TITLE));
         }
 
         [Fact]

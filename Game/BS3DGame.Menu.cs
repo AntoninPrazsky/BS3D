@@ -1340,7 +1340,7 @@ namespace BS3D
             _highScoresPage.Pin(chapter, allTime);
             OpenPage(_highScoresPage);
         }
-        /// <summary>About (#807), on its first page: the original score's player, whatever page it was left on.</summary>
+        /// <summary>About (#807), on its first page, what the game is, whatever page it was left on: the player waits on the last.</summary>
         internal void OpenAbout() => OpenAbout(1);
 
         /// <summary>About on a stated page, 1-based — the <c>about=&lt;n&gt;</c> argument's entry (#807).</summary>

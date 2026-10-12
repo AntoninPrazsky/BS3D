@@ -132,10 +132,11 @@ namespace BS3D
         /// <summary>
         /// <c>about</c> / <c>about=play</c> / <c>about=&lt;n&gt;</c>: put the About page up at boot, with <c>play</c> start its
         /// player on the first piece (#443), and with a number open it on that page, 1-based (#807: it is four pages, and a
-        /// script cannot press the arrow that turns one; <c>about=1:play</c> takes both). Null for neither. The page is two
-        /// presses away for someone at the machine
-        /// and none on a locked desktop — <c>pick</c>'s wall — and its visualizer is only worth a shot while a
-        /// piece is actually sounding, which takes a third press nobody is there to make.
+        /// script cannot press the arrow that turns one; <c>about=2:play</c> takes both). <c>play</c> with no number opens
+        /// the player's own page, the last (<c>AboutPage.PlayerPage</c>); neither opens page one. Null for neither. The page
+        /// is two presses away for someone at the machine and none on a locked desktop — <c>pick</c>'s wall — and its
+        /// visualizer is only worth a shot while a piece is actually sounding, which takes a third press nobody is there to
+        /// make.
         /// </summary>
         private string _about;
 
@@ -360,17 +361,23 @@ namespace BS3D
 
             if (_about != null && !game.IsSplashUp)
             {
-                //"play", a page number, or both as "<n>:play" in either order; a part that is neither is left alone
-                int aboutPage = 1;
+                //"play", a page number, or both as "<n>:play" in either order; a part that is neither is left alone. With no
+                //number, "play" opens the page that draws the piece (the last, #807) and the bare argument page one
+                int? aboutPage = null;
+                bool aboutPlay = false;
                 foreach (string part in _about.Split(':'))
                 {
-                    if (string.Equals(part, "play", StringComparison.OrdinalIgnoreCase)) game.Jukebox?.PlayPause();
+                    if (string.Equals(part, "play", StringComparison.OrdinalIgnoreCase))
+                    {
+                        game.Jukebox?.PlayPause();
+                        aboutPlay = true;
+                    }
                     else if (int.TryParse(part, out int asked)) aboutPage = asked;
                 }
 
                 _about = null;
 
-                game.OpenAbout(aboutPage);
+                game.OpenAbout(aboutPage ?? (aboutPlay ? AboutPage.PlayerPage : 1));
             }
 
             //The scene menu with its tour already flying (#406), held back past the title card for the same
