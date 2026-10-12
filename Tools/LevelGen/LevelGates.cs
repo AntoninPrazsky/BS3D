@@ -478,10 +478,9 @@ namespace BS3D.Tools.LevelGen
         /// against</b>, because one landed ball takes exactly one group with it (plus whatever that group was
         /// the last anchor for, which is what makes a design with cascades cheaper than this count says).
         /// <para>
-        /// It is printed as a ratio for that reason. The pack runs from <b>Colossus at 0.98 shots a group</b>
-        /// (364 balls in 46 groups against 45 shots — measured off its file, since this tool does not write
-        /// it), which is the hardest level in the game and is meant to be, to <see cref="Program.Horn"/>'s 20, where
-        /// four shells mean the budget is not the thing being fought at all. A design landing near 1 with no
+        /// It is printed as a ratio for that reason. The pack runs from <see cref="Program.Caldera"/>'s <b>0.71 shots a
+        /// group</b> to <see cref="Program.Horn"/>'s 8, where four shells mean the budget is not the thing being fought at
+        /// all (LevelGen, 2026-10-12). A design landing near 1 with no
         /// cascade in it is a level that has to be played perfectly; the Arcade's five are priced off this
         /// line, from 1.65 down to 1.37, and every one of them was over-tight before it was measured.
         /// </para>

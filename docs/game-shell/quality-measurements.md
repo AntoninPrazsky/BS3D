@@ -37,12 +37,13 @@ Each chapter's heaviest level that is not its block's first; `level=<name> quali
 | Ghost (neon city) | 40.6 | 18.96 | 13.49 |
 | Pendulum (desert) | 35.2 | 19.82 | 13.12 |
 | Girandole (city) | 43.7 | 19.55 | 11.99 |
-| Colossus (Moon) | 22.5 | 17.42 | 11.79 |
+| Colossus (Moon), hand-drawn ⚠ | 22.5 | 17.42 | 11.79 |
 | Turbine (city) | 40.4 | 17.36 | 10.95 |
 | Orrery (space) | 35.8 | **12.49** | 10.75 |
 | Tesseract (Grid) | 19.1 | **14.77** | 9.57 |
 | Anchor (aurora) | n/a | 16.60 | 12.04 |
 
+- ⚠ **The Moon's row is the hand-drawn Colossus**, a solid 364-ball block; #849 replaced it with a 337-ball figure, and the level has not been measured since.
 - **`High` misses the panel by 1.2–3.7×; `Medium` fits only space and the Grid; `Low` fits everywhere but the mountain.** `Medium` is 8–43 % and `Low` 1–18 % dearer than #540's build (2026-09-29): refraction, motion blur, full-detail scene work.
-- ⚠ **`Low` keeps the far plane #551 asked for (the owner's ruling, 2026-09-29), so the mountain runs about half a millisecond over.** With only `DEFAULT_FAR_PLANE_DISTANCE` back at 500, Spyglass reads 15.68 and Colossus 11.12. **Do not shorten it to win the time back.**
+- ⚠ **`Low` keeps the far plane #551 asked for (the owner's ruling, 2026-09-29), so the mountain runs about half a millisecond over.** With only `DEFAULT_FAR_PLANE_DISTANCE` back at 500, Spyglass reads 15.68 and the hand-drawn Colossus 11.12. **Do not shorten it to win the time back.**
 - **Front end at `Low`** (2026-09-29, 55 s per scene, orbit spreads of 4–6 ms): five of twenty scenes miss 16.1 ms (Mars 17.88, savanna 17.57, tropical 16.83, outback 16.82, polar 16.18); **left by the owner's ruling: the menu is not worked on for `Low`.**

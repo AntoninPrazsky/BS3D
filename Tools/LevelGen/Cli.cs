@@ -298,8 +298,8 @@ namespace BS3D.Tools.LevelGen
                 //anywhere: every shot is a shot at a handful of balls. Three plain bodies teach the tile, then
                 //each level adds one idea the gun can see (#742): an arch, an overhang, a floating member, two
                 //depths, a cavity with a crystal sealed in it, and the floating member and the cavity at once.
-                //COLOSSUS CLOSES IT (#849), a design since the owner's ruling of 2026-10-12 where it was hand-drawn:
-                //a giant holding the glass up, the arch between its legs and a crystal sealed in its chest.
+                //COLOSSUS CLOSES IT (#849), hand-drawn until the owner's ruling of 2026-10-12 and a design like the
+                //rest since: a giant holding the glass up, the arch between its legs and a crystal buried in its chest.
                 Mosaic(), Prism(), Hopper(), Archway(), Cornice(), Hoist(), Eclipse(), Geode(), Locket(), Colossus()
             };
 

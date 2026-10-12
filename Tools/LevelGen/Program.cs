@@ -1,7 +1,7 @@
 namespace BS3D.Tools.LevelGen
 {
     /// <summary>
-    /// Writes every level of the campaign (since #849 rebuilt Colossus, the one that was hand-drawn) and the set that orders them, and
+    /// Writes every level of the campaign and the set that orders them, and
     /// <b>validates every one through the game's own loader</b> before it is written anywhere the game will see
     /// it. A design is one <see cref="Design"/>: a silhouette, a colouring, a scene and a set of rules.
     /// <para>

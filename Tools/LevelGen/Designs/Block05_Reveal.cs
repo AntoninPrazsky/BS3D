@@ -131,8 +131,8 @@ namespace BS3D.Tools.LevelGen
         /// fragment and a floor fragment that never touch, which is where the eights, threes and twos come from.
         /// So the shell is 29 groups and the pearl one, i.e. <b>30 perfect landings minimum</b>, not the thirteen
         /// a uniform-column model predicts. 56 shots is <see cref="Mosaic"/>'s budget for a comparable count;
-        /// at the 40 this was first authored with it would have been tighter than Colossus, which the docs call
-        /// the wall, on the level that teaches the block.
+        /// at the 40 this was first authored with it would have been tighter than the hand-drawn Colossus (until
+        /// #849), which the docs called the wall, on the level that teaches the block.
         /// </para>
         /// </summary>
         private static Design Chest() => new()
@@ -1258,8 +1258,8 @@ namespace BS3D.Tools.LevelGen
         /// an 18-level field is the deepest one still framed WHOLE — a twenty would start with the top two levels
         /// of the layout out of shot, which is no way to run a block whose point is a shape being uncovered. And a
         /// field this deep is RAISED off the death line rather than pinned at <c>FIELD_TOP_Y</c> (17 is the first
-        /// depth raised), so the cluster hangs 1.36 higher — exactly as <c>Colossus.json</c>'s eighteen levels
-        /// already do. A proven configuration, not a new one.
+        /// depth raised), so the cluster hangs 1.36 higher — exactly as the hand-drawn <c>Colossus.json</c>'s eighteen
+        /// levels did until #849. A proven configuration, not a new one.
         /// </para>
         /// </summary>
         private const byte REVEAL_FIELD_LEVELS = 18;

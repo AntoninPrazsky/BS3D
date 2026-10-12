@@ -133,7 +133,7 @@ namespace BS3D.Tools.LevelGen
         /// straight up is thickest at the corners, and every level of it is carried by the wider ring above anyway.
         /// </para>
         /// <para>
-        /// Measured since #398's skin (LevelGen, 2026-10-12): 345 balls, against Mosaic's 346 and Colossus's 364,
+        /// Measured since #398's skin (LevelGen, 2026-10-12): 345 balls, against Mosaic's 346 and Colossus's 337,
         /// margin 1, nothing alone, 4 in pairs, nothing recoloured, six colours running 21 to 104 balls, 29
         /// standing groups and a best single shot of 41 (11 %). Per level from the bottom 56, 60, 56, 52, 40 and
         /// 81: the skin took the buried middle of the benches, and the lid against the glass stays whole.
@@ -154,7 +154,7 @@ namespace BS3D.Tools.LevelGen
             //layout, so the budget and the descent run out together. Six colours against Prism's five is where
             //the difficulty is.
             //60 until #398. The pit lost its buried mass to the skin and its tiles widened to three; 29
-            //groups of six colours price at 46, 7.5 balls a shot against Colossus's 8.1.
+            //groups of six colours price at 46, 7.5 balls a shot against the hand-drawn Colossus's 8.1 (until #849).
             Shots = 46,
             CeilingStep = 6,
             //Chebyshev at x.75 rather than on the half: the polar round-trip makes an exactly attainable
@@ -186,8 +186,9 @@ namespace BS3D.Tools.LevelGen
         //  Eclipse  two depths: a cool disc hung in front of a larger warm one, a gap of air between them
         //  Geode    a cavity: a dull boulder with a crystal sealed in it (The Reveal's payoff, #743)
         //  Locket   the column and the cavity at once: cut the stone's white neck and it falls away from its crystal
-        //and the hand-drawn Colossus still closes the chapter: whether it should give way to a generated closer with an
-        //idea of its own is the owner's decision (#849), since it is the one level this tool does not write.
+        //  Colossus the closer (#849), two of them in a figure: a giant holding the glass up on both arms, an arch
+        //           between its legs and a crystal buried in its chest on a cord up through its head
+        //It was hand-drawn until the owner's ruling of 2026-10-12 asked for a generated closer with an idea of its own.
         //
         //THE STYLE IS KEPT: lattice-aligned tiles of colour QUARRY_TILE across and QUARRY_COURSE tall, so a body is
         //still worked a tile at a time and no shot triggers the whole of it. What changed is the silhouette, and
@@ -208,13 +209,16 @@ namespace BS3D.Tools.LevelGen
         //  Archway  228 / 22 / 32   10 %                    Cornice  253 / 13 / 22   32 %
         //  Hoist    252 / 19 / 25   66 %, the white column  Eclipse  261 / 23 / 36    6 %
         //  Geode    288 / 28 / 41    9 %                    Locket   301 / 32 / 37   77 %, the white neck
+        //  Colossus 337 / 33 / 42    8 %, the heart
         //⚠ NO HEAVIER THAN WHAT THEY REPLACED. #398's ruling on this chapter was "less dense", and the owner's note on
         //Colossus asked for fewer balls, so the six together carry 1,583 balls against the 1,590 of the six levels before
         //them, in 137 standing groups against 185 and 193 shots against 262: each body is the size its idea needs and
         //no larger. Every budget keeps its design's shots a group (1.16 on Locket to 1.69 on Cornice), and every
         //ceiling step about the number of steps down it takes over the budget. Each hung 0 times in 5 in the sag probe (--sag), and a white ball can be
         //landed against either key from the start (from the stand 12 landings on Hoist's column and 7 on Locket's neck,
-        //and 14 and 21 more after a walk round).
+        //and 14 and 21 more after a walk round). Colossus is lighter than the block it replaced (337 balls against 364)
+        //and the chapter's hardest by its other figures: the most standing groups and six colours (with Hopper and
+        //Eclipse), and the glass every four shots.
         //
         //THE FILES ARE THE OLD ONES (Trilithon, Gantry, Fault, Crib, Highwall, Nine): a save is keyed by the file,
         //and a file the set stops listing would put six uncleared levels in front of every player already past them

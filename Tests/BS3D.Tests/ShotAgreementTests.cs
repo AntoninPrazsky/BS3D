@@ -20,7 +20,9 @@ namespace BS3D.Tests
     /// resolved) and 97.9 % after (233 of 238), at every glance down to a dead-centre aim. The three parts, each alone and
     /// together: a segment test that lost balls (the dominant one), a landing decided by the preview's own sweep every step,
     /// and the world's gravity in the ghost's flight - sweep alone 93.3 %, sweep and gravity 95.8 %, with the narrow phase
-    /// no longer turning a shot by a contact it had not reached 97.9 %.
+    /// no longer turning a shot by a contact it had not reached 97.9 %. Measured again when #849 rebuilt Colossus, one of
+    /// the six, from a solid block into a figure with air between its limbs: 232 of 238 (97.5 %), 95.9 % at the widest
+    /// glance.
     /// </para>
     /// </summary>
     public class ShotAgreementTests(ITestOutputHelper output)
