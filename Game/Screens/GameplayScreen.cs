@@ -1187,7 +1187,8 @@ namespace BS3D.Screens
             {
                 //Testing only (the "streak=" argument): pins what the multiplier readout SHOWS, so the capped
                 //state added in #180 can be looked at. It cannot be reached by a script — it takes five
-                //consecutive scoring shots — and it changes no scoring, only the display. See PlayHud.
+                //consecutive scoring shots — and it changes no scoring, only the display, until the first shot
+                //that breaks a streak breaks this one (#845). See PlayHud.
                 ForcedMultiplier = test.ForcedStreak
             };
 
@@ -1539,7 +1540,9 @@ namespace BS3D.Screens
             //loss's own cinematic does not slow time the way the drop's does anyway.
             _lineSparks.Update(elapsed);
 
-            _hud.Update(elapsed, _run.Score);
+            //The Swap's hint (#845) is asked here, once a frame, and costs a field walk only when the field or a round's
+            //colour has changed since it was last asked (RoundCanScore)
+            _hud.Update(elapsed, _run.Score, SwapIsTheCure());
             //The skip hint over whichever takeover a click can skip (#699): the drop or the chapter's tour. Not over the drop
             //of the shot that cleared the level (the owner, 2026-10-04): the player has finished and there is nothing left
             //to skip to, so it says nothing, though a click still skips it. A drop running over a decided level is over a

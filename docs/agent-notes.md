@@ -548,8 +548,15 @@ Pravidla:
 - ⚠ Nástroj Write převádí `\u00A0` na skutečný znak; escape vkládat skriptem.
 - Otevřené: čísla v tabulkách (žebříčky, rozpis výsledku), výběr úrovně, stránka CLEARED; Myra stránky hlídá jen review.
 
+## 2026-10-12 — #845 zlom násobiče a nápověda Swapu — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #845 jde na main (merge následuje), `shipped-awaiting-verdict` + `verdict-eye`. Ztracený násobič praskne a rozletí se se střepy, na jeho místě „×5 lost“, pod tím klesající běh not (`StreakBreakSynth`, 99,8 % energie v 300–4000 Hz); ×5 větší, delší a hlasitější než ×3. Nikdy po rozhodnutí úrovně ani na poslední ráně (`StreakCues.BreakIsTold`).
+- majitel 2026-10-11: ano i bliknutí čipu Swap, když hráč má Swap, běží série a náboj v hlavni nemá kde skórovat. Bliká „Swap · keep ×3“ (`MatchReach`, jednou za stav pole).
+- ⚠ První verze zlomu byla na 1600×900 šmouha 20 px: zlom musí růst, ne se smršťovat. ⚠ Flood celého pole před každou odpovědí stál 1,4 ms; teď průzkum 0,06 ms. ⚠ Ráně do koule na stěně pole zvenku najde umístění volnou buňku vedle ní, i uzavřenou: „nikde“ ji musí počítat.
+- Bez majitele, konzervativně: bliká jen, když náboj za ním skórovat může; karty tutoriálu beze změny; `streak=` drží jen do první neskórující rány.
+- Otevřené: verdikt oka a ucha; tichý konec na poslední ráně neověřen ve hře.
+
 ## 2026-10-12 — #807 About na čtyři stránky — desktop (RDT-PC), Claude Code (bs3d-71, noc)
-- #807 (větev `807-about-pages`, merge čeká), `verdict-eye`: About má čtyři stránky: přehrávač originální skladby, hra s větou o soukromí, knihovny, nástroje s repozitářem. Šipky ◀ ▶ s LB/RB pod nimi; „1 of 4“. Stránka kreslí jen bloky z `AboutCopy.Pages`, `AboutCopyTests` čte totéž: kredity, pravidla sazby (viděny selhat).
+- #807 jde na main (merge následuje), `verdict-eye`: About má čtyři stránky: přehrávač originální skladby, hra s větou o soukromí, knihovny, nástroje s repozitářem. Šipky ◀ ▶ s LB/RB pod nimi; „1 of 4“. Stránka kreslí jen bloky z `AboutCopy.Pages`, `AboutCopyTests` čte totéž: kredity, pravidla sazby (viděny selhat).
 - Bez majitele (spí), konzervativně: přes řadu Play/Next šipky chodí po řadě a za jejími konci otáčí stránku (klávesnice nemá ramena, našla review), LB/RB otáčí odkudkoli (`MenuPage.ShoulderTurn`); About se vždy otevře na první stránce.
 - Strana 2: původní odstavec, věta o soukromí (sdílená se Settings) je delší než on. K verdiktu.
 - Nová páka `menucursor=<s>:<kroky>:<stisky>` (left, right, lb, rb) ověřila otáčení bez klávesnice.

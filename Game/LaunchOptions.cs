@@ -463,7 +463,8 @@ namespace BS3D
             //its own numbers refuted, and running off the edge of its plate. An unknown lock is ignored.
             Row.Text("nextlocked", (o, v) => o.NextLocked = v, StartupScript.IsNextLock),
             //"streak=<n>" pins what the HUD's multiplier shows (#180) — the display only, never the
-            //scoring, so the lever cannot alter the thing it is there to look at.
+            //scoring, so the lever cannot alter the thing it is there to look at — until the first shot that
+            //breaks a streak breaks this one, as it would a real one (#845).
             Row.Int("streak", (o, v) => o.Streak = v),
             //"wildcard=<n>" makes every Nth loaded ball a wildcard (#330) on whatever level is played. It
             //DOES change play, unlike the levers above it — it has to, because no shipped level hands one

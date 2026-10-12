@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Prazsky.BS3D;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Physics;
@@ -250,6 +251,66 @@ namespace BS3D.Screens
             if (CanActivate(PowerupKind.Brake)) Activate(PowerupKind.Brake);
             else if (_run.BrakeOffered && !CameraTakeoverEngaged && !LevelDecided) Game.Audio.PlayShotRefused();
         }
+
+        #region The Swap's hint (#845)
+
+        //"Has a round of this colour anywhere to score?", kept per colour until the field changes (BallsMap.Revision, or
+        //another map): MatchReach surveys the whole field for it, a fraction of a millisecond on the frame a landing changes
+        //the field and nothing to spend on every frame. Kept by COLOUR rather than by magazine slot, so a swap, which trades
+        //two slots' colours, asks nothing again. 0 is not asked yet, 1 nowhere, 2 somewhere.
+        private readonly MatchReach _matchReach = new();
+        private readonly byte[] _scoringByType = new byte[BallRenderSet.TYPE_COUNT + 1];
+        private BallsMap _scoringMap;
+        private int _scoringRevision;
+
+        /// <summary>
+        /// Whether the Swap chip flashes this frame (#845): <see cref="StreakCues.SwapIsTheCure"/> over this session's
+        /// state. The streak is the one the HUD <b>shows</b> (<see cref="PlayHud.StreakShown"/>), so the <c>streak=</c>
+        /// lever can photograph it. The cheap questions are asked first, so a frame with no Swap to spend or no streak
+        /// running never reaches the field.
+        /// </summary>
+        private bool SwapIsTheCure()
+        {
+            bool canAct = _map != null && CanActivate(PowerupKind.Swap) && !_run.Score.OutOfShots;
+            int streak = _hud.StreakShown(_run.Score);
+            if (!canAct || streak <= 1) return false;
+
+            return StreakCues.SwapIsTheCure(canAct, streak, RoundCanScore(SWAP_SLOT_A), RoundCanScore(SWAP_SLOT_B));
+        }
+
+        /// <summary>
+        /// Whether the round in <paramref name="slot"/> has an open landing that would score: always for a round that needs
+        /// no match (<see cref="StreakCues.NeedsAMatch"/>), otherwise <see cref="MatchReach.HasScoringLanding"/>, asked once
+        /// per colour while the field stands as it is.
+        /// </summary>
+        private bool RoundCanScore(int slot)
+        {
+            MagazineSlot round = _magazine.Slot(slot);
+            if (!StreakCues.NeedsAMatch(round.Kind)) return true;
+
+            if (!ReferenceEquals(_scoringMap, _map) || _scoringRevision != _map.Revision)
+            {
+                _scoringMap = _map;
+                _scoringRevision = _map.Revision;
+                Array.Clear(_scoringByType);
+            }
+
+            int type = (int)round.Type;
+            if (type < 0 || type >= _scoringByType.Length) return true;
+
+            if (_scoringByType[type] == 0)
+            {
+                bool canScore = _matchReach.HasScoringLanding(_map, round.Type, BallsConstraintsBuilder.MINIMUM_CLUSTER_SIZE);
+                _scoringByType[type] = canScore ? (byte)2 : (byte)1;
+
+                if (_test.LogShots)
+                    Console.WriteLine($"[swaphint] {round.Type}: {(canScore ? "can score" : "nowhere to score")}");
+            }
+
+            return _scoringByType[type] == 2;
+        }
+
+        #endregion
 
         #region The cut's preview (#692)
 

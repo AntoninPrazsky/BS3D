@@ -26,6 +26,17 @@ namespace Prazsky.BS3D.GameStructure
         public bool Centered { get; internal set; } = false;
         public Vector2 BoundingBoxCenter { get; internal set; }
 
+        /// <summary>
+        /// Moves on every change to which ball stands in which cell (#845): a ball placed or removed, the map cleared or
+        /// loaded. Two reads that agree saw the same field, so an answer worked out over the map can be kept until this
+        /// moves rather than asked again every frame; the Swap chip's "has the round in the bore anywhere to score"
+        /// (<see cref="MatchReach"/>) is kept that way. It holds by construction: every write to the cells is one of
+        /// this class's own (<see cref="PutBallAt"/>, <see cref="RemoveBallAt"/>, <see cref="Clear"/>, a load), and a
+        /// <see cref="StaticBall"/>'s colour and kind cannot change once it is placed. The array
+        /// <see cref="GetStaticBallsArray"/> hands out is for reading: a write into it would not move this.
+        /// </summary>
+        public int Revision { get; private set; }
+
 
         public BallsMap(byte stageSizeX, byte stageSizeZ, byte levels)
         {
@@ -84,6 +95,7 @@ namespace Prazsky.BS3D.GameStructure
 
             var ball = new StaticBall(realPosition, type, kind);
             _balls[stageX, stageZ, level] = ball;
+            Revision++;
 
             return ball;
         }
@@ -93,6 +105,7 @@ namespace Prazsky.BS3D.GameStructure
             if (stageX >= StageSizeX || stageZ >= StageSizeZ || level >= Levels) throw new ArgumentOutOfRangeException($"Invalid requested ball position, array size is: {StageSizeX} × {StageSizeZ} × {Levels}");
 
             _balls[stageX, stageZ, level] = null;
+            Revision++;
         }
 
         public static Vector3 GetRealPosition(byte stageX, byte stageZ, byte level)
@@ -475,9 +488,12 @@ namespace Prazsky.BS3D.GameStructure
         /// placed in the (empty) cell <paramref name="start"/>, itself included. The walk is
         /// <see cref="GetConnectedSameTypeCells"/>' exactly — same neighbour rule, same
         /// <see cref="BallKinds.Matchable"/> gate — differing only in that the start cell is hypothetical, so it
-        /// is counted and its neighbours seeded without being read out of the map.
+        /// is counted and its neighbours seeded without being read out of the map. Shared with
+        /// <see cref="MatchReach"/> (#845), which asks it of the empty cells beside a colour's balls, so the match rule has one walk.
+        /// <paramref name="stamp"/> cells holding <paramref name="mark"/> count as walked already: a caller reusing
+        /// one buffer gives every walk its own mark.
         /// </summary>
-        private int CountGroupIfPlaced(XZLevel start, BallType type, XZLevel size, byte[,,] stamp, byte mark,
+        internal int CountGroupIfPlaced(XZLevel start, BallType type, XZLevel size, byte[,,] stamp, byte mark,
             Queue<XZLevel> toVisit)
         {
             toVisit.Clear();
@@ -778,6 +794,8 @@ namespace Prazsky.BS3D.GameStructure
                 for (byte x = 0; x < StageSizeX; x++)
                     for (byte z = 0; z < StageSizeZ; z++)
                         _balls[x, z, level] = null;
+
+            Revision++;
         }
 
         public int GetBallsCount()
@@ -1169,6 +1187,7 @@ namespace Prazsky.BS3D.GameStructure
         private void BuildMapFromBallPositionTypes(BallPositionTypes ballPositionTypes)
         {
             _balls = new StaticBall[StageSizeX, StageSizeZ, Levels];
+            Revision++;
 
             XZLevel layoutSize = XZLevel.FromArray(ballPositionTypes.Balls);
 
