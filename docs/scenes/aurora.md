@@ -30,7 +30,7 @@ The nineteenth `SceneKind` (#205): a snowy boreal wood at night under a strong, 
 - **⚠ The hue drift must be in the sky.** `DriftHueSpeed` once swung only the ground's light (lavender ground under a green curtain). One number (`AuroraBackdrop.AuroraHueShift`, also the shader uniform) now shifts the sky's ramp in the shader, and the ground and rig read the same shift around `AURORA_LIGHT_MIX`.
 - **No `SceneLights` branch, no `TryGetSceneEvent`** (the source is the whole overhead sky, and the pulse is continuous). **Ambience:** an explicit `case SceneKind.Aurora` in `ProceduralAmbience.BakeScene` (never leave a domeless scene to the default arm): the forest's wind quieted, under a faint shimmer.
 - **Snow:** its own `Snow.fx` clone (#580) and `SnowConfig`; `FlakeCount` is clamped to `_snowFlakeCapacity`. ⚠ The defocus lens (#654) made near flakes big pale discs against the night, so they fade from five units and are dimmer.
-- **Intro:** `AuroraIntroShots`; see "And the aurora, since #531" in `docs/game-feedback.md`.
+- **Intro:** `AuroraIntroShots`; see "The volcano (#530) and the aurora (#531)" in [Chapter intro prologues](../game-feedback/chapter-intro-prologues.md).
 
 ## Costs
 

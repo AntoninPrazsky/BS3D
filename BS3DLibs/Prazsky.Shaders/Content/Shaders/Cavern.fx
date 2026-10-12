@@ -926,7 +926,7 @@ float4 CavernScene(CavernVertexOutput input, uniform bool fullDetail)
     float formationGroup = -1.0;
 
     //Not in the reduced program: the Low tier keeps the cave's shell, crystals, river and glowworms and gives up the
-    //formations, the dearest term this adds (measured in docs/scenes.md, "The formations")
+    //formations, the dearest term this adds (measured in docs/scenes/cavern.md, "Overhead: glowworms, stalactites, columns")
     //An if on the uniform and not a ?: - HLSL's ?: evaluates both sides, and this one writes formationGroup
     float formationT = tSolid;
     if (fullDetail) formationT = FormationsHit(direction, tSolid, formationGroup);

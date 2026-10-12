@@ -588,8 +588,15 @@ Pravidla:
 - ⚠ Pruhy kolem svislé osy ukazují kameře o 15–18 % víc plochy než kouli; vyvažovat na podílu koule ztmavilo červenou o 4,7 dE. Pokrytí se musí přeměřit při každé změně figury.
 - Otevřené: volba sady; na vinylu sady nahradí bílé klíny plážového míče; HUD disky, kanón, ostatních 7 stylů a Pi figuru nekreslí; čas na GPU neměřen.
 
+## 2026-10-12 — #400 osmý krátký průchod revize — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- Osmý průchod #400 (448f19ae..b1a5622b) jde na main (merge následuje), zavřeno jako objektivní. Chyby v kódu žádné. Opraveno deset rozbitých citací dokumentů po dietě #839 (sekce „Two kinds of control“ z #816 je zpět v `docs/game-shell/settings.md`, odkazy na staré nadpisy vedou do pod-dokumentů, komentář `Cavern.fx`) a jedno špatné číslo: karta tutoriálu má na 3840×1600 148 px, ne 178.
+- DocDrift už nebere číslo issue jako znak historie (to pravidlo schovalo 178); kandidátů je 29 místo 26.
+- Bez majitele (spí), konzervativně: jen dokumenty, komentáře a triážní nástroj.
+- ⚠ Pravidlo „věta s #NNN je historie“ v DocDriftu skrývalo živá tvrzení; od #839 nesou čísla issues i pravidla.
+- Otevřené: 148 px spočteno z kódu, ne změřeno v záběru; citace bez uvozovek skript neověří. Další průchod začíná na b1a5622b.
+
 ## 2026-10-12 — #726 vlastní zvuk modrého kroku stropu — desktop (RDT-PC), Claude Code (bs3d-71, noc)
-- #726 na větvi `726-feed-step-sound` (merge následuje), `shipped-awaiting-verdict` + `verdict-eye` (ucho). Modrý krok (feed i zvednutí Brzdou) má vlastní nahrávku `Sfx/ceiling-feed.ogg`: dva údery marimby stoupající o oktávu (C4 → C5), 76,7 % energie v 300–4000 Hz, `CEILING_FEED_LEVEL` 0,25 (na monitoru o 12 dB slyšitelnější než dřív, pod releasem i ránou); za ní bake `CeilingFeedSynth`. Řádek `[ceiling]` končí `heard <cue> at <hlasitost> +<n> st`; Totem: 17 kroků feedu a 2 Brzdy `ceiling-feed.ogg`, 8 červených `ceiling-step`.
+- #726 na větvi `726-feed-step-sound` (merge následuje), `shipped-awaiting-verdict` + `verdict-eye` (ucho). Modrý krok (feed i zvednutí Brzdou) má vlastní nahrávku `Sfx/ceiling-feed.ogg`: dva údery marimby stoupající o oktávu (C4 → C5), 76,7 % energie v 300–4000 Hz, `CEILING_FEED_LEVEL` 0,25 (na monitoru o 12 dB slyšitelnější než dřív, pod releasem i ránou); za ní bake `CeilingFeedSynth`. Řádek `[ceiling]` končí `heard <cue> at <hlasitost> +<n> st`; Totem: 17 kroků feedu a 2 Brzdy `ceiling-feed.ogg`, 8 červených `ceiling-step.ogg` (cue podle hlasu, který zazněl; bez souborů `… bake`). Stoupání proudu počítá herní čas (`CeilingFeedPour`), pauza ho drží. Poslech před/po: https://claude.ai/artifact/9Q9VCdRZF7YNy6VaUJ85ea
 - Bez majitele, konzervativně: Brzda hraje tentýž stoupající zvuk, žádný protějšek (klesající figura tu znamená „ne“); proud feedů stoupá o půltón za krok až o kvintu; pod nahrávkou přimíchané tělo 132 Hz (3,4 %).
-- ⚠ Podíl pásma celého zvuku měř bez okna: Hann přes celý zvuk dal 90,9 % místo 59,6 %.
+- ⚠ Podíl pásma celého zvuku měř bez okna: Hann přes celý zvuk dal 90,9 % místo 59,6 %. Časování ve hře nikdy na Stopwatch: pauza pak proud restartuje.
 - Otevřené: ucho majitele (monitor, notebook); hlasitost proti hudbě jen měřena.
