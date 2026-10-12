@@ -491,6 +491,6 @@ Pravidla:
 
 ## 2026-10-12 — #742 hloubka Lomu — desktop (RDT-PC), Claude Code (bs3d-71, noc)
 - #742 (merge následuje): Lom (Měsíc, levely 64–69) přestavěn v `Block06_Quarry.cs` — Archway, Cornice, Hoist, Eclipse, Geode, Locket, každý s jedním nápadem, který zbraň vidí (oblouk, převis, kámen na bílém klíči, dvě hloubky, uzavřený krystal, krystal na šňůrce). Soubory si nechaly jména, hvězdy hráčů zůstávají. Šest levelů nese 1 583 koulí oproti 1 590, 137 skupin místo 185. Mosaic, Prism a Hopper beze změny.
-- majitel: Colossus je ručně kreslený, proto zůstává; jeho přestavbu nechávám na rozhodnutí v #849 (owner-decision).
+- Bez majitele (spí), konzervativně: Colossus je ručně kreslený, proto zůstává; jeho přestavba čeká na rozhodnutí v #849 (owner-decision).
 - ⚠ Opravný průchod obarvil okrajové koule u krku Locketu na bílou; dlaždice kamene se teď počítají od `LOCKET_STONE_TILE_FROM`, takže bílý je jen krk. Geode se pomalu kroutí kolem svislé osy (dělala to i těžší v1).
 - Otevřené: verdict-eye; na Pi spustit při příštím vydání `update-ceilings.sh` (desky šesti levelů se resetují); nikdo je nehrál rukou.
