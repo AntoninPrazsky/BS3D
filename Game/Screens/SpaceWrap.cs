@@ -31,7 +31,11 @@ namespace BS3D.Screens
     /// its unit ("MonoGame 3.8.5", "385 balls"); a <b>lone dash or operator</b> (— – + = × ÷ −) stays at the end of the
     /// line before it, so no line starts with one (TeX's rule for a binary operator); and a <b>one-letter word</b> (a, A,
     /// I) goes over to the next line with the word after it rather than ending a line. A tie is drawn as a plain space:
-    /// both faces carry U+00A0, but the line has already been laid out, and the space is the glyph the measure saw.
+    /// both faces carry U+00A0, but the line has already been laid out, and the space is the glyph the measure saw. A tie
+    /// at a word's edge, doubled or beside a space is only a space, dropped like one: <b>no line starts or ends with a
+    /// space, whatever the copy does</b> (#855), which is the promise every wrapping label is set through this for — the
+    /// label's own wrap (FontStashSharp's) breaks after a full stop as well as at a space, and when the glyph that
+    /// overflows is the space after a sentence it breaks after the stop and starts the next line with that space.
     /// </para>
     /// <para>
     /// A pure function of the text and a measure, so the promises are pinned in a test with a stand-in for the font
@@ -69,7 +73,8 @@ namespace BS3D.Screens
         //What may not end a line: a word of one letter
         private static bool TiesForward(string word) => word is "a" or "A" or "I";
 
-        /// <param name="text">The paragraph. A <c>'\n'</c> in it is kept as a line break of its own; a run of spaces is one space.</param>
+        /// <param name="text">The paragraph. A <c>'\n'</c> in it is kept as a line break of its own; a run of spaces is one space,
+        /// and none at a line's ends; a paragraph of nothing but spaces comes back as written (a page's blank status line).</param>
         /// <param name="width">The line's width, in the measure's units.</param>
         /// <param name="measure">A line's width as the label will draw it.</param>
         public static string Wrap(string text, float width, Func<string, float> measure)
@@ -106,8 +111,15 @@ namespace BS3D.Screens
                 joinNext = TiesForward(word);
             }
 
-            for (int i = 0; i < units.Count; i++)
-                units[i] = units[i].Replace(TIE, ' ');
+            //A tie is drawn as a space, so one at a word's edge, doubled or beside a space would put a space at the edge
+            //of a line or two inside one (#855): the unit keeps its words and single spaces between them, and a unit that
+            //was nothing but ties goes
+            for (int i = units.Count - 1; i >= 0; i--)
+            {
+                string unit = string.Join(' ', units[i].Replace(TIE, ' ').Split(' ', StringSplitOptions.RemoveEmptyEntries));
+                if (unit.Length == 0) units.RemoveAt(i);
+                else units[i] = unit;
+            }
 
             return units;
         }
@@ -116,7 +128,14 @@ namespace BS3D.Screens
         {
             List<string> units = Units(paragraph);
             int n = units.Count;
-            if (n == 0) return;
+
+            //A paragraph of no words is kept as written: a single space is how a page holds a status line's height while
+            //it has nothing to say (the picker's boards), and it must come back as the space it was
+            if (n == 0)
+            {
+                result.Append(paragraph);
+                return;
+            }
 
             //A break after unit k leaves an operator at the line's end when the unit is a word with an operator tied on
             bool[] endsOnOperator = new bool[n];

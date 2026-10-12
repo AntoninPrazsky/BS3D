@@ -1192,7 +1192,8 @@ namespace BS3D.Screens
                 //quoted the star gate anyway: "unlocks at 150 ★ — you have 306". LevelResult.UnlockNote names
                 //whichever lock actually holds.
                 string unlockNote = _result.UnlockNote;
-                _unlockNote.Text = unlockNote;
+                //As prose (#855): the note's own line break is kept, and a wrapping label is never handed raw text
+                SetProse(_unlockNote, unlockNote);
                 _unlockNote.Visible = unlockNote.Length > 0;
 
                 //The columns at their final widths before anything of the reveal is written (#665), and after the
@@ -1441,7 +1442,9 @@ namespace BS3D.Screens
         /// </summary>
         private void SetStatus(string text, OnlineSignal.SignalMode? signal)
         {
-            _boardsStatus.Text = text;
+            //As prose (#855): the line wraps beside its signal, and a wrapping label is never handed raw text. ApplyBoards
+            //reaches this only when the result's generation moves, never per frame
+            SetProse(_boardsStatus, text);
             _statusRow.Visible = text.Length > 0;
 
             _signal.Visible = signal != null;

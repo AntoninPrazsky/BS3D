@@ -568,9 +568,11 @@ namespace BS3D.Screens
             if (month == null) _boardMonth.You.Text = " ";
             if (allTime == null) _boardAllTime.You.Text = " ";
 
-            _boardsStatus.Text = waiting ? "Loading the boards…"
+            //As prose (#855): the failure wraps at 1080p, and a wrapping label is never handed raw text. The single space
+            //that holds the line's height comes back from the breaker as it is
+            SetProse(_boardsStatus, waiting ? "Loading the boards…"
                 : failed ? "The score server did not answer."
-                : " ";
+                : " ");
             _boardsSignal.Visible = waiting || failed;
             _boardsSignal.Show(waiting ? OnlineSignal.SignalMode.Working : OnlineSignal.SignalMode.Idle);
         }
