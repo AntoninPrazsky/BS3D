@@ -533,3 +533,10 @@ Pravidla:
 - ⚠ Motiv táhne světlé barvy k tmavým (bílá/hnědá až 4,8, bílá/stříbrná 7,9–11,6 dE).
 - ⚠ `alt=colourcue=` cenu tvaru změřil nesmyslně; měř po procesech.
 - Otevřené: majitel volí (a), (b), obojí; pak 13 barev, HUD fronta, Pi (#828: (a)).
+
+## 2026-10-12 — #810 tlumené dunění při uvolnění skupiny — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #810 (větev `810-release-rumble-curve`, merge následuje), `shipped-awaiting-verdict` + `verdict-hands`: přímka uvolnění (plno při 20 koulích) nahrazena v `LandingRumble` křivkou ln(1+n/10) až do 250 koulí (≈ p99 z ~20k uvolnění LevelGen `--drops`, medián 19–27). Strop: těžký motor 0,5, lehký 0,65, délka 0,26–0,9 s. `PadChannel` drží dvě vrstvy: běžné kopance (beze změny jako po #378) a uvolnění s vlastním doznívání; uvolnění motor nikdy nezvedne nad max(strop, běžné kopance). Ťuknutí dopadu je přesně to z #378.
+- Bez majitele (spí), konzervativně: pět bodů z těla issue, řádek Rumble v Nastavení beze změny.
+- ⚠ Review: kopanec chrastění zkracoval 0,9 s ocas uvolnění na svou délku a výstřel na ocasu přeskočil strop (0,88); opraveno vrstvami, testy viděny selhat.
+- ⚠ Argument `pad` nepřipne ruku na pad, jen výzvy (#852), skriptovaný běh dunění nedosáhne.
+- Otevřené: verdict-hands na padu; #852.
