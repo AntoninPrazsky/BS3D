@@ -194,7 +194,7 @@ namespace Prazsky.BS3D.GameStructure
                 Spots("four big rings", 1, 4, 36f, 0.209f, ringInnerDegrees: 24f),
                 Spots("twelve dots", 6, 12, 19.5f, 0.344f),
                 Spots("four big spots", 1, 4, 34f, 0.342f),
-                Spots("six dots", 0, 6, 26f, 0.304f),
+                Spots("six dots", 0, 6, 21f, 0.200f),
                 Spots("twelve rings", 2, 12, 17f, 0.171f, ringInnerDegrees: 10f),
             },
         };
@@ -213,7 +213,7 @@ namespace Prazsky.BS3D.GameStructure
                 BallType.Type8 => (1.0f, 0.08f),  //black
                 BallType.Type10 => (2.2f, 0.01f), //brown
                 BallType.Type11 => (2.0f, 0f),    //silver
-                BallType.Type12 => (1.6f, 0.04f), //navy
+                BallType.Type12 => (2.6f, 0.05f), //navy
                 _ => (0f, 0f),
             };
 
