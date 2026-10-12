@@ -338,12 +338,49 @@ namespace BS3D.Screens
 
         private int _multiplierShown = 1;
 
-        //A streak that merely vanishes is feedback the player can miss entirely — it is the one thing on the
-        //HUD whose LOSS is the event. So the broken value is held for a moment, fading and dropping away.
-        private int _streakBroken;
-        private float _streakBrokenAge;
-        private const float STREAK_BREAK_TIME = 0.45f;
-        private const int STREAK_BREAK_FALL = 44;       //design units it slides down as it goes
+        //THE BREAK IS AN EVENT (#845), because the streak is the one thing on the HUD whose LOSS is the news. Until #845 the
+        //lost value slid 44 units and faded in 0.45 s, in a corner the eyes are not on, a lost x5 the same as a lost x3, and
+        //the owner's playtest said it passed almost unnoticed. Now the badge CRACKS (a jolt, a white-hot flash, its spring
+        //kicked inward, the way the ball count's shrinks) and SHATTERS: its glyphs fly apart and tumble down with shards of
+        //it, cooling to grey, while "x5 lost" stands where it stood and the falling run in ProceduralAudio sounds. Every
+        //figure scales with what was lost (BreakSeverity, 0.5 at x3 and 1 at the cap): a x5 shakes harder, throws more and
+        //further and holds longer. The SESSION starts it (BreakStreak) rather than this class reading the keeper, because
+        //only the session knows when a break must stay silent: the level decided, or its last shot spent, where it would
+        //play over the result.
+        private int _breakLost;                         //the multiplier lost, 0 while nothing is breaking
+        private float _breakAge;
+        private float _breakLength;                     //seconds the whole break lasts, by what was lost
+        private float _breakPhase;                      //the cap's sweep where it stood, so a x5's pieces keep their colours
+        private int _breakSeed;                         //a new one per break, so no two shatter alike
+        private string _breakCaption = string.Empty;    //"x5 lost", built once per break and never per frame
+
+        private const float STREAK_BREAK_CRACK = 0.11f;         //the jolt, before the pieces leave
+        private const float STREAK_BREAK_TIME_LOW = 0.8f;       //seconds, at a severity of 0 ...
+        private const float STREAK_BREAK_TIME_HIGH = 1.4f;      //... and of 1 (x3: 1.1 s, x5: 1.4 s)
+        private const int STREAK_BREAK_SHAKE_LOW = 6;           //design units of the jolt's swing
+        private const int STREAK_BREAK_SHAKE_HIGH = 18;
+        private const float STREAK_BREAK_SHAKE_HZ = 31f;
+        private const float STREAK_BREAK_KICK = -0.35f;
+
+        //The pieces, in design units and seconds: thrown sideways and up, then pulled down; the shards a little faster and
+        //spun harder than the glyphs, since they are smaller and lighter
+        private const float STREAK_BREAK_GRAVITY = 2600f;
+        private const float STREAK_BREAK_THROW = 430f;
+        private const float STREAK_BREAK_LIFT = 520f;
+        private const float STREAK_BREAK_SPIN = 4.5f;           //radians a second at most, a glyph
+        private const int STREAK_SHARDS_LOW = 4;
+        private const int STREAK_SHARDS_HIGH = 14;
+        private const float STREAK_SHARD_SPEED = 980f;
+        private const float STREAK_SHARD_SPIN = 14f;
+        private const int STREAK_SHARD_LENGTH = 30;
+        private const int STREAK_SHARD_THICKNESS = 7;
+
+        //And what is left, "x5 lost": in by STREAK_CAPTION_IN, held, and out over the last STREAK_CAPTION_OUT of the break.
+        //Its own tint (STREAK_LOST): the streak's warmth gone out of it, never the alarm's red, which belongs to the glass
+        private const float STREAK_CAPTION_IN = 0.12f;
+        private const float STREAK_CAPTION_OUT = 0.35f;
+        private const int STREAK_CAPTION_SINK = 14;
+        private static readonly Color STREAK_LOST = new(214, 214, 222);
 
         //THE CAP IS ITS OWN TIER (#180). Below MaxMultiplier the streak warms towards the one accent and that is
         //the whole of it, which is why a x5 used to read as a slightly hotter x2 — climb is normalised 0..1
@@ -674,7 +711,9 @@ namespace BS3D.Screens
 
             _ballsShown = score.ShotsRemaining ?? -1;
             _multiplierShown = score.Multiplier;
-            _streakBroken = 0;
+            _breakLost = 0;
+            _swapHint = false;
+            _swapHintAge = 0f;
             _streakCapped = score.Multiplier >= ScoreKeeper.MaxMultiplier;
             _streakCapFlare = 0f;
             _clock = 0f;
@@ -711,6 +750,30 @@ namespace BS3D.Screens
         /// </summary>
         internal void FlashScore() => _scorePulse.Kick(SCORE_KICK);
 
+        /// <summary>
+        /// A streak of <paramref name="lost"/> has just been lost (#845): the badge cracks and shatters, and "×5 lost" stands
+        /// where it stood. Called by the session, which has already decided the player is to be told (see the field notes
+        /// above <see cref="_breakLost"/>); a second break over one still playing starts afresh.
+        /// </summary>
+        internal void BreakStreak(int lost)
+        {
+            if (lost <= 1) return;
+
+            //Where the cap's sweep stands now, so a broken x5's glyphs keep the colours they were wearing
+            _breakPhase = _clock / STREAK_CAP_CYCLE;
+            _breakLost = lost;
+            _breakAge = 0f;
+            _breakLength = MathHelper.Lerp(STREAK_BREAK_TIME_LOW, STREAK_BREAK_TIME_HIGH, BreakSeverity(lost));
+            _breakSeed++;
+            _breakCaption = "×" + lost.ToString(CultureInfo.InvariantCulture) + " lost";
+
+            _streakPulse.Kick(STREAK_BREAK_KICK);
+        }
+
+        /// <summary>How much was lost, 0 to 1 over the multipliers the rule allows: 0.5 at ×3 and 1 at the cap (×5).</summary>
+        internal static float BreakSeverity(int lost) =>
+            Math.Clamp((lost - 1f) / MathF.Max(1f, ScoreKeeper.MaxMultiplier - 1f), 0f, 1f);
+
         #endregion
 
         #region Update
@@ -719,7 +782,9 @@ namespace BS3D.Screens
         /// Advances the count-up, the springs and the popups. On the play clock, so all three freeze with a
         /// pause rather than running on behind a menu the player has stopped the game with.
         /// </summary>
-        internal void Update(float elapsed, ScoreKeeper score)
+        /// <param name="swapIsTheCure">Whether the Swap would load a round that can score in place of one that cannot (#845,
+        /// <c>GameplayScreen.SwapIsTheCure</c>): with a streak running, the Swap chip flashes.</param>
+        internal void Update(float elapsed, ScoreKeeper score, bool swapIsTheCure = false)
         {
             _clock += elapsed;
 
@@ -727,11 +792,13 @@ namespace BS3D.Screens
             ChaseScore(elapsed, score);
             WatchStreak(elapsed, score);
             WatchBalls(score);
+            WatchSwapHint(elapsed, score, swapIsTheCure);
 
             _scorePulse.Update(elapsed);
             _streakPulse.Update(elapsed);
             _ballsPulse.Update(elapsed);
             _tutorialPulse.Update(elapsed);
+            _swapPulse.Update(elapsed);
         }
 
         /// <summary>
@@ -796,20 +863,34 @@ namespace BS3D.Screens
             if (_streakCapFlare > 0f)
                 _streakCapFlare = MathF.Max(0f, _streakCapFlare - elapsed / STREAK_CAP_FLARE_TIME);
 
-            if (multiplier == 1 && _multiplierShown > 1)
-            {
-                _streakBroken = _multiplierShown;
-                _streakBrokenAge = 0f;
-            }
-            else if (multiplier > 1) _streakBroken = 0;
-
             _multiplierShown = multiplier;
 
-            if (_streakBroken > 0)
+            //A break plays out on its own clock; a streak dropping to x1 WITHOUT one (the level decided, its last shot spent)
+            //simply goes, because the session judged there was no one to tell (BreakStreak)
+            if (_breakLost > 0)
             {
-                _streakBrokenAge += elapsed;
-                if (_streakBrokenAge >= STREAK_BREAK_TIME) _streakBroken = 0;
+                _breakAge += elapsed;
+                if (_breakAge >= _breakLength) _breakLost = 0;
             }
+        }
+
+        /// <summary>
+        /// Whether the Swap chip is flashing (#845), and for how long: the session's answer, and a streak above ×1 on the
+        /// readout (so <c>streak=</c> can photograph it). Its onset kicks the chip's own spring once, which is what catches
+        /// the eye; the breathing that follows keeps it found.
+        /// </summary>
+        private void WatchSwapHint(float elapsed, ScoreKeeper score, bool swapIsTheCure)
+        {
+            bool on = swapIsTheCure && MultiplierOf(score) > 1;
+
+            if (on && !_swapHint)
+            {
+                _swapHintAge = 0f;
+                _swapPulse.Kick(SWAP_HINT_KICK);
+            }
+
+            _swapHint = on;
+            if (on) _swapHintAge += elapsed;
         }
 
         private void WatchBalls(ScoreKeeper score)

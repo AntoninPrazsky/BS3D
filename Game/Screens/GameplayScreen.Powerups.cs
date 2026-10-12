@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Prazsky.BS3D;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Physics;
@@ -250,6 +251,62 @@ namespace BS3D.Screens
             if (CanActivate(PowerupKind.Brake)) Activate(PowerupKind.Brake);
             else if (_run.BrakeOffered && !CameraTakeoverEngaged && !LevelDecided) Game.Audio.PlayShotRefused();
         }
+
+        #region The Swap's hint (#845)
+
+        //The answer to "has this round anywhere to score", one per magazine slot the hint reads, kept until the field or the
+        //round changes: the walk is over the whole field (MatchReach), cheap on a landing and too dear for every frame
+        private struct ScoringAnswer
+        {
+            public BallsMap Map;
+            public int Revision;
+            public BallType Type;
+            public bool CanScore;
+        }
+
+        private readonly MatchReach _matchReach = new();
+        private ScoringAnswer _boreScoring, _behindScoring;
+
+        /// <summary>
+        /// Whether the Swap is the cure for the shot about to be fired (#845, the owner's rule of 2026-10-11): the player owns
+        /// a Swap that would act now, the round in the bore has nowhere to score, and the round behind it has. The HUD flashes
+        /// the Swap chip while this holds <b>and</b> a streak above ×1 is running (it asks the streak itself, so the
+        /// <c>streak=</c> lever, which pins what the readout shows, can photograph it).
+        /// <para>
+        /// "Nowhere to score" is <see cref="MatchReach"/>'s certain "none", so the chip never points at the Swap while the
+        /// bore has a match to be had. The round behind is the conservative half: a swap that would load another round with
+        /// nowhere to score is no cure, and pointing at it would teach the player to spend the Swap on nothing. A wildcard or
+        /// a cutter needs no match, so one in the bore never asks for the swap and one behind it is a cure.
+        /// </para>
+        /// </summary>
+        private bool SwapIsTheCure() =>
+            CanActivate(PowerupKind.Swap) && !_run.Score.OutOfShots
+            && !RoundCanScore(SWAP_SLOT_A, ref _boreScoring) && RoundCanScore(SWAP_SLOT_B, ref _behindScoring);
+
+        /// <summary>
+        /// Whether the round in <paramref name="slot"/> has an open landing that would score, from <paramref name="answer"/>
+        /// while the field (<see cref="BallsMap.Revision"/>) and the round's colour are what it was worked out for.
+        /// </summary>
+        private bool RoundCanScore(int slot, ref ScoringAnswer answer)
+        {
+            MagazineSlot round = _magazine.Slot(slot);
+            if (round.Kind != BallKind.Normal) return true;
+
+            if (ReferenceEquals(answer.Map, _map) && answer.Revision == _map.Revision && answer.Type == round.Type)
+                return answer.CanScore;
+
+            answer.Map = _map;
+            answer.Revision = _map.Revision;
+            answer.Type = round.Type;
+            answer.CanScore = _matchReach.HasScoringLanding(_map, round.Type, BallsConstraintsBuilder.MINIMUM_CLUSTER_SIZE);
+
+            if (_test.LogShots)
+                Console.WriteLine($"[swaphint] slot {slot} {round.Type}: {(answer.CanScore ? "can score" : "nowhere to score")}");
+
+            return answer.CanScore;
+        }
+
+        #endregion
 
         #region The cut's preview (#692)
 
