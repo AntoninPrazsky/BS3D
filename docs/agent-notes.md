@@ -519,3 +519,9 @@ Pravidla:
 - `NeonExtra` zůstává 1,45: stěžňů −9,8 %, 5G sloupů −11 %, talířů beze změny; z herní kamery (pět pohledů Testbedu + hra, `sceneseed=3`) se rozdíl nepozná. 1,70 by stěžně vrátilo za +15 % talířů (`docs/scenes/city.md`).
 - ⚠ Hustotu střech měř po druzích, které herní kamera vidí jako siluetu (stěžně, talíře, sloupy), ne obsazenými buňkami: ty rostly s klimatizacemi.
 - Otevřené: verdikt majitele (1,45 nebo 1,70); intro neonu při daném `sceneseed` teď rámuje jinou střechu.
+
+## 2026-10-12 — #825 kontrola DPI na škálovaném displeji — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #825 (merge následuje): sloučená oprava DPI ověřena živě při 125 %: `[display]` hlásí 3840x1600 a 120 DPI, aware; řádek Rozlišení „3840 x 1600 (native)“ proti 3072x1280 v unaware běhu; back buffer = fyzický klient. Kontrola našla vadu: po každé změně měřítka nebo přesunu mezi monitory dal WinForms do malého slotu titulku velký rámec ikony. Nově `DisplayRefresh.WatchScale` (na Pi prázdné) ikonu znovu nasadí a `WindowIcon` bere rámce pro DPI okna (`GetSystemMetricsForDpi`). Z review: řádek Rozlišení v Nastavení teď sleduje změnu velikosti okna.
+- Bez majitele (spí), konzervativně: kurzor, výchozích 1600x900 a pixelová velikost okna při změně měřítka nechány.
+- ⚠ Callback přes `BeginInvoke` z `Form.DpiChanged` spoléhá na pořadí WinForms 10 (událost, ikona, rozměry).
+- Otevřené: #851 (řádek do release notes, kontrola na skutečném notebooku se 125 %); co DWM skutečně vykreslí na panel, nikdo neviděl.
