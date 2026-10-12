@@ -606,3 +606,9 @@ Pravidla:
 - Ověřeno snímky `settings=tab:game shot=8`: plain build (dev-2f39123) řádek má, build s `-p:BS3DReleaseVersion=v0.0.0-test` končí u Reset progress, Back stojí na místě (rám stránky je měřen podle nejvyšší záložky).
 - ⚠ Build se stavem release stav do vlastní složky (`-o`) a hned smaž: jinak leží vedle plain buildu exe, které by s online zapsalo na veřejné tabule.
 - Otevřené: nic; dev build nadále bez změny.
+
+## 2026-10-12 — #855 mezera na začátku řádku — ThinkPad, Claude Code (github-44)
+- #855 (merge do mainu, zavřeno jako objektivní): příčina je vlastní zalamování FontStashSharp — láme i za tečkou, a když přeteče právě mezera za větou, zlomí za tečkou a mezera začne další řádek. Text Help sázený syrově (stav před #806) dal v okně 1600×900 řádek „ The aim preview shows the bend.“; přes `SpaceWrap` 0 řádků při osmi výškách (měřeno skutečným fontem mimo hru).
+- Help už od #806 jde přes `SetProse`; zbylých sedm Labelů s `Wrap = true` a syrovým `Text` (stavové řádky tabulek v pickeru a výsledku, odemykací poznámka, oznámení kvality, stav a nápověda poznámky, Quit) převedeno. `ProseLabelsTests` čte `Game/Screens` a drží každý `Wrap = true` u `SetProse` (viděn selhat na sedmi); `SpaceWrap` nikdy nezačne ani neskončí řádek mezerou (TIE na kraji slova) a samotná mezera jako text zůstane (drží výšku řádku).
+- ⚠ Regex „`name.Text =` kromě `SpaceWrap.Wrap(`“ musí mít lookahead za `=` včetně mezer, jinak backtracking projde.
+- Otevřené: nic.

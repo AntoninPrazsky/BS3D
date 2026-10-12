@@ -469,7 +469,13 @@ namespace BS3D.Screens
 
         /// <summary>
         /// Writes <paramref name="text"/> into a prose label, broken into lines for its face and its laid-out width — also
-        /// for a label whose text changes after it is built (the Settings note, the nickname plate's hint).
+        /// for a label whose text changes after it is built (the Settings note, the nickname plate's hint, the boards'
+        /// status lines). <b>Every label that wraps is written through this, never through <c>Text</c></b> (#855): the
+        /// label's own wrap breaks after a full stop as well as at a space, and when the glyph that overflows the line is
+        /// the space after a sentence it breaks after the stop and starts the next line with that space (seen with Help's
+        /// copy laid out raw in a 1600×900 window). <c>SpaceWrap</c> breaks at spaces only, so a label it has set starts
+        /// every line on a word; <c>Wrap</c> stays on as the backstop for a line it left wider than the label.
+        /// <c>ProseLabelsTests</c> reads the pages' sources and holds every <c>Wrap = true</c> initializer to it.
         /// </summary>
         protected static void SetProse(Label label, string text) =>
             label.Text = SpaceWrap.Wrap(text, LaidOutWidth(label), line => label.Font.MeasureString(line).X);
