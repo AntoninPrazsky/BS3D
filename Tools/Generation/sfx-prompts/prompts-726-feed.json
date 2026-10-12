@@ -1,0 +1,17 @@
+[
+ {"name": "feed-a", "duration": 1.5, "seed": 11,
+  "negative": "loud, aggressive, distorted, clipping, noisy, hiss, white noise, high-pitched, squeal, screech, alarm, beeping, song, voice, harsh, thin, sub bass rumble, explosion",
+  "prompt": "A smooth glass elevator arriving: a warm rising synth swell and a soft round two-note chime, pleasant and reassuring. Short, mid-range, warm, moderate volume, clean video game sound design."},
+ {"name": "feed-b", "duration": 1.5, "seed": 11,
+  "negative": "loud, aggressive, distorted, clipping, noisy, hiss, white noise, high-pitched, squeal, screech, alarm, beeping, song, voice, harsh, thin, sub bass rumble, explosion",
+  "prompt": "A crystal glass bowl resonance gently swelling upward in pitch, warm and mellow, ending in a soft glassy bell tone. Short, mid-range, moderate volume, clean, pleasant game sound."},
+ {"name": "feed-c", "duration": 1.5, "seed": 11,
+  "negative": "loud, aggressive, distorted, clipping, noisy, hiss, white noise, high-pitched, squeal, screech, alarm, beeping, song, voice, harsh, thin, sub bass rumble, explosion",
+  "prompt": "A friendly hydraulic servo motor: a smooth warm whirring hum gliding upward in pitch, then a soft muted clunk as it locks into place. Short, mid-range, moderate volume, clean, arcade game sound."},
+ {"name": "feed-d", "duration": 1.5, "seed": 11,
+  "negative": "loud, aggressive, distorted, clipping, noisy, hiss, white noise, high-pitched, squeal, screech, alarm, beeping, song, voice, harsh, thin, sub bass rumble, explosion",
+  "prompt": "A warm marimba-like bwoop with a gentle upward pitch bend, round, mellow and satisfying, a soft low body underneath. Short, moderate volume, clean, video game reward sound."},
+ {"name": "feed-e", "duration": 1.5, "seed": 11,
+  "negative": "loud, aggressive, distorted, clipping, noisy, hiss, white noise, high-pitched, squeal, screech, alarm, beeping, song, voice, harsh, thin, sub bass rumble, explosion",
+  "prompt": "A heavy glass pane sliding smoothly on rails with a warm resonant tonal hum rising like a cello note, ending in a soft wooden knock. Short, mid-range, warm, moderate volume, clean game sound."}
+]

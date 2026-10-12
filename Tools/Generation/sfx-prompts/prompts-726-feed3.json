@@ -1,0 +1,11 @@
+[
+ {"name": "feed3-f", "duration": 1.0, "seed": 23,
+  "negative": "loud, aggressive, distorted, clipping, noise, hiss, static, crackle, wind, whoosh, drone, sustained, long reverb tail, high-pitched, squeal, screech, alarm, beeping, voice, harsh, thin, sub bass rumble, explosion",
+  "prompt": "A short, warm, rising two-note chime going up, like a soft mallet on a wooden marimba: two round notes, a quick natural decay into silence. Mid-range, moderate volume, recorded with plenty of headroom, clean video game sound."},
+ {"name": "feed3-k", "duration": 1.0, "seed": 31,
+  "negative": "loud, aggressive, distorted, clipping, noise, hiss, static, crackle, wind, whoosh, drone, sustained, long reverb tail, high-pitched, squeal, screech, alarm, beeping, voice, harsh, thin, explosion",
+  "prompt": "A short, warm, rising two-note chime going up, like a soft mallet on a large wooden bass marimba with a warm low resonant body underneath: two round notes, the second higher, a quick natural decay into silence. Mid-range with a soft warm low end, moderate volume, recorded with plenty of headroom, clean video game sound."},
+ {"name": "feed3-l", "duration": 1.0, "seed": 31,
+  "negative": "loud, aggressive, distorted, clipping, noise, hiss, static, crackle, wind, whoosh, drone, sustained, long reverb tail, high-pitched, squeal, screech, alarm, beeping, voice, harsh, thin, explosion",
+  "prompt": "A pleasant rising two-note vibraphone chime over a soft warm low thump, the second note higher than the first, a quick natural decay into silence. Warm, round, mid-range, moderate volume, recorded with headroom, clean game sound."}
+]
