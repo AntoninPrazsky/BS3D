@@ -1387,8 +1387,9 @@ namespace BS3D.Screens
 
         /// <summary>
         /// One glyph of the broken badge, turned by <paramref name="turn"/> about its own centre at <paramref name="centre"/> and
-        /// drawn at <paramref name="scale"/>, on the HUD's blurred black backing (<see cref="DrawString"/>'s, turned with it; the
-        /// offset shadow is left out, a tumbling piece has no up for it to fall from).
+        /// drawn at <paramref name="scale"/>, on the HUD's blurred black backing
+        /// (<see cref="DrawString(SpriteFontBase, string, Vector2, Color, float, bool)"/>'s, turned with it; the offset shadow
+        /// is left out, a tumbling piece has no up for it to fall from).
         /// </summary>
         private void DrawTurnedGlyph(SpriteFontBase font, string glyph, Vector2 centre, Vector2 size, float turn, float scale,
             Color colour)

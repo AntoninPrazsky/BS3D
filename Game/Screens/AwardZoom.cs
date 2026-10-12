@@ -46,9 +46,9 @@ namespace BS3D.Screens
         public const float BIRTH_SMALL = 0.2f, BIRTH_BIG = 0.32f;
 
         /// <summary>
-        /// From birth to the moment it leaves: the read, zoom included. A bare match stays quick, about what the whole
-        /// reading leg used to be (0.5 s), so a run of ordinary shots does not leave numbers parked over the cluster; a
-        /// big release holds long enough to read a four-digit figure and its multiplier.
+        /// From birth to the moment it leaves: the read, zoom included (<see cref="Hold(int)"/>). A bare match stays quick,
+        /// about what the whole reading leg used to be (0.5 s), so a run of ordinary shots does not leave numbers parked
+        /// over the cluster; a big release holds long enough to read a four-digit figure and its multiplier.
         /// </summary>
         public const float HOLD_SMALL = 0.55f, HOLD_BIG = 1.2f;
 
@@ -107,8 +107,17 @@ namespace BS3D.Screens
         /// <summary>How long the zoom in takes, in seconds.</summary>
         public static float Birth(int points) => Lerp(BIRTH_SMALL, BIRTH_BIG, Weight(points));
 
-        /// <summary>How long the award is read before it leaves, zoom included, in seconds.</summary>
-        public static float Hold(int points) => Lerp(HOLD_SMALL, HOLD_BIG, Weight(points));
+        /// <summary>
+        /// How long the award is read before it leaves, zoom included, in seconds. On the <b>square</b> of the weight, where
+        /// the size is on the weight itself: the size is the brag and costs the player nothing, the read is the time a
+        /// number stands over the cluster being aimed at, so it stays near <see cref="HOLD_SMALL"/> through every ordinary
+        /// shot (a match of three on the capped streak, 150 points, is read 0.65 s) and lengthens only for a real release.
+        /// </summary>
+        public static float Hold(int points)
+        {
+            float weight = Weight(points);
+            return Lerp(HOLD_SMALL, HOLD_BIG, weight * weight);
+        }
 
         /// <summary>From birth to landing in the corner.</summary>
         public static float Lifetime(float hold) => hold + FLIGHT;
