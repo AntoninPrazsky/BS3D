@@ -46,7 +46,7 @@ The free camera can dive under the surface (in the Game, the drop cinematic's le
 
 ## The school of fish and the light shafts (#760)
 
-An easter egg for a sea looked at from below, and what the Sea's chapter intro dives to see (#759, "the depths" in `docs/game-feedback.md`). Both draw **only with the lens under every trough of the swell** (`SeaBackdrop.LensUnderEveryTrough`: deeper than 4.2 of the wave amplitude plus the chop under the mean level), so in play, where the lens never goes under, they cost nothing.
+An easter egg for a sea looked at from below, and what the Sea's chapter intro dives to see (#759, *the depths* in [Chapter intro: the other scenes' shots](../game-feedback/chapter-intro-scene-shots.md)). Both draw **only with the lens under every trough of the swell** (`SeaBackdrop.LensUnderEveryTrough`: deeper than 4.2 of the wave amplitude plus the chop under the mean level), so in play, where the lens never goes under, they cost nothing.
 
 - ⚠ **Do not gate them on `LensSubmergedAmount > 0`.** That opens half a unit above the mean level, and the surface writes no depth, so a dive's first frames drew the school through the water as through glass.
 - **`FishSchool` + `Fish.fx`**: `FISH_COUNT` (110) fish in one static buffer, one draw, no CPU per fish. One `FishMesh` (a six-sided torpedo deeper than wide, forked tail, dorsal fin, 75 triangles, flat normals, `CullNone` since the fins are single sheets) repeated, each vertex carrying its fish's index; the shader hashes each fish's radius (13-21 round the island's axis), height (a 6-unit band round the funnel's tip, `FUNNEL_BOTTOM_Y` + 2) and phase, and swims it round the ring at one linear speed (3.2 a second), so the ring turns as a body and the inner fish lap the outer.

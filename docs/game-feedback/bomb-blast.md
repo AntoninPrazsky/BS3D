@@ -2,7 +2,7 @@
 
 Part of [The game: feedback](../game-feedback.md).
 
-A detonation (#389) is answered where it happened by six things at once: a flash, a fireball, a spray of sparks, the light they throw on everything round them, a report of its own and a rumble of the camera. The bomb's rules, and the throw of its victims, are "The Bomb" in `docs/game-session.md`; the report is in "The sound" of this area.
+A detonation (#389) is answered where it happened by six things at once: a flash, a fireball, a spray of sparks, the light they throw on everything round them, a report of its own and a rumble of the camera. The bomb's rules, and the throw of its victims, are under "Bomb, zap, acid" in [Special balls](../game-session/special-balls.md); the report is in "The sound" of this area.
 
 ## What makes it possible: `BallLanding.Detonations`
 
