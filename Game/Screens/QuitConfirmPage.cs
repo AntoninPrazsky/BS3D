@@ -42,7 +42,6 @@ namespace BS3D.Screens
             //holding an empty line under the heading
             _loss = new Label
             {
-                Text = "This run will not be kept.",
                 Font = FontSmall,
                 TextColor = BS3DGame.MENU_TEXT_BODY,
                 Wrap = true,
@@ -52,6 +51,8 @@ namespace BS3D.Screens
                 TextAlign = FontStashSharp.RichText.TextHorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 43),
             };
+            //As prose, like every label that wraps (#855), though one sentence rarely needs a second line
+            SetProse(_loss, "This run will not be kept.");
             column.Widgets.Add(_loss);
 
             //B and Escape on it (#799), the stack's back, which here is Cancel

@@ -1340,7 +1340,7 @@ namespace BS3D
             _highScoresPage.Pin(chapter, allTime);
             OpenPage(_highScoresPage);
         }
-        /// <summary>About (#807), on its first page: the original score's player, whatever page it was left on.</summary>
+        /// <summary>About (#807), on its first page, what the game is, whatever page it was left on: the player waits on the last.</summary>
         internal void OpenAbout() => OpenAbout(1);
 
         /// <summary>About on a stated page, 1-based — the <c>about=&lt;n&gt;</c> argument's entry (#807).</summary>
@@ -1486,10 +1486,10 @@ namespace BS3D
             }
         }
 
-        /// <summary>The Help screen (#427): how it is played, the scoring, the odd balls, the campaign and the controls.</summary>
+        /// <summary>The Help screen (#427): the controls, the basics, the scoring, the odd balls, the campaign and the glass, as tabs (#857), Controls first.</summary>
         internal void OpenHelp() => OpenPage(_helpPage);
 
-        /// <summary>The Help screen on a stated page, 1-based — the <c>help=</c> argument's entry (#427).</summary>
+        /// <summary>The Help screen on a stated tab, 1-based in the row's order (1 = Controls) — the <c>help=</c> argument's entry (#427, #857).</summary>
         internal void OpenHelp(int page)
         {
             _helpPage.ShowPage(page);

@@ -1,8 +1,10 @@
 using Microsoft.Xna.Framework;
 using Myra.Graphics2D;
 using Myra.Graphics2D.UI;
+using Prazsky.BS3D;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.Scoring;
+using Prazsky.Core.Tools;
 using System;
 using Color = Microsoft.Xna.Framework.Color;
 using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
@@ -14,16 +16,21 @@ namespace BS3D.Screens
     /// How to play, what the words on the result page mean, what the odd balls do, and which key does what
     /// (#427) — the reference a player reads once, beside About rather than inside it.
     /// <para>
-    /// <b>It is several pages behind one menu entry</b>, which is the owner's own framing and is forced by the
-    /// material: six subjects that each want a screen and share no shape. They are walked with Previous and Next,
-    /// or sideways on the arrows, the D-pad or the left stick (<see cref="PageSideways"/>).
+    /// <b>Six topics behind one menu entry, as a row of tabs</b> (#857), on the Settings page's pattern (#686,
+    /// <see cref="MenuPage.TabRow"/>): every topic visible at once and one click away, the chosen one inverted, turned
+    /// wrapping by the arrow keys, the D-pad, the left stick and the pad's shoulders (<see cref="PageSideways"/>) and by
+    /// the wheel over the row (<see cref="OnScrollWheel"/>). <b>Controls is first and the tab Help opens on</b>: "which
+    /// key does what" is what a player opens Help for, and until #857 it was the last of six pages walked with Previous
+    /// and Next (#427, #738), five presses away, with nothing saying what the other pages were. The tabs are not in the
+    /// pad's walk, as Settings' are not; Back is the one entry, so the cursor arrives on it, and a pad player turns the
+    /// tabs on the shoulders and scrolls on the right stick.
     /// </para>
     /// <para>
-    /// <b>Each page's body scrolls</b> (#606): the owner's 3840×1600 cut the Scoring page off top and bottom with
-    /// Back off the screen, and any shorter window is worse. The body sits in the shared <c>MenuScroll</c>, with the
-    /// heading, the page counter, Previous/Next and Back outside it so the way out never scrolls away. The body is
-    /// text with no entry in it for the focus cursor to walk to, so the wheel scrolls it (Myra's own), and so do
-    /// Page Up/Page Down and the pad's right stick (<see cref="OnScrollAxis"/>).
+    /// <b>Each topic's body scrolls</b> (#606): the owner's 3840×1600 cut the Scoring page off top and bottom with
+    /// Back off the screen, and any shorter window is worse. Every body sits in a <c>MenuScroll</c> of its own, all six
+    /// in one page area and one shown, with the heading, the tab row and Back outside them so the way out never scrolls
+    /// away. The body is text with no entry in it for the focus cursor to walk to, so the wheel scrolls it (Myra's own),
+    /// and so do Page Up/Page Down and the pad's right stick (<see cref="OnScrollAxis"/>).
     /// </para>
     /// <para>
     /// <b>⚠ The worked example is COMPUTED, not written.</b> Every number on the scoring page comes out of
@@ -38,6 +45,12 @@ namespace BS3D.Screens
     /// use, rather than letters in drawn boxes. #463's ruling is that the controls paragraph leaves About; this
     /// is where it lands.
     /// </para>
+    /// <para>
+    /// <b>The odd balls are shown, not only described</b> (#856): each entry has the kind's own ball turning beside it,
+    /// drawn live by the game's ball path into the frame's sharp foreground layer (<see cref="DrawForeground"/>), the
+    /// layer the host composites over the UI at the end of its Draw (#242) so the page's plate does not dim it. A
+    /// picture cannot go stale as a bitmap would (#771's worry): when a kind's look changes, this changes with it.
+    /// </para>
     /// </summary>
     internal sealed class HelpPage : MenuPage
     {
@@ -48,14 +61,33 @@ namespace BS3D.Screens
         //The space between a keycap and its words on the controls page
         private const int KEY_GAP = 24;
 
+        //THE ODD BALLS' LIVE PICTURES (#856): each kind's entry has a square at its left, design units, and the ball itself is
+        //drawn in it by the game's own ball path - the kind card's own device (#735, GameplayScreen.CollectTutorialBall):
+        //one more ball in a frame, hung BALL_DEPTH in front of the lens on the ray through the square and sized to fill
+        //BALL_FILL of it, so it is lit and glows and breathes as that kind does on the map, and cannot go stale as a
+        //picture would. Into the sharp foreground layer (DrawForeground), which the host composites over the UI, so the
+        //plate does not dim it. The square is two and a half lines of the prose beside it (the pitch is 70), between the
+        //card's 200 and a keycap; BALL_GAP is the space to the words.
+        private const int BALL_SQUARE = 176;
+        private const int BALL_GAP = 36;
+        private const float BALL_FILL = 0.92f;
+
+        //World units in front of the lens (nearer than anything the menu's frame holds at that spot, far past the near
+        //plane), the turntable's rate in radians a second (slow: a look is read, not watched), the tilt of its axis
+        //towards the viewer so the top is seen too, and the phase between neighbours so the column does not turn in step
+        private const float BALL_DEPTH = 3f;
+        private const float BALL_SPIN = 0.5f;
+        private const float BALL_TILT = 0.35f;
+        private const float BALL_PHASE = 0.7f;
+
         //Under each of the controls page's lines: the 26 of its own and the 26 of the column it stood in before #806 let
         //every block carry its own space
         private const int KEY_LINE_GAP = 52;
 
-        //Back and the two walking buttons share one row under the text (#738), each this wide, where every other entry on
-        //a page is one column wide
+        //Back's width in the row under the text (#738): a third of the frame's row, where every other entry on a page is one
+        //column wide, so it stands under the text's first letter and leaves the row's right end to the scroll prompt (#857;
+        //Previous and Next had the other two thirds until the tabs took their place)
         private const int WALK_BUTTON_WIDTH = 490;
-        private const int WALK_BUTTON_GAP = 20;
 
         //PromptFont's own glyphs, the tutorial's constants exactly (Tutorial.cs) — one face, one set of
         //codepoints, so a key drawn here and the same key drawn on a card cannot come out different
@@ -70,102 +102,109 @@ namespace BS3D.Screens
         private const int EXAMPLE_BALLS = 385;
         private const int EXAMPLE_SHOTS = 30;
 
-        private static readonly string[] TITLES =
-        {
-            "HOW IT IS PLAYED",
-            "SCORING",
-            "THE ODD BALLS",
-            "THE CAMPAIGN",
-            "THE GLASS AND THE LINE",
-            "CONTROLS",
-        };
+        //The tabs in the order a player needs them (#857): which key does what first - what a player opens Help for - then
+        //the game's rule, the score, the odd balls, the campaign, and the glass that steps down. Short names, because six
+        //tabs cut to the widest name's width must fit a row: measured with the section face at 1080p, this row is 1036 px
+        //against the text frame's 930, and "HOW TO PLAY" in place of BASICS took it to 1210
+        private const int TAB_CONTROLS = 0, TAB_BALLS = 3;
+        private static readonly string[] TAB_NAMES = { "CONTROLS", "BASICS", "SCORING", "ODD BALLS", "CAMPAIGN", "THE GLASS" };
 
-        private int _page;
+        //The tab that is up, the one asked for since the last frame (-1 for none, see SelectTab), and the one help=<n>
+        //asked for before the page was entered (null for none, see ShowPage)
+        private int _tab = TAB_CONTROLS;
+        private int _pendingTab = -1;
+        private int? _openOn;
 
-        //What sits around the scroller, in 2160p design units: the heading, the page counter, the one row of Back,
-        //Previous and Next, and the plate's padding (#606). 820 while Back stood on a row of its own under the walking
-        //pair; #738 put the three in one row and gave the text what the second took, one button (115 units at the
-        //body face, measured) and one column spacing (26).
-        private const int BODY_SURROUNDINGS = 680;
+        //What sits around the scroller, in 2160p design units: the heading, the tab row, the one row of Back and the
+        //plate's padding (#606). 680 while the page counter's line stood where the tab row does (#738, #857): the row is
+        //the section face's line (145) with its padding (2 × 14) and the gap under it (20), 193 against the counter's
+        //line of 70 and its 30 of margin, so 93 more.
+        private const int BODY_SURROUNDINGS = 773;
 
         //Design pixels a second the right stick scrolls the body at full tilt, and one Page Up/Down step's share
         //of the scroller's own height
         private const int STICK_SCROLL_SPEED = 2400;
         private const float PAGE_KEY_SHARE = 0.8f;
 
-        //Built with the tree, so a turn can put the focus back on the button that made it and the pad can scroll
-        private Button _previous, _next;
+        //Built with the tree: the tab row, every tab's scroller, the shown one (what the pad and the keys scroll) and the
+        //prompt that says it scrolls
+        private TabRow _tabRow;
+        private readonly ScrollViewer[] _scrollers = new ScrollViewer[TAB_NAMES.Length];
         private ScrollViewer _body;
         private Widget _scrollPrompt;
-
-        //A turn waiting for Update to put the rebuilt tree up — +1/-1, 0 for none (see Turn)
-        private int _pendingTurn;
         private float _scrollCarry;
 
         public HelpPage(BS3DGame game) : base(game) { }
+
+        /// <summary>
+        /// Controls every time the page opens (#857), unless <c>help=&lt;n&gt;</c> asked for a tab first (<see cref="ShowPage"/>):
+        /// "which key does what" is what a player opens Help for. The tree is built again on every entry, so the tab
+        /// chosen here is the one it comes up on.
+        /// </summary>
+        public override void Enter()
+        {
+            _tab = _openOn ?? TAB_CONTROLS;
+            _openOn = null;
+            _pendingTab = -1;
+            InvalidateTree();
+        }
 
         protected override Widget BuildTree()
         {
             VerticalStackPanel column = MenuColumn();
 
-            column.Widgets.Add(ScreenHeading(TITLES[_page]));
+            column.Widgets.Add(ScreenHeading("HELP"));
 
-            //The page counter, and at the same line's right what scrolls the text (#799): the right stick for a pad player,
-            //the wheel for one with the mouse. Shown only while the page is longer than its frame (Update), and in the
-            //small face, so the line keeps the counter's height and the frame below does not move when it appears.
-            Panel counter = new() { Width = Scaled(TEXT_WIDTH), HorizontalAlignment = HorizontalAlignment.Center };
-            counter.Widgets.Add(CounterLabel($"{_page + 1} of {TITLES.Length}"));
-            counter.Widgets.Add(_scrollPrompt = ScrollPrompt());
-            column.Widgets.Add(counter);
+            //The tabs (#857), the Settings page's row: every topic visible at once and one click away, the chosen one
+            //inverted. Not in the pad's walk; the shoulders, the arrow keys and the wheel over the row turn them
+            //(PageSideways, OnScrollWheel), and a click asks Update to put the tab up (SelectTab)
+            _tabRow = new TabRow(this, TAB_NAMES, SelectTab);
+            column.Widgets.Add(_tabRow.Root);
 
-            VerticalStackPanel body = BuildBody(_page);
+            //Every tab's body in a scroller of its own, all in one place and one shown (ShowTab), every one given the
+            //biggest's size (#729): the frame is as big as the biggest body's, so the tab row, Back and the plate's edges
+            //stay where they are as the tabs turn. Minimums and not sizes, because MenuScroll's MaxHeight still bounds it
+            //- a window too short for the tallest body scrolls it, as before. Width as well as height: a body that
+            //overflows grows a scroll bar (17 px at 1920×1080) that the bodies that fit do not have. And never narrower
+            //than the tab row (#770's rule): the row is wider than the text's frame at every size (measured where the
+            //names are chosen), and a frame narrower than its own tabs read as a page cut short.
+            Panel pageArea = new() { HorizontalAlignment = HorizontalAlignment.Center };
+            Point frame = new(_tabRow.Width, 0);
 
-            _body = MenuScroll(body, BODY_SURROUNDINGS);
+            for (int tab = 0; tab < TAB_NAMES.Length; tab++)
+            {
+                ScrollViewer scroller = MenuScroll(BuildBody(tab), BODY_SURROUNDINGS);
+                Point size = scroller.Measure(new Point(int.MaxValue / 2, int.MaxValue / 2));
+                frame = new Point(Math.Max(frame.X, size.X), Math.Max(frame.Y, size.Y));
 
-            //Every page stands in the same frame (#729): the scroller is as big as the biggest page's, so Previous, Next,
-            //Back and the plate's edges stay where they are as the pages turn. Minimums and not sizes, because
-            //MenuScroll's MaxHeight still bounds it - a window too short for the tallest page scrolls it, as before.
-            Point frame = BiggestPage();
-            _body.MinWidth = frame.X;
-            _body.MinHeight = frame.Y;
-            column.Widgets.Add(_body);
+                _scrollers[tab] = scroller;
+                pageArea.Widgets.Add(scroller);
+            }
 
-            //One row under the text, the owner's call (#738): Back at its left, Previous and Next at its right, three
-            //buttons of one width. The row is as wide as the text's frame, so Back stands under the text's first letter
-            //and Next ends where the scroll bar does, and the row Back used to take on its own is the text's now.
+            foreach (ScrollViewer scroller in _scrollers)
+            {
+                scroller.MinWidth = frame.X;
+                scroller.MinHeight = frame.Y;
+            }
+
+            column.Widgets.Add(pageArea);
+
+            //One row under the text (#738): Back at its left, under the text's first letter, and at its right what scrolls
+            //the text (#799) - the right stick for a pad player, the wheel for one with the mouse - shown only while the
+            //tab's body is longer than its frame (Update). The row is as wide as the frame, so Back stands where the text
+            //starts and the prompt ends where the scroll bar does. Previous and Next stood in it until #857: the tabs
+            //are every page at once, so the row is Back's.
             Panel walk = new() { Width = frame.X, HorizontalAlignment = HorizontalAlignment.Center };
 
-            //Added left to right, the order the pad walks them in: Back, Previous, Next
             Button back = BackButton();
             back.Width = Scaled(WALK_BUTTON_WIDTH);
             back.HorizontalAlignment = HorizontalAlignment.Left;
             walk.Widgets.Add(back);
+            walk.Widgets.Add(_scrollPrompt = ScrollPrompt());
 
-            HorizontalStackPanel pair = new()
-            {
-                Spacing = Scaled(WALK_BUTTON_GAP),
-                HorizontalAlignment = HorizontalAlignment.Right,
-            };
-
-            Button previous = MenuButton("Previous", () => Turn(-1));
-            previous.Width = Scaled(WALK_BUTTON_WIDTH);
-            previous.Enabled = _page > 0;
-            _previous = previous;
-
-            Button next = MenuButton("Next", () => Turn(1));
-            next.Width = Scaled(WALK_BUTTON_WIDTH);
-            next.Enabled = _page < TITLES.Length - 1;
-            _next = next;
-
-            //What turns the page, outside the pair (#799): a shoulder's pill inside a walking button would stand on its word.
-            //The row has the room - the three buttons leave a gap between Back and the pair wider than both glyphs.
-            pair.Widgets.Add(PageTurnPrompt(PromptGlyph.PAD_LB, PromptGlyph.KEY_LEFT, previous));
-            pair.Widgets.Add(previous);
-            pair.Widgets.Add(next);
-            pair.Widgets.Add(PageTurnPrompt(PromptGlyph.PAD_RB, PromptGlyph.KEY_RIGHT, next));
-
-            walk.Widgets.Add(pair);
             column.Widgets.Add(walk);
+
+            ShowTab(_tab);
 
             return ScreenRoot(Plate(column));
         }
@@ -185,93 +224,149 @@ namespace BS3D.Screens
 
             switch (page)
             {
-                case 0: BuildPlaying(body); break;
-                case 1: BuildScoring(body); break;
-                case 2: BuildBalls(body); break;
-                case 3: BuildCampaign(body); break;
-                case 4: BuildCeiling(body); break;
-                default: BuildControls(body); break;
+                case TAB_CONTROLS: BuildControls(body); break;
+                case 1: BuildPlaying(body); break;
+                case 2: BuildScoring(body); break;
+                case TAB_BALLS: BuildBalls(body); break;
+                case 4: BuildCampaign(body); break;
+                default: BuildCeiling(body); break;
             }
 
             return body;
         }
 
         /// <summary>
-        /// The size of the biggest page's scroller, each page measured in a scroller of its own (#729) the way the Settings
-        /// page measures its tabs. Myra lays out only what is shown, so without this the plate shrinks round a short page
-        /// and the walking row jumps on every turn. <b>Width as well as height</b>: a page that overflows grows a scroll bar,
-        /// which is a scroll bar's width (17 px on the pages measured at 1920×1080) that the pages that fit do not have, and the plate was that much wider on those. The current
-        /// page's own scroller is <see cref="_body"/>, already built.
+        /// Asks for a tab - a click, the sideways axis, the shoulders, the wheel. Put up by <see cref="Update"/> rather than
+        /// here, because a click arrives from inside Myra's own processing of the tree whose scrollers it would be swapping.
         /// </summary>
-        private Point BiggestPage()
-        {
-            Point biggest = Point.Zero;
-
-            for (int page = 0; page < TITLES.Length; page++)
-            {
-                ScrollViewer scroller = page == _page ? _body : MenuScroll(BuildBody(page), BODY_SURROUNDINGS);
-                Point size = scroller.Measure(new Point(int.MaxValue / 2, int.MaxValue / 2));
-                biggest = new Point(Math.Max(biggest.X, size.X), Math.Max(biggest.Y, size.Y));
-            }
-
-            return biggest;
-        }
+        private void SelectTab(int tab) => _pendingTab = tab;
 
         /// <summary>
-        /// Walks to another page. The index is clamped rather than wrapped: a reference is read front to back, and
-        /// a Next that silently returns to page one reads as having lost the player's place.
-        /// <para>
-        /// ⚠ <b>Invalidating the tree is not enough, and was all this did until #606</b>: a rebuilt tree only
-        /// reaches the screen when something puts <see cref="MenuPage.Root"/> into the desktop, which the stack
-        /// does on a push, a pop and a resize — so Next and Previous changed nothing until the page was left and
-        /// entered again (every <c>help=</c> capture worked, because that goes in before the page is first shown).
-        /// The rebuild is left to <see cref="Update"/> rather than done here, because a click arrives from inside
-        /// Myra's own processing of the desktop whose root it would be replacing.
-        /// </para>
+        /// Puts a tab up (#857): its scroller shown from the top and the rest hidden, the row painted, and the body the pad
+        /// and the keys scroll (<see cref="OnScrollAxis"/>) and the prompt follow it. Nothing is rebuilt and no focus is
+        /// moved: Back is the one entry, so the pad's cursor has nowhere else to be.
         /// </summary>
-        private void Turn(int by)
+        private void ShowTab(int tab)
         {
-            int wanted = Math.Clamp(_page + by, 0, TITLES.Length - 1);
-            if (wanted == _page) return;
+            _tab = Math.Clamp(tab, 0, TAB_NAMES.Length - 1);
+            _scrollCarry = 0f;
 
-            _page = wanted;
-            _pendingTurn = by;
+            for (int t = 0; t < _scrollers.Length; t++)
+                _scrollers[t].Visible = t == _tab;
+
+            _body = _scrollers[_tab];
+            _body.ScrollPosition = Point.Zero;
+            _tabRow.Show(_tab);
         }
 
         public override void Update(GameTime gameTime)
         {
             base.Update(gameTime);
 
-            //The scroll prompt while there is something to scroll: the page is laid out by the frame just drawn, so a page
+            if (_pendingTab >= 0)
+            {
+                int tab = _pendingTab;
+                _pendingTab = -1;
+                if (tab != _tab) ShowTab(tab);
+            }
+
+            //The scroll prompt while there is something to scroll: the body is laid out by the frame just drawn, so a tab
             //that fits its frame, or a window tall enough for it, shows none
             bool scrolls = _body != null && _body.ScrollMaximum.Y > 0;
             if (_scrollPrompt != null && _scrollPrompt.Visible != scrolls) _scrollPrompt.Visible = scrolls;
-
-            if (_pendingTurn == 0) return;
-
-            int by = _pendingTurn;
-            _pendingTurn = 0;
-            _scrollCarry = 0f;
-
-            InvalidateTree();
-
-            //The button that turned the page keeps the focus, as the level picker's chapter turn does — or its
-            //neighbour, when the turn reached the end and disabled it
-            Game.RebuildPage(this, () => by > 0 ? (_next.Enabled ? _next : _previous) : (_previous.Enabled ? _previous : _next));
         }
 
         /// <summary>
-        /// The cursor arrives on Next, or on Previous on the last page (#738): Back leads the row now, and a player who opened
-        /// the help came to read on, not to leave the moment they arrive.
+        /// Left or right on the arrows, the D-pad, the left stick or the pad's shoulders turns the tab, wrapping round
+        /// (#857, as Settings' row does, #686). Until #857 the page turned the same way but clamped, a reference being read
+        /// front to back; a row of tabs is read in any order, and the wrap is what lets Controls and The glass sit a press apart.
         /// </summary>
-        internal override Button NavArrival => _next != null && _next.Enabled ? _next : _previous;
-
-        /// <summary>Sideways on the arrows, the D-pad or the left stick turns the page (#606).</summary>
         internal override bool PageSideways(int direction)
         {
-            int before = _page;
-            Turn(direction);
-            return _page != before;
+            SelectTab((_tab + direction + TAB_NAMES.Length) % TAB_NAMES.Length);
+            return true;
+        }
+
+        /// <summary>
+        /// The wheel over the tab row turns the tab (#686's rule): away from the player is the next one. Over the body it
+        /// is the scroller's own, Myra's, and reaches nothing here.
+        /// </summary>
+        internal override void OnScrollWheel(int delta)
+        {
+            if (_tabRow == null || !_tabRow.IsMouseOver) return;
+
+            if (PageSideways(delta > 0 ? 1 : -1)) Game.Audio?.PlayUiTick();
+        }
+
+        /// <summary>The odd balls' live pictures (#856), while that tab is up and the tree stands.</summary>
+        internal override bool PresentsForeground => IsActive && IsBuilt && _tab == TAB_BALLS && _body != null;
+
+        /// <summary>The tab's scroller: a ball beside an entry scrolled past its edge is cut where the words are.</summary>
+        internal override Rectangle ForegroundClip => _body == null ? Rectangle.Empty : OnDesktop(_body);
+
+        /// <summary>
+        /// Where a widget stands on the desktop, in the back buffer's pixels. Myra keeps <c>ActualBounds</c> in the widget's
+        /// own space, (0, 0) at its corner (the host's <c>ScrollNavEntryIntoView</c> learned it on the picker); <c>ToGlobal</c>
+        /// is what puts it where it is drawn, the scroller's offset included.
+        /// </summary>
+        private static Rectangle OnDesktop(Widget widget)
+        {
+            Rectangle local = widget.ActualBounds;
+            Point corner = widget.ToGlobal(new Point(local.X, local.Y));
+            return new Rectangle(corner.X, corner.Y, local.Width, local.Height);
+        }
+
+        /// <summary>
+        /// The odd balls, live, in their squares (#856): each the kind itself through the game's own ball path — one more
+        /// ball in a frame of the ball set's, hung <see cref="BALL_DEPTH"/> in front of the lens on the ray through its
+        /// square and sized to fill it, turning on a tilted axis — so it is lit, glows and breathes as that kind does on
+        /// the map, in the style the backdrop's cluster hangs in. The kind card's own device (#735,
+        /// <c>GameplayScreen.CollectTutorialBall</c>), ten times over. The squares are read where the desktop laid them
+        /// out last, in the back buffer's pixels, and turned into the frame's normalised coordinates; one scrolled wholly
+        /// past the frame is left out, one scrolled partly past it is drawn and cut by the host (the desktop's layer) or
+        /// left out (the Potato path, which draws straight over the frame and cannot cut).
+        /// </summary>
+        internal override void DrawForeground()
+        {
+            Rectangle frame = OnDesktop(_body);
+            var buffer = Game.GraphicsDevice.PresentationParameters;
+            float width = buffer.BackBufferWidth, height = buffer.BackBufferHeight;
+            if (width <= 0f || height <= 0f) return;
+
+            Matrix projection = Game.Camera.Projection;
+            Matrix toWorld = Matrix.Invert(Game.Camera.View);
+            float spin = Game.WallClock * BALL_SPIN;
+
+            BallDrawFrame balls = Game.Balls.BeginFrame(Game.Camera);
+
+            for (int i = 0; i < _ballSquares.Length; i++)
+            {
+                Rectangle square = OnDesktop(_ballSquares[i]);
+                if (!square.Intersects(frame) || (BS3DGame.PotatoPath && !frame.Contains(square))) continue;
+
+                //The square's centre and half-height in the frame's normalised coordinates (x and y −1..1, y up)
+                float cx = (square.X + square.Width * 0.5f) / width * 2f - 1f;
+                float cy = 1f - (square.Y + square.Height * 0.5f) / height * 2f;
+                float radius = square.Height / height * BALL_FILL;
+
+                //The point on the ray through the square at the chosen depth, in view space and then in the world
+                Vector3 inView = new(cx * BALL_DEPTH / projection.M11, cy * BALL_DEPTH / projection.M22, -BALL_DEPTH);
+                Vector3 position = Vector3.Transform(inView, toWorld);
+                float worldRadius = radius * BALL_DEPTH / projection.M22;
+
+                //Sized, turned about the camera's up, then the whole tilted about its right, so the axis leans towards
+                //the viewer and the top of the ball is seen as well as its side
+                Matrix world = Matrix.CreateScale(worldRadius / Constants.HALF)
+                    * Matrix.CreateFromAxisAngle(toWorld.Up, spin + i * BALL_PHASE)
+                    * Matrix.CreateFromAxisAngle(toWorld.Right, BALL_TILT);
+                world.M41 = position.X;
+                world.M42 = position.Y;
+                world.M43 = position.Z;
+
+                balls.Add(KIND_ENTRIES[i].Colour, position, world, BallRenderSet.UNOCCLUDED, kind: KIND_ENTRIES[i].Kind);
+            }
+
+            Game.Balls.Draw(Game.WallClock);
         }
 
         /// <summary>
@@ -294,17 +389,21 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// Opens on a stated page, 1-based as the page prints itself — the <c>help=</c> argument's way in
-        /// (#427). Out of range is clamped rather than refused: a capture script asking for page nine should
-        /// photograph the last page, not crash the game it was pointed at.
+        /// Opens on a stated tab, 1-based in the row's order (Controls 1, Basics 2, Scoring 3, Odd balls 4, Campaign 5, The
+        /// glass 6) — the <c>help=</c> argument's way in (#427; the numbers are the tabs' since #857). Out of range is
+        /// clamped rather than refused: a capture script asking for page nine should photograph the last tab, not crash
+        /// the game it was pointed at. Before the page is entered it is what <see cref="Enter"/> opens on instead of
+        /// Controls; on a page that is up it is put up at once.
         /// </summary>
         internal void ShowPage(int page)
         {
-            int wanted = Math.Clamp(page - 1, 0, TITLES.Length - 1);
-            if (wanted == _page) return;
+            int wanted = Math.Clamp(page - 1, 0, TAB_NAMES.Length - 1);
 
-            _page = wanted;
-            InvalidateTree();
+            if (IsActive && IsBuilt)
+            {
+                if (wanted != _tab) ShowTab(wanted);
+            }
+            else _openOn = wanted;
         }
 
         private void BuildPlaying(VerticalStackPanel column)
@@ -388,46 +487,76 @@ namespace BS3D.Screens
         /// The look clauses are deliberately short: the looks are being redrawn one kind at a time (#622), and a
         /// sentence describing a finish that has since changed would be wrong on the one page that explains it.
         /// </para>
+        /// <para>
+        /// The colour is what the live ball beside the entry is drawn in (#856): any for the kinds that have none of
+        /// their own (the glass takes the first colour to land on it, the pellets, the bomb, the zap and the stone are
+        /// drawn colourless), and a different one down the column for the kinds that keep theirs, so the column reads as
+        /// a set rather than a row of red balls.
+        /// </para>
         /// </summary>
-        private static readonly (BallKind Kind, string Text)[] KIND_ENTRIES =
+        private static readonly (BallKind Kind, BallType Colour, string Text)[] KIND_ENTRIES =
         {
-            (BallKind.Transparent, "Glass — clear, with no colour of its own yet. The first ball that lands against it colours it, "
+            (BallKind.Transparent, BallType.Type3, "Glass — clear, with no colour of its own yet. The first ball that lands against it colours it, "
                 + "and from that moment it is an ordinary ball of that colour. It is a cell you get to choose."),
-            (BallKind.Buckshot, "Buckshot — a clump of grey pellets. No colour takes it and the level is not cleared while it "
+            (BallKind.Buckshot, BallType.Type4, "Buckshot — a clump of grey pellets. No colour takes it and the level is not cleared while it "
                 + "hangs: cut away whatever holds it up and it pours out."),
-            (BallKind.Bomb, "Bomb — dark, and it beats harder than the cluster around it. Set it off and it destroys its "
+            (BallKind.Bomb, BallType.Type8, "Bomb — dark, and it beats harder than the cluster around it. Set it off and it destroys its "
                 + "neighbours outright, colour regardless."),
-            (BallKind.Zap, "Zap — dark and flickering, with hard bright arcs across it. It fires along a colour rather "
+            (BallKind.Zap, BallType.Type5, "Zap — dark and flickering, with hard bright arcs across it. It fires along a colour rather "
                 + "than a shape."),
-            (BallKind.Rock, "Stone — colourless, and it cannot be matched. It never falls to a colour, only to losing "
+            (BallKind.Rock, BallType.Type4, "Stone — colourless, and it cannot be matched. It never falls to a colour, only to losing "
                 + "whatever was holding it up. A wall of stone is a wall you have to go around."),
-            (BallKind.Acid, "Acid — land a shot beside it and it eats straight down through the cluster beneath it until it "
+            (BallKind.Acid, BallType.Type2, "Acid — land a shot beside it and it eats straight down through the cluster beneath it until it "
                 + "reaches a gap. Whatever it was holding up comes down with it."),
-            (BallKind.Frozen, "Frozen — a coloured ball sealed in a block of ice. Nothing matches it and no shot removes it "
+            (BallKind.Frozen, BallType.Type1, "Frozen — a coloured ball sealed in a block of ice. Nothing matches it and no shot removes it "
                 + "until you clear a group next to it. Then the ice breaks, and it is an ordinary ball of the colour you "
                 + "could see all along."),
-            (BallKind.Infectious, "Infectious — an ordinary ball of its colour, and sick. Every shot you fire, it passes the "
+            (BallKind.Infectious, BallType.Type7, "Infectious — an ordinary ball of its colour, and sick. Every shot you fire, it passes the "
                 + "sickness to one healthy neighbour, the highest one, and hardens into stone itself. Match it away early: "
                 + "the stone it leaves is permanent."),
-            (BallKind.Gravity, "Gravity — an ordinary ball that pulls on shots passing near it and bends their flight. The "
+            (BallKind.Gravity, BallType.Type6, "Gravity — an ordinary ball that pulls on shots passing near it and bends their flight. The "
                 + "aim preview shows the bend."),
-            (BallKind.Heavy, "Heavy — an ordinary ball many times heavier than the rest. Whatever hangs from it sits lower in "
+            (BallKind.Heavy, BallType.Type3, "Heavy — an ordinary ball many times heavier than the rest. Whatever hangs from it sits lower in "
                 + "the cluster, nearer the line."),
         };
+
+        //The squares the kinds' live balls are drawn in (#856), one per entry, built with the tree; DrawForeground reads
+        //where each stands
+        private readonly Panel[] _ballSquares = new Panel[KIND_ENTRIES.Length];
 
         private void BuildBalls(VerticalStackPanel column)
         {
             column.Widgets.Add(Paragraph(
                 "Most balls are ordinary. These are not — the first few you will meet as the campaign goes on."));
 
-            foreach ((BallKind _, string text) in KIND_ENTRIES)
-                column.Widgets.Add(Paragraph(text));
+            //Each kind beside its words (#856): a square at the paragraph's left, top-aligned with its first line, the
+            //words set at the measure less the square and the gap. The square is a widget so that it takes its room in
+            //the body's flow and the scroller carries it; what is drawn in it is the frame's own ball (DrawForeground)
+            int square = Scaled(BALL_SQUARE), gap = Scaled(BALL_GAP);
+
+            for (int i = 0; i < KIND_ENTRIES.Length; i++)
+            {
+                HorizontalStackPanel row = new() { Spacing = gap, HorizontalAlignment = HorizontalAlignment.Left };
+
+                //With the paragraph's own gap under it, so an entry of one line is not a row the next square touches
+                _ballSquares[i] = new Panel
+                {
+                    Width = square,
+                    Height = square,
+                    VerticalAlignment = VerticalAlignment.Top,
+                    Margin = new Thickness(0, 0, 0, ParagraphGap),
+                };
+                row.Widgets.Add(_ballSquares[i]);
+                row.Widgets.Add(Paragraph(KIND_ENTRIES[i].Text, ProseWidth - square - gap));
+
+                column.Widgets.Add(row);
+            }
 
             column.Widgets.Add(Paragraph(
                 "And one that arrives in your cannon rather than in the cluster: the rainbow ball, a ball that "
                 + "never settles on a colour while it is loaded. It becomes whatever completes a group where it "
                 + "lands. A few of the later levels hand them out, and a card says so the first time one is loaded."));
-            column.Widgets.Add(Aside("And the power-ups — the Swap, the Brake and the Cut — are on the Controls page.", ProseWidth));
+            column.Widgets.Add(Aside("And the power-ups — the Swap, the Brake and the Cut — are on the Controls tab.", ProseWidth));
         }
 
         private void BuildCampaign(VerticalStackPanel column)
@@ -550,8 +679,8 @@ namespace BS3D.Screens
 
         /// <summary>
         /// "Scroll" with the right stick pushed up and down before it for a pad player, the mouse's wheel for one with the
-        /// mouse (#799), set flush right on the counter's line. Hidden until <see cref="Update"/> finds the page longer
-        /// than its frame.
+        /// mouse (#799), at the right end of Back's row (#857), level with the slab. Hidden until <see cref="Update"/> finds
+        /// the tab's body longer than its frame.
         /// </summary>
         private Widget ScrollPrompt()
         {
@@ -559,7 +688,7 @@ namespace BS3D.Screens
             {
                 Spacing = Scaled(KEY_GAP),
                 HorizontalAlignment = HorizontalAlignment.Right,
-                VerticalAlignment = VerticalAlignment.Top,
+                VerticalAlignment = VerticalAlignment.Center,
                 Visible = false,
             };
 
@@ -585,17 +714,6 @@ namespace BS3D.Screens
             TextColor = BS3DGame.MENU_TEXT,
             Width = width,
             VerticalAlignment = VerticalAlignment.Center,
-        };
-
-        /// <summary>The page counter over the text, "2 of 6", across the frame's width.</summary>
-        private Label CounterLabel(string text) => new()
-        {
-            Text = text,
-            Font = FontSmall,
-            TextColor = BS3DGame.MENU_TEXT_DIM,
-            Width = Scaled(TEXT_WIDTH),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            Margin = ScaledThickness(0, 0, 0, 30),
         };
 
         /// <summary>

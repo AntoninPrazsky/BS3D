@@ -212,8 +212,9 @@ namespace BS3D
         //1-based. Null means absent.
         internal string PickFocus { get; private set; }
 
-        //Testing only: open the About page at boot, with "about=play" start its player (#443), with "about=<n>" on its nth
-        //page (#807), "about=1:play" both. Null means the argument was absent; empty means the first page alone.
+        //Testing only: open the About page at boot, with "about=play" start its player (#443) on the player's page (the
+        //last), with "about=<n>" on its nth page (#807), "about=2:play" both. Null means the argument was absent; empty
+        //means the first page alone.
         internal string About { get; private set; }
 
         //Testing only: Extras at boot ("extras"), or the Jukebox ("jukebox", "jukebox=<chapter>", "jukebox=<chapter>:play"), #704.
@@ -330,7 +331,7 @@ namespace BS3D
 
         //Testing only: "menucursor=<seconds>[:<steps>[:<presses>]]" (#799) - at that wall-clock second the pad's and the arrow
         //keys' cursor comes up on the page that is up and walks that many entries down, as presses would; then the sideways
-        //presses, one a frame (#807: left, right, lb, rb - the arrow keys and the shoulders); null when absent
+        //presses, StartupScript.PRESS_GAP apart (#807: left, right, lb, rb - the arrow keys and the shoulders); null when absent
         internal float? MenuCursorAt { get; private set; }
         internal int MenuCursorSteps { get; private set; }
         internal string MenuCursorPresses { get; private set; }
@@ -555,8 +556,9 @@ namespace BS3D
             //neither move the Game's pointer nor press a key in it. On "shot="'s clock.
             Row.Text("pickfocus", (o, v) => o.PickFocus = v),
             //"about" puts the About page up at boot and "about=play" starts its player of the original score
-            //(#443) — pick's reasoning, plus the press a visualizer needs before there is anything to see. "about=<n>"
-            //opens it on that page (#807), help=<n>'s reasoning: the page turns behind an arrow no script can press.
+            //(#443), on the player's page — pick's reasoning, plus the press a visualizer needs before there is anything
+            //to see. "about=<n>" opens it on that page (#807), help=<n>'s reasoning: the page turns behind an arrow no
+            //script can press.
             Row.Flag("about", o => o.About = string.Empty),
             Row.Text("about", (o, v) => o.About = v),
             //"extras" and "jukebox[=<chapter>[:play]]" open those pages at boot (#704) - about's wall, and the Jukebox's
@@ -580,9 +582,9 @@ namespace BS3D
             //page is a pager, so "a shot of it" means nothing without saying which chapter
             Row.Flag("highscores", o => o.HighScores = string.Empty),
             Row.Text("highscores", (o, v) => o.HighScores = v),
-            //"help" opens the Help screen and "help=<n>" opens it on that page (#427) - the same reasoning
-            //one turn further, since Help is six pages behind one entry and its Previous/Next stand side
-            //by side, so a scripted walk has to guess a focus order to reach page four at all.
+            //"help" opens the Help screen and "help=<n>" opens it on that tab (#427; the tabs' order since #857,
+            //1 = Controls) - the same reasoning one turn further: the tabs are not in the pad's walk, so a scripted
+            //walk cannot reach one at all, and menucursor='s rb/lb presses are the click path through them.
             Row.Flag("help", o => o.Help = 1),
             Row.Int("help", (o, v) => o.Help = v),
             //"scenes" opens the Scene screen at boot (#773): it is two presses from the main menu, and none on a

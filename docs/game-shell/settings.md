@@ -8,6 +8,7 @@ Part of [The game: shell](../game-shell.md).
 
 - Five tabs (`TAB_NAMES`): **ONLINE · DISPLAY · AUDIO · CONTROLS · GAME**. The page **opens on ONLINE every time**, because the first online test could not find the rows among the display toggles.
 - **DISPLAY:** Fullscreen, Resolution (#801) … Motion blur, twelve rows with Scenery (#808). **AUDIO:** the four volumes. **CONTROLS:** Sensitivity, Aim sensitivity, Rumble. **GAME:** Tutorial, Intro logo, Drop camera, then the CAMPAIGN pair under its own heading. The destructive rows are each last on their page.
+- **Unlock all is a dev-build row (#349, #854).** It is drawn only when `BuildVersion.Release` is null, so a release (a tag build) ends the GAME page at Reset progress, and `ToggleUnlockAll` refuses there too, so nothing can open a shipped campaign through a row the player cannot see. The gate is the build's own word, not the Debug/Release configuration: the owner plays Release-configuration builds of main, and those keep the row. Where it is drawn it is off at every launch and never written (`GameSettings` excludes it).
 
 ## The tab row
 

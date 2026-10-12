@@ -148,7 +148,8 @@ namespace BS3D.Screens
 
             _firstLabel.Text = Game.HasSession || Game.HasProgress ? "Continue" : "New Game";
 
-            _qualityNotice.Text = _noticeText ?? string.Empty;
+            //As prose (#855): the notice wraps at the width its plate allows, and a wrapping label is never handed raw text
+            SetProse(_qualityNotice, _noticeText ?? string.Empty);
             _qualityNotice.Visible = _noticeText != null;
         }
 

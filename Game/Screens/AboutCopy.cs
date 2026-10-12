@@ -53,14 +53,13 @@ namespace BS3D.Screens
         internal readonly record struct Page(string Title, Block[] Blocks);
 
         /// <summary>
-        /// The pages, in the order they turn: the player first, the owner's "Jukebox first" — the first thing a player sees
-        /// is the thing they can use — then what the game is with the privacy line, what it is built on and what it was made
-        /// with, with the repository and the way to the author under it. <paramref name="title"/> is the game's name as
-        /// the page says it (<c>BS3DGame.GAME_TITLE</c>).
+        /// The pages, in the order they turn: what the game is with the privacy line, what it is built on, what it was made
+        /// with (the repository and the way to the author under it), and <b>the player last</b> — the owner's ruling
+        /// (2026-10-12): it is a small easter egg, waiting at the end for whoever turns that far, so About opens on what the
+        /// game is. <paramref name="title"/> is the game's name as the page says it (<c>BS3DGame.GAME_TITLE</c>).
         /// </summary>
         internal static Page[] Pages(string title) => new Page[]
         {
-            new("THE ORIGINAL SCORE", new Block[] { new(BlockKind.Line, SCORE), new(BlockKind.Player) }),
             new("THE GAME", new Block[] { new(BlockKind.Paragraph, Game(title)), new(BlockKind.Privacy) }),
             new("BUILT ON", new Block[] { new(BlockKind.Paragraph, BUILT_ON), new(BlockKind.Credits, Credits: LIBRARIES) }),
             new("MADE WITH", new Block[]
@@ -69,6 +68,7 @@ namespace BS3D.Screens
                 new(BlockKind.Credits, Credits: GENERATED),
                 new(BlockKind.Links),
             }),
+            new("THE ORIGINAL SCORE", new Block[] { new(BlockKind.Line, SCORE), new(BlockKind.Player) }),
         };
 
         /// <summary>The player's one line, over the piece's name: the page's name already says whose score it is.</summary>

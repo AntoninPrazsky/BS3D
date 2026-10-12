@@ -1,6 +1,7 @@
 ﻿using FontStashSharp;
 using Microsoft.Xna.Framework;
 using Myra.Graphics2D;
+using Myra.Graphics2D.Brushes;
 using Myra.Graphics2D.UI;
 using Prazsky.BS3D.Scoring;
 using Prazsky.Core.Screens;
@@ -160,7 +161,7 @@ namespace BS3D.Screens
         /// Left or right on the arrow keys, the D-pad or the left stick (−1 / +1) — <b>the page's own axis</b>,
         /// where up and down are always the focus cursor's (on a <see cref="PadWalksGrid"/> page the pad's left and right
         /// are the cursor's too, #848, and only the arrow keys and the shoulders reach this). Six pages claim it: the level picker turns to the
-        /// previous or next chapter (#273), Help to its previous or next page (#606), Settings to its previous or
+        /// previous or next chapter (#273), Help to its previous or next tab (#606, #857), Settings to its previous or
         /// next tab (#686), High Scores to its previous or next chapter (#685), a level's online boards to their previous
         /// or next ranks (#799) and About to its previous or next page (#807).
         /// Raised by the host's <c>UpdateMenuNavigation</c> with the same fire-once-then-walk treatment a held direction gets
@@ -182,6 +183,28 @@ namespace BS3D.Screens
         /// Returns whether it acted, as <see cref="PageSideways"/> does.
         /// </summary>
         internal virtual bool ShoulderTurn(int direction) => PageSideways(direction);
+
+        /// <summary>
+        /// Whether this page draws something into the frame's sharp foreground layer this frame (#856) — the layer the
+        /// host composites over everything, the UI included, at the end of its Draw (#242, the cup's and the confetti's):
+        /// Help's live balls beside their entries. Asked by the host every frame a page is up; a page that presents is
+        /// drawn through <see cref="DrawForeground"/> and keeps the layer allocated (<c>BS3DGame.BeginSceneDraw</c>'s
+        /// release count).
+        /// </summary>
+        internal virtual bool PresentsForeground => false;
+
+        /// <summary>
+        /// The back-buffer rectangle the page's foreground is cut to (#856): what it drew outside it is erased before the
+        /// composite, so a ball beside an entry scrolled past a frame's edge is clipped as its text is. Empty for no cut.
+        /// </summary>
+        internal virtual Rectangle ForegroundClip => Rectangle.Empty;
+
+        /// <summary>
+        /// Draws the page's foreground (#856). The host has bound the layer and cleared it transparent with its own depth,
+        /// stated opaque, depth-tested, counter-clockwise states and restores its own afterwards; on the Potato path, which
+        /// has no layer, it is the back buffer after the desktop, on a cleared depth buffer, and nothing is cut.
+        /// </summary>
+        internal virtual void DrawForeground() { }
 
         /// <summary>
         /// Whether this page is laid out as a grid the pad walks in the direction pressed (#848): the D-pad and the left
@@ -469,7 +492,13 @@ namespace BS3D.Screens
 
         /// <summary>
         /// Writes <paramref name="text"/> into a prose label, broken into lines for its face and its laid-out width — also
-        /// for a label whose text changes after it is built (the Settings note, the nickname plate's hint).
+        /// for a label whose text changes after it is built (the Settings note, the nickname plate's hint, the boards'
+        /// status lines). <b>Every label that wraps is written through this, never through <c>Text</c></b> (#855): the
+        /// label's own wrap breaks after a full stop as well as at a space, and when the glyph that overflows the line is
+        /// the space after a sentence it breaks after the stop and starts the next line with that space (seen with Help's
+        /// copy laid out raw in a 1600×900 window). <c>SpaceWrap</c> breaks at spaces only, so a label it has set starts
+        /// every line on a word; <c>Wrap</c> stays on as the backstop for a line it left wider than the label.
+        /// <c>ProseLabelsTests</c> reads the pages' sources and holds every <c>Wrap = true</c> initializer to it.
         /// </summary>
         protected static void SetProse(Label label, string text) =>
             label.Text = SpaceWrap.Wrap(text, LaidOutWidth(label), line => label.Font.MeasureString(line).X);
@@ -575,5 +604,115 @@ namespace BS3D.Screens
             new(STAR_HOLLOW, StarRating.MAX - Math.Clamp(earned, 0, StarRating.MAX));
 
         #endregion
+
+        /// <summary>
+        /// A row of tabs over a page area (#686, #857): one button per page, all cut to the widest name's width, the chosen
+        /// one inverted, with what turns them at the row's two ends. Buttons, so the mouse gets the shared hover, press and
+        /// click sound — but with nothing on their <c>Tag</c>, which is what keeps the host's walk off them: five tabs ahead
+        /// of a page's first row would cost five presses, so the tabs are turned, wrapping, by <see cref="PageSideways"/>
+        /// (the arrow keys, the D-pad, the left stick), the shoulders (<see cref="ShoulderTurn"/>) and the wheel over the row
+        /// (<see cref="OnScrollWheel"/>, which asks <see cref="IsMouseOver"/>). Settings and Help share it, so a tab looks and
+        /// answers the same on both; what each page shows under it, and what it does on a turn, is the page's own.
+        /// </summary>
+        protected sealed class TabRow
+        {
+            //The padding round a name, the space between tabs and the gap under the row, in design units
+            private const int PADDING_X = 40;
+            private const int PADDING_Y = 14;
+            private const int SPACING = 16;
+            private const int GAP = 20;
+
+            //The tab that is up reads as unmistakably chosen, inverted: the near-white of the type as the slab and a dark
+            //grey as the type. Still the greyscale rule (BS3DGame's palette) — brightness, not hue — and the opposite of
+            //a row's focus highlight, which lifts a grey slab a step and so can never be taken for it.
+            private static readonly IBrush SELECTED_BRUSH = new FlatBrush(BS3DGame.MENU_TEXT);
+            private static readonly Color SELECTED_TEXT = new(30, 30, 30);
+
+            private readonly Button[] _tabs;
+            private readonly Label[] _labels;
+
+            /// <param name="page">The page the row stands on: its faces, its button family and its scale.</param>
+            /// <param name="names">The tabs' names, in the display face's capitals.</param>
+            /// <param name="select">Asked with the tab's index on a click. A page puts the tab up from its <c>Update</c>
+            /// rather than here, because a click arrives from inside Myra's own processing of the tree it would be changing.</param>
+            internal TabRow(MenuPage page, string[] names, Action<int> select)
+            {
+                int nameWidth = 0;
+                foreach (string name in names)
+                    nameWidth = Math.Max(nameWidth, (int)MathF.Ceiling(page.FontSection.MeasureString(name).X));
+
+                HorizontalStackPanel row = new()
+                {
+                    Spacing = page.Scaled(SPACING),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = page.ScaledThickness(0, 0, 0, GAP),
+                };
+
+                //What turns the tabs, at the row's two ends (#799, the owner's "LB ◂ AUDIO · CONTROLS ▸ RB"): the shoulders
+                //for a pad player, the arrow keys for a keyboard one. Outside the tabs, so the pages below stay as wide as
+                //the tabs themselves (#770, Width) and only the row reaches past them.
+                row.Widgets.Add(page.Prompt(PromptGlyph.PAD_LB, PromptGlyph.KEY_LEFT));
+
+                _tabs = new Button[names.Length];
+                _labels = new Label[names.Length];
+                int tabWidth = nameWidth + 2 * page.Scaled(PADDING_X);
+
+                for (int t = 0; t < names.Length; t++)
+                {
+                    //Captured per iteration, so five tabs are five destinations
+                    int tab = t;
+
+                    Button button = page.MenuButton(names[t], () => select(tab), out Label label);
+                    button.Tag = null;
+                    button.Padding = page.ScaledThickness(PADDING_X, PADDING_Y);
+                    button.Width = tabWidth;
+                    label.Font = page.FontSection;
+
+                    _tabs[t] = button;
+                    _labels[t] = label;
+                    row.Widgets.Add(button);
+                }
+
+                row.Widgets.Add(page.Prompt(PromptGlyph.PAD_RB, PromptGlyph.KEY_RIGHT));
+
+                Root = row;
+                Width = names.Length * tabWidth + (names.Length - 1) * row.Spacing;
+            }
+
+            /// <summary>The row, prompts included, to add to the page's column.</summary>
+            internal Widget Root { get; }
+
+            /// <summary>The tabs' own width in pixels, the prompts at the ends excluded: what a page's area is cut to (#770).</summary>
+            internal int Width { get; }
+
+            /// <summary>Whether the pointer is over one of the tabs — the wheel there turns them rather than the page.</summary>
+            internal bool IsMouseOver
+            {
+                get
+                {
+                    foreach (Button tab in _tabs)
+                        if (tab.IsMouseInside) return true;
+
+                    return false;
+                }
+            }
+
+            /// <summary>
+            /// Paints the chosen tab inverted and the rest as plain entries, each in <paramref name="restColour"/>'s colour
+            /// for its index (the body grey when null) — Settings keeps ONLINE red from any other tab while the boards still
+            /// want something done (#687).
+            /// </summary>
+            internal void Show(int chosen, Func<int, Color> restColour = null)
+            {
+                for (int t = 0; t < _tabs.Length; t++)
+                {
+                    bool on = t == chosen;
+
+                    _tabs[t].Background = on ? SELECTED_BRUSH : BS3DGame.MENU_BUTTON_BRUSH;
+                    _tabs[t].OverBackground = on ? SELECTED_BRUSH : BS3DGame.MENU_BUTTON_OVER_BRUSH;
+                    _labels[t].TextColor = on ? SELECTED_TEXT : restColour?.Invoke(t) ?? BS3DGame.MENU_TEXT_BODY;
+                }
+            }
+        }
     }
 }

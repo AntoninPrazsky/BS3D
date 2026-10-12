@@ -81,7 +81,9 @@ FontStashSharp 1.5.6 under Myra 1.6.3, read off the assemblies and the faces' ow
 - **Kerning: yes**, from the faces' GPOS pair tables (`FontSystem.UseKernings`, on by default), each pair truncated to whole pixels at its size.
 - **Leading: `Label.VerticalSpacing` only**, pixels added between lines. A face's `LineHeight` is its ascent-to-descent at the size asked for, because FontStashSharp sizes a face by that and not by its em: Inter's line is 1.21 em, Anton's 1.51.
 - **No tracking on a label.** `characterSpacing` exists on `DrawString`, not on a Myra `Label`, so an all-caps heading cannot be letter-spaced.
-- **No OpenType features.** They need text shaping (HarfBuzz), which the game does not ship: no tabular figures, small caps or ligatures. Inter's figures are proportional (its 1 is 833 units, its 0 1292); Anton's are tabular but for the 1 (677 against 1012).
+- **No OpenType features.** They need text shaping (HarfBuzz), which the game does not ship: no `tnum`, small caps or ligatures. Inter's figures are proportional (its 1 is 833 units, its 0 1292); Anton's are tabular but for the 1 (677 against 1012). Tabular figures are set by hand ("Numbers" below).
+- **Rich-text commands a label lays out**: `/s[n]` is a chunk of n pixels of nothing. The layout measures each chunk of text between commands on its own, so kerning acts only inside a chunk; a glyph's advance is a whole pixel.
+- **Auto-ellipsis is three full stops** unless `AutoEllipsisString` says otherwise.
 - **No hyphenation and no justification**, so prose is set ragged right.
 - ⚠ **A label parses commands** (`SupportsCommands`): `/n` in copy is a line break and `/c[...]` a colour. A slash before one of `c e f i s t v n` is written `//`.
 
@@ -89,7 +91,7 @@ FontStashSharp 1.5.6 under Myra 1.6.3, read off the assemblies and the faces' ow
 
 **45 to 75 characters a line; prose is set at most `MENU_PROSE_MEASURE` wide**, 1500 units, 67 characters of Inter at `MENU_FONT_SMALL` (22.3 units a character over the game's own copy). Every size scales with the height, so a column holds the same number of characters at 1600×900 and at 3840×1600.
 
-- Help's frame is 1860 units, 83 characters, which the controls page's lines and the walking row need. Its paragraphs are set at the measure against the frame's left edge, so Back stands under the text's first letter, and the rag runs into a gutter at the right.
+- Help's frame is 1860 units, 83 characters, which the controls tab's lines need — or its tab row's width where that is wider, which at every size it is (2072 units, #857). Its paragraphs are set at the measure against the frame's left edge, so Back stands under the text's first letter, and the rag runs into a gutter at the right.
 - The Settings note is the page's width, about 1590 units, up to the measure. About's pages are set at the measure (#807), and so is its widest thing, the player's spectrum; a credit list's two columns share it, so a role that would break the line is shortened rather than wrapped.
 
 ### Leading and paragraphs
@@ -108,20 +110,27 @@ FontStashSharp 1.5.6 under Myra 1.6.3, read off the assemblies and the faces' ow
 - **Prose is left-aligned and ragged right**; only a line that stands alone (a heading, a button's word, a value) is centred.
 - **`SpaceWrap` chooses the breaks** (`Game/Screens/SpaceWrap.cs`, `SpaceWrapTests`), in order of weight: the fewest lines (what a greedy fill takes, so no page's height grows); no last line of one word where two fit; the evenest rag (the squared slack of every line but the last, plus a penalty on a last line under 30 % of the measure and a price on a line that ends on an operator, so a short sum goes over whole). It breaks at spaces only: FontStashSharp's own wrap breaks after a `.` and split the score server's address (#769).
 - **A page asks for prose, it does not set it**: `MenuPage.Paragraph` and `Aside` (the small face, the colour, the measure the page passes, the leading, the gap), `Prose` for a page that places it otherwise, `SetProse` for a label whose text changes, `ProseHeight` for a label whose height must hold every text it can show.
+- **Every label that wraps is written through `SetProse`, never through `Text` (#855).** FontStashSharp's own wrap takes a full stop as a break opportunity, and when the glyph that overflows the line is the space after a sentence, the last opportunity before it is the stop: the line breaks there and the next one starts with that space. Help's copy laid out raw, as it was before #806, printed " The aim preview shows the bend." in a 1600×900 window; through `SpaceWrap` the same copy gave no such line at any of eight heights, because it breaks at spaces only and no line it makes starts or ends with a space whatever the copy does (a tie at a word's edge is dropped like a space). `Wrap` stays on as the backstop for a line the breaker left wider than the label. `ProseLabelsTests` reads `Game/Screens` and holds every `Wrap = true` initializer to it; the one exception is the note page's typing field, whose lines `FieldTail` cuts to the width. A status line that holds its height with a single space keeps that space.
 
 ### Characters
 
 - **Apostrophes and quotes are ’ ‘ “ ”**, never `'` or `"`.
 - **The dash is a spaced em dash, " — "**, the form most of the copy was written in. A range of numbers takes an en dash, "3–16"; in prose a range reads "3 to 16". A hyphen belongs inside a word.
-- **An ellipsis is …**, one character. **One space** after a sentence, as between words.
+- **An ellipsis is …**, one character, and a label that cuts its line sets `AutoEllipsisString = "…"` (the picker's detail line, High Scores' names). **One space** after a sentence, as between words.
+- **The parts of one line of readout are parted by a spaced middle dot, " · "**, one space each side ("Chapter 2 of 14 · 3 of 10 cleared · ★ 4 of 40", "Level 13 · Star"). Runs of spaces are not a column: numbers that must line up stand in cells of their own ("Numbers" below).
 - **Ties.** A no-break space (U+00A0, written in C# as its `\u` escape so it can be seen) holds a name to its version ("MonoGame 3.8.5", "SIL OFL 1.1", "DirectX 11"), a number to what it counts ("385 balls", "10 points"), a range ("3 to 16") and a label to its number ("Shot 1"). `SpaceWrap` adds two of its own: a lone dash or operator (— – + = × ÷ −) never starts a line, and a one-letter word (a, A, I) never ends one. A tie is drawn as a plain space.
 - **A key name needs no tie of its own**: the copy names a key in one word (Enter, Esc, Space, F12), and a pad's A is held by the one-letter rule. A key named in two words would take one.
 - ⚠ **A tie holds only in prose set through `SpaceWrap`.** FontStashSharp's own wrap counts U+00A0 as white space, so in a label that wraps by itself it is a break like any other.
-- **`CopyRules.Fault`** names the first of these a string breaks; `CopyRulesTests` holds every string a tutorial card draws to it, and `AboutCopyTests` every string About draws of its own (`AboutCopy`, #807). The other Myra pages' copy is held to it by review, since a page's strings are built inside a tree no test constructs; a page whose copy is moved into a plain class it draws from, as About's was (`AboutCopy.Pages`), can be held by a test.
+- **`CopyRules.Fault`** names the first of these a string breaks; `CopyRulesTests` holds every string a tutorial card draws to it, `AboutCopyTests` every string About draws of its own (`AboutCopy`, #807), `PickerCopyTests` the level picker's readout, tile, detail and boards lines (`PickerCopy`) and `ResultCopyTests` the result page's words that change with the ending (`LevelResult`). The rest of those pages' fixed words (a button's name, a caption, the online status lines) and the other Myra pages' copy are held to it by review, since a page's strings are built inside a tree no test constructs; a page whose copy is moved into a plain class it draws from can be held by a test.
 
 ### Numbers
 
-**Without tabular figures, a column of numbers that is compared is right-aligned**, so the units line up whatever the 1s do.
+**A column of numbers that is read down is set flush right in tabular figures**, so the units line up and every digit stands under the digit above it. The faces cannot do it (above), so `TabularFigures` does it by hand: every digit gets a cell as wide as the face's widest digit and is centred in it by two `/s[n]` commands, one each side, written even where a share is 0, so no two figures share a chunk and no kerning pair between them can move one. `FontFigures` hands it a real font's ten advances (kept per font) and is what a page calls: `Tabular` for a label's text, `Width` for how wide that lays out.
+
+- **Where**: the boards' ranks and scores (`BoardView`, so the result page's plate, the picker's plate and `LevelBoardPage`), High Scores' level numbers and both score columns, and the result breakdown's details, values and total. A number that stands alone keeps the face's own figures: a tile's best score, "Score 4 820", the HUD.
+- ⚠ **Size a column by `FontFigures.Width`, never by `MeasureString` of the set text**, which counts the commands as glyphs. The breakdown pins its columns that way (#665).
+- ⚠ **A cell is a width in one font size's pixels**, so a number is set again for the font of every tree it is drawn in: the result page sets its figures in `Refresh`, which a rebuild at another size runs. Set when a number changes, never per frame (the breakdown's reveal writes strings set once).
+- The set text is command text: a `/` in it is doubled, and the label must keep `SupportsCommands` (Myra's default).
 
 ## The pointer is the game's own (#350)
 

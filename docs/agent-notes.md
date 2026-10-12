@@ -600,3 +600,41 @@ Pravidla:
 - Bez majitele, konzervativně: Brzda hraje tentýž stoupající zvuk, žádný protějšek (klesající figura tu znamená „ne“); proud feedů stoupá o půltón za krok až o kvintu; pod nahrávkou přimíchané tělo 132 Hz (3,4 %).
 - ⚠ Podíl pásma celého zvuku měř bez okna: Hann přes celý zvuk dal 90,9 % místo 59,6 %. Časování ve hře nikdy na Stopwatch: pauza pak proud restartuje.
 - Otevřené: ucho majitele (monitor, notebook); hlasitost proti hudbě jen měřena.
+
+## 2026-10-12 — #854 Unlock all jen v dev buildu — ThinkPad, Claude Code (github-44)
+- #854 (merge do mainu, zavřeno jako objektivní): řádek Unlock all na záložce GAME se kreslí jen při `BuildVersion.Release == null` a `ToggleUnlockAll` v release odmítne, takže vydání nemá, čím otevřít kampaň. Brána je slovo buildu (tag), ne konfigurace Debug/Release: majitel hraje Release buildy mainu a ty řádek mají.
+- Ověřeno snímky `settings=tab:game shot=8`: plain build (dev-2f39123) řádek má, build s `-p:BS3DReleaseVersion=v0.0.0-test` končí u Reset progress, Back stojí na místě (rám stránky je měřen podle nejvyšší záložky).
+- ⚠ Build se stavem release stav do vlastní složky (`-o`) a hned smaž: jinak leží vedle plain buildu exe, které by s online zapsalo na veřejné tabule.
+- Otevřené: nic; dev build nadále bez změny.
+
+## 2026-10-12 — #855 mezera na začátku řádku — ThinkPad, Claude Code (github-44)
+- #855 (merge do mainu, zavřeno jako objektivní): příčina je vlastní zalamování FontStashSharp — láme i za tečkou, a když přeteče právě mezera za větou, zlomí za tečkou a mezera začne další řádek. Text Help sázený syrově (stav před #806) dal v okně 1600×900 řádek „ The aim preview shows the bend.“; přes `SpaceWrap` 0 řádků při osmi výškách (měřeno skutečným fontem mimo hru).
+- Help už od #806 jde přes `SetProse`; zbylých sedm Labelů s `Wrap = true` a syrovým `Text` (stavové řádky tabulek v pickeru a výsledku, odemykací poznámka, oznámení kvality, stav a nápověda poznámky, Quit) převedeno. `ProseLabelsTests` čte `Game/Screens` a drží každý `Wrap = true` u `SetProse` (viděn selhat na sedmi); `SpaceWrap` nikdy nezačne ani neskončí řádek mezerou (TIE na kraji slova) a samotná mezera jako text zůstane (drží výšku řádku).
+- ⚠ Regex „`name.Text =` kromě `SpaceWrap.Wrap(`“ musí mít lookahead za `=` včetně mezer, jinak backtracking projde.
+- Otevřené: nic.
+
+## 2026-10-12 — #857 Help jako záložky, Controls první — ThinkPad, Claude Code (github-44)
+- #857 (merge do mainu, `shipped-awaiting-verdict` + `verdict-eye`): Help má řádek šesti záložek CONTROLS · BASICS · SCORING · ODD BALLS · CAMPAIGN · THE GLASS podle vzoru Settings; otevírá se vždy na Controls (`help=<n>` přečíslováno, 1 = Controls). Řádek záložek je sdílená `MenuPage.TabRow` (Settings převedeno, snímky beze změny). Každé téma ve vlastním scrolleru v jednom rámu, přepnutí jen viditelností; Previous/Next pryč, pod textem Back a výzva Scroll.
+- Jména krátká: se sekčním písmem při 1080p má řádek 1036 px proti rámu 930, „HOW TO PLAY“ by dal 1210; rám sleduje řádek.
+- Ověřeno snímky všech šesti záložek v 1920×1080 a v okně 1600×900 (Back celý), klikací cestou `menucursor=4:0:rb,rb` (→ SCORING) a `left` (obtočení na THE GLASS), ruka padu (LB/RB u krajů, B na Back).
+- ⚠ Krátké tělo stojí v rámu svisle na středu (MenuColumn), jako před změnou (#729).
+- Otevřené: verdikt oka (jména záložek, šířka řádku nad textem); 3840×1600 neviděno; #856 (modely koulí v Help) staví na tomhle.
+
+## 2026-10-12 — #856 živé koule v Help — ThinkPad, Claude Code (github-44)
+- #856 (merge do mainu, `shipped-awaiting-verdict` + `verdict-eye`): záložka ODD BALLS má u každého druhu čtverec a v něm otáčející se kouli kreslenou herní cestou (trik karty tutoriálu #735: koule 3 jednotky před objektivem na paprsku čtverce) do ostré vrstvy popředí, kterou hostitel skládá přes UI na konci snímku (#242) — deska ji tedy netlumí. Nová `MenuPage.PresentsForeground/ForegroundClip/DrawForeground`, `BS3DGame.DrawPageForeground` z rámce pozadí po koulích a skle; mimo klip scrolleru se vrstva maže (krytí 0), takže koule za okrajem rámu se řízne jako text. Potato kreslí rovnou přes UI, jen celé čtverce.
+- ⚠ Myra `ActualBounds` je v prostoru widgetu; na desktop přes `ToGlobal` (první pokus dal všech deset koulí v levém horním rohu).
+- Cena: 40,2 ms proti 38,4 ms (High, 1080p, ssaa 2×, Měsíc, ThinkPad) ≈ 1,8 ms za vrstvu a skládání.
+- Otevřené: verdikt oka (barvy po sloupci, velikost čtverce, sklo jako průsvitný kotouč); Pi neměřeno; duhová koule bez obrázku.
+
+## 2026-10-12 — #807 přehrávač původní hudby na poslední stránku — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- Hotovo na větvi `807-about-player-last`, merge na main následuje: About má dál čtyři stránky, ale otvírá se na THE GAME, pak BUILT ON, MADE WITH a THE ORIGINAL SCORE jako poslední (velikonoční vajíčko). Změnilo se jen pořadí v `AboutCopy.Pages`, text ne.
+- `about=play` bez čísla otevře stránku přehrávače (`AboutPage.PlayerPage`); `about=<n>` beze změny. Test `The_player_is_the_last_page`, příklad `menucursor` v docs přepsán na poslední stránku.
+- majitel: „Vrať“ u #807 (přehrávač nemá být první).
+- Konzervativní čtení: po otočení na stránku přehrávače zůstává kurzor na ◀ (dosavadní pravidlo), Play je o řádek níž.
+- Otevřené: `shipped-awaiting-verdict` + `verdict-eye`; Play a Next nikdo neslyšel (běhy bez zvuku), na skutečném padu se neotáčelo.
+
+## 2026-10-12 — #806 tabulková čísla a sazba stránek — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- Hotovo na větvi `806-typesetting-figures-and-pages`, merge na main následuje: čísla ve sloupcích (pořadí a skóre na tabulích, High Scores jako skutečné sloupce, rozpis výsledku) mají tabulkové číslice. FontStashSharp 1.5.6 nemá tnum, takže `TabularFigures` dá každé číslici buňku široké jako nejširší číslice a vycentruje ji ohraničenými mezerami `/s[n]`; `FontFigures` to váže na skutečný font.
+- Sazba: texty výběru úrovní v `PickerCopy`, výsledku v `LevelResult`, obojí hlídají testy přes `CopyRules`; jedna mezera kolem „ · “, ‚Moon‘, skutečná „…“, prózové proložení u poznámky o odemčení a stavového řádku tabulí.
+- ⚠ Nastavený text je rich-text s příkazy: vypnout `SupportsCommands` nebo měřit přes `MeasureString` rozbije sloupce (stojí v `menu-look.md`).
+- Otevřené: `shipped-awaiting-verdict` + `verdict-eye` (jedničky v tabulkových číslicích, husté tečky, High Scores ve sloupcích); deska tabulí na stránce výsledku a živé online tabule nezachyceny.

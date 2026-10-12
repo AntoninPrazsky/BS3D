@@ -90,6 +90,12 @@ namespace BS3D.Screens
         private string _matchedDetailText, _matchedValueText, _orphanedDetailText, _orphanedValueText;
         private string _streakValueText, _unusedDetailText, _unusedValueText, _totalValueText;
 
+        //And the same figures as the labels are given them: in tabular figures for the face each is drawn in (#806), so a
+        //column of them lines up digit under digit. Set by Refresh, which a rebuild at another size runs too, since a cell
+        //is a width in that size's pixels.
+        private string _matchedDetailSet, _matchedValueSet, _orphanedDetailSet, _orphanedValueSet;
+        private string _streakValueSet, _unusedDetailSet, _unusedValueSet, _totalValueSet;
+
         private Button _retryButton, _nextLevelButton, _skipButton;
 
         //The Next button's own caption, so Refresh can put the level's name on it (#313). Held rather than
@@ -662,10 +668,10 @@ namespace BS3D.Screens
         {
             if (_breakdown == null || !_result.ShowsBreakdown) return;
 
-            WriteBreakdownRow(0, _matchedDetail, _matchedDetailText, _matchedValue, _matchedValueText);
-            WriteBreakdownRow(1, _orphanedDetail, _orphanedDetailText, _orphanedValue, _orphanedValueText);
-            WriteBreakdownRow(2, null, null, _streakValue, _streakValueText);
-            WriteBreakdownRow(3, _unusedDetail, _unusedDetailText, _unusedValue, _unusedValueText);
+            WriteBreakdownRow(0, _matchedDetail, _matchedDetailSet, _matchedValue, _matchedValueSet);
+            WriteBreakdownRow(1, _orphanedDetail, _orphanedDetailSet, _orphanedValue, _orphanedValueSet);
+            WriteBreakdownRow(2, null, null, _streakValue, _streakValueSet);
+            WriteBreakdownRow(3, _unusedDetail, _unusedDetailSet, _unusedValue, _unusedValueSet);
 
             float totalProgress = (_revealClock - BreakdownTotalRevealTime) / BREAKDOWN_PUNCH_SECONDS;
 
@@ -677,7 +683,7 @@ namespace BS3D.Screens
             }
             else
             {
-                _totalValue.Text = _totalValueText;
+                _totalValue.Text = _totalValueSet;
                 _totalValue.Scale = new Vector2(PunchScale(totalProgress));
             }
         }
@@ -690,20 +696,38 @@ namespace BS3D.Screens
         /// </summary>
         private void CacheBreakdownText()
         {
-            _matchedDetailText = $"{_result.MatchedBalls} × {ScoreKeeper.MatchedBallPoints}";
+            _matchedDetailText = _result.MatchedDetail;
             _matchedValueText = ScoreText.Of(_result.MatchedBalls * ScoreKeeper.MatchedBallPoints);
 
-            _orphanedDetailText = $"{_result.OrphanedBalls} × {ScoreKeeper.OrphanedBallPoints}";
+            _orphanedDetailText = _result.OrphanedDetail;
             _orphanedValueText = ScoreText.Of(_result.OrphanedBalls * ScoreKeeper.OrphanedBallPoints);
 
             _streakValueText = ScoreText.Of(_result.StreakBonus);
 
-            _unusedDetailText = _result.HadBudget
-                ? $"{_result.UnusedShotsAwarded} × {ScoreKeeper.UnusedShotPoints}"
-                : "—";
+            _unusedDetailText = _result.UnusedDetail;
             _unusedValueText = ScoreText.Of(_result.CompletionBonusAwarded);
 
             _totalValueText = ScoreText.Of(_result.Score);
+        }
+
+        /// <summary>
+        /// The figures as the labels are given them (#806): each in tabular figures for the face its label draws in, so the
+        /// values, the total and the "count × worth" details each line up digit under digit in their right-aligned column.
+        /// Anton's figures are equal but for the 1, which is a third of a figure narrower, so every figure after a 1 on its line
+        /// stood that far out of the column (the 0 of "× 10" left of the 0 of "× 20" under it).
+        /// </summary>
+        private void SetBreakdownFigures()
+        {
+            SpriteFontBase body = FontBody;
+
+            _matchedDetailSet = FontFigures.Tabular(_matchedDetailText, body);
+            _matchedValueSet = FontFigures.Tabular(_matchedValueText, body);
+            _orphanedDetailSet = FontFigures.Tabular(_orphanedDetailText, body);
+            _orphanedValueSet = FontFigures.Tabular(_orphanedValueText, body);
+            _streakValueSet = FontFigures.Tabular(_streakValueText, body);
+            _unusedDetailSet = FontFigures.Tabular(_unusedDetailText, body);
+            _unusedValueSet = FontFigures.Tabular(_unusedValueText, body);
+            _totalValueSet = FontFigures.Tabular(_totalValueText, Game.MenuFontHeading);
         }
 
         /// <summary>
@@ -735,10 +759,10 @@ namespace BS3D.Screens
             SpriteFontBase heading = Game.MenuFontHeading;
 
             float caption = Widest(body, "matched", "orphaned", "streak bonus", "shots unused");
-            float detail = Widest(body, _matchedDetailText, _orphanedDetailText, _unusedDetailText);
+            float detail = WidestFigures(body, _matchedDetailText, _orphanedDetailText, _unusedDetailText);
             float value = MathF.Max(
-                Widest(body, PENDING_MARK, _matchedValueText, _orphanedValueText, _streakValueText, _unusedValueText),
-                Widest(heading, PENDING_MARK, _totalValueText));
+                WidestFigures(body, PENDING_MARK, _matchedValueText, _orphanedValueText, _streakValueText, _unusedValueText),
+                WidestFigures(heading, PENDING_MARK, _totalValueText));
 
             //A note wider than the three columns lengthens the middle one, so captions and values stay at the edges
             float gaps = 2f * _breakdownGrid.ColumnSpacing;
@@ -759,6 +783,17 @@ namespace BS3D.Screens
                 if (!string.IsNullOrEmpty(text)) widest = MathF.Max(widest, font.MeasureString(text).X);
 
             return MathF.Ceiling(widest);
+        }
+
+        /// <summary>The widest of <paramref name="texts"/> as their labels lay them out, in tabular figures (#806).</summary>
+        private static float WidestFigures(SpriteFontBase font, params string[] texts)
+        {
+            int widest = 0;
+
+            foreach (string text in texts)
+                if (!string.IsNullOrEmpty(text)) widest = Math.Max(widest, FontFigures.Width(text, font));
+
+            return widest;
         }
 
         #endregion
@@ -864,7 +899,7 @@ namespace BS3D.Screens
             //shade under the heading, which is what those two ranks are for.
             _newBest = new ShadowedLabel(shadow)
             {
-                Text = "New best",
+                Text = LevelResult.NEW_BEST,
                 Font = FontBody,
                 TextColor = BS3DGame.MENU_TEXT_BODY,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -1060,6 +1095,8 @@ namespace BS3D.Screens
                 Font = FontSmall,
                 TextColor = BS3DGame.MENU_TEXT_DIM,
                 Wrap = true,
+                //Two lines of prose, so at the prose leading (#806)
+                VerticalSpacing = ProseLeading,
                 Width = Game.MenuColumnPlateContentWidth,
                 TextAlign = TextHorizontalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -1088,11 +1125,14 @@ namespace BS3D.Screens
             Grid.SetRow(captionLabel, row);
             grid.Widgets.Add(captionLabel);
 
+            //Flush right like the values (#806): a column of figures that is read down is right-aligned, and in tabular
+            //figures the "×" and the worths then stand one under another ("96 × 10" over " 7 × 50")
             detail = new Label
             {
                 Text = string.Empty,
                 Font = FontBody,
                 TextColor = BS3DGame.MENU_TEXT_DIM,
+                HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Center,
             };
             Grid.SetColumn(detail, 1);
@@ -1130,15 +1170,11 @@ namespace BS3D.Screens
             //said "BLOCK COMPLETE" would be the same shape of change as CAMPAIGN COMPLETE was, a different string
             //over an identical page, and the thing worth telling the player is WHICH chapter they just closed.
             //Upper-cased here rather than authored in caps, so a set can name its blocks in prose.
-            _heading.Text = _result.CampaignComplete ? "CAMPAIGN COMPLETE"
-                : _result.BlockComplete && !string.IsNullOrWhiteSpace(_result.BlockName) ? _result.BlockName.ToUpperInvariant()
-                : _result.Cleared ? "CLEARED" : "FAILED";
+            _heading.Text = _result.Heading;
 
             //And under it, where that chapter sat. Only on the milestone: on any other ending the line would be
             //stating a fact about a block nobody has just finished.
-            _milestone.Text = _result.BlockComplete
-                ? $"Block {_result.BlockNumber} of {_result.BlockCount} complete"
-                : string.Empty;
+            _milestone.Text = _result.MilestoneLine;
             _milestone.Visible = _result.BlockComplete;
 
             //And which level it was (#313) — on a clear, on a fail and on a milestone alike. Hidden only when
@@ -1158,15 +1194,13 @@ namespace BS3D.Screens
             _reason.Text = _result.FailureText;
             _reason.Visible = _result.Failed;
 
-            _bareScore.Text = _result.ShowsBareScore
-                ? $"Score {ScoreText.Of(_result.Score)}"
-                : string.Empty;
+            _bareScore.Text = _result.BareScoreLine;
             _bareScore.Visible = _result.ShowsBareScore;
 
             //And what the button under the buttons would cost, said before it is pressed rather than
             //discovered afterwards by its absence (#347). Shown on exactly the condition the button is, so the
             //two can never disagree about whether a skip is on offer.
-            _skipNote.Text = _result.CanSkip ? "Skipping spends this chapter’s one skip" : string.Empty;
+            _skipNote.Text = _result.CanSkip ? LevelResult.SKIP_NOTE : string.Empty;
             _skipNote.Visible = _result.CanSkip;
 
             _breakdown.Visible = _result.ShowsBreakdown;
@@ -1175,11 +1209,8 @@ namespace BS3D.Screens
             {
                 //Only below four stars — NextStarScore's own -1 says there is nothing left to project towards,
                 //the same sentinel LevelResult itself uses, so this can never show a note the total contradicts.
-                bool hasNextStar = _result.NextStarScore >= 0;
-                _nextStarNote.Text = hasNextStar
-                    ? $"Next star at {ScoreText.Of(_result.NextStarScore)} (+{ScoreText.Of(_result.NextStarGap)})"
-                    : string.Empty;
-                _nextStarNote.Visible = hasNextStar;
+                _nextStarNote.Text = _result.NextStarNote;
+                _nextStarNote.Visible = _nextStarNote.Text.Length > 0;
 
                 //Only when the road ahead is actually shut — which is also when the Next Level button below
                 //is absent, so this line is the absence explained rather than a number always on display.
@@ -1192,11 +1223,13 @@ namespace BS3D.Screens
                 //quoted the star gate anyway: "unlocks at 150 ★ — you have 306". LevelResult.UnlockNote names
                 //whichever lock actually holds.
                 string unlockNote = _result.UnlockNote;
-                _unlockNote.Text = unlockNote;
+                //As prose (#855): the note's own line break is kept, and a wrapping label is never handed raw text
+                SetProse(_unlockNote, unlockNote);
                 _unlockNote.Visible = unlockNote.Length > 0;
 
-                //The columns at their final widths before anything of the reveal is written (#665), and after the
-                //two notes above, whose widths they take account of
+                //The figures set for this tree's faces (#806), then the columns at their final widths before anything of
+                //the reveal is written (#665), and after the two notes above, whose widths they take account of
+                SetBreakdownFigures();
                 PinBreakdownColumns();
             }
 
@@ -1441,7 +1474,9 @@ namespace BS3D.Screens
         /// </summary>
         private void SetStatus(string text, OnlineSignal.SignalMode? signal)
         {
-            _boardsStatus.Text = text;
+            //As prose (#855): the line wraps beside its signal, and a wrapping label is never handed raw text. ApplyBoards
+            //reaches this only when the result's generation moves, never per frame
+            SetProse(_boardsStatus, text);
             _statusRow.Visible = text.Length > 0;
 
             _signal.Visible = signal != null;

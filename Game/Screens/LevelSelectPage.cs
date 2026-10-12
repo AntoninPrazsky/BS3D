@@ -325,7 +325,8 @@ namespace BS3D.Screens
             //past the grid and widened the whole plate under the pointer (photographed at 3840×1600). The
             //height is NOT fitted: FontSmall is the menu's unfitted 58 units, and Fit(70) at 2.4:1 was 52 —
             //the line drew into the Back button below it. Whatever still will not fit the width is cut with an
-            //ellipsis rather than let overflow, the same choice as clipping over a widening page.
+            //ellipsis rather than let overflow, the same choice as clipping over a widening page - the one character,
+            //not FontStashSharp's default of three full stops (#806)
             _detail = new Label
             {
                 Font = FontSmall,
@@ -333,6 +334,7 @@ namespace BS3D.Screens
                 HorizontalAlignment = HorizontalAlignment.Center,
                 TextAlign = FontStashSharp.RichText.TextHorizontalAlignment.Center,
                 AutoEllipsisMethod = FontStashSharp.RichText.AutoEllipsisMethod.Character,
+                AutoEllipsisString = "…",
                 Width = Scaled(GridWidth(count)),
                 Height = Scaled(70),
                 Margin = ScaledThickness(0, 13, 0, 13),
@@ -443,6 +445,8 @@ namespace BS3D.Screens
                 Width = width - signalSize - Scaled(SIGNAL_GAP),
                 VerticalAlignment = VerticalAlignment.Center,
                 Wrap = true,
+                //Prose when it wraps, so at the prose leading (#806)
+                VerticalSpacing = ProseLeading,
             };
             HorizontalStackPanel statusRow = new() { Spacing = Scaled(SIGNAL_GAP) };
             statusRow.Widgets.Add(_boardsSignal);
@@ -552,7 +556,7 @@ namespace BS3D.Screens
             _boardsPlate.Visible = _boardsLevel >= 0;
             if (_boardsLevel < 0) return;
 
-            _boardsHeading.Text = $"{_boardsLevel + 1}  {Game.LevelDisplayName(_boardsLevel)}".ToUpperInvariant();
+            _boardsHeading.Text = PickerCopy.BoardsHeading(_boardsLevel + 1, Game.LevelDisplayName(_boardsLevel));
 
             BoardPageBody month = _boardsMonthReply?.Page, allTime = _boardsAllTimeReply?.Page;
             bool waiting = _boardsMonthTicket >= 0 || _boardsAllTimeTicket >= 0;
@@ -568,9 +572,11 @@ namespace BS3D.Screens
             if (month == null) _boardMonth.You.Text = " ";
             if (allTime == null) _boardAllTime.You.Text = " ";
 
-            _boardsStatus.Text = waiting ? "Loading the boards…"
+            //As prose (#855): the failure wraps at 1080p, and a wrapping label is never handed raw text. The single space
+            //that holds the line's height comes back from the breaker as it is
+            SetProse(_boardsStatus, waiting ? "Loading the boards…"
                 : failed ? "The score server did not answer."
-                : " ";
+                : " ");
             _boardsSignal.Visible = waiting || failed;
             _boardsSignal.Show(waiting ? OnlineSignal.SignalMode.Working : OnlineSignal.SignalMode.Idle);
         }
@@ -985,8 +991,6 @@ namespace BS3D.Screens
                 else opensAt = Math.Min(opensAt, Game.LevelMinStars(level));
             }
 
-            string position = $"Chapter {_chapter + 1} of {_chapterStart.Length}";
-
             //A chapter with nothing open in it says what opens it instead of reporting a progress nobody could
             //have made. The price is the CHEAPEST gate in the run — that is the one that lets the chapter be
             //entered at all, and the tiles inside still each carry their own.
@@ -995,11 +999,9 @@ namespace BS3D.Screens
             //is shut by the sequence whatever their star total, so quoting a gate they can already afford
             //would say the game was broken. Read off the chapter's FIRST level, which is the one that has to
             //open before any of the others can.
-            _chapterLine.Text = anyOpen
-                ? $"{position}  ·  {cleared} of {length} cleared  ·  {STAR_FILLED} {stars} of {length * StarRating.MAX}"
-                : Game.IsLevelBeyondReach(first)
-                    ? $"{position}  ·  locked  ·  clear level {first} first"
-                    : $"{position}  ·  locked  ·  opens at {opensAt} {STAR_FILLED}";
+            //The words are PickerCopy's (#806), where a test holds them to the typesetting rules
+            _chapterLine.Text = PickerCopy.ChapterLine(_chapter + 1, _chapterStart.Length, anyOpen, cleared, length, stars,
+                length * StarRating.MAX, Game.IsLevelBeyondReach(first), first, opensAt);
 
             for (int c = 0; c < _pips.Count; c++)
             {
@@ -1100,7 +1102,7 @@ namespace BS3D.Screens
             _boardsFrontier = frontier < Game.LevelCount && Game.IsLevelUnlocked(frontier) ? frontier : -1;
             ShowBoardButton();
 
-            _totalStars.Text = $"{STAR_FILLED} {Game.TotalStars} collected";
+            _totalStars.Text = PickerCopy.StarsCollected(Game.TotalStars);
             _totalStars.Visible = Game.LevelCount > 0;
 
             ShowDetail(-1);
@@ -1178,11 +1180,9 @@ namespace BS3D.Screens
                 //whole - and it never was, because the row was clipped away entirely from #472 on. The tile's dim
                 //type already says locked, and the detail line under the grid says the whole sentence.
                 _tileStarsEarned[slot].Text = !unlocked
-                    ? Game.IsLevelBeyondReach(level)
-                        ? $"#{Game.FirstUnfinishedLevel + 1} first"
-                        : $"{Game.LevelMinStars(level)} {STAR_FILLED}"
+                    ? PickerCopy.TileLock(Game.IsLevelBeyondReach(level), Game.FirstUnfinishedLevel + 1, Game.LevelMinStars(level))
                     : rated ? StarsEarned(stars)
-                    : Game.LevelSkipped(level) ? "Skipped"
+                    : Game.LevelSkipped(level) ? PickerCopy.TILE_SKIPPED
                     : string.Empty;
                 _tileStarsEarned[slot].TextColor = rated ? BS3DGame.StarTierColor(stars) : BS3DGame.MENU_TEXT_DIM;
 
@@ -1239,12 +1239,12 @@ namespace BS3D.Screens
 
             //The lock's full arithmetic, and since #347 that means the right arithmetic: the sequence names
             //the level standing in the way, the star gate names the price against what the player holds.
+            string name = Game.LevelDisplayName(level);
             _detail.Text = Game.IsLevelUnlocked(level)
-                ? $"{Game.LevelDisplayName(level)} — {Game.LevelRulesText(level)}"
+                ? PickerCopy.DetailOpen(name, Game.LevelRulesText(level))
                 : Game.IsLevelBeyondReach(level)
-                    ? $"{Game.LevelDisplayName(level)} — one level at a time;"
-                      + $" next is {Game.FirstUnfinishedLevel + 1} '{Game.LevelDisplayName(Game.FirstUnfinishedLevel)}'"
-                    : $"{Game.LevelDisplayName(level)} — unlocks at {Game.LevelMinStars(level)} {STAR_FILLED}, you have {Game.TotalStars}";
+                    ? PickerCopy.DetailSequence(name, Game.FirstUnfinishedLevel + 1, Game.LevelDisplayName(Game.FirstUnfinishedLevel))
+                    : PickerCopy.DetailPrice(name, Game.LevelMinStars(level), Game.TotalStars);
         }
 
         /// <summary>The button names the level it opens, so a pad player knows which board they are about to see.</summary>
@@ -1254,7 +1254,7 @@ namespace BS3D.Screens
 
             int level = BoardsLevel();
             _boardButton.Enabled = level >= 0;
-            _boardLabel.Text = level >= 0 ? $"Board: {Game.LevelDisplayName(level)}" : "Leaderboard";
+            _boardLabel.Text = PickerCopy.BoardButton(level >= 0 ? Game.LevelDisplayName(level) : null);
         }
 
         private void OpenBoard()

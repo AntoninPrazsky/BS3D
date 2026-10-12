@@ -28,7 +28,7 @@ Every file a player's run writes lives in one per-user directory and goes throug
 
 ## `Settings.json` (`"bs3d-settings"`)
 
-`GameSettings`: the four volumes, exposure (a raw multiplier read onto the nearest Brightness rung, #711), sky dome, fullscreen, FPS counter and limit, aberration, film grain, the quality tier and whether the game may lower it itself (#390), plus **`online`** (three states, #763: absent until decided, then `true` or `false`; **nothing is sent unless `true`**), **`nicknameDismissed`** (times the first-launch nickname question was closed with Esc; absent while zero) and **`server`**, which no row shows: it points a build at a local score service and is the only way a local build submits at all. Anything that is not a settings file comes back as the defaults. What it excludes (the adaptive probe's verdict, **Unlock all**): "The settings page" in `docs/game-shell.md`.
+`GameSettings`: the four volumes, exposure (a raw multiplier read onto the nearest Brightness rung, #711), sky dome, fullscreen, FPS counter and limit, aberration, film grain, the quality tier and whether the game may lower it itself (#390), plus **`online`** (three states, #763: absent until decided, then `true` or `false`; **nothing is sent unless `true`**), **`nicknameDismissed`** (times the first-launch nickname question was closed with Esc; absent while zero) and **`server`**, which no row shows: it points a build at a local score service and is the only way a local build submits at all. Anything that is not a settings file comes back as the defaults. What it excludes (the adaptive probe's verdict, **Unlock all**, a dev-build row a release does not draw, #854): `docs/game-shell/settings.md`.
 
 ## `Online.json`, `Outbox.json` (#546) and `Notes/` (#813)
 
