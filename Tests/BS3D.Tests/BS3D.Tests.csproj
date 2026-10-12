@@ -49,6 +49,13 @@
         in; and the copy's characters held to the typesetting rules.-->
     <Compile Include="..\..\Game\Screens\SpaceWrap.cs" />
     <Compile Include="..\..\Game\Screens\CopyRules.cs" />
+    <!--Tabular figures by hand (#806): every digit in a cell as wide as the widest, as space commands a label lays out,
+        over a face's ten advances handed in-->
+    <Compile Include="..\..\Game\Screens\TabularFigures.cs" />
+    <!--What the level picker, the boards and the result page say (#806): strings only, held to those rules-->
+    <Compile Include="..\..\Game\Screens\PickerCopy.cs" />
+    <Compile Include="..\..\Game\Screens\LevelResult.cs" />
+    <Compile Include="..\..\Game\Screens\ScoreText.cs" />
     <!--What the About page says (#807): strings only, held to those rules and to the credits it must keep.-->
     <Compile Include="..\..\Game\Screens\AboutCopy.cs" />
     <Compile Include="..\..\Game\Screens\FieldTail.cs" />

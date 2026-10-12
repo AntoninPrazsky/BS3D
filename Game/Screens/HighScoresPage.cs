@@ -1,4 +1,5 @@
 using BS3D.Online;
+using FontStashSharp.RichText;
 using Microsoft.Xna.Framework;
 using Myra.Graphics2D.UI;
 using Prazsky.BS3D.Levels;
@@ -36,6 +37,12 @@ namespace BS3D.Screens
     /// <b>Opted out, the page still opens</b>: it says what turning online scores on gives and offers Settings, the result
     /// page's own hint (#548) made into a door. The menu entry is a reason to opt in, so hiding it would hide the reason.
     /// </para>
+    /// <para>
+    /// <b>The numbers stand in columns, in tabular figures</b> (#806): the level's number flush right before its name, and
+    /// each score flush right at the end of its block, so the leaders' scores and the player's own read down the page as
+    /// two columns. They were written into one line with the name before them ("#1  Kuba   41 200"), so each score stood
+    /// wherever its name ended, with runs of spaces doing a column's work.
+    /// </para>
     /// </summary>
     internal sealed class HighScoresPage : MenuPage
     {
@@ -48,6 +55,14 @@ namespace BS3D.Screens
         private const int ROW_PADDING_X = 30;
         private const int ROW_SPACING = 8;
         private const int COLUMN_GAP = 40;
+
+        //Inside a block (#806): between the level's number and its name, about the word space the line had there, and
+        //between a text and its score, at the least, where a long name meets a long score
+        private const int NUMBER_GAP = 18;
+        private const int SCORE_GAP = 24;
+
+        //The ellipsis is one character (#806); FontStashSharp's default is three full stops
+        private const string ELLIPSIS = "…";
 
         //A page holds a chapter; an unchaptered set is dealt in pages of this many, the campaign's own chapter length
         private const int UNCHAPTERED_PAGE = 10;
@@ -79,7 +94,8 @@ namespace BS3D.Screens
         private Button _previousArrow, _nextArrow;
         private Label _previousGlyph, _nextGlyph;
         private readonly List<Button> _rows = new();
-        private readonly List<Label> _rowNames = new(), _rowTops = new(), _rowMes = new();
+        private readonly List<Label> _rowNumbers = new(), _rowNames = new(), _rowTops = new(), _rowMes = new();
+        private readonly List<Label> _rowTopScores = new(), _rowMeScores = new();
         private Label _status;
         private Button _settingsButton;
 
@@ -163,9 +179,12 @@ namespace BS3D.Screens
             column.Widgets.Add(BuildPager());
 
             _rows.Clear();
+            _rowNumbers.Clear();
             _rowNames.Clear();
             _rowTops.Clear();
             _rowMes.Clear();
+            _rowTopScores.Clear();
+            _rowMeScores.Clear();
 
             VerticalStackPanel rows = new() { Spacing = Scaled(ROW_SPACING), HorizontalAlignment = HorizontalAlignment.Center };
             for (int slot = 0; slot < LongestPage(); slot++) rows.Widgets.Add(BuildRow(slot));
@@ -244,17 +263,26 @@ namespace BS3D.Screens
             return arrow;
         }
 
-        /// <summary>One row slot: three labels in a tile-shaped entry, which opens the level's full boards.</summary>
+        /// <summary>
+        /// One row slot: the level (its number flush right in a column as wide as the set's longest number, then its name),
+        /// the board's leader with their score flush right, and the player's place with theirs, in a tile-shaped entry that
+        /// opens the level's full boards.
+        /// </summary>
         private Button BuildRow(int slot)
         {
             HorizontalStackPanel content = new() { Spacing = Scaled(COLUMN_GAP), VerticalAlignment = VerticalAlignment.Center };
 
-            Label name = RowLabel(NAME_WIDTH, BS3DGame.MENU_TEXT);
-            Label top = RowLabel(TOP_WIDTH, BS3DGame.MENU_TEXT_BODY);
-            Label me = RowLabel(ME_WIDTH, BS3DGame.BoardYouColor);
-            content.Widgets.Add(name);
-            content.Widgets.Add(top);
-            content.Widgets.Add(me);
+            //The number's column holds the set's longest number in tabular figures, so every name starts at one edge
+            int numberWidth = FontFigures.Width(Game.LevelCount.ToString(CultureInfo.InvariantCulture), FontSmall);
+            Label number = RowLabel(BS3DGame.MENU_TEXT, HorizontalAlignment.Right);
+            Label name = RowLabel(BS3DGame.MENU_TEXT, HorizontalAlignment.Stretch);
+            Label top = RowLabel(BS3DGame.MENU_TEXT_BODY, HorizontalAlignment.Stretch);
+            Label topScore = RowLabel(BS3DGame.MENU_TEXT_BODY, HorizontalAlignment.Right);
+            Label me = RowLabel(BS3DGame.BoardYouColor, HorizontalAlignment.Stretch);
+            Label meScore = RowLabel(BS3DGame.BoardYouColor, HorizontalAlignment.Right);
+            content.Widgets.Add(Block(NAME_WIDTH, number, name, numberWidth));
+            content.Widgets.Add(Block(TOP_WIDTH, top, topScore));
+            content.Widgets.Add(Block(ME_WIDTH, me, meScore));
 
             Button row = Game.MenuTile(content, () => OpenSlot(slot),
                 NAME_WIDTH + TOP_WIDTH + ME_WIDTH + 2 * COLUMN_GAP + 2 * ROW_PADDING_X, ROW_HEIGHT);
@@ -266,20 +294,53 @@ namespace BS3D.Screens
             row.DisabledBackground = BS3DGame.MENU_BUTTON_BRUSH;
 
             _rows.Add(row);
+            _rowNumbers.Add(number);
             _rowNames.Add(name);
             _rowTops.Add(top);
             _rowMes.Add(me);
+            _rowTopScores.Add(topScore);
+            _rowMeScores.Add(meScore);
             return row;
         }
 
-        private Label RowLabel(int width, Color color) => new()
+        /// <summary>
+        /// A row's label. One that fills its cell (a name, a leader, a place) ends in an ellipsis where it would run into the
+        /// score beside it (a long nickname with an unfinished mark can) rather than drawing over it.
+        /// </summary>
+        private Label RowLabel(Color color, HorizontalAlignment alignment) => new()
         {
             Font = FontSmall,
             TextColor = color,
             DisabledTextColor = color,
-            Width = Scaled(width),
+            HorizontalAlignment = alignment,
             VerticalAlignment = VerticalAlignment.Center,
+            AutoEllipsisMethod = alignment == HorizontalAlignment.Stretch ? AutoEllipsisMethod.Character : AutoEllipsisMethod.None,
+            AutoEllipsisString = ELLIPSIS,
         };
+
+        /// <summary>
+        /// One of a row's three blocks, <paramref name="width"/> design units wide, in two cells: with a
+        /// <paramref name="lead"/>, a first cell that many pixels wide (the level's number, flush right) and a second filling
+        /// the rest (its name); without one, a first cell filling what the second - a score, flush right - leaves it.
+        /// </summary>
+        private Grid Block(int width, Label first, Label second, int lead = 0)
+        {
+            Grid block = new()
+            {
+                Width = Scaled(width),
+                ColumnSpacing = Scaled(lead > 0 ? NUMBER_GAP : SCORE_GAP),
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            block.ColumnsProportions.Add(lead > 0 ? new Proportion(ProportionType.Pixels, lead) : new Proportion(ProportionType.Fill));
+            block.ColumnsProportions.Add(lead > 0 ? new Proportion(ProportionType.Fill) : new Proportion(ProportionType.Auto));
+            block.RowsProportions.Add(new Proportion(ProportionType.Auto));
+
+            Grid.SetColumn(first, 0);
+            Grid.SetColumn(second, 1);
+            block.Widgets.Add(first);
+            block.Widgets.Add(second);
+            return block;
+        }
 
         /// <summary>A row label's colour, the same whether its row can be opened or not (see <see cref="BuildRow"/>).</summary>
         private static void Paint(Label label, Color color)
@@ -425,14 +486,16 @@ namespace BS3D.Screens
                 bool unlocked = Game.IsLevelUnlocked(level);
                 _rows[slot].Enabled = unlocked && Game.Online.Enabled;
 
-                _rowNames[slot].Text = $"{level + 1}  {Game.LevelDisplayName(level)}";
+                _rowNumbers[slot].Text = FontFigures.Tabular((level + 1).ToString(CultureInfo.InvariantCulture), FontSmall);
+                _rowNames[slot].Text = Game.LevelDisplayName(level);
+                Paint(_rowNumbers[slot], unlocked ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM);
                 Paint(_rowNames[slot], unlocked ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM);
 
                 if (!unlocked)
                 {
                     _rowTops[slot].Text = "Locked";
                     Paint(_rowTops[slot], BS3DGame.MENU_TEXT_DIM);
-                    _rowMes[slot].Text = string.Empty;
+                    _rowTopScores[slot].Text = _rowMes[slot].Text = _rowMeScores[slot].Text = string.Empty;
                     continue;
                 }
 
@@ -440,14 +503,17 @@ namespace BS3D.Screens
                     && boards.TryGetValue(Key(id.File, id.Hash, rules), out BoardSummaryBody found) ? found : null;
 
                 Paint(_rowTops[slot], BS3DGame.MENU_TEXT_BODY);
+                bool shows = reply?.Summary != null && board != null;
                 _rowTops[slot].Text = reply?.Summary == null ? string.Empty
                     : board == null ? "No clears yet"
-                    : $"#1  {board.Top.Name}   {ScoreText.Of(board.Top.Score)}{Unfinished(board.Top.Stars)}";
+                    : PickerCopy.Leader(board.Top.Name, board.Top.Stars == 0);
+                _rowTopScores[slot].Text = shows ? FontFigures.Tabular(ScoreText.Of(board.Top.Score), FontSmall) : string.Empty;
 
-                _rowMes[slot].Text = board?.Me is BoardMeBody me && me.Rank > 0
-                    ? (me.Rank == 1 ? $"You lead   {ScoreText.Of(me.Score)}"
-                        : $"You: {Ordinal(me.Rank)} of {board.Total}   {ScoreText.Of(me.Score)}") + Unfinished(me.Stars)
-                    : string.Empty;
+                //An unfinished attempt (#716) is zero stars, which no clear has: the service ranks every clear above every
+                //attempt, so a "#1" that is one says nobody has cleared the level yet
+                bool placed = shows && board.Me != null && board.Me.Rank > 0;
+                _rowMes[slot].Text = placed ? PickerCopy.Place(board.Me.Rank, board.Total, board.Me.Stars == 0) : string.Empty;
+                _rowMeScores[slot].Text = placed ? FontFigures.Tabular(ScoreText.Of(board.Me.Score), FontSmall) : string.Empty;
             }
 
             //As prose (#855): the line wraps, and a wrapping label is never handed raw text. Refresh runs on a change, not
@@ -513,17 +579,5 @@ namespace BS3D.Screens
             return identity;
         }
 
-        /// <summary>
-        /// The mark after a row that is an unfinished attempt (#716): zero stars, which no clear has. The service ranks
-        /// every clear above every attempt, so a "#1" that is one says nobody has cleared the level yet.
-        /// </summary>
-        private static string Unfinished(int stars) => stars == 0 ? ", " + BoardView.UnfinishedMark : string.Empty;
-
-        private static string Ordinal(int n)
-        {
-            int tens = n % 100;
-            string suffix = tens is >= 11 and <= 13 ? "th" : (n % 10) switch { 1 => "st", 2 => "nd", 3 => "rd", _ => "th" };
-            return n.ToString(CultureInfo.InvariantCulture) + suffix;
-        }
     }
 }
