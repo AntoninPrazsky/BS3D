@@ -133,6 +133,10 @@ namespace BS3D
         //Testing only (#257): log every shot's resolution beside the cell its ghost promised when it was fired
         internal bool LogShots { get; private set; }
 
+        //Testing only (#720): log the overview's tilt with the aim, the camera's pitch and where the muzzle and the beam's
+        //end sit in the frame, once a frame
+        internal bool LogTilt { get; private set; }
+
         //Testing only: offer every tutorial card as if none had been taught, and record none (#189). The
         //cards are gated on the save — a lesson done is never shown again — so on a save that finished the
         //chapter months ago they are otherwise unreachable, and a run that taught them for real would write
@@ -243,10 +247,10 @@ namespace BS3D
         //in one material and then the other.
         internal BallStyle? BallStyle { get; private set; }
 
-        //Testing only: the colour cue prototypes (#737), the figure four colours carry beside their hue, painted
-        //("motif") or carved ("shape"). None unless asked, so nothing a player can reach draws it; the owner picks one
-        //reading first, and only then are all thirteen colours built.
-        internal ColourCueForm ColourCue { get; private set; }
+        //Testing only: the colour cue (#737), which of ColourCues' figure sets every colour carries painted beside its
+        //hue ("motif" or "motif:1" to "motif:4"). ColourCues.NONE unless asked, so nothing a player can reach draws it
+        //until the owner picks a set.
+        internal int ColourCue { get; private set; }
 
         //Testing only: put a cleared level's result screen up at startup. A level's ending — the released
         //camera, the stars landing, the arena going out of focus — is otherwise only reachable by winning
@@ -480,6 +484,9 @@ namespace BS3D
             //"logshots" prints where every shot landed beside the cell the landing ghost promised when it was fired
             //(#257): the ghost's promise checked by a run nobody plays, a bank shot off a crate above all.
             Row.Flag("logshots", o => o.LogShots = true),
+            //"logtilt" prints the overview lens's tilt with the aim every frame (#720): a press or a release of precise aim
+            //is shown not to move the pose by consecutive lines, which no screenshot schedule can give.
+            Row.Flag("logtilt", o => o.LogTilt = true),
             //"tutorial" offers every tutorial card and records nothing, "tutorial=demo" reels them (#189) —
             //see the property's own note.
             Row.Flag("tutorial", o => o.Tutorial = "force"),
@@ -589,8 +596,8 @@ namespace BS3D
             //overrides the backdrop each one names. Parsed through BallStyles, so the spellings are the
             //ones a level file takes; an unknown one leaves the levels' own answers standing.
             Row.Value<BallStyle>("balls", BallStyles.TryParse, (o, v) => o.BallStyle = v),
-            //"colourcue=<none|motif|shape>" (#737), spelled through ColourCues like the Testbed's own argument
-            Row.Value<ColourCueForm>("colourcue", ColourCues.TryParseForm, (o, v) => o.ColourCue = v),
+            //"colourcue=<none|motif|motif:N>" (#737), spelled through ColourCues like the Testbed's own argument
+            Row.Value<int>("colourcue", ColourCues.TryParse, (o, v) => o.ColourCue = v),
             //"nofocuspause" stops a level pausing itself when the window loses focus (#355). For any run
             //nobody is sitting at: a benchmark measuring 70 seconds of frames, a capture rig on a locked
             //desktop. "shot=" implies it on its own — see BS3DGame.PauseOnFocusLoss.

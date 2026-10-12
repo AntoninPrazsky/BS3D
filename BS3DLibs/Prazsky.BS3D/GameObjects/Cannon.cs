@@ -953,6 +953,14 @@ namespace Prazsky.BS3D.GameObjects
         public float ElevationAim => _rotationAim.X;
 
         /// <summary>
+        /// The elevation the barrel rests at from where the carriage stands now, in radians: the angle that points it
+        /// straight at <see cref="OrbitCenter"/>, which <see cref="ElevationAim"/> is measured from. A walk steepens or
+        /// flattens it; the aim does not move it. It is the pose a level opens on (unless <see cref="ElevationLimit"/>
+        /// is lower), which is why the Game's overview lens measures its tilt from it (#720).
+        /// </summary>
+        public float RestElevation => _rotationToOrbitCenter.X;
+
+        /// <summary>
         /// Puts the aim at a stated pose — <see cref="Elevation"/> and <see cref="Traverse"/>, both in radians
         /// — and returns whether it fitted inside the clamps rather than being cut short by them.
         /// <para>

@@ -575,3 +575,15 @@ Pravidla:
 - Bez majitele (spí), konzervativně: předání místo sloučení; popisek „unused“ podle stránky výsledku a Helpu.
 - ⚠ Lineární doba čtení nechala obyčejný match stát moc dlouho (test to chytil); ⚠ nápřah `InBack` vyhodil bonus z levého okraje, poloha teď drží v rámu.
 - Otevřené: verdikt oka (překryv dvou čísel 0,1–0,3 s); skriptovaná rána na 3840×1600 od ~15:20 nevystřelí (příčina neznámá), pár zlomu série ve 4K chybí; první vykreslení velkých velikostí neměřeno.
+
+## 2026-10-12 — #720 kamera se naklání s mířením — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #720 jde na main (merge následuje), `shipped-awaiting-verdict` + `verdict-hands`. Bez RMB přehledová kamera naklání cíl pohledu s elevací hlavně (zesílení 0,3, plynule 0,125 s v reálném čase); nula je mířidlo, se kterým level začíná, takže úvodní záběr se nemění. RMB náklon vytratí. Nahoru se staví, než ústí klesne pod 12 % rámu (pravidlo majitele „trochu zbraně v záběru“); dolů, než vršek orámovaného shluku zajde pod 3 % horního okraje (na startu levelu jen 0,5°). `logtilt` tiskne náklon.
+- Bez majitele, konzervativně: hloubka ponoru dolů malá; horizont scény není slibem fitu.
+- ⚠ Nula náklonu skočila, když vysokému levelu povolil limit míření (Totem: 30,7 → 33,8°, pohled klesl bez vstupu); nula teď sedí pod `OpeningElevationLimit()`.
+- Otevřené: pocit v ruce (myš, pad), skutečné okno 3840×1600.
+
+## 2026-10-12 — #737 varianty motivů barev — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #737 jde na main (merge následuje), `owner-decision`. Čtyři sady malovaných motivů dávají všem 13 barvám (i černé) vlastní figuru: 1 figurky, 2 emblémy, 3 pruhy, 4 puntíky. Za `colourcue=motif:1..4`, výchozí vypnuto, takže hra se nemění. Vyřezaný tvar je pryč. Inkousty drží průměrnou barvu koule na podílu, který vidí kamera; bledé inkousty (hnědá, námořní modř) bez šedi. Srovnávací stránka: https://claude.ai/artifact/QtAvLS7AxbhN4WBC72bu5U
+- Bez majitele (spí), konzervativně: nic výchozího, výběr či mix sad je jeho.
+- ⚠ Pruhy kolem svislé osy ukazují kameře o 15–18 % víc plochy než kouli; vyvažovat na podílu koule ztmavilo červenou o 4,7 dE. Pokrytí se musí přeměřit při každé změně figury.
+- Otevřené: volba sady; na vinylu sady nahradí bílé klíny plážového míče; HUD disky, kanón, ostatních 7 stylů a Pi figuru nekreslí; čas na GPU neměřen.
