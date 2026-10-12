@@ -450,7 +450,9 @@ namespace BS3D.Screens
                     : string.Empty;
             }
 
-            _status.Text = StatusText(reply, boards);
+            //As prose (#855): the line wraps, and a wrapping label is never handed raw text. Refresh runs on a change, not
+            //per frame (Update's `changed`), so the lines are chosen as often as the reply moves
+            SetProse(_status, StatusText(reply, boards));
             _settingsButton.Visible = !Game.Online.Enabled;
         }
 

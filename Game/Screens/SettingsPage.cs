@@ -89,19 +89,8 @@ namespace BS3D.Screens
 
         //The tab row (#686), in the section face the group headings were set in, since a tab is what those headings
         //became. Every tab is cut to the widest name's width so the row reads as one bar of equal parts.
-        private const int TAB_PADDING_X = 40;
-        private const int TAB_PADDING_Y = 14;
-        private const int TAB_SPACING = 16;
-        private const int TAB_GAP = 20;
-
         private const int TAB_ONLINE = 0, TAB_DISPLAY = 1, TAB_AUDIO = 2, TAB_CONTROLS = 3, TAB_GAME = 4;
         private static readonly string[] TAB_NAMES = { "ONLINE", "DISPLAY", "AUDIO", "CONTROLS", "GAME" };
-
-        //The tab that is up reads as unmistakably chosen, inverted: the near-white of the type as the slab and a dark
-        //grey as the type. Still the greyscale rule (BS3DGame's palette) — brightness, not hue — and the opposite of
-        //a row's focus highlight, which lifts a grey slab a step and so can never be taken for it.
-        private static readonly IBrush TAB_SELECTED_BRUSH = new FlatBrush(BS3DGame.MENU_TEXT);
-        private static readonly Color TAB_SELECTED_TEXT = new(30, 30, 30);
 
         private Label _resolutionValue, _qualityValue, _exposureValue, _skyValue, _fpsLimitValue;
         private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _rumbleValue, _sensitivityValue, _aimSensitivityValue;
@@ -177,8 +166,8 @@ namespace BS3D.Screens
 
         //The tabs, their labels and the pages they pick (#686), rebuilt with the tree; which page is up, and a pick
         //waiting for Update to put it up (-1 for none — see SelectTab).
-        private readonly Button[] _tabs = new Button[TAB_NAMES.Length];
-        private readonly Label[] _tabLabels = new Label[TAB_NAMES.Length];
+        //The tab row (MenuPage.TabRow, shared with Help since #857), built with the tree
+        private TabRow _tabRow;
         private readonly Grid[] _pages = new Grid[TAB_NAMES.Length];
         private readonly List<Label> _captions = new();
         private int _tab = TAB_ONLINE;
@@ -314,49 +303,16 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// The tab row (#686): one button per page, all cut to the widest name's width. Buttons, so the mouse gets the
-        /// shared hover, press and click sound — but with nothing on their <c>Tag</c>, which is what keeps the host's
-        /// walk off them (see the class remarks).
+        /// The tab row (#686): the shared <see cref="MenuPage.TabRow"/>, one button per page, all cut to the widest name's
+        /// width, the shoulders' and the arrow keys' prompts at its ends, nothing on the buttons' <c>Tag</c> so the host's
+        /// walk stays off them (see the class remarks).
         /// </summary>
         private Widget BuildTabRow()
         {
-            int nameWidth = 0;
-            foreach (string name in TAB_NAMES)
-                nameWidth = Math.Max(nameWidth, (int)MathF.Ceiling(FontSection.MeasureString(name).X));
+            _tabRow = new TabRow(this, TAB_NAMES, SelectTab);
+            _tabRowWidth = _tabRow.Width;
 
-            HorizontalStackPanel row = new()
-            {
-                Spacing = Scaled(TAB_SPACING),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = ScaledThickness(0, 0, 0, TAB_GAP),
-            };
-
-            //What turns the tabs, at the row's two ends (#799, the owner's "LB ◂ AUDIO · CONTROLS ▸ RB"): the shoulders for
-            //a pad player, the arrow keys for a keyboard one. Outside the tabs, so the pages below stay as wide as the tabs
-            //themselves (#770) and only the row reaches past them.
-            row.Widgets.Add(Prompt(PromptGlyph.PAD_LB, PromptGlyph.KEY_LEFT));
-
-            for (int t = 0; t < TAB_NAMES.Length; t++)
-            {
-                //Captured per iteration, so five tabs are five destinations
-                int tab = t;
-
-                Button button = MenuButton(TAB_NAMES[t], () => SelectTab(tab), out Label label);
-                button.Tag = null;
-                button.Padding = ScaledThickness(TAB_PADDING_X, TAB_PADDING_Y);
-                button.Width = nameWidth + 2 * Scaled(TAB_PADDING_X);
-                label.Font = FontSection;
-
-                _tabs[t] = button;
-                _tabLabels[t] = label;
-                row.Widgets.Add(button);
-            }
-
-            row.Widgets.Add(Prompt(PromptGlyph.PAD_RB, PromptGlyph.KEY_RIGHT));
-
-            _tabRowWidth = TAB_NAMES.Length * (nameWidth + 2 * Scaled(TAB_PADDING_X)) + (TAB_NAMES.Length - 1) * row.Spacing;
-
-            return row;
+            return _tabRow.Root;
         }
 
         /// <summary>
@@ -555,9 +511,14 @@ namespace BS3D.Screens
 
             //The debug unlock (#349). Under the campaign heading because it is the same kind of thing the row above
             //is - the player's record - and it is a DEVELOPMENT convenience: it is off at every launch and writes
-            //nothing, so it can never make a real save read further along than it is. Hiding it behind a build
-            //flag is a shipping concern and not one yet.
-            AddCheckRow(grid, 5, "Unlock all", Game.ToggleUnlockAll, out _unlockAllCheck);
+            //nothing, so it can never make a real save read further along than it is. DEV BUILDS ONLY since #854:
+            //a release (a tag build, BuildVersion.Release set) does not draw the row, because a player who finds it
+            //opens the whole campaign and spoils it. The test is the build's own word, not the Debug/Release
+            //configuration: the owner plays Release-configuration builds of main, and those keep the row. The
+            //switch itself is inert in a release too (ToggleUnlockAll), so no caller can turn on what no row shows.
+            //The grid simply ends at Reset progress there; a row is added per call, so nothing is left blank.
+            if (BuildVersion.Release is null)
+                AddCheckRow(grid, 5, "Unlock all", Game.ToggleUnlockAll, out _unlockAllCheck);
 
             return grid;
         }
@@ -718,10 +679,8 @@ namespace BS3D.Screens
         /// </summary>
         internal override void OnScrollWheel(int delta)
         {
-            foreach (Button tab in _tabs)
+            if (_tabRow != null && _tabRow.IsMouseOver)
             {
-                if (tab == null || !tab.IsMouseInside) continue;
-
                 if (!_typing && PageSideways(delta > 0 ? 1 : -1)) Game.Audio?.PlayUiTick();
                 return;
             }
@@ -763,7 +722,8 @@ namespace BS3D.Screens
             _dropCinematicCheck.Show(Game.IsDropCinematicEnabled);
             _introLogoCheck.Show(Game.IsIntroLogoEnabled);
             _tutorialCheck.Show(Game.IsTutorialEnabled);
-            _unlockAllCheck.Show(Game.IsUnlockAllEnabled);
+            //Null in a release build, which draws no such row (#854)
+            _unlockAllCheck?.Show(Game.IsUnlockAllEnabled);
             _volumeValue.Text = FormatVolume(Game.MasterVolume);
             _effectsValue.Text = FormatVolume(Game.SfxVolume);
             _musicValue.Text = FormatVolume(Game.MusicVolume);
@@ -814,16 +774,9 @@ namespace BS3D.Screens
         private void ShowTabState(bool onlineAlert)
         {
             for (int t = 0; t < TAB_NAMES.Length; t++)
-            {
-                bool chosen = t == _tab;
+                _pages[t].Visible = t == _tab;
 
-                _pages[t].Visible = chosen;
-                _tabs[t].Background = chosen ? TAB_SELECTED_BRUSH : BS3DGame.MENU_BUTTON_BRUSH;
-                _tabs[t].OverBackground = chosen ? TAB_SELECTED_BRUSH : BS3DGame.MENU_BUTTON_OVER_BRUSH;
-                _tabLabels[t].TextColor = chosen ? TAB_SELECTED_TEXT
-                    : t == TAB_ONLINE && onlineAlert ? BS3DGame.MENU_TEXT_ALERT
-                    : BS3DGame.MENU_TEXT_BODY;
-            }
+            _tabRow.Show(_tab, t => t == TAB_ONLINE && onlineAlert ? BS3DGame.MENU_TEXT_ALERT : BS3DGame.MENU_TEXT_BODY);
         }
 
         /// <summary>

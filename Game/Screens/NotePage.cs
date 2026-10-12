@@ -265,21 +265,27 @@ namespace BS3D.Screens
             return ScreenRoot(Plate(column));
         }
 
-        private Label BodyLabel(string text, Color color, int width) => new()
+        //A line of prose under the field or the sent note: its text is written with SetProse, here and whenever it changes,
+        //like every label that wraps (#855)
+        private Label BodyLabel(string text, Color color, int width)
         {
-            Text = text,
-            Font = FontSmall,
-            TextColor = color,
-            Wrap = true,
-            Width = width,
-            HorizontalAlignment = HorizontalAlignment.Left,
-        };
+            Label label = new()
+            {
+                Font = FontSmall,
+                TextColor = color,
+                Wrap = true,
+                Width = width,
+                HorizontalAlignment = HorizontalAlignment.Left,
+            };
+            SetProse(label, text);
+            return label;
+        }
 
         internal override void Refresh()
         {
             if (_state == State.Sent && _status != null)
             {
-                _status.Text = _outcome switch
+                SetProse(_status, _outcome switch
                 {
                     null => "Sending…",
                     { Delivery: NoteDelivery.Sent } o when _picture != null && _attach && !o.PictureStored =>
@@ -288,15 +294,17 @@ namespace BS3D.Screens
                     { Delivery: NoteDelivery.Kept } => "The game could not reach the server. Your note is saved and goes the next time it can.",
                     { Delivery: NoteDelivery.NoServer } => "This build has no server to send to. Your note is saved in the Notes folder.",
                     _ => "The server did not take this note.",
-                };
+                });
                 return;
             }
 
             if (_field == null) return;
             ShowField();
 
-            _hint.Text = _problem
-                ?? $"Enter sends. Shift+Enter starts a new line. {_draft.Length} / {OnlineNotes.MaxTextLength}. A pad cannot type.";
+            //Chosen into lines on every keystroke, which is when Refresh runs: a few hundred measurements, never per frame.
+            //The count is tied to its limit, so a line never ends on "5" and starts on "/ 1000" (seen at 1080p)
+            SetProse(_hint, _problem
+                ?? $"Enter sends. Shift+Enter starts a new line. {_draft.Length}{SpaceWrap.TIE}/{SpaceWrap.TIE}{OnlineNotes.MaxTextLength}. A pad cannot type.");
             _hint.TextColor = _problem != null ? BS3DGame.MENU_TEXT_ALERT : BS3DGame.MENU_TEXT_DIM;
 
             if (_attachCheck != null)

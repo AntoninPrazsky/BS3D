@@ -425,7 +425,8 @@ namespace BS3D
         //persisted — a development convenience that survived a restart would eventually be left on, and the
         //one thing this must never do is make a player's own progress look further along than it is. It
         //overrides the star gate and touches PlayerProgress not at all, so turning it back off restores the
-        //real state exactly.
+        //real state exactly. Never true in a release build (#854): the row is not drawn there and ToggleUnlockAll
+        //refuses, so a shipped campaign cannot be opened through it.
         private bool _unlockAll;
 
         //Far lower than the streak star's 0.9: the pyramid ACCUMULATES on the way up, so the head carries

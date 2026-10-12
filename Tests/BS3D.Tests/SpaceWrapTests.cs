@@ -168,6 +168,36 @@ namespace BS3D.Tests
             }
         }
 
+        [Fact]
+        public void No_line_starts_or_ends_with_a_space_whatever_the_copy_does()
+        {
+            //Copy at its worst (#855): spaces at the ends, a space after a kept line break, a tie at a word's edge, a tie
+            //doubled and a tie beside a space - each a space at a line's edge once the tie is drawn as a space. The
+            //breaker's lines must still start and end on a word; what it drops is only the whitespace
+            const string ROUGH = "  Spaces first and  a tie beside a space, then one  doubled\n"
+                + " and a line that starts with a space.  \n The end tied too  ";
+
+            for (int width = 8; width <= 60; width++)
+            {
+                string wrapped = SpaceWrap.Wrap(ROUGH, width, Monospace);
+
+                foreach (string line in wrapped.Split('\n'))
+                    Assert.False(line.StartsWith(' ') || line.EndsWith(' '), $"at {width} a line carries a space at an end: '{line}'");
+
+                Assert.DoesNotContain("  ", wrapped);
+                Assert.Equal(string.Join(" ", ROUGH.Replace(SpaceWrap.TIE, ' ').Split(' ', '\n').Where(w => w.Length > 0)),
+                    string.Join(" ", wrapped.Split('\n')));
+            }
+        }
+
+        [Fact]
+        public void A_paragraph_of_nothing_but_a_space_is_kept_as_written()
+        {
+            //A single space is how a page holds a status line's height while it has nothing to say (the picker's boards)
+            Assert.Equal(" ", SpaceWrap.Wrap(" ", 40f, Monospace));
+            Assert.Equal("one\n \ntwo", SpaceWrap.Wrap("one\n \ntwo", 40f, Monospace));
+        }
+
         //How many lines a fill that takes every word that fits takes - the line count the breaker must not exceed
         private static int GreedyLineCount(string text, int width)
         {
