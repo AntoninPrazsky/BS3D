@@ -26,9 +26,9 @@ namespace Prazsky.Core.Render
     /// </para>
     /// <para>
     /// <b>The neon city carries more</b>, and not by a second layout: the extra pieces are rolled with the
-    /// same stream at <see cref="RooftopConfig.NeonExtra"/> times the chances, kept in their own instance
-    /// lists, and drawn only when the scene is the neon one — where the dishes also wear a ring of the neon's
-    /// own magenta or cyan round their rims.
+    /// same stream at <see cref="RooftopConfig.NeonExtra"/> times the chances, into the cells of the roof the
+    /// day's dressing left, kept in their own instance lists, and drawn only when the scene is the neon one —
+    /// where the dishes also wear a ring of the neon's own magenta or cyan round their rims.
     /// </para>
     /// <para>
     /// <b>Sky-lit enrolment and the frame sequence stay the caller's</b>, as they do for
@@ -127,9 +127,8 @@ namespace Prazsky.Core.Render
         public sealed class RoofShowcases
         {
             //Every tower's roof with the day's dressing; what the neon city's extras add to its score and the height of the
-            //mast they put up (0 for none); and how far each roof stands over the tallest other roof round it. ⚠ The extras
-            //are dressed on a cell grid of their own, so they can stand a second mast on the day's mast's middle cell, a
-            //shorter one poking out of the taller - a defect (#850), not a design; a shot frames the taller.
+            //mast they put up (0 for none, and always 0 where the day's dressing put one: the two share the roof's cells and
+            //a mast takes the middle one, #850); and how far each roof stands over the tallest other roof round it
             private readonly RoofShowcase[] _roofs;
             private readonly float[] _neonScore, _neonMast, _standout;
 
@@ -146,9 +145,9 @@ namespace Prazsky.Core.Render
             /// <paramref name="farthest"/> from the arena's axis and over every other roof round them, best first — for a
             /// shot that circles one roof's equipment close and from above (#780: "close shots of the building roofs, of
             /// the antennas, the camera circling round them, looking at them more from above"). With
-            /// <paramref name="neon"/> the neon city's extra pieces count too, and the mast is the taller of the two a
-            /// neon roof can wrongly carry (#850). Allocates its answer: it is asked once when an intro is built, never
-            /// per frame.
+            /// <paramref name="neon"/> the neon city's extra pieces count too, and a roof whose mast only the extras put
+            /// up shows it (a roof carries one mast at most, #850). Allocates its answer: it is asked once when an intro
+            /// is built, never per frame.
             /// </summary>
             public RoofShowcase[] Best(bool neon, float nearest, float farthest, int count)
             {
@@ -159,7 +158,7 @@ namespace Prazsky.Core.Render
                     float distance = new Vector2(roof.Centre.X, roof.Centre.Z).Length();
                     if (distance < nearest || distance > farthest || roof.Score <= 0f || _standout[b] < SHOW_STANDOUT) continue;
                     found.Add(neon
-                        ? roof with { Score = roof.Score + _neonScore[b], MastHeight = MathF.Max(roof.MastHeight, _neonMast[b]) }
+                        ? roof with { Score = roof.Score + _neonScore[b], MastHeight = roof.MastHeight > 0f ? roof.MastHeight : _neonMast[b] }
                         : roof);
                 }
 
@@ -264,6 +263,35 @@ namespace Prazsky.Core.Render
         public static RoofShowcases ArrangeShowcases(City city, CitySceneConfig config, int seed) =>
             Arrange(city, config, seed, out _, out _);
 
+        /// <summary>
+        /// One piece of the layout: what it is (a mast with its beacon, a dish with its ring, a 5G pole, an air-conditioning
+        /// unit — one piece whatever meshes draw it), where its foot stands (the middle of the cell it took), and whether it
+        /// is one of the neon city's extras.
+        /// </summary>
+        internal readonly record struct RoofPiece(string Kind, Vector3 Foot, bool Neon);
+
+        //The kinds that are pieces of their own: a mast's white half and its beacon, and a dish's ring, ride with another
+        private static readonly Kind[] PIECE_KINDS = { Kind.MastRed, Kind.Dish0, Kind.Dish1, Kind.Sector, Kind.Hvac };
+
+        /// <summary>
+        /// Every piece <paramref name="city"/> is dressed with under <paramref name="seed"/>, the day's and the neon city's
+        /// extras, without a device: the layout a <see cref="CityRooftops"/> of that seed draws, for the tests that hold
+        /// what it promises (#850: no two pieces of one roof in one cell). Allocates the whole layout; never per frame.
+        /// </summary>
+        internal static RoofPiece[] ArrangePieces(City city, CitySceneConfig config, int seed)
+        {
+            Arrange(city, config, seed, out List<Matrix>[] worlds, out List<Matrix>[] neon);
+
+            var pieces = new List<RoofPiece>();
+            foreach (Kind kind in PIECE_KINDS)
+            {
+                foreach (Matrix world in worlds[(int)kind]) pieces.Add(new RoofPiece(kind.ToString(), world.Translation, false));
+                foreach (Matrix world in neon[(int)kind]) pieces.Add(new RoofPiece(kind.ToString(), world.Translation, true));
+            }
+
+            return pieces.ToArray();
+        }
+
         //The layout: every piece of each kind (the day's dressing in WORLDS, the neon city's extras in NEON), and the roofs
         //for a showcase (#780). Plain arithmetic over the city's boxes; Rebuild turns the lists into the draw's arrays.
         private static RoofShowcases Arrange(City city, CitySceneConfig config, int seed,
@@ -294,10 +322,16 @@ namespace Prazsky.Core.Render
 
                 Random random = new(RoofSeed(seed, centre.X, centre.Z));
 
+                //⚠ ONE CELL GRID PER ROOF, shared by the day's dressing and the neon extras (#850). On a grid each, the
+                //extras did not know which cells the day's pieces had taken, and stood a second, shorter mast inside the
+                //day's (both take the middle cell), a dish or an air-conditioning unit inside another, on about one
+                //neon-city piece in seven. Shared, the extras fill only the cells the day's dressing left.
+                bool[,] taken = new bool[CellsAcross(halfX), CellsAcross(halfZ)];
+
                 int masts = worlds[(int)Kind.MastRed].Count, dishes = worlds[(int)Kind.Dish0].Count + worlds[(int)Kind.Dish1].Count;
                 int sectors = worlds[(int)Kind.Sector].Count, hvac = worlds[(int)Kind.Hvac].Count;
 
-                Dress(worlds, random, centre, halfX, halfZ, roofY, tall, roof, 1f);
+                Dress(worlds, random, taken, centre, halfX, halfZ, roofY, tall, roof, 1f);
 
                 //What this roof was given, for the showcase (#780)
                 bool mast = worlds[(int)Kind.MastRed].Count > masts;
@@ -305,17 +339,18 @@ namespace Prazsky.Core.Render
                     + SHOW_DISH * (worlds[(int)Kind.Dish0].Count + worlds[(int)Kind.Dish1].Count - dishes)
                     + SHOW_SECTOR * (worlds[(int)Kind.Sector].Count - sectors) + SHOW_HVAC * (worlds[(int)Kind.Hvac].Count - hvac);
 
-                //The neon extras, rolled on the same roof with what is left of the chance
+                //The neon extras, rolled on the same roof with what is left of the chance, in the cells the day's left
                 int neonMasts = neon[(int)Kind.MastRed].Count;
                 int neonBefore = 0;
                 for (int k = 0; k < neon.Length; k++) neonBefore += neon[k].Count;
-                Dress(neon, random, centre, halfX, halfZ, roofY, tall, roof, MathF.Max(0f, roof.NeonExtra - 1f));
+                Dress(neon, random, taken, centre, halfX, halfZ, roofY, tall, roof, MathF.Max(0f, roof.NeonExtra - 1f));
                 int neonAfter = 0;
                 for (int k = 0; k < neon.Length; k++) neonAfter += neon[k].Count;
                 neonScore[b] = SHOW_DISH * 0.5f * (neonAfter - neonBefore);
 
                 //A mast's matrix is a yaw, its height and its foot (Dress), so M22 is the height and the translation the
-                //foot; the neon extras' mast, where they rolled one, stands on the same middle cell as the day's (#850)
+                //foot. A roof carries one mast at most, since the mast always takes the middle cell and the grid is shared:
+                //the day's, or where the day's dressing put none, the neon extras'
                 Matrix? standing = mast ? worlds[(int)Kind.MastRed][^1] : null;
                 if (neon[(int)Kind.MastRed].Count > neonMasts)
                 {
@@ -365,19 +400,22 @@ namespace Prazsky.Core.Render
             }
         }
 
+        //A roof's cells along one side, from half its span: a 3×3 grid on a big roof, 2×2 on a small one
+        private static int CellsAcross(float half) => half > 5f ? 3 : 2;
+
         /// <summary>
         /// One roof's equipment, at <paramref name="chanceScale"/> times the configured chances. The roof is
-        /// split into cells — a 3×3 grid on a big roof, 2×2 on a small one — and each piece takes a cell, so
-        /// two pieces never stand in each other: the mast the middle, the dishes an edge, the 5G poles a
-        /// corner, the air conditioning whatever is left.
+        /// split into cells (<see cref="CellsAcross"/>) and each piece takes a cell, so two pieces never stand
+        /// in each other: the mast the middle, the dishes an edge, the 5G poles a corner, the air conditioning
+        /// whatever is left. <paramref name="taken"/> is the roof's grid and the caller's, so a second call on
+        /// the same roof (the neon extras) fills only the cells the first left (#850).
         /// </summary>
-        private static void Dress(List<Matrix>[] lists, Random random, Vector3 centre, float halfX, float halfZ,
+        private static void Dress(List<Matrix>[] lists, Random random, bool[,] taken, Vector3 centre, float halfX, float halfZ,
             float roofY, bool tall, RooftopConfig roof, float chanceScale)
         {
             if (chanceScale <= 0f) return;
 
-            int cellsX = halfX > 5f ? 3 : 2, cellsZ = halfZ > 5f ? 3 : 2;
-            bool[,] taken = new bool[cellsX, cellsZ];
+            int cellsX = taken.GetLength(0), cellsZ = taken.GetLength(1);
             float margin = 0.9f;
             float cellX = (2f * (halfX - margin)) / cellsX, cellZ = (2f * (halfZ - margin)) / cellsZ;
             float cellSize = MathF.Min(cellX, cellZ);
