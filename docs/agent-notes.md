@@ -587,3 +587,10 @@ Pravidla:
 - Bez majitele (spí), konzervativně: nic výchozího, výběr či mix sad je jeho.
 - ⚠ Pruhy kolem svislé osy ukazují kameře o 15–18 % víc plochy než kouli; vyvažovat na podílu koule ztmavilo červenou o 4,7 dE. Pokrytí se musí přeměřit při každé změně figury.
 - Otevřené: volba sady; na vinylu sady nahradí bílé klíny plážového míče; HUD disky, kanón, ostatních 7 stylů a Pi figuru nekreslí; čas na GPU neměřen.
+
+## 2026-10-12 — #400 osmý krátký průchod revize — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- Osmý průchod #400 (448f19ae..b1a5622b) jde na main (merge následuje), zavřeno jako objektivní. Chyby v kódu žádné. Opraveno deset rozbitých citací dokumentů po dietě #839 (sekce „Two kinds of control“ z #816 je zpět v `docs/game-shell/settings.md`, odkazy na staré nadpisy vedou do pod-dokumentů, komentář `Cavern.fx`) a jedno špatné číslo: karta tutoriálu má na 3840×1600 148 px, ne 178.
+- DocDrift už nebere číslo issue jako znak historie (to pravidlo schovalo 178); kandidátů je 29 místo 26.
+- Bez majitele (spí), konzervativně: jen dokumenty, komentáře a triážní nástroj.
+- ⚠ Pravidlo „věta s #NNN je historie“ v DocDriftu skrývalo živá tvrzení; od #839 nesou čísla issues i pravidla.
+- Otevřené: 148 px spočteno z kódu, ne změřeno v záběru; citace bez uvozovek skript neověří. Další průchod začíná na b1a5622b.

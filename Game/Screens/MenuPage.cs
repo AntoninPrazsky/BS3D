@@ -366,7 +366,7 @@ namespace BS3D.Screens
         /// the menu's button family in all but its content. The slab, the brushes the pad's focus swaps, the click sound,
         /// the pad's entry and #800's haptics all come with <see cref="MenuButton(Widget, Action)"/>. For a row with two
         /// states whose words would be On and Off; a row with more values, or two states of other names, keeps a button
-        /// that cycles its words (<c>docs/game-shell.md</c>, "Two kinds of control").
+        /// that cycles its words (<c>docs/game-shell/settings.md</c>, "Two kinds of control").
         /// </summary>
         /// <param name="text">What the tick says, beside the box; empty for a row whose caption already says it, and the
         /// label is then hidden until a page writes a qualifier into it.</param>
