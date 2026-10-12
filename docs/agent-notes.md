@@ -562,3 +562,10 @@ Pravidla:
 - Nová páka `menucursor=<s>:<kroky>:<stisky>` (left, right, lb, rb) ověřila otáčení bez klávesnice.
 - ⚠ Ten večer stroj neměl zvukové zařízení (`[music] … could not be realized`), vizualizér na snímcích nesvítí.
 - Otevřené: verdikt oka; přehrávač s hudbou neslyšen.
+
+## 2026-10-12 — #852 ruka na padu pro vibrace se nastavuje při stavbě levelu — ThinkPad, Claude Code (github-17)
+- #852 (merge do mainu, zavřeno jako objektivní): `Game.Rumble.HandOnPad = _tutorial.OnGamepad` a `_tutorial.NoteDevice(PromptsForPad)` přesunuty z konstruktoru `GameplayScreen` (běží jednou za program, před `AudioDirector`, za null-checkem, tedy mrtvý řádek) do `BuildLevel`: každý level začíná rukou, kterou naposled vidělo menu (#799), a vibrace stejnou rukou (#817); `pad` připne ruku na pad celý běh.
+- Měřeno bez padu dočasným řádkem logu na každý nenulový snímek vibrací: `level=1 nosplash pad fire=20,22,24` dalo 15 snímků kolem tří ran, bez `pad` 0.
+- ⚠ Tichý `if (Game.Rumble != null)` schoval mrtvý řádek od 7. 10.; v `BuildLevel` schválně bez null-checku, level se staví jen z Update.
+- ⚠ `timeout 30` tři rány nestihne: Debug start a zpomalená cinematika první rány posunou třetí ránu za 25. s herních hodin; stačí 42 s.
+- Neověřeno: na skutečném padu v ruce (jen log); karta druhého levelu rukou menu neviděna.

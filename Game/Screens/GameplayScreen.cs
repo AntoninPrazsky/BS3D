@@ -1197,14 +1197,10 @@ namespace BS3D.Screens
             //and writes nothing.
             _tutorial = new Tutorial(game.WasLessonTaught, game.RecordLessonTaught, test.TutorialMode);
 
-            //The first card draws for the hand the menus last saw (#799): a pad player who started the level with A is
-            //shown the pad's buttons before their first push of a stick, as every page before it showed them
-            _tutorial.NoteDevice(game.PromptsForPad ? Tutorial.Device.Gamepad : Tutorial.Device.KeyboardMouse);
+            //The "pad" argument pins the tutorial's hand for the whole run. Which hand a LEVEL starts from - the menus' for
+            //the glyphs (#799), the same for the rumble (#817) - is said in BuildLevel, per level: this screen is built once,
+            //before the mixer exists, so a line here reached neither the second level nor the motors at all (#852).
             if (test.PadPrompts) _tutorial.PinDevice(Tutorial.Device.Gamepad);
-
-            //The rumble starts from the hand this tutorial starts from (#817), so the motors and the glyphs agree before the
-            //first input too: the host's flag would otherwise carry the last session's hand into this one (the review)
-            if (Game.Rumble != null) Game.Rumble.HandOnPad = _tutorial.OnGamepad;
 
             //Orbit centre is the field the cluster hangs over. No trunnion height goes in: the gun stands on
             //the island's dished stone, so its height is the carriage's own figure of its radius
