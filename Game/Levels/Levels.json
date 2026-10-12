@@ -326,63 +326,63 @@
       "file": "Fish.json",
       "name": "Fish",
       "block": "The Silhouettes",
-      "shots": 60,
+      "shots": 46,
       "minStars": 78,
-      "ceilingStep": 10
+      "ceilingStep": 9
     },
     {
       "file": "Umbrella.json",
       "name": "Umbrella",
       "block": "The Silhouettes",
-      "shots": 58,
+      "shots": 36,
       "minStars": 80,
-      "ceilingStep": 10
+      "ceilingStep": 7
     },
     {
       "file": "Bell.json",
       "name": "Bell",
       "block": "The Silhouettes",
-      "shots": 56,
+      "shots": 40,
       "minStars": 82,
-      "ceilingStep": 9
+      "ceilingStep": 8
     },
     {
       "file": "Cat.json",
       "name": "Cat",
       "block": "The Silhouettes",
-      "shots": 54,
+      "shots": 30,
       "minStars": 84,
-      "ceilingStep": 9
+      "ceilingStep": 7
     },
     {
       "file": "Teapot.json",
       "name": "Teapot",
       "block": "The Silhouettes",
-      "shots": 54,
+      "shots": 40,
       "minStars": 86,
-      "ceilingStep": 9
+      "ceilingStep": 8
     },
     {
       "file": "Key.json",
       "name": "Key",
       "block": "The Silhouettes",
-      "shots": 50,
+      "shots": 32,
       "minStars": 88,
-      "ceilingStep": 10
+      "ceilingStep": 7
     },
     {
       "file": "Rocket.json",
       "name": "Rocket",
       "block": "The Silhouettes",
-      "shots": 50,
+      "shots": 28,
       "minStars": 90,
-      "ceilingStep": 9
+      "ceilingStep": 6
     },
     {
       "file": "Coronet.json",
       "name": "Coronet",
       "block": "The Silhouettes",
-      "shots": 50,
+      "shots": 42,
       "minStars": 92,
       "ceilingStep": 8
     },
@@ -390,17 +390,17 @@
       "file": "Guitar.json",
       "name": "Guitar",
       "block": "The Silhouettes",
-      "shots": 48,
+      "shots": 34,
       "minStars": 94,
-      "ceilingStep": 8
+      "ceilingStep": 7
     },
     {
       "file": "Anchor.json",
       "name": "Anchor",
       "block": "The Silhouettes",
-      "shots": 44,
+      "shots": 28,
       "minStars": 96,
-      "ceilingStep": 8
+      "ceilingStep": 6
     },
     {
       "file": "Eleven.json",

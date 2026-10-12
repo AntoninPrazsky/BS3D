@@ -8,7 +8,7 @@ Part of [The game: a session](../game-session.md).
 
 **Two predicates carry every kind.** `BallKinds.Matchable`: the match rule reads the kind in one place, `BallsMap.GetConnectedSameTypeCells`, which skips an unmatchable ball (it stops the flood fill like an empty cell); it also gates the magazine census; an unmatchable kind carries a `BallType` **nothing may read**. `BallKinds.Removable`: can the player ever be rid of it? Both end-of-level conditions ask it. Glass is *not* matchable and *is* removable; merging the two would leave a level with one glass ball unfinished for ever.
 
-**What ships**: rock (Anvil, Cairn, Keystone, Obsidian, Seam), glass (Diadem, Facet, Harlequin, Solitaire, Trefoil: the Mirage), bomb (Vent, Sill, Paroxysm), zap (Caldera, Fume, Paroxysm), buckshot (Sandbags, Juggler). **Acid, Frozen, Infectious, Gravity and Heavy ship in no level**; each has a test field in `Testbed/Maps/` and `levelfile=<path>` plays any level file.
+**What ships**: rock (Anvil, Cairn, Keystone, Obsidian, Seam), glass (Umbrella, Bell, Cat, Rocket, Coronet, Guitar: the Silhouettes, where the campaign meets it first, #736; Diadem, Facet, Harlequin, Solitaire, Trefoil: the Mirage), bomb (Vent, Sill, Paroxysm), zap (Caldera, Fume, Paroxysm), buckshot (Sandbags, Juggler). **Acid, Frozen, Infectious, Gravity and Heavy ship in no level**; each has a test field in `Testbed/Maps/` and `levelfile=<path>` plays any level file.
 
 ## Rock and transparent
 

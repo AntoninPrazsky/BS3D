@@ -30,11 +30,13 @@ namespace Prazsky.BS3D.Physics
     /// every level a swing of the same size rather than a wobble on one and a collapse on another.
     /// </para>
     /// <para>
-    /// <b>Measured, all 130 levels, the first four seconds</b>: no level dips under the line (none did before);
-    /// the tightest start clearance goes from 1.71 above the line to 1.20 (Umbrella); the cluster's mean distance
-    /// from its rest pose two seconds in, median over the pack, goes from 0.02 to 0.07 — a dense block now
-    /// rebounds once or twice and settles by about 1.5 s where it stopped at 0.25 s. The resting pose is the same
-    /// by construction: the sockets are handed back their own <see cref="BallsConstraintsBuilder.SPRING_SETTINGS"/>.
+    /// <b>Measured when it came in (#617), on the 130 levels of then, the first four seconds</b>: no level dipped
+    /// under the line (none did before); the tightest start clearance went from 1.71 above the line to 1.20, on a
+    /// picture wall the pack no longer carries (#736 rebuilt the Silhouettes), so it is the size of the change and
+    /// not today's tightest level; the cluster's mean distance from its rest pose two seconds in, median over the
+    /// pack, went from 0.02 to 0.07 — a dense block now rebounds once or twice and settles by about 1.5 s where it
+    /// stopped at 0.25 s. The resting pose is the same by construction: the sockets are handed back their own
+    /// <see cref="BallsConstraintsBuilder.SPRING_SETTINGS"/>.
     /// </para>
     /// <para>
     /// <b>A pure function of simulated time</b>, advanced by <see cref="PhysicsWorld.Step"/> on the fixed step, so

@@ -16,7 +16,7 @@ The `block` field gives the order: the Meadow, Gallery, Coil, Tower, Silhouettes
 - **Colossus** is the one level `LevelGen` does not write: hand-drawn, closes the Quarry (met second it was a wall before anything was taught), scene, dome and `music` in its own file.
 - **One**, the opener, is a generated pyramid whose colours sit on its four walls (the two facing walls share one: the gun starts on +Z).
 - **The Coil swings** (slender links; deliberately not tall): its 12-14-deep layouts sit in **18-level** fields, the empty levels being the swing's clearance.
-- **The Mirage is the first block whose subject is a rule**: five levels of glass, five of rock, one new kind a level; the campaign-complete moment is a clear of its last entry, `Cairn`.
+- **The Mirage is the first block whose subject is a rule**: five levels of glass (met first in the Silhouettes, #736), five of rock, one kind a level; the campaign-complete moment is a clear of its last entry, `Cairn`.
 - Swap, Brake and Cut arrive in blocks 3, 4 and 5 ([Power-ups](powerups.md)).
 
 ## Authoring rules (`Tools/LevelGen` gates the first three)

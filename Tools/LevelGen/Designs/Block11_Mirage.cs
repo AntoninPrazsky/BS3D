@@ -15,7 +15,9 @@ namespace BS3D.Tools.LevelGen
 
         #region The mirage levels (#323/#325)
 
-        //THE ELEVENTH BLOCK'S FIVE GLASS LEVELS, and the one law all five obey:
+        //THE ELEVENTH BLOCK'S FIVE GLASS LEVELS, and the one law all five obey (and the Silhouettes' since #736, where
+        //the campaign now meets glass first - the Umbrella's icicles, ninety levels earlier - so what this block
+        //teaches is what glass can be built into, not what it is):
         //
         //  ⚠ GLASS GOES ON THE SKIN. Never buried, never on the anchor course.
         //
