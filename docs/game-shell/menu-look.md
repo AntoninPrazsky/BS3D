@@ -90,13 +90,12 @@ FontStashSharp 1.5.6 under Myra 1.6.3, read off the assemblies and the faces' ow
 **45 to 75 characters a line; prose is set at most `MENU_PROSE_MEASURE` wide**, 1500 units, 67 characters of Inter at `MENU_FONT_SMALL` (22.3 units a character over the game's own copy). Every size scales with the height, so a column holds the same number of characters at 1600×900 and at 3840×1600.
 
 - Help's frame is 1860 units, 83 characters, which the controls page's lines and the walking row need. Its paragraphs are set at the measure against the frame's left edge, so Back stands under the text's first letter, and the rag runs into a gutter at the right.
-- The Settings note is the page's width, about 1590 units, up to the measure. About's columns are `MenuColumnWidth`, 1000 units, 45 characters: the short end, kept so the text lines up with the player and the buttons under it.
+- The Settings note is the page's width, about 1590 units, up to the measure. About's pages are set at the measure (#807), and so is its widest thing, the player's spectrum; a credit list's two columns share it, so a role that would break the line is shortened rather than wrapped.
 
 ### Leading and paragraphs
 
 - **Prose has a line pitch of 1.46 em**: Inter's own 1.21 plus `MENU_PROSE_LEADING` (12 at size 58, a pitch of 70). That is the open end of the usual 1.3 to 1.5, because it is light type on a dark plate. Anton keeps its own 1.51 em (the words on Help's controls page).
 - **One gap between paragraphs, `MENU_PARAGRAPH_GAP`**: one em of the small face (48), two thirds of a line. It is tied to the face, not a per-page figure. A block carries the gap under itself and a stack of prose adds none (Help's body has `Spacing` 0).
-- ⚠ **About is set without the prose leading until #807 splits it.** Its two columns already stand at the full design height (Back's lower edge 28 px from the frame's at 1600×900), and 12 units on each of the left column's 19 line breaks would push Back off the frame. Its paragraphs keep their own gap (34 under each, plus the column's 24).
 
 ### Hierarchy and the scale
 
@@ -118,7 +117,7 @@ FontStashSharp 1.5.6 under Myra 1.6.3, read off the assemblies and the faces' ow
 - **Ties.** A no-break space (U+00A0, written in C# as its `\u` escape so it can be seen) holds a name to its version ("MonoGame 3.8.5", "SIL OFL 1.1", "DirectX 11"), a number to what it counts ("385 balls", "10 points"), a range ("3 to 16") and a label to its number ("Shot 1"). `SpaceWrap` adds two of its own: a lone dash or operator (— – + = × ÷ −) never starts a line, and a one-letter word (a, A, I) never ends one. A tie is drawn as a plain space.
 - **A key name needs no tie of its own**: the copy names a key in one word (Enter, Esc, Space, F12), and a pad's A is held by the one-letter rule. A key named in two words would take one.
 - ⚠ **A tie holds only in prose set through `SpaceWrap`.** FontStashSharp's own wrap counts U+00A0 as white space, so in a label that wraps by itself it is a break like any other.
-- **`CopyRules.Fault`** names the first of these a string breaks; `CopyRulesTests` holds every string a tutorial card draws to it. The Myra pages' copy is held to it by review, since a page's strings are built inside a tree no test constructs.
+- **`CopyRules.Fault`** names the first of these a string breaks; `CopyRulesTests` holds every string a tutorial card draws to it, and `AboutCopyTests` every string About draws of its own (`AboutCopy`, #807). The other Myra pages' copy is held to it by review, since a page's strings are built inside a tree no test constructs; a page whose copy is moved into a plain class, as About's was, can be held by a test.
 
 ### Numbers
 

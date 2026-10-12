@@ -9,10 +9,10 @@ A locked desktop takes no keystrokes, a synthetic one lands in whichever window 
 - `settings` / `settings=<row,...>` / `settings=tab:<name>`: the Settings page (#189). Rows (`online`, `nickname`, `remove`, `intro`, `brightness`, `resolution`, `quality`, `auto`, `scenery`) are activated through the page's own handlers, each putting up the page that holds it first; `tab:<name>` puts up a page by its tab (`settings=tab:audio`). ⚠ `remove` is refused outside `userdata=`: it would take the player's scores off the server.
 - `pick` / `pick=<chapter>`: the level picker, on that chapter (#273).
 - `pickfocus=<level>@<s>`: rests the picker's pointer on that level's tile at that wall-clock second (#684), so the detail line, preview and boards plate follow.
-- `about` / `about=play`: the About page, the latter also starting the original-score player (#443); pair with `shot=` past the piece's render time.
+- `about` / `about=play` / `about=<n>`: the About page, `play` also starting the original-score player on page one (#443; pair with `shot=` past the piece's render time), a number opening it on that page of four (#807); `about=1:play` takes both.
 - `scenes`: the Scene page (#773). `extras`, `jukebox`, `jukebox=<chapter>`, `jukebox=<chapter>:play`: Extras, or the Jukebox over it (#704).
 - `nickprompt`, `nickprompt=<steps>`, `nointernet`: the nickname plate ([Online rows](online-and-nickname.md#testing-it)).
-- `menucursor=<seconds>[:<steps>]` (#799): at that wall-clock second the pad's cursor comes up on the page that is up and walks that many entries down. `pad` pins the menus' prompts and the session's to the pad ([Menu navigation](menu-navigation.md)).
+- `menucursor=<seconds>[:<steps>[:<presses>]]` (#799): at that wall-clock second the pad's cursor comes up on the page that is up and walks that many entries down (from the top of the walk, not from the page's arrival entry). `<presses>` (#807) are sideways presses made after it, 0.3 s apart, through the menu's own calls: `left`/`right` as the arrow keys, `lb`/`rb` as the shoulders, each logged as `[cursor] … turned the page`, `walked the row` or `nothing`, then where the cursor ended: `about=1 pad menucursor=6:1:right,right,rb` walks Play to Next, stops at the row's end and turns to page two. `pad` pins the menus' prompts and the session's to the pad ([Menu navigation](menu-navigation.md)).
 - `nosplash`: skips the intro logo for one run.
 
 ## What the front end hangs and plays

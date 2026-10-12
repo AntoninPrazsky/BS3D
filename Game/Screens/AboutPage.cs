@@ -112,7 +112,14 @@ namespace BS3D.Screens
         /// </summary>
         private Widget BuildPager(int width)
         {
-            HorizontalStackPanel row = new() { Spacing = Scaled(ARROW_GAP), HorizontalAlignment = HorizontalAlignment.Center };
+            HorizontalStackPanel row = new()
+            {
+                Spacing = Scaled(ARROW_GAP),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                //A paragraph's gap under it, on top of the column's spacing: with the spacing alone the page's first line
+                //stood just under "1 of 4" and read as one block with it (photographed)
+                Margin = new Thickness(0, 0, 0, ParagraphGap),
+            };
 
             _previousArrow = PageArrow(MediaGlyph.Symbol.Back, -1, _page > 0);
             _nextArrow = PageArrow(MediaGlyph.Symbol.Play, 1, _page < AboutCopy.TITLES.Length - 1);

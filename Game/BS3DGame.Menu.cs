@@ -2146,8 +2146,15 @@ namespace BS3D
                     return;
             }
 
-            Console.WriteLine($"[cursor] Testing: {press} on {ActiveScreenName}: {result}, the cursor on entry {_navIndex + 1} of {_navEntries.Count}");
+            //A turn is rebuilt on the next update, so where the cursor lands after one is ReportMenuCursorForTesting's to say
+            Console.WriteLine(result == SidewaysResult.Turned
+                ? $"[cursor] Testing: {press} on {ActiveScreenName}: turned the page"
+                : $"[cursor] Testing: {press} on {ActiveScreenName}: {(result == SidewaysResult.Walked ? "walked the row" : "nothing")}, the cursor on entry {_navIndex + 1} of {_navEntries.Count}");
         }
+
+        /// <summary>Where the menus' cursor stands, once <c>menucursor=</c>'s presses have been acted on (#807). Testing only.</summary>
+        internal void ReportMenuCursorForTesting() =>
+            Console.WriteLine($"[cursor] Testing: after the presses the cursor is on entry {_navIndex + 1} of {_navEntries.Count} on {ActiveScreenName}");
 
         /// <summary>
         /// The row rule (#805): moves the focus to the nearest entry beside the focused one on the side asked - an entry

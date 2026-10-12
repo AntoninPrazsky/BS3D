@@ -547,3 +547,10 @@ Pravidla:
 - ⚠ FontStashSharp bere U+00A0 jako mezeru: nedělitelná mezera drží jen přes `SpaceWrap`.
 - ⚠ Nástroj Write převádí `\u00A0` na skutečný znak; escape vkládat skriptem.
 - Otevřené: čísla v tabulkách (žebříčky, rozpis výsledku), výběr úrovně, stránka CLEARED; Myra stránky hlídá jen review.
+
+## 2026-10-12 — #807 About na čtyři stránky — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #807 (větev `807-about-pages`, merge čeká), `verdict-eye`: About má čtyři stránky, první je přehrávač originální skladby, pak hra a věta o soukromí, knihovny jako seznam, nástroje s repozitářem a Napsat autorovi. Šipky ◀ ▶ s LB/RB pod nimi jako výběr úrovně; „1 of 4“. Text v `AboutCopy`, `AboutCopyTests` hlídá všechny dřívější kredity a pravidla sazby (viděny selhat).
+- Bez majitele (spí), konzervativně: na Play/Next šipky chodí po řadě a stránku otáčí jen LB/RB (`MenuPage.ShoulderTurn`), jinde i na první stránce šipky otáčí; About se vždy otevře na první stránce.
+- Nová páka `menucursor=<s>:<kroky>:<stisky>` (left, right, lb, rb) ověřila otáčení bez klávesnice.
+- ⚠ Ten večer stroj neměl zvukové zařízení (`[music] … could not be realized`), vizualizér na snímcích nesvítí.
+- Otevřené: verdikt oka; přehrávač s hudbou neslyšen.

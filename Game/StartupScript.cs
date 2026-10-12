@@ -180,10 +180,10 @@ namespace BS3D
         private bool _quitReportDue;
 
         //Testing only: the wall-clock second the menus' cursor comes up, and how many entries it walks (menucursor=, #799);
-        //then the sideways presses still to make (#807), PRESS_GAP apart
+        //then the sideways presses still to make (#807), PRESS_GAP apart, and a last line saying where the cursor ended
         private float? _menuCursorAt;
         private readonly int _menuCursorSteps;
-        private readonly Queue<string> _menuCursorPresses;
+        private Queue<string> _menuCursorPresses;
         private float _nextPressAt;
 
         //Between two of menucursor='s sideways presses, in wall-clock seconds: a turned page is rebuilt on the next update and
@@ -471,11 +471,17 @@ namespace BS3D
                 game.RaiseMenuCursorForTesting(_menuCursorSteps);
             }
 
-            //Then its sideways presses (#807), PRESS_GAP apart
-            else if (_menuCursorAt == null && _menuCursorPresses is { Count: > 0 } && game.WallClock >= _nextPressAt)
+            //Then its sideways presses (#807), PRESS_GAP apart, and where the cursor stands once the last has been acted on
+            else if (_menuCursorAt == null && _menuCursorPresses != null && game.WallClock >= _nextPressAt)
             {
                 _nextPressAt = game.WallClock + PRESS_GAP;
-                game.PressSidewaysForTesting(_menuCursorPresses.Dequeue());
+
+                if (_menuCursorPresses.Count > 0) game.PressSidewaysForTesting(_menuCursorPresses.Dequeue());
+                else
+                {
+                    _menuCursorPresses = null;
+                    game.ReportMenuCursorForTesting();
+                }
             }
         }
 

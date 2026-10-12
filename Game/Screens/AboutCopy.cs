@@ -63,9 +63,9 @@ namespace BS3D.Screens
         internal static readonly Credit[] GENERATED =
         {
             new("ACE-Step\u00A01.5", "the music"),
-            new("Z-Image-Turbo", "the opening logo and every design reference"),
+            new("Z-Image-Turbo", "the intro logo and design references"),
             new("RealESRGAN", "the logo’s upscale"),
-            new("Gemma, nomic-embed", "small local models, as development tools"),
+            new("Gemma, nomic-embed", "small models, as development tools"),
         };
 
         /// <summary>Every string the page draws of its own, the page names included — what the test holds to the rules.</summary>
