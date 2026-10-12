@@ -127,8 +127,9 @@ namespace Prazsky.Core.Render
         public sealed class RoofShowcases
         {
             //Every tower's roof with the day's dressing; what the neon city's extras add to its score and the height of the
-            //mast they put up (0 for none: the extras roll their own mast on the same middle cell, so a neon roof can carry
-            //two, the taller over the other); and how far each roof stands over the tallest other roof round it
+            //mast they put up (0 for none); and how far each roof stands over the tallest other roof round it. ⚠ The extras
+            //are dressed on a cell grid of their own, so they can stand a second mast on the day's mast's middle cell, a
+            //shorter one poking out of the taller - a defect (#850), not a design; a shot frames the taller.
             private readonly RoofShowcase[] _roofs;
             private readonly float[] _neonScore, _neonMast, _standout;
 
@@ -146,7 +147,8 @@ namespace Prazsky.Core.Render
             /// shot that circles one roof's equipment close and from above (#780: "close shots of the building roofs, of
             /// the antennas, the camera circling round them, looking at them more from above"). With
             /// <paramref name="neon"/> the neon city's extra pieces count too, and the mast is the taller of the two a
-            /// neon roof can carry. Allocates its answer: it is asked once when an intro is built, never per frame.
+            /// neon roof can wrongly carry (#850). Allocates its answer: it is asked once when an intro is built, never
+            /// per frame.
             /// </summary>
             public RoofShowcase[] Best(bool neon, float nearest, float farthest, int count)
             {
@@ -313,7 +315,7 @@ namespace Prazsky.Core.Render
                 neonScore[b] = SHOW_DISH * 0.5f * (neonAfter - neonBefore);
 
                 //A mast's matrix is a yaw, its height and its foot (Dress), so M22 is the height and the translation the
-                //foot; the neon extras' mast, where they rolled one, stands on the same middle cell as the day's
+                //foot; the neon extras' mast, where they rolled one, stands on the same middle cell as the day's (#850)
                 Matrix? standing = mast ? worlds[(int)Kind.MastRed][^1] : null;
                 if (neon[(int)Kind.MastRed].Count > neonMasts)
                 {
