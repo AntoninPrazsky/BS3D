@@ -65,11 +65,22 @@ namespace BS3D.Screens
         /// compared against the tier below it. Same reasoning as <c>celebrate</c>, <c>lasers</c> and
         /// <c>stars=</c>.
         /// </para>
+        /// <para>
+        /// <b>It holds until a shot breaks it</b> (#845): the first shot that resolves without scoring breaks the pinned
+        /// streak exactly as it would break a real one (<see cref="BreakStreak"/> or <see cref="EndStreakQuietly"/> lift the
+        /// pin), so a script can photograph the break of a ×5 it could never have earned.
+        /// </para>
         /// </summary>
         internal int? ForcedMultiplier { get; set; }
 
         /// <summary>The multiplier the HUD works from — the keeper's, unless a test has pinned one.</summary>
         private int MultiplierOf(ScoreKeeper score) => ForcedMultiplier ?? score.Multiplier;
+
+        /// <summary>
+        /// The streak the readout shows (#845): the keeper's multiplier, or the <c>streak=</c> lever's while it holds. What
+        /// a break says was lost and what the Swap's hint asks is running, so the two agree with the badge on screen.
+        /// </summary>
+        internal int StreakShown(ScoreKeeper score) => MultiplierOf(score);
 
         private int Scaled(int designUnits) => _game.Scaled(designUnits);
 
@@ -338,12 +349,77 @@ namespace BS3D.Screens
 
         private int _multiplierShown = 1;
 
-        //A streak that merely vanishes is feedback the player can miss entirely — it is the one thing on the
-        //HUD whose LOSS is the event. So the broken value is held for a moment, fading and dropping away.
-        private int _streakBroken;
-        private float _streakBrokenAge;
-        private const float STREAK_BREAK_TIME = 0.45f;
-        private const int STREAK_BREAK_FALL = 44;       //design units it slides down as it goes
+        //THE BREAK IS AN EVENT (#845), because the streak is the one thing on the HUD whose LOSS is the news. Until #845 the
+        //lost value slid 44 units and faded in 0.45 s, in a corner the eyes are not on, a lost x5 the same as a lost x3, and
+        //the owner's playtest said it passed almost unnoticed. Now the badge CRACKS (it swells, jolts, flashes white-hot and
+        //dark cracks run across it) and SHATTERS: its glyphs fly apart at the swollen size and tumble down with shards of it,
+        //cooling to grey, while "x5 lost" stands where it stood and the falling run in ProceduralAudio sounds. Every figure
+        //scales with what was lost (StreakCues.Severity, 0.5 at x3 and 1 at the cap): a x5 swells and shakes more, throws more
+        //pieces further and holds longer. The SESSION starts it (BreakStreak) rather than this class reading the keeper,
+        //because only the session knows when a break must stay silent: the level decided, or its last shot spent, where it
+        //would play over the result (StreakCues.BreakIsTold).
+        //
+        //⚠ SIZE IS WHAT MAKES IT SEEN. The first cut squeezed the badge as it cracked (the ball count's inward kick) and threw
+        //label-sized pieces that cooled to grey at once: captured at 1600x900 the whole break was a smudge twenty pixels high
+        //and pale on a pale sky, the very thing the issue was about. The badge is the HUD's smallest figure, so it grows as it
+        //breaks, the pieces keep its size and its colour for a while, and every shard carries a dark backing of its own.
+        //
+        //Every piece is a closed-form throw (a start, a velocity and gravity) from a hash of the break's seed and its index,
+        //so a frame of the break draws from the age alone: nothing is listed, nothing allocated, and every frame rate draws
+        //the same flight.
+        private int _breakLost;                         //the multiplier lost, 0 while nothing is breaking
+        private float _breakAge;
+        private float _breakLength;                     //seconds the whole break lasts, by what was lost
+        private float _breakPhase;                      //the cap's sweep where it stood, so a x5's pieces keep their colours
+        private int _breakSeed;                         //a new one per break, so no two shatter alike
+        private string _breakText = string.Empty;       //"x5", the badge that broke
+        private string[] _breakGlyphs = System.Array.Empty<string>();
+        private string _breakCaption = string.Empty;    //"x5 lost"; all three built once per break and never per frame
+
+        private const float STREAK_BREAK_CRACK = 0.16f;         //the swell and the jolt, before the pieces leave
+        private const float STREAK_BREAK_TIME_LOW = 0.8f;       //seconds, at a severity of 0 ...
+        private const float STREAK_BREAK_TIME_HIGH = 1.4f;      //... and of 1 (x3: 1.1 s, x5: 1.4 s)
+        private const float STREAK_BREAK_SWELL_LOW = 0.6f;      //how much the badge grows as it cracks, at a severity of 0.5 ...
+        private const float STREAK_BREAK_SWELL_HIGH = 0.9f;     //... and of 1 (x3 to 1.6 times, x5 to 1.9 times)
+        private const int STREAK_BREAK_SHAKE_LOW = 8;           //design units of the jolt's swing
+        private const int STREAK_BREAK_SHAKE_HIGH = 20;
+        private const float STREAK_BREAK_SHAKE_HZ = 31f;
+        private const int STREAK_CRACK_THICKNESS = 3;           //design units, the dark lines across the badge
+        private static readonly Color STREAK_CRACK = new(10, 8, 6, 230);
+
+        //The pieces, in design units and seconds: thrown sideways and up, then pulled down; the shards faster and spun
+        //harder than the glyphs, since they are smaller and lighter. Everything keeps the colour it wore for a beat and cools
+        //to STREAK_LOST over STREAK_BREAK_COOL, shrinks to STREAK_BREAK_SHRINK of the swollen size, and goes out over the last
+        //STREAK_BREAK_FADE of the flight
+        private const float STREAK_BREAK_GRAVITY = 2600f;
+        private const float STREAK_BREAK_THROW = 520f;
+        private const float STREAK_BREAK_LIFT = 560f;
+        private const float STREAK_BREAK_SPIN = 4.5f;           //radians a second at most, a glyph
+        private const float STREAK_BREAK_COOL = 0.6f;
+        private const float STREAK_BREAK_SHRINK = 0.75f;
+        private const float STREAK_BREAK_FADE = 0.45f;          //a fraction of the flight
+        private const int STREAK_SHARDS_LOW = 6;
+        private const int STREAK_SHARDS_HIGH = 16;
+        private const float STREAK_SHARD_SPEED = 1050f;
+        private const float STREAK_SHARD_SPIN = 14f;
+        private const int STREAK_SHARD_LENGTH = 46;
+        private const int STREAK_SHARD_THICKNESS = 13;
+        private const float STREAK_SHARD_BACKING = 1.5f;        //the dark copy under each shard, this much larger
+
+        //And what is left, "x5 lost": in by STREAK_CAPTION_IN, held, and out over the last STREAK_CAPTION_OUT of the break,
+        //sinking STREAK_CAPTION_SINK as it goes, in the cap's loud face and a little larger for a lost cap. It is born in the
+        //badge's own colour and cools to STREAK_LOST, the streak's warmth going out of it: never the alarm's red, which
+        //belongs to the glass
+        private const float STREAK_CAPTION_IN = 0.12f;
+        private const float STREAK_CAPTION_OUT = 0.35f;
+        private const int STREAK_CAPTION_SINK = 14;
+        private const float STREAK_CAPTION_CAP_SCALE = 1.15f;
+        private static readonly Color STREAK_LOST = new(214, 214, 222);
+
+        //One shard of the badge, a sliver baked once at this many texels long (STREAK_SHARD_TEXELS by a third of it), drawn
+        //scaled and turned: a 1x1 texel stretched into a rectangle would have hard, stepped edges at every angle
+        private const int STREAK_SHARD_TEXELS = 48;
+        private Texture2D _shard;
 
         //THE CAP IS ITS OWN TIER (#180). Below MaxMultiplier the streak warms towards the one accent and that is
         //the whole of it, which is why a x5 used to read as a slightly hotter x2 — climb is normalised 0..1
@@ -674,7 +750,10 @@ namespace BS3D.Screens
 
             _ballsShown = score.ShotsRemaining ?? -1;
             _multiplierShown = score.Multiplier;
-            _streakBroken = 0;
+            _breakLost = 0;
+            _swapHint = false;
+            _swapHintAge = 0f;
+            _swapPulse.Reset();
             _streakCapped = score.Multiplier >= ScoreKeeper.MaxMultiplier;
             _streakCapFlare = 0f;
             _clock = 0f;
@@ -711,6 +790,47 @@ namespace BS3D.Screens
         /// </summary>
         internal void FlashScore() => _scorePulse.Kick(SCORE_KICK);
 
+        /// <summary>
+        /// A streak of <paramref name="lost"/> has just been lost (#845): the badge cracks and shatters, and "×5 lost" stands
+        /// where it stood. Called by the session, which has already decided the player is to be told
+        /// (<see cref="StreakCues.BreakIsTold"/>); a second break over one still playing starts afresh. Lifts the
+        /// <c>streak=</c> pin (<see cref="ForcedMultiplier"/>), which held until this shot.
+        /// </summary>
+        internal void BreakStreak(int lost)
+        {
+            ForcedMultiplier = null;
+            if (lost <= 1) return;
+
+            //Where the cap's sweep stands now, so a broken x5's glyphs keep the colours they were wearing
+            _breakPhase = _clock / STREAK_CAP_CYCLE;
+            _breakLost = lost;
+            _breakAge = 0f;
+            _breakLength = MathHelper.Lerp(STREAK_BREAK_TIME_LOW, STREAK_BREAK_TIME_HIGH, StreakCues.Severity(lost));
+            _breakSeed++;
+
+            _breakText = "×" + lost.ToString(CultureInfo.InvariantCulture);
+            _breakCaption = _breakText + " lost";
+            _breakGlyphs = new string[_breakText.Length];
+            for (int i = 0; i < _breakText.Length; i++) _breakGlyphs[i] = _breakText[i].ToString();
+        }
+
+        /// <summary>
+        /// How much a lost streak of <paramref name="lost"/> grows as it cracks (#845): <see cref="STREAK_BREAK_SWELL_LOW"/>
+        /// for a lost ×3 and <see cref="STREAK_BREAK_SWELL_HIGH"/> for a lost cap, in proportion between.
+        /// </summary>
+        private static float BreakSwell(int lost) =>
+            MathHelper.Lerp(STREAK_BREAK_SWELL_LOW, STREAK_BREAK_SWELL_HIGH, Math.Clamp(StreakCues.Severity(lost) * 2f - 1f, 0f, 1f));
+
+        /// <summary>
+        /// A streak has ended where the player is not to be told (#845, <see cref="StreakCues.BreakIsTold"/>: the level
+        /// decided, or its last shot spent): the badge simply goes, and the <c>streak=</c> pin lifts as a break would lift it.
+        /// </summary>
+        internal void EndStreakQuietly()
+        {
+            ForcedMultiplier = null;
+            _breakLost = 0;
+        }
+
         #endregion
 
         #region Update
@@ -719,7 +839,10 @@ namespace BS3D.Screens
         /// Advances the count-up, the springs and the popups. On the play clock, so all three freeze with a
         /// pause rather than running on behind a menu the player has stopped the game with.
         /// </summary>
-        internal void Update(float elapsed, ScoreKeeper score)
+        /// <param name="swapHint">Whether the Swap chip points at the cure this frame (#845, <see cref="StreakCues.SwapIsTheCure"/>
+        /// as the session reads it): a streak is running, the round in the bore has nowhere to score and the Swap would load
+        /// one that has.</param>
+        internal void Update(float elapsed, ScoreKeeper score, bool swapHint = false)
         {
             _clock += elapsed;
 
@@ -727,11 +850,13 @@ namespace BS3D.Screens
             ChaseScore(elapsed, score);
             WatchStreak(elapsed, score);
             WatchBalls(score);
+            WatchSwapHint(elapsed, swapHint);
 
             _scorePulse.Update(elapsed);
             _streakPulse.Update(elapsed);
             _ballsPulse.Update(elapsed);
             _tutorialPulse.Update(elapsed);
+            _swapPulse.Update(elapsed);
         }
 
         /// <summary>
@@ -796,20 +921,32 @@ namespace BS3D.Screens
             if (_streakCapFlare > 0f)
                 _streakCapFlare = MathF.Max(0f, _streakCapFlare - elapsed / STREAK_CAP_FLARE_TIME);
 
-            if (multiplier == 1 && _multiplierShown > 1)
-            {
-                _streakBroken = _multiplierShown;
-                _streakBrokenAge = 0f;
-            }
-            else if (multiplier > 1) _streakBroken = 0;
-
             _multiplierShown = multiplier;
 
-            if (_streakBroken > 0)
+            //A break plays out on its own clock, and gives way at once to a new streak (a second shot already in the air
+            //that scores): the badge belongs to the streak that is running. A streak dropping to x1 WITHOUT a break (the
+            //level decided, its last shot spent) simply goes, because the session judged there was no one to tell.
+            if (_breakLost > 0)
             {
-                _streakBrokenAge += elapsed;
-                if (_streakBrokenAge >= STREAK_BREAK_TIME) _streakBroken = 0;
+                _breakAge += elapsed;
+                if (_breakAge >= _breakLength || multiplier > 1) _breakLost = 0;
             }
+        }
+
+        /// <summary>
+        /// Whether the Swap chip is pointing at the cure (#845), and for how long: the session's answer. Its onset heats the
+        /// chip's own pulse once, a flare that is what catches the eye; the breathing that follows keeps it found.
+        /// </summary>
+        private void WatchSwapHint(float elapsed, bool swapHint)
+        {
+            if (swapHint && !_swapHint)
+            {
+                _swapHintAge = 0f;
+                _swapPulse.Kick(0f);
+            }
+
+            _swapHint = swapHint;
+            if (swapHint) _swapHintAge += elapsed;
         }
 
         private void WatchBalls(ScoreKeeper score)
@@ -915,7 +1052,7 @@ namespace BS3D.Screens
             DrawStreak(score, viewport, margin, scoreAnchor.Y + scoreSize.Y * 0.5f + Scaled(HUD_LINE_GAP));
             DrawBallsLeft(score, viewport, margin);
             DrawMagazine(queue, kinds, queueFrom, queueFade, score, viewport, margin);
-            DrawSwap(swapCharges, brakeCharges, cutCharges, brakeBlock, cutBlocked, tutorial.OnGamepad, viewport, margin);
+            DrawSwap(swapCharges, brakeCharges, cutCharges, brakeBlock, cutBlocked, tutorial.OnGamepad, MultiplierOf(score), viewport, margin);
 
             //The card is given the score's left edge rather than measuring it again: it is what bounds the
             //strip the card may stand in (#461), and one measurement cannot disagree with the other.
@@ -931,18 +1068,18 @@ namespace BS3D.Screens
         /// <summary>
         /// The streak, under the score, and only while it is actually running — held back at ×1 so it reads as
         /// something the player is carrying rather than as furniture. It warms towards the accent as it climbs,
-        /// so ×5 is visibly hotter than ×2 without a second number to read; and when it goes it is held for a
-        /// moment, sliding down and fading, because its <i>loss</i> is the event and a thing that simply
+        /// so ×5 is visibly hotter than ×2 without a second number to read; and when it is lost it breaks
+        /// (<see cref="DrawStreakBreak"/>, #845), because its <i>loss</i> is the event and a thing that simply
         /// vanishes between frames is a thing the player never saw.
         /// </summary>
         private void DrawStreak(ScoreKeeper score, Viewport viewport, int margin, float top)
         {
-            int shown = MultiplierOf(score);
-            int multiplier = shown > 1 ? shown : _streakBroken;
-            if (multiplier <= 1) return;
-
-            bool broken = shown <= 1;
-            float fade = broken ? 1f - _streakBrokenAge / STREAK_BREAK_TIME : 1f;
+            int multiplier = MultiplierOf(score);
+            if (multiplier <= 1)
+            {
+                if (_breakLost > 0) DrawStreakBreak(viewport, margin, top);
+                return;
+            }
 
             if (multiplier != _streakTextFor)
             {
@@ -955,30 +1092,20 @@ namespace BS3D.Screens
                 for (int i = 0; i < _streakText.Length; i++) _streakGlyphs[i] = _streakText[i].ToString();
             }
 
-            //THE CAP IS A DIFFERENT STATE, not a hotter shade of the same one (#180). A streak that has just
-            //broken is never capped however high it got: what is on screen then is the loss, and dressing the
-            //number in its reward as it falls away would say the opposite of what is happening.
-            bool capped = !broken && multiplier >= ScoreKeeper.MaxMultiplier;
+            //THE CAP IS A DIFFERENT STATE, not a hotter shade of the same one (#180).
+            bool capped = multiplier >= ScoreKeeper.MaxMultiplier;
 
             //The loud face at the cap, so the multiplier stops being the smallest figure on the HUD at exactly
             //the moment it is the most worth reading — which was half of what #180 was about.
             SpriteFontBase font = capped ? _game.HudFontLabelLoud : _game.HudFontLabel;
 
-            //How hot the streak is running, over the whole range the rule allows — so the ramp keeps meaning
-            //the same thing if MaxMultiplier is ever retuned
-            float climb = (multiplier - 1f) / MathF.Max(1f, ScoreKeeper.MaxMultiplier - 1f);
-            Color colour = Color.Lerp(BS3DGame.MENU_TEXT, HUD_ACCENT, climb);
-
             Vector2 size = font.MeasureString(_streakText);
-            float drop = broken ? (1f - fade) * Scaled(STREAK_BREAK_FALL) : 0f;
-            Vector2 anchor = new(viewport.Width - margin, top + size.Y * 0.5f + drop);
-
-            float scale = _streakPulse.Scale * (broken ? MathHelper.Lerp(0.8f, 1f, fade) : 1f);
+            Vector2 anchor = new(viewport.Width - margin, top + size.Y * 0.5f);
+            float scale = _streakPulse.Scale;
 
             if (!capped)
             {
-                DrawPulsed(font, _streakText, anchor, new Vector2(1f, 0.5f), scale,
-                    colour * fade, broken ? 0f : _streakPulse.Heat);
+                DrawPulsed(font, _streakText, anchor, new Vector2(1f, 0.5f), scale, StreakColour(multiplier), _streakPulse.Heat);
                 return;
             }
 
@@ -994,7 +1121,281 @@ namespace BS3D.Screens
             int passes = HUD_GLOW_PASSES + (int)MathF.Round(STREAK_CAP_GLOW_PASSES * flare);
 
             DrawGlow(font, _streakText, at, size, scale, glow, SampleCapRamp(phase), passes);
-            DrawGradientString(font, _streakGlyphs, at, scale, phase, fade);
+            DrawGradientString(font, _streakGlyphs, at, scale, phase, 1f);
+        }
+
+        /// <summary>
+        /// How hot a streak of <paramref name="multiplier"/> is running below the cap: from the readout's white towards the
+        /// accent over the whole range the rule allows, so the ramp keeps meaning the same thing if
+        /// <see cref="ScoreKeeper.MaxMultiplier"/> is ever retuned.
+        /// </summary>
+        private static Color StreakColour(int multiplier) =>
+            Color.Lerp(BS3DGame.MENU_TEXT, HUD_ACCENT, (multiplier - 1f) / MathF.Max(1f, ScoreKeeper.MaxMultiplier - 1f));
+
+        /// <summary>The colour glyph <paramref name="index"/> of the broken badge wore: the cap's sweep where it stood, or the streak's warmth.</summary>
+        private Color BreakGlyphColour(int index, bool capped) =>
+            capped ? SampleCapRamp(_breakPhase - index * STREAK_CAP_STAGGER) : StreakColour(_breakLost);
+
+        /// <summary>
+        /// A lost streak breaking where it stood (#845; the field notes above <see cref="_breakLost"/>). First the CRACK
+        /// (<see cref="STREAK_BREAK_CRACK"/>): the badge swells about its right edge, jolts sideways, flashes white-hot and
+        /// dark cracks run across it. Then it SHATTERS: its glyphs are thrown apart at the swollen size (the × out to the
+        /// left, the digit dropping) and tumble down with shards of it, keeping the colours they wore for a beat and then
+        /// cooling to grey and going out, while "×5 lost" rises where the badge stood. Every throw is closed-form in the
+        /// break's age, so a frame costs draws and nothing else.
+        /// </summary>
+        private void DrawStreakBreak(Viewport viewport, int margin, float top)
+        {
+            SpriteBatch batch = _game.OverlayBatch;
+
+            //Pixels per design unit as a float: the throws are fractional figures, which Scaled's whole units would round
+            float unit = Scaled(1000) / 1000f;
+            float severity = StreakCues.Severity(_breakLost);
+            bool capped = _breakLost >= ScoreKeeper.MaxMultiplier;
+            SpriteFontBase font = capped ? _game.HudFontLabelLoud : _game.HudFontLabel;
+
+            Vector2 size = font.MeasureString(_breakText);
+            Vector2 anchor = new(viewport.Width - margin, top + size.Y * 0.5f);
+            float swollen = 1f + BreakSwell(_breakLost);
+
+            //The words first, so the pieces fly over them
+            DrawBreakCaption(anchor, capped);
+
+            float age = _breakAge;
+
+            if (age < STREAK_BREAK_CRACK)
+            {
+                //The swell, fast and then easing, with a sideways shake dying over it: white-hot at the instant and cooling
+                //back towards the colour it wore
+                float k = age / STREAK_BREAK_CRACK;
+                float scale = MathHelper.Lerp(1f, swollen, 1f - (1f - k) * (1f - k));
+                float swing = MathHelper.Lerp(STREAK_BREAK_SHAKE_LOW, STREAK_BREAK_SHAKE_HIGH, severity) * unit;
+                float shake = MathF.Sin(age * MathHelper.TwoPi * STREAK_BREAK_SHAKE_HZ) * swing * (1f - k);
+                float hot = 1f - k;
+
+                Vector2 at = anchor + new Vector2(shake, 0f) - size * new Vector2(1f, 0.5f) * scale;
+                DrawGlow(font, _breakText, at, size, scale, 0.6f + 0.4f * hot, Color.White,
+                    HUD_GLOW_PASSES + (int)MathF.Round(2f * severity));
+
+                float x = at.X;
+                for (int i = 0; i < _breakGlyphs.Length; i++)
+                {
+                    DrawString(font, _breakGlyphs[i], new Vector2(x, at.Y),
+                        Color.Lerp(BreakGlyphColour(i, capped), Color.White, 0.75f * hot), scale);
+                    x += font.MeasureString(_breakGlyphs[i]).X * scale;
+                }
+
+                //The cracks come in the second half of the swell, once the flash has been seen
+                if (k > 0.45f) DrawCracks(batch, at, size * scale, severity, unit);
+                return;
+            }
+
+            float flight = age - STREAK_BREAK_CRACK;
+            float life = flight / MathF.Max(0.01f, _breakLength - STREAK_BREAK_CRACK);
+            float fade = 1f - MathHelper.SmoothStep(0f, 1f, (life - (1f - STREAK_BREAK_FADE)) / STREAK_BREAK_FADE);
+            float cool = MathHelper.SmoothStep(0f, 1f, flight / STREAK_BREAK_COOL);
+            float fall = 0.5f * STREAK_BREAK_GRAVITY * unit * flight * flight;
+            float reach = 0.7f + 0.6f * severity;
+            float pieceScale = swollen * MathHelper.Lerp(1f, STREAK_BREAK_SHRINK, life);
+
+            //Where the swollen badge stood: the throws start from its glyphs
+            Vector2 swollenSize = size * swollen;
+            Vector2 origin = anchor - swollenSize * new Vector2(1f, 0.5f);
+
+            //The shards, under the glyphs: thrown from anywhere on the badge, up and out to the left over to up and right
+            //(the badge stands against the frame's right edge, so the room for the throw is to its left), then pulled down.
+            //Each on a dark copy of itself, larger, so a pale shard still reads against a pale sky
+            Texture2D shard = ShardTexture();
+            Vector2 shardOrigin = new(shard.Width * 0.5f, shard.Height * 0.5f);
+            Vector2 centre = origin + swollenSize * 0.5f;
+            int shards = (int)MathF.Round(MathHelper.Lerp(STREAK_SHARDS_LOW, STREAK_SHARDS_HIGH, severity));
+
+            for (int j = 0; j < shards; j++)
+            {
+                float a = Hash01(j, 11), b = Hash01(j, 12), c = Hash01(j, 13), d = Hash01(j, 14), e = Hash01(j, 15);
+
+                float angle = MathHelper.Lerp(-0.95f * MathHelper.Pi, -0.2f * MathHelper.Pi, a);
+                float speed = STREAK_SHARD_SPEED * unit * (0.35f + 0.65f * b) * reach;
+                Vector2 start = centre + new Vector2((c - 0.5f) * swollenSize.X, (d - 0.5f) * swollenSize.Y) * 0.8f;
+                Vector2 at = start + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * speed * flight + new Vector2(0f, fall);
+
+                float turn = e * MathHelper.TwoPi + (b - 0.5f) * 2f * STREAK_SHARD_SPIN * flight;
+                Vector2 stretch = new Vector2(STREAK_SHARD_LENGTH * (0.5f + 0.9f * c) / shard.Width,
+                    STREAK_SHARD_THICKNESS * (0.6f + 0.6f * d) / shard.Height) * unit * MathHelper.Lerp(1f, STREAK_BREAK_SHRINK, life);
+                Color tint = Color.Lerp(BreakGlyphColour(j % Math.Max(1, _breakGlyphs.Length), capped), STREAK_LOST, cool) * fade;
+
+                batch.Draw(shard, at, null, HUD_BACKING * fade, turn, shardOrigin, stretch * STREAK_SHARD_BACKING, SpriteEffects.None, 0f);
+                batch.Draw(shard, at, null, tint, turn, shardOrigin, stretch, SpriteEffects.None, 0f);
+            }
+
+            //The glyphs: the first (the ×) thrown out to the left, the rest dropping with a little sideways drift, each
+            //turning as it goes
+            float left = origin.X;
+            for (int i = 0; i < _breakGlyphs.Length; i++)
+            {
+                Vector2 glyphSize = font.MeasureString(_breakGlyphs[i]);
+                Vector2 start = new(left + glyphSize.X * swollen * 0.5f, origin.Y + glyphSize.Y * swollen * 0.5f);
+                left += glyphSize.X * swollen;
+
+                float side = i == 0 ? -1f : 0.3f;
+                float vx = side * STREAK_BREAK_THROW * unit * (0.6f + 0.4f * Hash01(i, 2)) * reach;
+                float vy = -STREAK_BREAK_LIFT * unit * (0.5f + 0.5f * Hash01(i, 3)) * reach;
+                Vector2 at = start + new Vector2(vx, vy) * flight + new Vector2(0f, fall);
+
+                float turn = (i == 0 ? -1f : 1f) * STREAK_BREAK_SPIN * (0.4f + 0.6f * Hash01(i, 4)) * flight;
+                Color tint = Color.Lerp(BreakGlyphColour(i, capped), STREAK_LOST, cool) * fade;
+
+                DrawTurnedGlyph(font, _breakGlyphs[i], at, glyphSize, turn, pieceScale, tint);
+            }
+        }
+
+        /// <summary>
+        /// "×5 lost", where the badge stood (#845): in over <see cref="STREAK_CAPTION_IN"/> once the crack is done, held, and
+        /// out over the last <see cref="STREAK_CAPTION_OUT"/> of the break, sinking a little as it goes; in the cap's loud face,
+        /// a lost cap's a little larger, born in the colour the badge wore and cooling to <see cref="STREAK_LOST"/>.
+        /// </summary>
+        private void DrawBreakCaption(Vector2 anchor, bool capped)
+        {
+            float age = _breakAge - STREAK_BREAK_CRACK;
+            if (age <= 0f) return;
+
+            float rise = MathHelper.SmoothStep(0f, 1f, age / STREAK_CAPTION_IN);
+            float leave = MathHelper.SmoothStep(0f, 1f, 1f - (_breakLength - _breakAge) / STREAK_CAPTION_OUT);
+            float alpha = rise * (1f - leave);
+            if (alpha <= 0.01f) return;
+
+            SpriteFontBase font = _game.HudFontLabelLoud;
+            Vector2 size = font.MeasureString(_breakCaption);
+
+            //A small pop as it arrives, the HUD's own way of saying "this just happened"
+            float scale = MathHelper.Lerp(1.15f, 1f, rise) * (capped ? STREAK_CAPTION_CAP_SCALE : 1f);
+            float sink = leave * Scaled(STREAK_CAPTION_SINK);
+
+            Color tint = Color.Lerp(BreakGlyphColour(0, capped), STREAK_LOST, MathHelper.SmoothStep(0f, 1f, age / STREAK_BREAK_COOL));
+            Vector2 at = new(anchor.X - size.X * scale, anchor.Y - size.Y * 0.5f * scale + sink);
+
+            DrawString(font, _breakCaption, at, tint * alpha, scale);
+        }
+
+        /// <summary>
+        /// The dark cracks across the badge at the end of its jolt (#845): two for a lost ×3, three for a lost cap, each a
+        /// jagged line of three strokes from its top to its bottom, placed by the break's own hash.
+        /// </summary>
+        private void DrawCracks(SpriteBatch batch, Vector2 at, Vector2 size, float severity, float unit)
+        {
+            int cracks = (int)(1.5f + 1.5f * severity);
+            float thickness = MathF.Max(1f, STREAK_CRACK_THICKNESS * unit);
+
+            for (int c = 0; c < cracks; c++)
+            {
+                float across = (c + 0.5f) / cracks + (Hash01(c, 21) - 0.5f) * 0.25f / cracks;
+                Vector2 from = new(at.X + across * size.X, at.Y + size.Y * 0.12f);
+
+                for (int s = 1; s <= 3; s++)
+                {
+                    float jag = (Hash01(c * 4 + s, 22) - 0.5f) * 0.3f * size.X / cracks;
+                    Vector2 to = new(at.X + across * size.X + jag, at.Y + size.Y * (0.12f + 0.76f * s / 3f));
+
+                    Vector2 stroke = to - from;
+                    batch.Draw(Pixel, from, null, STREAK_CRACK, MathF.Atan2(stroke.Y, stroke.X), new Vector2(0f, 0.5f),
+                        new Vector2(stroke.Length(), thickness), SpriteEffects.None, 0f);
+
+                    from = to;
+                }
+            }
+        }
+
+        /// <summary>
+        /// One glyph of the broken badge, turned by <paramref name="turn"/> about its own centre at <paramref name="centre"/> and
+        /// drawn at <paramref name="scale"/>, on the HUD's blurred black backing (<see cref="DrawString"/>'s, turned with it; the
+        /// offset shadow is left out, a tumbling piece has no up for it to fall from).
+        /// </summary>
+        private void DrawTurnedGlyph(SpriteFontBase font, string glyph, Vector2 centre, Vector2 size, float turn, float scale,
+            Color colour)
+        {
+            float alpha = colour.A / 255f;
+            if (alpha <= 0.01f) return;
+
+            int blur = Math.Max(1, Scaled(HUD_BACKING_BLUR));
+            Vector2 backingSize = font.MeasureString(glyph, null, 0f, 0f, FontSystemEffect.Blurry, blur);
+            Vector2 scaling = new(scale);
+
+            for (int i = 0; i < HUD_BACKING_PASSES; i++)
+                _game.OverlayBatch.DrawString(font, glyph, centre, HUD_BACKING * alpha, turn, backingSize * 0.5f, scaling,
+                    0f, 0f, 0f, TextStyle.None, FontSystemEffect.Blurry, blur);
+
+            _game.OverlayBatch.DrawString(font, glyph, centre, colour, turn, size * 0.5f, scaling);
+        }
+
+        /// <summary>0 to 1 from the break's seed, a piece's index and a salt for which figure of it is asked: the same every frame.</summary>
+        private float Hash01(int index, int salt)
+        {
+            unchecked
+            {
+                uint h = (uint)(_breakSeed * 73856093) ^ (uint)(index * 19349663) ^ (uint)(salt * 83492791);
+                h ^= h >> 13;
+                h *= 0x5bd1e995;
+                h ^= h >> 15;
+                return (h & 0xFFFFFF) / 16777216f;
+            }
+        }
+
+        /// <summary>
+        /// The shard's sliver (#845): a long, uneven four-sided splinter with antialiased edges, baked once into a small
+        /// premultiplied white texture and tinted per draw, the way <see cref="DiscTexture"/> bakes the discs.
+        /// </summary>
+        private Texture2D ShardTexture()
+        {
+            if (_shard != null) return _shard;
+
+            int width = STREAK_SHARD_TEXELS, height = STREAK_SHARD_TEXELS / 3;
+
+            //The splinter's corners, wound one way round: a point at each end, the long edges broken at different places
+            Vector2[] corners =
+            {
+                new(0.5f, height * 0.55f), new(width * 0.38f, 0.5f), new(width - 0.5f, height * 0.45f), new(width * 0.55f, height - 0.5f)
+            };
+
+            const int SAMPLES = 4;
+            byte[] data = new byte[width * height * 4];
+
+            for (int y = 0; y < height; y++)
+                for (int x = 0; x < width; x++)
+                {
+                    int covered = 0;
+                    for (int sy = 0; sy < SAMPLES; sy++)
+                        for (int sx = 0; sx < SAMPLES; sx++)
+                            if (InsideConvex(corners, new Vector2(x + (sx + 0.5f) / SAMPLES, y + (sy + 0.5f) / SAMPLES))) covered++;
+
+                    byte value = (byte)(covered * 255 / (SAMPLES * SAMPLES));
+                    int o = (y * width + x) * 4;
+                    data[o] = value;
+                    data[o + 1] = value;
+                    data[o + 2] = value;
+                    data[o + 3] = value;
+                }
+
+            _shard = new Texture2D(_game.GraphicsDevice, width, height);
+            _shard.SetData(data);
+            return _shard;
+        }
+
+        /// <summary>Whether <paramref name="point"/> is inside a convex polygon: on the same side of every edge.</summary>
+        private static bool InsideConvex(Vector2[] polygon, Vector2 point)
+        {
+            int sign = 0;
+            for (int i = 0; i < polygon.Length; i++)
+            {
+                Vector2 a = polygon[i], b = polygon[(i + 1) % polygon.Length];
+                float cross = (b.X - a.X) * (point.Y - a.Y) - (b.Y - a.Y) * (point.X - a.X);
+                if (cross == 0f) continue;
+
+                int side = cross > 0f ? 1 : -1;
+                if (sign == 0) sign = side;
+                else if (side != sign) return false;
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -1347,17 +1748,34 @@ namespace BS3D.Screens
         private const int HUD_SWAP_ABOVE_STRIP = HUD_MARGIN;
         private const float HUD_SWAP_SPENT_ALPHA = 0.42f;
 
+        //THE SWAP POINTS AT THE CURE (#845): while a streak runs and the round in the bore has nowhere to score (the owner's
+        //rule of 2026-10-11), and the Swap would load one that has (a conservative condition added to his rule;
+        //StreakCues.SwapIsTheCure, asked by the session), the Swap chip FLASHES and says what it is for: "Swap · keep ×3". The flash is the streak's own amber, a halo behind the
+        //keycap and the words and the two tinted towards it, so the chip reads as belonging to the badge it would save:
+        //a flare at the onset (the chip's pulse heated once), then a breath every SWAP_HINT_PERIOD between SWAP_HINT_FLOOR
+        //and full, which keeps it found without blinking. Amber is the HUD's colour for gain, and keeping a streak is one.
+        private bool _swapHint;
+        private float _swapHintAge;
+        private Pulse _swapPulse;
+        private const string SWAP_KEEP = "Swap · keep ";
+        private const float SWAP_HINT_PERIOD = 0.6f;
+        private const float SWAP_HINT_FLOOR = 0.3f;
+
+        //"Swap · keep ×3", built when the streak it names changes and never per frame
+        private int _swapKeepFor = -1;
+        private string _swapKeepText = SWAP_KEEP;
+
         //Every keycap or button a chip draws, either device's (#694): the column is as wide as the widest of them, so
         //it holds when the hand moves between the keyboard and the pad
         private static readonly string[] CHIP_GLYPHS =
             { SWAP_GLYPH_KEY, SWAP_GLYPH_PAD, BRAKE_GLYPH_KEY, BRAKE_GLYPH_PAD, CUT_GLYPH_KEY, CUT_GLYPH_PAD };
 
         //Every caption a chip can show, "×9" standing for any single-digit count (#694): the caption column is as
-        //wide as the widest, so it holds when "Swap" becomes "Swap used". A wider one (a testing powerups= of ten or
-        //more) widens it for the frames it is up rather than running past the strip's edge.
+        //wide as the widest, so it holds when "Swap" becomes "Swap used" or "Swap · keep ×5". A wider one (a testing
+        //powerups= of ten or more) widens it for the frames it is up rather than running past the strip's edge.
         private static readonly string[] CHIP_CAPTIONS =
         {
-            SWAP_READY, SWAP_SPENT, SWAP_READY + " ×9", BRAKE_READY, BRAKE_SPENT, BRAKE_READY + " ×9",
+            SWAP_READY, SWAP_SPENT, SWAP_READY + " ×9", SWAP_KEEP + "×9", BRAKE_READY, BRAKE_SPENT, BRAKE_READY + " ×9",
             BRAKE_WAIT, BRAKE_NOT_NEEDED, CUT_READY, CUT_SPENT, CUT_READY + " ×9", CUT_NOT_NOW,
         };
 
@@ -1400,8 +1818,9 @@ namespace BS3D.Screens
         /// dry "no" and keeps its charge, so the chip is not shown ready — the owner's playtest met that "no" from a chip at full
         /// brightness and did not understand the brake — and, since #844, not shown spent either: it says to wait.</param>
         /// <param name="cutBlocked">Whether the round in the bore cannot be turned into a cutter now (#844).</param>
+        /// <param name="streak">The streak the readout shows, which the Swap's hint names ("Swap · keep ×3", #845).</param>
         private void DrawSwap(int swapCharges, int brakeCharges, int cutCharges, BrakeBlock brakeBlock, bool cutBlocked, bool onGamepad,
-            Viewport viewport, int margin)
+            int streak, Viewport viewport, int margin)
         {
             if (swapCharges < 0 && brakeCharges < 0 && cutCharges < 0) return;
 
@@ -1420,10 +1839,20 @@ namespace BS3D.Screens
             if (brakeCharges >= 0) ChipText(brakeCharges, BRAKE_READY, BRAKE_SPENT, brakeNotNow, ref _brakeTextFor, ref _brakeNotNowFor, ref _brakeText);
             if (cutCharges >= 0) ChipText(cutCharges, CUT_READY, CUT_SPENT, cutNotNow, ref _cutTextFor, ref _cutNotNowFor, ref _cutText);
 
+            //The Swap pointing at the cure (#845) says what it is for in place of its count, for as long as it flashes
+            bool hint = _swapHint && swapCharges > 0;
+            if (hint && streak != _swapKeepFor)
+            {
+                _swapKeepFor = streak;
+                _swapKeepText = SWAP_KEEP + "×" + streak.ToString(CultureInfo.InvariantCulture);
+            }
+
+            string swapText = hint ? _swapKeepText : _swapText;
+
             //One column for every chip on the frame (#694): the widest caption a chip can show, or a wider one that is
             //up now, ends on the strip's right edge, and every keycap stands in the column left of the captions
             float captionColumn = _chipCaptionColumn;
-            if (swapCharges >= 0) captionColumn = MathF.Max(captionColumn, captionFont.MeasureString(_swapText).X);
+            if (swapCharges >= 0) captionColumn = MathF.Max(captionColumn, captionFont.MeasureString(swapText).X);
             if (brakeCharges >= 0) captionColumn = MathF.Max(captionColumn, captionFont.MeasureString(_brakeText).X);
             if (cutCharges >= 0) captionColumn = MathF.Max(captionColumn, captionFont.MeasureString(_cutText).X);
 
@@ -1433,7 +1862,8 @@ namespace BS3D.Screens
             int row = 0;
 
             if (swapCharges >= 0)
-                DrawChip(row++, onGamepad ? SWAP_GLYPH_PAD : SWAP_GLYPH_KEY, _swapText, State(swapCharges, null), in layout, viewport, margin);
+                DrawChip(row++, onGamepad ? SWAP_GLYPH_PAD : SWAP_GLYPH_KEY, swapText, State(swapCharges, null), in layout, viewport, margin,
+                    hint ? SwapHintGlow() : 0f);
 
             if (brakeCharges >= 0)
                 DrawChip(row++, onGamepad ? BRAKE_GLYPH_PAD : BRAKE_GLYPH_KEY, _brakeText, State(brakeCharges, brakeNotNow), in layout,
@@ -1503,8 +1933,10 @@ namespace BS3D.Screens
         /// its keycap centred in the shared column and its caption from the shared left edge (<see cref="ChipColumnLayout"/>,
         /// #694), so the keycaps of every chip stand in one column whatever their captions say.
         /// </summary>
+        /// <param name="hint">How brightly the chip is pointing at itself (#845, the Swap's hint), 0 for not at all: an amber
+        /// halo behind the keycap and the words, and both tinted towards the amber, by this much.</param>
         private void DrawChip(int row, string glyph, string text, ChipState state, in ChipColumnLayout layout, Viewport viewport,
-            int margin)
+            int margin, float hint = 0f)
         {
             //Three states told apart by brightness, the HUD's grey and not a colour (amber means gain, see the class doc):
             //ready is the keycap and its word in full white; NOT NOW dims the keycap - the key will do nothing yet - and keeps
@@ -1530,10 +1962,33 @@ namespace BS3D.Screens
             float captionTop = top + (height - captionSize.Y) * 0.5f;
             float glyphTop = captionTop + _chipCaptionCapCentre - _chipGlyphInkCentre;
 
-            DrawString(glyphFont, glyph, new Vector2(MathF.Round(layout.GlyphLeft(glyphSize.X)), MathF.Round(glyphTop)),
-                BS3DGame.MENU_TEXT * alpha, 1f);
-            DrawString(captionFont, text, new Vector2(MathF.Round(layout.CaptionLeft), captionTop),
-                (ready ? BS3DGame.MENU_TEXT : HUD_CAPTION) * captionAlpha, 1f);
+            Vector2 glyphAt = new(MathF.Round(layout.GlyphLeft(glyphSize.X)), MathF.Round(glyphTop));
+            Vector2 captionAt = new(MathF.Round(layout.CaptionLeft), captionTop);
+            Color glyphColour = BS3DGame.MENU_TEXT * alpha;
+            Color captionColour = (ready ? BS3DGame.MENU_TEXT : HUD_CAPTION) * captionAlpha;
+
+            if (hint > 0f)
+            {
+                //The halo first, under both, the way the readouts flash; then the two tinted towards it
+                DrawGlow(glyphFont, glyph, glyphAt, glyphSize, 1f, hint, HUD_ACCENT, HUD_GLOW_PASSES);
+                DrawGlow(captionFont, text, captionAt, captionSize, 1f, hint, HUD_ACCENT, HUD_GLOW_PASSES);
+                glyphColour = Color.Lerp(glyphColour, HUD_ACCENT, 0.8f * hint);
+                captionColour = Color.Lerp(captionColour, HUD_ACCENT, 0.8f * hint);
+            }
+
+            DrawString(glyphFont, glyph, glyphAt, glyphColour, 1f);
+            DrawString(captionFont, text, captionAt, captionColour, 1f);
+        }
+
+        /// <summary>
+        /// How brightly the Swap's hint is flashing now (#845): a flare at its onset (the chip's pulse heated once, falling
+        /// off at the pulse's own rate), then a breath every <see cref="SWAP_HINT_PERIOD"/> from full down to
+        /// <see cref="SWAP_HINT_FLOOR"/> and back, on the play clock like every other HUD motion.
+        /// </summary>
+        private float SwapHintGlow()
+        {
+            float breath = 0.5f + 0.5f * MathF.Cos(MathHelper.TwoPi * _swapHintAge / SWAP_HINT_PERIOD);
+            return MathF.Max(MathHelper.Lerp(SWAP_HINT_FLOOR, 1f, breath), _swapPulse.Heat);
         }
 
         /// <summary>

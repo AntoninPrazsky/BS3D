@@ -113,6 +113,9 @@ namespace BS3D.Screens
             //opposite reason: its effect is the loudest thing a level can do, and it sounded like a release.)
             if (landing.Thawed > 0) Game.Audio.PlayIceBreak(landing.World, landing.Thawed);
 
+            //The streak as the readout shows it, before the keeper is told: a landing that scores nothing breaks it (#845)
+            int streakBefore = _hud.StreakShown(_run.Score);
+
             ScoreAward award = _run.Score.Landed(landing.Released.Matched, landing.Released.Orphaned,
                 landing.Released.Destroyed);
 
@@ -171,6 +174,9 @@ namespace BS3D.Screens
             FeedTallColumn();
 
             CheckLevelCleared();
+
+            //Last, once the clear test has had its say, so a break is never told over a level just decided (#845)
+            if (!award.Scored) AnswerLostStreak(streakBefore);
         }
 
         /// <summary>
@@ -417,6 +423,7 @@ namespace BS3D.Screens
         {
             if (LevelOver) return;
 
+            int streakBefore = _hud.StreakShown(_run.Score);
             _run.Score.Missed();
             if (_shotCode.Record(false)) CelebrateShotCode();
             LogResolution("missed");
@@ -439,11 +446,44 @@ namespace BS3D.Screens
             //the way the landing answers its own tick (#564): the census, the barrel's dead colours and the
             //clear test. Without them a miss that turned the last matchable ball to stone left a level that
             //never ended on an unlimited budget, and on a budgeted one went on loading a colour that was gone.
-            if (!TickInfection()) return;
+            if (TickInfection())
+            {
+                RecountBallTypes();
+                if (AnyBallTypeAlive()) Transmute();
+                CheckLevelCleared();
+            }
 
-            RecountBallTypes();
-            if (AnyBallTypeAlive()) Transmute();
-            CheckLevelCleared();
+            //Last, after anything that can decide the level, as the landing's own break is (#845)
+            AnswerLostStreak(streakBefore);
+        }
+
+        /// <summary>
+        /// A shot has just resolved without scoring, and the streak the readout showed was <paramref name="lost"/> (#845).
+        /// Above ×1 that is a break, and the player is told (the badge cracks and shatters, "×5 lost", the falling run)
+        /// unless the level is decided or its last shot is spent: there the break would play over the result, so the badge
+        /// simply goes (<see cref="StreakCues.BreakIsTold"/>). Called by both doors a shot resolves through without scoring,
+        /// <see cref="OnShotSpent"/> and <see cref="OnBallLanded"/>, each at its very end.
+        /// </summary>
+        private void AnswerLostStreak(int lost)
+        {
+            if (lost <= 1) return;
+
+            bool told = StreakCues.BreakIsTold(lost, LevelDecided, _run.Score.OutOfShots);
+
+            //A rare-event line for a run that logs its shots: when a break was told, on shot='s clock, which is what a
+            //capture of it is scheduled against
+            if (_test.LogShots)
+                Console.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                    $"[streak] x{lost} lost at {WallClock:F2} s, ") + (told ? "told" : "not told: the level is decided or out of shots"));
+
+            if (!told)
+            {
+                _hud.EndStreakQuietly();
+                return;
+            }
+
+            _hud.BreakStreak(lost);
+            Game.Audio.PlayStreakBreak(lost);
         }
 
         /// <summary>
