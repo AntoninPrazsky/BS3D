@@ -41,7 +41,7 @@ Each page owns its tree, swapped into the one `_desktop.Root`. Everything that m
 - **Front end:** Splash, Main menu (New Game/Continue, Select Level, High Scores, Extras, Settings, Help, About, Quit), Level select, High Scores (#685, "High Scores" in `docs/game-session.md`), Extras, Scene, Jukebox.
 - **Pause:** Resume, Settings, Scene, Write to the Author, Restart, Main Menu, Quit. Restart is two entries clear of Resume (#383).
 - **Others:** Quit confirm (below), Settings, About, Result.
-- Settings, Scene, About and the Quit confirm are reached from both the front end and a pause. They are pushed over whatever was up, so "Back" is a `Pop`.
+- Settings, Scene and the Quit confirm are reached from both the front end and a pause; About only from the front end. They are pushed over whatever was up, so "Back" is a `Pop`.
 - **Only a pause dims the frame.** The front end draws no scrim: the rotating scene is the whole point of that screen. A pause dims hard, because what is behind it is a stopped game. Legibility on the front end comes from the widgets: entries carry their own slab and text-carrying screens sit on a dark plate. `DimsFrame` is `Manager.Contains<PausePage>()`.
 - ⚠ **The scrim is drawn by the host's own batch** right before the desktop renders, not set as the Myra root's background (#114): Myra's background paint stops short of the viewport's bottom edge (row 897 against 899 at 1600×900), leaving a strip of undimmed arena across every dimmed page. The root panel still stretches, because it places the page's children and Myra hit-tests it.
 

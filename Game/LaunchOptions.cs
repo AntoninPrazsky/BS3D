@@ -208,8 +208,8 @@ namespace BS3D
         //1-based. Null means absent.
         internal string PickFocus { get; private set; }
 
-        //Testing only: open the About page at boot, and with "about=play" start its player (#443). Null means
-        //the argument was absent; empty means the page alone.
+        //Testing only: open the About page at boot, with "about=play" start its player (#443), with "about=<n>" on its nth
+        //page (#807), "about=1:play" both. Null means the argument was absent; empty means the first page alone.
         internal string About { get; private set; }
 
         //Testing only: Extras at boot ("extras"), or the Jukebox ("jukebox", "jukebox=<chapter>", "jukebox=<chapter>:play"), #704.
@@ -324,10 +324,12 @@ namespace BS3D
         internal float? QuitAt { get; private set; }
         internal string QuitSteps { get; private set; }
 
-        //Testing only: "menucursor=<seconds>[:<steps>]" (#799) - at that wall-clock second the pad's and the arrow keys'
-        //cursor comes up on the page that is up and walks that many entries down, as presses would; null when absent
+        //Testing only: "menucursor=<seconds>[:<steps>[:<presses>]]" (#799) - at that wall-clock second the pad's and the arrow
+        //keys' cursor comes up on the page that is up and walks that many entries down, as presses would; then the sideways
+        //presses, one a frame (#807: left, right, lb, rb - the arrow keys and the shoulders); null when absent
         internal float? MenuCursorAt { get; private set; }
         internal int MenuCursorSteps { get; private set; }
+        internal string MenuCursorPresses { get; private set; }
 
         //Testing only: the connection check the question makes answers "not connected" (#763), so the no-internet branch
         //can be walked without taking the machine's network down
@@ -546,7 +548,8 @@ namespace BS3D
             //neither move the Game's pointer nor press a key in it. On "shot="'s clock.
             Row.Text("pickfocus", (o, v) => o.PickFocus = v),
             //"about" puts the About page up at boot and "about=play" starts its player of the original score
-            //(#443) — pick's reasoning, plus the press a visualizer needs before there is anything to see.
+            //(#443) — pick's reasoning, plus the press a visualizer needs before there is anything to see. "about=<n>"
+            //opens it on that page (#807), help=<n>'s reasoning: the page turns behind an arrow no script can press.
             Row.Flag("about", o => o.About = string.Empty),
             Row.Text("about", (o, v) => o.About = v),
             //"extras" and "jukebox[=<chapter>[:play]]" open those pages at boot (#704) - about's wall, and the Jukebox's
@@ -630,19 +633,20 @@ namespace BS3D
                 else Console.WriteLine($"[quit] Testing: 'quitconfirm={v}' dropped, expected <seconds>[:<steps>]");
             }),
             //"menucursor" (#799): the focus prompt is drawn only while the cursor is up, and the cursor comes up only on a
-            //press the window must be focused to read
+            //press the window must be focused to read. The sideways presses after it (#807) for the same reason: a page that
+            //turns, or a row the arrows walk, cannot be seen to do either on a desktop nobody is sitting at
             Row.Text("menucursor", (o, v) =>
             {
-                int colon = v.IndexOf(':');
-                string seconds = colon >= 0 ? v[..colon] : v;
+                string[] parts = v.Split(':', 3);
                 int steps = 0;
-                if (float.TryParse(seconds, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float at) && at >= 0f
-                    && (colon < 0 || int.TryParse(v[(colon + 1)..], out steps)) && steps >= 0)
+                if (float.TryParse(parts[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float at) && at >= 0f
+                    && (parts.Length < 2 || int.TryParse(parts[1], out steps)) && steps >= 0)
                 {
                     o.MenuCursorAt = at;
                     o.MenuCursorSteps = steps;
+                    o.MenuCursorPresses = parts.Length > 2 ? parts[2] : null;
                 }
-                else Console.WriteLine($"[cursor] Testing: 'menucursor={v}' dropped, expected <seconds>[:<steps>]");
+                else Console.WriteLine($"[cursor] Testing: 'menucursor={v}' dropped, expected <seconds>[:<steps>[:<presses>]]");
             }),
         ];
 

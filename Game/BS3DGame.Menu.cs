@@ -350,8 +350,8 @@ namespace BS3D
         //rests each unfocused entry to a whisper instead of the shared grey. See MENU_FRONT_BUTTON.
         internal static readonly IBrush MENU_FRONT_BUTTON_BRUSH = new FlatBrush(MENU_FRONT_BUTTON);
 
-        //The one of the three that is not a button's alone: AboutPage's link is a Label, not a Button, and it
-        //answers the pointer with this same wash so the two read as one gesture rather than two inventions.
+        //The one of the three that is not a button's alone: the focus cursor rests the entry it stands on in this same
+        //wash (ApplyNavHighlight), so the pointer's hover and the pad's focus read as one gesture rather than two inventions.
         internal static readonly IBrush MENU_BUTTON_OVER_BRUSH = new FlatBrush(MENU_BUTTON_OVER);
 
         //A pause dims the whole frame, because what is behind it is a stopped game and the menu is the thing
@@ -1340,7 +1340,15 @@ namespace BS3D
             _highScoresPage.Pin(chapter, allTime);
             OpenPage(_highScoresPage);
         }
-        internal void OpenAbout() => OpenPage(_aboutPage);
+        /// <summary>About (#807), on its first page: the original score's player, whatever page it was left on.</summary>
+        internal void OpenAbout() => OpenAbout(1);
+
+        /// <summary>About on a stated page, 1-based — the <c>about=&lt;n&gt;</c> argument's entry (#807).</summary>
+        internal void OpenAbout(int page)
+        {
+            _aboutPage.ShowPage(page);
+            OpenPage(_aboutPage);
+        }
 
         /// <summary>
         /// What the Quit entries do, on the pause page and the main menu (#826): ask first, over the page the player is on.
@@ -1896,12 +1904,7 @@ namespace BS3D
             else if (keyboard.IsKeyDown(Keys.Left) || pad.IsButtonDown(Buttons.DPadLeft)
                 || pad.ThumbSticks.Left.X < -NAV_STICK_DEADZONE) sideways = -1;
 
-            //Sideways is the PAGE's first: a page that wants it says so and says whether it acted, so the tick sounds where
-            //something moved. The sound is played here rather than in the page for the same reason MenuClickable owns the
-            //click: the audio is the frame's, and a page reaching for it would be a second copy of that rule. What a page
-            //leaves is the ROW's (#805): the focus moves to the entry beside it in the same row, so About's Play and Next,
-            //the Jukebox's controls and any other row a page lays out side by side are walked with the arrows the player
-            //sees them in - one rule for every page rather than an override each page has to remember.
+            //Sideways is the page's first and the row's when the page declines (PressSideways says why)
             bool padSideways = pad.IsButtonDown(Buttons.DPadRight) || pad.IsButtonDown(Buttons.DPadLeft)
                 || Math.Abs(pad.ThumbSticks.Left.X) > NAV_STICK_DEADZONE;
 
@@ -1918,12 +1921,7 @@ namespace BS3D
                     }
                     else if (StepNavToward(sideways, 0)) _audioDirector.Rumble.UiStep();
                 }
-                else if (_screens.Active is MenuPage sidewaysPage && sidewaysPage.PageSideways(sideways))
-                {
-                    _audioDirector.Sfx.PlayUiTick();
-                    if (padSideways) _audioDirector.Rumble.UiPage(sideways);
-                }
-                else if (StepNavAcrossRow(sideways) && padSideways) _audioDirector.Rumble.UiStep();
+                else PressSideways(sideways, padSideways);
             }
 
             if (!edgeInputAllowed) return;
@@ -1932,11 +1930,7 @@ namespace BS3D
             //pad player turns a tab with, and the picker's chapters and Help's pages turn on them alike
             int shoulder = (IsPadEdge(pad, Buttons.RightShoulder) ? 1 : 0) - (IsPadEdge(pad, Buttons.LeftShoulder) ? 1 : 0);
 
-            if (shoulder != 0 && _screens.Active is MenuPage shoulderPage && shoulderPage.PageSideways(shoulder))
-            {
-                _audioDirector.Sfx.PlayUiTick();
-                _audioDirector.Rumble.UiPage(shoulder);
-            }
+            if (shoulder != 0) PressShoulder(shoulder);
 
             //The Konami code, before B and A are acted on: the A that completes it must not also press the entry
             //the cursor is on, and up-up-down-down leaves that on the first — New Game / Continue, which starts
@@ -2093,6 +2087,74 @@ namespace BS3D
                 _konamiJingleNote++;
             }
         }
+
+        /// <summary>
+        /// One sideways press of the arrow keys, or of the pad's D-pad or stick off a grid page, and what it did: turned the
+        /// page, walked the row, or nothing. Sideways is the PAGE's first: a page that wants it says so and says whether it
+        /// acted, so the tick sounds where something moved. The sound is played here rather than in the page for the same
+        /// reason MenuClickable owns the click: the audio is the frame's, and a page reaching for it would be a second copy of
+        /// that rule. What a page leaves is the ROW's (#805): the focus moves to the entry beside it in the same row, so
+        /// About's Play and Next, the Jukebox's controls and any other row a page lays out side by side are walked with the
+        /// arrows the player sees them in - one rule for every page rather than an override each page has to remember.
+        /// </summary>
+        private SidewaysResult PressSideways(int sideways, bool padSideways)
+        {
+            if (_screens.Active is MenuPage sidewaysPage && sidewaysPage.PageSideways(sideways))
+            {
+                _audioDirector.Sfx.PlayUiTick();
+                if (padSideways) _audioDirector.Rumble.UiPage(sideways);
+                return SidewaysResult.Turned;
+            }
+
+            if (!StepNavAcrossRow(sideways)) return SidewaysResult.Nothing;
+
+            if (padSideways) _audioDirector.Rumble.UiStep();
+            return SidewaysResult.Walked;
+        }
+
+        /// <summary>
+        /// One press of a pad shoulder (−1 / +1), through the page's own door for it (<see cref="MenuPage.ShoulderTurn"/>,
+        /// which is <see cref="MenuPage.PageSideways"/> unless a page tells the two apart, as About's player row does, #807).
+        /// </summary>
+        private SidewaysResult PressShoulder(int shoulder)
+        {
+            if (_screens.Active is not MenuPage shoulderPage || !shoulderPage.ShoulderTurn(shoulder)) return SidewaysResult.Nothing;
+
+            _audioDirector.Sfx.PlayUiTick();
+            _audioDirector.Rumble.UiPage(shoulder);
+            return SidewaysResult.Turned;
+        }
+
+        private enum SidewaysResult { Nothing, Turned, Walked }
+
+        /// <summary>
+        /// <c>menucursor=</c>'s sideways presses (#807): <c>left</c>/<c>right</c> as the arrow keys, <c>lb</c>/<c>rb</c> as
+        /// the pad's shoulders, through the same calls the menu's frame makes, with a line saying what each did and where
+        /// the cursor stands after it. Testing only: a page turned or a row walked cannot be seen on a desktop nobody is at.
+        /// </summary>
+        internal void PressSidewaysForTesting(string press)
+        {
+            SidewaysResult result;
+            switch (press.ToLowerInvariant())
+            {
+                case "left": result = PressSideways(-1, false); break;
+                case "right": result = PressSideways(1, false); break;
+                case "lb": result = PressShoulder(-1); break;
+                case "rb": result = PressShoulder(1); break;
+                default:
+                    Console.WriteLine($"[cursor] Testing: no press '{press}' (left, right, lb, rb)");
+                    return;
+            }
+
+            //A turn is rebuilt on the next update, so where the cursor lands after one is ReportMenuCursorForTesting's to say
+            Console.WriteLine(result == SidewaysResult.Turned
+                ? $"[cursor] Testing: {press} on {ActiveScreenName}: turned the page"
+                : $"[cursor] Testing: {press} on {ActiveScreenName}: {(result == SidewaysResult.Walked ? "walked the row" : "nothing")}, the cursor on entry {_navIndex + 1} of {_navEntries.Count}");
+        }
+
+        /// <summary>Where the menus' cursor stands, once <c>menucursor=</c>'s presses have been acted on (#807). Testing only.</summary>
+        internal void ReportMenuCursorForTesting() =>
+            Console.WriteLine($"[cursor] Testing: after the presses the cursor is on entry {_navIndex + 1} of {_navEntries.Count} on {ActiveScreenName}");
 
         /// <summary>
         /// The row rule (#805): moves the focus to the nearest entry beside the focused one on the side asked - an entry
