@@ -69,6 +69,8 @@ namespace BS3D.Screens
     /// the cell the landing ghost promised when it was fired. One line a shot, so only on request.</param>
     /// <param name="PadPrompts">The <c>pad</c> argument: the session draws the pad's prompts for the whole run, whatever
     /// is touched (<see cref="Tutorial.PinDevice"/>).</param>
+    /// <param name="LogTilt">The <c>logtilt</c> argument (#720): print the overview's tilt with the aim, the camera's
+    /// pitch and where the muzzle and the beam's end sit in the frame, once a frame. Only on request.</param>
     internal sealed record SessionTestOptions(
         int? ForcedStreak,
         int ForcedWildcardEvery,
@@ -82,7 +84,8 @@ namespace BS3D.Screens
         string StartupLevelFile,
         int? Seed,
         bool LogShots = false,
-        bool PadPrompts = false)
+        bool PadPrompts = false,
+        bool LogTilt = false)
     {
         /// <summary>
         /// Reads the levers out of what the command line said. The one place their interpretation lives: any
@@ -104,6 +107,7 @@ namespace BS3D.Screens
             StartupLevelFile: string.IsNullOrWhiteSpace(launch.LevelFile) ? null : launch.LevelFile,
             Seed: launch.Seed,
             LogShots: launch.LogShots,
-            PadPrompts: launch.PadPrompts);
+            PadPrompts: launch.PadPrompts,
+            LogTilt: launch.LogTilt);
     }
 }

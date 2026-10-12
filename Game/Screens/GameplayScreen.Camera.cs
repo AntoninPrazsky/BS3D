@@ -32,6 +32,10 @@ namespace BS3D.Screens
         /// the gun stands below the cluster, which would eat the camera's height and put the lens on the
         /// barrel's own axis. The shake is added on top of this pose, never into it.
         /// <para>
+        /// The overview's look-at <b>tilts with the barrel's elevation</b> (<see cref="AimTilt"/>, #720): up as the
+        /// gun is raised, down as it is lowered, chased on real time and zero at the aim the level opened on.
+        /// </para>
+        /// <para>
         /// That overview is one end of a Lerp; the other is the precise-aim lean over the barrel, and
         /// <see cref="PreciseAim.Blend"/> is where between them the frame sits. Only the <b>base</b> pose is
         /// interpolated, so the two never fight: the kick is applied to whatever came out, by the camera itself.
@@ -41,8 +45,9 @@ namespace BS3D.Screens
         {
             //The lean into precise aim, eased both ways off one reversible scalar. Stepped on every frame,
             //held or not: an unheld frame is how the lean eases back out, which is what makes losing focus a
-            //fade rather than a drop. At a blend of 0 the pose below is the overview pose bit for bit, so
-            //letting go re-asserts today's framing exactly and an interrupted hold never snaps.
+            //fade rather than a drop. At a blend of 0 the pose below is the overview pose bit for bit — the
+            //overview as the aim has tilted it (#720), whose chase runs whether the lean is in or out, so letting
+            //go lands on a tilt that already follows the barrel and an interrupted hold never snaps.
             Vector3 lensMuzzle = _cannon.MuzzlePosition(Game.CannonRig.PivotToFrontBall);
             Vector3 lensAim = _cannon.AimDirection;
 
@@ -65,7 +70,8 @@ namespace BS3D.Screens
             _preciseAim.Step(_adsPull, elapsed, convergeTarget);
 
             Vector3 overviewPosition = GameCameraPositionAt(_gameCameraDistance, TrailedBearing(elapsed));
-            Vector3 overviewTarget = new(_cannon.OrbitCenter.X, _gameCameraTargetY, _cannon.OrbitCenter.Z);
+            Vector3 overviewTarget = TiltedOverviewTarget(overviewPosition,
+                new Vector3(_cannon.OrbitCenter.X, _gameCameraTargetY, _cannon.OrbitCenter.Z), lensMuzzle, elapsed);
 
             //Taken as a VALUE, not written into the camera: the cinematic below goes on lerping over it, and
             //the base pose the shake composes onto is whatever comes out of both. The muzzle and the aim are
@@ -131,6 +137,8 @@ namespace BS3D.Screens
             Camera.BaseRoll = _cinematic.Roll * cinematic;
 
             Camera.Update(elapsed);
+
+            if (_test.LogTilt) LogTiltFrame();
         }
 
         /// <summary>
@@ -188,6 +196,73 @@ namespace BS3D.Screens
                 _lensBearingAngle + MathHelper.WrapAngle(trueAngle - _lensBearingAngle) * _preciseAim.Blend);
 
             return new Vector3(MathF.Cos(aimed), 0f, MathF.Sin(aimed));
+        }
+
+        //The overview's tilt with the aim (#720), reseeded by a level's fit like the bearing's trail above
+        private readonly AimTilt _aimTilt = new();
+
+        //What the last frame's tilt was asked for and allowed, kept for the logtilt line only
+        private float _aimTiltTarget, _aimTiltKeepLimit;
+
+        /// <summary>
+        /// The overview look-at, tilted with the barrel's elevation (<see cref="AimTilt"/>, #720): measured from the aim
+        /// the level opens on — the gun's rest from where it stands, or a tall level's clamp where that is lower — so an
+        /// untouched gun leaves the solved frame exactly as it is, and stopped on the way up wherever the muzzle would
+        /// sink under <see cref="AimTilt.GUN_KEEP_FRACTION"/> of the frame (the owner: some of the gun stays in view).
+        /// <para>
+        /// <b>The overview end only</b>, the bearing's rule (#366): precise aim's Lerp takes this point as where it leans
+        /// from, so the lean interpolates the tilt out, and the chase runs on every frame held or not. The pose the
+        /// lens returns to on a release has followed the barrel the whole time.
+        /// </para>
+        /// <para>
+        /// <b>Real time, not the simulation's</b>: <paramref name="elapsed"/> is the frame's unscaled wall time, as the
+        /// bearing's trail and the lean take it, so a slowed drop does not slow the lens.
+        /// </para>
+        /// </summary>
+        private Vector3 TiltedOverviewTarget(Vector3 lens, Vector3 lookAt, Vector3 muzzle, float elapsed)
+        {
+            //The zero moves with the walk (the rest steepens as the gun walks in) so a walk does not tilt the frame — the
+            //walk has its own answer (#322); and on a tall level it is the clamp the level opened against (#842), which
+            //is where that gun rests
+            float zero = MathF.Min(_cannon.RestElevation, _cannon.ElevationLimit);
+
+            _aimTiltKeepLimit = AimTilt.GunKeepLimit(lens, lookAt, muzzle, GAME_FOV);
+            _aimTiltTarget = MathF.Min(AimTilt.TargetFor(_cannon.Elevation - zero), MathF.Max(0f, _aimTiltKeepLimit));
+
+            return AimTilt.Tilted(lens, lookAt, _aimTilt.Step(_aimTiltTarget, elapsed));
+        }
+
+        /// <summary>
+        /// The <c>logtilt</c> line (#720), once a frame and only on request: the barrel against the tilt's zero, what the
+        /// tilt was asked for, allowed and gave, the lean's blend, the camera's pitch, and where the muzzle and the
+        /// beam's end land in the frame (0 the top edge, 1 the bottom, outside that range off the frame). What a
+        /// press or a release does to the pose is read off consecutive lines, which no screenshot schedule can give.
+        /// </summary>
+        private void LogTiltFrame()
+        {
+            const float RAD_TO_DEG = 180f / MathF.PI;
+
+            Vector3 forward = Camera.Target - Camera.Position;
+            float pitch = MathF.Atan2(forward.Y, MathF.Sqrt(forward.X * forward.X + forward.Z * forward.Z));
+
+            Console.WriteLine(FormattableString.Invariant(
+                $"[tilt] t {WallClock:F3} elev {_cannon.Elevation * RAD_TO_DEG:F2} zero {MathF.Min(_cannon.RestElevation, _cannon.ElevationLimit) * RAD_TO_DEG:F2}")
+                + FormattableString.Invariant(
+                $" target {_aimTiltTarget * RAD_TO_DEG:F3} keep {_aimTiltKeepLimit * RAD_TO_DEG:F2} tilt {_aimTilt.Angle * RAD_TO_DEG:F3}")
+                + FormattableString.Invariant(
+                $" blend {_preciseAim.Blend:F3} pitch {pitch * RAD_TO_DEG:F3} pos {Camera.Position.X:F3},{Camera.Position.Y:F3},{Camera.Position.Z:F3}")
+                + FormattableString.Invariant(
+                $" muzzleY {ScreenY(_cannon.MuzzlePosition(Game.CannonRig.PivotToFrontBall)):F3}")
+                + (_previewBeamVisible
+                    ? FormattableString.Invariant($" beamY {ScreenY(_previewBeamEnd):F3}{(_previewReachesCluster ? " hit" : " open")}")
+                    : " beam none"));
+        }
+
+        //A world point's height in the frame through the camera as it will draw: 0 the top edge, 1 the bottom
+        private float ScreenY(Vector3 point)
+        {
+            Vector4 clip = Vector4.Transform(new Vector4(point, 1f), Camera.View * Camera.Projection);
+            return clip.W <= 0f ? float.NaN : (1f - clip.Y / clip.W) * 0.5f;
         }
 
         #endregion
@@ -295,8 +370,10 @@ namespace BS3D.Screens
             MarkBrakeReachStale();
 
             //The lens's trail starts behind the gun rather than easing in from where the last level left it
-            //(#366) — a placed gun is a placed camera, the same rule Cannon.RestRadius follows for the walk
+            //(#366) — a placed gun is a placed camera, the same rule Cannon.RestRadius follows for the walk. The aim's
+            //tilt (#720) starts over on a load the same way; a resize keeps it, since the aim it follows is kept
             _lensBearingSeeded = false;
+            if (!keepStance) _aimTilt.Reseed();
 
             Console.WriteLine($"[camera] Field {_map.StageSizeX}x{_map.StageSizeZ}x{_map.Levels}"
                 + (FieldIsTallerThanFrame ? $" (framing its lowest {FRAMED_LEVELS} to y {FramedTopY():F1})" : string.Empty)
