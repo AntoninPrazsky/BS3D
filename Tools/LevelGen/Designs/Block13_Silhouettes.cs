@@ -596,7 +596,8 @@ namespace BS3D.Tools.LevelGen
         /// A rocket flying level, its back against the glass: a white hull with two black bands, a long red nose, three red fins in a
         /// cross (down, towards the gun and away from it; the glass takes the fourth), an orange flame streaming behind,
         /// and two glass portholes in the side facing the gun with the magenta core sealed behind them on its own cord (a
-        /// reveal). Seen nose-on from the walk, the fins make the cross.
+        /// reveal), hung in the cabin's far half so that no pane touches it. Seen nose-on from the walk, the fins make
+        /// the cross.
         /// </summary>
         private static Design Rocket() => SilhouetteSolid("Rocket", ROCKET_DEPTH, shots: 28, ceilingStep: 6,
             (x, z, i) => RocketPart(x, z, i), RocketColour, RocketKind, payoff: (x, z, i) => RocketPart(x, z, i) == 6);
@@ -617,13 +618,17 @@ namespace BS3D.Tools.LevelGen
                 : dx <= ROCKET_TIP ? ROCKET_R * MathF.Pow(1f - (dx - ROCKET_SHOULDER) / (ROCKET_TIP - ROCKET_SHOULDER), 0.6f)
                 : -1f;
 
-            bool cord = MathF.Abs(dx) <= HALF && MathF.Abs(dz) <= HALF && dy <= 0f;
+            //The core and its cord keep to the cabin's far half, away from the portholes: a pane beside the core
+            //takes the colour of the shot landed beside it, so one magenta landing there would drop the payoff
+            //through the window with the hull whole (LevelGates.RevealFaults counts glass beside a payoff)
+            bool back = dz <= 0f;
+            bool cord = back && MathF.Abs(dx) <= HALF && MathF.Abs(dz) <= HALF && dy <= 0f;
 
             if (rad <= hull)
             {
                 //The cabin: a sealed cavity with the core hung in it on a cord from the glass
                 if (rad < ROCKET_CABIN && MathF.Abs(dx) <= ROCKET_CABIN_END)
-                    return cord || (dx * dx + dy * dy + dz * dz <= 0.8f * 0.8f) ? 6 : 0;
+                    return cord || (back && dx * dx + dy * dy + dz * dz <= 0.8f * 0.8f) ? 6 : 0;
                 if (cord) return 6;
 
                 //Two round portholes in the wall that faces the gun
