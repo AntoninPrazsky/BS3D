@@ -61,6 +61,9 @@ float3 SrgbToLinear(float3 color)
 #include "InstancedModel/Lighting.fxh"
 #include "InstancedModel/SceneRelief.fxh"
 #include "InstancedModel/BallCommon.fxh"
+//The colour cue prototypes' figures (#737): functions only, no uniforms, so nothing below moves. Here, before the
+//three ball bodies that call them; the uniform and the programs are BallColourCueTechniques.fxh's, last.
+#include "InstancedModel/BallColourCue.fxh"
 #include "InstancedModel/BallVinyl.fxh"
 #include "InstancedModel/BallBubble.fxh"
 #include "InstancedModel/BallMarble.fxh"
@@ -87,3 +90,5 @@ float3 SrgbToLinear(float3 color)
 #include "InstancedModel/Depth.fxh"
 #include "InstancedModel/Glass.fxh"
 #include "InstancedModel/PolishedMetal.fxh"
+//The colour cue prototypes' uniform and six programs (#737), after everything so no existing layout moves.
+#include "InstancedModel/BallColourCueTechniques.fxh"
