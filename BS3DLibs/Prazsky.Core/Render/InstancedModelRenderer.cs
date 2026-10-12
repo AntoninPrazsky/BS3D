@@ -195,10 +195,15 @@ namespace Prazsky.Core.Render
         private EffectTechnique[] _triplanarProbeTechniques;
         private EffectTechnique[] _ballTechniques;
 
-        //The colour cue prototypes' programs (#737), indexed [form - 1][shading]: null where a shading has none,
-        //which is every shading but the vinyl, the wool and the marble, and every one on the Potato effect.
-        private EffectTechnique[][] _colourCueTechniques;
-        private EffectParameter _colourCueParam;
+        //The colour cue's programs (#737), indexed by shading: null where a shading has none, which is every shading
+        //but the vinyl, the wool and the marble, and every one on the Potato effect (the array is never made there).
+        private EffectTechnique[] _colourCueTechniques;
+        private EffectParameter _colourCueAParam;
+        private EffectParameter _colourCueBParam;
+        private EffectParameter _colourCueCParam;
+        private EffectParameter _colourCueFrameParam;
+        private EffectParameter _colourCueFigureInkParam;
+        private EffectParameter _colourCueGroundInkParam;
         private EffectParameter _bubbleShellParam;
         private EffectParameter _bubbleFilmThicknessParam;
         private EffectParameter _bubbleTintStrengthParam;
@@ -674,28 +679,12 @@ namespace Prazsky.Core.Render
         public BallShading Shading { get; set; }
 
         /// <summary>
-        /// Whether the ball colours that carry a second cue draw it painted or carved (#737): a prototype switch,
-        /// <see cref="ColourCueForm.None"/> unless a caller asks. It takes effect only on a draw whose
-        /// <see cref="ColourCue"/> slot is set and whose <see cref="Shading"/> has the matching program (the vinyl,
-        /// the wool and the marble); every other draw keeps its own technique.
+        /// The figure the next draw's colour carries painted on (#737), per draw like the tint:
+        /// <c>Prazsky.BS3D.BallRenderSet</c> states it for every bucket and puts <see cref="ColourCuePaint.IsNone"/>
+        /// back afterwards. It takes effect only where <see cref="Shading"/> has a program for it (the vinyl, the
+        /// wool and the marble); every other draw, and every draw on the Potato effect, keeps its own technique.
         /// </summary>
-        public ColourCueForm ColourCueForm { get; set; }
-
-        /// <summary>
-        /// Which of the four prototype figures the next draw's colour carries, 1..4 (0 = none), per draw like the
-        /// tint: <c>Prazsky.BS3D.BallRenderSet</c> states it for every bucket and puts 0 back afterwards. The
-        /// table of what each slot is lives in <c>BallColourCue.fxh</c>.
-        /// </summary>
-        public int ColourCue { get; set; }
-
-        /// <summary>
-        /// Whether this renderer, at its current <see cref="Shading"/>, has the colour cue prototype program for
-        /// <paramref name="form"/> (#737): the vinyl, the wool and the marble do, every other shading and the Potato
-        /// effect do not. <c>Prazsky.BS3D.BallRenderSet</c> asks it before drawing a carved colour on its finest
-        /// mesh, so a style that draws no carve does not pay for one.
-        /// </summary>
-        public bool HasColourCueProgram(ColourCueForm form) =>
-            !_potato && form != ColourCueForm.None && _colourCueTechniques?[(int)form - 1][(int)Shading] != null;
+        public ColourCuePaint ColourCue { get; set; }
 
         /// <summary>
         /// Which wall of a <see cref="BallShading.Bubble"/> shell the next draw puts out: <c>+1</c> the near one seen
@@ -1197,7 +1186,12 @@ namespace Prazsky.Core.Render
             _patternGoreThresholdParam = _effect.Parameters["PatternGoreThreshold"];
             _patternCapExtentParam = _effect.Parameters["PatternCapExtent"];
             _patternReliefStrengthParam = _effect.Parameters["PatternReliefStrength"];
-            _colourCueParam = _effect.Parameters["ColourCue"];
+            _colourCueAParam = _effect.Parameters["ColourCueA"];
+            _colourCueBParam = _effect.Parameters["ColourCueB"];
+            _colourCueCParam = _effect.Parameters["ColourCueC"];
+            _colourCueFrameParam = _effect.Parameters["ColourCueFrame"];
+            _colourCueFigureInkParam = _effect.Parameters["ColourCueFigureInk"];
+            _colourCueGroundInkParam = _effect.Parameters["ColourCueGroundInk"];
             _emissiveStrengthParam = _effect.Parameters["EmissiveStrength"];
             _translucencyStrengthParam = _effect.Parameters["TranslucencyStrength"];
             _pulseTimeParam = _effect.Parameters["PulseTime"];
@@ -1395,34 +1389,27 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// The colour cue prototypes' six programs (#737), per form and per shading, looked up once like the ball
-        /// techniques. Only this effect carries them, and it carries all six: a missing one is a broken build of
-        /// <c>InstancedModel.fx</c> and throws here rather than drawing a cue that silently is not there.
+        /// The colour cue's three programs (#737), one per shading that paints a figure, looked up once like the ball
+        /// techniques. Only this effect carries them, and it carries all three: a missing one is a broken build of
+        /// <c>InstancedModel.fx</c> and throws here rather than drawing a figure that silently is not there.
         /// </summary>
         private void LoadColourCueTechniques()
         {
-            int shadings = Enum.GetValues<BallShading>().Length;
-            string[] forms = { "Motif", "Shape" };
             (BallShading shading, string name)[] cued =
             {
-                (BallShading.Vinyl, "InstancedModelPattern"),
-                (BallShading.Wool, "InstancedModelWool"),
-                (BallShading.Marble, "InstancedModelMarble"),
+                (BallShading.Vinyl, "InstancedModelPatternMotif"),
+                (BallShading.Wool, "InstancedModelWoolMotif"),
+                (BallShading.Marble, "InstancedModelMarbleMotif"),
             };
 
-            _colourCueTechniques = new EffectTechnique[forms.Length][];
+            _colourCueTechniques = new EffectTechnique[Enum.GetValues<BallShading>().Length];
 
-            for (int form = 0; form < forms.Length; form++)
+            foreach ((BallShading shading, string name) in cued)
             {
-                _colourCueTechniques[form] = new EffectTechnique[shadings];
-
-                foreach ((BallShading shading, string name) in cued)
-                {
-                    _colourCueTechniques[form][(int)shading] = _effect.Techniques[name + forms[form]]
-                        ?? throw new InvalidOperationException(
-                            $"InstancedModel.fx declares no technique named \"{name + forms[form]}\", the colour cue "
-                            + $"prototype {nameof(BallShading)}.{shading} is drawn by with {nameof(ColourCueForm)}.{forms[form]}.");
-                }
+                _colourCueTechniques[(int)shading] = _effect.Techniques[name]
+                    ?? throw new InvalidOperationException(
+                        $"InstancedModel.fx declares no technique named \"{name}\", which paints the colour cue on "
+                        + $"{nameof(BallShading)}.{shading}.");
             }
         }
 
@@ -1772,13 +1759,19 @@ namespace Prazsky.Core.Render
                 _effect.CurrentTechnique = _ballTechniques[(int)Shading];
                 _patternPrimaryColorParam.SetValue(diffuseTint ?? Vector3.One);
 
-                //The colour cue prototypes (#737): this colour's figure, painted or carved, where the shading has a
-                //program for it. A technique of its own, not a branch in the shipped one, for the reason above.
-                if (ColourCueForm != ColourCueForm.None && ColourCue > 0
-                    && _colourCueTechniques[(int)ColourCueForm - 1][(int)Shading] is EffectTechnique cueTechnique)
+                //The colour cue (#737): this colour's painted figure, where the shading has a program for it. A
+                //technique of its own, not a branch in the shipped one, for the reason above.
+                if (!ColourCue.IsNone && _colourCueTechniques[(int)Shading] is EffectTechnique cueTechnique)
                 {
+                    ColourCuePaint cue = ColourCue;
+
                     _effect.CurrentTechnique = cueTechnique;
-                    _colourCueParam.SetValue((float)ColourCue);
+                    _colourCueAParam.SetValue(cue.A);
+                    _colourCueBParam.SetValue(cue.B);
+                    _colourCueCParam.SetValue(cue.C);
+                    _colourCueFrameParam.SetValue(cue.Frame);
+                    _colourCueFigureInkParam.SetValue(cue.FigureInk);
+                    _colourCueGroundInkParam.SetValue(cue.GroundInk);
                 }
 
                 //One case per shading, each setting what ITS technique reads and nothing else — a uniform the

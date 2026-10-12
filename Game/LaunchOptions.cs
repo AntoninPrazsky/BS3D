@@ -243,10 +243,10 @@ namespace BS3D
         //in one material and then the other.
         internal BallStyle? BallStyle { get; private set; }
 
-        //Testing only: the colour cue prototypes (#737), the figure four colours carry beside their hue, painted
-        //("motif") or carved ("shape"). None unless asked, so nothing a player can reach draws it; the owner picks one
-        //reading first, and only then are all thirteen colours built.
-        internal ColourCueForm ColourCue { get; private set; }
+        //Testing only: the colour cue (#737), which of ColourCues' figure sets every colour carries painted beside its
+        //hue ("motif" or "motif:1" to "motif:4"). ColourCues.NONE unless asked, so nothing a player can reach draws it
+        //until the owner picks a set.
+        internal int ColourCue { get; private set; }
 
         //Testing only: put a cleared level's result screen up at startup. A level's ending — the released
         //camera, the stars landing, the arena going out of focus — is otherwise only reachable by winning
@@ -586,8 +586,8 @@ namespace BS3D
             //overrides the backdrop each one names. Parsed through BallStyles, so the spellings are the
             //ones a level file takes; an unknown one leaves the levels' own answers standing.
             Row.Value<BallStyle>("balls", BallStyles.TryParse, (o, v) => o.BallStyle = v),
-            //"colourcue=<none|motif|shape>" (#737), spelled through ColourCues like the Testbed's own argument
-            Row.Value<ColourCueForm>("colourcue", ColourCues.TryParseForm, (o, v) => o.ColourCue = v),
+            //"colourcue=<none|motif|motif:N>" (#737), spelled through ColourCues like the Testbed's own argument
+            Row.Value<int>("colourcue", ColourCues.TryParse, (o, v) => o.ColourCue = v),
             //"nofocuspause" stops a level pausing itself when the window loses focus (#355). For any run
             //nobody is sitting at: a benchmark measuring 70 seconds of frames, a capture rig on a locked
             //desktop. "shot=" implies it on its own — see BS3DGame.PauseOnFocusLoss.
