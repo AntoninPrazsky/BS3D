@@ -211,7 +211,7 @@ namespace Prazsky.BS3D.GameStructure
             {
                 BallType.Type8 => (1.0f, 0.08f),  //black
                 BallType.Type10 => (2.2f, 0.01f), //brown
-                BallType.Type11 => (1.9f, 0f),    //silver
+                BallType.Type11 => (2.0f, 0f),    //silver
                 BallType.Type12 => (1.6f, 0.04f), //navy
                 _ => (0f, 0f),
             };
