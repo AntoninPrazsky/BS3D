@@ -2136,7 +2136,7 @@ namespace BS3D.Screens
                     continue;
                 }
 
-                DrawAwardFlight(popup, layout, size, source, destination, flight);
+                DrawAwardFlight(popup, layout, size, source, destination, flight, viewport);
             }
         }
 
@@ -2147,10 +2147,17 @@ namespace BS3D.Screens
         /// to go stale, and identical at any frame rate.
         /// </summary>
         private void DrawAwardFlight(in Popup popup, in AwardLayout layout, float size, Vector2 source, Vector2 destination,
-            float flight)
+            float flight, Viewport viewport)
         {
+            float back = MathF.Max(0f, flight - SMEAR_LOOKBACK);
             Vector2 at = FlightPosition(source, destination, flight);
-            Vector2 before = FlightPosition(source, destination, MathF.Max(0f, flight - SMEAR_LOOKBACK));
+            Vector2 before = FlightPosition(source, destination, back);
+
+            //The wind-up gathers the number behind its source, away from the corner, and the completion bonus is born
+            //against the frame's left edge, so the dip carried it half off the frame (#846). Held inside the frame as the
+            //source is, until the throw passes the source: there the position IS the source, already held, so nothing steps.
+            if (HudEase.InBack(flight) < 0f) at = KeepInFrame(at, layout.Extent, viewport);
+            if (HudEase.InBack(back) < 0f) before = KeepInFrame(before, layout.Extent, viewport);
 
             //It stops being the balls' colour and becomes the score's — which is the whole sentence the flight
             //is there to say. Faster than the motion, so it has clearly turned by the time it lands.
