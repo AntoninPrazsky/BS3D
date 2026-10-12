@@ -620,6 +620,12 @@ Pravidla:
 - ⚠ Krátké tělo stojí v rámu svisle na středu (MenuColumn), jako před změnou (#729).
 - Otevřené: verdikt oka (jména záložek, šířka řádku nad textem); 3840×1600 neviděno; #856 (modely koulí v Help) staví na tomhle.
 
+## 2026-10-12 — #856 živé koule v Help — ThinkPad, Claude Code (github-44)
+- #856 (merge do mainu, `shipped-awaiting-verdict` + `verdict-eye`): záložka ODD BALLS má u každého druhu čtverec a v něm otáčející se kouli kreslenou herní cestou (trik karty tutoriálu #735: koule 3 jednotky před objektivem na paprsku čtverce) do ostré vrstvy popředí, kterou hostitel skládá přes UI na konci snímku (#242) — deska ji tedy netlumí. Nová `MenuPage.PresentsForeground/ForegroundClip/DrawForeground`, `BS3DGame.DrawPageForeground` z rámce pozadí po koulích a skle; mimo klip scrolleru se vrstva maže (krytí 0), takže koule za okrajem rámu se řízne jako text. Potato kreslí rovnou přes UI, jen celé čtverce.
+- ⚠ Myra `ActualBounds` je v prostoru widgetu; na desktop přes `ToGlobal` (první pokus dal všech deset koulí v levém horním rohu).
+- Cena: 40,2 ms proti 38,4 ms (High, 1080p, ssaa 2×, Měsíc, ThinkPad) ≈ 1,8 ms za vrstvu a skládání.
+- Otevřené: verdikt oka (barvy po sloupci, velikost čtverce, sklo jako průsvitný kotouč); Pi neměřeno; duhová koule bez obrázku.
+
 ## 2026-10-12 — #807 přehrávač původní hudby na poslední stránku — desktop (RDT-PC), Claude Code (bs3d-71, noc)
 - Hotovo na větvi `807-about-player-last`, merge na main následuje: About má dál čtyři stránky, ale otvírá se na THE GAME, pak BUILT ON, MADE WITH a THE ORIGINAL SCORE jako poslední (velikonoční vajíčko). Změnilo se jen pořadí v `AboutCopy.Pages`, text ne.
 - `about=play` bez čísla otevře stránku přehrávače (`AboutPage.PlayerPage`); `about=<n>` beze změny. Test `The_player_is_the_last_page`, příklad `menucursor` v docs přepsán na poslední stránku.

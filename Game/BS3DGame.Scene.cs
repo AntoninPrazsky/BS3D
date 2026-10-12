@@ -638,6 +638,67 @@ namespace BS3D
         /// </summary>
         private RenderTarget2D _refractionToComposite;
 
+        //A page drew into the layer this frame (#856, DrawPageForeground), for FinishSceneDraw to hand it to the composite
+        private bool _pageForegroundDrawn;
+
+        /// <summary>
+        /// A page's own foreground (#856, <see cref="Screens.MenuPage.DrawForeground"/>) into the sharp foreground layer,
+        /// in the backdrop's frame after its balls and glass: the layer is bound, cleared transparent with its depth,
+        /// drawn into in the scene's own states, cut to the page's <see cref="Screens.MenuPage.ForegroundClip"/>, and left
+        /// for <see cref="FinishSceneDraw"/> to hand to the composite at the end of the host's Draw (#242) — over the UI,
+        /// which is the point: the page's plate stands between the scene and the player, and a ball drawn in the scene
+        /// would be seen through it. The scene target is taken back afterwards; it is preserved across a re-bind since
+        /// #541, the way <c>GrabScene</c> leaves it and comes back. The layer is the cup's and the confetti's, and the
+        /// three never present together (the result page's two against a menu page's one), so its one bind a frame holds.
+        /// The Potato path has no layer: there the page draws straight over the finished frame, from
+        /// <see cref="CompositeForegroundLast"/>.
+        /// </summary>
+        internal void DrawPageForeground()
+        {
+            if (PotatoPath || _screens.Active is not Screens.MenuPage { PresentsForeground: true } page) return;
+
+            BlendState blend = GraphicsDevice.BlendState;
+            DepthStencilState depth = GraphicsDevice.DepthStencilState;
+            RasterizerState raster = GraphicsDevice.RasterizerState;
+
+            RenderTarget2D layer = _pipeline.ForegroundTarget;
+            GraphicsDevice.SetRenderTarget(layer);
+
+            //Transparent, not black: the target's alpha is the coverage the composite blends by (the cup's rule above)
+            GraphicsDevice.Clear(ClearOptions.Target | ClearOptions.DepthBuffer, Color.Transparent, 1f, 0);
+
+            GraphicsDevice.BlendState = BlendState.Opaque;
+            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+
+            page.DrawForeground();
+
+            //Outside the page's clip the layer is written back to nothing - an opaque write of zero coverage over the four
+            //bands round it - so what the page drew past a scroller's edge is cut as the scroller cuts its text. In the
+            //layer's own pixels, which are the back buffer's times the supersampling.
+            Rectangle clip = page.ForegroundClip;
+            if (clip != Rectangle.Empty)
+            {
+                int factor = _pipeline.SupersampleFactor;
+                clip = new Rectangle(clip.X * factor, clip.Y * factor, clip.Width * factor, clip.Height * factor);
+                int width = layer.Width, height = layer.Height;
+
+                _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullNone);
+                _spriteBatch.Draw(_scrimTexel, new Rectangle(0, 0, width, Math.Max(0, clip.Top)), Color.Transparent);
+                _spriteBatch.Draw(_scrimTexel, new Rectangle(0, clip.Bottom, width, Math.Max(0, height - clip.Bottom)), Color.Transparent);
+                _spriteBatch.Draw(_scrimTexel, new Rectangle(0, clip.Top, Math.Max(0, clip.Left), clip.Height), Color.Transparent);
+                _spriteBatch.Draw(_scrimTexel, new Rectangle(clip.Right, clip.Top, Math.Max(0, width - clip.Right), clip.Height), Color.Transparent);
+                _spriteBatch.End();
+            }
+
+            GraphicsDevice.SetRenderTarget(_pipeline.SceneTarget);
+            GraphicsDevice.BlendState = blend;
+            GraphicsDevice.DepthStencilState = depth;
+            GraphicsDevice.RasterizerState = raster;
+
+            _pageForegroundDrawn = true;
+        }
+
         /// <summary>
         /// Puts the frame's sharp foreground layer over everything, the UI included — the last picture the frame
         /// draws (#242). Called from the host's <c>Draw</c> after the desktop has rendered and <b>before</b> the
@@ -793,9 +854,12 @@ namespace BS3D
             bool trophyUp = _trophy != null && _trophy.Active;
             bool confettiUp = _confetti != null && _confetti.Active;
 
+            //The third presenter (#856): a page drawing into the layer from the backdrop's frame (DrawPageForeground)
+            bool pagePresents = _screens.Active is Screens.MenuPage { PresentsForeground: true };
+
             //The two presentation layers are hundreds of megabytes at 4K; once nothing has been presented for a few
             //seconds they are let go and rebuilt by the next page that presents (#591)
-            if (trophyUp || confettiUp) _framesWithoutPresentation = 0;
+            if (trophyUp || confettiUp || pagePresents) _framesWithoutPresentation = 0;
             else if (++_framesWithoutPresentation == PRESENTATION_RELEASE_FRAMES) _pipeline.ReleasePresentationLayers();
 
             if (trophyUp || confettiUp)
@@ -1288,9 +1352,11 @@ namespace BS3D
             //The same two tests BeginSceneDraw opened the layer on, and they have to stay the same two: a
             //layer filled and not composited is a celebration drawn into a target nobody reads, and one
             //composited without being filled is last frame's contents blended over this one.
-            RenderTarget2D foreground = (_trophy != null && _trophy.Active) || (_confetti != null && _confetti.Active)
+            //- or by DrawPageForeground, a page's own draw into it from the backdrop's frame (#856), spent here with it
+            RenderTarget2D foreground = (_trophy != null && _trophy.Active) || (_confetti != null && _confetti.Active) || _pageForegroundDrawn
                 ? _pipeline.ForegroundTarget
                 : null;
+            _pageForegroundDrawn = false;
 
             //A no-op in the two cities and the desert, which carry no overlay weather
             if (SceneryShown) _sceneRenderer.DrawOverlays(_scene, sceneFrame);

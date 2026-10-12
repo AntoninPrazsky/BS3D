@@ -1,8 +1,10 @@
 using Microsoft.Xna.Framework;
 using Myra.Graphics2D;
 using Myra.Graphics2D.UI;
+using Prazsky.BS3D;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.Scoring;
+using Prazsky.Core.Tools;
 using System;
 using Color = Microsoft.Xna.Framework.Color;
 using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
@@ -43,6 +45,12 @@ namespace BS3D.Screens
     /// use, rather than letters in drawn boxes. #463's ruling is that the controls paragraph leaves About; this
     /// is where it lands.
     /// </para>
+    /// <para>
+    /// <b>The odd balls are shown, not only described</b> (#856): each entry has the kind's own ball turning beside it,
+    /// drawn live by the game's ball path into the frame's sharp foreground layer (<see cref="DrawForeground"/>), the
+    /// layer the host composites over the UI at the end of its Draw (#242) so the page's plate does not dim it. A
+    /// picture cannot go stale as a bitmap would (#771's worry): when a kind's look changes, this changes with it.
+    /// </para>
     /// </summary>
     internal sealed class HelpPage : MenuPage
     {
@@ -52,6 +60,25 @@ namespace BS3D.Screens
 
         //The space between a keycap and its words on the controls page
         private const int KEY_GAP = 24;
+
+        //THE ODD BALLS' LIVE PICTURES (#856): each kind's entry has a square at its left, design units, and the ball itself is
+        //drawn in it by the game's own ball path - the kind card's own device (#735, GameplayScreen.CollectTutorialBall):
+        //one more ball in a frame, hung BALL_DEPTH in front of the lens on the ray through the square and sized to fill
+        //BALL_FILL of it, so it is lit and glows and breathes as that kind does on the map, and cannot go stale as a
+        //picture would. Into the sharp foreground layer (DrawForeground), which the host composites over the UI, so the
+        //plate does not dim it. The square is two and a half lines of the prose beside it (the pitch is 70), between the
+        //card's 200 and a keycap; BALL_GAP is the space to the words.
+        private const int BALL_SQUARE = 176;
+        private const int BALL_GAP = 36;
+        private const float BALL_FILL = 0.92f;
+
+        //World units in front of the lens (nearer than anything the menu's frame holds at that spot, far past the near
+        //plane), the turntable's rate in radians a second (slow: a look is read, not watched), the tilt of its axis
+        //towards the viewer so the top is seen too, and the phase between neighbours so the column does not turn in step
+        private const float BALL_DEPTH = 3f;
+        private const float BALL_SPIN = 0.5f;
+        private const float BALL_TILT = 0.35f;
+        private const float BALL_PHASE = 0.7f;
 
         //Under each of the controls page's lines: the 26 of its own and the 26 of the column it stood in before #806 let
         //every block carry its own space
@@ -79,7 +106,7 @@ namespace BS3D.Screens
         //the game's rule, the score, the odd balls, the campaign, and the glass that steps down. Short names, because six
         //tabs cut to the widest name's width must fit a row: measured with the section face at 1080p, this row is 1036 px
         //against the text frame's 930, and "HOW TO PLAY" in place of BASICS took it to 1210
-        private const int TAB_CONTROLS = 0;
+        private const int TAB_CONTROLS = 0, TAB_BALLS = 3;
         private static readonly string[] TAB_NAMES = { "CONTROLS", "BASICS", "SCORING", "ODD BALLS", "CAMPAIGN", "THE GLASS" };
 
         //The tab that is up, the one asked for since the last frame (-1 for none, see SelectTab), and the one help=<n>
@@ -200,7 +227,7 @@ namespace BS3D.Screens
                 case TAB_CONTROLS: BuildControls(body); break;
                 case 1: BuildPlaying(body); break;
                 case 2: BuildScoring(body); break;
-                case 3: BuildBalls(body); break;
+                case TAB_BALLS: BuildBalls(body); break;
                 case 4: BuildCampaign(body); break;
                 default: BuildCeiling(body); break;
             }
@@ -269,6 +296,77 @@ namespace BS3D.Screens
             if (_tabRow == null || !_tabRow.IsMouseOver) return;
 
             if (PageSideways(delta > 0 ? 1 : -1)) Game.Audio?.PlayUiTick();
+        }
+
+        /// <summary>The odd balls' live pictures (#856), while that tab is up and the tree stands.</summary>
+        internal override bool PresentsForeground => IsActive && IsBuilt && _tab == TAB_BALLS && _body != null;
+
+        /// <summary>The tab's scroller: a ball beside an entry scrolled past its edge is cut where the words are.</summary>
+        internal override Rectangle ForegroundClip => _body == null ? Rectangle.Empty : OnDesktop(_body);
+
+        /// <summary>
+        /// Where a widget stands on the desktop, in the back buffer's pixels. Myra keeps <c>ActualBounds</c> in the widget's
+        /// own space, (0, 0) at its corner (the host's <c>ScrollNavEntryIntoView</c> learned it on the picker); <c>ToGlobal</c>
+        /// is what puts it where it is drawn, the scroller's offset included.
+        /// </summary>
+        private static Rectangle OnDesktop(Widget widget)
+        {
+            Rectangle local = widget.ActualBounds;
+            Point corner = widget.ToGlobal(new Point(local.X, local.Y));
+            return new Rectangle(corner.X, corner.Y, local.Width, local.Height);
+        }
+
+        /// <summary>
+        /// The odd balls, live, in their squares (#856): each the kind itself through the game's own ball path — one more
+        /// ball in a frame of the ball set's, hung <see cref="BALL_DEPTH"/> in front of the lens on the ray through its
+        /// square and sized to fill it, turning on a tilted axis — so it is lit, glows and breathes as that kind does on
+        /// the map, in the style the backdrop's cluster hangs in. The kind card's own device (#735,
+        /// <c>GameplayScreen.CollectTutorialBall</c>), ten times over. The squares are read where the desktop laid them
+        /// out last, in the back buffer's pixels, and turned into the frame's normalised coordinates; one scrolled wholly
+        /// past the frame is left out, one scrolled partly past it is drawn and cut by the host (the desktop's layer) or
+        /// left out (the Potato path, which draws straight over the frame and cannot cut).
+        /// </summary>
+        internal override void DrawForeground()
+        {
+            Rectangle frame = OnDesktop(_body);
+            var buffer = Game.GraphicsDevice.PresentationParameters;
+            float width = buffer.BackBufferWidth, height = buffer.BackBufferHeight;
+            if (width <= 0f || height <= 0f) return;
+
+            Matrix projection = Game.Camera.Projection;
+            Matrix toWorld = Matrix.Invert(Game.Camera.View);
+            float spin = Game.WallClock * BALL_SPIN;
+
+            BallDrawFrame balls = Game.Balls.BeginFrame(Game.Camera);
+
+            for (int i = 0; i < _ballSquares.Length; i++)
+            {
+                Rectangle square = OnDesktop(_ballSquares[i]);
+                if (!square.Intersects(frame) || (BS3DGame.PotatoPath && !frame.Contains(square))) continue;
+
+                //The square's centre and half-height in the frame's normalised coordinates (x and y −1..1, y up)
+                float cx = (square.X + square.Width * 0.5f) / width * 2f - 1f;
+                float cy = 1f - (square.Y + square.Height * 0.5f) / height * 2f;
+                float radius = square.Height / height * BALL_FILL;
+
+                //The point on the ray through the square at the chosen depth, in view space and then in the world
+                Vector3 inView = new(cx * BALL_DEPTH / projection.M11, cy * BALL_DEPTH / projection.M22, -BALL_DEPTH);
+                Vector3 position = Vector3.Transform(inView, toWorld);
+                float worldRadius = radius * BALL_DEPTH / projection.M22;
+
+                //Sized, turned about the camera's up, then the whole tilted about its right, so the axis leans towards
+                //the viewer and the top of the ball is seen as well as its side
+                Matrix world = Matrix.CreateScale(worldRadius / Constants.HALF)
+                    * Matrix.CreateFromAxisAngle(toWorld.Up, spin + i * BALL_PHASE)
+                    * Matrix.CreateFromAxisAngle(toWorld.Right, BALL_TILT);
+                world.M41 = position.X;
+                world.M42 = position.Y;
+                world.M43 = position.Z;
+
+                balls.Add(KIND_ENTRIES[i].Colour, position, world, BallRenderSet.UNOCCLUDED, kind: KIND_ENTRIES[i].Kind);
+            }
+
+            Game.Balls.Draw(Game.WallClock);
         }
 
         /// <summary>
@@ -389,40 +487,70 @@ namespace BS3D.Screens
         /// The look clauses are deliberately short: the looks are being redrawn one kind at a time (#622), and a
         /// sentence describing a finish that has since changed would be wrong on the one page that explains it.
         /// </para>
+        /// <para>
+        /// The colour is what the live ball beside the entry is drawn in (#856): any for the kinds that have none of
+        /// their own (the glass takes the first colour to land on it, the pellets, the bomb, the zap and the stone are
+        /// drawn colourless), and a different one down the column for the kinds that keep theirs, so the column reads as
+        /// a set rather than a row of red balls.
+        /// </para>
         /// </summary>
-        private static readonly (BallKind Kind, string Text)[] KIND_ENTRIES =
+        private static readonly (BallKind Kind, BallType Colour, string Text)[] KIND_ENTRIES =
         {
-            (BallKind.Transparent, "Glass — clear, with no colour of its own yet. The first ball that lands against it colours it, "
+            (BallKind.Transparent, BallType.Type3, "Glass — clear, with no colour of its own yet. The first ball that lands against it colours it, "
                 + "and from that moment it is an ordinary ball of that colour. It is a cell you get to choose."),
-            (BallKind.Buckshot, "Buckshot — a clump of grey pellets. No colour takes it and the level is not cleared while it "
+            (BallKind.Buckshot, BallType.Type4, "Buckshot — a clump of grey pellets. No colour takes it and the level is not cleared while it "
                 + "hangs: cut away whatever holds it up and it pours out."),
-            (BallKind.Bomb, "Bomb — dark, and it beats harder than the cluster around it. Set it off and it destroys its "
+            (BallKind.Bomb, BallType.Type8, "Bomb — dark, and it beats harder than the cluster around it. Set it off and it destroys its "
                 + "neighbours outright, colour regardless."),
-            (BallKind.Zap, "Zap — dark and flickering, with hard bright arcs across it. It fires along a colour rather "
+            (BallKind.Zap, BallType.Type5, "Zap — dark and flickering, with hard bright arcs across it. It fires along a colour rather "
                 + "than a shape."),
-            (BallKind.Rock, "Stone — colourless, and it cannot be matched. It never falls to a colour, only to losing "
+            (BallKind.Rock, BallType.Type4, "Stone — colourless, and it cannot be matched. It never falls to a colour, only to losing "
                 + "whatever was holding it up. A wall of stone is a wall you have to go around."),
-            (BallKind.Acid, "Acid — land a shot beside it and it eats straight down through the cluster beneath it until it "
+            (BallKind.Acid, BallType.Type2, "Acid — land a shot beside it and it eats straight down through the cluster beneath it until it "
                 + "reaches a gap. Whatever it was holding up comes down with it."),
-            (BallKind.Frozen, "Frozen — a coloured ball sealed in a block of ice. Nothing matches it and no shot removes it "
+            (BallKind.Frozen, BallType.Type1, "Frozen — a coloured ball sealed in a block of ice. Nothing matches it and no shot removes it "
                 + "until you clear a group next to it. Then the ice breaks, and it is an ordinary ball of the colour you "
                 + "could see all along."),
-            (BallKind.Infectious, "Infectious — an ordinary ball of its colour, and sick. Every shot you fire, it passes the "
+            (BallKind.Infectious, BallType.Type7, "Infectious — an ordinary ball of its colour, and sick. Every shot you fire, it passes the "
                 + "sickness to one healthy neighbour, the highest one, and hardens into stone itself. Match it away early: "
                 + "the stone it leaves is permanent."),
-            (BallKind.Gravity, "Gravity — an ordinary ball that pulls on shots passing near it and bends their flight. The "
+            (BallKind.Gravity, BallType.Type6, "Gravity — an ordinary ball that pulls on shots passing near it and bends their flight. The "
                 + "aim preview shows the bend."),
-            (BallKind.Heavy, "Heavy — an ordinary ball many times heavier than the rest. Whatever hangs from it sits lower in "
+            (BallKind.Heavy, BallType.Type3, "Heavy — an ordinary ball many times heavier than the rest. Whatever hangs from it sits lower in "
                 + "the cluster, nearer the line."),
         };
+
+        //The squares the kinds' live balls are drawn in (#856), one per entry, built with the tree; DrawForeground reads
+        //where each stands
+        private readonly Panel[] _ballSquares = new Panel[KIND_ENTRIES.Length];
 
         private void BuildBalls(VerticalStackPanel column)
         {
             column.Widgets.Add(Paragraph(
                 "Most balls are ordinary. These are not — the first few you will meet as the campaign goes on."));
 
-            foreach ((BallKind _, string text) in KIND_ENTRIES)
-                column.Widgets.Add(Paragraph(text));
+            //Each kind beside its words (#856): a square at the paragraph's left, top-aligned with its first line, the
+            //words set at the measure less the square and the gap. The square is a widget so that it takes its room in
+            //the body's flow and the scroller carries it; what is drawn in it is the frame's own ball (DrawForeground)
+            int square = Scaled(BALL_SQUARE), gap = Scaled(BALL_GAP);
+
+            for (int i = 0; i < KIND_ENTRIES.Length; i++)
+            {
+                HorizontalStackPanel row = new() { Spacing = gap, HorizontalAlignment = HorizontalAlignment.Left };
+
+                //With the paragraph's own gap under it, so an entry of one line is not a row the next square touches
+                _ballSquares[i] = new Panel
+                {
+                    Width = square,
+                    Height = square,
+                    VerticalAlignment = VerticalAlignment.Top,
+                    Margin = new Thickness(0, 0, 0, ParagraphGap),
+                };
+                row.Widgets.Add(_ballSquares[i]);
+                row.Widgets.Add(Paragraph(KIND_ENTRIES[i].Text, ProseWidth - square - gap));
+
+                column.Widgets.Add(row);
+            }
 
             column.Widgets.Add(Paragraph(
                 "And one that arrives in your cannon rather than in the cluster: the rainbow ball, a ball that "

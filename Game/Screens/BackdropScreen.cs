@@ -1186,6 +1186,10 @@ namespace BS3D.Screens
             //The gun's own glazing after the plate, as in play: the nearest translucent surface in the frame
             Game.StandingGun?.DrawGlass();
 
+            //A page's own foreground (#856, Help's live balls), into the sharp layer the host composites over the UI at the
+            //end of its Draw. After the balls, since it borrows the ball set's frame once more, and before the close
+            Game.DrawPageForeground();
+
             //The game's name last of all, in front of everything the scene drew (#600) - see DrawWordmark
             Game.FinishSceneDraw(sceneFrame, drawOnTop: _drawWordmark);
         }

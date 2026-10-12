@@ -171,7 +171,9 @@ namespace BS3D
                 drawOnTop();
             }
 
-            _potatoPresenting = (_trophy != null && _trophy.Active) || (_confetti != null && _confetti.Active);
+            //- or a page's own foreground (#856), which the desktop composites from a layer and Potato draws straight on
+            _potatoPresenting = (_trophy != null && _trophy.Active) || (_confetti != null && _confetti.Active)
+                || _screens.Active is Screens.MenuPage { PresentsForeground: true };
         }
 
         /// <summary>The scale-up pass (#801), loaded once with the Potato path's other effects.</summary>
@@ -242,9 +244,10 @@ namespace BS3D
         }
 
         /// <summary>
-        /// <see cref="CompositeForegroundLast"/> on the Potato path: the confetti and the cup drawn straight over the
-        /// finished frame, the UI included (#242's ruling), on a cleared depth buffer - the desktop composites the
-        /// same two from a layer of their own, which Potato does not have. No crystal refraction.
+        /// <see cref="CompositeForegroundLast"/> on the Potato path: the confetti, the cup and a page's own foreground
+        /// (#856) drawn straight over the finished frame, the UI included (#242's ruling), on a cleared depth buffer - the
+        /// desktop composites the same from a layer of its own, which Potato does not have. No crystal refraction, and
+        /// nothing cut to the page's clip: a page draws only what stands whole inside its frame here.
         /// </summary>
         private void DrawPotatoForeground()
         {
@@ -259,6 +262,14 @@ namespace BS3D
 
             if (_confetti != null && _confetti.Active) _confetti.Draw(_camera);
             if (_trophy != null && _trophy.Active) _trophy.Draw(_camera);
+
+            if (_screens.Active is Screens.MenuPage { PresentsForeground: true } page)
+            {
+                GraphicsDevice.BlendState = BlendState.Opaque;
+                GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+                GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+                page.DrawForeground();
+            }
 
             GraphicsDevice.BlendState = blend;
             GraphicsDevice.DepthStencilState = depth;
