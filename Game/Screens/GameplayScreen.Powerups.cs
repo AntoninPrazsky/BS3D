@@ -254,56 +254,60 @@ namespace BS3D.Screens
 
         #region The Swap's hint (#845)
 
-        //The answer to "has this round anywhere to score", one per magazine slot the hint reads, kept until the field or the
-        //round changes: the walk is over the whole field (MatchReach), cheap on a landing and too dear for every frame
-        private struct ScoringAnswer
+        //"Has a round of this colour anywhere to score?", kept per colour until the field changes (BallsMap.Revision, or
+        //another map): the answer is a walk over the whole field (MatchReach), cheap on a landing and too dear for every
+        //frame, and kept by COLOUR rather than by magazine slot so a swap, which trades two slots' colours, asks nothing
+        //again. 0 is not asked yet, 1 nowhere, 2 somewhere.
+        private readonly MatchReach _matchReach = new();
+        private readonly byte[] _scoringByType = new byte[BallRenderSet.TYPE_COUNT + 1];
+        private BallsMap _scoringMap;
+        private int _scoringRevision;
+
+        /// <summary>
+        /// Whether the Swap chip flashes this frame (#845): <see cref="StreakCues.SwapIsTheCure"/> over this session's
+        /// state. The streak is the one the HUD <b>shows</b> (<see cref="PlayHud.StreakShown"/>), so the <c>streak=</c>
+        /// lever can photograph it. The cheap questions are asked first, so a frame with no Swap to spend or no streak
+        /// running never reaches the field.
+        /// </summary>
+        private bool SwapIsTheCure()
         {
-            public BallsMap Map;
-            public int Revision;
-            public BallType Type;
-            public bool CanScore;
+            bool canAct = CanActivate(PowerupKind.Swap) && !_run.Score.OutOfShots;
+            int streak = _hud.StreakShown(_run.Score);
+            if (!canAct || streak <= 1) return false;
+
+            return StreakCues.SwapIsTheCure(canAct, streak, RoundCanScore(SWAP_SLOT_A), RoundCanScore(SWAP_SLOT_B));
         }
 
-        private readonly MatchReach _matchReach = new();
-        private ScoringAnswer _boreScoring, _behindScoring;
-
         /// <summary>
-        /// Whether the Swap is the cure for the shot about to be fired (#845, the owner's rule of 2026-10-11): the player owns
-        /// a Swap that would act now, the round in the bore has nowhere to score, and the round behind it has. The HUD flashes
-        /// the Swap chip while this holds <b>and</b> a streak above ×1 is running (it asks the streak itself, so the
-        /// <c>streak=</c> lever, which pins what the readout shows, can photograph it).
-        /// <para>
-        /// "Nowhere to score" is <see cref="MatchReach"/>'s certain "none", so the chip never points at the Swap while the
-        /// bore has a match to be had. The round behind is the conservative half: a swap that would load another round with
-        /// nowhere to score is no cure, and pointing at it would teach the player to spend the Swap on nothing. A wildcard or
-        /// a cutter needs no match, so one in the bore never asks for the swap and one behind it is a cure.
-        /// </para>
+        /// Whether the round in <paramref name="slot"/> has an open landing that would score: always for a round that needs
+        /// no match (<see cref="StreakCues.NeedsAMatch"/>), otherwise <see cref="MatchReach.HasScoringLanding"/>, asked once
+        /// per colour while the field stands as it is.
         /// </summary>
-        private bool SwapIsTheCure() =>
-            CanActivate(PowerupKind.Swap) && !_run.Score.OutOfShots
-            && !RoundCanScore(SWAP_SLOT_A, ref _boreScoring) && RoundCanScore(SWAP_SLOT_B, ref _behindScoring);
-
-        /// <summary>
-        /// Whether the round in <paramref name="slot"/> has an open landing that would score, from <paramref name="answer"/>
-        /// while the field (<see cref="BallsMap.Revision"/>) and the round's colour are what it was worked out for.
-        /// </summary>
-        private bool RoundCanScore(int slot, ref ScoringAnswer answer)
+        private bool RoundCanScore(int slot)
         {
             MagazineSlot round = _magazine.Slot(slot);
-            if (round.Kind != BallKind.Normal) return true;
+            if (!StreakCues.NeedsAMatch(round.Kind)) return true;
 
-            if (ReferenceEquals(answer.Map, _map) && answer.Revision == _map.Revision && answer.Type == round.Type)
-                return answer.CanScore;
+            if (!ReferenceEquals(_scoringMap, _map) || _scoringRevision != _map.Revision)
+            {
+                _scoringMap = _map;
+                _scoringRevision = _map.Revision;
+                Array.Clear(_scoringByType);
+            }
 
-            answer.Map = _map;
-            answer.Revision = _map.Revision;
-            answer.Type = round.Type;
-            answer.CanScore = _matchReach.HasScoringLanding(_map, round.Type, BallsConstraintsBuilder.MINIMUM_CLUSTER_SIZE);
+            int type = (int)round.Type;
+            if (type < 0 || type >= _scoringByType.Length) return true;
 
-            if (_test.LogShots)
-                Console.WriteLine($"[swaphint] slot {slot} {round.Type}: {(answer.CanScore ? "can score" : "nowhere to score")}");
+            if (_scoringByType[type] == 0)
+            {
+                bool canScore = _matchReach.HasScoringLanding(_map, round.Type, BallsConstraintsBuilder.MINIMUM_CLUSTER_SIZE);
+                _scoringByType[type] = canScore ? (byte)2 : (byte)1;
 
-            return answer.CanScore;
+                if (_test.LogShots)
+                    Console.WriteLine($"[swaphint] {round.Type}: {(canScore ? "can score" : "nowhere to score")}");
+            }
+
+            return _scoringByType[type] == 2;
         }
 
         #endregion

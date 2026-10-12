@@ -1,6 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Audio;
 using Prazsky.BS3D.GameStructure;
+using Prazsky.BS3D.Scoring;
 using Prazsky.Core.Camera;
 using System;
 using System.IO;
@@ -134,6 +135,12 @@ namespace BS3D.Audio
         //a trigger pulled, and its beats sit in the mids where the ear is keen, so it needs no more than the low "no" does
         private const float AIM_STOP_VOLUME = 0.45f;
 
+        //A streak breaking (#845) under the aim stop: it rides over a landing's thud or a miss and must never bury it, and
+        //its notes sit in the mids where the ear is keen. A lost x3 plays at STREAK_BREAK_LOW_LEVEL of a lost cap's level,
+        //so the cap is the louder as well as the longer (StreakBreakSynth plays a note a step)
+        private const float STREAK_BREAK_VOLUME = 0.4f;
+        private const float STREAK_BREAK_LOW_LEVEL = 0.6f;
+
         private readonly SoundEffect _shoot;
 
         //The generated sound effects (#482): Sfx/<name>.ogg beside the executable, written by Tools/MusicBake --sfx from
@@ -152,6 +159,9 @@ namespace BS3D.Audio
 
         /// <summary>The barrel pressed into its stop (#811); see <see cref="AimStopSynth"/>.</summary>
         private readonly SoundEffect _aimStop;
+
+        /// <summary>A streak breaking (#845), one per multiplier that can be lost, indexed by it (0 and 1 left empty); see <see cref="StreakBreakSynth"/>.</summary>
+        private readonly SoundEffect[] _streakBreak;
 
         //[style][type]: what a ball of that material in that colour sounds like landing (#314). A row is baked
         //on demand by PrepareLanded and then kept for the life of the process — see that method for why this is
@@ -389,6 +399,12 @@ namespace BS3D.Audio
             _uiClick = BakeUiClick();
             _shotRefused = BakeShotRefused();
             _aimStop = ToSoundEffect(AimStopSynth.Render(SAMPLE_RATE));
+
+            //One per multiplier a streak can lose: a handful of short buffers, baked here with the rest so a break never
+            //waits on its synthesis
+            _streakBreak = new SoundEffect[ScoreKeeper.MaxMultiplier + 1];
+            for (int lost = 2; lost <= ScoreKeeper.MaxMultiplier; lost++)
+                _streakBreak[lost] = ToSoundEffect(StreakBreakSynth.Render(SAMPLE_RATE, lost));
             _starEarned = BakeStarEarned();
             _thunder = BakeThunder();
             _eruption = BakeEruption();
@@ -793,6 +809,24 @@ namespace BS3D.Audio
         public void PlayAimStop()
         {
             _aimStop.Play(AIM_STOP_VOLUME * Level * NON_SPATIAL_TRIM, NextPitch(0.02f), 0f);
+        }
+
+        /// <summary>
+        /// A streak of <paramref name="lost"/> breaking (#845): a short run of struck notes falling, one a step of the
+        /// multiplier lost (<see cref="StreakBreakSynth"/>), so a lost cap is longer, and louder by
+        /// <see cref="STREAK_BREAK_LOW_LEVEL"/>, than a lost ×3. Dry and unplaced like the aim stop: it answers the
+        /// readout in the corner, not a place in the scene. The refusal's small pitch nudge, so the run keeps its key.
+        /// </summary>
+        public void PlayStreakBreak(int lost)
+        {
+            if (lost < 2) return;
+
+            //A lost x3 (a severity of a half) at the low level, a lost cap at full, in proportion between
+            int index = Math.Min(lost, _streakBreak.Length - 1);
+            float above = Math.Clamp(BS3D.Screens.StreakCues.Severity(lost) * 2f - 1f, 0f, 1f);
+            float level = STREAK_BREAK_LOW_LEVEL + (1f - STREAK_BREAK_LOW_LEVEL) * above;
+
+            _streakBreak[index]?.Play(STREAK_BREAK_VOLUME * level * Level * NON_SPATIAL_TRIM, NextPitch(0.02f), 0f);
         }
 
         /// <summary>
@@ -3098,6 +3132,7 @@ namespace BS3D.Audio
             _uiClick?.Dispose();
             _shotRefused?.Dispose();
             _aimStop?.Dispose();
+            if (_streakBreak != null) foreach (SoundEffect breaking in _streakBreak) breaking?.Dispose();
             _starEarned?.Dispose();
             _thunder?.Dispose();
             _eruption?.Dispose();
