@@ -580,9 +580,9 @@ namespace BS3D
             //page is a pager, so "a shot of it" means nothing without saying which chapter
             Row.Flag("highscores", o => o.HighScores = string.Empty),
             Row.Text("highscores", (o, v) => o.HighScores = v),
-            //"help" opens the Help screen and "help=<n>" opens it on that page (#427) - the same reasoning
-            //one turn further, since Help is six pages behind one entry and its Previous/Next stand side
-            //by side, so a scripted walk has to guess a focus order to reach page four at all.
+            //"help" opens the Help screen and "help=<n>" opens it on that tab (#427; the tabs' order since #857,
+            //1 = Controls) - the same reasoning one turn further: the tabs are not in the pad's walk, so a scripted
+            //walk cannot reach one at all, and menucursor='s rb/lb presses are the click path through them.
             Row.Flag("help", o => o.Help = 1),
             Row.Int("help", (o, v) => o.Help = v),
             //"scenes" opens the Scene screen at boot (#773): it is two presses from the main menu, and none on a

@@ -1486,10 +1486,10 @@ namespace BS3D
             }
         }
 
-        /// <summary>The Help screen (#427): how it is played, the scoring, the odd balls, the campaign and the controls.</summary>
+        /// <summary>The Help screen (#427): the controls, the basics, the scoring, the odd balls, the campaign and the glass, as tabs (#857), Controls first.</summary>
         internal void OpenHelp() => OpenPage(_helpPage);
 
-        /// <summary>The Help screen on a stated page, 1-based — the <c>help=</c> argument's entry (#427).</summary>
+        /// <summary>The Help screen on a stated tab, 1-based in the row's order (1 = Controls) — the <c>help=</c> argument's entry (#427, #857).</summary>
         internal void OpenHelp(int page)
         {
             _helpPage.ShowPage(page);
