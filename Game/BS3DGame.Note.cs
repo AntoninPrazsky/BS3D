@@ -4,6 +4,7 @@ using BS3D.Screens;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Myra.Graphics2D.UI;
+using Prazsky.Core.Render;
 using System;
 using System.Globalization;
 using System.IO;
@@ -123,8 +124,10 @@ namespace BS3D
                 int height = GraphicsDevice.PresentationParameters.BackBufferHeight;
                 if (width > 0 && height > 0)
                 {
+                    //Through BackBufferPixels (#859): a 10-bit back buffer read straight into Colors is its packed words
+                    //misread as bytes, and the author would get a picture of the wrong colours
                     Color[] frame = new Color[width * height];
-                    GraphicsDevice.GetBackBufferData(frame);
+                    BackBufferPixels.Read(GraphicsDevice, frame);
 
                     for (int factor = Math.Max(1, (width + NOTE_SHOT_WIDTH - 1) / NOTE_SHOT_WIDTH); factor <= 8; factor++)
                     {

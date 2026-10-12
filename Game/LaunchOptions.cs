@@ -43,6 +43,11 @@ namespace BS3D
         internal bool? Fullscreen { get; private set; }
         internal bool? UncappedFps { get; private set; }
 
+        //"tenbit" / "tenbit=off" (#859): the 10-bit back buffer asked for or refused for this run, whatever the panel
+        //reports and whatever the settings say. A run's instruction like "windowed", never written back: "tenbit"
+        //on an 8-bit panel is how the writer's decode of the 10-bit back buffer is checked where no such panel is.
+        internal bool? TenBit { get; private set; }
+
         //Testing only: "fpscap=N" is "nocap" with a ceiling — it presents immediately, so nothing
         //quantizes the reading, and idles out the rest of each frame's period, so a cheap frame does not
         //leave the card flat out. The Testbed has had it since #250; the Game needed it for #270, where a
@@ -382,6 +387,9 @@ namespace BS3D
             //"disables vsync" until #270 — the game presents immediately in EVERY mode now, so all this
             //picks is FrameLimiter's target.
             Row.Flag("nocap", o => o.UncappedFps = true),
+            //"tenbit" asks for the 10-bit back buffer whatever the panel reports, "tenbit=off" refuses it (#859)
+            Row.Flag("tenbit", o => o.TenBit = true),
+            Row.Text("tenbit", (o, v) => o.TenBit = !string.Equals(v, "off", StringComparison.OrdinalIgnoreCase)),
             //"fpscap=N" is that same ceiling set by hand, and it wins over "nocap" outright rather than
             //being reconciled with it (BS3DGame.FrameLimitHz), so the two cannot be given inconsistently.
             Row.Int("fpscap", (o, v) => o.FpsCap = v, v => v > 0),

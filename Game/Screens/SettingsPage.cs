@@ -97,7 +97,7 @@ namespace BS3D.Screens
         private Label _progressValue;
 
         //The rows with two states, On and Off, as checkboxes (#816)
-        private CheckRow _fullscreenCheck, _adaptiveQualityCheck, _sceneryCheck, _fpsCheck, _aberrationCheck, _grainCheck, _motionBlurCheck;
+        private CheckRow _fullscreenCheck, _adaptiveQualityCheck, _sceneryCheck, _fpsCheck, _aberrationCheck, _grainCheck, _motionBlurCheck, _tenBitCheck;
         private CheckRow _tutorialCheck, _introLogoCheck, _dropCinematicCheck, _unlockAllCheck;
 
         /// <summary>
@@ -379,7 +379,11 @@ namespace BS3D.Screens
             //The tonemap's exposure, said as the brightness it is (#711): a percent of the authored look, 100 % the default
             AddRow(grid, 5, "Brightness", Game.CycleExposure, out _exposureValue);
             AddRow(grid, 6, "Sky", Game.CycleSkyDome, out _skyValue);
-            AddCheckRow(grid, 7, "FPS counter", Game.ToggleFpsOverlay, out _fpsCheck);
+            //The back buffer's depth where the window's monitor takes 10 bits (#859), the way back to 8: in the FPS
+            //counter's old slot, which went to GAME, because DISPLAY's twelve rows are its whole vertical budget (Back is
+            //24 px clear at 1600×900) and a thirteenth would push Back off the frame. Held, and saying why, on an 8-bit
+            //panel, on the Potato path and after a driver's refusal (TenBitHeldBy), as the lens looks say "tier"
+            AddCheckRow(grid, 7, "10-bit colour", Game.ToggleTenBitColour, out _tenBitCheck);
             //The presentation cap (#124): synced to the monitor's refresh (frames nobody can see cost only
             //heat) or unlimited — the "nocap" launch argument's toggle, in the menu so a benchmarking session
             //is not the only way to lift it. Two states, but not On and Off, so it keeps its words (#816)
@@ -503,11 +507,15 @@ namespace BS3D.Screens
             //"GAMEPLAY" heading over a single row; with a page for what the game does round play it has one.
             AddCheckRow(grid, 2, "Drop camera", Game.ToggleDropCinematic, out _dropCinematicCheck);
 
-            AddGroupHeading(grid, 3, "CAMPAIGN", first: false);
+            //The frame-rate overlay, here since #859 took its DISPLAY slot for the 10-bit row: a readout the game puts in
+            //front of the player, which is what this page's switches are, and DISPLAY's rows were its whole budget
+            AddCheckRow(grid, 3, "FPS counter", Game.ToggleFpsOverlay, out _fpsCheck);
+
+            AddGroupHeading(grid, 4, "CAMPAIGN", first: false);
 
             //The campaign back to zero stars (#92) — for testing as much as for a fresh start. The resting
             //value shows the star total the click would erase; the click itself is two-step (see _resetArmed).
-            AddRow(grid, 4, "Reset progress", OnResetProgress, out _progressValue);
+            AddRow(grid, 5, "Reset progress", OnResetProgress, out _progressValue);
 
             //The debug unlock (#349). Under the campaign heading because it is the same kind of thing the row above
             //is - the player's record - and it is a DEVELOPMENT convenience: it is off at every launch and writes
@@ -518,7 +526,7 @@ namespace BS3D.Screens
             //switch itself is inert in a release too (ToggleUnlockAll), so no caller can turn on what no row shows.
             //The grid simply ends at Reset progress there; a row is added per call, so nothing is left blank.
             if (BuildVersion.Release is null)
-                AddCheckRow(grid, 5, "Unlock all", Game.ToggleUnlockAll, out _unlockAllCheck);
+                AddCheckRow(grid, 6, "Unlock all", Game.ToggleUnlockAll, out _unlockAllCheck);
 
             return grid;
         }
@@ -710,6 +718,9 @@ namespace BS3D.Screens
             _exposureValue.Text = Game.BrightnessPercent.ToString(CultureInfo.InvariantCulture) + " %";
             _skyValue.Text = Game.SkyDomeNumber.ToString(CultureInfo.InvariantCulture);
             _fpsCheck.Show(Game.IsFpsOverlayVisible);
+            //Ticked only where the back buffer really is 10-bit: held off by the panel, the path or the driver, the box
+            //is empty with the reason beside it, whatever the setting says (#859)
+            _tenBitCheck.Show(Game.IsTenBitColourEnabled && Game.TenBitHeldBy == null, Game.TenBitHeldBy);
             //"Monitor", not a number: the cap is whatever the panel refreshes at, and naming the rate here
             //would go stale the moment the window lands on another monitor
             _fpsLimitValue.Text = Game.IsFpsUncapped ? "Unlimited" : "Monitor";

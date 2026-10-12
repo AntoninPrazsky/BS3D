@@ -55,5 +55,16 @@ namespace BS3D.Platform
         internal static void WatchScale(IntPtr windowHandle, Action changed)
         {
         }
+
+        /// <summary>
+        /// The Windows version's bits per colour of the window's monitor (#859), which DXGI answers there and nothing
+        /// answers here. Always no answer: the Potato path draws 8-bit sources into the back buffer and holds the
+        /// 10-bit row anyway, so the Pi loses nothing by it.
+        /// </summary>
+        internal static bool TryGetBitsPerColor(IntPtr windowHandle, out int bitsPerColor)
+        {
+            bitsPerColor = 0;
+            return false;
+        }
     }
 }
