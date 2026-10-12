@@ -31,6 +31,17 @@ namespace BS3D.Tests
             return path;
         }
 
+        /// <summary>
+        /// A shipped sound effect, <c>Game\Sfx\&lt;name&gt;.ogg</c> (#726): the Levels directory's sibling, so it is found by
+        /// the same landmark.
+        /// </summary>
+        public static string Sfx(string name)
+        {
+            string path = Path.Combine(Path.GetDirectoryName(LevelsDirectory)!, "Sfx", name + ".ogg");
+            Assert.True(File.Exists(path), $"Shipped sound '{name}.ogg' is missing from {Path.GetDirectoryName(path)}");
+            return path;
+        }
+
         /// <summary>xUnit's shape for one row per shipped level.</summary>
         public static IEnumerable<object[]> LevelFileNames() =>
             LevelFiles().Select(p => new object[] { Path.GetFileName(p) });

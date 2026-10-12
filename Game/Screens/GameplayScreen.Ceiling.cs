@@ -109,8 +109,10 @@ namespace BS3D.Screens
             Game.Balls.RippleAlarmColor = feeding ? RIPPLE_FEED_COLOR : RIPPLE_ALARM_COLOR;
             _ripple.StartFromTop(_physicsBalls);
 
-            //And is heard (#500): from the plate, where it is, the feed's step softer than the pressure's
-            Game.Audio.PlayCeilingStep(new Microsoft.Xna.Framework.Vector3(0f, _ceilingDescent.Y, 0f), feeding);
+            //And is heard (#500): from the plate, where it is, in the step's own sound — the blue one rising in the mids, the
+            //red one a heavy plate's drone and settle (#726)
+            (string cue, float volume) = Game.Audio.PlayCeilingStep(new Microsoft.Xna.Framework.Vector3(0f, _ceilingDescent.Y, 0f),
+                feeding);
 
             //And felt (#378), the feed step soft for the same reason it is heard and seen soft.
             float ceilingRumbleScale = feeding ? CEILING_RUMBLE_FEED_SCALE : 1f;
@@ -119,7 +121,7 @@ namespace BS3D.Screens
 
             Console.WriteLine($"[ceiling] Step to {_ceilingDescent.TargetY:F2} (death line {CEILING_DEATH_Y:F2})"
                 + $", {(feeding ? "feeding" : "pressure")}"
-                + $", shots fired {_run.Score.ShotsFired}, waited {waited:F2} s");
+                + $", shots fired {_run.Score.ShotsFired}, waited {waited:F2} s, heard {cue} at {volume:F2}");
 
             //And a tall level's aim clamp, held since the load, lets go once the column hangs whole in the frame (#842)
             LiftTallAimOnceFramed();
@@ -155,13 +157,14 @@ namespace BS3D.Screens
             Game.Balls.RippleAlarmColor = RIPPLE_FEED_COLOR;
             _ripple.StartFromTop(_physicsBalls);
 
-            Game.Audio.PlayCeilingStep(new Microsoft.Xna.Framework.Vector3(0f, _ceilingDescent.Y, 0f), feed: true);
+            (string cue, float volume) = Game.Audio.PlayCeilingStep(new Microsoft.Xna.Framework.Vector3(0f, _ceilingDescent.Y, 0f),
+                feed: true);
 
             //And felt (#836: the owner felt nothing when the Brake lifted the glass), over the same slide a descent takes
             Game.Rumble.Kick(BRAKE_RUMBLE_LEFT, BRAKE_RUMBLE_RIGHT, CEILING_RUMBLE_SECONDS);
 
             Console.WriteLine($"[ceiling] Brake to {_ceilingDescent.TargetY:F2} (rest {_ceilingDescent.RestY:F2}"
-                + $", death line {CEILING_DEATH_Y:F2}), {_run.PowerupCharges[(int)PowerupKind.Brake]} left");
+                + $", death line {CEILING_DEATH_Y:F2}), {_run.PowerupCharges[(int)PowerupKind.Brake]} left, heard {cue} at {volume:F2}");
 
             MarkBrakeReachStale();
         }

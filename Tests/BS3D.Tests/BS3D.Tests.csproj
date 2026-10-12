@@ -20,6 +20,8 @@
         the way Tools/LevelGen/SagProbe does; the version is the libraries' own.-->
     <PackageReference Include="BepuPhysics" />
     <PackageReference Include="BepuUtilities" />
+    <!--The Vorbis decoder the game ships (#726): OggTrack.cs below is compiled in, as Tools/MusicBake compiles it.-->
+    <PackageReference Include="NVorbis" />
   </ItemGroup>
 
   <!--The chapter-intro shot builders, compiled in from the Game (#645): they are plain geometry over
@@ -77,6 +79,11 @@
         break is told and when the Swap chip points at the cure-->
     <Compile Include="..\..\Game\Audio\StreakBreakSynth.cs" />
     <Compile Include="..\..\Game\Screens\StreakCues.cs" />
+    <!--#726: the blue ceiling step's bake, and the game's own Ogg decoder and FFT, so the tests measure the shipped
+        recording decoded the way the game loads it, and the red step's beside it-->
+    <Compile Include="..\..\Game\Audio\CeilingFeedSynth.cs" />
+    <Compile Include="..\..\Game\Audio\OggTrack.cs" />
+    <Compile Include="..\..\Game\Audio\Spectrum.cs" />
     <!--#846: the award popup's zoom, read and throw as pure functions of its age and points, and the HUD's eases under it-->
     <Compile Include="..\..\Game\Screens\AwardZoom.cs" />
     <Compile Include="..\..\Game\Screens\HudEase.cs" />

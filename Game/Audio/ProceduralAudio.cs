@@ -173,6 +173,16 @@ namespace BS3D.Audio
         private readonly SoundEffect _iceBreak;
         private readonly SoundEffect _ceilingStep;
 
+        /// <summary>
+        /// The blue step's own sound (#726): the glass coming down to feed a tall level, or lifted by the Brake. See
+        /// <see cref="PlayCeilingStep"/> and <see cref="CeilingFeedSynth"/>.
+        /// </summary>
+        private readonly SoundEffect _ceilingFeed;
+
+        //Which buffer the blue step speaks, as the [ceiling] line names it: the recording, or the bake standing in for a
+        //missing file. Set once at load, so the line costs no string per step.
+        private readonly string _ceilingFeedCue;
+
         /// <summary>The net cutting the cluster that reached the line (#434) — the loss's one sound.</summary>
         private readonly SoundEffect _lineLoss;
 
@@ -216,6 +226,7 @@ namespace BS3D.Audio
         /// <inheritdoc cref="_iceBreak"/>
         private readonly VoiceRing _iceBreakRing;
         private readonly VoiceRing _ceilingRing;
+        private readonly VoiceRing _ceilingFeedRing;
         private readonly VoiceRing _lineLossRing;
         private readonly VoiceRing _lineTouchRing;
 
@@ -269,12 +280,23 @@ namespace BS3D.Audio
         //overlap itself: a second landing cannot resolve while the first is still in flight.
         private const int ICE_BREAK_VOICES = 2;
 
-        //The ceiling's step (#500): a step is one event and the next is shots away, so two voices cover a feed
-        //step landing on a pressure step. Quiet by design — it says "look up" under the music and never
-        //competes with a shot; a feed step, the tall level's reward, softer still.
+        //The ceiling's step (#500), the red one: a step is one event and the next is shots away, so two voices cover a
+        //queued step landing on the last one's tail. Quiet by design — it says "look up" under the music and never
+        //competes with a shot.
         private const int CEILING_VOICES = 2;
         private const float CEILING_LEVEL = 0.5f;
-        private const float CEILING_FEED_LEVEL = 0.35f;
+
+        //The blue step's own sound (#726): a feed bringing a tall level's column back into reach, and the Brake's lift.
+        //Until #726 it was the red step's bass recording at 0.35, and on the owner's monitor speakers, which carry almost
+        //nothing under 200 Hz, it was not heard at all. Its own sound is in the mids, so a LOWER level than that is far
+        //more audible: measured as played (A-weighted, loudest 400 ms, through a 250 Hz high-pass standing in for the
+        //monitor), 13 dB over the old blue step and 10 dB over the red one, yet about 4.5 dB under the 10-ball release a
+        //feed usually follows and 6.5 dB under the shot (docs/game-feedback/ceiling-and-floor-alarms.md).
+        //Three voices because a feed is QUEUED: a band that goes can owe several steps, which come down a hold apart
+        //(CeilingDescent's CEILING_STEP_HOLD) while the recording lasts a second.
+        private const string CEILING_FEED_SFX = "ceiling-feed";
+        private const int CEILING_FEED_VOICES = 3;
+        private const float CEILING_FEED_LEVEL = 0.3f;
 
         //The line's cut (#434): one voice, since there is exactly one loss, at most of the master — it is the
         //ending, and the one sound in the game that is meant to be louder than the shot that caused it
@@ -379,6 +401,12 @@ namespace BS3D.Audio
             _release = FromSfxOrBake("release", BakeRelease);
             _iceBreak = BakeIceBreak();
             _ceilingStep = FromSfxOrBake("ceiling-step", BakeCeilingStep);
+            //The blue step's own (#726), under FromSfxOrBake's law for a tone (peak 0.9), opened here only so the [ceiling]
+            //line can say which of the two it is
+            float[] ceilingFeed = TryLoadSfx(CEILING_FEED_SFX);
+            if (ceilingFeed != null) Normalize(ceilingFeed, 0.9f);
+            _ceilingFeedCue = ceilingFeed != null ? CEILING_FEED_SFX + ".ogg" : CEILING_FEED_SFX + " bake";
+            _ceilingFeed = ToSoundEffect(ceilingFeed ?? CeilingFeedSynth.Render(SAMPLE_RATE));
             //The cut and its touch (#669) from ONE signal, so the touch is the same laser heard briefly: the file
             //through the report law FromSfxOrBake would give it, or the bake's own signal when there is no file.
             float[] lineLoss = TryLoadSfx("line-loss");
@@ -415,6 +443,7 @@ namespace BS3D.Audio
             _releaseRing = new VoiceRing(_release, RELEASE_VOICES);
             _iceBreakRing = new VoiceRing(_iceBreak, ICE_BREAK_VOICES);
             _ceilingRing = new VoiceRing(_ceilingStep, CEILING_VOICES);
+            _ceilingFeedRing = new VoiceRing(_ceilingFeed, CEILING_FEED_VOICES);
             _lineLossRing = new VoiceRing(_lineLoss, LINE_LOSS_VOICES);
             _lineTouchRing = new VoiceRing(_lineTouch, LINE_TOUCH_VOICES);
             _blastRing = new VoiceRing(_blast, BLAST_VOICES);
@@ -2603,15 +2632,33 @@ namespace BS3D.Audio
         /// The ceiling's step, spoken from the plate: the one event that moves the whole cluster was seen — the
         /// glass flashes, the wave runs down the balls — and never heard. Placed like a landing and attenuated with
         /// distance to the same floor; quiet by design, it says "look up" and does not compete with a shot or the
-        /// music. A feed step (a tall level handing down more of its column, the cold-blue flash) plays softer:
-        /// nothing went wrong, the plate just moved. The sound is <c>Sfx/ceiling-step.ogg</c> when the file is
-        /// there (#482's route) and <see cref="BakeCeilingStep"/> when it is not.
+        /// music.
+        /// <para>
+        /// <b>Two sounds, as the flash has two colours (#726).</b> The red step (the pressure) is
+        /// <c>Sfx/ceiling-step.ogg</c>, a heavy plate's drone and settle, or <see cref="BakeCeilingStep"/> when the file is
+        /// not there. The blue step (<paramref name="feed"/>: a tall level's column brought back into reach, or the Brake's
+        /// lift) is <c>Sfx/ceiling-feed.ogg</c>, or <see cref="CeilingFeedSynth"/> when it is not: a rising, tonal sound in
+        /// the mids, because it is good news and because the red one's bass, turned down, was not heard at all on the
+        /// owner's monitor speakers.
+        /// </para>
         /// </summary>
-        public void PlayCeilingStep(Vector3 plate, bool feed)
+        /// <returns>
+        /// Which buffer was spoken and the volume the voice was handed — the <c>[ceiling]</c> line prints both, the one
+        /// record a run leaves that the step was heard and how loud.
+        /// </returns>
+        public (string Cue, float Volume) PlayCeilingStep(Vector3 plate, bool feed)
         {
-            float volume = (feed ? CEILING_FEED_LEVEL : CEILING_LEVEL) * VolumeForDistance(DistanceTo(plate));
-            Speak(_ceilingRing, plate, NEAR_WIDEN, MathHelper.Clamp(volume * Level, 0f, 1f), NextPitch(0.04f));
+            float level = feed ? CEILING_FEED_LEVEL : CEILING_LEVEL;
+            float volume = MathHelper.Clamp(level * VolumeForDistance(DistanceTo(plate)) * Level, 0f, 1f);
+
+            if (feed) Speak(_ceilingFeedRing, plate, NEAR_WIDEN, volume, NextPitch(0.03f));
+            else Speak(_ceilingRing, plate, NEAR_WIDEN, volume, NextPitch(0.04f));
+
+            return (feed ? _ceilingFeedCue : CEILING_STEP_CUE, volume);
         }
+
+        //The red step's name on the [ceiling] line; the blue one's says whether it is the file or the bake (_ceilingFeedCue)
+        private const string CEILING_STEP_CUE = "ceiling-step";
 
         /// <summary>
         /// The step as a bake, for when the file is not there: a heavy plate moving — a hum falling from 70 to
@@ -3100,6 +3147,7 @@ namespace BS3D.Audio
             _releaseRing?.Dispose();
             _iceBreakRing?.Dispose();
             _ceilingRing?.Dispose();
+            _ceilingFeedRing?.Dispose();
             _lineLossRing?.Dispose();
             _lineTouchRing?.Dispose();
             _lineHumVoiceA?.Dispose();
@@ -3118,6 +3166,7 @@ namespace BS3D.Audio
             _release?.Dispose();
             _iceBreak?.Dispose();
             _ceilingStep?.Dispose();
+            _ceilingFeed?.Dispose();
             _lineLoss?.Dispose();
             _lineTouch?.Dispose();
             _lineHumA?.Dispose();
