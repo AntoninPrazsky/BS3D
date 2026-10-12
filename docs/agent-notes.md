@@ -649,3 +649,8 @@ Pravidla:
 - ⚠ MonoGame `ApplyChanges` zařízení sám vytvoří, když není: první zařízení vždy 8bitové a reset na 10 až v Initialize, aby odmítnutí driveru bylo chytitelná výjimka (fallback na 8 bitů + řádek logu). Na ThinkPadu (AMD, 8bpc) jde 10bitový swap chain ve všech režimech; E_INVALIDARG z GTX 1060 nereprodukováno.
 - ⚠ `GetBackBufferData` nic nepřevádí: 10bitový buffer čtený do `Color` je slova čtená jako bajty (modrá 100/149/237 → 145/89/121). Screenshot i obrázek poznámky jdou přes `BackBufferPixels` (test pinuje dekód i tu chybu); ověřeno `tenbit level=1 shot=9`.
 - Otevřené: majitelův 10bitový monitor (zda driver vezme, zda DWM prezentuje 10 bitů — rampa), NVIDIA readback neověřen.
+
+## 2026-10-13 — #400 kontrola citací jako nástroj — ThinkPad, Claude Code (github-44)
+- `Tools/DocDrift -- --citations [--selftest]` (merge do mainu): každá `"Název" in docs/x.md` v kódu i docs musí jmenovat nadpis dokumentu, jeho pod-dokumentů nebo řádek tabulky starých sekcí; průchody 8 a 9 to dělaly skriptem ze scratchpadu. Self-test podstrčí citaci neexistující sekce (§10). Stav: 187 citací, 0 nevyřešených. Zapsáno v `checking-tools.md`, `CLAUDE.md` a `build-and-release.md`.
+- ⚠ Příklad vzoru v komentáři nebo usage (`"Title" in docs/x.md`) je sám citací; psát s lomenými závorkami.
+- Otevřené: citace bez uvozovek nástroj nevidí.

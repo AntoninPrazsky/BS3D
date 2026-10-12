@@ -125,13 +125,15 @@ namespace BS3D.Tools.DocDrift
         {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
             string root = null;
-            bool showAll = false;
+            bool showAll = false, citations = false, selfTest = false;
             for (int i = 0; i < args.Length; i++)
             {
                 switch (args[i])
                 {
                     case "--root" when i + 1 < args.Length: root = args[++i]; break;
                     case "--all": showAll = true; break;
+                    case "--citations": citations = true; break;
+                    case "--selftest": selfTest = true; break;
                     case "-h":
                     case "--help":
                         Usage();
@@ -150,6 +152,9 @@ namespace BS3D.Tools.DocDrift
                 return 0;
             }
             root = Path.GetFullPath(root);
+
+            //The other sweep (#400): the section titles cited beside a document's path, resolved against its headings
+            if (citations) return Citations.Run(root, selfTest);
 
             Dictionary<string, List<Def>> defs = CollectDefinitions(root, out int filesRead);
             Dictionary<string, Def> unique = defs.Where(p => p.Value.Count == 1).ToDictionary(p => p.Key, p => p.Value[0]);
@@ -197,9 +202,12 @@ namespace BS3D.Tools.DocDrift
         {
             Console.WriteLine("DocDrift — the numbers the documents quote beside a name the code defines differently (#525)");
             Console.WriteLine();
-            Console.WriteLine("  dotnet run --project Tools/DocDrift [-- --all] [-- --root <repository>]");
+            Console.WriteLine("  dotnet run --project Tools/DocDrift [-- --all] [-- --citations [--selftest]] [-- --root <repository>]");
             Console.WriteLine();
             Console.WriteLine("  --all          also print the disagreements the history filter removed, with their sentence");
+            Console.WriteLine("  --citations    the other sweep: every \"<Title>\" in docs/<file>.md cited in code or docs must name a heading");
+            Console.WriteLine("                 of that document, of its sub-documents, or a row of its old-sections table (#400)");
+            Console.WriteLine("  --selftest     with --citations: plant a citation of no section and see it come back unresolved first");
             Console.WriteLine("  --root DIR     the repository to read (default: found above the tool by Game.sln + docs/)");
             Console.WriteLine();
             Console.WriteLine("Always exits 0: it reports candidates for a person to read, it is not a gate.");
