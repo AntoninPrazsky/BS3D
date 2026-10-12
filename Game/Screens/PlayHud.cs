@@ -2243,7 +2243,8 @@ namespace BS3D.Screens
         /// <summary>
         /// The face an award is drawn from at <paramref name="units"/> design units: the smallest of the ladder at least
         /// that big (<c>BS3DGame.HUD_FONT_POPUP</c>), so a glyph is never stretched and never shrunk to much under half
-        /// its raster. <paramref name="blur"/> is the backing's for that face, the same share of its size the old popup's
+        /// its raster, but for the zoom's first few frames under the label's size, gone too fast to shimmer.
+        /// <paramref name="blur"/> is the backing's for that face, the same share of its size the old popup's
         /// was of 112, so the backing neither tightens nor swells at a step between faces.
         /// </summary>
         private SpriteFontBase AwardFace(float units, out float scale, out int blur)
