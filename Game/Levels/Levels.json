@@ -510,7 +510,7 @@
       "file": "Trilithon.json",
       "name": "Archway",
       "block": "The Quarry",
-      "shots": 30,
+      "shots": 32,
       "minStars": 124,
       "ceilingStep": 6
     },
@@ -534,7 +534,7 @@
       "file": "Crib.json",
       "name": "Eclipse",
       "block": "The Quarry",
-      "shots": 44,
+      "shots": 42,
       "minStars": 130,
       "ceilingStep": 7
     },

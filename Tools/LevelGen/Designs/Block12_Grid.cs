@@ -273,7 +273,8 @@ namespace BS3D.Tools.LevelGen
             //ONE FORMULA FOR BOTH, and the section is what separates them: the plate is section three and a
             //column's three thirds are nought to two, so the middle third of every post is a colour of its
             //own and the plate above it is a fourth. The strides are 1 and 2 across the plan and 3 down the
-            //sections, none of them zero modulo four, so no two touching pieces agree - Trilithon's rule.
+            //sections, none of them zero modulo four, so no two touching pieces agree - the rule the
+            //Quarry's Trilithon was coloured by until #742.
             //
             //⚠ THE PLATE HAS TO CARRY ALL FOUR COLOURS and that is not decoration: it is the whole anchor
             //course, so the number of colours standing on it is the fewest shots that can ever empty this

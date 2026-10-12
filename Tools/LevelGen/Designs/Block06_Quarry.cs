@@ -185,7 +185,7 @@ namespace BS3D.Tools.LevelGen
         //  Archway  a hole through the body: a round arch the stars show through, and its soffit is a target
         //  Cornice  an overhang: a roof running out towards the gun over a pocket of air
         //  Hoist    a floating member: a stone hung under the deck on ONE column, in a colour nothing else wears
-        //  Eclipse  two depths: a cool disc hung in front of a warm one, the far one's rim showing round the near
+        //  Eclipse  two depths: a cool disc hung in front of a larger warm one, a gap of air between them
         //  Geode    a cavity: a dull boulder with a crystal sealed in it (The Reveal's payoff, #743)
         //  Locket   the column and the cavity at once: cut the stone's white neck and it falls away from its crystal
         //and the hand-drawn Colossus still closes the chapter.
@@ -205,6 +205,13 @@ namespace BS3D.Tools.LevelGen
         //level, and a course starts on an even one). Four colours avoid it; two colours weld whole diagonals into
         //stripes, which Cornice's body uses on purpose.
         //
+        //WHAT THEY MEASURE (LevelGen, 2026-10-12): balls / standing groups / shots, and the one shot that drops most.
+        //  Archway  228 / 22 / 32   10 %                  Cornice  306 / 17 / 28   22 %
+        //  Hoist    364 / 31 / 40   59 %, the white column  Eclipse  330 / 27 / 42    5 %
+        //  Geode    432 / 34 / 50    7 %                  Locket   401 / 38 / 44   80 %, the white neck
+        //Each hung 0 or 1 time in 5 in the sag probe (--sag), and a white ball can be landed against either key from
+        //the start (against Locket's neck mostly after a walk round: two landings from the stand, twenty from the walk).
+        //
         //THE FILES ARE THE OLD ONES (Trilithon, Gantry, Fault, Crib, Highwall, Nine): a save is keyed by the file,
         //and a file the set stops listing would put six uncleared levels in front of every player already past them
         //(BS3DGame.IsLevelUnlocked opens only up to the first unfinished level), where a level that changes under
@@ -214,9 +221,6 @@ namespace BS3D.Tools.LevelGen
         //MoonSceneConfig drives the whole light rig, so the blocks of colour stay the only saturated thing in the
         //frame (see Mosaic's Scene comment for the finding that chose it).
         private const byte QUARRY_SKY = 13;
-
-        /// <summary>How far below the glass a layout level hangs, in world units (<see cref="BelowGlass"/> for these designs).</summary>
-        private static float QuarryDepth(int i, int depth) => BelowGlass(i, depth);
 
         /// <summary>
         /// A tile's colour as a sum of its indices along the axes given (a zero stride leaves that axis out), each
@@ -248,7 +252,7 @@ namespace BS3D.Tools.LevelGen
             Sky = QUARRY_SKY,
             Music = MUSIC_QUARRY,
             Balls = BALLS_QUARRY,
-            Shots = 30,
+            Shots = 32,
             CeilingStep = 6,
             OccupiedBlock = (x, z, i, depth) => ArchwayPart(x, z, i) != 0,
             BlockColour = ArchwayColour,
@@ -444,8 +448,9 @@ namespace BS3D.Tools.LevelGen
 
         /// <summary>
         /// Two bodies at two depths: a cool disc hung near the glass on the gun's side and a larger warm disc behind
-        /// it, with a gap between them three balls wide. From the stand the near disc covers the far one's middle and
-        /// the far one's rim shows round it, which is the level's name; a walk round slides one across the other.
+        /// it, with a gap between them three balls wide. From the stand the near disc covers the far one's upper left and
+        /// the far one shows round it below and to the right, which is the level's name; a walk round slides one
+        /// across the other.
         /// <b>Each disc has a palette of its own</b>, so the two never share a group and the eye separates them at
         /// once.
         /// </summary>
@@ -460,7 +465,7 @@ namespace BS3D.Tools.LevelGen
             Sky = QUARRY_SKY,
             Music = MUSIC_QUARRY,
             Balls = BALLS_QUARRY,
-            Shots = 44,
+            Shots = 42,
             CeilingStep = 7,
             OccupiedBlock = (x, z, i, depth) => EclipsePart(x, z, i, depth) != 0,
             BlockColour = EclipseColour,
@@ -476,9 +481,9 @@ namespace BS3D.Tools.LevelGen
         private const float ECLIPSE_FAR_RADIUS = 4.6f;
         private const float ECLIPSE_FAR_CENTRE = 2.6f;
         private const int ECLIPSE_FAR_Z_LO = 3;
-        private const float ECLIPSE_NEAR_RADIUS = 3f;
-        private const float ECLIPSE_NEAR_CENTRE = 2.2f;
-        private const float ECLIPSE_NEAR_OFFSET = -1f;
+        private const float ECLIPSE_NEAR_RADIUS = 2.6f;
+        private const float ECLIPSE_NEAR_CENTRE = 1.7f;
+        private const float ECLIPSE_NEAR_OFFSET = -1.2f;
         private const int ECLIPSE_NEAR_Z_LO = 9;
 
         private static readonly BallType[] ECLIPSE_FAR = { BallType.Type1, BallType.Type7, BallType.Type6 };    //red, yellow, magenta
@@ -488,7 +493,7 @@ namespace BS3D.Tools.LevelGen
         private static int EclipsePart(int x, int z, int i, int depth)
         {
             Centred(x, z, i, ECLIPSE_GRID, out float dx, out _);
-            float below = QuarryDepth(i, depth);
+            float below = BelowGlass(i, depth);
 
             if (z >= ECLIPSE_NEAR_Z_LO && z < ECLIPSE_NEAR_Z_LO + QUARRY_TILE)
             {
@@ -564,7 +569,7 @@ namespace BS3D.Tools.LevelGen
         private static int GeodePart(int x, int z, int i, int depth)
         {
             Centred(x, z, i, GEODE_GRID, out float dx, out float dz);
-            float below = QuarryDepth(i, depth);
+            float below = BelowGlass(i, depth);
             float flat = dx * dx + dz * dz;
 
             float oy = (below - GEODE_CENTRE) / GEODE_HEIGHT;
@@ -579,7 +584,7 @@ namespace BS3D.Tools.LevelGen
         private static BallType GeodeColour(int x, int z, int i, int depth)
         {
             if (GeodePart(x, z, i, depth) == 2)
-                return QuarryDepth(i, depth) <= GEODE_TIP_COLOUR ? BallType.Type6 : BallType.Type5;   //magenta : cyan
+                return BelowGlass(i, depth) <= GEODE_TIP_COLOUR ? BallType.Type6 : BallType.Type5;   //magenta : cyan
 
             return QuarryBand(x, z, i, 0, 0, 1, 1, 1, GEODE_SHELL);
         }
