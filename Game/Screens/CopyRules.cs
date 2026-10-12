@@ -3,8 +3,9 @@ namespace BS3D.Screens
     /// <summary>
     /// The characters of the game's English copy (#806), as one check: "Typesetting" in
     /// <c>docs/game-shell/menu-look.md</c> sets the rules, and this says which one a string breaks. Pure, so a test can
-    /// hold every caption the tutorial draws to it (<c>CopyRulesTests</c>); the Myra pages' copy is held to the same rules
-    /// by review, since their strings are built inside a tree no test can construct.
+    /// hold every caption the tutorial draws to it (<c>CopyRulesTests</c>) and every string About draws of its own
+    /// (<see cref="AboutCopy"/>, #807); the other Myra pages' copy is held to the same rules by review, since their strings
+    /// are built inside a tree no test can construct.
     /// </summary>
     internal static class CopyRules
     {
