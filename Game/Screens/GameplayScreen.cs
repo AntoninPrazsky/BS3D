@@ -1928,6 +1928,11 @@ namespace BS3D.Screens
             //would let both of those bleed through it. Drawn with the barrel's own pose, recoil and all.
             Game.CannonRig.DrawGlass(Camera, barrelWorld, Game.SceneEffectParams);
 
+            //A page's own foreground over this frame (#856: Help's live balls, opened from the pause), into the sharp
+            //layer the host composites over the UI at the end of its Draw - after the balls and the glass, as the backdrop
+            //does, and before the velocity pass, whose record the aside keeps (BallRenderSet.DrawAside)
+            Game.DrawPageForeground();
+
             //The velocity pass rides the frame's close: after the last of the scene and before the resolve, which is
             //the one moment it can bind a target of its own without costing the scene target a second resolve
             Game.FinishSceneDraw(sceneFrame, _drawMotionVelocity);

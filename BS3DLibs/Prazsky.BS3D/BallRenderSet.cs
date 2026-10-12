@@ -2018,6 +2018,30 @@ namespace Prazsky.BS3D
             }
         }
 
+        /// <summary>Fills a frame opened for <see cref="DrawAside"/> — a method group rather than a lambda, so a caller allocates nothing per frame.</summary>
+        public delegate void AsideCollector(BallDrawFrame frame);
+
+        /// <summary>
+        /// A second, small frame after the main one has been drawn (#856: Help's live balls, drawn into the sharp
+        /// foreground layer after a session's or the backdrop's cluster): <see cref="BeginFrame"/>, the caller's
+        /// <paramref name="collect"/>, <see cref="Draw"/> — with <b>the motion record of the frame before kept</b>, which
+        /// <see cref="BeginFrame"/> would otherwise zero, so the velocity pass that rides the frame's close still finds
+        /// the session's balls where they were recorded. Nothing the aside adds is recorded: its frame does not ask for
+        /// the record, and <see cref="Draw"/> closed it.
+        /// </summary>
+        public void DrawAside(ICamera camera, float wallClockSeconds, AsideCollector collect)
+        {
+            int motionBalls = _motionBallCount, motionRounds = _motionRoundCount;
+            bool anyMoving = _anyBallMoving;
+
+            collect(BeginFrame(camera));
+            Draw(wallClockSeconds);
+
+            _motionBallCount = motionBalls;
+            _motionRoundCount = motionRounds;
+            _anyBallMoving = anyMoving;
+        }
+
         /// <summary>
         /// Every bucket of the frame through its renderer, in the order the transparency of some of them needs.
         /// <see cref="Draw"/>'s body, a method of its own since the rims (#804) walk the same buckets a second time.
