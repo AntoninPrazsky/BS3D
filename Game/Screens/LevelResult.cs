@@ -224,8 +224,9 @@ namespace BS3D.Screens
             : LevelNumber > 0 ? $"Level {LevelNumber} · {LevelName}"
             : LevelName;
 
-        //The page's other words, here beside the level line and the notes rather than inside the page's tree (#806), so a
-        //test holds every string the page shows to the typesetting rules (CopyRules, ResultCopyTests)
+        //The page's other words that change with the ending, here beside the level line and the notes rather than inside
+        //the page's tree (#806), so a test holds them to the typesetting rules (CopyRules, ResultCopyTests). The fixed ones
+        //(Retry, Main Menu, the breakdown's captions, the online status lines) are still literals in ResultPage
 
         /// <summary>
         /// The verdict over the page: CLEARED or FAILED, CAMPAIGN COMPLETE, or on a finished block the chapter's own name
