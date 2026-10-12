@@ -761,7 +761,8 @@ namespace BS3D.Tools.LevelGen
 
         //Twelve courses, from the glass down: the arms and the head (four), the shoulders (one), the chest with the crystal
         //in it (three), the hips (one) and the legs (three). Twelve and not more because the lowest ball starts 5.38 above
-        //the line and the glass comes down 0.71 a step: the feet reach it on the budget's eighth step, which is the clock.
+        //the line and the glass comes down 0.6 a step (SagProbe.CEILING_DESCENT_PER_STEP, the game's figure), so feet left
+        //untouched reach it on the ninth of the budget's ten steps, shot 36: that is the clock.
         private const byte COLOSSUS_DEPTH = 12;
         private const int COLOSSUS_HEAD_BASE = 8;
         private const int COLOSSUS_SHOULDERS = 7;
@@ -780,7 +781,7 @@ namespace BS3D.Tools.LevelGen
         private const float COLOSSUS_CORD = 0.5f;
         private const float COLOSSUS_CRYSTAL = 1f;
 
-        //The head, round in plan and as wide as Locket's neck, so a cell of air stands between it and each arm
+        //The head, round in plan and as wide as Locket's neck: the arms meet it at the shoulder and lean away from it
         private const float COLOSSUS_HEAD_RADIUS = 2.6f;
 
         //The arms, raised in a V: the middle of each is COLOSSUS_ARM_BASE off the axis where it leaves the shoulders and
@@ -806,7 +807,7 @@ namespace BS3D.Tools.LevelGen
         private const float COLOSSUS_LEG_DEPTH = 1f;
 
         //Where the stone's tiles are counted from, in raw x and z. Of the three phases a tile can take, 1 leaves one ball
-        //alone (the repair pass recolours it) and four pairs in 36 groups; 0 leaves none alone but four groups fewer, and
+        //alone (the repair pass recolours it) and three pairs in 33 groups; 0 leaves none alone but four groups fewer, and
         //2 leaves four alone.
         private const int COLOSSUS_TILE_FROM = 1;
 
