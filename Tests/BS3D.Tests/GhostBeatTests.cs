@@ -7,9 +7,9 @@ namespace BS3D.Tests
 {
     /// <summary>
     /// The landing preview's beat (#831): the aim ghost reaches exactly a whole ball every beat and never goes past it,
-    /// bottoms out at about a third of one, and is the same curve at every frame rate. The owner's words are what is held:
-    /// a whole ball at the top (a smaller one reads as farther away), never above 1 (it would push into the neighbours),
-    /// and a rubber bounce rather than a sway.
+    /// bottoms out at about three tenths of one, and is the same curve at every frame rate. The owner's words are what is
+    /// held: a whole ball at the top (a smaller one reads as farther away), never above 1 (it would push into the
+    /// neighbours), and a rubber bounce rather than a sway.
     /// </summary>
     public class GhostBeatTests
     {
@@ -53,7 +53,7 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void BottomsOutAtAboutAThirdOfABallEveryBeat()
+        public void BottomsOutAtAboutThreeTenthsOfABallEveryBeat()
         {
             foreach (float start in Starts)
             {
@@ -70,7 +70,7 @@ namespace BS3D.Tests
         [Fact]
         public void ContinuousAcrossEveryJoint()
         {
-            //The fastest the curve moves is about 12 sizes a second, on the rise. A jump anywhere - at the wrap from one beat
+            //The fastest the curve moves is about 14 sizes a second, on the rise. A jump anywhere - at the wrap from one beat
             //into the next, or where the settle takes over from the rise - shows as a step far steeper than this allows
             const float MAX_RATE = 20f;
 

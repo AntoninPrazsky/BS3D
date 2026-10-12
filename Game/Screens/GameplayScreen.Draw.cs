@@ -226,7 +226,7 @@ namespace BS3D.Screens
 
         /// <summary>
         /// Adds the ghost to the frame's collection: the colour actually loaded at the muzzle, in the cell it would
-        /// land in, beating between a third of a ball and a whole one (<see cref="GhostBeat"/>).
+        /// land in, beating between <see cref="GhostBeat.LOW"/> of a ball and a whole one (<see cref="GhostBeat"/>).
         /// </summary>
         /// <remarks>
         /// The colour is the magazine's front ball rather than a neutral grey on purpose — the useful question is
@@ -243,7 +243,7 @@ namespace BS3D.Screens
         /// <b>It reaches a whole ball every beat and never stands still</b> (#831). A ghost that never got bigger than
         /// three quarters of a ball read as farther away than its pocket; one that stood still at a whole ball would read as
         /// a ball already there. So the size tells the truth at the top of the beat and the motion says "not yet". It never
-        /// vanishes either (a third of a ball at the smallest), because its colour is what it is read for.
+        /// vanishes either (<see cref="GhostBeat.LOW"/> of a ball at the smallest), because its colour is what it is read for.
         /// </para>
         /// <para>
         /// Drawn in the cluster's <b>live</b> frame (<see cref="ShotPlacement.CellWorldPosition"/>) and not at the
@@ -341,9 +341,10 @@ namespace BS3D.Screens
         private const float MUZZLE_GLOW_SWING = 0.38f;
 
         /// <summary>
-        /// How often it breathes. Deliberately its own rate: the balls' own heartbeat is at
-        /// <c>BallRenderSet</c>'s 1.1 Hz and the landing ghost blinks at 2.2, so this sits between them and on
-        /// neither's harmonic — a marker that beat with the cluster would read as part of it.
+        /// How often it breathes. Deliberately its own rate: the balls' own heartbeat is <c>BallRenderSet</c>'s
+        /// <c>PULSE_BEATS_PER_SECOND</c> and the landing ghost beats at <see cref="GhostBeat.HZ"/>, so this sits between
+        /// them and on neither's harmonic — a marker that beat with the cluster would read as part of it, and one that
+        /// beat with the ghost would pulse in lock with it (the same colour, the same clock, the same gate).
         /// </summary>
         private const float MUZZLE_MARK_HZ = 1.6f;
 
@@ -376,7 +377,7 @@ namespace BS3D.Screens
         /// taken out of the ended level's frame for.
         /// </para>
         /// <para>
-        /// On the <b>wall</b> clock, like the ghost's blink and the balls' own breath: it is a thing the round
+        /// On the <b>wall</b> clock, like the ghost's beat and the balls' own breath: it is a thing the round
         /// <i>is</i>, not something the session is doing, so it keeps breathing while a pause holds the frame.
         /// </para>
         /// </summary>

@@ -21,22 +21,31 @@ namespace BS3D.Screens
     /// <para>
     /// <b>A pure function of the wall clock</b>, like the beam's crawl and the cluster's heartbeat: no state on the ghost
     /// (the frame visits every ball once, see <c>GameplayScreen.Draw.cs</c>'s header), and so the same curve at every frame
-    /// rate. The hold at 1 lasts about 120 ms and the deep end about as long, so even 24 frames a second show both ends of
-    /// every beat (<c>GhostBeatTests</c>). Faster than the cluster's 1.1 Hz breath, so the ghost reads as unsettled rather
-    /// than as alive in step with the balls round it.
+    /// rate. The hold at 1 lasts two <see cref="LAND_SECONDS"/> and the deep end about as long, so even 24 frames a second
+    /// show both ends of every beat (<c>GhostBeatTests</c>).
     /// </para>
     /// </summary>
     internal static class GhostBeat
     {
-        /// <summary>Beats a second: one rise, its hold and its settle, 0.625 s.</summary>
-        public const float HZ = 1.6f;
+        /// <summary>
+        /// Beats a second: one rise, its hold and its settle. <b>Its own rate</b>, on no harmonic of the other things that
+        /// pulse while the player aims. Faster than the cluster's heartbeat (<c>BallRenderSet</c>'s
+        /// <c>PULSE_BEATS_PER_SECOND</c>), so the ghost reads as unsettled rather than as alive in step with the balls round
+        /// it. And ⚠ <b>off the muzzle collar's breath</b> (<c>GameplayScreen</c>'s <c>MUZZLE_MARK_HZ</c>): the collar
+        /// glows in the same loaded colour, on the same wall clock and the same gate as the ghost, so at one rate the two
+        /// would pulse as a phase-locked pair, and the collar's rate was chosen to be its own (#831's first build sat on
+        /// it). The beat's other figures are set for this rate: a slower one has room to spare, a faster one has to
+        /// shorten <see cref="LAND_SECONDS"/> and <see cref="SETTLE_DEEPEST_SECONDS"/> or lose the spring back from the
+        /// bottom (<c>GhostBeatTests</c>).
+        /// </summary>
+        public const float HZ = 1.8f;
 
         /// <summary>The smallest the ghost gets, as a share of a whole ball's radius: the deepest point of the settle,
         /// reached once a beat. Small enough to read as "not yet" beside the balls round it at the overview stand-off.</summary>
         public const float LOW = 0.3f;
 
         /// <summary>From the start of a beat to the moment the ghost first touches a whole ball: the snap.</summary>
-        public const float LAND_SECONDS = 0.06f;
+        public const float LAND_SECONDS = 0.05f;
 
         /// <summary>How far under the ceiling the one rebound sags, as a share of the climb (about; the spring sets it).</summary>
         public const float REBOUND = 0.15f;
@@ -45,11 +54,16 @@ namespace BS3D.Screens
         public const float SETTLE_DAMPING = 0.5f;
 
         /// <summary>From leaving the ceiling to the deepest point of the settle (<see cref="LOW"/>).</summary>
-        public const float SETTLE_DEEPEST_SECONDS = 0.2f;
+        public const float SETTLE_DEEPEST_SECONDS = 0.18f;
 
         //The rise: y = 1 - e^(-kt)·cos(ωt), a spring released towards 1. It first reaches 1 at ωt = π/2 (LAND_SECONDS), would
         //overshoot until 3π/2 (held at 1 by the ceiling), sags under 1 to its deepest near 2π (REBOUND) and is back on 1 at 5π/2,
-        //where the settle takes over: from 1, with no slope, so leaving the ceiling has no corner in it
+        //where the settle takes over from exactly 1.
+        //
+        //The SIZE is continuous everywhere, here and at the beat's wrap; the SLOPE is not, and is not meant to be. The rise
+        //meets the ceiling still climbing, at 5π/2 as at π/2, and what follows leaves it flat (the clamp's hold at π/2, the
+        //settle's zero starting slope at 5π/2): the corner of a ball striking a surface. At the wrap the settle is still
+        //climbing slowly when the next rise starts fast: the snap. Smoothing either corner away would take out the bounce
         private static readonly float RiseOmega = MathF.PI / (2f * LAND_SECONDS);
         private static readonly float RiseDecay = -MathF.Log(REBOUND) / (2f * MathF.PI / RiseOmega);
 
@@ -64,7 +78,7 @@ namespace BS3D.Screens
         //Where the settle comes to rest, chosen so that its undershoot bottoms out at LOW exactly
         private static readonly float Rest = (LOW + SettleUndershoot) / (1f + SettleUndershoot);
 
-        //Where the settle has got to when the beat ends, which is where the next rise starts from: the curve is continuous
+        //Where the settle has got to when the beat ends, which is where the next rise starts from: the size is continuous
         //across the beat's wrap rather than jumping to a round number
         private static readonly float Start = Rest + (1f - Rest) * Settle(1f / HZ - TOP_SECONDS);
 
