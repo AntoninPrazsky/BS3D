@@ -555,9 +555,14 @@ namespace BS3D.Screens
 
             //The debug unlock (#349). Under the campaign heading because it is the same kind of thing the row above
             //is - the player's record - and it is a DEVELOPMENT convenience: it is off at every launch and writes
-            //nothing, so it can never make a real save read further along than it is. Hiding it behind a build
-            //flag is a shipping concern and not one yet.
-            AddCheckRow(grid, 5, "Unlock all", Game.ToggleUnlockAll, out _unlockAllCheck);
+            //nothing, so it can never make a real save read further along than it is. DEV BUILDS ONLY since #854:
+            //a release (a tag build, BuildVersion.Release set) does not draw the row, because a player who finds it
+            //opens the whole campaign and spoils it. The test is the build's own word, not the Debug/Release
+            //configuration: the owner plays Release-configuration builds of main, and those keep the row. The
+            //switch itself is inert in a release too (ToggleUnlockAll), so no caller can turn on what no row shows.
+            //The grid simply ends at Reset progress there; a row is added per call, so nothing is left blank.
+            if (BuildVersion.Release is null)
+                AddCheckRow(grid, 5, "Unlock all", Game.ToggleUnlockAll, out _unlockAllCheck);
 
             return grid;
         }
@@ -763,7 +768,8 @@ namespace BS3D.Screens
             _dropCinematicCheck.Show(Game.IsDropCinematicEnabled);
             _introLogoCheck.Show(Game.IsIntroLogoEnabled);
             _tutorialCheck.Show(Game.IsTutorialEnabled);
-            _unlockAllCheck.Show(Game.IsUnlockAllEnabled);
+            //Null in a release build, which draws no such row (#854)
+            _unlockAllCheck?.Show(Game.IsUnlockAllEnabled);
             _volumeValue.Text = FormatVolume(Game.MasterVolume);
             _effectsValue.Text = FormatVolume(Game.SfxVolume);
             _musicValue.Text = FormatVolume(Game.MusicVolume);

@@ -600,3 +600,9 @@ Pravidla:
 - Bez majitele, konzervativně: Brzda hraje tentýž stoupající zvuk, žádný protějšek (klesající figura tu znamená „ne“); proud feedů stoupá o půltón za krok až o kvintu; pod nahrávkou přimíchané tělo 132 Hz (3,4 %).
 - ⚠ Podíl pásma celého zvuku měř bez okna: Hann přes celý zvuk dal 90,9 % místo 59,6 %. Časování ve hře nikdy na Stopwatch: pauza pak proud restartuje.
 - Otevřené: ucho majitele (monitor, notebook); hlasitost proti hudbě jen měřena.
+
+## 2026-10-12 — #854 Unlock all jen v dev buildu — ThinkPad, Claude Code (github-44)
+- #854 (merge do mainu, zavřeno jako objektivní): řádek Unlock all na záložce GAME se kreslí jen při `BuildVersion.Release == null` a `ToggleUnlockAll` v release odmítne, takže vydání nemá, čím otevřít kampaň. Brána je slovo buildu (tag), ne konfigurace Debug/Release: majitel hraje Release buildy mainu a ty řádek mají.
+- Ověřeno snímky `settings=tab:game shot=8`: plain build (dev-2f39123) řádek má, build s `-p:BS3DReleaseVersion=v0.0.0-test` končí u Reset progress, Back stojí na místě (rám stránky je měřen podle nejvyšší záložky).
+- ⚠ Build se stavem release stav do vlastní složky (`-o`) a hned smaž: jinak leží vedle plain buildu exe, které by s online zapsalo na veřejné tabule.
+- Otevřené: nic; dev build nadále bez změny.
