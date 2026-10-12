@@ -1,3 +1,4 @@
+using Prazsky.BS3D.Levels;
 using Prazsky.BS3D.Scoring;
 using System;
 
@@ -84,10 +85,20 @@ namespace BS3D.Screens
 
         /// <summary>
         /// The longest the completion bonus waits for the award that cleared the field to finish being read
-        /// (<see cref="BonusWait"/>). Bounded so the bonus lands inside the cleared beat (2.5 s, <c>LEVEL_CLEARED_BEAT</c>):
-        /// this, the longest read and the flight together come to 2.35 s.
+        /// (<see cref="BonusWait"/>): the least read any superseded award is cut to, so the bonus takes the read exactly
+        /// as a newer award would. No longer, because the bonus has to land with <see cref="BONUS_COUNT_IN"/> of the
+        /// cleared beat (<see cref="LevelPhases.ClearedBeatSeconds"/>) still to go: this, the longest read, the flight and
+        /// that count-in fill the beat.
         /// </summary>
-        public const float BONUS_WAIT_MAX = 0.6f;
+        public const float BONUS_WAIT_MAX = MIN_READ;
+
+        /// <summary>
+        /// The least time the corner gets to count the completion bonus in between its landing and the result page,
+        /// which hides the HUD. The readout closes a share of the gap a second (<c>PlayHud.SCORE_CHASE_PER_SECOND</c>),
+        /// so over this it shows nearly nine tenths of the bonus; a bonus landing just before the page would be cut off
+        /// a little over half counted.
+        /// </summary>
+        public const float BONUS_COUNT_IN = 0.35f;
 
         /// <summary>The largest an award is ever drawn, in scores: <see cref="PEAK_BIG"/> at the top of the zoom's
         /// overshoot. The tallest of the HUD's award fonts is rasterised at this, so a glyph is only ever shrunk.</summary>
@@ -144,14 +155,22 @@ namespace BS3D.Screens
             1f - MathF.Exp(-MathF.Max(0f, MathF.Min(age, hold)) / RISE_TAU);
 
         /// <summary>
-        /// The new hold of an award still being read when a newer one is born (#846): it <b>leaves now</b>, so two numbers
-        /// are never read at once, unless it has not yet been read for <see cref="MIN_READ"/>, in which case it leaves
-        /// then. Never later than it would have, and never earlier than its own age, so its size does not jump.
+        /// The new hold of an award still being read when a newer one is born (#846): it <b>leaves now</b>, unless it has
+        /// not yet been read for <see cref="MIN_READ"/>, in which case it leaves then. Never later than it would have, and
+        /// never earlier than its own age, so its size does not jump.
+        /// <para>
+        /// Leaving is not vanishing: it <b>shrinks where it stands</b> over <see cref="SHRINK_SHARE"/> of the throw while
+        /// the newer one zooms in, and stays larger than the score for under a quarter of a second of that
+        /// (<c>AwardZoomTests</c>). So two numbers larger than the score do stand together at a hand-off, for that
+        /// quarter second however far apart the landings are, and for what was left of <see cref="MIN_READ"/> longer when
+        /// they are closer than it: a hand-off, the newer one bursting in as the older one shrinks off.
+        /// </para>
         /// </summary>
         public static float HandOff(float age, float hold) => MathF.Min(hold, MathF.Max(age, MIN_READ));
 
         /// <summary>How long the completion bonus waits before it is born, given the longest any award still has to be
-        /// read: until that read ends, but never more than <see cref="BONUS_WAIT_MAX"/>.</summary>
+        /// read: until that read ends, but never more than <see cref="BONUS_WAIT_MAX"/>, after which it takes the read as
+        /// a newer award does (<see cref="HandOff"/>).</summary>
         public static float BonusWait(float longestReadLeft) => Math.Clamp(longestReadLeft, 0f, BONUS_WAIT_MAX);
 
         private static float ReadSize(float age, float birth, float peak)

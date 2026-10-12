@@ -788,8 +788,9 @@ namespace BS3D.Screens
         /// </summary>
         private bool _campaignCompleted;
 
-        /// <summary>How long that pause is — long enough for a big collapse to reach the drain and go down it.</summary>
-        private const float LEVEL_CLEARED_BEAT = 2.5f;
+        /// <summary>How long that pause is — long enough for a big collapse to reach the drain and go down it. Stated in
+        /// <see cref="LevelPhases.ClearedBeatSeconds"/>, where the logic tests can hold the HUD's timings to it.</summary>
+        private const float LEVEL_CLEARED_BEAT = LevelPhases.ClearedBeatSeconds;
 
         /// <summary>
         /// The level's outcome is settled: anything past <see cref="LevelPhase.Playing"/> — the field has emptied

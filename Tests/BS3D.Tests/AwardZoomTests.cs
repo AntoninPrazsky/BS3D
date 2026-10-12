@@ -1,4 +1,5 @@
 using BS3D.Screens;
+using Prazsky.BS3D.Levels;
 using Prazsky.BS3D.Scoring;
 using System;
 using System.Collections.Generic;
@@ -10,7 +11,8 @@ namespace BS3D.Tests
     /// The award's zoom (#846): what the owner asked for, held as numbers. The points gained zoom well past the score's
     /// size, a big release bigger and longer than a bare match, then shrink and are thrown into the corner at the size
     /// they always landed at; nothing snaps on the way, however the read was cut short by a newer award; and the
-    /// completion bonus, which waits for the clearing shot's award, still lands inside the cleared beat.
+    /// completion bonus, which waits for the clearing shot's award, still lands in time to be counted into the
+    /// score before the result page.
     /// </summary>
     public class AwardZoomTests
     {
@@ -166,17 +168,38 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void TheBonusLandsInsideTheClearedBeat()
+        public void TheBonusLandsAndIsCountedInBeforeThePage()
         {
-            //GameplayScreen.LEVEL_CLEARED_BEAT: the page covers the HUD after it, and an award still in the air then is
-            //never seen to land
-            const float CLEARED_BEAT = 2.5f;
-
+            //The page covers the HUD when the cleared beat ends: an award still in the air then is never seen to land, and
+            //one landing just before it is cut off while the corner is still counting it into the score
             float worst = AwardZoom.BonusWait(float.MaxValue) + AwardZoom.Lifetime(AwardZoom.Hold(int.MaxValue));
-            Assert.True(worst <= CLEARED_BEAT - 0.1f, $"the bonus can land {worst} s after the clear");
+            Assert.True(worst + AwardZoom.BONUS_COUNT_IN <= LevelPhases.ClearedBeatSeconds + 1e-4f,
+                $"the bonus can land {worst} s after the clear, leaving the corner {LevelPhases.ClearedBeatSeconds - worst} s to count it in");
 
-            Assert.Equal(0f, AwardZoom.BonusWait(-1f));
-            Assert.Equal(0.3f, AwardZoom.BonusWait(0.3f), 6);
+            //And the clearing shot's award is seen whole before the bonus takes the read, as a superseded award is
+            foreach (float readLeft in new[] { -1f, 0f, 0.3f, AwardZoom.MIN_READ, 1f, float.MaxValue })
+            {
+                float wait = AwardZoom.BonusWait(readLeft);
+                Assert.True(wait >= MathF.Min(MathF.Max(readLeft, 0f), AwardZoom.MIN_READ) - 1e-6f,
+                    $"the bonus is born {wait} s after the clear, before the clearing award ({readLeft} s of read left) is read");
+                Assert.True(wait <= MathF.Max(readLeft, 0f) + 1e-6f, $"the bonus waits {wait} s on a read that ends in {readLeft} s");
+            }
+        }
+
+        [Fact]
+        public void AnAwardHandedOnShrinksUnderTheScoreWithinAQuarterSecond()
+        {
+            //A superseded award shrinks where it stands while the newer one zooms in, and is larger than the score for no
+            //longer than this after it leaves: how long two big numbers stand together at a hand-off, which the HUD's doc
+            //quotes (plus what was left of MIN_READ when the landings were closer than it)
+            const float SHRUNK_WITHIN = 0.25f;
+
+            foreach ((int points, float hold) in Reads())
+            {
+                float birth = AwardZoom.Birth(points), peak = AwardZoom.Peak(points);
+                float size = AwardZoom.Size(hold + SHRUNK_WITHIN, hold, birth, peak);
+                Assert.True(size <= 1f, $"{points} points left at {hold:0.000} s and is still {size} scores {SHRUNK_WITHIN} s later");
+            }
         }
 
         [Fact]

@@ -511,7 +511,7 @@ namespace BS3D.Screens
             public bool Projected;
 
             public string Text;             //"+1 200"
-            public string Suffix;           //"×3", "bonus", or null at ×1
+            public string Suffix;           //"×3", the completion bonus's "unused", or null at ×1
 
             /// <summary>What this is carrying, withheld from the readout until it lands there.</summary>
             public int Points;
@@ -548,8 +548,12 @@ namespace BS3D.Screens
         /// born on a cell near the top of the frame is held inside it rather than cut off.</summary>
         private const int POPUP_EDGE = 40;
 
-        /// <summary>The bonus's caption, in the accent beside its figure where an award carries its multiplier.</summary>
-        private const string BONUS_SUFFIX = "bonus";
+        /// <summary>
+        /// The bonus's caption, in the accent beside its figure where an award carries its multiplier. The word the result
+        /// page and the Help page pay it under ("shots unused"), so the figure the HUD threw is found again on the page
+        /// beside the same word. "bonus" pointed at the page's "streak bonus" row, which holds another figure.
+        /// </summary>
+        private const string BONUS_SUFFIX = "unused";
 
         /// <summary>Where the balls-left count stands this frame, its centre in pixels: the completion bonus is born there.
         /// Written by <see cref="DrawBallsLeft"/>, which runs before the awards in the same pass.</summary>
