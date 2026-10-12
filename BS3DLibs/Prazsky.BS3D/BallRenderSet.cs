@@ -1518,6 +1518,20 @@ namespace Prazsky.BS3D
         }
 
         /// <summary>
+        /// The colour cue prototypes (#737): whether the colours <see cref="ColourCues"/> names carry their second
+        /// figure painted (<see cref="ColourCueForm.Motif"/>) or carved (<see cref="ColourCueForm.Shape"/>) - on the
+        /// vinyl, the wool and the marble, the three styles that have the programs; every other style draws as
+        /// shipped. <see cref="ColourCueForm.None"/> by default and in everything a player can reach: only the
+        /// Testbed's and the Game's <c>colourcue=</c> argument set it, for the owner to choose between the two.
+        /// <para>
+        /// It reaches the cluster and the loaded rounds alike (both are <see cref="DrawPlane"/>), since a cue on the
+        /// cluster alone would not help the player choosing a shot. The HUD's queue draws its own discs and does
+        /// not carry it, and the special kinds keep their own looks: a frozen or a heavy ball is that kind first.
+        /// </para>
+        /// </summary>
+        public ColourCueForm ColourCue { get; set; }
+
+        /// <summary>
         /// The per-renderer figures that differ between the styles. Everything a ball IS — its colour, its
         /// heartbeat, its ripple, its dissolve, its occlusion — is the same in all of them and is set once in
         /// the constructor; what is set here is only what the surface does with light.
@@ -2667,10 +2681,19 @@ namespace Prazsky.BS3D
 
                     BallType type = (BallType)(typeIndex + 1);
 
+                    //The colour's second cue (#737), stated for every bucket like its tint: the renderer picks the
+                    //cue's program only where both this and its own form say so
+                    _renderers[lod].ColourCueForm = ColourCue;
+                    _renderers[lod].ColourCue = ColourCues.SlotOf(type);
+
                     _renderers[lod].Draw(camera, _buckets[bucketIndex], count,
                         BasicEffectParamsProvider.GetEffectByType(type),
                         BasicEffectParamsProvider.GetDiffuseTintByType(type));
                 }
+
+            //And off again, so no other draw through these renderers - a special kind's plane, the rocks - inherits
+            //the last colour's figure
+            for (int lod = 0; lod < LodCount; lod++) _renderers[lod].ColourCue = ColourCues.NONE;
         }
 
         /// <summary>

@@ -718,8 +718,14 @@ namespace Testbed
             _balls = new BallRenderSet(GraphicsDevice, _instancingEffect)
             {
                 SupersampleFactor = _supersampleFactor,
-                Style = _ballStyleFromCommandLine ?? BallStyle.Beach
+                Style = _ballStyleFromCommandLine ?? BallStyle.Beach,
+
+                //The colour cue prototypes (#737), off unless "colourcue=" asked
+                ColourCue = _options.ColourCue
             };
+
+            if (_options.ColourCue != ColourCueForm.None)
+                Console.WriteLine($"[colourcue] {ColourCues.Name(_options.ColourCue)}: silver, brown, white and yellow carry a figure on the vinyl, the wool and the marble");
 
             //The pipeline caches its parameters and sets each look value exactly once through the required
             //initializer — fixed for the whole run here (the game alone has the Settings toggles). See #74.
@@ -1347,7 +1353,7 @@ namespace Testbed
         /// or a setter whose whole effect lands in the same frame.
         /// </summary>
         private static readonly string[] ALTERNATION_DIALS =
-            { "arena", "capprobe", "scene", "sky", "balls", "ssaa", "msaa", "rscale", "detail", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano" };
+            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano" };
 
         /// <summary>
         /// Prints the sweep's plan before the first window, and names anything it will not switch. A pin that
@@ -1413,6 +1419,11 @@ namespace Testbed
 
                     case "balls":
                         if (BallStyles.TryParse(pin.Value, out BallStyle style)) _balls.Style = style;
+                        break;
+
+                    //The colour cue prototypes (#737): a technique chosen per draw, so nothing carries across
+                    case "colourcue":
+                        if (ColourCues.TryParseForm(pin.Value, out ColourCueForm cue)) _balls.ColourCue = cue;
                         break;
 
                     case "ssaa":

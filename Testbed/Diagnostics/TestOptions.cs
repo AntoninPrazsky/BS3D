@@ -311,6 +311,15 @@ namespace Testbed.Diagnostics
         /// </summary>
         public BallStyle? Balls { get; private set; }
 
+        /// <summary>
+        /// <c>colourcue=&lt;none|motif|shape&gt;</c> (#737): the colour cue prototypes, the figure four colours carry
+        /// beside their hue, painted (<c>motif</c>, also <c>a</c>) or carved (<c>shape</c>, also <c>b</c>). Off
+        /// by default. Spelled through <see cref="ColourCues.TryParseForm"/>, which the Game's argument also
+        /// takes, and alternable (<c>alt=colourcue=none;colourcue=motif;colourcue=shape</c>): a switch is a
+        /// technique chosen per draw and leaves nothing behind.
+        /// </summary>
+        public ColourCueForm ColourCue { get; private set; }
+
         /// <summary><c>campos=x,y,z</c>: place the free camera at startup, so a shot can be framed from anywhere.</summary>
         public Vector3? CamPos { get; private set; }
 
@@ -471,6 +480,7 @@ namespace Testbed.Diagnostics
                     options.SceneSeed = parsedSceneSeed;
                 else if (arg.StartsWith("weather=", StringComparison.OrdinalIgnoreCase)) options.Weather = arg.Substring("weather=".Length);
                 else if (arg.StartsWith("balls=", StringComparison.OrdinalIgnoreCase) && BallStyles.TryParse(arg.Substring("balls=".Length), out BallStyle parsedBalls)) options.Balls = parsedBalls;
+                else if (arg.StartsWith("colourcue=", StringComparison.OrdinalIgnoreCase) && ColourCues.TryParseForm(arg.Substring("colourcue=".Length), out ColourCueForm parsedCue)) options.ColourCue = parsedCue;
                 else if (arg.StartsWith("width=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("width=".Length), out int parsedWidth) && parsedWidth > 0) options.WindowWidth = parsedWidth;
                 else if (arg.StartsWith("height=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("height=".Length), out int parsedHeight) && parsedHeight > 0) options.WindowHeight = parsedHeight;
                 //"campos=x,y,z" / "camtarget=x,y,z" place and aim the free camera at startup, so a screenshot
