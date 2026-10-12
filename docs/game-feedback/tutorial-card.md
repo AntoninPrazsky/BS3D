@@ -26,6 +26,7 @@ Part of [The game: feedback](../game-feedback.md). Which lessons exist, their or
 - **Aim reads the pose** (`Cannon.Traverse`/`Elevation`, travel since the card came up), so mouse and stick are judged alike. The holds want `HOLD_SECONDS` **unbroken**.
 - **Fire is the shot leaving** (`Shoot`), not landing; **match is a landing that scored**. The streak cue is the multiplier above ×1 *after* `Landed`. The glass lesson fires from `AnnounceCeilingStep` on a pressure step only; the line lesson from `UpdateLaserWarning` on the net's off-to-on edge only.
 - **A lesson reported while its card is not the one up is ignored.** Nothing allocates (captions are literals).
+- **The copy is held to the typesetting rules** ("Typesetting" in `docs/game-shell/menu-look.md`): `CopyRulesTests` runs `CopyRules.Fault` over every string `Tutorial.Copy` returns, both hands', so a card written with a straight apostrophe, a hyphen for a dash or three dots fails there.
 
 ## Takeovers and decided levels
 

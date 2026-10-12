@@ -35,7 +35,7 @@ Each lesson has the level it first becomes eligible at; the opener carries only 
 
 ### The send-off
 
-`graduated` reads **"That's the basics — you know how to play"**; a card with no praise row.
+`graduated` reads **"That’s the basics — you know how to play"**; a card with no praise row.
 
 - **Nothing is shown after it (#605):** a send-off followed by "The glass steps down every 7 shots" is a lie. `Tutorial.NothingAfterTheSendOff` queues any contextual lesson still untaught as a plain card **ahead** of it, **except `line`** (a warning about a moment, false at the start); after it nothing more is taught in the chapter. A fresh run's queue on Amphora: `… combine, linerule, ceiling, graduated`.
 - **It closes the first chapter's ladder only.** An owed lesson follows the player into the second chapter (`Tutorial.Eligible`): losing Amphora early means `linerule` and the send-off on Heart. **A later chapter's cards wait for an owed send-off.**

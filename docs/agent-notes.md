@@ -540,3 +540,10 @@ Pravidla:
 - ⚠ Review: kopanec chrastění zkracoval 0,9 s ocas uvolnění na svou délku a výstřel na ocasu přeskočil strop (0,88); opraveno vrstvami, testy viděny selhat.
 - ⚠ Argument `pad` nepřipne ruku na pad, jen výzvy (#852), skriptovaný běh dunění nedosáhne.
 - Otevřené: verdict-hands na padu; #852.
+
+## 2026-10-12 — #806 typografie: pravidla a zlom odstavce — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #806 (merge následuje), `shipped-awaiting-verdict` + `verdict-eye`. Pravidla v `docs/game-shell/menu-look.md`, „Typesetting“: míra 67 znaků (`MENU_PROSE_MEASURE`), proklad 1,46 em, odstavec 1 em, pomlčka s mezerami, ’ “ ”, …, nedělitelné mezery. `SpaceWrap` neplní hladově: nejméně řádků, žádné osamělé slovo na konci, rovný okraj. `MenuPage.Paragraph/Aside/Prose`, `CopyRules` hlídá tutoriál. Help, Settings, přezdívka, karty tutoriálu, About (jen znaky), stavové řádky žebříčků a výsledku.
+- Bez majitele (spí), konzervativně: About bez prokladu do #807; nadpis nad blokem = sekční velikost.
+- ⚠ FontStashSharp bere U+00A0 jako mezeru: nedělitelná mezera drží jen přes `SpaceWrap`.
+- ⚠ Nástroj Write převádí `\u00A0` na skutečný znak; escape vkládat skriptem.
+- Otevřené: čísla v tabulkách (žebříčky, rozpis výsledku), výběr úrovně, stránka CLEARED; Myra stránky hlídá jen review.

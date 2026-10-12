@@ -416,6 +416,91 @@ namespace BS3D.Screens
             - label.BorderThickness.Left - label.BorderThickness.Right
             - label.Padding.Left - label.Padding.Right;
 
+        /// <summary>
+        /// A paragraph of running text (#806): the small face in the body grey, its lines chosen for the paragraph's
+        /// shape (<see cref="SpaceWrap"/>), set at the prose leading, with <see cref="ParagraphGap"/> under it. One place
+        /// for what a paragraph is, so the pages' paragraphs cannot drift apart again the way they did when each set its own
+        /// face, colour and gap. <paramref name="width"/> is the column's: prose wider than <see cref="ProseMeasure"/> is a
+        /// measure too long to read, so a page with a wider column sets its paragraphs at that instead ("Typesetting" in
+        /// <c>docs/game-shell/menu-look.md</c>).
+        /// </summary>
+        protected Label Paragraph(string text, int width) =>
+            Prose(text, width, BS3DGame.MENU_TEXT_BODY, Game.ProseLeading, new Thickness(0, 0, 0, ParagraphGap));
+
+        /// <summary>
+        /// An aside (#806): set as <see cref="Paragraph"/> but in the dim grey — a caption over or under a block, a note
+        /// beside the rows, what a field wants.
+        /// </summary>
+        protected Label Aside(string text, int width) =>
+            Prose(text, width, BS3DGame.MENU_TEXT_DIM, Game.ProseLeading, new Thickness(0, 0, 0, ParagraphGap));
+
+        /// <summary>
+        /// The prose label <see cref="Paragraph"/> and <see cref="Aside"/> are made of, for a page that places it otherwise:
+        /// its own colour, leading and margin. The margin is set before the lines are measured, and in true pixels rather
+        /// than through <see cref="ScaledThickness(int, int, int, int)"/>, whose zero is a pixel (see <see cref="LaidOutWidth"/>).
+        /// </summary>
+        protected Label Prose(string text, int width, Color color, int leading, Thickness margin)
+        {
+            Label label = new()
+            {
+                Font = FontSmall,
+                TextColor = color,
+                Wrap = true,
+                Width = width,
+                VerticalSpacing = leading,
+                Margin = margin,
+                HorizontalAlignment = HorizontalAlignment.Left,
+            };
+
+            SetProse(label, text);
+            return label;
+        }
+
+        /// <summary>
+        /// Writes <paramref name="text"/> into a prose label, broken into lines for its face and its laid-out width — also
+        /// for a label whose text changes after it is built (the Settings note, the nickname plate's hint).
+        /// </summary>
+        protected static void SetProse(Label label, string text) =>
+            label.Text = SpaceWrap.Wrap(text, LaidOutWidth(label), line => label.Font.MeasureString(line).X);
+
+        /// <summary>
+        /// The height a prose label needs to show the tallest of <paramref name="texts"/> without moving what stands under
+        /// it as its text changes (#769): each laid out by a probe with the label's own face, width, margin and leading, as
+        /// it will be drawn. Measured rather than counted in <c>LineHeight</c>s, because Myra counts a margin inside an
+        /// explicit height (counting cut the Settings note's last clause).
+        /// </summary>
+        protected static int ProseHeight(Label label, params string[] texts)
+        {
+            int width = label.Width.GetValueOrDefault();
+            int tallest = 0;
+
+            foreach (string text in texts)
+            {
+                Label probe = new()
+                {
+                    Font = label.Font,
+                    Wrap = true,
+                    Width = width,
+                    Margin = label.Margin,
+                    VerticalSpacing = label.VerticalSpacing,
+                };
+                SetProse(probe, text);
+
+                tallest = Math.Max(tallest, probe.Measure(new Point(width, int.MaxValue / 2)).Y);
+            }
+
+            return tallest;
+        }
+
+        /// <summary>The space a paragraph leaves under itself (#806): one em of the small face.</summary>
+        protected int ParagraphGap => Game.ParagraphGap;
+
+        /// <summary>The widest prose is set (#806): about 67 characters of the small face.</summary>
+        protected int ProseMeasure => Game.ProseMeasure;
+
+        /// <summary>The space added between two lines of prose (#806).</summary>
+        protected int ProseLeading => Game.ProseLeading;
+
         /// <summary>The build's name, small, in the bottom-right corner — on the front end and About only.</summary>
         protected Label VersionTag() => Game.VersionTag();
 

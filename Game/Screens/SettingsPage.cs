@@ -144,8 +144,8 @@ namespace BS3D.Screens
         }
         private Label _onlineValue, _nicknameValue, _removeValue, _onlineNote;
 
-        //The width the note's text is laid out to, in pixels (SizeOnlineNote, #769)
-        private int _noteTextWidth;
+        //What the note was last set to say, before its lines were chosen (Refresh)
+        private string _noteSource;
 
         //The tab row's width in pixels, which every page is cut to (#770); set by BuildTabRow
         private int _tabRowWidth;
@@ -505,14 +505,17 @@ namespace BS3D.Screens
             AddRow(grid, 2, "Remove scores", OnRemove, out _removeValue);
 
             //What is sent and what is kept, in the About page's own words (one sentence, one source) — or, while it
-            //is more use, what the player is doing: typing, or a removal's outcome. Its width is the rows' own and its
-            //height the tallest thing it can say, both set in BuildTree once the caption column is known (SizeOnlineNote).
+            //is more use, what the player is doing: typing, or a removal's outcome. Its width is the rows' own up to the
+            //prose measure, and its height the tallest thing it can say, both set in BuildTree once the caption column is
+            //known (SizeOnlineNote). Set as prose (#806): the prose leading, the lines chosen by SpaceWrap.
             grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
             _onlineNote = new Label
             {
                 Font = FontSmall,
                 TextColor = BS3DGame.MENU_TEXT_DIM,
                 Wrap = true,
+                VerticalSpacing = ProseLeading,
+                HorizontalAlignment = HorizontalAlignment.Left,
                 VerticalAlignment = VerticalAlignment.Top,
                 Margin = ScaledThickness(0, GROUP_HEADING_GAP, 0, 0),
             };
@@ -785,10 +788,17 @@ namespace BS3D.Screens
             _onlineValue.Text = !online ? "Off" : noServer ? "No server" : "On";
             _onlineValue.TextColor = !online || noServer ? BS3DGame.MENU_TEXT_ALERT : BS3DGame.MENU_TEXT;
             ShowNickname();
-            _removeValue.Text = Game.Online.Removal == OnlineRemovalState.Removing ? "Removing..."
+            _removeValue.Text = Game.Online.Removal == OnlineRemovalState.Removing ? "Removing…"
                 : _removeArmed ? "Sure?"
                 : Game.Online.Nickname == null ? "Nothing" : "Remove";
-            _onlineNote.Text = SpaceWrap.Wrap(OnlineNote(), _noteTextWidth, MeasureNoteLine);
+            //Broken into lines only when what it says changes: a typed key refreshes the page, and the note's lines are a few
+            //hundred measures (SpaceWrap)
+            string note = OnlineNote();
+            if (note != _noteSource)
+            {
+                _noteSource = note;
+                SetProse(_onlineNote, note);
+            }
             //The instruction while typing is the thing to read on the page, so it is not set as an aside (#687)
             _onlineNote.TextColor = _typing ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM;
 
@@ -861,7 +871,7 @@ namespace BS3D.Screens
             switch (Game.Online.Removal)
             {
                 case OnlineRemovalState.Removing:
-                    return "Asking the server to remove your scores...";
+                    return "Asking the server to remove your scores…";
                 case OnlineRemovalState.Removed:
                     return "Removed from the server and from this machine.";
                 case OnlineRemovalState.RemovedHere:
@@ -886,13 +896,13 @@ namespace BS3D.Screens
         //refusal, a removal under way or failed) are a line or two as the score server words its reasons today; a reason
         //the server sent at length would be cut, since what it says cannot be measured ahead of it.
         private static readonly string TYPING_NOTE = "Press Enter to keep the name, or Esc to cancel. Moving to another row keeps it too. "
-            + $"{Nickname.MinLength} to {Nickname.MaxLength} letters, digits, spaces, _ or -, typed on the keyboard.";
+            + $"{Nickname.MinLength}\u00A0to\u00A0{Nickname.MaxLength} letters, digits, spaces, _ or -, typed on the keyboard.";
 
         private const string REMOVED_HERE_NOTE =
             "Removed from this machine. No score server was in reach, so nothing had been sent from here.";
 
         private const string NO_SERVER_NOTE =
-            "No score server: this build has none to send to, so nothing is sent. A release sends to the game's own server.";
+            "No score server: this build has none to send to, so nothing is sent. A release sends to the game’s own server.";
 
         /// <summary>
         /// The note's width, and a height that holds the tallest thing it can say (#769), so what it says can change
@@ -900,33 +910,18 @@ namespace BS3D.Screens
         /// than counted: the height was nine of the face's <c>LineHeight</c>s, but the drawn pitch is more than that and
         /// Myra counts the note's top margin inside an explicit height, so eight lines showed, and once #716 lengthened
         /// the privacy sentence its last clause ("Remove scores deletes it all.") was cut after "Remove" (photographed
-        /// at 1920x1080). Every text goes through <see cref="SpaceWrap"/> first, exactly as <see cref="Refresh"/> sets it.
+        /// at 1920x1080). Every text goes through <see cref="SpaceWrap"/> first, exactly as <see cref="Refresh"/> sets it
+        /// (<see cref="MenuPage.ProseHeight"/>). As wide as the page up to the prose measure (#806): the page is about 1590
+        /// units across, 71 characters of the small face, and a paragraph is set no wider than 67.
         /// </summary>
-        private void SizeOnlineNote(int width)
+        private void SizeOnlineNote(int pageWidth)
         {
-            _onlineNote.Width = width;
-            _noteTextWidth = LaidOutWidth(_onlineNote);
+            _onlineNote.Width = Math.Min(pageWidth, ProseMeasure);
+            _onlineNote.Height = ProseHeight(_onlineNote, Game.Online.PrivacySentence, TYPING_NOTE, REMOVED_HERE_NOTE, NO_SERVER_NOTE);
 
-            int tallest = 0;
-            foreach (string text in new[] { Game.Online.PrivacySentence, TYPING_NOTE, REMOVED_HERE_NOTE, NO_SERVER_NOTE })
-            {
-                Label probe = new()
-                {
-                    Text = SpaceWrap.Wrap(text, _noteTextWidth, MeasureNoteLine),
-                    Font = _onlineNote.Font,
-                    Wrap = true,
-                    Width = width,
-                    Margin = _onlineNote.Margin,
-                };
-
-                tallest = Math.Max(tallest, probe.Measure(new Point(width, int.MaxValue / 2)).Y);
-            }
-
-            _onlineNote.Height = tallest;
+            //A new tree's note is empty, whatever the last one said
+            _noteSource = null;
         }
-
-        /// <summary>A line of the note as its face draws it, for <see cref="SpaceWrap"/>.</summary>
-        private float MeasureNoteLine(string line) => _onlineNote.Font.MeasureString(line).X;
 
         /// <summary>
         /// The Online row (#548): off from on at once; on from off at once when there is a nickname, and otherwise

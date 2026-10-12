@@ -568,7 +568,7 @@ namespace BS3D.Screens
             if (month == null) _boardMonth.You.Text = " ";
             if (allTime == null) _boardAllTime.You.Text = " ";
 
-            _boardsStatus.Text = waiting ? "Loading the boards..."
+            _boardsStatus.Text = waiting ? "Loading the boards…"
                 : failed ? "The score server did not answer."
                 : " ";
             _boardsSignal.Visible = waiting || failed;

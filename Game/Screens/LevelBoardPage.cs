@@ -146,7 +146,7 @@ namespace BS3D.Screens
             bool failed = _monthReply?.Page == null && _monthReply != null || _allTimeReply?.Page == null && _allTimeReply != null;
             int longest = System.Math.Max(month?.Total ?? 0, allTime?.Total ?? 0);
 
-            _status.Text = waiting ? "Loading the boards..."
+            _status.Text = waiting ? "Loading the boards…"
                 : failed ? "The score server did not answer. Try again in a moment."
                 : longest > ROWS ? $"Ranks {_offset + 1} to {System.Math.Min(_offset + ROWS, longest)} of {longest}"
                 : " ";

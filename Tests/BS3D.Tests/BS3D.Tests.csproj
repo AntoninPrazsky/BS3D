@@ -43,8 +43,10 @@
     <!--The power-up chips' keycap column (#694): arithmetic over measured widths, no device.-->
     <Compile Include="..\..\Game\Screens\ChipColumnLayout.cs" />
     <Compile Include="..\..\Game\Screens\NavWalk.cs" />
-    <!--The privacy note's wrap (#769): lines broken at spaces only, over a measure handed in.-->
+    <!--The paragraph breaker (#769, #806): lines broken at spaces only, for the paragraph's shape, over a measure handed
+        in; and the copy's characters held to the typesetting rules.-->
     <Compile Include="..\..\Game\Screens\SpaceWrap.cs" />
+    <Compile Include="..\..\Game\Screens\CopyRules.cs" />
     <Compile Include="..\..\Game\Screens\FieldTail.cs" />
     <!--A checkbox's tick (#816): which part of each row of pixels two round-ended strokes cover, no device.-->
     <Compile Include="..\..\Game\Screens\CheckTick.cs" />
