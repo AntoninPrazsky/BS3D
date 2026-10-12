@@ -92,14 +92,12 @@ namespace BS3D.Screens
             int released = landing.Detonations.Count > 0 ? landing.Released.Matched : landing.Released.Total;
             if (released > 0) Game.Audio.PlayRelease(landing.World, released);
 
-            //And felt (#378, #810), the tap and the release as ONE pulse: a light tap on every landing whether or not it
-            //completed anything — the pad's own version of the thunk above — and, when a group let go, a heavier and
-            //longer one that grows with its count along a logarithm and stops well below the motors' full. Sent under the
-            //same ceiling it is built to, so a big release on the tail of the last one is not felt at twice it. The
-            //owner's rule: the more balls the stronger, but even a big one must not shake the player's joints.
-            (float rumbleLeft, float rumbleRight, float rumbleSeconds) = LandingRumble.Pulse(released);
-            Game.Rumble.KickUnder(rumbleLeft, rumbleRight, rumbleSeconds,
-                LandingRumble.CEILING_LEFT, LandingRumble.CEILING_RIGHT);
+            //And felt (#378, #810), the tap and the release under ONE ceiling: a light tap on every landing whether or not
+            //it completed anything — the pad's own version of the thunk above — and, when a group let go, a longer pulse
+            //that grows with its count along a logarithm and stops well below the motors' full, however much of the shot
+            //or the last release is still ringing. The owner's rule: the more balls the stronger, but even a big one must
+            //not shake the player's joints. See LandingRumble.
+            Game.Rumble.Landing(released);
 
             //And the blasts themselves (#389): each flash, report and jolt at the place it happened, and each link
             //of a chain a beat behind the bomb that set it off. Handed over now, inside the landing, because the

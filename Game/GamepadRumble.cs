@@ -55,8 +55,8 @@ namespace BS3D
 
         /// <summary>
         /// Whether the player's hand is on the pad (#817): the play's own answer, the one the tutorial draws its glyphs
-        /// for (<c>GameplayScreen.NoteDevice</c>). A game event (<see cref="Kick"/>, <see cref="KickTriggers"/>) is felt
-        /// only while it is true. A pad lying beside a keyboard player used to answer every shot, landing and ceiling
+        /// for (<c>GameplayScreen.NoteDevice</c>). A game event (<see cref="Kick"/>, <see cref="Landing"/>,
+        /// <see cref="KickTriggers"/>, <see cref="Hold"/>) is felt only while it is true. A pad lying beside a keyboard player used to answer every shot, landing and ceiling
         /// step, and the owner's rule is that it says nothing then but the startup signature. The signature, the connect
         /// pulse and the menu's words go out whatever this says: the first two are the pad announcing itself, and the
         /// menu speaks only when the pad itself moved it.
@@ -80,18 +80,14 @@ namespace BS3D
         }
 
         /// <summary>
-        /// <see cref="Kick"/> under a ceiling (#810): the pulse is added to what is still ringing on each body motor only up
-        /// to <paramref name="ceilingLeft"/> and <paramref name="ceilingRight"/>, so an event that promises the player a
-        /// bound — a landing and the group it released (<see cref="LandingRumble"/>) — keeps it when it lands on the tail of
-        /// the last one. A motor already above its ceiling (something louder ringing) keeps its level; its fall takes this
-        /// kick's length, as every kick's does (<see cref="PadChannel.Kick"/>).
+        /// A ball landing, with <paramref name="released"/> balls let go by it (0 for a plain attach), gated like a
+        /// <see cref="Kick"/> (#378, #810): the tap as an ordinary kick and the release under its ceilings, both through
+        /// <see cref="LandingRumble.Apply"/>, the very code the tests drive. One entry, so the call site cannot send the tap
+        /// and the release apart or under the wrong ceilings.
         /// </summary>
-        public void KickUnder(float left, float right, float seconds, float ceilingLeft, float ceilingRight)
+        public void Landing(int released)
         {
-            if (!HandOnPad) return;
-
-            _left.Kick(left, seconds, ceilingLeft);
-            _right.Kick(right, seconds, ceilingRight);
+            if (HandOnPad) LandingRumble.Apply(ref _left, ref _right, released);
         }
 
         /// <summary>

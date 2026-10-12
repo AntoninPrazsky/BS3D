@@ -4,8 +4,9 @@ namespace BS3D
 {
     /// <summary>
     /// <b>What a landing says in the hand</b> (#378, #810): the tap of a ball sticking and, over it, whatever the shot let
-    /// go, as <b>one</b> pulse under <b>one</b> ceiling well below the motors' full. A pure function of how many balls
-    /// left, so the tests pin the curve (<c>LandingRumbleTests</c>).
+    /// go, under <b>one</b> ceiling well below the motors' full. Pure functions of how many balls left and one
+    /// <see cref="Apply"/> onto the mixer's own channels, so the tests pin the curve and the very sum the pad is asked for
+    /// (<c>LandingRumbleTests</c>).
     /// <para>
     /// <b>Why a curve and a ceiling.</b> The release was a straight line until #810, 0.22 + 0.04 a ball on the heavy motor
     /// and 0.7 of it on the light one, with the landing's tap kicked on top: it reached the motor's full at 20 balls, so
@@ -13,31 +14,29 @@ namespace BS3D
     /// <c>LevelGen --drops</c>'s modelled plays of the campaign (2026-10-12) about half of all releases are 20 balls or
     /// more (the median is 19 for the casual player, 27 for the greedy one). The owner's verdict on it with the pad in
     /// hand (2026-10-05): pleasant, but too strong, "it shakes my joints"; the more balls the stronger, but even a big one
-    /// must not be too strong. So the size is a logarithm of the count: a light tap for three to five balls, still
-    /// growing through the tens and the hundreds but more slowly, and at the ceiling only from
-    /// <see cref="FULL_COUNT"/>, which one or two releases in a hundred reach in those plays.
+    /// must not be too strong. So a release asks for a <b>share of the ceiling</b> (<see cref="Share"/>) that grows with a
+    /// logarithm of the count: a light tap for three to five balls, still growing through the tens and the hundreds but
+    /// more slowly, and the whole ceiling only from <see cref="FULL_COUNT"/>, which one or two releases in a hundred reach
+    /// in those plays.
     /// </para>
     /// <para>
-    /// <b>Longer rather than harder.</b> What a big release gains past the middle goes into its length as much as its
-    /// strength (<see cref="RELEASE_SECONDS_SMALL"/> to <see cref="RELEASE_SECONDS_FULL"/>), and <b>the light motor leads
-    /// at every size</b>, ending higher than the heavy one (<see cref="CEILING_RIGHT"/> over <see cref="CEILING_LEFT"/>):
-    /// the wrist-shaking is taken to be the heavy motor's mass, and the light one buzzes without the thump. Under the line
-    /// loss on both motors and in length (<c>GameplayScreen</c>'s <c>LINE_LOSS_RUMBLE_*</c>), which stays the heaviest
-    /// thing the pad says.
+    /// <b>Longer rather than harder.</b> What a big release gains goes into its length as much as its strength
+    /// (<see cref="RELEASE_SECONDS_SMALL"/> to <see cref="RELEASE_SECONDS_FULL"/>), and <b>the light motor leads at every
+    /// size</b>, its ceiling (<see cref="CEILING_RIGHT"/>) above the heavy one's (<see cref="CEILING_LEFT"/>): the
+    /// wrist-shaking is taken to be the heavy motor's mass, and the light one buzzes without the thump. Under the line loss
+    /// on both motors and in length (<c>GameplayScreen</c>'s <c>LINE_LOSS_RUMBLE_*</c>), which stays the heaviest thing
+    /// the pad says.
     /// </para>
     /// <para>
-    /// <b>The ceiling holds for the sum, not just for one landing.</b> The pulse is sent through
-    /// <see cref="GamepadRumble.KickUnder"/>, which adds it to what is still ringing only up to <see cref="CEILING_LEFT"/>
-    /// and <see cref="CEILING_RIGHT"/> (<see cref="PadChannel.Stack"/>), so a big release landing on the tail of the last
-    /// one is not felt at twice the ceiling. The player's Rumble row scales all of it afterwards, as it scales everything.
-    /// </para>
-    /// <para>
-    /// ⚠ <b>The shot's own thump is usually still ringing when its ball lands.</b> Measured in a scripted run of Pennant
-    /// (2026-10-12, a flight of about 0.08 s): a plain landing put the motors at 0.29 and 0.38 where the tap alone is
-    /// <see cref="TAP_LEFT"/> and <see cref="TAP_RIGHT"/>, and a 47-ball release stood at the heavy ceiling where its own
-    /// pulse is 0.35. So on a short flight the heavy motor's peak tops out from about 30 balls, and past that a release
-    /// grows in its length and on the light motor. Summing rather than replacing is deliberate: it keeps the plain landing
-    /// the owner felt and kept (#378) exactly as it was, and keeps a small release above a plain landing.
+    /// <b>The tap is the tap, the release rings under the ceiling.</b> The tap is an ordinary kick, exactly the one the
+    /// owner felt and kept (#378), so a plain landing is what it always was, the shot's thump still ringing under it
+    /// included (measured on Pennant, a flight of about 0.08 s: 0.29 and 0.38 where the tap alone is
+    /// <see cref="TAP_LEFT"/> and <see cref="TAP_RIGHT"/>). The release goes into the channel's ceilinged layer
+    /// (<see cref="PadChannel.KickUnder"/>), where it fills its share of what is left under the ceiling above everything
+    /// else ringing (<see cref="PadChannel.Blend"/>). So the tap and the release are felt together under one ceiling; a
+    /// release is never less than a plain landing and rings on after it; the ceiling is reached only at
+    /// <see cref="FULL_COUNT"/> however much of the shot is still ringing; and neither the next shot nor the gun's rattle
+    /// lifts a release's tail past the ceiling or cuts it short.
     /// </para>
     /// </summary>
     internal static class LandingRumble
@@ -46,13 +45,9 @@ namespace BS3D
         /// own quick, bright thunk (<c>ProceduralAudio.PlayLanded</c>). Felt and kept by the owner (#378).</summary>
         public const float TAP_LEFT = 0.12f, TAP_RIGHT = 0.3f, TAP_SECONDS = 0.08f;
 
-        /// <summary>What any release adds over the tap however small it is, so three balls leaving is still more than one
-        /// ball sticking.</summary>
-        public const float RELEASE_FLOOR_LEFT = 0.05f, RELEASE_FLOOR_RIGHT = 0.05f;
-
         /// <summary>
-        /// The most the heavy (left) motor is asked for by a landing and everything ringing under it: about half, the
-        /// issue's starting figure, to be tuned with the pad in hand. Reached at <see cref="FULL_COUNT"/> balls.
+        /// The most the heavy (left) motor is asked for by a landing and its release together: about half, the issue's
+        /// starting figure, to be tuned with the pad in hand. Reached at <see cref="FULL_COUNT"/> balls.
         /// </summary>
         public const float CEILING_LEFT = 0.5f;
 
@@ -67,6 +62,10 @@ namespace BS3D
         /// <summary>The logarithm's knee, in balls: below it the size grows nearly in proportion to the count, above it
         /// it slows. Ten puts a three-ball group near the tap and the median release about a third of the way up.</summary>
         public const float KNEE = 10f;
+
+        /// <summary>The share of the ceiling any release asks for however small, so three balls leaving is still more than
+        /// one ball sticking.</summary>
+        public const float RELEASE_FLOOR = 0.14f;
 
         /// <summary>How long a release takes to fall silent: a short one for a small group, up to the longest at
         /// <see cref="FULL_COUNT"/>, still shorter than the line loss's heavy tail.</summary>
@@ -87,21 +86,53 @@ namespace BS3D
             return MathF.Min(1f, MathF.Log(1f + released / KNEE) / FullLog);
         }
 
+        /// <summary>The share of the ceiling a release of <paramref name="released"/> balls asks for: 0 for none, then from
+        /// <see cref="RELEASE_FLOOR"/> up along <see cref="Size"/> to 1 at <see cref="FULL_COUNT"/>.</summary>
+        public static float Share(int released) =>
+            released <= 0 ? 0f : RELEASE_FLOOR + (1f - RELEASE_FLOOR) * Size(released);
+
         /// <summary>
-        /// The one pulse a landing sends, the tap and the release together, for <paramref name="released"/> balls let go
-        /// (0 for a plain attach): the heavy and the light motor's levels and how long they take to fall. Never above
-        /// <see cref="CEILING_LEFT"/> and <see cref="CEILING_RIGHT"/>.
+        /// The release's own pulse in the ceilinged layer, for <paramref name="released"/> balls (nothing for none): each
+        /// motor at its <see cref="Share"/> of its ceiling, and how long it takes to fall.
+        /// </summary>
+        public static (float Left, float Right, float Seconds) Release(int released)
+        {
+            if (released <= 0) return (0f, 0f, 0f);
+
+            float share = Share(released);
+            float seconds = RELEASE_SECONDS_SMALL + (RELEASE_SECONDS_FULL - RELEASE_SECONDS_SMALL) * Size(released);
+
+            return (CEILING_LEFT * share, CEILING_RIGHT * share, seconds);
+        }
+
+        /// <summary>
+        /// A landing onto the two body motors' channels, as <see cref="GamepadRumble"/> sends it: the tap as an ordinary
+        /// kick and, when <paramref name="released"/> balls let go, the release under the ceilings.
+        /// </summary>
+        public static void Apply(ref PadChannel left, ref PadChannel right, int released)
+        {
+            left.Kick(TAP_LEFT, TAP_SECONDS);
+            right.Kick(TAP_RIGHT, TAP_SECONDS);
+
+            if (released <= 0) return;
+
+            (float releaseLeft, float releaseRight, float seconds) = Release(released);
+            left.KickUnder(releaseLeft, seconds, CEILING_LEFT);
+            right.KickUnder(releaseRight, seconds, CEILING_RIGHT);
+        }
+
+        /// <summary>
+        /// What a landing of <paramref name="released"/> balls asks of a pad that was silent: each motor at the landing's
+        /// instant (<see cref="Apply"/> onto two quiet channels) and how long the longer of the tap and the release rings.
+        /// The figures the issue's table and the tests read; never above <see cref="CEILING_LEFT"/> and
+        /// <see cref="CEILING_RIGHT"/>.
         /// </summary>
         public static (float Left, float Right, float Seconds) Pulse(int released)
         {
-            if (released <= 0) return (TAP_LEFT, TAP_RIGHT, TAP_SECONDS);
+            PadChannel left = default, right = default;
+            Apply(ref left, ref right, released);
 
-            float size = Size(released);
-            float left = TAP_LEFT + RELEASE_FLOOR_LEFT + (CEILING_LEFT - TAP_LEFT - RELEASE_FLOOR_LEFT) * size;
-            float right = TAP_RIGHT + RELEASE_FLOOR_RIGHT + (CEILING_RIGHT - TAP_RIGHT - RELEASE_FLOOR_RIGHT) * size;
-            float seconds = RELEASE_SECONDS_SMALL + (RELEASE_SECONDS_FULL - RELEASE_SECONDS_SMALL) * size;
-
-            return (MathF.Min(left, CEILING_LEFT), MathF.Min(right, CEILING_RIGHT), seconds);
+            return (left.Level, right.Level, MathF.Max(TAP_SECONDS, Release(released).Seconds));
         }
     }
 }

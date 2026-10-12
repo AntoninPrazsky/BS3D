@@ -5,17 +5,26 @@ namespace BS3D.Tests
 {
     /// <summary>
     /// The pad's answer to a landing and the group it released (#810, the owner with the pad in hand: "it shakes my
-    /// joints"): one pulse that grows with the count along a logarithm, a light tap for three to five balls, still growing
+    /// joints"): a release that grows with the count along a logarithm, a light tap for three to five balls, still growing
     /// visibly past twenty, longer rather than harder, led by the light motor, and never above its ceiling — neither on its
-    /// own nor stacked on a release still ringing. <see cref="LandingRumble"/> is the curve; <see cref="PadChannel"/> is
-    /// the mixer's own accumulation and decay, driven here as <c>GamepadRumble</c> drives it, at several frame rates.
+    /// own, nor stacked on a release still ringing, nor under the next shot. <see cref="LandingRumble"/> is the curve and
+    /// <see cref="LandingRumble.Apply"/> the very sum <c>GamepadRumble.Landing</c> sends; <see cref="PadChannel"/> is the
+    /// mixer's own accumulation and decay, driven here as <c>GamepadRumble</c> drives it, at several frame rates.
     /// </summary>
     public class LandingRumbleTests
     {
         //Far past anything a level can release (the biggest shipped cluster is about 1200 balls)
         private const int MANY = 5000;
 
-        private const float EPSILON = 1e-6f;
+        private const float EPSILON = 1e-5f;
+
+        //An ordinary kick heavier than the landing's ceiling and short, the shape of the shot's thump
+        private const float HEAVY_KICK = 0.55f, HEAVY_KICK_SECONDS = 0.12f;
+
+        //The gun's rattle as it rolls: a light-motor bump, a few hundredths, at most ten a second
+        private const float RATTLE = 0.07f, RATTLE_SECONDS = 0.035f, RATTLE_EVERY = 0.1f;
+
+        private static readonly float[] FrameRates = { 30f, 60f, 144f, 240f };
 
         [Fact]
         public void APlainLandingIsTheTap()
@@ -26,6 +35,29 @@ namespace BS3D.Tests
                 Assert.Equal(LandingRumble.TAP_LEFT, left);
                 Assert.Equal(LandingRumble.TAP_RIGHT, right);
                 Assert.Equal(LandingRumble.TAP_SECONDS, seconds);
+                Assert.Equal((0f, 0f, 0f), LandingRumble.Release(none));
+            }
+        }
+
+        /// <summary>
+        /// The tap the owner felt and kept (#378) is an ordinary kick, as it was before #810: whatever is still ringing
+        /// under it — the shot's thump on a short flight — it adds to it and saturates at the motor's full, the ceiling
+        /// playing no part in it.
+        /// </summary>
+        [Fact]
+        public void APlainLandingIsWhatItWasBeforeTheCeiling()
+        {
+            for (int r = 0; r <= 20; r++)
+            {
+                float ringing = r / 20f;
+                PadChannel left = default, right = default;
+                left.Kick(ringing, 1f);
+                right.Kick(ringing, 1f);
+
+                LandingRumble.Apply(ref left, ref right, 0);
+
+                Assert.Equal(MathF.Min(1f, ringing + LandingRumble.TAP_LEFT), left.Level, 5);
+                Assert.Equal(MathF.Min(1f, ringing + LandingRumble.TAP_RIGHT), right.Level, 5);
             }
         }
 
@@ -55,7 +87,7 @@ namespace BS3D.Tests
             {
                 float before = LandingRumble.Size(count) - LandingRumble.Size(count - 1);
                 float after = LandingRumble.Size(count + 1) - LandingRumble.Size(count);
-                Assert.True(after <= before + EPSILON, $"at {count} balls the curve speeds up: +{before} then +{after}");
+                Assert.True(after <= before + 1e-6f, $"at {count} balls the curve speeds up: +{before} then +{after}");
             }
         }
 
@@ -78,8 +110,8 @@ namespace BS3D.Tests
         private static void AssertUnderTheCeiling(int count)
         {
             var pulse = LandingRumble.Pulse(count);
-            Assert.True(pulse.Left <= LandingRumble.CEILING_LEFT, $"{count} balls: the heavy motor at {pulse.Left}");
-            Assert.True(pulse.Right <= LandingRumble.CEILING_RIGHT, $"{count} balls: the light motor at {pulse.Right}");
+            Assert.True(pulse.Left <= LandingRumble.CEILING_LEFT + EPSILON, $"{count} balls: the heavy motor at {pulse.Left}");
+            Assert.True(pulse.Right <= LandingRumble.CEILING_RIGHT + EPSILON, $"{count} balls: the light motor at {pulse.Right}");
         }
 
         [Fact]
@@ -124,12 +156,15 @@ namespace BS3D.Tests
             Assert.True(full.Left / small.Left < full.Seconds / small.Seconds,
                 $"the heavy motor grows {full.Left / small.Left}x, the length only {full.Seconds / small.Seconds}x");
 
-            //The buzz carries the top, not the thump
+            //The buzz carries the top, not the thump: at the landing's instant and over the release's own tail
             Assert.True(LandingRumble.CEILING_RIGHT > LandingRumble.CEILING_LEFT);
             for (int count = 1; count <= MANY; count++)
             {
                 var pulse = LandingRumble.Pulse(count);
                 Assert.True(pulse.Right > pulse.Left, $"{count} balls: heavy {pulse.Left} over light {pulse.Right}");
+
+                var release = LandingRumble.Release(count);
+                Assert.True(release.Right > release.Left, $"{count} balls: the tail's heavy {release.Left} over light {release.Right}");
             }
         }
 
@@ -137,46 +172,187 @@ namespace BS3D.Tests
         public void TheSameCountGivesTheSameAnswer()
         {
             for (int count = 0; count <= 1000; count++)
+            {
                 Assert.Equal(LandingRumble.Pulse(count), LandingRumble.Pulse(count));
+                Assert.Equal(LandingRumble.Release(count), LandingRumble.Release(count));
+            }
+        }
+
+        /// <summary>
+        /// The ceiling is the largest releases' alone (#810's review): the shot's thump is usually still ringing when its
+        /// ball lands (0.08 s of flight on Pennant), and a release that summed onto it reached the heavy motor's ceiling
+        /// from about 32 balls. Whatever ordinary kick is ringing below the ceiling, a release short of the full count
+        /// stays under it, and more balls are never less.
+        /// </summary>
+        [Fact]
+        public void WhateverIsRingingTheCeilingIsReachedOnlyAtTheFullCount()
+        {
+            for (int r = 0; r <= 17; r++)
+            {
+                float ringing = r * 0.02f; //up to 0.34: with the tap on it, under both ceilings
+                float previousLeft = 0f, previousRight = 0f;
+
+                foreach (int count in new[] { 1, 3, 5, 10, 20, 32, 47, 80, 150, 200, LandingRumble.FULL_COUNT - 1 })
+                {
+                    (PadChannel left, PadChannel right) = Ringing(ringing);
+                    LandingRumble.Apply(ref left, ref right, count);
+
+                    Assert.True(left.Level < LandingRumble.CEILING_LEFT,
+                        $"{count} balls over {ringing} ringing: the heavy motor at its ceiling ({left.Level})");
+                    Assert.True(right.Level < LandingRumble.CEILING_RIGHT,
+                        $"{count} balls over {ringing} ringing: the light motor at its ceiling ({right.Level})");
+                    Assert.True(left.Level >= previousLeft && right.Level >= previousRight,
+                        $"{count} balls over {ringing} ringing felt less than fewer did");
+
+                    previousLeft = left.Level;
+                    previousRight = right.Level;
+                }
+
+                (PadChannel fullLeft, PadChannel fullRight) = Ringing(ringing);
+                LandingRumble.Apply(ref fullLeft, ref fullRight, LandingRumble.FULL_COUNT);
+                Assert.Equal(LandingRumble.CEILING_LEFT, fullLeft.Level, 4);
+                Assert.Equal(LandingRumble.CEILING_RIGHT, fullRight.Level, 4);
+            }
+
+            //And over the measured flight's thump, a big release still reads bigger than the median one: a tenth of the
+            //heavy motor's full at least between twenty balls and the full count
+            float twenty = AfterAThump(20), full = AfterAThump(LandingRumble.FULL_COUNT);
+            Assert.True(full - twenty >= 0.1f, $"over the shot's thump the heavy motor gains only {full - twenty} past twenty");
+        }
+
+        private static (PadChannel Left, PadChannel Right) Ringing(float level)
+        {
+            PadChannel left = default, right = default;
+            left.Kick(level, 1f);
+            right.Kick(level, 1f);
+            return (left, right);
+        }
+
+        //The heavy motor at a landing 0.08 s after a shot-shaped kick, the flight measured on Pennant
+        private static float AfterAThump(int released)
+        {
+            PadChannel left = default, right = default;
+            left.Kick(HEAVY_KICK, HEAVY_KICK_SECONDS);
+            left.Decay(0.08f);
+            LandingRumble.Apply(ref left, ref right, released);
+            return left.Level;
+        }
+
+        /// <summary>
+        /// Longer rather than harder has to survive play (#810's review): every ordinary kick sets its own fall, and when
+        /// one fall was shared by everything on a motor the gun's rattle (0.035 s) cut a big release's 0.9 s tail to its
+        /// own length the moment the gun rolled. With the rattle and a shot-shaped kick going off over it, a release is
+        /// never felt less than it is on its own.
+        /// </summary>
+        [Fact]
+        public void NoOrdinaryKickCutsAReleaseShort()
+        {
+            foreach (float fps in FrameRates)
+            {
+                float dt = 1f / fps, sinceRattle = 0f;
+                bool shot = false;
+
+                PadChannel left = default, right = default, aloneLeft = default, aloneRight = default;
+                LandingRumble.Apply(ref left, ref right, LandingRumble.FULL_COUNT);
+                LandingRumble.Apply(ref aloneLeft, ref aloneRight, LandingRumble.FULL_COUNT);
+
+                for (float clock = 0f; clock < 1.2f; clock += dt)
+                {
+                    left.Decay(dt);
+                    right.Decay(dt);
+                    aloneLeft.Decay(dt);
+                    aloneRight.Decay(dt);
+
+                    //The rattle from a tenth of a second on, after the tap has gone, and a shot at 0.3 s
+                    sinceRattle += dt;
+                    if (clock >= RATTLE_EVERY && sinceRattle >= RATTLE_EVERY)
+                    {
+                        right.Kick(RATTLE, RATTLE_SECONDS);
+                        sinceRattle = 0f;
+                    }
+
+                    if (!shot && clock >= 0.3f)
+                    {
+                        left.Kick(HEAVY_KICK, HEAVY_KICK_SECONDS);
+                        right.Kick(HEAVY_KICK / 2f, HEAVY_KICK_SECONDS);
+                        shot = true;
+                    }
+
+                    Assert.True(left.Level >= aloneLeft.Level - EPSILON,
+                        $"{fps} fps at {clock:F2} s: the heavy motor at {left.Level} under the release alone's {aloneLeft.Level}");
+                    Assert.True(right.Level >= aloneRight.Level - EPSILON,
+                        $"{fps} fps at {clock:F2} s: the light motor at {right.Level} under the release alone's {aloneRight.Level}");
+                }
+            }
+
+            //And the next landing does not cut it short either: a small release 0.3 s into a full one, whose own 0.26 s
+            //would be over by 0.56 s, leaves the full one ringing at 0.8 s
+            PadChannel tail = default, other = default;
+            LandingRumble.Apply(ref tail, ref other, LandingRumble.FULL_COUNT);
+            tail.Decay(0.3f);
+            LandingRumble.Apply(ref tail, ref other, 3);
+            tail.Decay(0.5f);
+            Assert.True(tail.Level > 0f, "a small release on a big one's tail cut it short");
         }
 
         /// <summary>
         /// The ceiling holds for the sum (#810, "count the landing tap and the release together under one cap"): a burst of
-        /// landings, big ones on the tails of big ones, through the mixer's own channels kicked under the ceiling as
-        /// <c>GamepadRumble.KickUnder</c> kicks them and decayed a frame at a time, at four frame rates and four cadences.
+        /// landings, big ones on the tails of big ones, through <see cref="LandingRumble.Apply"/> onto the mixer's own
+        /// channels and decayed a frame at a time, at four frame rates and four cadences — on their own never past the
+        /// ceiling, and with a shot-shaped kick fired between them (nothing gates how soon the next shot may go) never
+        /// past the higher of the ceiling and what those same kicks ask for without any release.
         /// </summary>
         [Fact]
         public void ABurstOfReleasesNeverStacksPastTheCeiling()
         {
             int[] counts = { LandingRumble.FULL_COUNT, 3, 120, LandingRumble.FULL_COUNT, 0, 40, MANY, 20 };
 
-            foreach (float fps in new[] { 30f, 60f, 144f, 240f })
-                foreach (float cadence in new[] { 0.05f, 0.1f, 0.25f, 0.5f })
-                {
-                    PadChannel left = default, right = default;
-                    float dt = 1f / fps, untilNext = 0f;
-                    int next = 0;
-
-                    for (float clock = 0f; clock < 4f; clock += dt)
+            foreach (bool shots in new[] { false, true })
+                foreach (float fps in FrameRates)
+                    foreach (float cadence in new[] { 0.05f, 0.1f, 0.25f, 0.5f })
                     {
-                        untilNext -= dt;
-                        if (untilNext <= 0f)
+                        PadChannel left = default, right = default, plainLeft = default, plainRight = default;
+                        float dt = 1f / fps, untilNext = 0f;
+                        int next = 0;
+
+                        for (float clock = 0f; clock < 4f; clock += dt)
                         {
-                            var pulse = LandingRumble.Pulse(counts[next++ % counts.Length]);
-                            left.Kick(pulse.Left, pulse.Seconds, LandingRumble.CEILING_LEFT);
-                            right.Kick(pulse.Right, pulse.Seconds, LandingRumble.CEILING_RIGHT);
-                            untilNext += cadence;
+                            untilNext -= dt;
+                            if (untilNext <= 0f)
+                            {
+                                //The shot a little before its own landing: the same ordinary kicks into both pairs, the
+                                //releases into one
+                                if (shots)
+                                {
+                                    left.Kick(HEAVY_KICK, HEAVY_KICK_SECONDS);
+                                    right.Kick(HEAVY_KICK / 2f, HEAVY_KICK_SECONDS);
+                                    plainLeft.Kick(HEAVY_KICK, HEAVY_KICK_SECONDS);
+                                    plainRight.Kick(HEAVY_KICK / 2f, HEAVY_KICK_SECONDS);
+                                }
+
+                                LandingRumble.Apply(ref left, ref right, counts[next++ % counts.Length]);
+                                LandingRumble.Apply(ref plainLeft, ref plainRight, 0);
+                                untilNext += cadence;
+                            }
+
+                            float topLeft = MathF.Max(LandingRumble.CEILING_LEFT, plainLeft.Level);
+                            float topRight = MathF.Max(LandingRumble.CEILING_RIGHT, plainRight.Level);
+                            string run = $"{fps} fps, a landing every {cadence} s{(shots ? " with shots" : "")}";
+
+                            Assert.True(left.Level <= topLeft + EPSILON, $"{run}: the heavy motor at {left.Level} at {clock:F2} s");
+                            Assert.True(right.Level <= topRight + EPSILON, $"{run}: the light motor at {right.Level} at {clock:F2} s");
+                            if (!shots)
+                            {
+                                Assert.True(left.Level <= LandingRumble.CEILING_LEFT + EPSILON, $"{run}: the heavy motor at {left.Level}");
+                                Assert.True(right.Level <= LandingRumble.CEILING_RIGHT + EPSILON, $"{run}: the light motor at {right.Level}");
+                            }
+
+                            left.Decay(dt);
+                            right.Decay(dt);
+                            plainLeft.Decay(dt);
+                            plainRight.Decay(dt);
                         }
-
-                        Assert.True(left.Level <= LandingRumble.CEILING_LEFT + EPSILON,
-                            $"{fps} fps, a landing every {cadence} s: the heavy motor at {left.Level} at {clock:F2} s");
-                        Assert.True(right.Level <= LandingRumble.CEILING_RIGHT + EPSILON,
-                            $"{fps} fps, a landing every {cadence} s: the light motor at {right.Level} at {clock:F2} s");
-
-                        left.Decay(dt);
-                        right.Decay(dt);
                     }
-                }
         }
 
         [Fact]
@@ -187,19 +363,32 @@ namespace BS3D.Tests
                 for (int a = 1; a <= 20; a++)
                 {
                     float ringing = r / 20f, amount = a / 20f;
-                    Assert.Equal(Math.Clamp(ringing + amount, 0f, 1f), PadChannel.Stack(ringing, amount, 1f));
+                    PadChannel channel = default;
+                    channel.Kick(ringing, 1f);
+                    channel.Kick(amount, 1f);
+                    Assert.Equal(Math.Clamp(ringing + amount, 0f, 1f), channel.Level, 5);
                 }
         }
 
         [Fact]
-        public void AChannelAboveTheCeilingIsNeitherRaisedNorLowered()
+        public void TheBlendNeverLiftsPastTheCeilingNorBelowEitherLayer()
         {
-            //The line loss's heavy tail ringing when a landing comes in under a lower ceiling
-            Assert.Equal(0.9f, PadChannel.Stack(0.9f, 0.3f, LandingRumble.CEILING_LEFT));
+            const float ceiling = LandingRumble.CEILING_LEFT;
 
-            //Under it, the sum up to it
-            Assert.Equal(LandingRumble.CEILING_LEFT, PadChannel.Stack(0.4f, 0.3f, LandingRumble.CEILING_LEFT));
-            Assert.Equal(0.3f, PadChannel.Stack(0.1f, 0.2f, LandingRumble.CEILING_LEFT), 6);
+            //The line loss's heavy tail ringing when a release comes in under a lower ceiling: neither raised nor lowered
+            Assert.Equal(0.9f, PadChannel.Blend(0.9f, 0.3f, ceiling));
+
+            for (int f = 0; f <= 20; f++)
+                for (int b = 0; b <= 20; b++)
+                {
+                    float free = f / 20f, bounded = b / 20f * ceiling;
+                    float level = PadChannel.Blend(free, bounded, ceiling);
+
+                    Assert.True(level <= MathF.Max(free, ceiling) + EPSILON, $"{free} and {bounded}: {level} past the ceiling");
+                    Assert.True(level >= MathF.Max(free, bounded) - EPSILON, $"{free} and {bounded}: {level} under one of them");
+                    if (free < ceiling && bounded < ceiling)
+                        Assert.True(level < ceiling, $"{free} and {bounded}: the ceiling reached by neither alone");
+                }
         }
 
         [Fact]
@@ -214,7 +403,14 @@ namespace BS3D.Tests
 
             //A kick of no length still falls, fast, rather than dividing by zero
             channel.Kick(1f, 0f);
+            channel.KickUnder(0.5f, 0f, LandingRumble.CEILING_LEFT);
             channel.Decay(0.05f);
+            Assert.Equal(0f, channel.Level);
+
+            //And a stop is silence at once, both layers
+            channel.Kick(0.4f, 1f);
+            channel.KickUnder(0.4f, 1f, LandingRumble.CEILING_LEFT);
+            channel.Stop();
             Assert.Equal(0f, channel.Level);
         }
     }
