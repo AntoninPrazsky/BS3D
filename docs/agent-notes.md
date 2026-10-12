@@ -494,3 +494,8 @@ Pravidla:
 - Bez majitele (spí), konzervativně: Colossus je ručně kreslený, proto zůstává; jeho přestavba čeká na rozhodnutí v #849 (owner-decision).
 - ⚠ Opravný průchod obarvil okrajové koule u krku Locketu na bílou; dlaždice kamene se teď počítají od `LOCKET_STONE_TILE_FROM`, takže bílý je jen krk. Geode se pomalu kroutí kolem svislé osy (dělala to i těžší v1).
 - Otevřené: verdict-eye; na Pi spustit při příštím vydání `update-ceilings.sh` (desky šesti levelů se resetují); nikdo je nehrál rukou.
+
+## 2026-10-12 — #840 stožár na střeše v intru města — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #840 (merge následuje): střešní záběr intra City a Neon City drží celý stožár i s majákem (`CityIntroShots.FrameMast`): vršek majáku 6 % pod horní hranou, pata 15 % nad dolní, aby nezmizela pod nápovědou k přeskočení. Kompozice z #780 zůstává, kde se vejde, jinak kamera stoupá po půl jednotky. `CityRooftops` dává `RoofShowcases` bez zařízení; v neonu hlásí vyšší ze dvou stožárů. Test `TheRooftopShotKeepsTheWholeMastAndItsBeaconInFrame` (tři rozlišení) se starým záběrem padal ve 394 ze 448 oblouků.
+- Bez majitele (spí), konzervativně: dvojitý stožár v neonu je vada už na mainu, zapsaná jako #850, ne opravená tady (přestavěla by všechny neonové střechy).
+- Otevřené: #850; jak čte strmější pohled na nejvyšší stožáry, viděno jen ve snímcích.
