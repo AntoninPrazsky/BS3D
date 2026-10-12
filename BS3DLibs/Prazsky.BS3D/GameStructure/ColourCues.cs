@@ -108,10 +108,9 @@ namespace Prazsky.BS3D.GameStructure
             new(m11, m12, m13, 0f, m21, m22, m23, 0f, m31, m32, m33, 0f, 0f, 0f, 0f, 1f);
 
         private static Figure Bands(string name, int frame, float count, float share, float coverage, float phase = 0f,
-            float waveAmplitude = 0f, float waves = 0f, float hollow = 0f, float dashes = 0f, float dashShare = 0.5f,
-            bool grid = false) =>
+            float waveAmplitude = 0f, float waves = 0f, float hollow = 0f, float dashes = 0f, float dashShare = 0.5f) =>
             new(name, new Vector4((float)Kind.Bands, count, phase, share), new Vector4(waveAmplitude, waves, hollow, dashes),
-                new Vector4(dashShare, grid ? 1f : 0f, 0f, coverage), frame);
+                new Vector4(dashShare, 0f, 0f, coverage), frame);
 
         private static Figure Spots(string name, int frame, int solid, float radiusDegrees, float coverage,
             float ringInnerDegrees = 0f, int secondSolid = 0, float secondRadiusDegrees = 0f) =>
@@ -128,8 +127,10 @@ namespace Prazsky.BS3D.GameStructure
         private static float CosDegrees(float degrees) => MathF.Cos(MathHelper.ToRadians(degrees));
 
         //[set - 1][type - 1]: red, green, blue, white, cyan, magenta, yellow, black, orange, brown, silver, navy, olive.
-        //No figure spirals, zigzags or runs along meridians (the gravity well, the zap, the vinyl's gores), and no ring
-        //sits inside another (the gravity well's bullseye); "BallColourCue.fxh" lists what each must not look like.
+        //No figure spirals, zigzags or runs along meridians (the gravity well, the zap, the vinyl's gores), no ring
+        //sits inside another (the gravity well's bullseye), no two bands cross round the ball (the mine's two seams,
+        //which is why no set has a grid) and no X is pale on a dark colour (the mine's seams again, seen face on);
+        //"BallColourCue.fxh" lists what each must not look like.
         private static readonly Figure[][] Sets =
         {
             new[]
@@ -145,7 +146,7 @@ namespace Prazsky.BS3D.GameStructure
                 Spots("six rings", 1, 6, 27f, 0.211f, ringInnerDegrees: 16f),
                 Spots("twelve dots", 6, 12, 19.5f, 0.344f),
                 Bands("three stripes", 0, 3f, 0.42f, 0.420f),
-                Bands("a grid", 4, 1f, 0.14f, 0.267f, grid: true),
+                Mark("moons", Emblem.Moon, 0.62f, 0.169f),
                 Mark("triangles", Emblem.Triangle, 0.60f, 0.164f),
             },
             new[]
@@ -154,19 +155,19 @@ namespace Prazsky.BS3D.GameStructure
                 Mark("clubs", Emblem.Club, 0.62f, 0.204f),
                 Mark("hexagons", Emblem.Hexagon, 0.62f, 0.304f),
                 Mark("flowers", Emblem.Flower, 0.62f, 0.271f),
-                Mark("drops", Emblem.Drop, 0.62f, 0.198f),
+                Mark("crosses", Emblem.Saltire, 0.62f, 0.244f),
                 Mark("spades", Emblem.Spade, 0.62f, 0.207f),
                 Mark("stars", Emblem.Star, 0.62f, 0.228f),
                 Mark("rings", Emblem.Ring, 0.62f, 0.212f),
                 Mark("chevrons", Emblem.Chevron, 0.62f, 0.149f),
                 Mark("diamonds", Emblem.Diamond, 0.62f, 0.214f),
                 Mark("moons", Emblem.Moon, 0.62f, 0.169f),
-                Mark("crosses", Emblem.Saltire, 0.62f, 0.244f),
+                Mark("drops", Emblem.Drop, 0.62f, 0.198f),
                 Mark("triangles", Emblem.Triangle, 0.62f, 0.174f),
             },
             new[]
             {
-                Bands("one broad band", 5, 1f, 0.40f, 0.400f),
+                Bands("one broad band", 5, 1f, 0.32f, 0.320f),
                 Bands("a dashed band", 5, 1f, 0.24f, 0.120f, dashes: 8f, dashShare: 0.5f),
                 Bands("two wavy bands", 5, 2f, 0.20f, 0.200f, phase: 1f, waveAmplitude: 0.10f, waves: 5f),
                 Bands("one wavy band", 5, 1f, 0.22f, 0.220f, waveAmplitude: 0.14f, waves: 4f),
@@ -174,10 +175,10 @@ namespace Prazsky.BS3D.GameStructure
                 Bands("a dotted line", 5, 1f, 0.16f, 0.067f, dashes: 14f, dashShare: 0.42f),
                 Bands("four broad bands", 5, 4f, 0.50f, 0.500f),
                 Bands("one thin line", 5, 1f, 0.12f, 0.120f),
-                Bands("a seam", 5, 1f, 0.16f, 0.160f, waveAmplitude: 0.55f, waves: 2f),
+                Bands("a wavy line", 5, 1f, 0.14f, 0.140f, waveAmplitude: 0.12f, waves: 6f),
                 Bands("two bands", 5, 2f, 0.30f, 0.300f, phase: 1f),
                 Bands("three bands", 5, 3f, 0.42f, 0.420f),
-                Bands("a grid", 4, 1f, 0.14f, 0.267f, grid: true),
+                Bands("a seam", 5, 1f, 0.16f, 0.160f, waveAmplitude: 0.55f, waves: 2f),
                 Bands("pinstripes", 4, 7f, 0.22f, 0.220f),
             },
             new[]

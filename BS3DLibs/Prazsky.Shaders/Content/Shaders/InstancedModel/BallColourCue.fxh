@@ -14,7 +14,7 @@
 //A FIGURE IS ONE OF FOUR KINDS, each a signed field on the unit sphere, positive inside the figure, read in a
 //frame the draw supplies (so one kind turned differently is another figure):
 //
-//    1  bands     round the frame's Y: how many, how wide, wavy, hollow (a double line), dashed, or a grid of two
+//    1  bands     round the frame's Y: how many, how wide, wavy, hollow (a double line) or dashed
 //    2  spots     at the vertices of a regular solid (4, 6, 8, 12 or 20 of them), solid or rings, or two sizes
 //    3  checks    the sign of sin sin sin, about three cells across the ball
 //    4  emblems   one printed symbol on each face of the frame's cube, like the pips of a card
@@ -25,9 +25,10 @@
 //WHAT NO FIGURE MAY LOOK LIKE. A special kind - the bomb's two slanted glowing seams (a "+" face on), the stone's
 //broken outline and cracks, the frozen ball's six flat faces, the heavy casting's soft patches, the gravity well's
 //spiral and its concentric rings (a bullseye), the zap's forked bolts, the clear glass's cast seam - or the vinyl's
-//gores, which are the rotation cue. So no figure spirals, zigzags or runs along meridians, none glows brighter than
-//its ball (it glows in its own ink, and Prazsky.BS3D.ColourCues balances the two inks so that the ball's average
-//colour stays its plain one), and none is a thin dark crack.
+//gores, which are the rotation cue. So no figure spirals, zigzags or runs along meridians, no two bands cross round
+//the ball (the mine's seams: there is no grid), none glows brighter than its ball as a whole (it glows in its own
+//ink, and Prazsky.BS3D.ColourCues balances the two inks so that the ball's average colour stays its plain one), and
+//none is a thin dark crack.
 //===================================================================================================
 
 //One draw's figure, as BallColourCueTechniques.fxh reads it from its uniforms. The kinds' parameters:
@@ -38,7 +39,7 @@
 //                          emblems: (4, shape, size in the face's gnomonic units, 0)
 //    b                     bands:   (wave amplitude, waves round the ball, hollow share or 0, dashes or 0)
 //                          spots:   (second solid or 0, cos of its spots' radius, 0, 0)
-//    c                     bands:   (share of a dash period drawn, 1 for a grid of two families, 0, coverage)
+//    c                     bands:   (share of a dash period drawn, 0, 0, coverage)
 //                          others:  (0, 0, 0, coverage)
 //
 //c.w is the share of the sphere the figure covers: where a ball is too small to carry its figure, the figure
@@ -279,10 +280,6 @@ float ColourCueMotifField(float3 direction, ColourCuePaint cue)
     if (cue.a.x < 1.5)
     {
         field = ColourCueBandFamily(q.y, atan2(q.z, q.x), cue.a, cue.b, cue.c);
-
-        //A grid is the same family again, round the frame's X
-        [branch]
-        if (cue.c.y > 0.5) field = max(field, ColourCueBandFamily(q.x, atan2(q.y, q.z), cue.a, cue.b, cue.c));
     }
     else if (cue.a.x < 2.5)
     {
