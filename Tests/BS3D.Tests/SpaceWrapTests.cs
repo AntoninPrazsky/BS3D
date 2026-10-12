@@ -143,6 +143,16 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void A_short_sum_goes_over_whole_rather_than_parted_at_an_operator()
+        {
+            //At 60 the cheapest rag ends the first line on "4×10 ×" and leaves "3 = 120." under it; the price on a line
+            //that ends on an operator takes the whole sum over instead (with the price at 0 this failed, seen)
+            string wrapped = SpaceWrap.Wrap("Shot 2 matches 4 and orphans nothing, now at ×3: 4×10 × 3 = 120.", 60f, Monospace);
+
+            Assert.Equal("Shot 2 matches 4 and orphans nothing, now at ×3:\n4×10 × 3 = 120.", wrapped);
+        }
+
+        [Fact]
         public void No_line_ends_on_a_one_letter_word()
         {
             const string LETTERS = "One press a level lifts the glass a step back up, and a second press does nothing until "

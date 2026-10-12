@@ -19,17 +19,18 @@ namespace BS3D.Screens
     /// </para>
     /// <para>
     /// <b>The rules it keeps</b>, in order of weight: the fewest lines the ties allow, which is what a greedy fill takes
-    /// (the pages' heights are budgets, and a balanced paragraph that grew a line would push a button off the frame); a last line of one
-    /// word only where nothing else fits; then the evenest rag — the squared slack of every line but the last, plus a
-    /// penalty on a last line shorter than <see cref="LAST_LINE_MIN_FILL"/> of the measure. A minimum-raggedness fill,
-    /// in the family of Knuth and Plass's, but for a ragged right edge and without hyphenation (FontStashSharp has none).
+    /// (the pages' heights are budgets, and a balanced paragraph that grew a line would push a button off the frame); a
+    /// last line of one word only where nothing else fits; then the evenest rag — the squared slack of every line but the
+    /// last, plus a penalty on a last line shorter than <see cref="LAST_LINE_MIN_FILL"/> of the measure and a price on a
+    /// line that ends on an operator and so parts a sum. A minimum-raggedness fill, in the family of Knuth and Plass's,
+    /// but for a ragged right edge and without hyphenation (FontStashSharp has none).
     /// </para>
     /// <para>
-    /// <b>Ties</b> — places a line must not break — come from the copy and from two rules of the breaker's: a <b>no-break space</b>
-    /// (U+00A0, <see cref="TIE"/>) written into the copy where a name meets its number or a number its unit
-    /// ("MonoGame 3.8.5", "385 balls"); a <b>lone dash or operator</b> (— – + = × ÷ −) stays at the end of the line
-    /// before it, so no line starts with one (TeX's rule for a binary operator); and a <b>one-letter word</b> (a, A, I)
-    /// goes over to the next line with the word after it rather than ending a line. A tie is drawn as a plain space:
+    /// <b>Ties</b> — places a line must not break — come from the copy and from two rules of the breaker's: a
+    /// <b>no-break space</b> (U+00A0, <see cref="TIE"/>) written into the copy where a name meets its number or a number
+    /// its unit ("MonoGame 3.8.5", "385 balls"); a <b>lone dash or operator</b> (— – + = × ÷ −) stays at the end of the
+    /// line before it, so no line starts with one (TeX's rule for a binary operator); and a <b>one-letter word</b> (a, A,
+    /// I) goes over to the next line with the word after it rather than ending a line. A tie is drawn as a plain space:
     /// both faces carry U+00A0, but the line has already been laid out, and the space is the glyph the measure saw.
     /// </para>
     /// <para>
@@ -53,8 +54,17 @@ namespace BS3D.Screens
         //run up (each line's squared slack is at most 1), so it is avoided whenever the line count allows it
         private const double ONE_WORD_LAST_LINE = 1000.0;
 
+        //A line that ends on an operator, parting a sum ("4×10 × / 3 = 120."). Allowed, as TeX allows a break after a
+        //binary operator, but at a price above what the rag usually differs by, so a short sum goes over whole when a
+        //break before it costs the rag less than this
+        private const double OPERATOR_AT_LINE_END = 0.25;
+
         //What a line may not start with: a dash set as punctuation, or an operator of a worked sum
-        private static bool TiesBack(string word) => word is "—" or "–" or "+" or "=" or "×" or "÷" or "−";
+        private static bool TiesBack(string word) => IsDash(word) || IsOperator(word);
+
+        private static bool IsDash(string word) => word is "—" or "–";
+
+        private static bool IsOperator(string word) => word is "+" or "=" or "×" or "÷" or "−";
 
         //What may not end a line: a word of one letter
         private static bool TiesForward(string word) => word is "a" or "A" or "I";
@@ -108,6 +118,14 @@ namespace BS3D.Screens
             int n = units.Count;
             if (n == 0) return;
 
+            //A break after unit k leaves an operator at the line's end when the unit is a word with an operator tied on
+            bool[] endsOnOperator = new bool[n];
+            for (int k = 0; k < n; k++)
+            {
+                int space = units[k].LastIndexOf(' ');
+                endsOnOperator[k] = space >= 0 && IsOperator(units[k][(space + 1)..]);
+            }
+
             //Filled from the end: the best setting of units i..n-1 is its line count, then its cost, and where its first
             //line ends. Line count first, so the shape never costs a line (see the class remarks)
             int[] lines = new int[n + 1];
@@ -134,7 +152,8 @@ namespace BS3D.Screens
                     if (tooWide && j > i + 1) break;
 
                     bool oneWord = j == i + 1 && units[i].IndexOf(' ') < 0;
-                    double here = j == n ? LastLineCost(i, oneWord, w, width) : Slack(w, width);
+                    double here = j == n ? LastLineCost(i, oneWord, w, width)
+                        : Slack(w, width) + (endsOnOperator[j - 1] ? OPERATOR_AT_LINE_END : 0.0);
                     int count = 1 + lines[j];
                     double total = here + cost[j];
 

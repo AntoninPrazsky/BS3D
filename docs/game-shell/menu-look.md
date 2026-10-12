@@ -106,7 +106,7 @@ FontStashSharp 1.5.6 under Myra 1.6.3, read off the assemblies and the faces' ow
 ### Alignment and the rag
 
 - **Prose is left-aligned and ragged right**; only a line that stands alone (a heading, a button's word, a value) is centred.
-- **`SpaceWrap` chooses the breaks** (`Game/Screens/SpaceWrap.cs`, `SpaceWrapTests`), in order of weight: the fewest lines (what a greedy fill takes, so no page's height grows); no last line of one word where two fit; the evenest rag (the squared slack of every line but the last, plus a penalty on a last line under 30 % of the measure). It breaks at spaces only: FontStashSharp's own wrap breaks after a `.` and split the score server's address (#769).
+- **`SpaceWrap` chooses the breaks** (`Game/Screens/SpaceWrap.cs`, `SpaceWrapTests`), in order of weight: the fewest lines (what a greedy fill takes, so no page's height grows); no last line of one word where two fit; the evenest rag (the squared slack of every line but the last, plus a penalty on a last line under 30 % of the measure and a price on a line that ends on an operator, so a short sum goes over whole). It breaks at spaces only: FontStashSharp's own wrap breaks after a `.` and split the score server's address (#769).
 - **A page asks for prose, it does not set it**: `MenuPage.Paragraph` and `Aside` (the small face, the colour, the measure the page passes, the leading, the gap), `Prose` for a page that places it otherwise, `SetProse` for a label whose text changes, `ProseHeight` for a label whose height must hold every text it can show.
 
 ### Characters

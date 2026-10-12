@@ -19,7 +19,7 @@ namespace BS3D.Tests
         private const string STREAK = "Hit after hit multiplies your score";
         private const string BUDGET = "Spare shots pay a bonus at the end";
         private const string LINE_RULE = "If the cluster reaches the line, the level is lost";
-        private const string SEND_OFF = "That's the basics — you know how to play";
+        private const string SEND_OFF = "That’s the basics — you know how to play";
         private const string SWAP = "Swap the next two balls";
         private const string BRAKE = "Lift the glass back one step";
         private const string CUT = "Turn the next ball into a cutter";

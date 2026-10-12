@@ -119,8 +119,10 @@ namespace BS3D.Screens
             field.Widgets.Add(_field);
             column.Widgets.Add(field);
 
-            //As tall as the hint it shows when nothing is wrong, measured (#806); a complaint is one line of it
-            _hint = Prose(string.Empty, ColumnWidth, BS3DGame.MENU_TEXT_DIM, ProseLeading, new Thickness(0, Scaled(FIELD_GAP), 0, 0));
+            //As tall as the hint it shows when nothing is wrong, measured (#806), a complaint being one line of it; the gap
+            //above it and under it inside that height, since Myra counts a margin inside an explicit one
+            _hint = Prose(string.Empty, ColumnWidth, BS3DGame.MENU_TEXT_DIM, ProseLeading,
+                new Thickness(0, Scaled(FIELD_GAP), 0, Scaled(FIELD_GAP)));
             _hint.VerticalAlignment = VerticalAlignment.Top;
             _hint.Height = ProseHeight(_hint, HINT);
             column.Widgets.Add(_hint);

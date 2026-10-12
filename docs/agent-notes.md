@@ -533,3 +533,10 @@ Pravidla:
 - ⚠ Motiv táhne světlé barvy k tmavým (bílá/hnědá až 4,8, bílá/stříbrná 7,9–11,6 dE).
 - ⚠ `alt=colourcue=` cenu tvaru změřil nesmyslně; měř po procesech.
 - Otevřené: majitel volí (a), (b), obojí; pak 13 barev, HUD fronta, Pi (#828: (a)).
+
+## 2026-10-12 — #806 typografie: pravidla, zlom odstavce, próza podle nich — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #806 na větvi `806-typography-rules` (merge následuje), `verdict-eye`. Pravidla v `docs/game-shell/menu-look.md`, „Typesetting“: míra nejvýš 67 znaků (`MENU_PROSE_MEASURE`), proklad 1,46 em, mezera mezi odstavci 1 em, stupnice ~1,3, pomlčka s mezerami, ’ “ ”, …, nedělitelné mezery. `SpaceWrap` už neplní hladově: nejméně řádků, pak žádné osamělé slovo na konci, rovnoměrný okraj, cena za zlom za operátorem. `MenuPage.Paragraph/Aside/Prose`. Help, nastavení (poznámka ONLINE), přezdívka, karty tutoriálu, About (znaky a zlom).
+- Bez majitele, konzervativně: About bez prokladu do #807 (stojí na plné výšce); pomlčka s mezerami, protože tak byla psaná většina textu.
+- ⚠ FontStashSharp počítá U+00A0 jako bílý znak: nedělitelná mezera drží jen v textu přes `SpaceWrap`.
+- ⚠ Nástroj Write převádí `\u00A0` v obsahu na skutečný znak; escape do zdrojáků vkládat skriptem.
+- Otevřené: tabulky čísel (žebříčky, rozpis výsledku) a výběr úrovně neprošly.
