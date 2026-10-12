@@ -510,32 +510,50 @@ namespace BS3D.Screens
             public Vector2 Screen;
             public bool Projected;
 
-            public string Text;             //"+1,200"
-            public string Suffix;           //"×3", or null at ×1
+            public string Text;             //"+1 200"
+            public string Suffix;           //"×3", "bonus", or null at ×1
 
             /// <summary>What this is carrying, withheld from the readout until it lands there.</summary>
             public int Points;
 
-            /// <summary>The colour of the balls that were cut — see the class doc.</summary>
+            /// <summary>The colour of the balls that were cut — see the class doc. The completion bonus, which no ball
+            /// earned, is born in the readout's own white.</summary>
             public Color Tint;
 
+            /// <summary>Seconds since birth on the play clock. <b>Negative</b> while the completion bonus waits its turn
+            /// (<see cref="AddBonus"/>): not drawn yet, though its points are already withheld from the readout.</summary>
             public float Age;
+
+            /// <summary>Its zoom (#846): the top size in scores, how long the zoom in takes, and how long it is read
+            /// before it leaves — set from its points at birth, the hold cut short when a newer award is born
+            /// (<see cref="AwardZoom.HandOff"/>).</summary>
+            public float Peak, Birth, Hold;
+
+            /// <summary>Born in the balls-left readout rather than on a cell: the completion bonus, which is what the
+            /// unused balls were worth. Rises out of the readout in screen space instead of being projected.</summary>
+            public bool FromReadout;
         }
 
         private readonly List<Popup> _popups = new();
 
-        //The two legs, in seconds. Hold is the reading time — it is the whole reason the number exists at the
-        //ball at all — and the flight is short, because past about half a second an object crossing the screen
-        //stops reading as thrown and starts reading as drifting.
-        private const float POPUP_HOLD = 0.5f;
-        private const float POPUP_FLIGHT = 0.55f;
-        private const float POPUP_LIFETIME = POPUP_HOLD + POPUP_FLIGHT;
+        //The size and the legs of each award are AwardZoom's (#846); what stays here is how it is placed on the screen
+        private const float POPUP_RISE = 2.2f;          //world units over the read, so it drifts with the cluster
+        private const int POPUP_SUFFIX_GAP = 10;        //design units at the old popup type's size, scaled with the award
 
-        private const float POPUP_BIRTH = 0.2f;         //the pop-in, inside the hold
-        private const float POPUP_BIRTH_SCALE = 0.15f;  //where that pop starts from — near nothing, so it bursts in
-        private const float POPUP_RISE = 2.2f;          //world units over the hold, so it drifts with the cluster
-        private const float POPUP_ARRIVE_SCALE = 0.62f; //shrinking as it goes is most of what reads as distance
-        private const int POPUP_SUFFIX_GAP = 10;
+        /// <summary>How far the completion bonus climbs out of the balls-left readout over its read, in design units: clear
+        /// of the count it came out of, which is still showing what the bonus was paid for.</summary>
+        private const int POPUP_READOUT_RISE = 300;
+
+        /// <summary>The least an award keeps between itself and the frame's edge, in design units (#846): a zoomed number
+        /// born on a cell near the top of the frame is held inside it rather than cut off.</summary>
+        private const int POPUP_EDGE = 40;
+
+        /// <summary>The bonus's caption, in the accent beside its figure where an award carries its multiplier.</summary>
+        private const string BONUS_SUFFIX = "bonus";
+
+        /// <summary>Where the balls-left count stands this frame, its centre in pixels: the completion bonus is born there.
+        /// Written by <see cref="DrawBallsLeft"/>, which runs before the awards in the same pass.</summary>
+        private Vector2 _readoutCentre;
 
         //Motion blur. A real per-pixel blur would want a shader over the resolved frame, and SpriteBatch will
         //take one (Begin(effect:) puts a pixel shader over the glyph quads) — but it is the wrong tool here:
@@ -763,8 +781,19 @@ namespace BS3D.Screens
         /// A shot has scored. <paramref name="type"/> is the colour of the group it completed — the shot ball's
         /// own, since a match is by definition three of one colour touching.
         /// </summary>
+        /// <remarks>
+        /// <b>Several at once are handed on, not stacked or merged</b> (#846). One landing is one award, a bomb's chain
+        /// included (its victims are scored with the landing that set it off), so two awards on screen together are two
+        /// shots landing close behind each other. Each still has to be read on its own cell, with its own colour and
+        /// the multiplier it was won at; a zoomed number standing over another one is not readable, and a merged total
+        /// would have to say one colour and one multiplier for two. So the newer one takes the read and every award
+        /// still being read leaves for the corner now (<see cref="AwardZoom.HandOff"/>): only one big number at a time,
+        /// in the order they landed, each paid as it arrives.
+        /// </remarks>
         internal void AddAward(Vector3 world, ScoreAward award, BallType type)
         {
+            HandOffReads();
+
             _popups.Add(new Popup
             {
                 World = world,
@@ -781,14 +810,58 @@ namespace BS3D.Screens
                 Points = award.Points,
                 Tint = TypeColor(type),
                 Age = 0f,
+                Peak = AwardZoom.Peak(award.Points),
+                Birth = AwardZoom.Birth(award.Points),
+                Hold = AwardZoom.Hold(award.Points),
             });
         }
 
         /// <summary>
-        /// Hits the score readout without an award having flown into it — for points that arrive with no popup
-        /// to carry them, which is the completion bonus and nothing else.
+        /// The completion bonus (#846): what the unused balls were worth, born in the balls-left readout that counts them
+        /// and flown into the score like any award, where it used to arrive with no popup at all and count up out of
+        /// nowhere while the collapse played. It is often the biggest figure of the level, and the one the player earned
+        /// by playing well, so it is shown like one.
+        /// <para>
+        /// It <b>waits its turn</b>: the shot that cleared the field has just been awarded, and that award keeps its read
+        /// (<see cref="AwardZoom.BonusWait"/>), cut short only as a newer award would cut it when the bonus is born
+        /// (<see cref="AgePopups"/>). Its points are withheld from the readout from now, so the score does not count up
+        /// ahead of it.
+        /// </para>
         /// </summary>
-        internal void FlashScore() => _scorePulse.Kick(SCORE_KICK);
+        internal void AddBonus(int points)
+        {
+            float readLeft = 0f;
+            for (int i = 0; i < _popups.Count; i++)
+                readLeft = MathF.Max(readLeft, _popups[i].Hold - _popups[i].Age);
+
+            _popups.Add(new Popup
+            {
+                Text = "+" + ScoreText.Of(points),
+                Suffix = BONUS_SUFFIX,
+                Points = points,
+                Tint = BS3DGame.MENU_TEXT,
+                Age = -AwardZoom.BonusWait(readLeft),
+                Peak = AwardZoom.Peak(points),
+                Birth = AwardZoom.Birth(points),
+                Hold = AwardZoom.Hold(points),
+                FromReadout = true,
+            });
+        }
+
+        /// <summary>Every award still being read leaves for the corner, once it has been read for
+        /// <see cref="AwardZoom.MIN_READ"/>: a newer one is taking the read (see <see cref="AddAward"/>) — or the
+        /// completion bonus is, and is spared (<paramref name="sparingTheBonus"/>).</summary>
+        private void HandOffReads(bool sparingTheBonus = false)
+        {
+            for (int i = 0; i < _popups.Count; i++)
+            {
+                Popup popup = _popups[i];
+                if (popup.Age >= popup.Hold || (sparingTheBonus && popup.FromReadout)) continue;
+
+                popup.Hold = AwardZoom.HandOff(popup.Age, popup.Hold);
+                _popups[i] = popup;
+            }
+        }
 
         /// <summary>
         /// A streak of <paramref name="lost"/> has just been lost (#845): the badge cracks and shatters, and "×5 lost" stands
@@ -866,18 +939,25 @@ namespace BS3D.Screens
         /// </summary>
         private void AgePopups(float elapsed)
         {
+            bool bonusBorn = false;
+
             for (int i = _popups.Count - 1; i >= 0; i--)
             {
                 Popup popup = _popups[i];
+                bonusBorn |= popup.Age < 0f && popup.Age + elapsed >= 0f;
                 popup.Age += elapsed;
 
-                if (popup.Age >= POPUP_LIFETIME)
+                if (popup.Age >= AwardZoom.Lifetime(popup.Hold))
                 {
                     _popups.RemoveAt(i);
                     _scorePulse.Kick(SCORE_KICK);
                 }
                 else _popups[i] = popup;
             }
+
+            //The completion bonus has waited its turn, and its birth takes the read as a newer award's does: the clearing
+            //shot's award, if it is still being read, leaves for the corner now
+            if (bonusBorn) HandOffReads(sparingTheBonus: true);
         }
 
         private void ChaseScore(float elapsed, ScoreKeeper score)
@@ -885,7 +965,7 @@ namespace BS3D.Screens
             //What the readout is allowed to know: everything the keeper has, less whatever is still in the air
             //on its way here. Recomputed from the list rather than carried as a running total, so it is exactly
             //self-correcting — once the last popup has landed the two agree by construction, whatever happened
-            //in between (a level torn down mid-flight, a completion bonus awarded with no popup at all).
+            //in between (a level torn down mid-flight, the completion bonus still waiting for its turn).
             int withheld = 0;
             for (int i = 0; i < _popups.Count; i++) withheld += _popups[i].Points;
 
@@ -1468,6 +1548,11 @@ namespace BS3D.Screens
             //Pivoted on its bottom-left corner: the margin and the caption under it stay exactly where they are
             //while the number itself shrinks and swells, so the layout never moves — only the figure does
             float numberTop = bottom - captionSize.Y - Scaled(HUD_LINE_GAP);
+
+            //Where the completion bonus is born (#846): the count at rest, without the pulse or the breathing
+            Vector2 numberSize = font.MeasureString(_ballsText);
+            _readoutCentre = new Vector2(margin + numberSize.X * 0.5f, numberTop - numberSize.Y * 0.5f);
+
             DrawPulsed(font, _ballsText,
                 new Vector2(margin, numberTop), new Vector2(0f, 1f),
                 _ballsPulse.Scale * (1f + BREATHE_AMPLITUDE * wave), colour, glow);
@@ -1992,10 +2077,11 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// The awards, on their way in. Each is born on the cell it was earned in, is held there long enough to
-        /// be read, and is then flown into the score with a smear behind it. The source is <b>reprojected every
-        /// frame</b> and the flight is a lerp from it, so at the handover the blend weight is zero and the
-        /// number is exactly where it was — the same one-reversible-scalar idiom precise aim and the drop
+        /// The awards, on their way in. Each is born on the cell it was earned in (the completion bonus in the balls-left
+        /// readout), zooms well past the score's size and is held there long enough to be read, then shrinks where it
+        /// stands and is thrown into the score with a smear behind it (#846, <see cref="AwardZoom"/>). The source is
+        /// <b>reprojected every frame</b> and the flight is a lerp from it, so at the handover the blend weight is zero
+        /// and the number is exactly where it was — the same one-reversible-scalar idiom precise aim and the drop
         /// cinematic use, and for the same reason: there is no frame on which anything snaps.
         /// </summary>
         private void DrawAwards(ICamera camera, Viewport viewport, Vector2 destination)
@@ -2004,9 +2090,18 @@ namespace BS3D.Screens
             {
                 Popup popup = _popups[i];
 
+                //The completion bonus, still waiting for the award of the shot that cleared the field to be read
+                if (popup.Age < 0f) continue;
+
                 Vector2 source;
 
-                if (TryProject(camera, viewport, popup, out Vector2 projected))
+                if (popup.FromReadout)
+                {
+                    //Out of the count, climbing in screen space as an award climbs over its cell
+                    source = _readoutCentre
+                             - new Vector2(0f, Scaled(POPUP_READOUT_RISE) * AwardZoom.Rise(popup.Age, popup.Hold));
+                }
+                else if (TryProject(camera, viewport, popup, out Vector2 projected))
                 {
                     source = projected;
 
@@ -2017,22 +2112,26 @@ namespace BS3D.Screens
                     _popups[i] = popup;
                 }
                 else if (popup.Projected) source = popup.Screen;
-                else if (popup.Age < POPUP_HOLD) continue;  //never seen, and still in the leg where it would be at the cell
+                else if (popup.Age < popup.Hold) continue;  //never seen, and still in the leg where it would be at the cell
                 else source = destination;                  //only the flight is left, and it ends where it ends
 
-                float flight = MathF.Max(0f, popup.Age - POPUP_HOLD) / POPUP_FLIGHT;
+                float size = AwardZoom.Size(popup.Age, popup.Hold, popup.Birth, popup.Peak);
+                AwardLayout layout = LayOutAward(popup, size);
+
+                //Inside the frame at the size it has now. A zoomed number born on a cell near the top would otherwise be
+                //cut off by the edge; it loosens as the number shrinks, so the source eases back to the cell without a step.
+                source = KeepInFrame(source, layout.Extent, viewport);
+
+                float flight = AwardZoom.Flight(popup.Age, popup.Hold);
 
                 if (flight <= 0f)
                 {
-                    //The reading leg: still on the balls, popping in
-                    float birth = MathHelper.Clamp(popup.Age / POPUP_BIRTH, 0f, 1f);
-                    float scale = MathHelper.Lerp(POPUP_BIRTH_SCALE, 1f, EaseOutBack(birth));
-
-                    DrawAwardAt(popup, source, scale, popup.Tint, 1f);
+                    //The reading leg: on the balls, zooming in and then held
+                    DrawAwardAt(popup, layout, source, popup.Tint, 1f);
                     continue;
                 }
 
-                DrawAwardFlight(popup, source, destination, flight);
+                DrawAwardFlight(popup, layout, size, source, destination, flight);
             }
         }
 
@@ -2042,13 +2141,11 @@ namespace BS3D.Screens
         /// parameter</i> gives a trail whose length is the curve's own local speed — nothing to store, nothing
         /// to go stale, and identical at any frame rate.
         /// </summary>
-        private void DrawAwardFlight(in Popup popup, Vector2 source, Vector2 destination, float flight)
+        private void DrawAwardFlight(in Popup popup, in AwardLayout layout, float size, Vector2 source, Vector2 destination,
+            float flight)
         {
             Vector2 at = FlightPosition(source, destination, flight);
             Vector2 before = FlightPosition(source, destination, MathF.Max(0f, flight - SMEAR_LOOKBACK));
-
-            float ease = MathHelper.SmoothStep(0f, 1f, flight);
-            float scale = MathHelper.Lerp(1f, POPUP_ARRIVE_SCALE, ease);
 
             //It stops being the balls' colour and becomes the score's — which is the whole sentence the flight
             //is there to say. Faster than the motion, so it has clearly turned by the time it lands.
@@ -2067,46 +2164,133 @@ namespace BS3D.Screens
 
                 //Squared, so the smear is dense right behind the number and thins away — which is what a
                 //shutter actually integrates, and what stops the trail reading as a row of copies
-                DrawAwardAt(popup, Vector2.Lerp(before, at, t), scale * MathHelper.Lerp(0.85f, 1f, t),
+                DrawAwardAt(popup, LayOutAward(popup, size * MathHelper.Lerp(0.85f, 1f, t)), Vector2.Lerp(before, at, t),
                     colour, alpha * SMEAR_ALPHA * t * t, shadow: false);
             }
 
-            DrawAwardAt(popup, at, scale, colour, alpha);
+            DrawAwardAt(popup, layout, at, colour, alpha);
         }
 
         /// <summary>
         /// The flight path: a lerp from the cell to the corner through an ease that pulls <i>backwards</i> first.
-        /// That anticipation is what makes the throw read as a throw — the number gathers itself, then goes, and
-        /// arrives at its greatest speed, which is exactly where the smear should be longest and where the
-        /// corner is about to be hit.
+        /// That anticipation is what makes the throw read as a throw — the number gathers itself (and, since #846,
+        /// shrinks from its zoom while it does), then goes, and arrives at its greatest speed, which is exactly where
+        /// the smear should be longest and where the corner is about to be hit.
         /// </summary>
         private static Vector2 FlightPosition(Vector2 source, Vector2 destination, float flight) =>
-            Vector2.Lerp(source, destination, EaseInBack(flight));
+            Vector2.Lerp(source, destination, HudEase.InBack(flight));
 
-        /// <summary>One award — its points, and the multiplier it was won at, kept in the accent beside them.</summary>
-        private void DrawAwardAt(in Popup popup, Vector2 centre, float scale, Color colour, float alpha, bool shadow = true)
+        /// <summary>
+        /// One award laid out at one size (#846): the face and scale of its figure and of its caption, the backing each is
+        /// drawn with, and the room the pair takes, in pixels. A value, built per draw: nothing is kept or allocated.
+        /// </summary>
+        private readonly struct AwardLayout
         {
-            SpriteFontBase font = _game.HudFontPopup;
-            SpriteFontBase suffixFont = _game.HudFontLabel;
+            public readonly SpriteFontBase Font, SuffixFont;
+            public readonly float Scale, SuffixScale;
+            public readonly int Blur, SuffixBlur;
+            public readonly Vector2 TextSize, SuffixSize;
+            public readonly float Gap, Shadow;
 
-            Vector2 size = font.MeasureString(popup.Text);
-            Vector2 suffixSize = popup.Suffix != null ? suffixFont.MeasureString(popup.Suffix) : Vector2.Zero;
-            float gap = popup.Suffix != null ? Scaled(POPUP_SUFFIX_GAP) : 0f;
+            public AwardLayout(SpriteFontBase font, float scale, int blur, Vector2 textSize, SpriteFontBase suffixFont,
+                float suffixScale, int suffixBlur, Vector2 suffixSize, float gap, float shadow)
+            {
+                Font = font;
+                Scale = scale;
+                Blur = blur;
+                TextSize = textSize;
+                SuffixFont = suffixFont;
+                SuffixScale = suffixScale;
+                SuffixBlur = suffixBlur;
+                SuffixSize = suffixSize;
+                Gap = gap;
+                Shadow = shadow;
+            }
 
-            float width = size.X + gap + suffixSize.X;
-            float height = MathF.Max(size.Y, suffixSize.Y);
-            Vector2 corner = centre - new Vector2(width, height) * 0.5f * scale;
+            /// <summary>The figure and its caption side by side, in pixels.</summary>
+            public Vector2 Extent => new(TextSize.X + Gap + SuffixSize.X, MathF.Max(TextSize.Y, SuffixSize.Y));
+        }
 
-            DrawString(font, popup.Text, corner + new Vector2(0f, (height - size.Y) * 0.5f * scale),
-                colour * alpha, scale, shadow);
+        //The caption beside an award's figure, as a share of the figure's size: the label's type against the old popup's,
+        //the relation the two were drawn at before the zoom (#846)
+        private const float POPUP_SUFFIX_SHARE = BS3DGame.HUD_FONT_LABEL / (float)BS3DGame.HUD_FONT_POPUP;
+
+        /// <summary>
+        /// Lays an award out at <paramref name="size"/> scores (<see cref="AwardZoom.Size"/>). Its gap and its shadow's
+        /// offset scale with the figure exactly as they did with the old popup's one face, so the look at any size is the
+        /// old popup's at that size.
+        /// </summary>
+        private AwardLayout LayOutAward(in Popup popup, float size)
+        {
+            float units = size * BS3DGame.HUD_FONT_SCORE;
+            float share = units / BS3DGame.HUD_FONT_POPUP;
+            float shadow = Scaled(HUD_SHADOW_OFFSET) * share;
+
+            SpriteFontBase font = AwardFace(units, out float scale, out int blur);
+            Vector2 textSize = font.MeasureString(popup.Text) * scale;
+
+            if (popup.Suffix == null)
+                return new AwardLayout(font, scale, blur, textSize, null, 0f, 0, Vector2.Zero, 0f, shadow);
+
+            SpriteFontBase suffixFont = AwardFace(units * POPUP_SUFFIX_SHARE, out float suffixScale, out int suffixBlur);
+            Vector2 suffixSize = suffixFont.MeasureString(popup.Suffix) * suffixScale;
+
+            return new AwardLayout(font, scale, blur, textSize, suffixFont, suffixScale, suffixBlur, suffixSize,
+                Scaled(POPUP_SUFFIX_GAP) * share, shadow);
+        }
+
+        /// <summary>
+        /// The face an award is drawn from at <paramref name="units"/> design units: the smallest of the ladder at least
+        /// that big (<c>BS3DGame.HUD_FONT_POPUP</c>), so a glyph is never stretched and never shrunk to much under half
+        /// its raster. <paramref name="blur"/> is the backing's for that face, the same share of its size the old popup's
+        /// was of 112, so the backing neither tightens nor swells at a step between faces.
+        /// </summary>
+        private SpriteFontBase AwardFace(float units, out float scale, out int blur)
+        {
+            SpriteFontBase font;
+            int nominal;
+
+            if (units <= BS3DGame.HUD_FONT_LABEL) (font, nominal) = (_game.HudFontLabel, BS3DGame.HUD_FONT_LABEL);
+            else if (units <= BS3DGame.HUD_FONT_POPUP) (font, nominal) = (_game.HudFontPopup, BS3DGame.HUD_FONT_POPUP);
+            else if (units <= BS3DGame.HUD_FONT_TUTORIAL) (font, nominal) = (_game.HudFontTutorial, BS3DGame.HUD_FONT_TUTORIAL);
+            else if (units <= BS3DGame.HUD_FONT_POPUP_LARGE) (font, nominal) = (_game.HudFontPopupLarge, BS3DGame.HUD_FONT_POPUP_LARGE);
+            else (font, nominal) = (_game.HudFontPopupPeak, BS3DGame.HUD_FONT_POPUP_PEAK);
+
+            scale = units / nominal;
+            blur = Math.Max(1, Scaled(HUD_BACKING_BLUR * nominal / BS3DGame.HUD_FONT_POPUP));
+            return font;
+        }
+
+        /// <summary>A centre moved just enough that a box of <paramref name="extent"/> around it stays
+        /// <see cref="POPUP_EDGE"/> inside the frame; centred on an axis the box is too big for.</summary>
+        private Vector2 KeepInFrame(Vector2 centre, Vector2 extent, Viewport viewport)
+        {
+            float edge = Scaled(POPUP_EDGE);
+            return new Vector2(Within(centre.X, extent.X * 0.5f + edge, viewport.Width - extent.X * 0.5f - edge),
+                Within(centre.Y, extent.Y * 0.5f + edge, viewport.Height - extent.Y * 0.5f - edge));
+
+            static float Within(float value, float least, float most) =>
+                least > most ? (least + most) * 0.5f : Math.Clamp(value, least, most);
+        }
+
+        /// <summary>One award — its points, and the multiplier it was won at (or the bonus's caption), kept in the
+        /// accent beside them.</summary>
+        private void DrawAwardAt(in Popup popup, in AwardLayout layout, Vector2 centre, Color colour, float alpha,
+            bool shadow = true)
+        {
+            Vector2 extent = layout.Extent;
+            Vector2 corner = centre - extent * 0.5f;
+
+            DrawString(layout.Font, popup.Text, corner + new Vector2(0f, (extent.Y - layout.TextSize.Y) * 0.5f),
+                colour * alpha, layout.Scale, shadow, layout.Blur, layout.Shadow);
 
             if (popup.Suffix == null) return;
 
             //The multiplier is the streak's colour wherever it appears, so the badge on a popup and the number
             //in the corner are recognisably the same thing
-            DrawString(suffixFont, popup.Suffix,
-                corner + new Vector2(size.X + gap, (height - suffixSize.Y) * 0.5f) * scale,
-                HUD_ACCENT * alpha, scale, shadow);
+            DrawString(layout.SuffixFont, popup.Suffix,
+                corner + new Vector2(layout.TextSize.X + layout.Gap, (extent.Y - layout.SuffixSize.Y) * 0.5f),
+                HUD_ACCENT * alpha, layout.SuffixScale, shadow, layout.SuffixBlur, layout.Shadow);
         }
 
         /// <summary>
@@ -2147,7 +2331,7 @@ namespace BS3D.Screens
         {
             //It rises over the reading leg and then stops: past that the flight owns where it goes, and a source
             //still climbing would fight the curve
-            float rise = MathHelper.Clamp(popup.Age / POPUP_HOLD, 0f, 1f) * POPUP_RISE;
+            float rise = AwardZoom.Rise(popup.Age, popup.Hold) * POPUP_RISE;
             Vector3 projected = viewport.Project(popup.World + Vector3.Up * rise,
                 camera.Projection, camera.View, Matrix.Identity);
 
@@ -2560,7 +2744,17 @@ namespace BS3D.Screens
         /// faded popup's shadow fades with it rather than outliving the text it was drawn for.
         /// </summary>
         private void DrawString(SpriteFontBase font, string text, Vector2 position, Color colour,
-            float scale = 1f, bool shadow = true)
+            float scale = 1f, bool shadow = true) =>
+            DrawString(font, text, position, colour, scale, shadow, Math.Max(1, Scaled(HUD_BACKING_BLUR)),
+                Scaled(HUD_SHADOW_OFFSET) * scale);
+
+        /// <summary>
+        /// The same, with the backing's blur and the offset copy's distance given rather than derived from
+        /// <paramref name="scale"/>: an award is drawn from several faces as it zooms (#846, <see cref="AwardFace"/>), and
+        /// its backing and shadow have to follow the size it is drawn at, not the scale of whichever face drew it.
+        /// </summary>
+        private void DrawString(SpriteFontBase font, string text, Vector2 position, Color colour,
+            float scale, bool shadow, int blur, float shadowOffset)
         {
             Vector2 scaling = new(scale);
 
@@ -2574,7 +2768,6 @@ namespace BS3D.Screens
                 //text's origin it lands down and to the right of what it backs, which is the identical trap
                 //DrawGlow's comment records for the halo, and it looks the same way: a smudge beside the
                 //number rather than under it.
-                int blur = Math.Max(1, Scaled(HUD_BACKING_BLUR));
                 Vector2 size = font.MeasureString(text) * scale;
                 Vector2 backingSize = font.MeasureString(text, null, 0f, 0f, FontSystemEffect.Blurry, blur) * scale;
                 Vector2 backingAt = position + (size - backingSize) * 0.5f;
@@ -2583,7 +2776,7 @@ namespace BS3D.Screens
                     _game.OverlayBatch.DrawString(font, text, backingAt, HUD_BACKING * alpha, 0f, Vector2.Zero,
                         scaling, 0f, 0f, 0f, TextStyle.None, FontSystemEffect.Blurry, blur);
 
-                _game.OverlayBatch.DrawString(font, text, position + new Vector2(Scaled(HUD_SHADOW_OFFSET) * scale),
+                _game.OverlayBatch.DrawString(font, text, position + new Vector2(shadowOffset),
                     HUD_SHADOW * alpha, 0f, Vector2.Zero, scaling);
             }
 
@@ -2617,7 +2810,7 @@ namespace BS3D.Screens
         //the owner's 21.6:9 panel simply gets a wider strip than 16:9 does and a narrow window a tighter one.
         private const int HUD_TUTORIAL_CLEARANCE = 80;
 
-        //The pop-in starts this small and overshoots to full through EaseOutBack: a card that lands with a
+        //The pop-in starts this small and overshoots to full through HudEase.OutBack: a card that lands with a
         //bounce reads as the game offering something, where one that fades in reads as a notice. The praise
         //kicks the same spring the score takes, so a lesson done is answered the way a point scored is.
         private const float HUD_TUTORIAL_ARRIVE_FROM = 0.6f;
@@ -2805,7 +2998,7 @@ namespace BS3D.Screens
             float praiseGap = praiseSize.Y > 0f ? Scaled(HUD_TUTORIAL_PRAISE_GAP) : 0f;
 
             float alpha = MathHelper.Clamp(presence, 0f, 1f);
-            float arrive = MathHelper.Lerp(HUD_TUTORIAL_ARRIVE_FROM, 1f, EaseOutBack(alpha));
+            float arrive = MathHelper.Lerp(HUD_TUTORIAL_ARRIVE_FROM, 1f, HudEase.OutBack(alpha));
 
             //THE CARD IS SCALED TO THE STRIP IT HAS, and at the shipped sizes this never bites (#461): the
             //widest card of the fifteen measures 2552 design units against ~3020 of strip at 16:9, and the
@@ -2858,25 +3051,6 @@ namespace BS3D.Screens
         #endregion
 
         #region Curves and colour
-
-        /// <summary>Overshoots past 1 and settles back — the pop-in.</summary>
-        private static float EaseOutBack(float t)
-        {
-            const float C1 = 2.8f;
-            const float C3 = C1 + 1f;
-
-            float u = t - 1f;
-            return 1f + C3 * u * u * u + C1 * u * u;
-        }
-
-        /// <summary>Dips below 0 first and then accelerates — the wind-up before the throw.</summary>
-        private static float EaseInBack(float t)
-        {
-            const float C1 = 1.35f;
-            const float C3 = C1 + 1f;
-
-            return C3 * t * t * t - C1 * t * t;
-        }
 
         /// <summary>
         /// The HUD colour of a ball type: what the ball's coloured gores actually show on screen, baked once

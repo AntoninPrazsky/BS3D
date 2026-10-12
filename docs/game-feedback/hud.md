@@ -13,7 +13,7 @@ What the scoring rules ("Scoring" in `docs/game-session.md`) look like while a l
 
 ## Authored loud
 
-A game HUD is not a data readout (an overlay-sized first pass read as barely there): type runs 140/112/76 design units (score/award/label). The halo is drawn `HUD_GLOW_PASSES` times because **one blur pass is always fainter than its glyph**, and **centred by its own measurement** (`MeasureString` with the effect and amount), since a blurred glyph is a larger bitmap with its own render offset.
+A game HUD is not a data readout (an overlay-sized first pass read as barely there): the score is 140 design units and its labels 76, and an award zooms well past the score (below). The halo is drawn `HUD_GLOW_PASSES` times because **one blur pass is always fainter than its glyph**, and **centred by its own measurement** (`MeasureString` with the effect and amount), since a blurred glyph is a larger bitmap with its own render offset.
 
 ## `Pulse`: "this number just changed"
 
@@ -21,7 +21,11 @@ A scalar resting at 1, **displaced** by a kick and sprung back (a second kick mi
 
 ## Awards and the score
 
-- A popup is born on its cell, held `POPUP_HOLD`, flown to the corner over `POPUP_FLIGHT` from a source **reprojected every frame**; **landing is what pays**. `_scoreShown` chases `score.Score` *less the points still in the air*, recomputed from the list, so a level torn down mid-flight or a completion bonus with no popup (`FlashScore`) still agree.
+- **An award zooms, is read, shrinks and is thrown** (#846, `Game/Screens/AwardZoom.cs`). Born on its cell (reprojected every frame, rising over it), it zooms from near nothing to **1.5 times the score's type for a bare match and up to 3 times for a big release** (`AwardZoom.Peak`, logarithmic in the points, 2 000 and up being big) and is **read for 0.55 s up to 1.2 s**, zoom included (`Hold`), swelling a little. It then **shrinks where it stands** to half the score while the throw's wind-up (`HudEase.InBack`) is still behind its source, and is thrown into the corner over `AwardZoom.FLIGHT` (0.55 s), turning amber, with a smear. **Landing is what pays** and kicks the score. `_scoreShown` chases `score.Score` *less the points still in the air*, recomputed from the list, so a level torn down mid-flight still agrees.
+  - ⚠ **One big number at a time.** A landing is one award (a bomb's chain is scored with the landing that set it off), so two awards together are two shots landing close behind each other. The newer one takes the read and every award still being read leaves for the corner now, once it has been read for `MIN_READ` (`AwardZoom.HandOff`). Not merged into one total: it would have to show one colour and one multiplier for two shots born on two cells.
+  - **The completion bonus has an award too**: white, captioned "bonus", born in the balls-left count and rising out of it once the clearing shot's award has been read (`AwardZoom.BonusWait`, at most 0.6 s, so it lands inside the 2.5 s cleared beat), sending that award on its way as a newer one would.
+  - **Its type is a ladder of faces** (`PlayHud.AwardFace`): the label's 76, 112, the tutorial card's 200, 320 and `HUD_FONT_POPUP_PEAK` at the top of the zoom's overshoot, the smallest at least as big as the size drawn, no two rungs more than 1.8 times apart. One face for every size would be shrunk six times on landing (the atlas has no mips, so it shimmers) or stretched and soft at the peak. The backing's blur and the shadow's offset follow the size drawn, not the face's scale, so nothing steps between faces.
+  - Held `POPUP_EDGE` inside the frame at the size it has, so a zoomed number born near the top is not cut off.
 - **Every score-like figure goes through `ScoreText`** (`Game/Screens/ScoreText.cs`): thousands grouped with a **space** (`12 340`), locale-independent (`"N0"` once printed one number two ways in a frame), rebuilt only when the number changes.
 
 ## Colour: one accent, meaning gain
@@ -50,7 +54,7 @@ A **won** level drops the HUD (`!LevelOver`, #582): the result page states the s
 
 ## Testing it
 
-- A popup lives about 1.05 s: capture in a burst, cropped to the corner.
+- An award lives 1.1 s (a bare match) to 1.75 s (a big release): capture in a burst. A scratch level loaded with `levelfile=` (a rock lid with one blob of one colour under it) makes a one-shot big release, and with nothing else removable the same shot clears the field and shows the bonus.
 - **The break** (#845): `level=23 seed=1 streak=5 aim=5:-5:0 fire=7 logshots` fires into the drain, and `[streak] x5 lost at 7.29 s, told` says when the break began on `shot=`'s clock; a 1600×900 burst at 7.33, 7.42, 7.6, 7.8 and 8.1 catches the crack, the shatter and the words. At 3840×1600 take one shot a run: a PNG that size blocks the frame long enough to move the next.
 - **Drive menus with Enter alone, never Down** (a held Down passes `NAV_REPEAT_DELAY` and can open the Scene page), and confirm focus first (`UpdateMenuChrome`'s `IsActive` block).
 - A scripted `rmbdown` never released stays held at OS level after the process is killed; the next run's menu clicks vanish.
