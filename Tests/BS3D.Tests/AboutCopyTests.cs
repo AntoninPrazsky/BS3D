@@ -7,7 +7,9 @@ namespace BS3D.Tests
     /// <summary>
     /// What the About page says (#807): its copy set by the typesetting rules (#806), and every credit the page carried
     /// before it was split still on it — a shorter page was the point, and a library, a licence or a tool quietly dropped
-    /// on the way would be the one thing a reader of the old page could not see was gone.
+    /// on the way would be the one thing a reader of the old page could not see was gone. Read off
+    /// <c>AboutCopy.Pages</c>, which is what <c>AboutPage</c> draws block by block (and throws on a block it cannot set),
+    /// so a credit list, the privacy line or the player taken off a page is taken out of what these tests read.
     /// </summary>
     public class AboutCopyTests
     {
@@ -65,9 +67,57 @@ namespace BS3D.Tests
         [Fact]
         public void Every_page_has_a_name()
         {
-            Assert.Equal(4, AboutCopy.TITLES.Length);
-            Assert.All(AboutCopy.TITLES, name => Assert.False(string.IsNullOrWhiteSpace(name)));
-            Assert.Equal(AboutCopy.TITLES.Length, AboutCopy.TITLES.Distinct().Count());
+            AboutCopy.Page[] pages = AboutCopy.Pages(TITLE);
+
+            Assert.Equal(4, pages.Length);
+            Assert.All(pages, page => Assert.False(string.IsNullOrWhiteSpace(page.Title)));
+            Assert.Equal(pages.Length, pages.Select(page => page.Title).Distinct().Count());
         }
+
+        [Fact]
+        public void The_player_is_the_first_page()
+        {
+            //The owner's "Jukebox first": the first thing a player sees is the thing they can use
+            Assert.Contains(AboutCopy.Pages(TITLE)[0].Blocks, block => block.Kind == AboutCopy.BlockKind.Player);
+            Assert.Single(Blocks(AboutCopy.BlockKind.Player));
+        }
+
+        [Fact]
+        public void The_privacy_line_stands_under_what_the_game_is()
+        {
+            //Not copy of the page's (OnlineScores.PrivacySentence, the Settings page's own), so the copy cannot hold it: the
+            //page holds a block that draws it, once, after the paragraph that says what the game is
+            AboutCopy.Page page = Assert.Single(AboutCopy.Pages(TITLE),
+                candidate => candidate.Blocks.Any(block => block.Kind == AboutCopy.BlockKind.Privacy));
+
+            int privacy = System.Array.FindIndex(page.Blocks, block => block.Kind == AboutCopy.BlockKind.Privacy);
+            int game = System.Array.FindIndex(page.Blocks, block => block.Text == AboutCopy.Game(TITLE));
+
+            Assert.True(game >= 0 && game < privacy, "the privacy line must stand under what the game is, on its page");
+            Assert.Single(Blocks(AboutCopy.BlockKind.Privacy));
+        }
+
+        [Fact]
+        public void The_repository_and_the_author_are_reached()
+        {
+            //Write to the Author has no main-menu entry (#704, #813): About is where a player looks for who made the game
+            Assert.Single(Blocks(AboutCopy.BlockKind.Links));
+        }
+
+        [Fact]
+        public void Every_block_carries_what_its_kind_sets()
+        {
+            foreach (AboutCopy.Block block in AboutCopy.Pages(TITLE).SelectMany(page => page.Blocks))
+            {
+                bool text = block.Kind is AboutCopy.BlockKind.Line or AboutCopy.BlockKind.Paragraph;
+                bool credits = block.Kind == AboutCopy.BlockKind.Credits;
+
+                Assert.Equal(text, !string.IsNullOrWhiteSpace(block.Text));
+                Assert.Equal(credits, block.Credits is { Length: > 0 });
+            }
+        }
+
+        private static AboutCopy.Block[] Blocks(AboutCopy.BlockKind kind) =>
+            AboutCopy.Pages(TITLE).SelectMany(page => page.Blocks).Where(block => block.Kind == kind).ToArray();
     }
 }

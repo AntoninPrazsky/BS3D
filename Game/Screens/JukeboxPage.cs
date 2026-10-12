@@ -24,7 +24,7 @@ namespace BS3D.Screens
     /// chapter plays would follow as its own group.
     /// </para>
     /// <para>
-    /// Two columns, as About and Settings: the chapters on the left, the chosen chapter's recordings on the right over
+    /// Two columns: the chapters on the left, the chosen chapter's recordings on the right over
     /// the visualizer and the player's buttons — so the pad walks fifteen chapters and ten recordings, not a scroller of
     /// a hundred and forty. Picking a chapter shows its recordings; picking a recording plays it. Leaving the page stops
     /// it, and the game's own music, which stepped aside, comes back.

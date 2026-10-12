@@ -159,15 +159,16 @@ namespace BS3D.Screens
         /// <summary>
         /// Left or right on the arrow keys, the D-pad or the left stick (−1 / +1) — <b>the page's own axis</b>,
         /// where up and down are always the focus cursor's (on a <see cref="PadWalksGrid"/> page the pad's left and right
-        /// are the cursor's too, #848, and only the arrow keys and the shoulders reach this). Five pages claim it: the level picker turns to the
+        /// are the cursor's too, #848, and only the arrow keys and the shoulders reach this). Six pages claim it: the level picker turns to the
         /// previous or next chapter (#273), Help to its previous or next page (#606), Settings to its previous or
-        /// next tab (#686), High Scores to its previous or next chapter (#685) and About to its previous or next page (#807).
+        /// next tab (#686), High Scores to its previous or next chapter (#685), a level's online boards to their previous
+        /// or next ranks (#799) and About to its previous or next page (#807).
         /// Raised by the host's <c>UpdateMenuNavigation</c> with the same fire-once-then-walk treatment a held direction gets
         /// on the other axis. The pad's shoulder buttons, one press a page, reach the page through <see cref="ShoulderTurn"/>,
         /// which is this unless a page says otherwise.
         /// <para>
         /// Returns whether it acted, which is what decides whether the menu ticks: a page that ignores the axis
-        /// — every page but those five — must not sound as though something moved, and neither must a picker whose set
+        /// — every page but those six — must not sound as though something moved, and neither must a picker whose set
         /// has one chapter to turn between. A page that declines leaves the press to the row the cursor stands in (#805).
         /// </para>
         /// </summary>
@@ -176,7 +177,8 @@ namespace BS3D.Screens
         /// <summary>
         /// The pad's left or right shoulder (−1 / +1), one press a page (#686): <see cref="PageSideways"/> by default, so a
         /// page that turns on the arrows turns on the shoulders alike. About's player page is the one that tells them apart
-        /// (#807): its arrows walk Play and Next while the cursor is on them, and its shoulders turn the page from anywhere.
+        /// (#807): its arrows walk Play and Next and turn the page only past the row's ends, and its shoulders turn the page
+        /// from anywhere.
         /// Returns whether it acted, as <see cref="PageSideways"/> does.
         /// </summary>
         internal virtual bool ShoulderTurn(int direction) => PageSideways(direction);

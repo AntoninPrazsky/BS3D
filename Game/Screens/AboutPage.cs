@@ -19,15 +19,18 @@ namespace BS3D.Screens
     /// <b>Four pages behind one menu entry (#807)</b>, the owner's "nobody reads that much text": the two columns of #463 had
     /// grown to some 160 words of running text plus the privacy sentence, in one face, one colour, with nothing to say where
     /// to start. The player comes first, because the first thing a player sees should be the thing they can use; then what
-    /// the game is with the privacy line, what it is built on and what it was made with. The words are
-    /// <see cref="AboutCopy"/>'s, where a test holds them to the typesetting rules and the credits to the full list.
+    /// the game is with the privacy line, what it is built on and what it was made with. <b>What each page holds, in what
+    /// order, is <see cref="AboutCopy.Pages"/></b>, and this page sets every block it is handed (<see cref="BuildBody"/>),
+    /// so the test that holds the words to the typesetting rules and the credits to the full list reads what is drawn.
     /// </para>
     /// <para>
     /// <b>The pages turn the way the picker's chapters and High Scores' do</b>: an arrow either side of the page's name with
     /// the pad's shoulder under it (<see cref="MenuPage.ArrowWithShoulder"/>, #848), and the arrow keys, the D-pad and the
-    /// stick (<see cref="PageSideways"/>). <b>Except on the player's row</b>: Play and Next stand side by side, so while the
-    /// cursor is on one of them ◀ ▶ walk the two (the host's row rule, #805) and only the shoulders turn the page
-    /// (<see cref="ShoulderTurn"/>) — the issue's "decide it once".
+    /// stick (<see cref="PageSideways"/>). <b>Across the player's row they walk it</b>: Play and Next stand side by side, so
+    /// ◀ ▶ walk the two (the host's row rule, #805) — the issue's "decide it once" — and past the row's ends turn the page as
+    /// anywhere else. The keyboard has no shoulders: with the turn left to them alone on that row, the arrow keys would have
+    /// nothing to turn the page with from where the cursor arrives, and nothing on screen says to go up to ▶. The shoulders
+    /// turn it from anywhere (<see cref="ShoulderTurn"/>).
     /// </para>
     /// <para>
     /// <b>Every page stands in the same frame</b>, the biggest page's, measured (<see cref="BuildFrame"/>, Help's pattern
@@ -65,6 +68,9 @@ namespace BS3D.Screens
         private const int LINK_GAP = 26;
 
         private const string REPOSITORY = "https://github.com/AntoninPrazsky/BS3D";
+
+        //What the pages hold, in the order they turn: the copy's own list, read once (the title is a constant)
+        private static readonly AboutCopy.Page[] PAGES = AboutCopy.Pages(BS3DGame.GAME_TITLE);
 
         //Which page is up, 0-based, and a turn waiting for Update to put the rebuilt tree up (+1/-1, 0 for none)
         private int _page;
@@ -122,7 +128,7 @@ namespace BS3D.Screens
             };
 
             _previousArrow = PageArrow(MediaGlyph.Symbol.Back, -1, _page > 0);
-            _nextArrow = PageArrow(MediaGlyph.Symbol.Play, 1, _page < AboutCopy.TITLES.Length - 1);
+            _nextArrow = PageArrow(MediaGlyph.Symbol.Play, 1, _page < PAGES.Length - 1);
 
             //Aligned to the top, so the name stands level with the arrows' slabs and the counter level with the shoulders
             VerticalStackPanel name = new()
@@ -136,7 +142,7 @@ namespace BS3D.Screens
             Panel title = new() { Height = Scaled(ARROW_SIZE) };
             title.Widgets.Add(new Label
             {
-                Text = AboutCopy.TITLES[_page],
+                Text = PAGES[_page].Title,
                 Font = FontSection,
                 TextColor = BS3DGame.MENU_TEXT,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -148,7 +154,7 @@ namespace BS3D.Screens
             Panel counter = new() { Height = FontBody.LineHeight };
             counter.Widgets.Add(new Label
             {
-                Text = $"{_page + 1} of {AboutCopy.TITLES.Length}",
+                Text = $"{_page + 1} of {PAGES.Length}",
                 Font = FontSmall,
                 TextColor = BS3DGame.MENU_TEXT_DIM,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -193,7 +199,7 @@ namespace BS3D.Screens
             Point huge = new(int.MaxValue / 2, int.MaxValue / 2);
             Point size = Point.Zero;
 
-            for (int page = 0; page < AboutCopy.TITLES.Length; page++)
+            for (int page = 0; page < PAGES.Length; page++)
             {
                 if (page == _page) continue;
 
@@ -215,6 +221,12 @@ namespace BS3D.Screens
             return frame;
         }
 
+        /// <summary>
+        /// One page's body: every block <see cref="AboutCopy.Pages"/> gives it, in its order, and nothing else — so what
+        /// <c>AboutCopyTests</c> reads is what is drawn. A kind with no way to be set here throws rather than leave its
+        /// block off the page unseen: a credit list dropped quietly is the one thing a reader of the old page could not
+        /// see was gone.
+        /// </summary>
         private Widget BuildBody(int page)
         {
             //Each block carries the space under it (#806), so the stack adds none of its own. Against the frame's left edge
@@ -226,37 +238,67 @@ namespace BS3D.Screens
                 VerticalAlignment = VerticalAlignment.Top,
             };
 
-            switch (page)
+            foreach (AboutCopy.Block block in PAGES[page].Blocks)
             {
-                case 0:
-                    BuildPlayer(body);
-                    body.HorizontalAlignment = HorizontalAlignment.Center;
-                    break;
-                case 1: BuildGame(body); break;
-                case 2: BuildBuiltOn(body); break;
-                default: BuildMadeWith(body); break;
+                switch (block.Kind)
+                {
+                    case AboutCopy.BlockKind.Line:
+                        body.Widgets.Add(StandingLine(block.Text));
+                        break;
+
+                    case AboutCopy.BlockKind.Paragraph:
+                        body.Widgets.Add(Paragraph(block.Text, ProseMeasure));
+                        break;
+
+                    //The Settings page's own sentence, from the one place both read it (#548)
+                    case AboutCopy.BlockKind.Privacy:
+                        body.Widgets.Add(Aside(Game.Online.PrivacySentence, ProseMeasure));
+                        break;
+
+                    //TODO(#463): MonoGame's and BepuPhysics' logos go beside their credits on the Built on page —
+                    //waiting on the owner's own artwork, which this issue does not carry. An image widget each, through
+                    //the content pipeline the splash logo already goes through (Content.mgcb, PremultiplyAlpha), plus
+                    //each project's logo-usage terms recorded beside the asset the way the fonts' OFL files sit beside
+                    //the TTFs — see the issue for the full note.
+                    case AboutCopy.BlockKind.Credits:
+                        body.Widgets.Add(CreditList(block.Credits));
+                        break;
+
+                    //The player is the page's mass and stands centred, so its page does
+                    case AboutCopy.BlockKind.Player:
+                        BuildPlayer(body);
+                        body.HorizontalAlignment = HorizontalAlignment.Center;
+                        break;
+
+                    case AboutCopy.BlockKind.Links:
+                        body.Widgets.Add(BuildLinks());
+                        break;
+
+                    default:
+                        throw new InvalidOperationException($"About has no way to set a {block.Kind} block (page {page + 1})");
+                }
             }
 
             return body;
         }
 
+        /// <summary>One line that stands alone, so centred (a line on its own is, prose is not): the player's, over the piece.</summary>
+        private Label StandingLine(string text) => new()
+        {
+            Text = text,
+            Font = FontSmall,
+            TextColor = BS3DGame.MENU_TEXT_BODY,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(0, 0, 0, ParagraphGap),
+        };
+
         /// <summary>
-        /// Page one, the original procedural score's player: its one line, the piece's name, the spectrum at the prose
-        /// measure's width, and Play and Next — the visualizer and its two buttons one unit, as since #463.
+        /// The original procedural score's player: the piece's name, the spectrum at the prose measure's width, and Play
+        /// and Next — the visualizer and its two buttons one unit, as since #463.
         /// </summary>
         private void BuildPlayer(VerticalStackPanel body)
         {
             ProceduralJukebox jukebox = Game.Jukebox;
-
-            //One line that stands alone over the player, so centred (a line on its own is, prose is not)
-            body.Widgets.Add(new Label
-            {
-                Text = AboutCopy.SCORE,
-                Font = FontSmall,
-                TextColor = BS3DGame.MENU_TEXT_BODY,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 0, 0, ParagraphGap),
-            });
 
             //Written now and not only by ShowPlayer, so the page measures at the height it is drawn at (an empty label
             //measures as nothing, and the frame would come out a line short)
@@ -301,38 +343,12 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// Page two, what the game is, and the online scores' privacy line under it as an aside: the Settings page's own
-        /// sentence, from the one place both read it (#548), so the two pages cannot say different things about the same data.
+        /// The repository — a real menu entry (#463) rather than a label a pointer could reach and a pad could not — and the
+        /// way to the author (#813): the main menu has no ninth entry (#704), and About is where a player looks for who made
+        /// the game. Extras has it too; in a level it is the pause menu's.
         /// </summary>
-        private void BuildGame(VerticalStackPanel body)
+        private Widget BuildLinks()
         {
-            body.Widgets.Add(Paragraph(AboutCopy.Game(BS3DGame.GAME_TITLE), ProseMeasure));
-            body.Widgets.Add(Aside(Game.Online.PrivacySentence, ProseMeasure));
-        }
-
-        /// <summary>Page three, what it is built on: the one thing about it a player can see, then the libraries and typefaces.</summary>
-        private void BuildBuiltOn(VerticalStackPanel body)
-        {
-            body.Widgets.Add(Paragraph(AboutCopy.BUILT_ON, ProseMeasure));
-            body.Widgets.Add(CreditList(AboutCopy.LIBRARIES));
-
-            //TODO(#463): MonoGame's and BepuPhysics' logos go here, beside their credit above — waiting on the
-            //owner's own artwork, which this issue does not carry. An image widget each, through the content
-            //pipeline the splash logo already goes through (Content.mgcb, PremultiplyAlpha), plus each
-            //project's logo-usage terms recorded beside the asset the way the fonts' OFL files sit beside the
-            //TTFs — see the issue for the full note.
-        }
-
-        /// <summary>
-        /// Page four, what it was made with, then the repository — a real menu entry (#463) rather than a label a pointer
-        /// could reach and a pad could not — and the way to the author (#813): the main menu has no ninth entry (#704), and
-        /// About is where a player looks for who made the game. Extras has it too; in a level it is the pause menu's.
-        /// </summary>
-        private void BuildMadeWith(VerticalStackPanel body)
-        {
-            body.Widgets.Add(Paragraph(AboutCopy.MADE_WITH, ProseMeasure));
-            body.Widgets.Add(CreditList(AboutCopy.GENERATED));
-
             VerticalStackPanel links = new()
             {
                 Spacing = Scaled(LINK_GAP),
@@ -340,7 +356,8 @@ namespace BS3D.Screens
             };
             links.Widgets.Add(MenuButton("github.com/AntoninPrazsky/BS3D", OpenRepository));
             links.Widgets.Add(Game.NoteEntry("about"));
-            body.Widgets.Add(links);
+
+            return links;
         }
 
         /// <summary>
@@ -416,7 +433,7 @@ namespace BS3D.Screens
         /// </summary>
         private bool Turn(int by)
         {
-            int wanted = Math.Clamp(_page + by, 0, AboutCopy.TITLES.Length - 1);
+            int wanted = Math.Clamp(_page + by, 0, PAGES.Length - 1);
             if (wanted == _page) return false;
 
             _page = wanted;
@@ -433,7 +450,7 @@ namespace BS3D.Screens
         {
             _pendingTurn = 0;
 
-            int wanted = Math.Clamp(page - 1, 0, AboutCopy.TITLES.Length - 1);
+            int wanted = Math.Clamp(page - 1, 0, PAGES.Length - 1);
             if (wanted == _page) return;
 
             _page = wanted;
@@ -464,19 +481,23 @@ namespace BS3D.Screens
         internal override void NavFocusChanged(Button focused) => _focused = focused;
 
         /// <summary>
-        /// The cursor arrives on Play on the player's page — the thing the page is for — and on the arrow onwards on any
-        /// other, as Help's arrives on Next.
+        /// The cursor arrives on Play on the player's page — the thing the page is for — and on ▶ on any other, as Help's
+        /// arrives on Next; on the last page, where ▶ is off, on ◀.
         /// </summary>
         internal override Button NavArrival => _play ?? (_nextArrow != null && _nextArrow.Enabled ? _nextArrow : _previousArrow);
 
         /// <summary>
-        /// Left or right on the arrow keys, the D-pad or the stick turns the page — but not while the cursor is on Play or
-        /// Next: there they walk the player's row (#805), the host's rule for a sideways press a page declines.
+        /// Left or right on the arrow keys, the D-pad or the stick turns the page — except across the player's row: from
+        /// Play rightwards and from Next leftwards the page declines, and the host walks the row (#805). Past the row's ends
+        /// it turns as anywhere else, so the arrow keys, which have no shoulders, turn the page from where the cursor
+        /// arrives: right, right is Next and then page two.
         /// </summary>
         internal override bool PageSideways(int direction)
         {
-            if (_focused != null && (_focused == _play || _focused == _next)) return false;
-            return Turn(direction);
+            bool acrossTheRow = _focused != null
+                && ((_focused == _play && direction > 0) || (_focused == _next && direction < 0));
+
+            return !acrossTheRow && Turn(direction);
         }
 
         /// <summary>The pad's shoulders turn the page from anywhere on it, the player's row included.</summary>
