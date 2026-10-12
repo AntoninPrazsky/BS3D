@@ -193,7 +193,13 @@ float4 WoolShade(PatternVertexShaderOutput input, bool motifCue, bool shapeCue, 
 
     //Contract point 2, through BallEmission (#303): the resting glow follows the occlusion, the beat's
     //swing punches through.
-    shaded.rgb += BallEmission(primary, input.WorldPosition, occlusion);
+    //A painted cue glows in its dye (#737), not in the plain colour: under a dark dome, or under the pile, the emission
+    //is most of what a wool ball shows, and an even glow in the plain colour washed the figure out entirely (the
+    //first captures under dome 13 lost all four on the lower row). A carved cue's hollows glow less, for the same reason.
+    float3 glow = BallEmission(motifCue ? dyed : primary, input.WorldPosition, occlusion);
+    if (shapeCue) glow *= cueCavity;
+
+    shaded.rgb += glow;
 
     //Contract point 3, in BOTH meanings, and PatternPS's arithmetic deliberately: a landing has to look
     //the same whatever the cluster is made of.

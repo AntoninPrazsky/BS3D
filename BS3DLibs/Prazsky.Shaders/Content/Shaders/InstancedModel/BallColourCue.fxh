@@ -163,7 +163,9 @@ float3 ColourCueInk(float3 primary, float3 pale)
 
 //The grooves between the ridges and the twisted ones: how wide a groove is (in |sin| of its angle round the ball)
 //and how deep, and where towards the poles they fade (the lobes converge there and a groove would pinch to a point).
-static const float ColourCueGrooveWidth = 0.45;
+//A groove is ROUND-BOTTOMED, (1 - t^2)^2: a V-shaped floor turns the normal over in one pixel, and on the glossy
+//styles that drew a bright wire along every groove, which is the clear glass's cast seam and not a carve.
+static const float ColourCueGrooveWidth = 0.35;
 static const float ColourCueRidgeDepth = 0.10;
 static const float ColourCueTwistDepth = 0.10;
 static const float ColourCuePoleFade = 0.55;
@@ -212,7 +214,8 @@ float ColourCueCarve(float3 direction, float cue)
     [branch]
     if (cue < 1.5)
     {
-        float groove = saturate(1 - abs(sin(3 * atan2(direction.z, direction.x))) / ColourCueGrooveWidth);
+        float across = sin(3 * atan2(direction.z, direction.x)) / ColourCueGrooveWidth;
+        float groove = saturate(1 - across * across);
         carve = ColourCueRidgeDepth * groove * groove * smoothstep(0, ColourCuePoleFade, length(direction.xz));
     }
     else if (cue < 2.5)
@@ -236,8 +239,8 @@ float ColourCueCarve(float3 direction, float cue)
     }
     else
     {
-        float phase = 2 * atan2(direction.z, direction.x) + ColourCueTwist * direction.y;
-        float groove = saturate(1 - abs(sin(phase)) / ColourCueGrooveWidth);
+        float across = sin(2 * atan2(direction.z, direction.x) + ColourCueTwist * direction.y) / ColourCueGrooveWidth;
+        float groove = saturate(1 - across * across);
         carve = ColourCueTwistDepth * groove * groove * smoothstep(0, ColourCuePoleFade, length(direction.xz));
     }
 

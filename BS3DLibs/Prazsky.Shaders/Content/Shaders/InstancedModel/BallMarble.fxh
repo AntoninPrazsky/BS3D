@@ -194,7 +194,16 @@ float4 MarbleShade(PatternVertexShaderOutput input, bool motifCue, bool shapeCue
 
     //A painted cue (#737) is an INLAY: a second stone in a darker or paler shade of the ball's own colour
     //(ColourCueInk), cut over the veins
-    if (motifCue) color = lerp(color, ColourCueInk(primary, lerp(primary, ColourCueInkPale, ColourCueInkPaleShare)), ColourCueMotif(direction, footprint, cue));
+    float3 cueDye = primary;
+
+    if (motifCue)
+    {
+        float figure = ColourCueMotif(direction, footprint, cue);
+        float3 ink = ColourCueInk(primary, lerp(primary, ColourCueInkPale, ColourCueInkPaleShare));
+
+        color = lerp(color, ink, figure);
+        cueDye = lerp(primary, ink, figure);
+    }
 
     //Polished: the broad lobe cut back, the environment raised, and smoothness left at 1 so Fresnel still
     //rises to a full mirror along the silhouette - which on a sphere is most of what can be seen of it,
@@ -228,7 +237,12 @@ float4 MarbleShade(PatternVertexShaderOutput input, bool motifCue, bool shapeCue
     //Contract point 2, through BallEmission (#303): the resting glow follows the occlusion, the beat's
     //swing punches through. In the ball's own colour and not the vein's, for the reason PatternPS gives
     //about its gores - what is alive here is the ball, not its figure.
-    shaded.rgb += BallEmission(primary, input.WorldPosition, occlusion);
+    //The cue glows in its own stone (#737), and a carve's hollows glow less: see WoolShade, where an even glow in the
+    //plain colour washed a painted figure out under the dark dome
+    float3 glow = BallEmission(cueDye, input.WorldPosition, occlusion);
+    if (shapeCue) glow *= cueCavity;
+
+    shaded.rgb += glow;
 
     //Contract point 3, in BOTH of its meanings, and the arithmetic is PatternPS's deliberately: the wave
     //has to look the same whatever the cluster is cut from, or a level tells the player something

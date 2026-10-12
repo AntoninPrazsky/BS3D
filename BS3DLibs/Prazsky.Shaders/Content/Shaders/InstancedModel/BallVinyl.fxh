@@ -97,7 +97,12 @@ float4 PatternShade(PatternVertexShaderOutput input, bool motifCue, bool shapeCu
     //The ball glows with its own color, not with the pattern's: the gores and the polar discs are white,
     //and emitting through them made half of every ball radiate white light, which is both the wrong color
     //and the reason they read as washed out. What is alive here is the ball, not its paint job.
-    shaded.rgb += BallEmission(primary, input.WorldPosition, occlusion);
+    //A carved cue's hollows glow less (#737): where a ball is lit mostly by its own emission - a dark dome, the
+    //underside of a pile - an even glow over the carve would light it as if it were not there
+    float3 glow = BallEmission(primary, input.WorldPosition, occlusion);
+    if (shapeCue) glow *= cueCavity;
+
+    shaded.rgb += glow;
 
     //And on top of the resting breath, the ripple: the light that runs out through the cluster from
     //wherever a ball has just landed. WHEN this ball takes its turn was decided on the CPU by walking the
