@@ -626,6 +626,11 @@ Pravidla:
 - Cena: 40,2 ms proti 38,4 ms (High, 1080p, ssaa 2×, Měsíc, ThinkPad) ≈ 1,8 ms za vrstvu a skládání.
 - Otevřené: verdikt oka (barvy po sloupci, velikost čtverce, sklo jako průsvitný kotouč); Pi neměřeno; duhová koule bez obrázku.
 
+## 2026-10-12 — #400 devátý průchod (19eb1484..ad53e22f) — ThinkPad, Claude Code (github-44)
+- Rozsah: 14 commitů bez merge (#726 review, #854, #855, #807, #857, #856), 55 souborů. Kód čistý: přidané řádky v Draw/Update/Refresh bez alokací za snímek (closure `onlineAlert` a lambdy záložek jen při Refresh/stavbě; `AboutPage.PlayerPage` statický inicializátor), DocDrift 29 kandidátů, žádný v změněných souborech, WindingCheck 243 dílů/0, VectorBoundary 0 VEC001 nad Core, BS3D, Physics a Game (podstrčený `System.Numerics` → `Xna` přechod viděn chycen), build 0 varování. Citace: 183 zkontrolováno vlastním skriptem (`"Název" in docs/x.md` proti nadpisům a tabulkám „Where the old sections went“), 1 nevyřešená opravena (`PlayerProgress` → `Progress.json` v `player-files.md`).
+- ⚠ `dotnet build Game.sln -t:Rebuild` s analyzátorem si nejdřív smaže `VectorBoundary.dll` a čtyři nástroje pak padnou na CS0006; projekty stavět jednotlivě `--no-incremental`.
+- Otevřené: další průchod od merge tohoto.
+
 ## 2026-10-12 — #807 přehrávač původní hudby na poslední stránku — desktop (RDT-PC), Claude Code (bs3d-71, noc)
 - Hotovo na větvi `807-about-player-last`, merge na main následuje: About má dál čtyři stránky, ale otvírá se na THE GAME, pak BUILT ON, MADE WITH a THE ORIGINAL SCORE jako poslední (velikonoční vajíčko). Změnilo se jen pořadí v `AboutCopy.Pages`, text ne.
 - `about=play` bez čísla otevře stránku přehrávače (`AboutPage.PlayerPage`); `about=<n>` beze změny. Test `The_player_is_the_last_page`, příklad `menucursor` v docs přepsán na poslední stránku.
