@@ -55,10 +55,11 @@ namespace BS3D.Screens
         public static readonly float UP_MAX = MathHelper.ToRadians(9f);
 
         /// <summary>
-        /// The most the frame leans <b>down</b>, in radians (5°), before <see cref="TopKeepLimit"/> has its say — and it
-        /// usually does, since the fit stands the glass a few degrees under the top edge. Smaller than
-        /// <see cref="UP_MAX"/>: a low aim passes under the cluster towards ground the frame already holds, so leaning
-        /// down shows little that was hidden and is mostly the lens answering the hand.
+        /// The most the frame leans <b>down</b>, in radians (5°), before <see cref="TopKeepLimit"/> has its say — and at a
+        /// level's opening it does: the fit stands its framed top at its own margin, which leaves about half a degree,
+        /// and the room grows only as the glass descends under that top. Smaller than <see cref="UP_MAX"/>: a low aim
+        /// passes under the cluster towards ground the frame already holds, so leaning down shows little that was
+        /// hidden and is mostly the lens answering the hand.
         /// </summary>
         public static readonly float DOWN_MAX = MathHelper.ToRadians(5f);
 
@@ -82,9 +83,9 @@ namespace BS3D.Screens
 
         /// <summary>
         /// How far under the frame's top edge the cluster's top row must stay, as a share of the frame's height, before
-        /// the tilt is allowed further down (<see cref="TopKeepLimit"/>): a sliver, so the top balls stay whole rather
-        /// than merely touching the edge. The fit framed the glass's upper face inside its own margin, and the top row
-        /// hangs a unit under that, so on a fit the vertical binds the room it leaves is what the down-tilt gets.
+        /// the tilt is allowed further down (<see cref="TopKeepLimit"/>): about a ball's radius at the field's near edge,
+        /// so a top ball stays whole even where the row is measured at its cells' centres (the framed window) rather than
+        /// at their tops (the glass's underside).
         /// </summary>
         public const float TOP_KEEP_FRACTION = 0.03f;
 

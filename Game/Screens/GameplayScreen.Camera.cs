@@ -256,8 +256,9 @@ namespace BS3D.Screens
         /// <summary>
         /// One of the four top corners of the cluster's top row (0..3), over the plate's footprint as the fit measures
         /// it. The row is the glass's underside, where the top balls hang (their tops are socketed to it), so it follows
-        /// the descent and a brake; on a tall level the framed window's top stands in where that is lower
-        /// (<see cref="FramedTopY"/>), so a low aim never takes the band #842 holds off the frame.
+        /// the descent and a brake — or the framed window's top (<see cref="FramedTopY"/>) where that is lower, as it is
+        /// at the opening of any field of 16 levels or more and on a tall level until the column hangs whole in the
+        /// frame, so a low aim never takes what the fit framed, nor the band #842 holds, off the top of the frame.
         /// </summary>
         private Vector3 TopRowCorner(int corner)
         {
