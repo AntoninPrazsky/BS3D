@@ -135,8 +135,8 @@ namespace BS3D.Tools.LevelGen
         /// A five-pointed star, yellow over a night check. It was drawn against the space backdrop — the only
         /// scene in the game whose own sky is already a star field, which was the wittiest scene pairing in the
         /// pack — and #194 <b>costs it that joke</b>: the Gallery is one place, and it is the savanna, because
-        /// two of the three shipped pictures were already there and space is where the Quarry's <see cref="Static"/>
-        /// came from. The loss is real and is recorded here rather than quietly dropped. What is left is a
+        /// two of the three shipped pictures were already there and space is where the Quarry's <c>Static</c> (one of
+        /// its levels until #742) came from. The loss is real and is recorded here rather than quietly dropped. What is left is a
         /// night-blue check hanging in gold daylight, which the block's own sky makes read as a lantern rather
         /// than as a constellation — a different picture, not a worse one.
         /// </summary>
@@ -150,8 +150,8 @@ namespace BS3D.Tools.LevelGen
         /// one group. Two inks in bands two columns wide cut the animal into standing stripes, the largest 40
         /// balls, so there is no moment where the drawing comes away in one piece — measured best single shot
         /// <b>9 %</b> of the cluster, against Star's 40 %, Heart's 42 % and Smiley's 52 % — the lowest figure of
-        /// any picture here and level with the hard end of the campaign. It is a picture that plays like
-        /// <see cref="Static"/>, and the reason is drawn on its face, which is the point: a player can see why it
+        /// any picture here and level with the hard end of the campaign. It is a picture that plays like the
+        /// Quarry's six-colour <see cref="Hopper"/>, and the reason is drawn on its face, which is the point: a player can see why it
         /// is hard. It closes the Gallery for that reason.
         /// <para>
         /// <b>Upright bands, not the animal's own slanted ones.</b> A stripe one cell wide running diagonally is

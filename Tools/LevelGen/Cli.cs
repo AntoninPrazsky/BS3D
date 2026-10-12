@@ -295,10 +295,12 @@ namespace BS3D.Tools.LevelGen
                 //group against Spring's 4.80). One swap; nothing else in the block moved.
                 Onion(), Chest(), Fossil(), Mango(), Spark(), Grotto(), Scales(), Spring(), Ship(), Lantern(),
 
-                //7. THE MOON - "The Quarry". Chunky lattice-aligned blocks of colour, five or six of them, and
-                //no plate to trigger anywhere: every shot is a shot at a handful of balls. Colossus closes it,
-                //from WriteLevelSet.
-                Mosaic(), Prism(), Hopper(), Trilithon(), Gantry(), Fault(), Crib(), Highwall(), Static()
+                //7. THE MOON - "The Quarry". Chunky lattice-aligned blocks of colour, and no plate to trigger
+                //anywhere: every shot is a shot at a handful of balls. Three plain bodies teach the tile, then
+                //each level adds one idea the gun can see (#742): an arch, an overhang, a floating member, two
+                //depths, a cavity with a crystal sealed in it, and the floating member and the cavity at once.
+                //Colossus closes it, from WriteLevelSet.
+                Mosaic(), Prism(), Hopper(), Archway(), Cornice(), Hoist(), Eclipse(), Geode(), Locket()
             };
 
             //9. THE NEBULA (#182) - the arena in deep space, and the block the five #152 colours arrive in,

@@ -488,3 +488,9 @@ Pravidla:
 - #847 (merge 94e5821c): šipky a puntíky jako kreslené tvary (`MediaGlyph.Back`, `PipGlyph`), vystředěné na podložkách. #848 (merge b40e245c, review f1787633): pad chodí po mřížce (`PadWalksGrid`, `NavWalk`), kapitoly LB/RB. #844 (merge c8e5d646): `CanBrake` čeká na stojící strop, čipy ready / not now / used.
 - ⚠ Noc 12. 10.: tři resety při souběhu ACE-Step a běhů hry; těžké příkazy obou sezení přes mutex `Global\BS3D-heavy-job` (`heavy.ps1` noční session).
 - Otevřené: chůze padem neověřena (skriptovaný pad potřebuje fokus), desky levelu jen online; verdikty #847/#844 eye, #848 hands.
+
+## 2026-10-12 — #742 hloubka Lomu — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #742 (merge následuje): Lom (Měsíc, levely 64–69) přestavěn v `Block06_Quarry.cs` — Archway, Cornice, Hoist, Eclipse, Geode, Locket, každý s jedním nápadem, který zbraň vidí (oblouk, převis, kámen na bílém klíči, dvě hloubky, uzavřený krystal, krystal na šňůrce). Soubory si nechaly jména, hvězdy hráčů zůstávají. Šest levelů nese 1 583 koulí oproti 1 590, 137 skupin místo 185. Mosaic, Prism a Hopper beze změny.
+- Bez majitele (spí), konzervativně: Colossus je ručně kreslený, proto zůstává; jeho přestavba čeká na rozhodnutí v #849 (owner-decision).
+- ⚠ Opravný průchod obarvil okrajové koule u krku Locketu na bílou; dlaždice kamene se teď počítají od `LOCKET_STONE_TILE_FROM`, takže bílý je jen krk. Geode se pomalu kroutí kolem svislé osy (dělala to i těžší v1).
+- Otevřené: verdict-eye; na Pi spustit při příštím vydání `update-ceilings.sh` (desky šesti levelů se resetují); nikdo je nehrál rukou.

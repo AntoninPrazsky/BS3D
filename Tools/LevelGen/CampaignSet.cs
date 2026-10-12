@@ -313,7 +313,7 @@ namespace BS3D.Tools.LevelGen
         /// design here now (the author asked for it regenerated, see <see cref="Program.One"/>) and states its own rules
         /// with the rest, while Colossus is still hand-drawn and keeps its rules verbatim — it is authored
         /// content and this generator has no opinion about it beyond where it sits. The Nebula's designs arrive
-        /// as the second array, appended after Colossus, because the Quarry's five entries are four designs plus
+        /// as the second array, appended after Colossus, because the Quarry's ten entries are nine designs plus
         /// that hand-drawn finale — five more designs in the first array would push Colossus out of the Quarry
         /// and misfile both blocks' members (still contiguous, so nothing would refuse the set; the milestones
         /// would simply fire on the wrong levels).

@@ -297,7 +297,7 @@ namespace BS3D.Tools.LevelGen
         /// Measured: 384 balls — the heaviest of the block — margin 2, nothing standing alone, <b>2 in pairs
         /// and 1 recoloured</b>, all three at the same cell on the bulb's crown, where a 3×3×3 block is clipped
         /// by the ellipsoid down to a sliver. That is the repair pass's own remit and the count is at the low
-        /// end of what the pack ships (Prism 4 in pairs, Static 14). Best single shots 10 %, 11 %, 15 %, 20 %
+        /// end of what the pack ships (Prism 4 in pairs; Static, a Quarry level until #742, shipped 14). Best single shots 10 %, 11 %, 15 %, 20 %
         /// and 10 %; the 20 % is a rope pair, which is the shot this level is designed around.
         /// </para>
         /// </summary>

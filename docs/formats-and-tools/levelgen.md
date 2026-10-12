@@ -29,7 +29,7 @@ One `partial class Program`: `Program.cs`, `Cli.cs` (`Main`, flag refusal, the *
 4. **The Tower**: mountains (8), `summit`, ice balls; deeper than the camera frames.
 5. **The Silhouettes**: aurora (13, inert), `puppet`, wool balls; image-model silhouettes, no ground.
 6. **The Reveal**: cavern, `nocturne`, marble balls; a body with a payoff inside.
-7. **The Quarry**: Moon, `lunar`, metal balls; chunky blocks; Colossus closes it.
+7. **The Quarry**: Moon, `lunar`, metal balls; chunky blocks, then one idea a level the gun can see (#742); Colossus closes it.
 8. **The Grid**: grid (13, inert), `pulse`, ice balls; named mathematical constructions.
 9. **The Nebula**: space, `nebula`, plasma balls; tall open levels.
 10. **The Big Top**: big top (13, inert), `bigtop`, beach balls; softer springs (7–13 Hz).

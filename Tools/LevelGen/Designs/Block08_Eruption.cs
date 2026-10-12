@@ -289,7 +289,7 @@ namespace BS3D.Tools.LevelGen
             Balls = BALLS_VOLCANO,
             //Priced off the probe rather than off the ratio print: 60 standing groups against any sane
             //budget reads under the tool's 1.00 floor (0.87), and that floor's own text excepts exactly this
-            //shape — a level built of cascades (Gantry's case; the Pleat's #302 caveat) where one band shot
+            //shape — a level built of cascades (the Quarry's Gantry until #742; the Pleat's #302 caveat) where one band shot
             //drops everything below it in the bundle, so the real cost is ~2 shots a bundle plus the misses.
             //46 was the first pricing and the probe's worst order ran out with 8 balls standing; 52 cleared
             //it, and 52 was the number until the owner played it and reported that players run out of balls
@@ -814,8 +814,8 @@ namespace BS3D.Tools.LevelGen
         /// allowance the way the calibration's own edge cases do; the other orders clear the level outright
         /// at shots 38–53 of 56. Rejected on the way: a per-level ash/basalt dither (70 groups, ratio 0.69 —
         /// under the tool's floor; the trunk takes vertical five-strip colouring and the umbrella 3×3 column
-        /// blocks instead), and 48 shots (1.00 exactly at 48 groups — Gantry's own lesson, no room for a
-        /// miss).
+        /// blocks instead), and 48 shots (1.00 exactly at 48 groups — the lesson the Quarry's Gantry taught until #742, no
+        /// room for a miss).
         /// </para>
         /// </summary>
         private static Design Plume() => new()

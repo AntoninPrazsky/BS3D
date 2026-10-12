@@ -1485,7 +1485,8 @@ namespace BS3D.Tools.LevelGen
         //How coarse the dithered ground is, in cells, and the block's LOUDEST tuning knob: it sets the group
         //count, which sets the budget. The number was measured rather than judged. A shot clears one standing
         //group, so a level of G groups needs a budget above G to be finishable at all, and the pack's hardest
-        //ratios are Colossus at 0.98 and Static at 1.43 - anything finer than 5 here puts this cube past both.
+        //ratios were Colossus at 0.98 and Static (a Quarry level until #742) at 1.43 - anything finer than 5 here
+        //puts this cube past both.
         //Measured, same cube and same glyphs, at ground blocks of 3 / 4x5 / 5: 75, 44 and 34 standing groups.
         //Five is the coarsest of the three and the only one whose budget stays in family (56 shots, 1.65 a
         //group, the block's gentlest); it costs the fine dither - a face is a 2x2 check of five-cell blocks

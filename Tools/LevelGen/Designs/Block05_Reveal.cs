@@ -123,7 +123,7 @@ namespace BS3D.Tools.LevelGen
         /// </para>
         /// <para>
         /// Measured: 630 balls — the heaviest reveal here — margin 3, nothing alone, 12 in pairs (box cells
-        /// clipped by the pearl; <see cref="Static"/> ships 14), nothing recoloured, and the flattest report in
+        /// clipped by the pearl; the Quarry's <c>Static</c> shipped 14 until #742), nothing recoloured, and the flattest report in
         /// the block: best single shots 48, 48, 48 and 61, i.e. 7 %, 7 %, 7 % and 9 %. <b>The grain is not as
         /// even as "one 2x2 column each" suggests, and the budget is set from the measurement rather than from
         /// that model.</b> There are 30 groups, sized 2, 2, 2, 2, 2, 2, 3, 3, 3, 4, 8, 8, 8, 8, 8, 8, 10, 30, 36,
@@ -1147,8 +1147,8 @@ namespace BS3D.Tools.LevelGen
         /// in a palette entry with probability 1/n and this lattice gives a cell up to twelve neighbours, so at
         /// n = 3 or 4 the same-colour blocks join into a giant component: measured, a three-colour scatter over a
         /// hollow core came out as ONE fused group of 105 — 18 % of the level, on the region that was supposed to
-        /// be the fine-grained half of it. <see cref="Prism"/> (5) and <see cref="Static"/> (6) are above the
-        /// threshold and are the two designs <see cref="Scatter"/> is right for. Banded on the block coordinates
+        /// be the fine-grained half of it. <see cref="Prism"/> (5) and <see cref="Hopper"/> (6) are above the
+        /// threshold and are the designs <see cref="Scatter"/> is right for. Banded on the block coordinates
         /// instead, no two touching blocks can agree at all, so a group is one block and the grain is the grain
         /// that was authored.
         /// </para>

@@ -1056,7 +1056,7 @@ namespace BS3D.Tools.LevelGen
         /// orders lost to swing overshoots of 0.0-0.1 past the game's own allowance</b> - Amphora's exact
         /// profile, and Amphora plays fine - where the drawn level read 5 of 5 gone on its first shots with
         /// the glass at rest. Second, the ratio: 52 standing groups against 72 shots is <b>1.38</b>, far
-        /// under the block's usual 3 and at the hard edge of the game (Static 1.43, Colossus 0.98). That is
+        /// under the block's usual 3 and at the hard edge of the game (Colossus 0.98, and Static 1.43 while it was a Quarry level, until #742). That is
         /// the price of 60-degree release quanta and it is a real difficulty statement - if play rates it
         /// too hard, the honest easings are shots (72 to ~80 is ratio 1.54) or fewer rings, because arc size
         /// buys structure now, not colour. Third, lonely balls at the sector seams - re-check the repair

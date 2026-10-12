@@ -376,7 +376,7 @@ namespace BS3D.Tools.LevelGen
         /// <para>
         /// Measured: 515 balls, best single shots 9 %, 20 % and 27 %, 4 balls standing in pairs and 7 recoloured
         /// — blocks clipped by the drifting rim, which is the repair pass's own remit (Prism ships with 4 in
-        /// pairs and Static with 14). A couple of dozen recoloured would mean the block size and the drift are
+        /// pairs, and Static, a Quarry level until #742, shipped with 14). A couple of dozen recoloured would mean the block size and the drift are
         /// fighting each other, and the fix then is a block size that divides the drift rather than a bigger pass.
         /// </para>
         /// <para>
