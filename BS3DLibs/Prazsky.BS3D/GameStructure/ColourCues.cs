@@ -20,10 +20,10 @@ namespace Prazsky.BS3D.GameStructure
     /// <item><b>Lines</b>: bands only, told apart by count, width, a wave, a dash or a double line - the calmest.</item>
     /// <item><b>Spots</b>: polka dots, told apart by count, size, rings and two sizes.</item>
     /// </list>
-    /// The sets share some figures, so a mix is cheap to make: eight of the first set's thirteen are emblems the
-    /// second set also draws (its stars, crosses and triangles are the second set's within a size), the first and
-    /// the fourth give brown the same twelve dots, and the first set's silver stripes are the third set's silver
-    /// bands in another frame.
+    /// The sets share some figures, so a mix is cheap to make: eight of the first set's thirteen are emblems, seven
+    /// of them kinds the second set also draws (its stars, crosses and triangles are the second set's on the same
+    /// colours, within a size), the first and the fourth give brown the same twelve dots, and the first set's
+    /// silver stripes are the third set's silver bands in another frame.
     /// <para>
     /// <b>The inks keep the ball's average colour</b> (<see cref="Inks"/>): the figure is a darker or a paler shade of
     /// the ball's own colour - the colour scaled, never with a grey added - and the ground the plain colour scaled
