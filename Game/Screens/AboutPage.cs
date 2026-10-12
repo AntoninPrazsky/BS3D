@@ -10,18 +10,19 @@ using Label = Myra.Graphics2D.UI.Label;
 namespace BS3D.Screens
 {
     /// <summary>
-    /// The game's original procedural score, kept as a small player since #443 once generated recordings replaced it as the
-    /// level music (play and pause, the next piece, and a spectrum), and what the game is, what it is built on and what it
-    /// was made with.
+    /// What the game is, what it is built on and what it was made with, and on the last page the game's original procedural
+    /// score, kept as a small player since #443 once generated recordings replaced it as the level music (play and pause,
+    /// the next piece, and a spectrum).
     /// </summary>
     /// <remarks>
     /// <para>
     /// <b>Four pages behind one menu entry (#807)</b>, the owner's "nobody reads that much text": the two columns of #463 had
     /// grown to some 160 words of running text plus the privacy sentence, in one face, one colour, with nothing to say where
-    /// to start. The player comes first, because the first thing a player sees should be the thing they can use; then what
-    /// the game is with the privacy line, what it is built on and what it was made with. <b>What each page holds, in what
-    /// order, is <see cref="AboutCopy.Pages"/></b>, and this page sets every block it is handed (<see cref="BuildBody"/>),
-    /// so the test that holds the words to the typesetting rules and the credits to the full list reads what is drawn.
+    /// to start. About opens on what the game is, with the privacy line; then what it is built on and what it was made
+    /// with; and <b>the player last</b>, the owner's ruling (2026-10-12): it is a small easter egg, waiting at the end for
+    /// whoever turns that far. <b>What each page holds, in what order, is <see cref="AboutCopy.Pages"/></b>, and this page
+    /// sets every block it is handed (<see cref="BuildBody"/>), so the test that holds the words to the typesetting rules,
+    /// the credits to the full list and the player to the last page reads what is drawn.
     /// </para>
     /// <para>
     /// <b>The pages turn the way the picker's chapters and High Scores' do</b>: an arrow either side of the page's name with
@@ -29,8 +30,8 @@ namespace BS3D.Screens
     /// stick (<see cref="PageSideways"/>). <b>Across the player's row they walk it</b>: Play and Next stand side by side, so
     /// ◀ ▶ walk the two (the host's row rule, #805) — the issue's "decide it once" — and past the row's ends turn the page as
     /// anywhere else. The keyboard has no shoulders: with the turn left to them alone on that row, the arrow keys would have
-    /// nothing to turn the page with from where the cursor arrives, and nothing on screen says to go up to ▶. The shoulders
-    /// turn it from anywhere (<see cref="ShoulderTurn"/>).
+    /// nothing to turn back with from Play, and nothing on screen says to go up to ◀. The shoulders turn it from anywhere
+    /// (<see cref="ShoulderTurn"/>).
     /// </para>
     /// <para>
     /// <b>Every page stands in the same frame</b>, the biggest page's, measured (<see cref="BuildFrame"/>, Help's pattern
@@ -71,6 +72,14 @@ namespace BS3D.Screens
 
         //What the pages hold, in the order they turn: the copy's own list, read once (the title is a constant)
         private static readonly AboutCopy.Page[] PAGES = AboutCopy.Pages(BS3DGame.GAME_TITLE);
+
+        /// <summary>
+        /// The page the player stands on, 1-based as the page counts itself — the last since the owner's ruling (2026-10-12),
+        /// read off <see cref="AboutCopy.Pages"/> rather than restated — for <c>about=play</c>, whose piece is only worth a
+        /// shot on the page that draws it. Declared after <see cref="PAGES"/>, which it reads as the type is initialised.
+        /// </summary>
+        internal static int PlayerPage { get; } =
+            Array.FindIndex(PAGES, page => Array.Exists(page.Blocks, block => block.Kind == AboutCopy.BlockKind.Player)) + 1;
 
         //Which page is up, 0-based, and a turn waiting for Update to put the rebuilt tree up (+1/-1, 0 for none)
         private int _page;
@@ -443,8 +452,8 @@ namespace BS3D.Screens
 
         /// <summary>
         /// Opens on a stated page, 1-based as the page counts itself: the host's way in (#807) — page one from the main
-        /// menu, so About always opens on the player, and any page for the <c>about=&lt;n&gt;</c> argument. Out of range is
-        /// clamped.
+        /// menu, so About always opens on what the game is, and any page for the <c>about=&lt;n&gt;</c> argument
+        /// (<see cref="PlayerPage"/> for <c>about=play</c>). Out of range is clamped.
         /// </summary>
         internal void ShowPage(int page)
         {
@@ -481,16 +490,17 @@ namespace BS3D.Screens
         internal override void NavFocusChanged(Button focused) => _focused = focused;
 
         /// <summary>
-        /// The cursor arrives on Play on the player's page — the thing the page is for — and on ▶ on any other, as Help's
-        /// arrives on Next; on the last page, where ▶ is off, on ◀.
+        /// The cursor arrives on ▶, as Help's arrives on Next — page one's, where About opens — and on Play on the player's
+        /// page, the thing that page is for, when About is opened there (<c>about=&lt;n&gt;</c>); on a last page with no
+        /// player, where ▶ is off, it would be ◀. A turn places it itself (<see cref="Update"/>).
         /// </summary>
         internal override Button NavArrival => _play ?? (_nextArrow != null && _nextArrow.Enabled ? _nextArrow : _previousArrow);
 
         /// <summary>
         /// Left or right on the arrow keys, the D-pad or the stick turns the page — except across the player's row: from
         /// Play rightwards and from Next leftwards the page declines, and the host walks the row (#805). Past the row's ends
-        /// it turns as anywhere else, so the arrow keys, which have no shoulders, turn the page from where the cursor
-        /// arrives: right, right is Next and then page two.
+        /// it turns as anywhere else, so the arrow keys, which have no shoulders, turn back from the row: left from Play is
+        /// the page before. Right from Next asks for a page after the last, which is nothing.
         /// </summary>
         internal override bool PageSideways(int direction)
         {

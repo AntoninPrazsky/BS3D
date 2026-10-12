@@ -619,3 +619,10 @@ Pravidla:
 - Ověřeno snímky všech šesti záložek v 1920×1080 a v okně 1600×900 (Back celý), klikací cestou `menucursor=4:0:rb,rb` (→ SCORING) a `left` (obtočení na THE GLASS), ruka padu (LB/RB u krajů, B na Back).
 - ⚠ Krátké tělo stojí v rámu svisle na středu (MenuColumn), jako před změnou (#729).
 - Otevřené: verdikt oka (jména záložek, šířka řádku nad textem); 3840×1600 neviděno; #856 (modely koulí v Help) staví na tomhle.
+
+## 2026-10-12 — #807 přehrávač původní hudby na poslední stránku — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- Hotovo na větvi `807-about-player-last`, merge na main následuje: About má dál čtyři stránky, ale otvírá se na THE GAME, pak BUILT ON, MADE WITH a THE ORIGINAL SCORE jako poslední (velikonoční vajíčko). Změnilo se jen pořadí v `AboutCopy.Pages`, text ne.
+- `about=play` bez čísla otevře stránku přehrávače (`AboutPage.PlayerPage`); `about=<n>` beze změny. Test `The_player_is_the_last_page`, příklad `menucursor` v docs přepsán na poslední stránku.
+- majitel: „Vrať“ u #807 (přehrávač nemá být první).
+- Konzervativní čtení: po otočení na stránku přehrávače zůstává kurzor na ◀ (dosavadní pravidlo), Play je o řádek níž.
+- Otevřené: `shipped-awaiting-verdict` + `verdict-eye`; Play a Next nikdo neslyšel (běhy bez zvuku), na skutečném padu se neotáčelo.

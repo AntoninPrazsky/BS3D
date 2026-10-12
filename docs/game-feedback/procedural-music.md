@@ -2,7 +2,7 @@
 
 Part of [The game: feedback](../game-feedback.md).
 
-Since #443 these compositions are not what a level plays ([The game's music](music.md)). They play on the About page's first page, and `Game/Audio/ProceduralMusic.cs` still bakes the fanfares. Five authored themes (`MusicTheme.Pulse`, `Bohemia`, `Nocturne`, `Mural`, `Ember`) and the `menu` loop.
+Since #443 these compositions are not what a level plays ([The game's music](music.md)). They play on the About page's last page, a small easter egg, and `Game/Audio/ProceduralMusic.cs` still bakes the fanfares. Five authored themes (`MusicTheme.Pulse`, `Bohemia`, `Nocturne`, `Mural`, `Ember`) and the `menu` loop.
 
 ## The About page's player (#443, #464)
 
