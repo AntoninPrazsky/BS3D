@@ -637,3 +637,9 @@ Pravidla:
 - majitel: „Vrať“ u #807 (přehrávač nemá být první).
 - Konzervativní čtení: po otočení na stránku přehrávače zůstává kurzor na ◀ (dosavadní pravidlo), Play je o řádek níž.
 - Otevřené: `shipped-awaiting-verdict` + `verdict-eye`; Play a Next nikdo neslyšel (běhy bez zvuku), na skutečném padu se neotáčelo.
+
+## 2026-10-12 — #806 tabulková čísla a sazba stránek — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- Hotovo na větvi `806-typesetting-figures-and-pages`, merge na main následuje: čísla ve sloupcích (pořadí a skóre na tabulích, High Scores jako skutečné sloupce, rozpis výsledku) mají tabulkové číslice. FontStashSharp 1.5.6 nemá tnum, takže `TabularFigures` dá každé číslici buňku široké jako nejširší číslice a vycentruje ji ohraničenými mezerami `/s[n]`; `FontFigures` to váže na skutečný font.
+- Sazba: texty výběru úrovní v `PickerCopy`, výsledku v `LevelResult`, obojí hlídají testy přes `CopyRules`; jedna mezera kolem „ · “, ‚Moon‘, skutečná „…“, prózové proložení u poznámky o odemčení a stavového řádku tabulí.
+- ⚠ Nastavený text je rich-text s příkazy: vypnout `SupportsCommands` nebo měřit přes `MeasureString` rozbije sloupce (stojí v `menu-look.md`).
+- Otevřené: `shipped-awaiting-verdict` + `verdict-eye` (jedničky v tabulkových číslicích, husté tečky, High Scores ve sloupcích); deska tabulí na stránce výsledku a živé online tabule nezachyceny.
