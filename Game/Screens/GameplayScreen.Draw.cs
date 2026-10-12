@@ -25,66 +25,6 @@ namespace BS3D.Screens
     {
         #region The landing preview
 
-        /// <summary>
-        /// How big the ghost is: its radius as a share of a whole ball's. It is drawn <b>smaller</b>, round its own
-        /// centre, rather than a whole ball with pixels dithered out of it (#794: the owner wants that dither kept for
-        /// the detached balls and the colour cross-fades, and the size for the ghost alone) — which is why the preview
-        /// needs no blend state, no sorting and no pixel shader work: it is ordinary opaque geometry, and it reads as
-        /// "not there yet" rather than as a ball that is somehow faint. It travels in the dissolve channel, below
-        /// <c>-1</c>, where no dither value is (<see cref="ModelInstance.GhostDissolve"/>).
-        /// <para>
-        /// Tuned against the <b>overview</b> and not against precise aim. Leaning in over the barrel the ghost is
-        /// large and unmissable at almost any value; from the overview stand-off it is a few dozen pixels, and a
-        /// ghost much larger than this was present but easy to miss. Going much lower is the opposite failure — a
-        /// ghost nearly the size of a ball reads as a ball that is already there, which would have the player aiming
-        /// somewhere else. Half a ball's radius is what the Raspberry Pi build's tier, which could not afford the
-        /// dither, drew first, and the owner kept it.
-        /// </para>
-        /// </summary>
-        private const float PREVIEW_SCALE = 0.5f;
-
-        /// <summary>
-        /// How far the ghost's scale swings either side of <see cref="PREVIEW_SCALE"/>, and how often —
-        /// the <b>blink</b>, and it is the ghost telling the truth about itself.
-        /// <para>
-        /// <b>Measured, because the honest answer turned out to be worse than the docs assumed.</b> Fired with
-        /// Space, which leaves along the bit-identical pose the ghost was solved from — so with input staleness
-        /// excluded entirely and only the physics left — 26 shots produced 10 landings of which
-        /// <b>3 landed in the cell the ghost showed</b>. Five of the seven misses were one cell or one level away,
-        /// which still points at the right pocket; two were three levels and two levels out, which does not. The
-        /// causes are structural and none of them is a bug to fix: the shot crosses 1.667 units per physics step
-        /// at <see cref="SHOOT_SPEED"/>, so the ball can have slid around the struck surface by the time the
-        /// touch is reported; a glancing pass the analytic sweep counts can leave a <i>different ball</i> to
-        /// anchor the solve and therefore a different ring of candidate cells; and once the first ring is full
-        /// the second ring scores some thirty cells two levels wide by plain distance, which multiplies every
-        /// one of those perturbations.
-        /// </para>
-        /// <para>
-        /// These 26 shots predate the shot collidable becoming <b>swept</b> (see <see cref="PhysicsWorld"/>'s
-        /// constructor), which places the contact at the solved time of impact rather than at the first
-        /// overlapping step and so removes part of the first cause above. They have not been re-measured
-        /// against it — the blink below is set from the worst case, which is the safe direction to be wrong in.
-        /// </para>
-        /// <para>
-        /// So the ghost may not stand still and be read as a promise. A <b>smooth swing rather than a hard
-        /// on/off</b>: the ghost has a second job — its colour is what answers "does it stick next to two more of
-        /// its own" — and a ball that is absent half the time cannot be read for that. It also has to live beside
-        /// a heartbeat: the cluster breathes at <c>BallRenderSet</c>'s 1.1 Hz, so this is deliberately faster,
-        /// enough to read as unsettled rather than as alive. On the <b>wall clock</b>, like the beam's crawl and
-        /// that heartbeat, because it is what the ghost <i>is</i> and not something the session is doing.
-        /// </para>
-        /// <para>
-        /// The depth is what makes it unmissable at the overview stand-off, where the ghost is a few dozen pixels
-        /// — the same argument that set <see cref="PREVIEW_SCALE"/> itself. At ±0.22 the ball swings between
-        /// nearly three quarters of a ball's radius and little over a quarter of it; much less and the swing is lost
-        /// at that size (it was lost in the dither's own noise when the ghost was dithered).
-        /// </para>
-        /// </summary>
-        private const float PREVIEW_BLINK_DEPTH = 0.22f;
-
-        /// <inheritdoc cref="PREVIEW_BLINK_DEPTH"/>
-        private const float PREVIEW_BLINK_HZ = 2.2f;
-
         /// <summary>Red, for a crosshair over a shot that will not stick. Display space — the overlay is after the resolve.
         /// It is the crosshair's own <see cref="Crosshair.WARNING"/>, which the elevation clamp's blink uses too (#431).</summary>
         private static readonly Color PREVIEW_REFUSED = Crosshair.WARNING;
@@ -286,12 +226,25 @@ namespace BS3D.Screens
 
         /// <summary>
         /// Adds the ghost to the frame's collection: the colour actually loaded at the muzzle, in the cell it would
-        /// land in, drawn small (<see cref="PREVIEW_SCALE"/>).
+        /// land in, beating between <see cref="GhostBeat.LOW"/> of a ball and a whole one (<see cref="GhostBeat"/>).
         /// </summary>
         /// <remarks>
         /// The colour is the magazine's front ball rather than a neutral grey on purpose — the useful question is
         /// not only "does this stick" but "does it stick <i>next to two more of its own</i>", and a grey ghost
         /// answers the first while hiding the second.
+        /// <para>
+        /// It is drawn <b>at a size</b>, round its own centre, rather than as a whole ball with pixels dithered out of it
+        /// (#794: the owner wants that dither kept for the detached balls and the colour cross-fades, and the size for the
+        /// ghost alone), which is why the preview needs no blend state, no sorting and no pixel shader work: it is ordinary
+        /// opaque geometry. The size travels in the dissolve channel, below <c>-1</c>, where no dither value is
+        /// (<see cref="ModelInstance.GhostDissolve"/>), and both vertex shaders and the Potato rim read it from there.
+        /// </para>
+        /// <para>
+        /// <b>It reaches a whole ball every beat and never stands still</b> (#831). A ghost that never got bigger than
+        /// three quarters of a ball read as farther away than its pocket; one that stood still at a whole ball would read as
+        /// a ball already there. So the size tells the truth at the top of the beat and the motion says "not yet". It never
+        /// vanishes either (<see cref="GhostBeat.LOW"/> of a ball at the smallest), because its colour is what it is read for.
+        /// </para>
         /// <para>
         /// Drawn in the cluster's <b>live</b> frame (<see cref="ShotPlacement.CellWorldPosition"/>) and not at the
         /// cell's ideal lattice position, which it was until the descending ceiling proved that those are not the
@@ -315,16 +268,13 @@ namespace BS3D.Screens
 
             Vector3 position = ShotPlacement.CellWorldPosition(_map, _previewCell, _clusterWorldOffset, _previewDrift);
 
-            //And the blink: the ghost swings between mostly-there and mostly-gone rather than standing still,
-            //because standing still would be a promise it cannot keep — 3 of 10 measured landings hit the cell it
-            //showed. See PREVIEW_BLINK_DEPTH for the measurement and for why this is a swing and not an on/off.
-            float scale = PREVIEW_SCALE
-                + PREVIEW_BLINK_DEPTH * MathF.Sin(MathHelper.TwoPi * PREVIEW_BLINK_HZ * WallClock);
+            //The beat (#831): a whole ball at the top of every beat, a third of one at the bottom, on the wall clock
+            float scale = GhostBeat.Scale(WallClock);
 
             //⚠ A wildcard's ghost is drawn as an ORDINARY ball in the colour the cycle is showing (#330), and
-            //deliberately not handed over as its kind: the crossing writes the very dissolve channel this blink
-            //is using, so routing it would overwrite the swing above and leave a solid ghost promising a cell
-            //3 of 10 shots actually reach. The colour is still the right one, which is what the ghost is read
+            //deliberately not handed over as its kind: the crossing writes the very dissolve channel the beat's size
+            //rides in, so routing it would overwrite the size above and leave a whole ball standing still in the cell,
+            //which reads as a ball already there. The colour is still the right one, which is what the ghost is read
             //for — "does it stick NEXT TO TWO MORE OF ITS OWN" — and it comes through LoadedColour like every
             //other tint, so it agrees with the muzzle and the strip.
             frame.Add(LoadedColour(0), position, Matrix.CreateTranslation(position),
@@ -391,9 +341,10 @@ namespace BS3D.Screens
         private const float MUZZLE_GLOW_SWING = 0.38f;
 
         /// <summary>
-        /// How often it breathes. Deliberately its own rate: the balls' own heartbeat is at
-        /// <c>BallRenderSet</c>'s 1.1 Hz and the landing ghost blinks at 2.2, so this sits between them and on
-        /// neither's harmonic — a marker that beat with the cluster would read as part of it.
+        /// How often it breathes. Deliberately its own rate: the balls' own heartbeat is <c>BallRenderSet</c>'s
+        /// <c>PULSE_BEATS_PER_SECOND</c> and the landing ghost beats at <see cref="GhostBeat.HZ"/>, so this sits between
+        /// them and on neither's harmonic — a marker that beat with the cluster would read as part of it, and one that
+        /// beat with the ghost would pulse in lock with it (the same colour, the same clock, the same gate).
         /// </summary>
         private const float MUZZLE_MARK_HZ = 1.6f;
 
@@ -426,7 +377,7 @@ namespace BS3D.Screens
         /// taken out of the ended level's frame for.
         /// </para>
         /// <para>
-        /// On the <b>wall</b> clock, like the ghost's blink and the balls' own breath: it is a thing the round
+        /// On the <b>wall</b> clock, like the ghost's beat and the balls' own breath: it is a thing the round
         /// <i>is</i>, not something the session is doing, so it keeps breathing while a pause holds the frame.
         /// </para>
         /// </summary>

@@ -54,9 +54,11 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// How fast the mark blinks and throbs under strain. A <b>blink</b> and not a breath: the HUD's own rule is
         /// that a slow swell reads as urgency and a hard flash as a fault, and a stop the hand is pushing into is
-        /// the second. Off the cluster's 1.1 Hz heartbeat, the muzzle halo's 1.6 and the ghost's 2.2, all of which
-        /// share the frame with it. On the caller's wall clock, so the phase a push starts on is arbitrary — at
-        /// this rate the first bright frame is never more than an eighth of a second away.
+        /// the second. Off the cluster's heartbeat (<c>BallRenderSet</c>'s <c>PULSE_BEATS_PER_SECOND</c>), the muzzle
+        /// collar's breath and the landing ghost's beat (the Game's <c>MUZZLE_MARK_HZ</c> and <c>GhostBeat.HZ</c>), all
+        /// of which share the frame with it: this is well above all three and a whole multiple of none. On the
+        /// caller's wall clock, so the phase a push starts on is arbitrary — at this rate the first bright frame is
+        /// never more than an eighth of a second away.
         /// </summary>
         public const float STRAIN_BLINK_HZ = 4f;
 
