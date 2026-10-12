@@ -13,13 +13,14 @@ namespace BS3D.Tools.LevelGen
     internal static partial class Program
     {
         //THE QUARRY'S TILE (#398), and it is the block's second density lever rather than a spelling of
-        //the first. The owner's verdict on all nine of these levels was one sentence repeated: the level
-        //takes too long to finish and is not much of a challenge while it does. How long a level takes is
-        //its STANDING-GROUP count far more than its ball count - a shot takes one group - so hollowing the
-        //bodies (Design.Hollow) could not answer it alone: a skin cuts a tile in half, which leaves just as
-        //many groups paying half as much, and the measurement said exactly that (Mosaic 34 groups -> 46,
-        //Highwall 45 -> 53, the shortest clear rising from 10 to 16 and 23 to 32). So the tile widens with
-        //the hollowing: three cells across and two courses tall where the block shipped two and one or two.
+        //the first. The owner's verdict on all nine of the block's designs then was one sentence repeated:
+        //the level takes too long to finish and is not much of a challenge while it does. How long a level
+        //takes is its STANDING-GROUP count far more than its ball count - a shot takes one group - so
+        //hollowing the bodies (Design.Hollow) could not answer it alone: a skin cuts a tile in half, which
+        //leaves just as many groups paying half as much, and the measurement said exactly that (Mosaic 34
+        //groups -> 46, and Highwall, a level here until #742, 45 -> 53, the shortest clear rising from 10 to
+        //16 and 23 to 32). So the tile widens with the hollowing: three cells across and two courses tall
+        //where the block shipped two and one or two.
         //
         //IT IS THE BLOCK'S OWN RECORDED REMEDY, not a new idea - see Prism, whose tile was doubled in
         //height for this complaint's first appearance ("the widest step is the last thing left standing and
@@ -126,18 +127,16 @@ namespace BS3D.Tools.LevelGen
         /// </para>
         /// <para>
         /// <b>The wall is square and the pit is round, and swapping either is a worse level.</b> A round wall is
-        /// Mosaic's and Static's silhouette, which the block already has twice; a square pit would leave the bottom
+        /// Mosaic's silhouette, two levels earlier; a square pit would leave the bottom
         /// bench 0.9 of a cell wide the whole way round, where a round pit inside a square wall runs 0.9 at the
         /// axis directions and 2.8 at the corners — so the bench that is thinnest where the player is aiming
         /// straight up is thickest at the corners, and every level of it is carried by the wider ring above anyway.
         /// </para>
         /// <para>
-        /// Measured: 465 balls — the heaviest thing in the Quarry, against Mosaic's 387, Static's 370 and
-        /// Colossus's 364 — margin 1, nothing alone, nothing in a pair, 1 recoloured, six colours running 53 to
-        /// 122 balls, thirty standing groups from 4 to 63 with a median of 15, and a best single shot of 63
-        /// (13 %). Per level 56, 60, 88, 80, 100 and 81, so the terraces are as drawn. <b>No empty cell is sealed
-        /// in</b>, which is the check that says the pit is open from below as designed and no colour is parked
-        /// where nothing can reach it.
+        /// Measured since #398's skin (LevelGen, 2026-10-12): 345 balls, against Mosaic's 346 and Colossus's 364,
+        /// margin 1, nothing alone, 4 in pairs, nothing recoloured, six colours running 21 to 104 balls, 29
+        /// standing groups and a best single shot of 41 (11 %). Per level from the bottom 56, 60, 56, 52, 40 and
+        /// 81: the skin took the buried middle of the benches, and the lid against the glass stays whole.
         /// </para>
         /// </summary>
         private static Design Hopper() => new()
@@ -152,11 +151,10 @@ namespace BS3D.Tools.LevelGen
             Music = MUSIC_QUARRY,
                 Balls = BALLS_QUARRY,
             //Prism's pair of numbers: ten steps of ceiling against the ten empty field levels under a six-deep
-            //layout, so the budget and the descent run out together. 465 balls against Prism's 351 and six
-            //colours against five is where the difficulty is — 7.8 balls a shot, between Static's 6.2 and
-            //Colossus's 8.1.
+            //layout, so the budget and the descent run out together. Six colours against Prism's five is where
+            //the difficulty is.
             //60 until #398. The pit lost its buried mass to the skin and its tiles widened to three; 29
-            //groups of six colours price at 46.
+            //groups of six colours price at 46, 7.5 balls a shot against Colossus's 8.1.
             Shots = 46,
             CeilingStep = 6,
             //Chebyshev at x.75 rather than on the half: the polar round-trip makes an exactly attainable
@@ -188,7 +186,8 @@ namespace BS3D.Tools.LevelGen
         //  Eclipse  two depths: a cool disc hung in front of a larger warm one, a gap of air between them
         //  Geode    a cavity: a dull boulder with a crystal sealed in it (The Reveal's payoff, #743)
         //  Locket   the column and the cavity at once: cut the stone's white neck and it falls away from its crystal
-        //and the hand-drawn Colossus still closes the chapter.
+        //and the hand-drawn Colossus still closes the chapter: whether it should give way to a generated closer with an
+        //idea of its own is the owner's decision (#849), since it is the one level this tool does not write.
         //
         //THE STYLE IS KEPT: lattice-aligned tiles of colour QUARRY_TILE across and QUARRY_COURSE tall, so a body is
         //still worked a tile at a time and no shot triggers the whole of it. What changed is the silhouette, and
@@ -206,11 +205,16 @@ namespace BS3D.Tools.LevelGen
         //stripes, which Cornice's body uses on purpose.
         //
         //WHAT THEY MEASURE (LevelGen, 2026-10-12): balls / standing groups / shots, and the one shot that drops most.
-        //  Archway  228 / 22 / 32   10 %                  Cornice  306 / 17 / 28   22 %
-        //  Hoist    364 / 31 / 40   59 %, the white column  Eclipse  330 / 27 / 42    5 %
-        //  Geode    432 / 34 / 50    7 %                  Locket   401 / 38 / 44   80 %, the white neck
-        //Each hung 0 or 1 time in 5 in the sag probe (--sag), and a white ball can be landed against either key from
-        //the start (against Locket's neck mostly after a walk round: two landings from the stand, twenty from the walk).
+        //  Archway  228 / 22 / 32   10 %                    Cornice  253 / 13 / 22   32 %
+        //  Hoist    252 / 19 / 25   66 %, the white column  Eclipse  261 / 23 / 36    6 %
+        //  Geode    288 / 28 / 41    9 %                    Locket   301 / 32 / 37   77 %, the white neck
+        //⚠ NO HEAVIER THAN WHAT THEY REPLACED. #398's ruling on this chapter was "less dense", and the owner's note on
+        //Colossus asked for fewer balls, so the six together carry 1,583 balls against the 1,590 of the six levels before
+        //them, in 137 standing groups against 185 and 193 shots against 262: each body is the size its idea needs and
+        //no larger. Every budget keeps its design's shots a group (1.16 on Locket to 1.69 on Cornice), and every
+        //ceiling step about the number of steps down it takes over the budget. Each hung 0 times in 5 in the sag probe (--sag), and a white ball can be
+        //landed against either key from the start (from the stand 12 landings on Hoist's column and 7 on Locket's neck,
+        //and 14 and 21 more after a walk round).
         //
         //THE FILES ARE THE OLD ONES (Trilithon, Gantry, Fault, Crib, Highwall, Nine): a save is keyed by the file,
         //and a file the set stops listing would put six uncleared levels in front of every player already past them
@@ -229,6 +233,13 @@ namespace BS3D.Tools.LevelGen
         /// </summary>
         private static BallType QuarryBand(int x, int z, int i, int x0, int z0, int sx, int sz, int sc, BallType[] palette, int phase = 0) =>
             Band(sx * ((x - x0) / QUARRY_TILE) + sz * ((z - z0) / QUARRY_TILE) + sc * (i / QUARRY_COURSE) + phase, palette);
+
+        /// <summary>
+        /// The lowest raw x a body <c>|dx| &lt;= <paramref name="half"/></c> wide reaches on any course (the shifted
+        /// courses reach half a cell further down), for <see cref="QuarryBand"/>'s <c>x0</c>: counted from there, the
+        /// tiles start on the body's own edge rather than leaving a sliver one cell wide at it.
+        /// </summary>
+        private static int QuarryLow(float half, byte grid) => (int)MathF.Ceiling(grid * HALF - HALF - half);
 
         /// <summary>
         /// A wall of quarried blocks with a round arch through it: the chapter's first hole, and one the gun looks
@@ -336,8 +347,8 @@ namespace BS3D.Tools.LevelGen
             Sky = QUARRY_SKY,
             Music = MUSIC_QUARRY,
             Balls = BALLS_QUARRY,
-            Shots = 28,
-            CeilingStep = 6,
+            Shots = 22,
+            CeilingStep = 5,
             OccupiedBlock = (x, z, i, depth) => CornicePart(x, z, i) != 0,
             BlockColour = CorniceColour,
         };
@@ -345,16 +356,18 @@ namespace BS3D.Tools.LevelGen
         private const byte CORNICE_GRID = 13;
         private const byte CORNICE_DEPTH = 8;
 
-        //Half widths in world units: the roof, and the narrower body under it
-        private const float CORNICE_HALF = 4.5f;
-        private const float CORNICE_BODY_HALF = 3f;
+        //Half widths in world units: the roof, and the narrower body under it. Their low edges are where their tiles
+        //are counted from (QuarryLow), so the roof is three tiles across and the body two.
+        private const float CORNICE_HALF = 4f;
+        private const float CORNICE_BODY_HALF = 2.5f;
 
         //Raw z: the back of everything, the body's front face, and the roof's front edge
         private const int CORNICE_BACK = 2;
         private const int CORNICE_BODY_FRONT = 4;
-        private const int CORNICE_ROOF_FRONT = 10;
+        private const int CORNICE_ROOF_FRONT = 9;
 
-        //The roof is the top two courses; the lip hangs one course under its front edge, two cells deep
+        //The roof is the top two courses; the lip hangs one course under its front edge, two cells deep, which is the
+        //roof's front row of tiles
         private const int CORNICE_ROOF_BASE = 6;
         private const int CORNICE_LIP_BASE = 5;
         private const int CORNICE_LIP = 2;
@@ -377,8 +390,8 @@ namespace BS3D.Tools.LevelGen
         //The roof is one course, so its sum is over x and z; the lip takes the colour of the roof tile it hangs from
         private static BallType CorniceColour(int x, int z, int i) =>
             CornicePart(x, z, i) == 1
-                ? QuarryBand(x, z, i, 0, CORNICE_BACK, 1, 0, 1, CORNICE_BODY)
-                : QuarryBand(x, z, i, 0, CORNICE_BACK, 1, 1, 0, CORNICE_ROOF);
+                ? QuarryBand(x, z, i, QuarryLow(CORNICE_BODY_HALF, CORNICE_GRID), CORNICE_BACK, 1, 0, 1, CORNICE_BODY)
+                : QuarryBand(x, z, i, QuarryLow(CORNICE_HALF, CORNICE_GRID), CORNICE_BACK, 1, 1, 0, CORNICE_ROOF);
 
         /// <summary>
         /// A stone hung under the deck on one column: the chapter's first FLOATING member, with air all round the
@@ -397,8 +410,8 @@ namespace BS3D.Tools.LevelGen
             Sky = QUARRY_SKY,
             Music = MUSIC_QUARRY,
             Balls = BALLS_QUARRY,
-            Shots = 40,
-            CeilingStep = 7,
+            Shots = 25,
+            CeilingStep = 5,
             OccupiedBlock = (x, z, i, depth) => HoistPart(x, z, i) != 0,
             BlockColour = HoistColour,
         };
@@ -406,19 +419,20 @@ namespace BS3D.Tools.LevelGen
         private const byte HOIST_GRID = 13;
         private const byte HOIST_DEPTH = 10;
 
-        //The deck: two courses against the glass, HOIST_DECK_HALF either side in x and raw z 3..9
+        //The deck: two courses against the glass, HOIST_DECK_HALF either side in x (three tiles) and raw z 4..8
         private const int HOIST_DECK_BASE = 8;
-        private const float HOIST_DECK_HALF = 5f;
-        private const int HOIST_DECK_Z_LO = 3;
-        private const int HOIST_DECK_Z_HI = 9;
+        private const float HOIST_DECK_HALF = 4f;
+        private const int HOIST_DECK_Z_LO = 4;
+        private const int HOIST_DECK_Z_HI = 8;
 
         //The column: 3x3 raw cells under the deck's middle, three courses tall
         private const int HOIST_COLUMN_BASE = 5;
         private const int HOIST_COLUMN_LO = 5;
         private const int HOIST_COLUMN_HI = 7;
 
-        //The stone: everything below the column, HOIST_STONE_HALF either side in x and raw z 4..8
-        private const float HOIST_STONE_HALF = 3.5f;
+        //The stone: everything below the column, HOIST_STONE_HALF either side in x (two tiles) and raw z 4..8, under
+        //the deck's footprint and narrower than it, so from the stand the deck shows past the stone on both sides
+        private const float HOIST_STONE_HALF = 2.5f;
         private const int HOIST_STONE_Z_LO = 4;
         private const int HOIST_STONE_Z_HI = 8;
 
@@ -442,8 +456,8 @@ namespace BS3D.Tools.LevelGen
         private static BallType HoistColour(int x, int z, int i) => HoistPart(x, z, i) switch
         {
             2 => BallType.Type4,   //white, the key
-            1 => QuarryBand(x, z, i, 0, HOIST_DECK_Z_LO, 1, 1, 0, HOIST_STONE),
-            _ => QuarryBand(x, z, i, 0, HOIST_STONE_Z_LO, 1, 1, 1, HOIST_STONE, 2),
+            1 => QuarryBand(x, z, i, QuarryLow(HOIST_DECK_HALF, HOIST_GRID), HOIST_DECK_Z_LO, 1, 1, 0, HOIST_STONE),
+            _ => QuarryBand(x, z, i, QuarryLow(HOIST_STONE_HALF, HOIST_GRID), HOIST_STONE_Z_LO, 1, 1, 1, HOIST_STONE, 2),
         };
 
         /// <summary>
@@ -465,8 +479,8 @@ namespace BS3D.Tools.LevelGen
             Sky = QUARRY_SKY,
             Music = MUSIC_QUARRY,
             Balls = BALLS_QUARRY,
-            Shots = 42,
-            CeilingStep = 7,
+            Shots = 36,
+            CeilingStep = 6,
             OccupiedBlock = (x, z, i, depth) => EclipsePart(x, z, i, depth) != 0,
             BlockColour = EclipseColour,
         };
@@ -478,8 +492,8 @@ namespace BS3D.Tools.LevelGen
         //Each disc stands in the (x, height) plane, three cells thick in raw z: radius, how far below the glass its
         //centre hangs, and its sideways offset. Both centres are close enough to the glass that the glass cuts a
         //wide chord off each, which is what each hangs by.
-        private const float ECLIPSE_FAR_RADIUS = 4.6f;
-        private const float ECLIPSE_FAR_CENTRE = 2.6f;
+        private const float ECLIPSE_FAR_RADIUS = 4f;
+        private const float ECLIPSE_FAR_CENTRE = 2.2f;
         private const int ECLIPSE_FAR_Z_LO = 3;
         private const float ECLIPSE_NEAR_RADIUS = 2.6f;
         private const float ECLIPSE_NEAR_CENTRE = 1.7f;
@@ -533,8 +547,8 @@ namespace BS3D.Tools.LevelGen
             Sky = QUARRY_SKY,
             Music = MUSIC_QUARRY,
             Balls = BALLS_QUARRY,
-            Shots = 50,
-            CeilingStep = 8,
+            Shots = 41,
+            CeilingStep = 7,
             Payoff = (x, z, r, ang, i, depth) => GeodePart(x, z, i, depth) == 2,
             OccupiedBlock = (x, z, i, depth) => GeodePart(x, z, i, depth) != 0,
             BlockColour = (x, z, i) => GeodeColour(x, z, i, GEODE_DEPTH),
@@ -544,26 +558,28 @@ namespace BS3D.Tools.LevelGen
         private const byte GEODE_DEPTH = 10;
 
         //The boulder: an ellipsoid whose centre hangs GEODE_CENTRE below the glass, so the glass cuts a wide flat top
-        //off it to hang by
-        private const float GEODE_RADIUS = 4.6f;
-        private const float GEODE_HEIGHT = 3.8f;
-        private const float GEODE_CENTRE = 2.6f;
+        //off it to hang by. Its foot stops short of the course under its floor, which would otherwise carry one ball.
+        private const float GEODE_RADIUS = 4.15f;
+        private const float GEODE_HEIGHT = 3.3f;
+        private const float GEODE_CENTRE = 2.3f;
 
-        //The cavity: a flatter ellipsoid at least two cells in from the shell everywhere, which leaves it four courses
-        //tall between a floor of three and a lid of three
-        private const float GEODE_CAVITY_RADIUS = 2.4f;
-        private const float GEODE_CAVITY_HEIGHT = 1.6f;
-        private const float GEODE_CAVITY_CENTRE = 3.4f;
+        //The cavity: a flatter ellipsoid with two cells of shell round it at its widest, three courses tall between a
+        //floor of two and a lid of three. Wide enough that the cells beside the crystal on its own courses are air (the
+        //one beside its corner, (2, 1), at 2.24); across a course it still touches the lid, as the cord through it does.
+        private const float GEODE_CAVITY_RADIUS = 2.25f;
+        private const float GEODE_CAVITY_HEIGHT = 1.3f;
+        private const float GEODE_CAVITY_CENTRE = 2.9f;
 
         //The crystal: a square column of GEODE_CORD from the glass down into the cavity, to GEODE_TIP below the glass
         //(a course of air clear of the floor), magenta down to GEODE_TIP_COLOUR and cyan below it
         private const float GEODE_CORD = 1f;
-        private const float GEODE_TIP = 3.6f;
+        private const float GEODE_TIP = 3.4f;
         private const float GEODE_TIP_COLOUR = 2.5f;
 
-        //Three stone colours at three lightnesses. Navy stood where white does until the first capture: brown and navy
-        //both go nearly black on the Moon's metal and could not be told apart at the stand.
-        private static readonly BallType[] GEODE_SHELL = { BallType.Type10, BallType.Type11, BallType.Type4 };   //brown, slate, white
+        //Three stone colours at three lightnesses, none of them white: white is the key the levels either side of this
+        //one teach (Hoist's column, Locket's neck), and here it would be filler. Navy stood in the shell until the first
+        //capture: brown and navy both go nearly black on the Moon's metal and could not be told apart at the stand.
+        private static readonly BallType[] GEODE_SHELL = { BallType.Type10, BallType.Type11, BallType.Type7 };   //brown, slate, ochre (yellow)
 
         /// <summary>0 for air, 1 for the shell, 2 for the crystal and its cord.</summary>
         private static int GeodePart(int x, int z, int i, int depth)
@@ -606,8 +622,8 @@ namespace BS3D.Tools.LevelGen
             Sky = QUARRY_SKY,
             Music = MUSIC_QUARRY,
             Balls = BALLS_QUARRY,
-            Shots = 44,
-            CeilingStep = 7,
+            Shots = 37,
+            CeilingStep = 6,
             Payoff = (x, z, r, ang, i, depth) => LocketPart(x, z, i) == 4,
             OccupiedBlock = (x, z, i, depth) => LocketPart(x, z, i) != 0,
             BlockColour = LocketColour,
@@ -627,16 +643,25 @@ namespace BS3D.Tools.LevelGen
         //and of the crystal it ends in. Round radii of the air round each: LOCKET_SLEEVE is the least radius holding
         //every cell that touches a cord cell on either parity (the even cord's (0.5, 0.5) touches (1.5, 0.5) on its own
         //course, at 1.58), and LOCKET_CAVITY the same for the crystal (its corner (1, 1) touches (2, 1), at 2.24), so
-        //no stone ball can touch either. The neck is the two cells outside the sleeve: one cell tipped over as the stone was peeled lopsided (the sag probe, 2 of 5).
+        //no stone ball can touch either. The neck is the ring outside the sleeve, one cell thick (twelve a course): three
+        //courses of it tipped over as the stone was peeled lopsided (the sag probe, 2 of 5), and two hold.
         private const float LOCKET_CORD = 0.5f;
         private const float LOCKET_CRYSTAL = 1f;
         private const float LOCKET_SLEEVE = 1.6f;
         private const float LOCKET_CAVITY = 2.3f;
         private const float LOCKET_NECK = 2.6f;
 
-        //The mount and the stone, round in plan; the stone's top two courses and bottom two are drawn in to round it
-        private const float LOCKET_MOUNT = 4.2f;
-        private const float LOCKET_STONE = 4.5f;
+        //The mount and the stone, round in plan; the stone's top two courses and bottom two are drawn in to round it.
+        //The mount is a collar a cell or so wider than the neck. It and the crystal are all a cut neck leaves standing,
+        //so it is what keeps the key's drop under the one-shot gate.
+        private const float LOCKET_MOUNT = 3.7f;
+        private const float LOCKET_STONE = 4f;
+
+        //Where the stone's tiles are counted from, in raw x and z. ⚠ The key must stay the only white: a tile the round
+        //rim clips to one ball is recoloured by the repair pass to whatever it touches most of, and beside the neck that
+        //is white. Counted from 0 (and with a narrower mount) three balls of the lid and the mount came out white; from
+        //1 the rim leaves two balls alone, neither of them beside the neck.
+        private const int LOCKET_STONE_TILE_FROM = 1;
 
         private static readonly BallType[] LOCKET_BODY = { BallType.Type1, BallType.Type3, BallType.Type2 };   //red, blue, green
 
@@ -676,7 +701,7 @@ namespace BS3D.Tools.LevelGen
             4 => BallType.Type6,   //magenta, the crystal and its cord
             2 => BallType.Type4,   //white, the key
             1 => QuarryBand(x, z, i, 0, 0, 1, 1, 0, LOCKET_BODY, 1),
-            _ => QuarryBand(x, z, i, 0, 0, 1, 1, 1, LOCKET_BODY),
+            _ => QuarryBand(x, z, i, LOCKET_STONE_TILE_FROM, LOCKET_STONE_TILE_FROM, 1, 1, 1, LOCKET_BODY),
         };
 
         #endregion

@@ -50,7 +50,8 @@ namespace Prazsky.BS3D
     /// On every other field the gun is stood back far enough to frame the whole of it, so the facing shot is
     /// never steep. Measured over the campaign on 2026-09-19 (another session, on the Game's real geometry
     /// rather than the generator's): every cell of every level reachable, the hardest shapes in the
-    /// pack — <c>Column</c> 11×11×34, <c>Horn</c>, <c>Colossus</c>, <c>Highwall</c> — included.
+    /// pack then — <c>Column</c> 11×11×34, <c>Horn</c>, <c>Colossus</c>, <c>Highwall</c> (a Quarry level until
+    /// #742) — included.
     /// </description></item>
     /// </list>
     /// It is kept rather than deleted because it is the guard against the geometry moving: it would fire the

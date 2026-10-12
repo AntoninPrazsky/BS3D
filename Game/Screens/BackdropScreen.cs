@@ -95,10 +95,10 @@ namespace BS3D.Screens
         /// turns an extent into a distance is written once.
         /// </para>
         /// <para>
-        /// <b>Solved per map rather than stated</b> (#254), because the shipped set runs from a four-level
-        /// pancake to a twenty-four-level column, and a deep field is hung higher than a shallow one on top of
-        /// that (<see cref="GameplayScreen.FitClusterWorldOffset"/> raises a field whose floor would otherwise
-        /// start past the death line, which puts <c>Helix</c>'s top level eleven units above <c>Nine</c>'s).
+        /// <b>Solved per map rather than stated</b> (#254), because the shipped set runs from a layout five levels
+        /// deep (<c>Hammock</c>) to columns of thirty (<c>Bolt</c>, <c>Totem</c>), and a deep field is hung higher
+        /// than a shallow one on top of that (<see cref="GameplayScreen.FitClusterWorldOffset"/> raises a field
+        /// whose floor would otherwise start past the death line).
         /// One fixed radius and one fixed aim height cannot hold both ends of that: the figures they replaced
         /// framed neither, and looked most wrong on the smallest maps, which is where the complaint came from.
         /// </para>

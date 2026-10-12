@@ -518,41 +518,41 @@
       "file": "Gantry.json",
       "name": "Cornice",
       "block": "The Quarry",
-      "shots": 28,
+      "shots": 22,
       "minStars": 126,
-      "ceilingStep": 6
+      "ceilingStep": 5
     },
     {
       "file": "Fault.json",
       "name": "Hoist",
       "block": "The Quarry",
-      "shots": 40,
+      "shots": 25,
       "minStars": 128,
-      "ceilingStep": 7
+      "ceilingStep": 5
     },
     {
       "file": "Crib.json",
       "name": "Eclipse",
       "block": "The Quarry",
-      "shots": 42,
+      "shots": 36,
       "minStars": 130,
-      "ceilingStep": 7
+      "ceilingStep": 6
     },
     {
       "file": "Highwall.json",
       "name": "Geode",
       "block": "The Quarry",
-      "shots": 50,
+      "shots": 41,
       "minStars": 132,
-      "ceilingStep": 8
+      "ceilingStep": 7
     },
     {
       "file": "Nine.json",
       "name": "Locket",
       "block": "The Quarry",
-      "shots": 44,
+      "shots": 37,
       "minStars": 134,
-      "ceilingStep": 7
+      "ceilingStep": 6
     },
     {
       "file": "Colossus.json",
