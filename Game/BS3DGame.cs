@@ -1032,6 +1032,12 @@ namespace BS3D
 
             ApplyRenderResolution();
             _pipeline?.EnsureTarget();
+
+            //The Resolution row reads the size the 3D is drawn at, which has just changed. A page is refreshed when it is
+            //shown and when its tree is rebuilt, and a resize is neither while the menu's height stays inside one rebuild
+            //step: a width-only drag, or the few pixels of frame a change of scale moves (#825, 1600x900 became 1602x908),
+            //left the row on the old size until the page was opened again
+            if (_screens.Active is SettingsPage settings) settings.Refresh();
         }
 
         /// <summary>

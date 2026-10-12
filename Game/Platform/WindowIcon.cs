@@ -77,8 +77,9 @@ namespace BS3D.Platform
         /// deriving the small one by stretching the large, so the authored small frame has to be sent after it.
         /// WinForms does the same again on every <c>WM_DPICHANGED</c> (<c>Form.OnDpiChanged</c> calls its
         /// <c>UpdateWindowIcon</c> with the new DPI), which is why a scale change has to bring this back
-        /// (<c>DisplayRefresh.WatchScale</c>): left alone, the small slot held the 40 px large frame for the title bar
-        /// to shrink, and the large slot kept 40 px at 96 DPI - measured after a change of scale either way and after a
+        /// (<c>DisplayRefresh.WatchScale</c>): left alone, the small slot holds the large frame <c>Form.Icon</c> was
+        /// given for the title bar to shrink (the 40 px one on a window at 120 DPI, 32 px at 96), and the large slot keeps
+        /// the old scale's size - measured on a window started at 120 DPI, after a change of scale either way and after a
         /// move between monitors of different scales.
         /// </remarks>
         internal static void Apply(IntPtr windowHandle)
@@ -119,7 +120,8 @@ namespace BS3D.Platform
             }
             catch (EntryPointNotFoundException)
             {
-                //Windows 10 before 1607
+                //Windows before 10 1607, which has neither this call nor GetSystemMetricsForDpi: Metric then answers for
+                //the system DPI whatever this says
                 return DEFAULT_DPI;
             }
         }
@@ -138,7 +140,9 @@ namespace BS3D.Platform
             }
             catch (EntryPointNotFoundException)
             {
-                //Windows 10 before 1607, where the process cannot be per-monitor aware in the first place
+                //Windows before 10 1607, which has no per-DPI metric. The window is per-monitor aware there all the same
+                //(the manifest's dpiAware true/pm), so on a monitor of another scale than the primary one it gets the
+                //system DPI's frames and the title bar resamples them - a soft icon, nothing worse
                 return GetSystemMetrics(index);
             }
         }
