@@ -500,6 +500,12 @@ Pravidla:
 - Bez majitele (spí), konzervativně: dvojitý stožár v neonu je vada už na mainu, zapsaná jako #850, ne opravená tady (přestavěla by všechny neonové střechy).
 - Otevřené: #850; jak čte strmější pohled na nejvyšší stožáry, viděno jen ve snímcích.
 
+## 2026-10-12 — #831 duch dopadu na celou kouli — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #831 (merge následuje): duch v náhledu dopadu roste na přesně celou kouli a nikdy nad ni, s gumovým odskokem. Čistá funkce `GhostBeat.Scale(WallClock)` (`Game/Screens/GhostBeat.cs`) nahradila sinus 0,5 ± 0,22 při 2,2 Hz: rychlý pružný nárůst, výdrž na 1 díky jednomu `MathF.Min(1, …)`, propad na `LOW` = 0,30 a pomalejší dosednutí. 14 testů `GhostBeatTests`, shadery a Potato okraj beze změny.
+- majitel: celá koule smí vypadat jako už přítomná koule (přijal to v issue).
+- ⚠ Review: 1,6 Hz bylo totéž co `MUZZLE_MARK_HZ`, duch a límec u ústí tepaly ve fázi; teď 1,8 Hz a pravidlo „různé frekvence“ stojí v obou docs komentářích i v docs.
+- Otevřené: verdict-eye; živý pohyb (gumovost) a Pi neviděny, snímky jen velikosti.
+
 ## 2026-10-12 — #736 Siluety jako tělesa — desktop (RDT-PC), Claude Code (bs3d-71, noc)
 - #736 (větev `736-silhouettes-depth`, merge následuje): všech deset levelů Polární záře (41–50) přestavěno v `Block13_Silhouettes.cs` na tělesa, každé visí jinak: Fish reliéf ze stínohry, Umbrella rotační s 12 klíny, Bell s červeným srdcem za skleněným dnem, Cat loutka před plátnem, Teapot s uzavřeným čajem, Key na desce, Rocket vodorovně s okénky, Coronet na pěti hrotech, Guitar ve stínohře se skleněnými strunami, Anchor na pažnici. Soubory si nechaly jména.
 - Majitel (11. 10.): celá kapitola najednou, první speciál kampaně je sklo. Sklo poprvé na Umbrelle (42), Fish (41) nese kartu Řezu; karty druhů i Nápověda řazeny podle prvního setkání.

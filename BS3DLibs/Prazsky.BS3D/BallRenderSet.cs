@@ -1261,10 +1261,11 @@ namespace Prazsky.BS3D
         //first level's pyramid took it for a special and could not say what it did. The colour is what says the
         //ball is still one of theirs; the missing pixels say it has left the map.
         //
-        //Steady where the ghost blinks (GameplayScreen's PREVIEW_SCALE and PREVIEW_BLINK_DEPTH), and a dither where
-        //the ghost is a size: the two must not be taken for each other, and the ghost's whole job is to swing.
-        //Not much lower than half either — a ball with most of itself intact reads as a ball that is already
-        //there (the ghost's own remarks record it), which is exactly the mistake a dead ball is there to prevent.
+        //Steady where the ghost beats (the Game's GhostBeat, up to a whole ball and back every beat, #831), and a dither
+        //where the ghost is a size: the two must not be taken for each other, and the ghost's whole job is to move.
+        //Not much lower than half either — a ball with most of itself intact, standing still, reads as a ball that is
+        //already there (the ghost's own remarks say it of a ghost that stood still), which is exactly the mistake a dead
+        //ball is there to prevent.
         internal const float DEAD_DISSOLVE = 0.5f;
 
         private readonly ModelInstance[][] _buckets;
