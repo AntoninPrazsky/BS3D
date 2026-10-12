@@ -97,6 +97,41 @@ namespace BS3D.Tests
             Assert.True(new MatchReach().HasScoringLanding(map, B, GROUP));
         }
 
+        /// <summary>
+        /// A sealed pocket <b>beside a ball on the field's wall</b> is somewhere: a shot striking that ball from outside the
+        /// field, where there are no cells, is placed into the free cell nearest the contact by the placement's own finders
+        /// (<see cref="BallsMap.TryFindEmptyCellNextTo"/>, then <see cref="BallsMap.TryFindEmptyCellInSecondRing"/> when
+        /// the wall ball's ring is full), however sealed that cell is. Both rings are built here: a block of B's against
+        /// the x = 0 wall, a pocket one or two cells in from it, two A's beside the pocket that touch nothing else.
+        /// </summary>
+        [Theory]
+        [InlineData(1)]     //the pocket in the wall ball's own ring
+        [InlineData(2)]     //the wall ball's ring full, the pocket one ring further in
+        public void A_pocket_behind_a_wall_ball_is_somewhere(int pocketX)
+        {
+            BallsMap map = Field();
+            for (int level = 1; level <= 5; level++)
+                for (int x = 0; x <= 4; x++)
+                    for (int z = 0; z < 7; z++)
+                        Put(map, x, z, level, B);
+
+            XZLevel pocket = new(pocketX, 3, 3);
+            map.RemoveBallAt((byte)pocket.X, (byte)pocket.Z, (byte)pocket.Level);
+            Put(map, pocketX + 1, 3, 3, A);
+            Put(map, pocketX, 4, 3, A);
+
+            //The real placement: a contact on the wall ball's outer face, outside the field, lands in the pocket
+            XZLevel wall = new(0, 3, 3);
+            Microsoft.Xna.Framework.Vector3 contact = map.GetRealCenteredPosition(wall) + new Microsoft.Xna.Framework.Vector3(-0.5f, 0f, 0f);
+            Assert.True(map.TryFindEmptyCellNextTo(contact, wall, out XZLevel landed)
+                || map.TryFindEmptyCellInSecondRing(contact, wall, out landed));
+            Assert.Equal(pocket, landed);
+
+            //And an A landed there completes the group, so an A has somewhere to score
+            Assert.True(AnyCellScores(map, null, A), "the pocket no longer completes the A's: the test lost its subject");
+            Assert.True(new MatchReach().HasScoringLanding(map, A, GROUP));
+        }
+
         [Fact]
         public void A_special_a_landing_sets_off_is_somewhere_to_score_and_a_rock_is_not()
         {
@@ -149,8 +184,9 @@ namespace BS3D.Tests
 
         /// <summary>
         /// Every shipped level, every colour on it: <see cref="MatchReach"/> answers exactly what the game's own rule says,
-        /// asked the slow way. The oracle floods the open space here from the walls and the floor, and for every open cell
-        /// beside a ball either finds a special a landing sets off, or places the ball for real and asks the match rule's own
+        /// asked the slow way. The oracle floods the open space here from the walls and the floor, adds every cell the
+        /// placement's finders can give a shot that strikes a ball on a wall or the floor from outside, and for every such
+        /// cell beside a ball either finds a special a landing sets off, or places the ball for real and asks the match rule's own
         /// walk (<see cref="BallsMap.GetConnectedSameTypeCells"/>) how big its group is. Both answers are counted and printed:
         /// "nowhere" really happens on the shipped levels (the next test is one).
         /// </summary>
@@ -195,7 +231,7 @@ namespace BS3D.Tests
                 }
 
                 //Then the oracle, which places and removes balls and so moves the field's revision
-                bool[,,] open = OpenSpace(map);
+                bool[,,] landings = Landings(map);
                 foreach ((BallType type, bool answer) in answers)
                 {
                     if (answer) somewhere++;
@@ -205,7 +241,7 @@ namespace BS3D.Tests
                         _output.WriteLine($"{System.IO.Path.GetFileName(file)}: {type} has nowhere to score");
                     }
 
-                    Assert.True(answer == AnyCellScores(map, open, type),
+                    Assert.True(answer == AnyCellScores(map, landings, type),
                         $"{System.IO.Path.GetFileName(file)}: MatchReach says {type} {(answer ? "can" : "cannot")} score, the match rule disagrees");
                 }
             }
@@ -232,8 +268,11 @@ namespace BS3D.Tests
             Assert.True(AnyCellScores(map, null, BallType.Type4), "the hold no longer completes a white group: the test lost its subject");
         }
 
-        //Every empty cell joined to the walls or the floor through empty cells, flooded here as the oracle's own
-        private static bool[,,] OpenSpace(BallsMap map)
+        //Every empty cell a shot can come to rest in, worked out here as the oracle's own: the cells joined to the walls or
+        //the floor through empty cells, flooded; then, from the placement's side, every cell the real finders give a shot
+        //that strikes a ball on a wall or the floor from outside: its whole first ring, or when that is full its whole
+        //second ring, and each cell the finders return for contacts all round it asserted to be among them
+        private static bool[,,] Landings(BallsMap map)
         {
             StaticBall[,,] cells = map.GetStaticBallsArray();
             XZLevel size = map.GetStaticBallsArraySize();
@@ -243,7 +282,7 @@ namespace BS3D.Tests
             for (int level = 0; level < size.Level; level++)
                 for (int x = 0; x < size.X; x++)
                     for (int z = 0; z < size.Z; z++)
-                        if ((x == 0 || z == 0 || x == size.X - 1 || z == size.Z - 1 || level == 0) && cells[x, z, level] == null)
+                        if (OnWallOrFloor(x, z, level, size) && cells[x, z, level] == null)
                         {
                             open[x, z, level] = true;
                             queue.Enqueue(new XZLevel(x, z, level));
@@ -257,12 +296,61 @@ namespace BS3D.Tests
                         queue.Enqueue(next);
                     }
 
-            return open;
+            bool[,,] landings = (bool[,,])open.Clone();
+            List<XZLevel> rings = new();
+            for (int level = 0; level < size.Level; level++)
+                for (int x = 0; x < size.X; x++)
+                    for (int z = 0; z < size.Z; z++)
+                    {
+                        if (cells[x, z, level] == null || !OnWallOrFloor(x, z, level, size)) continue;
+
+                        XZLevel wall = new(x, z, level);
+                        rings.Clear();
+                        foreach (XZLevel near in BallsMap.GetNeighboringCells(wall, size))
+                            if (cells[near.X, near.Z, near.Level] == null) rings.Add(near);
+
+                        if (rings.Count == 0)
+                            foreach (XZLevel near in BallsMap.GetNeighboringCells(wall, size))
+                                foreach (XZLevel further in BallsMap.GetNeighboringCells(near, size))
+                                    if (cells[further.X, further.Z, further.Level] == null) rings.Add(further);
+
+                        foreach (XZLevel cell in rings) landings[cell.X, cell.Z, cell.Level] = true;
+
+                        //The finders themselves, struck from every side: what they return must be one of those cells
+                        Microsoft.Xna.Framework.Vector3 centre = map.GetRealCenteredPosition(wall);
+                        foreach (Microsoft.Xna.Framework.Vector3 side in SIDES)
+                        {
+                            Microsoft.Xna.Framework.Vector3 contact = centre + 0.5f * Microsoft.Xna.Framework.Vector3.Normalize(side);
+                            if (!map.TryFindEmptyCellNextTo(contact, wall, out XZLevel landed)
+                                && !map.TryFindEmptyCellInSecondRing(contact, wall, out landed))
+                                continue;
+
+                            Assert.True(rings.Contains(landed), $"the placement put a shot struck at {wall} into {landed}, outside the rings the oracle counts");
+                        }
+                    }
+
+            return landings;
         }
 
-        //Every empty cell beside a ball (only the open ones, unless open is null), the ball really placed and the match
+        private static bool OnWallOrFloor(int x, int z, int level, XZLevel size) =>
+            x == 0 || z == 0 || x == size.X - 1 || z == size.Z - 1 || level == 0;
+
+        //The directions a wall ball is struck from in the oracle: every corner, edge and face of a cube round it
+        private static readonly Microsoft.Xna.Framework.Vector3[] SIDES = BuildSides();
+
+        private static Microsoft.Xna.Framework.Vector3[] BuildSides()
+        {
+            List<Microsoft.Xna.Framework.Vector3> sides = new();
+            for (int x = -1; x <= 1; x++)
+                for (int y = -1; y <= 1; y++)
+                    for (int z = -1; z <= 1; z++)
+                        if (x != 0 || y != 0 || z != 0) sides.Add(new Microsoft.Xna.Framework.Vector3(x, y, z));
+            return sides.ToArray();
+        }
+
+        //Every empty cell beside a ball (only the landings, unless landings is null), the ball really placed and the match
         //rule's walk asked, then taken away again
-        private static bool AnyCellScores(BallsMap map, bool[,,] open, BallType type)
+        private static bool AnyCellScores(BallsMap map, bool[,,] landings, BallType type)
         {
             StaticBall[,,] cells = map.GetStaticBallsArray();
             XZLevel size = map.GetStaticBallsArraySize();
@@ -272,7 +360,7 @@ namespace BS3D.Tests
                 for (int x = 0; x < size.X; x++)
                     for (int z = 0; z < size.Z; z++)
                     {
-                        if (cells[x, z, level] != null || (open != null && !open[x, z, level])) continue;
+                        if (cells[x, z, level] != null || (landings != null && !landings[x, z, level])) continue;
 
                         XZLevel cell = new(x, z, level);
                         int count = BallsMap.FillNeighboringCells(cell, size, around);

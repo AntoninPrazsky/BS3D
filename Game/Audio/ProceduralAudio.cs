@@ -137,7 +137,7 @@ namespace BS3D.Audio
 
         //A streak breaking (#845) under the aim stop: it rides over a landing's thud or a miss and must never bury it, and
         //its notes sit in the mids where the ear is keen. A lost x3 plays at STREAK_BREAK_LOW_LEVEL of a lost cap's level,
-        //so the cap is the louder as well as the longer (StreakBreakSynth plays a note a step)
+        //so the cap is the louder as well as the longer (StreakBreakSynth plays a note per unit of the multiplier lost)
         private const float STREAK_BREAK_VOLUME = 0.4f;
         private const float STREAK_BREAK_LOW_LEVEL = 0.6f;
 
@@ -812,7 +812,7 @@ namespace BS3D.Audio
         }
 
         /// <summary>
-        /// A streak of <paramref name="lost"/> breaking (#845): a short run of struck notes falling, one a step of the
+        /// A streak of <paramref name="lost"/> breaking (#845): a short run of struck notes falling, one per unit of the
         /// multiplier lost (<see cref="StreakBreakSynth"/>), so a lost cap is longer, and louder by
         /// <see cref="STREAK_BREAK_LOW_LEVEL"/>, than a lost ×3. Dry and unplaced like the aim stop: it answers the
         /// readout in the corner, not a place in the scene. The refusal's small pitch nudge, so the run keeps its key.

@@ -12,7 +12,7 @@ namespace BS3D.Screens
     /// The owner's playtest of 2026-10-11: losing the multiplier passed almost unnoticed, and he wanted the player to see
     /// it, so as to chain matches, or to reach for the Swap. So a break is an event with a sound (<see cref="BreakIsTold"/>,
     /// <see cref="Severity"/>), and while a streak runs the Swap chip flashes when the round in the bore has nowhere to
-    /// score and the Swap would load one that has (<see cref="SwapIsTheCure"/>, the owner's answer of the same day).
+    /// score (<see cref="SwapIsTheCure"/>: the owner's answer of the same day, with one condition added to it, below).
     /// </para>
     /// </summary>
     internal static class StreakCues
@@ -41,14 +41,14 @@ namespace BS3D.Screens
         public static bool NeedsAMatch(BallKind kind) => kind == BallKind.Normal;
 
         /// <summary>
-        /// Whether the Swap chip flashes (#845, the owner's rule of 2026-10-11): the player has a Swap that would act now
-        /// (<paramref name="swapCanAct"/>), a streak above ×1 is running, the round in the bore has nowhere to score, and
-        /// the round behind it, which the Swap would load, has somewhere.
+        /// Whether the Swap chip flashes (#845): the player has a Swap that would act now (<paramref name="swapCanAct"/>), a
+        /// streak above ×1 is running and the round in the bore has nowhere to score, which is the owner's rule of
+        /// 2026-10-11; and the round behind it, which the Swap would load, has somewhere.
         /// <para>
-        /// The last condition is the conservative half of the rule as the owner gave it: a swap that would load a second
-        /// round with nowhere to score is no cure, and a chip pointing at it would teach the player to spend the Swap for
-        /// nothing. "Nowhere to score" is <see cref="MatchReach"/>'s certain "none", so the chip never asks for the Swap
-        /// while the bore has a match to be had.
+        /// The last condition is <b>not the owner's</b>: it is a conservative reading added to his rule,
+        /// because a swap that would load a second round with nowhere to score is no cure, and a chip pointing at it would
+        /// teach the player to spend the Swap for nothing. "Nowhere to score" is <see cref="MatchReach"/>'s certain "none",
+        /// so the chip never asks for the Swap while the bore has a match to be had.
         /// </para>
         /// </summary>
         public static bool SwapIsTheCure(bool swapCanAct, int streak, bool boreCanScore, bool behindCanScore) =>

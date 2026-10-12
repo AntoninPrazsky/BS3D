@@ -8,7 +8,8 @@ namespace BS3D.Tests
     /// <summary>
     /// #845: when the game tells the player about the streak (<see cref="StreakCues"/>, compiled in from the Game). A break
     /// is told above ×1 and never once the level is decided or its last shot spent (the issue: never over the result); it
-    /// scales with what was lost; and the Swap chip points at the cure only in the one state the owner named.
+    /// scales with what was lost; and the Swap chip points at the cure only in the one state the owner named, narrowed by
+    /// the conservative condition added to it (the round behind can score).
     /// </summary>
     public class StreakCuesTests
     {
@@ -42,7 +43,10 @@ namespace BS3D.Tests
             Assert.False(StreakCues.NeedsAMatch(BallKind.Cutter));
         }
 
-        /// <summary>The owner's rule of 2026-10-11, the whole truth table: one row flashes, every other is dark.</summary>
+        /// <summary>
+        /// The whole truth table: one row flashes, every other is dark. The owner's rule of 2026-10-11 is a Swap, a streak
+        /// and a dead bore; the live round behind is the conservative condition added to it (<see cref="StreakCues.SwapIsTheCure"/>).
+        /// </summary>
         [Theory]
         [InlineData(true, 3, false, true, true)]      //the rule: a Swap to spend, a streak, a dead bore, a live round behind
         [InlineData(true, 5, false, true, true)]

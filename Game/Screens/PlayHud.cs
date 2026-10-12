@@ -1748,9 +1748,9 @@ namespace BS3D.Screens
         private const int HUD_SWAP_ABOVE_STRIP = HUD_MARGIN;
         private const float HUD_SWAP_SPENT_ALPHA = 0.42f;
 
-        //THE SWAP POINTS AT THE CURE (#845, the owner's rule of 2026-10-11): while a streak runs, the round in the bore has
-        //nowhere to score and the Swap would load one that has (StreakCues.SwapIsTheCure, asked by the session), the Swap
-        //chip FLASHES and says what it is for: "Swap · keep ×3". The flash is the streak's own amber, a halo behind the
+        //THE SWAP POINTS AT THE CURE (#845): while a streak runs and the round in the bore has nowhere to score (the owner's
+        //rule of 2026-10-11), and the Swap would load one that has (a conservative condition added to his rule;
+        //StreakCues.SwapIsTheCure, asked by the session), the Swap chip FLASHES and says what it is for: "Swap · keep ×3". The flash is the streak's own amber, a halo behind the
         //keycap and the words and the two tinted towards it, so the chip reads as belonging to the badge it would save:
         //a flare at the onset (the chip's pulse heated once), then a breath every SWAP_HINT_PERIOD between SWAP_HINT_FLOOR
         //and full, which keeps it found without blinking. Amber is the HUD's colour for gain, and keeping a streak is one.

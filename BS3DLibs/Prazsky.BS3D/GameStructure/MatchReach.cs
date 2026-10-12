@@ -8,23 +8,30 @@ namespace Prazsky.BS3D.GameStructure
     /// <b>Whether a shot of one colour has anywhere to score</b> (#845), asked of the logical map: the Swap chip flashes
     /// when the round in the bore has nowhere, a streak is running and the round behind it has somewhere.
     /// <para>
-    /// <b>The question, in the terms that bound it</b> (BestPractices.md §10): is there an empty cell that is joined to the
-    /// field's walls or floor through empty cells, touches a ball, and where a ball of this colour would either complete a
-    /// group of <c>minimumGroup</c> by the match rule's own walk (<see cref="BallsMap.CountGroupIfPlaced"/>) or land
-    /// beside a ball a landing sets off or turns? It does <b>not</b> ask whether the gun can be laid on that cell or a shot
+    /// <b>The question, in the terms that bound it</b> (BestPractices.md §10): is there an empty cell a shot can come to
+    /// rest in (a landing, below), touching a ball, where a ball of this colour would either complete a group of
+    /// <c>minimumGroup</c> by the match rule's own walk (<see cref="BallsMap.CountGroupIfPlaced"/>) or land beside a ball
+    /// a landing sets off or turns? It does <b>not</b> ask whether the gun can be laid on that cell or a shot
     /// can thread its way there: the elevation clamps, the crates a shot banks off, the wells that bend it and the gaps
     /// between courses too narrow for a ball are all left out, and every one of them could only take landings away. So
     /// <b>"none" is certain and "some" is only possible</b>, which is the direction a hint has to err in: a chip that
     /// flashed while a match was there to be had would teach the player to spend the Swap on nothing.
     /// </para>
     /// <list type="bullet">
-    /// <item><description><b>The open space</b> is what <c>Tools/LevelGen</c>'s <c>ClearProbe</c> floods: the empty cells
-    /// joined to the field's walls or floor (never its top, the glass) through empty neighbours. A flying ball's centre
-    /// never enters the region of an occupied cell, so it travels only through empty cells that touch, and a pocket no such
-    /// path reaches is one no shot can. The path slips between courses where no ball could pass
-    /// (<c>docs/formats-and-tools/levelgen-gates.md</c>), which errs the safe way. On the shipped levels at their start it
-    /// shuts out the hold of a reveal level and little else: Chest's white lines a sealed hold, so a white round there has
-    /// nowhere to score (<c>MatchReachTests</c>).</description></item>
+    /// <item><description><b>A landing is an open cell</b>, what <c>Tools/LevelGen</c>'s <c>ClearProbe</c> floods: the
+    /// empty cells joined to the field's walls or floor (never its top, the glass) through empty neighbours. A flying
+    /// ball's centre never enters the region of an occupied cell, so it travels only through empty cells that touch, and
+    /// the placement (<c>ShotPlacement</c>: the free cell beside the ball struck nearest the contact) puts a shot struck
+    /// from an open cell's region into that cell, or into a free cell it shares with the ball struck, which is open too.
+    /// The path slips between courses where no ball could pass (<c>docs/formats-and-tools/levelgen-gates.md</c>), which
+    /// errs the safe way.</description></item>
+    /// <item><description><b>Or any free cell the placement can give a ball on a wall or the floor</b>
+    /// (<see cref="IsStruckIntoFromOutside"/>): such a ball can be struck from outside the field, where there are no cells,
+    /// so the placement puts the shot in whichever free cell beside it is nearest, sealed or not, and when there is none,
+    /// in the nearest free cell beside its neighbours (<see cref="BallsMap.TryFindEmptyCellNextTo"/>, then
+    /// <see cref="BallsMap.TryFindEmptyCellInSecondRing"/>). Every one of them counts, wherever the contact was.
+    /// On the shipped levels at their start the rule shuts out the hold of a reveal level and little else: Chest's white
+    /// lines a sealed hold, so a white round there has nowhere to score (<c>MatchReachTests</c>).</description></item>
     /// <item><description><b>A special a landing sets off or turns counts as somewhere to score</b> without asking what it
     /// would do: glass takes the shot's colour and may complete a group through itself, and a bomb, a zap and an acid go off
     /// and take balls, which the keeper pays as destroyed. Only the kinds a landing does nothing to are walked past
@@ -37,7 +44,7 @@ namespace Prazsky.BS3D.GameStructure
     /// shipped levels (Release), twice a landing. So the field is <b>surveyed</b> once per state (one pass listing every
     /// matchable ball by colour and every special, kept until <see cref="BallsMap.Revision"/> or the map changes), the
     /// match rule's walk is asked first of the empty cells beside the colour's own balls, and only a cell that would score
-    /// is asked whether it is open: by a search that heads for the floor, ends on reaching a wall, the floor or a cell
+    /// is asked whether a shot can land in it: by a search that heads for the floor, ends on reaching a wall, the floor or a cell
     /// whose answer is known, and gives every cell it visited its answer, since they are all one piece of space. Measured
     /// the same way (<c>MatchReachTests</c> prints it): 0.06 ms for the first ask on a field, survey included, 0.9 ms at
     /// most (the first call of the run), and about 30 microseconds for an ask on a surveyed field. The buffers are kept
@@ -87,33 +94,87 @@ namespace Prazsky.BS3D.GameStructure
             StaticBall[,,] cells = map.GetStaticBallsArray();
             Span<XZLevel> beside = stackalloc XZLevel[BallsMap.MAX_NEIGHBORS];
 
-            //A special a landing would answer, with open space beside it: every colour has somewhere
+            //A special a landing would answer, with a landing beside it: every colour has somewhere
             for (int s = 0; s < _specials.Count; s++)
             {
                 int count = BallsMap.FillNeighboringCells(_specials[s], _size, beside);
                 for (int i = 0; i < count; i++)
-                    if (cells[beside[i].X, beside[i].Z, beside[i].Level] == null && IsOpen(cells, beside[i])) return true;
+                    if (cells[beside[i].X, beside[i].Z, beside[i].Level] == null && CanLandIn(cells, beside[i])) return true;
             }
 
             List<XZLevel> balls = _byType[(byte)type];
             if (balls == null) return false;
 
             //Every empty cell beside a ball of this colour: the match rule's walk first, which for a lone ball is a cell or
-            //two, and the reach only of a cell that would score
+            //two, and the reach only of a cell that would score. A cell already known to be sealed is passed over unless
+            //the placement can still put a shot struck from outside the field into it
             for (int b = 0; b < balls.Count; b++)
             {
                 int count = BallsMap.FillNeighboringCells(balls[b], _size, beside);
                 for (int i = 0; i < count; i++)
                 {
                     XZLevel cell = beside[i];
-                    if (cells[cell.X, cell.Z, cell.Level] != null || _reach[Index(cell)] == SEALED) continue;
+                    if (cells[cell.X, cell.Z, cell.Level] != null) continue;
+                    if (_reach[Index(cell)] == SEALED && !IsStruckIntoFromOutside(cells, cell)) continue;
 
-                    if (map.CountGroupIfPlaced(cell, type, _size, _stamp, NextMark(), _walk) >= minimumGroup && IsOpen(cells, cell))
+                    if (map.CountGroupIfPlaced(cell, type, _size, _stamp, NextMark(), _walk) >= minimumGroup && CanLandIn(cells, cell))
                         return true;
                 }
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Whether a shot can come to rest in the empty cell <paramref name="cell"/>: it is open
+        /// (<see cref="IsOpen"/>), or the placement can put a shot struck from outside the field into it
+        /// (<see cref="IsStruckIntoFromOutside"/>).
+        /// </summary>
+        private bool CanLandIn(StaticBall[,,] cells, XZLevel cell) => IsOpen(cells, cell) || IsStruckIntoFromOutside(cells, cell);
+
+        /// <summary>
+        /// Whether the placement can put a shot that struck a ball on a wall or the floor into the empty cell
+        /// <paramref name="cell"/>, open or sealed. Such a ball can be struck from outside the field, where there are no
+        /// cells, and the placement (<see cref="BallsMap.TryFindEmptyCellNextTo"/>) takes the free cell beside it nearest the
+        /// contact, so every free cell beside it is a landing; one whose every neighbour is a ball sends the shot one ring
+        /// further out (<see cref="BallsMap.TryFindEmptyCellInSecondRing"/>), to a free cell beside one of its neighbours.
+        /// Asked only of a cell the flood found sealed and a ball would score in, so its few dozen reads are rare.
+        /// </summary>
+        private bool IsStruckIntoFromOutside(StaticBall[,,] cells, XZLevel cell)
+        {
+            Span<XZLevel> around = stackalloc XZLevel[BallsMap.MAX_NEIGHBORS];
+            Span<XZLevel> further = stackalloc XZLevel[BallsMap.MAX_NEIGHBORS];
+            Span<XZLevel> ring = stackalloc XZLevel[BallsMap.MAX_NEIGHBORS];
+
+            int count = BallsMap.FillNeighboringCells(cell, _size, around);
+            for (int i = 0; i < count; i++)
+            {
+                XZLevel ball = around[i];
+                if (cells[ball.X, ball.Z, ball.Level] == null) continue;
+
+                //Beside a ball on a wall or the floor: the first ring
+                if (OnBoundary(ball)) return true;
+
+                //Beside a ball that touches one on a wall or the floor whose own ring is full: the second ring
+                int touching = BallsMap.FillNeighboringCells(ball, _size, further);
+                for (int j = 0; j < touching; j++)
+                {
+                    XZLevel wall = further[j];
+                    if (cells[wall.X, wall.Z, wall.Level] == null || !OnBoundary(wall)) continue;
+                    if (RingIsFull(cells, wall, ring)) return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>Whether every cell beside <paramref name="ball"/> holds a ball, read into <paramref name="ring"/>.</summary>
+        private bool RingIsFull(StaticBall[,,] cells, XZLevel ball, Span<XZLevel> ring)
+        {
+            int count = BallsMap.FillNeighboringCells(ball, _size, ring);
+            for (int i = 0; i < count; i++)
+                if (cells[ring[i].X, ring[i].Z, ring[i].Level] == null) return false;
+            return true;
         }
 
         /// <summary>
@@ -218,7 +279,7 @@ namespace Prazsky.BS3D.GameStructure
             return answer == OPEN;
         }
 
-        /// <summary>Whether <paramref name="cell"/> is on a wall or the floor of the field, where a shot arrives from outside.</summary>
+        /// <summary>Whether <paramref name="cell"/> is on a wall or the floor of the field, which a shot can reach from outside.</summary>
         private bool OnBoundary(XZLevel cell) =>
             cell.X == 0 || cell.Z == 0 || cell.X == _size.X - 1 || cell.Z == _size.Z - 1 || cell.Level == 0;
 

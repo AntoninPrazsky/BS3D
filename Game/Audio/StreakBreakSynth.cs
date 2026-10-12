@@ -3,8 +3,9 @@ using System;
 namespace BS3D.Audio
 {
     /// <summary>
-    /// The sound of a streak breaking (#845): a short run of struck notes <b>falling</b>, one note for each step of the
-    /// multiplier that was lost, so a lost ×5 falls five notes from higher up and a lost ×3 the last three of them. Both
+    /// The sound of a streak breaking (#845): a short run of struck notes <b>falling</b>, as many notes as the multiplier
+    /// that was lost (one per unit of it, not per <c>ScoreKeeper.MultiplierStep</c>), so a lost ×5 falls five notes from
+    /// higher up and a lost ×3 the last three of them. Both
     /// end on the same note: the run is the streak falling back to ×1. It sounds with the badge cracking on the HUD
     /// (<c>PlayHud.BreakStreak</c>); the session decides when (<c>StreakCues.BreakIsTold</c>), and never over the result.
     /// <para>
@@ -61,7 +62,7 @@ namespace BS3D.Audio
         //The highest note's partials reach past what the speakers carry: rolled off twice, as the aim stop's are
         public const float ROUNDING_CUTOFF_HZ = 3000f;
 
-        /// <summary>How many notes a lost streak of <paramref name="lost"/> plays: one a step, at least two, at most the run.</summary>
+        /// <summary>How many notes a lost streak of <paramref name="lost"/> plays: one per unit of the multiplier, at least two, at most the run.</summary>
         public static int NotesFor(int lost) => Math.Clamp(lost, 2, NOTES_HZ.Length);
 
         /// <summary>How long the sound of a lost streak of <paramref name="lost"/> lasts, in seconds.</summary>
