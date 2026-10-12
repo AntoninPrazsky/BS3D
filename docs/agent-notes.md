@@ -624,6 +624,7 @@ Pravidla:
 - #856 (merge do mainu, `shipped-awaiting-verdict` + `verdict-eye`): záložka ODD BALLS má u každého druhu čtverec a v něm otáčející se kouli kreslenou herní cestou (trik karty tutoriálu #735: koule 3 jednotky před objektivem na paprsku čtverce) do ostré vrstvy popředí, kterou hostitel skládá přes UI na konci snímku (#242) — deska ji tedy netlumí. Nová `MenuPage.PresentsForeground/ForegroundClip/DrawForeground`, `BS3DGame.DrawPageForeground` z rámce pozadí po koulích a skle; mimo klip scrolleru se vrstva maže (krytí 0), takže koule za okrajem rámu se řízne jako text. Potato kreslí rovnou přes UI, jen celé čtverce.
 - ⚠ Myra `ActualBounds` je v prostoru widgetu; na desktop přes `ToGlobal` (první pokus dal všech deset koulí v levém horním rohu).
 - Cena: 40,2 ms proti 38,4 ms (High, 1080p, ssaa 2×, Měsíc, ThinkPad) ≈ 1,8 ms za vrstvu a skládání.
+- ⚠ Dodatek (13. 10., merge následuje): Help z pauzy kreslí scénu GameplayScreen, kde hák chyběl — čtverce byly prázdné (snímek `level=1 help=4`). Hák je i tam; koule jdou přes `BallRenderSet.DrawAside` (druhý malý rámec, který zachová záznam pohybu prvního, jinak by `BeginFrame` vynuloval velocity pass session), sběr přes method group bez closure.
 - Otevřené: verdikt oka (barvy po sloupci, velikost čtverce, sklo jako průsvitný kotouč); Pi neměřeno; duhová koule bez obrázku.
 
 ## 2026-10-12 — #400 devátý průchod (19eb1484..ad53e22f) — ThinkPad, Claude Code (github-44)
