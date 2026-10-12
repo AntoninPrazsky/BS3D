@@ -463,8 +463,8 @@ namespace BS3D.Screens
             if (!Game.Online.Enabled)
                 return "No score server to ask: set a nickname in Settings, or this build has no server.";
 
-            if (reply == null) return "Loading the boards...";
-            if (reply.NotOffered) return "The score server does not offer this overview yet. Each level's boards are still in Select Level.";
+            if (reply == null) return "Loading the boards…";
+            if (reply.NotOffered) return "The score server does not offer this overview yet. Each level’s boards are still in Select Level.";
             if (reply.Summary == null) return "The score server did not answer. Try again in a moment.";
 
             //Only the boards the rows can show - this build's levels as they are, the ones the player has open (#685's

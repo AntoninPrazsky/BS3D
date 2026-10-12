@@ -1166,7 +1166,7 @@ namespace BS3D.Screens
             //And what the button under the buttons would cost, said before it is pressed rather than
             //discovered afterwards by its absence (#347). Shown on exactly the condition the button is, so the
             //two can never disagree about whether a skip is on offer.
-            _skipNote.Text = _result.CanSkip ? "Skipping spends this chapter's one skip" : string.Empty;
+            _skipNote.Text = _result.CanSkip ? "Skipping spends this chapter’s one skip" : string.Empty;
             _skipNote.Visible = _result.CanSkip;
 
             _breakdown.Visible = _result.ShowsBreakdown;
@@ -1295,7 +1295,7 @@ namespace BS3D.Screens
 
             //What the boards cannot show yet or at all — sending, offline, refused, or the offer to a player who has not
             //opted in — in the plate's own small print, behind the signal that says whether anything is happening
-            //(#683): a still "Sending your score..." read as a stuck line
+            //(#683): a still "Sending your score…" read as a stuck line
             int signalSize = (int)(FontSmall.LineHeight * SIGNAL_SIZE);
             int signalGap = Scaled(SIGNAL_GAP);
             _signal = new OnlineSignal(signalSize);
@@ -1337,7 +1337,7 @@ namespace BS3D.Screens
             bool online = _result.Submitted && Game.Online.Enabled;
 
             //⚠ The plate of an ending that went to the service STANDS FROM THE PAGE'S FIRST FRAME (#734). It waited for the
-            //reveal to settle, so "Sending your score..." came up two to three seconds after the page - the one moment it
+            //reveal to settle, so "Sending your score…" came up two to three seconds after the page - the one moment it
             //exists for - and a player who left in those seconds (Retry, Next Level, the menu) never saw it. What waits
             //for the reveal is the boards' rows and the offer to opt in, which are things to read and would compete with
             //the stars for the eye; the status row is a small plate beside the column and does not
@@ -1400,7 +1400,7 @@ namespace BS3D.Screens
                     //DNS record sent the game to a web host). Say what is known
                     OnlineOutcome.Offline => $"The score server did not answer. This {what} is saved and goes out with your next score.",
                     OnlineOutcome.Refused => $"The score server did not take this {what}.",
-                    _ => "Sending your score...",
+                    _ => "Sending your score…",
                 }, answer == null ? OnlineSignal.SignalMode.Working : OnlineSignal.SignalMode.Idle);
                 return;
             }
@@ -1425,7 +1425,7 @@ namespace BS3D.Screens
             //that is left (a personal best), and the line goes when there is nothing to add to the boards themselves
             bool loading = Game.Online.ResultMonthBoard == null || Game.Online.ResultAllTimeBoard == null;
             string best = _result.Cleared ? "A personal best on this level." : "Your best attempt at this level so far.";
-            SetStatus(loading ? "Loading the boards..." : accepted.PersonalBest ? best : string.Empty,
+            SetStatus(loading ? "Loading the boards…" : accepted.PersonalBest ? best : string.Empty,
                 loading ? OnlineSignal.SignalMode.Working : OnlineSignal.SignalMode.Done);
         }
 

@@ -149,7 +149,7 @@ namespace BS3D.Screens
         /// This ending was handed to the score service (#716): a clear, or a loss sent as an unfinished attempt. The
         /// result page's online plate is this ending's only when it is true - <c>OnlineSession.Result</c> otherwise
         /// still holds the answer to an earlier ending, which is how a loss came to stand under a previous clear's
-        /// "Sending your score..." (#707).
+        /// "Sending your score…" (#707).
         /// </summary>
         public readonly bool Submitted;
 

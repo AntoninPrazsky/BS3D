@@ -289,7 +289,7 @@ namespace BS3D.Screens
                 //since #666: the score's two lessons come after it, in the second chapter, and a send-off that
                 //said "everything" would be the one card that lied.
                 Lesson = Lesson.Graduated, Key = "graduated", FromLevel = -1, Celebrates = true,
-                Caption = "That's the basics — you know how to play",
+                Caption = "That’s the basics — you know how to play",
                 Detail = "The rest is the adventure. Go!",
             },
             new()
@@ -361,15 +361,15 @@ namespace BS3D.Screens
             Kind(Lesson.KindBomb, "kind-bomb", BallKind.Bomb,
                 "Land a ball beside a bomb to set it off", "It blasts every ball around it, any colour"),
             Kind(Lesson.KindZap, "kind-zap", BallKind.Zap,
-                "Land a ball beside a zap to fire it", "It takes every ball of your shot's colour"),
+                "Land a ball beside a zap to fire it", "It takes every ball of your shot’s colour"),
             Kind(Lesson.KindStone, "kind-stone", BallKind.Rock,
-                "Stone can't be matched or shot down", "It falls only when what holds it up goes"),
+                "Stone can’t be matched or shot down", "It falls only when what holds it up goes"),
             Kind(Lesson.KindAcid, "kind-acid", BallKind.Acid,
                 "Land a ball beside acid to set it off", "It eats straight down until it reaches a gap"),
             Kind(Lesson.KindFrozen, "kind-frozen", BallKind.Frozen,
                 "Clear a group beside the ice to break it", "Then the ball inside is an ordinary ball"),
             Kind(Lesson.KindInfectious, "kind-infectious", BallKind.Infectious,
-                "A sick ball spreads every time you fire", "It turns to stone as it passes it on - match it early"),
+                "A sick ball spreads every time you fire", "It turns to stone as it passes it on — match it early"),
             Kind(Lesson.KindGravity, "kind-gravity", BallKind.Gravity,
                 "This ball bends the shots that pass near it", "The aim beam shows the bend"),
             Kind(Lesson.KindHeavy, "kind-heavy", BallKind.Heavy,
@@ -389,6 +389,19 @@ namespace BS3D.Screens
         {
             Lesson = lesson, Key = key, Kind = kind, Caption = caption, Detail = detail,
         };
+
+        /// <summary>
+        /// Every string a card can draw, both hands' (#806): what <c>CopyRulesTests</c> holds to the typesetting rules
+        /// (<see cref="CopyRules"/>), so a card added with a straight apostrophe or a hyphen for a dash fails there.
+        /// </summary>
+        internal static IEnumerable<string> Copy()
+        {
+            foreach (Definition definition in DEFINITIONS)
+            {
+                foreach (string text in new[] { definition.Caption, definition.PadCaption, definition.Detail, definition.PadDetail, definition.Praise })
+                    if (text != null) yield return text;
+            }
+        }
 
         /// <summary>How many kinds there are, for the per-kind colour table <see cref="BeginLevel"/> is handed.</summary>
         internal static readonly int KIND_COUNT = MaxKind() + 1;
