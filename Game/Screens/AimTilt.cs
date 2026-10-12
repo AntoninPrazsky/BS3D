@@ -17,14 +17,21 @@ namespace BS3D.Screens
     /// verbatim — is the solved fit, bit for bit; the tilt is what the hand has done since.
     /// </para>
     /// <para>
+    /// <b>Bounded at both ends by what the frame must keep.</b> Up, by the gun (<see cref="GunKeepLimit"/>, the owner's
+    /// condition); down, by the cluster's top row (<see cref="TopKeepLimit"/>), so a low aim never pushes the top of
+    /// what <see cref="Prazsky.BS3D.GameCameraFit"/> framed — on a tall level, the window #842's held band lives in —
+    /// off the top of the frame. What the up-tilt may cost is the bottom: the gun's lower half, its wheels and the
+    /// drain's near rim, which stand where the gun stands.
+    /// </para>
+    /// <para>
     /// <b>The overview pose only.</b> The caller tilts the overview look-at before
     /// <see cref="Prazsky.BS3D.PreciseAim.BlendedPose"/> lerps it, so precise aim's lean interpolates the tilt out as it
     /// comes in, and the chase below runs every frame whether the lean is in or out — a release lands on a tilt that
     /// has already followed the aim, and no frame of a press or a release moves anything by itself.
     /// </para>
     /// <para>
-    /// Three pure pieces and one piece of state: <see cref="TargetFor"/> (how far to tilt for an aim),
-    /// <see cref="GunKeepLimit"/> (how far up the gun allows), <see cref="Tilted"/> (the look-at turned), and
+    /// Pure pieces and one piece of state: <see cref="TargetFor"/> (how far to tilt for an aim), the two keep limits and
+    /// <see cref="Bounded"/> (how far the frame allows), <see cref="Tilted"/> (the look-at turned), and
     /// <see cref="Step"/>, a critically damped chase on real time. No allocation, a handful of trigonometric calls a
     /// frame. Game only: the Testbed's camera is its own and the shared fit has no reason to know (the #366 route).
     /// </para>
@@ -48,9 +55,10 @@ namespace BS3D.Screens
         public static readonly float UP_MAX = MathHelper.ToRadians(9f);
 
         /// <summary>
-        /// The most the frame leans <b>down</b>, in radians (5°). Smaller than <see cref="UP_MAX"/>: a low aim passes
-        /// under the cluster towards the horizon, which the frame already holds, and what a downward lean costs is the
-        /// top of the glass, which the fit placed a margin under the top edge.
+        /// The most the frame leans <b>down</b>, in radians (5°), before <see cref="TopKeepLimit"/> has its say — and it
+        /// usually does, since the fit stands the glass a few degrees under the top edge. Smaller than
+        /// <see cref="UP_MAX"/>: a low aim passes under the cluster towards ground the frame already holds, so leaning
+        /// down shows little that was hidden and is mostly the lens answering the hand.
         /// </summary>
         public static readonly float DOWN_MAX = MathHelper.ToRadians(5f);
 
@@ -67,11 +75,18 @@ namespace BS3D.Screens
         /// <summary>
         /// How far above the frame's bottom edge the muzzle must stay, as a share of the frame's height, before the
         /// tilt is allowed further up (<see cref="GunKeepLimit"/>): the owner's condition that some of the barrel stays
-        /// in view, with the queue's front ball (the muzzle point sits in it) a bonus. Measured on the levels the
-        /// verification swept (#720), the limit sits well clear of <see cref="UP_MAX"/> and never binds; it is the
-        /// guard for a fit that one day stands the gun lower in the frame.
+        /// in view, with the queue's front ball (the muzzle point sits in it) a bonus. The guard for a fit that stands
+        /// the gun low in the frame; how much it leaves on the shipped fits is in <c>docs/game-session/field-and-camera.md</c>.
         /// </summary>
         public const float GUN_KEEP_FRACTION = 0.12f;
+
+        /// <summary>
+        /// How far under the frame's top edge the cluster's top row must stay, as a share of the frame's height, before
+        /// the tilt is allowed further down (<see cref="TopKeepLimit"/>): a sliver, so the top balls stay whole rather
+        /// than merely touching the edge. The fit framed the glass's upper face inside its own margin, and the top row
+        /// hangs a unit under that, so on a fit the vertical binds the room it leaves is what the down-tilt gets.
+        /// </summary>
+        public const float TOP_KEEP_FRACTION = 0.03f;
 
         //Short of the vertical either way, so the tilted look-at always keeps a horizontal forward and the camera's
         //world-up view never degenerates; nothing the overview frames comes within twenty degrees of it
@@ -149,10 +164,18 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// The most the lens may tilt up from the pose <paramref name="lens"/> → <paramref name="lookAt"/> and still show
-        /// <paramref name="keepPoint"/> (the muzzle) <see cref="GUN_KEEP_FRACTION"/> of the frame's height above its
-        /// bottom edge, in radians. Negative when the point is already under that line; the caller lets it stop an
-        /// upward tilt and never lets it force a downward one (the fit framed the whole gun at a tilt of zero).
+        /// <paramref name="wanted"/> held inside the room the frame allows: no more than <paramref name="roomUp"/> up
+        /// and <paramref name="roomDown"/> down, both in radians from the untilted pose. A room that is already gone
+        /// (negative: the keep point is past its line at a tilt of zero) stops that side at zero and never pushes the
+        /// lens the other way — the fit framed the whole subject at zero, and a tilt is never the fit's repair.
+        /// </summary>
+        public static float Bounded(float wanted, float roomUp, float roomDown) =>
+            Math.Clamp(wanted, -MathF.Max(0f, roomDown), MathF.Max(0f, roomUp));
+
+        /// <summary>
+        /// The most the lens may tilt <b>up</b> from the pose <paramref name="lens"/> → <paramref name="lookAt"/> and
+        /// still show <paramref name="keepPoint"/> (the muzzle) <see cref="GUN_KEEP_FRACTION"/> of the frame's height
+        /// above its bottom edge, in radians; negative when the point is already under that line.
         /// <para>
         /// Exact for a point anywhere across the frame, not only on its centre line: a lens pitched by φ draws a point
         /// whose elevation in the view's vertical plane is α at <c>tan(α − φ) / tan(fov/2)</c> of the half-height from
@@ -161,19 +184,22 @@ namespace BS3D.Screens
         /// </summary>
         public static float GunKeepLimit(Vector3 lens, Vector3 lookAt, Vector3 keepPoint, float verticalFov)
         {
-            Vector3 forward = lookAt - lens;
-            float horizontal = MathF.Sqrt(forward.X * forward.X + forward.Z * forward.Z);
-            if (horizontal < 1e-4f) return 0f;
+            if (!ViewElevations(lens, lookAt, keepPoint, out float pitch, out float keepElevation)) return 0f;
 
-            Vector3 offset = keepPoint - lens;
-            float depth = (offset.X * forward.X + offset.Z * forward.Z) / horizontal;
-            if (depth < 1e-4f) return 0f;
+            return keepElevation + EdgeAngle(GUN_KEEP_FRACTION, verticalFov) - pitch;
+        }
 
-            float pitch = MathF.Atan2(forward.Y, horizontal);
-            float keepElevation = MathF.Atan2(offset.Y, depth);
-            float edge = MathF.Atan((1f - 2f * GUN_KEEP_FRACTION) * MathF.Tan(verticalFov * 0.5f));
+        /// <summary>
+        /// The most the lens may tilt <b>down</b> from the pose <paramref name="lens"/> → <paramref name="lookAt"/> and
+        /// still show <paramref name="keepPoint"/> (a top corner of the cluster's top row) <see cref="TOP_KEEP_FRACTION"/>
+        /// of the frame's height under its top edge, in radians; negative when the point is already over that line.
+        /// The mirror of <see cref="GunKeepLimit"/>, on the same exact projection.
+        /// </summary>
+        public static float TopKeepLimit(Vector3 lens, Vector3 lookAt, Vector3 keepPoint, float verticalFov)
+        {
+            if (!ViewElevations(lens, lookAt, keepPoint, out float pitch, out float keepElevation)) return 0f;
 
-            return keepElevation + edge - pitch;
+            return pitch + EdgeAngle(TOP_KEEP_FRACTION, verticalFov) - keepElevation;
         }
 
         /// <summary>
@@ -194,5 +220,28 @@ namespace BS3D.Screens
 
             return lens + new Vector3(forward.X * across, MathF.Sin(pitch) * length, forward.Z * across);
         }
+
+        //The view's pitch and a point's elevation in the view's vertical plane (its height over its depth along the
+        //horizontal forward), or false when the pose has no horizontal forward or the point is not in front of the lens
+        private static bool ViewElevations(Vector3 lens, Vector3 lookAt, Vector3 point, out float pitch, out float elevation)
+        {
+            pitch = elevation = 0f;
+
+            Vector3 forward = lookAt - lens;
+            float horizontal = MathF.Sqrt(forward.X * forward.X + forward.Z * forward.Z);
+            if (horizontal < 1e-4f) return false;
+
+            Vector3 offset = point - lens;
+            float depth = (offset.X * forward.X + offset.Z * forward.Z) / horizontal;
+            if (depth < 1e-4f) return false;
+
+            pitch = MathF.Atan2(forward.Y, horizontal);
+            elevation = MathF.Atan2(offset.Y, depth);
+            return true;
+        }
+
+        //The angle off the view axis at which a point sits the given share of the frame's height inside an edge
+        private static float EdgeAngle(float fraction, float verticalFov) =>
+            MathF.Atan((1f - 2f * fraction) * MathF.Tan(verticalFov * 0.5f));
     }
 }

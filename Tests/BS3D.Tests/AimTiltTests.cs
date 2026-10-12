@@ -8,9 +8,10 @@ namespace BS3D.Tests
 {
     /// <summary>
     /// The overview lens's tilt with the aim (#720): zero at the aim the level opens on, rising with the barrel inside its
-    /// two limits and reaching most of them at the ends of the gun's range, a gun-keep limit that puts the muzzle exactly on
-    /// its line through the real projection, and a chase that is the same at every frame rate, accelerates into a sudden
-    /// change rather than jumping with it, and from rest never passes what it chases.
+    /// two limits and reaching most of them at the ends of the gun's range, a gun keep and a top-row keep that put the
+    /// muzzle and the top row exactly on their lines through the real projection, a bound that never pushes the lens the
+    /// other way, and a chase that is the same at every frame rate, accelerates into a sudden change rather than jumping
+    /// with it, and from rest never passes what it chases.
     /// </summary>
     public class AimTiltTests
     {
@@ -95,6 +96,47 @@ namespace BS3D.Tests
             //...and a hair further up sinks it under the line, a hair less keeps it above
             Assert.True(ScreenY(lens, AimTilt.Tilted(lens, lookAt, limit + 0.01f), muzzle, fov, aspect) > 1f - AimTilt.GUN_KEEP_FRACTION);
             Assert.True(ScreenY(lens, AimTilt.Tilted(lens, lookAt, limit - 0.01f), muzzle, fov, aspect) < 1f - AimTilt.GUN_KEEP_FRACTION);
+        }
+
+        [Theory]
+        [InlineData(0f, 16f / 9f)]
+        [InlineData(1.8f, 16f / 9f)]
+        [InlineData(-1.2f, 2.4f)]
+        public void TheTopKeepLimitPutsTheTopRowOnItsLine(float sideways, float aspect)
+        {
+            //The same overview, and a top corner of the cluster's top row: the near edge of a 13-cell plate's footprint,
+            //a unit under the glass of a field whose top hangs at the shipped height
+            Vector3 lens = new(0f, -9.1f, 30.5f), lookAt = new(0f, -1.3f, 0f);
+            Vector3 corner = new(sideways - 7f, 6.2f, 7f);
+            float fov = MathF.PI / 4.2f;
+
+            float limit = AimTilt.TopKeepLimit(lens, lookAt, corner, fov);
+            Assert.True(limit > 0f, $"a top row the fit framed allows no tilt down ({limit})");
+
+            //Tilted down by the limit, the corner sits exactly on its line through the projection the camera draws with
+            Assert.Equal(AimTilt.TOP_KEEP_FRACTION, ScreenY(lens, AimTilt.Tilted(lens, lookAt, -limit), corner, fov, aspect), 3);
+
+            //...a hair further down lifts it over the line, a hair less keeps it under
+            Assert.True(ScreenY(lens, AimTilt.Tilted(lens, lookAt, -limit - 0.01f), corner, fov, aspect) < AimTilt.TOP_KEEP_FRACTION);
+            Assert.True(ScreenY(lens, AimTilt.Tilted(lens, lookAt, -limit + 0.01f), corner, fov, aspect) > AimTilt.TOP_KEEP_FRACTION);
+        }
+
+        [Fact]
+        public void TheRoomBoundsTheTiltAndNeverPushesIt()
+        {
+            float up = MathHelper.ToRadians(4f), down = MathHelper.ToRadians(2f);
+
+            //Inside the room the wanted tilt passes untouched, past it each side stops at its own room
+            Assert.Equal(0.03f, AimTilt.Bounded(0.03f, up, down));
+            Assert.Equal(-0.02f, AimTilt.Bounded(-0.02f, up, down));
+            Assert.Equal(up, AimTilt.Bounded(AimTilt.UP_MAX, up, down));
+            Assert.Equal(-down, AimTilt.Bounded(-AimTilt.DOWN_MAX, up, down));
+
+            //A room already gone stops its side at zero and never tilts the lens the other way to make up for it
+            Assert.Equal(0f, AimTilt.Bounded(AimTilt.UP_MAX, -0.05f, down));
+            Assert.Equal(0f, AimTilt.Bounded(-AimTilt.DOWN_MAX, up, -0.05f));
+            Assert.Equal(0f, AimTilt.Bounded(0f, -0.05f, -0.05f));
+            Assert.Equal(0.01f, AimTilt.Bounded(0.01f, up, -0.05f));
         }
 
         [Fact]

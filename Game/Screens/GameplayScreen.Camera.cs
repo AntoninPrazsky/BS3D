@@ -202,13 +202,15 @@ namespace BS3D.Screens
         private readonly AimTilt _aimTilt = new();
 
         //What the last frame's tilt was asked for and allowed, kept for the logtilt line only
-        private float _aimTiltTarget, _aimTiltKeepLimit;
+        private float _aimTiltTarget, _aimTiltRoomUp, _aimTiltRoomDown;
 
         /// <summary>
         /// The overview look-at, tilted with the barrel's elevation (<see cref="AimTilt"/>, #720): measured from the aim
         /// the level opens on — the gun's rest from where it stands, or a tall level's clamp where that is lower — so an
-        /// untouched gun leaves the solved frame exactly as it is, and stopped on the way up wherever the muzzle would
-        /// sink under <see cref="AimTilt.GUN_KEEP_FRACTION"/> of the frame (the owner: some of the gun stays in view).
+        /// untouched gun leaves the solved frame exactly as it is; stopped on the way up wherever the muzzle would sink
+        /// under <see cref="AimTilt.GUN_KEEP_FRACTION"/> of the frame (the owner: some of the gun stays in view), and on
+        /// the way down wherever the cluster's top row would rise past <see cref="AimTilt.TOP_KEEP_FRACTION"/> of it
+        /// (<see cref="TopRowKeepRoom"/>).
         /// <para>
         /// <b>The overview end only</b>, the bearing's rule (#366): precise aim's Lerp takes this point as where it leans
         /// from, so the lean interpolates the tilt out, and the chase runs on every frame held or not. The pose the
@@ -226,17 +228,55 @@ namespace BS3D.Screens
             //is where that gun rests
             float zero = MathF.Min(_cannon.RestElevation, _cannon.ElevationLimit);
 
-            _aimTiltKeepLimit = AimTilt.GunKeepLimit(lens, lookAt, muzzle, GAME_FOV);
-            _aimTiltTarget = MathF.Min(AimTilt.TargetFor(_cannon.Elevation - zero), MathF.Max(0f, _aimTiltKeepLimit));
+            _aimTiltRoomUp = AimTilt.GunKeepLimit(lens, lookAt, muzzle, GAME_FOV);
+            _aimTiltRoomDown = TopRowKeepRoom(lens, lookAt);
+            _aimTiltTarget = AimTilt.Bounded(AimTilt.TargetFor(_cannon.Elevation - zero), _aimTiltRoomUp, _aimTiltRoomDown);
 
             return AimTilt.Tilted(lens, lookAt, _aimTilt.Step(_aimTiltTarget, elapsed));
         }
 
         /// <summary>
+        /// How far down the overview may tilt before the cluster's top row rises past
+        /// <see cref="AimTilt.TOP_KEEP_FRACTION"/> of the frame (<see cref="AimTilt.TopKeepLimit"/>): the least over the
+        /// four top corners of the plate's footprint — the corners the fit framed, the nearest one binding.
+        /// </summary>
+        private float TopRowKeepRoom(Vector3 lens, Vector3 lookAt)
+        {
+            //Between a level's teardown and the next one's build there is no field to keep
+            if (_map == null) return 0f;
+
+            float room = float.MaxValue;
+
+            for (int corner = 0; corner < 4; corner++)
+                room = MathF.Min(room, AimTilt.TopKeepLimit(lens, lookAt, TopRowCorner(corner), GAME_FOV));
+
+            return room;
+        }
+
+        /// <summary>
+        /// One of the four top corners of the cluster's top row (0..3), over the plate's footprint as the fit measures
+        /// it. The row is the glass's underside, where the top balls hang (their tops are socketed to it), so it follows
+        /// the descent and a brake; on a tall level the framed window's top stands in where that is lower
+        /// (<see cref="FramedTopY"/>), so a low aim never takes the band #842 holds off the frame.
+        /// </summary>
+        private Vector3 TopRowCorner(int corner)
+        {
+            float rowY = MathF.Min(_ceilingDescent.Y - CeilingPlate.THICKNESS * Constants.HALF, FramedTopY());
+            float halfX = CeilingPlate.FootprintFor(_map.StageSizeX) * Constants.HALF;
+            float halfZ = CeilingPlate.FootprintFor(_map.StageSizeZ) * Constants.HALF;
+
+            return new Vector3(
+                _cannon.OrbitCenter.X + ((corner & 1) == 0 ? -halfX : halfX),
+                rowY,
+                _cannon.OrbitCenter.Z + ((corner & 2) == 0 ? -halfZ : halfZ));
+        }
+
+        /// <summary>
         /// The <c>logtilt</c> line (#720), once a frame and only on request: the barrel against the tilt's zero, what the
-        /// tilt was asked for, allowed and gave, the lean's blend, the camera's pitch, and where the muzzle and the
-        /// beam's end land in the frame (0 the top edge, 1 the bottom, outside that range off the frame). What a
-        /// press or a release does to the pose is read off consecutive lines, which no screenshot schedule can give.
+        /// tilt was asked for, the room up and down it was allowed and what it gave, the lean's blend, the camera's
+        /// pitch, and where the cluster's top row, the muzzle and the beam's end land in the frame (0 the top edge, 1 the
+        /// bottom, outside that range off the frame). What a press or a release does to the pose is read off
+        /// consecutive lines, which no screenshot schedule can give.
         /// </summary>
         private void LogTiltFrame()
         {
@@ -248,9 +288,11 @@ namespace BS3D.Screens
             Console.WriteLine(FormattableString.Invariant(
                 $"[tilt] t {WallClock:F3} elev {_cannon.Elevation * RAD_TO_DEG:F2} zero {MathF.Min(_cannon.RestElevation, _cannon.ElevationLimit) * RAD_TO_DEG:F2}")
                 + FormattableString.Invariant(
-                $" target {_aimTiltTarget * RAD_TO_DEG:F3} keep {_aimTiltKeepLimit * RAD_TO_DEG:F2} tilt {_aimTilt.Angle * RAD_TO_DEG:F3}")
+                $" target {_aimTiltTarget * RAD_TO_DEG:F3} up {_aimTiltRoomUp * RAD_TO_DEG:F2} down {_aimTiltRoomDown * RAD_TO_DEG:F2} tilt {_aimTilt.Angle * RAD_TO_DEG:F3}")
                 + FormattableString.Invariant(
                 $" blend {_preciseAim.Blend:F3} pitch {pitch * RAD_TO_DEG:F3} pos {Camera.Position.X:F3},{Camera.Position.Y:F3},{Camera.Position.Z:F3}")
+                + (_map == null ? " topY none" : FormattableString.Invariant(
+                $" topY {MathF.Min(MathF.Min(ScreenY(TopRowCorner(0)), ScreenY(TopRowCorner(1))), MathF.Min(ScreenY(TopRowCorner(2)), ScreenY(TopRowCorner(3)))):F3}"))
                 + FormattableString.Invariant(
                 $" muzzleY {ScreenY(_cannon.MuzzlePosition(Game.CannonRig.PivotToFrontBall)):F3}")
                 + (_previewBeamVisible
