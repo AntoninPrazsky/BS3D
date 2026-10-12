@@ -9,7 +9,7 @@ namespace BS3D.Platform
     /// large one for ALT+TAB and the taskbar, the small one for the title bar — each taken from the authored
     /// frame of that size rather than resampled from another.
     /// <para>
-    /// Split out of <see cref="BS3DGame"/> in #71, with the two cached handles as statics. That is not a
+    /// Split out of <see cref="BS3DGame"/> in #71, with the cached handles as statics. That is not a
     /// change in lifetime: they were never destroyed as instance fields either (see below), there is one game
     /// per process, and the whole point of caching them is that they outlive every resize. It stays in the
     /// executable because it needs WinForms (<c>Control.FromHandle</c>) and the libraries target plain
@@ -77,7 +77,9 @@ namespace BS3D.Platform
         /// deriving the small one by stretching the large, so the authored small frame has to be sent after it.
         /// WinForms does the same again on every <c>WM_DPICHANGED</c> (<c>Form.OnDpiChanged</c> calls its
         /// <c>UpdateWindowIcon</c> with the new DPI), which is why a scale change has to bring this back
-        /// (<c>DisplayRefresh.WatchScale</c>): left alone, the title bar went back to the stretched large frame.
+        /// (<c>DisplayRefresh.WatchScale</c>): left alone, the small slot held the 40 px large frame for the title bar
+        /// to shrink, and the large slot kept 40 px at 96 DPI - measured after a change of scale either way and after a
+        /// move between monitors of different scales.
         /// </remarks>
         internal static void Apply(IntPtr windowHandle)
         {
