@@ -519,3 +519,10 @@ Pravidla:
 - `NeonExtra` zůstává 1,45: stěžňů −9,8 %, 5G sloupů −11 %, talířů beze změny; z herní kamery (pět pohledů Testbedu + hra, `sceneseed=3`) se rozdíl nepozná. 1,70 by stěžně vrátilo za +15 % talířů (`docs/scenes/city.md`).
 - ⚠ Hustotu střech měř po druzích, které herní kamera vidí jako siluetu (stěžně, talíře, sloupy), ne obsazenými buňkami: ty rostly s klimatizacemi.
 - Otevřené: verdikt majitele (1,45 nebo 1,70); intro neonu při daném `sceneseed` teď rámuje jinou střechu.
+
+## 2026-10-12 — #737 druhé vodítko barvy, prototypy — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #737 (větev `737-colour-cue-prototypes`, bez merge, `owner-decision`): obě čtení za přepínačem `colourcue=<none|motif|shape>` (Testbed i Game, i `alt=`), výchozí vypnuto. Čtyři barvy: stříbrná, hnědá, bílá, žlutá (černá bez figury); (a) malovaný motiv (pruhy, puntíky, kostky, hvězdy), (b) vyřezaný tvar (žebra, důlky, fasety, kroucené drážky) na vinylu, vlně a mramoru. Vypnuto = 45 vstupních bodů efektu přeloženo instrukci po instrukci stejně.
+- ⚠ Pod tmavou kopulí je vlna hlavně emise; emise v čisté barvě motiv úplně smyla (kopule 13). Motiv teď svítí svou barvou.
+- ⚠ Motiv posouvá průměr disku: hnědá/stříbrná klesla na 7–10 dE, bílá/hnědá na mramoru 5,6. Tvar barvy nehýbe (±2).
+- Cena na 6900 XT, 3840×1600 ssaa 2: v šumu (±0,03 ms).
+- Otevřené: majitel volí (a), (b), nebo obojí; pak všech 13 barev, fronta v HUD a Pi (#828: (a) sedí na Potato líp).
