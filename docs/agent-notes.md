@@ -541,10 +541,9 @@ Pravidla:
 - ⚠ Argument `pad` nepřipne ruku na pad, jen výzvy (#852), skriptovaný běh dunění nedosáhne.
 - Otevřené: verdict-hands na padu; #852.
 
-## 2026-10-12 — #806 typografie: pravidla, zlom odstavce, próza podle nich — desktop (RDT-PC), Claude Code (bs3d-71, noc)
-- #806 na větvi `806-typography-rules` (merge následuje), `verdict-eye`. Pravidla v `docs/game-shell/menu-look.md`, „Typesetting“: míra nejvýš 67 znaků (`MENU_PROSE_MEASURE`), proklad 1,46 em, mezera mezi odstavci 1 em, stupnice ~1,3, pomlčka s mezerami, ’ “ ”, …, nedělitelné mezery. `SpaceWrap` už neplní hladově: nejméně řádků, pak žádné osamělé slovo na konci, rovnoměrný okraj, cena za zlom za operátorem. `MenuPage.Paragraph/Aside/Prose`. Help, nastavení (poznámka ONLINE), přezdívka, karty tutoriálu, About (znaky a zlom).
-- Bez majitele, konzervativně: About bez prokladu do #807 (stojí na plné výšce); pomlčka s mezerami, protože tak byla psaná většina textu.
-- ⚠ FontStashSharp počítá U+00A0 jako bílý znak: nedělitelná mezera drží jen v textu přes `SpaceWrap`.
-- ⚠ Nástroj Write převádí `\u00A0` v obsahu na skutečný znak; escape do zdrojáků vkládat skriptem.
-- ⚠ Review: průchod minul stavové řádky žebříčků a výsledku („Loading the boards...“, „chapter's one skip“); opraveny. Nadpis nad blokem = sekční velikost, klávesy bez vazby.
-- Otevřené: tabulky čísel (žebříčky, rozpis výsledku) a výběr úrovně neprošly.
+## 2026-10-12 — #806 typografie: pravidla a zlom odstavce — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #806 (merge následuje), `shipped-awaiting-verdict` + `verdict-eye`. Pravidla v `docs/game-shell/menu-look.md`, „Typesetting“: míra 67 znaků (`MENU_PROSE_MEASURE`), proklad 1,46 em, odstavec 1 em, pomlčka s mezerami, ’ “ ”, …, nedělitelné mezery. `SpaceWrap` neplní hladově: nejméně řádků, žádné osamělé slovo na konci, rovný okraj. `MenuPage.Paragraph/Aside/Prose`, `CopyRules` hlídá tutoriál. Help, Settings, přezdívka, karty tutoriálu, About (jen znaky), stavové řádky žebříčků a výsledku.
+- Bez majitele (spí), konzervativně: About bez prokladu do #807; nadpis nad blokem = sekční velikost.
+- ⚠ FontStashSharp bere U+00A0 jako mezeru: nedělitelná mezera drží jen přes `SpaceWrap`.
+- ⚠ Nástroj Write převádí `\u00A0` na skutečný znak; escape vkládat skriptem.
+- Otevřené: čísla v tabulkách (žebříčky, rozpis výsledku), výběr úrovně, stránka CLEARED; Myra stránky hlídá jen review.
