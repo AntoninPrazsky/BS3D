@@ -208,6 +208,22 @@ namespace BS3D
         }
 
         /// <summary>
+        /// The 10-bit colour row (#859): the back buffer's depth where the window's monitor takes 10 bits, applied the
+        /// way Fullscreen is, through <see cref="SetGraphics"/> and a device reset. Saved whatever the panel: a player
+        /// who turned it off on an 8-bit laptop keeps it off on the 10-bit monitor at home.
+        /// </summary>
+        internal void ToggleTenBitColour()
+        {
+            _tenBitWanted = !_tenBitWanted;
+            SetGraphics();
+
+            _settings.TenBitColour = _tenBitWanted;
+            SaveSettings();
+
+            _settingsPage.Refresh();
+        }
+
+        /// <summary>
         /// Switches the frame-rate cap between the monitor's refresh (the default: frames nobody can see cost
         /// only heat) and unlimited (#124). The <c>nocap</c> launch argument seeds the same flag and stays —
         /// the benchmark wants the cap off without a trip through the menus.

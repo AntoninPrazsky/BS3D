@@ -87,20 +87,7 @@ namespace BS3D.Platform
             refreshHz = 0;
 
             //Null means "the primary display" to EnumDisplaySettings, which is the fallback described above
-            string device = null;
-
-            if (windowHandle != IntPtr.Zero)
-            {
-                IntPtr monitor = MonitorFromWindow(windowHandle, MONITOR_DEFAULTTONEAREST);
-
-                if (monitor != IntPtr.Zero)
-                {
-                    MONITORINFOEX info = default;
-                    info.cbSize = (uint)Marshal.SizeOf<MONITORINFOEX>();
-
-                    if (GetMonitorInfo(monitor, ref info)) device = info.szDevice;
-                }
-            }
+            string device = MonitorDeviceName(windowHandle);
 
             DEVMODE dm = default;
             dm.dmSize = (ushort)Marshal.SizeOf<DEVMODE>();
@@ -110,6 +97,67 @@ namespace BS3D.Platform
             if (dm.dmDisplayFrequency < 10) return false;
             refreshHz = (int)dm.dmDisplayFrequency;
             return true;
+        }
+
+        /// <summary>
+        /// The <c>\\.\DISPLAYn</c> name of the monitor <paramref name="windowHandle"/> is on, or null for no window or no
+        /// answer — what <c>EnumDisplaySettings</c> asks a mode by and what DXGI names its outputs by.
+        /// </summary>
+        private static string MonitorDeviceName(IntPtr windowHandle)
+        {
+            if (windowHandle == IntPtr.Zero) return null;
+
+            IntPtr monitor = MonitorFromWindow(windowHandle, MONITOR_DEFAULTTONEAREST);
+            if (monitor == IntPtr.Zero) return null;
+
+            MONITORINFOEX info = default;
+            info.cbSize = (uint)Marshal.SizeOf<MONITORINFOEX>();
+
+            return GetMonitorInfo(monitor, ref info) ? info.szDevice : null;
+        }
+
+        /// <summary>
+        /// The bits per colour the monitor <paramref name="windowHandle"/> is on reports to DXGI (#859): 8 for an ordinary
+        /// panel, 10 for one that takes deep colour and is set to it in Windows. False with no window, no DXGI output of
+        /// the monitor's name, or an OS before <c>IDXGIOutput6</c> (Windows 10 1703). The output is matched to the
+        /// window's monitor by the <c>\\.\DISPLAYn</c> name user32 gives for it, the same name the refresh is asked by;
+        /// enumerating the factory's adapters and outputs allocates, so this is asked at a window event and never per frame.
+        /// </summary>
+        internal static bool TryGetBitsPerColor(IntPtr windowHandle, out int bitsPerColor)
+        {
+            bitsPerColor = 0;
+
+            string device = MonitorDeviceName(windowHandle);
+            if (device == null) return false;
+
+            try
+            {
+                using SharpDX.DXGI.Factory1 factory = new();
+
+                foreach (SharpDX.DXGI.Adapter1 adapter in factory.Adapters1)
+                {
+                    using (adapter)
+                    {
+                        foreach (SharpDX.DXGI.Output output in adapter.Outputs)
+                        {
+                            using (output)
+                            {
+                                if (!string.Equals(output.Description.DeviceName.TrimEnd('\0'), device, StringComparison.Ordinal)) continue;
+
+                                using SharpDX.DXGI.Output6 output6 = output.QueryInterface<SharpDX.DXGI.Output6>();
+                                bitsPerColor = output6.Description1.BitsPerColor;
+                                return bitsPerColor > 0;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception exception) when (exception is SharpDX.SharpDXException or DllNotFoundException or EntryPointNotFoundException)
+            {
+                return false;
+            }
+
+            return false;
         }
 
         [DllImport("user32.dll")]

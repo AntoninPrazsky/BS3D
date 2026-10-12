@@ -139,6 +139,16 @@ namespace BS3D
         public bool Fullscreen { get; set; } = true;
 
         /// <summary>
+        /// Whether the back buffer may be 10 bits a channel where the window's monitor reports 10 (#859). <b>True by
+        /// default</b>: the setting is the way back to 8 bits, the owner's rule — on, it changes nothing but the last
+        /// quantisation of the frame, and only on a panel that reports deep colour; a panel that reports 8 bits, the
+        /// Potato path and a driver that refuses the swap chain all hold it at 8 with the row saying why. Read once
+        /// at startup and applied again through a device reset when the row is clicked (<c>ToggleTenBitColour</c>).
+        /// </summary>
+        [JsonPropertyName("tenBitColour")]
+        public bool TenBitColour { get; set; } = true;
+
+        /// <summary>
         /// <b>True by default, because that is what the game already did</b> — <c>InfoRenderer</c> is a
         /// <c>DrawableGameComponent</c> and nothing ever set its <c>Visible</c>, so the overlay has always
         /// come up on. A default of false here would have turned it off for everyone as a side effect of

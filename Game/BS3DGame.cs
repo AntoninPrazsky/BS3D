@@ -895,6 +895,11 @@ namespace BS3D
 
             _uncappedFps = launch.UncappedFps ?? _settings.UncappedFps;
 
+            //The 10-bit back buffer (#859): the settings' answer, or the run's ("tenbit"/"tenbit=off"), which also
+            //overrides what the panel reports so the 10-bit path can be driven on an 8-bit laptop
+            _tenBitWanted = launch.TenBit ?? _settings.TenBitColour;
+            _tenBitForced = launch.TenBit == true;
+
             _graphics = new GraphicsDeviceManager(this);
             _graphics.PreparingDeviceSettings += Graphics_PreparingDeviceSettings;
 
@@ -943,6 +948,76 @@ namespace BS3D
                 : line + ", DPI-UNAWARE: on a display scaled above 100 % Windows hands this run a smaller size and stretches its frame";
         }
 
+        //THE 10-BIT BACK BUFFER (#859). Inside, the frame is wide (the HDR targets, RGBA16F) and Tonemap.fx resolves it
+        //once into [0, 1]; the last step quantises to the back buffer's depth, 8 bits a channel until this, where a smooth
+        //gradient - sky, fog, bloom - can band. Where the window's monitor reports 10 bits per colour the back buffer is
+        //R10G10B10A2 and nothing else about the picture changes: the tonemap's output is the same, only the target it
+        //writes to is wider. The Settings row (DISPLAY, 10-bit colour) is the way back to 8.
+        //
+        //What the player set, whether the run forced it past the panel (the "tenbit" argument), what the panel last
+        //reported (0 for no answer), and whether the driver refused the swap chain this run (then 8 bits until the next
+        //start, the row saying "driver")
+        private bool _tenBitWanted;
+        private bool _tenBitForced;
+        private int _panelBitsPerColor;
+        private bool _tenBitRefused;
+
+        /// <summary>The DISPLAY row's state: what the settings say (#859).</summary>
+        internal bool IsTenBitColourEnabled => _tenBitWanted;
+
+        /// <summary>
+        /// Why the 10-bit back buffer is not on even though the row is, or null for nothing in the way: "Potato" (the
+        /// path draws 8-bit sources straight into the back buffer), "driver" (the swap chain was refused this run),
+        /// "8-bit panel" (the window's monitor reports fewer than 10 bits), "panel" (it reports nothing DXGI can read).
+        /// </summary>
+        internal string TenBitHeldBy =>
+            PotatoPath ? "Potato"
+            : _tenBitRefused ? "driver"
+            : _tenBitForced ? null
+            : _panelBitsPerColor == 0 ? "panel"
+            : _panelBitsPerColor < 10 ? $"{_panelBitsPerColor}-bit panel"
+            : null;
+
+        /// <summary>Whether the back buffer the device holds is the 10-bit one.</summary>
+        private bool TenBitBackBuffer => _graphics.PreferredBackBufferFormat == SurfaceFormat.Rgba1010102;
+
+        /// <summary>
+        /// The back buffer's format for the window's monitor as it is now (#859): the panel asked again (a window dragged
+        /// onto another monitor is on another panel), then the row's answer unless something holds it.
+        /// </summary>
+        private SurfaceFormat DecideBackBufferFormat()
+        {
+            _panelBitsPerColor = DisplayRefresh.TryGetBitsPerColor(Window.Handle, out int bits) ? bits : 0;
+
+            return _tenBitWanted && TenBitHeldBy == null ? SurfaceFormat.Rgba1010102 : SurfaceFormat.Color;
+        }
+
+        /// <summary>
+        /// Puts the back buffer on the format the window's monitor now calls for, when that differs from what the device
+        /// holds (#859): after the device exists (Initialize), on a resize (the cheap hook for a monitor change, as the
+        /// refresh's is) and on a scale change. A reset only when the answer changed, so a resize on one monitor costs a
+        /// DXGI question and nothing more.
+        /// </summary>
+        private void RefreshBackBufferFormat()
+        {
+            if (GraphicsDevice == null || _graphics == null) return;
+
+            int before = _panelBitsPerColor;
+            if (DecideBackBufferFormat() != _graphics.PreferredBackBufferFormat) SetGraphics();
+            //SetGraphics says its line itself; a panel first read, or read differently, with nothing to reset says it here
+            else if (_panelBitsPerColor != before) Console.WriteLine(BackBufferLine());
+        }
+
+        /// <summary>The run log's <c>[display]</c> line for the back buffer's depth (#859): the panel's bits, the buffer's, and what held it when the row is on and the buffer is not.</summary>
+        private string BackBufferLine()
+        {
+            string panel = _panelBitsPerColor > 0 ? $"panel {_panelBitsPerColor} bpc" : "panel bits unknown";
+            string buffer = TenBitBackBuffer ? "10-bit back buffer (R10G10B10A2)" : "8-bit back buffer";
+            string held = _tenBitWanted && !TenBitBackBuffer ? $", 10-bit colour on but held by the {TenBitHeldBy}" : _tenBitWanted ? "" : ", 10-bit colour off";
+
+            return $"[display] {panel}, {buffer}{held}{(_tenBitForced ? " (forced by tenbit)" : "")}";
+        }
+
         /// <summary>
         /// The window's scale changed while the game runs (#825, <c>WM_DPICHANGED</c>), and WinForms has already answered
         /// it: the window icon is published again at the new scale's sizes, and the run log says the scale the rest of
@@ -954,6 +1029,9 @@ namespace BS3D
         private void OnWindowScaleChanged()
         {
             WindowIcon.Apply(Window.Handle);
+
+            //A scale change is a monitor change more often than not, and the other monitor may have other bits (#859)
+            RefreshBackBufferFormat();
 
             //Its own line rather than DisplayLine again: that one's mode is the primary display's, and a window dragged
             //onto a second monitor is not on it
@@ -1012,7 +1090,33 @@ namespace BS3D
             //fullscreen (HardwareModeSwitch above, #157), so DWM owns the flip in every mode there is.
             _graphics.SynchronizeWithVerticalRetrace = false;
 
-            _graphics.ApplyChanges();
+            //The back buffer's depth (#859): 8 bits until the device exists, then what the panel, the path and the
+            //settings allow. The first device is always made with 8 bits, because a swap chain the driver refuses is an
+            //exception out of device creation, where nothing can answer it; made 8-bit and reset to 10 a moment later
+            //(Initialize's RefreshBackBufferFormat, then every SetGraphics), the refusal is ApplyChanges's to throw and
+            //this method's to catch, and the run goes on at 8 bits with the row saying so.
+            //⚠ ApplyChanges CREATES the device when there is none (MonoGame's GraphicsDeviceManager), so the constructor's
+            //call leaves this method with a device: the decision is taken before, on whether one existed going in
+            bool decided = GraphicsDevice != null;
+            SurfaceFormat format = decided ? DecideBackBufferFormat() : SurfaceFormat.Color;
+            _graphics.PreferredBackBufferFormat = format;
+
+            try
+            {
+                _graphics.ApplyChanges();
+            }
+            catch (Exception exception) when (format == SurfaceFormat.Rgba1010102)
+            {
+                //The owner's GTX 1060 answered E_INVALIDARG from CreateSwapChain (#859); an AMD laptop takes the format
+                //in every mode. Whichever it is, the run keeps going, 8-bit, and the log says what the driver said
+                Console.WriteLine($"[display] 10-bit back buffer refused by the driver: {exception.Message}; 8-bit for this run");
+                _tenBitRefused = true;
+                _graphics.PreferredBackBufferFormat = SurfaceFormat.Color;
+                _graphics.ApplyChanges();
+            }
+
+            if (decided) Console.WriteLine(BackBufferLine());
+
             ApplyRenderResolution();
 
             //Null-conditional for the constructor's call, which runs before LoadContent has built the
@@ -1042,6 +1146,9 @@ namespace BS3D
                 _windowedSize = new Point(Window.ClientBounds.Width, Window.ClientBounds.Height);
 
             UpdateCameraAspect();
+
+            //And the panel's bits (#859), on the same cheap hook as the refresh below
+            RefreshBackBufferFormat();
 
             //A window that changed size may also have changed monitor, and the probe's floor is derived from the
             //refresh of the one it is on (#81). This is the cheap hook rather than the complete one: a window
@@ -1190,6 +1297,10 @@ namespace BS3D
             //And again whenever the scale of the window's monitor changes under it or it is dragged onto a monitor of
             //another scale (#825), which WinForms answers by stretching the large icon back into the title bar
             DisplayRefresh.WatchScale(Window.Handle, OnWindowScaleChanged);
+
+            //The back buffer to 10 bits where the panel takes it (#859), now that the device exists to be reset: the first
+            //device is always made 8-bit, because a refused swap chain is catchable only on a reset (SetGraphics)
+            RefreshBackBufferFormat();
 
             //And the pointer the front end is clicked with, in place of the stock arrow (#350). Set exactly
             //once, here: it is a GDI cursor handle, so a per-frame call would build and abandon one per frame.
