@@ -25,10 +25,11 @@ namespace Prazsky.Core.Render
     /// step) re-dresses the towers it shares with the old one exactly as they were.
     /// </para>
     /// <para>
-    /// <b>The neon city carries more</b>, and not by a second layout: the extra pieces are rolled with the
-    /// same stream at <see cref="RooftopConfig.NeonExtra"/> times the chances, into the cells of the roof the
-    /// day's dressing left, kept in their own instance lists, and drawn only when the scene is the neon one —
-    /// where the dishes also wear a ring of the neon's own magenta or cyan round their rims.
+    /// <b>The neon city carries more</b>, and not by a second layout: after the day's dressing each roof rolls
+    /// again on the same stream, at <see cref="RooftopConfig.NeonExtra"/> minus one times the chances, into the
+    /// cells the day's dressing left (#850) — so an extra mast stands only on a roof whose middle cell the day's
+    /// left empty. The extras are kept in their own instance lists and drawn only when the scene is the neon
+    /// one, where the dishes also wear a ring of the neon's own magenta or cyan round their rims.
     /// </para>
     /// <para>
     /// <b>Sky-lit enrolment and the frame sequence stay the caller's</b>, as they do for
