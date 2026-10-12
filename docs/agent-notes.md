@@ -513,3 +513,9 @@ Pravidla:
 - ⚠ Revize: sklo vedle uzavřené odměny ji otevře jednou ranou (okénka Rakety se dotýkala jádra). `RevealFaults` teď sklo u odměny odmítá; jádro Rakety visí v zadní půlce kabiny (6 koulí místo 10).
 - ⚠ Kotva na tenkých šňůrách se při startovním zhoupnutí převrátila přes čáru bez výstřelu (sag 5 z 5); tenké vazby u těžkých dílů nedělat.
 - Otevřené: verdict-eye; na Pi při příštím vydání `update-ceilings.sh`; nikdo je nehrál rukou.
+
+## 2026-10-12 — #850 neonové střechy: jedna mřížka buněk na střechu — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #850 jde na main (merge následuje), `shipped-awaiting-verdict` + `verdict-eye`: neonové extras sdílejí s denní výbavou jednu mřížku buněk střechy (`CityRooftops.Arrange`), žádné dva kusy v jedné buňce, stěžeň nanejvýš jeden; `CityRooftopsTests` to drží nad skutečným rozložením (viděn selhat: 29 549 z 226 109 kusů). Denní výbava beze změny.
+- `NeonExtra` zůstává 1,45: stěžňů −9,8 %, 5G sloupů −11 %, talířů beze změny; z herní kamery (pět pohledů Testbedu + hra, `sceneseed=3`) se rozdíl nepozná. 1,70 by stěžně vrátilo za +15 % talířů (`docs/scenes/city.md`).
+- ⚠ Hustotu střech měř po druzích, které herní kamera vidí jako siluetu (stěžně, talíře, sloupy), ne obsazenými buňkami: ty rostly s klimatizacemi.
+- Otevřené: verdikt majitele (1,45 nebo 1,70); intro neonu při daném `sceneseed` teď rámuje jinou střechu.
