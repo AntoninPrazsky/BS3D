@@ -79,16 +79,34 @@ namespace BS3D.Effects
         //The rooftop (#780): a slow arc round one dressed roof - its mast, dishes and beacon - close and from above, the
         //owner's "the camera could circle round them for a moment and look at them more from above". The roof is the
         //best-dressed one between these distances from the arena's axis (the island stands over the middle); the lens
-        //circles it this far out past the roof's edge, this high over the mast's middle, looking at the mast's lower
-        //third, through this many degrees. A roof whose arc a taller neighbour stands in is passed over for the next.
+        //circles it this far out past the roof's edge, rising ROOFTOP_RISE, through this many degrees, on a lens this much
+        //wider than the game's. A roof whose arc a taller neighbour stands in is passed over for the next.
         private const float ROOFTOP_NEAREST_BLOCKS = 2f, ROOFTOP_FARTHEST_BLOCKS = 6f;
         private const float ROOFTOP_OUT = 9f;
-        private const float ROOFTOP_ABOVE = 10f;
-        private const float ROOFTOP_LOOK_SHARE = 0.3f;
+        private const float ROOFTOP_RISE = 2f;
         private const float ROOFTOP_SWEEP_DEGREES = 85f;
+        private const float ROOFTOP_LENS = 1.05f;
         private const float ROOFTOP_SECONDS = 5.0f;
         private const float ROOFTOP_CLEARANCE = 3f;
         private const int ROOFTOP_CANDIDATES = 8;
+
+        //#780's composition, kept wherever it holds the whole mast: the lens this high over the mast's middle, looking at
+        //the mast's lower third (a roof without a mast is framed as if it carried one of ROOFTOP_MIN_SUBJECT).
+        private const float ROOFTOP_ABOVE = 10f;
+        private const float ROOFTOP_LOOK_SHARE = 0.3f;
+        private const float ROOFTOP_MIN_SUBJECT = 4f;
+
+        //⚠ THE WHOLE MAST STAYS IN FRAME, BEACON AND FOOT (#840). From a fixed height over the mast's middle, looking at
+        //its lower third, a tall mast's top ran off the top edge for most of the arc ("the red blinking tip of the mast
+        //is not visible"). The mast's top and its beacon's radius now bound the look (FrameMast), so the beacon stays
+        //ROOFTOP_TOP_MARGIN of the frame's height under the top edge and the foot ROOFTOP_FOOT_MARGIN over the bottom one
+        //at every point of the arc; where no one look holds both, the lens climbs a step at a time (a higher lens sees the
+        //mast foreshortened, so from high enough any mast fits), up to ROOFTOP_MAX_CLIMB over #780's height.
+        //CityIntroShotsTests walks it. The foot's margin is the wider because the intro's skip hint (PlayHud, #699) stands
+        //centred on the bottom edge for the whole shot, up to 12.2 % of the frame's height, and the look keeps the mast
+        //centred across: at the top's margin the foot stood behind the hint.
+        private const float ROOFTOP_TOP_MARGIN = 0.06f, ROOFTOP_FOOT_MARGIN = 0.15f;
+        private const float ROOFTOP_CLIMB_STEP = 0.5f, ROOFTOP_MAX_CLIMB = 30f;
 
         //How many candidates each roll weighs; the best by its own measure is taken.
         private const int CANDIDATES = 12;
@@ -99,10 +117,10 @@ namespace BS3D.Effects
         /// <summary>
         /// The prologue for <paramref name="city"/>, or null when there is no city to shoot.
         /// <paramref name="fieldOfView"/> is the intro's own gameplay frame, which each shot widens from.
-        /// <paramref name="rooftops"/> is the city's roof equipment, for the rooftop's showcase (#780), and
+        /// <paramref name="rooftops"/> is the city's dressed roofs, for the rooftop's showcase (#780), and
         /// <paramref name="neon"/> whether it is the neon city's, whose extra pieces count.
         /// </summary>
-        public static IntroShot[] Build(City city, CityRooftops rooftops, bool neon, float fieldOfView, Random random)
+        public static IntroShot[] Build(City city, CityRooftops.RoofShowcases rooftops, bool neon, float fieldOfView, Random random)
         {
             if (city == null) return null;
 
@@ -359,49 +377,128 @@ namespace BS3D.Effects
 
         /// <summary>
         /// The rooftop (#780): an arc round the best-dressed roof in reach whose arc no other tower stands in, the lens
-        /// over the mast's middle and outside the roof's edge, looking down at the equipment. The skim it replaced ran
+        /// over the mast's middle and outside the roof's edge, looking down at the equipment with the whole mast in frame
+        /// (#840, <see cref="RooftopArc"/>). The skim it replaced ran
         /// down a street at roof height, so the masts and dishes passed on both hands at speed and were never looked AT -
         /// the owner did not see the roofs shown in either city. Null when no roof is dressed or every arc is blocked.
         /// </summary>
-        private static IntroShot Rooftop(City city, CityRooftops rooftops, bool neon, float fieldOfView, Random random)
+        private static IntroShot Rooftop(City city, CityRooftops.RoofShowcases rooftops, bool neon, float fieldOfView, Random random)
         {
-            if (rooftops == null) return null;
-
-            float pitch = city.BlockPitch;
-            CityRooftops.RoofShowcase[] roofs = rooftops.Showcase(neon, ROOFTOP_NEAREST_BLOCKS * pitch,
-                ROOFTOP_FARTHEST_BLOCKS * pitch, ROOFTOP_CANDIDATES);
-
-            foreach (CityRooftops.RoofShowcase roof in roofs)
+            foreach (CityRooftops.RoofShowcase roof in RooftopCandidates(city, rooftops, neon))
             {
-                float radius = roof.HalfSpan + ROOFTOP_OUT;
-                float height = roof.Centre.Y + MathF.Max(roof.MastHeight, 4f) * 0.5f + ROOFTOP_ABOVE;
-                Vector3 look = roof.Centre + Vector3.Up * (roof.MastHeight * ROOFTOP_LOOK_SHARE);
-
-                //Two tries at the arc's start: from the side facing the arena first, which keeps the island behind the
-                //roof rather than behind the lens, then a rolled one
-                float facing = MathF.Atan2(-roof.Centre.Z, -roof.Centre.X);
-                for (int attempt = 0; attempt < 2; attempt++)
-                {
-                    float from = attempt == 0 ? facing : (float)(random.NextDouble() * MathHelper.TwoPi);
-                    float sweep = MathHelper.ToRadians(ROOFTOP_SWEEP_DEGREES) * (random.Next(2) == 0 ? 1f : -1f);
-
-                    var path = new Vector3[PATH_POINTS];
-                    bool clear = true;
-                    for (int i = 0; i < PATH_POINTS && clear; i++)
-                    {
-                        float u = i / (float)(PATH_POINTS - 1);
-                        float angle = from - sweep * 0.5f + sweep * u;
-                        path[i] = new Vector3(roof.Centre.X + MathF.Cos(angle) * radius, height + 2f * u,
-                            roof.Centre.Z + MathF.Sin(angle) * radius);
-                        clear = ClearOfTowers(city, path[i], roof.Building);
-                    }
-
-                    if (clear)
-                        return new IntroShot("the rooftop", path, ROOFTOP_SECONDS, fieldOfView * 1.05f, lookAt: look);
-                }
+                IntroShot shot = RooftopArc(city, roof, fieldOfView, random);
+                if (shot != null) return shot;
             }
 
             return null;
+        }
+
+        /// <summary>The roofs the rooftop shot tries, best first: the ROOFTOP_CANDIDATES best-dressed in reach. Empty without roofs.</summary>
+        internal static CityRooftops.RoofShowcase[] RooftopCandidates(City city, CityRooftops.RoofShowcases rooftops, bool neon) =>
+            rooftops?.Best(neon, ROOFTOP_NEAREST_BLOCKS * city.BlockPitch, ROOFTOP_FARTHEST_BLOCKS * city.BlockPitch,
+                ROOFTOP_CANDIDATES) ?? Array.Empty<CityRooftops.RoofShowcase>();
+
+        /// <summary>
+        /// The arc round <paramref name="roof"/>, framed so its mast stays whole in the picture from the arc's first degree
+        /// to its last (#840), or null when a tower stands in both of the arcs tried — the roof is then passed over for
+        /// the next.
+        /// </summary>
+        internal static IntroShot RooftopArc(City city, CityRooftops.RoofShowcase roof, float fieldOfView, Random random)
+        {
+            float lens = fieldOfView * ROOFTOP_LENS;
+            float radius = roof.HalfSpan + ROOFTOP_OUT;
+
+            //The mast stands on the roof's middle cell, which on a small roof is off its middle: the look is kept on the
+            //mast's own axis, so the arc round the roof never swings the mast towards a side of the frame
+            bool mast = roof.MastHeight > 0f;
+            Vector3 foot = mast ? roof.MastFoot : roof.Centre;
+            float subject = MathF.Max(roof.MastHeight, ROOFTOP_MIN_SUBJECT);
+            float height = roof.Centre.Y + subject * 0.5f + ROOFTOP_ABOVE;
+            float lookShare = roof.MastHeight * ROOFTOP_LOOK_SHARE;
+
+            //Two tries at the arc's start: from the side facing the arena first, which keeps the island behind the
+            //roof rather than behind the lens, then a rolled one
+            float facing = MathF.Atan2(-roof.Centre.Z, -roof.Centre.X);
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                float from = attempt == 0 ? facing : (float)(random.NextDouble() * MathHelper.TwoPi);
+                float sweep = MathHelper.ToRadians(ROOFTOP_SWEEP_DEGREES) * (random.Next(2) == 0 ? 1f : -1f);
+
+                var path = new Vector3[PATH_POINTS];
+                float lookY = 0f;
+                bool framed = false;
+                for (float climb = 0f; climb <= ROOFTOP_MAX_CLIMB && !framed; climb += ROOFTOP_CLIMB_STEP)
+                {
+                    for (int i = 0; i < PATH_POINTS; i++)
+                    {
+                        float u = i / (float)(PATH_POINTS - 1);
+                        float angle = from - sweep * 0.5f + sweep * u;
+                        path[i] = new Vector3(roof.Centre.X + MathF.Cos(angle) * radius, height + climb + ROOFTOP_RISE * u,
+                            roof.Centre.Z + MathF.Sin(angle) * radius);
+                    }
+
+                    framed = mast
+                        ? FrameMast(path, foot, roof.MastHeight * RooftopMesh.MAST_TOP, roof.BeaconRadius, lens, lookShare, out lookY)
+                        : FrameMast(path, foot, subject, 0f, lens, lookShare, out lookY);
+                }
+
+                if (!framed) continue;
+
+                bool clear = true;
+                for (int i = 0; i < PATH_POINTS && clear; i++) clear = ClearOfTowers(city, path[i], roof.Building);
+
+                if (clear)
+                    return new IntroShot("the rooftop", path, ROOFTOP_SECONDS, lens, lookAt: foot + Vector3.Up * lookY);
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Where on a mast's axis the lens can look from every point of <paramref name="path"/> and keep the whole mast in
+        /// frame (#840): the beacon on its <paramref name="top"/>, <paramref name="beacon"/> round, at least
+        /// ROOFTOP_TOP_MARGIN of the frame's height under the top edge, and the <paramref name="foot"/> ROOFTOP_FOOT_MARGIN
+        /// over the bottom one. <paramref name="lookY"/> is <paramref name="preferred"/> (over the foot) moved only as far as
+        /// that takes. False when no one look holds it from every point — the lens is too low for this mast.
+        /// <para>
+        /// Exact for the axis because the lens looks AT a point on it: the axis then lies in the vertical plane through
+        /// the view direction, so a point on it is seen at the angle between its own elevation and the look's, and the
+        /// frame's half-height is the lens's half-angle. A look at the elevation <c>a</c> holds the mast while
+        /// <c>a</c> is within the allowed angle under the beacon's top and above the foot; each point of the path
+        /// gives such a band of heights on the axis, and the look is taken inside all of them.
+        /// </para>
+        /// </summary>
+        private static bool FrameMast(Vector3[] path, Vector3 foot, float top, float beacon, float lens, float preferred,
+            out float lookY)
+        {
+            //How far a point may stand above and below the view axis and still keep its margin inside the frame's edge
+            float tangent = MathF.Tan(lens * 0.5f);
+            float above = MathF.Atan((1f - 2f * ROOFTOP_TOP_MARGIN) * tangent);
+            float below = MathF.Atan((1f - 2f * ROOFTOP_FOOT_MARGIN) * tangent);
+            float low = float.MinValue, high = float.MaxValue;
+
+            //The band of look elevations is kept off straight down and straight up, where the tangent runs away
+            const float STEEPEST = 1.5f;
+
+            for (int i = 0; i < path.Length; i++)
+            {
+                float across = new Vector2(path[i].X - foot.X, path[i].Z - foot.Z).Length();
+                float over = path[i].Y - foot.Y;
+
+                //The beacon's top as seen from here: its middle's elevation and the angle its radius subtends
+                float toTop = MathF.Sqrt(across * across + (top - over) * (top - over));
+                float topAngle = MathF.Atan2(top - over, across) + MathF.Asin(MathF.Min(1f, beacon / MathF.Max(toTop, 1e-3f)));
+                float footAngle = MathF.Atan2(-over, across);
+
+                float lowest = MathF.Max(topAngle - above, -STEEPEST), highest = MathF.Min(footAngle + below, STEEPEST);
+                if (lowest > highest) { lookY = 0f; return false; }
+
+                low = MathF.Max(low, over + across * MathF.Tan(lowest));
+                high = MathF.Min(high, over + across * MathF.Tan(highest));
+            }
+
+            lookY = MathHelper.Clamp(preferred, low, high);
+            return low <= high;
         }
 
         //Whether a lens point stands outside every tower but the showcased one, each grown by ROOFTOP_CLEARANCE, up to

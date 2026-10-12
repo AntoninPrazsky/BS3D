@@ -495,6 +495,11 @@ Pravidla:
 - ⚠ Opravný průchod obarvil okrajové koule u krku Locketu na bílou; dlaždice kamene se teď počítají od `LOCKET_STONE_TILE_FROM`, takže bílý je jen krk. Geode se pomalu kroutí kolem svislé osy (dělala to i těžší v1).
 - Otevřené: verdict-eye; na Pi spustit při příštím vydání `update-ceilings.sh` (desky šesti levelů se resetují); nikdo je nehrál rukou.
 
+## 2026-10-12 — #840 stožár na střeše v intru města — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #840 (merge následuje): střešní záběr intra City a Neon City drží celý stožár i s majákem (`CityIntroShots.FrameMast`): vršek majáku 6 % pod horní hranou, pata 15 % nad dolní, aby nezmizela pod nápovědou k přeskočení. Kompozice z #780 zůstává, kde se vejde, jinak kamera stoupá po půl jednotky. `CityRooftops` dává `RoofShowcases` bez zařízení; v neonu hlásí vyšší ze dvou stožárů. Test `TheRooftopShotKeepsTheWholeMastAndItsBeaconInFrame` (tři rozlišení) se starým záběrem padal ve 394 ze 448 oblouků.
+- Bez majitele (spí), konzervativně: dvojitý stožár v neonu je vada už na mainu, zapsaná jako #850, ne opravená tady (přestavěla by všechny neonové střechy).
+- Otevřené: #850; jak čte strmější pohled na nejvyšší stožáry, viděno jen ve snímcích.
+
 ## 2026-10-12 — #736 Siluety jako tělesa — desktop (RDT-PC), Claude Code (bs3d-71, noc)
 - #736 (větev `736-silhouettes-depth`, merge následuje): všech deset levelů Polární záře (41–50) přestavěno v `Block13_Silhouettes.cs` na tělesa, každé visí jinak: Fish reliéf ze stínohry, Umbrella rotační s 12 klíny, Bell s červeným srdcem za skleněným dnem, Cat loutka před plátnem, Teapot s uzavřeným čajem, Key na desce, Rocket vodorovně s okénky, Coronet na pěti hrotech, Guitar ve stínohře se skleněnými strunami, Anchor na pažnici. Soubory si nechaly jména.
 - Majitel (11. 10.): celá kapitola najednou, první speciál kampaně je sklo. Sklo poprvé na Umbrelle (42), Fish (41) nese kartu Řezu; karty druhů i Nápověda řazeny podle prvního setkání.

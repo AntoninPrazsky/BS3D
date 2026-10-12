@@ -56,7 +56,7 @@ namespace BS3D.Effects
 
             return scene switch
             {
-                SceneKind.City or SceneKind.NeonCity => CityIntroShots.Build(context.City, context.Rooftops,
+                SceneKind.City or SceneKind.NeonCity => CityIntroShots.Build(context.City, context.Rooftops?.Showcases,
                     scene == SceneKind.NeonCity, fieldOfView, random),
                 SceneKind.Volcano => VolcanoIntroShots.Build(renderer, fieldOfView, random),
                 SceneKind.Aurora => AuroraIntroShots.Build(context.AuroraScatter,
