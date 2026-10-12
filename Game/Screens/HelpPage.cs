@@ -369,10 +369,10 @@ namespace BS3D.Screens
         /// What the Balls page says about each kind that is not ordinary (#633), <b>keyed by the kind</b> so the
         /// list is one place and a check can ask whether every <see cref="BallKind"/> has an entry — #584's
         /// deferred per-kind check, whose Help half this is. In the order a player meets them: the five the
-        /// campaign places, then the five no shipped level uses yet (glass from level 42, the Silhouettes' Umbrella,
-        /// since #736; buckshot 93, bomb 105, zap 107, stone 136; the rest nowhere). <see cref="BallKind.Normal"/>
-        /// needs no entry and the wildcard has its own paragraph, since it arrives in the cannon rather than in the
-        /// cluster.
+        /// campaign places, in the order of their first levels (glass 42, the Silhouettes' Umbrella, since #736;
+        /// buckshot 93, bomb 105, zap 107, stone 136), then the five no shipped level uses yet.
+        /// <see cref="BallKind.Normal"/> needs no entry and the wildcard has its own paragraph, since it arrives in
+        /// the cannon rather than in the cluster.
         /// <para>
         /// The look clauses are deliberately short: the looks are being redrawn one kind at a time (#622), and a
         /// sentence describing a finish that has since changed would be wrong on the one page that explains it.

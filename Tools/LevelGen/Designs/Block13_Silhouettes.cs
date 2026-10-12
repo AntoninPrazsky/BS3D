@@ -31,7 +31,7 @@ namespace BS3D.Tools.LevelGen
         //  Rocket    flying level with its back against the glass: crossed fins, glass portholes, a sealed core
         //  Coronet   a crown hung from its five gold points, a velvet cap inside, diamonds of glass in the band
         //  Guitar    a guitar four cells deep set into its screen, a hollow sound box, its two strings of glass
-        //  Anchor    hung by its stock against the glass, its arms crossing it, the flukes lashed up to the stock
+        //  Anchor    hung by its stock against the glass, arms and flukes in the stock's own plane, lashed up to it
         //
         //THE CHAPTER'S LOOK IS STILL ONE IDEA, a shadow play under the northern lights: black figures, and where a
         //figure needs a ground to read against, the lit screen behind or round it in pale colours (Fish, Cat, Guitar).
@@ -42,20 +42,23 @@ namespace BS3D.Tools.LevelGen
         //WHAT READS FROM THE WALK. Ninety degrees round, a flat thing goes edge-on whatever is done to it, so the
         //bodies of revolution (Umbrella, Bell, Teapot, Coronet) are the ones that read the same from everywhere; the
         //others are drawn to read from the stand and at forty-five degrees, and to be a sensible solid from the side
-        //(the cat's profile, the rocket nose-on with its fins in a cross, the anchor's stock across its arms).
+        //(the cat's profile, the rocket nose-on with its fins in a cross). The anchor and the key are pictures in
+        //one plane and go edge-on there like any picture.
         //
         //THE CAMPAIGN'S FIRST GLASS IS THE UMBRELLA'S, the second level: the Fish is where the Cut's card comes up
-        //(LevelSet.CUT_FROM_BLOCK), so one new thing arrives a level. Its icicles are the lowest, outermost thing on
-        //the canopy - where the first shots arrive - and each is two balls long, so the first landing beside one
-        //colours both and makes three with itself: the rule states itself on the first shot, the Mirage's Facet
-        //lesson brought forward. After it, glass is what a thing in the picture is made of: the bell's floor, the
-        //cat's eyes, the rocket's portholes, the crown's diamonds, the guitar's strings. Every pane is on the skin and
-        //none on the anchor course (the Mirage's law, FindStrandedSpecials), and the kind card (#735) fires on the
-        //Umbrella, the first level whose map carries it.
+        //(LevelSet.CUT_FROM_BLOCK), so one new thing arrives a level. Its icicles hang under the canopy's rim, out
+        //to either side of the red handle that hangs lowest in front of the gun, and each is two balls long, so a
+        //landing beside one colours both and makes three with itself: the rule states itself on the first shot
+        //that meets glass, the Mirage's Facet lesson brought forward. After it, glass is what a thing in the picture
+        //is made of: the bell's floor, the cat's eyes, the rocket's portholes, the crown's diamonds, the guitar's
+        //strings. Every pane is on the skin and none on the anchor course (the Mirage's law, FindStrandedSpecials),
+        //and the kind card (#735) fires on the Umbrella, the first level whose map carries it.
         //
         //WHAT IS SEALED. Three levels take up the Reveal's payoff (#743, Design.Payoff): the bell's clapper behind its
-        //glass floor - seen through the glass, and opened by colouring a pane - the teapot's tea and the rocket's core,
-        //each hung from the glass on a cord of its own, in a colour nothing else in the level wears.
+        //glass floor - a glint of red between the staves, opened by colouring a pane - the teapot's tea and the
+        //rocket's core, each hung from the glass on a cord of its own, in a colour nothing else in the level wears, and
+        //no glass touches any of them: a pane beside a payoff takes the payoff's colour from one shot landed beside it
+        //and drops it with the body whole (LevelGates.RevealFaults).
         //
         //WHAT THE LATTICE TAUGHT ON THE WAY, each a draft that passed or failed a gate for a reason worth keeping:
         //  - Wedges of two colours round an axis converge where the radius gets small, and two of a colour touch there:
@@ -77,9 +80,9 @@ namespace BS3D.Tools.LevelGen
         //  Fish      368 / 18 / 46   51 %, the black body          Umbrella  368 / 13 / 36   13 %, 24 glass
         //  Bell      352 / 15 / 40   39 %, lip, ribs and panes     Cat       331 / 11 / 30   37 %, the cat; 4 glass
         //  Teapot    344 / 17 / 40    9 %                          Key       223 / 13 / 32   48 %, the black bow
-        //  Rocket    244 / 12 / 28   29 %, 11 glass                Coronet   367 / 21 / 42   24 %, the cap; 19 glass
+        //  Rocket    242 / 12 / 28   29 %, 11 glass                Coronet   367 / 21 / 42   24 %, the cap; 19 glass
         //  Guitar    269 / 16 / 34   37 %, 28 glass                Anchor    252 / 14 / 28   13 %
-        //⚠ THE WEIGHT IS KEPT, THE LENGTH IS NOT. The ten carry 3,118 balls against the 3,254 of the walls they replace
+        //⚠ THE WEIGHT IS KEPT, THE LENGTH IS NOT. The ten carry 3,116 balls against the 3,254 of the walls they replace
         //(#742's lesson: a rebuild that adds balls changes the difficulty unasked), but a solid comes apart in fewer,
         //larger pieces than a check does: 150 standing groups against 211, so the budgets follow them down, 356 shots
         //against 524, each level keeping roughly its old place on the ramp of shots a group (2.6 to 2.8 on the first
@@ -273,9 +276,9 @@ namespace BS3D.Tools.LevelGen
         /// <summary>
         /// An umbrella, a solid of revolution hung by its own crown: a stepped canopy of twelve gores in black and white,
         /// each reaching the glass alone, a red ferrule, shaft and hook in one group, and the campaign's FIRST GLASS - an
-        /// icicle two balls long under the middle of every gore. The icicles are the lowest, outermost thing on the
-        /// canopy, so the first landing beside one colours both and the three fall; landed in the colour of the gore
-        /// above, the gore comes down with them. It reads as an umbrella from every side of the walk.
+        /// icicle two balls long under the middle of every gore, out under the rim to either side of the handle, which
+        /// hangs lowest and in front of the gun. A landing beside an icicle colours both and the three fall; landed in
+        /// the colour of the gore above, the gore comes down with them. It reads as an umbrella from every side of the walk.
         /// </summary>
         private static Design Umbrella() => SilhouetteSolid("Umbrella", UMBRELLA_DEPTH, shots: 36, ceilingStep: 7,
             (x, z, i) => UmbrellaPart(x, z, i), UmbrellaColour, UmbrellaKind);
@@ -343,8 +346,10 @@ namespace BS3D.Tools.LevelGen
         /// <summary>
         /// A hollow bell hung by its shoulder, staves of black and yellow round a white crown, its mouth closed by a floor
         /// of glass in four panes on a white cross of ribs, and the red clapper sealed inside on its own cord (a reveal,
-        /// <see cref="Design.Payoff"/>): the payoff is seen through the glass from the first frame. A landing under a pane
-        /// colours it; in white it joins the lip band and the ribs and the whole floor drops at once, which is the way in.
+        /// <see cref="Design.Payoff"/>). ⚠ The glass does not show it: from the stand the floor reads as the dark of the
+        /// hollow, and the red is a glint between the staves, clearest from forty-five degrees round. A landing under a
+        /// pane colours it; in white it joins the lip band and the ribs and the whole floor drops at once, which is the
+        /// way in.
         /// </summary>
         private static Design Bell() => SilhouetteSolid("Bell", BELL_DEPTH, shots: 40, ceilingStep: 8,
             (x, z, i) => BellPart(x, z, i), BellColour, BellKind, payoff: (x, z, i) => BellPart(x, z, i) == 5);
@@ -540,7 +545,9 @@ namespace BS3D.Tools.LevelGen
         /// <summary>
         /// A key hung by its bow under a pale board: the bow a ring the board shows through, the shank and the warded bit
         /// in bands of red and yellow. The bow is the only black in the level, so one black ball lets the shank and the
-        /// bit go - the key colour the Quarry's Hoist plays later - and the board's check is the work.
+        /// bit go - the key colour the Quarry's Hoist plays later - and the board's check is the work. ⚠ From the stand
+        /// and from forty-five degrees round, the barrel covers the warded bit and the lower shank, the parts that make
+        /// it a key, so it reads as a black loop over a red and yellow knot (and ninety degrees round it is edge-on).
         /// </summary>
         private static Design Key() => SilhouetteSolid("Key", KEY_DEPTH, shots: 32, ceilingStep: 7,
             (x, z, i) => KeyPart(x, z, i), KeyColour);
@@ -827,7 +834,7 @@ namespace BS3D.Tools.LevelGen
         private static BallKind GuitarKind(int x, int z, int i) =>
             GuitarPart(x, z, i) == 5 ? BallKind.Transparent : BallKind.Normal;
 
-        //=== 10. ANCHOR: hung by its stock against the glass, its arms crossing it =======================
+        //=== 10. ANCHOR: hung by its stock against the glass, its arms and flukes below it ================
 
         private const byte ANCHOR_DEPTH = 14;
 
@@ -838,10 +845,10 @@ namespace BS3D.Tools.LevelGen
         private const float ANCHOR_FLUKE_X = 4.7f, ANCHOR_FLUKE_Y = -0.4f;   //each fluke's middle, from the arms' centre
 
         /// <summary>
-        /// An anchor, the chapter's closer, hung by its stock against the glass with its arms crossing it: a shank three
-        /// cells square in bands of black and blue, arms of blue and black, red flukes, and each fluke lashed up to the
-        /// stock's end with a yellow rope. Two load paths, so no single cut drops the arms, and the tightest budget in the
-        /// chapter, two shots a group.
+        /// An anchor, the chapter's closer, hung by its stock against the glass, the arms and flukes under it in the
+        /// stock's own plane: a shank three cells square in bands of black and blue, arms of blue and black, red flukes,
+        /// and each fluke lashed up to the stock's end with a yellow rope. Two load paths, so no single cut drops the
+        /// arms, and the tightest budget in the chapter, two shots a group.
         /// </summary>
         private static Design Anchor() => SilhouetteSolid("Anchor", ANCHOR_DEPTH, shots: 28, ceilingStep: 6,
             (x, z, i) => AnchorPart(x, z, i), AnchorColour);

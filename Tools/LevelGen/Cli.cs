@@ -460,9 +460,10 @@ namespace BS3D.Tools.LevelGen
             //rather than a family of silhouettes: every level is a NAMED MATHEMATICAL CONSTRUCTION. The scene
             //(#393) is built on that same sentence - its floor is a Hilbert curve rather than a noise field,
             //"named mathematics rather than noise" - so the chapter is the cluster answering the backdrop.
-            //It is also the campaign's first block to carry a SPECIAL - truly since 2026-10-05 moved it ahead of
-            //the Eruption's bombs (CampaignSet.BLOCKS) - the wildcard, taught the Eruption's
-            //way, cheap and unmissable on Sierpinski and a tool on Gyroid. See Designs/Block12_Grid.cs for
+            //It is also the campaign's first block whose magazine deals a SPECIAL - truly since 2026-10-05 moved
+            //it ahead of the Eruption's bombs (CampaignSet.BLOCKS) - the wildcard, taught the Eruption's way,
+            //cheap and unmissable on Sierpinski and a tool on Gyroid (the first special in the CLUSTER is the
+            //Silhouettes' glass, three blocks earlier, since #736). See Designs/Block12_Grid.cs for
             //what each construction is and for the block's one standing danger, which is thinness.
             Design[] grid =
             {
