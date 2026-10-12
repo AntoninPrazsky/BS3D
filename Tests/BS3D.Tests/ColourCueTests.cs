@@ -14,8 +14,8 @@ namespace BS3D.Tests
 {
     /// <summary>
     /// The colour cue's figure sets (#737). What is checkable without a device: every set gives every colour a figure
-    /// and no two colours in a set the same one, the two inks keep each ball's average colour (the prototype's dark
-    /// ink pulled the light colours towards the dark ones), the frames are rotations, and the shader file that holds
+    /// and no two colours in a set the same one, the two inks keep each ball's average colour (a dark ink on the plain
+    /// colour pulls the light colours towards the dark ones), the frames are rotations, and the shader file that holds
     /// the figures declares no uniform - which is what lets it sit in front of the three ball bodies without moving a
     /// single offset in the constant buffer, and so what keeps the shipped programs' code what it was.
     /// </summary>
@@ -87,8 +87,10 @@ namespace BS3D.Tests
             }
         }
 
-        //The inks average to the plain colour, so a figure too small to see leaves the ball the colour it was and no two
-        //colours move closer. Black alone cannot (nothing is darker than its ground); its figure is held dim instead.
+        //The inks average to the plain colour, so a figure too small to see leaves the ball the colour it was. Channel
+        //by channel, not in luminance alone: a grey in a pale ink keeps the luminance and loses the hue (it took the
+        //navy 10-12 dE towards the black). Black alone cannot (nothing is darker than its ground); its figure is held
+        //dim instead.
         [Theory]
         [MemberData(nameof(Sets))]
         public void TheInksKeepTheBallsAverageColour(int set)
@@ -96,17 +98,39 @@ namespace BS3D.Tests
             foreach (BallType type in Enum.GetValues<BallType>())
             {
                 (Vector3 figure, Vector3 ground) = Inks(set, type, out Vector3 plain);
-                float coverage = ColourCues.FigureOf(set, type).C.W;
-                float average = ColorSpace.Luminance(figure * coverage + ground * (1f - coverage));
-                float target = ColorSpace.Luminance(plain);
+                Vector3 average = AverageOf(figure, ground, ColourCues.FigureOf(set, type).C.W);
 
                 if (type == BallType.Type8)
-                    Assert.True(average <= 0.02f, $"set {set}: black averages {average:0.0000}, lighter than L* 15");
+                    Assert.True(ColorSpace.Luminance(average) <= 0.02f,
+                        $"set {set}: black averages {ColorSpace.Luminance(average):0.0000}, lighter than L* 15");
                 else
-                    Assert.True(MathF.Abs(average - target) <= 0.02f * target,
-                        $"set {set}, {type}: averages {average:0.0000} against its plain {target:0.0000}");
+                    Assert.True(AveragesTo(average, plain), $"set {set}, {type}: averages {average} against its plain {plain}");
             }
         }
+
+        //The check above is evidence only if it fires on what it is meant to catch (BestPractices.md section 10): the
+        //navy's pale ink with a grey of 0.05 in it, which keeps the navy's luminance to the third digit
+        [Fact]
+        public void TheAverageCheckFindsAGreyInAPaleInk()
+        {
+            Vector3 plain = ColorSpace.SrgbToLinear(BasicEffectParamsProvider.GetDiffuseTintByType(BallType.Type12));
+            const float coverage = 0.2f;
+            Vector3 figure = plain * 2.6f + new Vector3(0.05f);
+            float ground = (ColorSpace.Luminance(plain) - coverage * ColorSpace.Luminance(figure))
+                / ((1f - coverage) * ColorSpace.Luminance(plain));
+            Vector3 average = AverageOf(figure, plain * ground, coverage);
+
+            Assert.True(MathF.Abs(ColorSpace.Luminance(average) - ColorSpace.Luminance(plain)) < 1e-4f);
+            Assert.False(AveragesTo(average, plain));
+        }
+
+        private static Vector3 AverageOf(Vector3 figure, Vector3 ground, float coverage) => figure * coverage + ground * (1f - coverage);
+
+        //Every channel within 2 % of the plain colour's
+        private static bool AveragesTo(Vector3 average, Vector3 plain) =>
+            MathF.Abs(average.X - plain.X) <= 0.02f * plain.X + 1e-6f
+            && MathF.Abs(average.Y - plain.Y) <= 0.02f * plain.Y + 1e-6f
+            && MathF.Abs(average.Z - plain.Z) <= 0.02f * plain.Z + 1e-6f;
 
         //...and the ground is the plain colour scaled, never another hue: the marble scales its veined stone by it
         [Theory]
@@ -140,6 +164,42 @@ namespace BS3D.Tests
 
                 Assert.True(MathF.Abs(frame.Determinant() - 1f) < 1e-4f, $"set {set}, {type}: a frame is a reflection");
             }
+        }
+
+        //No family of bands covers its frame's poles: a cap there inside the next band round is a disc in a ring, the
+        //gravity well's bullseye. BallColourCue.fxh's band field, ported, over a cap 14 degrees round each pole.
+        [Theory]
+        [MemberData(nameof(Sets))]
+        public void NoBandsCoverTheirPoles(int set)
+        {
+            foreach (BallType type in Enum.GetValues<BallType>())
+            {
+                ColourCues.Figure figure = ColourCues.FigureOf(set, type);
+                if (figure.A.X != (float)ColourCues.Kind.Bands) continue;
+
+                Assert.True(PoleCapOutside(figure.A, figure.B), $"set {set}, {type}: \"{figure.Name}\" covers its frame's pole");
+            }
+        }
+
+        //...and the check fires on four bands at phase 0, whose poles fall inside a band
+        [Fact]
+        public void ThePoleCheckFindsACap() =>
+            Assert.False(PoleCapOutside(new Vector4((float)ColourCues.Kind.Bands, 4f, 0f, 0.5f), Vector4.Zero));
+
+        private static bool PoleCapOutside(Vector4 a, Vector4 b)
+        {
+            for (float along = 0.97f; along <= 1.0001f; along += 0.01f)
+                for (int sign = -1; sign <= 1; sign += 2)
+                    for (int step = 0; step < 72; step++)
+                    {
+                        float around = step * MathF.PI / 36f;
+                        float t = a.Y * along * sign + a.Z + b.X * MathF.Sin(b.Y * around);
+                        float field = MathF.Cos(MathF.PI * t) - MathF.Cos(MathF.PI * a.W);
+                        if (b.Z > 0f) field = MathF.Min(field, MathF.Cos(MathF.PI * b.Z) - MathF.Cos(MathF.PI * t));
+                        if (field > 0f) return false;
+                    }
+
+            return true;
         }
 
         [Fact]

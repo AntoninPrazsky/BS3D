@@ -12,20 +12,27 @@ namespace Prazsky.BS3D.GameStructure
     /// figures to pick from, so this holds four, each giving all thirteen colours a figure of its own, and nothing a
     /// player can reach draws any of them until he has picked one (<c>colourcue=motif:N</c> on the command line).
     /// <list type="number">
-    /// <item><b>Figures</b>: thirteen different geometric figures, the prototype's four (the silver's stripes, the
-    /// brown's dots, the white's checks, the yellow's stars) among them.</item>
+    /// <item><b>Figures</b>: thirteen figures of mixed kinds - bands, spots, checks and emblems - so that the tight
+    /// pairs differ in the kind of figure and not only in its detail; the silver's stripes, the brown's dots, the
+    /// white's checks and the yellow's stars among them.</item>
     /// <item><b>Emblems</b>: one printed symbol on each side of the ball, like the pips of a card (the four suits, a
     /// star, a moon, a drop...).</item>
     /// <item><b>Lines</b>: bands only, told apart by count, width, a wave, a dash or a double line - the calmest.</item>
     /// <item><b>Spots</b>: polka dots, told apart by count, size, rings and two sizes.</item>
     /// </list>
+    /// The sets share some figures, so a mix is cheap to make: eight of the first set's thirteen are emblems the
+    /// second set also draws (its stars, crosses and triangles are the second set's within a size), the first and
+    /// the fourth give brown the same twelve dots, and the first set's silver stripes are the third set's silver
+    /// bands in another frame.
     /// <para>
     /// <b>The inks keep the ball's average colour</b> (<see cref="Inks"/>): the figure is a darker or a paler shade of
-    /// the ball's own colour and the ground the plain colour scaled the other way, by the share of the ball the
-    /// figure covers, so where the figure is too small to see the ball still shows the colour it always had and no
-    /// two colours move closer. The prototype painted its figure on the plain colour, which darkened the light
-    /// colours towards the dark ones (white/silver fell from 18-25 to 8-12 dE). Only black cannot be balanced -
-    /// nothing is darker than its ground - so its figure is dim and small.
+    /// the ball's own colour - the colour scaled, never with a grey added - and the ground the plain colour scaled
+    /// the other way, by the share of the ball the figure covers, so the two average to the plain colour in hue as
+    /// well as in luminance, and a ball whose figure is too small to see shows the colour it always had. On screen
+    /// the tonemap does not average a bright ground and a dark figure back to exactly the plain colour, so a colour
+    /// with a large dark figure still darkens by a few dE and some pairs come closer; the comparison page and
+    /// "The colour cue" in <c>docs/rendering/ball-styles.md</c> give the measured pairs. Only black cannot be
+    /// balanced - nothing is darker than its ground - so its figure is a dim grey.
     /// </para>
     /// </summary>
     public static class ColourCues
@@ -94,25 +101,27 @@ namespace Prazsky.BS3D.GameStructure
         /// </summary>
         public readonly record struct Figure(string Name, Vector4 A, Vector4 B, Vector4 C, int Frame);
 
-        //The frames a figure is read in, their rows the figure's axes in object space. Each is turned off the object Y
-        //the vinyl's gores converge on, so no band reads as the beach ball's own pattern, and off each other, so a set
-        //does not line every colour's figure up the same way.
+        //The frames a figure is read in, their rows the figure's axes in object space. Frames 0-4 are turned well off
+        //the object Y the vinyl's gores converge on, so no band reads as the beach ball's own pattern, and off each
+        //other, so a set does not line every colour's figure up the same way. Frame 5 is tipped only 10 degrees, so
+        //the lines set's bands and the figures set's red band stand nearly level, and frame 6 is object space
+        //itself, which only the brown's dots use: a solid's vertices have no axis a gore could line up with.
         private static readonly Matrix[] Frames =
         {
-            //0: the prototype's stripes, tilted off Y and off the horizontal (the bomb's latitude bands)
+            //0: the silver's stripes, tilted off Y and off the horizontal (the bomb's latitude bands)
             Rows(0.871575f, -0.490262f, 0f, 0.449439f, 0.799002f, -0.399501f, 0.195860f, 0.348195f, 0.916733f),
-            //1: the prototype's checks
+            //1: the white's checks
             Rows(0.837812f, -0.427769f, 0.339242f, 0.477673f, 0.875240f, -0.076051f, -0.264386f, 0.225763f, 0.937620f),
-            //2: the prototype's stars
+            //2: the yellow's stars
             Rows(0.959194f, -0.236530f, 0.154919f, 0.154919f, 0.897985f, 0.411852f, -0.236530f, -0.371046f, 0.897985f),
             //3: the emblems', nearly upright (turned 20 degrees round Y and tipped 8 forward), so on a ball at rest
             //the side faces' emblems stand the way they were drawn
             Rows(0.939693f, 0f, 0.342020f, 0.047600f, 0.990268f, -0.130780f, -0.338692f, 0.139173f, 0.930548f),
             //4: a second lean, the other way from frame 0
             Rows(0.640057f, 0.446494f, -0.625276f, -0.541067f, 0.839733f, 0.045776f, 0.545504f, 0.309017f, 0.779060f),
-            //5: nearly upright, tipped just enough that a band is not a line of latitude
+            //5: nearly upright, tipped 10 degrees, just enough that a band is not a line of latitude
             Rows(0.970296f, -0.238247f, -0.042009f, 0.241922f, 0.955555f, 0.168490f, 0f, -0.173648f, 0.984808f),
-            //6: object space itself (the prototype's dots)
+            //6: object space itself (the brown's dots)
             Matrix.Identity,
         };
 
@@ -142,7 +151,9 @@ namespace Prazsky.BS3D.GameStructure
         //No figure spirals, zigzags or runs along meridians (the gravity well, the zap, the vinyl's gores), no ring
         //sits inside another (the gravity well's bullseye), no two bands cross round the ball (the mine's two seams,
         //which is why no set has a grid) and no X is pale on a dark colour (the mine's seams again, seen face on);
-        //"BallColourCue.fxh" lists what each must not look like.
+        //"BallColourCue.fxh" lists what each must not look like. No family of bands covers its frame's poles either:
+        //a cap there inside a ring is the bullseye again, so an even count takes phase 1 and an odd one phase 0,
+        //which leaves both poles between two bands.
         private static readonly Figure[][] Sets =
         {
             new[]
@@ -185,7 +196,7 @@ namespace Prazsky.BS3D.GameStructure
                 Bands("one wavy band", 5, 1f, 0.22f, 0.257f, waveAmplitude: 0.14f, waves: 4f),
                 Bands("a double line", 5, 1f, 0.36f, 0.254f, hollow: 0.14f),
                 Bands("a dotted line", 5, 1f, 0.16f, 0.079f, dashes: 14f, dashShare: 0.42f),
-                Bands("four broad bands", 5, 4f, 0.50f, 0.494f),
+                Bands("four broad bands", 5, 4f, 0.50f, 0.506f, phase: 1f),
                 Bands("one thin line", 5, 1f, 0.12f, 0.141f),
                 Bands("a wavy line", 5, 1f, 0.14f, 0.165f, waveAmplitude: 0.12f, waves: 6f),
                 Bands("two bands", 5, 2f, 0.30f, 0.315f, phase: 1f),
@@ -214,18 +225,22 @@ namespace Prazsky.BS3D.GameStructure
         private static readonly string[] SetNames = { "none", "figures", "emblems", "lines", "spots" };
 
         /// <summary>
-        /// The colours that take a PALER figure, with how: their colour times a gain, plus a grey. Every other colour
-        /// takes a darker one (<see cref="DARK_INK"/>). Black's is a dim grey and nothing more, because its average
-        /// can only rise: its ground cannot get darker than black to pay for the figure.
+        /// The colours that take a PALER figure, with how: their colour times a gain. Every other colour takes a
+        /// darker one (<see cref="DARK_INK"/>). A grey added to the gain would read brighter, but the ground is the
+        /// plain colour scaled, so nothing pays for a grey's hue and the ball's average turns greyer: 0.05 of grey
+        /// on the navy's figure leaves the navy 10-12 dE greyer, towards the black and the brown. So only black takes
+        /// a grey - a dim one and nothing more - because its average can only rise anyway: its ground cannot get
+        /// darker than black to pay for the figure. The navy's gain is the most that keeps its blue under 1 (a
+        /// reflectance); the luminance ratio <c>ColourCueTests</c> asks of every figure holds in every set.
         /// </summary>
         private static bool PaleInk(BallType type, out float gain, out float grey)
         {
             (gain, grey) = type switch
             {
-                BallType.Type8 => (1.0f, 0.08f),  //black
-                BallType.Type10 => (2.2f, 0.01f), //brown
-                BallType.Type11 => (2.0f, 0f),    //silver
-                BallType.Type12 => (2.6f, 0.05f), //navy
+                BallType.Type8 => (1.0f, 0.08f), //black
+                BallType.Type10 => (2.2f, 0f),   //brown
+                BallType.Type11 => (2.0f, 0f),   //silver
+                BallType.Type12 => (2.9f, 0f),   //navy
                 _ => (0f, 0f),
             };
 

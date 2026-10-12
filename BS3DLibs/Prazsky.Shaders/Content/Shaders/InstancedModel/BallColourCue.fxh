@@ -23,12 +23,18 @@
 //colour carries the same one: the figure names the colour, not the ball.
 //
 //WHAT NO FIGURE MAY LOOK LIKE. A special kind - the bomb's two slanted glowing seams (a "+" face on), the stone's
-//broken outline and cracks, the frozen ball's six flat faces, the heavy casting's soft patches, the gravity well's
-//spiral and its concentric rings (a bullseye), the zap's forked bolts, the clear glass's cast seam - or the vinyl's
-//gores, which are the rotation cue. So no figure spirals, zigzags or runs along meridians, no two bands cross round
-//the ball (the mine's seams: there is no grid), none glows brighter than its ball as a whole (it glows in its own
-//ink, and Prazsky.BS3D.ColourCues balances the two inks so that the ball's average colour stays its plain one), and
-//none is a thin dark crack.
+//broken outline and cracks, the frozen ball's six flat faces, the heavy casting's soft patches and mould flash, the
+//gravity well's spiral and its concentric rings (a bullseye), the zap's forked bolts, the clear glass's cast seam,
+//the acid's glowing lower half, the infectious ball's one lumpy crust, the buckshot's clump of loose pellets, the
+//wildcard's two colours swirled together, the dead weight's dither (its pixels cut away) - or the vinyl's gores,
+//which are the rotation cue. So no figure spirals, zigzags or runs along meridians, no two bands cross round the
+//ball (the mine's seams: there is no grid), no figure sits on one side of the ball (the acid's fill, the crust):
+//each covers it evenly, round an axis or at a solid's vertices; a figure is the ball's own colour in two shades,
+//never a second colour (the wildcard), painted on the round ball, never an outline of its own (the buckshot); none
+//glows brighter than its ball as a whole (it glows in its own ink, and Prazsky.BS3D.ColourCues balances the two
+//inks so that the ball's average colour stays its plain one), and none is a thin dark crack. The smallest spots
+//(the spots set's 9-degree dots) come nearest the dither: two or three pixels on a 23-pixel ball, they still read as
+//dots of the ball's darker shade, where a dead ball shows what is behind it.
 //===================================================================================================
 
 //One draw's figure, as BallColourCueTechniques.fxh reads it from its uniforms. The kinds' parameters:
@@ -314,12 +320,23 @@ float ColourCueMotifField(float3 direction, ColourCuePaint cue)
 
 //How much of this pixel the painted figure covers, 0..1: a one-pixel soft edge, and on a ball too small to carry
 //the figure, the figure's own share of the ball (cue.c.w), so that the two inks mix to the ball's plain colour.
+//
+//An emblem's field JUMPS where two faces of its cube meet, each face having its own projection, and the soft edge's
+//width, taken over the pixel quad, would span the jump: a faint line of ink (up to a third of the figure's) along
+//parts of the cube's edges, away from any emblem (the chevron, drop, triangle, star, spade, club and diamond leave
+//one). No emblem reaches the edge of its face, so a quad that straddles two faces is outside every emblem and draws
+//the ground. The face is the field's own select, taken here because a derivative may not sit in its branches.
 float ColourCueMotif(float3 direction, float footprint, ColourCuePaint cue)
 {
     float field = ColourCueMotifField(direction, cue);
     float fade = saturate(ColourCueFadeStart - footprint * ColourCueFadeRate);
+    float figure = AntialiasedStep(0, field);
 
-    return lerp(cue.c.w, AntialiasedStep(0, field), fade);
+    float3 m = abs(mul(cue.frame, direction));
+    float face = m.x >= max(m.y, m.z) ? 0 : (m.y >= m.z ? 1 : 2);
+    figure = cue.a.x > 3.5 && fwidth(face) > 0 ? 0 : figure;
+
+    return lerp(cue.c.w, figure, fade);
 }
 
 //The ink at this pixel: the figure's where it covers, the ground's elsewhere
