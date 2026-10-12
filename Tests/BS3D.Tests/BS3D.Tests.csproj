@@ -47,6 +47,8 @@
         in; and the copy's characters held to the typesetting rules.-->
     <Compile Include="..\..\Game\Screens\SpaceWrap.cs" />
     <Compile Include="..\..\Game\Screens\CopyRules.cs" />
+    <!--What the About page says (#807): strings only, held to those rules and to the credits it must keep.-->
+    <Compile Include="..\..\Game\Screens\AboutCopy.cs" />
     <Compile Include="..\..\Game\Screens\FieldTail.cs" />
     <!--A checkbox's tick (#816): which part of each row of pixels two round-ended strokes cover, no device.-->
     <Compile Include="..\..\Game\Screens\CheckTick.cs" />

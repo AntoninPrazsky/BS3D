@@ -554,3 +554,11 @@ Pravidla:
 - ⚠ První verze zlomu byla na 1600×900 šmouha 20 px: zlom musí růst, ne se smršťovat. ⚠ Flood celého pole před každou odpovědí stál 1,4 ms; teď průzkum 0,06 ms. ⚠ Ráně do koule na stěně pole zvenku najde umístění volnou buňku vedle ní, i uzavřenou: „nikde“ ji musí počítat.
 - Bez majitele, konzervativně: bliká jen, když náboj za ním skórovat může; karty tutoriálu beze změny; `streak=` drží jen do první neskórující rány.
 - Otevřené: verdikt oka a ucha; tichý konec na poslední ráně neověřen ve hře.
+
+## 2026-10-12 — #807 About na čtyři stránky — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #807 jde na main (merge následuje), `verdict-eye`: About má čtyři stránky: přehrávač originální skladby, hra s větou o soukromí, knihovny, nástroje s repozitářem. Šipky ◀ ▶ s LB/RB pod nimi; „1 of 4“. Stránka kreslí jen bloky z `AboutCopy.Pages`, `AboutCopyTests` čte totéž: kredity, pravidla sazby (viděny selhat).
+- Bez majitele (spí), konzervativně: přes řadu Play/Next šipky chodí po řadě a za jejími konci otáčí stránku (klávesnice nemá ramena, našla review), LB/RB otáčí odkudkoli (`MenuPage.ShoulderTurn`); About se vždy otevře na první stránce.
+- Strana 2: původní odstavec, věta o soukromí (sdílená se Settings) je delší než on. K verdiktu.
+- Nová páka `menucursor=<s>:<kroky>:<stisky>` (left, right, lb, rb) ověřila otáčení bez klávesnice.
+- ⚠ Ten večer stroj neměl zvukové zařízení (`[music] … could not be realized`), vizualizér na snímcích nesvítí.
+- Otevřené: verdikt oka; přehrávač s hudbou neslyšen.
