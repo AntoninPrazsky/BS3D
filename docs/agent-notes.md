@@ -582,6 +582,12 @@ Pravidla:
 - ⚠ Nula náklonu skočila, když vysokému levelu povolil limit míření (Totem: 30,7 → 33,8°, pohled klesl bez vstupu); nula teď sedí pod `OpeningElevationLimit()`.
 - Otevřené: pocit v ruce (myš, pad), skutečné okno 3840×1600.
 
+## 2026-10-12 — #737 varianty motivů barev — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #737 jde na main (merge následuje), `owner-decision`. Čtyři sady malovaných motivů dávají všem 13 barvám (i černé) vlastní figuru: 1 figurky, 2 emblémy, 3 pruhy, 4 puntíky. Za `colourcue=motif:1..4`, výchozí vypnuto, takže hra se nemění. Vyřezaný tvar je pryč. Inkousty drží průměrnou barvu koule na podílu, který vidí kamera; bledé inkousty (hnědá, námořní modř) bez šedi. Srovnávací stránka: https://claude.ai/artifact/QtAvLS7AxbhN4WBC72bu5U
+- Bez majitele (spí), konzervativně: nic výchozího, výběr či mix sad je jeho.
+- ⚠ Pruhy kolem svislé osy ukazují kameře o 15–18 % víc plochy než kouli; vyvažovat na podílu koule ztmavilo červenou o 4,7 dE. Pokrytí se musí přeměřit při každé změně figury.
+- Otevřené: volba sady; na vinylu sady nahradí bílé klíny plážového míče; HUD disky, kanón, ostatních 7 stylů a Pi figuru nekreslí; čas na GPU neměřen.
+
 ## 2026-10-12 — #726 vlastní zvuk modrého kroku stropu — desktop (RDT-PC), Claude Code (bs3d-71, noc)
 - #726 na větvi `726-feed-step-sound` (merge následuje), `shipped-awaiting-verdict` + `verdict-eye` (ucho). Modrý krok (feed i zvednutí Brzdou) má vlastní nahrávku `Sfx/ceiling-feed.ogg`: dva údery marimby stoupající o oktávu (C4 → C5), 76,7 % energie v 300–4000 Hz, `CEILING_FEED_LEVEL` 0,25 (na monitoru o 12 dB slyšitelnější než dřív, pod releasem i ránou); za ní bake `CeilingFeedSynth`. Řádek `[ceiling]` končí `heard <cue> at <hlasitost> +<n> st`; Totem: 17 kroků feedu a 2 Brzdy `ceiling-feed.ogg`, 8 červených `ceiling-step`.
 - Bez majitele, konzervativně: Brzda hraje tentýž stoupající zvuk, žádný protějšek (klesající figura tu znamená „ne“); proud feedů stoupá o půltón za krok až o kvintu; pod nahrávkou přimíchané tělo 132 Hz (3,4 %).

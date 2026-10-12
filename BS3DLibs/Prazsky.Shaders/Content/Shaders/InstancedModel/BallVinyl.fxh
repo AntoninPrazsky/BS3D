@@ -2,11 +2,11 @@
 //uniforms (PatternGoreCount and the rest) are declared in BallCommon.fxh, where they always stood: the
 //declaration order is the constant buffer's layout, so a uniform stays where it was first declared.
 
-//The vinyl's whole shading, with the colour cue prototypes' two switches (#737). Every caller passes them as
-//LITERALS - PatternPS below false and false, BallColourCueTechniques.fxh's two programs one true each - so each
-//program is compiled with only its own branch in it and the shipped technique's code is what it was before the
-//prototypes existed. `cue` is the per-draw slot those programs pass in; see BallColourCue.fxh.
-float4 PatternShade(PatternVertexShaderOutput input, bool motifCue, bool shapeCue, float cue)
+//The vinyl's whole shading, with the colour cue's switch (#737). Every caller passes it as a LITERAL - PatternPS
+//below false, BallColourCueTechniques.fxh's program true - so each program is compiled with only its own branch
+//in it and the shipped technique's code is what it was before the cue existed. `cue` is the draw's figure and its
+//two inks, which that program passes in; see BallColourCue.fxh.
+float4 PatternShade(PatternVertexShaderOutput input, bool motifCue, ColourCuePaint cue)
 {
     //The object-space radius is the ball's own radius, which turns the pixel footprint below into the
     //units the relief is written in without the shader having to be told how big a ball is
@@ -42,15 +42,14 @@ float4 PatternShade(PatternVertexShaderOutput input, bool motifCue, bool shapeCu
     color = lerp(color, primary, AntialiasedStep(PatternCapExtent, pole));
     color = lerp(color, secondary, AntialiasedStep(PatternCapExtent + PatternRingWidth, pole));
 
-    //The painted cue REPLACES the gores and the discs: the ball's own colour with the figure in the gores' white,
-    //so a beach ball keeps its two-colour paint and only the paint job says which colour it is - or, on a colour
-    //too light for white to show on (the beige, the yellow), in the darker shade the other styles use
-    //(ColourCueInk). The footprint is the one taken below for the relief, written out because the gores come first.
+    //The painted cue REPLACES the gores and the discs: the paint job is the figure in its two inks, a darker or a
+    //paler shade of the ball's colour balanced so the ball averages its plain colour (Prazsky.BS3D.ColourCues).
+    //The footprint is the one taken below for the relief, written out because the gores come first.
     float cueFigure = 0;
     if (motifCue)
     {
         cueFigure = ColourCueMotif(direction, (length(ddx(input.WorldPosition)) + length(ddy(input.WorldPosition))) / radius, cue);
-        color = lerp(primary, ColourCueInk(primary, secondary), cueFigure);
+        color = ColourCueDye(cueFigure, cue);
     }
 
     //The panels are welded together, not painted on: press a groove in along every gore boundary and
@@ -73,15 +72,10 @@ float4 PatternShade(PatternVertexShaderOutput input, bool motifCue, bool shapeCu
 
     float height = SurfaceRelief(direction, footprint) * PatternReliefStrength - seams * PatternSeamDepth;
 
-    //A carved cue rides in the same height field, so the one perturbation below shades it, and its hollows see
-    //less of the sky
-    float cueCavity = 1;
-    if (shapeCue) height += ColourCueShape(direction, footprint, radius, cue, cueCavity);
-
     float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
 
     //The balls carry their own relief; the scene cavity term is not it
-    float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(color, 1), 1, cueCavity);
+    float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(color, 1), 1, 1);
 
     //Light carried through the shell from behind. A ball lit from the far side glows around its rim
     //instead of going flatly black, which is what tells the eye the thing is a skin around a volume
@@ -101,19 +95,14 @@ float4 PatternShade(PatternVertexShaderOutput input, bool motifCue, bool shapeCu
     //The ball glows with its own color, not with the pattern's: the gores and the polar discs are white,
     //and emitting through them made half of every ball radiate white light, which is both the wrong color
     //and the reason they read as washed out. What is alive here is the ball, not its paint job.
-    //A painted cue in the darker shade glows in that shade (#737), as the wool's dye and the marble's inlay do: the
-    //plain colour's glow over it washed the checks and the stars off the beige and the yellow entirely, under the
-    //dark dome and visibly even under the bright one. ColourCueInk with the plain colour as its pale ink leaves a
-    //dark colour's glow alone, so a figure in the gores' white still does not radiate white.
-    //A carved cue's hollows glow less (#737): where a ball is lit mostly by its own emission - a dark dome, the
-    //underside of a pile - an even glow over the carve would light it as if it were not there
+    //A painted cue glows in its inks (#737), as the wool's dye and the marble's inlay do: the plain colour's glow
+    //over a figure in a darker shade washed it off the beige and the yellow entirely under the dark dome, and
+    //visibly even under the bright one. The inks are shades of the ball's own colour that average to it, so the
+    //ball as a whole radiates what it did.
     float3 glowDye = primary;
-    if (motifCue) glowDye = lerp(primary, ColourCueInk(primary, primary), cueFigure);
+    if (motifCue) glowDye = color;
 
-    float3 glow = BallEmission(glowDye, input.WorldPosition, occlusion);
-    if (shapeCue) glow *= cueCavity;
-
-    shaded.rgb += glow;
+    shaded.rgb += BallEmission(glowDye, input.WorldPosition, occlusion);
 
     //And on top of the resting breath, the ripple: the light that runs out through the cluster from
     //wherever a ball has just landed. WHEN this ball takes its turn was decided on the CPU by walking the
@@ -176,7 +165,7 @@ float4 PatternShade(PatternVertexShaderOutput input, bool motifCue, bool shapeCu
 
 float4 PatternPS(PatternVertexShaderOutput input) : COLOR
 {
-    return PatternShade(input, false, false, 0);
+    return PatternShade(input, false, (ColourCuePaint)0);
 }
 
 technique InstancedModelPattern
