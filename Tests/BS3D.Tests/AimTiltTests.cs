@@ -143,16 +143,22 @@ namespace BS3D.Tests
         public void TheChaseIsTheSameAtEveryFrameRate()
         {
             //From a lens already moving (a sweep under way), towards a held target the other way: 24, 60 and 240 frames a
-            //second have to be at the same place at every instant they share, because the closed form composes exactly
+            //second have to be at the same place at every instant they share — each twelfth of a second, the first
+            //instant all three land on — because the closed form composes exactly
             float[] slow = Chase(24, 2f);
             float[] mid = Chase(60, 2f);
             float[] fast = Chase(240, 2f);
 
-            for (int i = 0; i < slow.Length; i++)
+            for (int twelfth = 0; twelfth <= 24; twelfth++)
             {
-                Assert.Equal(slow[i], Sample(mid, 60, i / 24f), 5);
-                Assert.Equal(slow[i], Sample(fast, 240, i / 24f), 5);
+                float at = twelfth / 12f;
+
+                Assert.Equal(Sample(slow, 24, at), Sample(mid, 60, at), 5);
+                Assert.Equal(Sample(slow, 24, at), Sample(fast, 240, at), 5);
             }
+
+            //...and the instants compared are not all on the target already, or the test would say nothing
+            Assert.True(MathF.Abs(Sample(slow, 24, 0.25f) - 0.08f) > 0.01f, "the chase had arrived before the first comparison");
         }
 
         [Fact]
