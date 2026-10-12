@@ -581,3 +581,9 @@ Pravidla:
 - Bez majitele, konzervativně: hloubka ponoru dolů malá; horizont scény není slibem fitu.
 - ⚠ Nula náklonu skočila, když vysokému levelu povolil limit míření (Totem: 30,7 → 33,8°, pohled klesl bez vstupu); nula teď sedí pod `OpeningElevationLimit()`.
 - Otevřené: pocit v ruce (myš, pad), skutečné okno 3840×1600.
+
+## 2026-10-12 — #737 varianty motivů barev — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #737 jde na main (merge následuje), `owner-decision`. Čtyři sady malovaných motivů dávají všem 13 barvám (i černé) vlastní figuru: 1 figurky, 2 emblémy, 3 pruhy, 4 puntíky. Za `colourcue=motif:1..4`, výchozí vypnuto, takže hra se nemění. Vyřezaný tvar je pryč. Inkousty drží průměrnou barvu koule na podílu, který vidí kamera; bledé inkousty (hnědá, námořní modř) bez šedi. Srovnávací stránka: https://claude.ai/artifact/QtAvLS7AxbhN4WBC72bu5U
+- Bez majitele (spí), konzervativně: nic výchozího, výběr či mix sad je jeho.
+- ⚠ Pruhy kolem svislé osy ukazují kameře o 15–18 % víc plochy než kouli; vyvažovat na podílu koule ztmavilo červenou o 4,7 dE. Pokrytí se musí přeměřit při každé změně figury.
+- Otevřené: volba sady; na vinylu sady nahradí bílé klíny plážového míče; HUD disky, kanón, ostatních 7 stylů a Pi figuru nekreslí; čas na GPU neměřen.

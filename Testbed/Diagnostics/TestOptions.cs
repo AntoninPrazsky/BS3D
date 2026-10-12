@@ -312,15 +312,14 @@ namespace Testbed.Diagnostics
         public BallStyle? Balls { get; private set; }
 
         /// <summary>
-        /// <c>colourcue=&lt;none|motif|shape&gt;</c> (#737): the colour cue prototypes, the figure four colours carry
-        /// beside their hue, painted (<c>motif</c>, also <c>a</c>) or carved (<c>shape</c>, also <c>b</c>). Off
-        /// by default. Spelled through <see cref="ColourCues.TryParseForm"/>, which the Game's argument also
-        /// takes, and alternable (<c>alt=colourcue=none;colourcue=motif;colourcue=shape</c>): a switch is a
-        /// technique chosen per draw and leaves nothing behind. For the forms' COST, run one per process instead: an
-        /// alternation misread them once the carve drew on the finest mesh ("The colour cue prototypes" in
-        /// <c>docs/rendering/ball-styles.md</c>).
+        /// <c>colourcue=&lt;none|motif|motif:N&gt;</c> (#737): the colour cue, which of the figure sets every colour
+        /// carries painted beside its hue (<c>motif</c> and <c>a</c> are set 1; the sets' own names work too). Off by
+        /// default. Spelled through <see cref="ColourCues.TryParse"/>, which the Game's argument also takes, and
+        /// alternable (<c>alt=colourcue=none;colourcue=motif:2</c>): a switch is a technique and a few uniforms chosen
+        /// per draw and leaves nothing behind. For a set's COST, run one per process all the same, as the
+        /// benchmark skill does ("The colour cue" in <c>docs/rendering/ball-styles.md</c>).
         /// </summary>
-        public ColourCueForm ColourCue { get; private set; }
+        public int ColourCue { get; private set; }
 
         /// <summary><c>campos=x,y,z</c>: place the free camera at startup, so a shot can be framed from anywhere.</summary>
         public Vector3? CamPos { get; private set; }
@@ -482,7 +481,13 @@ namespace Testbed.Diagnostics
                     options.SceneSeed = parsedSceneSeed;
                 else if (arg.StartsWith("weather=", StringComparison.OrdinalIgnoreCase)) options.Weather = arg.Substring("weather=".Length);
                 else if (arg.StartsWith("balls=", StringComparison.OrdinalIgnoreCase) && BallStyles.TryParse(arg.Substring("balls=".Length), out BallStyle parsedBalls)) options.Balls = parsedBalls;
-                else if (arg.StartsWith("colourcue=", StringComparison.OrdinalIgnoreCase) && ColourCues.TryParseForm(arg.Substring("colourcue=".Length), out ColourCueForm parsedCue)) options.ColourCue = parsedCue;
+                //Always consumed, so a spelling the parse refuses (the carved prototype's "shape") is named and dropped
+                //rather than falling through to StartupMapPath
+                else if (arg.StartsWith("colourcue=", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (ColourCues.TryParse(arg.Substring("colourcue=".Length), out int parsedCue)) options.ColourCue = parsedCue;
+                    else Console.WriteLine($"[colourcue] \"{arg}\" is not a figure set: none, motif or motif:1 to motif:{ColourCues.SET_COUNT}");
+                }
                 else if (arg.StartsWith("width=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("width=".Length), out int parsedWidth) && parsedWidth > 0) options.WindowWidth = parsedWidth;
                 else if (arg.StartsWith("height=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("height=".Length), out int parsedHeight) && parsedHeight > 0) options.WindowHeight = parsedHeight;
                 //"campos=x,y,z" / "camtarget=x,y,z" place and aim the free camera at startup, so a screenshot

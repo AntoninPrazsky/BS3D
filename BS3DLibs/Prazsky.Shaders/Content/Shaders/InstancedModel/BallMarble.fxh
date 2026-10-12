@@ -139,9 +139,9 @@ float MarbleTurbulence(float3 direction, float footprint)
         + 0.08 * abs(ReliefOctave(direction, float3(-0.82, -0.31, 0.48), 14.0, footprint));
 }
 
-//The marble's whole shading, with the colour cue prototypes' two switches (#737) passed as literals, exactly as
-//PatternShade takes them: MarblePS below compiles to what it was before they existed.
-float4 MarbleShade(PatternVertexShaderOutput input, bool motifCue, bool shapeCue, float cue)
+//The marble's whole shading, with the colour cue's switch (#737) passed as a literal, exactly as PatternShade
+//takes it: MarblePS below compiles to what it was before the cue existed.
+float4 MarbleShade(PatternVertexShaderOutput input, bool motifCue, ColourCuePaint cue)
 {
     float radius = max(length(input.ObjectPosition), 1e-5);
     float3 direction = input.ObjectPosition / radius;
@@ -192,17 +192,18 @@ float4 MarbleShade(PatternVertexShaderOutput input, bool motifCue, bool shapeCue
     float3 body = primary * (1 - MarbleMottle * turbulence) * (1 - MarbleVeinShade * margin);
     float3 color = lerp(body, lerp(primary, mineral, MarbleVeinContrast), vein);
 
-    //A painted cue (#737) is an INLAY: a second stone in a darker or paler shade of the ball's own colour
-    //(ColourCueInk), cut over the veins
+    //A painted cue (#737) is an INLAY: a second stone in the figure's ink, a darker or a paler shade of the ball's
+    //own colour, cut over the veined stone, which takes the ground ink's share of the colour (the ground ink is
+    //always the plain colour scaled, ColourCues' balance), so the ball still averages its plain colour
     float3 cueDye = primary;
 
     if (motifCue)
     {
         float figure = ColourCueMotif(direction, footprint, cue);
-        float3 ink = ColourCueInk(primary, lerp(primary, ColourCueInkPale, ColourCueInkPaleShare));
+        float groundShare = dot(cue.groundInk, 1) / max(dot(primary, 1), 1e-5);
 
-        color = lerp(color, ink, figure);
-        cueDye = lerp(primary, ink, figure);
+        color = lerp(color * groundShare, cue.figureInk, figure);
+        cueDye = ColourCueDye(figure, cue);
     }
 
     //Polished: the broad lobe cut back, the environment raised, and smoothness left at 1 so Fresnel still
@@ -216,12 +217,7 @@ float4 MarbleShade(PatternVertexShaderOutput input, bool motifCue, bool shapeCue
     //No relief and no cavity: the surface IS the sphere. Both of the shading's relief arguments are 1.
     float3 worldNormal = normalize(input.WorldNormal);
 
-    //...except where a carved cue (#737) cuts it: the carve is the polished stone's only relief
-    float cueCavity = 1;
-    if (shapeCue) worldNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition,
-        ColourCueShape(direction, footprint, radius, cue, cueCavity));
-
-    float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(color, 1), 1, cueCavity, surface);
+    float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(color, 1), 1, 1, surface);
 
     //The polish. One lobe, off the key light alone: the fill and back lights are what the material's own
     //broad highlight above still answers, and three pinpoints on one sphere read as three suns rather
@@ -237,12 +233,9 @@ float4 MarbleShade(PatternVertexShaderOutput input, bool motifCue, bool shapeCue
     //Contract point 2, through BallEmission (#303): the resting glow follows the occlusion, the beat's
     //swing punches through. In the ball's own colour and not the vein's, for the reason PatternPS gives
     //about its gores - what is alive here is the ball, not its figure.
-    //The cue glows in its own stone (#737), and a carve's hollows glow less: see WoolShade, where an even glow in the
-    //plain colour washed a painted figure out under the dark dome
-    float3 glow = BallEmission(cueDye, input.WorldPosition, occlusion);
-    if (shapeCue) glow *= cueCavity;
-
-    shaded.rgb += glow;
+    //The cue glows in its own stone (#737): see WoolShade, where an even glow in the plain colour washed a painted
+    //figure out under the dark dome
+    shaded.rgb += BallEmission(cueDye, input.WorldPosition, occlusion);
 
     //Contract point 3, in BOTH of its meanings, and the arithmetic is PatternPS's deliberately: the wave
     //has to look the same whatever the cluster is cut from, or a level tells the player something
@@ -267,7 +260,7 @@ float4 MarbleShade(PatternVertexShaderOutput input, bool motifCue, bool shapeCue
 
 float4 MarblePS(PatternVertexShaderOutput input) : COLOR
 {
-    return MarbleShade(input, false, false, 0);
+    return MarbleShade(input, false, (ColourCuePaint)0);
 }
 
 technique InstancedModelMarble

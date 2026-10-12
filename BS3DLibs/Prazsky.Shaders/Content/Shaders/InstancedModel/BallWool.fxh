@@ -121,9 +121,9 @@ float WoolHeight(float3 direction, float footprint)
     return strands + fibre * WoolFibreDepth;
 }
 
-//The wool's whole shading, with the colour cue prototypes' two switches (#737) passed as literals, exactly as
-//PatternShade takes them: WoolPS below compiles to what it was before they existed.
-float4 WoolShade(PatternVertexShaderOutput input, bool motifCue, bool shapeCue, float cue)
+//The wool's whole shading, with the colour cue's switch (#737) passed as a literal, exactly as PatternShade takes
+//it: WoolPS below compiles to what it was before the cue existed.
+float4 WoolShade(PatternVertexShaderOutput input, bool motifCue, ColourCuePaint cue)
 {
     float radius = max(length(input.ObjectPosition), 1e-5);
     float3 direction = input.ObjectPosition / radius;
@@ -139,13 +139,7 @@ float4 WoolShade(PatternVertexShaderOutput input, bool motifCue, bool shapeCue, 
     //because the strand direction visibly sweeps across the surface.
     float profile = WoolHeight(direction, footprint);
 
-    //A carved cue (#737) is wound over: it rides in the strands' own height field, and its hollows join the
-    //crevices in what they take from the ambient
-    float cueCavity = 1;
-    float cueHeight = 0;
-    if (shapeCue) cueHeight = ColourCueShape(direction, footprint, radius, cue, cueCavity);
-
-    float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, profile * WoolStrandDepth + cueHeight);
+    float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, profile * WoolStrandDepth);
 
     float3 primary = SrgbToLinear(PatternPrimaryColor);
 
@@ -153,11 +147,10 @@ float4 WoolShade(PatternVertexShaderOutput input, bool motifCue, bool shapeCue, 
     //strands, which is a depth and not a colour, so no hue is lost at any tint.
     float crevice = 1 - WoolCrevice * saturate(-profile);
 
-    //A painted cue (#737) is DYED into the yarn: knitted colourwork in a darker or paler shade of the ball's own
-    //colour (ColourCueInk), under the same crevices as the rest of the strand
+    //A painted cue (#737) is DYED into the yarn: knitted colourwork in its two inks, a darker or a paler shade of
+    //the ball's own colour that average to it, under the same crevices as the rest of the strand
     float3 dyed = primary;
-    if (motifCue) dyed = lerp(primary, ColourCueInk(primary, lerp(primary, ColourCueInkPale, ColourCueInkPaleShare)), ColourCueMotif(direction, footprint, cue));
-    if (shapeCue) crevice *= cueCavity;
+    if (motifCue) dyed = ColourCueDye(ColourCueMotif(direction, footprint, cue), cue);
 
     float3 color = dyed * crevice;
 
@@ -195,11 +188,8 @@ float4 WoolShade(PatternVertexShaderOutput input, bool motifCue, bool shapeCue, 
     //swing punches through.
     //A painted cue glows in its dye (#737), not in the plain colour: under a dark dome, or under the pile, the emission
     //is most of what a wool ball shows, and an even glow in the plain colour washed the figure out entirely (the
-    //first captures under dome 13 lost all four on the lower row). A carved cue's hollows glow less, for the same reason.
-    float3 glow = BallEmission(motifCue ? dyed : primary, input.WorldPosition, occlusion);
-    if (shapeCue) glow *= cueCavity;
-
-    shaded.rgb += glow;
+    //first captures under dome 13 lost every figure on the lower row).
+    shaded.rgb += BallEmission(motifCue ? dyed : primary, input.WorldPosition, occlusion);
 
     //Contract point 3, in BOTH meanings, and PatternPS's arithmetic deliberately: a landing has to look
     //the same whatever the cluster is made of.
@@ -223,7 +213,7 @@ float4 WoolShade(PatternVertexShaderOutput input, bool motifCue, bool shapeCue, 
 
 float4 WoolPS(PatternVertexShaderOutput input) : COLOR
 {
-    return WoolShade(input, false, false, 0);
+    return WoolShade(input, false, (ColourCuePaint)0);
 }
 
 technique InstancedModelWool
