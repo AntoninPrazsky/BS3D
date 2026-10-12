@@ -24,11 +24,14 @@
 //WHAT NEITHER MAY LOOK LIKE. A special kind - the bomb's slanted glowing seams and studs, the stone's broken
 //outline and cracks, the frozen ball's six flat faces, the heavy casting's patches, the gravity well's spiral,
 //the zap's bolts, the clear glass's cast seam - or the vinyl's gores, which are the rotation cue. So a painted
-//figure is a paler or darker shade of the ball's own colour and never glows, the stripes are tilted off every
-//axis the gores and the polar discs use, the facets are twenty small ones and not six big ones, and every carve
-//is INWARD only: a drawn ball that left its cell would overlap a neighbour the simulation says it is not
-//touching (the stone's and the frozen ball's rule). The physics, the lattice and the match rule never see any
-//of it - they are about the type, and the type is still a sphere.
+//figure is a paler or darker shade of the ball's own colour and glows no brighter than the ball does (in its
+//dye where it is the darker shade, so the plain colour's glow cannot wash it out; never a lit seam of its own),
+//the stripes, the ridges and the twisted grooves all turn round one axis tilted off the object Y the gores and
+//the polar discs use (round Y the ridges ran beside the vinyl's welds and read as more of them), the facets are
+//twenty small ones and not six big ones, and every carve is INWARD only: a drawn ball that left its cell would
+//overlap a neighbour the simulation says it is not touching (the stone's and the frozen ball's rule). The
+//physics, the lattice and the match rule never see any of it - they are about the type, and the type is still
+//a sphere.
 //===================================================================================================
 
 //THE PAINTED FIGURES
@@ -36,6 +39,13 @@
 //The stripes run round this axis: tilted off the object Y the gores converge on, so three pale bands cannot be
 //read as the beach ball's own pattern, and off the horizontal so they are not the bomb's latitude bands either.
 static const float3 ColourCueStripeAxis = float3(0.449439, 0.799002, -0.399501);
+
+//The same axis as the middle row of a frame, for the carves cut AROUND it (the ridges, the twisted grooves):
+//mul(ColourCueLobeFrame, direction).y is the height along it and .xz the plane across it.
+static const float3x3 ColourCueLobeFrame = float3x3(
+    0.871575, -0.490262, 0.000000,
+    0.449439, 0.799002, -0.399501,
+    0.195860, 0.348195, 0.916733);
 
 //Three bands (at the axis's equator and at +-2/3 along it) and the share of each period the pale band takes.
 //Three, not more: at play distance a ball is 14-20 display pixels in radius and a band has to stay several
@@ -160,6 +170,14 @@ float3 ColourCueInk(float3 primary, float3 pale)
 //object-space normal into the world (the gem's lesson). The deepest carve is 0.16 of the radius, 0.08 world units
 //on a ball of radius 0.5: inside the sun shadow's 0.12 bias, so a carved ball does not shadow itself on its own
 //sphere's map (the caster still draws spheres).
+//
+//THE OUTLINE IS ONLY AS GOOD AS THE MESH UNDER IT. The vertex shader moves the vertices the sphere has, and a
+//groove that falls between two of them is not in the silhouette at all, while the pixel shader shades every
+//groove whole. On the LOD a ball in play is drawn at (24 x 12, a vertex every 15 degrees) a ridge 14 degrees wide
+//was in the outline anywhere from not at all to whole, and the figure changed when a ball crossed an LOD
+//threshold. So a carved colour is drawn on the finest mesh (64 x 32) whatever its size (BallRenderSet.Store),
+//which carries 85-100 % of each ridge's depth, 66-100 % of each twisted groove's (they cross the grid on a slant)
+//and all of the dimples and the facets. A shipped carve would want a mesh made for its figure.
 
 //The grooves between the ridges and the twisted ones: how wide a groove is (in |sin| of its angle round the ball)
 //and how deep, and where towards the poles they fade (the lobes converge there and a groove would pinch to a point).
@@ -214,9 +232,11 @@ float ColourCueCarve(float3 direction, float cue)
     [branch]
     if (cue < 1.5)
     {
-        float across = sin(3 * atan2(direction.z, direction.x)) / ColourCueGrooveWidth;
+        //Round the tilted lobe axis, not object Y: round Y the six grooves ran beside the vinyl's gore welds
+        float3 lobe = mul(ColourCueLobeFrame, direction);
+        float across = sin(3 * atan2(lobe.z, lobe.x)) / ColourCueGrooveWidth;
         float groove = saturate(1 - across * across);
-        carve = ColourCueRidgeDepth * groove * groove * smoothstep(0, ColourCuePoleFade, length(direction.xz));
+        carve = ColourCueRidgeDepth * groove * groove * smoothstep(0, ColourCuePoleFade, length(lobe.xz));
     }
     else if (cue < 2.5)
     {
@@ -239,9 +259,10 @@ float ColourCueCarve(float3 direction, float cue)
     }
     else
     {
-        float across = sin(2 * atan2(direction.z, direction.x) + ColourCueTwist * direction.y) / ColourCueGrooveWidth;
+        float3 lobe = mul(ColourCueLobeFrame, direction);
+        float across = sin(2 * atan2(lobe.z, lobe.x) + ColourCueTwist * lobe.y) / ColourCueGrooveWidth;
         float groove = saturate(1 - across * across);
-        carve = ColourCueTwistDepth * groove * groove * smoothstep(0, ColourCuePoleFade, length(direction.xz));
+        carve = ColourCueTwistDepth * groove * groove * smoothstep(0, ColourCuePoleFade, length(lobe.xz));
     }
 
     return carve;

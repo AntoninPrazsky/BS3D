@@ -3,6 +3,7 @@ using Prazsky.Core.Render;
 using System;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using Xunit;
 
@@ -63,18 +64,70 @@ namespace BS3D.Tests
         [Fact]
         public void TheFiguresFileDeclaresNoUniform()
         {
-            string code = Regex.Replace(File.ReadAllText(FiguresFile()), @"//[^\n]*", string.Empty);
+            string[] uniforms = GlobalDeclarations(File.ReadAllText(FiguresFile()));
 
-            //A declaration at the top level that is not a static constant: a type, a name, then ';', '=' or ':' (a
-            //function's name is followed by '(' instead). Anything this finds is a uniform, and it would move every
-            //uniform declared after it in InstancedModel.fx.
-            MatchCollection uniforms = Regex.Matches(code,
-                @"^(?:uniform\s+)?(?:float|int|uint|bool|half|float[1-4](?:x[1-4])?|texture\w*|sampler\w*)\s+\w+\s*(?:\[[^\]]*\]\s*)?[;=:]",
-                RegexOptions.Multiline);
+            Assert.True(uniforms.Length == 0,
+                "BallColourCue.fxh declares " + string.Join(", ", uniforms) + ": a uniform here moves the constant buffer "
+                + "of every program after it; it belongs in BallColourCueTechniques.fxh, last in the effect");
+        }
 
-            Assert.True(uniforms.Count == 0,
-                "BallColourCue.fxh declares " + string.Join(", ", uniforms.Select(m => m.Value.Trim())) + ": a uniform here moves the "
-                + "constant buffer of every program after it; it belongs in BallColourCueTechniques.fxh, last in the effect");
+        //The check above is evidence only if it fires on what it is meant to catch (BestPractices.md section 10).
+        //Every one of these goes into $Globals, the non-static const too (d3dcompiler_47 warns X3207 and lays it
+        //out at offset 0), and none of them is a line the earlier one-line pattern of this test caught.
+        [Theory]
+        [InlineData("const float NotStatic = 0.5;")]
+        [InlineData("extern float E;")]
+        [InlineData("matrix M;")]
+        [InlineData("int2 I;")]
+        [InlineData("    float Indented;")]
+        [InlineData("uniform float U;")]
+        [InlineData("float4 V = float4(1, 2, 3, 4);")]
+        [InlineData("Texture2D T;")]
+        [InlineData("static const float S = 1;\nfloat F(float3 d) { return d.x; }\nfloat AfterAFunction;")]
+        public void TheUniformCheckFindsAGlobal(string hlsl) => Assert.Single(GlobalDeclarations(hlsl));
+
+        //...and stays quiet on everything the figures' file is allowed to hold
+        [Theory]
+        [InlineData("static const float S = 1;")]
+        [InlineData("static const float3 A[2] =\n{\n    float3(1, 0, 0),\n    float3(0, 1, 0)\n};")]
+        [InlineData("static const float3x3 F = float3x3(1, 0, 0, 0, 1, 0, 0, 0, 1);")]
+        [InlineData("float F(float3 d, float c, out float o)\n{\n    o = 0;\n    [branch] if (c < 1) { o = 1; }\n    return d.x;\n}")]
+        [InlineData("float4 PS(VSOut input) : COLOR { return 0; }")]
+        [InlineData("struct S { float a; };")]
+        [InlineData("#include \"x.fxh\"\n// float Commented;\n/* float Blocked; */")]
+        public void TheUniformCheckPassesWhatIsNotAGlobal(string hlsl) => Assert.Empty(GlobalDeclarations(hlsl));
+
+        /// <summary>
+        /// The top-level declarations of an HLSL source that are neither a static constant nor a function (nor a struct
+        /// or a technique): what the compiler lays out in <c>$Globals</c>. Comments and preprocessor lines go first;
+        /// every brace block at the top level is then cut down to a statement end, so a function body and an
+        /// initializer list both leave their head behind as a statement of its own, and each statement is judged whole.
+        /// </summary>
+        internal static string[] GlobalDeclarations(string hlsl)
+        {
+            string code = Regex.Replace(hlsl, @"/\*.*?\*/", " ", RegexOptions.Singleline);
+            code = Regex.Replace(code, @"//[^\n]*", string.Empty);
+            code = Regex.Replace(code, @"^[ \t]*#[^\n]*", string.Empty, RegexOptions.Multiline);
+
+            StringBuilder topLevel = new();
+            int depth = 0;
+
+            foreach (char c in code)
+            {
+                if (c == '{')
+                {
+                    if (depth++ == 0) topLevel.Append(';');
+                }
+                else if (c == '}') depth--;
+                else if (depth == 0) topLevel.Append(c);
+            }
+
+            return topLevel.ToString().Split(';')
+                .Select(statement => Regex.Replace(statement, @"\s+", " ").Trim())
+                .Where(statement => statement.Length > 0
+                    && !Regex.IsMatch(statement, @"^(?:static|struct|technique\w*)\b")
+                    && !Regex.IsMatch(statement, @"^[A-Za-z_][\w ]*\([^;]*\)(?: ?: ?\w+)?$"))
+                .ToArray();
         }
 
         private static string FiguresFile()

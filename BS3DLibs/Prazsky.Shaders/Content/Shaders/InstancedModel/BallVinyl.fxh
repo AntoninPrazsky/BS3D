@@ -46,8 +46,12 @@ float4 PatternShade(PatternVertexShaderOutput input, bool motifCue, bool shapeCu
     //so a beach ball keeps its two-colour paint and only the paint job says which colour it is - or, on a colour
     //too light for white to show on (the beige, the yellow), in the darker shade the other styles use
     //(ColourCueInk). The footprint is the one taken below for the relief, written out because the gores come first.
-    if (motifCue) color = lerp(primary, ColourCueInk(primary, secondary), ColourCueMotif(direction,
-        (length(ddx(input.WorldPosition)) + length(ddy(input.WorldPosition))) / radius, cue));
+    float cueFigure = 0;
+    if (motifCue)
+    {
+        cueFigure = ColourCueMotif(direction, (length(ddx(input.WorldPosition)) + length(ddy(input.WorldPosition))) / radius, cue);
+        color = lerp(primary, ColourCueInk(primary, secondary), cueFigure);
+    }
 
     //The panels are welded together, not painted on: press a groove in along every gore boundary and
     //around the rim of each polar disc. The gore grooves fade out towards the poles, where the
@@ -97,9 +101,16 @@ float4 PatternShade(PatternVertexShaderOutput input, bool motifCue, bool shapeCu
     //The ball glows with its own color, not with the pattern's: the gores and the polar discs are white,
     //and emitting through them made half of every ball radiate white light, which is both the wrong color
     //and the reason they read as washed out. What is alive here is the ball, not its paint job.
+    //A painted cue in the darker shade glows in that shade (#737), as the wool's dye and the marble's inlay do: the
+    //plain colour's glow over it washed the checks and the stars off the beige and the yellow entirely, under the
+    //dark dome and visibly even under the bright one. ColourCueInk with the plain colour as its pale ink leaves a
+    //dark colour's glow alone, so a figure in the gores' white still does not radiate white.
     //A carved cue's hollows glow less (#737): where a ball is lit mostly by its own emission - a dark dome, the
     //underside of a pile - an even glow over the carve would light it as if it were not there
-    float3 glow = BallEmission(primary, input.WorldPosition, occlusion);
+    float3 glowDye = primary;
+    if (motifCue) glowDye = lerp(primary, ColourCueInk(primary, primary), cueFigure);
+
+    float3 glow = BallEmission(glowDye, input.WorldPosition, occlusion);
     if (shapeCue) glow *= cueCavity;
 
     shaded.rgb += glow;

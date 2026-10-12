@@ -689,6 +689,15 @@ namespace Prazsky.Core.Render
         public int ColourCue { get; set; }
 
         /// <summary>
+        /// Whether this renderer, at its current <see cref="Shading"/>, has the colour cue prototype program for
+        /// <paramref name="form"/> (#737): the vinyl, the wool and the marble do, every other shading and the Potato
+        /// effect do not. <c>Prazsky.BS3D.BallRenderSet</c> asks it before drawing a carved colour on its finest
+        /// mesh, so a style that draws no carve does not pay for one.
+        /// </summary>
+        public bool HasColourCueProgram(ColourCueForm form) =>
+            !_potato && form != ColourCueForm.None && _colourCueTechniques?[(int)form - 1][(int)Shading] != null;
+
+        /// <summary>
         /// Which wall of a <see cref="BallShading.Bubble"/> shell the next draw puts out: <c>+1</c> the near one seen
         /// from outside, <c>-1</c> the far one seen from inside. It pairs with the caller's cull mode and must
         /// agree with it — the shader turns the geometric normal by this sign so both walls go through one
