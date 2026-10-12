@@ -37,7 +37,7 @@ namespace BS3D.Tools.LevelGen
         //figure needs a ground to read against, the lit screen behind or round it in pale colours (Fish, Cat, Guitar).
         //A solid in black alone shows no depth from the stand - the eye reads black as a hole whatever its shape - so
         //a body that has to read as round wears its form in two colours (the umbrella's gores, the bell's and the
-        //teapot's staves, the rocket's rings), and the black is what the figure is cut from.
+        //teapot's staves, the rocket's bands), and the black is what the figure is cut from.
         //
         //WHAT READS FROM THE WALK. Ninety degrees round, a flat thing goes edge-on whatever is done to it, so the
         //bodies of revolution (Umbrella, Bell, Teapot, Coronet) are the ones that read the same from everywhere; the
@@ -59,9 +59,9 @@ namespace BS3D.Tools.LevelGen
         //
         //WHAT THE LATTICE TAUGHT ON THE WAY, each a draft that passed or failed a gate for a reason worth keeping:
         //  - Wedges of two colours round an axis converge where the radius gets small, and two of a colour touch there:
-        //    the teapot's black staves met just under its lid as one 126-ball group. Every body of
-        //    revolution keeps a cap or a ring of another colour where its staves would meet (the umbrella's ferrule,
-        //    the bell's crown, the teapot's lid and foot).
+        //    the teapot's black staves met just under its lid as one 126-ball group. Every body of revolution keeps a
+        //    cap or a ring of another colour where its staves would meet (the umbrella's ferrule, the bell's crown,
+        //    the teapot's lid and foot).
         //  - A two-colour checker of wedge and course welds along a diagonal through the cross-level contacts, as the
         //    Quarry's tiles do: the rocket's first hull and the basket a cat once sat in came out one spiral of a colour.
         //  - Heavy parts on thin links fold: the first anchor, hung by a ring and two cords one cell thick, swung over
@@ -827,7 +827,7 @@ namespace BS3D.Tools.LevelGen
         private const byte ANCHOR_DEPTH = 14;
 
         private const float ANCHOR_STOCK = 5.6f;          //the stock's half length, along x against the glass
-        private const float ANCHOR_SHANK = 1.6f;          //the shank's square half width
+        private const int ANCHOR_SHANK_LO = 7, ANCHOR_SHANK_HI = 9;   //the shank's raw x and z: three cells square on every course
         private const float ANCHOR_CROWN = 4.6f;          //how far below the glass the arms' circle is centred
         private const float ANCHOR_ARM_IN = 3.4f, ANCHOR_ARM_OUT = 4.6f;
         private const float ANCHOR_FLUKE_X = 4.7f, ANCHOR_FLUKE_Y = -0.4f;   //each fluke's middle, from the arms' centre
@@ -863,7 +863,8 @@ namespace BS3D.Tools.LevelGen
             if (MathF.Abs(MathF.Abs(dx) - ANCHOR_FLUKE_X) <= 0.6f && MathF.Abs(dz) <= 0.6f && ay < ANCHOR_FLUKE_Y) return 2;
 
             //The shank, three cells square on every course
-            if (x >= 7 && x <= 9 && z >= 7 && z <= 9 && below <= ANCHOR_CROWN + ANCHOR_ARM_IN + 0.2f) return 4;
+            if (x >= ANCHOR_SHANK_LO && x <= ANCHOR_SHANK_HI && z >= ANCHOR_SHANK_LO && z <= ANCHOR_SHANK_HI
+                && below <= ANCHOR_CROWN + ANCHOR_ARM_IN + 0.2f) return 4;
             return 0;
         }
 
