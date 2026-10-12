@@ -6,15 +6,17 @@ The pad answers through `Game/GamepadRumble.cs` (#378), a mixer over four motors
 
 ## The mixer
 
-- Each channel is **accumulated and clamped to 1** on `Kick(left, right, seconds)` and **decayed linearly to zero over its own `seconds`** (`CameraShake`'s shape). One `SetVibration` call a frame, so two kicks on one frame blend instead of the second overwriting the first.
+- Each channel (`PadChannel`) is **accumulated and clamped to 1** on `Kick(left, right, seconds)` and **decayed linearly to zero over the latest kick's `seconds`** (`CameraShake`'s shape). One `SetVibration` call a frame, so two kicks on one frame blend instead of the second overwriting the first.
+- `KickUnder(left, right, seconds, ceilingLeft, ceilingRight)` is a kick that lifts each body motor **no higher than its ceiling**, counting what is still ringing (#810): an event that promises the player a bound keeps it when it lands on the tail of the last one. A motor already above the ceiling is neither raised nor lowered.
 - `KickTriggers` does the same for the trigger motors. `Hold(left, right)` is a level asked **every frame** and gone the first frame it is not. `Play` steps a pattern of timed pulses. `Silence()` zeroes everything. `Feel`/`FeelTriggers` bypass the hand gate.
 - Every trigger is a `Game.Rumble.Kick` **beside a sound or flash that already answers the same moment**. `RumbleStrength` in `GameSettings` sits beside the volumes.
 
 ## What triggers it (`GameplayScreen`)
 
-- **Shot** (`Shoot`, `SHOT_RUMBLE_*`), **landing** (`OnBallLanded`), **a group releasing** (weighted by balls let go), **a star landing** (`ResultPage.AnnounceLandedStars`).
+- **Shot** (`Shoot`, `SHOT_RUMBLE_*`), **a star landing** (`ResultPage.AnnounceLandedStars`).
+- **A landing and the group it releases, as one pulse** (`OnBallLanded`, `Game/LandingRumble.cs`, #810). A plain attach is a light tap (`TAP_*`). A release grows along a **logarithm of the count** (`KNEE` 10 balls): three to five balls are a light tap, and it keeps growing past 20, more slowly, up to the ceiling at `FULL_COUNT` (250). It gets **longer rather than harder** (0.2 s to 0.9 s), and **the light motor leads at every size**, its ceiling (`CEILING_RIGHT` 0.65) above the heavy motor's (`CEILING_LEFT` 0.5): the wrist-shaking is taken to be the heavy motor's mass. It is sent through `KickUnder` at those ceilings, so a burst of releases never stacks past them. The trap it replaced: a straight line (0.22 + 0.04 a ball) that hit the motors' full at 20 balls, while in `LevelGen --drops`' modelled plays the median release is 19 to 27 balls, so about half of all releases were the same full-strength pulse. 250 is about the 99th percentile of those releases.
 - **Ceiling step** (`AnnounceCeilingStep`): halved on a feed step; lowered three times on the owner's feel to a light-motor buzz (`CEILING_RUMBLE_*`) over `CeilingDescent.SLIDE_SECONDS`, just above the carriage's rattle. **The Brake lifting the glass** (#836, `BRAKE_RUMBLE_*`): heavy-led and firmer, so the lift reads differently from the pressure.
-- **Each blast** (`BLAST_PAD_*`): per unit of its size, so a chain reads bigger than one bomb, which stays under full (#810's rule).
+- **Each blast** (`BLAST_PAD_*`): per unit of its size, so a chain reads bigger than one bomb, which stays under full (#810's rule). Its kick is an ordinary one, outside the landing's ceiling: the first bomb goes off with the landing and its kick adds to the matched group's pulse.
 - **The loss at the line** (`BeginLineLoss`): the heaviest pulse, as two kicks (heavy long, buzz short) because one kick decays both motors over one length (`LINE_LOSS_RUMBLE_*`).
 - **The elevation stop**: one buzz-led knock (`AIM_STOP_RUMBLE_*`) as `Cannon.ElevationStrain` goes full, re-armed only once the strain lets go, **plus a steady `Hold` while the hand keeps pushing** (#835, `AIM_REFUSED_HOLD_*` times the strain). It holds full while a cutter is aimed into the storeys the Cut may not strike (#692), since no clamp stops the aim there.
 
@@ -40,4 +42,4 @@ The pad answers through `Game/GamepadRumble.cs` (#378), a mixer over four motors
 
 ## Felt and not felt
 
-The owner's hand has judged: the shot and landing (kept); the ceiling step, page turn, aim tick and rattle (each too strong, lowered); the line loss and elevation stop (added; the knock alone was not enough, hence the hold). **Everything else is reasoning about the event's shape**, unfelt: release, star, brake, blast, trigger detent, greeting.
+The owner's hand has judged: the shot and landing (kept); the ceiling step, page turn, aim tick and rattle (each too strong, lowered); the line loss and elevation stop (added; the knock alone was not enough, hence the hold); the release (pleasant but too strong, "it shakes my joints", 2026-10-05; rebuilt as the curve above in #810, which is unfelt). **Everything else is reasoning about the event's shape**, unfelt: star, brake, blast, trigger detent, greeting.

@@ -26,16 +26,11 @@ namespace BS3D
     /// </summary>
     internal sealed class GamepadRumble
     {
-        //A kick with nothing to decay it over would divide by zero; nothing this is fed is ever this short on
-        //purpose, but a caller's typo should decay fast rather than throw.
-        private const float MIN_SECONDS = 0.02f;
-
-        private float _left, _right;
-        private float _leftDecayRate, _rightDecayRate;
+        //The body's two motors, each a level and its fall (PadChannel: the accumulation, the ceiling and the decay)
+        private PadChannel _left, _right;
 
         //The triggers' two (#188), decayed the same way
-        private float _leftTrigger, _rightTrigger;
-        private float _leftTriggerDecayRate, _rightTriggerDecayRate;
+        private PadChannel _leftTrigger, _rightTrigger;
 
         //Which route the last frame took, so the log says it once when it changes rather than every frame
         private bool _throughPadMotors;
@@ -85,6 +80,20 @@ namespace BS3D
         }
 
         /// <summary>
+        /// <see cref="Kick"/> under a ceiling (#810): the pulse is added to what is still ringing on each body motor only up
+        /// to <paramref name="ceilingLeft"/> and <paramref name="ceilingRight"/>, so an event that promises the player a
+        /// bound — a landing and the group it released (<see cref="LandingRumble"/>) — keeps it when it lands on the tail of
+        /// the last one. A motor already above its ceiling (something louder ringing) is left where it is.
+        /// </summary>
+        public void KickUnder(float left, float right, float seconds, float ceilingLeft, float ceilingRight)
+        {
+            if (!HandOnPad) return;
+
+            _left.Kick(left, seconds, ceilingLeft);
+            _right.Kick(right, seconds, ceilingRight);
+        }
+
+        /// <summary>
         /// <see cref="Kick"/> for the impulse motors in the triggers (#188), <paramref name="left"/> and
         /// <paramref name="right"/> each 0 to 1, and gated the same way. Felt only on a pad that has them and only
         /// through <see cref="PadMotors"/>; anywhere else it is accepted and goes nowhere, as the body's own kicks do on
@@ -113,28 +122,14 @@ namespace BS3D
         //words straight
         private void Feel(float left, float right, float seconds)
         {
-            float rate = 1f / MathF.Max(seconds, MIN_SECONDS);
-
-            Add(ref _left, ref _leftDecayRate, left, rate);
-            Add(ref _right, ref _rightDecayRate, right, rate);
+            _left.Kick(left, seconds);
+            _right.Kick(right, seconds);
         }
 
         private void FeelTriggers(float left, float right, float seconds)
         {
-            float rate = 1f / MathF.Max(seconds, MIN_SECONDS);
-
-            Add(ref _leftTrigger, ref _leftTriggerDecayRate, left, rate);
-            Add(ref _rightTrigger, ref _rightTriggerDecayRate, right, rate);
-        }
-
-        //One channel's share of a kick: accumulated, clamped to 1, and given the fall that takes it to zero over the
-        //kick's own length from where it now stands
-        private static void Add(ref float channel, ref float decayRate, float amount, float rate)
-        {
-            if (amount <= 0f) return;
-
-            channel = MathHelper.Clamp(channel + amount, 0f, 1f);
-            decayRate = channel * rate;
+            _leftTrigger.Kick(left, seconds);
+            _rightTrigger.Kick(right, seconds);
         }
 
         #region Patterns, the menus' vocabulary and the pad's arrival (#800)
@@ -235,7 +230,10 @@ namespace BS3D
         /// </summary>
         public void Silence()
         {
-            _left = _right = _leftTrigger = _rightTrigger = 0f;
+            _left.Stop();
+            _right.Stop();
+            _leftTrigger.Stop();
+            _rightTrigger.Stop();
             _holdLeft = _holdRight = 0f;
             _pattern = null;
         }
@@ -291,19 +289,19 @@ namespace BS3D
             if (!allowed)
             {
                 _pattern = null;
-                _left = 0f;
-                _right = 0f;
-                _leftTrigger = 0f;
-                _rightTrigger = 0f;
+                _left.Stop();
+                _right.Stop();
+                _leftTrigger.Stop();
+                _rightTrigger.Stop();
                 _holdLeft = 0f;
                 _holdRight = 0f;
             }
             else
             {
-                _left = MathF.Max(0f, _left - _leftDecayRate * elapsedSeconds);
-                _right = MathF.Max(0f, _right - _rightDecayRate * elapsedSeconds);
-                _leftTrigger = MathF.Max(0f, _leftTrigger - _leftTriggerDecayRate * elapsedSeconds);
-                _rightTrigger = MathF.Max(0f, _rightTrigger - _rightTriggerDecayRate * elapsedSeconds);
+                _left.Decay(elapsedSeconds);
+                _right.Decay(elapsedSeconds);
+                _leftTrigger.Decay(elapsedSeconds);
+                _rightTrigger.Decay(elapsedSeconds);
             }
 
             //Coming back (focus regained, a pause left) the pad is told the state once more, zero included: the stop sent
@@ -313,16 +311,17 @@ namespace BS3D
             _wasAllowed = allowed;
 
             //The body motors at this frame's hold where it is above what is ringing, and the hold spent
-            float bodyLeft = MathF.Max(_left, _holdLeft), bodyRight = MathF.Max(_right, _holdRight);
+            float bodyLeft = MathF.Max(_left.Level, _holdLeft), bodyRight = MathF.Max(_right.Level, _holdRight);
+            float leftTrigger = _leftTrigger.Level, rightTrigger = _rightTrigger.Level;
             _holdLeft = _holdRight = 0f;
 
-            bool silentNow = bodyLeft <= 0f && bodyRight <= 0f && _leftTrigger <= 0f && _rightTrigger <= 0f;
+            bool silentNow = bodyLeft <= 0f && bodyRight <= 0f && leftTrigger <= 0f && rightTrigger <= 0f;
             if (silentNow && _silent) return;
 
             //All four through Windows.Gaming.Input when a pad answers there (#188) — the capabilities below are XInput's
             //and know nothing of triggers, and a pad without some motor simply does not turn it
             bool throughPadMotors = PadMotors.TrySet(bodyLeft * Strength, bodyRight * Strength,
-                _leftTrigger * Strength, _rightTrigger * Strength);
+                leftTrigger * Strength, rightTrigger * Strength);
 
             if (throughPadMotors != _throughPadMotors)
             {
