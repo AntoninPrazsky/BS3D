@@ -177,7 +177,7 @@ float3 ColourCueInk(float3 primary, float3 pale)
 //was in the outline anywhere from not at all to whole, and the figure changed when a ball crossed an LOD
 //threshold. So a carved colour is drawn on the finest mesh (64 x 32) whatever its size (BallRenderSet.Store),
 //which carries 85-100 % of each ridge's depth, 66-100 % of each twisted groove's (they cross the grid on a slant)
-//and all of the dimples and the facets. A shipped carve would want a mesh made for its figure.
+//and about 99 % of the dimples and the facets. A shipped carve would want a mesh made for its figure.
 
 //The grooves between the ridges and the twisted ones: how wide a groove is (in |sin| of its angle round the ball)
 //and how deep, and where towards the poles they fade (the lobes converge there and a groove would pinch to a point).

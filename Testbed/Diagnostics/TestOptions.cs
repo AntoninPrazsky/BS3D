@@ -316,7 +316,9 @@ namespace Testbed.Diagnostics
         /// beside their hue, painted (<c>motif</c>, also <c>a</c>) or carved (<c>shape</c>, also <c>b</c>). Off
         /// by default. Spelled through <see cref="ColourCues.TryParseForm"/>, which the Game's argument also
         /// takes, and alternable (<c>alt=colourcue=none;colourcue=motif;colourcue=shape</c>): a switch is a
-        /// technique chosen per draw and leaves nothing behind.
+        /// technique chosen per draw and leaves nothing behind. For the forms' COST, run one per process instead: an
+        /// alternation misread them once the carve drew on the finest mesh ("The colour cue prototypes" in
+        /// <c>docs/rendering/ball-styles.md</c>).
         /// </summary>
         public ColourCueForm ColourCue { get; private set; }
 

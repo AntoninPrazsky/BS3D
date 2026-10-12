@@ -521,8 +521,9 @@ Pravidla:
 - Otevřené: verdikt majitele (1,45 nebo 1,70); intro neonu při daném `sceneseed` teď rámuje jinou střechu.
 
 ## 2026-10-12 — #737 druhé vodítko barvy, prototypy — desktop (RDT-PC), Claude Code (bs3d-71, noc)
-- #737 (větev `737-colour-cue-prototypes`, bez merge, `owner-decision`): obě čtení za přepínačem `colourcue=<none|motif|shape>` (Testbed i Game, i `alt=`), výchozí vypnuto. Čtyři barvy: stříbrná, hnědá, bílá, žlutá (černá bez figury); (a) malovaný motiv (pruhy, puntíky, kostky, hvězdy), (b) vyřezaný tvar (žebra, důlky, fasety, kroucené drážky) na vinylu, vlně a mramoru. Vypnuto = 45 vstupních bodů efektu přeloženo instrukci po instrukci stejně.
-- ⚠ Pod tmavou kopulí je vlna hlavně emise; emise v čisté barvě motiv úplně smyla (kopule 13). Motiv teď svítí svou barvou.
-- ⚠ Motiv posouvá průměr disku: hnědá/stříbrná klesla na 7–10 dE, bílá/hnědá na mramoru 5,6. Tvar barvy nehýbe (±2).
-- Cena na 6900 XT, 3840×1600 ssaa 2: v šumu (±0,03 ms).
-- Otevřené: majitel volí (a), (b), nebo obojí; pak všech 13 barev, fronta v HUD a Pi (#828: (a) sedí na Potato líp).
+- #737 (větev `737-colour-cue-prototypes`, `owner-decision`; do main jdou jen přepínatelné prototypy, výchozí vypnuto): `colourcue=<none|motif|shape>` v Testbedu i Game. Stříbrná, hnědá, bílá, žlutá (černá bez figury); (a) malovaný motiv, (b) vyřezaný tvar, na vinylu, vlně a mramoru. Vypnuto = 45 vstupních bodů efektu instrukci po instrukci jako main. Stránka: https://claude.ai/artifact/FbJry9FNp1JdGeREWxfkZ6
+- ⚠ Koule je z velké části vlastní emise: emise v čisté barvě smyla tmavý inkoust (vlna pod kopulí 13, vinyl béžová/žlutá i pod kopulí 1). Motiv svítí svým inkoustem.
+- ⚠ Vyřezaný obrys je jen tak dobrý jako síť: na LOD2 žebro padlo mezi vrcholy. Vyřezané barvy jdou na LOD0, cena +0,2–0,3 ms.
+- ⚠ Motiv táhne světlé barvy k tmavým (bílá/hnědá až 4,8, bílá/stříbrná 7,9–11,6 dE).
+- ⚠ `alt=colourcue=` cenu tvaru změřil nesmyslně; měř po procesech.
+- Otevřené: majitel volí (a), (b), obojí; pak 13 barev, HUD fronta, Pi (#828: (a)).
