@@ -6,7 +6,7 @@ Part of [The game: feedback](../game-feedback.md). Which lessons exist, their or
 
 - **Top centre**, at the score's height (`HUD_MARGIN`): the strip between the FPS line and the score is empty in *both* camera poses. **No plate.**
 - It arrives with a **bounce** (`HudEase.OutBack` from 0.6: the game offering something), **bobs** slowly while up (through the praise too), scales **about its own centre**.
-- **The loudest standing type in the game (#461)** (an award's zoom is bigger, for its read alone): Anton at `HUD_FONT_TUTORIAL` (83 px at 900p, 178 at 3840×1600), detail `HUD_FONT_TUTORIAL_DETAIL`, glyph `HUD_FONT_PROMPT`. It outranks the score: sizing it as a readout was the error twice. It is the one text a new player *must* read, up for seconds, where the eye cannot leave the cluster. The keycap has its own size because PromptFont fills its em and Anton does not.
+- **The loudest standing type in the game (#461)** (an award's zoom is bigger, for its read alone): Anton at `HUD_FONT_TUTORIAL` (83 px at 900p, 148 at 3840×1600), detail `HUD_FONT_TUTORIAL_DETAIL`, glyph `HUD_FONT_PROMPT`. It outranks the score: sizing it as a readout was the error twice. It is the one text a new player *must* read, up for seconds, where the eye cannot leave the cluster. The keycap has its own size because PromptFont fills its em and Anton does not.
 - **A strip, not an aspect** (`PlayHud.DrawTutorial`): bounded by the **score's** left edge (handed in) less `HUD_TUTORIAL_CLEARANCE`, scaled down if it would not fit. The clamp never bites at shipped sizes (the widest card, the pad's *Hold the left trigger to look down the barrel*, is 2552 design units against about 3020 at 16:9); it is for narrower windows and longer captions.
 
 ## The glyphs are a font: PromptFont

@@ -1,5 +1,6 @@
 using BepuPhysics.Collidables;
 using BepuPhysics;
+using BS3D.Audio;
 using Microsoft.Xna.Framework;
 using Prazsky.BS3D;
 using Prazsky.BS3D.Physics;
@@ -26,6 +27,12 @@ namespace BS3D.Screens
     /// </remarks>
     internal sealed partial class GameplayScreen
     {
+        /// <summary>
+        /// How far up its pour a blue step is played (#726): a run of feed steps a hold apart climbs a semitone a step.
+        /// Moved on beside <see cref="CeilingDescent.Update"/> by the same frame's seconds, so a pause stops both.
+        /// </summary>
+        private readonly CeilingFeedPour _feedPour = new();
+
         /// <summary>
         /// The glass plate, as physics. Kinematic rather than static because a <c>BallSocket</c> needs a body at
         /// both ends — Bepu constraints do not take statics — and the whole cluster hangs from this one.
@@ -109,17 +116,20 @@ namespace BS3D.Screens
             Game.Balls.RippleAlarmColor = feeding ? RIPPLE_FEED_COLOR : RIPPLE_ALARM_COLOR;
             _ripple.StartFromTop(_physicsBalls);
 
-            //And is heard (#500): from the plate, where it is, the feed's step softer than the pressure's
-            Game.Audio.PlayCeilingStep(new Microsoft.Xna.Framework.Vector3(0f, _ceilingDescent.Y, 0f), feeding);
+            //And is heard (#500): from the plate, where it is, in the step's own sound — the blue one rising in the mids and
+            //climbing through a pour, the red one a heavy plate's drone and settle (#726)
+            int climbed = _feedPour.Step(feeding);
+            (string cue, float volume) = Game.Audio.PlayCeilingStep(
+                new Microsoft.Xna.Framework.Vector3(0f, _ceilingDescent.Y, 0f), feeding, climbed);
 
-            //And felt (#378), the feed step soft for the same reason it is heard and seen soft.
+            //And felt (#378), the feed step soft for the same reason it is seen in blue and not red: nothing went wrong.
             float ceilingRumbleScale = feeding ? CEILING_RUMBLE_FEED_SCALE : 1f;
             Game.Rumble.Kick(CEILING_RUMBLE_LEFT * ceilingRumbleScale, CEILING_RUMBLE_RIGHT * ceilingRumbleScale,
                 CEILING_RUMBLE_SECONDS);
 
             Console.WriteLine($"[ceiling] Step to {_ceilingDescent.TargetY:F2} (death line {CEILING_DEATH_Y:F2})"
                 + $", {(feeding ? "feeding" : "pressure")}"
-                + $", shots fired {_run.Score.ShotsFired}, waited {waited:F2} s");
+                + $", shots fired {_run.Score.ShotsFired}, waited {waited:F2} s, heard {cue} at {volume:F2} +{climbed} st");
 
             //And a tall level's aim clamp, held since the load, lets go once the column hangs whole in the frame (#842)
             LiftTallAimOnceFramed();
@@ -145,7 +155,8 @@ namespace BS3D.Screens
         /// Announces the brake <see cref="CeilingDescent.Brake"/> has just begun (#213) — the lift's counterpart of
         /// <see cref="AnnounceCeilingStep"/>, in the feed's own soft blue for the same reason: it is good news the
         /// player asked for. The plate and the cluster are woken first (both are very likely asleep, and the plate
-        /// is about to be moved by writing its pose), then the wave, the plate's sound and a soft rumble (#836). A tall
+        /// is about to be moved by writing its pose), then the wave, the blue step's own rising sound (#726: the lift needs
+        /// no counterpart of its own, the sound already rises) and a soft rumble (#836). A tall
         /// level's aim clamp is held at the load's height (#842), so a lift leaves it alone.
         /// </summary>
         private void AnnounceCeilingBrake()
@@ -155,13 +166,15 @@ namespace BS3D.Screens
             Game.Balls.RippleAlarmColor = RIPPLE_FEED_COLOR;
             _ripple.StartFromTop(_physicsBalls);
 
-            Game.Audio.PlayCeilingStep(new Microsoft.Xna.Framework.Vector3(0f, _ceilingDescent.Y, 0f), feed: true);
+            int climbed = _feedPour.Step(feed: true);
+            (string cue, float volume) = Game.Audio.PlayCeilingStep(
+                new Microsoft.Xna.Framework.Vector3(0f, _ceilingDescent.Y, 0f), feed: true, climbed);
 
             //And felt (#836: the owner felt nothing when the Brake lifted the glass), over the same slide a descent takes
             Game.Rumble.Kick(BRAKE_RUMBLE_LEFT, BRAKE_RUMBLE_RIGHT, CEILING_RUMBLE_SECONDS);
 
             Console.WriteLine($"[ceiling] Brake to {_ceilingDescent.TargetY:F2} (rest {_ceilingDescent.RestY:F2}"
-                + $", death line {CEILING_DEATH_Y:F2}), {_run.PowerupCharges[(int)PowerupKind.Brake]} left");
+                + $", death line {CEILING_DEATH_Y:F2}), {_run.PowerupCharges[(int)PowerupKind.Brake]} left, heard {cue} at {volume:F2} +{climbed} st");
 
             MarkBrakeReachStale();
         }

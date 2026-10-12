@@ -1,0 +1,17 @@
+[
+ {"name": "feed2-f", "duration": 1.0, "seed": 21,
+  "negative": "loud, aggressive, distorted, clipping, noise, hiss, static, crackle, wind, whoosh, drone, sustained, long reverb tail, high-pitched, squeal, screech, alarm, beeping, voice, harsh, thin, sub bass rumble, explosion",
+  "prompt": "A short, warm, rising two-note chime going up, like a soft mallet on a wooden marimba: two round notes, a quick natural decay into silence. Mid-range, moderate volume, recorded with plenty of headroom, clean video game sound."},
+ {"name": "feed2-g", "duration": 1.0, "seed": 21,
+  "negative": "loud, aggressive, distorted, clipping, noise, hiss, static, crackle, wind, whoosh, drone, sustained, long reverb tail, high-pitched, squeal, screech, alarm, beeping, voice, harsh, thin, sub bass rumble, explosion",
+  "prompt": "A friendly, satisfying game pickup sound: a short warm synth bloop that rises in pitch, a round sine tone with a little body, a quick decay to silence. Mid-range, moderate volume, clean, arcade."},
+ {"name": "feed2-h", "duration": 1.0, "seed": 21,
+  "negative": "loud, aggressive, distorted, clipping, noise, hiss, static, crackle, wind, whoosh, drone, sustained, long reverb tail, high-pitched, squeal, screech, alarm, beeping, voice, harsh, thin, sub bass rumble, explosion",
+  "prompt": "A mechanical latch releasing a platform into place: a soft hollow wooden knock and a short warm rising tone after it, a quick decay to silence. Mid-range, moderate volume, clean, satisfying game sound."},
+ {"name": "feed2-i", "duration": 1.0, "seed": 21,
+  "negative": "loud, aggressive, distorted, clipping, noise, hiss, static, crackle, wind, whoosh, drone, sustained, long reverb tail, high-pitched, squeal, screech, alarm, beeping, voice, harsh, thin, sub bass rumble, explosion",
+  "prompt": "A short warm elevator arrival chime, two soft round bell notes stepping upward, ding then a higher ding, quick decay into silence. Mid-range, moderate volume, recorded with headroom, clean game sound."},
+ {"name": "feed2-j", "duration": 1.0, "seed": 21,
+  "negative": "loud, aggressive, distorted, clipping, noise, hiss, static, crackle, wind, whoosh, drone, sustained, long reverb tail, high-pitched, squeal, screech, alarm, beeping, voice, harsh, thin, sub bass rumble, explosion",
+  "prompt": "A heavy glass panel settling gently onto rubber with a warm resonant glassy tone that rises slightly, a soft rounded thunk, quick decay into silence. Mid-range, moderate volume, clean, pleasant game sound."}
+]

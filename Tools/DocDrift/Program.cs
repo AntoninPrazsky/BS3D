@@ -70,13 +70,15 @@ namespace BS3D.Tools.DocDrift
         private static readonly Regex DateRx = new(@"\b\d{4}-\d{2}-\d{2}\b", RegexOptions.Compiled);
 
         //The words that mark a sentence as history (or as a road not taken) rather than as a statement of the
-        //current value (#525). An issue number counts: a sentence citing one is usually telling what it changed.
-        //Not a bare "read as" nor "rather than": both are present tense here as often as not, and together
-        //they hid the storm's `PuffOpacity` (0.40 against 0.30) — "what makes the scene read as cloud rather
-        //than as a ceiling" — one of the three drifts this tool has to find.
+        //current value (#525). Not a bare "read as" nor "rather than": both are present tense here as often as
+        //not, and together they hid the storm's `PuffOpacity` (0.40 against 0.30) — "what makes the scene read
+        //as cloud rather than as a ceiling" — one of the three drifts this tool has to find. And not an issue
+        //number: since #839 a document states what is true now and an issue number beside a sentence is where
+        //it came from, so treating one as history hid a current figure — the tutorial card's 178 px at
+        //3840×1600 against the 148 HUD_FONT_TUTORIAL gives there, behind its "(#461)" (#400's eighth pass).
         private static readonly Regex HistoryRx = new(
             @"\b(?:was|were|until|instead of|would have|before|no longer|used to|it read as|reads as|had been|" +
-            @"formerly|previously|originally|dropped from|raised from|lowered from)\b|#\d{2,4}\b",
+            @"formerly|previously|originally|dropped from|raised from|lowered from)\b",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         //Words that may stand between a name and its figure ("`X` is set to 0.3", "`X` of about 0.3"). Any

@@ -23,6 +23,13 @@ Part of [The game: shell](../game-shell.md).
 - ⚠ **The page area carries no margin; the gap above Back is Back's own.** Myra counts a `Margin` *inside* an explicit `Height`, so a gap under the area cut DISPLAY's last row.
 - **The vertical budget is the trap.** Sizes are 2160p design figures scaled by the viewport's height, so a page that overruns overruns at every resolution and aspect, and rows that run off the bottom take Back, the only way out, with them (#138, #548). **Adding a row to DISPLAY means checking Back is whole at 1600×900 and 1280×720** (about 24 px and 15 px clear today).
 
+## Two kinds of control (#816)
+
+- **A checkbox for a row with two states that would read On and Off; a button that cycles its value for every other row.** Never a slider or a drop-down: one click, nothing left half-dragged, and each change takes effect where it is made, so the scene behind the panel is the preview. A row whose caption already says what is on reads faster as a tick than as the word "On".
+- **The checkbox is a member of the menu's button family** (`MenuPage.CheckBox` round a `CheckGlyph`): the same slab and brushes, the pad's focus, the click sound and #800's haptics. The box and the tick are drawn as shapes (`CheckTick`, held to a brute-force cover by `CheckTickTests`), because Anton has no ☐ or ✓ and FontStashSharp drops a glyph a face lacks. On Settings the whole row toggles: a press on the caption is a press on the box.
+- **The checkboxes:** Fullscreen, Auto quality, Scenery, FPS counter, Aberration, Film grain and Motion blur on DISPLAY; Tutorial, Intro logo, Drop camera and Unlock all on GAME; and the note page's "Send the picture". A row the tier or the build holds is dimmed with its reason beside the box ("(tier)", "(locked)", "(Potato)"): unticked when held off, ticked when held on (Auto quality's "(resolution)" on the Pi, #832). Auto quality and Scenery take their state from the game's own words (`AdaptiveQualityLabel`, `SceneryLabel`), so each reason is written once.
+- **The rows that keep their words:** Resolution, Quality, Brightness, Sky, the FPS limit (two states, but Monitor and Unlimited), the volumes, the sensitivities, Rumble, and Online scores, whose third state, "No server", a box cannot say.
+
 ## Sensitivity and aim sensitivity (#384, #497)
 
 - `SENSITIVITY_LADDER` is 50/75/100/125/150/200/300 % of the shipped feel, 100 % the default; **ratios, not an even step** (about √2 apart). `MouseAim.SENSITIVITY` is an angle per *pixel*, so a 4K panel and a 1600×900 one differ 2.4× in sweep.
