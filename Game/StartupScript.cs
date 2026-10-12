@@ -130,8 +130,10 @@ namespace BS3D
         private bool _tour;
 
         /// <summary>
-        /// <c>about</c> / <c>about=play</c>: put the About page up at boot, and with <c>play</c> start its player
-        /// on the first piece (#443). Null for neither. The page is two presses away for someone at the machine
+        /// <c>about</c> / <c>about=play</c> / <c>about=&lt;n&gt;</c>: put the About page up at boot, with <c>play</c> start its
+        /// player on the first piece (#443), and with a number open it on that page, 1-based (#807: it is four pages, and a
+        /// script cannot press the arrow that turns one; <c>about=1:play</c> takes both). Null for neither. The page is two
+        /// presses away for someone at the machine
         /// and none on a locked desktop — <c>pick</c>'s wall — and its visualizer is only worth a shot while a
         /// piece is actually sounding, which takes a third press nobody is there to make.
         /// </summary>
@@ -177,9 +179,17 @@ namespace BS3D
         //A step lands on the stack on its next update, so the page it left up is said a frame later
         private bool _quitReportDue;
 
-        //Testing only: the wall-clock second the menus' cursor comes up, and how many entries it walks (menucursor=, #799)
+        //Testing only: the wall-clock second the menus' cursor comes up, and how many entries it walks (menucursor=, #799);
+        //then the sideways presses still to make (#807), PRESS_GAP apart
         private float? _menuCursorAt;
         private readonly int _menuCursorSteps;
+        private readonly Queue<string> _menuCursorPresses;
+        private float _nextPressAt;
+
+        //Between two of menucursor='s sideways presses, in wall-clock seconds: a turned page is rebuilt on the next update and
+        //laid out on the next draw, and the row rule reads where the entries stand, so a press a frame later would read a
+        //tree not yet laid out
+        private const float PRESS_GAP = 0.3f;
 
         /// <summary>
         /// Whether this run has any lever armed - a level to play, a page to open at boot, a staged result, a celebration
@@ -234,6 +244,8 @@ namespace BS3D
                 : new Queue<string>(launch.QuitSteps.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
             _menuCursorAt = launch.MenuCursorAt;
             _menuCursorSteps = launch.MenuCursorSteps;
+            _menuCursorPresses = launch.MenuCursorPresses == null ? null
+                : new Queue<string>(launch.MenuCursorPresses.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 
             Drives = _celebrate || _confetti || _play || _result || _pick != null || _about != null || _extras || _jukebox != null || _settings
                 || _board != null || _highScores != null || _help != null || _scenes || _tour || _toMenuAt != null || _noteAt != null || _quitAt != null
@@ -348,11 +360,17 @@ namespace BS3D
 
             if (_about != null && !game.IsSplashUp)
             {
-                if (string.Equals(_about, "play", StringComparison.OrdinalIgnoreCase)) game.Jukebox?.PlayPause();
+                //"play", a page number, or both as "<n>:play" in either order; a part that is neither is left alone
+                int aboutPage = 1;
+                foreach (string part in _about.Split(':'))
+                {
+                    if (string.Equals(part, "play", StringComparison.OrdinalIgnoreCase)) game.Jukebox?.PlayPause();
+                    else if (int.TryParse(part, out int asked)) aboutPage = asked;
+                }
 
                 _about = null;
 
-                game.OpenAbout();
+                game.OpenAbout(aboutPage);
             }
 
             //The scene menu with its tour already flying (#406), held back past the title card for the same
@@ -451,6 +469,13 @@ namespace BS3D
             {
                 _menuCursorAt = null;
                 game.RaiseMenuCursorForTesting(_menuCursorSteps);
+            }
+
+            //Then its sideways presses (#807), PRESS_GAP apart
+            else if (_menuCursorAt == null && _menuCursorPresses is { Count: > 0 } && game.WallClock >= _nextPressAt)
+            {
+                _nextPressAt = game.WallClock + PRESS_GAP;
+                game.PressSidewaysForTesting(_menuCursorPresses.Dequeue());
             }
         }
 
