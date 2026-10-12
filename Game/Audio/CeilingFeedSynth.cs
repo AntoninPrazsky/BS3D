@@ -9,7 +9,7 @@ namespace BS3D.Audio
     /// says: good news, rising, in the band the owner's speakers play.
     /// <para>
     /// <b>Why the blue step has a sound of its own.</b> Until #726 it played the red step's recording turned down to 0.35, and
-    /// that recording is a heavy plate's drone and settle with 94.6 % of its energy under 200 Hz. The owner listens on his
+    /// that recording is a heavy plate's drone and settle with 86.7 % of its energy under 200 Hz. The owner listens on his
     /// monitor's built-in speakers, which carry almost nothing down there, so the pressure step (louder) was heard and the feed
     /// step was not heard at all. A feed is a reward (the tall level handing the player more of its column) and the lift is
     /// the player's own Brake, so the sound is the red step's opposite in every way the ear can tell: <b>rising</b> where the

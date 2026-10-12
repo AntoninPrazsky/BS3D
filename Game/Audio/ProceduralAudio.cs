@@ -4,6 +4,7 @@ using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.Scoring;
 using Prazsky.Core.Camera;
 using System;
+using System.Diagnostics;
 using System.IO;
 
 namespace BS3D.Audio
@@ -290,8 +291,8 @@ namespace BS3D.Audio
         //Until #726 it was the red step's bass recording at 0.35, and on the owner's monitor speakers, which carry almost
         //nothing under 200 Hz, it was not heard at all. Its own sound is in the mids, so a LOWER level than that is far
         //more audible: measured as played (A-weighted, loudest 400 ms, through a 250 Hz high-pass standing in for the
-        //monitor), 12 dB over the old blue step and 9 dB over the red one, yet over 5 dB under the 10-ball release a feed
-        //usually follows and 7 dB under the shot (docs/game-feedback/ceiling-and-floor-alarms.md).
+        //monitor), 12 dB over the old blue step and 9 dB over the red one, yet 5.5 dB under both the 10-ball release a feed
+        //usually follows and the shot (docs/game-feedback/ceiling-and-floor-alarms.md).
         //Three voices because a feed is QUEUED: a band that goes can owe several steps, which come down a hold apart
         //(CeilingDescent's CEILING_STEP_HOLD) while the recording lasts a second.
         private const string CEILING_FEED_SFX = "ceiling-feed";
@@ -2641,24 +2642,53 @@ namespace BS3D.Audio
         /// the mids, because it is good news and because the red one's bass, turned down, was not heard at all on the
         /// owner's monitor speakers.
         /// </para>
+        /// <para>
+        /// <b>A pour climbs.</b> A band that goes can owe a tall level several feed steps, and they come down one a hold
+        /// apart: eleven in a row in a scripted Totem run, the same chime every half second. Each blue step that follows the
+        /// last within <see cref="CEILING_FEED_POUR_SECONDS"/> plays a semitone above it, up to
+        /// <see cref="CEILING_FEED_POUR_TOP"/>, so a pour rises as it pours — more of the column, higher — and the next one
+        /// starts from the bottom again.
+        /// </para>
         /// </summary>
         /// <returns>
-        /// Which buffer was spoken and the volume the voice was handed — the <c>[ceiling]</c> line prints both, the one
-        /// record a run leaves that the step was heard and how loud.
+        /// Which buffer was spoken, the volume the voice was handed and, for a blue step, how many semitones up the pour had
+        /// climbed — the <c>[ceiling]</c> line prints them, the one record a run leaves that the step was heard and how loud.
         /// </returns>
-        public (string Cue, float Volume) PlayCeilingStep(Vector3 plate, bool feed)
+        public (string Cue, float Volume, int Semitones) PlayCeilingStep(Vector3 plate, bool feed)
         {
             float level = feed ? CEILING_FEED_LEVEL : CEILING_LEVEL;
             float volume = MathHelper.Clamp(level * VolumeForDistance(DistanceTo(plate)) * Level, 0f, 1f);
 
-            if (feed) Speak(_ceilingFeedRing, plate, NEAR_WIDEN, volume, NextPitch(0.03f));
-            else Speak(_ceilingRing, plate, NEAR_WIDEN, volume, NextPitch(0.04f));
+            if (!feed)
+            {
+                Speak(_ceilingRing, plate, NEAR_WIDEN, volume, NextPitch(0.04f));
+                return (CEILING_STEP_CUE, volume, 0);
+            }
 
-            return (feed ? _ceilingFeedCue : CEILING_STEP_CUE, volume);
+            //The pour: a semitone a step while they keep coming, back to the bottom after a pause. On the wall clock and
+            //not the frame, so a pour sounds the same at any frame rate.
+            long now = Stopwatch.GetTimestamp();
+            bool pouring = _ceilingFeedLastTicks != 0
+                && now - _ceilingFeedLastTicks < CEILING_FEED_POUR_SECONDS * Stopwatch.Frequency;
+            _ceilingFeedPour = pouring ? Math.Min(_ceilingFeedPour + 1, CEILING_FEED_POUR_TOP) : 0;
+            _ceilingFeedLastTicks = now;
+
+            //A semitone is a twelfth of an octave, Play's own unit; the jitter stays well under half of one
+            Speak(_ceilingFeedRing, plate, NEAR_WIDEN, volume, _ceilingFeedPour / 12f + NextPitch(0.02f));
+            return (_ceilingFeedCue, volume, _ceilingFeedPour);
         }
 
         //The red step's name on the [ceiling] line; the blue one's says whether it is the file or the bake (_ceilingFeedCue)
         private const string CEILING_STEP_CUE = "ceiling-step";
+
+        //How close behind the last blue step the next has to come to count as the same pour, and how far a pour climbs, in
+        //semitones (a fifth). Queued steps come down a hold apart (CeilingDescent's CEILING_STEP_HOLD), well inside it.
+        private const float CEILING_FEED_POUR_SECONDS = 1.0f;
+        private const int CEILING_FEED_POUR_TOP = 7;
+
+        //When the last blue step sounded (Stopwatch ticks, 0 before the first) and how far the pour has climbed
+        private long _ceilingFeedLastTicks;
+        private int _ceilingFeedPour;
 
         /// <summary>
         /// The step as a bake, for when the file is not there: a heavy plate moving — a hum falling from 70 to

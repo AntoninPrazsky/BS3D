@@ -8,7 +8,7 @@ namespace BS3D.Tests
     /// <summary>
     /// #726: the blue ceiling step (a tall level's feed, and the Brake's lift) has a sound of its own, and it keeps what the
     /// issue asked of it. The owner heard the red step and not the blue one, which was the red step's recording turned down:
-    /// 94.6 % of that recording's energy is under 200 Hz, where his monitor's built-in speakers play almost nothing. So the
+    /// 86.7 % of that recording's energy is under 200 Hz, where his monitor's built-in speakers play almost nothing. So the
     /// new sound's identity has to sit at 300 Hz-4 kHz, it must not hiss, it rises (a reward, where the red step falls and
     /// settles), and it is not the red step. Measured on the shipped recording, decoded by the game's own
     /// <see cref="OggTrack"/> the way <c>ProceduralAudio.TryLoadSfx</c> loads it, and on the bake that stands behind a missing

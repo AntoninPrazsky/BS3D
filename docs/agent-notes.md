@@ -581,3 +581,9 @@ Pravidla:
 - Bez majitele, konzervativně: hloubka ponoru dolů malá; horizont scény není slibem fitu.
 - ⚠ Nula náklonu skočila, když vysokému levelu povolil limit míření (Totem: 30,7 → 33,8°, pohled klesl bez vstupu); nula teď sedí pod `OpeningElevationLimit()`.
 - Otevřené: pocit v ruce (myš, pad), skutečné okno 3840×1600.
+
+## 2026-10-12 — #726 vlastní zvuk modrého kroku stropu — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #726 na větvi `726-feed-step-sound` (merge následuje), `shipped-awaiting-verdict` + `verdict-eye` (ucho). Modrý krok (feed i zvednutí Brzdou) má vlastní nahrávku `Sfx/ceiling-feed.ogg`: dva údery marimby stoupající o oktávu (C4 → C5), 76,7 % energie v 300–4000 Hz, `CEILING_FEED_LEVEL` 0,25 (na monitoru o 12 dB slyšitelnější než dřív, pod releasem i ránou); za ní bake `CeilingFeedSynth`. Řádek `[ceiling]` končí `heard <cue> at <hlasitost> +<n> st`; Totem: 17 kroků feedu a 2 Brzdy `ceiling-feed.ogg`, 8 červených `ceiling-step`.
+- Bez majitele, konzervativně: Brzda hraje tentýž stoupající zvuk, žádný protějšek (klesající figura tu znamená „ne“); proud feedů stoupá o půltón za krok až o kvintu; pod nahrávkou přimíchané tělo 132 Hz (3,4 %).
+- ⚠ Podíl pásma celého zvuku měř bez okna: Hann přes celý zvuk dal 90,9 % místo 59,6 %.
+- Otevřené: ucho majitele (monitor, notebook); hlasitost proti hudbě jen měřena.

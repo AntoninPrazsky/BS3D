@@ -623,8 +623,8 @@ namespace BS3D.Screens
 
         //The pad's answer to a step (#378) — longer than a shot or a landing, the way the plate's
         //own slide is a slower event than either: a buzz over that slide (below); halved on a feed step
-        //(CEILING_RUMBLE_FEED_SCALE) for the same reason PlayCeilingStep and the flash colour go soft on one:
-        //a feed is the game rewarding the player, not warning them.
+        //(CEILING_RUMBLE_FEED_SCALE) for the same reason the flash goes blue and the sound turns to the rising chime on
+        //one (#726): a feed is the game rewarding the player, not warning them.
         //Brought down twice on the owner's feel with a pad (2026-10-05): "maybe a little too pronounced" at 0.6/0.25 over
         //0.5 s, then "still too pronounced" at 0.45/0.18 over 0.4 s. Then about a shot's weight (0.28/0.1 over 0.25 s),
         //and still "too strong" (2026-10-07): "it should be a weaker buzz, a little stronger than the gun moving". So it is
