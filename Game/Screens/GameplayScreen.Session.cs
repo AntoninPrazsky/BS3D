@@ -97,6 +97,19 @@ namespace BS3D.Screens
             bool tutorialLevel = Tutorial.TryPlace(Game.LevelSet, index, out int chapter, out int levelInChapter,
                 out int chapterLength);
             ReadKindsOnMap();
+
+            //The level starts from the hand the menus last saw (#799): the press that brought the player here - Play, a
+            //pick, Continue, Retry, Next Level - is the latest input there is, so a pad player who pressed A is shown the
+            //pad's buttons before their first push of a stick, as every page before showed them. The "pad" argument's pin
+            //outranks it (Tutorial.PinDevice). And the rumble starts from the same hand (#817), so the motors and the glyphs
+            //agree before the level's first input too. Here and not in the constructor (#852): this screen is built once,
+            //before the mixer exists, so a line there was dead - the second level's cards kept the last input's hand, and
+            //"pad" never reached the motors, so a scripted run felt no shot, landing or ceiling step. No null check on the
+            //mixer: a level is only ever built from Update, after LoadContent made the AudioDirector, and a silent "if"
+            //is what hid this for five days.
+            _tutorial.NoteDevice(Game.PromptsForPad ? Tutorial.Device.Gamepad : Tutorial.Device.KeyboardMouse);
+            Game.Rumble.HandOnPad = _tutorial.OnGamepad;
+
             _tutorial.BeginLevel(tutorialLevel ? chapter : -1, levelInChapter, chapterLength, LevelCeilingStep(index),
                 swapOffered: _run.SwapOffered, retry: retry, kindsOnMap: _kindsOnMap, brakeOffered: _run.BrakeOffered,
                 cutOffered: _run.CutOffered);

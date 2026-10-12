@@ -17,7 +17,7 @@ Part of [The game: feedback](../game-feedback.md). Which lessons exist, their or
 
 ## The card draws for the hand in use; every pad prompt names a binding that exists
 
-- The last device to produce input is latched (`Tutorial.NoteDevice`) and read **at draw time**, so picking up the pad swaps the prompt next frame. **A level's tutorial starts from the menus' hand** (#799, `BS3DGame.PromptsForPad`; "The keys are drawn in the UI" in `docs/game-shell.md`).
+- The last device to produce input is latched (`Tutorial.NoteDevice`) and read **at draw time**, so picking up the pad swaps the prompt next frame. **A level's tutorial starts from the menus' hand** (#799, `BS3DGame.PromptsForPad`; "The keys are drawn in the UI" in `docs/game-shell.md`), noted in `GameplayScreen.BuildLevel` on every build and not in the constructor, which runs once (#852); the rumble's hand is set from it on the same line ([The pad](pad-rumble.md)).
 - **The pad's left stick traverses and walks the gun** (`GameplayScreen.UpdateInput`): a pad could aim, fire and lean but not turn or walk, and a card promising it would have lied. **At the speed it is pushed, from the first step** (#802): push to the power 1.5 is the share of full speed (MonoGame rescales the stick from 0 past its dead zone); `Cannon.Orbit`/`Advance` ramp to that.
 - **Each stick by name:** aim the right stick (`↻`), walk-round the left sideways (`⇄`), step-in the left up and down (`⇅`), the combination LT with the left sideways.
 
