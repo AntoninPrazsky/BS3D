@@ -4,7 +4,6 @@ using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.Scoring;
 using Prazsky.Core.Camera;
 using System;
-using System.Diagnostics;
 using System.IO;
 
 namespace BS3D.Audio
@@ -180,8 +179,9 @@ namespace BS3D.Audio
         /// </summary>
         private readonly SoundEffect _ceilingFeed;
 
-        //Which buffer the blue step speaks, as the [ceiling] line names it: the recording, or the bake standing in for a
-        //missing file. Set once at load, so the line costs no string per step.
+        //Which buffer each step speaks, as the [ceiling] line names it: the recording, or the bake standing in for a missing
+        //file. Set once at load, so the line costs no string per step.
+        private readonly string _ceilingStepCue;
         private readonly string _ceilingFeedCue;
 
         /// <summary>The net cutting the cluster that reached the line (#434) — the loss's one sound.</summary>
@@ -284,6 +284,7 @@ namespace BS3D.Audio
         //The ceiling's step (#500), the red one: a step is one event and the next is shots away, so two voices cover a
         //queued step landing on the last one's tail. Quiet by design — it says "look up" under the music and never
         //competes with a shot.
+        private const string CEILING_STEP_SFX = "ceiling-step";
         private const int CEILING_VOICES = 2;
         private const float CEILING_LEVEL = 0.5f;
 
@@ -401,13 +402,10 @@ namespace BS3D.Audio
 
             _release = FromSfxOrBake("release", BakeRelease);
             _iceBreak = BakeIceBreak();
-            _ceilingStep = FromSfxOrBake("ceiling-step", BakeCeilingStep);
-            //The blue step's own (#726), under FromSfxOrBake's law for a tone (peak 0.9), opened here only so the [ceiling]
-            //line can say which of the two it is
-            float[] ceilingFeed = TryLoadSfx(CEILING_FEED_SFX);
-            if (ceilingFeed != null) Normalize(ceilingFeed, 0.9f);
-            _ceilingFeedCue = ceilingFeed != null ? CEILING_FEED_SFX + ".ogg" : CEILING_FEED_SFX + " bake";
-            _ceilingFeed = ToSoundEffect(ceilingFeed ?? CeilingFeedSynth.Render(SAMPLE_RATE));
+            //The ceiling's two steps (#500, #726), each saying which of its file and its bake it took, for the [ceiling] line
+            _ceilingStep = FromSfxOrBake(CEILING_STEP_SFX, BakeCeilingStep, out _ceilingStepCue);
+            _ceilingFeed = FromSfxOrBake(CEILING_FEED_SFX, () => ToSoundEffect(CeilingFeedSynth.Render(SAMPLE_RATE)),
+                out _ceilingFeedCue);
             //The cut and its touch (#669) from ONE signal, so the touch is the same laser heard briefly: the file
             //through the report law FromSfxOrBake would give it, or the bake's own signal when there is no file.
             float[] lineLoss = TryLoadSfx("line-loss");
@@ -2643,52 +2641,33 @@ namespace BS3D.Audio
         /// owner's monitor speakers.
         /// </para>
         /// <para>
-        /// <b>A pour climbs.</b> A band that goes can owe a tall level several feed steps, and they come down one a hold
-        /// apart: eleven in a row in a scripted Totem run, the same chime every half second. Each blue step that follows the
-        /// last within <see cref="CEILING_FEED_POUR_SECONDS"/> plays a semitone above it, up to
-        /// <see cref="CEILING_FEED_POUR_TOP"/>, so a pour rises as it pours — more of the column, higher — and the next one
-        /// starts from the bottom again.
+        /// <b>A pour climbs.</b> A blue step is played <paramref name="semitones"/> above its written pitch: the session's
+        /// <see cref="CeilingFeedPour"/> counts a run of feed steps a hold apart up a semitone a step, to a fifth, so a pour
+        /// rises as it pours. Counted there, on the gameplay frame's own clock, because a pause stops the steps and must stop
+        /// the pour with them.
         /// </para>
         /// </summary>
+        /// <param name="plate">Where the glass is: the sound is placed there.</param>
+        /// <param name="feed">A blue step (a feed or the Brake's lift) rather than a red one.</param>
+        /// <param name="semitones">How far up its pour a blue step is (<see cref="CeilingFeedPour.Step"/>); 0 for a red one.</param>
         /// <returns>
-        /// Which buffer was spoken, the volume the voice was handed and, for a blue step, how many semitones up the pour had
-        /// climbed — the <c>[ceiling]</c> line prints them, the one record a run leaves that the step was heard and how loud.
+        /// Which buffer spoke and the volume its voice was handed: the <c>[ceiling]</c> line prints them, the one record a
+        /// run leaves that the step was heard, in which sound and how loud.
         /// </returns>
-        public (string Cue, float Volume, int Semitones) PlayCeilingStep(Vector3 plate, bool feed)
+        public (string Cue, float Volume) PlayCeilingStep(Vector3 plate, bool feed, int semitones)
         {
             float level = feed ? CEILING_FEED_LEVEL : CEILING_LEVEL;
             float volume = MathHelper.Clamp(level * VolumeForDistance(DistanceTo(plate)) * Level, 0f, 1f);
 
-            if (!feed)
-            {
-                Speak(_ceilingRing, plate, NEAR_WIDEN, volume, NextPitch(0.04f));
-                return (CEILING_STEP_CUE, volume, 0);
-            }
+            //A semitone is a twelfth of an octave, Play's own unit; the blue step's jitter stays well under half of one
+            VoiceRing ring = feed ? _ceilingFeedRing : _ceilingRing;
+            float pitch = feed ? semitones / 12f + NextPitch(0.02f) : NextPitch(0.04f);
+            Speak(ring, plate, NEAR_WIDEN, volume, pitch);
 
-            //The pour: a semitone a step while they keep coming, back to the bottom after a pause. On the wall clock and
-            //not the frame, so a pour sounds the same at any frame rate.
-            long now = Stopwatch.GetTimestamp();
-            bool pouring = _ceilingFeedLastTicks != 0
-                && now - _ceilingFeedLastTicks < CEILING_FEED_POUR_SECONDS * Stopwatch.Frequency;
-            _ceilingFeedPour = pouring ? Math.Min(_ceilingFeedPour + 1, CEILING_FEED_POUR_TOP) : 0;
-            _ceilingFeedLastTicks = now;
-
-            //A semitone is a twelfth of an octave, Play's own unit; the jitter stays well under half of one
-            Speak(_ceilingFeedRing, plate, NEAR_WIDEN, volume, _ceilingFeedPour / 12f + NextPitch(0.02f));
-            return (_ceilingFeedCue, volume, _ceilingFeedPour);
+            //Named after the RING that spoke, not after the request, so the log line is a check on the routing: a blue step
+            //sent to the red step's voices would print the red step's cue
+            return (ring == _ceilingFeedRing ? _ceilingFeedCue : _ceilingStepCue, volume);
         }
-
-        //The red step's name on the [ceiling] line; the blue one's says whether it is the file or the bake (_ceilingFeedCue)
-        private const string CEILING_STEP_CUE = "ceiling-step";
-
-        //How close behind the last blue step the next has to come to count as the same pour, and how far a pour climbs, in
-        //semitones (a fifth). Queued steps come down a hold apart (CeilingDescent's CEILING_STEP_HOLD), well inside it.
-        private const float CEILING_FEED_POUR_SECONDS = 1.0f;
-        private const int CEILING_FEED_POUR_TOP = 7;
-
-        //When the last blue step sounded (Stopwatch ticks, 0 before the first) and how far the pour has climbed
-        private long _ceilingFeedLastTicks;
-        private int _ceilingFeedPour;
 
         /// <summary>
         /// The step as a bake, for when the file is not there: a heavy plate moving — a hum falling from 70 to
@@ -3101,9 +3080,18 @@ namespace BS3D.Audio
         /// </para>
         /// </summary>
         private static SoundEffect FromSfxOrBake(string name, Func<SoundEffect> bake, float targetRms = 0f, float ceiling = 0f,
-            Action<float[]> prepare = null)
+            Action<float[]> prepare = null) => FromSfxOrBake(name, bake, out _, targetRms, ceiling, prepare);
+
+        /// <summary>
+        /// <see cref="FromSfxOrBake(string, Func{SoundEffect}, float, float, Action{float[]})"/>, saying which of the two it
+        /// took in <paramref name="cue"/>: <c>&lt;name&gt;.ogg</c> for the file, <c>&lt;name&gt; bake</c> for the bake. For a
+        /// sound whose log line names what was heard (the ceiling's steps, #726), so a run with the file missing says so.
+        /// </summary>
+        private static SoundEffect FromSfxOrBake(string name, Func<SoundEffect> bake, out string cue, float targetRms = 0f,
+            float ceiling = 0f, Action<float[]> prepare = null)
         {
             float[] signal = TryLoadSfx(name);
+            cue = signal != null ? name + ".ogg" : name + " bake";
             if (signal == null) return bake();
 
             //Shaping that belongs before the level is set (the burst's softening, #552): Loudness measures what is

@@ -1,5 +1,6 @@
 using BepuPhysics.Collidables;
 using BepuPhysics;
+using BS3D.Audio;
 using Microsoft.Xna.Framework;
 using Prazsky.BS3D;
 using Prazsky.BS3D.Physics;
@@ -26,6 +27,12 @@ namespace BS3D.Screens
     /// </remarks>
     internal sealed partial class GameplayScreen
     {
+        /// <summary>
+        /// How far up its pour a blue step is played (#726): a run of feed steps a hold apart climbs a semitone a step.
+        /// Moved on beside <see cref="CeilingDescent.Update"/> by the same frame's seconds, so a pause stops both.
+        /// </summary>
+        private readonly CeilingFeedPour _feedPour = new();
+
         /// <summary>
         /// The glass plate, as physics. Kinematic rather than static because a <c>BallSocket</c> needs a body at
         /// both ends — Bepu constraints do not take statics — and the whole cluster hangs from this one.
@@ -109,10 +116,11 @@ namespace BS3D.Screens
             Game.Balls.RippleAlarmColor = feeding ? RIPPLE_FEED_COLOR : RIPPLE_ALARM_COLOR;
             _ripple.StartFromTop(_physicsBalls);
 
-            //And is heard (#500): from the plate, where it is, in the step's own sound — the blue one rising in the mids, the
-            //red one a heavy plate's drone and settle (#726)
-            (string cue, float volume, int climbed) = Game.Audio.PlayCeilingStep(
-                new Microsoft.Xna.Framework.Vector3(0f, _ceilingDescent.Y, 0f), feeding);
+            //And is heard (#500): from the plate, where it is, in the step's own sound — the blue one rising in the mids and
+            //climbing through a pour, the red one a heavy plate's drone and settle (#726)
+            int climbed = _feedPour.Step(feeding);
+            (string cue, float volume) = Game.Audio.PlayCeilingStep(
+                new Microsoft.Xna.Framework.Vector3(0f, _ceilingDescent.Y, 0f), feeding, climbed);
 
             //And felt (#378), the feed step soft for the same reason it is seen in blue and not red: nothing went wrong.
             float ceilingRumbleScale = feeding ? CEILING_RUMBLE_FEED_SCALE : 1f;
@@ -158,8 +166,9 @@ namespace BS3D.Screens
             Game.Balls.RippleAlarmColor = RIPPLE_FEED_COLOR;
             _ripple.StartFromTop(_physicsBalls);
 
-            (string cue, float volume, int climbed) = Game.Audio.PlayCeilingStep(
-                new Microsoft.Xna.Framework.Vector3(0f, _ceilingDescent.Y, 0f), feed: true);
+            int climbed = _feedPour.Step(feed: true);
+            (string cue, float volume) = Game.Audio.PlayCeilingStep(
+                new Microsoft.Xna.Framework.Vector3(0f, _ceilingDescent.Y, 0f), feed: true, climbed);
 
             //And felt (#836: the owner felt nothing when the Brake lifted the glass), over the same slide a descent takes
             Game.Rumble.Kick(BRAKE_RUMBLE_LEFT, BRAKE_RUMBLE_RIGHT, CEILING_RUMBLE_SECONDS);

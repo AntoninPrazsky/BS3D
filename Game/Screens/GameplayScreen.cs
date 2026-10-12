@@ -1454,7 +1454,9 @@ namespace BS3D.Screens
             //A step that came due while the shot was in the air waits here for its moment — see
             //CeilingDescent.Update. Before the physics step, so a released step slides on the same frame. The
             //glass's glow fades on the wall clock in the same call; the glass itself slides inside StepPhysics,
-            //one physics step at a time (#577), so the solver always works against the moved body.
+            //one physics step at a time (#577), so the solver always works against the moved body. A blue step's pour
+            //(#726) counts on the same seconds, so a pause holds it where it was.
+            _feedPour.Advance(elapsed);
             if (_ceilingDescent.Update(elapsed, LevelDecided, CameraTakeoverEngaged, out bool ceilingFeeding,
                     out float ceilingWaited))
                 AnnounceCeilingStep(ceilingFeeding, ceilingWaited);

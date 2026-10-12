@@ -84,6 +84,8 @@
     <Compile Include="..\..\Game\Audio\CeilingFeedSynth.cs" />
     <Compile Include="..\..\Game\Audio\OggTrack.cs" />
     <Compile Include="..\..\Game\Audio\Spectrum.cs" />
+    <!--And how far up its pour a blue step is played (#726), on the frame seconds the descent lets steps go by-->
+    <Compile Include="..\..\Game\Audio\CeilingFeedPour.cs" />
     <!--#846: the award popup's zoom, read and throw as pure functions of its age and points, and the HUD's eases under it-->
     <Compile Include="..\..\Game\Screens\AwardZoom.cs" />
     <Compile Include="..\..\Game\Screens\HudEase.cs" />
