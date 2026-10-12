@@ -290,13 +290,13 @@ namespace BS3D.Audio
         //Until #726 it was the red step's bass recording at 0.35, and on the owner's monitor speakers, which carry almost
         //nothing under 200 Hz, it was not heard at all. Its own sound is in the mids, so a LOWER level than that is far
         //more audible: measured as played (A-weighted, loudest 400 ms, through a 250 Hz high-pass standing in for the
-        //monitor), 13 dB over the old blue step and 10 dB over the red one, yet about 4.5 dB under the 10-ball release a
-        //feed usually follows and 6.5 dB under the shot (docs/game-feedback/ceiling-and-floor-alarms.md).
+        //monitor), 12 dB over the old blue step and 9 dB over the red one, yet over 5 dB under the 10-ball release a feed
+        //usually follows and 7 dB under the shot (docs/game-feedback/ceiling-and-floor-alarms.md).
         //Three voices because a feed is QUEUED: a band that goes can owe several steps, which come down a hold apart
         //(CeilingDescent's CEILING_STEP_HOLD) while the recording lasts a second.
         private const string CEILING_FEED_SFX = "ceiling-feed";
         private const int CEILING_FEED_VOICES = 3;
-        private const float CEILING_FEED_LEVEL = 0.3f;
+        private const float CEILING_FEED_LEVEL = 0.25f;
 
         //The line's cut (#434): one voice, since there is exactly one loss, at most of the master — it is the
         //ending, and the one sound in the game that is meant to be louder than the shot that caused it

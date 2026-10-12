@@ -52,7 +52,7 @@ namespace BS3D.Audio
         //The partials, against the fundamental's 1, and the body an octave under the first note
         private const float OCTAVE = 0.3f;
         private const float TWELFTH = 0.1f;
-        private const float BODY = 0.8f;
+        private const float BODY = 0.5f;
         private const float BODY_DECAY_PER_SECOND = 6f;
 
         //Rounded off twice, as the aim stop's and the streak break's are: one pole alone leaves an edge on each strike
