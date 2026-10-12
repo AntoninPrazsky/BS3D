@@ -47,14 +47,18 @@ namespace BS3D.Screens
     internal sealed class HighScoresPage : MenuPage
     {
         //A row: the level, its #1, the player's place. Wide enough for a sixteen-letter name beside its score in the small
-        //face, and for "You: 12th of 130 · 123 456"; the three together are about the picker's band of five tiles.
-        private const int NAME_WIDTH = 620;
+        //face, and for "You: 112th of 130" beside 123 456; the three together are about the picker's band of five tiles.
+        //The level's block holds the set's longest number and name ("140" and "Cannonball", 440 units in Inter at the small
+        //size, read off the face's own advances); what it does not need went to the gutters since #806: with each score
+        //flush right at its block's end, a gutter of 40 set the leader's score against the player's line beside it
+        //("355 230 You lead"), and 90 parts the two columns.
+        private const int NAME_WIDTH = 520;
         private const int TOP_WIDTH = 860;
         private const int ME_WIDTH = 760;
         private const int ROW_HEIGHT = 84;
         private const int ROW_PADDING_X = 30;
         private const int ROW_SPACING = 8;
-        private const int COLUMN_GAP = 40;
+        private const int COLUMN_GAP = 90;
 
         //Inside a block (#806): between the level's number and its name, about the word space the line had there, and
         //between a text and its score, at the least, where a long name meets a long score
