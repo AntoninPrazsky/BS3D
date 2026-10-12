@@ -164,6 +164,9 @@ namespace BS3D
         private readonly float? _launchRims;
         private readonly bool _launchBallFlat;
 
+        //"colourcue=" (#737): the colour cue prototypes, None unless the command line asked. Read where the ball set is built.
+        private readonly ColourCueForm _launchColourCue;
+
         //"upscale=soft" (#804): the Potato path's scale-up through the cubic B-spline instead of one bilinear tap
         private readonly bool _launchSoftUpscale;
 
@@ -791,6 +794,7 @@ namespace BS3D
             _renderHeightFromLaunch = launch.RenderHeight.HasValue;
             _launchRims = launch.Rims;
             _launchBallFlat = launch.BallFlat;
+            _launchColourCue = launch.ColourCue;
             _launchSoftUpscale = string.Equals(launch.Upscale, "soft", StringComparison.OrdinalIgnoreCase);
 
             //The fins (#804) are built with the meshes, so the switch is thrown here, before any mesh exists: the Potato
@@ -1259,7 +1263,11 @@ namespace BS3D
 
                 //The balls' rims (#804), the Potato path's anti-aliasing: a width asked for on the command line, or the
                 //build's own. Nothing on the desktop path, whose target is multisampled or supersampled.
-                Rims = PotatoPath && (_launchRims ?? POTATO_RIM_PIXELS) > 0f
+                Rims = PotatoPath && (_launchRims ?? POTATO_RIM_PIXELS) > 0f,
+
+                //The colour cue prototypes (#737): a testing switch, off unless "colourcue=" asked. The Potato effect has
+                //no programs for them, and its renderers ignore the switch
+                ColourCue = _launchColourCue
             };
 
             if (PotatoPath)

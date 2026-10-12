@@ -19,6 +19,7 @@ A locked desktop takes no keystrokes, a synthetic one lands in whichever window 
 
 - `preview=<n|name>` pins which map the front end hangs, as `level=` pins the played one; the camera is framed per map, so two shots differ unless it is passed.
 - `balls=<beach|bubble>` draws every ball in one style (#258): a testing lever, **not a setting**, since the style belongs to the map's author.
+- `colourcue=<none|motif|shape>` (also `a`/`b`) switches on the colour cue prototypes (#737): four colours carry a painted or a carved figure on the vinyl, the wool and the marble ("The colour cue prototypes" in `docs/rendering/ball-styles.md`). A testing lever, off by default, until the owner picks a reading.
 - `tomenu=<s>` leaves the level for the main menu at that wall-clock second with the session **kept**, as the pause's Main Menu does; on `shot=`'s clock: `level=32 tomenu=20 shot=16,26,32`.
 - `detonate=<t1,t2,…>` sets off the lowest reachable bomb at those seconds (#389), answered as a real blast; it changes play, like `wildcard=`.
 - `wind=<scale>` multiplies the air's push on the hanging cluster (#95): 0 is still, 1 the table in `Game/SceneWind.cs`; none below the High tier (`QualityPreset.ClusterWind`).

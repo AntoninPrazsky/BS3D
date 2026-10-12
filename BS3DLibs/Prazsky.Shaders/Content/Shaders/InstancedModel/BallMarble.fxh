@@ -139,7 +139,9 @@ float MarbleTurbulence(float3 direction, float footprint)
         + 0.08 * abs(ReliefOctave(direction, float3(-0.82, -0.31, 0.48), 14.0, footprint));
 }
 
-float4 MarblePS(PatternVertexShaderOutput input) : COLOR
+//The marble's whole shading, with the colour cue prototypes' two switches (#737) passed as literals, exactly as
+//PatternShade takes them: MarblePS below compiles to what it was before they existed.
+float4 MarbleShade(PatternVertexShaderOutput input, bool motifCue, bool shapeCue, float cue)
 {
     float radius = max(length(input.ObjectPosition), 1e-5);
     float3 direction = input.ObjectPosition / radius;
@@ -190,6 +192,19 @@ float4 MarblePS(PatternVertexShaderOutput input) : COLOR
     float3 body = primary * (1 - MarbleMottle * turbulence) * (1 - MarbleVeinShade * margin);
     float3 color = lerp(body, lerp(primary, mineral, MarbleVeinContrast), vein);
 
+    //A painted cue (#737) is an INLAY: a second stone in a darker or paler shade of the ball's own colour
+    //(ColourCueInk), cut over the veins
+    float3 cueDye = primary;
+
+    if (motifCue)
+    {
+        float figure = ColourCueMotif(direction, footprint, cue);
+        float3 ink = ColourCueInk(primary, lerp(primary, ColourCueInkPale, ColourCueInkPaleShare));
+
+        color = lerp(color, ink, figure);
+        cueDye = lerp(primary, ink, figure);
+    }
+
     //Polished: the broad lobe cut back, the environment raised, and smoothness left at 1 so Fresnel still
     //rises to a full mirror along the silhouette - which on a sphere is most of what can be seen of it,
     //and is why a cluster of these picks up the dome so strongly.
@@ -200,7 +215,13 @@ float4 MarblePS(PatternVertexShaderOutput input) : COLOR
 
     //No relief and no cavity: the surface IS the sphere. Both of the shading's relief arguments are 1.
     float3 worldNormal = normalize(input.WorldNormal);
-    float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(color, 1), 1, 1, surface);
+
+    //...except where a carved cue (#737) cuts it: the carve is the polished stone's only relief
+    float cueCavity = 1;
+    if (shapeCue) worldNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition,
+        ColourCueShape(direction, footprint, radius, cue, cueCavity));
+
+    float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(color, 1), 1, cueCavity, surface);
 
     //The polish. One lobe, off the key light alone: the fill and back lights are what the material's own
     //broad highlight above still answers, and three pinpoints on one sphere read as three suns rather
@@ -216,7 +237,12 @@ float4 MarblePS(PatternVertexShaderOutput input) : COLOR
     //Contract point 2, through BallEmission (#303): the resting glow follows the occlusion, the beat's
     //swing punches through. In the ball's own colour and not the vein's, for the reason PatternPS gives
     //about its gores - what is alive here is the ball, not its figure.
-    shaded.rgb += BallEmission(primary, input.WorldPosition, occlusion);
+    //The cue glows in its own stone (#737), and a carve's hollows glow less: see WoolShade, where an even glow in the
+    //plain colour washed a painted figure out under the dark dome
+    float3 glow = BallEmission(cueDye, input.WorldPosition, occlusion);
+    if (shapeCue) glow *= cueCavity;
+
+    shaded.rgb += glow;
 
     //Contract point 3, in BOTH of its meanings, and the arithmetic is PatternPS's deliberately: the wave
     //has to look the same whatever the cluster is cut from, or a level tells the player something
@@ -237,6 +263,11 @@ float4 MarblePS(PatternVertexShaderOutput input) : COLOR
     shaded = ApplySeaSubmerge(shaded, input.WorldPosition);
 
     return ApplyKillPlaneFade(shaded, input.WorldPosition);
+}
+
+float4 MarblePS(PatternVertexShaderOutput input) : COLOR
+{
+    return MarbleShade(input, false, false, 0);
 }
 
 technique InstancedModelMarble

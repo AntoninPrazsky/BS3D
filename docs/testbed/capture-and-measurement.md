@@ -45,7 +45,7 @@ Testbed.exe logfps alt=all;all,-cap;none            # the old arena-only spellin
 
 ### The dials
 
-**Only a dial whose switch leaves nothing behind may alternate**, or the next window measures the transition. The list is `ALTERNATION_DIALS` in `Testbed.cs`: `arena`, `capprobe`, `scene`, `sky`, `balls`, `ssaa`, `msaa`, `rscale`, `detail`, `shadow`, `shadowmap`, `ballshadow`, `glassshadow`, `exposure`, `nopost`, `volcano`.
+**Only a dial whose switch leaves nothing behind may alternate**, or the next window measures the transition. The list is `ALTERNATION_DIALS` in `Testbed.cs`: `arena`, `capprobe`, `scene`, `sky`, `balls`, `colourcue` (#737, also a plain argument: `none`, `motif`, `shape`; ⚠ for its cost run one form per process, see "The colour cue prototypes" in `docs/rendering/ball-styles.md`), `ssaa`, `msaa`, `rscale`, `detail`, `shadow`, `shadowmap`, `ballshadow`, `glassshadow`, `exposure`, `nopost`, `volcano`.
 
 - **`nooverc` is refused**, because the overcast lerp carries across a switch; pin it for the whole run. For the same reason a scene pin snaps its weather (`SetScene(…, immediately: true)`).
 - **`ssaa` reaches four places** (the pipeline's target, the tonemap's filter, the space scene's stars, the balls' dither cell), so it goes through `SetSupersampleFactor`; setting some of them measures a mixture.
