@@ -185,6 +185,28 @@ namespace BS3D.Screens
         internal virtual bool ShoulderTurn(int direction) => PageSideways(direction);
 
         /// <summary>
+        /// Whether this page draws something into the frame's sharp foreground layer this frame (#856) — the layer the
+        /// host composites over everything, the UI included, at the end of its Draw (#242, the cup's and the confetti's):
+        /// Help's live balls beside their entries. Asked by the host every frame a page is up; a page that presents is
+        /// drawn through <see cref="DrawForeground"/> and keeps the layer allocated (<c>BS3DGame.BeginSceneDraw</c>'s
+        /// release count).
+        /// </summary>
+        internal virtual bool PresentsForeground => false;
+
+        /// <summary>
+        /// The back-buffer rectangle the page's foreground is cut to (#856): what it drew outside it is erased before the
+        /// composite, so a ball beside an entry scrolled past a frame's edge is clipped as its text is. Empty for no cut.
+        /// </summary>
+        internal virtual Rectangle ForegroundClip => Rectangle.Empty;
+
+        /// <summary>
+        /// Draws the page's foreground (#856). The host has bound the layer and cleared it transparent with its own depth,
+        /// stated opaque, depth-tested, counter-clockwise states and restores its own afterwards; on the Potato path, which
+        /// has no layer, it is the back buffer after the desktop, on a cleared depth buffer, and nothing is cut.
+        /// </summary>
+        internal virtual void DrawForeground() { }
+
+        /// <summary>
         /// Whether this page is laid out as a grid the pad walks in the direction pressed (#848): the D-pad and the left
         /// stick move the focus cursor to the entry beside, above or below it, and its left and right are the cursor's,
         /// not <see cref="PageSideways"/>' (the shoulders still turn the page). The arrow keys keep walking the list in
