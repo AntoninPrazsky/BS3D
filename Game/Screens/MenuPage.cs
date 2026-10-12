@@ -158,7 +158,8 @@ namespace BS3D.Screens
 
         /// <summary>
         /// Left or right on the arrow keys, the D-pad or the left stick (−1 / +1) — <b>the page's own axis</b>,
-        /// where up and down are always the focus cursor's. Four pages claim it: the level picker turns to the
+        /// where up and down are always the focus cursor's (on a <see cref="PadWalksGrid"/> page the pad's left and right
+        /// are the cursor's too, #848, and only the arrow keys and the shoulders reach this). Four pages claim it: the level picker turns to the
         /// previous or next chapter (#273), Help to its previous or next page (#606), Settings to its previous or
         /// next tab (#686) and High Scores to its previous or next chapter (#685). Raised by the host's <c>UpdateMenuNavigation</c> with the same fire-once-then-walk
         /// treatment a held direction gets on the other axis — and since #686 by the pad's shoulder buttons too, one
@@ -170,6 +171,15 @@ namespace BS3D.Screens
         /// </para>
         /// </summary>
         internal virtual bool PageSideways(int direction) => false;
+
+        /// <summary>
+        /// Whether this page is laid out as a grid the pad walks in the direction pressed (#848): the D-pad and the left
+        /// stick move the focus cursor to the entry beside, above or below it, and its left and right are the cursor's,
+        /// not <see cref="PageSideways"/>' (the shoulders still turn the page). The arrow keys keep walking the list in
+        /// order and turning the page. The level picker, where the owner, pad in hand, expected "down" to light the
+        /// level under the lit one and found the D-pad turning chapters the prompts gave to LB and RB.
+        /// </summary>
+        internal virtual bool PadWalksGrid => false;
 
         /// <summary>
         /// Whether this page has taken the keyboard to type into (#548) — the settings page while a nickname is
@@ -279,6 +289,40 @@ namespace BS3D.Screens
             return prompt;
         }
 
+        /// <summary>Between a page-turn arrow's slab and the shoulder under it, in design units.</summary>
+        private const int ARROW_SHOULDER_GAP = 10;
+
+        /// <summary>
+        /// A page-turn arrow with the pad's shoulder that turns it drawn under its slab (#848): the owner's answer, the
+        /// button glyph in or under the arrow's plate so it reads as that arrow's key. <b>No key for the keyboard</b>
+        /// (the owner, 2026-10-12): an arrow key beside an arrow only repeated it. The glyph keeps its place while the
+        /// keyboard is the hand, drawing nothing, so nothing moves when the hand changes; it dims with an arrow that has
+        /// nowhere to go. Stacked from the top, so a row aligned to its top keeps the slab level with what stands beside it.
+        /// </summary>
+        protected Widget ArrowWithShoulder(Button arrow, string shoulder) => PageTurnUnder(arrow, shoulder, string.Empty);
+
+        /// <summary>
+        /// A page-turn entry with what turns it drawn under it (#848): <see cref="ArrowWithShoulder"/>'s layout for an entry
+        /// that is a word rather than an arrow — the level boards' Previous and Next, too narrow to carry a shoulder's pill
+        /// beside their word inside them — where the arrow keys repeat nothing and keep their prompt.
+        /// </summary>
+        protected Widget PageTurnUnder(Button entry, string pad, string keys)
+        {
+            VerticalStackPanel stack = new()
+            {
+                Spacing = Scaled(ARROW_SHOULDER_GAP),
+                VerticalAlignment = VerticalAlignment.Top,
+            };
+
+            stack.Widgets.Add(entry);
+
+            PromptGlyph prompt = PageTurnPrompt(pad, keys, entry);
+            prompt.HorizontalAlignment = HorizontalAlignment.Center;
+            stack.Widgets.Add(prompt);
+
+            return stack;
+        }
+
         /// <summary>
         /// The Back entry every sub-page ends on, with B and Escape on it (#799), the two presses that do what it does
         /// from anywhere on the page.
@@ -298,6 +342,13 @@ namespace BS3D.Screens
         /// </summary>
         protected MediaGlyph ButtonGlyph(MediaGlyph.Symbol symbol) =>
             new(symbol, (int)MathF.Round(FontBody.LineHeight * ANTON_CAP_OF_LINE), FontBody.LineHeight);
+
+        /// <summary>
+        /// The height of a display-face font's capitals in pixels (Anton's, off its own tables): what a drawn shape standing
+        /// beside a word of that face is sized to so it reads at the word's weight. Measured on the level picker's heading
+        /// at 3840×1600 (#847): 53 px, which is this.
+        /// </summary>
+        protected static int CapHeightOf(FontStashSharp.SpriteFontBase font) => (int)MathF.Round(font.LineHeight * ANTON_CAP_OF_LINE);
 
         /// <summary>
         /// A checkbox (#816): a menu button around a <see cref="CheckGlyph"/> and the label beside it, so it is a member of

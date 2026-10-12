@@ -856,9 +856,9 @@ namespace BS3D.Screens
         /// brake chip, drawn on the row above the Swap's.</param>
         /// <param name="cutCharges">The level's Cut charges left (#213), or −1 for a level that offers none — the anchor cut's
         /// chip, drawn on the row above the Brake's.</param>
-        /// <param name="brakeOwed">Whether the brake would act now: a pressure step to give back (#692), and on a tall level
-        /// one whose lift leaves the column in reach (#843). False dims a Brake
-        /// chip that still has its charge, because a press would be refused.</param>
+        /// <param name="brakeBlock">Why the brake cannot act now, if it cannot (#692, #844): the glass is moving, or there is
+        /// nothing it would lift (no pressure step to give back, or on a tall level a lift out of reach, #843).</param>
+        /// <param name="cutBlocked">Whether the round in the bore cannot be turned into a cutter now (#844).</param>
         /// <param name="kinds">What kind each loaded round is, slot 0 first, beside <paramref name="queue"/>: a special one
         /// (the wildcard, the Cutter) turns a burst of rays behind its disc (#820). Empty draws none.</param>
         /// <param name="queueFrom">The colour each round is dissolving out of (#705), beside <paramref name="queue"/>.</param>
@@ -867,7 +867,7 @@ namespace BS3D.Screens
         internal void Draw(ScoreKeeper score, ICamera camera, in ClusterProfile profile, ReadOnlySpan<BallMarker> balls,
             ReadOnlySpan<BallType> queue, Tutorial tutorial, bool previewsOnly = false,
             ReadOnlySpan<BS3D.Effects.DozingGun.Z> snores = default, int swapCharges = -1, int brakeCharges = -1, int cutCharges = -1,
-            bool brakeOwed = true, ReadOnlySpan<BallKind> kinds = default, ReadOnlySpan<BallType> queueFrom = default,
+            BrakeBlock brakeBlock = BrakeBlock.None, bool cutBlocked = false, ReadOnlySpan<BallKind> kinds = default, ReadOnlySpan<BallType> queueFrom = default,
             ReadOnlySpan<float> queueFade = default)
         {
             //No card's ball unless this frame's card asks for one (#735)
@@ -915,7 +915,7 @@ namespace BS3D.Screens
             DrawStreak(score, viewport, margin, scoreAnchor.Y + scoreSize.Y * 0.5f + Scaled(HUD_LINE_GAP));
             DrawBallsLeft(score, viewport, margin);
             DrawMagazine(queue, kinds, queueFrom, queueFade, score, viewport, margin);
-            DrawSwap(swapCharges, brakeCharges, cutCharges, brakeOwed, tutorial.OnGamepad, viewport, margin);
+            DrawSwap(swapCharges, brakeCharges, cutCharges, brakeBlock, cutBlocked, tutorial.OnGamepad, viewport, margin);
 
             //The card is given the score's left edge rather than measuring it again: it is what bounds the
             //strip the card may stand in (#461), and one measurement cannot disagree with the other.
@@ -1320,12 +1320,21 @@ namespace BS3D.Screens
         private const string BRAKE_READY = "Brake";
         private const string BRAKE_SPENT = "Brake used";
 
+        //The Brake chip's two "not now" captions (#844): the glass is moving, or there is nothing it would lift (no pressure
+        //step to give back, or on a tall level a lift that would take the column out of reach)
+        private const string BRAKE_WAIT = "Brake · wait";
+        private const string BRAKE_NOT_NEEDED = "Brake · not needed";
+
         //The Cut chip's (#213): R and the pad's right bumper. U+2199 is PromptFont's RB; the U+21B1 this held was its
         //PlayStation "R1", which the owner's Xbox pad has no button called
         private const string CUT_GLYPH_KEY = "Ｒ";
         private const string CUT_GLYPH_PAD = "↙";
         private const string CUT_READY = "Cut";
         private const string CUT_SPENT = "Cut used";
+
+        //The Cut chip's "not now" (#844): the round in the bore cannot be turned into a cutter (a special one, a cutter
+        //already, or no shots left)
+        private const string CUT_NOT_NOW = "Cut · not now";
 
         //The space between a keycap and its words, and between two rows, a fifth under what they were beside the card-sized
         //fonts (14 and 8): they scale with the text they separate (#703)
@@ -1349,7 +1358,7 @@ namespace BS3D.Screens
         private static readonly string[] CHIP_CAPTIONS =
         {
             SWAP_READY, SWAP_SPENT, SWAP_READY + " ×9", BRAKE_READY, BRAKE_SPENT, BRAKE_READY + " ×9",
-            CUT_READY, CUT_SPENT, CUT_READY + " ×9",
+            BRAKE_WAIT, BRAKE_NOT_NEEDED, CUT_READY, CUT_SPENT, CUT_READY + " ×9", CUT_NOT_NOW,
         };
 
         //The two widths above, measured once per pair of fonts (a resize rebuilds the HUD's fonts), never per frame
@@ -1374,6 +1383,9 @@ namespace BS3D.Screens
         private int _cutTextFor = -1;
         private string _cutText = CUT_READY;
 
+        //The "not now" caption each chip's words were last built for (#844), beside the count: a change of either rebuilds them
+        private string _brakeNotNowFor, _cutNotNowFor;
+
         /// <summary>
         /// The power-up chips (#213), above the magazine they act on, the widest caption ending on its right edge and every keycap in one column (#694) — one row each, the Swap's
         /// nearest the strip and the ceiling's Brake on the row above it (or on the first when a level offers a brake and no
@@ -1384,11 +1396,12 @@ namespace BS3D.Screens
         /// nothing to press. The glyph is the pad's button when the hand was last on the pad
         /// (<see cref="Tutorial.OnGamepad"/>), as every prompt outside the cards picks.
         /// </summary>
-        /// <param name="brakeOwed">Whether the glass hangs a pressure step down for the brake to give back (#692). Until it
-        /// does, a press is refused with the gun's dry "no" and keeps its charge, so the chip is dimmed rather than shown
-        /// ready: the owner's playtest met that "no" from a chip at full brightness and did not understand the brake.</param>
-        private void DrawSwap(int swapCharges, int brakeCharges, int cutCharges, bool brakeOwed, bool onGamepad, Viewport viewport,
-            int margin)
+        /// <param name="brakeBlock">Why the brake cannot act now, if it cannot (#692, #844): a press is then refused with the gun's
+        /// dry "no" and keeps its charge, so the chip is not shown ready — the owner's playtest met that "no" from a chip at full
+        /// brightness and did not understand the brake — and, since #844, not shown spent either: it says to wait.</param>
+        /// <param name="cutBlocked">Whether the round in the bore cannot be turned into a cutter now (#844).</param>
+        private void DrawSwap(int swapCharges, int brakeCharges, int cutCharges, BrakeBlock brakeBlock, bool cutBlocked, bool onGamepad,
+            Viewport viewport, int margin)
         {
             if (swapCharges < 0 && brakeCharges < 0 && cutCharges < 0) return;
 
@@ -1396,9 +1409,16 @@ namespace BS3D.Screens
             SpriteFontBase captionFont = _game.HudFontChipDetail;
             MeasureChipColumns(glyphFont, captionFont);
 
-            if (swapCharges >= 0) ChipText(swapCharges, SWAP_READY, SWAP_SPENT, ref _swapTextFor, ref _swapText);
-            if (brakeCharges >= 0) ChipText(brakeCharges, BRAKE_READY, BRAKE_SPENT, ref _brakeTextFor, ref _brakeText);
-            if (cutCharges >= 0) ChipText(cutCharges, CUT_READY, CUT_SPENT, ref _cutTextFor, ref _cutText);
+            //A chip with a charge it cannot spend now says why instead of how many (#844), and a chip with none left says so
+            string brakeNotNow = brakeCharges > 0
+                ? brakeBlock switch { BrakeBlock.Wait => BRAKE_WAIT, BrakeBlock.NotNeeded => BRAKE_NOT_NEEDED, _ => null }
+                : null;
+            string cutNotNow = cutCharges > 0 && cutBlocked ? CUT_NOT_NOW : null;
+
+            string noReason = null;
+            if (swapCharges >= 0) ChipText(swapCharges, SWAP_READY, SWAP_SPENT, null, ref _swapTextFor, ref noReason, ref _swapText);
+            if (brakeCharges >= 0) ChipText(brakeCharges, BRAKE_READY, BRAKE_SPENT, brakeNotNow, ref _brakeTextFor, ref _brakeNotNowFor, ref _brakeText);
+            if (cutCharges >= 0) ChipText(cutCharges, CUT_READY, CUT_SPENT, cutNotNow, ref _cutTextFor, ref _cutNotNowFor, ref _cutText);
 
             //One column for every chip on the frame (#694): the widest caption a chip can show, or a wider one that is
             //up now, ends on the strip's right edge, and every keycap stands in the column left of the captions
@@ -1413,14 +1433,14 @@ namespace BS3D.Screens
             int row = 0;
 
             if (swapCharges >= 0)
-                DrawChip(row++, onGamepad ? SWAP_GLYPH_PAD : SWAP_GLYPH_KEY, _swapText, swapCharges > 0, in layout, viewport, margin);
+                DrawChip(row++, onGamepad ? SWAP_GLYPH_PAD : SWAP_GLYPH_KEY, _swapText, State(swapCharges, null), in layout, viewport, margin);
 
             if (brakeCharges >= 0)
-                DrawChip(row++, onGamepad ? BRAKE_GLYPH_PAD : BRAKE_GLYPH_KEY, _brakeText, brakeCharges > 0 && brakeOwed, in layout,
+                DrawChip(row++, onGamepad ? BRAKE_GLYPH_PAD : BRAKE_GLYPH_KEY, _brakeText, State(brakeCharges, brakeNotNow), in layout,
                     viewport, margin);
 
             if (cutCharges >= 0)
-                DrawChip(row, onGamepad ? CUT_GLYPH_PAD : CUT_GLYPH_KEY, _cutText, cutCharges > 0, in layout, viewport, margin);
+                DrawChip(row, onGamepad ? CUT_GLYPH_PAD : CUT_GLYPH_KEY, _cutText, State(cutCharges, cutNotNow), in layout, viewport, margin);
         }
 
         /// <summary>
@@ -1453,15 +1473,29 @@ namespace BS3D.Screens
             return (ink.Y + ink.Y2) * 0.5f;
         }
 
-        /// <summary>A chip's words for <paramref name="charges"/>, rebuilt only when the count changes (never per frame).</summary>
-        private static void ChipText(int charges, string ready, string spent, ref int textFor, ref string text)
+        /// <summary>Why the brake cannot act now (#844), as the session reads it: nothing in the way, the glass moving, or nothing to lift.</summary>
+        internal enum BrakeBlock : byte { None, Wait, NotNeeded }
+
+        /// <summary>A chip's three states (#844): it can act, a charge is kept but cannot act now, or none is left.</summary>
+        private enum ChipState : byte { Ready, NotNow, Spent }
+
+        private static ChipState State(int charges, string notNow) =>
+            charges <= 0 ? ChipState.Spent : notNow != null ? ChipState.NotNow : ChipState.Ready;
+
+        /// <summary>
+        /// A chip's words for <paramref name="charges"/> and the reason it cannot act now, if any (<paramref name="notNow"/>,
+        /// #844), rebuilt only when either changes (never per frame): the reason replaces the count while it holds, and none
+        /// left says so whatever else is true.
+        /// </summary>
+        private static void ChipText(int charges, string ready, string spent, string notNow, ref int textFor, ref string notNowFor,
+            ref string text)
         {
-            if (charges == textFor) return;
+            if (charges == textFor && ReferenceEquals(notNow, notNowFor)) return;
 
             textFor = charges;
+            notNowFor = notNow;
             text = charges == 0 ? spent
-                : charges == 1 ? ready
-                : ready + " ×" + charges.ToString(CultureInfo.InvariantCulture);
+                : notNow ?? (charges == 1 ? ready : ready + " ×" + charges.ToString(CultureInfo.InvariantCulture));
         }
 
         /// <summary>
@@ -1469,10 +1503,15 @@ namespace BS3D.Screens
         /// its keycap centred in the shared column and its caption from the shared left edge (<see cref="ChipColumnLayout"/>,
         /// #694), so the keycaps of every chip stand in one column whatever their captions say.
         /// </summary>
-        private void DrawChip(int row, string glyph, string text, bool ready, in ChipColumnLayout layout, Viewport viewport,
+        private void DrawChip(int row, string glyph, string text, ChipState state, in ChipColumnLayout layout, Viewport viewport,
             int margin)
         {
+            //Three states told apart by brightness, the HUD's grey and not a colour (amber means gain, see the class doc):
+            //ready is the keycap and its word in full white; NOT NOW dims the keycap - the key will do nothing yet - and keeps
+            //the words in full, since they say why (#844); used up dims the whole chip, the way it always has
+            bool ready = state == ChipState.Ready;
             float alpha = ready ? 1f : HUD_SWAP_SPENT_ALPHA;
+            float captionAlpha = state == ChipState.Spent ? HUD_SWAP_SPENT_ALPHA : 1f;
 
             SpriteFontBase glyphFont = _game.HudFontChipPrompt;
             SpriteFontBase captionFont = _game.HudFontChipDetail;
@@ -1494,7 +1533,7 @@ namespace BS3D.Screens
             DrawString(glyphFont, glyph, new Vector2(MathF.Round(layout.GlyphLeft(glyphSize.X)), MathF.Round(glyphTop)),
                 BS3DGame.MENU_TEXT * alpha, 1f);
             DrawString(captionFont, text, new Vector2(MathF.Round(layout.CaptionLeft), captionTop),
-                (ready ? BS3DGame.MENU_TEXT : HUD_CAPTION) * alpha, 1f);
+                (ready ? BS3DGame.MENU_TEXT : HUD_CAPTION) * captionAlpha, 1f);
         }
 
         /// <summary>

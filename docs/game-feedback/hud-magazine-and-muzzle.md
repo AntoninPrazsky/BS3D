@@ -16,7 +16,7 @@ How the player reads "which round fires next" and "is it special": a 2D strip in
 
 ## The power-up chips
 
-- **Swap** (`Ｅ`, pad `⇐` X) above the strip: the count if more than one, dimmed and "Swap used" once spent. **Brake** (`Ｑ`, pad `⇑` Y) one row above, also dimmed when no pressure step is left to give back (#692); a **Cut** chip stands in the column. Each only on a level that offers it (Swap from chapter three, Brake from four; "The tools' cards" in `docs/game-session.md`).
+- **Swap** (`Ｅ`, pad `⇐` X) above the strip, **Brake** (`Ｑ`, pad `⇑` Y) one row above, **Cut** (`Ｒ`, pad RB) above that. **Three states, by brightness and words, not colour** (#844; amber means gain): **ready**, keycap and word in white, the count if more than one; **not now**, a charge kept that a press would not spend yet, keycap dimmed and the words in full saying why ("Brake · wait" while the glass moves, "Brake · not needed" with nothing to lift, #692/#843; "Cut · not now" with a special round in the bore or no shot left); **used up**, the whole chip dimmed and "Swap used". The owner could not tell "used" from "not now" when both were the same dimmed chip. Each only on a level that offers it (Swap from chapter three, Brake from four; "The tools' cards" in `docs/game-session.md`).
 - **Own fonts** (#703): `HUD_FONT_CHIP_PROMPT`/`HUD_FONT_CHIP_DETAIL` are the card pair times 0.8 (a hint up all level at card size was far too huge); `HUD_SWAP_ABOVE_STRIP` = `HUD_MARGIN`.
 - **Keycaps stand in one column** (#694): `ChipColumnLayout` sizes it by the widest glyph either device draws, captions start at one left edge, measured once per font pair so it never moves between "Swap" and "Swap used" or keyboard and pad. `ChipColumnLayoutTests`.
 

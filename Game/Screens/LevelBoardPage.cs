@@ -76,12 +76,11 @@ namespace BS3D.Screens
             _next = MenuButton("Next", () => Page(+1));
             _previous.Width = _next.Width = Scaled(PAGER_BUTTON_WIDTH);
 
-            //What turns the boards, beside the pair (#799) - and since then it does: the shoulders and the arrows turn
-            //them as Previous and Next do (PageSideways)
-            pager.Widgets.Add(PageTurnPrompt(PromptGlyph.PAD_LB, PromptGlyph.KEY_LEFT, _previous));
-            pager.Widgets.Add(_previous);
-            pager.Widgets.Add(_next);
-            pager.Widgets.Add(PageTurnPrompt(PromptGlyph.PAD_RB, PromptGlyph.KEY_RIGHT, _next));
+            //What turns the boards, under each entry (#799, #848; the owner's answer: the glyph in or under the plate): the
+            //shoulders and the arrow keys turn them as Previous and Next do (PageSideways). Not inside: a shoulder's pill beside
+            //"Previous" does not fit the slab. Words and not arrows, so the arrow keys repeat nothing and keep their prompt
+            pager.Widgets.Add(PageTurnUnder(_previous, PromptGlyph.PAD_LB, PromptGlyph.KEY_LEFT));
+            pager.Widgets.Add(PageTurnUnder(_next, PromptGlyph.PAD_RB, PromptGlyph.KEY_RIGHT));
             column.Widgets.Add(pager);
 
             column.Widgets.Add(BackButton());

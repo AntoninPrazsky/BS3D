@@ -128,18 +128,33 @@ namespace BS3D.Screens
         private const int LIST_SURROUNDINGS = 700;
         private const int CHAPTER_SURROUNDINGS = 1010;
 
-        //The chapter arrows: a square slab either side of the name, big enough that the glyph inside it reads
+        //The chapter arrows: a square slab either side of the name, big enough that the triangle inside it reads
         //at the same weight as the heading beside it. A visible affordance is the point — the page is
         //mouse-first for most players, and a left/right key nobody can see is not discoverable.
+        //
+        //NOT fitted, and the triangle is a shape sized to the heading (#847): it was Inter's ◀ in FontStars, the
+        //menu's unfitted 140 units, on a Fit(ARROW_SIZE) plate, so at 2.4:1 the plate shrank to 118 and the glyph did
+        //not — its ink, placed by the font's metrics, stood off the plate down and to the right (photographed at
+        //3840×1600, the owner's "the grey backing under the arrows is smaller than the arrows"). #539's pips had
+        //the same fault. The triangle is ARROW_OF_CAP of the heading's capitals, and plate and triangle are both
+        //font-bound now, so the margin round it is the same at every aspect.
         private const int ARROW_SIZE = 160;
 
-        //A pip's clickable square (#348), and the floor on it is the GLYPH ITSELF. A box smaller than the label
-        //inside it does not clip that label — Myra lets it overflow — so the plate the player sees and the
-        //rectangle the mouse hits stop being the same thing, silently. At 74 they sat about half a pip apart
-        //and a click on the visible ring landed under the button, which reads exactly like a dead control.
-        //FontStars' ring plus MenuTile's own padding needs most of this, and the rest is target size: eleven of
-        //them at this width still sit well inside the panel the tile grid sets.
-        private const int PIP_SIZE = 150;
+        //The chapter arrow's triangle against the heading's capitals beside it: a little taller, since a triangle has
+        //less ink than a capital of its height (1.2 x 53 px at 3840x1600 is 64; Inter's glyph was 75 and overflowed)
+        private const float ARROW_OF_CAP = 1.2f;
+
+        //A pip's clickable square (#348). It has to hold the mark: a box smaller than what is inside it does not
+        //clip it — Myra lets it overflow — so the plate the player sees and the rectangle the mouse hits stop
+        //being the same thing, silently (at 74 they sat about half a pip apart, #539). The mark is a drawn shape
+        //since #847, PIP_DOT across and centred, and both are fitted, so the margin round it is the same at every
+        //aspect; the rest of the square is target size.
+        private const int PIP_SIZE = 112;
+
+        //The pip's mark across, in design units (#847): the owner found Inter's ●/○ in FontStars "needlessly huge"
+        //(a 64 px ring on a 111 px plate at 3840x1600). A drawn ring keeps its hole at any size, so the two states
+        //stay apart at a fraction of that: 27 px at 3840x1600 (Fit(50) is 37 units there), 21 px on a 1600x900 window.
+        private const int PIP_DOT = 50;
 
         //The name and its readout sit in a block of FIXED width, so the arrows stand in the same place on
         //every chapter. Without it "The Coil" and "The Spectrum" would shift them, and paging would read as
@@ -151,15 +166,8 @@ namespace BS3D.Screens
         //being shown is the bright one. Two orthogonal bits, each read at a glance, and no hue — emphasis here
         //is brightness (see the palette comment in BS3DGame.Menu.cs). A chapter still locked is deliberately
         //not a third state: the tiles inside it and its own readout line both say so, and a third brightness
-        //on a 20-pixel glyph would not survive being looked at.
-        //
-        //Set in FontStars (the rating's size) rather than the small face, which is what the row was drawn in
-        //first: at 58 design units a filled disc and a hollow ring are both a 20-pixel dot on a 900p window and
-        //could not be told apart at all. Both faces are Inter — the display face carries neither glyph, and
-        //FontStashSharp would silently draw blanks — and this is the larger of the two the menu already loads,
-        //so the legible row costs no new font atlas.
-        private const char PIP_CLEARED = '●';
-        private const char PIP_OPEN = '○';
+        //on a small mark would not survive being looked at. Drawn (PipGlyph, #847): a font's ● and ○ had to be
+        //set in the menu's largest face to be told apart at all, and sat off-centre on their plates.
 
         //The tiles' widgets, kept so the writing pass can put the live state onto them: which entries the star
         //total has unlocked moves between two showings of this page (a level was just cleared), and which
@@ -171,7 +179,7 @@ namespace BS3D.Screens
         private readonly List<Label> _tileStarsEarned = new();
         private readonly List<Label> _tileStarsRest = new();
         private readonly List<Label> _tileScores = new();
-        private readonly List<Label> _pips = new();
+        private readonly List<PipGlyph> _pips = new();
         private Label _chapterName, _chapterLine, _totalStars, _detail;
 
         //The level each tile SLOT is currently showing, -1 for a slot this chapter does not reach (chapters
@@ -207,9 +215,9 @@ namespace BS3D.Screens
 
         //The online boards of that level beside the band (#684), the result page's plate on the result page's side: this
         //month and all time, the top OnlineSession.RESULT_BOARD_ROWS of each and the player's own place. The band is
-        //MEASURED rather than summed - its widest row is the pips, which are not fitted (see BuildPips), and thirteen of
-        //them are 2378 design units with the plate's padding. That leaves 731 either side at 16:9, short of the result
-        //page's board: so where the board does not fit beside a centred band THE BAND MOVES LEFT, by what the board
+        //MEASURED rather than summed - its widest row (the pager or the pips, whichever the chapter count makes wider)
+        //sets it, and at 16:9 that leaves less either side than the result page's board needs: so where the board does
+        //not fit beside a centred band THE BAND MOVES LEFT, by what the board
         //needs and no more. Only where it would not fit even then is it narrowed, and under its floor it is not there -
         //a board laid across the tiles is worse than the Leaderboard button alone. Not fitted: a board is font-bound,
         //and the fonts are the menu's (BoardView's "Nobody is on this board yet" in the body face wants ~700 units).
@@ -666,36 +674,32 @@ namespace BS3D.Screens
                 Margin = ScaledThickness(0, 0, 0, 20),
             };
 
-            //Added in the order the pad should step through them, since CollectNavEntries follows the order
-            //widgets were added — so the walk reads left to right across the row, as it is drawn.
-            //What turns the chapter, outside the two arrows (#799): the shoulders for a pad player, the arrow keys for a
-            //keyboard one. The arrows never disable here - the pager wraps - so neither does a prompt.
-            row.Widgets.Add(Prompt(PromptGlyph.PAD_LB, PromptGlyph.KEY_LEFT));
-            row.Widgets.Add(ChapterArrow('◀', -1));
+            //Aligned to the top, so the arrows' slabs stand level with the heading while the shoulders hang under them
+            header.VerticalAlignment = VerticalAlignment.Top;
+
+            //Added in the order the pad's list walk would step through them, left to right across the row as it is drawn.
+            //What turns the chapter, under the two arrows (#799, #848): the pad's shoulders, nothing for the keyboard —
+            //an arrow key beside an arrow only repeated it (the owner, 2026-10-12). The arrows never disable here - the
+            //pager wraps - so neither does a prompt.
+            row.Widgets.Add(ArrowWithShoulder(ChapterArrow(MediaGlyph.Symbol.Back, -1), PromptGlyph.PAD_LB));
             row.Widgets.Add(header);
-            row.Widgets.Add(ChapterArrow('▶', 1));
-            row.Widgets.Add(Prompt(PromptGlyph.PAD_RB, PromptGlyph.KEY_RIGHT));
+            row.Widgets.Add(ArrowWithShoulder(ChapterArrow(MediaGlyph.Symbol.Play, 1), PromptGlyph.PAD_RB));
 
             return row;
         }
 
         /// <summary>
         /// One chapter arrow. Built over <c>MenuTile</c> like the level tiles are, so it is a real menu entry
-        /// — same brushes, same click sound, same pad activation — and the glyph is Inter's: the display face
-        /// the loud type is set in carries neither triangle, and FontStashSharp would silently draw a blank.
+        /// — same brushes, same click sound, same pad activation — around a triangle drawn as a shape
+        /// (<see cref="MediaGlyph"/>, #847) and centred on the plate to the pixel: the display face carries no
+        /// triangle, and Inter's, set in a font, was placed by the font's metrics rather than on its plate.
         /// </summary>
-        private Button ChapterArrow(char glyph, int direction)
+        private Button ChapterArrow(MediaGlyph.Symbol symbol, int direction)
         {
-            Label caption = new()
-            {
-                Text = glyph.ToString(),
-                Font = FontStars,
-                TextColor = BS3DGame.MENU_TEXT,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
+            int height = (int)MathF.Round(CapHeightOf(FontHeading) * ARROW_OF_CAP);
+            MediaGlyph triangle = new(symbol, height, height);
 
-            return Game.MenuTile(caption, () => TurnChapter(direction), Fit(ARROW_SIZE), Fit(ARROW_SIZE));
+            return Game.MenuTile(triangle, () => TurnChapter(direction), ARROW_SIZE, ARROW_SIZE);
         }
 
         /// <summary>
@@ -726,13 +730,7 @@ namespace BS3D.Screens
 
             for (int c = 0; c < _chapterStart.Length; c++)
             {
-                Label pip = new()
-                {
-                    Font = FontStars,
-                    TextColor = BS3DGame.MENU_TEXT_DIM,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center,
-                };
+                PipGlyph pip = new(Scaled(Fit(PIP_DOT)));
 
                 _pips.Add(pip);
 
@@ -740,11 +738,9 @@ namespace BS3D.Screens
                 //rather than eleven closures over the loop variable's last value.
                 int chapter = c;
 
-                //NOT fitted (#539): the square's floor is the glyph, and FontStars is the menu's unfitted 140 units,
-                //so Fit(150) at 2.4:1 — 111 — put the ring outside its own plate, the plate standing up and to the
-                //left of it (photographed at 3840×1600). Same rule as the tile's height: what is font-bound keeps
-                //the font's size.
-                row.Widgets.Add(Game.MenuTile(pip, () => GoToChapter(chapter), PIP_SIZE, PIP_SIZE));
+                //Fitted with its mark (#847): until the mark was drawn it was a 140-unit font glyph, and #539 had to
+                //keep the square unfitted so the ring stayed on it. A drawn mark shrinks with its plate.
+                row.Widgets.Add(Game.MenuTile(pip, () => GoToChapter(chapter), Fit(PIP_SIZE), Fit(PIP_SIZE)));
             }
 
             return row;
@@ -1007,8 +1003,8 @@ namespace BS3D.Screens
 
             for (int c = 0; c < _pips.Count; c++)
             {
-                _pips[c].Text = IsChapterCleared(c) ? PIP_CLEARED.ToString() : PIP_OPEN.ToString();
-                _pips[c].TextColor = c == _chapter ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM;
+                _pips[c].Filled = IsChapterCleared(c);
+                _pips[c].Tint = c == _chapter ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM;
             }
 
             WriteTiles();
@@ -1024,6 +1020,12 @@ namespace BS3D.Screens
         }
 
         #endregion
+
+        /// <summary>
+        /// The picker is a grid (#848): the pad's D-pad and stick move the cursor over the tiles, the pips and the arrows
+        /// in the direction pressed, and its shoulders turn the chapter; the arrow keys turn it on left and right.
+        /// </summary>
+        internal override bool PadWalksGrid => true;
 
         /// <summary>
         /// Left or right, wherever it came from: the previous or the next chapter. False on a page with nothing

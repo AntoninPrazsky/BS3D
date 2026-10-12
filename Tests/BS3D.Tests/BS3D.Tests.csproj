@@ -42,6 +42,7 @@
     <Compile Include="..\..\Game\Screens\TutorialCardLayout.cs" />
     <!--The power-up chips' keycap column (#694): arithmetic over measured widths, no device.-->
     <Compile Include="..\..\Game\Screens\ChipColumnLayout.cs" />
+    <Compile Include="..\..\Game\Screens\NavWalk.cs" />
     <!--The privacy note's wrap (#769): lines broken at spaces only, over a measure handed in.-->
     <Compile Include="..\..\Game\Screens\SpaceWrap.cs" />
     <Compile Include="..\..\Game\Screens\FieldTail.cs" />

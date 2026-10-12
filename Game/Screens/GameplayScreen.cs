@@ -2042,7 +2042,8 @@ namespace BS3D.Screens
                 swapCharges: _run.SwapOffered ? _run.PowerupCharges[(int)PowerupKind.Swap] : -1,
                 brakeCharges: _run.BrakeOffered ? _run.PowerupCharges[(int)PowerupKind.Brake] : -1,
                 cutCharges: _run.CutOffered ? _run.PowerupCharges[(int)PowerupKind.Cut] : -1,
-                brakeOwed: BrakeCanLift, kinds: _magazineKinds, queueFrom: _magazineFrom, queueFade: _magazineFade);
+                brakeBlock: BrakeBlockNow(), cutBlocked: !CutRoundFits, kinds: _magazineKinds, queueFrom: _magazineFrom,
+                queueFade: _magazineFade);
 
             if (previewsOnly) return;
 

@@ -1851,10 +1851,22 @@ namespace BS3D
             bool padVertical = pad.IsButtonDown(Buttons.DPadDown) || pad.IsButtonDown(Buttons.DPadUp)
                 || Math.Abs(pad.ThumbSticks.Left.Y) > NAV_STICK_DEADZONE;
 
+            //On a page laid out as a grid (#848, the level picker), the pad moves the cursor to the entry in the direction
+            //pressed — down from a tile is the tile under it — where the arrow keys keep walking the list in order, so a
+            //keyboard player, whose left and right turn the chapter there, can still reach every entry
+            bool padWalksGrid = _screens.Active is MenuPage { PadWalksGrid: true };
+
             if (HeldDirectionFires(direction, ref _navDirection, ref _navRepeatDelay, elapsed))
             {
-                StepNavFocus(direction);
-                if (padVertical) _audioDirector.Rumble.UiStep();
+                if (padVertical && padWalksGrid && _navIndex >= 0)
+                {
+                    if (StepNavToward(0, direction)) _audioDirector.Rumble.UiStep();
+                }
+                else
+                {
+                    StepNavFocus(direction);
+                    if (padVertical) _audioDirector.Rumble.UiStep();
+                }
             }
 
             int sideways = 0;
@@ -1875,7 +1887,18 @@ namespace BS3D
 
             if (HeldDirectionFires(sideways, ref _navSideDirection, ref _navSideRepeatDelay, elapsed))
             {
-                if (_screens.Active is MenuPage sidewaysPage && sidewaysPage.PageSideways(sideways))
+                //The pad on a grid page walks it sideways too (#848): its left and right are the cursor's, and the page is
+                //turned by the shoulders, as the prompts under the page's arrows say. The first press only raises the cursor.
+                if (padSideways && padWalksGrid)
+                {
+                    if (_navIndex < 0)
+                    {
+                        StepNavFocus(1);
+                        _audioDirector.Rumble.UiStep();
+                    }
+                    else if (StepNavToward(sideways, 0)) _audioDirector.Rumble.UiStep();
+                }
+                else if (_screens.Active is MenuPage sidewaysPage && sidewaysPage.PageSideways(sideways))
                 {
                     _audioDirector.Sfx.PlayUiTick();
                     if (padSideways) _audioDirector.Rumble.UiPage(sideways);
@@ -2092,6 +2115,37 @@ namespace BS3D
             _navRevealPending = !ScrollNavEntryIntoView();
             return true;
         }
+
+        /// <summary>
+        /// Moves the focus cursor to the entry that lies in the direction pressed (#848), measured on the screen
+        /// (<see cref="NavWalk.Toward"/>, which says how). <see cref="StepNavAcrossRow"/>'s geometry in two dimensions, for a
+        /// page that says it is a grid (<see cref="MenuPage.PadWalksGrid"/>); every other page keeps the list's order on up
+        /// and down. False, and nothing moved, when there is no entry that way. On a press, never per frame; the rectangles
+        /// go into a list kept for it, so a press allocates nothing once the list has grown.
+        /// </summary>
+        private bool StepNavToward(int dx, int dy)
+        {
+            if (_navIndex < 0 || _navIndex >= _navEntries.Count) return false;
+
+            _navWalkBounds.Clear();
+            foreach (Button entry in _navEntries)
+            {
+                Point corner = entry.ToGlobal(Point.Zero);
+                _navWalkBounds.Add(new Rectangle(corner.X, corner.Y, entry.Bounds.Width, entry.Bounds.Height));
+            }
+
+            int found = NavWalk.Toward(_navWalkBounds, _navIndex, dx, dy);
+            if (found < 0) return false;
+
+            _navIndex = found;
+            _audioDirector.Sfx.PlayUiTick();
+            ApplyNavHighlight();
+            _navRevealPending = !ScrollNavEntryIntoView();
+            return true;
+        }
+
+        //The entries' rectangles for StepNavToward, refilled on each press
+        private readonly List<Rectangle> _navWalkBounds = new();
 
         private void StepNavFocus(int direction)
         {

@@ -482,3 +482,9 @@ Pravidla:
 - #843 (merge a4ed6ac1, opravy z review 03d199be): krmení jen do dosahu (dvoubarevný Totem: pás 6 úrovní 0 kroků místo 7, 12 úrovní 6 místo 14); Brake na vysokém levelu odmítnut, když by zdvih vynesl spodek z dosahu (`BrakeCanLift`).
 - ⚠ Rozptýlené skriptované střely spodek vysokého levelu nikdy neuvolní; krmení vyvolá jen kopie levelu s jednobarevným spodním pásem (`levelfile=`).
 - Otevřené: obojí verdict-hands; #844 staví na `BrakeCanLift`.
+
+## 2026-10-12 — #847 #848 #844 výběr levelů a čipy power-upů — desktop (RDT-PC), Claude Code (bs3d-c2)
+- majitel: u šipek kapitol jen ikony padu (LB/RB pod podložkou), klávesové ←/→ vedle šipek ne; Brake jen při stojícím stropu; čip má rozlišit „vyčerpáno“ a „teď ne“.
+- #847 (merge 94e5821c): šipky a puntíky jako kreslené tvary (`MediaGlyph.Back`, `PipGlyph`), vystředěné na podložkách. #848 (merge b40e245c, review f1787633): pad chodí po mřížce (`PadWalksGrid`, `NavWalk`), kapitoly LB/RB. #844 (merge c8e5d646): `CanBrake` čeká na stojící strop, čipy ready / not now / used.
+- ⚠ Noc 12. 10.: tři resety při souběhu ACE-Step a běhů hry; těžké příkazy obou sezení přes mutex `Global\BS3D-heavy-job` (`heavy.ps1` noční session).
+- Otevřené: chůze padem neověřena (skriptovaný pad potřebuje fokus), desky levelu jen online; verdikty #847/#844 eye, #848 hands.
