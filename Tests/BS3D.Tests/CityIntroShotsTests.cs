@@ -41,6 +41,10 @@ namespace BS3D.Tests
         //at the path's points; the lens runs a spline through them.
         private const float FRAME_MARGIN = 0.04f;
 
+        //And the foot over the bottom edge by more than the intro's skip hint reaches up it (12.2 % of the frame's height,
+        //measured on the captures at 1600 and 900 tall), which stands centred there - where the mast is - over the shot
+        private const float FOOT_CLEAR = 0.13f;
+
         //Each candidate roof's arc rolled this many times: the start and the direction are rolled
         private const int ARC_ROLLS = 4;
 
@@ -157,7 +161,8 @@ namespace BS3D.Tests
         /// at the mast's lower third from a fixed height, and a tall mast's top ran off the top edge. Every candidate roof
         /// the shot may take, on both cities and a dozen rolls, its arc rolled several times, walked pose by pose through
         /// the shot's own lens at three window shapes: the mast's foot and the whole beacon (its middle, and its radius up
-        /// the screen and up the world) stay inside every edge of the frame from the first degree of the arc to the last.
+        /// the screen and up the world) stay inside every edge of the frame from the first degree of the arc to the last,
+        /// and the foot over the skip hint at the bottom of it.
         /// </summary>
         [Fact]
         public void TheRooftopShotKeepsTheWholeMastAndItsBeaconInFrame()
@@ -210,11 +215,16 @@ namespace BS3D.Tests
                                         roof.MastFoot, top, top + Vector3.Up * r, top + up * r, top - up * r, top + right * r, top - right * r,
                                     };
 
-                                    foreach (Vector3 point in points)
+                                    for (int p = 0; p < points.Length; p++)
                                     {
-                                        Vector4 clip = Vector4.Transform(new Vector4(point, 1f), viewProjection);
+                                        Vector4 clip = Vector4.Transform(new Vector4(points[p], 1f), viewProjection);
                                         float reach = clip.W <= 0f ? float.PositiveInfinity
                                             : MathF.Max(MathF.Abs(clip.X / clip.W), MathF.Abs(clip.Y / clip.W));
+
+                                        //The foot (the first point) is measured against the hint's top instead of the bottom edge:
+                                        //how far below the middle it stands, in the units the edges are measured in
+                                        if (p == 0 && clip.W > 0f)
+                                            reach = MathF.Max(reach, -clip.Y / clip.W * limit / (1f - 2f * FOOT_CLEAR));
                                         if (reach <= limit) continue;
 
                                         failed = true;
@@ -222,7 +232,8 @@ namespace BS3D.Tests
                                         {
                                             worst = reach;
                                             example = $"seed {seed}, neon {neon}, roof {c} (mast {roof.MastHeight:F1}, half span {roof.HalfSpan:F1}), "
-                                                + $"roll {roll}, {width}x{height}, at {step}/{POSES}: a point of the mast at {reach:F2} of the half frame";
+                                                + $"roll {roll}, {width}x{height}, at {step}/{POSES}: "
+                                                + (p == 0 ? "the foot" : "the beacon") + $" at {reach:F2} of the half frame";
                                         }
                                     }
                                 }
@@ -236,8 +247,8 @@ namespace BS3D.Tests
             //Not vacuous: enough arcs were walked, and tall masts among them - the ones #840's capture lost
             Assert.True(arcs >= 100, $"only {arcs} arcs were walked");
             Assert.True(tall >= 20, $"only {tall} arcs went round a mast of 14 or more");
-            Assert.True(failures == 0, $"{failures} of {arcs} arcs put the mast or its beacon within {FRAME_MARGIN:P0} of the frame's edge "
-                + $"or past it; the worst: {example}");
+            Assert.True(failures == 0, $"{failures} of {arcs} arcs put the beacon within {FRAME_MARGIN:P0} of the frame's edge or past it, "
+                + $"or the foot under the skip hint; the worst: {example}");
         }
     }
 }

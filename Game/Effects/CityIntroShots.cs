@@ -98,11 +98,14 @@ namespace BS3D.Effects
 
         //⚠ THE WHOLE MAST STAYS IN FRAME, BEACON AND FOOT (#840). From a fixed height over the mast's middle, looking at
         //its lower third, a tall mast's top ran off the top edge for most of the arc ("the red blinking tip of the mast
-        //is not visible"). The mast's top and its beacon's radius now bound the look (FrameMast), so the beacon stays this
-        //share of the frame's height under the top edge and the foot as far over the bottom one at every point of the arc;
-        //where no one look holds both, the lens climbs a step at a time (a higher lens sees the mast foreshortened, so from
-        //high enough any mast fits), up to ROOFTOP_MAX_CLIMB over #780's height. CityIntroShotsTests walks it.
-        private const float ROOFTOP_FRAME_MARGIN = 0.06f;
+        //is not visible"). The mast's top and its beacon's radius now bound the look (FrameMast), so the beacon stays
+        //ROOFTOP_TOP_MARGIN of the frame's height under the top edge and the foot ROOFTOP_FOOT_MARGIN over the bottom one
+        //at every point of the arc; where no one look holds both, the lens climbs a step at a time (a higher lens sees the
+        //mast foreshortened, so from high enough any mast fits), up to ROOFTOP_MAX_CLIMB over #780's height.
+        //CityIntroShotsTests walks it. The foot's margin is the wider because the intro's skip hint (PlayHud, #699) stands
+        //centred on the bottom edge for the whole shot, up to 12.2 % of the frame's height, and the look keeps the mast
+        //centred across: at the top's margin the foot stood behind the hint.
+        private const float ROOFTOP_TOP_MARGIN = 0.06f, ROOFTOP_FOOT_MARGIN = 0.15f;
         private const float ROOFTOP_CLIMB_STEP = 0.5f, ROOFTOP_MAX_CLIMB = 30f;
 
         //How many candidates each roll weighs; the best by its own measure is taken.
@@ -454,22 +457,24 @@ namespace BS3D.Effects
         /// <summary>
         /// Where on a mast's axis the lens can look from every point of <paramref name="path"/> and keep the whole mast in
         /// frame (#840): the beacon on its <paramref name="top"/>, <paramref name="beacon"/> round, at least
-        /// ROOFTOP_FRAME_MARGIN of the frame's height under the top edge, and the <paramref name="foot"/> as far over the
-        /// bottom one. <paramref name="lookY"/> is <paramref name="preferred"/> (over the foot) moved only as far as that
-        /// takes. False when no one look holds it from every point — the lens is too low for this mast.
+        /// ROOFTOP_TOP_MARGIN of the frame's height under the top edge, and the <paramref name="foot"/> ROOFTOP_FOOT_MARGIN
+        /// over the bottom one. <paramref name="lookY"/> is <paramref name="preferred"/> (over the foot) moved only as far as
+        /// that takes. False when no one look holds it from every point — the lens is too low for this mast.
         /// <para>
         /// Exact for the axis because the lens looks AT a point on it: the axis then lies in the vertical plane through
         /// the view direction, so a point on it is seen at the angle between its own elevation and the look's, and the
         /// frame's half-height is the lens's half-angle. A look at the elevation <c>a</c> holds the mast while
-        /// <c>a</c> is within the frame's half-angle under the beacon's top and above the foot; each point of the path
+        /// <c>a</c> is within the allowed angle under the beacon's top and above the foot; each point of the path
         /// gives such a band of heights on the axis, and the look is taken inside all of them.
         /// </para>
         /// </summary>
         private static bool FrameMast(Vector3[] path, Vector3 foot, float top, float beacon, float lens, float preferred,
             out float lookY)
         {
-            //The half-angle a point may stand off the view axis and still keep the margin inside the frame's edge
-            float half = MathF.Atan((1f - 2f * ROOFTOP_FRAME_MARGIN) * MathF.Tan(lens * 0.5f));
+            //How far a point may stand above and below the view axis and still keep its margin inside the frame's edge
+            float tangent = MathF.Tan(lens * 0.5f);
+            float above = MathF.Atan((1f - 2f * ROOFTOP_TOP_MARGIN) * tangent);
+            float below = MathF.Atan((1f - 2f * ROOFTOP_FOOT_MARGIN) * tangent);
             float low = float.MinValue, high = float.MaxValue;
 
             //The band of look elevations is kept off straight down and straight up, where the tangent runs away
@@ -485,7 +490,7 @@ namespace BS3D.Effects
                 float topAngle = MathF.Atan2(top - over, across) + MathF.Asin(MathF.Min(1f, beacon / MathF.Max(toTop, 1e-3f)));
                 float footAngle = MathF.Atan2(-over, across);
 
-                float lowest = MathF.Max(topAngle - half, -STEEPEST), highest = MathF.Min(footAngle + half, STEEPEST);
+                float lowest = MathF.Max(topAngle - above, -STEEPEST), highest = MathF.Min(footAngle + below, STEEPEST);
                 if (lowest > highest) { lookY = 0f; return false; }
 
                 low = MathF.Max(low, over + across * MathF.Tan(lowest));
