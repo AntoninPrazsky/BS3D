@@ -133,6 +133,10 @@ namespace BS3D
         //Testing only (#257): log every shot's resolution beside the cell its ghost promised when it was fired
         internal bool LogShots { get; private set; }
 
+        //Testing only (#720): log the overview's tilt with the aim, the camera's pitch and where the muzzle and the beam's
+        //end sit in the frame, once a frame
+        internal bool LogTilt { get; private set; }
+
         //Testing only: offer every tutorial card as if none had been taught, and record none (#189). The
         //cards are gated on the save — a lesson done is never shown again — so on a save that finished the
         //chapter months ago they are otherwise unreachable, and a run that taught them for real would write
@@ -480,6 +484,9 @@ namespace BS3D
             //"logshots" prints where every shot landed beside the cell the landing ghost promised when it was fired
             //(#257): the ghost's promise checked by a run nobody plays, a bank shot off a crate above all.
             Row.Flag("logshots", o => o.LogShots = true),
+            //"logtilt" prints the overview lens's tilt with the aim every frame (#720): a press or a release of precise aim
+            //is shown not to move the pose by consecutive lines, which no screenshot schedule can give.
+            Row.Flag("logtilt", o => o.LogTilt = true),
             //"tutorial" offers every tutorial card and records nothing, "tutorial=demo" reels them (#189) —
             //see the property's own note.
             Row.Flag("tutorial", o => o.Tutorial = "force"),

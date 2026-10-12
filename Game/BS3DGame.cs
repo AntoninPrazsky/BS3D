@@ -566,17 +566,30 @@ namespace BS3D
         //eye is in the middle of the frame on the cluster; the corners are empty in both poses, so size costs
         //nothing here. HUD_FONT_SCORE leaves headroom for the pulse: the score is pivoted on its vertical
         //centre at HUD_MARGIN + height/2, so at PlayHud's clamped pulse ceiling it must still clear the frame.
-        private const int HUD_FONT_SCORE = 140;
-        private const int HUD_FONT_LABEL = 76;
-        //The awards are read at a glance out on the cluster and then shrink as they fly to the corner, so they
-        //are authored larger still than the score they land on
-        private const int HUD_FONT_POPUP = 112;
+        internal const int HUD_FONT_SCORE = 140;
+        internal const int HUD_FONT_LABEL = 76;
+
+        //THE AWARDS' TYPE IS A LADDER, not a size (#846). An award zooms from near nothing to as much as AwardZoom.LARGEST
+        //times the score and lands at half of it, so no one rasterised size can draw it: a glyph stretched past its
+        //raster goes soft, and one shrunk more than about twice its size by the linear sampler (the atlas has no mips)
+        //shimmers. PlayHud.AwardFace draws each frame's size from the smallest of these faces at least as big: the
+        //label (76), this (112), the tutorial card's line (200), HUD_FONT_POPUP_LARGE and the peak, all one display face,
+        //no two rungs further apart than 1.8 times. 112 is the old popup's own figure, and still the snoring gun's.
+        internal const int HUD_FONT_POPUP = 112;
+
+        //The rung between the card's line and the peak, about half way by ratio: a bare match's whole read (1.5 scores,
+        //210 units) is drawn from here, where the peak's face would shrink it two and a half times
+        internal const int HUD_FONT_POPUP_LARGE = 320;
+
+        //The top of the zoom's overshoot (AwardZoom.LARGEST), so the biggest award is drawn at its raster and never past it
+        internal const int HUD_FONT_POPUP_PEAK = (int)(AwardZoom.LARGEST * HUD_FONT_SCORE) + 1;
 
         //The tutorial's card (#189): its line, the smaller line under it, and the prompt font's keycaps beside
-        //them. **The loudest type in the game, over the score itself (#461)**, and the ladder here has now been
-        //climbed twice: 88 photographed as an overlay label at a 900p client (37 px of type over a cluster the
-        //eye is on), 112 was chosen to sit BETWEEN the score (140) and the label (76) — "louder than a caption
-        //and quieter than the number" — and the owner played that and reported it still far too small.
+        //them. **The loudest standing type in the game, over the score itself (#461)** (only an award's zoom, #846, is
+        //bigger, and only for its read), and the ladder here has now been climbed twice: 88 photographed as an
+        //overlay label at a 900p client (37 px of type over a cluster the eye is on), 112 was chosen to sit
+        //BETWEEN the score (140) and the label (76) — "louder than a caption and quieter than the number" —
+        //and the owner played that and reported it still far too small.
         //
         //The reasoning that produced 112 was the HUD's, and it was the wrong brief: it sized the card like a
         //READOUT, ranking it against the score and the label. It is not one. The score is a number a player
@@ -595,7 +608,7 @@ namespace BS3D
         //measures 2552 design units at these sizes (the pad's "Hold the left trigger to look down the barrel")
         //against a strip of about 3020 between the two top corners at 16:9, so nothing wraps — and the card is
         //scaled to the strip if a narrower window or a longer string would ever reach the score.
-        private const int HUD_FONT_TUTORIAL = 200;
+        internal const int HUD_FONT_TUTORIAL = 200;
         private const int HUD_FONT_TUTORIAL_DETAIL = 120;
         private const int HUD_FONT_PROMPT = 228;
 
@@ -616,7 +629,7 @@ namespace BS3D
         //the way the centre-pivoted score would be.
         private const float HUD_LOW_EMPHASIS = 1.14f;
 
-        private SpriteFontBase _hudFontScore, _hudFontLabel, _hudFontPopup;
+        private SpriteFontBase _hudFontScore, _hudFontLabel, _hudFontPopup, _hudFontPopupLarge, _hudFontPopupPeak;
         private SpriteFontBase _hudFontScoreLoud, _hudFontLabelLoud;
         private SpriteFontBase _hudFontTutorial, _hudFontTutorialDetail, _hudFontPrompt;
         private SpriteFontBase _hudFontChipDetail, _hudFontChipPrompt;
@@ -625,6 +638,10 @@ namespace BS3D
         internal SpriteFontBase HudFontScore => _hudFontScore;
         internal SpriteFontBase HudFontLabel => _hudFontLabel;
         internal SpriteFontBase HudFontPopup => _hudFontPopup;
+
+        /// <summary>The awards' upper rungs (#846): a zoomed award, and one at the top of its zoom. See <see cref="HUD_FONT_POPUP"/>.</summary>
+        internal SpriteFontBase HudFontPopupLarge => _hudFontPopupLarge;
+        internal SpriteFontBase HudFontPopupPeak => _hudFontPopupPeak;
 
         /// <summary>The balls-left readout once the budget is low — the same face a step larger. See <see cref="HUD_LOW_EMPHASIS"/>.</summary>
         internal SpriteFontBase HudFontScoreLoud => _hudFontScoreLoud;
@@ -657,6 +674,8 @@ namespace BS3D
             _hudFontScore = _menuFontSystemDisplay.GetFont(Scaled(HUD_FONT_SCORE));
             _hudFontLabel = _menuFontSystemDisplay.GetFont(Scaled(HUD_FONT_LABEL));
             _hudFontPopup = _menuFontSystemDisplay.GetFont(Scaled(HUD_FONT_POPUP));
+            _hudFontPopupLarge = _menuFontSystemDisplay.GetFont(Scaled(HUD_FONT_POPUP_LARGE));
+            _hudFontPopupPeak = _menuFontSystemDisplay.GetFont(Scaled(HUD_FONT_POPUP_PEAK));
             _hudFontScoreLoud = _menuFontSystemDisplay.GetFont(Scaled((int)(HUD_FONT_SCORE * HUD_LOW_EMPHASIS)));
             _hudFontLabelLoud = _menuFontSystemDisplay.GetFont(Scaled((int)(HUD_FONT_LABEL * HUD_LOW_EMPHASIS)));
             _hudFontTutorial = _menuFontSystemDisplay.GetFont(Scaled(HUD_FONT_TUTORIAL));

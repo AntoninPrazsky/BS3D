@@ -569,3 +569,15 @@ Pravidla:
 - ⚠ Tichý `if (Game.Rumble != null)` schoval mrtvý řádek od 7. 10.; v `BuildLevel` schválně bez null-checku, level se staví jen z Update.
 - ⚠ `timeout 30` tři rány nestihne: Debug start a zpomalená cinematika první rány posunou třetí ránu za 25. s herních hodin; stačí 42 s.
 - Neověřeno: na skutečném padu v ruce (jen log); karta druhého levelu rukou menu neviděna.
+
+## 2026-10-12 — #846 velké body za ránu — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #846 jde na main (merge následuje), `shipped-awaiting-verdict` + `verdict-eye`. Body za ránu vyrostou nad velikost skóre (1,5× za holý match, až 3× za 2000+), drží se ke čtení 0,55–1,2 s (roste s druhou mocninou váhy), pak se zmenší a letí do rohu jako dřív. Pět velikostí fontu, nikdy natažené (`AwardZoom`). Souběžné body se předávají, ne slučují (starší odchází po ≥ 0,4 s). Bonus za dokončení: bílé „unused“ vzejde z balls-left a dopadne před stránkou výsledku (`LevelPhases.ClearedBeatSeconds`).
+- Bez majitele (spí), konzervativně: předání místo sloučení; popisek „unused“ podle stránky výsledku a Helpu.
+- ⚠ Lineární doba čtení nechala obyčejný match stát moc dlouho (test to chytil); ⚠ nápřah `InBack` vyhodil bonus z levého okraje, poloha teď drží v rámu.
+- Otevřené: verdikt oka (překryv dvou čísel 0,1–0,3 s); skriptovaná rána na 3840×1600 od ~15:20 nevystřelí (příčina neznámá), pár zlomu série ve 4K chybí; první vykreslení velkých velikostí neměřeno.
+
+## 2026-10-12 — #720 kamera se naklání s mířením — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #720 jde na main (merge následuje), `shipped-awaiting-verdict` + `verdict-hands`. Bez RMB přehledová kamera naklání cíl pohledu s elevací hlavně (zesílení 0,3, plynule 0,125 s v reálném čase); nula je mířidlo, se kterým level začíná, takže úvodní záběr se nemění. RMB náklon vytratí. Nahoru se staví, než ústí klesne pod 12 % rámu (pravidlo majitele „trochu zbraně v záběru“); dolů, než vršek orámovaného shluku zajde pod 3 % horního okraje (na startu levelu jen 0,5°). `logtilt` tiskne náklon.
+- Bez majitele, konzervativně: hloubka ponoru dolů malá; horizont scény není slibem fitu.
+- ⚠ Nula náklonu skočila, když vysokému levelu povolil limit míření (Totem: 30,7 → 33,8°, pohled klesl bez vstupu); nula teď sedí pod `OpeningElevationLimit()`.
+- Otevřené: pocit v ruce (myš, pad), skutečné okno 3840×1600.

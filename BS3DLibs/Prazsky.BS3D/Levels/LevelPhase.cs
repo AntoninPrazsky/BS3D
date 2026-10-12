@@ -45,6 +45,15 @@ namespace Prazsky.BS3D.Levels
     public static class LevelPhases
     {
         /// <summary>
+        /// How long <see cref="LevelPhase.ClearedBeat"/> holds the emptied field before the result page, in seconds:
+        /// long enough for a big collapse to reach the drain and go down it. A drop cinematic running at the clear
+        /// holds the countdown, so the beat is then longer by what is left of it. Here rather than in the Game because
+        /// the HUD's timings are held to it by the logic tests: the completion bonus's award has to land and be counted
+        /// into the score before the page hides the HUD (#846, <c>AwardZoomTests</c>).
+        /// </summary>
+        public const float ClearedBeatSeconds = 2.5f;
+
+        /// <summary>
         /// Whether a level may go from <paramref name="from"/> to <paramref name="to"/>: forward along
         /// Playing → ClearedBeat → Over or Playing → LossHold → Over (or straight Playing → Over, a loss with
         /// no flight to hold it), and back to <see cref="LevelPhase.Playing"/> from anywhere, which is a level

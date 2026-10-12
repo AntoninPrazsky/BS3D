@@ -54,6 +54,9 @@
     <Compile Include="..\..\Game\Screens\CheckTick.cs" />
     <!--The aim ghost's beat (#831): its size as a pure function of the wall clock, no device.-->
     <Compile Include="..\..\Game\Screens\GhostBeat.cs" />
+    <!--The overview lens's tilt with the aim (#720): its target, the gun-keep limit and its chase, plain geometry and a
+        closed-form follow over floats, no device.-->
+    <Compile Include="..\..\Game\Screens\AimTilt.cs" />
     <!--The ceiling's descent and the player's brake on it (#213): a state machine over floats, no device.-->
     <Compile Include="..\..\Game\Screens\CeilingDescent.cs" />
     <!--The city intro's shot builder (#488): plain geometry over City's block grid.-->
@@ -74,6 +77,9 @@
         break is told and when the Swap chip points at the cure-->
     <Compile Include="..\..\Game\Audio\StreakBreakSynth.cs" />
     <Compile Include="..\..\Game\Screens\StreakCues.cs" />
+    <!--#846: the award popup's zoom, read and throw as pure functions of its age and points, and the HUD's eases under it-->
+    <Compile Include="..\..\Game\Screens\AwardZoom.cs" />
+    <Compile Include="..\..\Game\Screens\HudEase.cs" />
     <!--#810: the landing's rumble by the count released, and the pad mixer's own channel (its accumulation under a
         ceiling and its decay), pure arithmetic over floats-->
     <Compile Include="..\..\Game\LandingRumble.cs" />

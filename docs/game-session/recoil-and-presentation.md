@@ -12,7 +12,7 @@ Part of [The game: a session](../game-session.md).
 
 ## Precise aim (ADS) in the Game
 
-The shared `PreciseAim` (lean, parallax: "Precise aim (ADS) (Testbed)" in `docs/testbed.md`). `PreciseAim.Blend` eases 0 to 1 and `BlendedPose` lerps overview and leaned pose, so at 0 the overview returns bit for bit.
+The shared `PreciseAim` (lean, parallax: "Precise aim (ADS) (Testbed)" in `docs/testbed.md`). `PreciseAim.Blend` eases 0 to 1 and `BlendedPose` lerps overview and leaned pose, so at 0 the overview returns bit for bit: the overview as the aim has tilted it (#720, [The field, the camera fit and tall levels](field-and-camera.md)), so the lean interpolates the tilt out.
 
 - **The left trigger is analog (#520)**: `LeanAmount` maps the pull over `TRIGGER_REST`..`TRIGGER_FULL`. `TRIGGER_REST` sits a hair above the trigger's zero (MonoGame applies no dead zone, and a worn trigger must not hold the blend, and the defocus riding it, above zero).
 - **It returns a pose as a value** because `RecoilCamera` takes a base pose, not `BasicCamera3D`'s ordered setters; the drop cinematic lerps over it and the shake goes on top. **Focus**: `UpdateAim` does not run while inactive (`_adsHeld` is cleared there) but `Step` still runs, so the lean eases out and an unfocused pad trigger cannot hold it. `PreciseAim.FLOOR_CLEARANCE` floors the lens above the stone under it (`FloorHeightAt`). The lean also defocuses the periphery (#214; "The end of a level goes out of focus" in `docs/game-feedback.md`).
