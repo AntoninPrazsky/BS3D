@@ -499,3 +499,9 @@ Pravidla:
 - #840 (merge následuje): střešní záběr intra City a Neon City drží celý stožár i s majákem (`CityIntroShots.FrameMast`): vršek majáku 6 % pod horní hranou, pata 15 % nad dolní, aby nezmizela pod nápovědou k přeskočení. Kompozice z #780 zůstává, kde se vejde, jinak kamera stoupá po půl jednotky. `CityRooftops` dává `RoofShowcases` bez zařízení; v neonu hlásí vyšší ze dvou stožárů. Test `TheRooftopShotKeepsTheWholeMastAndItsBeaconInFrame` (tři rozlišení) se starým záběrem padal ve 394 ze 448 oblouků.
 - Bez majitele (spí), konzervativně: dvojitý stožár v neonu je vada už na mainu, zapsaná jako #850, ne opravená tady (přestavěla by všechny neonové střechy).
 - Otevřené: #850; jak čte strmější pohled na nejvyšší stožáry, viděno jen ve snímcích.
+
+## 2026-10-12 — #831 duch dopadu na celou kouli — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #831 (merge následuje): duch v náhledu dopadu roste na přesně celou kouli a nikdy nad ni, s gumovým odskokem. Čistá funkce `GhostBeat.Scale(WallClock)` (`Game/Screens/GhostBeat.cs`) nahradila sinus 0,5 ± 0,22 při 2,2 Hz: rychlý pružný nárůst, výdrž na 1 díky jednomu `MathF.Min(1, …)`, propad na `LOW` = 0,30 a pomalejší dosednutí. 14 testů `GhostBeatTests`, shadery a Potato okraj beze změny.
+- majitel: celá koule smí vypadat jako už přítomná koule (přijal to v issue).
+- ⚠ Review: 1,6 Hz bylo totéž co `MUZZLE_MARK_HZ`, duch a límec u ústí tepaly ve fázi; teď 1,8 Hz a pravidlo „různé frekvence“ stojí v obou docs komentářích i v docs.
+- Otevřené: verdict-eye; živý pohyb (gumovost) a Pi neviděny, snímky jen velikosti.
