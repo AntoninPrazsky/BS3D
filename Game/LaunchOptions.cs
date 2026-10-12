@@ -331,7 +331,7 @@ namespace BS3D
 
         //Testing only: "menucursor=<seconds>[:<steps>[:<presses>]]" (#799) - at that wall-clock second the pad's and the arrow
         //keys' cursor comes up on the page that is up and walks that many entries down, as presses would; then the sideways
-        //presses, one a frame (#807: left, right, lb, rb - the arrow keys and the shoulders); null when absent
+        //presses, StartupScript.PRESS_GAP apart (#807: left, right, lb, rb - the arrow keys and the shoulders); null when absent
         internal float? MenuCursorAt { get; private set; }
         internal int MenuCursorSteps { get; private set; }
         internal string MenuCursorPresses { get; private set; }
