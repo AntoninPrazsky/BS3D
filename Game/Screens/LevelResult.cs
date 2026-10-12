@@ -224,6 +224,44 @@ namespace BS3D.Screens
             : LevelNumber > 0 ? $"Level {LevelNumber} · {LevelName}"
             : LevelName;
 
+        //The page's other words that change with the ending, here beside the level line and the notes rather than inside
+        //the page's tree (#806), so a test holds them to the typesetting rules (CopyRules, ResultCopyTests). The fixed ones
+        //(Retry, Main Menu, the breakdown's captions, the online status lines) are still literals in ResultPage
+
+        /// <summary>
+        /// The verdict over the page: CLEARED or FAILED, CAMPAIGN COMPLETE, or on a finished block the chapter's own name
+        /// (#184) — upper-cased here rather than authored in caps, so a set can name its blocks in prose.
+        /// </summary>
+        public string Heading =>
+            CampaignComplete ? "CAMPAIGN COMPLETE"
+            : BlockComplete && !string.IsNullOrWhiteSpace(BlockName) ? BlockName.ToUpperInvariant()
+            : Cleared ? "CLEARED" : "FAILED";
+
+        /// <summary>Which of how many blocks a finished one was (#184), or empty on any other ending.</summary>
+        public string MilestoneLine => BlockComplete ? $"Block {BlockNumber} of {BlockCount} complete" : string.Empty;
+
+        /// <summary>The line under a run that beat every run before it.</summary>
+        public const string NEW_BEST = "New best";
+
+        /// <summary>The score reached, said on a loss (<see cref="ShowsBareScore"/>), or empty.</summary>
+        public string BareScoreLine => ShowsBareScore ? $"Score {ScoreText.Of(Score)}" : string.Empty;
+
+        /// <summary>What the skip on a failure costs (#347), said before it is pressed.</summary>
+        public const string SKIP_NOTE = "Skipping spends this chapter’s one skip";
+
+        /// <summary>What the next star of this level would cost (#385), or empty when there is none above this one.</summary>
+        public string NextStarNote =>
+            NextStarScore >= 0 ? $"Next star at {ScoreText.Of(NextStarScore)} (+{ScoreText.Of(NextStarGap)})" : string.Empty;
+
+        /// <summary>The breakdown's "count × worth" for the matched balls.</summary>
+        public string MatchedDetail => $"{MatchedBalls} × {ScoreKeeper.MatchedBallPoints}";
+
+        /// <summary>The breakdown's "count × worth" for the orphaned balls.</summary>
+        public string OrphanedDetail => $"{OrphanedBalls} × {ScoreKeeper.OrphanedBallPoints}";
+
+        /// <summary>The breakdown's "count × worth" for the shots left, or a dash for a level without a budget.</summary>
+        public string UnusedDetail => HadBudget ? $"{UnusedShotsAwarded} × {ScoreKeeper.UnusedShotPoints}" : "—";
+
         /// <summary>
         /// The score the <b>next</b> star needs (#385), or -1 when there is nothing above the top to project
         /// towards — a four-star clear, or a level with no floor to measure at all
@@ -280,6 +318,8 @@ namespace BS3D.Screens
         /// <b>Two lines on purpose, the rule over the figures.</b> The plate it sits on is cut to the menu
         /// column, and a single sentence left to wrap broke wherever the width happened to fall — photographed
         /// as "Level 3 ·" over "Toadstool is next". The explicit break puts the level's name on a line of its own.
+        /// And ties (#806, <see cref="SpaceWrap.TIE"/>): it is prose the page sets through <c>SpaceWrap</c>, so on a plate
+        /// too narrow for a line a break never parts a price from its star or "Level" from its number.
         /// </para>
         /// </summary>
         public string UnlockNote =>
@@ -287,8 +327,9 @@ namespace BS3D.Screens
             : NextLevelBeyondReach
                 ? string.IsNullOrWhiteSpace(FrontierLevelName)
                     ? "Levels open one at a time"
-                    : $"Levels open one at a time\nLevel {FrontierLevelNumber} · {FrontierLevelName} is next"
-            : $"Next level unlocks at {NextLevelMinStars} ★\nYou have {TotalStars}";
+                    : $"Levels open one at a time\nLevel{SpaceWrap.TIE}{FrontierLevelNumber} · {FrontierLevelName} is next"
+            : $"Next level unlocks at {NextLevelMinStars}{SpaceWrap.TIE}★\nYou have {TotalStars}";
+
 
         /// <summary>
         /// The skip button's caption. It names what the player is <b>going to</b> for the reason

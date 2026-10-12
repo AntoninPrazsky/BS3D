@@ -22,11 +22,18 @@ namespace BS3D.Screens
     /// and Greek where Anton — the display face every value button is set in — carries neither (BS3D#548's
     /// measurement), so a name typed on another build of the rule would otherwise draw as nothing.
     /// </para>
+    /// <para>
+    /// <b>The ranks and the scores are set in tabular figures</b> (#806, <see cref="FontFigures"/>), flush right: Inter's
+    /// figures are proportional, so "31 111" under "40 118" put its hundreds a narrow 1 to the right of the row above's.
+    /// </para>
     /// </summary>
     internal sealed class BoardView
     {
         private readonly Label _heading, _period, _you;
         private readonly Label[] _cup, _rank, _name, _mark, _score;
+
+        //The face the ranks and scores are set in, for their tabular figures
+        private readonly SpriteFontBase _small;
 
         /// <summary>
         /// PromptFont's trophy, U+1F3C6 - outside the Basic Multilingual Plane, so a surrogate pair in a C# string, and the one
@@ -38,7 +45,7 @@ namespace BS3D.Screens
         public const int CUP_RANKS = 3;
 
         /// <summary>What an unfinished attempt's row and the player's own line say of it (#716).</summary>
-        public const string UnfinishedMark = "not finished";
+        public const string UnfinishedMark = PickerCopy.UNFINISHED;
 
         public Widget Root { get; }
 
@@ -48,6 +55,7 @@ namespace BS3D.Screens
         /// <param name="cup">PromptFont at the small face's size, the cup's face (<c>BS3DGame.MenuFontPromptSmall</c>).</param>
         public BoardView(SpriteFontBase body, SpriteFontBase small, SpriteFontBase cup, Func<int, int> scaled, int rows, int width)
         {
+            _small = small;
             VerticalStackPanel stack = new() { Spacing = scaled(8) };
 
             _heading = new Label { Font = body, TextColor = BS3DGame.MENU_TEXT };
@@ -130,19 +138,17 @@ namespace BS3D.Screens
                 _cup[i].Text = placed ? Cup : string.Empty;
                 if (placed) _cup[i].TextColor = BS3DGame.PlaceColor(entry.Rank);
 
-                _rank[i].Text = entry != null ? entry.Rank.ToString(CultureInfo.InvariantCulture) : string.Empty;
+                _rank[i].Text = entry != null ? FontFigures.Tabular(entry.Rank.ToString(CultureInfo.InvariantCulture), _small) : string.Empty;
                 _name[i].Text = entry?.Name ?? string.Empty;
                 _mark[i].Text = entry != null && entry.Stars == 0 ? UnfinishedMark : string.Empty;
-                _score[i].Text = entry != null ? ScoreText.Of(entry.Score) : string.Empty;
+                _score[i].Text = entry != null ? FontFigures.Tabular(ScoreText.Of(entry.Score), _small) : string.Empty;
                 _rank[i].TextColor = _name[i].TextColor = _score[i].TextColor = colour;
                 _mark[i].TextColor = colour == BS3DGame.BoardYouColor ? colour : BS3DGame.MENU_TEXT_DIM;
             }
 
             if (board?.Me is BoardMeBody me && me.Rank > 0) unfinished = me.Stars == 0;
 
-            _you.Text = rank > 0 ? $"You  #{rank} of {total}" + (unfinished ? ", " + UnfinishedMark : string.Empty)
-                : total > 0 ? "You are not on this board yet"
-                : "Nobody is on this board yet";
+            _you.Text = PickerCopy.YouLine(rank, total, unfinished);
         }
 
         /// <summary>"September 2026" off a board's <c>2026-09</c>, or off the clock while the board is on its way.</summary>
