@@ -391,8 +391,10 @@ namespace Prazsky.Core.Render
         public float HvacChance { get; set; } = 0.62f;
 
         /// <summary>
-        /// How much more equipment the neon city carries, as a multiplier on every chance above: the extra
-        /// pieces are built with the layout and drawn only in that scene.
+        /// How much more equipment the neon city carries, as a multiplier on every chance above: after the day's
+        /// dressing each roof rolls its extras at this minus one times the chances, into the cells the day's left
+        /// (<see cref="CityRooftops"/>, #850), so the neon city ends with fewer than this many times the day's
+        /// pieces — a taken cell drops an extra. The extras are built with the layout and drawn only in that scene.
         /// </summary>
         public float NeonExtra { get; set; } = 1.45f;
 
