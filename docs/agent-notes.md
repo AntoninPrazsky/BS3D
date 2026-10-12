@@ -494,3 +494,10 @@ Pravidla:
 - Bez majitele (spí), konzervativně: Colossus je ručně kreslený, proto zůstává; jeho přestavba čeká na rozhodnutí v #849 (owner-decision).
 - ⚠ Opravný průchod obarvil okrajové koule u krku Locketu na bílou; dlaždice kamene se teď počítají od `LOCKET_STONE_TILE_FROM`, takže bílý je jen krk. Geode se pomalu kroutí kolem svislé osy (dělala to i těžší v1).
 - Otevřené: verdict-eye; na Pi spustit při příštím vydání `update-ceilings.sh` (desky šesti levelů se resetují); nikdo je nehrál rukou.
+
+## 2026-10-12 — #736 Siluety jako tělesa — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #736 (větev `736-silhouettes-depth`, merge následuje): všech deset levelů Polární záře (41–50) přestavěno v `Block13_Silhouettes.cs` na tělesa, každé visí jinak: Fish reliéf ze stínohry, Umbrella rotační s 12 klíny, Bell s červeným srdcem za skleněným dnem, Cat loutka před plátnem, Teapot s uzavřeným čajem, Key na desce, Rocket vodorovně s okénky, Coronet na pěti hrotech, Guitar ve stínohře se skleněnými strunami, Anchor na pažnici. Soubory si nechaly jména.
+- Majitel (11. 10.): celá kapitola najednou, první speciál kampaně je sklo. Sklo poprvé na Umbrelle (42), Fish (41) nese kartu Řezu; karty druhů i Nápověda řazeny podle prvního setkání.
+- 3 118 koulí proti 3 254, 150 skupin proti 211, 356 střel proti 524.
+- ⚠ Kotva na tenkých šňůrách se při startovním zhoupnutí převrátila přes čáru bez výstřelu (sag 5 z 5); tenké vazby u těžkých dílů nedělat.
+- Otevřené: verdict-eye; na Pi při příštím vydání `update-ceilings.sh`; nikdo je nehrál rukou.
