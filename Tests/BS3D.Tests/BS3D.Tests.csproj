@@ -68,6 +68,10 @@
     <Compile Include="..\..\Game\Audio\DrumLayer.cs" />
     <!--#811: the aim stop's creak and puff, pure arithmetic whose spectrum the tests measure-->
     <Compile Include="..\..\Game\Audio\AimStopSynth.cs" />
+    <!--#810: the landing's rumble by the count released, and the pad mixer's own channel (its accumulation under a
+        ceiling and its decay), pure arithmetic over floats-->
+    <Compile Include="..\..\Game\LandingRumble.cs" />
+    <Compile Include="..\..\Game\PadChannel.cs" />
   </ItemGroup>
 
   <ItemGroup>

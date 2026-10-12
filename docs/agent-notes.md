@@ -534,6 +534,13 @@ Pravidla:
 - ⚠ `alt=colourcue=` cenu tvaru změřil nesmyslně; měř po procesech.
 - Otevřené: majitel volí (a), (b), obojí; pak 13 barev, HUD fronta, Pi (#828: (a)).
 
+## 2026-10-12 — #810 tlumené dunění při uvolnění skupiny — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #810 (větev `810-release-rumble-curve`, merge následuje), `shipped-awaiting-verdict` + `verdict-hands`: přímka uvolnění (plno při 20 koulích) nahrazena v `LandingRumble` křivkou ln(1+n/10) až do 250 koulí (≈ p99 z ~20k uvolnění LevelGen `--drops`, medián 19–27). Strop: těžký motor 0,5, lehký 0,65, délka 0,26–0,9 s. `PadChannel` drží dvě vrstvy: běžné kopance (beze změny jako po #378) a uvolnění s vlastním doznívání; uvolnění motor nikdy nezvedne nad max(strop, běžné kopance). Ťuknutí dopadu je přesně to z #378.
+- Bez majitele (spí), konzervativně: pět bodů z těla issue, řádek Rumble v Nastavení beze změny.
+- ⚠ Review: kopanec chrastění zkracoval 0,9 s ocas uvolnění na svou délku a výstřel na ocasu přeskočil strop (0,88); opraveno vrstvami, testy viděny selhat.
+- ⚠ Argument `pad` nepřipne ruku na pad, jen výzvy (#852), skriptovaný běh dunění nedosáhne.
+- Otevřené: verdict-hands na padu; #852.
+
 ## 2026-10-12 — #806 typografie: pravidla, zlom odstavce, próza podle nich — desktop (RDT-PC), Claude Code (bs3d-71, noc)
 - #806 na větvi `806-typography-rules` (merge následuje), `verdict-eye`. Pravidla v `docs/game-shell/menu-look.md`, „Typesetting“: míra nejvýš 67 znaků (`MENU_PROSE_MEASURE`), proklad 1,46 em, mezera mezi odstavci 1 em, stupnice ~1,3, pomlčka s mezerami, ’ “ ”, …, nedělitelné mezery. `SpaceWrap` už neplní hladově: nejméně řádků, pak žádné osamělé slovo na konci, rovnoměrný okraj, cena za zlom za operátorem. `MenuPage.Paragraph/Aside/Prose`. Help, nastavení (poznámka ONLINE), přezdívka, karty tutoriálu, About (znaky a zlom).
 - Bez majitele, konzervativně: About bez prokladu do #807 (stojí na plné výšce); pomlčka s mezerami, protože tak byla psaná většina textu.
