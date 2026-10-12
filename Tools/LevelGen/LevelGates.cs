@@ -278,12 +278,14 @@ namespace BS3D.Tools.LevelGen
             if (payoffCells != null)
             {
                 RevealReading reveal = RevealFaults(new BallsMap(loaded.Map), payoffCells, loaded.Crates);
-                (int payoff, int falling, int open, int shared) = (reveal.Payoff, reveal.Falling, reveal.Open, reveal.Shared);
-                revealRefused = payoff == 0 || falling > 0 || shared > 0 || (open > 0 && !design.PayoffInSight);
+                (int payoff, int falling, int open, int shared, int glazed) =
+                    (reveal.Payoff, reveal.Falling, reveal.Open, reveal.Shared, reveal.Glazed);
+                revealRefused = payoff == 0 || falling > 0 || shared > 0 || glazed > 0 || (open > 0 && !design.PayoffInSight);
                 Console.WriteLine($"    a reveal's payoff ({string.Join(", ", reveal.Colours)}): {payoff} ball(s)"
                                   + (payoff == 0 ? "  <-- NONE IN THE LEVEL" : string.Empty)
                                   + (falling > 0 ? $", NO - {falling} fall with the body gone" : ", hangs on its own")
                                   + (shared > 0 ? $", NO - {shared} body ball(s) in a payoff colour" : ", palette its own")
+                                  + (glazed > 0 ? $", NO - {glazed} glass ball(s) touch it" : string.Empty)
                                   + (open == 0 ? ", sealed"
                                       : design.PayoffInSight ? $", {open} a shot can touch at the start, as the design shows it"
                                       : $", NO - {open} a shot can touch at the start")
@@ -297,15 +299,20 @@ namespace BS3D.Tools.LevelGen
         }
 
         /// <summary>What <see cref="RevealFaults"/> read: the payoff's balls and colours, how many fall with the body
-        /// gone, how many a shot can touch at the start, and how many body balls wear a payoff colour.</summary>
-        internal readonly record struct RevealReading(int Payoff, BallType[] Colours, int Falling, int Open, int Shared);
+        /// gone, how many a shot can touch at the start, how many body balls wear a payoff colour, and how many glass
+        /// balls touch the payoff.</summary>
+        internal readonly record struct RevealReading(int Payoff, BallType[] Colours, int Falling, int Open, int Shared, int Glazed);
 
         /// <summary>
         /// A reveal's three faults (#743, <see cref="Design.Payoff"/>), with <paramref name="payoffCells"/> the cells the
         /// design calls its payoff, in the field's levels: how many payoff balls fall once the body is taken away, how
         /// many a shot can touch at the start — those with an empty cell beside them that a straight shot from some
-        /// station on the orbit arrives in (<see cref="ArrivalProbe"/>), so a shot comes to rest against them — and how
-        /// many body balls wear a colour the payoff wears.
+        /// station on the orbit arrives in (<see cref="ArrivalProbe"/>), so a shot comes to rest against them — how
+        /// many body balls wear a colour the payoff wears, and how many glass balls touch the payoff. ⚠ Glass is the
+        /// palette rule's blind spot: it has no colour of its own to share, but the landing that colours it hands it
+        /// the shot's, so a pane beside the payoff takes a payoff colour from one shot and joins the payoff in the
+        /// same landing, the body still whole. The Rocket's portholes did, four panes against its core, and the gate
+        /// passed them until it counted glass (#736).
         /// <para>
         /// <b>⚠ Not the open-space flood, and the first cut used it.</b> Flooded from the field's walls and floor
         /// through empty neighbours, every payoff of the Reveal's second hang came out open — Spark's star 46 of 46 —
@@ -336,7 +343,15 @@ namespace BS3D.Tools.LevelGen
 
             ArrivalProbe arrival = new(map, crates);
 
-            int count = 0, open = 0, shared = 0;
+            bool TouchesPayoff(int x, int z, int l)
+            {
+                foreach (XZLevel next in BallsMap.GetNeighboringCells(new XZLevel(x, z, l), size))
+                    if (IsPayoff(next.X, next.Z, next.Level)) return true;
+
+                return false;
+            }
+
+            int count = 0, open = 0, shared = 0, glazed = 0;
             for (int x = 0; x < size.X; x++)
                 for (int z = 0; z < size.Z; z++)
                     for (int l = 0; l < size.Level; l++)
@@ -347,6 +362,9 @@ namespace BS3D.Tools.LevelGen
                         if (!payoffCells[x, z, l])
                         {
                             if (BallKinds.Matchable(ball.Kind) && colours.Contains(ball.Type)) shared++;
+                            //Glass beside the payoff is a body ball in whatever colour the shot that colours it
+                            //wears: landed in a payoff colour, it joins the payoff on the spot (#736's Rocket)
+                            else if (ball.Kind == BallKind.Transparent && TouchesPayoff(x, z, l)) glazed++;
                             continue;
                         }
 
@@ -369,7 +387,7 @@ namespace BS3D.Tools.LevelGen
             colours.CopyTo(sorted);
             Array.Sort(sorted);
 
-            return new RevealReading(count, sorted, map.GetCellsDisconnectedFromCeiling().Count, open, shared);
+            return new RevealReading(count, sorted, map.GetCellsDisconnectedFromCeiling().Count, open, shared, glazed);
         }
 
         /// <summary>

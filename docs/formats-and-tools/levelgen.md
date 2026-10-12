@@ -27,7 +27,7 @@ One `partial class Program`: `Program.cs`, `Cli.cs` (`Main`, flag refusal, the *
 2. **The Gallery**: savanna (14), `mural`, wool balls; flat drawn walls from a bitmap.
 3. **The Coil**: desert (6), `ember`, marble balls; slender links: the cluster springs.
 4. **The Tower**: mountains (8), `summit`, ice balls; deeper than the camera frames.
-5. **The Silhouettes**: aurora (13, inert), `puppet`, wool balls; image-model silhouettes, no ground.
+5. **The Silhouettes**: aurora (13, inert), `puppet`, wool balls; black figures as solids, each hung its own way, and the campaign's first glass (#736).
 6. **The Reveal**: cavern, `nocturne`, marble balls; a body with a payoff inside.
 7. **The Quarry**: Moon, `lunar`, metal balls; chunky blocks, then one idea a level the gun can see (#742); Colossus closes it.
 8. **The Grid**: grid (13, inert), `pulse`, ice balls; named mathematical constructions.

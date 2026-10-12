@@ -505,3 +505,11 @@ Pravidla:
 - majitel: celá koule smí vypadat jako už přítomná koule (přijal to v issue).
 - ⚠ Review: 1,6 Hz bylo totéž co `MUZZLE_MARK_HZ`, duch a límec u ústí tepaly ve fázi; teď 1,8 Hz a pravidlo „různé frekvence“ stojí v obou docs komentářích i v docs.
 - Otevřené: verdict-eye; živý pohyb (gumovost) a Pi neviděny, snímky jen velikosti.
+
+## 2026-10-12 — #736 Siluety jako tělesa — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- #736 (větev `736-silhouettes-depth`, merge následuje): všech deset levelů Polární záře (41–50) přestavěno v `Block13_Silhouettes.cs` na tělesa, každé visí jinak: Fish reliéf ze stínohry, Umbrella rotační s 12 klíny, Bell s červeným srdcem za skleněným dnem, Cat loutka před plátnem, Teapot s uzavřeným čajem, Key na desce, Rocket vodorovně s okénky, Coronet na pěti hrotech, Guitar ve stínohře se skleněnými strunami, Anchor na pažnici. Soubory si nechaly jména.
+- Majitel (11. 10.): celá kapitola najednou, první speciál kampaně je sklo. Sklo poprvé na Umbrelle (42), Fish (41) nese kartu Řezu; karty druhů i Nápověda řazeny podle prvního setkání.
+- 3 116 koulí proti 3 254, 150 skupin proti 211, 356 střel proti 524.
+- ⚠ Revize: sklo vedle uzavřené odměny ji otevře jednou ranou (okénka Rakety se dotýkala jádra). `RevealFaults` teď sklo u odměny odmítá; jádro Rakety visí v zadní půlce kabiny (6 koulí místo 10).
+- ⚠ Kotva na tenkých šňůrách se při startovním zhoupnutí převrátila přes čáru bez výstřelu (sag 5 z 5); tenké vazby u těžkých dílů nedělat.
+- Otevřené: verdict-eye; na Pi při příštím vydání `update-ceilings.sh`; nikdo je nehrál rukou.

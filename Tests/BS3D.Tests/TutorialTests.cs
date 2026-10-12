@@ -599,11 +599,11 @@ namespace BS3D.Tests
             Assert.Contains("kind-bomb", save);
             Assert.Empty(KindsShown(tutorial, MapWith(BallKind.Bomb)));
 
-            //Two kinds new on one level: both, in the order the campaign meets them - buckshot (Juggler, 93) before
-            //everything, the zap before stone
+            //Two kinds new on one level: both, in the order the campaign meets them - glass (Umbrella, 42, #736) before
+            //everything, buckshot (Juggler, 93) next, the zap before stone
             Assert.Equal(new[] { BallKind.Zap, BallKind.Rock }, KindsShown(tutorial, MapWith(BallKind.Rock, BallKind.Zap, BallKind.Bomb)));
-            Assert.Equal(new[] { BallKind.Buckshot, BallKind.Transparent },
-                KindsShown(Fresh(new HashSet<string>()), MapWith(BallKind.Transparent, BallKind.Buckshot)));
+            Assert.Equal(new[] { BallKind.Transparent, BallKind.Buckshot },
+                KindsShown(Fresh(new HashSet<string>()), MapWith(BallKind.Buckshot, BallKind.Transparent)));
 
             //Its ball is drawn in the colour of the first one on the map
             tutorial.BeginLevel(-1, 0, 10, ceilingStep: 6, kindsOnMap: MapWith(BallKind.Heavy));
@@ -611,6 +611,29 @@ namespace BS3D.Tests
                 tutorial.Update(0.1f, enabled: true, takeoverEngaged: false, levelDecided: false);
             Assert.Equal(BallKind.Heavy, tutorial.CardKind);
             Assert.Equal(BallType.Type3, tutorial.CardColour);
+        }
+
+        /// <summary>
+        /// The kind cards are listed in the order the shipped campaign meets the kinds, which is what Tutorial's own comment
+        /// promises and the order two new on one level are shown in (#736 moved glass's first level from the Mirage to the
+        /// Silhouettes' Umbrella, ninety levels earlier, and the list had to follow). Read off the maps in play order, so the
+        /// next level that brings a kind forward fails here rather than leaving the list quietly out of order.
+        /// </summary>
+        [Fact]
+        public void KindCardsComeInTheOrderTheShippedCampaignMeetsThem()
+        {
+            LevelSet set = ShippedSet();
+            List<BallKind> met = new();
+
+            foreach (LevelSetEntry entry in set.Levels)
+            {
+                StaticBall[,,] balls = new BallsMap(Level.Load(Shipped.Level(entry.File)).Map).GetStaticBallsArray();
+                foreach (StaticBall ball in balls)
+                    if (ball != null && ball.Kind != BallKind.Normal && !met.Contains(ball.Kind)) met.Add(ball.Kind);
+            }
+
+            Assert.True(met.Count >= 2, $"the shipped maps carry {met.Count} special kind(s); the order needs two");
+            Assert.Equal(met, KindsShown(Fresh(new HashSet<string>()), MapWith(met.ToArray())));
         }
 
         /// <summary>

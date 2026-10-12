@@ -351,16 +351,17 @@ namespace BS3D.Screens
             //them as soon as they first appear on the map", and of the wildcard, "I would expect a cue card saying I got a
             //rainbow ball that counts as any colour"). One per kind that can be met, informational, each a shortened
             //HelpPage.KIND_ENTRIES line checked against BallKind.cs; the Help page keeps the full sentence. In the order
-            //the campaign meets them (buckshot at level 93, the bomb at 105, the zap at 107, glass at 131, stone at 136; the
-            //five after them no shipped level carries yet), which is the order two on one level are shown in.
+            //the campaign meets them (glass at level 42, the Silhouettes' Umbrella since #736; buckshot at 93, the bomb at
+            //105, the zap at 107, stone at 136; the five after them no shipped level carries yet), which is the order two on
+            //one level are shown in.
+            Kind(Lesson.KindGlass, "kind-glass", BallKind.Transparent,
+                "Glass takes the first colour that touches it", "From then on it is an ordinary ball"),
             Kind(Lesson.KindBuckshot, "kind-buckshot", BallKind.Buckshot,
                 "Buckshot has to come down to clear the level", "Cut away what holds it up and it pours out"),
             Kind(Lesson.KindBomb, "kind-bomb", BallKind.Bomb,
                 "Land a ball beside a bomb to set it off", "It blasts every ball around it, any colour"),
             Kind(Lesson.KindZap, "kind-zap", BallKind.Zap,
                 "Land a ball beside a zap to fire it", "It takes every ball of your shot's colour"),
-            Kind(Lesson.KindGlass, "kind-glass", BallKind.Transparent,
-                "Glass takes the first colour that touches it", "From then on it is an ordinary ball"),
             Kind(Lesson.KindStone, "kind-stone", BallKind.Rock,
                 "Stone can't be matched or shot down", "It falls only when what holds it up goes"),
             Kind(Lesson.KindAcid, "kind-acid", BallKind.Acid,

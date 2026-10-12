@@ -172,7 +172,9 @@ namespace BS3D.Tools.LevelGen
         /// inside the body, which no line of fire enters, does not count against it.</item>
         /// <item><b>Its palette is its own.</b> No body ball wears a colour the payoff wears, so no group can span the
         /// two and a shot that opens the shell cannot take the payoff with it — read off the file as it was written,
-        /// so a ball the repair pass recoloured counts too.</item>
+        /// so a ball the repair pass recoloured counts too. <b>And no glass touches it</b>: a pane takes the colour of
+        /// the shot that lands beside it, so one beside the payoff wears a payoff colour the moment a shot of it lands
+        /// there, and the payoff falls through the window with the body whole (#736).</item>
         /// </list>
         /// <para>
         /// <b>By cell and not by colour, and the first cut was by colour</b>: a list of the payoff's colours, with the
