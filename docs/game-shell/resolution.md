@@ -2,7 +2,7 @@
 
 Part of [The game: shell](../game-shell.md).
 
-**The player may draw the 3D below the display's resolution; a tier may not** (the owner's request of 2026-10-05, #801; #298's ruling still binds the tiers and the desktop's probe, [The quality tier](quality-tier.md)). The **Resolution** row (DISPLAY, under Fullscreen) steps down the display's ladder and round to native: native, 5/6, 2/3, 1/2 and 1/3 of its height, none under 360 rows, **every rung at the display's exact aspect** (a 21:9 panel offers only 21:9 sizes): on 1920×1080, 1600×900, 1280×720, 960×540, 640×360 (`Prazsky.Core.Render.RenderResolution`, `RenderResolutionTests`). The row shows the size drawn (`1280 x 720`, `1920 x 1080 (native)`; an `x`, since the menu's face has no multiplication sign).
+**The player may draw the 3D below the display's resolution; a tier may not** (the owner's request of 2026-10-05, #801; #298's ruling still binds the tiers and the desktop's probe, [The quality tier](quality-tier.md)). The **Resolution** row (DISPLAY, under Fullscreen) steps down the display's ladder and round to native: native, 5/6, 2/3, 1/2 and 1/3 of its height, none under 360 rows, **every rung at the display's exact aspect** (a 21:9 panel offers only 21:9 sizes): on 1920×1080, 1600×900, 1280×720, 960×540, 640×360 (`Prazsky.Core.Render.RenderResolution`, `RenderResolutionTests`). The row shows the size drawn (`1280 x 720`, `1920 x 1080 (native)`; an `x`, since the menu's face has no multiplication sign), and follows the window while Settings is up: `OnClientSizeChanged` refreshes the page, because a resize inside one menu rebuild step (a width-only drag, the few pixels of frame a change of scale moves, #825) rebuilds no tree.
 
 ## How
 
