@@ -21,15 +21,23 @@ namespace BS3D
     /// <b>Longer rather than harder.</b> What a big release gains past the middle goes into its length as much as its
     /// strength (<see cref="RELEASE_SECONDS_SMALL"/> to <see cref="RELEASE_SECONDS_FULL"/>), and <b>the light motor leads
     /// at every size</b>, ending higher than the heavy one (<see cref="CEILING_RIGHT"/> over <see cref="CEILING_LEFT"/>):
-    /// the wrist-shaking is taken to be the heavy motor's mass, and the light one buzzes without the thump. Still under
-    /// the line loss (<c>GameplayScreen</c>'s <c>LINE_LOSS_RUMBLE_*</c>, 0.9 on the heavy motor for 1.1 s), which stays
-    /// the heaviest thing the pad says.
+    /// the wrist-shaking is taken to be the heavy motor's mass, and the light one buzzes without the thump. Under the line
+    /// loss on both motors and in length (<c>GameplayScreen</c>'s <c>LINE_LOSS_RUMBLE_*</c>), which stays the heaviest
+    /// thing the pad says.
     /// </para>
     /// <para>
     /// <b>The ceiling holds for the sum, not just for one landing.</b> The pulse is sent through
     /// <see cref="GamepadRumble.KickUnder"/>, which adds it to what is still ringing only up to <see cref="CEILING_LEFT"/>
     /// and <see cref="CEILING_RIGHT"/> (<see cref="PadChannel.Stack"/>), so a big release landing on the tail of the last
     /// one is not felt at twice the ceiling. The player's Rumble row scales all of it afterwards, as it scales everything.
+    /// </para>
+    /// <para>
+    /// ⚠ <b>The shot's own thump is usually still ringing when its ball lands.</b> Measured in a scripted run of Pennant
+    /// (2026-10-12, a flight of about 0.08 s): a plain landing put the motors at 0.29 and 0.38 where the tap alone is
+    /// <see cref="TAP_LEFT"/> and <see cref="TAP_RIGHT"/>, and a 47-ball release stood at the heavy ceiling where its own
+    /// pulse is 0.35. So on a short flight the heavy motor's peak tops out from about 30 balls, and past that a release
+    /// grows in its length and on the light motor. Summing rather than replacing is deliberate: it keeps the plain landing
+    /// the owner felt and kept (#378) exactly as it was, and keeps a small release above a plain landing.
     /// </para>
     /// </summary>
     internal static class LandingRumble
@@ -49,7 +57,7 @@ namespace BS3D
         public const float CEILING_LEFT = 0.5f;
 
         /// <summary>The same for the light (right) motor: above <see cref="CEILING_LEFT"/>, since the top end's weight is
-        /// carried by the buzz rather than the thump, and under the line loss's 0.7.</summary>
+        /// carried by the buzz rather than the thump, and under the line loss's light motor.</summary>
         public const float CEILING_RIGHT = 0.65f;
 
         /// <summary>The release that reaches the ceiling: about the 99th percentile of the modelled releases (above; 239 balls

@@ -83,7 +83,8 @@ namespace BS3D
         /// <see cref="Kick"/> under a ceiling (#810): the pulse is added to what is still ringing on each body motor only up
         /// to <paramref name="ceilingLeft"/> and <paramref name="ceilingRight"/>, so an event that promises the player a
         /// bound — a landing and the group it released (<see cref="LandingRumble"/>) — keeps it when it lands on the tail of
-        /// the last one. A motor already above its ceiling (something louder ringing) is left where it is.
+        /// the last one. A motor already above its ceiling (something louder ringing) keeps its level; its fall takes this
+        /// kick's length, as every kick's does (<see cref="PadChannel.Kick"/>).
         /// </summary>
         public void KickUnder(float left, float right, float seconds, float ceilingLeft, float ceilingRight)
         {
