@@ -47,5 +47,13 @@ namespace BS3D.Platform
             perMonitorAware = false;
             return false;
         }
+
+        /// <summary>
+        /// The Windows version's hook on a change of the window's scale (#825). Nothing here has a scale to change, so
+        /// <paramref name="changed"/> is never called.
+        /// </summary>
+        internal static void WatchScale(IntPtr windowHandle, Action changed)
+        {
+        }
     }
 }

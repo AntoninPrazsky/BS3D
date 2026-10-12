@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
 namespace BS3D.Platform
@@ -33,16 +34,19 @@ namespace BS3D.Platform
     /// </remarks>
     internal static class WindowIcon
     {
-        //The two icon handles the window is publishing, extracted once from the executable's own icon group.
-        //They are deliberately never destroyed: Windows draws from them for as long as the window lives, so
-        //they are freed when the process is, and re-extracting them per resize would be work for nothing.
-        private static IntPtr _big;
-        private static IntPtr _small;
+        //The two icon handles the window publishes, extracted from the executable's own icon group once for each DPI
+        //the window has been on (#825) - one entry on a single monitor, two for a window dragged between monitors of
+        //different scales and back. They are deliberately never destroyed: Windows draws from them for as long as the
+        //window lives, so they are freed when the process is, and re-extracting them per resize would be work for nothing.
+        private static readonly Dictionary<uint, (IntPtr Big, IntPtr Small)> _frames = new();
 
         private const int SM_CXICON = 11;
         private const int SM_CYICON = 12;
         private const int SM_CXSMICON = 49;
         private const int SM_CYSMICON = 50;
+
+        //What a window that cannot be asked is taken to be on: 100 %
+        private const uint DEFAULT_DPI = 96;
 
         private const uint WM_SETICON = 0x0080;
         private static readonly IntPtr ICON_SMALL = IntPtr.Zero;
@@ -54,16 +58,26 @@ namespace BS3D.Platform
         [DllImport("user32.dll")]
         private static extern int GetSystemMetrics(int index);
 
+        [DllImport("user32.dll")]
+        private static extern int GetSystemMetricsForDpi(int index, uint dpi);
+
+        [DllImport("user32.dll")]
+        private static extern uint GetDpiForWindow(IntPtr window);
+
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         private static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
 
         /// <summary>
-        /// Publishes the icon on the window behind <paramref name="windowHandle"/>. Safe to call more than
-        /// once; the frames are extracted on the first call only.
+        /// Publishes the icon on the window behind <paramref name="windowHandle"/>, at the sizes the scale of the
+        /// monitor it is on asks for. Safe to call more than once, and called again when that scale changes (#825);
+        /// the frames are extracted once per DPI.
         /// </summary>
         /// <remarks>
         /// The order below is mandatory: assigning <c>Form.Icon</c> makes WinForms send <i>both</i> messages,
         /// deriving the small one by stretching the large, so the authored small frame has to be sent after it.
+        /// WinForms does the same again on every <c>WM_DPICHANGED</c> (<c>Form.OnDpiChanged</c> calls its
+        /// <c>UpdateWindowIcon</c> with the new DPI), which is why a scale change has to bring this back
+        /// (<c>DisplayRefresh.WatchScale</c>): left alone, the title bar went back to the stretched large frame.
         /// </remarks>
         internal static void Apply(IntPtr windowHandle)
         {
@@ -73,21 +87,57 @@ namespace BS3D.Platform
             {
                 if (System.Windows.Forms.Control.FromHandle(windowHandle) is not System.Windows.Forms.Form form) return;
 
-                if (_big == IntPtr.Zero && _small == IntPtr.Zero)
+                uint dpi = WindowDpi(windowHandle);
+                if (!_frames.TryGetValue(dpi, out (IntPtr Big, IntPtr Small) frames))
                 {
                     string module = Environment.ProcessPath;
                     if (string.IsNullOrEmpty(module)) return;
 
-                    _big = ExtractIconFrame(module, GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON));
-                    _small = ExtractIconFrame(module, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON));
+                    frames = (ExtractIconFrame(module, Metric(SM_CXICON, dpi), Metric(SM_CYICON, dpi)),
+                        ExtractIconFrame(module, Metric(SM_CXSMICON, dpi), Metric(SM_CYSMICON, dpi)));
+                    _frames[dpi] = frames;
                 }
 
-                if (_big != IntPtr.Zero) form.Icon = System.Drawing.Icon.FromHandle(_big);
-                if (_small != IntPtr.Zero) SendMessage(form.Handle, WM_SETICON, ICON_SMALL, _small);
+                if (frames.Big != IntPtr.Zero) form.Icon = System.Drawing.Icon.FromHandle(frames.Big);
+                if (frames.Small != IntPtr.Zero) SendMessage(form.Handle, WM_SETICON, ICON_SMALL, frames.Small);
             }
             catch (Exception)
             {
                 //Leaves whatever MonoGame published standing.
+            }
+        }
+
+        /// <summary>The DPI of the monitor the window is on, or 96 where Windows cannot say.</summary>
+        private static uint WindowDpi(IntPtr windowHandle)
+        {
+            try
+            {
+                uint dpi = GetDpiForWindow(windowHandle);
+                return dpi != 0 ? dpi : DEFAULT_DPI;
+            }
+            catch (EntryPointNotFoundException)
+            {
+                //Windows 10 before 1607
+                return DEFAULT_DPI;
+            }
+        }
+
+        /// <summary>
+        /// An icon size at <paramref name="dpi"/>: 16 and 32 at 96 DPI, 20 and 40 at 120. <c>GetSystemMetrics</c> alone
+        /// answers for the process's SYSTEM DPI, the primary monitor's scale when the process started, which a
+        /// per-monitor aware window does not have to be on: a window on a second monitor of another scale, or one whose
+        /// monitor changed scale under it, got the other scale's frames and the title bar resampled them.
+        /// </summary>
+        private static int Metric(int index, uint dpi)
+        {
+            try
+            {
+                return GetSystemMetricsForDpi(index, dpi);
+            }
+            catch (EntryPointNotFoundException)
+            {
+                //Windows 10 before 1607, where the process cannot be per-monitor aware in the first place
+                return GetSystemMetrics(index);
             }
         }
 

@@ -156,5 +156,23 @@ namespace BS3D.Platform
                 return false;
             }
         }
+
+        /// <summary>
+        /// Calls <paramref name="changed"/> once the window's scale has changed (#825): <c>WM_DPICHANGED</c>, which a
+        /// per-monitor aware window gets when it is moved onto a monitor of another scale or when the scale of its own
+        /// monitor is changed under it. The call comes <b>after</b> WinForms has answered the message, never during it:
+        /// the form's own handler re-derives the window's small icon by stretching the large one and moves the window to
+        /// the rectangle Windows suggests, and whatever the game does about either has to land after that. Nothing
+        /// happens for a handle that is not a WinForms form.
+        /// </summary>
+        internal static void WatchScale(IntPtr windowHandle, Action changed)
+        {
+            if (System.Windows.Forms.Control.FromHandle(windowHandle) is not System.Windows.Forms.Form form) return;
+
+            //DpiChanged is raised from inside Form.OnDpiChanged BEFORE the form's own icon and bounds work (the event,
+            //then UpdateWindowIcon, then ScaleContainerForDpi, in the WinForms 10 source), so the callback is posted
+            //behind the message being handled rather than run in the event
+            form.DpiChanged += (_, _) => form.BeginInvoke(changed);
+        }
     }
 }
