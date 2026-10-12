@@ -417,9 +417,17 @@ namespace BS3D
         /// next shown — <c>Refresh</c> rewrites every tile's locked state — but doing it here means the two
         /// pages cannot be looked at in the same breath and disagree.
         /// </para>
+        /// <para>
+        /// <b>Inert in a release build (#854)</b>: a tag build (<see cref="BuildVersion.Release"/> set) draws no
+        /// Unlock all row, and the switch refuses here as well, so that no argument, test hook or future caller
+        /// can open a shipped campaign through a row the player cannot see. The gate is the build's own word,
+        /// not <c>#if DEBUG</c>: the owner plays Release-configuration builds of main, and those keep the row.
+        /// </para>
         /// </summary>
         internal void ToggleUnlockAll()
         {
+            if (BuildVersion.Release != null) return;
+
             _unlockAll = !_unlockAll;
             _settingsPage.Refresh();
             _levelSelectPage?.Refresh();
