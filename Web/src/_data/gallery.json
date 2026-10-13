@@ -1,0 +1,10 @@
+[
+  { "file": "cannonball", "level": "Cannonball", "chapter": "The Meadow", "caption": "Where the campaign starts" },
+  { "file": "elephant", "level": "Elephant", "chapter": "The Gallery", "caption": "Pictures on the savanna" },
+  { "file": "minaret", "level": "Minaret", "chapter": "The Coil", "caption": "Vultures over the desert" },
+  { "file": "helix", "level": "Helix", "chapter": "The Tower", "caption": "Snow over the mountains" },
+  { "file": "umbrella", "level": "Umbrella", "chapter": "The Silhouettes", "caption": "Under the northern lights" },
+  { "file": "vortex", "level": "Vortex", "chapter": "The Nebula", "caption": "Deep space" },
+  { "file": "juggler", "level": "Juggler", "chapter": "The Big Top", "caption": "In the circus tent" },
+  { "file": "reel", "level": "Reel", "chapter": "The Arcade", "caption": "A neon city at night" }
+]

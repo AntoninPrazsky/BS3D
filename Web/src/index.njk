@@ -1,0 +1,140 @@
+---
+layout: base.njk
+---
+  <header class="hero">
+    <div class="wrap hero-inner">
+      <h1 class="logo">
+        <img src="/img/logo-1000.webp" srcset="/img/logo-600.webp 600w, /img/logo-1000.webp 1000w"
+             sizes="(max-width: 640px) 86vw, 34rem" width="1000" height="619" alt="{{ site.title }}">
+      </h1>
+      <p class="tagline">A bubble shooter in three dimensions. The cluster hangs from a sheet of glass and sways when you hit it, and whatever you cut loose falls.</p>
+      <div class="cta">
+        <a class="button" href="{{ site.download }}">Download for Windows</a>
+        <a class="button button-quiet" href="#download">Raspberry Pi 5, and how to run it</a>
+      </div>
+      <p class="cta-note">Free · Windows 10 and 11, 64-bit · about 400&nbsp;MB · nothing to install. Windows warns you the first time you run it: <a href="#download">why, and what to click</a>.</p>
+    </div>
+    <figure class="hero-shot wrap-wide">
+      <img src="/img/shots/meander-1600.jpg" srcset="/img/shots/meander-800.jpg 800w, /img/shots/meander-1600.jpg 1600w"
+           sizes="(max-width: 1184px) 100vw, 74rem" width="1600" height="900"
+           alt="A cluster of coloured balls hangs under glass over a stone island; behind it a volcano pours lava, and the cannon points up at the cluster.">
+      <figcaption>Meander, in The Eruption. Every picture on this page is the game itself, as you play it.</figcaption>
+    </figure>
+  </header>
+
+  <main>
+    <section class="section" id="play" aria-labelledby="play-title">
+      <div class="wrap">
+        <h2 id="play-title">How it plays</h2>
+        <div class="cards">
+          <article class="card">
+            <h3>Fire up into it</h3>
+            <p>A cluster of coloured balls hangs above a stone island. You stand under it with a cannon: turn it, raise the barrel, fire. A shot sticks where it lands.</p>
+          </article>
+          <article class="card">
+            <h3>Match, and bring it down</h3>
+            <p>Three or more of a colour touching, and the group falls, with everything that was hanging from it. The shot to look for is rarely the biggest clump. It is the one ball holding a lot of others up.</p>
+          </article>
+          <article class="card">
+            <h3>It really hangs</h3>
+            <p>Every ball is held to its neighbours and the top row to the glass, in a real physics simulation. Hit the cluster and it sways; cut what holds a branch and the branch drops.</p>
+          </article>
+          <article class="card">
+            <h3>The glass comes down</h3>
+            <p>Every few shots the glass steps down and the cluster with it. If the cluster reaches the red line, the level is lost, so your clock is your own shots.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section numbers" aria-label="The campaign in numbers">
+      <div class="wrap numbers-row">
+        <p><strong>{{ site.levels }}</strong> levels</p>
+        <p><strong>{{ site.chapters }}</strong> chapters</p>
+        <p><strong>{{ site.scenes }}</strong> scenes</p>
+      </div>
+    </section>
+
+    <section class="section" id="gallery" aria-labelledby="gallery-title">
+      <div class="wrap">
+        <h2 id="gallery-title">Every chapter somewhere else</h2>
+        <p class="lead">From a meadow to a volcano, deep space and a circus tent, each chapter has a scene of its own and music of its own.</p>
+      </div>
+      <div class="gallery wrap">
+{%- for shot in gallery %}
+        <figure>
+          <a href="/img/shots/{{ shot.file }}-1600.jpg">
+            <img src="/img/shots/{{ shot.file }}-800.jpg" srcset="/img/shots/{{ shot.file }}-800.jpg 800w, /img/shots/{{ shot.file }}-1600.jpg 1600w"
+                 sizes="(max-width: 700px) 100vw, (max-width: 1040px) 50vw, 32rem" width="800" height="450" loading="lazy"
+                 alt="{{ shot.level }}, a level of {{ shot.chapter }}: {{ shot.caption | lower }}.">
+          </a>
+          <figcaption><strong>{{ shot.level }}</strong>, {{ shot.chapter }}. {{ shot.caption }}.</figcaption>
+        </figure>
+{%- endfor %}
+      </div>
+      <div class="wrap">
+{%- if site.video %}
+        <p class="video"><a class="button button-quiet" href="{{ site.video }}">Watch it in motion</a></p>
+{%- else %}
+        <p class="later">A video of it in motion is on its way.</p>
+{%- endif %}
+      </div>
+    </section>
+
+    <section class="section" id="features" aria-labelledby="features-title">
+      <div class="wrap">
+        <h2 id="features-title">What else is in it</h2>
+        <ul class="features">
+          <li><strong>Odd balls and power-ups.</strong> Bombs, glass, stone, buckshot and more turn up as the campaign goes on, each shown to you the first time you meet it. From the third chapter you carry power-ups too: a swap, a brake for the ceiling, a cut.</li>
+          <li><strong>Stars, scores and leaderboards.</strong> Every level has a score and up to three stars, and online leaderboards for this month and all time. They are off until you choose a nickname and switch them on; nothing is sent before that.</li>
+          <li><strong>Colours you can tell apart by shape.</strong> Every colour wears a pattern of its own, stripes, spots, checks or a printed symbol, so two colours that look alike still differ.</li>
+          <li><strong>Mouse and keyboard, or a controller.</strong> On an Xbox controller you feel the game in your hands, the triggers' own motors included.</li>
+          <li><strong>Made in code.</strong> The balls, the cannon, the island, the skies, the scenery and the sound effects are not bought or modelled: the game makes them itself.</li>
+          <li><strong>A Raspberry Pi 5 version</strong>, from the same release and on the same leaderboards.</li>
+        </ul>
+      </div>
+    </section>
+{%- if collections.posts and collections.posts.length %}
+
+    <section class="section" id="workshop" aria-labelledby="workshop-title">
+      <div class="wrap">
+        <h2 id="workshop-title">From the workshop</h2>
+        <ul class="posts">
+{%- for post in collections.posts | reverse %}
+          <li><a href="{{ post.url }}">{{ post.data.title }}</a> <time datetime="{{ post.date.toISOString() }}">{{ post.date | readableDate }}</time></li>
+{%- endfor %}
+        </ul>
+      </div>
+    </section>
+{%- endif %}
+
+    <section class="section download" id="download" aria-labelledby="download-title">
+      <div class="wrap">
+        <h2 id="download-title">Download and play</h2>
+        <div class="platforms">
+          <article class="platform">
+            <h3>Windows</h3>
+            <p>Windows 10 or 11, 64-bit, and a graphics card that does DirectX&nbsp;11. Nothing to install: everything the game needs is in the zip.</p>
+            <ol>
+              <li>Download <code>BS3D-…-win-x64.zip</code> from the <a href="{{ site.download }}">newest release</a>.</li>
+              <li>Right-click the zip, choose <em>Properties</em> and tick <strong>Unblock</strong> (Windows marks everything it downloads), then extract it.</li>
+              <li>Run <code>BS3D.exe</code> from the extracted folder.</li>
+            </ol>
+            <p class="note"><strong>Windows will warn you the first time.</strong> The game is not code-signed (a signing certificate is the one part of this that costs money), so SmartScreen says “Windows protected your PC”. Choose <em>More info</em>, then <em>Run anyway</em>.</p>
+            <p>Your progress and settings live in <code>%LOCALAPPDATA%\BS3D</code>, not in the game's folder, so a new version can replace the old folder without losing your save.</p>
+            <p><a class="button" href="{{ site.download }}">Download for Windows</a></p>
+          </article>
+          <article class="platform">
+            <h3>Raspberry Pi 5</h3>
+            <p>64-bit Raspberry Pi OS. The same game for the Pi's graphics chip: a plainer picture than on Windows (no shadows, no scenery behind the island), which is what the Pi holds at 1080p.</p>
+            <ol>
+              <li>Download <code>BS3D-…-linux-arm64.tar.gz</code> from the <a href="{{ site.download }}">newest release</a> and extract it:<code class="cmd">tar xzf BS3D-*-linux-arm64.tar.gz</code></li>
+              <li>From a desktop session, run it:<code class="cmd">cd BS3D-*-linux-arm64 &amp;&amp; ./BS3D</code></li>
+            </ol>
+            <p>Progress and settings live in <code>~/.local/share/BS3D</code>.</p>
+          </article>
+        </div>
+        <p class="checksums">Every release lists a checksum for each file in <code>SHA256SUMS</code>. The source of everything, the game, its tools and this page, is on <a href="{{ site.repo }}">GitHub</a>.</p>
+      </div>
+    </section>
+  </main>

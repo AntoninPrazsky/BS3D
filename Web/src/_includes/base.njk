@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if title %}{{ title }} · {% endif %}{{ site.title }}</title>
+  <meta name="description" content="{{ description or site.description }}">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#120024">
+  <link rel="canonical" href="{{ site.url }}{{ page.url }}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ title or site.title }}">
+  <meta property="og:description" content="{{ description or site.description }}">
+  <meta property="og:url" content="{{ site.url }}{{ page.url }}">
+  <meta property="og:image" content="{{ site.url }}/img/og-meander.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/img/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+  <link rel="preload" href="/fonts/Anton-Regular.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+{{ content | safe }}
+  <footer class="footer">
+    <div class="wrap">
+      <p><strong>{{ site.title }}</strong> is made by <a href="{{ site.authorUrl }}">{{ site.author }}</a>, in the open: the whole game is on <a href="{{ site.repo }}">GitHub</a>. Built with <a href="https://monogame.net/">MonoGame</a> and <a href="https://github.com/bepu/bepuphysics2">BepuPhysics</a>.</p>
+      <p>Seen something in the game? <em>Write to the Author</em> on its pause menu sends a line, and a picture of the moment if you want. This site sets no cookies and counts no visitors.</p>
+    </div>
+  </footer>
+</body>
+</html>
