@@ -95,6 +95,25 @@ namespace Prazsky.Core.Render
         public BallRimMesh RimMesh { get; set; }
 
         /// <summary>
+        /// The rock's carved shape on the Potato path (#863), drawn IN PLACE of the sphere when <see cref="Shading"/> is
+        /// <see cref="BallShading.Stone"/>: the desktop's <c>StoneVS</c> as a mesh (<see cref="PotatoKindMesh.Rock"/>),
+        /// built on this renderer's sphere's resolution. Null, the default, draws the sphere. A ball renderer's on the
+        /// Potato path alone; the rims (#804) are not drawn for it, since the ring sits on the sphere's limb and the carve
+        /// is inside it.
+        /// </summary>
+        public PotatoKindMesh PotatoRockMesh { get; set; }
+
+        /// <summary>The ice block (<see cref="PotatoKindMesh.IceBlock"/>) in place of the sphere for <see cref="BallShading.Frozen"/>, as <see cref="PotatoRockMesh"/>.</summary>
+        public PotatoKindMesh PotatoIceMesh { get; set; }
+
+        /// <summary>
+        /// The mine's eight studs (<see cref="PotatoKindMesh.MineStuds"/>), drawn OVER the sphere for
+        /// <see cref="BallShading.Bomb"/> on the Potato path (#863): the same instances, the same technique and uniforms,
+        /// one more draw of a few hundred vertices after the casing's. Null, the default, draws the casing alone.
+        /// </summary>
+        public PotatoKindMesh PotatoStudMesh { get; set; }
+
+        /// <summary>
         /// Whether a draw is the balls' rims and not the balls (#804). The caller - <c>BallRenderSet</c> - draws every
         /// bucket once as it always did and then, with this on, every bucket once more: the same calls with the same
         /// per-bucket uniforms, so a ring is shaded exactly as the ball it finishes, and all of them after all of the
@@ -2351,12 +2370,33 @@ namespace Prazsky.Core.Render
                 }
                 else _effect.CurrentTechnique = _mainTechnique;
 
+                //A kind with a shape of its own (#863): the rock's carve and the ice block stand in for the sphere, the
+                //mine's studs come after it, all through the instance buffer just uploaded
+                PotatoKindMesh replacement = ball ? Shading switch
+                {
+                    BallShading.Stone => PotatoRockMesh,
+                    BallShading.Frozen => PotatoIceMesh,
+                    _ => null,
+                } : null;
+                PotatoKindMesh addition = ball && Shading == BallShading.Bomb ? PotatoStudMesh : null;
+
+                MeshPartData ballPart = part;
+                if (replacement != null)
+                {
+                    ballPart.VertexBuffer = replacement.VertexBuffer;
+                    ballPart.IndexBuffer = replacement.IndexBuffer;
+                    ballPart.VertexOffset = 0;
+                    ballPart.StartIndex = 0;
+                    ballPart.PrimitiveCount = replacement.PrimitiveCount;
+                }
+
                 //A ball part is two runs of the one instance buffer: the balls with no dither (nearest first), then the
                 //dithered ones through the technique that has the clip. Anything else is one run. In the rims' pass a ball
-                //part is its rings, under the very uniforms just set for it, and anything else is nothing.
+                //part is its rings, under the very uniforms just set for it, and anything else is nothing - and a kind
+                //whose shape is not the sphere gets no ring: the ring sits on the sphere's limb, and the shape is inside it.
                 if (rims)
                 {
-                    if (ball) DrawPotatoRims(camera, instanceCount);
+                    if (ball && replacement == null) DrawPotatoRims(camera, instanceCount);
                 }
                 else if (!ball)
                 {
@@ -2368,13 +2408,18 @@ namespace Prazsky.Core.Render
                 }
                 else
                 {
-                    if (clean > 0) DrawPotatoRun(part, 0, clean);
+                    if (clean > 0)
+                    {
+                        DrawPotatoRun(ballPart, 0, clean);
+                        if (addition != null) DrawPotatoKindRun(addition, 0, clean);
+                    }
 
                     if (clean < instanceCount)
                     {
                         _effect.CurrentTechnique = _potatoBallDitherTechnique;
                         _dissolvePixelSizeParam.SetValue(DissolvePixelSize);
-                        DrawPotatoRun(part, clean, instanceCount - clean);
+                        DrawPotatoRun(ballPart, clean, instanceCount - clean);
+                        if (addition != null) DrawPotatoKindRun(addition, clean, instanceCount - clean);
                     }
                 }
             }
@@ -2397,6 +2442,23 @@ namespace Prazsky.Core.Render
             _effect.CurrentTechnique.Passes[0].Apply();
 
             _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, part.StartIndex, part.PrimitiveCount, count);
+        }
+
+        /// <summary>
+        /// One instanced draw of a kind's own mesh (#863) through the effect's current technique, for <paramref name="count"/>
+        /// instances of the instance buffer from <paramref name="firstInstance"/>: <see cref="DrawPotatoRun"/> for a mesh
+        /// that is not one of this renderer's parts.
+        /// </summary>
+        private void DrawPotatoKindRun(PotatoKindMesh mesh, int firstInstance, int count)
+        {
+            _graphicsDevice.SetVertexBuffers(
+                new VertexBufferBinding(mesh.VertexBuffer, 0, 0),
+                new VertexBufferBinding(_instanceBuffer, firstInstance, 1));
+            _graphicsDevice.Indices = mesh.IndexBuffer;
+
+            _effect.CurrentTechnique.Passes[0].Apply();
+
+            _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, count);
         }
 
         /// <summary>
