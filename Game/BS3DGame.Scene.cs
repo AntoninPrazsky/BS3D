@@ -327,6 +327,9 @@ namespace BS3D
                 SurfaceDetail = _quality.DropsSceneDetail() ? 0f : 1f
             };
 
+            //The scene picked at startup ran before the effect existed: the Potato backdrop of that scene is built now (#829)
+            EnsurePotatoBackdrop();
+
             //The forest's scattered trees, rocks and stumps, all of it: both procedural textures, the fifteen
             //mesh variants, the twenty-five renderers with their bark, foliage, stone and sawn-wood dressing,
             //the matte materials and the tints encoded once from the config. The config is the SceneRenderer's
@@ -418,6 +421,8 @@ namespace BS3D
             //(the scene page, the sky setting, a level's own dome, the session after a refit) is later still.
             //A guard would be reassurance about something that cannot happen.
             foreach (InstancedModelRenderer renderer in _island.SkyLitRenderers) yield return renderer;
+            if (_potatoBackdrop != null)
+                foreach (InstancedModelRenderer renderer in _potatoBackdrop.Renderers) yield return renderer;
 
             //The forest scatter, present only in the forest scene but always built. Every variant of every kind
             //takes part — the one flat array the component exposes for exactly this — or a spruce of the variant
@@ -504,6 +509,9 @@ namespace BS3D
         internal void SetScene(SceneKind scene)
         {
             _scene = scene;
+
+            //The Potato path's ground and scatter for this scene (#829), before the rig below lights them
+            EnsurePotatoBackdrop();
 
             //The scene's own sound follows the scene, on the one writer's rule, and so does anything the OLD
             //scene had in flight (#219) — see AudioDirector.SetScene. Null-conditional because the startup pick

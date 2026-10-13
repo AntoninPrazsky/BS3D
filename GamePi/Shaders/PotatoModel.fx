@@ -1423,6 +1423,41 @@ float4 BandPS(VertexOutput input) : COLOR0
     return LitPS(input) * lerp(1, coverage, fades);
 }
 
+//A SURFACE LIT AT THE VERTEX (#829): PotatoLit's whole light taken once per vertex (Shade from the vertex, as the fins'
+//PotatoFinLitVS takes it) and interpolated, display-encoded, so its pixel costs one move. For the backdrop's ground and
+//scatter, whose pixels are a third of the frame at native and whose surfaces are too far for per-pixel light to show:
+//the ground alone through PotatoLit cost 3 ms at 1080p (#829's first measurement).
+struct VertexLitOutput
+{
+    float4 Position : POSITION0;
+    float4 Surface : TEXCOORD0;
+};
+
+VertexLitOutput PotatoVertexLitVS(VertexInput input, InstanceInput instance)
+{
+    VertexOutput lit = PotatoVS(input, instance);
+
+    VertexLitOutput output;
+    output.Position = lit.Position;
+    output.Surface = ToScreen(Shade(lit.WorldPosition, lit.WorldNormal, instance.Custom, 1, lit.SceneDiffuse, lit.SceneSpecular, false));
+
+    return output;
+}
+
+float4 VertexLitPS(VertexLitOutput input) : COLOR0
+{
+    return input.Surface;
+}
+
+technique PotatoVertexLit
+{
+    pass P0
+    {
+        VertexShader = compile POTATO_VS PotatoVertexLitVS();
+        PixelShader = compile POTATO_PS VertexLitPS();
+    }
+};
+
 technique PotatoBand
 {
     pass P0

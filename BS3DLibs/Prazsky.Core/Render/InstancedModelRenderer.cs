@@ -155,6 +155,17 @@ namespace Prazsky.Core.Render
         public static bool PotatoFlatBalls { get; set; }
 
         private EffectTechnique _potatoTexturedTechnique, _potatoBallTechnique, _potatoBallDitherTechnique;
+
+        //A surface lit at the vertex (#829, PotatoModel.fx's PotatoVertexLit): the backdrop's technique, null on an effect
+        //compiled before it existed, when PotatoLit stands in
+        private EffectTechnique _potatoVertexLitTechnique;
+
+        /// <summary>
+        /// Draw this renderer's non-ball parts lit at the vertex on the Potato path (#829): PotatoLit's light once per
+        /// vertex, interpolated, for a backdrop whose pixels are many and whose surfaces are far. Off, the default,
+        /// is PotatoLit per pixel, as the island and the gun are drawn.
+        /// </summary>
+        public bool PotatoVertexLit { get; set; }
         private readonly MeshPartData[] _parts;
         private DynamicVertexBuffer _instanceBuffer;
         private readonly ModelInstance[] _singleInstance = new ModelInstance[1];
@@ -2068,6 +2079,7 @@ namespace Prazsky.Core.Render
             _potatoBallDitherTechnique = RequiredTechnique("PotatoBallDither");
             _potatoBallKindTechnique = RequiredTechnique("PotatoBallKind");
             _potatoBallKindDitherTechnique = RequiredTechnique("PotatoBallKindDither");
+            _potatoVertexLitTechnique = _effect.Techniques["PotatoVertexLit"];
             _potatoBallCueTechniques = new[]
             {
                 RequiredTechnique("PotatoBallCueBands"), RequiredTechnique("PotatoBallCueSpots"),
@@ -2432,6 +2444,7 @@ namespace Prazsky.Core.Render
                     _effect.CurrentTechnique = _potatoBandTechnique;
                     _potatoBandSeamParam.SetValue(new Vector2(FunnelRimsMesh.SEAM_HEIGHT, PotatoBandUnderPit ? 1f : 0f));
                 }
+                else if (PotatoVertexLit && _potatoVertexLitTechnique != null) _effect.CurrentTechnique = _potatoVertexLitTechnique;
                 else _effect.CurrentTechnique = _mainTechnique;
 
                 //A kind with a shape of its own (#863): the rock's carve and the ice block stand in for the sphere, the

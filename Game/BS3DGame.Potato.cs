@@ -120,6 +120,34 @@ namespace BS3D
         /// (#795, <see cref="SceneLights.Apply"/> with no renderer). The cup and the confetti are drawn last of all
         /// instead of first into a layer (<see cref="CompositeForegroundLast"/>).
         /// </summary>
+        /// <summary>
+        /// The scene's backdrop on the Potato path (#829): its ground and scatter through PotatoLit, or null for a scene
+        /// that keeps the dome's gradient alone. Built by <see cref="EnsurePotatoBackdrop"/> at a scene change and once the
+        /// island exists; its renderers are sky-lit with the island's (<c>SkyLitRenderers</c>).
+        /// </summary>
+        private PotatoBackdrop _potatoBackdrop;
+
+        /// <summary>
+        /// The backdrop of the current scene, rebuilt when the scene changes. Nothing before the effect is loaded (the
+        /// startup's scene pick runs before LoadContent), so the call after the island is built makes the first one.
+        /// </summary>
+        private void EnsurePotatoBackdrop()
+        {
+            if (!PotatoPath || _instancingEffect == null) return;
+
+            _potatoBackdrop?.Dispose();
+            _potatoBackdrop = PotatoBackdrop.For(_scene, GraphicsDevice, _instancingEffect, ArenaIsland.TERRAIN_HOLE_RADIUS);
+            if (_potatoBackdrop == null) return;
+
+            //Lit now, not only at the next ApplySkyLighting: the first build runs after the startup's SetScene has
+            //already applied the rig, and a backdrop drawn under the library's default rig is black trees on a flat ground
+            if (_rig != null)
+                foreach (InstancedModelRenderer renderer in _potatoBackdrop.Renderers) _rig.ApplyTo(renderer);
+
+            //A load line, not a frame's: what this scene's backdrop hands V3D, the price #829 measures a scene by
+            Console.WriteLine($"[potato] {_scene} backdrop: {_potatoBackdrop.VertexCount} vertices a frame in {_potatoBackdrop.Renderers.Count} draws ({_potatoBackdrop.Census})");
+        }
+
         private SceneFrame BeginPotatoSceneDraw()
         {
             _ceilingGlassBehind = null;
@@ -144,6 +172,10 @@ namespace BS3D
             //The volcano's flows and the neon ring (#795): the two scenes whose dome is dark and whose own lamps carry the
             //cluster on the desktop, and the two whose lamps need no backdrop. A blast's flash rides the same push.
             _sceneLights.Apply(_scene, null, _cityConfig.NeonLook, _wallClock);
+
+            //The scene's ground and its static scatter (#829), where the scene has them on this path: before the island,
+            //opaque and depth-written, under the same flat ambient
+            _potatoBackdrop?.Draw(_camera, _sceneEffectParams);
 
             _island.EventGlow = 0f;
             _island.DrawIsland(_camera, _sceneEffectParams, _scene);
