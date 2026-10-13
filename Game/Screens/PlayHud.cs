@@ -22,7 +22,8 @@ namespace BS3D.Screens
         /// <summary>The side cut of the cluster and the magazine's queue: what the field is.</summary>
         Field = 1,
 
-        /// <summary>The streak, balls left, the power-up chips, the tutorial card and the sleeping gun's letters: playing.</summary>
+        /// <summary>The streak, balls left, the power-up chips, the tutorial card and the sleeping gun's letters: playing. (A won
+        /// level's beat fades these, but the card is gone before it: a decided level ends it, #700.)</summary>
         Play = 2,
 
         /// <summary>The score, the awards flying into it and the takeover's skip hint: what the celebration still reads.</summary>

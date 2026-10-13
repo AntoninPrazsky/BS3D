@@ -237,8 +237,8 @@ namespace BS3D.Screens
         /// scene's own tour flies). The host then draws none of it — the focus prompt (#799) included, which the host draws
         /// itself and which hiding the page's plate left standing — feeds Myra nothing, and hands the page no walk, no Enter,
         /// no wheel and no Back: a press of a skip key goes to <see cref="SkipPressed"/>, so the press that skips cannot also
-        /// choose the entry the cursor stood on. The display keys still work. A click is disarmed for the page's return,
-        /// as for a page that has just arrived.
+        /// choose the entry the cursor stood on. The display keys still work. The click is disarmed on the frame the page is
+        /// drawn again, as for a page that has just arrived, until the button is seen up.
         /// </summary>
         internal virtual bool StandsAside => false;
 
