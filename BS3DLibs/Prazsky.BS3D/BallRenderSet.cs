@@ -2052,7 +2052,7 @@ namespace Prazsky.BS3D
             }
         }
 
-        /// <summary>Fills a frame opened for <see cref="DrawAside"/> — a method group rather than a lambda, so a caller allocates nothing per frame.</summary>
+        /// <summary>Fills a frame opened for <see cref="DrawAside"/>. A delegate made from an instance method allocates at every conversion, so a caller converts it once and keeps it (Help's <c>_collectBalls</c>) rather than passing a method group or a lambda each frame.</summary>
         public delegate void AsideCollector(BallDrawFrame frame);
 
         /// <summary>

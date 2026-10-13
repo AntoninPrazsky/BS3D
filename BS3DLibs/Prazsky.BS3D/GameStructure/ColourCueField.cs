@@ -7,7 +7,7 @@ namespace Prazsky.BS3D.GameStructure
     /// The colour cue's figures (#737) on the CPU: a line-for-line port of the signed field in
     /// <c>BallColourCue.fxh</c>, positive inside a figure, for what has to draw or measure a figure without the ball
     /// shader. Two readers: the HUD's queue, whose flat discs carry the figure their round carries
-    /// (<see cref="BakeDisc"/>), and <c>ColourCueTests</c>, which measures every figure's share of what the play
+    /// (<see cref="BakeDisc"/>), and <c>ColourCueStyleTests</c>, which measures every figure's share of what the play
     /// camera sees with it and holds <see cref="ColourCues.Figure"/>'s coverage to that.
     /// <para>
     /// <b>A change to a figure in the shader is a change here</b>, in the same commit: the coverage test fails on

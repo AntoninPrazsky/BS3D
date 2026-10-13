@@ -1394,7 +1394,7 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The colour cue's programs (#737), one per ball STYLE's shading: each style's body with a colour's figure
         /// painted on (<c>BallColourCueTechniques.fxh</c>). The special kinds' shadings have none - a frozen or a heavy
-        /// ball is that kind first. <c>ColourCueTests</c> checks this table covers every shading a style draws with and
+        /// ball is that kind first. <c>ColourCueStyleTests</c> checks this table covers every shading a style draws with and
         /// names techniques the effect declares.
         /// </summary>
         internal static readonly (BallShading Shading, string Technique)[] ColourCueTechniqueNames =
