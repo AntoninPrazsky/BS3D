@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-13 — #863 stupeň 2: tvary druhů jako geometrie — Pi, Claude Code (584de7d2)
+- Hotovo (větev `863-potato-kind-meshes`): `PotatoKindMesh`/`PotatoKindGeometry` v Prazsky.Core: `StoneVS` (řez sinů + pět lomových ploch) a `FrozenVS` (zaoblená kostka p 4,5) přenesené číslo po čísle na topologii koule per LOD, kreslené místo ní; hroty miny (`MineRadius`: 8 komolých kuželů, zdvih 0,13) jako vlastní síť kreslená po plášti na tomtéž instančním bufferu. Bez kroužku (rim) pro nahrazenou kouli. Test `PotatoKindMeshTests` (dovnitř, hroty ven, vinutí po směru hodin zvenku).
+- ⚠ Hrot je na herní kouli Pi (24 × 12) užší než jeden vertex: zvedat vertexy koule jako `BombVS` by nezvedlo nic; proto vlastní síť.
+- Otevřené: stupeň 3 (spodní půlka kyseliny, krusta nákazy, oko gravitace: větve v `PotatoBall` za uniformou, GL kolečko přes CI), verdikt oka na `help=4`, Vent a Anvil.
+
 ## 2026-10-13 — #863 stupeň 1: vzhled druhů z uniforem — Pi, Claude Code (584de7d2)
 - Hotovo (větev `863-potato-special-kinds`): `InstancedModelRenderer.PotatoKindLookFor` dává každému druhu na Potato plášť, barvu záře (klidový a tepový podíl), lesk, alfu a tón, kterým se stáhne i ambient typu. Bomba tmavá s červeným tepem, blesk břidlicový s bledě modrým blikáním, kyselina tmavá se zelenou září, sklo průsvitné přes `PotatoLit` (alfa 0,38), zmrzlá bledá a hladká, nakažená olivová matná, gravitace tmavá lesklá, těžká šedá matná. Žádná změna shaderu; A/B nativně Vent 15,07/14,99, Caldera 16,30/16,31, Bell 13,76/13,80 ms (nový/základ). Test `PotatoKindLookTests`.
 - ⚠ Koule na Potato je z velké části svou EMISÍ: zbledlý plášť a stažený ambient zmrzlou kouli nezměnily ani o pixel (192,38,47 proti 192,21,30); teprve barva záře. A bomba se třemi desetinami klidové záře byla červená koule; klid je 0,07.

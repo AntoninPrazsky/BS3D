@@ -1379,6 +1379,17 @@ namespace Prazsky.BS3D
                     _renderers[lod].RimMesh = _rimMeshes[lod];
                     _renderers[lod].RimMeshRadius = BALL_RADIUS;
                     _renderers[lod].RimMeshShortfall = 1f - MathF.Cos(MathF.PI / LOD_RESOLUTIONS[lod, 0]);
+
+                    //The kinds' shapes (#863), the desktop's vertex shaders as meshes at this level's resolution: the rock's
+                    //carve and the ice block in place of the sphere, the mine's studs over it
+                    _kindMeshes ??= new PotatoKindMesh[LodCount * 3];
+                    _kindMeshes[lod * 3] = PotatoKindMesh.Rock(graphicsDevice, BALL_RADIUS, LOD_RESOLUTIONS[lod, 0], LOD_RESOLUTIONS[lod, 1], STONE_SHAPE_DEPTH);
+                    _kindMeshes[lod * 3 + 1] = PotatoKindMesh.IceBlock(graphicsDevice, BALL_RADIUS, LOD_RESOLUTIONS[lod, 0], LOD_RESOLUTIONS[lod, 1]);
+                    _kindMeshes[lod * 3 + 2] = PotatoKindMesh.MineStuds(graphicsDevice, BALL_RADIUS);
+
+                    _renderers[lod].PotatoRockMesh = _kindMeshes[lod * 3];
+                    _renderers[lod].PotatoIceMesh = _kindMeshes[lod * 3 + 1];
+                    _renderers[lod].PotatoStudMesh = _kindMeshes[lod * 3 + 2];
                 }
             }
 
@@ -1408,6 +1419,9 @@ namespace Prazsky.BS3D
         private static readonly int[] RIM_SEGMENTS = { 32, 24, 16, 16 };
 
         private BallRimMesh[] _rimMeshes;
+
+        //The kinds' meshes on the Potato path (#863), three per LOD: the rock, the ice block, the studs
+        private PotatoKindMesh[] _kindMeshes;
 
         //The LOD census as the balls' own walk left it, kept across the rims' walk, which counts the same buckets again
         private int[] _rimLodTotals;
@@ -2780,6 +2794,7 @@ namespace Prazsky.BS3D
             if (_meshes != null) foreach (SphereMesh mesh in _meshes) mesh?.Dispose();
             if (_renderers != null) foreach (InstancedModelRenderer renderer in _renderers) renderer?.Dispose();
             if (_rimMeshes != null) foreach (BallRimMesh rim in _rimMeshes) rim?.Dispose();
+            if (_kindMeshes != null) foreach (PotatoKindMesh kind in _kindMeshes) kind?.Dispose();
 
             _meshes = null;
             _renderers = null;
