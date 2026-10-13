@@ -679,3 +679,8 @@ Pravidla:
 ## 2026-10-13 — #824 poznámka jmenuje hrající nahrávku — ThinkPad, Claude Code (github-b9)
 - #824 krok 1 (merge do mainu): kontext poznámky nese `music` (kmen nahrávky, který si úroveň umí připnout) a `musicDrums`, dokud hraje téma úrovně (`GameMusic.SoundingRecording`/`SoundingLayered`). Ověřeno: `level=77` a poznámka do místní schránky (`userdata=`, bez serveru) má `"music": "pulse"`, `"musicDrums": true`, shodně s řádkem `[music]`.
 - Otevřené: kroky 2–3 (najít a přegenerovat špatné nahrávky) čekají na stroj s velkou GPU; issue zůstává otevřené.
+
+## 2026-10-13 — #400 desátý průchod (77be2c66..28396e83) — ThinkPad, Claude Code (github-b9)
+- Rozsah: 17 commitů bez merge (#849, #859 `ramp`, #856 dodatek, #737, #860, #824), 67 souborů. Hygiena snímku čistá (žádná alokace, hledání podle jména ani stavový objekt za snímek; techniky cue v shaderu volí technika, ne větev). Build čtyř řešení 0 varování, WindingCheck 243/0, VectorBoundary 0 VEC001 (podstrčený přechod viděn chycen), citace 187/0, DocDrift 29 stojících kandidátů.
+- Opraveny tři komentáře: `AsideCollector` (delegát z metody instance alokuje při každém převodu, volající si ho drží), cue tabulka a `ColourCueField` jmenují `ColourCueStyleTests`, figury HUD po změně okna uprostřed levelu.
+- Otevřené: zda kompilátor nezplošťuje vnořené `if` v `BallColourCue.fxh` (cue je teď zapnuté všem; cena na GPU neměřena, viz #737). Další průchod od merge tohoto.
