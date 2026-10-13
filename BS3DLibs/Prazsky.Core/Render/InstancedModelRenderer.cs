@@ -86,6 +86,10 @@ namespace Prazsky.Core.Render
             _potatoBallGlowStillParam, _potatoBallGlowBeatParam, _potatoBallFlashParam, _potatoBallAlarmParam,
             _potatoPulsePhaseParam;
 
+        //A kind's figure (#863): the technique that paints it and its three uniforms, see PotatoModel.fx's PotatoBallKind
+        private EffectTechnique _potatoBallKindTechnique, _potatoBallKindDitherTechnique;
+        private EffectParameter _potatoKindFigureParam, _potatoKindGlowParam, _potatoKindAxisParam;
+
         /// <summary>
         /// The strip this renderer's balls' rims are drawn on (#804), and the switch: with one set, and
         /// <see cref="RimPass"/> on, <see cref="Draw(ICamera, ModelInstance[], int, BasicEffectParams, Vector3?)"/> on the
@@ -2027,6 +2031,9 @@ namespace Prazsky.Core.Render
             _potatoBallFlashParam = Required("BallFlash");
             _potatoBallAlarmParam = Required("BallAlarm");
             _potatoPulsePhaseParam = Required("PulsePhase");
+            _potatoKindFigureParam = Required("KindFigure");
+            _potatoKindGlowParam = Required("KindGlow");
+            _potatoKindAxisParam = Required("KindAxis");
 
             Required("DirLight1Direction").SetValue(DefaultLighting.Light1Direction);
             Required("DirLight2Direction").SetValue(DefaultLighting.Light2Direction);
@@ -2041,6 +2048,8 @@ namespace Prazsky.Core.Render
             _potatoTexturedTechnique = RequiredTechnique("PotatoTextured");
             _potatoBallTechnique = RequiredTechnique("PotatoBall");
             _potatoBallDitherTechnique = RequiredTechnique("PotatoBallDither");
+            _potatoBallKindTechnique = RequiredTechnique("PotatoBallKind");
+            _potatoBallKindDitherTechnique = RequiredTechnique("PotatoBallKindDither");
             _dissolvePixelSizeParam = Required("DissolvePixelSize");
             _potatoFinLitTechnique = RequiredTechnique("PotatoFinLit");
             _potatoFinTexturedTechnique = RequiredTechnique("PotatoFinTextured");
@@ -2136,14 +2145,15 @@ namespace Prazsky.Core.Render
         /// read as a red ball in the Help page and on Vent alike).</item>
         /// <item>The zap is cold: a pale electric glow flickering at the zap's rate over a slate casing, beside Caldera's
         /// navy - and resting at a tenth, or it is a cyan ball (the first cut rested at the zap's own 0.45).</item>
-        /// <item>The acid glows acid green over a dark body, at its slow pulse, resting at three tenths so it is not a lime ball.</item>
+        /// <item>The acid is a dark body with a faint green glow: its pool, the lower half full of glowing liquid, is
+        /// the figure <c>PotatoBallKind</c> paints (<see cref="SetPotatoKindFigure"/>).</item>
         /// <item>The clear glass shows what is behind it: pale, glass-smooth and <see cref="POTATO_HOLLOW_ALPHA"/> opaque.</item>
         /// <item>The frozen ball is its colour sealed in ice: a pale, glass-smooth shell, and a pale glow - ⚠ a ball at
         /// play distance is largely its own EMISSION (the desktop's lesson, #737), so a kind that pales or darkens
         /// its casing alone does not change on screen (measured: a red frozen ball with a pink crust and a red glow
         /// stayed red to the pixel); what the eye gets is the glow's colour, and every tinted kind here sets it.</item>
-        /// <item>The sick ball wears an olive crust and the spores' yellow-green glow, matte.</item>
-        /// <item>The gravity well is dark and glossy: its glow at a third, the whole ball pulled towards its eye.</item>
+        /// <item>The sick ball keeps its colour (it is matched by it), matte; its one-sided crust is the figure.</item>
+        /// <item>The gravity well keeps its colour, glossy, its glow at six tenths; its eye and ring are the figure.</item>
         /// <item>The heavy ball is cast iron with its colour worn into it: darker, greyer, matte, its glow greyed and dimmed.</item>
         /// </list>
         /// Every other shading (the ten materials, the rock, the wildcard) is its colour, untouched.
@@ -2156,11 +2166,11 @@ namespace Prazsky.Core.Render
             {
                 BallShading.Bomb => new(primary, POTATO_BOMB_GLOW, 0.07f, 0.5f, null, 1f, 1f, Vector3.Zero, 0f),
                 BallShading.Zap => new(primary, POTATO_ZAP_GLOW, 0.12f, 0.9f, null, 1f, 1f, Vector3.Zero, 0f),
-                BallShading.Acid => new(primary, POTATO_ACID_GLOW, 0.3f, 0.6f, null, 1f, 1f, Vector3.Zero, 0f),
+                BallShading.Acid => new(primary, POTATO_ACID_GLOW, 0.08f, 0.3f, null, 1f, 1f, Vector3.Zero, 0f),
                 BallShading.Hollow => new(primary, primary, 1f, 0f, 0.15f, 1.5f, POTATO_HOLLOW_ALPHA, Vector3.Zero, 0f),
                 BallShading.Frozen => new(Vector3.Lerp(primary, POTATO_ICE, 0.65f), Vector3.Lerp(primary, POTATO_ICE, 0.6f), still, beat, 0.1f, 2f, 1f, POTATO_ICE, 0.65f),
-                BallShading.Infectious => new(Vector3.Lerp(primary, POTATO_OLIVE, 0.45f), Vector3.Lerp(primary, POTATO_SPORE_GLOW, 0.6f), still, beat, 0.8f, 0.5f, 1f, POTATO_OLIVE, 0.45f),
-                BallShading.Gravity => new(primary * 0.5f, primary * 0.35f, still, beat, 0.08f, 2.5f, 1f, Vector3.Zero, 0.5f),
+                BallShading.Infectious => new(primary, primary, still, beat, 0.8f, 0.5f, 1f, Vector3.Zero, 0f),
+                BallShading.Gravity => new(primary, primary * 0.6f, still, beat, 0.08f, 2.5f, 1f, Vector3.Zero, 0f),
                 BallShading.Heavy => new(Vector3.Lerp(primary, POTATO_IRON, 0.6f), Vector3.Lerp(primary, POTATO_IRON, 0.6f) * 0.6f, still, beat, 1f, 0.25f, 1f, POTATO_IRON, 0.6f),
                 _ => new(primary, primary, still, beat, null, 1f, 1f, Vector3.Zero, 0f),
             };
@@ -2351,8 +2361,9 @@ namespace Prazsky.Core.Render
                 }
                 else if (ball)
                 {
-                    _effect.CurrentTechnique = PotatoFlatBalls ? _potatoBallFlatTechnique : _potatoBallTechnique;
+                    _effect.CurrentTechnique = PotatoFlatBalls ? _potatoBallFlatTechnique : figure ? _potatoBallKindTechnique : _potatoBallTechnique;
                     SetPotatoBallUniforms(look);
+                    if (figure) SetPotatoKindFigure(camera, look);
                 }
                 else if (DetailTexture != null && alpha >= 1f)
                 {
@@ -2379,6 +2390,9 @@ namespace Prazsky.Core.Render
                     _ => null,
                 } : null;
                 PotatoKindMesh addition = ball && Shading == BallShading.Bomb ? PotatoStudMesh : null;
+
+                //A kind whose desktop look is a figure on the ball (#863): its own program paints it, see SetPotatoKindFigure
+                bool figure = ball && !PotatoFlatBalls && Shading is BallShading.Acid or BallShading.Infectious or BallShading.Gravity;
 
                 MeshPartData ballPart = part;
                 if (replacement != null)
@@ -2416,7 +2430,7 @@ namespace Prazsky.Core.Render
 
                     if (clean < instanceCount)
                     {
-                        _effect.CurrentTechnique = _potatoBallDitherTechnique;
+                        _effect.CurrentTechnique = figure ? _potatoBallKindDitherTechnique : _potatoBallDitherTechnique;
                         _dissolvePixelSizeParam.SetValue(DissolvePixelSize);
                         DrawPotatoRun(ballPart, clean, instanceCount - clean);
                         if (addition != null) DrawPotatoKindRun(addition, clean, instanceCount - clean);
@@ -2607,6 +2621,38 @@ namespace Prazsky.Core.Render
 
             Vector3 phase = PulseDirection / MathF.Max(PulseWavelength, 1e-4f);
             _potatoPulsePhaseParam.SetValue(new Vector4(phase, PulseTime * PulseSpeed));
+        }
+
+        /// <summary>
+        /// The figure <c>PotatoBallKind</c> paints on this draw's kind (#863, <c>PotatoModel.fx</c>'s <c>KindFigure</c>):
+        /// the acid's pool just under its equator in acid green with a foam line, the sick ball's crust over the third of
+        /// the ball that faces the player (the camera's way, tilted down: the crust the desktop grows "down and forward"
+        /// is seen from where the gun stands) in olive with the spores' glow, the gravity well's eye where the ball faces
+        /// the eye, darkened, with the whirl's ring in the ball's own colour round it.
+        /// </summary>
+        private void SetPotatoKindFigure(ICamera camera, in PotatoKindLook look)
+        {
+            Matrix view = camera.View;
+            Vector3 towardsCamera = Vector3.Normalize(new Vector3(view.M13, view.M23, view.M33));
+
+            switch (Shading)
+            {
+                case BallShading.Acid:
+                    _potatoKindFigureParam.SetValue(new Vector4(1f, -0.05f, 1.1f, 0.35f));
+                    _potatoKindGlowParam.SetValue(POTATO_ACID_GLOW);
+                    _potatoKindAxisParam.SetValue(Vector3.Up);
+                    break;
+                case BallShading.Infectious:
+                    _potatoKindFigureParam.SetValue(new Vector4(2f, 0.35f, 0.9f, 0.18f));
+                    _potatoKindGlowParam.SetValue(Vector3.Lerp(POTATO_OLIVE, POTATO_SPORE_GLOW, 0.4f));
+                    _potatoKindAxisParam.SetValue(Vector3.Normalize(towardsCamera + new Vector3(0f, -0.6f, 0f)));
+                    break;
+                default:
+                    _potatoKindFigureParam.SetValue(new Vector4(3f, 0.86f, 0.9f, 0.35f));
+                    _potatoKindGlowParam.SetValue(look.Casing);
+                    _potatoKindAxisParam.SetValue(Vector3.Up);
+                    break;
+            }
         }
 
         /// <summary>

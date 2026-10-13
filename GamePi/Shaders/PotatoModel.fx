@@ -120,6 +120,14 @@ float3 BallFlash;
 float4 BallAlarm;
 float4 PulsePhase;
 
+//A KIND'S FIGURE (#863), read by PotatoBallKind alone - the ordinary ball's program does not know these, so it pays
+//nothing for them: x which figure (1 the acid's filled lower half, 2 the sick ball's one-sided crust, 3 the gravity
+//well's eye), y its level or threshold, z its strength, w its edge or ring; KindGlow the figure's own colour, linear;
+//KindAxis the world direction the crust faces.
+float4 KindFigure;
+float3 KindGlow;
+float3 KindAxis;
+
 //How wide one cell of the dissolve's dither is, in back-buffer pixels: BallCommon.fxh's DissolvePixelSize, the one
 //uniform the dithered draw reads (#794)
 float DissolvePixelSize = 1;
@@ -619,9 +627,10 @@ float DissolveNoise(float2 cell)
     return frac((p.x + p.y) * p.z);
 }
 
-//What a ball's pixel is, display-encoded: BallPS's whole body, a function because the rim's pixels (PotatoBallRim) are the
-//same ball's and must come out of the same arithmetic, or the ring would show against the ball it finishes
-float3 BallColour(VertexOutput input)
+//What a ball's pixel is, in linear radiance: BallPS's whole body, a function because the rim's pixels (PotatoBallRim) are
+//the same ball's and must come out of the same arithmetic, or the ring would show against the ball it finishes - and
+//because a kind's figure (BallKindRadiance, #863) is painted on it before the display encode
+float3 BallRadiance(VertexOutput input)
 {
     float3 normal = normalize(input.WorldNormal);
 
@@ -643,7 +652,13 @@ float3 BallColour(VertexOutput input)
     float3 alarmed = lerp(shaded, BallAlarm.rgb, amount * BallAlarm.a);
     shaded = ripple < 0 ? alarmed : lit;
 
-    return ToDisplay(shaded);
+    return shaded;
+}
+
+//The same, display-encoded
+float3 BallColour(VertexOutput input)
+{
+    return ToDisplay(BallRadiance(input));
 }
 
 float4 BallPS(VertexOutput input) : COLOR0
@@ -832,6 +847,92 @@ technique PotatoBallDither
     {
         VertexShader = compile POTATO_VS PotatoBallVS();
         PixelShader = compile POTATO_PS BallDitherPS();
+    }
+};
+
+//A KIND'S FIGURE (#863): the ball's radiance with its kind's figure painted on before the display encode, for the three
+//kinds whose desktop look is a figure on the ball and not a shape of it - the acid, the sick ball, the gravity well. A
+//program of its own, so the ordinary ball's is untouched instruction for instruction (V3D_DEBUG=shaderdb): the kinds that
+//draw it are a handful of balls in a level. Which figure is a uniform, so the branches are static for the draw.
+float3 BallKindRadiance(VertexOutput input)
+{
+    float3 shaded = BallRadiance(input);
+    float3 normal = normalize(input.WorldNormal);
+    float beat = input.DissolveRipple.z;
+
+    [branch]
+    if (KindFigure.x < 1.5)
+    {
+        //The acid's lower half full of glowing liquid (BallAcid.fxh, #627): the waterline at KindFigure.y of the ball's
+        //height (a sphere's normal IS the point's height on it), a foam line along it, the pool brightest at the bottom
+        //and swelling with the beat
+        float depth = KindFigure.y - normal.y;
+        float fill = smoothstep(-0.06, 0.06, depth);
+        float foam = 1 - smoothstep(0, 0.08, abs(depth));
+        float3 pool = KindGlow * (KindFigure.z * (0.7 + 0.3 * saturate(depth * 1.5)) * (0.8 + 0.3 * beat));
+        shaded = lerp(shaded, pool, fill) + KindGlow * (foam * KindFigure.w);
+    }
+    else if (KindFigure.x < 2.5)
+    {
+        //The sick ball's one crust (BallInfectious.fxh, #629): the side of the ball that faces KindAxis, the player's
+        //side, with a ragged wet rim, in the crust's olive with the spores' glow riding the beat
+        float side = dot(normal, KindAxis);
+        float ragged = sin(normal.x * 17.0 + normal.z * 9.0) * sin(normal.y * 13.0 - normal.x * 7.0);
+        float crust = smoothstep(KindFigure.y - 0.12, KindFigure.y + 0.12, side + ragged * KindFigure.w);
+        shaded = lerp(shaded, KindGlow * (KindFigure.z * (0.75 + 0.35 * beat)), crust);
+    }
+    else
+    {
+        //The gravity well (BallGravity.fxh, #630): a dark eye facing the eye, the whirl's bright ring round it, the
+        //limb darkened - the ball pulled into its own centre
+        float3 eye = normalize(EyePosition - input.WorldPosition);
+        float facing = saturate(dot(normal, eye));
+        float well = smoothstep(KindFigure.y - 0.08, KindFigure.y + 0.08, facing);
+        float ring = smoothstep(KindFigure.y - 0.25, KindFigure.y - 0.08, facing) * (1 - well);
+        float limb = 1 - smoothstep(0.1, 0.45, facing);
+        shaded = shaded * ((1 - KindFigure.z * well) * (1 - 0.5 * limb)) + KindGlow * (ring * KindFigure.w);
+    }
+
+    return shaded;
+}
+
+float4 BallKindPS(VertexOutput input) : COLOR0
+{
+    return float4(ToDisplay(BallKindRadiance(input)), 1);
+}
+
+//The dithered kind (#794): BallDitherPS's clip, then the figure
+#if OPENGL
+float4 BallKindDitherPS(VertexOutput input, float2 vpos : VPOS) : COLOR0
+{
+#else
+float4 BallKindDitherPS(VertexOutput input) : COLOR0
+{
+    float2 vpos = input.Position.xy;
+#endif
+    float noise = DissolveNoise(floor(vpos / DissolvePixelSize));
+    float dissolve = input.DissolveRipple.x;
+
+    clip(dissolve >= 0 ? noise - dissolve : -dissolve - noise);
+
+    return BallKindPS(input);
+}
+
+technique PotatoBallKind
+{
+    pass P0
+    {
+        VertexShader = compile POTATO_VS PotatoBallVS();
+        PixelShader = compile POTATO_PS BallKindPS();
+    }
+};
+
+technique PotatoBallKindDither
+{
+    pass P0
+    {
+        VertexShader = compile POTATO_VS PotatoBallVS();
+        PixelShader = compile POTATO_PS BallKindDitherPS();
     }
 };
 
