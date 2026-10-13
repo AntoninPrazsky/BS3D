@@ -50,7 +50,12 @@ Amber (`HUD_ACCENT`) survives every scene palette; it goes on the score's arriva
 
 ## When it stops
 
-A **won** level drops the HUD (`!LevelOver`, #582): the result page states the score, and an award in flight would hang frozen (it ages on the play clock, which the covered frame does not step, #241). A **lost** level keeps the side cut and the magazine strip (#639): `PlayHud.Draw` with `previewsOnly`, drawn **sharp**, never in #438's blurred layer.
+A **won** level lets go of the HUD in two steps (`PlayHud.Draw`'s `HudParts`):
+
+- **The moment the field empties** (`LevelPhase.ClearedBeat`, #862) the readouts of *playing* (the side cut, the queue, the power-up chips, balls left, the streak, the tutorial card and its ball, the crosshair) fade out through the overlay layer over `CLEARED_HUD_FADE_SECONDS` (0.5 s, on a clock that runs through a drop cinematic), while the **account** (the score, the awards flying into it, the clear's bonus among them, and a drop's skip hint) stays sharp over the celebration. The owner's rule: once the level is done the rest means nothing and the celebration has the frame. Under a page's blur the beat's layer carries the account alone; the Potato path has no layer and drops the rest at once.
+- **With the result page** (`!LevelOver`, #582) the account goes too: the page states the score, and an award in flight would hang frozen (it ages on the play clock, which the covered frame does not step, #241).
+
+A **lost** level keeps the side cut and the magazine strip (#639): `HudParts.Field`, drawn **sharp**, never in #438's blurred layer.
 
 ## Testing it
 

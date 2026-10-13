@@ -12,6 +12,26 @@ using System.Globalization;
 namespace BS3D.Screens
 {
     /// <summary>
+    /// The readouts <see cref="PlayHud.Draw"/> can be asked for, in the three groups the endings treat apart: a lost
+    /// level keeps the <see cref="Field"/> under its result page (#639), a won one keeps the <see cref="Account"/> through
+    /// its cleared beat while the rest fades (#862).
+    /// </summary>
+    [Flags]
+    internal enum HudParts
+    {
+        /// <summary>The side cut of the cluster and the magazine's queue: what the field is.</summary>
+        Field = 1,
+
+        /// <summary>The streak, balls left, the power-up chips, the tutorial card and the sleeping gun's letters: playing.</summary>
+        Play = 2,
+
+        /// <summary>The score, the awards flying into it and the takeover's skip hint: what the celebration still reads.</summary>
+        Account = 4,
+
+        All = Field | Play | Account,
+    }
+
+    /// <summary>
     /// The in-play readout — score, streak and balls left in the corners, and the numbers that fly from the
     /// balls they were earned on into the score. Drawn with <see cref="SpriteBatch"/> and the menu's own Inter
     /// after the tonemap resolve, in display space, like the crosshair and for the same reason: a HUD
@@ -1067,10 +1087,11 @@ namespace BS3D.Screens
         /// </summary>
         /// <param name="queue">The loaded rounds, slot 0 first — <see cref="DrawMagazine"/>'s subject (#236).
         /// A span over a buffer the caller keeps, like <paramref name="balls"/>, so a frame costs nothing.</param>
-        /// <param name="previewsOnly">
-        /// A lost level's ending (#639): only the two readouts that show the <b>field</b> — the side cut and the
-        /// magazine — so the player can read, under the result page, what beat them. The score, the streak,
-        /// balls left, the tutorial and the awards are the play's running account, which the page restates.
+        /// <param name="parts">
+        /// Which readouts this call draws (<see cref="HudParts"/>): all of them in play. A lost level's ending (#639)
+        /// draws only the <b>field</b> — the side cut and the magazine — so the player can read, under the result page,
+        /// what beat them. A won level's cleared beat (#862) draws the <b>account</b> — the score, the awards flying into
+        /// it and the drop's skip hint — while the rest fades out through the overlay layer in a call of its own.
         /// </param>
         /// <param name="snores">The sleeping gun's letters in the air (#230), drawn over the arena under the corner
         /// readouts. Empty on every frame but a nap.</param>
@@ -1089,13 +1110,13 @@ namespace BS3D.Screens
         /// <param name="queueFade">How far each has come, 0 just begun to 1 settled: the disc cross-fades from
         /// <paramref name="queueFrom"/> to <paramref name="queue"/> as the ball in the bore dithers. Empty fades none.</param>
         internal void Draw(ScoreKeeper score, ICamera camera, in ClusterProfile profile, ReadOnlySpan<BallMarker> balls,
-            ReadOnlySpan<BallType> queue, Tutorial tutorial, bool previewsOnly = false,
+            ReadOnlySpan<BallType> queue, Tutorial tutorial, HudParts parts = HudParts.All,
             ReadOnlySpan<BS3D.Effects.DozingGun.Z> snores = default, int swapCharges = -1, int brakeCharges = -1, int cutCharges = -1,
             BrakeBlock brakeBlock = BrakeBlock.None, bool cutBlocked = false, ReadOnlySpan<BallKind> kinds = default, ReadOnlySpan<BallType> queueFrom = default,
             ReadOnlySpan<float> queueFade = default)
         {
-            //No card's ball unless this frame's card asks for one (#735)
-            _tutorialBallRadius = 0f;
+            //No card's ball unless this frame's card asks for one (#735) - asked by the call that draws the card
+            if ((parts & HudParts.Play) != 0) _tutorialBallRadius = 0f;
 
             _game.EnsureHudFonts();
 
@@ -1106,18 +1127,11 @@ namespace BS3D.Screens
             batch.Begin();
 
             //The sleeping gun's Zs (#230), first of all: they belong to the arena, so every readout passes over them
-            DrawSnores(camera, viewport, snores);
+            if ((parts & HudParts.Play) != 0) DrawSnores(camera, viewport, snores);
 
             //The side cut, drawn first so the corner readouts and any incoming award pass over it rather than
             //under it — the same reason DrawAwards is last in this block.
-            DrawClusterProfile(viewport, in profile, balls, BallsLeftTop(score, viewport, margin));
-
-            if (previewsOnly)
-            {
-                DrawMagazine(queue, kinds, queueFrom, queueFade, score, viewport, margin);
-                batch.End();
-                return;
-            }
+            if ((parts & HudParts.Field) != 0) DrawClusterProfile(viewport, in profile, balls, BallsLeftTop(score, viewport, margin));
 
             //The score, top right — the FPS line owns the top left (InfoRenderer draws after this, in
             //base.Draw). Its right edge is the pivot everything above hangs off, so the margin holds while the
@@ -1133,21 +1147,33 @@ namespace BS3D.Screens
             Vector2 scoreSize = _game.HudFontScore.MeasureString(_scoreText);
             Vector2 scoreAnchor = new(viewport.Width - margin, margin + scoreSize.Y * 0.5f);
 
-            DrawPulsed(_game.HudFontScore, _scoreText, scoreAnchor, new Vector2(1f, 0.5f), _scorePulse.Scale,
-                Color.Lerp(BS3DGame.MENU_TEXT, HUD_ACCENT, heat), heat);
+            //Measured whichever parts are drawn: the card and the awards are placed off it
+            if ((parts & HudParts.Account) != 0)
+                DrawPulsed(_game.HudFontScore, _scoreText, scoreAnchor, new Vector2(1f, 0.5f), _scorePulse.Scale,
+                    Color.Lerp(BS3DGame.MENU_TEXT, HUD_ACCENT, heat), heat);
 
-            DrawStreak(score, viewport, margin, scoreAnchor.Y + scoreSize.Y * 0.5f + Scaled(HUD_LINE_GAP));
-            DrawBallsLeft(score, viewport, margin);
-            DrawMagazine(queue, kinds, queueFrom, queueFade, score, viewport, margin);
-            DrawSwap(swapCharges, brakeCharges, cutCharges, brakeBlock, cutBlocked, tutorial.OnGamepad, MultiplierOf(score), viewport, margin);
+            if ((parts & HudParts.Play) != 0)
+            {
+                DrawStreak(score, viewport, margin, scoreAnchor.Y + scoreSize.Y * 0.5f + Scaled(HUD_LINE_GAP));
+                DrawBallsLeft(score, viewport, margin);
+            }
+            if ((parts & HudParts.Field) != 0) DrawMagazine(queue, kinds, queueFrom, queueFade, score, viewport, margin);
+            if ((parts & HudParts.Play) != 0)
+            {
+                DrawSwap(swapCharges, brakeCharges, cutCharges, brakeBlock, cutBlocked, tutorial.OnGamepad, MultiplierOf(score), viewport, margin);
 
-            //The card is given the score's left edge rather than measuring it again: it is what bounds the
-            //strip the card may stand in (#461), and one measurement cannot disagree with the other.
-            DrawTutorial(tutorial, viewport, margin, scoreAnchor.X - scoreSize.X);
-            DrawSkipHint(tutorial, viewport, margin);
+                //The card is given the score's left edge rather than measuring it again: it is what bounds the
+                //strip the card may stand in (#461), and one measurement cannot disagree with the other.
+                DrawTutorial(tutorial, viewport, margin, scoreAnchor.X - scoreSize.X);
+            }
 
-            //Last, so the numbers coming in pass over the readouts rather than under them
-            DrawAwards(camera, viewport, scoreAnchor - new Vector2(scoreSize.X * 0.5f, 0f));
+            if ((parts & HudParts.Account) != 0)
+            {
+                DrawSkipHint(tutorial, viewport, margin);
+
+                //Last, so the numbers coming in pass over the readouts rather than under them
+                DrawAwards(camera, viewport, scoreAnchor - new Vector2(scoreSize.X * 0.5f, 0f));
+            }
 
             batch.End();
         }
