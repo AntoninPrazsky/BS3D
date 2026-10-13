@@ -26,6 +26,8 @@ folder can be replaced or deleted without losing a save.
 until you turn it on: open **Settings** (it opens on its ONLINE page), set a **Nickname** and switch **Online
 scores** on. Nothing is sent before that, and **Remove scores** on the same page deletes it all again.
 
+**The game's own page** is made in [`Web/`](Web/), for https://bs3d.winphonew.eu/ ([how it is built and published](docs/website.md)).
+
 Everything below is about building it yourself instead.
 
 ## What's in the repo

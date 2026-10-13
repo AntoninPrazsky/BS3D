@@ -1,0 +1,12 @@
+{
+  "name": "bs3d-web",
+  "private": true,
+  "description": "The landing page of Bubble Shooter 3D (bs3d.winphonew.eu): a static site built with Eleventy",
+  "scripts": {
+    "build": "eleventy",
+    "serve": "eleventy --serve"
+  },
+  "devDependencies": {
+    "@11ty/eleventy": "3.1.6"
+  }
+}

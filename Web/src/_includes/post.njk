@@ -1,0 +1,15 @@
+---
+layout: base.njk
+---
+  <header class="bar">
+    <div class="wrap bar-inner">
+      <a class="bar-home" href="/"><img src="/img/logo-600.webp" width="120" height="74" alt="{{ site.title }}"></a>
+      <a class="button button-small" href="/#download">Download</a>
+    </div>
+  </header>
+  <main class="wrap post">
+    <p class="post-date"><time datetime="{{ page.date.toISOString() }}">{{ page.date | readableDate }}</time></p>
+    <h1>{{ title }}</h1>
+{{ content | safe }}
+    <p class="post-back"><a href="/#workshop">All posts</a></p>
+  </main>
