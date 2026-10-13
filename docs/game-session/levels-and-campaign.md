@@ -13,7 +13,7 @@ Part of [The game: a session](../game-session.md).
 
 The `block` field gives the order: the Meadow, Gallery, Coil, Tower, Silhouettes, Reveal, Quarry, Grid, Nebula, Big Top, Eruption, Spectrum, Arcade, Mirage (the owner's ordering: gentle to epic, with a lighter breather after a hard chapter). A block is one scene, dome, music theme, ball material and statable style. `Tools/LevelGen` writes the set (`CampaignSet.BLOCKS` is a table of sizes, not a constant, because a size that can differ is the thing that was learned); see "The campaign is fourteen blocks" in `docs/formats-and-tools.md`.
 
-- **Colossus** is the one level `LevelGen` does not write: hand-drawn, closes the Quarry (met second it was a wall before anything was taught), scene, dome and `music` in its own file.
+- **Colossus** closes the Quarry and is its hardest level (#849): a giant holding the glass up on both arms, the arch between its legs and a crystal buried in its chest on a cord up through its head, in six colours with the glass every four shots.
 - **One**, the opener, is a generated pyramid whose colours sit on its four walls (the two facing walls share one: the gun starts on +Z).
 - **The Coil swings** (slender links; deliberately not tall): its 12-14-deep layouts sit in **18-level** fields, the empty levels being the swing's clearance.
 - **The Mirage is the first block whose subject is a rule**: five levels of glass (met first in the Silhouettes, #736), five of rock, one kind a level; the campaign-complete moment is a clear of its last entry, `Cairn`.

@@ -1,7 +1,7 @@
 namespace BS3D.Tools.LevelGen
 {
     /// <summary>
-    /// Writes every level of the campaign but the hand-drawn Colossus, and the set that orders them, and
+    /// Writes every level of the campaign and the set that orders them, and
     /// <b>validates every one through the game's own loader</b> before it is written anywhere the game will see
     /// it. A design is one <see cref="Design"/>: a silhouette, a colouring, a scene and a set of rules.
     /// <para>
@@ -36,7 +36,7 @@ namespace BS3D.Tools.LevelGen
     /// </para>
     /// <para>
     /// <c>dotnet run --project Tools\LevelGen\LevelGen.csproj [output directory] [--sag[=Name,Name]]</c>.
-    /// Rewrites <c>Levels.json</c> too, One and Colossus included, so run it whole rather than for one level.
+    /// Rewrites <c>Levels.json</c> too, so run it whole rather than for one level.
     /// </para>
     /// </summary>
     internal static partial class Program

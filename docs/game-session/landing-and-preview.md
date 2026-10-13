@@ -12,7 +12,7 @@ Part of [The game: a session](../game-session.md).
 
 ## The landing is the preview's own sweep (#696)
 
-`ShotPlacement` owns the rule and **one function decides, twice**: the handler when a ball touches, the preview every frame. A line over behaviour it does not share would disagree with the outcome and be worse than nothing. The shot sticks in the ghost's cell **97.9 %** of the time (`ShotAgreementTests`; 63.6 % before). What made it so:
+`ShotPlacement` owns the rule and **one function decides, twice**: the handler when a ball touches, the preview every frame. A line over behaviour it does not share would disagree with the outcome and be worse than nothing. The shot sticks in the ghost's cell **97.5 %** of the time (`ShotAgreementTests`, 232 of 238 aims over its six rig levels, Colossus's figure among them since #849; 63.6 % before). What made it so:
 
 - `TryFindFirstHitOnSegment` tests the **touch** (`along - radiusSum >= nearest`), not closest approach, or a ball met inside a step is skipped.
 - `BallContactEventHandler.LandSweptShots` sweeps every shot in the air every step with the preview's function (`ContactEvents.TryGetStepStart`), because Bepu's contact comes a step late and from the wrong ball. The contact path remains for stone, glass and overlaps the sweep does not explain.

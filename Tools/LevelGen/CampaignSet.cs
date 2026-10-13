@@ -47,7 +47,7 @@ namespace BS3D.Tools.LevelGen
             //Eruption, and then the old ending untouched - the Spectrum's dawn, the Arcade's night, the Mirage's dream
             //(which keeps the campaign's last word, #420). The first seven blocks do not move: the third, fourth and
             //fifth are where the Swap, the Brake and the Cut arrive since #705 (LevelSet.SWAP_FROM_BLOCK and the two beside it),
-            //and the Quarry ends on the hand-drawn Colossus (WriteLevelSet). Every block from the sixth on carries all
+            //and the Quarry ends on Colossus. Every block from the sixth on carries all
             //three, so no grant moved; the gates are a function of position (MinStarsAt) and a save survives by file.
             //(The Grid had been inserted eleventh by #420 and the Big Top twelfth by #690; both rulings' one fixed
             //point, the Mirage last, stands.)
@@ -84,10 +84,8 @@ namespace BS3D.Tools.LevelGen
         //MAGMA (heat, weight and drums), the Spectrum's SKYLINE (a city waking: house, disco, funk), the
         //Arcade's NEON (outrun, chiptune, electro) and the Mirage's MIRAGE (the dream). The briefs are in each
         //recording's sidecar in Research/AI-Music; the masters live outside the repository (see its README).
-        //If the ear disagrees with a family, it is one constant here and a folder of files.
-        //
-        //Colossus is the one level whose music this tool cannot pin (see WriteLevelSet's own note): its
-        //"music" field is authored in Colossus.json itself and says the Quarry's family by hand.
+        //If the ear disagrees with a family, it is one constant here and a folder of files. Every level of the
+        //campaign is a design since #849 rebuilt the hand-drawn Colossus, so every level's music is pinned here.
 
         internal const string MUSIC_RINGS = "bloom";
         internal const string MUSIC_GALLERY = "mural";
@@ -309,33 +307,14 @@ namespace BS3D.Tools.LevelGen
         /// <b>One opens the campaign, Colossus closes the Quarry, and the campaign closes on the last
         /// block's finale</b> — the campaign-complete celebration rides the set's last entry and moves with
         /// it: Colossus's until #182, Garland's then (the owner moved the last word deliberately), Globe's,
-        /// Turbine's at #253, and Globe's again since #300 put the two cities in day order. One is a
-        /// design here now (the author asked for it regenerated, see <see cref="Program.One"/>) and states its own rules
-        /// with the rest, while Colossus is still hand-drawn and keeps its rules verbatim — it is authored
-        /// content and this generator has no opinion about it beyond where it sits. The Nebula's designs arrive
-        /// as the second array, appended after Colossus, because the Quarry's ten entries are nine designs plus
-        /// that hand-drawn finale — five more designs in the first array would push Colossus out of the Quarry
-        /// and misfile both blocks' members (still contiguous, so nothing would refuse the set; the milestones
-        /// would simply fire on the wrong levels).
+        /// Turbine's at #253, and Globe's again since #300 put the two cities in day order.
         /// <para>
-        /// Colossus (once "Two", back when it was the second level) is the hardest level in the game by a
-        /// distance: twelve wide, eighteen deep, six colours in 3×3 blocks rolled per level so nothing is ever
-        /// a big easy plate, on 45 shots against a ceiling stepping every 4. Meeting that second was meeting
-        /// the wall before the game had taught anything, so it moved to close the set — and the move gave it
-        /// its own authored scene and sky (the Moon) the way every other level has one.
-        /// </para>
-        /// <para>
-        /// <b>Colossus is the one level whose music this tool cannot pin</b>, because it does not write the file:
-        /// its <c>"music"</c> field is authored in <c>Colossus.json</c> itself, and it has to say the Quarry's
-        /// theme or the level falls back to the positional rotation and plays whatever its position happens to
-        /// give. It agreed by luck before this was noticed (at 25 entries and four pieces, 24 % 4 was 0, which
-        /// is Pulse, which is the Quarry's theme) — exactly the silent coupling to the order that #194 exists
-        /// to remove, and <b>that luck is spent twice over</b> (the journal records both): with five pieces
-        /// 24 % 5 is 4 and at Colossus's position 29 % 5 is also 4, both Ember, so the
-        /// authored field is the only reason the Quarry's finale still plays its own block's piece. Its <c>"sky"</c> was
-        /// moved from 2 to the block's 13 in the same edit: the number is <b>inert</b> on the Moon (one of the
-        /// four sky-replacing scenes, #142) so it cannot be seen either way, and matching it is what keeps
-        /// <see cref="DescribeBlock"/> from permanently reporting a difference nothing can render.
+        /// <b>Every entry is a design</b> since #849 rebuilt Colossus, the one level this tool used to leave alone
+        /// (hand-drawn, its file authored and only its entry placed here), so every level's rules, scene, music and
+        /// material are stated by its design. The arrays are runs of blocks in play order and an entry's position
+        /// runs on across them: the first holds the seven blocks from the Meadow to the Quarry, and each block after
+        /// the Quarry is an array of its own, so the order of those blocks is the order of the arguments — the
+        /// owner's reorder of 2026-10-05 was a reorder of arguments (see <see cref="BLOCKS"/>, which must agree).
         /// </para>
         /// <para>
         /// The printout is grouped by block, because the block boundaries are the thing that has to be checked
@@ -343,40 +322,13 @@ namespace BS3D.Tools.LevelGen
         /// have, and no gate anywhere refuses it.
         /// </para>
         /// </summary>
-        internal static LevelSet WriteLevelSet(Design[] designs, params Design[][] blocksAfterColossus)
+        internal static LevelSet WriteLevelSet(params Design[][] blocks)
         {
             LevelSet set = new() { Name = "Bubble Shooter 3D" };
 
-            for (int i = 0; i < designs.Length; i++)
-            {
-                Design d = designs[i];
-
-                set.Levels.Add(new LevelSetEntry
-                {
-                    File = d.File,
-                    Name = d.Name,
-                    Block = BlockNameAt(i),
-                    Shots = d.Shots,
-                    CeilingStep = d.CeilingStep,
-                    WildcardEvery = d.WildcardEvery,
-                    MinStars = MinStarsAt(i),
-                });
-            }
-
-            set.Levels.Add(new LevelSetEntry
-            {
-                File = "Colossus.json",
-                Name = "Colossus",
-                Block = BlockNameAt(designs.Length),
-                Shots = 45,
-                CeilingStep = 4,
-                MinStars = MinStarsAt(designs.Length),
-            });
-
-            //Everything after the hand-drawn finale above, block by block — see the method doc for why those
-            //blocks cannot sit in the first array. Positions continue where Colossus left off, so the block
-            //name and the unlock gate fall out of the same two position functions as everything else's.
-            foreach (Design[] block in blocksAfterColossus)
+            //Positions run on from one array to the next, so the block name and the unlock gate fall out of the
+            //same two position functions for every entry
+            foreach (Design[] block in blocks)
                 foreach (Design d in block)
                 {
                     int index = set.Levels.Count;
@@ -415,8 +367,7 @@ namespace BS3D.Tools.LevelGen
             }
 
             //The set as the game will read it, handed back for the sag gate — which is priced off each
-            //entry's own budget and ceiling step, and those live here rather than on any Design (Colossus has
-            //no Design at all).
+            //entry's own budget and ceiling step as the set states them, the numbers the game will play.
             return loaded;
         }
 

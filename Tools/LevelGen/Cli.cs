@@ -212,12 +212,9 @@ namespace BS3D.Tools.LevelGen
             //owner's ask, #182): the campaign's last word moves off Colossus onto the Nebula's finale. The
             //first half survives intact, because the block is not a bright chapter after the airless black
             //one — space is the step PAST airless black, the ramp continuing outward rather than turning
-            //back. Colossus keeps every rule it had and closes the Quarry; what it hands over is only the
-            //campaign-complete moment. The Nebula's designs live in their own array below rather than in this
-            //one, because WriteLevelSet appends Colossus after everything in THIS array — five designs added
-            //here would land Colossus at the tail of the NEBULA's five and file Comet under the Quarry. The
-            //blocks would still be contiguous (names fall out of positions, nothing refuses the set); they
-            //would celebrate the wrong levels.
+            //back. Colossus closes the Quarry; what it handed over was only the campaign-complete moment. The
+            //Nebula's designs, like every block's after the Quarry, live in an array of their own below, so the
+            //order of those blocks is the order of WriteLevelSet's arguments.
             //
             //ONE RECORDED DECISION IS REVERSED HERE and it is worth naming rather than leaving to be noticed.
             //The three pictures used to be deliberately INTERLEAVED with the geometric levels, "because they
@@ -301,8 +298,9 @@ namespace BS3D.Tools.LevelGen
                 //anywhere: every shot is a shot at a handful of balls. Three plain bodies teach the tile, then
                 //each level adds one idea the gun can see (#742): an arch, an overhang, a floating member, two
                 //depths, a cavity with a crystal sealed in it, and the floating member and the cavity at once.
-                //Colossus closes it, from WriteLevelSet.
-                Mosaic(), Prism(), Hopper(), Archway(), Cornice(), Hoist(), Eclipse(), Geode(), Locket()
+                //COLOSSUS CLOSES IT (#849), hand-drawn until the owner's ruling of 2026-10-12 and a design like the
+                //rest since: a giant holding the glass up, the arch between its legs and a crystal buried in its chest.
+                Mosaic(), Prism(), Hopper(), Archway(), Cornice(), Hoist(), Eclipse(), Geode(), Locket(), Colossus()
             };
 
             //9. THE NEBULA (#182) - the arena in deep space, and the block the five #152 colours arrive in,
@@ -310,11 +308,10 @@ namespace BS3D.Tools.LevelGen
             //Helix's sense - the silhouette turns and changes as it descends, so the player reads what is
             //coming - and each is a different KIND of tall, the Tower's own rule (#160). See the block's
             //region for why a second tall block exists at all when the Coil recorded that only the Tower
-            //should be one. The block lives in its own array because WriteLevelSet appends Colossus after
-            //everything in the array above: five designs added THERE would still make contiguous blocks
-            //(the names fall out of positions, so nothing refuses the set) but would misfile them - Comet
-            //labelled the Quarry's, Colossus labelled the Nebula's, and THE QUARRY COMPLETE celebrating on
-            //the wrong level. Only DescribeBlock's non-gating MIXED print would show it.
+            //should be one. The block lives in its own array, as every block after the Quarry does, so the
+            //order of those blocks is the order of WriteLevelSet's arguments (see its doc). A block put in the
+            //wrong place would still make contiguous blocks (the names fall out of positions, so nothing refuses
+            //the set) but would misfile them; only DescribeBlock's non-gating MIXED print would show it.
             //ORRERY CLOSES THE BLOCK since #413, where Garland did - the owner's playtest ("very demanding
             //but nice, I'd picture this as the chapter's last") and the tool agreeing: 52 standing groups
             //against 72 shots is 1.38 a group, the block's tightest by a factor of two and at the hard edge
@@ -533,9 +530,8 @@ namespace BS3D.Tools.LevelGen
             };
 
             //The gate that hangs the levels instead of reading them (#301/#302). Off the WRITTEN SET rather
-            //than off the designs above, for two reasons: the set is where a level's budget and ceiling step
-            //actually live, and it is the only list that includes the hand-drawn Colossus - a shipped level
-            //this gate has as much business asking about as any generated one.
+            //than off the designs above: the set is where a level's budget and ceiling step actually live, as
+            //the game will read them.
             if (sag) ok &= RunSagGate(set, sagOnly);
             if (sag) ok &= RunSagGate(prototypeSet, sagOnly);
 
@@ -597,11 +593,8 @@ namespace BS3D.Tools.LevelGen
 
         /// <summary>
         /// Asks the shortest-clear gate (#458) about level FILES rather than about the designs this tool
-        /// writes — a scratch level, a level being redrawn, or the one shipped level nothing here generates.
-        /// <b>Colossus is the reason it exists</b>: it is hand-drawn, so <see cref="LevelGates.Validate"/> never sees it,
-        /// and "every shipped level needs at least four shots" is a claim about the campaign rather than about
-        /// the generator. Always deep, since a file asked about one at a time is worth the beam's tenth of a
-        /// second.
+        /// writes — a scratch level or a level being redrawn by hand, which <see cref="LevelGates.Validate"/> never
+        /// sees. Always deep, since a file asked about one at a time is worth the beam's tenth of a second.
         /// </summary>
         private static bool RunClearFiles(string[] paths)
         {

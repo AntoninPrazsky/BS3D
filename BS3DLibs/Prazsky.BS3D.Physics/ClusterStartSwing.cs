@@ -13,19 +13,19 @@ namespace Prazsky.BS3D.Physics
     /// <b>What that motion is.</b> The lattice is built a unit under where it hangs (the ceiling socket rests a
     /// diameter under the plate), so the first steps pull the whole cluster up into its seat. Measured over the
     /// shipped pack with the level's own hang (a scratch probe doing what <c>Tools/LevelGen/SagProbe</c> does): a
-    /// dense block — Colossus, One — made that move in under a quarter of a second and stopped dead, because the
-    /// sockets are critically damped at 15 Hz and a dense lattice is effectively one rigid body; a strand —
-    /// Pendant, Crane — went on swaying by its own weight for seconds. So what the owner saw was mostly the
-    /// strands, and a snap on everything else.
+    /// dense block — One, and Colossus while it was hand-drawn (until #849) — made that move in under a quarter of a
+    /// second and stopped dead, because the sockets are critically damped at 15 Hz and a dense lattice is effectively
+    /// one rigid body; a strand — Pendant, Crane — went on swaying by its own weight for seconds. So what the owner
+    /// saw was mostly the strands, and a snap on everything else.
     /// </para>
     /// <para>
     /// <b>The lever is the sockets to the glass, and only those.</b> Softening every socket was tried first and
     /// is wrong: a strand is a chain of them in series, and at 4 Hz Pendant and Amphora sagged eight to thirteen
-    /// units, far through the line, while Colossus barely moved. Under-damping them alone at 15 Hz changed nothing
-    /// measurable on a dense block. The top row's sockets carry the whole cluster, so softening just them is a
+    /// units, far through the line, while that dense Colossus barely moved. Under-damping them alone at 15 Hz changed
+    /// nothing measurable on a dense block. The top row's sockets carry the whole cluster, so softening just them is a
     /// bungee on the block — the lattice stays as stiff as it is and the cluster rises, overshoots and settles on
     /// them. <b>Their frequency is solved per level from the load each carries</b>, because that runs tenfold
-    /// across the pack (Colossus about 2.5 balls a socket, Amphora 25, Saturn 42): a spring of angular frequency
+    /// across the pack (Prism about 2.4 balls a socket, Amphora 25, Saturn 42): a spring of angular frequency
     /// ω stretches g·L/ω² under L balls, so asking every level for the same <see cref="TARGET_STRETCH"/> gives
     /// every level a swing of the same size rather than a wobble on one and a collapse on another.
     /// </para>
