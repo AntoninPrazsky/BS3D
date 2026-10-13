@@ -138,20 +138,54 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The backdrop of <paramref name="scene"/>, or null for a scene that has none on this path yet. The savanna
         /// (#829's first): the terrain of <see cref="TerrainMirror.Savanna"/> in a blend of the grass's two colours, and
-        /// <see cref="SavannaScatter"/>'s trees, scrub, mounds, rocks and logs as the desktop's Low tier plants them.
+        /// <see cref="SavannaScatter"/>'s trees, scrub, mounds, rocks and logs as the desktop's Low tier plants them. The
+        /// desert: its dunes (<see cref="TerrainMirror.Desert"/>) in the sand's two colours, nothing planted. The meadow:
+        /// its ground (<see cref="TerrainMirror.Meadow"/>, the pond a dip) in its grass, and <see cref="MeadowScatter"/>'s
+        /// oaks, the fence and the rest.
         /// </summary>
         public static PotatoBackdrop For(SceneKind scene, GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius)
         {
             return scene switch
             {
                 SceneKind.Savanna => Savanna(graphicsDevice, potatoEffect, holeRadius),
+                SceneKind.Desert => Desert(graphicsDevice, potatoEffect, holeRadius),
+                SceneKind.Meadow => Meadow(graphicsDevice, potatoEffect, holeRadius),
                 _ => null,
             };
         }
 
-        //The grid over the savanna's hills: HorizonHazeDistance (520) is where the desktop's ground fades into the haze
+        //The grid over an open ground: the savanna's HorizonHazeDistance (520) is where the desktop's ground fades into
+        //the haze, and the other open scenes reach about as far
         private const int SAVANNA_CELLS = 64;
         private const float SAVANNA_EXTENT = 480f;
+
+        private static PotatoBackdrop Desert(GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius)
+        {
+            var config = new DesertSceneConfig();
+            float Height(float x, float z) => TerrainMirror.Desert(x, z, config);
+
+            var backdrop = new PotatoBackdrop(graphicsDevice);
+            Vector3 sand = Vector3.Lerp(config.SandColor.ToVector3(), config.SandColorPale.ToVector3(), 0.4f);
+            backdrop.AddGround(graphicsDevice, potatoEffect, new PotatoTerrainMesh(graphicsDevice, SAVANNA_CELLS, SAVANNA_EXTENT, holeRadius, Height), sand);
+
+            return backdrop;
+        }
+
+        private static PotatoBackdrop Meadow(GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius)
+        {
+            var config = new MeadowSceneConfig();
+            float Height(float x, float z) => TerrainMirror.Meadow(x, z, config);
+
+            var backdrop = new PotatoBackdrop(graphicsDevice);
+            Vector3 grass = Vector3.Lerp(config.GrassColor.ToVector3(), config.GrassColorDark.ToVector3(), 0.35f);
+            backdrop.AddGround(graphicsDevice, potatoEffect, new PotatoTerrainMesh(graphicsDevice, SAVANNA_CELLS, SAVANNA_EXTENT, holeRadius, Height), grass);
+
+            var scatter = new MeadowScatter(graphicsDevice, config, MeadowScatter.DEFAULT_SEED);
+            backdrop._owned.Add(scatter);
+            backdrop.AddScatter(graphicsDevice, potatoEffect, scatter.Buckets);
+
+            return backdrop;
+        }
 
         //A scatter mesh with more vertices than this is drawn as a blob (#829): the savanna as the desktop plants it is
         //1.2 million vertices a frame (a canopy is 9,000, a termite mound 50,000), and V3D's binning runs the coordinate
