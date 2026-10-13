@@ -771,6 +771,25 @@ namespace BS3D.Screens
         private float _clearedCountdown;
 
         /// <summary>
+        /// Seconds since <see cref="LevelPhase.ClearedBeat"/> began, counted through a drop cinematic as well (which
+        /// holds the countdown above): the clock the readouts of playing fade out on (#862). Armed on entering the beat
+        /// and read only while it lasts.
+        /// </summary>
+        private float _clearedElapsed;
+
+        /// <summary>How long the readouts of playing take to fade once the field has emptied (#862): long enough to
+        /// be seen going rather than to blink off, short against the beat (<see cref="LEVEL_CLEARED_BEAT"/>).</summary>
+        private const float CLEARED_HUD_FADE_SECONDS = 0.5f;
+
+        /// <summary>
+        /// How much of the readouts of playing a won level's cleared beat still shows (#862): 1 at its first frame, 0
+        /// <see cref="CLEARED_HUD_FADE_SECONDS"/> later. "Lost, we keep it; won, it goes" (#639) reached back to the
+        /// moment the field empties: the owner's note was that once the level is done the chips, the queue and the
+        /// rest no longer mean anything and the celebration should have the frame.
+        /// </summary>
+        private float PlayReadoutsOpacity => MathHelper.Clamp(1f - _clearedElapsed / CLEARED_HUD_FADE_SECONDS, 0f, 1f);
+
+        /// <summary>
         /// Whether the clear that just happened is the one that finishes its <b>block</b> (#184) — decided in
         /// <see cref="CheckLevelCleared"/>, where the celebration starts, and read again by
         /// <see cref="ShowResultScreen"/> a beat later so the page, the fireworks and the fanfare cannot
@@ -1575,6 +1594,9 @@ namespace BS3D.Screens
             //
             //A loss needs no entry here: LoseLevel shows the result screen straight away (the same one a clear
             //lands on), or StepLineLoss does when the line's hold ends.
+            //The readouts of playing fade from the beat's first frame (#862), a drop cinematic's or not
+            if (_phase == LevelPhase.ClearedBeat) _clearedElapsed += elapsed;
+
             if (_phase == LevelPhase.ClearedBeat && !CameraTakeoverEngaged)
             {
                 _clearedCountdown -= elapsed;
@@ -1774,16 +1796,25 @@ namespace BS3D.Screens
             //overlay layer, the one place the whole readout can be made translucent at once; under a page's blur
             //the blur's own composite takes the layer and the fade is dropped for those frames - a pause taken
             //in the second the HUD is coming back.
+            //⚠ AND NOT THROUGH A WON LEVEL'S CELEBRATION (#862): the moment the field is empty the readouts of playing -
+            //the chips, the queue, the side cut, balls left, the streak, the card - fade out through the layer over
+            //CLEARED_HUD_FADE_SECONDS, while the score and the awards flying into it (the clear's bonus among them) and a
+            //drop's skip hint stay sharp over it, drawn straight onto the frame, until the result page takes the frame.
+            //Under a page's blur the beat's layer carries the account alone; the Potato path, which has no layer, drops
+            //the rest at once.
             float hudOpacity = _chapterIntro.HudOpacity;
             bool overlayUp = !LevelOver && hudOpacity > 0f;
             bool lossPreviews = LevelOver && _pendingFailure != LevelFailure.None;
             float overlayBlur = overlayUp ? OverlayBlur : 0f;
-            bool overlayFading = overlayUp && overlayBlur <= 0f && hudOpacity < 1f;
+            bool clearedBeat = overlayUp && _phase == LevelPhase.ClearedBeat;
+            float layerOpacity = hudOpacity * (clearedBeat ? PlayReadoutsOpacity : 1f);
+            HudParts layerParts = !clearedBeat ? HudParts.All : overlayBlur > 0f ? HudParts.Account : HudParts.Field | HudParts.Play;
+            bool overlayFading = overlayUp && overlayBlur <= 0f && (clearedBeat ? layerOpacity > 0f : hudOpacity < 1f);
             bool overlayLayered = (overlayBlur > 0f || overlayFading) && Game.BeginOverlayLayer();
 
             if (overlayLayered)
             {
-                DrawOverlay();
+                DrawOverlay(layerParts);
                 if (overlayBlur > 0f) Game.EndOverlayLayer(overlayBlur);
             }
 
@@ -1866,7 +1897,7 @@ namespace BS3D.Screens
             _crateField?.Draw(Camera, Game.SceneEffectParams);
 
             //A kind card's ball (#735), into the same frame AFTER the shadow pass BeginSceneDraw ran, so it casts nothing
-            CollectTutorialBall(ballFrame, hudOpacity);
+            CollectTutorialBall(ballFrame, layerOpacity);
 
             //Everything collected above, as one instanced draw per ball type and LOD level — and the frame's
             //collection is closed by it. The heartbeat runs on the WALL clock: the balls go on breathing while
@@ -1950,9 +1981,14 @@ namespace BS3D.Screens
             //Blurred under a page, the overlay was drawn into its layer at the top of this method, and what
             //goes here is the layer softened (#438); sharp, it is drawn straight onto the frame as ever.
             if (overlayLayered && overlayBlur > 0f) Game.CompositeOverlayLayer(overlayBlur);
-            else if (overlayLayered) Game.FadeOverlayLayer(hudOpacity);
+            else if (overlayLayered)
+            {
+                Game.FadeOverlayLayer(layerOpacity);
+                if (clearedBeat) DrawOverlay(HudParts.Account);
+            }
+            else if (clearedBeat) DrawOverlay(HudParts.Account);
             else if (overlayUp) DrawOverlay();
-            else if (lossPreviews) DrawOverlay(previewsOnly: true);
+            else if (lossPreviews) DrawOverlay(HudParts.Field);
             //The tour hides the HUD, all but the line that says it can be skipped (#699) - and that line only while
             //this screen is on top (#814). It is drawn straight onto the frame, past the blur a page puts over the rest,
             //and its fade is stepped by an Update a covered screen does not get, so under the pause it stood sharp at
@@ -2021,9 +2057,10 @@ namespace BS3D.Screens
         /// blur (#438). One method for both, so the two cannot drift apart in what they draw; where it lands
         /// is the caller's business, and what is bound when it is called.
         /// </summary>
-        /// <param name="previewsOnly">A lost level's ending: the side cut and the magazine and nothing else —
-        /// see <see cref="PlayHud.Draw"/> and the gate in <see cref="Draw"/> (#639).</param>
-        private void DrawOverlay(bool previewsOnly = false)
+        /// <param name="parts">Which readouts: all of them in play; the field alone over a lost level's ending (#639); the
+        /// playing readouts and the account in two calls through a won level's cleared beat (#862) — see
+        /// <see cref="PlayHud.Draw"/> and the gate in <see cref="Draw"/>. The crosshair goes with the playing ones.</param>
+        private void DrawOverlay(HudParts parts = HudParts.All)
         {
             PlayHud.ClusterProfile profile = BuildClusterProfile(out int ballCount);
 
@@ -2045,14 +2082,14 @@ namespace BS3D.Screens
 
             _hud.Draw(_run.Score, Camera, in profile,
                 new ReadOnlySpan<PlayHud.BallMarker>(_profileBalls, 0, ballCount),
-                _magazineQueue, _tutorial, previewsOnly, _dozing.Letters,
+                _magazineQueue, _tutorial, parts, _dozing.Letters,
                 swapCharges: _run.SwapOffered ? _run.PowerupCharges[(int)PowerupKind.Swap] : -1,
                 brakeCharges: _run.BrakeOffered ? _run.PowerupCharges[(int)PowerupKind.Brake] : -1,
                 cutCharges: _run.CutOffered ? _run.PowerupCharges[(int)PowerupKind.Cut] : -1,
                 brakeBlock: BrakeBlockNow(), cutBlocked: !CutRoundFits, kinds: _magazineKinds, queueFrom: _magazineFrom,
                 queueFade: _magazineFade);
 
-            if (previewsOnly) return;
+            if ((parts & HudParts.Play) == 0) return;
 
             //The crosshair, into the host's overlay batch (the one the HUD above just used): shown only while
             //precise aim is leaning in, that being the only pose whose lens looks along the shot, and faded up

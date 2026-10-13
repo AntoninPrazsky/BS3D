@@ -613,6 +613,7 @@ namespace BS3D.Screens
         private void BeginClearedBeat()
         {
             _clearedCountdown = LEVEL_CLEARED_BEAT;
+            _clearedElapsed = 0f;
 
             //What the score service is told this clear took (#546), frozen now for LevelResult's reason: shots
             //fired into the emptied field during the beat cleared nothing

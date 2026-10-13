@@ -694,3 +694,9 @@ Pravidla:
 - Zdroj stránky na mainu (merge následuje): statický web v Eleventy (`Web/`), podle doporučení v issue: jedna stránka, angličtina, bez analytiky a cizích požadavků, místo pro video, blog jako složka Markdownu. Obrázky ze hry na High přes `Tools/web-screenshots.ps1` (přetáčí se s každým vydáním), nasazení `Web/publish.ps1` (SFTP/FTPS, přihlášení z proměnných prostředí), postup v `docs/website.md`.
 - ⚠ Headless Edge má minimální šířku okna 492 px: telefon se ověřuje emulací přes CDP (puppeteer-core), ne `--window-size=390`; ta ořízne stránku vykreslenou širší.
 - Otevřené: nasazení je na majiteli (subdoména na Webglobe, záznam a přesměrování v Cloudflare); `publish.ps1` proti hostingu nikdy neběžel; stránka popisuje příští vydání (vzory barev), takže patří ven s ním.
+
+## 2026-10-13 — #862 HUD po výhře zmizí — ThinkPad, Claude Code (github-b9)
+- #862 (merge do mainu, `shipped-awaiting-verdict` + `verdict-eye`): od vstupu do `ClearedBeat` se herní údaje (čipy, fronta, boční řez, zbývající koule, série, karta) za 0,5 s rozplynou přes overlay vrstvu; skóre, ocenění (i bonus za čistku) a výzva k přeskočení dropu zůstanou ostré do stránky výsledku. `PlayHud.Draw` bere `HudParts` místo `previewsOnly`; prohra beze změny (#639).
+- Ověřeno: úroveň „kříž z pěti“ přes `levelfile=` vyčištěná jednou ranou; main nechal HUD celou oslavu, tady je fronta zachycena v půli rozplynutí a o snímek dál pryč. Staged `lineloss=` dál drží řez a frontu.
+- ⚠ První úroveň kapitoly přes `levelfile=` začíná průletem kapitoly (asi 12 s); střílet až po něm.
+- Otevřené: oko majitele (délka rozplynutí); Potato vrstvu nemá, tam údaje zmizí naráz.
