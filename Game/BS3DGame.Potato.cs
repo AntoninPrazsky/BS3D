@@ -136,7 +136,7 @@ namespace BS3D
             if (!PotatoPath || _instancingEffect == null) return;
 
             _potatoBackdrop?.Dispose();
-            _potatoBackdrop = PotatoBackdrop.For(_scene, GraphicsDevice, _instancingEffect, ArenaIsland.TERRAIN_HOLE_RADIUS);
+            _potatoBackdrop = PotatoBackdrop.For(_scene, GraphicsDevice, _instancingEffect, ArenaIsland.TERRAIN_HOLE_RADIUS, _sceneSeedOffset);
             if (_potatoBackdrop == null) return;
 
             //Lit now, not only at the next ApplySkyLighting: the first build runs after the startup's SetScene has

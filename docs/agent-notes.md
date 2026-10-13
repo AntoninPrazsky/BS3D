@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-13 — #829 krok 3: hory, Měsíc a sopka na Potato — Pi, Claude Code (584de7d2)
+- Hotovo (větev `829-potato-mountain-moon-volcano`): hory jako dvě mřížky nad jedním polem (sníh/skála podle pravidla `Mountain.fx` po trojúhelnících), Měsíc s balvany `MoonPlanting` (zvětralé jako elipsoidy), sopka s řekami `VolcanoLava` jako svítícími pásy (`PotatoStripMesh`) a jezerem v kráteru, na seedu lamp. Belfry 18,84/12,46 ms proti 17,88/12,09, Colossus 17,38/12,13 proti 16,35/11,27, Vent 16,00/10,97 proti 15,21/10,65 (nativně/720).
+- ⚠ Tři opravy prvních kroků: barvy configu jsou lineární, materiál rendereru sRGB (terén byl tmavý a pod dómem fialový); `Custom` instance je pro Potato efekt okluze (w = 0 u výsadby = „zahrabáno“, stromy na čtvrtinu, balvany černé); pozadí je matné (`SpecularAmbientStrength` 0), protože Fresnel zrcadlí celý dóm pod ostrým úhlem — bílý pruh na obzoru.
+- Otevřené: jeskyně, město/neon, grid, cirkus, aurora, dream, space; verdikt oka.
+
 ## 2026-10-13 — #829 krok 2: poušť a louka na Potato — Pi, Claude Code (584de7d2)
 - Hotovo (větev `829-potato-desert-meadow`): `PotatoBackdrop.For` umí Desert (duny z `TerrainMirror.Desert`, písek) a Meadow (`TerrainMirror.Meadow` + `MeadowScatter`: duby jako bloky, plot), stejnou cestou jako savana. Basket nativně 15,60 proti 14,08 ms (720p 10,54 / 9,75), Pennant 14,90 / 13,10 (10,48 / 9,35) — v prvním čísle i figury #828.
 - Otevřené: jeskyně (krystaly, vlastní efekt), město (vlastní renderer na desktopu), ostatní scény; bílý okraj mřížky na obzoru; verdikt oka.
