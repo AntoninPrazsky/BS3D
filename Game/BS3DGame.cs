@@ -338,6 +338,9 @@ namespace BS3D
         //pop straight into a different page of the same depth is still a change.
         private Screen _lastActiveScreen;
 
+        //Whether the last frame drew the active page standing aside (#861), so the frame it comes back on can disarm the click
+        private bool _menuWasAside;
+
         #endregion
 
         #region The overlay (display space, after the resolve)
@@ -2097,10 +2100,9 @@ namespace BS3D
             //per page. It is not the frame's only read of the mouse, whatever this said until #400's third pass:
             //the menu chrome takes one snapshot of its own (UpdateMenuChrome) and Myra polls the device itself
             //when the desktop renders. Nothing compares an edge across two of those reads, which is the hazard
-            //BestPractices.md #5 is about; this one answers only "is the button up now".
-            //And while a page stands aside for a takeover (#861): the click that skipped it may still be down when the page
-            //comes back, over whichever entry the pointer happens to be on
-            if (_screens.Active != _lastActiveScreen || _screens.Active is MenuPage { StandsAside: true })
+            //BestPractices.md #5 is about; this one answers only "is the button up now". A page coming back from
+            //standing aside for a takeover (#861) is disarmed the same way, by Draw on the frame it is first drawn again.
+            if (_screens.Active != _lastActiveScreen)
             {
                 _lastActiveScreen = _screens.Active;
                 _menuClickArmed = false;
@@ -2136,9 +2138,22 @@ namespace BS3D
             //A page standing aside for a takeover (#861) draws only what it asks to: none of its tree, no scrim and no
             //focus prompt over the flight
             if (_desktop != null && _screens.Active is MenuPage { StandsAside: true } aside)
+            {
                 aside.DrawAside();
+                _menuWasAside = true;
+            }
             else if (_desktop != null && _screens.Active is MenuPage page)
             {
+                //Back from standing aside (#861), the page is one that has just arrived as far as a held button goes: the
+                //click that skipped the tour, or one landing on this very frame, must not press the entry under the
+                //pointer. Disarmed here rather than in Update because the takeover ends inside the screens' update, after
+                //the arming there has run, so this frame would otherwise feed Myra a press the page never saw arrive.
+                if (_menuWasAside)
+                {
+                    _menuWasAside = false;
+                    _menuClickArmed = false;
+                }
+
                 //The scrim under a page that dims a stopped game, drawn by the HOST's own batch rather than
                 //as the Myra root's background (#114). Myra's paint stops short of the viewport's bottom edge
                 //— its root lays out at the full height (measured: root 1600×900) and yet an identical plain

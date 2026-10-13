@@ -1797,7 +1797,7 @@ namespace BS3D.Screens
             //the blur's own composite takes the layer and the fade is dropped for those frames - a pause taken
             //in the second the HUD is coming back.
             //⚠ AND NOT THROUGH A WON LEVEL'S CELEBRATION (#862): the moment the field is empty the readouts of playing -
-            //the chips, the queue, the side cut, balls left, the streak, the card - fade out through the layer over
+            //the chips, the queue, the side cut, balls left, the streak - fade out through the layer over
             //CLEARED_HUD_FADE_SECONDS, while the score and the awards flying into it (the clear's bonus among them) and a
             //drop's skip hint stay sharp over it, drawn straight onto the frame, until the result page takes the frame.
             //Under a page's blur the beat's layer carries the account alone; the Potato path, which has no layer, drops
