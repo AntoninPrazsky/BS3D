@@ -20,6 +20,10 @@ Pravidla:
 
 ---
 
+## 2026-10-13 — #828 stupeň 1: lesk a emise per styl na Potato — Pi, Claude Code (584de7d2)
+- Hotovo (větev `828-potato-style-gloss`): deset materiálů dostalo v `PotatoKindLookFor` svůj lesk z desktopových konstant (kov `MetalF0Floor` 0,16 → odrazivost ×6, drsnost 0,18; porcelán/mramor/drahokam/bublina z `*Gloss` 210/190/260/220 → drsnost ~0,10; vlna matná ×0,3; led sklovitý; plazma svítí vlastní silou 0,45, protože desktopová emise je 0). Barva stylem nikdy nemění. Bez změny shaderu; A/B Girandole nativně 15,09 proti 15,33 ms. Záběry před/po pěti stylů v Research/pi-port/828/stage1.
+- Otevřené: stupeň 2 — figury #737 (`BallColourCue.fxh`, 363 řádků) jako program `PotatoBallCue`: inkousty z `ColourCues.Paint` jako uniformy, pole figury v objektovém prostoru (nový výstup VS), měřit proti rozpočtu 720p.
+
 ## 2026-10-13 — #863 stupeň 3: figury druhů ve vlastním programu — Pi, Claude Code (584de7d2)
 - Hotovo (větev `863-potato-kind-figures`): `PotatoBallKind`/`PotatoBallKindDither` v `PotatoModel.fx` maluje na `BallRadiance` před `ToDisplay` figuru podle uniformy `KindFigure`: kyselina spodní půlka zářící kapaliny s pěnovou čárou, nákaza roztřepená krusta na třetině koule obrácené k hráči (`KindAxis` z kamery, skloněné dolů), gravitace tmavé oko tam, kde koule hledí do oka, s prstencem ve vlastní barvě a ztmaveným okrajem. Obyčejná koule běží dál svým programem (shaderdb beze změny). GL xnb z `gamepi-shaders.yml` přes `fetch.sh`.
 - ⚠ Řetěz `dotnet test | grep && git commit && git push` commitne i s chybou kompilace: grep vrací 0, když našel řádky s `error`. Oprava šla jako druhý commit (větev už byla pushnutá).

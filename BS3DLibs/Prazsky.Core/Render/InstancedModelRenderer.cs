@@ -2104,7 +2104,7 @@ namespace Prazsky.Core.Render
         /// <see cref="PulseDepth"/>, with the material's gloss, opaque, pulled nowhere.
         /// </summary>
         internal readonly record struct PotatoKindLook(Vector3 Casing, Vector3 Emission, float StillShare, float BeatShare,
-            float? Roughness, float ReflectanceScale, float Alpha, Vector3 Tone, float ToneWeight)
+            float? Roughness, float ReflectanceScale, float Alpha, Vector3 Tone, float ToneWeight, float? EmissionStrength = null)
         {
             /// <summary>
             /// <paramref name="ambient"/> pulled towards this look's tone as its casing was: the tone at the ambient's own
@@ -2156,7 +2156,15 @@ namespace Prazsky.Core.Render
         /// <item>The gravity well keeps its colour, glossy, its glow at six tenths; its eye and ring are the figure.</item>
         /// <item>The heavy ball is cast iron with its colour worn into it: darker, greyer, matte, its glow greyed and dimmed.</item>
         /// </list>
-        /// Every other shading (the ten materials, the rock, the wildcard) is its colour, untouched.
+        /// The rock and the wildcard are their colour, untouched. <b>The ten materials keep their colour and get their
+        /// gloss</b> (#828, stage 1): the desktop's styles differ in how they take the light, and <c>PotatoBall</c> has
+        /// one material for all of them (the colour's <c>GLOSS_POWER</c> 40, specular 0.6: a roughness of 0.22 and a
+        /// reflectance of 0.024). So, from each style's shader: the metal's floor of 0.16 (<c>MetalF0Floor</c>) and a
+        /// brushed softness; the porcelain's, marble's, gem's and bubble's glaze (<c>PorcelainGloss</c> 210,
+        /// <c>MarbleGloss</c> 190, <c>GemGloss</c> 260, <c>BubbleGloss</c> 220: roughnesses of 0.10, 0.10, 0.09,
+        /// 0.09, a roughness being sqrt(2 / (power + 2)) here); the wool matte; the ice glassy; the plasma glowing from
+        /// inside, since its desktop emission is nought and its light is its own technique's - here a strength of its
+        /// own in place of the renderer's. Vinyl is the baseline and stays as it was, the lava has its crust.
         /// </summary>
         internal static PotatoKindLook PotatoKindLookFor(BallShading shading, Vector3 primary, float pulseDepth)
         {
@@ -2164,6 +2172,14 @@ namespace Prazsky.Core.Render
 
             return shading switch
             {
+                BallShading.Metal => new(primary, primary * 0.8f, still, beat, 0.18f, 6f, 1f, Vector3.Zero, 0f),
+                BallShading.Porcelain => new(primary, primary, still, beat, 0.10f, 2f, 1f, Vector3.Zero, 0f),
+                BallShading.Marble => new(primary, primary, still, beat, 0.10f, 1.6f, 1f, Vector3.Zero, 0f),
+                BallShading.Gem => new(primary, primary * 1.1f, still, beat, 0.085f, 3f, 1f, Vector3.Zero, 0f),
+                BallShading.Bubble => new(primary, primary, still, beat, 0.095f, 3f, 1f, Vector3.Zero, 0f),
+                BallShading.Wool => new(primary, primary, still, beat, 0.9f, 0.3f, 1f, Vector3.Zero, 0f),
+                BallShading.Ice => new(primary, primary, still, beat, 0.12f, 2.5f, 1f, Vector3.Zero, 0f),
+                BallShading.Plasma => new(primary, primary * 1.4f, still, beat, 0.35f, 0.5f, 1f, Vector3.Zero, 0f, 0.45f),
                 BallShading.Bomb => new(primary, POTATO_BOMB_GLOW, 0.07f, 0.5f, null, 1f, 1f, Vector3.Zero, 0f),
                 BallShading.Zap => new(primary, POTATO_ZAP_GLOW, 0.12f, 0.9f, null, 1f, 1f, Vector3.Zero, 0f),
                 BallShading.Acid => new(primary, POTATO_ACID_GLOW, 0.08f, 0.3f, null, 1f, 1f, Vector3.Zero, 0f),
@@ -2592,7 +2608,7 @@ namespace Prazsky.Core.Render
             float crustDark = lava ? POTATO_LAVA_CRUST_DARK : 1f;
             _potatoBallCrustParam.SetValue(primary * (crustTint * crustDark) + new Vector3(crustDark * (1f - crustTint)));
 
-            Vector3 emission = look.Emission * (EmissiveStrength * StillEmission);
+            Vector3 emission = look.Emission * ((look.EmissionStrength ?? EmissiveStrength) * StillEmission);
             _potatoBallEmissionStillParam.SetValue(emission * look.StillShare);
             _potatoBallEmissionBeatParam.SetValue(emission * look.BeatShare);
 
