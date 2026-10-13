@@ -689,3 +689,8 @@ Pravidla:
 - Rodiny `pulse` a `mural` změřeny proti `ember` metodou #841 (na CPU); tabulky a rozhodnutí v komentářích #824 a #706. Pulse: přegenerovat osm (acid, bigroom, electrofunk, italo, techno, trance, progressive, synthpop), nechat vector a holý pulse. Mural: desertblues a jive; „opilost“ není ve výšce tónu ani v tempu (kontrola: umělé kolísání ±25 centů měřítko chytí).
 - Skript je v repu: `Tools/Generation/measure-music.py` (merge do mainu), popsaný v `music-generation.md`.
 - Otevřené: generování čeká na stroj s velkou GPU; které mural nahrávky zní „opile“, řekne ucho majitele (poznámka z pauzy teď jmenuje skladbu).
+
+## 2026-10-13 — #815 web stránka hry v `Web/` — ThinkPad, Claude Code (github-b9)
+- Zdroj stránky na mainu (merge následuje): statický web v Eleventy (`Web/`), podle doporučení v issue: jedna stránka, angličtina, bez analytiky a cizích požadavků, místo pro video, blog jako složka Markdownu. Obrázky ze hry na High přes `Tools/web-screenshots.ps1` (přetáčí se s každým vydáním), nasazení `Web/publish.ps1` (SFTP/FTPS, přihlášení z proměnných prostředí), postup v `docs/website.md`.
+- ⚠ Headless Edge má minimální šířku okna 492 px: telefon se ověřuje emulací přes CDP (puppeteer-core), ne `--window-size=390`; ta ořízne stránku vykreslenou širší.
+- Otevřené: nasazení je na majiteli (subdoména na Webglobe, záznam a přesměrování v Cloudflare); `publish.ps1` proti hostingu nikdy neběžel; stránka popisuje příští vydání (vzory barev), takže patří ven s ním.
