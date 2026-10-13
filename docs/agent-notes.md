@@ -20,6 +20,14 @@ Pravidla:
 
 ---
 
+## 2026-10-13 — #863 speciální druhy na Potato, Pi port odparkován — Pi, Claude Code (584de7d2)
+- Kontrola mainu 13ee3c52 pro Pi: GamePi build čistý, ARM64 CI zelené; #737 na Potato figuru nekreslí (záměr, #828), #856 kreslí živé koule i na Potato, #859 řádek držený „(Potato)“. Přestavěný Colossus 15,1 ms nativně (byl 17,0), Caldera 16,25.
+- majitel: speciální druhy (bomba, cut) vypadají na Pi špatně → #863 se záběry z Pi vedle desktopových referencí (stránka k #622 z 26. 9.; bomba, blesk a sklo tam jsou ještě před #624–#626). Pi se má přiblížit **levnějšími metodami**: geometrie, konstanty, emise tepu; pixelové větve jen v kreslení druhu.
+- majitel: „Pokud chceme zveřejnit hru pro Pi…, mělo by se brát i to, co je zaparkované“ → Pi port vyňat z mrazu šíře (CLAUDE.md, repo-conventions), #828/#829/#830 se berou.
+- majitel k #830: 1080p na Pi může běžet 30–40 FPS; 60 FPS má držet 720p (Auto na něj sníží kvůli desktopovějšímu vzhledu); kdo chce vyšší rozlišení, přepne ho v Settings a vypne automatickou kvalitu. Rozpočet pro #828/#829/#863 je tedy ten 720p (~5 ms).
+- ⚠ Na Potato je bomba jen tmavší koule než černá Type8 a blesk skoro navy: na Vent a Caldeře splývají s paletou levelu.
+- Otevřené: #863, #828–#830, #858 (Pi-Apps). Štítky `parked` na #828–#830 a #785 jsem sundat nemohl (zapsat na GitHub bylo odmítnuto), udělá majitel.
+
 ## 2026-10-01 — #681 obloha pouště a savany do modra (claim) — desktop, Claude Code (bs3d-78)
 - Claim #681 (majitel: „Přebarvit do modra“): kopule 6 (poušť) a 14 (savana) vygenerovat z výškových bodů jako kopuli 8 (#661), spodní pětina zůstane teplá.
 
