@@ -164,16 +164,19 @@ float4 MetalShade(PatternVertexShaderOutput input, bool motifCue, ColourCuePaint
     float peak = max(primary.r, max(primary.g, primary.b));
     float3 f0 = max(primary, primary / max(peak, 1e-3) * MetalF0Floor);
 
-    //A painted cue (#737) is ENAMEL in the alloy: the figure's ink and the ground's are the reflectance scaled, a
-    //darker or a brighter metal, because a metal's colour is what it reflects and there is no body under it to dye.
-    //Scaled from the FLOORED reflectance, not dyed before the floor: floored afterwards, the dark types' figure and
-    //ground both came up to the one gunmetal and the figure was gone. The scales average to 1 over the ball.
+    //A painted cue (#737) is ENAMEL in the alloy: the figure and the ground are the reflectance scaled, a darker or a
+    //brighter metal, because a metal's colour is what it reflects and there is no body under it to dye. Scaled from
+    //the FLOORED reflectance, not dyed before the floor: floored afterwards, the dark types' figure and ground would
+    //both come up to the one gunmetal and the figure would be gone. The scales average to 1 over the ball, and the
+    //glow takes the same scale, so the ball as a whole reflects and radiates what it did.
     float3 glowDye = primary;
 
     if (motifCue)
     {
-        glowDye = ColourCueDye(ColourCueMotif(direction, footprint, cue), cue);
-        f0 = min(f0 * ColourCueScale(glowDye, primary), 1);
+        float cueScale = ColourCueInkScale(ColourCueMotif(direction, footprint, cue), cue);
+
+        glowDye = primary * cueScale;
+        f0 = min(f0 * cueScale, 1);
     }
 
     //The three-light rig and the scene's own point lights, accumulated exactly as ShadePixel does it so a

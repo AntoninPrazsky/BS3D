@@ -8,9 +8,10 @@ namespace Prazsky.BS3D.GameStructure
     /// <summary>
     /// The <b>colour cue</b> (#737): a figure painted on every ball colour beside its hue, so two colours that are
     /// close under one material (the wool's black/brown/silver, its beige white and yellow) also differ in a figure.
-    /// The owner chose the painted reading over a carved one (2026-10-12) and asked for several <b>sets</b> of
-    /// figures to pick from, so this holds four, each giving all thirteen colours a figure of its own, and nothing a
-    /// player can reach draws any of them until he has picked one (<c>colourcue=motif:N</c> on the command line).
+    /// The owner chose the painted reading over a carved one and, having seen four <b>sets</b> of figures, ruled
+    /// (2026-10-12) that all four are used, <b>one per ball style</b>, the assignment left to fit the materials
+    /// (<see cref="SetOf"/>). The cue is on by default; <c>colourcue=none</c> is the off switch and
+    /// <c>colourcue=motif:N</c> puts set N on every style for a comparison.
     /// <list type="number">
     /// <item><b>Figures</b>: thirteen figures of mixed kinds - bands, spots, checks and emblems - so that the tight
     /// pairs differ in the kind of figure and not only in its detail; the silver's stripes, the brown's dots, the
@@ -20,25 +21,36 @@ namespace Prazsky.BS3D.GameStructure
     /// <item><b>Lines</b>: bands only, told apart by count, width, a wave, a dash or a double line - the calmest.</item>
     /// <item><b>Spots</b>: polka dots, told apart by count, size, rings and two sizes.</item>
     /// </list>
-    /// The sets share some figures, so a mix is cheap to make: eight of the first set's thirteen are emblems, seven
-    /// of them kinds the second set also draws (its stars, crosses and triangles are the second set's on the same
-    /// colours, within a size), the first and the fourth give brown the same twelve dots, and the first set's
-    /// silver stripes are the third set's silver bands in another frame.
+    /// The sets share some figures: eight of the first set's thirteen are emblems, seven of them kinds the second
+    /// set also draws (its stars, crosses and triangles are the second set's on the same colours, within a size),
+    /// the first and the fourth give brown the same twelve dots, and the first set's silver stripes are the third
+    /// set's silver bands in another frame.
     /// <para>
     /// <b>The inks keep the ball's average colour</b> (<see cref="Inks"/>): the figure is a darker or a paler shade of
     /// the ball's own colour - the colour scaled, never with a grey added - and the ground the plain colour scaled
     /// the other way, by the share of the ball the figure covers, so the two average to the plain colour in hue as
     /// well as in luminance, and a ball whose figure is too small to see shows the colour it always had. On screen
     /// the tonemap does not average a bright ground and a dark figure back to exactly the plain colour, so a colour
-    /// with a large dark figure still darkens by a few dE and some pairs come closer; the comparison page and
-    /// "The colour cue" in <c>docs/rendering/ball-styles.md</c> give the measured pairs. Only black cannot be
-    /// balanced - nothing is darker than its ground - so its figure is a dim grey.
+    /// with a large dark figure still darkens by a few dE and some pairs come closer; "The colour cue" in
+    /// <c>docs/rendering/ball-styles.md</c> gives the measured pairs. Only black cannot be balanced - nothing is
+    /// darker than its ground - so its figure is a dim grey; on the styles whose colour is a factor rather than a
+    /// dye it balances like a darker ink (<see cref="InkScales"/>).
     /// </para>
     /// </summary>
     public static class ColourCues
     {
-        /// <summary>The set that paints nothing: the shipped look.</summary>
+        /// <summary>The cue off: no figure, the look the balls had before #737 (<c>colourcue=none</c>).</summary>
         public const int NONE = 0;
+
+        /// <summary>
+        /// The cue on, every style drawing the set <see cref="SetOf"/> gives it - the default everywhere
+        /// (<see cref="DEFAULT"/>), spelled <c>colourcue=motif</c>. A number 1..<see cref="SET_COUNT"/> instead puts
+        /// that one set on every style.
+        /// </summary>
+        public const int BY_STYLE = -1;
+
+        /// <summary>What the Game, the Testbed and the map editor draw unless told otherwise: each style its own set.</summary>
+        public const int DEFAULT = BY_STYLE;
 
         /// <summary>How many figure sets there are, numbered 1..this.</summary>
         public const int SET_COUNT = 4;
@@ -247,6 +259,65 @@ namespace Prazsky.BS3D.GameStructure
             return gain > 0f;
         }
 
+        /// <summary>
+        /// The figure set a ball style draws (#737, the owner's ruling of 2026-10-12: all four sets, one per style,
+        /// "so that it fits"). Exhaustive and throwing, like <c>BallRenderSet.ShadingOf</c>: a style added without a
+        /// set here would otherwise draw some other style's figures, or none, and nothing would fail.
+        /// <para>
+        /// Each set went where its kind of figure reads as part of the material, and away from the special kinds the
+        /// style's levels hang beside it (counted over <c>Game/Levels</c>):
+        /// <list type="bullet">
+        /// <item><b>Wool - figures (1)</b>: the reported style, and the tight pairs the player could not tell apart
+        /// (black/brown/silver, the beige white and the yellow, red/orange) carry different KINDS of figure in this
+        /// set alone, which is what survives at 1920x1080; argyle diamonds, checks, stripes and stars are knitted
+        /// colourwork. Six wool levels hang clear glass, and no figure in this set is a seam.</item>
+        /// <item><b>Porcelain - figures (1)</b>: hand-painted china carries stripes, checks, dots and motifs alike,
+        /// and the Spectrum sweeps one hue family through a level (red/orange/yellow, blue/cyan/navy), the pairs this
+        /// set gives different kinds. Not the lines: the Mirage hangs clear glass, whose cast seam the lines' navy
+        /// seam follows.</item>
+        /// <item><b>Plasma - figures (1)</b>: the Nebula hangs all thirteen colours at once and the plasma is
+        /// hue-strong and value-weak (black, white and silver all burn pale arcs), so it takes the set whose
+        /// colours differ most in kind.</item>
+        /// <item><b>Vinyl - emblems (2)</b>: the Big Top's ball printed like a deck of cards - the four suits, stars
+        /// and moons - and, as what every unauthored map draws, the set that moved the colours least.</item>
+        /// <item><b>Metal - emblems (2)</b>: die-struck insignia, as on a coin; the Quarry's own pairs (blue/cyan)
+        /// differ in outline, and a band would run along the brush, the metal's rolling cue.</item>
+        /// <item><b>Marble - lines (3)</b>: banded stone, and the calmest set for the quiet material the Reveal
+        /// needs.</item>
+        /// <item><b>Ice - lines (3)</b>: strata frozen in glacier ice. Not an emblem set: an emblem on each of six
+        /// cube faces is the frozen ball's six faces again. The Tower's orange/yellow, on ten of its levels, is one
+        /// wavy line against four broad bands.</item>
+        /// <item><b>Gem - lines (3)</b>: banded agate, running across the facets; the emblems' hexagons, diamonds and
+        /// triangles would read as more facets.</item>
+        /// <item><b>Bubble - spots (4)</b>: polka-dot party balloons, round figures on a round film, for the first
+        /// chapter.</item>
+        /// <item><b>Lava - spots (4)</b>: cooler islands of crust in the flow. No band and no cross: the Eruption
+        /// hangs the mine, whose two glowing seams a band of brighter seams would echo, and the zap.</item>
+        /// </list>
+        /// </para>
+        /// </summary>
+        public static int SetOf(BallStyle style) => style switch
+        {
+            BallStyle.Wool => 1,
+            BallStyle.Porcelain => 1,
+            BallStyle.Plasma => 1,
+            BallStyle.Beach => 2,
+            BallStyle.Metal => 2,
+            BallStyle.Marble => 3,
+            BallStyle.Ice => 3,
+            BallStyle.Gem => 3,
+            BallStyle.Bubble => 4,
+            BallStyle.Lava => 4,
+            _ => throw new ArgumentOutOfRangeException(nameof(style), style,
+                $"{style} has no colour-cue set; give it one in {nameof(ColourCues)}.{nameof(SetOf)}"),
+        };
+
+        /// <summary>
+        /// The set a ball of <paramref name="style"/> draws under the switch <paramref name="cue"/>: the style's own
+        /// (<see cref="SetOf"/>) for <see cref="BY_STYLE"/>, otherwise the switch itself (<see cref="NONE"/> or a set).
+        /// </summary>
+        public static int SetFor(int cue, BallStyle style) => cue == BY_STYLE ? SetOf(style) : cue;
+
         /// <summary>One colour's figure in one set (1..<see cref="SET_COUNT"/>).</summary>
         public static Figure FigureOf(int set, BallType type)
         {
@@ -280,32 +351,66 @@ namespace Prazsky.BS3D.GameStructure
                 return (figure, linearColour * MathF.Max(ground, GROUND_MIN));
             }
 
-            float groundScale = MathF.Min((1f - coverage * DARK_INK) / (1f - coverage), GROUND_MAX);
-            float figureScale = MathF.Max((1f - (1f - coverage) * groundScale) / coverage, 0f);
+            (float figureScale, float groundScale) = DarkInkScales(coverage);
 
             return (linearColour * figureScale, linearColour * groundScale);
         }
 
         /// <summary>
+        /// The two inks as SCALES on the plain colour (the figure's, the ground's), for the styles whose colour is a
+        /// factor in something else rather than a body to dye: the metal's reflectance, the plasma's discharge and the
+        /// lava's molten seams multiply by these. Every ink but black's is the plain colour scaled, so for those the
+        /// scales are the inks' own factors. Black's figure ink is a dim grey ADDED to a near-black
+        /// (<see cref="PaleInk"/>), whose ratio to it is about 24: an arc or a seam 24 times as bright inside the
+        /// figure, a reflectance clipped to a full mirror. On these styles black has something to scale - the metal's
+        /// floored gunmetal, the plasma's white arcs, the lava's seams - so it balances like any darker-ink colour,
+        /// and the scales average to 1 over the ball for black too.
+        /// </summary>
+        public static (float figure, float ground) InkScales(BallType type, Vector3 linearColour, float coverage)
+        {
+            float luminance = ColorSpace.Luminance(linearColour);
+            if (type == BallType.Type8 || luminance <= 0f) return DarkInkScales(coverage);
+
+            (Vector3 figureInk, Vector3 groundInk) = Inks(type, linearColour, coverage);
+
+            return (ColorSpace.Luminance(figureInk) / luminance, ColorSpace.Luminance(groundInk) / luminance);
+        }
+
+        //A darker-ink figure's factors: the ink DARK_INK of the plain colour on a ground brightened to pay for it, at most
+        //GROUND_MAX, past which the ink is lightened instead so that the two still average to 1
+        private static (float figure, float ground) DarkInkScales(float coverage)
+        {
+            float groundScale = MathF.Min((1f - coverage * DARK_INK) / (1f - coverage), GROUND_MAX);
+            float figureScale = MathF.Max((1f - (1f - coverage) * groundScale) / coverage, 0f);
+
+            return (figureScale, groundScale);
+        }
+
+        /// <summary>
         /// What one draw of a <paramref name="type"/> ball hands the shader in figure set <paramref name="set"/>:
-        /// the figure and its two inks, from the colour <paramref name="srgbTint"/> the draw is tinted with.
-        /// <see cref="NONE"/> gives the empty paint, which draws the shipped program.
+        /// the figure, its two inks and the same as scales (<see cref="InkScales"/>), from the colour
+        /// <paramref name="srgbTint"/> the draw is tinted with. <see cref="NONE"/> gives the empty paint, which draws
+        /// the shipped program.
         /// </summary>
         public static ColourCuePaint Paint(int set, BallType type, Vector3 srgbTint)
         {
             if (set == NONE) return default;
 
             Figure figure = FigureOf(set, type);
-            (Vector3 figureInk, Vector3 groundInk) = Inks(type, ColorSpace.SrgbToLinear(srgbTint), figure.C.W);
+            Vector3 linear = ColorSpace.SrgbToLinear(srgbTint);
+            (Vector3 figureInk, Vector3 groundInk) = Inks(type, linear, figure.C.W);
+            (float figureScale, float groundScale) = InkScales(type, linear, figure.C.W);
 
-            return new ColourCuePaint(figure.A, figure.B, figure.C, Frames[figure.Frame], figureInk, groundInk);
+            return new ColourCuePaint(figure.A, figure.B, figure.C, Frames[figure.Frame], figureInk, groundInk,
+                new Vector2(figureScale, groundScale));
         }
 
         /// <summary>
         /// The <c>colourcue=</c> argument's spellings, shared by the Testbed and the Game so one script drives either:
-        /// <c>none</c> (or <c>off</c>), <c>motif</c> (or <c>a</c>, the owner's name for the painted reading) for the
-        /// first set, <c>motif:N</c> for set N, or the set's own name (<c>figures</c>, <c>emblems</c>, <c>lines</c>,
-        /// <c>spots</c>). The carved reading the prototypes also had (<c>shape</c>, <c>b</c>) is gone and refused.
+        /// <c>none</c> (or <c>off</c>) for no figure; <c>motif</c> (or <c>a</c>, the owner's name for the painted
+        /// reading, or <c>on</c>, or <c>style</c>) for each style's own set (<see cref="BY_STYLE"/>, the default);
+        /// <c>motif:N</c> or the set's own name (<c>figures</c>, <c>emblems</c>, <c>lines</c>, <c>spots</c>) for set N
+        /// on every style. The carved reading the prototypes also had (<c>shape</c>, <c>b</c>) is gone and refused.
         /// </summary>
         public static bool TryParse(string text, out int set)
         {
@@ -320,7 +425,9 @@ namespace Prazsky.BS3D.GameStructure
 
                 case "motif":
                 case "a":
-                    set = 1;
+                case "on":
+                case "style":
+                    set = BY_STYLE;
                     return true;
             }
 
@@ -341,14 +448,20 @@ namespace Prazsky.BS3D.GameStructure
             return false;
         }
 
-        /// <summary>The set in <see cref="TryParse"/>'s spelling, for a log line: <c>none</c> or <c>motif:N</c>.</summary>
+        /// <summary>The switch in <see cref="TryParse"/>'s spelling, for a log line: <c>none</c>, <c>motif</c> or <c>motif:N</c>.</summary>
         public static string Name(int set) =>
             set == NONE ? "none"
+            : set == BY_STYLE ? "motif"
             : set >= 1 && set <= SET_COUNT ? $"motif:{set}"
             : throw new ArgumentOutOfRangeException(nameof(set), set, null);
 
-        /// <summary>The set's own name: <c>figures</c>, <c>emblems</c>, <c>lines</c> or <c>spots</c> (<c>none</c> for 0).</summary>
+        /// <summary>
+        /// The set's own name: <c>figures</c>, <c>emblems</c>, <c>lines</c> or <c>spots</c> (<c>none</c> for
+        /// <see cref="NONE"/>, <c>each style its own</c> for <see cref="BY_STYLE"/>).
+        /// </summary>
         public static string SetName(int set) =>
-            set >= NONE && set <= SET_COUNT ? SetNames[set] : throw new ArgumentOutOfRangeException(nameof(set), set, null);
+            set == BY_STYLE ? "each style its own"
+            : set >= NONE && set <= SET_COUNT ? SetNames[set]
+            : throw new ArgumentOutOfRangeException(nameof(set), set, null);
     }
 }

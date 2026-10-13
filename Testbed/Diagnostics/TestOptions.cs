@@ -312,14 +312,15 @@ namespace Testbed.Diagnostics
         public BallStyle? Balls { get; private set; }
 
         /// <summary>
-        /// <c>colourcue=&lt;none|motif|motif:N&gt;</c> (#737): the colour cue, which of the figure sets every colour
-        /// carries painted beside its hue (<c>motif</c> and <c>a</c> are set 1; the sets' own names work too). Off by
-        /// default. Spelled through <see cref="ColourCues.TryParse"/>, which the Game's argument also takes, and
+        /// <c>colourcue=&lt;none|motif|motif:N&gt;</c> (#737): the colour cue, the figure every colour carries painted
+        /// beside its hue. On by default, as in the Game: each style its own figure set (<see cref="ColourCues.BY_STYLE"/>,
+        /// spelled <c>motif</c>); <c>none</c> draws no figure, <c>motif:N</c> (or the set's own name) puts set N on
+        /// every style. Spelled through <see cref="ColourCues.TryParse"/>, which the Game's argument also takes, and
         /// alternable (<c>alt=colourcue=none;colourcue=motif:2</c>): a switch is a technique and a few uniforms chosen
         /// per draw and leaves nothing behind. For a set's COST, run one per process all the same, as the
         /// benchmark skill does ("The colour cue" in <c>docs/rendering/ball-styles.md</c>).
         /// </summary>
-        public int ColourCue { get; private set; }
+        public int ColourCue { get; private set; } = ColourCues.DEFAULT;
 
         /// <summary><c>campos=x,y,z</c>: place the free camera at startup, so a shot can be framed from anywhere.</summary>
         public Vector3? CamPos { get; private set; }
@@ -486,7 +487,7 @@ namespace Testbed.Diagnostics
                 else if (arg.StartsWith("colourcue=", StringComparison.OrdinalIgnoreCase))
                 {
                     if (ColourCues.TryParse(arg.Substring("colourcue=".Length), out int parsedCue)) options.ColourCue = parsedCue;
-                    else Console.WriteLine($"[colourcue] \"{arg}\" is not a figure set: none, motif or motif:1 to motif:{ColourCues.SET_COUNT}");
+                    else Console.WriteLine($"[colourcue] \"{arg}\" is not a figure set: none, motif (each style its own) or motif:1 to motif:{ColourCues.SET_COUNT}");
                 }
                 else if (arg.StartsWith("width=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("width=".Length), out int parsedWidth) && parsedWidth > 0) options.WindowWidth = parsedWidth;
                 else if (arg.StartsWith("height=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("height=".Length), out int parsedHeight) && parsedHeight > 0) options.WindowHeight = parsedHeight;

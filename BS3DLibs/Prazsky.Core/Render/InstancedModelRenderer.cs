@@ -195,8 +195,8 @@ namespace Prazsky.Core.Render
         private EffectTechnique[] _triplanarProbeTechniques;
         private EffectTechnique[] _ballTechniques;
 
-        //The colour cue's programs (#737), indexed by shading: null where a shading has none, which is every shading
-        //but the vinyl, the wool and the marble, and every one on the Potato effect (the array is never made there).
+        //The colour cue's programs (#737), indexed by shading: null where a shading has none, which is every special
+        //kind's, and every one on the Potato effect (the array is never made there).
         private EffectTechnique[] _colourCueTechniques;
         private EffectParameter _colourCueAParam;
         private EffectParameter _colourCueBParam;
@@ -204,6 +204,7 @@ namespace Prazsky.Core.Render
         private EffectParameter _colourCueFrameParam;
         private EffectParameter _colourCueFigureInkParam;
         private EffectParameter _colourCueGroundInkParam;
+        private EffectParameter _colourCueInkScalesParam;
         private EffectParameter _bubbleShellParam;
         private EffectParameter _bubbleFilmThicknessParam;
         private EffectParameter _bubbleTintStrengthParam;
@@ -681,8 +682,9 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The figure the next draw's colour carries painted on (#737), per draw like the tint:
         /// <c>Prazsky.BS3D.BallRenderSet</c> states it for every bucket and puts <see cref="ColourCuePaint.IsNone"/>
-        /// back afterwards. It takes effect only where <see cref="Shading"/> has a program for it (the vinyl, the
-        /// wool and the marble); every other draw, and every draw on the Potato effect, keeps its own technique.
+        /// back afterwards. It takes effect only where <see cref="Shading"/> has a program for it (every ball style's,
+        /// <see cref="ColourCueTechniqueNames"/>); a special kind's draw, and every draw on the Potato effect, keeps its
+        /// own technique.
         /// </summary>
         public ColourCuePaint ColourCue { get; set; }
 
@@ -1192,6 +1194,7 @@ namespace Prazsky.Core.Render
             _colourCueFrameParam = _effect.Parameters["ColourCueFrame"];
             _colourCueFigureInkParam = _effect.Parameters["ColourCueFigureInk"];
             _colourCueGroundInkParam = _effect.Parameters["ColourCueGroundInk"];
+            _colourCueInkScalesParam = _effect.Parameters["ColourCueInkScales"];
             _emissiveStrengthParam = _effect.Parameters["EmissiveStrength"];
             _translucencyStrengthParam = _effect.Parameters["TranslucencyStrength"];
             _pulseTimeParam = _effect.Parameters["PulseTime"];
@@ -1389,22 +1392,36 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// The colour cue's three programs (#737), one per shading that paints a figure, looked up once like the ball
-        /// techniques. Only this effect carries them, and it carries all three: a missing one is a broken build of
-        /// <c>InstancedModel.fx</c> and throws here rather than drawing a figure that silently is not there.
+        /// The colour cue's programs (#737), one per ball STYLE's shading: each style's body with a colour's figure
+        /// painted on (<c>BallColourCueTechniques.fxh</c>). The special kinds' shadings have none - a frozen or a heavy
+        /// ball is that kind first. <c>ColourCueTests</c> checks this table covers every shading a style draws with and
+        /// names techniques the effect declares.
+        /// </summary>
+        internal static readonly (BallShading Shading, string Technique)[] ColourCueTechniqueNames =
+        {
+            (BallShading.Vinyl, "InstancedModelPatternMotif"),
+            (BallShading.Bubble, "InstancedModelBubbleMotif"),
+            (BallShading.Marble, "InstancedModelMarbleMotif"),
+            (BallShading.Wool, "InstancedModelWoolMotif"),
+            (BallShading.Metal, "InstancedModelMetalMotif"),
+            (BallShading.Ice, "InstancedModelIceMotif"),
+            (BallShading.Gem, "InstancedModelGemMotif"),
+            (BallShading.Plasma, "InstancedModelPlasmaMotif"),
+            (BallShading.Lava, "InstancedModelLavaMotif"),
+            (BallShading.Porcelain, "InstancedModelPorcelainMotif"),
+        };
+
+        /// <summary>
+        /// The colour cue's programs (#737), looked up once like the ball techniques. Only this effect carries them,
+        /// and it must carry every one: the cue is on by default, so a style whose program is missing would draw its
+        /// balls in colour alone with nothing failing. A missing one is a broken build of <c>InstancedModel.fx</c> and
+        /// throws here instead.
         /// </summary>
         private void LoadColourCueTechniques()
         {
-            (BallShading shading, string name)[] cued =
-            {
-                (BallShading.Vinyl, "InstancedModelPatternMotif"),
-                (BallShading.Wool, "InstancedModelWoolMotif"),
-                (BallShading.Marble, "InstancedModelMarbleMotif"),
-            };
-
             _colourCueTechniques = new EffectTechnique[Enum.GetValues<BallShading>().Length];
 
-            foreach ((BallShading shading, string name) in cued)
+            foreach ((BallShading shading, string name) in ColourCueTechniqueNames)
             {
                 _colourCueTechniques[(int)shading] = _effect.Techniques[name]
                     ?? throw new InvalidOperationException(
@@ -1772,6 +1789,7 @@ namespace Prazsky.Core.Render
                     _colourCueFrameParam.SetValue(cue.Frame);
                     _colourCueFigureInkParam.SetValue(cue.FigureInk);
                     _colourCueGroundInkParam.SetValue(cue.GroundInk);
+                    _colourCueInkScalesParam.SetValue(cue.InkScales);
                 }
 
                 //One case per shading, each setting what ITS technique reads and nothing else — a uniform the

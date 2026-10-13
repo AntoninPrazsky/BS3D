@@ -20,6 +20,7 @@ float4 ColourCueC;
 float4x4 ColourCueFrame;
 float3 ColourCueFigureInk;
 float3 ColourCueGroundInk;
+float2 ColourCueInkScales;
 
 ColourCuePaint ColourCueOfThisDraw()
 {
@@ -30,6 +31,7 @@ ColourCuePaint ColourCueOfThisDraw()
     cue.frame = (float3x3)ColourCueFrame;
     cue.figureInk = ColourCueFigureInk;
     cue.groundInk = ColourCueGroundInk;
+    cue.inkScales = ColourCueInkScales;
 
     return cue;
 }

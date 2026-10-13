@@ -16,8 +16,9 @@ namespace BS3D.Tests
     /// The colour cue's figure sets (#737). What is checkable without a device: every set gives every colour a figure
     /// and no two colours in a set the same one, the two inks keep each ball's average colour (a dark ink on the plain
     /// colour pulls the light colours towards the dark ones), the frames are rotations, and the shader file that holds
-    /// the figures declares no uniform - which is what lets it sit in front of the three ball bodies without moving a
-    /// single offset in the constant buffer, and so what keeps the shipped programs' code what it was.
+    /// the figures declares no uniform - which is what lets it sit in front of the ball bodies without moving a single
+    /// offset in the constant buffer, and so what keeps the shipped programs' code what it was. What each STYLE draws
+    /// is <see cref="ColourCueStyleTests"/>'.
     /// </summary>
     public class ColourCueTests
     {
@@ -206,10 +207,12 @@ namespace BS3D.Tests
         public void NoSetPaintsNothing() => Assert.True(ColourCues.Paint(ColourCues.NONE, BallType.Type1, Vector3.One).IsNone);
 
         [Theory]
-        [InlineData("none", 0)]
-        [InlineData("off", 0)]
-        [InlineData("motif", 1)]
-        [InlineData("A", 1)]
+        [InlineData("none", ColourCues.NONE)]
+        [InlineData("off", ColourCues.NONE)]
+        [InlineData("motif", ColourCues.BY_STYLE)]
+        [InlineData("A", ColourCues.BY_STYLE)]
+        [InlineData("on", ColourCues.BY_STYLE)]
+        [InlineData("style", ColourCues.BY_STYLE)]
         [InlineData("motif:1", 1)]
         [InlineData("motif:2", 2)]
         [InlineData("Motif:3", 3)]

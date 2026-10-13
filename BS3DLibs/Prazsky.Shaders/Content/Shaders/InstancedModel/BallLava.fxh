@@ -239,14 +239,14 @@ float4 LavaShade(PatternVertexShaderOutput input, bool motifCue, ColourCuePaint 
     //ink's share of their brightness inside the figure and at the ground's outside, so the figure reads as a
     //region where the molten network runs dimmer (or brighter, on the colours with a paler ink). A scale and not a
     //dye, because the molten colour is the hue run towards incandescence, not the tint; the scales average to 1 over
-    //the ball. The crust takes the dye itself, which at its tint share is barely there.
+    //the ball. The crust takes the same scale, which at its tint share is barely there.
     float3 crustDye = primary;
     float cueHeat = 1;
 
     if (motifCue)
     {
-        crustDye = ColourCueDye(ColourCueMotif(direction, footprint, cue), cue);
-        cueHeat = ColourCueScale(crustDye, primary);
+        cueHeat = ColourCueInkScale(ColourCueMotif(direction, footprint, cue), cue);
+        crustDye = primary * cueHeat;
     }
 
     //Basalt: nearly black, keeping just enough of the tint that thirteen crusts are not one object.

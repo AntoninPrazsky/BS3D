@@ -51,6 +51,11 @@
 //c.w is the share of the ball the play camera sees the figure cover (Prazsky.BS3D.ColourCues.Figure says how it
 //is measured): where a ball is too small to carry its figure, the figure fades to this share of its ink rather
 //than to nothing, so a far ball still averages its plain colour.
+//
+//inkScales is the same two inks as SCALES on the plain colour (figure, ground), for the styles whose colour is a
+//factor in something else rather than a body to dye: the metal's reflectance, the plasma's discharge, the lava's
+//molten seams. For every colour but black they are the inks' own ratios to the plain colour; black's figure ink is
+//a dim grey ADDED, its ratio to a near-zero black about 24, so its scales are a darker ink's balance instead.
 struct ColourCuePaint
 {
     float4 a;
@@ -59,6 +64,7 @@ struct ColourCuePaint
     float3x3 frame;
     float3 figureInk;
     float3 groundInk;
+    float2 inkScales;
 };
 
 //The regular solids' vertices, as axes (both ends of each are a vertex) except the tetrahedron's, which has no
@@ -345,11 +351,11 @@ float3 ColourCueDye(float figure, ColourCuePaint cue)
     return lerp(cue.groundInk, cue.figureInk, figure);
 }
 
-//The same ink as a SCALE on the plain colour, for a style whose colour is not a body to be dyed but a factor in
-//something else: the metal's reflectance, the plasma's discharge, the lava's molten seams. Both inks are the plain
-//colour scaled (black's figure alone has a dim grey added, and black is itself a grey), so their luminance ratio
-//to it is the scale, and the scale averages to 1 over the ball as the inks average to the plain colour.
-float ColourCueScale(float3 dye, float3 primary)
+//The same ink as a SCALE on the plain colour (inkScales: the figure's, the ground's), for a style whose colour is
+//not a body to be dyed but a factor in something else: the metal's reflectance, the plasma's discharge, the lava's
+//molten seams. The scales average to 1 over the ball as the inks average to the plain colour, black's included
+//(Prazsky.BS3D.ColourCues.Inks), so the ball as a whole reflects, burns or glows what it did.
+float ColourCueInkScale(float figure, ColourCuePaint cue)
 {
-    return dot(dye, float3(0.2126, 0.7152, 0.0722)) / max(dot(primary, float3(0.2126, 0.7152, 0.0722)), 1e-5);
+    return lerp(cue.inkScales.y, cue.inkScales.x, figure);
 }

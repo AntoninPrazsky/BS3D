@@ -35,10 +35,17 @@ namespace Prazsky.Core.Render
         /// <summary>What the rest of the ball is painted in, linear RGB; always the plain colour scaled.</summary>
         public Vector3 GroundInk { get; }
 
+        /// <summary>
+        /// The two inks as scales on the plain colour, X the figure's and Y the ground's, for the styles whose colour
+        /// is a factor rather than a body to dye (the metal's reflectance, the plasma's discharge, the lava's seams);
+        /// they average to 1 over the ball. See <c>Prazsky.BS3D.GameStructure.ColourCues.InkScales</c>.
+        /// </summary>
+        public Vector2 InkScales { get; }
+
         /// <summary>Whether this is no figure at all: the shipped program draws.</summary>
         public bool IsNone => A.X == 0f;
 
-        public ColourCuePaint(Vector4 a, Vector4 b, Vector4 c, Matrix frame, Vector3 figureInk, Vector3 groundInk)
+        public ColourCuePaint(Vector4 a, Vector4 b, Vector4 c, Matrix frame, Vector3 figureInk, Vector3 groundInk, Vector2 inkScales)
         {
             A = a;
             B = b;
@@ -46,6 +53,7 @@ namespace Prazsky.Core.Render
             Frame = frame;
             FigureInk = figureInk;
             GroundInk = groundInk;
+            InkScales = inkScales;
         }
     }
 }

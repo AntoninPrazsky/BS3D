@@ -120,13 +120,15 @@ float4 PlasmaShade(PatternVertexShaderOutput input, bool motifCue, ColourCuePain
     //the figure ink's share of their brightness and outside at the ground's, so the figure is a region where the
     //arcs run dimmer (or brighter, on the colours with a paler ink) and moves with the globe while the arcs crawl
     //through it. A scale and not a dye, because the arcs' colour is the hue at full saturation, not the tint; the
-    //scales average to 1 over the ball. The shell takes the dye itself.
+    //scales average to 1 over the ball. The shell takes the same scale.
     float3 shellDye = primary;
 
     if (motifCue)
     {
-        shellDye = ColourCueDye(ColourCueMotif(direction, footprint, cue), cue);
-        discharge *= ColourCueScale(shellDye, primary);
+        float cueScale = ColourCueInkScale(ColourCueMotif(direction, footprint, cue), cue);
+
+        shellDye = primary * cueScale;
+        discharge *= cueScale;
     }
 
     //The arcs reach out of a core, so they brighten towards the middle of the disc rather than lying
