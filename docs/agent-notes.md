@@ -669,3 +669,9 @@ Pravidla:
 - Desktop při jakémkoli vykreslování padal, takže kód psal desktop jen na CPU a snímky, posouzení a stránku (https://claude.ai/artifact/6jwiQxHqTjAiNZh3GyGTGF) udělal notebook: devět stylů OK, `colourcue=none` = dodaný kód (průměr přes dech koulí).
 - ⚠ Černá v kovu a plazmě: šedý inkoust ~24× černé; škály mají vlastní uniform.
 - Otevřené: oko majitele (výrazné pruhy žluté a stříbrné, vinylová béžová a stříbrná z dálky splývají, tenké linky černé a námořní modré na mramoru mizí, plazma čte jen na světlých barvách); cena na GPU neměřena.
+
+## 2026-10-13 — #860 Bomba velká jako ostatní koule — ThinkPad, Claude Code (github-b9)
+- #860 (merge do mainu, `shipped-awaiting-verdict` + `verdict-eye`): plášť miny zpět na plný poloměr, osm výstupků stojí 0,13 nad ním (`MineStudRise`, stejný reliéf, jaký #625 schválil). Měřeno na `Specials.json` (pevná kamera, rozdíl proti témuž snímku s uvolněným clusterem): plošně ekvivalentní poloměr bomby 0,87 obyčejné koule vedle ní, teď 1,00.
+- majitel: „Výstupky mohou být klidně přes 1.“
+- Zkoušeno 0,06 / 0,10 / 0,13: při 0,06 výstupky zepředu skoro zmizí. Výstupek ukazuje do 10° k sousedům o patro výš a níž a zanoří se do nich o svou výšku, ve štěrbině; na neprůhledných stylech i přes bublinu, led a drahokam to čte jako výstupek opřený o souseda.
+- Otevřené: oko majitele; kámen a led dál řežou dovnitř (mimo rozsah, rozhodnutí majitele).
