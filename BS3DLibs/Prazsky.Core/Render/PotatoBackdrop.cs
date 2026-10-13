@@ -196,7 +196,17 @@ namespace Prazsky.Core.Render
     public sealed class PotatoBackdrop : IDisposable
     {
         private readonly List<InstancedModelRenderer> _renderers = new();
-        private readonly List<(InstancedModelRenderer Renderer, ModelInstance[] Instances, bool TwoSided, Vector3? Glow)> _draws = new();
+        //One draw: its renderer, its instances (a city's are the visible set, prepared per frame), its cull and its glow
+        private sealed class DrawItem
+        {
+            public InstancedModelRenderer Renderer;
+            public ModelInstance[] Instances;
+            public bool TwoSided;
+            public Vector3? Glow;
+            public Func<ICamera, int> Prepare;
+        }
+
+        private readonly List<DrawItem> _draws = new();
         private readonly List<IDisposable> _owned = new();
         private readonly GraphicsDevice _device;
 
@@ -229,7 +239,12 @@ namespace Prazsky.Core.Render
         /// </summary>
         /// <param name="seedOffset">The scene's roll for the launch, the desktop's <c>SceneRenderer</c> seed: the Moon's
         /// boulders and the volcano's rivers fall where the desktop's would, and the rivers where the Potato lamps run.</param>
-        public static PotatoBackdrop For(SceneKind scene, GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius, int seedOffset)
+        /// <param name="cityConfig">The host's city config, its seeds already rolled for the launch: the two cities
+        /// (<see cref="SceneKind.City"/>, <see cref="SceneKind.NeonCity"/>) are <see cref="City"/>'s towers and cornices
+        /// as the desktop lays them out, one unit box each, the facade's colour and no windows (the facade program is the
+        /// desktop's dearest pixel), over the street level as a plane of asphalt.</param>
+        public static PotatoBackdrop For(SceneKind scene, GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius, int seedOffset,
+            CitySceneConfig cityConfig = null)
         {
             return scene switch
             {
@@ -239,8 +254,77 @@ namespace Prazsky.Core.Render
                 SceneKind.Mountain => Mountain(graphicsDevice, potatoEffect, holeRadius),
                 SceneKind.Moon => Moon(graphicsDevice, potatoEffect, holeRadius, seedOffset),
                 SceneKind.Volcano => Volcano(graphicsDevice, potatoEffect, holeRadius, seedOffset),
+                SceneKind.City when cityConfig != null => CityOf(graphicsDevice, potatoEffect, cityConfig, neon: false),
+                SceneKind.NeonCity when cityConfig != null => CityOf(graphicsDevice, potatoEffect, cityConfig, neon: true),
                 _ => null,
             };
+        }
+
+        private const float CITY_REACH = 250f;
+
+        private static PotatoBackdrop CityOf(GraphicsDevice graphicsDevice, Effect potatoEffect, CitySceneConfig config, bool neon)
+        {
+            var backdrop = new PotatoBackdrop(graphicsDevice);
+
+            //The same generator and seed as the host's own City, so the skyline is the one the desktop would stand under
+            //this launch; its own instance, since the host's is the other city until SetScene's EnsureCityLayout runs
+            var city = new City(config, neon, ArenaIsland.RADIUS);
+            Opened(city.Buildings);
+
+            //The near blocks only, sorted near to far from the island (#829): a tower beyond the near ranks shows only its
+            //top over them, if that, and the whole neon city is 5,700 boxes to 16 blocks out. The cull per frame is the
+            //frustum's; the order is the island's, which the camera orbits
+            var near = new List<(float Distance, ModelInstance Instance, BoundingSphere Bounds)>();
+            foreach (ModelInstance building in city.Buildings)
+            {
+                Vector3 centre = building.World.Translation;
+                float distance = MathF.Sqrt(centre.X * centre.X + centre.Z * centre.Z);
+                if (distance > CITY_REACH) continue;
+                Vector3 scale = new(building.World.Right.Length(), building.World.Up.Length(), building.World.Backward.Length());
+                near.Add((distance, building, new BoundingSphere(centre, scale.Length() * 0.5f)));
+            }
+            near.Sort((a, b) => a.Distance.CompareTo(b.Distance));
+            var towers = new ModelInstance[near.Count];
+            var bounds = new BoundingSphere[near.Count];
+            for (int i = 0; i < near.Count; i++) (towers[i], bounds[i]) = (near[i].Instance, near[i].Bounds);
+            var visible = new ModelInstance[near.Count];
+            var frustum = new BoundingFrustum(Matrix.Identity);
+            int PrepareVisible(ICamera camera)
+            {
+                frustum.Matrix = camera.View * camera.Projection;
+                int count = 0;
+                for (int i = 0; i < towers.Length; i++)
+                    if (frustum.Contains(bounds[i]) != ContainmentType.Disjoint) visible[count++] = towers[i];
+                return count;
+            }
+
+            //The street level: a plane at the city's ground, as far as its blocks reach, in the asphalt's colour. The
+            //island stands a hundred units over it, so no hole
+            float reach = (city.RadiusBlocks + 0.5f) * city.BlockPitch;
+            float ground = city.GroundY;
+            backdrop.AddGround(graphicsDevice, potatoEffect, new PotatoTerrainMesh(graphicsDevice, 2, reach, 0f, (x, z) => ground), config.Streets.AsphaltColor.ToVector3());
+
+            Vector3 facade = (neon ? config.FacadeNeonColor : config.FacadeColor).ToVector3();
+            BoxMesh box = backdrop.Own(new BoxMesh(graphicsDevice, 1f, 1f, 1f));
+            var renderer = new InstancedModelRenderer(graphicsDevice, box, ColorSpace.LinearToSrgb(facade), potatoEffect) { PotatoVertexLit = true, SpecularAmbientStrength = 0f };
+            backdrop._owned.Add(renderer);
+            backdrop._renderers.Add(renderer);
+            backdrop._draws.Add(new DrawItem { Renderer = renderer, Instances = visible, Prepare = PrepareVisible });
+            backdrop.VertexCount += box.PrimitiveCount * 3 * towers.Length;
+            backdrop._census.Add($"city {towers.Length}x{box.PrimitiveCount * 3} of {city.Buildings.Length} within {CITY_REACH:F0} ({city.TowerCount} towers in all; the frustum's set a frame)");
+
+            return backdrop;
+        }
+
+        /// <summary>
+        /// The instances' Custom made the Potato effect's open occluder, in place: the city writes a building's facade
+        /// kind there for the desktop's program, with a w of 0 the Potato effect reads as buried (the Moon's boulders'
+        /// lesson, <see cref="AddScatter"/>).
+        /// </summary>
+        public static void Opened(ModelInstance[] instances)
+        {
+            var open = new Vector4(0f, 0f, 0f, 1f);
+            for (int i = 0; i < instances.Length; i++) instances[i] = new ModelInstance(instances[i].World, open);
         }
 
         //The grids of the scenes whose relief is the backdrop: finer than the open ground's, and the mountains' out to
@@ -419,7 +503,7 @@ namespace Prazsky.Core.Render
             var renderer = new InstancedModelRenderer(graphicsDevice, mesh, ColorSpace.LinearToSrgb(colour), potatoEffect) { PotatoVertexLit = true, SpecularAmbientStrength = 0f };
             _owned.Add(renderer);
             _renderers.Add(renderer);
-            _draws.Add((renderer, new[] { new ModelInstance(Matrix.Identity, new Vector4(0f, 0f, 0f, 1f)) }, false, null));
+            _draws.Add(new DrawItem { Renderer = renderer, Instances = new[] { new ModelInstance(Matrix.Identity, new Vector4(0f, 0f, 0f, 1f)) } });
             VertexCount += mesh.PrimitiveCount * 3;
             _census.Add($"ground {mesh.PrimitiveCount * 3}");
         }
@@ -430,7 +514,7 @@ namespace Prazsky.Core.Render
             var renderer = new InstancedModelRenderer(graphicsDevice, mesh, colour, potatoEffect) { PotatoVertexLit = true, SpecularAmbientStrength = 0f };
             _owned.Add(renderer);
             _renderers.Add(renderer);
-            _draws.Add((renderer, new[] { new ModelInstance(world, new Vector4(0f, 0f, 0f, 1f)) }, false, glow));
+            _draws.Add(new DrawItem { Renderer = renderer, Instances = new[] { new ModelInstance(world, new Vector4(0f, 0f, 0f, 1f)) }, Glow = glow });
             VertexCount += mesh.PrimitiveCount * 3;
             _census.Add($"{what} {mesh.PrimitiveCount * 3}");
         }
@@ -495,7 +579,7 @@ namespace Prazsky.Core.Render
                     }
                 }
 
-                _draws.Add((renderer, instances, leaves, null));
+                _draws.Add(new DrawItem { Renderer = renderer, Instances = instances, TwoSided = leaves });
                 VertexCount += mesh.PrimitiveCount * 3 * instances.Length;
                 BoundingSphere census = bucket.Mesh.BoundingSphere;
                 _census.Add($"{(blob ? "blob" : leaves ? "leaves" : "solid")} {instances.Length}x{mesh.PrimitiveCount * 3} {bucket.Mesh.GetType().Name} r{census.Radius:F1} c{census.Center.Y:F1} rgb({bucket.Diffuse.X:F2},{bucket.Diffuse.Y:F2},{bucket.Diffuse.Z:F2}) bark{bucket.Bark:F1} leaves{bucket.Leaves:F1}");
@@ -537,11 +621,14 @@ namespace Prazsky.Core.Render
             effectParams.DirectionalLight2 = sceneParams?.DirectionalLight2;
             effectParams.Fog = sceneParams?.Fog;
 
-            foreach ((InstancedModelRenderer renderer, ModelInstance[] instances, bool twoSided, Vector3? glow) in _draws)
+            foreach (DrawItem draw in _draws)
             {
-                device.RasterizerState = twoSided ? RasterizerState.CullNone : RasterizerState.CullCounterClockwise;
-                effectParams.EmissiveColor = glow ?? Vector3.Zero;
-                renderer.Draw(camera, instances, instances.Length, effectParams, null);
+                device.RasterizerState = draw.TwoSided ? RasterizerState.CullNone : RasterizerState.CullCounterClockwise;
+                effectParams.EmissiveColor = draw.Glow ?? Vector3.Zero;
+
+                //A city's draw is its visible set, culled to the frustum a frame: a tower behind the camera is its faces' fill saved
+                int count = draw.Prepare?.Invoke(camera) ?? draw.Instances.Length;
+                if (count > 0) draw.Renderer.Draw(camera, draw.Instances, count, effectParams, null);
             }
 
             device.RasterizerState = raster;

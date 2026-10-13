@@ -136,7 +136,7 @@ namespace BS3D
             if (!PotatoPath || _instancingEffect == null) return;
 
             _potatoBackdrop?.Dispose();
-            _potatoBackdrop = PotatoBackdrop.For(_scene, GraphicsDevice, _instancingEffect, ArenaIsland.TERRAIN_HOLE_RADIUS, _sceneSeedOffset);
+            _potatoBackdrop = PotatoBackdrop.For(_scene, GraphicsDevice, _instancingEffect, ArenaIsland.TERRAIN_HOLE_RADIUS, _sceneSeedOffset, _cityConfig);
             if (_potatoBackdrop == null) return;
 
             //Lit now, not only at the next ApplySkyLighting: the first build runs after the startup's SetScene has
@@ -174,7 +174,8 @@ namespace BS3D
             _sceneLights.Apply(_scene, null, _cityConfig.NeonLook, _wallClock);
 
             //The scene's ground and its static scatter (#829), where the scene has them on this path: before the island,
-            //opaque and depth-written, under the same flat ambient
+            //opaque and depth-written, under the same flat ambient and the lamps (the volcano's light its cone; taken at
+            //the vertex they cost nothing measurable - the neon city with none was the same frame)
             _potatoBackdrop?.Draw(_camera, _sceneEffectParams);
 
             _island.EventGlow = 0f;
