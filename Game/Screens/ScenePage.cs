@@ -27,8 +27,8 @@ namespace BS3D.Screens
         private readonly Label[] _sceneLabels = new Label[SceneRenderer.SceneCount];
         private readonly Button[] _sceneButtons = new Button[SceneRenderer.SceneCount];
 
-        //The page's own plate, kept so it can be hidden while a tour flies (#406).
-        private Panel _plate;
+        //The line that says a tour can be skipped (#861), the chapter flythrough's own (PlayHud's), fading as it does there
+        private readonly PlayHud _skipHint;
 
         //The list's order and each scene's chapters (#773), worked out once per level set (OrderByChapters): the level
         //files are read for their scene, fourteen of them, which is not a thing to do on every rebuild of the tree
@@ -43,7 +43,7 @@ namespace BS3D.Screens
         /// </summary>
         private const int LIST_SURROUNDINGS = 620;
 
-        public ScenePage(BS3DGame game) : base(game) { }
+        public ScenePage(BS3DGame game) : base(game) => _skipHint = new PlayHud(game);
 
         protected override Widget BuildTree()
         {
@@ -78,8 +78,7 @@ namespace BS3D.Screens
             });
             column.Widgets.Add(BackButton());
 
-            _plate = Plate(column);
-            return ScreenRoot(_plate);
+            return ScreenRoot(Plate(column));
         }
 
         /// <summary>
@@ -170,13 +169,32 @@ namespace BS3D.Screens
         /// The page gets out of the way while a tour is flying (#406) and comes back when it lands. A tour
         /// watched from behind the very list that asked for it is the fault #472 fixed on the level picker,
         /// one page over — and here there is nothing to read while it runs, so the page can simply go.
+        /// <para>
+        /// <b>All of it, and its input with it (#861).</b> Hiding the plate alone left the focus prompt the host draws beside
+        /// the cursor's entry standing over the flight, and left the page taking the walk and Enter: a second pick chose a
+        /// new scene under the running tour and broke it. Standing aside, the host draws and feeds none of the page, and any
+        /// skip key cuts the tour short, as a click or Space cuts the chapter's own in play — with the same hint saying so.
+        /// </para>
         /// </summary>
+        internal override bool StandsAside => !InLevel && Manager?.Find<BackdropScreen>()?.TourEngaged == true;
+
+        internal override void SkipPressed()
+        {
+            //Said in the run log, one line a skip, as the session's skips are
+            if (Manager?.Find<BackdropScreen>()?.TrySkipTour() == true) Console.WriteLine("[skip] scene tour");
+        }
+
+        internal override void DrawAside() => _skipHint.DrawSkipHintAlone(Game.PromptsForPad);
+
         public override void Update(Microsoft.Xna.Framework.GameTime gameTime)
         {
             base.Update(gameTime);
 
+            //The hint's fade, on the tour's own clock and the chapter flythrough's timings (PlayHud.UpdateSkipHint)
             BackdropScreen backdrop = Manager?.Find<BackdropScreen>();
-            if (_plate != null && backdrop != null) _plate.Visible = InLevel || !backdrop.TourEngaged;
+            bool running = !InLevel && backdrop != null && backdrop.TourRunning;
+            _skipHint.UpdateSkipHint((float)gameTime.ElapsedGameTime.TotalSeconds, running, chapterIntro: true,
+                running ? backdrop.TourElapsed : 0f, running ? backdrop.TourRemaining : 0f);
         }
 
         /// <summary>

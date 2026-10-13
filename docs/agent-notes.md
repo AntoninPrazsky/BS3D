@@ -700,3 +700,8 @@ Pravidla:
 - Ověřeno: úroveň „kříž z pěti“ přes `levelfile=` vyčištěná jednou ranou; main nechal HUD celou oslavu, tady je fronta zachycena v půli rozplynutí a o snímek dál pryč. Staged `lineloss=` dál drží řez a frontu.
 - ⚠ První úroveň kapitoly přes `levelfile=` začíná průletem kapitoly (asi 12 s); střílet až po něm.
 - Otevřené: oko majitele (délka rozplynutí); Potato vrstvu nemá, tam údaje zmizí naráz.
+
+## 2026-10-13 — #861 průlet scény ze Extras odstoupí celý — ThinkPad, Claude Code (github-b9)
+- #861 (merge do mainu, `shipped-awaiting-verdict` + `verdict-hands`): během průletu scény stránka Scene „ustoupí“ (`MenuPage.StandsAside`): hostitel nekreslí nic z ní (ani výzvu u kurzoru, která zůstávala) a nedává jí chůzi, Enter, kolečko ani Zpět; Space, Enter, Escape, klik, A, B nebo RT průlet přeskočí (`TrySkipTour`, dosud nevolané), nad ním hint z průletu kapitoly. Klik je pro návrat stránky odjištěn.
+- Ověřeno `padpress=`: main nechal glyf A přes průlet a down,a změnilo scénu pod letem (kamera skončila vzhůru nohama pod ostrovem); teď čistý let, down ignorován, A přeskočí, „RT to skip“ po 4 s, B přeskočí bez odchodu ze stránky.
+- Otevřené: klávesnice a myš neřízeny (stejné hrany jako zbytek menu); ruce majitele.

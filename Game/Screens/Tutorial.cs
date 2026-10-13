@@ -555,7 +555,10 @@ namespace BS3D.Screens
         internal bool OnGamepad => _device == Device.Gamepad;
 
         /// <summary>The glyph for the button that skips a cinematic — the fire button, which is what skips (#499).</summary>
-        internal string SkipGlyph => _device == Device.Gamepad ? PAD_RIGHT_TRIGGER : MOUSE_LEFT;
+        internal string SkipGlyph => SkipGlyphFor(_device == Device.Gamepad);
+
+        /// <summary>The skip's glyph for a hand, where no tutorial is watching the devices (#861: the Scene page's tour).</summary>
+        internal static string SkipGlyphFor(bool gamepad) => gamepad ? PAD_RIGHT_TRIGGER : MOUSE_LEFT;
 
         /// <summary>The prompt font's glyphs for the card — a keycap, a mouse, a trigger — or null for none.</summary>
         internal string Glyph => _card == null ? null

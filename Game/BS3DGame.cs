@@ -2098,7 +2098,9 @@ namespace BS3D
             //the menu chrome takes one snapshot of its own (UpdateMenuChrome) and Myra polls the device itself
             //when the desktop renders. Nothing compares an edge across two of those reads, which is the hazard
             //BestPractices.md #5 is about; this one answers only "is the button up now".
-            if (_screens.Active != _lastActiveScreen)
+            //And while a page stands aside for a takeover (#861): the click that skipped it may still be down when the page
+            //comes back, over whichever entry the pointer happens to be on
+            if (_screens.Active != _lastActiveScreen || _screens.Active is MenuPage { StandsAside: true })
             {
                 _lastActiveScreen = _screens.Active;
                 _menuClickArmed = false;
@@ -2131,7 +2133,11 @@ namespace BS3D
             //reports the button and a window-relative position whether the window has focus or not, so a
             //click meant for another application that happens to land over where a menu entry is would
             //otherwise press it — and "Quit" would close a game nobody was looking at.
-            if (_desktop != null && _screens.Active is MenuPage page)
+            //A page standing aside for a takeover (#861) draws only what it asks to: none of its tree, no scrim and no
+            //focus prompt over the flight
+            if (_desktop != null && _screens.Active is MenuPage { StandsAside: true } aside)
+                aside.DrawAside();
+            else if (_desktop != null && _screens.Active is MenuPage page)
             {
                 //The scrim under a page that dims a stopped game, drawn by the HOST's own batch rather than
                 //as the Myra root's background (#114). Myra's paint stops short of the viewport's bottom edge
