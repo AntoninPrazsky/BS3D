@@ -624,6 +624,7 @@ Pravidla:
 - #856 (merge do mainu, `shipped-awaiting-verdict` + `verdict-eye`): záložka ODD BALLS má u každého druhu čtverec a v něm otáčející se kouli kreslenou herní cestou (trik karty tutoriálu #735: koule 3 jednotky před objektivem na paprsku čtverce) do ostré vrstvy popředí, kterou hostitel skládá přes UI na konci snímku (#242) — deska ji tedy netlumí. Nová `MenuPage.PresentsForeground/ForegroundClip/DrawForeground`, `BS3DGame.DrawPageForeground` z rámce pozadí po koulích a skle; mimo klip scrolleru se vrstva maže (krytí 0), takže koule za okrajem rámu se řízne jako text. Potato kreslí rovnou přes UI, jen celé čtverce.
 - ⚠ Myra `ActualBounds` je v prostoru widgetu; na desktop přes `ToGlobal` (první pokus dal všech deset koulí v levém horním rohu).
 - Cena: 40,2 ms proti 38,4 ms (High, 1080p, ssaa 2×, Měsíc, ThinkPad) ≈ 1,8 ms za vrstvu a skládání.
+- ⚠ Dodatek (13. 10., merge následuje): Help z pauzy kreslí scénu GameplayScreen, kde hák chyběl — čtverce byly prázdné (snímek `level=1 help=4`). Hák je i tam; koule jdou přes `BallRenderSet.DrawAside` (druhý malý rámec, který zachová záznam pohybu prvního, jinak by `BeginFrame` vynuloval velocity pass session), sběr přes method group bez closure.
 - Otevřené: verdikt oka (barvy po sloupci, velikost čtverce, sklo jako průsvitný kotouč); Pi neměřeno; duhová koule bez obrázku.
 
 ## 2026-10-12 — #400 devátý průchod (19eb1484..ad53e22f) — ThinkPad, Claude Code (github-44)
@@ -643,3 +644,15 @@ Pravidla:
 - Sazba: texty výběru úrovní v `PickerCopy`, výsledku v `LevelResult`, obojí hlídají testy přes `CopyRules`; jedna mezera kolem „ · “, ‚Moon‘, skutečná „…“, prózové proložení u poznámky o odemčení a stavového řádku tabulí.
 - ⚠ Nastavený text je rich-text s příkazy: vypnout `SupportsCommands` nebo měřit přes `MeasureString` rozbije sloupce (stojí v `menu-look.md`).
 - Otevřené: `shipped-awaiting-verdict` + `verdict-eye` (jedničky v tabulkových číslicích, husté tečky, High Scores ve sloupcích); deska tabulí na stránce výsledku a živé online tabule nezachyceny.
+
+## 2026-10-13 — #859 10bitový back buffer — ThinkPad, Claude Code (github-44)
+- #859 (merge do mainu, `shipped-awaiting-verdict` + `verdict-eye`): back buffer `R10G10B10A2`, kde monitor okna hlásí DXGI ≥ 10 bpc (`DisplayRefresh.TryGetBitsPerColor`, shoda přes `\\.\DISPLAYn`); řádek „10-bit colour“ na DISPLAY (místo FPS counter, který šel na GAME — DISPLAY má 12 řádků jako celý rozpočet), držený s důvodem „(8-bit panel)“, „(Potato)“, „(driver)“; `tenBitColour` v nastavení, výchozí zapnuto; argument `tenbit`/`tenbit=off`.
+- ⚠ MonoGame `ApplyChanges` zařízení sám vytvoří, když není: první zařízení vždy 8bitové a reset na 10 až v Initialize, aby odmítnutí driveru bylo chytitelná výjimka (fallback na 8 bitů + řádek logu). Na ThinkPadu (AMD, 8bpc) jde 10bitový swap chain ve všech režimech; E_INVALIDARG z GTX 1060 nereprodukováno.
+- ⚠ `GetBackBufferData` nic nepřevádí: 10bitový buffer čtený do `Color` je slova čtená jako bajty (modrá 100/149/237 → 145/89/121). Screenshot i obrázek poznámky jdou přes `BackBufferPixels` (test pinuje dekód i tu chybu); ověřeno `tenbit level=1 shot=9`.
+- Argument `ramp` (merge následuje): šedá rampa 0–1 přes spodní třetinu snímku rovnou do back bufferu z 16bitové textury (256 kroků na 8 bitech, 1024 na 10); jediný způsob, jak okem na 10bitovém panelu poznat, zda DWM 10 bitů zobrazí — PNG je 8bitové.
+- Otevřené: majitelův 10bitový monitor (zda driver vezme, zda DWM prezentuje 10 bitů — `ramp` se zapnutým a vypnutým řádkem), NVIDIA readback neověřen.
+
+## 2026-10-13 — #400 kontrola citací jako nástroj — ThinkPad, Claude Code (github-44)
+- `Tools/DocDrift -- --citations [--selftest]` (merge do mainu): každá `"Název" in docs/x.md` v kódu i docs musí jmenovat nadpis dokumentu, jeho pod-dokumentů nebo řádek tabulky starých sekcí; průchody 8 a 9 to dělaly skriptem ze scratchpadu. Self-test podstrčí citaci neexistující sekce (§10). Stav: 187 citací, 0 nevyřešených. Zapsáno v `checking-tools.md`, `CLAUDE.md` a `build-and-release.md`.
+- ⚠ Příklad vzoru v komentáři nebo usage (`"Title" in docs/x.md`) je sám citací; psát s lomenými závorkami.
+- Otevřené: citace bez uvozovek nástroj nevidí.

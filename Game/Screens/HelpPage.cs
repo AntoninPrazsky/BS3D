@@ -134,7 +134,11 @@ namespace BS3D.Screens
         private Widget _scrollPrompt;
         private float _scrollCarry;
 
-        public HelpPage(BS3DGame game) : base(game) { }
+        public HelpPage(BS3DGame game) : base(game)
+        {
+            //Bound once: the ball set's aside takes a method group, and a lambda here would be a closure a frame
+            _collectBalls = CollectBalls;
+        }
 
         /// <summary>
         /// Controls every time the page opens (#857), unless <c>help=&lt;n&gt;</c> asked for a tab first (<see cref="ShowPage"/>):
@@ -328,45 +332,57 @@ namespace BS3D.Screens
         /// </summary>
         internal override void DrawForeground()
         {
-            Rectangle frame = OnDesktop(_body);
             var buffer = Game.GraphicsDevice.PresentationParameters;
-            float width = buffer.BackBufferWidth, height = buffer.BackBufferHeight;
-            if (width <= 0f || height <= 0f) return;
+            if (buffer.BackBufferWidth <= 0 || buffer.BackBufferHeight <= 0) return;
 
-            Matrix projection = Game.Camera.Projection;
-            Matrix toWorld = Matrix.Invert(Game.Camera.View);
-            float spin = Game.WallClock * BALL_SPIN;
+            //What the collector reads, set here rather than captured: the collector is a method group bound once, so the
+            //frame allocates nothing (BallDrawFrame is a ref struct and cannot be caught in a lambda anyway)
+            _ballFrameRect = OnDesktop(_body);
+            _ballBufferWidth = buffer.BackBufferWidth;
+            _ballBufferHeight = buffer.BackBufferHeight;
+            _ballProjection = Game.Camera.Projection;
+            _ballToWorld = Matrix.Invert(Game.Camera.View);
+            _ballSpin = Game.WallClock * BALL_SPIN;
 
-            BallDrawFrame balls = Game.Balls.BeginFrame(Game.Camera);
+            //An aside of the ball set's, after the backdrop's or the session's own frame: its motion record is kept, so the
+            //session's velocity pass still finds its balls under a Help opened from the pause
+            Game.Balls.DrawAside(Game.Camera, Game.WallClock, _collectBalls);
+        }
 
+        //The collector DrawForeground hands the ball set, bound once (see there), and what it reads
+        private readonly BallRenderSet.AsideCollector _collectBalls;
+        private Rectangle _ballFrameRect;
+        private float _ballBufferWidth, _ballBufferHeight, _ballSpin;
+        private Matrix _ballProjection, _ballToWorld;
+
+        private void CollectBalls(BallDrawFrame balls)
+        {
             for (int i = 0; i < _ballSquares.Length; i++)
             {
                 Rectangle square = OnDesktop(_ballSquares[i]);
-                if (!square.Intersects(frame) || (BS3DGame.PotatoPath && !frame.Contains(square))) continue;
+                if (!square.Intersects(_ballFrameRect) || (BS3DGame.PotatoPath && !_ballFrameRect.Contains(square))) continue;
 
                 //The square's centre and half-height in the frame's normalised coordinates (x and y −1..1, y up)
-                float cx = (square.X + square.Width * 0.5f) / width * 2f - 1f;
-                float cy = 1f - (square.Y + square.Height * 0.5f) / height * 2f;
-                float radius = square.Height / height * BALL_FILL;
+                float cx = (square.X + square.Width * 0.5f) / _ballBufferWidth * 2f - 1f;
+                float cy = 1f - (square.Y + square.Height * 0.5f) / _ballBufferHeight * 2f;
+                float radius = square.Height / _ballBufferHeight * BALL_FILL;
 
                 //The point on the ray through the square at the chosen depth, in view space and then in the world
-                Vector3 inView = new(cx * BALL_DEPTH / projection.M11, cy * BALL_DEPTH / projection.M22, -BALL_DEPTH);
-                Vector3 position = Vector3.Transform(inView, toWorld);
-                float worldRadius = radius * BALL_DEPTH / projection.M22;
+                Vector3 inView = new(cx * BALL_DEPTH / _ballProjection.M11, cy * BALL_DEPTH / _ballProjection.M22, -BALL_DEPTH);
+                Vector3 position = Vector3.Transform(inView, _ballToWorld);
+                float worldRadius = radius * BALL_DEPTH / _ballProjection.M22;
 
                 //Sized, turned about the camera's up, then the whole tilted about its right, so the axis leans towards
                 //the viewer and the top of the ball is seen as well as its side
                 Matrix world = Matrix.CreateScale(worldRadius / Constants.HALF)
-                    * Matrix.CreateFromAxisAngle(toWorld.Up, spin + i * BALL_PHASE)
-                    * Matrix.CreateFromAxisAngle(toWorld.Right, BALL_TILT);
+                    * Matrix.CreateFromAxisAngle(_ballToWorld.Up, _ballSpin + i * BALL_PHASE)
+                    * Matrix.CreateFromAxisAngle(_ballToWorld.Right, BALL_TILT);
                 world.M41 = position.X;
                 world.M42 = position.Y;
                 world.M43 = position.Z;
 
                 balls.Add(KIND_ENTRIES[i].Colour, position, world, BallRenderSet.UNOCCLUDED, kind: KIND_ENTRIES[i].Kind);
             }
-
-            Game.Balls.Draw(Game.WallClock);
         }
 
         /// <summary>

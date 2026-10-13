@@ -190,8 +190,10 @@ namespace Prazsky.Core.Render
             {
                 System.IO.Directory.CreateDirectory(ShotDirectory);
 
+                //Through BackBufferPixels, not GetBackBufferData straight (#859): a 10-bit back buffer read as Colors is
+                //its packed words misread as bytes, and a shot of it was a picture of the wrong colours
                 Color[] pixels = new Color[width * height];
-                _device.GetBackBufferData(pixels);
+                BackBufferPixels.Read(_device, pixels);
 
                 using Texture2D frame = new(_device, width, height);
                 frame.SetData(pixels);
