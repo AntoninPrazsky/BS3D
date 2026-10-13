@@ -705,3 +705,7 @@ Pravidla:
 - #861 (merge do mainu, `shipped-awaiting-verdict` + `verdict-hands`): během průletu scény stránka Scene „ustoupí“ (`MenuPage.StandsAside`): hostitel nekreslí nic z ní (ani výzvu u kurzoru, která zůstávala) a nedává jí chůzi, Enter, kolečko ani Zpět; Space, Enter, Escape, klik, A, B nebo RT průlet přeskočí (`TrySkipTour`, dosud nevolané), nad ním hint z průletu kapitoly. Klik je pro návrat stránky odjištěn.
 - Ověřeno `padpress=`: main nechal glyf A přes průlet a down,a změnilo scénu pod letem (kamera skončila vzhůru nohama pod ostrovem); teď čistý let, down ignorován, A přeskočí, „RT to skip“ po 4 s, B přeskočí bez odchodu ze stránky.
 - Otevřené: klávesnice a myš neřízeny (stejné hrany jako zbytek menu); ruce majitele.
+
+## 2026-10-13 — #400 jedenáctý průchod (6942a67e..e92a6b28) — ThinkPad, Claude Code (github-b9)
+- Revize vlastních #862 a #861 (merge do mainu): vrstva overlaye se váže a skládá vždy ve stejném snímku, `_clearedElapsed` se nuluje jen při vstupu do beatu, vstup během „ustoupení“ se nezdvojí. Opraveno: klik se odjistí až v Draw na snímku návratu stránky (průlet končí v update obrazovek, po armování v `BS3DGame.Update`, takže stisk přesně v tom snímku dostal Myra); armování už během průletu nečte myš každý snímek; karta tutoriálu se v textech nevypisuje mezi mizícím (konec levelu ji ukončí dřív, #700).
+- Další průchod od merge tohoto.
