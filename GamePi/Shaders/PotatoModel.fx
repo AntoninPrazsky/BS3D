@@ -1295,7 +1295,12 @@ CueVertexOutput PotatoBallCueVS(VertexInput input, InstanceInput instance)
 //The ball with its colour's figure on it: the figure's coverage of this pixel, then the crust and the glow in the
 //ink it covers it with. The footprint is the desktop's (BallVinyl.fxh: the surface a pixel spans over the radius),
 //taken on the object direction, which is the position over the radius.
-float4 BallCuePS(CueVertexOutput input) : COLOR0
+//
+//FOUR PROGRAMS, ONE PER KIND OF FIGURE, the kind a literal: with the kind a uniform, one program carried every
+//kind's branch and V3D sized its registers for the dearest (969 instructions, 58 temporaries, +2.9 ms on Girandole
+//at native); with the kind folded at compile time each program is its own figure's arithmetic and nothing else.
+//DrawPotato picks the program by the paint's kind.
+float4 BallCue(CueVertexOutput input, float kind)
 {
     VertexOutput ball;
     ball.Position = input.Position;
@@ -1307,7 +1312,7 @@ float4 BallCuePS(CueVertexOutput input) : COLOR0
     ball.SceneSpecular = input.SceneSpecular;
 
     ColourCuePaint cue;
-    cue.a = ColourCueA;
+    cue.a = float4(kind, ColourCueA.yzw);
     cue.b = ColourCueB;
     cue.c = ColourCueC;
     cue.frame = (float3x3)ColourCueFrame;
@@ -1324,12 +1329,59 @@ float4 BallCuePS(CueVertexOutput input) : COLOR0
     return float4(ToDisplay(shaded), 1);
 }
 
-technique PotatoBallCue
+float4 BallCueBandsPS(CueVertexOutput input) : COLOR0
+{
+    return BallCue(input, 1);
+}
+
+float4 BallCueSpotsPS(CueVertexOutput input) : COLOR0
+{
+    return BallCue(input, 2);
+}
+
+float4 BallCueChecksPS(CueVertexOutput input) : COLOR0
+{
+    return BallCue(input, 3);
+}
+
+float4 BallCueEmblemsPS(CueVertexOutput input) : COLOR0
+{
+    return BallCue(input, 4);
+}
+
+technique PotatoBallCueBands
 {
     pass P0
     {
         VertexShader = compile POTATO_VS PotatoBallCueVS();
-        PixelShader = compile POTATO_PS BallCuePS();
+        PixelShader = compile POTATO_PS BallCueBandsPS();
+    }
+};
+
+technique PotatoBallCueSpots
+{
+    pass P0
+    {
+        VertexShader = compile POTATO_VS PotatoBallCueVS();
+        PixelShader = compile POTATO_PS BallCueSpotsPS();
+    }
+};
+
+technique PotatoBallCueChecks
+{
+    pass P0
+    {
+        VertexShader = compile POTATO_VS PotatoBallCueVS();
+        PixelShader = compile POTATO_PS BallCueChecksPS();
+    }
+};
+
+technique PotatoBallCueEmblems
+{
+    pass P0
+    {
+        VertexShader = compile POTATO_VS PotatoBallCueVS();
+        PixelShader = compile POTATO_PS BallCueEmblemsPS();
     }
 };
 

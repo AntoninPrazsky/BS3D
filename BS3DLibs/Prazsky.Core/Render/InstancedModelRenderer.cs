@@ -93,7 +93,7 @@ namespace Prazsky.Core.Render
         //The colour cue on the Potato path (#828): the program that paints it and the crust and glow in each ink, folded
         //here from the paint's inks as DrawPotato folds the plain colour (#804); the figure's own four uniforms are the
         //desktop's, _colourCueAParam and its three siblings
-        private EffectTechnique _potatoBallCueTechnique;
+        private EffectTechnique[] _potatoBallCueTechniques;
         private EffectParameter _potatoCueCrustFigureParam, _potatoCueCrustGroundParam, _potatoCueStillFigureParam,
             _potatoCueStillGroundParam, _potatoCueBeatFigureParam, _potatoCueBeatGroundParam;
 
@@ -2068,7 +2068,11 @@ namespace Prazsky.Core.Render
             _potatoBallDitherTechnique = RequiredTechnique("PotatoBallDither");
             _potatoBallKindTechnique = RequiredTechnique("PotatoBallKind");
             _potatoBallKindDitherTechnique = RequiredTechnique("PotatoBallKindDither");
-            _potatoBallCueTechnique = RequiredTechnique("PotatoBallCue");
+            _potatoBallCueTechniques = new[]
+            {
+                RequiredTechnique("PotatoBallCueBands"), RequiredTechnique("PotatoBallCueSpots"),
+                RequiredTechnique("PotatoBallCueChecks"), RequiredTechnique("PotatoBallCueEmblems")
+            };
             _dissolvePixelSizeParam = Required("DissolvePixelSize");
             _potatoFinLitTechnique = RequiredTechnique("PotatoFinLit");
             _potatoFinTexturedTechnique = RequiredTechnique("PotatoFinTextured");
@@ -2405,8 +2409,11 @@ namespace Prazsky.Core.Render
                 }
                 else if (ball)
                 {
+                    //The cue's program by the paint's kind of figure (a.x: 1 bands, 2 spots, 3 checks, 4 emblems)
                     _effect.CurrentTechnique = PotatoFlatBalls ? _potatoBallFlatTechnique
-                        : figure ? _potatoBallKindTechnique : cue ? _potatoBallCueTechnique : _potatoBallTechnique;
+                        : figure ? _potatoBallKindTechnique
+                        : cue ? _potatoBallCueTechniques[Math.Clamp((int)MathF.Round(ColourCue.A.X), 1, 4) - 1]
+                        : _potatoBallTechnique;
                     SetPotatoBallUniforms(look);
                     if (figure) SetPotatoKindFigure(camera, look);
                     if (cue) SetPotatoCueUniforms(look);
