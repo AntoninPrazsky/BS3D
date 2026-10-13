@@ -20,6 +20,10 @@ Pravidla:
 
 ---
 
+## 2026-10-13 — #829 krok 2: poušť a louka na Potato — Pi, Claude Code (584de7d2)
+- Hotovo (větev `829-potato-desert-meadow`): `PotatoBackdrop.For` umí Desert (duny z `TerrainMirror.Desert`, písek) a Meadow (`TerrainMirror.Meadow` + `MeadowScatter`: duby jako bloky, plot), stejnou cestou jako savana. Basket nativně 15,60 proti 14,08 ms (720p 10,54 / 9,75), Pennant 14,90 / 13,10 (10,48 / 9,35) — v prvním čísle i figury #828.
+- Otevřené: jeskyně (krystaly, vlastní efekt), město (vlastní renderer na desktopu), ostatní scény; bílý okraj mřížky na obzoru; verdikt oka.
+
 ## 2026-10-13 — #829 krok 1: savana na Potato — Pi, Claude Code (584de7d2)
 - Hotovo (větev `829-potato-savanna`): `PotatoBackdrop` = terén z `TerrainMirror.Savanna` jako mřížka 64×64 s dírou arény + `SavannaScatter` kbelíky, vše `InstancedModelRenderer` na Potato efektu, nasvícené rigem s ostrovem, kreslené před ním; technika `PotatoVertexLit` (světlo ve vertexu). Giraffe: nativně 15,55 ms proti 14,88 bez pozadí (bez figur), 720p 10,92 / 10,27; s figurami 17,49 / 12,03.
 - ⚠ Rostliny desktopu jsou tisíce vertexů (kmen 5–9 k, termitiště 50 k, celkem 1,2 M/snímek): síť nad 1 200 vertexů je elipsoid své obalové koule (kmen úzký vysoký, koruna plochá). ⚠ Jednoinstanční široký kbelík (holá země) jako elipsoid obalil kameru: černý snímek; nechává se mřížce. ⚠ Barvy kbelíků jsou lineární, materiál renderereru sRGB: kódovat, jinak černé stromy. ⚠ Pozadí přes `PotatoLit` per pixel stálo 3–8 ms (třetina snímku): svícení ve vertexu to srazilo na 0,7.
