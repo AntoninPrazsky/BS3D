@@ -90,7 +90,9 @@ static const float GemEnvironmentFloor = 0.22;
 static const float GemFacetFadeStart = 0.05;
 static const float GemFacetFadeEnd = 0.16;
 
-float4 GemPS(PatternVertexShaderOutput input) : COLOR
+//The gem's whole shading, with the colour cue's switch (#737) passed as a literal, as PatternShade takes it:
+//GemPS below compiles to what it was before the cue existed.
+float4 GemShade(PatternVertexShaderOutput input, bool motifCue, ColourCuePaint cue)
 {
     float radius = max(length(input.ObjectPosition), 1e-5);
     float3 direction = input.ObjectPosition / radius;
@@ -123,7 +125,13 @@ float4 GemPS(PatternVertexShaderOutput input) : COLOR
     //built off this rather than off the raw tint: the mirror below is uncoloured and swamps whatever
     //chroma a dark tint has, so what little it has must count for more. See SaturateTint - a neutral tint
     //is unmoved by construction, which is what keeps black where it is while brown moves off it.
-    float3 stone = SaturateTint(primary, GemChromaLift);
+    //A painted cue (#737) is a second colour band IN the stone, as an agate is banded: the dye takes the tint's place
+    //under the facets, which are the normal's and stay over it. SaturateTint is linear in a scale, so a dye that is
+    //the plain colour scaled saturates to the plain stone scaled. The mirror's weight below stays the plain colour's.
+    float3 dyed = primary;
+    if (motifCue) dyed = ColourCueDye(ColourCueMotif(direction, footprint, cue), cue);
+
+    float3 stone = SaturateTint(dyed, GemChromaLift);
 
     //The body: absorbed along the view, so the stone is deepest where it is thickest and lightens towards
     //the rim where the path through it is short. Floored so the dark types keep their hue instead of all
@@ -159,8 +167,8 @@ float4 GemPS(PatternVertexShaderOutput input) : COLOR
     shaded.rgb += girdle * GemGirdle * stone * occlusion;
 
     //Contract point 2, through BallEmission (#303): the resting glow follows the occlusion, the beat's
-    //swing punches through.
-    shaded.rgb += BallEmission(primary, input.WorldPosition, occlusion);
+    //swing punches through. In the dye where a cue is painted (#737): see WoolShade.
+    shaded.rgb += BallEmission(dyed, input.WorldPosition, occlusion);
 
     //Contract point 3, both meanings, PatternPS's arithmetic.
     [branch]
@@ -179,6 +187,11 @@ float4 GemPS(PatternVertexShaderOutput input) : COLOR
     shaded = ApplySeaSubmerge(shaded, input.WorldPosition);
 
     return ApplyKillPlaneFade(shaded, input.WorldPosition);
+}
+
+float4 GemPS(PatternVertexShaderOutput input) : COLOR
+{
+    return GemShade(input, false, (ColourCuePaint)0);
 }
 
 technique InstancedModelGem

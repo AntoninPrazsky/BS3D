@@ -77,7 +77,9 @@ float PlasmaWave(float3 position, float3 waveDirection, float frequency, float p
         * saturate(1 - footprint * frequency / 3.14159265);
 }
 
-float4 PlasmaPS(PatternVertexShaderOutput input) : COLOR
+//The plasma's whole shading, with the colour cue's switch (#737) passed as a literal, as PatternShade takes it:
+//PlasmaPS below compiles to what it was before the cue existed.
+float4 PlasmaShade(PatternVertexShaderOutput input, bool motifCue, ColourCuePaint cue)
 {
     float radius = max(length(input.ObjectPosition), 1e-5);
     float3 direction = input.ObjectPosition / radius;
@@ -114,6 +116,19 @@ float4 PlasmaPS(PatternVertexShaderOutput input) : COLOR
     float3 hue = primary / max(peak, 1e-3);
     float3 discharge = hue * TintEmission(primary);
 
+    //A painted cue (#737) is printed on the GLOBE and the discharge answers it: inside the figure the arcs burn at
+    //the figure ink's share of their brightness and outside at the ground's, so the figure is a region where the
+    //arcs run dimmer (or brighter, on the colours with a paler ink) and moves with the globe while the arcs crawl
+    //through it. A scale and not a dye, because the arcs' colour is the hue at full saturation, not the tint; the
+    //scales average to 1 over the ball. The shell takes the dye itself.
+    float3 shellDye = primary;
+
+    if (motifCue)
+    {
+        shellDye = ColourCueDye(ColourCueMotif(direction, footprint, cue), cue);
+        discharge *= ColourCueScale(shellDye, primary);
+    }
+
     //The arcs reach out of a core, so they brighten towards the middle of the disc rather than lying
     //evenly over the sphere.
     float centre = pow(saturate(dot(worldNormal, eyeVector)), PlasmaCorePower);
@@ -135,7 +150,7 @@ float4 PlasmaPS(PatternVertexShaderOutput input) : COLOR
 
     //The globe: nearly empty between the arcs, with a faint edge so it has a surface at all.
     float edge = pow(1 - saturate(dot(worldNormal, eyeVector)), PlasmaEdgePower);
-    float3 shell = primary * (PlasmaShell + edge * PlasmaEdge) * occlusion;
+    float3 shell = shellDye * (PlasmaShell + edge * PlasmaEdge) * occlusion;
 
     float4 shaded = float4(glow + shell, 1);
 
@@ -157,6 +172,11 @@ float4 PlasmaPS(PatternVertexShaderOutput input) : COLOR
     shaded = ApplySeaSubmerge(shaded, input.WorldPosition);
 
     return ApplyKillPlaneFade(shaded, input.WorldPosition);
+}
+
+float4 PlasmaPS(PatternVertexShaderOutput input) : COLOR
+{
+    return PlasmaShade(input, false, (ColourCuePaint)0);
 }
 
 technique InstancedModelPlasma

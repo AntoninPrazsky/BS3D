@@ -344,3 +344,12 @@ float3 ColourCueDye(float figure, ColourCuePaint cue)
 {
     return lerp(cue.groundInk, cue.figureInk, figure);
 }
+
+//The same ink as a SCALE on the plain colour, for a style whose colour is not a body to be dyed but a factor in
+//something else: the metal's reflectance, the plasma's discharge, the lava's molten seams. Both inks are the plain
+//colour scaled (black's figure alone has a dim grey added, and black is itself a grey), so their luminance ratio
+//to it is the scale, and the scale averages to 1 over the ball as the inks average to the plain colour.
+float ColourCueScale(float3 dye, float3 primary)
+{
+    return dot(dye, float3(0.2126, 0.7152, 0.0722)) / max(dot(primary, float3(0.2126, 0.7152, 0.0722)), 1e-5);
+}

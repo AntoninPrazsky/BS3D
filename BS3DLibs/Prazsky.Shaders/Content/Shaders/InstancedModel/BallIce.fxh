@@ -215,7 +215,9 @@ float3 IceFracture(float3 direction, float footprint)
     return float3(crack, lerp(0.5, fracture.y, plateLimit), plateLimit);
 }
 
-float4 IcePS(PatternVertexShaderOutput input) : COLOR
+//The ice's whole shading, with the colour cue's switch (#737) passed as a literal, as PatternShade takes it:
+//IcePS below compiles to what it was before the cue existed.
+float4 IceShade(PatternVertexShaderOutput input, bool motifCue, ColourCuePaint cue)
 {
     float radius = max(length(input.ObjectPosition), 1e-5);
     float3 direction = input.ObjectPosition / radius;
@@ -247,10 +249,17 @@ float4 IcePS(PatternVertexShaderOutput input) : COLOR
 
     float3 primary = SrgbToLinear(PatternPrimaryColor);
 
+    //A painted cue (#737) is FROZEN INTO the ice: every term below that carries the ball's colour carries the dye
+    //instead - the body, the light through it, the cracks' and the plates' glints, the cold rim and the glow - a
+    //darker or a paler shade of that colour averaging to it, so the figure sits under the cracks and the frost,
+    //not on them. The ripple keeps the plain colour, as on every style: a landing reads the same on any ball.
+    float3 dyed = primary;
+    if (motifCue) dyed = ColourCueDye(ColourCueMotif(direction, footprint, cue), cue);
+
     //The plate's darkening half. Taken out of the BODY rather than off the finished pixel so it darkens
     //what the ball is made of and not the sky sitting on it - a plate is a thickness of ice with more
     //frozen water in front of it, not a shadow.
-    float3 body = primary * (1 - IcePlateShade * (1 - plate));
+    float3 body = dyed * (1 - IcePlateShade * (1 - plate));
 
     //A frosted surface is a mirror seen through a millimetre of scattering: the highlight is present but
     //broad, and the environment is picked up softly rather than sharply.
@@ -273,29 +282,29 @@ float4 IcePS(PatternVertexShaderOutput input) : COLOR
     float3 towardsKey = normalize(KeyLightPosition - input.WorldPosition);
     float through = pow(saturate(dot(-worldNormal, towardsKey)), 2);
 
-    shaded.rgb += through * TranslucencyStrength * DirLight0DiffuseColor * primary * occlusion;
+    shaded.rgb += through * TranslucencyStrength * DirLight0DiffuseColor * dyed * occlusion;
 
     //The cracks catch the light along their length: internal faces, so they BRIGHTEN where the vinyl's
     //welds darken. Cool-cast and following the ball's own colour rather than a fixed white, on the
     //argument MarbleVeinPale carries.
-    shaded.rgb += cracks * IceCrackGlow * IceCold * primary * occlusion;
+    shaded.rgb += cracks * IceCrackGlow * IceCold * dyed * occlusion;
 
     //The plate's brightening half, and the half that carries the style at play distance: it is a figure
     //the size of a PLATE, so it is still there when the thread across one has gone sub-pixel. Cool and
     //part white for the reason the rim below is - a plate of an 8-ball has to differ from the plate next
     //to it, and nothing scaled by that tint can.
-    shaded.rgb += plate * IcePlateContrast * IceCold * lerp(primary, 1.0, IcePlateWhite) * occlusion;
+    shaded.rgb += plate * IcePlateContrast * IceCold * lerp(dyed, 1.0, IcePlateWhite) * occlusion;
 
     //And the cold rim: a long path through scattering ice at the silhouette. Occluded, so a ball buried
     //in the pile does not outline itself.
     float3 eyeVector = normalize(EyePosition - input.WorldPosition);
     float rim = pow(1 - saturate(dot(worldNormal, eyeVector)), IceRimPower);
 
-    shaded.rgb += rim * IceRim * IceCold * lerp(primary, 1.0, 0.3) * occlusion;
+    shaded.rgb += rim * IceRim * IceCold * lerp(dyed, 1.0, 0.3) * occlusion;
 
     //Contract point 2, through BallEmission (#303): the resting glow follows the occlusion, the beat's
-    //swing punches through.
-    shaded.rgb += BallEmission(primary, input.WorldPosition, occlusion);
+    //swing punches through. In the dye where a cue is painted (#737): see WoolShade.
+    shaded.rgb += BallEmission(dyed, input.WorldPosition, occlusion);
 
     //Contract point 3, both meanings, PatternPS's arithmetic.
     [branch]
@@ -314,6 +323,11 @@ float4 IcePS(PatternVertexShaderOutput input) : COLOR
     shaded = ApplySeaSubmerge(shaded, input.WorldPosition);
 
     return ApplyKillPlaneFade(shaded, input.WorldPosition);
+}
+
+float4 IcePS(PatternVertexShaderOutput input) : COLOR
+{
+    return IceShade(input, false, (ColourCuePaint)0);
 }
 
 technique InstancedModelIce

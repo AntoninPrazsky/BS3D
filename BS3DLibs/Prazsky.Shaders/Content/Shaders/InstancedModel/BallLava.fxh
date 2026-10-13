@@ -180,7 +180,9 @@ static const float LavaHighlight = 0.35;
 static const float LavaEnvironment = 0.2;
 static const float LavaSmoothness = 0.2;
 
-float4 LavaPS(PatternVertexShaderOutput input) : COLOR
+//The lava's whole shading, with the colour cue's switch (#737) passed as a literal, as PatternShade takes it:
+//LavaPS below compiles to what it was before the cue existed.
+float4 LavaShade(PatternVertexShaderOutput input, bool motifCue, ColourCuePaint cue)
 {
     float radius = max(length(input.ObjectPosition), 1e-5);
     float3 direction = input.ObjectPosition / radius;
@@ -233,8 +235,22 @@ float4 LavaPS(PatternVertexShaderOutput input) : COLOR
     float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
     float3 primary = SrgbToLinear(PatternPrimaryColor);
 
+    //A painted cue (#737) is a COOLER or HOTTER patch of the flow: the seams and their heat halo burn at the figure
+    //ink's share of their brightness inside the figure and at the ground's outside, so the figure reads as a
+    //region where the molten network runs dimmer (or brighter, on the colours with a paler ink). A scale and not a
+    //dye, because the molten colour is the hue run towards incandescence, not the tint; the scales average to 1 over
+    //the ball. The crust takes the dye itself, which at its tint share is barely there.
+    float3 crustDye = primary;
+    float cueHeat = 1;
+
+    if (motifCue)
+    {
+        crustDye = ColourCueDye(ColourCueMotif(direction, footprint, cue), cue);
+        cueHeat = ColourCueScale(crustDye, primary);
+    }
+
     //Basalt: nearly black, keeping just enough of the tint that thirteen crusts are not one object.
-    float3 crust = primary * LavaCrustTint * LavaCrustDark + LavaCrustDark * (1 - LavaCrustTint);
+    float3 crust = crustDye * LavaCrustTint * LavaCrustDark + LavaCrustDark * (1 - LavaCrustTint);
 
     SurfaceSpecular surface;
     surface.Highlight = LavaHighlight;
@@ -284,7 +300,7 @@ float4 LavaPS(PatternVertexShaderOutput input) : COLOR
     //the seams ARE the breath here, and there is no resting half to split it from.
     float occlusion = SurfaceOcclusion(input.WorldPosition, worldNormal, input.OcclusionData);
 
-    float breath = lerp(1 - PulseDepth, 1, beat) * StillEmission;
+    float breath = lerp(1 - PulseDepth, 1, beat) * StillEmission * cueHeat;
 
     shaded.rgb += molten * seam * LavaGlow * emission * breath * occlusion;
 
@@ -309,6 +325,11 @@ float4 LavaPS(PatternVertexShaderOutput input) : COLOR
     shaded = ApplySeaSubmerge(shaded, input.WorldPosition);
 
     return ApplyKillPlaneFade(shaded, input.WorldPosition);
+}
+
+float4 LavaPS(PatternVertexShaderOutput input) : COLOR
+{
+    return LavaShade(input, false, (ColourCuePaint)0);
 }
 
 technique InstancedModelLava

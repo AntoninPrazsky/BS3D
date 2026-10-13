@@ -1,12 +1,14 @@
 //===================================================================================================
-//THE COLOUR CUE (#737), THE PROGRAMS. Three techniques - the vinyl, the wool and the marble with a colour's figure
-//PAINTED on - over the bodies those three styles already have (PatternShade, WoolShade, MarbleShade) and the
-//figures in BallColourCue.fxh. Switched on only by a caller that asks (the Testbed's and the Game's colourcue=
-//argument) and never by anything a player can reach: the owner picks one of the figure sets first.
+//THE COLOUR CUE (#737), THE PROGRAMS. One technique per ball style - each style's body (PatternShade, BubbleShade,
+//MarbleShade, WoolShade, MetalShade, IceShade, GemShade, PlasmaShade, LavaShade, PorcelainShade) with a colour's
+//figure PAINTED on, from the figures in BallColourCue.fxh. Every style has one, and InstancedModelRenderer refuses
+//to load an effect that lacks one, because the cue is on by default and a style without its program would draw
+//its balls in colour alone without anything failing.
 //
 //LAST IN THE EFFECT, and that is the point of a separate file: its uniforms land after everything else in the
 //constant buffer, so no existing program's layout moves, and the shipped techniques - their switch passed as a
-//literal false - compile to the code they had before the cue existed.
+//literal false - compile to the code they had before the cue existed (they still draw where the cue is off:
+//colourcue=none, the special kinds, the Potato path's own effects never reach here).
 //===================================================================================================
 
 //This draw's figure and its two inks, per draw like PatternPrimaryColor, because a bucket is one colour.
@@ -47,6 +49,41 @@ float4 MarbleMotifPS(PatternVertexShaderOutput input) : COLOR
     return MarbleShade(input, true, ColourCueOfThisDraw());
 }
 
+float4 BubbleMotifPS(PatternVertexShaderOutput input) : COLOR
+{
+    return BubbleShade(input, true, ColourCueOfThisDraw());
+}
+
+float4 MetalMotifPS(PatternVertexShaderOutput input) : COLOR
+{
+    return MetalShade(input, true, ColourCueOfThisDraw());
+}
+
+float4 IceMotifPS(PatternVertexShaderOutput input) : COLOR
+{
+    return IceShade(input, true, ColourCueOfThisDraw());
+}
+
+float4 GemMotifPS(PatternVertexShaderOutput input) : COLOR
+{
+    return GemShade(input, true, ColourCueOfThisDraw());
+}
+
+float4 PlasmaMotifPS(PatternVertexShaderOutput input) : COLOR
+{
+    return PlasmaShade(input, true, ColourCueOfThisDraw());
+}
+
+float4 LavaMotifPS(PatternVertexShaderOutput input) : COLOR
+{
+    return LavaShade(input, true, ColourCueOfThisDraw());
+}
+
+float4 PorcelainMotifPS(PatternVertexShaderOutput input) : COLOR
+{
+    return PorcelainShade(input, true, ColourCueOfThisDraw());
+}
+
 technique InstancedModelPatternMotif
 {
     pass P0
@@ -71,5 +108,68 @@ technique InstancedModelMarbleMotif
     {
         VertexShader = compile VS_SHADERMODEL PatternVS();
         PixelShader = compile PS_SHADERMODEL MarbleMotifPS();
+    }
+};
+
+technique InstancedModelBubbleMotif
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL PatternVS();
+        PixelShader = compile PS_SHADERMODEL BubbleMotifPS();
+    }
+};
+
+technique InstancedModelMetalMotif
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL PatternVS();
+        PixelShader = compile PS_SHADERMODEL MetalMotifPS();
+    }
+};
+
+technique InstancedModelIceMotif
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL PatternVS();
+        PixelShader = compile PS_SHADERMODEL IceMotifPS();
+    }
+};
+
+technique InstancedModelGemMotif
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL PatternVS();
+        PixelShader = compile PS_SHADERMODEL GemMotifPS();
+    }
+};
+
+technique InstancedModelPlasmaMotif
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL PatternVS();
+        PixelShader = compile PS_SHADERMODEL PlasmaMotifPS();
+    }
+};
+
+technique InstancedModelLavaMotif
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL PatternVS();
+        PixelShader = compile PS_SHADERMODEL LavaMotifPS();
+    }
+};
+
+technique InstancedModelPorcelainMotif
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL PatternVS();
+        PixelShader = compile PS_SHADERMODEL PorcelainMotifPS();
     }
 };
