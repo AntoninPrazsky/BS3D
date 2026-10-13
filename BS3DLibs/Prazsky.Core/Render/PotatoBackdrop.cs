@@ -22,9 +22,12 @@ namespace Prazsky.Core.Render
         public int PrimitiveCount { get; }
         public BoundingSphere BoundingSphere { get; }
 
-        public PotatoTerrainMesh(GraphicsDevice graphicsDevice, int cells, float extent, float holeRadius, Func<float, float, float> height)
+        /// <param name="keep">Which triangles to keep, by their three corners, or null for all of them: the mountains are
+        /// two grids over one field, the snow's triangles and the rock's (#829).</param>
+        public PotatoTerrainMesh(GraphicsDevice graphicsDevice, int cells, float extent, float holeRadius, Func<float, float, float> height,
+            Func<Vector3, Vector3, Vector3, bool> keep = null)
         {
-            (VertexPositionNormalTexture[] vertices, int[] indices) = Build(cells, extent, holeRadius, height);
+            (VertexPositionNormalTexture[] vertices, int[] indices) = Build(cells, extent, holeRadius, height, keep);
 
             PrimitiveCount = indices.Length / 3;
 
@@ -38,7 +41,8 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>The grid's geometry, with no device: <c>PotatoBackdropTests</c> hold the hole and the winding.</summary>
-        public static (VertexPositionNormalTexture[] Vertices, int[] Indices) Build(int cells, float extent, float holeRadius, Func<float, float, float> height)
+        public static (VertexPositionNormalTexture[] Vertices, int[] Indices) Build(int cells, float extent, float holeRadius, Func<float, float, float> height,
+            Func<Vector3, Vector3, Vector3, bool> keep = null)
         {
             if (cells < 2) throw new ArgumentOutOfRangeException(nameof(cells));
 
@@ -71,14 +75,15 @@ namespace Prazsky.Core.Render
 
                     //Clockwise seen from above (+Y is outward): (b - a) x (c - a) must point down. A triangle whose
                     //three corners are all inside the hole is left out
-                    Add(vertices, indices, a, c, b, hole2);
-                    Add(vertices, indices, b, c, d, hole2);
+                    Add(vertices, indices, a, c, b, hole2, keep);
+                    Add(vertices, indices, b, c, d, hole2, keep);
                 }
 
             return (vertices, indices.ToArray());
         }
 
-        private static void Add(VertexPositionNormalTexture[] vertices, List<int> indices, int a, int b, int c, float hole2)
+        private static void Add(VertexPositionNormalTexture[] vertices, List<int> indices, int a, int b, int c, float hole2,
+            Func<Vector3, Vector3, Vector3, bool> keep)
         {
             bool inside = true;
             foreach (int corner in new[] { a, b, c })
@@ -87,10 +92,85 @@ namespace Prazsky.Core.Render
                 if (p.X * p.X + p.Z * p.Z > hole2) { inside = false; break; }
             }
             if (inside) return;
+            if (keep != null && !keep(vertices[a].Position, vertices[b].Position, vertices[c].Position)) return;
 
             Vector3 cross = Vector3.Cross(vertices[b].Position - vertices[a].Position, vertices[c].Position - vertices[a].Position);
             if (cross.Y > 0f) (b, c) = (c, b);
 
+            indices.Add(a);
+            indices.Add(b);
+            indices.Add(c);
+        }
+
+        public void Dispose()
+        {
+            VertexBuffer?.Dispose();
+            VertexBuffer = null;
+            IndexBuffer?.Dispose();
+            IndexBuffer = null;
+        }
+    }
+
+    /// <summary>
+    /// A ribbon on the Potato path (#829): a strip of quads between two rails of points, its normals up, wound clockwise
+    /// seen from above like the grid. The volcano's lava rivers, which the desktop paints into its terrain's pixels.
+    /// </summary>
+    public sealed class PotatoStripMesh : IProceduralMesh, IDisposable
+    {
+        public VertexBuffer VertexBuffer { get; private set; }
+        public IndexBuffer IndexBuffer { get; private set; }
+        public int PrimitiveCount { get; }
+        public BoundingSphere BoundingSphere { get; }
+
+        public PotatoStripMesh(GraphicsDevice graphicsDevice, Vector3[] left, Vector3[] right)
+        {
+            (VertexPositionNormalTexture[] vertices, int[] indices) = Build(left, right);
+
+            PrimitiveCount = indices.Length / 3;
+
+            VertexBuffer = new VertexBuffer(graphicsDevice, VertexPositionNormalTexture.VertexDeclaration, vertices.Length, BufferUsage.WriteOnly);
+            VertexBuffer.SetData(vertices);
+
+            IndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.ThirtyTwoBits, indices.Length, BufferUsage.WriteOnly);
+            IndexBuffer.SetData(indices);
+
+            Vector3 centre = Vector3.Zero;
+            foreach (VertexPositionNormalTexture v in vertices) centre += v.Position;
+            centre /= vertices.Length;
+            float radius = 0f;
+            foreach (VertexPositionNormalTexture v in vertices) radius = MathF.Max(radius, Vector3.Distance(centre, v.Position));
+            BoundingSphere = new BoundingSphere(centre, radius);
+        }
+
+        /// <summary>The strip's geometry, with no device: two rails of the same length, a quad between each pair of steps.</summary>
+        public static (VertexPositionNormalTexture[] Vertices, int[] Indices) Build(Vector3[] left, Vector3[] right)
+        {
+            if (left.Length != right.Length || left.Length < 2) throw new ArgumentException("two rails of the same length, two steps at least");
+
+            int steps = left.Length;
+            var vertices = new VertexPositionNormalTexture[steps * 2];
+            for (int i = 0; i < steps; i++)
+            {
+                float t = (float)i / (steps - 1);
+                vertices[i * 2] = new VertexPositionNormalTexture(left[i], Vector3.Up, new Vector2(0f, t));
+                vertices[i * 2 + 1] = new VertexPositionNormalTexture(right[i], Vector3.Up, new Vector2(1f, t));
+            }
+
+            var indices = new List<int>((steps - 1) * 6);
+            for (int i = 0; i < steps - 1; i++)
+            {
+                int a = i * 2, b = a + 1, c = a + 2, d = a + 3;
+                AddWound(vertices, indices, a, c, b);
+                AddWound(vertices, indices, b, c, d);
+            }
+
+            return (vertices, indices.ToArray());
+        }
+
+        private static void AddWound(VertexPositionNormalTexture[] vertices, List<int> indices, int a, int b, int c)
+        {
+            Vector3 cross = Vector3.Cross(vertices[b].Position - vertices[a].Position, vertices[c].Position - vertices[a].Position);
+            if (cross.Y > 0f) (b, c) = (c, b);
             indices.Add(a);
             indices.Add(b);
             indices.Add(c);
@@ -116,7 +196,7 @@ namespace Prazsky.Core.Render
     public sealed class PotatoBackdrop : IDisposable
     {
         private readonly List<InstancedModelRenderer> _renderers = new();
-        private readonly List<(InstancedModelRenderer Renderer, ModelInstance[] Instances, bool TwoSided)> _draws = new();
+        private readonly List<(InstancedModelRenderer Renderer, ModelInstance[] Instances, bool TwoSided, Vector3? Glow)> _draws = new();
         private readonly List<IDisposable> _owned = new();
         private readonly GraphicsDevice _device;
 
@@ -141,17 +221,131 @@ namespace Prazsky.Core.Render
         /// <see cref="SavannaScatter"/>'s trees, scrub, mounds, rocks and logs as the desktop's Low tier plants them. The
         /// desert: its dunes (<see cref="TerrainMirror.Desert"/>) in the sand's two colours, nothing planted. The meadow:
         /// its ground (<see cref="TerrainMirror.Meadow"/>, the pond a dip) in its grass, and <see cref="MeadowScatter"/>'s
-        /// oaks, the fence and the rest.
+        /// oaks, the fence and the rest. The mountains: the range of <see cref="TerrainMirror.Mountain"/> as two grids
+        /// over one field, snow where the desktop's rule lays it and rock where not. The Moon: the plain of
+        /// <see cref="TerrainMirror.Moon"/> in the regolith's grey and <see cref="MoonPlanting"/>'s boulders. The volcano: the
+        /// cone of <see cref="TerrainMirror.Volcano"/> in its basalt, with <see cref="VolcanoLava"/>'s rivers as glowing
+        /// ribbons and the lake in its crater - the rivers the lamps of #795 already ride.
         /// </summary>
-        public static PotatoBackdrop For(SceneKind scene, GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius)
+        /// <param name="seedOffset">The scene's roll for the launch, the desktop's <c>SceneRenderer</c> seed: the Moon's
+        /// boulders and the volcano's rivers fall where the desktop's would, and the rivers where the Potato lamps run.</param>
+        public static PotatoBackdrop For(SceneKind scene, GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius, int seedOffset)
         {
             return scene switch
             {
                 SceneKind.Savanna => Savanna(graphicsDevice, potatoEffect, holeRadius),
                 SceneKind.Desert => Desert(graphicsDevice, potatoEffect, holeRadius),
                 SceneKind.Meadow => Meadow(graphicsDevice, potatoEffect, holeRadius),
+                SceneKind.Mountain => Mountain(graphicsDevice, potatoEffect, holeRadius),
+                SceneKind.Moon => Moon(graphicsDevice, potatoEffect, holeRadius, seedOffset),
+                SceneKind.Volcano => Volcano(graphicsDevice, potatoEffect, holeRadius, seedOffset),
                 _ => null,
             };
+        }
+
+        //The grids of the scenes whose relief is the backdrop: finer than the open ground's, and the mountains' out to
+        //where their haze would be (HorizonHazeDistance 500), the volcano's to the cone's far foot (ConeCenter.Y -
+        //ConeRadius is -465), the Moon's past the highland crest (310) where its curvature has closed the horizon
+        private const int RELIEF_CELLS = 96;
+        private const float MOUNTAIN_EXTENT = 600f, VOLCANO_EXTENT = 560f, MOON_EXTENT = 480f;
+
+        private static PotatoBackdrop Mountain(GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius)
+        {
+            var config = new MountainSceneConfig();
+            float Height(float x, float z) => TerrainMirror.Mountain(x, z, config);
+
+            //Mountain.fx's rule, at the middle of each of its bands: snow lies where the face is gentler than the middle of
+            //RockSlope..SnowSlope and either above the middle of the snowline or on the clearing's floor (#504: the basin
+            //is snow), rock everywhere else. A triangle is one or the other; the desktop's edge is sharp too
+            float slope = (config.RockSlope + config.SnowSlope) * 0.5f;
+            float snowline = (config.SnowlineLow + config.SnowlineHigh) * 0.5f;
+            float floor = config.ClearingRadius + config.ClearingTransition * 0.3f;
+            bool Snowy(Vector3 a, Vector3 b, Vector3 c)
+            {
+                Vector3 normal = Vector3.Normalize(Vector3.Cross(b - a, c - a));
+                if (MathF.Abs(normal.Y) < slope) return false;
+                Vector3 centre = (a + b + c) / 3f;
+                return centre.Y > snowline || MathF.Sqrt(centre.X * centre.X + centre.Z * centre.Z) < floor;
+            }
+
+            var backdrop = new PotatoBackdrop(graphicsDevice);
+            Vector3 rock = Vector3.Lerp(config.RockColor.ToVector3(), config.RockColorLight.ToVector3(), 0.5f);
+            backdrop.AddGround(graphicsDevice, potatoEffect, new PotatoTerrainMesh(graphicsDevice, RELIEF_CELLS, MOUNTAIN_EXTENT, holeRadius, Height, Snowy), config.SnowColor.ToVector3());
+            backdrop.AddGround(graphicsDevice, potatoEffect, new PotatoTerrainMesh(graphicsDevice, RELIEF_CELLS, MOUNTAIN_EXTENT, holeRadius, Height, (a, b, c) => !Snowy(a, b, c)), rock);
+
+            return backdrop;
+        }
+
+        //MoonBackdrop's PLANTING_SEED: the same boulders in the same places as the desktop's for a launch
+        private const int MOON_PLANTING_SEED = 8125;
+
+        private static PotatoBackdrop Moon(GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius, int seedOffset)
+        {
+            MoonTerrainConfig terrain = new MoonSceneConfig().Terrain;
+            float Height(float x, float z) => TerrainMirror.Moon(x, z, terrain);
+
+            var backdrop = new PotatoBackdrop(graphicsDevice);
+            Vector3 regolith = Vector3.Lerp(terrain.RegolithColor.ToVector3(), terrain.RegolithColorPale.ToVector3(), 0.3f);
+            backdrop.AddGround(graphicsDevice, potatoEffect, new PotatoTerrainMesh(graphicsDevice, RELIEF_CELLS, MOON_EXTENT, holeRadius, Height), regolith);
+
+            //The boulders stand on the ground as THIS grid draws it (MoonPlanting's height), so a rim block sits on the
+            //drawn rim: the grid here is a vertex every 10 units, the desktop's every 3.34
+            var planting = new MoonPlanting(graphicsDevice,
+                (x, z) => TerrainMirror.OnGrid(Height, RELIEF_CELLS + 1, MOON_EXTENT * 2f, x, z), terrain, MOON_PLANTING_SEED + seedOffset);
+            backdrop._owned.Add(planting);
+            //The weathered boulders are 480 vertices each and 800 of them stand on the plain (384k a frame, +0.7 ms); a
+            //rounded boulder is its own ellipsoid. The angular blocks (60) stay themselves
+            backdrop.AddScatter(graphicsDevice, potatoEffect, planting.Buckets, blobOver: 400);
+
+            return backdrop;
+        }
+
+        private const int RIVER_STEPS = 28;
+
+        private static PotatoBackdrop Volcano(GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius, int seedOffset)
+        {
+            var config = new VolcanoSceneConfig();
+            float Height(float x, float z) => TerrainMirror.Volcano(x, z, config);
+
+            var backdrop = new PotatoBackdrop(graphicsDevice);
+            Vector3 basalt = Vector3.Lerp(config.RockColor.ToVector3(), config.RockColorLight.ToVector3(), 0.5f);
+            backdrop.AddGround(graphicsDevice, potatoEffect, new PotatoTerrainMesh(graphicsDevice, RELIEF_CELLS, VOLCANO_EXTENT, holeRadius, Height), basalt);
+
+            //The rivers as the lamps' own solver lays them (BS3DGame's SceneLights.Volcano is a VolcanoLava on the same
+            //seed): a ribbon from the crater's rim down the flank, a hand's breadth over the ground, radiating the crust's
+            //cool lava; the lake in the crater a flat lens of the hot. Both are the colours Volcano.fx paints with, linear
+            var lava = new VolcanoLava(config, seedOffset);
+            Vector2 cone = config.ConeCenter.ToVector2();
+            Vector3 cool = ColorSpace.LinearToSrgb(config.LavaCool.ToVector3());
+            Vector3 hot = ColorSpace.LinearToSrgb(Vector3.Clamp(config.LavaCool.ToVector3() * 2f, Vector3.Zero, Vector3.One));
+            Vector3 crust = ColorSpace.LinearToSrgb(config.CrustColor.ToVector3());
+
+            for (int r = 0; r < lava.RiverCount; r++)
+            {
+                float bearing = lava.RiverBearing[r];
+                Vector2 along = new(MathF.Cos(bearing), MathF.Sin(bearing));
+                Vector2 across = new Vector2(-along.Y, along.X) * (config.RiverWidth * 0.5f);
+                var left = new Vector3[RIVER_STEPS + 1];
+                var right = new Vector3[RIVER_STEPS + 1];
+                for (int i = 0; i <= RIVER_STEPS; i++)
+                {
+                    float d = MathHelper.Lerp(config.CraterRadius * 0.9f, lava.RiverReach[r], (float)i / RIVER_STEPS);
+                    Vector2 centre = cone + along * d;
+                    //Narrowing towards its front, as a flow does
+                    Vector2 half = across * MathHelper.Lerp(1f, 0.45f, (float)i / RIVER_STEPS);
+                    Vector2 l = centre - half, rr = centre + half;
+                    left[i] = new Vector3(l.X, Height(l.X, l.Y) + 0.6f, l.Y);
+                    right[i] = new Vector3(rr.X, Height(rr.X, rr.Y) + 0.6f, rr.Y);
+                }
+                backdrop.AddGlow(graphicsDevice, potatoEffect, backdrop.Own(new PotatoStripMesh(graphicsDevice, left, right)), Matrix.Identity, crust, cool, $"river {r}");
+            }
+
+            float floor = Height(cone.X, cone.Y);
+            float lake = config.CraterRadius * 0.7f;
+            SphereMesh lens = backdrop.Own(new SphereMesh(graphicsDevice, 1f, PROXY_SLICES, PROXY_STACKS));
+            backdrop.AddGlow(graphicsDevice, potatoEffect, lens, Matrix.CreateScale(lake, 1.5f, lake) * Matrix.CreateTranslation(cone.X, floor + 1f, cone.Y), crust, hot, "lake");
+
+            return backdrop;
         }
 
         //The grid over an open ground: the savanna's HorizonHazeDistance (520) is where the desktop's ground fades into
@@ -212,19 +406,37 @@ namespace Prazsky.Core.Render
             return backdrop;
         }
 
+        /// <param name="colour">The ground's colour as the scene's config gives it, linear; encoded here like a bucket's,
+        /// since the renderer's material is sRGB and decoded (the first three grounds were handed linear and came out dark
+        /// and, under the dome's reflection, mauve)</param>
         private void AddGround(GraphicsDevice graphicsDevice, Effect potatoEffect, PotatoTerrainMesh mesh, Vector3 colour)
         {
             _owned.Add(mesh);
 
-            var renderer = new InstancedModelRenderer(graphicsDevice, mesh, colour, potatoEffect) { PotatoVertexLit = true };
+            //Matte: no dome in it. Schlick's rise reaches the whole dome at a grazing angle whatever the reflectance, and a
+            //ground seen from a gun's height is grazing from a few dozen units out - the far rim of the first grids was a
+            //white band of sky where the desktop has haze, and the desert's dunes the dome's mauve
+            var renderer = new InstancedModelRenderer(graphicsDevice, mesh, ColorSpace.LinearToSrgb(colour), potatoEffect) { PotatoVertexLit = true, SpecularAmbientStrength = 0f };
             _owned.Add(renderer);
             _renderers.Add(renderer);
-            _draws.Add((renderer, new[] { new ModelInstance(Matrix.Identity, new Vector4(0f, 0f, 0f, 1f)) }, false));
+            _draws.Add((renderer, new[] { new ModelInstance(Matrix.Identity, new Vector4(0f, 0f, 0f, 1f)) }, false, null));
             VertexCount += mesh.PrimitiveCount * 3;
             _census.Add($"ground {mesh.PrimitiveCount * 3}");
         }
 
-        private void AddScatter(GraphicsDevice graphicsDevice, Effect potatoEffect, ScatterBucket[] buckets)
+        /// <summary>A thing that radiates its own light (the lava): its casing <paramref name="colour"/> and its <paramref name="glow"/>, both sRGB, and no dome on it either.</summary>
+        private void AddGlow(GraphicsDevice graphicsDevice, Effect potatoEffect, IProceduralMesh mesh, Matrix world, Vector3 colour, Vector3 glow, string what)
+        {
+            var renderer = new InstancedModelRenderer(graphicsDevice, mesh, colour, potatoEffect) { PotatoVertexLit = true, SpecularAmbientStrength = 0f };
+            _owned.Add(renderer);
+            _renderers.Add(renderer);
+            _draws.Add((renderer, new[] { new ModelInstance(world, new Vector4(0f, 0f, 0f, 1f)) }, false, glow));
+            VertexCount += mesh.PrimitiveCount * 3;
+            _census.Add($"{what} {mesh.PrimitiveCount * 3}");
+        }
+
+        /// <param name="blobOver">A mesh with more vertices than this is drawn as a blob of its bounding sphere.</param>
+        private void AddScatter(GraphicsDevice graphicsDevice, Effect potatoEffect, ScatterBucket[] buckets, int blobOver = PROXY_OVER_VERTICES)
         {
             SphereMesh proxy = null;
 
@@ -234,7 +446,7 @@ namespace Prazsky.Core.Render
                 if (bucket.DetailOnly || bucket.Count == 0) continue;
 
                 bool leaves = bucket.Leaves > 0f;
-                bool blob = bucket.Mesh.PrimitiveCount * 3 > PROXY_OVER_VERTICES;
+                bool blob = bucket.Mesh.PrimitiveCount * 3 > blobOver;
                 IProceduralMesh mesh = bucket.Mesh;
 
                 //A bucket of one wide, flat thing is a patch on the ground (the bare earth, the dry grass round the arena):
@@ -250,16 +462,21 @@ namespace Prazsky.Core.Render
 
                 //The bucket's colour is linear (Acacia.fx reads it so); a renderer's material colour is authored sRGB and
                 //decoded in DrawPotato, so it is encoded here, or a dark green wood came out black
-                var renderer = new InstancedModelRenderer(graphicsDevice, mesh, ColorSpace.LinearToSrgb(bucket.Diffuse), potatoEffect) { PotatoVertexLit = true };
+                var renderer = new InstancedModelRenderer(graphicsDevice, mesh, ColorSpace.LinearToSrgb(bucket.Diffuse), potatoEffect) { PotatoVertexLit = true, SpecularAmbientStrength = 0f };
                 if (leaves) renderer.TwoSidedNormals = 1f;
 
                 _owned.Add(renderer);
                 _renderers.Add(renderer);
 
+                //An instance's Custom is the Potato effect's occluder (xyz) and openness (w, 1 = open), as every other draw
+                //passes it; a planting writes its own figures there for the desktop's plant pass (a dryness, a jitter, a
+                //stand) and its w is 0, which the effect read as a buried thing: 24 % of its light and none of the sky. The
+                //first savanna's trees were that dark, and the Moon's boulders came out black
+                var open = new Vector4(0f, 0f, 0f, 1f);
                 var instances = new ModelInstance[bucket.Placed.Count];
                 for (int i = 0; i < instances.Length; i++)
                 {
-                    instances[i] = bucket.Placed[i];
+                    instances[i] = new ModelInstance(bucket.Placed[i].World, open);
 
                     //The blob stands where the mesh's bounding sphere stands in the instance, shaped by what the bucket
                     //is: a wood (bark) is a trunk, tall and thin; a crown, a bush or a mound is wider than tall. It keeps
@@ -274,11 +491,11 @@ namespace Prazsky.Core.Render
                             : new Vector3(bounds.Radius * 0.75f, bounds.Radius * 0.5f, bounds.Radius * 0.75f);
                         Vector3 centre = trunk ? new Vector3(0f, bounds.Center.Y, 0f) : bounds.Center;
                         Matrix local = Matrix.CreateScale(size) * Matrix.CreateTranslation(centre);
-                        instances[i] = new ModelInstance(local * bucket.Placed[i].World, bucket.Placed[i].Custom);
+                        instances[i] = new ModelInstance(local * bucket.Placed[i].World, open);
                     }
                 }
 
-                _draws.Add((renderer, instances, leaves));
+                _draws.Add((renderer, instances, leaves, null));
                 VertexCount += mesh.PrimitiveCount * 3 * instances.Length;
                 BoundingSphere census = bucket.Mesh.BoundingSphere;
                 _census.Add($"{(blob ? "blob" : leaves ? "leaves" : "solid")} {instances.Length}x{mesh.PrimitiveCount * 3} {bucket.Mesh.GetType().Name} r{census.Radius:F1} c{census.Center.Y:F1} rgb({bucket.Diffuse.X:F2},{bucket.Diffuse.Y:F2},{bucket.Diffuse.Z:F2}) bark{bucket.Bark:F1} leaves{bucket.Leaves:F1}");
@@ -291,10 +508,18 @@ namespace Prazsky.Core.Render
             return disposable;
         }
 
+        //The backdrop's own params: the scene's lights and ambient, a specular too small to glint (the renderer takes a
+        //non-zero one as an override; the island's material is the scene's and the backdrop is matte) and the draw's
+        //emission. Filled from the scene's every draw, never allocated per frame
+        private readonly BasicEffectParams _drawParams = new(Vector3.Zero, Vector3.Zero, 1f, Vector3.Zero);
+        private static readonly Vector3 MATTE_SPECULAR = new(0.002f);
+
         /// <summary>
-        /// The whole backdrop, opaque and depth-written, under the scene's flat ambient as the island is drawn: the
-        /// ground first, then the scatter bucket by bucket. The leaf cards are one-sided sheets seen from both sides
-        /// (#610), so their draws cull nothing; everything else is a wound solid.
+        /// The whole backdrop, opaque and depth-written, under the scene's lights as the island is drawn but matte: no
+        /// glint of the key light and (the renderers' own setting) no dome in it, since the first grids' far rim was a
+        /// white band of reflected sky and the trees shone. The ground first, then the scatter bucket by bucket, then the
+        /// glows with their emission. The leaf cards are one-sided sheets seen from both sides (#610), so their draws
+        /// cull nothing; everything else is a wound solid.
         /// </summary>
         public void Draw(ICamera camera, BasicEffectParams sceneParams)
         {
@@ -303,10 +528,20 @@ namespace Prazsky.Core.Render
             device.BlendState = BlendState.Opaque;
             device.DepthStencilState = DepthStencilState.Default;
 
-            foreach ((InstancedModelRenderer renderer, ModelInstance[] instances, bool twoSided) in _draws)
+            BasicEffectParams effectParams = _drawParams;
+            effectParams.AmbientLightColor = sceneParams?.AmbientLightColor ?? Vector3.Zero;
+            effectParams.SpecularColor = MATTE_SPECULAR;
+            effectParams.SpecularPower = 8f;
+            effectParams.DirectionalLight0 = sceneParams?.DirectionalLight0;
+            effectParams.DirectionalLight1 = sceneParams?.DirectionalLight1;
+            effectParams.DirectionalLight2 = sceneParams?.DirectionalLight2;
+            effectParams.Fog = sceneParams?.Fog;
+
+            foreach ((InstancedModelRenderer renderer, ModelInstance[] instances, bool twoSided, Vector3? glow) in _draws)
             {
                 device.RasterizerState = twoSided ? RasterizerState.CullNone : RasterizerState.CullCounterClockwise;
-                renderer.Draw(camera, instances, instances.Length, sceneParams, null);
+                effectParams.EmissiveColor = glow ?? Vector3.Zero;
+                renderer.Draw(camera, instances, instances.Length, effectParams, null);
             }
 
             device.RasterizerState = raster;

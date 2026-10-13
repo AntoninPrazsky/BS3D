@@ -35,6 +35,44 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void AFilterSplitsTheGridWithoutLosingOrDoublingATriangle()
+        {
+            //The mountains' snow and rock: two grids over one field, every triangle in exactly one of them
+            static bool Steep(Vector3 a, Vector3 b, Vector3 c) => MathF.Abs(Vector3.Normalize(Vector3.Cross(b - a, c - a)).Y) < 0.98f;
+
+            (_, int[] all) = PotatoTerrainMesh.Build(16, 80f, 24f, Bowl);
+            (_, int[] steep) = PotatoTerrainMesh.Build(16, 80f, 24f, Bowl, Steep);
+            (_, int[] flat) = PotatoTerrainMesh.Build(16, 80f, 24f, Bowl, (a, b, c) => !Steep(a, b, c));
+
+            Assert.True(steep.Length > 0 && flat.Length > 0, "a bowl has both");
+            Assert.Equal(all.Length, steep.Length + flat.Length);
+        }
+
+        [Fact]
+        public void TheStripIsAQuadAStepAndIsWoundClockwiseFromAbove()
+        {
+            var left = new Vector3[5];
+            var right = new Vector3[5];
+            for (int i = 0; i < 5; i++)
+            {
+                left[i] = new Vector3(-1f, 0.1f * i, i * 3f);
+                right[i] = new Vector3(1f, 0.1f * i, i * 3f);
+            }
+
+            (VertexPositionNormalTexture[] vertices, int[] indices) = PotatoStripMesh.Build(left, right);
+
+            Assert.Equal(10, vertices.Length);
+            Assert.Equal(4 * 6, indices.Length);
+            for (int i = 0; i < indices.Length; i += 3)
+            {
+                Vector3 a = vertices[indices[i]].Position, b = vertices[indices[i + 1]].Position, c = vertices[indices[i + 2]].Position;
+                Assert.True(Vector3.Cross(b - a, c - a).Y < 0f, $"triangle {i / 3} is wound counter-clockwise seen from above");
+            }
+
+            Assert.Throws<ArgumentException>(() => PotatoStripMesh.Build(left, new Vector3[3]));
+        }
+
+        [Fact]
         public void TheNormalsFollowTheHeightAndPointUp()
         {
             (VertexPositionNormalTexture[] vertices, _) = PotatoTerrainMesh.Build(8, 40f, 0f, Bowl);
