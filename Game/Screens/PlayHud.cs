@@ -3006,26 +3006,36 @@ namespace BS3D.Screens
         /// The hint and nothing else, into the overlay batch: the chapter's tour hides the whole HUD (#693), and the
         /// hint is the one line of it that belongs over the tour (#699).
         /// </summary>
-        internal void DrawSkipHintAlone(Tutorial tutorial)
+        internal void DrawSkipHintAlone(Tutorial tutorial) => DrawSkipHintAlone(tutorial.OnGamepad, tutorial.SkipGlyph);
+
+        /// <summary>
+        /// The same hint over a takeover no session owns (#861: the Scene page's replayed tour), in the hand the menus last
+        /// saw: the very line the chapter's own flythrough shows, so the two read as one thing.
+        /// </summary>
+        internal void DrawSkipHintAlone(bool onGamepad) => DrawSkipHintAlone(onGamepad, Tutorial.SkipGlyphFor(onGamepad));
+
+        private void DrawSkipHintAlone(bool onGamepad, string glyph)
         {
             _game.EnsureHudFonts();
 
             SpriteBatch batch = _game.OverlayBatch;
             batch.Begin();
-            DrawSkipHint(tutorial, _game.GraphicsDevice.Viewport, Scaled(HUD_MARGIN));
+            DrawSkipHint(onGamepad, glyph, _game.GraphicsDevice.Viewport, Scaled(HUD_MARGIN));
             batch.End();
         }
 
         //Bottom centre, under the action and clear of the queue and the score: a glyph and a short line in the
         //tutorial's detail font, faded by the hint's own presence. The glyph is the fire button's, since that is
         //what skips, in whichever device the tutorial last saw.
-        private void DrawSkipHint(Tutorial tutorial, Viewport viewport, int margin)
+        private void DrawSkipHint(Tutorial tutorial, Viewport viewport, int margin) =>
+            DrawSkipHint(tutorial.OnGamepad, tutorial.SkipGlyph, viewport, margin);
+
+        private void DrawSkipHint(bool onGamepad, string glyph, Viewport viewport, int margin)
         {
             float alpha = _skipHintAlpha;
             if (alpha <= 0.005f) return;
 
-            string glyph = tutorial.SkipGlyph;
-            string caption = tutorial.OnGamepad ? SKIP_HINT_PAD : SKIP_HINT_MOUSE;
+            string caption = onGamepad ? SKIP_HINT_PAD : SKIP_HINT_MOUSE;
 
             SpriteFontBase glyphFont = _game.HudFontPrompt;
             SpriteFontBase captionFont = _game.HudFontTutorialDetail;

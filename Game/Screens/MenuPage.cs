@@ -233,6 +233,26 @@ namespace BS3D.Screens
         internal virtual void TypingButtons(bool keep, bool drop) { }
 
         /// <summary>
+        /// Whether the page has stepped out of the way of something playing over the frame (#861: the Scene page while the
+        /// scene's own tour flies). The host then draws none of it — the focus prompt (#799) included, which the host draws
+        /// itself and which hiding the page's plate left standing — feeds Myra nothing, and hands the page no walk, no Enter,
+        /// no wheel and no Back: a press of a skip key goes to <see cref="SkipPressed"/>, so the press that skips cannot also
+        /// choose the entry the cursor stood on. The display keys still work. A click is disarmed for the page's return,
+        /// as for a page that has just arrived.
+        /// </summary>
+        internal virtual bool StandsAside => false;
+
+        /// <summary>
+        /// A skip key while the page <see cref="StandsAside"/> (#861): Space, Enter, Escape, the left button, or the pad's A,
+        /// B or right trigger — the takeover's own skips (Space, the click, A and the trigger) and the menu's yes and back.
+        /// </summary>
+        internal virtual void SkipPressed() { }
+
+        /// <summary>What the page draws instead of itself while it <see cref="StandsAside"/> (#861), into the host's overlay
+        /// batch after the frame: the Scene page's skip hint.</summary>
+        internal virtual void DrawAside() { }
+
+        /// <summary>
         /// The brush a <b>resting</b> entry on this page is painted with — the one the host's
         /// <c>ApplyNavHighlight</c> rests every unfocused entry to. It has to be asked here rather than assumed,
         /// because that highlight repaints each entry's background every pass and would otherwise paint the one

@@ -2052,6 +2052,18 @@ namespace BS3D
         private bool IsPadEdge(GamePadState pad, Buttons button) =>
             pad.IsButtonDown(button) && !_previousPad.IsButtonDown(button);
 
+        //The left button as the menu frame last saw it, for a click's edge while a page stands aside (#861) - Myra reads
+        //clicks itself, but it is fed nothing then
+        private bool _menuMouseWasDown;
+
+        //How far the right trigger is pulled before it counts as a press in the menus (#861: it skips a tour, as it skips
+        //the chapter's own flythrough in play)
+        private const float NAV_TRIGGER_PULL = 0.5f;
+
+        //A pointer over the game's own client area: Mouse.GetState reads positions over the title bar and other windows too
+        private bool IsInsideViewport(MouseState mouse) =>
+            mouse.X >= 0 && mouse.X < GraphicsDevice.Viewport.Width && mouse.Y >= 0 && mouse.Y < GraphicsDevice.Viewport.Height;
+
         /// <summary>
         /// One frame of the birthday on the front end (see <see cref="BIRTHDAY_DANCE_EVERY"/>): nothing unless the main
         /// menu is the page on top, the one place the title stands.
@@ -2790,6 +2802,31 @@ namespace BS3D
 
             //Before anything acts on them, so a press that changes the page is drawn with the hand that made it (#799)
             NotePromptHand(keyboard, pad, mouse);
+
+            //A page standing aside for a takeover (#861) is handed no menu input at all: a skip key goes to it, the
+            //display keys still work, and the snapshots advance so nothing held through it fires when it comes back
+            bool clicked = mouse.LeftButton == ButtonState.Pressed && !_menuMouseWasDown;
+            _menuMouseWasDown = mouse.LeftButton == ButtonState.Pressed;
+            if (_screens.Active is MenuPage { StandsAside: true } aside)
+            {
+                if (EdgeInputAllowed)
+                {
+                    if (IsKeyEdge(keyboard, Keys.Space) || IsKeyEdge(keyboard, Keys.Enter) || IsKeyEdge(keyboard, Keys.Escape)
+                        || IsPadEdge(pad, Buttons.A) || IsPadEdge(pad, Buttons.B)
+                        || (pad.Triggers.Right > NAV_TRIGGER_PULL && _previousPad.Triggers.Right <= NAV_TRIGGER_PULL)
+                        || (clicked && IsInsideViewport(mouse)))
+                        aside.SkipPressed();
+
+                    if (IsKeyEdge(keyboard, Keys.F10)) ToggleFpsOverlay();
+                    if (IsKeyEdge(keyboard, Keys.F11)) ToggleFullscreen();
+                    if (IsKeyEdge(keyboard, Keys.F12)) RequestScreenshot();
+                }
+
+                _previousScrollWheelValue = mouse.ScrollWheelValue;
+                _previousKeyboard = keyboard;
+                _previousPad = pad;
+                return;
+            }
 
             //Whether Escape went back this frame - see the walk below, which then sits the frame out
             bool backedOut = false;

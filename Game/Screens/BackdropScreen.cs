@@ -484,6 +484,12 @@ namespace BS3D.Screens
         /// <summary>Whether a replayed tour is on the camera right now (#406).</summary>
         internal bool TourEngaged => _tour.Engaged;
 
+        /// <summary>The tour's own clock, for the skip hint the Scene page shows over it (#861): whether it is still flying
+        /// (not easing home), how long it has flown and how long it has left.</summary>
+        internal bool TourRunning => _tour.Running;
+        internal float TourElapsed => _tour.Elapsed;
+        internal float TourRemaining => _tour.Remaining;
+
         /// <summary>
         /// Plays the current scene's own observation tour against the menu's backdrop (#406), from where the
         /// camera stands. Ignored while one is already running, so leaning on the scene list does not stack
@@ -504,7 +510,7 @@ namespace BS3D.Screens
             Console.WriteLine($"[tour] {SceneRenderer.SceneName(Game.Scene)}: {_tour.Describe()}");
         }
 
-        /// <summary>Cuts a replayed tour short — any input on the scene page does this.</summary>
+        /// <summary>Cuts a replayed tour short: a skip key pressed while the Scene page stands aside for it (#861).</summary>
         internal bool TrySkipTour() => _tour.TrySkip();
 
         //Where the flight last put the lens — what a map waiting to hang is measured against (#408). The
