@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-13 — #863 stupeň 1: vzhled druhů z uniforem — Pi, Claude Code (584de7d2)
+- Hotovo (větev `863-potato-special-kinds`): `InstancedModelRenderer.PotatoKindLookFor` dává každému druhu na Potato plášť, barvu záře (klidový a tepový podíl), lesk, alfu a tón, kterým se stáhne i ambient typu. Bomba tmavá s červeným tepem, blesk břidlicový s bledě modrým blikáním, kyselina tmavá se zelenou září, sklo průsvitné přes `PotatoLit` (alfa 0,38), zmrzlá bledá a hladká, nakažená olivová matná, gravitace tmavá lesklá, těžká šedá matná. Žádná změna shaderu; A/B nativně Vent 15,07/14,99, Caldera 16,30/16,31, Bell 13,76/13,80 ms (nový/základ). Test `PotatoKindLookTests`.
+- ⚠ Koule na Potato je z velké části svou EMISÍ: zbledlý plášť a stažený ambient zmrzlou kouli nezměnily ani o pixel (192,38,47 proti 192,21,30); teprve barva záře. A bomba se třemi desetinami klidové záře byla červená koule; klid je 0,07.
+- Otevřené: stupeň 2 (hroty bomby, ledová kostka, předřezaný kámen jako geometrie), stupeň 3 (kyselina, nákaza, oko gravitace). Verdikt oka majitele na `help=4`.
+
 ## 2026-10-13 — #863 speciální druhy na Potato, Pi port odparkován — Pi, Claude Code (584de7d2)
 - Kontrola mainu 13ee3c52 pro Pi: GamePi build čistý, ARM64 CI zelené; #737 na Potato figuru nekreslí (záměr, #828), #856 kreslí živé koule i na Potato, #859 řádek držený „(Potato)“. Přestavěný Colossus 15,1 ms nativně (byl 17,0), Caldera 16,25.
 - majitel: speciální druhy (bomba, cut) vypadají na Pi špatně → #863 se záběry z Pi vedle desktopových referencí (stránka k #622 z 26. 9.; bomba, blesk a sklo tam jsou ještě před #624–#626). Pi se má přiblížit **levnějšími metodami**: geometrie, konstanty, emise tepu; pixelové větve jen v kreslení druhu.

@@ -2043,7 +2043,8 @@ namespace Prazsky.Core.Render
         /// holding the colour it is leaving while the aim beam already shows the next (#789's review) - and, for the kinds
         /// the desktop draws with no tint at all because their technique supplies the colour (the rock, the bomb, the zap
         /// and the Cut round drawn as one, the acid, the hollow glass), a stand-in of their own, so they are not every one
-        /// a white ball glowing at its own pulse. Authored sRGB, as a tint is.
+        /// a white ball glowing at its own pulse. Authored sRGB, as a tint is. What the kind then does with it - a glow of
+        /// another colour, a paler or greyer casing, its gloss, its opacity - is <see cref="PotatoKindLookFor"/>'s (#863).
         /// </summary>
         private Vector3 PotatoBallColor(Vector3? tint)
         {
@@ -2052,14 +2053,97 @@ namespace Prazsky.Core.Render
                     ? Vector3.Lerp(tint.Value, PatternSecondaryColor, MathHelper.Clamp(WildcardProgress, 0f, 1f))
                     : tint.Value;
 
+            //The bomb, the zap and the acid are dark bodies here: their colour is their glow (PotatoKindLookFor)
             return Shading switch
             {
                 BallShading.Stone => new Vector3(0.55f, 0.53f, 0.50f),
-                BallShading.Bomb => new Vector3(0.16f, 0.16f, 0.18f),
-                BallShading.Zap => new Vector3(0.22f, 0.25f, 0.42f),
-                BallShading.Acid => new Vector3(0.45f, 0.85f, 0.15f),
+                BallShading.Bomb => new Vector3(0.11f, 0.10f, 0.11f),
+                BallShading.Zap => new Vector3(0.15f, 0.17f, 0.27f),
+                BallShading.Acid => new Vector3(0.16f, 0.28f, 0.05f),
                 BallShading.Hollow => new Vector3(0.80f, 0.86f, 0.92f),
                 _ => new Vector3(0.85f, 0.85f, 0.85f),
+            };
+        }
+
+        /// <summary>
+        /// What a kind of ball looks like on the Potato path (#863), where the desktop's technique for it is out of reach:
+        /// the casing the light falls on, the colour its emission glows in, the share of that glow that rests and the share
+        /// that rides the heartbeat, its gloss (a roughness in place of the material's, or null for the material's own, and
+        /// a scale on its reflectance), its opacity, and the tone its casing was pulled towards and by how much - which
+        /// <see cref="DrawPotato"/> pulls the ball's AMBIENT towards too, since a tinted kind's ambient is its colour
+        /// (<c>BasicEffectParamsProvider</c>) and a paler crust under a red ambient still came out red. Linear, as
+        /// <see cref="DrawPotato"/> folds them. An ordinary ball is its colour on both counts, split by
+        /// <see cref="PulseDepth"/>, with the material's gloss, opaque, pulled nowhere.
+        /// </summary>
+        internal readonly record struct PotatoKindLook(Vector3 Casing, Vector3 Emission, float StillShare, float BeatShare,
+            float? Roughness, float ReflectanceScale, float Alpha, Vector3 Tone, float ToneWeight)
+        {
+            /// <summary>
+            /// <paramref name="ambient"/> pulled towards this look's tone as its casing was: the tone at the ambient's own
+            /// peak, so the hue moves and the brightness stays.
+            /// </summary>
+            internal Vector3 ToneAmbient(Vector3 ambient)
+            {
+                if (ToneWeight <= 0f) return ambient;
+
+                float peak = MathF.Max(ambient.X, MathF.Max(ambient.Y, ambient.Z));
+                return Vector3.Lerp(ambient, Tone * peak, ToneWeight);
+            }
+        }
+
+        //The kinds' own colours on the Potato path (#863), linear: what each glows in or is lightened or greyed towards
+        private static readonly Vector3 POTATO_BOMB_GLOW = new(1.0f, 0.05f, 0.015f);
+        private static readonly Vector3 POTATO_ZAP_GLOW = new(0.45f, 0.75f, 1.0f);
+        private static readonly Vector3 POTATO_ACID_GLOW = new(0.35f, 1.0f, 0.04f);
+        private static readonly Vector3 POTATO_ICE = new(0.60f, 0.80f, 1.0f);
+        private static readonly Vector3 POTATO_OLIVE = new(0.14f, 0.17f, 0.02f);
+        private static readonly Vector3 POTATO_SPORE_GLOW = new(0.50f, 0.90f, 0.05f);
+        private static readonly Vector3 POTATO_IRON = new(0.09f, 0.09f, 0.10f);
+
+        /// <summary>How much of what is behind the clear glass shows through it on the Potato path (#863).</summary>
+        private const float POTATO_HOLLOW_ALPHA = 0.38f;
+
+        /// <summary>
+        /// The <see cref="PotatoKindLook"/> of <paramref name="shading"/> drawn in the linear colour <paramref name="primary"/>
+        /// (the tint, or the stand-in of a tintless kind) at a heartbeat of <paramref name="pulseDepth"/> (#863). The rule
+        /// of the issue: a kind's cue is what the uniforms can say for nothing - a colour, a glow, a gloss, an alpha - and
+        /// never a pixel of shader for every ball; the kinds whose cue is a shape (the mine's studs, the ice block, the
+        /// rock's carve) get it as geometry in a draw of their own, not here.
+        /// <list type="bullet">
+        /// <item>The bomb is a dark casing that beats RED, the mine's seams and eye as the whole ball's glow (the desktop keeps
+        /// the emission on its seam mask so the casing does not strobe; here the ball is one colour, and at the bomb's slow
+        /// beat a whole red pulse is a pulse). A tenth of it rests, so between beats the bomb is red-dark, not black (Vent
+        /// hangs it beside Type8 black) and not red (Vent hangs red too: the first cut rested three tenths and the bomb
+        /// read as a red ball in the Help page and on Vent alike).</item>
+        /// <item>The zap is cold: a pale electric glow flickering at the zap's rate over a slate casing, beside Caldera's
+        /// navy - and resting at a tenth, or it is a cyan ball (the first cut rested at the zap's own 0.45).</item>
+        /// <item>The acid glows acid green over a dark body, at its slow pulse, resting at three tenths so it is not a lime ball.</item>
+        /// <item>The clear glass shows what is behind it: pale, glass-smooth and <see cref="POTATO_HOLLOW_ALPHA"/> opaque.</item>
+        /// <item>The frozen ball is its colour sealed in ice: a pale, glass-smooth shell, and a pale glow - ⚠ a ball at
+        /// play distance is largely its own EMISSION (the desktop's lesson, #737), so a kind that pales or darkens
+        /// its casing alone does not change on screen (measured: a red frozen ball with a pink crust and a red glow
+        /// stayed red to the pixel); what the eye gets is the glow's colour, and every tinted kind here sets it.</item>
+        /// <item>The sick ball wears an olive crust and the spores' yellow-green glow, matte.</item>
+        /// <item>The gravity well is dark and glossy: its glow at a third, the whole ball pulled towards its eye.</item>
+        /// <item>The heavy ball is cast iron with its colour worn into it: darker, greyer, matte, its glow greyed and dimmed.</item>
+        /// </list>
+        /// Every other shading (the ten materials, the rock, the wildcard) is its colour, untouched.
+        /// </summary>
+        internal static PotatoKindLook PotatoKindLookFor(BallShading shading, Vector3 primary, float pulseDepth)
+        {
+            float still = 1f - pulseDepth, beat = pulseDepth;
+
+            return shading switch
+            {
+                BallShading.Bomb => new(primary, POTATO_BOMB_GLOW, 0.07f, 0.5f, null, 1f, 1f, Vector3.Zero, 0f),
+                BallShading.Zap => new(primary, POTATO_ZAP_GLOW, 0.12f, 0.9f, null, 1f, 1f, Vector3.Zero, 0f),
+                BallShading.Acid => new(primary, POTATO_ACID_GLOW, 0.3f, 0.6f, null, 1f, 1f, Vector3.Zero, 0f),
+                BallShading.Hollow => new(primary, primary, 1f, 0f, 0.15f, 1.5f, POTATO_HOLLOW_ALPHA, Vector3.Zero, 0f),
+                BallShading.Frozen => new(Vector3.Lerp(primary, POTATO_ICE, 0.65f), Vector3.Lerp(primary, POTATO_ICE, 0.6f), still, beat, 0.1f, 2f, 1f, POTATO_ICE, 0.65f),
+                BallShading.Infectious => new(Vector3.Lerp(primary, POTATO_OLIVE, 0.45f), Vector3.Lerp(primary, POTATO_SPORE_GLOW, 0.6f), still, beat, 0.8f, 0.5f, 1f, POTATO_OLIVE, 0.45f),
+                BallShading.Gravity => new(primary * 0.5f, primary * 0.35f, still, beat, 0.08f, 2.5f, 1f, Vector3.Zero, 0.5f),
+                BallShading.Heavy => new(Vector3.Lerp(primary, POTATO_IRON, 0.6f), Vector3.Lerp(primary, POTATO_IRON, 0.6f) * 0.6f, still, beat, 1f, 0.25f, 1f, POTATO_IRON, 0.6f),
+                _ => new(primary, primary, still, beat, null, 1f, 1f, Vector3.Zero, 0f),
             };
         }
 
@@ -2207,6 +2291,21 @@ namespace Prazsky.Core.Render
                 Vector3 specular = PotatoSrgbToLinear(overrideSpecular ? specularColor : part.SpecularColor);
                 float power = overrideSpecular ? specularPower : part.SpecularPower;
 
+                //A rough surface reflects the dome's average, a sharp one the dome at its mirror direction
+                float roughness = MathHelper.Clamp(MathF.Sqrt(2f / (power + 2f)), 0f, 1f);
+                Vector3 reflectance = Vector3.Lerp(0.04f * specular, specular, Metalness);
+
+                //A ball's kind may have a tone and a gloss of its own (#863): the frozen ball's ice is pale and glass-smooth,
+                //the heavy ball's iron grey and matte, whatever the level's material and the colour's ambient say
+                PotatoKindLook look = default;
+                if (ball)
+                {
+                    look = PotatoKindLookFor(Shading, PotatoSrgbToLinear(PotatoBallColor(diffuseTint)), PulseDepth);
+                    ambient = look.ToneAmbient(ambient);
+                    roughness = look.Roughness ?? roughness;
+                    reflectance *= look.ReflectanceScale;
+                }
+
                 _diffuseColorParam.SetValue(new Vector4(PotatoSrgbToLinear(diffuse * alpha), alpha));
                 _emissiveColorParam.SetValue(PotatoSrgbToLinear((part.EmissiveColor + emissiveColor) * alpha));
                 _specularColorParam.SetValue(specular);
@@ -2215,19 +2314,26 @@ namespace Prazsky.Core.Render
                 _potatoAmbientMidParam.SetValue(domeMid * ambient);
                 _potatoAmbientTiltParam.SetValue(domeTilt * ambient);
 
-                //A rough surface reflects the dome's average, a sharp one the dome at its mirror direction
-                float roughness = MathHelper.Clamp(MathF.Sqrt(2f / (power + 2f)), 0f, 1f);
                 _potatoEnvironmentMidParam.SetValue(domeMid);
                 _potatoEnvironmentTiltParam.SetValue(domeTilt * (1f - roughness));
-
-                Vector3 reflectance = Vector3.Lerp(0.04f * specular, specular, Metalness);
                 _potatoReflectanceParam.SetValue(reflectance * SpecularAmbientStrength);
                 _potatoReflectanceRiseParam.SetValue((Vector3.Max(Vector3.One, reflectance) - reflectance) * SpecularAmbientStrength);
 
-                if (ball)
+                if (ball && look.Alpha < 1f)
+                {
+                    //The clear glass (#863): a ball that shows what is behind it, drawn through PotatoLit's own alpha - the
+                    //surface over the share it covers, the glints at full over the rest (ToScreen) - under the alpha blend
+                    //DrawHollow set. No heartbeat and no ripple, which the Lit shader has none of: it has no colour to
+                    //flash in. Its glow is PotatoLit's emissive, steady.
+                    _effect.CurrentTechnique = _mainTechnique;
+                    _diffuseColorParam.SetValue(new Vector4(look.Casing * look.Alpha, look.Alpha));
+                    _emissiveColorParam.SetValue(look.Emission * (EmissiveStrength * StillEmission));
+                    _specularAlphaWeightParam.SetValue(0f);
+                }
+                else if (ball)
                 {
                     _effect.CurrentTechnique = PotatoFlatBalls ? _potatoBallFlatTechnique : _potatoBallTechnique;
-                    SetPotatoBallUniforms(PotatoSrgbToLinear(PotatoBallColor(diffuseTint)));
+                    SetPotatoBallUniforms(look);
                 }
                 else if (DetailTexture != null && alpha >= 1f)
                 {
@@ -2394,12 +2500,14 @@ namespace Prazsky.Core.Render
             color * (color * (color * 0.305306011f + new Vector3(0.682171111f)) + new Vector3(0.012522878f));
 
         /// <summary>
-        /// A Potato ball's uniforms from its linear colour (#804): the crust the light falls on, the emission at rest and
-        /// on the beat, the lava's glow, the ripple's flash and alarm and the heartbeat's phase - everything
-        /// <c>PotatoModel.fx</c>'s <c>BallColour</c> multiplied out per pixel from the style's figures, in its order.
+        /// A Potato ball's uniforms from its kind's look (#804, #863): the crust the light falls on, the emission at rest
+        /// and on the beat in the look's glow colour, the lava's glow, the ripple's flash and alarm and the heartbeat's
+        /// phase - everything <c>PotatoModel.fx</c>'s <c>BallColour</c> multiplied out per pixel from the style's figures,
+        /// in its order.
         /// </summary>
-        private void SetPotatoBallUniforms(Vector3 primary)
+        private void SetPotatoBallUniforms(in PotatoKindLook look)
         {
+            Vector3 primary = look.Casing;
             bool lava = Shading == BallShading.Lava;
 
             //The lava's crust (#795): a near-black basalt carrying a little of the ball's colour. Every other style's
@@ -2408,9 +2516,9 @@ namespace Prazsky.Core.Render
             float crustDark = lava ? POTATO_LAVA_CRUST_DARK : 1f;
             _potatoBallCrustParam.SetValue(primary * (crustTint * crustDark) + new Vector3(crustDark * (1f - crustTint)));
 
-            Vector3 emission = primary * (EmissiveStrength * StillEmission);
-            _potatoBallEmissionStillParam.SetValue(emission * (1f - PulseDepth));
-            _potatoBallEmissionBeatParam.SetValue(emission * PulseDepth);
+            Vector3 emission = look.Emission * (EmissiveStrength * StillEmission);
+            _potatoBallEmissionStillParam.SetValue(emission * look.StillShare);
+            _potatoBallEmissionBeatParam.SetValue(emission * look.BeatShare);
 
             float peak = MathF.Max(primary.X, MathF.Max(primary.Y, primary.Z));
             Vector3 hue = primary / MathF.Max(peak, 1e-3f);
