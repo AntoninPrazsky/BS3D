@@ -73,6 +73,21 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void OpenedKeepsEveryWorldAndOpensEveryOccluder()
+        {
+            var instances = new ModelInstance[3];
+            for (int i = 0; i < 3; i++) instances[i] = new ModelInstance(Matrix.CreateTranslation(i, 2 * i, 3 * i), new Vector4(0.7f, 0f, 0f, 0f));
+
+            PotatoBackdrop.Opened(instances);
+
+            for (int i = 0; i < 3; i++)
+            {
+                Assert.Equal(Matrix.CreateTranslation(i, 2 * i, 3 * i), instances[i].World);
+                Assert.Equal(new Vector4(0f, 0f, 0f, 1f), instances[i].Custom);
+            }
+        }
+
+        [Fact]
         public void TheNormalsFollowTheHeightAndPointUp()
         {
             (VertexPositionNormalTexture[] vertices, _) = PotatoTerrainMesh.Build(8, 40f, 0f, Bowl);

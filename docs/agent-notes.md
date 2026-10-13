@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-14 — #829 krok 4: město a neon na Potato — Pi, Claude Code (584de7d2)
+- Hotovo (větev `829-potato-city`): věže a římsy `City` z configu hosta (seedy už hozené), každá jedna krabice v barvě fasády bez oken, jen do 250 jednotek od ostrova, ořez frustem po snímku, nad plochou asfaltu. Girandole 18,67/12,97 ms proti 18,21/12,64, Cabinet 18,80/12,74 proti 17,68/12,03 (nativně/720).
+- ⚠ Základ a novou verzi měřit v jednom řetězu ze základního buildu mainu (`~/.cache/bs3d-wt/baseline-main`): osamělý základ Cabinetu 11,5 ms (bez session) poslal první číslo neonu na +8 ms a stál tři pokusy (lampy pryč, dosah 100, nic), než se základ přeměřil na 17,7.
+- Otevřené: jeskyně, grid, cirkus, aurora, dream, space; střechy města; verdikt oka.
+
 ## 2026-10-13 — #829 krok 3: hory, Měsíc a sopka na Potato — Pi, Claude Code (584de7d2)
 - Hotovo (větev `829-potato-mountain-moon-volcano`): hory jako dvě mřížky nad jedním polem (sníh/skála podle pravidla `Mountain.fx` po trojúhelnících), Měsíc s balvany `MoonPlanting` (zvětralé jako elipsoidy), sopka s řekami `VolcanoLava` jako svítícími pásy (`PotatoStripMesh`) a jezerem v kráteru, na seedu lamp. Belfry 18,84/12,46 ms proti 17,88/12,09, Colossus 17,38/12,13 proti 16,35/11,27, Vent 16,00/10,97 proti 15,21/10,65 (nativně/720).
 - ⚠ Tři opravy prvních kroků: barvy configu jsou lineární, materiál rendereru sRGB (terén byl tmavý a pod dómem fialový); `Custom` instance je pro Potato efekt okluze (w = 0 u výsadby = „zahrabáno“, stromy na čtvrtinu, balvany černé); pozadí je matné (`SpecularAmbientStrength` 0), protože Fresnel zrcadlí celý dóm pod ostrým úhlem — bílý pruh na obzoru.
