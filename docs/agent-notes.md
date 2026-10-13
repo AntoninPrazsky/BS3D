@@ -662,3 +662,9 @@ Pravidla:
 - #849 (merge do mainu, verdict-eye): obr se zdviženýma rukama, který drží skleněný strop, se srdcem (výplata Type6) zapečetěným v hrudi. 337 koulí (dřív 364), 33 skupin, 42 ran; brány včetně reveal prošly, sag 0 z 5, ScoreSim i 1010 testů OK. Přípravky testů přesunuty (ShotAgreement přeměřen: 97,5 %), ChapterTests drží každý blok na jedné scéně, kopuli, rodině a materiálu.
 - ⚠ Pět resetů desktopu přerušilo agenta pětkrát; dokončeno ručně po krátkých krocích, každý hned pushnutý. Snímky z 12. 10. 16:49 platí, `Colossus.json` se od 16:36 nezměnil (porovnáno bez CR).
 - Otevřené: oko majitele; `update-ceilings.sh` na Pi při příštím vydání (deska Colosse začne od nuly).
+
+## 2026-10-13 — #737 sada motivů na každý styl, zapnuto ve výchozím stavu — desktop (RDT-PC), Claude Code (bs3d-71, noc)
+- majitel (12. 10. večer): použít všechny sady, jednu na každý styl koulí; přiřazení nechal na agentovi.
+- Větev `737-colour-cue-per-style` (NEsloučená): vlna, porcelán, plazma = figury; vinyl, kov = emblémy; mramor, led, drahokam = linky; bublina, láva = puntíky (`ColourCues.SetOf`, důvody v `ball-styles.md`). Cue zapnuto v Game, Testbedu i editoru, `colourcue=none` vypíná. Všech deset stylů kreslí figuru; disky fronty v HUD ji nesou (`ColourCueField`, port pole z shaderu); Potato bez figury. 45 dodaných programů instrukci po instrukci beze změny, 1066 testů OK.
+- ⚠ Černá v kovu, plazmě a lávě: poměr jasu šedého inkoustu k černé ~24×; škály mají vlastní uniform (`ColourCueInkScales`).
+- Otevřené: snímky všech sedmi nových stylů (rig i hrací vzdálenost, 3840x1600 a 1920x1080), HUD, nápověda, cena na GPU; nic z toho noc nesměla spustit (resety).
