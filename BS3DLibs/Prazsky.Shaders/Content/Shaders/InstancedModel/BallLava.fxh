@@ -52,9 +52,9 @@ static const float LavaSeamWanderFrequency = 2.1;
 static const float LavaCrustDark = 0.16;
 static const float LavaCrustTint = 0.62;
 
-//The colour cue's cooled skin (#737): the crust's darkness inside a figure, against LavaCrustDark outside it. About
-//two and a half times the basalt, so a spot reads as an island of pale ash between the glowing seams on the darkest
-//dome too, without turning the plates into the lightened crust #338 rejected for the whole ball.
+//The colour cue's cooled skin (#737): the crust's darkness inside a figure, against LavaCrustDark outside it, about
+//two and a half times the basalt. It did not make the spots read at play distance either, so the lava draws no figure
+//by default (ColourCues.SetOf); this is what colourcue=motif:N draws when it forces a set on the lava.
 static const float LavaAshDark = 0.40;
 
 //THE HEAT ROUND A SEAM, and #338's answer to "the black crust takes up too much of the ball". The

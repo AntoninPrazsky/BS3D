@@ -34,6 +34,15 @@ namespace BS3D.Tests
             return data;
         }
 
+        //The styles that draw a figure by default: all but the lava (ColourCues.SetOf), whose checks are its own test
+        public static TheoryData<BallStyle> FiguredStyles()
+        {
+            TheoryData<BallStyle> data = new();
+            foreach (BallStyle style in Enum.GetValues<BallStyle>())
+                if (ColourCues.SetOf(style) != ColourCues.NONE) data.Add(style);
+            return data;
+        }
+
         [Fact]
         public void TheCueIsOnByDefault()
         {
@@ -46,7 +55,10 @@ namespace BS3D.Tests
         [MemberData(nameof(Styles))]
         public void EveryStyleHasAFigureSet(BallStyle style)
         {
-            Assert.InRange(ColourCues.SetOf(style), 1, ColourCues.SET_COUNT);
+            //The lava is the one style without a figure (ColourCues.SetOf says why); every other draws a set
+            if (style == BallStyle.Lava) Assert.Equal(ColourCues.NONE, ColourCues.SetOf(style));
+            else Assert.InRange(ColourCues.SetOf(style), 1, ColourCues.SET_COUNT);
+
             Assert.Equal(ColourCues.SetOf(style), ColourCues.SetFor(ColourCues.BY_STYLE, style));
             Assert.Equal(ColourCues.NONE, ColourCues.SetFor(ColourCues.NONE, style));
             Assert.Equal(3, ColourCues.SetFor(3, style));
@@ -69,15 +81,23 @@ namespace BS3D.Tests
         }
 
         //No figure that names a special kind the style's own levels hang beside it: an emblem on six cube faces is the
-        //frozen ball (ice), a band of brighter seams the mine (lava), the lines' navy seam the clear glass (porcelain)
+        //frozen ball (ice), the lines' navy seam the clear glass (porcelain). The lava, which hangs the mine, draws none
         [Theory]
         [InlineData(BallStyle.Ice, ColourCues.Kind.Emblem)]
-        [InlineData(BallStyle.Lava, ColourCues.Kind.Bands)]
-        [InlineData(BallStyle.Lava, ColourCues.Kind.Emblem)]
         public void AStyleAvoidsTheFigureKindItsKindsWouldBeTakenFor(BallStyle style, ColourCues.Kind kind)
         {
             foreach (BallType type in Enum.GetValues<BallType>())
                 Assert.NotEqual((float)kind, ColourCues.FigureOf(ColourCues.SetOf(style), type).A.X);
+        }
+
+        //The lava's figure did not read at play distance in either carrier tried (ColourCues.SetOf), so it draws none,
+        //and the HUD's queue must not promise one on its discs (BallRenderSet.DrawsColourCue asks the style's set)
+        [Fact]
+        public void TheLavaDrawsNoFigureByDefault()
+        {
+            Assert.Equal(ColourCues.NONE, ColourCues.SetFor(ColourCues.DEFAULT, BallStyle.Lava));
+            Assert.True(ColourCues.Paint(ColourCues.SetFor(ColourCues.DEFAULT, BallStyle.Lava), BallType.Type1,
+                new Vector3(1f, 0f, 0f)).IsNone);
         }
 
         [Fact]
@@ -88,7 +108,7 @@ namespace BS3D.Tests
         }
 
         [Theory]
-        [MemberData(nameof(Styles))]
+        [MemberData(nameof(FiguredStyles))]
         public void EachStyleDrawsADistinctFigurePerColour(BallStyle style)
         {
             int set = ColourCues.SetFor(ColourCues.DEFAULT, style);
@@ -110,7 +130,7 @@ namespace BS3D.Tests
         //what the metal's reflectance, the plasma's arcs and the lava's seams multiply by - average to 1 for every colour,
         //black included
         [Theory]
-        [MemberData(nameof(Styles))]
+        [MemberData(nameof(FiguredStyles))]
         public void EachStylesInksAndScalesKeepTheAverage(BallStyle style)
         {
             int set = ColourCues.SetFor(ColourCues.DEFAULT, style);

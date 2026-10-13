@@ -1526,7 +1526,7 @@ namespace Prazsky.BS3D
 
         /// <summary>
         /// The colour cue (#737): the figure every colour carries painted on beside its hue. <see cref="ColourCues.BY_STYLE"/>
-        /// by default - each style its own figure set (<see cref="ColourCues.SetOf"/>), on all ten styles -
+        /// by default - each style its own figure set (<see cref="ColourCues.SetOf"/>), on every style but the lava, which draws none -
         /// <see cref="ColourCues.NONE"/> to draw no figure (<c>colourcue=none</c>), or one set's number to put that set on
         /// every style for a comparison (<c>colourcue=motif:N</c>).
         /// <para>
@@ -1552,11 +1552,12 @@ namespace Prazsky.BS3D
         }
 
         /// <summary>
-        /// Whether the balls are drawn with a figure on: the cue is not off, and the renderers' effect has the programs
-        /// that paint one (the Potato effect has none, #828). The HUD's queue asks this before it paints a figure on a
+        /// Whether the balls are drawn with a figure on: the set the cue gives this style is not none (the cue is not off,
+        /// and the style is not the lava, which draws no figure), and the renderers' effect has the programs that paint
+        /// one (the Potato effect has none, #828). The HUD's queue asks this before it paints a figure on a
         /// disc, so that the strip shows what the gun is loaded with and not a figure the balls do not carry.
         /// </summary>
-        public bool DrawsColourCue => _colourCue != ColourCues.NONE && !_renderers[0].Potato;
+        public bool DrawsColourCue => ColourCues.SetFor(_colourCue, _style) != ColourCues.NONE && !_renderers[0].Potato;
 
         /// <summary>
         /// The figure and its inks a <paramref name="type"/> ball carries under the current switch and style; the

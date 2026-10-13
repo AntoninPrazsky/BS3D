@@ -292,8 +292,10 @@ namespace Prazsky.BS3D.GameStructure
         /// triangles would read as more facets.</item>
         /// <item><b>Bubble - spots (4)</b>: polka-dot party balloons, round figures on a round film, for the first
         /// chapter.</item>
-        /// <item><b>Lava - spots (4)</b>: cooler islands of crust in the flow. No band and no cross: the Eruption
-        /// hangs the mine, whose two glowing seams a band of brighter seams would echo, and the zap.</item>
+        /// <item><b>Lava - none (<see cref="NONE"/>)</b>: the only style that draws no figure. Two carriers were tried
+        /// (#737, judged on the laptop's captures on 2026-10-13): the spots set's islands as a scale on the seams' heat,
+        /// then also as an ash crust inside the figure (<c>LavaAshDark</c>). Neither read at play distance; the glowing
+        /// seams own the ball. <c>colourcue=motif:N</c> still forces a set on it for a comparison.</item>
         /// </list>
         /// </para>
         /// </summary>
@@ -308,7 +310,7 @@ namespace Prazsky.BS3D.GameStructure
             BallStyle.Ice => 3,
             BallStyle.Gem => 3,
             BallStyle.Bubble => 4,
-            BallStyle.Lava => 4,
+            BallStyle.Lava => NONE,
             _ => throw new ArgumentOutOfRangeException(nameof(style), style,
                 $"{style} has no colour-cue set; give it one in {nameof(ColourCues)}.{nameof(SetOf)}"),
         };
