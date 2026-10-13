@@ -77,7 +77,8 @@ namespace BS3D
 
         /// <summary>
         /// What a note says about where it was written: the build, the machine's renderer and size, the scene and
-        /// quality, whether the boards are on, and the level the player is in when there is one. Nothing that names
+        /// quality, whether the boards are on, and the level the player is in and the recording its theme is playing
+        /// when there are those. Nothing that names
         /// the player or the machine: no paths, no user name, no address.
         /// </summary>
         private JsonObject NoteContext()
@@ -103,6 +104,13 @@ namespace BS3D
                 context["dpiAware"] = aware;
             }
             if (HasSession) _gameplayScreen.DescribeForNote(context);
+            //The recording the level's theme is playing (#824): a family rotates through its recordings, so a note about
+            //the music can be traced to one only with this, and the drums layer is half of what is heard
+            if (Music?.SoundingRecording is string recording)
+            {
+                context["music"] = recording;
+                context["musicDrums"] = Music.SoundingLayered;
+            }
             return context;
         }
 
