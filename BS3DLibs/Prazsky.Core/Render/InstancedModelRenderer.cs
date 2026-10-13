@@ -90,6 +90,13 @@ namespace Prazsky.Core.Render
         private EffectTechnique _potatoBallKindTechnique, _potatoBallKindDitherTechnique;
         private EffectParameter _potatoKindFigureParam, _potatoKindGlowParam, _potatoKindAxisParam;
 
+        //The colour cue on the Potato path (#828): the program that paints it and the crust and glow in each ink, folded
+        //here from the paint's inks as DrawPotato folds the plain colour (#804); the figure's own four uniforms are the
+        //desktop's, _colourCueAParam and its three siblings
+        private EffectTechnique _potatoBallCueTechnique;
+        private EffectParameter _potatoCueCrustFigureParam, _potatoCueCrustGroundParam, _potatoCueStillFigureParam,
+            _potatoCueStillGroundParam, _potatoCueBeatFigureParam, _potatoCueBeatGroundParam;
+
         /// <summary>
         /// The strip this renderer's balls' rims are drawn on (#804), and the switch: with one set, and
         /// <see cref="RimPass"/> on, <see cref="Draw(ICamera, ModelInstance[], int, BasicEffectParams, Vector3?)"/> on the
@@ -706,7 +713,7 @@ namespace Prazsky.Core.Render
         /// The figure the next draw's colour carries painted on (#737), per draw like the tint:
         /// <c>Prazsky.BS3D.BallRenderSet</c> states it for every bucket and puts <see cref="ColourCuePaint.IsNone"/>
         /// back afterwards. It takes effect only where <see cref="Shading"/> has a program for it (every ball style's,
-        /// <see cref="ColourCueTechniqueNames"/>); a special kind's draw, and every draw on the Potato effect, keeps its
+        /// <see cref="ColourCueTechniqueNames"/>; the Potato effect's one program for every style is <c>PotatoBallCue</c>, #828); a special kind's draw keeps its
         /// own technique.
         /// </summary>
         public ColourCuePaint ColourCue { get; set; }
@@ -2035,6 +2042,17 @@ namespace Prazsky.Core.Render
             _potatoKindGlowParam = Required("KindGlow");
             _potatoKindAxisParam = Required("KindAxis");
 
+            _colourCueAParam = Required("ColourCueA");
+            _colourCueBParam = Required("ColourCueB");
+            _colourCueCParam = Required("ColourCueC");
+            _colourCueFrameParam = Required("ColourCueFrame");
+            _potatoCueCrustFigureParam = Required("CueCrustFigure");
+            _potatoCueCrustGroundParam = Required("CueCrustGround");
+            _potatoCueStillFigureParam = Required("CueEmissionStillFigure");
+            _potatoCueStillGroundParam = Required("CueEmissionStillGround");
+            _potatoCueBeatFigureParam = Required("CueEmissionBeatFigure");
+            _potatoCueBeatGroundParam = Required("CueEmissionBeatGround");
+
             Required("DirLight1Direction").SetValue(DefaultLighting.Light1Direction);
             Required("DirLight2Direction").SetValue(DefaultLighting.Light2Direction);
             _dirLight0DiffuseParam = Required("DirLight0DiffuseColor");
@@ -2050,6 +2068,7 @@ namespace Prazsky.Core.Render
             _potatoBallDitherTechnique = RequiredTechnique("PotatoBallDither");
             _potatoBallKindTechnique = RequiredTechnique("PotatoBallKind");
             _potatoBallKindDitherTechnique = RequiredTechnique("PotatoBallKindDither");
+            _potatoBallCueTechnique = RequiredTechnique("PotatoBallCue");
             _dissolvePixelSizeParam = Required("DissolvePixelSize");
             _potatoFinLitTechnique = RequiredTechnique("PotatoFinLit");
             _potatoFinTexturedTechnique = RequiredTechnique("PotatoFinTextured");
@@ -2104,7 +2123,8 @@ namespace Prazsky.Core.Render
         /// <see cref="PulseDepth"/>, with the material's gloss, opaque, pulled nowhere.
         /// </summary>
         internal readonly record struct PotatoKindLook(Vector3 Casing, Vector3 Emission, float StillShare, float BeatShare,
-            float? Roughness, float ReflectanceScale, float Alpha, Vector3 Tone, float ToneWeight, float? EmissionStrength = null)
+            float? Roughness, float ReflectanceScale, float Alpha, Vector3 Tone, float ToneWeight, float? EmissionStrength = null,
+            float EmissionScale = 1f)
         {
             /// <summary>
             /// <paramref name="ambient"/> pulled towards this look's tone as its casing was: the tone at the ambient's own
@@ -2172,14 +2192,14 @@ namespace Prazsky.Core.Render
 
             return shading switch
             {
-                BallShading.Metal => new(primary, primary * 0.8f, still, beat, 0.18f, 6f, 1f, Vector3.Zero, 0f),
+                BallShading.Metal => new(primary, primary * 0.8f, still, beat, 0.18f, 6f, 1f, Vector3.Zero, 0f, null, 0.8f),
                 BallShading.Porcelain => new(primary, primary, still, beat, 0.10f, 2f, 1f, Vector3.Zero, 0f),
                 BallShading.Marble => new(primary, primary, still, beat, 0.10f, 1.6f, 1f, Vector3.Zero, 0f),
-                BallShading.Gem => new(primary, primary * 1.1f, still, beat, 0.085f, 3f, 1f, Vector3.Zero, 0f),
+                BallShading.Gem => new(primary, primary * 1.1f, still, beat, 0.085f, 3f, 1f, Vector3.Zero, 0f, null, 1.1f),
                 BallShading.Bubble => new(primary, primary, still, beat, 0.095f, 3f, 1f, Vector3.Zero, 0f),
                 BallShading.Wool => new(primary, primary, still, beat, 0.9f, 0.3f, 1f, Vector3.Zero, 0f),
                 BallShading.Ice => new(primary, primary, still, beat, 0.12f, 2.5f, 1f, Vector3.Zero, 0f),
-                BallShading.Plasma => new(primary, primary * 1.4f, still, beat, 0.35f, 0.5f, 1f, Vector3.Zero, 0f, 0.45f),
+                BallShading.Plasma => new(primary, primary * 1.4f, still, beat, 0.35f, 0.5f, 1f, Vector3.Zero, 0f, 0.45f, 1.4f),
                 BallShading.Bomb => new(primary, POTATO_BOMB_GLOW, 0.07f, 0.5f, null, 1f, 1f, Vector3.Zero, 0f),
                 BallShading.Zap => new(primary, POTATO_ZAP_GLOW, 0.12f, 0.9f, null, 1f, 1f, Vector3.Zero, 0f),
                 BallShading.Acid => new(primary, POTATO_ACID_GLOW, 0.08f, 0.3f, null, 1f, 1f, Vector3.Zero, 0f),
@@ -2367,6 +2387,11 @@ namespace Prazsky.Core.Render
                 //A kind whose desktop look is a figure on the ball (#863): its own program paints it, see SetPotatoKindFigure
                 bool figure = ball && !PotatoFlatBalls && Shading is BallShading.Acid or BallShading.Infectious or BallShading.Gravity;
 
+                //A colour's figure (#737, #828): the cue program paints it on an ordinary ball whose paint is not empty
+                //(a special kind's draw leaves the paint empty, so the rock's and the ice's meshes never meet it; a
+                //dithered ball goes without it)
+                bool cue = ball && !PotatoFlatBalls && !figure && !ColourCue.IsNone;
+
                 if (ball && look.Alpha < 1f)
                 {
                     //The clear glass (#863): a ball that shows what is behind it, drawn through PotatoLit's own alpha - the
@@ -2380,9 +2405,11 @@ namespace Prazsky.Core.Render
                 }
                 else if (ball)
                 {
-                    _effect.CurrentTechnique = PotatoFlatBalls ? _potatoBallFlatTechnique : figure ? _potatoBallKindTechnique : _potatoBallTechnique;
+                    _effect.CurrentTechnique = PotatoFlatBalls ? _potatoBallFlatTechnique
+                        : figure ? _potatoBallKindTechnique : cue ? _potatoBallCueTechnique : _potatoBallTechnique;
                     SetPotatoBallUniforms(look);
                     if (figure) SetPotatoKindFigure(camera, look);
+                    if (cue) SetPotatoCueUniforms(look);
                 }
                 else if (DetailTexture != null && alpha >= 1f)
                 {
@@ -2637,6 +2664,34 @@ namespace Prazsky.Core.Render
 
             Vector3 phase = PulseDirection / MathF.Max(PulseWavelength, 1e-4f);
             _potatoPulsePhaseParam.SetValue(new Vector4(phase, PulseTime * PulseSpeed));
+        }
+
+        /// <summary>
+        /// The colour cue's uniforms for this draw (#828, <c>PotatoModel.fx</c>'s <c>PotatoBallCue</c>): the figure's four
+        /// as the desktop sets them, and the crust and the resting and beating glow in each of the paint's two inks, folded
+        /// from the inks exactly as <see cref="SetPotatoBallUniforms"/> folds them from the plain colour, so a pixel the
+        /// figure covers is the ball drawn in the figure's ink and the rest the ball drawn in the ground's. The lava's crust
+        /// arithmetic is applied to each ink too, though the lava draws no figure by the owner's ruling.
+        /// </summary>
+        private void SetPotatoCueUniforms(in PotatoKindLook look)
+        {
+            ColourCuePaint cue = ColourCue;
+            _colourCueAParam.SetValue(cue.A);
+            _colourCueBParam.SetValue(cue.B);
+            _colourCueCParam.SetValue(cue.C);
+            _colourCueFrameParam.SetValue(cue.Frame);
+
+            bool lava = Shading == BallShading.Lava;
+            float crustTint = lava ? POTATO_LAVA_CRUST_TINT : 1f;
+            float crustDark = lava ? POTATO_LAVA_CRUST_DARK : 1f;
+            float strength = (look.EmissionStrength ?? EmissiveStrength) * StillEmission * look.EmissionScale;
+
+            _potatoCueCrustFigureParam.SetValue(cue.FigureInk * (crustTint * crustDark) + new Vector3(crustDark * (1f - crustTint)));
+            _potatoCueCrustGroundParam.SetValue(cue.GroundInk * (crustTint * crustDark) + new Vector3(crustDark * (1f - crustTint)));
+            _potatoCueStillFigureParam.SetValue(cue.FigureInk * (strength * look.StillShare));
+            _potatoCueStillGroundParam.SetValue(cue.GroundInk * (strength * look.StillShare));
+            _potatoCueBeatFigureParam.SetValue(cue.FigureInk * (strength * look.BeatShare));
+            _potatoCueBeatGroundParam.SetValue(cue.GroundInk * (strength * look.BeatShare));
         }
 
         /// <summary>
