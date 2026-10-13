@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-13 — #829 krok 1: savana na Potato — Pi, Claude Code (584de7d2)
+- Hotovo (větev `829-potato-savanna`): `PotatoBackdrop` = terén z `TerrainMirror.Savanna` jako mřížka 64×64 s dírou arény + `SavannaScatter` kbelíky, vše `InstancedModelRenderer` na Potato efektu, nasvícené rigem s ostrovem, kreslené před ním; technika `PotatoVertexLit` (světlo ve vertexu). Giraffe: nativně 15,55 ms proti 14,88 bez pozadí (bez figur), 720p 10,92 / 10,27; s figurami 17,49 / 12,03.
+- ⚠ Rostliny desktopu jsou tisíce vertexů (kmen 5–9 k, termitiště 50 k, celkem 1,2 M/snímek): síť nad 1 200 vertexů je elipsoid své obalové koule (kmen úzký vysoký, koruna plochá). ⚠ Jednoinstanční široký kbelík (holá země) jako elipsoid obalil kameru: černý snímek; nechává se mřížce. ⚠ Barvy kbelíků jsou lineární, materiál renderereru sRGB: kódovat, jinak černé stromy. ⚠ Pozadí přes `PotatoLit` per pixel stálo 3–8 ms (třetina snímku): svícení ve vertexu to srazilo na 0,7.
+- Otevřené: další scény (poušť, louka, město, jeskyně) stejnou cestou; obzor je bílý okraj mřížky (Fresnel) — mlha chybí; verdikt oka majitele.
+
 ## 2026-10-13 — #828 stupeň 2: figury #737 na Potato — Pi, Claude Code (584de7d2)
 - Hotovo (větev `828-potato-colour-cue`): `PotatoBallCueBands/Spots/Checks/Emblems` v `PotatoModel.fx` — funkce figur z `BallColourCue.fxh` doslova (test `PotatoColourCueSourceTests` drží shodu), čtené ze stejných čtyř uniforem figury; inkousty skládá CPU do plášťů a září v obou inkoustech, pixel je lerpuje pokrytím. `DrawsColourCue` je na Potato true, HUD disky figury mají. Ověřeno na Girandole, Heart, Tightrope (Research/pi-port/828/stage2).
 - Cena proti `colourcue=none`: Girandole nativně 17,66 / 15,15 ms, 720p 12,48 / 11,23; Cabinet 17,64 / 15,61, 12,12 / 10,99. Jeden program s druhem v uniformě byl 969 instrukcí a stál skoro totéž (17,97): cena je v cestě (sin, cos, atan2, derivace), ne v registrech. V mezích rozhodnutí majitele (#830: 720p drží 60, nativně 56 FPS).

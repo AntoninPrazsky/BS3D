@@ -227,13 +227,19 @@ namespace Prazsky.Core.Render
                 {
                     instances[i] = bucket.Placed[i];
 
-                    //The blob stands where the mesh's bounding sphere stands in the instance, a little flatter than round
-                    //(a crown, a bush, a mound: all wider than tall), and keeps the instance's occlusion and the rest
+                    //The blob stands where the mesh's bounding sphere stands in the instance, shaped by what the bucket
+                    //is: a wood (bark) is a trunk, tall and thin; a crown, a bush or a mound is wider than tall. It keeps
+                    //the instance's occlusion and the rest. The savanna's heavy meshes are its woods (a trunk with its
+                    //branches is 5,000 to 9,000 vertices; the crown over it is 960 and stays itself)
                     if (blob)
                     {
                         BoundingSphere bounds = bucket.Mesh.BoundingSphere;
-                        Matrix local = Matrix.CreateScale(bounds.Radius * 0.85f, bounds.Radius * 0.55f, bounds.Radius * 0.85f)
-                            * Matrix.CreateTranslation(bounds.Center);
+                        bool trunk = bucket.Bark >= 0.5f;
+                        Vector3 size = trunk
+                            ? new Vector3(bounds.Radius * 0.12f, bounds.Radius * 0.7f, bounds.Radius * 0.12f)
+                            : new Vector3(bounds.Radius * 0.75f, bounds.Radius * 0.5f, bounds.Radius * 0.75f);
+                        Vector3 centre = trunk ? new Vector3(0f, bounds.Center.Y, 0f) : bounds.Center;
+                        Matrix local = Matrix.CreateScale(size) * Matrix.CreateTranslation(centre);
                         instances[i] = new ModelInstance(local * bucket.Placed[i].World, bucket.Placed[i].Custom);
                     }
                 }
