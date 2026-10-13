@@ -14,7 +14,7 @@ The frame the player was looking at, not the menu over it: the page's first fram
 
 ## What it carries
 
-`NoteContext`: build, OS, GPU, back buffer size, fullscreen, tier, scene; with a session, the level's file, name, number, chapter and hash, the phase and the shots, score and seconds so far. **Nothing names the player or the machine**: no paths, user name or address. A player with an online identity **signs** it (id, name, bearer token, read when sent, #572); "Remove scores" makes the service forget their notes too.
+`NoteContext`: build, OS, GPU, back buffer size, fullscreen, tier, scene; with a session, the level's file, name, number, chapter and hash, the phase and the shots, score and seconds so far; while a level's theme is up, the recording it is playing (`music`, the stem a level can pin) and whether its drums layer is mixed in (`musicDrums`), since a family rotates through its recordings and a note about the music names one only by this (#824). **Nothing names the player or the machine**: no paths, user name or address. A player with an online identity **signs** it (id, name, bearer token, read when sent, #572); "Remove scores" makes the service forget their notes too.
 
 ## Typing
 

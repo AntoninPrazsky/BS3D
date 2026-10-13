@@ -199,6 +199,9 @@ namespace BS3D.Audio
         /// <summary>The recording the sounding chain was built from, which the feed submits again — never a sibling variant.</summary>
         private Task<byte[]> _sounding;
 
+        //Its file name, as the "[music]" line gives it, for SoundingRecording
+        private string _soundingName;
+
         //The sounding chain's drums layer (#495), null when its recording has none and the feed submits it whole; where
         //the next chunk starts, the drums' gain at the end of the last chunk, and the ring the chunks are written into
         private byte[] _soundingDrums;
@@ -331,6 +334,17 @@ namespace BS3D.Audio
 
         /// <summary>True while a fanfare is sounding; the host ducks the fireworks under it.</summary>
         public bool IsFanfarePlaying => _fanfares.IsFanfarePlaying;
+
+        /// <summary>
+        /// The recording the level's theme is playing (#824), by its stem (the name a level can pin), or null while no
+        /// theme chain is up: the menus, a level's ending, a theme that could not be realized. It is what a note says
+        /// about the music: a family moves to its next recording at every level opening, so "the music here is awful"
+        /// names one of ten only with this. Allocates; read it per note, not per frame.
+        /// </summary>
+        public string SoundingRecording => _voice == null || _failed ? null : Path.GetFileNameWithoutExtension(_soundingName);
+
+        /// <summary>Whether <see cref="SoundingRecording"/> has its drums layer mixed in (#495).</summary>
+        public bool SoundingLayered => _voice != null && !_failed && _soundingDrums != null;
 
         /// <summary>
         /// The player's volume settings (master × music), 1 for the authored level. Pushed onto whatever is already
@@ -868,6 +882,7 @@ namespace BS3D.Audio
                     }
 
                     Console.WriteLine($"[music] {family.Name}: {family.Names[variant]}{(layer != null ? " (drums layered)" : "")}");
+                    _soundingName = family.Names[variant];
 
                     DynamicSoundEffectInstance old = _voice;
 
