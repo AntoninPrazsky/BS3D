@@ -52,15 +52,33 @@ namespace BS3D.Tests
         {
             InstancedModelRenderer.PotatoKindLook look = InstancedModelRenderer.PotatoKindLookFor(shading, Navy, DEPTH);
 
+            //A style may have its gloss and the strength of its glow (#828), never another colour: the casing is the
+            //colour, the glow is the colour scaled, the beat is split as the renderer says, and nothing is pulled anywhere
             Assert.Equal(Navy, look.Casing);
-            Assert.Equal(Navy, look.Emission);
+            Assert.True(Vector3.Dot(Vector3.Normalize(Navy), Vector3.Normalize(look.Emission)) > 0.9999f, $"{shading}: the glow is another colour, {look.Emission}");
             Assert.Equal(1f - DEPTH, look.StillShare, 5);
             Assert.Equal(DEPTH, look.BeatShare, 5);
-            Assert.Null(look.Roughness);
-            Assert.Equal(1f, look.ReflectanceScale);
             Assert.Equal(1f, look.Alpha);
             Assert.Equal(0f, look.ToneWeight);
             Assert.Equal(Navy, look.ToneAmbient(Navy));
+        }
+
+        [Fact]
+        public void TheVinylIsTheBaselineAndTheStylesDifferInGlossAlone()
+        {
+            InstancedModelRenderer.PotatoKindLook vinyl = InstancedModelRenderer.PotatoKindLookFor(BallShading.Vinyl, Navy, DEPTH);
+            InstancedModelRenderer.PotatoKindLook metal = InstancedModelRenderer.PotatoKindLookFor(BallShading.Metal, Navy, DEPTH);
+            InstancedModelRenderer.PotatoKindLook wool = InstancedModelRenderer.PotatoKindLookFor(BallShading.Wool, Navy, DEPTH);
+            InstancedModelRenderer.PotatoKindLook porcelain = InstancedModelRenderer.PotatoKindLookFor(BallShading.Porcelain, Navy, DEPTH);
+            InstancedModelRenderer.PotatoKindLook plasma = InstancedModelRenderer.PotatoKindLookFor(BallShading.Plasma, Navy, DEPTH);
+
+            Assert.Null(vinyl.Roughness);
+            Assert.Equal(1f, vinyl.ReflectanceScale);
+            Assert.Null(vinyl.EmissionStrength);
+            Assert.True(metal.ReflectanceScale > porcelain.ReflectanceScale && porcelain.ReflectanceScale > vinyl.ReflectanceScale, "the metal mirrors most");
+            Assert.True(wool.Roughness > vinyl.Roughness.GetValueOrDefault(0.22f) && wool.ReflectanceScale < 1f, "the wool is matte");
+            Assert.True(porcelain.Roughness < 0.12f, "the glaze is sharp");
+            Assert.True(plasma.EmissionStrength > 0f, "the plasma glows on its own, its desktop emission being nought");
         }
 
         [Fact]
