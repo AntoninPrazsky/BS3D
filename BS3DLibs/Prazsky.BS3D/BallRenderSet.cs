@@ -1547,7 +1547,7 @@ namespace Prazsky.BS3D
         /// It reaches the cluster and the loaded rounds alike (both are <see cref="DrawPlane"/>), since a figure on the
         /// cluster alone would not help the player choosing a shot, and the HUD's queue paints the same figure on its
         /// discs from <see cref="ColourCueOf"/>. The special kinds keep their own looks: a frozen or a heavy ball is
-        /// that kind first. The Potato path has no programs for it and draws no figure (<see cref="DrawsColourCue"/>).
+        /// that kind first. The Potato path paints it through a program of its own (<c>PotatoBallCue</c>, #828).
         /// </para>
         /// </summary>
         public int ColourCue
@@ -1568,10 +1568,10 @@ namespace Prazsky.BS3D
         /// <summary>
         /// Whether the balls are drawn with a figure on: the set the cue gives this style is not none (the cue is not off,
         /// and the style is not the lava, which draws no figure), and the renderers' effect has the programs that paint
-        /// one (the Potato effect has none, #828). The HUD's queue asks this before it paints a figure on a
+        /// one (the Potato effect's is <c>PotatoBallCue</c>, #828). The HUD's queue asks this before it paints a figure on a
         /// disc, so that the strip shows what the gun is loaded with and not a figure the balls do not carry.
         /// </summary>
-        public bool DrawsColourCue => ColourCues.SetFor(_colourCue, _style) != ColourCues.NONE && !_renderers[0].Potato;
+        public bool DrawsColourCue => ColourCues.SetFor(_colourCue, _style) != ColourCues.NONE;
 
         /// <summary>
         /// The figure and its inks a <paramref name="type"/> ball carries under the current switch and style; the

@@ -1689,7 +1689,7 @@ namespace BS3D.Screens
 
             //The colour cue (#737): a plain round carries its colour's figure in the bore, so its disc carries the same
             //one, painted the way the ball is - the ground in the ground's ink, the figure in its own. Not where the balls
-            //draw none (colourcue=none, the Potato path), and not on a special round, which is that kind first.
+            //draw none (colourcue=none), and not on a special round, which is that kind first.
             bool figures = _game.Balls?.DrawsColourCue == true;
 
             for (int i = 0; i < shown; i++)

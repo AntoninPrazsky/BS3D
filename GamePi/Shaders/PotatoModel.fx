@@ -630,12 +630,12 @@ float DissolveNoise(float2 cell)
 //What a ball's pixel is, in linear radiance: BallPS's whole body, a function because the rim's pixels (PotatoBallRim) are
 //the same ball's and must come out of the same arithmetic, or the ring would show against the ball it finishes - and
 //because a kind's figure (BallKindRadiance, #863) is painted on it before the display encode
-float3 BallRadiance(VertexOutput input)
+float3 BallRadianceWith(VertexOutput input, float3 crust, float3 emissionStill, float3 emissionBeat)
 {
     float3 normal = normalize(input.WorldNormal);
 
     //A ball is opaque, so its added light simply joins it
-    Shaded parts = Shade(input.WorldPosition, normal, input.OcclusionData, BallCrust, input.SceneDiffuse, input.SceneSpecular, true);
+    Shaded parts = Shade(input.WorldPosition, normal, input.OcclusionData, crust, input.SceneDiffuse, input.SceneSpecular, true);
     float3 shaded = parts.Covered.rgb + parts.Added;
     float occlusion = parts.Occlusion;
     float beat = input.DissolveRipple.z;
@@ -643,7 +643,7 @@ float3 BallRadiance(VertexOutput input)
     //BallCommon.fxh's BallEmission and, for the lava (#795), BallLava.fxh's seams as their average: the resting glow
     //occluded squared and the seams' linearly, the beat's own share of each riding through. See the uniforms for what
     //each of the four is; a style with no glow has zeros in two of them.
-    shaded += (BallEmissionStill * occlusion + BallGlowStill) * occlusion + (BallEmissionBeat + BallGlowBeat * occlusion) * beat;
+    shaded += (emissionStill * occlusion + BallGlowStill) * occlusion + (emissionBeat + BallGlowBeat * occlusion) * beat;
 
     //The ripple through the cluster (#331): a flash towards the ball's own hue, or the ceiling's alarm red
     float ripple = input.DissolveRipple.y;
@@ -653,6 +653,12 @@ float3 BallRadiance(VertexOutput input)
     shaded = ripple < 0 ? alarmed : lit;
 
     return shaded;
+}
+
+//The plain ball: its crust and its glow as the draw's uniforms say
+float3 BallRadiance(VertexOutput input)
+{
+    return BallRadianceWith(input, BallCrust, BallEmissionStill, BallEmissionBeat);
 }
 
 //The same, display-encoded
@@ -933,6 +939,449 @@ technique PotatoBallKindDither
     {
         VertexShader = compile POTATO_VS PotatoBallVS();
         PixelShader = compile POTATO_PS BallKindDitherPS();
+    }
+};
+
+//===================================================================================================
+//THE COLOUR CUE (#737) ON THE POTATO PATH (#828): BallColourCue.fxh's figures, function for function, read from the
+//four uniforms the desktop's programs read the figure from (BallColourCueTechniques.fxh; InstancedModelRenderer sets
+//them by name) and painted on the ball as the ink the figure covers this pixel with. The inks are the desktop's too
+//(Prazsky.BS3D.ColourCues: the plain colour in two shades that average to it), but folded on the CPU into what this
+//effect's ball program takes (#804): the crust and the resting and beating glow in the figure's ink and in the
+//ground's, lerped per pixel by the figure's coverage. One program for every style, the styles' bodies being one
+//here, chosen by DrawPotato for a draw whose paint is not empty, so the plain ball's program is untouched. The
+//figure is in object space (every ball of a colour carries the same one, and it turns with its ball), from
+//PotatoBallCueVS. ⚠ The functions between the two rules below are BallColourCue.fxh's: a figure changed there is
+//changed here (and in ColourCueField.cs) in the same commit.
+//===================================================================================================
+float4 ColourCueA;
+float4 ColourCueB;
+float4 ColourCueC;
+float4x4 ColourCueFrame;
+float3 CueCrustFigure;
+float3 CueCrustGround;
+float3 CueEmissionStillFigure;
+float3 CueEmissionStillGround;
+float3 CueEmissionBeatFigure;
+float3 CueEmissionBeatGround;
+
+struct ColourCuePaint
+{
+    float4 a;
+    float4 b;
+    float4 c;
+    float3x3 frame;
+};
+
+//BallCommon.fxh's AntialiasedStep: a one-pixel soft edge on a field
+float AntialiasedStep(float edge, float value)
+{
+    float width = max(fwidth(value), 1e-5);
+
+    return smoothstep(edge - width, edge + width, value);
+}
+
+//---- BallColourCue.fxh, verbatim from here ----
+//The regular solids' vertices, as axes (both ends of each are a vertex) except the tetrahedron's, which has no
+//opposite vertices: the most even ways to put 4, 8, 12 and 20 points on a ball. Six is the frame's own axes.
+static const float3 ColourCueTetrahedron[4] =
+{
+    float3(0.577350, 0.577350, 0.577350),
+    float3(0.577350, -0.577350, -0.577350),
+    float3(-0.577350, 0.577350, -0.577350),
+    float3(-0.577350, -0.577350, 0.577350)
+};
+
+static const float3 ColourCueCube[4] =
+{
+    float3(0.577350, 0.577350, 0.577350),
+    float3(0.577350, 0.577350, -0.577350),
+    float3(0.577350, -0.577350, 0.577350),
+    float3(-0.577350, 0.577350, 0.577350)
+};
+
+static const float3 ColourCueIcosahedron[6] =
+{
+    float3(0.000000, 0.525731, 0.850651),
+    float3(0.000000, 0.525731, -0.850651),
+    float3(0.525731, 0.850651, 0.000000),
+    float3(0.525731, -0.850651, 0.000000),
+    float3(0.850651, 0.000000, 0.525731),
+    float3(-0.850651, 0.000000, 0.525731)
+};
+
+static const float3 ColourCueDodecahedron[10] =
+{
+    float3(0.577350, 0.577350, 0.577350),
+    float3(0.577350, 0.577350, -0.577350),
+    float3(0.577350, -0.577350, 0.577350),
+    float3(-0.577350, 0.577350, 0.577350),
+    float3(0.000000, 0.356822, 0.934172),
+    float3(0.000000, 0.356822, -0.934172),
+    float3(0.356822, 0.934172, 0.000000),
+    float3(0.356822, -0.934172, 0.000000),
+    float3(0.934172, 0.000000, 0.356822),
+    float3(-0.934172, 0.000000, 0.356822)
+};
+
+//Below about seven target pixels of radius a figure cannot be drawn, only aliased, so it is eased out on the
+//pixel footprint (the vinyl's yardstick, surface per pixel over the radius): whole up to 0.2, gone by 0.4. A
+//ball in play is 0.07-0.15 at the desktop's and the laptop's resolutions, so this is the overview's far balls
+//and nothing a player aims at.
+static const float ColourCueFadeStart = 2.0;
+static const float ColourCueFadeRate = 5.0;
+
+//The cosine of the angle to the nearest vertex of a solid, `solid` its vertex count (-4 the tetrahedron turned
+//inside out, the other four corners of a cube). On a per-draw uniform, so the branches cannot diverge.
+float ColourCueNearest(float3 q, float solid)
+{
+    float nearest = -1;
+
+    [branch]
+    if (solid < -3.5)
+    {
+        [unroll]
+        for (int i = 0; i < 4; i++) nearest = max(nearest, -dot(q, ColourCueTetrahedron[i]));
+    }
+    else if (solid < 4.5)
+    {
+        [unroll]
+        for (int i = 0; i < 4; i++) nearest = max(nearest, dot(q, ColourCueTetrahedron[i]));
+    }
+    else if (solid < 6.5)
+    {
+        float3 m = abs(q);
+        nearest = max(m.x, max(m.y, m.z));
+    }
+    else if (solid < 8.5)
+    {
+        [unroll]
+        for (int i = 0; i < 4; i++) nearest = max(nearest, abs(dot(q, ColourCueCube[i])));
+    }
+    else if (solid < 12.5)
+    {
+        [unroll]
+        for (int i = 0; i < 6; i++) nearest = max(nearest, abs(dot(q, ColourCueIcosahedron[i])));
+    }
+    else
+    {
+        [unroll]
+        for (int i = 0; i < 10; i++) nearest = max(nearest, abs(dot(q, ColourCueDodecahedron[i])));
+    }
+
+    return nearest;
+}
+
+//One family of bands round an axis: `along` the height along it, `around` the angle round it. Every count of
+//waves and dashes is a whole number, so sin and cos of it stay continuous across atan2's cut.
+float ColourCueBandFamily(float along, float around, float4 a, float4 b, float4 c)
+{
+    float t = a.y * along + a.z + b.x * sin(b.y * around);
+    float wave = cos(3.14159265 * t);
+    float field = wave - cos(3.14159265 * a.w);
+
+    //A hollow band is its two edges: a double line
+    if (b.z > 0) field = min(field, cos(3.14159265 * b.z) - wave);
+
+    //A dashed one is cut round the ball
+    if (b.w > 0) field = min(field, cos(b.w * around) - cos(3.14159265 * c.x));
+
+    return field;
+}
+
+//A heart, point down: a square stood on its corner with a disc on each upper side, as a heart is drawn by hand
+float ColourCueHeart(float2 p)
+{
+    p.y -= 0.08;
+    float corner = (0.672 - (abs(p.x) + abs(p.y + 0.15))) * 0.707107;
+    float lobe = 0.475 - length(float2(abs(p.x), p.y) - float2(0.336, 0.186));
+
+    return max(corner, lobe);
+}
+
+//A spade's or a club's stem: a short foot widening downwards
+float ColourCueStem(float2 p)
+{
+    return min(0.06 + 0.25 * (-0.30 - p.y) - abs(p.x), min(p.y + 0.90, -0.20 - p.y));
+}
+
+//The emblems' signed fields, in the face's units over the emblem's size, positive inside. Each is the plain
+//distance algebra of its shape (discs, half-planes, a polar star), sized to fill about the same share of its
+//face, so that an emblem is told by its outline, not by how much of the ball it inks. The numbers are the shapes'.
+float ColourCueEmblem(float2 p, float shape)
+{
+    float field;
+
+    [branch]
+    if (shape < 1.5)
+    {
+        //1 a five-pointed star, a point up. 1 along a point and 0 in the notch between two, squared so the arms
+        //taper like a star's and do not bulge; five points, so the period also hides atan2's cut
+        float spoke = abs(frac((atan2(p.y, p.x) - 1.5707963) * (5.0 / 6.2831853)) * 2 - 1);
+        field = lerp(0.44, 1.08, spoke * spoke) - length(p);
+    }
+    else if (shape < 2.5)
+    {
+        //2 a heart
+        field = ColourCueHeart(p);
+    }
+    else if (shape < 3.5)
+    {
+        //3 a spade: a heart upside down on a stem
+        field = max(ColourCueHeart(float2(p.x, 0.15 - p.y) * 1.2), ColourCueStem(p));
+    }
+    else if (shape < 4.5)
+    {
+        //4 a club: three discs and a heart between them, on a stem
+        float leaves = max(0.34 - length(p - float2(0, 0.40)),
+            max(0.34 - length(p - float2(0.40, -0.08)), 0.34 - length(p - float2(-0.40, -0.08))));
+        field = max(max(leaves, 0.20 - length(p - float2(0, 0.08))), ColourCueStem(p));
+    }
+    else if (shape < 5.5)
+    {
+        //5 a diamond, the card's lozenge
+        field = 1 - (abs(p.x) / 0.66 + abs(p.y));
+    }
+    else if (shape < 6.5)
+    {
+        //6 a square
+        field = 0.62 - max(abs(p.x), abs(p.y));
+    }
+    else if (shape < 7.5)
+    {
+        //7 a ring: one, never two in one another (two concentric are the gravity well's bullseye)
+        float d = length(p);
+        field = min(0.85 - d, d - 0.50);
+    }
+    else if (shape < 8.5)
+    {
+        //8 a triangle, point up
+        field = min(0.45 - (abs(p.x) * 0.866025 + p.y * 0.5), p.y + 0.45);
+    }
+    else if (shape < 9.5)
+    {
+        //9 a crescent moon: a disc with a disc taken out of it
+        field = min(0.85 - length(p), length(p - float2(0.42, 0.18)) - 0.68);
+    }
+    else if (shape < 10.5)
+    {
+        //10 a drop: a disc drawn up to a point by the two lines from the point that touch it
+        field = max(0.55 - length(p - float2(0, -0.25)),
+            min(-(abs(p.x) * 0.888 + (p.y - 0.95) * 0.458), p.y + 0.25));
+    }
+    else if (shape < 11.5)
+    {
+        //11 a flower: four petals round a heart
+        float petals = max(max(0.40 - length(p - float2(0.42, 0)), 0.40 - length(p + float2(0.42, 0))),
+            max(0.40 - length(p - float2(0, 0.42)), 0.40 - length(p + float2(0, 0.42))));
+        field = max(petals, 0.30 - length(p));
+    }
+    else if (shape < 12.5)
+    {
+        //12 a chevron pointing up
+        field = min(0.28 - abs(p.y - 0.35 + abs(p.x) * 0.9), 0.85 - abs(p.x));
+    }
+    else if (shape < 13.5)
+    {
+        //13 a saltire, an X. Square to the face it would be a "+", the bomb's two seams seen face on
+        float2 r = float2(p.x + p.y, p.x - p.y) * 0.707107;
+        field = max(min(0.24 - abs(r.x), 0.95 - abs(r.y)), min(0.24 - abs(r.y), 0.95 - abs(r.x)));
+    }
+    else
+    {
+        //14 a hexagon
+        float2 m = abs(p);
+        field = 0.75 - max(m.x * 0.866025 + m.y * 0.5, m.y);
+    }
+
+    return field;
+}
+
+//The figure's signed field, positive inside it. No derivative inside the branches - they are on a per-draw
+//uniform and cannot diverge, but the antialiasing that needs the field's screen gradient is taken outside them.
+float ColourCueMotifField(float3 direction, ColourCuePaint cue)
+{
+    float3 q = mul(cue.frame, direction);
+    float field;
+
+    [branch]
+    if (cue.a.x < 1.5)
+    {
+        field = ColourCueBandFamily(q.y, atan2(q.z, q.x), cue.a, cue.b, cue.c);
+    }
+    else if (cue.a.x < 2.5)
+    {
+        float nearest = ColourCueNearest(q, cue.a.y);
+
+        //A spot, or a ring where an inner radius is given (its cosine is 2, out of reach, where none is)
+        field = min(nearest - cue.a.z, cue.a.w - nearest);
+
+        //A second solid's spots, the other size of a two-size pattern
+        [branch]
+        if (cue.b.x != 0) field = max(field, ColourCueNearest(q, cue.b.x) - cue.b.y);
+    }
+    else if (cue.a.x < 3.5)
+    {
+        float3 cell = q * cue.a.y;
+        field = sin(cell.x) * sin(cell.y) * sin(cell.z);
+    }
+    else
+    {
+        //The face of the frame's cube this direction is on, and where on it (a gnomonic projection): a select, not
+        //a branch, so the quad stays together. On the four side faces the emblem stands up along the frame's Y.
+        float3 m = abs(q);
+        float2 uv = m.x >= max(m.y, m.z) ? float2(q.z, q.y) / m.x
+            : (m.y >= m.z ? float2(q.x, q.z) / m.y : float2(q.x, q.y) / m.z);
+
+        field = ColourCueEmblem(uv / cue.a.z, cue.a.y);
+    }
+
+    return field;
+}
+
+//How much of this pixel the painted figure covers, 0..1: a one-pixel soft edge, and on a ball too small to carry
+//the figure, the figure's own share of the ball (cue.c.w), so that the two inks mix to the ball's plain colour.
+//
+//An emblem's field JUMPS where two faces of its cube meet, each face having its own projection, and the soft edge's
+//width, taken over the pixel quad, would span the jump: a faint line of ink (up to a third of the figure's) along
+//parts of the cube's edges, away from any emblem (the chevron, drop, triangle, star, spade, club and diamond leave
+//one). No emblem reaches the edge of its face, so a quad that straddles two faces is outside every emblem and draws
+//the ground. The face is the field's own select, taken here because a derivative may not sit in its branches.
+float ColourCueMotif(float3 direction, float footprint, ColourCuePaint cue)
+{
+    float field = ColourCueMotifField(direction, cue);
+    float fade = saturate(ColourCueFadeStart - footprint * ColourCueFadeRate);
+    float figure = AntialiasedStep(0, field);
+
+    float3 m = abs(mul(cue.frame, direction));
+    float face = m.x >= max(m.y, m.z) ? 0 : (m.y >= m.z ? 1 : 2);
+    figure = cue.a.x > 3.5 && fwidth(face) > 0 ? 0 : figure;
+
+    return lerp(cue.c.w, figure, fade);
+}
+
+//---- to here ----
+
+struct CueVertexOutput
+{
+    float4 Position : POSITION0;
+    float3 WorldPosition : TEXCOORD0;
+    float3 WorldNormal : TEXCOORD1;
+    float4 OcclusionData : TEXCOORD2;
+    float3 DissolveRipple : TEXCOORD3;
+    float3 SceneDiffuse : TEXCOORD4;
+    float3 SceneSpecular : TEXCOORD5;
+    //The direction from the ball's centre in the ball's own space: where on the ball this is, whatever way it turns
+    float3 ObjectDirection : TEXCOORD6;
+};
+
+CueVertexOutput PotatoBallCueVS(VertexInput input, InstanceInput instance)
+{
+    VertexOutput ball = PotatoBallVS(input, instance);
+
+    CueVertexOutput output;
+    output.Position = ball.Position;
+    output.WorldPosition = ball.WorldPosition;
+    output.WorldNormal = ball.WorldNormal;
+    output.OcclusionData = ball.OcclusionData;
+    output.DissolveRipple = ball.DissolveRipple;
+    output.SceneDiffuse = ball.SceneDiffuse;
+    output.SceneSpecular = ball.SceneSpecular;
+    output.ObjectDirection = normalize(input.Position.xyz);
+
+    return output;
+}
+
+//The ball with its colour's figure on it: the figure's coverage of this pixel, then the crust and the glow in the
+//ink it covers it with. The footprint is the desktop's (BallVinyl.fxh: the surface a pixel spans over the radius),
+//taken on the object direction, which is the position over the radius.
+//
+//FOUR PROGRAMS, ONE PER KIND OF FIGURE, the kind a literal: with the kind a uniform, one program carried every
+//kind's branch and V3D sized its registers for the dearest (969 instructions, 58 temporaries, +2.9 ms on Girandole
+//at native); with the kind folded at compile time each program is its own figure's arithmetic and nothing else.
+//DrawPotato picks the program by the paint's kind.
+float4 BallCue(CueVertexOutput input, float kind)
+{
+    VertexOutput ball;
+    ball.Position = input.Position;
+    ball.WorldPosition = input.WorldPosition;
+    ball.WorldNormal = input.WorldNormal;
+    ball.OcclusionData = input.OcclusionData;
+    ball.DissolveRipple = input.DissolveRipple;
+    ball.SceneDiffuse = input.SceneDiffuse;
+    ball.SceneSpecular = input.SceneSpecular;
+
+    ColourCuePaint cue;
+    cue.a = float4(kind, ColourCueA.yzw);
+    cue.b = ColourCueB;
+    cue.c = ColourCueC;
+    cue.frame = (float3x3)ColourCueFrame;
+
+    float3 direction = normalize(input.ObjectDirection);
+    float footprint = length(ddx(direction)) + length(ddy(direction));
+    float figure = ColourCueMotif(direction, footprint, cue);
+
+    float3 shaded = BallRadianceWith(ball,
+        lerp(CueCrustGround, CueCrustFigure, figure),
+        lerp(CueEmissionStillGround, CueEmissionStillFigure, figure),
+        lerp(CueEmissionBeatGround, CueEmissionBeatFigure, figure));
+
+    return float4(ToDisplay(shaded), 1);
+}
+
+float4 BallCueBandsPS(CueVertexOutput input) : COLOR0
+{
+    return BallCue(input, 1);
+}
+
+float4 BallCueSpotsPS(CueVertexOutput input) : COLOR0
+{
+    return BallCue(input, 2);
+}
+
+float4 BallCueChecksPS(CueVertexOutput input) : COLOR0
+{
+    return BallCue(input, 3);
+}
+
+float4 BallCueEmblemsPS(CueVertexOutput input) : COLOR0
+{
+    return BallCue(input, 4);
+}
+
+technique PotatoBallCueBands
+{
+    pass P0
+    {
+        VertexShader = compile POTATO_VS PotatoBallCueVS();
+        PixelShader = compile POTATO_PS BallCueBandsPS();
+    }
+};
+
+technique PotatoBallCueSpots
+{
+    pass P0
+    {
+        VertexShader = compile POTATO_VS PotatoBallCueVS();
+        PixelShader = compile POTATO_PS BallCueSpotsPS();
+    }
+};
+
+technique PotatoBallCueChecks
+{
+    pass P0
+    {
+        VertexShader = compile POTATO_VS PotatoBallCueVS();
+        PixelShader = compile POTATO_PS BallCueChecksPS();
+    }
+};
+
+technique PotatoBallCueEmblems
+{
+    pass P0
+    {
+        VertexShader = compile POTATO_VS PotatoBallCueVS();
+        PixelShader = compile POTATO_PS BallCueEmblemsPS();
     }
 };
 
