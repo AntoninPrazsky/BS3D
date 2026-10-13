@@ -14,8 +14,8 @@
 //  - THE EYE: where the two seams cross, on both sides (+Z and -Z; a level-placed ball shows -Z to the
 //    player), a disc of MineEyeRadius at MineEyeGain times the charge - the hot point the references put there.
 //  - THE STUDS: eight blunt bumps on the cube's diagonals, as far from both seams as a stud can be. One
-//    abs() folds all eight octants onto one test, so they cost one dot product. They stand proud in the
-//    relief only; the silhouette stays the sphere (a drawn ball may not leave its cell).
+//    abs() folds all eight octants onto one test, so they cost one dot product. They are geometry, rising
+//    out of a casing at the full ball radius (BombVS, MineStudRise) - see the note at MineStudRise.
 //  - THE CASING: matte, warm near-black - a mine is cast and painted, not machined. The warmth is still
 //    what keeps it off Type8.
 //THE LIVE BOMB (#326) — the thirteenth ball technique, and the third of the three that belong to a KIND
@@ -186,14 +186,23 @@ static const float MineEyeGain = 1.8;
 static const float MineStudRadius = 0.22;
 static const float MineStudHeight = 0.0;
 
-//THE STUDS ARE GEOMETRY since the owner's verdict on the first mine ("the geometric studs a real mine has").
-//A drawn ball may not leave its cell - the lattice packs balls exactly two radii apart - so the stud cannot
-//grow OUT of the sphere; instead the casing is cut back to MineBodyRadius (the rock's and the ice's own
-//inward-only rule, #340, #329) and the eight studs rise from it up to the full radius, blunt cones with a
-//flat top. MineStudTop is where on the profile the cone stops rising and the top is flat. A stud is about
-//five vertices across on the finest sphere (64 x 32) and three on the next, which is what the blunt cone
-//is sized for: sharper would facet.
-static const float MineBodyRadius = 0.87;
+//THE STUDS ARE GEOMETRY since the owner's verdict on the first mine ("the geometric studs a real mine has"):
+//blunt cones with a flat top, rising OUT of a casing at the full ball radius by MineStudRise. MineStudTop is
+//where on the profile the cone stops rising and the top is flat. A stud is about five vertices across on
+//the finest sphere (64 x 32) and three on the next, which is what the blunt cone is sized for: sharper
+//would facet.
+//
+//⚠ THE CASING WAS CUT BACK TO 0.87 OF THE RADIUS (#625) so that the studs could rise to 1 and no further -
+//the rock's and the ice's inward-only rule (#340, #329), since the lattice packs balls exactly two radii
+//apart. It made the bomb visibly SMALLER than every ball round it (#860): measured face-on in the Testbed,
+//its silhouette's area-equivalent radius was 0.87 of an ordinary ball's beside it, and all a player saw was a
+//ball sitting in its cell with a gap round it. The owner's ruling: the studs may stand over 1. So the
+//casing is the ball and the studs are the only thing past it, and they rise by the 0.13 they rose by when
+//#625 was approved; at 0.06 they were all but gone face-on. What it costs: a level-placed mine's eight
+//diagonals point within 10 degrees of its eight cross-level neighbours' cells, so where such a cell is
+//occupied the stud's top sinks into that ball by about MineStudRise, inside the crevice where the two
+//touch - and reads as a stud resting on it, on the opaque styles and through the bubble, the ice and the gem.
+static const float MineStudRise = 0.13;
 static const float MineStudTop = 0.55;
 
 static const float BombStudCount = 12.0;
@@ -281,18 +290,18 @@ float MineStuds(float3 direction)
     return t * t * (3.0 - 2.0 * t);
 }
 
-//The mine's radius as a fraction of the sphere's, in a direction: the cut-back casing, and the studs rising
-//from it to 1 on the cube's diagonals.
+//The mine's radius as a fraction of the sphere's, in a direction: the casing at 1, and the studs rising
+//from it to 1 + MineStudRise on the cube's diagonals.
 float MineRadius(float3 direction)
 {
     float toDiagonal = acos(saturate(dot(abs(direction), float3(0.57735, 0.57735, 0.57735))));
     float rise = smoothstep(0.0, MineStudTop, saturate(1.0 - toDiagonal / MineStudRadius));
 
-    return lerp(MineBodyRadius, 1.0, rise);
+    return 1.0 + MineStudRise * rise;
 }
 
-//The mine's own vertex shader: PatternVS with the studs raised out of the cut-back casing. The normal is
-//taken from the displaced surface by two tangent differences, so a stud's flank is lit as a flank.
+//The mine's own vertex shader: PatternVS with the studs raised out of the casing. The normal is taken from
+//the displaced surface by two tangent differences, so a stud's flank is lit as a flank.
 PatternVertexShaderOutput BombVS(VertexShaderInput input, InstanceInput instance)
 {
     PatternVertexShaderOutput output;
