@@ -52,6 +52,11 @@ static const float LavaSeamWanderFrequency = 2.1;
 static const float LavaCrustDark = 0.16;
 static const float LavaCrustTint = 0.62;
 
+//The colour cue's cooled skin (#737): the crust's darkness inside a figure, against LavaCrustDark outside it. About
+//two and a half times the basalt, so a spot reads as an island of pale ash between the glowing seams on the darkest
+//dome too, without turning the plates into the lightened crust #338 rejected for the whole ball.
+static const float LavaAshDark = 0.40;
+
 //THE HEAT ROUND A SEAM, and #338's answer to "the black crust takes up too much of the ball". The
 //owner's complaint is about AREA - the type colour was confined to the seams, which are a fifteenth of
 //the surface, so twelve of every thirteen pixels on the ball were black whatever colour it was.
@@ -242,15 +247,25 @@ float4 LavaShade(PatternVertexShaderOutput input, bool motifCue, ColourCuePaint 
     //the ball. The crust takes the same scale, which at its tint share is barely there.
     float3 crustDye = primary;
     float cueHeat = 1;
+    float cueFigure = 0;
 
     if (motifCue)
     {
-        cueHeat = ColourCueInkScale(ColourCueMotif(direction, footprint, cue), cue);
+        cueFigure = ColourCueMotif(direction, footprint, cue);
+        cueHeat = ColourCueInkScale(cueFigure, cue);
         crustDye = primary * cueHeat;
     }
 
     //Basalt: nearly black, keeping just enough of the tint that thirteen crusts are not one object.
     float3 crust = crustDye * LavaCrustTint * LavaCrustDark + LavaCrustDark * (1 - LavaCrustTint);
+
+    //The seams' scale alone left the figure invisible (#737, judged on the laptop: on the rig a faint unevenness of
+    //the seams, gone under dome 13, and at play distance the cue on and off looked the same), because the seams are
+    //thin and the crust they leave is near black. So the figure is also a patch of COOLED SKIN: inside it the crust
+    //is lifted to an ash of the ball's own tint (LavaAshDark), light islands in the dark basalt between the seams.
+    //Off (motifCue false) cueFigure is 0 and the crust is the basalt above, so the shipped program is unchanged.
+    float3 ash = crustDye * LavaCrustTint * LavaAshDark + LavaAshDark * (1 - LavaCrustTint);
+    crust = lerp(crust, ash, cueFigure);
 
     SurfaceSpecular surface;
     surface.Highlight = LavaHighlight;
