@@ -656,3 +656,9 @@ Pravidla:
 - `Tools/DocDrift -- --citations [--selftest]` (merge do mainu): každá `"Název" in docs/x.md` v kódu i docs musí jmenovat nadpis dokumentu, jeho pod-dokumentů nebo řádek tabulky starých sekcí; průchody 8 a 9 to dělaly skriptem ze scratchpadu. Self-test podstrčí citaci neexistující sekce (§10). Stav: 187 citací, 0 nevyřešených. Zapsáno v `checking-tools.md`, `CLAUDE.md` a `build-and-release.md`.
 - ⚠ Příklad vzoru v komentáři nebo usage (`"Title" in docs/x.md`) je sám citací; psát s lomenými závorkami.
 - Otevřené: citace bez uvozovek nástroj nevidí.
+
+## 2026-10-13 — #849 Colossus přestavěn jako vygenerovaný závěr Quarry — desktop (RDT-PC), Claude Code (bs3d-71)
+- majitel: přestavět Colosse s vlastním nápadem, generovaný LevelGen jako nejtěžší level kapitoly.
+- #849 (merge do mainu, verdict-eye): obr se zdviženýma rukama, který drží skleněný strop, se srdcem (výplata Type6) zapečetěným v hrudi. 337 koulí (dřív 364), 33 skupin, 42 ran; brány včetně reveal prošly, sag 0 z 5, ScoreSim i 1010 testů OK. Přípravky testů přesunuty (ShotAgreement přeměřen: 97,5 %), ChapterTests drží každý blok na jedné scéně, kopuli, rodině a materiálu.
+- ⚠ Pět resetů desktopu přerušilo agenta pětkrát; dokončeno ručně po krátkých krocích, každý hned pushnutý. Snímky z 12. 10. 16:49 platí, `Colossus.json` se od 16:36 nezměnil (porovnáno bez CR).
+- Otevřené: oko majitele; `update-ceilings.sh` na Pi při příštím vydání (deska Colosse začne od nuly).
