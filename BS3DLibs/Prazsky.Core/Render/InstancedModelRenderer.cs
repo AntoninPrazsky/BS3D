@@ -2348,6 +2348,9 @@ namespace Prazsky.Core.Render
                 _potatoReflectanceParam.SetValue(reflectance * SpecularAmbientStrength);
                 _potatoReflectanceRiseParam.SetValue((Vector3.Max(Vector3.One, reflectance) - reflectance) * SpecularAmbientStrength);
 
+                //A kind whose desktop look is a figure on the ball (#863): its own program paints it, see SetPotatoKindFigure
+                bool figure = ball && !PotatoFlatBalls && Shading is BallShading.Acid or BallShading.Infectious or BallShading.Gravity;
+
                 if (ball && look.Alpha < 1f)
                 {
                     //The clear glass (#863): a ball that shows what is behind it, drawn through PotatoLit's own alpha - the
@@ -2390,9 +2393,6 @@ namespace Prazsky.Core.Render
                     _ => null,
                 } : null;
                 PotatoKindMesh addition = ball && Shading == BallShading.Bomb ? PotatoStudMesh : null;
-
-                //A kind whose desktop look is a figure on the ball (#863): its own program paints it, see SetPotatoKindFigure
-                bool figure = ball && !PotatoFlatBalls && Shading is BallShading.Acid or BallShading.Infectious or BallShading.Gravity;
 
                 MeshPartData ballPart = part;
                 if (replacement != null)
