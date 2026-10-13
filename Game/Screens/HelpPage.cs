@@ -439,6 +439,14 @@ namespace BS3D.Screens
                 "You have a fixed number of balls per level, shown at the bottom left. The queue at the bottom "
                 + "right shows what you are about to fire and what comes after it, so you can plan two shots "
                 + "ahead. Clear every ball that can be matched and the level is done."));
+
+            //The colour cue (#737), where the balls carry it: a pattern that only ever means its colour, said once so
+            //that nobody reads a striped or a spotted ball as a special one. Not on the Potato path, which draws none.
+            if (Game.Balls?.DrawsColourCue == true)
+                column.Widgets.Add(Paragraph(
+                    "Every colour also wears a pattern of its own: stripes, spots, checks or a printed symbol, "
+                    + "depending on what the balls are made of. Every ball of a colour wears the same one, and so does "
+                    + "its disc in the queue, so two colours that look alike still differ in pattern."));
         }
 
         private void BuildScoring(VerticalStackPanel column)

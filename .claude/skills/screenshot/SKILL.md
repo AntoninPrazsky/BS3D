@@ -463,6 +463,11 @@ bullet above), so it was never what those decisions turned on.
 (5.3 marble/dome 13, 6.3 gem/dome 1, 7.2 vinyl/dome 1 — all `-Whole`), tighter than black/brown anywhere.
 Whether it reads as confusable in play is a question for the eye, not for this script.
 
+**Every ball carries its colour's figure by default since #737** (the colour cue: each style its own figure set).
+On the vinyl the figure replaces the gores this script samples, so for the palette itself pass `colourcue=none`;
+to measure what a figured ball shows, keep the default and read `-Whole` (the inks average to the plain colour in
+linear light, the tonemap does not quite: "The colour cue" in `docs/rendering/ball-styles.md`).
+
 `F5` stops the simulation so the row hangs still, and the bottom row of that map is the enum's own order,
 which is what the script's `-Xs` sample points index — move the camera and you must move `-Xs`/`-RowY` with
 it. `-Focus` was hardcoded to olive until #286 (left behind by #294); name whatever colours the palette

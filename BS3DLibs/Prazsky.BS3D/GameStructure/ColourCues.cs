@@ -105,9 +105,10 @@ namespace Prazsky.BS3D.GameStructure
         /// sphere: a hanging ball stays upright and is seen from the side and from below, so a band round the
         /// upright axis faces the camera across its middle and shows 15-18 % more than its share of the sphere
         /// (the broad band covers 0.374 of what is seen against 0.320 of the sphere), while spots and emblems show
-        /// their share within 0.01. It is measured with a line-for-line port of <c>BallColourCue.fxh</c> on 400,000
-        /// even points, each weighted by its projected area seen from every side at 0 to 30 degrees below the ball.
-        /// The ink balance rests on it, and a figure changed without measuring it again leaves its ball's average
+        /// their share within 0.01. It was measured with a line-for-line port of <c>BallColourCue.fxh</c> on 400,000
+        /// even points, each weighted by its projected area seen from every side at 0 to 30 degrees below the ball,
+        /// and <c>ColourCueStyleTests</c> measures it again through <see cref="ColourCueField"/> and holds this table to
+        /// it. The ink balance rests on it, and a figure changed without measuring it again leaves its ball's average
         /// colour off by the difference.
         /// </para>
         /// </summary>
