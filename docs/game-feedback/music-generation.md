@@ -10,6 +10,12 @@ What a future music round needs: where the recordings come from, how a loop is c
 - The float masters of the first eleven are in `Research/AI-Music/`, each with a `.json` sidecar holding **the exact prompt, what the language model rewrote it into, the loop cut and its check**: that is where a brief that worked is kept, and the next family's brief starts from the nearest one. Later families' masters (#486) live **outside the repository** (`MusicBake --tracks --masters <dir>`); the `.ogg` is the artefact.
 - **A brief that worked, for the pause loop (#668):** nine renders over three briefs (bossa nova, vibraphone and air, chillhop; `generate-music.ps1 -Loop -NoCotCaption`, 120 s, three seeds each), picked by seam: context match 0.949, crossfade rhythm r = 0.99, spectrum cosine 1.00 (`pause-vibes-12`, still awaiting the owner's ear).
 
+## Naming a family's offenders
+
+**Which recordings of a family offend is decided by measurement against the desert's `ember` family** (the owner, 2026-10-11): tunelessness, the low-mid share, energy above 6 kHz. `Tools/Generation/measure-music.py <files> --reference ember` measures loops or candidate masters and bolds every figure outside ember's range (band shares, the tonal share and flatness of 300 Hz-2 kHz, held-note changes, tempo wander, clipped runs, pitch wobble and detune). Measure ember in the same run: the tune columns are only comparable within one. The tables it gave are on #841 (magma), #824 (pulse) and #706 (mural).
+
+- ⚠ **"Drunk" was not in the pitch or the timing**: no mural recording wobbles or drifts more than an ember one, while a synthetic ±25-cent wow moves wobble and detune three to seven times. What the owner hears there is timbre or playing, which only the ear names; a note sent from the pause names the recording (#824).
+
 ## Cutting a loop
 
 - **Cut a loop out of the render's body, never from its own ends.** A generated piece *ends* (a fade or a final hit into silence), so folding the tail onto the head was sample-seamless and audibly an ending followed by a beginning: the level fell from 1.0 to 0.04 of the median across one wrap.
