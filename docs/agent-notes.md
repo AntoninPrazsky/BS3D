@@ -675,3 +675,7 @@ Pravidla:
 - majitel: „Výstupky mohou být klidně přes 1.“
 - Zkoušeno 0,06 / 0,10 / 0,13: při 0,06 výstupky zepředu skoro zmizí. Výstupek ukazuje do 10° k sousedům o patro výš a níž a zanoří se do nich o svou výšku, ve štěrbině; na neprůhledných stylech i přes bublinu, led a drahokam to čte jako výstupek opřený o souseda.
 - Otevřené: oko majitele; kámen a led dál řežou dovnitř (mimo rozsah, rozhodnutí majitele).
+
+## 2026-10-13 — #824 poznámka jmenuje hrající nahrávku — ThinkPad, Claude Code (github-b9)
+- #824 krok 1 (merge do mainu): kontext poznámky nese `music` (kmen nahrávky, který si úroveň umí připnout) a `musicDrums`, dokud hraje téma úrovně (`GameMusic.SoundingRecording`/`SoundingLayered`). Ověřeno: `level=77` a poznámka do místní schránky (`userdata=`, bez serveru) má `"music": "pulse"`, `"musicDrums": true`, shodně s řádkem `[music]`.
+- Otevřené: kroky 2–3 (najít a přegenerovat špatné nahrávky) čekají na stroj s velkou GPU; issue zůstává otevřené.
