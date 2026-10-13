@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-13 — #828 stupeň 2: figury #737 na Potato — Pi, Claude Code (584de7d2)
+- Hotovo (větev `828-potato-colour-cue`): `PotatoBallCueBands/Spots/Checks/Emblems` v `PotatoModel.fx` — funkce figur z `BallColourCue.fxh` doslova (test `PotatoColourCueSourceTests` drží shodu), čtené ze stejných čtyř uniforem figury; inkousty skládá CPU do plášťů a září v obou inkoustech, pixel je lerpuje pokrytím. `DrawsColourCue` je na Potato true, HUD disky figury mají. Ověřeno na Girandole, Heart, Tightrope (Research/pi-port/828/stage2).
+- Cena proti `colourcue=none`: Girandole nativně 17,66 / 15,15 ms, 720p 12,48 / 11,23; Cabinet 17,64 / 15,61, 12,12 / 10,99. Jeden program s druhem v uniformě byl 969 instrukcí a stál skoro totéž (17,97): cena je v cestě (sin, cos, atan2, derivace), ne v registrech. V mezích rozhodnutí majitele (#830: 720p drží 60, nativně 56 FPS).
+- Otevřené: verdikt oka majitele; stupeň 3 (textury stylů) nepokračuje bez jeho slova — na 720p zbývá ~3,5 ms.
+
 ## 2026-10-13 — #828 stupeň 1: lesk a emise per styl na Potato — Pi, Claude Code (584de7d2)
 - Hotovo (větev `828-potato-style-gloss`): deset materiálů dostalo v `PotatoKindLookFor` svůj lesk z desktopových konstant (kov `MetalF0Floor` 0,16 → odrazivost ×6, drsnost 0,18; porcelán/mramor/drahokam/bublina z `*Gloss` 210/190/260/220 → drsnost ~0,10; vlna matná ×0,3; led sklovitý; plazma svítí vlastní silou 0,45, protože desktopová emise je 0). Barva stylem nikdy nemění. Bez změny shaderu; A/B Girandole nativně 15,09 proti 15,33 ms. Záběry před/po pěti stylů v Research/pi-port/828/stage1.
 - Otevřené: stupeň 2 — figury #737 (`BallColourCue.fxh`, 363 řádků) jako program `PotatoBallCue`: inkousty z `ColourCues.Paint` jako uniformy, pole figury v objektovém prostoru (nový výstup VS), měřit proti rozpočtu 720p.
