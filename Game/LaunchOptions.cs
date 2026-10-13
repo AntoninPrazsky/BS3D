@@ -258,10 +258,10 @@ namespace BS3D
         //in one material and then the other.
         internal BallStyle? BallStyle { get; private set; }
 
-        //Testing only: the colour cue (#737), which of ColourCues' figure sets every colour carries painted beside its
-        //hue ("motif" or "motif:1" to "motif:4"). ColourCues.NONE unless asked, so nothing a player can reach draws it
-        //until the owner picks a set.
-        internal int ColourCue { get; private set; }
+        //The colour cue (#737): the figure every colour carries painted beside its hue. Each style its own figure set
+        //(ColourCues.BY_STYLE, what a player gets) unless the command line says otherwise: "colourcue=none" draws no
+        //figure, "colourcue=motif:N" puts set N on every style for a comparison.
+        internal int ColourCue { get; private set; } = ColourCues.DEFAULT;
 
         //Testing only: put a cleared level's result screen up at startup. A level's ending — the released
         //camera, the stars landing, the arena going out of focus — is otherwise only reachable by winning
@@ -613,7 +613,8 @@ namespace BS3D
             //overrides the backdrop each one names. Parsed through BallStyles, so the spellings are the
             //ones a level file takes; an unknown one leaves the levels' own answers standing.
             Row.Value<BallStyle>("balls", BallStyles.TryParse, (o, v) => o.BallStyle = v),
-            //"colourcue=<none|motif|motif:N>" (#737), spelled through ColourCues like the Testbed's own argument
+            //"colourcue=<none|motif|motif:N>" (#737), spelled through ColourCues like the Testbed's own argument; an
+            //unknown spelling leaves the default, each style its own set
             Row.Value<int>("colourcue", ColourCues.TryParse, (o, v) => o.ColourCue = v),
             //"nofocuspause" stops a level pausing itself when the window loses focus (#355). For any run
             //nobody is sitting at: a benchmark measuring 70 seconds of frames, a capture rig on a locked

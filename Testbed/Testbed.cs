@@ -720,12 +720,14 @@ namespace Testbed
                 SupersampleFactor = _supersampleFactor,
                 Style = _ballStyleFromCommandLine ?? BallStyle.Beach,
 
-                //The colour cue (#737), off unless "colourcue=" asked
+                //The colour cue (#737): each style its own figure set, as in the Game, unless "colourcue=" asked for
+                //none or for one set
                 ColourCue = _options.ColourCue
             };
 
-            if (_options.ColourCue != ColourCues.NONE)
-                Console.WriteLine($"[colourcue] {ColourCues.Name(_options.ColourCue)} ({ColourCues.SetName(_options.ColourCue)}): every colour carries a figure on the vinyl, the wool and the marble");
+            if (_options.ColourCue != ColourCues.DEFAULT)
+                Console.WriteLine($"[colourcue] {ColourCues.Name(_options.ColourCue)} ({ColourCues.SetName(_options.ColourCue)})"
+                    + (_options.ColourCue == ColourCues.NONE ? ": no figure on any colour" : ": this set on every style"));
 
             //The pipeline caches its parameters and sets each look value exactly once through the required
             //initializer — fixed for the whole run here (the game alone has the Settings toggles). See #74.

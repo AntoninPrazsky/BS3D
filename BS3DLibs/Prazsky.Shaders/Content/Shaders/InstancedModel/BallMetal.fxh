@@ -122,7 +122,9 @@ static const float MetalF0Floor = 0.16;
 //Schlick's own exponent - this is the standard curve and not a tuned one.
 static const float MetalGrazingPower = 5.0;
 
-float4 MetalPS(PatternVertexShaderOutput input) : COLOR
+//The metal's whole shading, with the colour cue's switch (#737) passed as a literal, as PatternShade takes it:
+//MetalPS below compiles to what it was before the cue existed.
+float4 MetalShade(PatternVertexShaderOutput input, bool motifCue, ColourCuePaint cue)
 {
     float radius = max(length(input.ObjectPosition), 1e-5);
     float3 direction = input.ObjectPosition / radius;
@@ -162,6 +164,21 @@ float4 MetalPS(PatternVertexShaderOutput input) : COLOR
     float peak = max(primary.r, max(primary.g, primary.b));
     float3 f0 = max(primary, primary / max(peak, 1e-3) * MetalF0Floor);
 
+    //A painted cue (#737) is ENAMEL in the alloy: the figure and the ground are the reflectance scaled, a darker or a
+    //brighter metal, because a metal's colour is what it reflects and there is no body under it to dye. Scaled from
+    //the FLOORED reflectance, not dyed before the floor: floored afterwards, the dark types' figure and ground would
+    //both come up to the one gunmetal and the figure would be gone. The scales average to 1 over the ball, and the
+    //glow takes the same scale, so the ball as a whole reflects and radiates what it did.
+    float3 glowDye = primary;
+
+    if (motifCue)
+    {
+        float cueScale = ColourCueInkScale(ColourCueMotif(direction, footprint, cue), cue);
+
+        glowDye = primary * cueScale;
+        f0 = min(f0 * cueScale, 1);
+    }
+
     //The three-light rig and the scene's own point lights, accumulated exactly as ShadePixel does it so a
     //campfire or the city's neon lights a metal ball the way it lights everything else. Only the SPECULAR
     //half is kept: a metal has no diffuse, which is the single biggest cue that it is one.
@@ -192,8 +209,8 @@ float4 MetalPS(PatternVertexShaderOutput input) : COLOR
     float4 shaded = float4((reflection * MetalReflectance + specular * f0 * MetalHighlight) * occlusion, 1);
 
     //Contract point 2, through BallEmission (#303): the resting glow follows the occlusion, the beat's
-    //swing punches through.
-    shaded.rgb += BallEmission(primary, input.WorldPosition, occlusion);
+    //swing punches through. A painted cue glows in its inks (#737), as on the wool: see WoolShade.
+    shaded.rgb += BallEmission(glowDye, input.WorldPosition, occlusion);
 
     //Contract point 3, both meanings, PatternPS's arithmetic.
     [branch]
@@ -211,6 +228,11 @@ float4 MetalPS(PatternVertexShaderOutput input) : COLOR
     shaded = ApplySeaSubmerge(shaded, input.WorldPosition);
 
     return ApplyKillPlaneFade(shaded, input.WorldPosition);
+}
+
+float4 MetalPS(PatternVertexShaderOutput input) : COLOR
+{
+    return MetalShade(input, false, (ColourCuePaint)0);
 }
 
 technique InstancedModelMetal

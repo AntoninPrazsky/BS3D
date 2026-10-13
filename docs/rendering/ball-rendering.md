@@ -12,7 +12,7 @@ Balls are procedural `SphereMesh`es drawn with GPU instancing. The meshes, LOD l
 
 ## Pattern, emission and the heartbeat
 
-- `InstancedModelPattern` draws the beach-ball pattern in **object space** (gores alternating tint and white, white polar discs; `PatternGoreCount`, `PatternGoreWidth`), so it turns with the ball.
+- `InstancedModelPattern` draws the beach-ball pattern in **object space** (gores alternating tint and white, white polar discs; `PatternGoreCount`, `PatternGoreWidth`), so it turns with the ball. It draws with `colourcue=none`; by default the vinyl draws `InstancedModelPatternMotif`, whose colour's figure replaces the gores and the discs (welds and gloss stay; "The colour cue" in [the styles](ball-styles.md)).
 - Balls are **emissive and alive**: they radiate the ball's own `primary` tint (not the blended pattern colour: white gores made half of every ball radiate white) at `BallRenderSet.EMISSION` on a `Heartbeat` curve (two gaussian bumps), phase-offset by world position along `PulseDirection` so the beat travels up the cluster. `PulseTime` is wall-clock and is `BallRenderSet.Draw`'s own argument, so it survives a paused or slowed simulation.
 - **The resting emission follows occlusion, squared** (`BallEmission`, #303): added flat it was a floor under the whole cluster that AO could not lower, the biggest reason burial did not read. The heartbeat's swing rides unoccluded; the ripple and the ceiling's alarm are added after shading and never dimmed. Plasma and lava occlude linearly. `TranslucencyStrength` adds light carried through the shell. ⚠ Do not stack two Fresnel sky terms on a sphere (the old "vinyl sheen" plus the specular ambient bleached the balls).
 

@@ -1,15 +1,17 @@
 //===================================================================================================
 //THE COLOUR CUE (#737), THE FIGURES. A player could not tell two wool balls apart by their colour alone, so
-//every colour carries a figure of its own beside its hue, PAINTED on the round ball. The owner chose the painted
-//reading over a carved one (2026-10-12) and asked for several sets of figures to pick from; each set gives all
-//thirteen colours a figure, and which set draws is a per-draw description, not code (Prazsky.BS3D.ColourCues
-//holds the sets and the inks).
+//every colour carries a figure of its own beside its hue, PAINTED on the round ball. There are four sets of
+//figures, each giving all thirteen colours one, and every ball style draws one set (the owner's ruling,
+//2026-10-12); which figure draws is a per-draw description, not code (Prazsky.BS3D.ColourCues holds the sets, the
+//set each style draws and the inks). Prazsky.BS3D.GameStructure.ColourCueField is this file's field ported line
+//for line to C#, for the HUD's discs and the tests: a figure changed here is changed there in the same commit.
 //
 //This file is the figures and nothing else: functions, one struct and static constants, NO UNIFORMS, so
 //including it moves nothing in the constant buffer (the rule in InstancedModel.fx). The uniforms that describe a
-//draw's figure, and the programs that paint it, are BallColourCueTechniques.fxh's, last in the effect. The three
-//ball bodies that take a cue (PatternShade, WoolShade, MarbleShade) take their switch as a literal, so the shipped
-//techniques compile exactly as they did before the cue existed.
+//draw's figure, and the programs that paint it, are BallColourCueTechniques.fxh's, last in the effect. Every ball
+//style's body (PatternShade, BubbleShade, MarbleShade, WoolShade, MetalShade, IceShade, GemShade, PlasmaShade,
+//LavaShade, PorcelainShade) takes its switch as a literal, so the shipped techniques, which colourcue=none draws,
+//compile exactly as they did before the cue existed.
 //
 //A FIGURE IS ONE OF FOUR KINDS, each a signed field on the unit sphere, positive inside the figure, read in a
 //frame the draw supplies (so one kind turned differently is another figure):
@@ -51,6 +53,11 @@
 //c.w is the share of the ball the play camera sees the figure cover (Prazsky.BS3D.ColourCues.Figure says how it
 //is measured): where a ball is too small to carry its figure, the figure fades to this share of its ink rather
 //than to nothing, so a far ball still averages its plain colour.
+//
+//inkScales is the same two inks as SCALES on the plain colour (figure, ground), for the styles whose colour is a
+//factor in something else rather than a body to dye: the metal's reflectance, the plasma's discharge, the lava's
+//molten seams. For every colour but black they are the inks' own ratios to the plain colour; black's figure ink is
+//a dim grey ADDED, its ratio to a near-zero black about 24, so its scales are a darker ink's balance instead.
 struct ColourCuePaint
 {
     float4 a;
@@ -59,6 +66,7 @@ struct ColourCuePaint
     float3x3 frame;
     float3 figureInk;
     float3 groundInk;
+    float2 inkScales;
 };
 
 //The regular solids' vertices, as axes (both ends of each are a vertex) except the tetrahedron's, which has no
@@ -343,4 +351,13 @@ float ColourCueMotif(float3 direction, float footprint, ColourCuePaint cue)
 float3 ColourCueDye(float figure, ColourCuePaint cue)
 {
     return lerp(cue.groundInk, cue.figureInk, figure);
+}
+
+//The same ink as a SCALE on the plain colour (inkScales: the figure's, the ground's), for a style whose colour is
+//not a body to be dyed but a factor in something else: the metal's reflectance, the plasma's discharge, the lava's
+//molten seams. The scales average to 1 over the ball as the inks average to the plain colour, black's included
+//(Prazsky.BS3D.ColourCues.Inks), so the ball as a whole reflects, burns or glows what it did.
+float ColourCueInkScale(float figure, ColourCuePaint cue)
+{
+    return lerp(cue.inkScales.y, cue.inkScales.x, figure);
 }

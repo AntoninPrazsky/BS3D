@@ -1395,6 +1395,10 @@ namespace Prazsky.BS3D
             _counts = new int[BUCKSHOT_REGION_START + LodCount];
             _lodTotals = new int[LodCount];
             _lodDistanceSquared = new float[LOD_MIN_PIXEL_RADIUS.Length];
+
+            //The colour cue's paints for the default switch and style (#737): a caller that states neither still draws
+            //the figures every ball carries by default
+            PaintColourCues();
         }
 
         //Segments of a rim's strip by LOD (#804): the two finest levels are the close-ups, where a ball is a hundred
@@ -1514,19 +1518,22 @@ namespace Prazsky.BS3D
 
                 _style = value;
                 ApplyStyle();
+
+                //Each style draws its own figure set (#737), so the paints follow the style
+                PaintColourCues();
             }
         }
 
         /// <summary>
-        /// The colour cue (#737): which of <see cref="ColourCues"/>' figure sets every colour carries painted on, 1..
-        /// <see cref="ColourCues.SET_COUNT"/> - on the vinyl, the wool and the marble, the three styles that have the
-        /// programs; every other style draws as shipped. <see cref="ColourCues.NONE"/> by default and in everything a
-        /// player can reach: only the Testbed's and the Game's <c>colourcue=</c> argument set it, for the owner to
-        /// pick a set.
+        /// The colour cue (#737): the figure every colour carries painted on beside its hue. <see cref="ColourCues.BY_STYLE"/>
+        /// by default - each style its own figure set (<see cref="ColourCues.SetOf"/>), on every style but the lava, which draws none -
+        /// <see cref="ColourCues.NONE"/> to draw no figure (<c>colourcue=none</c>), or one set's number to put that set on
+        /// every style for a comparison (<c>colourcue=motif:N</c>).
         /// <para>
-        /// It reaches the cluster and the loaded rounds alike (both are <see cref="DrawPlane"/>), since a figure on
-        /// the cluster alone would not help the player choosing a shot. The HUD's queue draws its own discs and does
-        /// not carry it, and the special kinds keep their own looks: a frozen or a heavy ball is that kind first.
+        /// It reaches the cluster and the loaded rounds alike (both are <see cref="DrawPlane"/>), since a figure on the
+        /// cluster alone would not help the player choosing a shot, and the HUD's queue paints the same figure on its
+        /// discs from <see cref="ColourCueOf"/>. The special kinds keep their own looks: a frozen or a heavy ball is
+        /// that kind first. The Potato path has no programs for it and draws no figure (<see cref="DrawsColourCue"/>).
         /// </para>
         /// </summary>
         public int ColourCue
@@ -1534,19 +1541,45 @@ namespace Prazsky.BS3D
             get => _colourCue;
             set
             {
-                if (value < ColourCues.NONE || value > ColourCues.SET_COUNT) throw new ArgumentOutOfRangeException(nameof(value), value, null);
+                if (value != ColourCues.BY_STYLE && (value < ColourCues.NONE || value > ColourCues.SET_COUNT))
+                    throw new ArgumentOutOfRangeException(nameof(value), value, null);
 
-                //Each colour's figure and inks, worked out here once rather than per bucket per frame
+                if (_colourCue == value) return;
+
                 _colourCue = value;
-                for (int typeIndex = 0; typeIndex < TYPE_COUNT; typeIndex++)
-                {
-                    BallType type = (BallType)(typeIndex + 1);
-                    _colourCuePaints[typeIndex] = ColourCues.Paint(value, type, BasicEffectParamsProvider.GetDiffuseTintByType(type));
-                }
+                PaintColourCues();
             }
         }
 
-        private int _colourCue;
+        /// <summary>
+        /// Whether the balls are drawn with a figure on: the set the cue gives this style is not none (the cue is not off,
+        /// and the style is not the lava, which draws no figure), and the renderers' effect has the programs that paint
+        /// one (the Potato effect has none, #828). The HUD's queue asks this before it paints a figure on a
+        /// disc, so that the strip shows what the gun is loaded with and not a figure the balls do not carry.
+        /// </summary>
+        public bool DrawsColourCue => ColourCues.SetFor(_colourCue, _style) != ColourCues.NONE && !_renderers[0].Potato;
+
+        /// <summary>
+        /// The figure and its inks a <paramref name="type"/> ball carries under the current switch and style; the
+        /// empty paint (<see cref="ColourCuePaint.IsNone"/>) where the cue is off. What <see cref="DrawPlane"/> hands
+        /// the renderer for that colour's bucket, so a reader (the HUD's queue) paints the very figure the ball does.
+        /// </summary>
+        public ColourCuePaint ColourCueOf(BallType type) => _colourCuePaints[(int)type - 1];
+
+        //Each colour's figure and inks for the current switch and style, worked out here once rather than per bucket per
+        //frame: on construction, and whenever the switch or the style changes
+        private void PaintColourCues()
+        {
+            int set = ColourCues.SetFor(_colourCue, _style);
+
+            for (int typeIndex = 0; typeIndex < TYPE_COUNT; typeIndex++)
+            {
+                BallType type = (BallType)(typeIndex + 1);
+                _colourCuePaints[typeIndex] = ColourCues.Paint(set, type, BasicEffectParamsProvider.GetDiffuseTintByType(type));
+            }
+        }
+
+        private int _colourCue = ColourCues.DEFAULT;
         private readonly ColourCuePaint[] _colourCuePaints = new ColourCuePaint[TYPE_COUNT];
 
         /// <summary>
@@ -1656,9 +1689,10 @@ namespace Prazsky.BS3D
         /// and cannot change without a format decision, while <see cref="BallShading"/> is what
         /// <c>InstancedModel.fx</c> was compiled with and lives in the game-agnostic library that cannot see
         /// the level format at all. They match one for one today and are not required to — two styles differing
-        /// only in their dials would share one technique.
+        /// only in their dials would share one technique. Public for the colour cue's check that every style's
+        /// shading has a cue program (#737).
         /// </summary>
-        private static BallShading ShadingOf(BallStyle style) => style switch
+        public static BallShading ShadingOf(BallStyle style) => style switch
         {
             BallStyle.Beach => BallShading.Vinyl,
             BallStyle.Bubble => BallShading.Bubble,

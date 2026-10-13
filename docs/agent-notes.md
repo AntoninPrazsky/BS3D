@@ -662,3 +662,10 @@ Pravidla:
 - #849 (merge do mainu, verdict-eye): obr se zdviženýma rukama, který drží skleněný strop, se srdcem (výplata Type6) zapečetěným v hrudi. 337 koulí (dřív 364), 33 skupin, 42 ran; brány včetně reveal prošly, sag 0 z 5, ScoreSim i 1010 testů OK. Přípravky testů přesunuty (ShotAgreement přeměřen: 97,5 %), ChapterTests drží každý blok na jedné scéně, kopuli, rodině a materiálu.
 - ⚠ Pět resetů desktopu přerušilo agenta pětkrát; dokončeno ručně po krátkých krocích, každý hned pushnutý. Snímky z 12. 10. 16:49 platí, `Colossus.json` se od 16:36 nezměnil (porovnáno bez CR).
 - Otevřené: oko majitele; `update-ceilings.sh` na Pi při příštím vydání (deska Colosse začne od nuly).
+
+## 2026-10-13 — #737 sada motivů na každý styl, zapnuto ve výchozím stavu — desktop (RDT-PC) + ThinkPad, Claude Code (bs3d-f3, github-42)
+- majitel (12. 10. večer): použít všechny sady, jednu na každý styl koulí; přiřazení nechal na agentovi.
+- #737 (merge do mainu, verdict-eye): vlna, porcelán, plazma = figury; vinyl, kov = emblémy; mramor, led, drahokam = linky; bublina = puntíky; **láva bez figury** (ani škála spár, ani popelová kůra nebyly z hrací vzdálenosti vidět). Cue zapnuto v Game, Testbedu i editoru, `colourcue=none` vypíná; disky fronty v HUD nesou figuru jen tam, kde ji nesou koule. 1063 testů OK.
+- Desktop při jakémkoli vykreslování padal, takže kód psal desktop jen na CPU a snímky, posouzení a stránku (https://claude.ai/artifact/6jwiQxHqTjAiNZh3GyGTGF) udělal notebook: devět stylů OK, `colourcue=none` = dodaný kód (průměr přes dech koulí).
+- ⚠ Černá v kovu a plazmě: šedý inkoust ~24× černé; škály mají vlastní uniform.
+- Otevřené: oko majitele (výrazné pruhy žluté a stříbrné, vinylová béžová a stříbrná z dálky splývají, tenké linky černé a námořní modré na mramoru mizí, plazma čte jen na světlých barvách); cena na GPU neměřena.

@@ -281,7 +281,9 @@ float PorcelainOrnamentDistance(float3 direction)
     return min(SegmentDistance(f, entry, centre), SegmentDistance(f, centre, exit));
 }
 
-float4 PorcelainPS(PatternVertexShaderOutput input) : COLOR
+//The porcelain's whole shading, with the colour cue's switch (#737) passed as a literal, as PatternShade takes it:
+//PorcelainPS below compiles to what it was before the cue existed.
+float4 PorcelainShade(PatternVertexShaderOutput input, bool motifCue, ColourCuePaint cue)
 {
     float radius = max(length(input.ObjectPosition), 1e-5);
     float3 direction = input.ObjectPosition / radius;
@@ -322,7 +324,13 @@ float4 PorcelainPS(PatternVertexShaderOutput input) : COLOR
         + ReliefOctave(direction, PorcelainGlazeB, PorcelainGlazeFrequency * 1.41, footprint)
         + ReliefOctave(direction, PorcelainGlazeC, PorcelainGlazeFrequency * 0.83, footprint)) / 3;
 
-    float3 glaze = lerp(clay, primary, saturate(PorcelainGlazeCover - PorcelainGlazePool * (1 - coat)));
+    //A painted cue (#737) is painted UNDER THE GLAZE, as china is decorated: the glaze is the dye - a darker or a
+    //paler shade of the ball's colour averaging to it - so the clay still shows where the coat thins and the craze
+    //still parts it, over the figure as over the ground.
+    float3 dyed = primary;
+    if (motifCue) dyed = ColourCueDye(ColourCueMotif(direction, footprint, cue), cue);
+
+    float3 glaze = lerp(clay, dyed, saturate(PorcelainGlazeCover - PorcelainGlazePool * (1 - coat)));
 
     //And the craze: the glaze parted down to the clay, stained. No luminance test - see the header; the
     //crossover is what these two colours DO against a pale ground and against a dark one.
@@ -343,6 +351,10 @@ float4 PorcelainPS(PatternVertexShaderOutput input) : COLOR
 
     float ribbon = (1 - smoothstep(PorcelainOrnamentWidth - edge, PorcelainOrnamentWidth + edge, ornament))
         * saturate(PorcelainOrnamentBandLimit - pixelCells / max(2 * PorcelainOrnamentWidth, 1e-3));
+
+    //Under a painted cue the figure IS the decoration, as on the vinyl, where it replaces the gores: the meander ran
+    //round the equator straight through the side faces' emblems and over the bands, so it gives way, bead and all.
+    if (motifCue) ribbon = 0;
 
     color = lerp(color, lerp(SrgbToLinear(PorcelainEnamel), glaze, PorcelainEnamelSheer), ribbon);
 
@@ -388,11 +400,11 @@ float4 PorcelainPS(PatternVertexShaderOutput input) : COLOR
     //because what light crosses is the body: a red cup lit from behind glows warm WHITE, not red.
     float through = pow(saturate(dot(-worldNormal, towardsKey)), 2);
 
-    shaded.rgb += through * TranslucencyStrength * DirLight0DiffuseColor * lerp(clay, primary, 0.35) * occlusion;
+    shaded.rgb += through * TranslucencyStrength * DirLight0DiffuseColor * lerp(clay, dyed, 0.35) * occlusion;
 
     //Contract point 2, through BallEmission (#303): the resting glow follows the occlusion, the beat's
-    //swing punches through.
-    shaded.rgb += BallEmission(primary, input.WorldPosition, occlusion);
+    //swing punches through. In the dye where a cue is painted (#737): see WoolShade.
+    shaded.rgb += BallEmission(dyed, input.WorldPosition, occlusion);
 
     //Contract point 3, both meanings, PatternPS's arithmetic.
     [branch]
@@ -411,6 +423,11 @@ float4 PorcelainPS(PatternVertexShaderOutput input) : COLOR
     shaded = ApplySeaSubmerge(shaded, input.WorldPosition);
 
     return ApplyKillPlaneFade(shaded, input.WorldPosition);
+}
+
+float4 PorcelainPS(PatternVertexShaderOutput input) : COLOR
+{
+    return PorcelainShade(input, false, (ColourCuePaint)0);
 }
 
 technique InstancedModelPorcelain

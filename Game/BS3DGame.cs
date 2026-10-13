@@ -164,8 +164,8 @@ namespace BS3D
         private readonly float? _launchRims;
         private readonly bool _launchBallFlat;
 
-        //"colourcue=" (#737): the colour cue's figure set, ColourCues.NONE unless the command line asked. Read where the
-        //ball set is built.
+        //"colourcue=" (#737): the colour cue's switch, ColourCues.DEFAULT (each style its own figure set) unless the command
+        //line asked for none or for one set. Read where the ball set is built.
         private readonly int _launchColourCue;
 
         //"upscale=soft" (#804): the Potato path's scale-up through the cubic B-spline instead of one bilinear tap
@@ -1435,8 +1435,9 @@ namespace BS3D
                 //build's own. Nothing on the desktop path, whose target is multisampled or supersampled.
                 Rims = PotatoPath && (_launchRims ?? POTATO_RIM_PIXELS) > 0f,
 
-                //The colour cue (#737): a testing switch until the owner picks a figure set, off unless "colourcue="
-                //asked. The Potato effect has no programs for it, and its renderers ignore the switch
+                //The colour cue (#737): each style its own figure set, unless "colourcue=" asked for none or for one set.
+                //The Potato effect has no programs for it, and its renderers ignore the switch (the HUD's queue asks
+                //BallRenderSet.DrawsColourCue and paints no figure there either)
                 ColourCue = _launchColourCue
             };
 

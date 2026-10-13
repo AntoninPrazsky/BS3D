@@ -133,7 +133,9 @@ void AddBubbleHighlight(float3 towardsLight, float3 lightSpecular, float3 worldN
     hotspot += lightSpecular * pow(saturate(dot(worldNormal, halfway)), BubbleGloss);
 }
 
-float4 BubblePS(PatternVertexShaderOutput input) : COLOR
+//The bubble's whole shading, with the colour cue's switch (#737) passed as a literal, as PatternShade takes it:
+//BubblePS below compiles to what it was before the cue existed.
+float4 BubbleShade(PatternVertexShaderOutput input, bool motifCue, ColourCuePaint cue)
 {
     float radius = max(length(input.ObjectPosition), 1e-5);
     float3 direction = input.ObjectPosition / radius;
@@ -249,7 +251,14 @@ float4 BubblePS(PatternVertexShaderOutput input) : COLOR
     //film is green light, not a warm cast on a green ball.
     float lampThrough = dot(lampWash, float3(0.2126, 0.7152, 0.0722));
 
-    float3 through = (skyThrough * alpha + lampThrough) * tint * BubbleTintStrength * occlusion;
+    //A painted cue (#737) is printed IN THE DYE, as a party balloon is printed: the film passes the dye's shade of
+    //the backdrop and glows in it, a darker or a paler shade of the tint averaging to it, so the figure is a region
+    //of the film that passes less (or more) light. Both walls carry it; the near wall, nearly opaque, hides most of
+    //the far one's. The edge glow keeps the plain hue: it is the rim, not the film's face.
+    float3 dyed = tint;
+    if (motifCue) dyed = ColourCueDye(ColourCueMotif(direction, footprint, cue), cue);
+
+    float3 through = (skyThrough * alpha + lampThrough) * dyed * BubbleTintStrength * occlusion;
 
     //AND THE EDGE, which is what actually makes a bubble a bubble rather than a tinted disc. Along the
     //silhouette the eye looks the long way ALONG the film, and the same path length that makes it opaque
@@ -274,7 +283,7 @@ float4 BubblePS(PatternVertexShaderOutput input) : COLOR
     //it is exactly false of a pile of films. Times the wall weight, so the two shells together radiate one
     //ball's worth.
     float beat = Heartbeat(PulseTime * PulseSpeed - dot(input.WorldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
-    float3 emitted = tint * EmissiveStrength * StillEmission * lerp(1 - PulseDepth, 1, beat) * wall * occlusion;
+    float3 emitted = dyed * EmissiveStrength * StillEmission * lerp(1 - PulseDepth, 1, beat) * wall * occlusion;
 
     float4 shaded = float4(reflected + hotspot + through + emitted + rimGlow, alpha);
 
@@ -307,6 +316,11 @@ float4 BubblePS(PatternVertexShaderOutput input) : COLOR
     shaded = ApplySeaSubmerge(shaded, input.WorldPosition);
 
     return ApplyKillPlaneFade(shaded, input.WorldPosition);
+}
+
+float4 BubblePS(PatternVertexShaderOutput input) : COLOR
+{
+    return BubbleShade(input, false, (ColourCuePaint)0);
 }
 
 technique InstancedModelBubble

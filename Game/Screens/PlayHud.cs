@@ -765,6 +765,9 @@ namespace BS3D.Screens
             _scoreShown = 0f;
             _popups.Clear();
 
+            //The magazine strip's figures for this level's style (#737), baked now rather than mid-play
+            PrepareFigures();
+
             _scorePulse.Reset();
             _streakPulse.Reset();
             _ballsPulse.Reset();
@@ -1657,24 +1660,38 @@ namespace BS3D.Screens
                 rayX += StepRight(i);
             }
 
+            //The colour cue (#737): a plain round carries its colour's figure in the bore, so its disc carries the same
+            //one, painted the way the ball is - the ground in the ground's ink, the figure in its own. Not where the balls
+            //draw none (colourcue=none, the Potato path), and not on a special round, which is that kind first.
+            bool figures = _game.Balls?.DrawsColourCue == true;
+
             for (int i = 0; i < shown; i++)
             {
                 bool next = i == 0;
                 int radius = next ? head : rest;
-                Color colour = TypeColor(queue[i]);
+                bool figured = figures && (i >= kinds.Length || kinds[i] == BallKind.Normal);
+                Color colour = DiscFill(queue[i], figured);
 
                 //A disc whose round is dissolving into another colour - a swap's or a re-colour's (#705) - fades with it,
                 //smoothed, so the strip shows the trade the bore shows instead of jumping on the frame of the press
+                float fade = 1f;
                 if (i < queueFade.Length && i < queueFrom.Length && queueFade[i] < 1f)
                 {
-                    float t = queueFade[i] * queueFade[i] * (3f - 2f * queueFade[i]);
-                    colour = Color.Lerp(TypeColor(queueFrom[i]), colour, t);
+                    fade = queueFade[i] * queueFade[i] * (3f - 2f * queueFade[i]);
+                    colour = Color.Lerp(DiscFill(queueFrom[i], figured), colour, fade);
                 }
 
                 //The dark halo first, then the fill: one is what makes a pale round read over a white glacier,
                 //the other is the answer the strip exists to give.
                 DrawDisc(batch, x, middle, radius + rim, HUD_MAG_RIM_COLOR);
                 DrawDisc(batch, x, middle, radius, colour);
+
+                //The figure over the fill, under the outline; a fading disc's two figures cross-fade with its colours
+                if (figured)
+                {
+                    if (fade < 1f) DrawFigure(batch, x, middle, radius, queueFrom[i], 1f - fade);
+                    DrawFigure(batch, x, middle, radius, queue[i], fade);
+                }
 
                 //A light outline INSIDE the fill's edge, drawn as a ring: without it a near-black round is a
                 //hole in the halo rather than a disc. TypeColor keeps each type's real darkness on purpose
@@ -2657,6 +2674,75 @@ namespace BS3D.Screens
         //a handful of small textures over the program's life, a few more per distinct window size.
         private readonly Dictionary<int, Texture2D> _discs = new();
 
+        /// <summary>
+        /// A round's disc fill: its colour as <see cref="TypeColor"/> bakes it, or, where the disc carries its colour's
+        /// figure (#737), the ground's ink baked the same way - the ball's ground is the plain colour scaled to pay for
+        /// the figure, and the strip shows the ball as it is painted.
+        /// </summary>
+        private Color DiscFill(BallType type, bool figured)
+        {
+            if (!figured) return TypeColor(type);
+
+            ColourCuePaint paint = _game.Balls.ColourCueOf(type);
+            return paint.IsNone ? TypeColor(type) : InkColor(paint.GroundInk);
+        }
+
+        /// <summary>
+        /// The round's figure (#737) over its disc, in the figure's ink: the ball seen face-on, as
+        /// <see cref="ColourCueField.BakeDisc"/> paints it, from a texture baked once per figure and radius.
+        /// </summary>
+        private void DrawFigure(SpriteBatch batch, float cx, float cy, int radius, BallType type, float alpha)
+        {
+            ColourCuePaint paint = _game.Balls.ColourCueOf(type);
+            if (paint.IsNone || alpha <= 0f || radius < 1) return;
+
+            Texture2D figure = FigureTexture(type, radius);
+            batch.Draw(figure, new Vector2(cx - (radius + 1), cy - (radius + 1)), InkColor(paint.FigureInk) * alpha);
+        }
+
+        /// <summary>
+        /// The cached figure texture of one colour at one whole-pixel radius, in the figure set the balls draw now
+        /// (<see cref="ColourCues.SetFor"/> - each style its own). Baked on first use like <see cref="DiscTexture"/>,
+        /// or ahead of the level by <see cref="PrepareFigures"/>.
+        /// </summary>
+        private Texture2D FigureTexture(BallType type, int radius)
+        {
+            int set = ColourCues.SetFor(_game.Balls.ColourCue, _game.Balls.Style);
+            int key = ((set + 1) * 32 + (int)type) * 4096 + radius;
+            if (_figures.TryGetValue(key, out Texture2D cached)) return cached;
+
+            int size = 2 * radius + 2;
+            Texture2D texture = new(_game.GraphicsDevice, size, size);
+            texture.SetData(ColourCueField.BakeDisc(ColourCues.FigureOf(set, type), radius));
+
+            _figures[key] = texture;
+            return texture;
+        }
+
+        /// <summary>
+        /// Bakes every colour's figure at the strip's two radii for the figure set the balls draw now, so the first
+        /// time a colour reaches the strip does not bake it in the middle of play: the frame a round is chambered in
+        /// is one the player is watching (the reason <c>PrepareLanded</c> bakes a material's sounds on the way in).
+        /// Called from <see cref="Reset"/>, after the level has stated its style; a set already baked costs nothing.
+        /// </summary>
+        private void PrepareFigures()
+        {
+            if (_game.Balls?.DrawsColourCue != true) return;
+
+            int head = Scaled(HUD_MAG_HEAD_RADIUS);
+            int rest = (int)MathF.Round(head * HUD_MAG_REST_SCALE);
+
+            foreach (BallType type in Enum.GetValues<BallType>())
+            {
+                FigureTexture(type, head);
+                FigureTexture(type, rest);
+            }
+        }
+
+        //The figure textures, keyed by figure set, colour and whole-pixel radius - see FigureTexture. Never emptied: at
+        //most four sets of thirteen colours at two radii, a few more per distinct window size.
+        private readonly Dictionary<int, Texture2D> _figures = new();
+
         #endregion
 
         #region Drawing primitives
@@ -3116,6 +3202,17 @@ namespace BS3D.Screens
         /// </summary>
         private static Vector3 SrgbToLinear(Vector3 c) =>
             c * (c * (c * 0.305306011f + new Vector3(0.682171111f)) + new Vector3(0.012522878f));
+
+        /// <summary>
+        /// A colour-cue ink (#737), linear already, baked for the HUD exactly as <see cref="BakeTypeColors"/> bakes a
+        /// type's colour - lit at the nominal level with the sheen, tonemapped, encoded - so a figure's ground and ink
+        /// sit beside the plain colours on the same terms.
+        /// </summary>
+        private static Color InkColor(Vector3 linearInk)
+        {
+            Vector3 mapped = AcesFilmic(linearInk * TYPE_LIT + new Vector3(TYPE_SHEEN));
+            return new Color(LinearToSrgb(mapped.X), LinearToSrgb(mapped.Y), LinearToSrgb(mapped.Z));
+        }
 
         /// <summary>Krzysztof Narkowicz's ACES fit, per channel — the tonemap resolve's curve (<c>Tonemap.fx</c>).</summary>
         private static Vector3 AcesFilmic(Vector3 x) => new(AcesChannel(x.X), AcesChannel(x.Y), AcesChannel(x.Z));
