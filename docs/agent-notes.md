@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-13 — #863 stupeň 3: figury druhů ve vlastním programu — Pi, Claude Code (584de7d2)
+- Hotovo (větev `863-potato-kind-figures`): `PotatoBallKind`/`PotatoBallKindDither` v `PotatoModel.fx` maluje na `BallRadiance` před `ToDisplay` figuru podle uniformy `KindFigure`: kyselina spodní půlka zářící kapaliny s pěnovou čárou, nákaza roztřepená krusta na třetině koule obrácené k hráči (`KindAxis` z kamery, skloněné dolů), gravitace tmavé oko tam, kde koule hledí do oka, s prstencem ve vlastní barvě a ztmaveným okrajem. Obyčejná koule běží dál svým programem (shaderdb beze změny). GL xnb z `gamepi-shaders.yml` přes `fetch.sh`.
+- ⚠ Řetěz `dotnet test | grep && git commit && git push` commitne i s chybou kompilace: grep vrací 0, když našel řádky s `error`. Oprava šla jako druhý commit (větev už byla pushnutá).
+- Otevřené: verdikt oka majitele na `help=4` (všech osm druhů), případně jemnější doladění prahů; #828 a #829.
+
 ## 2026-10-13 — #863 stupeň 2: tvary druhů jako geometrie — Pi, Claude Code (584de7d2)
 - Hotovo (větev `863-potato-kind-meshes`): `PotatoKindMesh`/`PotatoKindGeometry` v Prazsky.Core: `StoneVS` (řez sinů + pět lomových ploch) a `FrozenVS` (zaoblená kostka p 4,5) přenesené číslo po čísle na topologii koule per LOD, kreslené místo ní; hroty miny (`MineRadius`: 8 komolých kuželů, zdvih 0,13) jako vlastní síť kreslená po plášti na tomtéž instančním bufferu. Bez kroužku (rim) pro nahrazenou kouli. Test `PotatoKindMeshTests` (dovnitř, hroty ven, vinutí po směru hodin zvenku).
 - ⚠ Hrot je na herní kouli Pi (24 × 12) užší než jeden vertex: zvedat vertexy koule jako `BombVS` by nezvedlo nic; proto vlastní síť.
