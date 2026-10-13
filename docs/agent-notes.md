@@ -684,3 +684,8 @@ Pravidla:
 - Rozsah: 17 commitů bez merge (#849, #859 `ramp`, #856 dodatek, #737, #860, #824), 67 souborů. Hygiena snímku čistá (žádná alokace, hledání podle jména ani stavový objekt za snímek; techniky cue v shaderu volí technika, ne větev). Build čtyř řešení 0 varování, WindingCheck 243/0, VectorBoundary 0 VEC001 (podstrčený přechod viděn chycen), citace 187/0, DocDrift 29 stojících kandidátů.
 - Opraveny tři komentáře: `AsideCollector` (delegát z metody instance alokuje při každém převodu, volající si ho drží), cue tabulka a `ColourCueField` jmenují `ColourCueStyleTests`, figury HUD po změně okna uprostřed levelu.
 - Otevřené: zda kompilátor nezplošťuje vnořené `if` v `BallColourCue.fxh` (cue je teď zapnuté všem; cena na GPU neměřena, viz #737). Další průchod od merge tohoto.
+
+## 2026-10-13 — #824 #706 změřené rodiny pulse a mural — ThinkPad, Claude Code (github-b9)
+- Rodiny `pulse` a `mural` změřeny proti `ember` metodou #841 (na CPU); tabulky a rozhodnutí v komentářích #824 a #706. Pulse: přegenerovat osm (acid, bigroom, electrofunk, italo, techno, trance, progressive, synthpop), nechat vector a holý pulse. Mural: desertblues a jive; „opilost“ není ve výšce tónu ani v tempu (kontrola: umělé kolísání ±25 centů měřítko chytí).
+- Skript je v repu: `Tools/Generation/measure-music.py` (merge do mainu), popsaný v `music-generation.md`.
+- Otevřené: generování čeká na stroj s velkou GPU; které mural nahrávky zní „opile“, řekne ucho majitele (poznámka z pauzy teď jmenuje skladbu).
