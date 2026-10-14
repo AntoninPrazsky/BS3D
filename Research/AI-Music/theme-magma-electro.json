@@ -1,28 +1,130 @@
 {
-    "file":  "theme-magma-electro.wav",
-    "created":  "2026-09-23",
-    "issue":  486,
-    "family":  "magma",
-    "chapter":  "The Eruption (volcano) - new: heat, weight, drums",
-    "purpose":  "Master of Game/Music/magma-electro.ogg, one of the magma family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "Dark electro instrumental: distorted 808 drums, growling synth bass, sharp lead stabs, industrial noise textures, hot and aggressive, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  138,
-                    "keyscale":  "D minor",
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-magma-electro.wav: 62.6s loop = source 31.69s..94.30s (36.04 bars at 138.2 bpm), crossfade 0.87s | context match 0.898 (best 0.944) | crossfade rhythm r=0.91 vs the track a bar later r=0.76: in time | spectrum cos=0.94"
-                 ],
-    "measured":  "generate-music.ps1 end to end 58.9 s (ace-lm + ace-synth + loop cut)",
-    "rendered":  true
+    "file": "theme-magma-electro.wav",
+    "created": "2026-10-14",
+    "issue": 841,
+    "family": "magma",
+    "chapter": "The Eruption (volcano) - regenerated on the desert's ember model (#841): a lead line the ear can follow, the heat carried by heavy guitar and big drums, not by noise, sub bass or high clatter",
+    "purpose": "Master of Game/Music/magma-electro.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-841 on the desktop, with its .raw.wav); this sidecar is committed beside the .ogg.",
+    "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-night-magma.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
+    "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+    "license": "ACE-Step 1.5: MIT (code and weights)",
+    "request": {
+        "caption": "Dark electro rock instrumental: a gritty driving distorted guitar riff, a warm catchy analog synth lead melody carrying the tune in the mid range, the distorted electric guitar doubling the hook in the chorus, punchy tight rock drums with a dark snare, a bass guitar following the riff, a build-up into a big peak with warm wide synth chords, hot and aggressive, warm modern production, wide stereo mix with synths and guitars panned left and right, stereo delays, no vocals",
+        "lm_negative_prompt": "vocals, singing, choir, audience applause, crowd noise, live recording, boomy sub bass, growling bass, distorted 808, sharp lead stabs, risers, glitch, siren synths, industrial noise textures, white noise sweeps, harsh sizzling hi-hats, long drum-only sections, drum solo, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, synth bass, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer",
+        "instrumental": true,
+        "use_cot_caption": false,
+        "duration": 120,
+        "bpm": 138,
+        "keyscale": "D minor",
+        "seed": 1109740083,
+        "inference_steps": 8,
+        "output_format": "wav32"
+    },
+    "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+    "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-night-magma\\theme-magma-electro-c7.wav: 84.7s loop = source 16.65s..101.35s (48.07 bars at 136.2 bpm), crossfade 0.88s | context match 0.811 (best 0.860) | crossfade rhythm r=0.90 vs the track a bar later r=0.82: in time | spectrum cos=0.97"
+    ],
+    "lm_check": {
+        "request0_captured": true,
+        "caption_verbatim": true,
+        "seed_in_request0": 1109740083,
+        "bpm_in_request0": 138,
+        "keyscale_in_request0": "D minor",
+        "duration_in_request0": 120.0
+    },
+    "measured": "generate-music.ps1 end to end 58,6 s (ace-lm + ace-synth + loop cut), exit 0",
+    "rendered": true,
+    "chosen": {
+        "candidate": "c7",
+        "round": 3,
+        "of": [
+            "c1",
+            "c2",
+            "c3",
+            "c4",
+            "c5",
+            "c6",
+            "c7",
+            "c8",
+            "c9"
+        ],
+        "why": "tonal mid 64 % (old 28 %), 200 Hz-2 kHz 14.8 % (old 7.5 %), mid flatness 0.09 (old 0.13), 3.38 held-note changes/s, an 85 s loop with no hole (6 % of it more than 10 dB down) and the best seam of nine (context 0.81, crossfade r 0.90 against 0.82, spectrum cos 0.97, wrap step -0.2 dB p4). It still puts 4.0 % above 6 kHz (old 5.8 %, ember at most 2.0 %): nine renders over three briefs (round 3 warm instead of bright, fizzy synths in the negative) never brought the electro style under ember's line with its tune intact. c4 has 2.6 % but 24 s of its 43 s loop sit 9-16 dB down, the hole the old doom had; c3 (0.8 %) is thin (8.9 %) and steps +7.8 dB across its wrap",
+        "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wrap step) beside the loop cut's own check, the breakdown dip and the stereo correlation; the table is on #841"
+    },
+    "alternatives": [
+        {
+            "candidate": "c1",
+            "seed": 839846517,
+            "caption": "Dark electro rock instrumental: a gritty driving synth and guitar riff, a bright catchy analog synth lead melody carrying the tune, a distorted electric guitar doubling the hook in the chorus, punchy tight electronic rock drums, a warm bass synth following the riff, a build-up into a big euphoric peak with wide supersaw chords, hot and aggressive, glossy modern production, wide stereo mix with synths and guitars panned left and right, stereo delays, no vocals",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-night-magma\\theme-magma-electro-c1.wav: 56.5s loop = source 28.68s..85.15s (32.05 bars at 136.2 bpm), crossfade 0.88s | context match 0.658 (best 0.694) | crossfade rhythm r=0.44 vs the track a bar later r=0.55: BELOW the track's own timekeeping -- listen | spectrum cos=0.90"
+            ]
+        },
+        {
+            "candidate": "c2",
+            "seed": 1845604361,
+            "caption": "Dark electro rock instrumental: a gritty driving synth and guitar riff, a bright catchy analog synth lead melody carrying the tune, a distorted electric guitar doubling the hook in the chorus, punchy tight electronic rock drums, a warm bass synth following the riff, a build-up into a big euphoric peak with wide supersaw chords, hot and aggressive, glossy modern production, wide stereo mix with synths and guitars panned left and right, stereo delays, no vocals",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-night-magma\\theme-magma-electro-c2.wav: 50.1s loop = source 18.90s..69.05s (27.96 bars at 133.8 bpm), crossfade 0.90s | context match 0.912 (best 0.916) | crossfade rhythm r=0.79 vs the track a bar later r=0.84: in time | spectrum cos=0.89"
+            ]
+        },
+        {
+            "candidate": "c3",
+            "seed": 70621402,
+            "caption": "Dark electro rock instrumental: a gritty driving synth and guitar riff, a bright catchy analog synth lead melody carrying the tune, a distorted electric guitar doubling the hook in the chorus, punchy tight electronic rock drums, a warm bass synth following the riff, a build-up into a big euphoric peak with wide supersaw chords, hot and aggressive, glossy modern production, wide stereo mix with synths and guitars panned left and right, stereo delays, no vocals",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-night-magma\\theme-magma-electro-c3.wav: 62.6s loop = source 38.69s..101.30s (36.05 bars at 138.2 bpm), crossfade 0.87s | context match 0.760 (best 0.809) | crossfade rhythm r=0.73 vs the track a bar later r=0.72: in time | spectrum cos=0.83"
+            ]
+        },
+        {
+            "candidate": "c4",
+            "seed": 643815126,
+            "caption": "Dark electro rock instrumental: a gritty driving distorted guitar riff, a bright catchy analog synth lead melody carrying the tune in the mid range, the distorted electric guitar doubling the hook in the chorus, punchy tight rock drums with a dark snare, a bass guitar following the riff, a build-up into a big euphoric peak with wide warm synth chords, hot and aggressive, glossy modern production, wide stereo mix with synths and guitars panned left and right, stereo delays, no vocals",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-night-magma\\theme-magma-electro-c4.wav: 42.7s loop = source 45.68s..88.35s (24.04 bars at 135.2 bpm), crossfade 0.89s | context match 0.874 (best 0.923) | crossfade rhythm r=0.88 vs the track a bar later r=0.62: in time | spectrum cos=0.97"
+            ]
+        },
+        {
+            "candidate": "c5",
+            "seed": 2128652820,
+            "caption": "Dark electro rock instrumental: a gritty driving distorted guitar riff, a bright catchy analog synth lead melody carrying the tune in the mid range, the distorted electric guitar doubling the hook in the chorus, punchy tight rock drums with a dark snare, a bass guitar following the riff, a build-up into a big euphoric peak with wide warm synth chords, hot and aggressive, glossy modern production, wide stereo mix with synths and guitars panned left and right, stereo delays, no vocals",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-night-magma\\theme-magma-electro-c5.wav: 49.8s loop = source 28.62s..78.40s (28.05 bars at 135.2 bpm), crossfade 0.89s | context match 0.420 (best 0.444) | crossfade rhythm r=0.61 vs the track a bar later r=0.67: in time | spectrum cos=0.43"
+            ]
+        },
+        {
+            "candidate": "c6",
+            "seed": 1983620785,
+            "caption": "Dark electro rock instrumental: a gritty driving distorted guitar riff, a bright catchy analog synth lead melody carrying the tune in the mid range, the distorted electric guitar doubling the hook in the chorus, punchy tight rock drums with a dark snare, a bass guitar following the riff, a build-up into a big euphoric peak with wide warm synth chords, hot and aggressive, glossy modern production, wide stereo mix with synths and guitars panned left and right, stereo delays, no vocals",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-night-magma\\theme-magma-electro-c6.wav: 42.7s loop = source 32.34s..75.00s (24.05 bars at 135.3 bpm), crossfade 0.89s | context match 0.697 (best 0.697) | crossfade rhythm r=0.74 vs the track a bar later r=0.55: in time | spectrum cos=0.82"
+            ]
+        },
+        {
+            "candidate": "c8",
+            "seed": 1170758135,
+            "caption": "same brief",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-night-magma\\theme-magma-electro-c8.wav: 48.0s loop = source 28.00s..76.00s (27.04 bars at 135.2 bpm), crossfade 0.89s | context match 0.808 (best 0.857) | crossfade rhythm r=0.76 vs the track a bar later r=0.75: in time | spectrum cos=0.81"
+            ]
+        },
+        {
+            "candidate": "c9",
+            "seed": 1190910945,
+            "caption": "same brief",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-night-magma\\theme-magma-electro-c9.wav: 66.8s loop = source 31.81s..98.60s (38.03 bars at 136.6 bpm), crossfade 0.88s | context match 0.444 (best 0.490) | crossfade rhythm r=0.29 vs the track a bar later r=0.70: BELOW the track's own timekeeping -- listen | spectrum cos=0.55"
+            ]
+        }
+    ],
+    "replaces": {
+        "issue": 486,
+        "created": "2026-09-23",
+        "caption": "Dark electro instrumental: distorted 808 drums, growling synth bass, sharp lead stabs, industrial noise textures, hot and aggressive, no vocals",
+        "negative": "vocals, singing, audience applause, crowd noise, live recording",
+        "loop_log": [
+            "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-magma-electro.wav: 62.6s loop = source 31.69s..94.30s (36.04 bars at 138.2 bpm), crossfade 0.87s | context match 0.898 (best 0.944) | crossfade rhythm r=0.91 vs the track a bar later r=0.76: in time | spectrum cos=0.94"
+        ],
+        "why_replaced": "5.8 % above 6 kHz, tonal mid 28 % (the lowest but percussion's), mid flatness 0.13, 200 Hz-2 kHz 7.5 %; heard by the owner on 110 Paroxysm; round 2: round 1 split between sub-heavy (5.4 % in 200 Hz-2 kHz) and hissy (4.6 % above 6 kHz); the bass synth replaced by a bass guitar, rock drums, cymbals in the negative; round 3: rounds 1-2 still put 2.6-4.6 % above 6 kHz or sat a loop half quiet; the lead and the chords made warm instead of bright and glossy, fizzy synths in the negative"
+    }
 }

@@ -16,6 +16,17 @@ What a future music round needs: where the recordings come from, how a loop is c
 
 - ⚠ **"Drunk" was not in the pitch or the timing**: no mural recording wobbles or drifts more than an ember one, while a synthetic ±25-cent wow moves wobble and detune three to seven times. What the owner hears there is timbre or playing, which only the ear names; a note sent from the pause names the recording (#824).
 
+## Choosing a candidate
+
+- Render **three candidates of a brief** and measure them in the same `measure-music.py` run as ember. The band shares do not choose by themselves. Two faults they miss:
+  - **the step across the wrap**: `magma-doom` c3 sat inside ember's range on every band and jumped +15.4 dB at its seam (p99 of its own steps);
+  - **a hole**: a long stretch 10 dB or more under the loop's loud level. `magma-electro` c4 spent 24 s of its 43 s at −9 to −16 dB, the fault the old `doom` was replaced for.
+
+  The loop cut's own check must also say "in time".
+- Brief the drums as **"kick, snare and toms with a dark ride cymbal"**, with bright crash cymbals, open hi-hats, tambourine and shakers in the negative: it brought two of three drum and bass renders to 2.0 % above 6 kHz or under, where the first three sat at 2.5–3.5 % (#841).
+- ⚠ **Some styles keep their treble whatever the brief says**: breakbeat rock stayed at 2.1–5.1 % above 6 kHz over nine renders and electro at 2.5–4.6 %, the synth lead made "warm" instead of "bright" included. When three rounds do not clear ember's line, ship the best and name the figure still outside it in the sidecar's `chosen.why`, as `theme-magma-breakrock.json` and `theme-magma-electro.json` do.
+- The sidecar of a regenerated recording keeps the old one under `replaces` (its brief, its loop cut and why it went) and the losing candidates' seeds under `alternatives`, so a listener who prefers another candidate can name it and it can be cut from its master again.
+
 ## Cutting a loop
 
 - **Cut a loop out of the render's body, never from its own ends.** A generated piece *ends* (a fade or a final hit into silence), so folding the tail onto the head was sample-seamless and audibly an ending followed by a beginning: the level fell from 1.0 to 0.04 of the median across one wrap.
