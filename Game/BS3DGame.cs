@@ -1492,7 +1492,14 @@ namespace BS3D
             //After the scene renderer, which the rig consults for the scenes that state their own lighting. The
             //cloud hook is captured ONCE here rather than per frame: a method group written at the call site
             //builds a fresh delegate every time it is evaluated, and this one used to be evaluated in Draw.
-            _rig = new SkyLightRig(_sceneRenderer) { CloudHook = _clouds.ApplyTo };
+            //The Potato path has no scene renderer to ask for a scene's own rig and sun, so the scenes that replace the
+            //sky answer from their configs (#829): the Moon, the cavern and the Grid stood in the dome's lilac before
+            _rig = new SkyLightRig(_sceneRenderer)
+            {
+                CloudHook = _clouds.ApplyTo,
+                SceneRig = PotatoPath ? PotatoSceneRig.TryGetLightRig : null,
+                SceneSun = PotatoPath ? PotatoSceneRig.TryGetSunDirection : null
+            };
 
             ShowLoading();
             BuildScene();

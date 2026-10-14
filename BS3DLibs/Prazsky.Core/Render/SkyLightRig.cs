@@ -118,6 +118,22 @@ namespace Prazsky.Core.Render
         /// that editor exists to prevent.</param>
         public SkyLightRig(SceneRenderer sceneRenderer = null) => _sceneRenderer = sceneRenderer;
 
+        /// <summary>A scene's own rig, asked when there is no scene renderer to ask (<see cref="SceneRig"/>).</summary>
+        public delegate bool SceneRigLookup(SceneKind scene, float wallClock, out SceneLightRig rig);
+
+        /// <summary>A scene's own key direction, asked when there is no scene renderer to ask (<see cref="SceneSun"/>).</summary>
+        public delegate bool SceneSunLookup(SceneKind scene, out Vector3 direction);
+
+        /// <summary>
+        /// Where a host with no scene renderer gets a scene's own rig from (#829): the Potato path, whose scenes that
+        /// replace the sky answer through <see cref="PotatoSceneRig"/>. Consulted only when the renderer is null, so a
+        /// host with one is not asked twice.
+        /// </summary>
+        public SceneRigLookup SceneRig { get; set; }
+
+        /// <summary>The same for the key direction a scene states for itself (the Moon's sun).</summary>
+        public SceneSunLookup SceneSun { get; set; }
+
         /// <summary>The dome's zenith colour, decoded to linear. Never overridden by a scene — see
         /// <see cref="SetSky"/> — and handed to the scene shaders through <see cref="BuildSceneFrame"/>.</summary>
         public Vector3 ZenithLinear { get; private set; }
@@ -283,6 +299,8 @@ namespace Prazsky.Core.Render
             //...unless the scene states a sun of its own, which only the Moon does (#508, its low Apollo sun).
             if (_sceneRenderer != null && _sceneRenderer.TryGetSunDirection(_scene, out Vector3 sceneSun))
                 SunDirection = sceneSun;
+            else if (_sceneRenderer == null && SceneSun != null && SceneSun(_scene, out Vector3 statedSun))
+                SunDirection = statedSun;
 
             KeyLightPosition = SunDirection * KEY_LIGHT_DISTANCE;
 
@@ -297,7 +315,8 @@ namespace Prazsky.Core.Render
             SkyAmbient = Vector3.Lerp(ZenithLinear * ZENITH_AMBIENT_SCALE, OVERCAST_SKY, Overcast);
             GroundAmbient = Vector3.Lerp(HorizonLinear * GROUND_BOUNCE_SCALE, OVERCAST_GROUND, Overcast);
 
-            if (_sceneRenderer != null && _sceneRenderer.TryGetLightRig(_scene, _sceneClock, out SceneLightRig rig))
+            if (_sceneRenderer != null ? _sceneRenderer.TryGetLightRig(_scene, _sceneClock, out SceneLightRig rig)
+                : SceneRig != null && SceneRig(_scene, _sceneClock, out rig))
             {
                 SkyAmbient = rig.SkyAmbient;
                 GroundAmbient = rig.GroundAmbient;
