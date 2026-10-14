@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-14 — #829 reference všech scén a stránka Potato proti desktopu — ThinkPad, Claude Code (github-5f)
+- Pi session (584de7d2) odpověděla na #829: chce reference všech scén z kamery svých záběrů, stránku s cizím okem pro majitele, opravu startovního NeonCity si vzala sama (8b5929f4), střechy města nabízí mně.
+- Hotovo (merge do mainu): `Research/pi-port/829/desktop/<level>.jpg` (High) a `829/twin/<level>.jpg` (Windows dvojče Potato, main e6a091f2 se třemi nebi a kmeny), čtrnáct úrovní z tabulky #829, okno 1600×900, `seed=829 sceneseed=829`, snímek 13 s (Pennant 16/19 s, po průletu). Stránka pro majitele s dvojicemi, výřezy, čtením od děla a odpověďmi OK/Vrať/Je mi to jedno ukládanými na stránce: https://claude.ai/artifact/S4zhX3Kuy8VaT8YkZcNfYN (zkouška zápisu prošla).
+- ⚠ Úroveň vždy znovu ukáže své vlastní karty (Pennant: aim), save nepomůže; `Settings.json` s `"tutorial": false`. Průlet kapitoly posouvá snímek podle doby načítání: Pennant na High potřeboval 19 s. High PNG 1600×900 má 3,5 MB, JPEG 92 ~0,45 MB.
+- Otevřené: odpovědi majitele (přepsat na #829); střechy města (#829) jako další práce; figury koulí se na Potato u některých stylů liší od desktopu (#828).
+
 ## 2026-10-14 — #829 desktopové reference tří nebí, #815 sprintf-js z webu — ThinkPad, Claude Code (github-5f)
 - majitel: udělat desktopové reference pro space, auroru a dream a vyřešit střední zranitelnost webu.
 - #829: `Research/pi-port/829/sky/{analemma,anchor,anvil}-desktop.jpg` — High, 1920×1080, tytéž úrovně jako záběry z Pi vedle nich, se seedovaným savem (všechny lekce tutoriálu v `lessons`, jinak karta překryje nebe). Co má desktop a Potato ne: space planetu s prstenci a červenou mlhovinu, aurora zasněžený jehličnatý les a sněžení, dream fialovo-oranžovou paletu s azurovými prstenci (Potato čte modrozeleně). Odkazy v komentáři #829.
