@@ -20,6 +20,10 @@ Pravidla:
 
 ---
 
+## 2026-10-14 — #829 hvězdy, záclony a sen v PotatoSky — Pi, Claude Code (584de7d2)
+- majitel: hvězdy a záclony pro space, aurora a dream v PotatoSky. Hotovo (větev `829-potato-sky-figures`): `PotatoSkyFigure` — koule 48×96 kolem kamery, jejíž vertex shader počítá Mléčnou dráhu s mlhovinou, záclony polární záře nebo mramor snu s koulemi světla (`PotatoSkySpace/Aurora/Dream`), a hvězdy jako dávka 900–1400 malých čtverečků (`PotatoSkyStars`), uniformy z configu scény (`PotatoSceneRig.SkyLookOf`). Analemma 13,64/9,97 ms proti 13,40/9,33, Anchor 14,17/9,85 proti 13,52/9,50, Anvil 14,14/10,08 proti 13,60/9,66.
+- ⚠ První řez počítal totéž po pixelech: +12,5 ms nativně (13,4 → 25,9). Co je hladké, patří do vrcholu; bod je čtvereček. Tři kola kompilace shaderu v CI (`fetch.sh`).
+
 ## 2026-10-14 — #829 krok 7: šapitó na Potato — Pi, Claude Code (584de7d2)
 - Hotovo (větev `829-potato-bigtop`): kvadriky desktopu jako pláště zevnitř (`PotatoShellMesh` zobecněný na komolý kužel s filtrem segmentů): plachta jako dva kužely nad jedním (červené a smetanové panely, koruna), závěsová stěna, svah sedadel, obrubník, piliny s dírou, královské sloupy jako kvádry. BigTop 14,57/10,26 ms proti 13,90/9,69.
 - Stav #829: jedenáct ze čtrnácti vydaných scén má pozadí, space/dream/aurora stojí ve svém prázdnu s vlastním rigem; issue jde na verdikt oka (shipped-awaiting-verdict). Zbývá: hvězdy/záclony/sen v PotatoSky, střechy města.
