@@ -825,3 +825,8 @@ Pravidla:
 - majitel: „na desktopu už nedochází nikdy k pádům v žádné zátěži (CPU ani GPU). Problém byl ve zdroji. Ten jsem vyměnil.“ Poslední Kernel-Power 41 byl 14. 10. v 9:45, start na novém zdroji ve 12:45. V desktopu je zase RX 6900 XT (GTX 1060 byla jen 12.–14. 10.).
 - Neplatí už žádné omezení z resetů: `fpscap` jako ochrana, zákaz benchmarků, ptát se před GPU sezením, `heavy.ps1` (jedna těžká úloha naráz), žádné snímky na desktopu, ACE-Step/sd-server jen samotné. Lokální AI na desktopu (ACE-Step, sd-server, Gemma) zase jde.
 - Skilly `benchmark`, `verify` a `design-references` a komentáře `AtomicFile`/`PlayerProgress` opraveny: příčinou byl zdroj, ne takty karty.
+
+## 2026-10-14 — #841 hudba Eruption přegenerována — desktop (RDT-PC), Claude Code (bs3d-39)
+- #841 (merge do mainu, `shipped-awaiting-verdict` + `verdict-eye`): osm nahrávek rodiny `magma` nahrazeno podle vzoru `ember` (metal a tribal zůstaly), 36 renderů ACE-Step ve třech kolech, výběr měřením (`measure-music.py` + šev, díra, stereo); bicí vrstvy oddělené znovu z nových nahrávek. Mastery v `C:/Users/panrd/AI/output/masters-841`, kandidáti v `masters-night-magma`. Stránka k poslechu: https://claude.ai/artifact/SZH18zrnQWmU8oaBARcNgj (odpovědi v db, kolekce `verdicts`).
+- ⚠ Pásma nestačí: `doom` c3 v pásmu, ale šev +15 dB; `electro` c4 má 24 s z 43 s tiše. Breakbeat a electro si výšky drží přes jakékoli zadání (devět renderů, nejlépe 2,1 % a 2,5 % nad 6 kHz). Zapsáno v `music-generation.md`, „Choosing a candidate“.
+- Otevřené: ucho majitele; `electro` stále 4,0 % nad 6 kHz a `breakrock` středy jako dřív.
