@@ -148,6 +148,29 @@ namespace BS3D
             Console.WriteLine($"[potato] {_scene} backdrop: {_potatoBackdrop.VertexCount} vertices a frame in {_potatoBackdrop.Renderers.Count} draws ({_potatoBackdrop.Census})");
         }
 
+        /// <summary>
+        /// Selects the dome's technique for a scene's own sky and pushes the look's uniforms (<see cref="PotatoSceneRig.SkyLookOf"/>)
+        /// and the wall clock. False, and nothing is touched, when the loaded effect has no such technique.
+        /// </summary>
+        private bool PushPotatoSkyLook(PotatoSceneRig.PotatoSkyLook look)
+        {
+            EffectTechnique technique = _skyEffect.Techniques[look.Technique];
+            if (technique == null) return false;
+
+            _skyEffect.CurrentTechnique = technique;
+            _skyEffect.Parameters["SkyTime"]?.SetValue(_wallClock);
+            _skyEffect.Parameters["SkyVoid"]?.SetValue(look.Void);
+            _skyEffect.Parameters["SkyColorA"]?.SetValue(look.ColorA);
+            _skyEffect.Parameters["SkyColorB"]?.SetValue(look.ColorB);
+            _skyEffect.Parameters["SkyColorC"]?.SetValue(look.ColorC);
+            _skyEffect.Parameters["SkyColorD"]?.SetValue(look.ColorD);
+            _skyEffect.Parameters["SkyAxis"]?.SetValue(look.Axis);
+            _skyEffect.Parameters["SkyAxis2"]?.SetValue(look.Axis2);
+            _skyEffect.Parameters["SkyParams"]?.SetValue(look.Params);
+            _skyEffect.Parameters["SkyParams2"]?.SetValue(look.Params2);
+            return true;
+        }
+
         private SceneFrame BeginPotatoSceneDraw()
         {
             _ceilingGlassBehind = null;
@@ -161,7 +184,21 @@ namespace BS3D
             //clear is never seen; it is the horizon, display-encoded, only so that a frame without the dome would still
             //read as sky
             if (PotatoSceneRig.TryGetVoid(_scene, out Vector3 voidLinear))
+            {
                 GraphicsDevice.Clear(new Color(ColorSpace.LinearToSrgb(voidLinear)));
+
+                //Space, the aurora and the dream have a picture of their own on the dome (#829, PotatoSky.fx's figures): the
+                //same dome, drawn with the scene's technique and its figures, the void under it. Null until the effect that
+                //has the techniques is the one committed (GamePi/Shaders/Compiled), so a build ahead of its xnb keeps the void
+                PotatoSceneRig.PotatoSkyLook look = PotatoSceneRig.SkyLookOf(_scene);
+                if (look != null && PushPotatoSkyLook(look))
+                {
+                    GraphicsDevice.BlendState = BlendState.Opaque;
+                    GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+                    _sky.Draw(_camera);
+                    _skyEffect.CurrentTechnique = _skyEffect.Techniques[0];
+                }
+            }
             else
             {
                 GraphicsDevice.Clear(new Color(ColorSpace.LinearToSrgb(_rig.HorizonLinear)));
