@@ -72,6 +72,7 @@ namespace Prazsky.Core.Render
                 //Space: a field thickened along the Milky Way; the aurora: a plain night's; the dream: none
                 SceneKind.Space => BuildStars(1400, 2026, look.Axis, 0.75f),
                 SceneKind.Aurora => BuildStars(900, 2027, null, 0f),
+                SceneKind.Moon => BuildStars(1300, 2028, null, 0f),
                 _ => Array.Empty<VertexPositionColorTexture>(),
             };
             return new PotatoSkyFigure(device, look, stars);
@@ -152,8 +153,9 @@ namespace Prazsky.Core.Render
         /// </summary>
         public bool Draw(Effect effect, ICamera camera, float time)
         {
-            EffectTechnique technique = effect.Techniques[Look.Technique];
-            if (technique == null) return false;
+            //A look with no technique is the stars alone over the void (the Moon)
+            EffectTechnique technique = Look.Technique != null ? effect.Techniques[Look.Technique] : null;
+            if (Look.Technique != null && technique == null) return false;
 
             effect.Parameters["World"]?.SetValue(Matrix.CreateTranslation(camera.Position));
             effect.Parameters["View"]?.SetValue(camera.View);
@@ -173,11 +175,14 @@ namespace Prazsky.Core.Render
             _device.BlendState = BlendState.Opaque;
             _device.RasterizerState = RasterizerState.CullNone;
 
-            effect.CurrentTechnique = technique;
-            effect.CurrentTechnique.Passes[0].Apply();
-            _device.SetVertexBuffer(_sphere);
-            _device.Indices = _sphereIndices;
-            _device.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _sphereTriangles);
+            if (technique != null)
+            {
+                effect.CurrentTechnique = technique;
+                effect.CurrentTechnique.Passes[0].Apply();
+                _device.SetVertexBuffer(_sphere);
+                _device.Indices = _sphereIndices;
+                _device.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _sphereTriangles);
+            }
 
             EffectTechnique stars = _starCount > 0 ? effect.Techniques["PotatoSkyStars"] : null;
             if (stars != null)

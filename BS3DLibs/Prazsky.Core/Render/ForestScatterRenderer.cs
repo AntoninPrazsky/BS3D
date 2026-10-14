@@ -69,6 +69,28 @@ namespace Prazsky.Core.Render
         /// </summary>
         public const int DEFAULT_SEED = 77125;
 
+        /// <summary>
+        /// One of the spruce variants of <see cref="CONIFER_VARIANTS"/>: its width and height as factors of the config's
+        /// conifer figures, the structural roll its <see cref="TreeMesh"/> is built with, and whether it stands on the
+        /// long bare stem of a stand's crowded trees (<see cref="ForestTreeConfig.ConiferStandTrunk"/>).
+        /// </summary>
+        public readonly record struct SpruceVariant(float Width, float Height, int Seed, bool Stand);
+
+        /// <summary>
+        /// The six spruces every forest is planted with, in this order (the planting splits the conifers between them by
+        /// index). The one copy of the table: the Potato path's stand (<c>PotatoBackdrop.SpruceProxies</c>) stands its
+        /// cones in these proportions, so a change here moves both woods. Each variant is FOR a silhouette, not a size.
+        /// </summary>
+        public static readonly SpruceVariant[] CONIFER_VARIANTS =
+        {
+            new(1f, 1f, 11, false),          //the authored spruce
+            new(0.78f, 1.24f, 23, true),     //a narrow, taller one — the crowded stems of a stand, bare low down
+            new(1.3f, 0.76f, 37, false),     //a broad, squat one — an old tree with room around it
+            new(0.9f, 1.1f, 41, false),      //an ordinary tree that is nobody's copy
+            new(1.12f, 0.94f, 53, false),    //slightly stout
+            new(0.7f, 1.38f, 67, true),      //a spire — the one that carries the skyline, on a long bare stem
+        };
+
         //The material diffuse the scatter's meshes are built with, and it is 0.8 rather than white on
         //purpose: passing a diffuse tint makes the renderer reduce the material colour to its luminance and
         //multiply by 1.25, a boost calibrated for models whose brightest material is 0.8. On a white
@@ -386,17 +408,14 @@ namespace Prazsky.Core.Render
 
             //Each kind at several sets of proportions and its own structural roll — the reasoning is in the
             //class remarks, and it is the whole reason a grove does not read as one tree stamped out fifty
-            //times. The comments name what each variant is FOR: the silhouettes have to differ, not merely the
-            //sizes, and a set of variants that all read as the same tree is a set that has drifted.
-            _coniferMeshes = new[]
+            //times. The spruces' table (CONIFER_VARIANTS) names what each variant is FOR: the silhouettes have to
+            //differ, not merely the sizes, and a set of variants that all read as the same tree is a set that has drifted.
+            _coniferMeshes = new TreeMesh[CONIFER_VARIANTS.Length];
+            for (int v = 0; v < CONIFER_VARIANTS.Length; v++)
             {
-                NewConifer(trees, 1f, 1f, seed: 11),          //the authored spruce
-                NewConifer(trees, 0.78f, 1.24f, seed: 23, trunk: trees.ConiferStandTrunk), //a narrow, taller one — the crowded stems of a stand, bare low down
-                NewConifer(trees, 1.3f, 0.76f, seed: 37),     //a broad, squat one — an old tree with room around it
-                NewConifer(trees, 0.9f, 1.1f, seed: 41),      //an ordinary tree that is nobody's copy
-                NewConifer(trees, 1.12f, 0.94f, seed: 53),    //slightly stout
-                NewConifer(trees, 0.7f, 1.38f, seed: 67, trunk: trees.ConiferStandTrunk)   //a spire — the one that carries the skyline, on a long bare stem
-            };
+                SpruceVariant variant = CONIFER_VARIANTS[v];
+                _coniferMeshes[v] = NewConifer(trees, variant.Width, variant.Height, variant.Seed, variant.Stand ? trees.ConiferStandTrunk : 1f);
+            }
 
             _broadleafMeshes = new[]
             {

@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Render;
 using System;
+using System.Linq;
 using Xunit;
 
 namespace BS3D.Tests
@@ -13,6 +14,34 @@ namespace BS3D.Tests
     public class PotatoBackdropTests
     {
         private static float Bowl(float x, float z) => 0.001f * (x * x + z * z);
+
+        /// <summary>
+        /// The aurora's stand on the Potato path (#829): a spruce is a stem and a cone in its variant's proportions, the
+        /// cone's skirt on the stem's top and its tip at the trunk's and crown's height, through the planted world; the
+        /// spire stands on the stand's long bare stem. Seen to fail: the stem's foot read at the unit column's full width
+        /// (its radius is 0.5), which the last line caught.
+        /// </summary>
+        [Fact]
+        public void ASpruceProxyStandsItsCrownOnItsStemInTheVariantsProportions()
+        {
+            ForestTreeConfig trees = new AuroraSceneConfig().Terrain.Trees;
+            ForestScatterRenderer.SpruceVariant spire = ForestScatterRenderer.CONIFER_VARIANTS[^1];
+            Assert.True(spire.Stand);
+            Matrix planted = Matrix.CreateScale(1.3f) * Matrix.CreateTranslation(10f, -3f, 4f);
+
+            (Matrix stem, Matrix crown) = PotatoBackdrop.SpruceProxies(trees, spire, planted);
+
+            float trunk = trees.ConiferTrunkHeight * spire.Height * trees.ConiferStandTrunk * 1.3f;
+            Vector3 stemTop = Vector3.Transform(Vector3.Up, stem);
+            Vector3 skirt = Vector3.Transform(Vector3.Right, crown);
+            Vector3 tip = Vector3.Transform(Vector3.Up, crown);
+            Assert.Equal(-3f + trunk, stemTop.Y, 3);
+            Assert.Equal(-3f + trunk, skirt.Y, 3);
+            Assert.Equal(10f + trees.ConiferCrownRadius * spire.Width * 1.3f, skirt.X, 3);
+            Assert.Equal(-3f + trunk + trees.ConiferCrownHeight * spire.Height * 1.3f, tip.Y, 3);
+            //The column's foot is at radius 0.5 of its unit mesh
+            Assert.Equal(trees.TrunkBaseRadius * spire.Width * 1.3f, Vector3.Transform(new Vector3(0.5f, 0f, 0f), stem).X - 10f, 3);
+        }
 
         [Fact]
         public void TheGridLeavesTheArenasHoleAndIsWoundClockwiseFromAbove()
@@ -138,6 +167,36 @@ namespace BS3D.Tests
                 VertexPositionNormalTexture a = column[columnIndices[i]], b = column[columnIndices[i + 1]], c = column[columnIndices[i + 2]];
                 Assert.True(Vector3.Dot(Vector3.Cross(b.Position - a.Position, c.Position - a.Position), a.Normal) < 0f, $"triangle {i / 3} faces away from the outside");
             }
+        }
+
+        [Fact]
+        public void AGridLineThroughTheHoleIsTwoPiecesOutsideIt()
+        {
+            Assert.Equal(new[] { (-100f, 100f) }, PotatoBackdrop.LineSpans(30f, 24f, 100f).ToArray());
+            (float From, float To)[] cut = PotatoBackdrop.LineSpans(0f, 24f, 100f).ToArray();
+            Assert.Equal(2, cut.Length);
+            Assert.Equal((-100f, -24f), cut[0]);
+            Assert.Equal((24f, 100f), cut[1]);
+            (float From, float To)[] off = PotatoBackdrop.LineSpans(16f, 20f, 100f).ToArray();
+            Assert.Equal(12f, off[1].From, 3);
+        }
+
+        [Fact]
+        public void TheDreamsSolidsStayPastTheOrbitAndBreatheAboutTheirSize()
+        {
+            var shapes = new DreamShapesConfig();
+            for (int i = 0; i < 8; i++)
+                for (float t = 0f; t < 600f; t += 7.3f)
+                {
+                    Matrix world = PotatoBackdrop.DreamSolidWorld(shapes, i, t);
+                    Vector3 centre = world.Translation;
+                    Assert.True(MathF.Sqrt(centre.X * centre.X + centre.Z * centre.Z) >= shapes.OrbitRadius, $"solid {i} at {t}s inside the orbit");
+                    float width = world.Right.Length();
+                    Assert.InRange(width, shapes.Size * 2f * 0.5f, shapes.Size * 2f * 1.5f);
+                }
+
+            Vector3 colour = PotatoBackdrop.DreamPalette(new DreamPaletteConfig(), 0.5f);
+            Assert.True(colour.X >= 0f && colour.Y >= 0f && colour.Z >= 0f);
         }
 
         [Fact]

@@ -300,6 +300,7 @@ namespace Prazsky.Core.Render
             public bool TwoSided;
             public Vector3? Glow;
             public Func<ICamera, int> Prepare;
+            public Action<DrawItem, float> Animate;
         }
 
         private readonly List<DrawItem> _draws = new();
@@ -355,6 +356,9 @@ namespace Prazsky.Core.Render
                 SceneKind.Cavern => Cavern(graphicsDevice, potatoEffect),
                 SceneKind.Grid => Grid(graphicsDevice, potatoEffect, holeRadius, seedOffset),
                 SceneKind.Circus => BigTop(graphicsDevice, potatoEffect, holeRadius),
+                SceneKind.Space => Space(graphicsDevice, potatoEffect),
+                SceneKind.Aurora => Aurora(graphicsDevice, potatoEffect, holeRadius, seedOffset),
+                SceneKind.Dream => Dream(graphicsDevice, potatoEffect),
                 _ => null,
             };
         }
@@ -376,20 +380,30 @@ namespace Prazsky.Core.Render
             ModelInstance[] one = { new ModelInstance(Matrix.Identity, OPEN) };
 
             var backdrop = new PotatoBackdrop(graphicsDevice);
-            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoTerrainMesh(graphicsDevice, 2, tent.WallRadius, holeRadius, (x, z) => floor)), one, ring.Sawdust.ToVector3(), null, "floor");
-            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoShellMesh(graphicsDevice, ring.CurbRadius, ring.CurbRadius, floor, floor + ring.CurbHeight, 48, closeTop: false)), one, ring.CurbRed.ToVector3(), null, "curb");
+
+            //Darker than the config's colours say (the owner's eye: the tent shone, the scene should be much darker): the
+            //desktop shades its canvas with a house light between shows, a fraction of the colour; here the colours take
+            //the fraction, and the canvas is darker again towards the crown, where the house light reaches least
+            const float DIM = 0.42f, CROWN_DIM = 0.55f;
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoTerrainMesh(graphicsDevice, 2, tent.WallRadius, holeRadius, (x, z) => floor)), one, ring.Sawdust.ToVector3() * 0.6f, null, "floor");
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoShellMesh(graphicsDevice, ring.CurbRadius, ring.CurbRadius, floor, floor + ring.CurbHeight, 48, closeTop: false)), one, ring.CurbRed.ToVector3() * DIM, null, "curb");
 
             //The rake: a row's rise for every row's depth from the ring's edge to the wall
             float rows = MathF.Max(1f, (seating.OuterRadius - seating.InnerRadius) / MathF.Max(seating.RowDepth, 0.1f));
             backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoShellMesh(graphicsDevice, seating.InnerRadius, seating.OuterRadius, floor, floor + rows * seating.RowRise, 48, closeTop: false)),
-                one, seating.SeatRed.ToVector3(), null, "seats");
-            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoShellMesh(graphicsDevice, tent.WallRadius, tent.WallRadius, floor, tent.WallTopY, 48, closeTop: false)), one, tent.Curtain.ToVector3(), null, "wall");
+                one, seating.SeatRed.ToVector3() * DIM, null, "seats");
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoShellMesh(graphicsDevice, tent.WallRadius, tent.WallRadius, floor, tent.WallTopY, 48, closeTop: false)), one, tent.Curtain.ToVector3() * DIM, null, "wall");
 
-            //The canvas: the shader's panels, alternating; an odd count is doubled so the ring closes on a pair
+            //The canvas: the shader's panels, alternating; an odd count is doubled so the ring closes on a pair; in two
+            //heights, the upper one dimmer, where the house light reaches least
             int panels = Math.Max(8, tent.PanelCount);
             if (panels % 2 == 1) panels *= 2;
-            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoShellMesh(graphicsDevice, tent.WallRadius, tent.CrownRadius, tent.WallTopY, tent.CrownY, panels, i => i % 2 == 0)), one, tent.Red.ToVector3(), null, "canvas red");
-            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoShellMesh(graphicsDevice, tent.WallRadius, tent.CrownRadius, tent.WallTopY, tent.CrownY, panels, i => i % 2 == 1, closeTop: false)), one, tent.Cream.ToVector3(), null, "canvas cream");
+            float midY = MathHelper.Lerp(tent.WallTopY, tent.CrownY, 0.5f);
+            float midRadius = MathHelper.Lerp(tent.WallRadius, tent.CrownRadius, 0.5f);
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoShellMesh(graphicsDevice, tent.WallRadius, midRadius, tent.WallTopY, midY, panels, i => i % 2 == 0, closeTop: false)), one, tent.Red.ToVector3() * DIM, null, "canvas red");
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoShellMesh(graphicsDevice, tent.WallRadius, midRadius, tent.WallTopY, midY, panels, i => i % 2 == 1, closeTop: false)), one, tent.Cream.ToVector3() * DIM, null, "canvas cream");
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoShellMesh(graphicsDevice, midRadius, tent.CrownRadius, midY, tent.CrownY, panels, i => i % 2 == 0)), one, tent.Red.ToVector3() * (DIM * CROWN_DIM), null, "canvas red, upper");
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoShellMesh(graphicsDevice, midRadius, tent.CrownRadius, midY, tent.CrownY, panels, i => i % 2 == 1, closeTop: false)), one, tent.Cream.ToVector3() * (DIM * CROWN_DIM), null, "canvas cream, upper");
 
             //The king poles where Circus.fx stands them: (i + 0.5) of the circle each, at the pole radius, floor to crown
             int poleCount = Math.Max(0, tent.KingPoleCount);
@@ -403,13 +417,150 @@ namespace Prazsky.Core.Render
                     poles[i] = new ModelInstance(Matrix.CreateScale(thickness, tent.CrownY - floor, thickness)
                         * Matrix.CreateTranslation(MathF.Cos(angle) * tent.KingPoleRadius, (floor + tent.CrownY) * 0.5f, MathF.Sin(angle) * tent.KingPoleRadius), OPEN);
                 }
-                backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new BoxMesh(graphicsDevice, 1f, 1f, 1f)), poles, tent.PoleColor.ToVector3(), null, "poles");
+                backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new BoxMesh(graphicsDevice, 1f, 1f, 1f)), poles, tent.PoleColor.ToVector3() * DIM, null, "poles");
             }
 
             return backdrop;
         }
 
-        private const int CAVE_SEGMENTS = 64, CRYSTAL_CLUSTERS = 8, CRYSTALS_PER_CLUSTER = 5;
+        /// <summary>
+        /// The dream's solids (#829, the owner's eye: "a few geometric flying shapes changing form, in the style of a
+        /// Windows 98 screensaver"): the desktop's eight raymarched solids tumbling and morphing round the sky as eight
+        /// low-poly bodies - boxes, octahedra and gems - on their own orbits past the config's orbit radius, far outside
+        /// anything the camera stands near, each turning about two axes and breathing its proportions, in a colour of
+        /// the palette that drifts as the desktop's does, its own light. Animated on the clock the host hands
+        /// <see cref="Draw"/>: eight matrices a frame.
+        /// </summary>
+        private static PotatoBackdrop Dream(GraphicsDevice graphicsDevice, Effect potatoEffect)
+        {
+            DreamSceneConfig config = new();
+            DreamShapesConfig shapes = config.Shapes;
+            DreamPaletteConfig palette = config.Palette;
+            var backdrop = new PotatoBackdrop(graphicsDevice);
+
+            IProceduralMesh[] bodies =
+            {
+                backdrop.Own(new BoxMesh(graphicsDevice, 1f, 1f, 1f)),
+                backdrop.Own(new SphereMesh(graphicsDevice, 0.5f, 4, 2)),  //an octahedron
+                backdrop.Own(new SphereMesh(graphicsDevice, 0.5f, 6, 3)),  //a gem
+                backdrop.Own(new SphereMesh(graphicsDevice, 0.5f, 5, 2)),  //a pentagonal bipyramid
+            };
+
+            for (int i = 0; i < DREAM_SOLIDS; i++)
+            {
+                int index = i;
+                var renderer = new InstancedModelRenderer(graphicsDevice, bodies[i % bodies.Length], Vector3.Zero, potatoEffect) { PotatoVertexLit = true, SpecularAmbientStrength = 0f };
+                backdrop._owned.Add(renderer);
+                backdrop._renderers.Add(renderer);
+                var item = new DrawItem { Renderer = renderer, Instances = new[] { new ModelInstance(Matrix.Identity, OPEN) }, Glow = Vector3.Zero };
+                item.Animate = (draw, time) =>
+                {
+                    draw.Instances[0] = new ModelInstance(DreamSolidWorld(shapes, index, time), OPEN);
+                    //The desktop's own colour for a solid, Palette(i * 0.17 + t * 0.010), under one in linear so the curve keeps its hue
+                    draw.Glow = ColorSpace.LinearToSrgb(Vector3.Clamp(DreamPalette(palette, index * 0.17f + time * 0.010f) * 0.55f, Vector3.Zero, Vector3.One));
+                };
+                backdrop._draws.Add(item);
+                backdrop.VertexCount += bodies[i % bodies.Length].PrimitiveCount * 3;
+                backdrop._census.Add($"solid {i} 1x{bodies[i % bodies.Length].PrimitiveCount * 3}");
+            }
+
+            return backdrop;
+        }
+
+        private const int DREAM_SOLIDS = 8;
+
+        /// <summary>Inigo Quilez's cosine palette on the dream's config, the shader's own.</summary>
+        public static Vector3 DreamPalette(DreamPaletteConfig palette, float t)
+        {
+            Vector3 a = palette.A.ToVector3(), b = palette.B.ToVector3(), c = palette.C.ToVector3(), d = palette.D.ToVector3();
+            return new Vector3(
+                a.X + b.X * MathF.Cos(MathHelper.TwoPi * (c.X * t + d.X)),
+                a.Y + b.Y * MathF.Cos(MathHelper.TwoPi * (c.Y * t + d.Y)),
+                a.Z + b.Z * MathF.Cos(MathHelper.TwoPi * (c.Z * t + d.Z)));
+        }
+
+        /// <summary>
+        /// Where solid <paramref name="index"/> of the dream is and how it stands at <paramref name="time"/>: on an orbit
+        /// of the config's radius and a share more, at its own height that swings slowly, turned about two axes at its
+        /// own rates, its three sizes breathing round the config's size at the morph speed so it is a slab, then a bar,
+        /// then a cube. Pure, for the tests: every solid stays past the orbit radius.
+        /// </summary>
+        public static Matrix DreamSolidWorld(DreamShapesConfig shapes, int index, float time)
+        {
+            float phase = index * 2.39996f;
+            float radius = shapes.OrbitRadius * (1.05f + 0.25f * (index % 3));
+            float angle = phase + time * (0.018f + 0.004f * (index % 4)) * (index % 2 == 0 ? 1f : -1f);
+            float height = 25f + 45f * MathF.Sin(time * 0.013f + phase) + 10f * (index % 3);
+            Vector3 centre = new(MathF.Cos(angle) * radius, height, MathF.Sin(angle) * radius);
+
+            float morph = time * shapes.MorphSpeed;
+            float size = shapes.Size * 2f;
+            Vector3 scale = new(
+                size * (1f + 0.45f * MathF.Sin(morph + phase)),
+                size * (1f + 0.45f * MathF.Sin(morph * 0.8f + phase + 2.1f)),
+                size * (1f + 0.45f * MathF.Sin(morph * 1.25f + phase + 4.2f)));
+
+            return Matrix.CreateScale(scale) * Matrix.CreateFromYawPitchRoll(time * (0.21f + 0.05f * index), time * (0.13f + 0.03f * (index % 5)), phase)
+                * Matrix.CreateTranslation(centre);
+        }
+
+        //The planet stands this far out: beyond anything the arena has, inside the far plane, its radius from its angular size
+        private const float PLANET_DISTANCE = 700f;
+
+        /// <summary>
+        /// Space (#829, the owner's eye: "I don't see the big planet"): the desktop's gas giant, which <c>Space.fx</c> shades
+        /// per pixel with its bands and storm, as a sphere in its dark colour under belts of its light one - frustums of
+        /// the sphere between latitudes about the planet's axis, every other belt - and a storm as an ellipsoid on the
+        /// side the arena sees, lit by the rig's key so it has a day side and a night, with a little of its rim colour as
+        /// a glow. Where the config points it, as big as the config's angle says.
+        /// </summary>
+        private static PotatoBackdrop Space(GraphicsDevice graphicsDevice, Effect potatoEffect)
+        {
+            SpacePlanetConfig planet = new SpaceSceneConfig().Planet;
+            var backdrop = new PotatoBackdrop(graphicsDevice);
+
+            Vector3 direction = Vector3.Normalize(planet.Direction.ToVector3());
+            Vector3 axis = Vector3.Normalize(planet.Axis.ToVector3());
+            float radius = PLANET_DISTANCE * MathF.Sin(MathHelper.ToRadians(MathHelper.Clamp(planet.AngularRadiusDegrees, 1f, 60f)));
+            Vector3 right = Vector3.Normalize(Vector3.Cross(axis, MathF.Abs(axis.Y) > 0.9f ? Vector3.Right : Vector3.Up));
+            Matrix orient = Matrix.Identity;
+            orient.Right = right;
+            orient.Up = axis;
+            orient.Backward = Vector3.Cross(right, axis);
+            orient.Translation = direction * PLANET_DISTANCE;
+            Matrix world = Matrix.CreateScale(radius) * orient;
+
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new SphereMesh(graphicsDevice, 1f, 32, 16)), new[] { new ModelInstance(world, OPEN) },
+                planet.ColorDark.ToVector3(), planet.RimColor.ToVector3() * (planet.RimStrength * 0.6f), "planet");
+
+            //The belts: the sphere between two latitudes as a frustum a hair over the surface, every other one
+            int bands = Math.Max(3, (int)MathF.Round(planet.BandScale));
+            for (int b = 0; b < bands; b += 2)
+            {
+                float lat0 = -MathHelper.PiOver2 + MathHelper.Pi * b / bands, lat1 = -MathHelper.PiOver2 + MathHelper.Pi * (b + 1) / bands;
+                const float OVER = 1.004f;
+                var belt = backdrop.Own(new PotatoShellMesh(graphicsDevice, MathF.Cos(lat0) * OVER, MathF.Cos(lat1) * OVER, MathF.Sin(lat0) * OVER, MathF.Sin(lat1) * OVER, 32,
+                    closeTop: false, inside: false));
+                backdrop.AddPiece(graphicsDevice, potatoEffect, belt, new[] { new ModelInstance(world, OPEN) }, planet.ColorLight.ToVector3(), null, $"belt {b}");
+            }
+
+            //The storm: an ellipsoid lying in the belts on the side that faces the arena, below the equator
+            Vector3 towardsArena = Vector3.Normalize(-direction - axis * Vector3.Dot(-direction, axis));
+            Vector3 stormLocal = Vector3.Normalize(towardsArena * 0.94f - axis * 0.34f);
+            Vector3 stormRight = Vector3.Normalize(Vector3.Cross(axis, stormLocal));
+            Matrix stormOrient = Matrix.Identity;
+            stormOrient.Right = stormRight;
+            stormOrient.Up = stormLocal;
+            stormOrient.Backward = Vector3.Cross(stormRight, stormLocal);
+            stormOrient.Translation = orient.Translation + stormLocal * (radius * 0.985f);
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new SphereMesh(graphicsDevice, 1f, 16, 8)),
+                new[] { new ModelInstance(Matrix.CreateScale(radius * 0.26f, radius * 0.05f, radius * 0.15f) * stormOrient, OPEN) },
+                planet.StormColor.ToVector3(), null, "storm");
+
+            return backdrop;
+        }
+
+        private const int CAVE_SEGMENTS = 64, CRYSTAL_CLUSTERS = 8, CRYSTALS_PER_CLUSTER = 7;
 
         /// <summary>
         /// The cavern (#829): the desktop's is one marched full-screen pass (<c>Cavern.fx</c>), a noise-carved cylinder
@@ -424,12 +575,17 @@ namespace Prazsky.Core.Render
             float water = config.Water.LevelY, ceiling = config.Rock.CeilingY, radius = config.Rock.CaveRadius;
 
             var backdrop = new PotatoBackdrop(graphicsDevice);
+            //The rock in the desktop's colour pulled a third towards its mineral veins (the owner's eye: the cave was brown;
+            //the desktop's walls are veined teal and lit by the crystals), under its own cool rig
+            Vector3 rock = Vector3.Lerp(config.Rock.RockColor.ToVector3(), config.Rock.VeinColor.ToVector3(), 0.35f) * 0.6f;
             backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoShellMesh(graphicsDevice, radius, radius, water - 2f, ceiling, CAVE_SEGMENTS)),
-                new[] { new ModelInstance(Matrix.Identity, OPEN) }, config.Rock.RockColor.ToVector3(), null, "cave");
+                new[] { new ModelInstance(Matrix.Identity, OPEN) }, rock, null, "cave");
             backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoTerrainMesh(graphicsDevice, 2, radius, 0f, (x, z) => water)),
-                new[] { new ModelInstance(Matrix.Identity, OPEN) }, config.Water.DeepColor.ToVector3(), config.Water.GlowColor.ToVector3() * 0.12f, "river");
+                new[] { new ModelInstance(Matrix.Identity, OPEN) }, config.Water.DeepColor.ToVector3(), config.Water.GlowColor.ToVector3() * 0.25f, "river");
 
-            BoxMesh box = backdrop.Own(new BoxMesh(graphicsDevice, 1f, 1f, 1f));
+            //A crystal is a six-sided prism tapering to a point, closed, seen from outside (the owner's eye: leaning boxes
+            //did not read as crystals)
+            PotatoShellMesh prism = backdrop.Own(new PotatoShellMesh(graphicsDevice, 0.5f, 0.12f, 0f, 1f, 6, closeTop: true, inside: false));
             for (int k = 0; k < CRYSTAL_CLUSTERS; k++)
             {
                 //Cavern.fx's CrystalCenter(k): on the wall at nearly the full radius, at a golden-angle bearing, staggered in height
@@ -442,27 +598,30 @@ namespace Prazsky.Core.Render
                 var spikes = new ModelInstance[CRYSTALS_PER_CLUSTER];
                 for (int j = 0; j < spikes.Length; j++)
                 {
-                    //A spike grows out of the wall, leaning off the inward line by its own angle, a few units from its neighbours
-                    //Bigger than the desktop's growths: a cluster stands 230 units from the gun, and a spike of the shader's size
-                    //was a pale fleck there
-                    float height = MathHelper.Lerp(12f, 24f, (float)rng.NextDouble());
-                    float width = MathHelper.Lerp(2.5f, 4.5f, (float)rng.NextDouble());
-                    Vector3 up = Vector3.Normalize(Vector3.Lerp(Vector3.Up, inward, MathHelper.Lerp(0.3f, 0.8f, (float)rng.NextDouble()))
-                        + new Vector3((float)rng.NextDouble() - 0.5f, 0f, (float)rng.NextDouble() - 0.5f) * 0.5f);
+                    //A spike grows out of the wall, leaning off the inward line by its own angle, a few units from its
+                    //neighbours; bigger than the desktop's growths, since a cluster stands 230 units from the gun. The
+                    //first stands tallest and straightest, the rest lean out round it
+                    bool main = j == 0;
+                    float height = main ? 34f : MathHelper.Lerp(14f, 26f, (float)rng.NextDouble());
+                    float width = main ? 9f : MathHelper.Lerp(4f, 7f, (float)rng.NextDouble());
+                    Vector3 up = Vector3.Normalize(Vector3.Lerp(Vector3.Up, inward, main ? 0.35f : MathHelper.Lerp(0.25f, 0.8f, (float)rng.NextDouble()))
+                        + (main ? Vector3.Zero : new Vector3((float)rng.NextDouble() - 0.5f, 0f, (float)rng.NextDouble() - 0.5f) * 0.6f));
                     Vector3 right = Vector3.Normalize(Vector3.Cross(up, MathF.Abs(up.Y) > 0.9f ? Vector3.Right : Vector3.Up));
                     Vector3 backward = Vector3.Cross(right, up);
-                    Vector3 foot = centre + new Vector3((float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f) * 8f;
+                    Vector3 foot = centre + (main ? Vector3.Zero : new Vector3((float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f) * 9f);
 
                     Matrix world = Matrix.CreateScale(width, height, width);
                     Matrix orient = Matrix.Identity;
                     orient.Right = right;
                     orient.Up = up;
                     orient.Backward = backward;
-                    orient.Translation = foot + up * (height * 0.35f);
+                    orient.Translation = foot - up * (height * 0.15f);
                     spikes[j] = new ModelInstance(world * orient, OPEN);
                 }
 
-                backdrop.AddPiece(graphicsDevice, potatoEffect, box, spikes, colour * 0.25f, Vector3.Clamp(colour * 0.9f, Vector3.Zero, Vector3.One), $"crystals {k}");
+                //The glow under one in linear and the casing nearly black: a casing a quarter of the colour took the key light and
+                //the prisms were pale pink; a crystal here is its own light
+                backdrop.AddPiece(graphicsDevice, potatoEffect, prism, spikes, colour * 0.06f, Vector3.Clamp(colour * 0.7f, Vector3.Zero, Vector3.One), $"crystals {k}");
             }
 
             return backdrop;
@@ -528,7 +687,47 @@ namespace Prazsky.Core.Render
             backdrop.AddPiece(graphicsDevice, potatoEffect, box, solids.ToArray(), towers.BodyColor.ToVector3() * 2f,
                 Vector3.Clamp(towers.WindowColor.ToVector3() * 0.14f, Vector3.Zero, Vector3.One), "solids");
 
+            //The lines (the owner's eye: the Grid has no grid): the lattice of the desktop's circuit board as thin boxes
+            //on the floor, a cell apart, radiating the line colour; every TraceStride-th line bolder and brighter, as the
+            //Hilbert trace is on the desktop, which this path does not trace. A line through the hole is two pieces
+            GridTerrainConfig terrain = config.Terrain;
+            float cell = MathF.Max(terrain.CellSize, 1f), reach = terrain.HorizonHazeDistance;
+            int half = (int)(reach / cell);
+            var plain = new List<ModelInstance>();
+            var traces = new List<ModelInstance>();
+            const float LINE_LIFT = 0.04f, LINE_HEIGHT = 0.06f;
+            for (int i = -half; i <= half; i++)
+            {
+                float p = i * cell;
+                bool trace = terrain.TraceStride > 0 && i % terrain.TraceStride == 0;
+                //Wide enough to hold a pixel from the gun: at 0.36 the lattice vanished a few dozen units out
+                float width = trace ? 1.6f : 0.75f;
+                List<ModelInstance> into = trace ? traces : plain;
+                foreach ((float from, float to) in LineSpans(p, holeRadius, reach))
+                {
+                    float length = to - from, middle = (from + to) * 0.5f;
+                    into.Add(new ModelInstance(Matrix.CreateScale(length, LINE_HEIGHT, width) * Matrix.CreateTranslation(middle, level + LINE_LIFT, p), OPEN));
+                    into.Add(new ModelInstance(Matrix.CreateScale(width, LINE_HEIGHT, length) * Matrix.CreateTranslation(p, level + LINE_LIFT, middle), OPEN));
+                }
+            }
+            backdrop.AddPiece(graphicsDevice, potatoEffect, box, plain.ToArray(), terrain.LineColor.ToVector3() * 0.5f, terrain.LineColor.ToVector3(), "lines");
+            backdrop.AddPiece(graphicsDevice, potatoEffect, box, traces.ToArray(), terrain.LineColor.ToVector3(),
+                Vector3.Clamp(terrain.AccentColor.ToVector3() * 0.25f, Vector3.Zero, Vector3.One), "traces");
+
             return backdrop;
+        }
+
+        /// <summary>The spans of a line at offset <paramref name="p"/> across the floor, outside the arena's hole: one, or two round the hole.</summary>
+        public static IEnumerable<(float From, float To)> LineSpans(float p, float holeRadius, float reach)
+        {
+            if (MathF.Abs(p) >= holeRadius)
+            {
+                yield return (-reach, reach);
+                yield break;
+            }
+            float cut = MathF.Sqrt(holeRadius * holeRadius - p * p);
+            yield return (-reach, -cut);
+            yield return (cut, reach);
         }
 
         private const float CITY_REACH = 250f;
@@ -652,6 +851,21 @@ namespace Prazsky.Core.Render
             //rounded boulder is its own ellipsoid. The angular blocks (60) stay themselves
             backdrop.AddScatter(graphicsDevice, potatoEffect, planting.Buckets, blobOver: 400);
 
+            //The Earth (the owner's eye: the Moon has no Earth in its sky): a sphere where the config hangs it, at the
+            //earthshine's distance and the config's angle, in the ocean's blue under a share of cloud, lit by the rig's
+            //low sun so it shows a phase, with a little of the cloud as a glow so its night is not black
+            MoonSceneConfig moon = new();
+            MoonEarthConfig earth = moon.Earth;
+            if (earth.AngularRadiusDegrees > 0f)
+            {
+                float distance = moon.Lighting.EarthshineDistance;
+                float earthRadius = distance * MathF.Tan(MathHelper.ToRadians(earth.AngularRadiusDegrees));
+                Vector3 position = Vector3.Normalize(earth.Direction.ToVector3()) * distance;
+                Vector3 marble = Vector3.Lerp(earth.OceanColor.ToVector3(), earth.CloudColor.ToVector3(), 0.3f);
+                backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new SphereMesh(graphicsDevice, 1f, 16, 8)),
+                    new[] { new ModelInstance(Matrix.CreateScale(earthRadius) * Matrix.CreateTranslation(position), OPEN) }, marble, earth.CloudColor.ToVector3() * 0.12f, "earth");
+            }
+
             return backdrop;
         }
 
@@ -736,6 +950,80 @@ namespace Prazsky.Core.Render
             return backdrop;
         }
 
+        //The aurora's stand (#829, the owner's "the trees are missing"): the desktop's is a second planting of
+        //ForestScatter, pure spruce, on the host (ForestScatterRenderer over AuroraSceneConfig.Terrain, DEFAULT_SEED plus
+        //the launch's roll). Here the same planting on the same seed, every spruce a cone on a stem in its variant's own
+        //proportions (ForestScatterRenderer.CONIFER_VARIANTS, the one copy): a TreeMesh of nine whorls is thousands of
+        //vertices, and from the gun the stand, 52 to 430 units out, is its silhouette - a wall of spires on bare stems
+        //over the snow Forest.fx lays there. The grid runs past the stand's last tree and the desktop's haze
+        private const int AURORA_EXTENT_MARGIN = 60, SPRUCE_SEGMENTS = 8;
+        private const float SPRUCE_TIP = 0.04f, SPRUCE_SNOW_SHARE = 0.08f, SNOW_DARK_SHARE = 0.25f;
+
+        private static PotatoBackdrop Aurora(GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius, int seedOffset)
+        {
+            ForestSceneConfig terrain = new AuroraSceneConfig().Terrain;
+            ForestTreeConfig trees = terrain.Trees;
+            float Height(float x, float z) => TerrainMirror.Forest(x, z, terrain);
+
+            var backdrop = new PotatoBackdrop(graphicsDevice);
+
+            //The floor: the config's ForestColor is the cool white of #462, pulled a little towards its dark for the
+            //hollows a grid lit at the vertex cannot shade
+            float extent = MathF.Max(trees.MaxRadius, terrain.HorizonHazeDistance) + AURORA_EXTENT_MARGIN;
+            Vector3 snow = Vector3.Lerp(terrain.ForestColor.ToVector3(), terrain.ForestColorDark.ToVector3(), SNOW_DARK_SHARE);
+            backdrop.AddGround(graphicsDevice, potatoEffect, new PotatoTerrainMesh(graphicsDevice, RELIEF_CELLS, extent, holeRadius, Height), snow);
+
+            //Planted where the desktop plants it: the same seed and the same count of spruce variants (the conifers are
+            //the planting's first draw on its rng, so the kinds after them, one variant each here, cannot move a spruce),
+            //on the ground as THIS grid draws it, so a foot sits on the drawn snow (the Moon's lesson)
+            var scatter = new ForestScatter(ForestScatterRenderer.DEFAULT_SEED + seedOffset, terrain,
+                ForestScatterRenderer.CONIFER_VARIANTS.Length, 1, 1, 1, 1, 1,
+                (x, z) => TerrainMirror.OnGrid(Height, RELIEF_CELLS + 1, extent * 2f, x, z));
+
+            PotatoShellMesh stem = backdrop.Own(new PotatoShellMesh(graphicsDevice, 0.5f, 0.4f, 0f, 1f, SPRUCE_SEGMENTS, closeTop: false, inside: false));
+            PotatoShellMesh crown = backdrop.Own(new PotatoShellMesh(graphicsDevice, 1f, SPRUCE_TIP, 0f, 1f, SPRUCE_SEGMENTS, closeTop: true, inside: false));
+
+            int count = 0;
+            foreach (ModelInstance[] variant in scatter.Conifers) count += variant.Length;
+            var stems = new ModelInstance[count];
+            var crowns = new ModelInstance[count];
+            int at = 0;
+            for (int v = 0; v < scatter.Conifers.Length; v++)
+            {
+                foreach (ModelInstance planted in scatter.Conifers[v])
+                {
+                    (Matrix stemWorld, Matrix crownWorld) = SpruceProxies(trees, ForestScatterRenderer.CONIFER_VARIANTS[v], planted.World);
+                    stems[at] = new ModelInstance(stemWorld, OPEN);
+                    crowns[at++] = new ModelInstance(crownWorld, OPEN);
+                }
+            }
+
+            //The crown's colour is the needles' with a share of the snow the desktop lays along the whorls' tops
+            Vector3 needles = Vector3.Lerp(trees.ConiferColor.ToVector3(), trees.CrownSnowColor.ToVector3(), trees.CrownSnow * SPRUCE_SNOW_SHARE);
+            backdrop.AddPiece(graphicsDevice, potatoEffect, stem, stems, trees.TrunkColor.ToVector3(), null, "stems");
+            backdrop.AddPiece(graphicsDevice, potatoEffect, crown, crowns, needles, null, "spruces");
+
+            return backdrop;
+        }
+
+        /// <summary>
+        /// A spruce of the Potato stand (#829) as its two proxies in world space: the stem, a unit column (radius 0.5 at
+        /// the foot, 1 tall) scaled to the variant's trunk, and the crown, a unit cone (radius 1 at the skirt, the tip at
+        /// y 1) scaled to the variant's crown and stood on the stem's top - the proportions <see cref="ForestScatterRenderer"/>
+        /// builds the variant's <see cref="TreeMesh"/> with, so a stand of cones is the desktop's stand in silhouette.
+        /// </summary>
+        /// <param name="world">The planted instance's world, the planting's scale and lean included.</param>
+        public static (Matrix Stem, Matrix Crown) SpruceProxies(ForestTreeConfig trees, ForestScatterRenderer.SpruceVariant variant, Matrix world)
+        {
+            float trunkHeight = trees.ConiferTrunkHeight * variant.Height * (variant.Stand ? trees.ConiferStandTrunk : 1f);
+            float trunkRadius = trees.TrunkBaseRadius * variant.Width;
+            float crownRadius = trees.ConiferCrownRadius * variant.Width;
+            float crownHeight = trees.ConiferCrownHeight * variant.Height;
+            Matrix stem = Matrix.CreateScale(trunkRadius * 2f, trunkHeight, trunkRadius * 2f) * world;
+            Matrix crown = Matrix.CreateScale(crownRadius, crownHeight, crownRadius) * Matrix.CreateTranslation(0f, trunkHeight, 0f) * world;
+            return (stem, crown);
+        }
+
         //A scatter mesh with more vertices than this is drawn as a blob (#829): the savanna as the desktop plants it is
         //1.2 million vertices a frame (a canopy is 9,000, a termite mound 50,000), and V3D's binning runs the coordinate
         //shader for every vertex handed over (#804), so a far plant is its silhouette - an ellipsoid of its bounding
@@ -806,11 +1094,11 @@ namespace Prazsky.Core.Render
             _census.Add($"{what} {mesh.PrimitiveCount * 3}");
         }
 
-        /// <param name="blobOver">A mesh with more vertices than this is drawn as a blob of its bounding sphere.</param>
         //A trunk's column: a unit cylinder, a little narrower at the top, closed, seen from outside; scaled per tree
         private const int COLUMN_SEGMENTS = 8;
         private const float TRUNK_WIDTH = 0.16f, TRUNK_OVER_CENTRE = 0.2f;
 
+        /// <param name="blobOver">A mesh with more vertices than this is drawn as a blob of its bounding sphere.</param>
         private void AddScatter(GraphicsDevice graphicsDevice, Effect potatoEffect, ScatterBucket[] buckets, int blobOver = PROXY_OVER_VERTICES)
         {
             SphereMesh proxy = null;
@@ -897,7 +1185,7 @@ namespace Prazsky.Core.Render
         /// glows with their emission. The leaf cards are one-sided sheets seen from both sides (#610), so their draws
         /// cull nothing; everything else is a wound solid.
         /// </summary>
-        public void Draw(ICamera camera, BasicEffectParams sceneParams)
+        public void Draw(ICamera camera, BasicEffectParams sceneParams, float time = 0f)
         {
             GraphicsDevice device = _device;
             RasterizerState raster = device.RasterizerState;
@@ -915,6 +1203,7 @@ namespace Prazsky.Core.Render
 
             foreach (DrawItem draw in _draws)
             {
+                draw.Animate?.Invoke(draw, time);
                 device.RasterizerState = draw.TwoSided ? RasterizerState.CullNone : RasterizerState.CullCounterClockwise;
                 effectParams.EmissiveColor = draw.Glow ?? Vector3.Zero;
 
