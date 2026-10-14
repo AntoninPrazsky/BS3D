@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-10-14 — #829 #863 Potato na Windows proti Pi, nabídka pomoci — ThinkPad, Claude Code (github-5f)
+- majitel: Pi session dělá port scén a druhů kvůli vydání pro další hráče; zeptat se jí, zda nepotřebuje pomoc z Windows. Nabídka je v komentáři #829 (desktopové reference, DX11 dvojče, lokální kompilace GL, oko, rozdělení práce); zatím bez odpovědi.
+- Windows Potato (#808) na mainu 247c0698: 16 běhů (jedna úroveň na scénu, Caldera, `help=4`, fullscreen 1080p), bez výjimky, každá scéna má řádek `[potato] … backdrop` se stejným sčítáním jako na Pi a snímky odpovídají záběrům z Pi; DX11 kompilace `PotatoSky.fx` z větve `829-potato-sky-figures` prošla CI.
+- ⚠ `_scene` startuje jako NeonCity a stavba ostrova volá `EnsurePotatoBackdrop` před startovním výběrem scény: každý Potato start postaví a zahodí NeonCity backdrop (3950 věží), komentář u stavby tvrdí opak. Nechán Pi session (její soubor, otevřená větev).
+- ThinkPad (integrovaná Radeon) drží v Potato 37–53 FPS na 1080p, Auto sníží na 720 — jen Windows.
+- Otevřené: odpověď Pi session; desktopové reference na vyžádání.
+
 ## 2026-10-14 — #829 krok 7: šapitó na Potato — Pi, Claude Code (584de7d2)
 - Hotovo (větev `829-potato-bigtop`): kvadriky desktopu jako pláště zevnitř (`PotatoShellMesh` zobecněný na komolý kužel s filtrem segmentů): plachta jako dva kužely nad jedním (červené a smetanové panely, koruna), závěsová stěna, svah sedadel, obrubník, piliny s dírou, královské sloupy jako kvádry. BigTop 14,57/10,26 ms proti 13,90/9,69.
 - Stav #829: jedenáct ze čtrnácti vydaných scén má pozadí, space/dream/aurora stojí ve svém prázdnu s vlastním rigem; issue jde na verdikt oka (shipped-awaiting-verdict). Zbývá: hvězdy/záclony/sen v PotatoSky, střechy města.
