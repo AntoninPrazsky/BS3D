@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-10-14 — #829 desktopové reference tří nebí, #815 sprintf-js z webu — ThinkPad, Claude Code (github-5f)
+- majitel: udělat desktopové reference pro space, auroru a dream a vyřešit střední zranitelnost webu.
+- #829: `Research/pi-port/829/sky/{analemma,anchor,anvil}-desktop.jpg` — High, 1920×1080, tytéž úrovně jako záběry z Pi vedle nich, se seedovaným savem (všechny lekce tutoriálu v `lessons`, jinak karta překryje nebe). Co má desktop a Potato ne: space planetu s prstenci a červenou mlhovinu, aurora zasněžený jehličnatý les a sněžení, dream fialovo-oranžovou paletu s azurovými prstenci (Potato čte modrozeleně). Odkazy v komentáři #829.
+- #815 (merge do mainu): `overrides.argparse ^2.0.1` v `Web/package.json` vyhodí `sprintf-js` (GHSA-hp3w-g68c-fv3c, bez opravené verze) ze stromu; js-yaml 3 bere argparse jen pro CLI, `_site` bajt po bajtu stejný, `npm ci` čistý. Dependabot alert 2 uzavřen. `braces` (high, chokidar) opravenou verzi nemá, jen build.
+- ⚠ PNG záběr z High má ~5 MB (zrno), JPEG 92 ~0,6 MB; reference ukládat jako JPEG.
+- Otevřené: zda Pi session chce les a sníh pod aurorou (scatter bez zrcadla terénu).
+
 ## 2026-10-14 — #863 zmrzlá koule na Potato je led, ne růžová — Pi, Claude Code (584de7d2)
 - majitel (test na Pi): na Help se Frozen kreslí růžově; je to led, má být bíloazurová. Hotovo (větev `863-potato-frozen-ice`): `PotatoKindLookFor` Frozen — plášť, záře i tón skoro celé `POTATO_ICE` (0,9/0,85/0,85 místo 0,65/0,6/0,65), led světlejší (0,72, 0,88, 1,0); barva koule je jen nádech, jako jádro desktopu skrz blok. Snímek `Research/pi-port/863/frozen/help-frozen-before-after-4x.png`.
 
