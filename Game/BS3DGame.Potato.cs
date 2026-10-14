@@ -131,8 +131,9 @@ namespace BS3D
         private PotatoSkyFigure _potatoSkyFigure;
 
         /// <summary>
-        /// The backdrop of the current scene, rebuilt when the scene changes. Nothing before the effect is loaded (the
-        /// startup's scene pick runs before LoadContent), so the call after the island is built makes the first one.
+        /// The backdrop of the current scene and its own sky, rebuilt when the scene changes. Nothing before the effect
+        /// is loaded; the startup's SetScene, which runs after LoadContent's BuildScene, makes the first one - BuildScene
+        /// itself builds none, or it would build _scene's initial value's (the neon city's) and drop it.
         /// </summary>
         private void EnsurePotatoBackdrop()
         {
