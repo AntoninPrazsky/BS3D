@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-14 — #829 verdikt oka, první kolo — Pi, Claude Code (584de7d2)
+- majitel (verdikt na 14 scén): stromy, Měsíc, Space, sopka, město, neon, sen dobré; aurora bez země a stromů; jeskyně hnědá, krystaly nejsou krystaly; Grid bez mřížky; Měsíc bez hvězd a Země; Space bez velké planety; šapitó moc září; „možná“ erupce, okna domů, létající útvary snu.
+- Hotovo (větev `829-potato-verdict-round-1`): planeta Space (koule, pásy, bouře, svícená rigem), hvězdy a Země nad Měsícem, mřížka Gridu (tenké kvádry, každá druhá čára stopa), jeskyně chladnější a krystaly jako šestiboké hranoly se špičkou, šapitó na zlomku barev a tmavší ke koruně, sen v barvách desktopu (cyklus palety kolem jedné), aurora se zasněženou zemí (`TerrainMirror.Forest`) a lesem z rozmístění `ForestScatter` (kužely, koruny, balvany). Anchor 14,75/10,47 ms proti 14,03/9,90, Cantor 15,22/10,78 proti 14,63/10,40, ostatní v šumu.
+- ⚠ `ForestScatter` chce aspoň jednu variantu každého druhu (0 = ArgumentOutOfRange při startu scény). ⚠ Emise nad 1 v lineáru křivka odbarví: krystal září pod jednou a plášť má skoro černý. Mřížka Gridu je z děla vidět jen jako pruh na obzoru (podlaha je za okrajem ostrova); z menu je to mřížka.
+- Otevřené: erupce sopky, okna domů, létající útvary snu; střechy město (ThinkPad); verdikt oka na toto kolo.
+
 ## 2026-10-14 — #829 desktopové reference tří nebí, #815 sprintf-js z webu — ThinkPad, Claude Code (github-5f)
 - majitel: udělat desktopové reference pro space, auroru a dream a vyřešit střední zranitelnost webu.
 - #829: `Research/pi-port/829/sky/{analemma,anchor,anvil}-desktop.jpg` — High, 1920×1080, tytéž úrovně jako záběry z Pi vedle nich, se seedovaným savem (všechny lekce tutoriálu v `lessons`, jinak karta překryje nebe). Co má desktop a Potato ne: space planetu s prstenci a červenou mlhovinu, aurora zasněžený jehličnatý les a sněžení, dream fialovo-oranžovou paletu s azurovými prstenci (Potato čte modrozeleně). Odkazy v komentáři #829.
