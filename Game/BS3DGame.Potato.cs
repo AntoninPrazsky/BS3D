@@ -154,14 +154,23 @@ namespace BS3D
 
             GraphicsDevice.SetRenderTarget(EnsurePotatoSceneTarget());
 
-            //The dome below covers the whole frame (a full sphere, drawn with no depth test and no culling), so the clear is
-            //never seen; it is the horizon, display-encoded, only so that a frame without the dome would still read as sky
-            GraphicsDevice.Clear(new Color(ColorSpace.LinearToSrgb(_rig.HorizonLinear)));
+            //A scene that replaces the sky on the desktop (space, the dream, the cavern, the Moon, the aurora, the Grid, the
+            //big top) stands in its void here, the frame cleared to the colour its backdrop's pass has behind everything,
+            //and no dome: under the dome's gradient the Moon's plain was lilac and the Grid's solids pastel (#829). Any
+            //other scene's dome covers the whole frame (a full sphere, drawn with no depth test and no culling), so its
+            //clear is never seen; it is the horizon, display-encoded, only so that a frame without the dome would still
+            //read as sky
+            if (PotatoSceneRig.TryGetVoid(_scene, out Vector3 voidLinear))
+                GraphicsDevice.Clear(new Color(ColorSpace.LinearToSrgb(voidLinear)));
+            else
+            {
+                GraphicsDevice.Clear(new Color(ColorSpace.LinearToSrgb(_rig.HorizonLinear)));
 
-            //Stated rather than inherited, for BeginSceneDraw's reason: SkyDome.Draw sets neither
-            GraphicsDevice.BlendState = BlendState.Opaque;
-            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-            _sky.Draw(_camera);
+                //Stated rather than inherited, for BeginSceneDraw's reason: SkyDome.Draw sets neither
+                GraphicsDevice.BlendState = BlendState.Opaque;
+                GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+                _sky.Draw(_camera);
+            }
 
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;

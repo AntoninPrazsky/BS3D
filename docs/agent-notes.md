@@ -20,6 +20,10 @@ Pravidla:
 
 ---
 
+## 2026-10-14 — #829 krok 6: vlastní rig a prázdno scén bez nebe na Potato — Pi, Claude Code (584de7d2)
+- Hotovo (větev `829-potato-scene-rig`): `PotatoSceneRig` odpovídá za sedm scén, které na desktopu nahrazují nebe (space, dream, jeskyně, Měsíc, aurora, Grid, cirkus): jejich rig a slunce z configů (přes `SkyLightRig.SceneRig`/`SceneSun`, jen když host nemá scene renderer) a barvu prázdna, na kterou se snímek maže místo dómu. Měsíc má černé nebe a nízké slunce, Grid tyrkysové kvádry na tmavém, sen fialový, cirkus teplý. Bez ceny (o jeden draw méně).
+- Otevřené: cirkus (stan), hvězdy/aurora/sen jako PotatoSky, střechy města; verdikt oka na 10 scén.
+
 ## 2026-10-14 — #829 krok 5: jeskyně a Grid na Potato — Pi, Claude Code (584de7d2)
 - Hotovo (větev `829-potato-cavern-grid`): jeskyně jako plášť zevnitř (`PotatoShellMesh`: válec a strop v barvě skály), řeka jako rovina s trochou své záře, osm trsů krystalů jako nakloněné kvádry svítící svou barvou na místech `CrystalCenter`; Grid jako podlaha s dírou a podílem světla stop a kvádry podle configu. Grotto 17,97/11,90 ms proti 16,90/11,59 (plášť je celý snímek výplně), Cantor 15,45/10,73 proti 14,98/10,45.
 - ⚠ Obě scény i Měsíc stojí pod fialovým dómem a jeho rigem, kde desktop nebe nahrazuje prázdnem či jeskyní a svítí vlastním rigem (`TryGetLightRig`, Potato host nemá renderer, kterého by se zeptal): to je další krok.
