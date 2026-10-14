@@ -287,17 +287,11 @@ capped reading means and not a cost. Under `fpscap=150` all three read the cap a
 
 ## `fpscap=N`: measuring without leaving the card flat out
 
-**Read this before benchmarking on the desktop.** `nocap` is what turns an FPS reading into a frame cost, and
-it is also what leaves the GPU rendering thousands of frames a second. That was believed to be the dangerous
-part — the owner reported an uncapped run hard-resetting his desktop — and #250 found it is not:
-
-- the machine hard-reset **twice in one afternoon under capped runs**, at 18:40 on 2026-08-19;
-- the System log has `Kernel-Power 41` and `EventLog 6008` and **nothing else** — no bugcheck, no `MEMORY.DMP`
-  (kernel dumps are enabled), no WHEA entry, no display-driver reset (4101). Windows never got control;
-- there were **ten unexpected shutdowns in the preceding thirty days**, i.e. it predates any of this work.
-
-So this is a machine-level fault (the signature points at power delivery), not a shader or a benchmark mode,
-and no cap can be assumed to protect it. Ask the owner before running a measurement sweep on the desktop.
+`nocap` is what turns an FPS reading into a frame cost. In a cheap scene it also leaves the GPU rendering
+thousands of frames a second. The desktop's hard resets (#250, August to October 2026) were blamed on that,
+wrongly. Capped runs, builds and an idle machine tripped them too, and each one left `Kernel-Power 41` and
+`EventLog 6008` and nothing else. The cause was the power supply, which the owner replaced on 2026-10-14. So a
+benchmark needs neither permission nor a cap to be safe: the cap is a measuring tool.
 
 The instrument is `fpscap=N`, and **both executables have it** — the Testbed's `TestOptions.FpsCap` since
 #250, the Game's since #270, which needed it because the Game is the only one that can load a **level** and a

@@ -10,22 +10,11 @@ the prompt, size, seed and time. Everything goes under -Out, outside the reposit
 The server flags are the ones measured on #441 (RX 6900 XT, 16 GB): the Q8 weights do not fit on the card,
 --offload-to-cpu alone decodes on the CPU (63 s an image), --offload-to-cpu --vae-tiling renders in 33-37 s.
 
-THIS RENDERER TAKES THE DESKTOP DOWN, AND NO CONFIGURATION OF IT HAS AVOIDED THAT. Seven of seven runs
-between 2026-09-17 and 2026-09-18 ended in an instant hard reset (Kernel-Power 41, BugcheckCode 0, no WHEA,
-no 4101) while ~100 Testbed/Game runs on the same days were clean, uncapped ones included. An eighth on
-2026-09-21, five images into #489's img2img sweep, after a sixteen-image run had gone through clean in between.
-
-The offload theory was wrong and is recorded here so it is not re-run: --offload-to-cpu streams weights over
-PCIe every step, so the suspicion was those transients. The test that killed it was Q4_K + the Q8 encoder
-with NO offload - auto-fit put all 7922 MB on the card ("VRAM 7921.64MB, RAM 0.00MB") - and the machine went
-down within seconds of the first sampling step, having produced nothing, where an offloaded Q8 run had
-managed four images. Quantization and offloading change nothing; what reproduces it is sd.cpp's Vulkan
-COMPUTE load, which is a different power profile from the rasterizing this project's executables do.
-
-So -DiffusionModel, -Encoder and -Offload exist to express a configuration, not to dodge the fault. The fault
-itself was the card's boost clock and voltage: since the owner capped the core at 2100 MHz / 1080 mV (2026-09-21)
-the renderer runs without asking - #493's 80-image sweep went through clean - and a Kernel-Power 41 that ever
-recurs points at that clock first (see SKILL.md).
+The desktop's hard resets under this renderer (Kernel-Power 41, September 2026) were its power supply,
+replaced on 2026-10-14. No flag here causes a reset or dodges one: -DiffusionModel, -Encoder and -Offload
+only express a configuration. The PCIe-transient theory about --offload-to-cpu was tested and is wrong.
+Q4_K with NO offload ("VRAM 7921.64MB, RAM 0.00MB") went down as fast as an offloaded Q8 run, so do not
+re-run that test (see SKILL.md).
 
 .EXAMPLE
 .\render-references.ps1 -Name cup-gold -Width 832 -Height 1216 -Count 3 -Prompt "Studio product photograph of ..."

@@ -243,8 +243,8 @@ namespace Prazsky.BS3D.Levels
         /// <b>Never straight over the save</b> (#353). It used to be one <see cref="File.WriteAllText(string,
         /// string)"/>, which opens, truncates and then writes: lose the machine in that window and what is on
         /// disk is a short but syntactically fine file, <see cref="Load"/> takes it for a first run, and the
-        /// next clear writes that emptiness out for real. This desktop hard-resets under GPU load, so the
-        /// window was not hypothetical. <see cref="AtomicFile.WriteText"/> carries the whole discipline and
+        /// next clear writes that emptiness out for real. The development desktop hard-reset for months on a
+        /// failing power supply (#250), so the window was not hypothetical. <see cref="AtomicFile.WriteText"/> carries the whole discipline and
         /// the settings file shares it.
         /// </para>
         /// </summary>

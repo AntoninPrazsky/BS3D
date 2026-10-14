@@ -805,3 +805,8 @@ Pravidla:
 ## 2026-10-13 — #400 jedenáctý průchod (6942a67e..e92a6b28) — ThinkPad, Claude Code (github-b9)
 - Revize vlastních #862 a #861 (merge do mainu): vrstva overlaye se váže a skládá vždy ve stejném snímku, `_clearedElapsed` se nuluje jen při vstupu do beatu, vstup během „ustoupení“ se nezdvojí. Opraveno: klik se odjistí až v Draw na snímku návratu stránky (průlet končí v update obrazovek, po armování v `BS3DGame.Update`, takže stisk přesně v tom snímku dostal Myra); armování už během průletu nečte myš každý snímek; karta tutoriálu se v textech nevypisuje mezi mizícím (konec levelu ji ukončí dřív, #700).
 - Další průchod od merge tohoto.
+
+## 2026-10-14 — #none zdroj desktopu vyměněn, resety skončily — desktop (RDT-PC), Claude Code (bs3d-39)
+- majitel: „na desktopu už nedochází nikdy k pádům v žádné zátěži (CPU ani GPU). Problém byl ve zdroji. Ten jsem vyměnil.“ Poslední Kernel-Power 41 byl 14. 10. v 9:45, start na novém zdroji ve 12:45. V desktopu je zase RX 6900 XT (GTX 1060 byla jen 12.–14. 10.).
+- Neplatí už žádné omezení z resetů: `fpscap` jako ochrana, zákaz benchmarků, ptát se před GPU sezením, `heavy.ps1` (jedna těžká úloha naráz), žádné snímky na desktopu, ACE-Step/sd-server jen samotné. Lokální AI na desktopu (ACE-Step, sd-server, Gemma) zase jde.
+- Skilly `benchmark`, `verify` a `design-references` a komentáře `AtomicFile`/`PlayerProgress` opraveny: příčinou byl zdroj, ne takty karty.
