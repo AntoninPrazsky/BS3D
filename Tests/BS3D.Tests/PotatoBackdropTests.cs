@@ -14,6 +14,34 @@ namespace BS3D.Tests
     {
         private static float Bowl(float x, float z) => 0.001f * (x * x + z * z);
 
+        /// <summary>
+        /// The aurora's stand on the Potato path (#829): a spruce is a stem and a cone in its variant's proportions, the
+        /// cone's skirt on the stem's top and its tip at the trunk's and crown's height, through the planted world; the
+        /// spire stands on the stand's long bare stem. Seen to fail: the stem's foot read at the unit column's full width
+        /// (its radius is 0.5), which the last line caught.
+        /// </summary>
+        [Fact]
+        public void ASpruceProxyStandsItsCrownOnItsStemInTheVariantsProportions()
+        {
+            ForestTreeConfig trees = new AuroraSceneConfig().Terrain.Trees;
+            ForestScatterRenderer.SpruceVariant spire = ForestScatterRenderer.CONIFER_VARIANTS[^1];
+            Assert.True(spire.Stand);
+            Matrix planted = Matrix.CreateScale(1.3f) * Matrix.CreateTranslation(10f, -3f, 4f);
+
+            (Matrix stem, Matrix crown) = PotatoBackdrop.SpruceProxies(trees, spire, planted);
+
+            float trunk = trees.ConiferTrunkHeight * spire.Height * trees.ConiferStandTrunk * 1.3f;
+            Vector3 stemTop = Vector3.Transform(Vector3.Up, stem);
+            Vector3 skirt = Vector3.Transform(Vector3.Right, crown);
+            Vector3 tip = Vector3.Transform(Vector3.Up, crown);
+            Assert.Equal(-3f + trunk, stemTop.Y, 3);
+            Assert.Equal(-3f + trunk, skirt.Y, 3);
+            Assert.Equal(10f + trees.ConiferCrownRadius * spire.Width * 1.3f, skirt.X, 3);
+            Assert.Equal(-3f + trunk + trees.ConiferCrownHeight * spire.Height * 1.3f, tip.Y, 3);
+            //The column's foot is at radius 0.5 of its unit mesh
+            Assert.Equal(trees.TrunkBaseRadius * spire.Width * 1.3f, Vector3.Transform(new Vector3(0.5f, 0f, 0f), stem).X - 10f, 3);
+        }
+
         [Fact]
         public void TheGridLeavesTheArenasHoleAndIsWoundClockwiseFromAbove()
         {

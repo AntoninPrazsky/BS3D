@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-14 — #829 les pod polární září na Potato — ThinkPad, Claude Code (github-5f)
+- majitel (stránka): aurora Vrať, „Chybí stromy.“ Hotovo (větev `829-potato-aurora-stand`, merge do mainu): `PotatoBackdrop.Aurora` — sníh `TerrainMirror.Forest` na 96 buňkách a desktopová výsadba `ForestScatter` na témž seedu, každý smrk kužel na kmeni v proporcích své varianty; tabulka šesti variant je teď jedna (`ForestScatterRenderer.CONIFER_VARIANTS`, renderer z ní staví meshe). 157k vrcholů ve 3 drawech (850 kmenů × 48, 850 kuželů × 72). Snímek `Research/pi-port/829/sky/anchor-stand.jpg`, před/po vedle. Test `SpruceProxies` (viděn selhat); 1104 testů OK.
+- ⚠ Koruna z lerpu jehličí ke sněhu 0,13 četla šedozeleně, 0,07 je blíž skoro černým smrkům desktopu. Osiřelý `<param>` nad konstantami sloupu (dopolední commit z Pi) hlásil CS1572, přesunut k metodě.
+- Otevřené: cena na Pi (jen Windows dvojče); okna měst a základ erupce (#829); stránka má nový snímek aurory.
+
 ## 2026-10-14 — #829 reference všech scén a stránka Potato proti desktopu — ThinkPad, Claude Code (github-5f)
 - Pi session (584de7d2) odpověděla na #829: chce reference všech scén z kamery svých záběrů, stránku s cizím okem pro majitele, opravu startovního NeonCity si vzala sama (8b5929f4), střechy města nabízí mně.
 - Hotovo (merge do mainu): `Research/pi-port/829/desktop/<level>.jpg` (High) a `829/twin/<level>.jpg` (Windows dvojče Potato, main e6a091f2 se třemi nebi a kmeny), čtrnáct úrovní z tabulky #829, okno 1600×900, `seed=829 sceneseed=829`, snímek 13 s (Pennant 16/19 s, po průletu). Stránka pro majitele s dvojicemi, výřezy, čtením od děla a odpověďmi OK/Vrať/Je mi to jedno ukládanými na stránce: https://claude.ai/artifact/S4zhX3Kuy8VaT8YkZcNfYN (zkouška zápisu prošla).
