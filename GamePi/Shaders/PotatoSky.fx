@@ -138,7 +138,9 @@ float3 DreamSky(float3 dir)
     float3 bent = dir + warp * 0.3 * float3(sin(dir.z * 3.1 + t * 1.3), sin(dir.x * 2.7 - t), sin(dir.y * 3.7 + t * 0.7));
     float field = sin(bent.x * swirl * 3.1 + t * 2.0) + sin(bent.y * swirl * 4.3 - t * 1.4) + sin(bent.z * swirl * 2.6 + t * 1.1)
         + 0.5 * sin((bent.x + bent.z) * swirl * 7.1 - t * 2.3);
-    float3 palette = DreamPalette(0.5 + 0.07 * field);
+    //The orange, red, magenta and violet of the desktop's marble: the palette's cycle round one, a fraction either way;
+    //round a half it was teal and blue
+    float3 palette = DreamPalette(1.0 + 0.09 * field);
 
     //The ribbons: a sharper fine layer travelling fast across the slow marble
     float ribbon = 0.5 + 0.5 * sin(dot(bent, float3(9.1, 7.3, 5.7)) * swirl + SkyTime * fast);
@@ -153,8 +155,8 @@ float3 DreamSky(float3 dir)
     float3 o1 = normalize(float3(-0.7 * cosWheel + 0.2 * sinWheel, 0.25, -0.7 * sinWheel - 0.2 * cosWheel));
     float3 o2 = normalize(float3(0.2 * cosWheel + 0.8 * sinWheel, 0.6, 0.2 * sinWheel - 0.8 * cosWheel));
     float breathe0 = 0.75 + 0.25 * sin(SkyTime * 0.37), breathe1 = 0.75 + 0.25 * sin(SkyTime * 0.29 + 2.0), breathe2 = 0.75 + 0.25 * sin(SkyTime * 0.23 + 4.0);
-    float3 orbs = DreamPalette(0.15) * (exp((dot(dir, o0) - 1.0) * orbWidth) * breathe0)
-        + DreamPalette(0.55) * (exp((dot(dir, o1) - 1.0) * orbWidth) * breathe1)
+    float3 orbs = DreamPalette(0.05) * (exp((dot(dir, o0) - 1.0) * orbWidth) * breathe0)
+        + DreamPalette(0.22) * (exp((dot(dir, o1) - 1.0) * orbWidth) * breathe1)
         + DreamPalette(0.85) * (exp((dot(dir, o2) - 1.0) * orbWidth) * breathe2);
     return colour + orbs * orbBrightness;
 }

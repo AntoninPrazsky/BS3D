@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-14 — #829 verdikt oka, první kolo — Pi, Claude Code (584de7d2)
+- majitel (verdikt na 14 scén): stromy, Měsíc, Space, sopka, město, neon, sen dobré; aurora bez země a stromů; jeskyně hnědá, krystaly nejsou krystaly; Grid bez mřížky; Měsíc bez hvězd a Země; Space bez velké planety; šapitó moc září; „možná“ erupce, okna domů, létající útvary snu.
+- Hotovo (větev `829-potato-verdict-round-1`): planeta Space (koule, pásy, bouře, svícená rigem), hvězdy a Země nad Měsícem, mřížka Gridu (tenké kvádry, každá druhá čára stopa), jeskyně chladnější a krystaly jako šestiboké hranoly se špičkou, šapitó na zlomku barev a tmavší ke koruně, sen v barvách desktopu (cyklus palety kolem jedné). Cantor 15,22/10,78 proti 14,63/10,40, ostatní v šumu. Auroru se zemí a lesem jsem rozepsal souběžně s ThinkPadem (47c0d7df), jeho verze je na mainu, moje šla pryč.
+- ⚠ Dvě session na jednom issue: hlásit nárok v komentáři před prací (ThinkPad to udělal, já ne). ⚠ `ForestScatter` chce aspoň jednu variantu každého druhu (0 = ArgumentOutOfRange při startu scény). ⚠ Emise nad 1 v lineáru křivka odbarví: krystal září pod jednou a plášť má skoro černý. Mřížka Gridu je z děla vidět jen jako pruh na obzoru (podlaha je za okrajem ostrova); z menu je to mřížka.
+- Otevřené: erupce sopky, okna domů, létající útvary snu; střechy město (ThinkPad); verdikt oka na toto kolo.
 ## 2026-10-14 — #829 les pod polární září na Potato — ThinkPad, Claude Code (github-5f)
 - majitel (stránka): aurora Vrať, „Chybí stromy.“ Hotovo (větev `829-potato-aurora-stand`, merge do mainu): `PotatoBackdrop.Aurora` — sníh `TerrainMirror.Forest` na 96 buňkách a desktopová výsadba `ForestScatter` na témž seedu, každý smrk kužel na kmeni v proporcích své varianty; tabulka šesti variant je teď jedna (`ForestScatterRenderer.CONIFER_VARIANTS`, renderer z ní staví meshe). 157k vrcholů ve 3 drawech (850 kmenů × 48, 850 kuželů × 72). Snímek `Research/pi-port/829/sky/anchor-stand.jpg`, před/po vedle. Test `SpruceProxies` (viděn selhat); 1104 testů OK.
 - ⚠ Koruna z lerpu jehličí ke sněhu 0,13 četla šedozeleně, 0,07 je blíž skoro černým smrkům desktopu. Osiřelý `<param>` nad konstantami sloupu (dopolední commit z Pi) hlásil CS1572, přesunut k metodě.

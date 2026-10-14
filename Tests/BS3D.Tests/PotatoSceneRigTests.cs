@@ -43,11 +43,11 @@ namespace BS3D.Tests
             foreach (SceneKind scene in System.Enum.GetValues<SceneKind>())
             {
                 PotatoSceneRig.PotatoSkyLook look = PotatoSceneRig.SkyLookOf(scene);
-                bool expected = scene is SceneKind.Space or SceneKind.Aurora or SceneKind.Dream;
+                bool expected = scene is SceneKind.Space or SceneKind.Aurora or SceneKind.Dream or SceneKind.Moon;
                 Assert.Equal(expected, look != null);
                 if (look != null)
                 {
-                    Assert.StartsWith("PotatoSky", look.Technique);
+                    if (scene == SceneKind.Moon) Assert.Null(look.Technique); else Assert.StartsWith("PotatoSky", look.Technique);
                     Assert.True(PotatoSceneRig.TryGetVoid(scene, out Vector3 void_));
                     Assert.Equal(void_, look.Void);
                 }

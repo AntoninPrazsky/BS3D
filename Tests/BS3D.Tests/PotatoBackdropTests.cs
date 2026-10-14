@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Render;
 using System;
+using System.Linq;
 using Xunit;
 
 namespace BS3D.Tests
@@ -166,6 +167,18 @@ namespace BS3D.Tests
                 VertexPositionNormalTexture a = column[columnIndices[i]], b = column[columnIndices[i + 1]], c = column[columnIndices[i + 2]];
                 Assert.True(Vector3.Dot(Vector3.Cross(b.Position - a.Position, c.Position - a.Position), a.Normal) < 0f, $"triangle {i / 3} faces away from the outside");
             }
+        }
+
+        [Fact]
+        public void AGridLineThroughTheHoleIsTwoPiecesOutsideIt()
+        {
+            Assert.Equal(new[] { (-100f, 100f) }, PotatoBackdrop.LineSpans(30f, 24f, 100f).ToArray());
+            (float From, float To)[] cut = PotatoBackdrop.LineSpans(0f, 24f, 100f).ToArray();
+            Assert.Equal(2, cut.Length);
+            Assert.Equal((-100f, -24f), cut[0]);
+            Assert.Equal((24f, 100f), cut[1]);
+            (float From, float To)[] off = PotatoBackdrop.LineSpans(16f, 20f, 100f).ToArray();
+            Assert.Equal(12f, off[1].From, 3);
         }
 
         [Fact]
