@@ -20,6 +20,10 @@ Pravidla:
 
 ---
 
+## 2026-10-14 — #829 kmeny jako sloupy pod korunou — Pi, Claude Code (584de7d2)
+- majitel (test na Pi): kmeny na louce i savaně procházely korunami jako ostny; kmen má být jen dole a válcový. Hotovo (větev `829-potato-trunks`): kmen je `PotatoShellMesh` zvenčí (osm stěn, zavřený), od paty do kousku nad střed sítě, kde ho koruna schová; `PotatoShellMesh` umí líc ven (`inside: false`).
+- Snímky `Research/pi-port/829/savanna/giraffe-trunks.png`, `meadow/pennant-trunks.png`.
+
 ## 2026-10-14 — #829 krok 7: šapitó na Potato — Pi, Claude Code (584de7d2)
 - Hotovo (větev `829-potato-bigtop`): kvadriky desktopu jako pláště zevnitř (`PotatoShellMesh` zobecněný na komolý kužel s filtrem segmentů): plachta jako dva kužely nad jedním (červené a smetanové panely, koruna), závěsová stěna, svah sedadel, obrubník, piliny s dírou, královské sloupy jako kvádry. BigTop 14,57/10,26 ms proti 13,90/9,69.
 - Stav #829: jedenáct ze čtrnácti vydaných scén má pozadí, space/dream/aurora stojí ve svém prázdnu s vlastním rigem; issue jde na verdikt oka (shipped-awaiting-verdict). Zbývá: hvězdy/záclony/sen v PotatoSky, střechy města.
