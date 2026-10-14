@@ -186,6 +186,85 @@ namespace Prazsky.Core.Render
     }
 
     /// <summary>
+    /// A shell seen from inside (#829): a cylinder's wall between two heights and the disc that closes its top, normals
+    /// inward and down, wound for an eye inside it - the cavern's rock, which the desktop marches.
+    /// </summary>
+    public sealed class PotatoShellMesh : IProceduralMesh, IDisposable
+    {
+        public VertexBuffer VertexBuffer { get; private set; }
+        public IndexBuffer IndexBuffer { get; private set; }
+        public int PrimitiveCount { get; }
+        public BoundingSphere BoundingSphere { get; }
+
+        public PotatoShellMesh(GraphicsDevice graphicsDevice, float radius, float bottom, float top, int segments)
+        {
+            (VertexPositionNormalTexture[] vertices, int[] indices) = Build(radius, bottom, top, segments);
+
+            PrimitiveCount = indices.Length / 3;
+
+            VertexBuffer = new VertexBuffer(graphicsDevice, VertexPositionNormalTexture.VertexDeclaration, vertices.Length, BufferUsage.WriteOnly);
+            VertexBuffer.SetData(vertices);
+
+            IndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.ThirtyTwoBits, indices.Length, BufferUsage.WriteOnly);
+            IndexBuffer.SetData(indices);
+
+            BoundingSphere = new BoundingSphere(new Vector3(0f, (bottom + top) * 0.5f, 0f), MathF.Sqrt(radius * radius + (top - bottom) * (top - bottom) * 0.25f));
+        }
+
+        /// <summary>
+        /// The shell's geometry, with no device: a ring of <paramref name="segments"/> quads for the wall and a fan for the
+        /// ceiling. A triangle is front-facing when its cross product points away from the eye, as the grid's does (seen
+        /// from above its cross points down); here the eye is inside, on the side the normal points to.
+        /// </summary>
+        public static (VertexPositionNormalTexture[] Vertices, int[] Indices) Build(float radius, float bottom, float top, int segments)
+        {
+            if (segments < 3) throw new ArgumentOutOfRangeException(nameof(segments));
+
+            var vertices = new VertexPositionNormalTexture[segments * 3 + 1];
+            for (int i = 0; i < segments; i++)
+            {
+                float angle = MathHelper.TwoPi * i / segments;
+                float cos = MathF.Cos(angle), sin = MathF.Sin(angle);
+                Vector3 inward = new(-cos, 0f, -sin);
+                float u = (float)i / segments;
+                vertices[i] = new VertexPositionNormalTexture(new Vector3(radius * cos, bottom, radius * sin), inward, new Vector2(u, 1f));
+                vertices[segments + i] = new VertexPositionNormalTexture(new Vector3(radius * cos, top, radius * sin), inward, new Vector2(u, 0f));
+                vertices[2 * segments + i] = new VertexPositionNormalTexture(new Vector3(radius * cos, top, radius * sin), Vector3.Down, new Vector2(u, 0f));
+            }
+            vertices[3 * segments] = new VertexPositionNormalTexture(new Vector3(0f, top, 0f), Vector3.Down, new Vector2(0.5f, 0.5f));
+
+            var indices = new List<int>(segments * 9);
+            for (int i = 0; i < segments; i++)
+            {
+                int next = (i + 1) % segments;
+                int a = i, b = next, c = segments + i, d = segments + next;
+                AddFacing(vertices, indices, a, c, b);
+                AddFacing(vertices, indices, b, c, d);
+                AddFacing(vertices, indices, 3 * segments, 2 * segments + i, 2 * segments + next);
+            }
+
+            return (vertices, indices.ToArray());
+        }
+
+        private static void AddFacing(VertexPositionNormalTexture[] vertices, List<int> indices, int a, int b, int c)
+        {
+            Vector3 cross = Vector3.Cross(vertices[b].Position - vertices[a].Position, vertices[c].Position - vertices[a].Position);
+            if (Vector3.Dot(cross, vertices[a].Normal) > 0f) (b, c) = (c, b);
+            indices.Add(a);
+            indices.Add(b);
+            indices.Add(c);
+        }
+
+        public void Dispose()
+        {
+            VertexBuffer?.Dispose();
+            VertexBuffer = null;
+            IndexBuffer?.Dispose();
+            IndexBuffer = null;
+        }
+    }
+
+    /// <summary>
     /// What of a scene's backdrop the Potato path draws (#829): its ground (<see cref="PotatoTerrainMesh"/>) and its
     /// static scatter, every piece an <see cref="InstancedModelRenderer"/> on the Potato effect drawn through
     /// <c>PotatoLit</c> and lit by the host's sky rig like the island (the host enrols <see cref="Renderers"/>).
@@ -256,8 +335,132 @@ namespace Prazsky.Core.Render
                 SceneKind.Volcano => Volcano(graphicsDevice, potatoEffect, holeRadius, seedOffset),
                 SceneKind.City when cityConfig != null => CityOf(graphicsDevice, potatoEffect, cityConfig, neon: false),
                 SceneKind.NeonCity when cityConfig != null => CityOf(graphicsDevice, potatoEffect, cityConfig, neon: true),
+                SceneKind.Cavern => Cavern(graphicsDevice, potatoEffect),
+                SceneKind.Grid => Grid(graphicsDevice, potatoEffect, holeRadius, seedOffset),
                 _ => null,
             };
+        }
+
+        private const int CAVE_SEGMENTS = 64, CRYSTAL_CLUSTERS = 8, CRYSTALS_PER_CLUSTER = 5;
+
+        /// <summary>
+        /// The cavern (#829): the desktop's is one marched full-screen pass (<c>Cavern.fx</c>), a noise-carved cylinder
+        /// under a ceiling, the river as a plane and eight crystal clusters on the wall. Here the cylinder and the
+        /// ceiling as a shell in the rock's colour, the river as a plane with a little of its glow, and the clusters as
+        /// leaning boxes radiating the cluster's colour, at <c>CrystalCenter</c>'s places (the shader's formula, as
+        /// <c>CavernBackdrop.CrystalCenter</c> mirrors it).
+        /// </summary>
+        private static PotatoBackdrop Cavern(GraphicsDevice graphicsDevice, Effect potatoEffect)
+        {
+            var config = new CavernSceneConfig();
+            float water = config.Water.LevelY, ceiling = config.Rock.CeilingY, radius = config.Rock.CaveRadius;
+
+            var backdrop = new PotatoBackdrop(graphicsDevice);
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoShellMesh(graphicsDevice, radius, water - 2f, ceiling, CAVE_SEGMENTS)),
+                new[] { new ModelInstance(Matrix.Identity, OPEN) }, config.Rock.RockColor.ToVector3(), null, "cave");
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoTerrainMesh(graphicsDevice, 2, radius, 0f, (x, z) => water)),
+                new[] { new ModelInstance(Matrix.Identity, OPEN) }, config.Water.DeepColor.ToVector3(), config.Water.GlowColor.ToVector3() * 0.12f, "river");
+
+            BoxMesh box = backdrop.Own(new BoxMesh(graphicsDevice, 1f, 1f, 1f));
+            for (int k = 0; k < CRYSTAL_CLUSTERS; k++)
+            {
+                //Cavern.fx's CrystalCenter(k): on the wall at nearly the full radius, at a golden-angle bearing, staggered in height
+                float angle = k * 2.39996f + 0.7f;
+                Vector3 centre = new(MathF.Cos(angle) * radius * 0.965f, water + 6f + (k * 37f) % 70f, MathF.Sin(angle) * radius * 0.965f);
+                Vector3 inward = Vector3.Normalize(new Vector3(-centre.X, 0f, -centre.Z));
+                Vector3 colour = Vector3.Lerp(config.Crystals.ColorA.ToVector3(), config.Crystals.ColorB.ToVector3(), ShaderMath.Frac(k * 0.381f));
+
+                var rng = new Random(1131 + k);
+                var spikes = new ModelInstance[CRYSTALS_PER_CLUSTER];
+                for (int j = 0; j < spikes.Length; j++)
+                {
+                    //A spike grows out of the wall, leaning off the inward line by its own angle, a few units from its neighbours
+                    //Bigger than the desktop's growths: a cluster stands 230 units from the gun, and a spike of the shader's size
+                    //was a pale fleck there
+                    float height = MathHelper.Lerp(12f, 24f, (float)rng.NextDouble());
+                    float width = MathHelper.Lerp(2.5f, 4.5f, (float)rng.NextDouble());
+                    Vector3 up = Vector3.Normalize(Vector3.Lerp(Vector3.Up, inward, MathHelper.Lerp(0.3f, 0.8f, (float)rng.NextDouble()))
+                        + new Vector3((float)rng.NextDouble() - 0.5f, 0f, (float)rng.NextDouble() - 0.5f) * 0.5f);
+                    Vector3 right = Vector3.Normalize(Vector3.Cross(up, MathF.Abs(up.Y) > 0.9f ? Vector3.Right : Vector3.Up));
+                    Vector3 backward = Vector3.Cross(right, up);
+                    Vector3 foot = centre + new Vector3((float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f) * 8f;
+
+                    Matrix world = Matrix.CreateScale(width, height, width);
+                    Matrix orient = Matrix.Identity;
+                    orient.Right = right;
+                    orient.Up = up;
+                    orient.Backward = backward;
+                    orient.Translation = foot + up * (height * 0.35f);
+                    spikes[j] = new ModelInstance(world * orient, OPEN);
+                }
+
+                backdrop.AddPiece(graphicsDevice, potatoEffect, box, spikes, colour * 0.25f, Vector3.Clamp(colour * 0.9f, Vector3.Zero, Vector3.One), $"crystals {k}");
+            }
+
+            return backdrop;
+        }
+
+        /// <summary>
+        /// The Grid (#829): the desktop's is <c>Grid.fx</c>, a circuit-board floor, distant solids running Life on their
+        /// faces and a void. Here the floor as a plane with the arena's hole, a little of the traces' light in it, and the
+        /// solids as boxes in their body colour with a share of their windows' light: as many as the config asks for, in
+        /// its band of radii and sizes, cubes first, each kept a gap off the ones before it (the desktop's own retry),
+        /// on the config's seed and the launch's roll. Not the desktop's stream to the number: its draws are shared
+        /// with the Life boards and the landmark ring, which this path does not build.
+        /// </summary>
+        private static PotatoBackdrop Grid(GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius, int seedOffset)
+        {
+            var config = new GridSceneConfig();
+            GridTowerConfig towers = config.Towers;
+            float level = config.Terrain.LevelY;
+
+            var backdrop = new PotatoBackdrop(graphicsDevice);
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoTerrainMesh(graphicsDevice, 2, config.Terrain.HorizonHazeDistance, holeRadius, (x, z) => level)),
+                new[] { new ModelInstance(Matrix.Identity, OPEN) }, Vector3.Lerp(config.Terrain.BodyColor.ToVector3(), config.Terrain.LineColor.ToVector3(), 0.2f),
+                config.Terrain.LineColor.ToVector3() * 0.25f, "floor");
+
+            const float SOLID_GAP = 15f;
+            var placement = new Random(towers.Seed + seedOffset);
+            int cubeCount = (int)MathF.Round(towers.Count * MathHelper.Clamp(towers.CubeFraction, 0f, 1f));
+            var placed = new List<(Vector2 Centre, float Radius)>();
+            var solids = new List<ModelInstance>();
+            for (int i = 0; i < Math.Max(towers.Count, 0); i++)
+            {
+                bool cube = i < cubeCount;
+                Vector3 size = default;
+                Vector2 xz = default;
+                float footprint = 0f;
+                for (int attempt = 0; attempt < 20; attempt++)
+                {
+                    float angle = (float)(placement.NextDouble() * MathHelper.TwoPi);
+                    float radius = MathHelper.Lerp(towers.RadiusMin, towers.RadiusMax, (float)placement.NextDouble());
+                    if (cube)
+                    {
+                        float side = MathHelper.Lerp(towers.CubeSizeMin, towers.CubeSizeMax, (float)placement.NextDouble());
+                        size = new Vector3(side * (0.94f + 0.12f * (float)placement.NextDouble()), side * (0.94f + 0.12f * (float)placement.NextDouble()), side * (0.94f + 0.12f * (float)placement.NextDouble()));
+                    }
+                    else
+                    {
+                        size = new Vector3(MathHelper.Lerp(towers.TowerFootprintMin, towers.TowerFootprintMax, (float)placement.NextDouble()),
+                            MathHelper.Lerp(towers.TowerHeightMin, towers.TowerHeightMax, (float)placement.NextDouble()),
+                            MathHelper.Lerp(towers.TowerFootprintMin, towers.TowerFootprintMax, (float)placement.NextDouble()));
+                    }
+                    xz = new Vector2(MathF.Cos(angle) * radius, MathF.Sin(angle) * radius);
+                    footprint = 0.5f * MathF.Sqrt(size.X * size.X + size.Z * size.Z);
+                    bool overlaps = false;
+                    foreach ((Vector2 other, float otherRadius) in placed)
+                        if (Vector2.Distance(xz, other) < footprint + otherRadius + SOLID_GAP) { overlaps = true; break; }
+                    if (!overlaps) break;
+                }
+                placed.Add((xz, footprint));
+                solids.Add(new ModelInstance(Matrix.CreateScale(size) * Matrix.CreateTranslation(xz.X, level + size.Y * 0.5f, xz.Y), OPEN));
+            }
+
+            BoxMesh box = backdrop.Own(new BoxMesh(graphicsDevice, 1f, 1f, 1f));
+            backdrop.AddPiece(graphicsDevice, potatoEffect, box, solids.ToArray(), towers.BodyColor.ToVector3() * 2f,
+                Vector3.Clamp(towers.WindowColor.ToVector3() * 0.14f, Vector3.Zero, Vector3.One), "solids");
+
+            return backdrop;
         }
 
         private const float CITY_REACH = 250f;
@@ -506,6 +709,22 @@ namespace Prazsky.Core.Render
             _draws.Add(new DrawItem { Renderer = renderer, Instances = new[] { new ModelInstance(Matrix.Identity, new Vector4(0f, 0f, 0f, 1f)) } });
             VertexCount += mesh.PrimitiveCount * 3;
             _census.Add($"ground {mesh.PrimitiveCount * 3}");
+        }
+
+        private static readonly Vector4 OPEN = new(0f, 0f, 0f, 1f);
+
+        /// <summary>
+        /// Any mesh under any instances, matte and lit at the vertex, in <paramref name="colour"/> and radiating
+        /// <paramref name="glow"/> if there is one, both linear as a config gives them.
+        /// </summary>
+        private void AddPiece(GraphicsDevice graphicsDevice, Effect potatoEffect, IProceduralMesh mesh, ModelInstance[] instances, Vector3 colour, Vector3? glow, string what)
+        {
+            var renderer = new InstancedModelRenderer(graphicsDevice, mesh, ColorSpace.LinearToSrgb(colour), potatoEffect) { PotatoVertexLit = true, SpecularAmbientStrength = 0f };
+            _owned.Add(renderer);
+            _renderers.Add(renderer);
+            _draws.Add(new DrawItem { Renderer = renderer, Instances = instances, Glow = glow.HasValue ? ColorSpace.LinearToSrgb(glow.Value) : null });
+            VertexCount += mesh.PrimitiveCount * 3 * instances.Length;
+            _census.Add($"{what} {instances.Length}x{mesh.PrimitiveCount * 3}");
         }
 
         /// <summary>A thing that radiates its own light (the lava): its casing <paramref name="colour"/> and its <paramref name="glow"/>, both sRGB, and no dome on it either.</summary>

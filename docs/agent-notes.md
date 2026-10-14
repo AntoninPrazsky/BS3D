@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-14 — #829 krok 5: jeskyně a Grid na Potato — Pi, Claude Code (584de7d2)
+- Hotovo (větev `829-potato-cavern-grid`): jeskyně jako plášť zevnitř (`PotatoShellMesh`: válec a strop v barvě skály), řeka jako rovina s trochou své záře, osm trsů krystalů jako nakloněné kvádry svítící svou barvou na místech `CrystalCenter`; Grid jako podlaha s dírou a podílem světla stop a kvádry podle configu. Grotto 17,97/11,90 ms proti 16,90/11,59 (plášť je celý snímek výplně), Cantor 15,45/10,73 proti 14,98/10,45.
+- ⚠ Obě scény i Měsíc stojí pod fialovým dómem a jeho rigem, kde desktop nebe nahrazuje prázdnem či jeskyní a svítí vlastním rigem (`TryGetLightRig`, Potato host nemá renderer, kterého by se zeptal): to je další krok.
+- Otevřené: rig a dóm scén nahrazujících nebe, cirkus, aurora/dream/space, střechy města; verdikt oka.
+
 ## 2026-10-14 — #829 krok 4: město a neon na Potato — Pi, Claude Code (584de7d2)
 - Hotovo (větev `829-potato-city`): věže a římsy `City` z configu hosta (seedy už hozené), každá jedna krabice v barvě fasády bez oken, jen do 250 jednotek od ostrova, ořez frustem po snímku, nad plochou asfaltu. Girandole 18,67/12,97 ms proti 18,21/12,64, Cabinet 18,80/12,74 proti 17,68/12,03 (nativně/720).
 - ⚠ Základ a novou verzi měřit v jednom řetězu ze základního buildu mainu (`~/.cache/bs3d-wt/baseline-main`): osamělý základ Cabinetu 11,5 ms (bez session) poslal první číslo neonu na +8 ms a stál tři pokusy (lampy pryč, dosah 100, nic), než se základ přeměřil na 17,7.
