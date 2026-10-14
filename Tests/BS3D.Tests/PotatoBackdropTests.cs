@@ -88,6 +88,26 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void TheShellFacesItsInsideAndClosesItsTop()
+        {
+            (VertexPositionNormalTexture[] vertices, int[] indices) = PotatoShellMesh.Build(100f, -30f, 90f, 12);
+
+            Assert.Equal(12 * 3 + 1, vertices.Length);
+            Assert.Equal(12 * 3 * 3, indices.Length);
+            for (int i = 0; i < indices.Length; i += 3)
+            {
+                VertexPositionNormalTexture a = vertices[indices[i]], b = vertices[indices[i + 1]], c = vertices[indices[i + 2]];
+                Vector3 cross = Vector3.Cross(b.Position - a.Position, c.Position - a.Position);
+                //Front-facing for an eye on the normal's side: the cross points away from it, as the grid's points down
+                Assert.True(Vector3.Dot(cross, a.Normal) < 0f, $"triangle {i / 3} faces away from the inside");
+            }
+
+            //The wall's normals point at the axis, the ceiling's down
+            for (int i = 0; i < 24; i++) Assert.True(Vector3.Dot(vertices[i].Normal, new Vector3(-vertices[i].Position.X, 0f, -vertices[i].Position.Z)) > 0f);
+            for (int i = 24; i < vertices.Length; i++) Assert.Equal(Vector3.Down, vertices[i].Normal);
+        }
+
+        [Fact]
         public void TheNormalsFollowTheHeightAndPointUp()
         {
             (VertexPositionNormalTexture[] vertices, _) = PotatoTerrainMesh.Build(8, 40f, 0f, Bowl);
