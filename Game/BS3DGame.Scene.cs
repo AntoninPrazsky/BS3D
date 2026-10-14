@@ -327,8 +327,9 @@ namespace BS3D
                 SurfaceDetail = _quality.DropsSceneDetail() ? 0f : 1f
             };
 
-            //The scene picked at startup ran before the effect existed: the Potato backdrop of that scene is built now (#829)
-            EnsurePotatoBackdrop();
+            //No Potato backdrop here (#829): the startup's SetScene follows this build and makes the first one. Built here
+            //too, it was the backdrop of _scene's initial value - the neon city's 3,950 towers - built and dropped on every
+            //Potato start (found in the Windows twin's log by the ThinkPad session, 2026-10-14)
 
             //The forest's scattered trees, rocks and stumps, all of it: both procedural textures, the fifteen
             //mesh variants, the twenty-five renderers with their bark, foliage, stone and sawn-wood dressing,

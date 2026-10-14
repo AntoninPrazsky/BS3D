@@ -20,6 +20,9 @@ Pravidla:
 
 ---
 
+## 2026-10-14 — #829 start nestaví NeonCity backdrop nadarmo — Pi, Claude Code (584de7d2)
+- Nález ThinkPad session (github-5f) z logu Windows dvojčete: `_scene` startuje jako NeonCity a `BuildScene` volal `EnsurePotatoBackdrop` před startovním `SetScene`, takže každý Potato start postavil a zahodil 3 950 věží. Hotovo (větev `829-potato-startup-backdrop`): volání v `BuildScene` pryč, první backdrop staví až startovní `SetScene`; v logu je teď jediný řádek `[potato] … backdrop`, ten vybrané scény.
+
 ## 2026-10-14 — #829 kmeny jako sloupy pod korunou — Pi, Claude Code (584de7d2)
 - majitel (test na Pi): kmeny na louce i savaně procházely korunami jako ostny; kmen má být jen dole a válcový. Hotovo (větev `829-potato-trunks`): kmen je `PotatoShellMesh` zvenčí (osm stěn, zavřený), od paty do kousku nad střed sítě, kde ho koruna schová; `PotatoShellMesh` umí líc ven (`inside: false`).
 - Snímky `Research/pi-port/829/savanna/giraffe-trunks.png`, `meadow/pennant-trunks.png`.
