@@ -15,7 +15,8 @@ namespace Prazsky.Core.Tools
     /// truncates and then writes, so a machine lost in that window leaves a <b>short but syntactically fine</b>
     /// file. A lenient loader — which a save must have, since an absent one is a normal first run — then reads
     /// that as "nothing here", and the next write makes the emptiness permanent. The desktop this game is
-    /// built on hard-resets under GPU load (#250), so the window is not hypothetical.
+    /// built on hard-reset for months on a failing power supply (#250), so the window is not hypothetical,
+    /// and a player's machine can lose power in it just the same.
     /// </remarks>
     public static class AtomicFile
     {

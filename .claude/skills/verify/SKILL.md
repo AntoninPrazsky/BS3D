@@ -30,8 +30,7 @@ CLI arguments (any order):
   includes `LOD: a/b/c` — per-level ball counts of the procedural sphere LOD (thresholds 15/30 world units).
 - `fpscap=<n>` — `nocap`'s presentation with a ceiling of n frames a second, so a scene cheaper than the cap
   never runs the card flat out while anything dearer than it still reads its true cost. Prefer it to bare
-  `nocap` on the desktop, and read `.claude/skills/benchmark`'s own `fpscap` section first: that machine has
-  been hard-resetting under load (#250), capped runs included, so no cap is a guarantee.
+  `nocap`; `.claude/skills/benchmark`'s own `fpscap` section says where to set it.
 - `ssaa=<n>` — supersampling factor, 1–4, default 2. The scene renders into an n× target and is box-filtered
   onto the back buffer, which is what keeps the balls' procedural relief sharp; `ssaa=1` turns it off (and
   hands antialiasing back to 8x MSAA) for a before/after or when a machine is fill-rate bound. On the dense
