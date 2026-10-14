@@ -127,6 +127,9 @@ namespace BS3D
         /// </summary>
         private PotatoBackdrop _potatoBackdrop;
 
+        /// <summary>The scene's own sky where it has one on this path (space, the aurora, the dream), rebuilt with the backdrop.</summary>
+        private PotatoSkyFigure _potatoSkyFigure;
+
         /// <summary>
         /// The backdrop of the current scene, rebuilt when the scene changes. Nothing before the effect is loaded (the
         /// startup's scene pick runs before LoadContent), so the call after the island is built makes the first one.
@@ -134,6 +137,9 @@ namespace BS3D
         private void EnsurePotatoBackdrop()
         {
             if (!PotatoPath || _instancingEffect == null) return;
+
+            _potatoSkyFigure?.Dispose();
+            _potatoSkyFigure = PotatoSkyFigure.For(_scene, GraphicsDevice);
 
             _potatoBackdrop?.Dispose();
             _potatoBackdrop = PotatoBackdrop.For(_scene, GraphicsDevice, _instancingEffect, ArenaIsland.TERRAIN_HOLE_RADIUS, _sceneSeedOffset, _cityConfig);
@@ -146,29 +152,6 @@ namespace BS3D
 
             //A load line, not a frame's: what this scene's backdrop hands V3D, the price #829 measures a scene by
             Console.WriteLine($"[potato] {_scene} backdrop: {_potatoBackdrop.VertexCount} vertices a frame in {_potatoBackdrop.Renderers.Count} draws ({_potatoBackdrop.Census})");
-        }
-
-        /// <summary>
-        /// Selects the dome's technique for a scene's own sky and pushes the look's uniforms (<see cref="PotatoSceneRig.SkyLookOf"/>)
-        /// and the wall clock. False, and nothing is touched, when the loaded effect has no such technique.
-        /// </summary>
-        private bool PushPotatoSkyLook(PotatoSceneRig.PotatoSkyLook look)
-        {
-            EffectTechnique technique = _skyEffect.Techniques[look.Technique];
-            if (technique == null) return false;
-
-            _skyEffect.CurrentTechnique = technique;
-            _skyEffect.Parameters["SkyTime"]?.SetValue(_wallClock);
-            _skyEffect.Parameters["SkyVoid"]?.SetValue(look.Void);
-            _skyEffect.Parameters["SkyColorA"]?.SetValue(look.ColorA);
-            _skyEffect.Parameters["SkyColorB"]?.SetValue(look.ColorB);
-            _skyEffect.Parameters["SkyColorC"]?.SetValue(look.ColorC);
-            _skyEffect.Parameters["SkyColorD"]?.SetValue(look.ColorD);
-            _skyEffect.Parameters["SkyAxis"]?.SetValue(look.Axis);
-            _skyEffect.Parameters["SkyAxis2"]?.SetValue(look.Axis2);
-            _skyEffect.Parameters["SkyParams"]?.SetValue(look.Params);
-            _skyEffect.Parameters["SkyParams2"]?.SetValue(look.Params2);
-            return true;
         }
 
         private SceneFrame BeginPotatoSceneDraw()
@@ -187,17 +170,10 @@ namespace BS3D
             {
                 GraphicsDevice.Clear(new Color(ColorSpace.LinearToSrgb(voidLinear)));
 
-                //Space, the aurora and the dream have a picture of their own on the dome (#829, PotatoSky.fx's figures): the
-                //same dome, drawn with the scene's technique and its figures, the void under it. Null until the effect that
-                //has the techniques is the one committed (GamePi/Shaders/Compiled), so a build ahead of its xnb keeps the void
-                PotatoSceneRig.PotatoSkyLook look = PotatoSceneRig.SkyLookOf(_scene);
-                if (look != null && PushPotatoSkyLook(look))
-                {
-                    GraphicsDevice.BlendState = BlendState.Opaque;
-                    GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-                    _sky.Draw(_camera);
-                    _skyEffect.CurrentTechnique = _skyEffect.Techniques[0];
-                }
+                //Space, the aurora and the dream have a picture of their own (#829, PotatoSky.fx's figures): a finer sphere
+                //drawn with the scene's technique and its stars over it, the void under them. Nothing is drawn by a build
+                //ahead of its compiled effect (GamePi/Shaders/Compiled), which keeps the void
+                _potatoSkyFigure?.Draw(_skyEffect, _camera, _wallClock);
             }
             else
             {

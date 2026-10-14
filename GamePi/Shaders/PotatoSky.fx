@@ -53,101 +53,47 @@ technique PotatoSky
 
 //--- THE SKIES THAT REPLACE THE SKY (#829): space, the aurora and the dream ------------------------------------------
 //On the desktop each is a full-screen pass of its own (Space.fx, Aurora.fx, Dream.fx), marched and noised in Shader
-//Model 5.0. Here they are the same dome, drawn with a figure computed per pixel from the view direction alone - the
-//dome's own vertex, which SkyDome keeps centred on the camera, so a vertex position IS a direction - over the scene's
-//void instead of the stored palette. Everything is sines, hashes and a lattice: no noise octaves, no march, nothing
-//that needs a texture. The curve is per pixel here (ToDisplay), the thing the gradient above avoids: a star is a
-//point and a curtain a glow, neither of which a vertex can carry. Three scenes of fourteen pay it.
+//Model 5.0. Here the smooth part of each - the Milky Way's band and the nebula, the curtains, the marble and the orbs -
+//is computed PER VERTEX on a finer sphere of the host's (PotatoSkyFigure, 48 rings by 96 segments) and interpolated,
+//exactly as the gradient above is: a field of sines over a few degrees per vertex is the same picture to the eye,
+//and the pixel costs one move. The first cut did it per pixel and cost 12 ms at 1080p. The stars, which are points,
+//are a batch of small screen-aligned quads the host builds once (PotatoSkyStars), added over the sphere.
 
 float SkyTime;
 float3 SkyVoid;         //the colour behind everything, linear (the scene's void or its deep)
 float3 SkyColorA;       //space: the Milky Way's colour; the aurora: its low colour; the dream: palette A
 float3 SkyColorB;       //space: the nebula's colour; the aurora: its high colour; the dream: palette B
-float3 SkyColorC;       //space: the stars' tint; the dream: palette C
+float3 SkyColorC;       //the dream: palette C
 float3 SkyColorD;       //space: the Milky Way's core; the dream: palette D
 float3 SkyAxis;         //space: the band's normal
 float3 SkyAxis2;        //space: where the nebula stands
-float4 SkyParams;       //the aurora: intensity, band height, ray strength, pulse depth; the dream: swirl scale, warp, slow speed, fast speed
-float4 SkyParams2;      //the aurora: drift speed, morph speed, curtain scale, ray scale; the dream: ribbon sharpness, brightness, orb brightness, orb width
+float4 SkyParams;       //the aurora: intensity, band height, (unused), pulse depth; the dream: swirl scale, warp, slow speed, fast speed
+float4 SkyParams2;      //the aurora: drift speed, morph speed, curtain scale, (unused); the dream: ribbon sharpness, brightness, orb brightness, orb width
+float2 StarSize;        //half the width and height of a full-brightness star, in clip units
 
 struct FigureOutput
 {
     float4 Position : POSITION0;
-    float3 Direction : TEXCOORD0;
+    float3 Color : TEXCOORD0;
 };
 
-FigureOutput FigureVS(VertexInput input)
+float3 SpaceSky(float3 dir)
 {
-    FigureOutput output;
-    output.Position = mul(mul(mul(input.Position, World), View), Projection);
-    output.Direction = input.Position.xyz;
-    return output;
-}
-
-//Dave Hoskins's hashes, the ones the desktop's Stars.fxh uses too
-float Hash31(float3 p)
-{
-    p = frac(p * 0.1031);
-    p += dot(p, p.zyx + 31.32);
-    return frac((p.x + p.y) * p.z);
-}
-
-float3 Hash33(float3 p)
-{
-    p = frac(p * float3(0.1031, 0.1030, 0.0973));
-    p += dot(p, p.yxz + 33.33);
-    return frac((p.xxy + p.yxx) * p.zyx);
-}
-
-//One layer of stars: a cube lattice over the direction scaled by cells, at most one star in a cell, jittered over
-//it, lit by its own roll against chance and as bright as a steep law makes it (most stars faint). The core is an
-//angle (radians), so a star is the same few pixels across whatever its layer's lattice; a jittered point far off the
-//sphere shows no star, which thins every layer by about the core's share of a cell. Only the pixel's own cell is
-//looked up, so a star on a cell wall is clipped - at a few pixels across, nothing the eye finds. (The first cut took
-//the core in cells: three cells of star, clipped square, a blizzard.)
-float StarLayer(float3 dir, float cells, float chance, float peak, float core)
-{
-    float3 p = dir * cells;
-    float3 cell = floor(p);
-    float3 jitter = Hash33(cell);
-    float roll = Hash31(cell + 7.1);
-    float lit = step(roll, chance);
-    float bright = Hash31(cell + 11.7);
-    bright = bright * bright * bright * peak;
-    float d = length(p - (cell + jitter)) / (core * cells);
-    float glow = saturate(1.0 - d);
-    return lit * bright * glow * glow;
-}
-
-float4 SpacePS(FigureOutput input) : COLOR0
-{
-    float3 dir = normalize(input.Direction);
-
     //The Milky Way: a band across the sky about its own axis, brighter and warmer at its core, with the star clouds
-    //as a slow mottle of sines along it
+    //as a slow mottle of sines along it; the nebula a soft patch where SkyAxis2 points
     float across = dot(dir, SkyAxis);
     float band = exp(-across * across * 38.0);
     float clouds = 0.55 + 0.45 * sin(dir.x * 7.3 + dir.y * 5.1) * sin(dir.z * 6.7 - dir.x * 3.9);
     float3 way = lerp(SkyColorA, SkyColorD, band * band) * (band * clouds);
-
-    //The nebula: a soft patch where SkyAxis2 points
     float towards = saturate(dot(dir, SkyAxis2));
     float nebula = pow(towards, 60.0) * (0.7 + 0.3 * sin(dir.y * 11.0 + dir.z * 9.0));
-
-    //Three layers of stars, denser in the band, as the desktop's three are
-    float stars = StarLayer(dir, 34.0, 0.10 + 0.12 * band, 1.0, 0.0048)
-        + StarLayer(dir, 70.0, 0.22 + 0.3 * band, 0.5, 0.0036)
-        + StarLayer(dir, 130.0, 0.3 + 0.4 * band, 0.22, 0.0028);
-
-    float3 colour = SkyVoid + way + nebula * SkyColorB + stars * SkyColorC;
-    return float4(ToDisplay(colour), 1);
+    return SkyVoid + way + nebula * SkyColorB;
 }
 
-float4 AuroraPS(FigureOutput input) : COLOR0
+float3 AuroraSky(float3 dir)
 {
-    float3 dir = normalize(input.Direction);
-    float intensity = SkyParams.x, bandHeight = SkyParams.y, rayStrength = SkyParams.z, pulseDepth = SkyParams.w;
-    float driftSpeed = SkyParams2.x, morphSpeed = SkyParams2.y, curtainScale = SkyParams2.z, rayScale = SkyParams2.w;
+    float intensity = SkyParams.x, bandHeight = SkyParams.y, pulseDepth = SkyParams.w;
+    float driftSpeed = SkyParams2.x, morphSpeed = SkyParams2.y, curtainScale = SkyParams2.z;
 
     //The band: from a little over the horizon up through bandHeight of the sky, fading before the zenith
     float elevation = dir.y;
@@ -166,41 +112,35 @@ float4 AuroraPS(FigureOutput input) : COLOR0
     float curtain = saturate(0.5 + 0.3 * folds);
     curtain = curtain * curtain * curtain;
 
-    //The rays: a fine comb of thin striations cutting into the curtain, sliding a little faster than the folds re-form
-    float rays = 0.5 + 0.5 * sin((r.x * 7.3 + r.z * 11.1) * rayScale * 0.35 - r.y * 1.5 + morph * 4.0);
-    curtain *= lerp(1.0, 0.3 + rays, rayStrength);
-
     //Two clocks summed, the desktop's envelope
     float pulse = 1.0 - pulseDepth * (0.5 + 0.5 * sin(SkyTime * 0.4)) * (0.7 + 0.3 * sin(SkyTime * 0.124 + 1.7));
 
     float within = saturate((elevation - 0.1) / max(bandHeight, 0.01));
     float3 glow = lerp(SkyColorA, SkyColorB, within) * (intensity * band * curtain * pulse);
-
-    float stars = StarLayer(dir, 44.0, 0.1, 0.7, 0.0045) + StarLayer(dir, 90.0, 0.25, 0.3, 0.0032);
-
-    float3 colour = SkyVoid + glow + stars * SkyColorC;
-    return float4(ToDisplay(colour), 1);
+    return SkyVoid + glow;
 }
 
-float4 DreamPS(FigureOutput input) : COLOR0
+float3 DreamPalette(float u)
 {
-    float3 dir = normalize(input.Direction);
+    //Inigo Quilez's cosine palette, the desktop's own
+    return SkyColorA + SkyColorB * cos(6.28318 * (SkyColorC * u + SkyColorD));
+}
+
+float3 DreamSky(float3 dir)
+{
     float swirl = SkyParams.x, warp = SkyParams.y, slow = SkyParams.z, fast = SkyParams.w;
     float sharpness = SkyParams2.x, brightness = SkyParams2.y, orbBrightness = SkyParams2.z, orbWidth = SkyParams2.w;
 
     //The marbling: fields of sines on the direction, the direction itself bent by a slower field first, which is
-    //what turns bands into marble; slow enough to read over minutes
+    //what turns bands into marble; slow enough to read over minutes, and a fraction of the palette's cycle across
+    //the field (the whole cycle was a rainbow)
     float t = SkyTime * slow;
     float3 bent = dir + warp * 0.3 * float3(sin(dir.z * 3.1 + t * 1.3), sin(dir.x * 2.7 - t), sin(dir.y * 3.7 + t * 0.7));
     float field = sin(bent.x * swirl * 3.1 + t * 2.0) + sin(bent.y * swirl * 4.3 - t * 1.4) + sin(bent.z * swirl * 2.6 + t * 1.1)
         + 0.5 * sin((bent.x + bent.z) * swirl * 7.1 - t * 2.3);
-    //A fraction of the palette's cycle across the field: the whole cycle was a rainbow
-    float u = 0.5 + 0.07 * field;
+    float3 palette = DreamPalette(0.5 + 0.07 * field);
 
-    //Inigo Quilez's cosine palette, the desktop's own
-    float3 palette = SkyColorA + SkyColorB * cos(6.28318 * (SkyColorC * u + SkyColorD));
-
-    //The ribbons: a sharp fine layer travelling fast across the slow marble
+    //The ribbons: a sharper fine layer travelling fast across the slow marble
     float ribbon = 0.5 + 0.5 * sin(dot(bent, float3(9.1, 7.3, 5.7)) * swirl + SkyTime * fast);
     ribbon = pow(ribbon, sharpness);
 
@@ -213,20 +153,85 @@ float4 DreamPS(FigureOutput input) : COLOR0
     float3 o1 = normalize(float3(-0.7 * cosWheel + 0.2 * sinWheel, 0.25, -0.7 * sinWheel - 0.2 * cosWheel));
     float3 o2 = normalize(float3(0.2 * cosWheel + 0.8 * sinWheel, 0.6, 0.2 * sinWheel - 0.8 * cosWheel));
     float breathe0 = 0.75 + 0.25 * sin(SkyTime * 0.37), breathe1 = 0.75 + 0.25 * sin(SkyTime * 0.29 + 2.0), breathe2 = 0.75 + 0.25 * sin(SkyTime * 0.23 + 4.0);
-    float3 orbs = (SkyColorA + SkyColorB * cos(6.28318 * (SkyColorC * 0.15 + SkyColorD))) * (exp((dot(dir, o0) - 1.0) * orbWidth) * breathe0)
-        + (SkyColorA + SkyColorB * cos(6.28318 * (SkyColorC * 0.55 + SkyColorD))) * (exp((dot(dir, o1) - 1.0) * orbWidth) * breathe1)
-        + (SkyColorA + SkyColorB * cos(6.28318 * (SkyColorC * 0.85 + SkyColorD))) * (exp((dot(dir, o2) - 1.0) * orbWidth) * breathe2);
-    colour += orbs * orbBrightness;
+    float3 orbs = DreamPalette(0.15) * (exp((dot(dir, o0) - 1.0) * orbWidth) * breathe0)
+        + DreamPalette(0.55) * (exp((dot(dir, o1) - 1.0) * orbWidth) * breathe1)
+        + DreamPalette(0.85) * (exp((dot(dir, o2) - 1.0) * orbWidth) * breathe2);
+    return colour + orbs * orbBrightness;
+}
 
-    return float4(ToDisplay(colour), 1);
+FigureOutput SpaceVS(VertexInput input)
+{
+    FigureOutput output;
+    output.Position = mul(mul(mul(input.Position, World), View), Projection);
+    output.Color = ToDisplay(SpaceSky(normalize(input.Position.xyz)));
+    return output;
+}
+
+FigureOutput AuroraVS(VertexInput input)
+{
+    FigureOutput output;
+    output.Position = mul(mul(mul(input.Position, World), View), Projection);
+    output.Color = ToDisplay(AuroraSky(normalize(input.Position.xyz)));
+    return output;
+}
+
+FigureOutput DreamVS(VertexInput input)
+{
+    FigureOutput output;
+    output.Position = mul(mul(mul(input.Position, World), View), Projection);
+    output.Color = ToDisplay(DreamSky(normalize(input.Position.xyz)));
+    return output;
+}
+
+float4 FigurePS(FigureOutput input) : COLOR0
+{
+    return float4(input.Color, 1);
+}
+
+//The stars: four corners a star, the direction in the position, the tint and the brightness in the colour, the
+//corner in the texture coordinate. Each is laid out on the screen as a square of StarSize round its direction,
+//grown a little with its brightness, and shaded as a soft dot; added over the sphere, so the light is display-encoded
+//already and the brightness is tuned to that.
+struct StarInput
+{
+    float4 Position : POSITION0;
+    float4 Color : COLOR0;
+    float2 Corner : TEXCOORD0;
+};
+
+struct StarOutput
+{
+    float4 Position : POSITION0;
+    float4 Color : TEXCOORD0;
+    float2 Corner : TEXCOORD1;
+};
+
+StarOutput StarVS(StarInput input)
+{
+    StarOutput output;
+    float4 clip = mul(mul(mul(float4(input.Position.xyz, 1), World), View), Projection);
+    float size = 0.55 + 0.9 * input.Color.a;
+    clip.xy += input.Corner * StarSize * (size * clip.w);
+    output.Position = clip;
+    output.Color = input.Color;
+    output.Corner = input.Corner;
+    return output;
+}
+
+float4 StarPS(StarOutput input) : COLOR0
+{
+    float r2 = dot(input.Corner, input.Corner);
+    float a = saturate(1.0 - r2);
+    a *= a;
+    return float4(input.Color.rgb * (input.Color.a * a), 1);
 }
 
 technique PotatoSkySpace
 {
     pass P0
     {
-        VertexShader = compile POTATO_VS FigureVS();
-        PixelShader = compile POTATO_PS SpacePS();
+        VertexShader = compile POTATO_VS SpaceVS();
+        PixelShader = compile POTATO_PS FigurePS();
     }
 };
 
@@ -234,8 +239,8 @@ technique PotatoSkyAurora
 {
     pass P0
     {
-        VertexShader = compile POTATO_VS FigureVS();
-        PixelShader = compile POTATO_PS AuroraPS();
+        VertexShader = compile POTATO_VS AuroraVS();
+        PixelShader = compile POTATO_PS FigurePS();
     }
 };
 
@@ -243,7 +248,16 @@ technique PotatoSkyDream
 {
     pass P0
     {
-        VertexShader = compile POTATO_VS FigureVS();
-        PixelShader = compile POTATO_PS DreamPS();
+        VertexShader = compile POTATO_VS DreamVS();
+        PixelShader = compile POTATO_PS FigurePS();
+    }
+};
+
+technique PotatoSkyStars
+{
+    pass P0
+    {
+        VertexShader = compile POTATO_VS StarVS();
+        PixelShader = compile POTATO_PS StarPS();
     }
 };
