@@ -182,6 +182,24 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void TheDreamsSolidsStayPastTheOrbitAndBreatheAboutTheirSize()
+        {
+            var shapes = new DreamShapesConfig();
+            for (int i = 0; i < 8; i++)
+                for (float t = 0f; t < 600f; t += 7.3f)
+                {
+                    Matrix world = PotatoBackdrop.DreamSolidWorld(shapes, i, t);
+                    Vector3 centre = world.Translation;
+                    Assert.True(MathF.Sqrt(centre.X * centre.X + centre.Z * centre.Z) >= shapes.OrbitRadius, $"solid {i} at {t}s inside the orbit");
+                    float width = world.Right.Length();
+                    Assert.InRange(width, shapes.Size * 2f * 0.5f, shapes.Size * 2f * 1.5f);
+                }
+
+            Vector3 colour = PotatoBackdrop.DreamPalette(new DreamPaletteConfig(), 0.5f);
+            Assert.True(colour.X >= 0f && colour.Y >= 0f && colour.Z >= 0f);
+        }
+
+        [Fact]
         public void TheNormalsFollowTheHeightAndPointUp()
         {
             (VertexPositionNormalTexture[] vertices, _) = PotatoTerrainMesh.Build(8, 40f, 0f, Bowl);

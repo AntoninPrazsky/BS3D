@@ -300,6 +300,7 @@ namespace Prazsky.Core.Render
             public bool TwoSided;
             public Vector3? Glow;
             public Func<ICamera, int> Prepare;
+            public Action<DrawItem, float> Animate;
         }
 
         private readonly List<DrawItem> _draws = new();
@@ -357,6 +358,7 @@ namespace Prazsky.Core.Render
                 SceneKind.Circus => BigTop(graphicsDevice, potatoEffect, holeRadius),
                 SceneKind.Space => Space(graphicsDevice, potatoEffect),
                 SceneKind.Aurora => Aurora(graphicsDevice, potatoEffect, holeRadius, seedOffset),
+                SceneKind.Dream => Dream(graphicsDevice, potatoEffect),
                 _ => null,
             };
         }
@@ -419,6 +421,87 @@ namespace Prazsky.Core.Render
             }
 
             return backdrop;
+        }
+
+        /// <summary>
+        /// The dream's solids (#829, the owner's eye: "a few geometric flying shapes changing form, in the style of a
+        /// Windows 98 screensaver"): the desktop's eight raymarched solids tumbling and morphing round the sky as eight
+        /// low-poly bodies - boxes, octahedra and gems - on their own orbits past the config's orbit radius, far outside
+        /// anything the camera stands near, each turning about two axes and breathing its proportions, in a colour of
+        /// the palette that drifts as the desktop's does, its own light. Animated on the clock the host hands
+        /// <see cref="Draw"/>: eight matrices a frame.
+        /// </summary>
+        private static PotatoBackdrop Dream(GraphicsDevice graphicsDevice, Effect potatoEffect)
+        {
+            DreamSceneConfig config = new();
+            DreamShapesConfig shapes = config.Shapes;
+            DreamPaletteConfig palette = config.Palette;
+            var backdrop = new PotatoBackdrop(graphicsDevice);
+
+            IProceduralMesh[] bodies =
+            {
+                backdrop.Own(new BoxMesh(graphicsDevice, 1f, 1f, 1f)),
+                backdrop.Own(new SphereMesh(graphicsDevice, 0.5f, 4, 2)),  //an octahedron
+                backdrop.Own(new SphereMesh(graphicsDevice, 0.5f, 6, 3)),  //a gem
+                backdrop.Own(new SphereMesh(graphicsDevice, 0.5f, 5, 2)),  //a pentagonal bipyramid
+            };
+
+            for (int i = 0; i < DREAM_SOLIDS; i++)
+            {
+                int index = i;
+                var renderer = new InstancedModelRenderer(graphicsDevice, bodies[i % bodies.Length], Vector3.Zero, potatoEffect) { PotatoVertexLit = true, SpecularAmbientStrength = 0f };
+                backdrop._owned.Add(renderer);
+                backdrop._renderers.Add(renderer);
+                var item = new DrawItem { Renderer = renderer, Instances = new[] { new ModelInstance(Matrix.Identity, OPEN) }, Glow = Vector3.Zero };
+                item.Animate = (draw, time) =>
+                {
+                    draw.Instances[0] = new ModelInstance(DreamSolidWorld(shapes, index, time), OPEN);
+                    //The desktop's own colour for a solid, Palette(i * 0.17 + t * 0.010), under one in linear so the curve keeps its hue
+                    draw.Glow = ColorSpace.LinearToSrgb(Vector3.Clamp(DreamPalette(palette, index * 0.17f + time * 0.010f) * 0.55f, Vector3.Zero, Vector3.One));
+                };
+                backdrop._draws.Add(item);
+                backdrop.VertexCount += bodies[i % bodies.Length].PrimitiveCount * 3;
+                backdrop._census.Add($"solid {i} 1x{bodies[i % bodies.Length].PrimitiveCount * 3}");
+            }
+
+            return backdrop;
+        }
+
+        private const int DREAM_SOLIDS = 8;
+
+        /// <summary>Inigo Quilez's cosine palette on the dream's config, the shader's own.</summary>
+        public static Vector3 DreamPalette(DreamPaletteConfig palette, float t)
+        {
+            Vector3 a = palette.A.ToVector3(), b = palette.B.ToVector3(), c = palette.C.ToVector3(), d = palette.D.ToVector3();
+            return new Vector3(
+                a.X + b.X * MathF.Cos(MathHelper.TwoPi * (c.X * t + d.X)),
+                a.Y + b.Y * MathF.Cos(MathHelper.TwoPi * (c.Y * t + d.Y)),
+                a.Z + b.Z * MathF.Cos(MathHelper.TwoPi * (c.Z * t + d.Z)));
+        }
+
+        /// <summary>
+        /// Where solid <paramref name="index"/> of the dream is and how it stands at <paramref name="time"/>: on an orbit
+        /// of the config's radius and a share more, at its own height that swings slowly, turned about two axes at its
+        /// own rates, its three sizes breathing round the config's size at the morph speed so it is a slab, then a bar,
+        /// then a cube. Pure, for the tests: every solid stays past the orbit radius.
+        /// </summary>
+        public static Matrix DreamSolidWorld(DreamShapesConfig shapes, int index, float time)
+        {
+            float phase = index * 2.39996f;
+            float radius = shapes.OrbitRadius * (1.05f + 0.25f * (index % 3));
+            float angle = phase + time * (0.018f + 0.004f * (index % 4)) * (index % 2 == 0 ? 1f : -1f);
+            float height = 25f + 45f * MathF.Sin(time * 0.013f + phase) + 10f * (index % 3);
+            Vector3 centre = new(MathF.Cos(angle) * radius, height, MathF.Sin(angle) * radius);
+
+            float morph = time * shapes.MorphSpeed;
+            float size = shapes.Size * 2f;
+            Vector3 scale = new(
+                size * (1f + 0.45f * MathF.Sin(morph + phase)),
+                size * (1f + 0.45f * MathF.Sin(morph * 0.8f + phase + 2.1f)),
+                size * (1f + 0.45f * MathF.Sin(morph * 1.25f + phase + 4.2f)));
+
+            return Matrix.CreateScale(scale) * Matrix.CreateFromYawPitchRoll(time * (0.21f + 0.05f * index), time * (0.13f + 0.03f * (index % 5)), phase)
+                * Matrix.CreateTranslation(centre);
         }
 
         //The planet stands this far out: beyond anything the arena has, inside the far plane, its radius from its angular size
@@ -1102,7 +1185,7 @@ namespace Prazsky.Core.Render
         /// glows with their emission. The leaf cards are one-sided sheets seen from both sides (#610), so their draws
         /// cull nothing; everything else is a wound solid.
         /// </summary>
-        public void Draw(ICamera camera, BasicEffectParams sceneParams)
+        public void Draw(ICamera camera, BasicEffectParams sceneParams, float time = 0f)
         {
             GraphicsDevice device = _device;
             RasterizerState raster = device.RasterizerState;
@@ -1120,6 +1203,7 @@ namespace Prazsky.Core.Render
 
             foreach (DrawItem draw in _draws)
             {
+                draw.Animate?.Invoke(draw, time);
                 device.RasterizerState = draw.TwoSided ? RasterizerState.CullNone : RasterizerState.CullCounterClockwise;
                 effectParams.EmissiveColor = draw.Glow ?? Vector3.Zero;
 

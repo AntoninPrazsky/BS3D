@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-14 — #829 létající útvary snu — Pi, Claude Code (584de7d2)
+- majitel („možná pár geometrických létajících útvarů měnících tvar, ve stylu Windows 98 screensaveru"): hotovo (větev `829-potato-dream-solids`): osm nízkopolygonových těles (kvádr, osmistěn, drahokam, bipyramida) na drahách za poloměrem configu, otáčejí se kolem dvou os a dýchají proporcemi rychlostí morfu, každé svítí barvou palety, která se posouvá jako na desktopu; `PotatoBackdrop.Draw` dostává hodiny (`_wallClock`) a položka kresby umí `Animate`. Anvil 14,19/10,11 ms proti 14,21/10,06 — nic. Nárok hlášen v komentáři #829 předem.
+- ⚠ Osamělý základ Anvilu vyšel 9,1 ms při první studené spuštění základního buildu; opakovaná dvojice 14,21/14,19. Při podezřelém čísle dvojici opakovat.
+- Otevřené: okna domů a erupce sopky (ThinkPad), verdikt oka majitele na první kolo.
+
 ## 2026-10-14 — #829 verdikt oka, první kolo — Pi, Claude Code (584de7d2)
 - majitel (verdikt na 14 scén): stromy, Měsíc, Space, sopka, město, neon, sen dobré; aurora bez země a stromů; jeskyně hnědá, krystaly nejsou krystaly; Grid bez mřížky; Měsíc bez hvězd a Země; Space bez velké planety; šapitó moc září; „možná“ erupce, okna domů, létající útvary snu.
 - Hotovo (větev `829-potato-verdict-round-1`): planeta Space (koule, pásy, bouře, svícená rigem), hvězdy a Země nad Měsícem, mřížka Gridu (tenké kvádry, každá druhá čára stopa), jeskyně chladnější a krystaly jako šestiboké hranoly se špičkou, šapitó na zlomku barev a tmavší ke koruně, sen v barvách desktopu (cyklus palety kolem jedné). Cantor 15,22/10,78 proti 14,63/10,40, ostatní v šumu. Auroru se zemí a lesem jsem rozepsal souběžně s ThinkPadem (47c0d7df), jeho verze je na mainu, moje šla pryč.
