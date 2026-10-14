@@ -114,7 +114,6 @@ namespace Prazsky.Core
         private EffectParameter _worldParam;
         private EffectParameter _viewParam;
         private EffectParameter _projectionParam;
-        private EffectPass _effectPass;
 
         private int _domeNumber;
 
@@ -135,7 +134,6 @@ namespace Prazsky.Core
                 _worldParam = value?.Parameters["World"];
                 _viewParam = value?.Parameters["View"];
                 _projectionParam = value?.Parameters["Projection"];
-                _effectPass = value?.CurrentTechnique.Passes[0];
             }
         }
 
@@ -579,7 +577,9 @@ namespace Prazsky.Core
             _graphicsDevice.SetVertexBuffer(_vertexBuffer);
             _graphicsDevice.Indices = _indexBuffer;
 
-            _effectPass.Apply();
+            //The effect's current technique, not a pass cached when the effect was set: the Potato host selects a scene's
+            //own figure on the same effect (#829, PotatoSky.fx's PotatoSkySpace and the rest) before this draw
+            _effect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, TRIANGLE_COUNT);
         }
 

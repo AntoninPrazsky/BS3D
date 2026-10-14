@@ -100,8 +100,11 @@ float3 Hash33(float3 p)
 }
 
 //One layer of stars: a cube lattice over the direction scaled by cells, at most one star in a cell, jittered over
-//it, lit by its own roll against chance and as bright as a steep law makes it (most stars faint). Only the pixel's
-//own cell is looked up, so a star on a cell wall is clipped - at a few pixels across, nothing the eye finds.
+//it, lit by its own roll against chance and as bright as a steep law makes it (most stars faint). The core is an
+//angle (radians), so a star is the same few pixels across whatever its layer's lattice; a jittered point far off the
+//sphere shows no star, which thins every layer by about the core's share of a cell. Only the pixel's own cell is
+//looked up, so a star on a cell wall is clipped - at a few pixels across, nothing the eye finds. (The first cut took
+//the core in cells: three cells of star, clipped square, a blizzard.)
 float StarLayer(float3 dir, float cells, float chance, float peak, float core)
 {
     float3 p = dir * cells;
@@ -132,9 +135,9 @@ float4 SpacePS(FigureOutput input) : COLOR0
     float nebula = pow(towards, 60.0) * (0.7 + 0.3 * sin(dir.y * 11.0 + dir.z * 9.0));
 
     //Three layers of stars, denser in the band, as the desktop's three are
-    float stars = StarLayer(dir, 34.0, 0.06 + 0.10 * band, 1.0, 0.09)
-        + StarLayer(dir, 70.0, 0.14 + 0.25 * band, 0.45, 0.075)
-        + StarLayer(dir, 130.0, 0.22 + 0.4 * band, 0.18, 0.07);
+    float stars = StarLayer(dir, 34.0, 0.10 + 0.12 * band, 1.0, 0.0048)
+        + StarLayer(dir, 70.0, 0.22 + 0.3 * band, 0.5, 0.0036)
+        + StarLayer(dir, 130.0, 0.3 + 0.4 * band, 0.22, 0.0028);
 
     float3 colour = SkyVoid + way + nebula * SkyColorB + stars * SkyColorC;
     return float4(ToDisplay(colour), 1);
@@ -173,7 +176,7 @@ float4 AuroraPS(FigureOutput input) : COLOR0
     float within = saturate((elevation - 0.1) / max(bandHeight, 0.01));
     float3 glow = lerp(SkyColorA, SkyColorB, within) * (intensity * band * curtain * pulse);
 
-    float stars = StarLayer(dir, 44.0, 0.07, 0.7, 0.085) + StarLayer(dir, 90.0, 0.18, 0.3, 0.075);
+    float stars = StarLayer(dir, 44.0, 0.1, 0.7, 0.0045) + StarLayer(dir, 90.0, 0.25, 0.3, 0.0032);
 
     float3 colour = SkyVoid + glow + stars * SkyColorC;
     return float4(ToDisplay(colour), 1);
@@ -191,7 +194,8 @@ float4 DreamPS(FigureOutput input) : COLOR0
     float3 bent = dir + warp * 0.3 * float3(sin(dir.z * 3.1 + t * 1.3), sin(dir.x * 2.7 - t), sin(dir.y * 3.7 + t * 0.7));
     float field = sin(bent.x * swirl * 3.1 + t * 2.0) + sin(bent.y * swirl * 4.3 - t * 1.4) + sin(bent.z * swirl * 2.6 + t * 1.1)
         + 0.5 * sin((bent.x + bent.z) * swirl * 7.1 - t * 2.3);
-    float u = 0.5 + 0.18 * field;
+    //A fraction of the palette's cycle across the field: the whole cycle was a rainbow
+    float u = 0.5 + 0.07 * field;
 
     //Inigo Quilez's cosine palette, the desktop's own
     float3 palette = SkyColorA + SkyColorB * cos(6.28318 * (SkyColorC * u + SkyColorD));
@@ -200,7 +204,7 @@ float4 DreamPS(FigureOutput input) : COLOR0
     float ribbon = 0.5 + 0.5 * sin(dot(bent, float3(9.1, 7.3, 5.7)) * swirl + SkyTime * fast);
     ribbon = pow(ribbon, sharpness);
 
-    float3 colour = SkyVoid + palette * (brightness * (0.6 + 0.5 * ribbon));
+    float3 colour = SkyVoid + palette * (brightness * (0.6 + 0.35 * ribbon));
 
     //Three soft orbs breathing in the murk, each in a colour of the palette, wheeling slowly round the vertical
     float sinWheel, cosWheel;

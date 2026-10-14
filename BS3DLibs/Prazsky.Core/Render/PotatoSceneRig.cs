@@ -116,7 +116,9 @@ namespace Prazsky.Core.Render
                     return new PotatoSkyLook("PotatoSkyDream", DREAM.DeepColor.ToVector3(),
                         palette.A.ToVector3(), palette.B.ToVector3(), palette.C.ToVector3(), palette.D.ToVector3(), Vector3.Up, Vector3.Up,
                         new Vector4(background.SwirlScale, background.SwirlWarp, background.SpeedSlow, background.SpeedFast),
-                        new Vector4(background.RibbonSharpness, background.Brightness, glows.OrbBrightness * 0.5f, 40f));
+                        //A third of the desktop's brightness: its marble sits under a bloom and a resolve this path has not, and
+                        //at the config's figure the sky was a pastel sheet
+                        new Vector4(background.RibbonSharpness, background.Brightness * 0.35f, glows.OrbBrightness * 0.3f, 40f));
                 }
                 default:
                     return null;
