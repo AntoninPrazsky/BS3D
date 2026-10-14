@@ -20,6 +20,9 @@ Pravidla:
 
 ---
 
+## 2026-10-14 — #863 zmrzlá koule na Potato je led, ne růžová — Pi, Claude Code (584de7d2)
+- majitel (test na Pi): na Help se Frozen kreslí růžově; je to led, má být bíloazurová. Hotovo (větev `863-potato-frozen-ice`): `PotatoKindLookFor` Frozen — plášť, záře i tón skoro celé `POTATO_ICE` (0,9/0,85/0,85 místo 0,65/0,6/0,65), led světlejší (0,72, 0,88, 1,0); barva koule je jen nádech, jako jádro desktopu skrz blok. Snímek `Research/pi-port/863/frozen/help-frozen-before-after-4x.png`.
+
 ## 2026-10-14 — #829 start nestaví NeonCity backdrop nadarmo — Pi, Claude Code (584de7d2)
 - Nález ThinkPad session (github-5f) z logu Windows dvojčete: `_scene` startuje jako NeonCity a `BuildScene` volal `EnsurePotatoBackdrop` před startovním `SetScene`, takže každý Potato start postavil a zahodil 3 950 věží. Hotovo (větev `829-potato-startup-backdrop`): volání v `BuildScene` pryč, první backdrop staví až startovní `SetScene`; v logu je teď jediný řádek `[potato] … backdrop`, ten vybrané scény.
 
