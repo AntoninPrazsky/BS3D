@@ -356,7 +356,6 @@ namespace Prazsky.Core.Render
                 SceneKind.Grid => Grid(graphicsDevice, potatoEffect, holeRadius, seedOffset),
                 SceneKind.Circus => BigTop(graphicsDevice, potatoEffect, holeRadius),
                 SceneKind.Space => Space(graphicsDevice, potatoEffect),
-                SceneKind.Aurora => Aurora(graphicsDevice, potatoEffect, holeRadius, seedOffset),
                 _ => null,
             };
         }
@@ -417,90 +416,6 @@ namespace Prazsky.Core.Render
                 }
                 backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new BoxMesh(graphicsDevice, 1f, 1f, 1f)), poles, tent.PoleColor.ToVector3() * DIM, null, "poles");
             }
-
-            return backdrop;
-        }
-
-        //The aurora's wood: the forest's trees as the shapes a fir and a broadleaf are from the gun, scaled by the config's
-        //authored figures and each tree's own scale in its instance
-        private const int CONE_SEGMENTS = 10;
-        private static readonly Vector3 AURORA_SNOW = new(0.50f, 0.56f, 0.68f);
-        private static readonly Vector3 AURORA_FIR = new(0.030f, 0.075f, 0.055f);
-        private static readonly Vector3 AURORA_BROADLEAF = new(0.045f, 0.085f, 0.040f);
-        private static readonly Vector3 AURORA_BARK = new(0.060f, 0.045f, 0.035f);
-        private static readonly Vector3 AURORA_ROCK = new(0.14f, 0.15f, 0.17f);
-
-        /// <summary>
-        /// The aurora's ground and wood (#829, the owner's eye: "the aurora looks good, only the ground and the trees are
-        /// missing"): the forest's clearing and hills from <see cref="TerrainMirror.Forest"/> under snow, and the trees
-        /// of <see cref="ForestScatter"/>'s own layout on the aurora's config and the launch's seed, as the desktop plants
-        /// them - a fir a cone on a short column, a broadleaf a crown on a taller one, a rock a blob - in the shapes and
-        /// the authored sizes of <c>ForestScatterRenderer</c>'s meshes, each tree's scale its instance's. Snow falls on
-        /// the desktop; none here.
-        /// </summary>
-        private static PotatoBackdrop Aurora(GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius, int seedOffset)
-        {
-            ForestSceneConfig config = new AuroraSceneConfig().Terrain;
-            float Height(float x, float z) => TerrainMirror.Forest(x, z, config);
-
-            var backdrop = new PotatoBackdrop(graphicsDevice);
-            backdrop.AddGround(graphicsDevice, potatoEffect, new PotatoTerrainMesh(graphicsDevice, SAVANNA_CELLS, SAVANNA_EXTENT, holeRadius, Height), AURORA_SNOW);
-
-            //The desktop's variants, one shape each here: six firs, four broadleaves, three rocks; the stumps, the snags
-            //and the logs are too small to read from the gun and are left out (laid out, since the scatter wants a variant of each, and not drawn)
-            var scatter = new ForestScatter(ForestScatterRenderer.DEFAULT_SEED + seedOffset, config, 6, 4, 3, 1, 1, 1, Height);
-            ForestTreeConfig trees = config.Trees;
-
-            var cone = backdrop.Own(new PotatoShellMesh(graphicsDevice, 0.5f, 0.02f, 0f, 1f, CONE_SEGMENTS, closeTop: true, inside: false));
-            var column = backdrop.Own(new PotatoShellMesh(graphicsDevice, 0.5f, 0.4f, 0f, 1f, 8, closeTop: true, inside: false));
-            var blob = backdrop.Own(new SphereMesh(graphicsDevice, 1f, PROXY_SLICES, PROXY_STACKS));
-
-            //The firs: the authored spruce's crown, a cone ConiferCrownHeight tall and twice ConiferCrownRadius wide, on its
-            //trunk; the six variants' width and height factors are the renderer's own
-            (float Width, float Height, float Trunk)[] firs = { (1f, 1f, 1f), (0.78f, 1.24f, trees.ConiferStandTrunk), (1.3f, 0.76f, 1f), (0.9f, 1.1f, 1f), (1.12f, 0.94f, 1f), (0.7f, 1.38f, trees.ConiferStandTrunk) };
-            var crowns = new List<ModelInstance>();
-            var trunks = new List<ModelInstance>();
-            for (int v = 0; v < scatter.Conifers.Length && v < firs.Length; v++)
-            {
-                (float width, float height, float trunk) = firs[v];
-                float trunkHeight = trees.ConiferTrunkHeight * height * trunk;
-                Matrix crown = Matrix.CreateScale(trees.ConiferCrownRadius * 2f * width, trees.ConiferCrownHeight * height, trees.ConiferCrownRadius * 2f * width) * Matrix.CreateTranslation(0f, trunkHeight, 0f);
-                Matrix stem = Matrix.CreateScale(trees.TrunkBaseRadius * 2f * width, trunkHeight + 1f, trees.TrunkBaseRadius * 2f * width);
-                foreach (ModelInstance tree in scatter.Conifers[v])
-                {
-                    crowns.Add(new ModelInstance(crown * tree.World, OPEN));
-                    trunks.Add(new ModelInstance(stem * tree.World, OPEN));
-                }
-            }
-            backdrop.AddPiece(graphicsDevice, potatoEffect, cone, crowns.ToArray(), AURORA_FIR, null, "firs");
-
-            //The broadleaves: a crown an ellipsoid of CrownRadius by CrownHeight over a trunk TrunkHeight tall
-            (float Width, float Height)[] broadleaves = { (1f, 1f), (0.82f, 1.3f), (1.22f, 0.85f), (0.95f, 1.12f) };
-            var canopies = new List<ModelInstance>();
-            for (int v = 0; v < scatter.Broadleaves.Length && v < broadleaves.Length; v++)
-            {
-                (float width, float height) = broadleaves[v];
-                float trunkHeight = trees.TrunkHeight * height;
-                Matrix crown = Matrix.CreateScale(trees.CrownRadius * width, trees.CrownHeight * height * 0.5f, trees.CrownRadius * width) * Matrix.CreateTranslation(0f, trunkHeight + trees.CrownHeight * height * 0.45f, 0f);
-                Matrix stem = Matrix.CreateScale(trees.TrunkBaseRadius * 2f * width, trunkHeight + 1f, trees.TrunkBaseRadius * 2f * width);
-                foreach (ModelInstance tree in scatter.Broadleaves[v])
-                {
-                    canopies.Add(new ModelInstance(crown * tree.World, OPEN));
-                    trunks.Add(new ModelInstance(stem * tree.World, OPEN));
-                }
-            }
-            if (canopies.Count > 0) backdrop.AddPiece(graphicsDevice, potatoEffect, blob, canopies.ToArray(), AURORA_BROADLEAF, null, "broadleaves");
-            if (trunks.Count > 0) backdrop.AddPiece(graphicsDevice, potatoEffect, column, trunks.ToArray(), AURORA_BARK, null, "trunks");
-
-            //The rocks: the three variants' boulders as blobs of their radius and height
-            (float Radius, float Height)[] rocks = { (config.Rocks.Radius, config.Rocks.Height), (config.Rocks.Radius * 1.25f, config.Rocks.Height * 0.7f), (config.Rocks.Radius * 0.8f, config.Rocks.Height * 1.5f) };
-            var boulders = new List<ModelInstance>();
-            for (int v = 0; v < scatter.Rocks.Length && v < rocks.Length; v++)
-            {
-                Matrix shape = Matrix.CreateScale(rocks[v].Radius, rocks[v].Height, rocks[v].Radius) * Matrix.CreateTranslation(0f, rocks[v].Height * 0.3f, 0f);
-                foreach (ModelInstance rock in scatter.Rocks[v]) boulders.Add(new ModelInstance(shape * rock.World, OPEN));
-            }
-            if (boulders.Count > 0) backdrop.AddPiece(graphicsDevice, potatoEffect, blob, boulders.ToArray(), AURORA_ROCK, null, "rocks");
 
             return backdrop;
         }
