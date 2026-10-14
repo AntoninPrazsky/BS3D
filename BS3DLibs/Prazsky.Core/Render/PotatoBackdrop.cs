@@ -186,8 +186,10 @@ namespace Prazsky.Core.Render
     }
 
     /// <summary>
-    /// A shell seen from inside (#829): a cylinder's wall between two heights and the disc that closes its top, normals
-    /// inward and down, wound for an eye inside it - the cavern's rock, which the desktop marches.
+    /// A shell seen from inside (#829): a frustum's wall between two heights and two radii - a cylinder, a cone, a
+    /// rake - and the disc that closes its top, normals inward (and up or down as the wall leans), wound for an eye
+    /// inside it. The cavern's rock and the big top's canvas, wall and seats, which the desktop marches or hits in
+    /// closed form.
     /// </summary>
     public sealed class PotatoShellMesh : IProceduralMesh, IDisposable
     {
@@ -196,9 +198,13 @@ namespace Prazsky.Core.Render
         public int PrimitiveCount { get; }
         public BoundingSphere BoundingSphere { get; }
 
-        public PotatoShellMesh(GraphicsDevice graphicsDevice, float radius, float bottom, float top, int segments)
+        /// <param name="keepSegment">Which of the wall's segments to build, by index, or null for all: the big top's
+        /// canvas is two shells over one cone, the red panels and the cream.</param>
+        /// <param name="closeTop">Whether the top is closed by a disc.</param>
+        public PotatoShellMesh(GraphicsDevice graphicsDevice, float radiusBottom, float radiusTop, float bottom, float top, int segments,
+            Func<int, bool> keepSegment = null, bool closeTop = true)
         {
-            (VertexPositionNormalTexture[] vertices, int[] indices) = Build(radius, bottom, top, segments);
+            (VertexPositionNormalTexture[] vertices, int[] indices) = Build(radiusBottom, radiusTop, bottom, top, segments, keepSegment, closeTop);
 
             PrimitiveCount = indices.Length / 3;
 
@@ -208,39 +214,45 @@ namespace Prazsky.Core.Render
             IndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.ThirtyTwoBits, indices.Length, BufferUsage.WriteOnly);
             IndexBuffer.SetData(indices);
 
+            float radius = MathF.Max(radiusBottom, radiusTop);
             BoundingSphere = new BoundingSphere(new Vector3(0f, (bottom + top) * 0.5f, 0f), MathF.Sqrt(radius * radius + (top - bottom) * (top - bottom) * 0.25f));
         }
 
         /// <summary>
         /// The shell's geometry, with no device: a ring of <paramref name="segments"/> quads for the wall and a fan for the
-        /// ceiling. A triangle is front-facing when its cross product points away from the eye, as the grid's does (seen
-        /// from above its cross points down); here the eye is inside, on the side the normal points to.
+        /// ceiling. The wall's normal is the slant's perpendicular turned inward - straight in on a cylinder, in and down
+        /// under a cone that narrows upward, in and up on a rake that widens. A triangle is front-facing when its cross
+        /// product points away from the eye, as the grid's does (seen from above its cross points down); here the eye is
+        /// inside, on the side the normal points to.
         /// </summary>
-        public static (VertexPositionNormalTexture[] Vertices, int[] Indices) Build(float radius, float bottom, float top, int segments)
+        public static (VertexPositionNormalTexture[] Vertices, int[] Indices) Build(float radiusBottom, float radiusTop, float bottom, float top, int segments,
+            Func<int, bool> keepSegment = null, bool closeTop = true)
         {
             if (segments < 3) throw new ArgumentOutOfRangeException(nameof(segments));
 
+            Vector2 slant = Vector2.Normalize(new Vector2(-(top - bottom), radiusTop - radiusBottom)); //(radial, y)
             var vertices = new VertexPositionNormalTexture[segments * 3 + 1];
             for (int i = 0; i < segments; i++)
             {
                 float angle = MathHelper.TwoPi * i / segments;
                 float cos = MathF.Cos(angle), sin = MathF.Sin(angle);
-                Vector3 inward = new(-cos, 0f, -sin);
+                Vector3 inward = Vector3.Normalize(new Vector3(slant.X * cos, slant.Y, slant.X * sin));
                 float u = (float)i / segments;
-                vertices[i] = new VertexPositionNormalTexture(new Vector3(radius * cos, bottom, radius * sin), inward, new Vector2(u, 1f));
-                vertices[segments + i] = new VertexPositionNormalTexture(new Vector3(radius * cos, top, radius * sin), inward, new Vector2(u, 0f));
-                vertices[2 * segments + i] = new VertexPositionNormalTexture(new Vector3(radius * cos, top, radius * sin), Vector3.Down, new Vector2(u, 0f));
+                vertices[i] = new VertexPositionNormalTexture(new Vector3(radiusBottom * cos, bottom, radiusBottom * sin), inward, new Vector2(u, 1f));
+                vertices[segments + i] = new VertexPositionNormalTexture(new Vector3(radiusTop * cos, top, radiusTop * sin), inward, new Vector2(u, 0f));
+                vertices[2 * segments + i] = new VertexPositionNormalTexture(new Vector3(radiusTop * cos, top, radiusTop * sin), Vector3.Down, new Vector2(u, 0f));
             }
             vertices[3 * segments] = new VertexPositionNormalTexture(new Vector3(0f, top, 0f), Vector3.Down, new Vector2(0.5f, 0.5f));
 
             var indices = new List<int>(segments * 9);
             for (int i = 0; i < segments; i++)
             {
+                if (keepSegment != null && !keepSegment(i)) continue;
                 int next = (i + 1) % segments;
                 int a = i, b = next, c = segments + i, d = segments + next;
                 AddFacing(vertices, indices, a, c, b);
                 AddFacing(vertices, indices, b, c, d);
-                AddFacing(vertices, indices, 3 * segments, 2 * segments + i, 2 * segments + next);
+                if (closeTop) AddFacing(vertices, indices, 3 * segments, 2 * segments + i, 2 * segments + next);
             }
 
             return (vertices, indices.ToArray());
@@ -337,8 +349,59 @@ namespace Prazsky.Core.Render
                 SceneKind.NeonCity when cityConfig != null => CityOf(graphicsDevice, potatoEffect, cityConfig, neon: true),
                 SceneKind.Cavern => Cavern(graphicsDevice, potatoEffect),
                 SceneKind.Grid => Grid(graphicsDevice, potatoEffect, holeRadius, seedOffset),
+                SceneKind.Circus => BigTop(graphicsDevice, potatoEffect, holeRadius),
                 _ => null,
             };
+        }
+
+        /// <summary>
+        /// The big top (#829): the desktop's is one analytic full-screen pass (<c>Circus.fx</c>), a handful of quadrics
+        /// shaded as cloth, velvet, seats and sawdust. Here the same quadrics as shells seen from inside: the canvas as
+        /// two cones over one, the red panels and the cream, closed by the crown; the curtained wall; the seats as the
+        /// rake from the ring's edge to the wall; the curb round the ring; the sawdust floor with the arena's hole; and
+        /// the king poles as boxes where the shader stands them. No bulbs and no spots: the house light is the rig's.
+        /// </summary>
+        private static PotatoBackdrop BigTop(GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius)
+        {
+            var config = new CircusSceneConfig();
+            CircusTentConfig tent = config.Tent;
+            CircusRingConfig ring = config.Ring;
+            CircusSeatingConfig seating = config.Seating;
+            float floor = ring.FloorY;
+            ModelInstance[] one = { new ModelInstance(Matrix.Identity, OPEN) };
+
+            var backdrop = new PotatoBackdrop(graphicsDevice);
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoTerrainMesh(graphicsDevice, 2, tent.WallRadius, holeRadius, (x, z) => floor)), one, ring.Sawdust.ToVector3(), null, "floor");
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoShellMesh(graphicsDevice, ring.CurbRadius, ring.CurbRadius, floor, floor + ring.CurbHeight, 48, closeTop: false)), one, ring.CurbRed.ToVector3(), null, "curb");
+
+            //The rake: a row's rise for every row's depth from the ring's edge to the wall
+            float rows = MathF.Max(1f, (seating.OuterRadius - seating.InnerRadius) / MathF.Max(seating.RowDepth, 0.1f));
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoShellMesh(graphicsDevice, seating.InnerRadius, seating.OuterRadius, floor, floor + rows * seating.RowRise, 48, closeTop: false)),
+                one, seating.SeatRed.ToVector3(), null, "seats");
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoShellMesh(graphicsDevice, tent.WallRadius, tent.WallRadius, floor, tent.WallTopY, 48, closeTop: false)), one, tent.Curtain.ToVector3(), null, "wall");
+
+            //The canvas: the shader's panels, alternating; an odd count is doubled so the ring closes on a pair
+            int panels = Math.Max(8, tent.PanelCount);
+            if (panels % 2 == 1) panels *= 2;
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoShellMesh(graphicsDevice, tent.WallRadius, tent.CrownRadius, tent.WallTopY, tent.CrownY, panels, i => i % 2 == 0)), one, tent.Red.ToVector3(), null, "canvas red");
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoShellMesh(graphicsDevice, tent.WallRadius, tent.CrownRadius, tent.WallTopY, tent.CrownY, panels, i => i % 2 == 1, closeTop: false)), one, tent.Cream.ToVector3(), null, "canvas cream");
+
+            //The king poles where Circus.fx stands them: (i + 0.5) of the circle each, at the pole radius, floor to crown
+            int poleCount = Math.Max(0, tent.KingPoleCount);
+            if (poleCount > 0)
+            {
+                var poles = new ModelInstance[poleCount];
+                float thickness = tent.KingPoleThickness * 2f;
+                for (int i = 0; i < poleCount; i++)
+                {
+                    float angle = (i + 0.5f) * MathHelper.TwoPi / poleCount;
+                    poles[i] = new ModelInstance(Matrix.CreateScale(thickness, tent.CrownY - floor, thickness)
+                        * Matrix.CreateTranslation(MathF.Cos(angle) * tent.KingPoleRadius, (floor + tent.CrownY) * 0.5f, MathF.Sin(angle) * tent.KingPoleRadius), OPEN);
+                }
+                backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new BoxMesh(graphicsDevice, 1f, 1f, 1f)), poles, tent.PoleColor.ToVector3(), null, "poles");
+            }
+
+            return backdrop;
         }
 
         private const int CAVE_SEGMENTS = 64, CRYSTAL_CLUSTERS = 8, CRYSTALS_PER_CLUSTER = 5;
@@ -356,7 +419,7 @@ namespace Prazsky.Core.Render
             float water = config.Water.LevelY, ceiling = config.Rock.CeilingY, radius = config.Rock.CaveRadius;
 
             var backdrop = new PotatoBackdrop(graphicsDevice);
-            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoShellMesh(graphicsDevice, radius, water - 2f, ceiling, CAVE_SEGMENTS)),
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoShellMesh(graphicsDevice, radius, radius, water - 2f, ceiling, CAVE_SEGMENTS)),
                 new[] { new ModelInstance(Matrix.Identity, OPEN) }, config.Rock.RockColor.ToVector3(), null, "cave");
             backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoTerrainMesh(graphicsDevice, 2, radius, 0f, (x, z) => water)),
                 new[] { new ModelInstance(Matrix.Identity, OPEN) }, config.Water.DeepColor.ToVector3(), config.Water.GlowColor.ToVector3() * 0.12f, "river");
