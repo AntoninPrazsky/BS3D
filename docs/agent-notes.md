@@ -20,6 +20,10 @@ Pravidla:
 
 ---
 
+## 2026-10-14 — #829 krok 7: šapitó na Potato — Pi, Claude Code (584de7d2)
+- Hotovo (větev `829-potato-bigtop`): kvadriky desktopu jako pláště zevnitř (`PotatoShellMesh` zobecněný na komolý kužel s filtrem segmentů): plachta jako dva kužely nad jedním (červené a smetanové panely, koruna), závěsová stěna, svah sedadel, obrubník, piliny s dírou, královské sloupy jako kvádry. BigTop 14,57/10,26 ms proti 13,90/9,69.
+- Stav #829: jedenáct ze čtrnácti vydaných scén má pozadí, space/dream/aurora stojí ve svém prázdnu s vlastním rigem; issue jde na verdikt oka (shipped-awaiting-verdict). Zbývá: hvězdy/záclony/sen v PotatoSky, střechy města.
+
 ## 2026-10-14 — #829 krok 6: vlastní rig a prázdno scén bez nebe na Potato — Pi, Claude Code (584de7d2)
 - Hotovo (větev `829-potato-scene-rig`): `PotatoSceneRig` odpovídá za sedm scén, které na desktopu nahrazují nebe (space, dream, jeskyně, Měsíc, aurora, Grid, cirkus): jejich rig a slunce z configů (přes `SkyLightRig.SceneRig`/`SceneSun`, jen když host nemá scene renderer) a barvu prázdna, na kterou se snímek maže místo dómu. Měsíc má černé nebe a nízké slunce, Grid tyrkysové kvádry na tmavém, sen fialový, cirkus teplý. Bez ceny (o jeden draw méně).
 - Otevřené: cirkus (stan), hvězdy/aurora/sen jako PotatoSky, střechy města; verdikt oka na 10 scén.

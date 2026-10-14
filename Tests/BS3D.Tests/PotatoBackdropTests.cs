@@ -90,7 +90,7 @@ namespace BS3D.Tests
         [Fact]
         public void TheShellFacesItsInsideAndClosesItsTop()
         {
-            (VertexPositionNormalTexture[] vertices, int[] indices) = PotatoShellMesh.Build(100f, -30f, 90f, 12);
+            (VertexPositionNormalTexture[] vertices, int[] indices) = PotatoShellMesh.Build(100f, 100f, -30f, 90f, 12);
 
             Assert.Equal(12 * 3 + 1, vertices.Length);
             Assert.Equal(12 * 3 * 3, indices.Length);
@@ -105,6 +105,29 @@ namespace BS3D.Tests
             //The wall's normals point at the axis, the ceiling's down
             for (int i = 0; i < 24; i++) Assert.True(Vector3.Dot(vertices[i].Normal, new Vector3(-vertices[i].Position.X, 0f, -vertices[i].Position.Z)) > 0f);
             for (int i = 24; i < vertices.Length; i++) Assert.Equal(Vector3.Down, vertices[i].Normal);
+        }
+
+        [Fact]
+        public void AConeLeansItsNormalsInAndARakeLeansThemUpAndAFilterKeepsItsSegments()
+        {
+            //A canvas narrowing to its crown: seen from under it, the normal points in and down
+            (VertexPositionNormalTexture[] canvas, int[] canvasIndices) = PotatoShellMesh.Build(96f, 9f, 12f, 70f, 16, i => i % 2 == 0, closeTop: false);
+            Assert.Equal(16 * 2 * 3 / 2, canvasIndices.Length);
+            for (int i = 0; i < 32; i++)
+            {
+                Vector3 n = canvas[i].Normal;
+                Assert.True(Vector3.Dot(n, new Vector3(-canvas[i].Position.X, 0f, -canvas[i].Position.Z)) > 0f, "in");
+                Assert.True(n.Y < 0f, "down");
+            }
+            for (int i = 0; i < canvasIndices.Length; i += 3)
+            {
+                VertexPositionNormalTexture a = canvas[canvasIndices[i]], b = canvas[canvasIndices[i + 1]], c = canvas[canvasIndices[i + 2]];
+                Assert.True(Vector3.Dot(Vector3.Cross(b.Position - a.Position, c.Position - a.Position), a.Normal) < 0f, $"triangle {i / 3} faces away from the inside");
+            }
+
+            //A rake widening as it rises: in and up
+            (VertexPositionNormalTexture[] rake, _) = PotatoShellMesh.Build(51f, 92f, -13.5f, 6f, 8, closeTop: false);
+            for (int i = 0; i < 16; i++) Assert.True(rake[i].Normal.Y > 0f, "up");
         }
 
         [Fact]
