@@ -355,6 +355,7 @@ namespace Prazsky.Core.Render
                 SceneKind.Cavern => Cavern(graphicsDevice, potatoEffect),
                 SceneKind.Grid => Grid(graphicsDevice, potatoEffect, holeRadius, seedOffset),
                 SceneKind.Circus => BigTop(graphicsDevice, potatoEffect, holeRadius),
+                SceneKind.Aurora => Aurora(graphicsDevice, potatoEffect, holeRadius, seedOffset),
                 _ => null,
             };
         }
@@ -736,6 +737,80 @@ namespace Prazsky.Core.Render
             return backdrop;
         }
 
+        //The aurora's stand (#829, the owner's "the trees are missing"): the desktop's is a second planting of
+        //ForestScatter, pure spruce, on the host (ForestScatterRenderer over AuroraSceneConfig.Terrain, DEFAULT_SEED plus
+        //the launch's roll). Here the same planting on the same seed, every spruce a cone on a stem in its variant's own
+        //proportions (ForestScatterRenderer.CONIFER_VARIANTS, the one copy): a TreeMesh of nine whorls is thousands of
+        //vertices, and from the gun the stand, 52 to 430 units out, is its silhouette - a wall of spires on bare stems
+        //over the snow Forest.fx lays there. The grid runs past the stand's last tree and the desktop's haze
+        private const int AURORA_EXTENT_MARGIN = 60, SPRUCE_SEGMENTS = 8;
+        private const float SPRUCE_TIP = 0.04f, SPRUCE_SNOW_SHARE = 0.08f, SNOW_DARK_SHARE = 0.25f;
+
+        private static PotatoBackdrop Aurora(GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius, int seedOffset)
+        {
+            ForestSceneConfig terrain = new AuroraSceneConfig().Terrain;
+            ForestTreeConfig trees = terrain.Trees;
+            float Height(float x, float z) => TerrainMirror.Forest(x, z, terrain);
+
+            var backdrop = new PotatoBackdrop(graphicsDevice);
+
+            //The floor: the config's ForestColor is the cool white of #462, pulled a little towards its dark for the
+            //hollows a grid lit at the vertex cannot shade
+            float extent = MathF.Max(trees.MaxRadius, terrain.HorizonHazeDistance) + AURORA_EXTENT_MARGIN;
+            Vector3 snow = Vector3.Lerp(terrain.ForestColor.ToVector3(), terrain.ForestColorDark.ToVector3(), SNOW_DARK_SHARE);
+            backdrop.AddGround(graphicsDevice, potatoEffect, new PotatoTerrainMesh(graphicsDevice, RELIEF_CELLS, extent, holeRadius, Height), snow);
+
+            //Planted where the desktop plants it: the same seed and the same count of spruce variants (the conifers are
+            //the planting's first draw on its rng, so the kinds after them, one variant each here, cannot move a spruce),
+            //on the ground as THIS grid draws it, so a foot sits on the drawn snow (the Moon's lesson)
+            var scatter = new ForestScatter(ForestScatterRenderer.DEFAULT_SEED + seedOffset, terrain,
+                ForestScatterRenderer.CONIFER_VARIANTS.Length, 1, 1, 1, 1, 1,
+                (x, z) => TerrainMirror.OnGrid(Height, RELIEF_CELLS + 1, extent * 2f, x, z));
+
+            PotatoShellMesh stem = backdrop.Own(new PotatoShellMesh(graphicsDevice, 0.5f, 0.4f, 0f, 1f, SPRUCE_SEGMENTS, closeTop: false, inside: false));
+            PotatoShellMesh crown = backdrop.Own(new PotatoShellMesh(graphicsDevice, 1f, SPRUCE_TIP, 0f, 1f, SPRUCE_SEGMENTS, closeTop: true, inside: false));
+
+            int count = 0;
+            foreach (ModelInstance[] variant in scatter.Conifers) count += variant.Length;
+            var stems = new ModelInstance[count];
+            var crowns = new ModelInstance[count];
+            int at = 0;
+            for (int v = 0; v < scatter.Conifers.Length; v++)
+            {
+                foreach (ModelInstance planted in scatter.Conifers[v])
+                {
+                    (Matrix stemWorld, Matrix crownWorld) = SpruceProxies(trees, ForestScatterRenderer.CONIFER_VARIANTS[v], planted.World);
+                    stems[at] = new ModelInstance(stemWorld, OPEN);
+                    crowns[at++] = new ModelInstance(crownWorld, OPEN);
+                }
+            }
+
+            //The crown's colour is the needles' with a share of the snow the desktop lays along the whorls' tops
+            Vector3 needles = Vector3.Lerp(trees.ConiferColor.ToVector3(), trees.CrownSnowColor.ToVector3(), trees.CrownSnow * SPRUCE_SNOW_SHARE);
+            backdrop.AddPiece(graphicsDevice, potatoEffect, stem, stems, trees.TrunkColor.ToVector3(), null, "stems");
+            backdrop.AddPiece(graphicsDevice, potatoEffect, crown, crowns, needles, null, "spruces");
+
+            return backdrop;
+        }
+
+        /// <summary>
+        /// A spruce of the Potato stand (#829) as its two proxies in world space: the stem, a unit column (radius 0.5 at
+        /// the foot, 1 tall) scaled to the variant's trunk, and the crown, a unit cone (radius 1 at the skirt, the tip at
+        /// y 1) scaled to the variant's crown and stood on the stem's top - the proportions <see cref="ForestScatterRenderer"/>
+        /// builds the variant's <see cref="TreeMesh"/> with, so a stand of cones is the desktop's stand in silhouette.
+        /// </summary>
+        /// <param name="world">The planted instance's world, the planting's scale and lean included.</param>
+        public static (Matrix Stem, Matrix Crown) SpruceProxies(ForestTreeConfig trees, ForestScatterRenderer.SpruceVariant variant, Matrix world)
+        {
+            float trunkHeight = trees.ConiferTrunkHeight * variant.Height * (variant.Stand ? trees.ConiferStandTrunk : 1f);
+            float trunkRadius = trees.TrunkBaseRadius * variant.Width;
+            float crownRadius = trees.ConiferCrownRadius * variant.Width;
+            float crownHeight = trees.ConiferCrownHeight * variant.Height;
+            Matrix stem = Matrix.CreateScale(trunkRadius * 2f, trunkHeight, trunkRadius * 2f) * world;
+            Matrix crown = Matrix.CreateScale(crownRadius, crownHeight, crownRadius) * Matrix.CreateTranslation(0f, trunkHeight, 0f) * world;
+            return (stem, crown);
+        }
+
         //A scatter mesh with more vertices than this is drawn as a blob (#829): the savanna as the desktop plants it is
         //1.2 million vertices a frame (a canopy is 9,000, a termite mound 50,000), and V3D's binning runs the coordinate
         //shader for every vertex handed over (#804), so a far plant is its silhouette - an ellipsoid of its bounding
@@ -806,11 +881,11 @@ namespace Prazsky.Core.Render
             _census.Add($"{what} {mesh.PrimitiveCount * 3}");
         }
 
-        /// <param name="blobOver">A mesh with more vertices than this is drawn as a blob of its bounding sphere.</param>
         //A trunk's column: a unit cylinder, a little narrower at the top, closed, seen from outside; scaled per tree
         private const int COLUMN_SEGMENTS = 8;
         private const float TRUNK_WIDTH = 0.16f, TRUNK_OVER_CENTRE = 0.2f;
 
+        /// <param name="blobOver">A mesh with more vertices than this is drawn as a blob of its bounding sphere.</param>
         private void AddScatter(GraphicsDevice graphicsDevice, Effect potatoEffect, ScatterBucket[] buckets, int blobOver = PROXY_OVER_VERTICES)
         {
             SphereMesh proxy = null;
