@@ -38,6 +38,29 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void TheThreeSkyScenesHaveALookAndTheOthersNone()
+        {
+            foreach (SceneKind scene in System.Enum.GetValues<SceneKind>())
+            {
+                PotatoSceneRig.PotatoSkyLook look = PotatoSceneRig.SkyLookOf(scene);
+                bool expected = scene is SceneKind.Space or SceneKind.Aurora or SceneKind.Dream;
+                Assert.Equal(expected, look != null);
+                if (look != null)
+                {
+                    Assert.StartsWith("PotatoSky", look.Technique);
+                    Assert.True(PotatoSceneRig.TryGetVoid(scene, out Vector3 void_));
+                    Assert.Equal(void_, look.Void);
+                }
+            }
+
+            PotatoSceneRig.PotatoSkyLook aurora = PotatoSceneRig.SkyLookOf(SceneKind.Aurora);
+            var config = new AuroraSceneConfig();
+            Assert.Equal(config.Aurora.ColorLow.ToVector3(), aurora.ColorA);
+            Assert.Equal(config.Aurora.ColorHigh.ToVector3(), aurora.ColorB);
+            Assert.Equal(config.Aurora.BandHeight, aurora.Params.Y);
+        }
+
+        [Fact]
         public void TheMoonsSunIsLowAndUp()
         {
             Assert.True(PotatoSceneRig.TryGetSunDirection(SceneKind.Moon, out Vector3 sun));

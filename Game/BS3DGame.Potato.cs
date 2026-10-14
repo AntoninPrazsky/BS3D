@@ -127,6 +127,9 @@ namespace BS3D
         /// </summary>
         private PotatoBackdrop _potatoBackdrop;
 
+        /// <summary>The scene's own sky where it has one on this path (space, the aurora, the dream), rebuilt with the backdrop.</summary>
+        private PotatoSkyFigure _potatoSkyFigure;
+
         /// <summary>
         /// The backdrop of the current scene, rebuilt when the scene changes. Nothing before the effect is loaded (the
         /// startup's scene pick runs before LoadContent), so the call after the island is built makes the first one.
@@ -134,6 +137,9 @@ namespace BS3D
         private void EnsurePotatoBackdrop()
         {
             if (!PotatoPath || _instancingEffect == null) return;
+
+            _potatoSkyFigure?.Dispose();
+            _potatoSkyFigure = PotatoSkyFigure.For(_scene, GraphicsDevice);
 
             _potatoBackdrop?.Dispose();
             _potatoBackdrop = PotatoBackdrop.For(_scene, GraphicsDevice, _instancingEffect, ArenaIsland.TERRAIN_HOLE_RADIUS, _sceneSeedOffset, _cityConfig);
@@ -161,7 +167,14 @@ namespace BS3D
             //clear is never seen; it is the horizon, display-encoded, only so that a frame without the dome would still
             //read as sky
             if (PotatoSceneRig.TryGetVoid(_scene, out Vector3 voidLinear))
+            {
                 GraphicsDevice.Clear(new Color(ColorSpace.LinearToSrgb(voidLinear)));
+
+                //Space, the aurora and the dream have a picture of their own (#829, PotatoSky.fx's figures): a finer sphere
+                //drawn with the scene's technique and its stars over it, the void under them. Nothing is drawn by a build
+                //ahead of its compiled effect (GamePi/Shaders/Compiled), which keeps the void
+                _potatoSkyFigure?.Draw(_skyEffect, _camera, _wallClock);
+            }
             else
             {
                 GraphicsDevice.Clear(new Color(ColorSpace.LinearToSrgb(_rig.HorizonLinear)));

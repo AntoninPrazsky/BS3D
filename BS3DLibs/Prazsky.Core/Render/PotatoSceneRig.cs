@@ -76,5 +76,53 @@ namespace Prazsky.Core.Render
 
         private static SceneLightRig Of(Rgb skyAmbient, Rgb groundAmbient, Rgb keyTint, Rgb backTint) =>
             new(skyAmbient.ToVector3(), groundAmbient.ToVector3(), keyTint.ToVector3(), backTint.ToVector3());
+
+        /// <summary>
+        /// What <c>PotatoSky.fx</c> draws on the dome for a scene that replaces the sky with a picture of its own (#829):
+        /// the technique and its uniforms, the scene's config figures in the slots the shader's header names. Null for
+        /// a scene whose void is all there is (the cavern and the big top stand inside their backdrops; the Moon and the
+        /// Grid keep their black).
+        /// </summary>
+        public sealed record PotatoSkyLook(string Technique, Vector3 Void, Vector3 ColorA, Vector3 ColorB, Vector3 ColorC, Vector3 ColorD,
+            Vector3 Axis, Vector3 Axis2, Vector4 Params, Vector4 Params2);
+
+        private static readonly Vector3 MILKY_WAY_AXIS = Vector3.Normalize(new Vector3(0.38f, 0.82f, 0.43f));
+        private static readonly Vector3 NEBULA_DIRECTION = Vector3.Normalize(new Vector3(-0.55f, 0.35f, -0.76f));
+
+        public static PotatoSkyLook SkyLookOf(SceneKind scene)
+        {
+            switch (scene)
+            {
+                case SceneKind.Space:
+                {
+                    SpaceMilkyWayConfig way = SPACE.MilkyWay;
+                    return new PotatoSkyLook("PotatoSkySpace", SPACE.VoidColor.ToVector3(),
+                        way.Color.ToVector3() * way.Brightness, SPACE.NebulaOne.Color.ToVector3() * 0.05f, new Vector3(0.95f, 0.97f, 1.05f),
+                        way.CoreColor.ToVector3() * way.Brightness * 1.6f, MILKY_WAY_AXIS, NEBULA_DIRECTION, Vector4.Zero, Vector4.Zero);
+                }
+                case SceneKind.Aurora:
+                {
+                    AuroraSkyConfig sky = AURORA.Aurora;
+                    return new PotatoSkyLook("PotatoSkyAurora", AURORA.VoidColor.ToVector3(),
+                        sky.ColorLow.ToVector3(), sky.ColorHigh.ToVector3(), new Vector3(0.9f, 0.95f, 1.05f), Vector3.Zero, Vector3.Up, Vector3.Up,
+                        new Vector4(sky.Intensity * 0.5f, sky.BandHeight, sky.RayStrength, sky.PulseDepth),
+                        new Vector4(sky.DriftSpeed, sky.MorphSpeed, sky.CurtainScale, sky.RayScale));
+                }
+                case SceneKind.Dream:
+                {
+                    DreamPaletteConfig palette = DREAM.Palette;
+                    DreamBackgroundConfig background = DREAM.Background;
+                    DreamGlowsConfig glows = DREAM.Glows;
+                    return new PotatoSkyLook("PotatoSkyDream", DREAM.DeepColor.ToVector3(),
+                        palette.A.ToVector3(), palette.B.ToVector3(), palette.C.ToVector3(), palette.D.ToVector3(), Vector3.Up, Vector3.Up,
+                        new Vector4(background.SwirlScale, background.SwirlWarp, background.SpeedSlow, background.SpeedFast),
+                        //A third of the desktop's brightness: its marble sits under a bloom and a resolve this path has not, and
+                        //at the config's figure the sky was a pastel sheet
+                        new Vector4(background.RibbonSharpness, background.Brightness * 0.35f, glows.OrbBrightness * 0.3f, 40f));
+                }
+                default:
+                    return null;
+            }
+        }
     }
 }

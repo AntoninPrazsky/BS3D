@@ -20,6 +20,9 @@ Pravidla:
 
 ---
 
+## 2026-10-14 — #829 hvězdy, záclony a sen v PotatoSky — Pi, Claude Code (584de7d2)
+- majitel: hvězdy a záclony pro space, aurora a dream v PotatoSky. Hotovo (větev `829-potato-sky-figures`): `PotatoSkyFigure` — koule 48×96 kolem kamery, jejíž vertex shader počítá Mléčnou dráhu s mlhovinou, záclony polární záře nebo mramor snu s koulemi světla (`PotatoSkySpace/Aurora/Dream`), a hvězdy jako dávka 900–1400 malých čtverečků (`PotatoSkyStars`), uniformy z configu scény (`PotatoSceneRig.SkyLookOf`). Analemma 13,64/9,97 ms proti 13,40/9,33, Anchor 14,17/9,85 proti 13,52/9,50, Anvil 14,14/10,08 proti 13,60/9,66.
+- ⚠ První řez počítal totéž po pixelech: +12,5 ms nativně (13,4 → 25,9). Co je hladké, patří do vrcholu; bod je čtvereček. Tři kola kompilace shaderu v CI (`fetch.sh`).
 ## 2026-10-14 — #829 #863 Potato na Windows proti Pi, nabídka pomoci — ThinkPad, Claude Code (github-5f)
 - majitel: Pi session dělá port scén a druhů kvůli vydání pro další hráče; zeptat se jí, zda nepotřebuje pomoc z Windows. Nabídka je v komentáři #829 (desktopové reference, DX11 dvojče, lokální kompilace GL, oko, rozdělení práce); zatím bez odpovědi.
 - Windows Potato (#808) na mainu 247c0698: 16 běhů (jedna úroveň na scénu, Caldera, `help=4`, fullscreen 1080p), bez výjimky, každá scéna má řádek `[potato] … backdrop` se stejným sčítáním jako na Pi a snímky odpovídají záběrům z Pi; DX11 kompilace `PotatoSky.fx` z větve `829-potato-sky-figures` prošla CI.
