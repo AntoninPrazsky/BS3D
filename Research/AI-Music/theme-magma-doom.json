@@ -1,28 +1,76 @@
 {
-    "file":  "theme-magma-doom.wav",
-    "created":  "2026-09-23",
-    "issue":  486,
-    "family":  "magma",
-    "chapter":  "The Eruption (volcano) - new: heat, weight, drums",
-    "purpose":  "Master of Game/Music/magma-doom.ogg, one of the magma family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "Slow heavy doom instrumental: crushing down-tuned guitar chords, slow massive drums, low bass rumble, ominous synth drones, glowing and menacing, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  92,
-                    "keyscale":  "D minor",
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-magma-doom.wav: 99.1s loop = source 4.43s..103.50s (38.04 bars at 92.2 bpm), crossfade 1.30s | context match 0.839 (best 0.889) | crossfade rhythm r=0.42 vs the track a bar later r=0.42: in time | spectrum cos=0.75"
-                 ],
-    "measured":  "generate-music.ps1 end to end 58.7 s (ace-lm + ace-synth + loop cut)",
-    "rendered":  true
+    "file": "theme-magma-doom.wav",
+    "created": "2026-10-14",
+    "issue": 841,
+    "family": "magma",
+    "chapter": "The Eruption (volcano) - regenerated on the desert's ember model (#841): a lead line the ear can follow, the heat carried by heavy guitar and big drums, not by noise, sub bass or high clatter",
+    "purpose": "Master of Game/Music/magma-doom.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-841 on the desktop, with its .raw.wav); this sidecar is committed beside the .ogg.",
+    "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-night-magma.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
+    "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+    "license": "ACE-Step 1.5: MIT (code and weights)",
+    "request": {
+        "caption": "Slow heavy stoner doom rock instrumental: a crushing down-tuned guitar riff with a memorable melodic hook, a wailing melodic lead guitar singing over it, slow powerful rock drums with a steady backbeat, thick bass guitar following the riff, a short clean guitar breakdown that erupts back into the full riff, the amplifier pushed harder as it builds, glowing, menacing and hot, warm mid-forward guitar tone, modern heavy production, wide stereo mix with guitars panned left and right, no vocals",
+        "lm_negative_prompt": "vocals, singing, choir, audience applause, crowd noise, live recording, ambient drone, synth drones, low rumble, boomy sub bass, long quiet intro, free tempo, rubato, siren synths, industrial noise textures, white noise sweeps, harsh sizzling hi-hats, long drum-only sections, drum solo",
+        "instrumental": true,
+        "use_cot_caption": false,
+        "duration": 120,
+        "bpm": 92,
+        "keyscale": "D minor",
+        "seed": 114383726,
+        "inference_steps": 8,
+        "output_format": "wav32"
+    },
+    "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+    "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-night-magma\\theme-magma-doom-c1.wav: 58.0s loop = source 24.57s..82.60s (21.99 bars at 91.0 bpm), crossfade 1.32s | context match 0.799 (best 0.846) | crossfade rhythm r=0.90 vs the track a bar later r=0.77: in time | spectrum cos=0.87"
+    ],
+    "lm_check": {
+        "request0_captured": true,
+        "caption_verbatim": true,
+        "seed_in_request0": 114383726,
+        "bpm_in_request0": 92,
+        "keyscale_in_request0": "D minor",
+        "duration_in_request0": 120.0
+    },
+    "measured": "generate-music.ps1 end to end 59,0 s (ace-lm + ace-synth + loop cut), exit 0",
+    "rendered": true,
+    "chosen": {
+        "candidate": "c1",
+        "round": 1,
+        "of": [
+            "c1",
+            "c2",
+            "c3"
+        ],
+        "why": "200 Hz-2 kHz 13.6 % (old 4.7 %, the lowest of the family), 0.4 % above 6 kHz, tonal mid 80 %, flatness 0.06, 3.57 held-note changes/s (old 1.47, a drone), tempo wander 0.05 % (old 5.47 %), no quiet hole (old: 57 % of the loop more than 10 dB down), wrap step +0.7 dB (p23). c3 matched it on the bands but jumps +15.4 dB across its wrap (p99); c2 fell back to 7.1 % in 200 Hz-2 kHz",
+        "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wrap step) beside the loop cut's own check, the breakdown dip and the stereo correlation; the table is on #841"
+    },
+    "alternatives": [
+        {
+            "candidate": "c2",
+            "seed": 1648770364,
+            "caption": "same brief",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-night-magma\\theme-magma-doom-c2.wav: 64.1s loop = source 32.78s..96.85s (23.98 bars at 89.8 bpm), crossfade 1.34s | context match 0.642 (best 0.680) | crossfade rhythm r=0.48 vs the track a bar later r=0.53: in time | spectrum cos=0.78"
+            ]
+        },
+        {
+            "candidate": "c3",
+            "seed": 1963594312,
+            "caption": "same brief",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-night-magma\\theme-magma-doom-c3.wav: 58.7s loop = source 15.98s..74.65s (21.96 bars at 89.8 bpm), crossfade 1.34s | context match 0.808 (best 0.814) | crossfade rhythm r=0.94 vs the track a bar later r=0.62: in time | spectrum cos=0.96"
+            ]
+        }
+    ],
+    "replaces": {
+        "issue": 486,
+        "created": "2026-09-23",
+        "caption": "Slow heavy doom instrumental: crushing down-tuned guitar chords, slow massive drums, low bass rumble, ominous synth drones, glowing and menacing, no vocals",
+        "negative": "vocals, singing, audience applause, crowd noise, live recording",
+        "loop_log": [
+            "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-magma-doom.wav: 99.1s loop = source 4.43s..103.50s (38.04 bars at 92.2 bpm), crossfade 1.30s | context match 0.839 (best 0.889) | crossfade rhythm r=0.42 vs the track a bar later r=0.42: in time | spectrum cos=0.75"
+        ],
+        "why_replaced": "200 Hz-2 kHz 4.7 % and 300 Hz-4 kHz 3.5 %, the lowest of all twenty measured; 93.5 % under 200 Hz; a drone (1.47 held-note changes/s, the lowest); local tempo wander 5.5 % (every other recording <= 0.5 %); 50 clipped runs; over half the loop (about 36 s at its head, 18 s at its tail) sits 11-32 dB under its loudest; heard by the owner on 109 Caldera"
+    }
 }

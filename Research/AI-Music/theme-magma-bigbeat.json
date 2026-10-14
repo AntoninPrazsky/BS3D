@@ -1,28 +1,103 @@
 {
-    "file":  "theme-magma-bigbeat.wav",
-    "created":  "2026-09-23",
-    "issue":  486,
-    "family":  "magma",
-    "chapter":  "The Eruption (volcano) - new: heat, weight, drums",
-    "purpose":  "Master of Game/Music/magma-bigbeat.ogg, one of the magma family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "Big beat instrumental: crunchy breakbeat drums, fuzz bass, funky guitar samples, siren synths, loud and swaggering, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  136,
-                    "keyscale":  "D minor",
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-magma-bigbeat.wav: 80.0s loop = source 29.10s..109.10s (46.04 bars at 138.1 bpm), crossfade 0.87s | context match 0.898 (best 0.948) | crossfade rhythm r=0.98 vs the track a bar later r=0.81: in time | spectrum cos=0.89"
-                 ],
-    "measured":  "generate-music.ps1 end to end 59.2 s (ace-lm + ace-synth + loop cut)",
-    "rendered":  true
+    "file": "theme-magma-bigbeat.wav",
+    "created": "2026-10-14",
+    "issue": 841,
+    "family": "magma",
+    "chapter": "The Eruption (volcano) - regenerated on the desert's ember model (#841): a lead line the ear can follow, the heat carried by heavy guitar and big drums, not by noise, sub bass or high clatter",
+    "purpose": "Master of Game/Music/magma-bigbeat.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-841 on the desktop, with its .raw.wav); this sidecar is committed beside the .ogg.",
+    "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-night-magma.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
+    "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+    "license": "ACE-Step 1.5: MIT (code and weights)",
+    "request": {
+        "caption": "Swaggering big beat rock instrumental: a fat fuzz guitar riff hook you can hum, a wah lead guitar melody answering it, a heavy funky rock drum groove with a big fat snare, bass guitar doubling the riff, a stripped breakdown on the riff alone before the full band slams back in, loud, hot and cocky, warm mid-forward guitars, modern punchy production, wide stereo mix with guitars panned left and right, no vocals",
+        "lm_negative_prompt": "vocals, singing, choir, audience applause, crowd noise, live recording, boomy sub bass, fuzz sub bass, siren synths, turntable scratches, sampled vocal chops, chopped breakbeat loops, industrial noise textures, white noise sweeps, harsh sizzling hi-hats, long drum-only sections, drum solo",
+        "instrumental": true,
+        "use_cot_caption": false,
+        "duration": 120,
+        "bpm": 136,
+        "keyscale": "D minor",
+        "seed": 2051193403,
+        "inference_steps": 8,
+        "output_format": "wav32"
+    },
+    "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+    "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-night-magma\\theme-magma-bigbeat-c2.wav: 77.6s loop = source 10.91s..88.55s (43.99 bars at 136.0 bpm), crossfade 0.88s | context match 0.914 (best 0.961) | crossfade rhythm r=0.94 vs the track a bar later r=0.62: in time | spectrum cos=0.97"
+    ],
+    "lm_check": {
+        "request0_captured": true,
+        "caption_verbatim": true,
+        "seed_in_request0": 2051193403,
+        "bpm_in_request0": 136,
+        "keyscale_in_request0": "D minor",
+        "duration_in_request0": 120.0
+    },
+    "measured": "generate-music.ps1 end to end 61,6 s (ace-lm + ace-synth + loop cut), exit 0",
+    "rendered": true,
+    "chosen": {
+        "candidate": "c2",
+        "round": 1,
+        "of": [
+            "c1",
+            "c2",
+            "c3",
+            "c4",
+            "c5",
+            "c6"
+        ],
+        "why": "200 Hz-2 kHz 17.0 % (old 9.6 %), 2.2 % above 6 kHz (old 6.7 %, the family's hissiest), tonal mid 53 % (old 35 %), 3.32 held-note changes/s, the best loop cut of the six (context 0.91, crossfade r 0.94 against 0.62, spectrum cos 0.97), a 78 s loop with a breakdown (10.8 dB dip), wrap step -0.5 dB (p11). Its 2.2 % above 6 kHz is a hair over ember's highest (2.0 %); no candidate of either round got under it, round 2's cymbal negative included (2.1-3.8 %)",
+        "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wrap step) beside the loop cut's own check, the breakdown dip and the stereo correlation; the table is on #841"
+    },
+    "alternatives": [
+        {
+            "candidate": "c1",
+            "seed": 424664752,
+            "caption": "same brief",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-night-magma\\theme-magma-bigbeat-c1.wav: 42.4s loop = source 30.05s..72.40s (24.03 bars at 136.2 bpm), crossfade 0.88s | context match 0.920 (best 0.943) | crossfade rhythm r=0.95 vs the track a bar later r=0.83: in time | spectrum cos=0.95"
+            ]
+        },
+        {
+            "candidate": "c3",
+            "seed": 936289644,
+            "caption": "same brief",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-night-magma\\theme-magma-bigbeat-c3.wav: 42.7s loop = source 37.63s..80.30s (24.04 bars at 135.2 bpm), crossfade 0.89s | context match 0.820 (best 0.867) | crossfade rhythm r=0.93 vs the track a bar later r=0.77: in time | spectrum cos=0.95"
+            ]
+        },
+        {
+            "candidate": "c4",
+            "seed": 1045473242,
+            "caption": "Swaggering big beat rock instrumental: a fat fuzz guitar riff hook you can hum, a wah lead guitar melody answering it, a heavy funky rock drum groove on kick, a big fat snare and toms with a dark ride cymbal, bass guitar doubling the riff, a stripped breakdown on the riff alone before the full band slams back in, loud, hot and cocky, warm dark mid-forward guitars, modern punchy production, wide stereo mix with guitars panned left and right, no vocals",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-night-magma\\theme-magma-bigbeat-c4.wav: 71.1s loop = source 24.09s..95.20s (40.04 bars at 135.1 bpm), crossfade 0.89s | context match 0.888 (best 0.933) | crossfade rhythm r=0.94 vs the track a bar later r=0.72: in time | spectrum cos=0.95"
+            ]
+        },
+        {
+            "candidate": "c5",
+            "seed": 1212026202,
+            "caption": "Swaggering big beat rock instrumental: a fat fuzz guitar riff hook you can hum, a wah lead guitar melody answering it, a heavy funky rock drum groove on kick, a big fat snare and toms with a dark ride cymbal, bass guitar doubling the riff, a stripped breakdown on the riff alone before the full band slams back in, loud, hot and cocky, warm dark mid-forward guitars, modern punchy production, wide stereo mix with guitars panned left and right, no vocals",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-night-magma\\theme-magma-bigbeat-c5.wav: 64.0s loop = source 13.45s..77.45s (35.99 bars at 135.0 bpm), crossfade 0.89s | context match 0.996 (best 0.996) | crossfade rhythm r=0.97 vs the track a bar later r=0.78: in time | spectrum cos=0.99"
+            ]
+        },
+        {
+            "candidate": "c6",
+            "seed": 841237237,
+            "caption": "Swaggering big beat rock instrumental: a fat fuzz guitar riff hook you can hum, a wah lead guitar melody answering it, a heavy funky rock drum groove on kick, a big fat snare and toms with a dark ride cymbal, bass guitar doubling the riff, a stripped breakdown on the riff alone before the full band slams back in, loud, hot and cocky, warm dark mid-forward guitars, modern punchy production, wide stereo mix with guitars panned left and right, no vocals",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-night-magma\\theme-magma-bigbeat-c6.wav: 58.4s loop = source 27.21s..85.65s (32.99 bars at 135.5 bpm), crossfade 0.89s | context match 0.155 (best 0.203) | crossfade rhythm r=0.39 vs the track a bar later r=0.73: BELOW the track's own timekeeping -- listen | spectrum cos=0.03"
+            ]
+        }
+    ],
+    "replaces": {
+        "issue": 486,
+        "created": "2026-09-23",
+        "caption": "Big beat instrumental: crunchy breakbeat drums, fuzz bass, funky guitar samples, siren synths, loud and swaggering, no vocals",
+        "negative": "vocals, singing, audience applause, crowd noise, live recording",
+        "loop_log": [
+            "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-magma-bigbeat.wav: 80.0s loop = source 29.10s..109.10s (46.04 bars at 138.1 bpm), crossfade 0.87s | context match 0.898 (best 0.948) | crossfade rhythm r=0.98 vs the track a bar later r=0.81: in time | spectrum cos=0.89"
+        ],
+        "why_replaced": "6.7 % above 6 kHz (ember <= 2.0 %), tonal mid 35 %, mid flatness 0.18, 300 Hz-4 kHz 6.3 %; heard by the owner on 109 Caldera"
+    }
 }
