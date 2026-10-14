@@ -201,10 +201,11 @@ namespace Prazsky.Core.Render
         /// <param name="keepSegment">Which of the wall's segments to build, by index, or null for all: the big top's
         /// canvas is two shells over one cone, the red panels and the cream.</param>
         /// <param name="closeTop">Whether the top is closed by a disc.</param>
+        /// <param name="inside">Whether the eye is inside (the cavern, the tent) or outside (a tree's trunk as a column).</param>
         public PotatoShellMesh(GraphicsDevice graphicsDevice, float radiusBottom, float radiusTop, float bottom, float top, int segments,
-            Func<int, bool> keepSegment = null, bool closeTop = true)
+            Func<int, bool> keepSegment = null, bool closeTop = true, bool inside = true)
         {
-            (VertexPositionNormalTexture[] vertices, int[] indices) = Build(radiusBottom, radiusTop, bottom, top, segments, keepSegment, closeTop);
+            (VertexPositionNormalTexture[] vertices, int[] indices) = Build(radiusBottom, radiusTop, bottom, top, segments, keepSegment, closeTop, inside);
 
             PrimitiveCount = indices.Length / 3;
 
@@ -226,23 +227,27 @@ namespace Prazsky.Core.Render
         /// inside, on the side the normal points to.
         /// </summary>
         public static (VertexPositionNormalTexture[] Vertices, int[] Indices) Build(float radiusBottom, float radiusTop, float bottom, float top, int segments,
-            Func<int, bool> keepSegment = null, bool closeTop = true)
+            Func<int, bool> keepSegment = null, bool closeTop = true, bool inside = true)
         {
             if (segments < 3) throw new ArgumentOutOfRangeException(nameof(segments));
 
-            Vector2 slant = Vector2.Normalize(new Vector2(-(top - bottom), radiusTop - radiusBottom)); //(radial, y)
+            //The normals face the eye: inward and the top's down for an eye inside, outward and up for one outside; the
+            //winding follows the normal in AddFacing either way
+            float facing = inside ? 1f : -1f;
+            Vector2 slant = Vector2.Normalize(new Vector2(-(top - bottom), radiusTop - radiusBottom)) * facing; //(radial, y)
+            Vector3 topNormal = inside ? Vector3.Down : Vector3.Up;
             var vertices = new VertexPositionNormalTexture[segments * 3 + 1];
             for (int i = 0; i < segments; i++)
             {
                 float angle = MathHelper.TwoPi * i / segments;
                 float cos = MathF.Cos(angle), sin = MathF.Sin(angle);
-                Vector3 inward = Vector3.Normalize(new Vector3(slant.X * cos, slant.Y, slant.X * sin));
+                Vector3 normal = Vector3.Normalize(new Vector3(slant.X * cos, slant.Y, slant.X * sin));
                 float u = (float)i / segments;
-                vertices[i] = new VertexPositionNormalTexture(new Vector3(radiusBottom * cos, bottom, radiusBottom * sin), inward, new Vector2(u, 1f));
-                vertices[segments + i] = new VertexPositionNormalTexture(new Vector3(radiusTop * cos, top, radiusTop * sin), inward, new Vector2(u, 0f));
-                vertices[2 * segments + i] = new VertexPositionNormalTexture(new Vector3(radiusTop * cos, top, radiusTop * sin), Vector3.Down, new Vector2(u, 0f));
+                vertices[i] = new VertexPositionNormalTexture(new Vector3(radiusBottom * cos, bottom, radiusBottom * sin), normal, new Vector2(u, 1f));
+                vertices[segments + i] = new VertexPositionNormalTexture(new Vector3(radiusTop * cos, top, radiusTop * sin), normal, new Vector2(u, 0f));
+                vertices[2 * segments + i] = new VertexPositionNormalTexture(new Vector3(radiusTop * cos, top, radiusTop * sin), topNormal, new Vector2(u, 0f));
             }
-            vertices[3 * segments] = new VertexPositionNormalTexture(new Vector3(0f, top, 0f), Vector3.Down, new Vector2(0.5f, 0.5f));
+            vertices[3 * segments] = new VertexPositionNormalTexture(new Vector3(0f, top, 0f), topNormal, new Vector2(0.5f, 0.5f));
 
             var indices = new List<int>(segments * 9);
             for (int i = 0; i < segments; i++)
@@ -802,9 +807,14 @@ namespace Prazsky.Core.Render
         }
 
         /// <param name="blobOver">A mesh with more vertices than this is drawn as a blob of its bounding sphere.</param>
+        //A trunk's column: a unit cylinder, a little narrower at the top, closed, seen from outside; scaled per tree
+        private const int COLUMN_SEGMENTS = 8;
+        private const float TRUNK_WIDTH = 0.16f, TRUNK_OVER_CENTRE = 0.2f;
+
         private void AddScatter(GraphicsDevice graphicsDevice, Effect potatoEffect, ScatterBucket[] buckets, int blobOver = PROXY_OVER_VERTICES)
         {
             SphereMesh proxy = null;
+            PotatoShellMesh column = null;
 
             foreach (ScatterBucket bucket in buckets)
             {
@@ -819,10 +829,11 @@ namespace Prazsky.Core.Render
                 //the grid is the ground here, and a blob of it would stand round the camera (seen: a black frame)
                 if (blob && bucket.Count == 1 && bucket.Mesh.BoundingSphere.Radius > GROUND_PATCH_RADIUS) continue;
 
+                bool trunkBucket = blob && bucket.Bark >= 0.5f;
                 if (blob)
                 {
-                    proxy ??= Own(new SphereMesh(graphicsDevice, 1f, PROXY_SLICES, PROXY_STACKS));
-                    mesh = proxy;
+                    if (trunkBucket) mesh = column ??= Own(new PotatoShellMesh(graphicsDevice, 0.5f, 0.4f, 0f, 1f, COLUMN_SEGMENTS, closeTop: true, inside: false));
+                    else mesh = proxy ??= Own(new SphereMesh(graphicsDevice, 1f, PROXY_SLICES, PROXY_STACKS));
                     leaves = false;
                 }
 
@@ -845,18 +856,17 @@ namespace Prazsky.Core.Render
                     instances[i] = new ModelInstance(bucket.Placed[i].World, open);
 
                     //The blob stands where the mesh's bounding sphere stands in the instance, shaped by what the bucket
-                    //is: a wood (bark) is a trunk, tall and thin; a crown, a bush or a mound is wider than tall. It keeps
-                    //the instance's occlusion and the rest. The savanna's heavy meshes are its woods (a trunk with its
-                    //branches is 5,000 to 9,000 vertices; the crown over it is 960 and stays itself)
+                    //is: a crown, a bush or a mound is an ellipsoid wider than tall; a wood (bark) is a trunk, a column
+                    //from the foot up to a little over the mesh's centre, where the crown hides its top - as an ellipsoid
+                    //as tall as the branches reach it stood out of the crown as a spike, the owner's first note on the
+                    //savanna and the meadow. The savanna's heavy meshes are its woods (a trunk with its branches is 5,000
+                    //to 9,000 vertices; the crown over it is 960 and stays itself)
                     if (blob)
                     {
                         BoundingSphere bounds = bucket.Mesh.BoundingSphere;
-                        bool trunk = bucket.Bark >= 0.5f;
-                        Vector3 size = trunk
-                            ? new Vector3(bounds.Radius * 0.12f, bounds.Radius * 0.7f, bounds.Radius * 0.12f)
-                            : new Vector3(bounds.Radius * 0.75f, bounds.Radius * 0.5f, bounds.Radius * 0.75f);
-                        Vector3 centre = trunk ? new Vector3(0f, bounds.Center.Y, 0f) : bounds.Center;
-                        Matrix local = Matrix.CreateScale(size) * Matrix.CreateTranslation(centre);
+                        Matrix local = trunkBucket
+                            ? Matrix.CreateScale(bounds.Radius * TRUNK_WIDTH, bounds.Center.Y + bounds.Radius * TRUNK_OVER_CENTRE, bounds.Radius * TRUNK_WIDTH)
+                            : Matrix.CreateScale(bounds.Radius * 0.75f, bounds.Radius * 0.5f, bounds.Radius * 0.75f) * Matrix.CreateTranslation(bounds.Center);
                         instances[i] = new ModelInstance(local * bucket.Placed[i].World, open);
                     }
                 }
@@ -864,7 +874,7 @@ namespace Prazsky.Core.Render
                 _draws.Add(new DrawItem { Renderer = renderer, Instances = instances, TwoSided = leaves });
                 VertexCount += mesh.PrimitiveCount * 3 * instances.Length;
                 BoundingSphere census = bucket.Mesh.BoundingSphere;
-                _census.Add($"{(blob ? "blob" : leaves ? "leaves" : "solid")} {instances.Length}x{mesh.PrimitiveCount * 3} {bucket.Mesh.GetType().Name} r{census.Radius:F1} c{census.Center.Y:F1} rgb({bucket.Diffuse.X:F2},{bucket.Diffuse.Y:F2},{bucket.Diffuse.Z:F2}) bark{bucket.Bark:F1} leaves{bucket.Leaves:F1}");
+                _census.Add($"{(trunkBucket ? "column" : blob ? "blob" : leaves ? "leaves" : "solid")} {instances.Length}x{mesh.PrimitiveCount * 3} {bucket.Mesh.GetType().Name} r{census.Radius:F1} c{census.Center.Y:F1} rgb({bucket.Diffuse.X:F2},{bucket.Diffuse.Y:F2},{bucket.Diffuse.Z:F2}) bark{bucket.Bark:F1} leaves{bucket.Leaves:F1}");
             }
         }
 

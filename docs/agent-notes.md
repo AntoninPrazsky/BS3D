@@ -20,6 +20,9 @@ Pravidla:
 
 ---
 
+## 2026-10-14 — #829 kmeny jako sloupy pod korunou — Pi, Claude Code (584de7d2)
+- majitel (test na Pi): kmeny na louce i savaně procházely korunami jako ostny; kmen má být jen dole a válcový. Hotovo (větev `829-potato-trunks`): kmen je `PotatoShellMesh` zvenčí (osm stěn, zavřený), od paty do kousku nad střed sítě, kde ho koruna schová; `PotatoShellMesh` umí líc ven (`inside: false`).
+- Snímky `Research/pi-port/829/savanna/giraffe-trunks.png`, `meadow/pennant-trunks.png`.
 ## 2026-10-14 — #829 hvězdy, záclony a sen v PotatoSky — Pi, Claude Code (584de7d2)
 - majitel: hvězdy a záclony pro space, aurora a dream v PotatoSky. Hotovo (větev `829-potato-sky-figures`): `PotatoSkyFigure` — koule 48×96 kolem kamery, jejíž vertex shader počítá Mléčnou dráhu s mlhovinou, záclony polární záře nebo mramor snu s koulemi světla (`PotatoSkySpace/Aurora/Dream`), a hvězdy jako dávka 900–1400 malých čtverečků (`PotatoSkyStars`), uniformy z configu scény (`PotatoSceneRig.SkyLookOf`). Analemma 13,64/9,97 ms proti 13,40/9,33, Anchor 14,17/9,85 proti 13,52/9,50, Anvil 14,14/10,08 proti 13,60/9,66.
 - ⚠ První řez počítal totéž po pixelech: +12,5 ms nativně (13,4 → 25,9). Co je hladké, patří do vrcholu; bod je čtvereček. Tři kola kompilace shaderu v CI (`fetch.sh`).

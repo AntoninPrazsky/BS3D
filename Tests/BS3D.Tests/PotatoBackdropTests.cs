@@ -128,6 +128,16 @@ namespace BS3D.Tests
             //A rake widening as it rises: in and up
             (VertexPositionNormalTexture[] rake, _) = PotatoShellMesh.Build(51f, 92f, -13.5f, 6f, 8, closeTop: false);
             for (int i = 0; i < 16; i++) Assert.True(rake[i].Normal.Y > 0f, "up");
+
+            //A column seen from outside: out, its top up, and wound for the eye outside
+            (VertexPositionNormalTexture[] column, int[] columnIndices) = PotatoShellMesh.Build(0.5f, 0.4f, 0f, 1f, 8, inside: false);
+            for (int i = 0; i < 16; i++) Assert.True(Vector3.Dot(column[i].Normal, new Vector3(column[i].Position.X, 0f, column[i].Position.Z)) > 0f, "out");
+            for (int i = 16; i < column.Length; i++) Assert.Equal(Vector3.Up, column[i].Normal);
+            for (int i = 0; i < columnIndices.Length; i += 3)
+            {
+                VertexPositionNormalTexture a = column[columnIndices[i]], b = column[columnIndices[i + 1]], c = column[columnIndices[i + 2]];
+                Assert.True(Vector3.Dot(Vector3.Cross(b.Position - a.Position, c.Position - a.Position), a.Normal) < 0f, $"triangle {i / 3} faces away from the outside");
+            }
         }
 
         [Fact]
