@@ -2159,7 +2159,7 @@ namespace Prazsky.Core.Render
         private static readonly Vector3 POTATO_BOMB_GLOW = new(1.0f, 0.05f, 0.015f);
         private static readonly Vector3 POTATO_ZAP_GLOW = new(0.45f, 0.75f, 1.0f);
         private static readonly Vector3 POTATO_ACID_GLOW = new(0.35f, 1.0f, 0.04f);
-        private static readonly Vector3 POTATO_ICE = new(0.60f, 0.80f, 1.0f);
+        private static readonly Vector3 POTATO_ICE = new(0.72f, 0.88f, 1.0f);
         private static readonly Vector3 POTATO_OLIVE = new(0.14f, 0.17f, 0.02f);
         private static readonly Vector3 POTATO_SPORE_GLOW = new(0.50f, 0.90f, 0.05f);
         private static readonly Vector3 POTATO_IRON = new(0.09f, 0.09f, 0.10f);
@@ -2220,7 +2220,10 @@ namespace Prazsky.Core.Render
                 BallShading.Zap => new(primary, POTATO_ZAP_GLOW, 0.12f, 0.9f, null, 1f, 1f, Vector3.Zero, 0f),
                 BallShading.Acid => new(primary, POTATO_ACID_GLOW, 0.08f, 0.3f, null, 1f, 1f, Vector3.Zero, 0f),
                 BallShading.Hollow => new(primary, primary, 1f, 0f, 0.15f, 1.5f, POTATO_HOLLOW_ALPHA, Vector3.Zero, 0f),
-                BallShading.Frozen => new(Vector3.Lerp(primary, POTATO_ICE, 0.65f), Vector3.Lerp(primary, POTATO_ICE, 0.6f), still, beat, 0.1f, 2f, 1f, POTATO_ICE, 0.65f),
+                //Ice, not the colour in it (the owner on the Pi's help page: a frozen magenta came out pink; "it is ice, it should be
+                //white-azure"): the block is almost all ice in casing, glow and tone, the colour a tint through it as the desktop's
+                //core shows through its block
+                BallShading.Frozen => new(Vector3.Lerp(primary, POTATO_ICE, 0.9f), Vector3.Lerp(primary, POTATO_ICE, 0.85f), still, beat, 0.1f, 2f, 1f, POTATO_ICE, 0.85f),
                 BallShading.Infectious => new(primary, primary, still, beat, 0.8f, 0.5f, 1f, Vector3.Zero, 0f),
                 BallShading.Gravity => new(primary, primary * 0.6f, still, beat, 0.08f, 2.5f, 1f, Vector3.Zero, 0f),
                 BallShading.Heavy => new(Vector3.Lerp(primary, POTATO_IRON, 0.6f), Vector3.Lerp(primary, POTATO_IRON, 0.6f) * 0.6f, still, beat, 1f, 0.25f, 1f, POTATO_IRON, 0.6f),
