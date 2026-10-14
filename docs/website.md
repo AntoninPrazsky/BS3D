@@ -13,6 +13,8 @@ npx eleventy                # the plain files in Web\_site, which is all the hos
 
 `_site/` and `node_modules/` are not committed. Eleventy only overwrites `_site`; `publish.ps1` deletes it before building, so a removed page does not linger in an upload.
 
+`package.json` **overrides `argparse` to 2.x for the whole tree.** Eleventy's `gray-matter` still pins js-yaml 3, whose own `argparse` 1.x brought in `sprintf-js`, which carries an advisory with no fixed version (GHSA-hp3w-g68c-fv3c) and which nothing the build runs ever calls: js-yaml 3 needs `argparse` only for its command-line script, and the override builds the same `_site` byte for byte. Drop the override once gray-matter moves to js-yaml 4. `npm audit` still names `braces` (through chokidar, every version to date), which has no fixed version either and is a build-time watcher, not anything the site serves.
+
 ## What is where
 
 | File | Holds |
