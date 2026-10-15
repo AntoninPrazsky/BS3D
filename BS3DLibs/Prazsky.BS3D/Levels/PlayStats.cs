@@ -15,9 +15,9 @@ namespace Prazsky.BS3D.Levels
     /// regenerated or retuned level starts its counts afresh as it starts a fresh board.
     /// <para>
     /// The same shape serves three uses: a row of the player's own totals (<see cref="PlayStats"/>), the change one event
-    /// makes (<see cref="PlayStatsRecorder"/> returns one), and a row of the anonymous batch the game sends to the score
-    /// service's <c>POST /v1/stats</c>, field for field. <b>Counters only</b>: nothing here says who, when, on which
-    /// machine or in what order.
+    /// makes (<see cref="PlayStatsRecorder"/> returns one), and a row of the batch, naming no player, that the game sends to
+    /// the score service's <c>POST /v1/stats</c>, field for field but <see cref="StartsToFirstClear"/>, which stays on the
+    /// machine. <b>Counters only</b>: nothing here says who, when, on which machine or in what order.
     /// </para>
     /// </summary>
     public sealed class LevelPlayCounts
@@ -71,9 +71,12 @@ namespace Prazsky.BS3D.Levels
 
         /// <summary>
         /// The starts counted on this board up to and including each first clear, summed: divided by
-        /// <see cref="FirstClears"/>, the tries a first clear took.
+        /// <see cref="FirstClears"/>, the tries a first clear took. <b>The player's own file only</b>: the game zeroes it in
+        /// what it sends, since the starts it counts include those made before the player turned online scores on, and a
+        /// zero is not written at all, so a batch never carries the field.
         /// </summary>
         [JsonPropertyName("startsToFirstClear")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         public int StartsToFirstClear { get; set; }
 
         /// <summary>Shots fired over every attempt, ended or left.</summary>
@@ -126,7 +129,7 @@ namespace Prazsky.BS3D.Levels
     /// <b>The counts observe and never decide</b>: nothing in the game reads them back. The skip stays a per-chapter
     /// budget exactly as #347 ruled, not something earned by losing. They are for the owner's level tuning
     /// (<c>Tools/ScoreSim --stats</c> prints a file's), and, while the player has online scores on, the changes are sent
-    /// as anonymous batches (the game's <c>OnlineScores</c>); this file itself never leaves the machine.
+    /// in batches that name no player (the game's <c>OnlineScores</c>); this file itself never leaves the machine.
     /// </para>
     /// </summary>
     public sealed class PlayStats

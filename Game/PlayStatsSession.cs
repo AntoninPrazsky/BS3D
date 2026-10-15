@@ -2,6 +2,7 @@ using BS3D.Online;
 using Prazsky.BS3D.Levels;
 using Prazsky.Core.Tools;
 using System;
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
@@ -14,9 +15,10 @@ namespace BS3D
     /// (whose rules are the library's), keeps the totals in <c>Stats.json</c> beside the save, and hands each change to
     /// the online client, which sends it only while the player has online scores on (<see cref="OnlineSession.SubmitStats"/>).
     /// <para>
-    /// <b>Never on the frame's clock.</b> An event is a few increments and the totals' text, made where the counts change;
-    /// the file is written by a task of its own (<see cref="BackgroundWrite"/>), latest text wins, so a level's start or
-    /// end costs the frame no disk flush. Nothing in the game reads the counts back: they observe and never decide.
+    /// <b>Off the frame but for the increments.</b> An event on the frame is a few additions under a lock and one line of
+    /// text handed over; a task of its own (<see cref="BackgroundWrite"/>) prints the line, serializes the totals under the
+    /// same lock and writes the file, the latest state winning, so a level's start or end costs the frame no serialization
+    /// and no disk flush. Nothing in the game reads the counts back: they observe and never decide.
     /// </para>
     /// </summary>
     internal sealed class PlayStatsSession : IDisposable
@@ -28,6 +30,9 @@ namespace BS3D
         private readonly Func<OnlineSession> _online;
         private readonly BackgroundWrite _file;
 
+        /// <summary>Held while the totals change on the frame and while the writer serializes them.</summary>
+        private readonly object _lock = new();
+
         /// <param name="path">Where the counts live: <c>Stats.json</c> in the user data folder.</param>
         /// <param name="online">The online seam, read when a change is handed over (it is replaced by nothing, but built after this).</param>
         internal PlayStatsSession(string path, Func<OnlineSession> online)
@@ -35,7 +40,10 @@ namespace BS3D
             PlayStats totals = PlayStats.Load(path);
             _recorder = new PlayStatsRecorder(totals);
             _online = online;
-            _file = new BackgroundWrite(path, PlayStats.BackupSuffix);
+            _file = new BackgroundWrite(path, PlayStats.BackupSuffix, () =>
+            {
+                lock (_lock) return _recorder.Totals.Serialize();
+            });
 
             switch (totals.Outcome)
             {
@@ -53,39 +61,57 @@ namespace BS3D
         private static string Kept(PlayStats totals) => totals.KeptUnreadable != null ? $" (kept as '{totals.KeptUnreadable}')" : "";
 
         /// <summary>Whether an attempt is open: what the exit asks before it disposes the online client.</summary>
-        internal bool AttemptOpen => _recorder.AttemptOpen;
+        internal bool AttemptOpen
+        {
+            get
+            {
+                lock (_lock) return _recorder.AttemptOpen;
+            }
+        }
 
         /// <summary>An attempt at <paramref name="level"/> starts (null: a level on no board, not counted).</summary>
-        internal void Started(LevelIdentity level) => Take(_recorder.Started(level), "started");
+        internal void Started(LevelIdentity level)
+        {
+            lock (_lock) Take(_recorder.Started(level), "started");
+        }
 
         /// <summary>The open attempt reached its result page.</summary>
-        internal void Ended(PlayEnding ending, int shots, float seconds, bool firstClear) =>
-            Take(_recorder.Ended(ending, shots, seconds, firstClear), ending switch
-            {
-                PlayEnding.Cleared => firstClear ? "cleared (first clear)" : "cleared",
-                PlayEnding.OutOfBalls => "lost: out of balls",
-                _ => "lost: the line",
-            });
+        internal void Ended(PlayEnding ending, int shots, float seconds, bool firstClear)
+        {
+            lock (_lock)
+                Take(_recorder.Ended(ending, shots, seconds, firstClear), ending switch
+                {
+                    PlayEnding.Cleared => firstClear ? "cleared (first clear)" : "cleared",
+                    PlayEnding.OutOfBalls => "lost: out of balls",
+                    _ => "lost: the line",
+                });
+        }
 
         /// <summary>The open attempt was left before its result page; nothing when none is open.</summary>
-        internal void Abandoned(int shots, float seconds) => Take(_recorder.Abandoned(shots, seconds), "abandoned");
+        internal void Abandoned(int shots, float seconds)
+        {
+            lock (_lock) Take(_recorder.Abandoned(shots, seconds), "abandoned");
+        }
 
         /// <summary>The chapter's skip was spent on <paramref name="level"/>.</summary>
-        internal void Skipped(LevelIdentity level) => Take(_recorder.Skipped(level), "skipped");
+        internal void Skipped(LevelIdentity level)
+        {
+            lock (_lock) Take(_recorder.Skipped(level), "skipped");
+        }
 
+        /// <summary>One event's change, under the lock: its line and the file to the writer, the change to the online client.</summary>
         private void Take(LevelPlayCounts change, string what)
         {
             if (change == null) return;
 
             LevelPlayCounts total = _recorder.Totals.For(change);
 
-            //One line an event, which is a few a level: what a scripted run checks the counts against
-            Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            //One line an event, which is a few a level: what a scripted run checks the counts against. Printed by the writer
+            _file.Write(string.Create(CultureInfo.InvariantCulture,
                 $"[stats] {change.File}#{change.Hash}: {what}{(change.Retries > 0 ? " (a retry)" : "")} — totals: {total.Starts} start(s),"
                 + $" {total.Retries} retr{(total.Retries == 1 ? "y" : "ies")}, {total.Clears} clear(s), {total.LostOutOfBalls} out of balls,"
                 + $" {total.LostLine} at the line, {total.Abandons} abandoned, {total.Skips} skip(s), {total.Shots} shot(s), {total.Seconds:0.0} s"));
 
-            _file.Write(_recorder.Totals.Serialize());
             _online()?.SubmitStats(change);
         }
 
@@ -93,22 +119,26 @@ namespace BS3D
         public void Dispose() => _file.Flush(DisposeWait);
 
         /// <summary>
-        /// A file written off the frame: the latest text handed over is written by one task at a time through
-        /// <see cref="AtomicFile"/>, and a text handed over while a write runs replaces any still waiting, so the file
-        /// always ends as the last text. A failed write is one log line; the counts in memory stand and the next event writes again.
+        /// A file written off the frame: each event hands over its log line and marks the file stale, and one task at a time
+        /// prints the lines and writes the latest text <paramref name="serialize"/> makes through <see cref="AtomicFile"/>, so
+        /// the file always ends as the last state. A failed write is one log line; the counts in memory stand and the next
+        /// event writes again.
         /// </summary>
-        private sealed class BackgroundWrite(string path, string backupSuffix)
+        private sealed class BackgroundWrite(string path, string backupSuffix, Func<string> serialize)
         {
             private readonly object _lock = new();
-            private string _pending;
+            private readonly ConcurrentQueue<string> _lines = new();
+            private bool _stale;
             private bool _running;
             private Task _task = Task.CompletedTask;
 
-            internal void Write(string text)
+            internal void Write(string line)
             {
+                _lines.Enqueue(line);
+
                 lock (_lock)
                 {
-                    _pending = text;
+                    _stale = true;
                     if (_running) return;
 
                     _running = true;
@@ -135,22 +165,22 @@ namespace BS3D
             {
                 while (true)
                 {
-                    string text;
                     lock (_lock)
                     {
-                        text = _pending;
-                        _pending = null;
-
-                        if (text == null)
+                        if (!_stale)
                         {
                             _running = false;
                             return;
                         }
+
+                        _stale = false;
                     }
+
+                    while (_lines.TryDequeue(out string line)) Console.WriteLine(line);
 
                     try
                     {
-                        AtomicFile.WriteText(path, text, backupSuffix);
+                        AtomicFile.WriteText(path, serialize(), backupSuffix);
                     }
                     catch (Exception e) when (e is IOException or UnauthorizedAccessException)
                     {

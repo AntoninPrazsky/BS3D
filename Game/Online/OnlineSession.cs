@@ -337,7 +337,7 @@ namespace BS3D.Online
 
         /// <summary>
         /// One change of the play counts (#709), handed to the client when online scores are on and to nothing otherwise:
-        /// with them off, the counts stay on this machine. The client batches it and sends it anonymously.
+        /// with them off, the counts stay on this machine. The client batches it and sends it naming no player.
         /// </summary>
         internal void SubmitStats(LevelPlayCounts change)
         {
