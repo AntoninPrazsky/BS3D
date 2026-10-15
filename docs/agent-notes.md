@@ -831,6 +831,12 @@ Pravidla:
 - ⚠ Pásma nestačí: `doom` c3 v pásmu, ale šev +15 dB; `electro` c4 má 24 s z 43 s tiše. Breakbeat a electro si výšky drží přes jakékoli zadání (devět renderů, nejlépe 2,1 % a 2,5 % nad 6 kHz). Zapsáno v `music-generation.md`, „Choosing a candidate“.
 - Otevřené: ucho majitele; `electro` stále 4,0 % nad 6 kHz a `breakrock` středy jako dřív.
 
+## 2026-10-15 — #866 #864 #865 About bez AI, balíky slámy, Help na celou šířku — desktop (RDT-PC), Claude Code (bs3d-ac)
+- #866 (f8616d63): MADE WITH říká, že původní hra je autorův vlastní kód bez AI a od roku 2026 ji rozšiřuje Claude přes Claude Code; přeformulovat jde jen v `AboutCopy.MADE_WITH`.
+- #864 (22bbebff): balík v měřítku plotu (`BALE_SCALE = FENCE_SCALE`, 3,2 napříč), sázený po plotech mimo každé jejich pole, z vlastního generátoru. ⚠ Skupiny se dřív nikdy nevytvořily (rozestup 2,2 proti odstupu 1,6) a balík mohl stát na plotu (0,15 u jednoho z 81 seedů); teď nejméně 3,2 od plotu.
+- #865 (tato větev): odstavce Help od BASICS na `TEXT_WIDTH` (83 znaků), majitel 15. 10. „celá šířka“; těla tabů stojí nahoře. BASICS se při 1600×900 vejde bez rolování.
+- Otevřené: oko majitele na všech třech (`verdict-eye`), snímky pro stránku verdiktů v scratchpadu sezení bs3d-ac.
+
 ## 2026-10-15 — #766 vlastní vzhled náboje Cut — desktop (RDT-PC), Claude Code (bs3d-ac)
 - Hotovo (větev `766-cutter-look`, čeká na review, nemergováno): řezací náboj už není zap. Ocelová koule s kotoučovou pilou: vlastní technika `InstancedModelCutter` (na lici koule žhnoucí věnec zubů kolem náboje se třemi šrouby) a `InstancedModelCutterBlade` na `SawBladeMesh` (24 zubů, dva vylomené, špičky 0,585 pod vývrtem 0,6). Rámec staví CPU (`BallRenderSet.CutterFrame`): pila natočená k oku, sklopená k vodorovné, otáčí se na nástěnných hodinách, v hlavni pomalu. Jedna barva `BasicEffectParamsProvider.CutterAccent` (bílé žhavé zlato) pro disk v pásu, paprsek, objímku, paprsky i stopu. Potato: ocel, prstenec obrázkem studny, čepel svítí; GL shadery beze změny.
 - ⚠ Vodorovná čepel byla v hlavni neviditelná (hlaveň zakryje rovník, je vidět jen vršek koule); proto pila na lici. Tmavá koule s jasnou tečkou uprostřed četla jako oko.
