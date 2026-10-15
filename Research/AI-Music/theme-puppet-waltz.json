@@ -1,0 +1,340 @@
+{
+    "file": "theme-puppet-waltz.wav",
+    "created": "2026-10-15",
+    "issue": 732,
+    "family": "puppet",
+    "chapter": "The Silhouettes (aurora, levels 41-50) - regenerated on the owner's ruling of 2026-10-11 (#732): mysterious and magical, with a melody; from the desert's ember model only the followable tune and the mid range, not its guitar rock",
+    "purpose": "Master of Game/Music/puppet-waltz.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-732-chosen on the desktop, with its .raw.wav; every candidate in masters-732); this sidecar is committed beside the .ogg.",
+    "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-puppet.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
+    "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+    "license": "ACE-Step 1.5: MIT (code and weights)",
+    "request": {
+        "caption": "Mysterious gypsy-jazz waltz instrumental in three-four time: a haunting violin melody you can hum, a clarinet answering each phrase, a steady strummed acoustic guitar waltz rhythm and a walking upright bass that never stop, soft brushed snare and toms with a dark ride cymbal, plucked harp accents, the full band playing from the first bar with the melody passing between violin, clarinet and guitar, enchanted and bittersweet like a midnight ball of shadows, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+        "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, music box, kazoo, accordion, tango, ragtime, polka, oompah, brass band, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, accordion, musette, tango, timpani, orchestral swells, rubato, tempo changes",
+        "instrumental": true,
+        "use_cot_caption": false,
+        "duration": 120,
+        "bpm": 144,
+        "keyscale": "A minor",
+        "seed": 2080134719,
+        "inference_steps": 8,
+        "output_format": "wav32"
+    },
+    "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+    "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-waltz-c8.wav: 41.1s loop = source 39.86s..81.00s (23.94 bars at 139.6 bpm), crossfade 0.86s | context match 0.220 (best 0.265) | crossfade rhythm r=0.58 vs the track a bar later r=0.41: in time | spectrum cos=0.57"
+    ],
+    "lm_check": {
+        "request0_captured": true,
+        "caption_verbatim": true,
+        "seed_in_request0": 2080134719,
+        "bpm_in_request0": 144,
+        "keyscale_in_request0": "A minor",
+        "duration_in_request0": 120.0
+    },
+    "measured": "generate-music.ps1 end to end 60,2 s (ace-lm + ace-synth + loop cut), exit 0",
+    "measured_against_ember": {
+        "loop_s": 41.1,
+        "bpm": 139.6,
+        "context": 0.22,
+        "r_cross": 0.58,
+        "r_bar": 0.41,
+        "in_time": true,
+        "cos": 0.57,
+        "dip": 6.7,
+        "quiet": 0,
+        "lr_corr": 0.82,
+        "knee_pct": 0.46,
+        "b200_2k": 23.6,
+        "b300_4k": 15.4,
+        "above6k": 0.2,
+        "tonal_mid": 74,
+        "mid_flatness": 0.01,
+        "held_changes": 3.21,
+        "tempo_wander": 0.34,
+        "wrap_db": -3.5,
+        "wrap_pct": 37
+    },
+    "measured_note": "measure-music.py --reference ember on the loop (band shares %, tonal mid %, mid flatness, held-note changes/s, tempo wander %, wrap step dB and its percentile) beside sel.py: the loop cut, dip = the quietest 2 s under the loop's p95 1 s level (dB), quiet = the % of the loop more than 10 dB under it, L/R correlation, knee_pct = the % of samples MusicBake's knee bends",
+    "rendered": true,
+    "chosen": {
+        "candidate": "c8",
+        "round": 3,
+        "of": [
+            "c1",
+            "c2",
+            "c3",
+            "c4",
+            "c5",
+            "c6",
+            "c7",
+            "c8",
+            "c9"
+        ],
+        "why": "200 Hz-2 kHz 23.6 %, 300 Hz-4 kHz 15.4 %, 0.2 % above 6 kHz, tonal mid 74 %, 3.21 held-note changes/s, no stretch under -10 dB, wrap step -3.5 dB (p37), a 41 s loop in time (r 0.58 against 0.41); tempo wander 0.34 % (ember <= 0.29 %). The orchestral waltz of rounds 1-2 (c1-c6) sat 12-42 % under -10 dB, with 20-45 dB dropouts, whatever the brief said; round 3 made it a gypsy-jazz waltz on a rhythm guitar and walking bass. c7 steps -13.3 dB at its wrap; c9 (75 s) carries 11.3 % in 300 Hz-4 kHz",
+        "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wrap step) beside the loop cut's own check, the hole share (the loop more than 10 dB under its loud level), the breakdown dip and the stereo correlation; a seam below its own rhythm, a hole over 15 % or a wrap step over 6 dB ruled a candidate out; the table is on #732"
+    },
+    "alternatives": [
+        {
+            "candidate": "c1",
+            "seed": 1312336579,
+            "caption": "Mysterious dark fairy-tale waltz instrumental in three-four time: a haunting sweeping violin melody you can hum, a clarinet answering each phrase, waltzing pizzicato bass and soft string chords on the second and third beats, plucked harp arpeggios, a steady soft pulse of kick, toms and timpani with a dark ride cymbal, a hushed breakdown to violin and harp that swells into a magical full-string peak, enchanted and bittersweet like a midnight ball of shadows, warm mid-forward mix, modern polished cinematic production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, music box, kazoo, accordion, tango, ragtime, polka, oompah, brass band, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-waltz-c1.wav: 51.4s loop = source 34.27s..85.70s (29.95 bars at 139.8 bpm), crossfade 0.86s | context match 0.456 (best 0.499) | crossfade rhythm r=0.74 vs the track a bar later r=-0.02: in time | spectrum cos=0.21"
+            ],
+            "measured": {
+                "loop_s": 51.4,
+                "bpm": 139.8,
+                "context": 0.456,
+                "r_cross": 0.74,
+                "r_bar": -0.02,
+                "in_time": true,
+                "cos": 0.21,
+                "dip": 32.4,
+                "quiet": 31,
+                "lr_corr": 0.71,
+                "knee_pct": 0.357,
+                "b200_2k": 27.8,
+                "b300_4k": 25.5,
+                "above6k": 0.0,
+                "tonal_mid": 96,
+                "mid_flatness": 0.0,
+                "held_changes": 2.24,
+                "tempo_wander": 3.3,
+                "wrap_db": -7.4,
+                "wrap_pct": 83
+            }
+        },
+        {
+            "candidate": "c2",
+            "seed": 1162341343,
+            "caption": "Mysterious dark fairy-tale waltz instrumental in three-four time: a haunting sweeping violin melody you can hum, a clarinet answering each phrase, waltzing pizzicato bass and soft string chords on the second and third beats, plucked harp arpeggios, a steady soft pulse of kick, toms and timpani with a dark ride cymbal, a hushed breakdown to violin and harp that swells into a magical full-string peak, enchanted and bittersweet like a midnight ball of shadows, warm mid-forward mix, modern polished cinematic production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, music box, kazoo, accordion, tango, ragtime, polka, oompah, brass band, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-waltz-c2.wav: 67.0s loop = source 24.87s..91.90s (39.04 bars at 139.8 bpm), crossfade 0.86s | context match 0.269 (best 0.316) | crossfade rhythm r=0.29 vs the track a bar later r=-0.07: in time | spectrum cos=0.31"
+            ],
+            "measured": {
+                "loop_s": 67.0,
+                "bpm": 139.8,
+                "context": 0.269,
+                "r_cross": 0.29,
+                "r_bar": -0.07,
+                "in_time": true,
+                "cos": 0.31,
+                "dip": 14.0,
+                "quiet": 21,
+                "lr_corr": 0.76,
+                "knee_pct": 0.253,
+                "b200_2k": 25.3,
+                "b300_4k": 20.6,
+                "above6k": 0.0,
+                "tonal_mid": 94,
+                "mid_flatness": 0.0,
+                "held_changes": 2.95,
+                "tempo_wander": 0.27,
+                "wrap_db": -1.0,
+                "wrap_pct": 16
+            }
+        },
+        {
+            "candidate": "c3",
+            "seed": 1895572327,
+            "caption": "Mysterious dark fairy-tale waltz instrumental in three-four time: a haunting sweeping violin melody you can hum, a clarinet answering each phrase, waltzing pizzicato bass and soft string chords on the second and third beats, plucked harp arpeggios, a steady soft pulse of kick, toms and timpani with a dark ride cymbal, a hushed breakdown to violin and harp that swells into a magical full-string peak, enchanted and bittersweet like a midnight ball of shadows, warm mid-forward mix, modern polished cinematic production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, music box, kazoo, accordion, tango, ragtime, polka, oompah, brass band, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-waltz-c3.wav: 102.9s loop = source 8.29s..111.20s (60.03 bars at 140.0 bpm), crossfade 0.86s | context match 0.191 (best 0.239) | crossfade rhythm r=0.59 vs the track a bar later r=0.02: in time | spectrum cos=0.16"
+            ],
+            "measured": {
+                "loop_s": 102.9,
+                "bpm": 140.0,
+                "context": 0.191,
+                "r_cross": 0.59,
+                "r_bar": 0.02,
+                "in_time": true,
+                "cos": 0.16,
+                "dip": 33.9,
+                "quiet": 27,
+                "lr_corr": 0.426,
+                "knee_pct": 0.356,
+                "b200_2k": 56.6,
+                "b300_4k": 51.9,
+                "above6k": 0.0,
+                "tonal_mid": 84,
+                "mid_flatness": 0.0,
+                "held_changes": 2.52,
+                "tempo_wander": 0.24,
+                "wrap_db": 8.4,
+                "wrap_pct": 87
+            }
+        },
+        {
+            "candidate": "c4",
+            "seed": 231412143,
+            "caption": "Mysterious dark fairy-tale waltz instrumental in three-four time at a steady dancing tempo: a haunting sweeping violin melody you can hum, a clarinet answering each phrase, waltzing pizzicato bass and soft string chords on the second and third beats, plucked harp arpeggios, a steady pulse of kick, toms and timpani with a dark ride cymbal playing throughout, the full ensemble playing from the first bar with the melody passing between violin, clarinet and cello, rising into a magical full-string peak, enchanted and bittersweet like a midnight ball of shadows, warm mid-forward mix, modern polished cinematic production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, music box, kazoo, accordion, tango, ragtime, polka, oompah, brass band, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-waltz-c4.wav: 87.4s loop = source 24.98s..112.40s (50.92 bars at 139.8 bpm), crossfade 0.86s | context match 0.198 (best 0.245) | crossfade rhythm r=0.24 vs the track a bar later r=0.10: in time | spectrum cos=0.39"
+            ],
+            "measured": {
+                "loop_s": 87.4,
+                "bpm": 139.8,
+                "context": 0.198,
+                "r_cross": 0.24,
+                "r_bar": 0.1,
+                "in_time": true,
+                "cos": 0.39,
+                "dip": 20.6,
+                "quiet": 21,
+                "lr_corr": 0.846,
+                "knee_pct": 0.282,
+                "b200_2k": 13.8,
+                "b300_4k": 12.0,
+                "above6k": 0.1,
+                "tonal_mid": 80,
+                "mid_flatness": 0.01,
+                "held_changes": 3.53,
+                "tempo_wander": 0.38,
+                "wrap_db": 15.3,
+                "wrap_pct": 90
+            }
+        },
+        {
+            "candidate": "c5",
+            "seed": 542999026,
+            "caption": "Mysterious dark fairy-tale waltz instrumental in three-four time at a steady dancing tempo: a haunting sweeping violin melody you can hum, a clarinet answering each phrase, waltzing pizzicato bass and soft string chords on the second and third beats, plucked harp arpeggios, a steady pulse of kick, toms and timpani with a dark ride cymbal playing throughout, the full ensemble playing from the first bar with the melody passing between violin, clarinet and cello, rising into a magical full-string peak, enchanted and bittersweet like a midnight ball of shadows, warm mid-forward mix, modern polished cinematic production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, music box, kazoo, accordion, tango, ragtime, polka, oompah, brass band, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-waltz-c5.wav: 67.6s loop = source 10.73s..78.35s (40.95 bars at 145.4 bpm), crossfade 0.83s | context match 0.509 (best 0.556) | crossfade rhythm r=0.08 vs the track a bar later r=0.08: in time | spectrum cos=0.45"
+            ],
+            "measured": {
+                "loop_s": 67.6,
+                "bpm": 145.4,
+                "context": 0.509,
+                "r_cross": 0.08,
+                "r_bar": 0.08,
+                "in_time": true,
+                "cos": 0.45,
+                "dip": 32.7,
+                "quiet": 42,
+                "lr_corr": 0.516,
+                "knee_pct": 0.287,
+                "b200_2k": 35.1,
+                "b300_4k": 25.0,
+                "above6k": 0.0,
+                "tonal_mid": 94,
+                "mid_flatness": 0.0,
+                "held_changes": 2.22,
+                "tempo_wander": 2.62,
+                "wrap_db": -1.7,
+                "wrap_pct": 24
+            }
+        },
+        {
+            "candidate": "c6",
+            "seed": 1779958849,
+            "caption": "Mysterious dark fairy-tale waltz instrumental in three-four time at a steady dancing tempo: a haunting sweeping violin melody you can hum, a clarinet answering each phrase, waltzing pizzicato bass and soft string chords on the second and third beats, plucked harp arpeggios, a steady pulse of kick, toms and timpani with a dark ride cymbal playing throughout, the full ensemble playing from the first bar with the melody passing between violin, clarinet and cello, rising into a magical full-string peak, enchanted and bittersweet like a midnight ball of shadows, warm mid-forward mix, modern polished cinematic production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, music box, kazoo, accordion, tango, ragtime, polka, oompah, brass band, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-waltz-c6.wav: 105.0s loop = source 4.13s..109.15s (61.98 bars at 141.6 bpm), crossfade 0.85s | context match 0.399 (best 0.446) | crossfade rhythm r=0.68 vs the track a bar later r=-0.20: in time | spectrum cos=0.38"
+            ],
+            "measured": {
+                "loop_s": 105.0,
+                "bpm": 141.6,
+                "context": 0.399,
+                "r_cross": 0.68,
+                "r_bar": -0.2,
+                "in_time": true,
+                "cos": 0.38,
+                "dip": 45.4,
+                "quiet": 12,
+                "lr_corr": 0.834,
+                "knee_pct": 0.305,
+                "b200_2k": 29.3,
+                "b300_4k": 26.7,
+                "above6k": 0.0,
+                "tonal_mid": 94,
+                "mid_flatness": 0.0,
+                "held_changes": 2.91,
+                "tempo_wander": 0.11,
+                "wrap_db": -2.3,
+                "wrap_pct": 29
+            }
+        },
+        {
+            "candidate": "c7",
+            "seed": 465461745,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-waltz-c7.wav: 54.9s loop = source 19.64s..74.50s (31.96 bars at 139.8 bpm), crossfade 0.86s | context match 0.754 (best 0.785) | crossfade rhythm r=0.48 vs the track a bar later r=0.17: in time | spectrum cos=0.84"
+            ],
+            "measured": {
+                "loop_s": 54.9,
+                "bpm": 139.8,
+                "context": 0.754,
+                "r_cross": 0.48,
+                "r_bar": 0.17,
+                "in_time": true,
+                "cos": 0.84,
+                "dip": 5.5,
+                "quiet": 0,
+                "lr_corr": 0.87,
+                "knee_pct": 0.192,
+                "b200_2k": 16.4,
+                "b300_4k": 13.9,
+                "above6k": 0.2,
+                "tonal_mid": 80,
+                "mid_flatness": 0.01,
+                "held_changes": 3.15,
+                "tempo_wander": 0.1,
+                "wrap_db": -13.3,
+                "wrap_pct": 90
+            }
+        },
+        {
+            "candidate": "c9",
+            "seed": 1362798563,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-waltz-c9.wav: 74.6s loop = source 32.68s..107.25s (43.04 bars at 138.5 bpm), crossfade 0.87s | context match 0.411 (best 0.457) | crossfade rhythm r=0.30 vs the track a bar later r=0.18: in time | spectrum cos=0.50"
+            ],
+            "measured": {
+                "loop_s": 74.6,
+                "bpm": 138.5,
+                "context": 0.411,
+                "r_cross": 0.3,
+                "r_bar": 0.18,
+                "in_time": true,
+                "cos": 0.5,
+                "dip": 4.3,
+                "quiet": 0,
+                "lr_corr": 0.934,
+                "knee_pct": 0.201,
+                "b200_2k": 13.8,
+                "b300_4k": 11.3,
+                "above6k": 0.2,
+                "tonal_mid": 68,
+                "mid_flatness": 0.03,
+                "held_changes": 3.5,
+                "tempo_wander": 0.5,
+                "wrap_db": -2.6,
+                "wrap_pct": 18
+            }
+        }
+    ],
+    "replaces": {
+        "stem": "puppet-tango",
+        "issue": 558,
+        "created": "2026-09-25",
+        "caption": "Light playful chamber tango instrumental: bandoneon accordion melody, staccato pizzicato strings, piano stabs, upright bass, a dancing violin counter-line, theatrical and cheeky rather than dramatic, bright, no vocals",
+        "negative": "vocals, singing, audience applause, crowd noise, live recording, dark ambient drone, heavy distortion",
+        "bpm": 114,
+        "keyscale": "F major",
+        "loop_log": [
+            "Wrote C:\\Users\\panrd\\AI\\output\\masters-558\\theme-puppet-tango.wav: 66.8s loop = source 18.82s..85.60s (32.05 bars at 115.2 bpm), crossfade 1.04s | context match 0.687 (best 0.736) | crossfade rhythm r=0.89 vs the track a bar later r=0.50: in time | spectrum cos=0.79"
+        ],
+        "why_replaced": "replaces puppet-tango, briefed as a cheeky theatrical chamber tango; the owner, 2026-10-11 (#732): mysterious and magical, with a melody"
+    }
+}

@@ -1,29 +1,148 @@
 {
-    "file":  "theme-puppet-harpsichord.wav",
-    "created":  "2026-09-25",
-    "issue":  558,
-    "family":  "puppet",
-    "chapter":  "The Silhouettes (aurora) - #491/#558: black paper cut-outs under the northern lights; playful, graphic, light and curious - shadow-puppet theatre, a paper-cut picture book",
-    "purpose":  "Master of Game/Music/puppet-harpsichord.ogg, one of the puppet family\u0027s recordings (#558): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:\\Users\\panrd\\AI\\output\\masters-558 on the desktop); this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-558.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "Playful baroque-pop instrumental: crisp harpsichord arpeggios, pizzicato cello bass, a recorder and oboe melody, light tambourine and soft drums, elegant, witty and bright like a paper cut-out theatre, major key, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording, dark ambient drone, heavy distortion",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  110,
-                    "keyscale":  "F major",
-                    "seed":  1909504935,
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-558\\theme-puppet-harpsichord.wav: 52.4s loop = source 19.79s..72.15s (23.97 bars at 109.9 bpm), crossfade 1.09s | context match 0.866 (best 0.915) | crossfade rhythm r=0.66 vs the track a bar later r=0.61: in time | spectrum cos=0.90"
-                 ],
-    "measured":  "generate-music.ps1 end to end 80.5 s (ace-lm + ace-synth + loop cut), GPU shared with other sessions\u0027 captures",
-    "rendered":  true
+    "file": "theme-puppet-harpsichord.wav",
+    "created": "2026-10-15",
+    "issue": 732,
+    "family": "puppet",
+    "chapter": "The Silhouettes (aurora, levels 41-50) - regenerated on the owner's ruling of 2026-10-11 (#732): mysterious and magical, with a melody; from the desert's ember model only the followable tune and the mid range, not its guitar rock",
+    "purpose": "Master of Game/Music/puppet-harpsichord.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-732-chosen on the desktop, with its .raw.wav; every candidate in masters-732); this sidecar is committed beside the .ogg.",
+    "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-puppet.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
+    "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+    "license": "ACE-Step 1.5: MIT (code and weights)",
+    "request": {
+        "caption": "Mysterious baroque-pop instrumental: harpsichord arpeggios in a minor key spinning like clockwork, a haunting oboe and cello melody you can hum over them, pizzicato strings, a steady soft groove of kick, snare and toms with a dark ride cymbal, a warm bass guitar, a build into a full dramatic string peak, enchanted and secretive like a candlelit puppet show, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+        "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, recorder, ragtime, polka, oompah, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance",
+        "instrumental": true,
+        "use_cot_caption": false,
+        "duration": 120,
+        "bpm": 116,
+        "keyscale": "G minor",
+        "seed": 1640819857,
+        "inference_steps": 8,
+        "output_format": "wav32"
+    },
+    "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+    "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-harpsichord-c3.wav: 49.7s loop = source 34.64s..84.30s (23.95 bars at 115.7 bpm), crossfade 1.04s | context match 0.620 (best 0.669) | crossfade rhythm r=0.85 vs the track a bar later r=0.77: in time | spectrum cos=0.92"
+    ],
+    "lm_check": {
+        "request0_captured": true,
+        "caption_verbatim": true,
+        "seed_in_request0": 1640819857,
+        "bpm_in_request0": 116,
+        "keyscale_in_request0": "G minor",
+        "duration_in_request0": 120.0
+    },
+    "measured": "generate-music.ps1 end to end 70,9 s (ace-lm + ace-synth + loop cut), exit 0",
+    "measured_against_ember": {
+        "loop_s": 49.7,
+        "bpm": 115.7,
+        "context": 0.62,
+        "r_cross": 0.85,
+        "r_bar": 0.77,
+        "in_time": true,
+        "cos": 0.92,
+        "dip": 4.0,
+        "quiet": 0,
+        "lr_corr": 0.916,
+        "knee_pct": 0.014,
+        "b200_2k": 19.8,
+        "b300_4k": 18.9,
+        "above6k": 0.9,
+        "tonal_mid": 83,
+        "mid_flatness": 0.03,
+        "held_changes": 3.04,
+        "tempo_wander": 0.06,
+        "wrap_db": -3.1,
+        "wrap_pct": 48
+    },
+    "measured_note": "measure-music.py --reference ember on the loop (band shares %, tonal mid %, mid flatness, held-note changes/s, tempo wander %, wrap step dB and its percentile) beside sel.py: the loop cut, dip = the quietest 2 s under the loop's p95 1 s level (dB), quiet = the % of the loop more than 10 dB under it, L/R correlation, knee_pct = the % of samples MusicBake's knee bends",
+    "rendered": true,
+    "chosen": {
+        "candidate": "c3",
+        "round": 1,
+        "of": [
+            "c1",
+            "c2",
+            "c3"
+        ],
+        "why": "inside ember's range on every column: 200 Hz-2 kHz 19.8 %, 300 Hz-4 kHz 18.9 %, 0.9 % above 6 kHz, tonal mid 83 %, 3.04 held-note changes/s; no stretch under -10 dB, wrap step -3.1 dB (p48), a 50 s loop in time (r 0.85 against 0.77). c1 is as clean on the bands but a 41 s loop stepping -6.5 dB at the wrap; c2 changes note 1.89 times a second",
+        "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wrap step) beside the loop cut's own check, the hole share (the loop more than 10 dB under its loud level), the breakdown dip and the stereo correlation; a seam below its own rhythm, a hole over 15 % or a wrap step over 6 dB ruled a candidate out; the table is on #732"
+    },
+    "alternatives": [
+        {
+            "candidate": "c1",
+            "seed": 676890565,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-harpsichord-c1.wav: 41.4s loop = source 40.77s..82.15s (19.96 bars at 115.8 bpm), crossfade 1.04s | context match 0.870 (best 0.881) | crossfade rhythm r=0.95 vs the track a bar later r=0.77: in time | spectrum cos=0.92"
+            ],
+            "measured": {
+                "loop_s": 41.4,
+                "bpm": 115.8,
+                "context": 0.87,
+                "r_cross": 0.95,
+                "r_bar": 0.77,
+                "in_time": true,
+                "cos": 0.92,
+                "dip": 6.9,
+                "quiet": 5,
+                "lr_corr": 0.902,
+                "knee_pct": 0.001,
+                "b200_2k": 18.5,
+                "b300_4k": 17.5,
+                "above6k": 1.3,
+                "tonal_mid": 87,
+                "mid_flatness": 0.02,
+                "held_changes": 3.43,
+                "tempo_wander": 0.05,
+                "wrap_db": -6.5,
+                "wrap_pct": 79
+            }
+        },
+        {
+            "candidate": "c2",
+            "seed": 1285295636,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-harpsichord-c2.wav: 37.6s loop = source 49.83s..87.40s (18.03 bars at 115.2 bpm), crossfade 1.04s | context match 0.574 (best 0.622) | crossfade rhythm r=0.57 vs the track a bar later r=0.13: in time | spectrum cos=0.59"
+            ],
+            "measured": {
+                "loop_s": 37.6,
+                "bpm": 115.2,
+                "context": 0.574,
+                "r_cross": 0.57,
+                "r_bar": 0.13,
+                "in_time": true,
+                "cos": 0.59,
+                "dip": 4.1,
+                "quiet": 0,
+                "lr_corr": 0.92,
+                "knee_pct": 0.024,
+                "b200_2k": 19.6,
+                "b300_4k": 16.2,
+                "above6k": 0.1,
+                "tonal_mid": 95,
+                "mid_flatness": 0.01,
+                "held_changes": 1.89,
+                "tempo_wander": 0.01,
+                "wrap_db": 7.9,
+                "wrap_pct": 82
+            }
+        }
+    ],
+    "replaces": {
+        "stem": "puppet-harpsichord",
+        "issue": 558,
+        "created": "2026-09-25",
+        "caption": "Playful baroque-pop instrumental: crisp harpsichord arpeggios, pizzicato cello bass, a recorder and oboe melody, light tambourine and soft drums, elegant, witty and bright like a paper cut-out theatre, major key, no vocals",
+        "negative": "vocals, singing, audience applause, crowd noise, live recording, dark ambient drone, heavy distortion",
+        "bpm": 110,
+        "keyscale": "F major",
+        "loop_log": [
+            "Wrote C:\\Users\\panrd\\AI\\output\\masters-558\\theme-puppet-harpsichord.wav: 52.4s loop = source 19.79s..72.15s (23.97 bars at 109.9 bpm), crossfade 1.09s | context match 0.866 (best 0.915) | crossfade rhythm r=0.66 vs the track a bar later r=0.61: in time | spectrum cos=0.90"
+        ],
+        "why_replaced": "briefed as playful, witty and bright baroque-pop in F major; the owner, 2026-10-11 (#732): mysterious and magical, with a melody"
+    }
 }

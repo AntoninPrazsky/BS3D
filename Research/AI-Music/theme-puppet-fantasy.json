@@ -1,0 +1,340 @@
+{
+    "file": "theme-puppet-fantasy.wav",
+    "created": "2026-10-15",
+    "issue": 732,
+    "family": "puppet",
+    "chapter": "The Silhouettes (aurora, levels 41-50) - regenerated on the owner's ruling of 2026-10-11 (#732): mysterious and magical, with a melody; from the desert's ember model only the followable tune and the mid range, not its guitar rock",
+    "purpose": "Master of Game/Music/puppet-fantasy.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-732-chosen on the desktop, with its .raw.wav; every candidate in masters-732); this sidecar is committed beside the .ogg.",
+    "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-puppet.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
+    "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+    "license": "ACE-Step 1.5: MIT (code and weights)",
+    "request": {
+        "caption": "Magical cinematic fantasy instrumental: a soaring, memorable french horn and strings melody you can hum, a mysterious harp and low celesta ostinato, driving staccato strings, a steady groove of kick, snare, toms and soft timpani with a dark ride cymbal playing throughout, low woodwinds answering the theme, the full orchestra playing from the first bar with the melody passing between horns, strings and woodwinds, rising into a magical peak, enchanted and adventurous, warm mid-forward mix, modern polished film-score production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+        "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, sneaky caper, silly, childish, cute, sugary, toy piano, tuba, bassoon staccato, xylophone, polka, oompah, epic trailer braams, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro",
+        "instrumental": true,
+        "use_cot_caption": false,
+        "duration": 120,
+        "bpm": 124,
+        "keyscale": "D minor",
+        "seed": 2031842098,
+        "inference_steps": 8,
+        "output_format": "wav32"
+    },
+    "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+    "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-fantasy-c4.wav: 46.2s loop = source 28.98s..75.15s (23.92 bars at 124.3 bpm), crossfade 0.97s | context match 0.442 (best 0.486) | crossfade rhythm r=0.73 vs the track a bar later r=0.12: in time | spectrum cos=0.71"
+    ],
+    "lm_check": {
+        "request0_captured": true,
+        "caption_verbatim": true,
+        "seed_in_request0": 2031842098,
+        "bpm_in_request0": 124,
+        "keyscale_in_request0": "D minor",
+        "duration_in_request0": 120.0
+    },
+    "measured": "generate-music.ps1 end to end 59,8 s (ace-lm + ace-synth + loop cut), exit 0",
+    "measured_against_ember": {
+        "loop_s": 46.2,
+        "bpm": 124.3,
+        "context": 0.442,
+        "r_cross": 0.73,
+        "r_bar": 0.12,
+        "in_time": true,
+        "cos": 0.71,
+        "dip": 14.0,
+        "quiet": 4,
+        "lr_corr": 0.687,
+        "knee_pct": 0.078,
+        "b200_2k": 52.5,
+        "b300_4k": 49.3,
+        "above6k": 0.1,
+        "tonal_mid": 95,
+        "mid_flatness": 0.01,
+        "held_changes": 2.66,
+        "tempo_wander": 2.66,
+        "wrap_db": 2.3,
+        "wrap_pct": 33
+    },
+    "measured_note": "measure-music.py --reference ember on the loop (band shares %, tonal mid %, mid flatness, held-note changes/s, tempo wander %, wrap step dB and its percentile) beside sel.py: the loop cut, dip = the quietest 2 s under the loop's p95 1 s level (dB), quiet = the % of the loop more than 10 dB under it, L/R correlation, knee_pct = the % of samples MusicBake's knee bends",
+    "rendered": true,
+    "chosen": {
+        "candidate": "c4",
+        "round": 2,
+        "of": [
+            "c1",
+            "c2",
+            "c3",
+            "c4",
+            "c5",
+            "c6",
+            "c7",
+            "c8",
+            "c9"
+        ],
+        "why": "the one candidate of nine without a hole, a dropout or a broken seam: 200 Hz-2 kHz 52.5 %, 300 Hz-4 kHz 49.3 %, 0.1 % above 6 kHz, tonal mid 95 %, 4 % of the loop under -10 dB, wrap step +2.3 dB (p33), the widest stereo of the family (L/R 0.69). Still outside ember: 2.66 held-note changes/s (ember >= 2.74) and a tempo wander of 2.66 % (ember <= 0.29 %): an orchestra keeps loose time whatever the brief says. Seven others sat 22-36 % under -10 dB with 24-50 dB dropouts (the cinematic orchestra's quiet passages, rounds 1-3), c1's cut turned the spectrum over (cos -0.03), c7 put 4.9 % above 6 kHz (round 3's pop beat) and c8's cut fell below its own timekeeping; the runner-up c6 (in band, 2.92 held-note changes/s) sits 26 % of its loop under -10 dB",
+        "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wrap step) beside the loop cut's own check, the hole share (the loop more than 10 dB under its loud level), the breakdown dip and the stereo correlation; a seam below its own rhythm, a hole over 15 % or a wrap step over 6 dB ruled a candidate out; the table is on #732"
+    },
+    "alternatives": [
+        {
+            "candidate": "c1",
+            "seed": 21809147,
+            "caption": "Magical cinematic fantasy instrumental: a soaring, memorable french horn and strings melody you can hum, a mysterious harp and low celesta ostinato, driving staccato strings, a steady groove of kick, snare, toms and soft timpani with a dark ride cymbal, low woodwinds answering the theme, a build from a secretive opening into a full magical orchestral peak, enchanted and adventurous, warm mid-forward mix, modern polished film-score production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, sneaky caper, silly, childish, cute, sugary, toy piano, tuba, bassoon staccato, xylophone, polka, oompah, epic trailer braams, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-fantasy-c1.wav: 54.1s loop = source 42.44s..96.50s (28.03 bars at 124.4 bpm), crossfade 0.96s | context match 0.336 (best 0.385) | crossfade rhythm r=0.26 vs the track a bar later r=0.11: in time | spectrum cos=-0.03"
+            ],
+            "measured": {
+                "loop_s": 54.1,
+                "bpm": 124.4,
+                "context": 0.336,
+                "r_cross": 0.26,
+                "r_bar": 0.11,
+                "in_time": true,
+                "cos": -0.03,
+                "dip": 12.8,
+                "quiet": 2,
+                "lr_corr": 0.786,
+                "knee_pct": 0.015,
+                "b200_2k": 12.1,
+                "b300_4k": 10.1,
+                "above6k": 0.0,
+                "tonal_mid": 90,
+                "mid_flatness": 0.01,
+                "held_changes": 2.26,
+                "tempo_wander": 0.05,
+                "wrap_db": 4.1,
+                "wrap_pct": 53
+            }
+        },
+        {
+            "candidate": "c2",
+            "seed": 2002048569,
+            "caption": "Magical cinematic fantasy instrumental: a soaring, memorable french horn and strings melody you can hum, a mysterious harp and low celesta ostinato, driving staccato strings, a steady groove of kick, snare, toms and soft timpani with a dark ride cymbal, low woodwinds answering the theme, a build from a secretive opening into a full magical orchestral peak, enchanted and adventurous, warm mid-forward mix, modern polished film-score production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, sneaky caper, silly, childish, cute, sugary, toy piano, tuba, bassoon staccato, xylophone, polka, oompah, epic trailer braams, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-fantasy-c2.wav: 54.2s loop = source 50.86s..105.05s (28.05 bars at 124.2 bpm), crossfade 0.97s | context match 0.804 (best 0.849) | crossfade rhythm r=0.96 vs the track a bar later r=0.26: in time | spectrum cos=0.96"
+            ],
+            "measured": {
+                "loop_s": 54.2,
+                "bpm": 124.2,
+                "context": 0.804,
+                "r_cross": 0.96,
+                "r_bar": 0.26,
+                "in_time": true,
+                "cos": 0.96,
+                "dip": 50.0,
+                "quiet": 35,
+                "lr_corr": 0.881,
+                "knee_pct": 0.331,
+                "b200_2k": 24.8,
+                "b300_4k": 23.4,
+                "above6k": 0.2,
+                "tonal_mid": 95,
+                "mid_flatness": 0.01,
+                "held_changes": 1.94,
+                "tempo_wander": 0.16,
+                "wrap_db": 35.7,
+                "wrap_pct": 100
+            }
+        },
+        {
+            "candidate": "c3",
+            "seed": 283548180,
+            "caption": "Magical cinematic fantasy instrumental: a soaring, memorable french horn and strings melody you can hum, a mysterious harp and low celesta ostinato, driving staccato strings, a steady groove of kick, snare, toms and soft timpani with a dark ride cymbal, low woodwinds answering the theme, a build from a secretive opening into a full magical orchestral peak, enchanted and adventurous, warm mid-forward mix, modern polished film-score production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, sneaky caper, silly, childish, cute, sugary, toy piano, tuba, bassoon staccato, xylophone, polka, oompah, epic trailer braams, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-fantasy-c3.wav: 85.7s loop = source 8.33s..94.05s (44.94 bars at 125.8 bpm), crossfade 0.95s | context match 0.835 (best 0.884) | crossfade rhythm r=0.98 vs the track a bar later r=-0.18: in time | spectrum cos=0.97"
+            ],
+            "measured": {
+                "loop_s": 85.7,
+                "bpm": 125.8,
+                "context": 0.835,
+                "r_cross": 0.98,
+                "r_bar": -0.18,
+                "in_time": true,
+                "cos": 0.97,
+                "dip": 35.6,
+                "quiet": 22,
+                "lr_corr": 0.751,
+                "knee_pct": 0.203,
+                "b200_2k": 38.2,
+                "b300_4k": 33.6,
+                "above6k": 0.0,
+                "tonal_mid": 95,
+                "mid_flatness": 0.0,
+                "held_changes": 2.2,
+                "tempo_wander": 0.07,
+                "wrap_db": -2.9,
+                "wrap_pct": 32
+            }
+        },
+        {
+            "candidate": "c5",
+            "seed": 1984183476,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-fantasy-c5.wav: 91.2s loop = source 17.53s..108.70s (47.99 bars at 126.3 bpm), crossfade 0.95s | context match 0.359 (best 0.409) | crossfade rhythm r=0.13 vs the track a bar later r=0.08: in time | spectrum cos=0.45"
+            ],
+            "measured": {
+                "loop_s": 91.2,
+                "bpm": 126.3,
+                "context": 0.359,
+                "r_cross": 0.13,
+                "r_bar": 0.08,
+                "in_time": true,
+                "cos": 0.45,
+                "dip": 37.0,
+                "quiet": 36,
+                "lr_corr": 0.627,
+                "knee_pct": 0.074,
+                "b200_2k": 44.2,
+                "b300_4k": 33.8,
+                "above6k": 0.1,
+                "tonal_mid": 97,
+                "mid_flatness": 0.0,
+                "held_changes": 2.18,
+                "tempo_wander": 3.95,
+                "wrap_db": -3.8,
+                "wrap_pct": 84
+            }
+        },
+        {
+            "candidate": "c6",
+            "seed": 100097617,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-fantasy-c6.wav: 84.5s loop = source 20.92s..105.40s (43.96 bars at 124.9 bpm), crossfade 0.96s | context match 0.441 (best 0.491) | crossfade rhythm r=0.63 vs the track a bar later r=0.27: in time | spectrum cos=0.51"
+            ],
+            "measured": {
+                "loop_s": 84.5,
+                "bpm": 124.9,
+                "context": 0.441,
+                "r_cross": 0.63,
+                "r_bar": 0.27,
+                "in_time": true,
+                "cos": 0.51,
+                "dip": 19.9,
+                "quiet": 26,
+                "lr_corr": 0.522,
+                "knee_pct": 0.098,
+                "b200_2k": 40.0,
+                "b300_4k": 37.6,
+                "above6k": 0.2,
+                "tonal_mid": 97,
+                "mid_flatness": 0.01,
+                "held_changes": 2.92,
+                "tempo_wander": 2.12,
+                "wrap_db": 3.9,
+                "wrap_pct": 74
+            }
+        },
+        {
+            "candidate": "c7",
+            "seed": 678202245,
+            "caption": "Magical orchestral-pop instrumental: a soaring, memorable french horn and strings melody you can hum over a steady modern pop beat of kick, snare and toms with a dark ride cymbal that never stops, a driving staccato string ostinato under the whole piece, a bass guitar following the chords, harp and low celesta colours, low woodwinds answering the theme, the full band and orchestra playing from the first bar, rising into a magical peak, enchanted and adventurous, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, sneaky caper, silly, childish, cute, sugary, toy piano, tuba, bassoon staccato, xylophone, polka, oompah, epic trailer braams, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, orchestral swells, rubato, tempo changes, solo piano passages",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-fantasy-c7.wav: 83.2s loop = source 19.38s..102.60s (43.05 bars at 124.1 bpm), crossfade 0.97s | context match 0.584 (best 0.609) | crossfade rhythm r=0.68 vs the track a bar later r=0.69: in time | spectrum cos=0.63"
+            ],
+            "measured": {
+                "loop_s": 83.2,
+                "bpm": 124.1,
+                "context": 0.584,
+                "r_cross": 0.68,
+                "r_bar": 0.69,
+                "in_time": true,
+                "cos": 0.63,
+                "dip": 24.3,
+                "quiet": 22,
+                "lr_corr": 0.762,
+                "knee_pct": 0.001,
+                "b200_2k": 11.6,
+                "b300_4k": 10.4,
+                "above6k": 4.9,
+                "tonal_mid": 89,
+                "mid_flatness": 0.03,
+                "held_changes": 4.06,
+                "tempo_wander": 0.19,
+                "wrap_db": 4.8,
+                "wrap_pct": 84
+            }
+        },
+        {
+            "candidate": "c8",
+            "seed": 1432375875,
+            "caption": "Magical orchestral-pop instrumental: a soaring, memorable french horn and strings melody you can hum over a steady modern pop beat of kick, snare and toms with a dark ride cymbal that never stops, a driving staccato string ostinato under the whole piece, a bass guitar following the chords, harp and low celesta colours, low woodwinds answering the theme, the full band and orchestra playing from the first bar, rising into a magical peak, enchanted and adventurous, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, sneaky caper, silly, childish, cute, sugary, toy piano, tuba, bassoon staccato, xylophone, polka, oompah, epic trailer braams, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, orchestral swells, rubato, tempo changes, solo piano passages",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-fantasy-c8.wav: 76.8s loop = source 19.15s..95.95s (40.01 bars at 125.0 bpm), crossfade 0.96s | context match 0.445 (best 0.490) | crossfade rhythm r=0.50 vs the track a bar later r=0.79: BELOW the track's own timekeeping -- listen | spectrum cos=0.45"
+            ],
+            "measured": {
+                "loop_s": 76.8,
+                "bpm": 125.0,
+                "context": 0.445,
+                "r_cross": 0.5,
+                "r_bar": 0.79,
+                "in_time": false,
+                "cos": 0.45,
+                "dip": 25.3,
+                "quiet": 32,
+                "lr_corr": 0.737,
+                "knee_pct": 0.097,
+                "b200_2k": 24.4,
+                "b300_4k": 22.4,
+                "above6k": 1.4,
+                "tonal_mid": 71,
+                "mid_flatness": 0.03,
+                "held_changes": 2.62,
+                "tempo_wander": 0.94,
+                "wrap_db": -1.6,
+                "wrap_pct": 25
+            }
+        },
+        {
+            "candidate": "c9",
+            "seed": 950704673,
+            "caption": "Magical orchestral-pop instrumental: a soaring, memorable french horn and strings melody you can hum over a steady modern pop beat of kick, snare and toms with a dark ride cymbal that never stops, a driving staccato string ostinato under the whole piece, a bass guitar following the chords, harp and low celesta colours, low woodwinds answering the theme, the full band and orchestra playing from the first bar, rising into a magical peak, enchanted and adventurous, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, sneaky caper, silly, childish, cute, sugary, toy piano, tuba, bassoon staccato, xylophone, polka, oompah, epic trailer braams, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, orchestral swells, rubato, tempo changes, solo piano passages",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-fantasy-c9.wav: 41.9s loop = source 38.00s..79.90s (21.94 bars at 125.7 bpm), crossfade 0.95s | context match 0.693 (best 0.735) | crossfade rhythm r=0.84 vs the track a bar later r=0.67: in time | spectrum cos=0.93"
+            ],
+            "measured": {
+                "loop_s": 41.9,
+                "bpm": 125.7,
+                "context": 0.693,
+                "r_cross": 0.84,
+                "r_bar": 0.67,
+                "in_time": true,
+                "cos": 0.93,
+                "dip": 49.4,
+                "quiet": 24,
+                "lr_corr": 0.777,
+                "knee_pct": 0.117,
+                "b200_2k": 20.0,
+                "b300_4k": 18.1,
+                "above6k": 1.8,
+                "tonal_mid": 83,
+                "mid_flatness": 0.04,
+                "held_changes": 2.94,
+                "tempo_wander": 2.74,
+                "wrap_db": -0.9,
+                "wrap_pct": 39
+            }
+        }
+    ],
+    "replaces": {
+        "stem": "puppet-caper",
+        "issue": 558,
+        "created": "2026-09-25",
+        "caption": "Sneaky comic caper instrumental: staccato bassoon and tuba tiptoe bass, pizzicato strings, a sly oboe melody, xylophone runs, brushed snare and woodblock, cartoon mischief, light and playful, major key, no vocals",
+        "negative": "vocals, singing, audience applause, crowd noise, live recording, dark ambient drone, heavy distortion",
+        "bpm": 112,
+        "keyscale": "F major",
+        "loop_log": [
+            "Wrote C:\\Users\\panrd\\AI\\output\\masters-558\\theme-puppet-caper.wav: 70.1s loop = source 8.01s..78.10s (33.03 bars at 113.1 bpm), crossfade 1.06s | context match 0.908 (best 0.958) | crossfade rhythm r=0.92 vs the track a bar later r=0.65: in time | spectrum cos=0.94"
+        ],
+        "why_replaced": "replaces puppet-caper, briefed as a sneaky comic caper (tiptoe tuba, xylophone, cartoon mischief); the owner, 2026-10-11 (#732): mysterious and magical, with a melody; 136 clipped runs and 2.7 % above 6 kHz in the old loop"
+    }
+}

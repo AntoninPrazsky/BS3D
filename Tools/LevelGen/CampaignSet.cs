@@ -108,14 +108,15 @@ namespace BS3D.Tools.LevelGen
         //the dechovka the owner turned away twice (#264, #280).
         internal const string MUSIC_BIGTOP = "bigtop";
 
-        //THE SILHOUETTES' PUPPET (#558). The chapter borrowed the Quarry's LUNAR when #491 inserted it, the one
-        //reprise left after #486; it has a family of its own now, briefed for the chapter's character rather
-        //than its hour. Black paper cut-outs on a pale check are shadow-puppet theatre and a paper-cut picture
-        //book, so the ten are light and curious - storybook pizzicato and clarinet, a shadow-puppet gamelan, a
-        //caper, cartoon jazz, a silent-film rag, a toybox, baroque harpsichord, kalimba, a cheeky tango and
-        //Nordic folk under the aurora - all in F major, where lunar's drones made a playful gallery of shapes
-        //sound like the Moon. Like every family it ships on the owner's ear: a recording he dislikes is one
-        //re-render, and this constant is the one line that would hand the chapter back to lunar.
+        //THE SILHOUETTES' PUPPET (#558, #732). The chapter borrowed the Quarry's LUNAR when #491 inserted it, the
+        //one reprise left after #486; it has a family of its own, briefed for the chapter's character rather
+        //than its hour: shadow-puppet theatre under the northern lights. The first ten (#558) were light comedy
+        //(a caper, a rag, a toybox, a cheeky tango); the owner's ruling of 2026-10-11 (#732) is mysterious and
+        //magical, with a melody, so the ten are now a fairy-tale clarinet theme, a dark waltz, Nordic folk, a
+        //shadow-theatre gamelan, baroque harpsichord, late-night jazz, trip-hop, a fantasy orchestra, an oud tale
+        //and an aurora synth-pop, each carrying a tune in the mid range the way the desert's ember family does.
+        //Like every family it ships on the owner's ear: a recording he dislikes is one re-render, and this
+        //constant is the one line that would hand the chapter back to lunar.
         internal const string MUSIC_SILHOUETTES = "puppet";
 
         //WHAT EACH CHAPTER'S BALLS ARE MADE OF. A property of the block exactly as the music is — the

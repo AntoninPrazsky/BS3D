@@ -1,0 +1,340 @@
+{
+    "file": "theme-puppet-triphop.wav",
+    "created": "2026-10-15",
+    "issue": 732,
+    "family": "puppet",
+    "chapter": "The Silhouettes (aurora, levels 41-50) - regenerated on the owner's ruling of 2026-10-11 (#732): mysterious and magical, with a melody; from the desert's ember model only the followable tune and the mid range, not its guitar rock",
+    "purpose": "Master of Game/Music/puppet-triphop.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-732-chosen on the desktop, with its .raw.wav; every candidate in masters-732); this sidecar is committed beside the .ogg.",
+    "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-puppet.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
+    "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+    "license": "ACE-Step 1.5: MIT (code and weights)",
+    "request": {
+        "caption": "Haunting trip-hop instrumental: a slow steady head-nodding groove of kick, snare and toms with a dark ride cymbal that never stops, a warm bass guitar line in the mid range, a long flowing melody of many notes you can hum on an eerie theremin-like lead, doubled by a cello an octave below, dusky piano chords and a plucked harp, the melody passing between theremin, cello and piano over the unbroken groove, mysterious, dreamy and magical, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+        "lm_negative_prompt": "vocals, singing, choir, humming, sampled vocals, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, ukulele, kazoo, vinyl crackle, record scratches, turntable, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, deep sub bass, rumble, droning, one-note bass",
+        "instrumental": true,
+        "use_cot_caption": false,
+        "duration": 120,
+        "bpm": 92,
+        "keyscale": "A minor",
+        "seed": 947412834,
+        "inference_steps": 8,
+        "output_format": "wav32"
+    },
+    "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+    "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-triphop-c7.wav: 80.0s loop = source 23.20s..103.20s (29.97 bars at 89.9 bpm), crossfade 1.33s | context match 0.948 (best 0.998) | crossfade rhythm r=1.00 vs the track a bar later r=0.92: in time | spectrum cos=1.00"
+    ],
+    "lm_check": {
+        "request0_captured": true,
+        "caption_verbatim": true,
+        "seed_in_request0": 947412834,
+        "bpm_in_request0": 92,
+        "keyscale_in_request0": "A minor",
+        "duration_in_request0": 120.0
+    },
+    "measured": "generate-music.ps1 end to end 58,8 s (ace-lm + ace-synth + loop cut), exit 0",
+    "measured_against_ember": {
+        "loop_s": 80.0,
+        "bpm": 89.9,
+        "context": 0.948,
+        "r_cross": 1.0,
+        "r_bar": 0.92,
+        "in_time": true,
+        "cos": 1.0,
+        "dip": 5.9,
+        "quiet": 0,
+        "lr_corr": 0.916,
+        "knee_pct": 0.387,
+        "b200_2k": 17.6,
+        "b300_4k": 17.4,
+        "above6k": 2.0,
+        "tonal_mid": 58,
+        "mid_flatness": 0.05,
+        "held_changes": 1.8,
+        "tempo_wander": 0.04,
+        "wrap_db": -4.6,
+        "wrap_pct": 37
+    },
+    "measured_note": "measure-music.py --reference ember on the loop (band shares %, tonal mid %, mid flatness, held-note changes/s, tempo wander %, wrap step dB and its percentile) beside sel.py: the loop cut, dip = the quietest 2 s under the loop's p95 1 s level (dB), quiet = the % of the loop more than 10 dB under it, L/R correlation, knee_pct = the % of samples MusicBake's knee bends",
+    "rendered": true,
+    "chosen": {
+        "candidate": "c7",
+        "round": 3,
+        "of": [
+            "c1",
+            "c2",
+            "c3",
+            "c4",
+            "c5",
+            "c6",
+            "c7",
+            "c8",
+            "c9"
+        ],
+        "why": "200 Hz-2 kHz 17.6 %, 300 Hz-4 kHz 17.4 %, 2.0 % above 6 kHz (ember's highest), tonal mid 58 %, no stretch under -10 dB, the cleanest cut of nine (context match 0.95, crossfade r 1.0 against 0.92, spectrum cos 1.0), an 80 s loop, wrap step -4.6 dB (p37). Still outside ember: 1.8 held-note changes/s (ember >= 2.74); no usable trip-hop render of nine reached it (c6's 2.73 came with a seam whose sides disagree, spectrum cos 0.19). Round 1 left holes of 23-31 % (c2, c3) and a sub-heavy c1 (5.5 % in 200 Hz-2 kHz); round 3 asked a long flowing melody of many notes. c5 (round 2) changes note 1.47 times a second",
+        "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wrap step) beside the loop cut's own check, the hole share (the loop more than 10 dB under its loud level), the breakdown dip and the stereo correlation; a seam below its own rhythm, a hole over 15 % or a wrap step over 6 dB ruled a candidate out; the table is on #732"
+    },
+    "alternatives": [
+        {
+            "candidate": "c1",
+            "seed": 1482641682,
+            "caption": "Haunting trip-hop instrumental: a slow heavy groove of kick, snare and toms with a dark ride cymbal, a warm round bass guitar, an eerie theremin-like lead melody you can hum, a cello answering it, dusky piano chords and a plucked harp, a hushed breakdown to the lead alone that drops back into the full groove, mysterious, dreamy and magical, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, sampled vocals, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, ukulele, kazoo, vinyl crackle, record scratches, turntable, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-triphop-c1.wav: 53.3s loop = source 30.17s..83.50s (19.97 bars at 89.9 bpm), crossfade 1.34s | context match 0.852 (best 0.900) | crossfade rhythm r=0.96 vs the track a bar later r=0.91: in time | spectrum cos=0.98"
+            ],
+            "measured": {
+                "loop_s": 53.3,
+                "bpm": 89.9,
+                "context": 0.852,
+                "r_cross": 0.96,
+                "r_bar": 0.91,
+                "in_time": true,
+                "cos": 0.98,
+                "dip": 17.3,
+                "quiet": 15,
+                "lr_corr": 0.928,
+                "knee_pct": 0.099,
+                "b200_2k": 5.5,
+                "b300_4k": 5.1,
+                "above6k": 0.6,
+                "tonal_mid": 66,
+                "mid_flatness": 0.04,
+                "held_changes": 0.9,
+                "tempo_wander": 0.12,
+                "wrap_db": 14.2,
+                "wrap_pct": 88
+            }
+        },
+        {
+            "candidate": "c2",
+            "seed": 1738013744,
+            "caption": "Haunting trip-hop instrumental: a slow heavy groove of kick, snare and toms with a dark ride cymbal, a warm round bass guitar, an eerie theremin-like lead melody you can hum, a cello answering it, dusky piano chords and a plucked harp, a hushed breakdown to the lead alone that drops back into the full groove, mysterious, dreamy and magical, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, sampled vocals, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, ukulele, kazoo, vinyl crackle, record scratches, turntable, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-triphop-c2.wav: 53.3s loop = source 30.92s..84.25s (19.97 bars at 89.9 bpm), crossfade 1.34s | context match 0.806 (best 0.856) | crossfade rhythm r=0.90 vs the track a bar later r=0.74: in time | spectrum cos=0.72"
+            ],
+            "measured": {
+                "loop_s": 53.3,
+                "bpm": 89.9,
+                "context": 0.806,
+                "r_cross": 0.9,
+                "r_bar": 0.74,
+                "in_time": true,
+                "cos": 0.72,
+                "dip": 38.1,
+                "quiet": 23,
+                "lr_corr": 0.961,
+                "knee_pct": 0.727,
+                "b200_2k": 13.9,
+                "b300_4k": 14.3,
+                "above6k": 0.9,
+                "tonal_mid": 51,
+                "mid_flatness": 0.03,
+                "held_changes": 2.25,
+                "tempo_wander": 1.21,
+                "wrap_db": 0.9,
+                "wrap_pct": 16
+            }
+        },
+        {
+            "candidate": "c3",
+            "seed": 1606757936,
+            "caption": "Haunting trip-hop instrumental: a slow heavy groove of kick, snare and toms with a dark ride cymbal, a warm round bass guitar, an eerie theremin-like lead melody you can hum, a cello answering it, dusky piano chords and a plucked harp, a hushed breakdown to the lead alone that drops back into the full groove, mysterious, dreamy and magical, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, sampled vocals, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, ukulele, kazoo, vinyl crackle, record scratches, turntable, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-triphop-c3.wav: 64.0s loop = source 13.70s..77.70s (23.99 bars at 90.0 bpm), crossfade 1.33s | context match 0.949 (best 0.998) | crossfade rhythm r=1.00 vs the track a bar later r=0.81: in time | spectrum cos=1.00"
+            ],
+            "measured": {
+                "loop_s": 64.0,
+                "bpm": 90.0,
+                "context": 0.949,
+                "r_cross": 1.0,
+                "r_bar": 0.81,
+                "in_time": true,
+                "cos": 1.0,
+                "dip": 27.7,
+                "quiet": 31,
+                "lr_corr": 0.966,
+                "knee_pct": 0.474,
+                "b200_2k": 17.8,
+                "b300_4k": 16.9,
+                "above6k": 1.3,
+                "tonal_mid": 71,
+                "mid_flatness": 0.01,
+                "held_changes": 2.55,
+                "tempo_wander": 0.34,
+                "wrap_db": 7.5,
+                "wrap_pct": 72
+            }
+        },
+        {
+            "candidate": "c4",
+            "seed": 614147081,
+            "caption": "Haunting trip-hop instrumental: a slow steady head-nodding groove of kick, snare and toms with a dark ride cymbal that never stops, a warm bass guitar line in the mid range, an eerie theremin-like lead melody you can hum carried in the mid range, a cello answering it, dusky piano chords and a plucked harp, the melody passing between theremin, cello and piano over the unbroken groove, mysterious, dreamy and magical, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, sampled vocals, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, ukulele, kazoo, vinyl crackle, record scratches, turntable, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, deep sub bass, rumble",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-triphop-c4.wav: 52.7s loop = source 21.55s..74.30s (19.97 bars at 90.9 bpm), crossfade 1.32s | context match 0.979 (best 0.982) | crossfade rhythm r=0.96 vs the track a bar later r=0.82: in time | spectrum cos=0.97"
+            ],
+            "measured": {
+                "loop_s": 52.7,
+                "bpm": 90.9,
+                "context": 0.979,
+                "r_cross": 0.96,
+                "r_bar": 0.82,
+                "in_time": true,
+                "cos": 0.97,
+                "dip": 15.8,
+                "quiet": 4,
+                "lr_corr": 0.849,
+                "knee_pct": 0.469,
+                "b200_2k": 17.4,
+                "b300_4k": 14.8,
+                "above6k": 0.1,
+                "tonal_mid": 41,
+                "mid_flatness": 0.06,
+                "held_changes": 1.38,
+                "tempo_wander": 0.02,
+                "wrap_db": -2.8,
+                "wrap_pct": 32
+            }
+        },
+        {
+            "candidate": "c5",
+            "seed": 34820944,
+            "caption": "Haunting trip-hop instrumental: a slow steady head-nodding groove of kick, snare and toms with a dark ride cymbal that never stops, a warm bass guitar line in the mid range, an eerie theremin-like lead melody you can hum carried in the mid range, a cello answering it, dusky piano chords and a plucked harp, the melody passing between theremin, cello and piano over the unbroken groove, mysterious, dreamy and magical, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, sampled vocals, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, ukulele, kazoo, vinyl crackle, record scratches, turntable, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, deep sub bass, rumble",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-triphop-c5.wav: 63.3s loop = source 21.15s..84.45s (23.99 bars at 91.0 bpm), crossfade 1.32s | context match 0.654 (best 0.700) | crossfade rhythm r=0.81 vs the track a bar later r=0.85: in time | spectrum cos=0.62"
+            ],
+            "measured": {
+                "loop_s": 63.3,
+                "bpm": 91.0,
+                "context": 0.654,
+                "r_cross": 0.81,
+                "r_bar": 0.85,
+                "in_time": true,
+                "cos": 0.62,
+                "dip": 15.5,
+                "quiet": 6,
+                "lr_corr": 0.919,
+                "knee_pct": 0.168,
+                "b200_2k": 12.4,
+                "b300_4k": 10.9,
+                "above6k": 0.2,
+                "tonal_mid": 68,
+                "mid_flatness": 0.04,
+                "held_changes": 1.47,
+                "tempo_wander": 0.01,
+                "wrap_db": 2.1,
+                "wrap_pct": 47
+            }
+        },
+        {
+            "candidate": "c6",
+            "seed": 2042016688,
+            "caption": "Haunting trip-hop instrumental: a slow steady head-nodding groove of kick, snare and toms with a dark ride cymbal that never stops, a warm bass guitar line in the mid range, an eerie theremin-like lead melody you can hum carried in the mid range, a cello answering it, dusky piano chords and a plucked harp, the melody passing between theremin, cello and piano over the unbroken groove, mysterious, dreamy and magical, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, sampled vocals, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, ukulele, kazoo, vinyl crackle, record scratches, turntable, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, deep sub bass, rumble",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-triphop-c6.wav: 92.7s loop = source 15.08s..107.75s (35.00 bars at 90.6 bpm), crossfade 1.32s | context match 0.179 (best 0.229) | crossfade rhythm r=0.59 vs the track a bar later r=0.65: in time | spectrum cos=0.19"
+            ],
+            "measured": {
+                "loop_s": 92.7,
+                "bpm": 90.6,
+                "context": 0.179,
+                "r_cross": 0.59,
+                "r_bar": 0.65,
+                "in_time": true,
+                "cos": 0.19,
+                "dip": 4.8,
+                "quiet": 0,
+                "lr_corr": 0.906,
+                "knee_pct": 0.269,
+                "b200_2k": 21.1,
+                "b300_4k": 20.2,
+                "above6k": 0.2,
+                "tonal_mid": 73,
+                "mid_flatness": 0.02,
+                "held_changes": 2.73,
+                "tempo_wander": 0.26,
+                "wrap_db": -7.7,
+                "wrap_pct": 67
+            }
+        },
+        {
+            "candidate": "c8",
+            "seed": 452469803,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-triphop-c8.wav: 84.4s loop = source 22.50s..106.90s (32.00 bars at 91.0 bpm), crossfade 1.32s | context match 0.892 (best 0.942) | crossfade rhythm r=0.97 vs the track a bar later r=0.96: in time | spectrum cos=0.90"
+            ],
+            "measured": {
+                "loop_s": 84.4,
+                "bpm": 91.0,
+                "context": 0.892,
+                "r_cross": 0.97,
+                "r_bar": 0.96,
+                "in_time": true,
+                "cos": 0.9,
+                "dip": 4.2,
+                "quiet": 0,
+                "lr_corr": 0.953,
+                "knee_pct": 0.015,
+                "b200_2k": 6.7,
+                "b300_4k": 6.4,
+                "above6k": 1.5,
+                "tonal_mid": 31,
+                "mid_flatness": 0.06,
+                "held_changes": 2.44,
+                "tempo_wander": 0.01,
+                "wrap_db": -1.6,
+                "wrap_pct": 20
+            }
+        },
+        {
+            "candidate": "c9",
+            "seed": 563064111,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-triphop-c9.wav: 57.4s loop = source 36.61s..94.00s (22.02 bars at 92.1 bpm), crossfade 1.30s | context match 0.901 (best 0.950) | crossfade rhythm r=0.96 vs the track a bar later r=0.95: in time | spectrum cos=0.93"
+            ],
+            "measured": {
+                "loop_s": 57.4,
+                "bpm": 92.1,
+                "context": 0.901,
+                "r_cross": 0.96,
+                "r_bar": 0.95,
+                "in_time": true,
+                "cos": 0.93,
+                "dip": 17.6,
+                "quiet": 4,
+                "lr_corr": 0.93,
+                "knee_pct": 0.009,
+                "b200_2k": 14.4,
+                "b300_4k": 10.7,
+                "above6k": 1.4,
+                "tonal_mid": 64,
+                "mid_flatness": 0.05,
+                "held_changes": 1.64,
+                "tempo_wander": 0.06,
+                "wrap_db": -1.3,
+                "wrap_pct": 18
+            }
+        }
+    ],
+    "replaces": {
+        "stem": "puppet-toybox",
+        "issue": 558,
+        "created": "2026-09-25",
+        "caption": "Cheerful toybox pop instrumental: toy piano and glockenspiel melody, strummed ukulele, kazoo-like melodica counter-melody, light handclaps and shaker, soft round bass, playful and curious, bright major key, no vocals",
+        "negative": "vocals, singing, audience applause, crowd noise, live recording, dark ambient drone, heavy distortion",
+        "bpm": 118,
+        "keyscale": "F major",
+        "loop_log": [
+            "Wrote C:\\Users\\panrd\\AI\\output\\masters-558\\theme-puppet-toybox.wav: 73.2s loop = source 25.63s..98.85s (35.95 bars at 117.8 bpm), crossfade 1.02s | context match 0.789 (best 0.836) | crossfade rhythm r=0.92 vs the track a bar later r=0.82: in time | spectrum cos=0.97"
+        ],
+        "why_replaced": "replaces puppet-toybox, briefed as cheerful toybox pop (toy piano, kazoo-like melodica, ukulele); the owner, 2026-10-11 (#732): mysterious and magical, with a melody"
+    }
+}

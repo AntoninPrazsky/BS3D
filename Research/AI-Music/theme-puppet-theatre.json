@@ -1,29 +1,244 @@
 {
-    "file":  "theme-puppet-theatre.wav",
-    "created":  "2026-09-25",
-    "issue":  558,
-    "family":  "puppet",
-    "chapter":  "The Silhouettes (aurora) - #491/#558: black paper cut-outs under the northern lights; playful, graphic, light and curious - shadow-puppet theatre, a paper-cut picture book",
-    "purpose":  "Master of Game/Music/puppet-theatre.ogg, one of the puppet family\u0027s recordings (#558): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:\\Users\\panrd\\AI\\output\\masters-558 on the desktop); this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-558.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "Light shadow-puppet theatre instrumental: bright bronze metallophones and gongs in interlocking patterns, a playful bamboo flute melody, hand drum and small cymbals, plucked zither, curious and storytelling, gentle and airy, clean production, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording, dark ambient drone, heavy distortion",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  100,
-                    "keyscale":  "F major",
-                    "seed":  306458216,
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-558\\theme-puppet-theatre.wav: 76.8s loop = source 7.55s..84.35s (32.00 bars at 100.0 bpm), crossfade 1.20s | context match 0.935 (best 0.982) | crossfade rhythm r=0.98 vs the track a bar later r=0.45: in time | spectrum cos=0.98"
-                 ],
-    "measured":  "generate-music.ps1 end to end 123.9 s (ace-lm + ace-synth + loop cut), GPU shared with other sessions\u0027 captures",
-    "rendered":  true
+    "file": "theme-puppet-theatre.wav",
+    "created": "2026-10-15",
+    "issue": 732,
+    "family": "puppet",
+    "chapter": "The Silhouettes (aurora, levels 41-50) - regenerated on the owner's ruling of 2026-10-11 (#732): mysterious and magical, with a melody; from the desert's ember model only the followable tune and the mid range, not its guitar rock",
+    "purpose": "Master of Game/Music/puppet-theatre.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-732-chosen on the desktop, with its .raw.wav; every candidate in masters-732); this sidecar is committed beside the .ogg.",
+    "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-puppet.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
+    "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+    "license": "ACE-Step 1.5: MIT (code and weights)",
+    "request": {
+        "caption": "Mysterious shadow-puppet theatre instrumental: interlocking bronze metallophone patterns in a dark scale, a haunting bamboo flute melody you can hum carried over them, a deep steady hand-drum groove with kick and toms playing throughout, warm low gongs marking the phrases, a plucked zither and a warm bass, the full ensemble playing from the first bar with the melody passing between flute, zither and metallophones, magical, ancient and nocturnal, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+        "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, small cymbals, finger cymbals, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, free-time introduction",
+        "instrumental": true,
+        "use_cot_caption": false,
+        "duration": 120,
+        "bpm": 100,
+        "keyscale": "D minor",
+        "seed": 659358626,
+        "inference_steps": 8,
+        "output_format": "wav32"
+    },
+    "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+    "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-theatre-c5.wav: 48.0s loop = source 30.00s..78.00s (20.00 bars at 100.0 bpm), crossfade 1.20s | context match 0.810 (best 0.810) | crossfade rhythm r=0.83 vs the track a bar later r=0.51: in time | spectrum cos=0.81"
+    ],
+    "lm_check": {
+        "request0_captured": true,
+        "caption_verbatim": true,
+        "seed_in_request0": 659358626,
+        "bpm_in_request0": 100,
+        "keyscale_in_request0": "D minor",
+        "duration_in_request0": 120.0
+    },
+    "measured": "generate-music.ps1 end to end 58,2 s (ace-lm + ace-synth + loop cut), exit 0",
+    "measured_against_ember": {
+        "loop_s": 48.0,
+        "bpm": 100.0,
+        "context": 0.81,
+        "r_cross": 0.83,
+        "r_bar": 0.51,
+        "in_time": true,
+        "cos": 0.81,
+        "dip": 6.1,
+        "quiet": 0,
+        "lr_corr": 0.855,
+        "knee_pct": 0.065,
+        "b200_2k": 26.8,
+        "b300_4k": 25.5,
+        "above6k": 0.4,
+        "tonal_mid": 62,
+        "mid_flatness": 0.01,
+        "held_changes": 3.85,
+        "tempo_wander": 0.08,
+        "wrap_db": 1.1,
+        "wrap_pct": 16
+    },
+    "measured_note": "measure-music.py --reference ember on the loop (band shares %, tonal mid %, mid flatness, held-note changes/s, tempo wander %, wrap step dB and its percentile) beside sel.py: the loop cut, dip = the quietest 2 s under the loop's p95 1 s level (dB), quiet = the % of the loop more than 10 dB under it, L/R correlation, knee_pct = the % of samples MusicBake's knee bends",
+    "rendered": true,
+    "chosen": {
+        "candidate": "c5",
+        "round": 2,
+        "of": [
+            "c1",
+            "c2",
+            "c3",
+            "c4",
+            "c5",
+            "c6"
+        ],
+        "why": "inside ember's range on every column: 200 Hz-2 kHz 26.8 %, 300 Hz-4 kHz 25.5 %, 0.4 % above 6 kHz, tonal mid 62 %, 3.85 held-note changes/s; no stretch under -10 dB, wrap step +1.1 dB (p16), a 48 s loop in time (r 0.83 against 0.51). Round 1's slow build from a hushed spell left c1 and c2 37-38 % under -10 dB with 46 dB dropouts; c3 changes note 2.26 times a second, c4 steps -12.4 dB at its wrap, c6 has a 47 dB dropout",
+        "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wrap step) beside the loop cut's own check, the hole share (the loop more than 10 dB under its loud level), the breakdown dip and the stereo correlation; a seam below its own rhythm, a hole over 15 % or a wrap step over 6 dB ruled a candidate out; the table is on #732"
+    },
+    "alternatives": [
+        {
+            "candidate": "c1",
+            "seed": 203930606,
+            "caption": "Mysterious shadow-puppet theatre instrumental: interlocking bronze metallophone patterns in a dark scale, a haunting bamboo flute melody you can hum floating over them, a deep hand-drum groove with kick and toms, warm low gongs marking the phrases, a plucked zither and a warm bass, a slow build from a hushed spell to a full ringing peak, magical, ancient and nocturnal, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, small cymbals, finger cymbals, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-theatre-c1.wav: 48.0s loop = source 33.10s..81.10s (20.02 bars at 100.1 bpm), crossfade 1.20s | context match 0.932 (best 0.980) | crossfade rhythm r=0.99 vs the track a bar later r=-0.06: in time | spectrum cos=0.98"
+            ],
+            "measured": {
+                "loop_s": 48.0,
+                "bpm": 100.1,
+                "context": 0.932,
+                "r_cross": 0.99,
+                "r_bar": -0.06,
+                "in_time": true,
+                "cos": 0.98,
+                "dip": 46.9,
+                "quiet": 38,
+                "lr_corr": 0.893,
+                "knee_pct": 0.857,
+                "b200_2k": 13.1,
+                "b300_4k": 11.6,
+                "above6k": 0.0,
+                "tonal_mid": 78,
+                "mid_flatness": 0.01,
+                "held_changes": 1.46,
+                "tempo_wander": 0.36,
+                "wrap_db": 1.6,
+                "wrap_pct": 34
+            }
+        },
+        {
+            "candidate": "c2",
+            "seed": 1504953260,
+            "caption": "Mysterious shadow-puppet theatre instrumental: interlocking bronze metallophone patterns in a dark scale, a haunting bamboo flute melody you can hum floating over them, a deep hand-drum groove with kick and toms, warm low gongs marking the phrases, a plucked zither and a warm bass, a slow build from a hushed spell to a full ringing peak, magical, ancient and nocturnal, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, small cymbals, finger cymbals, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-theatre-c2.wav: 86.4s loop = source 14.90s..101.30s (36.00 bars at 100.0 bpm), crossfade 1.20s | context match 0.451 (best 0.499) | crossfade rhythm r=0.86 vs the track a bar later r=0.47: in time | spectrum cos=0.66"
+            ],
+            "measured": {
+                "loop_s": 86.4,
+                "bpm": 100.0,
+                "context": 0.451,
+                "r_cross": 0.86,
+                "r_bar": 0.47,
+                "in_time": true,
+                "cos": 0.66,
+                "dip": 46.3,
+                "quiet": 37,
+                "lr_corr": 0.904,
+                "knee_pct": 0.396,
+                "b200_2k": 14.9,
+                "b300_4k": 13.0,
+                "above6k": 0.1,
+                "tonal_mid": 89,
+                "mid_flatness": 0.02,
+                "held_changes": 1.42,
+                "tempo_wander": 0.1,
+                "wrap_db": -4.0,
+                "wrap_pct": 56
+            }
+        },
+        {
+            "candidate": "c3",
+            "seed": 626297618,
+            "caption": "Mysterious shadow-puppet theatre instrumental: interlocking bronze metallophone patterns in a dark scale, a haunting bamboo flute melody you can hum floating over them, a deep hand-drum groove with kick and toms, warm low gongs marking the phrases, a plucked zither and a warm bass, a slow build from a hushed spell to a full ringing peak, magical, ancient and nocturnal, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, small cymbals, finger cymbals, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-theatre-c3.wav: 57.0s loop = source 37.42s..94.45s (24.05 bars at 101.2 bpm), crossfade 1.19s | context match 0.445 (best 0.485) | crossfade rhythm r=0.85 vs the track a bar later r=0.49: in time | spectrum cos=0.94"
+            ],
+            "measured": {
+                "loop_s": 57.0,
+                "bpm": 101.2,
+                "context": 0.445,
+                "r_cross": 0.85,
+                "r_bar": 0.49,
+                "in_time": true,
+                "cos": 0.94,
+                "dip": 6.6,
+                "quiet": 0,
+                "lr_corr": 0.855,
+                "knee_pct": 0.069,
+                "b200_2k": 26.7,
+                "b300_4k": 23.1,
+                "above6k": 0.1,
+                "tonal_mid": 78,
+                "mid_flatness": 0.02,
+                "held_changes": 2.26,
+                "tempo_wander": 0.04,
+                "wrap_db": 4.0,
+                "wrap_pct": 47
+            }
+        },
+        {
+            "candidate": "c4",
+            "seed": 1564504573,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-theatre-c4.wav: 72.0s loop = source 38.60s..110.60s (30.03 bars at 100.1 bpm), crossfade 1.20s | context match 0.655 (best 0.703) | crossfade rhythm r=0.82 vs the track a bar later r=0.35: in time | spectrum cos=0.90"
+            ],
+            "measured": {
+                "loop_s": 72.0,
+                "bpm": 100.1,
+                "context": 0.655,
+                "r_cross": 0.82,
+                "r_bar": 0.35,
+                "in_time": true,
+                "cos": 0.9,
+                "dip": 14.3,
+                "quiet": 6,
+                "lr_corr": 0.945,
+                "knee_pct": 0.181,
+                "b200_2k": 30.5,
+                "b300_4k": 28.7,
+                "above6k": 0.0,
+                "tonal_mid": 87,
+                "mid_flatness": 0.01,
+                "held_changes": 2.0,
+                "tempo_wander": 0.03,
+                "wrap_db": -12.4,
+                "wrap_pct": 85
+            }
+        },
+        {
+            "candidate": "c6",
+            "seed": 570465151,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-theatre-c6.wav: 76.8s loop = source 22.65s..99.45s (32.01 bars at 100.0 bpm), crossfade 1.20s | context match 0.952 (best 0.997) | crossfade rhythm r=0.96 vs the track a bar later r=0.26: in time | spectrum cos=0.99"
+            ],
+            "measured": {
+                "loop_s": 76.8,
+                "bpm": 100.0,
+                "context": 0.952,
+                "r_cross": 0.96,
+                "r_bar": 0.26,
+                "in_time": true,
+                "cos": 0.99,
+                "dip": 46.7,
+                "quiet": 20,
+                "lr_corr": 0.968,
+                "knee_pct": 0.469,
+                "b200_2k": 15.1,
+                "b300_4k": 14.4,
+                "above6k": 0.4,
+                "tonal_mid": 71,
+                "mid_flatness": 0.02,
+                "held_changes": 2.2,
+                "tempo_wander": 0.11,
+                "wrap_db": 19.1,
+                "wrap_pct": 97
+            }
+        }
+    ],
+    "replaces": {
+        "stem": "puppet-theatre",
+        "issue": 558,
+        "created": "2026-09-25",
+        "caption": "Light shadow-puppet theatre instrumental: bright bronze metallophones and gongs in interlocking patterns, a playful bamboo flute melody, hand drum and small cymbals, plucked zither, curious and storytelling, gentle and airy, clean production, no vocals",
+        "negative": "vocals, singing, audience applause, crowd noise, live recording, dark ambient drone, heavy distortion",
+        "bpm": 100,
+        "keyscale": "F major",
+        "loop_log": [
+            "Wrote C:\\Users\\panrd\\AI\\output\\masters-558\\theme-puppet-theatre.wav: 76.8s loop = source 7.55s..84.35s (32.00 bars at 100.0 bpm), crossfade 1.20s | context match 0.935 (best 0.982) | crossfade rhythm r=0.98 vs the track a bar later r=0.45: in time | spectrum cos=0.98"
+        ],
+        "why_replaced": "briefed as light, curious storytelling gamelan; the owner, 2026-10-11 (#732): mysterious and magical, with a melody; 42 clipped runs in the old loop"
+    }
 }
