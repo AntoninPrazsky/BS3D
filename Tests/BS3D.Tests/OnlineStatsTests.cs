@@ -21,7 +21,13 @@ namespace BS3D.Tests
     /// that records every request whole: nothing sent or kept without consent, a batch alone (no token, no version, its own
     /// connection, a quiet after a clear), sent again under its id until answered, kept on a bare 404, dropped on a refusal,
     /// and dropped from the outbox when online scores are turned off.
+    /// <para>
+    /// <b>Alone, not beside the other tests</b> (<see cref="OnlineStatsCollection"/>): the worker, its timer and the stand-in
+    /// all wait on the thread pool, and on CI's two cores the physics tests running beside them starved it for longer than a
+    /// wait here allowed (a batch due in 300 ms was not frozen within 5 s, 2026-10-15).
+    /// </para>
     /// </summary>
+    [Collection(OnlineStatsCollection.Name)]
     public sealed class OnlineStatsTests : IDisposable
     {
         //Fast, so a test waits a moment: a batch at least 300 ms after the last, and 250 to 350 ms after a request that names the player
@@ -50,10 +56,10 @@ namespace BS3D.Tests
         private static void Stop(OnlineScores client)
         {
             Task worker = client.Stop();
-            try { worker.Wait(TimeSpan.FromSeconds(5)); } catch (AggregateException) { }
+            try { worker.Wait(TimeSpan.FromSeconds(20)); } catch (AggregateException) { }
         }
 
-        private static bool Within(Func<bool> condition, double seconds = 5)
+        private static bool Within(Func<bool> condition, double seconds = 20)
         {
             Stopwatch clock = Stopwatch.StartNew();
             while (clock.Elapsed.TotalSeconds < seconds)
@@ -331,5 +337,12 @@ namespace BS3D.Tests
                 _listener.Stop();
             }
         }
+    }
+
+    /// <summary>The online client's tests run after every parallel test, one at a time: see <see cref="OnlineStatsTests"/>.</summary>
+    [CollectionDefinition(Name, DisableParallelization = true)]
+    public sealed class OnlineStatsCollection
+    {
+        public const string Name = "Online client, alone";
     }
 }
