@@ -557,8 +557,9 @@ namespace BS3D.Screens
                 "Most balls are ordinary. These are not — the first few you will meet as the campaign goes on."));
 
             //Each kind beside its words (#856): a square at the paragraph's left, top-aligned with its first line, the
-            //words set across the text's width less the square and the gap. The square is a widget so that it takes its room in
-            //the body's flow and the scroller carries it; what is drawn in it is the frame's own ball (DrawForeground)
+            //words set across the text's width less the square and the gap. The square is a widget so that it takes its
+            //room in the body's flow and the scroller carries it; what is drawn in it is the frame's own ball
+            //(DrawForeground)
             int square = Scaled(BALL_SQUARE), gap = Scaled(BALL_GAP);
 
             for (int i = 0; i < KIND_ENTRIES.Length; i++)
