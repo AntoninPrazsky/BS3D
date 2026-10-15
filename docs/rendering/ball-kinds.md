@@ -5,7 +5,7 @@ Part of [Rendering](../rendering.md).
 Each `BallKind` that draws differently has its own `BallShading` and a **bucket region** in `BallRenderSet` (what they do: "Special ball kinds" in `docs/game-session.md`).
 
 - **Why a region, not an instance flag:** technique, emission and pulse depth are per-*renderer* uniforms (#252). Renderers are put back with `ApplyStyle`, not by restoring fields.
-- **Colourless regions** (`LodCount` buckets, never loaded in the cannon): rock (`DrawRocks`), clear glass (`DrawHollow`), bomb (`DrawBombs`), zap (`DrawZaps`), acid (`DrawAcids`): kinds whose colour nothing may read. **Coloured planes** (`TYPE_COUNT x LodCount`): frozen, infectious, gravity, heavy: colours the player plans around. The wildcard has live/still regions.
+- **Colourless regions** (`LodCount` buckets, never loaded in the cannon): rock (`DrawRocks`), clear glass (`DrawHollow`), bomb (`DrawBombs`), zap (`DrawZaps`), acid (`DrawAcids`): kinds whose colour nothing may read. **Coloured planes** (`TYPE_COUNT x LodCount`): frozen, infectious, gravity, heavy: colours the player plans around. The wildcard and the Cutter (a power-up round, not a special ball) have live/still regions.
 - **Order:** opaque kinds first (rocks before the style's passes); clear glass **last** of the balls, repeating the bubble's two-pass states (an opaque level has no `DrawShell` to set them). `DrawHollow` leaves `DrawnCount` alone.
 - **Each kind must be told apart from the nearest existing look** ("collision to solve"). Rock and clear glass are not in `BallStyle`: "that one is different" must survive all ten materials.
 
@@ -60,6 +60,16 @@ The ball's colour **swirled**: a logarithmic spiral into a dark eye (`GravityArm
 ## Wildcard (`InstancedModelWildcard`, #632)
 
 A glossy marble of the two colours `WildcardCycle` crosses between: the arriving colour (`PatternSecondaryColor`) spreads along swirled veins as `WildcardProgress` runs 0 to 1 (a dither would say "not there"). **Every crossing sweeps back** (#821): `WildcardCycle.Returning` flips per crossing (not on the wrapping colour index), `WildcardReturning` turns the sweep. One instance per wildcard in `WILDCARD_REGION_START`, drawn by `DrawWildcards`, which restores `StillEmission` and `PatternSecondaryColor`.
+
+## The Cutter (`Cutter`, #766)
+
+The Cut power-up's round, so loaded and in flight only. A dark polished steel ball with a **circular saw through it**, from the design references (both models drew a steel ball sliced by a saw whose teeth glow white-hot). Two techniques on one frame: `InstancedModelCutter` on the sphere, then `InstancedModelCutterBlade` on `SawBladeMesh` (a disc of 24 hooked teeth, tips at `TIP_RADIUS` 0.585 under the bore's 0.6, two chipped, every tip hashed, #640), one draw for every blade. Its light is `BasicEffectParamsProvider.CutterAccent`, the draw's tint, whitened towards the hottest parts.
+
+- **The frame is built on the CPU each draw** (`BallRenderSet.CutterFrame`): the instance's place and scale, its Y axis the blade's normal **facing the eye, tipped back towards level** (`CUTTER_BLADE_LEVEL_BIAS`), turned about it on the wall clock (`CUTTER_SPIN_LOADED` 1.2 rad/s in the bore, `CUTTER_SPIN_FLYING` 18 in flight). The round's own turn is dropped: a loaded round carries the barrel's pitch, a fired one the simulation's, and a blade following either would snap at the shot. Written over the bucket's matrices (the rims' walk, the shadow and the velocity pass draw a sphere, which the turn leaves where it was).
+- ⚠ **In the bore only the ball's cap shows**: the barrel hides its equator, so a level blade (tried first) was invisible there. So the **ball's face carries the saw's face**, a ring of 16 glowing hooked teeth round a hub (a washer, three bolts, the arbor's hole) at the pole the eye looks at, and the blade's own teeth stand round the outline where nothing covers them (flight, a close view). Under a pixel the teeth settle into a ring.
+- **It holds still** (#252): no heartbeat (`PulseDepth` 0) and nothing reads `PulseTime`; what moves is the whole round turning as one saw. A dark ball with a bright dot in its middle read as an eye (photographed): the arbor's hole is dark.
+- **The Potato path**: `PotatoKindLookFor` makes the ball steel with a trace of the accent, its face the gravity well's figure in the accent (a ring round the middle of the face, `SetPotatoKindFigure`), and the blade brighter steel glowing in the accent through `PotatoBall`. No GL shader changed: the ring has no teeth there, the blade has.
+- Cost: a few hundred triangles and at most two balls a frame; the techniques declare no uniform, so nothing after `BallCutter.fxh` moved in the constant buffer.
 
 ## Crossings between looks
 

@@ -1367,6 +1367,16 @@ namespace BS3D.Screens
             _magazine.Slot(slot).Kind == BallKind.Wildcard ? _wildcard.Showing : _magazine.Peek(slot);
 
         /// <summary>
+        /// The light that speaks for one loaded slot, authored sRGB: its colour's tint through <see cref="LoadedColour"/>,
+        /// or for a cutter the Cutter's accent (#766) - a cutter matches nothing and its dealt colour is never seen, and the
+        /// gun round it used to glow in that hidden colour while the ball showed none. The aim beam, the muzzle collar and the
+        /// launch smear take it here, the rays and the strip from the same constant.
+        /// </summary>
+        private Vector3 LoadedTint(int slot) => _magazine.Slot(slot).Kind == BallKind.Cutter
+            ? BasicEffectParamsProvider.CutterAccent
+            : BasicEffectParamsProvider.GetDiffuseTintByType(LoadedColour(slot));
+
+        /// <summary>
         /// Re-colours every loaded ball whose colour has just been eliminated from the cluster, and starts the
         /// dissolve that shows it happening.
         /// <para>

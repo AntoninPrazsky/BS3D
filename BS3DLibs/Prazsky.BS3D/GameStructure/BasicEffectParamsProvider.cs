@@ -122,6 +122,25 @@ namespace Prazsky.BS3D.GameStructure
         public static BasicEffectParams Buckshot = new BasicEffectParams(new Vector3(0.14f, 0.14f, 0.15f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
 
         /// <summary>
+        /// The Cutter's steel (#766), its ball's and its saw blade's, read by <c>BallRenderSet.DrawCutters</c> alone: a
+        /// neutral, slightly cool dark, the ambient a polished metal takes (what it shows is mostly the sky in its mirror,
+        /// which the shader draws).
+        /// </summary>
+        public static BasicEffectParams Cutter = new BasicEffectParams(new Vector3(0.10f, 0.105f, 0.12f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
+
+        /// <summary>
+        /// <b>The Cutter's accent (#766), in the one place everything that speaks for a loaded cutter takes it from</b>: the
+        /// slit of light round its equator and its blade's hot rim (the draw's tint), the disc in the magazine strip, the aim
+        /// beam, the muzzle collar, the muzzle's rays and the launch smear. Authored sRGB in 0..1, as a type's tint is.
+        /// <para>
+        /// White-hot gold, a cutting edge's light - what both design models drew in the slit (a white core, sparks going
+        /// amber). Not the zap's cyan, which the round wore until #766 and which made a player read it as a zap; and paler
+        /// than the yellow and the orange balls, so a beam or a collar in it is not a colour the round could match.
+        /// </para>
+        /// </summary>
+        public static readonly Vector3 CutterAccent = new(1f, 0.78f, 0.42f);
+
+        /// <summary>
         /// Multiplier applied to the ball model's material diffuse colors to give the ball its type color.
         /// (Historically the type color came from a broad colored specular sheen; with a proper glossy
         /// highlight the type has to tint the diffuse patches instead.)

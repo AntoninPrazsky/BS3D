@@ -85,6 +85,8 @@ float3 SrgbToLinear(float3 color)
 #include "InstancedModel/BallGravity.fxh"
 #include "InstancedModel/BallHeavy.fxh"
 #include "InstancedModel/BallWildcard.fxh"
+//The Cut's round and its saw blade (#766): two techniques and no uniform, so nothing below moves
+#include "InstancedModel/BallCutter.fxh"
 #include "InstancedModel/Triplanar.fxh"
 #include "InstancedModel/City.fxh"
 #include "InstancedModel/Depth.fxh"

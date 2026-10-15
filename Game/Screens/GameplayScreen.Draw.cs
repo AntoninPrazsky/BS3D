@@ -171,10 +171,11 @@ namespace BS3D.Screens
             if (!_previewBeamVisible) return;
 
             //sRGB in 0…1 either way, which is what the beam decodes: Color.ToVector3 divides by 255, and the
-            //type tints are already in that form — they are what LaunchSmears is handed for the same reason.
+            //type tints are already in that form — they are what LaunchSmears is handed for the same reason. A cutter's
+            //beam is its accent (#766), not the colour hidden under it.
             Vector3 tint = _previewReachesCluster && !_previewHasCell && !CutterLoaded
                 ? PREVIEW_REFUSED.ToVector3()
-                : BasicEffectParamsProvider.GetDiffuseTintByType(LoadedColour(0));
+                : LoadedTint(0);
 
             //Faded out as precise aim leans in, which is the inverse of the crosshair's own opacity: the two are
             //one signal handed between the modes rather than two competing for the same pixels. Measured need
@@ -411,12 +412,10 @@ namespace BS3D.Screens
         /// lean; a collar on the gun covers nothing the lens is reading, so that half is gone — see above.)
         /// </para>
         /// </summary>
-        /// <remarks>A Cutter's collar is its rays' cyan (#820): the colour it was dealt means nothing to a round that cuts
-        /// instead of sticking, and a red collar under cyan rays told the player it was a red ball.</remarks>
+        /// <remarks>A Cutter's collar is its accent (#820, #766), as its rays are: the colour it was dealt means nothing to a
+        /// round that cuts instead of sticking, and a red collar under the rays told the player it was a red ball.</remarks>
         private void DrawMuzzleCollar(Matrix barrelWorld) =>
-            Game.CannonRig.DrawMuzzleCollar(Camera, barrelWorld, Game.SceneEffectParams,
-                CutterLoaded ? CUTTER_RAYS_HUE : BasicEffectParamsProvider.GetDiffuseTintByType(LoadedColour(0)),
-                MuzzleGlowStrength());
+            Game.CannonRig.DrawMuzzleCollar(Camera, barrelWorld, Game.SceneEffectParams, LoadedTint(0), MuzzleGlowStrength());
 
         //THE SPECIAL ROUND'S RAYS (#820). The owner met the wildcard in play and did not notice it was special: "whenever
         //I have any special ball loaded (even Cut), I want a strong rotating glow from the cannon, in rays". So a round
@@ -449,13 +448,6 @@ namespace BS3D.Screens
         private const float MUZZLE_RAYS_SPIN = 0.7f;
 
         /// <summary>
-        /// The Cutter's burst colour (#213): the cyan of the zap's arcs it is drawn with (<c>ZapCharge</c> in
-        /// <c>BallZap.fxh</c>, 0.62, 0.86, 1), pushed further from grey as the collar pushes a round's hue (#478), so it
-        /// reads as cyan and not as white-blue against a bright sky.
-        /// </summary>
-        private static readonly Vector3 CUTTER_RAYS_HUE = new(0.12f, 0.75f, 1f);
-
-        /// <summary>
         /// The rays for this frame, or nothing: only while a special round is in the bore and a shot would leave it this
         /// instant (<see cref="_previewBeamVisible"/>, the collar's own gate). On the wall clock, like the collar's breath:
         /// it is what the round is, so it turns on while a pause holds the frame.
@@ -472,9 +464,9 @@ namespace BS3D.Screens
             float reach = MathHelper.Lerp(MUZZLE_RAYS_REACH, MUZZLE_RAYS_ADS_REACH, lean);
 
             //The wildcard's burst is a rainbow, one hue a broad ray, because the ball counts as any colour; the shader
-            //takes only the brightness of a rainbow's light
+            //takes only the brightness of a rainbow's light. The Cutter's is its accent (#766), the light of its edge.
             bool rainbow = kind == BallKind.Wildcard;
-            Vector3 hue = rainbow ? Vector3.One : CUTTER_RAYS_HUE;
+            Vector3 hue = rainbow ? Vector3.One : BasicEffectParamsProvider.CutterAccent;
 
             _muzzleRays.Draw(Camera, barrelWorld, Game.CannonRig.MuzzleFaceZ, Game.CannonRig.CollarRadius, reach,
                 WallClock * MUZZLE_RAYS_SPIN, hue * (MUZZLE_RAYS_RADIANCE * Game.CannonRig.CollarBrightness * strength), rainbow);

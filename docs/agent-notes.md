@@ -830,3 +830,9 @@ Pravidla:
 - #841 (merge do mainu, `shipped-awaiting-verdict` + `verdict-eye`): osm nahrávek rodiny `magma` nahrazeno podle vzoru `ember` (metal a tribal zůstaly), 36 renderů ACE-Step ve třech kolech, výběr měřením (`measure-music.py` + šev, díra, stereo); bicí vrstvy oddělené znovu z nových nahrávek. Mastery v `C:/Users/panrd/AI/output/masters-841`, kandidáti v `masters-night-magma`. Stránka k poslechu: https://claude.ai/artifact/SZH18zrnQWmU8oaBARcNgj (odpovědi v db, kolekce `verdicts`).
 - ⚠ Pásma nestačí: `doom` c3 v pásmu, ale šev +15 dB; `electro` c4 má 24 s z 43 s tiše. Breakbeat a electro si výšky drží přes jakékoli zadání (devět renderů, nejlépe 2,1 % a 2,5 % nad 6 kHz). Zapsáno v `music-generation.md`, „Choosing a candidate“.
 - Otevřené: ucho majitele; `electro` stále 4,0 % nad 6 kHz a `breakrock` středy jako dřív.
+
+## 2026-10-15 — #766 vlastní vzhled náboje Cut — desktop (RDT-PC), Claude Code (bs3d-ac)
+- Hotovo (větev `766-cutter-look`, čeká na review, nemergováno): řezací náboj už není zap. Ocelová koule s kotoučovou pilou: vlastní technika `InstancedModelCutter` (na lici koule žhnoucí věnec zubů kolem náboje se třemi šrouby) a `InstancedModelCutterBlade` na `SawBladeMesh` (24 zubů, dva vylomené, špičky 0,585 pod vývrtem 0,6). Rámec staví CPU (`BallRenderSet.CutterFrame`): pila natočená k oku, sklopená k vodorovné, otáčí se na nástěnných hodinách, v hlavni pomalu. Jedna barva `BasicEffectParamsProvider.CutterAccent` (bílé žhavé zlato) pro disk v pásu, paprsek, objímku, paprsky i stopu. Potato: ocel, prstenec obrázkem studny, čepel svítí; GL shadery beze změny.
+- ⚠ Vodorovná čepel byla v hlavni neviditelná (hlaveň zakryje rovník, je vidět jen vršek koule); proto pila na lici. Tmavá koule s jasnou tečkou uprostřed četla jako oko.
+- Reference `C:\Users\panrd\AI\sd\out\766-zimage`, `766-klein`; důkazy `<scratch>\verdicts\766`.
+- Otevřené: review, merge, verdikt oka; #767 (inscenace řezu).
