@@ -14,9 +14,10 @@ namespace BS3D
     /// <item><description><b>The strike</b>: one hard knock as the storey is severed (<see cref="Strike"/>), raised TO a level
     /// rather than added on (<see cref="PadChannel.KickUpTo"/>), so the shot's own thump, still ringing when its ball strikes
     /// (a flight of under a tenth of a second), cannot stack the two past it.</description></item>
-    /// <item><description><b>The fall</b>: what the cut freed rings on under the release's ceiling along the release's own
-    /// curve (<see cref="LandingRumble.Release"/>, #810), so a cut and a landing that free the same count feel the same and
-    /// the two cannot drift apart. A cut that freed nothing is the knock alone.</description></item>
+    /// <item><description><b>The fall</b>: everything the cut let go - the storey it destroyed and what hung on it - rings on
+    /// under the release's ceiling along the release's own curve (<see cref="LandingRumble.Release"/>, #810), so a cut and a
+    /// landing that let go the same count feel the same and the two cannot drift apart. A cut through the bottom storey,
+    /// with nothing hanging on it, is the knock and the storey's own short roll-off.</description></item>
     /// </list>
     /// <b>The joints</b> (the owner, #810: the old release "shakes my joints"): the knock is under the landing's ceilings on
     /// the heavy motor and at them on the light one, the press under a third of the heavy motor, so the heaviest thing the
@@ -66,8 +67,8 @@ namespace BS3D
 
         /// <summary>
         /// The strike onto the two body motors' channels, as <see cref="GamepadRumble"/> sends it: the knock raised to and,
-        /// when the cut freed <paramref name="freed"/> balls (the storey and what hung on it), the fall under the release's
-        /// ceilings along its curve. Nothing but the knock for a cut that freed nothing.
+        /// when the cut let go <paramref name="freed"/> balls (the storey and what hung on it), the fall under the release's
+        /// ceilings along its curve. Nothing but the knock when nothing at all came loose (a cutter that struck nothing it may cut).
         /// </summary>
         public static void Strike(ref PadChannel left, ref PadChannel right, int freed)
         {

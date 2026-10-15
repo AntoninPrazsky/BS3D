@@ -24,7 +24,7 @@ namespace BS3D.Effects
     /// hit-stop - the world almost held for a beat (<see cref="TimeScale"/>).</description></item>
     /// <item><description><b>The fall</b>: what the cut freed drops in slow motion that grows with how much it was, its cut
     /// face glowing white-hot and cooling to nothing as it falls, and the storey left hanging above the cut glowing with it;
-    /// the pad's roll-off grows along the release's curve. A cut that freed nothing is the severing alone, which is still an
+    /// the pad's roll-off grows along the release's curve. A cut with nothing hanging on its storey is the severing alone, still an
     /// event; a bigger result adds beats on top.</description></item>
     /// </list>
     /// <b>Never in the way</b>: nothing here changes a rule or the score (the cut's landing is scored as it always was), the
