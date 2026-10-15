@@ -19,6 +19,11 @@
 //                    dull red and breaking up into rags as it cools
 //  2  the SPARKS   - streaks thrown out of the centre and stalled by drag; Fireworks' streak, smaller and faster
 //
+//And a BLADE (#767), the desktop's second style: a power-up round's cut (the Cutter severing a storey), whose part 1 is
+//the SLASH - one long thin streak through the struck point, level in the world and square to the lens - and whose flash
+//and sparks are white-hot cooling to amber, the sparks flattened onto the cut's plane. The style is a float weight here
+//(0 or 1) where the desktop branches on a bool, for vs_3_0's reason above: a ternary may come out as both sides blended.
+//
 //Drawn with BlendState.Additive, depth-read and writing no depth. The radiances are driven well over 1 so the
 //desktop's glare would bloom the flash; Potato has no glare, so here they only buy the curve's white-hot core.
 
@@ -38,6 +43,8 @@ float3 CameraUp;
 //                   as a dead slot instead), so zero is the instant it went off
 //  BlastShape.x     size 0..1, from how much the blast took
 //  BlastShape.y     1 for a live slot, 0 for a dead one - which collapses all its quads and costs no pixels
+//  BlastShape.z     the style: 0 a bomb, 1 a blade (#767)
+//  BlastShape.w     a blade's half-length in world units
 //
 //ONE array here, where the desktop's Blast.fx has two (#789's review): BlastData[blast * 2] is the centre and
 //BlastData[blast * 2 + 1] the shape (Blasts.cs fills it when the effect has this parameter). With two dynamically
@@ -73,6 +80,22 @@ static const float SPARK_RADIANCE = 5.0;
 //World half-size of a spark at full brightness, and world units of streak per world unit per second of screen speed
 static const float SPARK_SIZE = 0.08;
 static const float SPARK_STRETCH = 0.035;
+
+//THE BLADE (#767): the desktop's figures
+static const float3 BLADE_HOT = float3(1.0, 0.96, 0.88);
+static const float3 BLADE_EMBER = float3(1.0, 0.55, 0.22);
+static const float BLADE_FLASH_SCALE = 0.6;
+static const float SLASH_SECONDS = 0.9;
+static const float SLASH_GROW_RATE = 25.0;
+static const float SLASH_HALF_THICK = 0.75;
+static const float SLASH_PULL = 0.7;
+static const float SLASH_PULL_SHARE = 0.5;
+static const float SLASH_PULL_MOST = 4.0;
+static const float SLASH_RADIANCE = 16.0;
+static const float BLADE_SPARK_FLATTEN = 0.22;
+static const float BLADE_SPARK_DRAG = 3.0;
+static const float BLADE_SPARK_SECONDS = 0.55;
+static const float BLADE_SPARK_BOOST = 1.5;
 
 struct BlastVertexInput
 {
@@ -131,6 +154,9 @@ BlastVertexOutput BlastVS(BlastVertexInput input)
     //goes off at not quite twice the size.
     float scale = 0.55 + 0.45 * shape.x;
 
+    //A blade's impact (#767), as a 0/1 weight (see the header)
+    float blade = step(0.5, shape.z);
+
     float2 corner = input.Slot.zw;
     float2 along = float2(1.0, 0.0);
     //Every path that is drawn sets these, but fxc may flatten the branches below, and a flattened path must not read a
@@ -149,16 +175,41 @@ BlastVertexOutput BlastVS(BlastVertexInput input)
         fade = fade * fade * fade;
 
         //Swells almost at once and stops: most of its size is there on the first frame, which is what a flash is.
-        float radius = scale * lerp(1.0, 3.0, 1.0 - exp(-age * 25.0));
+        float radius = scale * lerp(1.0, 3.0, 1.0 - exp(-age * 25.0)) * lerp(1.0, BLADE_FLASH_SCALE, blade);
 
         //PULLED TOWARDS THE LENS by its own radius. A billboard left at the centre is cut by the balls round the rim
         //of the hole the blast has just opened, along hard flat lines that read as a sprite rather than as light.
         //In front of the hole it is only ever hidden by what is genuinely nearer the camera than the blast.
         position = centre.xyz + normalize(CameraPosition - centre.xyz) * radius;
 
-        radiance = lerp(FIRE, HOT, fade) * (FLASH_RADIANCE * fade);
+        radiance = lerp(lerp(FIRE, HOT, fade), lerp(BLADE_EMBER, BLADE_HOT, fade), blade) * (FLASH_RADIANCE * fade);
         halfAlong = radius;
         halfAcross = radius;
+    }
+    else if (part < 1.5 && blade > 0.5)
+    {
+        //THE SLASH (#767): built in the world, level and square to the lens (see the desktop's). The level direction is
+        //divided by a clamped length and the screen's right blended in by a weight rather than selected, so a lens
+        //straight above or below the cut never puts a NaN into the position.
+        if (age > SLASH_SECONDS) return Collapsed();
+
+        float3 toLens = normalize(CameraPosition - centre.xyz);
+        float3 level = cross(float3(0.0, 1.0, 0.0), toLens);
+        float levelLength = length(level);
+        float3 lineAxis = lerp(CameraRight, level / max(levelLength, 1e-3), step(1e-3, levelLength));
+        float3 thickAxis = normalize(cross(toLens, lineAxis));
+
+        float grow = 1.0 - exp(-age * SLASH_GROW_RATE);
+        float halfLength = shape.w * (0.12 + 0.88 * grow);
+        float halfThick = SLASH_HALF_THICK * scale * lerp(1.0, 0.35, saturate(age / SLASH_SECONDS));
+
+        BlastVertexOutput slash;
+        slash.Position = mul(mul(float4(centre.xyz + toLens * min(SLASH_PULL + SLASH_PULL_SHARE * shape.w, SLASH_PULL_MOST) + lineAxis * (corner.x * halfLength)
+            + thickAxis * (corner.y * halfThick), 1.0), View), Projection);
+        slash.Corner = float3(corner, 3.0);
+        slash.Tint = float3(0.0, 0.0, 0.0);
+        slash.Fire = float2(age / SLASH_SECONDS, blast * 7.31);
+        return slash;
     }
     else if (part < 1.5)
     {
@@ -178,30 +229,36 @@ BlastVertexOutput BlastVS(BlastVertexInput input)
     }
     else
     {
-        float life = SPARK_SECONDS * (0.55 + 0.9 * input.Random.x);
+        float life = lerp(SPARK_SECONDS, BLADE_SPARK_SECONDS, blade) * (0.55 + 0.9 * input.Random.x);
         if (age > life) return Collapsed();
 
         float u = age / life;
 
+        //A blade's spray is a grinder's (#767): flattened onto the cut's plane, thrown harder, with less drag
+        float3 flat = normalize(float3(input.Spark.x, input.Spark.y * BLADE_SPARK_FLATTEN, input.Spark.z) + float3(0.0, 0.04, 0.0));
+        float3 direction = lerp(input.Spark.xyz, flat, blade);
+        float drag = lerp(SPARK_DRAG, BLADE_SPARK_DRAG, blade);
+
         //Exponential drag in closed form, so a spark's path and its VELOCITY - which the streak needs - are a pure
         //function of its age, which is what lets the buffer be static.
-        float speed = scale * (7.0 + 13.0 * input.Spark.w);
-        float decay = exp(-SPARK_DRAG * age);
+        float speed = scale * lerp(7.0 + 13.0 * input.Spark.w, 9.0 + 15.0 * input.Spark.w, blade);
+        float decay = exp(-drag * age);
 
-        position = centre.xyz + input.Spark.xyz * (speed * (1.0 - decay) / SPARK_DRAG);
+        position = centre.xyz + direction * (speed * (1.0 - decay) / drag);
         position.y -= 0.5 * GRAVITY * age * age;
 
-        float3 velocity = input.Spark.xyz * (speed * decay);
+        float3 velocity = direction * (speed * decay);
         velocity.y -= GRAVITY * age;
 
         //Through fire to a dull ember as it dies, and only the hottest few are white: a spray of white streaks reads
-        //as glitter rather than as something burning.
+        //as glitter rather than as something burning. A blade's are hot metal, white-hot cooling to amber.
         float fade = (1.0 - u) * (1.0 - u);
         float heat = saturate(fade * (0.9 + 0.5 * input.Random.z) - 0.35);
 
-        radiance = lerp(EMBER, lerp(FIRE, HOT, heat), saturate(fade * 1.5)) * (SPARK_RADIANCE * fade);
+        radiance = lerp(lerp(EMBER, lerp(FIRE, HOT, heat), saturate(fade * 1.5)), lerp(BLADE_EMBER, BLADE_HOT, saturate(heat * 1.4)), blade)
+            * (SPARK_RADIANCE * lerp(1.0, BLADE_SPARK_BOOST, blade) * fade);
 
-        float size = SPARK_SIZE * scale * (0.7 + 0.6 * input.Random.y) * (0.5 + 0.5 * fade);
+        float size = SPARK_SIZE * scale * (0.7 + 0.6 * input.Random.y) * (0.5 + 0.5 * fade) * lerp(1.0, BLADE_SPARK_BOOST, blade);
 
         //Stretched along its own screen-projected motion: a fragment crossing the frame faster than a shutter
         //resolves is a line, and lines radiating from a point read as something blowing apart. A spark coming
@@ -301,6 +358,31 @@ float4 BlastPS(BlastPixelInput input) : COLOR
 
         radiance = colour * strength;
         a = falloff;
+    }
+
+    //THE SLASH (#767): a thin white-hot core in a soft glow, tapered to points, torn along its length as it cools (see
+    //the desktop's). Branched like the fireball, on the part, constant across a quad.
+    [branch]
+    if (part > 2.5)
+    {
+        float cool = input.Fire.x;
+        float seed = input.Fire.y;
+        float x = corner.x;
+        float y = corner.y;
+
+        float taper = saturate(1.0 - x * x);
+        taper = sqrt(taper) * taper;
+
+        float torn = 0.65 * ValueNoise(float2(x * 7.0 + seed, seed * 0.37))
+                   + 0.35 * ValueNoise(float2(x * 19.0 - seed * 1.3, seed * 2.1));
+        float intact = saturate((torn - cool * 0.95 + 0.25) * 4.0);
+
+        float core = exp(-y * y * 16.0);
+        float glow = exp(-y * y * 3.0) * saturate(1.0 - y * y);
+
+        float heat = 1.0 - cool;
+        radiance = lerp(BLADE_EMBER, BLADE_HOT, saturate(heat * 1.6 - 0.3)) * (SLASH_RADIANCE * saturate(1.0 - cool));
+        a = saturate((core + 0.4 * glow) * taper * intact);
     }
 
     //No clip anywhere: additive blending makes a dark pixel free, so every part fades to nothing smoothly.

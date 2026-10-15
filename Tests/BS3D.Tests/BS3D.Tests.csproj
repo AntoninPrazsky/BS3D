@@ -106,6 +106,12 @@
         ceiling and its decay), pure arithmetic over floats-->
     <Compile Include="..\..\Game\LandingRumble.cs" />
     <Compile Include="..\..\Game\PadChannel.cs" />
+    <!--#767: the Cut's charge and slice (pure arithmetic whose spectrum the tests measure), what it asks of the pad, its
+        beats' curves over time, and the session's state of them, stepped as the game steps it on a real cut-->
+    <Compile Include="..\..\Game\Audio\CutSynth.cs" />
+    <Compile Include="..\..\Game\CutRumble.cs" />
+    <Compile Include="..\..\Game\Effects\CutBeats.cs" />
+    <Compile Include="..\..\Game\Effects\CutStaging.cs" />
   </ItemGroup>
 
   <ItemGroup>

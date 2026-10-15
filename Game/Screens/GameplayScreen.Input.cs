@@ -487,6 +487,14 @@ namespace BS3D.Screens
         /// </summary>
         private void Shoot()
         {
+            //A cut's slow motion ends at a pull of the trigger (#767, skippable as #765 asks), and the pull goes on to be a
+            //shot like any other: the moment never eats the input that skips it
+            if (_cutStaging.Slowed)
+            {
+                _cutStaging.Skip();
+                Console.WriteLine("[skip] cut slow motion");
+            }
+
             //The level is already decided — cleared and waiting out LEVEL_CLEARED_BEAT, or lost. The gun stops
             //answering the instant the outcome is settled rather than when the result screen finally covers
             //this one, which is a whole beat later and longer still under a drop cinematic: a shot fired into
@@ -580,6 +588,9 @@ namespace BS3D.Screens
             //are one rule about how a smear looks, and it lives with the smear. A cutter's is its accent (#766),
             //read before the magazine advances below
             _smears.Add(muzzle, direction, LoadedTint(0));
+
+            //A cutter's flight (#767): the lens pinches as it leaves, and what it will cut off stays lit while it flies
+            if (kind == BallKind.Cutter) _cutStaging.Fired();
 
             //The fired ball's slot empties, the queue shifts up, a fresh colour loads at the back and the glide
             //is armed — and each slot's kind and transmute state ride forward with its colour as one value
