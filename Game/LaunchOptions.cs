@@ -311,6 +311,12 @@ namespace BS3D
         //its session KEPT (#650) — what the pause page's Main Menu does. Null when absent. See StartupScript.
         internal float? ToMenuAt { get; private set; }
 
+        //Testing only: "actions=<seconds>:<verb>[,<seconds>:<verb>...]" (#709) - at each wall-clock second, the call a level's
+        //button makes: retry (the result page's Retry and the pause page's Restart, one call), skip (Skip Level), next (Next
+        //Level), menu (Main Menu: the result page's with a result up, else the pause page's, which keeps the session) and
+        //level<n> (the picker's tile n). What a run nobody is sitting at needs to walk the play counts' events. Null when absent.
+        internal string Actions { get; private set; }
+
         //Testing only: a folder to keep every one of this player's files in for this run, instead of
         //%LOCALAPPDATA%\BS3D (#546). Null means the argument was absent. See UserData.UseForTesting, which
         //Program calls with it before anything resolves UserData.Directory.
@@ -560,6 +566,8 @@ namespace BS3D
             //not reach (the pause page needs a focused window and three presses), and it is where the gun's shadow
             //was cast over a menu that drew no gun. On "shot="'s clock, so the two are written against each other.
             Row.Float("tomenu", (o, v) => o.ToMenuAt = v, v => v >= 0f),
+            //"actions=<seconds>:<verb>,..." presses a level's buttons on the clock (#709): retry, skip, next, menu, level<n>
+            Row.Text("actions", (o, v) => o.Actions = v),
             //"pick" puts the LEVEL PICKER up at boot, and "pick=<n>" puts it up on that chapter (#273). The
             //page itself is two keypresses away for anyone sitting at the machine and unreachable on a
             //locked desktop, which takes no keystrokes — and since #273 it is a pager, so its other eight

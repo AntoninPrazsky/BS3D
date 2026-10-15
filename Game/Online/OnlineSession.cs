@@ -335,6 +335,17 @@ namespace BS3D.Online
             foreach (int ticket in _forgetTickets) _pendingBoardKeys.Remove(ticket);
         }
 
+        /// <summary>
+        /// One change of the play counts (#709), handed to the client when online scores are on and to nothing otherwise:
+        /// with them off, the counts stay on this machine. The client batches it and sends it anonymously.
+        /// </summary>
+        internal void SubmitStats(LevelPlayCounts change)
+        {
+            if (!Enabled || change == null) return;
+
+            _client?.SubmitStats(change);
+        }
+
         private readonly List<(string, string, int, bool, int, int)> _forgetKeys = new();
         private readonly List<int> _forgetTickets = new();
 

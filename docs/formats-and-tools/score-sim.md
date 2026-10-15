@@ -6,6 +6,7 @@ Part of [Formats and tools](../formats-and-tools.md).
 
 ```
 dotnet run --project Tools\ScoreSim\ScoreSim.csproj [levels directory] [--ceilings out.json] [--ceiling-scale f]
+dotnet run --project Tools\ScoreSim\ScoreSim.csproj -- --stats [Stats.json]
 ```
 
 With no directory it walks up from its bin directory to the first `Game\Levels`. It exists because #173's rating was **ordered backwards** (the score rose with shots taken) while every number looked reasonable: the fault shows only in the ordering *between* play styles. **It models none of the scoring, it calls it**, so it cannot drift, and it reads ball counts and budgets from the shipped set.
@@ -16,6 +17,10 @@ With no directory it walks up from its bin directory to the first `Game\Levels`.
 - **OVER CEILING** (#549): a simulated clear reaches `ScoreKeeper.ScoreCeiling`. The service refuses a score over it, so this means the bound is missing a term.
 - A level with an **unlimited budget** is skipped (nothing to rate).
 - **`--ceiling-scale <f>`** multiplies every ceiling before the check and writes nothing, so the gate can be seen to fire anywhere (`0.25` refuses every level, exit 1).
+
+## A save's play counts (`--stats`, #709)
+
+**`--stats [path]` prints a `Stats.json` instead of simulating anything** (the player's own, `%LOCALAPPDATA%\BS3D\Stats.json`, without a path; exit 1 when there is none): per level in play order the starts, the retries with their share of the starts, the clears, the losses with their share of the attempts that reached a result page and split by cause, the quits, the skips, the starts a first clear took, and the shots and seconds an attempt. A counted board the set does not name as shipped (an older version of a level, another rules version, a `levelfile=` run) is listed after the set. How the counts are kept: [Play statistics](../game-session/play-statistics.md).
 
 ## The ceilings (#543, #549)
 

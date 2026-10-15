@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-10-15 — #709 anonymní statistiky hry po levelech — desktop (RDT-PC), Claude Code (bs3d-ac)
+- majitel (2026-10-15): ano, v příštím vydání, posílat jen hráčům se zapnutým online skóre; bez vlastního přepínače, souhlasem je přezdívka (#763). Plaketa první otázky beze změny.
+- Hotovo (větve `709-play-stats` v BS3D i BS3D-API, NEmergnuto, čeká na review): počty po levelech v `Stats.json` (`PlayStatsRecorder`), report `ScoreSim --stats`, anonymní dávky přes outbox na `POST /v1/stats` (nejvýš jednou za 10 min a při startu), na serveru `play_stats` bez adresy a času, `admin stats` a záložka Play; věta o soukromí to říká; páka `actions=`.
+- Ověřeno proti lokálnímu API: počty sedí se skriptem, souhlas vypnutý = nula požadavků, nedostupný server dávku drží a pak doručí tutéž, starší uložená hra se načte.
+- ⚠ Lokální API vypíše každý požadavek s `Logging__LogLevel__Microsoft.AspNetCore.Hosting.Diagnostics=Information` (přes `env`, bash tečku v názvu proměnné nevezme): tak se dokazuje „žádný požadavek“.
+- Otevřené: review, merge, nasazení na Pi (koordinátor s majitelem).
+
 ## 2026-10-14 — #829 létající útvary snu — Pi, Claude Code (584de7d2)
 - majitel („možná pár geometrických létajících útvarů měnících tvar, ve stylu Windows 98 screensaveru"): hotovo (větev `829-potato-dream-solids`): osm nízkopolygonových těles (kvádr, osmistěn, drahokam, bipyramida) na drahách za poloměrem configu, otáčejí se kolem dvou os a dýchají proporcemi rychlostí morfu, každé svítí barvou palety, která se posouvá jako na desktopu; `PotatoBackdrop.Draw` dostává hodiny (`_wallClock`) a položka kresby umí `Animate`. Anvil 14,19/10,11 ms proti 14,21/10,06 — nic. Nárok hlášen v komentáři #829 předem.
 - ⚠ Osamělý základ Anvilu vyšel 9,1 ms při první studené spuštění základního buildu; opakovaná dvojice 14,21/14,19. Při podezřelém čísle dvojici opakovat.
