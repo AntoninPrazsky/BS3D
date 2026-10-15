@@ -2605,6 +2605,9 @@ namespace Prazsky.BS3D
 
             SetSpecialLook(BallShading.Cutter, CUTTER_EMISSION, 0f, 0f);
 
+            //Stated, not inherited: the still plane leaves its own figure on these renderers, and the round's glow is its own
+            for (int lod = 0; lod < LodCount; lod++) _renderers[lod].StillEmission = 1f;
+
             for (int half = 0; half < 2; half++)
             {
                 bool still = half == 1;

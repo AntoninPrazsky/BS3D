@@ -1360,8 +1360,8 @@ namespace BS3D.Screens
         /// <summary>
         /// What colour one loaded slot reads as: the queue's own, or — for a wildcard — whatever the cycle is
         /// showing this instant (#330). Every tint taken off the magazine goes through here (the muzzle collar,
-        /// the aim beam, the landing ghost), which is what stops the four of them disagreeing about the round
-        /// that is about to fire — #175's failure, with the colours moving.
+        /// the aim beam and the smear by way of <see cref="LoadedTint"/>, the landing ghost), which is what stops
+        /// them disagreeing about the round that is about to fire — #175's failure, with the colours moving.
         /// </summary>
         private BallType LoadedColour(int slot) =>
             _magazine.Slot(slot).Kind == BallKind.Wildcard ? _wildcard.Showing : _magazine.Peek(slot);
