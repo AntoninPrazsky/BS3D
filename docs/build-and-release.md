@@ -38,6 +38,9 @@ dotnet run --project Tools\LevelGen\LevelGen.csproj
 # Check the scoring still rates the shipped levels the right way round
 dotnet run --project Tools\ScoreSim\ScoreSim.csproj
 
+# Print a save's play counts per level (#709): the player's own Stats.json, or the one named
+dotnet run --project Tools\ScoreSim\ScoreSim.csproj -- --stats
+
 # Render every procedural piece of music to .wav and print the numbers (--no-write for the numbers alone)
 dotnet run --project Tools\MusicBake\MusicBake.csproj -c Release -- --out C:\Temp\music
 

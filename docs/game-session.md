@@ -18,6 +18,7 @@ What a level is while it is played: the simulation, the cluster, the gun, the le
 - [Power-ups](game-session/powerups.md): Swap, Brake, Cut: grants, prices, chips, cards, the cutter's rules.
 - [Online scores](game-session/online-scores.md): what is sent, losses as attempts, the outbox, which refusals are final, the worker.
 - [Boards and High Scores](game-session/online-boards-ui.md): the result plate, level boards, the High Scores page.
+- [Play statistics](game-session/play-statistics.md): starts, retries, clears, losses, quits and skips per level in `Stats.json`, the report, and the batches, naming no player, sent with online scores on.
 - [Crates](game-session/crates.md): the reflecting wall and its level field.
 - [Physics in the game](game-session/physics-in-the-game.md): fixed step and frame, lattice versus world frame, the contact handler, culling, wind.
 

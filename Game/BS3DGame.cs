@@ -290,6 +290,9 @@ namespace BS3D
         /// <summary>The online score boards (#546): what the result, board, settings and About pages read and ask of them.</summary>
         internal OnlineSession Online => _online;
 
+        /// <summary>The play counts (#709): what the gameplay screen tells when an attempt starts, ends, is left or skipped.</summary>
+        internal PlayStatsSession Stats => _playStats;
+
         /// <summary>The wall clock everything alive runs off, paused or not.</summary>
         internal float WallClock => _wallClock;
 
@@ -552,6 +555,9 @@ namespace BS3D
         /// <summary>The online score boards (#546, #548) — the client, the identity and what the pages read of them (#583).</summary>
         private readonly OnlineSession _online;
 
+        /// <summary>The play counts (#709): <c>Stats.json</c>, and the anonymous batches the online client sends while it is on.</summary>
+        private readonly PlayStatsSession _playStats;
+
         private const string LEVELS_DIRECTORY = "Levels";
 
         /// <summary>The set the session installs its levels from. Null when none could be read.</summary>
@@ -781,6 +787,10 @@ namespace BS3D
             //The online score boards (#546), as soon as the answer to "is it on" has been read. Its worker starts
             //draining an outbox left by an earlier run straight away, off this thread.
             _online = new OnlineSession(_settings, () => _wallClock, SaveSettings, () => _settingsPage?.Refresh());
+
+            //The play counts (#709), beside the save in the same folder, counted whether or not the boards are on; the changes
+            //reach the online client, which sends them only while they are
+            _playStats = new PlayStatsSession(UserData.PathTo(PlayStats.DefaultFileName), () => _online);
 
             //The notes (#813), whether or not the boards are on: sending one is its own consent. Its worker sends what an
             //earlier run left in the outbox, off this thread
@@ -2373,9 +2383,16 @@ namespace BS3D
             //anything, and timeBeginPeriod has to be paired with timeEndPeriod (#270)
             _frameLimiter.Dispose();
 
+            //An attempt still open when the game closes was left mid-level (#709): counted now, while the online client
+            //can still take the change into its outbox, which it does as it stops below
+            _gameplayScreen?.AbandonAttempt();
+
             //The score submitter stops without waiting: a clear in flight is still in the outbox and goes again at
             //the next start (#546)
             _online?.Dispose();
+
+            //And the play counts' last write of Stats.json, waited for a moment (#709)
+            _playStats?.Dispose();
 
             //And the note sender, the same way: a note in flight is in its outbox (#813)
             _notes?.Dispose();

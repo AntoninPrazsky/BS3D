@@ -77,6 +77,12 @@
     <Compile Include="..\..\Game\Online\NicknamePrompt.cs" />
     <Compile Include="..\..\Game\Screens\NicknameEntry.cs" />
     <Compile Include="..\..\Game\GameSettings.cs" />
+    <!--The online client (#709's play counts): the real OnlineScores against a loopback stand-in, its identity, its wire
+        types and the build's name it reads. Plain .NET and HttpClient, no device.-->
+    <Compile Include="..\..\Game\Online\OnlineScores.cs" />
+    <Compile Include="..\..\Game\Online\OnlineIdentity.cs" />
+    <Compile Include="..\..\Game\Online\ScoreSubmission.cs" />
+    <Compile Include="..\..\Game\BuildVersion.cs" />
     <Compile Include="..\..\Game\QualityLevel.cs" />
     <!--#495: the drums layer's mix, pure arithmetic over 16-bit buffers-->
     <Compile Include="..\..\Game\Audio\DrumLayer.cs" />

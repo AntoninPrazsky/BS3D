@@ -74,7 +74,12 @@ namespace BS3D.Online
         public string Hash { get; set; }
     }
 
-    /// <summary><c>Outbox.json</c>: the submissions not yet delivered, oldest first.</summary>
+    /// <summary>
+    /// <c>Outbox.json</c>: the submissions not yet delivered, oldest first, and since #709 the play counts' two batches.
+    /// The two are additive and absent while empty, so an outbox with no counts reads as it always did; an older build
+    /// reads past them and drops them at its next write, which costs counts and never a clear (still version 1 for that
+    /// reason: a version 2 would make an older build keep the whole file aside, clears and all).
+    /// </summary>
     internal sealed class OutboxFile
     {
         internal const string FormatMarker = "bs3d-outbox";
@@ -88,6 +93,42 @@ namespace BS3D.Online
 
         [JsonPropertyName("submissions")]
         public List<ScoreSubmission> Submissions { get; set; } = new();
+
+        /// <summary>The batch of play counts frozen under its id and on its way: sent unchanged until the service answers for it.</summary>
+        [JsonPropertyName("statsSending")]
+        public StatsBatchBody StatsSending { get; set; }
+
+        /// <summary>The batch the counts are merged into until it is frozen; it has no id yet.</summary>
+        [JsonPropertyName("statsOpen")]
+        public StatsBatchBody StatsOpen { get; set; }
+    }
+
+    /// <summary>
+    /// When the play counts may go (#709): at least <see cref="Interval"/> after the last batch, and a random
+    /// <see cref="QuietMin"/> to <see cref="QuietMax"/> after the worker's start and after every request that names the
+    /// player, so a batch never travels beside a clear and its moment does not point at one. A record so a test can name a
+    /// fast one; the game runs <see cref="Default"/>.
+    /// </summary>
+    internal sealed record StatsSchedule(TimeSpan Interval, TimeSpan QuietMin, TimeSpan QuietMax)
+    {
+        internal static readonly StatsSchedule Default = new(TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(8));
+    }
+
+    /// <summary>
+    /// The body of <c>POST /v1/stats</c> (#709, the service's BS3D-API side added beside contract v1): a batch of play counts,
+    /// one row per board (<see cref="Prazsky.BS3D.Levels.LevelPlayCounts"/>, field for field but its
+    /// <c>startsToFirstClear</c>, which stays on the machine), under an id the service counts it once by. <b>No player id,
+    /// no token, no nickname, no version and no clock</b>: the request goes without its <c>Authorization</c> header, under
+    /// the User-Agent <c>BS3D</c> with no version, on a connection of its own (<c>OnlineScores</c>).
+    /// </summary>
+    internal sealed class StatsBatchBody
+    {
+        /// <summary>Random per batch, for the service's idempotence only; null while the batch is open.</summary>
+        [JsonPropertyName("batchId")]
+        public Guid? BatchId { get; set; }
+
+        [JsonPropertyName("levels")]
+        public List<Prazsky.BS3D.Levels.LevelPlayCounts> Levels { get; set; } = new();
     }
 
     /// <summary>
