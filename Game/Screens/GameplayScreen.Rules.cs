@@ -407,6 +407,14 @@ namespace BS3D.Screens
 
             _cinematic.Begin(Game.Scene, centre, Camera.Position, total, _random, Game.SeaLevelY);
 
+            //It takes the world's time with the lens (#767): a cut's slow motion still running - a shot already in the air
+            //landed this release during it - ends here, so the two never scale the world together
+            if (_cutStaging.Slowed)
+            {
+                _cutStaging.Skip();
+                Console.WriteLine("[skip] cut slow motion, the drop cinematic took over");
+            }
+
             //One line per cinematic, in the manner of the [level] and [score] lines: it is a rare event, not a
             //per-frame one, and the shot is rolled — so when one frames badly this is the only record of what
             //it actually chose. It carries the bar it beat as well, because "why did that one fire and not the

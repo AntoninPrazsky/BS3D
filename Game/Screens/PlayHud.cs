@@ -541,8 +541,9 @@ namespace BS3D.Screens
             /// earned, is born in the readout's own white.</summary>
             public Color Tint;
 
-            /// <summary>Seconds since birth on the play clock. <b>Negative</b> while the completion bonus waits its turn
-            /// (<see cref="AddBonus"/>): not drawn yet, though its points are already withheld from the readout.</summary>
+            /// <summary>Seconds since birth on the play clock. <b>Negative</b> while it waits its turn - the completion bonus
+            /// (<see cref="AddBonus"/>), a cut's award (<see cref="CUT_AWARD_DELAY"/>): not drawn yet, though its points are
+            /// already withheld from the readout.</summary>
             public float Age;
 
             /// <summary>Its zoom (#846): the top size in scores, how long the zoom in takes, and how long it is read
@@ -825,7 +826,8 @@ namespace BS3D.Screens
         /// still being read leaves for the corner now (<see cref="AwardZoom.HandOff"/>): only one big number at a time,
         /// in the order they landed, each paid as it arrives.
         /// </remarks>
-        /// <param name="cutter">True for a cutter's strike (#766): tinted with the Cutter's accent, never its dealt colour.</param>
+        /// <param name="cutter">True for a cutter's strike (#766): tinted with the Cutter's accent, never its dealt colour, and born only
+        /// once its severing has been seen (<see cref="CUT_AWARD_DELAY"/>, #767).</param>
         internal void AddAward(Vector3 world, ScoreAward award, BallType type, bool cutter = false)
         {
             HandOffReads();
@@ -845,12 +847,23 @@ namespace BS3D.Screens
 
                 Points = award.Points,
                 Tint = cutter ? CutterTint : TypeColor(type),
-                Age = 0f,
+
+                //A cut's award waits for its severing to be seen (#767): born at once it stood, zoomed to its largest, exactly
+                //over the slash running across the storey it was paid for (photographed, Elephant). Every other award is
+                //born on its landing, as #846 has it.
+                Age = cutter ? -CUT_AWARD_DELAY : 0f,
                 Peak = AwardZoom.Peak(award.Points),
                 Birth = AwardZoom.Birth(award.Points),
                 Hold = AwardZoom.Hold(award.Points),
             });
         }
+
+        /// <summary>
+        /// How long a cut's award waits before it is born on the struck cell (#767), seconds of the play clock: the severing
+        /// beat - the slash shooting out across the storey and holding white-hot, slowed by the strike's hit-stop - is over
+        /// by then, and the number zooms in over a cut already made instead of over the cut being made.
+        /// </summary>
+        private const float CUT_AWARD_DELAY = 0.7f;
 
         /// <summary>
         /// The completion bonus (#846): what the unused balls were worth, born in the balls-left readout that counts them
@@ -976,12 +989,12 @@ namespace BS3D.Screens
         /// </summary>
         private void AgePopups(float elapsed)
         {
-            bool bonusBorn = false;
+            bool waitedBorn = false;
 
             for (int i = _popups.Count - 1; i >= 0; i--)
             {
                 Popup popup = _popups[i];
-                bonusBorn |= popup.Age < 0f && popup.Age + elapsed >= 0f;
+                waitedBorn |= popup.Age < 0f && popup.Age + elapsed >= 0f;
                 popup.Age += elapsed;
 
                 if (popup.Age >= AwardZoom.Lifetime(popup.Hold))
@@ -992,9 +1005,9 @@ namespace BS3D.Screens
                 else _popups[i] = popup;
             }
 
-            //The completion bonus has waited its turn, and its birth takes the read as a newer award's does: the clearing
-            //shot's award, if it is still being read, leaves for the corner now
-            if (bonusBorn) HandOffReads(sparingTheBonus: true);
+            //The completion bonus, or a cut's award (#767), has waited its turn, and its birth takes the read as a newer award's
+            //does: an award still being read leaves for the corner now (the bonus itself spared)
+            if (waitedBorn) HandOffReads(sparingTheBonus: true);
         }
 
         private void ChaseScore(float elapsed, ScoreKeeper score)
@@ -2301,7 +2314,8 @@ namespace BS3D.Screens
             {
                 Popup popup = _popups[i];
 
-                //The completion bonus, still waiting for the award of the shot that cleared the field to be read
+                //The completion bonus, still waiting for the award of the shot that cleared the field to be read, or a cut's
+                //award waiting for its severing to be seen (#767)
                 if (popup.Age < 0f) continue;
 
                 Vector2 source;

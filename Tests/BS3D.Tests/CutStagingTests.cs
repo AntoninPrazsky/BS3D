@@ -103,8 +103,9 @@ namespace BS3D.Tests
         }
 
         /// <summary>
-        /// The slow motion always gives the world back: a hit-stop, then for a cut that freed something a slower fall the
-        /// bigger the result, then 1 again - and the world time it costs is the same at every frame rate, to a frame's worth.
+        /// The slow motion's curve always gives the world back: a hit-stop, then for a cut that freed something a slower fall
+        /// the bigger the result, then 1 again. Whether the game steps it the same at every frame rate is
+        /// <c>CutStagingSessionTests</c>', which drive the session's own stepping.
         /// </summary>
         [Fact]
         public void The_slow_motion_gives_the_world_back_and_grows_with_the_result()
@@ -120,26 +121,6 @@ namespace BS3D.Tests
 
                 for (float t = 0f; t < end; t += 0.001f)
                     Assert.InRange(CutBeats.TimeScale(t, size, freed), CutBeats.HIT_STOP_SCALE - EPSILON, 1f);
-
-                double[] lost = new double[FrameRates.Length];
-                for (int r = 0; r < FrameRates.Length; r++)
-                {
-                    float dt = 1f / FrameRates[r];
-                    double world = 0.0;
-                    float wall = 0f;
-                    for (float age = 0f; age < end + 0.2f; age += dt)
-                    {
-                        world += CutBeats.TimeScale(age, size, freed) * dt;
-                        wall += dt;
-                    }
-                    lost[r] = wall - world;
-                }
-
-                _output.WriteLine($"size {size:F1}{(freed ? "" : ", freed nothing")}: {end:F2} s, the world loses "
-                    + string.Join(", ", Array.ConvertAll(lost, l => l.ToString("F3"))) + " s at 30/60/75/144 Hz");
-
-                for (int r = 1; r < FrameRates.Length; r++)
-                    Assert.True(Math.Abs(lost[r] - lost[0]) < 1.0 / 30.0, $"size {size}: the world loses a different time at {FrameRates[r]} Hz");
             }
 
             //Bigger is slower and longer

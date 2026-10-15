@@ -62,11 +62,18 @@ namespace BS3D.Effects
         /// <summary>How charged the round in the bore is now, 0 to 1 (<see cref="CutBeats.Charge"/>).</summary>
         public float Charge => CutBeats.Charge(_pressAge);
 
-        /// <summary>The loaded round's light as a multiple of its accent: 1 at rest, up to 1 + <see cref="CHARGE_GLOW"/>.</summary>
+        /// <summary>
+        /// The loaded cutter's light as a multiple of its accent: 1 at rest, up to 1 + <see cref="CHARGE_GLOW"/>. The round's
+        /// own, wherever in the magazine it sits: a Swap that moves a charging cutter back a slot moves its glow with it, as its
+        /// sound and its hold in the hand go on, so the press is never cut in half.
+        /// </summary>
         public float Glow => 1f + CHARGE_GLOW * Charge;
 
-        /// <summary>How far the loaded round's saw has turned past its idle turn since the press (<see cref="CutBeats.SpinOffset"/>),
-        /// held once the press is over, 0 when no press is behind the round in the bore.</summary>
+        /// <summary>
+        /// How far the loaded cutter's saw has turned past its idle turn since the press (<see cref="CutBeats.SpinOffset"/>),
+        /// held once the press is over and until the round is fired, 0 when no press is behind it. The round's own, wherever
+        /// it sits: drawn only at the muzzle, a cutter swapped back a slot and forward again leapt by the whole offset.
+        /// </summary>
         public float SpinOffset => _pressAge < 0f ? 0f : CutBeats.SpinOffset(_pressAge);
 
         /// <summary>The lens's field of view as a multiple of what it would be: the flight's pinch.</summary>
@@ -88,7 +95,10 @@ namespace BS3D.Effects
             _pressAge = -1f;
         }
 
-        /// <summary>A shot fired during the slow motion ends it (#765: skippable, and never eating the input that skips).</summary>
+        /// <summary>
+        /// Ends the strike's slow motion at once: a shot fired during it (#765: skippable, and never eating the input that
+        /// skips it), the drop cinematic taking the lens with its own (the two never run together), the result page.
+        /// </summary>
         public void Skip() => _slowAge = -1f;
 
         /// <summary>
@@ -166,27 +176,31 @@ namespace BS3D.Effects
         private const float MIN_HALF_LENGTH = 2.5f;
 
         /// <summary>
-        /// The beats that run on the wall clock, by <paramref name="elapsed"/> seconds of it: the press (and its hold and
-        /// click in the hand), the flight's pinch and the slow motion's own timeline.
+        /// What the press asks of the pad this frame (#767): the rising hold on the body and trigger motors, all zero when no
+        /// press is charging. A hold is asked every frame it lasts and is gone the first frame it is not
+        /// (<c>GamepadRumble.Hold</c>, <c>HoldTriggers</c>), so the session hands this on every frame.
         /// </summary>
-        public void StepWall(float elapsed, GamepadRumble rumble)
+        public (float Left, float Right, float LeftTrigger, float RightTrigger) PadHold =>
+            _pressAge < 0f ? default : CutRumble.Charge(_pressAge);
+
+        /// <summary>Whether the charge topped out on the last <see cref="StepWall"/>: the session's cue for the click under both triggers.</summary>
+        public bool ToppedOut { get; private set; }
+
+        /// <summary>
+        /// The beats that run on the wall clock, by <paramref name="elapsed"/> seconds of it: the press (and when it tops out,
+        /// <see cref="ToppedOut"/>), the flight's pinch and the slow motion's own timeline.
+        /// </summary>
+        public void StepWall(float elapsed)
         {
+            ToppedOut = false;
+
             if (_pressAge >= 0f)
             {
                 float before = _pressAge;
                 _pressAge = MathF.Min(_pressAge + elapsed, CutBeats.PRESS_SECONDS);
 
-                //The pad's rising hold, asked every frame it lasts (a hold is gone the first frame it is not asked)
-                (float left, float right, float leftTrigger, float rightTrigger) = CutRumble.Charge(_pressAge);
-                if (left > 0f || leftTrigger > 0f)
-                {
-                    rumble?.Hold(left, right);
-                    rumble?.HoldTriggers(leftTrigger, rightTrigger);
-                }
-
-                //And a click under both fingers as the charge tops out, on the frame it crosses the top
-                if (before < CutBeats.CHARGE_SECONDS && _pressAge >= CutBeats.CHARGE_SECONDS)
-                    rumble?.KickTriggers(CutRumble.CHARGED_TRIGGER, CutRumble.CHARGED_TRIGGER, CutRumble.CHARGED_TRIGGER_SECONDS);
+                //On the frame it crosses the top, whatever the frame's length
+                ToppedOut = before < CutBeats.CHARGE_SECONDS && _pressAge >= CutBeats.CHARGE_SECONDS;
             }
 
             if (_fireAge >= 0f)

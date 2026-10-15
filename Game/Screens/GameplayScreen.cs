@@ -1055,10 +1055,12 @@ namespace BS3D.Screens
         private bool CameraTakeoverEngaged => _cinematic.Engaged || _chapterIntro.Engaged || _lineLoss.Engaged;
 
         /// <summary>
-        /// How fast the world runs this frame: the drop cinematic's slow motion, times a cut's hit-stop and fall (#767). The
-        /// two never overlap (a cut adds none while the cinematic has the lens), so the product is whichever is running.
+        /// How fast the world runs this frame: the drop cinematic's slow motion while it has the lens, or else a cut's
+        /// hit-stop and fall (#767) - never both. A cut adds none while the cinematic has the lens (<c>CutStaging.Strike</c>
+        /// is told), and a cinematic that engages during a cut's slow motion (a shot already in the air landing a big
+        /// release) ends it (<c>TryBeginDropCinematic</c>); this choice says the same thing once more, structurally.
         /// </summary>
-        private float WorldTimeScale => _cinematic.TimeScale * _cutStaging.TimeScale;
+        private float WorldTimeScale => _cinematic.Engaged ? _cinematic.TimeScale : _cutStaging.TimeScale;
 
         /// <summary>Skips whichever takeover is currently running — see <see cref="CameraTakeoverEngaged"/>
         /// for why asking both is safe.</summary>
@@ -1483,8 +1485,19 @@ namespace BS3D.Screens
             StepGunHardware(gameTime, elapsed);
 
             //The Cut's beats on the wall clock (#767): the press's charge and its hold in the hand, the flight's pinch, and
-            //the strike's slow motion, which is a property of time and so not slowed by itself
-            _cutStaging.StepWall(elapsed, Game.Rumble);
+            //the strike's slow motion, which is a property of time and so not slowed by itself. The hold is asked every
+            //frame it lasts (a hold is gone the first frame it is not), the click once, as the charge tops out.
+            _cutStaging.StepWall(elapsed);
+
+            (float holdLeft, float holdRight, float holdLeftTrigger, float holdRightTrigger) = _cutStaging.PadHold;
+            if (holdLeft > 0f || holdLeftTrigger > 0f)
+            {
+                Game.Rumble.Hold(holdLeft, holdRight);
+                Game.Rumble.HoldTriggers(holdLeftTrigger, holdRightTrigger);
+            }
+
+            if (_cutStaging.ToppedOut)
+                Game.Rumble.KickTriggers(CutRumble.CHARGED_TRIGGER, CutRumble.CHARGED_TRIGGER, CutRumble.CHARGED_TRIGGER_SECONDS);
 
             StepDozing(elapsed);
 
@@ -1509,15 +1522,21 @@ namespace BS3D.Screens
             //glass's glow fades on the wall clock in the same call; the glass itself slides inside StepPhysics,
             //one physics step at a time (#577), so the solver always works against the moved body. A blue step's pour
             //(#726) counts on the same seconds, so a pause holds it where it was.
+            //
+            //And a step is held through a cut's slow motion as through a takeover (#767): a cutter is a shot, so it can be
+            //the one that queues a step, and released on CEILING_STEP_HOLD's wall-clock seconds the red alarm, its sound
+            //and its rumble played over the fall, and the glass began to slide a slowed world sooner than it would have.
+            //Held, it comes down after the fall in the world's time too.
             _feedPour.Advance(elapsed);
-            if (_ceilingDescent.Update(elapsed, LevelDecided, CameraTakeoverEngaged, out bool ceilingFeeding,
-                    out float ceilingWaited))
+            if (_ceilingDescent.Update(elapsed, LevelDecided, CameraTakeoverEngaged || _cutStaging.Slowed,
+                    out bool ceilingFeeding, out float ceilingWaited))
                 AnnounceCeilingStep(ceilingFeeding, ceilingWaited);
 
             //Slow motion is applied here and nowhere else: the fixed timestep is untouched and only the time
             //fed to the accumulator is scaled, so a slowed world is exactly as stable as a full-speed one. The
-            //ceiling's descent rides the steps since #577, so a slowed world slows it too — which no player sees,
-            //because it is not moving while the gun is locked, and which keeps plate and cluster in step if it is.
+            //ceiling's descent rides the steps since #577, so a slowed world slows it too — and no step is let go
+            //under either slow motion (the drop cinematic's or a cut's, above), so only a slide already under way
+            //can be slowed, which keeps plate and cluster in step.
             //Testing only (detonate=, #389): a bomb set off on the wall clock's schedule. Before the step, so its
             //debris moves on this frame the way a real landing's does.
             if (TryTakeForcedDetonation()) DetonateForTesting();
@@ -1530,8 +1549,7 @@ namespace BS3D.Screens
             //NOT STEPPED WHILE THE RELEASE WAITS (#690's review): stepped through a chapter intro at the builder's stiff
             //springs, the cluster snapped up into its seat unseen, and the swing let go after the tour was only a dip from
             //rest. Held exactly as built, it is let go by ReleaseCluster from the pose every other start begins at.
-            //The world's speed: the drop cinematic's slow motion, or a cut's hit-stop and fall (#767), which never runs under
-            //the cinematic's (CutStaging.Strike is told when the cinematic took the lens)
+            //The world's speed: the drop cinematic's slow motion, or else a cut's hit-stop and fall (#767)
             float worldScale = WorldTimeScale;
 
             if (!_releasePending)
@@ -1772,9 +1790,11 @@ namespace BS3D.Screens
             //as in the frame above: the recoil and the glide are the hardware answering the shot.
             StepGunHardware(gameTime, elapsed);
 
-            //Unscaled, unlike the frame above: a drop cinematic is the only thing that scales the step, and
-            //neither ending is declared while one is engaged — the countdown freezes for it and the loss waits
-            //on mayLose — so the scale is back at 1 before this page can exist.
+            //Unscaled, unlike the frame above. A drop cinematic's slow motion is over before this page can exist: neither
+            //ending is declared while one is engaged (the countdown freezes for it, the loss waits on mayLose). A cut's
+            //(#767) is not waited for - a level-clearing cut with the cinematic off, or a loss on the last shot, reaches
+            //this page in the middle of one - so it is ended below (_cutStaging.Skip): the world under the page runs at
+            //full speed either way.
             StepPhysics(elapsed);
             NoteSimulated(1f);
 
@@ -1948,10 +1968,11 @@ namespace BS3D.Screens
             //Everything collected above, as one instanced draw per ball type and LOD level — and the frame's
             //collection is closed by it. The heartbeat runs on the WALL clock: the balls go on breathing while
             //a pause has the session frozen, because it is what they are and not something they are doing.
-            //A loaded cutter's charge (#767) rides along: its saw's spin-up and its light's surge, put back after the draw
-            //so nothing else that draws through the shared set inherits them.
-            Game.Balls.CutterGlow = CutterLoaded ? _cutStaging.Glow : 1f;
-            Game.Balls.CutterSpinOffset = CutterLoaded ? _cutStaging.SpinOffset : 0f;
+            //A loaded cutter's charge (#767) rides along: its saw's spin-up and its light's surge - the round's own, wherever
+            //a Swap has put it in the magazine - put back after the draw so nothing else drawing through the shared set
+            //inherits them.
+            Game.Balls.CutterGlow = _cutStaging.Glow;
+            Game.Balls.CutterSpinOffset = _cutStaging.SpinOffset;
             Game.Balls.Draw(WallClock);
             Game.Balls.CutterGlow = 1f;
             Game.Balls.CutterSpinOffset = 0f;

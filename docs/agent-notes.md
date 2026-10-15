@@ -855,6 +855,7 @@ Pravidla:
 - Otevřené: verdikt oka; #767 (inscenace řezu).
 
 ## 2026-10-15 — #767 použití Cut jako okamžik — desktop (RDT-PC), Claude Code (bs3d-ac)
-- Hotovo (větev `767-cut-staging`, čeká na review a merge): stisk nabije náboj (pila se roztočí z klidu na rychlost letu a zpět, záře, objímka a paprsky vzplanou, čip blikne, zvuk nabíjení, stoupající držení v obou spoušťových motorech), let zúží objektiv a nechá svítit náhled, zásah je bílý žhavý řez přes patro s jiskrami brusky (druhý styl `Blasts`/`Blast.fx`, i v Potato), zvuk řezu se zvoněním, úder do ruky a hit-stop; pád ve zpomalení podle velikosti, řezná plocha žhne a chladne. Reference oběma modely (`767-zimage`, `767-klein`).
-- ⚠ Úder se přičtený k doznívající ráně výstřelu dostal nad strop; proto `PadChannel.KickUpTo`. Snímek 1920×1080 stojí ~0,5 s, `shot=` zásah nezachytí, proto `cutshot=` na hodinách světa.
-- Otevřené: oko a ucho majitele (`verdict-eye`), ruka na padu, PresentMon nad okamžikem.
+- Hotovo (větev `767-cut-staging`, `verdict-eye`): stisk nabije náboj (pila se roztočí a zpět, záře, objímka, paprsky, čip, zvuk nabíjení, stoupající držení ve spouštích), let zúží objektiv, zásah je bílý žhavý řez přes patro s jiskrami (druhý styl `Blast.fx`, i Potato), zvuk řezu, úder do ruky a hit-stop; pád ve zpomalení podle velikosti, řezné plochy žhnou. Reference oběma modely.
+- Review: krok stropu čeká přes zpomalení, kinematografie zpomalení řezu ukončí, náboj si po Swapu nese záři i úhel, odměna řezu se narodí 0,7 s po zásahu (stála přes řez). `CutStaging` v testech, 12 zasazených chyb každá shodí test.
+- ⚠ Úder přičtený k ráně výstřelu přešel strop, proto `PadChannel.KickUpTo`. Snímek 1920×1080 stojí ~0,5 s, proto `cutshot=`.
+- Otevřené: oko a ucho majitele, ruka na padu, PresentMon.

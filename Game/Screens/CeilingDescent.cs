@@ -297,7 +297,8 @@ namespace BS3D.Screens
         /// </summary>
         /// <param name="elapsed">Wall-clock seconds since the last frame.</param>
         /// <param name="levelDecided">Whether the level is already won or lost (#563).</param>
-        /// <param name="takeoverEngaged">Whether a camera takeover (a cinematic, the chapter intro) has the lens.</param>
+        /// <param name="takeoverEngaged">Whether a camera takeover (a cinematic, the chapter intro) has the lens, or a cut's slow
+        /// motion is running (#767): either holds a step that has come due, for the drop cinematic's reason below.</param>
         /// <param name="feeding">When a step began: whether it was one the feed asked for rather than the pressure.</param>
         /// <param name="waited">When a step began: the seconds it spent queued before it was let go.</param>
         /// <returns>
@@ -336,7 +337,9 @@ namespace BS3D.Screens
             //Held out through a camera takeover for the drop cinematic's own reason — a step sliding down
             //while the camera is elsewhere would arrive unannounced. Unreachable through the chapter intro in
             //practice (nothing can be owed before a shot has landed, and the intro is over well before the
-            //first one can), but the same rule either way costs nothing to state once.
+            //first one can), but the same rule either way costs nothing to state once. And through a cut's slow
+            //motion (#767), which the caller folds in, for this hold's own reason: the punishment must not land on the
+            //reward the player is watching.
             if (_stepHold > 0f || takeoverEngaged) return false;
 
             _stepsPending--;
