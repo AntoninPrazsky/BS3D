@@ -99,10 +99,15 @@ namespace BS3D.Screens
             new("Anton, Inter, PromptFont", "the typefaces, all SIL\u00A0OFL\u00A01.1"),
         };
 
-        /// <summary>Over the tools: what Claude made, and that everything else was generated on the author's own machine.</summary>
+        /// <summary>
+        /// Over the tools: that the original game is the author's own code, written without AI, that what it has gained
+        /// since 2026 was made with Claude, and that everything else was generated on the author's own machine (#866: the
+        /// sentence before it read as if Claude had written all of it from the start).
+        /// </summary>
         internal const string MADE_WITH =
-            "The code, the shaders, the level designs, the tools and the documentation were made with Claude (Anthropic), "
-            + "through Claude Code. The rest was generated locally:";
+            "The original game is the author’s own code, written without AI. Since 2026 it has been extended with Claude "
+            + "(Anthropic), through Claude Code — the shaders, the level designs, the tools and the documentation among "
+            + "them. The rest was generated locally:";
 
         /// <summary>What was generated locally, and what for.</summary>
         internal static readonly Credit[] GENERATED =
