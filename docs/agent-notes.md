@@ -830,3 +830,9 @@ Pravidla:
 - #841 (merge do mainu, `shipped-awaiting-verdict` + `verdict-eye`): osm nahrávek rodiny `magma` nahrazeno podle vzoru `ember` (metal a tribal zůstaly), 36 renderů ACE-Step ve třech kolech, výběr měřením (`measure-music.py` + šev, díra, stereo); bicí vrstvy oddělené znovu z nových nahrávek. Mastery v `C:/Users/panrd/AI/output/masters-841`, kandidáti v `masters-night-magma`. Stránka k poslechu: https://claude.ai/artifact/SZH18zrnQWmU8oaBARcNgj (odpovědi v db, kolekce `verdicts`).
 - ⚠ Pásma nestačí: `doom` c3 v pásmu, ale šev +15 dB; `electro` c4 má 24 s z 43 s tiše. Breakbeat a electro si výšky drží přes jakékoli zadání (devět renderů, nejlépe 2,1 % a 2,5 % nad 6 kHz). Zapsáno v `music-generation.md`, „Choosing a candidate“.
 - Otevřené: ucho majitele; `electro` stále 4,0 % nad 6 kHz a `breakrock` středy jako dřív.
+
+## 2026-10-15 — #866 #864 #865 About bez AI, balíky slámy, Help na celou šířku — desktop (RDT-PC), Claude Code (bs3d-ac)
+- #866 (f8616d63): MADE WITH říká, že původní hra je autorův vlastní kód bez AI a od roku 2026 ji rozšiřuje Claude přes Claude Code; přeformulovat jde jen v `AboutCopy.MADE_WITH`.
+- #864 (22bbebff): balík v měřítku plotu (`BALE_SCALE = FENCE_SCALE`, 3,2 napříč), sázený po plotech mimo každé jejich pole, z vlastního generátoru. ⚠ Skupiny se dřív nikdy nevytvořily (rozestup 2,2 proti odstupu 1,6) a balík mohl stát na plotu (0,15 u jednoho z 81 seedů); teď nejméně 3,2 od plotu.
+- #865 (tato větev): odstavce Help od BASICS na `TEXT_WIDTH` (83 znaků), majitel 15. 10. „celá šířka“; těla tabů stojí nahoře. BASICS se při 1600×900 vejde bez rolování.
+- Otevřené: oko majitele na všech třech (`verdict-eye`), snímky pro stránku verdiktů v scratchpadu sezení bs3d-ac.

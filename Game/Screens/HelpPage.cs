@@ -54,8 +54,10 @@ namespace BS3D.Screens
     /// </summary>
     internal sealed class HelpPage : MenuPage
     {
-        //The frame's width: the controls page's lines and the row under the text are this wide. The paragraphs are set at
-        //the prose measure inside it (ProseWidth, #806): across the whole 1860 a line of the small face held 83 characters
+        //The text's width: the controls page's lines and every paragraph from BASICS on are set across it (ProseWidth), 83
+        //characters of the small face. Wider than the prose measure #806 set them at (67): the owner's ruling on #865
+        //(2026-10-15), the whole width for less scrolling. The frame is at least this wide, and the tab row's width where
+        //that is wider (BuildTree)
         private const int TEXT_WIDTH = 1860;
 
         //The space between a keycap and its words on the controls page
@@ -217,10 +219,11 @@ namespace BS3D.Screens
         {
             VerticalStackPanel body = MenuColumn();
 
-            //Against the scroller's left edge rather than centred in it (#729): the scroller is as wide as the widest page
-            //needs it, scroll bar included, so on a page that fits the spare width is a gutter at the right and the text
-            //stands where it does on a page that scrolls
+            //Against the scroller's left edge and its top rather than centred in it (#729, #865): every tab stands in the
+            //biggest one's frame, so a tab that fits has room to spare, and it is left at the right and at the bottom. The
+            //text then starts under the tabs where it does on a tab that scrolls, and does not drop as the tabs turn.
             body.HorizontalAlignment = HorizontalAlignment.Left;
+            body.VerticalAlignment = VerticalAlignment.Top;
 
             //Each block carries the space under it (#806): a paragraph its ParagraphGap, a control's line KEY_LINE_GAP, so
             //the stack adds none of its own on top
@@ -554,8 +557,9 @@ namespace BS3D.Screens
                 "Most balls are ordinary. These are not — the first few you will meet as the campaign goes on."));
 
             //Each kind beside its words (#856): a square at the paragraph's left, top-aligned with its first line, the
-            //words set at the measure less the square and the gap. The square is a widget so that it takes its room in
-            //the body's flow and the scroller carries it; what is drawn in it is the frame's own ball (DrawForeground)
+            //words set across the text's width less the square and the gap. The square is a widget so that it takes its
+            //room in the body's flow and the scroller carries it; what is drawn in it is the frame's own ball
+            //(DrawForeground)
             int square = Scaled(BALL_SQUARE), gap = Scaled(BALL_GAP);
 
             for (int i = 0; i < KIND_ENTRIES.Length; i++)
@@ -741,10 +745,11 @@ namespace BS3D.Screens
         };
 
         /// <summary>
-        /// How wide the pages' prose is set (#806): the prose measure, inside the frame, against its left edge so Back
-        /// stands under the text's first letter (#738) and the rag runs into the gutter at the right.
+        /// How wide the pages' prose is set: the whole text width (<see cref="TEXT_WIDTH"/>), past the prose measure the
+        /// other pages keep (#806) — the owner's ruling on #865, a longer line for less scrolling. Against the frame's left
+        /// edge, so Back stands under the text's first letter (#738).
         /// </summary>
-        private int ProseWidth => Math.Min(Scaled(TEXT_WIDTH), ProseMeasure);
+        private int ProseWidth => Scaled(TEXT_WIDTH);
 
         private Label Paragraph(string text) => Paragraph(text, ProseWidth);
     }

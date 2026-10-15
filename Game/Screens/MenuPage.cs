@@ -476,7 +476,7 @@ namespace BS3D.Screens
         /// for what a paragraph is, so the pages' paragraphs cannot drift apart again the way they did when each set its own
         /// face, colour and gap. <paramref name="width"/> is the column's: prose wider than <see cref="ProseMeasure"/> is a
         /// measure too long to read, so a page with a wider column sets its paragraphs at that instead ("Typesetting" in
-        /// <c>docs/game-shell/menu-look.md</c>).
+        /// <c>docs/game-shell/menu-look.md</c>). Help is the one exception, set across its whole text width (#865).
         /// </summary>
         protected Label Paragraph(string text, int width) =>
             Prose(text, width, BS3DGame.MENU_TEXT_BODY, Game.ProseLeading, new Thickness(0, 0, 0, ParagraphGap));

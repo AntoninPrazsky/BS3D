@@ -89,9 +89,9 @@ FontStashSharp 1.5.6 under Myra 1.6.3, read off the assemblies and the faces' ow
 
 ### Measure
 
-**45 to 75 characters a line; prose is set at most `MENU_PROSE_MEASURE` wide**, 1500 units, 67 characters of Inter at `MENU_FONT_SMALL` (22.3 units a character over the game's own copy). Every size scales with the height, so a column holds the same number of characters at 1600×900 and at 3840×1600.
+**45 to 75 characters a line; prose is set at most `MENU_PROSE_MEASURE` wide**, Help's excepted, 1500 units, 67 characters of Inter at `MENU_FONT_SMALL` (22.3 units a character over the game's own copy). Every size scales with the height, so a column holds the same number of characters at 1600×900 and at 3840×1600.
 
-- Help's frame is 1860 units, 83 characters, which the controls tab's lines need — or its tab row's width where that is wider, which at every size it is (2072 units, #857). Its paragraphs are set at the measure against the frame's left edge, so Back stands under the text's first letter, and the rag runs into a gutter at the right.
+- **Help is the exception: its text is set across `TEXT_WIDTH`, 1860 units, 83 characters** — the controls tab's lines and, by the owner's ruling (#865, 2026-10-15), every paragraph from BASICS on: the whole width for less scrolling, against a longer line than the measure. An odd ball's entry takes that less its square and the gap. The frame is the tab row's width where that is wider, which at every size it is (2072 units, #857); the text stands against its left edge, so Back stands under the text's first letter.
 - The Settings note is the page's width, about 1590 units, up to the measure. About's pages are set at the measure (#807), and so is its widest thing, the player's spectrum; a credit list's two columns share it, so a role that would break the line is shortened rather than wrapped.
 
 ### Leading and paragraphs
