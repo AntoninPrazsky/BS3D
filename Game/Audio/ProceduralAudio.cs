@@ -160,6 +160,14 @@ namespace BS3D.Audio
         /// <summary>The barrel pressed into its stop (#811); see <see cref="AimStopSynth"/>.</summary>
         private readonly SoundEffect _aimStop;
 
+        /// <summary>
+        /// The Cut's own pair (#767): the round in the bore charging, and the slice as it severs a storey. Each is
+        /// <c>Sfx/cut-charge.ogg</c> or <c>Sfx/cut-slice.ogg</c> when there is one, and <see cref="CutSynth"/>'s bake
+        /// otherwise, which is what ships: the bake is the sound until a recording is chosen.
+        /// </summary>
+        private readonly SoundEffect _cutCharge, _cutSlice;
+        private readonly VoiceRing _cutChargeRing, _cutSliceRing;
+
         /// <summary>A streak breaking (#845), one per multiplier that can be lost, indexed by it (0 and 1 left empty); see <see cref="StreakBreakSynth"/>.</summary>
         private readonly SoundEffect[] _streakBreak;
 
@@ -427,6 +435,10 @@ namespace BS3D.Audio
             _shotRefused = BakeShotRefused();
             _aimStop = ToSoundEffect(AimStopSynth.Render(SAMPLE_RATE));
 
+            //The Cut's charge and slice (#767), each a recording when one is in Sfx and its bake otherwise
+            _cutCharge = FromSfxOrBake("cut-charge", () => ToSoundEffect(CutSynth.RenderCharge(SAMPLE_RATE)));
+            _cutSlice = FromSfxOrBake("cut-slice", () => ToSoundEffect(CutSynth.RenderSlice(SAMPLE_RATE)));
+
             //One per multiplier a streak can lose: a handful of short buffers, baked here with the rest so a break never
             //waits on its synthesis
             _streakBreak = new SoundEffect[ScoreKeeper.MaxMultiplier + 1];
@@ -449,6 +461,10 @@ namespace BS3D.Audio
             _launchRing = new VoiceRing(_fireworkLaunch, LAUNCH_VOICES);
             _burstRing = new VoiceRing(_fireworkBurst, BURST_VOICES);
             _eruptionRing = new VoiceRing(_eruption, ERUPTION_VOICES);
+
+            //One Cut a level (#213), so a voice each is plenty; two for the slice, for powerups=cut:n runs
+            _cutChargeRing = new VoiceRing(_cutCharge, 1);
+            _cutSliceRing = new VoiceRing(_cutSlice, 2);
 
             //One hole at a time (Wormhole), so one voice each
             _wormholeOpenRing = new VoiceRing(_wormholeOpen, 1);
@@ -838,6 +854,34 @@ namespace BS3D.Audio
         {
             _aimStop.Play(AIM_STOP_VOLUME * Level * NON_SPATIAL_TRIM, NextPitch(0.02f), 0f);
         }
+
+        /// <summary>
+        /// The round in the bore turning into a cutter (#767): a saw spooling up to a bright "ting" (<see cref="CutSynth"/>),
+        /// spoken from the <paramref name="muzzle"/> the round sits behind and flat with distance, as the shot is: it is the
+        /// gun answering the player's own hand. The refusal's small pitch nudge, so the rise keeps its shape.
+        /// </summary>
+        public void PlayCutCharge(Vector3 muzzle)
+        {
+            Speak(_cutChargeRing, muzzle, NEAR_WIDEN, MathHelper.Clamp(CUT_CHARGE_VOLUME * Level, 0f, 1f), NextPitch(0.02f));
+        }
+
+        /// <summary>
+        /// A cutter severing a storey (#767): the blade's zing and its long ring over a warm thump (<see cref="CutSynth"/>),
+        /// spoken from where it struck. <paramref name="size"/> (0 to 1) is how much the cut freed: bigger is louder and a
+        /// shade deeper, the release's and the report's rule. Near-flat with distance and near full level, the bomb's law
+        /// (<see cref="PlayBlast"/>): the player's one chosen strike of the level cannot be quieter than the gun that fired it.
+        /// </summary>
+        public void PlayCutSlice(Vector3 world, float size)
+        {
+            float distance = DistanceTo(world);
+            float volume = (0.82f + 0.18f * size) * (0.85f + 0.15f * MathHelper.Clamp(1f - distance / 120f, 0f, 1f));
+
+            Speak(_cutSliceRing, world, NEAR_WIDEN, MathHelper.Clamp(volume * Level, 0f, 1f),
+                MathHelper.Clamp(NextPitch(0.03f) - size * 0.08f, -1f, 1f));
+        }
+
+        //The charge's level: under the shot that fires the round (full level), over the aim stop (it is an event, not a nudge)
+        private const float CUT_CHARGE_VOLUME = 0.7f;
 
         /// <summary>
         /// A streak of <paramref name="lost"/> breaking (#845): a short run of struck notes falling, one per unit of the
@@ -3176,6 +3220,8 @@ namespace BS3D.Audio
             _eruptionRing?.Dispose();
             _wormholeOpenRing?.Dispose();
             _wormholePopRing?.Dispose();
+            _cutChargeRing?.Dispose();
+            _cutSliceRing?.Dispose();
 
             _shoot?.Dispose();
             if (_landed != null)
@@ -3199,6 +3245,8 @@ namespace BS3D.Audio
             _uiClick?.Dispose();
             _shotRefused?.Dispose();
             _aimStop?.Dispose();
+            _cutCharge?.Dispose();
+            _cutSlice?.Dispose();
             if (_streakBreak != null) foreach (SoundEffect breaking in _streakBreak) breaking?.Dispose();
             _starEarned?.Dispose();
             _thunder?.Dispose();

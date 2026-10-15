@@ -847,3 +847,8 @@ Pravidla:
 - ⚠ Vodorovná čepel byla v hlavni neviditelná (hlaveň zakryje rovník); proto pila na lici. Review: renderer čepele nebyl ve světelném rigu (zrcadlil bílé nebe), 18 rad/s za letu dělalo stroboskop podle obnovovací frekvence (teď 3 rad/s, pod půl zubu za snímek i při 30 Hz).
 - Reference `C:\Users\panrd\AI\sd\out\766-zimage`, `766-klein`; důkazy `<scratch>\verdicts\766`.
 - Otevřené: verdikt oka; #767 (inscenace řezu).
+
+## 2026-10-15 — #767 použití Cut jako okamžik — desktop (RDT-PC), Claude Code (bs3d-ac)
+- Hotovo (větev `767-cut-staging`, čeká na review a merge): stisk nabije náboj (pila se roztočí z klidu na rychlost letu a zpět, záře, objímka a paprsky vzplanou, čip blikne, zvuk nabíjení, stoupající držení v obou spoušťových motorech), let zúží objektiv a nechá svítit náhled, zásah je bílý žhavý řez přes patro s jiskrami brusky (druhý styl `Blasts`/`Blast.fx`, i v Potato), zvuk řezu se zvoněním, úder do ruky a hit-stop; pád ve zpomalení podle velikosti, řezná plocha žhne a chladne. Reference oběma modely (`767-zimage`, `767-klein`).
+- ⚠ Úder se přičtený k doznívající ráně výstřelu dostal nad strop; proto `PadChannel.KickUpTo`. Snímek 1920×1080 stojí ~0,5 s, `shot=` zásah nezachytí, proto `cutshot=` na hodinách světa.
+- Otevřené: oko a ucho majitele (`verdict-eye`), ruka na padu, PresentMon nad okamžikem.

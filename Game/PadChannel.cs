@@ -52,6 +52,22 @@ namespace BS3D
         }
 
         /// <summary>
+        /// An ordinary event's pulse that promises a peak (#767, the Cut's knock): raises what is ringing TO
+        /// <paramref name="level"/> (0 to 1) and lets it fall to zero over <paramref name="seconds"/> from there, rather than
+        /// adding to it as <see cref="Kick"/> does; nothing when the ordinary kicks already ring at or above it. So a knock that
+        /// arrives on the shot's own thump, still ringing a few hundredths of a second after the trigger, is felt as itself
+        /// and never stacks past its level.
+        /// </summary>
+        public void KickUpTo(float level, float seconds)
+        {
+            float target = MathF.Min(level, 1f);
+            if (target <= _free) return;
+
+            _free = target;
+            _freeRate = _free / MathF.Max(seconds, MIN_SECONDS);
+        }
+
+        /// <summary>
         /// A pulse that promises the player a bound (#810): <paramref name="amount"/> (0 to <paramref name="ceiling"/>)
         /// rings in its own layer, falling over <paramref name="seconds"/>, and is felt only as its share of what is left
         /// under <paramref name="ceiling"/> above the ordinary kicks (<see cref="Blend"/>). Two such pulses compose the same

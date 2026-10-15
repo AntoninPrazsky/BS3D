@@ -806,6 +806,7 @@ namespace BS3D.Screens
             _swapHint = false;
             _swapHintAge = 0f;
             _swapPulse.Reset();
+            _cutPulse.Reset();
             _streakCapped = score.Multiplier >= ScoreKeeper.MaxMultiplier;
             _streakCapFlare = 0f;
             _clock = 0f;
@@ -965,6 +966,7 @@ namespace BS3D.Screens
             _ballsPulse.Update(elapsed);
             _tutorialPulse.Update(elapsed);
             _swapPulse.Update(elapsed);
+            _cutPulse.Update(elapsed);
         }
 
         /// <summary>
@@ -2039,6 +2041,11 @@ namespace BS3D.Screens
         private bool _swapHint;
         private float _swapHintAge;
         private Pulse _swapPulse;
+
+        //The Cut chip's flare as its charge is spent (#767): the press's pulse on the chip, in the cutter's own white-hot
+        //rather than the amber that means gain, falling off at the pulse's own rate into the spent chip's dim
+        private Pulse _cutPulse;
+        private static readonly Color HUD_CUT_PULSE = new(255, 245, 224);
         private const string SWAP_KEEP = "Swap · keep ";
         private const float SWAP_HINT_PERIOD = 0.6f;
         private const float SWAP_HINT_FLOOR = 0.3f;
@@ -2152,8 +2159,12 @@ namespace BS3D.Screens
                     viewport, margin);
 
             if (cutCharges >= 0)
-                DrawChip(row, onGamepad ? CUT_GLYPH_PAD : CUT_GLYPH_KEY, _cutText, State(cutCharges, cutNotNow), in layout, viewport, margin);
+                DrawChip(row, onGamepad ? CUT_GLYPH_PAD : CUT_GLYPH_KEY, _cutText, State(cutCharges, cutNotNow), in layout, viewport, margin,
+                    _cutPulse.Heat, HUD_CUT_PULSE);
         }
+
+        /// <summary>The Cut's press (#767): the chip flares in the cutter's white-hot as its charge goes into the round.</summary>
+        internal void PulseCutChip() => _cutPulse.Kick(0f);
 
         /// <summary>
         /// The keycap column's and the caption column's widths (#694), measured over every glyph and every caption a chip
@@ -2217,9 +2228,12 @@ namespace BS3D.Screens
         /// </summary>
         /// <param name="hint">How brightly the chip is pointing at itself (#845, the Swap's hint), 0 for not at all: an amber
         /// halo behind the keycap and the words, and both tinted towards the amber, by this much.</param>
+        /// <param name="hintColour">The halo's colour when it is not the amber of gain: the Cut's white-hot flare (#767).</param>
         private void DrawChip(int row, string glyph, string text, ChipState state, in ChipColumnLayout layout, Viewport viewport,
-            int margin, float hint = 0f)
+            int margin, float hint = 0f, Color hintColour = default)
         {
+            Color halo = hintColour.A == 0 ? HUD_ACCENT : hintColour;
+
             //Three states told apart by brightness, the HUD's grey and not a colour (amber means gain, see the class doc):
             //ready is the keycap and its word in full white; NOT NOW dims the keycap - the key will do nothing yet - and keeps
             //the words in full, since they say why (#844); used up dims the whole chip, the way it always has
@@ -2252,10 +2266,10 @@ namespace BS3D.Screens
             if (hint > 0f)
             {
                 //The halo first, under both, the way the readouts flash; then the two tinted towards it
-                DrawGlow(glyphFont, glyph, glyphAt, glyphSize, 1f, hint, HUD_ACCENT, HUD_GLOW_PASSES);
-                DrawGlow(captionFont, text, captionAt, captionSize, 1f, hint, HUD_ACCENT, HUD_GLOW_PASSES);
-                glyphColour = Color.Lerp(glyphColour, HUD_ACCENT, 0.8f * hint);
-                captionColour = Color.Lerp(captionColour, HUD_ACCENT, 0.8f * hint);
+                DrawGlow(glyphFont, glyph, glyphAt, glyphSize, 1f, hint, halo, HUD_GLOW_PASSES);
+                DrawGlow(captionFont, text, captionAt, captionSize, 1f, hint, halo, HUD_GLOW_PASSES);
+                glyphColour = Color.Lerp(glyphColour, halo, 0.8f * hint);
+                captionColour = Color.Lerp(captionColour, halo, 0.8f * hint);
             }
 
             DrawString(glyphFont, glyph, glyphAt, glyphColour, 1f);
