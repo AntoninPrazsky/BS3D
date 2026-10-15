@@ -85,10 +85,11 @@ namespace Prazsky.Core.Render
                 return true;
             }
 
-            (float X, float Z) Site(float inner, float outer)
+            (float X, float Z) Site(float inner, float outer, Random from = null)
             {
-                float a = (float)rng.NextDouble() * MathHelper.TwoPi;
-                float d = MathF.Sqrt(MathHelper.Lerp(inner * inner, outer * outer, (float)rng.NextDouble()));
+                from ??= rng;
+                float a = (float)from.NextDouble() * MathHelper.TwoPi;
+                float d = MathF.Sqrt(MathHelper.Lerp(inner * inner, outer * outer, (float)from.NextDouble()));
                 return (MathF.Cos(a) * d, MathF.Sin(a) * d);
             }
 
@@ -202,29 +203,12 @@ namespace Prazsky.Core.Render
                 occupied.Add((centre.X, centre.Y, 0f));
             }
 
-            //--- The hay bales: round, lying on their side, in loose groups on the lower slopes
-            IProceduralMesh bale = Own(BaleMesh(device));
-            var baleInstances = new List<ModelInstance>();
-            for (int i = 0, tries = 0; i < BALES && tries < 600; tries++)
-            {
-                (float x, float z) = Site(110f, 280f);
-                if (!Free(x, z, 1.6f)) continue;
-                int group = 1 + rng.Next(3);
-                for (int g = 0; g < group && i < BALES; g++)
-                {
-                    float gx = x + g * 2.2f * (float)Math.Cos(i), gz = z + g * 2.2f * (float)Math.Sin(i);
-                    if (!Free(gx, gz, 1.6f)) continue;
-                    occupied.Add((gx, gz, 1.6f));
-                    baleInstances.Add(At(gx, gz, 0.95f + 0.1f * (float)rng.NextDouble(), (float)rng.NextDouble() * MathHelper.TwoPi,
-                        0.12f, (float)rng.NextDouble(), Jitter()));
-                    i++;
-                }
-            }
-
             //--- The fences: weathered post-and-rail runs, each a line of segments out across the rise, every
-            //segment pitched to the ground's own slope so the rails meet the next post
+            //segment pitched to the ground's own slope so the rails meet the next post. Each span planted is kept,
+            //post to post, for the hay bales to keep clear of.
             IProceduralMesh fence = Own(FenceMesh(device));
             var fenceInstances = new List<ModelInstance>();
+            var fenceSpans = new List<(Vector2 From, Vector2 To)>();
             //The first runs beside the footpath, the way a path through a meadow keeps to its fence: a point every
             //FENCE_SPAN along the centreline, set FENCE_BESIDE_PATH to its side, each span aimed at the next point
             {
@@ -246,6 +230,7 @@ namespace Prazsky.Core.Render
                     float rise = height(q.X, q.Y) - height(p.X, p.Y);
                     fenceInstances.Add(At(p.X, p.Y, 1f, -MathF.Atan2(heading.Y, heading.X), 0.15f, (float)rng.NextDouble(), Jitter(),
                         MathF.Atan2(rise, FENCE_SPAN)));
+                    fenceSpans.Add((p, q));
                     p = q;
                     d = next;
                 }
@@ -269,8 +254,43 @@ namespace Prazsky.Core.Render
                         float rise = height(q.X, q.Y) - height(p.X, p.Y);
                         float yaw = -MathF.Atan2(heading.Y, heading.X);
                         fenceInstances.Add(At(p.X, p.Y, 1f, yaw, 0.15f, (float)rng.NextDouble(), Jitter(), MathF.Atan2(rise, FENCE_SPAN)));
+                        fenceSpans.Add((p, q));
                     }
                     p = q;
+                }
+            }
+
+            //--- The hay bales: round, lying on their side, in loose groups on the lower slopes, sized to the fence's
+            //metre (BALE_SCALE, #864). Planted after the fences and clear of every span of them, and off a generator of
+            //their own, so their clearances can be tuned without moving the boulders and the grass the shared one
+            //plants after them.
+            IProceduralMesh bale = Own(BaleMesh(device));
+            var baleInstances = new List<ModelInstance>();
+            Random baleRng = new(seed + BALE_SEED);
+
+            bool BaleFree(float x, float z)
+            {
+                //The footpath, the brook, the pond and everything planted so far, the other bales among it
+                if (!Free(x, z, BALE_REACH)) return false;
+                var at = new Vector2(x, z);
+                foreach ((Vector2 from, Vector2 to) in fenceSpans)
+                    if (DistanceToSpan(at, from, to) < BALE_REACH + FENCE_POST_RADIUS + BALE_FENCE_GAP) return false;
+                return true;
+            }
+
+            for (int i = 0, tries = 0; i < BALES && tries < 600; tries++)
+            {
+                (float x, float z) = Site(110f, 280f, baleRng);
+                if (!BaleFree(x, z)) continue;
+                int group = 1 + baleRng.Next(3);
+                for (int g = 0; g < group && i < BALES; g++)
+                {
+                    float gx = x + g * BALE_GROUP_SPACING * MathF.Cos(i), gz = z + g * BALE_GROUP_SPACING * MathF.Sin(i);
+                    if (!BaleFree(gx, gz)) continue;
+                    occupied.Add((gx, gz, BALE_REACH));
+                    baleInstances.Add(At(gx, gz, 0.95f + 0.1f * (float)baleRng.NextDouble(), (float)baleRng.NextDouble() * MathHelper.TwoPi,
+                        BALE_SINK, (float)baleRng.NextDouble(), (float)(baleRng.NextDouble() - 0.5) * 0.2f));
+                    i++;
                 }
             }
 
@@ -511,17 +531,53 @@ namespace Prazsky.Core.Render
         //How far the first fence runs to the side of the footpath's centreline
         private const float FENCE_BESIDE_PATH = 2.6f;
 
+        //How much bigger a hay bale is than one of 1.6 across (#864): the fence's own factor, so the bale is set at the
+        //metre #698 set the fence at. A round bale is about 1.5 m across against a post of 1.2 to 1.5 m, so it stands
+        //about as tall as the doubled fence's post beside it (3.2 across against a post of 2.7); at 1 it stood little
+        //over half a post's height, the small thing beside a right-sized fence. The mesh is scaled, not the instances:
+        //the groups' spacing and the clearances below are world units, and they follow it through BALE_REACH.
+        private const float BALE_SCALE = FENCE_SCALE;
+
+        //A bale's radius and half its length, in world units: the mesh's own
+        private const float BALE_RADIUS = 0.8f * BALE_SCALE, BALE_HALF_LENGTH = 0.72f * BALE_SCALE;
+
+        //How far a bale reaches over the ground from where it stands, whichever way it lies: the corner of its footprint
+        //at the largest instance scale (1.05). What every bale keeps clear of the path, the fences and the others by.
+        private static readonly float BALE_REACH = 1.05f * MathF.Sqrt(BALE_RADIUS * BALE_RADIUS + BALE_HALF_LENGTH * BALE_HALF_LENGTH);
+
+        //Centre to centre in a group: two reaches and a gap, so a loose group never touches whichever way its bales lie
+        private static readonly float BALE_GROUP_SPACING = 2f * BALE_REACH + 0.6f;
+
+        //How far a bale stays off a fence, past the post's own radius
+        private const float BALE_FENCE_GAP = 0.4f;
+
+        //How deep a bale settles into the ground, so its downhill edge does not float on a slope
+        private const float BALE_SINK = 0.12f * BALE_SCALE;
+
+        //The bales' own generator's offset from the planting seed
+        private const int BALE_SEED = 864;
+
+        //A fence post's radius at its foot, in world units
+        private const float FENCE_POST_RADIUS = 0.10f * FENCE_SCALE;
+
         /// <summary>A round bale lying on its side: a straw cylinder along X with its two faces, resting on the ground.</summary>
         private static UploadedMesh BaleMesh(GraphicsDevice device)
         {
-            const float RADIUS = 0.8f, HALF = 0.72f;
             var v = new List<VertexPositionNormalTexture>();
             var idx = new List<short>();
-            Vector3 a = new(-HALF, RADIUS, 0f), b = new(HALF, RADIUS, 0f);
-            TubeGeometry.AddTube(v, idx, 18, a, RADIUS, b, RADIUS);
-            TubeGeometry.AddCap(v, idx, 18, b, RADIUS * 0.98f, Vector3.UnitX);
-            TubeGeometry.AddCap(v, idx, 18, a, RADIUS * 0.98f, -Vector3.UnitX);
-            return new UploadedMesh(device, v, idx, new BoundingSphere(new Vector3(0f, RADIUS, 0f), 1.2f));
+            Vector3 a = new(-BALE_HALF_LENGTH, BALE_RADIUS, 0f), b = new(BALE_HALF_LENGTH, BALE_RADIUS, 0f);
+            TubeGeometry.AddTube(v, idx, 18, a, BALE_RADIUS, b, BALE_RADIUS);
+            TubeGeometry.AddCap(v, idx, 18, b, BALE_RADIUS * 0.98f, Vector3.UnitX);
+            TubeGeometry.AddCap(v, idx, 18, a, BALE_RADIUS * 0.98f, -Vector3.UnitX);
+            return new UploadedMesh(device, v, idx, new BoundingSphere(new Vector3(0f, BALE_RADIUS, 0f), 1.2f * BALE_SCALE));
+        }
+
+        /// <summary>How far <paramref name="at"/> is from the fence span <paramref name="from"/> to <paramref name="to"/>, over the ground.</summary>
+        private static float DistanceToSpan(Vector2 at, Vector2 from, Vector2 to)
+        {
+            Vector2 span = to - from;
+            float along = MathHelper.Clamp(Vector2.Dot(at - from, span) / span.LengthSquared(), 0f, 1f);
+            return Vector2.Distance(at, from + span * along);
         }
 
         /// <summary>
@@ -533,7 +589,7 @@ namespace Prazsky.Core.Render
             var v = new List<VertexPositionNormalTexture>();
             var idx = new List<short>();
             const float k = FENCE_SCALE;
-            TubeGeometry.AddTube(v, idx, 6, new Vector3(0f, -0.3f * k, 0f), 0.10f * k, new Vector3(0f, 1.35f * k, 0f), 0.085f * k);
+            TubeGeometry.AddTube(v, idx, 6, new Vector3(0f, -0.3f * k, 0f), FENCE_POST_RADIUS, new Vector3(0f, 1.35f * k, 0f), 0.085f * k);
             TubeGeometry.AddCap(v, idx, 6, new Vector3(0f, 1.35f * k, 0f), 0.085f * k, Vector3.Up);
             foreach (float y in new[] { 0.55f * k, 1.05f * k })
                 TubeGeometry.AddTube(v, idx, 5, new Vector3(-0.05f * k, y, 0.06f * k), 0.055f * k,
