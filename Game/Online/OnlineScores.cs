@@ -4,6 +4,7 @@ using Prazsky.Core.Tools;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Net;
@@ -64,6 +65,20 @@ namespace BS3D.Online
     /// with <see cref="Start"/>, handing it this one's worker to wait for, so two workers are never on the outbox
     /// at once.
     /// </para>
+    /// <para>
+    /// <b>The play counts go through the same outbox and worker (#709), on a schedule of their own</b>: each change the
+    /// game counts is merged into one open batch in <c>Outbox.json</c>, which is frozen under a fresh batch id and sent to
+    /// <c>POST /v1/stats</c> <b>never in the same step as a request that names the player</b> — by the worker's own timer,
+    /// at least <see cref="StatsSchedule.Interval"/> after the last batch and a random few minutes
+    /// (<see cref="StatsSchedule.QuietMin"/> to <see cref="StatsSchedule.QuietMax"/>) after the worker's start and after every
+    /// clear, rename, removal or board request — and <b>without the token, the id, the nickname or the version</b>, on a
+    /// client and a connection of their own (<c>User-Agent: BS3D</c>, <c>Connection: close</c>). So a batch neither
+    /// arrives beside the clear it came with nor shares its connection. One frozen batch at a time: it is sent again,
+    /// unchanged, until the service answers for it, while new counts gather in the open one. A service without the
+    /// endpoint answers a bare 404, which is no answer (#691): the batch stays, and costs one request an interval. A
+    /// client started with online scores off drops whatever counts are queued (<see cref="DropQueuedStats"/>): consent
+    /// withdrawn means nothing queued goes out later.
+    /// </para>
     /// </summary>
     internal sealed class OnlineScores : IDisposable
     {
@@ -100,6 +115,9 @@ namespace BS3D.Online
         /// </summary>
         internal static readonly TimeSpan DisposeWait = TimeSpan.FromMilliseconds(500);
 
+        /// <summary>The most boards one batch carries, as the service takes them (<c>Scores:StatsMaxLevels</c>); the rest wait for the next.</summary>
+        internal const int StatsMaxLevels = 200;
+
         private static readonly JsonSerializerOptions RequestJson = new()
         {
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
@@ -129,10 +147,19 @@ namespace BS3D.Online
         private readonly OnlineIdentity _identity;
         private readonly string _outboxPath;
         private readonly HttpClient _http;
+
+        /// <summary>The play counts' own client (#709): its own connection pool, no version in its User-Agent, no token.</summary>
+        private readonly HttpClient _statsHttp;
+
+        /// <summary>The player's switch as this client was started with it: off drops the queued counts (#709).</summary>
+        private readonly bool _consent;
+
+        private readonly StatsSchedule _schedule;
         private readonly Task _previous;
         private readonly Task _worker;
 
         private readonly ConcurrentQueue<ScoreSubmission> _incoming = new();
+        private readonly ConcurrentQueue<LevelPlayCounts> _incomingStats = new();
         private readonly ConcurrentQueue<OnlineAnswer> _answers = new();
         private readonly ConcurrentQueue<OnlineNotice> _notices = new();
         private readonly ConcurrentQueue<BoardRequest> _boardRequests = new();
@@ -153,26 +180,52 @@ namespace BS3D.Online
         /// </summary>
         private string _name;
 
-        private OnlineScores(bool on, Uri server, OnlineIdentity identity, string outboxPath, Task previous)
+        //The play counts' two batches (#709), the worker's alone: the one frozen and on its way, sent unchanged until the
+        //service answers for it, and the open one new counts are merged into. Both are in Outbox.json.
+        private StatsBatchBody _statsSending;
+        private StatsBatchBody _statsOpen;
+
+        //The play counts' schedule (#709), the worker's alone, on Stopwatch timestamps: when a batch was last sent (none
+        //yet: _statsTried false), and the earliest the next may go, a random quiet after the last request that names the player
+        private bool _statsTried;
+        private long _statsTriedAt;
+        private long _statsNotBefore;
+
+        private OnlineScores(bool on, Uri server, OnlineIdentity identity, string outboxPath, Task previous, StatsSchedule schedule)
         {
             Server = server;
             _identity = identity;
             _outboxPath = outboxPath;
             _previous = previous ?? Task.CompletedTask;
+            _consent = on;
+            _schedule = schedule ?? StatsSchedule.Default;
 
             _name = identity?.Name;
 
             CanReachServer = server != null && identity != null;
             Enabled = on && CanReachServer;
 
-            //No worker, but the chain still holds: whoever replaces this one waits for the worker before it
+            //No worker, but the chain still holds: whoever replaces this one waits for the worker before it. With the
+            //switch off, the one thing to do is drop the counts queued while it was on (#709), after that worker
             if (!CanReachServer)
             {
-                _worker = _previous;
+                _worker = on ? _previous : Task.Run(DropQueuedStatsAfterPreviousAsync);
                 return;
             }
 
-            _http = new HttpClient(new SocketsHttpHandler
+            _http = NewClient($"BS3D/{BuildVersion.Name}");
+
+            //Its own pool, so a batch never rides the connection a clear just went over, and no version: nothing in it says
+            //which build sent it (#709)
+            _statsHttp = NewClient("BS3D");
+
+            //Its own task for the whole run: it waits on the semaphore between requests, so it costs nothing idle
+            _worker = Task.Run(RunAsync);
+        }
+
+        private static HttpClient NewClient(string userAgent)
+        {
+            HttpClient client = new(new SocketsHttpHandler
             {
                 ConnectTimeout = RequestTimeout,
                 PooledConnectionLifetime = TimeSpan.FromMinutes(5),
@@ -182,11 +235,9 @@ namespace BS3D.Online
                 Timeout = Timeout.InfiniteTimeSpan,
                 MaxResponseContentBufferSize = MaxResponseBytes,
             };
-            _http.DefaultRequestHeaders.UserAgent.ParseAdd($"BS3D/{BuildVersion.Name}");
-            _http.DefaultRequestHeaders.Accept.ParseAdd("application/json");
-
-            //Its own task for the whole run: it waits on the semaphore between requests, so it costs nothing idle
-            _worker = Task.Run(RunAsync);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent);
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+            return client;
         }
 
         /// <summary>
@@ -195,7 +246,9 @@ namespace BS3D.Online
         /// </summary>
         /// <param name="previous">The worker of the client this one replaces, which is waited for before this
         /// one touches the outbox — see <see cref="Stop"/>.</param>
-        internal static OnlineScores Start(GameSettings settings, OnlineIdentity identity, string outboxPath, Task previous = null)
+        /// <param name="schedule">When the play counts may go (#709); the game's own unless a test names one.</param>
+        internal static OnlineScores Start(GameSettings settings, OnlineIdentity identity, string outboxPath, Task previous = null,
+            StatsSchedule schedule = null)
         {
             bool usable = identity != null && identity.IsUsable;
             bool resolved = TryResolveServer(settings, out Uri server, out string serverProblem, out bool named);
@@ -216,7 +269,7 @@ namespace BS3D.Online
                     + $" game {BuildVersion.Name}, rules v{ScoreKeeper.RulesVersion}"
                     + (named ? ", server named by the settings" : ", the built-in server"));
 
-            return new OnlineScores(on, resolved ? server : null, usable ? identity : null, outboxPath, previous);
+            return new OnlineScores(on, resolved ? server : null, usable ? identity : null, outboxPath, previous, schedule);
         }
 
         /// <summary>
@@ -253,6 +306,22 @@ namespace BS3D.Online
             if (!Enabled || submission == null) return;
 
             _incoming.Enqueue(submission);
+            _wake.Release();
+        }
+
+        /// <summary>
+        /// Hands one change of the play counts to the worker (#709), which merges it into the open batch on disk and sends
+        /// nothing for it then: the batch goes on its own timer. Returns at once. Only for an enabled client: with online
+        /// scores off, nothing of the counts leaves the machine. <see cref="LevelPlayCounts.StartsToFirstClear"/> stays on
+        /// the machine too: it counts starts made before the player turned online scores on.
+        /// </summary>
+        internal void SubmitStats(LevelPlayCounts change)
+        {
+            if (!Enabled || change == null) return;
+
+            LevelPlayCounts sent = change.Copy();
+            sent.StartsToFirstClear = 0;
+            _incomingStats.Enqueue(sent);
             _wake.Release();
         }
 
@@ -361,16 +430,20 @@ namespace BS3D.Online
         /// The one sentence that says what online scores send and what the service keeps (#548) — on the settings
         /// page and on the About page, from here, so the two cannot drift apart. <b>It must stay exactly true of
         /// <see cref="ScoreSubmission"/> and of the service's audit row (#544)</b>: change one, change this in the
-        /// same commit, the way the documents are held to the code.
+        /// same commit, the way the documents are held to the code. Since #709 it says the play counts too
+        /// (<see cref="StatsBatchBody"/>, and the service's <c>play_stats</c> table): only what the code guarantees, that they
+        /// are sent and stored without the player's id or name, which is also why a removal cannot find them.
         /// </summary>
         internal static string PrivacySentence(GameSettings settings)
         {
             string host = TryResolveServer(settings, out Uri server, out _, out _) ? server.Authority : "the score server";
 
-            //Unfinished attempts too since #716: the sentence is what a player agreed to, so it says so
+            //Unfinished attempts too since #716, and the play counts since #709: the sentence is what a player agreed to,
+            //so it says so. The counts follow "Remove scores", because nothing in them names the player for it to remove
             return $"With online scores on, each cleared level, and your best attempt at a level you have not cleared yet, sends your nickname, "
                 + $"a random player id, the level, its score, stars, shots, time and the game’s version to {host}, which adds only when it "
-                + "arrived and a hashed network address. Remove scores deletes it all.";
+                + "arrived and a hashed network address. Remove scores deletes it all. Counts of each level’s starts, retries, clears, "
+                + "losses, quits, skips, shots and time go there too, sent and stored without your id or name, so Remove scores cannot find them.";
         }
 
         #region The worker
@@ -394,16 +467,54 @@ namespace BS3D.Online
 
             try
             {
+                //Consent withdrawn (#709): the counts queued while it was on never go
+                if (!_consent) DropQueuedStats();
+
                 outbox = Enabled ? LoadOutbox() : new List<ScoreSubmission>();
 
                 if (outbox.Count > 0)
                     Console.WriteLine($"[online] {outbox.Count} clear(s) waiting in the outbox from an earlier run; sending");
 
+                //The play counts wait a random quiet from the start, as from every request that names the player (#709)
+                QuietStats();
+
                 if (Enabled) await DrainAsync(outbox, stop);
 
                 while (!stop.IsCancellationRequested)
                 {
-                    await _wake.WaitAsync(stop);
+                    //The play counts' timer (#709): the wait runs out only when a batch is due, and then the step sends that
+                    //batch and nothing else
+                    if (!await _wake.WaitAsync(StatsWait(), stop))
+                    {
+                        try
+                        {
+                            await StatsStepAsync(outbox, stop);
+                        }
+                        catch (Exception e) when (!stop.IsCancellationRequested)
+                        {
+                            Console.WriteLine($"[online] A step of the play counts failed: {e.GetType().Name}: {e.Message}; kept in the outbox");
+                        }
+
+                        continue;
+                    }
+
+                    //A wake for the play counts alone (#709) puts them on disk and makes no request: a level's start does
+                    //not retry a clear stuck behind a server that is away, nor send the counts. A wake for anything else
+                    //that comes meanwhile has its own count on the semaphore, so it is not lost by this.
+                    if (Enabled && !_incomingStats.IsEmpty && _incoming.IsEmpty && _boardRequests.IsEmpty && _summaryRequests.IsEmpty
+                        && !_removalRequested && Volatile.Read(ref _pendingRename) == null)
+                    {
+                        try
+                        {
+                            TakeIncoming(outbox);
+                        }
+                        catch (Exception e) when (!stop.IsCancellationRequested)
+                        {
+                            Console.WriteLine($"[online] A step of the play counts failed: {e.GetType().Name}: {e.Message}; kept in memory");
+                        }
+
+                        continue;
+                    }
 
                     //⚠ One step at a time, each caught (#572): the requests catch their own failures, and anything
                     //else nobody foresaw costs this one step, never the worker. A worker that ended here used to leave
@@ -486,16 +597,27 @@ namespace BS3D.Online
                 }
 
                 _http?.Dispose();
+                _statsHttp?.Dispose();
             }
         }
 
         /// <summary>
-        /// Moves every clear the frame has handed over into the outbox, and the outbox onto disk if any came —
-        /// <b>before</b> the first byte of any of them goes out; see the class doc. Past <see cref="OutboxCapacity"/>
-        /// the oldest go.
+        /// Moves every clear the frame has handed over into the outbox, and every change of the play counts into the open
+        /// batch (#709), and the outbox onto disk if anything came — <b>before</b> the first byte of any of them goes out;
+        /// see the class doc. Past <see cref="OutboxCapacity"/> the oldest clears go.
         /// </summary>
         private void TakeIncoming(List<ScoreSubmission> outbox)
         {
+            bool counted = false;
+            while (_incomingStats.TryDequeue(out LevelPlayCounts change))
+            {
+                _statsOpen ??= new StatsBatchBody();
+                LevelPlayCounts row = _statsOpen.Levels.Find(level => level.SameBoard(change));
+                if (row != null) row.Add(change);
+                else _statsOpen.Levels.Add(change);
+                counted = true;
+            }
+
             bool added = false;
             while (_incoming.TryDequeue(out ScoreSubmission submission))
             {
@@ -514,7 +636,7 @@ namespace BS3D.Online
                 added = true;
             }
 
-            if (!added) return;
+            if (!added && !counted) return;
 
             if (outbox.Count > OutboxCapacity)
             {
@@ -601,6 +723,93 @@ namespace BS3D.Online
         }
 
         /// <summary>
+        /// Pushes the play counts' earliest moment to a random <see cref="StatsSchedule.QuietMin"/> to
+        /// <see cref="StatsSchedule.QuietMax"/> from now (#709): called at the worker's start and before every request that
+        /// names the player, so a batch never goes beside one, nor at a moment that points at one.
+        /// </summary>
+        private void QuietStats()
+        {
+            TimeSpan quiet = _schedule.QuietMin + (_schedule.QuietMax - _schedule.QuietMin) * Random.Shared.NextDouble();
+            long until = Stopwatch.GetTimestamp() + (long)(quiet.TotalSeconds * Stopwatch.Frequency);
+            if (until > _statsNotBefore) _statsNotBefore = until;
+        }
+
+        /// <summary>
+        /// How long until a batch of play counts is due (#709): never while there is none to send, else the later of the
+        /// quiet after the last request that names the player and <see cref="StatsSchedule.Interval"/> after the last batch.
+        /// </summary>
+        private TimeSpan StatsWait()
+        {
+            if (!Enabled || (_statsSending == null && (_statsOpen == null || _statsOpen.Levels.Count == 0))) return Timeout.InfiniteTimeSpan;
+
+            long now = Stopwatch.GetTimestamp();
+            TimeSpan quiet = _statsNotBefore > now ? Stopwatch.GetElapsedTime(now, _statsNotBefore) : TimeSpan.Zero;
+            TimeSpan interval = _statsTried ? _schedule.Interval - Stopwatch.GetElapsedTime(_statsTriedAt, now) : TimeSpan.Zero;
+
+            TimeSpan wait = quiet > interval ? quiet : interval;
+            if (wait <= TimeSpan.Zero) return TimeSpan.Zero;
+            return wait.TotalMilliseconds >= int.MaxValue ? TimeSpan.FromMilliseconds(int.MaxValue - 1) : wait;
+        }
+
+        /// <summary>The timer's step (#709): the counts on disk, and a batch sent when one is due and nothing else.</summary>
+        private async Task StatsStepAsync(List<ScoreSubmission> outbox, CancellationToken stop)
+        {
+            TakeIncoming(outbox);
+            if (StatsWait() != TimeSpan.Zero) return;
+
+            _statsTried = true;
+            _statsTriedAt = Stopwatch.GetTimestamp();
+            await SendStatsAsync(outbox, stop);
+        }
+
+        /// <summary>
+        /// One batch of play counts to <c>POST /v1/stats</c> (#709) on the counts' own client and a connection of its own,
+        /// <b>without the token</b>: the request names no player and no build.
+        /// With no batch on its way, the open one is frozen first under a fresh id (its first <see cref="StatsMaxLevels"/>
+        /// boards; the rest stay open), and written to the outbox before the first byte goes, so a resend is the same batch
+        /// and the service's idempotence on the id counts it once. Delivered or refused for good, it leaves the outbox; no
+        /// answer keeps it, unchanged, for the next time the counts are due.
+        /// </summary>
+        private async Task SendStatsAsync(List<ScoreSubmission> outbox, CancellationToken stop)
+        {
+            if (_statsSending == null)
+            {
+                if (_statsOpen == null || _statsOpen.Levels.Count == 0) return;
+
+                int taken = Math.Min(StatsMaxLevels, _statsOpen.Levels.Count);
+                _statsSending = new StatsBatchBody { BatchId = Guid.NewGuid(), Levels = _statsOpen.Levels.GetRange(0, taken) };
+                _statsOpen.Levels.RemoveRange(0, taken);
+                if (_statsOpen.Levels.Count == 0) _statsOpen = null;
+
+                SaveOutbox(outbox);
+            }
+
+            StatsBatchBody batch = _statsSending;
+            Delivery delivery = await SendAsync(HttpMethod.Post, "v1/stats", JsonSerializer.Serialize(batch, RequestJson), stop,
+                anonymous: true);
+
+            string what = $"Play counts {batch.BatchId?.ToString()[..8]} ({batch.Levels.Count} level(s))";
+            switch (delivery.Kind)
+            {
+                case DeliveryKind.Delivered:
+                    _statsSending = null;
+                    SaveOutbox(outbox);
+                    Console.WriteLine($"[online] {what}: {delivery.Status} delivered");
+                    break;
+
+                case DeliveryKind.Refused:
+                    _statsSending = null;
+                    SaveOutbox(outbox);
+                    Console.WriteLine($"[online] {what}: REFUSED {delivery.Status} ({delivery.Body?.Reason}) — dropped");
+                    break;
+
+                default:
+                    Console.WriteLine($"[online] {what}: no answer ({delivery.Problem}) — kept for the next time they are due");
+                    break;
+            }
+        }
+
+        /// <summary>
         /// The player's "Remove scores" (#548). A 2xx is removed; so is the service's own 404, a player it has never
         /// heard of — nothing of theirs is there to remove. Only then does the outbox go, file and all; on anything
         /// else nothing is touched, so the player can try again and still holds the token that proves the scores are
@@ -626,6 +835,7 @@ namespace BS3D.Online
             }
 
             outbox.Clear();
+            _statsSending = _statsOpen = null;
             DeleteQuietly(_outboxPath);
             DeleteQuietly(_outboxPath + OutboxBackupSuffix);
 
@@ -676,6 +886,7 @@ namespace BS3D.Online
         {
             using CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(stop);
             deadline.CancelAfter(RequestTimeout);
+            QuietStats();
 
             try
             {
@@ -718,6 +929,8 @@ namespace BS3D.Online
         {
             using CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(stop);
             deadline.CancelAfter(RequestTimeout);
+
+            QuietStats();
 
             try
             {
@@ -812,11 +1025,18 @@ namespace BS3D.Online
 
         /// <param name="acceptWithoutBody">For a DELETE or a PUT: a 2xx is a delivery even with no JSON (a 204).
         /// A POST's 2xx must carry the service's answer — see the class doc on captive portals.</param>
+        /// <param name="anonymous">The play counts (#709): sent on their own client without the token, closing its connection
+        /// after it. Every other request names the player and pushes the counts' quiet (<see cref="QuietStats"/>).</param>
         private async Task<Delivery> SendAsync(HttpMethod method, string path, string json, CancellationToken stop,
-            bool acceptWithoutBody = false)
+            bool acceptWithoutBody = false, bool anonymous = false)
         {
             using HttpRequestMessage request = new(method, new Uri(Server, path));
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _identity.Token);
+            if (anonymous) request.Headers.ConnectionClose = true;
+            else
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _identity.Token);
+                QuietStats();
+            }
             if (json != null) request.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
             using CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(stop);
@@ -824,7 +1044,7 @@ namespace BS3D.Online
 
             try
             {
-                using HttpResponseMessage response = await _http.SendAsync(request, deadline.Token);
+                using HttpResponseMessage response = await (anonymous ? _statsHttp : _http).SendAsync(request, deadline.Token);
                 int status = (int)response.StatusCode;
                 string text = await response.Content.ReadAsStringAsync(deadline.Token);
                 ScoreAnswerBody body = SanitizeAnswer(TryParseAnswer(response, text));
@@ -1003,7 +1223,77 @@ namespace BS3D.Online
                     Console.WriteLine($"[online] The outbox '{_outboxPath}' would not read; kept as '{kept}'");
             }
 
+            //The play counts (#709), each row checked as the service would check it: a hand-edited or damaged row is not
+            //worth a refusal that drops the whole batch with it
+            _statsSending = CleanBatch(file?.StatsSending);
+            if (_statsSending != null && _statsSending.BatchId == null) _statsSending.BatchId = Guid.NewGuid();
+            _statsOpen = CleanBatch(file?.StatsOpen);
+
+            if (_statsSending != null || _statsOpen != null)
+                Console.WriteLine($"[online] Play counts of {(_statsSending?.Levels.Count ?? 0) + (_statsOpen?.Levels.Count ?? 0)}"
+                    + " level row(s) waiting in the outbox from an earlier run");
+
             return file?.Submissions ?? new List<ScoreSubmission>();
+        }
+
+        /// <summary>
+        /// Online scores are off (#709): the play counts queued in the outbox while they were on are dropped, its backup's
+        /// with them, and the clears are kept (they go only if the player turns the boards on again, as before). Consent
+        /// withdrawn means nothing queued goes out later. Run by a client started off, after the worker it replaces.
+        /// </summary>
+        private void DropQueuedStats()
+        {
+            int dropped = 0;
+            foreach (string path in new[] { _outboxPath + OutboxBackupSuffix, _outboxPath })
+            {
+                OutboxFile file = TryReadOutbox(path);
+                if (file == null || (file.StatsSending == null && file.StatsOpen == null)) continue;
+
+                dropped = Math.Max(dropped, (file.StatsSending?.Levels?.Count ?? 0) + (file.StatsOpen?.Levels?.Count ?? 0));
+                file.StatsSending = null;
+                file.StatsOpen = null;
+
+                //Written in place, not through the swap: the swap would demote the counts' copy to the backup
+                try
+                {
+                    AtomicFile.WriteText(path, JsonSerializer.Serialize(file, OutboxJson), null);
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                {
+                    Console.WriteLine($"[online] Could not drop the play counts from '{path}': {e.Message}");
+                }
+            }
+
+            if (dropped > 0)
+                Console.WriteLine($"[online] Online scores are off: the play counts of {dropped} level row(s) queued in the outbox are dropped");
+        }
+
+        /// <summary>A client with no worker that was started off: drops the queued counts once the worker it replaces is done.</summary>
+        private async Task DropQueuedStatsAfterPreviousAsync()
+        {
+            try
+            {
+                await _previous;
+            }
+            catch (Exception)
+            {
+                //Its own failure was its own to log
+            }
+
+            DropQueuedStats();
+        }
+
+        /// <summary>A batch read back from the outbox without its unusable rows (no board, a negative count), or null when none is left.</summary>
+        private static StatsBatchBody CleanBatch(StatsBatchBody batch)
+        {
+            if (batch?.Levels == null) return null;
+
+            batch.Levels.RemoveAll(level => level == null || string.IsNullOrEmpty(level.File) || string.IsNullOrEmpty(level.Hash)
+                || level.Starts < 0 || level.Retries < 0 || level.Clears < 0 || level.LostOutOfBalls < 0 || level.LostLine < 0
+                || level.Abandons < 0 || level.Skips < 0 || level.FirstClears < 0 || level.StartsToFirstClear < 0 || level.Shots < 0
+                || !double.IsFinite(level.Seconds) || level.Seconds < 0);
+
+            return batch.Levels.Count > 0 ? batch : null;
         }
 
         private static OutboxFile TryReadOutbox(string path)
@@ -1026,8 +1316,12 @@ namespace BS3D.Online
         {
             try
             {
-                AtomicFile.WriteText(_outboxPath,
-                    JsonSerializer.Serialize(new OutboxFile { Submissions = outbox }, OutboxJson), OutboxBackupSuffix);
+                AtomicFile.WriteText(_outboxPath, JsonSerializer.Serialize(new OutboxFile
+                {
+                    Submissions = outbox,
+                    StatsSending = _statsSending,
+                    StatsOpen = _statsOpen,
+                }, OutboxJson), OutboxBackupSuffix);
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {

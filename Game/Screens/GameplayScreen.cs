@@ -97,6 +97,9 @@ namespace BS3D.Screens
         /// <summary>Which entry of the level set the current session is playing.</summary>
         internal int LevelIndex => _run.Index;
 
+        /// <summary>The board of the attempt standing (#549), or null for the built-in fallback: what a skip is counted on (#709).</summary>
+        internal LevelIdentity LevelIdentity => _run.Identity;
+
         #region The game camera
 
         //Narrow, like the Testbed's game camera and for the same reason: from down behind the gun the

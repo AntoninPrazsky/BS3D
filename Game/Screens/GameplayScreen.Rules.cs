@@ -1149,7 +1149,17 @@ namespace BS3D.Screens
             //unlock below is read, so the stars this clear just earned already count towards the next
             //level's gate — a clear that pushes the total over it unlocks Next Level on this very screen.
             int stars = cleared ? StarRating.Rate(_run.Score.Score, _run.InitialBallCount) : 0;
+
+            //Asked before the record below writes this clear into the save: the play counts' first clear (#709)
+            bool firstClear = cleared && Game.LevelStars(_run.Index) == 0;
+
             bool newBest = cleared && Game.RecordLevelResult(_run.Index, _run.Score.Score, stars);
+
+            //The attempt's ending, counted (#709) at the funnel the save's record and the boards' submission share, with the
+            //shots and seconds the boards are sent
+            Game.Stats?.Ended(cleared ? PlayEnding.Cleared
+                    : _pendingFailure == LevelFailure.OutOfBalls ? PlayEnding.OutOfBalls : PlayEnding.ClusterReachedLine,
+                _run.EndShots, _run.EndSeconds, firstClear);
 
             //And to the online boards (#546), beside the save's record and with the very figures it kept — every
             //clear rather than only a new best, because the month's board ranks what was done this month — and since

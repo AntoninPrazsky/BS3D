@@ -1284,6 +1284,9 @@ namespace BS3D
 
             if (_progress.Skip(_levelSet.Levels[index].File)) SaveProgress();
 
+            //Counted on the board of the attempt the skip was offered over (#709)
+            _playStats?.Skipped(_gameplayScreen.LevelIdentity);
+
             Console.WriteLine($"[progress] Skipped level {index + 1} '{LevelDisplayName(index)}'"
                               + $" — {SkipsLeftIn(index)} skip(s) left in this chapter");
 
@@ -1355,6 +1358,59 @@ namespace BS3D
         /// The game closes only from the confirm page's own Quit.
         /// </summary>
         internal void AskQuit() => OpenPage(_quitConfirmPage);
+
+        /// <summary>
+        /// One of <c>actions=</c>' verbs (#709), through the call its button makes, and an <c>[actions]</c> line saying what was
+        /// up when it was made: <c>retry</c> (the result page's), <c>restart</c> (the pause page's, the same call made over the
+        /// pause), <c>skip</c>, <c>next</c>, <c>menu</c> (the result page's with one up, else the pause page's, which keeps the
+        /// session) and <c>level&lt;n&gt;</c> (the picker's tile). A verb whose button is not up does nothing and says so. Testing only.
+        /// </summary>
+        internal void ActForTesting(string verb)
+        {
+            string over = ActiveScreenName;
+            bool result = _screens.Contains<ResultPage>();
+
+            switch (verb)
+            {
+                case "retry" when HasSession && result:
+                    RetryLevel();
+                    break;
+
+                case "restart" when HasSession && !result:
+                    if (_screens.Active is GameplayScreen) PauseGame();
+                    RetryLevel();
+                    break;
+
+                //Skip Level guards its own rule (CanSkipLevel), as the button's handler does
+                case "skip" when HasSession && result:
+                    SkipLevel();
+                    break;
+
+                case "next" when HasSession && result && _gameplayScreen.LevelIndex + 1 < LevelCount:
+                    AdvanceLevel();
+                    break;
+
+                case "menu" when result:
+                    EndSessionAndReturnToMainMenu();
+                    break;
+
+                case "menu" when HasSession:
+                    ReturnToMainMenu();
+                    break;
+
+                case var tile when tile.StartsWith("level", StringComparison.Ordinal)
+                    && int.TryParse(tile.AsSpan(5), NumberStyles.Integer, CultureInfo.InvariantCulture, out int place)
+                    && place >= 1 && place <= LevelCount:
+                    StartGameAt(place - 1);
+                    break;
+
+                default:
+                    Console.WriteLine($"[actions] Testing: '{verb}' over {over}: nothing to do");
+                    return;
+            }
+
+            Console.WriteLine($"[actions] Testing: {verb} over {over}");
+        }
 
         /// <summary>
         /// <c>quitconfirm</c>'s page (#826), over whatever is up - a level being played is paused first, as Escape would, so
