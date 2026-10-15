@@ -1,0 +1,244 @@
+{
+    "file": "theme-puppet-aurora.wav",
+    "created": "2026-10-15",
+    "issue": 732,
+    "family": "puppet",
+    "chapter": "The Silhouettes (aurora, levels 41-50) - regenerated on the owner's ruling of 2026-10-11 (#732): mysterious and magical, with a melody; from the desert's ember model only the followable tune and the mid range, not its guitar rock",
+    "purpose": "Master of Game/Music/puppet-aurora.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-732-chosen on the desktop, with its .raw.wav; every candidate in masters-732); this sidecar is committed beside the .ogg.",
+    "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-puppet.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
+    "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+    "license": "ACE-Step 1.5: MIT (code and weights)",
+    "request": {
+        "caption": "Magical synth-pop instrumental under the northern lights: a warm, memorable analog synth lead melody you can hum carried in the mid range, glowing arpeggiated synths, a punchy steady groove of kick, snare and toms with a dark ride cymbal playing throughout, a warm bass guitar following the chords, a plucked harp counter-melody, a lighter middle section where the arpeggios carry on under a second melody before the lead returns, building into a big wondrous peak with warm wide synth chords, mysterious and enchanted, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+        "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, kalimba, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, synth bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, risers, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro",
+        "instrumental": true,
+        "use_cot_caption": false,
+        "duration": 120,
+        "bpm": 110,
+        "keyscale": "F# minor",
+        "seed": 1632690571,
+        "inference_steps": 8,
+        "output_format": "wav32"
+    },
+    "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+    "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-aurora-c6.wav: 62.7s loop = source 32.04s..94.70s (29.00 bars at 111.1 bpm), crossfade 1.08s | context match 0.654 (best 0.703) | crossfade rhythm r=0.83 vs the track a bar later r=0.86: in time | spectrum cos=0.70"
+    ],
+    "lm_check": {
+        "request0_captured": true,
+        "caption_verbatim": true,
+        "seed_in_request0": 1632690571,
+        "bpm_in_request0": 110,
+        "keyscale_in_request0": "F# minor",
+        "duration_in_request0": 120.0
+    },
+    "measured": "generate-music.ps1 end to end 58,7 s (ace-lm + ace-synth + loop cut), exit 0",
+    "measured_against_ember": {
+        "loop_s": 62.7,
+        "bpm": 111.1,
+        "context": 0.654,
+        "r_cross": 0.83,
+        "r_bar": 0.86,
+        "in_time": true,
+        "cos": 0.7,
+        "dip": 3.4,
+        "quiet": 0,
+        "lr_corr": 0.857,
+        "knee_pct": 0.0,
+        "b200_2k": 23.7,
+        "b300_4k": 18.7,
+        "above6k": 1.2,
+        "tonal_mid": 79,
+        "mid_flatness": 0.04,
+        "held_changes": 3.35,
+        "tempo_wander": 0.01,
+        "wrap_db": -3.1,
+        "wrap_pct": 50
+    },
+    "measured_note": "measure-music.py --reference ember on the loop (band shares %, tonal mid %, mid flatness, held-note changes/s, tempo wander %, wrap step dB and its percentile) beside sel.py: the loop cut, dip = the quietest 2 s under the loop's p95 1 s level (dB), quiet = the % of the loop more than 10 dB under it, L/R correlation, knee_pct = the % of samples MusicBake's knee bends",
+    "rendered": true,
+    "chosen": {
+        "candidate": "c6",
+        "round": 2,
+        "of": [
+            "c1",
+            "c2",
+            "c3",
+            "c4",
+            "c5",
+            "c6"
+        ],
+        "why": "inside ember's range on every column: 200 Hz-2 kHz 23.7 %, 300 Hz-4 kHz 18.7 %, 1.2 % above 6 kHz, tonal mid 79 %, 3.35 held-note changes/s; no stretch under -10 dB, wrap step -3.1 dB (p50), a 63 s loop in time (r 0.83 against 0.86). Round 1's hushed breakdown left c2 and c3 19-28 % under -10 dB; c1 is the runner-up (its breakdown dips 16.8 dB, but its wrap steps +7.4 dB, p95); c4 and c5 carry 2.3-2.5 % above 6 kHz and c5 steps +10 dB at the wrap",
+        "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wrap step) beside the loop cut's own check, the hole share (the loop more than 10 dB under its loud level), the breakdown dip and the stereo correlation; a seam below its own rhythm, a hole over 15 % or a wrap step over 6 dB ruled a candidate out; the table is on #732"
+    },
+    "alternatives": [
+        {
+            "candidate": "c1",
+            "seed": 245152284,
+            "caption": "Magical synth-pop instrumental under the northern lights: a warm, memorable analog synth lead melody you can hum carried in the mid range, glowing arpeggiated synths, a punchy steady groove of kick, snare and toms with a dark ride cymbal, a warm bass guitar following the chords, a plucked harp counter-melody, a hushed breakdown that builds into a big wondrous peak with warm wide synth chords, mysterious and enchanted, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, kalimba, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, synth bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, risers, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-aurora-c1.wav: 61.1s loop = source 29.26s..90.35s (27.97 bars at 109.9 bpm), crossfade 1.09s | context match 0.652 (best 0.699) | crossfade rhythm r=0.82 vs the track a bar later r=0.80: in time | spectrum cos=0.67"
+            ],
+            "measured": {
+                "loop_s": 61.1,
+                "bpm": 109.9,
+                "context": 0.652,
+                "r_cross": 0.82,
+                "r_bar": 0.8,
+                "in_time": true,
+                "cos": 0.67,
+                "dip": 16.8,
+                "quiet": 2,
+                "lr_corr": 0.881,
+                "knee_pct": 0.0,
+                "b200_2k": 18.8,
+                "b300_4k": 16.6,
+                "above6k": 1.5,
+                "tonal_mid": 83,
+                "mid_flatness": 0.06,
+                "held_changes": 3.19,
+                "tempo_wander": 0.01,
+                "wrap_db": 7.4,
+                "wrap_pct": 95
+            }
+        },
+        {
+            "candidate": "c2",
+            "seed": 2029375316,
+            "caption": "Magical synth-pop instrumental under the northern lights: a warm, memorable analog synth lead melody you can hum carried in the mid range, glowing arpeggiated synths, a punchy steady groove of kick, snare and toms with a dark ride cymbal, a warm bass guitar following the chords, a plucked harp counter-melody, a hushed breakdown that builds into a big wondrous peak with warm wide synth chords, mysterious and enchanted, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, kalimba, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, synth bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, risers, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-aurora-c2.wav: 60.0s loop = source 32.95s..92.95s (27.95 bars at 111.8 bpm), crossfade 1.07s | context match 0.444 (best 0.487) | crossfade rhythm r=0.74 vs the track a bar later r=0.66: in time | spectrum cos=0.70"
+            ],
+            "measured": {
+                "loop_s": 60.0,
+                "bpm": 111.8,
+                "context": 0.444,
+                "r_cross": 0.74,
+                "r_bar": 0.66,
+                "in_time": true,
+                "cos": 0.7,
+                "dip": 11.7,
+                "quiet": 19,
+                "lr_corr": 0.736,
+                "knee_pct": 0.004,
+                "b200_2k": 25.2,
+                "b300_4k": 19.2,
+                "above6k": 2.2,
+                "tonal_mid": 86,
+                "mid_flatness": 0.04,
+                "held_changes": 3.33,
+                "tempo_wander": 0.04,
+                "wrap_db": -10.2,
+                "wrap_pct": 98
+            }
+        },
+        {
+            "candidate": "c3",
+            "seed": 454030125,
+            "caption": "Magical synth-pop instrumental under the northern lights: a warm, memorable analog synth lead melody you can hum carried in the mid range, glowing arpeggiated synths, a punchy steady groove of kick, snare and toms with a dark ride cymbal, a warm bass guitar following the chords, a plucked harp counter-melody, a hushed breakdown that builds into a big wondrous peak with warm wide synth chords, mysterious and enchanted, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, kalimba, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, synth bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, risers, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-aurora-c3.wav: 61.1s loop = source 38.91s..100.00s (27.97 bars at 109.9 bpm), crossfade 1.09s | context match 0.721 (best 0.770) | crossfade rhythm r=0.77 vs the track a bar later r=0.76: in time | spectrum cos=0.75"
+            ],
+            "measured": {
+                "loop_s": 61.1,
+                "bpm": 109.9,
+                "context": 0.721,
+                "r_cross": 0.77,
+                "r_bar": 0.76,
+                "in_time": true,
+                "cos": 0.75,
+                "dip": 19.3,
+                "quiet": 28,
+                "lr_corr": 0.772,
+                "knee_pct": 0.002,
+                "b200_2k": 14.4,
+                "b300_4k": 10.8,
+                "above6k": 1.0,
+                "tonal_mid": 80,
+                "mid_flatness": 0.05,
+                "held_changes": 2.78,
+                "tempo_wander": 0.18,
+                "wrap_db": 2.7,
+                "wrap_pct": 36
+            }
+        },
+        {
+            "candidate": "c4",
+            "seed": 875739359,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-aurora-c4.wav: 51.4s loop = source 21.07s..72.50s (23.96 bars at 111.8 bpm), crossfade 1.07s | context match 0.819 (best 0.822) | crossfade rhythm r=0.90 vs the track a bar later r=0.75: in time | spectrum cos=0.90"
+            ],
+            "measured": {
+                "loop_s": 51.4,
+                "bpm": 111.8,
+                "context": 0.819,
+                "r_cross": 0.9,
+                "r_bar": 0.75,
+                "in_time": true,
+                "cos": 0.9,
+                "dip": 9.8,
+                "quiet": 2,
+                "lr_corr": 0.87,
+                "knee_pct": 0.009,
+                "b200_2k": 16.9,
+                "b300_4k": 13.7,
+                "above6k": 2.5,
+                "tonal_mid": 82,
+                "mid_flatness": 0.05,
+                "held_changes": 3.13,
+                "tempo_wander": 0.01,
+                "wrap_db": -4.0,
+                "wrap_pct": 67
+            }
+        },
+        {
+            "candidate": "c5",
+            "seed": 340206268,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-aurora-c5.wav: 60.0s loop = source 33.25s..93.25s (27.94 bars at 111.8 bpm), crossfade 1.07s | context match 0.246 (best 0.285) | crossfade rhythm r=0.75 vs the track a bar later r=0.56: in time | spectrum cos=0.56"
+            ],
+            "measured": {
+                "loop_s": 60.0,
+                "bpm": 111.8,
+                "context": 0.246,
+                "r_cross": 0.75,
+                "r_bar": 0.56,
+                "in_time": true,
+                "cos": 0.56,
+                "dip": 11.4,
+                "quiet": 7,
+                "lr_corr": 0.762,
+                "knee_pct": 0.001,
+                "b200_2k": 22.0,
+                "b300_4k": 17.4,
+                "above6k": 2.3,
+                "tonal_mid": 82,
+                "mid_flatness": 0.04,
+                "held_changes": 3.78,
+                "tempo_wander": 0.2,
+                "wrap_db": 10.0,
+                "wrap_pct": 99
+            }
+        }
+    ],
+    "replaces": {
+        "stem": "puppet-kalimba",
+        "issue": 558,
+        "created": "2026-09-25",
+        "caption": "Gentle playful folktronica instrumental: plucked kalimba and music-box melody, soft clicky percussion, warm round bass, airy shimmering pads like northern lights, curious and light, major key, clean production, no vocals",
+        "negative": "vocals, singing, audience applause, crowd noise, live recording, dark ambient drone, heavy distortion",
+        "bpm": 116,
+        "keyscale": "F major",
+        "loop_log": [
+            "Wrote C:\\Users\\panrd\\AI\\output\\masters-558\\theme-puppet-kalimba.wav: 45.9s loop = source 39.04s..84.95s (22.04 bars at 115.2 bpm), crossfade 1.04s | context match 0.549 (best 0.598) | crossfade rhythm r=0.85 vs the track a bar later r=0.71: in time | spectrum cos=0.73"
+        ],
+        "why_replaced": "replaces puppet-kalimba, briefed as gentle playful folktronica (kalimba and music-box melody, shimmering pads); the owner, 2026-10-11 (#732): mysterious and magical, with a melody; 3.0 % above 6 kHz in the old loop (ember at most 2.0 %)"
+    }
+}

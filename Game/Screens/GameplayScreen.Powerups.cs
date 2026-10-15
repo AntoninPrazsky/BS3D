@@ -204,8 +204,9 @@ namespace BS3D.Screens
                     break;
 
                 case PowerupKind.Cut:
-                    //The round in the bore becomes the cutter: its look is the zap's, and the aim ghost goes (it would show
-                    //a ball that will not land). Heard as the mechanism's own click, as the swap is.
+                    //The round in the bore becomes the cutter: a steel ball with a saw through it (#766, BallRenderSet's
+                    //DrawCutters), and the aim ghost goes (it would show a ball that will not land). Heard as the mechanism's
+                    //own click, as the swap is.
                     _magazine.SetKind(0, BallKind.Cutter);
                     Game.Audio.PlayUiClick();
                     Console.WriteLine("[cut] the round in the bore is a cutter, " + _run.PowerupCharges[(int)PowerupKind.Cut] + " left");

@@ -127,6 +127,9 @@ namespace Prazsky.BS3D
         /// to that table is the whole of adding a level — the thresholds follow from it.</summary>
         public static readonly int LodCount = LOD_RESOLUTIONS.GetLength(0);
 
+        /// <summary>How many slices round its axis the sphere of level <paramref name="lod"/> has (the finest is 0).</summary>
+        public static int SphereSlices(int lod) => LOD_RESOLUTIONS[lod, 0];
+
         /// <summary>
         /// The projected ball radius, in display pixels, at or above which each level is used — one fewer than
         /// there are levels, the coarsest covering everything smaller.
@@ -1154,6 +1157,42 @@ namespace Prazsky.BS3D
         private static readonly int BUCKSHOT_REGION_START = WILDCARD_REGION_START + 2 * LodCount;
 
         /// <summary>
+        /// The Cutters (#766), the Cut power-up's rounds: <see cref="LodCount"/> buckets for the ones in flight and as many
+        /// again for the loaded one, whose blade turns slower (<see cref="CUTTER_SPIN_LOADED"/>). Colourless - a cutter
+        /// matches nothing, its slot's dealt colour is never seen - and drawn by <see cref="DrawCutters"/>: the ball in
+        /// its own technique, then its saw blade on the same instances. The last region, so the arrays are sized off it.
+        /// </summary>
+        private static readonly int CUTTER_REGION_START = BUCKSHOT_REGION_START + LodCount;
+
+        /// <summary>
+        /// How fast a Cutter's saw turns in the bore and in flight, radians a second, on the wall clock (#766): loaded, an
+        /// idle turn in about five seconds, so the round reads as running and the teeth stay countable - a rigid turn of
+        /// the whole round about its blade's axis, never a pattern crawling over a still ball (#252); and fired, faster.
+        /// <para>
+        /// ⚠ <b>Never so fast that a frame turns the saw by half a tooth or more</b>, or the teeth alias: at 18 rad/s a 75 Hz
+        /// frame turned the rim 0.92 of a tooth's pitch and the face's ring 0.61, so both seemed to run backwards, and at
+        /// 60 Hz the rim crept forwards - a look that changed with the refresh rate, which nothing may. At this figure a frame
+        /// turns the rim's teeth (<see cref="SawBladeMesh.TEETH"/>) under 0.4 of a pitch down to 30 frames a second, so
+        /// the saw turns the way it turns at any rate, only more smoothly at a higher one. The flight lasts a few frames
+        /// anyway (the shot crosses the field at 200 units a second).
+        /// </para>
+        /// </summary>
+        private const float CUTTER_SPIN_LOADED = 1.2f;
+        private const float CUTTER_SPIN_FLYING = 3f;
+
+        /// <summary>
+        /// Which way a Cutter's blade faces (#766): towards the eye, with this much of straight up added, so the ring of
+        /// teeth stands round the ball's outline as a face-on saw does - the figure every design reference and the strip's
+        /// disc draw - and is tipped back towards level by about thirty degrees, so it reads as a disc in the world and not
+        /// as a sticker on the screen. Level alone (the storey the cut takes) was tried first: from the gun's lens just
+        /// above it a level ring is a line, and in the bore the barrel's walls hid all of it (photographed).
+        /// </summary>
+        private const float CUTTER_BLADE_LEVEL_BIAS = 0.6f;
+
+        /// <summary>A Cutter's steady glow (#766): its shader's steel-grey floor at full, no heartbeat - a loaded round never breathes (#252).</summary>
+        private const float CUTTER_EMISSION = 1f;
+
+        /// <summary>
         /// Where each pellet of a clump sits, in the ball's own frame, and how big it is (#257). <b>Since the owner's verdict
         /// of 2026-10-07</b> - "I didn't quite understand what buckshot is; it looks like some rubbery bubbly tangle" - it is
         /// a handful of small lead shot packed tight, not twenty pearly beads: thirty-two pellets on the outside (the twelve
@@ -1393,6 +1432,23 @@ namespace Prazsky.BS3D
                 }
             }
 
+            //The Cutter's saw blade (#766): one mesh at every distance - a few hundred triangles, and there are at most two
+            //cutters in a frame - drawn by a renderer of its own in the blade's technique, on both paths
+            _bladeMesh = new SawBladeMesh(graphicsDevice);
+            _bladeRenderer = new InstancedModelRenderer(graphicsDevice, _bladeMesh, ALBEDO * Vector3.One, instancingEffect)
+            {
+                PatternGoreCount = PATTERN_GORES,
+                Shading = BallShading.CutterBlade,
+                EmissiveStrength = CUTTER_EMISSION,
+                PulseDepth = 0f,
+                RippleStrength = 0f,
+                GroundHeight = groundHeight
+            };
+
+            _enrolled = new InstancedModelRenderer[LodCount + 1];
+            Array.Copy(_renderers, _enrolled, LodCount);
+            _enrolled[LodCount] = _bladeRenderer;
+
             _pulseDepth = ripples ? PULSE_DEPTH_RIPPLING : PULSE_DEPTH_RESTING;
 
             //Two planes: the breathing balls, then the still ones (see STILL_PLANE_STRIDE), then a region
@@ -1402,8 +1458,8 @@ namespace Prazsky.BS3D
             //regions between.
             //Sized off the LAST of them so a region added without moving this line would index past the end on
             //its first instance rather than draw wrong.
-            _buckets = new ModelInstance[BUCKSHOT_REGION_START + LodCount][];
-            _counts = new int[BUCKSHOT_REGION_START + LodCount];
+            _buckets = new ModelInstance[CUTTER_REGION_START + 2 * LodCount][];
+            _counts = new int[CUTTER_REGION_START + 2 * LodCount];
             _lodTotals = new int[LodCount];
             _lodDistanceSquared = new float[LOD_MIN_PIXEL_RADIUS.Length];
 
@@ -1422,6 +1478,12 @@ namespace Prazsky.BS3D
 
         //The kinds' meshes on the Potato path (#863), three per LOD: the rock, the ice block, the studs
         private PotatoKindMesh[] _kindMeshes;
+
+        //The Cutter's saw blade (#766), its renderer, the blades of this frame's cutters and the wall clock they turn on
+        private SawBladeMesh _bladeMesh;
+        private InstancedModelRenderer _bladeRenderer;
+        private ModelInstance[] _blades = new ModelInstance[4];
+        private float _wallClock;
 
         //The LOD census as the balls' own walk left it, kept across the rims' walk, which counts the same buckets again
         private int[] _rimLodTotals;
@@ -1493,7 +1555,11 @@ namespace Prazsky.BS3D
         /// <see cref="IReadOnlyList{T}"/> boxes one per frame.
         /// </para>
         /// </summary>
-        public InstancedModelRenderer[] Renderers => _renderers;
+        public InstancedModelRenderer[] Renderers => _enrolled;
+
+        //Every renderer this set draws with, the LODs' and the Cutter's blade's (#766): what Renderers hands out to be lit.
+        //The blade's was left out once, and its steel mirrored DefaultLighting's white sky under every dome.
+        private InstancedModelRenderer[] _enrolled;
 
         /// <summary>
         /// The flat colour the cluster flares in when a wave carries the ceiling's meaning rather than a
@@ -2046,6 +2112,10 @@ namespace Prazsky.BS3D
                 _renderers[lod].DissolvePixelSize = dissolvePixels;
             }
 
+            _bladeRenderer.PulseTime = wallClockSeconds;
+            _bladeRenderer.DissolvePixelSize = dissolvePixels;
+            _wallClock = wallClockSeconds;
+
             DrawBuckets(camera);
 
             //The rims (#804): every bucket once more, the renderers drawing each ball's ring in place of the ball - the
@@ -2057,9 +2127,13 @@ namespace Prazsky.BS3D
                 _rimLodTotals ??= new int[LodCount];
                 Array.Copy(_lodTotals, _rimLodTotals, LodCount);
 
+                //The blade's renderer too (#766): it has no strip, so in the rims' pass it draws nothing, where it would
+                //otherwise put the whole blade out a second time over the rings
                 for (int lod = 0; lod < LodCount; lod++) _renderers[lod].RimPass = true;
+                _bladeRenderer.RimPass = true;
                 DrawBuckets(camera);
                 for (int lod = 0; lod < LodCount; lod++) _renderers[lod].RimPass = false;
+                _bladeRenderer.RimPass = false;
 
                 DrawnCount = drawn;
                 Array.Copy(_rimLodTotals, _lodTotals, LodCount);
@@ -2138,6 +2212,9 @@ namespace Prazsky.BS3D
 
             //And the wildcards (#632), opaque glossy marbles: same side of the frame.
             DrawWildcards(camera);
+
+            //And the Cutters (#766), steel and their saw blades: opaque, same side
+            DrawCutters(camera);
 
             //Asked as the question it IS — does light get through this material — and not as "is this the
             //bubble" (#304). The two were the same answer only while the bubble was the one transparent style.
@@ -2258,8 +2335,9 @@ namespace Prazsky.BS3D
         /// <summary>
         /// One special kind drawn WITHOUT a tint (#584): a region of <see cref="LodCount"/> buckets, one per LOD, in
         /// the kind's own technique, emission and pulse, with its own material. The bomb, the zap and the acid were
-        /// three line-for-line copies of this until #584, and the next kind (#213's power-ups) should be one row of
-        /// arguments rather than a fourth copy.
+        /// three line-for-line copies of this until #584, and a next kind like them should be one row of arguments rather
+        /// than a fourth copy. (The Cutter, #766, is not like them: a frame built per draw and a second mesh make it
+        /// <see cref="DrawCutters"/>.)
         /// <para>
         /// No TINT, for the stone's reason: a special wearing one of the thirteen colours is a lie the player acts
         /// on. Its own material all the same — passing null for both is what left the first rock lit by
@@ -2519,6 +2597,106 @@ namespace Prazsky.BS3D
             }
 
             ApplyStyle();
+        }
+
+        /// <summary>
+        /// The Cutters (#766), in flight and loaded: each ball in <see cref="BallShading.Cutter"/> on its LOD's sphere, then
+        /// every one's saw blade in one draw of <see cref="_bladeRenderer"/>, both in the frame <see cref="CutterFrame"/>
+        /// builds - so the slit round the ball's equator is where the blade goes in. Colourless: the tint is
+        /// <see cref="BasicEffectParamsProvider.CutterAccent"/>, which both techniques take as light alone.
+        /// <para>
+        /// <b>The frame is written over the bucket's own matrices</b>, which nothing reads after this draw but the rims'
+        /// second walk (#804): the shadow map was cast from them before <see cref="Draw"/>, and the velocity pass reads the
+        /// copies <see cref="RecordRound"/> took at collection. The rims' walk draws a sphere, which a turn about its centre
+        /// leaves where it was, and the frame is idempotent - it keeps the matrix's place and scale and builds the rest
+        /// anew - so writing it again changes nothing.
+        /// </para>
+        /// <para>
+        /// No heartbeat (PulseDepth 0) and nothing in either technique reads the pulse clock, so nothing flickers or crawls over
+        /// the ball in the bore (#252); what moves is the whole round turning as one saw, on the wall clock, slow loaded and fast in flight.
+        /// </para>
+        /// </summary>
+        private void DrawCutters(ICamera camera)
+        {
+            bool any = false;
+            for (int i = CUTTER_REGION_START; i < CUTTER_REGION_START + 2 * LodCount && !any; i++) any = _counts[i] > 0;
+            if (!any) return;
+
+            Vector3 eye = camera.Position;
+            Vector3 accent = BasicEffectParamsProvider.CutterAccent;
+            int blades = 0;
+
+            SetSpecialLook(BallShading.Cutter, CUTTER_EMISSION, 0f, 0f);
+
+            //Stated, not inherited: the still plane leaves its own figure on these renderers, and the round's glow is its own
+            for (int lod = 0; lod < LodCount; lod++) _renderers[lod].StillEmission = 1f;
+
+            for (int half = 0; half < 2; half++)
+            {
+                bool still = half == 1;
+                float spin = _wallClock * (still ? CUTTER_SPIN_LOADED : CUTTER_SPIN_FLYING);
+
+                for (int lod = 0; lod < LodCount; lod++)
+                {
+                    int bucketIndex = CUTTER_REGION_START + (still ? LodCount : 0) + lod;
+                    int count = _counts[bucketIndex];
+                    if (count == 0) continue;
+
+                    ModelInstance[] bucket = _buckets[bucketIndex];
+
+                    if (_blades.Length < blades + count) Array.Resize(ref _blades, Math.Max(_blades.Length * 2, blades + count));
+
+                    for (int i = 0; i < count; i++)
+                    {
+                        bucket[i].World = CutterFrame(bucket[i].World, eye, spin);
+                        _blades[blades++] = bucket[i];
+                    }
+
+                    DrawnCount += count;
+                    _lodTotals[lod] += count;
+
+                    _renderers[lod].Draw(camera, bucket, count, BasicEffectParamsProvider.Cutter, accent);
+                }
+            }
+
+            RestoreAfterSpecial();
+
+            _bladeRenderer.Draw(camera, _blades, blades, BasicEffectParamsProvider.Cutter, accent);
+        }
+
+        /// <summary>
+        /// A Cutter's frame (#766): <paramref name="world"/>'s place and scale, with its Y axis the blade's normal - towards
+        /// <paramref name="eye"/>, tipped back towards level by <see cref="CUTTER_BLADE_LEVEL_BIAS"/> - and turned
+        /// <paramref name="spin"/> radians about it. The ball's own turn is thrown away: a loaded round's matrix carries the
+        /// barrel's pitch and a fired one's the simulation's, and a blade that lay along either would tip with the gun and
+        /// then snap at the shot. Right-handed and orthonormal times the scale, as every instance matrix is.
+        /// </summary>
+        public static Matrix CutterFrame(in Matrix world, Vector3 eye, float spin)
+        {
+            Vector3 place = world.Translation;
+            float scale = new Vector3(world.M11, world.M12, world.M13).Length();
+
+            Vector3 towards = eye - place;
+            towards = towards.LengthSquared() > 1e-8f ? Vector3.Normalize(towards) : Vector3.UnitZ;
+
+            Vector3 normal = towards + Vector3.Up * CUTTER_BLADE_LEVEL_BIAS;
+            normal = normal.LengthSquared() > 1e-8f ? Vector3.Normalize(normal) : Vector3.Up;
+
+            //Any direction square to the normal starts the turn; up, unless the normal is nearly up itself
+            Vector3 reference = MathF.Abs(normal.Y) < 0.95f ? Vector3.Up : Vector3.UnitX;
+            Vector3 x0 = Vector3.Normalize(Vector3.Cross(normal, reference));
+            Vector3 z0 = Vector3.Cross(x0, normal);
+
+            float cos = MathF.Cos(spin), sin = MathF.Sin(spin);
+            Vector3 x = (x0 * cos + z0 * sin) * scale;
+            Vector3 y = normal * scale;
+            Vector3 z = (z0 * cos - x0 * sin) * scale;
+
+            return new Matrix(
+                x.X, x.Y, x.Z, 0f,
+                y.X, y.Y, y.Z, 0f,
+                z.X, z.Y, z.Z, 0f,
+                place.X, place.Y, place.Z, 1f);
         }
 
         /// <summary>
@@ -2795,6 +2973,10 @@ namespace Prazsky.BS3D
             if (_renderers != null) foreach (InstancedModelRenderer renderer in _renderers) renderer?.Dispose();
             if (_rimMeshes != null) foreach (BallRimMesh rim in _rimMeshes) rim?.Dispose();
             if (_kindMeshes != null) foreach (PotatoKindMesh kind in _kindMeshes) kind?.Dispose();
+            _bladeRenderer?.Dispose();
+            _bladeMesh?.Dispose();
+            _bladeRenderer = null;
+            _bladeMesh = null;
 
             _meshes = null;
             _renderers = null;
@@ -2835,6 +3017,10 @@ namespace Prazsky.BS3D
 
         /// <summary>A live acid (#328) — colourless like the three above, and for the same reason.</summary>
         internal void StoreAcid(int lod, in ModelInstance instance) => StoreAt(ACID_REGION_START + lod, instance);
+
+        /// <summary>A Cutter (#766), loaded (<paramref name="still"/>) or in flight. See <see cref="CUTTER_REGION_START"/>.</summary>
+        internal void StoreCutter(int lod, in ModelInstance instance, bool still) =>
+            StoreAt(CUTTER_REGION_START + (still ? LodCount : 0) + lod, instance);
 
         /// <summary>
         /// One clump of buckshot (#257) as <see cref="BUCKSHOT_PELLETS"/> pellets, each placed in the ball's own frame so
@@ -3108,10 +3294,11 @@ namespace Prazsky.BS3D
                     break;
 
                 case BallKind.Cutter:
-                    //The anchor cut's round (#213): shot-only like the wildcard, and drawn with the zap's look — colourless, a
-                    //technique plus renderer uniforms — because a new figure is a shader of its own and the round exists only
-                    //in the bore and the air. See BallRenderSet.DrawZaps. Never stored in the cluster (BallKinds.InCluster).
-                    _set.StoreZap(lod, instance);
+                    //The Cut's round (#213, a look of its own since #766): shot-only like the wildcard, colourless, a steel
+                    //ball with a saw blade through it. `still` rides along for the wildcard's reason: a loaded cutter's blade
+                    //idles and a fired one's runs. See BallRenderSet.DrawCutters. Never stored in the cluster
+                    //(BallKinds.InCluster).
+                    _set.StoreCutter(lod, instance, still);
                     break;
 
                 case BallKind.Wildcard:

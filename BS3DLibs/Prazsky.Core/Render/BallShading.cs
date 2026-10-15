@@ -370,6 +370,22 @@ namespace Prazsky.Core.Render
         /// meaning. It opts out of the level's style like every kind with a technique of its own.
         /// </para>
         /// </summary>
-        Wildcard = 19
+        Wildcard = 19,
+
+        /// <summary>
+        /// The Cut power-up's round (#766): a polished dark steel ball with a saw's face on it - a ring of glowing
+        /// hooked teeth round a hub with three bolts - and a slit of light round its equator where the blade goes through.
+        /// Drawn by <c>InstancedModelCutter</c>, in a frame <c>BallRenderSet</c> builds each draw (the blade facing the
+        /// eye, tipped back towards level, turning about its normal on the wall clock), its accent the draw's tint. No
+        /// heartbeat and nothing on <c>PulseTime</c>: the round turns as one rigid saw and nothing crawls over it (#252).
+        /// </summary>
+        Cutter = 20,
+
+        /// <summary>
+        /// The Cutter's saw blade (#766), drawn after the ball on the same instances with <c>SawBladeMesh</c> in place
+        /// of the sphere: polished saw steel whose toothed rim glows white-hot in the draw's tint. Drawn by
+        /// <c>InstancedModelCutterBlade</c>.
+        /// </summary>
+        CutterBlade = 21
     }
 }

@@ -805,9 +805,10 @@ namespace Prazsky.BS3D
         /// <summary>
         /// The round's tint as the collar states it: normalised to its own peak, then saturated
         /// (<see cref="COLLAR_SATURATION"/>) and renormalised, so the brightest channel is 1 and the others are
-        /// what the colour is rather than what its authored floor adds to it.
+        /// what the colour is rather than what its authored floor adds to it. Public for the muzzle's rays (#766), which
+        /// light in the same hue as the collar under them.
         /// </summary>
-        private static Vector3 CollarHue(Vector3 tint)
+        public static Vector3 CollarHue(Vector3 tint)
         {
             float peak = MathF.Max(tint.X, MathF.Max(tint.Y, tint.Z));
             if (peak <= COLLAR_COLOR_FLOOR) return new Vector3(COLLAR_COLOR_FLOOR);

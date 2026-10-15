@@ -632,6 +632,12 @@ namespace BS3D.Screens
             /// drawn at all.
             /// </summary>
             public bool FromAbove;
+
+            /// <summary>
+            /// Whether the ball is a Cutter (#766): its ring is the Cutter's accent, never <see cref="Type"/>, the colour
+            /// dealt into its slot, which nothing shows.
+            /// </summary>
+            public bool Cutter;
         }
 
         /// <summary>
@@ -818,7 +824,8 @@ namespace BS3D.Screens
         /// still being read leaves for the corner now (<see cref="AwardZoom.HandOff"/>): only one big number at a time,
         /// in the order they landed, each paid as it arrives.
         /// </remarks>
-        internal void AddAward(Vector3 world, ScoreAward award, BallType type)
+        /// <param name="cutter">True for a cutter's strike (#766): tinted with the Cutter's accent, never its dealt colour.</param>
+        internal void AddAward(Vector3 world, ScoreAward award, BallType type, bool cutter = false)
         {
             HandOffReads();
 
@@ -836,7 +843,7 @@ namespace BS3D.Screens
                 Suffix = award.Multiplier > 1 ? "×" + award.Multiplier.ToString(CultureInfo.InvariantCulture) : null,
 
                 Points = award.Points,
-                Tint = TypeColor(type),
+                Tint = cutter ? CutterTint : TypeColor(type),
                 Age = 0f,
                 Peak = AwardZoom.Peak(award.Points),
                 Birth = AwardZoom.Birth(award.Points),
@@ -1697,6 +1704,7 @@ namespace BS3D.Screens
                 bool next = i == 0;
                 int radius = next ? head : rest;
                 bool figured = figures && (i >= kinds.Length || kinds[i] == BallKind.Normal);
+                bool cutter = i < kinds.Length && kinds[i] == BallKind.Cutter;
                 Color colour = DiscFill(queue[i], figured);
 
                 //A disc whose round is dissolving into another colour - a swap's or a re-colour's (#705) - fades with it,
@@ -1709,9 +1717,11 @@ namespace BS3D.Screens
                 }
 
                 //The dark halo first, then the fill: one is what makes a pale round read over a white glacier,
-                //the other is the answer the strip exists to give.
+                //the other is the answer the strip exists to give. A cutter's fill is the round itself (#766), steel with
+                //its blade through it, and never the colour dealt into its slot, which nothing shows any more.
                 DrawDisc(batch, x, middle, radius + rim, HUD_MAG_RIM_COLOR);
-                DrawDisc(batch, x, middle, radius, colour);
+                if (cutter) DrawCutterDisc(batch, x, middle, radius);
+                else DrawDisc(batch, x, middle, radius, colour);
 
                 //The figure over the fill, under the outline; a fading disc's two figures cross-fade with its colours
                 if (figured)
@@ -1748,7 +1758,7 @@ namespace BS3D.Screens
         }
 
         //THE SPECIAL ROUND'S RAYS in the strip (#820): the burst the muzzle turns, behind the round's disc - a rainbow for
-        //the wildcard, which counts as any colour, and the zap's cyan for the Cutter.
+        //the wildcard, which counts as any colour, and the Cutter's accent for the Cutter (#766).
 
         /// <summary>How far a burst reaches, as a multiple of its disc's halo radius.</summary>
         private const float HUD_RAYS_REACH = 2.1f;
@@ -1759,8 +1769,14 @@ namespace BS3D.Screens
         /// <summary>How many rays a burst has; two sets of lengths alternate, so it reads as rays and not a cog.</summary>
         private const int HUD_RAYS_COUNT = 10;
 
-        /// <summary>The Cutter's burst: the zap's arcs' cyan, as the muzzle's (<c>CUTTER_RAYS_HUE</c>).</summary>
-        private static readonly Color HUD_CUTTER_RAYS = new(40, 200, 255);
+        /// <summary>The Cutter's burst: its accent pushed as the muzzle's collar and rays push it (<c>CannonRig.CollarHue</c>).</summary>
+        private static readonly Color HUD_CUTTER_RAYS = new(Prazsky.BS3D.CannonRig.CollarHue(BasicEffectParamsProvider.CutterAccent));
+
+        /// <summary>
+        /// The Cutter's accent as the HUD writes it (#766): its ring on the profile panel in flight and its award's number -
+        /// the two places that showed its dealt colour, which nothing shows.
+        /// </summary>
+        private static readonly Color CutterTint = new(BasicEffectParamsProvider.CutterAccent);
 
         /// <summary>One special round's burst, centred on its disc and turning on the wall clock.</summary>
         private void DrawRoundRays(SpriteBatch batch, float cx, float cy, int discReach, bool rainbow)
@@ -1835,6 +1851,138 @@ namespace BS3D.Screens
 
         //The bursts baked so far, keyed by reach and kind - a couple of small textures per window size
         private readonly Dictionary<int, Texture2D> _rayBursts = new();
+
+        //THE CUTTER'S DISC (#766): the round as the bore shows it, at a size a glance can take - a dark steel ball lit from
+        //above, with the saw's face on it: a ring of hooked teeth glowing white-hot round a washer with three bolts. It
+        //replaces the fill, never the halo or the outline, so the strip's layout and its "this one next" ring are a plain
+        //round's.
+
+        /// <summary>The saw's ring on the disc, as shares of its radius: the ring's inner edge, the gullets and the tips.</summary>
+        private const float HUD_CUTTER_SAW_INNER = 0.48f;
+        private const float HUD_CUTTER_SAW_GULLET = 0.58f;
+        private const float HUD_CUTTER_SAW_TIP = 0.80f;
+
+        /// <summary>How many teeth go round (the ball's face has sixteen; fewer read at this size).</summary>
+        private const int HUD_CUTTER_TEETH = 11;
+
+        /// <summary>The amber the teeth's light cools to at the ring's inner edge, a multiplier on the accent (the shader's <c>CutterEmber</c>).</summary>
+        private static readonly Vector3 HUD_CUTTER_EMBER = new(1f, 0.55f, 0.22f);
+
+        /// <summary>One cutter's disc, centred on the round's place in the strip.</summary>
+        private void DrawCutterDisc(SpriteBatch batch, float cx, float cy, int radius)
+        {
+            if (radius < 2) return;
+
+            Texture2D disc = CutterDiscTexture(radius);
+            float half = disc.Width * 0.5f;
+
+            batch.Draw(disc, new Vector2(cx - half, cy - half), Color.White);
+        }
+
+        /// <summary>
+        /// The cutter's disc at one whole-pixel radius, baked once and premultiplied like <see cref="DiscTexture"/>, in the
+        /// display's colours: the steel graded from the light above to a dark below (so it is not the black ball's disc), the
+        /// blade the accent whitened to its tips.
+        /// </summary>
+        private Texture2D CutterDiscTexture(int radius)
+        {
+            if (_cutterDiscs.TryGetValue(radius, out Texture2D cached)) return cached;
+
+            //Even-sided, the centre on the corner of the four middle texels, as DiscTexture's
+            int half = radius + 1;
+            int size = 2 * half;
+            const int SAMPLES = 4;
+
+            Vector3 accent = BasicEffectParamsProvider.CutterAccent;
+            byte[] data = new byte[size * size * 4];
+
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    Vector3 sum = Vector3.Zero;
+                    int covered = 0;
+
+                    for (int sy = 0; sy < SAMPLES; sy++)
+                        for (int sx = 0; sx < SAMPLES; sx++)
+                        {
+                            float px = (x + (sx + 0.5f) / SAMPLES - half) / radius;
+                            float py = (y + (sy + 0.5f) / SAMPLES - half) / radius;
+
+                            if (CutterDiscSample(px, py, accent, out Vector3 colour))
+                            {
+                                sum += colour;
+                                covered++;
+                            }
+                        }
+
+                    //Premultiplied: the summed colour over every sample is the colour times the coverage
+                    Vector3 c = sum / (SAMPLES * SAMPLES);
+                    int o = (y * size + x) * 4;
+                    data[o] = (byte)(255f * Math.Clamp(c.X, 0f, 1f));
+                    data[o + 1] = (byte)(255f * Math.Clamp(c.Y, 0f, 1f));
+                    data[o + 2] = (byte)(255f * Math.Clamp(c.Z, 0f, 1f));
+                    data[o + 3] = (byte)(255 * covered / (SAMPLES * SAMPLES));
+                }
+
+            Texture2D texture = new(_game.GraphicsDevice, size, size);
+            texture.SetData(data);
+
+            _cutterDiscs[radius] = texture;
+            return texture;
+        }
+
+        /// <summary>
+        /// What one point of the cutter's disc is, in units of the disc's radius with y down, or false outside it: the steel,
+        /// the saw's ring of teeth on it, and the hub inside the ring.
+        /// </summary>
+        private static bool CutterDiscSample(float px, float py, Vector3 accent, out Vector3 colour)
+        {
+            float distance = MathF.Sqrt(px * px + py * py);
+            if (distance > 1f)
+            {
+                colour = Vector3.Zero;
+                return false;
+            }
+
+            //The steel: light from above and to the left, a dark underside, a highlight
+            float light = Math.Clamp(0.36f - 0.30f * py - 0.08f * px, 0.08f, 0.66f);
+            float spot = MathF.Exp(-((px + 0.40f) * (px + 0.40f) + (py + 0.52f) * (py + 0.52f)) / 0.03f);
+            colour = new Vector3(light * 0.92f, light * 0.95f, light) + new Vector3(0.5f * spot);
+
+            //The hub: a brighter washer in a dark groove and three bolts on it
+            if (distance < 0.34f) colour *= 1.5f;
+            if (MathF.Abs(distance - 0.34f) < 0.04f) colour *= 0.4f;
+
+            for (int bolt = 0; bolt < 3; bolt++)
+            {
+                float angle = bolt * MathF.Tau / 3f - MathF.PI / 2f;
+                float bx = px - 0.19f * MathF.Cos(angle), by = py - 0.19f * MathF.Sin(angle);
+                if (bx * bx + by * by < 0.065f * 0.065f) colour = new Vector3(0.78f, 0.80f, 0.84f);
+            }
+
+            //The saw's ring of teeth: a long back rising to the tip and a short face falling, as the blade's own, white-hot
+            //at the tips
+            float phase = (MathF.Atan2(py, px) / MathF.Tau + 1f) * HUD_CUTTER_TEETH;
+            float through = phase - MathF.Floor(phase);
+            float rise = through < 0.75f ? through / 0.75f : (1f - through) / 0.25f;
+            float outline = HUD_CUTTER_SAW_GULLET + (HUD_CUTTER_SAW_TIP - HUD_CUTTER_SAW_GULLET) * rise;
+
+            if (distance >= HUD_CUTTER_SAW_INNER && distance <= outline)
+            {
+                //Cooling from the white-hot tips to amber at the ring's inner edge, as the ball's own (BallCutter.fxh's
+                //CutterEmber)
+                float hot = (distance - HUD_CUTTER_SAW_INNER) / (outline - HUD_CUTTER_SAW_INNER);
+                colour = Vector3.Lerp(accent * HUD_CUTTER_EMBER, accent, Math.Min(1f, hot * 1.4f));
+            }
+
+            //And the slit of light round the edge, where the blade goes in
+            float slit = MathF.Exp(-MathF.Pow((distance - 0.97f) / 0.035f, 2f));
+            colour = Vector3.Lerp(colour, Vector3.Lerp(accent, Vector3.One, 0.5f), slit);
+            return true;
+        }
+
+        //The cutter's discs, keyed by whole-pixel radius - two per window size
+        private readonly Dictionary<int, Texture2D> _cutterDiscs = new();
 
         /// <summary>
         /// How far the magazine's head reaches from its centre, ring and all — the one figure the strip's own layout and
@@ -2566,7 +2714,7 @@ namespace BS3D.Screens
 
                 //Multiplied through all four channels, which is the premultiplied alpha this batch's default
                 //AlphaBlend wants — the same way the broken streak fades out.
-                DrawDisc(batch, px, py, markerRadius, TypeColor(marker.Type) * alpha,
+                DrawDisc(batch, px, py, markerRadius, (marker.Cutter ? CutterTint : TypeColor(marker.Type)) * alpha,
                     marker.InFlight ? markerRadius * (1f - PROFILE_FLIGHT_RING) : 0f);
 
                 if (crossed)
