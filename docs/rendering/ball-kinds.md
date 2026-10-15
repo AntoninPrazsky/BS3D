@@ -69,7 +69,7 @@ The Cut power-up's round, so loaded and in flight only. A dark polished steel ba
 - ⚠ **In the bore only the ball's cap shows**: the barrel hides its equator, so a level blade (tried first) was invisible there. So the **ball's face carries the saw's face**, a ring of 16 glowing hooked teeth round a hub (a washer, three bolts, the arbor's hole) at the pole the eye looks at, and the blade's own teeth stand round the outline where nothing covers them (flight, a close view). Under a pixel the teeth settle into a ring.
 - **It holds still** (#252): no heartbeat (`PulseDepth` 0) and nothing reads `PulseTime`; what moves is the whole round turning as one saw. A dark ball with a bright dot in its middle read as an eye (photographed): the arbor's hole is dark.
 - **The Potato path**: `PotatoKindLookFor` makes the ball steel with a trace of the accent, its face the gravity well's figure in the accent (a ring round the middle of the face, `SetPotatoKindFigure`), and the blade brighter steel glowing in the accent through `PotatoBall`. No GL shader changed: the ring has no teeth there, the blade has.
-- Cost: a few hundred triangles and at most two balls a frame; the techniques declare no uniform, so nothing after `BallCutter.fxh` moved in the constant buffer.
+- Cost: nothing measurable. A cutter loaded on Teapot, `High`, 3840x1581 windowed, uncapped, desktop (RDT-PC): 9.24-9.29 ms with the zap's look, 9.12-9.17 ms with its own (a third run 9.77). The blade is 864 triangles for at most two rounds; the techniques declare no uniform, so nothing after `BallCutter.fxh` moved in the constant buffer.
 
 ## Crossings between looks
 
