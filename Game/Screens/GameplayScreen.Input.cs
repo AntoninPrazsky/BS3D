@@ -577,8 +577,9 @@ namespace BS3D.Screens
 
             //The shot's launch smear. Only the ball's authored tint goes over: decoding it to linear, lifting
             //its peak off the floor so even the black ball leaves a mark and boosting it to a glowing radiance
-            //are one rule about how a smear looks, and it lives with the smear.
-            _smears.Add(muzzle, direction, BasicEffectParamsProvider.GetDiffuseTintByType(type));
+            //are one rule about how a smear looks, and it lives with the smear. A cutter's is its accent (#766),
+            //read before the magazine advances below
+            _smears.Add(muzzle, direction, LoadedTint(0));
 
             //The fired ball's slot empties, the queue shifts up, a fresh colour loads at the back and the glide
             //is armed — and each slot's kind and transmute state ride forward with its colour as one value

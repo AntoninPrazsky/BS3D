@@ -1397,6 +1397,8 @@ namespace Prazsky.Core.Render
             "InstancedModelGravity",  //BallShading.Gravity
             "InstancedModelHeavy",    //BallShading.Heavy
             "InstancedModelWildcard", //BallShading.Wildcard
+            "InstancedModelCutter",   //BallShading.Cutter
+            "InstancedModelCutterBlade", //BallShading.CutterBlade
         };
 
         /// <summary>
@@ -2104,8 +2106,8 @@ namespace Prazsky.Core.Render
         /// The one colour a Potato ball is (#789), its desktop technique's look being out of reach: the tint it is drawn
         /// with - flowing into the next colour across a wildcard's crossing, as the desktop's wildcard does, rather than
         /// holding the colour it is leaving while the aim beam already shows the next (#789's review) - and, for the kinds
-        /// the desktop draws with no tint at all because their technique supplies the colour (the rock, the bomb, the zap
-        /// and the Cut round drawn as one, the acid, the hollow glass), a stand-in of their own, so they are not every one
+        /// the desktop draws with no tint at all because their technique supplies the colour (the rock, the bomb, the zap,
+        /// the acid, the hollow glass), a stand-in of their own, so they are not every one
         /// a white ball glowing at its own pulse. Authored sRGB, as a tint is. What the kind then does with it - a glow of
         /// another colour, a paler or greyer casing, its gloss, its opacity - is <see cref="PotatoKindLookFor"/>'s (#863).
         /// </summary>
@@ -2164,6 +2166,13 @@ namespace Prazsky.Core.Render
         private static readonly Vector3 POTATO_SPORE_GLOW = new(0.50f, 0.90f, 0.05f);
         private static readonly Vector3 POTATO_IRON = new(0.09f, 0.09f, 0.10f);
 
+        //The Cutter's steel on the Potato path (#766): the ball's polished body and the brighter saw blade, linear
+        private static readonly Vector3 POTATO_CUTTER_STEEL = new(0.20f, 0.21f, 0.24f);
+        private static readonly Vector3 POTATO_BLADE_STEEL = new(0.42f, 0.44f, 0.47f);
+
+        /// <summary>The Cutter's blade's glow on the Potato path (#766), in place of the renderer's emission: the whole ring glows, where the desktop lights its rim alone.</summary>
+        private const float POTATO_BLADE_GLOW = 0.9f;
+
         /// <summary>How much of what is behind the clear glass shows through it on the Potato path (#863).</summary>
         private const float POTATO_HOLLOW_ALPHA = 0.38f;
 
@@ -2191,6 +2200,11 @@ namespace Prazsky.Core.Render
         /// <item>The sick ball keeps its colour (it is matched by it), matte; its one-sided crust is the figure.</item>
         /// <item>The gravity well keeps its colour, glossy, its glow at six tenths; its eye and ring are the figure.</item>
         /// <item>The heavy ball is cast iron with its colour worn into it: darker, greyer, matte, its glow greyed and dimmed.</item>
+        /// <item>The Cutter (#766) is polished steel with a trace of its accent (the draw's tint, which is its
+        /// <paramref name="primary"/>) as a steady glow - it never beats, as no loaded round does (#252); the saw's face is
+        /// its figure (a ring of the accent round the middle of the face, <see cref="SetPotatoKindFigure"/>), and its blade
+        /// is brighter steel glowing in the accent at a strength of its own, so the teeth read as the hot edge the desktop
+        /// draws.</item>
         /// </list>
         /// The rock and the wildcard are their colour, untouched. <b>The ten materials keep their colour and get their
         /// gloss</b> (#828, stage 1): the desktop's styles differ in how they take the light, and <c>PotatoBall</c> has
@@ -2227,6 +2241,8 @@ namespace Prazsky.Core.Render
                 BallShading.Infectious => new(primary, primary, still, beat, 0.8f, 0.5f, 1f, Vector3.Zero, 0f),
                 BallShading.Gravity => new(primary, primary * 0.6f, still, beat, 0.08f, 2.5f, 1f, Vector3.Zero, 0f),
                 BallShading.Heavy => new(Vector3.Lerp(primary, POTATO_IRON, 0.6f), Vector3.Lerp(primary, POTATO_IRON, 0.6f) * 0.6f, still, beat, 1f, 0.25f, 1f, POTATO_IRON, 0.6f),
+                BallShading.Cutter => new(POTATO_CUTTER_STEEL, primary, 0.03f, 0f, 0.14f, 6f, 1f, POTATO_CUTTER_STEEL, 1f),
+                BallShading.CutterBlade => new(POTATO_BLADE_STEEL, primary, 1f, 0f, 0.12f, 6f, 1f, POTATO_BLADE_STEEL, 1f, POTATO_BLADE_GLOW),
                 _ => new(primary, primary, still, beat, null, 1f, 1f, Vector3.Zero, 0f),
             };
         }
@@ -2404,7 +2420,8 @@ namespace Prazsky.Core.Render
                 _potatoReflectanceRiseParam.SetValue((Vector3.Max(Vector3.One, reflectance) - reflectance) * SpecularAmbientStrength);
 
                 //A kind whose desktop look is a figure on the ball (#863): its own program paints it, see SetPotatoKindFigure
-                bool figure = ball && !PotatoFlatBalls && Shading is BallShading.Acid or BallShading.Infectious or BallShading.Gravity;
+                bool figure = ball && !PotatoFlatBalls && Shading is BallShading.Acid or BallShading.Infectious or BallShading.Gravity
+                    or BallShading.Cutter;
 
                 //A colour's figure (#737, #828): the cue program paints it on an ordinary ball whose paint is not empty
                 //(a special kind's draw leaves the paint empty, so the rock's and the ice's meshes never meet it; a
@@ -2722,7 +2739,8 @@ namespace Prazsky.Core.Render
         /// the acid's pool just under its equator in acid green with a foam line, the sick ball's crust over the third of
         /// the ball that faces the player (the camera's way, tilted down: the crust the desktop grows "down and forward"
         /// is seen from where the gun stands) in olive with the spores' glow, the gravity well's eye where the ball faces
-        /// the eye, darkened, with the whirl's ring in the ball's own colour round it.
+        /// the eye, darkened, with the whirl's ring in the ball's own colour round it; and the Cutter's saw face (#766) as
+        /// the well's figure, a ring of its accent round the middle of the face and the hub inside it a little darker.
         /// </summary>
         private void SetPotatoKindFigure(ICamera camera, in PotatoKindLook look)
         {
@@ -2740,6 +2758,13 @@ namespace Prazsky.Core.Render
                     _potatoKindFigureParam.SetValue(new Vector4(2f, 0.35f, 0.9f, 0.18f));
                     _potatoKindGlowParam.SetValue(Vector3.Lerp(POTATO_OLIVE, POTATO_SPORE_GLOW, 0.4f));
                     _potatoKindAxisParam.SetValue(Vector3.Normalize(towardsCamera + new Vector3(0f, -0.6f, 0f)));
+                    break;
+                case BallShading.Cutter:
+                    //The saw's face (#766) as the well's figure draws it: a ring of the accent's light round the middle of the
+                    //face the eye sees, the hub inside it a little darker, no teeth - those are the blade's, drawn after
+                    _potatoKindFigureParam.SetValue(new Vector4(3f, 0.80f, 0.15f, 1.6f));
+                    _potatoKindGlowParam.SetValue(Vector3.Lerp(look.Emission, Vector3.One, 0.5f));
+                    _potatoKindAxisParam.SetValue(Vector3.Up);
                     break;
                 default:
                     _potatoKindFigureParam.SetValue(new Vector4(3f, 0.86f, 0.9f, 0.35f));

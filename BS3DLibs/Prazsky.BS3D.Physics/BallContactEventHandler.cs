@@ -976,7 +976,7 @@ namespace Prazsky.BS3D.Physics
             Console.WriteLine($"[shot] cutter struck cell ({cell.X},{cell.Z},{cell.Level}):"
                 + $" destroyed {released.Destroyed}, orphaned {released.Orphaned}, {_detonations.Count} bomb(s) fired");
 
-            BallLanded?.Invoke(new BallLanding(released, world, cutter.Type, cell, 0, 0, _detonations));
+            BallLanded?.Invoke(new BallLanding(released, world, cutter.Type, cell, 0, 0, _detonations, BallKind.Cutter));
 
             return true;
         }

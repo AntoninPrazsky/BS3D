@@ -121,10 +121,11 @@ namespace BS3D.Screens
 
             //What the shot was worth, born on the cell it landed in and flown into the corner from there. The
             //type is the colour of the group it completed — a match is by definition three of one colour
-            //touching — and is what the number is tinted with on the way; see PlayHud.
+            //touching — and is what the number is tinted with on the way; see PlayHud. A cutter completes no group
+            //and its type is the colour dealt into its slot, never shown: its number is the Cutter's accent (#766).
             if (award.Scored)
             {
-                _hud.AddAward(landing.World, award, landing.Type);
+                _hud.AddAward(landing.World, award, landing.Type, landing.Kind == BallKind.Cutter);
 
                 //The tutorial's match lesson done in earnest, and — the keeper having just raised the multiplier
                 //for the next shot, which is the frame the HUD's badge lights — its streak lesson's cue (#189)
@@ -1360,11 +1361,21 @@ namespace BS3D.Screens
         /// <summary>
         /// What colour one loaded slot reads as: the queue's own, or — for a wildcard — whatever the cycle is
         /// showing this instant (#330). Every tint taken off the magazine goes through here (the muzzle collar,
-        /// the aim beam, the landing ghost), which is what stops the four of them disagreeing about the round
-        /// that is about to fire — #175's failure, with the colours moving.
+        /// the aim beam and the smear by way of <see cref="LoadedTint"/>, the landing ghost), which is what stops
+        /// them disagreeing about the round that is about to fire — #175's failure, with the colours moving.
         /// </summary>
         private BallType LoadedColour(int slot) =>
             _magazine.Slot(slot).Kind == BallKind.Wildcard ? _wildcard.Showing : _magazine.Peek(slot);
+
+        /// <summary>
+        /// The light that speaks for one loaded slot, authored sRGB: its colour's tint through <see cref="LoadedColour"/>,
+        /// or for a cutter the Cutter's accent (#766) - a cutter matches nothing and its dealt colour is never seen, and the
+        /// gun round it used to glow in that hidden colour while the ball showed none. The aim beam, the muzzle collar and the
+        /// launch smear take it here, the rays and the strip from the same constant.
+        /// </summary>
+        private Vector3 LoadedTint(int slot) => _magazine.Slot(slot).Kind == BallKind.Cutter
+            ? BasicEffectParamsProvider.CutterAccent
+            : BasicEffectParamsProvider.GetDiffuseTintByType(LoadedColour(slot));
 
         /// <summary>
         /// Re-colours every loaded ball whose colour has just been eliminated from the cluster, and starts the
