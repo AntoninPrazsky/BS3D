@@ -836,3 +836,8 @@ Pravidla:
 - #864 (22bbebff): balík v měřítku plotu (`BALE_SCALE = FENCE_SCALE`, 3,2 napříč), sázený po plotech mimo každé jejich pole, z vlastního generátoru. ⚠ Skupiny se dřív nikdy nevytvořily (rozestup 2,2 proti odstupu 1,6) a balík mohl stát na plotu (0,15 u jednoho z 81 seedů); teď nejméně 3,2 od plotu.
 - #865 (tato větev): odstavce Help od BASICS na `TEXT_WIDTH` (83 znaků), majitel 15. 10. „celá šířka“; těla tabů stojí nahoře. BASICS se při 1600×900 vejde bez rolování.
 - Otevřené: oko majitele na všech třech (`verdict-eye`), snímky pro stránku verdiktů v scratchpadu sezení bs3d-ac.
+
+## 2026-10-15 — #732 hudba Silhouettes přegenerována — desktop (RDT-PC), Claude Code (bs3d-ac)
+- #732 (tato větev, `shipped-awaiting-verdict` + `verdict-eye`): všech deset nahrávek rodiny `puppet` nahrazeno podle pokynu majitele (11. 10.: tajemné a kouzelné, s melodií; z `ember` jen melodii a středy). 57 renderů ACE-Step v nejvýš třech kolech, výběr měřením; pět komediálních jmen přejmenováno (caper→fantasy, kalimba→aurora, rag→oud, tango→waltz, toybox→triphop), rodina zůstává `puppet`. Inkrementální build staré soubory z výstupu sám smaže (ověřeno). Bicí vrstvy má sedm z deseti. Mastery `C:/Users/panrd/AI/output/masters-732-chosen`, kandidáti `masters-732`; poslech a tabulka v `verdicts/732` scratchpadu bs3d-ac.
+- ⚠ Zadání „hushed breakdown“ dává díry (13 z 30 renderů prvního kola); nové vyřazovací chyby „výpadek“ (2 s pod −20 dB) a šev s nesouhlasným spektrem. Orchestr a valčík si dynamiku drží přes jakékoli zadání. Zapsáno v `music-generation.md`.
+- Otevřené: ucho majitele; fantasy volné tempo, triphop a jazz pod `ember` v počtu změn tónu.
