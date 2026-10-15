@@ -856,8 +856,8 @@ technique PotatoBallDither
     }
 };
 
-//A KIND'S FIGURE (#863): the ball's radiance with its kind's figure painted on before the display encode, for the three
-//kinds whose desktop look is a figure on the ball and not a shape of it - the acid, the sick ball, the gravity well. A
+//A KIND'S FIGURE (#863): the ball's radiance with its kind's figure painted on before the display encode, for the four
+//kinds whose desktop look is a figure on the ball - the acid, the sick ball, the gravity well, the Cutter (#766). A
 //program of its own, so the ordinary ball's is untouched instruction for instruction (V3D_DEBUG=shaderdb): the kinds that
 //draw it are a handful of balls in a level. Which figure is a uniform, so the branches are static for the draw.
 float3 BallKindRadiance(VertexOutput input)

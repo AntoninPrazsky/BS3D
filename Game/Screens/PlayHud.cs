@@ -632,6 +632,12 @@ namespace BS3D.Screens
             /// drawn at all.
             /// </summary>
             public bool FromAbove;
+
+            /// <summary>
+            /// Whether the ball is a Cutter (#766): its ring is the Cutter's accent, never <see cref="Type"/>, the colour
+            /// dealt into its slot, which nothing shows.
+            /// </summary>
+            public bool Cutter;
         }
 
         /// <summary>
@@ -818,7 +824,8 @@ namespace BS3D.Screens
         /// still being read leaves for the corner now (<see cref="AwardZoom.HandOff"/>): only one big number at a time,
         /// in the order they landed, each paid as it arrives.
         /// </remarks>
-        internal void AddAward(Vector3 world, ScoreAward award, BallType type)
+        /// <param name="cutter">True for a cutter's strike (#766): tinted with the Cutter's accent, never its dealt colour.</param>
+        internal void AddAward(Vector3 world, ScoreAward award, BallType type, bool cutter = false)
         {
             HandOffReads();
 
@@ -836,7 +843,7 @@ namespace BS3D.Screens
                 Suffix = award.Multiplier > 1 ? "×" + award.Multiplier.ToString(CultureInfo.InvariantCulture) : null,
 
                 Points = award.Points,
-                Tint = TypeColor(type),
+                Tint = cutter ? CutterTint : TypeColor(type),
                 Age = 0f,
                 Peak = AwardZoom.Peak(award.Points),
                 Birth = AwardZoom.Birth(award.Points),
@@ -1762,8 +1769,14 @@ namespace BS3D.Screens
         /// <summary>How many rays a burst has; two sets of lengths alternate, so it reads as rays and not a cog.</summary>
         private const int HUD_RAYS_COUNT = 10;
 
-        /// <summary>The Cutter's burst: its accent, as the muzzle's (<c>BasicEffectParamsProvider.CutterAccent</c>).</summary>
-        private static readonly Color HUD_CUTTER_RAYS = new(BasicEffectParamsProvider.CutterAccent);
+        /// <summary>The Cutter's burst: its accent pushed as the muzzle's collar and rays push it (<c>CannonRig.CollarHue</c>).</summary>
+        private static readonly Color HUD_CUTTER_RAYS = new(Prazsky.BS3D.CannonRig.CollarHue(BasicEffectParamsProvider.CutterAccent));
+
+        /// <summary>
+        /// The Cutter's accent as the HUD writes it (#766): its ring on the profile panel in flight and its award's number -
+        /// the two places that showed its dealt colour, which nothing shows.
+        /// </summary>
+        private static readonly Color CutterTint = new(BasicEffectParamsProvider.CutterAccent);
 
         /// <summary>One special round's burst, centred on its disc and turning on the wall clock.</summary>
         private void DrawRoundRays(SpriteBatch batch, float cx, float cy, int discReach, bool rainbow)
@@ -1851,6 +1864,9 @@ namespace BS3D.Screens
 
         /// <summary>How many teeth go round (the ball's face has sixteen; fewer read at this size).</summary>
         private const int HUD_CUTTER_TEETH = 11;
+
+        /// <summary>The amber the teeth's light cools to at the ring's inner edge, a multiplier on the accent (the shader's <c>CutterEmber</c>).</summary>
+        private static readonly Vector3 HUD_CUTTER_EMBER = new(1f, 0.55f, 0.22f);
 
         /// <summary>One cutter's disc, centred on the round's place in the strip.</summary>
         private void DrawCutterDisc(SpriteBatch batch, float cx, float cy, int radius)
@@ -1953,8 +1969,10 @@ namespace BS3D.Screens
 
             if (distance >= HUD_CUTTER_SAW_INNER && distance <= outline)
             {
+                //Cooling from the white-hot tips to amber at the ring's inner edge, as the ball's own (BallCutter.fxh's
+                //CutterEmber)
                 float hot = (distance - HUD_CUTTER_SAW_INNER) / (outline - HUD_CUTTER_SAW_INNER);
-                colour = Vector3.Lerp(accent * 0.9f, Vector3.One, hot * hot);
+                colour = Vector3.Lerp(accent * HUD_CUTTER_EMBER, accent, Math.Min(1f, hot * 1.4f));
             }
 
             //And the slit of light round the edge, where the blade goes in
@@ -2696,7 +2714,7 @@ namespace BS3D.Screens
 
                 //Multiplied through all four channels, which is the premultiplied alpha this batch's default
                 //AlphaBlend wants — the same way the broken streak fades out.
-                DrawDisc(batch, px, py, markerRadius, TypeColor(marker.Type) * alpha,
+                DrawDisc(batch, px, py, markerRadius, (marker.Cutter ? CutterTint : TypeColor(marker.Type)) * alpha,
                     marker.InFlight ? markerRadius * (1f - PROFILE_FLIGHT_RING) : 0f);
 
                 if (crossed)

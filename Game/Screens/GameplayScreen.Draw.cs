@@ -464,9 +464,11 @@ namespace BS3D.Screens
             float reach = MathHelper.Lerp(MUZZLE_RAYS_REACH, MUZZLE_RAYS_ADS_REACH, lean);
 
             //The wildcard's burst is a rainbow, one hue a broad ray, because the ball counts as any colour; the shader
-            //takes only the brightness of a rainbow's light. The Cutter's is its accent (#766), the light of its edge.
+            //takes only the brightness of a rainbow's light. The Cutter's is its accent (#766) as the collar under it
+            //states it (CannonRig.CollarHue): the burst is linear light, and the accent's authored sRGB handed over raw
+            //read paler than the collar beside it (photographed, the review of #766)
             bool rainbow = kind == BallKind.Wildcard;
-            Vector3 hue = rainbow ? Vector3.One : BasicEffectParamsProvider.CutterAccent;
+            Vector3 hue = rainbow ? Vector3.One : CannonRig.CollarHue(BasicEffectParamsProvider.CutterAccent);
 
             _muzzleRays.Draw(Camera, barrelWorld, Game.CannonRig.MuzzleFaceZ, Game.CannonRig.CollarRadius, reach,
                 WallClock * MUZZLE_RAYS_SPIN, hue * (MUZZLE_RAYS_RADIANCE * Game.CannonRig.CollarBrightness * strength), rainbow);
@@ -691,6 +693,9 @@ namespace BS3D.Screens
                     World = new Vector3(pose.X, pose.Y, pose.Z),
                     Type = ball.Type,
                     InFlight = true,
+
+                    //A cutter's dealt colour is never shown (#766): its ring is the Cutter's accent
+                    Cutter = ball.Kind == BallKind.Cutter,
 
                     //Where it came from, decided once per ball rather than read off its velocity every frame (#822):
                     //a ball the cluster let go of always came down, and a shot once it has been above the death line,

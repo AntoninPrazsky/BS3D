@@ -127,6 +127,9 @@ namespace Prazsky.BS3D
         /// to that table is the whole of adding a level — the thresholds follow from it.</summary>
         public static readonly int LodCount = LOD_RESOLUTIONS.GetLength(0);
 
+        /// <summary>How many slices round its axis the sphere of level <paramref name="lod"/> has (the finest is 0).</summary>
+        public static int SphereSlices(int lod) => LOD_RESOLUTIONS[lod, 0];
+
         /// <summary>
         /// The projected ball radius, in display pixels, at or above which each level is used — one fewer than
         /// there are levels, the coarsest covering everything smaller.
@@ -1164,11 +1167,18 @@ namespace Prazsky.BS3D
         /// <summary>
         /// How fast a Cutter's saw turns in the bore and in flight, radians a second, on the wall clock (#766): loaded, an
         /// idle turn in about five seconds, so the round reads as running and the teeth stay countable - a rigid turn of
-        /// the whole round about its blade's axis, never a pattern crawling over a still ball (#252); and fired, a turn in
-        /// about a third of a second, which is what a blade under power does.
+        /// the whole round about its blade's axis, never a pattern crawling over a still ball (#252); and fired, faster.
+        /// <para>
+        /// ⚠ <b>Never so fast that a frame turns the saw by half a tooth or more</b>, or the teeth alias: at 18 rad/s a 75 Hz
+        /// frame turned the rim 0.92 of a tooth's pitch and the face's ring 0.61, so both seemed to run backwards, and at
+        /// 60 Hz the rim crept forwards - a look that changed with the refresh rate, which nothing may. At this figure a frame
+        /// turns the rim's teeth (<see cref="SawBladeMesh.TEETH"/>) under 0.4 of a pitch down to 30 frames a second, so
+        /// the saw turns the way it turns at any rate, only more smoothly at a higher one. The flight lasts a few frames
+        /// anyway (the shot crosses the field at 200 units a second).
+        /// </para>
         /// </summary>
         private const float CUTTER_SPIN_LOADED = 1.2f;
-        private const float CUTTER_SPIN_FLYING = 18f;
+        private const float CUTTER_SPIN_FLYING = 3f;
 
         /// <summary>
         /// Which way a Cutter's blade faces (#766): towards the eye, with this much of straight up added, so the ring of
@@ -1435,6 +1445,10 @@ namespace Prazsky.BS3D
                 GroundHeight = groundHeight
             };
 
+            _enrolled = new InstancedModelRenderer[LodCount + 1];
+            Array.Copy(_renderers, _enrolled, LodCount);
+            _enrolled[LodCount] = _bladeRenderer;
+
             _pulseDepth = ripples ? PULSE_DEPTH_RIPPLING : PULSE_DEPTH_RESTING;
 
             //Two planes: the breathing balls, then the still ones (see STILL_PLANE_STRIDE), then a region
@@ -1541,7 +1555,11 @@ namespace Prazsky.BS3D
         /// <see cref="IReadOnlyList{T}"/> boxes one per frame.
         /// </para>
         /// </summary>
-        public InstancedModelRenderer[] Renderers => _renderers;
+        public InstancedModelRenderer[] Renderers => _enrolled;
+
+        //Every renderer this set draws with, the LODs' and the Cutter's blade's (#766): what Renderers hands out to be lit.
+        //The blade's was left out once, and its steel mirrored DefaultLighting's white sky under every dome.
+        private InstancedModelRenderer[] _enrolled;
 
         /// <summary>
         /// The flat colour the cluster flares in when a wave carries the ceiling's meaning rather than a
@@ -2109,9 +2127,13 @@ namespace Prazsky.BS3D
                 _rimLodTotals ??= new int[LodCount];
                 Array.Copy(_lodTotals, _rimLodTotals, LodCount);
 
+                //The blade's renderer too (#766): it has no strip, so in the rims' pass it draws nothing, where it would
+                //otherwise put the whole blade out a second time over the rings
                 for (int lod = 0; lod < LodCount; lod++) _renderers[lod].RimPass = true;
+                _bladeRenderer.RimPass = true;
                 DrawBuckets(camera);
                 for (int lod = 0; lod < LodCount; lod++) _renderers[lod].RimPass = false;
+                _bladeRenderer.RimPass = false;
 
                 DrawnCount = drawn;
                 Array.Copy(_rimLodTotals, _lodTotals, LodCount);
@@ -2584,9 +2606,10 @@ namespace Prazsky.BS3D
         /// <see cref="BasicEffectParamsProvider.CutterAccent"/>, which both techniques take as light alone.
         /// <para>
         /// <b>The frame is written over the bucket's own matrices</b>, which nothing reads after this draw but the rims'
-        /// second walk (#804) and the shadow and velocity passes, and all three draw a sphere, which a turn about its centre
-        /// leaves where it was. It is idempotent too: the frame keeps the matrix's place and scale and builds the rest anew,
-        /// so the rims' walk writing it again changes nothing.
+        /// second walk (#804): the shadow map was cast from them before <see cref="Draw"/>, and the velocity pass reads the
+        /// copies <see cref="RecordRound"/> took at collection. The rims' walk draws a sphere, which a turn about its centre
+        /// leaves where it was, and the frame is idempotent - it keeps the matrix's place and scale and builds the rest
+        /// anew - so writing it again changes nothing.
         /// </para>
         /// <para>
         /// No heartbeat (PulseDepth 0) and nothing in either technique reads the pulse clock, so nothing flickers or crawls over

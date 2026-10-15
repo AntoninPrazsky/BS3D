@@ -121,10 +121,11 @@ namespace BS3D.Screens
 
             //What the shot was worth, born on the cell it landed in and flown into the corner from there. The
             //type is the colour of the group it completed — a match is by definition three of one colour
-            //touching — and is what the number is tinted with on the way; see PlayHud.
+            //touching — and is what the number is tinted with on the way; see PlayHud. A cutter completes no group
+            //and its type is the colour dealt into its slot, never shown: its number is the Cutter's accent (#766).
             if (award.Scored)
             {
-                _hud.AddAward(landing.World, award, landing.Type);
+                _hud.AddAward(landing.World, award, landing.Type, landing.Kind == BallKind.Cutter);
 
                 //The tutorial's match lesson done in earnest, and — the keeper having just raised the multiplier
                 //for the next shot, which is the frame the HUD's badge lights — its streak lesson's cue (#189)

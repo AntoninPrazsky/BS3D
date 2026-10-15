@@ -46,6 +46,10 @@ static const float CutterSlitHalfWidth = 0.06;
 static const float CutterSlitGlow = 2.4;
 static const float CutterSlitWhite = 0.55;
 
+//THE HEAT: the accent is white-hot, and the light cools from it towards amber where it is coolest - the gullets, the
+//ring's inner edge, the slit's lips - as hot metal does; a multiplier on the accent, so the accent is still the one colour
+static const float3 CutterEmber = float3(1.0, 0.55, 0.22);
+
 //THE SAW'S FACE, round the pole the eye looks at: a ring of hooked teeth glowing through the steel, as a saw blade seen
 //face-on - the figure that still reads where the barrel hides the blade itself (in the bore only the ball's cap shows).
 //Polar angles from the pole: the ring's inner edge, the gullets and the tips; an even count, so the teeth meet across
@@ -174,9 +178,9 @@ float4 CutterPS(PatternVertexShaderOutput input) : COLOR
     //the slit round the outline and in the saw's teeth, each one pixel soft on its own derivative
     float3 accent = SrgbToLinear(PatternPrimaryColor);
     float flicker = 0.82 + 0.18 * GradientNoise3(direction * 7.0 + 3.1);
-    float3 hot = lerp(accent, float3(1, 1, 1), CutterSlitWhite);
+    float3 hot = lerp(accent * CutterEmber, accent, CutterSlitWhite);
     float slit = BandCoverage(direction.y, CutterSlitHalfWidth, max(fwidth(direction.y), 1e-4));
-    float3 sawLight = lerp(accent, float3(1, 1, 1), sawHot * sawHot * 0.8) * (CutterSawGlow * lerp(0.45, 1.0, sawHot));
+    float3 sawLight = lerp(accent * CutterEmber, accent, saturate(sawHot * 1.4)) * (CutterSawGlow * lerp(0.45, 1.0, sawHot));
 
     shaded.rgb = shaded.rgb * (1 - slit) + hot * (CutterSlitGlow * slit * flicker);
     shaded.rgb = lerp(shaded.rgb, sawLight * flicker, saw);
@@ -223,9 +227,9 @@ float4 CutterBladePS(PatternVertexShaderOutput input) : COLOR
     float edge = smoothstep(CutterBladeGlowFrom, CutterBladeTip, r);
     float shows = step(CutterBladeGlowFrom, r);
     float noise = 0.7 + 0.3 * GradientNoise3(float3(p.x, p.z, 0.37) * 17.0);
-    float3 hot = lerp(accent, float3(1, 1, 1), edge * edge * 0.75);
+    float3 hot = lerp(accent * CutterEmber, accent, edge * edge);
 
-    shaded.rgb += hot * (CutterBladeGlow * shows * lerp(CutterBladeGlowFloor, 1, edge * edge) * noise) + accent * CutterBladeSheen;
+    shaded.rgb += hot * (CutterBladeGlow * shows * lerp(CutterBladeGlowFloor, 1, edge * edge) * noise) + accent * CutterEmber * CutterBladeSheen;
 
     shaded = ApplySeaSubmerge(shaded, input.WorldPosition);
 

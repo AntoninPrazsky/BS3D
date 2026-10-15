@@ -102,8 +102,14 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         public readonly IReadOnlyList<Detonation> Detonations;
 
+        /// <summary>
+        /// What the shot was (#766): <see cref="BallKind.Cutter"/> for a cutter's strike, whose <see cref="Type"/> is the
+        /// colour dealt into its slot and must not be shown (it completes no group), <see cref="BallKind.Normal"/> else.
+        /// </summary>
+        public readonly BallKind Kind;
+
         public BallLanding(BallsReleased released, Vector3 world, BallType type, XZLevel cell, int coloured = 0,
-            int thawed = 0, IReadOnlyList<Detonation> detonations = null)
+            int thawed = 0, IReadOnlyList<Detonation> detonations = null, BallKind kind = BallKind.Normal)
         {
             Released = released;
             World = world;
@@ -112,6 +118,7 @@ namespace Prazsky.BS3D.Physics
             Coloured = coloured;
             Thawed = thawed;
             Detonations = detonations ?? Array.Empty<Detonation>();
+            Kind = kind;
         }
     }
 }

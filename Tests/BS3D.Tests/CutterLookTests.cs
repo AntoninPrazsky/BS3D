@@ -31,7 +31,7 @@ namespace BS3D.Tests
             Assert.True(SawBladeMesh.TIP_RADIUS < CannonRig.BORE_RADIUS, "a loaded cutter's blade would cut through the barrel");
 
             //And the hub starts under the coarsest sphere's chords at the equator, so its inner edge never shows
-            float coarsestChord = BALL_RADIUS * MathF.Cos(MathF.PI / 14f);
+            float coarsestChord = BALL_RADIUS * MathF.Cos(MathF.PI / BallRenderSet.SphereSlices(BallRenderSet.LodCount - 1));
             Assert.True(SawBladeMesh.HUB_RADIUS < coarsestChord);
         }
 
@@ -118,7 +118,7 @@ namespace BS3D.Tests
             Vector3 accent = BasicEffectParamsProvider.CutterAccent;
 
             foreach (BallType type in Enum.GetValues<BallType>())
-                Assert.True(Vector3.Distance(accent, BasicEffectParamsProvider.GetDiffuseTintByType(type)) > 0.2f, $"{type} is the accent's colour");
+                Assert.True(Vector3.Distance(accent, BasicEffectParamsProvider.GetDiffuseTintByType(type)) > 0.3f, $"{type} is the accent's colour");
         }
 
         private static Vector3 Linear(Vector3 c) => c * (c * (c * 0.305306011f + new Vector3(0.682171111f)) + new Vector3(0.012522878f));

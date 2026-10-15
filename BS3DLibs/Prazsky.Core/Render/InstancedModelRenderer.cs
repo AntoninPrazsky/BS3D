@@ -2739,7 +2739,8 @@ namespace Prazsky.Core.Render
         /// the acid's pool just under its equator in acid green with a foam line, the sick ball's crust over the third of
         /// the ball that faces the player (the camera's way, tilted down: the crust the desktop grows "down and forward"
         /// is seen from where the gun stands) in olive with the spores' glow, the gravity well's eye where the ball faces
-        /// the eye, darkened, with the whirl's ring in the ball's own colour round it.
+        /// the eye, darkened, with the whirl's ring in the ball's own colour round it; and the Cutter's saw face (#766) as
+        /// the well's figure, a ring of its accent round the middle of the face and the hub inside it a little darker.
         /// </summary>
         private void SetPotatoKindFigure(ICamera camera, in PotatoKindLook look)
         {
