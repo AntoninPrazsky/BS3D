@@ -1106,8 +1106,9 @@ namespace Prazsky.Core.Render
 
             foreach (ScatterBucket bucket in buckets)
             {
-                //The desktop's Low tier: the detail buckets (the grass tufts) left out, the ones it plants instead kept
-                if (bucket.DetailOnly || bucket.Count == 0) continue;
+                //The desktop's Low tier: the detail buckets (the grass tufts) and High's finer meshes (#758, an acacia's grown
+                //fork) left out, the ones it plants instead kept
+                if (bucket.DetailOnly || bucket.FineMeshes == true || bucket.Count == 0) continue;
 
                 bool leaves = bucket.Leaves > 0f;
                 bool blob = bucket.Mesh.PrimitiveCount * 3 > blobOver;

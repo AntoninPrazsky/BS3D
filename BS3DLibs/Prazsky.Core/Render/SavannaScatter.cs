@@ -39,6 +39,14 @@ namespace Prazsky.Core.Render
         public bool LowOnly { get; }
 
         /// <summary>
+        /// Drawn only when <see cref="SceneRenderer.FineMeshes"/> is this (#758): <c>true</c> for High and Ultra's finer mesh
+        /// of a thing (an acacia's <see cref="AcaciaMesh.FineWood"/>), <c>false</c> for the coarser one Low and Medium draw
+        /// instead off the same instances, <c>null</c> for every tier. On screen and into the sun's map alike, or a tree
+        /// would cast two shadows; the Potato path draws the coarse one.
+        /// </summary>
+        public bool? FineMeshes { get; }
+
+        /// <summary>
         /// Whether it casts into the sun's map. By default everything but a <see cref="LowOnly"/> bucket does; the
         /// meadow's old trees keep their thin twigs out of it (#697).
         /// </summary>
@@ -63,9 +71,10 @@ namespace Prazsky.Core.Render
 
         internal ScatterBucket(GraphicsDevice device, IProceduralMesh mesh, List<ModelInstance> instances,
             Vector3 diffuse, Vector3 diffuseDry, float dapple, float bark, bool detailOnly,
-            bool lowOnly = false, float leaves = 0f, bool earthed = false, bool? castsShadow = null)
+            bool lowOnly = false, float leaves = 0f, bool earthed = false, bool? castsShadow = null, bool? fineMeshes = null)
         {
             Mesh = mesh;
+            FineMeshes = fineMeshes;
             Earthed = earthed;
             LowOnly = lowOnly;
             CastsShadow = castsShadow ?? !lowOnly;
@@ -906,9 +915,12 @@ namespace Prazsky.Core.Render
                     buckets.Add(new ScatterBucket(device, tree.Leaves, treeInstances[m], canopy, canopyDry, dapple: 0.35f, bark: 0f,
                         detailOnly: true, leaves: 1f));
                 }
+                //The wood: Low and Medium's tubes, and High and Ultra's grown fork (#758) — the same instances
                 bool dead = tree.Kind == AcaciaKind.Dead;
                 buckets.Add(new ScatterBucket(device, tree.Wood, treeInstances[m], dead ? deadwood : trunk, dead ? deadwoodDry : trunk * 1.15f,
-                    dapple: 0f, bark: 0.6f, detailOnly: false, earthed: true));
+                    dapple: 0f, bark: 0.6f, detailOnly: false, earthed: true, fineMeshes: false));
+                buckets.Add(new ScatterBucket(device, tree.FineWood, treeInstances[m], dead ? deadwood : trunk, dead ? deadwoodDry : trunk * 1.15f,
+                    dapple: 0f, bark: 0.6f, detailOnly: false, earthed: true, fineMeshes: true));
             }
             Add(buckets, device, bushes, bushInstances, canopyDry, canopy, dapple: 0.5f, bark: 0f, detailOnly: false);
             Vector3 scrubColor = dr.ScrubColor.ToVector3();

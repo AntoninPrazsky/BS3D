@@ -283,10 +283,20 @@ namespace BS3D
         /// </summary>
         public readonly bool MotionBlur;
 
+        /// <summary>
+        /// Whether the scenes draw their finer meshes (#758, <c>SceneRenderer.FineMeshes</c>): today the savanna acacias'
+        /// wood, the fork grown as one surface out of a swollen, lobed crotch at twelve to twenty sides, where Low and
+        /// Medium keep the seven-sided tubes poking out of the trunk's cut end. <b>High and Ultra only</b>: the owner asked
+        /// for the detail there ("on High / Ultra this transition should have more detail"), and Medium is the weak
+        /// machine's rung. What it costs is in "The acacia's fork" in docs/scenes/savanna-trees.md.
+        /// </summary>
+        public readonly bool FineMeshes;
+
         public QualityPreset(int supersampleFactor, float facadeGrainStrength, float windowFrameWidth, int cityRadiusBlocks,
             int msaaSamples, int shadowMapCap, bool ceilingRefraction, bool motionBlur, int shadowMapScale = 1,
-            bool clusterWind = true)
+            bool clusterWind = true, bool fineMeshes = false)
         {
+            FineMeshes = fineMeshes;
             ShadowMapScale = shadowMapScale;
             CeilingRefraction = ceilingRefraction;
             ClusterWind = clusterWind;
@@ -353,8 +363,8 @@ namespace BS3D
             //(see MsaaSamples), where the desktop had priced it at nothing and it had been left at 8 for that.
             new(supersampleFactor: 1, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: 4, shadowMapCap: 2048, ceilingRefraction: true, motionBlur: true, clusterWind: false),
 
-            //High — the look the game was authored at, unchanged.
-            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, motionBlur: true),
+            //High — the look the game was authored at, and the finer meshes (#758).
+            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, motionBlur: true, fineMeshes: true),
 
             //Ultra (#484) — High, and the sun shadow map at twice the scene's authored size (8192). The one
             //rung ABOVE the authored look, so it is the player's alone: the probe starts at High and only steps
@@ -362,7 +372,7 @@ namespace BS3D
             //on High (full scene detail, full stone cap, full city, the ceiling's refraction), and the one dial
             //that could go further — supersampling 3 — is 2.25x High's shaded pixels at 3840x1600, the whole
             //frame's biggest cost bought for relief detail High already resolves. See ShadowMapScale.
-            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, motionBlur: true, shadowMapScale: 2),
+            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, motionBlur: true, shadowMapScale: 2, fineMeshes: true),
             //Potato (#788) — Low with the last of its multisampling gone, for the Raspberry Pi build (GamePi), where
             //it is the only tier. A placeholder of the desktop pipeline's own dials and nothing more: what the tier
             //actually draws is its own OpenGL shader set and render path (#789), which GamePi needs because none of

@@ -816,6 +816,9 @@ namespace Testbed
             //photographed here, where the camera can be pinned. Left alone the Testbed draws the full look.
             if (_options.SceneDetail >= 0f) _sceneRenderer.SceneDetail = _options.SceneDetail;
 
+            //#758: "finemeshes=0" draws Low and Medium's coarser meshes (the acacias' tubes) instead of High's grown fork
+            if (_options.FineMeshes is bool fineMeshes) _sceneRenderer.FineMeshes = fineMeshes;
+
             //#471 PROBE: "shadow=" pins SceneRenderer.ShadowScale so a sun shadow map can be measured and
             //photographed against its own absence WITHOUT a second build - 0 is what a scene with no map
             //renders, exactly. It is alternable (see ApplyVariant), which is the point: alt=shadow=0;shadow=1
@@ -1355,7 +1358,7 @@ namespace Testbed
         /// or a setter whose whole effect lands in the same frame.
         /// </summary>
         private static readonly string[] ALTERNATION_DIALS =
-            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano" };
+            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano" };
 
         /// <summary>
         /// Prints the sweep's plan before the first window, and names anything it will not switch. A pin that
@@ -1442,6 +1445,11 @@ namespace Testbed
 
                     case "detail":
                         if (float.TryParse(pin.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out float detail)) _sceneRenderer.SceneDetail = detail;
+                        break;
+
+                    //High's finer meshes or Low and Medium's (#758): read per draw, so nothing carries across the switch
+                    case "finemeshes":
+                        _sceneRenderer.FineMeshes = pin.Value is not ("0" or "false" or "off");
                         break;
 
                     //Nothing is carried across this switch: the map is rebuilt from scratch every frame and

@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-15 — #758 akácie: vidlice vyrostlá, ne nasazená — desktop (RDT-PC), Claude Code (bs3d-ac)
+- majitel (2026-10-15): odparkováno do příštího vydání (savana, kapitola 2).
+- Hotovo (větev `758-acacia-fork`): High a Ultra kreslí `AcaciaMesh.FineWood`. Kmen se ke vidlici rozšíří do tvaru kořenových kruhů větví, ze sedel vedou rýhy dolů a vršek uzavře nízká kopule. Každá větev roste zevnitř kmene podél jeho povrchu po Bézierově křivce do stejných konců, takže listí visí na obojím. Low, Medium a Potato mají dřevo beze změny (`SceneRenderer.FineMeshes`, Testbed `finemeshes=`). +0,06 ms na High i Ultra. Hlídá to `AcaciaForkTests` (viděn selhat na hrubém dřevě).
+- ⚠ Kůra podél větví vyrobila šev přesně ve vidlici, proto zůstává ve světových souřadnicích. Normály kořenových prstenců větví se musí převzít od kmene, jinak je větev o desetinu světlejší.
+- Otevřené: verdikt oka. Snímky před a po jdou na koordinátorovu verdiktovou stránku, spouštěcí příkazy jsou v komentáři #758.
+
 ## 2026-10-15 — #709 statistiky hry po levelech — desktop (RDT-PC), Claude Code (bs3d-ac)
 - majitel (2026-10-15): ano, v příštím vydání, posílat jen hráčům se zapnutým online skóre; bez vlastního přepínače, souhlasem je přezdívka (#763).
 - Hotovo (merge do mainu v BS3D i BS3D-API, API neotagované a nenasazené): počty v `Stats.json` (`PlayStatsRecorder`), `ScoreSim --stats`, dávky na `POST /v1/stats` bez tokenu, id a verze, na vlastním časovači a spojení, 2–8 min po každém požadavku se jménem hráče; vypnutí skóre frontu zahodí; `startsToFirstClear` zůstává na stroji. Server: `play_stats` bez adresy a času, limit po /64, nepravděpodobné řádky vynechá, `admin stats`, záložka Play. Páka `actions=`.

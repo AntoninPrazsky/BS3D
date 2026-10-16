@@ -45,7 +45,29 @@ namespace Prazsky.Core.Render
     public sealed class AcaciaMesh : IDisposable
     {
         public AcaciaKind Kind { get; }
+
+        /// <summary>
+        /// The trunk, boughs, limbs and twigs as Low and Medium draw them: straight tapered tubes of seven sides, every
+        /// bough starting at the trunk's top centre. <see cref="FineWood"/> is the same tree at High and Ultra's detail.
+        /// </summary>
         public IProceduralMesh Wood { get; }
+
+        /// <summary>
+        /// The same wood grown rather than assembled (#758), for High and Ultra (<see cref="SceneRenderer.FineMeshes"/>):
+        /// the trunk swells into a crotch that takes the shape of the boughs it divides into, closed inside them by a low
+        /// dome whose saddles dip between neighbours, and every bough roots just inside it and leaves along the trunk's own
+        /// surface on a curve that turns outward, so the fork is one surface rather than tubes poking out of a cylinder's cut
+        /// end. Limbs and a dead tree's twigs leave their bough the same way. Twelve to twenty sides where <see cref="Wood"/> has seven. It ends at the same points
+        /// <see cref="Wood"/> does and carries the same crown twigs, so <see cref="Leaves"/> hangs from either.
+        /// <para>
+        /// <b>The bark stays the world's</b> (<c>Acacia.fx</c> stretches its fissures up Y), and that is a decision, not an
+        /// omission: laying them along each bough instead (the distance along the wood and its radius carried in the
+        /// texture coordinate) was built and photographed, and it put a seam exactly at the fork — the trunk and every
+        /// bough sampled unrelated stretches of the field where they meet. A field of world position is the same field on
+        /// both sides of any intersection, which is what lets the trunk and the boughs read as one surface.
+        /// </para>
+        /// </summary>
+        public IProceduralMesh FineWood { get; }
 
         /// <summary>
         /// How far the trunk's flat underside reaches from the axis, at scale 1 (#658): the root flare's ring at the
@@ -86,6 +108,36 @@ namespace Prazsky.Core.Render
         private const float TWIG_RADIUS = 0.07f;
         private const int SPRAYS_PER_TWIG = 8;
 
+        //The fine wood's sides (#758): the trunk's, where the boughs' shape and the grooves between them have to read; a
+        //bough's and a spar's; a limb's, a dead tree's twig's and a root's. The coarse wood has 7 (SEG) and 5
+        private const int FINE_TRUNK_SIDES = 20;
+        private const int FINE_BOUGH_SIDES = 12;
+        private const int FINE_LIMB_SIDES = 8;
+
+        //The crotch (#758): how far below the fork the trunk starts to swell and to take the boughs' shape, in fork radii;
+        //how much wider it is at the fork than the plain taper would be; the dome closing the top, in fork radii; and how
+        //deep a saddle between two boughs dips, as a share of it
+        private const float CROTCH_HEIGHT = 1.6f;
+        private const float CROTCH_SWELL = 1.15f;
+        private const float CROTCH_DOME = 0.35f;
+        private const float SADDLE_DIP = 0.6f;
+
+        //A bough's root ring: this many fork radii under the fork, inside the trunk's top ring by this share of its radius,
+        //so that leaning out with the trunk's flare it crosses the trunk's side just under the fork and is outside the top
+        //ring at the fork — rooted ON the top ring, it left a band of the dome's rim showing between trunk and bough, and
+        //flush, two coincident surfaces fight for the depth. How far its first control point stands along the trunk's
+        //surface, as a share of the way to the bough's middle: the length over which it turns from the trunk's line to its
+        //own. And how many of its rings take the trunk's normals, fading (see BuildFineWood)
+        private const float BOUGH_ROOT_DEPTH = 0.25f;
+        private const float BOUGH_FLUSH = 0.98f;
+        private const float BOUGH_LEAVE = 0.15f;
+        private const int BOUGH_BLENDED_RINGS = 3;
+
+        //A limb (or a dead tree's twig) leaves its bough this far along the bough's first run, from inside it, along the
+        //bough's own axis for this share of its length
+        private const float LIMB_ROOT_AT = 0.8f;
+        private const float LIMB_LEAVE = 0.3f;
+
         /// <summary>Every tier of foliage in one mesh; <c>null</c> for a <see cref="AcaciaKind.Dead"/> tree.</summary>
         public IProceduralMesh Canopy { get; }
 
@@ -107,6 +159,7 @@ namespace Prazsky.Core.Render
             BaseRadius = geometry.BaseRadius;
             Volume = geometry.Volume;
             Wood = new UploadedMesh(device, geometry.WoodVertices, geometry.WoodIndices, geometry.WoodBounds);
+            FineWood = new UploadedMesh(device, geometry.FineWoodVertices, geometry.FineWoodIndices, geometry.WoodBounds);
 
             if (geometry.CanopyVertices != null)
             {
@@ -200,14 +253,17 @@ namespace Prazsky.Core.Render
                 }
                 geometry.CanopyBounds = new BoundingSphere(new Vector3(0f, treeHeight * 0.85f, 0f), canopyRadius * 1.6f + treeHeight * 0.2f);
 
-                //The sprays on twigs grown from the boughs' ends under each tier (#782), the twigs into the wood
+                //The sprays on twigs grown from the boughs' ends under each tier (#782), the twigs into both woods — the fine
+                //wood's boughs end where the coarse wood's do (#758), so one set of twigs and leaves serves both
                 Random leafRng = new(seed * 37 + 11);
                 for (int t = 0; t < tiers.Count; t++)
                 {
                     TierSpec tier = tiers[t];
+                    geometry.Supports.AddRange(supports[t]);
                     LeafSprays.HangOnTwigs(geometry.WoodVertices, geometry.WoodIndices, geometry.Skeleton, geometry.LeafVertices,
                         geometry.LeafIndices, supports[t], new Vector3(tier.Offset.X, tier.CentreY, tier.Offset.Y), tier.Radius,
-                        tier.HalfHeight, trunkRadius * TWIG_RADIUS, SPRAYS_PER_TWIG, leafRng);
+                        tier.HalfHeight, trunkRadius * TWIG_RADIUS, SPRAYS_PER_TWIG, leafRng,
+                        geometry.FineWoodVertices, geometry.FineWoodIndices);
                 }
             }
 
@@ -217,6 +273,7 @@ namespace Prazsky.Core.Render
         public void Dispose()
         {
             (Wood as IDisposable)?.Dispose();
+            (FineWood as IDisposable)?.Dispose();
             (Canopy as IDisposable)?.Dispose();
             (Leaves as IDisposable)?.Dispose();
         }
@@ -235,13 +292,20 @@ namespace Prazsky.Core.Render
         /// tree's boughs branch on into twigs instead, and a broken tree's spar rises bare past the crown.
         /// <para>Into <paramref name="geometry"/>'s wood lists, every tube also a segment of its <see cref="AcaciaGeometry.Skeleton"/>,
         /// and each bough's and limb's end under a tier added to that tier's <paramref name="supports"/> (#782). Returns how far
-        /// the wood reaches off the axis.</para></summary>
+        /// the wood reaches off the axis.</para>
+        /// <para>The same tree into the fine wood's lists as well (#758, <see cref="BuildFineWood"/>), off the same rolls: the
+        /// coarse wood is emitted as the rolls are taken, exactly as it always was, and every roll the fine wood needs is
+        /// recorded beside it, because the trunk's crotch takes the shape of every bough before the first one can leave it.</para></summary>
         private static float BuildWood(AcaciaGeometry geometry, List<Vector3>[] supports, float trunkRadius, float treeHeight,
             float canopyRadius, float forkY, int boughs, List<TierSpec> tiers, List<Vector2> spars, bool twigs, Random rng)
         {
                 List<VertexPositionNormalTexture> v = geometry.WoodVertices;
                 List<short> idx = geometry.WoodIndices;
                 const int SEG = 7;
+
+                //What the fine wood is grown from: the roots (where each leaves, bends and ends) and every departure from the fork
+                var fineRoots = new List<(Vector3 Leave, Vector3 Knee, Vector3 End, float Foot)>();
+                var departures = new List<FineDeparture>();
 
                 void Tube(int seg, Vector3 from, float fromRadius, Vector3 to, float toRadius)
                 {
@@ -271,6 +335,7 @@ namespace Prazsky.Core.Render
                     Vector3 end = rd * out_ - Vector3.Up * ((out_ - foot) * ROOT_DIVE + foot * 0.2f);
                     Tube(5, leave, foot * 0.42f, knee, foot * 0.24f);
                     Tube(5, knee, foot * 0.24f, end, foot * 0.08f);
+                    fineRoots.Add((leave, knee, end, foot));
                 }
 
                 //The boughs: evenly spread with a jittered bearing, each rising in two bent segments to a point
@@ -314,6 +379,8 @@ namespace Prazsky.Core.Render
                     Tube(SEG, fork, trunkRadius * 0.6f, mid, trunkRadius * 0.42f);
                     Tube(SEG, mid, trunkRadius * 0.42f, tip, trunkRadius * 0.14f);
                     if (carried >= 0) supports[carried].Add(tip);
+                    var departure = new FineDeparture(a, mid, tip, trunkRadius * 0.6f, trunkRadius * 0.42f, trunkRadius * 0.14f);
+                    departures.Add(departure);
 
                     //The second forking (#451): from the bough's middle two thinner limbs splay to either side
                     //and reach the rim, the spokes an umbrella acacia shows under its crown — the references
@@ -328,6 +395,7 @@ namespace Prazsky.Core.Render
                             Vector3 sTip = fork + sDir * sSpread + Vector3.Up * (tipY - forkY + (float)(rng.NextDouble() - 0.3) * treeHeight * 0.04f);
                             Tube(5, mid, trunkRadius * 0.3f, sTip, trunkRadius * 0.08f);
                             if (carried >= 0) supports[carried].Add(sTip);
+                            departure.Limbs.Add((sTip, trunkRadius * 0.3f, trunkRadius * 0.08f));
                             reach = MathF.Max(reach, sSpread);
                         }
                     }
@@ -339,11 +407,13 @@ namespace Prazsky.Core.Render
                         int count = 1 + rng.Next(2);
                         for (int k = 0; k < count; k++)
                         {
-                            Vector3 from = Vector3.Lerp(mid, tip, 0.35f + 0.5f * (float)rng.NextDouble());
+                            float along = 0.35f + 0.5f * (float)rng.NextDouble();
+                            Vector3 from = Vector3.Lerp(mid, tip, along);
                             float ta = a + (float)(rng.NextDouble() - 0.5) * 1.6f;
                             float len = canopyRadius * (0.25f + 0.25f * (float)rng.NextDouble());
                             Vector3 to = from + new Vector3(MathF.Cos(ta), 0f, MathF.Sin(ta)) * (len * 0.7f) + Vector3.Up * (len * 0.7f);
                             Tube(5, from, trunkRadius * 0.22f, to, trunkRadius * 0.05f);
+                            departure.Twigs.Add((along, to - from, trunkRadius * 0.22f, trunkRadius * 0.05f));
                             reach = MathF.Max(reach, len + spread);
                         }
                     }
@@ -359,9 +429,349 @@ namespace Prazsky.Core.Render
                     Vector3 top = fork + dir * spread + Vector3.Up * (spars[s].Y - forkY);
                     Tube(SEG, fork, trunkRadius * 0.55f, mid, trunkRadius * 0.38f);
                     Tube(SEG, mid, trunkRadius * 0.38f, top, trunkRadius * 0.06f);
+                    departures.Add(new FineDeparture(a, mid, top, trunkRadius * 0.55f, trunkRadius * 0.38f, trunkRadius * 0.06f));
                 }
 
+                BuildFineWood(geometry, trunkRadius, forkY, fineRoots, departures);
                 return reach;
+        }
+
+        /// <summary>
+        /// One bough or spar leaving the fork, as the coarse wood rolled it (#758): its bearing, its middle and its end with the
+        /// radius at its root, middle and end; the limbs it carries (each an end and the radius at its root and end) or, on a
+        /// dead tree, its twigs (where along its outer run each leaves, the twig's own reach, and its radii).
+        /// </summary>
+        private sealed class FineDeparture(float bearing, Vector3 mid, Vector3 end, float rootRadius, float midRadius, float endRadius)
+        {
+            public readonly float Bearing = bearing;
+            public readonly Vector3 Mid = mid, End = end;
+            public readonly float RootRadius = rootRadius, MidRadius = midRadius, EndRadius = endRadius;
+            public readonly List<(Vector3 End, float RootRadius, float EndRadius)> Limbs = new();
+            public readonly List<(float Along, Vector3 Reach, float RootRadius, float EndRadius)> Twigs = new();
+        }
+
+        /// <summary>
+        /// The wood at High and Ultra's detail (#758): <see cref="AddGrownTrunk"/>, the roots as one bent run each, and every
+        /// bough and spar on a curve out of the crotch: it roots just inside the trunk under the fork, on the circle the
+        /// crotch was shaped to for it, leaves along the trunk's own surface and turns outward to the coarse bough's middle and
+        /// on to its end — so its outer side carries on the trunk's outline and it parts from its neighbours in a saddle. Each
+        /// limb leaves its bough the same way, from inside it along the bough's axis, to the coarse limb's end; so do a dead
+        /// tree's twigs. The ends are the coarse wood's, which is what keeps the crown's twigs on wood.
+        /// </summary>
+        private static void BuildFineWood(AcaciaGeometry geometry, float trunkRadius, float forkY,
+            List<(Vector3 Leave, Vector3 Knee, Vector3 End, float Foot)> roots, List<FineDeparture> departures)
+        {
+            List<VertexPositionNormalTexture> v = geometry.FineWoodVertices;
+            List<short> idx = geometry.FineWoodIndices;
+            List<(Vector3 From, Vector3 To)> skeleton = geometry.FineSkeleton;
+
+            var roots0 = new (float Bearing, float Radius)[departures.Count];
+            for (int d = 0; d < roots0.Length; d++) roots0[d] = (departures[d].Bearing, departures[d].RootRadius);
+            GrownTrunk trunk = new(trunkRadius, forkY, roots0);
+            AddGrownTrunk(v, idx, trunk);
+            skeleton.Add((Vector3.Zero, new Vector3(0f, forkY, 0f)));
+            geometry.FineTrunkRadius = trunk.Radius;
+
+            //The roots as one bent run each, where the coarse wood lays two tubes end to end and leaves both their ends open
+            //at the knee
+            foreach ((Vector3 leave, Vector3 knee, Vector3 end, float foot) in roots)
+            {
+                TubeGeometry.AddSweep(v, idx, FINE_LIMB_SIDES, new[] { leave, knee, end }, new[] { foot * 0.42f, foot * 0.24f, foot * 0.08f });
+                skeleton.Add((leave, knee));
+                skeleton.Add((knee, end));
+            }
+
+            Vector3 fork = new(0f, forkY, 0f);
+            var points = new List<Vector3>();
+            var radii = new List<float>();
+            foreach (FineDeparture departure in departures)
+            {
+                Vector3 dir = new(MathF.Cos(departure.Bearing), 0f, MathF.Sin(departure.Bearing));
+
+                //The root just under the trunk's top ring, centred on the circle the trunk's crotch was shaped to (GrownTrunk);
+                //the run to the middle leaving along the trunk's surface (so the two shade alike where they part), the run to
+                //the end leaving the middle along the line the coarse wood's fork-to-end chord gives it
+                float rootY = forkY - BOUGH_ROOT_DEPTH * trunkRadius * 0.9f;
+                float offset = MathF.Min(trunk.RootOffset(departure.RootRadius), trunk.Radius(rootY, departure.Bearing) - departure.RootRadius);
+                Vector3 root = new Vector3(0f, rootY, 0f) + dir * MathF.Max(offset, 0f);
+                Vector3 alongTrunk = trunk.Tangent(rootY, departure.Bearing);
+                Vector3 throughMid = Vector3.Normalize(departure.End - fork);
+                float first = Vector3.Distance(root, departure.Mid), second = Vector3.Distance(departure.Mid, departure.End);
+                Vector3 a0 = root, a1 = root + alongTrunk * (first * BOUGH_LEAVE), a2 = departure.Mid - throughMid * (first * 0.3f), a3 = departure.Mid;
+                Vector3 b0 = departure.Mid, b1 = departure.Mid + throughMid * (second * 0.33f),
+                    b2 = departure.End - Vector3.Normalize(departure.End - departure.Mid) * (second * 0.33f), b3 = departure.End;
+
+                points.Clear();
+                radii.Clear();
+                foreach (float t in BOUGH_FIRST_RUN)
+                {
+                    points.Add(Bezier(a0, a1, a2, a3, t));
+                    radii.Add(MathHelper.Lerp(departure.RootRadius * BOUGH_FLUSH, departure.MidRadius, t));
+                }
+                foreach (float t in BOUGH_SECOND_RUN)
+                {
+                    points.Add(Bezier(b0, b1, b2, b3, t));
+                    radii.Add(MathHelper.Lerp(departure.MidRadius, departure.EndRadius, t));
+                }
+                int firstRing = v.Count;
+                TubeGeometry.AddSweep(v, idx, FINE_BOUGH_SIDES, points, radii);
+                for (int p = 0; p + 1 < points.Count; p++) skeleton.Add((points[p], points[p + 1]));
+
+                //Shaded as the trunk where it leaves it: the first rings take the trunk's own normals at their height and
+                //bearing, fading into the bough's own. A sweep's ring stands square to its first chord, which already leans out
+                //with the bough's turn, and so did its normals — 18 to 23 degrees down at the fork against the trunk's 7 up, a
+                //step a tenth lighter across the junction (measured on seed 4103, the Testbed's close camera)
+                for (int ring = 0; ring < BOUGH_BLENDED_RINGS; ring++)
+                {
+                    float own = ring / (float)BOUGH_BLENDED_RINGS;
+                    for (int side = 0; side <= FINE_BOUGH_SIDES; side++)
+                    {
+                        int at = firstRing + ring * (FINE_BOUGH_SIDES + 1) + side;
+                        VertexPositionNormalTexture vertex = v[at];
+                        Vector3 trunkNormal = trunk.Normal(MathF.Min(trunk.AtHeight(vertex.Position.Y), 1f),
+                            MathF.Atan2(vertex.Position.Z, vertex.Position.X));
+                        vertex.Normal = Vector3.Normalize(Vector3.Lerp(trunkNormal, vertex.Normal, own));
+                        v[at] = vertex;
+                    }
+                }
+
+                //The limbs, out of the bough's first run near its middle
+                Vector3 limbRoot = Bezier(a0, a1, a2, a3, LIMB_ROOT_AT);
+                Vector3 limbLeave = Vector3.Normalize(BezierTangent(a0, a1, a2, a3, LIMB_ROOT_AT));
+                foreach ((Vector3 end, float rootRadius, float endRadius) in departure.Limbs)
+                    AddOffshoot(v, idx, skeleton, limbRoot, limbLeave, end, rootRadius, endRadius);
+
+                //A dead tree's twigs, out of the bough's outer run where the coarse twig left its chord
+                foreach ((float along, Vector3 twigReach, float rootRadius, float endRadius) in departure.Twigs)
+                {
+                    Vector3 from = Bezier(b0, b1, b2, b3, along);
+                    Vector3 leave = Vector3.Normalize(BezierTangent(b0, b1, b2, b3, along));
+                    AddOffshoot(v, idx, skeleton, from, leave, from + twigReach, rootRadius, endRadius);
+                }
+            }
+        }
+
+        //Where a fine bough's rings stand on its two runs (#758): close together where it turns out of the crotch, wider
+        //apart along the straighter outer run
+        private static readonly float[] BOUGH_FIRST_RUN = { 0f, 0.08f, 0.16f, 0.25f, 0.35f, 0.47f, 0.6f, 0.75f, 0.88f, 1f };
+        private static readonly float[] BOUGH_SECOND_RUN = { 0.34f, 0.67f, 1f };
+        private static readonly float[] OFFSHOOT_RUN = { 0f, 0.12f, 0.25f, 0.4f, 0.6f, 0.8f, 1f };
+
+        /// <summary>
+        /// A limb or a twig out of the wood it grows from (#758): from <paramref name="root"/> inside the parent, leaving along
+        /// the parent's own axis there (<paramref name="leave"/>) and turning towards <paramref name="end"/> — one Bezier, so
+        /// it emerges at a slant rather than starting square out of the parent's surface.
+        /// </summary>
+        private static void AddOffshoot(List<VertexPositionNormalTexture> v, List<short> idx, List<(Vector3 From, Vector3 To)> skeleton,
+            Vector3 root, Vector3 leave, Vector3 end, float rootRadius, float endRadius)
+        {
+            float length = Vector3.Distance(root, end);
+            Vector3 c1 = root + leave * (length * LIMB_LEAVE);
+            Vector3 c2 = end - Vector3.Normalize(end - root) * (length * 0.3f);
+            var points = new Vector3[OFFSHOOT_RUN.Length];
+            var radii = new float[OFFSHOOT_RUN.Length];
+            for (int p = 0; p < points.Length; p++)
+            {
+                points[p] = Bezier(root, c1, c2, end, OFFSHOOT_RUN[p]);
+                radii[p] = MathHelper.Lerp(rootRadius, endRadius, OFFSHOOT_RUN[p]);
+            }
+            TubeGeometry.AddSweep(v, idx, FINE_LIMB_SIDES, points, radii);
+            for (int p = 0; p + 1 < points.Length; p++) skeleton.Add((points[p], points[p + 1]));
+        }
+
+        private static Vector3 Bezier(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t)
+        {
+            float u = 1f - t;
+            return u * u * u * p0 + 3f * u * u * t * p1 + 3f * u * t * t * p2 + t * t * t * p3;
+        }
+
+        private static Vector3 BezierTangent(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t)
+        {
+            float u = 1f - t;
+            return 3f * u * u * (p1 - p0) + 6f * u * t * (p2 - p1) + 3f * t * t * (p3 - p2);
+        }
+
+        /// <summary>
+        /// The fine wood's trunk as a surface (#758): the coarse trunk's cone (<see cref="ROOT_FLARE"/> at the foot to 0.9 of
+        /// the trunk radius at the fork) up to <see cref="CrotchFrom"/>; from there to the fork it swells to
+        /// <see cref="CROTCH_SWELL"/> times the cone and takes the shape of the boughs it divides into, so that its top ring
+        /// is the outline of their root circles together (<see cref="Shape"/>) — each circle as wide as the bough it roots,
+        /// its outer side on the swollen trunk's circle — with a groove running down from every saddle between two, the
+        /// references' trunk of fused limbs. Over the fork a low dome closes it, its saddles dipping between neighbours. One
+        /// parameter runs up the profile: 0 at the foot, 1 at the fork, 2 at the dome's top.
+        /// <para>
+        /// A trunk merely swollen and lobed, with the boughs leaving it through its side, was the first build: the boughs
+        /// left under the lobes' rim, which stood round them as a lip, and their round sections crossed the gentle lobes at
+        /// an angle, so they shaded a step lighter than the trunk below them.
+        /// </para>
+        /// </summary>
+        private sealed class GrownTrunk
+        {
+            private readonly float _trunkRadius, _forkY, _domeHeight, _topRadius;
+            private readonly float[] _bearings;   //sorted, in [0, 2pi)
+            private readonly (float Bearing, float Radius)[] _roots;
+            public readonly float CrotchFrom;
+
+            public GrownTrunk(float trunkRadius, float forkY, (float Bearing, float Radius)[] roots)
+            {
+                _trunkRadius = trunkRadius;
+                _forkY = forkY;
+                float forkRadius = trunkRadius * 0.9f;
+                _topRadius = forkRadius * CROTCH_SWELL;
+                CrotchFrom = MathF.Max(forkY - CROTCH_HEIGHT * forkRadius, forkY * 0.5f);
+                _domeHeight = CROTCH_DOME * forkRadius;
+                _roots = roots;
+                _bearings = new float[roots.Length];
+                for (int i = 0; i < roots.Length; i++) _bearings[i] = Wrap(roots[i].Bearing);
+                Array.Sort(_bearings);
+            }
+
+            private static float Wrap(float angle)
+            {
+                float a = angle % MathHelper.TwoPi;
+                return a < 0f ? a + MathHelper.TwoPi : a;
+            }
+
+            /// <summary>The profile parameter at a height on the trunk's side (0 at the foot, 1 at the fork).</summary>
+            public float AtHeight(float y) => y / _forkY;
+
+            /// <summary>How far off the axis the root circle of a bough this thick is centred: its outer side on the trunk's
+            /// swollen top circle, and never past the axis.</summary>
+            public float RootOffset(float rootRadius) => MathF.Max(_topRadius - rootRadius, 0f);
+
+            /// <summary>
+            /// +1 towards a departure's bearing and −1 midway between two neighbours, a cosine across each gap: where the
+            /// dome's saddles dip. The world angle is the bearing convention the boughs are rolled in (cos on X, sin on Z).
+            /// </summary>
+            public float Lobe(float angle)
+            {
+                int n = _bearings.Length;
+                if (n < 2) return 0f;
+                float a = Wrap(angle);
+                int k = n - 1;
+                for (int i = 0; i < n; i++) if (_bearings[i] <= a) k = i;
+                float from = _bearings[k];
+                float to = k + 1 < n ? _bearings[k + 1] : _bearings[0] + MathHelper.TwoPi;
+                if (a < from) a += MathHelper.TwoPi;
+                float t = (a - from) / MathF.Max(to - from, 1e-4f);
+                return MathF.Cos(MathHelper.TwoPi * t);
+            }
+
+            /// <summary>
+            /// The top ring's reach at a bearing, as a share of the swollen circle: how far out along it the outline of the
+            /// boughs' root circles together stands — 1 on a bough's own bearing, less in the cusp between two.
+            /// </summary>
+            public float Shape(float bearing)
+            {
+                float reach = 0f;
+                foreach ((float rootBearing, float radius) in _roots)
+                {
+                    float centre = RootOffset(radius);
+                    float off = bearing - rootBearing;
+                    float across = centre * MathF.Sin(off);
+                    if (MathF.Abs(across) > radius) continue;
+                    reach = MathF.Max(reach, centre * MathF.Cos(off) + MathF.Sqrt(radius * radius - across * across));
+                }
+                return reach > 0f ? MathF.Min(reach / _topRadius, 1f) : 1f;
+            }
+
+            /// <summary>
+            /// The trunk's radius at a height on its side and a bearing. The crotch eases in from the cone (no crease where it
+            /// starts) and is still widening at the fork, so the trunk flares into the boughs and a bough leaving along its
+            /// surface (<see cref="Tangent"/>) leans out with it; the boughs' shape comes in over the same height.
+            /// </summary>
+            public float Radius(float y, float bearing)
+            {
+                float cone = _trunkRadius * (ROOT_FLARE + (0.9f - ROOT_FLARE) * MathHelper.Clamp(y / _forkY, 0f, 1f));
+                float t = MathHelper.Clamp((y - CrotchFrom) / MathF.Max(_forkY - CrotchFrom, 1e-4f), 0f, 1f);
+                float crotch = t * t;
+                return cone * (1f + (CROTCH_SWELL - 1f) * crotch) * MathHelper.Lerp(1f, Shape(bearing), crotch);
+            }
+
+            /// <summary>The direction up the trunk's side at a height and a bearing: up, leaning with the surface (taken from
+            /// below, so at the fork it is the side's and not the dome's).</summary>
+            public Vector3 Tangent(float y, float bearing)
+            {
+                const float STEP = 1e-3f;
+                float h = MathF.Min(AtHeight(y), 1f);
+                return Vector3.Normalize(Point(h, bearing) - Point(h - STEP, bearing));
+            }
+
+            /// <summary>
+            /// The surface's outward normal at profile parameter <paramref name="h"/> and world bearing
+            /// <paramref name="bearing"/>, from its two tangents — the shape and the dome make it anything but radial. Up at
+            /// the dome's top, where the ring has closed to a point.
+            /// </summary>
+            public Vector3 Normal(float h, float bearing)
+            {
+                const float STEP = 1e-3f;
+                Vector3 up = Point(MathF.Min(h + STEP, 2f), bearing) - Point(MathF.Max(h - STEP, 0f), bearing);
+                Vector3 around = Point(h, bearing - STEP) - Point(h, bearing + STEP);
+                Vector3 n = Vector3.Cross(up, around);
+                if (n.LengthSquared() < 1e-12f) return Vector3.Up;
+                n.Normalize();
+                Vector3 radial = new(MathF.Cos(bearing), 0f, MathF.Sin(bearing));
+                return Vector3.Dot(n, radial) < 0f && h < 2f ? -n : n;
+            }
+
+            /// <summary>The point on the surface at profile parameter <paramref name="h"/> and world bearing <paramref name="bearing"/>.</summary>
+            public Vector3 Point(float h, float bearing)
+            {
+                Vector3 radial = new(MathF.Cos(bearing), 0f, MathF.Sin(bearing));
+                if (h <= 1f)
+                {
+                    float y = h * _forkY;
+                    return radial * Radius(y, bearing) + Vector3.Up * y;
+                }
+                //The saddles dip on the dome's flanks and fade out towards its top, which is one point: a dip carried to the
+                //top would leave the last ring a line of points up the axis, a seam of open slivers
+                float phi = MathHelper.Clamp(h - 1f, 0f, 1f) * MathHelper.PiOver2;
+                float rise = MathF.Sin(phi);
+                float height = _domeHeight * (1f - SADDLE_DIP * 0.5f * (1f - Lobe(bearing)) * (1f - rise));
+                return radial * (Radius(_forkY, bearing) * MathF.Cos(phi)) + Vector3.Up * (_forkY + height * rise);
+            }
+        }
+
+        //The grown trunk's rings: the cone needs only its two ends, the crotch and the dome are where the shape is
+        private static readonly float[] CROTCH_RUN = { 0.25f, 0.5f, 0.75f, 1f };
+        private static readonly float[] DOME_RUN = { 0.2f, 0.4f, 0.6f, 0.8f, 1f };
+
+        /// <summary>
+        /// <see cref="GrownTrunk"/> as rings of <see cref="FINE_TRUNK_SIDES"/>, foot to dome. Each normal is the surface's own,
+        /// from its two tangents (the boughs' shape and the dome make it anything but radial). The texture coordinate is
+        /// <see cref="TubeGeometry.AddTube"/>'s (round the ring, up the profile), which nothing reads on wood. Wound as
+        /// <see cref="TubeGeometry.AddTube"/> is, the lower ring as its start.
+        /// </summary>
+        private static void AddGrownTrunk(List<VertexPositionNormalTexture> v, List<short> idx, GrownTrunk trunk)
+        {
+            var stations = new List<float> { 0f, trunk.AtHeight(trunk.CrotchFrom) };
+            float crotchStart = trunk.AtHeight(trunk.CrotchFrom);
+            foreach (float t in CROTCH_RUN) stations.Add(crotchStart + (1f - crotchStart) * t);
+            foreach (float t in DOME_RUN) stations.Add(1f + t);
+
+            const int SIDES = FINE_TRUNK_SIDES;
+            short baseIdx = (short)v.Count;
+            for (int i = 0; i < stations.Count; i++)
+            {
+                float h = stations[i];
+                for (int s = 0; s <= SIDES; s++)
+                {
+                    //AddTube's basis for an axis pointing up: the ring starts on +Z and turns towards +X
+                    float ang = MathHelper.TwoPi * s / SIDES;
+                    float bearing = MathHelper.PiOver2 - ang;
+                    v.Add(new VertexPositionNormalTexture(trunk.Point(h, bearing), trunk.Normal(h, bearing),
+                        new Vector2(s / (float)SIDES, i / (stations.Count - 1f))));
+                }
+            }
+            for (int i = 0; i + 1 < stations.Count; i++)
+            {
+                int lower = baseIdx + i * (SIDES + 1), upper = lower + SIDES + 1;
+                for (int s = 0; s < SIDES; s++)
+                {
+                    idx.Add((short)(lower + s)); idx.Add((short)(upper + s)); idx.Add((short)(lower + s + 1));
+                    idx.Add((short)(lower + s + 1)); idx.Add((short)(upper + s)); idx.Add((short)(upper + s + 1));
+                }
+            }
         }
     }
 
@@ -380,6 +790,18 @@ namespace Prazsky.Core.Render
         public readonly List<short> WoodIndices = new();
         public BoundingSphere WoodBounds;
 
+        /// <summary>High and Ultra's wood (#758), crown twigs included, and its skeleton without them: the grown trunk's
+        /// axis, the roots, and every bough, spar, limb and dead twig as the curve it was swept along.</summary>
+        public readonly List<VertexPositionNormalTexture> FineWoodVertices = new();
+        public readonly List<short> FineWoodIndices = new();
+        public readonly List<(Vector3 From, Vector3 To)> FineSkeleton = new();
+
+        /// <summary>Every point the crown's twigs grow from (#782): the ends of the boughs and limbs under a tier.</summary>
+        public readonly List<Vector3> Supports = new();
+
+        /// <summary>The fine wood's trunk as a radius at a height on its side (up to the fork) and a world bearing.</summary>
+        public Func<float, float, float> FineTrunkRadius;
+
         public List<VertexPositionNormalTexture> CanopyVertices;
         public List<short> CanopyIndices;
         public BoundingSphere CanopyBounds;
@@ -390,11 +812,6 @@ namespace Prazsky.Core.Render
         public readonly List<(Vector3 From, Vector3 To)> Skeleton = new();
     }
 
-    /// <summary>
-    /// Straight tapered tubes and their end caps, appended to a vertex/index list — the wood of the acacias,
-    /// the deadwood logs and anything else built from sticks. Radial normals; wound clockwise seen from
-    /// outside, MonoGame's front face. One copy since #451 (it was a private method of the acacia's wood).
-    /// </summary>
     /// <summary>
     /// <b>An acacia's crown as leaf sprays</b> (#610): flat cards, each one spray of bipinnate leaves whose
     /// leaflets <c>Acacia.fx</c> cuts out of it (<c>LeafStrength</c>), laid in the tier's disc in three layers —
@@ -446,10 +863,13 @@ namespace Prazsky.Core.Render
         /// </summary>
         /// <param name="spraysPerTwig">How many sprays a twig carries: few on a crown the eye walks across, so the twigs
         /// spread the leaf over the disc rather than in spokes; more on a small tuft.</param>
+        /// <param name="fineWoodVertices">A second wood the same twigs go into: an acacia's fine wood (#758), whose boughs
+        /// end where the coarse wood's do. <c>null</c> for none.</param>
+        /// <param name="fineWoodIndices">Its indices.</param>
         public static void HangOnTwigs(List<VertexPositionNormalTexture> woodVertices, List<short> woodIndices,
             List<(Vector3 From, Vector3 To)> skeleton, List<VertexPositionNormalTexture> v, List<int> idx,
             IReadOnlyList<Vector3> supports, Vector3 centre, float radius, float halfHeight, float twigRadius, int spraysPerTwig,
-            Random rng)
+            Random rng, List<VertexPositionNormalTexture> fineWoodVertices = null, List<short> fineWoodIndices = null)
         {
             float length = radius * SPRAY_LENGTH;
             float width = length * SPRAY_ASPECT;
@@ -488,8 +908,10 @@ namespace Prazsky.Core.Render
                     Vector3 mid = Vector3.Lerp(basePoint, tip, 0.5f) + new Vector3(0f, span * 0.1f, 0f) + jitter * (span * 0.1f);
                     Vector3 At(float f) => (1f - f) * (1f - f) * basePoint + 2f * f * (1f - f) * mid + f * f * tip;
 
-                    TubeGeometry.AddSweep(woodVertices, woodIndices, 3, new[] { basePoint, At(0.33f), At(0.67f), tip },
-                        new[] { twigRadius * TWIG_TAPER[0], twigRadius * TWIG_TAPER[1], twigRadius * TWIG_TAPER[2], twigRadius * TWIG_TAPER[3] });
+                    Vector3[] twigPoints = { basePoint, At(0.33f), At(0.67f), tip };
+                    float[] twigRadii = { twigRadius * TWIG_TAPER[0], twigRadius * TWIG_TAPER[1], twigRadius * TWIG_TAPER[2], twigRadius * TWIG_TAPER[3] };
+                    TubeGeometry.AddSweep(woodVertices, woodIndices, 3, twigPoints, twigRadii);
+                    if (fineWoodVertices != null) TubeGeometry.AddSweep(fineWoodVertices, fineWoodIndices, 3, twigPoints, twigRadii);
                     for (int piece = 0; piece < SKELETON_PIECES; piece++)
                         skeleton.Add((At(piece / (float)SKELETON_PIECES), At((piece + 1) / (float)SKELETON_PIECES)));
 
@@ -531,6 +953,11 @@ namespace Prazsky.Core.Render
         }
     }
 
+    /// <summary>
+    /// Straight tapered tubes and their end caps, appended to a vertex/index list — the wood of the acacias,
+    /// the deadwood logs and anything else built from sticks. Radial normals; wound clockwise seen from
+    /// outside, MonoGame's front face. One copy since #451 (it was a private method of the acacia's wood).
+    /// </summary>
     internal static class TubeGeometry
     {
         /// <summary>A straight tapered cylinder a(ra) → b(rb), side faces only.</summary>
