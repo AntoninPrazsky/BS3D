@@ -201,13 +201,14 @@ namespace BS3D.Tools.MusicBake
             if (!File.Exists(sidecar)) return 0;
 
             using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(sidecar));
-            if (!doc.RootElement.TryGetProperty("bake", out JsonElement bake)
+            if (doc.RootElement.ValueKind != JsonValueKind.Object
+                || !doc.RootElement.TryGetProperty("bake", out JsonElement bake)
+                || bake.ValueKind != JsonValueKind.Object
                 || !bake.TryGetProperty("trim_db", out JsonElement trim)) return 0;
 
-            double db = trim.GetDouble();
-            if (db is >= -6.0 and <= 0.0) return db;
+            if (trim.ValueKind == JsonValueKind.Number && trim.TryGetDouble(out double db) && db is >= -6.0 and <= 0.0) return db;
 
-            Console.WriteLine($"  ⚠ {Path.GetFileName(sidecar)}: bake.trim_db {db:+0.0;-0.0} is not a cut of at most 6 dB - ignored");
+            Console.WriteLine($"  ⚠ {Path.GetFileName(sidecar)}: bake.trim_db {trim.GetRawText()} is not a cut of at most 6 dB - ignored");
             return 0;
         }
 
