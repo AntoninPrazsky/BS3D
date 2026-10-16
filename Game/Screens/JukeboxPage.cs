@@ -29,6 +29,12 @@ namespace BS3D.Screens
     /// a hundred and forty. Picking a chapter shows its recordings; picking a recording plays it. Leaving the page stops
     /// it, and the game's own music, which stepped aside, comes back.
     /// </para>
+    /// <para>
+    /// <b>Picking a chapter does not rebuild the page</b> (#901): the recordings' column is cleared and refilled in place
+    /// (<see cref="ShowChapter"/>), so the chapters' scroller is never recreated and keeps its offset, and the player who
+    /// scrolled down for a chapter finds the list where it was for the next one. A rebuild made two new scrollers, and a
+    /// new scroller starts at the top. Only the recordings' own scroller goes back to the top, for the new chapter.
+    /// </para>
     /// </summary>
     internal sealed class JukeboxPage : MenuPage
     {
@@ -73,6 +79,11 @@ namespace BS3D.Screens
         private readonly List<Label> _groupLabels = new();
         private readonly List<Button> _trackButtons = new();
         private readonly List<Label> _trackLabels = new();
+
+        //The recordings' column and the scroller round it, kept so a chapter pick refills the one and returns the other to
+        //the top without building either again
+        private VerticalStackPanel _tracks;
+        private ScrollViewer _trackScroll;
         private Label _nowPlaying;
         private MediaGlyph _playGlyph;
 
@@ -97,8 +108,6 @@ namespace BS3D.Screens
 
             _groupButtons.Clear();
             _groupLabels.Clear();
-            _trackButtons.Clear();
-            _trackLabels.Clear();
             _shownState = -1;
             _group = Math.Clamp(_group, 0, Math.Max(0, _groups.Count - 1));
 
@@ -150,25 +159,13 @@ namespace BS3D.Screens
             };
             right.Widgets.Add(_nowPlaying);
 
-            VerticalStackPanel tracks = SubColumn();
+            _tracks = SubColumn();
+            FillTracks();
+
+            _trackScroll = MenuScroll(_tracks, RIGHT_SURROUNDINGS);
+            right.Widgets.Add(_trackScroll);
+
             RecordingPlayer player = Game.Recordings;
-
-            if (_groups.Count > 0 && player != null)
-            {
-                Group group = _groups[_group];
-                for (int i = 0; i < group.Count; i++)
-                {
-                    int index = group.First + i;
-                    Button button = MenuButton(player.Tracks[index].Title, () => Game.Recordings?.PlayAt(index), out Label label);
-                    button.Width = ColumnWidth;
-                    _trackButtons.Add(button);
-                    _trackLabels.Add(label);
-                    tracks.Widgets.Add(button);
-                }
-            }
-
-            right.Widgets.Add(MenuScroll(tracks, RIGHT_SURROUNDINGS));
-
             right.Widgets.Add(new MusicVisualizer(player, ColumnWidth, Scaled(VISUALIZER_HEIGHT), Scaled(VISUALIZER_BAR_GAP))
             {
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -205,23 +202,63 @@ namespace BS3D.Screens
             HorizontalAlignment = HorizontalAlignment.Center,
         };
 
+        /// <summary>
+        /// Puts the shown chapter's recordings into the recordings' column, taking out whatever it held. The buttons are
+        /// taken out one at a time rather than by <c>Clear</c>: Myra detaches a cleared child from its parent only through
+        /// a copy of the child list that is current only while no change is pending.
+        /// </summary>
+        private void FillTracks()
+        {
+            while (_tracks.Widgets.Count > 0) _tracks.Widgets.RemoveAt(_tracks.Widgets.Count - 1);
+
+            _trackButtons.Clear();
+            _trackLabels.Clear();
+
+            RecordingPlayer player = Game.Recordings;
+            if (_groups.Count == 0 || player == null) return;
+
+            Group group = _groups[_group];
+            for (int i = 0; i < group.Count; i++)
+            {
+                int index = group.First + i;
+                Button button = MenuButton(player.Tracks[index].Title, () => Game.Recordings?.PlayAt(index), out Label label);
+                button.Width = ColumnWidth;
+                _trackButtons.Add(button);
+                _trackLabels.Add(label);
+                _tracks.Widgets.Add(button);
+            }
+        }
+
+        /// <summary>
+        /// Shows chapter <paramref name="group"/>'s recordings in place (#901): the column is refilled and its scroller
+        /// returned to the top, the chapters' scroller is not touched. The pad's cursor stays on the chapter it picked - the
+        /// entries are read again, because the recordings it could have walked to are new buttons - and a cursor that was
+        /// down (the pointer drove) stays down.
+        /// </summary>
+        private void ShowChapter(int group)
+        {
+            _group = group;
+            FillTracks();
+            _trackScroll.ScrollPosition = Point.Zero;
+
+            //The marks on the lists are written when the state they are written for changes, and the new buttons have none
+            _shownState = -1;
+
+            if (IsActive) Game.RefreshNavEntries(group < _groupButtons.Count ? _groupButtons[group] : null);
+        }
+
         public override void Update(GameTime gameTime)
         {
             base.Update(gameTime);
 
-            //A chapter picked: its recordings replace the right column. Taken here, not in the click, because the click
-            //comes from inside Myra's own processing of the tree it would be replacing (Help's page turn does the same)
+            //A chapter picked: its recordings replace the right column's. Taken here, not in the click, because the click
+            //comes from inside Myra's own processing of the tree it is changing (Help's page turn does the same)
             if (_pendingGroup >= 0)
             {
                 int group = _pendingGroup;
                 _pendingGroup = -1;
 
-                if (group != _group)
-                {
-                    _group = group;
-                    InvalidateTree();
-                    Game.RebuildPage(this, () => group < _groupButtons.Count ? _groupButtons[group] : null);
-                }
+                if (group != _group) ShowChapter(group);
             }
 
             if (_playOnShow && _built && _groups.Count > 0)
