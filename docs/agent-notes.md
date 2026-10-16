@@ -915,3 +915,8 @@ Pravidla:
 - Hotovo (větev `733-conifer-crown`): High a Ultra kreslí korunu smrku z jednotlivých větví (`SpruceCrownGeometry`) podle téhož plánu přeslenů jako soustružená koruna. Pod větvemi je tmavé jádro, sníh leží v chomáčích jako geometrie a pod `FINE_NEAR_RADIUS` 110 je jemnější detail. Low, Medium a Potato mají starou korunu beze změny (`finemeshes=0` proti mainu: liší se jen padající vločky a zásobník děla). Platí i pro denní les. Ve hře na Fish +0,23 ms (High 9,49 → 9,72), v Testbedu +0,32 ms u hrací kamery.
 - ⚠ Sníh přes prachový člen zbělil všechny ploché větve. Cena je v trojúhelnících, ne v pixelech (ssaa 1 i 2 stejně), proto vzdálené stromy dostávají lehčí korunu.
 - Otevřené: verdikt oka; snímky před a po jsou v `verdicts\733\`.
+
+## 2026-10-16 — #903 #894 #888 #901 ryby, stín náhledu, obruče, Jukebox — desktop (RDT-PC), Claude Code (bs3d-5f)
+- Hotovo (merge 80922935, eb8505d8, CI zelené): #903 úhel ryb ze základního poloměru (sonda: 52–63 ryb ocasem napřed v čase 600 s, po opravě 0), Testbed má `clock=`; #894 náhledová kulička se sbírá až po stínovém průchodu (426 → 425 vrhačů); #888 obruče trychtýře se kreslí s ostrovem před ohni; #901 výběr kapitoly v Jukeboxu plní nahrávky na místě, seznam drží posun.
+- Otevřené: #903 rychlost hejna (3,2 j/s) na oko majitele; #901 vyznačit hrající kapitolu; #888 krok 3 (shluk a dělo zvenku, nepotvrzeno).
+- ⚠ Agenti na Sonnetu, snímky 1920×1080 a menší, GPU zámek relace bs3d-48. Reviewer jedné opravy vrátil prázdný výsledek; diff jsem pak prošel sám.
