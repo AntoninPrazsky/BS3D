@@ -897,3 +897,9 @@ Pravidla:
 - Kruh skleněné koule bral barvu posledního barevného kbelíku, takže měla tmavý obrys. Teď nastavuje vlastní uniformy a obrys je bledý.
 - `PotatoSkyFigure` si parametry a techniky uloží při stavbě. Řádek Scenery na Potato ukazuje „On (Potato)“. Opravené docs a komentáře.
 - ⚠ Tools/SemanticSearch neběžel, protože se démon LM Studia nespustil. Duplicita se hledala podle klíčových slov.
+
+## 2026-10-16 — #733 smrky z větví na High a Ultra — desktop (RDT-PC), Claude Code (bs3d-ac)
+- majitel (2026-10-15): odparkováno do příštího vydání (polární záře, kapitola 5).
+- Hotovo (větev `733-conifer-crown`): High a Ultra kreslí korunu smrku z jednotlivých větví (`SpruceCrownGeometry`) podle téhož plánu přeslenů jako soustružená koruna. Pod větvemi je tmavé jádro, sníh leží v chomáčích jako geometrie a pod `FINE_NEAR_RADIUS` 110 je jemnější detail. Low, Medium a Potato mají starou korunu beze změny (`finemeshes=0` proti mainu: liší se jen padající vločky a zásobník děla). Platí i pro denní les. Ve hře na Fish +0,23 ms (High 9,49 → 9,72), v Testbedu +0,32 ms u hrací kamery.
+- ⚠ Sníh přes prachový člen zbělil všechny ploché větve. Cena je v trojúhelnících, ne v pixelech (ssaa 1 i 2 stejně), proto vzdálené stromy dostávají lehčí korunu.
+- Otevřené: verdikt oka; snímky před a po jsou v `verdicts\733\`.
