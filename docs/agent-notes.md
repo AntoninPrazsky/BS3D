@@ -920,3 +920,8 @@ Pravidla:
 - Hotovo (merge 80922935, eb8505d8, CI zelené): #903 úhel ryb ze základního poloměru (sonda: 52–63 ryb ocasem napřed v čase 600 s, po opravě 0), Testbed má `clock=`; #894 náhledová kulička se sbírá až po stínovém průchodu (426 → 425 vrhačů); #888 obruče trychtýře se kreslí s ostrovem před ohni; #901 výběr kapitoly v Jukeboxu plní nahrávky na místě, seznam drží posun.
 - Otevřené: #903 rychlost hejna (3,2 j/s) na oko majitele; #901 vyznačit hrající kapitolu; #888 krok 3 (shluk a dělo zvenku, nepotvrzeno).
 - ⚠ Agenti na Sonnetu, snímky 1920×1080 a menší, GPU zámek relace bs3d-48. Reviewer jedné opravy vrátil prázdný výsledek; diff jsem pak prošel sám.
+
+## 2026-10-17 — #899 #886 #882 smyčka Jukeboxu, okraj plamene, listy akácií — desktop (RDT-PC), Claude Code (bs3d-5f)
+- Hotovo (merge 3668bfbe, CI zelené): #899 Jukebox opakuje hrající nahrávku (obrací rozhodnutí z #704, jak majitel chtěl); #886 plamen slábne před okrajem čtyřúhelníku (svislý ořez ve 35 z 80 snímků → 0, +0,068 ms); #882 listy akácie podle tečny větvičky (C#: 40–65 % karet proti větvičce → 0, výkon beze změny).
+- Otevřené: #886 objemová plazma (krok 3); šev smyčky Jukeboxu nikdo neslyšel.
+- ⚠ Fronta verdiktů 17: beru jen chyby, nástroje a měření (#876, sloupce `measure-music.py` pro #913/#910/#914).
