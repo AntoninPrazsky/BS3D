@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
 using System;
+using System.Diagnostics;
 
 namespace BS3D
 {
@@ -20,13 +21,16 @@ namespace BS3D
     /// once (<c>PotatoOutput.fxh</c>), because there is no HDR target to resolve.
     /// </para>
     /// <para>
-    /// <b>What it does not build.</b> No <see cref="SceneRenderer"/> - the twenty-one backdrops are the desktop's most
-    /// expensive pixels and each is its own SM 5.0 effect - so the island stands under the dome's gradient alone, drawn
-    /// through <c>PotatoSky</c>, the player's exposure and all (no <c>Sky.fx</c>, so no cloud deck and no sun disc). No
-    /// <see cref="PostProcessPipeline"/>: no bloom, no defocus, no motion blur, no grain, and the HUD's layer is drawn
-    /// straight. No street level, and no forest or aurora wood (they are planted from the scene renderer's configs, and
-    /// only those scenes' backdrops would show them). The city's towers and roofs are still generated, being plain
-    /// instanced boxes the host's scene switch holds on to, but nothing draws them.
+    /// <b>What it builds in place of the desktop's.</b> No <see cref="SceneRenderer"/> - the twenty-one backdrops are the
+    /// desktop's most expensive pixels and each is its own SM 5.0 effect. Instead each of the fourteen scenes the levels
+    /// are set in has a low-poly backdrop of its own (<see cref="PotatoBackdrop"/>, #829: the ground, the scatter, the
+    /// aurora's spruce stand, the cities' near towers, all lit at the vertex through <c>PotatoVertexLit</c>), and four of
+    /// them a sky of their own (<see cref="PotatoSkyFigure"/>: space, the aurora, the dream and the Moon's stars). Any
+    /// other scene's island stands under the dome's gradient alone, drawn through <c>PotatoSky</c>, the player's exposure
+    /// and all (no <c>Sky.fx</c>, so no cloud deck and no sun disc). No <see cref="PostProcessPipeline"/>: no bloom, no
+    /// defocus, no motion blur, no grain, and the HUD's layer is drawn straight. None of the host's own scenery is built:
+    /// no street level, no city or roofs (<see cref="PotatoBackdrop"/> lays out a city of its own), no forest or aurora
+    /// wood planted from the scene renderer's configs.
     /// </para>
     /// <para>
     /// <b>When it runs.</b> In a run held at <see cref="QualityLevel.Potato"/> (<see cref="QualityLock"/>): GamePi,
@@ -114,33 +118,43 @@ namespace BS3D
         }
 
         /// <summary>
-        /// <see cref="BeginSceneDraw"/> on the Potato path: the back buffer cleared to the dome's horizon, the dome's
-        /// gradient, then the island and its pit - and the frame the rest of the draw needs. No shadow maps, no clouds,
-        /// no backdrop, no sea or kill-plane fade; of the scene's own lamps only those no backdrop has to be built for
-        /// (#795, <see cref="SceneLights.Apply"/> with no renderer). The cup and the confetti are drawn last of all
-        /// instead of first into a layer (<see cref="CompositeForegroundLast"/>).
-        /// </summary>
-        /// <summary>
-        /// The scene's backdrop on the Potato path (#829): its ground and scatter through PotatoLit, or null for a scene
-        /// that keeps the dome's gradient alone. Built by <see cref="EnsurePotatoBackdrop"/> at a scene change and once the
-        /// island exists; its renderers are sky-lit with the island's (<c>SkyLitRenderers</c>).
+        /// The scene's backdrop on the Potato path (#829): its ground and scatter lit at the vertex through
+        /// <c>PotatoVertexLit</c>, or null for a scene that keeps the dome's gradient alone. Built by
+        /// <see cref="EnsurePotatoBackdrop"/> when the scene changes; its renderers are sky-lit with the island's
+        /// (<c>SkyLitRenderers</c>).
         /// </summary>
         private PotatoBackdrop _potatoBackdrop;
 
-        /// <summary>The scene's own sky where it has one on this path (space, the aurora, the dream), rebuilt with the backdrop.</summary>
+        /// <summary>The scene's own sky where it has one on this path (space, the aurora, the dream, the Moon's stars), built with the backdrop.</summary>
         private PotatoSkyFigure _potatoSkyFigure;
 
+        /// <summary>The scene <see cref="_potatoBackdrop"/> and <see cref="_potatoSkyFigure"/> were built for, null before the first build.</summary>
+        private SceneKind? _potatoBackdropScene;
+
         /// <summary>
-        /// The backdrop of the current scene and its own sky, rebuilt when the scene changes. Nothing before the effect
-        /// is loaded; the startup's SetScene, which runs after LoadContent's BuildScene, makes the first one - BuildScene
-        /// itself builds none, or it would build _scene's initial value's (the neon city's) and drop it.
+        /// The backdrop of the current scene and its own sky, built when the scene is not the one they were built for.
+        /// Nothing before the effect is loaded; the startup's SetScene, which runs after LoadContent's BuildScene, makes
+        /// the first one - BuildScene itself builds none, or it would build _scene's initial value's (the neon city's) and
+        /// drop it.
+        /// <para>
+        /// <b>Only when the scene changes</b> (#897). <see cref="SetScene"/> runs at every level start, every restart and
+        /// every rest of the level picker's pointer, nearly always on the scene already up, and each rebuild uploaded the
+        /// same meshes again: 4 to 11 ms for a city, 30 to 120 for the meadow and the savanna, 130 to 150 for the Moon's
+        /// boulders on the desktop, several times that on the Pi, at a level's start. Nothing else the build reads changes
+        /// in a run: the seed offset is rolled once, the city config's seeds once in <see cref="BuildScene"/> and its block
+        /// radius is the tier's, which a Potato run never changes; the light rig reaches the renderers through every
+        /// SetScene's <see cref="ApplySkyLighting"/> whether they were rebuilt or not.
+        /// </para>
         /// </summary>
         private void EnsurePotatoBackdrop()
         {
-            if (!PotatoPath || _instancingEffect == null) return;
+            if (!PotatoPath || _instancingEffect == null || _potatoBackdropScene == _scene) return;
+
+            _potatoBackdropScene = _scene;
+            long start = Stopwatch.GetTimestamp();
 
             _potatoSkyFigure?.Dispose();
-            _potatoSkyFigure = PotatoSkyFigure.For(_scene, GraphicsDevice);
+            _potatoSkyFigure = PotatoSkyFigure.For(_scene, GraphicsDevice, _skyEffect);
 
             _potatoBackdrop?.Dispose();
             _potatoBackdrop = PotatoBackdrop.For(_scene, GraphicsDevice, _instancingEffect, ArenaIsland.TERRAIN_HOLE_RADIUS, _sceneSeedOffset, _cityConfig);
@@ -151,10 +165,18 @@ namespace BS3D
             if (_rig != null)
                 foreach (InstancedModelRenderer renderer in _potatoBackdrop.Renderers) _rig.ApplyTo(renderer);
 
-            //A load line, not a frame's: what this scene's backdrop hands V3D, the price #829 measures a scene by
-            Console.WriteLine($"[potato] {_scene} backdrop: {_potatoBackdrop.VertexCount} vertices a frame in {_potatoBackdrop.Renderers.Count} draws ({_potatoBackdrop.Census})");
+            //A load line, not a frame's: what this scene's backdrop hands V3D, the price #829 measures a scene by, and what
+            //building it took, the hitch a scene change costs
+            Console.WriteLine($"[potato] {_scene} backdrop built in {Stopwatch.GetElapsedTime(start).TotalMilliseconds:F0} ms: {_potatoBackdrop.VertexCount} vertices a frame in {_potatoBackdrop.Renderers.Count} draws ({_potatoBackdrop.Census})");
         }
 
+        /// <summary>
+        /// <see cref="BeginSceneDraw"/> on the Potato path: the frame cleared to the dome's horizon and the dome's gradient,
+        /// or a sky-replacing scene's void and its own sky; then the scene's backdrop, the island and its pit - and the
+        /// frame the rest of the draw needs. No shadow maps, no clouds, no sea or kill-plane fade; of the scene's own lamps
+        /// only those no desktop backdrop has to be built for (#795, <see cref="SceneLights.Apply"/> with no renderer). The
+        /// cup and the confetti are drawn last of all instead of first into a layer (<see cref="CompositeForegroundLast"/>).
+        /// </summary>
         private SceneFrame BeginPotatoSceneDraw()
         {
             _ceilingGlassBehind = null;
@@ -172,9 +194,9 @@ namespace BS3D
                 GraphicsDevice.Clear(new Color(ColorSpace.LinearToSrgb(voidLinear)));
 
                 //Space, the aurora and the dream have a picture of their own (#829, PotatoSky.fx's figures): a finer sphere
-                //drawn with the scene's technique and its stars over it, the void under them. Nothing is drawn by a build
-                //ahead of its compiled effect (GamePi/Shaders/Compiled), which keeps the void
-                _potatoSkyFigure?.Draw(_skyEffect, _camera, _wallClock);
+                //drawn with the scene's technique and its stars over it, the void under them; the Moon its stars alone.
+                //Nothing is drawn by a build ahead of its compiled effect (GamePi/Shaders/Compiled), which keeps the void
+                _potatoSkyFigure?.Draw(_camera, _wallClock);
             }
             else
             {

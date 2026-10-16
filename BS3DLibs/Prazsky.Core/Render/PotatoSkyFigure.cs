@@ -29,13 +29,42 @@ namespace Prazsky.Core.Render
         private IndexBuffer _sphereIndices, _starIndices;
         private readonly int _sphereTriangles, _starCount;
 
+        //The effect's techniques and uniforms, looked up once here (BestPractices.md: the by-name indexers are linear scans,
+        //and this draws every frame of four scenes). A technique is null on an effect compiled before it existed; a
+        //parameter the compiler dropped is null and skipped
+        private readonly Effect _effect;
+        private readonly EffectTechnique _technique, _starsTechnique, _firstTechnique;
+        private readonly EffectParameter _world, _view, _projection, _time, _void, _colorA, _colorB, _colorC, _colorD,
+            _axis, _axis2, _params, _params2, _starSize;
+
         /// <summary>The scene's look: the technique and its uniforms.</summary>
         public PotatoSceneRig.PotatoSkyLook Look { get; }
 
-        private PotatoSkyFigure(GraphicsDevice device, PotatoSceneRig.PotatoSkyLook look, VertexPositionColorTexture[] stars)
+        private PotatoSkyFigure(GraphicsDevice device, Effect effect, PotatoSceneRig.PotatoSkyLook look, VertexPositionColorTexture[] stars)
         {
             _device = device;
+            _effect = effect;
             Look = look;
+
+            _technique = look.Technique != null ? effect.Techniques[look.Technique] : null;
+            _starsTechnique = effect.Techniques["PotatoSkyStars"];
+            _firstTechnique = effect.Techniques[0];
+
+            EffectParameterCollection parameters = effect.Parameters;
+            _world = parameters["World"];
+            _view = parameters["View"];
+            _projection = parameters["Projection"];
+            _time = parameters["SkyTime"];
+            _void = parameters["SkyVoid"];
+            _colorA = parameters["SkyColorA"];
+            _colorB = parameters["SkyColorB"];
+            _colorC = parameters["SkyColorC"];
+            _colorD = parameters["SkyColorD"];
+            _axis = parameters["SkyAxis"];
+            _axis2 = parameters["SkyAxis2"];
+            _params = parameters["SkyParams"];
+            _params2 = parameters["SkyParams2"];
+            _starSize = parameters["StarSize"];
 
             (VertexPositionColor[] vertices, int[] indices) = BuildSphere(RINGS, SEGMENTS, RADIUS);
             _sphere = new VertexBuffer(device, VertexPositionColor.VertexDeclaration, vertices.Length, BufferUsage.WriteOnly);
@@ -61,8 +90,11 @@ namespace Prazsky.Core.Render
             }
         }
 
-        /// <summary>The figure of <paramref name="scene"/>, or null for a scene with none (<see cref="PotatoSceneRig.SkyLookOf"/>).</summary>
-        public static PotatoSkyFigure For(SceneKind scene, GraphicsDevice device)
+        /// <summary>
+        /// The figure of <paramref name="scene"/>, or null for a scene with none (<see cref="PotatoSceneRig.SkyLookOf"/>),
+        /// drawn through <paramref name="effect"/>, <c>PotatoSky</c>.
+        /// </summary>
+        public static PotatoSkyFigure For(SceneKind scene, GraphicsDevice device, Effect effect)
         {
             PotatoSceneRig.PotatoSkyLook look = PotatoSceneRig.SkyLookOf(scene);
             if (look == null) return null;
@@ -75,7 +107,7 @@ namespace Prazsky.Core.Render
                 SceneKind.Moon => BuildStars(1300, 2028, null, 0f),
                 _ => Array.Empty<VertexPositionColorTexture>(),
             };
-            return new PotatoSkyFigure(device, look, stars);
+            return new PotatoSkyFigure(device, effect, look, stars);
         }
 
         /// <summary>A sphere of <paramref name="radius"/>, rings by segments, the colour unused; no device, for the tests.</summary>
@@ -147,59 +179,58 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Draws the sphere with the scene's technique and the stars over it, round the camera, with no depth test; the
-        /// look's uniforms and the clock pushed first. False, and nothing drawn, when the effect has no such technique
-        /// (a build ahead of its compiled effect). Leaves the depth state default and the blend state alpha, as
-        /// BeginPotatoSceneDraw states them after the dome.
+        /// look's uniforms and the clock pushed first: every frame, since the effect is the dome's too. False, and nothing
+        /// drawn, when the effect has no such technique (a build ahead of its compiled effect). Leaves the depth state
+        /// default and the blend state alpha, as BeginPotatoSceneDraw states them after the dome.
         /// </summary>
-        public bool Draw(Effect effect, ICamera camera, float time)
+        public bool Draw(ICamera camera, float time)
         {
             //A look with no technique is the stars alone over the void (the Moon)
-            EffectTechnique technique = Look.Technique != null ? effect.Techniques[Look.Technique] : null;
-            if (Look.Technique != null && technique == null) return false;
+            if (Look.Technique != null && _technique == null) return false;
 
-            effect.Parameters["World"]?.SetValue(Matrix.CreateTranslation(camera.Position));
-            effect.Parameters["View"]?.SetValue(camera.View);
-            effect.Parameters["Projection"]?.SetValue(camera.Projection);
-            effect.Parameters["SkyTime"]?.SetValue(time);
-            effect.Parameters["SkyVoid"]?.SetValue(Look.Void);
-            effect.Parameters["SkyColorA"]?.SetValue(Look.ColorA);
-            effect.Parameters["SkyColorB"]?.SetValue(Look.ColorB);
-            effect.Parameters["SkyColorC"]?.SetValue(Look.ColorC);
-            effect.Parameters["SkyColorD"]?.SetValue(Look.ColorD);
-            effect.Parameters["SkyAxis"]?.SetValue(Look.Axis);
-            effect.Parameters["SkyAxis2"]?.SetValue(Look.Axis2);
-            effect.Parameters["SkyParams"]?.SetValue(Look.Params);
-            effect.Parameters["SkyParams2"]?.SetValue(Look.Params2);
+            Effect effect = _effect;
+            _world?.SetValue(Matrix.CreateTranslation(camera.Position));
+            _view?.SetValue(camera.View);
+            _projection?.SetValue(camera.Projection);
+            _time?.SetValue(time);
+            _void?.SetValue(Look.Void);
+            _colorA?.SetValue(Look.ColorA);
+            _colorB?.SetValue(Look.ColorB);
+            _colorC?.SetValue(Look.ColorC);
+            _colorD?.SetValue(Look.ColorD);
+            _axis?.SetValue(Look.Axis);
+            _axis2?.SetValue(Look.Axis2);
+            _params?.SetValue(Look.Params);
+            _params2?.SetValue(Look.Params2);
 
             _device.DepthStencilState = DepthStencilState.None;
             _device.BlendState = BlendState.Opaque;
             _device.RasterizerState = RasterizerState.CullNone;
 
-            if (technique != null)
+            if (_technique != null)
             {
-                effect.CurrentTechnique = technique;
-                effect.CurrentTechnique.Passes[0].Apply();
+                effect.CurrentTechnique = _technique;
+                _technique.Passes[0].Apply();
                 _device.SetVertexBuffer(_sphere);
                 _device.Indices = _sphereIndices;
                 _device.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _sphereTriangles);
             }
 
-            EffectTechnique stars = _starCount > 0 ? effect.Techniques["PotatoSkyStars"] : null;
-            if (stars != null)
+            if (_starCount > 0 && _starsTechnique != null)
             {
                 Viewport viewport = _device.Viewport;
                 float pixels = STAR_PIXELS * viewport.Height / 1080f;
-                effect.Parameters["StarSize"]?.SetValue(new Vector2(2f * pixels / viewport.Width, 2f * pixels / viewport.Height));
+                _starSize?.SetValue(new Vector2(2f * pixels / viewport.Width, 2f * pixels / viewport.Height));
 
                 _device.BlendState = BlendState.Additive;
-                effect.CurrentTechnique = stars;
-                effect.CurrentTechnique.Passes[0].Apply();
+                effect.CurrentTechnique = _starsTechnique;
+                _starsTechnique.Passes[0].Apply();
                 _device.SetVertexBuffer(_stars);
                 _device.Indices = _starIndices;
                 _device.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _starCount * 2);
             }
 
-            effect.CurrentTechnique = effect.Techniques[0];
+            effect.CurrentTechnique = _firstTechnique;
             _device.DepthStencilState = DepthStencilState.Default;
             _device.BlendState = BlendState.AlphaBlend;
             return true;

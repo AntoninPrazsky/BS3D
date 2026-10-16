@@ -890,3 +890,10 @@ Pravidla:
 - majitel: potvrdil, že obrázky v #21 jsou jeho ruční rendery z Wings 3D (zapsáno do #896). Verdikty #706, #732, #824, #841: zbytek OK, jmenované skladby na navazujících #905, #907, #910, #913; čtyři issues zavřeny, fronta verdiktů je 15.
 - ⚠ Příčina ryb po ocasu (#903) je ve Fish.fx: úhel dělí čas relace poloměrem, který se mění s časem, takže rychlost roste a u části ryb jde do záporu. Jukebox hraje nahrávky bez vrstvy bicích (RecordingPlayer.cs:13-14): „bubny přebíjejí“ slyšel na plné hlasitosti.
 - Otevřené: žádný snímek ani poslech (druhá relace na desktopu); smyčka v Jukeboxu (#899) obrací jeho rozhodnutí z #704.
+
+## 2026-10-16 — #897 Potato: nálezy předvydávací revize — desktop (RDT-PC), Claude Code (bs3d-ac)
+- Hotovo (větev `897-potato-review-fixes`): Potato backdrop se staví jen při změně scény; dřív se stavěl znovu při každém startu levelu, restartu i zastavení ukazatele v pickeru. Na desktopu to byl záškub 4–15 ms ve městě, 30–125 ms na louce a v savaně a 130–170 ms na Měsíci. Čas stavby je teď na řádku `[potato]`.
+- Potato už nestaví hostitelské město, střechy ani ulice: start je asi o 165 ms kratší (BuildScene 1356 → 1191 ms).
+- Kruh skleněné koule bral barvu posledního barevného kbelíku, takže měla tmavý obrys. Teď nastavuje vlastní uniformy a obrys je bledý.
+- `PotatoSkyFigure` si parametry a techniky uloží při stavbě. Řádek Scenery na Potato ukazuje „On (Potato)“. Opravené docs a komentáře.
+- ⚠ Tools/SemanticSearch neběžel, protože se démon LM Studia nespustil. Duplicita se hledala podle klíčových slov.
