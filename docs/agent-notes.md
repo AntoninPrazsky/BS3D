@@ -859,3 +859,9 @@ Pravidla:
 - Review: krok stropu čeká přes zpomalení, kinematografie zpomalení řezu ukončí, náboj si po Swapu nese záři i úhel, odměna řezu se narodí 0,7 s po zásahu (stála přes řez). `CutStaging` v testech, 12 zasazených chyb každá shodí test.
 - ⚠ Úder přičtený k ráně výstřelu přešel strop, proto `PadChannel.KickUpTo`. Snímek 1920×1080 stojí ~0,5 s, proto `cutshot=`.
 - Otevřené: oko a ucho majitele, ruka na padu, PresentMon.
+
+## 2026-10-16 — #824 hudba The Grid přegenerována — desktop (RDT-PC), Claude Code (bs3d-ac)
+- Hotovo (merge na main, `shipped-awaiting-verdict` + `verdict-eye`): osm nahrávek rodiny `pulse` podle vzoru `ember` (melodie ve středech, pohon z aranže); `vector` a holý `pulse` zůstaly. Big room → piano house (`pulse-piano-house`). 83 renderů v nejvýš pěti kolech, výběr měřením. Pět uvnitř rozsahu `ember` ve všem, techno a electrofunk těsně pod v počtu změn tónu, synthpop tenký v 200 Hz–2 kHz (6,8 %). Vše ≤ 2,0 % nad 6 kHz. Progressive nemá bicí, starou vrstvu bylo nutné smazat.
+- ⚠ Výšky tanečních stylů jsou v hi-hatech a liší se víc mezi seedy než mezi zadáními; jasné house piano je také výška. Zapsáno v `music-generation.md`.
+- Mastery `C:/Users/panrd/AI/output/masters-824-chosen`, kandidáti `masters-824`; poslech v `verdicts/824` scratchpadu bs3d-ac.
+- Otevřené: ucho majitele; synthpop (sedmnáct renderů nedrželo středy i výšky zároveň).
