@@ -45,12 +45,13 @@ Testbed.exe logfps alt=all;all,-cap;none            # the old arena-only spellin
 
 ### The dials
 
-**Only a dial whose switch leaves nothing behind may alternate**, or the next window measures the transition. The list is `ALTERNATION_DIALS` in `Testbed.cs`: `arena`, `capprobe`, `scene`, `sky`, `balls`, `colourcue` (#737, also a plain argument: `none`, `motif` (each style its own set, the default), `motif:1` to `motif:4`; ⚠ for its cost run one set per process, see "The colour cue" in `docs/rendering/ball-styles.md`), `ssaa`, `msaa`, `rscale`, `detail`, `shadow`, `shadowmap`, `ballshadow`, `glassshadow`, `exposure`, `nopost`, `volcano`.
+**Only a dial whose switch leaves nothing behind may alternate**, or the next window measures the transition. The list is `ALTERNATION_DIALS` in `Testbed.cs`: `arena`, `capprobe`, `scene`, `sky`, `balls`, `colourcue` (#737, also a plain argument: `none`, `motif` (each style its own set, the default), `motif:1` to `motif:4`; ⚠ for its cost run one set per process, see "The colour cue" in `docs/rendering/ball-styles.md`), `ssaa`, `msaa`, `rscale`, `detail`, `finemeshes`, `shadow`, `shadowmap`, `ballshadow`, `glassshadow`, `exposure`, `nopost`, `volcano`.
 
 - **`nooverc` is refused**, because the overcast lerp carries across a switch; pin it for the whole run. For the same reason a scene pin snaps its weather (`SetScene(…, immediately: true)`).
 - **`ssaa` reaches four places** (the pipeline's target, the tonemap's filter, the space scene's stars, the balls' dither cell), so it goes through `SetSupersampleFactor`; setting some of them measures a mixture.
 - **`shadow=<0..1>`** pins `SceneRenderer.ShadowScale` over the scene's `ShadowConfig.Strength`; 0 is the same code path as a `Strength` of 0 (no target, no caster pass, no taps). `detail=0` is not a substitute: it also switches scenes to a reduced program. The `[fps]` line shows `shadow <x>` only below 1.
 - **`shadowmap=<size>`** (#484) pins `SceneRenderer.ShadowMapSizeOverride` (0 = the scene's `ShadowConfig.MapSize`), winning over the Game's `ShadowMapSizeCap`/`ShadowMapSizeScale`.
+- **`finemeshes=<0|1>`** (#758, also a plain argument) pins `SceneRenderer.FineMeshes`: 0 draws Low and Medium's coarser meshes (the savanna acacias' tube wood) instead of High's grown fork. It is read per draw, so it alternates cleanly. On by default.
 - **`ballshadow=<0|1>`** isolates the balls' casting cost; **`glassshadow=<0|1>`** (#553) the ceiling glass's shadow ("The ceiling's glass shadow" in `docs/rendering.md`). Both default on.
 - ⚠ **`shadowmap=` and `volcano=` are pins only**: `TestOptions.Parse` has no plain case, so `shadowmap=2048` alone prints `[args] Ignored` and changes nothing; use `alt=shadowmap=2048`. A dial added to `ApplyVariant` needs a `TestOptions.Parse` case to work plainly. Any unrecognised argument that does not look like a file is printed as `[args] Ignored '<arg>'` (#574).
 

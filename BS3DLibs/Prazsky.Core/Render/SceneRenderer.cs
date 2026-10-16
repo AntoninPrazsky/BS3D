@@ -280,6 +280,24 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// Whether the scenes draw their <b>finer meshes</b> (#758): High and Ultra's, where Low and Medium draw the coarser
+        /// mesh of the same thing off the same instances (<see cref="ScatterBucket.FineMeshes"/>). Today that is the savanna
+        /// acacias' wood alone — the fork grown as one surface out of a swollen, lobed crotch rather than tubes poking out
+        /// of the trunk's cut end, at twelve to twenty sides where the coarse wood has seven (<see cref="AcaciaMesh.FineWood"/>).
+        /// <para>
+        /// A switch of its own rather than a step of <see cref="SceneDetail"/>, because that one is Low's alone (#298) and
+        /// this one is Medium's too: Medium is the weak machine's rung. A plain flag for <see cref="SupersampleFactor"/>'s
+        /// reason — the tier lives in the Game. Left on, a caller that never sets it draws the authored look, which is what
+        /// the Testbed and the map editor want. Costed in "The acacia's fork" in docs/scenes/savanna-trees.md.
+        /// </para>
+        /// </summary>
+        public bool FineMeshes
+        {
+            get => _services.FineMeshes;
+            set => _services.FineMeshes = value;
+        }
+
+        /// <summary>
         /// Whether the scene shaders may draw their <b>expensive extras</b> — the forest floor's triplanar
         /// normal variation and its procedural tree shadows, and the dream's four. 1 is the authored look;
         /// 0 is the reduced one, and each scene that has a reduced program compiles it as a second technique.

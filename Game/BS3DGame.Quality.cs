@@ -628,6 +628,10 @@ namespace BS3D
             {
                 _sceneRenderer.ShadowMapSizeScale = preset.ShadowMapScale;
                 _sceneRenderer.ShadowMapSizeCap = preset.ShadowMapCap;
+
+                //And the finer meshes (#758): High and Ultra draw the acacias' grown fork, Low and Medium the tubes.
+                //Read per draw, so nothing is rebuilt. See QualityPreset.FineMeshes
+                _sceneRenderer.FineMeshes = preset.FineMeshes;
             }
 
             //And the arena's stone cap, which is the first thing the tier reaches that is NOT a scene — it is

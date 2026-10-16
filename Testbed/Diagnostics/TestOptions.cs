@@ -245,6 +245,13 @@ namespace Testbed.Diagnostics
         /// </para>
         /// </summary>
         public float SceneDetail { get; private set; } = -1f;
+
+        /// <summary>
+        /// <c>finemeshes=&lt;0|1&gt;</c>: High and Ultra's finer meshes - <c>SceneRenderer.FineMeshes</c> (#758, the
+        /// savanna acacias' grown fork). On by default, the authored look; 0 draws Low and Medium's tubes, so the two can
+        /// be photographed from one pinned camera and, through <c>alt=</c>, measured in one process.
+        /// </summary>
+        public bool? FineMeshes { get; private set; }
         /// <summary>
         /// <c>shadow=&lt;0..1&gt;</c>: a multiplier over whichever scene's <c>ShadowConfig.Strength</c> is up -
         /// <c>SceneRenderer.ShadowScale</c>. 0 is no map at all (no target, no caster pass, no taps), 1 the
@@ -469,6 +476,7 @@ namespace Testbed.Diagnostics
                 else if (arg.StartsWith("msaa=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("msaa=".Length), out int parsedMsaa)) options.MsaaSamples = parsedMsaa;
                 else if (arg.StartsWith("rscale=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("rscale=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedRscale)) options.RenderScale = parsedRscale;
                 else if (arg.StartsWith("detail=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("detail=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedDetail)) options.SceneDetail = parsedDetail;
+                else if (arg.StartsWith("finemeshes=", StringComparison.OrdinalIgnoreCase)) options.FineMeshes = arg.Substring("finemeshes=".Length) is not ("0" or "false" or "off");
                 else if (arg.StartsWith("shadow=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("shadow=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedShadow)) options.ShadowScale = parsedShadow;
                 //Read here for the same reason "logfps" is (see the comment above it): an argument this parse
                 //does not recognise falls through to StartupMapPath, so "ballshadow=0" before now overwrote

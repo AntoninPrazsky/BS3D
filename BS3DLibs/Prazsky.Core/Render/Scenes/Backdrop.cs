@@ -194,6 +194,10 @@ namespace Prazsky.Core.Render
         /// <summary>The caller's supersampling factor — <see cref="SceneRenderer.SupersampleFactor"/>, which forwards here.</summary>
         public int SupersampleFactor { get; set; } = 1;
 
+        /// <summary>Whether the scenes draw their finer meshes — <see cref="SceneRenderer.FineMeshes"/>, which forwards here.
+        /// Read per draw, so a tier change needs no hook.</summary>
+        public bool FineMeshes { get; set; } = true;
+
         /// <summary>
         /// The renderer's seed offset (its constructor's <c>seedOffset</c>): what every seeded arrangement adds to its
         /// own constant, 0 being the arrangement that shipped.

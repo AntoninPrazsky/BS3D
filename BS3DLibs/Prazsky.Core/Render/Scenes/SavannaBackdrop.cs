@@ -522,11 +522,13 @@ namespace Prazsky.Core.Render
             //own static instance buffer. The Low tier skips the buckets marked as detail (the grass tufts).
             ScatterBucket[] buckets = _savannaScatter.Buckets;
             bool detail = _sceneDetail > 0.5f;
+            bool fine = Services.FineMeshes;
             for (int b = 0; b < buckets.Length; b++)
             {
                 ScatterBucket bucket = buckets[b];
                 if (bucket.DetailOnly && !detail) continue;
                 if (bucket.LowOnly && detail) continue;
+                if (bucket.FineMeshes is bool meshes && meshes != fine) continue;
 
                 _acaciaDiffuseParam.SetValue(bucket.Diffuse);
                 _acaciaDiffuseDryParam.SetValue(bucket.DiffuseDry);
@@ -762,8 +764,10 @@ namespace Prazsky.Core.Render
                 ScatterBucket bucket = buckets[b];
 
                 //The map exists only at scene detail, so the plate crowns never cast into it and the leaf sprays
-                //do, their leaflets cut out here as on screen (#610) — the dapple under a tree is the leaves'
+                //do, their leaflets cut out here as on screen (#610) — the dapple under a tree is the leaves'.
+                //One wood a tree, the tier's (#758)
                 if (!bucket.CastsShadow) continue;
+                if (bucket.FineMeshes is bool meshes && meshes != Services.FineMeshes) continue;
                 _acaciaLeavesParam.SetValue(bucket.Leaves);
                 _acaciaEffect.CurrentTechnique.Passes[0].Apply();
 

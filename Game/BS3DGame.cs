@@ -1496,7 +1496,10 @@ namespace BS3D
                 //The shadow map's cap and Ultra's factor (#484), seeded for exactly the reason above: a Medium
                 //start would otherwise build a High map until the next tier change, and an Ultra one a High map
                 ShadowMapSizeCap = QualityPreset.Presets[(int)_quality].ShadowMapCap,
-                ShadowMapSizeScale = QualityPreset.Presets[(int)_quality].ShadowMapScale
+                ShadowMapSizeScale = QualityPreset.Presets[(int)_quality].ShadowMapScale,
+
+                //The finer meshes (#758), seeded for the same reason: a Medium start would draw High's acacias
+                FineMeshes = QualityPreset.Presets[(int)_quality].FineMeshes
             };
 
             //After the scene renderer, which the rig consults for the scenes that state their own lighting. The
