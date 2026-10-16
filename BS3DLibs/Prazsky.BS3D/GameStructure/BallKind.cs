@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Prazsky.BS3D.GameStructure
 {
@@ -512,6 +514,25 @@ namespace Prazsky.BS3D.GameStructure
         /// </para>
         /// </summary>
         public static bool InCluster(BallKind kind) => kind != BallKind.Wildcard && kind != BallKind.Cutter;
+
+        /// <summary>
+        /// Whether a player can <b>fire</b> a ball of this kind that no level places (#876): the kinds that exist only on the
+        /// gun's side, which is exactly the ones <see cref="InCluster"/> refuses to hang in the lattice (today the wildcard
+        /// and the cutter). It is the same answer asked from the other side, and it is what the shot's own path can carry:
+        /// the contact handler writes a landing into the map with the shot's colour alone (<c>PutBallAt</c> without a kind),
+        /// so a bomb, a rock or any other kind a level places would lose its kind on landing, and the wildcard collapses to
+        /// a colour and the cutter takes a storey and leaves nothing behind. A new shot-only kind has to be refused by
+        /// <see cref="InCluster"/> to be one at all (a cell holding one would be a level that neither clears nor loses),
+        /// so it joins <see cref="ShootableKinds"/> with no edit here.
+        /// </summary>
+        public static bool Shootable(BallKind kind) => !InCluster(kind);
+
+        /// <summary>
+        /// Every kind that <see cref="Shootable"/> says yes to, in enum order, read off the enum so that a kind added
+        /// to it is here as soon as <see cref="InCluster"/> refuses it. What the debug build's pause row (#876) is
+        /// built from.
+        /// </summary>
+        public static IReadOnlyList<BallKind> ShootableKinds { get; } = Enum.GetValues<BallKind>().Where(Shootable).ToArray();
 
         /// <summary>
         /// The spellings a kind answers to on a command line or in a hand-edited file. Lenient in the same way

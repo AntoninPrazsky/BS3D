@@ -1,5 +1,7 @@
 using Microsoft.Xna.Framework;
 using Myra.Graphics2D.UI;
+using Prazsky.BS3D.GameStructure;
+using System.Collections.Generic;
 
 namespace BS3D.Screens
 {
@@ -79,7 +81,86 @@ namespace BS3D.Screens
             //this page that the game should always ask before it quits, and here it throws the run away besides
             column.Widgets.Add(MenuButton("Quit", Game.AskQuit));
 
+            //The dev build's row (#876), under everything the player has: nothing at all in a release, where the kinds are none
+            IReadOnlyList<BallKind> debugKinds = DebugKindRow.Kinds(BuildVersion.Release);
+            _nextRound = null;
+            if (debugKinds.Count > 0) column.Widgets.Add(BuildDebugRow(debugKinds));
+
             return ScreenRoot(column);
         }
+
+        #region The debug row (#876)
+
+        //Design units. The strip stands a clear gap under Quit so that it is not read as one more entry, and its own parts
+        //are close: it is one small thing, a caption, the buttons and a line saying what they did
+        private const int DEBUG_GAP = 60;
+        private const int DEBUG_SPACING = 16;
+        private const int DEBUG_BUTTON_GAP = 26;
+
+        //The "next round" line, written by Refresh from what the paused level's gun holds. Null in a release.
+        private Label _nextRound;
+
+        /// <summary>
+        /// The row: a caption that says plainly it is debug, one button per kind a shot can carry
+        /// (<see cref="DebugKindRow.Kinds"/>: read off the enum, so a kind added there is a button here) and a line saying what
+        /// the bore holds, so a press is seen to have done something behind the dimmed frame. The buttons are an ordinary
+        /// menu entry's in everything but their width: the same type and the same slab height, which the focus prompt at the
+        /// slab's right edge needs (on a shorter slab the key's cap stands out above it). They are cut to the column's width
+        /// between them, the way the About page's two are, and at most <see cref="DebugKindRow.MAX_PER_LINE"/> to a line, so the
+        /// strip never grows wider than the entries above it. They are added left to right under Quit, which is the order the
+        /// pad walks them in; left and right along a line is the host's row rule (#805), as for the Jukebox's controls.
+        /// </summary>
+        private Widget BuildDebugRow(IReadOnlyList<BallKind> kinds)
+        {
+            VerticalStackPanel strip = new()
+            {
+                Spacing = Scaled(DEBUG_SPACING),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = ScaledThickness(0, DEBUG_GAP, 0, 0),
+            };
+
+            strip.Widgets.Add(new Label
+            {
+                Text = DebugKindRow.CAPTION,
+                Font = FontSmall,
+                TextColor = BS3DGame.MENU_TEXT_DIM,
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+
+            int perLine = DebugKindRow.PerLine(kinds.Count);
+            int width = (ColumnWidth - (perLine - 1) * Scaled(DEBUG_BUTTON_GAP)) / perLine;
+            HorizontalStackPanel line = null;
+
+            for (int i = 0; i < kinds.Count; i++)
+            {
+                if (i % perLine == 0)
+                {
+                    line = new HorizontalStackPanel { Spacing = Scaled(DEBUG_BUTTON_GAP), HorizontalAlignment = HorizontalAlignment.Center };
+                    strip.Widgets.Add(line);
+                }
+
+                BallKind kind = kinds[i];
+                Button button = MenuButton(DebugKindRow.Name(kind), () => Game.LoadDebugKind(kind));
+                button.Width = width;
+                button.Padding = ScaledThickness(16, 18);
+                line.Widgets.Add(button);
+            }
+
+            _nextRound = new Label { Font = FontSmall, TextColor = BS3DGame.MENU_TEXT_DIM, HorizontalAlignment = HorizontalAlignment.Center };
+            strip.Widgets.Add(_nextRound);
+            Refresh();
+
+            return strip;
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>Writes the line under the debug row: what the gun's next round is, read off the session each time the page
+        /// comes up and after a press, so it is never a memory of what was clicked.</remarks>
+        internal override void Refresh()
+        {
+            if (_nextRound != null) _nextRound.Text = "Next round: " + Game.NextRoundDescription;
+        }
+
+        #endregion
     }
 }
