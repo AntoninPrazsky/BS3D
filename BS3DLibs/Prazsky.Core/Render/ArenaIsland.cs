@@ -63,7 +63,9 @@ namespace Prazsky.Core.Render
     /// <see cref="DrawGlass"/> — precisely so each executable can keep placing them itself. The Testbed runs
     /// all three from one method; the Game splits them so its session can put the gun, the balls and the shot
     /// trails between the pit and the glass, and so its front end can run a frame with nothing between them
-    /// at all. Anything that unified the three into one <c>Draw</c> would break both.
+    /// at all. Anything that unified the three into one <c>Draw</c> would break both. A fourth,
+    /// <see cref="DrawRims"/>, lifts the gold bands out of <see cref="DrawGlass"/> for the caller whose
+    /// translucents have to stand in front of them (#888: the Game's fires).
     /// </para>
     /// <para>
     /// <b>Sky-lit enrolment stays the caller's too</b>, for the reasons <see cref="SkyLightRig"/> gives: each
@@ -946,7 +948,7 @@ namespace Prazsky.Core.Render
         public IReadOnlyList<InstancedModelRenderer> SkyLitRenderers => _skyLit;
 
         /// <summary>
-        /// Which members the three draw slices actually put out. <see cref="ArenaMembers.All"/> in every
+        /// Which members the draw slices actually put out. <see cref="ArenaMembers.All"/> in every
         /// shipped frame — only the Testbed's <c>arena=</c> argument moves it, to isolate what #151 measured.
         /// <para>
         /// A member left out is left out of the <i>draw</i> only: it keeps its mesh, its renderer and its
@@ -1164,6 +1166,64 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// The drain's metal bands on their own, opaque, for the caller that puts them in the depth buffer
+        /// <b>before anything translucent is drawn</b> (#888): straight after <see cref="DrawPit"/>, with the
+        /// island. The Game's savanna fires and victory fireworks go down right after the setting, alpha-blended
+        /// and writing no depth, so bands still to come are tested against a buffer that holds no flame and paint
+        /// over every flame standing nearer the lens than they do - the front end's wide leg stands outside the
+        /// fires' ring and looks across it at the funnel, and the gold ring was drawn over the fire.
+        /// <para>
+        /// <b>A caller that draws the bands here passes <c>drawRims: false</c> to <see cref="DrawGlass"/></b>, or
+        /// they go down twice. The one that does not is the Testbed, which draws its fires after all of this and so
+        /// never showed the fault, and the Potato path, which draws no fires and keeps its glass-first order (see
+        /// <see cref="DrawGlass"/>). The funnel's glass still composites over the bands, and the ceiling glass's
+        /// copy of the frame, taken after this, holds them with the rest of the setting they stand behind.
+        /// </para>
+        /// <para>
+        /// One <see cref="RasterizerState.CullNone"/> pair of its own, for <see cref="DrawGlass"/>'s reason (the
+        /// bands are closed convex tubes, so the nearest face wins on depth and the winding is moot), restored to
+        /// the scene's back-face culling after like <see cref="DrawPit"/>.
+        /// </para>
+        /// </summary>
+        public void DrawRims(ICamera camera, SceneKind scene)
+        {
+            if ((Members & ArenaMembers.Rims) == 0) return;
+
+            _device.RasterizerState = RasterizerState.CullNone;
+
+            DrawRimBands(camera, scene, UnderPit(scene));
+
+            _device.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
+        /// Where the collar's seam is (#804): the pit sheath hugs the glass from below in the solid-terrain scenes
+        /// (<see cref="DrawPit"/>), and nowhere else is anything opaque under the collar.
+        /// </summary>
+        private bool UnderPit(SceneKind scene) =>
+            SceneRenderer.IsSolidTerrainScene(scene) && (Members & ArenaMembers.Pit) != 0;
+
+        /// <summary>
+        /// The bands' draw, in whatever <see cref="RasterizerState"/> the caller has stated: <see cref="DrawRims"/>
+        /// and <see cref="DrawGlass"/> each put their own <see cref="RasterizerState.CullNone"/> round it.
+        /// </summary>
+        private void DrawRimBands(ICamera camera, SceneKind scene, bool underPit)
+        {
+            _funnelRimsRenderer.PotatoBandUnderPit = underPit;
+
+            //The ring's metal, per scene (#404). Mutated rather than rebuilt: BasicEffectParams is a
+            //class, so a fresh one per frame would be a per-frame managed allocation (BestPractices.md
+            //§3), and this object is this renderer's alone.
+            DrainLook drain = DrainLookFor(scene);
+            _funnelRimEffectParams.SpecularColor = drain.RimSpecular;
+            _funnelRimsRenderer.SpecularAmbientStrength = drain.Polish;
+
+            _rimsInstance[0] = new ModelInstance(_drainWorld, new Vector4(0f, 0f, 0f, 1f));
+            _funnelRimsRenderer.Draw(camera, _rimsInstance, 1, _funnelRimEffectParams,
+                drain.Rim == FUNNEL_RIM_COLOR ? null : TintFor(drain.Rim, FUNNEL_RIM_COLOR));
+        }
+
+        /// <summary>
         /// The drain's metal bands and then its glass, after the frame's opaque work: the bands are opaque, so
         /// they belong to the opaque scene and go down first, while the funnel composites over everything
         /// already in the frame — which is why this is a slice the caller places itself, after its balls and
@@ -1177,20 +1237,23 @@ namespace Prazsky.Core.Render
         /// that has to read both looking down into it and looking up through the hole.
         /// </para>
         /// <para>
+        /// <b>The bands can already be down.</b> A caller with translucents that must stand in front of them
+        /// (the Game's fires) draws them earlier with <see cref="DrawRims"/> and passes
+        /// <paramref name="drawRims"/> false here, which leaves the glass alone in the sandwich (#888). Left true,
+        /// as the Testbed leaves it, the bands are drawn here before the glass.
+        /// </para>
+        /// <para>
         /// <paramref name="scene"/> picks the ring's <b>metal</b> (<see cref="DrainLookFor"/>) — gold in
         /// sixteen scenes and polished steel in the four whose stone is the same hue as gold. It is resolved
         /// per draw for <see cref="DrawIsland"/>'s reason: the callers set their scene in several places, and
         /// a look one of them forgot to push would ring the wrong stone.
         /// </para>
         /// </summary>
-        public void DrawGlass(ICamera camera, BasicEffectParams sceneParams, SceneKind scene)
+        public void DrawGlass(ICamera camera, BasicEffectParams sceneParams, SceneKind scene, bool drawRims = true)
         {
             _device.RasterizerState = RasterizerState.CullNone;
 
-            //Where the collar's seam is (#804): the pit sheath hugs the glass from below in the solid-terrain scenes
-            //(DrawPit), and nowhere else is anything opaque under the collar
-            bool underPit = SceneRenderer.IsSolidTerrainScene(scene) && (Members & ArenaMembers.Pit) != 0;
-            _funnelRimsRenderer.PotatoBandUnderPit = underPit;
+            bool underPit = UnderPit(scene);
 
             //On the Potato path, in those scenes, the glass goes down FIRST (#804). The band's collar fades out over its
             //last pixel above the sheath; drawn before the glass, those half-covered pixels stood in the depth buffer
@@ -1202,19 +1265,7 @@ namespace Prazsky.Core.Render
             bool glassFirst = underPit && _funnelRimsRenderer.Potato;
             if (glassFirst && (Members & ArenaMembers.Glass) != 0) _funnelRenderer.Draw(camera, _drainWorld, sceneParams);
 
-            if ((Members & ArenaMembers.Rims) != 0)
-            {
-                //The ring's metal, per scene (#404). Mutated rather than rebuilt: BasicEffectParams is a
-                //class, so a fresh one per frame would be a per-frame managed allocation (BestPractices.md
-                //§3), and this object is this renderer's alone.
-                DrainLook drain = DrainLookFor(scene);
-                _funnelRimEffectParams.SpecularColor = drain.RimSpecular;
-                _funnelRimsRenderer.SpecularAmbientStrength = drain.Polish;
-
-                _rimsInstance[0] = new ModelInstance(_drainWorld, new Vector4(0f, 0f, 0f, 1f));
-                _funnelRimsRenderer.Draw(camera, _rimsInstance, 1, _funnelRimEffectParams,
-                    drain.Rim == FUNNEL_RIM_COLOR ? null : TintFor(drain.Rim, FUNNEL_RIM_COLOR));
-            }
+            if (drawRims && (Members & ArenaMembers.Rims) != 0) DrawRimBands(camera, scene, underPit);
 
             if (!glassFirst && (Members & ArenaMembers.Glass) != 0) _funnelRenderer.Draw(camera, _drainWorld, sceneParams);
 

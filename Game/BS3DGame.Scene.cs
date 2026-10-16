@@ -170,8 +170,8 @@ namespace BS3D
         //which the session's precise-aim floor and the drop cinematic derive from in constant expressions),
         //RADIUS, EDGE_HEIGHT, TERRAIN_HOLE_RADIUS and the drain's four figures the session's collider wants.
         //
-        //The frame sequence stays here: the three DrawIsland/DrawPit/DrawGlass slices are placed by hand
-        //below, which is what lets the session put its gun, balls and shot trails between the pit and the glass.
+        //The frame sequence stays here: the DrawIsland/DrawPit/DrawRims/DrawGlass slices are placed by hand
+        //below, which is what lets the session put its gun, balls and shot trails between the bands and the glass.
         private ArenaIsland _island;
 
         //The forest scene's scattered trees, rocks and stumps: every procedural texture, mesh variant,
@@ -1054,6 +1054,13 @@ namespace BS3D
             _island.DrawIsland(_camera, _sceneEffectParams, _scene);
             if (SceneryShown) _island.DrawPit(_camera, _sceneEffectParams, _scene);
 
+            //The drain's gold bands with the island (#888), opaque and written into the depth buffer BEFORE the fires and
+            //the fireworks, which every screen draws next, translucent and writing no depth: bands drawn after them were
+            //tested against a buffer with no flame in it and painted the ring over a flame standing nearer the lens (the
+            //front end's wide leg looks across the fires' ring at the funnel). The funnel's glass stays in DrawSettingGlass,
+            //so the glass still goes over the bands. The ceiling glass's copy of the frame is taken after this, so it holds them.
+            _island.DrawRims(_camera, _scene);
+
             //THE TRANSLUCENT BASELINE, STATED AGAIN ON THE WAY OUT (#667). Everything the caller draws after this -
             //the drain's glass, the ceiling's, the gun's window pane - inherits these three, and they were stated at
             //the top of this method, BEFORE the environment. A backdrop that leaves another behind changes how every
@@ -1161,12 +1168,17 @@ namespace BS3D
         internal bool ClusterWindEnabled => QualityPreset.Presets[(int)_quality].ClusterWind;
 
         /// <summary>
-        /// The drain's metal bands and its glass, after the frame's opaque work: the bands are opaque but the
-        /// funnel composites over everything drawn so far — including the gameplay screen's balls, which is
-        /// why this is a separate slice the session calls after its own 3D. The scene goes in because it
-        /// picks which metal rings the drain (#404).
+        /// The drain's glass, after the frame's opaque work: the funnel composites over everything drawn so far —
+        /// including the gameplay screen's balls, which is why this is a separate slice the session calls after its
+        /// own 3D. The scene goes in because it picks which metal rings the drain (#404).
+        /// <para>
+        /// <b>The gold bands are not drawn here</b> but in <see cref="BeginSceneDraw"/>, with the island (#888), so
+        /// they are in the depth buffer when the fires are drawn. The Potato path is the exception: it draws no fires
+        /// and keeps the glass-first order its collar needs (<see cref="ArenaIsland.DrawGlass"/>), so there the bands
+        /// are drawn here.
+        /// </para>
         /// </summary>
-        internal void DrawSettingGlass() => _island.DrawGlass(_camera, _sceneEffectParams, _scene);
+        internal void DrawSettingGlass() => _island.DrawGlass(_camera, _sceneEffectParams, _scene, drawRims: PotatoPath);
 
         /// <summary>
         /// How far the lens is under the sea this frame, 0 to 1: <see cref="SceneRenderer.LensSubmergedAmount"/>, the one
@@ -1193,6 +1205,12 @@ namespace BS3D
         /// stands behind them: the fires' ring stands 33 units out, beyond the play camera's 30-unit stand-off and outside
         /// the island the gun and the cluster are on, and the shells go up from a ring 34 to 110 units out and burst 44
         /// to 122 units up — and by then the field is clear.
+        /// </para>
+        /// <para>
+        /// <b>The drain's gold bands are in the depth buffer by now</b> (#888: <see cref="BeginSceneDraw"/> draws them
+        /// with the island), so a flame standing nearer the lens than the ring is drawn over it and one behind it is
+        /// hidden. ⚠ Drawn after this, with the glass, they paint over every flame the camera sees them across — the
+        /// front end's wide leg, outside the fires' ring — because a flame writes no depth to be tested against.
         /// </para>
         /// </summary>
         internal void DrawTranslucentsBehindGlass(in SceneFrame sceneFrame)

@@ -12,7 +12,7 @@ Everything that stands in every scene is one copy in the libraries (#75), becaus
 
 ## What stays with each executable
 
-- **The frame sequence.** `ArenaIsland` hands its draws over in three slices, `DrawIsland`, `DrawPit`, `DrawGlass`, so each executable places them itself (the Game draws the gun, cluster and shot trails between the pit and the glass).
+- **The frame sequence.** `ArenaIsland` hands its draws over in three slices, `DrawIsland`, `DrawPit`, `DrawGlass`, so each executable places them itself (the Game draws the gun, cluster and shot trails between the pit and the glass). A fourth, `DrawRims`, lifts the gold bands out of `DrawGlass` (`drawRims: false`) for a caller whose translucents must stand in front of them: the Game's, right after the pit, so a fire nearer the lens than the ring is not painted over (see [The drain](drain.md)).
 - **Sky-lit enrolment** is each caller's own list (the map editor lights the balls, city and forest scatter; it has no island). **Every list leaves the pit shaft out**, so no dome bleaches the inside of a hole in the ground.
 - **The ceiling glass is in neither list.** It stands against the sky itself, so the hosts call `SkyLightRig.ApplyToGlass`, which scales the three directional lights to the sky's own brightness; a sky-replacing scene's full-strength sun turned the plate into a bright slab over a near-black backdrop. The Game's plate renderer may be null mid-load; the push tolerates it.
 - ⚠ **Scatter renderers** are walked as the one flat array `ForestScatterRenderer.Renderers`. A re-planted wood is thirty brand-new renderers, so whoever re-plants must re-light it, as a refitted `CeilingPlate` must be.
