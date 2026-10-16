@@ -884,3 +884,10 @@ Pravidla:
 - ⚠ Každé tělo prošel druhý agent proti kódu a 14 z 15 opravil (špatný řádek, zastaralé „v běhu“ u #758, který už je na mainu). Podíl listů proti větvi (52 %, #882) je z Python repliky, ne z C#.
 - ⚠ Testbed kreslí obruče až po ohních, takže chybu z #888 nepředvede. Fronta verdiktů je 19 (nad 15), práce na vzhledu čeká.
 - Otevřené: snímky před implementací; fronta verdiktů 19 (nad 15) drží start změn vzhledu, nabídnutá je stránka verdiktů.
+
+## 2026-10-16 — #897 Potato: nálezy předvydávací revize — desktop (RDT-PC), Claude Code (bs3d-ac)
+- Hotovo (větev `897-potato-review-fixes`): Potato backdrop se staví jen při změně scény; dřív se stavěl znovu při každém startu levelu, restartu i zastavení ukazatele v pickeru. Na desktopu to byl záškub 4–15 ms ve městě, 30–125 ms na louce a v savaně a 130–170 ms na Měsíci. Čas stavby je teď na řádku `[potato]`.
+- Potato už nestaví hostitelské město, střechy ani ulice: start je asi o 165 ms kratší (BuildScene 1356 → 1191 ms).
+- Kruh skleněné koule bral barvu posledního barevného kbelíku, takže měla tmavý obrys. Teď nastavuje vlastní uniformy a obrys je bledý.
+- `PotatoSkyFigure` si parametry a techniky uloží při stavbě. Řádek Scenery na Potato ukazuje „On (Potato)“. Opravené docs a komentáře.
+- ⚠ Tools/SemanticSearch neběžel, protože se démon LM Studia nespustil. Duplicita se hledala podle klíčových slov.
