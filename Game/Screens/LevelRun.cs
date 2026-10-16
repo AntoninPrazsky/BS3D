@@ -158,6 +158,15 @@ namespace BS3D.Screens
         internal bool CutOffered { get; set; }
 
         /// <summary>
+        /// Whether the dev build's pause row loaded a round into the gun during this attempt (#876). It marks the run: the
+        /// ending's one funnel (<c>ShowResultScreen</c>) sends nothing to the online boards for it, because a dev build is not
+        /// kept off them by being a dev build - one whose <c>Settings.json</c> names a server submits - and a score reached
+        /// with a round no deal gave must never stand beside a played one. A level's own by construction: a retry builds a
+        /// new run, with the magazine dealt afresh, and starts unmarked.
+        /// </summary>
+        internal bool DebugKindLoaded { get; set; }
+
+        /// <summary>
         /// The line's grace — <see cref="ClusterLineWatch"/>'s since #301/#302, so the level generator's sag gate
         /// decides a simulated run by running <i>this</i> rule rather than a second copy of it that could drift
         /// lenient. A field and not a property because it is a mutable struct the screen updates in place. It

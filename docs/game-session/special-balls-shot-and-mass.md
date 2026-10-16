@@ -2,7 +2,7 @@
 
 Part of [The game: a session](../game-session.md).
 
-Gravity changes what a **shot** is, Heavy the **simulation**, and the Wildcard is the kind the player **shoots** (the Cutter: [Power-ups](powerups.md)). Kinds a level places: [Special balls](special-balls.md).
+Gravity changes what a **shot** is, Heavy the **simulation**, and the Wildcard is the kind the player **shoots** (the Cutter: [Power-ups](powerups.md)). Kinds a level places: [Special balls](special-balls.md). **The kinds a player can fire are exactly the ones `BallKinds.InCluster` refuses** (the wildcard and the cutter), read as `BallKinds.Shootable` / `BallKinds.ShootableKinds`: a landing writes the shot's colour alone into the map, so no other kind survives one. The dev build's pause row is built from that list ([The magazine](magazine-and-transmute.md#the-dev-builds-debug-row-876)).
 
 ## Gravity (#332)
 

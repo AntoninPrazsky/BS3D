@@ -1248,7 +1248,13 @@ namespace BS3D.Screens
             //the board and the save holds no clear of the level (OnlineSession.SubmitEnding says why). Returns at once:
             //the send is the client's worker's, and the page never waits for its answer. Whether anything went is the
             //page's to know, so that it shows this ending's plate or none - never the last one's (#707).
-            bool submitted = Game.Online.SubmitEnding(_run.Identity, _run.Score.Score, stars, _run.EndShots, _run.EndSeconds,
+            //
+            //Nothing goes for a run that used the dev build's debug row (#876): a dev build is kept off the boards only by having
+            //no built-in server, and one whose Settings.json names a server submits, so the run carries its own mark. The save's
+            //record above is the player's own file and is left as the game always keeps it.
+            if (_run.DebugKindLoaded)
+                Console.WriteLine("[online] This run used the debug row (#876): the ending is not sent to the boards");
+            bool submitted = !_run.DebugKindLoaded && Game.Online.SubmitEnding(_run.Identity, _run.Score.Score, stars, _run.EndShots, _run.EndSeconds,
                 savedClear: Game.LevelStars(_run.Index) > 0);
 
             Game.PresentResult(new LevelResult(

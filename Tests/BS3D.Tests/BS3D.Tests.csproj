@@ -115,6 +115,9 @@
     <Compile Include="..\..\Game\CutRumble.cs" />
     <Compile Include="..\..\Game\Effects\CutBeats.cs" />
     <Compile Include="..\..\Game\Effects\CutStaging.cs" />
+    <!--#876: the pause page's debug row - which kinds it has a button for, whether a build has it at all and what a press does to
+        the magazine, over a release tag handed in, so a test can stand in a release.-->
+    <Compile Include="..\..\Game\Screens\DebugKindRow.cs" />
   </ItemGroup>
 
   <ItemGroup>
