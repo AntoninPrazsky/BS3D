@@ -1,29 +1,340 @@
 {
-  "file": "theme-pulse-italo.wav",
-  "created": "2026-09-23",
-  "issue": 486,
-  "family": "pulse",
-  "chapter": "The Grid (1980s computer graphics) - Pulse: eurodance, A minor 128",
-  "purpose": "Master of Game/Music/pulse-italo.ogg, one of the pulse family's recordings (#486): written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
-  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
-  "license": "ACE-Step 1.5: MIT (code and weights)",
-  "request": {
-    "caption": "Italo dance instrumental: octave synth bass, drum machine, catchy synth lead hook, string synths, bright and energetic, no vocals",
-    "lm_negative_prompt": "vocals, singing, audience applause, crowd noise, live recording",
-    "instrumental": true,
-    "use_cot_caption": false,
-    "duration": 120,
-    "bpm": 120,
-    "keyscale": "A minor",
-    "inference_steps": 8,
-    "output_format": "wav32"
-  },
-  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
-  "loop_log": [
-    "Wrote theme-pulse-italo.wav: 75.0s loop = source 35.90s..110.90s (25.00 bars at 80.0 bpm), crossfade 1.50s | context match 0.509 (best 0.552) | crossfade rhythm r=0.78 vs the track a bar later r=0.70: in time | spectrum cos=0.56"
-  ],
-  "measured": "generate-music.ps1 end to end 63.4 s (ace-lm + ace-synth + loop cut)",
-  "rendered": true,
-  "recut": "the first cut on the requested 120 bpm grid came out BELOW the track's own timekeeping; recut on a 80 bpm grid (the model rendered the piece at another metre than asked), which the cutter rates in time"
+    "file": "theme-pulse-italo.wav",
+    "created": "2026-10-15",
+    "issue": 824,
+    "family": "pulse",
+    "chapter": "The Grid (levels 71-80, the neon wireframe world of mathematical solids) - regenerated on the desert's ember model (the owner, 2026-10-11, #824): a lead line the ear can follow, its identity in the mid range, the drive carried by arrangement rather than by noise and sub bass; the family's electronic dance root kept",
+    "purpose": "Master of Game/Music/pulse-italo.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-824-chosen on the desktop, with its .raw.wav; every candidate in masters-824); this sidecar is committed beside the .ogg.",
+    "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-pulse.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
+    "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+    "license": "ACE-Step 1.5: MIT (code and weights)",
+    "request": {
+        "caption": "Italo disco instrumental for a neon wireframe world of glowing geometric shapes: a warm, catchy analog synth lead melody of many notes you can hum, loud and upfront in the mid range, a second synth answering each phrase, a bouncing octave bass line in the mid range, soft string-synth chords low in the mix, a tight warm four-on-the-floor kick, a deep round snare and warm toms playing throughout from the first bar, soft dark percussion, the lead playing almost all the way through, building into a big glowing peak with warm wide synth chords, nostalgic, driving and joyful, warm mid-forward mix, modern polished production with soft, warm, rolled-off highs, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+        "lm_negative_prompt": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, deep sub bass, rumble, distorted bass, growling bass, wobble bass, white noise, noise sweeps, risers, hiss, glitch, siren synths, industrial noise, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, bright hand claps, tambourine, shakers, snare rolls, long drum-only sections, drum solo, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, droning, one-note bass, hand claps, shuffling hi-hats, percussion loops, pounding kick, huge kick, ride cymbal, crash cymbal, cymbals, hi-hats, bright percussion, crisp highs",
+        "instrumental": true,
+        "use_cot_caption": false,
+        "duration": 120,
+        "bpm": 120,
+        "keyscale": "A minor",
+        "seed": 1040698941,
+        "inference_steps": 8,
+        "output_format": "wav32"
+    },
+    "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+    "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-italo-c7.wav: 80.0s loop = source 4.55s..84.55s (40.01 bars at 120.0 bpm), crossfade 1.00s | context match 0.820 (best 0.867) | crossfade rhythm r=0.97 vs the track a bar later r=0.94: in time | spectrum cos=0.93"
+    ],
+    "lm_check": {
+        "request0_captured": true,
+        "caption_verbatim": true,
+        "seed_in_request0": 1040698941,
+        "bpm_in_request0": 120,
+        "keyscale_in_request0": "A minor",
+        "duration_in_request0": 120.0
+    },
+    "measured": "generate-music.ps1 end to end 59,9 s (ace-lm + ace-synth + loop cut), exit 0",
+    "measured_against_ember": {
+        "loop_s": 80.0,
+        "bpm": 120.0,
+        "context": 0.82,
+        "r_cross": 0.97,
+        "r_bar": 0.94,
+        "in_time": true,
+        "cos": 0.93,
+        "dip": 1.2,
+        "quiet": 0,
+        "lr_corr": 0.805,
+        "knee_pct": 0.002,
+        "b200_2k": 12.5,
+        "b300_4k": 10.6,
+        "above6k": 1.1,
+        "tonal_mid": 66,
+        "mid_flatness": 0.07,
+        "held_changes": 3.21,
+        "tempo_wander": 0.0,
+        "wrap_db": 2.8,
+        "wrap_pct": 94
+    },
+    "measured_note": "measure-music.py --reference ember on the loop (band shares %, tonal mid %, mid flatness, held-note changes/s, tempo wander %, wrap step dB and its percentile) beside sel.py: the loop cut, dip = the quietest 2 s under the loop's p95 1 s level (dB), quiet = the % of the loop more than 10 dB under it, L/R correlation, knee_pct = the % of samples MusicBake's knee bends",
+    "rendered": true,
+    "chosen": {
+        "candidate": "c7",
+        "round": 3,
+        "of": [
+            "c1",
+            "c2",
+            "c3",
+            "c4",
+            "c5",
+            "c6",
+            "c7",
+            "c8",
+            "c9"
+        ],
+        "why": "inside ember on every column: 12.5 % in 200 Hz-2 kHz (old 7.4 %), 10.6 % in 300 Hz-4 kHz, 1.1 % above 6 kHz (old 5.0 %), tonal mid 66 % (old 34 %), 3.21 held-note changes/s, an 80 s loop in time (context 0.82, crossfade r 0.97 against 0.94, spectrum cos 0.93), no hole, wrap step +2.8 dB (p94). Round 3's brief: no cymbal named, the lead loud and upfront, no middle section. c4 is 4.3 % above 6 kHz, c5 (0.3 %) has a 20 % hole",
+        "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wrap step) beside the loop cut's own check, the hole share (the loop more than 10 dB under its loud level), the breakdown dip and the stereo correlation; a seam below its own rhythm, a hole over 15 %, a 2 s dropout more than 20 dB down, a wrap step of 10 dB or more or at or above p97 of the loop's own steps, a seam spectrum cosine under 0.3 or a loop under 30 s ruled a candidate out; the table is on #824"
+    },
+    "alternatives": [
+        {
+            "candidate": "c1",
+            "seed": 1542672711,
+            "caption": "Italo disco instrumental for a neon wireframe world of glowing geometric shapes: a warm, catchy analog synth lead hook you can hum carried in the mid range, a second synth answering each phrase, a bouncing octave bass line in the mid range, warm string-synth chords, a punchy four-on-the-floor kick with a dark snare clap and toms and a dark ride cymbal playing throughout, a lighter middle section where the bass and the string synths carry on under a second melody before the hook returns, building into a big glowing peak with warm wide synth chords, nostalgic, driving and joyful, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, deep sub bass, rumble, distorted bass, growling bass, wobble bass, white noise, noise sweeps, risers, hiss, glitch, siren synths, industrial noise, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, bright hand claps, tambourine, shakers, snare rolls, long drum-only sections, drum solo, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, droning, one-note bass",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-italo-c1.wav: 80.0s loop = source 11.30s..91.30s (40.00 bars at 120.0 bpm), crossfade 1.00s | context match 0.712 (best 0.761) | crossfade rhythm r=0.97 vs the track a bar later r=0.95: in time | spectrum cos=0.65"
+            ],
+            "measured": {
+                "loop_s": 80.0,
+                "bpm": 120.0,
+                "context": 0.712,
+                "r_cross": 0.97,
+                "r_bar": 0.95,
+                "in_time": true,
+                "cos": 0.65,
+                "dip": 21.1,
+                "quiet": 15,
+                "lr_corr": 0.931,
+                "knee_pct": 0.08,
+                "b200_2k": 10.6,
+                "b300_4k": 8.3,
+                "above6k": 1.7,
+                "tonal_mid": 49,
+                "mid_flatness": 0.07,
+                "held_changes": 2.09,
+                "tempo_wander": 0.01,
+                "wrap_db": 2.0,
+                "wrap_pct": 21
+            }
+        },
+        {
+            "candidate": "c2",
+            "seed": 1103787262,
+            "caption": "Italo disco instrumental for a neon wireframe world of glowing geometric shapes: a warm, catchy analog synth lead hook you can hum carried in the mid range, a second synth answering each phrase, a bouncing octave bass line in the mid range, warm string-synth chords, a punchy four-on-the-floor kick with a dark snare clap and toms and a dark ride cymbal playing throughout, a lighter middle section where the bass and the string synths carry on under a second melody before the hook returns, building into a big glowing peak with warm wide synth chords, nostalgic, driving and joyful, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, deep sub bass, rumble, distorted bass, growling bass, wobble bass, white noise, noise sweeps, risers, hiss, glitch, siren synths, industrial noise, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, bright hand claps, tambourine, shakers, snare rolls, long drum-only sections, drum solo, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, droning, one-note bass",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-italo-c2.wav: 96.0s loop = source 4.01s..100.00s (48.00 bars at 120.0 bpm), crossfade 1.00s | context match 0.885 (best 0.890) | crossfade rhythm r=0.94 vs the track a bar later r=0.66: in time | spectrum cos=0.90"
+            ],
+            "measured": {
+                "loop_s": 96.0,
+                "bpm": 120.0,
+                "context": 0.885,
+                "r_cross": 0.94,
+                "r_bar": 0.66,
+                "in_time": true,
+                "cos": 0.9,
+                "dip": 51.1,
+                "quiet": 25,
+                "lr_corr": 0.726,
+                "knee_pct": 0.002,
+                "b200_2k": 16.7,
+                "b300_4k": 14.2,
+                "above6k": 5.0,
+                "tonal_mid": 68,
+                "mid_flatness": 0.05,
+                "held_changes": 2.19,
+                "tempo_wander": 0.14,
+                "wrap_db": 4.3,
+                "wrap_pct": 59
+            }
+        },
+        {
+            "candidate": "c3",
+            "seed": 369142974,
+            "caption": "Italo disco instrumental for a neon wireframe world of glowing geometric shapes: a warm, catchy analog synth lead hook you can hum carried in the mid range, a second synth answering each phrase, a bouncing octave bass line in the mid range, warm string-synth chords, a punchy four-on-the-floor kick with a dark snare clap and toms and a dark ride cymbal playing throughout, a lighter middle section where the bass and the string synths carry on under a second melody before the hook returns, building into a big glowing peak with warm wide synth chords, nostalgic, driving and joyful, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, deep sub bass, rumble, distorted bass, growling bass, wobble bass, white noise, noise sweeps, risers, hiss, glitch, siren synths, industrial noise, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, bright hand claps, tambourine, shakers, snare rolls, long drum-only sections, drum solo, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, droning, one-note bass",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-italo-c3.wav: 68.0s loop = source 17.75s..85.75s (34.03 bars at 120.1 bpm), crossfade 1.00s | context match 0.946 (best 0.995) | crossfade rhythm r=0.99 vs the track a bar later r=0.88: in time | spectrum cos=0.99"
+            ],
+            "measured": {
+                "loop_s": 68.0,
+                "bpm": 120.1,
+                "context": 0.946,
+                "r_cross": 0.99,
+                "r_bar": 0.88,
+                "in_time": true,
+                "cos": 0.99,
+                "dip": 18.9,
+                "quiet": 1,
+                "lr_corr": 0.969,
+                "knee_pct": 0.063,
+                "b200_2k": 12.8,
+                "b300_4k": 11.1,
+                "above6k": 2.8,
+                "tonal_mid": 58,
+                "mid_flatness": 0.1,
+                "held_changes": 2.13,
+                "tempo_wander": 0.02,
+                "wrap_db": -2.2,
+                "wrap_pct": 14
+            }
+        },
+        {
+            "candidate": "c4",
+            "seed": 1105400493,
+            "caption": "Italo disco instrumental for a neon wireframe world of glowing geometric shapes: a warm, catchy analog synth lead melody of many notes you can hum, loud and upfront in the mid range, a second synth answering each phrase, a bouncing octave bass line in the mid range, soft string-synth chords low in the mix, a tight four-on-the-floor kick, a deep round snare and toms with a dark ride cymbal playing throughout from the first bar, the lead playing almost all the way through, building into a big glowing peak with warm wide synth chords, nostalgic, driving and joyful, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, deep sub bass, rumble, distorted bass, growling bass, wobble bass, white noise, noise sweeps, risers, hiss, glitch, siren synths, industrial noise, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, bright hand claps, tambourine, shakers, snare rolls, long drum-only sections, drum solo, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, droning, one-note bass, hand claps, shuffling hi-hats, percussion loops, pounding kick, huge kick",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-italo-c4.wav: 48.0s loop = source 30.10s..78.10s (24.01 bars at 120.0 bpm), crossfade 1.00s | context match 0.868 (best 0.902) | crossfade rhythm r=0.82 vs the track a bar later r=0.90: in time | spectrum cos=0.93"
+            ],
+            "measured": {
+                "loop_s": 48.0,
+                "bpm": 120.0,
+                "context": 0.868,
+                "r_cross": 0.82,
+                "r_bar": 0.9,
+                "in_time": true,
+                "cos": 0.93,
+                "dip": 2.6,
+                "quiet": 0,
+                "lr_corr": 0.721,
+                "knee_pct": 0.005,
+                "b200_2k": 12.4,
+                "b300_4k": 11.3,
+                "above6k": 4.3,
+                "tonal_mid": 63,
+                "mid_flatness": 0.07,
+                "held_changes": 3.04,
+                "tempo_wander": 0.01,
+                "wrap_db": -4.5,
+                "wrap_pct": 27
+            }
+        },
+        {
+            "candidate": "c5",
+            "seed": 1439089900,
+            "caption": "Italo disco instrumental for a neon wireframe world of glowing geometric shapes: a warm, catchy analog synth lead melody of many notes you can hum, loud and upfront in the mid range, a second synth answering each phrase, a bouncing octave bass line in the mid range, soft string-synth chords low in the mix, a tight four-on-the-floor kick, a deep round snare and toms with a dark ride cymbal playing throughout from the first bar, the lead playing almost all the way through, building into a big glowing peak with warm wide synth chords, nostalgic, driving and joyful, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, deep sub bass, rumble, distorted bass, growling bass, wobble bass, white noise, noise sweeps, risers, hiss, glitch, siren synths, industrial noise, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, bright hand claps, tambourine, shakers, snare rolls, long drum-only sections, drum solo, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, droning, one-note bass, hand claps, shuffling hi-hats, percussion loops, pounding kick, huge kick",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-italo-c5.wav: 80.0s loop = source 6.75s..86.75s (40.00 bars at 120.0 bpm), crossfade 1.00s | context match 0.949 (best 0.996) | crossfade rhythm r=0.98 vs the track a bar later r=0.66: in time | spectrum cos=0.99"
+            ],
+            "measured": {
+                "loop_s": 80.0,
+                "bpm": 120.0,
+                "context": 0.949,
+                "r_cross": 0.98,
+                "r_bar": 0.66,
+                "in_time": true,
+                "cos": 0.99,
+                "dip": 16.0,
+                "quiet": 20,
+                "lr_corr": 0.957,
+                "knee_pct": 0.003,
+                "b200_2k": 13.1,
+                "b300_4k": 12.4,
+                "above6k": 0.3,
+                "tonal_mid": 88,
+                "mid_flatness": 0.01,
+                "held_changes": 2.42,
+                "tempo_wander": 0.08,
+                "wrap_db": -13.5,
+                "wrap_pct": 85
+            }
+        },
+        {
+            "candidate": "c6",
+            "seed": 1107186848,
+            "caption": "Italo disco instrumental for a neon wireframe world of glowing geometric shapes: a warm, catchy analog synth lead melody of many notes you can hum, loud and upfront in the mid range, a second synth answering each phrase, a bouncing octave bass line in the mid range, soft string-synth chords low in the mix, a tight four-on-the-floor kick, a deep round snare and toms with a dark ride cymbal playing throughout from the first bar, the lead playing almost all the way through, building into a big glowing peak with warm wide synth chords, nostalgic, driving and joyful, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, deep sub bass, rumble, distorted bass, growling bass, wobble bass, white noise, noise sweeps, risers, hiss, glitch, siren synths, industrial noise, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, bright hand claps, tambourine, shakers, snare rolls, long drum-only sections, drum solo, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, droning, one-note bass, hand claps, shuffling hi-hats, percussion loops, pounding kick, huge kick",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-italo-c6.wav: 98.0s loop = source 6.30s..104.30s (49.00 bars at 120.0 bpm), crossfade 1.00s | context match 0.559 (best 0.574) | crossfade rhythm r=0.47 vs the track a bar later r=0.96: BELOW the track's own timekeeping -- listen | spectrum cos=0.56"
+            ],
+            "measured": {
+                "loop_s": 98.0,
+                "bpm": 120.0,
+                "context": 0.559,
+                "r_cross": 0.47,
+                "r_bar": 0.96,
+                "in_time": false,
+                "cos": 0.56,
+                "dip": 6.4,
+                "quiet": 0,
+                "lr_corr": 0.818,
+                "knee_pct": 0.001,
+                "b200_2k": 16.3,
+                "b300_4k": 13.1,
+                "above6k": 2.9,
+                "tonal_mid": 65,
+                "mid_flatness": 0.12,
+                "held_changes": 2.97,
+                "tempo_wander": 0.01,
+                "wrap_db": 1.7,
+                "wrap_pct": 71
+            }
+        },
+        {
+            "candidate": "c8",
+            "seed": 1567496149,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-italo-c8.wav: 80.0s loop = source 27.20s..107.20s (40.01 bars at 120.0 bpm), crossfade 1.00s | context match 0.753 (best 0.800) | crossfade rhythm r=0.83 vs the track a bar later r=0.84: in time | spectrum cos=0.76"
+            ],
+            "measured": {
+                "loop_s": 80.0,
+                "bpm": 120.0,
+                "context": 0.753,
+                "r_cross": 0.83,
+                "r_bar": 0.84,
+                "in_time": true,
+                "cos": 0.76,
+                "dip": 24.0,
+                "quiet": 15,
+                "lr_corr": 0.863,
+                "knee_pct": 0.0,
+                "b200_2k": 10.2,
+                "b300_4k": 8.0,
+                "above6k": 2.2,
+                "tonal_mid": 74,
+                "mid_flatness": 0.04,
+                "held_changes": 2.69,
+                "tempo_wander": 2.35,
+                "wrap_db": -3.9,
+                "wrap_pct": 45
+            }
+        },
+        {
+            "candidate": "c9",
+            "seed": 1272386756,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-italo-c9.wav: 80.0s loop = source 20.55s..100.55s (40.00 bars at 120.0 bpm), crossfade 1.00s | context match 0.710 (best 0.740) | crossfade rhythm r=0.86 vs the track a bar later r=0.96: in time | spectrum cos=0.77"
+            ],
+            "measured": {
+                "loop_s": 80.0,
+                "bpm": 120.0,
+                "context": 0.71,
+                "r_cross": 0.86,
+                "r_bar": 0.96,
+                "in_time": true,
+                "cos": 0.77,
+                "dip": 9.0,
+                "quiet": 1,
+                "lr_corr": 0.916,
+                "knee_pct": 0.0,
+                "b200_2k": 5.0,
+                "b300_4k": 4.1,
+                "above6k": 2.1,
+                "tonal_mid": 74,
+                "mid_flatness": 0.08,
+                "held_changes": 2.94,
+                "tempo_wander": 0.01,
+                "wrap_db": -3.6,
+                "wrap_pct": 60
+            }
+        }
+    ],
+    "replaces": {
+        "stem": "pulse-italo",
+        "issue": 486,
+        "created": "2026-09-23",
+        "caption": "Italo dance instrumental: octave synth bass, drum machine, catchy synth lead hook, string synths, bright and energetic, no vocals",
+        "negative": "vocals, singing, audience applause, crowd noise, live recording",
+        "bpm": 120,
+        "keyscale": "A minor",
+        "loop_log": [
+            "Wrote theme-pulse-italo.wav: 75.0s loop = source 35.90s..110.90s (25.00 bars at 80.0 bpm), crossfade 1.50s | context match 0.509 (best 0.552) | crossfade rhythm r=0.78 vs the track a bar later r=0.70: in time | spectrum cos=0.56"
+        ],
+        "why_replaced": "tuneless (tonal mid 34 %), 7.4 % in 200 Hz-2 kHz and 5.0 % above 6 kHz (ember 9.5-27.5 % and at most 2.0 %) (#824, 2026-10-13)"
+    }
 }
