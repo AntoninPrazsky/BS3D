@@ -17,8 +17,10 @@ namespace BS3D.Screens
     /// chapter's music is never heard in a normal run; this is the one place to hear all of it.
     /// <para>
     /// <b>The owner's answers:</b> all the music the game has, whatever the player has unlocked ("the Jukebox plays all
-    /// the music available in the game"); after a recording, the next one (<see cref="RecordingPlayer"/> walks the list
-    /// and moves on, across chapters, round to the first after the last). The chapters come in campaign order, each
+    /// the music available in the game"); the recording playing loops until the player picks another or leaves the page
+    /// (#899: "play all the time until the user switches manually to another one or leaves the Jukebox"), so
+    /// <see cref="RecordingPlayer"/> never moves on by itself - Next and Previous walk the list, across chapters, round
+    /// to the first after the last. The chapters come in campaign order, each
     /// named as the level set names it, its family's main theme first and the variants after (the order
     /// <see cref="GameMusic"/> keeps); the front end's and the pause's loops close the list as "Menus". A family no
     /// chapter plays would follow as its own group.
