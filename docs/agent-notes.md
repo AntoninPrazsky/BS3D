@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-16 — #918 obrys poznámky o přeskočení — desktop (RDT-PC), Claude Code (bs3d-ac)
+- Nalezeno předvydávacím smoke testem razítkovaného Release buildu `9a32bd3d` (14 prvních levelů kapitol, front end v 1080p a 720p, Potato, prohra a výhra): žádná výjimka, chybějící soubor ani pád.
+- #918 (merge do mainu, zavřeno jako objektivní): `Skipping spends this chapter’s one skip` na stránce prohry byl jediný řádek bez obrysu (`Label` místo `ShadowedLabel`), nad mraky louky skoro zmizel. Teď nese obrys jako ostatní řádky (#465).
+- ⚠ `fire=` střílí jen v aktivním okně (`Game.IsActive`), takže při spuštění bez fokusu někdy nevystřelí nic; `walk=`/`turn=` fokus nepotřebují.
+
 ## 2026-10-15 — #758 akácie: vidlice vyrostlá, ne nasazená — desktop (RDT-PC), Claude Code (bs3d-ac)
 - majitel (2026-10-15): odparkováno do příštího vydání (savana, kapitola 2).
 - Hotovo (větev `758-acacia-fork`): High a Ultra kreslí `AcaciaMesh.FineWood`. Kmen se ke vidlici rozšíří do tvaru kořenových kruhů větví, ze sedel vedou rýhy dolů a vršek uzavře nízká kopule. Každá větev roste zevnitř kmene podél jeho povrchu po Bézierově křivce do stejných konců, takže listí visí na obojím. Low, Medium a Potato mají dřevo beze změny (`SceneRenderer.FineMeshes`, Testbed `finemeshes=`). +0,06 ms na High i Ultra. Hlídá to `AcaciaForkTests` (viděn selhat na hrubém dřevě).
