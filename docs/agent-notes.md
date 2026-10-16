@@ -925,3 +925,8 @@ Pravidla:
 - Hotovo (merge 3668bfbe, CI zelené): #899 Jukebox opakuje hrající nahrávku (obrací rozhodnutí z #704, jak majitel chtěl); #886 plamen slábne před okrajem čtyřúhelníku (svislý ořez ve 35 z 80 snímků → 0, +0,068 ms); #882 listy akácie podle tečny větvičky (C#: 40–65 % karet proti větvičce → 0, výkon beze změny).
 - Otevřené: #886 objemová plazma (krok 3); šev smyčky Jukeboxu nikdo neslyšel.
 - ⚠ Fronta verdiktů 17: beru jen chyby, nástroje a měření (#876, sloupce `measure-music.py` pro #913/#910/#914).
+
+## 2026-10-17 — #876 #913 #919 debug řádek, měřicí sloupce hudby, přebuzení — desktop (RDT-PC), Claude Code (bs3d-5f)
+- Hotovo (merge c7a0ca78, CI zelené): #876 pauza dev buildu nabíjí každý vystřelitelný druh (dnes jen Wildcard a Cutter: mapové druhy by při přistání ztratily druh), běh s ním se neposílá na tabulky; #913 `measure-music.py` měří krátké díry, opakování a tóny mimo tóninu. Měření všech jmenovaných skladeb je jako komentář na #904–#915 (Drone bez melodie, Sunny 40 stejných taktů, Ringmaster 7,2 % nad 6 kHz).
+- ⚠ Založen #919: 38 ze 140 nahrávek se ve hře tvrdě přebudí. Koleno bake míří na plnou úroveň, Ogg přestřelí až o +0,8 dB a `OggTrack.Decode` ořízne. Oprava běží (rezerva při dekódování, hlasitost vyrovnaná, bez přepeku).
+- Otevřené: #919; regenerace hudby až pod limitem fronty (17).
