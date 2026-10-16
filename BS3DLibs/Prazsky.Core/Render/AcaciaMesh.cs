@@ -850,16 +850,32 @@ namespace Prazsky.Core.Render
         //on the skeleton too
         private const int SKELETON_PIECES = 8;
 
+        //How a spray leaves its twig (#882): the lean off the twig's heading, as a sideways share of the forward one (0.8 to 1.1
+        //is forty-odd degrees, as the meadow's sprigs, #697), the last spray's lean when it carries straight on, how much of the
+        //twig's own rise (its climb over its run) a spray follows and the most it may climb or fall, and the run a twig's tangent
+        //must have to give a heading (a twig on end has none)
+        private const float LEAN = 0.8f, LEAN_SPREAD = 0.3f, LAST_LEAN = 0.25f;
+        private const float TWIG_CLIMB = 0.5f, MAX_CLIMB = 0.5f, MIN_HEADING = 0.2f;
+
         /// <summary>
         /// A tier's (or a tuft's) sprays on twigs (#782): the owner's "leaves always grow out of branches, never out of
         /// the air". The sprays used to be laid uniformly over the disc with nothing under them but the boughs at its rim,
         /// and on the savanna's trees up to nine in ten stood clear of any wood. Now twigs grow from the wood under the
         /// disc (<paramref name="supports"/>: the boughs' and limbs' ends) to points spread over its three layers exactly
         /// as the sprays were spread, each bowing up on the way, and the sprays hang along the outer part of the twig with
-        /// every stem — the card's <c>u</c> = 0 end, where <c>Acacia.fx</c>'s mask starts the spray — on it, pointing on
-        /// outward and drooping at the rim as they did. The layers keep their spray counts, so the leaf mass and its cost
-        /// are what they were; the twigs go into the wood lists (<paramref name="woodVertices"/>, the bark's material)
-        /// and their curves into <paramref name="skeleton"/>.
+        /// every stem — the card's <c>u</c> = 0 end, where <c>Acacia.fx</c>'s mask starts the spray — on it. The layers keep
+        /// their spray counts, so the leaf mass and its cost are what they were; the twigs go into the wood lists
+        /// (<paramref name="woodVertices"/>, the bark's material) and their curves into <paramref name="skeleton"/>.
+        /// <para>
+        /// <b>A spray points along its twig</b> (#882): its direction is the twig's heading at the stem (the tangent of the
+        /// curve, seen from above) leaned forwards by forty-odd degrees to alternate sides, as the meadow's sprigs are
+        /// (#697), the last one on a twig carrying straight on; it follows half of the twig's rise, droops towards the rim
+        /// and tilts a little at random, so the tier stays a thin plate of foliage. Pointing every card away from the tier's
+        /// centre instead, whatever its twig does, hangs the cards of a twig that ends nearer the centre than the bough it
+        /// grows from (about half of them) backwards, against their wood: 40 to 65 % of an acacia's cards
+        /// (<c>LeafAttachmentTests</c>). The rolls are taken in the same order whatever the heading, so it moves no twig and
+        /// no stem.
+        /// </para>
         /// </summary>
         /// <param name="spraysPerTwig">How many sprays a twig carries: few on a crown the eye walks across, so the twigs
         /// spread the leaf over the disc rather than in spokes; more on a small tuft.</param>
@@ -907,6 +923,7 @@ namespace Prazsky.Core.Render
                     Vector3 jitter = new((float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f);
                     Vector3 mid = Vector3.Lerp(basePoint, tip, 0.5f) + new Vector3(0f, span * 0.1f, 0f) + jitter * (span * 0.1f);
                     Vector3 At(float f) => (1f - f) * (1f - f) * basePoint + 2f * f * (1f - f) * mid + f * f * tip;
+                    Vector3 TangentAt(float f) => 2f * (1f - f) * (mid - basePoint) + 2f * f * (tip - mid);
 
                     Vector3[] twigPoints = { basePoint, At(0.33f), At(0.67f), tip };
                     float[] twigRadii = { twigRadius * TWIG_TAPER[0], twigRadius * TWIG_TAPER[1], twigRadius * TWIG_TAPER[2], twigRadius * TWIG_TAPER[3] };
@@ -923,12 +940,36 @@ namespace Prazsky.Core.Render
                         float f = LEAVES_FROM + (1f - LEAVES_FROM) * (k + 0.3f + 0.4f * (float)rng.NextDouble()) / cards;
                         Vector3 stem = At(f);
                         Vector2 out_ = new(stem.X - centre.X, stem.Z - centre.Z);
-                        float sa = out_.LengthSquared() > 1e-8f ? MathF.Atan2(out_.Y, out_.X) : a;
                         float srim = MathF.Min(out_.Length() / radius, 1.2f);
 
-                        //Laid near flat, pointing roughly outward, drooping at the rim and tilting a little at random
-                        float yaw = sa + ((float)rng.NextDouble() - 0.5f) * 1.6f;
-                        Vector3 along = new(MathF.Cos(yaw), -0.25f * srim + 0.3f * ((float)rng.NextDouble() - 0.5f), MathF.Sin(yaw));
+                        //Along the twig it hangs on (#882): the heading is the twig's own at the stem, so a twig that runs inwards
+                        //carries sprays that point inwards with it; only a twig standing on end (it has no heading) falls back to
+                        //pointing out of the tier's centre, rising (or falling) as steeply as a spray may, as the twig does
+                        Vector3 tangent = TangentAt(f);
+                        float tangentLength = tangent.Length();
+                        if (tangentLength > 1e-6f) tangent /= tangentLength;
+                        float heading = MathF.Sqrt(tangent.X * tangent.X + tangent.Z * tangent.Z);
+                        Vector3 forward;
+                        float climb;
+                        if (heading > MIN_HEADING)
+                        {
+                            forward = new Vector3(tangent.X / heading, 0f, tangent.Z / heading);
+                            climb = Math.Clamp(tangent.Y / heading * TWIG_CLIMB, -MAX_CLIMB, MAX_CLIMB);
+                        }
+                        else
+                        {
+                            float sa = out_.LengthSquared() > 1e-8f ? MathF.Atan2(out_.Y, out_.X) : a;
+                            forward = new Vector3(MathF.Cos(sa), 0f, MathF.Sin(sa));
+                            climb = tangent.Y >= 0f ? MAX_CLIMB : -MAX_CLIMB;
+                        }
+
+                        //Laid near flat and leaving the twig forwards, to alternate sides as a leaf's pairs do, the last one carrying
+                        //straight on (the meadow's rule, #697); it follows the twig's rise by half, droops at the rim and tilts a
+                        //little at random
+                        float leanRoll = (float)rng.NextDouble();
+                        float lean = (k == cards - 1 ? LAST_LEAN : LEAN + LEAN_SPREAD * leanRoll) * (((k + t) & 1) == 0 ? 1f : -1f);
+                        Vector3 flat = Vector3.Normalize(forward + Vector3.Cross(Vector3.Up, forward) * lean);
+                        Vector3 along = new(flat.X, climb - 0.25f * srim + 0.3f * ((float)rng.NextDouble() - 0.5f), flat.Z);
                         along.Normalize();
                         Vector3 across = Vector3.Normalize(Vector3.Cross(Vector3.Up, along));
                         across = Vector3.Normalize(across + Vector3.Up * (0.8f * ((float)rng.NextDouble() - 0.5f)));
