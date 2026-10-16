@@ -1093,8 +1093,10 @@ namespace BS3D
         /// and stands in every scene, front end included — the gun, which is a <b>session's</b> and is
         /// therefore cast by whatever <see cref="StandingGun"/> the session put there, and in the
         /// forest the wood standing round both (#471). <b>And the balls</b> (#470's own remaining half): every
-        /// bucket <see cref="Balls"/> collected this frame — the cluster, the shots in flight, the loaded
-        /// queue, the front end's preview — whatever is on screen when this runs.
+        /// bucket <see cref="Balls"/> collected this frame <b>before</b> <see cref="BeginSceneDraw"/> — the cluster,
+        /// the shots in flight, the loaded queue, the front end's preview. Not the balls a screen collects
+        /// <b>after</b> it, on purpose, because they are not on the map: the landing ghost (#894), whose size beats
+        /// where the depth pass would draw it whole, and the kind card's ball (#735).
         /// <para>
         /// The forest's stand is the host's object the way the island is, which is why it casts from here and
         /// not from inside <see cref="SceneRenderer"/> with the savanna's scatter and the beach's palms. The
