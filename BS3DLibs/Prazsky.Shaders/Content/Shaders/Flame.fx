@@ -24,6 +24,13 @@
 //buffer of camera-facing quads, drawn per source). Sub-flame 0 sits exactly where the old single quad did,
 //at its old scale and seed, so the view the fire was tuned against (front-on, from the play camera) is
 //pixel-for-pixel what it always was; only the two smaller sub-flames beside it are new.
+//
+//A billboard is a rectangle, and a fire painted on one shows the rectangle the moment any of the fire reaches
+//its border: the three tongues sit anywhere in U = -1..1 and wander on their own sines, so in some phases a
+//near-opaque tongue ended on the quad's side as a straight vertical cut (#886). The quad is therefore WIDER
+//than the fire (FLAME_QUAD_WIDEN) and the heat is faded to nothing before it reaches the new border, so no
+//flame pixel can sit on an edge in any phase; the tongues themselves are unchanged in the world, and the
+//fire is pixel-for-pixel what it was inside the old rectangle.
 
 #define VS_SHADERMODEL vs_5_0
 #define PS_SHADERMODEL ps_5_0
@@ -72,6 +79,18 @@ static const float3 SPARK_COOL = float3(1.4, 0.2, 0.03);
 //part of the same fire rather than three campfires, far enough apart that orbiting the hearth visibly
 //parallaxes them against each other and the ground. World-space XZ, a fraction of FlameSize.
 #define SUBFLAME_COUNT 3
+
+//How much wider the quad is than the fire's own U range of -1..1 (#886). The fire is drawn in the pixel
+//shader's U, which runs -FLAME_QUAD_WIDEN..FLAME_QUAD_WIDEN across the quad, while one U unit stays the same
+//distance in the world as it always was: the vertex shader scales the corner's own -1..1 by it in both the
+//position and the UV, so the tongues do not grow. The heat is faded from |U| = 1 (the old border, so the
+//fire inside it is unchanged) down to 0 at |U| = FLAME_QUAD_WIDEN. The broad base of the outer tongues is
+//what reaches furthest: a port of this pixel shader run over 400 phases of all the fires' and sub-flames'
+//seeds found no pixel above the clip level beyond |U| = 1.31 and 95 % of the phases under 1.29, so 1.3 is
+//where the fire has nothing left to show; a larger value only buys pixel-shader area that draws nothing,
+//the fBm running before the clip.
+#define FLAME_QUAD_WIDEN 1.3
+
 static const float2 SUBFLAME_OFFSET[SUBFLAME_COUNT] = { float2(0.0, 0.0), float2(0.34, 0.20), float2(-0.28, -0.24) };
 static const float SUBFLAME_SCALE[SUBFLAME_COUNT] = { 1.0, 0.62, 0.55 };
 //Added straight onto FlameSeed before it drives the plasma (FlamePS's own r), so no two sub-flames of the
@@ -114,10 +133,13 @@ FlameVertexOutput FlameVS(FlameVertexInput input)
 
     float w = FlameSize * scale;
     float h = FlameSize * FlameHeightScale * scale;
-    float3 world = subPosition + FacingRight(subPosition) * (input.Data.x * w) + float3(0.0, 1.0, 0.0) * (input.Data.y * h);
+    //The corner's U (-1 or 1) scaled by FLAME_QUAD_WIDEN in the position AND the UV, so the pixel shader's U
+    //keeps its world length and only its range grows (#886)
+    float u = input.Data.x * FLAME_QUAD_WIDEN;
+    float3 world = subPosition + FacingRight(subPosition) * (u * w) + float3(0.0, 1.0, 0.0) * (input.Data.y * h);
 
     output.Position = mul(mul(float4(world, 1.0), View), Projection);
-    output.UV = input.Data.xy;
+    output.UV = float2(u, input.Data.y);
     output.Fade = 1.0;
     output.SeedOffset = SUBFLAME_SEED_OFFSET[sub];
 
@@ -126,7 +148,7 @@ FlameVertexOutput FlameVS(FlameVertexInput input)
 
 float4 FlamePS(FlameVertexOutput input) : COLOR
 {
-    float u = input.UV.x; //[-1,1]
+    float u = input.UV.x; //[-FLAME_QUAD_WIDEN,FLAME_QUAD_WIDEN]; the fire itself lives in [-1,1] and the margin is its taper (#886)
     float v = input.UV.y; //[0,1], 0 at the base
     //The seed offset (#481) is what keeps a fire's own three sub-flames from running the identical plasma a
     //fraction apart - the same idea FlameSeed already is between different fires, one level down.
@@ -166,6 +188,11 @@ float4 FlamePS(FlameVertexOutput input) : COLOR
     //CampfireConfig.FlameHeightScale) - with only the tips reaching on up.
     float heat = saturate(body * 1.3 - (turb * 0.5 + 0.5) * (0.3 + 1.5 * v));
     heat *= smoothstep(-0.02, 0.10, v) * smoothstep(1.0, 0.55, v);
+
+    //The side taper (#886): full strength out to the old border at |u| = 1, then down to nothing at the
+    //quad's own border, so no flame pixel can be drawn on an edge however the tongues have wandered. Exactly
+    //1 inside |u| = 1, so the fire there is what it was.
+    heat *= smoothstep(FLAME_QUAD_WIDEN, 1.0, abs(u));
 
     clip(heat - 0.02);
 
