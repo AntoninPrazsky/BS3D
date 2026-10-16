@@ -307,6 +307,10 @@ namespace BS3D
         //SessionTestOptions.DetonateSeconds.
         internal float[] DetonateSeconds { get; private set; }
 
+        //Testing only: seconds of the world's clock after a cutter strikes at which the frame is saved (#767). See
+        //SessionTestOptions.CutShotSeconds.
+        internal float[] CutShotSeconds { get; private set; }
+
         //Testing only: the wall-clock second, on ShotSeconds's clock, at which the run goes to the main menu with
         //its session KEPT (#650) — what the pause page's Main Menu does. Null when absent. See StartupScript.
         internal float? ToMenuAt { get; private set; }
@@ -561,6 +565,11 @@ namespace BS3D
             //beside a bomb, which no script can aim, and the effect it answers with is the Game's alone. It
             //DOES change play, like "wildcard=": the bomb really goes. Parsed by the same lenient list.
             Row.List("detonate", (o, v) => o.DetonateSeconds = v),
+            //"cutshot=<s1,s2,…>" saves the frame at those seconds after a cutter strikes (#767), counted on the world's
+            //clock the strike's slash, sparks and glows age by, so a capture names the moment of the effect it shows
+            //whatever the slow motion and a capture's own hitch did to the wall clock. A strike's frame cannot be
+            //aimed with shot=: the flight is a few frames long and each capture costs a tenth of a second.
+            Row.List("cutshot", (o, v) => o.CutShotSeconds = v),
             //"tomenu=<s>" leaves the level being played for the main menu at that wall-clock second, the session
             //kept for Continue (#650): the front end with a live session behind it is the one state a script could
             //not reach (the pause page needs a focused window and three presses), and it is where the gun's shadow

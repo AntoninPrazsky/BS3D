@@ -71,6 +71,9 @@ namespace BS3D.Screens
     /// is touched (<see cref="Tutorial.PinDevice"/>).</param>
     /// <param name="LogTilt">The <c>logtilt</c> argument (#720): print the overview's tilt with the aim, the camera's
     /// pitch and where the muzzle and the beam's end sit in the frame, once a frame. Only on request.</param>
+    /// <param name="CutShotSeconds">The <c>cutshot=</c> argument (#767): seconds of the world's clock after a cutter strikes
+    /// at which the frame is saved, in order; empty or null for none. A cut's strike cannot be photographed on the wall
+    /// clock's <c>shot=</c>: its flight is a few frames long and every capture's own hitch moves the next frame.</param>
     internal sealed record SessionTestOptions(
         int? ForcedStreak,
         int ForcedWildcardEvery,
@@ -85,7 +88,8 @@ namespace BS3D.Screens
         int? Seed,
         bool LogShots = false,
         bool PadPrompts = false,
-        bool LogTilt = false)
+        bool LogTilt = false,
+        IReadOnlyList<float> CutShotSeconds = null)
     {
         /// <summary>
         /// Reads the levers out of what the command line said. The one place their interpretation lives: any
@@ -108,6 +112,7 @@ namespace BS3D.Screens
             Seed: launch.Seed,
             LogShots: launch.LogShots,
             PadPrompts: launch.PadPrompts,
-            LogTilt: launch.LogTilt);
+            LogTilt: launch.LogTilt,
+            CutShotSeconds: launch.CutShotSeconds ?? Array.Empty<float>());
     }
 }

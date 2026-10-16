@@ -72,13 +72,20 @@ namespace BS3D.Screens
 
             if (_test.LogShots) LogResolution($"landed at ({landing.Cell.X},{landing.Cell.Z},{landing.Cell.Level})");
 
+            //A cutter does not land: it severs (#767). Its strike has a sound and a knock of its own in place of the
+            //landing's note and tap below; the slash, the faces' glow and the slow motion are staged once the cinematic
+            //has had its say (StageCutStrike, at the foot of this method)
+            bool cut = landing.Kind == BallKind.Cutter;
+
             //The landing's own sound, before anything is scored: it depends only on the colour that hit, what it
             //is MADE of (#314) and where — not on what came loose. Spoken from the cell it stuck to — the same
             //solved position the award is born on below — so a hit on the left of the field is heard on the
             //left. The camera is no longer passed: the listener is the host's, posed once a frame from the one
             //camera there is. The style is this session's rather than the landing's, the material being a
-            //property of the level and not of the ball that just arrived.
-            Game.Audio.PlayLanded(landing.Type, _run.BallStyle, landing.World);
+            //property of the level and not of the ball that just arrived. A cutter's is the slice (#767): its
+            //dealt colour is never seen, and a colour's note would say a ball had stuck.
+            if (cut) Game.Audio.PlayCutSlice(landing.World, CutBeats.Size(landing.Released.Total));
+            else Game.Audio.PlayLanded(landing.Type, _run.BallStyle, landing.World);
 
             //What came loose answers separately (#46): the lattice's snap and the freed group popping away,
             //scaled by how much of it there is. A plain attach stays just the thunk above. It sounds from the
@@ -97,7 +104,10 @@ namespace BS3D.Screens
             //that grows with its count along a logarithm and stops well below the motors' full, however much of the shot
             //or the last release is still ringing. The owner's rule: the more balls the stronger, but even a big one must
             //not shake the player's joints. See LandingRumble.
-            Game.Rumble.Landing(released);
+            //A cut's strike is its own knock instead (#767, CutRumble): the tap raised to a hard knock under both triggers,
+            //and the fall along the same release curve under the same ceiling, of everything the cut freed
+            if (cut) Game.Rumble.CutStrike(landing.Released.Total);
+            else Game.Rumble.Landing(released);
 
             //And the blasts themselves (#389): each flash, report and jolt at the place it happened, and each link
             //of a chain a beat behind the bomb that set it off. Handed over now, inside the landing, because the
@@ -170,6 +180,10 @@ namespace BS3D.Screens
             //CheckLevelCleared starts the countdown that ends the level
             TryBeginDropCinematic(landing.Released);
 
+            //The cut as a moment (#767), after the cinematic has decided whether to take the lens: when it has, the
+            //cinematic's slow motion is the fall's and the cut adds none of its own
+            if (cut) StageCutStrike(landing);
+
             //And the cluster has just changed, which is the only thing that can put a tall level's underside
             //out of reach
             FeedTallColumn();
@@ -178,6 +192,65 @@ namespace BS3D.Screens
 
             //Last, once the clear test has had its say, so a break is never told over a level just decided (#845)
             if (!award.Scored) AnswerLostStreak(streakBefore);
+        }
+
+        /// <summary>
+        /// The severing and the fall of a cut (#767), on the strike's own landing: the preview's glow handed on to the
+        /// cut's faces, the slash, the flash and the sparks through the strike point (<see cref="Blasts.Cut"/>), the camera's
+        /// heave, and the hit-stop with the fall's slow motion (<see cref="CutStaging.Strike"/>). The sound and the knock were
+        /// given where the landing's would have been.
+        /// </summary>
+        private void StageCutStrike(BallLanding landing)
+        {
+            //The preview held through the flight goes out here; the faces' heat takes over the same balls on this frame
+            ClearCutPreview();
+
+            int freed = landing.Released.Total;
+            _cutStaging.Strike(landing.Cell, landing.World, _fallingBalls, freed, landing.Released.Orphaned, _physicsBalls,
+                slowMotion: !_cinematic.Engaged, out float halfLength, out float size);
+
+            _blasts.Cut(landing.World, halfLength, size);
+            Camera.Shake.Rumble(CUT_RUMBLE + CUT_RUMBLE_GROWTH * size);
+
+            //Testing only (cutshot=): the frames after this strike, counted from here
+            _cutShotWorld = 0f;
+            _cutShotWall = 0f;
+            _cutShotNext = 0;
+
+            //What the strike asked of the hand, the slash's reach and the fall's pace, one line a cut (it is once a level)
+            (float fallLeft, float fallRight, float fallSeconds) = LandingRumble.Release(freed);
+            Console.WriteLine(FormattableString.Invariant(
+                $"[cut] strike: destroyed {landing.Released.Destroyed}, orphaned {landing.Released.Orphaned}, size {size:F2},")
+                + FormattableString.Invariant(
+                $" slash half-length {halfLength:F1}, knock L {CutRumble.KNOCK_LEFT:F2} R {CutRumble.KNOCK_RIGHT:F2} triggers {CutRumble.KNOCK_TRIGGER:F2},")
+                + FormattableString.Invariant(
+                $" fall L {fallLeft:F2} R {fallRight:F2} over {fallSeconds:F2} s,")
+                + (_cinematic.Engaged ? " slow motion: the drop cinematic's"
+                    : FormattableString.Invariant($" slow motion {CutBeats.SlowSeconds(CutBeats.Size(landing.Released.Orphaned), landing.Released.Orphaned > 0):F2} s")));
+        }
+
+        //Testing only (cutshot=, #767): how far the world and the wall clock have run since the last cutter struck (negative
+        //before any has) and how far down the schedule the frames have got
+        private float _cutShotWorld = -1f, _cutShotWall;
+        private int _cutShotNext;
+
+        /// <summary>
+        /// Testing only (the <c>cutshot=</c> argument, #767): saves the frame whose world time since the strike has reached
+        /// the next entry, one a frame, and says on which beat of the slow motion it fell.
+        /// </summary>
+        private void StepCutShots(float elapsed, float worldScale)
+        {
+            if (_cutShotWorld < 0f || _test.CutShotSeconds == null) return;
+
+            _cutShotWorld += elapsed * worldScale;
+            _cutShotWall += elapsed;
+
+            if (_cutShotNext >= _test.CutShotSeconds.Count || _cutShotWorld < _test.CutShotSeconds[_cutShotNext]) return;
+
+            _cutShotNext++;
+            Game.RequestScreenshot();
+            Console.WriteLine(FormattableString.Invariant(
+                $"[cutshot] world +{_cutShotWorld:F3} s, wall +{_cutShotWall:F3} s, the world at {worldScale:F2} of its speed"));
         }
 
         /// <summary>
@@ -333,6 +406,14 @@ namespace BS3D.Screens
             if (!_dropFocus.TryResolve(out Vector3 centre)) return;
 
             _cinematic.Begin(Game.Scene, centre, Camera.Position, total, _random, Game.SeaLevelY);
+
+            //It takes the world's time with the lens (#767): a cut's slow motion still running - a shot already in the air
+            //landed this release during it - ends here, so the two never scale the world together
+            if (_cutStaging.Slowed)
+            {
+                _cutStaging.Skip();
+                Console.WriteLine("[skip] cut slow motion, the drop cinematic took over");
+            }
 
             //One line per cinematic, in the manner of the [level] and [score] lines: it is a rare event, not a
             //per-frame one, and the shot is rolled — so when one frames badly this is the only record of what
