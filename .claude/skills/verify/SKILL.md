@@ -47,7 +47,8 @@ CLI arguments (any order):
   goes through the screen.
 - `clock=<seconds>` — starts the SCENE's shader clock that many seconds late (#903), so a term that grows with
   the session clock (the Game's is the seconds since launch, the Testbed's starts at 0) can be photographed at
-  `clock=600` without waiting. Only the time handed to the scene moves: `shot=`/`at=` keep the wall clock.
+  `clock=600` without waiting. Everything that draws the scene moves together (shaders, scene lights, clouds,
+  balls' pulse, grain); `shot=`/`at=` keep the wall clock.
 - `switchmap=<path>` — loads a second map on top of the running one after 10 s (logs `[switchmap] Loading …`);
   exercises the map re-loading path used by F2 and drag-and-drop. Note `Dense20x10x15.json` is completely
   full — nothing can attach to it, so to verify attachment after a switch, switch **to** a map with free cells

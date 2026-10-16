@@ -40,9 +40,9 @@ namespace Testbed
             //Cannon's since #115, this is only its tick
             _cannon.StepRecoil((float)gameTime.ElapsedGameTime.TotalSeconds);
 
-            //The city runs off the same wall clock, and for the same reason: its windows are lit by people
+            //The city runs off the same scene clock, and for the same reason: its windows are lit by people
             //who do not care whether the simulation is running
-            _cityRenderer.CityWindowTime = _pulseSeconds;
+            _cityRenderer.CityWindowTime = SceneClock;
 
             UpdateOvercast((float)gameTime.ElapsedGameTime.TotalSeconds);
 

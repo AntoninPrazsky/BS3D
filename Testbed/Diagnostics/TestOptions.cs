@@ -298,13 +298,15 @@ namespace Testbed.Diagnostics
         public int? SceneSeed { get; private set; }
 
         /// <summary>
-        /// <c>clock=&lt;seconds&gt;</c>: starts the clock the SCENE's shaders run on this many seconds late (#903).
+        /// <c>clock=&lt;seconds&gt;</c>: starts the clock the SCENE runs on this many seconds late (#903).
         /// The Game's scene clock is the seconds since launch, so a session that has been open for ten minutes
         /// draws every <c>Time</c>-driven shader at 600, and the Testbed's, which starts at 0, never reaches it
         /// in a capture: a term that grows with the clock (the sea's fish once turned tail first from about a
-        /// minute in) cannot be seen from a fresh launch. Added to the time handed to the scene
-        /// (<c>BuildSceneFrame</c>) only: <c>shot=</c>, <c>at=</c> and every other schedule keep running on the
-        /// run's own wall clock, so a script that drives a run does not move. Testing only; 0 when absent.
+        /// minute in) cannot be seen from a fresh launch. One shifted clock (<c>SceneClock</c> in the Testbed) is
+        /// handed to everything that draws the scene - the shaders, the scene lights, the clouds, the balls' pulse,
+        /// the grain - so a light and the thing it lights stay in step. <c>shot=</c>, <c>at=</c> and every other
+        /// schedule keep running on the run's own wall clock, so a script that drives a run does not move. Testing
+        /// only; 0 when absent.
         /// </summary>
         public float ClockOffset { get; private set; }
 

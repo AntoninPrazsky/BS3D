@@ -71,15 +71,17 @@ FishVertexOutput FishVS(FishVertexInput input)
     float4 h = FishHash(fish);
 
     //Its place in the ring: a radius and a height of its own, breathing slowly, and an angle round the ring that
-    //advances at the school's speed - the same linear speed for every fish, so the inner ones lap the outer.
+    //advances at the school's speed - the same NOMINAL linear speed S for every fish, so the inner ones lap the
+    //outer (the wobble and the breathing radius below swing one fish's real speed round S, between about 0.6 and 1.4
+    //times it on the outer ring, over periods of 9 and 20 seconds).
     //The angle is built from the fish's BASE radius, not the breathing one (#903): Time / radius with a radius that
     //itself moves with Time has the derivative S/r - Time*S*r'/r^2, and its second term grows with the session
     //clock until it drives the angle backwards for every fish whose radius is growing - and the nose is the tangent
     //of the growing angle, so those swam tail first (about a minute in for the first of them, roughly four in ten
-    //of the school after five). With the base radius the angular speed is S/baseRadius plus the wobble's, constant
-    //for the fish's life and positive: the wobble's rate is at most 0.08 * 0.7 = 0.056 rad/s against S/21 = 0.152
-    //at the outer edge (it stays positive for any SwimSpeed above 21 * 0.056 = 1.18). The breathing radius moves
-    //the PLACE only.
+    //of the school after five). With the base radius the angular speed is S/baseRadius, constant for the fish's life,
+    //plus the wobble's own rate, which is bounded and has no clock in it: at most 0.08 * 0.7 = 0.056 rad/s against
+    //S/21 = 0.152 at the outer edge, so the sum stays positive (for any SwimSpeed above 21 * 0.056 = 1.18). The
+    //breathing radius moves the PLACE only.
     float baseRadius = lerp(SchoolRadii.x, SchoolRadii.y, h.x);
     float radius = baseRadius + 0.8 * sin(Time * 0.31 + fish * 1.7);
     float height = SchoolCentre.y + SchoolDepth * (h.y - 0.5) + 0.45 * sin(Time * 0.53 + fish * 2.3);

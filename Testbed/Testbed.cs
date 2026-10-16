@@ -285,9 +285,20 @@ namespace Testbed
         //looking at the same arrangement on both halves, and after the roll it would not be. 0 is what shipped.
         private readonly int _sceneSeedOffset;
 
-        //clock=<seconds> (#903): how late the SCENE's shader clock starts. Added in BuildSceneFrame only, so the
-        //shot and input schedules, which run off _pulseSeconds, are not moved by it.
+        //clock=<seconds> (#903): how late the SCENE's clock starts. See SceneClock.
         private readonly float _sceneClockOffset;
+
+        /// <summary>
+        /// The clock everything that draws the scene runs on: the wall clock (<c>_pulseSeconds</c>) plus clock= (#903),
+        /// the Game's <c>_wallClock</c> at that many seconds into a session. It is ONE value for every consumer the Game
+        /// feeds from its wall clock - the scene's shaders (<c>SceneFrame.Time</c>), the scene lights, the ground glow,
+        /// the eruption and the aurora's tint, the rooftops, the fireflies, the city's windows, the clouds, the balls'
+        /// pulse and the tonemap's grain - because a light and the thing it lights (the campfire's light and its flame
+        /// billboard, the eruption's glow and its jets) are one flicker only if they read the same clock. The shot and
+        /// input schedules (<c>shot=</c>, <c>at=</c>, <c>_script</c>) and the crosshair's blink stay on the bare
+        /// <c>_pulseSeconds</c>, so a script that drives a run does not move with it.
+        /// </summary>
+        private float SceneClock => _pulseSeconds + _sceneClockOffset;
 
         //Which of the two cities _city holds, so a scene change that does not cross between them rebuilds
         //nothing.
@@ -1106,7 +1117,7 @@ namespace Testbed
         /// </summary>
         private void UpdateOvercast(float elapsedSeconds)
         {
-            _clouds.Time = _pulseSeconds;
+            _clouds.Time = SceneClock;
 
             //A change of sky is a sky CHANGING rather than one frame's cut (#221). Walked here because this
             //is where the deck's own clock is set and where the rig's overcast lerp is stepped — the two
@@ -1128,7 +1139,7 @@ namespace Testbed
             //A scene rig that moves with time (the aurora's takes its sky's hue, #462) is stepped here, on
             //the clock the Testbed draws that sky with. Its answer is not needed: the push below runs every
             //frame anyway.
-            _rig.StepSceneLight(_pulseSeconds);
+            _rig.StepSceneLight(SceneClock);
 
             //Refilled every frame into one reused list, and pushed by index, so the per-frame path allocates
             //nothing — this is the caller BestPractices.md §3 records the iterator incident for
@@ -1300,7 +1311,7 @@ namespace Testbed
         /// the cloud hook was captured once at load, so this allocates nothing — it used to build a fresh
         /// delegate and re-derive the sun's tint on every frame of the draw path.
         /// </summary>
-        private SceneFrame BuildSceneFrame() => _rig.BuildSceneFrame(_camera, _pulseSeconds + _sceneClockOffset);
+        private SceneFrame BuildSceneFrame() => _rig.BuildSceneFrame(_camera, SceneClock);
 
         /// <summary>
         /// Builds the setting: the procedural city (one unit box mesh under a different instance matrix per

@@ -1,5 +1,7 @@
 using Prazsky.Core.Render;
 using System;
+using System.IO;
+using System.Text.RegularExpressions;
 using Xunit;
 
 namespace BS3D.Tests
@@ -9,10 +11,12 @@ namespace BS3D.Tests
     /// angle as <c>Time * SwimSpeed / radius</c> with a radius that itself breathes with <c>Time</c>, so the angle's rate
     /// was S/r - Time*S*r'/r^2, whose second term grows with the clock and ran the angle backwards for the fish whose
     /// radius was growing (the nose is the tangent of the growing angle, so those swam tail first). The shader now
-    /// builds the angle from the BASE radius. These tests are a CPU mirror of that one expression, kept in step with
-    /// the shader by hand (the constants the school owns are read from <see cref="FishSchool"/>); the real shader was
-    /// checked on frames with a throwaway probe colouring every fish whose place a fifth of a second later lies behind
-    /// its own nose. The old expression is mirrored too, so the sweep is seen to fire on the case it exists for.
+    /// builds the angle from the BASE radius. The sweeps are a CPU mirror of that one expression (the constants the
+    /// school owns are read from <see cref="FishSchool"/>), so on their own they would stay green if the shader were
+    /// reverted; the source tests below read <c>Fish.fx</c> and pin the three lines the mirror copies, so the mirror
+    /// cannot drift from the shader unseen. The real shader was also checked on frames with a throwaway probe colouring
+    /// every fish whose place a fifth of a second later lies behind its own nose. The old expression is mirrored too,
+    /// and the source check is run on the old text, so both are seen to fire on the case they exist for.
     /// </summary>
     public class FishRingAngleTests
     {
@@ -22,6 +26,33 @@ namespace BS3D.Tests
         private const double BREATH_AMPLITUDE = 0.8, BREATH_RATE = 0.31, BREATH_PHASE = 1.7;
 
         private const int FISH_COUNT = 110;
+
+        private static string FindUnderRepository(string relative)
+        {
+            for (DirectoryInfo directory = new(AppContext.BaseDirectory); directory != null; directory = directory.Parent)
+            {
+                string candidate = Path.Combine(directory.FullName, relative);
+                if (File.Exists(candidate)) return candidate;
+            }
+
+            throw new FileNotFoundException($"No {relative} was found above the test assembly.");
+        }
+
+        /// <summary>The shader's code with its comments taken out and every run of white space made one space.</summary>
+        private static string Code(string shader) => Regex.Replace(Regex.Replace(shader, @"//[^\r\n]*", ""), @"\s+", " ");
+
+        /// <summary>
+        /// Whether the code still has the three lines the mirror above copies: the base radius, the breathing radius
+        /// round it and the angle built from the BASE one with the wobble's figures. A change to any of them (the
+        /// breathing radius back under the clock, a different wobble or breath) has to be made here too.
+        /// </summary>
+        private static bool HasTheRingTheMirrorCopies(string shader)
+        {
+            string code = Code(shader);
+            return code.Contains("float baseRadius = lerp(SchoolRadii.x, SchoolRadii.y, h.x);", StringComparison.Ordinal)
+                && code.Contains("float radius = baseRadius + 0.8 * sin(Time * 0.31 + fish * 1.7);", StringComparison.Ordinal)
+                && code.Contains("float angle = h.z * 6.2831853 + Time * SwimSpeed / max(baseRadius, 1.0) + 0.08 * sin(Time * 0.7 + fish);", StringComparison.Ordinal);
+        }
 
         private static double Wobble(double t, int fish) => WOBBLE_AMPLITUDE * Math.Sin(WOBBLE_RATE * t + fish);
 
@@ -84,6 +115,25 @@ namespace BS3D.Tests
             double slowest = FishSchool.SWIM_SPEED / FishSchool.SCHOOL_RADIUS_OUT - wobbleBackwards;
             Assert.True(slowest > 0.0, $"the outer ring turns at {slowest} rad/s at its slowest");
             Assert.InRange(FishSchool.SCHOOL_RADIUS_OUT * wobbleBackwards, 1.17, 1.19);
+        }
+
+        [Fact]
+        public void TheShaderStillBuildsTheAngleFromTheBaseRadius()
+        {
+            string shader = File.ReadAllText(FindUnderRepository(Path.Combine("BS3DLibs", "Prazsky.Shaders", "Content", "Shaders", "Fish.fx")));
+            Assert.True(HasTheRingTheMirrorCopies(shader), "Fish.fx no longer has the ring lines FishRingAngleTests mirrors: change the mirror with them");
+        }
+
+        [Fact]
+        public void TheSourceCheckFiresOnTheOldAngleAndOnAChangedWobble()
+        {
+            //Seen to fire (BestPractices.md, section 10), on the shader text as it stood and on the likeliest drifts
+            string shader = File.ReadAllText(FindUnderRepository(Path.Combine("BS3DLibs", "Prazsky.Shaders", "Content", "Shaders", "Fish.fx")));
+            const string now = "Time * SwimSpeed / max(baseRadius, 1.0)";
+            Assert.Contains(now, Code(shader), StringComparison.Ordinal);
+            Assert.False(HasTheRingTheMirrorCopies(shader.Replace(now, "Time * SwimSpeed / max(radius, 1.0)", StringComparison.Ordinal)));
+            Assert.False(HasTheRingTheMirrorCopies(shader.Replace("0.08 * sin(Time * 0.7", "0.3 * sin(Time * 0.7", StringComparison.Ordinal)));
+            Assert.False(HasTheRingTheMirrorCopies(shader.Replace("0.8 * sin(Time * 0.31", "1.8 * sin(Time * 0.31", StringComparison.Ordinal)));
         }
 
         [Fact]
