@@ -306,11 +306,13 @@ namespace Prazsky.Core.Render
         /// terrain scene displaces, from <see cref="TerrainGridCache"/> (#589): scenes asking for the same pair
         /// share one pair of buffers, which the cache owns — a holder gives its grid back with
         /// <see cref="TerrainGridCache.Release"/> and never disposes it. The indices are 32-bit; the cache's
-        /// builder carries the note on why a grid over 255 a side must never have 16-bit ones.
+        /// builder carries the note on why a grid over 255 a side must never have 16-bit ones. <paramref name="nearFirst"/>
+        /// asks for its quads in rings from the centre out, a separate grid (#781, <see cref="TerrainGridCache"/>).
         /// </summary>
-        public void AcquireGridMesh(int n, float extent, out VertexBuffer vertexBuffer, out IndexBuffer indexBuffer, out int indexCount)
+        public void AcquireGridMesh(int n, float extent, out VertexBuffer vertexBuffer, out IndexBuffer indexBuffer, out int indexCount,
+            bool nearFirst = false)
         {
-            TerrainGridCache.Grid grid = _gridCache.Acquire(n, extent);
+            TerrainGridCache.Grid grid = _gridCache.Acquire(n, extent, nearFirst);
             vertexBuffer = grid.Vertices;
             indexBuffer = grid.Indices;
             indexCount = grid.IndexCount;
@@ -321,7 +323,7 @@ namespace Prazsky.Core.Render
         /// (<see cref="TerrainGridCache.Release"/>): what a scene that retakes its grid at another density does with
         /// the old one, rather than disposing a pair of buffers another scene may be drawing.
         /// </summary>
-        public void ReleaseGridMesh(int n, float extent) => _gridCache.Release(n, extent);
+        public void ReleaseGridMesh(int n, float extent, bool nearFirst = false) => _gridCache.Release(n, extent, nearFirst);
 
         /// <summary>
         /// A static buffer of <paramref name="count"/> camera-facing quads, each carrying a fixed random point

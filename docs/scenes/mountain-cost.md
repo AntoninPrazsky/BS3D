@@ -10,8 +10,9 @@ A 6900 XT playtest at 3840x1600 / 75 Hz reported about 38 FPS, which is 75 / 2: 
 
 ## The real cost
 
-- **12.35 ms** fullscreen, 3840x1600, `quality=high` (`ssaa` 2), `level=Column`, `nocap`, against the **13.3 ms a 75 Hz panel allows**: about a millisecond of headroom. The empty scene (`campos=0,2,45 camtarget=0,-4,0`, dome 8) is 10.5 ms.
-- **It is pixel work with no look-identical reduction left** (#296; `Full.json`, windowed 3840x1600): `ssaa` 1 3.19 ms, `ssaa` 2 10.99, a fixed 0.59 plus 2.60 per unit of shaded pixels. An early `break` out of `Fbm2BandLimited` measured 11.10 (a real `[loop]` costs more than it saves); hoisting `ddx`/`ddy` measured noise.
+- **12.35 ms** fullscreen, 3840x1600, `quality=high` (`ssaa` 2), `level=Column`, `nocap`, with the authored program (High's until #781), against the **13.3 ms a 75 Hz panel allows**. The empty scene (`campos=0,2,45 camtarget=0,-4,0`, dome 8) was 10.5 ms.
+- **High and Ultra draw `MountainFine` (#781), which is about 3.3 ms cheaper than the authored program at this size**: it never calls `clip()`, so the depth test runs before its pixel shader, where the authored and reduced programs shade the range under every ridge in front of it. The Game on Belfry, 3840x1600: High 14.73 → 11.31 ms, Ultra 14.67 → 11.32. Detail and figures: "High and Ultra's range" in [The mountains](mountains.md).
+- **It is pixel work, and much of it is overdraw** (#296; `Full.json`, windowed 3840x1600): `ssaa` 1 3.19 ms, `ssaa` 2 10.99, a fixed 0.59 plus 2.60 per unit of shaded pixels. An early `break` out of `Fbm2BandLimited` measured 11.10 (a real `[loop]` costs more than it saves); hoisting `ddx`/`ddy` measured noise. ⚠ The authored and reduced programs `clip()` the island's hole, which turns off the depth test before the pixel shader: High's program cuts the hole in geometry instead and saves the 3.3 ms above, so the same change would be the look-identical reduction for Low and Medium.
 - **Other scenes, same rig** (fullscreen, `quality=high`, `fpscap=400`): cavern Onion 5.96 ms, savanna Heart 8.30, desert Basket 9.35, dream (front end, `preview=Onion`) 7.20 ("The quality tier" in `docs/game-shell.md`).
 
 ## Traps

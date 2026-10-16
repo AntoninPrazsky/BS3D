@@ -286,11 +286,14 @@ namespace BS3D
         /// <summary>
         /// Whether the scenes draw their finer meshes (<c>SceneRenderer.FineMeshes</c>): the savanna acacias' wood, the fork
         /// grown as one surface out of a swollen, lobed crotch where Low and Medium keep the seven-sided tubes poking out of
-        /// the trunk's cut end (#758), and the spruces' crowns as separate boughs with lumps of snow where Low and Medium keep
-        /// the lathe of smooth skirts (#733). <b>High and Ultra only</b>: the owner asked for the detail there ("on High /
-        /// Ultra this transition should have more detail"; of the spruces, "they could pass for Low, maybe Medium, but not
-        /// High or Ultra"), and Medium is the weak machine's rung. What it costs is in "The acacia's fork" in
-        /// docs/scenes/savanna-trees.md and "The spruces on High and Ultra" in docs/scenes/aurora.md.
+        /// the trunk's cut end (#758), the spruces' crowns as separate boughs with lumps of snow where Low and Medium keep
+        /// the lathe of smooth skirts (#733), and the mountain range on a grid twice as fine with crags and the rock shaded in
+        /// three dimensions (#781). <b>High and Ultra only</b>: the owner asked for the detail there ("on High / Ultra this
+        /// transition should have more detail"; of the spruces, "they could pass for Low, maybe Medium, but not High or
+        /// Ultra"; of the range, "how they look now could be the look of low/medium, but on high/ultra they must have more
+        /// detail"), and Medium is the weak machine's rung. What it costs is in "The acacia's fork" in
+        /// docs/scenes/savanna-trees.md, "The spruces on High and Ultra" in docs/scenes/aurora.md and "High and Ultra's
+        /// range" in docs/scenes/mountains.md.
         /// </summary>
         public readonly bool FineMeshes;
 

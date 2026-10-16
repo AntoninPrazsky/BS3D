@@ -24,6 +24,7 @@ The figures a future tier change compares against (#64: measured, because intuit
 - **Finer meshes** (`High`/`Ultra`), on the desktop at 3840×1600, `ssaa` 2, the Testbed's `alt=finemeshes=0;finemeshes=1`. `Medium` and `Low` never draw them, so the APU pays nothing.
   - The savanna acacias' grown fork (#758): **+0.06 ms** at `High` and at `Ultra` alike, at the play camera on Heart, 42 paired cycles. Detail: "The fork" in `docs/scenes/savanna-trees.md`.
   - The spruces' boughs (#733): **+0.32 ms** at the play camera on Fish (the aurora) and +0.42 from inside its wood. In the Game on Fish, `High` goes 9.49 to 9.72 ms and `Ultra` 9.50 to 9.72. The daytime forest costs +0.11 ms (`High`) and +0.12 (`Ultra`). The cost is triangles, so a lower resolution does not shrink it. Detail: "The spruces on High and Ultra" in `docs/scenes/aurora.md`.
+  - The mountain range (#781): **−3.26 ms** at `High` and **−3.58** at `Ultra` at the play camera on Belfry, 41 paired cycles; in the Game on Belfry, `High` goes 14.73 to 11.31 ms and `Ultra` 14.67 to 11.32. Cheaper with more detail because its program cuts the island's hole in geometry instead of with `clip()`, so the depth test runs before the pixel shader. Detail: "High and Ultra's range" in `docs/scenes/mountains.md`.
 
 ## The reference APU against shipped levels
 

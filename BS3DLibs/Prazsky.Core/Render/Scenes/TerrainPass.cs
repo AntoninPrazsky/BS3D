@@ -46,6 +46,7 @@ namespace Prazsky.Core.Render
         private int _indexCount;
         private int _gridN;
         private readonly float _extent;
+        private readonly bool _nearFirst;
         private float _cell;
 
         private readonly EffectParameter _originXZ, _islandHoleRadius, _view, _projection, _cameraPosition,
@@ -58,9 +59,10 @@ namespace Prazsky.Core.Render
         /// Takes a grid of <paramref name="gridN"/> vertices a side over <paramref name="extent"/> and resolves
         /// <paramref name="effect"/>'s per-frame parameters, <paramref name="timeParameter"/> being the name of
         /// the scene's own clock uniform (<c>PolarTime</c>, <c>DesertTime</c>, …), or null for a ground on which
-        /// nothing moves (Mars).
+        /// nothing moves (Mars). <paramref name="nearFirst"/> takes the grid with its quads in rings from the centre out
+        /// (<see cref="TerrainGridCache"/>, #781), which only a program that never clips gains from.
         /// </summary>
-        public TerrainPass(BackdropServices services, Effect effect, int gridN, float extent, string timeParameter)
+        public TerrainPass(BackdropServices services, Effect effect, int gridN, float extent, string timeParameter, bool nearFirst = false)
         {
             _graphicsDevice = services.GraphicsDevice;
             _farField = services.FarField;
@@ -69,8 +71,9 @@ namespace Prazsky.Core.Render
             _extent = extent;
             _cell = extent / (gridN - 1);
             _gridN = gridN;
+            _nearFirst = nearFirst;
 
-            services.AcquireGridMesh(gridN, extent, out _vertexBuffer, out _indexBuffer, out _indexCount);
+            services.AcquireGridMesh(gridN, extent, out _vertexBuffer, out _indexBuffer, out _indexCount, nearFirst);
 
             _originXZ = effect.Parameters["OriginXZ"];
             _islandHoleRadius = effect.Parameters["IslandHoleRadius"];
@@ -98,8 +101,8 @@ namespace Prazsky.Core.Render
             if (_gridN == gridN) return;
 
             //Given back rather than disposed: the grid cache owns it, and at full detail another scene draws the same one
-            _services.ReleaseGridMesh(_gridN, _extent);
-            _services.AcquireGridMesh(gridN, _extent, out _vertexBuffer, out _indexBuffer, out _indexCount);
+            _services.ReleaseGridMesh(_gridN, _extent, _nearFirst);
+            _services.AcquireGridMesh(gridN, _extent, out _vertexBuffer, out _indexBuffer, out _indexCount, _nearFirst);
             _gridN = gridN;
             _cell = _extent / (gridN - 1);
             _gridCell?.SetValue(_cell);
