@@ -884,3 +884,9 @@ Pravidla:
 - ⚠ Každé tělo prošel druhý agent proti kódu a 14 z 15 opravil (špatný řádek, zastaralé „v běhu“ u #758, který už je na mainu). Podíl listů proti větvi (52 %, #882) je z Python repliky, ne z C#.
 - ⚠ Testbed kreslí obruče až po ohních, takže chybu z #888 nepředvede. Fronta verdiktů je 19 (nad 15), práce na vzhledu čeká.
 - Otevřené: snímky před implementací; fronta verdiktů 19 (nad 15) drží start změn vzhledu, nabídnutá je stránka verdiktů.
+
+## 2026-10-16 — #898–#917 druhá dávka poznámek: High Scores, Jukebox, město, moře, hudba po kapitolách — desktop (RDT-PC), Claude Code (bs3d-5f)
+- Majitel poslal poznámky ke scénám a verdikty z poslechu celé hudby v Jukeboxu (nejmenované skladby jsou OK). Dvacet issues, jen čtení kódu: #898 High Scores, #899–#901 Jukebox, #902 stožáry, #903 ryby, #904–#915 hudba po kapitolách, #916 hlasové textury, #917 styl umělce v promptech. Komentář na #853 (denní doba), #873, #704, #486, #760, #685, #436.
+- majitel: potvrdil, že obrázky v #21 jsou jeho ruční rendery z Wings 3D (zapsáno do #896). Verdikty #706, #732, #824, #841: zbytek OK, jmenované skladby na navazujících #905, #907, #910, #913; čtyři issues zavřeny, fronta verdiktů je 15.
+- ⚠ Příčina ryb po ocasu (#903) je ve Fish.fx: úhel dělí čas relace poloměrem, který se mění s časem, takže rychlost roste a u části ryb jde do záporu. Jukebox hraje nahrávky bez vrstvy bicích (RecordingPlayer.cs:13-14): „bubny přebíjejí“ slyšel na plné hlasitosti.
+- Otevřené: žádný snímek ani poslech (druhá relace na desktopu); smyčka v Jukeboxu (#899) obrací jeho rozhodnutí z #704.
