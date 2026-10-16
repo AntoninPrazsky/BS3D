@@ -24,5 +24,9 @@
                      "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-mural-mbira.wav: 61.1s loop = source 24.31s..85.40s (27.97 bars at 109.9 bpm), crossfade 1.09s | context match 0.880 (best 0.929) | crossfade rhythm r=0.91 vs the track a bar later r=0.85: in time | spectrum cos=0.86"
                  ],
     "measured":  "generate-music.ps1 end to end 59.3 s (ace-lm + ace-synth + loop cut)",
-    "rendered":  true
+    "rendered":  true,
+    "bake":  {
+                 "trim_db":  -1.5,
+                 "why":  "#706: the master's crest factor is 16.2 dB (peak +2.5 dBFS at -13.7 dBFS RMS) and its peaks are round, not flat (no run of 3 samples within 0.1 dB of its peak), so the clipping was the bake's, not the music's: brought to -15 dBFS RMS, 205 samples went over full scale, the knee pressed them into 11 runs at 0.98 of it and the Vorbis decode into 14 (measure-music.py's clipped runs; decoded peak +0.25 dBFS). Trimmed by 1.0 dB it still decoded to 5 runs (peak +0.07 dBFS); by 1.5 dB to 0 runs and a peak of -0.22 dBFS, at -15.1 LUFS against the family's -14.9 to -13.3 (median -13.8). The untrimmed re-bake was byte-identical to the shipped file, so nothing else moved"
+             }
 }

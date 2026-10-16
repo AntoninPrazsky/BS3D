@@ -1,28 +1,180 @@
 {
-    "file":  "theme-mural-desertblues.wav",
-    "created":  "2026-09-23",
-    "issue":  486,
-    "family":  "mural",
-    "chapter":  "The Gallery (savanna) - Mural: log drum and marimba, G major 120",
-    "purpose":  "Master of Game/Music/mural-desertblues.ogg, one of the mural family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "Desert blues instrumental: hypnotic clean electric guitar riff in a pentatonic mode, hand percussion, deep bass drone, rolling groove, wide open savanna feel, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  100,
-                    "keyscale":  "G major",
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-mural-desertblues.wav: 67.2s loop = source 36.40s..103.60s (28.01 bars at 100.0 bpm), crossfade 1.20s | context match 0.549 (best 0.597) | crossfade rhythm r=0.70 vs the track a bar later r=0.72: in time | spectrum cos=0.58"
-                 ],
-    "measured":  "generate-music.ps1 end to end 60.9 s (ace-lm + ace-synth + loop cut)",
-    "rendered":  true
+    "file": "theme-mural-desertblues.wav",
+    "created": "2026-10-15",
+    "issue": 706,
+    "family": "mural",
+    "chapter": "The Gallery (savanna, levels 11-20) - regenerated on the owner's ruling of 2026-10-11 (#706): the offenders named by measurement against the desert's ember family are replaced, keeping the savanna voice and taking from ember a lead line the ear can follow, the character carried by arrangement and drive, not noise",
+    "purpose": "Master of Game/Music/mural-desertblues.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-706-chosen on the desktop, with its .raw.wav; every candidate in masters-706); this sidecar is committed beside the .ogg.",
+    "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-mural.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
+    "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+    "license": "ACE-Step 1.5: MIT (code and weights)",
+    "request": {
+        "caption": "Sahel desert blues rock instrumental: a singing lead electric guitar melody you can hum, in a pentatonic minor scale, answered phrase by phrase by a second clean guitar, an interlocking rhythm guitar riff that keeps moving, a warm melodic bass guitar line walking under the chords, a steady straight four-four groove of kick, snare and toms with a dark ride cymbal, djembe and calabash percussion playing throughout, the full band playing from the first bar with the melody passing between the two guitars, rolling and driving, warm and sun-baked like a long savanna road, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+        "lm_negative_prompt": "vocals, singing, choir, humming, chanting, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, novelty, toy piano, music box, kazoo, pennywhistle, tin whistle, slide whistle, circus, polka, oompah, ambient drone, one-note drone, droning bass, sub bass drone, free tempo, rubato, tempo changes, swaying waltz, lurching shuffle, long quiet intro, long silent passages, boomy sub bass, distorted bass, harsh distortion, fuzz, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, hand claps, long drum-only sections, drum solo, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro",
+        "instrumental": true,
+        "use_cot_caption": false,
+        "duration": 120,
+        "bpm": 104,
+        "keyscale": "E minor",
+        "seed": 764642838,
+        "inference_steps": 8,
+        "output_format": "wav32"
+    },
+    "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+    "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-706\\theme-mural-desertblues-c3.wav: 54.9s loop = source 37.04s..91.90s (24.02 bars at 105.1 bpm), crossfade 1.14s | context match 0.831 (best 0.880) | crossfade rhythm r=0.95 vs the track a bar later r=0.79: in time | spectrum cos=0.93"
+    ],
+    "lm_check": {
+        "request0_captured": true,
+        "caption_verbatim": true,
+        "seed_in_request0": 764642838,
+        "bpm_in_request0": 104,
+        "keyscale_in_request0": "E minor",
+        "duration_in_request0": 120.0
+    },
+    "measured": "generate-music.ps1 end to end 66,5 s (ace-lm + ace-synth + loop cut), exit 0",
+    "measured_against_ember": {
+        "loop_s": 54.9,
+        "bpm": 105.1,
+        "context": 0.831,
+        "r_cross": 0.95,
+        "r_bar": 0.79,
+        "in_time": true,
+        "cos": 0.93,
+        "dip": 3.2,
+        "quiet": 0,
+        "lr_corr": 0.871,
+        "knee_pct": 0.003,
+        "b200_2k": 17.7,
+        "b300_4k": 15.3,
+        "above6k": 0.8,
+        "tonal_mid": 68,
+        "mid_flatness": 0.06,
+        "held_changes": 3.06,
+        "tempo_wander": 0.03,
+        "wrap_db": -9.0,
+        "wrap_pct": 94
+    },
+    "measured_note": "measure-music.py --reference ember on the loop (band shares %, tonal mid %, mid flatness, held-note changes/s, tempo wander %, wrap step dB and its percentile) beside sel.py: the loop cut, dip = the quietest 2 s under the loop's p95 1 s level (dB), quiet = the % of the loop more than 10 dB under it, L/R correlation, knee_pct = the % of samples MusicBake's knee bends",
+    "rendered": true,
+    "chosen": {
+        "candidate": "c3",
+        "round": 1,
+        "of": [
+            "c1",
+            "c2",
+            "c3",
+            "c4"
+        ],
+        "why": "inside ember's range on every column: 200 Hz-2 kHz 17.7 %, 300 Hz-4 kHz 15.3 %, 0.8 % above 6 kHz, tonal mid 68 % (the old loop 32 %), 3.06 held-note changes a second (the old loop 1.83), tempo wander 0.03 %; no stretch under -10 dB, the cleanest cut of four (context match 0.83, crossfade r 0.95 against 0.79 a bar later, spectrum cos 0.93). Its wrap step of -9.0 dB (p94) is a transient: the level across the wrap differs by +0.9 dB over 1 s and -1.0 dB over 2 s. Baked, 0 clipped runs (the old loop 45). c1 is also inside ember everywhere but cuts with context match 0.23 and its master puts 0.10 % of samples into the knee against c3's 0.003 %; c2 has a 44 % tonal mid, c4 2.08 held-note changes a second",
+        "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wrap step) beside the loop cut's own check, the hole share (the loop more than 10 dB under its loud level), the breakdown dip and the stereo correlation; a seam below its own rhythm, a hole over 15 % of the loop, a 2 s dropout more than 20 dB down, a wrap step of 10 dB or more or at p97 or above of the loop's own steps, a seam spectrum cosine under 0.3 or a loop under 30 s ruled a candidate out; the table is on #706"
+    },
+    "alternatives": [
+        {
+            "candidate": "c1",
+            "seed": 61166315,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-706\\theme-mural-desertblues-c1.wav: 55.9s loop = source 25.47s..81.35s (24.05 bars at 103.3 bpm), crossfade 1.16s | context match 0.232 (best 0.276) | crossfade rhythm r=0.61 vs the track a bar later r=0.67: in time | spectrum cos=0.72"
+            ],
+            "measured": {
+                "loop_s": 55.9,
+                "bpm": 103.3,
+                "context": 0.232,
+                "r_cross": 0.61,
+                "r_bar": 0.67,
+                "in_time": true,
+                "cos": 0.72,
+                "dip": 3.7,
+                "quiet": 0,
+                "lr_corr": 0.908,
+                "knee_pct": 0.103,
+                "b200_2k": 18.2,
+                "b300_4k": 14.8,
+                "above6k": 0.2,
+                "tonal_mid": 62,
+                "mid_flatness": 0.05,
+                "held_changes": 3.15,
+                "tempo_wander": 0.12,
+                "wrap_db": 1.2,
+                "wrap_pct": 18
+            }
+        },
+        {
+            "candidate": "c2",
+            "seed": 1762128148,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-706\\theme-mural-desertblues-c2.wav: 36.9s loop = source 39.78s..76.70s (15.96 bars at 103.8 bpm), crossfade 1.16s | context match 0.698 (best 0.710) | crossfade rhythm r=0.87 vs the track a bar later r=0.71: in time | spectrum cos=0.92"
+            ],
+            "measured": {
+                "loop_s": 36.9,
+                "bpm": 103.8,
+                "context": 0.698,
+                "r_cross": 0.87,
+                "r_bar": 0.71,
+                "in_time": true,
+                "cos": 0.92,
+                "dip": 4.5,
+                "quiet": 0,
+                "lr_corr": 0.926,
+                "knee_pct": 0.003,
+                "b200_2k": 13.2,
+                "b300_4k": 8.7,
+                "above6k": 1.2,
+                "tonal_mid": 44,
+                "mid_flatness": 0.1,
+                "held_changes": 3.2,
+                "tempo_wander": 0.02,
+                "wrap_db": -0.1,
+                "wrap_pct": 5
+            }
+        },
+        {
+            "candidate": "c4",
+            "seed": 1274197179,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-706\\theme-mural-desertblues-c4.wav: 48.9s loop = source 26.72s..75.65s (21.03 bars at 103.2 bpm), crossfade 1.16s | context match 0.605 (best 0.605) | crossfade rhythm r=0.83 vs the track a bar later r=0.67: in time | spectrum cos=0.56"
+            ],
+            "measured": {
+                "loop_s": 48.9,
+                "bpm": 103.2,
+                "context": 0.605,
+                "r_cross": 0.83,
+                "r_bar": 0.67,
+                "in_time": true,
+                "cos": 0.56,
+                "dip": 4.0,
+                "quiet": 0,
+                "lr_corr": 0.918,
+                "knee_pct": 0.001,
+                "b200_2k": 15.4,
+                "b300_4k": 13.0,
+                "above6k": 0.4,
+                "tonal_mid": 79,
+                "mid_flatness": 0.04,
+                "held_changes": 2.08,
+                "tempo_wander": 0.05,
+                "wrap_db": -5.4,
+                "wrap_pct": 80
+            }
+        }
+    ],
+    "replaces": {
+        "stem": "mural-desertblues",
+        "issue": 486,
+        "created": "2026-09-23",
+        "caption": "Desert blues instrumental: hypnotic clean electric guitar riff in a pentatonic mode, hand percussion, deep bass drone, rolling groove, wide open savanna feel, no vocals",
+        "negative": "vocals, singing, audience applause, crowd noise, live recording",
+        "bpm": 100,
+        "keyscale": "G major",
+        "loop_log": [
+            "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-mural-desertblues.wav: 67.2s loop = source 36.40s..103.60s (28.01 bars at 100.0 bpm), crossfade 1.20s | context match 0.549 (best 0.597) | crossfade rhythm r=0.70 vs the track a bar later r=0.72: in time | spectrum cos=0.58"
+        ],
+        "why_replaced": "named by measurement on 2026-10-13 (#706): the least tonal mid band of the family (32 % against ember's lowest 50 %), the fewest held-note changes (1.83 a second against ember's lowest 2.74) and 45 clipped runs in the shipped loop; briefed as a hypnotic one-riff groove over a deep bass drone. The owner, 2026-10-11: regenerate from the desert's ember model, a lead line or riff the ear can follow, the character carried by arrangement and drive"
+    }
 }

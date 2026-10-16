@@ -24,7 +24,7 @@ Part of [The game: feedback](../game-feedback.md).
 
 ## Loudness and the mix
 
-- MusicBake brings each track to `THEME_RMS_DB` (menu `MENU_RMS_DB`, pause `PAUSE_RMS_DB`) and bends peaks along a **memoryless** tanh knee from -1 dBFS, so a loop's seam stays seamless.
+- MusicBake brings each track to `THEME_RMS_DB` (menu `MENU_RMS_DB`, pause `PAUSE_RMS_DB`), less a trim its sidecar may name for a master too peaky for that level (`mural-mbira` and `mural-jive`, −1.5 dB each; [The music bakery](../formats-and-tools/music-bake.md)), and bends peaks along a **memoryless** tanh knee from -1 dBFS, so a loop's seam stays seamless.
 - **The music sits under the effects because of the mix constants, not the bake.** The owner heard it quieter at all-100 % rows (the rows only attenuate), and `MUSIC_VOLUME`/`MENU_VOLUME` were raised 3.4 dB (#467). K-weighted loudness (ITU-R BS.1770-4) showed generated and procedural themes are one loudness at one RMS (procedural -12.8 to -13.6 LUFS, generated median -13.7; 2026-09-23).
 - **What it did find is a 3.8 LU spread within the recordings**, so a chapter's rotation can step 2.5 LU between levels. A LUFS-target re-bake would close it (masters live on the desktop); not done. `MusicBake --shipped` measures every shipped track through the game's decoder.
 

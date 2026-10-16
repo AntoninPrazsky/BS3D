@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace BS3D.Tools.MusicBake
@@ -182,6 +183,33 @@ namespace BS3D.Tools.MusicBake
 
             found.Sort((a, b) => string.CompareOrdinal(a.Track, b.Track));
             return found;
+        }
+
+        /// <summary>
+        /// The trim a recording's committed sidecar asks of the bake, in dB (0 when it names none):
+        /// <c>"bake": { "trim_db": -1.0, "why": "…" }</c> in <c>Research/AI-Music/theme-&lt;track&gt;.json</c>. It is
+        /// for a master so peaky that the themes' loudness lifts its peaks over full scale, where the knee can only
+        /// press them into runs at the top of its curve and the Vorbis decode overshoots further: <c>mural-mbira</c>
+        /// (crest factor 16.2 dB) put 205 samples over full scale that way and decoded to 14 runs at 0.98 of it
+        /// (#706). The trim lives in the sidecar rather than here so it belongs to the recording: a regenerated
+        /// recording's new sidecar starts without it. Only a cut is accepted (−6 to 0 dB); anything else is reported
+        /// and ignored, since a boost would push more of the master into the knee.
+        /// </summary>
+        private static double SidecarTrimDb(string masters, string track)
+        {
+            string sidecar = Path.Combine(masters, THEME_MASTER_PREFIX + track + ".json");
+            if (!File.Exists(sidecar)) return 0;
+
+            using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(sidecar));
+            if (doc.RootElement.ValueKind != JsonValueKind.Object
+                || !doc.RootElement.TryGetProperty("bake", out JsonElement bake)
+                || bake.ValueKind != JsonValueKind.Object
+                || !bake.TryGetProperty("trim_db", out JsonElement trim)) return 0;
+
+            if (trim.ValueKind == JsonValueKind.Number && trim.TryGetDouble(out double db) && db is >= -6.0 and <= 0.0) return db;
+
+            Console.WriteLine($"  ⚠ {Path.GetFileName(sidecar)}: bake.trim_db {trim.GetRawText()} is not a cut of at most 6 dB - ignored");
+            return 0;
         }
 
         /// <summary>
@@ -712,7 +740,8 @@ namespace BS3D.Tools.MusicBake
         }
 
         /// <summary>
-        /// Builds <c>Game/Music</c> from the masters: each brought to its loudness, its peaks shaped under full
+        /// Builds <c>Game/Music</c> from the masters: each brought to its loudness (less any trim its sidecar names,
+        /// <see cref="SidecarTrimDb"/>), its peaks shaped under full
         /// scale, encoded as Ogg Vorbis at <paramref name="quality"/> and the master's own rate, then decoded again
         /// through <see cref="OggTrack"/> and checked. <paramref name="write"/> false measures without writing. The
         /// table's "bake" column is the processing time and "entry" is empty — a generated loop is cut from its
@@ -763,7 +792,8 @@ namespace BS3D.Tools.MusicBake
 
                 double sum = 0;
                 foreach (float s in mix) sum += (double)s * s;
-                double gainDb = rmsDb - Db(Math.Sqrt(sum / mix.Length));
+                double trimDb = SidecarTrimDb(masters, track);
+                double gainDb = rmsDb - Db(Math.Sqrt(sum / mix.Length)) + trimDb;
                 float gain = (float)Math.Pow(10, gainDb / 20);
 
                 int shaped = 0;
@@ -784,7 +814,8 @@ namespace BS3D.Tools.MusicBake
                 clock.Stop();
 
                 Report(track, mix, rate, clock.Elapsed.TotalMilliseconds, -1);
-                Console.WriteLine($"                 from {master}.wav at {rate} Hz: gain {gainDb:+0.0;-0.0} dB, "
+                Console.WriteLine($"                 from {master}.wav at {rate} Hz: gain {gainDb:+0.0;-0.0} dB"
+                    + (trimDb != 0 ? $" (the sidecar's trim {trimDb:+0.0;-0.0} dB included)" : "") + ", "
                     + $"{100.0 * shaped / mix.Length:0.000} % of samples shaped above -1 dBFS");
 
                 //The serial is fixed per track rather than random, so an unchanged master rebakes to the same bytes
