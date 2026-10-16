@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-10-16 — #781 hory na High a Ultra — desktop (RDT-PC), Claude Code (bs3d-ac)
+- majitel (2026-10-15): odparkováno do příštího vydání (hory, kapitola 4).
+- Hotovo (větev `781-mountain-detail`): High a Ultra kreslí `MountainFine` na dvakrát jemnější mřížce. Pole má šestou oktávu vycentrovanou na střed hřebene a hroty na svazích. Skála se stínuje ve 3D: reliéf, ukloněné vrstvy s římsami, na které si sníh lehne sám, a laminy. Low, Medium a Potato zůstávají beze změny. Program je o 3,3 ms levnější než dřív (Game, Belfry, 4K, High 14,73 → 11,31 ms).
+- ⚠ Detail omezovala hlavně projekce na XZ: na stěnách se všechno táhlo po spádnici. Z-Image img2img při síle 0,5 drží hladkost hry, frekvence se srovnávají s kleinem.
+- ⚠ `clip()` vypíná hloubkový test před pixel shaderem. Díra pro ostrov je proto v geometrii. Low a Medium dál platí ~3 ms overdraw.
+- Otevřené: verdikt oka, snímky jsou v `verdicts/781`.
+
 ## 2026-10-16 — #918 obrys poznámky o přeskočení — desktop (RDT-PC), Claude Code (bs3d-ac)
 - Nalezeno předvydávacím smoke testem razítkovaného Release buildu `9a32bd3d` (14 prvních levelů kapitol, front end v 1080p a 720p, Potato, prohra a výhra): žádná výjimka, chybějící soubor ani pád.
 - #918 (merge do mainu, zavřeno jako objektivní): `Skipping spends this chapter’s one skip` na stránce prohry byl jediný řádek bez obrysu (`Label` místo `ShadowedLabel`), nad mraky louky skoro zmizel. Teď nese obrys jako ostatní řádky (#465).
