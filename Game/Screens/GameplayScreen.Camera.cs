@@ -82,7 +82,10 @@ namespace BS3D.Screens
 
             Vector3 position = aim.Position;
             Vector3 target = aim.Target;
-            float fov = aim.FieldOfView;
+
+            //A cutter leaving the barrel pinches the lens for a moment (#767), on the wall clock: the play's own pose, so a
+            //takeover lerped over it below carries none of it
+            float fov = aim.FieldOfView * _cutStaging.FovScale;
 
             //The cluster profile's right-axis is taken from THIS pose — the gameplay lens the player is aiming
             //with — before the cinematic blend below swings it away. Resolved here once so the HUD does not

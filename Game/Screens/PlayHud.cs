@@ -541,8 +541,9 @@ namespace BS3D.Screens
             /// earned, is born in the readout's own white.</summary>
             public Color Tint;
 
-            /// <summary>Seconds since birth on the play clock. <b>Negative</b> while the completion bonus waits its turn
-            /// (<see cref="AddBonus"/>): not drawn yet, though its points are already withheld from the readout.</summary>
+            /// <summary>Seconds since birth on the play clock. <b>Negative</b> while it waits its turn - the completion bonus
+            /// (<see cref="AddBonus"/>), a cut's award (<see cref="CUT_AWARD_DELAY"/>): not drawn yet, though its points are
+            /// already withheld from the readout.</summary>
             public float Age;
 
             /// <summary>Its zoom (#846): the top size in scores, how long the zoom in takes, and how long it is read
@@ -806,6 +807,7 @@ namespace BS3D.Screens
             _swapHint = false;
             _swapHintAge = 0f;
             _swapPulse.Reset();
+            _cutPulse.Reset();
             _streakCapped = score.Multiplier >= ScoreKeeper.MaxMultiplier;
             _streakCapFlare = 0f;
             _clock = 0f;
@@ -824,7 +826,8 @@ namespace BS3D.Screens
         /// still being read leaves for the corner now (<see cref="AwardZoom.HandOff"/>): only one big number at a time,
         /// in the order they landed, each paid as it arrives.
         /// </remarks>
-        /// <param name="cutter">True for a cutter's strike (#766): tinted with the Cutter's accent, never its dealt colour.</param>
+        /// <param name="cutter">True for a cutter's strike (#766): tinted with the Cutter's accent, never its dealt colour, and born only
+        /// once its severing has been seen (<see cref="CUT_AWARD_DELAY"/>, #767).</param>
         internal void AddAward(Vector3 world, ScoreAward award, BallType type, bool cutter = false)
         {
             HandOffReads();
@@ -844,12 +847,23 @@ namespace BS3D.Screens
 
                 Points = award.Points,
                 Tint = cutter ? CutterTint : TypeColor(type),
-                Age = 0f,
+
+                //A cut's award waits for its severing to be seen (#767): born at once it stood, zoomed to its largest, exactly
+                //over the slash running across the storey it was paid for (photographed, Elephant). Every other award is
+                //born on its landing, as #846 has it.
+                Age = cutter ? -CUT_AWARD_DELAY : 0f,
                 Peak = AwardZoom.Peak(award.Points),
                 Birth = AwardZoom.Birth(award.Points),
                 Hold = AwardZoom.Hold(award.Points),
             });
         }
+
+        /// <summary>
+        /// How long a cut's award waits before it is born on the struck cell (#767), seconds of the play clock: the severing
+        /// beat - the slash shooting out across the storey and holding white-hot, slowed by the strike's hit-stop - is over
+        /// by then, and the number zooms in over a cut already made instead of over the cut being made.
+        /// </summary>
+        private const float CUT_AWARD_DELAY = 0.7f;
 
         /// <summary>
         /// The completion bonus (#846): what the unused balls were worth, born in the balls-left readout that counts them
@@ -965,6 +979,7 @@ namespace BS3D.Screens
             _ballsPulse.Update(elapsed);
             _tutorialPulse.Update(elapsed);
             _swapPulse.Update(elapsed);
+            _cutPulse.Update(elapsed);
         }
 
         /// <summary>
@@ -974,12 +989,12 @@ namespace BS3D.Screens
         /// </summary>
         private void AgePopups(float elapsed)
         {
-            bool bonusBorn = false;
+            bool waitedBorn = false;
 
             for (int i = _popups.Count - 1; i >= 0; i--)
             {
                 Popup popup = _popups[i];
-                bonusBorn |= popup.Age < 0f && popup.Age + elapsed >= 0f;
+                waitedBorn |= popup.Age < 0f && popup.Age + elapsed >= 0f;
                 popup.Age += elapsed;
 
                 if (popup.Age >= AwardZoom.Lifetime(popup.Hold))
@@ -990,9 +1005,9 @@ namespace BS3D.Screens
                 else _popups[i] = popup;
             }
 
-            //The completion bonus has waited its turn, and its birth takes the read as a newer award's does: the clearing
-            //shot's award, if it is still being read, leaves for the corner now
-            if (bonusBorn) HandOffReads(sparingTheBonus: true);
+            //The completion bonus, or a cut's award (#767), has waited its turn, and its birth takes the read as a newer award's
+            //does: an award still being read leaves for the corner now (the bonus itself spared)
+            if (waitedBorn) HandOffReads(sparingTheBonus: true);
         }
 
         private void ChaseScore(float elapsed, ScoreKeeper score)
@@ -2039,6 +2054,11 @@ namespace BS3D.Screens
         private bool _swapHint;
         private float _swapHintAge;
         private Pulse _swapPulse;
+
+        //The Cut chip's flare as its charge is spent (#767): the press's pulse on the chip, in the cutter's own white-hot
+        //rather than the amber that means gain, falling off at the pulse's own rate into the spent chip's dim
+        private Pulse _cutPulse;
+        private static readonly Color HUD_CUT_PULSE = new(255, 245, 224);
         private const string SWAP_KEEP = "Swap · keep ";
         private const float SWAP_HINT_PERIOD = 0.6f;
         private const float SWAP_HINT_FLOOR = 0.3f;
@@ -2152,8 +2172,12 @@ namespace BS3D.Screens
                     viewport, margin);
 
             if (cutCharges >= 0)
-                DrawChip(row, onGamepad ? CUT_GLYPH_PAD : CUT_GLYPH_KEY, _cutText, State(cutCharges, cutNotNow), in layout, viewport, margin);
+                DrawChip(row, onGamepad ? CUT_GLYPH_PAD : CUT_GLYPH_KEY, _cutText, State(cutCharges, cutNotNow), in layout, viewport, margin,
+                    _cutPulse.Heat, HUD_CUT_PULSE);
         }
+
+        /// <summary>The Cut's press (#767): the chip flares in the cutter's white-hot as its charge goes into the round.</summary>
+        internal void PulseCutChip() => _cutPulse.Kick(0f);
 
         /// <summary>
         /// The keycap column's and the caption column's widths (#694), measured over every glyph and every caption a chip
@@ -2217,9 +2241,12 @@ namespace BS3D.Screens
         /// </summary>
         /// <param name="hint">How brightly the chip is pointing at itself (#845, the Swap's hint), 0 for not at all: an amber
         /// halo behind the keycap and the words, and both tinted towards the amber, by this much.</param>
+        /// <param name="hintColour">The halo's colour when it is not the amber of gain: the Cut's white-hot flare (#767).</param>
         private void DrawChip(int row, string glyph, string text, ChipState state, in ChipColumnLayout layout, Viewport viewport,
-            int margin, float hint = 0f)
+            int margin, float hint = 0f, Color hintColour = default)
         {
+            Color halo = hintColour.A == 0 ? HUD_ACCENT : hintColour;
+
             //Three states told apart by brightness, the HUD's grey and not a colour (amber means gain, see the class doc):
             //ready is the keycap and its word in full white; NOT NOW dims the keycap - the key will do nothing yet - and keeps
             //the words in full, since they say why (#844); used up dims the whole chip, the way it always has
@@ -2252,10 +2279,10 @@ namespace BS3D.Screens
             if (hint > 0f)
             {
                 //The halo first, under both, the way the readouts flash; then the two tinted towards it
-                DrawGlow(glyphFont, glyph, glyphAt, glyphSize, 1f, hint, HUD_ACCENT, HUD_GLOW_PASSES);
-                DrawGlow(captionFont, text, captionAt, captionSize, 1f, hint, HUD_ACCENT, HUD_GLOW_PASSES);
-                glyphColour = Color.Lerp(glyphColour, HUD_ACCENT, 0.8f * hint);
-                captionColour = Color.Lerp(captionColour, HUD_ACCENT, 0.8f * hint);
+                DrawGlow(glyphFont, glyph, glyphAt, glyphSize, 1f, hint, halo, HUD_GLOW_PASSES);
+                DrawGlow(captionFont, text, captionAt, captionSize, 1f, hint, halo, HUD_GLOW_PASSES);
+                glyphColour = Color.Lerp(glyphColour, halo, 0.8f * hint);
+                captionColour = Color.Lerp(captionColour, halo, 0.8f * hint);
             }
 
             DrawString(glyphFont, glyph, glyphAt, glyphColour, 1f);
@@ -2287,7 +2314,8 @@ namespace BS3D.Screens
             {
                 Popup popup = _popups[i];
 
-                //The completion bonus, still waiting for the award of the shot that cleared the field to be read
+                //The completion bonus, still waiting for the award of the shot that cleared the field to be read, or a cut's
+                //award waiting for its severing to be seen (#767)
                 if (popup.Age < 0f) continue;
 
                 Vector2 source;

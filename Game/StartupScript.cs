@@ -169,6 +169,9 @@ namespace BS3D
         //Testing only: the wall-clock second the run goes to the main menu with its session kept (tomenu=, #650)
         private float? _toMenuAt;
 
+        //Testing only: a level's buttons on the clock (actions=, #709), soonest first
+        private readonly Queue<(float At, string Verb)> _actions;
+
         //Testing only: the wall-clock second a level is paused into the note page, and the steps run on it (note=, #813)
         private float? _noteAt;
         private string _noteSteps;
@@ -238,6 +241,7 @@ namespace BS3D
             _scenes = launch.ScenePicker;
             _tour = launch.Tour;
             _toMenuAt = launch.ToMenuAt;
+            _actions = ParseActions(launch.Actions);
             _noteAt = launch.NoteAt;
             _noteSteps = launch.NoteSteps;
             _quitAt = launch.QuitAt;
@@ -249,8 +253,26 @@ namespace BS3D
                 : new Queue<string>(launch.MenuCursorPresses.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 
             Drives = _celebrate || _confetti || _play || _result || _pick != null || _about != null || _extras || _jukebox != null || _settings
-                || _board != null || _highScores != null || _help != null || _scenes || _tour || _toMenuAt != null || _noteAt != null || _quitAt != null
+                || _board != null || _highScores != null || _help != null || _scenes || _tour || _toMenuAt != null || _actions != null || _noteAt != null || _quitAt != null
                 || _menuCursorAt != null;
+        }
+
+        /// <summary>"actions=" read into its queue (#709), soonest first; a pair that does not read is said and dropped.</summary>
+        private static Queue<(float, string)> ParseActions(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return null;
+
+            List<(float, string)> actions = new();
+            foreach (string pair in text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                int colon = pair.IndexOf(':');
+                if (colon > 0 && float.TryParse(pair[..colon], NumberStyles.Float, CultureInfo.InvariantCulture, out float at) && at >= 0f)
+                    actions.Add((at, pair[(colon + 1)..].Trim().ToLowerInvariant()));
+                else Console.WriteLine($"[actions] Testing: '{pair}' dropped, expected <seconds>:<verb>");
+            }
+
+            actions.Sort((a, b) => a.Item1.CompareTo(b.Item1));
+            return actions.Count > 0 ? new Queue<(float, string)>(actions) : null;
         }
 
         /// <summary>
@@ -282,6 +304,10 @@ namespace BS3D
                 _toMenuAt = null;
                 game.ReturnToMainMenu();
             }
+
+            //A level's buttons on the clock (#709), one a frame at most, each through the call its button makes
+            if (_actions is { Count: > 0 } && game.WallClock >= _actions.Peek().At)
+                game.ActForTesting(_actions.Dequeue().Verb);
 
             //The note page over a level being played (#813), as its pause button opens it, then its steps once the page is
             //past its picture and its grace

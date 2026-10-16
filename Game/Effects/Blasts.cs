@@ -34,6 +34,14 @@ namespace BS3D.Effects
     /// One static vertex buffer and <b>one draw call</b> for every blast at once, animated in <c>Blast.fx</c>'s
     /// vertex shader off two per-blast uniforms — <see cref="Fireworks"/>' idiom exactly, at the arena's scale.
     /// </para>
+    /// <para>
+    /// <b>And a blade's impact (#767), in the same slots and the same draw</b>: a power-up round that cuts rather than
+    /// bursts — today the Cutter severing a storey (<see cref="Cut"/>) — is a white-hot flash, a long thin slash through the
+    /// struck point and a grinder's fan of sparks, cooling to the cutter's amber (the shader's second style). It is here and
+    /// not in the Cut's code so the next power-up round's impact is one more style of the same one buffer, and it keeps the
+    /// blasts' clock: the world's, slow motion included. Its sound and its jolt are the caller's (<see cref="Update"/> plays
+    /// a report and returns a jolt for bombs alone), since a cut answers with its own.
+    /// </para>
     /// </summary>
     internal sealed class Blasts : IDisposable
     {
@@ -48,9 +56,10 @@ namespace BS3D.Effects
 
         /// <summary>
         /// How long a slot stays taken. Must cover Blast.fx's longest-lived part — a spark at the top of its life
-        /// jitter, <c>SPARK_SECONDS</c> × 1.45 = 0.87 s — or a spark is cut off mid-fade.
+        /// jitter, <c>SPARK_SECONDS</c> × 1.45 = 0.87 s, and a blade's slash, <c>SLASH_SECONDS</c> 0.9 s (#767) — or a
+        /// part is cut off mid-fade.
         /// </summary>
-        private const float LIFE_SECONDS = 0.9f;
+        private const float LIFE_SECONDS = 0.95f;
 
         /// <summary>
         /// How far behind the bomb that set it off each link of a chain goes off, in seconds. See the class
@@ -92,7 +101,13 @@ namespace BS3D.Effects
             public int Link;             //how far down its chain, 0 for a bomb the landing set off itself
             public bool Active;
             public bool Reported;        //has its report been played and its jolt handed out
+            public bool Blade;           //a blade's impact (#767) rather than a bomb's: see Cut
+            public float HalfLength;     //a blade's slash, how far it reaches either side of the struck point
         }
+
+        //A blade's light (#767): the cutter's white-hot accent driven well over 1 like the blast's, its light lasting a little
+        //less and reaching as far. Linear radiance.
+        private static readonly Vector3 BLADE_LIGHT_COLOR = new(7.5f, 7.0f, 6.2f);
 
         private readonly GraphicsDevice _device;
         private readonly Effect _effect;
@@ -171,6 +186,29 @@ namespace BS3D.Effects
             }
         }
 
+        /// <summary>
+        /// A blade's impact (#767): the flash, the slash and the sparks of a power-up round severing what it struck, at
+        /// <paramref name="struck"/> (world space), the slash reaching <paramref name="halfLength"/> either side of it, at
+        /// <paramref name="size"/> (0 to 1, from what the cut freed). Silent and joltless here: the caller answers a cut
+        /// with its own sound and knock, on the frame it happens.
+        /// </summary>
+        public void Cut(Vector3 struck, float halfLength, float size)
+        {
+            int slot = FreeOrOldestSlot();
+
+            _blasts[slot] = new Blast
+            {
+                Position = struck,
+                Age = 0f,
+                Link = 0,
+                Size = MathHelper.Clamp(size, 0f, 1f),
+                Active = true,
+                Reported = true,
+                Blade = true,
+                HalfLength = halfLength
+            };
+        }
+
         private int FreeOrOldestSlot()
         {
             int oldest = 0;
@@ -232,19 +270,21 @@ namespace BS3D.Effects
         public bool TryGetLight(out Vector3 position, out Vector3 color, out float range)
         {
             float total = 0f, largest = 0f;
-            Vector3 weighted = Vector3.Zero;
+            Vector3 weighted = Vector3.Zero, tinted = Vector3.Zero;
 
             for (int i = 0; i < _blasts.Length; i++)
             {
                 Blast blast = _blasts[i];
                 if (!blast.Active || blast.Age < 0f || blast.Age >= LIGHT_SECONDS) continue;
 
-                //Squared, the ceiling flash's rule: unmistakable on the frame it goes off, thinned well before its end.
+                //Squared, the ceiling flash's rule: unmistakable on the frame it goes off, thinned well before its end. A
+                //blade's is never under half strength, however little the cut freed: the strike itself is the event (#767).
                 float left = 1f - blast.Age / LIGHT_SECONDS;
-                float strength = blast.Size * left * left;
+                float strength = (blast.Blade ? 0.5f + 0.5f * blast.Size : blast.Size) * left * left;
 
                 total += strength;
                 weighted += blast.Position * strength;
+                tinted += (blast.Blade ? BLADE_LIGHT_COLOR : LIGHT_COLOR) * strength;
                 largest = MathF.Max(largest, blast.Size);
             }
 
@@ -256,7 +296,9 @@ namespace BS3D.Effects
             }
 
             position = weighted / total;
-            color = LIGHT_COLOR * MathF.Min(total, LIGHT_CEILING);
+
+            //Each blast's own colour, weighted as its place is, at the summed strength under the ceiling
+            color = tinted / total * MathF.Min(total, LIGHT_CEILING);
             range = LIGHT_RANGE * (0.7f + 0.3f * largest);
             return true;
         }
@@ -290,7 +332,7 @@ namespace BS3D.Effects
 
                 any = true;
                 _centres[i] = new Vector4(blast.Position, blast.Age);
-                _shapes[i] = new Vector4(blast.Size, 1f, 0f, 0f);
+                _shapes[i] = new Vector4(blast.Size, 1f, blast.Blade ? 1f : 0f, blast.HalfLength);
             }
 
             if (!any) return;

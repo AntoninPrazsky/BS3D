@@ -43,8 +43,9 @@ namespace BS3D
         private bool _silent = true;
 
         //The steady levels asked for this frame (Hold), the floor the body motors are written at; taken and cleared by
-        //Update, so a state nobody asks for any more stops on the next write
+        //Update, so a state nobody asks for any more stops on the next write. The triggers' the same (HoldTriggers, #767)
         private float _holdLeft, _holdRight;
+        private float _holdLeftTrigger, _holdRightTrigger;
 
         /// <summary>
         /// The player's own row in Settings (#378), 0 for off. Applied where <see cref="Update"/> writes
@@ -113,6 +114,32 @@ namespace BS3D
 
             _holdLeft = MathF.Max(_holdLeft, left);
             _holdRight = MathF.Max(_holdRight, right);
+        }
+
+        /// <summary>
+        /// <see cref="Hold"/> for the impulse motors in the triggers (#767, the Cut's charge rising under both fingers): a
+        /// steady level for this frame only, the louder of two holds felt, gated like a kick.
+        /// </summary>
+        public void HoldTriggers(float left, float right)
+        {
+            if (!HandOnPad) return;
+
+            _holdLeftTrigger = MathF.Max(_holdLeftTrigger, left);
+            _holdRightTrigger = MathF.Max(_holdRightTrigger, right);
+        }
+
+        /// <summary>
+        /// A cutter severing a storey (#767), with <paramref name="freed"/> balls let go by it, gated like a
+        /// <see cref="Kick"/>: the knock raised to on the body motors and under both triggers, then the fall under the
+        /// release's ceilings, through <see cref="CutRumble.Strike"/>, the very code the tests drive. It stands in for the
+        /// landing's own <see cref="Landing"/>, whose tap the knock replaces.
+        /// </summary>
+        public void CutStrike(int freed)
+        {
+            if (!HandOnPad) return;
+
+            CutRumble.Strike(ref _left, ref _right, freed);
+            FeelTriggers(CutRumble.KNOCK_TRIGGER, CutRumble.KNOCK_TRIGGER, CutRumble.KNOCK_TRIGGER_SECONDS);
         }
 
         //The pulse itself, whoever asked for it: the game's kicks through the gate above, the patterns and the menu's
@@ -232,6 +259,7 @@ namespace BS3D
             _leftTrigger.Stop();
             _rightTrigger.Stop();
             _holdLeft = _holdRight = 0f;
+            _holdLeftTrigger = _holdRightTrigger = 0f;
             _pattern = null;
         }
 
@@ -292,6 +320,8 @@ namespace BS3D
                 _rightTrigger.Stop();
                 _holdLeft = 0f;
                 _holdRight = 0f;
+                _holdLeftTrigger = 0f;
+                _holdRightTrigger = 0f;
             }
             else
             {
@@ -309,8 +339,10 @@ namespace BS3D
 
             //The body motors at this frame's hold where it is above what is ringing, and the hold spent
             float bodyLeft = MathF.Max(_left.Level, _holdLeft), bodyRight = MathF.Max(_right.Level, _holdRight);
-            float leftTrigger = _leftTrigger.Level, rightTrigger = _rightTrigger.Level;
+            float leftTrigger = MathF.Max(_leftTrigger.Level, _holdLeftTrigger);
+            float rightTrigger = MathF.Max(_rightTrigger.Level, _holdRightTrigger);
             _holdLeft = _holdRight = 0f;
+            _holdLeftTrigger = _holdRightTrigger = 0f;
 
             bool silentNow = bodyLeft <= 0f && bodyRight <= 0f && leftTrigger <= 0f && rightTrigger <= 0f;
             if (silentNow && _silent) return;

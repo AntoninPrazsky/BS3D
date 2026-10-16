@@ -1174,11 +1174,12 @@ namespace Prazsky.BS3D
         /// 60 Hz the rim crept forwards - a look that changed with the refresh rate, which nothing may. At this figure a frame
         /// turns the rim's teeth (<see cref="SawBladeMesh.TEETH"/>) under 0.4 of a pitch down to 30 frames a second, so
         /// the saw turns the way it turns at any rate, only more smoothly at a higher one. The flight lasts a few frames
-        /// anyway (the shot crosses the field at 200 units a second).
+        /// anyway (the shot crosses the field at 200 units a second). The Cut's charge (#767) spins the loaded round up to the
+        /// flight's speed and back, never past it (<see cref="CutterSpinOffset"/>).
         /// </para>
         /// </summary>
-        private const float CUTTER_SPIN_LOADED = 1.2f;
-        private const float CUTTER_SPIN_FLYING = 3f;
+        public const float CUTTER_SPIN_LOADED = 1.2f;
+        public const float CUTTER_SPIN_FLYING = 3f;
 
         /// <summary>
         /// Which way a Cutter's blade faces (#766): towards the eye, with this much of straight up added, so the ring of
@@ -1479,11 +1480,28 @@ namespace Prazsky.BS3D
         //The kinds' meshes on the Potato path (#863), three per LOD: the rock, the ice block, the studs
         private PotatoKindMesh[] _kindMeshes;
 
-        //The Cutter's saw blade (#766), its renderer, the blades of this frame's cutters and the wall clock they turn on
+        //The Cutter's saw blade (#766), its renderer, the blades of this frame's cutters (in flight, and loaded) and the wall
+        //clock they turn on
         private SawBladeMesh _bladeMesh;
         private InstancedModelRenderer _bladeRenderer;
         private ModelInstance[] _blades = new ModelInstance[4];
+        private ModelInstance[] _loadedBlades = new ModelInstance[2];
         private float _wallClock;
+
+        /// <summary>
+        /// How much further the <b>loaded</b> Cutter's saw has turned than its idle <c>clock × CUTTER_SPIN_LOADED</c>, radians
+        /// (#767): the caller's whole story of the Cut's charge as one angle - the saw spun up from rest to the flight's speed
+        /// and eased back - worked out in closed form from how long ago the press was, so the blade never jumps and is the same
+        /// at any frame rate (changing the speed inside <c>clock × speed</c> would make it leap). 0, the idle turn, unless set.
+        /// </summary>
+        public float CutterSpinOffset { get; set; }
+
+        /// <summary>
+        /// How hot the <b>loaded</b> Cutter glows, as a multiple of its accent (#767): 1 at rest, more while the Cut charges.
+        /// The accent is all the round's light (its saw's face, its slit, its blade's teeth), so scaling it is the whole of
+        /// the charge's surge, on both paths, and touches nothing else the accent drives.
+        /// </summary>
+        public float CutterGlow { get; set; } = 1f;
 
         //The LOD census as the balls' own walk left it, kept across the rims' walk, which counts the same buckets again
         private int[] _rimLodTotals;
@@ -2631,10 +2649,16 @@ namespace Prazsky.BS3D
             //Stated, not inherited: the still plane leaves its own figure on these renderers, and the round's glow is its own
             for (int lod = 0; lod < LodCount; lod++) _renderers[lod].StillEmission = 1f;
 
+            int loadedBlades = 0;
+
             for (int half = 0; half < 2; half++)
             {
                 bool still = half == 1;
-                float spin = _wallClock * (still ? CUTTER_SPIN_LOADED : CUTTER_SPIN_FLYING);
+
+                //The loaded round turns at its idle rate plus whatever the Cut's charge has added (#767), and glows hotter
+                //while it charges; a fired one runs at the flight's speed in its steady light
+                float spin = still ? _wallClock * CUTTER_SPIN_LOADED + CutterSpinOffset : _wallClock * CUTTER_SPIN_FLYING;
+                Vector3 light = still ? accent * CutterGlow : accent;
 
                 for (int lod = 0; lod < LodCount; lod++)
                 {
@@ -2645,23 +2669,39 @@ namespace Prazsky.BS3D
                     ModelInstance[] bucket = _buckets[bucketIndex];
 
                     if (_blades.Length < blades + count) Array.Resize(ref _blades, Math.Max(_blades.Length * 2, blades + count));
+                    if (_loadedBlades.Length < loadedBlades + count)
+                        Array.Resize(ref _loadedBlades, Math.Max(_loadedBlades.Length * 2, loadedBlades + count));
 
                     for (int i = 0; i < count; i++)
                     {
                         bucket[i].World = CutterFrame(bucket[i].World, eye, spin);
-                        _blades[blades++] = bucket[i];
+
+                        if (still) _loadedBlades[loadedBlades++] = bucket[i];
+                        else _blades[blades++] = bucket[i];
                     }
 
                     DrawnCount += count;
                     _lodTotals[lod] += count;
 
-                    _renderers[lod].Draw(camera, bucket, count, BasicEffectParamsProvider.Cutter, accent);
+                    _renderers[lod].Draw(camera, bucket, count, BasicEffectParamsProvider.Cutter, light);
                 }
             }
 
             RestoreAfterSpecial();
 
-            _bladeRenderer.Draw(camera, _blades, blades, BasicEffectParamsProvider.Cutter, accent);
+            //The blades in flight in one draw and the loaded one in another, since the loaded one may be charging (#767): one
+            //draw for both whenever its glow is at rest, which is every frame but the second of a press
+            if (CutterGlow == 1f && loadedBlades > 0)
+            {
+                if (_blades.Length < blades + loadedBlades) Array.Resize(ref _blades, blades + loadedBlades);
+                Array.Copy(_loadedBlades, 0, _blades, blades, loadedBlades);
+                blades += loadedBlades;
+                loadedBlades = 0;
+            }
+
+            if (blades > 0) _bladeRenderer.Draw(camera, _blades, blades, BasicEffectParamsProvider.Cutter, accent);
+            if (loadedBlades > 0)
+                _bladeRenderer.Draw(camera, _loadedBlades, loadedBlades, BasicEffectParamsProvider.Cutter, accent * CutterGlow);
         }
 
         /// <summary>

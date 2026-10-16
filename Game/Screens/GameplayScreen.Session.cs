@@ -60,6 +60,10 @@ namespace BS3D.Screens
             //to exist before the cluster, whose top level is constrained to it.
             InstallLevel(index);
 
+            //A counted attempt starts (#709), now that the install has said which board it is on (null for the built-in
+            //fallback, which is counted nowhere). The one before it was closed by the TearDown above.
+            Game.Stats?.Started(_run.Identity);
+
             //And the theme comes up — from the top, since TearDown above has already stopped it — but only
             //now, because InstallLevel is where SetTheme says which of the two pieces this level plays.
             //Started before it, Play would put a pass of the OUTGOING piece on and SetTheme would stop it a
@@ -121,6 +125,9 @@ namespace BS3D.Screens
             //Nor a blast from the last level still burning over the new field (#389).
             _blasts.Reset();
 
+            //Nor a cut still charging, pinching, slowing the world or glowing (#767)
+            _cutStaging.Reset();
+
             //And a gun that dozed off over the last level wakes for this one (#230)
             _dozing.Reset();
             _cannon.Droop = 0f;
@@ -144,6 +151,10 @@ namespace BS3D.Screens
         /// </summary>
         internal void TearDown()
         {
+            //An attempt torn down before its result page was left (#709): a Restart, another level started over a session
+            //kept for Continue, a New Game, the game closing. After an ending nothing is open, and this counts nothing.
+            AbandonAttempt();
+
             //There is no level any more, so there is no level theme, and no celebration either. BuildLevel
             //starts the music again; a return to the main menu leaves both stopped. The display outlasts the
             //result screen by design, so without this a win followed by "Main Menu" would go on bursting over
@@ -210,6 +221,13 @@ namespace BS3D.Screens
 
             IsBuilt = false;
         }
+
+        /// <summary>
+        /// Counts the attempt open now as left mid-level (#709), with the shots and seconds it had: what
+        /// <see cref="TearDown"/> does first, and what the host does on its way out before the online client stops, so the
+        /// change still reaches its outbox. Counts nothing when no attempt is open.
+        /// </summary>
+        internal void AbandonAttempt() => Game.Stats?.Abandoned(_run.Score.ShotsFired, _run.Seconds);
 
         /// <summary>The session's own graphics resources, on the way out of the program.</summary>
         internal void DisposeResources()

@@ -79,8 +79,9 @@ namespace BS3D.Screens
             _previewBeamVisible = false;
             _cutterRefused = false;
 
-            //The cut's preview is the last frame's until the branch below lights this one's (#692)
-            ClearCutPreview();
+            //The cut's preview is the last frame's until the branch below lights this one's (#692). Held while a cutter is in
+            //flight (#767): what it will cut off stays lit until the strike hands the glow on to the cut faces (OnBallLanded)
+            if (!CutterInFlight) ClearCutPreview();
 
             if (CameraTakeoverEngaged || _run.Score.OutOfShots || LevelDecided || _physicsBalls == null || _map == null) return;
 
@@ -155,6 +156,18 @@ namespace BS3D.Screens
 
         /// <summary>Whether the round in the bore is an anchor cutter (#213): the ghost is hidden and the aim is not "refused" (the beam's and the crosshair's tint both read this).</summary>
         private bool CutterLoaded => _magazine.Slot(0).Kind == BallKind.Cutter;
+
+        /// <summary>Whether a fired cutter is still in the air (#767): the preview it was fired on stays lit until it strikes.</summary>
+        private bool CutterInFlight
+        {
+            get
+            {
+                for (int i = 0; i < _shotBalls.Count; i++)
+                    if (_shotBalls[i].Kind == BallKind.Cutter) return true;
+
+                return false;
+            }
+        }
 
         /// <summary>
         /// Draws the aim beam. Coloured by what the far end means — the loaded ball's own tint where the shot
@@ -415,7 +428,11 @@ namespace BS3D.Screens
         /// <remarks>A Cutter's collar is its accent (#820, #766), as its rays are: the colour it was dealt means nothing to a
         /// round that cuts instead of sticking, and a red collar under the rays told the player it was a red ball.</remarks>
         private void DrawMuzzleCollar(Matrix barrelWorld) =>
-            Game.CannonRig.DrawMuzzleCollar(Camera, barrelWorld, Game.SceneEffectParams, LoadedTint(0), MuzzleGlowStrength());
+            Game.CannonRig.DrawMuzzleCollar(Camera, barrelWorld, Game.SceneEffectParams, LoadedTint(0),
+                MuzzleGlowStrength() * (1f + CUT_CHARGE_COLLAR_FLARE * CutChargeAtMuzzle));
+
+        /// <summary>How charged the round at the muzzle is (#767), 0 unless it is a cutter the press has just turned.</summary>
+        private float CutChargeAtMuzzle => CutterLoaded ? _cutStaging.Charge : 0f;
 
         //THE SPECIAL ROUND'S RAYS (#820). The owner met the wildcard in play and did not notice it was special: "whenever
         //I have any special ball loaded (even Cut), I want a strong rotating glow from the cannon, in rays". So a round
@@ -462,6 +479,11 @@ namespace BS3D.Screens
             float lean = _preciseAim.Blend;
             float strength = MathHelper.Lerp(1f, MUZZLE_RAYS_ADS_STRENGTH, lean);
             float reach = MathHelper.Lerp(MUZZLE_RAYS_REACH, MUZZLE_RAYS_ADS_REACH, lean);
+
+            //The Cut's charge flares the burst and throws it further for its second (#767)
+            float charge = CutChargeAtMuzzle;
+            strength *= 1f + CUT_CHARGE_RAYS_FLARE * charge;
+            reach *= 1f + CUT_CHARGE_RAYS_REACH * charge;
 
             //The wildcard's burst is a rainbow, one hue a broad ray, because the ball counts as any colour; the shader
             //takes only the brightness of a rainbow's light. The Cutter's is its accent (#766) as the collar under it

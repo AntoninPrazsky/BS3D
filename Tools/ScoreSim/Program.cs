@@ -35,6 +35,13 @@ namespace BS3D.Tools.ScoreSim
     /// whitelists levels and refuses scores against — keyed by the same <see cref="LevelIdentity"/> the game's
     /// client computes, so the two cannot disagree about which board a clear belongs to.
     /// </para>
+    /// <para>
+    /// <b>And with <c>--stats [Stats.json]</c> it prints a save's play counts instead (#709)</b> — no run is simulated: the
+    /// starts, retries, clears, losses by cause, quits and skips the game counted per level, in play order, with each rate's
+    /// counts beside it, so the owner's playtests and the machines' saves inform the level tuning with no server involved.
+    /// Without a path it reads the player's own (<c>%LOCALAPPDATA%\BS3D\Stats.json</c>). A counted board the shipped set no
+    /// longer names (a regenerated level's older version, a <c>levelfile=</c> run) is listed after the set.
+    /// </para>
     /// </summary>
     internal static class Program
     {
@@ -53,6 +60,7 @@ namespace BS3D.Tools.ScoreSim
             string directory = null;
             string ceilingsPath = null;
             double ceilingScale = 1.0;
+            string statsPath = null;
 
             for (int i = 0; i < args.Length; i++)
             {
@@ -82,6 +90,13 @@ namespace BS3D.Tools.ScoreSim
 
                     i++;
                 }
+                else if (args[i] == "--stats")
+                {
+                    //A path when one follows, else the player's own file (#709)
+                    statsPath = i + 1 < args.Length && !args[i + 1].StartsWith("--", StringComparison.Ordinal)
+                        ? args[++i]
+                        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BS3D", PlayStats.DefaultFileName);
+                }
                 else directory = args[i];
             }
 
@@ -98,6 +113,9 @@ namespace BS3D.Tools.ScoreSim
             Console.WriteLine($"Reading {directory}");
 
             List<Playable> levels = ReadLevels(directory);
+
+            if (statsPath != null) return ReportStats(levels, statsPath);
+
             if (levels.Count == 0)
             {
                 Console.WriteLine("No levels with a shot budget were found — nothing to rate.");
@@ -281,6 +299,67 @@ namespace BS3D.Tools.ScoreSim
         /// </summary>
         private static double Multiple(int score, int balls) =>
             score / (double)(ScoreKeeper.MatchedBallPoints * balls);
+
+        /// <summary>
+        /// A save's play counts (#709), one row per level in play order and then the boards the set does not name. Rates are
+        /// shares of their own counts, printed beside them, so two attempts are not read as a trend: a loss rate is losses
+        /// over the attempts that reached a result page, a retry rate retries over starts.
+        /// </summary>
+        private static int ReportStats(List<Playable> levels, string path)
+        {
+            PlayStats stats = PlayStats.TryRead(path);
+            if (stats == null)
+            {
+                Console.WriteLine($"No play counts at {Path.GetFullPath(path)} (missing, or not a {PlayStats.FormatMarker} file).");
+                return 1;
+            }
+
+            Console.WriteLine($"Play counts of {Path.GetFullPath(path)}: {stats.Levels.Count} board(s), rules v{ScoreKeeper.RulesVersion} in this build");
+            Console.WriteLine();
+            Console.WriteLine("  # level            starts  retries      clears  lost  balls  line   loss rate  quits  skips  tries/1st  shots/att  s/att");
+
+            HashSet<LevelPlayCounts> listed = new();
+            int place = 0;
+            foreach (Playable level in levels)
+            {
+                place++;
+                LevelPlayCounts row = stats.Find(level.Identity.File, level.Identity.Hash, ScoreKeeper.RulesVersion);
+                if (row == null) continue;
+
+                listed.Add(row);
+                Console.WriteLine(StatsRow(place.ToString(CultureInfo.InvariantCulture), level.Name, row));
+            }
+
+            List<LevelPlayCounts> others = stats.Levels.FindAll(row => !listed.Contains(row));
+            if (others.Count > 0)
+            {
+                Console.WriteLine();
+                Console.WriteLine("Boards the set does not name as shipped (an older version of a level, another rules version, a levelfile= run):");
+                foreach (LevelPlayCounts row in others)
+                    Console.WriteLine(StatsRow("-", $"{row.File}#{row.Hash[..Math.Min(6, row.Hash.Length)]} r{row.Rules}", row));
+            }
+
+            return 0;
+        }
+
+        private static string StatsRow(string place, string name, LevelPlayCounts row)
+        {
+            int lost = row.LostOutOfBalls + row.LostLine;
+            int ended = row.Clears + lost;
+            int attempts = ended + row.Abandons;
+
+            return string.Format(CultureInfo.InvariantCulture,
+                "{0,3} {1,-16} {2,6}  {3,7}  {4,10}  {5,4}  {6,5}  {7,4}  {8,10}  {9,5}  {10,5}  {11,9}  {12,9}  {13,5}",
+                place, name.Length > 16 ? name[..16] : name, row.Starts, Rate(row.Retries, row.Starts), row.Clears, lost,
+                row.LostOutOfBalls, row.LostLine, Rate(lost, ended), row.Abandons, row.Skips,
+                row.FirstClears > 0 ? (row.StartsToFirstClear / (double)row.FirstClears).ToString("0.0", CultureInfo.InvariantCulture) : "-",
+                attempts > 0 ? (row.Shots / (double)attempts).ToString("0.0", CultureInfo.InvariantCulture) : "-",
+                attempts > 0 ? (row.Seconds / attempts).ToString("0", CultureInfo.InvariantCulture) : "-");
+        }
+
+        /// <summary>A count with its share of a whole: "3 (60%)", or the count alone when there is no whole.</summary>
+        private static string Rate(int count, int of) =>
+            of > 0 ? string.Format(CultureInfo.InvariantCulture, "{0} ({1:0}%)", count, 100.0 * count / of) : count.ToString(CultureInfo.InvariantCulture);
 
         /// <summary>The shipped set, with the ball count read from each level's own map.</summary>
         private static List<Playable> ReadLevels(string directory)

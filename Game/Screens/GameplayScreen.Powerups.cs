@@ -1,3 +1,4 @@
+using BS3D.Effects;
 using Microsoft.Xna.Framework;
 using Prazsky.BS3D;
 using Prazsky.BS3D.GameStructure;
@@ -205,11 +206,22 @@ namespace BS3D.Screens
 
                 case PowerupKind.Cut:
                     //The round in the bore becomes the cutter: a steel ball with a saw through it (#766, BallRenderSet's
-                    //DrawCutters), and the aim ghost goes (it would show a ball that will not land). Heard as the mechanism's
-                    //own click, as the swap is.
+                    //DrawCutters), and the aim ghost goes (it would show a ball that will not land).
                     _magazine.SetKind(0, BallKind.Cutter);
-                    Game.Audio.PlayUiClick();
-                    Console.WriteLine("[cut] the round in the bore is a cutter, " + _run.PowerupCharges[(int)PowerupKind.Cut] + " left");
+
+                    //And it CHARGES (#767, the press): its saw spins up from rest and its light surges with the collar and
+                    //the rays, the charge sound rises to its "ting" from the muzzle, the pad's hold rises under both
+                    //triggers and the chip flares as its charge goes into the round - CutStaging, on the wall clock. It
+                    //answers the hand at once and holds nothing back: the round can be fired at any moment of it.
+                    _cutStaging.Press();
+                    Game.Audio.PlayCutCharge(_cannon.MuzzlePosition(Game.CannonRig.PivotToFrontBall));
+                    _hud.PulseCutChip();
+
+                    (float chargeLeft, float chargeRight, float chargeTrigger, _) = CutRumble.Charge(CutBeats.CHARGE_SECONDS - 1e-4f);
+                    Console.WriteLine(FormattableString.Invariant(
+                        $"[cut] press: the round in the bore is a cutter, {_run.PowerupCharges[(int)PowerupKind.Cut]} left;")
+                        + FormattableString.Invariant(
+                        $" charge {CutBeats.CHARGE_SECONDS:F2} s, pad hold to L {chargeLeft:F2} R {chargeRight:F2} triggers {chargeTrigger:F2}, click {CutRumble.CHARGED_TRIGGER:F2}"));
                     _tutorial.Report(Tutorial.Lesson.Cut);
                     break;
             }
