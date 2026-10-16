@@ -816,7 +816,8 @@ namespace Testbed
             //photographed here, where the camera can be pinned. Left alone the Testbed draws the full look.
             if (_options.SceneDetail >= 0f) _sceneRenderer.SceneDetail = _options.SceneDetail;
 
-            //#758: "finemeshes=0" draws Low and Medium's coarser meshes (the acacias' tubes) instead of High's grown fork
+            //#758, #733: "finemeshes=0" draws Low and Medium's coarser meshes (the acacias' tubes, the spruces' lathes) instead
+            //of High's grown fork and boughs
             if (_options.FineMeshes is bool fineMeshes) _sceneRenderer.FineMeshes = fineMeshes;
 
             //#471 PROBE: "shadow=" pins SceneRenderer.ShadowScale so a sun shadow map can be measured and

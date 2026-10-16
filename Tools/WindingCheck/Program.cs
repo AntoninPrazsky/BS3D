@@ -176,6 +176,9 @@ namespace BS3D.Tools.WindingCheck
             yield return ("CeilingPlate", () => { var p = new CeilingPlate(d, fx); p.Fit(7f, 7f); return p; });
             yield return ("BallRenderSet", () => new BallRenderSet(d, fx));
             yield return ("ForestScatterRenderer", () => new ForestScatterRenderer(d, fx, new ForestSceneConfig(), 0.3f));
+            //The aurora's wood too (#733): its spruces roll many more, raggeder whorls, so High and Ultra's boughs are laid
+            //out by plans the daytime config never makes
+            yield return ("ForestScatterRenderer aurora", () => new ForestScatterRenderer(d, fx, new AuroraSceneConfig().Terrain, 0.3f));
             yield return ("ForestFireflies", () => new ForestFireflies(d, fx, new ForestSceneConfig(), 0.3f));
             yield return ("SavannaScatter", () => new SavannaScatter(d, new SavannaSceneConfig(), (x, z) => 0f,
                 Array.Empty<ScatterSpacing.Footprint>()));

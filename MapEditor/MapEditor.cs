@@ -1025,7 +1025,7 @@ namespace MapEditor
             //they would draw through it. The state is the caller's, and it is already the game's: alpha blend,
             //depth test and write and counter-clockwise culling into the supersampled HDR target. The component
             //touches none of it, so the balls drawn after this are unaffected.
-            if (_scene == SceneKind.Forest) _forestScatter?.Draw(Camera3D);
+            if (_scene == SceneKind.Forest) _forestScatter?.Draw(Camera3D, _sceneRenderer.FineMeshes);
 
             //The forest's firefly-like blinking lights (#487), on the same wall clock the roof beacon
             //flashes on
@@ -1042,7 +1042,7 @@ namespace MapEditor
                 //the rig steps rather than slides, so this re-lights about once a second at most.
                 if (_rig.StepSceneLight(_sceneSeconds)) ApplySkyLighting();
 
-                _auroraScatter?.Draw(Camera3D);
+                _auroraScatter?.Draw(Camera3D, _sceneRenderer.FineMeshes);
             }
         }
 

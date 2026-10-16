@@ -1009,7 +1009,7 @@ namespace BS3D
             //before the island: one draw per kind per mesh variant, and per material within a tree. The scene
             //gate stays here because the component draws the wood whenever it is called — where it sits in the
             //frame and whether this frame wants it at all are this file's business, not its.
-            if (_scene == SceneKind.Forest && SceneryShown) _forestScatter.Draw(_camera);
+            if (_scene == SceneKind.Forest && SceneryShown) _forestScatter.Draw(_camera, _sceneRenderer.FineMeshes);
 
             //The forest's firefly-like blinking lights (#487), on the same wall clock the roof beacon and the
             //campfire blink and flicker on.
@@ -1028,7 +1028,7 @@ namespace BS3D
                 //so the re-light — whose walk is an iterator — runs about once a second at most, not per frame.
                 if (_rig.StepSceneLight(_wallClock)) ApplySkyLighting();
 
-                if (SceneryShown) _auroraScatter.Draw(_camera);
+                if (SceneryShown) _auroraScatter.Draw(_camera, _sceneRenderer.FineMeshes);
             }
 
             //The round island, opaque: its stone cap and concrete drum. Then the dark well behind the glass
@@ -1107,7 +1107,7 @@ namespace BS3D
             _balls?.DrawShadow(shadowViewProjection);
 
             //Scenery only where it is drawn (#808): the wood and the towers stay out of the map with the Scenery row off
-            if (_scene == SceneKind.Forest && SceneryShown) _forestScatter?.DrawShadow(shadowViewProjection);
+            if (_scene == SceneKind.Forest && SceneryShown) _forestScatter?.DrawShadow(shadowViewProjection, _sceneRenderer.FineMeshes);
 
             //And the city's towers (#471). ⚠ ALL of them, not City.Visible: that set is culled to the
             //CAMERA's frustum, and a tower just off the side of the screen is exactly the one whose shadow
