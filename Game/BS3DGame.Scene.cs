@@ -250,41 +250,45 @@ namespace BS3D
         /// </summary>
         private void BuildScene()
         {
-            _unitBox = new BoxMesh(GraphicsDevice, 1f, 1f, 1f);
             //Both cities take the launch's roll too, so a new session is a new skyline (#: procedural
             //scenes). Applied to the CONFIG rather than at the call, because every rebuild - a quality
-            //step, a scene change - reads it back and has to get the same city.
+            //step, a scene change - reads it back and has to get the same city. On the Potato path too:
+            //PotatoBackdrop lays its cities out from this config.
             _cityConfig.Seed += _sceneSeedOffset;
             _cityConfig.NeonLayout.Seed += _sceneSeedOffset;
 
-            _city = new City(_cityConfig, neon: _scene == SceneKind.NeonCity, ArenaIsland.RADIUS);
-            _cityIsNeon = _scene == SceneKind.NeonCity;
-
-            //The neon flags are what SetScene switches between the two city lightings; these are only the
-            //values they start at, and are overwritten before the first frame is drawn.
-            ShowLoading();
-            _cityRenderer = new InstancedModelRenderer(GraphicsDevice, _unitBox, Vector3.One, _instancingEffect)
-            {
-                CityConfig = _cityConfig,
-                CityNeon = 1f,
-                CityWindowBrightness = _cityConfig.NeonLook.WindowBrightness,
-
-                //The specular ambient is not multiplied by albedo, and almost every facade of a city seen
-                //from inside it is at a grazing angle where Fresnel is near 1 — left alone it bleaches the
-                //whole skyline into a white cliff with the windows lost in it.
-                SpecularAmbientStrength = 0.07f
-            };
-
-            //The equipment on the roofs (#436), placed on the buildings the city above just made
-            ShowLoading();
-            _rooftops = new CityRooftops(GraphicsDevice, _instancingEffect, _city, _cityConfig, SCENE_AMBIENT_INTENSITY,
-                CityRooftops.DEFAULT_SEED + _sceneSeedOffset);
-
-            //The street level under them (#399), on the same grid
-            ShowLoading();
-            //Not on the Potato path (#789): its shader is SM 5.0, and Potato draws no city to stand it under
+            //None of the host's city on the Potato path (#897): the towers, their roofs and the street level are
+            //scenery, which that path never draws (SceneryShown), and the street's shader is SM 5.0. Its own city is
+            //PotatoBackdrop's. Built anyway, every Potato start generated the neon city and dressed its roofs for
+            //nothing, and every switch between the two cities generated the other. Null there, and every reader checks.
             if (!PotatoPath)
             {
+                _unitBox = new BoxMesh(GraphicsDevice, 1f, 1f, 1f);
+                _city = new City(_cityConfig, neon: _scene == SceneKind.NeonCity, ArenaIsland.RADIUS);
+                _cityIsNeon = _scene == SceneKind.NeonCity;
+
+                //The neon flags are what SetScene switches between the two city lightings; these are only the
+                //values they start at, and are overwritten before the first frame is drawn.
+                ShowLoading();
+                _cityRenderer = new InstancedModelRenderer(GraphicsDevice, _unitBox, Vector3.One, _instancingEffect)
+                {
+                    CityConfig = _cityConfig,
+                    CityNeon = 1f,
+                    CityWindowBrightness = _cityConfig.NeonLook.WindowBrightness,
+
+                    //The specular ambient is not multiplied by albedo, and almost every facade of a city seen
+                    //from inside it is at a grazing angle where Fresnel is near 1 — left alone it bleaches the
+                    //whole skyline into a white cliff with the windows lost in it.
+                    SpecularAmbientStrength = 0.07f
+                };
+
+                //The equipment on the roofs (#436), placed on the buildings the city above just made
+                ShowLoading();
+                _rooftops = new CityRooftops(GraphicsDevice, _instancingEffect, _city, _cityConfig, SCENE_AMBIENT_INTENSITY,
+                    CityRooftops.DEFAULT_SEED + _sceneSeedOffset);
+
+                //The street level under them (#399), on the same grid
+                ShowLoading();
                 Effect streetEffect = Content.Load<Effect>("Shaders/CityStreets");
                 _streets = new CityStreets(GraphicsDevice, streetEffect, _city);
             }
@@ -339,7 +343,8 @@ namespace BS3D
             //in: the component builds its own, since ArenaIsland's is that component's private business. The
             //ambient is the scene's, so it is handed over as it is to the island.
             //None of the three on the Potato path (#789): they are planted from the scene renderer's configs, which it
-            //does not build, and they stand only in backdrops it does not draw. Null there, and every reader checks.
+            //does not build, and drawn only as the desktop's scenery. The aurora's stand that path does draw is
+            //PotatoBackdrop's own planting on the same seed, a cone on a stem per spruce. Null there, and every reader checks.
             if (!PotatoPath)
             {
                 _forestScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
@@ -410,10 +415,11 @@ namespace BS3D
             if (SessionCrates != null)
                 foreach (InstancedModelRenderer renderer in SessionCrates.Renderers) yield return renderer;
 
-            yield return _cityRenderer;
-
-            //Every kind of rooftop equipment, or a dish would stand flat white against a skyline lit by the dome
-            foreach (InstancedModelRenderer renderer in _rooftops.Renderers) yield return renderer;
+            //The city and every kind of rooftop equipment, or a dish would stand flat white against a skyline lit by the
+            //dome. Neither on the Potato path (#897), which builds no city of the host's
+            if (_cityRenderer != null) yield return _cityRenderer;
+            if (_rooftops != null)
+                foreach (InstancedModelRenderer renderer in _rooftops.Renderers) yield return renderer;
 
             //The island's stone cap and concrete drum, the drain's glass and its two gold beads — but
             //deliberately not its pit shaft, which is a hole in the ground no dome may bleach. Dereferenced
@@ -511,7 +517,8 @@ namespace BS3D
         {
             _scene = scene;
 
-            //The Potato path's ground and scatter for this scene (#829), before the rig below lights them
+            //The Potato path's ground and scatter for this scene (#829), before the rig below lights them - built only
+            //when the scene is not the one already up (#897)
             EnsurePotatoBackdrop();
 
             //The scene's own sound follows the scene, on the one writer's rule, and so does anything the OLD
@@ -528,10 +535,14 @@ namespace BS3D
             //buildings, same places, same sizes, lit twice. Rebuilt rather than held as two, because it costs
             //one generator pass at a scene change — a load moment already — against two of everything for the
             //life of the program, and nothing here is on a per-frame path.
+            //Neither on the Potato path (#897), which builds no city of the host's.
             EnsureCityLayout(neon);
 
-            _cityRenderer.CityNeon = neon ? 1f : 0f;
-            _cityRenderer.CityWindowBrightness = neon ? _cityConfig.NeonLook.WindowBrightness : _cityConfig.WindowBrightness;
+            if (_cityRenderer != null)
+            {
+                _cityRenderer.CityNeon = neon ? 1f : 0f;
+                _cityRenderer.CityWindowBrightness = neon ? _cityConfig.NeonLook.WindowBrightness : _cityConfig.WindowBrightness;
+            }
 
             //The dome the scene brings with it, if it states one (the sea, the savanna, the beach, the volcano,
             //Mars, the storm and the icesheet — see SkyDome.SceneDefault for why each); every other scene keeps
@@ -910,7 +921,7 @@ namespace BS3D
             //colour shows up as a band instead of blending into the hazed skyline.
             //The sky-replacing scenes (space, the dream, the cavern, the Moon) have no dome, so they clear to black
             //instead: their pass covers every pixel of the frame, and black is what would show if it ever did not.
-            //With the Scenery row off (#808) every scene stands under the dome, as on the Potato path: a sky-replacing scene's
+            //With the Scenery row off (#808) every scene stands under the dome: a sky-replacing scene's
             //sky is its backdrop, and without it the frame was a black void round the island.
             bool sceneSky = SceneRenderer.ReplacesSky(_scene) && SceneryShown;
             GraphicsDevice.Clear(sceneSky ? Color.Black : new Color(_rig.HorizonLinear));
@@ -1064,7 +1075,7 @@ namespace BS3D
         /// <para>
         /// The roofs and the street level follow the buildings they dress, through their own <c>Rebuild</c>;
         /// the renderer survives, so nothing needs re-lighting. Called from <see cref="SetScene"/> only — the
-        /// one place a scene change happens.
+        /// one place a scene change happens. Nothing on the Potato path, which has no <c>_city</c> (#897).
         /// </para>
         /// </summary>
         private void EnsureCityLayout(bool neon)

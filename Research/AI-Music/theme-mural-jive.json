@@ -1,29 +1,345 @@
 {
-  "file": "theme-mural-jive.wav",
-  "created": "2026-09-23",
-  "issue": 486,
-  "family": "mural",
-  "chapter": "The Gallery (savanna) - Mural: log drum and marimba, G major 120",
-  "purpose": "Master of Game/Music/mural-jive.ogg, one of the mural family's recordings (#486): written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
-  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
-  "license": "ACE-Step 1.5: MIT (code and weights)",
-  "request": {
-    "caption": "Township jive instrumental: bouncing bass line, bright saxophone and pennywhistle melody, jangly guitar, lively drums, festive and warm, no vocals",
-    "lm_negative_prompt": "vocals, singing, audience applause, crowd noise, live recording",
-    "instrumental": true,
-    "use_cot_caption": false,
-    "duration": 120,
-    "bpm": 126,
-    "keyscale": "G major",
-    "inference_steps": 8,
-    "output_format": "wav32"
-  },
-  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
-  "loop_log": [
-    "Wrote theme-mural-jive.wav: 45.4s loop = source 28.05s..73.40s (15.99 bars at 84.6 bpm), crossfade 1.42s | context match 0.797 (best 0.797) | crossfade rhythm r=0.93 vs the track a bar later r=0.84: in time | spectrum cos=0.82"
-  ],
-  "measured": "generate-music.ps1 end to end 63 s (ace-lm + ace-synth + loop cut)",
-  "rendered": true,
-  "recut": "the first cut on the requested 126 bpm grid came out BELOW the track's own timekeeping; recut on a 84 bpm grid (the model rendered the piece at another metre than asked), which the cutter rates in time"
+    "file": "theme-mural-jive.wav",
+    "created": "2026-10-15",
+    "issue": 706,
+    "family": "mural",
+    "chapter": "The Gallery (savanna, levels 11-20) - regenerated on the owner's ruling of 2026-10-11 (#706): the offenders named by measurement against the desert's ember family are replaced, keeping the savanna voice and taking from ember a lead line the ear can follow, the character carried by arrangement and drive, not noise",
+    "purpose": "Master of Game/Music/mural-jive.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-706-chosen on the desktop, with its .raw.wav; every candidate in masters-706); this sidecar is committed beside the .ogg.",
+    "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-mural.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
+    "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+    "license": "ACE-Step 1.5: MIT (code and weights)",
+    "request": {
+        "caption": "South African mbaqanga township jive instrumental: a sweet, singing lead electric guitar melody you can hum, picked in long flowing runs, answered by a warm low horn section riff of tenor saxophone and trombone, a rolling melodic bass guitar line, an interlocking rhythm guitar, warm organ chords, a tight steady groove of kick, snare and toms with a dark ride cymbal and congas playing throughout, the full band playing from the first bar with the melody passing between lead guitar, organ and horns, joyful, warm and grounded, driving like a dusty savanna afternoon, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+        "lm_negative_prompt": "vocals, singing, choir, humming, chanting, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, novelty, sing-song, nursery rhyme, children's music, circus, carnival, calliope, clown, toy piano, music box, kazoo, accordion, pennywhistle, tin whistle, kwela whistle, flute, piccolo, recorder, soprano saxophone, squealing saxophone, slide whistle, polka, oompah, marching band, ragtime, ska, bouncy comedic bass, tuba, swing shuffle, lilting waltz, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, hand claps, long drum-only sections, drum solo, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro",
+        "instrumental": true,
+        "use_cot_caption": false,
+        "duration": 120,
+        "bpm": 120,
+        "keyscale": "G major",
+        "seed": 1157686271,
+        "inference_steps": 8,
+        "output_format": "wav32"
+    },
+    "post_process": "loop_crossfade.py on the render's first 73.5 s (kept as theme-mural-jive-c4r.raw.wav beside it): a whole-bar loop cut out of the body before the band's stop",
+    "loop_log": [
+        "Wrote theme-mural-jive-c4r.wav: 40.0s loop = source 9.35s..49.35s (20.00 bars at 120.0 bpm), crossfade 1.00s | context match 0.928 (best 0.976) | crossfade rhythm r=0.98 vs the track a bar later r=0.75: in time | spectrum cos=0.96"
+    ],
+    "lm_check": {
+        "request0_captured": true,
+        "caption_verbatim": true,
+        "seed_in_request0": 1157686271,
+        "bpm_in_request0": 120,
+        "keyscale_in_request0": "G major",
+        "duration_in_request0": 120.0
+    },
+    "measured": "generate-music.ps1 end to end 58,8 s (ace-lm + ace-synth + loop cut), exit 0",
+    "measured_against_ember": {
+        "loop_s": 40.0,
+        "bpm": 120.0,
+        "context": 0.928,
+        "r_cross": 0.98,
+        "r_bar": 0.75,
+        "in_time": true,
+        "cos": 0.96,
+        "dip": 3.1,
+        "quiet": 0,
+        "lr_corr": 0.941,
+        "knee_pct": 0.083,
+        "b200_2k": 12.1,
+        "b300_4k": 10.2,
+        "above6k": 0.9,
+        "tonal_mid": 52,
+        "mid_flatness": 0.04,
+        "held_changes": 3.62,
+        "tempo_wander": 0.01,
+        "wrap_db": -2.5,
+        "wrap_pct": 6
+    },
+    "measured_note": "measure-music.py --reference ember on the loop (band shares %, tonal mid %, mid flatness, held-note changes/s, tempo wander %, wrap step dB and its percentile) beside sel.py: the loop cut, dip = the quietest 2 s under the loop's p95 1 s level (dB), quiet = the % of the loop more than 10 dB under it, L/R correlation, knee_pct = the % of samples MusicBake's knee bends",
+    "rendered": true,
+    "recut": "c4 recut by loop_crossfade.py (bpm 120) from the first 73.5 s of its own render (theme-mural-jive-c4.raw.wav): the band stops for two seconds at 74-76 s (-20 and -28 dB under the loop's level), which c4's 108 s cut carried as a 23.5 dB dropout; the window before the stop holds the same brief, seed and playing",
+    "bake": {
+        "trim_db": -1.5,
+        "why": "#706: the master's crest factor is 16.8 dB (peak +3.3 dBFS at -13.5 dBFS RMS) and its peaks are round, not flat (no run of 3 samples within 0.1 dB of its peak). Brought to -15 dBFS RMS, 1061 samples went over full scale and decoded to 40 clipped runs (decoded peak +0.14 dBFS); trimmed 1.5 dB, to 1 run (ember's range 0-3) and a peak of +0.01 dBFS, at -15.6 LUFS against the family's -15.1 to -13.3. Trimmed 2.0 dB it decoded to 0 runs at -16.1 LUFS; the smaller cut was kept for the loudness"
+    },
+    "chosen": {
+        "candidate": "c4r",
+        "round": 1,
+        "of": [
+            "c1",
+            "c2",
+            "c3",
+            "c4",
+            "c4r",
+            "c5",
+            "c6",
+            "c7",
+            "c8"
+        ],
+        "why": "the one candidate of eight renders (two rounds) inside ember's range on every column: 200 Hz-2 kHz 12.1 % (the old loop 9.3 %), 300 Hz-4 kHz 10.2 %, 0.9 % above 6 kHz (the old loop 5.4 %), tonal mid 52 %, 3.62 held-note changes a second; a 40 s loop recut from c4's render before the band's two-second stop (c4's own 108 s cut carried it as a 23.5 dB dropout), context match 0.93, crossfade r 0.98 against 0.75 a bar later, spectrum cos 0.96, wrap step -2.5 dB (p6). Every other render kept 2.3-4.5 % above 6 kHz, round 2's darker brief (mellow round guitar, soft highs, low hand drums, jangly guitar and crisp hi-hats in the negative) included. Its master's crest factor of 16.8 dB decoded to 40 clipped runs at the themes' loudness, so the bake trims it 1.5 dB (bake.trim_db). Its pitch wobble measures 3.9 cents, a tenth over ember's 3.8 (the old loop 3.2): inside the detune range, named here because 'drunk' is the complaint",
+        "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wrap step) beside the loop cut's own check, the hole share (the loop more than 10 dB under its loud level), the breakdown dip and the stereo correlation; a seam below its own rhythm, a hole over 15 % of the loop, a 2 s dropout more than 20 dB down, a wrap step of 10 dB or more or at p97 or above of the loop's own steps, a seam spectrum cosine under 0.3 or a loop under 30 s ruled a candidate out; the table is on #706"
+    },
+    "alternatives": [
+        {
+            "candidate": "c1",
+            "seed": 756372934,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-706\\theme-mural-jive-c1.wav: 44.7s loop = source 34.05s..78.80s (21.97 bars at 117.8 bpm), crossfade 1.02s | context match 0.609 (best 0.639) | crossfade rhythm r=0.76 vs the track a bar later r=0.79: in time | spectrum cos=0.67"
+            ],
+            "measured": {
+                "loop_s": 44.7,
+                "bpm": 117.8,
+                "context": 0.609,
+                "r_cross": 0.76,
+                "r_bar": 0.79,
+                "in_time": true,
+                "cos": 0.67,
+                "dip": 1.4,
+                "quiet": 0,
+                "lr_corr": 0.85,
+                "knee_pct": 0.001,
+                "b200_2k": 7.7,
+                "b300_4k": 6.8,
+                "above6k": 3.2,
+                "tonal_mid": 39,
+                "mid_flatness": 0.16,
+                "held_changes": 3.35,
+                "tempo_wander": 0.02,
+                "wrap_db": -3.8,
+                "wrap_pct": 49
+            }
+        },
+        {
+            "candidate": "c2",
+            "seed": 664581246,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-706\\theme-mural-jive-c2.wav: 56.0s loop = source 22.70s..78.70s (27.99 bars at 120.0 bpm), crossfade 1.00s | context match 0.788 (best 0.790) | crossfade rhythm r=0.93 vs the track a bar later r=0.91: in time | spectrum cos=0.73"
+            ],
+            "measured": {
+                "loop_s": 56.0,
+                "bpm": 120.0,
+                "context": 0.788,
+                "r_cross": 0.93,
+                "r_bar": 0.91,
+                "in_time": true,
+                "cos": 0.73,
+                "dip": 2.4,
+                "quiet": 0,
+                "lr_corr": 0.895,
+                "knee_pct": 0.004,
+                "b200_2k": 13.9,
+                "b300_4k": 12.1,
+                "above6k": 2.3,
+                "tonal_mid": 52,
+                "mid_flatness": 0.13,
+                "held_changes": 3.36,
+                "tempo_wander": 0.01,
+                "wrap_db": 4.4,
+                "wrap_pct": 36
+            }
+        },
+        {
+            "candidate": "c3",
+            "seed": 1735863489,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-706\\theme-mural-jive-c3.wav: 88.0s loop = source 23.15s..111.15s (44.00 bars at 120.0 bpm), crossfade 1.00s | context match 0.822 (best 0.870) | crossfade rhythm r=0.97 vs the track a bar later r=0.90: in time | spectrum cos=0.86"
+            ],
+            "measured": {
+                "loop_s": 88.0,
+                "bpm": 120.0,
+                "context": 0.822,
+                "r_cross": 0.97,
+                "r_bar": 0.9,
+                "in_time": true,
+                "cos": 0.86,
+                "dip": 2.8,
+                "quiet": 0,
+                "lr_corr": 0.885,
+                "knee_pct": 0.001,
+                "b200_2k": 11.4,
+                "b300_4k": 9.4,
+                "above6k": 2.3,
+                "tonal_mid": 47,
+                "mid_flatness": 0.1,
+                "held_changes": 2.82,
+                "tempo_wander": 0.01,
+                "wrap_db": -2.5,
+                "wrap_pct": 44
+            }
+        },
+        {
+            "candidate": "c4",
+            "seed": 1157686271,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-706\\theme-mural-jive-c4.wav: 108.0s loop = source 4.90s..112.90s (54.00 bars at 120.0 bpm), crossfade 1.00s | context match 0.820 (best 0.869) | crossfade rhythm r=0.96 vs the track a bar later r=0.82: in time | spectrum cos=0.90"
+            ],
+            "measured": {
+                "loop_s": 108.0,
+                "bpm": 120.0,
+                "context": 0.82,
+                "r_cross": 0.96,
+                "r_bar": 0.82,
+                "in_time": true,
+                "cos": 0.9,
+                "dip": 23.5,
+                "quiet": 2,
+                "lr_corr": 0.943,
+                "knee_pct": 0.014,
+                "b200_2k": 13.6,
+                "b300_4k": 11.0,
+                "above6k": 1.0,
+                "tonal_mid": 61,
+                "mid_flatness": 0.06,
+                "held_changes": 3.84,
+                "tempo_wander": 0.01,
+                "wrap_db": -8.0,
+                "wrap_pct": 66
+            }
+        },
+        {
+            "candidate": "c5",
+            "seed": 69952525,
+            "caption": "South African mbaqanga township jive instrumental: a sweet, singing lead electric guitar melody you can hum, picked in long flowing runs with a mellow, round, warm tone, answered by a warm low horn section riff of tenor saxophone and trombone, a rolling melodic bass guitar line, an interlocking rhythm guitar with a soft rounded tone, warm organ chords, a tight steady groove of kick, snare and toms with a dark ride cymbal and low hand drums playing throughout, the full band playing from the first bar with the melody passing between lead guitar, organ and horns, joyful, warm and grounded, driving like a dusty savanna afternoon, warm dark mid-forward mix with soft rounded highs and a full low-mid body, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, chanting, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, novelty, sing-song, nursery rhyme, children's music, circus, carnival, calliope, clown, toy piano, music box, kazoo, accordion, pennywhistle, tin whistle, kwela whistle, flute, piccolo, recorder, soprano saxophone, squealing saxophone, slide whistle, polka, oompah, marching band, ragtime, ska, bouncy comedic bass, tuba, swing shuffle, lilting waltz, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, hand claps, long drum-only sections, drum solo, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, jangly guitar, bright trebly guitar, twangy guitar, crisp hi-hats, hi-hat sixteenths, ride bell, cowbell, agogo bells, shekere, timbales, bongos, sizzle, airy highs, harsh brass",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-706\\theme-mural-jive-c5.wav: 68.0s loop = source 20.60s..88.60s (34.00 bars at 120.0 bpm), crossfade 1.00s | context match 0.665 (best 0.701) | crossfade rhythm r=0.85 vs the track a bar later r=0.88: in time | spectrum cos=0.74"
+            ],
+            "measured": {
+                "loop_s": 68.0,
+                "bpm": 120.0,
+                "context": 0.665,
+                "r_cross": 0.85,
+                "r_bar": 0.88,
+                "in_time": true,
+                "cos": 0.74,
+                "dip": 8.4,
+                "quiet": 1,
+                "lr_corr": 0.871,
+                "knee_pct": 0.0,
+                "b200_2k": 18.1,
+                "b300_4k": 17.2,
+                "above6k": 3.9,
+                "tonal_mid": 64,
+                "mid_flatness": 0.1,
+                "held_changes": 2.74,
+                "tempo_wander": 0.01,
+                "wrap_db": 1.4,
+                "wrap_pct": 33
+            }
+        },
+        {
+            "candidate": "c6",
+            "seed": 146359985,
+            "caption": "South African mbaqanga township jive instrumental: a sweet, singing lead electric guitar melody you can hum, picked in long flowing runs with a mellow, round, warm tone, answered by a warm low horn section riff of tenor saxophone and trombone, a rolling melodic bass guitar line, an interlocking rhythm guitar with a soft rounded tone, warm organ chords, a tight steady groove of kick, snare and toms with a dark ride cymbal and low hand drums playing throughout, the full band playing from the first bar with the melody passing between lead guitar, organ and horns, joyful, warm and grounded, driving like a dusty savanna afternoon, warm dark mid-forward mix with soft rounded highs and a full low-mid body, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, chanting, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, novelty, sing-song, nursery rhyme, children's music, circus, carnival, calliope, clown, toy piano, music box, kazoo, accordion, pennywhistle, tin whistle, kwela whistle, flute, piccolo, recorder, soprano saxophone, squealing saxophone, slide whistle, polka, oompah, marching band, ragtime, ska, bouncy comedic bass, tuba, swing shuffle, lilting waltz, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, hand claps, long drum-only sections, drum solo, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, jangly guitar, bright trebly guitar, twangy guitar, crisp hi-hats, hi-hat sixteenths, ride bell, cowbell, agogo bells, shekere, timbales, bongos, sizzle, airy highs, harsh brass",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-706\\theme-mural-jive-c6.wav: 80.0s loop = source 5.55s..85.55s (40.00 bars at 120.0 bpm), crossfade 1.00s | context match 0.819 (best 0.869) | crossfade rhythm r=0.91 vs the track a bar later r=0.90: in time | spectrum cos=0.86"
+            ],
+            "measured": {
+                "loop_s": 80.0,
+                "bpm": 120.0,
+                "context": 0.819,
+                "r_cross": 0.91,
+                "r_bar": 0.9,
+                "in_time": true,
+                "cos": 0.86,
+                "dip": 4.5,
+                "quiet": 0,
+                "lr_corr": 0.905,
+                "knee_pct": 0.0,
+                "b200_2k": 11.1,
+                "b300_4k": 10.7,
+                "above6k": 2.5,
+                "tonal_mid": 49,
+                "mid_flatness": 0.04,
+                "held_changes": 3.27,
+                "tempo_wander": 0.01,
+                "wrap_db": 1.2,
+                "wrap_pct": 23
+            }
+        },
+        {
+            "candidate": "c7",
+            "seed": 1846270526,
+            "caption": "South African mbaqanga township jive instrumental: a sweet, singing lead electric guitar melody you can hum, picked in long flowing runs with a mellow, round, warm tone, answered by a warm low horn section riff of tenor saxophone and trombone, a rolling melodic bass guitar line, an interlocking rhythm guitar with a soft rounded tone, warm organ chords, a tight steady groove of kick, snare and toms with a dark ride cymbal and low hand drums playing throughout, the full band playing from the first bar with the melody passing between lead guitar, organ and horns, joyful, warm and grounded, driving like a dusty savanna afternoon, warm dark mid-forward mix with soft rounded highs and a full low-mid body, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, chanting, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, novelty, sing-song, nursery rhyme, children's music, circus, carnival, calliope, clown, toy piano, music box, kazoo, accordion, pennywhistle, tin whistle, kwela whistle, flute, piccolo, recorder, soprano saxophone, squealing saxophone, slide whistle, polka, oompah, marching band, ragtime, ska, bouncy comedic bass, tuba, swing shuffle, lilting waltz, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, hand claps, long drum-only sections, drum solo, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, jangly guitar, bright trebly guitar, twangy guitar, crisp hi-hats, hi-hat sixteenths, ride bell, cowbell, agogo bells, shekere, timbales, bongos, sizzle, airy highs, harsh brass",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-706\\theme-mural-jive-c7.wav: 96.0s loop = source 4.95s..100.95s (48.01 bars at 120.0 bpm), crossfade 1.00s | context match 0.814 (best 0.860) | crossfade rhythm r=0.95 vs the track a bar later r=0.92: in time | spectrum cos=0.79"
+            ],
+            "measured": {
+                "loop_s": 96.0,
+                "bpm": 120.0,
+                "context": 0.814,
+                "r_cross": 0.95,
+                "r_bar": 0.92,
+                "in_time": true,
+                "cos": 0.79,
+                "dip": 11.4,
+                "quiet": 1,
+                "lr_corr": 0.728,
+                "knee_pct": 0.006,
+                "b200_2k": 11.9,
+                "b300_4k": 12.6,
+                "above6k": 2.4,
+                "tonal_mid": 64,
+                "mid_flatness": 0.1,
+                "held_changes": 2.91,
+                "tempo_wander": 0.01,
+                "wrap_db": 2.9,
+                "wrap_pct": 50
+            }
+        },
+        {
+            "candidate": "c8",
+            "seed": 430429789,
+            "caption": "South African mbaqanga township jive instrumental: a sweet, singing lead electric guitar melody you can hum, picked in long flowing runs with a mellow, round, warm tone, answered by a warm low horn section riff of tenor saxophone and trombone, a rolling melodic bass guitar line, an interlocking rhythm guitar with a soft rounded tone, warm organ chords, a tight steady groove of kick, snare and toms with a dark ride cymbal and low hand drums playing throughout, the full band playing from the first bar with the melody passing between lead guitar, organ and horns, joyful, warm and grounded, driving like a dusty savanna afternoon, warm dark mid-forward mix with soft rounded highs and a full low-mid body, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, chanting, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, novelty, sing-song, nursery rhyme, children's music, circus, carnival, calliope, clown, toy piano, music box, kazoo, accordion, pennywhistle, tin whistle, kwela whistle, flute, piccolo, recorder, soprano saxophone, squealing saxophone, slide whistle, polka, oompah, marching band, ragtime, ska, bouncy comedic bass, tuba, swing shuffle, lilting waltz, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, hand claps, long drum-only sections, drum solo, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, jangly guitar, bright trebly guitar, twangy guitar, crisp hi-hats, hi-hat sixteenths, ride bell, cowbell, agogo bells, shekere, timbales, bongos, sizzle, airy highs, harsh brass",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-706\\theme-mural-jive-c8.wav: 63.3s loop = source 31.14s..94.40s (32.05 bars at 121.6 bpm), crossfade 0.99s | context match 0.320 (best 0.370) | crossfade rhythm r=0.85 vs the track a bar later r=0.74: in time | spectrum cos=0.60"
+            ],
+            "measured": {
+                "loop_s": 63.3,
+                "bpm": 121.6,
+                "context": 0.32,
+                "r_cross": 0.85,
+                "r_bar": 0.74,
+                "in_time": true,
+                "cos": 0.6,
+                "dip": 6.1,
+                "quiet": 0,
+                "lr_corr": 0.921,
+                "knee_pct": 0.003,
+                "b200_2k": 8.8,
+                "b300_4k": 7.6,
+                "above6k": 4.5,
+                "tonal_mid": 70,
+                "mid_flatness": 0.06,
+                "held_changes": 3.1,
+                "tempo_wander": 0.02,
+                "wrap_db": -6.6,
+                "wrap_pct": 85
+            }
+        }
+    ],
+    "replaces": {
+        "stem": "mural-jive",
+        "issue": 486,
+        "created": "2026-09-23",
+        "caption": "Township jive instrumental: bouncing bass line, bright saxophone and pennywhistle melody, jangly guitar, lively drums, festive and warm, no vocals",
+        "negative": "vocals, singing, audience applause, crowd noise, live recording",
+        "bpm": 126,
+        "keyscale": "G major",
+        "loop_log": [
+            "Wrote theme-mural-jive.wav: 45.4s loop = source 28.05s..73.40s (15.99 bars at 84.6 bpm), crossfade 1.42s | context match 0.797 (best 0.797) | crossfade rhythm r=0.93 vs the track a bar later r=0.84: in time | spectrum cos=0.82"
+        ],
+        "why_replaced": "named by measurement on 2026-10-13 (#706): 5.4 % of its energy above 6 kHz (ember at most 2.0 %) and a thin low-mid (200 Hz-2 kHz 9.3 %, under ember's lowest 9.5 %); briefed with a bright saxophone and pennywhistle melody, the body's first suspect for the owner's 'creepily cheerful, like an evil clown', and rendered at another metre than asked (84.6 bpm for 126). The owner, 2026-10-11: regenerate from the desert's ember model, a lead line or riff the ear can follow, the character carried by arrangement and drive"
+    }
 }

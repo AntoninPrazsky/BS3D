@@ -865,3 +865,35 @@ Pravidla:
 - Review: krok stropu čeká přes zpomalení, kinematografie zpomalení řezu ukončí, náboj si po Swapu nese záři i úhel, odměna řezu se narodí 0,7 s po zásahu (stála přes řez). `CutStaging` v testech, 12 zasazených chyb každá shodí test.
 - ⚠ Úder přičtený k ráně výstřelu přešel strop, proto `PadChannel.KickUpTo`. Snímek 1920×1080 stojí ~0,5 s, proto `cutshot=`.
 - Otevřené: oko a ucho majitele, ruka na padu, PresentMon.
+
+## 2026-10-16 — #824 hudba The Grid přegenerována — desktop (RDT-PC), Claude Code (bs3d-ac)
+- Hotovo (merge na main, `shipped-awaiting-verdict` + `verdict-eye`): osm nahrávek rodiny `pulse` podle vzoru `ember` (melodie ve středech, pohon z aranže); `vector` a holý `pulse` zůstaly. Big room → piano house (`pulse-piano-house`). 83 renderů v nejvýš pěti kolech, výběr měřením. Pět uvnitř rozsahu `ember` ve všem, techno a electrofunk těsně pod v počtu změn tónu, synthpop tenký v 200 Hz–2 kHz (6,8 %). Vše ≤ 2,0 % nad 6 kHz. Progressive nemá bicí, starou vrstvu bylo nutné smazat.
+- ⚠ Výšky tanečních stylů jsou v hi-hatech a liší se víc mezi seedy než mezi zadáními; jasné house piano je také výška. Zapsáno v `music-generation.md`.
+- Mastery `C:/Users/panrd/AI/output/masters-824-chosen`, kandidáti `masters-824`; poslech v `verdicts/824` scratchpadu bs3d-ac.
+- Otevřené: ucho majitele; synthpop (sedmnáct renderů nedrželo středy i výšky zároveň).
+
+## 2026-10-16 — #706 hudba Gallery: desertblues a jive přegenerovány — desktop (RDT-PC), Claude Code (bs3d-ac)
+- Hotovo (`verdict-eye`): `mural-desertblues` a `mural-jive` nahrazeny podle vzoru `ember` (melodie kytary, žádná píšťala). Jména zůstala. 12 renderů ve dvou kolech, výběr měřením; obě nahrávky jsou v rozsahu `ember` ve všech sloupcích. `mural-mbira` se nepřegenerovávala, jen se upekla o 1,5 dB tišeji. Bicí vrstvy všech tří jsou oddělené znovu. Mastery jsou v `C:/Users/panrd/AI/output/masters-706-chosen`, kandidáti v `masters-706`, poslech ve scratchpadu bs3d-ac v `verdicts/706`.
+- ⚠ Ořez přes `bake.trim_db` v sidecaru je nový `MusicBake`; patří jen masteru se špičkami bez plochého vrcholu (`music-bake.md`). Township jive drží výšky přes jakékoli zadání (7 z 8). Kapela, která se v renderu na 2 s zastaví, se dá střihnout znovu z části před zastavením (`music-generation.md`).
+- ⚠ Sdílený GPU zámek s pollem 10 s vyhladoví proti dávce, která si ho bere hned zpátky; dávka #706 polluje po 0,5 s a po renderu 15 s čeká.
+- Otevřené: ucho majitele; `jive` má kolísání výšky 3,9 c (ember max 3,8).
+
+## 2026-10-16 — #882–#896 poznámky ze hraní ke scénám a Help — desktop (RDT-PC), Claude Code (bs3d-5f)
+- Majitel poslal 15 poznámek (savana, Meadows, stín náhledové kuličky, Help, skleněný strop): patnáct issues #882–#896, jedno na poznámku. Jen čtení kódu a issues, na desktopu běžela druhá relace (žádný build, žádný snímek). #864 zavřen jeho verdiktem („balíky jsou správně veliké“). Komentáře s odkazy na #758, #753, #749, #856, #831, #481, #641, #609, #874, #733.
+- majitel (2026-10-16): scénická grafika se parkovala kvůli gameplayi a nestabilnímu desktopu; druhý důvod padl (měření bez limitu FPS, lokální AI, nový zdroj). Nová issues jsou bez parked; na otázku odpověděl „všech 18“: odparkovány #744–#749, #751–#754, #756, #757, #774–#779 (komentář na každém i na #768), CLAUDE.md a docs/repo-conventions.md mají výjimku „scene graphics“ (c1e0c815). Parkované zůstává #230 #251 #292 #690 #717 #718 #741 #771 #827 #853.
+- ⚠ Každé tělo prošel druhý agent proti kódu a 14 z 15 opravil (špatný řádek, zastaralé „v běhu“ u #758, který už je na mainu). Podíl listů proti větvi (52 %, #882) je z Python repliky, ne z C#.
+- ⚠ Testbed kreslí obruče až po ohních, takže chybu z #888 nepředvede. Fronta verdiktů je 19 (nad 15), práce na vzhledu čeká.
+- Otevřené: snímky před implementací; fronta verdiktů 19 (nad 15) drží start změn vzhledu, nabídnutá je stránka verdiktů.
+
+## 2026-10-16 — #898–#917 druhá dávka poznámek: High Scores, Jukebox, město, moře, hudba po kapitolách — desktop (RDT-PC), Claude Code (bs3d-5f)
+- Majitel poslal poznámky ke scénám a verdikty z poslechu celé hudby v Jukeboxu (nejmenované skladby jsou OK). Dvacet issues, jen čtení kódu: #898 High Scores, #899–#901 Jukebox, #902 stožáry, #903 ryby, #904–#915 hudba po kapitolách, #916 hlasové textury, #917 styl umělce v promptech. Komentář na #853 (denní doba), #873, #704, #486, #760, #685, #436.
+- majitel: potvrdil, že obrázky v #21 jsou jeho ruční rendery z Wings 3D (zapsáno do #896). Verdikty #706, #732, #824, #841: zbytek OK, jmenované skladby na navazujících #905, #907, #910, #913; čtyři issues zavřeny, fronta verdiktů je 15.
+- ⚠ Příčina ryb po ocasu (#903) je ve Fish.fx: úhel dělí čas relace poloměrem, který se mění s časem, takže rychlost roste a u části ryb jde do záporu. Jukebox hraje nahrávky bez vrstvy bicích (RecordingPlayer.cs:13-14): „bubny přebíjejí“ slyšel na plné hlasitosti.
+- Otevřené: žádný snímek ani poslech (druhá relace na desktopu); smyčka v Jukeboxu (#899) obrací jeho rozhodnutí z #704.
+
+## 2026-10-16 — #897 Potato: nálezy předvydávací revize — desktop (RDT-PC), Claude Code (bs3d-ac)
+- Hotovo (větev `897-potato-review-fixes`): Potato backdrop se staví jen při změně scény; dřív se stavěl znovu při každém startu levelu, restartu i zastavení ukazatele v pickeru. Na desktopu to byl záškub 4–15 ms ve městě, 30–125 ms na louce a v savaně a 130–170 ms na Měsíci. Čas stavby je teď na řádku `[potato]`.
+- Potato už nestaví hostitelské město, střechy ani ulice: start je asi o 165 ms kratší (BuildScene 1356 → 1191 ms).
+- Kruh skleněné koule bral barvu posledního barevného kbelíku, takže měla tmavý obrys. Teď nastavuje vlastní uniformy a obrys je bledý.
+- `PotatoSkyFigure` si parametry a techniky uloží při stavbě. Řádek Scenery na Potato ukazuje „On (Potato)“. Opravené docs a komentáře.
+- ⚠ Tools/SemanticSearch neběžel, protože se démon LM Studia nespustil. Duplicita se hledala podle klíčových slov.

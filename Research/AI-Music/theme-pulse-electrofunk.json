@@ -1,28 +1,340 @@
 {
-    "file":  "theme-pulse-electrofunk.wav",
-    "created":  "2026-09-23",
-    "issue":  486,
-    "family":  "pulse",
-    "chapter":  "The Grid (1980s computer graphics) - Pulse: eurodance, A minor 128",
-    "purpose":  "Master of Game/Music/pulse-electrofunk.ogg, one of the pulse family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "1980s electro funk instrumental: drum machine, synth bass slaps, robotic synth chords, bright lead, playful and retro-futuristic, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  112,
-                    "keyscale":  "A minor",
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-pulse-electrofunk.wav: 58.9s loop = source 22.04s..80.95s (26.95 bars at 109.8 bpm), crossfade 1.09s | context match 0.519 (best 0.561) | crossfade rhythm r=0.90 vs the track a bar later r=0.70: in time | spectrum cos=0.97"
-                 ],
-    "measured":  "generate-music.ps1 end to end 59.2 s (ace-lm + ace-synth + loop cut)",
-    "rendered":  true
+    "file": "theme-pulse-electrofunk.wav",
+    "created": "2026-10-15",
+    "issue": 824,
+    "family": "pulse",
+    "chapter": "The Grid (levels 71-80, the neon wireframe world of mathematical solids) - regenerated on the desert's ember model (the owner, 2026-10-11, #824): a lead line the ear can follow, its identity in the mid range, the drive carried by arrangement rather than by noise and sub bass; the family's electronic dance root kept",
+    "purpose": "Master of Game/Music/pulse-electrofunk.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-824-chosen on the desktop, with its .raw.wav; every candidate in masters-824); this sidecar is committed beside the .ogg.",
+    "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-pulse.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
+    "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+    "license": "ACE-Step 1.5: MIT (code and weights)",
+    "request": {
+        "caption": "Retro-futuristic 1980s electro-funk instrumental for a neon wireframe world of glowing geometric shapes: a funky slap bass guitar riff you can hum, a warm, catchy analog synth lead melody carried in the mid range, funky muted rhythm guitar, warm clavinet and synth-brass stabs answering the lead, a tight funky drum-machine groove of kick, snare and toms with a dark ride cymbal playing throughout, a middle section where the slap bass and the guitar carry on under a second melody before the lead returns, building into a big groovy peak with warm wide synth chords, playful, robotic and cool, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+        "lm_negative_prompt": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, deep sub bass, rumble, distorted bass, growling bass, wobble bass, white noise, noise sweeps, risers, hiss, glitch, siren synths, industrial noise, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, bright hand claps, tambourine, shakers, snare rolls, long drum-only sections, drum solo, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, droning, one-note bass, 808 cowbell, robotic voice, breakbeat",
+        "instrumental": true,
+        "use_cot_caption": false,
+        "duration": 120,
+        "bpm": 112,
+        "keyscale": "A minor",
+        "seed": 591792436,
+        "inference_steps": 8,
+        "output_format": "wav32"
+    },
+    "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+    "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-electrofunk-c1.wav: 78.5s loop = source 11.60s..90.15s (36.02 bars at 110.1 bpm), crossfade 1.09s | context match 0.917 (best 0.965) | crossfade rhythm r=0.94 vs the track a bar later r=0.72: in time | spectrum cos=0.98"
+    ],
+    "lm_check": {
+        "request0_captured": true,
+        "caption_verbatim": true,
+        "seed_in_request0": 591792436,
+        "bpm_in_request0": 112,
+        "keyscale_in_request0": "A minor",
+        "duration_in_request0": 120.0
+    },
+    "measured": "generate-music.ps1 end to end 62,3 s (ace-lm + ace-synth + loop cut), exit 0",
+    "measured_against_ember": {
+        "loop_s": 78.5,
+        "bpm": 110.1,
+        "context": 0.917,
+        "r_cross": 0.94,
+        "r_bar": 0.72,
+        "in_time": true,
+        "cos": 0.98,
+        "dip": 3.9,
+        "quiet": 0,
+        "lr_corr": 0.95,
+        "knee_pct": 0.023,
+        "b200_2k": 23.0,
+        "b300_4k": 21.4,
+        "above6k": 1.2,
+        "tonal_mid": 73,
+        "mid_flatness": 0.08,
+        "held_changes": 2.58,
+        "tempo_wander": 0.01,
+        "wrap_db": 4.3,
+        "wrap_pct": 70
+    },
+    "measured_note": "measure-music.py --reference ember on the loop (band shares %, tonal mid %, mid flatness, held-note changes/s, tempo wander %, wrap step dB and its percentile) beside sel.py: the loop cut, dip = the quietest 2 s under the loop's p95 1 s level (dB), quiet = the % of the loop more than 10 dB under it, L/R correlation, knee_pct = the % of samples MusicBake's knee bends",
+    "rendered": true,
+    "chosen": {
+        "candidate": "c1",
+        "round": 1,
+        "of": [
+            "c1",
+            "c2",
+            "c3",
+            "c4",
+            "c5",
+            "c6",
+            "c7",
+            "c8",
+            "c9"
+        ],
+        "why": "23.0 % in 200 Hz-2 kHz (old 9.1 %), 21.4 % in 300 Hz-4 kHz, 1.2 % above 6 kHz (old 4.6 %), tonal mid 73 % (old 47 %), a 78.5 s loop with the best seam of nine (context 0.92, crossfade r 0.94 against 0.72, spectrum cos 0.98), no hole, wrap step +4.3 dB (p70). Still outside ember: 2.58 held-note changes/s (ember at least 2.74; old 2.95): the eight other seeds of the same brief put 2.1-11.3 % above 6 kHz",
+        "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wrap step) beside the loop cut's own check, the hole share (the loop more than 10 dB under its loud level), the breakdown dip and the stereo correlation; a seam below its own rhythm, a hole over 15 %, a 2 s dropout more than 20 dB down, a wrap step of 10 dB or more or at or above p97 of the loop's own steps, a seam spectrum cosine under 0.3 or a loop under 30 s ruled a candidate out; the table is on #824"
+    },
+    "alternatives": [
+        {
+            "candidate": "c2",
+            "seed": 1651870514,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-electrofunk-c2.wav: 43.6s loop = source 33.11s..76.75s (19.97 bars at 109.8 bpm), crossfade 1.09s | context match 0.769 (best 0.789) | crossfade rhythm r=0.94 vs the track a bar later r=0.76: in time | spectrum cos=0.91"
+            ],
+            "measured": {
+                "loop_s": 43.6,
+                "bpm": 109.8,
+                "context": 0.769,
+                "r_cross": 0.94,
+                "r_bar": 0.76,
+                "in_time": true,
+                "cos": 0.91,
+                "dip": 2.4,
+                "quiet": 0,
+                "lr_corr": 0.92,
+                "knee_pct": 0.0,
+                "b200_2k": 10.5,
+                "b300_4k": 9.5,
+                "above6k": 3.9,
+                "tonal_mid": 54,
+                "mid_flatness": 0.16,
+                "held_changes": 3.35,
+                "tempo_wander": 0.01,
+                "wrap_db": 0.7,
+                "wrap_pct": 8
+            }
+        },
+        {
+            "candidate": "c3",
+            "seed": 357183245,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-electrofunk-c3.wav: 69.2s loop = source 30.56s..99.75s (32.02 bars at 111.1 bpm), crossfade 1.08s | context match 0.904 (best 0.952) | crossfade rhythm r=0.91 vs the track a bar later r=0.62: in time | spectrum cos=0.96"
+            ],
+            "measured": {
+                "loop_s": 69.2,
+                "bpm": 111.1,
+                "context": 0.904,
+                "r_cross": 0.91,
+                "r_bar": 0.62,
+                "in_time": true,
+                "cos": 0.96,
+                "dip": 2.8,
+                "quiet": 0,
+                "lr_corr": 0.924,
+                "knee_pct": 0.002,
+                "b200_2k": 11.7,
+                "b300_4k": 11.7,
+                "above6k": 3.5,
+                "tonal_mid": 46,
+                "mid_flatness": 0.13,
+                "held_changes": 2.57,
+                "tempo_wander": 0.01,
+                "wrap_db": -5.7,
+                "wrap_pct": 63
+            }
+        },
+        {
+            "candidate": "c4",
+            "seed": 1852662540,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-electrofunk-c4.wav: 86.4s loop = source 4.84s..91.25s (40.00 bars at 111.1 bpm), crossfade 1.08s | context match 0.732 (best 0.781) | crossfade rhythm r=0.90 vs the track a bar later r=0.81: in time | spectrum cos=0.75"
+            ],
+            "measured": {
+                "loop_s": 86.4,
+                "bpm": 111.1,
+                "context": 0.732,
+                "r_cross": 0.9,
+                "r_bar": 0.81,
+                "in_time": true,
+                "cos": 0.75,
+                "dip": 3.4,
+                "quiet": 0,
+                "lr_corr": 0.941,
+                "knee_pct": 0.003,
+                "b200_2k": 16.3,
+                "b300_4k": 15.4,
+                "above6k": 4.6,
+                "tonal_mid": 64,
+                "mid_flatness": 0.07,
+                "held_changes": 3.0,
+                "tempo_wander": 0.04,
+                "wrap_db": 1.5,
+                "wrap_pct": 30
+            }
+        },
+        {
+            "candidate": "c5",
+            "seed": 1128456727,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-electrofunk-c5.wav: 61.1s loop = source 17.56s..78.65s (27.96 bars at 109.9 bpm), crossfade 1.09s | context match 0.786 (best 0.788) | crossfade rhythm r=0.82 vs the track a bar later r=0.81: in time | spectrum cos=0.80"
+            ],
+            "measured": {
+                "loop_s": 61.1,
+                "bpm": 109.9,
+                "context": 0.786,
+                "r_cross": 0.82,
+                "r_bar": 0.81,
+                "in_time": true,
+                "cos": 0.8,
+                "dip": 2.2,
+                "quiet": 0,
+                "lr_corr": 0.938,
+                "knee_pct": 0.001,
+                "b200_2k": 12.9,
+                "b300_4k": 12.2,
+                "above6k": 5.1,
+                "tonal_mid": 49,
+                "mid_flatness": 0.13,
+                "held_changes": 3.81,
+                "tempo_wander": 0.01,
+                "wrap_db": -0.1,
+                "wrap_pct": 1
+            }
+        },
+        {
+            "candidate": "c6",
+            "seed": 407803161,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-electrofunk-c6.wav: 78.0s loop = source 20.10s..98.10s (36.02 bars at 110.8 bpm), crossfade 1.08s | context match 0.938 (best 0.982) | crossfade rhythm r=0.96 vs the track a bar later r=0.80: in time | spectrum cos=0.97"
+            ],
+            "measured": {
+                "loop_s": 78.0,
+                "bpm": 110.8,
+                "context": 0.938,
+                "r_cross": 0.96,
+                "r_bar": 0.8,
+                "in_time": true,
+                "cos": 0.97,
+                "dip": 3.8,
+                "quiet": 0,
+                "lr_corr": 0.951,
+                "knee_pct": 0.009,
+                "b200_2k": 23.3,
+                "b300_4k": 21.6,
+                "above6k": 2.1,
+                "tonal_mid": 47,
+                "mid_flatness": 0.08,
+                "held_changes": 3.05,
+                "tempo_wander": 0.03,
+                "wrap_db": 0.2,
+                "wrap_pct": 4
+            }
+        },
+        {
+            "candidate": "c7",
+            "seed": 225549685,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-electrofunk-c7.wav: 82.9s loop = source 17.99s..100.90s (37.99 bars at 110.0 bpm), crossfade 1.09s | context match 0.881 (best 0.931) | crossfade rhythm r=0.94 vs the track a bar later r=0.82: in time | spectrum cos=0.96"
+            ],
+            "measured": {
+                "loop_s": 82.9,
+                "bpm": 110.0,
+                "context": 0.881,
+                "r_cross": 0.94,
+                "r_bar": 0.82,
+                "in_time": true,
+                "cos": 0.96,
+                "dip": 2.7,
+                "quiet": 0,
+                "lr_corr": 0.947,
+                "knee_pct": 0.001,
+                "b200_2k": 13.7,
+                "b300_4k": 13.7,
+                "above6k": 2.5,
+                "tonal_mid": 62,
+                "mid_flatness": 0.1,
+                "held_changes": 3.08,
+                "tempo_wander": 0.01,
+                "wrap_db": 4.6,
+                "wrap_pct": 48
+            }
+        },
+        {
+            "candidate": "c8",
+            "seed": 628735699,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-electrofunk-c8.wav: 61.1s loop = source 14.71s..75.80s (27.97 bars at 109.9 bpm), crossfade 1.09s | context match 0.704 (best 0.747) | crossfade rhythm r=0.93 vs the track a bar later r=0.73: in time | spectrum cos=0.76"
+            ],
+            "measured": {
+                "loop_s": 61.1,
+                "bpm": 109.9,
+                "context": 0.704,
+                "r_cross": 0.93,
+                "r_bar": 0.73,
+                "in_time": true,
+                "cos": 0.76,
+                "dip": 4.3,
+                "quiet": 0,
+                "lr_corr": 0.935,
+                "knee_pct": 0.016,
+                "b200_2k": 18.5,
+                "b300_4k": 17.4,
+                "above6k": 3.0,
+                "tonal_mid": 51,
+                "mid_flatness": 0.11,
+                "held_changes": 3.75,
+                "tempo_wander": 0.01,
+                "wrap_db": 0.9,
+                "wrap_pct": 16
+            }
+        },
+        {
+            "candidate": "c9",
+            "seed": 1096276736,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-electrofunk-c9.wav: 43.6s loop = source 31.96s..75.60s (19.96 bars at 109.8 bpm), crossfade 1.09s | context match 0.842 (best 0.849) | crossfade rhythm r=0.92 vs the track a bar later r=0.55: in time | spectrum cos=0.92"
+            ],
+            "measured": {
+                "loop_s": 43.6,
+                "bpm": 109.8,
+                "context": 0.842,
+                "r_cross": 0.92,
+                "r_bar": 0.55,
+                "in_time": true,
+                "cos": 0.92,
+                "dip": 15.2,
+                "quiet": 9,
+                "lr_corr": 0.841,
+                "knee_pct": 0.005,
+                "b200_2k": 10.6,
+                "b300_4k": 10.1,
+                "above6k": 11.3,
+                "tonal_mid": 43,
+                "mid_flatness": 0.13,
+                "held_changes": 3.83,
+                "tempo_wander": 0.01,
+                "wrap_db": 3.4,
+                "wrap_pct": 59
+            }
+        }
+    ],
+    "replaces": {
+        "stem": "pulse-electrofunk",
+        "issue": 486,
+        "created": "2026-09-23",
+        "caption": "1980s electro funk instrumental: drum machine, synth bass slaps, robotic synth chords, bright lead, playful and retro-futuristic, no vocals",
+        "negative": "vocals, singing, audience applause, crowd noise, live recording",
+        "bpm": 112,
+        "keyscale": "A minor",
+        "loop_log": [
+            "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-pulse-electrofunk.wav: 58.9s loop = source 22.04s..80.95s (26.95 bars at 109.8 bpm), crossfade 1.09s | context match 0.519 (best 0.561) | crossfade rhythm r=0.90 vs the track a bar later r=0.70: in time | spectrum cos=0.97"
+        ],
+        "why_replaced": "tuneless (tonal mid 47 %), 9.1 % in 200 Hz-2 kHz and 4.6 % above 6 kHz (ember 9.5-27.5 % and at most 2.0 %) (#824, 2026-10-13)"
+    }
 }

@@ -1,28 +1,340 @@
 {
-    "file":  "theme-pulse-techno.wav",
-    "created":  "2026-09-23",
-    "issue":  486,
-    "family":  "pulse",
-    "chapter":  "The Grid (1980s computer graphics) - Pulse: eurodance, A minor 128",
-    "purpose":  "Master of Game/Music/pulse-techno.ogg, one of the pulse family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "Melodic techno instrumental: steady kick, rumbling bass, hypnotic synth sequence, wide pads, dark and precise, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  130,
-                    "keyscale":  "A minor",
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-pulse-techno.wav: 45.0s loop = source 33.85s..78.85s (23.96 bars at 127.8 bpm), crossfade 0.94s | context match 0.961 (best 0.962) | crossfade rhythm r=0.95 vs the track a bar later r=0.65: in time | spectrum cos=0.96"
-                 ],
-    "measured":  "generate-music.ps1 end to end 58.1 s (ace-lm + ace-synth + loop cut)",
-    "rendered":  true
+    "file": "theme-pulse-techno.wav",
+    "created": "2026-10-15",
+    "issue": 824,
+    "family": "pulse",
+    "chapter": "The Grid (levels 71-80, the neon wireframe world of mathematical solids) - regenerated on the desert's ember model (the owner, 2026-10-11, #824): a lead line the ear can follow, its identity in the mid range, the drive carried by arrangement rather than by noise and sub bass; the family's electronic dance root kept",
+    "purpose": "Master of Game/Music/pulse-techno.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-824-chosen on the desktop, with its .raw.wav; every candidate in masters-824); this sidecar is committed beside the .ogg.",
+    "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-pulse.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
+    "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+    "license": "ACE-Step 1.5: MIT (code and weights)",
+    "request": {
+        "caption": "Melodic techno instrumental for a neon wireframe world of glowing geometric shapes: a hypnotic, memorable analog synth lead melody of many notes you can hum, loud and upfront in the mid range, an interlocking arpeggiated synth sequence answering it, a tight four-on-the-floor kick, a deep round snare and toms with a dark ride cymbal playing throughout from the first bar, a warm mid-range bass synth line moving under the melody, warm wide pads, the melody passing between two synths over the unbroken groove, building into a big glowing peak with warm wide synth chords, dark, precise and driving, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+        "lm_negative_prompt": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, deep sub bass, rumble, distorted bass, growling bass, wobble bass, white noise, noise sweeps, risers, hiss, glitch, siren synths, industrial noise, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, bright hand claps, tambourine, shakers, snare rolls, long drum-only sections, drum solo, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, droning, one-note bass, minimal techno, dub techno, hand claps, shuffling hi-hats, percussion loops, pounding kick, huge kick, rumbling bass, minimal techno, dub techno",
+        "instrumental": true,
+        "use_cot_caption": false,
+        "duration": 120,
+        "bpm": 128,
+        "keyscale": "A minor",
+        "seed": 1862241781,
+        "inference_steps": 8,
+        "output_format": "wav32"
+    },
+    "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+    "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-techno-c4.wav: 60.0s loop = source 33.90s..93.90s (31.96 bars at 127.9 bpm), crossfade 0.94s | context match 0.866 (best 0.913) | crossfade rhythm r=0.95 vs the track a bar later r=0.72: in time | spectrum cos=0.85"
+    ],
+    "lm_check": {
+        "request0_captured": true,
+        "caption_verbatim": true,
+        "seed_in_request0": 1862241781,
+        "bpm_in_request0": 128,
+        "keyscale_in_request0": "A minor",
+        "duration_in_request0": 120.0
+    },
+    "measured": "generate-music.ps1 end to end 63,4 s (ace-lm + ace-synth + loop cut), exit 0",
+    "measured_against_ember": {
+        "loop_s": 60.0,
+        "bpm": 127.9,
+        "context": 0.866,
+        "r_cross": 0.95,
+        "r_bar": 0.72,
+        "in_time": true,
+        "cos": 0.85,
+        "dip": 1.8,
+        "quiet": 0,
+        "lr_corr": 0.871,
+        "knee_pct": 0.001,
+        "b200_2k": 16.1,
+        "b300_4k": 15.1,
+        "above6k": 1.1,
+        "tonal_mid": 75,
+        "mid_flatness": 0.04,
+        "held_changes": 2.62,
+        "tempo_wander": 0.02,
+        "wrap_db": -1.5,
+        "wrap_pct": 29
+    },
+    "measured_note": "measure-music.py --reference ember on the loop (band shares %, tonal mid %, mid flatness, held-note changes/s, tempo wander %, wrap step dB and its percentile) beside sel.py: the loop cut, dip = the quietest 2 s under the loop's p95 1 s level (dB), quiet = the % of the loop more than 10 dB under it, L/R correlation, knee_pct = the % of samples MusicBake's knee bends",
+    "rendered": true,
+    "chosen": {
+        "candidate": "c4",
+        "round": 2,
+        "of": [
+            "c1",
+            "c2",
+            "c3",
+            "c4",
+            "c5",
+            "c6",
+            "c7",
+            "c8",
+            "c9"
+        ],
+        "why": "16.1 % in 200 Hz-2 kHz (old 4.0 %), 15.1 % in 300 Hz-4 kHz (old 3.6 %), 1.1 % above 6 kHz, tonal mid 75 % (old 42 %), a 60 s loop in time (context 0.87, crossfade r 0.95 against 0.72, spectrum cos 0.85), no hole, wrap step -1.5 dB (p29). Still outside ember: 2.62 held-note changes/s (ember at least 2.74). Every other techno render of nine sat at 3.7-9.0 % in 200 Hz-2 kHz, the kick and sub taking the mix",
+        "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wrap step) beside the loop cut's own check, the hole share (the loop more than 10 dB under its loud level), the breakdown dip and the stereo correlation; a seam below its own rhythm, a hole over 15 %, a 2 s dropout more than 20 dB down, a wrap step of 10 dB or more or at or above p97 of the loop's own steps, a seam spectrum cosine under 0.3 or a loop under 30 s ruled a candidate out; the table is on #824"
+    },
+    "alternatives": [
+        {
+            "candidate": "c1",
+            "seed": 212881003,
+            "caption": "Melodic techno instrumental for a neon wireframe world of glowing geometric shapes: a hypnotic, memorable synth lead melody of many notes you can hum carried in the mid range, an interlocking arpeggiated synth sequence answering it, a steady driving four-on-the-floor kick with a dark snare clap and toms and a dark ride cymbal playing throughout, a warm rolling bass line in the mid range, warm wide pads, the melody passing between two synths over the unbroken groove, building into a big glowing peak with warm wide synth chords, dark, precise and driving, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, deep sub bass, rumble, distorted bass, growling bass, wobble bass, white noise, noise sweeps, risers, hiss, glitch, siren synths, industrial noise, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, bright hand claps, tambourine, shakers, snare rolls, long drum-only sections, drum solo, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, droning, one-note bass, minimal techno, dub techno",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-techno-c1.wav: 45.0s loop = source 34.45s..79.45s (23.97 bars at 127.8 bpm), crossfade 0.94s | context match 0.967 (best 0.971) | crossfade rhythm r=0.90 vs the track a bar later r=0.75: in time | spectrum cos=0.97"
+            ],
+            "measured": {
+                "loop_s": 45.0,
+                "bpm": 127.8,
+                "context": 0.967,
+                "r_cross": 0.9,
+                "r_bar": 0.75,
+                "in_time": true,
+                "cos": 0.97,
+                "dip": 4.0,
+                "quiet": 0,
+                "lr_corr": 0.83,
+                "knee_pct": 0.0,
+                "b200_2k": 9.0,
+                "b300_4k": 8.3,
+                "above6k": 1.6,
+                "tonal_mid": 38,
+                "mid_flatness": 0.07,
+                "held_changes": 3.8,
+                "tempo_wander": 0.02,
+                "wrap_db": 0.7,
+                "wrap_pct": 15
+            }
+        },
+        {
+            "candidate": "c2",
+            "seed": 168204325,
+            "caption": "Melodic techno instrumental for a neon wireframe world of glowing geometric shapes: a hypnotic, memorable synth lead melody of many notes you can hum carried in the mid range, an interlocking arpeggiated synth sequence answering it, a steady driving four-on-the-floor kick with a dark snare clap and toms and a dark ride cymbal playing throughout, a warm rolling bass line in the mid range, warm wide pads, the melody passing between two synths over the unbroken groove, building into a big glowing peak with warm wide synth chords, dark, precise and driving, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, deep sub bass, rumble, distorted bass, growling bass, wobble bass, white noise, noise sweeps, risers, hiss, glitch, siren synths, industrial noise, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, bright hand claps, tambourine, shakers, snare rolls, long drum-only sections, drum solo, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, droning, one-note bass, minimal techno, dub techno",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-techno-c2.wav: 45.0s loop = source 39.10s..84.10s (23.97 bars at 127.8 bpm), crossfade 0.94s | context match 0.834 (best 0.884) | crossfade rhythm r=0.94 vs the track a bar later r=0.78: in time | spectrum cos=0.90"
+            ],
+            "measured": {
+                "loop_s": 45.0,
+                "bpm": 127.8,
+                "context": 0.834,
+                "r_cross": 0.94,
+                "r_bar": 0.78,
+                "in_time": true,
+                "cos": 0.9,
+                "dip": 3.8,
+                "quiet": 0,
+                "lr_corr": 0.937,
+                "knee_pct": 0.001,
+                "b200_2k": 5.5,
+                "b300_4k": 5.2,
+                "above6k": 1.1,
+                "tonal_mid": 67,
+                "mid_flatness": 0.04,
+                "held_changes": 3.62,
+                "tempo_wander": 0.02,
+                "wrap_db": -4.7,
+                "wrap_pct": 92
+            }
+        },
+        {
+            "candidate": "c3",
+            "seed": 1235751010,
+            "caption": "Melodic techno instrumental for a neon wireframe world of glowing geometric shapes: a hypnotic, memorable synth lead melody of many notes you can hum carried in the mid range, an interlocking arpeggiated synth sequence answering it, a steady driving four-on-the-floor kick with a dark snare clap and toms and a dark ride cymbal playing throughout, a warm rolling bass line in the mid range, warm wide pads, the melody passing between two synths over the unbroken groove, building into a big glowing peak with warm wide synth chords, dark, precise and driving, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, deep sub bass, rumble, distorted bass, growling bass, wobble bass, white noise, noise sweeps, risers, hiss, glitch, siren synths, industrial noise, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, bright hand claps, tambourine, shakers, snare rolls, long drum-only sections, drum solo, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, droning, one-note bass, minimal techno, dub techno",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-techno-c3.wav: 45.4s loop = source 38.95s..84.30s (24.05 bars at 127.3 bpm), crossfade 0.94s | context match 0.423 (best 0.466) | crossfade rhythm r=0.89 vs the track a bar later r=0.74: in time | spectrum cos=0.60"
+            ],
+            "measured": {
+                "loop_s": 45.4,
+                "bpm": 127.3,
+                "context": 0.423,
+                "r_cross": 0.89,
+                "r_bar": 0.74,
+                "in_time": true,
+                "cos": 0.6,
+                "dip": 9.6,
+                "quiet": 2,
+                "lr_corr": 0.731,
+                "knee_pct": 0.0,
+                "b200_2k": 5.3,
+                "b300_4k": 4.6,
+                "above6k": 0.6,
+                "tonal_mid": 60,
+                "mid_flatness": 0.04,
+                "held_changes": 1.65,
+                "tempo_wander": 0.06,
+                "wrap_db": -0.3,
+                "wrap_pct": 12
+            }
+        },
+        {
+            "candidate": "c5",
+            "seed": 1497410693,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-techno-c5.wav: 45.0s loop = source 42.10s..87.10s (23.96 bars at 127.8 bpm), crossfade 0.94s | context match 0.885 (best 0.934) | crossfade rhythm r=0.80 vs the track a bar later r=0.63: in time | spectrum cos=0.84"
+            ],
+            "measured": {
+                "loop_s": 45.0,
+                "bpm": 127.8,
+                "context": 0.885,
+                "r_cross": 0.8,
+                "r_bar": 0.63,
+                "in_time": true,
+                "cos": 0.84,
+                "dip": 1.7,
+                "quiet": 0,
+                "lr_corr": 0.928,
+                "knee_pct": 0.0,
+                "b200_2k": 3.7,
+                "b300_4k": 3.3,
+                "above6k": 5.4,
+                "tonal_mid": 38,
+                "mid_flatness": 0.18,
+                "held_changes": 3.89,
+                "tempo_wander": 0.01,
+                "wrap_db": 2.0,
+                "wrap_pct": 34
+            }
+        },
+        {
+            "candidate": "c6",
+            "seed": 233325714,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-techno-c6.wav: 75.1s loop = source 29.50s..104.60s (39.97 bars at 127.7 bpm), crossfade 0.94s | context match 0.528 (best 0.548) | crossfade rhythm r=0.70 vs the track a bar later r=0.80: BELOW the track's own timekeeping -- listen | spectrum cos=0.59"
+            ],
+            "measured": {
+                "loop_s": 75.1,
+                "bpm": 127.7,
+                "context": 0.528,
+                "r_cross": 0.7,
+                "r_bar": 0.8,
+                "in_time": false,
+                "cos": 0.59,
+                "dip": 5.0,
+                "quiet": 0,
+                "lr_corr": 0.815,
+                "knee_pct": 0.0,
+                "b200_2k": 8.1,
+                "b300_4k": 5.7,
+                "above6k": 2.9,
+                "tonal_mid": 61,
+                "mid_flatness": 0.06,
+                "held_changes": 3.93,
+                "tempo_wander": 0.03,
+                "wrap_db": -5.6,
+                "wrap_pct": 84
+            }
+        },
+        {
+            "candidate": "c7",
+            "seed": 1149442814,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-techno-c7.wav: 41.2s loop = source 42.35s..83.60s (21.96 bars at 127.8 bpm), crossfade 0.94s | context match 0.415 (best 0.451) | crossfade rhythm r=0.59 vs the track a bar later r=0.83: BELOW the track's own timekeeping -- listen | spectrum cos=0.29"
+            ],
+            "measured": {
+                "loop_s": 41.2,
+                "bpm": 127.8,
+                "context": 0.415,
+                "r_cross": 0.59,
+                "r_bar": 0.83,
+                "in_time": false,
+                "cos": 0.29,
+                "dip": 6.6,
+                "quiet": 0,
+                "lr_corr": 0.863,
+                "knee_pct": 0.0,
+                "b200_2k": 4.5,
+                "b300_4k": 3.2,
+                "above6k": 1.3,
+                "tonal_mid": 31,
+                "mid_flatness": 0.11,
+                "held_changes": 3.69,
+                "tempo_wander": 0.05,
+                "wrap_db": 3.3,
+                "wrap_pct": 41
+            }
+        },
+        {
+            "candidate": "c8",
+            "seed": 2140218736,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-techno-c8.wav: 45.3s loop = source 44.14s..89.40s (24.04 bars at 127.5 bpm), crossfade 0.94s | context match 0.795 (best 0.806) | crossfade rhythm r=0.74 vs the track a bar later r=0.80: in time | spectrum cos=0.86"
+            ],
+            "measured": {
+                "loop_s": 45.3,
+                "bpm": 127.5,
+                "context": 0.795,
+                "r_cross": 0.74,
+                "r_bar": 0.8,
+                "in_time": true,
+                "cos": 0.86,
+                "dip": 2.8,
+                "quiet": 0,
+                "lr_corr": 0.935,
+                "knee_pct": 0.0,
+                "b200_2k": 5.5,
+                "b300_4k": 3.6,
+                "above6k": 2.3,
+                "tonal_mid": 50,
+                "mid_flatness": 0.07,
+                "held_changes": 3.76,
+                "tempo_wander": 0.01,
+                "wrap_db": -2.7,
+                "wrap_pct": 44
+            }
+        },
+        {
+            "candidate": "c9",
+            "seed": 138210830,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-techno-c9.wav: 75.0s loop = source 35.85s..110.85s (40.00 bars at 128.0 bpm), crossfade 0.94s | context match 0.850 (best 0.897) | crossfade rhythm r=0.93 vs the track a bar later r=0.92: in time | spectrum cos=0.92"
+            ],
+            "measured": {
+                "loop_s": 75.0,
+                "bpm": 128.0,
+                "context": 0.85,
+                "r_cross": 0.93,
+                "r_bar": 0.92,
+                "in_time": true,
+                "cos": 0.92,
+                "dip": 3.2,
+                "quiet": 0,
+                "lr_corr": 0.917,
+                "knee_pct": 0.0,
+                "b200_2k": 4.1,
+                "b300_4k": 3.2,
+                "above6k": 1.2,
+                "tonal_mid": 31,
+                "mid_flatness": 0.09,
+                "held_changes": 3.55,
+                "tempo_wander": 0.01,
+                "wrap_db": 3.8,
+                "wrap_pct": 38
+            }
+        }
+    ],
+    "replaces": {
+        "stem": "pulse-techno",
+        "issue": 486,
+        "created": "2026-09-23",
+        "caption": "Melodic techno instrumental: steady kick, rumbling bass, hypnotic synth sequence, wide pads, dark and precise, no vocals",
+        "negative": "vocals, singing, audience applause, crowd noise, live recording",
+        "bpm": 130,
+        "keyscale": "A minor",
+        "loop_log": [
+            "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-pulse-techno.wav: 45.0s loop = source 33.85s..78.85s (23.96 bars at 127.8 bpm), crossfade 0.94s | context match 0.961 (best 0.962) | crossfade rhythm r=0.95 vs the track a bar later r=0.65: in time | spectrum cos=0.96"
+        ],
+        "why_replaced": "tuneless (tonal mid 42 %) with the family's thinnest mids: 4.0 % in 200 Hz-2 kHz and 3.6 % in 300 Hz-4 kHz, under every ember recording (#824, 2026-10-13)"
+    }
 }

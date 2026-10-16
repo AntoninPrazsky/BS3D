@@ -99,6 +99,12 @@ namespace BS3D.Tools.LevelGen
         internal const string MUSIC_VOLCANO = "magma";
         internal const string MUSIC_ARCADE = "neon";
         internal const string MUSIC_SPECTRUM = "skyline";
+        //THE GRID'S PULSE (#824): the original eurodance piece and nine dance variations around it. The owner heard
+        //the chapter as "sometimes awful and unpleasant", and measured against the desert's ember eight of the nine
+        //were tuneless, thin in the mid range or hissing above 6 kHz; they were rendered again on ember's model - a
+        //lead line the ear can follow, carried in the mid range, the drive in the arrangement rather than in hats and
+        //sub bass - keeping the family's dance styles, with piano house in the place of big room. Vector and the bare
+        //pulse stayed as they were.
         internal const string MUSIC_GRID = "pulse";
         internal const string MUSIC_MIRAGE = "mirage";
 
