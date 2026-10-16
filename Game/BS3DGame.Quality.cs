@@ -629,8 +629,8 @@ namespace BS3D
                 _sceneRenderer.ShadowMapSizeScale = preset.ShadowMapScale;
                 _sceneRenderer.ShadowMapSizeCap = preset.ShadowMapCap;
 
-                //And the finer meshes (#758): High and Ultra draw the acacias' grown fork, Low and Medium the tubes.
-                //Read per draw, so nothing is rebuilt. See QualityPreset.FineMeshes
+                //And the finer meshes (#758, #733): High and Ultra draw the acacias' grown fork and the spruces' boughs, Low
+                //and Medium the tubes and the lathes. Read per draw, so nothing is rebuilt. See QualityPreset.FineMeshes
                 _sceneRenderer.FineMeshes = preset.FineMeshes;
             }
 

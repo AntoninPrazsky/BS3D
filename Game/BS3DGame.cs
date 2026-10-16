@@ -1498,7 +1498,7 @@ namespace BS3D
                 ShadowMapSizeCap = QualityPreset.Presets[(int)_quality].ShadowMapCap,
                 ShadowMapSizeScale = QualityPreset.Presets[(int)_quality].ShadowMapScale,
 
-                //The finer meshes (#758), seeded for the same reason: a Medium start would draw High's acacias
+                //The finer meshes (#758, #733), seeded for the same reason: a Medium start would draw High's acacias and spruces
                 FineMeshes = QualityPreset.Presets[(int)_quality].FineMeshes
             };
 
