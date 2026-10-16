@@ -880,7 +880,7 @@ Pravidla:
 
 ## 2026-10-16 — #882–#896 poznámky ze hraní ke scénám a Help — desktop (RDT-PC), Claude Code (bs3d-5f)
 - Majitel poslal 15 poznámek (savana, Meadows, stín náhledové kuličky, Help, skleněný strop): patnáct issues #882–#896, jedno na poznámku. Jen čtení kódu a issues, na desktopu běžela druhá relace (žádný build, žádný snímek). #864 zavřen jeho verdiktem („balíky jsou správně veliké“). Komentáře s odkazy na #758, #753, #749, #856, #831, #481, #641, #609, #874, #733.
-- majitel (2026-10-16): scénická grafika se parkovala kvůli gameplayi a nestabilnímu desktopu; druhý důvod padl (měření bez limitu FPS, lokální AI, nový zdroj). Nová issues jsou bez parked, ostatní parkovaná zůstávají, dokud neodpoví na otázku o hromadném odparkování.
+- majitel (2026-10-16): scénická grafika se parkovala kvůli gameplayi a nestabilnímu desktopu; druhý důvod padl (měření bez limitu FPS, lokální AI, nový zdroj). Nová issues jsou bez parked; na otázku odpověděl „všech 18“: odparkovány #744–#749, #751–#754, #756, #757, #774–#779 (komentář na každém i na #768), CLAUDE.md a docs/repo-conventions.md mají výjimku „scene graphics“ (c1e0c815). Parkované zůstává #230 #251 #292 #690 #717 #718 #741 #771 #827 #853.
 - ⚠ Každé tělo prošel druhý agent proti kódu a 14 z 15 opravil (špatný řádek, zastaralé „v běhu“ u #758, který už je na mainu). Podíl listů proti větvi (52 %, #882) je z Python repliky, ne z C#.
 - ⚠ Testbed kreslí obruče až po ohních, takže chybu z #888 nepředvede. Fronta verdiktů je 19 (nad 15), práce na vzhledu čeká.
-- Otevřené: odparkování scénických issues (#744–#779), snímky před implementací.
+- Otevřené: snímky před implementací; fronta verdiktů 19 (nad 15) drží start změn vzhledu, nabídnutá je stránka verdiktů.
