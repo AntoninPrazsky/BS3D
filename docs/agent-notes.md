@@ -859,3 +859,9 @@ Pravidla:
 - Review: krok stropu čeká přes zpomalení, kinematografie zpomalení řezu ukončí, náboj si po Swapu nese záři i úhel, odměna řezu se narodí 0,7 s po zásahu (stála přes řez). `CutStaging` v testech, 12 zasazených chyb každá shodí test.
 - ⚠ Úder přičtený k ráně výstřelu přešel strop, proto `PadChannel.KickUpTo`. Snímek 1920×1080 stojí ~0,5 s, proto `cutshot=`.
 - Otevřené: oko a ucho majitele, ruka na padu, PresentMon.
+
+## 2026-10-16 — #706 hudba Gallery: desertblues a jive přegenerovány — desktop (RDT-PC), Claude Code (bs3d-ac)
+- Hotovo (`verdict-eye`): `mural-desertblues` a `mural-jive` nahrazeny podle vzoru `ember` (melodie kytary, žádná píšťala). Jména zůstala. 12 renderů ve dvou kolech, výběr měřením; obě nahrávky jsou v rozsahu `ember` ve všech sloupcích. `mural-mbira` se nepřegenerovávala, jen se upekla o 1,5 dB tišeji. Bicí vrstvy všech tří jsou oddělené znovu. Mastery jsou v `C:/Users/panrd/AI/output/masters-706-chosen`, kandidáti v `masters-706`, poslech ve scratchpadu bs3d-ac v `verdicts/706`.
+- ⚠ Ořez přes `bake.trim_db` v sidecaru je nový `MusicBake`; patří jen masteru se špičkami bez plochého vrcholu (`music-bake.md`). Township jive drží výšky přes jakékoli zadání (7 z 8). Kapela, která se v renderu na 2 s zastaví, se dá střihnout znovu z části před zastavením (`music-generation.md`).
+- ⚠ Sdílený GPU zámek s pollem 10 s vyhladoví proti dávce, která si ho bere hned zpátky; dávka #706 polluje po 0,5 s a po renderu 15 s čeká.
+- Otevřené: ucho majitele; `jive` má kolísání výšky 3,9 c (ember max 3,8).
