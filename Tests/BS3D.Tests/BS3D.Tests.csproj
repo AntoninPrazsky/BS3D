@@ -97,6 +97,9 @@
     <Compile Include="..\..\Game\Audio\CeilingFeedSynth.cs" />
     <Compile Include="..\..\Game\Audio\OggTrack.cs" />
     <Compile Include="..\..\Game\Audio\Spectrum.cs" />
+    <!--#899: the Jukebox's loop seam - where the next chunk of a recording starts and how long it is, and the wrapped
+        position clock, plain integers and doubles. RecordingPlayer itself holds a voice and is read as source.-->
+    <Compile Include="..\..\Game\Audio\RecordingLoop.cs" />
     <!--And how far up its pour a blue step is played (#726), on the frame seconds the descent lets steps go by-->
     <Compile Include="..\..\Game\Audio\CeilingFeedPour.cs" />
     <!--#846: the award popup's zoom, read and throw as pure functions of its age and points, and the HUD's eases under it-->

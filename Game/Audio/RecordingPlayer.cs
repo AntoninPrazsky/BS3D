@@ -6,9 +6,17 @@ using System.Threading.Tasks;
 namespace BS3D.Audio
 {
     /// <summary>
-    /// The Jukebox's player (#704): the game's generated recordings (<c>Game/Music</c>) played one after another, each
-    /// once and then the next — the owner's "after a track, go on to the next" — with pause, next and previous, and the
-    /// spectrum the About page's visualizer draws.
+    /// The Jukebox's player (#704): the game's generated recordings (<c>Game/Music</c>), the one chosen played round and
+    /// round until the player picks another or leaves the page — the owner's "play all the time until the user switches
+    /// manually to another one or leaves the Jukebox" (#899) — with pause, next and previous, and the spectrum the
+    /// About page's visualizer draws.
+    /// <para>
+    /// <b>It never moves on by itself.</b> Next, Previous and a click on a recording all go through <see cref="PlayAt"/>,
+    /// and leaving the page is <see cref="Stop"/>; nothing else ends a recording. Once the whole of it is queued the next
+    /// chunk is its first again (<see cref="RecordingLoop"/>), so the voice is fed across the seam as it is within the
+    /// recording; the recordings are cut as loops (#704), the cut <see cref="GameMusic"/> chains for ever. An unreadable
+    /// recording is the one that is still stepped past (<see cref="Open"/>).
+    /// </para>
     /// <para>
     /// <b>Not <see cref="GameMusic"/>.</b> That one is level-shaped: a family that rotates per level, a drums layer
     /// riding the cluster's danger, loops chained for ever and no pause in place. This is the About page's player's
@@ -19,8 +27,8 @@ namespace BS3D.Audio
     /// <para>
     /// <b>One recording decoded at a time, and the next one ahead of it.</b> A decoded recording is 10–20 MB of 16-bit
     /// PCM, which is why <see cref="GameMusic"/> decodes a family only when a level asks for it; here the one playing is
-    /// held, and the next in the list is decoded on the thread pool as soon as it starts, so the step from one to the
-    /// next waits for nothing. The decode is <see cref="OggTrack.Decode(string, int)"/>, the game's own.
+    /// held, and the next in the list is decoded on the thread pool as soon as it starts, so a press on Next waits for
+    /// nothing. The decode is <see cref="OggTrack.Decode(string, int)"/>, the game's own.
     /// </para>
     /// </summary>
     internal sealed class RecordingPlayer : IBandSource, IDisposable
@@ -57,6 +65,8 @@ namespace BS3D.Audio
 
         private byte[] _pcm;
         private int _totalFrames;
+
+        //The frame the next chunk starts at: back at 0 each time the last frame has been queued (RecordingLoop.NextStart)
         private int _submittedFrames;
         private DynamicSoundEffectInstance _voice;
         private double _position;
@@ -138,8 +148,10 @@ namespace BS3D.Audio
             else _voice.Resume();
         }
 
+        /// <summary>The list's next recording from its top, across chapters and round to the first after the last: a manual switch, the only way on from a playing one.</summary>
         public void Next() => PlayAt(_index + 1);
 
+        /// <summary>The list's previous recording from its top (the first when none is chosen yet), round to the last before the first.</summary>
         public void Previous() => PlayAt(_index < 0 ? 0 : _index - 1);
 
         /// <summary>Lets go of the recording — called when the page is left. The list and the index are kept.</summary>
@@ -152,8 +164,8 @@ namespace BS3D.Audio
         }
 
         /// <summary>
-        /// Once a frame from the audio director: takes a finished decode, keeps the queue topped up, moves on to the
-        /// next recording when one has played to its end, keeps the clock and moves the bars.
+        /// Once a frame from the audio director: takes a finished decode, keeps the queue topped up (round the seam, for
+        /// ever), keeps the clock, which wraps with the recording, and moves the bars.
         /// </summary>
         public void Update(float elapsed)
         {
@@ -170,10 +182,10 @@ namespace BS3D.Audio
 
             if (playing && _pcm != null)
             {
-                _position = Math.Min(_position + elapsed, _totalFrames / (double)SAMPLE_RATE);
+                _position = RecordingLoop.WrapPosition(_position + elapsed, _totalFrames / (double)SAMPLE_RATE);
 
-                //Played once, so a window past either end is quiet rather than the other end of the recording
-                _analyser.Analyse(_pcm, _totalFrames, _totalFrames, _position, loops: false);
+                //A loop, so a window past either end is the other end of the recording, and the bars cross the seam as the music does
+                _analyser.Analyse(_pcm, _totalFrames, _totalFrames, _position, loops: true);
             }
 
             _analyser.Step(elapsed, playing);
@@ -195,7 +207,7 @@ namespace BS3D.Audio
             });
         }
 
-        /// <summary>The decode is in: opens the voice on it and starts decoding the next one, so the step to it waits for nothing.</summary>
+        /// <summary>The decode is in: opens the voice on it and starts decoding the next one, so a press on Next waits for nothing.</summary>
         private void Open()
         {
             Task<byte[]> done = _load;
@@ -241,16 +253,19 @@ namespace BS3D.Audio
         }
 
         /// <summary>
-        /// Tops the voice's queue up in chunks, and once the whole recording has been queued and played out, goes on to
-        /// the next — a voice paused by the player is left alone.
+        /// Tops the voice's queue up in chunks, for ever: the chunk after the recording's last is its first again
+        /// (<see cref="RecordingLoop.NextStart"/>), so the queue never runs dry at the seam and nothing here ends a
+        /// recording (#899). A voice paused by the player keeps its full queue and is left alone.
         /// </summary>
         private void Feed()
         {
             if (_voice == null || _pcm == null) return;
 
-            while (_voice.PendingBufferCount < QUEUE_DEPTH && _submittedFrames < _totalFrames)
+            //Bounded by the depth: the recording is queued over and over, so a voice that did not count a buffer it was
+            //handed must not keep this loop going until the end of time
+            for (int queued = 0; queued < QUEUE_DEPTH && _voice.PendingBufferCount < QUEUE_DEPTH; queued++)
             {
-                int count = Math.Min(_totalFrames - _submittedFrames, CHUNK_FRAMES);
+                int count = RecordingLoop.ChunkFrames(_submittedFrames, _totalFrames, CHUNK_FRAMES);
 
                 try
                 {
@@ -263,14 +278,11 @@ namespace BS3D.Audio
                     return;
                 }
 
-                _submittedFrames += count;
+                _submittedFrames = RecordingLoop.NextStart(_submittedFrames, count, _totalFrames);
             }
 
-            if (_submittedFrames > 0 && _voice.State == SoundState.Stopped) _voice.Play();
-
-            //Played to its end: everything queued, nothing left pending, and the voice not held by a pause
-            if (_submittedFrames >= _totalFrames && _voice.PendingBufferCount == 0 && _voice.State == SoundState.Playing)
-                Next();
+            //A voice not yet playing: its first chunks are queued
+            if (_voice.State == SoundState.Stopped) _voice.Play();
         }
 
         //The sounding recording and its PCM; a decode in flight is left alone (PlayAt, Stop)
