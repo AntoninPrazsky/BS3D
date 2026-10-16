@@ -1929,10 +1929,6 @@ namespace BS3D.Screens
             //and the transmute cross-fade are its own business
             CollectMagazineBalls(ballFrame);
 
-            //And the ghost of where the loaded ball would land, into the same frame — it is a ball in the cluster's
-            //own frame, so it is bucketed and LOD-picked with the rest rather than drawn by itself
-            CollectShotPreview(ballFrame);
-
             //And the shots a wormhole is swallowing (#230), each where its spiral has it and as small as it has got
             _wormhole.CollectBalls(ballFrame);
 
@@ -1961,6 +1957,14 @@ namespace BS3D.Screens
 
             //The level's crates (#257), opaque, with the gun
             _crateField?.Draw(Camera, Game.SceneEffectParams);
+
+            //The ghost of where the loaded ball would land (#894), into the same frame AFTER the shadow pass BeginSceneDraw
+            //ran, so it casts nothing: the shadow pass casts every ball whole (its depth vertex shader reads only the world
+            //matrix, not the ghost's size), so a ghost collected before it threw the shadow of a whole ball on neighbours
+            //while the ghost itself beat between a third of one and a whole one. It is still a ball in the cluster's own
+            //frame, so it is bucketed and LOD-picked with the rest and drawn by the same instanced draw, and it still
+            //receives the sun and the shadows of the others
+            CollectShotPreview(ballFrame);
 
             //A kind card's ball (#735), into the same frame AFTER the shadow pass BeginSceneDraw ran, so it casts nothing
             CollectTutorialBall(ballFrame, layerOpacity);
