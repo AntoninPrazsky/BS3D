@@ -1,0 +1,468 @@
+{
+    "file": "theme-pulse-piano-house.wav",
+    "created": "2026-10-15",
+    "issue": 824,
+    "family": "pulse",
+    "chapter": "The Grid (levels 71-80, the neon wireframe world of mathematical solids) - regenerated on the desert's ember model (the owner, 2026-10-11, #824): a lead line the ear can follow, its identity in the mid range, the drive carried by arrangement rather than by noise and sub bass; the family's electronic dance root kept",
+    "purpose": "Master of Game/Music/pulse-piano-house.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-824-chosen on the desktop, with its .raw.wav; every candidate in masters-824); this sidecar is committed beside the .ogg.",
+    "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-pulse.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
+    "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+    "license": "ACE-Step 1.5: MIT (code and weights)",
+    "request": {
+        "caption": "1990s piano house instrumental for a neon wireframe world of glowing geometric shapes: a catchy, memorable chord riff and melody you can hum on a warm, mellow grand piano, loud and upfront in the mid range, a warm analog synth lead answering the piano, a bouncing warm bass line, a tight warm four-on-the-floor kick, a deep round snare and warm toms playing throughout from the first bar, soft dark percussion, warm organ chords, building into a big joyful peak where the piano and the lead play the hook together, euphoric and uplifting, warm mid-forward mix, modern polished production with soft, warm, rolled-off highs, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+        "lm_negative_prompt": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, deep sub bass, rumble, distorted bass, growling bass, wobble bass, white noise, noise sweeps, risers, hiss, glitch, siren synths, industrial noise, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, bright hand claps, tambourine, shakers, snare rolls, long drum-only sections, drum solo, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, droning, one-note bass, big room drop, festival kick, trance gate, hand claps, shuffling hi-hats, percussion loops, pounding kick, huge kick, bongos, congas, ride cymbal, crash cymbal, cymbals, hi-hats, bright percussion, crisp highs, bright house piano, M1 piano, honky-tonk piano",
+        "instrumental": true,
+        "use_cot_caption": false,
+        "duration": 120,
+        "bpm": 124,
+        "keyscale": "A minor",
+        "seed": 865760440,
+        "inference_steps": 8,
+        "output_format": "wav32"
+    },
+    "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+    "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-pianohouse-c11.wav: 46.1s loop = source 36.82s..82.90s (24.00 bars at 125.0 bpm), crossfade 0.96s | context match 0.809 (best 0.859) | crossfade rhythm r=0.90 vs the track a bar later r=0.93: in time | spectrum cos=0.85"
+    ],
+    "lm_check": {
+        "request0_captured": true,
+        "caption_verbatim": true,
+        "seed_in_request0": 865760440,
+        "bpm_in_request0": 124,
+        "keyscale_in_request0": "A minor",
+        "duration_in_request0": 120.0
+    },
+    "measured": "generate-music.ps1 end to end 63,0 s (ace-lm + ace-synth + loop cut), exit 0",
+    "measured_against_ember": {
+        "loop_s": 46.1,
+        "bpm": 125.0,
+        "context": 0.809,
+        "r_cross": 0.9,
+        "r_bar": 0.93,
+        "in_time": true,
+        "cos": 0.85,
+        "dip": 2.2,
+        "quiet": 0,
+        "lr_corr": 0.959,
+        "knee_pct": 0.0,
+        "b200_2k": 13.2,
+        "b300_4k": 9.5,
+        "above6k": 0.8,
+        "tonal_mid": 62,
+        "mid_flatness": 0.04,
+        "held_changes": 4.23,
+        "tempo_wander": 0.01,
+        "wrap_db": 8.0,
+        "wrap_pct": 82
+    },
+    "measured_note": "measure-music.py --reference ember on the loop (band shares %, tonal mid %, mid flatness, held-note changes/s, tempo wander %, wrap step dB and its percentile) beside sel.py: the loop cut, dip = the quietest 2 s under the loop's p95 1 s level (dB), quiet = the % of the loop more than 10 dB under it, L/R correlation, knee_pct = the % of samples MusicBake's knee bends",
+    "rendered": true,
+    "chosen": {
+        "candidate": "c11",
+        "round": 4,
+        "of": [
+            "c1",
+            "c2",
+            "c3",
+            "c4",
+            "c5",
+            "c6",
+            "c7",
+            "c8",
+            "c9",
+            "c10",
+            "c11",
+            "c12",
+            "c13"
+        ],
+        "why": "replaces big room with 1990s piano house. Inside ember on every column: 13.2 % in 200 Hz-2 kHz, 9.5 % in 300 Hz-4 kHz, 0.8 % above 6 kHz, tonal mid 62 %, 4.23 held-note changes/s, a 46 s loop in time (context 0.81, crossfade r 0.90 against 0.93, spectrum cos 0.85), no hole, wrap step +8.0 dB (p82). The bright house piano kept eight of the first nine renders at 2.2-5.0 % above 6 kHz whatever the drums were; round 4's warm, mellow grand piano gave 1.8 % and 0.8 % (a Rhodes 5.0 % and 2.9 %). c10, first by a tenth of a point in 300 Hz-4 kHz, is a 32 s loop with a weak seam (context 0.36, spectrum cos 0.41)",
+        "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wrap step) beside the loop cut's own check, the hole share (the loop more than 10 dB under its loud level), the breakdown dip and the stereo correlation; a seam below its own rhythm, a hole over 15 %, a 2 s dropout more than 20 dB down, a wrap step of 10 dB or more or at or above p97 of the loop's own steps, a seam spectrum cosine under 0.3 or a loop under 30 s ruled a candidate out; the table is on #824"
+    },
+    "alternatives": [
+        {
+            "candidate": "c1",
+            "seed": 985911699,
+            "caption": "1990s piano house instrumental for a neon wireframe world of glowing geometric shapes: a catchy, memorable piano chord riff and piano melody you can hum carried in the mid range, a warm analog synth lead answering the piano, a bouncing warm bass line, a punchy four-on-the-floor kick with a dark snare clap and toms and a dark ride cymbal playing throughout, warm organ and string-synth chords, building into a big joyful peak where the piano and the lead play the hook together, euphoric and uplifting, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, deep sub bass, rumble, distorted bass, growling bass, wobble bass, white noise, noise sweeps, risers, hiss, glitch, siren synths, industrial noise, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, bright hand claps, tambourine, shakers, snare rolls, long drum-only sections, drum solo, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, droning, one-note bass, big room drop, festival kick, trance gate",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-pianohouse-c1.wav: 76.8s loop = source 34.01s..110.80s (40.00 bars at 125.0 bpm), crossfade 0.96s | context match 0.743 (best 0.792) | crossfade rhythm r=0.82 vs the track a bar later r=0.89: in time | spectrum cos=0.75"
+            ],
+            "measured": {
+                "loop_s": 76.8,
+                "bpm": 125.0,
+                "context": 0.743,
+                "r_cross": 0.82,
+                "r_bar": 0.89,
+                "in_time": true,
+                "cos": 0.75,
+                "dip": 5.6,
+                "quiet": 0,
+                "lr_corr": 0.917,
+                "knee_pct": 0.002,
+                "b200_2k": 21.4,
+                "b300_4k": 21.3,
+                "above6k": 4.2,
+                "tonal_mid": 86,
+                "mid_flatness": 0.05,
+                "held_changes": 4.08,
+                "tempo_wander": 0.03,
+                "wrap_db": 6.2,
+                "wrap_pct": 82
+            }
+        },
+        {
+            "candidate": "c2",
+            "seed": 1400646426,
+            "caption": "1990s piano house instrumental for a neon wireframe world of glowing geometric shapes: a catchy, memorable piano chord riff and piano melody you can hum carried in the mid range, a warm analog synth lead answering the piano, a bouncing warm bass line, a punchy four-on-the-floor kick with a dark snare clap and toms and a dark ride cymbal playing throughout, warm organ and string-synth chords, building into a big joyful peak where the piano and the lead play the hook together, euphoric and uplifting, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, deep sub bass, rumble, distorted bass, growling bass, wobble bass, white noise, noise sweeps, risers, hiss, glitch, siren synths, industrial noise, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, bright hand claps, tambourine, shakers, snare rolls, long drum-only sections, drum solo, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, droning, one-note bass, big room drop, festival kick, trance gate",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-pianohouse-c2.wav: 76.8s loop = source 32.00s..108.80s (40.00 bars at 125.0 bpm), crossfade 0.96s | context match 0.949 (best 0.996) | crossfade rhythm r=0.99 vs the track a bar later r=0.96: in time | spectrum cos=1.00"
+            ],
+            "measured": {
+                "loop_s": 76.8,
+                "bpm": 125.0,
+                "context": 0.949,
+                "r_cross": 0.99,
+                "r_bar": 0.96,
+                "in_time": true,
+                "cos": 1.0,
+                "dip": 2.4,
+                "quiet": 0,
+                "lr_corr": 0.874,
+                "knee_pct": 0.005,
+                "b200_2k": 17.3,
+                "b300_4k": 14.8,
+                "above6k": 2.2,
+                "tonal_mid": 65,
+                "mid_flatness": 0.06,
+                "held_changes": 1.74,
+                "tempo_wander": 0.01,
+                "wrap_db": 7.3,
+                "wrap_pct": 73
+            }
+        },
+        {
+            "candidate": "c3",
+            "seed": 2038670835,
+            "caption": "1990s piano house instrumental for a neon wireframe world of glowing geometric shapes: a catchy, memorable piano chord riff and piano melody you can hum carried in the mid range, a warm analog synth lead answering the piano, a bouncing warm bass line, a punchy four-on-the-floor kick with a dark snare clap and toms and a dark ride cymbal playing throughout, warm organ and string-synth chords, building into a big joyful peak where the piano and the lead play the hook together, euphoric and uplifting, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, deep sub bass, rumble, distorted bass, growling bass, wobble bass, white noise, noise sweeps, risers, hiss, glitch, siren synths, industrial noise, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, bright hand claps, tambourine, shakers, snare rolls, long drum-only sections, drum solo, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, droning, one-note bass, big room drop, festival kick, trance gate",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-pianohouse-c3.wav: 46.1s loop = source 33.97s..80.05s (24.00 bars at 125.0 bpm), crossfade 0.96s | context match 0.216 (best 0.263) | crossfade rhythm r=0.88 vs the track a bar later r=0.94: in time | spectrum cos=0.34"
+            ],
+            "measured": {
+                "loop_s": 46.1,
+                "bpm": 125.0,
+                "context": 0.216,
+                "r_cross": 0.88,
+                "r_bar": 0.94,
+                "in_time": true,
+                "cos": 0.34,
+                "dip": 16.4,
+                "quiet": 4,
+                "lr_corr": 0.76,
+                "knee_pct": 0.0,
+                "b200_2k": 17.7,
+                "b300_4k": 14.8,
+                "above6k": 4.1,
+                "tonal_mid": 83,
+                "mid_flatness": 0.03,
+                "held_changes": 3.58,
+                "tempo_wander": 0.01,
+                "wrap_db": 5.2,
+                "wrap_pct": 70
+            }
+        },
+        {
+            "candidate": "c4",
+            "seed": 2002674893,
+            "caption": "1990s piano house instrumental for a neon wireframe world of glowing geometric shapes: a catchy, memorable piano chord riff and piano melody you can hum, loud and upfront in the mid range, a warm analog synth lead answering the piano, a bouncing warm bass line, a tight four-on-the-floor kick, a deep round snare and toms with a dark ride cymbal playing throughout from the first bar, warm organ chords, building into a big joyful peak where the piano and the lead play the hook together, euphoric and uplifting, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, deep sub bass, rumble, distorted bass, growling bass, wobble bass, white noise, noise sweeps, risers, hiss, glitch, siren synths, industrial noise, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, bright hand claps, tambourine, shakers, snare rolls, long drum-only sections, drum solo, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, droning, one-note bass, big room drop, festival kick, trance gate, hand claps, shuffling hi-hats, percussion loops, pounding kick, huge kick, bongos, congas",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-pianohouse-c4.wav: 69.7s loop = source 43.07s..112.75s (36.96 bars at 127.3 bpm), crossfade 0.94s | context match 0.061 (best 0.104) | crossfade rhythm r=0.66 vs the track a bar later r=0.63: in time | spectrum cos=0.30"
+            ],
+            "measured": {
+                "loop_s": 69.7,
+                "bpm": 127.3,
+                "context": 0.061,
+                "r_cross": 0.66,
+                "r_bar": 0.63,
+                "in_time": true,
+                "cos": 0.3,
+                "dip": 8.0,
+                "quiet": 1,
+                "lr_corr": 0.818,
+                "knee_pct": 0.0,
+                "b200_2k": 17.4,
+                "b300_4k": 16.7,
+                "above6k": 4.2,
+                "tonal_mid": 77,
+                "mid_flatness": 0.07,
+                "held_changes": 3.43,
+                "tempo_wander": 0.03,
+                "wrap_db": 1.2,
+                "wrap_pct": 15
+            }
+        },
+        {
+            "candidate": "c5",
+            "seed": 1108001159,
+            "caption": "1990s piano house instrumental for a neon wireframe world of glowing geometric shapes: a catchy, memorable piano chord riff and piano melody you can hum, loud and upfront in the mid range, a warm analog synth lead answering the piano, a bouncing warm bass line, a tight four-on-the-floor kick, a deep round snare and toms with a dark ride cymbal playing throughout from the first bar, warm organ chords, building into a big joyful peak where the piano and the lead play the hook together, euphoric and uplifting, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, deep sub bass, rumble, distorted bass, growling bass, wobble bass, white noise, noise sweeps, risers, hiss, glitch, siren synths, industrial noise, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, bright hand claps, tambourine, shakers, snare rolls, long drum-only sections, drum solo, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, droning, one-note bass, big room drop, festival kick, trance gate, hand claps, shuffling hi-hats, percussion loops, pounding kick, huge kick, bongos, congas",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-pianohouse-c5.wav: 46.0s loop = source 42.71s..88.75s (23.98 bars at 125.0 bpm), crossfade 0.96s | context match -0.055 (best -0.009) | crossfade rhythm r=-0.02 vs the track a bar later r=0.59: BELOW the track's own timekeeping -- listen | spectrum cos=-0.51"
+            ],
+            "measured": {
+                "loop_s": 46.0,
+                "bpm": 125.0,
+                "context": -0.055,
+                "r_cross": -0.02,
+                "r_bar": 0.59,
+                "in_time": false,
+                "cos": -0.51,
+                "dip": 16.9,
+                "quiet": 4,
+                "lr_corr": 0.751,
+                "knee_pct": 0.0,
+                "b200_2k": 10.0,
+                "b300_4k": 9.6,
+                "above6k": 3.0,
+                "tonal_mid": 65,
+                "mid_flatness": 0.08,
+                "held_changes": 2.54,
+                "tempo_wander": 0.02,
+                "wrap_db": 2.3,
+                "wrap_pct": 57
+            }
+        },
+        {
+            "candidate": "c6",
+            "seed": 2074294812,
+            "caption": "1990s piano house instrumental for a neon wireframe world of glowing geometric shapes: a catchy, memorable piano chord riff and piano melody you can hum, loud and upfront in the mid range, a warm analog synth lead answering the piano, a bouncing warm bass line, a tight four-on-the-floor kick, a deep round snare and toms with a dark ride cymbal playing throughout from the first bar, warm organ chords, building into a big joyful peak where the piano and the lead play the hook together, euphoric and uplifting, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, deep sub bass, rumble, distorted bass, growling bass, wobble bass, white noise, noise sweeps, risers, hiss, glitch, siren synths, industrial noise, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, bright hand claps, tambourine, shakers, snare rolls, long drum-only sections, drum solo, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, droning, one-note bass, big room drop, festival kick, trance gate, hand claps, shuffling hi-hats, percussion loops, pounding kick, huge kick, bongos, congas",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-pianohouse-c6.wav: 48.4s loop = source 31.32s..79.70s (25.07 bars at 124.4 bpm), crossfade 0.96s | context match 0.756 (best 0.801) | crossfade rhythm r=0.86 vs the track a bar later r=0.65: in time | spectrum cos=0.98"
+            ],
+            "measured": {
+                "loop_s": 48.4,
+                "bpm": 124.4,
+                "context": 0.756,
+                "r_cross": 0.86,
+                "r_bar": 0.65,
+                "in_time": true,
+                "cos": 0.98,
+                "dip": 21.6,
+                "quiet": 10,
+                "lr_corr": 0.846,
+                "knee_pct": 0.001,
+                "b200_2k": 12.5,
+                "b300_4k": 11.6,
+                "above6k": 1.9,
+                "tonal_mid": 80,
+                "mid_flatness": 0.06,
+                "held_changes": 3.22,
+                "tempo_wander": 0.02,
+                "wrap_db": -0.0,
+                "wrap_pct": 0
+            }
+        },
+        {
+            "candidate": "c7",
+            "seed": 918688119,
+            "caption": "1990s piano house instrumental for a neon wireframe world of glowing geometric shapes: a catchy, memorable piano chord riff and piano melody you can hum, loud and upfront in the mid range, a warm analog synth lead answering the piano, a bouncing warm bass line, a tight warm four-on-the-floor kick, a deep round snare and warm toms playing throughout from the first bar, soft dark percussion, warm organ chords, building into a big joyful peak where the piano and the lead play the hook together, euphoric and uplifting, warm mid-forward mix, modern polished production with soft, warm, rolled-off highs, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, deep sub bass, rumble, distorted bass, growling bass, wobble bass, white noise, noise sweeps, risers, hiss, glitch, siren synths, industrial noise, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, bright hand claps, tambourine, shakers, snare rolls, long drum-only sections, drum solo, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, droning, one-note bass, big room drop, festival kick, trance gate, hand claps, shuffling hi-hats, percussion loops, pounding kick, huge kick, bongos, congas, ride cymbal, crash cymbal, cymbals, hi-hats, bright percussion, crisp highs",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-pianohouse-c7.wav: 45.7s loop = source 34.99s..80.70s (23.95 bars at 125.7 bpm), crossfade 0.95s | context match 0.719 (best 0.719) | crossfade rhythm r=0.93 vs the track a bar later r=0.84: in time | spectrum cos=0.90"
+            ],
+            "measured": {
+                "loop_s": 45.7,
+                "bpm": 125.7,
+                "context": 0.719,
+                "r_cross": 0.93,
+                "r_bar": 0.84,
+                "in_time": true,
+                "cos": 0.9,
+                "dip": 22.1,
+                "quiet": 33,
+                "lr_corr": 0.905,
+                "knee_pct": 0.0,
+                "b200_2k": 11.8,
+                "b300_4k": 9.9,
+                "above6k": 4.3,
+                "tonal_mid": 72,
+                "mid_flatness": 0.04,
+                "held_changes": 3.61,
+                "tempo_wander": 0.26,
+                "wrap_db": -7.4,
+                "wrap_pct": 88
+            }
+        },
+        {
+            "candidate": "c8",
+            "seed": 2046797898,
+            "caption": "1990s piano house instrumental for a neon wireframe world of glowing geometric shapes: a catchy, memorable piano chord riff and piano melody you can hum, loud and upfront in the mid range, a warm analog synth lead answering the piano, a bouncing warm bass line, a tight warm four-on-the-floor kick, a deep round snare and warm toms playing throughout from the first bar, soft dark percussion, warm organ chords, building into a big joyful peak where the piano and the lead play the hook together, euphoric and uplifting, warm mid-forward mix, modern polished production with soft, warm, rolled-off highs, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, deep sub bass, rumble, distorted bass, growling bass, wobble bass, white noise, noise sweeps, risers, hiss, glitch, siren synths, industrial noise, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, bright hand claps, tambourine, shakers, snare rolls, long drum-only sections, drum solo, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, droning, one-note bass, big room drop, festival kick, trance gate, hand claps, shuffling hi-hats, percussion loops, pounding kick, huge kick, bongos, congas, ride cymbal, crash cymbal, cymbals, hi-hats, bright percussion, crisp highs",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-pianohouse-c8.wav: 49.4s loop = source 41.55s..90.90s (26.02 bars at 126.5 bpm), crossfade 0.95s | context match 0.546 (best 0.592) | crossfade rhythm r=0.65 vs the track a bar later r=0.15: in time | spectrum cos=0.55"
+            ],
+            "measured": {
+                "loop_s": 49.4,
+                "bpm": 126.5,
+                "context": 0.546,
+                "r_cross": 0.65,
+                "r_bar": 0.15,
+                "in_time": true,
+                "cos": 0.55,
+                "dip": 51.1,
+                "quiet": 37,
+                "lr_corr": 0.843,
+                "knee_pct": 0.007,
+                "b200_2k": 6.5,
+                "b300_4k": 5.4,
+                "above6k": 3.5,
+                "tonal_mid": 58,
+                "mid_flatness": 0.09,
+                "held_changes": 2.37,
+                "tempo_wander": 0.31,
+                "wrap_db": 7.9,
+                "wrap_pct": 70
+            }
+        },
+        {
+            "candidate": "c9",
+            "seed": 1298341498,
+            "caption": "1990s piano house instrumental for a neon wireframe world of glowing geometric shapes: a catchy, memorable piano chord riff and piano melody you can hum, loud and upfront in the mid range, a warm analog synth lead answering the piano, a bouncing warm bass line, a tight warm four-on-the-floor kick, a deep round snare and warm toms playing throughout from the first bar, soft dark percussion, warm organ chords, building into a big joyful peak where the piano and the lead play the hook together, euphoric and uplifting, warm mid-forward mix, modern polished production with soft, warm, rolled-off highs, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, deep sub bass, rumble, distorted bass, growling bass, wobble bass, white noise, noise sweeps, risers, hiss, glitch, siren synths, industrial noise, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, bright hand claps, tambourine, shakers, snare rolls, long drum-only sections, drum solo, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, droning, one-note bass, big room drop, festival kick, trance gate, hand claps, shuffling hi-hats, percussion loops, pounding kick, huge kick, bongos, congas, ride cymbal, crash cymbal, cymbals, hi-hats, bright percussion, crisp highs",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-pianohouse-c9.wav: 34.3s loop = source 38.81s..73.10s (17.96 bars at 125.7 bpm), crossfade 0.95s | context match 0.410 (best 0.424) | crossfade rhythm r=0.66 vs the track a bar later r=0.73: in time | spectrum cos=0.41"
+            ],
+            "measured": {
+                "loop_s": 34.3,
+                "bpm": 125.7,
+                "context": 0.41,
+                "r_cross": 0.66,
+                "r_bar": 0.73,
+                "in_time": true,
+                "cos": 0.41,
+                "dip": 22.6,
+                "quiet": 6,
+                "lr_corr": 0.834,
+                "knee_pct": 0.001,
+                "b200_2k": 6.2,
+                "b300_4k": 5.9,
+                "above6k": 5.0,
+                "tonal_mid": 67,
+                "mid_flatness": 0.1,
+                "held_changes": 2.16,
+                "tempo_wander": 0.02,
+                "wrap_db": -6.5,
+                "wrap_pct": 73
+            }
+        },
+        {
+            "candidate": "c10",
+            "seed": 1392861431,
+            "caption": "same brief",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-pianohouse-c10.wav: 32.2s loop = source 52.73s..84.95s (17.05 bars at 127.0 bpm), crossfade 0.94s | context match 0.357 (best 0.403) | crossfade rhythm r=0.80 vs the track a bar later r=0.80: in time | spectrum cos=0.41"
+            ],
+            "measured": {
+                "loop_s": 32.2,
+                "bpm": 127.0,
+                "context": 0.357,
+                "r_cross": 0.8,
+                "r_bar": 0.8,
+                "in_time": true,
+                "cos": 0.41,
+                "dip": 3.9,
+                "quiet": 0,
+                "lr_corr": 0.804,
+                "knee_pct": 0.0,
+                "b200_2k": 12.1,
+                "b300_4k": 9.8,
+                "above6k": 1.8,
+                "tonal_mid": 72,
+                "mid_flatness": 0.07,
+                "held_changes": 3.32,
+                "tempo_wander": 0.02,
+                "wrap_db": 7.8,
+                "wrap_pct": 93
+            }
+        },
+        {
+            "candidate": "c12",
+            "seed": 912775808,
+            "caption": "1990s piano house instrumental for a neon wireframe world of glowing geometric shapes: a catchy, memorable chord riff and melody you can hum on a warm Rhodes electric piano, loud and upfront in the mid range, a warm analog synth lead answering the Rhodes, a bouncing warm bass line, a tight warm four-on-the-floor kick, a deep round snare and warm toms playing throughout from the first bar, soft dark percussion, warm organ chords, building into a big joyful peak where the Rhodes and the lead play the hook together, euphoric and uplifting, warm mid-forward mix, modern polished production with soft, warm, rolled-off highs, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-pianohouse-c12.wav: 86.6s loop = source 18.84s..105.45s (44.97 bars at 124.6 bpm), crossfade 0.96s | context match 0.485 (best 0.529) | crossfade rhythm r=0.76 vs the track a bar later r=0.69: in time | spectrum cos=0.53"
+            ],
+            "measured": {
+                "loop_s": 86.6,
+                "bpm": 124.6,
+                "context": 0.485,
+                "r_cross": 0.76,
+                "r_bar": 0.69,
+                "in_time": true,
+                "cos": 0.53,
+                "dip": 18.8,
+                "quiet": 7,
+                "lr_corr": 0.903,
+                "knee_pct": 0.0,
+                "b200_2k": 5.2,
+                "b300_4k": 4.2,
+                "above6k": 5.0,
+                "tonal_mid": 54,
+                "mid_flatness": 0.15,
+                "held_changes": 3.27,
+                "tempo_wander": 0.05,
+                "wrap_db": 4.9,
+                "wrap_pct": 68
+            }
+        },
+        {
+            "candidate": "c13",
+            "seed": 1340806891,
+            "caption": "1990s piano house instrumental for a neon wireframe world of glowing geometric shapes: a catchy, memorable chord riff and melody you can hum on a warm Rhodes electric piano, loud and upfront in the mid range, a warm analog synth lead answering the Rhodes, a bouncing warm bass line, a tight warm four-on-the-floor kick, a deep round snare and warm toms playing throughout from the first bar, soft dark percussion, warm organ chords, building into a big joyful peak where the Rhodes and the lead play the hook together, euphoric and uplifting, warm mid-forward mix, modern polished production with soft, warm, rolled-off highs, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+            "negative": "same negative",
+            "loop_log": [
+                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-pianohouse-c13.wav: 76.8s loop = source 20.75s..97.55s (40.00 bars at 125.0 bpm), crossfade 0.96s | context match 0.842 (best 0.852) | crossfade rhythm r=0.85 vs the track a bar later r=0.94: in time | spectrum cos=0.86"
+            ],
+            "measured": {
+                "loop_s": 76.8,
+                "bpm": 125.0,
+                "context": 0.842,
+                "r_cross": 0.85,
+                "r_bar": 0.94,
+                "in_time": true,
+                "cos": 0.86,
+                "dip": 10.4,
+                "quiet": 1,
+                "lr_corr": 0.9,
+                "knee_pct": 0.0,
+                "b200_2k": 8.4,
+                "b300_4k": 6.9,
+                "above6k": 2.9,
+                "tonal_mid": 60,
+                "mid_flatness": 0.09,
+                "held_changes": 3.03,
+                "tempo_wander": 0.01,
+                "wrap_db": 2.1,
+                "wrap_pct": 49
+            }
+        }
+    ],
+    "replaces": {
+        "stem": "pulse-bigroom",
+        "issue": 486,
+        "created": "2026-09-23",
+        "caption": "Big room dance instrumental: huge kick, riser builds, massive synth drop melody, clap on the offbeat, festival energy, no vocals",
+        "negative": "vocals, singing, audience applause, crowd noise, live recording",
+        "bpm": 128,
+        "keyscale": "A minor",
+        "loop_log": [
+            "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-pulse-bigroom.wav: 45.0s loop = source 38.20s..83.20s (23.96 bars at 127.8 bpm), crossfade 0.94s | context match 0.823 (best 0.871) | crossfade rhythm r=0.91 vs the track a bar later r=0.66: in time | spectrum cos=0.86"
+        ],
+        "why_replaced": "replaces pulse-bigroom, a festival big room track of huge kick and risers: tuneless (tonal mid 35 %) with 8.1 % in 200 Hz-2 kHz (ember at least 9.5 %) (#824, 2026-10-13); piano house keeps the family's 1990s dance root and carries its hook on the piano in the mid range"
+    }
+}
