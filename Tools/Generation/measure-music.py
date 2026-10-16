@@ -33,9 +33,10 @@ The second table (#913, #910, #914):
     deepest (dB under its surroundings; digital silence reads about 100) and the longest (ms; the edges are only known
     to a 10 ms hop). Runs over 500 ms are not counted: a silence of 0.5-2 s is named by no check (the dropout check
     wants 2 s, MusicBake refuses 6 s under -35 dBFS), and a shallow breakdown is not a gap;
-  - repetition: bars from the loop cut's own log in the sidecar (Research/AI-Music/theme-<stem>.json, "N bars at B
-    bpm", when it describes this very file), else --bpm, else the recording's own beat period folded into 90-180 bpm
-    and the bar count (four beats a bar) whose length the flux envelope repeats at most; the table says which. Each
+  - repetition: bars from --bpm when given (it overrides every file's sidecar, so a run mixing files with and without
+    one is re-barred whole), else the loop cut's own log in the sidecar (Research/AI-Music/theme-<stem>.json, "N bars
+    at B bpm", when it describes this very file), else the recording's own beat period folded into 90-180 bpm and the
+    bar count (four beats a bar) whose length the flux envelope repeats at most; the table says which. Each
     bar is one unit vector: the harmonic part's pitch-class energy (120 Hz-2 kHz) in each eighth of the bar, so which
     notes in which order, drums mostly masked out by the HPSS. Two bars are near-identical at a cosine of --similar
     (0.90); a pattern of 1, 2, 4 or 8 bars repeats for as long as each later bar resembles its counterpart in the
@@ -440,8 +441,9 @@ def main():
     parser.add_argument("--json", type=Path, help="also write one JSON line per recording here")
     parser.add_argument("--sidecars", type=Path, default=SIDECARS, help="where theme-<name>.json sidecars are read from")
     parser.add_argument("--key", help='the key to hold the held notes to, e.g. "A minor"; default: the sidecar\'s keyscale')
-    parser.add_argument("--bpm", type=float, help="the tempo, for every file given (default: the sidecar's loop cut, "
-                                                  "or the recording's own beat); a bar is four beats")
+    parser.add_argument("--bpm", type=float, help="the tempo, for every file given, overriding the sidecar's loop cut "
+                                                  "(default: the sidecar's loop cut, or the recording's own beat); "
+                                                  "a bar is four beats")
     parser.add_argument("--gap-db", type=float, default=GAP_DROP_DB, help="how far under its surroundings a short gap falls")
     parser.add_argument("--similar", type=float, default=SIMILAR, help="the cosine from which two bars are near-identical")
     args = parser.parse_args()
