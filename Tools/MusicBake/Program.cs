@@ -200,7 +200,15 @@ namespace BS3D.Tools.MusicBake
             string sidecar = Path.Combine(masters, THEME_MASTER_PREFIX + track + ".json");
             if (!File.Exists(sidecar)) return 0;
 
-            using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(sidecar));
+            JsonDocument parsed;
+            try { parsed = JsonDocument.Parse(File.ReadAllText(sidecar)); }
+            catch (JsonException e)
+            {
+                Console.WriteLine($"  ⚠ {Path.GetFileName(sidecar)}: not valid JSON ({e.Message}) - no trim read");
+                return 0;
+            }
+
+            using JsonDocument doc = parsed;
             if (doc.RootElement.ValueKind != JsonValueKind.Object
                 || !doc.RootElement.TryGetProperty("bake", out JsonElement bake)
                 || bake.ValueKind != JsonValueKind.Object
