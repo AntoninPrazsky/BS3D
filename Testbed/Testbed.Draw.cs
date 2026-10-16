@@ -84,21 +84,21 @@ namespace Testbed
             //instead: their pass covers every pixel of the frame, and black is what would show if it ever did not.
             GraphicsDevice.Clear(SceneRenderer.ReplacesSky(_scene) ? Color.Black : new Color(_rig.HorizonLinear));
 
-            //The clouds run off the same wall clock the balls pulse to, so the weather keeps moving while
-            //the simulation is paused or slowed. Handed to both shaders from the one field, which is what
+            //The clouds run off the same scene clock the balls pulse to (the wall clock, started late by clock=),
+            //so the weather keeps moving while the simulation is paused or slowed. Handed to both shaders from the one field, which is what
             //keeps the cloud you look at and the shadow it throws the same cloud.
             //
             //Space is the one scene with no weather at all: the dome is not drawn (Space.fx covers the frame),
             //and the cloud coverage is zeroed on the instanced effect so the balls, island and cannon are not
             //crossed by the shadows of a deck nobody can see - InstancedModel.fx calls CloudSunlight
             //unconditionally, and a gain left standing from the scene before would go on shadowing this one.
-            _clouds.Time = _pulseSeconds;
+            _clouds.Time = SceneClock;
 
             if (SceneRenderer.ReplacesSky(_scene)) _clouds.SuppressOn(_instancingEffect);
             else
             {
                 //The ground's light on the deck (#509), stated every frame so no scene inherits the last one's.
-                if (_sceneRenderer.TryGetGroundGlow(_scene, _pulseSeconds, out Vector3 glowAt, out Vector3 glowColor, out float glowRange))
+                if (_sceneRenderer.TryGetGroundGlow(_scene, SceneClock, out Vector3 glowAt, out Vector3 glowColor, out float glowRange))
                     _clouds.SetGroundGlow(glowAt, glowColor, glowRange);
                 else _clouds.ClearGroundGlow();
 
@@ -137,8 +137,9 @@ namespace Testbed
 
                 //Scene point lights (campfire / neon / planetshine) onto the shared instanced effect, so the
                 //balls, island, cannon and city are lit by them under every dome, on top of the sun and sky.
-                //The clock is the balls' own, so the campfire's light and its flame billboard cannot drift.
-                _sceneLights.Apply(_scene, _sceneRenderer, _cityConfig.NeonLook, _pulseSeconds);
+                //The clock is the one the scene itself is drawn on (SceneFrame.Time, clock= included), so the
+                //campfire's light and its flame billboard cannot drift.
+                _sceneLights.Apply(_scene, _sceneRenderer, _cityConfig.NeonLook, SceneClock);
 
                 //The aurora's own wood re-tints every frame rather than only on a dome/scene switch
                 //(SkyLightRig.KeyTint's usual cadence): its hue keeps drifting while the scene is up, and
@@ -146,7 +147,7 @@ namespace Testbed
                 //Gated on the scene, unlike the forest's unconditional call, because this one would
                 //otherwise recompute a moving colour every frame of every OTHER scene for nothing.
                 if (_scene == SceneKind.Aurora)
-                    _auroraScatter?.ApplySkyTint(_sceneRenderer.AuroraGlowColor(_pulseSeconds));
+                    _auroraScatter?.ApplySkyTint(_sceneRenderer.AuroraGlowColor(SceneClock));
 
                 if (_scene == SceneKind.City || _scene == SceneKind.NeonCity)
                 {
@@ -158,7 +159,7 @@ namespace Testbed
                     _cityRenderer.Draw(_camera, _city.Visible, visibleBuildings, _sceneEffectParams);
 
                     //The roofs' equipment after the towers it stands on (#436), as the Game draws it
-                    _rooftops?.Draw(_camera, neon, _pulseSeconds);
+                    _rooftops?.Draw(_camera, neon, SceneClock);
 
                     //The street level last of the city (#399), as the Game draws it
                     _streets?.Draw(sceneFrame, _cityConfig.Streets, neon, _cityConfig.NeonLook);
@@ -177,16 +178,16 @@ namespace Testbed
                 if (_scene == SceneKind.Forest) _forestScatter?.Draw(_camera, _sceneRenderer.FineMeshes);
                 if (_scene == SceneKind.Aurora) _auroraScatter?.Draw(_camera, _sceneRenderer.FineMeshes);
 
-                //The forest's firefly-like blinking lights (#487), on the same wall clock the beacon and the
+                //The forest's firefly-like blinking lights (#487), on the same scene clock the beacon and the
                 //campfire blink and flicker on — off pause, on with the game.
-                if (_scene == SceneKind.Forest) _forestFireflies?.Draw(_camera, _pulseSeconds);
+                if (_scene == SceneKind.Forest) _forestFireflies?.Draw(_camera, SceneClock);
 
                 //The round island, opaque: its stone cap and concrete drum. Then the dark pit shaft behind the
                 //drain, which is drawn in the solid-terrain scenes only and brings its own culling with it.
                 //Each slice owns the states its own geometry needs; where they sit in the frame is this file's
                 //decision, which is the whole reason the component hands them over separately.
-                //The island's own event (#535): the volcano's eruption on the pulse clock, as the Game does it.
-                _island.EventGlow = _scene == SceneKind.Volcano ? _sceneRenderer.VolcanoEruption(_pulseSeconds) : 0f;
+                //The island's own event (#535): the volcano's eruption on the scene clock, as the Game does it.
+                _island.EventGlow = _scene == SceneKind.Volcano ? _sceneRenderer.VolcanoEruption(SceneClock) : 0f;
                 _island.DrawIsland(_camera, _sceneEffectParams, _scene);
                 _island.DrawPit(_camera, _sceneEffectParams, _scene);
 
@@ -204,7 +205,7 @@ namespace Testbed
                 //
                 //Where this sits in the frame is still this file's: over the opaque scene, so the cluster and the
                 //gun are in the depth buffer, and before the shots' additive smears and the drain's glass.
-                _balls.Draw(_pulseSeconds);
+                _balls.Draw(SceneClock);
 
                 //The launch smears trailing the shots, over the opaque scene (which the depth buffer now holds,
                 //so the cluster/cannon/platform occlude them) and additive, so they glow through the glare.
@@ -238,7 +239,7 @@ namespace Testbed
             //And nothing ever takes this frame out of focus: the defocus is the game's end-of-level effect,
             //and the testbed has no level that ends. Zero is a no-op in the shader and its targets are never
             //even built (see PostProcessPipeline.EnsureDefocusChain).
-            _pipeline.Resolve(_pulseSeconds, underwater, 0f);
+            _pipeline.Resolve(SceneClock, underwater, 0f);
 
             //The crosshair, in display space after the resolve: in free mode it marks where a shot from the camera
             //goes, so it is simply there (opacity 1); in game mode it appears only as precise aim engages, fading

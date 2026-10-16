@@ -9,7 +9,7 @@ The gun, the magazine, the camera fit, precise aim, the physics session and the 
 ## Sub-documents
 
 - [The executable](testbed/executable.md) — which file a change belongs in, the harness drivers, the overlay and its key help, and how a shot joins the cluster.
-- [Capturing and measuring](testbed/capture-and-measurement.md) — `shot=`/`shotframe=`/F8, reading the camera back with `C`, sweeping variants with `alt=` and its dials, `mirrorcheck`, `softness=`.
+- [Capturing and measuring](testbed/capture-and-measurement.md) — `shot=`/`shotframe=`/F8, `clock=` (the scene's clock started late), reading the camera back with `C`, sweeping variants with `alt=` and its dials, `mirrorcheck`, `softness=`.
 - [Driving a run without a keyboard](testbed/scripted-input.md) — the input timeline `at=`, `hold=`, `aim=`, `rmb=`: syntax, what it refuses, why it works minimised; the Game's smaller timeline.
 - [The hardware shared with the Game](testbed/shared-hardware.md) — what `CannonRig`, `Magazine`, `GameCameraFit`, `PreciseAim`, `Cannon`, `PhysicsWorld`, `BallRenderSet`, `MouseAim`, `LaunchSmears` and `Crosshair` own, what stays with each executable, and the rules that keep one copy honest.
 - [The cannon](testbed/cannon.md) — the barrel and its slot, the magazine in the bore, the glass over the queue, the carriage and omni wheels, the trunnions and the recoil, the launch smear.

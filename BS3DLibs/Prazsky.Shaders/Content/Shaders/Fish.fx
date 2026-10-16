@@ -71,10 +71,21 @@ FishVertexOutput FishVS(FishVertexInput input)
     float4 h = FishHash(fish);
 
     //Its place in the ring: a radius and a height of its own, breathing slowly, and an angle round the ring that
-    //advances at the school's speed - the same linear speed for every fish, so the inner ones lap the outer
-    float radius = lerp(SchoolRadii.x, SchoolRadii.y, h.x) + 0.8 * sin(Time * 0.31 + fish * 1.7);
+    //advances at the school's speed - the same NOMINAL linear speed S for every fish, so the inner ones lap the
+    //outer (the wobble and the breathing radius below swing one fish's real speed round S, between about 0.6 and 1.4
+    //times it on the outer ring, over periods of 9 and 20 seconds).
+    //The angle is built from the fish's BASE radius, not the breathing one (#903): Time / radius with a radius that
+    //itself moves with Time has the derivative S/r - Time*S*r'/r^2, and its second term grows with the session
+    //clock until it drives the angle backwards for every fish whose radius is growing - and the nose is the tangent
+    //of the growing angle, so those swam tail first (about a minute in for the first of them, roughly four in ten
+    //of the school after five). With the base radius the angular speed is S/baseRadius, constant for the fish's life,
+    //plus the wobble's own rate, which is bounded and has no clock in it: at most 0.08 * 0.7 = 0.056 rad/s against
+    //S/21 = 0.152 at the outer edge, so the sum stays positive (for any SwimSpeed above 21 * 0.056 = 1.18). The
+    //breathing radius moves the PLACE only.
+    float baseRadius = lerp(SchoolRadii.x, SchoolRadii.y, h.x);
+    float radius = baseRadius + 0.8 * sin(Time * 0.31 + fish * 1.7);
     float height = SchoolCentre.y + SchoolDepth * (h.y - 0.5) + 0.45 * sin(Time * 0.53 + fish * 2.3);
-    float angle = h.z * 6.2831853 + Time * SwimSpeed / max(radius, 1.0) + 0.08 * sin(Time * 0.7 + fish);
+    float angle = h.z * 6.2831853 + Time * SwimSpeed / max(baseRadius, 1.0) + 0.08 * sin(Time * 0.7 + fish);
 
     float3 place = SchoolCentre + float3(cos(angle) * radius, 0.0, sin(angle) * radius);
     place.y = height;
@@ -88,7 +99,7 @@ FishVertexOutput FishVS(FishVertexInput input)
     //The swimming wave: a travelling bend that grows towards the tail, at the fish's own beat, and travelling FROM
     //THE HEAD TO THE TAIL (phase t + x, so a crest's x falls as time runs), the way a fish pushes the water back.
     //The first cut had t - x, a wave running up the body towards the nose, and the owner saw fish swimming tail
-    //first (#760, 2026-10-05) although every one moves nose first along the ring.
+    //first (#760, 2026-10-05); the wave was one cause, the angle's own sign the other (#903, see above).
     float3 local = input.Position;
     float tail = saturate((0.3 - local.x) / 1.08);
     float beat = TailHz * (0.85 + 0.3 * h.w);

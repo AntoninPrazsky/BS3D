@@ -27,15 +27,16 @@ namespace Prazsky.Core.Render
         private const float FISH_LENGTH = 1.3f;
 
         //The ring they circle: round the funnel's cone and under the island's rim, the cone's tip a little under its
-        //middle, so a lens looking up at the island sees the school between it and the stone.
-        private const float SCHOOL_RADIUS_IN = 13f;
-        private const float SCHOOL_RADIUS_OUT = 21f;
+        //middle, so a lens looking up at the island sees the school between it and the stone. The radii and the speed
+        //are internal for FishRingAngleTests, which holds the ring's angle positive for them (#903).
+        internal const float SCHOOL_RADIUS_IN = 13f;
+        internal const float SCHOOL_RADIUS_OUT = 21f;
         private const float SCHOOL_Y = ArenaIsland.FUNNEL_BOTTOM_Y + 2f;
         private const float SCHOOL_DEPTH = 6f;
 
         //How fast they swim along the ring, in units a second, and how fast a tail beats. Unhurried: a lap of the
         //middle of the ring (17 out) is about 33 seconds.
-        private const float SWIM_SPEED = 3.2f;
+        internal const float SWIM_SPEED = 3.2f;
         private const float TAIL_HZ = 2.6f;
 
         //The fish's own colours (linear): a dark blue back over a silver belly, the countershading every pelagic fish
