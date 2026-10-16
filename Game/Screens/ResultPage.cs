@@ -947,9 +947,10 @@ namespace BS3D.Screens
             //⚠ THE PALETTE'S ASIDE GREY IS NOT AVAILABLE HERE, and the page's own notes say why: small text
             //over a lit, turning arena needs a backing of its own, which is what the breakdown has a plate
             //for. This line has no plate — it belongs to the FAILURE page, which has no grid to sit in — so
-            //it is written in the body white instead. Photographed dim first over the tropical sky and it was
-            //not readable at all.
-            _skipNote = new Label
+            //it is written in the body white and carries the stack's own backing, the outline (#465). Photographed
+            //dim first over the tropical sky and it was not readable at all; white alone, as a plain Label, still
+            //all but vanished over the Meadow's cloud and the light balls under it (#918).
+            _skipNote = new ShadowedLabel(shadow)
             {
                 Text = string.Empty,
                 Font = FontSmall,

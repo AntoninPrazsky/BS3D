@@ -174,8 +174,8 @@ namespace Testbed
                 //state stated above — alpha blend, depth test and write, cull counter-clockwise — plus this
                 //frame's point lights, already on the shared effect; the component touches none of it, so the
                 //island's slices below are unaffected.
-                if (_scene == SceneKind.Forest) _forestScatter?.Draw(_camera);
-                if (_scene == SceneKind.Aurora) _auroraScatter?.Draw(_camera);
+                if (_scene == SceneKind.Forest) _forestScatter?.Draw(_camera, _sceneRenderer.FineMeshes);
+                if (_scene == SceneKind.Aurora) _auroraScatter?.Draw(_camera, _sceneRenderer.FineMeshes);
 
                 //The forest's firefly-like blinking lights (#487), on the same wall clock the beacon and the
                 //campfire blink and flicker on — off pause, on with the game.
@@ -298,7 +298,7 @@ namespace Testbed
             //The wood, on the same gate the scene block draws it on (#471). It is the host's object like the
             //island is, which is why it casts from here and not from inside the renderer. The AURORA's stand
             //is deliberately left out: that scene's sun is below the horizon and DrawShadowMaps never asks.
-            if (_scene == SceneKind.Forest) _forestScatter?.DrawShadow(shadowViewProjection);
+            if (_scene == SceneKind.Forest) _forestScatter?.DrawShadow(shadowViewProjection, _sceneRenderer.FineMeshes);
 
             //And the city's towers (#471). ⚠ ALL of them rather than City.Visible, which is culled to the
             //CAMERA's frustum — a tower just off the side of the screen is exactly the one whose shadow falls

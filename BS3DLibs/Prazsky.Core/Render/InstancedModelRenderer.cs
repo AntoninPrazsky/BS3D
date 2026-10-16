@@ -2438,6 +2438,15 @@ namespace Prazsky.Core.Render
                     _diffuseColorParam.SetValue(new Vector4(look.Casing * look.Alpha, look.Alpha));
                     _emissiveColorParam.SetValue(look.Emission * (EmissiveStrength * StillEmission));
                     _specularAlphaWeightParam.SetValue(0f);
+
+                    //And the ball uniforms its ring is shaded by (#897): the rims' pass draws a glass ball's ring through
+                    //BallColour like any ball's, and with nothing stated here it took the crust and glow of whichever
+                    //colour drew last, so every glass ball was outlined in that colour. Its own pale casing and steady
+                    //glow make the ring the glass's outline, as the desktop's cavity draws a grazing wall line round it;
+                    //no flash and no alarm on it, as the body has none
+                    SetPotatoBallUniforms(look);
+                    _potatoBallFlashParam.SetValue(Vector3.Zero);
+                    _potatoBallAlarmParam.SetValue(Vector4.Zero);
                 }
                 else if (ball)
                 {

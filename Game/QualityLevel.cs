@@ -284,14 +284,16 @@ namespace BS3D
         public readonly bool MotionBlur;
 
         /// <summary>
-        /// Whether the scenes draw their finer meshes (#758, <c>SceneRenderer.FineMeshes</c>): today the savanna acacias'
-        /// wood, the fork grown as one surface out of a swollen, lobed crotch at twelve to twenty sides, where Low and
-        /// Medium keep the seven-sided tubes poking out of the trunk's cut end; and the mountain range (#781), a grid twice
-        /// as fine with crags and the rock shaded in three dimensions. <b>High and Ultra only</b>: the owner asked for the
-        /// detail there ("on High / Ultra this transition should have more detail"; of the range, "how they look now could
-        /// be the look of low/medium, but on high/ultra they must have more detail"), and Medium is the weak machine's rung.
-        /// What it costs is in "The acacia's fork" in docs/scenes/savanna-trees.md and "High and Ultra's range" in
-        /// docs/scenes/mountains.md.
+        /// Whether the scenes draw their finer meshes (<c>SceneRenderer.FineMeshes</c>): the savanna acacias' wood, the fork
+        /// grown as one surface out of a swollen, lobed crotch where Low and Medium keep the seven-sided tubes poking out of
+        /// the trunk's cut end (#758), the spruces' crowns as separate boughs with lumps of snow where Low and Medium keep
+        /// the lathe of smooth skirts (#733), and the mountain range on a grid twice as fine with crags and the rock shaded in
+        /// three dimensions (#781). <b>High and Ultra only</b>: the owner asked for the detail there ("on High / Ultra this
+        /// transition should have more detail"; of the spruces, "they could pass for Low, maybe Medium, but not High or
+        /// Ultra"; of the range, "how they look now could be the look of low/medium, but on high/ultra they must have more
+        /// detail"), and Medium is the weak machine's rung. What it costs is in "The acacia's fork" in
+        /// docs/scenes/savanna-trees.md, "The spruces on High and Ultra" in docs/scenes/aurora.md and "High and Ultra's
+        /// range" in docs/scenes/mountains.md.
         /// </summary>
         public readonly bool FineMeshes;
 
@@ -366,7 +368,7 @@ namespace BS3D
             //(see MsaaSamples), where the desktop had priced it at nothing and it had been left at 8 for that.
             new(supersampleFactor: 1, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: 4, shadowMapCap: 2048, ceilingRefraction: true, motionBlur: true, clusterWind: false),
 
-            //High — the look the game was authored at, and the finer meshes (#758).
+            //High — the look the game was authored at, and the finer meshes (#758, #733).
             new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, motionBlur: true, fineMeshes: true),
 
             //Ultra (#484) — High, and the sun shadow map at twice the scene's authored size (8192). The one

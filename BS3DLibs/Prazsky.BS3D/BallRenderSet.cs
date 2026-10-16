@@ -2798,8 +2798,8 @@ namespace Prazsky.BS3D
             _device.BlendState = BlendState.AlphaBlend;
 
             //The far wall first, tested but not written; then the near one in the ordinary cull, writing depth.
-            //Same pair, same reasons, as the bubble's two walls - and the same exception: Potato's glass is
-            //opaque, so it has only the near one (#797)
+            //Same pair, same reasons, as the bubble's two walls - and the same exception: on the Potato path a
+            //transparent material has only the near one (#797), the glass one translucent shell (#863)
             if (!_renderers[0].Potato)
             {
                 _device.DepthStencilState = DepthStencilState.DepthRead;

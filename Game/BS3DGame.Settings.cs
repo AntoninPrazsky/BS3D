@@ -341,12 +341,17 @@ namespace BS3D
         /// the wood, the weather, what stands on the ground and the shaft under the drain, and the shadows of all of it.
         /// On by default on every desktop tier; turned off on the Scenery row, it leaves the island, the cluster, the gun,
         /// the glass and the sky (or a sky-replacing scene's own background colour), and the Quality row reads "Custom".
-        /// Never on the Potato path, which draws no scenery at all (see <c>BS3DGame.Potato.cs</c>).
+        /// Never on the Potato path, which draws none of the desktop's scenery: its own low-poly backdrops
+        /// (<see cref="PotatoBackdrop"/>, #829) are drawn by <see cref="BeginPotatoSceneDraw"/> whatever this says (see
+        /// <c>BS3DGame.Potato.cs</c>).
         /// </summary>
         internal bool SceneryShown => !PotatoPath && _settings.Scenery != false;
 
-        /// <summary>What the Scenery row says.</summary>
-        internal string SceneryLabel => PotatoPath ? "Off (Potato)" : SceneryShown ? "On" : "Off";
+        /// <summary>
+        /// What the Scenery row says. On the Potato path "On (Potato)", ticked and held (#897): the scenes do have their
+        /// scenery there, the path's own, and the row cannot turn it off.
+        /// </summary>
+        internal string SceneryLabel => PotatoPath ? "On (Potato)" : SceneryShown ? "On" : "Off";
 
         /// <summary>The Scenery row (#808): off is the player's Custom; on is the tier's own look again.</summary>
         internal void ToggleScenery()

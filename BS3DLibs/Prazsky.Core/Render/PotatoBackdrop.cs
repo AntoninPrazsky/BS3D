@@ -10,7 +10,7 @@ namespace Prazsky.Core.Render
     /// <summary>
     /// A scene's ground on the Potato path (#829): the terrain the desktop draws through its own Shader Model 5.0
     /// program, as a low-poly grid built once on the CPU from the terrain's mirror (<see cref="TerrainMirror"/>, the
-    /// same heights the scatters and lamps are placed by) and drawn through <c>PotatoLit</c> like the island. A square
+    /// same heights the scatters and lamps are placed by) and lit at the vertex through <c>PotatoVertexLit</c>. A square
     /// grid of <c>cells</c> a side over ±<c>extent</c>, with the quads inside the arena's hole left out (the desktop
     /// cuts the same hole, <c>TerrainHoleRadius</c>, so the pit's shaft is not seen through), normals from the
     /// height's own differences, wound clockwise seen from above as every procedural mesh here is.
@@ -283,8 +283,9 @@ namespace Prazsky.Core.Render
 
     /// <summary>
     /// What of a scene's backdrop the Potato path draws (#829): its ground (<see cref="PotatoTerrainMesh"/>) and its
-    /// static scatter, every piece an <see cref="InstancedModelRenderer"/> on the Potato effect drawn through
-    /// <c>PotatoLit</c> and lit by the host's sky rig like the island (the host enrols <see cref="Renderers"/>).
+    /// static scatter, every piece an <see cref="InstancedModelRenderer"/> on the Potato effect lit at the vertex through
+    /// <c>PotatoVertexLit</c> (<see cref="InstancedModelRenderer.PotatoVertexLit"/>: the backdrop is a third of the
+    /// frame's pixels) by the host's sky rig like the island (the host enrols <see cref="Renderers"/>).
     /// Nothing per pixel: a scene's cost here is its vertices, which V3D's binning pays for every vertex handed over
     /// (#804), so a scatter is the desktop's Low tier (the detail buckets left out) and the ground a coarse grid.
     /// <see cref="For"/> says which scenes have one; the rest keep the dome's gradient.
@@ -565,8 +566,9 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The cavern (#829): the desktop's is one marched full-screen pass (<c>Cavern.fx</c>), a noise-carved cylinder
         /// under a ceiling, the river as a plane and eight crystal clusters on the wall. Here the cylinder and the
-        /// ceiling as a shell in the rock's colour, the river as a plane with a little of its glow, and the clusters as
-        /// leaning boxes radiating the cluster's colour, at <c>CrystalCenter</c>'s places (the shader's formula, as
+        /// ceiling as a shell in the rock's colour, the river as a plane with a little of its glow, and each cluster as
+        /// six-sided prisms tapering to a point, leaning out of the wall in a nearly black casing and radiating the
+        /// cluster's colour, at <c>CrystalCenter</c>'s places (the shader's formula, as
         /// <c>CavernBackdrop.CrystalCenter</c> mirrors it).
         /// </summary>
         private static PotatoBackdrop Cavern(GraphicsDevice graphicsDevice, Effect potatoEffect)

@@ -25,6 +25,11 @@ namespace Prazsky.Core.Render
     /// an egg resting on the ground.
     /// </para>
     /// <para>
+    /// A spruce carries a second crown for High and Ultra (#733): separate boughs over a dark interior, with lumps of
+    /// snow, at a near and a far detail (<see cref="FineCrown"/>, <see cref="SpruceCrownGeometry"/>), laid out by the same
+    /// whorls the lathe is rolled from.
+    /// </para>
+    /// <para>
     /// All profiles trace <b>top → outside → underside</b>, the direction <see cref="LatheMesh"/> documents:
     /// traced the other way the solid comes out inside out — same silhouette, far side drawn, shading dark —
     /// which is exactly how the first forest looked.
@@ -88,17 +93,14 @@ namespace Prazsky.Core.Render
                 return;
             }
 
-            Random rng = new(seed);
-
-            //Spreads the meshes' wobble patterns apart; the golden angle keeps consecutive seeds from
-            //landing on nearby phases of the low-frequency terms.
-            float phase = seed * 2.39996f;
+            (float flare, float trunkWobble, List<LathePoint> crownProfile, SpruceWhorlPlan plan) = RollConifer(
+                trunkBaseRadius, trunkHeight, crownRadius, crownHeight, seed, coniferTiers, coniferTierSpread, coniferRaggedness);
+            float phase = plan.Phase;
 
             //Top rim, down the flank, out into a root flare, and in along the buried underside. No top cap:
             //the crown of either species closes over the trunk's top rim, so a cap would never be seen. The
             //flare is rolled per tree — roots grip differently — inside a band where both extremes still
             //read as a standing trunk.
-            float flare = 1.2f + 0.25f * (float)rng.NextDouble();
             var trunkProfile = new List<LathePoint>
             {
                 new(trunkTopRadius,          trunkHeight,        wobble: 0.7f),
@@ -107,14 +109,57 @@ namespace Prazsky.Core.Render
                 new(0f,                      0f)
             };
 
-            //Bark is rough, but a trunk is still a trunk — a smaller share of the radius than a rock's wobble.
-            Trunk = new LatheMesh(graphicsDevice, trunkProfile, segments,
-                irregularityAmplitude: trunkBaseRadius * (0.06f + 0.05f * (float)rng.NextDouble()),
-                irregularityPhase: phase);
+            Trunk = new LatheMesh(graphicsDevice, trunkProfile, segments, irregularityAmplitude: trunkWobble, irregularityPhase: phase);
 
-            Crown = BuildConiferCrown(graphicsDevice, crownRadius, crownHeight, trunkHeight, rng, phase,
-                coniferTiers, coniferTierSpread, coniferRaggedness);
+            //Fourteen facets, for the reason RockMesh documents: the wobble runs at 3, 7 and 13 waves per revolution, and at
+            //ten facets the 7-wave term aliased down to a lateral shift — fine on a smooth cone, but a skirt edge is the one
+            //ring the eye traces, so it gets the sampling to break honestly.
+            Crown = new LatheMesh(graphicsDevice, crownProfile, segments: 14,
+                irregularityAmplitude: plan.WobbleAmplitude, irregularityPhase: phase);
+
+            //High and Ultra's crown (#733), at both its details, off the same whorl plan the lathe was just built from and
+            //random streams of their own, so the coarse crown above consumes the seed exactly as it always has
+            SpruceCrownGeometry near = SpruceCrownGeometry.Build(plan, seed, SpruceDetail.Near);
+            SpruceCrownGeometry far = SpruceCrownGeometry.Build(plan, seed, SpruceDetail.Far);
+            FineCrown = new UploadedMesh(graphicsDevice, near.Vertices, near.Indices, near.Bounds);
+            FineSnow = new UploadedMesh(graphicsDevice, near.SnowVertices, near.SnowIndices, near.Bounds);
+            FineCrownFar = new UploadedMesh(graphicsDevice, far.Vertices, far.Indices, far.Bounds);
+            FineSnowFar = new UploadedMesh(graphicsDevice, far.SnowVertices, far.SnowIndices, far.Bounds);
+            FineShade = new LatheMesh(graphicsDevice, SpruceCrownGeometry.ShadeProfileFor(plan, SpruceDetail.Near),
+                SpruceCrownGeometry.SHADE_SEGMENTS, irregularityAmplitude: plan.WobbleAmplitude * SpruceDetail.Near.Shade, irregularityPhase: phase);
+            FineShadeFar = new LatheMesh(graphicsDevice, SpruceCrownGeometry.ShadeProfileFor(plan, SpruceDetail.Far),
+                SpruceCrownGeometry.SHADE_SEGMENTS, irregularityAmplitude: plan.WobbleAmplitude * SpruceDetail.Far.Shade, irregularityPhase: phase);
         }
+
+        /// <summary>
+        /// High and Ultra's spruce crown (#733, <c>SceneRenderer.FineMeshes</c>) for a tree near the arena: the whorls as
+        /// separate boughs, each an arm that leaves the stem, sags and turns its tip up, a plate of foliage over it and a
+        /// fringe hanging under it, laid out by the same whorl plan as <see cref="Crown"/> (<see cref="SpruceCrownGeometry"/>,
+        /// <see cref="SpruceDetail.Near"/>). Null for a broadleaf. Drawn over <see cref="FineShade"/>, the darker interior
+        /// the boughs grow out of.
+        /// </summary>
+        public IProceduralMesh FineCrown { get; }
+
+        /// <summary>The same crown for the rest of the wood (<see cref="SpruceDetail.Far"/>): fewer, wider arms of fewer
+        /// rings. Null for a broadleaf.</summary>
+        public IProceduralMesh FineCrownFar { get; }
+
+        /// <summary>
+        /// The snow lying in lumps on some of <see cref="FineCrown"/>'s arms and <see cref="FineCrownFar"/>'s (#733), for a
+        /// scene with crown snow to draw in the snow's colour. Null for a broadleaf.
+        /// </summary>
+        public IProceduralMesh FineSnow { get; }
+        public IProceduralMesh FineSnowFar { get; }
+
+        /// <summary>
+        /// The interior of High and Ultra's spruce crown (#733): a narrow lathe inside the boughs of <see cref="FineCrown"/>,
+        /// drawn in a darker tint of its own — the shaded old needles round the stem that the gaps between the boughs open
+        /// onto. Null for a broadleaf.
+        /// </summary>
+        public IProceduralMesh FineShade { get; }
+
+        /// <summary>The far crown's interior, fatter under its fewer arms (<see cref="SpruceDetail.Shade"/>). Null for a broadleaf.</summary>
+        public IProceduralMesh FineShadeFar { get; }
 
         //A broadleaf's grown wood and crown, which this owns and disposes
         private readonly MeadowTreeMesh _grown;
@@ -130,13 +175,17 @@ namespace Prazsky.Core.Render
         /// shadow rather than foliage edge. The underside disc faces down: from below (a tree on a hill) a
         /// conifer is its own shadow.
         /// </summary>
-        private static LatheMesh BuildConiferCrown(GraphicsDevice graphicsDevice, float radius, float height,
-            float baseY, Random rng, float phase, int minTiers, int tierSpread, float raggedness)
+        private static List<LathePoint> PlanConiferCrown(float radius, float height, float baseY, Random rng, float phase,
+            int minTiers, int tierSpread, float raggedness, out SpruceWhorlPlan plan)
         {
             int tiers = Math.Max(2, minTiers) + rng.Next(Math.Max(1, tierSpread));   //4..6 whorls by default
             float taper = 0.78f + 0.30f * (float)rng.NextDouble();   //how fast the skirts widen downwards
             float pinch = 0.52f + 0.12f * (float)rng.NextDouble();   //how far under a skirt the stem shows
             float tierHeight = height / tiers;
+
+            //The skirts' edges as they are rolled, for High and Ultra's crown (#733) to lay its boughs out by
+            var skirtRadii = new float[tiers];
+            var skirtHeights = new float[tiers];
 
             //A ring near the tip is narrower than the wobble's peak, and a displacement past the axis turns
             //the ring inside out — so each ring's wobble is capped at a share of its own radius (against the
@@ -173,6 +222,8 @@ namespace Prazsky.Core.Render
                 }
 
                 profile.Add(new LathePoint(skirtRadius, skirtY, crease: true, wobble: SafeWobble(skirtRadius, 1f)));
+                skirtRadii[t - 1] = skirtRadius;
+                skirtHeights[t - 1] = skirtY;
 
                 previousSkirtRadius = skirtRadius;
                 previousSkirtY = skirtY;
@@ -182,13 +233,40 @@ namespace Prazsky.Core.Render
             //tips hang past the stem's shoulder on a real spruce).
             profile.Add(new LathePoint(0f, previousSkirtY));
 
-            //Fourteen facets, for the reason RockMesh documents: the wobble runs at 3, 7 and 13 waves per
-            //revolution, and at ten facets the 7-wave term aliased down to a lateral shift — fine on a smooth
-            //cone, but a skirt edge is the one ring the eye traces, so it gets the sampling to break honestly.
-            return new LatheMesh(graphicsDevice, profile, segments: 14,
-                irregularityAmplitude: radius * (0.12f + 0.06f * (float)rng.NextDouble()) * raggedness,
-                irregularityPhase: phase);
+            float wobbleAmplitude = radius * (0.12f + 0.06f * (float)rng.NextDouble()) * raggedness;
+            plan = new SpruceWhorlPlan(radius, height, baseY, phase, wobbleAmplitude, raggedness, skirtRadii, skirtHeights);
+            return profile;
         }
+
+        /// <summary>
+        /// Everything a spruce rolls from its seed, in the order it has always rolled it: the root flare, the trunk's wobble,
+        /// then the crown's tiers (<see cref="PlanConiferCrown"/>). One place, so the constructor and a test reading the
+        /// whorl plan without a device (<see cref="PlanConifer"/>) cannot roll it differently.
+        /// </summary>
+        private static (float Flare, float TrunkWobble, List<LathePoint> CrownProfile, SpruceWhorlPlan Plan) RollConifer(
+            float trunkBaseRadius, float trunkHeight, float crownRadius, float crownHeight, int seed,
+            int tiers, int tierSpread, float raggedness)
+        {
+            Random rng = new(seed);
+
+            //Spreads the meshes' wobble patterns apart; the golden angle keeps consecutive seeds from
+            //landing on nearby phases of the low-frequency terms.
+            float phase = seed * 2.39996f;
+
+            float flare = 1.2f + 0.25f * (float)rng.NextDouble();
+
+            //Bark is rough, but a trunk is still a trunk — a smaller share of the radius than a rock's wobble.
+            float trunkWobble = trunkBaseRadius * (0.06f + 0.05f * (float)rng.NextDouble());
+
+            List<LathePoint> crown = PlanConiferCrown(crownRadius, crownHeight, trunkHeight, rng, phase, tiers, tierSpread,
+                raggedness, out SpruceWhorlPlan plan);
+            return (flare, trunkWobble, crown, plan);
+        }
+
+        /// <summary>The whorl plan a spruce of these figures and seed is built by (#733), with no device — for a test.</summary>
+        internal static SpruceWhorlPlan PlanConifer(float trunkBaseRadius, float trunkHeight, float crownRadius,
+            float crownHeight, int seed, int tiers = 4, int tierSpread = 3, float raggedness = 1f) =>
+            RollConifer(trunkBaseRadius, trunkHeight, crownRadius, crownHeight, seed, tiers, tierSpread, raggedness).Plan;
 
         public void Dispose()
         {
@@ -199,6 +277,12 @@ namespace Prazsky.Core.Render
             }
             (Trunk as IDisposable)?.Dispose();
             (Crown as IDisposable)?.Dispose();
+            (FineCrown as IDisposable)?.Dispose();
+            (FineShade as IDisposable)?.Dispose();
+            (FineSnow as IDisposable)?.Dispose();
+            (FineCrownFar as IDisposable)?.Dispose();
+            (FineSnowFar as IDisposable)?.Dispose();
+            (FineShadeFar as IDisposable)?.Dispose();
         }
 
     }

@@ -1498,7 +1498,7 @@ namespace BS3D
                 ShadowMapSizeCap = QualityPreset.Presets[(int)_quality].ShadowMapCap,
                 ShadowMapSizeScale = QualityPreset.Presets[(int)_quality].ShadowMapScale,
 
-                //The finer meshes (#758), seeded for the same reason: a Medium start would draw High's acacias
+                //The finer meshes (#758, #733), seeded for the same reason: a Medium start would draw High's acacias and spruces
                 FineMeshes = QualityPreset.Presets[(int)_quality].FineMeshes
             };
 
@@ -1584,7 +1584,8 @@ namespace BS3D
             //The building count only belongs on this line for the scenes that actually draw the city; for the
             //other nine it is just how many sit in memory, and printing it beside an unrelated scene name reads
             //as though that scene has buildings in it (the draw call gates on the same check: BS3DGame.Scene.cs).
-            string city = (_scene == SceneKind.City || _scene == SceneKind.NeonCity)
+            //None on the Potato path, whose city is its backdrop's and says itself on the [potato] line (#897).
+            string city = (_scene == SceneKind.City || _scene == SceneKind.NeonCity) && _city != null
                 ? $"{_city.TowerCount} buildings, {_city.Buildings.Length - _city.TowerCount} cornices, "
                 : string.Empty;
             Console.WriteLine($"[game] {city}scene {_scene}, dome {_skyDome}");

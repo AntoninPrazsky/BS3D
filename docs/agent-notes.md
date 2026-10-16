@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-16 — #918 obrys poznámky o přeskočení — desktop (RDT-PC), Claude Code (bs3d-ac)
+- Nalezeno předvydávacím smoke testem razítkovaného Release buildu `9a32bd3d` (14 prvních levelů kapitol, front end v 1080p a 720p, Potato, prohra a výhra): žádná výjimka, chybějící soubor ani pád.
+- #918 (merge do mainu, zavřeno jako objektivní): `Skipping spends this chapter’s one skip` na stránce prohry byl jediný řádek bez obrysu (`Label` místo `ShadowedLabel`), nad mraky louky skoro zmizel. Teď nese obrys jako ostatní řádky (#465).
+- ⚠ `fire=` střílí jen v aktivním okně (`Game.IsActive`), takže při spuštění bez fokusu někdy nevystřelí nic; `walk=`/`turn=` fokus nepotřebují.
+
 ## 2026-10-15 — #758 akácie: vidlice vyrostlá, ne nasazená — desktop (RDT-PC), Claude Code (bs3d-ac)
 - majitel (2026-10-15): odparkováno do příštího vydání (savana, kapitola 2).
 - Hotovo (větev `758-acacia-fork`): High a Ultra kreslí `AcaciaMesh.FineWood`. Kmen se ke vidlici rozšíří do tvaru kořenových kruhů větví, ze sedel vedou rýhy dolů a vršek uzavře nízká kopule. Každá větev roste zevnitř kmene podél jeho povrchu po Bézierově křivce do stejných konců, takže listí visí na obojím. Low, Medium a Potato mají dřevo beze změny (`SceneRenderer.FineMeshes`, Testbed `finemeshes=`). +0,06 ms na High i Ultra. Hlídá to `AcaciaForkTests` (viděn selhat na hrubém dřevě).
@@ -877,3 +882,29 @@ Pravidla:
 - ⚠ Ořez přes `bake.trim_db` v sidecaru je nový `MusicBake`; patří jen masteru se špičkami bez plochého vrcholu (`music-bake.md`). Township jive drží výšky přes jakékoli zadání (7 z 8). Kapela, která se v renderu na 2 s zastaví, se dá střihnout znovu z části před zastavením (`music-generation.md`).
 - ⚠ Sdílený GPU zámek s pollem 10 s vyhladoví proti dávce, která si ho bere hned zpátky; dávka #706 polluje po 0,5 s a po renderu 15 s čeká.
 - Otevřené: ucho majitele; `jive` má kolísání výšky 3,9 c (ember max 3,8).
+
+## 2026-10-16 — #882–#896 poznámky ze hraní ke scénám a Help — desktop (RDT-PC), Claude Code (bs3d-5f)
+- Majitel poslal 15 poznámek (savana, Meadows, stín náhledové kuličky, Help, skleněný strop): patnáct issues #882–#896, jedno na poznámku. Jen čtení kódu a issues, na desktopu běžela druhá relace (žádný build, žádný snímek). #864 zavřen jeho verdiktem („balíky jsou správně veliké“). Komentáře s odkazy na #758, #753, #749, #856, #831, #481, #641, #609, #874, #733.
+- majitel (2026-10-16): scénická grafika se parkovala kvůli gameplayi a nestabilnímu desktopu; druhý důvod padl (měření bez limitu FPS, lokální AI, nový zdroj). Nová issues jsou bez parked; na otázku odpověděl „všech 18“: odparkovány #744–#749, #751–#754, #756, #757, #774–#779 (komentář na každém i na #768), CLAUDE.md a docs/repo-conventions.md mají výjimku „scene graphics“ (c1e0c815). Parkované zůstává #230 #251 #292 #690 #717 #718 #741 #771 #827 #853.
+- ⚠ Každé tělo prošel druhý agent proti kódu a 14 z 15 opravil (špatný řádek, zastaralé „v běhu“ u #758, který už je na mainu). Podíl listů proti větvi (52 %, #882) je z Python repliky, ne z C#.
+- ⚠ Testbed kreslí obruče až po ohních, takže chybu z #888 nepředvede. Fronta verdiktů je 19 (nad 15), práce na vzhledu čeká.
+- Otevřené: snímky před implementací; fronta verdiktů 19 (nad 15) drží start změn vzhledu, nabídnutá je stránka verdiktů.
+
+## 2026-10-16 — #898–#917 druhá dávka poznámek: High Scores, Jukebox, město, moře, hudba po kapitolách — desktop (RDT-PC), Claude Code (bs3d-5f)
+- Majitel poslal poznámky ke scénám a verdikty z poslechu celé hudby v Jukeboxu (nejmenované skladby jsou OK). Dvacet issues, jen čtení kódu: #898 High Scores, #899–#901 Jukebox, #902 stožáry, #903 ryby, #904–#915 hudba po kapitolách, #916 hlasové textury, #917 styl umělce v promptech. Komentář na #853 (denní doba), #873, #704, #486, #760, #685, #436.
+- majitel: potvrdil, že obrázky v #21 jsou jeho ruční rendery z Wings 3D (zapsáno do #896). Verdikty #706, #732, #824, #841: zbytek OK, jmenované skladby na navazujících #905, #907, #910, #913; čtyři issues zavřeny, fronta verdiktů je 15.
+- ⚠ Příčina ryb po ocasu (#903) je ve Fish.fx: úhel dělí čas relace poloměrem, který se mění s časem, takže rychlost roste a u části ryb jde do záporu. Jukebox hraje nahrávky bez vrstvy bicích (RecordingPlayer.cs:13-14): „bubny přebíjejí“ slyšel na plné hlasitosti.
+- Otevřené: žádný snímek ani poslech (druhá relace na desktopu); smyčka v Jukeboxu (#899) obrací jeho rozhodnutí z #704.
+
+## 2026-10-16 — #897 Potato: nálezy předvydávací revize — desktop (RDT-PC), Claude Code (bs3d-ac)
+- Hotovo (větev `897-potato-review-fixes`): Potato backdrop se staví jen při změně scény; dřív se stavěl znovu při každém startu levelu, restartu i zastavení ukazatele v pickeru. Na desktopu to byl záškub 4–15 ms ve městě, 30–125 ms na louce a v savaně a 130–170 ms na Měsíci. Čas stavby je teď na řádku `[potato]`.
+- Potato už nestaví hostitelské město, střechy ani ulice: start je asi o 165 ms kratší (BuildScene 1356 → 1191 ms).
+- Kruh skleněné koule bral barvu posledního barevného kbelíku, takže měla tmavý obrys. Teď nastavuje vlastní uniformy a obrys je bledý.
+- `PotatoSkyFigure` si parametry a techniky uloží při stavbě. Řádek Scenery na Potato ukazuje „On (Potato)“. Opravené docs a komentáře.
+- ⚠ Tools/SemanticSearch neběžel, protože se démon LM Studia nespustil. Duplicita se hledala podle klíčových slov.
+
+## 2026-10-16 — #733 smrky z větví na High a Ultra — desktop (RDT-PC), Claude Code (bs3d-ac)
+- majitel (2026-10-15): odparkováno do příštího vydání (polární záře, kapitola 5).
+- Hotovo (větev `733-conifer-crown`): High a Ultra kreslí korunu smrku z jednotlivých větví (`SpruceCrownGeometry`) podle téhož plánu přeslenů jako soustružená koruna. Pod větvemi je tmavé jádro, sníh leží v chomáčích jako geometrie a pod `FINE_NEAR_RADIUS` 110 je jemnější detail. Low, Medium a Potato mají starou korunu beze změny (`finemeshes=0` proti mainu: liší se jen padající vločky a zásobník děla). Platí i pro denní les. Ve hře na Fish +0,23 ms (High 9,49 → 9,72), v Testbedu +0,32 ms u hrací kamery.
+- ⚠ Sníh přes prachový člen zbělil všechny ploché větve. Cena je v trojúhelnících, ne v pixelech (ssaa 1 i 2 stejně), proto vzdálené stromy dostávají lehčí korunu.
+- Otevřené: verdikt oka; snímky před a po jsou v `verdicts\733\`.
