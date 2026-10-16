@@ -298,6 +298,17 @@ namespace Testbed.Diagnostics
         public int? SceneSeed { get; private set; }
 
         /// <summary>
+        /// <c>clock=&lt;seconds&gt;</c>: starts the clock the SCENE's shaders run on this many seconds late (#903).
+        /// The Game's scene clock is the seconds since launch, so a session that has been open for ten minutes
+        /// draws every <c>Time</c>-driven shader at 600, and the Testbed's, which starts at 0, never reaches it
+        /// in a capture: a term that grows with the clock (the sea's fish once turned tail first from about a
+        /// minute in) cannot be seen from a fresh launch. Added to the time handed to the scene
+        /// (<c>BuildSceneFrame</c>) only: <c>shot=</c>, <c>at=</c> and every other schedule keep running on the
+        /// run's own wall clock, so a script that drives a run does not move. Testing only; 0 when absent.
+        /// </summary>
+        public float ClockOffset { get; private set; }
+
+        /// <summary>
         /// <c>weather=&lt;clear|scattered|broken|overcast|storm&gt;</c>: the sky over the starting scene,
         /// overriding whatever that scene asks for (#221). Testing only, and it exists for one reason the
         /// scene defaults cannot serve: judging five skies means seeing them over the SAME backdrop under
@@ -488,6 +499,9 @@ namespace Testbed.Diagnostics
                 else if (arg.StartsWith("sceneseed=", StringComparison.OrdinalIgnoreCase)
                     && int.TryParse(arg.Substring("sceneseed=".Length), NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsedSceneSeed))
                     options.SceneSeed = parsedSceneSeed;
+                else if (arg.StartsWith("clock=", StringComparison.OrdinalIgnoreCase)
+                    && float.TryParse(arg.Substring("clock=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedClock))
+                    options.ClockOffset = Math.Max(parsedClock, 0f);
                 else if (arg.StartsWith("weather=", StringComparison.OrdinalIgnoreCase)) options.Weather = arg.Substring("weather=".Length);
                 else if (arg.StartsWith("balls=", StringComparison.OrdinalIgnoreCase) && BallStyles.TryParse(arg.Substring("balls=".Length), out BallStyle parsedBalls)) options.Balls = parsedBalls;
                 //Always consumed, so a spelling the parse refuses (the carved prototype's "shape") is named and dropped

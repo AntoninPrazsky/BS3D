@@ -45,6 +45,9 @@ CLI arguments (any order):
 - `shot=<t1,t2,…>` / `shotframe=<n1,n2,…>` — the Testbed saves its own frame at those wall-clock seconds, or
   at those frame indices (#371). See "Screenshot of the game window" below; prefer these to any capture that
   goes through the screen.
+- `clock=<seconds>` — starts the SCENE's shader clock that many seconds late (#903), so a term that grows with
+  the session clock (the Game's is the seconds since launch, the Testbed's starts at 0) can be photographed at
+  `clock=600` without waiting. Only the time handed to the scene moves: `shot=`/`at=` keep the wall clock.
 - `switchmap=<path>` — loads a second map on top of the running one after 10 s (logs `[switchmap] Loading …`);
   exercises the map re-loading path used by F2 and drag-and-drop. Note `Dense20x10x15.json` is completely
   full — nothing can attach to it, so to verify attachment after a switch, switch **to** a map with free cells

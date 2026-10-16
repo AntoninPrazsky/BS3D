@@ -285,6 +285,10 @@ namespace Testbed
         //looking at the same arrangement on both halves, and after the roll it would not be. 0 is what shipped.
         private readonly int _sceneSeedOffset;
 
+        //clock=<seconds> (#903): how late the SCENE's shader clock starts. Added in BuildSceneFrame only, so the
+        //shot and input schedules, which run off _pulseSeconds, are not moved by it.
+        private readonly float _sceneClockOffset;
+
         //Which of the two cities _city holds, so a scene change that does not cross between them rebuilds
         //nothing.
         private bool _cityIsNeon;
@@ -534,6 +538,8 @@ namespace Testbed
             //The scene's procedural roll (see _sceneSeedOffset), and the line that makes a capture of it
             //reproducible: a frame of a city nobody can generate twice is a frame nobody can compare against.
             _sceneSeedOffset = options.SceneSeed ?? Random.Shared.Next();
+            _sceneClockOffset = options.ClockOffset;
+            if (_sceneClockOffset > 0f) Console.WriteLine($"[clock] scene clock starts at {_sceneClockOffset.ToString("0.###", CultureInfo.InvariantCulture)} s");
             Console.WriteLine($"[sceneseed] {_sceneSeedOffset}"
                 + (options.SceneSeed.HasValue ? " (pinned)" : " (rolled; pin it with sceneseed=)"));
 
@@ -1294,7 +1300,7 @@ namespace Testbed
         /// the cloud hook was captured once at load, so this allocates nothing — it used to build a fresh
         /// delegate and re-derive the sun's tint on every frame of the draw path.
         /// </summary>
-        private SceneFrame BuildSceneFrame() => _rig.BuildSceneFrame(_camera, _pulseSeconds);
+        private SceneFrame BuildSceneFrame() => _rig.BuildSceneFrame(_camera, _pulseSeconds + _sceneClockOffset);
 
         /// <summary>
         /// Builds the setting: the procedural city (one unit box mesh under a different instance matrix per

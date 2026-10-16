@@ -12,6 +12,15 @@ The Testbed writes PNGs out of its own back buffer through `Prazsky.Core.Render.
 - **`shotframe=` exists because a schedule in seconds samples whatever moves.** With F5 freezing the simulation and `campos`/`camtarget` pinning the camera, frame *n* of two runs is the same frame; the Game can hold neither still, so it does not take `shotframe=`.
 - The capture is the **last** statement of `Draw`, after `[fps]` and `CapFrameRate`, because the readback stalls the pipeline and encodes on this thread (~0.1 s at 1600×900) and must not land in a frame a benchmark counts. It runs off `_pulseSeconds`, so a scheduled shot lands at the same moment whether the simulation runs, is slowed or frozen.
 
+## Starting the scene's clock late: `clock=<seconds>`
+
+`clock=600` runs every `Time`-driven scene shader ten minutes into a session from the first frame (#903). The Game's scene clock is the seconds since launch and the Testbed's starts at 0, so a term that grows with the clock is invisible in a fresh Testbed capture (the sea's fish turned tail first from about a minute in, and no capture short of waiting an hour could show it).
+
+- It is added to the time handed to the scene (`BuildSceneFrame`) **only**. `shot=`, `shotframe=`, `at=` and the other schedules run off the wall clock as before, so a script that drives a run does not move. The ball pulse, the clouds' own clock and the tonemap's grain are not shifted.
+- Prints `[clock] scene clock starts at <n> s`. Testbed only; the Game has no spelling for it.
+- A pair of frames at `clock=600` with the camera pinned is what separates "right at the start" from "right for as long as the session runs" (`scene=sea sceneseed=0 campos=24,-36,6 camtarget=0,-20,0 nopost clock=600`).
+- ⚠ **Two shots in a row are not 0.5 s apart on the scene clock if they are close.** Each readback takes about 0.1 s on this thread and the clock advances by the whole frame, so `shot=6,6.1` collapses or lands 0.2 s apart; ask for gaps of 0.5 s or more, or read the gap off a probe that prints it.
+
 ## Reading the camera back: `C`
 
 `C` (or `at=<t>:C`) prints the live camera in the spelling the command line takes:
