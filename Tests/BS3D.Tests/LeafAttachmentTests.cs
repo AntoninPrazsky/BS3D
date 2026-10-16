@@ -4,6 +4,7 @@ using Prazsky.Core.Render;
 using System;
 using System.Collections.Generic;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace BS3D.Tests
 {
@@ -13,11 +14,31 @@ namespace BS3D.Tests
     /// with no device (<see cref="AcaciaMesh.Build"/>, <see cref="BaobabMesh.Build"/>) and every leaf card's stem — the
     /// middle of its <c>u</c> = 0 edge, where <c>Acacia.fx</c>'s mask starts the spray — is measured against the tree's
     /// skeleton, every tube it was swept along: no stem may stand farther from the wood than the card is long.
+    /// <para>
+    /// And they grow <i>along</i> their wood (#882): the owner, on the same crowns, "the leaves do not point along the
+    /// direction the branches grow, the way they would in reality". A card's direction (its stem to its tip) is
+    /// measured against the direction of the skeleton piece nearest its stem — the twig it hangs on, as a stem is on it —
+    /// and no more than a few in a hundred may point back towards the twig's root.
+    /// </para>
     /// </summary>
     public class LeafAttachmentTests
     {
+        private readonly ITestOutputHelper _output;
+
+        public LeafAttachmentTests(ITestOutputHelper output) => _output = output;
+
         //The savanna's own figures (SavannaSceneConfig: Width 6, Height 9, TreeSize 1.7; the scatter's proportions)
         private const float ACACIA_WIDTH = 6f * 1.7f, ACACIA_HEIGHT = 9f * 1.7f, BAOBAB_HEIGHT = 24f;
+
+        //A spray leaves its twig forwards, a lean off the tangent of some forty degrees; it is the twig's root a card must
+        //not point to (more than a right angle off the tangent). None does as built (40 to 65 % of an acacia's cards did when
+        //every spray pointed out of the tier's centre); a few in a hundred is slack for a seed where two pieces of wood
+        //cross at a stem and the nearest is not the twig's own
+        private const float MAX_BACKWARDS_SHARE = 0.03f;
+
+        //And lie near flat: the pitch off the horizontal the steepest tenth of the cards reach (19 to 23 degrees as built; 13 to 17
+        //before the sprays followed their twigs)
+        private const float MAX_PITCH_P90 = 30f;
 
         public static TheoryData<AcaciaKind, int> Acacias() => new()
         {
@@ -47,6 +68,69 @@ namespace BS3D.Tests
 
             AssertAttached(tree.LeafVertices, tree.Skeleton, $"baobab {seed}");
             AssertFitsShortIndices(tree.WoodVertices.Count, $"baobab {seed}");
+        }
+
+        [Theory]
+        [MemberData(nameof(Acacias))]
+        public void EveryAcaciaLeafPointsAlongItsTwig(AcaciaKind kind, int seed)
+        {
+            float trunk = ACACIA_WIDTH * (kind == AcaciaKind.Young ? 0.055f : 0.09f);
+            float height = ACACIA_HEIGHT * (kind == AcaciaKind.Young ? 0.6f : 1f);
+            float canopy = ACACIA_WIDTH * (kind == AcaciaKind.Young ? 0.9f : 1f);
+            AcaciaGeometry tree = AcaciaMesh.Build(kind, trunk, height, canopy, seed);
+
+            AssertAlongWood(tree.LeafVertices, tree.Skeleton, $"{kind} {seed}");
+        }
+
+        [Theory]
+        [InlineData(4700)]
+        [InlineData(4701)]
+        public void EveryBaobabLeafPointsAlongItsTwig(int seed)
+        {
+            BaobabGeometry tree = BaobabMesh.Build(BAOBAB_HEIGHT, seed);
+
+            AssertAlongWood(tree.LeafVertices, tree.Skeleton, $"baobab {seed}");
+        }
+
+        private void AssertAlongWood(IReadOnlyList<VertexPositionNormalTexture> leaves, IReadOnlyList<(Vector3 From, Vector3 To)> skeleton, string tree)
+        {
+            Assert.True(leaves.Count > 0, $"{tree}: no leaves");
+
+            int cards = leaves.Count / 4, backwards = 0;
+            var angles = new List<float>(cards);
+            var pitches = new List<float>(cards);
+            for (int card = 0; card + 3 < leaves.Count; card += 4)
+            {
+                Vector3 stem = (leaves[card].Position + leaves[card + 1].Position) * 0.5f;
+                Vector3 end = (leaves[card + 2].Position + leaves[card + 3].Position) * 0.5f;
+                Vector3 along = Vector3.Normalize(end - stem);
+
+                float nearest = float.MaxValue;
+                Vector3 tangent = Vector3.Up;
+                foreach ((Vector3 from, Vector3 to) in skeleton)
+                {
+                    float d = DistanceToSegment(stem, from, to);
+                    if (d < nearest && (to - from).LengthSquared() > 1e-12f) { nearest = d; tangent = Vector3.Normalize(to - from); }
+                }
+
+                float dot = Vector3.Dot(along, tangent);
+                if (dot < 0f) backwards++;
+                angles.Add(MathHelper.ToDegrees(MathF.Acos(Math.Clamp(dot, -1f, 1f))));
+                pitches.Add(MathHelper.ToDegrees(MathF.Asin(Math.Clamp(MathF.Abs(along.Y), 0f, 1f))));
+            }
+
+            angles.Sort();
+            pitches.Sort();
+            float share = backwards / (float)cards;
+            _output.WriteLine($"{tree}: {backwards} of {cards} cards ({share * 100f:0.0} %) point back along their twig, median {angles[angles.Count / 2]:0} degrees off its tangent, 90th percentile {angles[angles.Count * 9 / 10]:0}; pitch off the horizontal median {pitches[pitches.Count / 2]:0}, 90th percentile {pitches[pitches.Count * 9 / 10]:0}, steepest {pitches[^1]:0}");
+
+            Assert.True(share <= MAX_BACKWARDS_SHARE,
+                $"{tree}: {backwards} of {cards} leaf cards ({share * 100f:0.0} %) point against the wood they hang on, the median {angles[angles.Count / 2]:0} degrees off its direction");
+
+            //Along the twig, but still laid near flat: the crown is thin tiers of foliage (#610), and a spray that followed every
+            //twig's climb in full would stand them on end
+            float steep = pitches[pitches.Count * 9 / 10];
+            Assert.True(steep <= MAX_PITCH_P90, $"{tree}: the steepest tenth of the leaf cards are tilted {steep:0} degrees or more off the horizontal");
         }
 
         private static void AssertAttached(IReadOnlyList<VertexPositionNormalTexture> leaves, IReadOnlyList<(Vector3 From, Vector3 To)> skeleton, string tree)
