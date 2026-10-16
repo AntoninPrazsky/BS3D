@@ -49,6 +49,10 @@ namespace BS3D.Audio
     /// piece in the same slot measured, which is why <see cref="MUSIC_VOLUME"/> and <see cref="MENU_VOLUME"/> kept
     /// their values: the mix the effects were tuned against did not move — until #467 raised the music, see
     /// <see cref="MUSIC_VOLUME"/>.
+    /// <b>The voices play them at that level over <see cref="MusicLevels.DECODE_HEADROOM"/> (#919):</b> a recording is
+    /// decoded with that headroom (<see cref="OggTrack.DecodeMusic(string, int)"/>) so Vorbis's overshoot is not pressed
+    /// onto the rail, and the volume of every voice that plays one is raised by the same factor, so the loudness is the
+    /// authored one and nothing got quieter.
     /// </para>
     /// <para>
     /// <b>A recording with a drums layer is fed in chunks and mixed (#495).</b> When <c>Music/Drums/</c> holds a file of
@@ -97,21 +101,29 @@ namespace BS3D.Audio
         /// procedural score, and the generated tracks (#443) were brought to the same RMS — but a full-band mix
         /// cut from a render and a sparse synthetic piece at one RMS are not one loudness, and RMS is all the
         /// bakery measures. The first of the two steps the issue proposes (0.5, then 0.7); the ear decides the
-        /// second. A theme peaks under full scale, so it cannot clip alone at any gain up to 1 — the sum with a
-        /// big release is what to listen for.
+        /// second. A theme peaks under full scale — since #919, when the decode got its headroom: until then the
+        /// codec's overshoot was pressed onto the rail on 78 of the 140 recordings — so it cannot clip alone at any
+        /// gain up to 1; the sum with a big release is what to listen for.
         /// </para>
         /// </summary>
-        public const float MUSIC_VOLUME = 0.5f;
+        /// <remarks>
+        /// <b>The authored loudness, not the number a recording's voice is given (#919):</b> the voices play a decoded
+        /// recording at <see cref="MusicLevels.THEME_VOICE"/>, this over the decode's headroom. This figure itself is what
+        /// the About page's procedural pieces play at, which never pass through the decoder.
+        /// </remarks>
+        public const float MUSIC_VOLUME = MusicLevels.THEME_LEVEL;
 
         /// <summary>The front end's loop, under even the theme: a lobby, not a dancefloor. Raised with the theme in
-        /// #467 by the same ratio (0.2 → 0.29), so the lobby-to-level step #456 fades is what it was.</summary>
-        public const float MENU_VOLUME = 0.29f;
+        /// #467 by the same ratio (0.2 → 0.29), so the lobby-to-level step #456 fades is what it was. Authored, like
+        /// <see cref="MUSIC_VOLUME"/>: the voice plays it over the headroom (<see cref="MusicLevels.MENU_VOICE"/>).</summary>
+        public const float MENU_VOLUME = MusicLevels.MENU_LEVEL;
 
         /// <summary>
         /// The pause's loop (#668), at the lobby's level: the owner asked for "calming lobby/elevator music", and the
-        /// lobby is the one piece already tuned to sit under a menu rather than to carry a level.
+        /// lobby is the one piece already tuned to sit under a menu rather than to carry a level. Authored, like
+        /// <see cref="MUSIC_VOLUME"/> (the voice: <see cref="MusicLevels.PAUSE_VOICE"/>).
         /// </summary>
-        public const float PAUSE_VOLUME = MENU_VOLUME;
+        public const float PAUSE_VOLUME = MusicLevels.PAUSE_LEVEL;
 
         /// <summary>
         /// How long the level's theme takes to step aside for the pause, and the pause's loop to arrive — and the
@@ -709,10 +721,12 @@ namespace BS3D.Audio
             }
         }
 
-        private float ThemeVolume => MUSIC_VOLUME * _gain * _themeFade.Applied * _yield.Applied * _pauseDuck.Applied;
-        private float MenuVolume => MENU_VOLUME * _gain * _menuFade.Applied * _yield.Applied;
-        private float RetiringVolume => MUSIC_VOLUME * _gain * _retiringFade.Applied * _yield.Applied * _pauseDuck.Applied;
-        private float PauseVolume => PAUSE_VOLUME * _gain * _pauseFade.Applied * _yield.Applied;
+        //Every voice here plays a recording OggTrack.DecodeMusic made, so each is given its authored level over the
+        //decode's headroom (#919), and every other factor is at most 1
+        private float ThemeVolume => MusicLevels.THEME_VOICE * _gain * _themeFade.Applied * _yield.Applied * _pauseDuck.Applied;
+        private float MenuVolume => MusicLevels.MENU_VOICE * _gain * _menuFade.Applied * _yield.Applied;
+        private float RetiringVolume => MusicLevels.THEME_VOICE * _gain * _retiringFade.Applied * _yield.Applied * _pauseDuck.Applied;
+        private float PauseVolume => MusicLevels.PAUSE_VOICE * _gain * _pauseFade.Applied * _yield.Applied;
 
         private void WriteVolumes()
         {
@@ -949,13 +963,15 @@ namespace BS3D.Audio
         /// <summary>
         /// Decodes one track on a background thread; null, logged, when the file cannot be played. Every track is
         /// started at construction, so they decode side by side while the splash is up — see
-        /// <c>Tools/MusicBake --tracks</c> for what that costs.
+        /// <c>Tools/MusicBake --tracks</c> for what that costs. With the music's headroom (#919), the drums layers
+        /// too: <see cref="DrumLayer.Mix"/> subtracts a stem from its recording, which is the recording scaled by that
+        /// factor only if the stem is.
         /// </summary>
         private static Task<byte[]> Load(string path) => Task.Run(() =>
         {
             try
             {
-                return OggTrack.Decode(path, SAMPLE_RATE);
+                return OggTrack.DecodeMusic(path, SAMPLE_RATE);
             }
             catch (Exception exception)
             {

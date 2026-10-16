@@ -42,6 +42,17 @@ namespace BS3D.Tests
             return path;
         }
 
+        /// <summary>
+        /// A shipped music recording, <c>Game\Music\&lt;name&gt;.ogg</c> (#919): the Levels directory's sibling too, found by
+        /// the same landmark.
+        /// </summary>
+        public static string Music(string name)
+        {
+            string path = Path.Combine(Path.GetDirectoryName(LevelsDirectory)!, "Music", name + ".ogg");
+            Assert.True(File.Exists(path), $"Shipped recording '{name}.ogg' is missing from {Path.GetDirectoryName(path)}");
+            return path;
+        }
+
         /// <summary>xUnit's shape for one row per shipped level.</summary>
         public static IEnumerable<object[]> LevelFileNames() =>
             LevelFiles().Select(p => new object[] { Path.GetFileName(p) });

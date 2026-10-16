@@ -30,7 +30,9 @@ namespace BS3D.Tools.MusicBake
     /// it to <c>Game/Music</c> as the Ogg Vorbis <c>GameMusic</c> decodes (#444) — printing the same table, so
     /// the old and the new sit in one set of numbers. Every track it encodes it also decodes again, through the
     /// game's own <see cref="OggTrack"/>, and says what came back: the length a loop depends on to the frame,
-    /// what the codec did at the loop's two edges, and how long the game's load of all of them takes.
+    /// what the codec did at the loop's two edges, how long the game's load of all of them takes, and the largest sample
+    /// the codec produced, which has to fit the headroom the game decodes the music with (<see cref="MusicLevels"/>, #919):
+    /// the knee keeps the PCM it encodes under full scale, and Ogg Vorbis overshoots it.
     /// </para>
     /// </summary>
     internal static class Program
@@ -65,8 +67,11 @@ namespace BS3D.Tools.MusicBake
 
         /// <summary>
         /// Where the peak shaper starts, −1 dBFS. Above it a sample is bent into the remaining headroom along a
-        /// tanh knee, so nothing reaches full scale; below it nothing is touched. It is memoryless — the same
+        /// tanh knee, so nothing in the PCM reaches full scale; below it nothing is touched. It is memoryless — the same
         /// curve on every sample — which is what keeps a loop's seam exactly as seamless as the master's.
+        /// <b>That holds for the PCM only (#919):</b> Ogg Vorbis overshoots what it is given, up to +0.90 dBFS on the shipped
+        /// set, which the game's decode headroom (<see cref="MusicLevels.DECODE_HEADROOM_DB"/>) absorbs and
+        /// <see cref="OvershootRefusal"/> holds every encode to.
         /// </summary>
         private const float KNEE = 0.891f;
 
@@ -695,6 +700,9 @@ namespace BS3D.Tools.MusicBake
 
             List<(string Track, double Lufs)> themes = new();
             bool read = true;
+            float highestPeak = 0f;
+            string highestTrack = null;
+            int overshooting = 0;
 
             foreach (string path in files)
             {
@@ -702,10 +710,13 @@ namespace BS3D.Tools.MusicBake
 
                 Stopwatch clock = Stopwatch.StartNew();
                 byte[] pcm;
+                float codecPeak;
 
                 try
                 {
-                    pcm = OggTrack.Decode(path, TRACK_RATE);
+                    //At unity, as the table has always read them, and with the peak the codec made (#919)
+                    using FileStream file = File.OpenRead(path);
+                    pcm = OggTrack.Decode(file, TRACK_RATE, 1f, out codecPeak);
                 }
                 catch (Exception exception)
                 {
@@ -729,6 +740,22 @@ namespace BS3D.Tools.MusicBake
                     read = false;
                 }
 
+                //So does one the game's decode headroom cannot hold (#919)
+                string overshoot = OvershootRefusal(track, codecPeak);
+                if (overshoot != null)
+                {
+                    Console.WriteLine("                 " + overshoot);
+                    read = false;
+                }
+
+                if (codecPeak > highestPeak)
+                {
+                    highestPeak = codecPeak;
+                    highestTrack = track;
+                }
+
+                if (codecPeak > 1f) overshooting++;
+
                 //The front end's loop is a lobby, brought to its own lower level on purpose, so it is not in the range
                 if (!Is(track, MENU_TRACK) && !double.IsNegativeInfinity(lufs)) themes.Add((track, lufs));
             }
@@ -743,6 +770,11 @@ namespace BS3D.Tools.MusicBake
                 Console.WriteLine($"\n{themes.Count} themes: {themes[0].Lufs:0.0} to {themes[^1].Lufs:0.0} LUFS, a spread of "
                     + $"{themes[^1].Lufs - themes[0].Lufs:0.0} LU, median {median:0.0}; the quietest {themes[0].Track}, the loudest {themes[^1].Track}");
             }
+
+            //The post-codec peak (#919): the table's own peak column is the decoded 16 bits, which the decoder's clip cut at full scale
+            if (highestTrack != null)
+                Console.WriteLine($"Post-codec peak: {overshooting} of {files.Count} over full scale before any gain; the highest {Db(highestPeak):+0.00} dBFS ({highestTrack}), "
+                    + $"against the +{Db(MusicLevels.MAX_CODEC_PEAK):0.00} the game's {MusicLevels.DECODE_HEADROOM_DB:0.0} dB decode headroom absorbs");
 
             return read ? 0 : 1;
         }
@@ -788,6 +820,7 @@ namespace BS3D.Tools.MusicBake
             int trackRate = 0;
             bool framesHold = true;
             bool quietHold = true;
+            bool peakHold = true;
 
             for (int t = 0; t < found.Count; t++)
             {
@@ -829,8 +862,9 @@ namespace BS3D.Tools.MusicBake
                 //The serial is fixed per track rather than random, so an unchanged master rebakes to the same bytes
                 byte[] ogg = EncodeOgg(mix, rate, quality, SerialFor(track), title: track);
 
+                //At unity and unclipped, so the peak is what the codec made of the PCM it was given (#919)
                 Stopwatch decodeClock = Stopwatch.StartNew();
-                byte[] decoded = OggTrack.Decode(new MemoryStream(ogg), rate);
+                byte[] decoded = OggTrack.Decode(new MemoryStream(ogg), rate, 1f, out float codecPeak);
                 decodeClock.Stop();
 
                 int frames = mix.Length / 2;
@@ -848,14 +882,26 @@ namespace BS3D.Tools.MusicBake
                     + $"{clipped} samples clipped; coding error at the loop edges {edgeRatio:0.00}x the body's; "
                     + $"step across the wrap {wrapGrowth:+0.0000;-0.0000;0.0000} of full scale");
 
-                //A master that falls silent too long is not written (#772); the run says so and fails
+                //The PCM was kept under full scale and the codec brought it back over (#919): how far, against what the game absorbs
+                Console.WriteLine($"                 post-codec peak {Db(codecPeak):+0.00;-0.00} dBFS, against the +{Db(MusicLevels.MAX_CODEC_PEAK):0.00} the game's decode headroom absorbs");
+
+                //A master that falls silent too long is not written (#772), nor one whose encode overshoots more than the
+                //game's decode absorbs (#919); the run says so and fails
                 string silent = QuietRefusal(track, mix, rate);
                 if (silent != null)
                 {
                     Console.WriteLine("                 " + silent);
                     quietHold = false;
                 }
-                else if (write) File.WriteAllBytes(Path.Combine(tracks, track + ".ogg"), ogg);
+
+                string overshoot = OvershootRefusal(track, codecPeak);
+                if (overshoot != null)
+                {
+                    Console.WriteLine("                 " + overshoot);
+                    peakHold = false;
+                }
+
+                if (silent == null && overshoot == null && write) File.WriteAllBytes(Path.Combine(tracks, track + ".ogg"), ogg);
 
                 encoded.Add(ogg);
                 wavBytes += 44 + frames * 4L;
@@ -871,7 +917,7 @@ namespace BS3D.Tools.MusicBake
             for (int i = 0; i < loads.Length; i++)
             {
                 byte[] ogg = encoded[i];
-                loads[i] = Task.Run(() => OggTrack.Decode(new MemoryStream(ogg), trackRate));
+                loads[i] = Task.Run(() => OggTrack.DecodeMusic(new MemoryStream(ogg), trackRate));
             }
             Task.WaitAll(loads);
             together.Stop();
@@ -883,9 +929,10 @@ namespace BS3D.Tools.MusicBake
 
             if (!framesHold) Console.WriteLine("A track does not decode to its master's frames in place: its loop would jump or gap at every repeat");
             if (!quietHold) Console.WriteLine("A master falls silent for longer than a recording may, and was not written (#772)");
+            if (!peakHold) Console.WriteLine("A track decodes over what the game's decode headroom absorbs: it would be pressed onto the rail in play, and was not written (#919)");
             if (write) Console.WriteLine($"Written to {tracks}");
 
-            return framesHold && quietHold ? 0 : 1;
+            return framesHold && quietHold && peakHold ? 0 : 1;
         }
 
         /// <summary>
@@ -987,7 +1034,9 @@ namespace BS3D.Tools.MusicBake
             {
                 short r = Reference(s), d = Decoded(s);
 
-                if (Math.Abs((int)d) >= short.MaxValue && Math.Abs((int)r) < short.MaxValue) clipped++;
+                //Asked of the rail the decode leaves a clipped sample on, which is not 32767 (#919: the count asked for that, so
+                //it read 0 on every track while the codec pressed thousands of samples flat)
+                if (Math.Abs((int)d) >= OggTrack.RAIL_SAMPLE && Math.Abs((int)r) < OggTrack.RAIL_SAMPLE) clipped++;
 
                 double e = (d - r) / (double)short.MaxValue;
                 int frame = s / 2;
@@ -1182,6 +1231,19 @@ namespace BS3D.Tools.MusicBake
                 ? FormattableString.Invariant($"{track} falls silent for {quiet:0.00} s from {at:0.0} s (under {QUIET_DBFS:0} dBFS) - over the {QUIET_LIMIT_SECONDS:0} s a recording may: REFUSED")
                 : null;
         }
+
+        /// <summary>
+        /// The line a recording is refused with when the codec brings it back over what the game's decode headroom absorbs
+        /// (#919), or null when it does not. <paramref name="codecPeak"/> is <see cref="OggTrack.Decode(Stream, int, float, out float)"/>'s:
+        /// the largest sample before any gain or clip, as a fraction of full scale. The knee keeps the PCM under full scale
+        /// and Ogg Vorbis overshoots it - the shipped set decodes to +0.90 dBFS at the most - so what is held here is
+        /// the file, which is what plays: over <see cref="MusicLevels.MAX_CODEC_PEAK"/> it would be pressed onto the rail in play. The
+        /// cure is a trim in the master's sidecar (<see cref="SidecarTrimDb"/>), as for a master too peaky for the loudness.
+        /// </summary>
+        private static string OvershootRefusal(string track, float codecPeak) =>
+            codecPeak > MusicLevels.MAX_CODEC_PEAK
+                ? FormattableString.Invariant($"{track} decodes to {Db(codecPeak):+0.00} dBFS - over the {Db(MusicLevels.MAX_CODEC_PEAK):+0.00} dBFS the game's {MusicLevels.DECODE_HEADROOM_DB:0.0} dB decode headroom absorbs, so it would clip in play (trim the master in its sidecar): REFUSED")
+                : null;
 
         /// <summary>One line of numbers per rendering, with the envelope under it. Returns the integrated loudness.</summary>
         private static double Report(string name, float[] mix, int rate, double bakeMs, double entrySeconds)
