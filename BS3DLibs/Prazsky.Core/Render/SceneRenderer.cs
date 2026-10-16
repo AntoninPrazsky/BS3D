@@ -282,13 +282,16 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Whether the scenes draw their <b>finer meshes</b> (#758): High and Ultra's, where Low and Medium draw the coarser
         /// mesh of the same thing off the same instances (<see cref="ScatterBucket.FineMeshes"/>). Today that is the savanna
-        /// acacias' wood alone — the fork grown as one surface out of a swollen, lobed crotch rather than tubes poking out
-        /// of the trunk's cut end, at twelve to twenty sides where the coarse wood has seven (<see cref="AcaciaMesh.FineWood"/>).
+        /// acacias' wood — the fork grown as one surface out of a swollen, lobed crotch rather than tubes poking out
+        /// of the trunk's cut end, at twelve to twenty sides where the coarse wood has seven (<see cref="AcaciaMesh.FineWood"/>) —
+        /// and the mountain range (#781): a grid twice as fine carrying a sixth octave and crags, shaded by a program that
+        /// lays the rock in three dimensions where the coarser one projects it on the ground plane.
         /// <para>
         /// A switch of its own rather than a step of <see cref="SceneDetail"/>, because that one is Low's alone (#298) and
         /// this one is Medium's too: Medium is the weak machine's rung. A plain flag for <see cref="SupersampleFactor"/>'s
         /// reason — the tier lives in the Game. Left on, a caller that never sets it draws the authored look, which is what
-        /// the Testbed and the map editor want. Costed in "The acacia's fork" in docs/scenes/savanna-trees.md.
+        /// the Testbed and the map editor want. Costed in "The acacia's fork" in docs/scenes/savanna-trees.md and "High and
+        /// Ultra's range" in docs/scenes/mountains.md.
         /// </para>
         /// </summary>
         public bool FineMeshes

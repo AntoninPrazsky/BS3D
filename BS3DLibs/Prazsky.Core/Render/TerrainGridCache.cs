@@ -21,6 +21,14 @@ namespace Prazsky.Core.Render
     /// taking it from the scenes still drawing it. The cache owns every buffer it hands out; a holder never
     /// disposes one itself, it <see cref="Release"/>s it, and <see cref="Dispose"/> frees whatever is left once.
     /// </para>
+    /// <para>
+    /// <b>A grid can also be asked for NEAR FIRST</b> (#781): the same vertices, the quads in rings from the centre out,
+    /// so a camera at the centre draws its terrain near to far whichever way it looks and the depth test rejects what a
+    /// nearer ridge hides before it is shaded. A separate entry, because the order is the only difference and a scene
+    /// that does not ask keeps the row order it was measured with. It pays only where the depth test can run before
+    /// the pixel shader, which a shader that may <c>clip</c> forfeits: the mountain's High and Ultra program cuts its
+    /// island hole in the vertex shader for that reason.
+    /// </para>
     /// </summary>
     internal sealed class TerrainGridCache : IDisposable
     {
@@ -34,17 +42,20 @@ namespace Prazsky.Core.Render
         }
 
         private readonly GraphicsDevice _device;
-        private readonly Dictionary<(int N, float Extent), Grid> _grids = new();
+        private readonly Dictionary<(int N, float Extent, bool NearFirst), Grid> _grids = new();
 
         public TerrainGridCache(GraphicsDevice device) => _device = device;
 
-        /// <summary>The grid of <paramref name="n"/> vertices a side over <paramref name="extent"/>, built on its first request.</summary>
-        public Grid Acquire(int n, float extent)
+        /// <summary>
+        /// The grid of <paramref name="n"/> vertices a side over <paramref name="extent"/>, built on its first request;
+        /// <paramref name="nearFirst"/> asks for its quads in rings from the centre out (see the class).
+        /// </summary>
+        public Grid Acquire(int n, float extent, bool nearFirst = false)
         {
-            if (!_grids.TryGetValue((n, extent), out Grid grid))
+            if (!_grids.TryGetValue((n, extent, nearFirst), out Grid grid))
             {
-                grid = Build(n, extent);
-                _grids.Add((n, extent), grid);
+                grid = Build(n, extent, nearFirst);
+                _grids.Add((n, extent, nearFirst), grid);
             }
 
             grid.References++;
@@ -52,16 +63,16 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>Gives back one reference to the grid <see cref="Acquire"/> handed out for the pair; the last one frees it.</summary>
-        public void Release(int n, float extent)
+        public void Release(int n, float extent, bool nearFirst = false)
         {
-            if (!_grids.TryGetValue((n, extent), out Grid grid))
-                throw new InvalidOperationException($"No terrain grid {n} a side over {extent} is held; released twice?");
+            if (!_grids.TryGetValue((n, extent, nearFirst), out Grid grid))
+                throw new InvalidOperationException($"No terrain grid {n} a side over {extent} (near first: {nearFirst}) is held; released twice?");
 
             if (--grid.References > 0) return;
 
             grid.Vertices.Dispose();
             grid.Indices.Dispose();
-            _grids.Remove((n, extent));
+            _grids.Remove((n, extent, nearFirst));
         }
 
         public void Dispose()
@@ -81,7 +92,7 @@ namespace Prazsky.Core.Render
         /// these grids runs past 255 vertices a side, where a 16-bit index silently wraps (see the inline note
         /// below — that wrap has already cost one long hunt).
         /// </summary>
-        private Grid Build(int n, float extent)
+        private Grid Build(int n, float extent, bool nearFirst)
         {
             float half = extent * Constants.HALF;
             float step = extent / (n - 1);
@@ -100,24 +111,54 @@ namespace Prazsky.Core.Render
             //flat field (sea, savanna) the garbage stays down near the surface and hides; on the mountain's tall
             //peaks it stretched into long dark bands across the whole sky. Wrong cause chased for a while - it
             //looked like a glare/shading artifact - so: a grid over 255 a side MUST use 32-bit indices.
-            int[] indices = new int[(n - 1) * (n - 1) * 6];
-            int i = 0;
-            for (int z = 0; z < n - 1; z++)
-                for (int x = 0; x < n - 1; x++)
-                {
-                    int a = z * n + x;
-                    int b = z * n + x + 1;
-                    int c = (z + 1) * n + x;
-                    int d = (z + 1) * n + x + 1;
-
-                    indices[i++] = a; indices[i++] = c; indices[i++] = b;
-                    indices[i++] = b; indices[i++] = c; indices[i++] = d;
-                }
+            int[] indices = Indices(n, nearFirst);
 
             IndexBuffer indexBuffer = new(_device, IndexElementSize.ThirtyTwoBits, indices.Length, BufferUsage.WriteOnly);
             indexBuffer.SetData(indices);
 
-            return new Grid { Vertices = vertexBuffer, Indices = indexBuffer, IndexCount = i };
+            return new Grid { Vertices = vertexBuffer, Indices = indexBuffer, IndexCount = indices.Length };
+        }
+
+        /// <summary>
+        /// The triangle list of an <paramref name="n"/>-a-side grid: two triangles a quad, row by row, or with
+        /// <paramref name="nearFirst"/> the same quads in square rings round the centre quad, innermost first (#781).
+        /// Static and device-free so the order is testable.
+        /// </summary>
+        internal static int[] Indices(int n, bool nearFirst)
+        {
+            int[] indices = new int[(n - 1) * (n - 1) * 6];
+            int i = 0;
+            void Quad(int x, int z)
+            {
+                int a = z * n + x;
+                int b = z * n + x + 1;
+                int c = (z + 1) * n + x;
+                int d = (z + 1) * n + x + 1;
+
+                indices[i++] = a; indices[i++] = c; indices[i++] = b;
+                indices[i++] = b; indices[i++] = c; indices[i++] = d;
+            }
+
+            if (nearFirst)
+            {
+                //Ring r holds the quads whose Chebyshev distance from the centre quad is r. Every quad lands in exactly
+                //one ring, so the buffer holds the same triangles as the row order.
+                int centre = (n - 2) / 2;
+                int last = n - 2;
+                for (int ring = 0; ring <= Math.Max(centre, last - centre); ring++)
+                    for (int z = Math.Max(0, centre - ring); z <= Math.Min(last, centre + ring); z++)
+                        for (int x = Math.Max(0, centre - ring); x <= Math.Min(last, centre + ring); x++)
+                            if (Math.Max(Math.Abs(x - centre), Math.Abs(z - centre)) == ring)
+                                Quad(x, z);
+            }
+            else
+            {
+                for (int z = 0; z < n - 1; z++)
+                    for (int x = 0; x < n - 1; x++)
+                        Quad(x, z);
+            }
+
+            return indices;
         }
     }
 }

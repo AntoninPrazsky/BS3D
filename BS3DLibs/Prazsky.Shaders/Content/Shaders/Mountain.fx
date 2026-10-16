@@ -125,9 +125,72 @@ static const float MASSIF_SPACING = 300.0;
 static const float MASSIF_LOW = 0.35;
 static const float MASSIF_HIGH = 1.6;
 
+//HIGH AND ULTRA'S CRAGS (#781): the field carried one octave further, on the finer grid those tiers draw
+//(MountainBackdrop.FINE_GRID_N, 1.67 units a cell). The fifth octave's ridges run about 8 units apart, which is
+//what the 3.34-unit grid can hold and also why every crest the intro flies past was a long straight edge
+//between two vertices; the sixth runs about 4 apart, the same two and a bit cells a period on the finer grid.
+//
+//⚠ CENTRED, and that is what keeps the range where TerrainMirror says it is. A ridged octave is never negative
+//(1 - |n| squared), so carried on as RidgedFbm2 carries it the sixth lifted every crest - 1.7 units on average
+//and 7.3 at most over +-512, measured on a numpy copy of this field - and every lens the chapter intro hugs
+//the rock with (MountainIntroShots, 10 to 14 units of clearance) stands on the five-octave mirror. Taken about
+//the ridge's own mean (RIDGE_MEAN, 0.75 over 400 000 samples) the same octave averages 0.003 units and stands
+//at most 1.8 over the mirror and 3.7 under it, so it breaks the crests without moving them.
+//
+//The loop is RidgedFbm2's (Noise.fxh) line for line but for the centring, which only the octaves past the
+//mirrored ones take. The five-octave height every other tier draws calls RidgedFbm2 itself, so the mirror's
+//field and the probe's stay exactly the function TerrainMirror copies.
+static const int MOUNTAIN_FINE_OCTAVES = 6;
+static const float RIDGE_MEAN = 0.75;
+
+float MountainRidgedFine(float2 p)
+{
+    float value = 0.0;
+    float amplitude = 0.5;
+    float weight = 1.0;
+
+    [unroll]
+    for (int i = 0; i < MOUNTAIN_FINE_OCTAVES; i++)
+    {
+        float ridge = 1.0 - abs(GradientNoise2(p));
+        ridge *= ridge;
+
+        value += (i < MOUNTAIN_FIELD_OCTAVES ? ridge : ridge - RIDGE_MEAN) * weight * amplitude;
+        weight = saturate(ridge * weight * 2.0);
+
+        p = mul(NOISE_ROTATE2, p) * 2.02;
+        amplitude *= 0.5;
+    }
+
+    return value;
+}
+
+//THE CRAGS on the flanks (#781). The ridged cascade gathers its detail onto the crests by construction, so the
+//flanks between them stay the smooth sweeps the intro's summit shot draws as straight-edged cones against the
+//sky. Two octaves of creased noise over the upper flanks - scaled by the field squared, so the basin and the
+//range's foot take none - serrate the silhouettes and break the faces into buttresses. CRAG_SPACING keeps the
+//finer octave at two and a bit cells of the fine grid, the field's own ratio.
+//
+//CRAG_MEAN - |n| is a sharp crest where the noise crosses zero and zero on average (the mean of |n| over 400 000
+//samples), so like the sixth octave the crags break the range without lifting it; and since a crest only rises
+//CRAG_MEAN over that, they stand at most a few units over the mirror while their troughs cut deeper below it.
+static const float CRAG_SPACING = 9.0;
+static const float CRAG_SHARE = 0.1;
+static const float CRAG_MEAN = 0.14;
+
+float Crags(float2 p)
+{
+    float2 q = p / CRAG_SPACING;
+    float crag = CRAG_MEAN - abs(GradientNoise2(q + 41.3));
+    crag += 0.5 * (CRAG_MEAN - abs(GradientNoise2(mul(NOISE_ROTATE2, q) * 2.02 + 7.9)));
+
+    return crag;
+}
+
 //The terrain displacement at a world XZ: a gentle basin around the arena (world origin) rising into peaks
-//with distance. Evaluated three times per vertex for the finite-difference normal.
-float TerrainHeight(float2 p)
+//with distance. Evaluated three times per vertex for the finite-difference normal. `fine` is High and Ultra's
+//sixth octave (above); a literal at every call, so each program carries only its own field.
+float TerrainHeightAt(float2 p, uniform bool fine)
 {
     float dist = length(p);
     float ramp = smoothstep(ClearingRadius, ClearingRadius + ClearingTransition, dist);
@@ -135,8 +198,18 @@ float TerrainHeight(float2 p)
     float basin = ClearingRelief * (sin(dot(p, float2(0.06, 0.04))) + 0.6 * sin(dot(p, float2(-0.05, 0.08)) + 2.0));
     float massif = lerp(MASSIF_LOW, MASSIF_HIGH, saturate(0.5 + 0.8 * GradientNoise2(p / MASSIF_SPACING + 7.3)));
 
-    return MountainLevelY + basin + MountainHeight * ramp * massif * MountainField(p);
+    float field = MountainField(p);
+    if (fine)
+    {
+        float shaped = saturate((MountainRidgedFine(p / MOUNTAIN_RIDGE_SPACING) - MOUNTAIN_FIELD_FLOOR) / MOUNTAIN_FIELD_SPAN);
+        field = shaped * shaped * shaped + CRAG_SHARE * shaped * shaped * Crags(p);
+    }
+
+    return MountainLevelY + basin + MountainHeight * ramp * massif * field;
 }
+
+//The height TerrainMirror.Mountain copies, and the one Low and Medium draw.
+float TerrainHeight(float2 p) { return TerrainHeightAt(p, false); }
 
 //THE FLUTES (#504). Every steep face the references drew is striped straight down: ribs of dark rock and
 //couloirs of snow, the pattern water, rockfall and avalanches cut. So the snow's facing threshold is shifted by
@@ -158,14 +231,25 @@ float TerrainHeight(float2 p)
 static const float FLUTE_SPACING = 10.0;  //world units between one couloir and the next, roughly
 static const float FLUTE_STRETCH = 5.0;   //how many times longer a flute is down the face than across it
 
-float Flutes(float3 worldPosition, float3 baseNormal)
+//High and Ultra's finer grid carries a second set of flutes at half the spacing (#781) - the gullies between the
+//couloirs - three of its 1.67-unit cells across a period, the ratio the first set keeps on the coarse grid.
+static const float FINE_FLUTE_SHARE = 0.55;
+
+float FluteField(float3 worldPosition, float2 facing)
 {
     float3 q = worldPosition / FLUTE_SPACING;
     float alongX = GradientNoise2(float2(q.x, q.y / FLUTE_STRETCH));
     float alongZ = GradientNoise2(float2(q.z + 17.1, q.y / FLUTE_STRETCH));
 
+    return lerp(alongX, alongZ, facing.x / (facing.x + facing.y));
+}
+
+float Flutes(float3 worldPosition, float3 baseNormal, uniform bool fine)
+{
     float2 facing = abs(baseNormal.xz) + 1e-4;
-    float flute = lerp(alongX, alongZ, facing.x / (facing.x + facing.y));
+    float flute = FluteField(worldPosition, facing);
+    if (fine)
+        flute += FINE_FLUTE_SHARE * FluteField(worldPosition * 2.0 + float3(31.7, 0.0, 53.1), facing);
 
     //Only on the steep ground they belong to.
     return flute * saturate((1.0 - baseNormal.y) * 3.0);
@@ -184,28 +268,48 @@ struct MountainVertexOutput
     float Flute : TEXCOORD2;          //the couloirs' field, per vertex (see Flutes)
 };
 
-MountainVertexOutput MountainVS(MountainVertexInput input)
+//HIGH AND ULTRA'S ISLAND HOLE (#781), cut in geometry. The other programs clip() the hole per pixel, and a program
+//that may clip loses the depth test before it: measured at the play camera at 3840x1600, ssaa 2, against the
+//authored program in the same process, the fine program cost +3.05 ms with clip() and -4.12 without, about 7 ms
+//for the range shaded under every ridge in front of it.
+//
+//So every vertex inside IslandHoleRadius goes to ONE point far under the arena. A triangle with all three corners
+//inside collapses to that point and draws nothing; one across the edge becomes a sliver from the ground at the edge
+//down to it, so the hole's wall is a steep cone under the island's stone (which reaches two units past the hole,
+//ArenaIsland.TERRAIN_HOLE_RADIUS) and the only way to see it is down the drain's throat, where the pixel shader
+//paints it black like the pit (HOLE_WALL_DARK). ⚠ Not onto the hole's circle: three corners on a circle are a
+//triangle across it, and the first cut laid snow across the drain. 0 (the map editor) cuts nothing.
+static const float HOLE_POINT_DEPTH = 400.0;   //how far under the basin the hole's corners go
+static const float HOLE_WALL_DARK = 4.0;       //how far under the basin the ground is the pit's dark: the range never dips that far
+
+bool InHole(float2 xz) { return length(xz) < IslandHoleRadius; }
+
+MountainVertexOutput MountainVertex(MountainVertexInput input, uniform bool fine)
 {
     MountainVertexOutput output;
 
     float2 xz = input.Position.xz + OriginXZ;
-    float height = TerrainHeight(xz);
+    float height = TerrainHeightAt(xz, fine);
 
     //Base normal per vertex (finite differences) and interpolated, not per pixel. On this mostly-distant,
     //steep range a per-pixel finite-difference normal aliases into shimmer on the far faces; the smooth
     //per-vertex normal reads cleaner and the finer grid plus the per-pixel rock relief carry the detail.
-    float e = 2.0;
-    float hx = TerrainHeight(xz + float2(e, 0.0));
-    float hz = TerrainHeight(xz + float2(0.0, e));
+    //The step is about half the field's finest period: High and Ultra's sixth octave halves both.
+    float e = fine ? 1.0 : 2.0;
+    float hx = TerrainHeightAt(xz + float2(e, 0.0), fine);
+    float hz = TerrainHeightAt(xz + float2(0.0, e), fine);
     output.WorldNormal = normalize(float3(-(hx - height) / e, 1.0, -(hz - height) / e));
 
     float3 worldPosition = float3(xz.x, height, xz.y);
+    if (fine && InHole(xz)) worldPosition = float3(0.0, MountainLevelY - HOLE_POINT_DEPTH, 0.0);
     output.WorldPosition = worldPosition;
     output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
-    output.Flute = Flutes(worldPosition, output.WorldNormal);
+    output.Flute = Flutes(worldPosition, output.WorldNormal, fine);
 
     return output;
 }
+
+MountainVertexOutput MountainVS(MountainVertexInput input) { return MountainVertex(input, false); }
 
 //Rough rock texture, and it is FRACTAL NOISE and not crossed sines - which it was until #170, the third and
 //last instance of that defect this project has found. #86 took MountainField's own massing off the same
@@ -260,6 +364,140 @@ float RockRelief(float2 xz, float footprint, uniform int octaves)
     //the pixel - the job RockOctave's own `resolvable` guard used to do for the sines.
     return Fbm2Combed(xz * scale, ROCK_GRAIN, ROCK_STRETCH, octaves, footprint * scale)
         * (RockReliefStrength * ROCK_FBM_GAIN);
+}
+
+//--- HIGH AND ULTRA'S ROCK (#781) -------------------------------------------------------------------------
+//
+//What limited the range's detail at the top tiers, measured before anything here was written (the numbers are
+//in "High and Ultra's range" in docs/scenes/mountains.md): not the octave count first, but the PROJECTION.
+//RockRelief above, the rock's patches, its grain and the sparkle are all sampled on world XZ, so on a face
+//steeper than 45 degrees a feature is stretched down the fall line by 1 / normal.y - three times on the
+//faces the rock shows on (RockSlope 0.30), ten times on a cliff - and the faces the chapter intro flies past at
+//fourteen units were smooth dark sheets combed with vertical streaks. The footprint guarding all of it is the
+//XZ one too, which on a cliff is a fraction of the pixel. Behind that came the octaves: the finest relief
+//octave is 1.3 units, fifteen pixels and more at 4K on a peak three hundred units out, and the field's finest
+//is 8.
+//
+//So High and Ultra shade the rock in THREE dimensions: no projection, nothing stretched, and the footprint the
+//pixel actually has (`length(fwidth(worldPosition))`). Low and Medium keep the projected relief untouched.
+
+//The beds the range is built of: a plane the rock is layered along, DIPPING steeply as the references' beds do
+//(about 40 degrees) - a level plane draws the same contour lines round every peak at the same heights, and the
+//first cut, at 20 degrees, still read as a zebra - and warped well off it in two octaves (STRATA_WARP) so that
+//the beds wander and thicken as real ones do.
+static const float3 STRATA_UP = float3(0.55, 0.77, -0.32);   //the beds' normal, about unit length
+static const float STRATA_SQUASH = 3.0;   //the relief's features are this many times thinner across the beds
+static const float STRATA_SPACING = 3.2;  //world units from one bed to the next, across the beds
+static const float STRATA_TREAD = 0.2;    //the share of a bed the step back takes, before each bed's own jitter
+static const float STRATA_DEPTH = 0.5;    //how far the face steps back at the strongest ledge, world units
+static const float STRATA_WARP = 7.0;     //how far the beds wander off their plane, world units
+static const float STRATA_WARP_SPACING = 41.0;
+static const float LEDGE_RUN_SPACING = 7.0;   //how long a ledge runs before it pinches out, roughly
+
+//Fbm2BandLimited's contract in three dimensions (Noise.fxh): each octave faded as its period approaches the
+//pixel, the footprint in the domain's own units. Kept here, beside its only caller. The octaves from
+//`creasedFrom` on are CREASED (-|n|): as steep as the smooth ones, but folded sharp along the noise's zero
+//crossings - the joints and fractures rock breaks along, which smooth noise only rounds into dimples.
+float Fbm3BandLimited(float3 p, uniform int octaves, uniform int creasedFrom, float footprint)
+{
+    float value = 0.0;
+    float amplitude = 0.5;
+    float frequency = 1.0;
+
+    [unroll]
+    for (int i = 0; i < octaves; i++)
+    {
+        float n = GradientNoise3(p);
+        if (i >= creasedFrom) n = -abs(n);
+
+        value += amplitude * saturate(1.0 - 2.0 * frequency * footprint) * n;
+        p = mul(NOISE_ROTATE3, p) * 2.02;
+        frequency *= 2.02;
+        amplitude *= 0.5;
+    }
+
+    return value;
+}
+
+//The relief, from the authored scale down six octaves (about 10.5 units to 0.33): RockRelief's spectrum and two
+//octaves past it, which is what a face fourteen units from the intro's lens is close enough to show. Squashed
+//across the beds, so the grain RockRelief bought with ROCK_GRAIN runs along the layering instead of along a
+//fixed compass bearing; the three finest creased. FINE_RELIEF_GAIN over RockRelief's own gain because three
+//dimensional gradient noise spends even more of its time near zero than the two dimensional kind.
+static const int FINE_RELIEF_OCTAVES = 6;
+static const int FINE_RELIEF_CREASED_FROM = 3;
+static const float FINE_RELIEF_GAIN = 1.6;
+
+float RockRelief3(float3 p, float footprint)
+{
+    float scale = RockReliefFrequency / TWO_PI;
+    float3 q = (p + STRATA_UP * (dot(p, STRATA_UP) * (STRATA_SQUASH - 1.0))) * scale;
+
+    return Fbm3BandLimited(q, FINE_RELIEF_OCTAVES, FINE_RELIEF_CREASED_FROM, footprint * scale * STRATA_SQUASH)
+        * (RockReliefStrength * ROCK_FBM_GAIN * FINE_RELIEF_GAIN);
+}
+
+//THE LAMINAE: the thin layers inside a bed that every close reference draws as fine parallel lines on the rock,
+//light and dark. An albedo term, one noise stretched far along the beds and fast across them, LAMINAE_PER_BED to
+//a bed, faded as a lamina nears three pixels.
+static const float LAMINAE_PER_BED = 5.0;
+static const float LAMINAE_STRENGTH = 0.7;
+
+float Laminae(float bed, float along, float footprint)
+{
+    float fade = saturate(1.5 - footprint * 1.5 * LAMINAE_PER_BED / STRATA_SPACING);
+
+    return GradientNoise2(float2(bed * LAMINAE_PER_BED, along)) * fade;
+}
+
+//THE LEDGES: at the top of every bed the face steps back, a narrow tread facing up that the snow lies on -
+//the white lines every reference draws across the dark faces. A height along the face that rises slowly through
+//a bed (the riser, a slight overhang) and falls back over its last STRATA_TREAD; the normal is tilted by it like
+//by any relief, and the snow, which is decided off the tilted normal, does the rest on its own. Run out along
+//their length so no ledge crosses a whole face, only on steep ground, and faded as the tread nears two pixels -
+//a ledge drawn thinner than that is a crawling line, not a ledge. `bed` is where in the beds the pixel is
+//(continuous: a bed's index plus how far up it), which the rock's colour reads its layers off too.
+//
+//⚠ IRREGULAR OR NOT AT ALL. The first cut gave every bed a ledge of one width and one depth along most of its
+//length, and the range came out banded like a zebra - the regular line #640's ruling says reads as a fault. So
+//each bed rolls its own ledge (NoiseHash22 off its index: how deep, squared so most are slight, and how wide), and
+//a ledge shows over about a third of a bed's length (`run`). The step is zero at a bed's bottom and top, so a
+//bed's own figures change across a boundary without a seam.
+//
+//The bed coordinate (BedHeight's warp, 41 and 15 units), the run (7) and the rock's patches (12) are coarse enough
+//for the fine grid's 1.67-unit cells, so the vertex shader evaluates them (BedField) and the pixel shader reads them
+//interpolated: per pixel, those five three-dimensional noises measured 4.6 ms at 4K while the program still clipped
+//(see InHole).
+float BedHeight(float3 p)
+{
+    return dot(p, STRATA_UP) + STRATA_WARP * (GradientNoise3(p / STRATA_WARP_SPACING)
+        + 0.35 * GradientNoise3(p * (2.7 / STRATA_WARP_SPACING) + 5.3));
+}
+
+float StrataLedges(float bed, float runNoise, float3 baseNormal, float footprint)
+{
+    float index = floor(bed);
+    float f = bed - index;
+    float2 roll = NoiseHash22(float2(index, 11.0)) * 0.5 + 0.5;
+    float tread = STRATA_TREAD * (0.5 + roll.y);
+    float step = f * (1.0 - smoothstep(1.0 - tread, 1.0, f));
+
+    float run = smoothstep(0.05, 0.35, runNoise);
+    float resolved = saturate(2.0 - footprint * 4.0 / (STRATA_SPACING * tread));
+    float steep = saturate((1.0 - baseNormal.y) * 2.5);
+
+    return step * STRATA_DEPTH * roll.x * roll.x * run * resolved * steep;
+}
+
+//The beds' colour: each its own tone between the two rock colours, blended across the ledge between it and the
+//next (never a hard seam - #640's ruling that a crisp line reads as a fault), with patches over them in three
+//dimensions where RockColor's own patches are projected.
+float BedTone(float bed)
+{
+    float below = floor(bed);
+    float t = smoothstep(1.0 - STRATA_TREAD, 1.0, bed - below);
+
+    return lerp(NoiseHash22(float2(below, 7.0)).x, NoiseHash22(float2(below + 1.0, 7.0)).x, t);
 }
 
 //How sharp the snow's edge is (#504), as half the width of the band either side of a threshold's middle that
@@ -344,13 +582,51 @@ float SnowSparkle(float2 xz, float3 normal, float footprint)
     return lit * glint * fade * saturate(normal.y);
 }
 
-float4 MountainSurface(MountainVertexOutput input, uniform bool fullDetail)
+//High and Ultra's vertex output: the authored one and the beds' coarse fields (BedField).
+struct MountainFineVertexOutput
+{
+    float4 Position : SV_POSITION;
+    float3 WorldPosition : TEXCOORD0;
+    float3 WorldNormal : TEXCOORD1;
+    float Flute : TEXCOORD2;
+    float4 Strata : TEXCOORD3;        //bed coordinate, the ledges' run, the rock's patch, the laminae's along-bed coordinate
+};
+
+float4 BedField(float3 p)
+{
+    return float4(BedHeight(p) / STRATA_SPACING,
+        GradientNoise3(p / LEDGE_RUN_SPACING + 3.1),
+        saturate(GradientNoise3(p * 0.08 + 21.0) * 0.5 + 0.5),
+        dot(p.xz, float2(0.05, 0.035)));
+}
+
+MountainFineVertexOutput MountainFineVS(MountainVertexInput input)
+{
+    MountainVertexOutput coarse = MountainVertex(input, true);
+
+    MountainFineVertexOutput output;
+    output.Position = coarse.Position;
+    output.WorldPosition = coarse.WorldPosition;
+    output.WorldNormal = coarse.WorldNormal;
+    output.Flute = coarse.Flute;
+    output.Strata = BedField(coarse.WorldPosition);
+
+    return output;
+}
+
+float4 MountainSurface(MountainVertexOutput input, float4 strata, uniform bool fullDetail, uniform bool fine)
 {
     float3 worldPosition = input.WorldPosition;
 
     //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
-    clip(length(worldPosition.xz) - IslandHoleRadius);
-    FarRingClip(worldPosition.xz);
+    //Not in High and Ultra's program, which cuts the hole in its vertex shader (InHole) and is never drawn over
+    //the far ring (MountainFineReduced): a program that may clip loses the depth test before it, and this one is
+    //too dear to shade the range under every ridge in front of it.
+    if (!fine)
+    {
+        clip(length(worldPosition.xz) - IslandHoleRadius);
+        FarRingClip(worldPosition.xz);
+    }
 
     float dist = distance(CameraPosition, worldPosition);
     float footprint = length(fwidth(worldPosition.xz));
@@ -359,8 +635,19 @@ float4 MountainSurface(MountainVertexOutput input, uniform bool fullDetail)
     float3 baseNormal = normalize(input.WorldNormal);
 
     //Fine rock relief roughens the faces, band-limited against the footprint so it fades to smooth towards the
-    //horizon - which also keeps it off the distant faces, leaving the clean per-vertex normal to do the work there
-    float relief = RockRelief(worldPosition.xz, footprint, fullDetail ? 4 : 3) * (1.0 - 0.6 * saturate(baseNormal.y));
+    //horizon - which also keeps it off the distant faces, leaving the clean per-vertex normal to do the work there.
+    //High and Ultra's is the unprojected one and its ledges (see RockRelief3), against the pixel's true footprint.
+    float relief;
+    float bed = strata.x;
+    float footprint3 = 0.0;
+    if (fine)
+    {
+        footprint3 = length(fwidth(worldPosition));
+        relief = RockRelief3(worldPosition, footprint3) * (1.0 - 0.6 * saturate(baseNormal.y))
+            + StrataLedges(bed, strata.y, baseNormal, footprint3);
+    }
+    else
+        relief = RockRelief(worldPosition.xz, footprint, fullDetail ? 4 : 3) * (1.0 - 0.6 * saturate(baseNormal.y));
     float3 rockNormal = PerturbNormalFromHeight(baseNormal, worldPosition, relief);
 
     //Snow lies where the surface is BOTH up-facing (flats/shoulders keep it, cliffs shed it) AND high enough
@@ -376,8 +663,13 @@ float4 MountainSurface(MountainVertexOutput input, uniform bool fullDetail)
     //(SNOW_EDGE either side of its middle). The references draw snow and rock as two materials with a crisp
     //edge between them; the band read linearly MIXED them across every mid-steep face, which is most of a
     //range, and a 40/60 blend of white and near-black under a violet sky is the uniform lilac this scene was.
+    //High and Ultra's relief is rough enough to tip gentle snowfields into rock wherever it tilts a pixel, which drew
+    //the basin's foot as a field of dark streaks: there the decision leans on the smooth normal, and the relief only
+    //decides where the ground is steep enough for rock to show at all - snow buries the small stuff on a gentle slope.
+    float snowFacing = rockNormal.y;
+    if (fine) snowFacing = lerp(baseNormal.y, rockNormal.y, saturate((1.0 - baseNormal.y) * 2.5));
     float slopeSnow = smoothstep(0.5 - SNOW_EDGE, 0.5 + SNOW_EDGE,
-        smoothstep(RockSlope, SnowSlope, rockNormal.y + input.Flute * saturate(1.0 - footprint / FLUTE_SPACING * 2.0) * FluteSnow));
+        smoothstep(RockSlope, SnowSlope, snowFacing + input.Flute * saturate(1.0 - footprint / FLUTE_SPACING * 2.0) * FluteSnow));
     float snowNoise = CloudNoise(worldPosition.xz * 0.03) * 9.0;
     float altSnow = smoothstep(SnowlineLow + snowNoise, SnowlineHigh + snowNoise, worldPosition.y);
     altSnow = smoothstep(0.5 - SNOW_EDGE, 0.5 + SNOW_EDGE, altSnow);
@@ -407,17 +699,37 @@ float4 MountainSurface(MountainVertexOutput input, uniform bool fullDetail)
     //screen, so it is kept, as a doubled gain, and the second PerturbNormalFromHeight a pixel is not.
     float3 normal = rockNormal;
 
-    //Rock varies between a dark and a lighter grey-brown in patches, so the faces are not one flat colour
-    float rockPatch = saturate(CloudNoise(worldPosition.xz * 0.08 + 21.0) * 0.5 + 0.5);
+    //Rock varies between a dark and a lighter grey-brown in patches, so the faces are not one flat colour.
+    //High and Ultra lay the patches in three dimensions and the beds' own tones under them (BedTone).
+    float rockPatch;
+    if (fine)
+    {
+        float layers = saturate(1.5 - footprint3 * 2.0 / STRATA_SPACING);
+        rockPatch = strata.z;
+        rockPatch = saturate(lerp(rockPatch, rockPatch * 0.75 + BedTone(bed) * 0.4 - 0.08, layers));
+    }
+    else
+        rockPatch = saturate(CloudNoise(worldPosition.xz * 0.08 + 21.0) * 0.5 + 0.5);
     float3 rock = lerp(RockColor, RockColorLight, rockPatch * detailFade);
+    if (fine)
+        rock *= 1.0 + LAMINAE_STRENGTH * Laminae(bed, strata.w, footprint3);
 
     //Fine per-pixel rock grain, the cue Desert.fx's sand added that "a floor with no fine albedo change still
     //looks airbrushed however it is lit" (docs/scenes.md). One hash per pixel over a fine world lattice,
     //band-limited against the footprint the same way as the relief so it fades to smooth before its cells reach
     //pixel size (a hard-edged per-cell value is its own aliasing source) and stays off the distant ranges with
-    //the rest of the detail. Only on the rock, not the snow it sits beside.
-    float rockGrainFade = saturate(1.0 - footprint * 120.0) * detailFade;
-    rock *= 1.0 + NoiseHash22(floor(worldPosition.xz * 60.0)).x * 0.14 * rockGrainFade;
+    //the rest of the detail. Only on the rock, not the snow it sits beside. High and Ultra's lattice is a
+    //three-dimensional one, under the true footprint, so a cliff's cells are not columns.
+    if (fine)
+    {
+        float rockGrainFade = saturate(1.0 - footprint3 * 60.0) * detailFade;
+        rock *= 1.0 + NoiseHash33(floor(worldPosition * 30.0)).x * 0.14 * rockGrainFade;
+    }
+    else
+    {
+        float rockGrainFade = saturate(1.0 - footprint * 120.0) * detailFade;
+        rock *= 1.0 + NoiseHash22(floor(worldPosition.xz * 60.0)).x * 0.14 * rockGrainFade;
+    }
 
     float3 albedo = lerp(rock, SnowColor, snow);
 
@@ -480,7 +792,10 @@ float4 MountainSurface(MountainVertexOutput input, uniform bool fullDetail)
     float3 air = FarSkyAt(toPixel.y / max(length(toPixel), 1e-3));
     color = lerp(color, air, max(haze * haze, veil));
 
-    return float4(FarFadeToSky(color, worldPosition), 1.0);
+    color = FarFadeToSky(color, worldPosition);
+    if (fine && worldPosition.y < MountainLevelY - HOLE_WALL_DARK) color = 0.0;
+
+    return float4(color, 1.0);
 }
 
 //Two programs from one body, the idiom Forest.fx established (#298). "Mountain" is the authored range;
@@ -497,8 +812,24 @@ float4 MountainSurface(MountainVertexOutput input, uniform bool fullDetail)
 //A `uniform bool` argument and not a shader constant the body branches on: the compiler folds it at compile
 //time, so each program pays for only what it keeps. That is the whole point — the reduced one has to be
 //SMALLER, not the same program skipping work, or it saves the occupancy it was written to save.
-float4 MountainPS(MountainVertexOutput input) : COLOR { return MountainSurface(input, true); }
-float4 MountainReducedPS(MountainVertexOutput input) : COLOR { return MountainSurface(input, false); }
+//
+//"MountainFine" is High and Ultra's (#781, MountainBackdrop picks it with SceneRenderer.FineMeshes and draws it
+//on the finer grid): the authored range with the field's sixth octave, the second flutes, and the rock shaded
+//in three dimensions with its ledges and beds. A third program for the same reason as the second: it is the
+//biggest of the three, and on an occupancy-bound pass the authored tiers must not carry its registers.
+float4 MountainPS(MountainVertexOutput input) : COLOR { return MountainSurface(input, 0.0, true, false); }
+float4 MountainReducedPS(MountainVertexOutput input) : COLOR { return MountainSurface(input, 0.0, false, false); }
+
+float4 MountainFinePS(MountainFineVertexOutput input) : COLOR
+{
+    MountainVertexOutput surface;
+    surface.Position = input.Position;
+    surface.WorldPosition = input.WorldPosition;
+    surface.WorldNormal = input.WorldNormal;
+    surface.Flute = input.Flute;
+
+    return MountainSurface(surface, input.Strata, true, true);
+}
 
 technique Mountain
 {
@@ -518,8 +849,31 @@ technique MountainReduced
     }
 };
 
+technique MountainFine
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MountainFineVS();
+        PixelShader = compile PS_SHADERMODEL MountainFinePS();
+    }
+};
+
+//The far ring under High and Ultra's grid (FarField.DrawRing takes the grid's technique name plus "Reduced"): the
+//ring every tier draws, which keeps FarRingClip - the fine program has none, and its far edge is in full haze.
+technique MountainFineReduced
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MountainVS();
+        PixelShader = compile PS_SHADERMODEL MountainReducedPS();
+    }
+};
+
 //--- The height probe (#590) ----------------------------------------------------------------------------
 
-//TerrainMirror.Mountain's field, for the Testbed's mirrorcheck (see HeightProbe.fxh).
+//TerrainMirror.Mountain's field, for the Testbed's mirrorcheck (see HeightProbe.fxh). What High and Ultra draw
+//has the sixth octave on top, which the mirror leaves out by design (the crags, above): the probe reports how far
+//the drawn ground stands off it, the margin a lens hugging the range must allow.
 #define HEIGHT_PROBE_MIRRORED(p) TerrainHeight(p)
+#define HEIGHT_PROBE_DRAWN(p) TerrainHeightAt(p, true)
 #include "HeightProbe.fxh"

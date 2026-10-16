@@ -286,9 +286,12 @@ namespace BS3D
         /// <summary>
         /// Whether the scenes draw their finer meshes (#758, <c>SceneRenderer.FineMeshes</c>): today the savanna acacias'
         /// wood, the fork grown as one surface out of a swollen, lobed crotch at twelve to twenty sides, where Low and
-        /// Medium keep the seven-sided tubes poking out of the trunk's cut end. <b>High and Ultra only</b>: the owner asked
-        /// for the detail there ("on High / Ultra this transition should have more detail"), and Medium is the weak
-        /// machine's rung. What it costs is in "The acacia's fork" in docs/scenes/savanna-trees.md.
+        /// Medium keep the seven-sided tubes poking out of the trunk's cut end; and the mountain range (#781), a grid twice
+        /// as fine with crags and the rock shaded in three dimensions. <b>High and Ultra only</b>: the owner asked for the
+        /// detail there ("on High / Ultra this transition should have more detail"; of the range, "how they look now could
+        /// be the look of low/medium, but on high/ultra they must have more detail"), and Medium is the weak machine's rung.
+        /// What it costs is in "The acacia's fork" in docs/scenes/savanna-trees.md and "High and Ultra's range" in
+        /// docs/scenes/mountains.md.
         /// </summary>
         public readonly bool FineMeshes;
 

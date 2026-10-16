@@ -248,8 +248,9 @@ namespace Testbed.Diagnostics
 
         /// <summary>
         /// <c>finemeshes=&lt;0|1&gt;</c>: High and Ultra's finer meshes - <c>SceneRenderer.FineMeshes</c> (#758, the
-        /// savanna acacias' grown fork). On by default, the authored look; 0 draws Low and Medium's tubes, so the two can
-        /// be photographed from one pinned camera and, through <c>alt=</c>, measured in one process.
+        /// savanna acacias' grown fork; #781, the finer mountain range). On by default, the authored look; 0 draws Low and
+        /// Medium's tubes and range, so the two can be photographed from one pinned camera and, through <c>alt=</c>,
+        /// measured in one process.
         /// </summary>
         public bool? FineMeshes { get; private set; }
         /// <summary>

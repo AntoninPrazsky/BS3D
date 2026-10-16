@@ -27,6 +27,22 @@ namespace Prazsky.Core.Render
         private const int MOUNTAIN_GRID_N = 360;
         private const float MOUNTAIN_EXTENT = 1200f;
 
+        //High and Ultra's grid (#781, SceneRenderer.FineMeshes): twice as fine, 1.67 units a cell, for the field's sixth
+        //octave - its ridges run about 4 units apart, the two and a bit cells a period the coarse grid gives the fifth.
+        //Drawn with the "MountainFine" program, which the coarse grid could not carry. 518 400 vertices, a million
+        //triangles; what it costs is in "High and Ultra's range" in docs/scenes/mountains.md. A pass of its own, taken
+        //on the first draw that wants it and kept: a tier switched back and forth (or the Testbed's alt=finemeshes)
+        //then never rebuilds a grid, where SetGrid on one pass would free it and build it again each time. Its quads run
+        //NEAR FIRST (TerrainGridCache) and its program cuts the island's hole in the vertex shader rather than with
+        //clip(), so the depth test rejects what a nearer ridge hides before it is shaded (see InHole in Mountain.fx).
+        private const int FINE_GRID_N = 720;
+        private TerrainPass _finePass;
+
+        //The three programs, resolved once (BestPractices §1), and which one the last draw used
+        private readonly EffectTechnique _authoredTechnique, _reducedTechnique, _fineTechnique;
+        private EffectTechnique _drawnTechnique;
+        private float _sceneDetail = 1f;
+
         //Look/tuning parameters (heights, clearing, snow/rock colours, snowline, rock relief, ambient, haze)
         //now live in MountainSceneConfig; the backdrop reads them from _mountainConfig.
 
@@ -47,6 +63,9 @@ namespace Prazsky.Core.Render
             //--- Mountain: a ridged displaced grid
             _mountainEffect = content.Load<Effect>("Shaders/Mountain");
             _mountainPass = new TerrainPass(Services, _mountainEffect, MOUNTAIN_GRID_N, MOUNTAIN_EXTENT, null);
+            _authoredTechnique = _mountainEffect.Techniques["Mountain"];
+            _reducedTechnique = _mountainEffect.Techniques["MountainReduced"];
+            _fineTechnique = _mountainEffect.Techniques["MountainFine"];
 
             ApplyMountainParameters();
 
@@ -105,8 +124,29 @@ namespace Prazsky.Core.Render
             //other end: it is the only scene the desktop still calls marginal (#296). Its pair is #208's own —
             //the snow's sastrugi drift relief and its sparkle — given up together because they arrived
             //together, and because the sparkle is a HIGHLIGHT, which is the class of thing the owner named
-            //when he ruled that a tier drops effects and never resolution.
-            _mountainEffect.CurrentTechnique = _mountainEffect.Techniques[sceneDetail > 0.5f ? "Mountain" : "MountainReduced"];
+            //when he ruled that a tier drops effects and never resolution. Which program draws is decided at the draw
+            //(SelectProgram), where the other switch, FineMeshes, is read.
+            _sceneDetail = sceneDetail;
+        }
+
+        /// <summary>
+        /// The program and the grid for this frame: <c>MountainReduced</c> on Low (<see cref="SceneRenderer.SceneDetail"/>),
+        /// <c>MountainFine</c> on its finer grid on High and Ultra (<see cref="SceneRenderer.FineMeshes"/>, #781), the
+        /// authored <c>Mountain</c> between them. Read per draw because <c>FineMeshes</c> is (it has no hook); the
+        /// technique is only retaken when the answer changes.
+        /// </summary>
+        private TerrainPass SelectProgram()
+        {
+            EffectTechnique wanted = _sceneDetail <= 0.5f ? _reducedTechnique
+                : Services.FineMeshes ? _fineTechnique : _authoredTechnique;
+            if (wanted != _drawnTechnique)
+            {
+                _mountainEffect.CurrentTechnique = wanted;
+                _drawnTechnique = wanted;
+            }
+
+            if (wanted != _fineTechnique) return _mountainPass;
+            return _finePass ??= new TerrainPass(Services, _mountainEffect, FINE_GRID_N, MOUNTAIN_EXTENT, null, nearFirst: true);
         }
 
         /// <summary>
@@ -116,7 +156,7 @@ namespace Prazsky.Core.Render
         /// </summary>
         public override void Draw(in SceneFrame frame)
         {
-            _mountainPass.Draw(frame, Services.TerrainHoleRadius);
+            SelectProgram().Draw(frame, Services.TerrainHoleRadius);
             if (_berm != null) _plants.Draw(frame, _berm.Buckets, _mountainConfig.HorizonHazeDistance, detail: true);
         }
 
