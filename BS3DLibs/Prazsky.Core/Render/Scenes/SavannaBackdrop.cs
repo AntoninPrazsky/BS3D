@@ -560,9 +560,7 @@ namespace Prazsky.Core.Render
                 _acaciaAddedLightParam.SetValue(Vector3.Zero);
                 _acaciaEffect.CurrentTechnique.Passes[0].Apply();
 
-                _graphicsDevice.SetVertexBuffers(
-                    new VertexBufferBinding(bucket.Mesh.VertexBuffer, 0, 0),
-                    new VertexBufferBinding(bucket.Instances, 0, 1));
+                InstanceBinding.Set(_graphicsDevice, bucket.Mesh.VertexBuffer, 0, bucket.Instances, 0);
                 _graphicsDevice.Indices = bucket.Mesh.IndexBuffer;
                 _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, bucket.Mesh.PrimitiveCount, bucket.Count);
             }
@@ -630,9 +628,7 @@ namespace Prazsky.Core.Render
             _acaciaAddedLightParam.SetValue(addedLight);
             _acaciaEffect.CurrentTechnique.Passes[0].Apply();
 
-            _graphicsDevice.SetVertexBuffers(
-                new VertexBufferBinding(mesh.VertexBuffer, 0, 0),
-                new VertexBufferBinding(_acaciaInstanceBuffer, 0, 1));
+            InstanceBinding.Set(_graphicsDevice, mesh.VertexBuffer, 0, _acaciaInstanceBuffer, 0);
             _graphicsDevice.Indices = mesh.IndexBuffer;
             _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, instances.Length);
         }
@@ -789,9 +785,7 @@ namespace Prazsky.Core.Render
                 _acaciaLeavesParam.SetValue(bucket.Leaves);
                 _acaciaEffect.CurrentTechnique.Passes[0].Apply();
 
-                _graphicsDevice.SetVertexBuffers(
-                    new VertexBufferBinding(bucket.Mesh.VertexBuffer, 0, 0),
-                    new VertexBufferBinding(bucket.Instances, 0, 1));
+                InstanceBinding.Set(_graphicsDevice, bucket.Mesh.VertexBuffer, 0, bucket.Instances, 0);
                 _graphicsDevice.Indices = bucket.Mesh.IndexBuffer;
                 _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, bucket.Mesh.PrimitiveCount, bucket.Count);
             }
@@ -804,9 +798,7 @@ namespace Prazsky.Core.Render
                     if (instances == null || instances.Length == 0) continue;
                     UploadHearthInstances(instances);
                     IProceduralMesh mesh = _hearthStoneMeshes[fire % _hearthStoneMeshes.Length];
-                    _graphicsDevice.SetVertexBuffers(
-                        new VertexBufferBinding(mesh.VertexBuffer, 0, 0),
-                        new VertexBufferBinding(_acaciaInstanceBuffer, 0, 1));
+                    InstanceBinding.Set(_graphicsDevice, mesh.VertexBuffer, 0, _acaciaInstanceBuffer, 0);
                     _graphicsDevice.Indices = mesh.IndexBuffer;
                     _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, instances.Length);
                 }

@@ -1513,9 +1513,7 @@ namespace Prazsky.Core.Render
 
                 _boneParam.SetValue(part.BoneTransform);
 
-                _graphicsDevice.SetVertexBuffers(
-                    new VertexBufferBinding(part.VertexBuffer, part.VertexOffset, 0),
-                    new VertexBufferBinding(_instanceBuffer, 0, 1));
+                InstanceBinding.Set(_graphicsDevice, part.VertexBuffer, part.VertexOffset, _instanceBuffer, 0);
                 _graphicsDevice.Indices = part.IndexBuffer;
 
                 _effect.CurrentTechnique.Passes[0].Apply();
@@ -1539,9 +1537,7 @@ namespace Prazsky.Core.Render
 
                 boneParam.SetValue(part.BoneTransform);
 
-                _graphicsDevice.SetVertexBuffers(
-                    new VertexBufferBinding(part.VertexBuffer, part.VertexOffset, 0),
-                    new VertexBufferBinding(instances, 0, 1));
+                InstanceBinding.Set(_graphicsDevice, part.VertexBuffer, part.VertexOffset, instances, 0);
                 _graphicsDevice.Indices = part.IndexBuffer;
 
                 effect.CurrentTechnique.Passes[0].Apply();
@@ -1576,9 +1572,7 @@ namespace Prazsky.Core.Render
 
                 _boneParam.SetValue(part.BoneTransform);
 
-                _graphicsDevice.SetVertexBuffers(
-                    new VertexBufferBinding(part.VertexBuffer, part.VertexOffset, 0),
-                    new VertexBufferBinding(_instanceBuffer, 0, 1));
+                InstanceBinding.Set(_graphicsDevice, part.VertexBuffer, part.VertexOffset, _instanceBuffer, 0);
                 _graphicsDevice.Indices = part.IndexBuffer;
 
                 _effect.CurrentTechnique.Passes[0].Apply();
@@ -1754,9 +1748,7 @@ namespace Prazsky.Core.Render
 
                 SelectTechniqueAndParameters(in part, usePattern, diffuseTint);
 
-                _graphicsDevice.SetVertexBuffers(
-                    new VertexBufferBinding(part.VertexBuffer, part.VertexOffset, 0),
-                    new VertexBufferBinding(_instanceBuffer, 0, 1));
+                InstanceBinding.Set(_graphicsDevice, part.VertexBuffer, part.VertexOffset, _instanceBuffer, 0);
                 _graphicsDevice.Indices = part.IndexBuffer;
 
                 _effect.CurrentTechnique.Passes[0].Apply();
@@ -2563,9 +2555,7 @@ namespace Prazsky.Core.Render
         /// </summary>
         private void DrawPotatoRun(in MeshPartData part, int firstInstance, int count)
         {
-            _graphicsDevice.SetVertexBuffers(
-                new VertexBufferBinding(part.VertexBuffer, part.VertexOffset, 0),
-                new VertexBufferBinding(_instanceBuffer, firstInstance, 1));
+            InstanceBinding.Set(_graphicsDevice, part.VertexBuffer, part.VertexOffset, _instanceBuffer, firstInstance);
             _graphicsDevice.Indices = part.IndexBuffer;
 
             _effect.CurrentTechnique.Passes[0].Apply();
@@ -2580,9 +2570,7 @@ namespace Prazsky.Core.Render
         /// </summary>
         private void DrawPotatoKindRun(PotatoKindMesh mesh, int firstInstance, int count)
         {
-            _graphicsDevice.SetVertexBuffers(
-                new VertexBufferBinding(mesh.VertexBuffer, 0, 0),
-                new VertexBufferBinding(_instanceBuffer, firstInstance, 1));
+            InstanceBinding.Set(_graphicsDevice, mesh.VertexBuffer, 0, _instanceBuffer, firstInstance);
             _graphicsDevice.Indices = mesh.IndexBuffer;
 
             _effect.CurrentTechnique.Passes[0].Apply();
@@ -2643,9 +2631,7 @@ namespace Prazsky.Core.Render
         //One instanced draw of fins: the fins' vertices with the instance buffer from `firstInstance` on
         private void DrawFins(IndexBuffer indices, int primitives, int firstInstance, int count)
         {
-            _graphicsDevice.SetVertexBuffers(
-                new VertexBufferBinding(_fins.VertexBuffer, 0, 0),
-                new VertexBufferBinding(_instanceBuffer, firstInstance, 1));
+            InstanceBinding.Set(_graphicsDevice, _fins.VertexBuffer, 0, _instanceBuffer, firstInstance);
             _graphicsDevice.Indices = indices;
 
             _effect.CurrentTechnique.Passes[0].Apply();
@@ -2833,9 +2819,7 @@ namespace Prazsky.Core.Render
 
             _effect.CurrentTechnique = _potatoBallRimTechnique;
 
-            _graphicsDevice.SetVertexBuffers(
-                new VertexBufferBinding(RimMesh.VertexBuffer, 0, 0),
-                new VertexBufferBinding(_instanceBuffer, 0, 1));
+            InstanceBinding.Set(_graphicsDevice, RimMesh.VertexBuffer, 0, _instanceBuffer, 0);
             _graphicsDevice.Indices = RimMesh.IndexBuffer;
 
             _effect.CurrentTechnique.Passes[0].Apply();

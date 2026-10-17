@@ -990,9 +990,7 @@ namespace Prazsky.Core.Render
             _palmShadingParam.SetValue(palmShading);
             _palmEffect.CurrentTechnique.Passes[0].Apply();
 
-            _graphicsDevice.SetVertexBuffers(
-                new VertexBufferBinding(mesh.VertexBuffer, 0, 0),
-                new VertexBufferBinding(instances.Buffer, 0, 1));
+            InstanceBinding.Set(_graphicsDevice, mesh.VertexBuffer, 0, instances.Buffer, 0);
             _graphicsDevice.Indices = mesh.IndexBuffer;
             _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, instances.Count);
         }

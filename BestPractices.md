@@ -58,7 +58,13 @@ kind that accumulates unnoticed:
   nested inside the first, and one shared buffer would have been clobbered by its own inner loop.
 - **String building belongs behind the change, not the frame.** The FPS overlay built `"FPS: " + n` every
   frame for a value that changes once a second.
-- Watch also: LINQ in Update/Draw, closures capturing locals, `params` arrays, boxing structs through
+- **A `params` array is an allocation the call site does not show.** `GraphicsDevice.SetVertexBuffers` takes
+  `params VertexBufferBinding[]`, and every instanced draw passed its two bindings inline, so each draw built a
+  new array: about seventy-five a frame, **4.2 KB a frame on an idle main menu and 2.3 to 4.2 KB in play**, all
+  but a sliver of the frame thread's steady allocation (an allocation-tick listener named the type; 2026-10-17).
+  `InstanceBinding.Set` reuses one array (MonoGame copies the bindings out of it), and a source test refuses any
+  other caller. After it: 24 B a frame on the menu and 27 to 100 B in play between shots.
+- Watch also: LINQ in Update/Draw, closures capturing locals, other `params` methods, boxing structs through
   interfaces. None were found hot — keep it that way.
 
 **One knowing exception, bounded and written down so the next reader finds the exception rather than the
