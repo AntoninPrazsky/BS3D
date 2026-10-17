@@ -354,6 +354,12 @@ namespace BS3D
         //wash (ApplyNavHighlight), so the pointer's hover and the pad's focus read as one gesture rather than two inventions.
         internal static readonly IBrush MENU_BUTTON_OVER_BRUSH = new FlatBrush(MENU_BUTTON_OVER);
 
+        //The High Scores page's rows of levels the player has NOT finished rest in this quieter slab (#898), and the rows
+        //they have cleared in MENU_BUTTON's own. Greyscale like everything here: brightness and opacity carry it, and the
+        //deliberate colours (gold, the player's magenta, red, cyan) are not spent on it.
+        private static readonly Color MENU_ROW_UNFINISHED = new(34, 34, 34, 128);
+        internal static readonly IBrush MENU_ROW_UNFINISHED_BRUSH = new FlatBrush(MENU_ROW_UNFINISHED);
+
         //A pause dims the whole frame, because what is behind it is a stopped game and the menu is the thing
         //to look at. The front end does NOT: there the rotating scene is the point of the screen, and a
         //full-screen wash over it throws away the one thing that screen exists to show. Its legibility comes
@@ -1836,11 +1842,14 @@ namespace BS3D
             //(MainMenuPage.EntryRestBrush → MENU_FRONT_BUTTON_BRUSH), every other page to the shared slab. This
             //loop repaints every nav entry each pass, so without asking the page it would paint the shared grey
             //straight back over the front end's own rest the moment the pad or the pointer moved.
-            IBrush entryRest = (_screens.Active as MenuPage)?.EntryRestBrush ?? MENU_BUTTON_BRUSH;
+            MenuPage activePage = _screens.Active as MenuPage;
 
             for (int i = 0; i < _navEntries.Count; i++)
             {
-                IBrush rest = i == _navIndex ? MENU_BUTTON_OVER_BRUSH : entryRest;
+                //Per entry (#898): a page may rest its entries in different tones (High Scores tints the rows of levels the
+                //player has not finished), and this pass would otherwise overwrite that with one page-wide brush
+                IBrush rest = i == _navIndex ? MENU_BUTTON_OVER_BRUSH
+                    : activePage?.EntryRestBrushFor(_navEntries[i]) ?? MENU_BUTTON_BRUSH;
 
                 _navEntries[i].Background = rest;
                 _navEntries[i].OverBackground = cursorUp ? rest : MENU_BUTTON_OVER_BRUSH;

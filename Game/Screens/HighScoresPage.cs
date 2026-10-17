@@ -1,6 +1,7 @@
 using BS3D.Online;
 using FontStashSharp.RichText;
 using Microsoft.Xna.Framework;
+using Myra.Graphics2D;
 using Myra.Graphics2D.UI;
 using Prazsky.BS3D.Levels;
 using Prazsky.BS3D.Scoring;
@@ -15,7 +16,7 @@ namespace BS3D.Screens
     /// <summary>
     /// <b>High Scores (#685): every level's board at a glance</b> — the main menu's door onto the online boards as a whole,
     /// where the level picker's button (#547) opens one level's at a time. A chapter to a page, as the picker pages its tiles,
-    /// and each unlocked level one row: its board's #1 and the player's own place, for this month or for all time.
+    /// and each level one row: its board's #1 and the player's own place, for this month or for all time.
     /// <para>
     /// <b>What it ranks is the levels, decided in the owner's stead</b> (the issue's option (a)): a leaderboard to climb is a
     /// row saying who leads a level and where the player stands on it, and a level the player leads says so in their colour. A
@@ -29,9 +30,15 @@ namespace BS3D.Screens
     /// the server does not offer the overview yet rather than that it is away.
     /// </para>
     /// <para>
-    /// <b>A locked level shows its name and nothing of its board</b>, as the picker shows a lock: #266 keeps a level ahead
-    /// of the player from showing its shape, and a board's top score is that shape in numbers. A row of an unlocked level
-    /// opens that level's full boards (<c>OpenLevelBoard</c>), so the overview is also the way into every board.
+    /// <b>Every level shows its real board, the levels ahead of the player too</b> (#898, the owner's ruling of 2026-10-16,
+    /// which reverses this page's "Locked" of #266 and only here - the level picker keeps its locks). The table of every
+    /// level of every chapter is the point of a leaderboard to climb, and a leader's name and score were never hidden
+    /// anywhere else a board is open. What a row says of the player's own progress is its <b>tint</b>: a level the player
+    /// has cleared (<see cref="HighScoresRow.Cleared"/>: at least one star; a skip is not a clear) rests in the menu's usual
+    /// slab, a level they have not in a quieter one with its number and name a step dimmer, so a page of leaders still says
+    /// which of the levels are the player's own. "You" is empty where the player has no place. Every row opens that level's
+    /// full boards (<c>OpenLevelBoard</c>, which has no unlock check), so the overview is also the way into every board, and
+    /// every row is in the pad's walk whenever the boards can be asked.
     /// </para>
     /// <para>
     /// <b>Opted out, the page still opens</b>: it says what turning online scores on gives and offers Settings, the result
@@ -100,6 +107,10 @@ namespace BS3D.Screens
         private readonly List<Button> _rows = new();
         private readonly List<Label> _rowNumbers = new(), _rowNames = new(), _rowTops = new(), _rowMes = new();
         private readonly List<Label> _rowTopScores = new(), _rowMeScores = new();
+
+        //The slab each row rests in (#898): the usual one for a level the player has cleared, the quieter one for a level not
+        //finished. Both are the menu's static brushes; this list only says which, and EntryRestBrushFor hands it to the host
+        private readonly List<IBrush> _rowRest = new();
         private Label _status;
         private Button _settingsButton;
 
@@ -189,6 +200,7 @@ namespace BS3D.Screens
             _rowMes.Clear();
             _rowTopScores.Clear();
             _rowMeScores.Clear();
+            _rowRest.Clear();
 
             VerticalStackPanel rows = new() { Spacing = Scaled(ROW_SPACING), HorizontalAlignment = HorizontalAlignment.Center };
             for (int slot = 0; slot < LongestPage(); slot++) rows.Widgets.Add(BuildRow(slot));
@@ -292,12 +304,13 @@ namespace BS3D.Screens
                 NAME_WIDTH + TOP_WIDTH + ME_WIDTH + 2 * COLUMN_GAP + 2 * ROW_PADDING_X, ROW_HEIGHT);
             row.Padding = ScaledThickness(ROW_PADDING_X, 0);
 
-            //A row that cannot be opened - a lock, or every row while the boards cannot be asked - is a quiet row and not a
-            //greyed-out control: Myra's own disabled slab and type turned the opted-out page into ten unreadable bars
-            //(photographed). The writing pass dims what it means to dim.
+            //A row that cannot be opened - every row while the boards cannot be asked - is a quiet row and not a greyed-out
+            //control: Myra's own disabled slab and type turned the opted-out page into ten unreadable bars (photographed). The
+            //writing pass gives it the slab of its level (DisabledBackground, as the host gives an entry its Background).
             row.DisabledBackground = BS3DGame.MENU_BUTTON_BRUSH;
 
             _rows.Add(row);
+            _rowRest.Add(BS3DGame.MENU_BUTTON_BRUSH);
             _rowNumbers.Add(number);
             _rowNames.Add(name);
             _rowTops.Add(top);
@@ -447,10 +460,25 @@ namespace BS3D.Screens
             return _page != before;
         }
 
+        /// <summary>
+        /// A row opens its level's full boards, <b>whether or not the player may play the level yet</b> (#898): the boards of
+        /// every level are open here, and <c>OpenLevelBoard</c> asks only whether they can be asked at all.
+        /// </summary>
         private void OpenSlot(int slot)
         {
             int level = slot < _slotLevel.Length ? _slotLevel[slot] : -1;
-            if (level >= 0 && Game.IsLevelUnlocked(level)) Game.OpenLevelBoard(level);
+            if (level >= 0) Game.OpenLevelBoard(level);
+        }
+
+        /// <summary>
+        /// Each row rests in the slab of its level (#898): the host's focus highlight repaints every entry's background on
+        /// each pass, and asks the page for the tone to rest an unfocused one to, so a tint set on the row alone would be
+        /// gone with the first press of a key. Anything that is not a row (the periods, the arrows, Back) takes the page's own.
+        /// </summary>
+        internal override IBrush EntryRestBrushFor(Button entry)
+        {
+            int slot = _rows.IndexOf(entry);
+            return slot >= 0 && slot < _rowRest.Count ? _rowRest[slot] : base.EntryRestBrushFor(entry);
         }
 
         internal override void Refresh()
@@ -487,37 +515,29 @@ namespace BS3D.Screens
                 _rows[slot].Visible = shown;
                 if (!shown) continue;
 
-                bool unlocked = Game.IsLevelUnlocked(level);
-                _rows[slot].Enabled = unlocked && Game.Online.Enabled;
+                //Every level's real board (#898), the player's progress told by the row's tint and not by what it says. Enabled
+                //follows the boards alone: the level may be one the player cannot play yet, and its boards open all the same
+                bool cleared = HighScoresRow.Cleared(Game.LevelStars(level));
+                _rows[slot].Enabled = Game.Online.Enabled;
+                _rowRest[slot] = _rows[slot].DisabledBackground = cleared ? BS3DGame.MENU_BUTTON_BRUSH : BS3DGame.MENU_ROW_UNFINISHED_BRUSH;
 
+                //The number and name in the bright type for a level the player has cleared and in the body grey for one not
+                //finished: the quieter slab's partner, so the tint is not carried by the slab alone
+                Color nameColor = cleared ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_BODY;
                 _rowNumbers[slot].Text = FontFigures.Tabular((level + 1).ToString(CultureInfo.InvariantCulture), FontSmall);
                 _rowNames[slot].Text = Game.LevelDisplayName(level);
-                Paint(_rowNumbers[slot], unlocked ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM);
-                Paint(_rowNames[slot], unlocked ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM);
-
-                if (!unlocked)
-                {
-                    _rowTops[slot].Text = "Locked";
-                    Paint(_rowTops[slot], BS3DGame.MENU_TEXT_DIM);
-                    _rowTopScores[slot].Text = _rowMes[slot].Text = _rowMeScores[slot].Text = string.Empty;
-                    continue;
-                }
+                Paint(_rowNumbers[slot], nameColor);
+                Paint(_rowNames[slot], nameColor);
 
                 BoardSummaryBody board = boards != null && Identity(level) is LevelIdentity id
                     && boards.TryGetValue(Key(id.File, id.Hash, rules), out BoardSummaryBody found) ? found : null;
 
+                HighScoresRow.Texts texts = HighScoresRow.Of(reply?.Summary != null, board);
                 Paint(_rowTops[slot], BS3DGame.MENU_TEXT_BODY);
-                bool shows = reply?.Summary != null && board != null;
-                _rowTops[slot].Text = reply?.Summary == null ? string.Empty
-                    : board == null ? "No clears yet"
-                    : PickerCopy.Leader(board.Top.Name, board.Top.Stars == 0);
-                _rowTopScores[slot].Text = shows ? FontFigures.Tabular(ScoreText.Of(board.Top.Score), FontSmall) : string.Empty;
-
-                //An unfinished attempt (#716) is zero stars, which no clear has: the service ranks every clear above every
-                //attempt, so a "#1" that is one says nobody has cleared the level yet
-                bool placed = shows && board.Me != null && board.Me.Rank > 0;
-                _rowMes[slot].Text = placed ? PickerCopy.Place(board.Me.Rank, board.Total, board.Me.Stars == 0) : string.Empty;
-                _rowMeScores[slot].Text = placed ? FontFigures.Tabular(ScoreText.Of(board.Me.Score), FontSmall) : string.Empty;
+                _rowTops[slot].Text = texts.Leader;
+                _rowTopScores[slot].Text = texts.HasLeaderScore ? FontFigures.Tabular(texts.LeaderScore, FontSmall) : string.Empty;
+                _rowMes[slot].Text = texts.Place;
+                _rowMeScores[slot].Text = texts.HasPlaceScore ? FontFigures.Tabular(texts.PlaceScore, FontSmall) : string.Empty;
             }
 
             //As prose (#855): the line wraps, and a wrapping label is never handed raw text. Refresh runs on a change, not
@@ -539,13 +559,13 @@ namespace BS3D.Screens
             if (reply.NotOffered) return "The score server does not offer this overview yet. Each level’s boards are still in Select Level.";
             if (reply.Summary == null) return "The score server did not answer. Try again in a moment.";
 
-            //Only the boards the rows can show - this build's levels as they are, the ones the player has open (#685's
+            //Only the boards the rows can show - this build's levels as they are, every one of them since #898 (#685's
             //review): the summary carries every version of every level any table names, and a count over those said "you
             //lead 12 of 40" over rows that all read "No clears yet" after a level was edited or the rules moved
             int on = 0, leads = 0, rules = ScoreKeeper.RulesVersion;
             for (int level = 0; level < Game.LevelCount; level++)
             {
-                if (!Game.IsLevelUnlocked(level) || Identity(level) is not LevelIdentity id) continue;
+                if (Identity(level) is not LevelIdentity id) continue;
                 if (!boards.TryGetValue(Key(id.File, id.Hash, rules), out BoardSummaryBody board)) continue;
                 if (board.Me == null || board.Me.Rank <= 0) continue;
 
