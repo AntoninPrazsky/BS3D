@@ -8,7 +8,7 @@ A scene that opens on a **prologue** plays cut-together `IntroShot`s (a path and
 
 - **A prologue is taken with a cut and skipped with one.** The blend cannot make a cut (it would glide the lens through the towers), so `Begin` sets it to 1 with a prologue and `TrySkip` drops it to 0.
 - **After a prologue the tour flies only its last leg** (`ARRIVAL_SECONDS`, 4.5 s): the tour's scene stands lie on a circle round the arena that in a city runs through the towers.
-- **One concrete object per shot, an establishing view first.** `[intro]` and `[tour]` name the shots, e.g. `[intro] block 'The Eruption' (9/13), cut 'the flank' 3.2s | 'the crater' 5.4s | cut -> map 43 out at 46deg -> game pose, 4.5s; 13.1s in all`. Totals run 11-16 s, the cities 22 (22.5 when the roof skim stands in for the rooftop).
+- **One concrete object per shot, an establishing view first.** `[intro]` and `[tour]` name the shots, e.g. `[intro] block 'The Eruption' (9/13), cut 'the flank' 3.2s | 'the crater' 5.4s | cut -> map 43 out at 46deg -> game pose, 4.5s; 13.1s in all`. Totals run 11-16 s, the cities 22 (22.5 when the roof skim stands in for the rooftop), the meadow 22.9 (#893, its two orbits).
 - **`IntroShot` moves without corners (#645)**: `Pose` extrapolates the look-ahead along the last leg (swapping in a direction swung the view in one frame); `At` is a Catmull-Rom (linear interpolation changed velocity at every point).
 
 ## The cities (#488, #780)
