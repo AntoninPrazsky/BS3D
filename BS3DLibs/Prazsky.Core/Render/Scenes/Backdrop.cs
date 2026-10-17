@@ -74,7 +74,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The sun the scene states for itself (<see cref="SceneRenderer.TryGetSunDirection"/>) over the dome's
-        /// and the shared domeless one; false takes one of those. Only the Moon states one.
+        /// and the shared domeless one; false takes one of those. Only the Moon and the Big Top state one.
         /// </summary>
         public virtual bool TryGetSunDirection(out Vector3 direction)
         {

@@ -47,7 +47,7 @@ A **shape**: `FrozenVS` scales the sphere to a superellipsoid (`FrozenCubePower`
 
 ## Infectious (`Infectious`, #331, #629)
 
-The ball's own colour with one **crust** eating one side (olive lumpy cap round an object-space axis, wet edge, spore heads, a small world-space bead). **The colour is the counterplay.** Collision: the acid (both green and wet): acid is a dark shell running downward, this a film creeping in object space. ⚠ **The crust faces down and forward** (a looking-up player never sees a hanging ball's top). ⚠ Three bugs each cost the counterplay: the threshold assumed a field mean of 0.5, but a rectified-sine sum's mean is `2/pi` = **0.64**; a soft edge (`InfectEdge` 0.12) smeared the film everywhere (binary 0.05); the heartbeat **substituted** the slime colour for the ball's (all thirteen came out dark green): it is `lerp(primary, slime, film)`. The loudest uniforms (slime says hurry).
+The ball's own colour with one **crust** eating one side (olive lumpy cap round an object-space axis, wet edge, spore heads, a small world-space bead). **The colour is the counterplay.** Collision: the acid (both green and wet): acid is a dark shell running downward, this a film creeping in object space. ⚠ **The crust faces down and forward** (a looking-up player never sees a hanging ball's top). ⚠ Three bugs each cost the counterplay: the threshold assumed a field mean of 0.5, but a rectified-sine sum's mean is `2/pi` = **0.64**; a soft edge smeared the film everywhere (`InfectCrustEdge` was 0.12, it is 0.03 now); the heartbeat **substituted** the slime colour for the ball's (all thirteen came out dark green): it is `lerp(primary, slime, film)`. The loudest uniforms (slime says hurry).
 
 ## Gravity (`Gravity`, #332, #630)
 

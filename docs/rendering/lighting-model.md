@@ -13,9 +13,9 @@ Part of [Rendering](../rendering.md).
 
 - `SkyRadiance` evaluates the dome analytically (two-colour gradients: sampled along the normal for diffuse and the reflection for specular, roughness lerping towards the sky average). **Fresnel is Schlick over a dielectric F0 of 0.04** modulated by the specular colour; ⚠ handing `SpecularColor` straight to Schlick makes F near 1 everywhere and veils the scene.
 - **Per-renderer uniforms that every `Draw` must set**, because a leftover value carries to the next surface drawn through the shared effect:
-  - `Metalness` (0 except the funnel's gold rims) lerps F0 up to the specular colour (a gold rim reflects gold).
+  - `Metalness` (0, except the funnel's gold rims and the result page's metals, the trophy tiers and ornaments, at 1) lerps F0 up to the specular colour (a gold rim reflects gold).
   - `SpecularAlphaWeight` (#228): how far specular is scaled by the material's alpha. 1 everywhere, 0 for the crystal trophy alone: reflection is light off the *front*, and unattenuated in a premultiplied target it composites as light added over the background.
-  - `DirLightStrength` (#156): how much of the three-light rig reaches the surface; 1 except the ceiling glass, where `SkyLightRig.ApplyToGlass` dims it to the sky's own brightness (Rec. 601 luminance of the sky ambient over a daylight reference), so the plate is not a sunlit slab over a sky-replacing scene's black backdrop. Per-renderer because the `DirLight*` colours are one set per scene. Scene point lights sit above the scale on purpose.
+  - `DirLightStrength` (#156): how much of the three-light rig reaches the surface; 1 except the ceiling glass, where `SkyLightRig.ApplyToGlass` dims it to the sky's own brightness (Rec. 709 luminance, `ColorSpace.Luminance`, of the sky ambient over `GLASS_FULL_RIG_LUMINANCE`, 0.25), so the plate is not a sunlit slab over a sky-replacing scene's black backdrop. Per-renderer because the `DirLight*` colours are one set per scene. Scene point lights sit above the scale on purpose.
 
 ## Polished metal: the result page's cups (#602)
 

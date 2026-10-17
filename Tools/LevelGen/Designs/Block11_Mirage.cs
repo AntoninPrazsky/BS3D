@@ -569,7 +569,7 @@ namespace BS3D.Tools.LevelGen
 
         #region The mirage levels' own geometry (#323/#325)
 
-        //THE DOME NUMBER THE WHOLE BLOCK NAMES, and it is INERT: the dream is one of the four sky-replacing
+        //THE DOME NUMBER THE WHOLE BLOCK NAMES, and it is INERT: the dream is one of the sky-replacing
         //scenes (SceneRenderer.ReplacesSky), so no dome is drawn and the scene states its own light rig
         //instead of taking the palette's - a violet sky ambient over a teal ground bounce, a rose key
         //against a cyan fill. The field is stated anyway, and stated identically on all ten, for the reason

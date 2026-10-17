@@ -179,7 +179,7 @@ and 20 minutes into a continuous session, which said the spread was the level an
   `vsync on/off`** — since #270 the Game does not vsync at all, and a line still saying so would misreport
   the one setting that decides what the number means. The Testbed still says `vsync`, which is still true of
   the Testbed; do not assume the two lines are identical any more.
-- `quality=<low|medium|high>` — the bundled detail tier. `ssaa=<n>` then overrides just its supersample entry,
+- `quality=<low|medium|high|ultra|potato>` — the bundled detail tier (`potato` is the tier's preset row, not the Potato render path, which is the `potato` flag). `ssaa=<n>` then overrides just its supersample entry,
   and **this now works**: `ApplyQuality` ends `SetSupersampleFactor(_supersampleOverride ?? preset.SupersampleFactor)`,
   so a command-line factor survives the tier being applied again in `LoadContent` and on every adaptive step.
   This entry said the opposite for a long time, from the era when `ApplyQuality` wrote the tier's factor over

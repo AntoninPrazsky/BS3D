@@ -239,8 +239,8 @@
         //
         //Elevation 35 / azimuth 40 is exactly the direction all eighteen used to share (BasicEffect's own key
         //light, -DefaultLighting.Light0Direction, decomposes to those two to the last digit), so that pair is
-        //how a dome says "unchanged" - and it is what the four sky-replacing scenes keep, having no dome to
-        //read a sun off at all (SkyLightRig.DOMELESS_SUN_DIRECTION).
+        //how a dome says "unchanged" - and it is what the sky-replacing scenes keep, having no dome to
+        //read a sun off at all (SkyLightRig.DOMELESS_SUN_DIRECTION), unless they state a sun of their own (the Moon, the Big Top).
         private static readonly (float Elevation, float Azimuth)[] SUNS =
         {
             (48f,   40f), //1  clear day: warm sand horizon under a deep blue zenith

@@ -6,7 +6,7 @@ Every file a player's run writes lives in one per-user directory and goes throug
 
 ## Where they live
 
-- **`%LOCALAPPDATA%\BS3D\`**: `Progress.json`, `Settings.json`, `Online.json`, `Outbox.json`, `Notes/`. `Game/UserData.cs` is the one place that answers where. Per **user**, not roaming. `Levels.json` stays with the build.
+- **`%LOCALAPPDATA%\BS3D\`**: `Progress.json`, `Settings.json`, `Online.json`, `Outbox.json`, `Stats.json` (the play counts, #709: [Play statistics](../game-session/play-statistics.md)), `Notes/`. `Game/UserData.cs` is the one place that answers where. Per **user**, not roaming. `Levels.json` stays with the build.
 - GamePi answers `~/.local/share/BS3D` (`$XDG_DATA_HOME` when set) asked with `SpecialFolderOption.DoNotVerify` (#798): .NET answers an empty string by default when `~/.local/share` does not exist yet.
 - **`userdata=<dir>`** (#546) moves every file for one run: a scripted run must pass it or it writes the owner's real save ("Online scores" in `docs/game-session.md`).
 - ⚠ The save lived in the build output until #353 and `dotnet clean` took the campaign. `BS3DGame.AdoptProgressFromBuildOutput` adopts an old-location save once (only when the new home holds neither save nor backup), byte for byte, and leaves the old file standing: it was the only copy.
@@ -15,7 +15,7 @@ Every file a player's run writes lives in one per-user directory and goes throug
 
 - **`AtomicFile.WriteText`** builds `<name>.tmp` in the same directory (`File.Replace` cannot cross a volume), flushes it to disk and swaps it in with `File.Replace`, which demotes the previous file to `<name>.bak` (`PlayerProgress.BackupSuffix`): a torn write leaves a short but syntactically fine file. `Level.Save`, `LevelSet.Save` and `BallsMap.SerializeAsJson` use it with `backupSuffix: null`.
 - **`Load` tries the backup before giving up** and comes back bound to the real path. **`PlayerProgress.Outcome`** is `Fresh`, `Loaded`, `RecoveredFromBackup` or `Discarded` (a file was there, none usable); `BS3DGame.ReportProgressLoad` prints the last three. `Save` throws and the game wraps it (`BS3DGame.SaveProgress`).
-- ⚠ **`AtomicFile.KeepUnreadable`**: every player-file loader (`PlayerProgress`, `GameSettings`, `OnlineIdentity`, the online outbox) calls it on a file that exists and does not read, **before anything writes**: a copy `<name>.unreadable-<utc>`, never touched or read back by the game (recovery is by hand), and one log line (`[progress]`, `[settings]`, `[online]`). Without it a save a *newer* build wrote was gone after two saves (the first demotes it to `.bak`, the second overwrites that); the identity's token, the only proof the scores are the player's, is the file that matters most.
+- ⚠ **`AtomicFile.KeepUnreadable`**: every player-file loader (`PlayerProgress`, `GameSettings`, `OnlineIdentity`, the online outbox, `PlayStats`) calls it on a file that exists and does not read, **before anything writes**: a copy `<name>.unreadable-<utc>`, never touched or read back by the game (recovery is by hand), and one log line (`[progress]`, `[settings]`, `[online]`, `[stats]`). Without it a save a *newer* build wrote was gone after two saves (the first demotes it to `.bak`, the second overwrites that); the identity's token, the only proof the scores are the player's, is the file that matters most.
 - The mix rows (`master`, `sfx`, `music`, `ambience`, `rumble`) are clamped to 0..1 on load.
 
 ## `Progress.json` (`"bs3d-progress"`)
@@ -24,7 +24,7 @@ Every file a player's run writes lives in one per-user directory and goes throug
 
 - **`levels`**: per file `{score, stars}` bests. An entry the set no longer lists goes unread by the picker, but `TotalStars`/`TotalScore` sum every record, so stars on a retired level stay the player's. The star total is what `minStars` gates against.
 - **`skipped`** (#347): levels skipped past, null until the first (a skip is not a clear). **`lessons`** (#189): tutorial lessons completed (`"aim"`, `"fire"`, … from the game's `Tutorial` class), null until the first; the save's, not the settings', because it records what the player *did*; `Reset` clears it with the stars. An older build ignores both (it teaches again: the safe direction).
-- **`Load` is lenient**, unlike every other loader: a missing, unreadable or malformed file is a fresh empty progress.
+- **`Load` is lenient**, unlike the level and level-set loaders, which throw: a missing, unreadable or malformed file is a fresh empty progress.
 
 ## `Settings.json` (`"bs3d-settings"`)
 
