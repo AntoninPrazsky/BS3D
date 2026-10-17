@@ -263,6 +263,16 @@ namespace BS3D.Screens
         internal virtual IBrush EntryRestBrush => BS3DGame.MENU_BUTTON_BRUSH;
 
         /// <summary>
+        /// The brush <b>this</b> resting entry is painted with (#898), where <see cref="EntryRestBrush"/> is the page's one.
+        /// <c>ApplyNavHighlight</c> asks it of every unfocused entry on each pass, because a page that tints its entries
+        /// one by one (the High Scores page's rows of levels the player has not finished) would otherwise have every tint
+        /// painted over with the page-wide rest the moment the pad or the pointer moved. The default is the page's
+        /// <see cref="EntryRestBrush"/>, so no other page changes. It runs on a change of focus or of entries, never per
+        /// frame, and must answer with a brush built once (a static, or one the page holds): no allocation here.
+        /// </summary>
+        internal virtual IBrush EntryRestBrushFor(Button entry) => EntryRestBrush;
+
+        /// <summary>
         /// Whether this page dims the frame behind it. A pause dims hard, because what is behind it is a
         /// stopped game; the front end does not dim at all, because the rotating scene is the point of that
         /// screen. A page shared between the two — settings, scene, about — asks the <b>stack</b> whether a
