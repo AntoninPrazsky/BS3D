@@ -227,7 +227,7 @@ namespace BS3D.Screens
                 $" shot ({landing.ShotDirection.X:F2},{landing.ShotDirection.Y:F2},{landing.ShotDirection.Z:F2}), knock L {CutRumble.KNOCK_LEFT:F2} R {CutRumble.KNOCK_RIGHT:F2} triggers {CutRumble.KNOCK_TRIGGER:F2},")
                 + FormattableString.Invariant(
                 $" fall L {fallLeft:F2} R {fallRight:F2} over {fallSeconds:F2} s,")
-                + (_cinematic.Engaged ? " slow motion: the drop cinematic's"
+                + (_cinematic.Engaged ? " no slow motion: the drop cinematic has the lens, the world runs at game time"
                     : FormattableString.Invariant($" slow motion {CutBeats.SlowSeconds(CutBeats.Size(landing.Released.Orphaned), landing.Released.Orphaned > 0):F2} s")));
         }
 
@@ -672,6 +672,10 @@ namespace BS3D.Screens
 
             //The beat, the frozen figures, the milestone and the whole celebration - see BeginClearedBeat
             EnterPhase(LevelPhase.ClearedBeat);
+
+            //A cut's award still waiting out its severing is born now unless a drop cinematic has the lens (#767): the wait runs
+            //on the world's clock, which the cut's slow motion stretches past what the cleared beat has room for
+            _hud.BirthWaitingAwards(_cinematic.Engaged);
 
             //What the unused balls were worth, shown like any award (#846) and said in words (#881): "12 UNUSED BALLS" over
             //the figure, born over the aim point a moment after the clearing shot's own award, read for AwardZoom.BONUS_HOLD

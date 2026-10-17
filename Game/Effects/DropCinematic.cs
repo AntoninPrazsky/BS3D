@@ -104,11 +104,12 @@ namespace BS3D.Effects
         private const float STALL_DROP = 1f;
         private const float STALL_SECONDS = 0.9f;
 
-        //The most one frame adds to the stall's clock. The world a hitched frame lives through is capped by the physics'
-        //steps per frame, so a long frame (the first draw of a pass, a capture's half second, a window dragged) has simulated
-        //far less than it lasted; counted whole it could end a shot on its own. Slow motion used to hide this by scaling the
-        //frame down (#877).
-        private const float STALL_FRAME_MAX = 0.1f;
+        //The most one frame adds to the stall's clock: the most the world advances in one, GameplayScreen's
+        //PHYSICS_MAX_STEPS_PER_FRAME (4) steps of PHYSICS_TIMESTEP (1/120 s). A longer frame (the first draw of a pass, a
+        //capture's half second, a window dragged, or any frame below 30 fps) has simulated far less than it lasted; counted
+        //whole it could end a shot on its own, and the old cap of 0.1 s still did on a machine at 15 fps. Slow motion used to
+        //hide this by scaling the frame down (#877).
+        private const float STALL_FRAME_MAX = 4f / 120f;
 
         //Heights the arc is measured against. The island's stone and the drain's throat are where the three
         //interesting things happen, so they are the anchors rather than a linear run to the kill plane. Both

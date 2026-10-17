@@ -577,7 +577,7 @@ namespace BS3D.Screens
             /// already withheld from the readout.</summary>
             public float Age;
 
-            /// <summary>A cut's award (#767): the WORLD's seconds it still waits before it is born (<see cref="CUT_AWARD_WORLD_SECONDS"/>),
+            /// <summary>A cut's award (#767): the WORLD's seconds it still waits before it is born (<see cref="AwardZoom.CUT_WORLD_WAIT"/>),
             /// its <see cref="Age"/> held negative and still meanwhile. Zero for every other award.</summary>
             public float WorldWait;
 
@@ -859,7 +859,7 @@ namespace BS3D.Screens
         /// in the order they landed, each paid as it arrives.
         /// </remarks>
         /// <param name="cutter">True for a cutter's strike (#766): tinted with the Cutter's accent, never its dealt colour, and born only
-        /// once its severing has been seen (<see cref="CUT_AWARD_WORLD_SECONDS"/>, #767).</param>
+        /// once its severing has been seen (<see cref="AwardZoom.CUT_WORLD_WAIT"/>, #767).</param>
         internal void AddAward(Vector3 world, ScoreAward award, BallType type, bool cutter = false)
         {
             HandOffReads();
@@ -886,7 +886,7 @@ namespace BS3D.Screens
                 //over the slash running across the storey it was paid for (photographed, Elephant). It waits on the world's
                 //clock, as the slash lives (WorldWait); every other award is born on its landing, as #846 has it.
                 Age = cutter ? -1f : 0f,
-                WorldWait = cutter ? CUT_AWARD_WORLD_SECONDS : 0f,
+                WorldWait = cutter ? AwardZoom.CUT_WORLD_WAIT : 0f,
                 Peak = AwardZoom.Peak(award.Points),
                 Birth = AwardZoom.Birth(award.Points),
                 Hold = AwardZoom.Hold(award.Points),
@@ -905,15 +905,25 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// How long a cut's award waits before it is born on the struck cell (#767), in the <b>world's</b> seconds: half the
-        /// slash's life (<see cref="Effects.CutBeats.SLASH_SECONDS"/>), when it is past its white heat (wholly white-hot for
-        /// its first fifth), at half its light and two thirds of its thickness and cooling towards amber, so the number zooms in
-        /// over a cut already made instead of over the cut being made. On the world's clock because the slash lives on it:
-        /// the strike's slow motion stretches both alike, however deep it runs (about 1.1 s of the play clock for a cut that
-        /// freed nothing, 1.6 s for a full-size one), and so does the drop cinematic's. A wait on the play clock stood the
-        /// number over a slash still white-hot whenever the slow motion ran deep.
+        /// A level-ending cut's award, born now (#767): called when the field has just emptied and the cut's award still waits
+        /// on the world's clock (<see cref="AwardZoom.CutWaitLeft"/>). With no drop cinematic over the clear, that wait would run
+        /// under the cut's slow motion and put the number's birth, its read and its flight past the cleared beat, over the
+        /// completion bonus and the result page. Under a drop cinematic the world runs at game time and the beat is held
+        /// for the shot, so the award keeps its wait.
         /// </summary>
-        private const float CUT_AWARD_WORLD_SECONDS = Effects.CutBeats.SLASH_SECONDS * 0.5f;
+        internal void BirthWaitingAwards(bool dropCinematic)
+        {
+            for (int i = 0; i < _popups.Count; i++)
+            {
+                Popup popup = _popups[i];
+                if (popup.WorldWait <= 0f) continue;
+
+                popup.WorldWait = AwardZoom.CutWaitLeft(popup.WorldWait, levelCleared: true, dropCinematic);
+                if (popup.WorldWait <= 0f) popup.Age = 0f;
+
+                _popups[i] = popup;
+            }
+        }
 
         /// <summary>
         /// The completion bonus (#846, #881): what the unused balls were worth, said in words over the aim point and flown

@@ -214,8 +214,10 @@ namespace BS3D.Screens
         private float _aimTiltZero, _aimTiltTarget, _aimTiltRoomUp, _aimTiltRoomDown;
 
         //The elevation the hand has put the barrel at: the rest plus the aim, without the rubber's overshoot (#431). The
-        //rubber is the clamp refusing a push, and the gun will not fire while it is out (Cannon.ElevationRefusesShot), so
-        //it is not where a shot will go; a lens that followed it would bob each time a held tall level's clamp is pushed
+        //rubber is the clamp refusing a push: at the upper clamp the gun will not fire while it is out
+        //(Cannon.ElevationRefusesShot), and at MinElevation a shot leaves at the clamped elevation, the stretch being only
+        //drawn (Cannon.FireDirection, #872), so it is not where a shot will go; a lens that followed it would bob each time
+        //a held tall level's clamp is pushed
         private float AimedElevation => _cannon.RestElevation + _cannon.ElevationAim;
 
         /// <summary>

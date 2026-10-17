@@ -189,6 +189,31 @@ namespace BS3D.Screens
         /// </summary>
         public static float HandOff(float age, float hold) => MathF.Min(hold, MathF.Max(age, MIN_READ));
 
+        /// <summary>
+        /// How long a cut's award waits before it is born on the struck cell (#767), in the <b>world's</b> seconds: half the
+        /// slash's life (<see cref="BS3D.Effects.CutBeats.SLASH_SECONDS"/>), when it is past its white heat (wholly white-hot for
+        /// its first fifth), at half its light and two thirds of its thickness and cooling towards amber, so the number zooms in
+        /// over a cut already made instead of over the cut being made. On the world's clock because the slash lives on it:
+        /// the strike's slow motion stretches both alike, however deep it runs (about 1.1 s of the play clock for a cut that
+        /// freed nothing, 1.6 s for a full-size one). A wait on the play clock stood the number over a slash still
+        /// white-hot whenever the slow motion ran deep. A cut that clears the level with no drop cinematic over it is born
+        /// at once (<see cref="CutWaitLeft"/>): it must be read and flown into the score inside the cleared beat.
+        /// </summary>
+        public const float CUT_WORLD_WAIT = BS3D.Effects.CutBeats.SLASH_SECONDS * 0.5f;
+
+        /// <summary>
+        /// What is left of a cut's award's wait in the world's seconds (#767) when a level-clearing cut is the shot: none, unless
+        /// a drop cinematic has the lens. The wait is in the world's seconds and the strike's slow motion stretches them to 1.1
+        /// to 1.6 s of the play clock, while the cleared beat is <see cref="LevelPhases.ClearedBeatSeconds"/> and the award
+        /// still needs its read and its flight (<see cref="Lifetime"/>); a number born that late is cut mid-read by the result
+        /// page and never flies into the score. Under a cinematic the world runs at game time and the beat is held for it.
+        /// </summary>
+        /// <param name="worldLeft">What the award still waits, in the world's seconds.</param>
+        /// <param name="levelCleared">Whether the field has just emptied.</param>
+        /// <param name="dropCinematic">Whether a drop cinematic has the lens.</param>
+        public static float CutWaitLeft(float worldLeft, bool levelCleared, bool dropCinematic) =>
+            levelCleared && !dropCinematic ? 0f : worldLeft;
+
         /// <summary>How long the completion bonus waits before it is born, given the longest any award still has to be
         /// read: until that read ends, but never more than <see cref="BONUS_WAIT_MAX"/>, after which it takes the read as
         /// a newer award does (<see cref="HandOff"/>).</summary>
