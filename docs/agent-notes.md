@@ -945,3 +945,8 @@ Pravidla:
 - Review po merge (tři revieweři podle oblastí, každý nález ověřil skeptik): potvrzeny 3, opraveny v d01887f9. Hodiny vizualizéru Jukeboxu a About se po zaseknutí už neodchylují, jsou připnuté k tomu, co hlas přehrál (#899). Běh s debug řádkem se neposílá ani do online statistik (#876). Opraven komentář (#895). Render a zvuk (#888 #920 #903 #886 #919 #882) bez nálezu.
 - Reference pro #886 (plazma), #883, #890 (keře), #884 (vyšší koruny), #892 (potok a rybník): 40 obrázků, výběr je na issues.
 - ⚠ Reviewer i agent občas vrátí prázdný výsledek: oblast pak není prověřená, spusť ji znovu (tady render a zvuk).
+
+## 2026-10-17 — #751 #753 #754 #756 #757 #778 #777 #749 #774 #775 #776 #779 #744 #745 #746 #747 #748 reference scén — desktop (RDT-PC), Claude Code (bs3d-5f)
+- Reference pro 17 odparkovaných scénických issues, obě modely (Z-Image-Turbo, klein), 136 obrázků v `C:\Users\panrd\AI\sd\out\<issue>-zimage|klein`, výběr 2–3 obrázků s důvodem je na každém issue. Nic se nestaví: fronta verdiktů je 17, stavba počká na limit 15.
+- ⚠ Klein na Marsu a Outbacku přesytí oranžovou; Z-Image drží barvy roverových snímků. Klein lépe kreslí oblohu a opar podle vzdálenosti.
+- ⚠ Workflow se stejným skriptem znovu spustil pevný seznam issues předchozí dávky; zastaveno, GPU zámek zůstal volný. Každá dávka potřebuje vlastní skript.
