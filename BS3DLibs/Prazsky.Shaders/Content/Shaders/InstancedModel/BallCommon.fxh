@@ -25,7 +25,9 @@
 //     is a whole DISPLAY pixel or more - an object-space cell is a lumpy 3D mottling and a one-target-
 //     pixel cell is averaged straight back into a smooth cross-fade by the supersample resolve. The
 //     clip must stay the form `-d - noise` on the negative side: a value BELOW -1 is the aim ghost (#794),
-//     drawn smaller by PatternVS's GhostScale, and that form keeps every pixel of it.
+//     drawn smaller by PatternVS's GhostScale, and that form keeps every pixel of it. The shadow caster keeps a
+//     copy of this clip over cells of one shadow-map texel (Depth.fxh, #920), so a fading ball's shadow thins with
+//     it; a change to the form of the clip is a change to both.
 //  2. THE HEARTBEAT, normally as the whole of BallEmission(primary, worldPosition, occlusion): the
 //     position term in the phase is what makes it a wave THROUGH the cluster (without it the cluster
 //     strobes in lockstep, a lamp rather than something breathing), and since #303 the RESTING emission
@@ -201,7 +203,9 @@ struct PatternVertexShaderOutput
 //How wide one cell of the dissolve's dither is, in pixels of the CURRENTLY BOUND target. The caller sends
 //the display-pixel size it wants multiplied by however much the scene is supersampled, so the cell is a
 //block of the finished image whatever the render resolution - see BallRenderSet.Draw, which is the one
-//thing that sets it, the dissolve being read by the ball technique alone.
+//thing that sets it, and the ball techniques the only ones that read it: the shadow caster's copy of the clip
+//(Depth.fxh) cuts cells of one texel of the map and reads no uniform, since this one is a measure of the scene
+//target and is only set after the shadow pass.
 //
 //It is a SCREEN-space dither, and the reason is what the effect is for: the old colour has to visibly go
 //away in PIXELS rather than fading, so the player sees the game re-colouring a loaded ball instead of a

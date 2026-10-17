@@ -1486,6 +1486,13 @@ namespace Prazsky.Core.Render
         /// The caller states the target and the states: <see cref="SceneRenderer.DrawShadowMaps"/> binds the
         /// map, clears it and sets opaque/depth-default/CullNone, then hands the matrix to whoever casts.
         /// </para>
+        /// <para>
+        /// <b>An instance's <see cref="ModelInstance.Dissolve"/> reaches the map</b> (#920): the depth pixel shader cuts
+        /// the ball pass's clip over cells of one map texel, so a thinning ball casts a thinning shadow. It reads no
+        /// uniform for that, in particular not <see cref="DissolvePixelSize"/> (a measure of the scene target, set
+        /// only when the balls are drawn, after this pass). Everything that does not dissolve sends zero, which the
+        /// clip never cuts, so the island, the gun, the city and the scatter cast what they always did.
+        /// </para>
         /// </summary>
         public void DrawDepth(Matrix lightViewProjection, ModelInstance[] instances, int instanceCount)
         {
