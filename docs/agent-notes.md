@@ -955,3 +955,10 @@ Pravidla:
 - Hotovo: #875 nad křížem stojí „STREAK LOST ×3“ ve stejném snímku jako zvuk (246417d6). #881 krok 1: „29 UNUSED BALLS / +1 624“ uprostřed, čte se 1,5 s, úder pro výsledek se neprodloužil; mimochodem opraven detail na stránce výsledků, který násobil 50 místo ceny kuličky v levelu (c3769a08). Oba mají verdikt `verdict-newcomer`, ten se do fronty nepočítá.
 - ⚠ main byl jeden merge červený: `PlayStatsSessionTests` (z oprav po review) četly Stats.json dřív, než ho pomalý ARM runner zapsal; `Dispose` čeká jen 500 ms. Opraveno v ed9de955 (`Flush` s 30 s v testech).
 - Otevřené: #881 kroky 2–3 (animace a kamera, čekají na frontu).
+
+## 2026-10-17 — #709 #851 release v0.4.0 připraven, API nasazeno — desktop (RDT-PC), Claude Code (bs3d-48)
+- Rozsah releasu z 15. 10. je na mainu celý: #866 #864 #865, hudba #732 #824 #706, Cut #766 #767, #709, scény #758 #733 #781, k tomu #897 (Potato po review) a #918 (ze smoke runu). Majitel 17. 10.: verze **v0.4.0**, snímek Fish, tag až po jeho odpovědích na stránce verdiktů (https://claude.ai/artifact/TZrCF1JU1FruZqeUb9gBra, 17 položek, odpovědi v db `verdicts`).
+- **BS3D-API v0.1.26 nasazeno na Pi** (snapshot, `update.sh v0.1.26` — bez argumentu jen vypíše usage; schéma 3→4, 159 tabulí, řádky beze změny; `POST /v1/stats` s `{}` dává 400 i přes Cloudflare). #709 zůstává otevřené do první skutečné dávky.
+- Smoke run release buildu (čistý profil, 14 kapitol, menu, Potato, prohra i výhra): bez výjimky; Column není regrese (4,3 ms, propad byl souběh na GPU). Notes: `Images/releases/v0.4.0.md` (Sonnet pisatel + dva ověřovači našli 15 chyb konceptu). Založeno #921 (clip() overdraw terénů na Low/Medium, ~3 ms na 4K).
+- ⚠ Pět holých „OK“ na issues pod sdíleným účtem nejde agentem zavřít (klasifikátor); čekají na potvrzení na stránce. Tokeny: grafické issue 0,65–1,4 M, proto od 16. 10. Sonnet a snímky ≤1920×1080.
+- Otevřené: tag v0.4.0 (screenshot Fish, `update-ceilings.sh` na Pi po publish), odpovědi majitele.
