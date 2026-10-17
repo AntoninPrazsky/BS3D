@@ -120,35 +120,47 @@ namespace BS3D.Effects
         //not the thing that decides where the shot stands.
         private const float STONE_CLEARANCE = 1.5f;
 
+        //How far under the throat's foot the arc's last leg runs: the shot is at its end that far below it.
+        private const float BELOW_LEG = 12f;
+
         //Taken off the mouth's own radius before the sight line is fitted through it, so a ball that is off
         //the axis — and they all are, they scatter — is inside the aperture rather than exactly on its edge.
         private const float MOUTH_MARGIN = 3f;
 
-        //THE OPEN SCENES' WAY PAST THE STONE (#407). A shot that goes under the island has to get from above
-        //the top face to under the underside, and the only continuous way round a drum is round its OUTSIDE.
-        //While the lens is within the drum's own height band its horizontal reach is held past the rim, and
-        //that floor is eased in over RIM_APPROACH units of lens height above the band and out over the same
-        //below it, so the lens drifts outward as it comes down on the platform and back in once it is under
-        //it, with no frame on which it is somewhere else than the frame before. RIM_MARGIN over the drum's
-        //own clearance keeps PushOutOfIsland — still the last resort — from ever having to fire.
+        //THE OPEN SCENES' WAY PAST THE STONE (#407, #878). A shot that goes under the island has to get from above
+        //the top face to under the underside, and the only continuous way round a drum is round its OUTSIDE. The
+        //lens's own radius is what takes it there (Frame): lifted, whatever the elevation, until the lens stands
+        //RIM_REACH from the drain's axis, so the lens is clear of the rim all the way down and there is no frame on
+        //which it is pushed. RIM_MARGIN over the drum's own clearance keeps KeepOutsideRim - the net behind it, which
+        //eases a reach under RIM_REACH out over RIM_APPROACH units of lens height - and PushOutOfIsland, the last
+        //resort, from ever having to fire.
         private const float RIM_APPROACH = 6f;
-        private const float RIM_MARGIN = 1f;
+        private const float RIM_MARGIN = 7f;
+        private const float RIM_REACH = ArenaIsland.RADIUS + STONE_CLEARANCE + RIM_MARGIN;
+        private const float RIM_SOFTNESS = 2f;
 
         //And how fast the lens DIVES once the balls are under the stone: the elevation is pulled towards the
-        //OUT leg's own angle over this many units of the subject's descent below the top face. The band's
-        //stone side hides the balls from a lens outside the rim, so the lens is asked to get under the
-        //underside about as fast as the balls get into the throat — in the trace that drove this, 3 units
-        //of descent is a few tenths of a second. The same shape as SUBMERGE_PULL_DEPTH, for the
-        //same reason: a pulled angle keeps the orbit's own geometry, a clamped height does not.
-        private const float STONE_DIVE_DEPTH = 3f;
+        //OUT leg's own angle, smoothly (Smoother), over this many units of the subject's descent below the top face.
+        //The band's stone side hides the balls from a lens outside the rim, so the lens has to be under the underside
+        //by the time they are a few units into the throat: 12 units of descent is about a second, and the lens is
+        //under the drum when the subject is 3 to 4 units down. Over 3 it was a plunge of 90 units a second that
+        //stopped dead (#878). The same shape as SUBMERGE_PULL_DEPTH, for the same reason: a pulled angle keeps the
+        //orbit's own geometry, a clamped height does not.
+        private const float STONE_DIVE_DEPTH = 12f;
+
+        //...and no longer than this after the subject went under the top face, whatever it does there: a group that lingers
+        //in the mouth (the real one sinks at a third of the speed a falling ball does) would otherwise hold the lens beside
+        //the drum's blank wall for as long as it lingered.
+        private const float STONE_DIVE_SECONDS = 1.1f;
 
         //How many units the SUBJECT has to be under the sea before the elevation pull (#193) is fully
-        //engaged — see SubmergeElevationPull. Short on purpose: the report was the eye still floating above
-        //the surface with the subject already 3-7 units under it, so the pull has to close most of that gap
-        //well inside it rather than tracking the fade's own slower 7-unit band (UNDERWATER_FADE_DEPTH in
-        //SceneRenderer), which answers a different question — how deep the WATER reads as opaque, not how
-        //fast the CAMERA ought to give up on a dry angle.
-        private const float SUBMERGE_PULL_DEPTH = 2f;
+        //engaged — see SubmergeElevationPull. The report was the eye still floating above the surface with the
+        //subject already 3-7 units under it; the stone's dive (STONE_DIVE_DEPTH), which starts higher up, is
+        //what keeps the lens under the water in time since #878, and this pull is the stronger of the two rather
+        //than a second one on top. It answers a different question from the fade's own band
+        //(UNDERWATER_FADE_DEPTH in SceneRenderer) — how fast the CAMERA ought to give up on a dry angle, not how
+        //deep the WATER reads as opaque.
+        private const float SUBMERGE_PULL_DEPTH = 8f;
 
         #endregion
 
@@ -172,7 +184,10 @@ namespace BS3D.Effects
         //functions of the pivot's height, and a subject whose lowest balls leave first can rise: fed straight
         //through, the arc stepped back and the lens was asked to un-dive — the "cannot decide where to look".
         //A pivot that climbs may slow the arc; it cannot reverse it.
-        private float _fall, _drain, _below, _dive, _submerge;
+        private float _fall, _drain, _below, _dive, _submerge, _depth;
+
+        //When the subject first went under the island's top face (the shot's own seconds), or -1 while it has not.
+        private float _crossedAt;
 
         //The shot, chosen once in Begin. Everything here is either rolled or picked from the scene, which
         //is what stops the tenth cinematic of a session from being the first one again.
@@ -206,7 +221,8 @@ namespace BS3D.Effects
             _startY = centre.Y;
             _pivot = centre;
             _funnelShare = 0f;
-            _fall = _drain = _below = _dive = _submerge = 0f;
+            _fall = _drain = _below = _dive = _submerge = _depth = 0f;
+            _crossedAt = -1f;
             _subjectSeen = true;
             _stallY = centre.Y;
             _stallSeconds = 0f;
@@ -384,12 +400,16 @@ namespace BS3D.Effects
             //Each held at its furthest this shot (#616 — see _fall), so the arc never runs backwards.
             float fall = _fall = MathF.Max(_fall, Saturate((_startY - _pivot.Y) / MathF.Max(_startY - ISLAND_Y, 1f)));
             float drain = _drain = MathF.Max(_drain, Saturate((ISLAND_Y - _pivot.Y) / (ISLAND_Y - FUNNEL_BOTTOM_Y)));
-            float below = _below = MathF.Max(_below, Saturate((FUNNEL_BOTTOM_Y - _pivot.Y) / 12f));
+            float below = _below = MathF.Max(_below, Saturate((FUNNEL_BOTTOM_Y - _pivot.Y) / BELOW_LEG));
 
             //The three legs are sequential by construction — each only starts once the one before it has
             //finished — so averaging them gives one monotonic run from the release to the last of the drop,
             //and every framing parameter is a three-key curve over it rather than a set of states.
-            float progress = (fall + drain + below) / 3f;
+            //In an open scene the three are one curve through the same three anchors with no corner at the island's top or
+            //the throat's foot (#878): summed, the progress ran at a different rate on each side of the anchor, and the
+            //lens's climb or dive changed speed in one frame exactly as it passed the rim.
+            float depth = _depth = MathF.Max(_depth, _startY - _pivot.Y);
+            float progress = _openBelow ? SmoothProgress(depth) : (fall + drain + below) / 3f;
 
             float radius = Key3(_radiusFall, _radiusDrain, _radiusOut, progress);
             float elevation = Key3(_elevationFall, _elevationDrain, _elevationOut, progress);
@@ -400,13 +420,27 @@ namespace BS3D.Effects
             //under the water sits below a lens still floating above it, filming a cluster the submerge fade
             //correctly hides until the schedule alone eventually catches up.
             float submerge = _submerge = MathF.Max(_submerge, SubmergeElevationPull());
-            if (submerge > 0f) elevation = MathHelper.Lerp(elevation, _elevationOut, submerge);
 
             //And towards the same angle as the subject goes under the STONE in an open scene (#407): the lens
             //passes the platform round its rim, where the drum's side hides the balls, so it dives for the
             //underside — where they show through the glass — about as fast as they go into the throat.
+            if (_crossedAt < 0f && _pivot.Y < ISLAND_Y) _crossedAt = _elapsed;
+
             float dive = _dive = MathF.Max(_dive, StoneDivePull());
-            if (dive > 0f) elevation = MathHelper.Lerp(elevation, _elevationOut, dive);
+
+            //One pull towards the OUT angle, the stronger of the two (#878): applied one after the other they added, and on the
+            //sea (the island's top above the water) the lens plunged on both at once, at twice the speed of either.
+            float pull = MathF.Max(submerge, dive);
+            if (pull > 0f) elevation = MathHelper.Lerp(elevation, _elevationOut, pull);
+
+            //An open scene's lens never comes within the island's reach (the drum seen from outside), by its own radius and not
+            //by being pushed: the radius is lifted until the lens stands clear of the rim, whatever the angle it looks from
+            //(#878). KeepOutsideRim, behind it, is the net.
+            if (_openBelow)
+            {
+                float pivotOffAxis = MathF.Sqrt(_pivot.X * _pivot.X + _pivot.Z * _pivot.Z);
+                radius = SoftMax(radius, (RIM_REACH + pivotOffAxis) / MathF.Max(MathF.Cos(elevation), 0.3f), RIM_SOFTNESS);
+            }
 
             float azimuth = _azimuth + _orbitRate * _elapsed;
 
@@ -431,6 +465,38 @@ namespace BS3D.Effects
         }
 
         /// <summary>
+        /// The arc's progress, 0 to 1, for a subject <paramref name="depth"/> units below where it was released: a third at the
+        /// island's top, two thirds at the throat's foot and all of it <see cref="BELOW_LEG"/> under that. A monotone cubic
+        /// through those four points (the slope at each a harmonic mean of the two legs', so it is zero nowhere and never
+        /// overshoots), which makes the rate continuous where the legs meet.
+        /// </summary>
+        private float SmoothProgress(float depth)
+        {
+            float d1 = MathF.Max(_startY - ISLAND_Y, 1f);
+            float d2 = d1 + (ISLAND_Y - FUNNEL_BOTTOM_Y);
+            float d3 = d2 + BELOW_LEG;
+
+            if (depth >= d3) return 1f;
+
+            float m0 = (1f / 3f) / d1, m1 = (1f / 3f) / (d2 - d1), m2 = (1f / 3f) / BELOW_LEG;
+            float s1 = 2f * m0 * m1 / (m0 + m1), s2 = 2f * m1 * m2 / (m1 + m2);
+
+            if (depth < d1) return Hermite(0f, 1f / 3f, m0, s1, depth / d1, d1);
+            if (depth < d2) return Hermite(1f / 3f, 2f / 3f, s1, s2, (depth - d1) / (d2 - d1), d2 - d1);
+
+            return Hermite(2f / 3f, 1f, s2, m2, (depth - d2) / BELOW_LEG, BELOW_LEG);
+        }
+
+        //A cubic Hermite segment of width `width`, from value a to b with slopes sa and sb (per unit of depth), at t in 0..1.
+        private static float Hermite(float a, float b, float sa, float sb, float t, float width)
+        {
+            float t2 = t * t, t3 = t2 * t;
+
+            return (2f * t3 - 3f * t2 + 1f) * a + (t3 - 2f * t2 + t) * sa * width
+                + (-2f * t3 + 3f * t2) * b + (t3 - t2) * sb * width;
+        }
+
+        /// <summary>
         /// How hard <see cref="Frame"/> should pull the elevation towards the OUT leg's own diving angle
         /// because the subject is already under the sea (#193), 0 at or above the surface to 1 a full
         /// <see cref="SUBMERGE_PULL_DEPTH"/> under it. Off the sea this is always 0 — <see cref="_isSea"/>
@@ -447,7 +513,7 @@ namespace BS3D.Effects
         /// </para>
         /// </summary>
         private float SubmergeElevationPull() =>
-            _isSea ? Saturate((_seaLevelY - _pivot.Y) / SUBMERGE_PULL_DEPTH) : 0f;
+            _isSea ? Smoother(Saturate((_seaLevelY - _pivot.Y) / SUBMERGE_PULL_DEPTH)) : 0f;
 
         /// <summary>
         /// How hard <see cref="Frame"/> should pull the elevation towards the OUT leg's diving angle because the
@@ -456,7 +522,9 @@ namespace BS3D.Effects
         /// looks down the throat and has no underside to dive for.
         /// </summary>
         private float StoneDivePull() =>
-            _openBelow ? Saturate((ISLAND_Y - _pivot.Y) / STONE_DIVE_DEPTH) : 0f;
+            !_openBelow || _crossedAt < 0f ? 0f : MathF.Max(
+                Smoother(Saturate((ISLAND_Y - _pivot.Y) / STONE_DIVE_DEPTH)),
+                Smoother(Saturate((_elapsed - _crossedAt) / STONE_DIVE_SECONDS)));
 
         //Whether the shot may go UNDER the island is SceneRenderer.OpenBelow since #75, and it is defined there
         //as the exact complement of IsSolidTerrainScene — the two hand-kept lists this file and the host each
@@ -475,12 +543,12 @@ namespace BS3D.Effects
         /// </summary>
         private Vector3 KeepBallsInSight(Vector3 lens)
         {
-            //While the balls are still above the stone, so is the lens. The island's top is an opaque annulus
-            //from the mouth out to its rim: from below it a shot looks at the underside of the platform with
-            //the drop hidden behind it.
-            bool aboveStone = !_openBelow || _pivot.Y > ISLAND_Y;
-
-            if (aboveStone) lens.Y = MathF.Max(lens.Y, ISLAND_Y + STONE_CLEARANCE);
+            //A solid-terrain scene's lens stays above the stone: the island's top is an opaque annulus from the
+            //mouth out to its rim, and from below it a shot looks at the underside of the platform with the drop
+            //hidden behind it. An open scene's goes round the rim instead and has no such floor to be lifted by
+            //(#878): a floor that applied only while the subject was above the top, and the rim's push only after it,
+            //was a switch the lens crossed with its position jumping 9 units out of the way.
+            if (!_openBelow) lens.Y = MathF.Max(lens.Y, ISLAND_Y + STONE_CLEARANCE);
             else lens = PushOutOfIsland(KeepOutsideRim(lens));
 
             //The mouth is the only hole in the stone, so a lens above it can see a ball below it only by
@@ -521,17 +589,18 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// The open scenes' continuous way past the platform (#407): while the lens is within the drum's own
-        /// height band its horizontal reach is held past the rim (<see cref="RIM_APPROACH"/>,
+        /// The net behind the open scenes' continuous way past the platform (#407): while the lens is within the
+        /// drum's own height band its horizontal reach is held past the rim (<see cref="RIM_APPROACH"/>,
         /// <see cref="RIM_MARGIN"/>), the floor eased in as it comes down on the band from above and out as it
-        /// leaves it below, so the lens slides down the OUTSIDE of the drum instead of being snapped from its
-        /// top face to its underside. The reach is measured from the drain's axis, the drum's own centre,
-        /// as the mouth cone measures it.
+        /// leaves it below. The reach is measured from the drain's axis, the drum's own centre, as the mouth cone
+        /// measures it.
         /// <para>
-        /// This is what <see cref="PushOutOfIsland"/> used to do in one frame: the lens's own curve took it
-        /// into the band inside the rim, and the push put it on the underside — a 5.5-unit drop between two
-        /// frames in the trace that drove this, on top of the mouth cone's jump a few frames earlier. The push
-        /// stays behind this as the last resort, and with the margin here it has nothing left to catch.
+        /// Since #878 <see cref="Frame"/> lifts the radius so the lens's reach is already past the rim, and this
+        /// has nothing to move: it stood in for that, and it is on always, never switched on by where the subject
+        /// is, because the switch was the hop (a 9-unit shove sideways in two frames as the subject crossed the
+        /// island's top, with the lens inside the rim's reach). It is also what <see cref="PushOutOfIsland"/>
+        /// used to do in one frame - a 5.5-unit drop between two frames - and the push stays behind this as the
+        /// last resort.
         /// </para>
         /// </summary>
         private static Vector3 KeepOutsideRim(Vector3 lens)
@@ -540,11 +609,11 @@ namespace BS3D.Effects
             float bottom = ISLAND_Y - ArenaIsland.EDGE_HEIGHT - STONE_CLEARANCE;
 
             float outside = lens.Y > top ? lens.Y - top : lens.Y < bottom ? bottom - lens.Y : 0f;
-            float weight = 1f - Saturate(outside / RIM_APPROACH);
+            float weight = Smooth(1f - Saturate(outside / RIM_APPROACH));
 
             if (weight <= 0f) return lens;
 
-            float floor = ArenaIsland.RADIUS + STONE_CLEARANCE + RIM_MARGIN;
+            const float floor = RIM_REACH;
 
             Vector2 flat = new(lens.X, lens.Z);
             float reach = flat.Length();
@@ -599,5 +668,12 @@ namespace BS3D.Effects
         private static float Saturate(float value) => MathHelper.Clamp(value, 0f, 1f);
 
         private static float Smooth(float t) => t * t * (3f - 2f * t);
+
+        //The larger of two values with its corner rounded (a smooth maximum): never below either, the same as it where they are
+        //far apart, and with a slope that changes over a stretch instead of in one frame.
+        private static float SoftMax(float a, float b, float softness) =>
+            0.5f * (a + b + MathF.Sqrt((a - b) * (a - b) + softness * softness));
+
+        private static float Smoother(float t) => t * t * t * (t * (t * 6f - 15f) + 10f);
     }
 }

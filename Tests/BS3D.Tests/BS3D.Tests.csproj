@@ -134,6 +134,10 @@
     <!--#876: the pause page's debug row - which kinds it has a button for, whether a build has it at all and what a press does to
         the magazine, over a release tag handed in, so a test can stand in a release.-->
     <Compile Include="..\..\Game\Screens\DebugKindRow.cs" />
+    <!--#878: the drop cinematic's camera path, flown by DropCinematicFlight against a subject falling the way a released
+        group does and held to a bound on its second difference; the one name it reads from the gameplay screen is stood in
+        for there (the screen needs a device).-->
+    <Compile Include="..\..\Game\Effects\DropCinematic.cs" />
   </ItemGroup>
 
   <ItemGroup>
