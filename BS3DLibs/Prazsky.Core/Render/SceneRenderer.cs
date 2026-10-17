@@ -293,8 +293,9 @@ namespace Prazsky.Core.Render
         /// A switch of its own rather than a step of <see cref="SceneDetail"/>, because that one is Low's alone (#298) and
         /// this one is Medium's too: Medium is the weak machine's rung. A plain flag for <see cref="SupersampleFactor"/>'s
         /// reason — the tier lives in the Game. Left on, a caller that never sets it draws the authored look, which is what
-        /// the Testbed and the map editor want. Costed in "The acacia's fork" in docs/scenes/savanna-trees.md, in "The
-        /// spruces on High and Ultra" in docs/scenes/aurora.md and in "High and Ultra's range" in docs/scenes/mountains.md.
+        /// the Testbed and the map editor want. Costed in "The fork, grown for High and Ultra (#758)" in
+        /// docs/scenes/savanna-trees.md, in "The spruces on High and Ultra" in docs/scenes/aurora.md and in "High and
+        /// Ultra's range" in docs/scenes/mountains.md.
         /// </para>
         /// </summary>
         public bool FineMeshes
