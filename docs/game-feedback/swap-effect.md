@@ -1,0 +1,28 @@
+# The Swap passes the rounds through each other
+
+Part of [The game: feedback](../game-feedback.md).
+
+Pressing E (the pad's X) exchanges the round at the muzzle with the one behind it ([the rule](../game-session/powerups.md#swap)). Since #871 the player **sees** the exchange and **hears** it: the two rounds slide through each other along the bore, each smeared along its path, under the dither at its heaviest where the two spheres overlap, with a sound of its own (two voices crossing, [the Swap's whoosh](sound-effects.md#the-swap-871)). Until then the balls stayed where they were and each changed colour by the re-colour's dither, and the press was the menus' click.
+
+The pieces: `Game/Effects/SwapMotion.cs` (the closed-form curves of the picture, no device), `GameplayScreen.Swap.cs` (stepping, placing the rounds, the streaks), `CollectMagazineBalls` (draws them), `LaunchSmears.AddStreak` (the streak), `Game/Audio/SwapSynth.cs` (the sound).
+
+## What it is
+
+- **A picture of an exchange the magazine has already made.** `Magazine.SwapSlots` exchanges the two slots at the press and the next shot is the round now at the muzzle, however far the picture has run; nothing in it is a rule and it **costs the player no time** (`[swap] shot fired 0.093 s into the swap: Type1 leaves at once, the picture ends`). A shot cancels it (`SwapMotion.Cancel`, before `Magazine.Advance`); a level's end and a new session cancel it too.
+- **Where each round is** (`SwapMotion.Round`): the round now at the muzzle came from slot 1 and the one in slot 1 from the muzzle, each travelling the other's way by a smoothstep over `SECONDS` (0.35 s, the magazine's own `SWAP_FADE_SECONDS`, so the strip's discs finish on the same beat). A round bows to its own side by `ARC` (0.08 of a slot). ⚠ **No more than a tenth**: a ball's radius is 0.5 and the bore's 0.6 (`CannonRig.BORE_RADIUS`), and at 0.38 each round pushed through the barrel's wall, its dithered surface showing on the outside of the steel. So the two pass through nearly the same line, the tunnelling the owner asked for (2026-10-15), and the cross-fade is what hides it (`SwapMotionTests.A_round_never_leaves_the_bore`).
+- **The cross-fade is the dither's, at its heaviest at the crossing.** The muzzle's round goes (`Dissolve` positive) and the other keeps what that leaves (negative): exact complements at `MAX_FADE` (0.5), so where the two overlap every pixel is written by exactly one and no intersection line is drawn. It ramps in and out over `FADE_RAMP` (0.2) of the picture, since the two start touching and a half-dissolved ball on the first frame would pop. Kinds ride along (a wildcard or a cutter in the swap slides too; the `Dissolve` is read by every ball technique).
+- **The smear, twice.** The Game's motion blur takes each round's own velocity (`SwapMotion.Round`'s derivative, `GameplayScreen.SmearedWorld`: the pose carried back along the path by `SMEAR_GAIN` (2.5) times the blur's shutter, `MotionBlur.SHUTTER_SECONDS`; "the blur must be seen", [motion blur](../rendering/motion-blur-and-resolution.md)); and a **streak** (`LaunchSmears.AddStreak`) trails each round in its own colour, a comet's tail along its velocity, added from the draw every frame and gone once drawn, so it never ages and its brightness cannot depend on the frame rate. The streak is for every path: the motion blur is the Game's alone, and from the play camera the bore points away, which foreshortens a slide to little.
+- **One clock.** The age is the frame's own elapsed time, the clock the magazine's dissolve runs on (`Magazine.Step`): closed forms of the age, the same at 30, 60, 75 and 144 Hz, held by a pause (`SwapMotionTests`).
+
+## Where it reaches and where it does not
+
+- **It reaches the two rounds in the barrel**, in the overview and in precise aim alike (the muzzle's round, the one behind it through the glass window), because `CollectMagazineBalls` places them for both lenses and for the front end's standing gun.
+- **The 2D strip in the corner it cannot reach**, and keeps its discs' short cross-fade (`MagazineSlot.TransmuteProgress`, fed to `PlayHud`). That is the one place a swap's dither is still drawn, along with **a re-coloured round's** (a colour that died, [the magazine](../game-session/magazine-and-transmute.md)), which is unchanged.
+- **A swap's dissolve in a slot that is no longer part of the picture** (a shot has moved the queue, the picture is cancelled) draws the round whole (`MagazineSlot.IsSwapFade` is read off the dissolve's length, which only a swap sets): nothing dithers in the bore after the shot.
+- **Potato** (GamePi, and the Game started with `potato`): the rounds slide and cross-fade the same, the dither being the model shader's own there, and the streak is drawn through Potato's `ShotTrail`; it has no motion blur, so the streak is the whole smear.
+
+## Looking at it
+
+- `play level=Elephant powerups=swap:1 swap=4 swapshot=0.04,0.10,0.17,0.24,0.31` saves the frame at those seconds of the **picture's own age** (`SessionTestOptions.SwapShotSeconds`): the age is held at each for one frame (`SwapMotion.Pin`), so a capture shows the stated moment however long the one before it took (a swap is a third of a second and a 1920 x 1080 capture costs about half a second, which `shot=` cannot frame). `[swapshot] +0.100 s of 0.35` says each. Add `rmb=1:12` for precise aim.
+- The play camera sees the loaded rounds through a narrow window of dark glass, so crop to the barrel: x 0.46 to 0.54, y 0.50 to 0.72 of a 1920 x 1080 frame in the overview.
+- Each press prints `[swap] press: the rounds trade over 0.35 s, the next shot is <colour> at once`.

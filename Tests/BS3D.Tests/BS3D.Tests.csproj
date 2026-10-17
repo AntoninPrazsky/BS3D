@@ -126,6 +126,9 @@
         beats' curves over time, and the session's state of them, stepped as the game steps it on a real cut; and where the
         slash runs (#767's verdict)-->
     <Compile Include="..\..\Game\Audio\CutSynth.cs" />
+    <!--#871: the Swap's whoosh (pure arithmetic whose spectrum the tests measure) and its picture's closed-form curves-->
+    <Compile Include="..\..\Game\Audio\SwapSynth.cs" />
+    <Compile Include="..\..\Game\Effects\SwapMotion.cs" />
     <Compile Include="..\..\Game\CutRumble.cs" />
     <Compile Include="..\..\Game\Effects\CutBeats.cs" />
     <Compile Include="..\..\Game\Effects\CutSlash.cs" />

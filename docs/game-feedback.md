@@ -12,6 +12,7 @@ Everything the game says back to the player: the HUD, the tutorial, the sound, t
 - [Dead weight](game-feedback/dead-weight.md) — what qualifies as a released ball that never fell, and how it looks.
 - [A bomb goes off](game-feedback/bomb-blast.md) — what makes the blast possible and the effect itself.
 - [A cut is made](game-feedback/cut-staging.md) — the Cut's press, flight, severing and fall: what each beat draws, sounds and asks of the pad, the slash (the blasts' blade style), the hit-stop and the slow motion, the clocks, `cutshot=`.
+- [The Swap passes the rounds through each other](game-feedback/swap-effect.md) — the two rounds sliding through each other along the bore: the picture of an exchange already made, the complementary dither at the crossing, the motion blur and the streak, the bore's limit on the arc, where it reaches and where the dither stays, `swapshot=`.
 - [The ceiling and the floor alarms](game-feedback/ceiling-and-floor-alarms.md) — the ceiling announcing its step, and the laser grid on the floor.
 - [Sound: placement, voices and the mix](game-feedback/sound-placement-and-mix.md) — `Apply3D` and the distance split, `VoiceRing`, the call order and the NaN trap, the stereo image, the listener, the volume rows.
 - [The sound effects](game-feedback/sound-effects.md) — the rules a sound keeps, how a bake is built, the sounds and the generated recordings.

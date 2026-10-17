@@ -1222,6 +1222,7 @@ namespace BS3D.Screens
             //no shot worth still showing.
             _smears.Clear();
             _lineSparks.Clear();
+            _swapMotion.Cancel();
 
             //The figures are handed over as a SNAPSHOT taken now, not read by the screen when it draws. The
             //level does not stop the instant it is cleared — the collapse is held for a beat and a player who

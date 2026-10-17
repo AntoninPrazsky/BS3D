@@ -19,7 +19,7 @@ A **special ball is a map kind; a power-up is the player's E/Q/R** (#213, #392).
 
 ## Swap
 
-Exchanges the muzzle slot with the one behind it: no ball, no budget, no ceiling. **The price keeps "play what comes" a constraint.** `Magazine.SwapSlots(a, b, crossFade: true)` exchanges the slots at once, then each dissolves into its new colour over `Magazine.SWAP_FADE_SECONDS` (plain rounds only).
+Exchanges the muzzle slot with the one behind it: no ball, no budget, no ceiling. **The price keeps "play what comes" a constraint.** `Magazine.SwapSlots(a, b, crossFade: true)` exchanges the slots at once, then each dissolves into its new colour over `Magazine.SWAP_FADE_SECONDS` (plain rounds only): what the strip's discs show. **In the bore the two rounds are seen to slide through each other** along it, smeared, under the dither's heaviest cross-fade, with the Swap's own whoosh from the muzzle (#871, [The Swap passes the rounds through each other](../game-feedback/swap-effect.md)); that picture changes nothing here, and a shot fired mid-swap leaves at once as the round now at the muzzle.
 
 **Its chip points at the cure** (#845): while a streak runs, the round in the bore has nowhere to score and the round behind has somewhere, it flashes "Swap · keep ×3" ([the chips](../game-feedback/hud-magazine-and-muzzle.md#the-power-up-chips)). A swap that would load a second round with nowhere to score is no cure, so the chip stays dark then.
 

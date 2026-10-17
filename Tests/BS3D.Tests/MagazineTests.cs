@@ -156,6 +156,35 @@ namespace BS3D.Tests
         }
 
         /// <summary>
+        /// #871: the Game draws a swap's dissolve as the two rounds sliding through each other and keeps the dither for a
+        /// re-colour, so a slot must say which of the two it is part way through - and only a swap's cross-fade says so.
+        /// </summary>
+        [Fact]
+        public void ASwapsDissolveSaysSoAndAReColoursDoesNot()
+        {
+            Magazine magazine = Build();
+            Assert.False(magazine.Slot(0).IsSwapFade);
+
+            magazine.SwapSlots(0, 1, crossFade: true);
+            Assert.True(magazine.Slot(0).IsSwapFade);
+            Assert.True(magazine.Slot(1).IsSwapFade);
+
+            //It is a flag on a dissolve under way, so it goes out with the dissolve
+            magazine.Step(Magazine.SWAP_FADE_SECONDS + 1e-3f);
+            Assert.False(magazine.Slot(0).IsSwapFade);
+
+            magazine = Build();
+            magazine.Recolour(0, (BallType)9);
+            Assert.True(magazine.Slot(0).Transmute > 0f);
+            Assert.False(magazine.Slot(0).IsSwapFade);
+
+            //A plain exchange (no cross-fade: a wildcard or a cutter in it) dissolves nothing
+            magazine = Build();
+            magazine.SwapSlots(0, 1);
+            Assert.False(magazine.Slot(0).IsSwapFade);
+        }
+
+        /// <summary>
         /// A re-colour fades out of the colour on screen — for a slot caught mid-fade, the one it was already
         /// fading out of — and the countdown runs linearly to exactly zero.
         /// </summary>

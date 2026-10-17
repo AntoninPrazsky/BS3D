@@ -212,8 +212,8 @@ namespace BS3D.Audio
         #endregion
 
         //Rounded off twice, faded to nothing over its last stretch (after the low-passes, so their lag cannot leave a tail),
-        //and peak-normalised like the other tones
-        private static float[] Finish(float[] signal, int sampleRate, float cutoff, float releaseSeconds)
+        //and peak-normalised like the other tones. Internal because the Swap's tone (SwapSynth, #871) finishes the same way
+        internal static float[] Finish(float[] signal, int sampleRate, float cutoff, float releaseSeconds)
         {
             signal = LowPass(LowPass(signal, cutoff, sampleRate), cutoff, sampleRate);
 

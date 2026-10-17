@@ -714,6 +714,16 @@ namespace BS3D.Screens
         private readonly CutStaging _cutStaging = new();
 
         /// <summary>
+        /// The picture of a Swap (#871): the two rounds at the muzzle sliding through each other along the bore, smeared and
+        /// cross-faded. The magazine has made the exchange already when this starts, so it is only what the player sees; a
+        /// shot cancels it. See <see cref="SwapMotion"/>. A mutable struct, so never <c>readonly</c>.
+        /// </summary>
+        private SwapMotion _swapMotion;
+
+        //Testing only (swapshot=, #871): how far down the schedule the swap's frames have got
+        private int _swapShotNext;
+
+        /// <summary>
         /// How hard a cut heaves the camera as it severs a storey (#767), as a <c>CameraShake.Rumble</c> strength: a cut that
         /// freed nothing at the first figure, the biggest at the sum - under a full-size blast's, since the strike is a blade
         /// going through and not a bomb.
@@ -1762,6 +1772,10 @@ namespace BS3D.Screens
             //runs a re-coloured ball's dissolve out of its old colour (#582 moved that countdown into the magazine)
             _magazine.Step(elapsed);
 
+            //And the Swap's two rounds sliding through each other, on the clock the dissolve beside it runs on, so a pause holds
+            //both and neither depends on the frame rate (#871)
+            StepSwapMotion(elapsed);
+
             //A wildcard cycling in the bore is the gun saying what is loaded, so it turns over on the same clock
             StepWildcards(elapsed);
 
@@ -1996,6 +2010,8 @@ namespace BS3D.Screens
             //Over the opaque scene (which the depth buffer now holds, so the cluster and the gun occlude
             //them) and additive, so they glow through the glare. It puts back exactly the states it found,
             //so the frame's translucent baseline still stands for the glass below.
+            //The Swap's streaks behind its two rounds, into the smears' own draw (#871)
+            AddSwapStreaks();
             _smears.Draw(Camera);
 
             //In the smears' own slot and states, for the same reasons: additive over the opaque scene, so the
@@ -2126,6 +2142,10 @@ namespace BS3D.Screens
             //Nothing moves under the front end and it runs no velocity pass, so the last frame's motion record is
             //not this frame's: RoundShutterWorld would otherwise carry a stale barrel-back matrix into these rounds.
             _motionThisFrame = false;
+
+            //Nor is a Swap's picture stepped while this screen is off the stack, so one caught mid-slide would hang half
+            //dissolved behind the menu: the rounds are where the magazine says (#871)
+            _swapMotion.Cancel();
 
             //A wildcard in the bore is crossing between the session's two colours, and the set is the whole
             //program's — the same statement the session makes before it collects its own frame
