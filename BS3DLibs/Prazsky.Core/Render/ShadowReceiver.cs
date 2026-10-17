@@ -4,8 +4,8 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// One effect that reads the sun's shadow map (#471): the five parameters <c>Shadows.fxh</c> declares,
-    /// looked up once and pushed together. Everything that receives a shadow — every terrain shader, the
+    /// One effect that reads the sun's shadow map (#471): the five map parameters <c>Shadows.fxh</c> declares
+    /// (and the three of the ceiling glass's own shadow, #553), looked up once and pushed together. Everything that receives a shadow — every terrain shader, the
     /// plants, and the shared instanced effect that carries the island, the gun and the balls — is one of
     /// these, and <see cref="SceneRenderer.DrawShadowMaps"/> walks an array of them.
     /// <para>
@@ -32,7 +32,7 @@ namespace Prazsky.Core.Render
         //(see Shadows.fxh's CeilingGlassShadow): where the slab stands, its size, and its cut
         private readonly EffectParameter _ceilingCentre, _ceilingSize, _ceilingCut;
 
-        /// <summary>Looks the five up on <paramref name="effect"/>. A null effect, or one that includes no
+        /// <summary>Looks the eight up on <paramref name="effect"/>. A null effect, or one that includes no
         /// <c>Shadows.fxh</c>, yields an invalid receiver that does nothing.</summary>
         public ShadowReceiver(Effect effect)
         {
