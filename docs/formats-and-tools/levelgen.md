@@ -36,7 +36,7 @@ One `partial class Program`: `Program.cs`, `Cli.cs` (`Main`, flag refusal, the *
 11. **The Eruption**: volcano (9), `magma`, lava balls; the glow is the load.
 12. **The Spectrum**: city (11), `skyline`, porcelain balls; one hue family a level.
 13. **The Arcade**: neon city (16), `neon`, gem balls; pixel art on hollow solids.
-14. **The Mirage**: dream (10, inert), `mirage`, porcelain balls; glass and rock kinds.
+14. **The Mirage**: dream (10, inert), `mirage`, porcelain balls; glass and rock kinds. The rock five are kept light (328-433 balls, 14-32 standing groups; Seam's and Cairn's walls stop `SEAM_ROOF`/`CAIRN_ROOF` courses short of the glass), and **bombs stand from Seam on** (the third rock level; the Bomb's card is the Eruption's Vent): on the ends of the wall in Seam and Cairn, on the vein's rim in Obsidian (#879).
 
 - **Order**: after the Quarry it is the owner's (2026-10-05): a hard chapter (by LevelGen's own figures the Quarry, Arcade and Eruption) is followed by a lighter or different one. The Mirage stays last and keeps the campaign's last word, which rides the set's last entry. Swap, Brake and Cut are granted from `LevelSet.SWAP_FROM_BLOCK`, `BRAKE_FROM_BLOCK`, `CUT_FROM_BLOCK` (3, 4, 5).
 - **Music**: each chapter has its own family of about ten recordings (#486), one per level opening ("The music (Game)" in `docs/game-feedback.md`; briefs in the sidecars in `Research/AI-Music`). A level that names no family, or one with no recordings, falls back to the set's positional rotation and plays whatever its place gives.

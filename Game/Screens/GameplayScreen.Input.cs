@@ -540,8 +540,9 @@ namespace BS3D.Screens
 
             //No recoil in either of these: the shot leaves along the TRUE aim on the frame it is fired, before
             //the barrel has moved. The stroke below is drawing only — see CannonRecoilBack.
-            Vector3 direction = _cannon.AimDirection;
-            Vector3 muzzle = _cannon.MuzzlePosition(Game.CannonRig.PivotToFrontBall);
+            //Along FireDirection, not the drawn pose: a barrel stretched under the lower clamp (#872) draws there and fires from it
+            Vector3 direction = _cannon.FireDirection;
+            Vector3 muzzle = _cannon.FireMuzzle(Game.CannonRig.PivotToFrontBall);
             //A wildcard fires as the colour it is SHOWING (#330), not as the one dealt into the slot underneath
             //it: that one is never seen and never used, and the ball has to leave the barrel wearing what the
             //player was looking at — the smear below is drawn from it, and so is the ball itself all the way to

@@ -102,8 +102,8 @@ namespace BS3D.Audio
         /// cut from a render and a sparse synthetic piece at one RMS are not one loudness, and RMS is all the
         /// bakery measures. The first of the two steps the issue proposes (0.5, then 0.7); the ear decides the
         /// second. A theme peaks under full scale — since #919, when the decode got its headroom: until then the
-        /// codec's overshoot was pressed onto the rail on 78 of the 140 recordings — so it cannot clip alone at any
-        /// gain up to 1; the sum with a big release is what to listen for.
+        /// codec's overshoot was pressed onto the rail on more than half of the recordings (78 of 140 when #919 measured it) —
+        /// so it cannot clip alone at any gain up to 1; the sum with a big release is what to listen for.
         /// </para>
         /// </summary>
         /// <remarks>

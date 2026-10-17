@@ -26,6 +26,11 @@ Pravidla:
 - ⚠ Týž program stojí na patchi asi o 60 % víc na pixel než na mřížce, i když leží naplocho. Velikost trojúhelníků, interpolant, clip ani překryv to nejsou; příčina nenalezena (`docs/scenes/meadow.md`).
 - Otevřené: verdikt oka, snímky ve `verdicts\892\`; APU neměřeno.
 
+## 2026-10-17 — #874 čtyři laserové vysílače na okraji nálevky — desktop (RDT-PC), Claude Code (bs3d-48)
+- Čtyři malé kovové vysílače se skleněnou čočkou (hlaveň, žebrovaný límec, otočný třmen; materiál děla) stojí na zlatém pásu v rozích sítě; čočka má doutnající pohotovost a při síti svítí jejím jasem, od každé vede paprsek do rohu sítě. `LaserEmitterRing`, `LaserEmitters`, `LaserEmitterMesh`.
+- ⚠ Dělo obíhá celý ostrov, na okraji pro vysílače není místo mimo jeho dosah: hlaveň jim jede nad hlavou, podvozek drží venku `Cannon.SetKeepouts` (jen chůze dovnitř do ~10° od vysílače). Test smetl skutečné pózy a našel, že kola sahají o desetinu dál, než se myslelo (`StandReach`).
+- Otevřené: `verdict-eye` a ruka (podvozek obkluzem), karta a Help o vysílačích nejsou.
+
 ## 2026-10-17 — #878 kamera pádu pod plovoucím ostrovem jednou plynulou křivkou — desktop (RDT-PC), Claude Code (bs3d-48)
 - Skok dělal přepínač podle výšky subjektu: nad horní plochou se čočka zvedala, pod ní ji strkal okraj; čočka s dosahem pod okrajem při přepnutí uskočila o 9 jednotek, pak se zřítila 90 j/s a zastavila. Teď poloměr sám drží dosah 34,5 od osy (`SoftMax`), ponor jede přes 12 jednotek poklesu a nejvýš 1,1 s (`Smoother`), postup je jedna monotónní kubika. Zrychlení 600–8800 → 120–470 j/s², pevné scény beze změny.
 - `DropCinematicPathTests` (DropCinematic je v testech zkompilovaný). ⚠ Čočka je u menších hodů dál (až 43 j).
@@ -1033,3 +1038,42 @@ Pravidla:
 - Stránka „Verdikty 17. 10.“ https://claude.ai/artifact/V2vmb1wY9qRE8Do95vXmCZ, výzva zapsaná na všech šesti issues; fronta je 7.
 - ⚠ Herní kamera lavičku na louce nevidí (zakrývá ji okraj ostrova), je vidět jen v úvodu. První tónování řádků High Scores bylo nad světlými scénami neviditelné, review ho chytila.
 - Rozpracováno: #893 (nízké oblety v úvodu louky), #883 (savanský keř), #904 (hudba louky).
+
+## 2026-10-17 — #893 #883 #904 úvod louky, savanský keř, hudba louky; jedna stránka verdiktů — desktop (RDT-PC), Claude Code (bs3d-5f)
+- Hotovo (eef4f283): #893 dva pomalé nízké půlkruhy v úvodu louky (balíky, lavička), úvod 22,9 s; #883 „melouny“ byly keře, na High/Ultra je nahradil trnitý keř z větviček a lístků (+0,03/+0,06 ms); #904 Sunny přegenerována (krátké díry 38 → 6,6/min, opakování 40 taktů → 1), Ska ne (8 kandidátů neprošlo hranicí děr, c3 je k poslechu).
+- Jedna stránka verdiktů pro obě relace: https://claude.ai/artifact/V2vmb1wY9qRE8Do95vXmCZ (18 karet včetně #767 #766 #781 #877 #872 #880 #871 #878 #889 od bs3d-48). Rozdělení s bs3d-48: já #887 #890 #896, on #892 #905–#917 #872 #877.
+- ⚠ Merge #883 se srazil s #889 v komentářích a dokumentaci, které vyjmenovávají `FineMeshes`; obě položky jsou zachované a 1721 testů je zelených. Řetěz `&&` po konfliktu zastavil push správně, ale `git branch -d` pak smazal lokální větve sloučené jen s upstreamem.
+- Otevřené: fronta je zase 17, změny vzhledu a zvuku stojí, dokud majitel neodpoví.
+
+## 2026-10-17 — #879 Fata morgána lehčí, bomby od Seam — desktop (RDT-PC), Claude Code (bs3d-48)
+- `Block11_Mirage.cs`: kamenná pětice 328–433 koulí místo 601–673, kamenů 318 místo 637, skupin 14–32 místo 17–41 (Anvil/Keystone/Seam/Obsidian/Cairn o dvě patra míň, Keystone užší s nižšími pilíři, zdi Seam a Cairn končí 3 a 4 patra pod sklem, `SEAM_ROOF`/`CAIRN_ROOF`). Harlequin a Diadem zeslabeny, výstřely a krok stropu upraveny.
+- Bomby od třetí kamenné úrovně (Seam 4, Obsidian 5, Cairn 4): konec zdi / okraj žíly; Anvil a Keystone zůstávají jen kámen. Karta bomby je z Vent (#105).
+- ⚠ Ceilings pro ranking se mění u osmi levelů, nové žebříčky až po dalším vydání. Zbývá verdikt oka a rukou.
+
+## 2026-10-17 — #767 #877 #872 opravy po křížové recenzi — desktop (RDT-PC), Claude Code (bs3d-48)
+- #767: cena řezu, který vyprázdní pole bez kamerového pádu, se rodí hned (`AwardZoom.CutWaitLeft`, `PlayHud.BirthWaitingAwards`); dřív ji čekání 1,1–1,6 s hodilo za 2,5 s závěr a stránka výsledku ji přeřízla.
+- #877: hodiny `Stalled` počítají snímek nejvýš 4/120 s (co svět stihne); pod 30 fps předtím předbíhaly svět.
+- #872: výstřel na spodní mezi letí v sevřené elevaci (`Cannon.FireDirection`/`FireMuzzle`, i duch), natažení gumy je jen kresba.
+- Log `[cinematic] ended ... (skipped)` se čte před vstupem; komentáře o zpomalení pádu opraveny. Každý test viděn padat.
+
+## 2026-10-17 — #901 hrající kapitola, šest drobností z křížové recenze — desktop (RDT-PC), Claude Code (bs3d-5f)
+- Hotovo (merge c3503441, dda638a3, testy 1744 zelené): #901 kapitola, ze které hraje nahrávka, nese trojúhelník play u levého okraje, ať je zobrazená kterákoli (jas dál značí zobrazenou); #901 zavřeno s důkazem. #898 identity levelů pro High Scores se čtou na vlákně z poolu (`LevelIdentityCache`). #919 `MusicBake --shipped` je třetí brána v build.yml **i v release.yml** (recenze našla, že tag by ji obešel), číslo 78 → 77 z 140. #875 nápis o ztrátě série a bonus berou odstup z měřítka zaměřovače (`Crosshair.PixelsPerUnit`). #893 test hlídá pásmo záběru 0,7–1,1.
+- Poučení: monitor ve spánku = žádné zvukové zařízení (#923), snímek hrající nahrávky jen s dočasným harnessem.
+- Audit čtení disku ve snímku (komentář na #400): nic nad ~25 ms, nic k opravě teď.
+- Karta #874 na stránce verdiktů (20 položek). Otevřené: #887, #890 až pod strop fronty; #896 čeká na volbu majitele.
+
+## 2026-10-17 — #400 rozpory dokumentace s kódem, tři vlny — desktop (RDT-PC), Claude Code (bs3d-5f)
+- Hotovo (merge 18bcb416, 1e6e781a, 65cd14bf, 7b7942c5; CI zelené): tři vlny po třech čtenářích (Sonnet) a jednom opraváři prošly celé `docs/`. Opraveno **55 tvrzení, která kód vyvrací** (hodnoty konstant, přejmenovaná API, spouštěcí argumenty, počty scén, soupisy knihoven), k nim komentáře v kódu, které je opakovaly. Ani jedno nebyla chyba v kódu. Seznam po vlnách je na #400.
+- Měsíc: čočka je na -7,4 (ne -7,9), úhly přepočteny vzorci z komentářů (obzor 2,5°, hřeben ~4,4°).
+- Poučení: čtenář musí každé tvrzení doložit řádkem kódu a opravář ho ověřit znovu; dvě tvrzení se ukázala jen napůl pravdivá. `git worktree remove` selže, dokud je v adresáři cwd session.
+- Otevřené: fronta verdiktů 20, #887 a #890 až pod strop; #896 čeká na majitele.
+
+## 2026-10-17 — alokace ve snímku: `params` pole při každém instancovaném kreslení — desktop (RDT-PC), Claude Code (bs3d-5f)
+- Hotovo (merge dea2ac62, 04dc28f9): vlákno snímku alokovalo **4,2 KB za snímek** v nečinném menu a 2,3–4,2 KB při hraní; posluchač `GCAllocationTick` ukázal skoro jen `VertexBufferBinding[]` — `SetVertexBuffers(params …)` se dvěma vazbami zapsanými na místě, 14 míst, ~75× za snímek. `InstanceBinding.Set` (Prazsky.Core) používá jedno pole (MonoGame vazby kopíruje, ověřeno dekompilací 3.8.5); po opravě 24 B v menu, 27–100 B ve hře mezi výstřely. `InstanceBindingSourceTests` jiné volání nepustí (viděn padat).
+- `logfps` teď píše i řádek `[alloc]` (B za snímek, gen0), BestPractices §3 doplněno.
+- Harness s posluchačem typů: `scratchpad/alloc/harness.patch` této session (nepatří do repa).
+
+## 2026-10-17 — brána hudby viděna selhat v CI, obrazovky bez alokací, #873 — desktop (RDT-PC), Claude Code (bs3d-5f)
+- Hotovo (merge 1b4e500e, CI zelené včetně obou kroků hudby): `MusicBake --gate-scale <0..1>` zpřísní obě meze; build.yml spustí `--shipped --gate-scale 0.25` a spadne, pokud skutečné nahrávky nejsou odmítnuty pro špičku i pro ticho (BestPractices §10). Opraven i formát záporného limitu (`-+10.54`).
+- Změřeno řádkem `[alloc]` (Debug): výběr levelu, Help, About s přehrávačem, Jukebox, Settings, High Scores i výsledek stojí na 88 B/snímek jako menu, žádná stránka nepřidává. Vyhledávání `Parameters["…"]` v `Draw` (bouře, sopka, plameny) jsou mikrosekundy, podle §9 bez změny.
+- #873 zavřeno jako nahrazené #915 (majitel 16. 10.: celá kapitola znovu).

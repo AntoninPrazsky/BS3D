@@ -192,7 +192,7 @@ namespace BS3D
         /// The most texels a side the sun shadow map may have on this rung, or 0 for a scene's own
         /// <c>ShadowConfig.MapSize</c> (#484). <c>High</c> takes the authored 4096 (0.063 units a texel over the
         /// 260-unit extent); <c>Medium</c> and <c>Low</c> hold it at the 2048 the map shipped with, which is a
-        /// quarter of the memory (33.5 MB against 134, eight bytes a texel) and the same nine taps a pixel.
+        /// quarter of the memory (16.8 MB against 67, four bytes a texel) and the same nine taps a pixel.
         /// <para>
         /// <b>Measured</b> in the Testbed on the reference desktop, the savanna's play vantage at 1920×1080, ssaa
         /// 2, alternating in one process: 2048 3.45–3.49 ms, 4096 3.50–3.53, 8192 3.66–3.70 — the receiver's nine
@@ -210,8 +210,8 @@ namespace BS3D
         /// authored 4096 to <b>8192</b> — 0.032 units a texel over the 260-unit extent, half High's step.
         /// A factor rather than a size so a scene authored small stays proportionally small.
         /// <para>
-        /// <b>What it costs is memory first</b>: eight bytes a texel is <b>537 MB</b> of card memory against
-        /// High's 134, which is why only the player can ask for it and the probe never does. The time is small on
+        /// <b>What it costs is memory first</b>: four bytes a texel is <b>268 MB</b> of card memory against
+        /// High's 67, which is why only the player can ask for it and the probe never does. The time is small on
         /// a fast card: +0.22 ms (desert) and +0.30 (savanna) over High at 3840×1600 in the Testbed on the
         /// reference desktop, paired in one process — see "The map's size, and the tier it follows" in
         /// docs/rendering.md. The nine-tap box stays three texels wide, so the edge gets finer, not softer.
@@ -286,14 +286,15 @@ namespace BS3D
         /// <summary>
         /// Whether the scenes draw their finer meshes (<c>SceneRenderer.FineMeshes</c>): the savanna acacias' wood, the fork
         /// grown as one surface out of a swollen, lobed crotch where Low and Medium keep the seven-sided tubes poking out of
-        /// the trunk's cut end (#758), the meadow's old trees grown the same way (#889), the spruces' crowns as separate
+        /// the trunk's cut end (#758), the meadow's old trees grown the same way (#889), the savanna's bushes as thorn shrubs
+        /// of stems, twigs and leaf cards where Low and Medium keep the lobed dome (#883), the spruces' crowns as separate
         /// boughs with lumps of snow where Low and Medium keep the lathe of smooth skirts (#733), and the mountain range on a
         /// grid twice as fine with crags and the rock shaded in three dimensions (#781). <b>High and Ultra only</b>: the owner asked for the detail there ("on High / Ultra this
         /// transition should have more detail"; of the spruces, "they could pass for Low, maybe Medium, but not High or
         /// Ultra"; of the range, "how they look now could be the look of low/medium, but on high/ultra they must have more
-        /// detail"), and Medium is the weak machine's rung. What it costs is in "The fork, grown for High and Ultra (#758)" in
-        /// docs/scenes/savanna-trees.md, "Two woods (#889)" in docs/scenes/meadow.md, "The spruces on High and Ultra" in
-        /// docs/scenes/aurora.md and "High and Ultra's range" in docs/scenes/mountains.md.
+        /// detail"), and Medium is the weak machine's rung. What it costs is in "The fork, grown for High and Ultra (#758)" and
+        /// "The bush (#883)" in docs/scenes/savanna-trees.md, "Two woods (#889)" in docs/scenes/meadow.md, "The spruces on
+        /// High and Ultra" in docs/scenes/aurora.md and "High and Ultra's range" in docs/scenes/mountains.md.
         /// </summary>
         public readonly bool FineMeshes;
 

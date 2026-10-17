@@ -8,15 +8,17 @@ namespace BS3D.Tests
 {
     /// <summary>
     /// The music is decoded with headroom and its voices play that much louder (#919). Ogg Vorbis overshoots the PCM it
-    /// was given - 78 of the 140 shipped recordings decode with samples over full scale, up to +0.90 dBFS - and the decode
+    /// was given - more than half of the shipped recordings decode with samples over full scale (78 of 140 when this was
+    /// measured; <c>MusicBake --shipped</c> prints today's count), up to +0.90 dBFS - and the decode
     /// pressed every such sample onto the 16-bit rail (it was NVorbis's own clip, on by default, that did it).
     /// <para>
     /// Held here: a real recording that overshoots (<c>mirage-musicbox</c>: 9 196 samples over) reaches the 16-bit limit
     /// at no sample once it is decoded as the music is, and does at 9 209 of them as it was; the headroom and the voice
     /// volumes are each other's inverse, so nothing got quieter, and none is over 1; and, by reading the players'
     /// source as <see cref="RecordingLoopTests"/> reads the Jukebox's, that every voice playing a headroomed decode is given
-    /// a compensated volume and every decode that is not the music's keeps its own. All 140 recordings through the game's
-    /// decode are the issue's evidence (a count, run once; a CI test that decodes them all would be minutes).
+    /// a compensated volume and every decode that is not the music's keeps its own. Every recording through the game's
+    /// decode is <c>MusicBake --shipped</c>'s check, which CI runs on every push (a test that decodes them all would be
+    /// minutes).
     /// </para>
     /// </summary>
     public class MusicDecodeHeadroomTests

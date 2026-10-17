@@ -281,11 +281,12 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Whether the scenes draw their <b>finer meshes</b> (#758): High and Ultra's, where Low and Medium draw the coarser
-        /// mesh of the same thing off the same instances. Four things today: the savanna acacias' wood — the fork grown as one
+        /// mesh of the same thing off the same instances. Five things today: the savanna acacias' wood — the fork grown as one
         /// surface out of a swollen, lobed crotch rather than tubes poking out of the trunk's cut end
         /// (<see cref="AcaciaMesh.FineWood"/>, <see cref="ScatterBucket.FineMeshes"/>, #758) — the meadow's old trees' wood
         /// grown the same way, the limbs coming out through the crotch's side (<see cref="MeadowTreeMesh.FineWood"/>, #889,
-        /// drawn by <see cref="PlantPass"/>), the spruces of the aurora's
+        /// drawn by <see cref="PlantPass"/>) — the savanna's bushes, thorn shrubs of stems, twigs and leaf cards in place of a
+        /// lobed dome with nothing inside it (<see cref="ThornBushMesh"/>, #883) — the spruces of the aurora's
         /// wood and the daytime forest, whose crowns are separate boughs with snow lying on them in lumps instead of a lathe
         /// of smooth skirts (<see cref="TreeMesh.FineCrown"/>, #733), and the mountain range (#781): a grid twice as fine
         /// carrying a sixth octave and crags, shaded by a program that lays the rock in three dimensions where the coarser
@@ -295,7 +296,7 @@ namespace Prazsky.Core.Render
         /// A switch of its own rather than a step of <see cref="SceneDetail"/>, because that one is Low's alone (#298) and
         /// this one is Medium's too: Medium is the weak machine's rung. A plain flag for <see cref="SupersampleFactor"/>'s
         /// reason — the tier lives in the Game. Left on, a caller that never sets it draws the authored look, which is what
-        /// the Testbed and the map editor want. Costed in "The fork, grown for High and Ultra (#758)" in
+        /// the Testbed and the map editor want. Costed in "The fork, grown for High and Ultra (#758)" and "The bush (#883)" in
         /// docs/scenes/savanna-trees.md, in "Two woods (#889)" in docs/scenes/meadow.md, in "The spruces on High and Ultra"
         /// in docs/scenes/aurora.md and in "High and Ultra's range" in docs/scenes/mountains.md.
         /// </para>
@@ -465,7 +466,7 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// What a scene's <c>ShadowConfig.MapSize</c> is multiplied by before <see cref="ShadowMapSizeCap"/>, 1 by
         /// default: the Game's <c>Ultra</c> tier writes 2, the one rung that builds a map LARGER than the authored
-        /// 4096 (#484) — 8192, a 537 MB map. A factor rather than a size so a scene authored small stays
+        /// 4096 (#484) — 8192, a 268 MB map. A factor rather than a size so a scene authored small stays
         /// proportionally small. <see cref="ShadowMapSizeOverride"/> wins over it as it does over the cap.
         /// </summary>
         public int ShadowMapSizeScale { get; set; } = 1;
@@ -523,8 +524,11 @@ namespace Prazsky.Core.Render
         /// <summary>The waterline's rocks as figures (their mesh's bounding sphere at the instance), for the same host.</summary>
         public IReadOnlyList<PlantFigure> TropicalRocks => _tropical.Rocks;
 
-        /// <summary>The meadow's old trees as figures (#609's third round), for the same host — its valley shot flies over them.</summary>
-        public IReadOnlyList<PlantFigure> MeadowTrees => _meadow.Trees;
+        /// <summary>
+        /// The meadow's old trees (#609's third round), its bench, bales and low solids as figures, for the same host: the
+        /// valley shot flies over the trees, and the bench and bale shots circle at a walker's height (#893).
+        /// </summary>
+        public MeadowFigures MeadowFigures => _meadow.Figures;
 
         /// <summary>
         /// How many campfires ring the island, capped to the scene-light budget the shaders' arrays are sized
@@ -830,8 +834,8 @@ namespace Prazsky.Core.Render
         /// Sea and Storm are absent on purpose. The storm draws no ground at all (<c>StormClouds.fx</c> is the
         /// cloud itself, and the island in it stands on nothing a shadow could land on), and the sea is water:
         /// a shadow inside its Fresnel, foam and subsurface terms is a look decision of its own rather than a
-        /// line, and one nobody has asked for. The six sky-replacing scenes have no sun over the horizon and
-        /// the gate already skips them.
+        /// line, and one nobody has asked for. The six sky-replacing scenes besides the Moon have no sun over the horizon
+        /// and the gate already skips them.
         /// </para>
         /// </summary>
         private void RegisterShadowReceivers()
@@ -934,7 +938,8 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The sun a scene states for itself, overriding both the dome's and the shared domeless one, and false
-        /// for every scene that takes one of those. Only the Moon does (#508): its sun stands LOW, because the
+        /// for every scene that takes one of those. Only the Moon and the Big Top do: the Big Top's is its spot rig's key (the
+        /// canvas hides any sun), and the Moon's (#508) stands LOW, because the
         /// Apollo photograph is long black shadows off every rock and a black crescent in every crater, and the
         /// 35 degrees every domeless scene shares draws those as slivers. <see cref="SkyLightRig"/> asks this
         /// after choosing between the dome's sun and the domeless one, so the island, the cluster, the terrain
@@ -1618,8 +1623,8 @@ namespace Prazsky.Core.Render
 
             //The scene's own size, scaled up by the Ultra tier and held under a lower tier's cap, unless the
             //instrument pins one outright (#484). The clamp's top is what a card should be asked for rather than
-            //what D3D11 allows: at eight bytes a texel (a Single target over a Depth24 buffer) 8192 is a 537 MB
-            //map, 4096 is 134 MB and 2048 is 33.5 — so Ultra's doubling of the authored 4096 IS that top.
+            //what D3D11 allows: at four bytes a texel (a Single target, no depth buffer since #591) 8192 is a 268 MB
+            //map, 4096 is 67 MB and 2048 is 16.8 — so Ultra's doubling of the authored 4096 IS that top.
             int size = shadows.MapSize * Math.Max(ShadowMapSizeScale, 1);
             if (ShadowMapSizeCap > 0) size = Math.Min(size, ShadowMapSizeCap);
             if (ShadowMapSizeOverride > 0) size = ShadowMapSizeOverride;

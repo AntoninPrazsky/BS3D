@@ -68,7 +68,7 @@ namespace BS3D.Effects
                 SceneKind.Outback => OutbackIntroShots.Build(renderer, fieldOfView, random),
                 SceneKind.Mountain => MountainIntroShots.Build(renderer, fieldOfView, random),
                 SceneKind.Meadow => MeadowIntroShots.Build(
-                    renderer?.GetSceneConfig(SceneKind.Meadow) as MeadowSceneConfig, renderer?.MeadowTrees, fieldOfView, random),
+                    renderer?.GetSceneConfig(SceneKind.Meadow) as MeadowSceneConfig, renderer?.MeadowFigures, fieldOfView, random),
                 SceneKind.Savanna => SavannaIntroShots.Build(renderer, fieldOfView, random),
                 SceneKind.Forest => ForestIntroShots.Build(context.ForestScatter,
                     renderer?.GetSceneConfig(SceneKind.Forest) as ForestSceneConfig, fieldOfView, random),

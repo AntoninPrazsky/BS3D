@@ -136,7 +136,7 @@ namespace BS3D.Tools.LevelGen
         //in their own issues, and both are placed accordingly.
         //
         //The vinyl beach ball is back in the campaign since #295 — the Eruption took the lava its
-        //entry always said the volcano had the better claim on, and the Reveal takes the vinyl home. It is
+        //entry always said the volcano had the better claim on — and the Big Top wears the vinyl (#690). It is
         //still also what everything unauthored draws — the map editor, the Testbed, the front end's own
         //preview, and any level that says nothing.
         //
@@ -297,7 +297,7 @@ namespace BS3D.Tools.LevelGen
 
         //VINYL FOR THE BIG TOP (#690): the moulded beach ball with its gores and polar discs is the circus's own ball
         //- the one a seal balances and a clown juggles - and under the tent's warm spots its gloss reads as a toy
-        //rather than as a gem. The Reveal wears it too, in a cavern dark enough that the two cannot be confused.
+        //rather than as a gem.
         internal const BallStyle BALLS_BIGTOP = BallStyle.Beach;
 
         //WOOL FOR THE SILHOUETTES (#491), the Gallery's material a second time, and chosen by photograph: the
@@ -311,7 +311,7 @@ namespace BS3D.Tools.LevelGen
         /// Rewrites the set that orders the levels — since #194 as the <b>blocks of the <see cref="BLOCKS"/>
         /// table</b> rather than one flat ramp of fourteen, six of them since #207 added the desert, seven
         /// since #182 appended the Nebula, and ten since the Arcade, #253's Spectrum and #295's Eruption.
-        /// <b>One opens the campaign, Colossus closes the Quarry, and the campaign closes on the last
+        /// <b>The three flat sheets open the campaign (#603), Colossus closes the Quarry, and the campaign closes on the last
         /// block's finale</b> — the campaign-complete celebration rides the set's last entry and moves with
         /// it: Colossus's until #182, Garland's then (the owner moved the last word deliberately), Globe's,
         /// Turbine's at #253, and Globe's again since #300 put the two cities in day order.

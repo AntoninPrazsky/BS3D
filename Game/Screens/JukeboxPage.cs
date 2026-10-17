@@ -44,6 +44,14 @@ namespace BS3D.Screens
     /// scrolled down for a chapter finds the list where it was for the next one. A rebuild made two new scrollers, and a
     /// new scroller starts at the top. Only the recordings' own scroller goes back to the top, for the new chapter.
     /// </para>
+    /// <para>
+    /// <b>The chapter playing keeps a mark of its own</b> (#901: "the currently playing one should stay visibly
+    /// selected"): the player's play triangle at its slab's left inner edge, whichever chapter is shown. Brightness says
+    /// which chapter is shown, as it says it on every list of the menu; the triangle says where the recording that sounds
+    /// lives, so a player who picks the next chapter to look through it, or crosses into one on Next, still sees where the
+    /// music is. It is on while a recording is held and dimmed while that one is paused or still being read, as the play
+    /// button's own symbol is. The left edge because the pad's focus prompt stands at the right one.
+    /// </para>
     /// </summary>
     internal sealed class JukeboxPage : MenuPage
     {
@@ -86,6 +94,7 @@ namespace BS3D.Screens
 
         private readonly List<Button> _groupButtons = new();
         private readonly List<Label> _groupLabels = new();
+        private readonly List<MediaGlyph> _groupMarks = new();
         private readonly List<Button> _trackButtons = new();
         private readonly List<Label> _trackLabels = new();
 
@@ -117,6 +126,7 @@ namespace BS3D.Screens
 
             _groupButtons.Clear();
             _groupLabels.Clear();
+            _groupMarks.Clear();
             _shownState = -1;
             _group = Math.Clamp(_group, 0, Math.Max(0, _groups.Count - 1));
 
@@ -146,14 +156,46 @@ namespace BS3D.Screens
             for (int g = 0; g < _groups.Count; g++)
             {
                 int group = g;
-                Button button = MenuButton(_groups[g].Name, () => _pendingGroup = group, out Label label);
+                Button button = MenuButton(ChapterContent(_groups[g].Name, out Label label, out MediaGlyph mark), () => _pendingGroup = group);
                 button.Width = ColumnWidth;
                 _groupButtons.Add(button);
                 _groupLabels.Add(label);
+                _groupMarks.Add(mark);
                 list.Widgets.Add(button);
             }
 
             return MenuScroll(list, LEFT_SURROUNDINGS);
+        }
+
+        /// <summary>
+        /// A chapter's slab: its name centred, as a worded button's is, and the play mark at the left inner edge, hidden
+        /// until the chapter holds the recording playing. The mark overlays the slab rather than standing beside the name, so
+        /// it never moves the name and every chapter's name stands where a worded entry's would.
+        /// </summary>
+        private Widget ChapterContent(string name, out Label label, out MediaGlyph mark)
+        {
+            label = new Label
+            {
+                Text = name,
+                Font = FontBody,
+                TextColor = BS3DGame.MENU_TEXT,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+
+            mark = ButtonGlyph(MediaGlyph.Symbol.Play);
+            mark.HorizontalAlignment = HorizontalAlignment.Left;
+            mark.Visible = false;
+
+            Panel content = new()
+            {
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            content.Widgets.Add(label);
+            content.Widgets.Add(mark);
+
+            return content;
         }
 
         private Widget BuildPlayer()
@@ -330,15 +372,18 @@ namespace BS3D.Screens
             _shownState = state;
 
             int index = player.Index;
+            int playing = -1;
             if (index >= 0 && index < player.Tracks.Count)
             {
                 RecordingPlayer.Track track = player.Tracks[index];
                 int number = 0, count = 0;
-                foreach (Group group in _groups)
+                for (int g = 0; g < _groups.Count; g++)
                 {
+                    Group group = _groups[g];
                     if (index < group.First || index >= group.First + group.Count) continue;
                     number = index - group.First + 1;
                     count = group.Count;
+                    playing = g;
                 }
 
                 _nowPlaying.Text = string.Format(CultureInfo.InvariantCulture, "{0} · {1} · {2} / {3}", track.Group, track.Title, number, count);
@@ -349,9 +394,16 @@ namespace BS3D.Screens
             _playGlyph.Shape = action == 2 ? MediaGlyph.Symbol.Pause : MediaGlyph.Symbol.Play;
             _playGlyph.Tint = action == 1 ? BS3DGame.MENU_TEXT_DIM : BS3DGame.MENU_TEXT;
 
-            //The chapter shown and the recording playing stand out by brightness, the rest step back - ScenePage's marking
+            //The chapter shown and the recording playing stand out by brightness, the rest step back - ScenePage's marking.
+            //The chapter that holds the recording carries the play mark besides, shown or not (#901)
             for (int g = 0; g < _groupLabels.Count; g++)
                 _groupLabels[g].TextColor = g == _group ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM;
+
+            for (int g = 0; g < _groupMarks.Count; g++)
+            {
+                _groupMarks[g].Visible = g == playing && player.HoldsTrack;
+                _groupMarks[g].Tint = action == 2 ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM;
+            }
 
             int first = _groups.Count > 0 ? _groups[_group].First : 0;
             for (int i = 0; i < _trackLabels.Count; i++)

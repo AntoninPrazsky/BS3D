@@ -1065,9 +1065,9 @@
       "file": "Harlequin.json",
       "name": "Harlequin",
       "block": "The Mirage",
-      "shots": 60,
+      "shots": 48,
       "minStars": 262,
-      "ceilingStep": 10
+      "ceilingStep": 8
     },
     {
       "file": "Diadem.json",
@@ -1089,41 +1089,41 @@
       "file": "Anvil.json",
       "name": "Anvil",
       "block": "The Mirage",
-      "shots": 50,
+      "shots": 34,
       "minStars": 268,
-      "ceilingStep": 9
+      "ceilingStep": 7
     },
     {
       "file": "Keystone.json",
       "name": "Keystone",
       "block": "The Mirage",
-      "shots": 60,
+      "shots": 52,
       "minStars": 270,
-      "ceilingStep": 10
+      "ceilingStep": 9
     },
     {
       "file": "Seam.json",
       "name": "Seam",
       "block": "The Mirage",
-      "shots": 54,
+      "shots": 38,
       "minStars": 272,
-      "ceilingStep": 9
+      "ceilingStep": 8
     },
     {
       "file": "Obsidian.json",
       "name": "Obsidian",
       "block": "The Mirage",
-      "shots": 50,
+      "shots": 30,
       "minStars": 274,
-      "ceilingStep": 9
+      "ceilingStep": 7
     },
     {
       "file": "Cairn.json",
       "name": "Cairn",
       "block": "The Mirage",
-      "shots": 72,
+      "shots": 56,
       "minStars": 276,
-      "ceilingStep": 12
+      "ceilingStep": 10
     }
   ]
 }

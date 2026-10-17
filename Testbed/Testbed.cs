@@ -161,7 +161,7 @@ namespace Testbed
         //GameCameraFit.Solve rather than tuned, because both of its inputs move underneath a fixed number. Every
         //dial of that solve is GameCameraFit's own since #76 - the camera's height below the trunnions (and the
         //measured argument for why so little of the angle onto the cluster is the camera's to give), the frustum
-        //fraction the fit may fill, the gun's stand-off in front of the lens and the two lower bounds that
+        //fraction the fit may fill, the gun's stand-off in front of the lens and the three lower bounds that
         //override it - having stood here and in the Game with every figure identical. The defaults below only
         //cover the frames before the first map is loaded.
         private float _gameCameraDistance = 37f;

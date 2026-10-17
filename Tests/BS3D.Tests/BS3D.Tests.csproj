@@ -56,6 +56,8 @@
     <Compile Include="..\..\Game\Screens\PickerCopy.cs" />
     <!--What a High Scores row says of its level, and when a level counts as cleared (#898): texts over a summary's board, no device-->
     <Compile Include="..\..\Game\Screens\HighScoresRow.cs" />
+    <!--The High Scores page's levels' board keys, read off the frame (#898): a flag and a slot per level over a read handed in, no device-->
+    <Compile Include="..\..\Game\Screens\LevelIdentityCache.cs" />
     <Compile Include="..\..\Game\Screens\LevelResult.cs" />
     <Compile Include="..\..\Game\Screens\ScoreText.cs" />
     <!--What the About page says (#807): strings only, held to those rules and to the credits it must keep.-->
@@ -77,6 +79,11 @@
     <Compile Include="..\..\Game\Screens\CeilingDescent.cs" />
     <!--The city intro's shot builder (#488): plain geometry over City's block grid.-->
     <Compile Include="..\..\Game\Effects\CityIntroShots.cs" />
+    <!--The meadow's prologue (#893): the ground and solids a lens is held against, and the bench and bale orbits over the
+        planting's figures. The planting itself needs a device, so MeadowIntroShotsTests builds figures of its own from the
+        constants and the geometry MeadowScatter keeps without one.-->
+    <Compile Include="..\..\Game\Effects\IntroGround.cs" />
+    <Compile Include="..\..\Game\Effects\MeadowIntroShots.cs" />
     <!--What a nickname may be, and which words are secret (#548, #230): a string rule with no device in it.-->
     <Compile Include="..\..\Game\Online\Nickname.cs" />
     <!--The first-launch nickname question (#763): when it is asked, what an Esc on it counts for, the field's editing and

@@ -57,7 +57,7 @@ namespace BS3D.Tools.LevelGen
             //being dark and enclosed — which is what a reveal wants, since it makes the cluster the only lit
             //thing in the frame. It inherits that pairing from Mosaic, which vacated it for the Moon.
             Scene = SceneKind.Cavern,
-            //Inert here: the cavern is one of the four sky-replacing scenes, so this number pins nothing but
+            //Inert here: the cavern is one of the sky-replacing scenes, so this number pins nothing but
             //what the settings row cycles from (SceneRenderer.ReplacesSky, #142).
             Sky = 13,
             Music = MUSIC_REVEAL,

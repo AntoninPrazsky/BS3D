@@ -1,8 +1,8 @@
 namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// The flock of birds circling overhead, shared by the savanna, desert and outback scenes (one mesh and
-    /// one shader in <see cref="SceneRenderer"/>). Per-bird orbit radius, altitude, speed and phase — and
+    /// The flock of birds circling overhead, shared by the savanna, desert, outback and tropical scenes (one mesh and
+    /// one shader in <see cref="BirdFlock"/>). Per-bird orbit radius, altitude, speed and phase — and
     /// since #235 the cycle of wingbeat bursts and glides each one flies — are randomised inline at load and
     /// are not exposed here; these are the named, tunable flock parameters.
     /// </summary>

@@ -60,7 +60,7 @@ namespace Prazsky.Core.Render
         private const float BIRD_GLIDE_TRIM = 0.06f;
 
         //Flock parameters (count, wingspan, bob, colour, flock centre) live in BirdsConfig, shared by the
-        //savanna, desert and outback configs; Draw reads the active scene's Birds config each frame. The
+        //savanna, desert, outback and tropical configs; Draw reads the active scene's Birds config each frame. The
         //mesh is one shared rest pose - what makes one bird differ from another is its world matrix and its
         //two flap uniforms - so only the per-bird state above is sized from the counts, in SeedBirdFlock.
 
@@ -148,12 +148,12 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Draws the flock: each bird circles the config's flock centre on its own slow orbit, banked into
         /// the turn it is flying, beating or gliding on a cycle of its own. One draw per bird of the one
-        /// shared <see cref="BirdMesh"/>, opaque and depth-writing. Called in the savanna, desert and outback
-        /// scenes, which share the flock; <paramref name="birds"/> is the active scene's config, and its
+        /// shared <see cref="BirdMesh"/>, opaque and depth-writing. Called in the savanna, desert, outback
+        /// and tropical scenes, which share the flock; <paramref name="birds"/> is the active scene's config, and its
         /// count is capped to the seeded state's size.
         /// <para>
         /// A draw per bird rather than one instanced pass, for <c>SceneRenderer.DrawFlame</c>'s reason: what varies
-        /// per bird is three uniforms, there are nine of them at most and only in three scenes, and the
+        /// per bird is three uniforms, there are nine of them at most and only in four scenes, and the
         /// alternative is an instance buffer and a vertex format for something that has neither. The mesh is
         /// bound once outside the loop, so a bird costs three parameter writes and a draw.
         /// </para>

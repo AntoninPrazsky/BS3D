@@ -883,8 +883,23 @@ namespace Prazsky.Core.Render
             (-0.55f, 0.80f, 0.70f),
         };
 
-        //A spray's length as a share of the tier's radius, and its width against its length.
-        private const float SPRAY_LENGTH = 0.20f, SPRAY_ASPECT = 0.45f;
+        //A spray's length as a share of the tier's radius, and its width against its length; how far the layers droop at the
+        //rim, as a share of the half-thickness at the rim's own square (a tier's, and a bush's in LeafShape)
+        private const float SPRAY_LENGTH = 0.20f, SPRAY_ASPECT = 0.45f, DROOP = 0.5f;
+
+        /// <summary>
+        /// How a cloud of sprays is laid over the wood (#883): the layers (each a height in the cloud's half-thickness, a reach
+        /// as a share of its radius and a cover, as <c>LAYERS</c> above), how long a spray is as a share of the radius and how
+        /// far the layers droop towards the rim. <see cref="Tier"/> is an acacia's and a baobab's tuft's: a thin flat plate.
+        /// A thorn bush's (<see cref="ThornBushMesh"/>) is a mound, and takes its own.
+        /// </summary>
+        public sealed class LeafShape((float Y, float Reach, float Cover)[] layers, float sprayLength, float droop)
+        {
+            public readonly (float Y, float Reach, float Cover)[] Layers = layers;
+            public readonly float SprayLength = sprayLength, Droop = droop;
+
+            public static readonly LeafShape Tier = new(LAYERS, SPRAY_LENGTH, DROOP);
+        }
 
         //A twig's leafy part (#782): the inner share of it is bare wood, as a twig's base is, and the sprays hang along
         //the rest; its taper, from its base to its tip, against the radius it leaves its support at
@@ -927,17 +942,21 @@ namespace Prazsky.Core.Render
         /// <param name="fineWoodVertices">A second wood the same twigs go into: an acacia's fine wood (#758), whose boughs
         /// end where the coarse wood's do. <c>null</c> for none.</param>
         /// <param name="fineWoodIndices">Its indices.</param>
+        /// <param name="shape">How the sprays are laid over the disc (#883): <see cref="LeafShape.Tier"/> (the default, every
+        /// acacia's and baobab's tuft's, unchanged) or a thorn bush's mound. The rolls are taken in the same order whichever.</param>
         public static void HangOnTwigs(List<VertexPositionNormalTexture> woodVertices, List<short> woodIndices,
             List<(Vector3 From, Vector3 To)> skeleton, List<VertexPositionNormalTexture> v, List<int> idx,
             IReadOnlyList<Vector3> supports, Vector3 centre, float radius, float halfHeight, float twigRadius, int spraysPerTwig,
-            Random rng, List<VertexPositionNormalTexture> fineWoodVertices = null, List<short> fineWoodIndices = null)
+            Random rng, List<VertexPositionNormalTexture> fineWoodVertices = null, List<short> fineWoodIndices = null,
+            LeafShape shape = null)
         {
-            float length = radius * SPRAY_LENGTH;
+            shape ??= LeafShape.Tier;
+            float length = radius * shape.SprayLength;
             float width = length * SPRAY_ASPECT;
 
-            for (int layer = 0; layer < LAYERS.Length; layer++)
+            for (int layer = 0; layer < shape.Layers.Length; layer++)
             {
-                (float layerY, float reach, float cover) = LAYERS[layer];
+                (float layerY, float reach, float cover) = shape.Layers[layer];
                 float disc = MathF.PI * radius * reach * radius * reach;
                 int sprays = (int)(cover * disc / (length * width));
                 int twigs = Math.Max(1, (sprays + spraysPerTwig - 1) / spraysPerTwig);
@@ -950,7 +969,7 @@ namespace Prazsky.Core.Render
                     float a = (float)rng.NextDouble() * MathHelper.TwoPi;
                     float rim = r / radius;
                     Vector3 tip = centre + new Vector3(MathF.Cos(a) * r,
-                        halfHeight * (layerY + 0.35f * ((float)rng.NextDouble() - 0.5f)) - halfHeight * 0.5f * rim * rim,
+                        halfHeight * (layerY + 0.35f * ((float)rng.NextDouble() - 0.5f)) - halfHeight * shape.Droop * rim * rim,
                         MathF.Sin(a) * r);
 
                     //From the wood nearest it, as seen from above: the support it would have grown out of
@@ -1411,7 +1430,8 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>The #202 crown, unchanged: a billowing mass of overlapping lobes, flattened a little on top.
-        /// The savanna's bushes are still this.</summary>
+        /// The savanna's bushes are still this on Low and Medium and on the Potato path; High and Ultra draw
+        /// <see cref="ThornBushMesh"/> in its place (#883). The meadow's old trees' clumps are this too.</summary>
         public static readonly FoliageStyle Crown = new(0.35f, 0f, 0.5f, 0.18f, 7, 10, 0.14f, 0.42f, 2.2f, 5.7f, -0.1f, 0.9f);
 
         /// <summary>An acacia's umbrella of foliage, read off the #451 references: a low dome on top over a

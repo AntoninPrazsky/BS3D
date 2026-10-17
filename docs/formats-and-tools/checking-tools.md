@@ -37,5 +37,5 @@ dotnet build Game.sln -t:Rebuild "-p:CustomAfterMicrosoftCommonTargets=<repo>\To
 `GenerateDocumentationFile` is on for every project but VectorBoundary, so these are ordinary warnings in every build and in `build.yml`: **CS1574** (a `cref` that does not resolve), **CS0419** (ambiguous `cref`: name the overload), **CS1570** (malformed XML), **CS1572/CS1571/CS1734** (`<param>`/`<paramref>` not matching the signature), **CS1587** (a doc comment on nothing). **CS1591** and **CS1573** are suppressed on purpose.
 
 - **A project's own `<NoWarn>` must be `$(NoWarn);…`**: a bare value replaces the inherited one and every missing doc comment returns.
-- **A file compiled into a tool as well** (`ProceduralMusic.cs`, `OggTrack.cs`, `MusicLevels.cs`, `MusicFade.cs`, `Spectrum.cs` into `MusicBake`) may not `cref` a Game-only type (`GameMusic`, `ProceduralJukebox`): write `<c>GameMusic</c>`.
+- **A file compiled into a tool as well** (`ProceduralMusic.cs`, `RenderProgress.cs`, `OggTrack.cs`, `MusicLevels.cs`, `MusicFade.cs`, `Spectrum.cs`, `DrumLayer.cs` into `MusicBake`) may not `cref` a Game-only type (`GameMusic`, `ProceduralJukebox`): write `<c>GameMusic</c>`.
 - **The compiler does not see** a second `<summary>` stacked on a member or a doc block separated from its member by `//` lines; both attach silently. Move a doc with its member.

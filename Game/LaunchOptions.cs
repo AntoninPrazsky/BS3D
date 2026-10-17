@@ -136,7 +136,7 @@ namespace BS3D
         internal bool Celebrate { get; private set; }
 
         //Testing only: pin the floor alarm's laser net on (SessionTestOptions.ForceLaserWarning). Reaching it honestly
-        //means playing a level to within two ceiling steps of losing it, which can no more be scripted than
+        //means playing a level to within three ceiling steps of losing it, which can no more be scripted than
         //clearing one can.
         internal bool Lasers { get; private set; }
 
@@ -480,7 +480,7 @@ namespace BS3D
             Row.Value<SceneKind>("scene", SceneRenderer.TryParseScene, (o, v) => o.Scene = v),
             Row.Value<byte>("sky", TryParseSkyDome, (o, v) => o.SkyDome = v),
             //"quality=" pins the whole detail tier; "ssaa=" then overrides just its supersample entry. By
-            //name (low/medium/high/ultra); IsDefined because TryParse also takes any number, and a tier past
+            //name (low/medium/high/ultra/potato); IsDefined because TryParse also takes any number, and a tier past
             //the last one would index off the end of QualityPreset.Presets.
             Row.Value<QualityLevel>("quality", TryParseQuality, (o, v) => o.Quality = v),
             //"potato" runs the Windows build through the Pi's renderer (#808); in GamePi it asks for what already is

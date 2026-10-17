@@ -106,8 +106,9 @@ namespace Prazsky.BS3D.GameObjects
         /// <see cref="MinElevation"/> the spring is critically damped (#872): the barrel runs out onto the stretch and
         /// eases back onto the clamp, and never swings past it.
         /// <para>
-        /// <b>The cost, the owner's call:</b> this is one pose, so a shot fired mid-stretch leaves along the
-        /// stretched barrel, up to this far past the limit and the spring's first swing a little further. On a tall
+        /// <b>The cost, the owner's call:</b> this is one pose, so a shot fired mid-stretch at the <b>upper</b> end would leave
+        /// along the stretched barrel, up to this far past the limit and the spring's first swing a little further (the gun
+        /// refuses it, <see cref="ElevationRefusesShot"/>; the lower end's stretch is drawn only, <see cref="FireDirection"/>). On a tall
         /// level that reopens, for as long as the hand pushes and the barrel comes back, part of the unframed band
         /// its limit is there to close. At the hardware's own <see cref="MaxElevation"/> the stretch is stopped short
         /// of vertical by <see cref="POSE_ELEVATION_CEILING"/>; nothing of the gun collides on the way, because the
@@ -161,7 +162,8 @@ namespace Prazsky.BS3D.GameObjects
         /// blink red, so the refusal is never unannounced — and, as a net under that, while the pose stands past the
         /// clamp by more than <see cref="ELEVATION_FIRE_TOLERANCE"/>. At rest on the clamp the gun fires: the limit is
         /// what the level allows, and nothing is pushing. <b>The lower end never refuses</b> (#872): nothing is hidden
-        /// down there, so a shot at, against or stretched under <see cref="MinElevation"/> leaves along the pose.
+        /// down there, so a shot at, against or stretched under <see cref="MinElevation"/> fires, along
+        /// <see cref="FireDirection"/>: the clamped elevation, the stretch under it being only drawn.
         /// </summary>
         public bool ElevationRefusesShot
         {
@@ -695,6 +697,25 @@ namespace Prazsky.BS3D.GameObjects
         /// the closer the gun gets the slower it moves, it never arrives and it never jolts. A step away from a
         /// cushion reads the room towards the opposite end instead, so backing out answers at once.
         /// </summary>
+        private bool _keepoutsSet;
+        private float _keepoutCornerX, _keepoutCornerZ;
+
+        /// <summary>
+        /// Holds the carriage off the four laser emitters standing at the corners of this level's net (#874): from now on
+        /// the gun's radius is never under <see cref="LaserEmitterRing.GunFloorRadius"/> at its bearing, so a walk towards
+        /// the drain stops at an emitter's circle and an orbit round the drain rides out round it. The gun is moved at
+        /// once if it stands inside one. <paramref name="cornerX"/> and <paramref name="cornerZ"/> are where the net's
+        /// outermost beams stand (<c>LaserGrid.CornerX</c>/<c>CornerZ</c>), per level.
+        /// </summary>
+        public void SetKeepouts(float cornerX, float cornerZ)
+        {
+            _keepoutsSet = true;
+            _keepoutCornerX = cornerX;
+            _keepoutCornerZ = cornerZ;
+
+            MoveToOrbitAngle();
+        }
+
         private void MoveRadial(GameTime gameTime)
         {
             //Positive step walks toward the field, i.e. shrinks the radius
@@ -852,6 +873,14 @@ namespace Prazsky.BS3D.GameObjects
 
         private void MoveToOrbitAngle()
         {
+            //The laser emitters on the drain's rim (#874): wherever the gun is put - an orbit, a walk, a placement, a refit -
+            //its carriage stands outside their circles. Here, in the one place every move of the orbit passes through
+            if (_keepoutsSet)
+            {
+                float floor = LaserEmitterRing.GunFloorRadius(_orbitAngle, _keepoutCornerX, _keepoutCornerZ, CannonRig.StandReach);
+                if (_orbitRadius < floor) _orbitRadius = floor;
+            }
+
             var x = OrbitCenter.X + (_orbitRadius * (float)Math.Cos(_orbitAngle));
             var z = OrbitCenter.Z + (_orbitRadius * (float)Math.Sin(_orbitAngle));
 
@@ -1113,6 +1142,36 @@ namespace Prazsky.BS3D.GameObjects
         /// was sized to, and the magazine itself belongs to the caller.</param>
         public Vector3 MuzzlePosition(float pivotToFrontBall) =>
             Position + AimDirection * pivotToFrontBall;
+
+        /// <summary>
+        /// The direction a shot leaves along and the aim preview is solved along (#872): <see cref="AimDirection"/>, except
+        /// that the lower rubber's stretch is left out. The owner asked for the alarm to go at <see cref="MinElevation"/>,
+        /// not for a gun that fires under its floor, so a shot fired with the barrel pulled under the clamp leaves at the
+        /// clamped elevation and the stretch is only what the barrel and a precise-aim lens draw. At the upper end the
+        /// stretch is part of the pose by design and the gun refuses to fire out of it (<see cref="ElevationRefusesShot"/>),
+        /// so there this is <see cref="AimDirection"/> itself.
+        /// </summary>
+        public Vector3 FireDirection
+        {
+            get
+            {
+                //Only the lower end's stretch: the upper rubber's rebound under its clamp is a shot the level allows
+                float aimed = _rotationToOrbitCenter.X + _rotationAim.X;
+                if (_elevationOvershoot >= 0f || aimed > MinElevation + 1e-4f) return AimDirection;
+
+                float elevation = MathF.Min(aimed, POSE_ELEVATION_CEILING);
+                Matrix rotation = Matrix.CreateRotationX(elevation - Constants.HALF_PI)
+                    * Matrix.CreateRotationY(_rotationToOrbitCenter.Y + _rotationAim.Y);
+
+                return Vector3.Normalize(Vector3.Transform(OrbitCenter, rotation));
+            }
+        }
+
+        /// <summary>Where a shot spawns: <see cref="MuzzlePosition"/> along <see cref="FireDirection"/>, so the ball leaves
+        /// from the barrel it leaves along.</summary>
+        /// <param name="pivotToFrontBall">As for <see cref="MuzzlePosition"/>.</param>
+        public Vector3 FireMuzzle(float pivotToFrontBall) =>
+            Position + FireDirection * pivotToFrontBall;
 
         /// <summary>
         /// The muzzle as <b>drawn</b> this instant: the true <see cref="MuzzlePosition"/> carried back by the

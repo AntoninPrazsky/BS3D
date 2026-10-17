@@ -2,7 +2,7 @@
 
 Part of [The scenes](../scenes.md).
 
-The twentieth `SceneKind` (#393): an early-1980s computer-graphics backdrop drawn from **named mathematics rather than noise**, flat-shaded, cheap because of that. Made of `GridBackdrop`, `Grid.fx`, `GridSceneConfig` (groups Terrain, Towers, Lighting) and `GridLife`. Launch: `scene=grid` (`tron` parses the same). It has a chapter since #420.
+The twentieth `SceneKind` (#393): an early-1980s computer-graphics backdrop drawn from **named mathematics rather than noise**, flat-shaded, cheap because of that. Made of `GridBackdrop`, `Grid.fx`, `GridSceneConfig` (groups Terrain, Towers, Landmark, Lighting) and `GridLife`. Launch: `scene=grid` (`tron` parses the same). It has a chapter since #420.
 
 **In both families, after the Moon and the aurora**: `IsSolidTerrainScene` (flat floor, footprint cut out, pit shaft) and `ReplacesSky` (no dome, black clear, its own rig through `TryGetLightRig`); see "The sky-replacing family" in [Space](space.md).
 

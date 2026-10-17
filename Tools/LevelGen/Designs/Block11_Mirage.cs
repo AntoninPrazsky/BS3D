@@ -164,8 +164,8 @@ namespace BS3D.Tools.LevelGen
             Sky = MIRAGE_SKY,
             Music = MUSIC_MIRAGE,
             Balls = BALLS_MIRAGE,
-            Shots = 60,
-            CeilingStep = 10,
+            Shots = 48,
+            CeilingStep = 8,
             OccupiedBlock = (x, z, i, depth) =>
             {
                 float r = MirageRadius(x, z, i, HARLEQUIN_GRID);
@@ -304,6 +304,22 @@ namespace BS3D.Tools.LevelGen
         //     drains and scores nothing. So a rock design can end with a skeleton still hanging and that is
         //     a finish, not a stall.
         //
+        //LIGHTER, AND BOMBS FROM THE SEAM (#879). The five hung 601-673 balls each, up to 209 of them stone (Cairn), and the owner's playtest said so: level after level of the same
+        //wall to be worked round. Two levers, and the Quarry's (#398) is why neither is "hollow it out":
+        //
+        //  1. SMALLER BODIES AND LESS STONE. Every rock level hangs fewer courses (eight, not ten, and Obsidian's
+        //     ten not twelve), Keystone's piers are four courses and its slab narrower, and Seam's and Cairn's
+        //     walls stop three and four courses short of the glass (SEAM_ROOF, CAIRN_ROOF). How long a level takes
+        //     is its standing-group count and not its ball count, so what was measured is the groups: the
+        //     block's rock levels went from 17-41 to 14-32 and from 601-673 balls to 328-433.
+        //  2. A BOMB FROM THE SEAM ON. Anvil and Keystone stay stone alone - the first teaches what stone is,
+        //     the second what a pier does to a colour. From the third rock level the stone is also something
+        //     to blow up: the bomb is already known (the Eruption's Vent, level 105, is where its card is), so
+        //     nothing here is taught twice. A charge stands on the end of the wall where it meets the silhouette
+        //     (Seam, Cairn) or on the vein's rim (Obsidian), always open to the gun like every special (the
+        //     stranded-specials gate), and a blast takes stone and colour alike in a sphere of
+        //     BallsConstraintsBuilder.BLAST_RADIUS: a door through a wall the colour could not cross.
+        //
         //THE ROCKS ARE ALWAYS VISIBLE. Every one of the five puts its stone where the gun can see it before
         //the first shot - the underside, a wall across the face, piers, a spiral - because a rule the
         //player discovers by wasting a ball on it is a rule taught the one way this block is trying not to
@@ -336,8 +352,8 @@ namespace BS3D.Tools.LevelGen
             Sky = MIRAGE_SKY,
             Music = MUSIC_MIRAGE,
             Balls = BALLS_MIRAGE,
-            Shots = 50,
-            CeilingStep = 9,
+            Shots = 34,
+            CeilingStep = 7,
             OccupiedBlock = (x, z, i, depth) => MirageRadius(x, z, i, ANVIL_GRID) <= AnvilRadius(i),
             //Six staves round the bell, turned a step a course so a stave is a pane rather than a column -
             //Lantern's rule, and for Lantern's reason: six vertical staves of dozens is six groups.
@@ -372,13 +388,19 @@ namespace BS3D.Tools.LevelGen
         /// is a wall with a door on every course.
         /// </para>
         /// <para>
-        /// <b>⚠ The seam runs to one course short of the glass, not to the anchor course</b> (#343). It used
+        /// <b>⚠ The seam runs <see cref="SEAM_ROOF"/> courses short of the glass, not to the anchor course</b> (#343, #879). It used
         /// to reach the top, and the paragraph here used to argue for that: both halves then hung on their
         /// own and neither depended on the other for the ceiling. The cost of it was 26 rocks the player
         /// could never bring down. The wall's cells on the anchor course are still there — they carry their
         /// side's colour now — so the top course is one span the colour crosses, exactly as
         /// <see cref="Keystone"/>'s bays meet over its piers, and what the wall does to the flood fill on
         /// every course below is unchanged.
+        /// </para>
+        /// <para>
+        /// <b>The bombs begin here (#879).</b> Four charges stand on the centre line of the wall where it meets
+        /// the silhouette, two ends on the lowest course and two on the fourth: the stone is something to blast
+        /// through as well as to work round, and one blast takes the wall's end and the colour either side of
+        /// it in a single landing.
         /// </para>
         /// </summary>
         private static Design Seam() => new()
@@ -391,14 +413,16 @@ namespace BS3D.Tools.LevelGen
             Sky = MIRAGE_SKY,
             Music = MUSIC_MIRAGE,
             Balls = BALLS_MIRAGE,
-            Shots = 54,
-            CeilingStep = 9,
+            Shots = 38,
+            CeilingStep = 8,
             OccupiedBlock = (x, z, i, depth) => MirageRadius(x, z, i, SEAM_GRID) <= SeamRadius(i),
             BlockColour = SeamColour,
             //One course short of the glass (#343), which is Keystone's rule arriving here — see ObsidianKind
             //for the whole argument. The seam's cells on the anchor course are still there and still drawn;
             //they simply carry their side's colour instead of granite.
-            BlockKind = (x, z, i, depth) => i < depth - 1 && SeamStone(x, z, i) ? BallKind.Rock : BallKind.Normal,
+            BlockKind = (x, z, i, depth) =>
+                SeamBomb(x, z, i) ? BallKind.Bomb
+                : i < depth - SEAM_ROOF && SeamStone(x, z, i) ? BallKind.Rock : BallKind.Normal,
         };
 
         /// <summary>
@@ -429,8 +453,8 @@ namespace BS3D.Tools.LevelGen
             Sky = MIRAGE_SKY,
             Music = MUSIC_MIRAGE,
             Balls = BALLS_MIRAGE,
-            Shots = 60,
-            CeilingStep = 10,
+            Shots = 52,
+            CeilingStep = 9,
             OccupiedBlock = (x, z, i, depth) => KeystoneOccupied(x, z, i),
             BlockColour = KeystoneColour,
             BlockKind = (x, z, i, depth) => KeystonePier(x, z, i) ? BallKind.Rock : BallKind.Normal,
@@ -444,7 +468,7 @@ namespace BS3D.Tools.LevelGen
         /// <b>It closes the campaign because of the paragraph below rather than because of a number.</b> The
         /// owner's playtest sent <see cref="Obsidian"/> back from the slot as too simple for it; of what was
         /// left this is the level that asks the most of the player, and the tool's own reading agrees without
-        /// deciding it (1.76 shots a group against Obsidian's 2.94, 673 balls, the block's largest budget).
+        /// deciding it (at the time of the ruling 1.76 shots a group against Obsidian's 2.94, and the block's largest budget).
         /// </para>
         /// <para>
         /// This is <see cref="Seam"/>'s lesson taken as far as it goes: one colour standing in all four
@@ -469,6 +493,12 @@ namespace BS3D.Tools.LevelGen
         /// every second course. The half-unit form is one column on the unshifted levels and two on the
         /// shifted ones, and closed on both.
         /// </para>
+        /// <para>
+        /// <b>Lighter, and armed (#879).</b> The walls stop <see cref="CAIRN_ROOF"/> courses short of the glass
+        /// and the body is smaller, so the finale carries about a hundred rocks instead of 209; and four charges
+        /// stand on the four wall ends at the third course, one a compass point and further apart than a blast
+        /// reaches, so one landing opens one door between two quarters and the player chooses which.
+        /// </para>
         /// </summary>
         private static Design Cairn() => new()
         {
@@ -480,12 +510,14 @@ namespace BS3D.Tools.LevelGen
             Sky = MIRAGE_SKY,
             Music = MUSIC_MIRAGE,
             Balls = BALLS_MIRAGE,
-            Shots = 72,
-            CeilingStep = 12,
+            Shots = 56,
+            CeilingStep = 10,
             OccupiedBlock = (x, z, i, depth) => MirageRadius(x, z, i, CAIRN_GRID) <= CairnRadius(i),
             BlockColour = CairnColour,
             //One course short of the glass (#343) — see Seam's own line and ObsidianKind for the argument.
-            BlockKind = (x, z, i, depth) => i < depth - 1 && CairnWall(x, z, i) ? BallKind.Rock : BallKind.Normal,
+            BlockKind = (x, z, i, depth) =>
+                CairnBomb(x, z, i) ? BallKind.Bomb
+                : i < depth - CAIRN_ROOF && CairnWall(x, z, i) ? BallKind.Rock : BallKind.Normal,
         };
 
         /// <summary>
@@ -510,6 +542,11 @@ namespace BS3D.Tools.LevelGen
         /// AROUND rather than down, and since the wedge turns, the way round changes as the player descends
         /// — the shape reads as a screw and plays as one.
         /// </para>
+        /// <para>
+        /// <b>Two turns of the vein carry a charge on the rim (#879)</b> - the fourth and seventh courses - so
+        /// the screw can be blasted open where the gun sees it as well as worked round; the level hangs ten
+        /// courses instead of twelve.
+        /// </para>
         /// </summary>
         private static Design Obsidian() => new()
         {
@@ -521,8 +558,8 @@ namespace BS3D.Tools.LevelGen
             Sky = MIRAGE_SKY,
             Music = MUSIC_MIRAGE,
             Balls = BALLS_MIRAGE,
-            Shots = 50,
-            CeilingStep = 9,
+            Shots = 30,
+            CeilingStep = 7,
             OccupiedBlock = (x, z, i, depth) => MirageTaxicab(x, z, i, OBSIDIAN_GRID) <= ObsidianRim(i),
             BlockColour = ObsidianColour,
             BlockKind = ObsidianKind,
@@ -532,7 +569,7 @@ namespace BS3D.Tools.LevelGen
 
         #region The mirage levels' own geometry (#323/#325)
 
-        //THE DOME NUMBER THE WHOLE BLOCK NAMES, and it is INERT: the dream is one of the four sky-replacing
+        //THE DOME NUMBER THE WHOLE BLOCK NAMES, and it is INERT: the dream is one of the sky-replacing
         //scenes (SceneRenderer.ReplacesSky), so no dome is drawn and the scene states its own light rig
         //instead of taking the palette's - a violet sky ambient over a teal ground bounce, a rose key
         //against a cyan fill. The field is stated anyway, and stated identically on all ten, for the reason
@@ -744,7 +781,7 @@ namespace BS3D.Tools.LevelGen
         //every cell of a two-thick shell touches the hollow or the open air, so a one-cell stitch line is
         //reachable everywhere by construction rather than by inspection.
         private const byte HARLEQUIN_GRID = 16;
-        private const byte HARLEQUIN_DEPTH = 10;
+        private const byte HARLEQUIN_DEPTH = 8;
         private const float HARLEQUIN_BASE = 5.2f;
         private const float HARLEQUIN_FLARE = 0.16f;
         private const float HARLEQUIN_WALL = 1.9f;
@@ -797,7 +834,7 @@ namespace BS3D.Tools.LevelGen
         private const byte DIADEM_GRID = 16;
         private const byte DIADEM_DEPTH = 10;
         private const int DIADEM_BAND_FIRST = 5;
-        private const float DIADEM_BAND_INNER = 2.0f;
+        private const float DIADEM_BAND_INNER = 3.6f;
         private const float DIADEM_BAND_OUTER = 6.4f;
         private const int DIADEM_STONE_DEPTH = 5;
         private const int DIADEM_BAND_SECTORS = 8;
@@ -973,15 +1010,15 @@ namespace BS3D.Tools.LevelGen
         //THE ANVIL. A bell of colour on a stone point: the bottom three courses, which are the lowest and
         //nearest thing in the level and therefore the first thing anybody shoots at.
         private const byte ANVIL_GRID = 16;
-        private const byte ANVIL_DEPTH = 10;
-        private const float ANVIL_BASE = 2.4f;
+        private const byte ANVIL_DEPTH = 8;
+        private const float ANVIL_BASE = 2.0f;
         private const float ANVIL_FLARE = 0.42f;
         private const int ANVIL_STAVES = 6;
 
         /// <summary>
         /// How much of the bell is stone. Three courses is the smallest anvil that reads as one from the
         /// island — one course is a smudge under the colour and two still reads as a shadow — and it is
-        /// about an eighth of the level, so the lesson costs the player a ball and not a chapter.
+        /// about a sixth of the level, so the lesson costs the player a ball and not a chapter.
         /// </summary>
         private const int ANVIL_STONE_COURSES = 3;
 
@@ -997,10 +1034,17 @@ namespace BS3D.Tools.LevelGen
         //THE SEAM. A broad body cut corner to corner by a diagonal wall of stone three cells thick, with a
         //different colour family each side of it.
         private const byte SEAM_GRID = 16;
-        private const byte SEAM_DEPTH = 10;
-        private const float SEAM_BASE = 2.6f;
-        private const float SEAM_FLARE = 0.36f;
+        private const byte SEAM_DEPTH = 8;
+        private const float SEAM_BASE = 2.4f;
+        private const float SEAM_FLARE = 0.34f;
         private const int SEAM_SECTORS = 6;
+
+        /// <summary>
+        /// How many of the top courses the wall leaves as colour (#879). It was one (stone stops short of the
+        /// glass, #343); three now, which costs the seam a third of its stone and nothing of its lesson, since the
+        /// two halves wear different families and a roof of colour cannot weld them.
+        /// </summary>
+        private const int SEAM_ROOF = 3;
 
         /// <summary>
         /// Half the seam's width, in the units <c>dx − dz</c> is measured in. One gives three columns of
@@ -1030,6 +1074,26 @@ namespace BS3D.Tools.LevelGen
         private static bool SeamStone(int x, int z, int i) =>
             MathF.Abs(MirageDx(x, i, SEAM_GRID) - MirageDz(z, i, SEAM_GRID)) <= SEAM_HALF_WIDTH;
 
+        /// <summary>
+        /// The courses of the seam that carry a charge at each end (#879): the lowest, where the gun looks first,
+        /// and the fourth, where the wall has widened with the body.
+        /// </summary>
+        private static readonly int[] SEAM_BOMB_COURSES = { 0, 4 };
+
+        /// <summary>
+        /// A bomb is the seam's own centre line where it meets the silhouette: the wall's two ends, which have
+        /// an open cell beside them by construction (<c>FindStrandedSpecials</c>) and which the gun sees from
+        /// any side of the orbit, so a blast there is a door through the stone and the colour either side of it.
+        /// </summary>
+        private static bool SeamBomb(int x, int z, int i) =>
+            Array.IndexOf(SEAM_BOMB_COURSES, i) >= 0
+            && x == z
+            && MirageRadius(x, z, i, SEAM_GRID) > SeamRadius(i) - SEAM_BOMB_RIM
+            && MirageRadius(x, z, i, SEAM_GRID) <= SeamRadius(i);
+
+        /// <summary>How far in from the silhouette a seam bomb may stand (cells): the two end cells of the wall.</summary>
+        private const float SEAM_BOMB_RIM = 1.2f;
+
         private static BallType SeamColour(int x, int z, int i) =>
             MirageBand(MirageSector(x, z, i, SEAM_GRID, SEAM_SECTORS) + i,
                 x - z > 0 ? SEAM_WARM : SEAM_COOL);
@@ -1037,8 +1101,8 @@ namespace BS3D.Tools.LevelGen
         //THE KEYSTONE. A slab standing across the player's view, four bays under three piers of stone, and
         //the piers stopping short of the glass so the top three courses are one continuous span.
         private const byte KEYSTONE_GRID = 16;
-        private const byte KEYSTONE_DEPTH = 10;
-        private const float KEYSTONE_HALF_X = 6.5f;
+        private const byte KEYSTONE_DEPTH = 8;
+        private const float KEYSTONE_HALF_X = 5.5f;
 
         //Two cells thick at the thinner parity, which is the minimum a wall holds together at: a slab one
         //cell thick in Z has half its cross-level neighbours reaching to a Z that is not there. The Pictures
@@ -1046,7 +1110,7 @@ namespace BS3D.Tools.LevelGen
         private const float KEYSTONE_HALF_Z = 2f;
 
         /// <summary>The first course above the piers — the arch springing, and the keystone's own floor.</summary>
-        private const int KEYSTONE_SPRING = 7;
+        private const int KEYSTONE_SPRING = 4;
 
         private static readonly float[] KEYSTONE_PIERS = { -3f, 0f, 3f };
 
@@ -1105,11 +1169,33 @@ namespace BS3D.Tools.LevelGen
         //standing in one silhouette is four groups that can never meet.
         private const byte CAIRN_GRID = 16;
         private const byte CAIRN_DEPTH = 10;
-        private const float CAIRN_BASE = 3.4f;
-        private const float CAIRN_FLARE = 0.26f;
+        private const float CAIRN_BASE = 2.8f;
+        private const float CAIRN_FLARE = 0.2f;
         private const int CAIRN_SECTORS = 8;
 
         private static float CairnRadius(int i) => CAIRN_BASE + i * CAIRN_FLARE;
+
+        /// <summary>
+        /// How many of the top courses are a roof of colour the four quarters meet under (#879). It was one
+        /// (stone stops one course short of the glass, #343); it is four now, because the full-height walls
+        /// were 209 rocks, a third of the finale, and a player brought the quarters down one by one over
+        /// the same stone twenty times. The roof also lets a colour be worked across two quarters, which is
+        /// Keystone's span at the finale's size.
+        /// </summary>
+        private const int CAIRN_ROOF = 4;
+
+        /// <summary>The course the four wall ends carry a charge on (#879): low, where the gun looks first.</summary>
+        private const int CAIRN_BOMB_COURSE = 2;
+
+        /// <summary>
+        /// A bomb is a wall's end where it meets the silhouette, one a compass point - the stone's own door
+        /// into each pair of quarters. The ends are far further apart than <c>BLAST_RADIUS</c>, so they do not chain.
+        /// </summary>
+        private static bool CairnBomb(int x, int z, int i) =>
+            i == CAIRN_BOMB_COURSE
+            && CairnWall(x, z, i)
+            && MirageRadius(x, z, i, CAIRN_GRID) > CairnRadius(i) - 1f
+            && MirageRadius(x, z, i, CAIRN_GRID) <= CairnRadius(i);
 
         //Green, cyan, blue, magenta - four colours the chambers carry in four different orders, which is
         //what makes the division READ: the same colour is in a different place in every quarter, so the eye
@@ -1134,7 +1220,7 @@ namespace BS3D.Tools.LevelGen
         //THE OBSIDIAN. A solid stepped octahedron with a vein of stone spiralling up it, stopping one course
         //short of the glass (#343) - the campaign's last level.
         private const byte OBSIDIAN_GRID = 17;
-        private const byte OBSIDIAN_DEPTH = 12;
+        private const byte OBSIDIAN_DEPTH = 10;
         private const int OBSIDIAN_VEIN_SECTORS = 8;
         private const int OBSIDIAN_COLOUR_SECTORS = 4;
 
@@ -1180,7 +1266,20 @@ namespace BS3D.Tools.LevelGen
         /// </para>
         /// </summary>
         private static BallKind ObsidianKind(int x, int z, int i, int depth) =>
-            i < depth - 1 && ObsidianVein(x, z, i) ? BallKind.Rock : BallKind.Normal;
+            ObsidianBomb(x, z, i) ? BallKind.Bomb
+            : i < depth - 1 && ObsidianVein(x, z, i) ? BallKind.Rock : BallKind.Normal;
+
+        /// <summary>
+        /// The courses where the vein carries a charge on the rim (#879): two of its turns, so the screw is
+        /// something to blast through as well as to work round.
+        /// </summary>
+        private static readonly int[] OBSIDIAN_BOMB_COURSES = { 3, 6 };
+
+        /// <summary>A bomb is a vein cell standing exactly on the rim of its course, where the octahedron's step leaves it open.</summary>
+        private static bool ObsidianBomb(int x, int z, int i) =>
+            Array.IndexOf(OBSIDIAN_BOMB_COURSES, i) >= 0
+            && ObsidianVein(x, z, i)
+            && MirageTaxicab(x, z, i, OBSIDIAN_GRID) == ObsidianRim(i);
 
         #endregion
     }

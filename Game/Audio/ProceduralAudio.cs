@@ -24,13 +24,16 @@ namespace BS3D.Audio
     /// decays independently per render — so no two shots and no two landings sound exactly alike.
     /// </para>
     /// <para>
-    /// <b>The five sounds that have a place in the world are placed there</b> (#75): the shot leaves the
-    /// muzzle, a landing sounds at the cell it stuck to, a release at the cell that broke, and a shell whistles
-    /// and bursts where it actually is. They go through <see cref="Speak"/> onto a <see cref="VoiceRing"/> and
+    /// <b>Every sound that has a place in the world is placed there</b> (#75): the shot leaves the
+    /// muzzle, a landing sounds at the cell it stuck to, a release at the cell that broke, a shell whistles
+    /// and bursts where it actually is, and the ice break, the blasts, the wormhole, the eruption, the Cut and
+    /// Swap, the ceiling step and the line's cut and touch sound where they happen. They go through
+    /// <see cref="Speak"/> onto a <see cref="VoiceRing"/> and
     /// are positioned by X3DAudio from a real <see cref="AudioEmitter"/> against a real
     /// <see cref="AudioListener"/> posed from the camera — an <i>angle</i> to the source rather than the
-    /// hand-rolled projection onto the lens's right axis that came before it. The four that have no emitting
-    /// object — the party popper and the three UI sounds — stay fire-and-forget and dead centre, deliberately.
+    /// hand-rolled projection onto the lens's right axis that came before it. The ones that have no emitting
+    /// object — the party popper, the thunder and the dry cues (the UI sounds, the refused shot, the aim stop,
+    /// the streak break, the star) — stay fire-and-forget and dead centre, deliberately.
     /// </para>
     /// <para>
     /// <b>Direction from the hardware, distance from the game.</b> X3DAudio's own attenuation is switched off
@@ -61,9 +64,10 @@ namespace BS3D.Audio
 
         /// <summary>
         /// What the sounds that never reach an emitter are trimmed by. Exactly the old <see cref="BASE_VOLUME"/>,
-        /// and that is the point: the popper and the UI still play through the platform's centre-hot pan law, so
-        /// undoing the lift above leaves them at precisely the level they were authored and heard at. Without it
-        /// they would be the only thing in the game to get 3.10 dB <i>louder</i> while everything else dropped.
+        /// and that is the point: the popper, the UI and the other dry cues still play through the platform's
+        /// centre-hot pan law, so undoing the lift above leaves them at precisely the level they were authored
+        /// and heard at. Without it they would be the only thing in the game to get 3.10 dB <i>louder</i> while
+        /// everything else dropped.
         /// </summary>
         private const float NON_SPATIAL_TRIM = 0.7f;
 
@@ -73,7 +77,7 @@ namespace BS3D.Audio
         /// <see cref="FireworkDuck"/> reasoning, and nothing here sounds long enough for the difference to be
         /// heard.
         /// <para>
-        /// The five spatial sounds do now have handles that could be turned down mid-flight (see
+        /// The spatial sounds do now have handles that could be turned down mid-flight (see
         /// <see cref="VoiceRing"/>), so the reason this stays a next-play gain has changed even though the
         /// behaviour has not: walking 32 burst voices every frame to write a volume that is almost always the
         /// same one is exactly the per-frame work the render-hygiene rules forbid, for a difference that lasts
@@ -458,8 +462,8 @@ namespace BS3D.Audio
             _thunder = BakeThunder();
             _eruption = BakeEruption();
 
-            //The voices, all of them, here — an XAudio2 source voice apiece and a few ms of load. The popper
-            //and the UI need none: they never reach an emitter.
+            //The voices, all of them, here — an XAudio2 source voice apiece and a few ms of load. The popper,
+            //the thunder and the dry cues need none: they never reach an emitter.
             _shootRing = new VoiceRing(_shoot, SHOOT_VOICES);
             _releaseRing = new VoiceRing(_release, RELEASE_VOICES);
             _iceBreakRing = new VoiceRing(_iceBreak, ICE_BREAK_VOICES);

@@ -622,7 +622,7 @@ namespace BS3D
 
             //And the sun shadow map's size (#484): a factor and a cap over every scene's ShadowConfig.MapSize —
             //8192 at Ultra, 4096 at High, 2048 below it — rebuilt on the next shadowed frame when it changes. The
-            //one entry the tier owns that costs memory rather than time (537 MB at Ultra, 134 at High, 33.5
+            //one entry the tier owns that costs memory rather than time (268 MB at Ultra, 67 at High, 16.8
             //below), which is why the Ultra rung is the player's alone. See QualityPreset.ShadowMapScale/Cap.
             if (_sceneRenderer != null)
             {

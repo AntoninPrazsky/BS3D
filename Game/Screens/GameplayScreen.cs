@@ -37,9 +37,9 @@ namespace BS3D.Screens
     /// <see cref="Draw"/> runs the frame's sequence itself, asking the host for the pieces — which is what
     /// lets a pause be a screen pushed <i>over</i> this one: the manager goes on drawing this screen
     /// underneath it (<see cref="Screen.DrawsUnderlying"/>) while no longer updating it, and the frozen frame
-    /// the player pauses on is simply this screen, still drawn. The result page is the one exception and it
-    /// is a deliberate one — it lets this screen go on updating so the arena stays alive behind the numbers
-    /// (#241); see <see cref="UpdateUnderResult"/> for the half of the frame that runs there.
+    /// the player pauses on is simply this screen, still drawn. The result page, and the campaign finale pushed in its
+    /// place, are the exceptions and deliberate ones — they let this screen go on updating so the arena stays alive
+    /// behind the numbers (#241); see <see cref="UpdateUnderResult"/> for the half of the frame that runs there.
     /// </para>
     /// <para>
     /// One instance is held for the life of the game, like the menu pages; <see cref="BuildLevel"/> and
@@ -114,7 +114,7 @@ namespace BS3D.Screens
         //
         //Every dial of the fit is GameCameraFit's, shared with the Testbed since #76: the lens's drop below
         //the trunnions, the fraction of the frustum it may fill, the gun's stand-off in front of the lens and
-        //the two lower bounds that override it (the field's footprint and the steepest resting aim). Their
+        //the three lower bounds that override it (the field's footprint, the drain's mouth and the steepest resting aim). Their
         //whys are on those constants.
         private float _gameCameraDistance = 34f;
         private float _gameCameraTargetY = 3.5f;
@@ -682,8 +682,8 @@ namespace BS3D.Screens
         //from flickering it at the threshold — a shot shoves the structure, and a lowest ball bobbing a few
         //tenths of a unit across the exact line would arm and stand down the net with every swing.
         //Three descents, up from two (#110): playtesting said the net came on too close to the loss to be
-        //tracked before it mattered — at the set's cadences a descent is 4–9 shots, so the extra step buys
-        //roughly that many shots of watching it approach.
+        //tracked before it mattered — at the set's cadences a descent is 4–16 shots (most levels 6–9), so the
+        //extra step buys roughly that many shots of watching it approach.
         private const float LASER_WARN_STEPS = 3f;
         private const float LASER_WARN_HYSTERESIS = 0.3f;
 
@@ -696,6 +696,10 @@ namespace BS3D.Screens
         private const float MUSIC_CALM_STEPS = 7f;
 
         private readonly LaserGrid _laserGrid;
+
+        //The four emitters on the drain's rim the net comes from (#874), made with the first level and kept for the
+        //session's life; null before it
+        private LaserEmitters _emitters;
 
         /// <summary>
         /// Every bomb going off (#389) — its flash, its report and the light it throws. Session content like the
@@ -1377,7 +1381,7 @@ namespace BS3D.Screens
         {
             if (!IsBuilt) return;
 
-            //Covered, but by the one page that lets this screen keep running (#241) — a pause stops it dead
+            //Covered, but by one of the two pages that let this screen keep running (#241) — a pause stops it dead
             //and does not reach Update at all. What goes on there is the WORLD and not the GAME; see
             //UpdateUnderResult for which is which.
             if (!IsActive)
@@ -1387,6 +1391,10 @@ namespace BS3D.Screens
             }
 
             float elapsed = (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            //Read before the input below: a click that skips the shot ends it there (TrySkip), so reading it after
+            //would never see a shot that "skipped" and its [cinematic] ended line could not print
+            bool cinematicWasRunning = _cinematic.Running;
 
             if (Game.IsActive)
             {
@@ -1516,7 +1524,6 @@ namespace BS3D.Screens
             StepDozing(elapsed);
 
             //The cinematic reads the balls where the last step left them and answers with this frame's pose.
-            bool cinematicWasRunning = _cinematic.Running;
             _cinematic.Update(elapsed, TryGetDropCentre(out Vector3 dropCentre), dropCentre, _dropFocus.FunnelShare);
 
             //One line when the shot ends, beside the one that opened it: how long it held the lens, why it let go, and the
@@ -2045,6 +2052,10 @@ namespace BS3D.Screens
             //it — while the descending plate is above, so an overhead shot seeing the net through the glass
             //still gets the plate composited over it. Wall-clock driven, so its pulse and its linger-and-
             //fade keep running while a result screen covers this screen and only draws still arrive.
+            //The four emitters' lenses first (#874), glass writing no depth, so the feeders that start at their crests are
+            //drawn over the glass and not behind it - and glowing with the very brightness the beams are drawn at
+            _emitters?.DrawLens(GraphicsDevice, Camera, Game.SceneEffectParams, _laserGrid.IntensityAt(WallClock));
+
             _laserGrid.Draw(Camera, WallClock);
 
             //The glass the cluster hangs from, last of the session's objects: it is translucent, so everything
@@ -2121,6 +2132,10 @@ namespace BS3D.Screens
             DrawMuzzleCollar(barrelWorld);
             Game.CannonRig.DrawCarriage(Camera, carriageWorld, _cannon.WheelTravel, _cannon.SlideTravel, Game.SceneEffectParams);
 
+            //The laser emitters' metal on the drain's rim (#874), with the gun in both frames: the front end's over a kept
+            //session shows them standing there too, and a pod that appeared only in play would pop in with the level
+            _emitters?.DrawBody(Camera, Game.SceneEffectParams);
+
             //On the game's birthday the gun wears a hat (#230), on the barrel's own pose so it recoils, walks and
             //nods off with it. Null on every other day.
             Game.PartyHat?.Draw(Camera, barrelWorld, Game.SceneEffectParams, _preciseAim.Blend);
@@ -2156,7 +2171,13 @@ namespace BS3D.Screens
 
         void IStandingGun.Draw() => DrawGun(_cannon.BarrelWorld(), _cannon.CarriageWorld());
 
-        void IStandingGun.DrawGlass() => Game.CannonRig.DrawGlass(Camera, _cannon.BarrelWorld(), Game.SceneEffectParams);
+        void IStandingGun.DrawGlass()
+        {
+            //The emitters' lenses under the front end as well (#874), as the metal they are set in is
+            _emitters?.DrawLens(GraphicsDevice, Camera, Game.SceneEffectParams, _laserGrid.IntensityAt(WallClock));
+
+            Game.CannonRig.DrawGlass(Camera, _cannon.BarrelWorld(), Game.SceneEffectParams);
+        }
 
         #endregion
 

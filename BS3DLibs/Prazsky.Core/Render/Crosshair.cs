@@ -91,6 +91,15 @@ namespace Prazsky.Core.Render
         /// </summary>
         public const float FULL_STRAIN_REACH = (GAP + ARM) * (1f + STRAIN_GROWTH + STRAIN_THROB);
 
+        /// <summary>
+        /// Pixels per design unit of a viewport <paramref name="viewportHeight"/> tall: the scale the mark is drawn at, <b>off the
+        /// viewport's own height and nothing else</b>. A readout that has to clear the mark (<see cref="FULL_STRAIN_REACH"/>) turns
+        /// its design units into pixels with this and not with the HUD's own scale, which shrinks with the width of a narrow window
+        /// as well (the Game's <c>MenuLayoutHeight</c>): in a window narrower than about 1.2:1 the two differ, and a clearance in the
+        /// HUD's scale falls short of the mark's reach (the lost-streak caption and the completion bonus, #875, #881).
+        /// </summary>
+        public static float PixelsPerUnit(int viewportHeight) => viewportHeight / SCALE_DIVISOR;
+
         private readonly GraphicsDevice _device;
 
         private Texture2D _texel;
@@ -136,7 +145,7 @@ namespace Prazsky.Core.Render
 
             //The swell rides the same wave as the blink, so the mark is at its biggest exactly when it is brightest
             float swell = strain > 0f ? 1f + strain * (STRAIN_GROWTH + STRAIN_THROB * StrainWave(clock)) : 1f;
-            float scale = viewport.Height / SCALE_DIVISOR * swell;
+            float scale = PixelsPerUnit(viewport.Height) * swell;
 
             //A bar authored five units thick is under a pixel on a small window, where rounding down would
             //leave nothing to draw at all

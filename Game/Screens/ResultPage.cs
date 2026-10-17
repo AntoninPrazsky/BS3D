@@ -113,7 +113,7 @@ namespace BS3D.Screens
         internal override bool CanGoBack => false;
 
         /// <summary>
-        /// <b>Yes, and this page is the only one that says so over a level</b> (#241). Every other page over a
+        /// <b>Yes, and this page and the campaign finale's are the only ones that say so over a level</b> (#241). Every other page over a
         /// session freezes it, which is <see cref="MenuPage.UpdatesUnderlying"/>'s whole rule and is right for
         /// a pause: a game put down mid-move should be exactly where it was left. An ending is not that. The
         /// player has just watched a collapse go down the drain, and the frame it landed on used to stop dead

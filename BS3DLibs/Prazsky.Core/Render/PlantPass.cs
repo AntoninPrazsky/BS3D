@@ -9,8 +9,8 @@ namespace Prazsky.Core.Render
     /// Draws a list of <see cref="ScatterBucket"/>s through the one plant material every planted scene shares
     /// (<c>Acacia.fx</c>, loaded once by the content manager), lit from the frame's sun and dome, and casts them into the
     /// sun's map. Out of <see cref="MeadowBackdrop"/> (#609) when the forest and the mountains took the island's bank
-    /// too (#608): three backdrops drawing buckets the same way is one pass, not three copies of it. The savanna keeps
-    /// its own draw, which carries its fires and its per-part parameters.
+    /// too (#608): backdrops drawing buckets the same way are one pass, not a copy of it each. The savanna keeps its
+    /// own draw, which carries its fires and its per-part parameters.
     /// <para>
     /// The effect is one instance for every scene that loads it, so everything a scene may differ in (its haze
     /// distance above all) is stated every frame, never once at load.
@@ -144,9 +144,7 @@ namespace Prazsky.Core.Render
 
         private void DrawBucket(ScatterBucket bucket)
         {
-            _graphicsDevice.SetVertexBuffers(
-                new VertexBufferBinding(bucket.Mesh.VertexBuffer, 0, 0),
-                new VertexBufferBinding(bucket.Instances, 0, 1));
+            InstanceBinding.Set(_graphicsDevice, bucket.Mesh.VertexBuffer, 0, bucket.Instances, 0);
             _graphicsDevice.Indices = bucket.Mesh.IndexBuffer;
             _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, bucket.Mesh.PrimitiveCount, bucket.Count);
         }

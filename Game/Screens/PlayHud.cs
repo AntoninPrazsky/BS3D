@@ -441,7 +441,8 @@ namespace BS3D.Screens
         //2026-10-15 never saw it on a 3840x1600 monitor: while aiming the eye rests on the middle of the frame, so the falling
         //run sounded with nothing to explain it. So the same call that starts the run also puts "STREAK LOST" and the lost
         //multiplier over the aim point (StreakCues.LostCaption), laid out as an award is (LayOutAward: its face, its blurred
-        //backing, the multiplier in the accent beside the words) and drawn LAST, over the awards, because it is the news.
+        //backing, the multiplier in the accent beside the words) and drawn LAST in its call, over the awards, because it is the news
+        //(a won level's cleared beat draws the awards in a later call: see the end of Draw).
         //
         //It is in full on its FIRST frame, with the sound, and only fades at its end (StreakCues.LostCaptionPresence): a
         //fade in would put it behind the very sound it explains. It slams in swollen and settles (LOST_CAPTION_POP_FROM,
@@ -577,7 +578,7 @@ namespace BS3D.Screens
             /// already withheld from the readout.</summary>
             public float Age;
 
-            /// <summary>A cut's award (#767): the WORLD's seconds it still waits before it is born (<see cref="CUT_AWARD_WORLD_SECONDS"/>),
+            /// <summary>A cut's award (#767): the WORLD's seconds it still waits before it is born (<see cref="AwardZoom.CUT_WORLD_WAIT"/>),
             /// its <see cref="Age"/> held negative and still meanwhile. Zero for every other award.</summary>
             public float WorldWait;
 
@@ -859,7 +860,7 @@ namespace BS3D.Screens
         /// in the order they landed, each paid as it arrives.
         /// </remarks>
         /// <param name="cutter">True for a cutter's strike (#766): tinted with the Cutter's accent, never its dealt colour, and born only
-        /// once its severing has been seen (<see cref="CUT_AWARD_WORLD_SECONDS"/>, #767).</param>
+        /// once its severing has been seen (<see cref="AwardZoom.CUT_WORLD_WAIT"/>, #767).</param>
         internal void AddAward(Vector3 world, ScoreAward award, BallType type, bool cutter = false)
         {
             HandOffReads();
@@ -886,7 +887,7 @@ namespace BS3D.Screens
                 //over the slash running across the storey it was paid for (photographed, Elephant). It waits on the world's
                 //clock, as the slash lives (WorldWait); every other award is born on its landing, as #846 has it.
                 Age = cutter ? -1f : 0f,
-                WorldWait = cutter ? CUT_AWARD_WORLD_SECONDS : 0f,
+                WorldWait = cutter ? AwardZoom.CUT_WORLD_WAIT : 0f,
                 Peak = AwardZoom.Peak(award.Points),
                 Birth = AwardZoom.Birth(award.Points),
                 Hold = AwardZoom.Hold(award.Points),
@@ -905,15 +906,25 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// How long a cut's award waits before it is born on the struck cell (#767), in the <b>world's</b> seconds: half the
-        /// slash's life (<see cref="Effects.CutBeats.SLASH_SECONDS"/>), when it is past its white heat (wholly white-hot for
-        /// its first fifth), at half its light and two thirds of its thickness and cooling towards amber, so the number zooms in
-        /// over a cut already made instead of over the cut being made. On the world's clock because the slash lives on it:
-        /// the strike's slow motion stretches both alike, however deep it runs (about 1.1 s of the play clock for a cut that
-        /// freed nothing, 1.6 s for a full-size one), and so does the drop cinematic's. A wait on the play clock stood the
-        /// number over a slash still white-hot whenever the slow motion ran deep.
+        /// A level-ending cut's award, born now (#767): called when the field has just emptied and the cut's award still waits
+        /// on the world's clock (<see cref="AwardZoom.CutWaitLeft"/>). With no drop cinematic over the clear, that wait would run
+        /// under the cut's slow motion and put the number's birth, its read and its flight past the cleared beat, over the
+        /// completion bonus and the result page. Under a drop cinematic the world runs at game time and the beat is held
+        /// for the shot, so the award keeps its wait.
         /// </summary>
-        private const float CUT_AWARD_WORLD_SECONDS = Effects.CutBeats.SLASH_SECONDS * 0.5f;
+        internal void BirthWaitingAwards(bool dropCinematic)
+        {
+            for (int i = 0; i < _popups.Count; i++)
+            {
+                Popup popup = _popups[i];
+                if (popup.WorldWait <= 0f) continue;
+
+                popup.WorldWait = AwardZoom.CutWaitLeft(popup.WorldWait, levelCleared: true, dropCinematic);
+                if (popup.WorldWait <= 0f) popup.Age = 0f;
+
+                _popups[i] = popup;
+            }
+        }
 
         /// <summary>
         /// The completion bonus (#846, #881): what the unused balls were worth, said in words over the aim point and flown
@@ -1295,7 +1306,11 @@ namespace BS3D.Screens
                 DrawAwards(camera, viewport, scoreAnchor - new Vector2(scoreSize.X * 0.5f, 0f));
             }
 
-            //Over everything, awards in flight included: the lost streak, said over the aim point (#875)
+            //The lost streak, said over the aim point (#875), last of what this call draws: over the awards in flight when one call
+            //draws both (all of play). A won level's cleared beat draws the Play and the Account parts in two calls (#862), the
+            //account's, sharp, after the playing readouts' fading layer, so an award there passes over what is left of the
+            //caption - the right way round: the caption cannot be born once the level is decided (EndStreakQuietly), and a clear's
+            //own award has already started its fade (FadeLostCaption), so the newer number takes the read
             if ((parts & HudParts.Play) != 0) DrawStreakLost(viewport);
 
             batch.End();
@@ -1517,8 +1532,10 @@ namespace BS3D.Screens
         /// "STREAK LOST" and the multiplier that went, over the aim point (#875; the field notes above <see cref="_lostLength"/>):
         /// laid out as an award is (<see cref="LayOutAward"/>, <see cref="DrawAwardAt"/>), in full from its first frame, slamming in
         /// swollen and settling, white-hot cooling to grey, its bottom edge held <see cref="StreakCues.LOST_CAPTION_CLEARANCE"/> above the
-        /// middle of the frame (so the crosshair, wherever it swells to, is never under it) and drifting up as it fades. Nothing is
-        /// allocated: the two strings were made when the break began.
+        /// middle of the frame (so the crosshair, wherever it swells to, is never under it) and drifting up as it fades. <b>The
+        /// clearance is in the crosshair's scale, not the HUD's</b> (<see cref="StreakCues.ClearancePixels"/>): the HUD's own shrinks
+        /// with the width of a narrow window and the crosshair's does not, so at any window shape the caption clears the mark's full
+        /// strain. Nothing is allocated: the two strings were made when the break began.
         /// </summary>
         private void DrawStreakLost(Viewport viewport)
         {
@@ -1536,7 +1553,7 @@ namespace BS3D.Screens
             //pop grows upwards and never towards the crosshair
             float life = MathHelper.Clamp(_lostAge / _lostLength, 0f, 1f);
             float lift = 1f - (1f - life) * (1f - life);
-            float bottom = viewport.Height * 0.5f - Scaled(StreakCues.LOST_CAPTION_CLEARANCE) - Scaled(LOST_CAPTION_LIFT) * lift;
+            float bottom = viewport.Height * 0.5f - StreakCues.ClearancePixels(viewport.Height) - Scaled(LOST_CAPTION_LIFT) * lift;
             Vector2 centre = KeepInFrame(new Vector2(viewport.Width * 0.5f, bottom - extent.Y * 0.5f), extent, viewport);
 
             Color tint = Color.Lerp(Color.White, STREAK_LOST, MathHelper.SmoothStep(0f, 1f, _lostAge / LOST_CAPTION_COOL));
@@ -2490,7 +2507,8 @@ namespace BS3D.Screens
         /// rests while aiming, <b>with the bottom edge of its tallest drawing</b> (the top of the zoom's overshoot, or the slow
         /// swell at the end of the read: <see cref="AwardZoom.ReadMax"/>) <see cref="StreakCues.LOST_CAPTION_CLEARANCE"/> above it,
         /// which is where the lost streak's words stand and for the same reason: clear of the crosshair at its most swollen
-        /// (<c>Crosshair.FULL_STRAIN_REACH</c>), which the player may still be holding on the beat the field empties. The block
+        /// (<c>Crosshair.FULL_STRAIN_REACH</c>), which the player may still be holding on the beat the field empties - in pixels at
+        /// the crosshair's own scale, as the words are (<see cref="StreakCues.ClearancePixels"/>). The block
         /// zooms about this centre, so it grows both ways but never down into the aim; it drifts up over the read
         /// (<see cref="POPUP_BONUS_RISE"/>), away from it. The point the flight starts from, and so the one the throw's wind-up
         /// gathers behind.
@@ -2498,7 +2516,7 @@ namespace BS3D.Screens
         private Vector2 BonusSource(in Popup popup, Viewport viewport)
         {
             AwardLayout tallest = LayOutAward(popup, AwardZoom.ReadMax(popup.Peak, popup.Birth, popup.Hold));
-            float bottom = viewport.Height * 0.5f - Scaled(StreakCues.LOST_CAPTION_CLEARANCE)
+            float bottom = viewport.Height * 0.5f - StreakCues.ClearancePixels(viewport.Height)
                            - Scaled(POPUP_BONUS_RISE) * AwardZoom.Rise(popup.Age, popup.Hold);
 
             return new Vector2(viewport.Width * 0.5f, bottom - tallest.Extent.Y * 0.5f);

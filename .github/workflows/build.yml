@@ -96,8 +96,12 @@ jobs:
       # --others` and NOT `git status --porcelain`, which reports every regenerated file as modified here
       # because the generator writes CRLF over the LF checkout (`git diff` normalizes that). Every exit code is
       # checked explicitly, because pwsh fails a step only on the LAST native command's exit code.
+      # The canary: Levels.json, which the generator always writes, is emptied first. A generator that wrote nothing,
+      # or wrote somewhere else, would otherwise pass by leaving the committed files exactly as they were; with the
+      # canary the diff below then finds the empty file and fails.
       - name: Regenerate levels and check they match what is committed
         run: |
+          Set-Content -Path Game/Levels/Levels.json -Value '{}' -NoNewline
           dotnet run --project Tools/LevelGen/LevelGen.csproj
           if ($LASTEXITCODE -ne 0) { throw "LevelGen failed (exit $LASTEXITCODE)" }
           git diff --exit-code Game/Levels
@@ -108,6 +112,16 @@ jobs:
       - name: Run ScoreSim
         run: dotnet run --project Tools/ScoreSim/ScoreSim.csproj
 
+      # The music's gate (#919, #772): MusicBake --shipped decodes every committed recording through the game's own
+      # OggTrack (NVorbis, in process - no ffmpeg, no masters, no model) and exits 1 on one whose post-codec peak is over
+      # MusicLevels.MAX_CODEC_PEAK, which the game's decode headroom could not absorb, or that falls silent for longer
+      # than QUIET_LIMIT_SECONDS. A re-baked recording that clips used to be found by ear. --no-build: the Release build of
+      # Game.sln above built the tool; about a minute for the 140 recordings.
+      - name: Check the shipped music (MusicBake --shipped)
+        run: |
+          dotnet run --project Tools/MusicBake/MusicBake.csproj -c Release --no-build -- --shipped
+          if ($LASTEXITCODE -ne 0) { throw "MusicBake --shipped refused a recording (exit $LASTEXITCODE)" }
+
       # The logic tests (#586): the invariants the libraries state "by construction" - the neighbour rule, one
       # constraint per pair, the legacy padding's parity, the level round-trip, the save outcomes, the atomic
       # write, the scoring mechanics and the top-level ceiling anchor of #561. Game.sln above built the project;
@@ -116,8 +130,8 @@ jobs:
         run: dotnet test Tests/BS3D.Tests/BS3D.Tests.csproj --no-build
 
       # BestPractices.md section 10: a check's answer is evidence only once its failing branch has been seen
-      # to fire. These three were demonstrations run by hand (#588); here they fire on every push, a few
-      # seconds each. --no-build: Game.sln above built both tools, so a nonzero exit is the tool's own.
+      # to fire. These were demonstrations run by hand (#588); here they fire on every push, a few
+      # seconds each (the music's about a minute). --no-build: Game.sln above built both tools, so a nonzero exit is the tool's own.
       # ScoreSim with every ceiling scaled to a quarter must refuse (exit 1, and say OVER CEILING).
       - name: Self-check - the ScoreSim ceiling gate fires
         run: |
@@ -125,6 +139,19 @@ jobs:
           $code = $LASTEXITCODE
           $out
           if ($code -ne 1 -or $out -notmatch 'OVER CEILING') { throw "ScoreSim --ceiling-scale 0.25 exited $code; the ceiling gate did not fire" }
+          exit 0
+
+      # The music's gate with both its limits scaled to a quarter (a peak of -10.5 dBFS, 1.5 s of silence) must refuse
+      # real recordings for both reasons: the shipped set always has recordings over -10.5 dBFS, and deliberate breaks
+      # longer than 1.5 s (mirage-electronica opens on 5.75 s). About a minute, the same decode as the gate above.
+      - name: Self-check - the music gate fires on both limits
+        run: |
+          $out = dotnet run --project Tools/MusicBake/MusicBake.csproj -c Release --no-build -- --shipped --gate-scale 0.25 | Out-String
+          $code = $LASTEXITCODE
+          if ($code -ne 1 -or $out -notmatch 'decodes to .* REFUSED' -or $out -notmatch 'falls silent .* REFUSED') {
+            $out
+            throw "MusicBake --shipped --gate-scale 0.25 exited $code; the peak or the silence refusal did not fire"
+          }
           exit 0
 
       # WindingCheck's self-test feeds it a box flipped on purpose and exits 1 unless both judgements fire.

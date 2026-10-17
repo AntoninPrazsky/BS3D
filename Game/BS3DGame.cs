@@ -2329,7 +2329,8 @@ namespace BS3D
 
         /// <summary>
         /// Writes one line a second: the frame rate and every setting that changes what it means, so two runs —
-        /// or two machines — can be compared without having to remember what each was launched with.
+        /// or two machines — can be compared without having to remember what each was launched with. A
+        /// <c>[pace]</c> line and an <c>[alloc]</c> line follow it.
         /// </summary>
         private void LogFrameRate(float elapsed)
         {
@@ -2340,6 +2341,11 @@ namespace BS3D
             if (elapsed > _paceMax) _paceMax = elapsed;
 
             if (_fpsWindow < 1f) return;
+
+            //What the frame thread allocated over the window (BestPractices.md §3), read before this method builds its
+            //own lines and re-based after them, so the logging's strings are not counted
+            long allocated = GC.GetAllocatedBytesForCurrentThread() - _allocBase;
+            int collections = GC.CollectionCount(0) - _gen0Base;
 
             //Divided by the window actually measured rather than assumed to be a second. At the frame rates this
             //exists to measure a single frame overshoots by more than a tenth of it, and calling that "frames
@@ -2387,12 +2393,27 @@ namespace BS3D
                 "[pace] elapsed {0:F2} ms, sd {1:F2}, {2:F1}-{3:F1}",
                 mean * 1000.0, deviation * 1000.0, _paceMin * 1000f, _paceMax * 1000f));
 
+            //The frame thread's managed allocation (BestPractices.md §3): a steady figure here is a per-frame
+            //allocation, and a gen0 count that climbs is the hitch it becomes. The first window counts everything
+            //since the process started, the load included, so it is skipped.
+            if (_allocBase > 0)
+                Console.WriteLine(string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                    "[alloc] frame thread {0} B a frame ({1} B over {2} frames), gen0 collections +{3}",
+                    allocated / _fpsFrames, allocated, _fpsFrames, collections));
+
             _fpsWindow = 0f;
             _fpsFrames = 0;
             _paceSumSquares = 0.0;
             _paceMin = float.MaxValue;
             _paceMax = 0f;
+            _allocBase = GC.GetAllocatedBytesForCurrentThread();
+            _gen0Base = GC.CollectionCount(0);
         }
+
+        //Where the [alloc] line's window starts: the frame thread's allocated bytes and the gen0 count, read after the
+        //previous window's lines were written
+        private long _allocBase;
+        private int _gen0Base;
 
         #endregion
 

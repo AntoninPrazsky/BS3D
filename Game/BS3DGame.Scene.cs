@@ -108,6 +108,12 @@ namespace BS3D
         /// </summary>
         internal BS3D.Effects.CrateField SessionCrates { get; set; }
 
+        /// <summary>
+        /// The session's four laser emitters on the drain's rim (#874): their renderers join the sky-lit walk for as long as
+        /// they stand, as the crates' do, so a renderer made after the scene's lighting is not drawn under the library's default rig.
+        /// </summary>
+        internal BS3D.Effects.LaserEmitters SessionEmitters { get; set; }
+
         private Effect _instancingEffect;
 
         /// <summary>The shared instanced effect, for a renderer the session makes of its own (#257's crates).</summary>
@@ -119,7 +125,7 @@ namespace BS3D
         //smaller radius produces the same towers, minus the outer rings, rather than a different city
         private const int CITY_SEED = 20260720;
 
-        //The city's own shadow fit (#471), which is nothing like the ten scenes SceneRenderer fits itself.
+        //The city's own shadow fit (#471), which is nothing like the eleven scenes SceneRenderer fits itself.
         //TIGHTER than their 260: the streets are what receives and the towers are what casts, so the same 2048
         //texels spread over 260 units land about 0.13 to a texel and a tower's edge comes out soft where it
         //should be the hardest line in the frame. 180 puts it at 0.09.
@@ -414,6 +420,10 @@ namespace BS3D
             //The level's crates (#257), made with each level and so after the scene's lighting ran
             if (SessionCrates != null)
                 foreach (InstancedModelRenderer renderer in SessionCrates.Renderers) yield return renderer;
+
+            //The laser emitters on the drain's rim (#874), made with the session's first level
+            if (SessionEmitters != null)
+                foreach (InstancedModelRenderer renderer in SessionEmitters.Renderers) yield return renderer;
 
             //The city and every kind of rooftop equipment, or a dish would stand flat white against a skyline lit by the
             //dome. Neither on the Potato path (#897), which builds no city of the host's

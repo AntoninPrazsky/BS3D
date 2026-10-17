@@ -60,8 +60,11 @@ namespace Prazsky.Core.Render
         /// <summary>One instanced draw each, in <c>Acacia.fx</c>, as the savanna's.</summary>
         public ScatterBucket[] Buckets { get; }
 
-        /// <summary>The old trees, for a camera to point at — the one on the knoll first (#609's third round).</summary>
-        public IReadOnlyList<PlantFigure> Trees { get; }
+        /// <summary>
+        /// What a camera points at and keeps out of: the old trees (the one on the knoll first, #609's third round), the
+        /// bench, the bales and every low thing between them (#893). Figures are taken at the instances as planted.
+        /// </summary>
+        public MeadowFigures Figures { get; }
 
         /// <param name="config">The meadow: its field (<see cref="TerrainMirror.Meadow"/>) and its footpath
         /// (<see cref="MeadowPath"/>) — nothing is planted on the path, and the first fence runs along it.</param>
@@ -138,11 +141,13 @@ namespace Prazsky.Core.Render
             (float knollX, float knollZ) = MeadowPath.PathEnd(config);
             PlantTree(0, knollX, knollZ, KNOLL_OAK_SCALE);
             var benchInstances = new List<ModelInstance>();
+            PlantFigure benchFigure;
             {
                 //The bench's seat runs along its X; it faces +Z, turned to face the arena. Its size is in the mesh
                 //(BENCH_SCALE), so the instance's own scale stays 1 and BENCH_OUT is in world units.
                 (float bx, float bz, float yaw) = BenchStand(knollX, knollZ);
-                benchInstances.Add(At(bx, bz, 1f, yaw, 0.05f, 0f, 0f));
+                benchInstances.Add(At(bx, bz, 1f, yaw, BENCH_SINK, 0f, 0f));
+                benchFigure = BenchFigure(knollX, knollZ, stand(bx, bz));
             }
 
             //By the pond: willows on its far side from the arena, where the brook comes in
@@ -297,6 +302,9 @@ namespace Prazsky.Core.Render
                     i++;
                 }
             }
+
+            var baleFigures = new List<PlantFigure>(baleInstances.Count);
+            foreach (ModelInstance planted in baleInstances) baleFigures.Add(PlantFigure.Of(BaleBounds, planted.World, 0f));
 
             //--- The boulders, mossy
             var rockMeshes = new RockMesh[3];
@@ -460,7 +468,24 @@ namespace Prazsky.Core.Render
 
             foreach (ScatterBucket b in buckets) _owned.Add(b);
             Buckets = buckets.ToArray();
-            Trees = treeFigures;
+
+            //--- What a lens near the ground keeps out of (#893): each low thing at its instance as the sphere round its mesh,
+            //the fence's spans as capsules post to post at the rails' height (a lens at the posts' height could not pass the
+            //rails between them), the bales and the bench among them
+            var solids = new List<PlantFigure>();
+            for (int m = 0; m < shrubMeshes.Length; m++)
+                foreach (ModelInstance planted in shrubInstances[m])
+                    solids.Add(PlantFigure.Of(shrubMeshes[m].BoundingSphere, planted.World, 0f));
+            for (int m = 0; m < rockMeshes.Length; m++)
+                foreach (ModelInstance planted in rockInstances[m])
+                    solids.Add(PlantFigure.Of(rockMeshes[m].BoundingSphere, planted.World, 0f));
+            foreach ((Vector2 from, Vector2 to) in fenceSpans)
+                solids.Add(new PlantFigure(new Vector3(from.X, height(from.X, from.Y) + FENCE_SOLID_HEIGHT, from.Y),
+                    new Vector3(to.X, height(to.X, to.Y) + FENCE_SOLID_HEIGHT, to.Y), 0f, FENCE_SOLID_RADIUS));
+            solids.AddRange(baleFigures);
+            solids.Add(benchFigure);
+
+            Figures = new MeadowFigures(treeFigures, benchFigure, baleFigures, solids);
         }
 
         //How far past the brook's water a bank stone stands (#892): at the groove wall's foot, just over the water
@@ -496,6 +521,24 @@ namespace Prazsky.Core.Render
             float side = toArena + BENCH_ROUND;
             return (knollX + MathF.Cos(side) * BENCH_OUT, knollZ + MathF.Sin(side) * BENCH_OUT, MathF.PI * 0.5f - toArena);
         }
+
+        //How far the bench's feet are sunk into the ground, so the downhill leg does not float on the knoll's slope
+        private const float BENCH_SINK = 0.05f;
+
+        /// <summary>
+        /// Where the bench's mesh goes (#893): the oak's knoll at (<paramref name="knollX"/>, <paramref name="knollZ"/>) and
+        /// a bench standing on ground at <paramref name="standY"/>. One answer for the planting's instance, its figure and
+        /// the tests that put the mesh's own vertices where the bench is, which have no device to plant on.
+        /// </summary>
+        internal static Matrix BenchWorld(float knollX, float knollZ, float standY)
+        {
+            (float x, float z, float yaw) = BenchStand(knollX, knollZ);
+            return Matrix.CreateRotationY(yaw) * Matrix.CreateTranslation(x, standY - BENCH_SINK, z);
+        }
+
+        /// <summary>The bench as a figure (#893): the sphere round its mesh at <see cref="BenchWorld"/>.</summary>
+        internal static PlantFigure BenchFigure(float knollX, float knollZ, float standY) =>
+            PlantFigure.Of(BenchGeometry().Bounds, BenchWorld(knollX, knollZ, standY), 0f);
 
         //How much bigger the bench is than a real one at one unit to a metre (#891): the fence's own factor, as the bale's
         //(BALE_SCALE), so it is set at the metre #698 set the fence at. Its 1.9 long, 0.5 high seat and 0.98 high back are a
@@ -592,26 +635,33 @@ namespace Prazsky.Core.Render
         private const float BALE_SCALE = FENCE_SCALE;
 
         //A bale's radius and half its length, in world units: the mesh's own
-        private const float BALE_RADIUS = 0.8f * BALE_SCALE, BALE_HALF_LENGTH = 0.72f * BALE_SCALE;
+        internal const float BALE_RADIUS = 0.8f * BALE_SCALE, BALE_HALF_LENGTH = 0.72f * BALE_SCALE;
+
+        //The sphere round a bale's mesh, in its own frame: centred on its axis, which lies a radius over the ground
+        internal static readonly BoundingSphere BaleBounds = new(new Vector3(0f, BALE_RADIUS, 0f), 1.2f * BALE_SCALE);
 
         //How far a bale reaches over the ground from where it stands, whichever way it lies: the corner of its footprint
         //at the largest instance scale (1.05). What every bale keeps clear of the path, the fences and the others by.
-        private static readonly float BALE_REACH = 1.05f * MathF.Sqrt(BALE_RADIUS * BALE_RADIUS + BALE_HALF_LENGTH * BALE_HALF_LENGTH);
+        internal static readonly float BALE_REACH = 1.05f * MathF.Sqrt(BALE_RADIUS * BALE_RADIUS + BALE_HALF_LENGTH * BALE_HALF_LENGTH);
 
         //Centre to centre in a group: two reaches and a gap, so a loose group never touches whichever way its bales lie
-        private static readonly float BALE_GROUP_SPACING = 2f * BALE_REACH + 0.6f;
+        internal static readonly float BALE_GROUP_SPACING = 2f * BALE_REACH + 0.6f;
 
         //How far a bale stays off a fence, past the post's own radius
         private const float BALE_FENCE_GAP = 0.4f;
 
         //How deep a bale settles into the ground, so its downhill edge does not float on a slope
-        private const float BALE_SINK = 0.12f * BALE_SCALE;
+        internal const float BALE_SINK = 0.12f * BALE_SCALE;
 
         //The bales' own generator's offset from the planting seed
         private const int BALE_SEED = 864;
 
         //A fence post's radius at its foot, in world units
         private const float FENCE_POST_RADIUS = 0.10f * FENCE_SCALE;
+
+        //The capsule a fence span is to a camera (#893): its axis half a post's height up and thick enough to reach both the
+        //ground and the post's top (1.35 high in the mesh's own units, as FenceMesh builds it)
+        private const float FENCE_SOLID_HEIGHT = 0.675f * FENCE_SCALE, FENCE_SOLID_RADIUS = 0.7f * FENCE_SCALE;
 
         /// <summary>A round bale lying on its side: a straw cylinder along X with its two faces, resting on the ground.</summary>
         private static UploadedMesh BaleMesh(GraphicsDevice device)
@@ -622,7 +672,7 @@ namespace Prazsky.Core.Render
             TubeGeometry.AddTube(v, idx, 18, a, BALE_RADIUS, b, BALE_RADIUS);
             TubeGeometry.AddCap(v, idx, 18, b, BALE_RADIUS * 0.98f, Vector3.UnitX);
             TubeGeometry.AddCap(v, idx, 18, a, BALE_RADIUS * 0.98f, -Vector3.UnitX);
-            return new UploadedMesh(device, v, idx, new BoundingSphere(new Vector3(0f, BALE_RADIUS, 0f), 1.2f * BALE_SCALE));
+            return new UploadedMesh(device, v, idx, BaleBounds);
         }
 
         /// <summary>How far <paramref name="at"/> is from the fence span <paramref name="from"/> to <paramref name="to"/>, over the ground.</summary>

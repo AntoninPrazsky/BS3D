@@ -85,8 +85,9 @@ namespace BS3D.Screens
 
             if (CameraTakeoverEngaged || _run.Score.OutOfShots || LevelDecided || _physicsBalls == null || _map == null) return;
 
-            Vector3 muzzle = _cannon.MuzzlePosition(Game.CannonRig.PivotToFrontBall);
-            Vector3 aim = _cannon.AimDirection;
+            //The shot's own line (FireDirection, #872), so the ghost promises what a shot fired this frame does
+            Vector3 muzzle = _cannon.FireMuzzle(Game.CannonRig.PivotToFrontBall);
+            Vector3 aim = _cannon.FireDirection;
 
             _previewMuzzle = muzzle;
             _previewBeamVisible = true;
