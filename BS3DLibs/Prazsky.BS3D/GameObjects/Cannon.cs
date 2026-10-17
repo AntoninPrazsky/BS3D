@@ -55,11 +55,16 @@ namespace Prazsky.BS3D.GameObjects
         private float _elevationLimit = MaxElevation;
 
         /// <summary>
-        /// How hard the player is leaning on the elevation clamp, 0…1: full while their own aim input keeps asking
-        /// past <see cref="ElevationLimit"/> (or under <see cref="MinElevation"/>), held for
-        /// <see cref="ELEVATION_STRAIN_HOLD"/> after the last such frame and then released over
-        /// <see cref="ELEVATION_STRAIN_RELEASE"/> (#431). What a crosshair or a beam reads to say "the gun will not
-        /// go higher" — without it the barrel simply stops and the input goes nowhere, which is not a signal.
+        /// How hard the player is leaning on the <b>upper</b> elevation clamp, 0…1: full while their own aim input keeps
+        /// asking past <see cref="ElevationLimit"/>, held for <see cref="ELEVATION_STRAIN_HOLD"/> after the last such
+        /// frame and then released over <see cref="ELEVATION_STRAIN_RELEASE"/> (#431). What a crosshair or a beam reads
+        /// to say "the gun will not go higher" — without it the barrel simply stops and the input goes nowhere, which is
+        /// not a signal.
+        /// <para>
+        /// <b>Never raised at <see cref="MinElevation"/></b> (#872): a player looks down at the floor on purpose, so that
+        /// end is a soft stop with no alarm — no red mark, no sound, no rumble, no refusal to fire (see
+        /// <see cref="ElevationRefusesShot"/>) — and its rubber has no rebound (<see cref="ElevationOvershoot"/>).
+        /// </para>
         /// <para>
         /// <b>It is raised by <see cref="Aim"/> alone</b> — the input — never by a walk steepening the rest, an eased
         /// reset or a stated pose, none of which is the player pushing. The same push stretches the barrel's own
@@ -81,15 +86,25 @@ namespace Prazsky.BS3D.GameObjects
         /// <summary>How long <see cref="ElevationStrain"/> then takes to fall to nothing, in seconds.</summary>
         public const float ELEVATION_STRAIN_RELEASE = 0.25f;
 
-        //Seconds since the input last pushed past the clamp; infinite for a gun nobody has pushed
+        //Seconds since the input last pushed past the UPPER clamp (what ElevationStrain is read off); infinite for a gun
+        //nobody has pushed
         private float _sinceElevationPush = float.PositiveInfinity;
+
+        //Seconds since the input last pushed past EITHER clamp, which is when the rubber lets go of its stretch; the lower
+        //end has no strain to hold it, so this is the one clock that does
+        private float _sinceRubberPush = float.PositiveInfinity;
+
+        //Whether the stretch the rubber holds is at the lower end, where it is let go on a spring with no swing
+        private bool _rubberAtLowerEnd;
 
         /// <summary>
         /// How far past the clamp the player's push can drag the barrel, in radians (~5.7°) — the <b>rubber</b>
         /// (#431). The clamp stays exactly where it is for every pose that is stated, solved or walked; only
         /// <see cref="Aim"/>'s own push stretches past it, with diminishing return, and once the push stops (after
-        /// <see cref="ELEVATION_STRAIN_HOLD"/>) a spring pulls the barrel back — a little past the clamp, then onto
-        /// it — so the refusal is felt through the aim and, in precise aim, through the lens that rides it.
+        /// <see cref="ELEVATION_STRAIN_HOLD"/>) a spring pulls the barrel back — at the upper end a little past the clamp,
+        /// then onto it, so the refusal is felt through the aim and, in precise aim, through the lens that rides it. At
+        /// <see cref="MinElevation"/> the spring is critically damped (#872): the barrel runs out onto the stretch and
+        /// eases back onto the clamp, and never swings past it.
         /// <para>
         /// <b>The cost, the owner's call:</b> this is one pose, so a shot fired mid-stretch leaves along the
         /// stretched barrel, up to this far past the limit and the spring's first swing a little further. On a tall
@@ -114,6 +129,9 @@ namespace Prazsky.BS3D.GameObjects
         //so a slow machine and a fast one draw the same swing.
         private const float OVERSHOOT_SPRING_OMEGA = MathHelper.TwoPi * 3f;
         private const float OVERSHOOT_SPRING_DAMPING = 0.4f;
+
+        //The lower end's spring is critically damped: the stretch is let go with no swing past the clamp (#872)
+        private const float OVERSHOOT_SPRING_DAMPING_LOWER = 1f;
         private const float OVERSHOOT_SPRING_STEP = 1f / 240f;
 
         /// <summary>
@@ -137,12 +155,13 @@ namespace Prazsky.BS3D.GameObjects
 
         /// <summary>
         /// Whether the gun must refuse to fire this instant because the aim is pressed against, or stretched past,
-        /// the elevation clamp (#431). The rubber was an exploit: a shot fired from the top of the stretch left up to
-        /// ~6° past a tall level's limit, straight into the unframed band the limit exists to close. So a shot is
-        /// refused for as long as <see cref="ElevationStrain"/> lasts — exactly while the crosshair and the beam
+        /// the <b>upper</b> elevation clamp (#431). The rubber was an exploit: a shot fired from the top of the stretch
+        /// left up to ~6° past a tall level's limit, straight into the unframed band the limit exists to close. So a
+        /// shot is refused for as long as <see cref="ElevationStrain"/> lasts — exactly while the crosshair and the beam
         /// blink red, so the refusal is never unannounced — and, as a net under that, while the pose stands past the
         /// clamp by more than <see cref="ELEVATION_FIRE_TOLERANCE"/>. At rest on the clamp the gun fires: the limit is
-        /// what the level allows, and nothing is pushing.
+        /// what the level allows, and nothing is pushing. <b>The lower end never refuses</b> (#872): nothing is hidden
+        /// down there, so a shot at, against or stretched under <see cref="MinElevation"/> leaves along the pose.
         /// </summary>
         public bool ElevationRefusesShot
         {
@@ -151,7 +170,7 @@ namespace Prazsky.BS3D.GameObjects
                 if (ElevationStrain > 0f) return true;
 
                 float pose = PoseElevation;
-                return pose > _elevationLimit + ELEVATION_FIRE_TOLERANCE || pose < MinElevation - ELEVATION_FIRE_TOLERANCE;
+                return pose > _elevationLimit + ELEVATION_FIRE_TOLERANCE;
             }
         }
 
@@ -307,6 +326,7 @@ namespace Prazsky.BS3D.GameObjects
 
             //The push ElevationStrain is read off ages here and nowhere else; an infinite one stays infinite
             _sinceElevationPush += (float)gameTime.ElapsedGameTime.TotalSeconds;
+            _sinceRubberPush += (float)gameTime.ElapsedGameTime.TotalSeconds;
 
             StepElevationRubber((float)gameTime.ElapsedGameTime.TotalSeconds);
         }
@@ -319,7 +339,7 @@ namespace Prazsky.BS3D.GameObjects
         /// </summary>
         private void StepElevationRubber(float dt)
         {
-            if (_sinceElevationPush >= ELEVATION_STRAIN_HOLD) _elevationStretch = 0f;
+            if (_sinceRubberPush >= ELEVATION_STRAIN_HOLD) _elevationStretch = 0f;
 
             if (_elevationStretch == 0f && _elevationOvershoot == 0f && _elevationOvershootVelocity == 0f) return;
 
@@ -327,6 +347,7 @@ namespace Prazsky.BS3D.GameObjects
                 * (1f - MathF.Exp(-MathF.Abs(_elevationStretch) / ELEVATION_STRETCH_SOFTNESS));
 
             //Capped, so a stalled frame cannot run a thousand steps; a quarter of a second is most of the swing
+            float damping = _rubberAtLowerEnd ? OVERSHOOT_SPRING_DAMPING_LOWER : OVERSHOOT_SPRING_DAMPING;
             float left = MathF.Min(dt, 0.25f);
             int steps = Math.Max(1, (int)MathF.Ceiling(left / OVERSHOOT_SPRING_STEP));
             float h = left / steps;
@@ -334,7 +355,7 @@ namespace Prazsky.BS3D.GameObjects
             for (int i = 0; i < steps; i++)
             {
                 float acceleration = OVERSHOOT_SPRING_OMEGA * OVERSHOOT_SPRING_OMEGA * (target - _elevationOvershoot)
-                    - 2f * OVERSHOOT_SPRING_DAMPING * OVERSHOOT_SPRING_OMEGA * _elevationOvershootVelocity;
+                    - 2f * damping * OVERSHOOT_SPRING_OMEGA * _elevationOvershootVelocity;
 
                 _elevationOvershootVelocity += acceleration * h;
                 _elevationOvershoot += _elevationOvershootVelocity * h;
@@ -543,7 +564,10 @@ namespace Prazsky.BS3D.GameObjects
 
             if (pushed != 0f)
             {
-                _sinceElevationPush = 0f;
+                //Only the upper end is a strain; the lower one stretches the rubber and nothing else (#872)
+                if (pushed > 0f) _sinceElevationPush = 0f;
+                _sinceRubberPush = 0f;
+                _rubberAtLowerEnd = pushed < 0f;
 
                 float banked = 3f * ELEVATION_STRETCH_SOFTNESS;
                 _elevationStretch = Math.Clamp(_elevationStretch + pushed, -banked, banked);
@@ -584,6 +608,7 @@ namespace Prazsky.BS3D.GameObjects
             //the next session's first frame, and nor may a push against the clamp or its rubber
             _recoilPhase = 0f;
             _sinceElevationPush = float.PositiveInfinity;
+            _sinceRubberPush = float.PositiveInfinity;
             DropElevationRubber();
 
             Initialize();
