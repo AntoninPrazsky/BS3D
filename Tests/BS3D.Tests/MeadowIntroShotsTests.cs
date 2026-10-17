@@ -434,6 +434,32 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void BalesAreTriedAPairBeforeALoneBaleBeforeARowOfThreeAndTheNearestFirstWithinAShape()
+        {
+            //A row of three nearest the arena's middle, then a lone bale, a pair, and another lone bale farther out: standing
+            //nearest the arena must not put the row first, and a lone bale must not tie with the row (both are one from two)
+            PlantFigure[] Row(float x, float z, int count)
+            {
+                var row = new PlantFigure[count];
+                for (int i = 0; i < count; i++)
+                    row[i] = PlantFigure.Of(MeadowScatter.BaleBounds,
+                        Matrix.CreateTranslation(x + i * MeadowScatter.BALE_GROUP_SPACING, 0f, z), 0f);
+                return row;
+            }
+
+            var bales = new List<PlantFigure>();
+            bales.AddRange(Row(30f, 0f, 3));
+            bales.AddRange(Row(0f, 60f, 1));
+            bales.AddRange(Row(0f, -100f, 2));
+            bales.AddRange(Row(150f, 0f, 1));
+
+            List<MeadowIntroShots.BaleGroup> ordered = MeadowIntroShots.Ordered(bales);
+
+            Assert.Equal(new[] { 2, 1, 1, 3 }, ordered.ConvertAll(g => g.Count).ToArray());
+            Assert.True(ordered[1].Centre.LengthSquared() < ordered[2].Centre.LengthSquared(), "the nearer lone bale is not first");
+        }
+
+        [Fact]
         public void ThePrologueWithNoPlantingIsTheLandAlone()
         {
             IntroShot[] shots = MeadowIntroShots.Build(new MeadowSceneConfig(), null, INTRO_FIELD_OF_VIEW, new Random(1));

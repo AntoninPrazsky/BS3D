@@ -223,14 +223,7 @@ namespace BS3D.Effects
         {
             if (planted == null || planted.Bales == null || planted.Bales.Count == 0) return null;
 
-            List<BaleGroup> groups = Groups(planted.Bales);
-            groups.Sort((a, b) =>
-            {
-                int byShape = Math.Abs(a.Count - 2).CompareTo(Math.Abs(b.Count - 2));
-                return byShape != 0 ? byShape : a.Centre.LengthSquared().CompareTo(b.Centre.LengthSquared());
-            });
-
-            foreach (BaleGroup group in groups)
+            foreach (BaleGroup group in Ordered(planted.Bales))
             {
                 float nearest = group.Reach + ORBIT_AIR;
                 Vector2 centre = new(group.Look.X, group.Look.Z);
@@ -359,6 +352,27 @@ namespace BS3D.Effects
 
             /// <summary>Where it stands in plan.</summary>
             public Vector2 Centre => new(Look.X, Look.Z);
+        }
+
+        /// <summary>
+        /// The order a group is tried in: a pair, then a lone bale, then a row of three (then anything longer, shortest first).
+        /// The lone bale ranks before the row of three, which "the distance from two" would not say: both are one away from it.
+        /// </summary>
+        internal static int ShapeRank(int count) => count == 2 ? 0 : count == 1 ? 1 : count;
+
+        /// <summary>
+        /// The groups of <paramref name="bales"/> (<see cref="Groups"/>) in the order <see cref="Bales"/> tries them: by
+        /// <see cref="ShapeRank"/>, and within a shape the nearest the arena's middle first.
+        /// </summary>
+        internal static List<BaleGroup> Ordered(IReadOnlyList<PlantFigure> bales)
+        {
+            List<BaleGroup> groups = Groups(bales);
+            groups.Sort((a, b) =>
+            {
+                int byShape = ShapeRank(a.Count).CompareTo(ShapeRank(b.Count));
+                return byShape != 0 ? byShape : a.Centre.LengthSquared().CompareTo(b.Centre.LengthSquared());
+            });
+            return groups;
         }
 
         /// <summary>The bales gathered into groups: any two within <see cref="BALE_LINK_GAP"/> of touching are one.</summary>
