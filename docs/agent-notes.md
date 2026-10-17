@@ -962,3 +962,8 @@ Pravidla:
 - Smoke run release buildu (čistý profil, 14 kapitol, menu, Potato, prohra i výhra): bez výjimky; Column není regrese (4,3 ms, propad byl souběh na GPU). Notes: `Images/releases/v0.4.0.md` (Sonnet pisatel + dva ověřovači našli 15 chyb konceptu). Založeno #921 (clip() overdraw terénů na Low/Medium, ~3 ms na 4K).
 - ⚠ Pět holých „OK“ na issues pod sdíleným účtem nejde agentem zavřít (klasifikátor); čekají na potvrzení na stránce. Tokeny: grafické issue 0,65–1,4 M, proto od 16. 10. Sonnet a snímky ≤1920×1080.
 - Otevřené: tag v0.4.0 (screenshot Fish, `update-ceilings.sh` na Pi po publish), odpovědi majitele.
+
+## 2026-10-17 — #400 dvanáctý průchod — desktop (RDT-PC), Claude Code (bs3d-48)
+- Prošly se merge od e92a6b28: DocDrift (35 kandidátů, všechno jiné veličiny téhož jména nebo odvozená čísla; BONUS_HOLD, DECODE_HEADROOM a počty nahrávek sedí), citace, odkazy `#kotva` mezi dokumenty (0 rozbitých), identifikátory a cesty z nových vět, údaje v CLAUDE.md (osm nástrojů, 21 scén, devět Potato efektů) proti kódu.
+- Opraveno jedno: komentář `SceneRenderer.FineMeshes` citoval nadpis „The acacia's fork“, který #758 přejmenoval; citace teď 0 nevyřešených.
+- Zbytek dokumentů říká, co platí teď.
