@@ -547,7 +547,7 @@ namespace Prazsky.Core.Render
         /// Where fire <paramref name="index"/>'s light stands for everything drawn through the shared instanced effect
         /// (#885): the island, the gun, the balls. The same bearing and ground as <see cref="SavannaCampfirePosition"/>,
         /// raised <c>CampfireConfig.LightHeightAboveTerrain</c> over the ground instead of
-        /// <c>HeightAboveTerrain</c>. The fires burn on the ground, 5 to 8 units below the island's top plate, and a
+        /// <c>HeightAboveTerrain</c>. The fires burn on the ground, about 3 to 7 units below the island's top plate, and a
         /// light below a surface lights nothing on the surface that faces up: raised to the height the flame stands at
         /// above the plate, it does. The flame and the grass's own light stay on the ground point.
         /// </summary>

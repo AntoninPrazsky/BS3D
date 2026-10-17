@@ -388,7 +388,7 @@ namespace Prazsky.Core.Render
         /// Where the light the island, the gun and the balls take stands over the ground, as a multiple of the flame's
         /// own height (<see cref="FlameSize"/> times <see cref="FlameHeightScale"/>), so a light belongs to the fire it
         /// is in, as the hearth does (#885). <b>It has to stand above the island's top plate</b>
-        /// (<c>ArenaIsland.TOP_Y</c>, 5 to 8 units over the ground the fires stand on): a point light below an up-facing
+        /// (<c>ArenaIsland.TOP_Y</c>, about 3 to 7 units over the ground the fires stand on, 2.8 to 7.0 at the defaults): a point light below an up-facing
         /// surface has N.L at or under zero there, so at <see cref="HeightAboveTerrain"/> the ring lit the coping and the
         /// drum, which face outward, and never the plate round the gun. The flame and the grass's light stay on the
         /// ground, where the fire is; see <see cref="LightHeightAboveTerrain"/>.

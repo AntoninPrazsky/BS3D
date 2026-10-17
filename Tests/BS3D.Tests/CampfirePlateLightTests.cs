@@ -9,8 +9,8 @@ using Xunit.Abstractions;
 namespace BS3D.Tests
 {
     /// <summary>
-    /// The savanna's campfires light the island's top plate (#885). The fires burn on the ground 5 to 8 units below the
-    /// plate, and a point light below an up-facing surface has N.L at or under zero there: with the light at the ground
+    /// The savanna's campfires light the island's top plate (#885). The fires burn on the ground about 3 to 7 units below
+    /// the plate (2.8 to 7.0 at the defaults, <see cref="TheFiresStandThreeToSevenUnitsBelowThePlate"/>), and a point light below an up-facing surface has N.L at or under zero there: with the light at the ground
     /// point the ring lit the coping and the drum, which face outward, and never the plate round the gun (the owner's
     /// note of 2026-10-16). The light the island, the gun and the balls take therefore stands at
     /// <see cref="CampfireConfig.LightHeightAboveTerrain"/>, the flame's height over the plate, while the flame and the
@@ -87,6 +87,28 @@ namespace BS3D.Tests
             _output.WriteLine($"light {ground:0.0} above the ground: plate least {least:0.0000}, mean {mean:0.0000}");
 
             Assert.Equal(0f, mean);
+        }
+
+        [Fact]
+        public void TheFiresStandThreeToSevenUnitsBelowThePlate()
+        {
+            //The figure the comments and the savanna fires page quote ("about 3 to 7 units"), measured here so it cannot
+            //drift from the relief: the ground under the ring (height 0, no lift) against the plate's top, TOP_Y.
+            var config = new SavannaSceneConfig();
+            int fires = SavannaBackdrop.CampfireRingCount(config);
+            float nearest = float.MaxValue, farthest = float.MinValue;
+
+            for (int fire = 0; fire < fires; fire++)
+            {
+                float ground = SavannaBackdrop.CampfireRingPoint(config, fire, 0f).Y;
+                float gap = ArenaIsland.TOP_Y - ground;
+                _output.WriteLine($"fire {fire}: ground y {ground:0.00}, {gap:0.00} below the plate");
+                nearest = MathF.Min(nearest, gap);
+                farthest = MathF.Max(farthest, gap);
+            }
+
+            Assert.InRange(nearest, 2.5f, 3.2f);
+            Assert.InRange(farthest, 6.5f, 7.5f);
         }
 
         [Fact]
