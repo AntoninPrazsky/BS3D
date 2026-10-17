@@ -940,3 +940,8 @@ Pravidla:
 - Hotovo (merge 46fb5454): #920 stínový průchod používá rozpouštění kuliček, stín blednoucí kuličky slábne s ní (0,38 při 0,5, dřív 1,00); ostatní vrhače beze změny.
 - #896: 24 referencí konstrukce stropu (A věže z #21, B prstenec, C lana s navijáky, D světelné vysílače), obě modely, img2img nad Testbedem; stránka pro volbu majitele https://claude.ai/artifact/JnRZaQgamBLiKBEjYr3nAk, štítek `owner-decision`. Doporučeno C (nic pevného v prostoru kamery), nebo A s mizením věží u kamery.
 - ⚠ Věž na okraji ostrova (poloměr 26) stojí 2–5 jednotek před objektivem (28–31): každá pevná konstrukce na okraji kříží pohled.
+
+## 2026-10-17 — #none kritická review dnešních merge, reference scén — desktop (RDT-PC), Claude Code (bs3d-5f)
+- Review po merge (tři revieweři podle oblastí, každý nález ověřil skeptik): potvrzeny 3, opraveny v d01887f9. Hodiny vizualizéru Jukeboxu a About se po zaseknutí už neodchylují, jsou připnuté k tomu, co hlas přehrál (#899). Běh s debug řádkem se neposílá ani do online statistik (#876). Opraven komentář (#895). Render a zvuk (#888 #920 #903 #886 #919 #882) bez nálezu.
+- Reference pro #886 (plazma), #883, #890 (keře), #884 (vyšší koruny), #892 (potok a rybník): 40 obrázků, výběr je na issues.
+- ⚠ Reviewer i agent občas vrátí prázdný výsledek: oblast pak není prověřená, spusť ji znovu (tady render a zvuk).
