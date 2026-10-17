@@ -527,7 +527,7 @@ namespace Prazsky.Core.Render
         /// 0 = a dielectric (stone, glass, vinyl, paint — the default for everything), whose environment
         /// reflection is the ~4% dielectric F0 tinted by the specular color and only turns mirror-like at
         /// grazing angles. 1 = bare metal, whose reflectance <i>is</i> its specular color, so the whole
-        /// surface reflects the sky in that tint (gold reflects gold). Used by the funnel's gold rims.
+        /// surface reflects the sky in that tint (gold reflects gold). Used by the funnel's gold rims and the result page's metals.
         /// </summary>
         public float Metalness { get; set; }
 

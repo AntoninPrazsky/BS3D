@@ -18,7 +18,7 @@ namespace BS3D
     /// and at three times that the compliant ones swung five units and resonated with the gust. The mountains and the
     /// storm are the windy ones (the mountains' snow is combed at four times the speed of the meadow's grass); the
     /// desert, the sea and the ice have steady air; the ground scenes and the beach a light one; and the scenes with no
-    /// air at all (space, the Moon, Mars's thin dust, the cavern, the dream, the Grid) none. The owner reads the look;
+    /// air at all (space, the Moon, Mars's thin dust, the cavern, the dream, the Grid, the Big Top's hall) none. The owner reads the look;
     /// <see cref="MASTER_SCALE"/> moves every scene at once, one row moves one, and <c>wind=&lt;scale&gt;</c> on the command
     /// line multiplies the lot for a look or a measurement.
     /// </para>
@@ -55,7 +55,7 @@ namespace BS3D
             SceneKind.NeonCity => 0.05f,
             SceneKind.Forest => 0.04f,
             SceneKind.Aurora => 0.035f,
-            _ => 0f, //space, the Moon, Mars, the cavern, the dream and the Grid: no air to move
+            _ => 0f, //space, the Moon, Mars, the cavern, the dream, the Grid and the Big Top: no air to move
         };
 
         /// <summary>

@@ -42,8 +42,8 @@ namespace Prazsky.Core.Render
         /// <summary>The map's size in texels a side, at High: 4096 over 260 units is 0.063 units a texel, and the
         /// nine-tap box's penumbra about a fifth of a unit — a sunlit edge. It was 2048 (0.13 a texel, a third of a
         /// unit) until #484, whose play-camera captures read that as blocky, and 2048 is still what the Game builds
-        /// below High through <c>SceneRenderer.ShadowMapSizeCap</c>. Eight bytes a texel: 134 MB here, 33.5 at
-        /// 2048, and 537 at the 8192 the Testbed's <c>shadowmap=</c> can ask for — which is why 8192 is a dial and
+        /// below High through <c>SceneRenderer.ShadowMapSizeCap</c>. Four bytes a texel: 67 MB here, 16.8 at
+        /// 2048, and 268 at the 8192 the Testbed's <c>shadowmap=</c> can ask for — which is why 8192 is a dial and
         /// not a default.</summary>
         public int MapSize { get; set; } = 4096;
 

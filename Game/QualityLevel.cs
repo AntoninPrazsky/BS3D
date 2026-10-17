@@ -192,7 +192,7 @@ namespace BS3D
         /// The most texels a side the sun shadow map may have on this rung, or 0 for a scene's own
         /// <c>ShadowConfig.MapSize</c> (#484). <c>High</c> takes the authored 4096 (0.063 units a texel over the
         /// 260-unit extent); <c>Medium</c> and <c>Low</c> hold it at the 2048 the map shipped with, which is a
-        /// quarter of the memory (33.5 MB against 134, eight bytes a texel) and the same nine taps a pixel.
+        /// quarter of the memory (16.8 MB against 67, four bytes a texel) and the same nine taps a pixel.
         /// <para>
         /// <b>Measured</b> in the Testbed on the reference desktop, the savanna's play vantage at 1920×1080, ssaa
         /// 2, alternating in one process: 2048 3.45–3.49 ms, 4096 3.50–3.53, 8192 3.66–3.70 — the receiver's nine
@@ -210,8 +210,8 @@ namespace BS3D
         /// authored 4096 to <b>8192</b> — 0.032 units a texel over the 260-unit extent, half High's step.
         /// A factor rather than a size so a scene authored small stays proportionally small.
         /// <para>
-        /// <b>What it costs is memory first</b>: eight bytes a texel is <b>537 MB</b> of card memory against
-        /// High's 134, which is why only the player can ask for it and the probe never does. The time is small on
+        /// <b>What it costs is memory first</b>: four bytes a texel is <b>268 MB</b> of card memory against
+        /// High's 67, which is why only the player can ask for it and the probe never does. The time is small on
         /// a fast card: +0.22 ms (desert) and +0.30 (savanna) over High at 3840×1600 in the Testbed on the
         /// reference desktop, paired in one process — see "The map's size, and the tier it follows" in
         /// docs/rendering.md. The nine-tap box stays three texels wide, so the edge gets finer, not softer.

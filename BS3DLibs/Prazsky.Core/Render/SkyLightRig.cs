@@ -57,8 +57,8 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The sun a scene with <b>no dome to read one off</b> keeps — the single direction all eighteen skies
-        /// shared until #220 gave each its own (<see cref="SkyDome.SunDirection"/>). The four sky-replacing
-        /// scenes take it: space, the dream, the cavern and the Moon draw no dome at all, and letting the
+        /// shared until #220 gave each its own (<see cref="SkyDome.SunDirection"/>). The sky-replacing
+        /// scenes (<see cref="SceneRenderer.ReplacesSky"/>) take it unless they state a sun of their own: they draw no dome at all, and letting the
         /// level's sky byte swing their sun would walk the Moon's Earth through its phases and slide the
         /// planet's terminator across its face on nothing but which palette a hidden dome happens to carry.
         /// </summary>
@@ -296,7 +296,7 @@ namespace Prazsky.Core.Render
             //already stated, not something an instance has to be asked.
             SunDirection = SceneRenderer.ReplacesSky(_scene) ? DOMELESS_SUN_DIRECTION : _domeSunDirection;
 
-            //...unless the scene states a sun of its own, which only the Moon does (#508, its low Apollo sun).
+            //...unless the scene states a sun of its own, which only the Moon (#508, its low Apollo sun) and the Big Top (its spot rig's key) do.
             if (_sceneRenderer != null && _sceneRenderer.TryGetSunDirection(_scene, out Vector3 sceneSun))
                 SunDirection = sceneSun;
             else if (_sceneRenderer == null && SceneSun != null && SceneSun(_scene, out Vector3 statedSun))

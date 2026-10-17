@@ -5,7 +5,7 @@ What is written to disk and what edits, checks and generates it: the map, level 
 ## Sub-documents
 
 - [Map, level and level-set formats](formats-and-tools/level-formats.md): JSON fields, versions, leniencies, set entries, blocks, `LevelIdentity`.
-- [Player files](formats-and-tools/player-files.md): `Progress.json`, `Settings.json`, `Online.json`, `Outbox.json`, `Notes/`; `AtomicFile`.
+- [Player files](formats-and-tools/player-files.md): `Progress.json`, `Settings.json`, `Online.json`, `Outbox.json`, `Stats.json`, `Notes/`; `AtomicFile`.
 - [The level generator](formats-and-tools/levelgen.md): LevelGen's command line, layout, the fourteen blocks, the unlock ramp.
 - [What LevelGen refuses](formats-and-tools/levelgen-gates.md): every static gate with its reason; kinding.
 - [LevelGen's probes](formats-and-tools/levelgen-probes.md): sag, shortest clear, arrival, cuts, drop cinematic.

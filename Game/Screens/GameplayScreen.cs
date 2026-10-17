@@ -37,9 +37,9 @@ namespace BS3D.Screens
     /// <see cref="Draw"/> runs the frame's sequence itself, asking the host for the pieces — which is what
     /// lets a pause be a screen pushed <i>over</i> this one: the manager goes on drawing this screen
     /// underneath it (<see cref="Screen.DrawsUnderlying"/>) while no longer updating it, and the frozen frame
-    /// the player pauses on is simply this screen, still drawn. The result page is the one exception and it
-    /// is a deliberate one — it lets this screen go on updating so the arena stays alive behind the numbers
-    /// (#241); see <see cref="UpdateUnderResult"/> for the half of the frame that runs there.
+    /// the player pauses on is simply this screen, still drawn. The result page, and the campaign finale pushed in its
+    /// place, are the exceptions and deliberate ones — they let this screen go on updating so the arena stays alive
+    /// behind the numbers (#241); see <see cref="UpdateUnderResult"/> for the half of the frame that runs there.
     /// </para>
     /// <para>
     /// One instance is held for the life of the game, like the menu pages; <see cref="BuildLevel"/> and
@@ -114,7 +114,7 @@ namespace BS3D.Screens
         //
         //Every dial of the fit is GameCameraFit's, shared with the Testbed since #76: the lens's drop below
         //the trunnions, the fraction of the frustum it may fill, the gun's stand-off in front of the lens and
-        //the two lower bounds that override it (the field's footprint and the steepest resting aim). Their
+        //the three lower bounds that override it (the field's footprint, the drain's mouth and the steepest resting aim). Their
         //whys are on those constants.
         private float _gameCameraDistance = 34f;
         private float _gameCameraTargetY = 3.5f;
@@ -1381,7 +1381,7 @@ namespace BS3D.Screens
         {
             if (!IsBuilt) return;
 
-            //Covered, but by the one page that lets this screen keep running (#241) — a pause stops it dead
+            //Covered, but by one of the two pages that let this screen keep running (#241) — a pause stops it dead
             //and does not reach Update at all. What goes on there is the WORLD and not the GAME; see
             //UpdateUnderResult for which is which.
             if (!IsActive)

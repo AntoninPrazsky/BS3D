@@ -12,7 +12,7 @@ namespace BS3D
     /// hands do to the frame — the barrel swung across the field, the lens leaned in with the right button, a shot
     /// fired. Written for the motion blur, which is invisible on a still gun and cannot be judged from the Testbed
     /// (its game mode takes the camera, and the owner's rule is that aim-adjacent looks are judged in the Game with
-    /// the button held, test-in-game-while-aiming). All three are on the wall clock <c>shot=</c> and <c>detonate=</c>
+    /// the button held, test-in-game-while-aiming). All of them are on the wall clock <c>shot=</c> and <c>detonate=</c>
     /// count, so a timeline is written against its own photographs.
     /// <list type="bullet">
     /// <item><c>sweep=&lt;from&gt;:&lt;to&gt;[:&lt;degrees&gt;[:&lt;period&gt;]]</c> — swings the barrel's traverse
