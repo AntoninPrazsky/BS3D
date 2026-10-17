@@ -950,3 +950,8 @@ Pravidla:
 - Reference pro 17 odparkovaných scénických issues, obě modely (Z-Image-Turbo, klein), 136 obrázků v `C:\Users\panrd\AI\sd\out\<issue>-zimage|klein`, výběr 2–3 obrázků s důvodem je na každém issue. Nic se nestaví: fronta verdiktů je 17, stavba počká na limit 15.
 - ⚠ Klein na Marsu a Outbacku přesytí oranžovou; Z-Image drží barvy roverových snímků. Klein lépe kreslí oblohu a opar podle vzdálenosti.
 - ⚠ Workflow se stejným skriptem znovu spustil pevný seznam issues předchozí dávky; zastaveno, GPU zámek zůstal volný. Každá dávka potřebuje vlastní skript.
+
+## 2026-10-17 — #875 #881 ztracený násobič a bonus za kuličky slovy, červený main — desktop (RDT-PC), Claude Code (bs3d-5f)
+- Hotovo: #875 nad křížem stojí „STREAK LOST ×3“ ve stejném snímku jako zvuk (246417d6). #881 krok 1: „29 UNUSED BALLS / +1 624“ uprostřed, čte se 1,5 s, úder pro výsledek se neprodloužil; mimochodem opraven detail na stránce výsledků, který násobil 50 místo ceny kuličky v levelu (c3769a08). Oba mají verdikt `verdict-newcomer`, ten se do fronty nepočítá.
+- ⚠ main byl jeden merge červený: `PlayStatsSessionTests` (z oprav po review) četly Stats.json dřív, než ho pomalý ARM runner zapsal; `Dispose` čeká jen 500 ms. Opraveno v ed9de955 (`Flush` s 30 s v testech).
+- Otevřené: #881 kroky 2–3 (animace a kamera, čekají na frontu).
