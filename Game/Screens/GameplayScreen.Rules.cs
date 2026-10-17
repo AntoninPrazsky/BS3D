@@ -1237,10 +1237,11 @@ namespace BS3D.Screens
             bool newBest = cleared && Game.RecordLevelResult(_run.Index, _run.Score.Score, stars);
 
             //The attempt's ending, counted (#709) at the funnel the save's record and the boards' submission share, with the
-            //shots and seconds the boards are sent
+            //shots and seconds the boards are sent. A run that used the dev build's debug row (#876) is counted in Stats.json
+            //like the save's record, but not handed to the online play counts: it is no play of the game as dealt.
             Game.Stats?.Ended(cleared ? PlayEnding.Cleared
                     : _pendingFailure == LevelFailure.OutOfBalls ? PlayEnding.OutOfBalls : PlayEnding.ClusterReachedLine,
-                _run.EndShots, _run.EndSeconds, firstClear);
+                _run.EndShots, _run.EndSeconds, firstClear, online: !_run.DebugKindLoaded);
 
             //And to the online boards (#546), beside the save's record and with the very figures it kept — every
             //clear rather than only a new best, because the month's board ranks what was done this month — and since
@@ -1253,7 +1254,7 @@ namespace BS3D.Screens
             //no built-in server, and one whose Settings.json names a server submits, so the run carries its own mark. The save's
             //record above is the player's own file and is left as the game always keeps it.
             if (_run.DebugKindLoaded)
-                Console.WriteLine("[online] This run used the debug row (#876): the ending is not sent to the boards");
+                Console.WriteLine("[online] This run used the debug row (#876): the ending is not sent to the boards or the play counts");
             bool submitted = !_run.DebugKindLoaded && Game.Online.SubmitEnding(_run.Identity, _run.Score.Score, stars, _run.EndShots, _run.EndSeconds,
                 savedClear: Game.LevelStars(_run.Index) > 0);
 

@@ -334,7 +334,7 @@ namespace BS3D.Screens
         /// ball in a frame of the ball set's, hung <see cref="BALL_DEPTH"/> in front of the lens on the ray through its
         /// square and sized to fill it, turning on a tilted axis — so it is lit, glows and breathes as that kind does on
         /// the map, in the style the backdrop's cluster hangs in. The kind card's own device (#735,
-        /// <c>GameplayScreen.CollectTutorialBall</c>), ten times over. The squares are read where the desktop laid them
+        /// <c>GameplayScreen.CollectTutorialBall</c>), once for each entry of <see cref="OddBallCopy.Entries"/>. The squares are read where the desktop laid them
         /// out last, in the back buffer's pixels, and turned into the frame's normalised coordinates; one scrolled wholly
         /// past the frame is left out, one scrolled partly past it is drawn and cut by the host (the desktop's layer) or
         /// left out (the Potato path, which draws straight over the frame and cannot cut).

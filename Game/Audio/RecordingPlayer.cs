@@ -71,6 +71,13 @@ namespace BS3D.Audio
         //The frame the next chunk starts at: back at 0 each time the last frame has been queued (RecordingLoop.NextStart)
         private int _submittedFrames;
         private DynamicSoundEffectInstance _voice;
+
+        //Where each chunk in the voice's queue starts, oldest first: the head is what is sounding, and the clock below is
+        //pinned to it whenever the voice finishes a chunk (#899, Feed)
+        private readonly ChunkQueue _chunks = new(QUEUE_DEPTH);
+
+        //The visualizer's clock, in seconds into the recording: wall time between chunk boundaries, the audible chunk's
+        //start at each of them
         private double _position;
         private float _gain = 1f;
 
@@ -166,8 +173,9 @@ namespace BS3D.Audio
         }
 
         /// <summary>
-        /// Once a frame from the audio director: takes a finished decode, keeps the queue topped up (round the seam, for
-        /// ever), keeps the clock, which wraps with the recording, and moves the bars.
+        /// Once a frame from the audio director: takes a finished decode, keeps the clock, which wraps with the recording,
+        /// keeps the queue topped up (round the seam, for ever) and puts the clock right by what the voice has played, and
+        /// moves the bars.
         /// </summary>
         public void Update(float elapsed)
         {
@@ -178,14 +186,17 @@ namespace BS3D.Audio
                 else Open();
             }
 
+            //The clock moves first and the feed may then pin it (#899): the other way round a pin would at once be
+            //pushed on by a frame that stalled, by the whole of the stall
+            if (IsPlaying && _pcm != null)
+                _position = RecordingLoop.WrapPosition(_position + elapsed, _totalFrames / (double)SAMPLE_RATE);
+
             Feed();
 
             bool playing = IsPlaying;
 
             if (playing && _pcm != null)
             {
-                _position = RecordingLoop.WrapPosition(_position + elapsed, _totalFrames / (double)SAMPLE_RATE);
-
                 //A loop, so a window past either end is the other end of the recording, and the bars cross the seam as the music does
                 _analyser.Analyse(_pcm, _totalFrames, _totalFrames, _position, loops: true, MusicLevels.DECODE_HEADROOM);
             }
@@ -245,6 +256,7 @@ namespace BS3D.Audio
             _pcm = done.Result;
             _totalFrames = _pcm.Length / BYTES_PER_FRAME;
             _submittedFrames = 0;
+            _chunks.Clear();
             _position = 0;
 
             if (_tracks.Count > 1)
@@ -258,15 +270,35 @@ namespace BS3D.Audio
         /// Tops the voice's queue up in chunks, for ever: the chunk after the recording's last is its first again
         /// (<see cref="RecordingLoop.NextStart"/>), so the queue never runs dry at the seam and nothing here ends a
         /// recording (#899). A voice paused by the player keeps its full queue and is left alone.
+        /// <para>
+        /// <b>It also puts the visualizer's clock right.</b> The clock adds up wall time, which parts from what is audible
+        /// the moment a frame stalls (a window drag, a suspend) or the queue runs dry and the voice stands silent, and
+        /// would stay parted for as long as the recording loops. The voice has no play position, but it does say how many
+        /// buffers it still holds, and a buffer leaves when it has been played: so each chunk's start frame is written down
+        /// (<see cref="ChunkQueue"/>), and when a chunk has left, or a chunk is queued onto an empty voice, the clock is
+        /// pinned to the start of the chunk that is now sounding. Between two chunk boundaries it is the wall clock again,
+        /// so it is off by at most the time since the last boundary was seen, and the next boundary, half a second on at
+        /// most, makes it right.
+        /// </para>
         /// </summary>
         private void Feed()
         {
             if (_voice == null || _pcm == null) return;
 
+            //Whether the chunk that sounds is not the one the clock was last pinned to
+            bool pin = false;
+
             //Bounded by the depth: the recording is queued over and over, so a voice that did not count a buffer it was
             //handed must not keep this loop going until the end of time
-            for (int queued = 0; queued < QUEUE_DEPTH && _voice.PendingBufferCount < QUEUE_DEPTH; queued++)
+            for (int queued = 0; queued < QUEUE_DEPTH; queued++)
             {
+                int pending = _voice.PendingBufferCount;
+
+                //The chunks the voice has played are struck off first, each pass, so the book never holds more than the
+                //voice does
+                if (_chunks.Retire(pending) > 0) pin = true;
+                if (pending >= QUEUE_DEPTH) break;
+
                 int count = RecordingLoop.ChunkFrames(_submittedFrames, _totalFrames, CHUNK_FRAMES);
 
                 try
@@ -280,8 +312,15 @@ namespace BS3D.Audio
                     return;
                 }
 
+                _chunks.Push(_submittedFrames);
+
+                //The only chunk queued is the one that sounds next: a voice that has just opened, or that ran dry
+                if (_chunks.Count == 1) pin = true;
+
                 _submittedFrames = RecordingLoop.NextStart(_submittedFrames, count, _totalFrames);
             }
+
+            if (pin && _chunks.Count > 0) _position = _chunks.HeadStart / (double)SAMPLE_RATE;
 
             //A voice not yet playing: its first chunks are queued
             if (_voice.State == SoundState.Stopped) _voice.Play();
@@ -296,6 +335,7 @@ namespace BS3D.Audio
             _pcm = null;
             _totalFrames = 0;
             _submittedFrames = 0;
+            _chunks.Clear();
             _position = 0;
         }
 

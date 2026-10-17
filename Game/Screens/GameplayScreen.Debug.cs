@@ -17,7 +17,8 @@ namespace BS3D.Screens
         /// (<see cref="DebugKindRow.Load"/>, which refuses in a release) and marks the run, so that the ending sends no score
         /// to the online boards (<c>ShowResultScreen</c>, <see cref="LevelRun.DebugKindLoaded"/>). It is no power-up and no
         /// shot - nothing is spent, no charge, no ball, nothing the score or the ceiling's cadence counts - and it writes
-        /// nothing into the save. One <c>[debug]</c> line says what was loaded, over what, and that the run is marked.
+        /// nothing into the save. The mark also keeps the run's ending out of the online play counts (<c>ShowResultScreen</c>,
+        /// <c>AbandonAttempt</c>). One <c>[debug]</c> line says what was loaded, over what, and that the run is marked.
         /// </summary>
         internal void LoadDebugKind(BallKind kind)
         {
@@ -35,7 +36,7 @@ namespace BS3D.Screens
             _run.DebugKindLoaded = true;
 
             Console.WriteLine($"[debug] loaded {kind} into the bore (it was {DebugKindRow.Describe(was)}), colour {_magazine.Slot(0).Type};"
-                + " no charge, shot or score is spent, and this run will not be sent to the online boards");
+                + " no charge, shot or score is spent, and this run will not be sent to the online boards or the online play counts");
         }
     }
 }

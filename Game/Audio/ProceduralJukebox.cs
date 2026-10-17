@@ -67,6 +67,13 @@ namespace BS3D.Audio
         private int _convertedFrames;
         private int _submittedFrames;
         private DynamicSoundEffectInstance _voice;
+
+        //Where each chunk in the voice's queue starts, oldest first: the head is what is sounding, and the clock below is
+        //pinned to it whenever the voice finishes a chunk (#899, Feed; the Jukebox's RecordingPlayer does the same)
+        private readonly ChunkQueue _chunks = new(QUEUE_DEPTH);
+
+        //The visualizer's clock, in seconds into the piece: wall time between chunk boundaries, the audible chunk's start
+        //at each of them
         private double _position;
         private float _gain = 1f;
 
@@ -144,7 +151,8 @@ namespace BS3D.Audio
 
         /// <summary>
         /// Called once a frame by the host: notices a render that failed, converts and queues what the render has
-        /// published since the last frame, keeps the clock, and moves the bars.
+        /// published since the last frame, keeps the clock (put right by what the voice has played, in <see cref="Feed"/>),
+        /// and moves the bars.
         /// </summary>
         public void Update(float elapsed)
         {
@@ -160,14 +168,16 @@ namespace BS3D.Audio
                 }
             }
 
+            //The clock moves first and the feed may then pin it: the other way round a pin would at once be pushed on by a
+            //frame that stalled, by the whole of the stall
+            if (IsPlaying) _position = (_position + elapsed) % (_totalFrames / (double)ProceduralMusic.SAMPLE_RATE);
+
             Feed();
 
             bool playing = IsPlaying;
 
             if (playing)
             {
-                _position = (_position + elapsed) % (_totalFrames / (double)ProceduralMusic.SAMPLE_RATE);
-
                 //It reads only what has been converted so far (#464): a frame the render has not reached is silence,
                 //and the wrap onto the other end of the loop waits for the whole piece to exist
                 _analyser.Analyse(_pcm, _totalFrames, _convertedFrames, _position, loops: true);
@@ -205,6 +215,12 @@ namespace BS3D.Audio
         /// <summary>
         /// The stream's one step, once a frame: converts what the render has newly published, opens the voice on
         /// the first bar, tops the queue up in chunks, and loops the piece once all of it is there.
+        /// <para>
+        /// And puts the visualizer's clock right (#899): wall time parts from what is audible when a frame stalls or the
+        /// queue runs dry, and would stay parted for as long as the piece loops. A buffer leaves the voice's queue when it
+        /// has been played, so each chunk's start frame is written down (<see cref="ChunkQueue"/>) and, when a chunk has
+        /// left or one is queued onto an empty voice, the clock is pinned to the start of the chunk now sounding.
+        /// </para>
         /// </summary>
         private void Feed()
         {
@@ -250,8 +266,18 @@ namespace BS3D.Audio
 
             bool whole = _convertedFrames >= _totalFrames;
 
-            while (_voice.PendingBufferCount < QUEUE_DEPTH)
+            //Whether the chunk that sounds is not the one the clock was last pinned to
+            bool pin = false;
+
+            while (true)
             {
+                int pending = _voice.PendingBufferCount;
+
+                //The chunks the voice has played are struck off first, each pass, so the book never holds more than the
+                //voice does
+                if (_chunks.Retire(pending) > 0) pin = true;
+                if (pending >= QUEUE_DEPTH) break;
+
                 int available = _convertedFrames - _submittedFrames;
 
                 if (available <= 0)
@@ -279,8 +305,15 @@ namespace BS3D.Audio
                     return;
                 }
 
+                _chunks.Push(_submittedFrames);
+
+                //The only chunk queued is the one that sounds next: a voice that has just opened, or that ran dry
+                if (_chunks.Count == 1) pin = true;
+
                 _submittedFrames += count;
             }
+
+            if (pin && _chunks.Count > 0) _position = _chunks.HeadStart / (double)ProceduralMusic.SAMPLE_RATE;
 
             //Started on the first chunk. Paused is the player's own state and is left alone: Stopped is only ever
             //the voice before its first Play.
@@ -299,6 +332,7 @@ namespace BS3D.Audio
             _totalFrames = 0;
             _convertedFrames = 0;
             _submittedFrames = 0;
+            _chunks.Clear();
         }
 
         public void Dispose() => Stop();
