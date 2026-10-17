@@ -31,7 +31,7 @@ The Game's per-level figures: "The camera and the gun are solved to the field" i
 `Cannon.MinElevation`/`MaxElevation` (about −5.7° to +80°) and `MaxTraverse` (±45°); a level may lower `ElevationLimit`, which every clamp uses.
 
 - **Up-biased**, because the clean shot at a cell comes from the orbit angle facing it, ~50–65° on big maps.
-- **Pushing into the clamp is signalled** (#431): the barrel stretches up to `ELEVATION_OVERSHOOT` and springs back, `ElevationStrain` throbs the crosshair, and `ShootBall` refuses with `[shot] refused: the aim is pressed into the elevation clamp`.
+- **Pushing into the upper clamp is signalled** (#431): the barrel stretches up to `ELEVATION_OVERSHOOT` and springs back, `ElevationStrain` throbs the crosshair, and `ShootBall` refuses with `[shot] refused: the aim is pressed into the elevation clamp`. The lower end (`MinElevation`) is a soft stop with no signal and no refusal, its rubber easing back without a rebound (#872).
 
 ## Testing the aim: `aimcheck` and `aimshoot`
 

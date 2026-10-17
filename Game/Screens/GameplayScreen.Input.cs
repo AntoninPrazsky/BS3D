@@ -377,7 +377,7 @@ namespace BS3D.Screens
             else _aimStopArmed = true;
 
             //And held (#835), the owner's ask: the pad buzzes "constantly, until the player stops pushing the stick or is back
-            //in the window he may fire from". Past the clamp at either end that is the strain itself: full while the push
+            //in the window he may fire from". Past the upper clamp that is the strain itself (the lower end raises none, #872): full while the push
             //lasts, and let go over ELEVATION_STRAIN_RELEASE once it stops, so the buzz fades with the crosshair's blink. A
             //cutter aimed into the storeys the Cut may not strike (#692) has no clamp to push against, so there it is the
             //right stick pushed up or down while the cutter is refused. The knock above stays the arrival.
