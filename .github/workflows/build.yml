@@ -96,8 +96,12 @@ jobs:
       # --others` and NOT `git status --porcelain`, which reports every regenerated file as modified here
       # because the generator writes CRLF over the LF checkout (`git diff` normalizes that). Every exit code is
       # checked explicitly, because pwsh fails a step only on the LAST native command's exit code.
+      # The canary: Levels.json, which the generator always writes, is emptied first. A generator that wrote nothing,
+      # or wrote somewhere else, would otherwise pass by leaving the committed files exactly as they were; with the
+      # canary the diff below then finds the empty file and fails.
       - name: Regenerate levels and check they match what is committed
         run: |
+          Set-Content -Path Game/Levels/Levels.json -Value '{}' -NoNewline
           dotnet run --project Tools/LevelGen/LevelGen.csproj
           if ($LASTEXITCODE -ne 0) { throw "LevelGen failed (exit $LASTEXITCODE)" }
           git diff --exit-code Game/Levels

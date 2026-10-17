@@ -68,10 +68,12 @@ jobs:
       # The same gate as build.yml's (#588), run here so a release cannot come out of a commit whose shipped
       # levels are not the ones the generator in the tree makes - or whose new level was never committed at
       # all, which `git diff` alone does not see (build.yml says why `ls-files --others` and not `status`).
-      # Every exit code is checked: pwsh fails a step only on the last one's.
+      # Every exit code is checked: pwsh fails a step only on the last one's. Levels.json is emptied first, the
+      # canary build.yml explains: a generator that wrote nothing cannot pass by leaving the committed files alone.
       - name: Gate - regenerate levels and check they match what is committed
         shell: pwsh
         run: |
+          Set-Content -Path Game/Levels/Levels.json -Value '{}' -NoNewline
           dotnet run --project Tools/LevelGen/LevelGen.csproj -c Release
           if ($LASTEXITCODE -ne 0) { throw "LevelGen failed (exit $LASTEXITCODE)" }
           git diff --exit-code Game/Levels
