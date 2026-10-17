@@ -190,6 +190,9 @@ namespace BS3D.Audio
         {
             Release();
 
+            //No audio device (#923): said once at start, and nothing is composed for a voice that cannot exist
+            if (!AudioDevice.Present) return;
+
             MusicTheme? theme = PIECES[_index].Theme;
             RenderProgress progress = new();
             _progress = progress;

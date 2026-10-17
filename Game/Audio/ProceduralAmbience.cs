@@ -75,7 +75,8 @@ namespace BS3D.Audio
         private int _wanted = -1;
         private float _gain = 1f;
         private bool _volumesDirty;
-        private bool _failed;
+        //Failed from the start when there is no audio device (#923): no bed is baked, none is played
+        private bool _failed = !AudioDevice.Present;
 
         public ProceduralAmbience() => Array.Fill(_cacheScene, -1);
 

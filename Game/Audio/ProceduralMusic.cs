@@ -397,6 +397,9 @@ namespace BS3D.Audio
 
         private bool _failed;
 
+        /// <summary>Silences the fanfares for good, as a fault does: <c>GameMusic</c> calls it when there is no audio device (#923).</summary>
+        internal void Disable() => _failed = true;
+
         private readonly MusicFade _fanfareFade = new();
 
         //The fanfare is its own instance so it is independent of the theme: GameMusic.Stop() silences the level's

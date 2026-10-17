@@ -47,3 +47,9 @@ Each way of getting it wrong is silent.
   - The music pushes it onto the instances already sounding.
   - The rows cycle downwards, because a click almost always means "quieter".
   - `mute` on the command line starts the master at zero, for harnesses.
+
+## No audio device (#923)
+
+- **`Audio/AudioDevice.Present` is asked once and is final for the run.** With every audio endpoint unplugged, disabled or asleep (a monitor's speakers over its display cable, gone with the screen) MonoGame's engine has no device, and the first streaming voice fails with a `NullReferenceException` out of `SharpDX.XAudio2.SourceVoice.CreateSourceVoice`: the engine's static device is null and nothing checks it. `Present` makes one throw-away `DynamicSoundEffectInstance` (the kind the theme needs) and, when that throws, prints the single line `[audio] no audio device: playing without sound until the game is restarted`. MonoGame builds its engine once, so a device that appears later is not picked up: a restart brings the sound back.
+- **What skips from it:** `GameMusic` (set `_failed` at construction and decodes nothing; the family list is still built from the file names, the pages read it), `ProceduralMusic` (`GameMusic` calls its `Disable`) and `ProceduralAmbience` (`_failed` from the start), `RecordingPlayer.PlayAt` and `ProceduralJukebox.Start`. Each checks a bool, never a per-frame probe. The effects need no gate: `SoundEffect` instances are inert without a device (a scripted run with shots, the result page and the fireworks logged no exception). GamePi compiles the same file; OpenAL there has its own null-output fallback (above), and the probe only reports what it finds.
+- A normal run does the same as before plus the probe, one voice made and disposed at start.

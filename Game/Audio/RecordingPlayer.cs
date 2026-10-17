@@ -120,7 +120,8 @@ namespace BS3D.Audio
         /// <summary>Plays the list's recording <paramref name="index"/> from its top, at once.</summary>
         public void PlayAt(int index)
         {
-            if (_tracks.Count == 0) return;
+            //No audio device (#923): said once at start, and nothing is decoded for a voice that cannot exist
+            if (_tracks.Count == 0 || !AudioDevice.Present) return;
 
             ReleaseVoice();
             _index = ((index % _tracks.Count) + _tracks.Count) % _tracks.Count;
