@@ -1066,3 +1066,8 @@ Pravidla:
 - Hotovo (merge dea2ac62, 04dc28f9): vlákno snímku alokovalo **4,2 KB za snímek** v nečinném menu a 2,3–4,2 KB při hraní; posluchač `GCAllocationTick` ukázal skoro jen `VertexBufferBinding[]` — `SetVertexBuffers(params …)` se dvěma vazbami zapsanými na místě, 14 míst, ~75× za snímek. `InstanceBinding.Set` (Prazsky.Core) používá jedno pole (MonoGame vazby kopíruje, ověřeno dekompilací 3.8.5); po opravě 24 B v menu, 27–100 B ve hře mezi výstřely. `InstanceBindingSourceTests` jiné volání nepustí (viděn padat).
 - `logfps` teď píše i řádek `[alloc]` (B za snímek, gen0), BestPractices §3 doplněno.
 - Harness s posluchačem typů: `scratchpad/alloc/harness.patch` této session (nepatří do repa).
+
+## 2026-10-17 — brána hudby viděna selhat v CI, obrazovky bez alokací, #873 — desktop (RDT-PC), Claude Code (bs3d-5f)
+- Hotovo (merge 1b4e500e, CI zelené včetně obou kroků hudby): `MusicBake --gate-scale <0..1>` zpřísní obě meze; build.yml spustí `--shipped --gate-scale 0.25` a spadne, pokud skutečné nahrávky nejsou odmítnuty pro špičku i pro ticho (BestPractices §10). Opraven i formát záporného limitu (`-+10.54`).
+- Změřeno řádkem `[alloc]` (Debug): výběr levelu, Help, About s přehrávačem, Jukebox, Settings, High Scores i výsledek stojí na 88 B/snímek jako menu, žádná stránka nepřidává. Vyhledávání `Parameters["…"]` v `Draw` (bouře, sopka, plameny) jsou mikrosekundy, podle §9 bez změny.
+- #873 zavřeno jako nahrazené #915 (majitel 16. 10.: celá kapitola znovu).
