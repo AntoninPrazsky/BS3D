@@ -10,12 +10,13 @@ name: Release
 #     created, so the whole pipeline can be rehearsed without anything becoming public.
 #
 # build.yml fires for a tag push as well, but only BESIDE this workflow: nothing waited for it, so a tag on a
-# commit whose gate failed published anyway. Since #588 both gates run here too, ahead of the publish - the
-# level generator's regeneration check first, ScoreSim with the score ceiling table it writes beside the zip
-# (#549) later - and a failure in either stops the job before anything is released.
+# commit whose gate failed published anyway. Since #588 build.yml's gates run here too, ahead of the publish -
+# the level generator's regeneration check first, the music's (MusicBake --shipped, #919) after it, ScoreSim
+# with the score ceiling table it writes beside the zip (#549) later - and a failure in any stops the job before
+# anything is released.
 #
 # Three jobs since #793, one tag and one score-ceilings table for all of them:
-#   * release - the Windows zip and the ceilings, behind both gates (and the check that GamePi's committed GL
+#   * release - the Windows zip and the ceilings, behind the three gates (and the check that GamePi's committed GL
 #     effects are what their sources compile to, since the Raspberry Pi package ships them);
 #   * release-linux-arm64 - GamePi (the Game on Linux ARM64, a Raspberry Pi 5) published self-contained on a native
 #     ARM64 runner and packed as a tar.gz, because only a tar keeps the executable bit;
@@ -94,6 +95,16 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "GamePi/Shaders/Compiled differs from what the sources compile to: run GamePi/Shaders/fetch.sh (or compile.ps1 on Windows) and commit it" }
           $stray = git ls-files --others --exclude-standard -- GamePi/Shaders/Compiled
           if ($stray) { $stray; throw "The sources compile to effect(s) that were never committed" }
+
+      # build.yml's music gate (#919), here for the same reason as the level gate: the zip ships Game/Music as
+      # committed, and a recording whose post-codec peak the game's decode headroom cannot absorb, or that falls
+      # silent too long (#772), must not reach a player because nothing waited for the push-time check. It decodes
+      # the committed .ogg files in process and needs nothing else.
+      - name: Gate - the shipped music decodes within its headroom
+        shell: pwsh
+        run: |
+          dotnet run --project Tools/MusicBake/MusicBake.csproj -c Release -- --shipped
+          if ($LASTEXITCODE -ne 0) { throw "MusicBake refused a shipped recording (exit $LASTEXITCODE)" }
 
       # One step decides what this build is called and every step after it reads the answer out of the
       # environment rather than deriving it again. A tag names itself; a manual run is "dev-<short sha>",
