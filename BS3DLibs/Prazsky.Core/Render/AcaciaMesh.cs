@@ -39,7 +39,9 @@ namespace Prazsky.Core.Render
     /// Since #451 the tree is built in one of the <see cref="AcaciaKind"/>s, and the canopy is a
     /// <see cref="FoliageStyle.Tier"/> plate rather than the domed crown of #202: the reference acacias are
     /// thin flat layers, wide against the tree's height, with the bough structure showing under them and a
-    /// ragged rim — the dome was the shape of a bush held up on a stick.
+    /// ragged rim — the dome was the shape of a bush held up on a stick. Since #884 the tiers are stretched up a little,
+    /// as a game's stylisation (the <c>*_TIER</c> profiles and <see cref="MAX_TIER_ASPECT"/>): a savanna roll made a tier up to
+    /// seven times wider than its half-thickness.
     /// </para>
     /// </summary>
     public sealed class AcaciaMesh : IDisposable
@@ -101,7 +103,22 @@ namespace Prazsky.Core.Render
         //The trunk's mean radius over its length as a multiple of the radius at the fork (a flare from ROOT_FLARE down
         //to 0.9), and how much of a tier's leaf plate counts as solid
         private const float TRUNK_MEAN = 1.2f;
-        private const float CROWN_SOLID = 0.92f;
+        internal const float CROWN_SOLID = 0.92f;
+
+        //How thick a crown tier is (#884). The owner: "the crowns of some of those trees are far too flat ... stretch the crowns
+        //up a little". A tier's radius and the tree's height are rolled apart (SavannaScatter), and its thickness was a fixed
+        //share of the height whatever the roll, so a mature tier ran from 3 to 7 times wider than its half-thickness. Per kind
+        //(and per tier), as shares of the tree's height: where the tier was centred and its half-thickness at #663 (the underside,
+        //the difference, stays where it was), and the half-thickness it has now - the one number that sets how flat a crown
+        //reads. The top rises by what the tier grew.
+        private static readonly TierProfile MATURE_TIER = new(0.78f, 0.14f, 0.21f);
+        private static readonly TierProfile SECOND_TIER = new(0.94f, 0.10f, 0.12f);
+        private static readonly TierProfile YOUNG_TIER = new(0.84f, 0.11f, 0.155f);
+        private static readonly TierProfile BROKEN_TIER = new(0.76f, 0.13f, 0.18f);
+
+        //The widest a tier may run against its half-thickness: its radius over its half-thickness is never more than this, so
+        //the wide-short end of the roll is thickened until it is (the narrow-tall end, already thicker, is not touched)
+        internal const float MAX_TIER_ASPECT = 3.8f;
 
         //The crown's twigs (#782): how thick one leaves its bough against the trunk at the fork, and how many sprays it
         //carries - few, so a tier's twigs are many and its leaf spreads over the plate rather than in spokes
@@ -190,8 +207,7 @@ namespace Prazsky.Core.Render
                 case AcaciaKind.Young:
                     forkY = treeHeight * (0.48f + 0.10f * (float)rng.NextDouble());
                     boughs = 2 + rng.Next(2);
-                    tiers.Add(new TierSpec(Vector2.Zero, treeHeight * 0.84f, canopyRadius * (0.5f + 0.12f * (float)rng.NextDouble()),
-                        treeHeight * 0.11f));
+                    tiers.Add(Tier(Vector2.Zero, YOUNG_TIER, canopyRadius * (0.5f + 0.12f * (float)rng.NextDouble()), treeHeight));
                     break;
 
                 case AcaciaKind.Dead:
@@ -206,7 +222,7 @@ namespace Prazsky.Core.Render
                     boughs = 3 + rng.Next(2);
                     float side = (float)rng.NextDouble() * MathHelper.TwoPi;
                     Vector2 offset = new Vector2(MathF.Cos(side), MathF.Sin(side)) * (canopyRadius * 0.38f);
-                    tiers.Add(new TierSpec(offset, treeHeight * 0.76f, canopyRadius * 0.8f, treeHeight * 0.13f));
+                    tiers.Add(Tier(offset, BROKEN_TIER, canopyRadius * 0.8f, treeHeight));
                     //The spar stands where the crown is not: opposite the surviving tier, and above it.
                     spars.Add(new Vector2(side + MathF.PI + (float)(rng.NextDouble() - 0.5) * 0.6f, treeHeight * (1.02f + 0.08f * (float)rng.NextDouble())));
                     break;
@@ -216,13 +232,13 @@ namespace Prazsky.Core.Render
                 {
                     forkY = treeHeight * (0.30f + 0.10f * (float)rng.NextDouble());
                     boughs = 3 + rng.Next(3);
-                    tiers.Add(new TierSpec(Vector2.Zero, treeHeight * 0.78f, canopyRadius, treeHeight * 0.14f));
+                    tiers.Add(Tier(Vector2.Zero, MATURE_TIER, canopyRadius, treeHeight));
                     if (rng.NextDouble() < 0.55)
                     {
                         float side = (float)rng.NextDouble() * MathHelper.TwoPi;
                         Vector2 offset = new Vector2(MathF.Cos(side), MathF.Sin(side)) * (canopyRadius * 0.3f);
-                        tiers.Add(new TierSpec(offset, treeHeight * 0.94f, canopyRadius * (0.4f + 0.15f * (float)rng.NextDouble()),
-                            treeHeight * 0.10f));
+                        //Stands on the first tier, so it rides up with the first tier's top and keeps its place on it
+                        tiers.Add(Tier(offset, SECOND_TIER, canopyRadius * (0.4f + 0.15f * (float)rng.NextDouble()), treeHeight, tiers[0].TopRise));
                     }
                     break;
                 }
@@ -278,13 +294,39 @@ namespace Prazsky.Core.Render
             (Leaves as IDisposable)?.Dispose();
         }
 
-        /// <summary>One flat plate of foliage: where it sits off the trunk's axis, its height, radius and thickness.</summary>
+        /// <summary>One flat plate of foliage: where it sits off the trunk's axis, its height, radius and thickness, and how far
+        /// its top stands above where #663 left it (<see cref="TopRise"/>, what a tier standing on it rides up by).</summary>
         private readonly struct TierSpec
         {
             public readonly Vector2 Offset;
-            public readonly float CentreY, Radius, HalfHeight;
-            public TierSpec(Vector2 offset, float centreY, float radius, float halfHeight)
-            { Offset = offset; CentreY = centreY; Radius = radius; HalfHeight = halfHeight; }
+            public readonly float CentreY, Radius, HalfHeight, TopRise;
+            public TierSpec(Vector2 offset, float centreY, float radius, float halfHeight, float topRise)
+            { Offset = offset; CentreY = centreY; Radius = radius; HalfHeight = halfHeight; TopRise = topRise; }
+        }
+
+        /// <summary>A kind's tier as shares of the tree's height (#884): <paramref name="centre"/> and <paramref name="was"/> are
+        /// where it was centred and its half-thickness at #663 (so its underside, the difference), <paramref name="half"/> its
+        /// half-thickness now.</summary>
+        private readonly struct TierProfile(float centre, float was, float half)
+        {
+            public readonly float Centre = centre, Was = was, Half = half;
+        }
+
+        /// <summary>
+        /// A crown tier stretched upward (#884): it keeps its underside (the centre less the half-thickness, as #663 left it) and its
+        /// radius, takes the profile's half-thickness, and is never thinner than <see cref="MAX_TIER_ASPECT"/> allows for its
+        /// radius, so the centre rises by what the tier grew and the top by a little more (the top is flattened, so it stands
+        /// <c>1 - TopFlatten</c> of the half-thickness over the centre). Every share the leaves and the boughs hang from is a share of
+        /// the half-thickness, so they follow.
+        /// </summary>
+        /// <param name="lift">How far the whole tier is carried up, because it stands on another that rose.</param>
+        private static TierSpec Tier(Vector2 offset, TierProfile profile, float radius, float treeHeight, float lift = 0f)
+        {
+            float was = profile.Was * treeHeight;
+            float half = MathF.Max(MathF.Max(profile.Half * treeHeight, radius / MAX_TIER_ASPECT), was);
+            float grown = half - was;
+            return new TierSpec(offset, profile.Centre * treeHeight + grown + lift, radius, half,
+                lift + grown * (2f - FoliageStyle.Tier.TopFlatten));
         }
 
         /// <summary>Trunk + boughs: a flared trunk to the fork, then several tapered boughs fanning up and out
