@@ -154,8 +154,8 @@ namespace Prazsky.Core.Render
             _plants.DrawShadowCasters(shadowViewProjection, _scatter.Buckets, Services.FineMeshes);
         }
 
-        /// <summary>The old trees, for a camera to point at (#609).</summary>
-        public IReadOnlyList<PlantFigure> Trees => _scatter?.Trees;
+        /// <summary>The old trees, the bench, the bales and the low solids, for a camera to point at and keep out of (#609, #893).</summary>
+        public MeadowFigures Figures => _scatter?.Figures;
 
         /// <inheritdoc/>
         public override void Dispose()
