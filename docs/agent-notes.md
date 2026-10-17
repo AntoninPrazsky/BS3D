@@ -1027,3 +1027,9 @@ Pravidla:
 - Stránka „Verdikty 17. 10.“ https://claude.ai/artifact/V2vmb1wY9qRE8Do95vXmCZ, výzva zapsaná na všech šesti issues; fronta je 7.
 - ⚠ Herní kamera lavičku na louce nevidí (zakrývá ji okraj ostrova), je vidět jen v úvodu. První tónování řádků High Scores bylo nad světlými scénami neviditelné, review ho chytila.
 - Rozpracováno: #893 (nízké oblety v úvodu louky), #883 (savanský keř), #904 (hudba louky).
+
+## 2026-10-17 — #893 #883 #904 úvod louky, savanský keř, hudba louky; jedna stránka verdiktů — desktop (RDT-PC), Claude Code (bs3d-5f)
+- Hotovo (eef4f283): #893 dva pomalé nízké půlkruhy v úvodu louky (balíky, lavička), úvod 22,9 s; #883 „melouny“ byly keře, na High/Ultra je nahradil trnitý keř z větviček a lístků (+0,03/+0,06 ms); #904 Sunny přegenerována (krátké díry 38 → 6,6/min, opakování 40 taktů → 1), Ska ne (8 kandidátů neprošlo hranicí děr, c3 je k poslechu).
+- Jedna stránka verdiktů pro obě relace: https://claude.ai/artifact/V2vmb1wY9qRE8Do95vXmCZ (18 karet včetně #767 #766 #781 #877 #872 #880 #871 #878 #889 od bs3d-48). Rozdělení s bs3d-48: já #887 #890 #896, on #892 #905–#917 #872 #877.
+- ⚠ Merge #883 se srazil s #889 v komentářích a dokumentaci, které vyjmenovávají `FineMeshes`; obě položky jsou zachované a 1721 testů je zelených. Řetěz `&&` po konfliktu zastavil push správně, ale `git branch -d` pak smazal lokální větve sloučené jen s upstreamem.
+- Otevřené: fronta je zase 17, změny vzhledu a zvuku stojí, dokud majitel neodpoví.
