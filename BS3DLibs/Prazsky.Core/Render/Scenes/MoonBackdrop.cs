@@ -219,7 +219,7 @@ namespace Prazsky.Core.Render
             if (_planting != null)
             {
                 MoonTerrainConfig terrain = _moonConfig.Terrain;
-                _plants.Draw(frame, _planting.Buckets, NO_HAZE, detail: true, terrain.SunColor.ToVector3(),
+                _plants.Draw(frame, _planting.Buckets, NO_HAZE, detail: true, Services.FineMeshes, terrain.SunColor.ToVector3(),
                     terrain.AmbientColor.ToVector3() + _earthshineOverhead, _moonConfig.Lighting.GroundAmbient.ToVector3());
             }
 
@@ -257,7 +257,7 @@ namespace Prazsky.Core.Render
         /// <summary>The rocks cast into the sun's map, as every planted scene's do; the island and the gun are the host's.</summary>
         public override void DrawShadowCasters(Matrix shadowViewProjection)
         {
-            if (_planting != null) _plants.DrawShadowCasters(shadowViewProjection, _planting.Buckets);
+            if (_planting != null) _plants.DrawShadowCasters(shadowViewProjection, _planting.Buckets, Services.FineMeshes);
         }
 
         /// <inheritdoc/>

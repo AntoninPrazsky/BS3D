@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-17 — #889 louka: větve vyrostlé z kmene — desktop (RDT-PC), Claude Code (bs3d-48)
+- Hotovo (větev `889-meadow-fork`, nemergováno): dřevo lučních stromů je na všech tierech uzavřené z vlastních prstenců. Dřív kolenem každé větve prosvítala obloha. Low a Medium se proti mainu liší jen v těch dírách (168–255 px při 1600×900) a Potato vůbec. High a Ultra kreslí `MeadowTreeMesh.FineWood`: kmen se rozšíří do rozsochy tvarované podle větví a větve z ní vycházejí bokem. Silné i tenké větve rostou z rodiče zevnitř a kolena jsou uzavřené klouby. Cena je neměřitelná: −0,03 až −0,06 ms v Testbedu na Pennantu i v záběru „the path“. Hlídá to `MeadowForkTests`, každá kontrola viděna selhat.
+- ⚠ Větev vedená podél povrchu kmene (jako u akácie) zaostala za rozšiřováním rozsochy a okraj kmene kolem ní stál jako lišta. Proto vychází s odklonem (`LIMB_SPLAY`). Normály se míchají podle vzdálenosti, a jen tam, kde obě plochy míří stejně.
+- Otevřené: verdikt oka, snímky jsou v `verdicts\889\`.
+
 ## 2026-10-17 — #872 míření dolů bez poplachu — desktop (RDT-PC), Claude Code (bs3d-48)
 - Spodní mez `MinElevation` už nezvedá `ElevationStrain` (žádný červený zaměřovač, zvuk ani rumble), nikdy neodmítne výstřel a guma se pouští kriticky tlumeně, bez zpětného švihu. Horní mez beze změny; `MinElevation` se nehýbe (majitel popsal stále měkký doraz). `CannonElevationTests`.
 - Otevřené: pocit dojezdu (`verdict-hands`).

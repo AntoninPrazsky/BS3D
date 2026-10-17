@@ -120,7 +120,7 @@ namespace Prazsky.Core.Render
         public override void Draw(in SceneFrame frame)
         {
             _forestPass.Draw(frame, Services.TerrainHoleRadius);
-            if (_berm != null) _plants.Draw(frame, _berm.Buckets, _forestConfig.HorizonHazeDistance, _sceneDetail > 0.5f);
+            if (_berm != null) _plants.Draw(frame, _berm.Buckets, _forestConfig.HorizonHazeDistance, _sceneDetail > 0.5f, Services.FineMeshes);
         }
 
         /// <inheritdoc/>
@@ -129,7 +129,7 @@ namespace Prazsky.Core.Render
         /// <summary>The bank casts into the sun's map; the trees are cast by the hosts.</summary>
         public override void DrawShadowCasters(Matrix shadowViewProjection)
         {
-            if (_berm != null) _plants.DrawShadowCasters(shadowViewProjection, _berm.Buckets);
+            if (_berm != null) _plants.DrawShadowCasters(shadowViewProjection, _berm.Buckets, Services.FineMeshes);
         }
 
         /// <inheritdoc/>

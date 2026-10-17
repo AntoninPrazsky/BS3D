@@ -53,17 +53,19 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Draws <paramref name="buckets"/> lit from the frame, hazed to <paramref name="hazeDistance"/>; at
-        /// <paramref name="detail"/> the full tier's buckets, below it the Low tier's.
+        /// <paramref name="detail"/> the full tier's buckets, below it the Low tier's; of a thing drawn in two meshes
+        /// (<see cref="ScatterBucket.FineMeshes"/>, #889: the meadow trees' woods) the one <paramref name="fineMeshes"/>
+        /// asks for, which is <see cref="SceneRenderer.FineMeshes"/>.
         /// </summary>
-        public void Draw(in SceneFrame frame, IReadOnlyList<ScatterBucket> buckets, float hazeDistance, bool detail) =>
-            Draw(frame, buckets, hazeDistance, detail, frame.SunColor, frame.ZenithLinear, frame.HorizonLinear);
+        public void Draw(in SceneFrame frame, IReadOnlyList<ScatterBucket> buckets, float hazeDistance, bool detail, bool fineMeshes) =>
+            Draw(frame, buckets, hazeDistance, detail, fineMeshes, frame.SunColor, frame.ZenithLinear, frame.HorizonLinear);
 
         /// <summary>
-        /// <see cref="Draw(in SceneFrame, IReadOnlyList{ScatterBucket}, float, bool)"/> under lights the scene states
+        /// <see cref="Draw(in SceneFrame, IReadOnlyList{ScatterBucket}, float, bool, bool)"/> under lights the scene states
         /// itself rather than the dome's (#646): the aurora's ground is lit by the glow of its sky, and what stands on
         /// that ground has to be lit by the same glow or it glares.
         /// </summary>
-        public void Draw(in SceneFrame frame, IReadOnlyList<ScatterBucket> buckets, float hazeDistance, bool detail,
+        public void Draw(in SceneFrame frame, IReadOnlyList<ScatterBucket> buckets, float hazeDistance, bool detail, bool fineMeshes,
             Vector3 sunColor, Vector3 zenith, Vector3 horizon)
         {
             Effect.CurrentTechnique = _technique;
@@ -99,6 +101,7 @@ namespace Prazsky.Core.Render
                 ScatterBucket bucket = buckets[i];
                 if (bucket.DetailOnly && !detail) continue;
                 if (bucket.LowOnly && detail) continue;
+                if (bucket.FineMeshes is bool meshes && meshes != fineMeshes) continue;
 
                 _diffuse.SetValue(bucket.Diffuse);
                 _diffuseDry.SetValue(bucket.DiffuseDry);
@@ -117,8 +120,10 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>Casts <paramref name="buckets"/> into the sun's map (#469's path): those whose
-        /// <see cref="ScatterBucket.CastsShadow"/> says so — by default all but the Low tier's crowns.</summary>
-        public void DrawShadowCasters(Matrix shadowViewProjection, IReadOnlyList<ScatterBucket> buckets)
+        /// <see cref="ScatterBucket.CastsShadow"/> says so — by default all but the Low tier's crowns — and of a thing drawn
+        /// in two meshes the one <paramref name="fineMeshes"/> asks for, as <see cref="Draw(in SceneFrame, IReadOnlyList{ScatterBucket}, float, bool, bool)"/>
+        /// does, or a tree casts twice.</summary>
+        public void DrawShadowCasters(Matrix shadowViewProjection, IReadOnlyList<ScatterBucket> buckets, bool fineMeshes)
         {
             Effect.CurrentTechnique = _shadowTechnique;
             _shadowViewProjection.SetValue(shadowViewProjection);
@@ -127,6 +132,7 @@ namespace Prazsky.Core.Render
             {
                 ScatterBucket bucket = buckets[i];
                 if (!bucket.CastsShadow) continue;
+                if (bucket.FineMeshes is bool meshes && meshes != fineMeshes) continue;
                 _leaves.SetValue(bucket.Leaves);
                 Effect.CurrentTechnique.Passes[0].Apply();
                 DrawBucket(bucket);

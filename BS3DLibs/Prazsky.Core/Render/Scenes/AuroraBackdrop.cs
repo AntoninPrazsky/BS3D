@@ -274,7 +274,7 @@ namespace Prazsky.Core.Render
             if (_berm != null)
             {
                 //Lit as the ground just drawn is: by the glow of the sky, over the starlight, off the ground's ambient
-                _plants.Draw(frame, _berm.Buckets, _auroraConfig.Terrain.HorizonHazeDistance, detail: true,
+                _plants.Draw(frame, _berm.Buckets, _auroraConfig.Terrain.HorizonHazeDistance, detail: true, Services.FineMeshes,
                     glow, glow + _auroraConfig.GroundStarlight.ToVector3(), _auroraConfig.Lighting.GroundAmbient.ToVector3());
             }
 

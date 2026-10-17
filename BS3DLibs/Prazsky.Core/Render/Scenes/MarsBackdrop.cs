@@ -176,7 +176,7 @@ namespace Prazsky.Core.Render
         public override void Draw(in SceneFrame frame)
         {
             DrawMarsTerrain(frame);
-            if (_berm != null) _plants.Draw(frame, _berm.Buckets, _marsConfig.Air.HorizonHazeDistance, detail: true);
+            if (_berm != null) _plants.Draw(frame, _berm.Buckets, _marsConfig.Air.HorizonHazeDistance, detail: true, Services.FineMeshes);
             DrawMarsMoons(frame);
         }
 
@@ -186,7 +186,7 @@ namespace Prazsky.Core.Render
         /// <summary>The bank round the island casts into the sun's map (#646).</summary>
         public override void DrawShadowCasters(Matrix shadowViewProjection)
         {
-            if (_berm != null) _plants.DrawShadowCasters(shadowViewProjection, _berm.Buckets);
+            if (_berm != null) _plants.DrawShadowCasters(shadowViewProjection, _berm.Buckets, Services.FineMeshes);
         }
 
         private const int BERM_SEED = 9200;

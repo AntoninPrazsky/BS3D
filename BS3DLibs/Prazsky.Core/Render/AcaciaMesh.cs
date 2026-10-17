@@ -1080,10 +1080,19 @@ namespace Prazsky.Core.Render
         /// mean of the two segments it joins and turned by parallel transport from the one before, so a bent limb is one
         /// skin. Straight tubes laid end to end at an angle meet with their end rings in two different planes — a step
         /// on one side and an overlap on the other — and on the meadow's thick old trunks that read as a sleeve pulled
-        /// over the wood. Side faces only, wound as <see cref="AddTube"/> is.
+        /// over the wood. Side faces only unless asked, wound as <see cref="AddTube"/> is.
+        /// <para>
+        /// The ends can be closed from the rings' own vertices (#889), so no sliver opens between a disc and the ring it
+        /// closes, as one does when a separate <see cref="AddCap"/> lays its polygon turned against the ring's: an open
+        /// end is a hole under back-face culling, the sky seen through the wood.
+        /// </para>
         /// </summary>
+        /// <param name="capStart">Close the first ring with a flat disc facing back along the tube.</param>
+        /// <param name="capEnd">Close the last ring: a flat disc, or with <paramref name="endDome"/> a rounded end.</param>
+        /// <param name="endDome">How far the closed end bulges past the last ring, as a share of its radius (0 flat):
+        /// a half-ellipsoid of <see cref="DOME_RINGS"/> rings, its normals the ellipsoid's.</param>
         public static void AddSweep(List<VertexPositionNormalTexture> v, List<short> idx, int seg,
-            IReadOnlyList<Vector3> points, IReadOnlyList<float> radii)
+            IReadOnlyList<Vector3> points, IReadOnlyList<float> radii, bool capStart = false, bool capEnd = false, float endDome = 0f)
         {
             int count = points.Count;
             if (count < 2) return;
@@ -1099,12 +1108,16 @@ namespace Prazsky.Core.Render
             Vector3 u = Vector3.Normalize(Vector3.Cross(ref0, axis));
 
             short baseIdx = (short)v.Count;
+            Vector3 firstAxis = axis, lastU = u, lastW = Vector3.Zero;
             for (int k = 0; k < count; k++)
             {
                 axis = Tangent(k);
                 //Parallel transport: the last ring's reference direction, with what now lies along the axis taken out
                 u = Vector3.Normalize(u - axis * Vector3.Dot(u, axis));
                 Vector3 w = Vector3.Cross(axis, u);
+                if (k == 0) firstAxis = axis;
+                lastU = u;
+                lastW = w;
                 for (int s = 0; s <= seg; s++)
                 {
                     float ang = MathHelper.TwoPi * s / seg;
@@ -1112,7 +1125,32 @@ namespace Prazsky.Core.Render
                     v.Add(new VertexPositionNormalTexture(points[k] + dir * radii[k], dir, new Vector2(s / (float)seg, k / (count - 1f))));
                 }
             }
-            for (int k = 0; k < count - 1; k++)
+
+            //A rounded end: more rings past the last, closing to its tip on the same frame, so they join it as the sweep's own
+            int rings = count;
+            if (capEnd && endDome > 0f)
+            {
+                Vector3 end = points[count - 1];
+                float radius = radii[count - 1];
+                for (int j = 1; j <= DOME_RINGS; j++)
+                {
+                    float psi = MathHelper.PiOver2 * j / DOME_RINGS;
+                    float c = MathF.Cos(psi), sn = MathF.Sin(psi);
+                    for (int s = 0; s <= seg; s++)
+                    {
+                        float ang = MathHelper.TwoPi * s / seg;
+                        Vector3 dir = lastU * MathF.Cos(ang) + lastW * MathF.Sin(ang);
+                        //The tip is one point, exactly: cos(pi/2) in floats left its vertices a hair apart round it
+                        bool tip = j == DOME_RINGS;
+                        Vector3 normal = tip ? axis : Vector3.Normalize(dir * (endDome * c) + axis * sn);
+                        Vector3 at = tip ? end + axis * (radius * endDome) : end + dir * (radius * c) + axis * (radius * endDome * sn);
+                        v.Add(new VertexPositionNormalTexture(at, normal, new Vector2(s / (float)seg, 1f)));
+                    }
+                }
+                rings += DOME_RINGS;
+            }
+
+            for (int k = 0; k < rings - 1; k++)
             {
                 int ring = baseIdx + k * (seg + 1), next = ring + seg + 1;
                 for (int s = 0; s < seg; s++)
@@ -1120,6 +1158,35 @@ namespace Prazsky.Core.Render
                     idx.Add((short)(ring + s)); idx.Add((short)(next + s)); idx.Add((short)(ring + s + 1));
                     idx.Add((short)(ring + s + 1)); idx.Add((short)(next + s)); idx.Add((short)(next + s + 1));
                 }
+            }
+
+            //Flat discs from the rings' own vertices, wound as AddCap's for the way each faces: the last ring's basis turns
+            //with its axis as AddCap's does with `outward`, so the end winds as AddCap; the start faces back, so it is reversed
+            if (capStart) AddFan(v, idx, baseIdx, seg, points[0], -firstAxis, reversed: true);
+            if (capEnd && endDome <= 0f) AddFan(v, idx, (short)(baseIdx + (count - 1) * (seg + 1)), seg, points[count - 1], axis, reversed: false);
+        }
+
+        /// <summary>How many rings close a rounded end (<see cref="AddSweep"/>'s <c>endDome</c>), the tip's included.</summary>
+        public const int DOME_RINGS = 4;
+
+        /// <summary>A disc fanned from a centre to a ring already in the list (<paramref name="ring"/>, <paramref name="seg"/> + 1
+        /// vertices, the last on the first), facing <paramref name="outward"/>: <paramref name="reversed"/> false for a ring
+        /// laid as <see cref="AddSweep"/> lays one (its second direction the axis crossed with its first) seen along that axis,
+        /// true for the same ring closed facing back.</summary>
+        public static void AddFan(List<VertexPositionNormalTexture> v, List<short> idx, short ring, int seg, Vector3 centre,
+            Vector3 outward, bool reversed)
+        {
+            short centreIdx = (short)v.Count;
+            v.Add(new VertexPositionNormalTexture(centre, outward, new Vector2(0.5f, 0.5f)));
+            //The rim takes the disc's normal too, so the disc shades flat rather than as the side it closes
+            for (int s = 0; s < seg; s++)
+                v.Add(new VertexPositionNormalTexture(v[ring + s].Position, outward, v[ring + s].TextureCoordinate));
+            for (int s = 0; s < seg; s++)
+            {
+                short a = (short)(centreIdx + 1 + s), b = (short)(centreIdx + 1 + (s + 1) % seg);
+                idx.Add(centreIdx);
+                idx.Add(reversed ? a : b);
+                idx.Add(reversed ? b : a);
             }
         }
 
