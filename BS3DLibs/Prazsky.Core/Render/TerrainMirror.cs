@@ -517,10 +517,18 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The meadow's ground height at a world point, mirroring <c>Meadow.fx</c>'s <c>TerrainHeight</c> term
-        /// for term, for a host laying a camera path over the hills (the chapter intro's prologue, #559).
-        /// Keep this and the shader in the same change.
+        /// for term: the field with the brook's groove and the pond's crater cut into it (<see cref="MeadowCarve"/>, #892),
+        /// what everything planted stands on. Keep this and the shader in the same change.
         /// </summary>
-        public static float Meadow(float x, float z, MeadowSceneConfig config)
+        public static float Meadow(float x, float z, MeadowSceneConfig config) => MeadowCarve.Height(x, z, config);
+
+        /// <summary>
+        /// The meadow's field before the brook and the pond are cut into it - <c>Meadow.fx</c>'s <c>GroundHeight</c>, what its
+        /// camera grid displaces by: the hills, the pond's ground levelled and the knoll. What the Potato path's grid and
+        /// planting stand on (its cells are 15 units, far too coarse for a cut), what the brook's water is measured from, and
+        /// what the chapter intro lifts its lenses over (#892).
+        /// </summary>
+        public static float MeadowGround(float x, float z, MeadowSceneConfig config)
         {
             //The pond lies level (#609's third round): the ground under it and round it eased to the height at its
             //centre, and the knoll the footpath climbs to its tree raised on top of everything

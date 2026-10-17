@@ -328,7 +328,7 @@ namespace Prazsky.Core.Render
         /// (#829's first): the terrain of <see cref="TerrainMirror.Savanna"/> in a blend of the grass's two colours, and
         /// <see cref="SavannaScatter"/>'s trees, scrub, mounds, rocks and logs as the desktop's Low tier plants them. The
         /// desert: its dunes (<see cref="TerrainMirror.Desert"/>) in the sand's two colours, nothing planted. The meadow:
-        /// its ground (<see cref="TerrainMirror.Meadow"/>, the pond a dip) in its grass, and <see cref="MeadowScatter"/>'s
+        /// its field uncut (<see cref="TerrainMirror.MeadowGround"/>: no groove, no crater) in its grass, and <see cref="MeadowScatter"/>'s
         /// oaks, the fence and the rest. The mountains: the range of <see cref="TerrainMirror.Mountain"/> as two grids
         /// over one field, snow where the desktop's rule lays it and rock where not. The Moon: the plain of
         /// <see cref="TerrainMirror.Moon"/> in the regolith's grey and <see cref="MoonPlanting"/>'s boulders. The volcano: the
@@ -939,13 +939,16 @@ namespace Prazsky.Core.Render
         private static PotatoBackdrop Meadow(GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius)
         {
             var config = new MeadowSceneConfig();
-            float Height(float x, float z) => TerrainMirror.Meadow(x, z, config);
+            //The field uncut (#892): the brook's groove and the pond's crater are a quarter of a unit's walls, and at 15
+            //units a cell a vertex that fell into one would pull a whole cell down into a dent. So no cut here, as no
+            //brook or pond is painted here, and the planting stands on the same uncut field, at the rim's height.
+            float Height(float x, float z) => TerrainMirror.MeadowGround(x, z, config);
 
             var backdrop = new PotatoBackdrop(graphicsDevice);
             Vector3 grass = Vector3.Lerp(config.GrassColor.ToVector3(), config.GrassColorDark.ToVector3(), 0.35f);
             backdrop.AddGround(graphicsDevice, potatoEffect, new PotatoTerrainMesh(graphicsDevice, SAVANNA_CELLS, SAVANNA_EXTENT, holeRadius, Height), grass);
 
-            var scatter = new MeadowScatter(graphicsDevice, config, MeadowScatter.DEFAULT_SEED);
+            var scatter = new MeadowScatter(graphicsDevice, config, MeadowScatter.DEFAULT_SEED, Height);
             backdrop._owned.Add(scatter);
             backdrop.AddScatter(graphicsDevice, potatoEffect, scatter.Buckets);
 

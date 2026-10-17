@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-17 — #892 louka: potok jako rýha, rybník jako kráter — desktop (RDT-PC), Claude Code (bs3d-48)
+- Hotovo (větev `892-meadow-groove`, nemergováno): potok je rýha s hliněnými stěnami, rybník nepravidelný kráter a voda je samostatná plocha uvnitř. `MeadowCarve` je CPU kopie `CarvedHeight` (mirrorcheck 0,0021). Hrubá mřížka má díru a tu kreslí patch v souřadnicích potoka (`MeadowPatch`), od Low po Ultra; Potato beze změny. Patch hrubne se vzdáleností (CDLOD), jeho program nic nezahazuje (early-Z, −0,58 ms) a v překryvu leží pod mřížkou (−0,4 ms).
+- Cena (Game, Pennant, 3840×1581): hra High +0,48 ms, Ultra +0,45; průlet potokem +1,2 ms, jeho poslední vteřina 13,0–13,6 ms, tedy nad 75 Hz.
+- ⚠ Týž program stojí na patchi asi o 60 % víc na pixel než na mřížce, i když leží naplocho. Velikost trojúhelníků, interpolant, clip ani překryv to nejsou; příčina nenalezena (`docs/scenes/meadow.md`).
+- Otevřené: verdikt oka, snímky ve `verdicts\892\`; APU neměřeno.
+
 ## 2026-10-17 — #878 kamera pádu pod plovoucím ostrovem jednou plynulou křivkou — desktop (RDT-PC), Claude Code (bs3d-48)
 - Skok dělal přepínač podle výšky subjektu: nad horní plochou se čočka zvedala, pod ní ji strkal okraj; čočka s dosahem pod okrajem při přepnutí uskočila o 9 jednotek, pak se zřítila 90 j/s a zastavila. Teď poloměr sám drží dosah 34,5 od osy (`SoftMax`), ponor jede přes 12 jednotek poklesu a nejvýš 1,1 s (`Smoother`), postup je jedna monotónní kubika. Zrychlení 600–8800 → 120–470 j/s², pevné scény beze změny.
 - `DropCinematicPathTests` (DropCinematic je v testech zkompilovaný). ⚠ Čočka je u menších hodů dál (až 43 j).
