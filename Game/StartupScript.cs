@@ -629,7 +629,10 @@ namespace BS3D
                 blockName: _blockDone ? (game.LevelBlockName(12) ?? "The Tower") : null,
                 blockNumber: game.BlockCount > 0 ? game.LevelBlockNumber(12) : 3, blockCount: Math.Max(3, game.BlockCount),
                 score: 4820, matchedBalls: 96, orphanedBalls: 24, streakBonus: 640,
-                hadBudget: true, unusedShotsAwarded: 7, completionBonusAwarded: 350));
+
+                //The unused row's worth is the level's own price of a ball, three figures on every shipped level, so
+                //the page is photographed with one: this is ScoreKeeper.UnusedShotValue of 120 balls on a budget of 30
+                hadBudget: true, unusedShotsAwarded: 7, completionBonusAwarded: 7 * 160, unusedShotValue: 160));
         }
     }
 }

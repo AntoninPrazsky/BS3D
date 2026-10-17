@@ -563,13 +563,13 @@ namespace BS3D.Screens
             public bool Projected;
 
             public string Text;             //"+1 200"
-            public string Suffix;           //"×3", the completion bonus's "unused", or null at ×1
+            public string Suffix;           //"×3" beside the figure, the completion bonus's "12 UNUSED BALLS" over it, or null at ×1
 
             /// <summary>What this is carrying, withheld from the readout until it lands there.</summary>
             public int Points;
 
             /// <summary>The colour of the balls that were cut — see the class doc. The completion bonus, which no ball
-            /// earned, is born in the readout's own white.</summary>
+            /// earned, is born in the HUD's own white.</summary>
             public Color Tint;
 
             /// <summary>Seconds since birth on the play clock. <b>Negative</b> while it waits its turn - the completion bonus
@@ -582,9 +582,10 @@ namespace BS3D.Screens
             /// (<see cref="AwardZoom.HandOff"/>).</summary>
             public float Peak, Birth, Hold;
 
-            /// <summary>Born in the balls-left readout rather than on a cell: the completion bonus, which is what the
-            /// unused balls were worth. Rises out of the readout in screen space instead of being projected.</summary>
-            public bool FromReadout;
+            /// <summary>The completion bonus (#846, #881), which is what the unused balls were worth: born over the aim
+            /// point in screen space rather than projected from a cell, with its caption stacked over the figure instead
+            /// of beside it, and waiting its turn (<see cref="AddBonus"/>).</summary>
+            public bool IsBonus;
         }
 
         private readonly List<Popup> _popups = new();
@@ -593,24 +594,19 @@ namespace BS3D.Screens
         private const float POPUP_RISE = 2.2f;          //world units over the read, so it drifts with the cluster
         private const int POPUP_SUFFIX_GAP = 10;        //design units at the old popup type's size, scaled with the award
 
-        /// <summary>How far the completion bonus climbs out of the balls-left readout over its read, in design units: clear
-        /// of the count it came out of, which is still showing what the bonus was paid for.</summary>
-        private const int POPUP_READOUT_RISE = 300;
+        /// <summary>How far the completion bonus drifts up over its read, in design units, away from the aim point it is born
+        /// over: the lost streak's words drift the same way for the same reason (<see cref="LOST_CAPTION_LIFT"/>).</summary>
+        private const int POPUP_BONUS_RISE = 60;
+
+        /// <summary>The bonus's caption, over its figure, as a share of the figure's size: the figure is the hero and the
+        /// words are what it counts. A multiplier stands at two thirds (<see cref="POPUP_SUFFIX_SHARE"/>) beside its figure;
+        /// the fifteen letters of "29 UNUSED BALLS" over a six-glyph figure at a third of its size make a block as wide as
+        /// the figure (241 px of its 282 at 1600x900), where at two thirds beside it the row would be about half the frame.</summary>
+        private const float POPUP_BONUS_CAPTION_SHARE = 0.32f;
 
         /// <summary>The least an award keeps between itself and the frame's edge, in design units (#846): a zoomed number
         /// born on a cell near the top of the frame is held inside it rather than cut off.</summary>
         private const int POPUP_EDGE = 40;
-
-        /// <summary>
-        /// The bonus's caption, in the accent beside its figure where an award carries its multiplier. The word the result
-        /// page and the Help page pay it under ("shots unused"), so the figure the HUD threw is found again on the page
-        /// beside the same word. "bonus" pointed at the page's "streak bonus" row, which holds another figure.
-        /// </summary>
-        private const string BONUS_SUFFIX = "unused";
-
-        /// <summary>Where the balls-left count stands this frame, its centre in pixels: the completion bonus is born there.
-        /// Written by <see cref="DrawBallsLeft"/>, which runs before the awards in the same pass.</summary>
-        private Vector2 _readoutCentre;
 
         //Motion blur. A real per-pixel blur would want a shader over the resolved frame, and SpriteBatch will
         //take one (Begin(effect:) puts a pixel shader over the glyph quads) — but it is the wrong tool here:
@@ -864,10 +860,7 @@ namespace BS3D.Screens
         {
             HandOffReads();
 
-            //The newer number takes the read from the words over the aim point too (#875): they begin to fade now, from
-            //wherever they have got to, rather than standing under an award zooming in
-            if (_lostLength > 0f)
-                _lostLength = MathF.Min(_lostLength, _lostAge + StreakCues.LOST_CAPTION_FADE_SECONDS);
+            FadeLostCaption();
 
             _popups.Add(new Popup
             {
@@ -896,6 +889,17 @@ namespace BS3D.Screens
         }
 
         /// <summary>
+        /// The newer number takes the read from the words over the aim point too (#875): they begin to fade now, from
+        /// wherever they have got to, rather than standing under an award zooming in. An award over a cell (<see cref="AddAward"/>)
+        /// and the completion bonus, which stands over the aim point itself (<see cref="AddBonus"/>), both ask.
+        /// </summary>
+        private void FadeLostCaption()
+        {
+            if (_lostLength > 0f)
+                _lostLength = MathF.Min(_lostLength, _lostAge + StreakCues.LOST_CAPTION_FADE_SECONDS);
+        }
+
+        /// <summary>
         /// How long a cut's award waits before it is born on the struck cell (#767), seconds of the play clock: the severing
         /// beat - the slash shooting out across the storey and holding white-hot, slowed by the strike's hit-stop - is over
         /// by then, and the number zooms in over a cut already made instead of over the cut being made.
@@ -903,34 +907,42 @@ namespace BS3D.Screens
         private const float CUT_AWARD_DELAY = 0.7f;
 
         /// <summary>
-        /// The completion bonus (#846): what the unused balls were worth, born in the balls-left readout that counts them
-        /// and flown into the score like any award, where it used to arrive with no popup at all and count up out of
-        /// nowhere while the collapse played. It is often the biggest figure of the level, and the one the player earned
-        /// by playing well, so it is shown like one.
+        /// The completion bonus (#846, #881): what the unused balls were worth, said in words over the aim point and flown
+        /// into the score like any award. It is born <b>over the middle of the frame</b>, where the player's eye rests while
+        /// aiming and clear of the crosshair (<see cref="BonusSource"/>), not out of the balls-left count in the corner, which
+        /// is neither where the eye is nor where the figure is going. It is captioned over its figure with what it counts
+        /// (<see cref="AwardZoom.BonusCaption"/>: <c>12 UNUSED BALLS</c> over <c>+1 560</c>) and read for
+        /// <see cref="AwardZoom.BONUS_HOLD"/> before it shrinks and goes. It is often the biggest figure of the level, and
+        /// the one the player earned by playing well, so it is shown like one.
         /// <para>
-        /// It <b>waits its turn</b>: the shot that cleared the field has just been awarded, and that award keeps its read
-        /// (<see cref="AwardZoom.BonusWait"/>), cut short only as a newer award would cut it when the bonus is born
-        /// (<see cref="AgePopups"/>). Its points are withheld from the readout from now, so the score does not count up
-        /// ahead of it.
+        /// It <b>waits a moment</b> (<see cref="AwardZoom.BonusWait"/>, a tenth of a second at most): the shot that cleared the
+        /// field has just been awarded, and the bonus's birth sends that award on its way as a newer award would
+        /// (<see cref="AgePopups"/>), once it has been read for <see cref="AwardZoom.MIN_READ"/>. Its points are withheld from
+        /// the readout from now, so the score does not count up ahead of it, and the words of a streak just lost, which stand
+        /// where it is born, begin to fade (<see cref="FadeLostCaption"/>).
         /// </para>
         /// </summary>
-        internal void AddBonus(int points)
+        /// <param name="points">What was awarded, never zero (a level with no budget awards none and adds no popup).</param>
+        /// <param name="unusedBalls">The balls the points were awarded for, <c>ScoreKeeper.UnusedShotsAwarded</c>.</param>
+        internal void AddBonus(int points, int unusedBalls)
         {
             float readLeft = 0f;
             for (int i = 0; i < _popups.Count; i++)
                 readLeft = MathF.Max(readLeft, _popups[i].Hold - _popups[i].Age);
 
+            FadeLostCaption();
+
             _popups.Add(new Popup
             {
                 Text = "+" + ScoreText.Of(points),
-                Suffix = BONUS_SUFFIX,
+                Suffix = AwardZoom.BonusCaption(unusedBalls),
                 Points = points,
                 Tint = BS3DGame.MENU_TEXT,
                 Age = -AwardZoom.BonusWait(readLeft),
                 Peak = AwardZoom.Peak(points),
                 Birth = AwardZoom.Birth(points),
-                Hold = AwardZoom.Hold(points),
-                FromReadout = true,
+                Hold = AwardZoom.BONUS_HOLD,
+                IsBonus = true,
             });
         }
 
@@ -942,7 +954,7 @@ namespace BS3D.Screens
             for (int i = 0; i < _popups.Count; i++)
             {
                 Popup popup = _popups[i];
-                if (popup.Age >= popup.Hold || (sparingTheBonus && popup.FromReadout)) continue;
+                if (popup.Age >= popup.Hold || (sparingTheBonus && popup.IsBonus)) continue;
 
                 popup.Hold = AwardZoom.HandOff(popup.Age, popup.Hold);
                 _popups[i] = popup;
@@ -1697,10 +1709,6 @@ namespace BS3D.Screens
             //while the number itself shrinks and swells, so the layout never moves — only the figure does
             float numberTop = bottom - captionSize.Y - Scaled(HUD_LINE_GAP);
 
-            //Where the completion bonus is born (#846): the count at rest, without the pulse or the breathing
-            Vector2 numberSize = font.MeasureString(_ballsText);
-            _readoutCentre = new Vector2(margin + numberSize.X * 0.5f, numberTop - numberSize.Y * 0.5f);
-
             DrawPulsed(font, _ballsText,
                 new Vector2(margin, numberTop), new Vector2(0f, 1f),
                 _ballsPulse.Scale * (1f + BREATHE_AMPLITUDE * wave), colour, glow);
@@ -2392,8 +2400,8 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// The awards, on their way in. Each is born on the cell it was earned in (the completion bonus in the balls-left
-        /// readout), zooms well past the score's size and is held there long enough to be read, then shrinks where it
+        /// The awards, on their way in. Each is born on the cell it was earned in (the completion bonus over the aim point,
+        /// <see cref="BonusSource"/>), zooms well past the score's size and is held there long enough to be read, then shrinks where it
         /// stands and is thrown into the score with a smear behind it (#846, <see cref="AwardZoom"/>). The source is
         /// <b>reprojected every frame</b> and the flight is a lerp from it, so at the handover the blend weight is zero
         /// and the number is exactly where it was — the same one-reversible-scalar idiom precise aim and the drop
@@ -2411,11 +2419,10 @@ namespace BS3D.Screens
 
                 Vector2 source;
 
-                if (popup.FromReadout)
+                if (popup.IsBonus)
                 {
-                    //Out of the count, climbing in screen space as an award climbs over its cell
-                    source = _readoutCentre
-                             - new Vector2(0f, Scaled(POPUP_READOUT_RISE) * AwardZoom.Rise(popup.Age, popup.Hold));
+                    //Over the aim point, in screen space: the middle of the frame is where the eye is, and no cell is
+                    source = BonusSource(popup, viewport);
                 }
                 else if (TryProject(camera, viewport, popup, out Vector2 projected))
                 {
@@ -2452,6 +2459,25 @@ namespace BS3D.Screens
         }
 
         /// <summary>
+        /// Where the completion bonus stands while it is read (#881): centred over the middle of the frame, where the player's eye
+        /// rests while aiming, <b>with the bottom edge of its tallest drawing</b> (the top of the zoom's overshoot, or the slow
+        /// swell at the end of the read: <see cref="AwardZoom.ReadMax"/>) <see cref="StreakCues.LOST_CAPTION_CLEARANCE"/> above it,
+        /// which is where the lost streak's words stand and for the same reason: clear of the crosshair at its most swollen
+        /// (<c>Crosshair.FULL_STRAIN_REACH</c>), which the player may still be holding on the beat the field empties. The block
+        /// zooms about this centre, so it grows both ways but never down into the aim; it drifts up over the read
+        /// (<see cref="POPUP_BONUS_RISE"/>), away from it. The point the flight starts from, and so the one the throw's wind-up
+        /// gathers behind.
+        /// </summary>
+        private Vector2 BonusSource(in Popup popup, Viewport viewport)
+        {
+            AwardLayout tallest = LayOutAward(popup, AwardZoom.ReadMax(popup.Peak, popup.Birth, popup.Hold));
+            float bottom = viewport.Height * 0.5f - Scaled(StreakCues.LOST_CAPTION_CLEARANCE)
+                           - Scaled(POPUP_BONUS_RISE) * AwardZoom.Rise(popup.Age, popup.Hold);
+
+            return new Vector2(viewport.Width * 0.5f, bottom - tallest.Extent.Y * 0.5f);
+        }
+
+        /// <summary>
         /// One award crossing the frame. The smear is sampled off the curve itself rather than off the last
         /// frame's position: the path is known in closed form, so looking back a fixed distance <i>in flight
         /// parameter</i> gives a trail whose length is the curve's own local speed — nothing to store, nothing
@@ -2464,9 +2490,9 @@ namespace BS3D.Screens
             Vector2 at = FlightPosition(source, destination, flight);
             Vector2 before = FlightPosition(source, destination, back);
 
-            //The wind-up gathers the number behind its source, away from the corner, and the completion bonus is born
-            //against the frame's left edge, so the dip carried it half off the frame (#846). Held inside the frame as the
-            //source is, until the throw passes the source: there the position IS the source, already held, so nothing steps.
+            //The wind-up gathers the number behind its source, away from the corner, so the dip can carry a number born near
+            //an edge half off the frame (#846). Held inside the frame as the source is, until the throw passes the source:
+            //there the position IS the source, already held, so nothing steps.
             if (HudEase.InBack(flight) < 0f) at = KeepInFrame(at, layout.Extent, viewport);
             if (HudEase.InBack(back) < 0f) before = KeepInFrame(before, layout.Extent, viewport);
 
@@ -2515,9 +2541,20 @@ namespace BS3D.Screens
             public readonly Vector2 TextSize, SuffixSize;
             public readonly float Gap, Shadow;
 
+            /// <summary>The offset of the caption's own shadow: the figure's (<see cref="Shadow"/>) beside it, where the two are
+            /// near one size, and the figure's scaled by the caption's share when it stands over it, small beside a large
+            /// figure, where the figure's offset would draw it a second, dark copy of itself a letter's height away.</summary>
+            public readonly float SuffixShadow;
+
+            /// <summary>The caption stands over the figure, centred on it, instead of beside it: the completion bonus's
+            /// (<see cref="Popup.IsBonus"/>).</summary>
+            public readonly bool Stacked;
+
             public AwardLayout(SpriteFontBase font, float scale, int blur, Vector2 textSize, SpriteFontBase suffixFont,
-                float suffixScale, int suffixBlur, Vector2 suffixSize, float gap, float shadow)
+                float suffixScale, int suffixBlur, Vector2 suffixSize, float gap, float shadow, float suffixShadow, bool stacked = false)
             {
+                Stacked = stacked;
+                SuffixShadow = suffixShadow;
                 Font = font;
                 Scale = scale;
                 Blur = blur;
@@ -2530,8 +2567,10 @@ namespace BS3D.Screens
                 Shadow = shadow;
             }
 
-            /// <summary>The figure and its caption side by side, in pixels.</summary>
-            public Vector2 Extent => new(TextSize.X + Gap + SuffixSize.X, MathF.Max(TextSize.Y, SuffixSize.Y));
+            /// <summary>The figure and its caption side by side, or the caption over the figure when stacked, in pixels.</summary>
+            public Vector2 Extent => Stacked
+                ? new Vector2(MathF.Max(TextSize.X, SuffixSize.X), SuffixSize.Y + Gap + TextSize.Y)
+                : new Vector2(TextSize.X + Gap + SuffixSize.X, MathF.Max(TextSize.Y, SuffixSize.Y));
         }
 
         //The caption beside an award's figure, as a share of the figure's size: the label's type against the old popup's,
@@ -2543,10 +2582,13 @@ namespace BS3D.Screens
         /// offset scale with the figure exactly as they did with the old popup's one face, so the look at any size is the
         /// old popup's at that size. <paramref name="suffixShare"/> is the caption's size as a share of the figure's: an award's
         /// (<see cref="POPUP_SUFFIX_SHARE"/>) unless the caller says otherwise (the lost streak's words and multiplier stand
-        /// at one size, <see cref="LOST_CAPTION_SUFFIX_SHARE"/>).
+        /// at one size, <see cref="LOST_CAPTION_SUFFIX_SHARE"/>). The completion bonus (<see cref="Popup.IsBonus"/>) is laid out
+        /// stacked, its caption over its figure at <see cref="POPUP_BONUS_CAPTION_SHARE"/>, whatever the caller says.
         /// </summary>
         private AwardLayout LayOutAward(in Popup popup, float size, float suffixShare = POPUP_SUFFIX_SHARE)
         {
+            if (popup.IsBonus) suffixShare = POPUP_BONUS_CAPTION_SHARE;
+
             float units = size * BS3DGame.HUD_FONT_SCORE;
             float share = units / BS3DGame.HUD_FONT_POPUP;
             float shadow = Scaled(HUD_SHADOW_OFFSET) * share;
@@ -2555,13 +2597,13 @@ namespace BS3D.Screens
             Vector2 textSize = font.MeasureString(popup.Text) * scale;
 
             if (popup.Suffix == null)
-                return new AwardLayout(font, scale, blur, textSize, null, 0f, 0, Vector2.Zero, 0f, shadow);
+                return new AwardLayout(font, scale, blur, textSize, null, 0f, 0, Vector2.Zero, 0f, shadow, shadow);
 
             SpriteFontBase suffixFont = AwardFace(units * suffixShare, out float suffixScale, out int suffixBlur);
             Vector2 suffixSize = suffixFont.MeasureString(popup.Suffix) * suffixScale;
 
             return new AwardLayout(font, scale, blur, textSize, suffixFont, suffixScale, suffixBlur, suffixSize,
-                Scaled(POPUP_SUFFIX_GAP) * share, shadow);
+                Scaled(POPUP_SUFFIX_GAP) * share, shadow, popup.IsBonus ? shadow * suffixShare : shadow, popup.IsBonus);
         }
 
         /// <summary>
@@ -2600,12 +2642,24 @@ namespace BS3D.Screens
         }
 
         /// <summary>One award — its points, and the multiplier it was won at (or the bonus's caption), kept in the
-        /// accent beside them.</summary>
+        /// accent beside them, or over them when the layout is stacked.</summary>
         private void DrawAwardAt(in Popup popup, in AwardLayout layout, Vector2 centre, Color colour, float alpha,
             bool shadow = true)
         {
             Vector2 extent = layout.Extent;
             Vector2 corner = centre - extent * 0.5f;
+
+            if (layout.Stacked)
+            {
+                //The words over the figure, each centred on the block's axis: what it counts, then how much
+                float figureTop = corner.Y + layout.SuffixSize.Y + layout.Gap;
+
+                DrawString(layout.SuffixFont, popup.Suffix, new Vector2(corner.X + (extent.X - layout.SuffixSize.X) * 0.5f, corner.Y),
+                    HUD_ACCENT * alpha, layout.SuffixScale, shadow, layout.SuffixBlur, layout.SuffixShadow);
+                DrawString(layout.Font, popup.Text, new Vector2(corner.X + (extent.X - layout.TextSize.X) * 0.5f, figureTop),
+                    colour * alpha, layout.Scale, shadow, layout.Blur, layout.Shadow);
+                return;
+            }
 
             DrawString(layout.Font, popup.Text, corner + new Vector2(0f, (extent.Y - layout.TextSize.Y) * 0.5f),
                 colour * alpha, layout.Scale, shadow, layout.Blur, layout.Shadow);
@@ -2616,7 +2670,7 @@ namespace BS3D.Screens
             //in the corner are recognisably the same thing
             DrawString(layout.SuffixFont, popup.Suffix,
                 corner + new Vector2(layout.TextSize.X + layout.Gap, (extent.Y - layout.SuffixSize.Y) * 0.5f),
-                HUD_ACCENT * alpha, layout.SuffixScale, shadow, layout.SuffixBlur, layout.Shadow);
+                HUD_ACCENT * alpha, layout.SuffixScale, shadow, layout.SuffixBlur, layout.SuffixShadow);
         }
 
         /// <summary>

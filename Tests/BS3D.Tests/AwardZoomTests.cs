@@ -11,8 +11,8 @@ namespace BS3D.Tests
     /// The award's zoom (#846): what the owner asked for, held as numbers. The points gained zoom well past the score's
     /// size, a big release bigger and longer than a bare match, then shrink and are thrown into the corner at the size
     /// they always landed at; nothing snaps on the way, however the read was cut short by a newer award; and the
-    /// completion bonus, which waits for the clearing shot's award, still lands in time to be counted into the
-    /// score before the result page.
+    /// completion bonus (#881: read for 1.5 s, over the aim point, in words that say what it counts) still lands in
+    /// time to be counted into the score before the result page.
     /// </summary>
     public class AwardZoomTests
     {
@@ -172,18 +172,84 @@ namespace BS3D.Tests
         {
             //The page covers the HUD when the cleared beat ends: an award still in the air then is never seen to land, and
             //one landing just before it is cut off while the corner is still counting it into the score
-            float worst = AwardZoom.BonusWait(float.MaxValue) + AwardZoom.Lifetime(AwardZoom.Hold(int.MaxValue));
+            //The bonus is read for its own, longer hold (#881), not an award's: it is the one popup that is not over a cell
+            float worst = AwardZoom.BonusWait(float.MaxValue) + AwardZoom.Lifetime(AwardZoom.BONUS_HOLD);
             Assert.True(worst + AwardZoom.BONUS_COUNT_IN <= LevelPhases.ClearedBeatSeconds + 1e-4f,
                 $"the bonus can land {worst} s after the clear, leaving the corner {LevelPhases.ClearedBeatSeconds - worst} s to count it in");
 
-            //And the clearing shot's award is seen whole before the bonus takes the read, as a superseded award is
-            foreach (float readLeft in new[] { -1f, 0f, 0.3f, AwardZoom.MIN_READ, 1f, float.MaxValue })
+            //Taking the beat's whole length into its read and no more: a hold that left room over would be a read the owner
+            //was owed and did not get, and one past it would delay the result page or cut the count short
+            Assert.True(LevelPhases.ClearedBeatSeconds - (worst + AwardZoom.BONUS_COUNT_IN) <= 0.05f,
+                $"the bonus's read leaves {LevelPhases.ClearedBeatSeconds - (worst + AwardZoom.BONUS_COUNT_IN)} s of the beat unused");
+
+            //Born at once or a moment after the clear, and the clearing shot's award is not left under it for long: the wait
+            //is the longest of the least read a superseded award is cut to and what is left of the award's read
+            foreach (float readLeft in new[] { -1f, 0f, 0.05f, AwardZoom.BONUS_WAIT_MAX, 1f, float.MaxValue })
             {
                 float wait = AwardZoom.BonusWait(readLeft);
-                Assert.True(wait >= MathF.Min(MathF.Max(readLeft, 0f), AwardZoom.MIN_READ) - 1e-6f,
-                    $"the bonus is born {wait} s after the clear, before the clearing award ({readLeft} s of read left) is read");
+                Assert.True(wait >= MathF.Min(MathF.Max(readLeft, 0f), AwardZoom.BONUS_WAIT_MAX) - 1e-6f,
+                    $"the bonus is born {wait} s after the clear, before the clearing award ({readLeft} s of read left) has had its start");
                 Assert.True(wait <= MathF.Max(readLeft, 0f) + 1e-6f, $"the bonus waits {wait} s on a read that ends in {readLeft} s");
+                Assert.True(wait <= AwardZoom.BONUS_WAIT_MAX + 1e-6f, $"the bonus waits {wait} s, past its {AwardZoom.BONUS_WAIT_MAX} s");
             }
+
+            //The award that cleared the field is still read for the least read any superseded award keeps, whenever the
+            //bonus is born: the handing-on is AgePopups', and it is this that it is told
+            float clearingHold = AwardZoom.Hold(AwardZoom.SMALLEST_POINTS);
+            Assert.True(AwardZoom.HandOff(AwardZoom.BONUS_WAIT_MAX, clearingHold) >= AwardZoom.MIN_READ - 1e-6f,
+                "the clearing award is cut short of its least read when the bonus is born");
+        }
+
+        [Fact]
+        public void TheBonusIsReadLongerThanAnyAwardAndLongEnoughToReadItsWords()
+        {
+            //The owner (#881): "the text shows too briefly". Zoom included, the words stand for a second and a half, and at
+            //their full size for over a second: the three words and the figure, read at a glance with time to spare
+            Assert.True(AwardZoom.BONUS_HOLD >= 1.5f - 1e-6f, $"the bonus is read for {AwardZoom.BONUS_HOLD} s");
+            Assert.True(AwardZoom.BONUS_HOLD - AwardZoom.BIRTH_BIG >= 1.1f, "the bonus stands at its full size for under 1.1 s");
+            Assert.True(AwardZoom.BONUS_HOLD > AwardZoom.Hold(int.MaxValue), "an award is read longer than the bonus");
+        }
+
+        [Fact]
+        public void TheBonusIsNeverDrawnPastItsTallestOrTheTallestAwardFace()
+        {
+            //ReadMax places the bonus's block clear of the crosshair, so no drawing of it may exceed it; and the
+            //tallest of the HUD's faces (LARGEST) is rasterised for the biggest award, which the bonus's longer swell
+            //must not pass
+            foreach (int points in Awards)
+            {
+                float birth = AwardZoom.Birth(points), peak = AwardZoom.Peak(points), hold = AwardZoom.BONUS_HOLD;
+                float readMax = AwardZoom.ReadMax(peak, birth, hold);
+                float top = 0f;
+
+                foreach ((_, float size) in Sampled(points, hold))
+                    top = MathF.Max(top, size);
+
+                Assert.True(top <= readMax + 1e-4f, $"{points} points is drawn at {top} scores, past its ReadMax {readMax}");
+                Assert.True(top >= readMax - 0.01f, $"{points} points never reaches its ReadMax {readMax} (top {top}): the block stands higher than it must");
+                Assert.True(top <= AwardZoom.LARGEST + 1e-4f, $"{points} points is drawn at {top} scores, past LARGEST {AwardZoom.LARGEST}");
+            }
+        }
+
+        [Fact]
+        public void TheBonusCaptionNamesTheBallsThePointsWereAwardedFor()
+        {
+            Assert.Equal("12 UNUSED BALLS", AwardZoom.BonusCaption(12));
+            Assert.Equal("1 UNUSED BALL", AwardZoom.BonusCaption(1));
+            Assert.Equal("123 UNUSED BALLS", AwardZoom.BonusCaption(123));
+
+            //The count it is given is the one the keeper recorded paying for, which is what the run log prints
+            ScoreKeeper keeper = new(shotBudget: 10, ceilingStep: null, levelBalls: 40);
+            for (int i = 0; i < 3; i++) keeper.Shot();
+            keeper.Landed(3, 0);
+            int bonus = keeper.AwardCompletionBonus();
+
+            Assert.True(bonus > 0);
+            Assert.Equal("7 UNUSED BALLS", AwardZoom.BonusCaption(keeper.UnusedShotsAwarded));
+
+            //A level with no budget awards nothing, and the game adds no popup for a zero (GameplayScreen.CheckLevelCleared)
+            ScoreKeeper unlimited = new();
+            Assert.Equal(0, unlimited.AwardCompletionBonus());
         }
 
         [Fact]
