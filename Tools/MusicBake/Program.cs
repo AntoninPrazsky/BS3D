@@ -108,6 +108,11 @@ namespace BS3D.Tools.MusicBake
         private const double QUIET_WINDOW_SECONDS = 0.25;
         private const double QUIET_LIMIT_SECONDS = 6.0;
 
+        //The two limits the refusals read: the constants, unless --gate-scale tightens both for CI's "seen to fire" check
+        //(BestPractices §10), which asks the gate to refuse real recordings and fails the build if it does not
+        private static double _quietLimitSeconds = QUIET_LIMIT_SECONDS;
+        private static float _peakLimit = MusicLevels.MAX_CODEC_PEAK;
+
         //The generated sound effects (#482): the game's effects are baked at 44.1 kHz (ProceduralAudio.SAMPLE_RATE), and
         //a render that is not is refused rather than resampled here. The file is written at a sane peak; the loudness
         //law is the game's own at load, so a chosen sound is stored as it was chosen.
@@ -275,9 +280,20 @@ namespace BS3D.Tools.MusicBake
                 else if (Is(arg, "--quality") && i + 1 < args.Length
                     && float.TryParse(args[++i], NumberStyles.Float, CultureInfo.InvariantCulture, out quality)
                     && quality >= -0.1f && quality < OGG_QUALITY_LIMIT) continue;
+                else if (Is(arg, "--gate-scale") && i + 1 < args.Length
+                    && float.TryParse(args[++i], NumberStyles.Float, CultureInfo.InvariantCulture, out float scale)
+                    && scale > 0f && scale <= 1f)
+                {
+                    //Testing only: CI's "seen to fire" check tightens both refusal limits by the factor and expects
+                    //real recordings to be refused (BestPractices §10)
+                    _peakLimit = MusicLevels.MAX_CODEC_PEAK * scale;
+                    _quietLimitSeconds = QUIET_LIMIT_SECONDS * scale;
+                    Console.WriteLine(FormattableString.Invariant(
+                        $"[gate] limits scaled by {scale}: post-codec peak {Db(_peakLimit):+0.00;-0.00} dBFS, silence {_quietLimitSeconds:0.##} s (a test of the refusals, not a bake)"));
+                }
                 else
                 {
-                    Console.WriteLine("usage: MusicBake [--out <dir>] [--theme <name>] [--no-write] | --tracks [--masters <dir>] [--only <prefix>] [--quality <-0.1..0.59>] [--no-write] | --shipped [--only <prefix>] | --sfx <wav> <name> [--music [--root <midi>] [--bpm <n>]] [--no-write] | --drums <wav> <recording> [--no-write]");
+                    Console.WriteLine("usage: MusicBake [--out <dir>] [--theme <name>] [--no-write] | --tracks [--masters <dir>] [--only <prefix>] [--quality <-0.1..0.59>] [--no-write] | --shipped [--only <prefix>] [--gate-scale <0..1>] | --sfx <wav> <name> [--music [--root <midi>] [--bpm <n>]] [--no-write] | --drums <wav> <recording> [--no-write]");
                     return 2;
                 }
             }
@@ -1227,8 +1243,8 @@ namespace BS3D.Tools.MusicBake
         private static string QuietRefusal(string track, float[] mix, int rate)
         {
             double quiet = LongestQuiet(mix, rate, out double at);
-            return quiet > QUIET_LIMIT_SECONDS
-                ? FormattableString.Invariant($"{track} falls silent for {quiet:0.00} s from {at:0.0} s (under {QUIET_DBFS:0} dBFS) - over the {QUIET_LIMIT_SECONDS:0} s a recording may: REFUSED")
+            return quiet > _quietLimitSeconds
+                ? FormattableString.Invariant($"{track} falls silent for {quiet:0.00} s from {at:0.0} s (under {QUIET_DBFS:0} dBFS) - over the {_quietLimitSeconds:0.##} s a recording may: REFUSED")
                 : null;
         }
 
@@ -1241,8 +1257,8 @@ namespace BS3D.Tools.MusicBake
         /// cure is a trim in the master's sidecar (<see cref="SidecarTrimDb"/>), as for a master too peaky for the loudness.
         /// </summary>
         private static string OvershootRefusal(string track, float codecPeak) =>
-            codecPeak > MusicLevels.MAX_CODEC_PEAK
-                ? FormattableString.Invariant($"{track} decodes to {Db(codecPeak):+0.00} dBFS - over the {Db(MusicLevels.MAX_CODEC_PEAK):+0.00} dBFS the game's {MusicLevels.DECODE_HEADROOM_DB:0.0} dB decode headroom absorbs, so it would clip in play (trim the master in its sidecar): REFUSED")
+            codecPeak > _peakLimit
+                ? FormattableString.Invariant($"{track} decodes to {Db(codecPeak):+0.00;-0.00} dBFS - over the {Db(_peakLimit):+0.00;-0.00} dBFS the game's {MusicLevels.DECODE_HEADROOM_DB:0.0} dB decode headroom absorbs, so it would clip in play (trim the master in its sidecar): REFUSED")
                 : null;
 
         /// <summary>One line of numbers per rendering, with the envelope under it. Returns the integrated loudness.</summary>
