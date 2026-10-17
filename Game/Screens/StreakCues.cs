@@ -47,16 +47,18 @@ namespace BS3D.Screens
         /// <summary>The words said over the aim point when a streak is lost, beside the multiplier that was lost (in the accent, as an award carries its own).</summary>
         public const string LostCaption = "STREAK LOST";
 
-        /// <summary>How long the caption stands, in seconds of the play clock, for a lost ×2 and for a lost cap (<see cref="LostCaptionSeconds"/>).
-        /// A few hundred milliseconds: enough to read three words at a glance, short enough never to stand over the next aim.</summary>
+        /// <summary>How long the caption stands, in seconds of the play clock, at <see cref="Severity"/> 0 (a lost ×1, which is never told, so this
+        /// is the line's anchor and not a caption anyone sees) and at the cap (<see cref="LostCaptionSeconds"/>). The multiplier climbs by
+        /// <see cref="ScoreKeeper.MultiplierStep"/>, so a real break is a lost ×3 or a lost ×5, in the upper half of this range; a pinned <c>streak=</c> run
+        /// can show the values between. A few hundred milliseconds: enough to read three words at a glance, short enough never to stand over the next aim.</summary>
         public const float LOST_CAPTION_LOW_SECONDS = 0.7f, LOST_CAPTION_HIGH_SECONDS = 0.9f;
 
         /// <summary>The last of its time the caption fades out over, in seconds. It is in full from its first frame.</summary>
         public const float LOST_CAPTION_FADE_SECONDS = 0.25f;
 
-        /// <summary>How big the caption settles for the lowest and the highest streak lost, in scores (multiples of the corner score's type, as
-        /// an award's size is, <see cref="AwardZoom"/>): under the 1.5 a bare match zooms to, so the news is read at a glance but is never louder than a
-        /// reward.</summary>
+        /// <summary>How big the caption settles at <see cref="Severity"/> 0 (a lost ×1, never told: the line's anchor) and at the cap, in scores (multiples
+        /// of the corner score's type, as an award's size is, <see cref="AwardZoom"/>): under the 1.5 a bare match zooms to, so the news is read at a
+        /// glance but is never louder than a reward. A real break (a lost ×3 or ×5, see <see cref="LOST_CAPTION_LOW_SECONDS"/>) stands in the upper half.</summary>
         public const float LOST_CAPTION_LOW_SIZE = 1.2f, LOST_CAPTION_HIGH_SIZE = 1.45f;
 
         /// <summary>
