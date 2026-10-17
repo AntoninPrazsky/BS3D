@@ -126,8 +126,8 @@ jobs:
         run: dotnet test Tests/BS3D.Tests/BS3D.Tests.csproj --no-build
 
       # BestPractices.md section 10: a check's answer is evidence only once its failing branch has been seen
-      # to fire. These three were demonstrations run by hand (#588); here they fire on every push, a few
-      # seconds each. --no-build: Game.sln above built both tools, so a nonzero exit is the tool's own.
+      # to fire. These were demonstrations run by hand (#588); here they fire on every push, a few
+      # seconds each (the music's about a minute). --no-build: Game.sln above built both tools, so a nonzero exit is the tool's own.
       # ScoreSim with every ceiling scaled to a quarter must refuse (exit 1, and say OVER CEILING).
       - name: Self-check - the ScoreSim ceiling gate fires
         run: |
@@ -135,6 +135,19 @@ jobs:
           $code = $LASTEXITCODE
           $out
           if ($code -ne 1 -or $out -notmatch 'OVER CEILING') { throw "ScoreSim --ceiling-scale 0.25 exited $code; the ceiling gate did not fire" }
+          exit 0
+
+      # The music's gate with both its limits scaled to a quarter (a peak of -10.5 dBFS, 1.5 s of silence) must refuse
+      # real recordings for both reasons: the shipped set always has recordings over -10.5 dBFS, and deliberate breaks
+      # longer than 1.5 s (mirage-electronica opens on 5.75 s). About a minute, the same decode as the gate above.
+      - name: Self-check - the music gate fires on both limits
+        run: |
+          $out = dotnet run --project Tools/MusicBake/MusicBake.csproj -c Release --no-build -- --shipped --gate-scale 0.25 | Out-String
+          $code = $LASTEXITCODE
+          if ($code -ne 1 -or $out -notmatch 'decodes to .* REFUSED' -or $out -notmatch 'falls silent .* REFUSED') {
+            $out
+            throw "MusicBake --shipped --gate-scale 0.25 exited $code; the peak or the silence refusal did not fire"
+          }
           exit 0
 
       # WindingCheck's self-test feeds it a box flipped on purpose and exits 1 unless both judgements fire.
