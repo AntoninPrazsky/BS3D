@@ -91,13 +91,13 @@ float CraterAmplitude;
 
 //The highland belt: the massifs that ring the mare the island stands on, and the ONLY part of this scene the
 //play camera can see. The reason is geometric and worth stating where the figures are: the gameplay lens sits
-//at GameCameraFit.LENS_FLOOR_Y = -7.9, which is 0.6 units over the island's own deck plane
-//(ArenaIsland.TOP_Y = -8.5), so the deck occludes every ray steeper than ~atan(0.6 / distance-to-the-far-arris)
-//- half a degree of depression at a full map's stand-off. A curved plain's skyline sits 2*sqrt(eyeHeight *
-//Curvature) BELOW the eye - 2.4 degrees at the shipped figures - which is far under that line, so the first
+//at GameCameraFit.LENS_FLOOR_Y = -7.4, which is 1.1 units over the island's own deck plane
+//(ArenaIsland.TOP_Y = -8.5), so the deck occludes every ray steeper than ~atan(1.1 / distance-to-the-far-arris)
+//- about a degree of depression at a full map's stand-off. A curved plain's skyline sits 2*sqrt(eyeHeight *
+//Curvature) BELOW the eye - 2.5 degrees at the shipped figures - which is far under that line, so the first
 //build of this scene played as a black sky over bare stone with no ground in it anywhere. Neither obvious dial
-//reaches: raising MoonLevelY keeps the skyline below the deck even with the plain flush against it (0.8 deg at
-//zero eye height), and slackening Curvature runs the ground out past the grid's edge long before the skyline clears
+//reaches: raising MoonLevelY keeps the skyline below the deck even with the plain flush against it (1.1 deg),
+//and slackening Curvature runs the ground out past the grid's edge long before the skyline clears
 //(see the warning on Curvature). What clears the deck is RELIEF THAT STANDS ABOVE THE LENS - which is exactly
 //why the atmospheric siblings' ground is visible at all: the desert's 14-unit dunes crest at y = +0.5, eight
 //units over the same lens.
