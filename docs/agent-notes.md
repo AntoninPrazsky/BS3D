@@ -1049,3 +1049,9 @@ Pravidla:
 - #877: hodiny `Stalled` počítají snímek nejvýš 4/120 s (co svět stihne); pod 30 fps předtím předbíhaly svět.
 - #872: výstřel na spodní mezi letí v sevřené elevaci (`Cannon.FireDirection`/`FireMuzzle`, i duch), natažení gumy je jen kresba.
 - Log `[cinematic] ended ... (skipped)` se čte před vstupem; komentáře o zpomalení pádu opraveny. Každý test viděn padat.
+
+## 2026-10-17 — #901 hrající kapitola, šest drobností z křížové recenze — desktop (RDT-PC), Claude Code (bs3d-5f)
+- Hotovo (merge c3503441, dda638a3, testy 1744 zelené): #901 kapitola, ze které hraje nahrávka, nese trojúhelník play u levého okraje, ať je zobrazená kterákoli (jas dál značí zobrazenou); #901 zavřeno s důkazem. #898 identity levelů pro High Scores se čtou na vlákně z poolu (`LevelIdentityCache`). #919 `MusicBake --shipped` je třetí brána v build.yml **i v release.yml** (recenze našla, že tag by ji obešel), číslo 78 → 77 z 140. #875 nápis o ztrátě série a bonus berou odstup z měřítka zaměřovače (`Crosshair.PixelsPerUnit`). #893 test hlídá pásmo záběru 0,7–1,1.
+- Poučení: monitor ve spánku = žádné zvukové zařízení (#923), snímek hrající nahrávky jen s dočasným harnessem.
+- Audit čtení disku ve snímku (komentář na #400): nic nad ~25 ms, nic k opravě teď.
+- Karta #874 na stránce verdiktů (20 položek). Otevřené: #887, #890 až pod strop fronty; #896 čeká na volbu majitele.
