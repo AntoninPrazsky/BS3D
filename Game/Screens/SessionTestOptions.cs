@@ -38,7 +38,7 @@ namespace BS3D.Screens
     /// shipped level today. Kept as the raw string: only the session knows the <c>PowerupKind</c> enum it
     /// names, and parses it leniently per level.</param>
     /// <param name="ForceLaserWarning">The <c>lasers</c> argument: pins the floor alarm's laser net on. Reaching it
-    /// honestly means playing a level to within two ceiling steps of losing it, which can no more be scripted
+    /// honestly means playing a level to within three ceiling steps of losing it, which can no more be scripted
     /// than clearing one can.</param>
     /// <param name="StagedLineLossSeconds">The <c>lineloss=</c> argument (#434): seconds into a level at which the
     /// line's loss is staged, or 0 for never. A real one takes a descending ceiling and a couple of dozen shots,

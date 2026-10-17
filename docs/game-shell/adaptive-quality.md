@@ -6,7 +6,7 @@ Part of [The game: shell](../game-shell.md).
 
 ## What it does
 
-- **It measures; it does not recognise the adapter** (a name list cannot see 4K, battery or a shared GPU). The front end is its own probe and **so is every level** (#121): `GameplayScreen.Update` calls it on real time, **never during a drop cinematic**. A menu frame is the lightest of a session, and its preview map (#249) is not the level about to be played.
+- **It measures; it does not recognise the adapter** (a name list cannot see 4K, battery or a shared GPU). The front end is its own probe and **so is every level** (#121): `GameplayScreen.Update` calls it on real time, **never during a camera takeover (the drop cinematic or a chapter intro) and only while the window is active**. A menu frame is the lightest of a session, and its preview map (#249) is not the level about to be played.
 - ⚠ **Exactly half the refresh is a vsync signature, not a cost** (Onion read 37.5 FPS on 75 Hz and was stepped down; retracted in #209: with the vsync gone, #270, it costs 5.96 ms at `High`).
 - **Seconds, not frames** (`QUALITY_WARMUP_SECONDS`, `QUALITY_WINDOW_SECONDS`): a frame count depends on the frame rate.
 - **The floor is the display's refresh** less `QUALITY_REFRESH_MARGIN`, clamped to `QUALITY_MIN_FPS_FLOOR` when the adapter reports none (`SetQualityMinFpsFromRefresh`, the *window's own* monitor, #81): 75 Hz logs `floor 68`. The margin keeps a machine on the frame limiter's cap from tripping on jitter.
