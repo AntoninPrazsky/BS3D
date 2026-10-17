@@ -14,9 +14,10 @@ namespace Prazsky.Core.Render
     /// own period, over <c>GLARE_THRESHOLD</c> so it blooms. Emissive only, like the beacon — it lights
     /// nothing around it, it only shows, which is why this never touches <see cref="SceneLights"/>.
     /// <para>
-    /// Where the beacons on a roof are set to flash <b>together</b>, on the wall clock, because that is how a
-    /// city's warning lights are wired, fireflies are not: each is rolled its own period and phase at
-    /// construction, so the handful of them never beat in unison.
+    /// Where the beacons on a roof flash by <b>cluster</b>, on the wall clock (#902: a period, a phase and a red
+    /// per cluster, picked by where a mast stands, so a neighbourhood's towers share a rhythm and a city's do not),
+    /// each firefly is rolled its own period and phase at construction, so the handful of them never beat in
+    /// unison.
     /// </para>
     /// </summary>
     public sealed class ForestFireflies : IDisposable
