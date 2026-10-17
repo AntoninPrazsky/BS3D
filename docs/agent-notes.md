@@ -981,3 +981,9 @@ Pravidla:
 - Po review: stav blastů v `BlastSlots` (bez zařízení), testy krokují skutečné stáří; výstřel přehraje zbytek 6× rychleji (`HURRY_RATE`) a jen když opravdu vyletí; odměna čeká 0,9 s času světa; extra jiskry se kreslí jen když hoří řez.
 - ⚠ Obnovený `.bak` má staré mtime: MSBuild ho nepřeloží, po podstrčené chybě `touch`.
 - Otevřené: oko majitele, Pi naživo, PresentMon.
+
+## 2026-10-17 — v0.4.0 vydán — desktop (RDT-PC), Claude Code (bs3d-48)
+- **v0.4.0 vydán** bez majitele u klávesnice (jeho pokyn): tag `9ed06dc4` (ed7ce2e4 + snímek), běh Release 39024374391, zip 419,6 MB, linux-arm64 401,3 MB, `SHA256SUMS` ověřen ze staženého zipu, jedna složka s `BS3D.exe` + Content/Levels/Music/Sfx. Notes `Images/releases/v0.4.0.md`, snímek Fish (po úvodním průletu: `shot=24`, při `shot=9,12` je v záběru „Click or Space to skip“). Pi: `update-ceilings.sh` → 159 → 176 tabulí (přestavěné Silhouettes a Quarry), API v0.1.26 už od rána.
+- Před tagem: majitel odpověděl na stránce verdiktů (13 OK, #859 jedno, Vrať #766/#767 → opraveno ve workflow a zmergováno `ed7ce2e4`), krátký smoke na přesném commitu (Sonnet) čistý.
+- ⚠ Monitor usnul → Windows bez zvukového výstupu → každý běh loguje „theme could not be realized … NullReference“, i build ze 16. 10.; stav stroje, ne kód (#923). ⚠ `build.yml` ignoruje `Images/releases/**`, snímkový commit nemá vlastní běh CI.
+- Otevřené: verdikty druhého kola (#766, #767, #781) na stránce; #709 do první skutečné dávky; #922 snímky na web.
