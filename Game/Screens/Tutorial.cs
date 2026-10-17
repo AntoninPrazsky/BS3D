@@ -350,7 +350,7 @@ namespace BS3D.Screens
             //THE KIND CARDS (#735, the owner's playtest notes of 2026-10-03 and 2026-10-07: "a tutorial has to be shown for
             //them as soon as they first appear on the map", and of the wildcard, "I would expect a cue card saying I got a
             //rainbow ball that counts as any colour"). One per kind that can be met, informational, each a shortened
-            //HelpPage.KIND_ENTRIES line checked against BallKind.cs; the Help page keeps the full sentence. In the order
+            //OddBallCopy.Entries line checked against BallKind.cs; the Help page keeps the full sentence. In the order
             //the campaign meets them (glass at level 42, the Silhouettes' Umbrella since #736; buckshot at 93, the bomb at
             //105, the zap at 107, stone at 136; the five after them no shipped level carries yet), which is the order two on
             //one level are shown in.

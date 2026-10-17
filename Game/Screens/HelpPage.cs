@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Myra.Graphics2D;
 using Myra.Graphics2D.UI;
 using Prazsky.BS3D;
+using Prazsky.BS3D.GameObjects;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.Scoring;
 using Prazsky.Core.Tools;
@@ -49,7 +50,11 @@ namespace BS3D.Screens
     /// <b>The odd balls are shown, not only described</b> (#856): each entry has the kind's own ball turning beside it,
     /// drawn live by the game's ball path into the frame's sharp foreground layer (<see cref="DrawForeground"/>), the
     /// layer the host composites over the UI at the end of its Draw (#242) so the page's plate does not dim it. A
-    /// picture cannot go stale as a bitmap would (#771's worry): when a kind's look changes, this changes with it.
+    /// picture cannot go stale as a bitmap would (#771's worry): when a kind's look changes, this changes with it. The
+    /// table is <see cref="OddBallCopy"/> and a test holds it to every kind (#895): the ten the cluster holds, and the two
+    /// the cannon holds under a line of their own — the rainbow ball and the Cutter, drawn as they sit loaded in the gun.
+    /// The rainbow ball cycles its colours here on a cycle of the page's own (<see cref="_cycle"/>), since only a session
+    /// steps the game's.
     /// </para>
     /// </summary>
     internal sealed class HelpPage : MenuPage
@@ -152,6 +157,7 @@ namespace BS3D.Screens
             _tab = _openOn ?? TAB_CONTROLS;
             _openOn = null;
             _pendingTab = -1;
+            _cycleClock = -1f;
             InvalidateTree();
         }
 
@@ -347,6 +353,19 @@ namespace BS3D.Screens
             _ballToWorld = Matrix.Invert(Game.Camera.View);
             _ballSpin = Game.WallClock * BALL_SPIN;
 
+            //The rainbow ball's colours (#895): the page's own cycle, stepped by the wall clock's elapsed time as the game's
+            //is (Magazine.Step's reason: what a loaded ball shows is the gun saying so, not the simulation), and STATED to
+            //the ball set before the aside opens its frame - the set holds one crossing for the whole program, and only a
+            //session states it, so on a Help opened from the main menu an unstated set draws the ball as a plain one of the
+            //first colour. Under a Help opened from the pause the session has drawn its own wildcards already, and states
+            //its crossing afresh before every collection of its own (GameplayScreen), so this one cannot reach them.
+            //A frame that did not draw the page leaves a gap the next one steps across whole (Step loops), and the first
+            //frame after entering steps nothing
+            float now = Game.WallClock;
+            if (_cycleClock >= 0f) _cycle.Step(Math.Max(0f, now - _cycleClock));
+            _cycleClock = now;
+            Game.Balls.SetWildcardCrossing(_cycle.From, _cycle.To, _cycle.Progress, _cycle.Returning);
+
             //An aside of the ball set's, after the backdrop's or the session's own frame: its motion record is kept, so the
             //session's velocity pass still finds its balls under a Help opened from the pause
             Game.Balls.DrawAside(Game.Camera, Game.WallClock, _collectBalls);
@@ -358,10 +377,17 @@ namespace BS3D.Screens
         private float _ballBufferWidth, _ballBufferHeight, _ballSpin;
         private Matrix _ballProjection, _ballToWorld;
 
+        //The rainbow ball's crossing between colours (#895), every colour in the cycle's own order - the page has no cluster
+        //whose colours it should keep to - and the wall clock of the frame that last stepped it (negative: none yet since
+        //the page was entered)
+        private readonly WildcardCycle _cycle = new();
+        private float _cycleClock = -1f;
+
         private void CollectBalls(BallDrawFrame balls)
         {
             for (int i = 0; i < _ballSquares.Length; i++)
             {
+                OddBallCopy.Entry entry = OddBallCopy.Entries[i];
                 Rectangle square = OnDesktop(_ballSquares[i]);
                 if (!square.Intersects(_ballFrameRect) || (BS3DGame.PotatoPath && !_ballFrameRect.Contains(square))) continue;
 
@@ -384,7 +410,9 @@ namespace BS3D.Screens
                 world.M42 = position.Y;
                 world.M43 = position.Z;
 
-                balls.Add(KIND_ENTRIES[i].Colour, position, world, BallRenderSet.UNOCCLUDED, kind: KIND_ENTRIES[i].Kind);
+                //The cannon's two as they sit loaded in it (#895): still, so the rainbow ball does not breathe and the Cutter's
+                //blade idles at its loaded rate - the look the player will see in the bore, which is what this entry is for
+                balls.Add(entry.Colour, position, world, BallRenderSet.UNOCCLUDED, still: entry.InGun, kind: entry.Kind);
             }
         }
 
@@ -502,68 +530,39 @@ namespace BS3D.Screens
                 + "outweighs a streak you could farm by taking longer — that is deliberate."));
         }
 
-        /// <summary>
-        /// What the Balls page says about each kind that is not ordinary (#633), <b>keyed by the kind</b> so the
-        /// list is one place and a check can ask whether every <see cref="BallKind"/> has an entry — #584's
-        /// deferred per-kind check, whose Help half this is. In the order a player meets them: the five the
-        /// campaign places, in the order of their first levels (glass 42, the Silhouettes' Umbrella, since #736;
-        /// buckshot 93, bomb 105, zap 107, stone 136), then the five no shipped level uses yet.
-        /// <see cref="BallKind.Normal"/> needs no entry and the wildcard has its own paragraph, since it arrives in
-        /// the cannon rather than in the cluster.
-        /// <para>
-        /// The look clauses are deliberately short: the looks are being redrawn one kind at a time (#622), and a
-        /// sentence describing a finish that has since changed would be wrong on the one page that explains it.
-        /// </para>
-        /// <para>
-        /// The colour is what the live ball beside the entry is drawn in (#856): any for the kinds that have none of
-        /// their own (the glass takes the first colour to land on it, the pellets, the bomb, the zap and the stone are
-        /// drawn colourless), and a different one down the column for the kinds that keep theirs, so the column reads as
-        /// a set rather than a row of red balls.
-        /// </para>
-        /// </summary>
-        private static readonly (BallKind Kind, BallType Colour, string Text)[] KIND_ENTRIES =
-        {
-            (BallKind.Transparent, BallType.Type3, "Glass — clear, with no colour of its own yet. The first ball that lands against it colours it, "
-                + "and from that moment it is an ordinary ball of that colour. It is a cell you get to choose."),
-            (BallKind.Buckshot, BallType.Type4, "Buckshot — a clump of grey pellets. No colour takes it and the level is not cleared while it "
-                + "hangs: cut away whatever holds it up and it pours out."),
-            (BallKind.Bomb, BallType.Type8, "Bomb — dark, and it beats harder than the cluster around it. Set it off and it destroys its "
-                + "neighbours outright, colour regardless."),
-            (BallKind.Zap, BallType.Type5, "Zap — dark and flickering, with hard bright arcs across it. It fires along a colour rather "
-                + "than a shape."),
-            (BallKind.Rock, BallType.Type4, "Stone — colourless, and it cannot be matched. It never falls to a colour, only to losing "
-                + "whatever was holding it up. A wall of stone is a wall you have to go around."),
-            (BallKind.Acid, BallType.Type2, "Acid — land a shot beside it and it eats straight down through the cluster beneath it until it "
-                + "reaches a gap. Whatever it was holding up comes down with it."),
-            (BallKind.Frozen, BallType.Type1, "Frozen — a coloured ball sealed in a block of ice. Nothing matches it and no shot removes it "
-                + "until you clear a group next to it. Then the ice breaks, and it is an ordinary ball of the colour you "
-                + "could see all along."),
-            (BallKind.Infectious, BallType.Type7, "Infectious — an ordinary ball of its colour, and sick. Every shot you fire, it passes the "
-                + "sickness to one healthy neighbour, the highest one, and hardens into stone itself. Match it away early: "
-                + "the stone it leaves is permanent."),
-            (BallKind.Gravity, BallType.Type6, "Gravity — an ordinary ball that pulls on shots passing near it and bends their flight. The "
-                + "aim preview shows the bend."),
-            (BallKind.Heavy, BallType.Type3, "Heavy — an ordinary ball many times heavier than the rest. Whatever hangs from it sits lower in "
-                + "the cluster, nearer the line."),
-        };
-
-        //The squares the kinds' live balls are drawn in (#856), one per entry, built with the tree; DrawForeground reads
-        //where each stands
-        private readonly Panel[] _ballSquares = new Panel[KIND_ENTRIES.Length];
+        //The squares the kinds' live balls are drawn in (#856), one per entry of OddBallCopy.Entries and at the entry's index,
+        //built with the tree; DrawForeground reads where each stands
+        private readonly Panel[] _ballSquares = new Panel[OddBallCopy.Entries.Length];
 
         private void BuildBalls(VerticalStackPanel column)
         {
             column.Widgets.Add(Paragraph(
                 "Most balls are ordinary. These are not — the first few you will meet as the campaign goes on."));
 
-            //Each kind beside its words (#856): a square at the paragraph's left, top-aligned with its first line, the
-            //words set across the text's width less the square and the gap. The square is a widget so that it takes its
-            //room in the body's flow and the scroller carries it; what is drawn in it is the frame's own ball
-            //(DrawForeground)
+            //The cluster's kinds, then a line of their own, then the two the cannon holds (#895). Which group a kind is in is
+            //the entry's own (OddBallCopy.Entry.InGun) and the table keeps the cluster's first, so the squares stand in the
+            //table's order whichever way this walks it
+            AddOddBalls(column, inGun: false);
+            column.Widgets.Add(Paragraph(OddBallCopy.GunLead));
+            AddOddBalls(column, inGun: true);
+
+            column.Widgets.Add(Aside("And the power-ups — the Swap, the Brake and the Cut — are on the Controls tab.", ProseWidth));
+        }
+
+        /// <summary>
+        /// The entries of one group, each kind beside its words (#856): a square at the paragraph's left, top-aligned with its
+        /// first line, the words set across the text's width less the square and the gap. The square is a widget so that it
+        /// takes its room in the body's flow and the scroller carries it; what is drawn in it is the frame's own ball
+        /// (<see cref="DrawForeground"/>), found again by the entry's index in <see cref="OddBallCopy.Entries"/>.
+        /// </summary>
+        private void AddOddBalls(VerticalStackPanel column, bool inGun)
+        {
             int square = Scaled(BALL_SQUARE), gap = Scaled(BALL_GAP);
 
-            for (int i = 0; i < KIND_ENTRIES.Length; i++)
+            for (int i = 0; i < OddBallCopy.Entries.Length; i++)
             {
+                if (OddBallCopy.Entries[i].InGun != inGun) continue;
+
                 HorizontalStackPanel row = new() { Spacing = gap, HorizontalAlignment = HorizontalAlignment.Left };
 
                 //With the paragraph's own gap under it, so an entry of one line is not a row the next square touches
@@ -575,16 +574,10 @@ namespace BS3D.Screens
                     Margin = new Thickness(0, 0, 0, ParagraphGap),
                 };
                 row.Widgets.Add(_ballSquares[i]);
-                row.Widgets.Add(Paragraph(KIND_ENTRIES[i].Text, ProseWidth - square - gap));
+                row.Widgets.Add(Paragraph(OddBallCopy.Entries[i].Text, ProseWidth - square - gap));
 
                 column.Widgets.Add(row);
             }
-
-            column.Widgets.Add(Paragraph(
-                "And one that arrives in your cannon rather than in the cluster: the rainbow ball, a ball that "
-                + "never settles on a colour while it is loaded. It becomes whatever completes a group where it "
-                + "lands. A few of the later levels hand them out, and a card says so the first time one is loaded."));
-            column.Widgets.Add(Aside("And the power-ups — the Swap, the Brake and the Cut — are on the Controls tab.", ProseWidth));
         }
 
         private void BuildCampaign(VerticalStackPanel column)

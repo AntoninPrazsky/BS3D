@@ -58,6 +58,9 @@
     <Compile Include="..\..\Game\Screens\ScoreText.cs" />
     <!--What the About page says (#807): strings only, held to those rules and to the credits it must keep.-->
     <Compile Include="..\..\Game\Screens\AboutCopy.cs" />
+    <!--What Help's ODD BALLS tab says of each kind (#895): the table keyed by BallKind, strings and kinds only, held to a
+        sentence for every kind a player can meet and to those rules.-->
+    <Compile Include="..\..\Game\Screens\OddBallCopy.cs" />
     <Compile Include="..\..\Game\Screens\FieldTail.cs" />
     <!--A checkbox's tick (#816): which part of each row of pixels two round-ended strokes cover, no device.-->
     <Compile Include="..\..\Game\Screens\CheckTick.cs" />
