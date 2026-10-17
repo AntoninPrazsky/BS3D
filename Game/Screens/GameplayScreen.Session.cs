@@ -225,9 +225,10 @@ namespace BS3D.Screens
         /// <summary>
         /// Counts the attempt open now as left mid-level (#709), with the shots and seconds it had: what
         /// <see cref="TearDown"/> does first, and what the host does on its way out before the online client stops, so the
-        /// change still reaches its outbox. Counts nothing when no attempt is open.
+        /// change still reaches its outbox. Counts nothing when no attempt is open. A run that used the dev build's debug row
+        /// (#876) is counted in <c>Stats.json</c> but not handed to the online play counts, as its ending is not.
         /// </summary>
-        internal void AbandonAttempt() => Game.Stats?.Abandoned(_run.Score.ShotsFired, _run.Seconds);
+        internal void AbandonAttempt() => Game.Stats?.Abandoned(_run.Score.ShotsFired, _run.Seconds, online: !_run.DebugKindLoaded);
 
         /// <summary>The session's own graphics resources, on the way out of the program.</summary>
         internal void DisposeResources()

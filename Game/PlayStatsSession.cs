@@ -1,4 +1,3 @@
-using BS3D.Online;
 using Prazsky.BS3D.Levels;
 using Prazsky.Core.Tools;
 using System;
@@ -13,7 +12,13 @@ namespace BS3D
     /// The game's seam for the play counts (#709): the gameplay screen tells it when an attempt starts, ends on its
     /// result page, is left before it, and when a skip is spent; it counts through <see cref="PlayStatsRecorder"/>
     /// (whose rules are the library's), keeps the totals in <c>Stats.json</c> beside the save, and hands each change to
-    /// the online client, which sends it only while the player has online scores on (<see cref="OnlineSession.SubmitStats"/>).
+    /// the online client, which sends it only while the player has online scores on (<c>OnlineSession.SubmitStats</c>).
+    /// <para>
+    /// <b>A run kept off the boards is kept off the online counts.</b> An ending or a leaving can be told it must stay on
+    /// this machine (<c>online: false</c>, #876: the run used the dev build's debug row): the totals in <c>Stats.json</c>
+    /// still count it, as the save still keeps its record, and nothing of it is handed to the online client. The attempt's
+    /// start, handed over when the level began, is not taken back: online it reads as an attempt that never ended.
+    /// </para>
     /// <para>
     /// <b>Off the frame but for the increments.</b> An event on the frame is a few additions under a lock and one line of
     /// text handed over; a task of its own (<see cref="BackgroundWrite"/>) prints the line, serializes the totals under the
@@ -27,15 +32,17 @@ namespace BS3D
         internal static readonly TimeSpan DisposeWait = TimeSpan.FromMilliseconds(500);
 
         private readonly PlayStatsRecorder _recorder;
-        private readonly Func<OnlineSession> _online;
+        private readonly Action<LevelPlayCounts> _online;
         private readonly BackgroundWrite _file;
 
         /// <summary>Held while the totals change on the frame and while the writer serializes them.</summary>
         private readonly object _lock = new();
 
         /// <param name="path">Where the counts live: <c>Stats.json</c> in the user data folder.</param>
-        /// <param name="online">The online seam, read when a change is handed over (it is replaced by nothing, but built after this).</param>
-        internal PlayStatsSession(string path, Func<OnlineSession> online)
+        /// <param name="online">Where a change goes besides the file - the online client's <c>SubmitStats</c>, which drops it
+        /// unless the player has online scores on. A callback rather than the client itself, which is built after this
+        /// session and which a test has no use for; null hands nothing on.</param>
+        internal PlayStatsSession(string path, Action<LevelPlayCounts> online)
         {
             PlayStats totals = PlayStats.Load(path);
             _recorder = new PlayStatsRecorder(totals);
@@ -75,8 +82,11 @@ namespace BS3D
             lock (_lock) Take(_recorder.Started(level), "started");
         }
 
-        /// <summary>The open attempt reached its result page.</summary>
-        internal void Ended(PlayEnding ending, int shots, float seconds, bool firstClear)
+        /// <summary>
+        /// The open attempt reached its result page. <paramref name="online"/> false counts it here, in the file, and hands
+        /// it to nothing online (#876: a run that used the dev build's debug row).
+        /// </summary>
+        internal void Ended(PlayEnding ending, int shots, float seconds, bool firstClear, bool online = true)
         {
             lock (_lock)
                 Take(_recorder.Ended(ending, shots, seconds, firstClear), ending switch
@@ -84,13 +94,16 @@ namespace BS3D
                     PlayEnding.Cleared => firstClear ? "cleared (first clear)" : "cleared",
                     PlayEnding.OutOfBalls => "lost: out of balls",
                     _ => "lost: the line",
-                });
+                }, online);
         }
 
-        /// <summary>The open attempt was left before its result page; nothing when none is open.</summary>
-        internal void Abandoned(int shots, float seconds)
+        /// <summary>
+        /// The open attempt was left before its result page; nothing when none is open. <paramref name="online"/> as in
+        /// <see cref="Ended"/>.
+        /// </summary>
+        internal void Abandoned(int shots, float seconds, bool online = true)
         {
-            lock (_lock) Take(_recorder.Abandoned(shots, seconds), "abandoned");
+            lock (_lock) Take(_recorder.Abandoned(shots, seconds), "abandoned", online);
         }
 
         /// <summary>The chapter's skip was spent on <paramref name="level"/>.</summary>
@@ -99,8 +112,11 @@ namespace BS3D
             lock (_lock) Take(_recorder.Skipped(level), "skipped");
         }
 
-        /// <summary>One event's change, under the lock: its line and the file to the writer, the change to the online client.</summary>
-        private void Take(LevelPlayCounts change, string what)
+        /// <summary>
+        /// One event's change, under the lock: its line and the file to the writer, the change to the online client unless
+        /// <paramref name="online"/> says it stays on this machine.
+        /// </summary>
+        private void Take(LevelPlayCounts change, string what, bool online = true)
         {
             if (change == null) return;
 
@@ -112,7 +128,7 @@ namespace BS3D
                 + $" {total.Retries} retr{(total.Retries == 1 ? "y" : "ies")}, {total.Clears} clear(s), {total.LostOutOfBalls} out of balls,"
                 + $" {total.LostLine} at the line, {total.Abandons} abandoned, {total.Skips} skip(s), {total.Shots} shot(s), {total.Seconds:0.0} s"));
 
-            _online()?.SubmitStats(change);
+            if (online) _online?.Invoke(change);
         }
 
         /// <summary>Waits <see cref="DisposeWait"/> at most for the last write of the file.</summary>

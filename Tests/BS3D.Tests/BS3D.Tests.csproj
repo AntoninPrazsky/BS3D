@@ -85,6 +85,9 @@
     <Compile Include="..\..\Game\Online\OnlineScores.cs" />
     <Compile Include="..\..\Game\Online\OnlineIdentity.cs" />
     <Compile Include="..\..\Game\Online\ScoreSubmission.cs" />
+    <!--The play counts' seam (#709): what a run kept off the boards hands the online client (#876). It takes the client as a
+        callback, so a recording stand-in answers for it and no device is needed.-->
+    <Compile Include="..\..\Game\PlayStatsSession.cs" />
     <Compile Include="..\..\Game\BuildVersion.cs" />
     <Compile Include="..\..\Game\QualityLevel.cs" />
     <!--#495: the drums layer's mix, pure arithmetic over 16-bit buffers-->

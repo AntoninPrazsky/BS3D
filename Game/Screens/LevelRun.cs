@@ -161,8 +161,10 @@ namespace BS3D.Screens
         /// Whether the dev build's pause row loaded a round into the gun during this attempt (#876). It marks the run: the
         /// ending's one funnel (<c>ShowResultScreen</c>) sends nothing to the online boards for it, because a dev build is not
         /// kept off them by being a dev build - one whose <c>Settings.json</c> names a server submits - and a score reached
-        /// with a round no deal gave must never stand beside a played one. A level's own by construction: a retry builds a
-        /// new run, with the magazine dealt afresh, and starts unmarked.
+        /// with a round no deal gave must never stand beside a played one. Nor does its ending, or its leaving before one,
+        /// reach the online play counts (<c>PlayStatsSession</c>'s <c>online: false</c>); the local <c>Stats.json</c> still
+        /// counts it. A level's own by construction: a retry builds a new run, with the magazine dealt afresh, and starts
+        /// unmarked.
         /// </summary>
         internal bool DebugKindLoaded { get; set; }
 

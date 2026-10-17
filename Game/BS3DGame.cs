@@ -790,7 +790,7 @@ namespace BS3D
 
             //The play counts (#709), beside the save in the same folder, counted whether or not the boards are on; the changes
             //reach the online client, which sends them only while they are
-            _playStats = new PlayStatsSession(UserData.PathTo(PlayStats.DefaultFileName), () => _online);
+            _playStats = new PlayStatsSession(UserData.PathTo(PlayStats.DefaultFileName), change => _online?.SubmitStats(change));
 
             //The notes (#813), whether or not the boards are on: sending one is its own consent. Its worker sends what an
             //earlier run left in the outbox, off this thread
