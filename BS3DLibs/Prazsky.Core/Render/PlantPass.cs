@@ -144,9 +144,7 @@ namespace Prazsky.Core.Render
 
         private void DrawBucket(ScatterBucket bucket)
         {
-            _graphicsDevice.SetVertexBuffers(
-                new VertexBufferBinding(bucket.Mesh.VertexBuffer, 0, 0),
-                new VertexBufferBinding(bucket.Instances, 0, 1));
+            InstanceBinding.Set(_graphicsDevice, bucket.Mesh.VertexBuffer, 0, bucket.Instances, 0);
             _graphicsDevice.Indices = bucket.Mesh.IndexBuffer;
             _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, bucket.Mesh.PrimitiveCount, bucket.Count);
         }
