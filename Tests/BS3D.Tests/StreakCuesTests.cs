@@ -1,6 +1,8 @@
 using BS3D.Screens;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.Scoring;
+using System.IO;
+using System.Text.RegularExpressions;
 using Xunit;
 
 namespace BS3D.Tests
@@ -98,6 +100,46 @@ namespace BS3D.Tests
 
             Assert.True(StreakCues.LOST_CAPTION_CLEARANCE >= reach + StreakCues.LOST_CAPTION_GAP,
                 $"{StreakCues.LOST_CAPTION_CLEARANCE} design units above the middle leaves under {StreakCues.LOST_CAPTION_GAP} units to the crosshair's {reach}");
+        }
+
+        /// <summary>
+        /// #875, the cross-review of 2026-10-17: the clearance above held in <b>pixels</b>, which is what the eye sees, at the
+        /// window heights the game runs at, against the crosshair's own scale (<c>Crosshair.PixelsPerUnit</c>, the viewport's height
+        /// over 2160, which is what <c>Crosshair.Draw</c> multiplies its bars by). The design-unit test above says it of the units; this
+        /// says it of the placement the HUD makes, and holds the gap to a visible one at each height.
+        /// </summary>
+        [Theory]
+        [InlineData(900)]
+        [InlineData(1080)]
+        [InlineData(1600)]
+        [InlineData(2160)]
+        public void The_lost_caption_clears_the_crosshairs_full_strain_in_pixels_at_every_window_height(int height)
+        {
+            float perUnit = Prazsky.Core.Render.Crosshair.PixelsPerUnit(height);
+            float reach = Prazsky.Core.Render.Crosshair.FULL_STRAIN_REACH * perUnit;
+            float clearance = StreakCues.ClearancePixels(height);
+
+            Assert.Equal(height / 2160f, perUnit, 1e-6f);
+            Assert.True(clearance >= reach + StreakCues.LOST_CAPTION_GAP * perUnit - 1e-3f,
+                $"at {height} px the caption's bottom edge is {clearance:F1} px above the middle, the crosshair reaches {reach:F1} px, gap wanted {StreakCues.LOST_CAPTION_GAP * perUnit:F1} px");
+        }
+
+        /// <summary>
+        /// #875: both placements that must clear the crosshair - the lost streak's words and the completion bonus - take their
+        /// clearance from <c>StreakCues.ClearancePixels</c>, the crosshair's own scale, and neither from the HUD's <c>Scaled</c>. The two
+        /// scales are the same in a window wider than about 1.2:1 and differ below it: the HUD's follows the layout height
+        /// (<c>MenuLayoutHeight</c>, shrunk with the width of a narrow window), the crosshair's follows the viewport's height alone, so in a
+        /// 1200x1600 window <c>Scaled(170)</c> is 78 px against the mark's 98 and the words stood over the crosshair. Read as source,
+        /// because <c>PlayHud</c> needs a device (as <see cref="MusicDecodeHeadroomTests"/> reads the voices').
+        /// </summary>
+        [Fact]
+        public void Both_placements_that_clear_the_crosshair_use_its_scale_and_not_the_huds()
+        {
+            string code = Regex.Replace(File.ReadAllText(Path.Combine(
+                Path.GetDirectoryName(Shipped.LevelsDirectory)!, "Screens", "PlayHud.cs")), @"//[^\r\n]*", string.Empty);
+
+            Assert.DoesNotContain("Scaled(StreakCues.LOST_CAPTION_CLEARANCE)", code);
+            Assert.Equal(2, Regex.Matches(code, Regex.Escape("StreakCues.ClearancePixels(viewport.Height)")).Count);
         }
 
         [Fact]

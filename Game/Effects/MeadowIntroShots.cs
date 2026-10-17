@@ -73,8 +73,9 @@ namespace BS3D.Effects
         //looking up at the subject. Over 48 layouts the bales' mean radius was 10.2 with the lens at 0.7 to 1.1 and 10.3 at 0.9
         //to 1.3: it is the subject's height (3.2 for a bale) against the lens's 47 degrees that sets the radius, not the lens's.
         private const float ORBIT_SECONDS = 4.6f;
-        private const float ORBIT_ABOVE_FROM = 0.7f;
-        private const float ORBIT_ABOVE_TO = 1.1f;
+        //(internal: MeadowIntroShotsTests holds the lens to this band - the shot's own, inside the owner's 0.6 to 1.5)
+        internal const float ORBIT_ABOVE_FROM = 0.7f;
+        internal const float ORBIT_ABOVE_TO = 1.1f;
 
         //The lens is never nearer the ground than this, whatever the ground does between the points the path is built at
         private const float LOWEST_LENS = 0.5f;

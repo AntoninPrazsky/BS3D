@@ -108,6 +108,16 @@ jobs:
       - name: Run ScoreSim
         run: dotnet run --project Tools/ScoreSim/ScoreSim.csproj
 
+      # The music's gate (#919, #772): MusicBake --shipped decodes every committed recording through the game's own
+      # OggTrack (NVorbis, in process - no ffmpeg, no masters, no model) and exits 1 on one whose post-codec peak is over
+      # MusicLevels.MAX_CODEC_PEAK, which the game's decode headroom could not absorb, or that falls silent for longer
+      # than QUIET_LIMIT_SECONDS. A re-baked recording that clips used to be found by ear. --no-build: the Release build of
+      # Game.sln above built the tool; about a minute for the 140 recordings.
+      - name: Check the shipped music (MusicBake --shipped)
+        run: |
+          dotnet run --project Tools/MusicBake/MusicBake.csproj -c Release --no-build -- --shipped
+          if ($LASTEXITCODE -ne 0) { throw "MusicBake --shipped refused a recording (exit $LASTEXITCODE)" }
+
       # The logic tests (#586): the invariants the libraries state "by construction" - the neighbour rule, one
       # constraint per pair, the legacy padding's parity, the level round-trip, the save outcomes, the atomic
       # write, the scoring mechanics and the top-level ceiling anchor of #561. Game.sln above built the project;

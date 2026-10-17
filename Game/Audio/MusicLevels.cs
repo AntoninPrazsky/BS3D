@@ -7,8 +7,9 @@ namespace BS3D.Audio
     /// <para>
     /// <b>A recording is decoded 1.5 dB down and its voice is played that much up.</b> <c>MusicBake</c> brings a theme to
     /// −15 dBFS RMS and keeps every sample under full scale in the PCM it encodes, but Ogg Vorbis is lossy and overshoots:
-    /// the shipped set decodes to as much as +0.90 dBFS (<c>pulse-synthpop</c>), 41 960 samples over full scale in all, on
-    /// 78 of the 140 recordings, and a sample over full scale has nowhere to go but the rail, which is a run of clipped
+    /// the shipped set decodes to as much as +0.90 dBFS (<c>pulse-synthpop</c>), with samples over full scale on more than
+    /// half of the recordings (78 of the 140, 41 960 samples in all, when #919 measured it; <c>MusicBake --shipped</c> prints
+    /// today's count, and CI runs it), and a sample over full scale has nowhere to go but the rail, which is a run of clipped
     /// samples wherever the music is sparse and peaky (music box, celesta, piano, harp, waltz). Scaling the decoded float
     /// by <see cref="DECODE_HEADROOM"/> before it becomes 16 bits leaves the largest overshoot measured at −0.6 dBFS, and
     /// each voice's volume is its authored level over the same factor (<see cref="THEME_VOICE"/>), so what comes out of the
