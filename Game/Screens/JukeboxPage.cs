@@ -27,9 +27,16 @@ namespace BS3D.Screens
     /// </para>
     /// <para>
     /// Two columns: the chapters on the left, the chosen chapter's recordings on the right over
-    /// the visualizer and the player's buttons — so the pad walks fifteen chapters and ten recordings, not a scroller of
-    /// a hundred and forty. Picking a chapter shows its recordings; picking a recording plays it. Leaving the page stops
-    /// it, and the game's own music, which stepped aside, comes back.
+    /// the visualizer, the now-playing line and the player's buttons, in that order — so the pad walks fifteen chapters
+    /// and ten recordings, not a scroller of a hundred and forty. Picking a chapter shows its recordings; picking a
+    /// recording plays it. Leaving the page stops it, and the game's own music, which stepped aside, comes back.
+    /// </para>
+    /// <para>
+    /// <b>The now-playing line</b> (#900) names the chapter, the recording and its place in the chapter ("The Silhouettes ·
+    /// Harpsichord · 4 / 10"), or says "Pick a recording" before one is chosen. It stands under the visualizer and over
+    /// the buttons that change it, is the column's width and ends in an ellipsis rather than widen it, and is not a nav
+    /// entry. It is rewritten by <see cref="ShowPlayer"/> when the player's state changes: a pick, Next and Previous move
+    /// the player's index, and a loop's wrap (#899) does not, since the same recording goes on, so the line stands as it is.
     /// </para>
     /// <para>
     /// <b>Picking a chapter does not rebuild the page</b> (#901): the recordings' column is cleared and refilled in place
@@ -153,14 +160,6 @@ namespace BS3D.Screens
         {
             VerticalStackPanel right = SubColumn();
 
-            _nowPlaying = new Label
-            {
-                Font = FontBody,
-                TextColor = BS3DGame.MENU_TEXT,
-                HorizontalAlignment = HorizontalAlignment.Center,
-            };
-            right.Widgets.Add(_nowPlaying);
-
             _tracks = SubColumn();
             FillTracks();
 
@@ -173,6 +172,23 @@ namespace BS3D.Screens
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Palette = Game.Birthday ? MusicVisualizer.VisualizerPalette.Spectrum : MusicVisualizer.VisualizerPalette.Led,
             });
+
+            //What is playing stands under the bars that show it and over the buttons that change it (#900): above the list
+            //it read as the list's heading. A fixed width, the column's, and an ellipsis for what will not fit it: a label
+            //left at its text's extent widens the whole column, and the plate round it, for a long chapter's name beside a
+            //long recording's title, as the level picker's detail line did before it was bound (#539). It is not a nav
+            //entry, so the pad's walk is the order of the buttons alone and is the same wherever the line stands.
+            _nowPlaying = new Label
+            {
+                Font = FontBody,
+                TextColor = BS3DGame.MENU_TEXT,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                TextAlign = FontStashSharp.RichText.TextHorizontalAlignment.Center,
+                AutoEllipsisMethod = FontStashSharp.RichText.AutoEllipsisMethod.Character,
+                AutoEllipsisString = "…",
+                Width = ColumnWidth,
+            };
+            right.Widgets.Add(_nowPlaying);
 
             HorizontalStackPanel controls = new()
             {
