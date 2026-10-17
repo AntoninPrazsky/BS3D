@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-17 — #923 žádné zvukové zařízení: jedna věta místo NullReference — desktop (RDT-PC), Claude Code (bs3d-48)
+- `Audio/AudioDevice.Present` zkusí jednou vytvořit streamovací hlas; bez zařízení (monitor spí) řekne `[audio] no audio device …` a hudba, ambient, Jukebox i About přehrávač to přeskočí, nic se nedekóduje. Null byl v `SharpDX SourceVoice.CreateSourceVoice` (statické zařízení MonoGame je null).
+- Efekty brány nepotřebují: bez zařízení jsou `SoundEffect` instance nečinné (běh se střelbou a výsledkem bez výjimky). Zařízení objevené později MonoGame nepoužije, pomůže restart.
+- ⚠ Hlasitost ani cesta tvorby hlasů se v normálním běhu nemění, kromě jednoho zkušebního hlasu při startu; nesloucháno.
+
 ## 2026-10-17 — #851 #849 předvydávací kontrola v0.4.0 na notebooku — ThinkPad, Claude Code (fable-4f42)
 - Release build mainu 188dda1b na čistém profilu (`userdata=`): front end, level 2 se střelbou, Potato (level 12), Cut v okně 1600×900 (level 42), všechny stránky menu, výsledek i prohra — bez výjimky, bez crash souboru, žádný ignorovaný argument; 1310 testů prošlo. Sonda jde ve fullscreen 1080p High → Medium → Low; Low drží v levelu 44–60 FPS, Potato 60.
 - Tabulka tierů znovu změřena (Low 2×, Medium 1×): všechno o 4–20 % dráž, ale build tabulky e0c9a833 měřený tentýž den střídavě s mainem čte stejně → den, ne kód; zapsáno v `docs/game-shell/quality-measurements.md`. Colossus po #849: 13,83 / 21,23 ms.

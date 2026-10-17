@@ -263,20 +263,26 @@ namespace BS3D.Audio
         {
             string directory = Path.Combine(AppContext.BaseDirectory, MUSIC_DIRECTORY);
 
+            //No audio device (#923): nothing below could ever be played, so nothing is decoded - the family list is still
+            //built from the folder's file names, because the pages read it, and every later call returns at _failed
+            bool audible = AudioDevice.Present;
+            _failed = !audible;
+            if (!audible) _fanfares.Disable();
+
             //The lobby first: it is what the splash hands over to, and every load below queues on the same pool —
             //on a machine with fewer cores than tracks, whatever is handed over last decodes last
-            _menuLoad = Load(Path.Combine(directory, MENU_TRACK + TRACK_EXTENSION));
+            if (audible) _menuLoad = Load(Path.Combine(directory, MENU_TRACK + TRACK_EXTENSION));
 
             //The pause's loop after it (#668). A missing file is not an error: the pause then keeps the theme, as it
             //always did, rather than falling silent
             string pause = Path.Combine(directory, PAUSE_TRACK + TRACK_EXTENSION);
-            if (File.Exists(pause)) _pauseLoad = Load(pause);
+            if (audible && File.Exists(pause)) _pauseLoad = Load(pause);
 
             string victory = Path.Combine(AppContext.BaseDirectory, SFX_DIRECTORY, VICTORY_FILE + TRACK_EXTENSION);
-            if (File.Exists(victory)) _victoryLoad = LoadVictory(victory);
+            if (audible && File.Exists(victory)) _victoryLoad = LoadVictory(victory);
 
             string defeat = Path.Combine(AppContext.BaseDirectory, SFX_DIRECTORY, DEFEAT_FILE + TRACK_EXTENSION);
-            if (File.Exists(defeat)) _defeatLoad = LoadVictory(defeat);
+            if (audible && File.Exists(defeat)) _defeatLoad = LoadVictory(defeat);
 
             //Every recording in the folder, grouped into families by the name before its first dash (#486): the
             //file names only — nothing is decoded until a family is asked for.
@@ -932,7 +938,7 @@ namespace BS3D.Audio
             }
             catch (Exception exception)
             {
-                Console.WriteLine($"[music] the theme could not be realized (no audio device?), playing on without it: {exception.Message}");
+                Console.WriteLine($"[music] the theme could not be realized, playing on without it: {exception.Message}");
                 _failed = true;
             }
         }
