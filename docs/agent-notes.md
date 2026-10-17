@@ -20,6 +20,14 @@ Pravidla:
 
 ---
 
+## 2026-10-17 — #851 #849 předvydávací kontrola v0.4.0 na notebooku — ThinkPad, Claude Code (fable-4f42)
+- Release build mainu 188dda1b na čistém profilu (`userdata=`): front end, level 2 se střelbou, Potato (level 12), Cut v okně 1600×900 (level 42), všechny stránky menu, výsledek i prohra — bez výjimky, bez crash souboru, žádný ignorovaný argument; 1310 testů prošlo. Sonda jde ve fullscreen 1080p High → Medium → Low; Low drží v levelu 44–60 FPS, Potato 60.
+- Tabulka tierů znovu změřena (Low 2×, Medium 1×): všechno o 4–20 % dráž, ale build tabulky e0c9a833 měřený tentýž den střídavě s mainem čte stejně → den, ne kód; zapsáno v `docs/game-shell/quality-measurements.md`. Colossus po #849: 13,83 / 21,23 ms.
+- #851: při 125 % hlásí `[display] … scale 125 % (120 DPI)`, testovací poznámka (lokálně, neodeslána) nese resolution 1920x1080, scale 1.5, dpiAware true; komentář v issue.
+- ⚠ `SystemParametersInfo(0x9F, n)` přepíná škálování relativně k doporučenému (0 = 125 % tady, −1 jako 0xFFFFFFFF = 100 %); krok +1 skočil na 150 %.
+- ⚠ Po 30 min souvislého měření čte APU o 1–2 ms víc; minimum ze dvou pasáží drží.
+- Otevřené: tag v0.4.0 (čeká na odpovědi majitele na stránce verdiktů).
+
 ## 2026-10-16 — #781 hory na High a Ultra — desktop (RDT-PC), Claude Code (bs3d-ac)
 - majitel (2026-10-15): odparkováno do příštího vydání (hory, kapitola 4).
 - Hotovo (větev `781-mountain-detail`): High a Ultra kreslí `MountainFine` na dvakrát jemnější mřížce. Pole má šestou oktávu vycentrovanou na střed hřebene a hroty na svazích. Skála se stínuje ve 3D: reliéf, ukloněné vrstvy s římsami, na které si sníh lehne sám, a laminy. Low, Medium a Potato zůstávají beze změny. Program je o 3,3 ms levnější než dřív (Game, Belfry, 4K, High 14,73 → 11,31 ms).
