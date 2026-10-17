@@ -186,20 +186,38 @@ namespace Prazsky.Core.Render
         public BirdsConfig Birds => _savannaConfig.Birds;
 
         /// <summary><see cref="SceneRenderer.SavannaCampfireCount"/>.</summary>
-        public int CampfireCount => Math.Clamp(_savannaConfig.Campfire.Count, 1, SceneLights.MaxLights);
+        public int CampfireCount => CampfireRingCount(_savannaConfig);
+
+        /// <summary>How many fires ring the island for <paramref name="config"/>, capped to the scene-light budget.</summary>
+        internal static int CampfireRingCount(SavannaSceneConfig config) =>
+            Math.Clamp(config.Campfire.Count, 1, SceneLights.MaxLights);
 
         /// <summary><see cref="SceneRenderer.SavannaCampfirePosition"/>.</summary>
-        public Vector3 CampfirePosition(int index)
+        public Vector3 CampfirePosition(int index) =>
+            CampfireRingPoint(_savannaConfig, index, _savannaConfig.Campfire.HeightAboveTerrain);
+
+        /// <summary><see cref="SceneRenderer.SavannaCampfireLightPosition"/>.</summary>
+        public Vector3 CampfireLightPosition(int index) =>
+            CampfireRingPoint(_savannaConfig, index, _savannaConfig.Campfire.LightHeightAboveTerrain);
+
+        /// <summary>
+        /// Where fire <paramref name="index"/> of the ring stands, <paramref name="heightAboveTerrain"/> over the ground
+        /// under it: the one copy of the ring's rule, which the flame, the grass's light and the light the island, the
+        /// gun and the balls take (#885) all read, each at its own height. Static and device-free, so a test can state
+        /// what the lights do without a graphics device.
+        /// </summary>
+        internal static Vector3 CampfireRingPoint(SavannaSceneConfig config, int index, float heightAboveTerrain)
         {
-            Vec2 anchor = _savannaConfig.Campfire.GroundXZ;
+            CampfireConfig fires = config.Campfire;
+            Vec2 anchor = fires.GroundXZ;
 
             float radius = MathF.Sqrt(anchor.X * anchor.X + anchor.Y * anchor.Y);
-            float angle = MathF.Atan2(anchor.Y, anchor.X) + index * MathHelper.TwoPi / CampfireCount;
+            float angle = MathF.Atan2(anchor.Y, anchor.X) + index * MathHelper.TwoPi / CampfireRingCount(config);
 
             float x = MathF.Cos(angle) * radius;
             float z = MathF.Sin(angle) * radius;
 
-            return new Vector3(x, GroundHeight(x, z) + _savannaConfig.Campfire.HeightAboveTerrain, z);
+            return new Vector3(x, TerrainMirror.Savanna(x, z, config) + heightAboveTerrain, z);
         }
 
         /// <summary><see cref="SceneRenderer.SavannaCampfireRange"/>.</summary>

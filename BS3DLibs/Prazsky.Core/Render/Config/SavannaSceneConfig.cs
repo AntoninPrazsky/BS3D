@@ -378,8 +378,30 @@ namespace Prazsky.Core.Render
         /// </summary>
         public int Count { get; set; } = 8;
 
-        /// <summary>Height above the terrain at that spot (the light/flame sits just above the ground).</summary>
+        /// <summary>
+        /// Height above the terrain at that spot of the flame's base and of the <b>grass's</b> light, which sit just
+        /// above the ground. The light the island, the gun and the balls take is <see cref="LightHeightAboveTerrain"/>.
+        /// </summary>
         public float HeightAboveTerrain { get; set; } = 0.2f;
+
+        /// <summary>
+        /// Where the light the island, the gun and the balls take stands over the ground, as a multiple of the flame's
+        /// own height (<see cref="FlameSize"/> times <see cref="FlameHeightScale"/>), so a light belongs to the fire it
+        /// is in, as the hearth does (#885). <b>It has to stand above the island's top plate</b>
+        /// (<c>ArenaIsland.TOP_Y</c>, 5 to 8 units over the ground the fires stand on): a point light below an up-facing
+        /// surface has N.L at or under zero there, so at <see cref="HeightAboveTerrain"/> the ring lit the coping and the
+        /// drum, which face outward, and never the plate round the gun. The flame and the grass's light stay on the
+        /// ground, where the fire is; see <see cref="LightHeightAboveTerrain"/>.
+        /// </summary>
+        public float LightHeightScale { get; set; } = 0.65f;
+
+        /// <summary>
+        /// The height over the terrain of the light the island, the gun and the balls take (#885): the flame's height
+        /// times <see cref="LightHeightScale"/>, in world units. The one the instanced effect's scene-light loop reads;
+        /// <see cref="HeightAboveTerrain"/> stays the flame's base and the grass's light.
+        /// </summary>
+        [JsonIgnore]
+        public float LightHeightAboveTerrain => FlameSize * FlameHeightScale * LightHeightScale;
 
         /// <summary>Point-light range (quadratic distance falloff).</summary>
         public float Range { get; set; } = 32f;

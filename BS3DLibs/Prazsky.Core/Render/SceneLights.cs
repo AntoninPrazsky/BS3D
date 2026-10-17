@@ -23,9 +23,12 @@ namespace Prazsky.Core.Render
     /// <see cref="SceneRenderer"/>'s <c>DrawSavanna</c> writes the same four uniform names on its own grass
     /// effect with the count hard-set to 1, out of its own arrays; that is a different effect with a different
     /// count, so this class must not try to own it and the two must not be unified. What the two paths do
-    /// share is the campfire itself — <see cref="SceneRenderer.SavannaCampfirePosition"/>,
-    /// <see cref="SceneRenderer.SavannaCampfireRange"/> and <see cref="SceneRenderer.CampfireColor"/> — which
-    /// is what keeps the light on the grass and the light on the balls in step.
+    /// share is the campfire itself — its colour and range (<see cref="SceneRenderer.CampfireColor"/>,
+    /// <see cref="SceneRenderer.SavannaCampfireRange"/>) and its bearing and ground — which is what keeps the
+    /// light on the grass and the light on the balls in step. The <b>height</b> is the one thing they do not share
+    /// (#885): the grass takes <see cref="SceneRenderer.SavannaCampfirePosition"/>, at the ground, and this class
+    /// takes <see cref="SceneRenderer.SavannaCampfireLightPosition"/>, raised to where the flame stands over the
+    /// island's top plate.
     /// </para>
     /// <para>
     /// A host that wants no scene lights simply never constructs this: the map editor does not, so
@@ -160,12 +163,15 @@ namespace Prazsky.Core.Render
             {
                 //The ring of campfires on the grass around the island, each flickering off the same wall clock
                 //its own flame billboard does — one clock, so a light and its fire cannot fall out of step,
-                //and each fire's own phase, so the ring does not beat in unison.
+                //and each fire's own phase, so the ring does not beat in unison. The position is the RAISED one
+                //(#885): the fires burn on the ground below the island's top plate, and a light below a surface
+                //lights nothing on its up face, so at the ground point the ring lit the coping and the drum and
+                //never the plate the gun stands on. The grass's own loop (DrawSavanna) stays on the ground point.
                 count = sceneRenderer.SavannaCampfireCount;
 
                 for (int fire = 0; fire < count; fire++)
                 {
-                    _lightPosition[fire] = sceneRenderer.SavannaCampfirePosition(fire);
+                    _lightPosition[fire] = sceneRenderer.SavannaCampfireLightPosition(fire);
                     _lightColor[fire] = sceneRenderer.CampfireColor(wallClock, fire);
                     _lightRange[fire] = sceneRenderer.SavannaCampfireRange;
                 }

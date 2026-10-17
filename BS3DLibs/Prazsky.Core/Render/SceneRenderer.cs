@@ -543,6 +543,16 @@ namespace Prazsky.Core.Render
         /// </summary>
         public Vector3 SavannaCampfirePosition(int index) => _savanna.CampfirePosition(index);
 
+        /// <summary>
+        /// Where fire <paramref name="index"/>'s light stands for everything drawn through the shared instanced effect
+        /// (#885): the island, the gun, the balls. The same bearing and ground as <see cref="SavannaCampfirePosition"/>,
+        /// raised <c>CampfireConfig.LightHeightAboveTerrain</c> over the ground instead of
+        /// <c>HeightAboveTerrain</c>. The fires burn on the ground, 5 to 8 units below the island's top plate, and a
+        /// light below a surface lights nothing on the surface that faces up: raised to the height the flame stands at
+        /// above the plate, it does. The flame and the grass's own light stay on the ground point.
+        /// </summary>
+        public Vector3 SavannaCampfireLightPosition(int index) => _savanna.CampfireLightPosition(index);
+
         /// <summary>The campfire point-light range (quadratic distance falloff), shared by every fire.</summary>
         public float SavannaCampfireRange => _savanna.CampfireRange;
 
