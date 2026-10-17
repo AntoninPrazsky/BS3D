@@ -404,10 +404,17 @@ namespace Prazsky.Core.Render
         /// <summary>Beyond this distance the dishes and the 5G poles are not drawn. Masts and their beacons always are.</summary>
         public float EquipmentDistance { get; set; } = 320f;
 
-        /// <summary>Seconds between two flashes of the masts' aircraft-warning beacons.</summary>
+        /// <summary>
+        /// Seconds between two flashes of the masts' aircraft-warning beacons, for the first of the eight clusters they
+        /// flash in (#902); the others run at 0.75 to 1.02 times this, so a longer period than 1.6 s needs the rooftop
+        /// intro's "three flashes in five seconds" (chapter-intro-prologues.md) looked at again.
+        /// </summary>
         public float BeaconPeriod { get; set; } = 1.6f;
 
-        /// <summary>Peak radiance of a beacon's flash, linear; over the glare threshold, so each one blooms.</summary>
+        /// <summary>
+        /// Peak radiance of a beacon's flash, linear, before its cluster's own shade of red (green 0.03 to 0.16): over
+        /// the glare threshold at every one of them, so each one blooms.
+        /// </summary>
         public float BeaconBrightness { get; set; } = 3.2f;
 
         /// <summary>How brightly a dish's neon ring burns in the neon city, as a multiple of the neon lights' colours.</summary>

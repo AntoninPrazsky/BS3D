@@ -32,6 +32,13 @@ namespace Prazsky.Core.Render
     /// one, where the dishes also wear a ring of the neon's own magenta or cyan round their rims.
     /// </para>
     /// <para>
+    /// <b>The beacons flash in clusters, not together</b> (#902: "such synchronisation across a whole city is improbable"):
+    /// <see cref="BEACON_CLUSTERS"/> kinds over the one beacon mesh, each with its own renderer, period, phase and shade of
+    /// red, and a mast's beacon goes to the cluster its foot's <see cref="BEACON_CELL"/> hashes to
+    /// (<see cref="BeaconCluster"/>), so a neighbourhood's towers share a rhythm and the city does not. That costs a draw
+    /// per cluster instead of one, and no shader channel: the tint is read at each <c>Draw</c>.
+    /// </para>
+    /// <para>
     /// <b>Sky-lit enrolment and the frame sequence stay the caller's</b>, as they do for
     /// <see cref="ForestScatterRenderer"/>: <see cref="Renderers"/> is the one array the enrolment and the
     /// disposal walk, and <see cref="Draw"/> touches no GPU state and gates on no scene — the caller draws it
@@ -56,7 +63,86 @@ namespace Prazsky.Core.Render
         //The two dish elevations built, radians: low and high on the arc
         private static readonly float[] DISH_ELEVATIONS = { 0.52f, 0.84f };
 
-        private enum Kind { MastRed, MastWhite, Beacon, Dish0, Dish1, Sector, Hvac, Ring0Magenta, Ring0Cyan, Ring1Magenta, Ring1Cyan, Count }
+        //The beacons are eight kinds over one mesh, one per flashing cluster (#902: BEACON_CLUSTERS counts them off these, and
+        //the three BEACON_ tables below need an entry each: the tests ask every cluster). The rings stay last: Draw tells
+        //them by `>= Ring0Magenta`.
+        private enum Kind
+        {
+            MastRed, MastWhite, Beacon0, Beacon1, Beacon2, Beacon3, Beacon4, Beacon5, Beacon6, Beacon7,
+            Dish0, Dish1, Sector, Hvac, Ring0Magenta, Ring0Cyan, Ring1Magenta, Ring1Cyan, Count
+        }
+
+        /// <summary>How many clusters the masts' beacons are split into, each flashing on a clock of its own (#902).</summary>
+        internal const int BEACON_CLUSTERS = (int)Kind.Beacon7 - (int)Kind.Beacon0 + 1;
+
+        /// <summary>
+        /// The side, in world units, of the square cells a mast's beacon cluster is hashed from (#902): two of the day city's
+        /// blocks (2.4 of the neon city's), so the towers of a neighbourhood flash to one rhythm and the next neighbourhood to
+        /// another, with about a hundred and fifty cells across a city and a mast or two in each.
+        /// </summary>
+        internal const float BEACON_CELL = 60f;
+
+        //The share of a beacon's period it is lit for, as it always was: a short flash, then dark
+        private const float BEACON_ON = 0.22f;
+
+        //Each cluster's own flash (#902), indexed by cluster; cluster 0 is the one beacon the city had before, to the bit.
+        //The period is a share of RooftopConfig.BeaconPeriod, 0.75 to 1.02: ±25 % round the 1.6 s #619 ruled a readable
+        //blinker would put some past the 1.67 s the rooftop intro's three flashes in five seconds allow (chapter-intro-
+        //prologues.md), so the spread is taken down from it instead (1.2 to 1.63 s). The phase is a share of the
+        //cluster's own period, the golden-ratio sequence so that no two clusters start close. The green of the red runs
+        //0.03 to 0.16: a deep red to an orange-red, every one over GLARE_THRESHOLD at BeaconBrightness (the test holds
+        //the margin). The order is scrambled on purpose: the hash picks a cluster, so the table's neighbours are not
+        //the city's.
+        private static readonly float[] BEACON_PERIOD_SHARE = { 1.00f, 0.78f, 0.90f, 1.02f, 0.84f, 0.96f, 0.75f, 0.93f };
+        private static readonly float[] BEACON_PHASE = { 0.000f, 0.618f, 0.236f, 0.854f, 0.472f, 0.090f, 0.708f, 0.326f };
+        private static readonly float[] BEACON_GREEN = { 0.08f, 0.03f, 0.14f, 0.05f, 0.16f, 0.11f, 0.065f, 0.13f };
+
+        //The red channel and the blue of every beacon's red; the green is the cluster's own
+        private const float BEACON_RED_R = 1f, BEACON_RED_B = 0.03f;
+
+        /// <summary>One beacon cluster's red at its peak, before <see cref="RooftopConfig.BeaconBrightness"/> (#902).</summary>
+        internal static Vector3 BeaconRed(int cluster) => new(BEACON_RED_R, BEACON_GREEN[cluster], BEACON_RED_B);
+
+        /// <summary>The length of one beacon cluster's period in seconds, from the config's <paramref name="period"/> (#902).</summary>
+        internal static float BeaconPeriodOf(int cluster, float period) => MathF.Max(0.1f, period) * BEACON_PERIOD_SHARE[cluster];
+
+        /// <summary>
+        /// How lit one cluster's beacons are at <paramref name="seconds"/> on the wall clock, 0 (dark) to 1 (the peak of the
+        /// flash): a sine over the first <see cref="BEACON_ON"/> of the cluster's own period, shifted by its own phase (#902).
+        /// </summary>
+        internal static float BeaconFlash(int cluster, float seconds, float period)
+        {
+            float phase = seconds / BeaconPeriodOf(cluster, period) + BEACON_PHASE[cluster];
+            phase -= MathF.Floor(phase);
+            return phase < BEACON_ON ? MathF.Sin(phase / BEACON_ON * MathHelper.Pi) : 0f;
+        }
+
+        /// <summary>
+        /// The cluster a mast's beacon flashes with (#902): a hash of the <see cref="BEACON_CELL"/> its foot stands in and of
+        /// the dressing <paramref name="seed"/>, so neighbouring towers share a rhythm. <b>Only the foot's position goes
+        /// in, never the roof's random stream</b>: the mast is rolled first on that stream, and a draw from it for the
+        /// cluster would shift every later roll and dress the whole city anew (<see cref="Dress"/>). An integer mix, like
+        /// <see cref="RoofSeed"/>, the same on every run and machine.
+        /// </summary>
+        internal static int BeaconCluster(float footX, float footZ, int seed)
+        {
+            unchecked
+            {
+                int cellX = (int)MathF.Floor(footX / BEACON_CELL), cellZ = (int)MathF.Floor(footZ / BEACON_CELL);
+                uint h = (uint)seed * 0x9E3779B1u;
+                h ^= (uint)cellX * 0x85EBCA6Bu;
+                h = (h << 13) | (h >> 19);
+                h ^= (uint)cellZ * 0xC2B2AE35u;
+                h ^= h >> 16;
+                h *= 0x7FEB352Du;
+                h ^= h >> 15;
+                h *= 0x846CA68Bu;
+                h ^= h >> 16;
+                return (int)(((ulong)h * BEACON_CLUSTERS) >> 32);
+            }
+        }
+
+        private static bool IsBeacon(int kind) => kind >= (int)Kind.Beacon0 && kind < (int)Kind.Beacon0 + BEACON_CLUSTERS;
 
         //What a kind is drawn in: painted steel for the equipment, the mast's two colours, the beacon's lamp
         private static readonly Vector3 PAINTED = new(0.60f, 0.61f, 0.60f);
@@ -64,7 +150,6 @@ namespace Prazsky.Core.Render
         private static readonly Vector3 MAST_RED = new(0.62f, 0.10f, 0.07f);
         private static readonly Vector3 MAST_WHITE = new(0.74f, 0.74f, 0.72f);
         private static readonly Vector3 LAMP = new(0.35f, 0.04f, 0.03f);
-        private static readonly Vector3 BEACON_RED = new(1f, 0.08f, 0.03f);
         private static readonly Vector3 RING_BODY = new(0.05f, 0.05f, 0.05f);
 
         private readonly GraphicsDevice _device;
@@ -216,7 +301,7 @@ namespace Prazsky.Core.Render
             _renderers[(int)Kind.Dish1] = Painted(_meshes[(int)Kind.Dish1], PAINTED);
             _renderers[(int)Kind.Sector] = Painted(_meshes[(int)Kind.Sector], PAINTED);
             _renderers[(int)Kind.Hvac] = Painted(_meshes[(int)Kind.Hvac], HVAC_GREY);
-            _renderers[(int)Kind.Beacon] = Painted(_beaconMesh, LAMP);
+            for (int c = 0; c < BEACON_CLUSTERS; c++) _renderers[(int)Kind.Beacon0 + c] = Painted(_beaconMesh, LAMP);
             _renderers[(int)Kind.Ring0Magenta] = Painted(_meshes[(int)Kind.Ring0Magenta], RING_BODY);
             _renderers[(int)Kind.Ring0Cyan] = Painted(_meshes[(int)Kind.Ring0Cyan], RING_BODY);
             _renderers[(int)Kind.Ring1Magenta] = Painted(_meshes[(int)Kind.Ring1Magenta], RING_BODY);
@@ -251,7 +336,7 @@ namespace Prazsky.Core.Render
                 _visible[k] = new ModelInstance[Math.Max(1, _worlds[k].Length)];
                 Total += _worlds[k].Length;
 
-                IProceduralMesh mesh = k == (int)Kind.Beacon ? _beaconMesh : _meshes[k];
+                IProceduralMesh mesh = IsBeacon(k) ? _beaconMesh : _meshes[k];
                 for (int i = 0; i < _worlds[k].Length; i++) _bounds[k][i] = mesh.BoundingSphere.Transform(_worlds[k][i]);
             }
         }
@@ -293,6 +378,27 @@ namespace Prazsky.Core.Render
             return pieces.ToArray();
         }
 
+        /// <summary>
+        /// Every mast's beacon <paramref name="city"/> is dressed with under <paramref name="seed"/>, as the cluster list it was
+        /// put in, without a device (#902): <see cref="RoofPiece.Kind"/> is <c>Beacon</c> and the cluster's number, and
+        /// <see cref="RoofPiece.Foot"/> the beacon's own position, which stands over its mast's foot (same X and Z). For the
+        /// tests that hold a mast's cluster is a function of where it stands. Allocates the whole layout; never per frame.
+        /// </summary>
+        internal static RoofPiece[] ArrangeBeacons(City city, CitySceneConfig config, int seed)
+        {
+            Arrange(city, config, seed, out List<Matrix>[] worlds, out List<Matrix>[] neon);
+
+            var beacons = new List<RoofPiece>();
+            for (int c = 0; c < BEACON_CLUSTERS; c++)
+            {
+                string name = "Beacon" + c;
+                foreach (Matrix world in worlds[(int)Kind.Beacon0 + c]) beacons.Add(new RoofPiece(name, world.Translation, false));
+                foreach (Matrix world in neon[(int)Kind.Beacon0 + c]) beacons.Add(new RoofPiece(name, world.Translation, true));
+            }
+
+            return beacons.ToArray();
+        }
+
         //The layout: every piece of each kind (the day's dressing in WORLDS, the neon city's extras in NEON), and the roofs
         //for a showcase (#780). Plain arithmetic over the city's boxes; Rebuild turns the lists into the draw's arrays.
         private static RoofShowcases Arrange(City city, CitySceneConfig config, int seed,
@@ -332,7 +438,7 @@ namespace Prazsky.Core.Render
                 int masts = worlds[(int)Kind.MastRed].Count, dishes = worlds[(int)Kind.Dish0].Count + worlds[(int)Kind.Dish1].Count;
                 int sectors = worlds[(int)Kind.Sector].Count, hvac = worlds[(int)Kind.Hvac].Count;
 
-                Dress(worlds, random, taken, centre, halfX, halfZ, roofY, tall, roof, 1f);
+                Dress(worlds, random, taken, centre, halfX, halfZ, roofY, tall, roof, 1f, seed);
 
                 //What this roof was given, for the showcase (#780)
                 bool mast = worlds[(int)Kind.MastRed].Count > masts;
@@ -344,7 +450,7 @@ namespace Prazsky.Core.Render
                 int neonMasts = neon[(int)Kind.MastRed].Count;
                 int neonBefore = 0;
                 for (int k = 0; k < neon.Length; k++) neonBefore += neon[k].Count;
-                Dress(neon, random, taken, centre, halfX, halfZ, roofY, tall, roof, MathF.Max(0f, roof.NeonExtra - 1f));
+                Dress(neon, random, taken, centre, halfX, halfZ, roofY, tall, roof, MathF.Max(0f, roof.NeonExtra - 1f), seed);
                 int neonAfter = 0;
                 for (int k = 0; k < neon.Length; k++) neonAfter += neon[k].Count;
                 neonScore[b] = SHOW_DISH * 0.5f * (neonAfter - neonBefore);
@@ -412,7 +518,7 @@ namespace Prazsky.Core.Render
         /// the same roof (the neon extras) fills only the cells the first left (#850).
         /// </summary>
         private static void Dress(List<Matrix>[] lists, Random random, bool[,] taken, Vector3 centre, float halfX, float halfZ,
-            float roofY, bool tall, RooftopConfig roof, float chanceScale)
+            float roofY, bool tall, RooftopConfig roof, float chanceScale, int seed)
         {
             if (chanceScale <= 0f) return;
 
@@ -449,7 +555,11 @@ namespace Prazsky.Core.Render
 
                     lists[(int)Kind.MastRed].Add(mast);
                     lists[(int)Kind.MastWhite].Add(mast);
-                    lists[(int)Kind.Beacon].Add(Matrix.CreateScale(height * BEACON_SHARE)
+
+                    //⚠ The beacon's cluster is a hash of where the foot stands (BeaconCluster, #902) and takes NO roll from
+                    //the roof's stream: a Range or a Next here would shift every roll after the mast, on every roof, and
+                    //dress the whole city anew
+                    lists[(int)Kind.Beacon0 + BeaconCluster(foot.X, foot.Z, seed)].Add(Matrix.CreateScale(height * BEACON_SHARE)
                         * Matrix.CreateTranslation(foot + Vector3.Up * (height * RooftopMesh.MAST_TOP)));
                 }
             }
@@ -529,11 +639,11 @@ namespace Prazsky.Core.Render
             float clutter2 = roof.ClutterDistance * roof.ClutterDistance;
             float equipment2 = roof.EquipmentDistance * roof.EquipmentDistance;
 
-            //The beacons flash together, as a city's warning lights are set to: a short bright flash, then dark
-            float phase = seconds / MathF.Max(0.1f, roof.BeaconPeriod);
-            phase -= MathF.Floor(phase);
-            float flash = phase < 0.22f ? MathF.Sin(phase / 0.22f * MathHelper.Pi) : 0f;
-            _renderers[(int)Kind.Beacon].EmissiveTint = BEACON_RED * (roof.BeaconBrightness * flash);
+            //The beacons flash cluster by cluster (#902): each cluster is its own renderer and so its own tint, read at its
+            //Draw, with a period, a phase and a shade of red of its own, so no city's worth of them beats in unison. Each is
+            //still a short bright flash, then dark
+            for (int c = 0; c < BEACON_CLUSTERS; c++)
+                _renderers[(int)Kind.Beacon0 + c].EmissiveTint = BeaconRed(c) * (roof.BeaconBrightness * BeaconFlash(c, seconds, roof.BeaconPeriod));
 
             Vector3 magenta = _config.NeonLook.Magenta.ToVector3() * roof.NeonRingBrightness;
             Vector3 cyan = _config.NeonLook.Cyan.ToVector3() * roof.NeonRingBrightness;
@@ -550,7 +660,7 @@ namespace Prazsky.Core.Render
                 if (ring && !neon) continue;
 
                 float limit2 = k == (int)Kind.Hvac ? clutter2
-                    : (k == (int)Kind.MastRed || k == (int)Kind.MastWhite || k == (int)Kind.Beacon) ? float.MaxValue
+                    : (k == (int)Kind.MastRed || k == (int)Kind.MastWhite || IsBeacon(k)) ? float.MaxValue
                     : equipment2;
 
                 Matrix[] worlds = _worlds[k];
@@ -571,7 +681,7 @@ namespace Prazsky.Core.Render
                 drawn += count;
 
                 if (count > 0)
-                    _renderers[k].Draw(camera, visible, count, k == (int)Kind.Beacon ? _lamp : _paint);
+                    _renderers[k].Draw(camera, visible, count, IsBeacon(k) ? _lamp : _paint);
             }
 
             LastDrawn = drawn;
