@@ -82,6 +82,46 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void AShotAtTheFloorLeavesAtTheClampedElevationWhateverTheRubberShows()
+        {
+            //The owner asked for the lower alarm to go (#872), not for a gun that fires under its floor: the stretch is drawn,
+            //the shot is the clamp's. The reference is the same gun put exactly on the clamp.
+            Cannon reference = NewCannon();
+            reference.AimTo(Cannon.MinElevation, 0f);
+
+            Cannon cannon = NewCannon();
+            Push(cannon, -1f, 200);
+
+            Assert.True(cannon.ElevationOvershoot < -0.05f, "the rubber is not stretched, so the test checks nothing");
+            Assert.False(cannon.ElevationRefusesShot);
+
+            //The drawn pose is under the floor, the shot is not
+            Assert.True(cannon.AimDirection.Y < reference.AimDirection.Y - 0.05f);
+            Assert.Equal(reference.AimDirection.X, cannon.FireDirection.X, 4);
+            Assert.Equal(reference.AimDirection.Y, cannon.FireDirection.Y, 4);
+            Assert.Equal(reference.AimDirection.Z, cannon.FireDirection.Z, 4);
+            Assert.Equal(reference.MuzzlePosition(2f).Y, cannon.FireMuzzle(2f).Y, 4);
+
+            //And while it eases back onto the clamp, every frame of it
+            Idle(cannon, 120, () => Assert.Equal(reference.AimDirection.Y, cannon.FireDirection.Y, 4));
+        }
+
+        [Fact]
+        public void AnythingAboveTheFloorFiresAlongTheDrawnPose()
+        {
+            Cannon cannon = NewCannon();
+            Assert.Equal(cannon.AimDirection, cannon.FireDirection);
+
+            cannon.ElevationLimit = 0.5f;
+            Push(cannon, 1f, 200);
+            Assert.True(cannon.ElevationOvershoot > 0f);
+            Assert.Equal(cannon.AimDirection, cannon.FireDirection);
+
+            //The upper rubber's rebound under its clamp is still the pose that fires, not the floor's rule
+            Idle(cannon, 40, () => Assert.Equal(cannon.AimDirection, cannon.FireDirection));
+        }
+
+        [Fact]
         public void TheUpperLimitKeepsItsStrainRefusalAndRebound()
         {
             Cannon cannon = NewCannon();

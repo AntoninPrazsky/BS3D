@@ -1392,6 +1392,10 @@ namespace BS3D.Screens
 
             float elapsed = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
+            //Read before the input below: a click that skips the shot ends it there (TrySkip), so reading it after
+            //would never see a shot that "skipped" and its [cinematic] ended line could not print
+            bool cinematicWasRunning = _cinematic.Running;
+
             if (Game.IsActive)
             {
                 //Hidden only once the aim actually holds the cursor (#99). While it does not, this is the
@@ -1520,7 +1524,6 @@ namespace BS3D.Screens
             StepDozing(elapsed);
 
             //The cinematic reads the balls where the last step left them and answers with this frame's pose.
-            bool cinematicWasRunning = _cinematic.Running;
             _cinematic.Update(elapsed, TryGetDropCentre(out Vector3 dropCentre), dropCentre, _dropFocus.FunnelShare);
 
             //One line when the shot ends, beside the one that opened it: how long it held the lens, why it let go, and the

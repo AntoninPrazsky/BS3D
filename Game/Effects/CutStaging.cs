@@ -97,7 +97,7 @@ namespace BS3D.Effects
 
         /// <summary>
         /// Ends the strike's slow motion at once: a shot fired during it (#765: skippable, and never eating the input that
-        /// skips it), the drop cinematic taking the lens with its own (the two never run together), the result page.
+        /// skips it), the drop cinematic taking the lens (it runs the world at game time, #877, so a cut's slow motion never runs under it), the result page.
         /// </summary>
         public void Skip() => _slowAge = -1f;
 
@@ -111,8 +111,8 @@ namespace BS3D.Effects
         /// <param name="shot">Which way the cutter was flying (any length; zero when unknown, and then the slash takes
         /// <paramref name="aim"/>'s heading).</param>
         /// <param name="orphaned">What hung on the storey alone: the part of the result the fall's slow motion grows with.</param>
-        /// <param name="slowMotion">False while the drop cinematic has the lens and its own slow motion (a big release): the
-        /// cut adds none on top of it, so the cinematic runs exactly as it always has.</param>
+        /// <param name="slowMotion">False while the drop cinematic has the lens (a big release): it runs the world at game
+        /// time (#877), so the cut adds no slow motion under it.</param>
         public void Strike(XZLevel cell, Vector3 struck, Vector3 shot, Vector3 aim, List<PhysicsBall> falling, int freedCount,
             int orphaned, PhysicsBall[,,] cluster, bool slowMotion, out CutSlash slash, out float size)
         {

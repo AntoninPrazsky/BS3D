@@ -1043,3 +1043,9 @@ Pravidla:
 - `Block11_Mirage.cs`: kamenná pětice 328–433 koulí místo 601–673, kamenů 318 místo 637, skupin 14–32 místo 17–41 (Anvil/Keystone/Seam/Obsidian/Cairn o dvě patra míň, Keystone užší s nižšími pilíři, zdi Seam a Cairn končí 3 a 4 patra pod sklem, `SEAM_ROOF`/`CAIRN_ROOF`). Harlequin a Diadem zeslabeny, výstřely a krok stropu upraveny.
 - Bomby od třetí kamenné úrovně (Seam 4, Obsidian 5, Cairn 4): konec zdi / okraj žíly; Anvil a Keystone zůstávají jen kámen. Karta bomby je z Vent (#105).
 - ⚠ Ceilings pro ranking se mění u osmi levelů, nové žebříčky až po dalším vydání. Zbývá verdikt oka a rukou.
+
+## 2026-10-17 — #767 #877 #872 opravy po křížové recenzi — desktop (RDT-PC), Claude Code (bs3d-48)
+- #767: cena řezu, který vyprázdní pole bez kamerového pádu, se rodí hned (`AwardZoom.CutWaitLeft`, `PlayHud.BirthWaitingAwards`); dřív ji čekání 1,1–1,6 s hodilo za 2,5 s závěr a stránka výsledku ji přeřízla.
+- #877: hodiny `Stalled` počítají snímek nejvýš 4/120 s (co svět stihne); pod 30 fps předtím předbíhaly svět.
+- #872: výstřel na spodní mezi letí v sevřené elevaci (`Cannon.FireDirection`/`FireMuzzle`, i duch), natažení gumy je jen kresba.
+- Log `[cinematic] ended ... (skipped)` se čte před vstupem; komentáře o zpomalení pádu opraveny. Každý test viděn padat.

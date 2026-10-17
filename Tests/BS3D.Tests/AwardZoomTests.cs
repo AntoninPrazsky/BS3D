@@ -285,5 +285,49 @@ namespace BS3D.Tests
                 }
             }
         }
+
+        /// <summary>
+        /// The wall-clock second at which a cut's award, waiting <see cref="AwardZoom.CUT_WORLD_WAIT"/> of the world's seconds,
+        /// is born when the strike's slow motion (<see cref="Effects.CutBeats.TimeScale"/>) runs under it, for a cut of
+        /// <paramref name="size"/>.
+        /// </summary>
+        private static float WallSecondsOfTheCutWait(float size, bool freed)
+        {
+            float world = 0f, wall = 0f;
+            const float DT = 1e-3f;
+            while (world < AwardZoom.CUT_WORLD_WAIT)
+            {
+                world += DT * Effects.CutBeats.TimeScale(wall, size, freed);
+                wall += DT;
+            }
+
+            return wall;
+        }
+
+        [Fact]
+        public void ALevelEndingCutWithNoDropCinematicBirthsItsAwardAtOnceAndItIsFlownBeforeThePage()
+        {
+            foreach ((float size, bool freed) in new[] { (0f, false), (0f, true), (1f, true) })
+            {
+                float wall = WallSecondsOfTheCutWait(size, freed);
+
+                //The wait unfixed: the number is born at 1.1 to 1.6 s of a 2.5 s beat and cannot be read and flown inside it
+                float lifetime = AwardZoom.Lifetime(AwardZoom.Hold(40000));
+                Assert.True(wall + lifetime > LevelPhases.ClearedBeatSeconds,
+                    $"size {size} freed {freed}: waiting {wall:F2} s the award would still fit the beat, so there is nothing to fix");
+
+                //Fixed: the wait the level-clearing cut keeps is none, and the biggest award fits the beat from its birth
+                Assert.Equal(0f, AwardZoom.CutWaitLeft(AwardZoom.CUT_WORLD_WAIT, levelCleared: true, dropCinematic: false));
+                Assert.True(lifetime <= LevelPhases.ClearedBeatSeconds, $"the biggest award lives {lifetime:F2} s, past the beat");
+            }
+        }
+
+        [Fact]
+        public void ACutThatDoesNotEndTheLevelOrRunsUnderADropCinematicKeepsItsWait()
+        {
+            Assert.Equal(AwardZoom.CUT_WORLD_WAIT, AwardZoom.CutWaitLeft(AwardZoom.CUT_WORLD_WAIT, levelCleared: false, dropCinematic: false));
+            Assert.Equal(AwardZoom.CUT_WORLD_WAIT, AwardZoom.CutWaitLeft(AwardZoom.CUT_WORLD_WAIT, levelCleared: true, dropCinematic: true));
+            Assert.Equal(0.3f, AwardZoom.CutWaitLeft(0.3f, levelCleared: false, dropCinematic: true));
+        }
     }
 }
