@@ -1,6 +1,6 @@
 # Building, CI, releasing and the tools
 
-Part of the BS3D documentation. `CLAUDE.md` keeps the build commands and the rules; this document holds what it used to carry in full about the platform, the solutions and root files, the two workflows and the release, and what each tool is for. The paragraphs below are **word for word as they stood in `CLAUDE.md` when they were moved (2026-10-03)** — a long history and many measurements, which every agent had to read before every task and which are looked up here when the work touches them.
+Part of the BS3D documentation. `CLAUDE.md` keeps the build commands and the rules; this document holds what it used to carry in full about the platform, the solutions and root files, the workflows and the release, and what each tool is for. The paragraphs below are **word for word as they stood in `CLAUDE.md` when they were moved (2026-10-03)** — a long history and many measurements, which every agent had to read before every task and which are looked up here when the work touches them.
 
 ## The platform, and how the shaders came to be built once
 
