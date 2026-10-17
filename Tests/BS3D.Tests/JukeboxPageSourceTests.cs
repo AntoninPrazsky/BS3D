@@ -71,6 +71,34 @@ namespace BS3D.Tests
             Assert.Contains("AutoEllipsisMethod.Character", initializer);
         }
 
+        /// <summary>
+        /// The chapter that holds the recording playing carries the play mark whichever chapter is shown (#901: "the
+        /// currently playing one should stay visibly selected"). Brightness marks the chapter shown, so once the player
+        /// picked the next chapter to look through, nothing said where the music was: the mark is written from the chapter
+        /// the player's index falls in, never from the shown one.
+        /// <para>
+        /// Held by reading the source, as above; how it looks is seen in a Game run. Seen to fail on the page as it was
+        /// before the change, which had no mark.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void The_chapter_playing_is_marked_whichever_chapter_is_shown()
+        {
+            string code = WithoutComments(File.ReadAllText(JukeboxPagePath()));
+
+            int show = code.IndexOf("private void ShowPlayer()", StringComparison.Ordinal);
+            Assert.True(show >= 0, "ShowPlayer was not found; update this test with the page.");
+            string body = code.Substring(show);
+
+            Assert.Contains("playing = g;", body);
+            Assert.Matches(@"_groupMarks\[g\]\.Visible = g == playing", body);
+            Assert.DoesNotMatch(@"_groupMarks\[g\]\.Visible = g == _group", body);
+
+            //Built on every chapter's slab, at the edge the pad's focus prompt leaves free
+            Assert.Contains("_groupMarks.Add(mark)", code);
+            Assert.Contains("mark.HorizontalAlignment = HorizontalAlignment.Left", code);
+        }
+
         private static string WithoutComments(string source) => Regex.Replace(source, @"//[^\r\n]*", string.Empty);
 
         private static string JukeboxPagePath()
