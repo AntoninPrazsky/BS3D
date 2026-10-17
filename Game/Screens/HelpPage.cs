@@ -493,7 +493,8 @@ namespace BS3D.Screens
             column.Widgets.Add(Paragraph(
                 $"Streak — every landing that scores raises your multiplier by {ScoreKeeper.MultiplierStep}, up "
                 + $"to ×{ScoreKeeper.MaxMultiplier}. It multiplies everything that shot scores. A shot that "
-                + "matches nothing puts it back to ×1."));
+                + "matches nothing puts it back to ×1, and the game says so over the middle of the screen, where you aim: "
+                + $"“{StreakCues.LostCaption}” and the multiplier you had, with the one in the corner shattering."));
             column.Widgets.Add(Paragraph(
                 "Shots unused — what you did not need. Worth a great deal, and worth more on a big level: one "
                 + $"unused shot is priced at {ScoreKeeper.UnusedShotWorthInShots}\u00A0average shots of that level, "
