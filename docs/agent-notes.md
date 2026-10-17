@@ -935,3 +935,8 @@ Pravidla:
 - Hotovo (merge 119b1926, faa10f29, CI zelené): #919 hudba se dekóduje s rezervou 1,5 dB a hlasy jsou zesílené stejně (`MusicLevels`), takže 78 ze 140 nahrávek už nepadá na hranici 16 bitů; MusicBake odmítne nahrávku, jejíž špička po kodeku rezervu přeroste. #895 Help ukazuje duhovou kuličku a Cutter, test drží tabulku u všech druhů.
 - ⚠ Tvrdý ořez dělal už NVorbis (`ClipSamples` je ve výchozím stavu zapnuté), ne clamp v `OggTrack`: zisk až po čtení by škáloval už zploštělé vzorky. Sloupec „samples clipped“ v MusicBake hledal 32767 a ukazoval vždy 0.
 - Otevřené: #920 (stín blednoucí kuličky, nízká priorita); hudba a vzhled čekají, dokud fronta (17) nespadne pod 15.
+
+## 2026-10-17 — #920 #896 stín blednoucí kuličky, reference stropu — desktop (RDT-PC), Claude Code (bs3d-5f)
+- Hotovo (merge 46fb5454): #920 stínový průchod používá rozpouštění kuliček, stín blednoucí kuličky slábne s ní (0,38 při 0,5, dřív 1,00); ostatní vrhače beze změny.
+- #896: 24 referencí konstrukce stropu (A věže z #21, B prstenec, C lana s navijáky, D světelné vysílače), obě modely, img2img nad Testbedem; stránka pro volbu majitele https://claude.ai/artifact/JnRZaQgamBLiKBEjYr3nAk, štítek `owner-decision`. Doporučeno C (nic pevného v prostoru kamery), nebo A s mizením věží u kamery.
+- ⚠ Věž na okraji ostrova (poloměr 26) stojí 2–5 jednotek před objektivem (28–31): každá pevná konstrukce na okraji kříží pohled.
