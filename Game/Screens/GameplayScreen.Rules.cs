@@ -1324,6 +1324,7 @@ namespace BS3D.Screens
                 hadBudget: _run.Score.ShotsRemaining.HasValue,
                 unusedShotsAwarded: _run.Score.UnusedShotsAwarded,
                 completionBonusAwarded: _run.Score.CompletionBonusAwarded,
+                unusedShotValue: _run.Score.UnusedShotValue,
                 submitted: submitted));
 
             Console.WriteLine($"[level] Result for '{LevelName(_run.Index)}': " + (cleared ? "Cleared" : $"Failed ({_pendingFailure})")

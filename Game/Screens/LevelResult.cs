@@ -146,6 +146,14 @@ namespace BS3D.Screens
         public readonly int UnusedShotsAwarded, CompletionBonusAwarded;
 
         /// <summary>
+        /// What one unused ball was worth on this level (<c>ScoreKeeper.UnusedShotValue</c>), the factor the bonus is
+        /// <see cref="UnusedShotsAwarded"/> times. A fact of the run rather than a rule (it is sized by the level's balls
+        /// and budget, so the flat <see cref="ScoreKeeper.UnusedShotPoints"/> is only its fallback), which is why it is
+        /// taken here and not worked back from the bonus: with no ball spare the bonus is 0 and says nothing of it.
+        /// </summary>
+        public readonly int UnusedShotValue;
+
+        /// <summary>
         /// This ending was handed to the score service (#716): a clear, or a loss sent as an unfinished attempt. The
         /// result page's online plate is this ending's only when it is true - <c>OnlineSession.Result</c> otherwise
         /// still holds the answer to an earlier ending, which is how a loss came to stand under a previous clear's
@@ -162,7 +170,7 @@ namespace BS3D.Screens
             bool campaignComplete,
             bool blockComplete, string blockName, int blockNumber, int blockCount,
             int score, int matchedBalls, int orphanedBalls, int streakBonus,
-            bool hadBudget, int unusedShotsAwarded, int completionBonusAwarded,
+            bool hadBudget, int unusedShotsAwarded, int completionBonusAwarded, int unusedShotValue,
             bool submitted = false)
         {
             Cleared = cleared;
@@ -196,6 +204,7 @@ namespace BS3D.Screens
             HadBudget = hadBudget;
             UnusedShotsAwarded = unusedShotsAwarded;
             CompletionBonusAwarded = completionBonusAwarded;
+            UnusedShotValue = unusedShotValue;
             Submitted = submitted;
         }
 
@@ -259,8 +268,11 @@ namespace BS3D.Screens
         /// <summary>The breakdown's "count × worth" for the orphaned balls.</summary>
         public string OrphanedDetail => $"{OrphanedBalls} × {ScoreKeeper.OrphanedBallPoints}";
 
-        /// <summary>The breakdown's "count × worth" for the shots left, or a dash for a level without a budget.</summary>
-        public string UnusedDetail => HadBudget ? $"{UnusedShotsAwarded} × {ScoreKeeper.UnusedShotPoints}" : "—";
+        /// <summary>
+        /// The breakdown's "count × worth" for the balls left, or a dash for a level without a budget. The worth is the
+        /// level's own price of a ball (<see cref="UnusedShotValue"/>), so the product is the figure beside it.
+        /// </summary>
+        public string UnusedDetail => HadBudget ? $"{UnusedShotsAwarded} × {UnusedShotValue}" : "—";
 
         /// <summary>
         /// The score the <b>next</b> star needs (#385), or -1 when there is nothing above the top to project

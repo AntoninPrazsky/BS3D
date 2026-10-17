@@ -1,4 +1,5 @@
 using BS3D.Screens;
+using Prazsky.BS3D.Scoring;
 using System.Collections.Generic;
 using Xunit;
 
@@ -14,7 +15,7 @@ namespace BS3D.Tests
     {
         private static LevelResult Result(bool cleared = true, int stars = 2, bool campaign = false, bool block = false,
             bool hasNext = true, bool nextUnlocked = true, bool beyondReach = false, bool canSkip = false, bool budget = true,
-            string frontier = "Pinwheel") =>
+            string frontier = "Pinwheel", int unusedBalls = 7, int ballPrice = 120) =>
             new(cleared: cleared, failureText: cleared ? null : "The cluster reached the line.", stars: cleared ? stars : 0,
                 newBest: cleared, levelBalls: 120, levelName: "Star", levelNumber: 13,
                 hasNextLevel: hasNext, nextLevelUnlocked: nextUnlocked, nextLevelMinStars: 196, totalStars: 194,
@@ -22,7 +23,8 @@ namespace BS3D.Tests
                 canSkip: canSkip, nextLevelName: "Elephant", campaignComplete: campaign,
                 blockComplete: block, blockName: "The Gallery", blockNumber: 2, blockCount: 14,
                 score: 2430, matchedBalls: 96, orphanedBalls: 24, streakBonus: 640,
-                hadBudget: budget, unusedShotsAwarded: 7, completionBonusAwarded: 350);
+                hadBudget: budget, unusedShotsAwarded: unusedBalls, completionBonusAwarded: unusedBalls * ballPrice,
+                unusedShotValue: ballPrice);
 
         private static IEnumerable<LevelResult> Endings()
         {
@@ -95,7 +97,31 @@ namespace BS3D.Tests
 
         [Fact]
         public void The_breakdown_details_are_count_times_worth() =>
-            Assert.Equal(new[] { "96 × 10", "24 × 20", "7 × 50", "—" },
+            Assert.Equal(new[] { "96 × 10", "24 × 20", "7 × 120", "—" },
                 new[] { Result().MatchedDetail, Result().OrphanedDetail, Result().UnusedDetail, Result(budget: false).UnusedDetail });
+
+        /// <summary>
+        /// The unused row's detail multiplies out to the figure beside it. It once read the flat
+        /// <c>ScoreKeeper.UnusedShotPoints</c> (50) while the bonus was paid at the level's own price of a ball, so a
+        /// 30-shot level cleared with 29 spare showed "29 × 50" over 1 624.
+        /// </summary>
+        [Theory]
+        [InlineData(30, 40, 29)]
+        [InlineData(10, 400, 7)]
+        [InlineData(12, 24, 0)]
+        public void The_unused_detail_multiplies_out_to_the_bonus_paid(int budget, int levelBalls, int spare)
+        {
+            ScoreKeeper keeper = new(shotBudget: budget, ceilingStep: null, levelBalls: levelBalls);
+            for (int i = 0; i < budget - spare; i++) keeper.Shot();
+            keeper.AwardCompletionBonus();
+
+            LevelResult result = Result(unusedBalls: keeper.UnusedShotsAwarded, ballPrice: keeper.UnusedShotValue);
+
+            Assert.Equal(spare, keeper.UnusedShotsAwarded);
+            Assert.Equal($"{spare} × {keeper.UnusedShotValue}", result.UnusedDetail);
+            Assert.Equal(keeper.CompletionBonusAwarded, result.UnusedShotsAwarded * result.UnusedShotValue);
+            Assert.Equal(keeper.CompletionBonusAwarded, result.CompletionBonusAwarded);
+            Assert.NotEqual(ScoreKeeper.UnusedShotPoints, keeper.UnusedShotValue);
+        }
     }
 }
