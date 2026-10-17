@@ -17,7 +17,11 @@ namespace BS3D.Effects
     /// to (#559) is "each shot about one object", and the owner praised the intros that follow concrete things. The brook
     /// and the path are analytic lines on the field (<see cref="MeadowPath"/>), the very ones <c>Meadow.fx</c> draws, so a
     /// shot can follow one without asking the planting; and the planting keeps off both, so a lens on either centreline has
-    /// nothing to run into. Every height is read off <see cref="TerrainMirror.Meadow"/>. Built once when the intro begins.
+    /// nothing to run into. Every lens but the two low orbits' is lifted off the field before the brook's groove and the pond's
+    /// crater are cut into it (<see cref="TerrainMirror.MeadowGround"/>, #892), so it rides over the groove at the height it
+    /// rode over the painted brook, and the brook's shot looks at the pond's water down in its crater; the orbits stand on
+    /// the cut ground (<see cref="TerrainMirror.Meadow"/>) and keep off the water and its banks (<c>Dry</c>). Built once
+    /// when the intro begins.
     /// </para>
     /// <para>
     /// <b>The brook and the path walk TOWARDS what their line arrives at since #609's third round</b>, and keep the lens
@@ -56,7 +60,7 @@ namespace BS3D.Effects
         //on the pond ahead. A stretch of it that ends short of the pond's bank, where the brook's own banks are planted.
         private const float BROOK_FROM = 22f;              //past the brook's inner end, where the stretch finishes, clear of the pond's reeds
         private const float BROOK_RUN = 32f;
-        private const float BROOK_ABOVE = 1.8f;             //at 1.1 the bank stones and the reeds filled the corners of the frame
+        private const float BROOK_ABOVE = 1.8f;             //over the field, the groove's lips; at 1.1 the bank stones and the reeds filled the corners of the frame
         private const float BROOK_SECONDS = 3.2f;
 
         //The path: along its centreline at a walker's height, the fence beside it, the lens on the old tree it leads to,
@@ -133,7 +137,7 @@ namespace BS3D.Effects
         {
             if (meadow == null) return null;
 
-            var ground = new IntroGround((x, z) => TerrainMirror.Meadow(x, z, meadow));
+            var ground = new IntroGround((x, z) => TerrainMirror.MeadowGround(x, z, meadow));
             if (planted?.Trees != null)
                 foreach (PlantFigure tree in planted.Trees) ground.Add(tree);
 
@@ -157,12 +161,12 @@ namespace BS3D.Effects
             {
                 float d = end + BROOK_RUN * (1f - i / (path.Length - 1f));
                 (float x, float z) = MeadowPath.BrookPoint(d, 0f, meadow);
-                path[i] = new Vector3(x, TerrainMirror.Meadow(x, z, meadow) + BROOK_ABOVE, z);
+                path[i] = new Vector3(x, TerrainMirror.MeadowGround(x, z, meadow) + BROOK_ABOVE, z);
             }
 
             (float pondX, float pondZ) = MeadowPath.PondCentre(meadow);
             return new IntroShot("the brook", path, BROOK_SECONDS, fieldOfView * 1.1f,
-                lookAt: new Vector3(pondX, TerrainMirror.Meadow(pondX, pondZ, meadow), pondZ));
+                lookAt: new Vector3(pondX, MeadowCarve.PondWaterLevel(meadow), pondZ));
         }
 
         /// <summary>Along the footpath at a walker's height, the fence beside it, to the old tree it leads to.</summary>
@@ -175,12 +179,12 @@ namespace BS3D.Effects
                 float d = end + PATH_RUN * (1f - i / (path.Length - 1f));
                 float angle = meadow.PathBearing + MeadowPath.Wander(d, meadow) / d;
                 float x = MathF.Cos(angle) * d, z = MathF.Sin(angle) * d;
-                path[i] = new Vector3(x, TerrainMirror.Meadow(x, z, meadow) + PATH_ABOVE, z);
+                path[i] = new Vector3(x, TerrainMirror.MeadowGround(x, z, meadow) + PATH_ABOVE, z);
             }
 
             (float treeX, float treeZ) = MeadowPath.PathEnd(meadow);
             return new IntroShot("the path", path, PATH_SECONDS, fieldOfView * 1.1f,
-                lookAt: new Vector3(treeX, TerrainMirror.Meadow(treeX, treeZ, meadow) + PATH_TREE_LOOK_UP, treeZ));
+                lookAt: new Vector3(treeX, TerrainMirror.MeadowGround(treeX, treeZ, meadow) + PATH_TREE_LOOK_UP, treeZ));
         }
 
         /// <summary>

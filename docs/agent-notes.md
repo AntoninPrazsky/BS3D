@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-17 — #892 potok a rybník vyříznuté do louky — desktop (RDT-PC), Claude Code (bs3d-48)
+- Hotovo: potok je rýha s hliněnými stěnami, rybník nepravidelný kráter, voda je samostatná plocha uvnitř. `MeadowCarve` je CPU kopie shaderu (mirrorcheck 0,0021). Hrubá mřížka má díru a tu kreslí jemnější patch v souřadnicích potoka (`MeadowPatch`, CDLOD); Low a Medium řežou také, Potato ne.
+- Cena (Game, Pennant, 3840×1581, High): hra +0,45 ms, průlet potokem na dnešním úvodu 10,9 → 12,2 ms, jeho poslední vteřina 12,8 (jednou 13,4). ⚠ Většinu ceny hry patch nezpůsobuje: i bez jeho země +0,3 ms (BrookLateral s atan2, společné tělo, vrcholy); Low/Medium na APU neměřeno.
+- Review: trsy a rákosí drží od stěny šířkou vody + 0,9 (`OnBrookBank`); test drží konstanty shaderu na zrcadle (viděn selhat).
+- Otevřené: verdikt oka (zoubky na hraně u hrubých úrovní patche, pohyb), snímky ve `verdicts\892\`.
+
 ## 2026-10-17 — #874 čtyři laserové vysílače na okraji nálevky — desktop (RDT-PC), Claude Code (bs3d-48)
 - Čtyři malé kovové vysílače se skleněnou čočkou (hlaveň, žebrovaný límec, otočný třmen; materiál děla) stojí na zlatém pásu v rozích sítě; čočka má doutnající pohotovost a při síti svítí jejím jasem, od každé vede paprsek do rohu sítě. `LaserEmitterRing`, `LaserEmitters`, `LaserEmitterMesh`.
 - ⚠ Dělo obíhá celý ostrov, na okraji pro vysílače není místo mimo jeho dosah: hlaveň jim jede nad hlavou, podvozek drží venku `Cannon.SetKeepouts` (jen chůze dovnitř do ~10° od vysílače). Test smetl skutečné pózy a našel, že kola sahají o desetinu dál, než se myslelo (`StandReach`).

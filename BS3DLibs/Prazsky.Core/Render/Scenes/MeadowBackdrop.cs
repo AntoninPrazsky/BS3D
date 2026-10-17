@@ -30,6 +30,12 @@ namespace Prazsky.Core.Render
         //Its camera grid and the pass that draws it (#580)
         private readonly TerrainPass _meadowPass;
 
+        //The brook's groove and the pond's crater (#892): the patch that draws the cut, which the camera grid is far too
+        //coarse to carry, and the water in it; drawn through the meadow's own effect by the programs resolved here once
+        //(BestPractices §1). See MeadowCarve for the cut and MeadowPatchGeometry for the meshes.
+        private MeadowPatch _patch;
+        private readonly EffectTechnique _carvedTechnique, _carvedReducedTechnique, _bedTechnique, _waterTechnique;
+
         private const int MEADOW_GRID_N = 220;
         private const float MEADOW_EXTENT = 1200f;
 
@@ -47,10 +53,15 @@ namespace Prazsky.Core.Render
             //--- Meadow: a smooth rolling displaced grid scattered with flowers
             _meadowEffect = content.Load<Effect>("Shaders/Meadow");
             _meadowPass = new TerrainPass(Services, _meadowEffect, MEADOW_GRID_N, MEADOW_EXTENT, "MeadowTime");
+            _carvedTechnique = _meadowEffect.Techniques["MeadowCarved"];
+            _carvedReducedTechnique = _meadowEffect.Techniques["MeadowCarvedReduced"];
+            _bedTechnique = _meadowEffect.Techniques["MeadowBed"];
+            _waterTechnique = _meadowEffect.Techniques["MeadowWater"];
 
             ApplyMeadowParameters();
 
             _graphicsDevice = services.GraphicsDevice;
+            _patch = new MeadowPatch(_graphicsDevice, _meadowConfig);
             _plants = new PlantPass(_graphicsDevice, content);
 
             _scatter = new MeadowScatter(_graphicsDevice, _meadowConfig, MeadowScatter.DEFAULT_SEED + Services.SeedOffset);
@@ -114,6 +125,10 @@ namespace Prazsky.Core.Render
             _meadowEffect.Parameters["KnollCentre"].SetValue(new Vector2(knollX, knollZ));
             _meadowEffect.Parameters["KnollRadius"].SetValue(_meadowConfig.KnollRadius);
             _meadowEffect.Parameters["KnollHeight"].SetValue(_meadowConfig.KnollHeight);
+
+            //Where the camera grid's vertices fall, in cells (#892): it is snapped to whole cells round the camera, so its
+            //vertices are always at (k + this) cells, and the patch eases onto exactly the triangles it draws
+            _meadowEffect.Parameters["CoarseGridPhase"].SetValue(ShaderMath.Frac((MEADOW_GRID_N - 1) * 0.5f));
         }
 
         /// <inheritdoc/>
@@ -130,7 +145,45 @@ namespace Prazsky.Core.Render
         public override void Draw(in SceneFrame frame)
         {
             _meadowPass.Draw(frame, Services.TerrainHoleRadius);
+            DrawCut(frame.Camera.Position);
             DrawPlanting(frame);
+        }
+
+        /// <summary>
+        /// The brook's groove and the pond's crater (#892), into the hole the camera grid left for them: the pass has set
+        /// the camera, the sky, the clouds and the far fade on the effect, and left the far ring's clip off. Opaque and
+        /// uncull'd as the grid is, and after it, its chunks nearest the lens first: its program never discards, so the
+        /// early depth test throws away what the grid or a nearer bank already hides. On every tier the meadow draws (the
+        /// Potato path has its own ground); its cost is in "The brook's groove and the pond's crater" in docs/scenes/meadow.md.
+        /// </summary>
+        private void DrawCut(Vector3 camera)
+        {
+            if (_patch == null) return;
+
+            _graphicsDevice.BlendState = BlendState.Opaque;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+            _patch.DrawGround(_graphicsDevice, (_sceneDetail > 0.5f ? _carvedTechnique : _carvedReducedTechnique).Passes[0],
+                _bedTechnique.Passes[0], camera);
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
+        /// The water in the cut (#892): a surface of its own at the water's level, after the planting so a reed's foot is
+        /// under it, blended over the cut's bed and reading the depth without writing it, so the banks hide its edge. The
+        /// effect still holds this frame's camera, sky and clouds from <see cref="Draw"/>.
+        /// </summary>
+        public override void DrawGrounded(in SceneFrame frame)
+        {
+            if (_patch == null) return;
+
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+            _waterTechnique.Passes[0].Apply();
+            _patch.DrawWater(_graphicsDevice);
+            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
         /// <summary>
@@ -162,6 +215,8 @@ namespace Prazsky.Core.Render
         {
             _scatter?.Dispose();
             _scatter = null;
+            _patch?.Dispose();
+            _patch = null;
         }
 
         /// <inheritdoc/>

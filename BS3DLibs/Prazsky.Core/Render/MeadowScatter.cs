@@ -68,9 +68,14 @@ namespace Prazsky.Core.Render
 
         /// <param name="config">The meadow: its field (<see cref="TerrainMirror.Meadow"/>) and its footpath
         /// (<see cref="MeadowPath"/>) — nothing is planted on the path, and the first fence runs along it.</param>
-        public MeadowScatter(GraphicsDevice device, MeadowSceneConfig config, int seed)
+        /// <param name="ground">What everything stands on: null for the ground the desktop draws, the brook's groove and the
+        /// pond's crater cut into it (<see cref="TerrainMirror.Meadow"/>, #892), so a reed in the shallows stands on the
+        /// pond's bed; the Potato path, whose grid has no cut, passes the field uncut (<see cref="TerrainMirror.MeadowGround"/>).
+        /// Nothing is placed differently for it, only stood at another height.</param>
+        public MeadowScatter(GraphicsDevice device, MeadowSceneConfig config, int seed, Func<float, float, float> ground = null)
         {
-            float height(float x, float z) => TerrainMirror.Meadow(x, z, config);
+            Func<float, float, float> standOn = ground ?? ((x, z) => TerrainMirror.Meadow(x, z, config));
+            float height(float x, float z) => standOn(x, z);
             float pathLateral(float x, float z) => MeadowPath.Lateral(x, z, config);
 
             Random rng = new(seed);
@@ -321,7 +326,8 @@ namespace Prazsky.Core.Render
 
             //--- The brook's banks (#609): stones at the water's edge and reeds standing in tufts along it, the
             //references' brook in every one of them. Placed off the centreline directly, not through Free, which
-            //keeps everything else clear of the water.
+            //keeps everything else clear of the water. Since the groove (#892) a stone sits at the foot of its wall just
+            //over the water, where the water's width puts it, and a reed on the bank's top past the lip.
             var reedInstances = new List<ModelInstance>();
             for (float d = config.ClearingRadius * MeadowPath.BROOK_START + 4f; d < 420f; d += 1.6f + 1.8f * (float)rng.NextDouble())
             {
@@ -331,7 +337,7 @@ namespace Prazsky.Core.Render
                 if (MeadowPath.PondShore(cx, cz, config) < config.BrookWidth) continue;
                 if (rng.NextDouble() < 0.45)
                 {
-                    (float sx, float sz) = MeadowPath.BrookPoint(d, side * (config.BrookWidth * 0.5f + 0.2f), config);
+                    (float sx, float sz) = MeadowPath.BrookPoint(d, side * (MeadowCarve.BrookWaterHalf(d, config) + STONE_PAST_WATER), config);
                     float size = 0.35f + 0.5f * (float)rng.NextDouble();
                     rockInstances[rng.Next(3)].Add(At(sx, sz, size, (float)rng.NextDouble() * MathHelper.TwoPi, size * 0.3f, 0f, Jitter()));
                 }
@@ -359,7 +365,7 @@ namespace Prazsky.Core.Render
                         float size = 0.9f + 0.9f * (float)rng.NextDouble(), yaw = (float)rng.NextDouble() * MathHelper.TwoPi;
                         float lean = 0.3f * (float)rng.NextDouble(), jitter = Jitter();
                         //Not across the brook's mouth, where it comes in
-                        if (MathF.Abs(MeadowPath.BrookLateral(rx, rz, config)) < config.BrookWidth * 0.5f + 0.6f) continue;
+                        if (MeadowCarve.OnBrookBank(rx, rz, config)) continue;
                         reedInstances.Add(At(rx, rz, size, yaw, 0.1f, lean, jitter));
                     }
                 }
@@ -370,7 +376,7 @@ namespace Prazsky.Core.Render
                     float sx = pondX + MathF.Cos(a) * r, sz = pondZ + MathF.Sin(a) * r;
                     int variant = rng.Next(3);
                     float yaw = (float)rng.NextDouble() * MathHelper.TwoPi, jitter = Jitter();
-                    if (MathF.Abs(MeadowPath.BrookLateral(sx, sz, config)) >= config.BrookWidth * 0.5f + 0.6f)
+                    if (!MeadowCarve.OnBrookBank(sx, sz, config))
                         rockInstances[variant].Add(At(sx, sz, size, yaw, size * 0.35f, 0f, jitter));
                 }
             }
@@ -406,7 +412,7 @@ namespace Prazsky.Core.Render
                     : Site(ArenaIsland.RADIUS + 12f, 260f);
                 //Never in the water, on the trodden path or on the bare ground under the old tree (#609's third round)
                 //(the drawn shore wanders by the ragged edge and its smoothing either side of the arithmetic one, 0.6 all told)
-                if (MeadowPath.PondShore(x, z, config) < 0.9f || MathF.Abs(MeadowPath.BrookLateral(x, z, config)) < config.BrookWidth * 0.5f + 0.6f
+                if (MeadowPath.PondShore(x, z, config) < 0.9f || MeadowCarve.OnBrookBank(x, z, config)
                     || MathF.Abs(pathLateral(x, z)) < config.PathWidth * 0.6f
                     || (x - knollX) * (x - knollX) + (z - knollZ) * (z - knollZ) < TREE_BARE * TREE_BARE)
                     continue;
@@ -481,6 +487,9 @@ namespace Prazsky.Core.Render
 
             Figures = new MeadowFigures(treeFigures, benchFigure, baleFigures, solids);
         }
+
+        //How far past the brook's water a bank stone stands (#892): at the groove wall's foot, just over the water
+        private const float STONE_PAST_WATER = 0.05f;
 
         //How far everything keeps off the pond's shore, past its own reach, and how far out of the water the willows stand
         private const float POND_CLEARANCE = 4f;

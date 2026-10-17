@@ -1475,7 +1475,8 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Draws the translucent things that <b>stand on the ground</b> — the backdrop's
-        /// <see cref="Backdrop.DrawGrounded"/>: the savanna's flames and sparks. Same states as
+        /// <see cref="Backdrop.DrawGrounded"/>: the savanna's flames and sparks, and the water in the meadow's brook and
+        /// pond (#892), whose banks hide its edge and whose shallows show the bed. Same states as
         /// <see cref="DrawOverlays"/> (blended, depth-read, no depth write), but a slot of its own, and the reason
         /// is the ceiling's glass: the Game draws this with the setting, before it takes the copy the plate bends
         /// (#541), so a fire seen through the plate is bent with the ground it stands on. As an overlay it came after

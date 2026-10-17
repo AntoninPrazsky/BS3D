@@ -224,8 +224,9 @@ namespace Testbed
                 //the barrel is seen against. Composited first it would let both of those bleed through it.
                 _cannonRig.DrawGlass(_camera, barrelWorld, _sceneEffectParams);
 
-                //The savanna's fires, then falling snow, which settles over everything, so it is drawn last, in front
-                //of what it should hide. The Testbed's plate bends nothing, so the fires need not go before it here.
+                //The savanna's fires and the meadow's water (#892), then falling snow, which settles over everything, so
+                //it is drawn last, in front of what it should hide. The Testbed's plate bends nothing, so neither need go
+                //before it here.
                 _sceneRenderer.DrawGrounded(_scene, sceneFrame);
                 _sceneRenderer.DrawOverlays(_scene, sceneFrame);
             }

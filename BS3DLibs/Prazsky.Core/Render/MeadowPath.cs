@@ -36,17 +36,22 @@ namespace Prazsky.Core.Render
         /// <summary>Where the brook starts, as a share of the clearing's radius.</summary>
         public const float BROOK_START = 0.82f;
 
-        /// <summary>How far (x, z) stands to the side of the brook's centreline — <c>Meadow.fx</c>'s <c>BrookLateral</c>.</summary>
+        /// <summary>How far (x, z) stands to the side of the brook's centreline — <c>Meadow.fx</c>'s <c>BrookLateral</c>: the
+        /// arc at its distance from the arena, negative on one side, <see cref="float.MaxValue"/> before its start or more than
+        /// a right angle off its line.</summary>
         public static float BrookLateral(float x, float z, MeadowSceneConfig config)
         {
             float d = MathF.Sqrt(x * x + z * z);
             if (d < config.ClearingRadius * BROOK_START) return float.MaxValue;
 
-            float angle = MathF.Atan2(z, x) - config.BrookBearing;
-            angle = MathF.IEEERemainder(angle, MathF.PI * 2f);
+            //The bearing off the centreline at this distance, in the centreline's own frame, as the shader takes it (#892): the
+            //same angle as atan2 less the bearing and the wander, small near the brook, where the GPU's atan2 agrees with this
+            float centre = config.BrookBearing + BrookWander(d, config) / d;
+            float alongX = MathF.Cos(centre), alongZ = MathF.Sin(centre);
+            float angle = MathF.Atan2(alongX * z - alongZ * x, alongX * x + alongZ * z);
             if (MathF.Abs(angle) > MathF.PI * 0.5f) return float.MaxValue;
 
-            return d * angle - BrookWander(d, config);
+            return d * angle;
         }
 
         /// <summary>The brook's centreline wander at distance <paramref name="d"/>.</summary>
