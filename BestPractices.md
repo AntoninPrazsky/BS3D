@@ -39,7 +39,9 @@ genuinely needed gets built once and kept in a field.
 ## 3. No managed allocations in the frame loop
 
 GC pressure is frame hitches. The offenders found were all small and all per-frame, which is exactly the
-kind that accumulates unnoticed:
+kind that accumulates unnoticed. **The Game measures it**: under `logfps` an `[alloc]` line follows `[fps]` with
+the frame thread's bytes a frame over that second and the gen0 collections it caused; between events it should
+read a few dozen bytes. The offenders:
 
 - **Iterator methods (`yield return`) allocate their enumerator on every call.** `SkyLitRenderers()` was
   fine when it ran on dome switches; the overcast lerp made it per-frame and the allocation went with it.
