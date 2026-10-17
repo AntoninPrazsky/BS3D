@@ -176,6 +176,9 @@ namespace BS3D.Screens
             //draw a gun's shadow onto the stone with no gun standing on it, or a gun nobody can Continue.
             Game.StandingGun = null;
 
+            //The emitters stand with the session as the gun does (#874): out of the host's sky-lit walk until the next level
+            Game.SessionEmitters = null;
+
             //The level's crates go with it (#257)
             InstallCrates(null);
 
@@ -246,6 +249,7 @@ namespace BS3D.Screens
             _aimBeam.Dispose();
             _crosshair.Dispose();
             _laserGrid.Dispose();
+            _emitters?.Dispose();
             _blasts.Dispose();
             _wormhole.Dispose();
         }
@@ -534,6 +538,13 @@ namespace BS3D.Screens
                 CeilingPlate.FootprintFor(_map.StageSizeX) * Constants.HALF,
                 CeilingPlate.FootprintFor(_map.StageSizeZ) * Constants.HALF,
                 CEILING_DEATH_Y - Constants.HALF);
+
+            //The four emitters the net comes from, at its corners (#874), and the gun held off them: the carriage may not
+            //stand inside their circles, whatever the player does with the walk and the orbit (Cannon.SetKeepouts)
+            _emitters ??= new BS3D.Effects.LaserEmitters(GraphicsDevice, Game.InstancingEffect, CeilingDescent.CEILING_FLASH_COLOR);
+            _emitters.Fit(_laserGrid.CornerX, _laserGrid.CornerZ);
+            Game.SessionEmitters = _emitters;
+            _cannon.SetKeepouts(_laserGrid.CornerX, _laserGrid.CornerZ);
 
             //And the front end's own camera framed for THIS field (#254). It is not up while a level is
             //played — but the result screen flies the lens out onto it the moment the level ends, and a

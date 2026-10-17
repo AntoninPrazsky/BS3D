@@ -225,6 +225,12 @@ namespace BS3D.Tools.WindingCheck
                 yield return ($"CrateMesh.{p}(1.2x8x10)", () => new CrateMesh(d, new Vector3(1.2f, 8f, 10f), p));
                 yield return ($"CrateMesh.{p}(cube 2)", () => new CrateMesh(d, new Vector3(2f), p));
             }
+            //#874's laser emitter, every part (the lens is a closed disc; the housing a closed lathe; the yoke is boxes and a pin)
+            foreach (LaserEmitterMesh.Part part in Enum.GetValues<LaserEmitterMesh.Part>())
+            {
+                LaserEmitterMesh.Part p = part;
+                yield return ($"LaserEmitterMesh.{p}", () => new LaserEmitterMesh(d, p));
+            }
             for (char c = ' '; c < (char)0x180; c++)
             {
                 if (c == ' ' || !LetterShapes.Supports(c)) continue;

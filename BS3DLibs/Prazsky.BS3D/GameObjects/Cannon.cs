@@ -695,6 +695,25 @@ namespace Prazsky.BS3D.GameObjects
         /// the closer the gun gets the slower it moves, it never arrives and it never jolts. A step away from a
         /// cushion reads the room towards the opposite end instead, so backing out answers at once.
         /// </summary>
+        private bool _keepoutsSet;
+        private float _keepoutCornerX, _keepoutCornerZ;
+
+        /// <summary>
+        /// Holds the carriage off the four laser emitters standing at the corners of this level's net (#874): from now on
+        /// the gun's radius is never under <see cref="LaserEmitterRing.GunFloorRadius"/> at its bearing, so a walk towards
+        /// the drain stops at an emitter's circle and an orbit round the drain rides out round it. The gun is moved at
+        /// once if it stands inside one. <paramref name="cornerX"/> and <paramref name="cornerZ"/> are where the net's
+        /// outermost beams stand (<c>LaserGrid.CornerX</c>/<c>CornerZ</c>), per level.
+        /// </summary>
+        public void SetKeepouts(float cornerX, float cornerZ)
+        {
+            _keepoutsSet = true;
+            _keepoutCornerX = cornerX;
+            _keepoutCornerZ = cornerZ;
+
+            MoveToOrbitAngle();
+        }
+
         private void MoveRadial(GameTime gameTime)
         {
             //Positive step walks toward the field, i.e. shrinks the radius
@@ -852,6 +871,14 @@ namespace Prazsky.BS3D.GameObjects
 
         private void MoveToOrbitAngle()
         {
+            //The laser emitters on the drain's rim (#874): wherever the gun is put - an orbit, a walk, a placement, a refit -
+            //its carriage stands outside their circles. Here, in the one place every move of the orbit passes through
+            if (_keepoutsSet)
+            {
+                float floor = LaserEmitterRing.GunFloorRadius(_orbitAngle, _keepoutCornerX, _keepoutCornerZ, CannonRig.StandReach);
+                if (_orbitRadius < floor) _orbitRadius = floor;
+            }
+
             var x = OrbitCenter.X + (_orbitRadius * (float)Math.Cos(_orbitAngle));
             var z = OrbitCenter.Z + (_orbitRadius * (float)Math.Sin(_orbitAngle));
 

@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Prazsky.BS3D.GameObjects;
 using Prazsky.Core.Camera;
 using System;
 
@@ -154,7 +155,20 @@ namespace BS3D.Effects
             //inside the half-extent, so the outermost pair always lands inside the footprint.
             int alongX = (int)(halfZ / BEAM_PITCH) * 2 + 1;     //beams running along X are spaced in Z
             int alongZ = (int)(halfX / BEAM_PITCH) * 2 + 1;
-            _quadCount = alongX + alongZ;
+
+            //Where the outermost beams stand: the net's corners, which the four emitters on the drain's rim are placed
+            //at and fed from (#874). Integer division on purpose, the very expression the beams below are placed by.
+            CornerX = ((alongZ - 1) / 2) * BEAM_PITCH;
+            CornerZ = ((alongX - 1) / 2) * BEAM_PITCH;
+
+            //One feeder from each emitter's lens to its corner of the net - the net starts at the lenses and not in the
+            //air. None where the lens does not stand clear outside the corner (the largest footprints reach the band the
+            //emitters stand on): there the lens is at the corner already and the net starts at it
+            int feeders = 0;
+            for (int k = 0; k < LaserEmitterRing.COUNT; k++)
+                if (FeederLength(k, y) > MIN_FEEDER) feeders++;
+
+            _quadCount = alongX + alongZ + feeders;
 
             LaserVertex[] vertices = new LaserVertex[_quadCount * 4];
             short[] indices = new short[_quadCount * 6];
@@ -173,12 +187,37 @@ namespace BS3D.Effects
                 AddBeam(vertices, indices, ref quad, new Vector3(x, y, -halfZ), new Vector3(x, y, halfZ));
             }
 
+            for (int k = 0; k < LaserEmitterRing.COUNT; k++)
+                if (FeederLength(k, y) > MIN_FEEDER)
+                    AddBeam(vertices, indices, ref quad, LaserEmitterRing.Lens(k, CornerX, CornerZ),
+                        LaserEmitterRing.NetCorner(k, CornerX, CornerZ, y));
+
             _vertexBuffer = new VertexBuffer(_device, LaserVertex.Declaration, vertices.Length, BufferUsage.WriteOnly);
             _vertexBuffer.SetData(vertices);
 
             _indexBuffer = new IndexBuffer(_device, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
             _indexBuffer.SetData(indices);
         }
+
+        //A feeder shorter than this is not drawn: a lens that stands at its corner already has nothing to feed across
+        private const float MIN_FEEDER = 0.5f;
+
+        //How far the lens of emitter k stands outside its corner of the net, measured along the line between them (a lens
+        //inside the corner has no feeder to draw, and the sign says so)
+        private float FeederLength(int k, float planeY)
+        {
+            Vector3 lens = LaserEmitterRing.Lens(k, CornerX, CornerZ);
+            Vector3 corner = LaserEmitterRing.NetCorner(k, CornerX, CornerZ, planeY);
+            Vector3 outward = LaserEmitterRing.Outward(k, CornerX, CornerZ);
+
+            return Vector3.Dot(lens - corner, outward) > 0f ? Vector3.Distance(lens, corner) : 0f;
+        }
+
+        /// <summary>Where the net's outermost beams along Z stand in X, the net's corners' half-extent (#874); set by <see cref="Fit"/>.</summary>
+        internal float CornerX { get; private set; }
+
+        /// <summary>Where the outermost beams along X stand in Z; set by <see cref="Fit"/>.</summary>
+        internal float CornerZ { get; private set; }
 
         private static void AddBeam(LaserVertex[] vertices, short[] indices, ref int quad, Vector3 start, Vector3 end)
         {
@@ -297,33 +336,8 @@ namespace BS3D.Effects
         {
             if (_vertexBuffer == null) return;
 
-            //The linger after a level ends is executed here rather than in an update: the alarm is a rule of
-            //the level, and the session stops running its rules the moment the result screen covers it — the
-            //frame that does go on under that page is the world's alone (#241). Draws keep coming either way
-            //(DrawsUnderlying), so this is the one place still running.
-            if (_visible && now >= _expireAt) SetVisible(false, now);
-
-            float envelope = EnvelopeAt(now);
-            if (envelope <= 0.001f) return;
-
-            float pulse = 0.5f - 0.5f * MathF.Cos(MathHelper.TwoPi * PULSE_HZ * now);
-            float intensity = envelope * (PULSE_FLOOR + (1f - PULSE_FLOOR) * pulse * pulse);
-
-            //The kill flare (#434), over the top of all of it: the net that has been warning for the last
-            //few shots is now the thing that ended the level, and it should read as cutting rather than as
-            //pulsing a little brighter. Eased in, because a step would land on one frame and be gone before
-            //the camera arrives.
-            if (_flareAt < float.PositiveInfinity)
-            {
-                float t = MathHelper.Clamp((now - _flareAt) / FLARE_IN, 0f, 1f);
-                float flare = MathHelper.SmoothStep(0f, 1f, t);
-
-                //Under a loss's result page, back down to the warning's pulse (#614)
-                if (_settleAt < float.PositiveInfinity)
-                    flare *= 1f - MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp((now - _settleAt) / SETTLE_SECONDS, 0f, 1f));
-
-                intensity = MathHelper.Lerp(intensity, FLARE_INTENSITY, flare);
-            }
+            float intensity = IntensityAt(now);
+            if (intensity <= 0f) return;
 
             _viewParam.SetValue(camera.View);
             _projectionParam.SetValue(camera.Projection);
@@ -348,6 +362,45 @@ namespace BS3D.Effects
             _device.BlendState = blend;
             _device.DepthStencilState = depth;
             _device.RasterizerState = raster;
+        }
+
+        /// <summary>
+        /// How brightly the net burns at <paramref name="now"/>, 0 when it is dark: the envelope times the pulse, with the
+        /// kill flare over it. The beams are drawn at exactly this, and so are the four emitters' lenses (#874), which is
+        /// what makes the glass and the beam leaving it one light. Pure of the wall clock, but it executes the linger's
+        /// expiry like <see cref="Draw"/> (the expiry is stamped, and running it twice in a frame changes nothing).
+        /// </summary>
+        internal float IntensityAt(float now)
+        {
+            //The linger after a level ends is executed here rather than in an update: the alarm is a rule of
+            //the level, and the session stops running its rules the moment the result screen covers it — the
+            //frame that does go on under that page is the world's alone (#241). Draws keep coming either way
+            //(DrawsUnderlying), so this is the one place still running.
+            if (_visible && now >= _expireAt) SetVisible(false, now);
+
+            float envelope = EnvelopeAt(now);
+            if (envelope <= 0.001f) return 0f;
+
+            float pulse = 0.5f - 0.5f * MathF.Cos(MathHelper.TwoPi * PULSE_HZ * now);
+            float intensity = envelope * (PULSE_FLOOR + (1f - PULSE_FLOOR) * pulse * pulse);
+
+            //The kill flare (#434), over the top of all of it: the net that has been warning for the last
+            //few shots is now the thing that ended the level, and it should read as cutting rather than as
+            //pulsing a little brighter. Eased in, because a step would land on one frame and be gone before
+            //the camera arrives.
+            if (_flareAt < float.PositiveInfinity)
+            {
+                float t = MathHelper.Clamp((now - _flareAt) / FLARE_IN, 0f, 1f);
+                float flare = MathHelper.SmoothStep(0f, 1f, t);
+
+                //Under a loss's result page, back down to the warning's pulse (#614)
+                if (_settleAt < float.PositiveInfinity)
+                    flare *= 1f - MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp((now - _settleAt) / SETTLE_SECONDS, 0f, 1f));
+
+                intensity = MathHelper.Lerp(intensity, FLARE_INTENSITY, flare);
+            }
+
+            return intensity;
         }
 
         public void Dispose()

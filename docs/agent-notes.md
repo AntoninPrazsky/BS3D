@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-17 — #874 čtyři laserové vysílače na okraji nálevky — desktop (RDT-PC), Claude Code (bs3d-48)
+- Čtyři malé kovové vysílače se skleněnou čočkou (hlaveň, žebrovaný límec, otočný třmen; materiál děla) stojí na zlatém pásu v rozích sítě; čočka má doutnající pohotovost a při síti svítí jejím jasem, od každé vede paprsek do rohu sítě. `LaserEmitterRing`, `LaserEmitters`, `LaserEmitterMesh`.
+- ⚠ Dělo obíhá celý ostrov, na okraji pro vysílače není místo mimo jeho dosah: hlaveň jim jede nad hlavou, podvozek drží venku `Cannon.SetKeepouts` (jen chůze dovnitř do ~10° od vysílače). Test smetl skutečné pózy a našel, že kola sahají o desetinu dál, než se myslelo (`StandReach`).
+- Otevřené: `verdict-eye` a ruka (podvozek obkluzem), karta a Help o vysílačích nejsou.
+
 ## 2026-10-17 — #878 kamera pádu pod plovoucím ostrovem jednou plynulou křivkou — desktop (RDT-PC), Claude Code (bs3d-48)
 - Skok dělal přepínač podle výšky subjektu: nad horní plochou se čočka zvedala, pod ní ji strkal okraj; čočka s dosahem pod okrajem při přepnutí uskočila o 9 jednotek, pak se zřítila 90 j/s a zastavila. Teď poloměr sám drží dosah 34,5 od osy (`SoftMax`), ponor jede přes 12 jednotek poklesu a nejvýš 1,1 s (`Smoother`), postup je jedna monotónní kubika. Zrychlení 600–8800 → 120–470 j/s², pevné scény beze změny.
 - `DropCinematicPathTests` (DropCinematic je v testech zkompilovaný). ⚠ Čočka je u menších hodů dál (až 43 j).

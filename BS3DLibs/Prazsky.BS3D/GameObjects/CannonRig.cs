@@ -190,7 +190,7 @@ namespace Prazsky.BS3D
         //knowing before anyone spends effort here: drawn with this colour AND the sky reflection at zero, the
         //covered queue measured 100.1 against 100.6 with both present - half a level out of 255. Whatever the
         //pane costs the queue, it is not this.
-        private static readonly Vector3 GLASS_COLOR = new Vector3(0.067f, 0.128f, 0.229f) * (0.92f / GLASS_ALPHA);
+        public static readonly Vector3 GLASS_COLOR = new Vector3(0.067f, 0.128f, 0.229f) * (0.92f / GLASS_ALPHA);
 
         //How much of the frame behind the pane it keeps out: well over the plate's 0.4, and since #365 well
         //over its own old 0.62 - a covered round keeps 0.08 of the light it would have in open air where it
@@ -235,7 +235,7 @@ namespace Prazsky.BS3D
         //own shading whatever this said - "almost opaque" and different by scene, the savanna being right. Fixed at
         //the source (PlantPass, and BeginSceneDraw restating the baseline), not here: judge this figure on a scene
         //that blends, and check the device's blend state before believing a pane that will not clear.
-        private const float GLASS_ALPHA = 0.84f;
+        public const float GLASS_ALPHA = 0.84f;
 
         //Radial thickness of the pane. Seated on the bore, so its outer face stands at BORE_RADIUS + this,
         //which has to stay under the slimmest steel the window crosses (the chase dip, outer - 0.075, i.e.
@@ -317,7 +317,7 @@ namespace Prazsky.BS3D
         //mean the next person to darken this window should reach for the alpha and leave this alone.
         private const float GLASS_SKY_REFLECTION = 0.13f;
 
-        private const float GLASS_SPECULAR_AMBIENT = GLASS_SKY_REFLECTION / GLASS_ALPHA;
+        public const float GLASS_SPECULAR_AMBIENT = GLASS_SKY_REFLECTION / GLASS_ALPHA;
 
         #endregion
 
@@ -345,11 +345,11 @@ namespace Prazsky.BS3D
         private const float BALL_RADIUS = Constants.HALF;
 
         //Steel grey, in sRGB - the shader linearizes it, like every other material colour in this project.
-        private static readonly Vector3 STEEL_COLOR = new(0.42f, 0.44f, 0.48f);
+        public static readonly Vector3 STEEL_COLOR = new(0.42f, 0.44f, 0.48f);
 
         //Metal takes a good deal of the sky as reflection. There is no UV set on the mesh and so no detail
         //texture: the barrel is plain steel whose whole sheen is this specular ambient reflecting the dome.
-        private const float SPECULAR_AMBIENT_STRENGTH = 0.5f;
+        public const float SPECULAR_AMBIENT_STRENGTH = 0.5f;
 
         #region The carriage's figures
 
@@ -401,6 +401,16 @@ namespace Prazsky.BS3D
         //degrees the pole now clears the stone by 0.29.
         private const float AXLE_DROP = 1.45f;      //the axle line below the trunnions
         private const float AXLE_RADIUS = 0.13f;
+
+        /// <summary>
+        /// How far the standing carriage reaches from its trunnions towards anything inward of them, whatever way it is
+        /// yawed (#874): the circle round the trunnions that holds a wheel's outer face and the front of its disc. Taken
+        /// from the wheels' own figures (the plates' outer face, the disc's front) with a hair of margin, because it is what keeps the gun off the laser emitters on the
+        /// drain's rim (<see cref="GameObjects.Cannon.SetKeepouts"/>), and the clearance test sweeps the real pose against it.
+        /// </summary>
+        public static readonly float StandReach = MathF.Sqrt(
+            (WHEEL_TRACK + ROLLER_ROW_OFFSET + ROLLER_RADIUS + PLATE_THICKNESS + 0.01f) * (WHEEL_TRACK + ROLLER_ROW_OFFSET + ROLLER_RADIUS + PLATE_THICKNESS + 0.01f)
+            + (WHEEL_RADIUS + 0.02f) * (WHEEL_RADIUS + 0.02f));
 
         /// <summary>
         /// How far behind the tube's own midpoint the trunnions hold it (#287). <b>This is what a gun built
@@ -490,8 +500,8 @@ namespace Prazsky.BS3D
         //The ironwork: a darker iron than the barrel's steel for the frame — the barrel keeps its sheen, the
         //undercarriage barely reflects. The wheel used to be a warm matte WOOD, which was half of what read
         //as a historical carriage; it is machined dark metal now (#129).
-        private static readonly Vector3 FRAME_COLOR = new(0.30f, 0.30f, 0.33f);
-        private const float FRAME_SPECULAR_AMBIENT = 0.22f;
+        public static readonly Vector3 FRAME_COLOR = new(0.30f, 0.30f, 0.33f);
+        public const float FRAME_SPECULAR_AMBIENT = 0.22f;
 
         //The omni wheel's two tones, and they cost nothing: colour is a per-draw uniform and the body and the
         //rollers are two draws anyway (they have to turn independently), so the rollers can be told apart from

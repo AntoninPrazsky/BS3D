@@ -697,6 +697,10 @@ namespace BS3D.Screens
 
         private readonly LaserGrid _laserGrid;
 
+        //The four emitters on the drain's rim the net comes from (#874), made with the first level and kept for the
+        //session's life; null before it
+        private LaserEmitters _emitters;
+
         /// <summary>
         /// Every bomb going off (#389) — its flash, its report and the light it throws. Session content like the
         /// net above, but stepped on the world's clock rather than stamped on the wall's: see <see cref="Blasts"/>.
@@ -2045,6 +2049,10 @@ namespace BS3D.Screens
             //it — while the descending plate is above, so an overhead shot seeing the net through the glass
             //still gets the plate composited over it. Wall-clock driven, so its pulse and its linger-and-
             //fade keep running while a result screen covers this screen and only draws still arrive.
+            //The four emitters' lenses first (#874), glass writing no depth, so the feeders that start at their crests are
+            //drawn over the glass and not behind it - and glowing with the very brightness the beams are drawn at
+            _emitters?.DrawLens(GraphicsDevice, Camera, Game.SceneEffectParams, _laserGrid.IntensityAt(WallClock));
+
             _laserGrid.Draw(Camera, WallClock);
 
             //The glass the cluster hangs from, last of the session's objects: it is translucent, so everything
@@ -2121,6 +2129,10 @@ namespace BS3D.Screens
             DrawMuzzleCollar(barrelWorld);
             Game.CannonRig.DrawCarriage(Camera, carriageWorld, _cannon.WheelTravel, _cannon.SlideTravel, Game.SceneEffectParams);
 
+            //The laser emitters' metal on the drain's rim (#874), with the gun in both frames: the front end's over a kept
+            //session shows them standing there too, and a pod that appeared only in play would pop in with the level
+            _emitters?.DrawBody(Camera, Game.SceneEffectParams);
+
             //On the game's birthday the gun wears a hat (#230), on the barrel's own pose so it recoils, walks and
             //nods off with it. Null on every other day.
             Game.PartyHat?.Draw(Camera, barrelWorld, Game.SceneEffectParams, _preciseAim.Blend);
@@ -2156,7 +2168,13 @@ namespace BS3D.Screens
 
         void IStandingGun.Draw() => DrawGun(_cannon.BarrelWorld(), _cannon.CarriageWorld());
 
-        void IStandingGun.DrawGlass() => Game.CannonRig.DrawGlass(Camera, _cannon.BarrelWorld(), Game.SceneEffectParams);
+        void IStandingGun.DrawGlass()
+        {
+            //The emitters' lenses under the front end as well (#874), as the metal they are set in is
+            _emitters?.DrawLens(GraphicsDevice, Camera, Game.SceneEffectParams, _laserGrid.IntensityAt(WallClock));
+
+            Game.CannonRig.DrawGlass(Camera, _cannon.BarrelWorld(), Game.SceneEffectParams);
+        }
 
         #endregion
 
