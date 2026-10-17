@@ -5,6 +5,9 @@ using Prazsky.BS3D.Physics;
 using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Text.RegularExpressions;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -18,7 +21,10 @@ namespace BS3D.Tests
     /// 30, 60, 75 and 144 frames a second (and a stepping that counts frames instead of seconds is seen to fail the same
     /// check), a shot ends the slow motion, there is none under the drop cinematic, only the cut's own balls glow (the last
     /// N of the falling list), the face above the cut glows and <see cref="CutStaging.Reset"/> puts every glow out, the charge's
-    /// angle is held once the press is over and its top is felt once.
+    /// angle is held once the press is over and its top is felt once. Since #767's verdict also the slash's place (level
+    /// through the struck ball, square to the shot, across the storey the cut destroyed) and the severing's picture: it
+    /// plays out the same at any frame rate, its sparks read for a second, its flash never outlasts the slow motion, a shot
+    /// hurries it, and both Blast.fx files carry its figures.
     /// </summary>
     public class CutStagingSessionTests
     {
@@ -68,11 +74,17 @@ namespace BS3D.Tests
             public void Dispose() => Hung.Dispose();
         }
 
-        private static CutStaging Strike(CutSlab slab, bool slowMotion = true)
+        //The way the tests' cutter flies: up a little, and off the lattice's rows, so a slash square to the lens or to a row
+        //would not pass for one square to the shot
+        private static readonly Microsoft.Xna.Framework.Vector3 Shot = Microsoft.Xna.Framework.Vector3.Normalize(new(0.45f, 0.3f, -1f));
+
+        private static CutStaging Strike(CutSlab slab, bool slowMotion = true) => Strike(slab, Shot, out _, slowMotion);
+
+        private static CutStaging Strike(CutSlab slab, Microsoft.Xna.Framework.Vector3 shot, out CutSlash slash, bool slowMotion = true)
         {
             var staging = new CutStaging();
-            staging.Strike(slab.Cell, slab.Struck, slab.Falling, slab.Result.Total, slab.Result.Orphaned, slab.Hung.Balls,
-                slowMotion, out _, out _);
+            staging.Strike(slab.Cell, slab.Struck, shot, Microsoft.Xna.Framework.Vector3.Zero, slab.Falling, slab.Result.Total,
+                slab.Result.Orphaned, slab.Hung.Balls, slowMotion, out slash, out _);
             return staging;
         }
 
@@ -322,6 +334,257 @@ namespace BS3D.Tests
                 staging.StepWall(CutBeats.PINCH_IN_SECONDS);
                 Assert.True(staging.FovScale < 1f, "the flight did not pinch the lens");
             }
+        }
+
+        /// <summary>
+        /// #767's verdict: "the light stripe - the cut - is not oriented perpendicular to the shot, nor the way the storey is
+        /// really cut". The slash lies in the struck storey's plane (level, through the struck ball's centre, at the height of
+        /// every ball the cut destroyed) and square to the shot's level heading, whatever the heading; it spans every destroyed
+        /// ball of the storey plus a ball past each end; and a struck storey of one ball still gets the shortest slash, centred
+        /// on the struck ball.
+        /// </summary>
+        [Fact]
+        public void The_slash_lies_in_the_storey_square_to_the_shot_across_what_was_cut()
+        {
+            using CutSlab slab = new();
+
+            foreach (Microsoft.Xna.Framework.Vector3 shot in new[] { Shot, new(0f, 0.2f, -1f), new(-1f, 0.6f, -0.3f), new(0.7f, 0.1f, 0.7f) })
+            {
+                Strike(slab, shot, out CutSlash slash);
+
+                var heading = Microsoft.Xna.Framework.Vector3.Normalize(new(shot.X, 0f, shot.Z));
+                _output.WriteLine($"shot {shot}: axis {slash.Axis}, offset {slash.Offset:F2}, half {slash.HalfLength:F2}");
+
+                //Square to the shot's heading, level, unit, and turned so that up x axis points back at the gun
+                Assert.Equal(0f, slash.Axis.Y, 5);
+                Assert.Equal(1f, slash.Axis.Length(), 4);
+                Assert.Equal(0f, Microsoft.Xna.Framework.Vector3.Dot(slash.Axis, heading), 4);
+                Assert.True(Microsoft.Xna.Framework.Vector3.Dot(Microsoft.Xna.Framework.Vector3.Cross(Microsoft.Xna.Framework.Vector3.Up, slash.Axis), heading) < -0.999f,
+                    "up x axis does not point back along the shot, where the sparks are thrown");
+
+                //In the storey's plane: the line through the struck ball runs at its height, which is every destroyed ball's
+                int first = slab.Falling.Count - slab.Result.Total;
+                float low = float.MaxValue, high = float.MinValue;
+                for (int i = first; i < slab.Falling.Count; i++)
+                {
+                    PhysicsBall ball = slab.Falling[i];
+                    if (ball.ArrayPosition.Level != slab.Cell.Level) continue;
+
+                    var at = ball.BallReference.Pose.Position.ToXna();
+                    Assert.Equal(slab.Struck.Y, at.Y, 3);
+
+                    float along = Microsoft.Xna.Framework.Vector3.Dot(at - slab.Struck, slash.Axis);
+                    low = MathF.Min(low, along);
+                    high = MathF.Max(high, along);
+                }
+
+                Assert.Equal(slab.Struck.Y, slash.Middle(slab.Struck).Y, 5);
+
+                //Across what was cut, a ball past each end, and no further
+                Assert.Equal(low - CutSlash.OVERRUN, slash.Offset - slash.HalfLength, 3);
+                Assert.Equal(high + CutSlash.OVERRUN, slash.Offset + slash.HalfLength, 3);
+            }
+
+            //A storey of one: the shortest slash, centred on the struck ball
+            CutSlash lone = CutSlash.Across(CutSlash.AxisFor(Shot, Microsoft.Xna.Framework.Vector3.Zero), 0f, 0f);
+            Assert.Equal(0f, lone.Offset, 5);
+            Assert.Equal(CutSlash.MIN_HALF_LENGTH, lone.HalfLength, 5);
+            Assert.True(2f * lone.HalfLength >= 3f, "the shortest slash is under three balls");
+
+            //A shot that knows no heading takes the gun's aim's
+            Assert.Equal(CutSlash.AxisFor(Shot, Microsoft.Xna.Framework.Vector3.Zero), CutSlash.AxisFor(Microsoft.Xna.Framework.Vector3.Zero, Shot));
+        }
+
+        /// <summary>
+        /// The severing's picture runs on the world's clock, which the slow motion scales: the blasts' own slots
+        /// (<see cref="BlastSlots"/>, whose ages the draw reads), stepped with the session's world time as the game steps them,
+        /// put the blade's light out and free its slot at the same wall time at 30, 60, 75 and 144 Hz as at the reference rate,
+        /// to a frame. (Seen to fail with the slots aging by a sixtieth a step instead of by the time handed in.)
+        /// </summary>
+        [Fact]
+        public void The_severing_burns_out_at_the_same_wall_time_at_any_frame_rate()
+        {
+            (double Dark, double Freed) BurnsOut(float hz)
+            {
+                using CutSlab slab = new();
+                CutStaging staging = Strike(slab, Shot, out CutSlash slash);
+                BlastSlots slots = new();
+                slots.Cut(slab.Struck, slash, 0.6f);
+
+                float dt = 1f / hz;
+                double wall = 0.0, dark = -1.0;
+                while (wall < 10.0)
+                {
+                    staging.StepWall(dt);
+                    float scale = staging.TimeScale;
+                    staging.StepWorld(dt * scale);
+                    slots.Step(dt * scale);
+                    wall += dt;
+
+                    if (dark < 0.0 && !slots.TryGetLight(out _, out _, out _)) dark = wall;
+                    if (!slots[0].Active) return (dark, wall);
+                }
+
+                return (dark, wall);
+            }
+
+            (double referenceDark, double referenceFreed) = BurnsOut(REFERENCE_HZ);
+            _output.WriteLine($"reference ({REFERENCE_HZ} Hz): the light is out {referenceDark:F3} s and the slot freed {referenceFreed:F3} s after the strike");
+            Assert.True(referenceFreed > CutBeats.LIFE_SECONDS, "the slow motion did not stretch the picture at all");
+            Assert.True(referenceDark > 0.0 && referenceDark < referenceFreed, "the light outlived the slot");
+
+            foreach (float hz in FrameRates)
+            {
+                (double dark, double freed) = BurnsOut(hz);
+                _output.WriteLine($"{hz} Hz: dark {dark:F3} s, freed {freed:F3} s");
+
+                //A frame's rounding either way: the frame that crosses the end, and the slow motion's own (its world time is
+                //the same to 0.85 of a frame, The_slow_motion_costs_the_same_world_time_at_any_frame_rate)
+                Assert.InRange(dark, referenceDark - 1.0 / hz - 1e-3, referenceDark + 1.0 / hz + 1e-3);
+                Assert.InRange(freed, referenceFreed - 1.0 / hz - 1e-3, referenceFreed + 1.0 / hz + 1e-3);
+            }
+        }
+
+        /// <summary>
+        /// A shot fired while the picture burns plays the rest of it <see cref="CutBeats.HURRY_RATE"/> times as fast, through
+        /// the slots the draw reads: whenever it comes, the slot is freed within <see cref="CutBeats.HurriedSecondsLeft"/>
+        /// (a third of a second at most) and at the same wall time at 30, 60 and 144 Hz; the light fades out over frames, at
+        /// 60 Hz never losing more than a quarter of its full strength in one (the stepped hurry it replaced put out half of
+        /// it in one frame and is seen to fail this); a second shot does not hurry it again, and a bomb is never hurried.
+        /// </summary>
+        [Fact]
+        public void A_shot_plays_the_rest_of_the_picture_out_fast_and_puts_nothing_out_in_one_frame()
+        {
+            CutSlash lone = CutSlash.Across(Microsoft.Xna.Framework.Vector3.UnitX, 0f, 0f);
+
+            //The light's colour at the blade's full strength: what one frame's drop is measured against
+            BlastSlots fresh = new();
+            fresh.Cut(Microsoft.Xna.Framework.Vector3.Zero, lone, 1f);
+            fresh.TryGetLight(out _, out Microsoft.Xna.Framework.Vector3 fullColour, out _);
+            float full = fullColour.Length();
+
+            (double Freed, float WorstDrop) HurriedAt(float age, float hz)
+            {
+                BlastSlots slots = new();
+                slots.Cut(Microsoft.Xna.Framework.Vector3.Zero, lone, 1f);
+
+                //Up to the shot at the world's full speed, in fine steps (the shot ends the slow motion)
+                const float fine = 1f / 2000f;
+                while (slots[0].Age + fine <= age) slots.Step(fine);
+
+                Assert.True(slots.HurryBlades(), "a burning blade was not hurried");
+                Assert.False(slots.HurryBlades(), "a second shot hurried it again");
+
+                float dt = 1f / hz, worst = 0f;
+                float before = slots.TryGetLight(out _, out Microsoft.Xna.Framework.Vector3 colour, out _) ? colour.Length() : 0f;
+                double wall = 0.0;
+                while (slots[0].Active && wall < 5.0)
+                {
+                    slots.Step(dt);
+                    wall += dt;
+
+                    float now = slots.TryGetLight(out _, out colour, out _) ? colour.Length() : 0f;
+                    worst = MathF.Max(worst, before - now);
+                    before = now;
+                }
+
+                return (wall, worst);
+            }
+
+            foreach (float age in new[] { 0f, 0.3f, 0.9f, CutBeats.SLASH_SECONDS - 0.1f })
+            {
+                (double freed, float drop) = HurriedAt(age, 60f);
+                float share = drop / full;
+                _output.WriteLine($"a shot at {age:F2} s: gone {freed:F3} s later at 60 Hz, the light's worst frame {share:P0} of its full strength");
+
+                Assert.True(freed <= CutBeats.HurriedSecondsLeft(age) + 1.0 / 60.0 + 1e-4, $"a shot at {age} s left {freed:F3} s of the picture");
+                Assert.True(freed <= CutBeats.LIFE_SECONDS / CutBeats.HURRY_RATE + 1.0 / 60.0 + 1e-4, "a hurried picture outlasts a third of a second");
+                Assert.True(share <= 0.25f, $"a shot at {age} s put out {share:P0} of the light in one frame");
+
+                foreach (float hz in new[] { 30f, 144f })
+                    Assert.InRange(HurriedAt(age, hz).Freed, freed - 1.0 / 30.0 - 1e-3, freed + 1.0 / 30.0 + 1e-3);
+            }
+
+            //A bomb ages at the world's pace whatever is fired
+            BlastSlots bombs = new();
+            bombs.SetOff(new[] { new Detonation(Microsoft.Xna.Framework.Vector3.Zero, 0, 12) });
+            Assert.False(bombs.HurryBlades(), "a bomb was hurried");
+            bombs.Step(0.1f);
+            Assert.Equal(0.1f, bombs[0].Age, 5);
+        }
+
+        /// <summary>
+        /// "The sparks are barely perceptible, so few and so briefly are they shown": seven sparks in ten now live a second
+        /// or more; the slash lasts twice the first cut's 0.9 s; the slot outlives every part; the light lasts with them.
+        /// </summary>
+        [Fact]
+        public void The_sparks_read_for_a_second_and_the_slot_outlives_every_part()
+        {
+            //A spark's life is SPARK_SECONDS times a jitter spread evenly between LEAST and MOST
+            float shareOverASecond = (CutBeats.SPARK_LIFE_MOST - 1f / CutBeats.SPARK_SECONDS) / (CutBeats.SPARK_LIFE_MOST - CutBeats.SPARK_LIFE_LEAST);
+            _output.WriteLine($"sparks living a second or more: {shareOverASecond:P0}");
+            Assert.True(shareOverASecond >= 0.7f, $"only {shareOverASecond:P0} of the sparks live a second");
+
+            Assert.True(CutBeats.SLASH_SECONDS >= 1.8f, "the slash is not twice the first cut's");
+            Assert.True(CutBeats.LIFE_SECONDS >= CutBeats.SLASH_SECONDS, "the slot is freed before the slash has burnt out");
+            Assert.True(CutBeats.LIFE_SECONDS >= CutBeats.SPARK_SECONDS * CutBeats.SPARK_LIFE_MOST + CutBeats.SPARK_RUN_SECONDS,
+                "the slot is freed before the longest-lived spark has died");
+
+            Assert.True(CutBeats.LightStrength(0.5f, 0f) > 0.1f, "the light is gone in half a second");
+            Assert.True(CutBeats.LightStrength(0f, 0f) >= 0.5f, "a cut that freed nothing lights the balls at under half strength");
+            Assert.Equal(0f, CutBeats.LightStrength(CutBeats.LIGHT_SECONDS, 1f));
+        }
+
+        /// <summary>
+        /// The flash is the one part bright and wide enough to hide the field: it is under a tenth of its light by the time the
+        /// shortest slow motion (a cut that freed nothing) has let its world time pass, so it never hides the field past the
+        /// slow motion.
+        /// </summary>
+        [Fact]
+        public void The_flash_never_outlasts_the_slow_motion()
+        {
+            float shortest = CutBeats.WorldSecondsOfSlowMotion(0f, false);
+            _output.WriteLine($"the shortest slow motion lets {shortest:F3} s of the world pass; the flash is at {CutBeats.FlashLeft(shortest):F3} then");
+            Assert.True(CutBeats.FlashLeft(shortest) < 0.1f, "the flash outlasts the shortest slow motion");
+        }
+
+        /// <summary>
+        /// Both Blast.fx files (the desktop's, and GamePi's, which the Pi and the Windows Potato run draw) carry the severing's
+        /// figures as CutBeats states them: the shaders cannot be handed them, so a figure changed on one side alone would
+        /// cut a slot off mid-fade or leave the tests holding the wrong picture.
+        /// </summary>
+        [Theory]
+        [InlineData("BS3DLibs/Prazsky.Shaders/Content/Shaders/Blast.fx")]
+        [InlineData("GamePi/Shaders/Blast.fx")]
+        public void Both_shaders_carry_the_severings_figures(string relative)
+        {
+            string shader = File.ReadAllText(FindUnderRepository(relative.Replace('/', Path.DirectorySeparatorChar)));
+
+            float Figure(string name)
+            {
+                Match match = Regex.Match(shader, @"static const float " + name + @" = ([0-9.]+);");
+                Assert.True(match.Success, $"{relative} states no {name}");
+                return float.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
+            }
+
+            Assert.Equal(CutBeats.SLASH_SECONDS, Figure("SLASH_SECONDS"), 4);
+            Assert.Equal(CutBeats.FLASH_SECONDS, Figure("BLADE_FLASH_SECONDS"), 4);
+            Assert.Equal(CutBeats.SPARK_SECONDS, Figure("BLADE_SPARK_SECONDS"), 4);
+            Assert.Equal(CutBeats.SPARK_RUN_SECONDS, Figure("BLADE_SPARK_RUN"), 4);
+            Assert.Contains("(0.55 + 0.9 * input.Random.x)", shader);
+            Assert.Equal(CutBeats.SPARK_LIFE_LEAST, 0.55f, 4);
+            Assert.Equal(CutBeats.SPARK_LIFE_MOST, 0.55f + 0.9f, 4);
+        }
+
+        private static string FindUnderRepository(string relative)
+        {
+            for (DirectoryInfo directory = new(AppContext.BaseDirectory); directory != null; directory = directory.Parent)
+            {
+                string candidate = Path.Combine(directory.FullName, relative);
+                if (File.Exists(candidate)) return candidate;
+            }
+
+            throw new FileNotFoundException($"No {relative} was found above the test assembly.");
         }
     }
 }

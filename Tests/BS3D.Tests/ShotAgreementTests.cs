@@ -34,7 +34,7 @@ namespace BS3D.Tests
         /// Aims at a random ball of the structure from a ring under the cluster, off its centre by up to 1.2 units
         /// perpendicular to the line. The offset is the "glance" the report bins by.
         /// </summary>
-        private static (XVector3 Muzzle, XVector3 Target, float Glance) RandomAim(PhysicsBall[,,] balls, Random rng)
+        internal static (XVector3 Muzzle, XVector3 Target, float Glance) RandomAim(PhysicsBall[,,] balls, Random rng)
         {
             List<PhysicsBall> all = new();
             float lowest = float.MaxValue;

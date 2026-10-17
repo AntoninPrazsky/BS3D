@@ -120,10 +120,10 @@ float3 BallFlash;
 float4 BallAlarm;
 float4 PulsePhase;
 
-//A KIND'S FIGURE (#863), read by PotatoBallKind alone - the ordinary ball's program does not know these, so it pays
-//nothing for them: x which figure (1 the acid's filled lower half, 2 the sick ball's one-sided crust, 3 the gravity
-//well's eye), y its level or threshold, z its strength, w its edge or ring; KindGlow the figure's own colour, linear;
-//KindAxis the world direction the crust faces.
+//A KIND'S FIGURE (#863), read by PotatoBallKind and PotatoBallCutter alone - the ordinary ball's program does not know
+//these, so it pays nothing for them: x which figure (1 the acid's filled lower half, 2 the sick ball's one-sided crust, 3
+//the gravity well's eye), y its level or threshold, z its strength, w its edge or ring; KindGlow the figure's own colour,
+//linear; KindAxis the world direction the crust faces. The Cutter's saw face reads them its own way (see PotatoBallCutter).
 float4 KindFigure;
 float3 KindGlow;
 float3 KindAxis;
@@ -856,8 +856,9 @@ technique PotatoBallDither
     }
 };
 
-//A KIND'S FIGURE (#863): the ball's radiance with its kind's figure painted on before the display encode, for the four
-//kinds whose desktop look is a figure on the ball - the acid, the sick ball, the gravity well, the Cutter (#766). A
+//A KIND'S FIGURE (#863): the ball's radiance with its kind's figure painted on before the display encode, for the three
+//kinds whose desktop look is a figure on the ball - the acid, the sick ball, the gravity well (the Cutter's saw face is a
+//program of its own, PotatoBallCutter, #766). A
 //program of its own, so the ordinary ball's is untouched instruction for instruction (V3D_DEBUG=shaderdb): the kinds that
 //draw it are a handful of balls in a level. Which figure is a uniform, so the branches are static for the draw.
 float3 BallKindRadiance(VertexOutput input)
@@ -1382,6 +1383,129 @@ technique PotatoBallCueEmblems
     {
         VertexShader = compile POTATO_VS PotatoBallCueVS();
         PixelShader = compile POTATO_PS BallCueEmblemsPS();
+    }
+};
+
+//THE CUTTER'S SAW FACE (#766; the owner on Potato, 2026-10-17: "bring it a bit closer to the desktop look"). The desktop
+//paints the face of the saw on the ball (BallCutter.fxh): a ring of sixteen hooked teeth glowing white-hot and cooling to
+//amber at their base, round a hub - a groove, a brighter washer, three bolts a little off their thirds and the arbor's
+//dark hole - and a lit slit round the outline where the blade goes in. This is that figure cut down to Shader Model 3:
+//the same polar and azimuthal layout and the same figures, the edges smoothed over the pixel's own footprint (as the
+//cue's are) instead of the desktop's band-limiting; no lathe rings, no nicks and no relief, which a Potato ball has none
+//of. On the instance's own frame (the object direction), so the teeth and the bolts turn with the saw, which is what
+//shows it spinning. A program of its own, so neither the ordinary ball's program nor the other kinds' (PotatoBallKind,
+//whose registers V3D sizes for the dearest branch) pays a cycle for it: at most two rounds in a frame draw it.
+//KindFigure: x the teeth's glow, y the slit's, z how much brighter the washer is; KindGlow the accent, linear.
+static const float SawTeeth = 16.0;
+static const float SawInner = 0.50;
+static const float SawGullet = 0.60;
+static const float SawTip = 0.76;
+static const float SawHub = 0.30;
+static const float SawGroove = 0.02;
+static const float SawBoltPolar = 0.17;
+static const float SawBoltRadius = 0.055;
+static const float SawArbor = 0.05;
+static const float SawSlit = 0.06;
+static const float3 SawEmber = float3(1.0, 0.55, 0.22);
+
+float3 CutterFaceRadiance(CueVertexOutput input)
+{
+    VertexOutput ball;
+    ball.Position = input.Position;
+    ball.WorldPosition = input.WorldPosition;
+    ball.WorldNormal = input.WorldNormal;
+    ball.OcclusionData = input.OcclusionData;
+    ball.DissolveRipple = input.DissolveRipple;
+    ball.SceneDiffuse = input.SceneDiffuse;
+    ball.SceneSpecular = input.SceneSpecular;
+
+    float3 direction = normalize(input.ObjectDirection);
+    float footprint = max(length(ddx(direction)) + length(ddy(direction)), 1e-4);
+
+    //Polar angle from the nearer pole - the face the lens looks at - and the angle round it
+    float polar = acos(saturate(abs(direction.y)));
+    float azimuth = atan2(direction.z, direction.x);
+
+    //The hub: the groove, the washer inside it, the arbor's hole and the three bolts
+    float groove = 1 - smoothstep(SawGroove, SawGroove + footprint, abs(polar - SawHub));
+    float washer = 1 - smoothstep(SawHub - footprint, SawHub + footprint, polar);
+    float arbor = 1 - smoothstep(SawArbor - footprint, SawArbor + footprint, polar);
+
+    float side = direction.y < 0 ? -1.0 : 1.0;
+    float bolt = 0;
+    [unroll]
+    for (int i = 0; i < 3; i++)
+    {
+        float place = 2.0943951 * i + 0.17 * sin(4.1 * i + 1.3) + (side < 0 ? 1.0472 : 0.0);
+        float3 boltAt = float3(sin(SawBoltPolar) * cos(place), cos(SawBoltPolar) * side, sin(SawBoltPolar) * sin(place));
+        float d = length(direction - boltAt);
+        bolt = max(bolt, 1 - smoothstep(SawBoltRadius - footprint, SawBoltRadius + footprint, d));
+    }
+
+    //The teeth: which tooth, how far through its pitch, and the outline there - a long back rising to the tip and a short
+    //face falling, two of the sixteen chipped short (#640); under a pixel a tooth is noise, so the outline settles on its
+    //mean as the ball recedes and the ring stays a ring
+    float phase = azimuth / 6.2831853 * SawTeeth + SawTeeth;
+    float through = frac(phase);
+    float tooth = fmod(floor(phase), SawTeeth) + (side < 0 ? 7.0 : 0.0);
+    float height = (tooth == 5.0 || tooth == 12.0) ? 0.35 : 0.82 + 0.18 * frac(tooth * 0.618034);
+    float profile = through < 0.75 ? through / 0.75 : (1 - through) / 0.25;
+    profile = lerp(0.5, profile * height, saturate(2.0 - footprint * SawTeeth * 0.35));
+    float outline = SawGullet + (SawTip - SawGullet) * profile;
+    float saw = (1 - smoothstep(outline - footprint, outline + footprint, polar))
+        * smoothstep(SawInner - footprint, SawInner + footprint, polar);
+    float sawHot = saturate((polar - SawInner) / (outline - SawInner));
+
+    //The steel, the washer brighter, the groove and the arbor darker, a bolt head brighter still
+    float3 shaded = BallRadiance(ball) * ((1 + KindFigure.z * washer) * (1 - 0.7 * groove) * (1 - 0.8 * arbor) * (1 + 0.6 * bolt));
+
+    //THE LIGHT: the accent, white at the teeth's tips and amber at their base, in the teeth and in the slit round the outline
+    float3 accent = KindGlow;
+    float3 sawLight = lerp(accent * SawEmber, accent, saturate(sawHot * 1.4)) * (KindFigure.x * lerp(0.45, 1.0, sawHot));
+    float slit = 1 - smoothstep(SawSlit - footprint, SawSlit + footprint, abs(direction.y));
+    float3 hot = lerp(accent * SawEmber, accent, 0.55);
+
+    shaded = lerp(shaded, hot * KindFigure.y, slit);
+    return lerp(shaded, sawLight, saw);
+}
+
+float4 BallCutterPS(CueVertexOutput input) : COLOR0
+{
+    return float4(ToDisplay(CutterFaceRadiance(input)), 1);
+}
+
+//The dithered cutter (#794): BallDitherPS's clip, then the face
+#if OPENGL
+float4 BallCutterDitherPS(CueVertexOutput input, float2 vpos : VPOS) : COLOR0
+{
+#else
+float4 BallCutterDitherPS(CueVertexOutput input) : COLOR0
+{
+    float2 vpos = input.Position.xy;
+#endif
+    float noise = DissolveNoise(floor(vpos / DissolvePixelSize));
+    float dissolve = input.DissolveRipple.x;
+
+    clip(dissolve >= 0 ? noise - dissolve : -dissolve - noise);
+
+    return BallCutterPS(input);
+}
+
+technique PotatoBallCutter
+{
+    pass P0
+    {
+        VertexShader = compile POTATO_VS PotatoBallCueVS();
+        PixelShader = compile POTATO_PS BallCutterPS();
+    }
+};
+
+technique PotatoBallCutterDither
+{
+    pass P0
+    {
+        VertexShader = compile POTATO_VS PotatoBallCueVS();
+        PixelShader = compile POTATO_PS BallCutterDitherPS();
     }
 };
 

@@ -533,6 +533,11 @@ namespace BS3D.Screens
                 return;
             }
 
+            //And the cut's picture: the slash, the sparks and the light outlive the slow motion (#767's verdict made them last),
+            //so a shot that leaves plays the rest of them out fast (Blasts.HurryBlades) and crosses a field already clearing.
+            //Only a shot that leaves: a refused pull fires nothing across it, and the picture runs on at the world's pace
+            if (_blasts.HurryBlades()) Console.WriteLine("[skip] cut's slash hurried");
+
             //No recoil in either of these: the shot leaves along the TRUE aim on the frame it is fired, before
             //the barrel has moved. The stroke below is drawing only — see CannonRecoilBack.
             Vector3 direction = _cannon.AimDirection;
@@ -555,6 +560,13 @@ namespace BS3D.Screens
                 Type = type, //the colour the player saw loaded at the muzzle, so aiming for it means something
                 Kind = kind  //and what it is, which for everything but a wildcard is Normal (#330)
             };
+
+            //A cutter leaves turned as it lay in the bore (#767's verdict): its saw's frame is the round's own
+            //(BallRenderSet.CutterFrame), so the blade leaves the barrel without a turn and keeps that bearing along a
+            //straight shot, which nothing turns (a bounce off the glass may set it tumbling, as it would a real blade). The
+            //body is a sphere, so its turn changes nothing of its flight. The drawn barrel's, which the loaded round was drawn in
+            if (kind == BallKind.Cutter)
+                ball.BallReference.Pose.Orientation = BallRenderSet.CutterLaunchTurn(_cannon.BarrelOrientation()).ToNumerics();
 
             _shotBalls.Add(ball);
 

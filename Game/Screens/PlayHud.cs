@@ -573,9 +573,13 @@ namespace BS3D.Screens
             public Color Tint;
 
             /// <summary>Seconds since birth on the play clock. <b>Negative</b> while it waits its turn - the completion bonus
-            /// (<see cref="AddBonus"/>), a cut's award (<see cref="CUT_AWARD_DELAY"/>): not drawn yet, though its points are
+            /// (<see cref="AddBonus"/>), a cut's award (<see cref="WorldWait"/>): not drawn yet, though its points are
             /// already withheld from the readout.</summary>
             public float Age;
+
+            /// <summary>A cut's award (#767): the WORLD's seconds it still waits before it is born (<see cref="CUT_AWARD_WORLD_SECONDS"/>),
+            /// its <see cref="Age"/> held negative and still meanwhile. Zero for every other award.</summary>
+            public float WorldWait;
 
             /// <summary>Its zoom (#846): the top size in scores, how long the zoom in takes, and how long it is read
             /// before it leaves — set from its points at birth, the hold cut short when a newer award is born
@@ -855,7 +859,7 @@ namespace BS3D.Screens
         /// in the order they landed, each paid as it arrives.
         /// </remarks>
         /// <param name="cutter">True for a cutter's strike (#766): tinted with the Cutter's accent, never its dealt colour, and born only
-        /// once its severing has been seen (<see cref="CUT_AWARD_DELAY"/>, #767).</param>
+        /// once its severing has been seen (<see cref="CUT_AWARD_WORLD_SECONDS"/>, #767).</param>
         internal void AddAward(Vector3 world, ScoreAward award, BallType type, bool cutter = false)
         {
             HandOffReads();
@@ -879,9 +883,10 @@ namespace BS3D.Screens
                 Tint = cutter ? CutterTint : TypeColor(type),
 
                 //A cut's award waits for its severing to be seen (#767): born at once it stood, zoomed to its largest, exactly
-                //over the slash running across the storey it was paid for (photographed, Elephant). Every other award is
-                //born on its landing, as #846 has it.
-                Age = cutter ? -CUT_AWARD_DELAY : 0f,
+                //over the slash running across the storey it was paid for (photographed, Elephant). It waits on the world's
+                //clock, as the slash lives (WorldWait); every other award is born on its landing, as #846 has it.
+                Age = cutter ? -1f : 0f,
+                WorldWait = cutter ? CUT_AWARD_WORLD_SECONDS : 0f,
                 Peak = AwardZoom.Peak(award.Points),
                 Birth = AwardZoom.Birth(award.Points),
                 Hold = AwardZoom.Hold(award.Points),
@@ -900,11 +905,15 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// How long a cut's award waits before it is born on the struck cell (#767), seconds of the play clock: the severing
-        /// beat - the slash shooting out across the storey and holding white-hot, slowed by the strike's hit-stop - is over
-        /// by then, and the number zooms in over a cut already made instead of over the cut being made.
+        /// How long a cut's award waits before it is born on the struck cell (#767), in the <b>world's</b> seconds: half the
+        /// slash's life (<see cref="Effects.CutBeats.SLASH_SECONDS"/>), when it is past its white heat (wholly white-hot for
+        /// its first fifth), at half its light and two thirds of its thickness and cooling towards amber, so the number zooms in
+        /// over a cut already made instead of over the cut being made. On the world's clock because the slash lives on it:
+        /// the strike's slow motion stretches both alike, however deep it runs (about 1.1 s of the play clock for a cut that
+        /// freed nothing, 1.6 s for a full-size one), and so does the drop cinematic's. A wait on the play clock stood the
+        /// number over a slash still white-hot whenever the slow motion ran deep.
         /// </summary>
-        private const float CUT_AWARD_DELAY = 0.7f;
+        private const float CUT_AWARD_WORLD_SECONDS = Effects.CutBeats.SLASH_SECONDS * 0.5f;
 
         /// <summary>
         /// The completion bonus (#846, #881): what the unused balls were worth, said in words over the aim point and flown
@@ -1024,11 +1033,13 @@ namespace BS3D.Screens
         /// <param name="swapHint">Whether the Swap chip points at the cure this frame (#845, <see cref="StreakCues.SwapIsTheCure"/>
         /// as the session reads it): a streak is running, the round in the bore has nowhere to score and the Swap would load
         /// one that has.</param>
-        internal void Update(float elapsed, ScoreKeeper score, bool swapHint = false)
+        /// <param name="worldElapsed">The frame's seconds of the world's time (slow motion included), which a cut's award waits
+        /// on (<see cref="Popup.WorldWait"/>).</param>
+        internal void Update(float elapsed, float worldElapsed, ScoreKeeper score, bool swapHint = false)
         {
             _clock += elapsed;
 
-            AgePopups(elapsed);
+            AgePopups(elapsed, worldElapsed);
             AgeLostCaption(elapsed);
             ChaseScore(elapsed, score);
             WatchStreak(elapsed, score);
@@ -1048,13 +1059,29 @@ namespace BS3D.Screens
         /// points into the readout and kicks it. Cause and effect land on the same frame, which is the whole
         /// point of flying them there.
         /// </summary>
-        private void AgePopups(float elapsed)
+        private void AgePopups(float elapsed, float worldElapsed)
         {
             bool waitedBorn = false;
 
             for (int i = _popups.Count - 1; i >= 0; i--)
             {
                 Popup popup = _popups[i];
+
+                //A cut's award counts the world's seconds down instead, its age held, and is born when they run out
+                if (popup.WorldWait > 0f)
+                {
+                    popup.WorldWait -= worldElapsed;
+                    if (popup.WorldWait <= 0f)
+                    {
+                        popup.WorldWait = 0f;
+                        popup.Age = 0f;
+                        waitedBorn = true;
+                    }
+
+                    _popups[i] = popup;
+                    continue;
+                }
+
                 waitedBorn |= popup.Age < 0f && popup.Age + elapsed >= 0f;
                 popup.Age += elapsed;
 

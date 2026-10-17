@@ -1182,13 +1182,21 @@ namespace Prazsky.BS3D
         public const float CUTTER_SPIN_FLYING = 3f;
 
         /// <summary>
-        /// Which way a Cutter's blade faces (#766): towards the eye, with this much of straight up added, so the ring of
-        /// teeth stands round the ball's outline as a face-on saw does - the figure every design reference and the strip's
-        /// disc draw - and is tipped back towards level by about thirty degrees, so it reads as a disc in the world and not
-        /// as a sticker on the screen. Level alone (the storey the cut takes) was tried first: from the gun's lens just
-        /// above it a level ring is a line, and in the bore the barrel's walls hid all of it (photographed).
+        /// Which way a Cutter's blade faces, in the round's own frame (#766, fixed to the barrel since #767's verdict): back
+        /// along the bore with this much of the barrel's up added, so the saw's face is tipped up out of the bore by about
+        /// 46 degrees (atan 1.05) and seen from behind and above, as the overview's lens and the precise aim's both see a
+        /// loaded round. Measured in the barrel's frame (Elephant, 2026-10-17): the overview lens sits at (back 0.97, up
+        /// 0.24) of the round at the opening elevation (0.10 to 0.44 up from 10 to 35 degrees), the precise aim's at (0.95,
+        /// 0.32); this face is the eye-facing one #766 built at the opening pose, within a degree. Level alone (the storey
+        /// the cut takes) was tried first: from the gun's lens just above it a level ring is a line, and in the bore the
+        /// barrel's walls hid all of it (photographed).
+        /// <para>
+        /// ⚠ <b>Never towards the eye each frame</b> (#767's verdict): the overview's lens does not turn with the barrel, so a
+        /// face turned to it re-oriented inside the bore whenever the barrel traversed - "the Cut ball tilts in the barrel"
+        /// (the owner). Fixed to the barrel, the round turns with the gun as a loaded round does and holds still in it.
+        /// </para>
         /// </summary>
-        private const float CUTTER_BLADE_LEVEL_BIAS = 0.6f;
+        private const float CUTTER_FACE_LIFT = 1.05f;
 
         /// <summary>A Cutter's steady glow (#766): its shader's steel-grey floor at full, no heartbeat - a loaded round never breathes (#252).</summary>
         private const float CUTTER_EMISSION = 1f;
@@ -2649,7 +2657,6 @@ namespace Prazsky.BS3D
             for (int i = CUTTER_REGION_START; i < CUTTER_REGION_START + 2 * LodCount && !any; i++) any = _counts[i] > 0;
             if (!any) return;
 
-            Vector3 eye = camera.Position;
             Vector3 accent = BasicEffectParamsProvider.CutterAccent;
             int blades = 0;
 
@@ -2683,7 +2690,7 @@ namespace Prazsky.BS3D
 
                     for (int i = 0; i < count; i++)
                     {
-                        bucket[i].World = CutterFrame(bucket[i].World, eye, spin);
+                        bucket[i].World = CutterFrame(bucket[i].World, spin);
 
                         if (still) _loadedBlades[loadedBlades++] = bucket[i];
                         else _blades[blades++] = bucket[i];
@@ -2714,26 +2721,38 @@ namespace Prazsky.BS3D
         }
 
         /// <summary>
-        /// A Cutter's frame (#766): <paramref name="world"/>'s place and scale, with its Y axis the blade's normal - towards
-        /// <paramref name="eye"/>, tipped back towards level by <see cref="CUTTER_BLADE_LEVEL_BIAS"/> - and turned
-        /// <paramref name="spin"/> radians about it. The ball's own turn is thrown away: a loaded round's matrix carries the
-        /// barrel's pitch and a fired one's the simulation's, and a blade that lay along either would tip with the gun and
-        /// then snap at the shot. Right-handed and orthonormal times the scale, as every instance matrix is.
+        /// A Cutter's frame (#766; in the round's own frame since #767's verdict): <paramref name="world"/>'s place and
+        /// scale, with its Y axis the blade's normal - back along the round's own forward axis and up its own up by
+        /// <see cref="CUTTER_FACE_LIFT"/> - turned <paramref name="spin"/> radians about it.
+        /// <para>
+        /// <b>The round's own frame is the barrel's</b>: a loaded round is drawn in <c>Cannon.BarrelOrientation</c>
+        /// (<c>BorePose.SlotWorld</c>), and a fired cutter's body is launched turned the same way (the Game's
+        /// <c>Shoot</c>; a sphere's turn changes nothing of its flight, and nothing turns it until it strikes, where it is
+        /// retired, #823). So the saw turns with the gun as it traverses and elevates, holds still in the bore, leaves the
+        /// barrel without a turn and keeps that bearing along the shot. Only the spin is the frame's own.
+        /// </para>
+        /// <para>
+        /// The axes are read off the matrix and squared up, so a shot drawn stretched along its flight (#402) still gives
+        /// one orthonormal frame; a matrix with no turn (a round some caller placed unturned) faces +Z and up, towards a
+        /// lens looking down -Z. Right-handed and orthonormal times the scale, as every instance matrix is.
+        /// </para>
         /// </summary>
-        public static Matrix CutterFrame(in Matrix world, Vector3 eye, float spin)
+        public static Matrix CutterFrame(in Matrix world, float spin)
         {
             Vector3 place = world.Translation;
             float scale = new Vector3(world.M11, world.M12, world.M13).Length();
 
-            Vector3 towards = eye - place;
-            towards = towards.LengthSquared() > 1e-8f ? Vector3.Normalize(towards) : Vector3.UnitZ;
+            //The round's forward (the bore) and up, squared up against each other
+            Vector3 forward = new(-world.M31, -world.M32, -world.M33);
+            forward = forward.LengthSquared() > 1e-12f ? Vector3.Normalize(forward) : Vector3.Forward;
+            Vector3 up = new(world.M21, world.M22, world.M23);
+            up -= forward * Vector3.Dot(up, forward);
+            up = up.LengthSquared() > 1e-12f ? Vector3.Normalize(up) : (MathF.Abs(forward.Y) < 0.95f ? Vector3.Up : Vector3.UnitZ);
 
-            Vector3 normal = towards + Vector3.Up * CUTTER_BLADE_LEVEL_BIAS;
-            normal = normal.LengthSquared() > 1e-8f ? Vector3.Normalize(normal) : Vector3.Up;
+            Vector3 normal = Vector3.Normalize(up * CUTTER_FACE_LIFT - forward);
 
-            //Any direction square to the normal starts the turn; up, unless the normal is nearly up itself
-            Vector3 reference = MathF.Abs(normal.Y) < 0.95f ? Vector3.Up : Vector3.UnitX;
-            Vector3 x0 = Vector3.Normalize(Vector3.Cross(normal, reference));
+            //The turn starts from the round's right, which is square to the normal (it is square to both forward and up)
+            Vector3 x0 = Vector3.Normalize(Vector3.Cross(forward, up));
             Vector3 z0 = Vector3.Cross(x0, normal);
 
             float cos = MathF.Cos(spin), sin = MathF.Sin(spin);
@@ -2747,6 +2766,14 @@ namespace Prazsky.BS3D
                 z.X, z.Y, z.Z, 0f,
                 place.X, place.Y, place.Z, 1f);
         }
+
+        /// <summary>
+        /// The turn a fired Cutter's body is launched with (#767's verdict): the turn of the barrel the loaded round was drawn
+        /// in (<paramref name="barrel"/>, <c>Cannon.BarrelOrientation</c>), so <see cref="CutterFrame"/> of the body in flight
+        /// is the frame it had in the bore and the saw leaves the barrel without a turn. The Game's <c>Shoot</c> sets it on
+        /// the body; <c>CutterLookTests</c> holds the frame it gives against the loaded one.
+        /// </summary>
+        public static Quaternion CutterLaunchTurn(in Matrix barrel) => Quaternion.CreateFromRotationMatrix(barrel);
 
         /// <summary>
         /// The heavy balls (#333): <see cref="DrawGravity"/> in every structural respect — a colour plane, the

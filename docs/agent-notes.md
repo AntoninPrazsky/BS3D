@@ -975,3 +975,9 @@ Pravidla:
 - Prošly se merge od e92a6b28: DocDrift (35 kandidátů, všechno jiné veličiny téhož jména nebo odvozená čísla; BONUS_HOLD, DECODE_HEADROOM a počty nahrávek sedí), citace, odkazy `#kotva` mezi dokumenty (0 rozbitých), identifikátory a cesty z nových vět, údaje v CLAUDE.md (osm nástrojů, 21 scén, devět Potato efektů) proti kódu.
 - Opraveno jedno: komentář `SceneRenderer.FineMeshes` citoval nadpis „The acacia's fork“, který #758 přejmenoval; citace teď 0 nevyřešených.
 - Zbytek dokumentů říká, co platí teď.
+
+## 2026-10-17 — #767 #766 Cut po verdiktu majitele — desktop (RDT-PC), Claude Code (bs3d-48)
+- Majitel (Vrať na obě): zvuk nabití zůstává, desktopový vzhled #766 zůstává. Hotovo: pila v rámci hlavně (`CutterFrame`, `CutterLaunchTurn`), takže se v hlavni nenaklání ani při výstřelu; řez dvakrát tlustší a delší (1,8 s světa), 192 jisker ~1 s; čára vodorovně přes zničené patro kolmo na střelu (`ShotDirection` = rychlost na začátku kroku zásahu); Potato má pilu se zuby (`PotatoBallCutter`).
+- Po review: stav blastů v `BlastSlots` (bez zařízení), testy krokují skutečné stáří; výstřel přehraje zbytek 6× rychleji (`HURRY_RATE`) a jen když opravdu vyletí; odměna čeká 0,9 s času světa; extra jiskry se kreslí jen když hoří řez.
+- ⚠ Obnovený `.bak` má staré mtime: MSBuild ho nepřeloží, po podstrčené chybě `touch`.
+- Otevřené: oko majitele, Pi naživo, PresentMon.
