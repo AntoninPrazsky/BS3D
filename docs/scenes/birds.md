@@ -2,7 +2,7 @@
 
 Part of [The scenes](../scenes.md).
 
-A flock circles overhead, the only moving creature in the world and still no sprite sheet. **One flock is shared by the savanna, the desert, the outback and the tropical beach**: `BirdFlock` (a `BackdropServices` service since #580; one rest-pose `BirdMesh`, each bird's orbit, bank and cycle seeded once, one draw per bird), the shader `Birds.fx` and the orbits live once in `SceneRenderer`. Which scene's `BirdsConfig` it draws with is the caller's, every frame. The savanna's ground is in [The savanna](savanna.md).
+A flock circles overhead, the only moving creature in the world and still no sprite sheet. **One flock is shared by the savanna, the desert, the outback and the tropical beach**: `BirdFlock` (a `BackdropServices` service since #580; one rest-pose `BirdMesh`, each bird's orbit, bank and cycle seeded once, one draw per bird), the shader `Birds.fx` and the orbits live once in `BirdFlock` (`SceneRenderer` only builds it, sized to the largest of the four configs). Which scene's `BirdsConfig` it draws with is the caller's, every frame. The savanna's ground is in [The savanna](savanna.md).
 
 ## Real geometry, not billboards (#235)
 
@@ -20,7 +20,7 @@ The shape is the rest pose and the whole flap is in the vertex shader, off two p
 - **The wing is an arc, not a V**: every spanwise station turns by its own angle, a curve that grows faster than the span does.
 - **The beat travels out along the wing**, so the tip lags the shoulder and the stroke is a wave rather than a hinge. The stroke is skewed (`theta - K*sin(theta)`, monotonic for `K < 1`, so it retimes the beat without ever running it backwards) into a fast downstroke and a slow recovery.
 - **The wrist flexes on the way up** (the hand pulls in and sweeps back outboard of the wrist) and **the hand twists nose-down as it comes down**, which is what a wing does to make thrust. The body rises and falls against its own wings; a body held still while the wings work is the giveaway of a puppet.
-- **A bird glides most of the time**: one short burst and a long glide per cycle, about 13 % of the time beating, at 2.1 to 3.0 beats a second, the wings only breathing in the glide.
+- **A bird glides most of the time**: one short burst and a long glide per cycle, about 13 % of the time beating, at 2.1 to 3.2 beats a second, the wings only breathing in the glide.
   - ⚠ The burst's **length is derived** from how many beats it is and how fast that bird beats. Rolled independently, a two-beat burst spread across a long window came out at 0.8 Hz, which reads as slow motion, not as a bird.
   - Both edges of a burst are continuous **by construction, not by smoothing**: a burst runs a whole number of beats so it ends on the neutral point it started on, the glide sweeps exactly one slow turn of the same phase, and the envelope is floored at the value the glide holds. Check: the wing tip's angle step across an edge scales in exact proportion to the sample interval (0.083 degrees at 0.5 ms, ten times less at 0.05 ms).
 
