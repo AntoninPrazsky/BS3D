@@ -1,30 +1,85 @@
 {
   "file": "theme-bloom-sunny.wav",
-  "created": "2026-09-23",
-  "issue": 486,
+  "created": "2026-10-17",
+  "issue": 904,
   "family": "bloom",
-  "chapter": "The Meadow (meadow) - #449: positive, melodic, its own",
-  "purpose": "Master of Game/Music/bloom-sunny.ogg, one of the bloom family's recordings (#486): written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
+  "chapter": "The Meadow (meadow) - regenerated on the desert's ember model (#904): a hummable mid-register guitar lead the ear can follow, a tune that goes through a second section and a build, the sunshine carried by warm guitars and a steady beat rather than by shrill, toy-like highs",
+  "purpose": "Master of Game/Music/bloom-sunny.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-904-chosen on the desktop, with its .raw.wav; every candidate is in masters-904); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-904.ps1 (adapted from #841's batch) -> generate-music.ps1 -Loop -NoCotCaption",
   "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
   "license": "ACE-Step 1.5: MIT (code and weights)",
   "request": {
-    "caption": "Sunny upbeat synth-pop instrumental: bouncy plucked synth melody, warm analog pads, crisp pop drums with a light snare, bright major key, optimistic and friendly, polished production, no vocals",
-    "lm_negative_prompt": "vocals, singing, audience applause, crowd noise, live recording",
+    "caption": "Sunny feel-good pop-rock instrumental with a hummable tune: a warm clean electric guitar playing a simple memorable melody a listener could hum back, strummed acoustic guitar and warm electric piano chords under it, a round warm bass guitar, a steady upbeat pop drum groove on kick, snare and toms with a dark ride cymbal, a gentle first section with the tune over the strumming that lifts into a fuller second section where a second guitar harmonises the tune and the drums drive harder, then a build into the last chorus, optimistic and friendly, warm mid-forward mix, modern production, wide stereo mix with guitars panned left and right, the full band playing throughout, no vocals",
+    "lm_negative_prompt": "vocals, singing, choir, audience applause, crowd noise, live recording, bouncy plucked synth, synth arpeggio, arpeggiator, chiptune, toy piano, music box, glockenspiel, bells, childish, cute, sugary, shrill, squeaky, whistle, one-bar loop, boomy sub bass, bright crash cymbals, splashy cymbals, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, quiet breakdown, near silence, fade in",
     "instrumental": true,
     "use_cot_caption": false,
     "duration": 120,
     "bpm": 120,
     "keyscale": "C major",
+    "seed": 1586432573,
     "inference_steps": 8,
     "output_format": "wav32"
   },
   "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
   "loop_log": [
-    "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-bloom-sunny.wav: 80.0s loop = source 17.70s..97.70s (40.01 bars at 120.0 bpm), crossfade 1.00s | context match 0.945 (best 0.994) | crossfade rhythm r=0.99 vs the track a bar later r=0.56: in time | spectrum cos=0.99"
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-904\\theme-bloom-sunny-c1.wav: 64.0s loop = source 5.45s..69.45s (32.00 bars at 120.0 bpm), crossfade 1.00s | context match 0.988 (best 0.996) | crossfade rhythm r=1.00 vs the track a bar later r=0.81: in time | spectrum cos=1.00"
   ],
-  "measured": "generate-music.ps1 end to end 64.5 s (ace-lm + ace-synth + loop cut)",
+  "lm_check": {
+    "request0_captured": true,
+    "caption_verbatim": true,
+    "seed_in_request0": 1586432573,
+    "bpm_in_request0": 120,
+    "keyscale_in_request0": "C major",
+    "duration_in_request0": 120.0
+  },
+  "measured": "generate-music.ps1 end to end 69,0 s (ace-lm + ace-synth + loop cut), exit 0",
   "rendered": true,
-  "seed_used": 2810427715,
-  "seed_note": "the request asked for seed -1 (rolled); this is the seed ace-lm rolled and printed (matched to the render by order in the batch's log), so the render can be repeated. The other families' batch ran detached with only stdout logged and ace-lm prints the seed on stderr, so theirs are not recorded - the master .wav is the artefact either way"
+  "bake": {
+    "trim_db": -1.5,
+    "why": "The master's peaks are lifted over full scale by the themes' loudness: untrimmed it decoded to 14 runs of 3+ samples at 0.98 of full scale and 95 samples at the rail; trimmed 1.0 dB 0 runs but 6 samples at the rail, trimmed 1.5 dB no run and no sample at the rail (post-codec peak -0.01 dBFS, -15.1 LUFS)."
+  },
+  "chosen": {
+    "candidate": "c1",
+    "round": 1,
+    "of": [
+      "c1",
+      "c2",
+      "c3"
+    ],
+    "why": "Chosen by measurement: no column measure-music.py bolds is outside ember's range (its pitch wobble 1.6 and detune 1.5 cents sit under ember's lowest, which only means steadier), measured on the baked recording: 64 s loop (32 bars at 120 bpm), loop cut context match 0.988, rhythm r 1.00 against 0.81 a bar later, spectrum cosine 1.00; 15.7 % in 300 Hz-4 kHz and 1.5 % above 6 kHz (the replaced recording: 10.8 % and 3.0 %); tonal mid 82 %, 3.4 held-note changes a second; 6.6 short gaps a minute (replaced: 38.2); the opening repeats 1 bar at 0.90 and at 0.93 (replaced: all 40 bars); 0.0 % of held notes out of C major; 0 clipped runs after the bake (140 in the master). The block profile moves: the level swings 4 dB and the spectrum of each 8 s block resembles the first block's at 0.68-0.89, so the arrangement goes somewhere. Judged by numbers only: the tune, the warmth and whether the build lifts are for the owner's ear.",
+    "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, short gaps, opening repeat, notes out of key, wrap step) beside the loop cut's own check, the hole and dropout shares and the dry-run bake's post-codec peak; the baked recording measured again from its .ogg; the table is in the issue's closing evidence (#904)"
+  },
+  "alternatives": [
+    {
+      "candidate": "c2",
+      "round": "1",
+      "seed": 2049334153,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-904\\theme-bloom-sunny-c2.wav: 80.0s loop = source 28.95s..108.95s (40.00 bars at 120.0 bpm), crossfade 1.00s | context match 0.669 (best 0.718) | crossfade rhythm r=0.78 vs the track a bar later r=0.70: in time | spectrum cos=0.59"
+      ],
+      "refused_or_not_chosen": "Refused: 5.1 % above 6 kHz baked (5.5 % in the master; ember at most 2.0), the loop cut's spectrum cosine 0.59 and context match 0.67, and 5 % of its 1 s windows more than 10 dB under its loud level; its master reads 2918 clipped runs, none once baked."
+    },
+    {
+      "candidate": "c3",
+      "round": "1",
+      "seed": 1267914714,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-904\\theme-bloom-sunny-c3.wav: 96.0s loop = source 4.00s..100.00s (47.98 bars at 119.9 bpm), crossfade 1.00s | context match 0.968 (best 0.994) | crossfade rhythm r=0.99 vs the track a bar later r=0.68: in time | spectrum cos=0.99"
+      ],
+      "refused_or_not_chosen": "Not chosen, the strongest arrangement of the three: a 96 s loop (48 bars) with a breakdown 7.5 dB down in its middle and a spectrum that keeps changing, but its opening pattern repeats for 15 bars (30 s) at the 0.90 similarity (1 bar at 0.93) where ember's opens 1.4-7.5 s, 10 clipped runs after an untrimmed bake and 30.5 % in 300 Hz-4 kHz. Cut again from its master and trimmed, it is the one to pick if the owner prefers a longer, more dramatic loop."
+    }
+  ],
+  "replaces": {
+    "issue": 486,
+    "created": "2026-09-23",
+    "caption": "Sunny upbeat synth-pop instrumental: bouncy plucked synth melody, warm analog pads, crisp pop drums with a light snare, bright major key, optimistic and friendly, polished production, no vocals",
+    "negative": "vocals, singing, audience applause, crowd noise, live recording",
+    "seed": 2810427715,
+    "loop_log": [
+      "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-bloom-sunny.wav: 80.0s loop = source 17.70s..97.70s (40.01 bars at 120.0 bpm), crossfade 1.00s | context match 0.945 (best 0.994) | crossfade rhythm r=0.99 vs the track a bar later r=0.56: in time | spectrum cos=0.99"
+    ],
+    "why_replaced": "Measured 2026-10-17 beside ember: 3.0 % of the energy above 6 kHz (ember at most 2.0), 38.2 short gaps a minute (ember at most 27.0) and an opening repeat of all 40 bars (every bar near-identical to the first; ember 1.4-7.5 s), and the owner's note of 2026-10-16 (translated from Czech): it is hard to tune into the melody, it sounds a bit off, as if slightly out of tune and without an idea (#904). The pitch itself measured inside ember's range (wobble 2.9, detune 1.7 cents, 0.0 % of held notes out of C major): the pitch is therefore not what the note names; the arrangement and the timbre are what it can still be about."
+  }
 }
