@@ -930,3 +930,8 @@ Pravidla:
 - Hotovo (merge c7a0ca78, CI zelené): #876 pauza dev buildu nabíjí každý vystřelitelný druh (dnes jen Wildcard a Cutter: mapové druhy by při přistání ztratily druh), běh s ním se neposílá na tabulky; #913 `measure-music.py` měří krátké díry, opakování a tóny mimo tóninu. Měření všech jmenovaných skladeb je jako komentář na #904–#915 (Drone bez melodie, Sunny 40 stejných taktů, Ringmaster 7,2 % nad 6 kHz).
 - ⚠ Založen #919: 38 ze 140 nahrávek se ve hře tvrdě přebudí. Koleno bake míří na plnou úroveň, Ogg přestřelí až o +0,8 dB a `OggTrack.Decode` ořízne. Oprava běží (rezerva při dekódování, hlasitost vyrovnaná, bez přepeku).
 - Otevřené: #919; regenerace hudby až pod limitem fronty (17).
+
+## 2026-10-17 — #919 #895 přebuzení hudby, Help ODD BALLS — desktop (RDT-PC), Claude Code (bs3d-5f)
+- Hotovo (merge 119b1926, faa10f29, CI zelené): #919 hudba se dekóduje s rezervou 1,5 dB a hlasy jsou zesílené stejně (`MusicLevels`), takže 78 ze 140 nahrávek už nepadá na hranici 16 bitů; MusicBake odmítne nahrávku, jejíž špička po kodeku rezervu přeroste. #895 Help ukazuje duhovou kuličku a Cutter, test drží tabulku u všech druhů.
+- ⚠ Tvrdý ořez dělal už NVorbis (`ClipSamples` je ve výchozím stavu zapnuté), ne clamp v `OggTrack`: zisk až po čtení by škáloval už zploštělé vzorky. Sloupec „samples clipped“ v MusicBake hledal 32767 a ukazoval vždy 0.
+- Otevřené: #920 (stín blednoucí kuličky, nízká priorita); hudba a vzhled čekají, dokud fronta (17) nespadne pod 15.
