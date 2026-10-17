@@ -354,10 +354,21 @@ namespace BS3D
         //wash (ApplyNavHighlight), so the pointer's hover and the pad's focus read as one gesture rather than two inventions.
         internal static readonly IBrush MENU_BUTTON_OVER_BRUSH = new FlatBrush(MENU_BUTTON_OVER);
 
-        //The High Scores page's rows of levels the player has NOT finished rest in this quieter slab (#898), and the rows
-        //they have cleared in MENU_BUTTON's own. Greyscale like everything here: brightness and opacity carry it, and the
-        //deliberate colours (gold, the player's magenta, red, cyan) are not spent on it.
-        private static readonly Color MENU_ROW_UNFINISHED = new(34, 34, 34, 128);
+        //The High Scores page's rows of levels the player has NOT finished rest in this slab (#898), and the rows they have
+        //cleared in MENU_BUTTON's own. Greyscale like everything here: brightness and opacity carry it, and the deliberate
+        //colours (gold, the player's magenta, red, cyan) are not spent on it.
+        //
+        //It is a RECESS, well BELOW the plate, the way MENU_BUTTON is well above it (the binary argued above). The first
+        //version, (34, 34, 34, 128), stood 5 grey levels above the plate and 13 under a cleared row over the one backdrop it
+        //was photographed on (the meadow), and the premultiplied model, which that capture and the new ones agree with, says
+        //plate = 42 + 0.161 x backdrop and that slab = 34 + 0.498 x plate, so its step over the plate falls from +13 behind a
+        //black frame to -8 behind a white one, and its distance under MENU_BUTTON's slab (55 + 0.251 x plate) from 11 to
+        //about 1: a tint that is lost over a bright scene, which the meadow cannot show. Pure
+        //transparency (RGB 0) is the one tone whose step from the plate does not shrink as the backdrop brightens: it takes a
+        //FRACTION of the plate away (plate x 100/255). Measured over eight scenes (meadow, desert, sea, polar, moon, storm,
+        //space, mountain; the slab against the plate beside it): 18 to 40 grey levels under the plate and 28 to 42 under
+        //MENU_BUTTON's slab. The row's type is MENU_TEXT_BODY on it, a step under the cleared rows' MENU_TEXT.
+        private static readonly Color MENU_ROW_UNFINISHED = new(0, 0, 0, 100);
         internal static readonly IBrush MENU_ROW_UNFINISHED_BRUSH = new FlatBrush(MENU_ROW_UNFINISHED);
 
         //A pause dims the whole frame, because what is behind it is a stopped game and the menu is the thing

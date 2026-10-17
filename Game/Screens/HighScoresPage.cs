@@ -35,7 +35,7 @@ namespace BS3D.Screens
     /// level of every chapter is the point of a leaderboard to climb, and a leader's name and score were never hidden
     /// anywhere else a board is open. What a row says of the player's own progress is its <b>tint</b>: a level the player
     /// has cleared (<see cref="HighScoresRow.Cleared"/>: at least one star; a skip is not a clear) rests in the menu's usual
-    /// slab, a level they have not in a quieter one with its number and name a step dimmer, so a page of leaders still says
+    /// slab, a level they have not in a darker, recessed one with its number and name a step dimmer, so a page of leaders still says
     /// which of the levels are the player's own. "You" is empty where the player has no place. Every row opens that level's
     /// full boards (<c>OpenLevelBoard</c>, which has no unlock check), so the overview is also the way into every board, and
     /// every row is in the pad's walk whenever the boards can be asked.
@@ -108,7 +108,7 @@ namespace BS3D.Screens
         private readonly List<Label> _rowNumbers = new(), _rowNames = new(), _rowTops = new(), _rowMes = new();
         private readonly List<Label> _rowTopScores = new(), _rowMeScores = new();
 
-        //The slab each row rests in (#898): the usual one for a level the player has cleared, the quieter one for a level not
+        //The slab each row rests in (#898): the usual one for a level the player has cleared, the recessed one for a level not
         //finished. Both are the menu's static brushes; this list only says which, and EntryRestBrushFor hands it to the host
         private readonly List<IBrush> _rowRest = new();
         private Label _status;
@@ -273,7 +273,7 @@ namespace BS3D.Screens
             Button arrow = Game.MenuTile(caption, () => Turn(direction), ARROW_SIZE, ARROW_SIZE);
 
             //An arrow with nowhere to go keeps its slab and dims its glyph (see Refresh): Myra's own disabled slab and type
-            //read as a lock, which is what a disabled row of this page already means, and this one means "no further this way"
+            //read as a locked control, which is not what an arrow means: this one says "no further this way"
             arrow.DisabledBackground = BS3DGame.MENU_BUTTON_BRUSH;
 
             return arrow;
@@ -423,8 +423,8 @@ namespace BS3D.Screens
         /// The previous or next chapter, <b>stopping at the ends</b> (#727): no wrap in either direction, so the way from the last
         /// chapter back to the first is the arrow, a chapter at a time, and the player always knows where they are. A player who
         /// wants the first chapter at once leaves the page and opens it again, which opens on the chapter they have reached. The
-        /// entries are re-read, as a picker's chapter turn re-reads them (a chapter's rows differ in number and in which are
-        /// locked), with the cursor kept where it stood - or on the other arrow, when the turn reached an end and disabled the
+        /// entries are re-read, as a picker's chapter turn re-reads them (a chapter's rows differ in number, and in which are
+        /// tinted as not cleared), with the cursor kept where it stood - or on the other arrow, when the turn reached an end and disabled the
         /// one it stood on, which has left the pad's walk.
         /// </summary>
         private void Turn(int direction)
@@ -522,7 +522,7 @@ namespace BS3D.Screens
                 _rowRest[slot] = _rows[slot].DisabledBackground = cleared ? BS3DGame.MENU_BUTTON_BRUSH : BS3DGame.MENU_ROW_UNFINISHED_BRUSH;
 
                 //The number and name in the bright type for a level the player has cleared and in the body grey for one not
-                //finished: the quieter slab's partner, so the tint is not carried by the slab alone
+                //finished: the recessed slab's partner, so the tint is not carried by the slab alone
                 Color nameColor = cleared ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_BODY;
                 _rowNumbers[slot].Text = FontFigures.Tabular((level + 1).ToString(CultureInfo.InvariantCulture), FontSmall);
                 _rowNames[slot].Text = Game.LevelDisplayName(level);
