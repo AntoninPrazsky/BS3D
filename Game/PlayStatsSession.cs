@@ -135,6 +135,13 @@ namespace BS3D
         public void Dispose() => _file.Flush(DisposeWait);
 
         /// <summary>
+        /// Waits up to <paramref name="wait"/> for the file's last write. The exit's bounded <see cref="DisposeWait"/> is a
+        /// promise to the player, not to a reader: a test that reads the file waits here first, since a slow machine (CI's
+        /// ARM64 runner) can take longer than the exit allows.
+        /// </summary>
+        internal void Flush(TimeSpan wait) => _file.Flush(wait);
+
+        /// <summary>
         /// A file written off the frame: each event hands over its log line and marks the file stale, and one task at a time
         /// prints the lines and writes the latest text <paramref name="serialize"/> makes through <see cref="AtomicFile"/>, so
         /// the file always ends as the last state. A failed write is one log line; the counts in memory stand and the next

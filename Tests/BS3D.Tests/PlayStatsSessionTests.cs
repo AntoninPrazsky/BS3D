@@ -14,6 +14,10 @@ namespace BS3D.Tests
     {
         private static readonly LevelIdentity One = new("One.json", "0123456789abcdef");
 
+        //The file is written off the caller's thread and Dispose waits only the exit's half second for it; a test that
+        //reads the file waits for the write itself, or a slow runner reads it before it exists (CI's ARM64 job did)
+        private static readonly System.TimeSpan FileWait = System.TimeSpan.FromSeconds(30);
+
         [Fact]
         public void A_run_kept_off_the_boards_is_counted_in_the_file_and_handed_to_nothing_online()
         {
@@ -32,6 +36,7 @@ namespace BS3D.Tests
 
                 session.Started(One);
                 session.Ended(PlayEnding.OutOfBalls, shots: 9, seconds: 30f, firstClear: false, online: false);
+                session.Flush(FileWait);
             }
 
             //Only the three starts left the machine: no clear, no loss and no abandon
@@ -79,6 +84,7 @@ namespace BS3D.Tests
             {
                 session.Started(One);
                 session.Ended(PlayEnding.Cleared, shots: 5, seconds: 6f, firstClear: true);
+                session.Flush(FileWait);
             }
 
             Assert.Equal(1, Assert.Single(PlayStats.Load(path).Levels).Clears);
