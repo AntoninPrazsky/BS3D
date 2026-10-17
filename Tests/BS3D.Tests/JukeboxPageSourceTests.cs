@@ -31,6 +31,46 @@ namespace BS3D.Tests
             Assert.Contains("FillTracks()", code);
         }
 
+        /// <summary>
+        /// The now-playing line (#900) stands between the visualizer and the player's buttons, and is cut to the column's
+        /// width with an ellipsis. Above the recordings' list, where it stood first, it read as that list's heading rather
+        /// than as the player's own caption; and a label measured at its text's extent would widen the whole column for a
+        /// long chapter name beside a long recording's title.
+        /// <para>
+        /// Held by reading the source, as above: the order the widgets are added in is the order they stand in, and the
+        /// bound is two properties on the label. How it looks is seen in a Game run. Seen to fail on the page as it was
+        /// before the change, which added the line first and bounded nothing.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void The_now_playing_line_stands_between_the_visualizer_and_the_buttons_and_is_cut_to_the_column()
+        {
+            string code = WithoutComments(File.ReadAllText(JukeboxPagePath()));
+
+            int build = code.IndexOf("private Widget BuildPlayer()", StringComparison.Ordinal);
+            int end = code.IndexOf("private VerticalStackPanel SubColumn()", StringComparison.Ordinal);
+            Assert.True(build >= 0 && end > build, "BuildPlayer was not found; update this test with the page.");
+            string player = code.Substring(build, end - build);
+
+            int scroller = player.IndexOf("right.Widgets.Add(_trackScroll)", StringComparison.Ordinal);
+            int visualizer = player.IndexOf("right.Widgets.Add(new MusicVisualizer(", StringComparison.Ordinal);
+            int line = player.IndexOf("right.Widgets.Add(_nowPlaying)", StringComparison.Ordinal);
+            int controls = player.IndexOf("right.Widgets.Add(controls)", StringComparison.Ordinal);
+
+            //Every one is found, or an ordering of -1s would pass
+            Assert.True(scroller >= 0 && visualizer >= 0 && line >= 0 && controls >= 0, "A widget add was not found; update this test with the page.");
+            Assert.True(scroller < visualizer, "The recordings' list stands above the visualizer.");
+            Assert.True(visualizer < line, "The now-playing line stands below the visualizer.");
+            Assert.True(line < controls, "The now-playing line stands above the player's buttons.");
+
+            int label = player.IndexOf("_nowPlaying = new Label", StringComparison.Ordinal);
+            Assert.True(label >= 0, "The label's initializer was not found; update this test with the page.");
+            string initializer = player.Substring(label, player.IndexOf("};", label, StringComparison.Ordinal) - label);
+
+            Assert.Contains("Width = ColumnWidth", initializer);
+            Assert.Contains("AutoEllipsisMethod.Character", initializer);
+        }
+
         private static string WithoutComments(string source) => Regex.Replace(source, @"//[^\r\n]*", string.Empty);
 
         private static string JukeboxPagePath()
