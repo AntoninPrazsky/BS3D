@@ -67,8 +67,8 @@ namespace Prazsky.BS3D.Physics
 
         /// <summary>
         /// The body's pose as it stood before the most recent physics step — the other end of the render
-        /// interpolation (#293). The simulation advances in whole fixed steps, so under the drop cinematic's
-        /// slow motion a step lands only every few rendered frames and a ball drawn straight off its body
+        /// interpolation (#293). The simulation advances in whole fixed steps, so under a slow motion
+        /// (a cut's, since #877) a step lands only every few rendered frames and a ball drawn straight off its body
         /// stands still and then jumps; drawn between this pose and the live one by how far the accumulator
         /// has got towards the next step, it moves every frame instead.
         /// </summary>

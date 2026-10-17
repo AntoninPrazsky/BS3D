@@ -118,7 +118,7 @@ namespace BS3D.Screens
                 //Timestep → Flush → contacts order INSIDE each step is PhysicsWorld.Step's, which is why the
                 //work that belongs there is handed over rather than written after the call.
                 //The gust at this step (#95): set before the step so the integrator broadcasts it with gravity, and
-                //advanced by the step so it stops with the world under a pause and runs slow with the drop's slow motion
+                //advanced by the step so it stops with the world under a pause and runs slow with a cut's slow motion
                 _world.Wind = _wind.Acceleration(_windClock);
                 _windClock += PHYSICS_TIMESTEP;
 
@@ -143,9 +143,10 @@ namespace BS3D.Screens
 
             //Where this frame sits between the last step taken and the next one due — the factor every drawn
             //ball is interpolated by (#293). It is what turns the fixed step's staircase into motion on every
-            //frame: under the drop cinematic's slow motion a 1/120 s step lands only every few rendered
-            //frames, and measured before this existed, HALF of all slow-motion frames drew the falling
-            //cluster exactly where the previous frame had it and then jumped it double. The price is that
+            //frame: under a slow motion (the drop cinematic's, until #877) a 1/120 s step lands only every few
+            //rendered frames, and measured before this existed, HALF of all slow-motion frames drew the falling
+            //cluster exactly where the previous frame had it and then jumped it double. Above 120 Hz a step does
+            //not land every frame at full speed either. The price is that
             //the drawn world runs up to one step (8.3 ms) behind the simulation, which nothing reads: the
             //rules, the aim and the landing preview all ask the simulation itself.
             _renderAlpha = _physicsAccumulator / PHYSICS_TIMESTEP;

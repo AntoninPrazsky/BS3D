@@ -12,9 +12,11 @@ namespace BS3D.Effects
     /// to) the balls dropping out of the hole underneath the island. The player watches what they just did
     /// instead of being told about it by a number in the corner.
     /// <para>
-    /// <b>It is a pose, a time scale and a blend — not a mode.</b> This class owns no camera, no simulation
-    /// and no input; it is handed the subject's position each frame and answers where the lens should be,
-    /// how fast the world should run, and how much of the frame is its rather than the gun's. The caller
+    /// <b>It is a pose and a blend — not a mode, and not a slowed clock.</b> This class owns no camera, no
+    /// simulation and no input; it is handed the subject's position each frame and answers where the lens
+    /// should be and how much of the frame is its rather than the gun's. The world runs at ordinary game
+    /// time all the way through (#877): a fall in slow motion with a moved camera reads as a replay, and the
+    /// shot is the player's own, live success. The caller
     /// interpolates between its pose and the ordinary gameplay pose by <see cref="Blend"/>, which is the
     /// same one-reversible-scalar idiom precise aim uses: at 0 the gameplay pose comes back bit for bit, so
     /// an interrupted or skipped cinematic cannot leave the camera anywhere the game did not put it.
@@ -53,20 +55,12 @@ namespace BS3D.Effects
         public bool Running => _running;
         public float Elapsed => _elapsed;
 
+        /// <summary>Why the shot ended, for the one log line a shot's end writes: the drop was over, it stalled, the
+        /// backstop was reached or it was skipped. Empty while it runs.</summary>
+        public string EndedBy { get; private set; } = "";
+
         /// <summary>How much of the frame is the cinematic's, 0 to 1. Ease, never a cut.</summary>
         public float Blend => _blend;
-
-        /// <summary>
-        /// What to multiply the frame's elapsed time by before spending it on the simulation. 1 whenever
-        /// this is not running, so the world is never left running slow.
-        /// <para>
-        /// Slowing the simulation rather than the camera is the point: released balls fall a handful of
-        /// units under real gravity and are on the stone in about a second, which is too quick to read.
-        /// Because the fixed timestep is untouched and only the accumulated time fed to it is scaled, the
-        /// simulation is as deterministic and as stable slowed as it is at speed.
-        /// </para>
-        /// </summary>
-        public float TimeScale { get; private set; } = 1f;
 
         public Vector3 Position { get; private set; }
 
@@ -102,19 +96,19 @@ namespace BS3D.Effects
         //the same reason the splash refuses to be dismissed on its first frame.
         private const float SKIP_LOCKOUT = 0.3f;
 
-        //Slow motion eases in after the release has been seen at full speed, and is let go once the balls
-        //are through the drain — the drop out of the hole reads better at speed, and handing the world back
-        //to the player already at 1x means nothing lurches when control returns.
-        private const float SLOWMO_DELAY = 0.18f;
-        private const float SLOWMO_FADE = 0.35f;
-
         //One full sweep of the tilt over this long, then level again — Saturate on the phase, so a shot that
         //outlasts it ends level rather than tipping back the other way.
         private const float ROLL_PERIOD = 3.2f;
 
-        //What counts as the drop having stopped being one (see Stalled). In simulated seconds.
+        //What counts as the drop having stopped being one (see Stalled). In game seconds.
         private const float STALL_DROP = 1f;
         private const float STALL_SECONDS = 0.9f;
+
+        //The most one frame adds to the stall's clock. The world a hitched frame lives through is capped by the physics'
+        //steps per frame, so a long frame (the first draw of a pass, a capture's half second, a window dragged) has simulated
+        //far less than it lasted; counted whole it could end a shot on its own. Slow motion used to hide this by scaling the
+        //frame down (#877).
+        private const float STALL_FRAME_MAX = 0.1f;
 
         //Heights the arc is measured against. The island's stone and the drain's throat are where the three
         //interesting things happen, so they are the anchors rather than a linear run to the kill plane. Both
@@ -144,7 +138,7 @@ namespace BS3D.Effects
         //OUT leg's own angle over this many units of the subject's descent below the top face. The band's
         //stone side hides the balls from a lens outside the rim, so the lens is asked to get under the
         //underside about as fast as the balls get into the throat — in the trace that drove this, 3 units
-        //of descent is a third of a second of slow motion. The same shape as SUBMERGE_PULL_DEPTH, for the
+        //of descent is a few tenths of a second. The same shape as SUBMERGE_PULL_DEPTH, for the
         //same reason: a pulled angle keeps the orbit's own geometry, a clamped height does not.
         private const float STONE_DIVE_DEPTH = 3f;
 
@@ -185,7 +179,7 @@ namespace BS3D.Effects
         private float _azimuth, _orbitRate;
         private float _radiusFall, _radiusDrain, _radiusOut;
         private float _elevationFall, _elevationDrain, _elevationOut;
-        private float _rollAmplitude, _slowMotion, _fov;
+        private float _rollAmplitude, _fov;
         private bool _openBelow;
 
         //The sea's own mean water level (#193), and whether this shot is even over one — the only scene
@@ -207,6 +201,7 @@ namespace BS3D.Effects
             float seaLevelY)
         {
             _running = true;
+            EndedBy = "";
             _elapsed = 0f;
             _startY = centre.Y;
             _pivot = centre;
@@ -260,9 +255,6 @@ namespace BS3D.Effects
             //emphasis and starts reading as a broken horizon.
             _rollAmplitude = random.Next(3) == 0 ? 0f : MathHelper.ToRadians(Lerp(random, 4f, 11f)) * (random.Next(2) == 0 ? 1f : -1f);
 
-            //How slow it goes. A range rather than a figure, so consecutive cinematics have their own weight.
-            _slowMotion = Lerp(random, 0.32f, 0.55f);
-
             //A touch tighter than the gameplay frame, which is solved to fit the whole field and is wider
             //than anything wants for a close subject
             _fov = GameplayScreen.GAME_FOV * Lerp(random, 0.80f, 0.94f);
@@ -292,7 +284,9 @@ namespace BS3D.Effects
                 //Over when the drop is: every ball culled, the drop stalled, or the backstop reached. A
                 //subject that was never seen alive at all ends it immediately rather than holding an empty
                 //frame.
-                if (!subjectAlive || !_subjectSeen || Stalled(elapsed) || _elapsed >= MAX_SECONDS) End();
+                if (!subjectAlive || !_subjectSeen) End("the subject was gone");
+                else if (Stalled(elapsed)) End("the drop stalled");
+                else if (_elapsed >= MAX_SECONDS) End("the backstop");
             }
 
             float target = _running ? 1f : 0f;
@@ -307,7 +301,6 @@ namespace BS3D.Effects
 
             if (!Engaged)
             {
-                TimeScale = 1f;
                 Roll = 0f;
                 return;
             }
@@ -323,7 +316,7 @@ namespace BS3D.Effects
         {
             if (!_running || _elapsed < SKIP_LOCKOUT) return false;
 
-            End();
+            End("skipped");
             return true;
         }
 
@@ -335,9 +328,8 @@ namespace BS3D.Effects
         /// leaves the camera holding on a straggler, which is a shot with nothing in it. It is what a first
         /// pass did, and the sea's last frames were an empty blue rectangle with one ball in the corner.
         /// <para>
-        /// Measured in <b>simulated</b> seconds, not wall-clock ones. In slow motion a group that has only
-        /// just been released covers well under a unit of real time's worth of fall, and a wall-clock timer
-        /// would call that a stall and cut the shot at the moment it began.
+        /// Measured in the frame's own seconds, which are the world's (the cinematic never slows the clock, #877), each
+        /// frame counting at most <see cref="STALL_FRAME_MAX"/>.
         /// </para>
         /// </summary>
         private bool Stalled(float elapsed)
@@ -350,7 +342,7 @@ namespace BS3D.Effects
                 return false;
             }
 
-            _stallSeconds += elapsed * TimeScale;
+            _stallSeconds += MathF.Min(elapsed, STALL_FRAME_MAX);
 
             return _stallSeconds >= STALL_SECONDS;
         }
@@ -360,10 +352,10 @@ namespace BS3D.Effects
         //a degree sign both came back as "r" on a Czech console, which made the figures unreadable), and the
         //machine's locale must not decide what a decimal point is in a log two machines get compared from.
         public string Describe() => string.Format(CultureInfo.InvariantCulture,
-            "radius {0:F0}->{1:F0}, elevation {2:F0}deg->{3:F0}deg, tilt {4:F1}deg, slow-mo {5:F2}, {6}",
+            "radius {0:F0}->{1:F0}, elevation {2:F0}deg->{3:F0}deg, tilt {4:F1}deg, {5}",
             _radiusFall, _radiusOut,
             MathHelper.ToDegrees(_elevationFall), MathHelper.ToDegrees(_elevationOut),
-            MathHelper.ToDegrees(_rollAmplitude), _slowMotion, _openBelow ? "under the island" : "over the mouth");
+            MathHelper.ToDegrees(_rollAmplitude), _openBelow ? "under the island" : "over the mouth");
 
         /// <summary>Drops everything, for a session being torn down under it.</summary>
         public void Reset()
@@ -371,17 +363,13 @@ namespace BS3D.Effects
             _running = false;
             _blend = 0f;
             _elapsed = 0f;
-            TimeScale = 1f;
             Roll = 0f;
         }
 
-        private void End()
+        private void End(string why)
         {
             _running = false;
-
-            //Handed back at speed. The blend still has to run out, and a world left in slow motion while the
-            //player is being given the gun back is the one thing worse than never slowing it at all.
-            TimeScale = 1f;
+            EndedBy = why;
         }
 
         /// <summary>
@@ -440,14 +428,6 @@ namespace BS3D.Effects
 
             FieldOfView = _fov;
             Roll = _rollAmplitude * MathF.Sin(MathHelper.Pi * Saturate(_elapsed / ROLL_PERIOD));
-
-            //Real time for a beat, then slow, then back to real time as the balls clear the throat. The
-            //ramps are smoothed at both ends: a step change in the time scale is a visible hitch, not a
-            //slow-motion effect.
-            float into = Smooth(Saturate((_elapsed - SLOWMO_DELAY) / SLOWMO_FADE));
-            float outOf = Smooth(below);
-
-            TimeScale = MathHelper.Lerp(1f, _slowMotion, into * (1f - outOf));
         }
 
         /// <summary>

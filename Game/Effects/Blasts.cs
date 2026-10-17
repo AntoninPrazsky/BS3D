@@ -18,9 +18,9 @@ namespace BS3D.Effects
     /// <para>
     /// <b>Session-owned, on the SIMULATION's clock.</b> A blast is a thing that happens in the world, like the
     /// balls it throws — not a rule of the level, which is why it does not stamp the wall clock the way the floor
-    /// alarm must. So it is stepped with the very time the physics is stepped with, slow motion included: the
-    /// biggest blasts are exactly the ones that engage the drop cinematic, and a flash that ran at full speed over
-    /// debris crawling in slow motion would be over before the balls it threw had moved. Under the result page it
+    /// alarm must. So it is stepped with the very time the physics is stepped with, slow motion included: a
+    /// cut's blade is struck into a world that then crawls, and a flash that ran at full speed over debris crawling
+    /// in slow motion would be over before the balls it threw had moved. Under the result page it
     /// is stepped with the world (#241); under a pause it stops with it.
     /// </para>
     /// <para>

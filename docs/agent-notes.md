@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-17 — #877 pád clusteru v běžném čase hry, bez zpomalení — desktop (RDT-PC), Claude Code (bs3d-48)
+- `DropCinematic` už nemá `TimeScale`, roll zpomalení ani rampu; svět běží rychlostí 1, dokud kino drží kameru (`WorldTimeScale`). Cutterovo zpomalení (#767) zůstává; cut, který kino spustí, zpomalení nemá.
+- Délka: dřív každý záběr skončil na stropu 6,5 s (svět stihl ~2,5 s), teď končí s pádem po 4,3 až 5,7 s. `Stalled` počítá snímek nejvýš 0,1 s (zasekl záběr po záchytu obrazovky). Řádek `[cinematic] ended …` hlásí důvod a nejpomalejší měřítko světa (1,00).
+- Otevřené: oko majitele v pohybu (`verdict-eye`).
+
 ## 2026-10-17 — #923 žádné zvukové zařízení: jedna věta místo NullReference — desktop (RDT-PC), Claude Code (bs3d-48)
 - `Audio/AudioDevice.Present` zkusí jednou vytvořit streamovací hlas; bez zařízení (monitor spí) řekne `[audio] no audio device …` a hudba, ambient, Jukebox i About přehrávač to přeskočí, nic se nedekóduje. Null byl v `SharpDX SourceVoice.CreateSourceVoice` (statické zařízení MonoGame je null).
 - Efekty brány nepotřebují: bez zařízení jsou `SoundEffect` instance nečinné (běh se střelbou a výsledkem bez výjimky). Zařízení objevené později MonoGame nepoužije, pomůže restart.
