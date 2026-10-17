@@ -755,6 +755,8 @@ namespace BS3D
             //The scene's procedural roll (see _sceneSeedOffset): rolled once per launch unless the command
             //line pins it, and printed either way - a frame of a city nobody can generate twice is a frame
             //nobody can compare against.
+            _finaleMessage = launch.FinaleMessage;
+
             _sceneSeedOffset = launch.SceneSeed ?? Random.Shared.Next();
             Console.WriteLine($"[sceneseed] {_sceneSeedOffset}"
                 + (launch.SceneSeed.HasValue ? " (pinned)" : " (rolled; pin it with sceneseed=)"));
@@ -1673,9 +1675,30 @@ namespace BS3D
         {
             //The figures arrive as a SNAPSHOT taken at the level's end, not read by the screen when it draws —
             //see LevelResult for why that arithmetic has to be frozen.
+            //The campaign's last clear has a beat of its own first (#880): CAMPAIGN COMPLETE across the frame, then one
+            //message to the player. The beat pushes this very page when it is done (ShowResultAfterFinale), so what the
+            //result page does on arrival - the camera's release, the star reveal, the defocus - starts when it is seen
+            if (result.CampaignComplete)
+            {
+                _finalePage.Take(result, _finaleMessage);
+                _screens.Push(_finalePage);
+                return;
+            }
+
             _resultPage.Take(result);
 
             _screens.Push(_resultPage);
+        }
+
+        /// <summary>
+        /// The end of the campaign's finale (#880): the result page takes the finale's place on the stack, with the figures
+        /// the finale held back. A Replace of the finale itself (#576), so a stack that has already moved on drops it.
+        /// </summary>
+        internal void ShowResultAfterFinale(CampaignFinalePage finale)
+        {
+            _resultPage.Take(finale.Result);
+
+            _screens.Replace(finale, _resultPage);
         }
 
         #region Levels

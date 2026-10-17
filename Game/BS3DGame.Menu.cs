@@ -70,6 +70,10 @@ namespace BS3D
         private AboutPage _aboutPage;
         private HelpPage _helpPage;
         private ResultPage _resultPage;
+        private CampaignFinalePage _finalePage;
+
+        //Testing only: the campaign finale's pinned message (finalemessage=, #880), or null for a random one
+        private readonly int? _finaleMessage;
 
         /// <summary>
         /// The bottom of the stack, exposed for its <b>orbit</b> alone: the result screen flies the camera out
@@ -660,6 +664,7 @@ namespace BS3D
             _highScoresPage = new HighScoresPage(this);
             _helpPage = new HelpPage(this);
             _resultPage = new ResultPage(this);
+            _finalePage = new CampaignFinalePage(this);
 
             EnsureMenuLayout();
 
@@ -762,6 +767,15 @@ namespace BS3D
 
             return system;
         }
+
+        /// <summary>
+        /// The display face at any size, for lettering that fits itself to the frame instead of taking a step of the menu's
+        /// scale (the campaign finale's headline, #880).
+        /// </summary>
+        internal SpriteFontBase DisplayFontAt(float pixelSize) => _menuFontSystemDisplay.GetFont(pixelSize);
+
+        /// <summary>The reading face (Inter) at any size, for the same lettering's message.</summary>
+        internal SpriteFontBase ReadingFontAt(float pixelSize) => _menuFontSystem.GetFont(pixelSize);
 
         /// <summary>The page the splash hands over to when its beat is up.</summary>
         internal MainMenuPage MainMenuPage => _mainMenuPage;

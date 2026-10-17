@@ -242,7 +242,7 @@ namespace BS3D.Screens
         /// (#184) — upper-cased here rather than authored in caps, so a set can name its blocks in prose.
         /// </summary>
         public string Heading =>
-            CampaignComplete ? "CAMPAIGN COMPLETE"
+            CampaignComplete ? CampaignFinaleCopy.TITLE
             : BlockComplete && !string.IsNullOrWhiteSpace(BlockName) ? BlockName.ToUpperInvariant()
             : Cleared ? "CLEARED" : "FAILED";
 

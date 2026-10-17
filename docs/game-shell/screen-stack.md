@@ -6,7 +6,7 @@ Part of [The game: shell](../game-shell.md).
 
 ## The library's rules
 
-- **Two independent flags**, `DrawsUnderlying` and `UpdatesUnderlying`: a pause must *draw* over the game it froze while stopping it *updating*; a settings panel over it lets both draw and neither update. Update walks top-down until something blocks, then runs bottom-up within that slice; Draw paints back to front. `ResultPage` is the one page over a session answering **true** to `UpdatesUnderlying` (#241), so "paused" means a page that *stops* the gameplay screen is over it.
+- **Two independent flags**, `DrawsUnderlying` and `UpdatesUnderlying`: a pause must *draw* over the game it froze while stopping it *updating*; a settings panel over it lets both draw and neither update. Update walks top-down until something blocks, then runs bottom-up within that slice; Draw paints back to front. `ResultPage` and the `CampaignFinalePage` that stands in front of it on the campaign's last clear (#880) are the pages over a session answering **true** to `UpdatesUnderlying` (#241), so "paused" means a page that *stops* the gameplay screen is over it.
 - **Mutations are deferred to the next frame**, applied at the **top** of `Update`, so a pushed screen gets `Enter` and its first `Update` before it is drawn. **Each operation is decided against the stack it is applied to, not the live one at the call** (#576): `PopTo` checks when applied and logs a `[screens]` line if the screen is absent (checking at the call skipped the `play` argument's pop); `Replace(old, next)` puts `next` at `old`'s index wherever it stands, dropped with a log line if `old` left. The `!Contains<SplashPage>()` gates in `BS3DGame.Update` stay: a page opened at boot would stand over the intro.
 
 ## What the stack bought

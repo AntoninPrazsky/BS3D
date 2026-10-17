@@ -75,6 +75,9 @@ namespace BS3D
         //run at all — and it is the one thing about the milestone that has to be LOOKED at rather than asserted.
         private readonly bool _blockDone;
 
+        //Testing only: "campaigndone" makes that page the campaign's ending, with the finale in front of it (#880)
+        private readonly bool _campaignDone;
+
         /// <summary>
         /// <c>lost</c>: makes the startup result page a FAILED one rather than a clear (#238). It exists because
         /// the page could not be photographed at all — <c>result</c> hardcoded <c>cleared: true</c>, so
@@ -222,8 +225,9 @@ namespace BS3D
             //than needing it alongside — the same rule "level=" implies "play" by. Written here and not left to
             //the caller because the first thing `lost` did on its own was put the main menu up and say nothing.
             //"nextlocked=" (#397) is a statement about that same page, so it implies it for the same reason.
-            _result = launch.Result || launch.Lost || launch.NextLocked != null;
+            _result = launch.Result || launch.Lost || launch.NextLocked != null || launch.CampaignDone;
             _blockDone = launch.BlockDone;
+            _campaignDone = launch.CampaignDone;
             _lost = launch.Lost;
             _nextLocked = launch.NextLocked;
             _pick = launch.Pick;
@@ -618,7 +622,7 @@ namespace BS3D
                 //and cost line and all, and "result" alone is still the clear's own page.
                 canSkip: _lost,
                 nextLevelName: levelCount > 13 ? game.LevelDisplayName(13) : "Girandole",
-                campaignComplete: false,
+                campaignComplete: _campaignDone && !lost,
                 //"blockdone" borrows a real chapter's own name and place, so the milestone is looked at with a
                 //real title in it rather than a placeholder that would read as one. Both DERIVED from the
                 //same entry now: the number was a hardcoded 3 against a name taken from index 12, which was

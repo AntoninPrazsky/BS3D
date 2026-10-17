@@ -43,8 +43,9 @@ namespace BS3D.Screens
         /// pause, settings opened over it — freezes it. This is the case the flag exists for: a pause has to
         /// <i>draw</i> the game it stopped while stopping it <i>updating</i>.
         /// <para>
-        /// <see cref="ResultPage"/> overrides it back to true and is the only page that does (#241): a level
-        /// that has ended is not a level put down, and the arena has to go on living behind the numbers.
+        /// <see cref="ResultPage"/> overrides it back to true (#241), and so does the campaign's finale in front of it
+        /// (<see cref="CampaignFinalePage"/>, #880): a level that has ended is not a level put down, and the arena has to
+        /// go on living behind the numbers and the lettering.
         /// </para>
         /// </summary>
         public override bool UpdatesUnderlying => Manager != null && !Manager.Contains<GameplayScreen>();
