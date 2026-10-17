@@ -22,6 +22,7 @@ npx eleventy                # the plain files in Web\_site, which is all the hos
 | `src/index.njk` | The page: the logo and pitch, the big picture, how it plays, the numbers, the gallery, what else is in it, the download steps for Windows and the Raspberry Pi 5 |
 | `src/_data/site.json` | The links (the newest release, the repository), the description the search engines and link previews show, the counts the page prints (levels, chapters, scenes) and the video slot |
 | `src/_data/gallery.json` | The gallery's pictures in order, each with its level, chapter and caption |
+| `src/_data/built.js` | The day of the build (Prague time), which the footer prints as "Last updated" |
 | `src/_includes/base.njk` | The HTML shell, the link-preview tags and the footer |
 | `src/_includes/post.njk`, `src/blog/` | The blog, ready but empty (below) |
 | `src/css/site.css` | The look: dark like the game's menus, headings in Anton (the game's own display face, served from `src/fonts`) |
@@ -59,6 +60,7 @@ $env:BS3D_WEB_ROOT = '<the subdomain document root, e.g. /www/bs3d>'
 - **The credentials live in the environment, never in a file**: the repository is public. A GitHub Actions workflow that publishes on a release would keep them in repository secrets.
 - **⚠ Upload with the web account, never the off-site backup's.** The Pi's database backup (BS3D-API #6) goes to its own SFTP account on the same hosting, chrooted outside the web root, so nothing a deploy writes can reach the backups and nothing in them is served. The account names stay out of this public repository.
 - The script only uploads: a file the site no longer has stays on the server until it is deleted by hand.
+- **The footer's "Last updated" is the day of the build, not of the last commit.** `publish.ps1` builds a clean `_site` and uploads it at once, so the date is the last publish's; a build that is not uploaded (`npx eleventy`, `-DryRun`) stamps its own day only into the files it writes locally.
 - **Cloudflare caches the page.** After a publish, look with a hard reload; purge the cache in the Cloudflare dashboard if the old files persist.
 
 ## The one-time setup (the owner's accounts)
