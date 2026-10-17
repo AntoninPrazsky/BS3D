@@ -274,6 +274,11 @@ namespace BS3D
         internal bool BlockDone { get; private set; }
         internal bool Lost { get; private set; }
 
+        //Testing only: make that result page the CAMPAIGN's ending (#880), so the finale before it can be looked at; and
+        //which of its messages is shown, 1-based (null is a random one). The campaign's last clear is out of a script's reach.
+        internal bool CampaignDone { get; private set; }
+        internal int? FinaleMessage { get; private set; }
+
         //Testing only: start the campaign's closing confetti (#215). Reaching it honestly means clearing the
         //last level of the whole set, which is further out of a script's reach than a block milestone is.
         internal bool Confetti { get; private set; }
@@ -548,6 +553,11 @@ namespace BS3D
             //further along the same reasoning: finishing a block needs every level of a five-level chapter
             //cleared, so unlike a single clear it cannot be reached in a scripted run at all.
             Row.Flag("blockdone", o => o.BlockDone = true),
+            //"campaigndone" makes that page the CAMPAIGN's ending (#880): CAMPAIGN COMPLETE across the frame and one message
+            //before the page, as the last level's clear gives them. Reaching that honestly means every level of the set
+            //cleared, further out of a script's reach than "blockdone" is. "finalemessage=<n>" pins which message (1-based).
+            Row.Flag("campaigndone", o => o.CampaignDone = true),
+            Row.Int("finalemessage", (o, v) => o.FinaleMessage = v - 1, v => v > 0),
             //"lost" makes that page a FAILED level rather than a clear (#238). Without it the fail state was
             //unreachable from a test at all: "result" hardcoded a clear, so "stars=0" gave a starless CLEARED
             //page and nobody had ever looked at the reason line the player is told they lost by.

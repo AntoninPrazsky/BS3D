@@ -59,3 +59,19 @@ Three shots in a row fired from the same place along the same line, every one fl
 - ⚠ **Sparks must not be hashed by their raw cell round the circle**: it jumps by `SPARK_SPOKES` at atan2's cut, so every spark the spin drew across it vanished or became another, leaving a seam from throat to rim.
 - ⚠ **The colours are kept low.** Driven at 3-7 the swirl came out a pale pink-white smear (the tonemap's shoulder takes the hue off anything that bright) and its glare filled the throat with grey. The swirl peaks at about 2 and the pale edge about 1.3 over a disc that takes `SWIRL_DIM` (85 %) of what is behind it, so violet, magenta and cyan read even on the desert's noon sky; the sparks down the arms and the pop are driven far over the glare threshold.
 - Scripted check: `aim=3:10:45 fire=5,5.7,6.4` (Pendant in the desert), reading the log's `[wormhole] opened at …`. `RepeatedMissTests` pin the run (three escapes complete it and it restarts, a break restarts it, the pose is held against the first shot).
+
+## Hinted at from the campaign's finale
+
+The campaign's last clear shows one message with one cryptic hint at an egg (["The campaign's finale"](milestone-endings.md#the-campaigns-finale-a-headline-and-one-message-880), #880). `CampaignFinaleCopy.Egg` is the list the hints are checked against and every egg on it is hinted at by at least one message; the eggs the hints may name are the ones described above plus the About page's player. Which hint points at which:
+
+| Hint begins | Egg |
+|---|---|
+| "A detective’s note from the case file: the barrel that never tires…" | the sleeping gun |
+| "Count your misses the way a detective counts alibis…" | the secret shot code |
+| "The title above the menu has a ticklish memory…" and "The old front door is more forgiving…" | the Konami code on the main menu |
+| "Between Christmas and the new year, one single day…" | the game's birthday |
+| "Even a name can be a password…" | the code word |
+| "Three identical shots into the same empty sky…" | the impossible shot (the wormhole) |
+| "Turn every page of the credits, to the very last one…" | About's player of the original score |
+
+A new egg gets a case in `CampaignFinaleCopy.Egg` and a hint; the About page's player counts as an egg here because the owner ruled it "a small easter egg, waiting at the end for whoever turns that far" (2026-10-12).

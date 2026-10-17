@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-17 — #880 finále Campaign Complete — desktop (RDT-PC), Claude Code (bs3d-48)
+- Poslední clear kampaně dává před výsledkovou stránkou `CampaignFinalePage`: CAMPAIGN COMPLETE přes celou obrazovku (3,2 s), prolnutí do jedné náhodné zprávy z osmi (`CampaignFinaleCopy`: poděkování, „stay tuned“ a jedna detektivní nápověda na existující easter egg), pak výsledek. Stránka „stojí stranou“ (#861), skip jako flythrough, 1 s odklad proti náhodnému přeskočení (#347).
+- Test hlídá pravidla textu, jednu nápovědu na zprávu a že každá míří na egg ze seznamu `Egg`. Replay posledního levelu finále nespustí.
+- Otevřené: oko a ruka majitele (`verdict-eye`), skutečné dohrání kampaně.
+
 ## 2026-10-17 — #872 míření dolů bez poplachu — desktop (RDT-PC), Claude Code (bs3d-48)
 - Spodní mez `MinElevation` už nezvedá `ElevationStrain` (žádný červený zaměřovač, zvuk ani rumble), nikdy neodmítne výstřel a guma se pouští kriticky tlumeně, bez zpětného švihu. Horní mez beze změny; `MinElevation` se nehýbe (majitel popsal stále měkký doraz). `CannonElevationTests`.
 - Otevřené: pocit dojezdu (`verdict-hands`).
