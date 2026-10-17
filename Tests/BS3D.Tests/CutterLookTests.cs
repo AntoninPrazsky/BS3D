@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Prazsky.BS3D;
+using Prazsky.BS3D.GameObjects;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Render;
 using System;
@@ -97,22 +98,35 @@ namespace BS3D.Tests
 
         /// <summary>
         /// The frame does not depend on where the lens is (the old one faced the eye each frame, and so re-oriented in a
-        /// barrel the overview's lens did not turn with): the method has no eye to take, so what is held is that the round's
-        /// own turn alone decides it - a shot launched turned as the barrel flies on in the frame it left the bore in.
+        /// barrel the overview's lens did not turn with): the round's own turn alone decides it. A real gun's barrel is aimed
+        /// through a traverse and an elevation, the loaded round's frame is taken in it as <c>BorePose.SlotWorld</c> places it,
+        /// and the body is launched with the turn the Game's <c>Shoot</c> gives it (<see cref="BallRenderSet.CutterLaunchTurn"/>)
+        /// and drawn as the ball draw builds a body's matrix (<c>AddOriented</c>: <c>CreateFromQuaternion</c>): the saw in
+        /// flight is the saw that lay in the bore.
         /// </summary>
-        [Fact]
-        public void AFiredRoundKeepsTheFrameItLeftTheBoreIn()
+        [Theory]
+        [InlineData(0.35f, 0f)]
+        [InlineData(0.61f, 0.52f)]
+        [InlineData(0.17f, -0.52f)]
+        [InlineData(1.2f, 2.4f)]
+        public void AFiredRoundKeepsTheFrameItLeftTheBoreIn(float elevation, float traverse)
         {
-            Matrix barrel = Matrix.CreateWorld(Vector3.Zero, Vector3.Normalize(new Vector3(0.3f, 0.4f, -1f)), Vector3.Up);
-            Quaternion launched = Quaternion.CreateFromRotationMatrix(barrel);
+            Cannon cannon = new(new Vector3(0f, 5f, 0f), 20f);   //where the Game stands its gun
+            cannon.AimTo(elevation, traverse);
+            Matrix barrel = cannon.BarrelOrientation();
 
             Matrix inBore = barrel * Matrix.CreateTranslation(0f, 1f, 6f);
-            Matrix inFlight = Matrix.CreateFromQuaternion(launched) * Matrix.CreateTranslation(4f, 6f, -12f);
+            Matrix inFlight = Matrix.CreateFromQuaternion(BallRenderSet.CutterLaunchTurn(barrel)) * Matrix.CreateTranslation(4f, 6f, -12f);
 
             Matrix a = BallRenderSet.CutterFrame(inBore, 1.1f);
             Matrix b = BallRenderSet.CutterFrame(inFlight, 1.1f);
             AssertNear(a.Up, b.Up);
             AssertNear(a.Right, b.Right);
+
+            //And the gun really was turned: an unturned launch (identity, what the body had before #767's verdict) would not
+            //give the same frame, so the agreement above is the launch turn's and not a coincidence of a straight-ahead aim
+            Matrix unturned = BallRenderSet.CutterFrame(Matrix.CreateTranslation(4f, 6f, -12f), 1.1f);
+            Assert.True((unturned.Up - a.Up).Length() > 0.05f, "the barrel's frame is the identity's, so the check holds nothing");
         }
 
         [Fact]

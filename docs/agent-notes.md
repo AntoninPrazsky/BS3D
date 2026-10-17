@@ -968,7 +968,8 @@ Pravidla:
 - Opraveno jedno: komentář `SceneRenderer.FineMeshes` citoval nadpis „The acacia's fork“, který #758 přejmenoval; citace teď 0 nevyřešených.
 - Zbytek dokumentů říká, co platí teď.
 
-## 2026-10-17 — #767 #766 verdikt na Cut: náboj v hlavni, řez, Potato — desktop (RDT-PC), Claude Code (bs3d-ac)
-- Hotovo (větev `767-cut-verdict`, nemergováno, čeká review): rámec pily je rámec náboje = hlavně (`CutterFrame` bez oka, `CUTTER_FACE_LIFT` 1,05 změřený v rámci hlavně proti #766 při otevírací póze); vystřelený náboj letí natočený jako hlaveň (orientace těla při `Shoot`), takže se při výstřelu neotočí. Řez: dvakrát tlustší a dvakrát delší (1,8 s světa), jiskry 192 místo 96, větší, jasnější, ~1 s života, záblesk a světlo delší; výstřel je zkrátí (`HurryBlades`). Čára leží v rovině patra, kolmo na směr střely (`BallLanding.ShotDirection`), přes šířku zničeného patra (`CutSlash`); k objektivu se táhne jen hloubka. Odměna čeká 1,0 s. Potato: vlastní program `PotatoBallCutter` se zuby, nábojem a šrouby.
-- ⚠ Při yaw 30° a elevaci 20° náboj zakryje stěna hlavně; snímky dělat při 35°.
-- Otevřené: oko majitele, review, Pi naživo.
+## 2026-10-17 — #767 #766 Cut po verdiktu majitele — desktop (RDT-PC), Claude Code (bs3d-48)
+- Majitel (Vrať na obě): zvuk nabití zůstává, desktopový vzhled #766 zůstává. Hotovo: pila v rámci hlavně (`CutterFrame`, `CutterLaunchTurn`), takže se v hlavni nenaklání ani při výstřelu; řez dvakrát tlustší a delší (1,8 s světa), 192 jisker ~1 s; čára vodorovně přes zničené patro kolmo na střelu (`ShotDirection` = rychlost na začátku kroku zásahu); Potato má pilu se zuby (`PotatoBallCutter`).
+- Po review: stav blastů v `BlastSlots` (bez zařízení), testy krokují skutečné stáří; výstřel přehraje zbytek 6× rychleji (`HURRY_RATE`) a jen když opravdu vyletí; odměna čeká 0,9 s času světa; extra jiskry se kreslí jen když hoří řez.
+- ⚠ Obnovený `.bak` má staré mtime: MSBuild ho nepřeloží, po podstrčené chybě `touch`.
+- Otevřené: oko majitele, Pi naživo, PresentMon.

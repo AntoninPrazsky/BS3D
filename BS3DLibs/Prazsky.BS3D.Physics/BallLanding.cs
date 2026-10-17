@@ -109,8 +109,9 @@ namespace Prazsky.BS3D.Physics
         public readonly BallKind Kind;
 
         /// <summary>
-        /// Which way the shot was flying when it struck, unit, world space (#767's verdict): a cutter's strike draws its slash
-        /// square to it. Zero where nothing needs it, which is every landing but a cutter's.
+        /// Which way the shot was flying when it struck, unit, world space (#767's verdict): the velocity the striking step
+        /// began with, before any contact of that step turned it. A cutter's strike draws its slash square to it. Zero where
+        /// nothing needs it, which is every landing but a cutter's.
         /// </summary>
         public readonly Vector3 ShotDirection;
 

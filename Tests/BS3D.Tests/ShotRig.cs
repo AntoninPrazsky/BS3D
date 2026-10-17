@@ -58,10 +58,15 @@ namespace BS3D.Tests
         private readonly List<PhysicsBall> _shots = new();
         private readonly List<PhysicsBall> _falling = new();
         private XZLevel? _landed;
+        private BallLanding? _landing;
         private bool _spent;
         private Crates _crates;
 
         public HungLevel Hung => _hung;
+
+        /// <summary>The last shot's landing as the handler reported it, or null when it did not land (#767: a cutter's
+        /// <see cref="BallLanding.ShotDirection"/>).</summary>
+        public BallLanding? LastLanding => _landing;
 
         /// <param name="levelFile">A file of <c>Game/Levels</c>.</param>
         /// <param name="settleSeconds">How long the level hangs before anything is fired at it: a level is long settled by the
@@ -74,7 +79,11 @@ namespace BS3D.Tests
             KinematicBody ceiling = new(_hung.Ceiling, _hung.Ceiling.Handle);
             _handler = new BallContactEventHandler(_hung.World.Simulation, _hung.World.Events, ceiling, _hung.Map, _hung.Balls,
                 _shots, _falling, _hung.WorldOffset);
-            _handler.BallLanded += landing => _landed = landing.Cell;
+            _handler.BallLanded += landing =>
+            {
+                _landed = landing.Cell;
+                _landing = landing;
+            };
             _handler.ShotSpent += () => _spent = true;
         }
 
@@ -95,7 +104,9 @@ namespace BS3D.Tests
         /// <param name="glance">Only carried into the result, for the report.</param>
         /// <param name="type">The ball's colour. One no level uses by default, so a landing completes no group and the structure
         /// stays as it was.</param>
-        public ShotResult Fire(XVector3 muzzle, XVector3 target, float glance, BallType type = BallType.Type13)
+        /// <param name="kind">What the round is: a <see cref="BallKind.Cutter"/> severs the storey it strikes instead of sticking.</param>
+        public ShotResult Fire(XVector3 muzzle, XVector3 target, float glance, BallType type = BallType.Type13,
+            BallKind kind = BallKind.Normal)
         {
             XVector3 aim = XVector3.Normalize(target - muzzle);
             XVector3 velocity = aim * SHOOT_SPEED;
@@ -109,9 +120,10 @@ namespace BS3D.Tests
             if (promised == null) return new ShotResult(ShotOutcome.NoGhost, null, null, glance, 0, 0f);
 
             _landed = null;
+            _landing = null;
             _spent = false;
 
-            PhysicsBall shot = new() { Type = type, BallReference = _hung.World.AddShotBall(muzzle.ToNumerics(), velocity.ToNumerics(), _handler) };
+            PhysicsBall shot = new() { Type = type, Kind = kind, BallReference = _hung.World.AddShotBall(muzzle.ToNumerics(), velocity.ToNumerics(), _handler) };
             _shots.Add(shot);
 
             //The preview's own integration of the flight, step by step: semi-implicit Euler at the simulation's step with

@@ -2768,6 +2768,14 @@ namespace Prazsky.BS3D
         }
 
         /// <summary>
+        /// The turn a fired Cutter's body is launched with (#767's verdict): the turn of the barrel the loaded round was drawn
+        /// in (<paramref name="barrel"/>, <c>Cannon.BarrelOrientation</c>), so <see cref="CutterFrame"/> of the body in flight
+        /// is the frame it had in the bore and the saw leaves the barrel without a turn. The Game's <c>Shoot</c> sets it on
+        /// the body; <c>CutterLookTests</c> holds the frame it gives against the loaded one.
+        /// </summary>
+        public static Quaternion CutterLaunchTurn(in Matrix barrel) => Quaternion.CreateFromRotationMatrix(barrel);
+
+        /// <summary>
         /// The heavy balls (#333): <see cref="DrawGravity"/> in every structural respect — a colour plane, the
         /// per-type tint, the type's own material, the pulse speed put back by hand — with its own technique
         /// and its own pair of animation figures. What differs is what those figures say, and here they say it

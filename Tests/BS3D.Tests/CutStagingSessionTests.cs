@@ -396,48 +396,121 @@ namespace BS3D.Tests
         }
 
         /// <summary>
-        /// The severing's picture runs on the world's clock, which the slow motion scales: stepped as the game steps it, the
-        /// slash burns out at the same wall time at 30, 60, 75 and 144 Hz as at the reference rate, to a frame; and a picture
-        /// aged by a fixed sixtieth a frame is seen to fail the same check.
+        /// The severing's picture runs on the world's clock, which the slow motion scales: the blasts' own slots
+        /// (<see cref="BlastSlots"/>, whose ages the draw reads), stepped with the session's world time as the game steps them,
+        /// put the blade's light out and free its slot at the same wall time at 30, 60, 75 and 144 Hz as at the reference rate,
+        /// to a frame. (Seen to fail with the slots aging by a sixtieth a step instead of by the time handed in.)
         /// </summary>
         [Fact]
         public void The_severing_burns_out_at_the_same_wall_time_at_any_frame_rate()
         {
-            double BurnsOut(float hz, Func<float, float> pictureStep)
+            (double Dark, double Freed) BurnsOut(float hz)
             {
                 using CutSlab slab = new();
-                CutStaging staging = Strike(slab);
+                CutStaging staging = Strike(slab, Shot, out CutSlash slash);
+                BlastSlots slots = new();
+                slots.Cut(slab.Struck, slash, 0.6f);
 
                 float dt = 1f / hz;
-                double wall = 0.0, age = 0.0;
-                while (age < CutBeats.SLASH_SECONDS && wall < 10.0)
+                double wall = 0.0, dark = -1.0;
+                while (wall < 10.0)
                 {
                     staging.StepWall(dt);
                     float scale = staging.TimeScale;
                     staging.StepWorld(dt * scale);
-                    age += pictureStep(dt * scale);
+                    slots.Step(dt * scale);
                     wall += dt;
+
+                    if (dark < 0.0 && !slots.TryGetLight(out _, out _, out _)) dark = wall;
+                    if (!slots[0].Active) return (dark, wall);
                 }
 
-                return wall;
+                return (dark, wall);
             }
 
-            double reference = BurnsOut(REFERENCE_HZ, dt => dt);
-            _output.WriteLine($"reference ({REFERENCE_HZ} Hz): the slash burns out {reference:F3} s after the strike");
-            Assert.True(reference > CutBeats.SLASH_SECONDS, "the slow motion did not stretch the slash at all");
+            (double referenceDark, double referenceFreed) = BurnsOut(REFERENCE_HZ);
+            _output.WriteLine($"reference ({REFERENCE_HZ} Hz): the light is out {referenceDark:F3} s and the slot freed {referenceFreed:F3} s after the strike");
+            Assert.True(referenceFreed > CutBeats.LIFE_SECONDS, "the slow motion did not stretch the picture at all");
+            Assert.True(referenceDark > 0.0 && referenceDark < referenceFreed, "the light outlived the slot");
 
             foreach (float hz in FrameRates)
             {
-                double wall = BurnsOut(hz, dt => dt);
-                _output.WriteLine($"{hz} Hz: {wall:F3} s");
+                (double dark, double freed) = BurnsOut(hz);
+                _output.WriteLine($"{hz} Hz: dark {dark:F3} s, freed {freed:F3} s");
+
                 //A frame's rounding either way: the frame that crosses the end, and the slow motion's own (its world time is
                 //the same to 0.85 of a frame, The_slow_motion_costs_the_same_world_time_at_any_frame_rate)
-                Assert.InRange(wall, reference - 1.0 / hz - 1e-3, reference + 1.0 / hz + 1e-3);
+                Assert.InRange(dark, referenceDark - 1.0 / hz - 1e-3, referenceDark + 1.0 / hz + 1e-3);
+                Assert.InRange(freed, referenceFreed - 1.0 / hz - 1e-3, referenceFreed + 1.0 / hz + 1e-3);
+            }
+        }
+
+        /// <summary>
+        /// A shot fired while the picture burns plays the rest of it <see cref="CutBeats.HURRY_RATE"/> times as fast, through
+        /// the slots the draw reads: whenever it comes, the slot is freed within <see cref="CutBeats.HurriedSecondsLeft"/>
+        /// (a third of a second at most) and at the same wall time at 30, 60 and 144 Hz; the light fades out over frames, at
+        /// 60 Hz never losing more than a quarter of its full strength in one (the stepped hurry it replaced put out half of
+        /// it in one frame and is seen to fail this); a second shot does not hurry it again, and a bomb is never hurried.
+        /// </summary>
+        [Fact]
+        public void A_shot_plays_the_rest_of_the_picture_out_fast_and_puts_nothing_out_in_one_frame()
+        {
+            CutSlash lone = CutSlash.Across(Microsoft.Xna.Framework.Vector3.UnitX, 0f, 0f);
+
+            //The light's colour at the blade's full strength: what one frame's drop is measured against
+            BlastSlots fresh = new();
+            fresh.Cut(Microsoft.Xna.Framework.Vector3.Zero, lone, 1f);
+            fresh.TryGetLight(out _, out Microsoft.Xna.Framework.Vector3 fullColour, out _);
+            float full = fullColour.Length();
+
+            (double Freed, float WorstDrop) HurriedAt(float age, float hz)
+            {
+                BlastSlots slots = new();
+                slots.Cut(Microsoft.Xna.Framework.Vector3.Zero, lone, 1f);
+
+                //Up to the shot at the world's full speed, in fine steps (the shot ends the slow motion)
+                const float fine = 1f / 2000f;
+                while (slots[0].Age + fine <= age) slots.Step(fine);
+
+                Assert.True(slots.HurryBlades(), "a burning blade was not hurried");
+                Assert.False(slots.HurryBlades(), "a second shot hurried it again");
+
+                float dt = 1f / hz, worst = 0f;
+                float before = slots.TryGetLight(out _, out Microsoft.Xna.Framework.Vector3 colour, out _) ? colour.Length() : 0f;
+                double wall = 0.0;
+                while (slots[0].Active && wall < 5.0)
+                {
+                    slots.Step(dt);
+                    wall += dt;
+
+                    float now = slots.TryGetLight(out _, out colour, out _) ? colour.Length() : 0f;
+                    worst = MathF.Max(worst, before - now);
+                    before = now;
+                }
+
+                return (wall, worst);
             }
 
-            double faulty = BurnsOut(30f, dt => 1f / 60f);
-            _output.WriteLine($"planted fault at 30 Hz (a sixtieth a frame): {faulty:F3} s");
-            Assert.False(Math.Abs(faulty - reference) <= 1.0 / 30.0 + 1e-3, "the check passed a frame-counting picture");
+            foreach (float age in new[] { 0f, 0.3f, 0.9f, CutBeats.SLASH_SECONDS - 0.1f })
+            {
+                (double freed, float drop) = HurriedAt(age, 60f);
+                float share = drop / full;
+                _output.WriteLine($"a shot at {age:F2} s: gone {freed:F3} s later at 60 Hz, the light's worst frame {share:P0} of its full strength");
+
+                Assert.True(freed <= CutBeats.HurriedSecondsLeft(age) + 1.0 / 60.0 + 1e-4, $"a shot at {age} s left {freed:F3} s of the picture");
+                Assert.True(freed <= CutBeats.LIFE_SECONDS / CutBeats.HURRY_RATE + 1.0 / 60.0 + 1e-4, "a hurried picture outlasts a third of a second");
+                Assert.True(share <= 0.25f, $"a shot at {age} s put out {share:P0} of the light in one frame");
+
+                foreach (float hz in new[] { 30f, 144f })
+                    Assert.InRange(HurriedAt(age, hz).Freed, freed - 1.0 / 30.0 - 1e-3, freed + 1.0 / 30.0 + 1e-3);
+            }
+
+            //A bomb ages at the world's pace whatever is fired
+            BlastSlots bombs = new();
+            bombs.SetOff(new[] { new Detonation(Microsoft.Xna.Framework.Vector3.Zero, 0, 12) });
+            Assert.False(bombs.HurryBlades(), "a bomb was hurried");
+            bombs.Step(0.1f);
+            Assert.Equal(0.1f, bombs[0].Age, 5);
         }
 
         /// <summary>
@@ -465,22 +538,14 @@ namespace BS3D.Tests
         /// <summary>
         /// The flash is the one part bright and wide enough to hide the field: it is under a tenth of its light by the time the
         /// shortest slow motion (a cut that freed nothing) has let its world time pass, so it never hides the field past the
-        /// slow motion; and a shot fired while the picture burns leaves at most <see cref="CutBeats.HURRY_LEFT_SECONDS"/> of it.
+        /// slow motion.
         /// </summary>
         [Fact]
-        public void The_flash_never_outlasts_the_slow_motion_and_a_shot_hurries_the_rest()
+        public void The_flash_never_outlasts_the_slow_motion()
         {
             float shortest = CutBeats.WorldSecondsOfSlowMotion(0f, false);
             _output.WriteLine($"the shortest slow motion lets {shortest:F3} s of the world pass; the flash is at {CutBeats.FlashLeft(shortest):F3} then");
             Assert.True(CutBeats.FlashLeft(shortest) < 0.1f, "the flash outlasts the shortest slow motion");
-
-            foreach (float age in new[] { 0f, 0.4f, 1.2f, CutBeats.SLASH_SECONDS - 0.1f })
-            {
-                float hurried = CutBeats.Hurried(age);
-                Assert.True(hurried >= age, "a hurry turned the picture back");
-                Assert.True(CutBeats.SLASH_SECONDS - hurried <= CutBeats.HURRY_LEFT_SECONDS + 1e-5f, $"a shot at {age} s left {CutBeats.SLASH_SECONDS - hurried:F2} s of the slash");
-                Assert.True(CutBeats.LightStrength(hurried, 1f) == 0f, "a hurried cut still lights the balls");
-            }
         }
 
         /// <summary>

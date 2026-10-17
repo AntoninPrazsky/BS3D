@@ -126,6 +126,9 @@
     <Compile Include="..\..\Game\Effects\CutBeats.cs" />
     <Compile Include="..\..\Game\Effects\CutSlash.cs" />
     <Compile Include="..\..\Game\Effects\CutStaging.cs" />
+    <!--The blasts' slots without the device (#767's review): the ages the severing's picture is drawn from, its hurry and
+        its light, stepped by the tests through the session's slow motion-->
+    <Compile Include="..\..\Game\Effects\BlastSlots.cs" />
     <!--#876: the pause page's debug row - which kinds it has a button for, whether a build has it at all and what a press does to
         the magazine, over a release tag handed in, so a test can stand in a release.-->
     <Compile Include="..\..\Game\Screens\DebugKindRow.cs" />

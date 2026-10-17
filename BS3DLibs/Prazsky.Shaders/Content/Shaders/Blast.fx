@@ -57,7 +57,7 @@ float4 BlastCentre[MAX_BLASTS];
 float4 BlastShape[MAX_BLASTS];
 float4 BlastAxis[MAX_BLASTS];
 
-//The three lifetimes. The C# side frees a slot at Blasts.LIFE_SECONDS, which has to cover the longest-lived
+//The three lifetimes. The C# side frees a slot at BlastSlots.LIFE_SECONDS, which has to cover the longest-lived
 //part below (a spark at the top of its jitter, SPARK_SECONDS * 1.45) or it would be cut off mid-fade.
 static const float FLASH_SECONDS = 0.16;
 static const float FIRE_SECONDS = 0.5;
@@ -136,11 +136,11 @@ static const float BLADE_SPARK_GROW = 2.2;
 
 struct BlastVertexInput
 {
-    //(blast index, part 0/1/2, corner x in {-1,1}, corner y in {-1,1})
+    //(blast index, part 0/1/2/3, corner x in {-1,1}, corner y in {-1,1})
     float4 Slot : TEXCOORD0;
     //(direction xyz on the unit sphere, speed 0..1) - read by the sparks only
     float4 Spark : TEXCOORD1;
-    //(life jitter, size jitter, heat jitter, unused)
+    //(life jitter, size jitter, heat jitter, where along a blade's slash -1..1)
     float4 Random : TEXCOORD2;
 };
 

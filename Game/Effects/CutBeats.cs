@@ -237,13 +237,12 @@ namespace BS3D.Effects
         //The strike's picture is Blasts' blade style (Blast.fx on both paths), on the blasts' clock: the WORLD's seconds, slow
         //motion included, so it plays out the same at any frame rate. Its figures are here so the tests can hold them; the two
         //Blast.fx files carry the same values under the names in each remark, and a test reads them back (they cannot be
-        //handed over as uniforms without a fourth vector per blast). #767's verdict set their size: the owner found the cut
-        //"not very prominent - it should be bigger and last a bit longer - the sparks are barely perceptible, so few and so
-        //briefly are they shown", so the slash is twice as thick and twice as long-lived as the first cut, the sparks twice
-        //as many, bigger and brighter and living about a second, and the flash and the light last with them.
+        //handed over as uniforms without a fourth vector per blast). #767's verdict set their size ("bigger and last a bit
+        //longer"; the sparks "barely perceptible, so few and so briefly are they shown"): a thick slash living nearly two
+        //seconds, 192 sparks living about a second, and the flash and the light lasting with them.
 
         /// <summary>The slash's whole life, simulated seconds: it shoots out, holds white-hot, thins, cools to amber and burns
-        /// through over this (Blast.fx <c>SLASH_SECONDS</c>; it was 0.9).</summary>
+        /// through over this (Blast.fx <c>SLASH_SECONDS</c>).</summary>
         public const float SLASH_SECONDS = 1.8f;
 
         /// <summary>The blade's flash, simulated seconds (Blast.fx <c>BLADE_FLASH_SECONDS</c>; a bomb's is 0.16). Cubed as it
@@ -267,9 +266,13 @@ namespace BS3D.Effects
         /// <summary>How long a blade holds its slot in the blasts' buffer: past the slash and the longest spark.</summary>
         public const float LIFE_SECONDS = 1.95f;
 
-        /// <summary>What is left of a blade's picture once a shot is fired (#765: skippable), simulated seconds: the slash jumps
-        /// to its last stretch of cooling amber and is gone in this, and the player's next shot crosses a clear field.</summary>
-        public const float HURRY_LEFT_SECONDS = 0.3f;
+        /// <summary>
+        /// How many times as fast a blade's picture plays out once a shot is fired while it burns (#765: skippable): the rest
+        /// of the slash, the sparks and the light run through every age they would have passed, so nothing vanishes in one
+        /// frame, and all of it is gone within <see cref="LIFE_SECONDS"/> / this of the shot (a third of a second) however
+        /// early the shot came (<see cref="HurriedSecondsLeft"/>).
+        /// </summary>
+        public const float HURRY_RATE = 6f;
 
         /// <summary>How much of the blade's flash is left <paramref name="age"/> simulated seconds after the strike, 1 to 0
         /// (Blast.fx's <c>fade * fade * fade</c>).</summary>
@@ -292,8 +295,9 @@ namespace BS3D.Effects
             return (0.5f + 0.5f * Math.Clamp(size, 0f, 1f)) * left * left;
         }
 
-        /// <summary>The age a fired shot hurries a blade's picture to, simulated seconds (<see cref="HURRY_LEFT_SECONDS"/>).</summary>
-        public static float Hurried(float age) => MathF.Max(age, SLASH_SECONDS - HURRY_LEFT_SECONDS);
+        /// <summary>How long a blade's picture still burns once a shot hurries it at <paramref name="age"/> simulated seconds:
+        /// what was left of its slot's life, played <see cref="HURRY_RATE"/> times as fast.</summary>
+        public static float HurriedSecondsLeft(float age) => MathF.Max(0f, LIFE_SECONDS - age) / HURRY_RATE;
 
         /// <summary>The world time a slow motion of <paramref name="size"/> lets pass while it runs, simulated seconds: the
         /// integral of <see cref="TimeScale"/> over <see cref="SlowSeconds"/>, by the midpoint rule at a millisecond.</summary>

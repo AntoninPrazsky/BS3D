@@ -495,10 +495,6 @@ namespace BS3D.Screens
                 Console.WriteLine("[skip] cut slow motion");
             }
 
-            //And its picture: the slash, the sparks and the light outlive the slow motion (#767's verdict made them last), so a
-            //pull of the trigger hurries them to their last stretch and the next shot crosses a clear field
-            if (_blasts.HurryBlades()) Console.WriteLine("[skip] cut's slash hurried");
-
             //The level is already decided — cleared and waiting out LEVEL_CLEARED_BEAT, or lost. The gun stops
             //answering the instant the outcome is settled rather than when the result screen finally covers
             //this one, which is a whole beat later and longer still under a drop cinematic: a shot fired into
@@ -537,6 +533,11 @@ namespace BS3D.Screens
                 return;
             }
 
+            //And the cut's picture: the slash, the sparks and the light outlive the slow motion (#767's verdict made them last),
+            //so a shot that leaves plays the rest of them out fast (Blasts.HurryBlades) and crosses a field already clearing.
+            //Only a shot that leaves: a refused pull fires nothing across it, and the picture runs on at the world's pace
+            if (_blasts.HurryBlades()) Console.WriteLine("[skip] cut's slash hurried");
+
             //No recoil in either of these: the shot leaves along the TRUE aim on the frame it is fired, before
             //the barrel has moved. The stroke below is drawing only — see CannonRecoilBack.
             Vector3 direction = _cannon.AimDirection;
@@ -561,12 +562,11 @@ namespace BS3D.Screens
             };
 
             //A cutter leaves turned as it lay in the bore (#767's verdict): its saw's frame is the round's own
-            //(BallRenderSet.CutterFrame), so the blade leaves the barrel without a turn and keeps that bearing along the
-            //shot. The body is a sphere with no spin, so its turn changes nothing of its flight; it is retired where it
-            //strikes (#823), before anything could turn it. The drawn barrel's, which the loaded round was drawn in.
+            //(BallRenderSet.CutterFrame), so the blade leaves the barrel without a turn and keeps that bearing along a
+            //straight shot, which nothing turns (a bounce off the glass may set it tumbling, as it would a real blade). The
+            //body is a sphere, so its turn changes nothing of its flight. The drawn barrel's, which the loaded round was drawn in
             if (kind == BallKind.Cutter)
-                ball.BallReference.Pose.Orientation =
-                    Quaternion.CreateFromRotationMatrix(_cannon.BarrelOrientation()).ToNumerics();
+                ball.BallReference.Pose.Orientation = BallRenderSet.CutterLaunchTurn(_cannon.BarrelOrientation()).ToNumerics();
 
             _shotBalls.Add(ball);
 

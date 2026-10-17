@@ -946,13 +946,19 @@ namespace Prazsky.BS3D.Physics
 
             _detonations.Clear();
 
+            //Which way it was flying, as the slash is drawn square to it (#767's verdict): the velocity the striking step
+            //BEGAN with, the line the sweep landed it along (TrySweep). Asked before the listener goes below, because only a
+            //listener keeps that record. Not the body's velocity now, which is after the solve: a contact the solver did make
+            //(a shot already overlapping a ball's flank as the step began) has turned it towards the tangent. The body's
+            //velocity only where no record stands, and either is read before the nudge below overwrites it
+            Vector3 shotDirection = Vector3.Zero;
+            System.Numerics.Vector3 flying = _contactEvents.TryGetStepStart(contact.EventSource, out _,
+                out System.Numerics.Vector3 stepVelocity, out _) ? stepVelocity : cutter.BallReference.Velocity.Linear;
+            if (flying.LengthSquared() > 1e-8f) shotDirection = Vector3.Normalize(flying.ToXna());
+
             //Not in flight any more, and no longer a listener: the shot is over
             _shotBalls.Remove(cutter);
             if (_contactEvents.IsListener(contact.EventSource)) _contactEvents.Unregister(contact.EventSource);
-
-            //Which way it was flying, read before the nudge below overwrites it: the slash is drawn square to it (#767's verdict)
-            System.Numerics.Vector3 flying = cutter.BallReference.Velocity.Linear;
-            Vector3 shotDirection = flying.LengthSquared() > 1e-8f ? Vector3.Normalize(flying.ToXna()) : Vector3.Zero;
 
             //Spent, and dropped: the normal landing zeroes both velocities because its ball becomes part of the lattice, and
             //a cutter left at the speed it struck with (the gun's 200 u/s, softened by a soft contact) would plough on

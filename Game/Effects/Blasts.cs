@@ -42,82 +42,37 @@ namespace BS3D.Effects
     /// say. It is here and not in the Cut's code so the next power-up round's impact is one more style of the same one
     /// buffer, and it keeps the blasts' clock: the world's, slow motion included. Its sound and its jolt are the caller's
     /// (<see cref="Update"/> plays a report and returns a jolt for bombs alone), since a cut answers with its own; and a shot
-    /// fired while it burns hurries it to its last stretch (<see cref="HurryBlades"/>), so it is skippable as the slow
+    /// fired while it burns plays the rest of it out fast (<see cref="HurryBlades"/>), so it is skippable as the slow
     /// motion is.
+    /// </para>
+    /// <para>
+    /// The slots themselves - ages, the chain's stagger, the hurry, when a slot is freed, the light - are
+    /// <see cref="BlastSlots"/>', which has no device and no sound, so the tests step the ages this draws from.
     /// </para>
     /// </summary>
     internal sealed class Blasts : IDisposable
     {
-        /// <summary>Concurrent blasts. Must match <c>MAX_BLASTS</c> in Blast.fx.</summary>
-        public const int MAX_BLASTS = 8;
+        /// <summary>Concurrent blasts. Must match <c>MAX_BLASTS</c> in Blast.fx (<see cref="BlastSlots.MAX_BLASTS"/>).</summary>
+        public const int MAX_BLASTS = BlastSlots.MAX_BLASTS;
+
+        /// <summary>How far behind the bomb that set it off each link of a chain goes off (<see cref="BlastSlots.CHAIN_STAGGER_SECONDS"/>).</summary>
+        public const float CHAIN_STAGGER_SECONDS = BlastSlots.CHAIN_STAGGER_SECONDS;
 
         //Sparks per blast, and the blade's more (#767's verdict: "the sparks are barely perceptible, so few and so briefly
-        //are they shown"): a bomb draws the first SPARKS_PER_BLAST, a blade those and BLADE_EXTRA_SPARKS more, the shader's
-        //part 3, which a bomb collapses. The buffer is MAX_BLASTS * (both + 2) quads - the flash and the fireball or slash
-        //ride beside them - 1 552 quads and 6 208 vertices, inside the 16-bit index limit Fireworks is held to. It was 72
-        //for both, and the first capture read the spray as a few white glints.
+        //are they shown"): a bomb draws SPARKS_PER_BLAST, a blade those and BLADE_EXTRA_SPARKS more, the shader's part 3.
+        //The buffer holds every slot's flash, fireball or slash and first sparks first (BOMB_QUADS), then every slot's extra
+        //sparks, and the draw takes the second run only while a blade burns (BlastSlots.AnyBlade): a frame of bombs alone
+        //costs what it did before the blade's sparks were doubled. 1 552 quads and 6 208 vertices in all, inside the 16-bit
+        //index limit Fireworks is held to. It was 72 sparks for both, and the first capture read the spray as a few white
+        //glints.
         private const int SPARKS_PER_BLAST = 96;
         private const int BLADE_EXTRA_SPARKS = 96;
-        private const int QUADS_PER_BLAST = SPARKS_PER_BLAST + BLADE_EXTRA_SPARKS + 2;
-
-        /// <summary>
-        /// How long a bomb's slot stays taken. Must cover Blast.fx's longest-lived part of a bomb — a spark at the top of
-        /// its life jitter, <c>SPARK_SECONDS</c> × 1.45 = 0.87 s — or a part is cut off mid-fade. A blade's is
-        /// <see cref="CutBeats.LIFE_SECONDS"/>, which covers its slash and its sparks the same way.
-        /// </summary>
-        private const float LIFE_SECONDS = 0.95f;
-
-        /// <summary>
-        /// How far behind the bomb that set it off each link of a chain goes off, in seconds. See the class
-        /// remarks for why it is this short; a chain of five, the longest one landing sets off in the campaign
-        /// (Sill, Paroxysm), is over in under a third of a second.
-        /// </summary>
-        public const float CHAIN_STAGGER_SECONDS = 0.07f;
-
-        /// <summary>
-        /// Balls destroyed at which a blast counts as full size. A blast's radius holds a couple of dozen cells of
-        /// a packed cluster, and a bomb on a cluster's underside takes about half that — measured over the shipped
-        /// bomb levels, 13 a bomb on Vent and Paroxysm and 23 on Sill.
-        /// </summary>
-        private const float FULL_SIZE_DESTROYED = 24f;
-
-        /// <summary>The smallest a blast is drawn and heard, so a bomb that took only itself still plainly goes off.</summary>
-        private const float MIN_SIZE = 0.35f;
-
-        //The light the blast throws (see SceneLights.SetFlash): how long it lasts, how far it reaches and what it
-        //is at full strength. Linear radiance, far over 1 on purpose — a point light's term is attenuated by the
-        //square of the distance through its range and by N·L, and at 1 per channel a ball two units away took a
-        //faint warm tint rather than being lit up.
-        //
-        //It started at (5, 2.2, 0.7) for 0.38 s and the first capture could barely find it on the cluster: the
-        //balls round a blast took a faint warm cast and nothing read as having been LIT.
-        private const float LIGHT_SECONDS = 0.45f;
-        private const float LIGHT_RANGE = 10f;
-        private static readonly Vector3 LIGHT_COLOR = new(8.5f, 3.6f, 1.0f);
-
-        //The most the summed light of a chain may reach, as a multiple of LIGHT_COLOR. Five links going off in a
-        //third of a second overlap, and uncapped their sum floods the whole cluster white.
-        private const float LIGHT_CEILING = 2.5f;
-
-        private struct Blast
-        {
-            public Vector3 Position;
-            public float Age;            //negative while its link waits its turn, 0 at the moment it goes off
-            public float Size;           //0..1
-            public int Link;             //how far down its chain, 0 for a bomb the landing set off itself
-            public bool Active;
-            public bool Reported;        //has its report been played and its jolt handed out
-            public bool Blade;           //a blade's impact (#767) rather than a bomb's: see Cut
-            public CutSlash Slash;       //a blade's slash: its line, where its middle is and how far it reaches
-        }
-
-        //A blade's light (#767): the cutter's white-hot accent driven well over 1 like the blast's, its light lasting a little
-        //less and reaching as far. Linear radiance.
-        private static readonly Vector3 BLADE_LIGHT_COLOR = new(7.5f, 7.0f, 6.2f);
+        private const int BOMB_QUADS = MAX_BLASTS * (SPARKS_PER_BLAST + 2);
+        private const int ALL_QUADS = BOMB_QUADS + MAX_BLASTS * BLADE_EXTRA_SPARKS;
 
         private readonly GraphicsDevice _device;
         private readonly Effect _effect;
-        private readonly Blast[] _blasts = new Blast[MAX_BLASTS];
+        private readonly BlastSlots _slots = new();
 
         //Per-blast uniform staging, allocated once and refilled in place.
         private readonly Vector4[] _centres = new Vector4[MAX_BLASTS];
@@ -126,7 +81,6 @@ namespace BS3D.Effects
 
         private readonly VertexBuffer _vertexBuffer;
         private readonly IndexBuffer _indexBuffer;
-        private readonly int _quadCount;
 
         //Cached parameter handles: the by-name indexer is a linear scan, and these are set every frame a blast is up.
         private readonly EffectParameter _viewParam, _projectionParam, _cameraPositionParam;
@@ -157,7 +111,6 @@ namespace BS3D.Effects
             _packedParam = effect.Parameters["BlastData"];
             if (_packedParam != null) _packed = new Vector4[MAX_BLASTS * PACKED_PER_BLAST];
 
-            _quadCount = MAX_BLASTS * QUADS_PER_BLAST;
             BuildBuffers(out _vertexBuffer, out _indexBuffer);
         }
 
@@ -173,26 +126,7 @@ namespace BS3D.Effects
         /// through its fade, so taking it loses the least that is still being looked at.
         /// </para>
         /// </summary>
-        public void SetOff(IReadOnlyList<Detonation> detonations)
-        {
-            for (int i = 0; i < detonations.Count; i++)
-            {
-                Detonation detonation = detonations[i];
-
-                int slot = FreeOrOldestSlot();
-
-                _blasts[slot] = new Blast
-                {
-                    Position = detonation.World,
-                    Age = -detonation.Link * CHAIN_STAGGER_SECONDS,
-                    Link = detonation.Link,
-                    Size = MathHelper.Lerp(MIN_SIZE, 1f,
-                        MathHelper.Clamp(detonation.Destroyed / FULL_SIZE_DESTROYED, 0f, 1f)),
-                    Active = true,
-                    Reported = false
-                };
-            }
-        }
+        public void SetOff(IReadOnlyList<Detonation> detonations) => _slots.SetOff(detonations);
 
         //GamePi's packed array (see _packedParam): the centre, the shape and the axis of each blast in turn
         private const int PACKED_PER_BLAST = 3;
@@ -204,56 +138,14 @@ namespace BS3D.Effects
         /// from what the cut freed). Silent and joltless here: the caller answers a cut with its own sound and knock, on the
         /// frame it happens.
         /// </summary>
-        public void Cut(Vector3 struck, CutSlash slash, float size)
-        {
-            int slot = FreeOrOldestSlot();
-
-            _blasts[slot] = new Blast
-            {
-                Position = struck,
-                Age = 0f,
-                Link = 0,
-                Size = MathHelper.Clamp(size, 0f, 1f),
-                Active = true,
-                Reported = true,
-                Blade = true,
-                Slash = slash
-            };
-        }
+        public void Cut(Vector3 struck, CutSlash slash, float size) => _slots.Cut(struck, slash, size);
 
         /// <summary>
-        /// Hurries every blade still burning to its last stretch (<see cref="CutBeats.Hurried"/>): a shot fired while a cut's
-        /// picture is up skips it (#765, #767), as it skips the slow motion, so the next shot crosses a clear field. Returns
-        /// whether there was one.
+        /// A shot was fired while a cut's picture is up (#765: skippable, as its slow motion is): every blade still burning
+        /// plays the rest of its picture <see cref="CutBeats.HURRY_RATE"/> times as fast, so the field clears in a few frames
+        /// and nothing vanishes in one (<see cref="BlastSlots.HurryBlades"/>). Returns whether a blade was hurried now.
         /// </summary>
-        public bool HurryBlades()
-        {
-            bool any = false;
-
-            for (int i = 0; i < _blasts.Length; i++)
-            {
-                if (!_blasts[i].Active || !_blasts[i].Blade) continue;
-
-                float hurried = CutBeats.Hurried(_blasts[i].Age);
-                any |= hurried > _blasts[i].Age;
-                _blasts[i].Age = hurried;
-            }
-
-            return any;
-        }
-
-        private int FreeOrOldestSlot()
-        {
-            int oldest = 0;
-
-            for (int i = 0; i < _blasts.Length; i++)
-            {
-                if (!_blasts[i].Active) return i;
-                if (_blasts[i].Age > _blasts[oldest].Age) oldest = i;
-            }
-
-            return oldest;
-        }
+        public bool HurryBlades() => _slots.HurryBlades();
 
         /// <summary>
         /// Advances every blast by <paramref name="elapsed"/> seconds of the <b>world's</b> time, and plays the
@@ -271,25 +163,18 @@ namespace BS3D.Effects
         /// </param>
         public float Update(float elapsed, ProceduralAudio audio)
         {
+            int due = _slots.Step(elapsed);
+            if (due == 0) return 0f;
+
+            //The report and the jolt of each bomb whose moment came, on the frame its age crossed zero
             float jolt = 0f;
-
-            for (int i = 0; i < _blasts.Length; i++)
+            for (int i = 0; i < MAX_BLASTS; i++)
             {
-                if (!_blasts[i].Active) continue;
+                if ((due & (1 << i)) == 0) continue;
 
-                _blasts[i].Age += elapsed;
-
-                //On the frame the age crosses zero, not when the chain was queued, so the report, the jolt and the
-                //flash arrive together however far down the chain the link was.
-                if (!_blasts[i].Reported && _blasts[i].Age >= 0f)
-                {
-                    _blasts[i].Reported = true;
-
-                    audio?.PlayBlast(_blasts[i].Position, _blasts[i].Size, _blasts[i].Link);
-                    jolt += _blasts[i].Size;
-                }
-
-                if (_blasts[i].Age > (_blasts[i].Blade ? CutBeats.LIFE_SECONDS : LIFE_SECONDS)) _blasts[i].Active = false;
+                ref readonly BlastSlots.Blast blast = ref _slots[i];
+                audio?.PlayBlast(blast.Position, blast.Size, blast.Link);
+                jolt += blast.Size;
             }
 
             return jolt;
@@ -300,56 +185,11 @@ namespace BS3D.Effects
         /// a few units apart, and one light at their weighted centre, as strong as their sum, lights the cluster
         /// the way they would together — for one slot where five would crowd the scene's own lamps out.
         /// </summary>
-        public bool TryGetLight(out Vector3 position, out Vector3 color, out float range)
-        {
-            float total = 0f, largest = 0f;
-            Vector3 weighted = Vector3.Zero, tinted = Vector3.Zero;
-
-            for (int i = 0; i < _blasts.Length; i++)
-            {
-                Blast blast = _blasts[i];
-                if (!blast.Active || blast.Age < 0f) continue;
-
-                //Squared, the ceiling flash's rule: unmistakable on the frame it goes off, thinned well before its end. A
-                //blade's is its own (#767): never under half strength, however little the cut freed - the strike itself is the
-                //event - and lasting with its slash and sparks (CutBeats.LightStrength).
-                float strength;
-                if (blast.Blade) strength = CutBeats.LightStrength(blast.Age, blast.Size);
-                else
-                {
-                    if (blast.Age >= LIGHT_SECONDS) continue;
-                    float left = 1f - blast.Age / LIGHT_SECONDS;
-                    strength = blast.Size * left * left;
-                }
-
-                if (strength <= 0f) continue;
-
-                total += strength;
-                weighted += blast.Position * strength;
-                tinted += (blast.Blade ? BLADE_LIGHT_COLOR : LIGHT_COLOR) * strength;
-                largest = MathF.Max(largest, blast.Size);
-            }
-
-            if (total <= 0f)
-            {
-                position = color = Vector3.Zero;
-                range = 0f;
-                return false;
-            }
-
-            position = weighted / total;
-
-            //Each blast's own colour, weighted as its place is, at the summed strength under the ceiling
-            color = tinted / total * MathF.Min(total, LIGHT_CEILING);
-            range = LIGHT_RANGE * (0.7f + 0.3f * largest);
-            return true;
-        }
+        public bool TryGetLight(out Vector3 position, out Vector3 color, out float range) =>
+            _slots.TryGetLight(out position, out color, out range);
 
         /// <summary>Nothing left burning — a fresh level starts clean. Called when a level is built.</summary>
-        public void Reset()
-        {
-            for (int i = 0; i < _blasts.Length; i++) _blasts[i].Active = false;
-        }
+        public void Reset() => _slots.Reset();
 
         /// <summary>
         /// Every blast in one draw call. Additive and depth-read but writing no depth — the launch smear's states,
@@ -360,9 +200,9 @@ namespace BS3D.Effects
         {
             bool any = false;
 
-            for (int i = 0; i < _blasts.Length; i++)
+            for (int i = 0; i < MAX_BLASTS; i++)
             {
-                Blast blast = _blasts[i];
+                ref readonly BlastSlots.Blast blast = ref _slots[i];
 
                 //A link still waiting its turn is sent as a dead slot, so the shader never has to reason about a
                 //negative age.
@@ -418,8 +258,11 @@ namespace BS3D.Effects
             _device.SetVertexBuffer(_vertexBuffer);
             _device.Indices = _indexBuffer;
 
+            //The blade's extra sparks, the buffer's second run, only while a blade burns (see SPARKS_PER_BLAST)
+            int quads = _slots.AnyBlade() ? ALL_QUADS : BOMB_QUADS;
+
             _effect.CurrentTechnique.Passes[0].Apply();
-            _device.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _quadCount * 2);
+            _device.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, quads * 2);
 
             _device.BlendState = blend;
             _device.DepthStencilState = depth;
@@ -431,11 +274,15 @@ namespace BS3D.Effects
         /// Fireworks' reason — its position is a pure function of its age, and a direction that changed between
         /// frames would make it jitter — and every slot gets its own pattern, so two bombs of a chain going off
         /// side by side do not throw the same spray.
+        /// <para>
+        /// Laid out in two runs (see <see cref="SPARKS_PER_BLAST"/>): every slot's parts 0 to 2 first, then every slot's
+        /// part 3. Drawn in the order they are made, slot by slot; only where each lands in the buffer differs.
+        /// </para>
         /// </summary>
         private void BuildBuffers(out VertexBuffer vertexBuffer, out IndexBuffer indexBuffer)
         {
-            BlastVertex[] vertices = new BlastVertex[_quadCount * 4];
-            short[] indices = new short[_quadCount * 6];
+            BlastVertex[] vertices = new BlastVertex[ALL_QUADS * 4];
+            short[] indices = new short[ALL_QUADS * 6];
 
             Random random = new(20260914);
 
@@ -443,7 +290,9 @@ namespace BS3D.Effects
             //directions and jitters - from a stream of their own, so a bomb's sparks are exactly what they always were
             Random bladeRandom = new(20261017);
 
+            //The first run is written from the buffer's start and the blade's extra sparks from BOMB_QUADS on
             int v = 0, n = 0;
+            int vExtra = BOMB_QUADS * 4, nExtra = BOMB_QUADS * 6;
 
             for (int blast = 0; blast < MAX_BLASTS; blast++)
             {
@@ -485,9 +334,12 @@ namespace BS3D.Effects
                     float place = (float)(bladeRandom.NextDouble() * 2.0 - 1.0);
                     place *= MathF.Abs(place);
 
-                    AddQuad(vertices, indices, ref v, ref n, blast, part: extra ? 3 : 2,
-                        new Vector4(direction, speed),
-                        new Vector4(lifeJitter, sizeJitter, heatJitter, place));
+                    if (extra)
+                        AddQuad(vertices, indices, ref vExtra, ref nExtra, blast, part: 3,
+                            new Vector4(direction, speed), new Vector4(lifeJitter, sizeJitter, heatJitter, place));
+                    else
+                        AddQuad(vertices, indices, ref v, ref n, blast, part: 2,
+                            new Vector4(direction, speed), new Vector4(lifeJitter, sizeJitter, heatJitter, place));
                 }
             }
 
