@@ -86,8 +86,11 @@ namespace BS3D.Audio
         /// the first <paramref name="availableFrames"/> are read (a frame not yet there is silence); a window past
         /// either end wraps onto the other when <paramref name="loops"/> and the whole of it is there, and is silence
         /// otherwise — a loop's seam reads as the music it is, a recording played once ends in quiet.
+        /// <paramref name="pcmGain"/> is the factor the PCM was scaled by on its way to 16 bits (the music's decode
+        /// headroom, #919), divided out so the bars read the music's own level and not 1.5 dB under it: the bars span 40 dB, so
+        /// it is 0.04 of a bar.
         /// </summary>
-        public void Analyse(byte[] pcm, int totalFrames, int availableFrames, double positionSeconds, bool loops)
+        public void Analyse(byte[] pcm, int totalFrames, int availableFrames, double positionSeconds, bool loops, float pcmGain = 1f)
         {
             bool whole = availableFrames >= totalFrames;
             int start = (int)(positionSeconds * _sampleRate) - WINDOW / 2;
@@ -108,7 +111,7 @@ namespace BS3D.Audio
                 short left = (short)(pcm[at] | (pcm[at + 1] << 8));
                 short right = (short)(pcm[at + 2] | (pcm[at + 3] << 8));
 
-                _re[i] = (left + right) / 65536.0 * _window[i];
+                _re[i] = (left + right) / (65536.0 * pcmGain) * _window[i];
                 _im[i] = 0;
             }
 

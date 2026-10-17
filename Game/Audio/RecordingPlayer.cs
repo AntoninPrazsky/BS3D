@@ -28,7 +28,9 @@ namespace BS3D.Audio
     /// <b>One recording decoded at a time, and the next one ahead of it.</b> A decoded recording is 10–20 MB of 16-bit
     /// PCM, which is why <see cref="GameMusic"/> decodes a family only when a level asks for it; here the one playing is
     /// held, and the next in the list is decoded on the thread pool as soon as it starts, so a press on Next waits for
-    /// nothing. The decode is <see cref="OggTrack.Decode(string, int)"/>, the game's own.
+    /// nothing. The decode is <see cref="OggTrack.DecodeMusic(string, int)"/>, the game's own, headroom and all: the voice
+    /// plays at <see cref="MusicLevels.THEME_VOICE"/> (#919), the theme's authored level over that headroom, so a recording
+    /// sounds exactly as loud here as under a level and is not pressed onto the rail by the codec's overshoot.
     /// </para>
     /// </summary>
     internal sealed class RecordingPlayer : IBandSource, IDisposable
@@ -96,7 +98,7 @@ namespace BS3D.Audio
             set
             {
                 _gain = value;
-                if (_voice != null) _voice.Volume = GameMusic.MUSIC_VOLUME * _gain;
+                if (_voice != null) _voice.Volume = MusicLevels.THEME_VOICE * _gain;
             }
         }
 
@@ -185,7 +187,7 @@ namespace BS3D.Audio
                 _position = RecordingLoop.WrapPosition(_position + elapsed, _totalFrames / (double)SAMPLE_RATE);
 
                 //A loop, so a window past either end is the other end of the recording, and the bars cross the seam as the music does
-                _analyser.Analyse(_pcm, _totalFrames, _totalFrames, _position, loops: true);
+                _analyser.Analyse(_pcm, _totalFrames, _totalFrames, _position, loops: true, MusicLevels.DECODE_HEADROOM);
             }
 
             _analyser.Step(elapsed, playing);
@@ -198,7 +200,7 @@ namespace BS3D.Audio
             string path = _tracks[index].Path;
             return Task.Run(() =>
             {
-                try { return OggTrack.Decode(path, SAMPLE_RATE); }
+                try { return OggTrack.DecodeMusic(path, SAMPLE_RATE); }
                 catch (Exception exception)
                 {
                     Console.WriteLine($"[jukebox] '{path}' could not be read: {exception.Message}");
@@ -229,7 +231,7 @@ namespace BS3D.Audio
                 _voice = new DynamicSoundEffectInstance(SAMPLE_RATE, AudioChannels.Stereo);
                 //A recycled OpenAL source keeps the last voice's pitch (GameMusic's arrival says how, #790).
                 _voice.Pitch = 0f;
-                _voice.Volume = GameMusic.MUSIC_VOLUME * _gain;
+                _voice.Volume = MusicLevels.THEME_VOICE * _gain;
             }
             catch (Exception exception)
             {

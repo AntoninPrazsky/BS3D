@@ -96,6 +96,9 @@
         recording decoded the way the game loads it, and the red step's beside it-->
     <Compile Include="..\..\Game\Audio\CeilingFeedSynth.cs" />
     <Compile Include="..\..\Game\Audio\OggTrack.cs" />
+    <!--#919: the decode's headroom and the voice volumes that undo it, plain constants, so the tests hold them to each other
+        without a voice or a device (GameMusic itself holds both)-->
+    <Compile Include="..\..\Game\Audio\MusicLevels.cs" />
     <Compile Include="..\..\Game\Audio\Spectrum.cs" />
     <!--#899: the Jukebox's loop seam - where the next chunk of a recording starts and how long it is, and the wrapped
         position clock, plain integers and doubles. RecordingPlayer itself holds a voice and is read as source.-->

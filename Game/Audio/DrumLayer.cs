@@ -40,8 +40,10 @@ namespace BS3D.Audio
         /// loop's end, which is where a seamless loop runs straight on), into <paramref name="output"/>: the recording
         /// with its drums at a gain ramped linearly from <paramref name="gainFrom"/> to <paramref name="gainTo"/> across
         /// the chunk, so a change of gain is never a step. Interleaved 16-bit stereo, little-endian, as
-        /// <c>OggTrack.Decode</c> hands it; clamped, though a mix between the recording
-        /// and the recording without its drums stays within the larger of the two.
+        /// <c>OggTrack.DecodeMusic</c> hands it; clamped, though a mix between the recording
+        /// and the recording without its drums stays within the larger of the two. <b>Both buffers are decoded with the
+        /// music's headroom (#919)</b>, which the mix is linear in: the result is the old mix scaled by it, and the stem
+        /// comes off its recording at the same scale as it went on.
         /// </summary>
         /// <returns>The frame after the last one written, wrapped — where the next chunk starts.</returns>
         public static int Mix(byte[] full, byte[] drums, int start, int count, float gainFrom, float gainTo, byte[] output)
