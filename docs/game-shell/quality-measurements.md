@@ -6,7 +6,7 @@ The figures a future tier change compares against (#64: measured, because intuit
 
 ## Measuring without lying
 
-`logfps` prints a line a second with every setting that changes its meaning; `scene=`/`sky=` pin the backdrop (**the scene is random per launch**); `.claude/skills/benchmark` drives it (`tier-matrix.ps1`).
+`logfps` prints a line a second with every setting that changes its meaning, then a `[pace]` line (the steps' evenness) and an `[alloc]` line (the frame thread's managed bytes a frame and the gen0 collections, BestPractices.md §3); `scene=`/`sky=` pin the backdrop (**the scene is random per launch**); `.claude/skills/benchmark` drives it (`tier-matrix.ps1`).
 
 - **Attribution does not travel**: the same cuts price 0.2–1.0 ms on the desktop and 3–7 ms on the APU; price a lever on the weak machine.
 - **The minimum over repeated runs is the frame's cost** (2026-09-23: a first pass lied by up to 25 % while background processes shared the APU's package). **Compare builds alternated in one run, never two afternoons**; inside one process use `alt=` or `mbflip=`.
