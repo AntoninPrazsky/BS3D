@@ -262,9 +262,10 @@ namespace BS3D.Screens
         /// <para>
         /// <b>It casts no shadow</b> (#894), and so <c>Draw</c> collects it <b>after</b> <see cref="BS3DGame.BeginSceneDraw"/>,
         /// whose first act is the sun's shadow pass. A ball that is only a preview is not on the map, and the depth shader
-        /// draws a caster whole (it reads the world matrix and not the size above), so a ghost collected before the pass
-        /// threw a whole ball's shadow on its neighbours at every point of its beat. Collected after it, the ghost is still
-        /// bucketed and LOD-picked with the cluster and still receives the sun and the map.
+        /// applies the dither of the dissolve channel (#920) but not the ghost's size above, so it would draw a ghost
+        /// caster whole, and a ghost collected before the pass threw a whole ball's shadow on its neighbours at every
+        /// point of its beat. Collected after it, the ghost is still bucketed and LOD-picked with the cluster and still
+        /// receives the sun and the map.
         /// </para>
         /// <para>
         /// Drawn in the cluster's <b>live</b> frame (<see cref="ShotPlacement.CellWorldPosition"/>) and not at the
