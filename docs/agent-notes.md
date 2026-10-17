@@ -1061,3 +1061,8 @@ Pravidla:
 - Měsíc: čočka je na -7,4 (ne -7,9), úhly přepočteny vzorci z komentářů (obzor 2,5°, hřeben ~4,4°).
 - Poučení: čtenář musí každé tvrzení doložit řádkem kódu a opravář ho ověřit znovu; dvě tvrzení se ukázala jen napůl pravdivá. `git worktree remove` selže, dokud je v adresáři cwd session.
 - Otevřené: fronta verdiktů 20, #887 a #890 až pod strop; #896 čeká na majitele.
+
+## 2026-10-17 — alokace ve snímku: `params` pole při každém instancovaném kreslení — desktop (RDT-PC), Claude Code (bs3d-5f)
+- Hotovo (merge dea2ac62, 04dc28f9): vlákno snímku alokovalo **4,2 KB za snímek** v nečinném menu a 2,3–4,2 KB při hraní; posluchač `GCAllocationTick` ukázal skoro jen `VertexBufferBinding[]` — `SetVertexBuffers(params …)` se dvěma vazbami zapsanými na místě, 14 míst, ~75× za snímek. `InstanceBinding.Set` (Prazsky.Core) používá jedno pole (MonoGame vazby kopíruje, ověřeno dekompilací 3.8.5); po opravě 24 B v menu, 27–100 B ve hře mezi výstřely. `InstanceBindingSourceTests` jiné volání nepustí (viděn padat).
+- `logfps` teď píše i řádek `[alloc]` (B za snímek, gen0), BestPractices §3 doplněno.
+- Harness s posluchačem typů: `scratchpad/alloc/harness.patch` této session (nepatří do repa).
