@@ -131,14 +131,13 @@ namespace Prazsky.Core.Render
             //Where the footpath arrives: the biggest oak on the knoll's top, a bench under it looking back over the
             //clearing, the ground round its foot trodden bare (Meadow.fx) - every reference of a path to a tree
             (float knollX, float knollZ) = MeadowPath.PathEnd(config);
-            PlantTree(0, knollX, knollZ, 1.15f);
+            PlantTree(0, knollX, knollZ, KNOLL_OAK_SCALE);
             var benchInstances = new List<ModelInstance>();
             {
-                float toArena = MathF.Atan2(-knollZ, -knollX);
-                float side = toArena + 0.55f;
-                float bx = knollX + MathF.Cos(side) * BENCH_OUT, bz = knollZ + MathF.Sin(side) * BENCH_OUT;
-                //The bench's seat runs along its X; it faces +Z, turned to face the arena
-                benchInstances.Add(At(bx, bz, 1f, MathF.PI * 0.5f - toArena, 0.05f, 0f, 0f));
+                //The bench's seat runs along its X; it faces +Z, turned to face the arena. Its size is in the mesh
+                //(BENCH_SCALE), so the instance's own scale stays 1 and BENCH_OUT is in world units.
+                (float bx, float bz, float yaw) = BenchStand(knollX, knollZ);
+                benchInstances.Add(At(bx, bz, 1f, yaw, 0.05f, 0f, 0f));
             }
 
             //By the pond: willows on its far side from the arena, where the brook comes in
@@ -457,29 +456,69 @@ namespace Prazsky.Core.Render
         private const float POND_CLEARANCE = 4f;
         private const float WILLOW_FROM_SHORE = 3.5f;
 
-        //The bench under the old tree: how far from the trunk's axis it stands. The bare ground round the foot is
-        //Meadow.fx's TREE_BARE, which the grass tufts keep off.
-        private const float BENCH_OUT = 6f;
-        private const float TREE_BARE = 4.8f;
+        //The planted oak on the knoll, at the scale it is planted at: the bench's clearance is measured against its roots
+        internal const float KNOLL_OAK_SCALE = 1.15f;
+
+        //The bench under the old tree: how far its centre stands from the trunk's axis (BENCH_OUT, world units) and how far
+        //round from the direction of the arena (BENCH_ROUND, radians). The bare ground round the foot is Meadow.fx's
+        //TREE_BARE, which the grass tufts keep off; the trodden patch's edge is a smoothstep from TREE_BARE -
+        //TREE_BARE_EDGE to TREE_BARE + TREE_BARE_EDGE. The bench's back corner is its nearest to the trunk, 1.4 nearer than
+        //its centre at this turn, and BENCH_OUT puts it past that edge and past the oak's longest root (1.3 x 1.08 x 3.2 x
+        //KNOLL_OAK_SCALE, 5.15: the figure's widest trunk radius by its widest root spread, MeadowTreeMesh). It was 6 when
+        //the bench was half this size (#891).
+        internal const float BENCH_OUT = 6.6f;
+        private const float BENCH_ROUND = 0.55f;
+        internal const float TREE_BARE = 4.8f;
+        internal const float TREE_BARE_EDGE = 0.4f;
+
+        /// <summary>
+        /// Where the bench stands, and the yaw that lays its seat along the ground and turns its face to the arena, off the
+        /// knoll's centre (the oak's axis): <see cref="BENCH_OUT"/> from it, <see cref="BENCH_ROUND"/> round from the
+        /// direction of the arena. One answer for the planting and for the tests that measure the bench's clearances.
+        /// </summary>
+        internal static (float X, float Z, float Yaw) BenchStand(float knollX, float knollZ)
+        {
+            float toArena = MathF.Atan2(-knollZ, -knollX);
+            float side = toArena + BENCH_ROUND;
+            return (knollX + MathF.Cos(side) * BENCH_OUT, knollZ + MathF.Sin(side) * BENCH_OUT, MathF.PI * 0.5f - toArena);
+        }
+
+        //How much bigger the bench is than a real one at one unit to a metre (#891): the fence's own factor, as the bale's
+        //(BALE_SCALE), so it is set at the metre #698 set the fence at. Its 1.9 long, 0.5 high seat and 0.98 high back are a
+        //real bench (about 1.8 m long, 0.45 and 0.9 high) at one unit to a metre, and the scene's metre is two: at 1 it was
+        //shorter than the knoll oak's trunk is thick (2.75 to 3.2) and the owner could hardly find it. The mesh is scaled,
+        //not the instance, so BENCH_OUT stays in world units.
+        private const float BENCH_SCALE = FENCE_SCALE;
 
         /// <summary>
         /// A plain wooden bench (#609's third round), the references' bench under the tree at a path's end: a seat of
-        /// two planks along X on four legs, a back of one plank behind it, facing +Z.
+        /// two planks along X on four legs, a back of one plank behind it, facing +Z, at the scene's metre
+        /// (<see cref="BENCH_SCALE"/>).
         /// </summary>
         private static UploadedMesh BenchMesh(GraphicsDevice device)
         {
+            (List<VertexPositionNormalTexture> v, List<short> idx, BoundingSphere bounds) = BenchGeometry();
+            return new UploadedMesh(device, v, idx, bounds);
+        }
+
+        /// <summary>The bench's vertices, indices and bounding sphere, with no device: <see cref="BenchMesh"/> uploads them.</summary>
+        internal static (List<VertexPositionNormalTexture> Vertices, List<short> Indices, BoundingSphere Bounds) BenchGeometry()
+        {
             var v = new List<VertexPositionNormalTexture>();
             var idx = new List<short>();
+            const float k = BENCH_SCALE;
             const float LENGTH = 1.9f, SEAT = 0.46f;
-            AddBox(v, idx, new Vector3(0f, SEAT, 0.1f), new Vector3(LENGTH * 0.5f, 0.035f, 0.11f));
-            AddBox(v, idx, new Vector3(0f, SEAT, -0.14f), new Vector3(LENGTH * 0.5f, 0.035f, 0.11f));
-            AddBox(v, idx, new Vector3(0f, SEAT + 0.42f, -0.3f), new Vector3(LENGTH * 0.5f, 0.1f, 0.03f));
+            void Box(Vector3 centre, Vector3 half) => AddBox(v, idx, centre * k, half * k);
+
+            Box(new Vector3(0f, SEAT, 0.1f), new Vector3(LENGTH * 0.5f, 0.035f, 0.11f));
+            Box(new Vector3(0f, SEAT, -0.14f), new Vector3(LENGTH * 0.5f, 0.035f, 0.11f));
+            Box(new Vector3(0f, SEAT + 0.42f, -0.3f), new Vector3(LENGTH * 0.5f, 0.1f, 0.03f));
             foreach (float x in new[] { -LENGTH * 0.4f, LENGTH * 0.4f })
             {
-                AddBox(v, idx, new Vector3(x, SEAT * 0.5f - 0.1f, 0.14f), new Vector3(0.05f, SEAT * 0.5f + 0.1f, 0.05f));
-                AddBox(v, idx, new Vector3(x, (SEAT + 0.52f) * 0.5f - 0.1f, -0.3f), new Vector3(0.05f, (SEAT + 0.52f) * 0.5f + 0.1f, 0.05f));
+                Box(new Vector3(x, SEAT * 0.5f - 0.1f, 0.14f), new Vector3(0.05f, SEAT * 0.5f + 0.1f, 0.05f));
+                Box(new Vector3(x, (SEAT + 0.52f) * 0.5f - 0.1f, -0.3f), new Vector3(0.05f, (SEAT + 0.52f) * 0.5f + 0.1f, 0.05f));
             }
-            return new UploadedMesh(device, v, idx, new BoundingSphere(new Vector3(0f, 0.5f, 0f), 1.3f));
+            return (v, idx, new BoundingSphere(new Vector3(0f, 0.5f * k, 0f), 1.3f * k));
         }
 
         /// <summary>
