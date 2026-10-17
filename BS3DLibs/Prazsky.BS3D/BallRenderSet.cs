@@ -2003,6 +2003,15 @@ namespace Prazsky.BS3D
         /// and a plain vinyl ball are the same solid to it, and the walk needs none of the per-kind branching
         /// <see cref="Draw"/> does for exactly that reason.
         /// <para>
+        /// <b>What a ball's instance carries into the map is its place and its dissolve</b> (#920): the depth caster
+        /// cuts the ball pass's own clip over cells of one shadow-map texel, so a ball dithered away (dead weight)
+        /// casts a shadow thinned by the same amount, while a colour crossing, which puts one ball in two buckets at
+        /// <c>+d</c> and <c>-d</c>, still casts one whole shadow because the two dithers are complements. The merge
+        /// below copies the instances whole, dissolve included, and needs no knowledge of either. The aim ghost,
+        /// whose size rides the same channel as a scale the caster does not apply, is collected after the map and
+        /// casts nothing (#894).
+        /// </para>
+        /// <para>
         /// <b>The merge is not an optimisation of convenience.</b> The first cut called <c>DrawDepth</c> once
         /// per non-empty bucket directly — up to a dozen or so on a level with a few specials loaded — and
         /// every call switches <see cref="InstancedModelRenderer"/>'s shared effect to its depth technique and

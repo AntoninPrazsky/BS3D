@@ -37,9 +37,11 @@ namespace Prazsky.Core.Render
         /// drawing the object in both buckets, and two coincident <i>translucent</i> spheres would need depth
         /// sorting and would come out muddy. A dither cut needs neither; both draws stay opaque.
         /// <para>
-        /// Only the ball pattern technique reads it. A single float rather than another
-        /// <see cref="Vector4"/> because one scalar is all it is, and this rides on every instance in the
-        /// scene — the city alone is well over a thousand of them.
+        /// The ball techniques read it, and so does the shadow caster (<c>InstancedDepth</c>, #920): it cuts the same
+        /// clip over cells of one shadow-map texel, so a ball that is thinning casts a thinning shadow, and a
+        /// crossing's two halves, being complements, still cast one whole one. Every other technique ignores it. A
+        /// single float rather than another <see cref="Vector4"/> because one scalar is all it is, and this rides on
+        /// every instance in the scene — the city alone is well over a thousand of them.
         /// </para>
         /// </summary>
         public float Dissolve;

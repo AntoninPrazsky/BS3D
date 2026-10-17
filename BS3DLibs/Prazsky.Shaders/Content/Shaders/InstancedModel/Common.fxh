@@ -95,8 +95,8 @@ struct InstanceInput
     //XYZ = world-space direction towards the instance's occluders (zero = none), W = base occlusion factor
     float4 Custom : TEXCOORD5;
     //How much of this instance has been dithered away: 0 draws it whole, positive eats it away, negative
-    //fills it in. Read by the ball pattern technique alone; every other technique ignores it, and an
-    //unconsumed element in the vertex layout costs nothing.
+    //fills it in. Read by the ball techniques and by the shadow caster (Depth.fxh, #920); every other technique
+    //ignores it, and an unconsumed element in the vertex layout costs nothing.
     float Dissolve : TEXCOORD6;
     //How brightly this instance is flaring as the ripple passes through it, 0 = not at all. Read by the
     //ball pattern technique alone, like Dissolve above.

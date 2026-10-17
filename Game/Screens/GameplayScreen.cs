@@ -1959,11 +1959,11 @@ namespace BS3D.Screens
             _crateField?.Draw(Camera, Game.SceneEffectParams);
 
             //The ghost of where the loaded ball would land (#894), into the same frame AFTER the shadow pass BeginSceneDraw
-            //ran, so it casts nothing: the shadow pass casts every ball whole (its depth vertex shader reads only the world
-            //matrix, not the ghost's size), so a ghost collected before it threw the shadow of a whole ball on neighbours
-            //while the ghost itself beat between a third of one and a whole one. It is still a ball in the cluster's own
-            //frame, so it is bucketed and LOD-picked with the rest and drawn by the same instanced draw, and it still
-            //receives the sun and the shadows of the others
+            //ran, so it casts nothing: the shadow pass applies the dissolve channel's dither (#920) but not the ghost's size,
+            //which is a vertex-side scale its depth vertex shader does not do, so a ghost collected before it threw the
+            //shadow of a whole ball on neighbours while the ghost itself beat between a third of one and a whole one. It
+            //is still a ball in the cluster's own frame, so it is bucketed and LOD-picked with the rest and drawn by the
+            //same instanced draw, and it still receives the sun and the shadows of the others
             CollectShotPreview(ballFrame);
 
             //A kind card's ball (#735), into the same frame AFTER the shadow pass BeginSceneDraw ran, so it casts nothing
