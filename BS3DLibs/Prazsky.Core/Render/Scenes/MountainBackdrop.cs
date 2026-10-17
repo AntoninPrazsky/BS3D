@@ -157,7 +157,7 @@ namespace Prazsky.Core.Render
         public override void Draw(in SceneFrame frame)
         {
             SelectProgram().Draw(frame, Services.TerrainHoleRadius);
-            if (_berm != null) _plants.Draw(frame, _berm.Buckets, _mountainConfig.HorizonHazeDistance, detail: true);
+            if (_berm != null) _plants.Draw(frame, _berm.Buckets, _mountainConfig.HorizonHazeDistance, detail: true, Services.FineMeshes);
         }
 
         /// <inheritdoc/>
@@ -166,7 +166,7 @@ namespace Prazsky.Core.Render
         /// <summary>The bank casts into the sun's map (#608).</summary>
         public override void DrawShadowCasters(Matrix shadowViewProjection)
         {
-            if (_berm != null) _plants.DrawShadowCasters(shadowViewProjection, _berm.Buckets);
+            if (_berm != null) _plants.DrawShadowCasters(shadowViewProjection, _berm.Buckets, Services.FineMeshes);
         }
 
         /// <summary>The falling snow, through the shared flake buffer and this scene's own clone of <c>Snow.fx</c>.</summary>

@@ -418,7 +418,7 @@ namespace Prazsky.Core.Render
             if ((Layers & VolcanoLayer.Terrain) != 0) DrawVolcanoTerrain(frame);
             //What stands on the field (#679), opaque and depth-writing, before anything translucent over it
             if (_planting != null && (Layers & VolcanoLayer.Terrain) != 0)
-                _plants.Draw(frame, _planting.Buckets, _volcanoConfig.HorizonHazeDistance, detail: true);
+                _plants.Draw(frame, _planting.Buckets, _volcanoConfig.HorizonHazeDistance, detail: true, Services.FineMeshes);
             DrawLavaFountains(frame);
         }
 
@@ -599,7 +599,7 @@ namespace Prazsky.Core.Render
         /// <summary>The blocks, the bombs and the spatter cones cast into the sun's map (#679), as every planted scene's do.</summary>
         public override void DrawShadowCasters(Matrix shadowViewProjection)
         {
-            if (_planting != null) _plants.DrawShadowCasters(shadowViewProjection, _planting.Buckets);
+            if (_planting != null) _plants.DrawShadowCasters(shadowViewProjection, _planting.Buckets, Services.FineMeshes);
         }
 
         /// <inheritdoc/>

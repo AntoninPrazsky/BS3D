@@ -281,9 +281,11 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Whether the scenes draw their <b>finer meshes</b> (#758): High and Ultra's, where Low and Medium draw the coarser
-        /// mesh of the same thing off the same instances. Three things today: the savanna acacias' wood — the fork grown as one
+        /// mesh of the same thing off the same instances. Four things today: the savanna acacias' wood — the fork grown as one
         /// surface out of a swollen, lobed crotch rather than tubes poking out of the trunk's cut end
-        /// (<see cref="AcaciaMesh.FineWood"/>, <see cref="ScatterBucket.FineMeshes"/>, #758) — the spruces of the aurora's
+        /// (<see cref="AcaciaMesh.FineWood"/>, <see cref="ScatterBucket.FineMeshes"/>, #758) — the meadow's old trees' wood
+        /// grown the same way, the limbs coming out through the crotch's side (<see cref="MeadowTreeMesh.FineWood"/>, #889,
+        /// drawn by <see cref="PlantPass"/>), the spruces of the aurora's
         /// wood and the daytime forest, whose crowns are separate boughs with snow lying on them in lumps instead of a lathe
         /// of smooth skirts (<see cref="TreeMesh.FineCrown"/>, #733), and the mountain range (#781): a grid twice as fine
         /// carrying a sixth octave and crags, shaded by a program that lays the rock in three dimensions where the coarser
@@ -294,8 +296,8 @@ namespace Prazsky.Core.Render
         /// this one is Medium's too: Medium is the weak machine's rung. A plain flag for <see cref="SupersampleFactor"/>'s
         /// reason — the tier lives in the Game. Left on, a caller that never sets it draws the authored look, which is what
         /// the Testbed and the map editor want. Costed in "The fork, grown for High and Ultra (#758)" in
-        /// docs/scenes/savanna-trees.md, in "The spruces on High and Ultra" in docs/scenes/aurora.md and in "High and
-        /// Ultra's range" in docs/scenes/mountains.md.
+        /// docs/scenes/savanna-trees.md, in "Two woods (#889)" in docs/scenes/meadow.md, in "The spruces on High and Ultra"
+        /// in docs/scenes/aurora.md and in "High and Ultra's range" in docs/scenes/mountains.md.
         /// </para>
         /// </summary>
         public bool FineMeshes

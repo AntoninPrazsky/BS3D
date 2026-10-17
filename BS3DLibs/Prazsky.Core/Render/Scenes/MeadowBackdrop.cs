@@ -141,7 +141,7 @@ namespace Prazsky.Core.Render
         private void DrawPlanting(in SceneFrame frame)
         {
             if (_scatter == null) return;
-            _plants.Draw(frame, _scatter.Buckets, _meadowConfig.HorizonHazeDistance, _sceneDetail > 0.5f);
+            _plants.Draw(frame, _scatter.Buckets, _meadowConfig.HorizonHazeDistance, _sceneDetail > 0.5f, Services.FineMeshes);
         }
 
         /// <inheritdoc/>
@@ -151,7 +151,7 @@ namespace Prazsky.Core.Render
         public override void DrawShadowCasters(Matrix shadowViewProjection)
         {
             if (_scatter == null) return;
-            _plants.DrawShadowCasters(shadowViewProjection, _scatter.Buckets);
+            _plants.DrawShadowCasters(shadowViewProjection, _scatter.Buckets, Services.FineMeshes);
         }
 
         /// <summary>The old trees, for a camera to point at (#609).</summary>

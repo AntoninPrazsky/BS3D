@@ -412,7 +412,12 @@ namespace Prazsky.Core.Render
                 if (treeInstances[m].Count == 0) continue;
                 MeadowTreeMesh tree = treeMeshes[m];
                 Vector3 leaf = m == WILLOW ? WILLOW_LEAF : OAK_LEAF, leafDry = m == WILLOW ? WILLOW_LEAF_DRY : OAK_LEAF_DRY;
-                buckets.Add(new ScatterBucket(device, tree.Wood, treeInstances[m], OAK_BARK, OAK_BARK * 1.2f, dapple: 0f, bark: 0.6f, detailOnly: false));
+                //Two woods on the same instances (#889, the acacias' #758): Low, Medium and the Potato path the coarse one, High
+                //and Ultra the fork grown out of the trunk - one of them on screen and into the sun's map, never both
+                buckets.Add(new ScatterBucket(device, tree.Wood, treeInstances[m], OAK_BARK, OAK_BARK * 1.2f, dapple: 0f, bark: 0.6f,
+                    detailOnly: false, fineMeshes: false));
+                buckets.Add(new ScatterBucket(device, tree.FineWood, treeInstances[m], OAK_BARK, OAK_BARK * 1.2f, dapple: 0f, bark: 0.6f,
+                    detailOnly: false, fineMeshes: true));
                 //The solid lumps for the Low tier, which casts nothing (the sun's map exists only at scene detail); at every
                 //other, twigs with leaves (#697, the acacias' #610 split)
                 buckets.Add(new ScatterBucket(device, tree.Crown, treeInstances[m], leaf, leafDry, dapple: 0.7f, bark: 0f,

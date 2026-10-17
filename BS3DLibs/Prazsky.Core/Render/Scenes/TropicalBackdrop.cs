@@ -754,7 +754,7 @@ namespace Prazsky.Core.Render
             //The land first (it writes depth), then the lagoon depth-read over the bed it owns,
             //then the scatter that stands on the sand, then the flock over the water.
             DrawTropicalTerrain(frame);
-            if (_berm != null) _plants.Draw(frame, _berm.Buckets, _tropicalConfig.Terrain.HorizonHazeDistance, detail: true);
+            if (_berm != null) _plants.Draw(frame, _berm.Buckets, _tropicalConfig.Terrain.HorizonHazeDistance, detail: true, Services.FineMeshes);
             DrawTropicalWater(frame);
             DrawPalms(frame);
             DrawTropicalRocks(frame);
@@ -1061,7 +1061,7 @@ namespace Prazsky.Core.Render
         public override void DrawShadowCasters(Matrix shadowViewProjection)
         {
             //The bank round the island (#646)
-            if (_berm != null) _plants.DrawShadowCasters(shadowViewProjection, _berm.Buckets);
+            if (_berm != null) _plants.DrawShadowCasters(shadowViewProjection, _berm.Buckets, Services.FineMeshes);
 
             if (_palmMeshes == null) return;
 
