@@ -20,6 +20,10 @@ Pravidla:
 
 ---
 
+## 2026-10-17 — #872 míření dolů bez poplachu — desktop (RDT-PC), Claude Code (bs3d-48)
+- Spodní mez `MinElevation` už nezvedá `ElevationStrain` (žádný červený zaměřovač, zvuk ani rumble), nikdy neodmítne výstřel a guma se pouští kriticky tlumeně, bez zpětného švihu. Horní mez beze změny; `MinElevation` se nehýbe (majitel popsal stále měkký doraz). `CannonElevationTests`.
+- Otevřené: pocit dojezdu (`verdict-hands`).
+
 ## 2026-10-17 — #923 žádné zvukové zařízení: jedna věta místo NullReference — desktop (RDT-PC), Claude Code (bs3d-48)
 - `Audio/AudioDevice.Present` zkusí jednou vytvořit streamovací hlas; bez zařízení (monitor spí) řekne `[audio] no audio device …` a hudba, ambient, Jukebox i About přehrávač to přeskočí, nic se nedekóduje. Null byl v `SharpDX SourceVoice.CreateSourceVoice` (statické zařízení MonoGame je null).
 - Efekty brány nepotřebují: bez zařízení jsou `SoundEffect` instance nečinné (běh se střelbou a výsledkem bez výjimky). Zařízení objevené později MonoGame nepoužije, pomůže restart.
