@@ -365,7 +365,7 @@ namespace Prazsky.Core.Render
                         float size = 0.9f + 0.9f * (float)rng.NextDouble(), yaw = (float)rng.NextDouble() * MathHelper.TwoPi;
                         float lean = 0.3f * (float)rng.NextDouble(), jitter = Jitter();
                         //Not across the brook's mouth, where it comes in
-                        if (MathF.Abs(MeadowPath.BrookLateral(rx, rz, config)) < config.BrookWidth * 0.5f + 0.6f) continue;
+                        if (MeadowCarve.OnBrookBank(rx, rz, config)) continue;
                         reedInstances.Add(At(rx, rz, size, yaw, 0.1f, lean, jitter));
                     }
                 }
@@ -376,7 +376,7 @@ namespace Prazsky.Core.Render
                     float sx = pondX + MathF.Cos(a) * r, sz = pondZ + MathF.Sin(a) * r;
                     int variant = rng.Next(3);
                     float yaw = (float)rng.NextDouble() * MathHelper.TwoPi, jitter = Jitter();
-                    if (MathF.Abs(MeadowPath.BrookLateral(sx, sz, config)) >= config.BrookWidth * 0.5f + 0.6f)
+                    if (!MeadowCarve.OnBrookBank(sx, sz, config))
                         rockInstances[variant].Add(At(sx, sz, size, yaw, size * 0.35f, 0f, jitter));
                 }
             }
@@ -412,7 +412,7 @@ namespace Prazsky.Core.Render
                     : Site(ArenaIsland.RADIUS + 12f, 260f);
                 //Never in the water, on the trodden path or on the bare ground under the old tree (#609's third round)
                 //(the drawn shore wanders by the ragged edge and its smoothing either side of the arithmetic one, 0.6 all told)
-                if (MeadowPath.PondShore(x, z, config) < 0.9f || MathF.Abs(MeadowPath.BrookLateral(x, z, config)) < config.BrookWidth * 0.5f + 0.6f
+                if (MeadowPath.PondShore(x, z, config) < 0.9f || MeadowCarve.OnBrookBank(x, z, config)
                     || MathF.Abs(pathLateral(x, z)) < config.PathWidth * 0.6f
                     || (x - knollX) * (x - knollX) + (z - knollZ) * (z - knollZ) < TREE_BARE * TREE_BARE)
                     continue;

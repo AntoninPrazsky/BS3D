@@ -2,6 +2,10 @@ using Microsoft.Xna.Framework;
 using Prazsky.Core.Render;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Reflection;
+using System.Text.RegularExpressions;
 using Xunit;
 
 namespace BS3D.Tests
@@ -246,6 +250,44 @@ namespace BS3D.Tests
                     if (MathF.Abs(up) < 1e-6f) continue;   //the pond disc's centre ring is degenerate
                     Assert.True(up < 0f, $"triangle {t / 3} is wound anticlockwise from above");
                 }
+        }
+
+        [Fact]
+        public void TheShadersCutAndHoleConstantsAreTheMirrorsOwn()
+        {
+            //The grid's hole and the cut are made by the shader's own copies of MeadowCarve's numbers, which mirrorcheck (heights
+            //only) and the coverage test (the C# numbers) cannot see: a copy that drifted would leave the sky showing through
+            //the meadow in the gap, with everything else green. Every constant the shader names as the mirror's is compared
+            string source = null;
+            for (DirectoryInfo directory = new(AppContext.BaseDirectory); directory != null && source == null; directory = directory.Parent)
+            {
+                string candidate = Path.Combine(directory.FullName, "BS3DLibs", "Prazsky.Shaders", "Content", "Shaders", "Meadow.fx");
+                if (File.Exists(candidate)) source = File.ReadAllText(candidate);
+            }
+            Assert.NotNull(source);
+
+            var mirror = new Dictionary<string, float>();
+            foreach (FieldInfo field in typeof(MeadowCarve).GetFields(BindingFlags.Public | BindingFlags.Static))
+                if (field.IsLiteral && field.FieldType == typeof(float)) mirror[field.Name] = (float)field.GetRawConstantValue();
+
+            //The shader's names that differ from the mirror's
+            var renamed = new Dictionary<string, string> { ["BROOK_CARVE_BED"] = "BROOK_BED", ["POND_BANK_WIDTH"] = "POND_BANK" };
+            string[] required =
+            {
+                "BROOK_CARVE_HALF", "BROOK_HOLE_HALF", "BROOK_HOLE_END", "BROOK_CARVE_END", "BROOK_CARVE_FADE", "POND_CARVE_RADIUS",
+                "POND_HOLE_RADIUS", "POND_DROP", "BROOK_DROP", "CARVE_ROUND", "BROOK_TOP", "POND_LIP",
+            };
+            var seen = new HashSet<string>();
+            foreach (Match m in Regex.Matches(source, @"^static const float (\w+)\s*=\s*([-0-9.eE+]+);", RegexOptions.Multiline))
+            {
+                string name = m.Groups[1].Value;
+                if (!mirror.TryGetValue(renamed.GetValueOrDefault(name, name), out float expected)) continue;
+                float actual = float.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture);
+                Assert.True(MathF.Abs(actual - expected) < 1e-4f, $"Meadow.fx's {name} is {actual} and MeadowCarve's is {expected}");
+                seen.Add(name);
+            }
+
+            foreach (string name in required) Assert.True(seen.Contains(name), $"Meadow.fx has no `static const float {name} = <number>;` to compare with the mirror's");
         }
 
         private static Vector2 Xz(Vector3 v) => new(v.X, v.Z);

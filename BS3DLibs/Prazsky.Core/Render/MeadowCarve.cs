@@ -91,6 +91,15 @@ namespace Prazsky.Core.Render
             config.BrookWidth * 0.5f * (1f + 0.12f * MathF.Sin(d * 0.23f + 0.4f) + 0.07f * MathF.Sin(d * 0.61f + 2f)
                 + 0.05f * MathF.Sin(d * 1.9f + 0.7f) + 0.03f * MathF.Sin(d * 3.7f + 2.9f));
 
+        /// <summary>How far past the water's edge the groove's wall counts as bank: its foot and its climb (about 1.25 up over
+        /// 0.26 to 0.6) end inside it, so nothing with a base of its own is stood on the slope.</summary>
+        public const float BROOK_BANK_MARGIN = 0.9f;
+
+        /// <summary>Whether the point is over the brook's water or its wall (the water's wavering width, not the mean one),
+        /// where a tuft or a reed would stand with half its base in the air.</summary>
+        public static bool OnBrookBank(float x, float z, MeadowSceneConfig config) =>
+            MathF.Abs(MeadowPath.BrookLateral(x, z, config)) < BrookWaterHalf(MathF.Sqrt(x * x + z * z), config) + BROOK_BANK_MARGIN;
+
         /// <summary>How much of the groove there is at distance <paramref name="d"/>: 1, shallowing to 0 past
         /// <see cref="BROOK_CARVE_FADE"/>.</summary>
         public static float BrookPresence(float d) => 1f - ShaderMath.SmoothStep(BROOK_CARVE_FADE, BROOK_CARVE_END, d);
