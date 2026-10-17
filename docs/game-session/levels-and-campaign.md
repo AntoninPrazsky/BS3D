@@ -16,7 +16,7 @@ The `block` field gives the order: the Meadow, Gallery, Coil, Tower, Silhouettes
 - **Colossus** closes the Quarry and is its hardest level (#849): a giant holding the glass up on both arms, the arch between its legs and a crystal buried in its chest on a cord up through its head, in six colours with the glass every four shots.
 - **One**, the opener, is a generated pyramid whose colours sit on its four walls (the two facing walls share one: the gun starts on +Z).
 - **The Coil swings** (slender links; deliberately not tall): its 12-14-deep layouts sit in **18-level** fields, the empty levels being the swing's clearance.
-- **The Mirage is the first block whose subject is a rule**: five levels of glass (met first in the Silhouettes, #736), five of rock, one kind a level; the campaign-complete moment is a clear of its last entry, `Cairn`.
+- **The Mirage is the first block whose subject is a rule**: five levels of glass (met first in the Silhouettes, #736), five of rock, one kind a level (the bomb joins from the third rock level, `Seam`, #879); the campaign-complete moment is a clear of its last entry, `Cairn`.
 - Swap, Brake and Cut arrive in blocks 3, 4 and 5 ([Power-ups](powerups.md)).
 
 ## Authoring rules (`Tools/LevelGen` gates the first three)
