@@ -79,7 +79,7 @@ The Cut's own pair, so the one thing the player spends a charge on and aims has 
 
 ### A streak breaking (#845)
 
-`PlayStreakBreak(lost)` sounds with the badge breaking on the HUD ([the streak](hud.md#the-streak)), dry and unplaced like the aim stop: it answers the readout in the corner, not a place in the scene. It is `StreakBreakSynth`, pure arithmetic in a file of its own so the tests compile the lines the game plays.
+`PlayStreakBreak(lost)` sounds with the badge breaking on the HUD ([the streak](hud.md#the-streak)), dry and unplaced like the aim stop: it answers the readout in the corner, not a place in the scene. It is `StreakBreakSynth`, pure arithmetic in a file of its own so the tests compile the lines the game plays. **It does not say what it is on its own** (the owner heard it for days without knowing what it meant, #875): it starts on the very call that puts **"STREAK LOST ×3"** over the aim point, in full from that frame, so the words and the notes teach each other.
 
 - **A run of struck notes falling**, as many as the multiplier lost (one per unit of it, not per `MultiplierStep`), down an A minor arpeggio: A5 E5 C5 A4 E4. A lost ×5 plays all five, a lost ×3 the last three, so both end on the same E4: the run is the streak falling back to ×1, and ending on the fifth leaves it unresolved. Each note glides a further 3 % down as it rings.
 - **A soft mallet's tone**: the fundamental, a quiet octave and the struck bar's inharmonic 2.76 (the glassy edge of something breaking; the landing's metal row uses the same ratio), rolled off twice at 3 kHz. No noise, no drive, peak-normalised.

@@ -6,7 +6,8 @@ namespace BS3D.Screens
 {
     /// <summary>
     /// <b>When the game tells the player about the streak</b> (#845): whether a lost streak is announced, how loud, and
-    /// when the Swap chip points at the cure. Pure rules over plain values, so the tests hold them without a session (the
+    /// when the Swap chip points at the cure; and, since #875, how it is said in words over the aim point
+    /// (<see cref="LostCaption"/>). Pure rules over plain values, so the tests hold them without a session (the
     /// session asks them, <c>PlayHud</c> and <c>ProceduralAudio</c> carry them out).
     /// <para>
     /// The owner's playtest of 2026-10-11: losing the multiplier passed almost unnoticed, and he wanted the player to see
@@ -33,6 +34,60 @@ namespace BS3D.Screens
         /// </summary>
         public static float Severity(int lost) =>
             Math.Clamp((lost - 1f) / MathF.Max(1f, ScoreKeeper.MaxMultiplier - 1f), 0f, 1f);
+
+        // ---- The loss, said where the eye is (#875) ----
+        //
+        // The owner's playtest of 2026-10-15: he heard the break's falling run repeatedly without knowing what it meant, and
+        // never saw the shatter at the top right of a 3840x1600 monitor, because while aiming his eye rests on the middle of
+        // the frame. So the break is also SAID in words, over the aim point, on the frame the run starts: "STREAK LOST" and the
+        // multiplier that went, in the awards' own type. The corner's shatter stays as the record. The figures are here, pure,
+        // so the tests hold them (a few hundred milliseconds, in full on the first frame, clear of the crosshair); PlayHud
+        // lays them out and draws them.
+
+        /// <summary>The words said over the aim point when a streak is lost, beside the multiplier that was lost (in the accent, as an award carries its own).</summary>
+        public const string LostCaption = "STREAK LOST";
+
+        /// <summary>How long the caption stands, in seconds of the play clock, for a lost ×2 and for a lost cap (<see cref="LostCaptionSeconds"/>).
+        /// A few hundred milliseconds: enough to read three words at a glance, short enough never to stand over the next aim.</summary>
+        public const float LOST_CAPTION_LOW_SECONDS = 0.7f, LOST_CAPTION_HIGH_SECONDS = 0.9f;
+
+        /// <summary>The last of its time the caption fades out over, in seconds. It is in full from its first frame.</summary>
+        public const float LOST_CAPTION_FADE_SECONDS = 0.25f;
+
+        /// <summary>How big the caption settles for the lowest and the highest streak lost, in scores (multiples of the corner score's type, as
+        /// an award's size is, <see cref="AwardZoom"/>): under the 1.5 a bare match zooms to, so the news is read at a glance but is never louder than a
+        /// reward.</summary>
+        public const float LOST_CAPTION_LOW_SIZE = 1.2f, LOST_CAPTION_HIGH_SIZE = 1.45f;
+
+        /// <summary>
+        /// How far above the middle of the frame the caption's bottom edge stands, in design units (the 2160-unit height the HUD is
+        /// authored in): clear of the crosshair at its most swollen (<see cref="Prazsky.Core.Render.Crosshair.FULL_STRAIN_REACH"/>, 132) by
+        /// <see cref="LOST_CAPTION_GAP"/> and more, so the words never cover the aim point and its bars, and off the line the shot has just flown.
+        /// </summary>
+        public const int LOST_CAPTION_CLEARANCE = 170;
+
+        /// <summary>The least clear space, in design units, between the crosshair at its most swollen and the caption's bottom edge: a visible gap
+        /// (12 pixels at 900p), not a touch. What <see cref="LOST_CAPTION_CLEARANCE"/> is held to.</summary>
+        public const int LOST_CAPTION_GAP = 30;
+
+        /// <summary>How long the caption stands for a streak of <paramref name="lost"/>, in seconds: longer for a bigger loss, in proportion to its <see cref="Severity"/>.</summary>
+        public static float LostCaptionSeconds(int lost) =>
+            LOST_CAPTION_LOW_SECONDS + (LOST_CAPTION_HIGH_SECONDS - LOST_CAPTION_LOW_SECONDS) * Severity(lost);
+
+        /// <summary>How big the caption is for a streak of <paramref name="lost"/>, in scores: bigger for a bigger loss.</summary>
+        public static float LostCaptionSize(int lost) =>
+            LOST_CAPTION_LOW_SIZE + (LOST_CAPTION_HIGH_SIZE - LOST_CAPTION_LOW_SIZE) * Severity(lost);
+
+        /// <summary>
+        /// How much of the caption is there, 0 to 1, <paramref name="age"/> seconds into its <paramref name="length"/>: <b>1 from its
+        /// first frame</b> (it arrives with the sound, not after it, and a fade in would make it late) until the last
+        /// <see cref="LOST_CAPTION_FADE_SECONDS"/>, which it fades out over, to 0 at its end.
+        /// </summary>
+        public static float LostCaptionPresence(float age, float length)
+        {
+            float t = Math.Clamp(1f - (length - age) / LOST_CAPTION_FADE_SECONDS, 0f, 1f);
+            return 1f - t * t * (3f - 2f * t);
+        }
 
         /// <summary>
         /// Whether a round of <paramref name="kind"/> needs a match to score at all. Only an ordinary ball does: a wildcard

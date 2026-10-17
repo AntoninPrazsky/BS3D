@@ -35,6 +35,77 @@ namespace BS3D.Tests
             Assert.Equal(1f, StreakCues.Severity(99));
         }
 
+        /// <summary>
+        /// #875: the caption over the aim point stands a few hundred milliseconds - long enough to read three words, short
+        /// enough never to stand over the next aim - and a bigger loss stands longer and larger, but never as large as the
+        /// smallest award zooms: the news must not be louder than a reward.
+        /// </summary>
+        [Fact]
+        public void The_lost_caption_is_a_few_hundred_milliseconds_and_grows_with_the_loss()
+        {
+            for (int lost = 2; lost <= ScoreKeeper.MaxMultiplier; lost++)
+            {
+                Assert.InRange(StreakCues.LostCaptionSeconds(lost), 0.4f, 1.0f);
+                Assert.True(StreakCues.LostCaptionSize(lost) < AwardZoom.PEAK_SMALL, $"x{lost} is louder than a bare match's award");
+            }
+
+            Assert.True(StreakCues.LostCaptionSeconds(ScoreKeeper.MaxMultiplier) > StreakCues.LostCaptionSeconds(2));
+            Assert.True(StreakCues.LostCaptionSize(ScoreKeeper.MaxMultiplier) > StreakCues.LostCaptionSize(2));
+
+            //Its fade is part of that time, not on top of it, and shorter than the whole
+            Assert.True(StreakCues.LOST_CAPTION_FADE_SECONDS < StreakCues.LostCaptionSeconds(2));
+        }
+
+        /// <summary>
+        /// #875: the words arrive with the sound, not after it. The sound's first note starts <c>LEAD_SECONDS</c> after the
+        /// call that starts both, so the caption is in full on its very first frame (a fade in would put it behind the sound
+        /// it explains) and only fades over its last <c>LOST_CAPTION_FADE_SECONDS</c>, to nothing at its end.
+        /// </summary>
+        [Theory]
+        [InlineData(2)]
+        [InlineData(3)]
+        [InlineData(5)]
+        public void The_lost_caption_is_in_full_from_its_first_frame_and_fades_only_at_its_end(int lost)
+        {
+            float length = StreakCues.LostCaptionSeconds(lost);
+
+            Assert.Equal(1f, StreakCues.LostCaptionPresence(0f, length));
+            Assert.Equal(1f, StreakCues.LostCaptionPresence(length - StreakCues.LOST_CAPTION_FADE_SECONDS, length));
+            Assert.Equal(0f, StreakCues.LostCaptionPresence(length, length));
+
+            //Never rising again once it has begun to fade
+            float last = 1f;
+            for (float age = 0f; age <= length; age += length / 200f)
+            {
+                float presence = StreakCues.LostCaptionPresence(age, length);
+                Assert.InRange(presence, 0f, 1f);
+                Assert.True(presence <= last + 1e-6f, $"the caption brightens again at {age:F3} s");
+                last = presence;
+            }
+
+            //And a newer award cutting it short (PlayHud.AddAward: length = age + fade) leaves it exactly as bright as it was
+            Assert.Equal(1f, StreakCues.LostCaptionPresence(0.3f, 0.3f + StreakCues.LOST_CAPTION_FADE_SECONDS));
+        }
+
+        /// <summary>
+        /// #875: its bottom edge stands above where the crosshair reaches at its most swollen (full strain at the throb's peak),
+        /// so the words are never over the aim point or its bars; the crosshair's own figure, so a retuned mark cannot walk into them.
+        /// </summary>
+        [Fact]
+        public void The_lost_caption_stands_clear_of_the_crosshair_at_its_most_swollen()
+        {
+            float reach = Prazsky.Core.Render.Crosshair.FULL_STRAIN_REACH;
+
+            Assert.True(StreakCues.LOST_CAPTION_CLEARANCE >= reach + StreakCues.LOST_CAPTION_GAP,
+                $"{StreakCues.LOST_CAPTION_CLEARANCE} design units above the middle leaves under {StreakCues.LOST_CAPTION_GAP} units to the crosshair's {reach}");
+        }
+
+        [Fact]
+        public void The_lost_caption_says_the_streak_is_lost_in_words()
+        {
+            Assert.Equal("STREAK LOST", StreakCues.LostCaption);
+        }
+
         [Fact]
         public void Only_an_ordinary_round_needs_a_match()
         {

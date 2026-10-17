@@ -437,6 +437,37 @@ namespace BS3D.Screens
         private const float STREAK_CAPTION_CAP_SCALE = 1.15f;
         private static readonly Color STREAK_LOST = new(214, 214, 222);
 
+        //THE LOSS IS ALSO SAID WHERE THE EYE IS (#875). The corner shatter above is the record, but the owner's playtest of
+        //2026-10-15 never saw it on a 3840x1600 monitor: while aiming the eye rests on the middle of the frame, so the falling
+        //run sounded with nothing to explain it. So the same call that starts the run also puts "STREAK LOST" and the lost
+        //multiplier over the aim point (StreakCues.LostCaption), laid out as an award is (LayOutAward: its face, its blurred
+        //backing, the multiplier in the accent beside the words) and drawn LAST, over the awards, because it is the news.
+        //
+        //It is in full on its FIRST frame, with the sound, and only fades at its end (StreakCues.LostCaptionPresence): a
+        //fade in would put it behind the very sound it explains. It slams in swollen and settles (LOST_CAPTION_POP_FROM,
+        //over LOST_CAPTION_POP), is white-hot and cools to the badge's grey (LOST_CAPTION_COOL), and drifts up and away from the
+        //aim as it goes. A few hundred milliseconds (StreakCues.LostCaptionSeconds), never blurred, its BOTTOM edge fixed
+        //above the crosshair at its most swollen (StreakCues.LOST_CAPTION_CLEARANCE) so the pop grows upwards and the aim
+        //point is never under it.
+        //
+        //It is the break's own clock, not the corner's: the corner's gives way at once to a new streak, but the words stay
+        //to be read. It gives way to a new AWARD instead (AddAward): the newer number takes the read, as every award does
+        //(#846), and the reverse holds too, BreakStreak sends any award still being read on its way (HandOffReads), so a
+        //number born over a cell is never left under the words.
+        private float _lostAge;
+        private float _lostLength;                      //seconds the caption stands, 0 while there is none
+        private int _lostMultiplier;                    //the multiplier lost, for its size
+        private Popup _lostCaption;                     //"STREAK LOST" and "x3", built once per break and never per frame
+
+        private const float LOST_CAPTION_POP_FROM = 1.3f;       //how swollen it arrives, as a share of its size ...
+        private const float LOST_CAPTION_POP = 0.12f;           //... and the seconds it takes to settle
+        private const float LOST_CAPTION_COOL = 0.3f;           //seconds from white-hot to STREAK_LOST
+        private const int LOST_CAPTION_LIFT = 70;               //design units it drifts up over its time, away from the aim
+
+        //The multiplier stands at the words' own size, where an award's is two thirds of its figure's: the × is a small glyph
+        //in this face and at two thirds it read as a bullet ("STREAK LOST •3", photographed at 1600x900)
+        private const float LOST_CAPTION_SUFFIX_SHARE = 1f;
+
         //One shard of the badge, a sliver baked once at this many texels long (STREAK_SHARD_TEXELS by a third of it), drawn
         //scaled and turned: a 1x1 texel stretched into a rectangle would have hard, stepped edges at every angle
         private const int STREAK_SHARD_TEXELS = 48;
@@ -804,6 +835,7 @@ namespace BS3D.Screens
             _ballsShown = score.ShotsRemaining ?? -1;
             _multiplierShown = score.Multiplier;
             _breakLost = 0;
+            _lostLength = 0f;
             _swapHint = false;
             _swapHintAge = 0f;
             _swapPulse.Reset();
@@ -831,6 +863,11 @@ namespace BS3D.Screens
         internal void AddAward(Vector3 world, ScoreAward award, BallType type, bool cutter = false)
         {
             HandOffReads();
+
+            //The newer number takes the read from the words over the aim point too (#875): they begin to fade now, from
+            //wherever they have got to, rather than standing under an award zooming in
+            if (_lostLength > 0f)
+                _lostLength = MathF.Min(_lostLength, _lostAge + StreakCues.LOST_CAPTION_FADE_SECONDS);
 
             _popups.Add(new Popup
             {
@@ -934,6 +971,14 @@ namespace BS3D.Screens
             _breakCaption = _breakText + " lost";
             _breakGlyphs = new string[_breakText.Length];
             for (int i = 0; i < _breakText.Length; i++) _breakGlyphs[i] = _breakText[i].ToString();
+
+            //And said over the aim point, on this same call as the sound (#875): an award still being read leaves for the
+            //corner now, as a newer award would send it, so no number stands under the words
+            HandOffReads();
+            _lostCaption = new Popup { Text = StreakCues.LostCaption, Suffix = _breakText };
+            _lostMultiplier = lost;
+            _lostAge = 0f;
+            _lostLength = StreakCues.LostCaptionSeconds(lost);
         }
 
         /// <summary>
@@ -951,6 +996,9 @@ namespace BS3D.Screens
         {
             ForcedMultiplier = null;
             _breakLost = 0;
+
+            //Nor are the words over the aim point left standing over the result (#875): a caption of a break a moment ago goes too
+            _lostLength = 0f;
         }
 
         #endregion
@@ -969,6 +1017,7 @@ namespace BS3D.Screens
             _clock += elapsed;
 
             AgePopups(elapsed);
+            AgeLostCaption(elapsed);
             ChaseScore(elapsed, score);
             WatchStreak(elapsed, score);
             WatchBalls(score);
@@ -1008,6 +1057,15 @@ namespace BS3D.Screens
             //The completion bonus, or a cut's award (#767), has waited its turn, and its birth takes the read as a newer award's
             //does: an award still being read leaves for the corner now (the bonus itself spared)
             if (waitedBorn) HandOffReads(sparingTheBonus: true);
+        }
+
+        /// <summary>The words over the aim point age on the play clock, with everything else the HUD says, and are gone at their end (#875).</summary>
+        private void AgeLostCaption(float elapsed)
+        {
+            if (_lostLength <= 0f) return;
+
+            _lostAge += elapsed;
+            if (_lostAge >= _lostLength) _lostLength = 0f;
         }
 
         private void ChaseScore(float elapsed, ScoreKeeper score)
@@ -1197,6 +1255,9 @@ namespace BS3D.Screens
                 //Last, so the numbers coming in pass over the readouts rather than under them
                 DrawAwards(camera, viewport, scoreAnchor - new Vector2(scoreSize.X * 0.5f, 0f));
             }
+
+            //Over everything, awards in flight included: the lost streak, said over the aim point (#875)
+            if ((parts & HudParts.Play) != 0) DrawStreakLost(viewport);
 
             batch.End();
         }
@@ -1411,6 +1472,36 @@ namespace BS3D.Screens
             Vector2 at = new(anchor.X - size.X * scale, anchor.Y - size.Y * 0.5f * scale + sink);
 
             DrawString(font, _breakCaption, at, tint * alpha, scale);
+        }
+
+        /// <summary>
+        /// "STREAK LOST" and the multiplier that went, over the aim point (#875; the field notes above <see cref="_lostLength"/>):
+        /// laid out as an award is (<see cref="LayOutAward"/>, <see cref="DrawAwardAt"/>), in full from its first frame, slamming in
+        /// swollen and settling, white-hot cooling to grey, its bottom edge held <see cref="StreakCues.LOST_CAPTION_CLEARANCE"/> above the
+        /// middle of the frame (so the crosshair, wherever it swells to, is never under it) and drifting up as it fades. Nothing is
+        /// allocated: the two strings were made when the break began.
+        /// </summary>
+        private void DrawStreakLost(Viewport viewport)
+        {
+            if (_lostLength <= 0f) return;
+
+            float presence = StreakCues.LostCaptionPresence(_lostAge, _lostLength);
+            if (presence <= 0.01f) return;
+
+            float pop = MathHelper.Lerp(LOST_CAPTION_POP_FROM, 1f,
+                HudEase.OutBack(MathHelper.Clamp(_lostAge / LOST_CAPTION_POP, 0f, 1f)));
+            AwardLayout layout = LayOutAward(_lostCaption, StreakCues.LostCaptionSize(_lostMultiplier) * pop, LOST_CAPTION_SUFFIX_SHARE);
+            Vector2 extent = layout.Extent;
+
+            //Rising a little over its time, fast and then easing, away from the aim; the BOTTOM edge is what is placed, so the
+            //pop grows upwards and never towards the crosshair
+            float life = MathHelper.Clamp(_lostAge / _lostLength, 0f, 1f);
+            float lift = 1f - (1f - life) * (1f - life);
+            float bottom = viewport.Height * 0.5f - Scaled(StreakCues.LOST_CAPTION_CLEARANCE) - Scaled(LOST_CAPTION_LIFT) * lift;
+            Vector2 centre = KeepInFrame(new Vector2(viewport.Width * 0.5f, bottom - extent.Y * 0.5f), extent, viewport);
+
+            Color tint = Color.Lerp(Color.White, STREAK_LOST, MathHelper.SmoothStep(0f, 1f, _lostAge / LOST_CAPTION_COOL));
+            DrawAwardAt(_lostCaption, layout, centre, tint, presence);
         }
 
         /// <summary>
@@ -2450,9 +2541,11 @@ namespace BS3D.Screens
         /// <summary>
         /// Lays an award out at <paramref name="size"/> scores (<see cref="AwardZoom.Size"/>). Its gap and its shadow's
         /// offset scale with the figure exactly as they did with the old popup's one face, so the look at any size is the
-        /// old popup's at that size.
+        /// old popup's at that size. <paramref name="suffixShare"/> is the caption's size as a share of the figure's: an award's
+        /// (<see cref="POPUP_SUFFIX_SHARE"/>) unless the caller says otherwise (the lost streak's words and multiplier stand
+        /// at one size, <see cref="LOST_CAPTION_SUFFIX_SHARE"/>).
         /// </summary>
-        private AwardLayout LayOutAward(in Popup popup, float size)
+        private AwardLayout LayOutAward(in Popup popup, float size, float suffixShare = POPUP_SUFFIX_SHARE)
         {
             float units = size * BS3DGame.HUD_FONT_SCORE;
             float share = units / BS3DGame.HUD_FONT_POPUP;
@@ -2464,7 +2557,7 @@ namespace BS3D.Screens
             if (popup.Suffix == null)
                 return new AwardLayout(font, scale, blur, textSize, null, 0f, 0, Vector2.Zero, 0f, shadow);
 
-            SpriteFontBase suffixFont = AwardFace(units * POPUP_SUFFIX_SHARE, out float suffixScale, out int suffixBlur);
+            SpriteFontBase suffixFont = AwardFace(units * suffixShare, out float suffixScale, out int suffixBlur);
             Vector2 suffixSize = suffixFont.MeasureString(popup.Suffix) * suffixScale;
 
             return new AwardLayout(font, scale, blur, textSize, suffixFont, suffixScale, suffixBlur, suffixSize,

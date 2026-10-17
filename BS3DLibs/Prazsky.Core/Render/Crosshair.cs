@@ -84,6 +84,13 @@ namespace Prazsky.Core.Render
         private const float GAP = 18f;          //clear space at the centre, so the mark never hides what it marks
         private const float THICKNESS = 5f;
 
+        /// <summary>
+        /// How far from the middle of the frame the mark reaches at its most swollen (full strain at the throb's peak), in the 2160-unit
+        /// height it is authored in: the bars' clear centre and their length, times <see cref="STRAIN_GROWTH"/> and <see cref="STRAIN_THROB"/>.
+        /// What a readout placed above the aim point must stay clear of, so it never covers the mark (the Game's lost-streak caption, #875).
+        /// </summary>
+        public const float FULL_STRAIN_REACH = (GAP + ARM) * (1f + STRAIN_GROWTH + STRAIN_THROB);
+
         private readonly GraphicsDevice _device;
 
         private Texture2D _texel;
