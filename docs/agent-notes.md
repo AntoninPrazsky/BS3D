@@ -987,3 +987,9 @@ Pravidla:
 - Před tagem: majitel odpověděl na stránce verdiktů (13 OK, #859 jedno, Vrať #766/#767 → opraveno ve workflow a zmergováno `ed7ce2e4`), krátký smoke na přesném commitu (Sonnet) čistý.
 - ⚠ Monitor usnul → Windows bez zvukového výstupu → každý běh loguje „theme could not be realized … NullReference“, i build ze 16. 10.; stav stroje, ne kód (#923). ⚠ `build.yml` ignoruje `Images/releases/**`, snímkový commit nemá vlastní běh CI.
 - Otevřené: verdikty druhého kola (#766, #767, #781) na stránce; #709 do první skutečné dávky; #922 snímky na web.
+
+## 2026-10-17 — #891 #885 #898 #884 #902 #900 vzhled po vydání v0.4.0, stránka verdiktů — desktop (RDT-PC), Claude Code (bs3d-5f)
+- Fronta verdiktů klesla na 3 (majitel odpověděl bs3d-48), změny vzhledu se připravovaly na větvích a zmergovaly se až po tagu v0.4.0: lavička v metru plotu (#891), oheň svítí na desku z těla plamene (#885), High Scores pro všechny levely se zapuštěnými nedohranými řádky (#898), vyšší koruny akácií (#884), majáčky v osmi skupinách (#902), řádek Jukeboxu pod vizualizérem (#900). Merge 5de356e6, 0b99c470.
+- Stránka „Verdikty 17. 10.“ https://claude.ai/artifact/V2vmb1wY9qRE8Do95vXmCZ, výzva zapsaná na všech šesti issues; fronta je 7.
+- ⚠ Herní kamera lavičku na louce nevidí (zakrývá ji okraj ostrova), je vidět jen v úvodu. První tónování řádků High Scores bylo nad světlými scénami neviditelné, review ho chytila.
+- Rozpracováno: #893 (nízké oblety v úvodu louky), #883 (savanský keř), #904 (hudba louky).
