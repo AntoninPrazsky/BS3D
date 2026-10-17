@@ -108,8 +108,15 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         public readonly BallKind Kind;
 
+        /// <summary>
+        /// Which way the shot was flying when it struck, unit, world space (#767's verdict): a cutter's strike draws its slash
+        /// square to it. Zero where nothing needs it, which is every landing but a cutter's.
+        /// </summary>
+        public readonly Vector3 ShotDirection;
+
         public BallLanding(BallsReleased released, Vector3 world, BallType type, XZLevel cell, int coloured = 0,
-            int thawed = 0, IReadOnlyList<Detonation> detonations = null, BallKind kind = BallKind.Normal)
+            int thawed = 0, IReadOnlyList<Detonation> detonations = null, BallKind kind = BallKind.Normal,
+            Vector3 shotDirection = default)
         {
             Released = released;
             World = world;
@@ -119,6 +126,7 @@ namespace Prazsky.BS3D.Physics
             Thawed = thawed;
             Detonations = detonations ?? Array.Empty<Detonation>();
             Kind = kind;
+            ShotDirection = shotDirection;
         }
     }
 }

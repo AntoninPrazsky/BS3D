@@ -495,6 +495,10 @@ namespace BS3D.Screens
                 Console.WriteLine("[skip] cut slow motion");
             }
 
+            //And its picture: the slash, the sparks and the light outlive the slow motion (#767's verdict made them last), so a
+            //pull of the trigger hurries them to their last stretch and the next shot crosses a clear field
+            if (_blasts.HurryBlades()) Console.WriteLine("[skip] cut's slash hurried");
+
             //The level is already decided — cleared and waiting out LEVEL_CLEARED_BEAT, or lost. The gun stops
             //answering the instant the outcome is settled rather than when the result screen finally covers
             //this one, which is a whole beat later and longer still under a drop cinematic: a shot fired into
@@ -555,6 +559,14 @@ namespace BS3D.Screens
                 Type = type, //the colour the player saw loaded at the muzzle, so aiming for it means something
                 Kind = kind  //and what it is, which for everything but a wildcard is Normal (#330)
             };
+
+            //A cutter leaves turned as it lay in the bore (#767's verdict): its saw's frame is the round's own
+            //(BallRenderSet.CutterFrame), so the blade leaves the barrel without a turn and keeps that bearing along the
+            //shot. The body is a sphere with no spin, so its turn changes nothing of its flight; it is retired where it
+            //strikes (#823), before anything could turn it. The drawn barrel's, which the loaded round was drawn in.
+            if (kind == BallKind.Cutter)
+                ball.BallReference.Pose.Orientation =
+                    Quaternion.CreateFromRotationMatrix(_cannon.BarrelOrientation()).ToNumerics();
 
             _shotBalls.Add(ball);
 

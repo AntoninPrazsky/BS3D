@@ -36,11 +36,14 @@ namespace BS3D.Effects
     /// </para>
     /// <para>
     /// <b>And a blade's impact (#767), in the same slots and the same draw</b>: a power-up round that cuts rather than
-    /// bursts — today the Cutter severing a storey (<see cref="Cut"/>) — is a white-hot flash, a long thin slash through the
-    /// struck point and a grinder's fan of sparks, cooling to the cutter's amber (the shader's second style). It is here and
-    /// not in the Cut's code so the next power-up round's impact is one more style of the same one buffer, and it keeps the
-    /// blasts' clock: the world's, slow motion included. Its sound and its jolt are the caller's (<see cref="Update"/> plays
-    /// a report and returns a jolt for bombs alone), since a cut answers with its own.
+    /// bursts — today the Cutter severing a storey (<see cref="Cut"/>) — is a white-hot flash, a long slash along the storey
+    /// it cut (<see cref="CutSlash"/>) and a grinder's fan of sparks thrown off the cut towards the gun, cooling to the
+    /// cutter's amber (the shader's second style), each part lasting as long as <see cref="CutBeats"/>' severing figures
+    /// say. It is here and not in the Cut's code so the next power-up round's impact is one more style of the same one
+    /// buffer, and it keeps the blasts' clock: the world's, slow motion included. Its sound and its jolt are the caller's
+    /// (<see cref="Update"/> plays a report and returns a jolt for bombs alone), since a cut answers with its own; and a shot
+    /// fired while it burns hurries it to its last stretch (<see cref="HurryBlades"/>), so it is skippable as the slow
+    /// motion is.
     /// </para>
     /// </summary>
     internal sealed class Blasts : IDisposable
@@ -48,16 +51,19 @@ namespace BS3D.Effects
         /// <summary>Concurrent blasts. Must match <c>MAX_BLASTS</c> in Blast.fx.</summary>
         public const int MAX_BLASTS = 8;
 
-        //Sparks per blast. The buffer is MAX_BLASTS * (this + 2) quads — the flash and the fireball ride beside
-        //them — which at 96 is 784 quads and 3 136 vertices, far inside the 16-bit index limit Fireworks is held
-        //to. It was 72, and the first capture read the spray as a few white glints.
+        //Sparks per blast, and the blade's more (#767's verdict: "the sparks are barely perceptible, so few and so briefly
+        //are they shown"): a bomb draws the first SPARKS_PER_BLAST, a blade those and BLADE_EXTRA_SPARKS more, the shader's
+        //part 3, which a bomb collapses. The buffer is MAX_BLASTS * (both + 2) quads - the flash and the fireball or slash
+        //ride beside them - 1 552 quads and 6 208 vertices, inside the 16-bit index limit Fireworks is held to. It was 72
+        //for both, and the first capture read the spray as a few white glints.
         private const int SPARKS_PER_BLAST = 96;
-        private const int QUADS_PER_BLAST = SPARKS_PER_BLAST + 2;
+        private const int BLADE_EXTRA_SPARKS = 96;
+        private const int QUADS_PER_BLAST = SPARKS_PER_BLAST + BLADE_EXTRA_SPARKS + 2;
 
         /// <summary>
-        /// How long a slot stays taken. Must cover Blast.fx's longest-lived part — a spark at the top of its life
-        /// jitter, <c>SPARK_SECONDS</c> × 1.45 = 0.87 s, and a blade's slash, <c>SLASH_SECONDS</c> 0.9 s (#767) — or a
-        /// part is cut off mid-fade.
+        /// How long a bomb's slot stays taken. Must cover Blast.fx's longest-lived part of a bomb — a spark at the top of
+        /// its life jitter, <c>SPARK_SECONDS</c> × 1.45 = 0.87 s — or a part is cut off mid-fade. A blade's is
+        /// <see cref="CutBeats.LIFE_SECONDS"/>, which covers its slash and its sparks the same way.
         /// </summary>
         private const float LIFE_SECONDS = 0.95f;
 
@@ -102,7 +108,7 @@ namespace BS3D.Effects
             public bool Active;
             public bool Reported;        //has its report been played and its jolt handed out
             public bool Blade;           //a blade's impact (#767) rather than a bomb's: see Cut
-            public float HalfLength;     //a blade's slash, how far it reaches either side of the struck point
+            public CutSlash Slash;       //a blade's slash: its line, where its middle is and how far it reaches
         }
 
         //A blade's light (#767): the cutter's white-hot accent driven well over 1 like the blast's, its light lasting a little
@@ -116,6 +122,7 @@ namespace BS3D.Effects
         //Per-blast uniform staging, allocated once and refilled in place.
         private readonly Vector4[] _centres = new Vector4[MAX_BLASTS];
         private readonly Vector4[] _shapes = new Vector4[MAX_BLASTS];
+        private readonly Vector4[] _axes = new Vector4[MAX_BLASTS];
 
         private readonly VertexBuffer _vertexBuffer;
         private readonly IndexBuffer _indexBuffer;
@@ -124,12 +131,12 @@ namespace BS3D.Effects
         //Cached parameter handles: the by-name indexer is a linear scan, and these are set every frame a blast is up.
         private readonly EffectParameter _viewParam, _projectionParam, _cameraPositionParam;
         private readonly EffectParameter _cameraRightParam, _cameraUpParam;
-        private readonly EffectParameter _centreParam, _shapeParam;
+        private readonly EffectParameter _centreParam, _shapeParam, _axisParam;
 
         /// <summary>
-        /// GamePi's Blast.fx (#789) takes the centre and the shape as ONE array, blast by blast, for Fireworks.cs's reason:
-        /// DesktopGL and MojoShader disagree about where two dynamically indexed arrays are, and every blast read the
-        /// other's slots. Null on the desktop.
+        /// GamePi's Blast.fx (#789) takes the centre, the shape and the slash's axis as ONE array, blast by blast, for
+        /// Fireworks.cs's reason: DesktopGL and MojoShader disagree about where two dynamically indexed arrays are, and every
+        /// blast read the other's slots. Null on the desktop.
         /// </summary>
         private readonly EffectParameter _packedParam;
         private readonly Vector4[] _packed;
@@ -146,8 +153,9 @@ namespace BS3D.Effects
             _cameraUpParam = effect.Parameters["CameraUp"];
             _centreParam = effect.Parameters["BlastCentre"];
             _shapeParam = effect.Parameters["BlastShape"];
+            _axisParam = effect.Parameters["BlastAxis"];
             _packedParam = effect.Parameters["BlastData"];
-            if (_packedParam != null) _packed = new Vector4[MAX_BLASTS * 2];
+            if (_packedParam != null) _packed = new Vector4[MAX_BLASTS * PACKED_PER_BLAST];
 
             _quadCount = MAX_BLASTS * QUADS_PER_BLAST;
             BuildBuffers(out _vertexBuffer, out _indexBuffer);
@@ -186,13 +194,17 @@ namespace BS3D.Effects
             }
         }
 
+        //GamePi's packed array (see _packedParam): the centre, the shape and the axis of each blast in turn
+        private const int PACKED_PER_BLAST = 3;
+
         /// <summary>
         /// A blade's impact (#767): the flash, the slash and the sparks of a power-up round severing what it struck, at
-        /// <paramref name="struck"/> (world space), the slash reaching <paramref name="halfLength"/> either side of it, at
-        /// <paramref name="size"/> (0 to 1, from what the cut freed). Silent and joltless here: the caller answers a cut
-        /// with its own sound and knock, on the frame it happens.
+        /// <paramref name="struck"/> (world space), the slash along <paramref name="slash"/> (<see cref="CutSlash"/>: level
+        /// through the struck ball, square to the shot, across the storey it severed), at <paramref name="size"/> (0 to 1,
+        /// from what the cut freed). Silent and joltless here: the caller answers a cut with its own sound and knock, on the
+        /// frame it happens.
         /// </summary>
-        public void Cut(Vector3 struck, float halfLength, float size)
+        public void Cut(Vector3 struck, CutSlash slash, float size)
         {
             int slot = FreeOrOldestSlot();
 
@@ -205,8 +217,29 @@ namespace BS3D.Effects
                 Active = true,
                 Reported = true,
                 Blade = true,
-                HalfLength = halfLength
+                Slash = slash
             };
+        }
+
+        /// <summary>
+        /// Hurries every blade still burning to its last stretch (<see cref="CutBeats.Hurried"/>): a shot fired while a cut's
+        /// picture is up skips it (#765, #767), as it skips the slow motion, so the next shot crosses a clear field. Returns
+        /// whether there was one.
+        /// </summary>
+        public bool HurryBlades()
+        {
+            bool any = false;
+
+            for (int i = 0; i < _blasts.Length; i++)
+            {
+                if (!_blasts[i].Active || !_blasts[i].Blade) continue;
+
+                float hurried = CutBeats.Hurried(_blasts[i].Age);
+                any |= hurried > _blasts[i].Age;
+                _blasts[i].Age = hurried;
+            }
+
+            return any;
         }
 
         private int FreeOrOldestSlot()
@@ -256,7 +289,7 @@ namespace BS3D.Effects
                     jolt += _blasts[i].Size;
                 }
 
-                if (_blasts[i].Age > LIFE_SECONDS) _blasts[i].Active = false;
+                if (_blasts[i].Age > (_blasts[i].Blade ? CutBeats.LIFE_SECONDS : LIFE_SECONDS)) _blasts[i].Active = false;
             }
 
             return jolt;
@@ -275,12 +308,21 @@ namespace BS3D.Effects
             for (int i = 0; i < _blasts.Length; i++)
             {
                 Blast blast = _blasts[i];
-                if (!blast.Active || blast.Age < 0f || blast.Age >= LIGHT_SECONDS) continue;
+                if (!blast.Active || blast.Age < 0f) continue;
 
                 //Squared, the ceiling flash's rule: unmistakable on the frame it goes off, thinned well before its end. A
-                //blade's is never under half strength, however little the cut freed: the strike itself is the event (#767).
-                float left = 1f - blast.Age / LIGHT_SECONDS;
-                float strength = (blast.Blade ? 0.5f + 0.5f * blast.Size : blast.Size) * left * left;
+                //blade's is its own (#767): never under half strength, however little the cut freed - the strike itself is the
+                //event - and lasting with its slash and sparks (CutBeats.LightStrength).
+                float strength;
+                if (blast.Blade) strength = CutBeats.LightStrength(blast.Age, blast.Size);
+                else
+                {
+                    if (blast.Age >= LIGHT_SECONDS) continue;
+                    float left = 1f - blast.Age / LIGHT_SECONDS;
+                    strength = blast.Size * left * left;
+                }
+
+                if (strength <= 0f) continue;
 
                 total += strength;
                 weighted += blast.Position * strength;
@@ -332,7 +374,8 @@ namespace BS3D.Effects
 
                 any = true;
                 _centres[i] = new Vector4(blast.Position, blast.Age);
-                _shapes[i] = new Vector4(blast.Size, 1f, blast.Blade ? 1f : 0f, blast.HalfLength);
+                _shapes[i] = new Vector4(blast.Size, 1f, blast.Blade ? 1f : 0f, blast.Blade ? blast.Slash.HalfLength : 0f);
+                _axes[i] = blast.Blade ? new Vector4(blast.Slash.Axis, blast.Slash.Offset) : Vector4.Zero;
             }
 
             if (!any) return;
@@ -350,8 +393,9 @@ namespace BS3D.Effects
             {
                 for (int i = 0; i < MAX_BLASTS; i++)
                 {
-                    _packed[i * 2] = _centres[i];
-                    _packed[i * 2 + 1] = _shapes[i];
+                    _packed[i * PACKED_PER_BLAST] = _centres[i];
+                    _packed[i * PACKED_PER_BLAST + 1] = _shapes[i];
+                    _packed[i * PACKED_PER_BLAST + 2] = _axes[i];
                 }
 
                 _packedParam.SetValue(_packed);
@@ -360,6 +404,7 @@ namespace BS3D.Effects
             {
                 _centreParam.SetValue(_centres);
                 _shapeParam.SetValue(_shapes);
+                _axisParam.SetValue(_axes);
             }
 
             BlendState blend = _device.BlendState;
@@ -394,6 +439,10 @@ namespace BS3D.Effects
 
             Random random = new(20260914);
 
+            //The blade's own draws (#767's verdict) - where along the slash each spark comes off, and the extra sparks'
+            //directions and jitters - from a stream of their own, so a bomb's sparks are exactly what they always were
+            Random bladeRandom = new(20261017);
+
             int v = 0, n = 0;
 
             for (int blast = 0; blast < MAX_BLASTS; blast++)
@@ -401,31 +450,44 @@ namespace BS3D.Effects
                 AddQuad(vertices, indices, ref v, ref n, blast, part: 0, Vector4.Zero, Vector4.Zero);
                 AddQuad(vertices, indices, ref v, ref n, blast, part: 1, Vector4.Zero, Vector4.Zero);
 
-                for (int spark = 0; spark < SPARKS_PER_BLAST; spark++)
+                for (int spark = 0; spark < SPARKS_PER_BLAST + BLADE_EXTRA_SPARKS; spark++)
                 {
+                    bool extra = spark >= SPARKS_PER_BLAST;
+                    Random draw = extra ? bladeRandom : random;
+                    int count = extra ? BLADE_EXTRA_SPARKS : SPARKS_PER_BLAST;
+                    int index = extra ? spark - SPARKS_PER_BLAST : spark;
+
                     //Fibonacci coverage, then scattered off it hard — Fireworks' two reasons, and the scatter is
                     //larger here: a blast is fragments, and even coverage that survives the scatter reads as a
                     //designed pattern.
-                    float k = (spark + 0.5f) / SPARKS_PER_BLAST;
+                    float k = (index + 0.5f) / count;
                     float y = 1f - 2f * k;
                     float r = MathF.Sqrt(MathF.Max(0f, 1f - y * y));
-                    float phi = spark * 2.39996323f + blast * 0.9f;
+                    float phi = index * 2.39996323f + blast * 0.9f + (extra ? 1.3f : 0f);
 
                     Vector3 direction = new Vector3(MathF.Cos(phi) * r, y, MathF.Sin(phi) * r)
                         + new Vector3(
-                            (float)(random.NextDouble() * 2.0 - 1.0),
-                            (float)(random.NextDouble() * 2.0 - 1.0),
-                            (float)(random.NextDouble() * 2.0 - 1.0)) * 0.35f;
+                            (float)(draw.NextDouble() * 2.0 - 1.0),
+                            (float)(draw.NextDouble() * 2.0 - 1.0),
+                            (float)(draw.NextDouble() * 2.0 - 1.0)) * 0.35f;
                     direction.Normalize();
 
                     //A wide speed spread, weighted towards the fast end: a volume of fragments with a bright front,
                     //not a hollow shell.
-                    float speed = MathF.Pow((float)random.NextDouble(), 0.55f);
+                    float speed = MathF.Pow((float)draw.NextDouble(), 0.55f);
 
-                    AddQuad(vertices, indices, ref v, ref n, blast, part: 2,
+                    float lifeJitter = (float)draw.NextDouble();
+                    float sizeJitter = (float)draw.NextDouble();
+                    float heatJitter = (float)draw.NextDouble();
+
+                    //Where along a blade's slash the spark comes off, -1 to 1 of the way to its ends: squared towards the
+                    //struck ball, where the blade went in, so the spray is thickest there and thins along the cut
+                    float place = (float)(bladeRandom.NextDouble() * 2.0 - 1.0);
+                    place *= MathF.Abs(place);
+
+                    AddQuad(vertices, indices, ref v, ref n, blast, part: extra ? 3 : 2,
                         new Vector4(direction, speed),
-                        new Vector4((float)random.NextDouble(), (float)random.NextDouble(),
-                            (float)random.NextDouble(), 0f));
+                        new Vector4(lifeJitter, sizeJitter, heatJitter, place));
                 }
             }
 
@@ -473,7 +535,7 @@ namespace BS3D.Effects
         {
             public Vector4 Slot;     //(blast, part, corner x, corner y)
             public Vector4 Spark;    //(direction xyz, speed)
-            public Vector4 Random;   //(life jitter, size jitter, heat jitter, unused)
+            public Vector4 Random;   //(life jitter, size jitter, heat jitter, where along a blade's slash -1..1)
 
             public static readonly VertexDeclaration Declaration = new(
                 new VertexElement(0, VertexElementFormat.Vector4, VertexElementUsage.TextureCoordinate, 0),

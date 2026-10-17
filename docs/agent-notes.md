@@ -967,3 +967,8 @@ Pravidla:
 - Prošly se merge od e92a6b28: DocDrift (35 kandidátů, všechno jiné veličiny téhož jména nebo odvozená čísla; BONUS_HOLD, DECODE_HEADROOM a počty nahrávek sedí), citace, odkazy `#kotva` mezi dokumenty (0 rozbitých), identifikátory a cesty z nových vět, údaje v CLAUDE.md (osm nástrojů, 21 scén, devět Potato efektů) proti kódu.
 - Opraveno jedno: komentář `SceneRenderer.FineMeshes` citoval nadpis „The acacia's fork“, který #758 přejmenoval; citace teď 0 nevyřešených.
 - Zbytek dokumentů říká, co platí teď.
+
+## 2026-10-17 — #767 #766 verdikt na Cut: náboj v hlavni, řez, Potato — desktop (RDT-PC), Claude Code (bs3d-ac)
+- Hotovo (větev `767-cut-verdict`, nemergováno, čeká review): rámec pily je rámec náboje = hlavně (`CutterFrame` bez oka, `CUTTER_FACE_LIFT` 1,05 změřený v rámci hlavně proti #766 při otevírací póze); vystřelený náboj letí natočený jako hlaveň (orientace těla při `Shoot`), takže se při výstřelu neotočí. Řez: dvakrát tlustší a dvakrát delší (1,8 s světa), jiskry 192 místo 96, větší, jasnější, ~1 s života, záblesk a světlo delší; výstřel je zkrátí (`HurryBlades`). Čára leží v rovině patra, kolmo na směr střely (`BallLanding.ShotDirection`), přes šířku zničeného patra (`CutSlash`); k objektivu se táhne jen hloubka. Odměna čeká 1,0 s. Potato: vlastní program `PotatoBallCutter` se zuby, nábojem a šrouby.
+- ⚠ Při yaw 30° a elevaci 20° náboj zakryje stěna hlavně; snímky dělat při 35°.
+- Otevřené: oko majitele, review, Pi naživo.

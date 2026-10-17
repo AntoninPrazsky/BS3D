@@ -10,9 +10,10 @@
 //
 // TWO TECHNIQUES, TWO MESHES, ONE INSTANCE FRAME. InstancedModelCutter is the ball (the sphere's mesh at its LOD);
 // InstancedModelCutterBlade is the blade (BallRenderSet's SawBladeMesh), drawn after it with the same frame. The frame
-// is BallRenderSet's, built on the CPU each draw: its Y axis is the blade's normal, facing the eye and tipped back
-// towards level, so the saw is seen face-on as every reference and the strip's disc draw it - and the ball's face, the
-// pole the eye looks at, carries the saw's face: a ring of glowing hooked teeth round a hub with three bolts. That is
+// is BallRenderSet's, built on the CPU each draw: its Y axis is the blade's normal, fixed in the round's own frame (the
+// barrel's, #767's verdict) - back along the bore and tipped up out of it, towards where the lenses see a loaded round
+// from - so the saw is seen face-on as every reference and the strip's disc draw it, and turns with the gun; the ball's
+// face, the pole the eye looks at, carries the saw's face: a ring of glowing hooked teeth round a hub with three bolts. That is
 // what reads in the bore, where the barrel hides the blade and only the ball's cap shows (photographed: a level blade
 // was invisible there). The frame turns about its axis on the wall clock, slowly in the bore and fast in flight, so
 // the round turns as one rigid saw: contract point 6, the cue that it is spinning, is in object space as every ball's
@@ -40,7 +41,7 @@ static const float CutterRingFrequency = 46.0;
 static const float CutterRingDepth = 0.0025;
 
 //THE SLIT: the band either side of the equator where the blade goes into the ball, a gap with light inside it, as a
-//share of the unit direction's height. Since the blade faces the eye this is the ball's outline - a lit rim where the
+//share of the unit direction's height. Since the blade faces the lens this is the ball's outline - a lit rim where the
 //teeth come out.
 static const float CutterSlitHalfWidth = 0.06;
 static const float CutterSlitGlow = 2.4;

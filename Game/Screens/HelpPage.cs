@@ -87,6 +87,10 @@ namespace BS3D.Screens
         private const float BALL_TILT = 0.35f;
         private const float BALL_PHASE = 0.7f;
 
+        //How far up the Cutter's bore is drawn pointing (#767's verdict), as a slope away from the viewer: the overview lens
+        //sees a loaded round from about 14 degrees above its bore at the opening aim (BallRenderSet.CUTTER_FACE_LIFT's note)
+        private const float CUTTER_BORE_RISE = 0.25f;
+
         //Under each of the controls page's lines: the 26 of its own and the 26 of the column it stood in before #806 let
         //every block carry its own space
         private const int KEY_LINE_GAP = 52;
@@ -406,6 +410,15 @@ namespace BS3D.Screens
                 Matrix world = Matrix.CreateScale(worldRadius / Constants.HALF)
                     * Matrix.CreateFromAxisAngle(_ballToWorld.Up, _ballSpin + i * BALL_PHASE)
                     * Matrix.CreateFromAxisAngle(_ballToWorld.Right, BALL_TILT);
+
+                //The Cutter's saw takes its frame from the round's own, which in the gun is the barrel's (#767's verdict,
+                //BallRenderSet.CutterFrame), and turns itself: the page's turntable would swing its face away. So it is
+                //handed a barrel's frame as the bore holds one, away from the viewer and up by the rise the overview lens
+                //sees a loaded round's bore at
+                if (entry.Kind == BallKind.Cutter)
+                    world = Matrix.CreateScale(worldRadius / Constants.HALF) * Matrix.CreateWorld(Vector3.Zero,
+                        Vector3.Normalize(_ballToWorld.Forward + _ballToWorld.Up * CUTTER_BORE_RISE), _ballToWorld.Up);
+
                 world.M41 = position.X;
                 world.M42 = position.Y;
                 world.M43 = position.Z;

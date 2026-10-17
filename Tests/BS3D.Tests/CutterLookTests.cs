@@ -11,7 +11,7 @@ namespace BS3D.Tests
     /// <summary>
     /// The Cutter's own look (#766): a steel ball with a saw blade through it, in a frame <c>BallRenderSet</c> builds each
     /// draw. The shaders are not run; what is held is what the look promises - the blade's teeth stand past the ball and
-    /// inside the gun's bore, the frame faces the eye whatever the round's own turn, and on the Potato path the round
+    /// inside the gun's bore, the frame is the round's own (the barrel's, #767's verdict), and on the Potato path the round
     /// glows in its accent and never beats.
     /// </summary>
     public class CutterLookTests
@@ -47,27 +47,32 @@ namespace BS3D.Tests
             Assert.True(tips.Max() - tips.Min() > 0.01f, "every tooth stands as tall as the next");
         }
 
+        /// <summary>
+        /// #767's verdict: "the Cut ball tilts in the barrel when I turn the barrel without precise aim". The frame is the
+        /// round's own - the barrel's, which a loaded round is drawn in - so a traverse or an elevation turns the saw with the
+        /// gun and leaves it still relative to the barrel, wherever the lens is; its face is tipped back out of the bore and up.
+        /// </summary>
         [Theory]
-        [InlineData(0f, 0f, 0f)]
-        [InlineData(0.6f, 0.3f, -1.1f)]
-        [InlineData(2.0f, -0.4f, 0.25f)]
-        public void TheFrameFacesTheEyeWhateverTheRoundsOwnTurn(float yaw, float pitch, float roll)
+        [InlineData(0f, 0.35f)]
+        [InlineData(0.52f, 0.35f)]
+        [InlineData(-0.52f, 0.6f)]
+        [InlineData(2.0f, 0.1f)]
+        public void TheFrameTurnsWithTheBarrelAndHoldsStillInIt(float traverse, float elevation)
         {
             Vector3 place = new(3f, 1.5f, -2f);
-            Vector3 eye = new(-4f, 6f, 12f);
-            Matrix world = Matrix.CreateScale(1.3f) * Matrix.CreateFromYawPitchRoll(yaw, pitch, roll) * Matrix.CreateTranslation(place);
+            Vector3 aim = new(MathF.Sin(traverse) * MathF.Cos(elevation), MathF.Sin(elevation), -MathF.Cos(traverse) * MathF.Cos(elevation));
 
-            Matrix frame = BallRenderSet.CutterFrame(world, eye, 0.7f);
-            Matrix level = BallRenderSet.CutterFrame(Matrix.CreateScale(1.3f) * Matrix.CreateTranslation(place), eye, 0.7f);
+            //What Cannon.BarrelOrientation builds and BorePose.SlotWorld places
+            Matrix barrel = Matrix.CreateWorld(Vector3.Zero, aim, Vector3.Up);
+            Matrix world = Matrix.CreateScale(1.3f) * barrel * Matrix.CreateTranslation(place);
 
-            //The place and the scale kept, the round's own turn thrown away
+            Matrix frame = BallRenderSet.CutterFrame(world, 0.7f);
+
+            //The place and the scale kept
             Assert.Equal(place, frame.Translation);
             AssertNear(1.3f, frame.Right.Length());
             AssertNear(1.3f, frame.Up.Length());
             AssertNear(1.3f, frame.Backward.Length());
-            AssertNear(level.Right, frame.Right);
-            AssertNear(level.Up, frame.Up);
-            AssertNear(level.Backward, frame.Backward);
 
             //Orthogonal and right-handed, as every instance matrix is
             AssertNear(0f, Vector3.Dot(frame.Right, frame.Up));
@@ -75,21 +80,48 @@ namespace BS3D.Tests
             AssertNear(0f, Vector3.Dot(frame.Right, frame.Backward));
             Assert.True(Vector3.Dot(Vector3.Cross(frame.Right, frame.Up), frame.Backward) > 0f);
 
-            //The blade's normal leans towards the eye and up from it: the saw is seen face-on, tipped back towards level
+            //The blade's normal in the barrel's own frame is the same at every aim: no sideways part, back out of the bore and
+            //up its own up, about 46 degrees - what the opening pose's eye-facing frame of #766 was, within a degree
             Vector3 normal = Vector3.Normalize(frame.Up);
-            Vector3 towards = Vector3.Normalize(eye - place);
-            Assert.True(Vector3.Dot(normal, towards) > 0.8f, $"the blade does not face the eye ({Vector3.Dot(normal, towards)})");
-            Assert.True(normal.Y > towards.Y, "the blade is not tipped back towards level");
+            AssertNear(0f, Vector3.Dot(normal, barrel.Right));
+            float back = -Vector3.Dot(normal, barrel.Forward), up = Vector3.Dot(normal, barrel.Up);
+            Assert.True(back > 0.6f && up > 0.6f, $"the face is not tipped back and up out of the bore (back {back}, up {up})");
+            AssertNear(MathF.Atan2(1.05f, 1f), MathF.Atan2(up, back));
+
+            //And turning the barrel turns the frame by the very same turn: the round holds still in it
+            Matrix turn = Matrix.CreateFromAxisAngle(Vector3.Up, 0.52f);
+            Matrix turned = BallRenderSet.CutterFrame(Matrix.CreateScale(1.3f) * barrel * turn * Matrix.CreateTranslation(place), 0.7f);
+            AssertNear(Vector3.TransformNormal(frame.Up, turn), turned.Up);
+            AssertNear(Vector3.TransformNormal(frame.Right, turn), turned.Right);
+        }
+
+        /// <summary>
+        /// The frame does not depend on where the lens is (the old one faced the eye each frame, and so re-oriented in a
+        /// barrel the overview's lens did not turn with): the method has no eye to take, so what is held is that the round's
+        /// own turn alone decides it - a shot launched turned as the barrel flies on in the frame it left the bore in.
+        /// </summary>
+        [Fact]
+        public void AFiredRoundKeepsTheFrameItLeftTheBoreIn()
+        {
+            Matrix barrel = Matrix.CreateWorld(Vector3.Zero, Vector3.Normalize(new Vector3(0.3f, 0.4f, -1f)), Vector3.Up);
+            Quaternion launched = Quaternion.CreateFromRotationMatrix(barrel);
+
+            Matrix inBore = barrel * Matrix.CreateTranslation(0f, 1f, 6f);
+            Matrix inFlight = Matrix.CreateFromQuaternion(launched) * Matrix.CreateTranslation(4f, 6f, -12f);
+
+            Matrix a = BallRenderSet.CutterFrame(inBore, 1.1f);
+            Matrix b = BallRenderSet.CutterFrame(inFlight, 1.1f);
+            AssertNear(a.Up, b.Up);
+            AssertNear(a.Right, b.Right);
         }
 
         [Fact]
         public void TheSpinTurnsTheRoundAboutTheBladesAxisAlone()
         {
-            Matrix world = Matrix.CreateTranslation(1f, 2f, 3f);
-            Vector3 eye = new(0f, 5f, 20f);
+            Matrix world = Matrix.CreateWorld(new Vector3(1f, 2f, 3f), Vector3.Normalize(new Vector3(0.2f, 0.35f, -1f)), Vector3.Up);
 
-            Matrix a = BallRenderSet.CutterFrame(world, eye, 0f);
-            Matrix b = BallRenderSet.CutterFrame(world, eye, 1.1f);
+            Matrix a = BallRenderSet.CutterFrame(world, 0f);
+            Matrix b = BallRenderSet.CutterFrame(world, 1.1f);
 
             AssertNear(a.Up, b.Up);
             AssertNear(MathF.Cos(1.1f), Vector3.Dot(a.Right, b.Right));

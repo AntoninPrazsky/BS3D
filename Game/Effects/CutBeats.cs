@@ -232,6 +232,82 @@ namespace BS3D.Effects
 
         #endregion
 
+        #region The severing's picture: the slash, the flash, the sparks and the light
+
+        //The strike's picture is Blasts' blade style (Blast.fx on both paths), on the blasts' clock: the WORLD's seconds, slow
+        //motion included, so it plays out the same at any frame rate. Its figures are here so the tests can hold them; the two
+        //Blast.fx files carry the same values under the names in each remark, and a test reads them back (they cannot be
+        //handed over as uniforms without a fourth vector per blast). #767's verdict set their size: the owner found the cut
+        //"not very prominent - it should be bigger and last a bit longer - the sparks are barely perceptible, so few and so
+        //briefly are they shown", so the slash is twice as thick and twice as long-lived as the first cut, the sparks twice
+        //as many, bigger and brighter and living about a second, and the flash and the light last with them.
+
+        /// <summary>The slash's whole life, simulated seconds: it shoots out, holds white-hot, thins, cools to amber and burns
+        /// through over this (Blast.fx <c>SLASH_SECONDS</c>; it was 0.9).</summary>
+        public const float SLASH_SECONDS = 1.8f;
+
+        /// <summary>The blade's flash, simulated seconds (Blast.fx <c>BLADE_FLASH_SECONDS</c>; a bomb's is 0.16). Cubed as it
+        /// fades, so it is under a tenth of its light by the end of the shortest slow motion (<see cref="FlashLeft"/>): the
+        /// flash is the one part bright and wide enough to hide the field, and it never outlasts the slow motion.</summary>
+        public const float FLASH_SECONDS = 0.3f;
+
+        /// <summary>A spark's mean life, simulated seconds (Blast.fx <c>BLADE_SPARK_SECONDS</c>), jittered per spark between
+        /// <see cref="SPARK_LIFE_LEAST"/> and <see cref="SPARK_LIFE_MOST"/> of it: seven sparks in ten live a second or more.</summary>
+        public const float SPARK_SECONDS = 1.25f;
+        public const float SPARK_LIFE_LEAST = 0.55f;
+        public const float SPARK_LIFE_MOST = 1.45f;
+
+        /// <summary>How long the sparks take to light along the slash from the struck ball to its ends, simulated seconds
+        /// (Blast.fx <c>BLADE_SPARK_RUN</c>): they come off the line as it shoots out, never ahead of it.</summary>
+        public const float SPARK_RUN_SECONDS = 0.1f;
+
+        /// <summary>The blade's light on the balls round it, simulated seconds (Blasts' <c>SceneLights</c> slot; a bomb's 0.45).</summary>
+        public const float LIGHT_SECONDS = 1.0f;
+
+        /// <summary>How long a blade holds its slot in the blasts' buffer: past the slash and the longest spark.</summary>
+        public const float LIFE_SECONDS = 1.95f;
+
+        /// <summary>What is left of a blade's picture once a shot is fired (#765: skippable), simulated seconds: the slash jumps
+        /// to its last stretch of cooling amber and is gone in this, and the player's next shot crosses a clear field.</summary>
+        public const float HURRY_LEFT_SECONDS = 0.3f;
+
+        /// <summary>How much of the blade's flash is left <paramref name="age"/> simulated seconds after the strike, 1 to 0
+        /// (Blast.fx's <c>fade * fade * fade</c>).</summary>
+        public static float FlashLeft(float age)
+        {
+            if (age < 0f || age >= FLASH_SECONDS) return age < 0f ? 1f : 0f;
+            float fade = 1f - age / FLASH_SECONDS;
+            return fade * fade * fade;
+        }
+
+        /// <summary>
+        /// How strong the blade's light is <paramref name="age"/> simulated seconds after the strike, as a multiple of its
+        /// colour: never under half for a cut that freed nothing (the strike itself is the event), full for a full-size one,
+        /// thinning as the square of what is left of it, the ceiling flash's rule.
+        /// </summary>
+        public static float LightStrength(float age, float size)
+        {
+            if (age < 0f || age >= LIGHT_SECONDS) return 0f;
+            float left = 1f - age / LIGHT_SECONDS;
+            return (0.5f + 0.5f * Math.Clamp(size, 0f, 1f)) * left * left;
+        }
+
+        /// <summary>The age a fired shot hurries a blade's picture to, simulated seconds (<see cref="HURRY_LEFT_SECONDS"/>).</summary>
+        public static float Hurried(float age) => MathF.Max(age, SLASH_SECONDS - HURRY_LEFT_SECONDS);
+
+        /// <summary>The world time a slow motion of <paramref name="size"/> lets pass while it runs, simulated seconds: the
+        /// integral of <see cref="TimeScale"/> over <see cref="SlowSeconds"/>, by the midpoint rule at a millisecond.</summary>
+        public static float WorldSecondsOfSlowMotion(float size, bool freed)
+        {
+            float wall = SlowSeconds(size, freed);
+            const float step = 0.001f;
+            double world = 0.0;
+            for (float t = step * 0.5f; t < wall; t += step) world += TimeScale(t, size, freed) * step;
+            return (float)world;
+        }
+
+        #endregion
+
         private static float SmoothStep(float x)
         {
             x = Math.Clamp(x, 0f, 1f);

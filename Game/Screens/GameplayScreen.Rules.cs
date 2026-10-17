@@ -206,10 +206,10 @@ namespace BS3D.Screens
             ClearCutPreview();
 
             int freed = landing.Released.Total;
-            _cutStaging.Strike(landing.Cell, landing.World, _fallingBalls, freed, landing.Released.Orphaned, _physicsBalls,
-                slowMotion: !_cinematic.Engaged, out float halfLength, out float size);
+            _cutStaging.Strike(landing.Cell, landing.World, landing.ShotDirection, _cannon.AimDirection, _fallingBalls, freed,
+                landing.Released.Orphaned, _physicsBalls, slowMotion: !_cinematic.Engaged, out CutSlash slash, out float size);
 
-            _blasts.Cut(landing.World, halfLength, size);
+            _blasts.Cut(landing.World, slash, size);
             Camera.Shake.Rumble(CUT_RUMBLE + CUT_RUMBLE_GROWTH * size);
 
             //Testing only (cutshot=): the frames after this strike, counted from here
@@ -222,7 +222,9 @@ namespace BS3D.Screens
             Console.WriteLine(FormattableString.Invariant(
                 $"[cut] strike: destroyed {landing.Released.Destroyed}, orphaned {landing.Released.Orphaned}, size {size:F2},")
                 + FormattableString.Invariant(
-                $" slash half-length {halfLength:F1}, knock L {CutRumble.KNOCK_LEFT:F2} R {CutRumble.KNOCK_RIGHT:F2} triggers {CutRumble.KNOCK_TRIGGER:F2},")
+                $" slash half-length {slash.HalfLength:F1} off the strike by {slash.Offset:F1} along ({slash.Axis.X:F2},{slash.Axis.Y:F2},{slash.Axis.Z:F2}),")
+                + FormattableString.Invariant(
+                $" shot ({landing.ShotDirection.X:F2},{landing.ShotDirection.Y:F2},{landing.ShotDirection.Z:F2}), knock L {CutRumble.KNOCK_LEFT:F2} R {CutRumble.KNOCK_RIGHT:F2} triggers {CutRumble.KNOCK_TRIGGER:F2},")
                 + FormattableString.Invariant(
                 $" fall L {fallLeft:F2} R {fallRight:F2} over {fallSeconds:F2} s,")
                 + (_cinematic.Engaged ? " slow motion: the drop cinematic's"

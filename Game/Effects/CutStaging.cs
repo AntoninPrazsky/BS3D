@@ -102,22 +102,26 @@ namespace BS3D.Effects
         public void Skip() => _slowAge = -1f;
 
         /// <summary>
-        /// The severing: a cutter struck <paramref name="cell"/> at <paramref name="struck"/> (world space) and let go
-        /// <paramref name="freedCount"/> balls, which are the last <paramref name="freedCount"/> entries of
-        /// <paramref name="falling"/> - the storey it destroyed and what hung on it. Arms the cut faces' glow and the slow
-        /// motion, and answers how far the slash should reach either side of the struck point and how big the result was.
+        /// The severing: a cutter travelling along <paramref name="shot"/> struck <paramref name="cell"/> at
+        /// <paramref name="struck"/> (world space) and let go <paramref name="freedCount"/> balls, which are the last
+        /// <paramref name="freedCount"/> entries of <paramref name="falling"/> - the storey it destroyed and what hung on it.
+        /// Arms the cut faces' glow and the slow motion, and answers where the slash runs (<see cref="CutSlash"/>: level
+        /// through the struck ball, square to the shot, across the storey the cut destroyed) and how big the result was.
         /// </summary>
+        /// <param name="shot">Which way the cutter was flying (any length; zero when unknown, and then the slash takes
+        /// <paramref name="aim"/>'s heading).</param>
         /// <param name="orphaned">What hung on the storey alone: the part of the result the fall's slow motion grows with.</param>
         /// <param name="slowMotion">False while the drop cinematic has the lens and its own slow motion (a big release): the
         /// cut adds none on top of it, so the cinematic runs exactly as it always has.</param>
-        public void Strike(XZLevel cell, Vector3 struck, List<PhysicsBall> falling, int freedCount, int orphaned,
-            PhysicsBall[,,] cluster, bool slowMotion, out float halfLength, out float size)
+        public void Strike(XZLevel cell, Vector3 struck, Vector3 shot, Vector3 aim, List<PhysicsBall> falling, int freedCount,
+            int orphaned, PhysicsBall[,,] cluster, bool slowMotion, out CutSlash slash, out float size)
         {
             ClearGlows();
 
-            //The slash reaches across the storey it went through: as far as the farthest of that storey's balls, level with
-            //the strike, plus a ball's width so it runs out past the silhouette, and never shorter than a few balls
-            float reach = 0f;
+            //The slash runs level through the struck ball, square to the shot, across what the cut severed in its storey: the
+            //destroyed balls level with the strike, projected onto that line (CutSlash has the derivation)
+            Vector3 axis = CutSlash.AxisFor(shot, aim);
+            float nearest = 0f, farthest = 0f;
             int first = Math.Max(0, falling.Count - freedCount);
 
             for (int i = first; i < falling.Count; i++)
@@ -128,18 +132,19 @@ namespace BS3D.Effects
                 Vector3 at = ball.BallReference.Pose.Position.ToXna();
                 float depth = struck.Y - at.Y;
 
-                //The cut's own storey, level with the strike: its spread is the slash's reach
-                if (MathF.Abs(depth) < 0.35f)
+                //The cut's own storey, level with the strike: its extent along the line is the slash's
+                if (MathF.Abs(depth) < STOREY_TOLERANCE)
                 {
-                    Vector2 across = new(at.X - struck.X, at.Z - struck.Z);
-                    reach = MathF.Max(reach, across.Length());
+                    float along = Vector3.Dot(at - struck, axis);
+                    nearest = MathF.Min(nearest, along);
+                    farthest = MathF.Max(farthest, along);
                 }
 
                 _freedBalls.Add(ball);
                 _freedHeat.Add(CutBeats.HeatAtDepth(depth));
             }
 
-            halfLength = MathF.Max(MIN_HALF_LENGTH, reach + 1f);
+            slash = CutSlash.Across(axis, nearest, farthest);
 
             //The other face of the cut: every ball still hanging in the storey just above a ball the cut destroyed. The cells
             //are the destroyed balls' own (a released ball keeps its ArrayPosition), so nothing is guessed from positions.
@@ -172,8 +177,9 @@ namespace BS3D.Effects
             StepWorld(0f);
         }
 
-        //The shortest slash: a few balls either side, so a cut through a storey of one still reads as a cut
-        private const float MIN_HALF_LENGTH = 2.5f;
+        //How far off the struck ball's height a freed ball may be and still be of its storey, world units: under half the
+        //storeys' spacing (1/√2), with room for the sway of a hung cluster
+        private const float STOREY_TOLERANCE = 0.35f;
 
         /// <summary>
         /// What the press asks of the pad this frame (#767): the rising hold on the body and trigger motors, all zero when no

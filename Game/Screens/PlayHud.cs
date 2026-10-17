@@ -902,9 +902,11 @@ namespace BS3D.Screens
         /// <summary>
         /// How long a cut's award waits before it is born on the struck cell (#767), seconds of the play clock: the severing
         /// beat - the slash shooting out across the storey and holding white-hot, slowed by the strike's hit-stop - is over
-        /// by then, and the number zooms in over a cut already made instead of over the cut being made.
+        /// by then, and the number zooms in over a cut already made instead of over the cut being made. It was 0.7 s for the
+        /// first slash; the verdict's slash lasts twice as long (<see cref="Effects.CutBeats.SLASH_SECONDS"/>), and at 0.7 s
+        /// the number stood over it still white-hot (photographed, Elephant: the world at a third of its life).
         /// </summary>
-        private const float CUT_AWARD_DELAY = 0.7f;
+        private const float CUT_AWARD_DELAY = 1.0f;
 
         /// <summary>
         /// The completion bonus (#846, #881): what the unused balls were worth, said in words over the aim point and flown

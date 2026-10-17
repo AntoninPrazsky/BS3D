@@ -950,6 +950,10 @@ namespace Prazsky.BS3D.Physics
             _shotBalls.Remove(cutter);
             if (_contactEvents.IsListener(contact.EventSource)) _contactEvents.Unregister(contact.EventSource);
 
+            //Which way it was flying, read before the nudge below overwrites it: the slash is drawn square to it (#767's verdict)
+            System.Numerics.Vector3 flying = cutter.BallReference.Velocity.Linear;
+            Vector3 shotDirection = flying.LengthSquared() > 1e-8f ? Vector3.Normalize(flying.ToXna()) : Vector3.Zero;
+
             //Spent, and dropped: the normal landing zeroes both velocities because its ball becomes part of the lattice, and
             //a cutter left at the speed it struck with (the gun's 200 u/s, softened by a soft contact) would plough on
             //through the hole it made, jolt the cluster behind it or fly up to the glass, for what is left of this step. A nudge down, the size of a
@@ -976,7 +980,8 @@ namespace Prazsky.BS3D.Physics
             Console.WriteLine($"[shot] cutter struck cell ({cell.X},{cell.Z},{cell.Level}):"
                 + $" destroyed {released.Destroyed}, orphaned {released.Orphaned}, {_detonations.Count} bomb(s) fired");
 
-            BallLanded?.Invoke(new BallLanding(released, world, cutter.Type, cell, 0, 0, _detonations, BallKind.Cutter));
+            BallLanded?.Invoke(new BallLanding(released, world, cutter.Type, cell, 0, 0, _detonations, BallKind.Cutter,
+                shotDirection));
 
             return true;
         }
