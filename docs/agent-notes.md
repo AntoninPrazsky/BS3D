@@ -1081,3 +1081,9 @@ Pravidla:
 ## 2026-10-17 — kanárek v bráně levelů, zkouška release.yml — desktop (RDT-PC), Claude Code (bs3d-5f)
 - Hotovo (merge 4abbb7ec, CI zelené): brána regenerace levelů v build.yml i release.yml nejdřív vyprázdní `Levels.json`; generátor, který nic nezapíše (nebo zapíše jinam), už neprojde tím, že nechá commitnuté soubory být.
 - Zkouška release.yml přes „Run workflow“ (běh 39064166894, `dev-4abbb7e`, nic nepublikováno): všechny tři joby a tři brány (levely s kanárkem, GL efekty GamePi, nová hudební) zelené — změny v release.yml z dneška jsou ověřené před příštím tagem.
+
+## 2026-10-17 — po v0.4.0: devět merge, strop fronty, křížová recenze — desktop (RDT-PC), Claude Code (bs3d-48)
+- Hotovo (všechno Sonnet, implementace #889 a #892 Opus): #923 zvuk bez zařízení (objektivní, zavřeno), #872 dolní limit bez alarmu (ruce), #877 cinematic v reálném čase, #878 kamera u okraje ostrova, #880 finále kampaně, #871 Swap s pohybem a zvukem, #874 emitory laserů, #879 Mirage lehčí + bomby, #889 rozsocha dubů, #892 potok a rybník v geometrii. #921 změřeno a zavřeno (clip() na Low/Medium nic nestojí), #709 zavřeno (první dávka statistik na Pi: Pennant), #924 založeno (louka po #892: +0,45 ms ve hře, záběr potoka nad 75 Hz; většina ceny v programu pole).
+- Jedna sdílená stránka verdiktů (bs3d-5f, 21 karet, db `verdicts`); fronta 17 → hudba #905/#906 zastavena před renderem. Křížová recenze s bs3d-5f: u mých 10 merge 2 chyby (odměna za řez vs. 2,5 s beat při vypnuté cinematic; stall hodiny vs. svět pod 30 fps) a jedna změna chování (#872 střílel pod podlahu), opraveno `ab2e6d24`; u jejích 21 žádná chyba, 6 drobností. Smoke run `f83d983f` čistý.
+- ⚠ Před claimem číst stav issue: #895, #898, #891, #902 už měla bs3d-5f. ⚠ Monitor spí = žádný zvukový výstup, nikdo dnes nic neslyšel.
+- Otevřené: #924 (měření), odpovědi majitele na stránce; hudba #905–#917 čeká na pokles fronty.
