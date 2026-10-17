@@ -1055,3 +1055,9 @@ Pravidla:
 - Poučení: monitor ve spánku = žádné zvukové zařízení (#923), snímek hrající nahrávky jen s dočasným harnessem.
 - Audit čtení disku ve snímku (komentář na #400): nic nad ~25 ms, nic k opravě teď.
 - Karta #874 na stránce verdiktů (20 položek). Otevřené: #887, #890 až pod strop fronty; #896 čeká na volbu majitele.
+
+## 2026-10-17 — #400 rozpory dokumentace s kódem, tři vlny — desktop (RDT-PC), Claude Code (bs3d-5f)
+- Hotovo (merge 18bcb416, 1e6e781a, 65cd14bf, 7b7942c5; CI zelené): tři vlny po třech čtenářích (Sonnet) a jednom opraváři prošly celé `docs/`. Opraveno **55 tvrzení, která kód vyvrací** (hodnoty konstant, přejmenovaná API, spouštěcí argumenty, počty scén, soupisy knihoven), k nim komentáře v kódu, které je opakovaly. Ani jedno nebyla chyba v kódu. Seznam po vlnách je na #400.
+- Měsíc: čočka je na -7,4 (ne -7,9), úhly přepočteny vzorci z komentářů (obzor 2,5°, hřeben ~4,4°).
+- Poučení: čtenář musí každé tvrzení doložit řádkem kódu a opravář ho ověřit znovu; dvě tvrzení se ukázala jen napůl pravdivá. `git worktree remove` selže, dokud je v adresáři cwd session.
+- Otevřené: fronta verdiktů 20, #887 a #890 až pod strop; #896 čeká na majitele.
