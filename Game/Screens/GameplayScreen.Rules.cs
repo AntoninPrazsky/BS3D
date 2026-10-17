@@ -671,9 +671,11 @@ namespace BS3D.Screens
             //The beat, the frozen figures, the milestone and the whole celebration - see BeginClearedBeat
             EnterPhase(LevelPhase.ClearedBeat);
 
-            //What the unused balls were worth, shown like any award (#846): born out of the balls-left count once the
-            //clearing shot's own award has been read, and flown into the score, which takes it on arrival
-            if (bonus > 0) _hud.AddBonus(bonus);
+            //What the unused balls were worth, shown like any award (#846) and said in words (#881): "12 UNUSED BALLS" over
+            //the figure, born over the aim point a moment after the clearing shot's own award, read for AwardZoom.BONUS_HOLD
+            //and flown into the score, which takes it on arrival. The balls are the ones the keeper recorded paying for, not
+            //ShotsRemaining, which a player firing into the emptied field moves. Nothing on a level with no budget: no bonus.
+            if (bonus > 0) _hud.AddBonus(bonus, _run.Score.UnusedShotsAwarded);
 
             Console.WriteLine($"[level] Cleared '{LevelName(_run.Index)}' with {_run.Score.Score}"
                 + $" (+{bonus} for {_run.Score.ShotsRemaining?.ToString() ?? "unlimited"} unused)"

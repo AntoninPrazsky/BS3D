@@ -496,9 +496,10 @@ namespace BS3D.Screens
                 + "matches nothing puts it back to ×1, and the game says so over the middle of the screen, where you aim: "
                 + $"“{StreakCues.LostCaption}” and the multiplier you had, with the one in the corner shattering."));
             column.Widgets.Add(Paragraph(
-                "Shots unused — what you did not need. Worth a great deal, and worth more on a big level: one "
-                + $"unused shot is priced at {ScoreKeeper.UnusedShotWorthInShots}\u00A0average shots of that level, "
-                + $"i.e. {ScoreKeeper.UnusedShotWorthInShots} × {ScoreKeeper.MatchedBallPoints} × (balls ÷ "
+                "Balls unused — the balls you did not need. When the field empties the game says it over the middle of the "
+                + $"screen, “{AwardZoom.BonusCaption(6)}” over the points they paid, before it flies to your score. Worth a great deal, "
+                + $"and worth more on a big level: one unused ball is priced at {ScoreKeeper.UnusedShotWorthInShots}\u00A0average shots "
+                + $"of that level, i.e. {ScoreKeeper.UnusedShotWorthInShots} × {ScoreKeeper.MatchedBallPoints} × (balls ÷ "
                 + "shots)."));
 
             //The example, arithmetic and all. UnusedShotValue is the formula ScoreKeeper itself applies when a
@@ -526,7 +527,7 @@ namespace BS3D.Screens
                 + $"{ScoreKeeper.MaxMultiplier} = {thirdShot}. Three balls matched, and the shot is worth more "
                 + "than the first two together."));
             column.Widgets.Add(Paragraph(
-                $"Finish with 6\u00A0shots in hand and each is worth {unusedShotValue} here: 6 × {unusedShotValue} "
+                $"Finish with 6\u00A0balls in hand and each is worth {unusedShotValue} here: 6 × {unusedShotValue} "
                 + $"= {bonus}, which on this level is more than the three shots above put together. Efficiency "
                 + "outweighs a streak you could farm by taking longer — that is deliberate."));
         }

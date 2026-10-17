@@ -1,6 +1,7 @@
 using Prazsky.BS3D.Levels;
 using Prazsky.BS3D.Scoring;
 using System;
+using System.Globalization;
 
 namespace BS3D.Screens
 {
@@ -84,13 +85,25 @@ namespace BS3D.Screens
         public const float MIN_READ = 0.4f;
 
         /// <summary>
-        /// The longest the completion bonus waits for the award that cleared the field to finish being read
-        /// (<see cref="BonusWait"/>): the least read any superseded award is cut to, so the bonus takes the read exactly
-        /// as a newer award would. No longer, because the bonus has to land with <see cref="BONUS_COUNT_IN"/> of the
-        /// cleared beat (<see cref="LevelPhases.ClearedBeatSeconds"/>) still to go: this, the longest read, the flight and
-        /// that count-in fill the beat.
+        /// The longest the completion bonus waits, after the field empties, for the award that cleared it to be seen
+        /// (<see cref="BonusWait"/>): a tenth of a second, so the clearing shot's number is on its way up before the bonus
+        /// bursts in over the aim point, and no more, because the beat (<see cref="LevelPhases.ClearedBeatSeconds"/>) is
+        /// shared out as this, <see cref="BONUS_HOLD"/>, the flight and <see cref="BONUS_COUNT_IN"/> (#881). The clearing
+        /// award is still read for <see cref="MIN_READ"/> from its own birth before it leaves, as any superseded award is,
+        /// so the two numbers share the middle of the frame for about the bonus's first half second, while the older
+        /// one shrinks away: the hand-off of any two awards.
         /// </summary>
-        public const float BONUS_WAIT_MAX = MIN_READ;
+        public const float BONUS_WAIT_MAX = 0.1f;
+
+        /// <summary>
+        /// How long the completion bonus is read, from its birth to the moment it leaves for the corner, zoom included
+        /// (#881): <b>1.5 s</b>, against <see cref="HOLD_BIG"/> at the most for an award over a cell, because the words say
+        /// what the figure counts and must be read, not glanced at. The zoom takes up to <see cref="BIRTH_BIG"/> of it, so the
+        /// words stand at full size for about a second and a quarter. It is what the beat has left once the wait, the flight
+        /// and the count-in are taken out of it (<c>AwardZoomTests</c> holds the sum to
+        /// <see cref="LevelPhases.ClearedBeatSeconds"/>), so reading it longer would delay the result page.
+        /// </summary>
+        public const float BONUS_HOLD = 1.5f;
 
         /// <summary>
         /// The least time the corner gets to count the completion bonus in between its landing and the result page,
@@ -149,6 +162,14 @@ namespace BS3D.Screens
             return Lerp(ReadSize(hold, birth, peak), ARRIVE, shrink * shrink * (3f - 2f * shrink));
         }
 
+        /// <summary>
+        /// The tallest the read ever draws an award in scores (#881): the top of the zoom's overshoot, or the swell the read
+        /// has grown to by <paramref name="hold"/>, whichever is bigger. The completion bonus is placed by it, so the block
+        /// that zooms about its centre never reaches down past the line it is held clear of the crosshair by.
+        /// </summary>
+        public static float ReadMax(float peak, float birth, float hold) =>
+            peak * MathF.Max(BIRTH_FROM + (1f - BIRTH_FROM) * HudEase.OUT_BACK_PEAK, 1f + SWELL_PER_SECOND * MathF.Max(0f, hold - birth));
+
         /// <summary>The share of the rise reached at <paramref name="age"/>, 0 at birth towards 1; it stops where the read
         /// does, because past that the flight owns where the number goes and a source still climbing would fight it.</summary>
         public static float Rise(float age, float hold) =>
@@ -172,6 +193,14 @@ namespace BS3D.Screens
         /// read: until that read ends, but never more than <see cref="BONUS_WAIT_MAX"/>, after which it takes the read as
         /// a newer award does (<see cref="HandOff"/>).</summary>
         public static float BonusWait(float longestReadLeft) => Math.Clamp(longestReadLeft, 0f, BONUS_WAIT_MAX);
+
+        /// <summary>
+        /// What the completion bonus says it counts (#881), over its figure: the balls the level was cleared with to spare,
+        /// in the HUD's own noun ("balls left" is what the count in the corner reads while they are in hand), capitalised
+        /// as the lost streak's words are. <c>12 UNUSED BALLS</c>, <c>1 UNUSED BALL</c>. Built once, at birth.
+        /// </summary>
+        public static string BonusCaption(int unusedBalls) =>
+            unusedBalls.ToString(CultureInfo.InvariantCulture) + (unusedBalls == 1 ? " UNUSED BALL" : " UNUSED BALLS");
 
         private static float ReadSize(float age, float birth, float peak)
         {
