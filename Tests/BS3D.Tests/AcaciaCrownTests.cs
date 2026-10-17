@@ -9,7 +9,9 @@ namespace BS3D.Tests
     /// crowns up a little". A tier's radius and the tree's height are rolled independently (<c>SavannaScatter</c>), and its
     /// thickness used to be a fixed share of the height whatever the roll, so a mature tier ran from 3.0 to 7.0 times wider than
     /// its half-thickness. Now each kind's tier has one thickness, never thinner than the cap lets its radius be, and it is
-    /// stretched <i>upward</i> only: the underside, the radius and the trunk stay where #663 left them. Built with no device
+    /// stretched <i>upward</i> only: the nominal underside (the volume slab's bottom), the radius and the trunk stay where #663 left
+    /// them - the drawn plate's own underside is flattened and rises by about 0.6 of what the tier grew, which
+    /// <see cref="TheDrawnPlateReachesAboutFourTenthsOfItsHalfThicknessUnderItsCentre"/> pins. Built with no device
     /// (<see cref="AcaciaMesh.Build"/>), at the roll the savanna draws trees at.
     /// </summary>
     public class AcaciaCrownTests
@@ -18,8 +20,8 @@ namespace BS3D.Tests
         //kind at (SavannaScatter): the width roll, the height roll, the trunk's share of the width and the crown's
         private const float WIDTH = 6f * 1.7f, HEIGHT = 9f * 1.7f;
 
-        //What #663 left, as shares of the tree's height: where each kind's first tier's underside stood (the centre less the
-        //half-thickness), the half-thickness it had, and the same for the second tier of a mature tree
+        //What #663 left, as shares of the tree's height: where each kind's first tier's nominal underside stood (the centre less
+        //the half-thickness), the half-thickness it had, and the same for the second tier of a mature tree
         private const float MATURE_FLOOR = 0.64f, MATURE_WAS = 0.14f;
         private const float BROKEN_FLOOR = 0.63f, BROKEN_WAS = 0.13f;
         private const float YOUNG_FLOOR = 0.73f, YOUNG_WAS = 0.11f;
@@ -71,7 +73,7 @@ namespace BS3D.Tests
 
         [Theory]
         [MemberData(nameof(Rolls))]
-        public void TheUndersideStaysWhereItStood(AcaciaKind kind, float w, float h, int seed)
+        public void TheNominalUndersideStaysWhereItStood(AcaciaKind kind, float w, float h, int seed)
         {
             (AcaciaGeometry tree, float treeHeight) = Grow(kind, w, h, seed);
             (float floor, float was) = kind switch
@@ -89,6 +91,38 @@ namespace BS3D.Tests
             {
                 float rise = (Half(tree.Volume[1]) - was * treeHeight) * (2f - FoliageStyle.Tier.TopFlatten);
                 Assert.Equal(SECOND_FLOOR * treeHeight + rise, tree.Volume[2].Bottom, 1e-3f * treeHeight);
+            }
+        }
+
+        /// <summary>
+        /// The nominal underside above is the volume slab's, not the mesh's: <see cref="FoliageStyle.Tier"/> flattens the plate's
+        /// underside (<c>BottomFlatten</c>) and the rim's lobes swell it, so its lowest point stands only 0.40 to 0.45 of the
+        /// half-thickness under its centre (measured over these rolls; asserted between 0.3 and 0.55). That is why the drawn
+        /// underside of a tier that grew by <c>g</c> rises by about <c>(1 - 0.4) g</c> while the slab's does not, and the
+        /// slab, always the lower, is the conservative one for the planting to keep apart by.
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(Rolls))]
+        public void TheDrawnPlateReachesAboutFourTenthsOfItsHalfThicknessUnderItsCentre(AcaciaKind kind, float w, float h, int seed)
+        {
+            (AcaciaGeometry tree, _) = Grow(kind, w, h, seed);
+
+            //Every tier is the same tessellation, so each has the same share of the canopy's vertices
+            int tiers = tree.Volume.Length - 1;
+            int perTier = tree.CanopyVertices.Count / tiers;
+            Assert.Equal(0, tree.CanopyVertices.Count % tiers);
+
+            for (int t = 1; t <= tiers; t++)
+            {
+                float lowest = float.MaxValue;
+                for (int i = (t - 1) * perTier; i < t * perTier; i++)
+                    lowest = MathF.Min(lowest, tree.CanopyVertices[i].Position.Y);
+
+                float centre = (tree.Volume[t].Top + tree.Volume[t].Bottom) * 0.5f;
+                float reach = (centre - lowest) / Half(tree.Volume[t]);
+                Assert.True(reach > 0.3f && reach < 0.55f,
+                    $"{kind} {seed} at w {w} h {h}: tier {t}'s drawn plate reaches {reach:0.00} of its half-thickness under its centre, not about 0.4");
+                Assert.True(lowest > tree.Volume[t].Bottom, $"{kind} {seed}: tier {t}'s drawn plate dips under the slab the planting keeps apart by");
             }
         }
 

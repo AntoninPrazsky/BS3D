@@ -108,9 +108,9 @@ namespace Prazsky.Core.Render
         //How thick a crown tier is (#884). The owner: "the crowns of some of those trees are far too flat ... stretch the crowns
         //up a little". A tier's radius and the tree's height are rolled apart (SavannaScatter), and its thickness was a fixed
         //share of the height whatever the roll, so a mature tier ran from 3 to 7 times wider than its half-thickness. Per kind
-        //(and per tier), as shares of the tree's height: where the tier was centred and its half-thickness at #663 (the underside,
-        //the difference, stays where it was), and the half-thickness it has now - the one number that sets how flat a crown
-        //reads. The top rises by what the tier grew.
+        //(and per tier), as shares of the tree's height: where the tier was centred and its half-thickness at #663 (the nominal
+        //underside, the difference, stays where it was - the drawn plate's own underside does not quite: see Tier), and the
+        //half-thickness it has now - the one number that sets how flat a crown reads. The top rises by what the tier grew.
         private static readonly TierProfile MATURE_TIER = new(0.78f, 0.14f, 0.21f);
         private static readonly TierProfile SECOND_TIER = new(0.94f, 0.10f, 0.12f);
         private static readonly TierProfile YOUNG_TIER = new(0.84f, 0.11f, 0.155f);
@@ -305,19 +305,22 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>A kind's tier as shares of the tree's height (#884): <paramref name="centre"/> and <paramref name="was"/> are
-        /// where it was centred and its half-thickness at #663 (so its underside, the difference), <paramref name="half"/> its
-        /// half-thickness now.</summary>
+        /// where it was centred and its half-thickness at #663 (so its nominal underside, the difference), <paramref name="half"/>
+        /// its half-thickness now.</summary>
         private readonly struct TierProfile(float centre, float was, float half)
         {
             public readonly float Centre = centre, Was = was, Half = half;
         }
 
         /// <summary>
-        /// A crown tier stretched upward (#884): it keeps its underside (the centre less the half-thickness, as #663 left it) and its
-        /// radius, takes the profile's half-thickness, and is never thinner than <see cref="MAX_TIER_ASPECT"/> allows for its
-        /// radius, so the centre rises by what the tier grew and the top by a little more (the top is flattened, so it stands
-        /// <c>1 - TopFlatten</c> of the half-thickness over the centre). Every share the leaves and the boughs hang from is a share of
-        /// the half-thickness, so they follow.
+        /// A crown tier stretched upward (#884): it keeps its <i>nominal</i> underside (the centre less the half-thickness, as #663
+        /// left it - the <see cref="Slab"/> the planting keeps apart by) and its radius, takes the profile's half-thickness, and is
+        /// never thinner than <see cref="MAX_TIER_ASPECT"/> allows for its radius, so the centre rises by what the tier grew and
+        /// the top by a little more (the top is flattened, so it stands <c>1 - TopFlatten</c> of the half-thickness over the
+        /// centre). <b>The drawn plate's underside is not the nominal one:</b> <see cref="FoliageStyle.Tier"/> flattens it
+        /// (<c>BottomFlatten</c>) so its lowest point is only about 0.4 of the half-thickness under the centre, and it therefore rises,
+        /// by about 0.6 of what the tier grew (0.3 to 0.9 units over the savanna's rolls); the nominal slab stays under the leaves.
+        /// Every share the leaves and the boughs hang from is a share of the half-thickness, so they follow.
         /// </summary>
         /// <param name="lift">How far the whole tier is carried up, because it stands on another that rose.</param>
         private static TierSpec Tier(Vector2 offset, TierProfile profile, float radius, float treeHeight, float lift = 0f)
