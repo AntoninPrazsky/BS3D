@@ -1077,3 +1077,7 @@ Pravidla:
 - Hotovo (merge 1b4e500e, CI zelené včetně obou kroků hudby): `MusicBake --gate-scale <0..1>` zpřísní obě meze; build.yml spustí `--shipped --gate-scale 0.25` a spadne, pokud skutečné nahrávky nejsou odmítnuty pro špičku i pro ticho (BestPractices §10). Opraven i formát záporného limitu (`-+10.54`).
 - Změřeno řádkem `[alloc]` (Debug): výběr levelu, Help, About s přehrávačem, Jukebox, Settings, High Scores i výsledek stojí na 88 B/snímek jako menu, žádná stránka nepřidává. Vyhledávání `Parameters["…"]` v `Draw` (bouře, sopka, plameny) jsou mikrosekundy, podle §9 bez změny.
 - #873 zavřeno jako nahrazené #915 (majitel 16. 10.: celá kapitola znovu).
+
+## 2026-10-17 — kanárek v bráně levelů, zkouška release.yml — desktop (RDT-PC), Claude Code (bs3d-5f)
+- Hotovo (merge 4abbb7ec, CI zelené): brána regenerace levelů v build.yml i release.yml nejdřív vyprázdní `Levels.json`; generátor, který nic nezapíše (nebo zapíše jinam), už neprojde tím, že nechá commitnuté soubory být.
+- Zkouška release.yml přes „Run workflow“ (běh 39064166894, `dev-4abbb7e`, nic nepublikováno): všechny tři joby a tři brány (levely s kanárkem, GL efekty GamePi, nová hudební) zelené — změny v release.yml z dneška jsou ověřené před příštím tagem.
