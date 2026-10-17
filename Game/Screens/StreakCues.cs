@@ -65,8 +65,19 @@ namespace BS3D.Screens
         /// How far above the middle of the frame the caption's bottom edge stands, in design units (the 2160-unit height the HUD is
         /// authored in): clear of the crosshair at its most swollen (<see cref="Prazsky.Core.Render.Crosshair.FULL_STRAIN_REACH"/>, 132) by
         /// <see cref="LOST_CAPTION_GAP"/> and more, so the words never cover the aim point and its bars, and off the line the shot has just flown.
+        /// <b>It is turned into pixels by <see cref="ClearancePixels"/></b>, in the crosshair's own scale and not the HUD's.
         /// </summary>
         public const int LOST_CAPTION_CLEARANCE = 170;
+
+        /// <summary>
+        /// <see cref="LOST_CAPTION_CLEARANCE"/> in pixels for a viewport <paramref name="viewportHeight"/> tall, <b>at the crosshair's
+        /// own scale</b> (<see cref="Prazsky.Core.Render.Crosshair.PixelsPerUnit"/>): the mark it must clear is drawn off the viewport's
+        /// height alone, while the HUD's <c>Scaled</c> also shrinks with the width of a narrow window, so a clearance placed with it
+        /// fell short of the mark's reach there (a 1200x1600 window: 78 px against the mark's 98). The one placement of the lost-streak
+        /// caption and of the completion bonus, which stands where it does for the same reason.
+        /// </summary>
+        public static float ClearancePixels(int viewportHeight) =>
+            LOST_CAPTION_CLEARANCE * Prazsky.Core.Render.Crosshair.PixelsPerUnit(viewportHeight);
 
         /// <summary>The least clear space, in design units, between the crosshair at its most swollen and the caption's bottom edge: a visible gap
         /// (12 pixels at 900p), not a touch. What <see cref="LOST_CAPTION_CLEARANCE"/> is held to.</summary>

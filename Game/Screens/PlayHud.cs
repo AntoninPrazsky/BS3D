@@ -441,7 +441,8 @@ namespace BS3D.Screens
         //2026-10-15 never saw it on a 3840x1600 monitor: while aiming the eye rests on the middle of the frame, so the falling
         //run sounded with nothing to explain it. So the same call that starts the run also puts "STREAK LOST" and the lost
         //multiplier over the aim point (StreakCues.LostCaption), laid out as an award is (LayOutAward: its face, its blurred
-        //backing, the multiplier in the accent beside the words) and drawn LAST, over the awards, because it is the news.
+        //backing, the multiplier in the accent beside the words) and drawn LAST in its call, over the awards, because it is the news
+        //(a won level's cleared beat draws the awards in a later call: see the end of Draw).
         //
         //It is in full on its FIRST frame, with the sound, and only fades at its end (StreakCues.LostCaptionPresence): a
         //fade in would put it behind the very sound it explains. It slams in swollen and settles (LOST_CAPTION_POP_FROM,
@@ -1295,7 +1296,11 @@ namespace BS3D.Screens
                 DrawAwards(camera, viewport, scoreAnchor - new Vector2(scoreSize.X * 0.5f, 0f));
             }
 
-            //Over everything, awards in flight included: the lost streak, said over the aim point (#875)
+            //The lost streak, said over the aim point (#875), last of what this call draws: over the awards in flight when one call
+            //draws both (all of play). A won level's cleared beat draws the Play and the Account parts in two calls (#862), the
+            //account's, sharp, after the playing readouts' fading layer, so an award there passes over what is left of the
+            //caption - the right way round: the caption cannot be born once the level is decided (EndStreakQuietly), and a clear's
+            //own award has already started its fade (FadeLostCaption), so the newer number takes the read
             if ((parts & HudParts.Play) != 0) DrawStreakLost(viewport);
 
             batch.End();
@@ -1517,8 +1522,10 @@ namespace BS3D.Screens
         /// "STREAK LOST" and the multiplier that went, over the aim point (#875; the field notes above <see cref="_lostLength"/>):
         /// laid out as an award is (<see cref="LayOutAward"/>, <see cref="DrawAwardAt"/>), in full from its first frame, slamming in
         /// swollen and settling, white-hot cooling to grey, its bottom edge held <see cref="StreakCues.LOST_CAPTION_CLEARANCE"/> above the
-        /// middle of the frame (so the crosshair, wherever it swells to, is never under it) and drifting up as it fades. Nothing is
-        /// allocated: the two strings were made when the break began.
+        /// middle of the frame (so the crosshair, wherever it swells to, is never under it) and drifting up as it fades. <b>The
+        /// clearance is in the crosshair's scale, not the HUD's</b> (<see cref="StreakCues.ClearancePixels"/>): the HUD's own shrinks
+        /// with the width of a narrow window and the crosshair's does not, so at any window shape the caption clears the mark's full
+        /// strain. Nothing is allocated: the two strings were made when the break began.
         /// </summary>
         private void DrawStreakLost(Viewport viewport)
         {
@@ -1536,7 +1543,7 @@ namespace BS3D.Screens
             //pop grows upwards and never towards the crosshair
             float life = MathHelper.Clamp(_lostAge / _lostLength, 0f, 1f);
             float lift = 1f - (1f - life) * (1f - life);
-            float bottom = viewport.Height * 0.5f - Scaled(StreakCues.LOST_CAPTION_CLEARANCE) - Scaled(LOST_CAPTION_LIFT) * lift;
+            float bottom = viewport.Height * 0.5f - StreakCues.ClearancePixels(viewport.Height) - Scaled(LOST_CAPTION_LIFT) * lift;
             Vector2 centre = KeepInFrame(new Vector2(viewport.Width * 0.5f, bottom - extent.Y * 0.5f), extent, viewport);
 
             Color tint = Color.Lerp(Color.White, STREAK_LOST, MathHelper.SmoothStep(0f, 1f, _lostAge / LOST_CAPTION_COOL));
@@ -2490,7 +2497,8 @@ namespace BS3D.Screens
         /// rests while aiming, <b>with the bottom edge of its tallest drawing</b> (the top of the zoom's overshoot, or the slow
         /// swell at the end of the read: <see cref="AwardZoom.ReadMax"/>) <see cref="StreakCues.LOST_CAPTION_CLEARANCE"/> above it,
         /// which is where the lost streak's words stand and for the same reason: clear of the crosshair at its most swollen
-        /// (<c>Crosshair.FULL_STRAIN_REACH</c>), which the player may still be holding on the beat the field empties. The block
+        /// (<c>Crosshair.FULL_STRAIN_REACH</c>), which the player may still be holding on the beat the field empties - in pixels at
+        /// the crosshair's own scale, as the words are (<see cref="StreakCues.ClearancePixels"/>). The block
         /// zooms about this centre, so it grows both ways but never down into the aim; it drifts up over the read
         /// (<see cref="POPUP_BONUS_RISE"/>), away from it. The point the flight starts from, and so the one the throw's wind-up
         /// gathers behind.
@@ -2498,7 +2506,7 @@ namespace BS3D.Screens
         private Vector2 BonusSource(in Popup popup, Viewport viewport)
         {
             AwardLayout tallest = LayOutAward(popup, AwardZoom.ReadMax(popup.Peak, popup.Birth, popup.Hold));
-            float bottom = viewport.Height * 0.5f - Scaled(StreakCues.LOST_CAPTION_CLEARANCE)
+            float bottom = viewport.Height * 0.5f - StreakCues.ClearancePixels(viewport.Height)
                            - Scaled(POPUP_BONUS_RISE) * AwardZoom.Rise(popup.Age, popup.Hold);
 
             return new Vector2(viewport.Width * 0.5f, bottom - tallest.Extent.Y * 0.5f);

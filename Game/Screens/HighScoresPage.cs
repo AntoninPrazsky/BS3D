@@ -95,8 +95,12 @@ namespace BS3D.Screens
         private int _page = -1;
         private int[] _slotLevel = Array.Empty<int>();
 
-        //Each level's board key, read off its file once and kept (LevelIdentity.Of reads and hashes the file)
-        private readonly Dictionary<int, LevelIdentity> _identities = new();
+        //Each level's board key, read off its file once and kept, on a pool thread (LevelIdentity.Of reads and hashes the file, and
+        //the page needs all of them): made and started the first time the boards can be asked, since the set is fixed for a run,
+        //and asked only for what is ready (#898's review). _identitiesShown is whether Update has seen it complete and written
+        //the rows again
+        private LevelIdentityCache _identities;
+        private bool _identitiesShown;
 
         //The tree's parts the writing pass fills
         private Button _monthButton, _allTimeButton;
@@ -141,11 +145,27 @@ namespace BS3D.Screens
         }
 
         /// <summary>
+        /// Starts reading the levels' board keys off the frame, where the first summary used to read and hash every level's file on
+        /// it. Only when the boards can be asked at all (an opted-out page has no use for them), and once: a later call finds the
+        /// worker running or done. The rows of a level not yet read wait as they do before the boards answer, and Update writes
+        /// the page again when the last one is in.
+        /// </summary>
+        private void WarmIdentities()
+        {
+            if (!Game.Online.Enabled) return;
+
+            _identities ??= new LevelIdentityCache(Game.LevelCount, Game.LevelIdentityOf);
+            _identities.Start();
+        }
+
+        /// <summary>
         /// Both periods at once, so turning between them is instant; each is cached a minute by the session. Only a period
         /// with nothing on its way and nothing usable come back is asked, so a re-entry or a return asks no more than it must.
         /// </summary>
         private void Ask()
         {
+            WarmIdentities();
+
             if (_monthTicket < 0 && _monthReply?.Summary == null) _monthTicket = Game.Online.RequestBoardsSummary(allTime: false);
             if (_allTimeTicket < 0 && _allTimeReply?.Summary == null) _allTimeTicket = Game.Online.RequestBoardsSummary(allTime: true);
         }
@@ -167,6 +187,13 @@ namespace BS3D.Screens
             {
                 _allTimeReply = allTime;
                 _allTimeTicket = -1;
+                changed = true;
+            }
+
+            //The levels' keys have all been read (on the worker, once a run): write the rows again, which waited on them
+            if (!_identitiesShown && _identities != null && _identities.IsComplete)
+            {
+                _identitiesShown = true;
                 changed = true;
             }
 
@@ -529,10 +556,12 @@ namespace BS3D.Screens
                 Paint(_rowNumbers[slot], nameColor);
                 Paint(_rowNames[slot], nameColor);
 
-                BoardSummaryBody board = boards != null && Identity(level) is LevelIdentity id
+                //A level whose key is not read yet waits like a row before the boards answer (blank, the status line saying why)
+                bool identified = TryIdentity(level, out LevelIdentity id);
+                BoardSummaryBody board = boards != null && id != null
                     && boards.TryGetValue(Key(id.File, id.Hash, rules), out BoardSummaryBody found) ? found : null;
 
-                HighScoresRow.Texts texts = HighScoresRow.Of(reply?.Summary != null, board);
+                HighScoresRow.Texts texts = HighScoresRow.Of(reply?.Summary != null && identified, board);
                 Paint(_rowTops[slot], BS3DGame.MENU_TEXT_BODY);
                 _rowTops[slot].Text = texts.Leader;
                 _rowTopScores[slot].Text = texts.HasLeaderScore ? FontFigures.Tabular(texts.LeaderScore, FontSmall) : string.Empty;
@@ -555,7 +584,8 @@ namespace BS3D.Screens
             if (!Game.Online.Enabled)
                 return "No score server to ask: set a nickname in Settings, or this build has no server.";
 
-            if (reply == null) return "Loading the boards…";
+            //Waiting on the levels' keys is waiting on the boards: the count below is over all of them
+            if (reply == null || !IdentitiesComplete) return "Loading the boards…";
             if (reply.NotOffered) return "The score server does not offer this overview yet. Each level’s boards are still in Select Level.";
             if (reply.Summary == null) return "The score server did not answer. Try again in a moment.";
 
@@ -565,7 +595,7 @@ namespace BS3D.Screens
             int on = 0, leads = 0, rules = ScoreKeeper.RulesVersion;
             for (int level = 0; level < Game.LevelCount; level++)
             {
-                if (Identity(level) is not LevelIdentity id) continue;
+                if (!TryIdentity(level, out LevelIdentity id) || id == null) continue;
                 if (!boards.TryGetValue(Key(id.File, id.Hash, rules), out BoardSummaryBody board)) continue;
                 if (board.Me == null || board.Me.Rank <= 0) continue;
 
@@ -592,16 +622,17 @@ namespace BS3D.Screens
         private static string Key(string file, string hash, int rules) => file + "#" + hash + "#" + rules.ToString(CultureInfo.InvariantCulture);
 
         /// <summary>
-        /// A level's board key, read once (it reads and hashes the level's file). The status line asks it of every open
-        /// level, so the first summary to arrive reads that many files - once a run, since the set does not change.
+        /// A level's board key if the worker has read it (see <see cref="LevelIdentityCache"/>): true with the key, which is null
+        /// when the level's file will not read; false while it is still to be read. A lookup in an array - no file is read here.
         /// </summary>
-        private LevelIdentity Identity(int level)
+        private bool TryIdentity(int level, out LevelIdentity identity)
         {
-            if (!_identities.TryGetValue(level, out LevelIdentity identity))
-                _identities[level] = identity = Game.LevelIdentityOf(level);
+            if (_identities != null) return _identities.TryGet(level, out identity);
 
-            return identity;
+            identity = null;
+            return false;
         }
 
+        private bool IdentitiesComplete => _identities != null && _identities.IsComplete;
     }
 }

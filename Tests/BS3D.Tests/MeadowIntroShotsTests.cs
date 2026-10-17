@@ -11,9 +11,17 @@ namespace BS3D.Tests
     /// The meadow's chapter-intro prologue with its two close, slow orbits (#893): the owner's playtest asked for "a detailed
     /// low-angle shot of the bench under the tree and of the cylindrical hay bales — the camera moves in a half circle very
     /// slowly and is close to the objects". What is checked here is what a number can say: each is a half circle round its
-    /// subject, <c>4.6</c> s long, 0.6 to 1.5 over the ground, keeping off the old trees' stems and every low solid and out
+    /// subject, <c>4.6</c> s long, over the ground by the shot's own band, keeping off the old trees' stems and every low solid and out
     /// of the water, with the whole subject in frame — and above the skip hint at the bottom of it — from the first pose to the
     /// last at three window shapes. How it reads, and how slow it feels, is the eye's.
+    /// <para>
+    /// <b>Two bands over the ground, and they are not one.</b> The owner's is the issue's, <see cref="OWNERS_BAND_FROM"/> to
+    /// <see cref="OWNERS_BAND_TO"/> (0.6 to 1.5): a low angle, looking up at the subject, which no shot may leave. The shot's own is
+    /// narrower and inside it, <c>MeadowIntroShots.ORBIT_ABOVE_FROM</c> to <c>ORBIT_ABOVE_TO</c> (0.7 rising to 1.1), which is what
+    /// the lens stands at and what the test holds it to, give or take <see cref="LENS_SLACK"/> for the ground between the points the
+    /// arc is built at. A test of the owner's band alone passes a lens that has wandered anywhere in it; the shot's own range is the
+    /// one that says the shot is still the one that was built.
+    /// </para>
     /// <para>
     /// The planting needs a graphics device (<see cref="MeadowScatter"/> uploads its meshes), so the planting here is built from
     /// the constants and the geometry it keeps without one: the real bench (its own vertices, where
@@ -34,6 +42,12 @@ namespace BS3D.Tests
 
         //How finely a shot is walked, poses per shot
         private const int POSES = 120;
+
+        //The owner's band for the lens over the ground (#893's issue), and the slack allowed on the shot's own band: the arc is
+        //built at the ground's height under its points and the lens runs between them
+        private const float OWNERS_BAND_FROM = 0.6f;
+        private const float OWNERS_BAND_TO = 1.5f;
+        private const float LENS_SLACK = 0.02f;
 
         //How far inside every edge the subject must stay, as a share of the frame, as the city's mast is held (#840)
         private const float FRAME_MARGIN = 0.04f;
@@ -302,6 +316,10 @@ namespace BS3D.Tests
         [Fact]
         public void TheLensIsLowKeepsOffEverythingAndIsNeverOverTheWater()
         {
+            //The shot's own band is inside the owner's, so it cannot be retuned out of what he asked for
+            Assert.InRange(MeadowIntroShots.ORBIT_ABOVE_FROM, OWNERS_BAND_FROM, OWNERS_BAND_TO);
+            Assert.InRange(MeadowIntroShots.ORBIT_ABOVE_TO, OWNERS_BAND_FROM, OWNERS_BAND_TO);
+
             for (int seed = 1; seed <= ROLLS; seed++)
             {
                 Planting planting = Plant(seed);
@@ -319,7 +337,8 @@ namespace BS3D.Tests
                         string where = $"seed {seed}, '{name}' at {step}/{POSES}, {p}";
 
                         float above = p.Y - TerrainMirror.Meadow(p.X, p.Z, config);
-                        Assert.True(above >= 0.6f - 0.02f && above <= 1.5f + 0.02f, $"{where}: the lens is {above:F2} over the ground");
+                        Assert.True(above >= MeadowIntroShots.ORBIT_ABOVE_FROM - LENS_SLACK && above <= MeadowIntroShots.ORBIT_ABOVE_TO + LENS_SLACK,
+                            $"{where}: the lens is {above:F2} over the ground, the shot's own band {MeadowIntroShots.ORBIT_ABOVE_FROM} to {MeadowIntroShots.ORBIT_ABOVE_TO}");
 
                         //The arena's column, every old tree by its stem, every solid by its own sphere or capsule
                         Assert.True(Plan(p).Length() >= IntroGround.ARENA_KEEP_OUT, $"{where}: inside the arena's column");
