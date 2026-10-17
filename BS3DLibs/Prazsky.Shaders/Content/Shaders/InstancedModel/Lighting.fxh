@@ -33,8 +33,8 @@ int SceneLightCount;
 //and its alpha down over a shallow band below SeaLevelY so it reads as dimming into dark water rather than
 //vanishing in one frame (#131). The sea itself stops writing depth (DrawSea) so the ball reaches this path at
 //all; without that it would be depth-killed under the surface plane before the pixel shader ran. Declared
-//with the shared uniforms because two paths read it: PatternPS for the balls, and MainPS for the drain's
-//glass and gold below the pool standing in the drain (#132).
+//with the shared uniforms because two kinds of path read it, through ApplySeaSubmerge below: the ball techniques,
+//and MainPS for the drain's glass and gold below the pool standing in the drain (#132).
 float SeaLevelY;
 float SeaFadeDepth;
 float3 SeaSubmergeTint;
@@ -53,7 +53,7 @@ float3 SeaSubmergeTint;
 //here. It released the fade over a 1.5-unit band measured from EyePosition, which put the release ABOVE the
 //surface: at a tenth of a unit over the water the fade was already 93 % gone, and since DrawSea gives up its
 //depth write, the whole submerged drain shaft then drew straight THROUGH the standing pool - the exact
-//composite MainPS's copy of this block was added to prevent (#132). The band also claimed the murk was behind
+//composite MainPS's use of this fade was added to prevent (#132). The band also claimed the murk was behind
 //it and the murk is 7 % in at that height (its own ramp is 7 units, not 1.5), and it read nothing at all in the
 //map editor, which pins the murk to zero.
 //

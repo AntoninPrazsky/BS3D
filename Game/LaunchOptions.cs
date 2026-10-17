@@ -136,7 +136,7 @@ namespace BS3D
         internal bool Celebrate { get; private set; }
 
         //Testing only: pin the floor alarm's laser net on (SessionTestOptions.ForceLaserWarning). Reaching it honestly
-        //means playing a level to within two ceiling steps of losing it, which can no more be scripted than
+        //means playing a level to within three ceiling steps of losing it, which can no more be scripted than
         //clearing one can.
         internal bool Lasers { get; private set; }
 

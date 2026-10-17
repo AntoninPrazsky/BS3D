@@ -14,7 +14,7 @@ Part of [The game: shell](../game-shell.md).
 
 - **It is not in the pad's walk** (five tabs ahead of the first row would cost five presses). The tabs are turned, wrapping, by left/right (arrows, D-pad, left stick: `PageSideways`), LB/RB (one press, one page), the mouse wheel over the row, and a click.
 - A tab is a `MenuButton` whose `Tag` is cleared: `CollectNavEntries` walks only buttons with an `Action` on their `Tag`, so the mouse keeps hover, press and click sound and the pad never lands on one. The LB/RB prompts stand outside the tabs ([The keys are drawn in the UI](menu-navigation.md#the-keys-are-drawn-in-the-ui-799)).
-- **The chosen tab is inverted** (`TAB_SELECTED_BRUSH`), the opposite of a row's focus highlight. **ONLINE stays red from any other tab while the boards still want something done** (Off, or No server, #687). A tab turn is "moving on": a typed name is kept if it is one, and an armed "Sure?" stands down.
+- **The chosen tab is inverted** (`MenuPage.TabRow.SELECTED_BRUSH`, with `SELECTED_TEXT`), the opposite of a row's focus highlight. **ONLINE stays red from any other tab while the boards still want something done** (Off, or No server, #687). A tab turn is "moving on": a typed name is kept if it is one, and an armed "Sure?" stands down.
 
 ## Every page stands in the same frame
 

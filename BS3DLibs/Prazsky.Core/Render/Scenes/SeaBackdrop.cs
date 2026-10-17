@@ -37,9 +37,9 @@ namespace Prazsky.Core.Render
         internal const float SEA_EXTENT = 1600f;
 
         //How far the pool's edge is buried INTO the drain's glass cone (world units): the water's rim ends
-        //inside the wall rather than a chord-width short of it, so the funnel's 64-segment faceting can never
-        //open a sliver of sky between the water and the glass — the same buried-edge reasoning as the gold
-        //bands' EDGE_SINK (#109). See the pool derivation in Draw (#132).
+        //inside the wall rather than a chord-width short of it, so the drawn funnel's faceting
+        //(FUNNEL_DRAWN_SEGMENTS) can never open a sliver of sky between the water and the glass — the same
+        //buried-edge reasoning as the gold bands' EDGE_SINK (#109). See the pool derivation in Draw (#132).
         private const float POOL_WALL_BIAS = 0.15f;
 
         //Look/tuning parameters (water level & colours, waves, chop, wind, sun glint, foam, subsurface, haze)

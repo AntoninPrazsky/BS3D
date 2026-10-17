@@ -4,14 +4,14 @@ Part of [The game: feedback](../game-feedback.md).
 
 ## Placed by the hardware, attenuated by the game (#75)
 
-**Every play takes a small random pitch, and the five sounds that have a place in the world are placed there by the hardware** through `AudioEmitter`/`AudioListener`/`Apply3D`. The shot leaves the muzzle, a landing sounds at the cell it stuck to, a release at the cell that broke, and a shell whistles and bursts where it is. The party popper and the three UI sounds have no emitting object and never reach an emitter.
+**Every play takes a small random pitch, and every sound that has a place in the world is placed there by the hardware** through `AudioEmitter`/`AudioListener`/`Apply3D` (`Speak`). The shot leaves the muzzle, a landing sounds at the cell it stuck to, a release at the cell that broke, a shell whistles and bursts where it is, and the ice break, the blasts, the wormhole, the eruption, the Cut and Swap, the ceiling step (at the plate) and the line's cut and touch sound where they happen. The party popper, the thunder and the dry cues (the three UI sounds, the refused shot, the aim stop, the streak break, the star) have no emitting object and never reach an emitter.
 
 - **The hardware gives direction and the game gives distance; that split is the whole design.** X3DAudio's own `1/d` curve would put a landing 28 units out 29 dB down, and XNA's `AudioEmitter` exposes no custom curve. So that curve is switched off: `SoundEffect.DistanceScale` is set once to 10 000, where the output matrix sums to 1 from 0 to 500 units in every direction, in stereo and 5.1 alike. Every distance law in the game (a landing attenuates to a floor, never to silence) stays the game's own. ⚠ Never vary `DistanceScale` per source: that puts an inverse-square curve back on top of the game's own. It is a plateau radius, and it does bite at 20 000 units.
 - **On OpenAL (GamePi, #790) the placement comes after `Play`.** A DesktopGL `SoundEffectInstance` holds an OpenAL source only while it plays, so `Apply3D` before `Play` does nothing and the sound plays centred. XAudio2 needs the opposite order, because its placement writes the frequency ratio. `Speak` asks `Platform/AudioBackend.PlacesAfterPlay` (false on Windows, true in GamePi). A Pi with no sound device falls back to OpenAL Soft's null output and does not crash.
 
 ## Voices: `VoiceRing`
 
-**`Apply3D` needs a handle and `SoundEffect.Play` is fire-and-forget, so each spatial buffer gets a `VoiceRing`**: a fixed ring of `SoundEffectInstance`s built once at load and reused (4 shot, 3 per ball type, 3 release, 12 launch, 32 burst).
+**`Apply3D` needs a handle and `SoundEffect.Play` is fire-and-forget, so each spatial buffer gets a `VoiceRing`**: a fixed ring of `SoundEffectInstance`s built once at load and reused (4 shot, 3 per ball type, 3 release, 4 launch, 32 burst).
 
 - ⚠ **The framework will not bound it.** `MAX_PLAYING_INSTANCES` is `int.MaxValue` on WindowsDX, so a create-per-play design leaks a source voice per sound with no symptom.
 - ⚠ **Every `Take()` stops the slot it hands back**, because `SoundEffectInstance.Play()` returns early on an instance that is already playing: a still-sounding slot would swallow the new sound.
@@ -40,7 +40,7 @@ Each way of getting it wrong is silent.
 ## The mix and the volume rows
 
 - **The move to `Apply3D` cost 2.92 dB at the centre of the image**, because X3DAudio's matrix sums to 1 where the old pan law wrote both channels at full. `BASE_VOLUME` went to 1.0 to take back what can be taken back (`Volume` throws above 1). The shift depends on position, so the wide sounds gained relative to the centred ones.
-- The popper and the three UI sounds still use the centre-hot pan law, trimmed by `NON_SPATIAL_TRIM` (0.7).
+- The sounds with no emitter (the popper, the thunder and the dry cues above) still use the centre-hot pan law, trimmed by `NON_SPATIAL_TRIM` (0.7).
 - If the effects sit too low under the bed and the music, the fix is the other end (`AMBIENCE_VOLUME`, `MUSIC_VOLUME`, `MENU_VOLUME`, `FANFARE_VOLUME` × ~0.71). That is an ear's call and has not been made.
 - **Volume is authored mix × player gain (#46).** The mix keeps its tuning in constants. The Volume, Effects, Music and Ambience rows scale it in quarters, with "Off" at zero. Each subsystem takes `master × its own row` through a `Gain` property written only by `AudioDirector.ApplyVolumes`.
   - The effects apply a change on the next play.

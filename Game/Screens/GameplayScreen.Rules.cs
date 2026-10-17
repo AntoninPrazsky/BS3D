@@ -888,7 +888,7 @@ namespace BS3D.Screens
         /// <summary>
         /// Arms or stands down the floor alarm from the cluster's lowest live ball: on when
         /// <see cref="LASER_WARN_STEPS"/> more ceiling steps would push it past the death line — the very
-        /// comparison <see cref="CheckLevelLost"/> loses on, two descents early — and off with a little
+        /// comparison <see cref="CheckLevelLost"/> loses on, three descents early — and off with a little
         /// hysteresis on the way back up. An empty field's <c>MaxValue</c> stands it down for free. The
         /// <c>lasers</c> command-line flag pins it on, so the net can be screenshotted without playing a
         /// level to the brink — the <c>celebrate</c> reasoning, for a session-owned effect.
