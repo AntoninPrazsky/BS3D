@@ -40,6 +40,10 @@ namespace BS3D.Tests
         //before the sprays followed their twigs)
         private const float MAX_PITCH_P90 = 30f;
 
+        //A thorn bush's leaf is a mound, not a plate (#883): its twigs climb from the branch ends to the top layer and the cards follow
+        //half of that, so the steepest tenth reach 31 to 33 degrees where a tier's 21 to 25; still near flat, a spray never stands on end
+        private const float MAX_BUSH_PITCH_P90 = 36f;
+
         public static TheoryData<AcaciaKind, int> Acacias() => new()
         {
             { AcaciaKind.Mature, 4100 }, { AcaciaKind.Mature, 4101 }, { AcaciaKind.Mature, 4102 }, { AcaciaKind.Mature, 4103 },
@@ -92,7 +96,37 @@ namespace BS3D.Tests
             AssertAlongWood(tree.LeafVertices, tree.Skeleton, $"baobab {seed}");
         }
 
-        private void AssertAlongWood(IReadOnlyList<VertexPositionNormalTexture> leaves, IReadOnlyList<(Vector3 From, Vector3 To)> skeleton, string tree)
+        //The savanna's thorn bushes (#883): the sizes the scatter makes them at under the dome's own roll (SavannaScatter.ThornSize: a
+        //reach of 2.34 to 3.70, from 0.78 to 0.88 of a dome radius of 3.0 to 4.2, and a top of 0.75 to 0.97 of that reach, never over
+        //0.8 of the dome's height, 3.17 at the lowest), with the structural seeds it builds them with. The two ends of each roll are
+        //in it: the smallest and the largest reach, and the lowest and the highest share of it
+        public static TheoryData<float, float, int> ThornBushes() => new()
+        {
+            { 2.34f, 1.76f, 4250 }, { 2.60f, 2.10f, 4251 }, { 3.70f, 3.17f, 4252 },
+            { 3.70f, 3.59f, 4253 }, { 3.00f, 2.91f, 4254 }, { 3.40f, 2.55f, 4255 },
+        };
+
+        [Theory]
+        [MemberData(nameof(ThornBushes))]
+        public void EveryThornBushLeafGrowsFromItsWood(float radius, float height, int seed)
+        {
+            ThornBushGeometry bush = ThornBushMesh.Build(radius, height, seed);
+
+            AssertAttached(bush.LeafVertices, bush.Skeleton, $"thorn bush {seed}");
+            AssertFitsShortIndices(bush.WoodVertices.Count, $"thorn bush {seed}");
+        }
+
+        [Theory]
+        [MemberData(nameof(ThornBushes))]
+        public void EveryThornBushLeafPointsAlongItsTwig(float radius, float height, int seed)
+        {
+            ThornBushGeometry bush = ThornBushMesh.Build(radius, height, seed);
+
+            AssertAlongWood(bush.LeafVertices, bush.Skeleton, $"thorn bush {seed}", MAX_BUSH_PITCH_P90);
+        }
+
+        private void AssertAlongWood(IReadOnlyList<VertexPositionNormalTexture> leaves, IReadOnlyList<(Vector3 From, Vector3 To)> skeleton, string tree,
+            float maxPitchP90 = MAX_PITCH_P90)
         {
             Assert.True(leaves.Count > 0, $"{tree}: no leaves");
 
@@ -130,7 +164,7 @@ namespace BS3D.Tests
             //Along the twig, but still laid near flat: the crown is thin tiers of foliage (#610), and a spray that followed every
             //twig's climb in full would stand them on end
             float steep = pitches[pitches.Count * 9 / 10];
-            Assert.True(steep <= MAX_PITCH_P90, $"{tree}: the steepest tenth of the leaf cards are tilted {steep:0} degrees or more off the horizontal");
+            Assert.True(steep <= maxPitchP90, $"{tree}: the steepest tenth of the leaf cards are tilted {steep:0} degrees or more off the horizontal");
         }
 
         private static void AssertAttached(IReadOnlyList<VertexPositionNormalTexture> leaves, IReadOnlyList<(Vector3 From, Vector3 To)> skeleton, string tree)

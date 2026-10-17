@@ -40,9 +40,9 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Drawn only when <see cref="SceneRenderer.FineMeshes"/> is this (#758): <c>true</c> for High and Ultra's finer mesh
-        /// of a thing (an acacia's <see cref="AcaciaMesh.FineWood"/>), <c>false</c> for the coarser one Low and Medium draw
-        /// instead off the same instances, <c>null</c> for every tier. On screen and into the sun's map alike, or a tree
-        /// would cast two shadows; the Potato path draws the coarse one.
+        /// of a thing (an acacia's <see cref="AcaciaMesh.FineWood"/>, a bush's <see cref="ThornBushMesh"/>, #883), <c>false</c>
+        /// for the coarser one Low and Medium draw instead off the same instances (the bush's lobed dome), <c>null</c> for every
+        /// tier. On screen and into the sun's map alike, or a tree would cast two shadows; the Potato path draws the coarse one.
         /// </summary>
         public bool? FineMeshes { get; }
 
@@ -201,6 +201,36 @@ namespace Prazsky.Core.Render
         /// seed and must not be the same sequence.</summary>
         private const int PLANTING_STREAM = 0x5CA7;
 
+        //The thorn bushes (#883): how many thorn meshes stand in for each dome mesh, their own dice, and each one's size as a
+        //share of its dome's (a roll between the two): how far it reaches, of the dome's radius, how high it stands, of its own
+        //reach, and never over THORN_HEIGHT_CAP of the dome's height. Smaller than the dome on purpose, and these are what keep
+        //it inside the volume the dome was planted by (the slab: 0.9 of the dome's radius, the dome's whole height); the reach
+        //and the height are of the whole bush, cards included, which is what ThornBushTests holds over the whole roll
+        internal const int THORN_PER_DOME = 3;
+        internal const float THORN_REACH_MIN = 0.78f, THORN_REACH_SPREAD = 0.10f;
+        internal const float THORN_HEIGHT_MIN = 0.75f, THORN_HEIGHT_SPREAD = 0.22f, THORN_HEIGHT_CAP = 0.8f;
+        private const int THORN_STREAM = 0x883;
+
+        /// <summary>
+        /// The size of a thorn bush standing in for a dome of <paramref name="domeRadius"/> and <paramref name="domeHeight"/> (its full
+        /// height, twice the half-height the dome is built with), from two rolls on 0 to 1 (#883): how far it reaches and how high it
+        /// stands, at scale 1. The one rule, so the planting and the test that holds the bush inside the dome's volume cannot part.
+        /// </summary>
+        internal static (float Reach, float Top) ThornSize(float domeRadius, float domeHeight, float reachRoll, float heightRoll)
+        {
+            float reach = domeRadius * (THORN_REACH_MIN + THORN_REACH_SPREAD * reachRoll);
+            float top = MathF.Min(reach * (THORN_HEIGHT_MIN + THORN_HEIGHT_SPREAD * heightRoll), domeHeight * THORN_HEIGHT_CAP);
+            return (reach, top);
+        }
+
+        //The thorn bushes' colours, graded off the trees' so a level that repaints the canopy or the trunks repaints them (#883): how
+        //far the canopy's colours are taken towards their own grey (silver-green leaf, not the trees' green; at 0.6 and brightened
+        //a quarter the shaded cards photographed teal, at 0.4 and a third brighter the sunlit ones near white at a distance), how far
+        //the trunk's are (and how much brighter), and how strongly the bark's fissures and lichen show on a wiry twig
+        private const float THORN_LEAF_GREY = 0.35f;
+        private const float THORN_WOOD_GREY = 0.6f, THORN_WOOD_GAIN = 2f;
+        private const float THORN_BARK = 0.3f;
+
         //The tufts at the trees' feet (#670): their own dice, how many round a tree (and round a baobab), and how far
         //out from the trunk's foot they stand, as multiples of its radius
         private const int FOOT_STREAM = 0x670;
@@ -303,12 +333,28 @@ namespace Prazsky.Core.Render
             //as tall as it is, a mound a wide foot under a narrow spire, a boulder one squat cylinder inside its sphere
             var bushes = new FoliageMesh[BUSH];
             var bushVolume = new Slab[BUSH][];
+            var bushRadius = new float[BUSH];
+            var bushHeight = new float[BUSH];
             for (int m = 0; m < BUSH; m++)
             {
                 float br = ac.Width * (0.5f + 0.2f * (float)rng.NextDouble());
                 float bh = ac.Height * (0.22f + 0.08f * (float)rng.NextDouble());
                 bushes[m] = Own(new FoliageMesh(device, br, bh, centreY: bh, seed: 4200 + m));
                 bushVolume[m] = new Slab[] { new(0f, 2f * bh, br * 0.9f) };
+                bushRadius[m] = br;
+                bushHeight[m] = 2f * bh;
+            }
+
+            //The thorn bushes High and Ultra draw in the dome's place (#883): smaller than the dome, so inside the volume the dome
+            //was planted by, and several to a dome (the bushes of one dome mesh are dealt out among THORN_PER_DOME of them, below),
+            //so six shapes stand where two domes did. Their own dice: not one roll of the planting's moves
+            var thorns = new ThornBushMesh[BUSH * THORN_PER_DOME];
+            var thornDice = new Random(seed * 883 + THORN_STREAM);
+            for (int m = 0; m < thorns.Length; m++)
+            {
+                (float reach, float top) = ThornSize(bushRadius[m / THORN_PER_DOME], bushHeight[m / THORN_PER_DOME],
+                    (float)thornDice.NextDouble(), (float)thornDice.NextDouble());
+                thorns[m] = Own(new ThornBushMesh(device, reach, top, 4250 + m));
             }
 
             var scrub = new FoliageMesh[SCRUB];
@@ -922,7 +968,29 @@ namespace Prazsky.Core.Render
                 buckets.Add(new ScatterBucket(device, tree.FineWood, treeInstances[m], dead ? deadwood : trunk, dead ? deadwoodDry : trunk * 1.15f,
                     dapple: 0f, bark: 0.6f, detailOnly: false, earthed: true, fineMeshes: true));
             }
-            Add(buckets, device, bushes, bushInstances, canopyDry, canopy, dapple: 0.5f, bark: 0f, detailOnly: false);
+            //The thorn bushes' instances: each dome mesh's, dealt out round the thorn meshes in turn (the dome's own lists are
+            //whole, and Low, Medium and the Potato path draw them)
+            var thornInstances = Lists(thorns.Length);
+            for (int m = 0; m < BUSH; m++)
+                for (int k = 0; k < bushInstances[m].Count; k++)
+                    thornInstances[m * THORN_PER_DOME + k % THORN_PER_DOME].Add(bushInstances[m][k]);
+
+            //The dome for Low and Medium (and the Potato path), the thorn bush for High and Ultra, off the same instances (#883, as an
+            //acacia's two woods). The bushes' colours run the other way from the trees' (the dome's base is the dry one: a bush's
+            //dryness leans it GREEN): a relabelling, since dryness is rolled evenly on 0 to 1 and the same shades come out either way, left
+            //as it is so no pixel of the tiers that draw the dome moves. The thorn bush takes the trees' order, so dryness means
+            //one thing across the plain
+            Add(buckets, device, bushes, bushInstances, canopyDry, canopy, dapple: 0.5f, bark: 0f, detailOnly: false, fineMeshes: false);
+            Vector3 bushLeaf = Greyed(canopy, THORN_LEAF_GREY), bushLeafDry = Greyed(canopyDry, THORN_LEAF_GREY);
+            Vector3 bushWood = Greyed(trunk * THORN_WOOD_GAIN, THORN_WOOD_GREY);
+            for (int m = 0; m < thorns.Length; m++)
+            {
+                if (thornInstances[m].Count == 0) continue;
+                buckets.Add(new ScatterBucket(device, thorns[m].Wood, thornInstances[m], bushWood, bushWood * 1.2f, dapple: 0f, bark: THORN_BARK,
+                    detailOnly: false, fineMeshes: true));
+                buckets.Add(new ScatterBucket(device, thorns[m].Leaves, thornInstances[m], bushLeaf, bushLeafDry, dapple: 0.35f, bark: 0f,
+                    detailOnly: false, leaves: 1f, fineMeshes: true));
+            }
             Vector3 scrubColor = dr.ScrubColor.ToVector3();
             Add(buckets, device, scrub, scrubInstances, scrubColor, scrubColor * new Vector3(1.5f, 1.25f, 0.9f), dapple: 0.5f, bark: 0f, detailOnly: false);
             Vector3 moundColor = dr.MoundColor.ToVector3();
@@ -988,13 +1056,20 @@ namespace Prazsky.Core.Render
         }
 
         private static void Add<T>(List<ScatterBucket> buckets, GraphicsDevice device, T[] meshes, List<ModelInstance>[] instances,
-            Vector3 diffuse, Vector3 diffuseDry, float dapple, float bark, bool detailOnly) where T : IProceduralMesh
+            Vector3 diffuse, Vector3 diffuseDry, float dapple, float bark, bool detailOnly, bool? fineMeshes = null) where T : IProceduralMesh
         {
             for (int m = 0; m < meshes.Length; m++)
             {
                 if (instances[m].Count == 0) continue;
-                buckets.Add(new ScatterBucket(device, meshes[m], instances[m], diffuse, diffuseDry, dapple, bark, detailOnly));
+                buckets.Add(new ScatterBucket(device, meshes[m], instances[m], diffuse, diffuseDry, dapple, bark, detailOnly, fineMeshes: fineMeshes));
             }
+        }
+
+        /// <summary>A linear colour taken <paramref name="amount"/> of the way to the grey of its own luminance.</summary>
+        private static Vector3 Greyed(Vector3 colour, float amount)
+        {
+            float luminance = 0.2126f * colour.X + 0.7152f * colour.Y + 0.0722f * colour.Z;
+            return Vector3.Lerp(colour, new Vector3(luminance), amount);
         }
 
         private T Own<T>(T mesh) where T : IDisposable
