@@ -128,6 +128,9 @@ namespace BS3D.Screens
             //Nor a cut still charging, pinching, slowing the world or glowing (#767)
             _cutStaging.Reset();
 
+            //Nor a swap's rounds still sliding (#871)
+            _swapMotion.Cancel();
+
             //And a gun that dozed off over the last level wakes for this one (#230)
             _dozing.Reset();
             _cannon.Droop = 0f;
@@ -191,6 +194,7 @@ namespace BS3D.Screens
             _fallingBalls.Clear();
             _smears.Clear();
             _lineSparks.Clear();
+            _swapMotion.Cancel();
 
             _physicsAccumulator = 0f;
 

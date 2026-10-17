@@ -607,6 +607,13 @@ namespace BS3D.Screens
             //The fired ball's slot empties, the queue shifts up, a fresh colour loads at the back and the glide
             //is armed — and each slot's kind and transmute state ride forward with its colour as one value
             //(Magazine's MagazineSlot, #582), so no slot is left dissolving out of the ball behind it.
+            //A shot fired while a Swap's rounds are still sliding leaves at once, as whatever stands at the muzzle (#871): the
+            //picture is only the way they got there, and it ends with the queue moving on
+            if (_swapMotion.Active)
+                Console.WriteLine(FormattableString.Invariant(
+                    $"[swap] shot fired {_swapMotion.Age:F3} s into the swap: {type} leaves at once, the picture ends"));
+
+            _swapMotion.Cancel();
             _magazine.Advance();
 
             //The gun's own answer — the tube thrown back in its cradle, the carriage lurching a beat behind

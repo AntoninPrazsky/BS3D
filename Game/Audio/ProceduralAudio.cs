@@ -168,6 +168,13 @@ namespace BS3D.Audio
         private readonly SoundEffect _cutCharge, _cutSlice;
         private readonly VoiceRing _cutChargeRing, _cutSliceRing;
 
+        /// <summary>
+        /// The Swap's own sound (#871): two voices crossing as the rounds slide through each other. <c>Sfx/swap.ogg</c> when
+        /// there is one, and <see cref="SwapSynth"/>'s bake otherwise, which is what ships.
+        /// </summary>
+        private readonly SoundEffect _swap;
+        private readonly VoiceRing _swapRing;
+
         /// <summary>A streak breaking (#845), one per multiplier that can be lost, indexed by it (0 and 1 left empty); see <see cref="StreakBreakSynth"/>.</summary>
         private readonly SoundEffect[] _streakBreak;
 
@@ -439,6 +446,9 @@ namespace BS3D.Audio
             _cutCharge = FromSfxOrBake("cut-charge", () => ToSoundEffect(CutSynth.RenderCharge(SAMPLE_RATE)));
             _cutSlice = FromSfxOrBake("cut-slice", () => ToSoundEffect(CutSynth.RenderSlice(SAMPLE_RATE)));
 
+            //The Swap's whoosh-swap (#871), a recording when one is in Sfx and its bake otherwise
+            _swap = FromSfxOrBake("swap", () => ToSoundEffect(SwapSynth.Render(SAMPLE_RATE)));
+
             //One per multiplier a streak can lose: a handful of short buffers, baked here with the rest so a break never
             //waits on its synthesis
             _streakBreak = new SoundEffect[ScoreKeeper.MaxMultiplier + 1];
@@ -465,6 +475,9 @@ namespace BS3D.Audio
             //One Cut a level (#213), so a voice each is plenty; two for the slice, for powerups=cut:n runs
             _cutChargeRing = new VoiceRing(_cutCharge, 1);
             _cutSliceRing = new VoiceRing(_cutSlice, 2);
+
+            //Two voices: a second press can come while the first is still dying away, and a Swap is cheap to repeat
+            _swapRing = new VoiceRing(_swap, 2);
 
             //One hole at a time (Wormhole), so one voice each
             _wormholeOpenRing = new VoiceRing(_wormholeOpen, 1);
@@ -866,6 +879,17 @@ namespace BS3D.Audio
         }
 
         /// <summary>
+        /// The two rounds in the bore sliding through each other (#871): two voices crossing, one rising a fifth as the other
+        /// falls it (<see cref="SwapSynth"/>), over a soft body, with one soft note as they settle. Spoken from the
+        /// <paramref name="muzzle"/> and flat with distance, as the shot and the Cut's charge are: it is the gun answering the
+        /// player's hand. A small pitch nudge, so the two glides keep their shape.
+        /// </summary>
+        public void PlaySwap(Vector3 muzzle)
+        {
+            Speak(_swapRing, muzzle, NEAR_WIDEN, MathHelper.Clamp(SWAP_VOLUME * Level, 0f, 1f), NextPitch(0.02f));
+        }
+
+        /// <summary>
         /// A cutter severing a storey (#767): the blade's zing and its long ring over a warm thump (<see cref="CutSynth"/>),
         /// spoken from where it struck. <paramref name="size"/> (0 to 1) is how much the cut freed: bigger is louder and a
         /// shade deeper, the release's and the report's rule. Near-flat with distance and near full level, the bomb's law
@@ -882,6 +906,10 @@ namespace BS3D.Audio
 
         //The charge's level: under the shot that fires the round (full level), over the aim stop (it is an event, not a nudge)
         private const float CUT_CHARGE_VOLUME = 0.7f;
+
+        //The Swap's level (#871): under the Cut's charge, which is an event the player aims; the Swap is a quick move of the
+        //hand, pressed often
+        private const float SWAP_VOLUME = 0.6f;
 
         /// <summary>
         /// A streak of <paramref name="lost"/> breaking (#845): a short run of struck notes falling, one per unit of the
@@ -3222,6 +3250,7 @@ namespace BS3D.Audio
             _wormholePopRing?.Dispose();
             _cutChargeRing?.Dispose();
             _cutSliceRing?.Dispose();
+            _swapRing?.Dispose();
 
             _shoot?.Dispose();
             if (_landed != null)
@@ -3247,6 +3276,7 @@ namespace BS3D.Audio
             _aimStop?.Dispose();
             _cutCharge?.Dispose();
             _cutSlice?.Dispose();
+            _swap?.Dispose();
             if (_streakBreak != null) foreach (SoundEffect breaking in _streakBreak) breaking?.Dispose();
             _starEarned?.Dispose();
             _thunder?.Dispose();

@@ -84,6 +84,12 @@ namespace Prazsky.Core.Render
             public Vector3 Head;        //the leading tip out in the open: bright and full width
             public Vector3 Radiance;    //linear, already hue-floored and boosted — the shader takes it as it is
             public float Age;
+
+            //A launch burst's are the dials above and fade over LIFETIME. A streak (AddStreak, #871) is drawn for the one frame it
+            //was added in at the alpha and widths it was given, and never ages
+            public float HeadWidth, TailWidth;
+            public float Alpha;
+            public bool Streak;
         }
 
         private readonly List<Smear> _smears = new();
@@ -91,7 +97,7 @@ namespace Prazsky.Core.Render
         private readonly GraphicsDevice _device;
 
         //Cached at construction, per BestPractices.md §1: the by-name indexer is a string scan of the
-        //effect's whole parameter collection, and these four go out once PER SMEAR.
+        //effect's whole parameter collection, and these four go out once PER SMEAR (and the two widths below with them since #871).
         private readonly EffectParameter _headParam, _tailParam, _colorParam, _alphaParam;
 
         //And these three once per frame, for the same reason.
@@ -163,7 +169,43 @@ namespace Prazsky.Core.Render
                 Muzzle = muzzle,
                 Head = muzzle + direction * LENGTH,
                 Radiance = linear * BRIGHTNESS,
-                Age = 0f
+                Age = 0f,
+                HeadWidth = LEAD_WIDTH,
+                TailWidth = MUZZLE_WIDTH
+            });
+        }
+
+        /// <summary>Radiance boost of a streak (<see cref="AddStreak"/>): under a launch burst's, which is the hardest thing the gun does.</summary>
+        private const float STREAK_BRIGHTNESS = 1.6f;
+
+        /// <summary>
+        /// A streak for <b>this frame only</b> (#871): a comet's tail behind something that is moving now - a round sliding along the
+        /// bore in a Swap - from <paramref name="tail"/> to <paramref name="head"/>, narrow and faint at the tail and wide and bright at
+        /// the head, the same billboard and shading as the launch burst. The caller adds it from the draw each frame it is wanted and it
+        /// is gone once drawn (<see cref="Update"/> drops any a skipped draw left), so nothing ages and nothing is stored: where it stands
+        /// is the frame's own, and its brightness cannot depend on the frame rate.
+        /// </summary>
+        /// <param name="tail">The faint end, behind the thing.</param>
+        /// <param name="head">The bright end, at the thing's leading edge.</param>
+        /// <param name="srgbTint">The thing's own tint, as authored - sRGB; hue-floored and boosted as a burst's is.</param>
+        /// <param name="alpha">How much of it shows, 0 to 1.</param>
+        /// <param name="headHalfWidth">The streak's half-width at the head; the tail's is a third of it.</param>
+        public void AddStreak(Vector3 tail, Vector3 head, Vector3 srgbTint, float alpha, float headHalfWidth)
+        {
+            Vector3 linear = ColorSpace.SrgbToLinear(srgbTint);
+
+            float peak = MathF.Max(linear.X, MathF.Max(linear.Y, linear.Z));
+            if (peak < COLOR_FLOOR) linear *= COLOR_FLOOR / MathF.Max(peak, 1e-4f);
+
+            _smears.Add(new Smear
+            {
+                Muzzle = tail,
+                Head = head,
+                Radiance = linear * STREAK_BRIGHTNESS,
+                HeadWidth = headHalfWidth,
+                TailWidth = headHalfWidth / 3f,
+                Alpha = alpha,
+                Streak = true
             });
         }
 
@@ -181,7 +223,8 @@ namespace Prazsky.Core.Render
                 Smear smear = _smears[i];
                 smear.Age += elapsedSeconds;
 
-                if (smear.Age >= LIFETIME) _smears.RemoveAt(i);
+                //A streak is for the frame it was added in, and a frame that did not draw it has no use for it
+                if (smear.Streak || smear.Age >= LIFETIME) _smears.RemoveAt(i);
                 else _smears[i] = smear;
             }
         }
@@ -205,7 +248,7 @@ namespace Prazsky.Core.Render
         /// fresh state object (BestPractices.md §2).
         /// </para>
         /// <para>
-        /// Nothing is allocated and nothing is looked up by name; the four per-smear uniforms go out through
+        /// Nothing is allocated and nothing is looked up by name; the six per-smear uniforms (the two widths since #871) go out through
         /// the cached references and the shared quad is bound once for the whole walk.
         /// </para>
         /// </summary>
@@ -216,11 +259,6 @@ namespace Prazsky.Core.Render
             _viewParam.SetValue(camera.View);
             _projectionParam.SetValue(camera.Projection);
             _cameraPositionParam.SetValue(camera.Position);
-
-            //The smear's own taper, reclaimed from whatever else drew through this effect since — AimBeam shares
-            //it and wants parallel sides. See the constructor.
-            _headWidthParam.SetValue(LEAD_WIDTH);
-            _tailWidthParam.SetValue(MUZZLE_WIDTH);
 
             BlendState blend = _device.BlendState;
             DepthStencilState depth = _device.DepthStencilState;
@@ -242,14 +280,23 @@ namespace Prazsky.Core.Render
                 //be missed
                 float t = smear.Age / LIFETIME;
 
+                //The smear's own taper, reclaimed from whatever else drew through this effect since — AimBeam shares
+                //it and wants parallel sides. See the constructor. Per smear, since a streak's are its own
+                _headWidthParam.SetValue(smear.HeadWidth);
+                _tailWidthParam.SetValue(smear.TailWidth);
+
                 _headParam.SetValue(smear.Head);
                 _tailParam.SetValue(smear.Muzzle);
                 _colorParam.SetValue(smear.Radiance);
-                _alphaParam.SetValue(1f - t * t);
+                _alphaParam.SetValue(smear.Streak ? smear.Alpha : 1f - t * t);
 
                 _pass.Apply();
                 _device.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, 2);
             }
+
+            //The streaks were for this frame alone
+            for (int i = _smears.Count - 1; i >= 0; i--)
+                if (_smears[i].Streak) _smears.RemoveAt(i);
 
             _device.BlendState = blend;
             _device.DepthStencilState = depth;

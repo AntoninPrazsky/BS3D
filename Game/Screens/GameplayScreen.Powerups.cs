@@ -188,14 +188,24 @@ namespace BS3D.Screens
             switch (kind)
             {
                 case PowerupKind.Swap:
-                    //Seen to trade (#705): the two dissolve into each other's colour, the re-colour's own dithered cross-fade
+                    //The exchange is made at once, and the next shot is whatever stands at the muzzle however far the picture has
+                    //run. The two rounds' strip discs cross-fade over the same third of a second (#705, the 2D readout the
+                    //picture cannot reach)
                     _magazine.SwapSlots(SWAP_SLOT_A, SWAP_SLOT_B, crossFade: true);
 
-                    //Heard and taught (#213): the mechanism's own click, dry and unplaced like the UI's (it is the
-                    //player's hand on the gun, not something out in the scene), and the tutorial card up, if it is
-                    //this one, is done
-                    Game.Audio.PlayUiClick();
+                    //Seen to trade (#871): the two rounds slide through each other along the bore, smeared along their paths
+                    //under a heavy cross-fade, in place of the re-colour's dither
+                    _swapMotion.Start();
+                    _swapShotNext = 0;
+
+                    //Heard (#871): the swap's own whoosh from the muzzle, two voices crossing - until then the menus' click, which
+                    //it is no longer: the player's hand on the gun moves rounds now - and taught (#213), the tutorial card up, if
+                    //it is this one, being done
+                    Game.Audio.PlaySwap(_cannon.MuzzlePosition(Game.CannonRig.PivotToFrontBall));
                     _tutorial.Report(Tutorial.Lesson.Swap);
+
+                    Console.WriteLine(FormattableString.Invariant(
+                        $"[swap] press: the rounds trade over {SwapMotion.SECONDS:F2} s, the next shot is {LoadedColour(0)} at once"));
                     break;
 
                 case PowerupKind.Brake:

@@ -47,4 +47,5 @@ Cheek plates holding the trunnion pins, two axle stubs, a split trail and two om
 - ⚠ **The bright end is the leading (far) end**, because the muzzle end hides behind the barrel. `Add` derives both ends itself, so no call site can invert them.
 - Additive, depth-read, boosted over 1 (`BRIGHTNESS`), colour floored at `COLOR_FLOOR` so the near-black ball still leaves a smear.
 - ⚠ **Each caller decides when it ages** (the Testbed only while simulating). A screen that stops updating but still draws freezes the smears, so the Game clears them for its result screen.
+- **A streak (`AddStreak`, #871)** is the same billboard for one frame: a comet's tail behind something moving now (the Game's Swap, [the Swap](../game-feedback/swap-effect.md)), added from the draw and gone once drawn (`Update` drops any a skipped draw left), at the alpha and half-width it was given and `STREAK_BRIGHTNESS`; the two widths are per smear for it.
 - It restores exactly the GPU states it changes, so the translucent baseline the glass after it needs is stated before the scene, never left to the smear.

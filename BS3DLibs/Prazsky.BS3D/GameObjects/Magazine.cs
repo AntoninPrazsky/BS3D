@@ -403,6 +403,14 @@ namespace Prazsky.BS3D
         /// <summary>How long this slot's dissolve takes from start to settled, in seconds (#705).</summary>
         public float TransmuteSeconds { get; }
 
+        /// <summary>
+        /// Whether the dissolve this slot is part way through is a <b>swap's</b> (#871), not a re-colour's: the Game draws a
+        /// swap as the two rounds sliding through each other (<c>SwapMotion</c>) and keeps the dither for the re-colour and for the
+        /// 2D strip's discs, which that picture cannot reach. Read off the length, which only <see cref="Magazine.SwapSlots"/>
+        /// sets to <see cref="Magazine.SWAP_FADE_SECONDS"/>.
+        /// </summary>
+        public bool IsSwapFade => Transmute > 0f && TransmuteSeconds == Magazine.SWAP_FADE_SECONDS;
+
         /// <summary>The colour loaded in this slot, and the one that fires — never the one it is fading out of.</summary>
         public BallType Type { get; }
 

@@ -581,6 +581,17 @@ namespace BS3D.Screens
                 //seen at all.
                 MagazineSlot slot = _magazine.Slot(i);
 
+                //THE SWAP'S TWO ROUNDS (#871) are not where the bore puts them while its picture runs: each slides to the other's
+                //place along the bore, its colour already the one it will fire as, and the dither cuts the pair at their
+                //heaviest where they interpenetrate. The dither is the Swap's own cross-fade here, so the slot's re-colour dissolve
+                //(which the 2D strip's discs still run) is not drawn as well - a swap's, once its picture is over or cancelled by a
+                //shot, draws the round whole
+                bool swapping = _swapMotion.Active && i < 2;
+                float swapDissolve = 0f;
+                Vector3 swapVelocity = Vector3.Zero;
+
+                if (swapping) PlaceSwapRound(pose, i, ref world, out position, out swapVelocity, out swapDissolve);
+
                 //A ball in the barrel has nothing packed around it, so it carries the same unoccluded vector a
                 //shot in flight does — off the one constant, rather than four literals written out here
                 //Both halves of a transmute take the mark, or the muzzle round would flicker between marked and
@@ -593,15 +604,15 @@ namespace BS3D.Screens
                 //lose.
                 //And where the round stood when the motion blur's shutter opened (#402): carried back by the barrel it
                 //rides. Handed to ONE draw of a crossing's two, so the motion record holds the ball once.
-                Matrix shutterWorld = RoundShutterWorld(world);
+                Matrix shutterWorld = RoundShutterWorld(swapping ? SmearedWorld(world, swapVelocity) : world);
 
                 if (slot.Kind == BallKind.Wildcard || slot.Kind == BallKind.Cutter)
                 {
                     //A cutter (#213) is drawn the same way and for the same reason - its look is the render set's, by kind
-                    frame.Add(LoadedColour(i), position, world, BallRenderSet.UNOCCLUDED, 0f, mark, still,
+                    frame.Add(LoadedColour(i), position, world, BallRenderSet.UNOCCLUDED, swapDissolve, mark, still,
                         slot.Kind, shutterWorld);
                 }
-                else if (slot.Transmute > 0f)
+                else if (slot.Transmute > 0f && !slot.IsSwapFade)
                 {
                     float progress = slot.TransmuteProgress;
 
@@ -609,7 +620,7 @@ namespace BS3D.Screens
                         shutterWorld: shutterWorld);
                     frame.Add(slot.FadingFrom, position, world, BallRenderSet.UNOCCLUDED, progress, mark, still);
                 }
-                else frame.Add(slot.Type, position, world, BallRenderSet.UNOCCLUDED, 0f, mark, still,
+                else frame.Add(slot.Type, position, world, BallRenderSet.UNOCCLUDED, swapDissolve, mark, still,
                     shutterWorld: shutterWorld);
             }
         }

@@ -25,6 +25,11 @@ Pravidla:
 - `DropCinematicPathTests` (DropCinematic je v testech zkompilovaný). ⚠ Čočka je u menších hodů dál (až 43 j).
 - Otevřené: oko v pohybu (`verdict-eye`).
 
+## 2026-10-17 — #871 Swap: kuličky se protunelují a vlastní zvuk — desktop (RDT-PC), Claude Code (bs3d-48)
+- Dvě kuličky v hlavni se prohodí posunem skrz sebe (`SwapMotion`, 0,35 s, komplementární dither nejsilnější při průchodu), rozmazání motion blurem a pruhem (`LaunchSmears.AddStreak`); zvuk `SwapSynth` (dva hlasy se křižují, 92,5 % v 300–4000 Hz). Logika `Magazine.SwapSlots` beze změny, výstřel uprostřed to ruší. Potato klouže a prolíná taky, bez motion blur. `swapshot=` fotí věk obrazu.
+- ⚠ Oblouk do strany ≥ 0,1 prorazí ocel hlavně (vývrt 0,6, koule 0,5); proto 0,08. Bez zvukového zařízení nic neslyšel.
+- Otevřené: oko a ucho majitele (`verdict-eye`).
+
 ## 2026-10-17 — #877 pád clusteru v běžném čase hry, bez zpomalení — desktop (RDT-PC), Claude Code (bs3d-48)
 - `DropCinematic` už nemá `TimeScale`, roll zpomalení ani rampu; svět běží rychlostí 1, dokud kino drží kameru (`WorldTimeScale`). Cutterovo zpomalení (#767) zůstává; cut, který kino spustí, zpomalení nemá.
 - Délka: dřív každý záběr skončil na stropu 6,5 s (svět stihl ~2,5 s), teď končí s pádem po 4,3 až 5,7 s. `Stalled` počítá snímek nejvýš 0,1 s (zasekl záběr po záchytu obrazovky). Řádek `[cinematic] ended …` hlásí důvod a nejpomalejší měřítko světa (1,00).
