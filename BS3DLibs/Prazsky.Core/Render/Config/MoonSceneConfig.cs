@@ -101,18 +101,18 @@ namespace Prazsky.Core.Render
         /// flattens the belt away and takes the whole landscape out of the game frame with it, which is not a
         /// hypothetical: the scene shipped without one and played as a black sky over bare stone.
         /// <para>
-        /// The reason is geometric. The gameplay lens sits at <c>GameCameraFit.LENS_FLOOR_Y</c> = −7.9, a bare
-        /// 0.6 units over the island's own deck plane (<c>ArenaIsland.TOP_Y</c> = −8.5), so the deck occludes
-        /// everything below about half a degree of depression. A curved plain's skyline sits
-        /// <c>2·√(eyeHeight · Curvature)</c> <b>below</b> the eye — 2.4° at the shipped figures — far under
+        /// The reason is geometric. The gameplay lens sits at <c>GameCameraFit.LENS_FLOOR_Y</c> = −7.4, a bare
+        /// 1.1 units over the island's own deck plane (<c>ArenaIsland.TOP_Y</c> = −8.5), so the deck occludes
+        /// everything below about a degree of depression. A curved plain's skyline sits
+        /// <c>2·√(eyeHeight · Curvature)</c> <b>below</b> the eye — 2.5° at the shipped figures — far under
         /// that line. Neither obvious dial reaches it: raising <see cref="LevelY"/> leaves the skyline below
-        /// the deck even with the plain flush against it (0.8° at zero eye height), and slackening
+        /// the deck even with the plain flush against it (1.1°), and slackening
         /// <see cref="Curvature"/> runs the ground out past the grid's own edge long before the skyline clears. What clears the
         /// deck is relief standing <b>above</b> the lens — which is exactly why the atmospheric siblings' ground
         /// is visible at all: the desert's 14-unit dunes crest eight units over the same lens.
         /// </para>
         /// <para>
-        /// At 40 the crest stands about 4.5° over the lens — a band of sunlit massifs half again as deep as the
+        /// At 40 the crest stands about 4.4° over the lens — a band of sunlit massifs half again as deep as the
         /// desert's dune skyline. Past the crest the curvature takes back over (quadratic growth against a
         /// saturated rise), so the elevation falls monotonically outward and the grid's edge stays hidden
         /// behind the crest.
