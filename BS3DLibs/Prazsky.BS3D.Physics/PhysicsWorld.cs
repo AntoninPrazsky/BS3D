@@ -55,7 +55,7 @@ namespace Prazsky.BS3D.Physics
     /// runs <c>IsFixedTimeStep = false</c> and offers <c>nocap</c>, i.e. precisely the configuration the
     /// Testbed's approach breaks under."</i> So <see cref="Step"/> takes <b>one</b> step of the length it is
     /// given and returns: how long a step is, how many are taken per frame, what happens to a remainder and
-    /// whether the frame's time was scaled first (the Testbed's F9 slow motion, the Game's drop cinematic) are
+    /// whether the frame's time was scaled first (the Testbed's F9 slow motion, the Game's cut) are
     /// every bit the caller's. What this owns is only the order <i>inside</i> a step — see <see cref="Step"/>.
     /// </para>
     /// <para>

@@ -23,7 +23,7 @@ namespace BS3D.Screens
 
         //The camera's view × projection, the barrel's and the carriage's world matrices, each over the last shutter
         //and a little more. Wall-clock stamped: what the shutter covers is time on screen, so a pause stands the
-        //record still and a slow-motion cinematic shortens the smear by itself, with nothing to scale.
+        //record still and a cut's slow motion shortens the smear by itself, with nothing to scale.
         private readonly ShutterHistory _cameraShutter = new(), _barrelShutter = new(), _carriageShutter = new();
 
         //This frame's poses and their shutter-opening counterparts, taken once by PrepareMotion and read by the

@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-17 — #877 pád clusteru v běžném čase hry, bez zpomalení — desktop (RDT-PC), Claude Code (bs3d-48)
+- `DropCinematic` už nemá `TimeScale`, roll zpomalení ani rampu; svět běží rychlostí 1, dokud kino drží kameru (`WorldTimeScale`). Cutterovo zpomalení (#767) zůstává; cut, který kino spustí, zpomalení nemá.
+- Délka: dřív každý záběr skončil na stropu 6,5 s (svět stihl ~2,5 s), teď končí s pádem po 4,3 až 5,7 s. `Stalled` počítá snímek nejvýš 0,1 s (zasekl záběr po záchytu obrazovky). Řádek `[cinematic] ended …` hlásí důvod a nejpomalejší měřítko světa (1,00).
+- Otevřené: oko majitele v pohybu (`verdict-eye`).
+
 ## 2026-10-17 — #872 míření dolů bez poplachu — desktop (RDT-PC), Claude Code (bs3d-48)
 - Spodní mez `MinElevation` už nezvedá `ElevationStrain` (žádný červený zaměřovač, zvuk ani rumble), nikdy neodmítne výstřel a guma se pouští kriticky tlumeně, bez zpětného švihu. Horní mez beze změny; `MinElevation` se nehýbe (majitel popsal stále měkký doraz). `CannonElevationTests`.
 - Otevřené: pocit dojezdu (`verdict-hands`).

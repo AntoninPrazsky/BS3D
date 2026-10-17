@@ -162,7 +162,7 @@ namespace Prazsky.BS3D.Physics
         /// fixed step, 0..1 — the render interpolation factor of #293. The default 1 draws every ball on its
         /// live body pose, which is the Testbed's whole behaviour (its one variable step per frame leaves no
         /// gap to interpolate across); the Game passes its accumulator fraction, so a world stepping less than
-        /// once per rendered frame — the drop cinematic's slow motion above all — still moves every frame
+        /// once per rendered frame — a slow motion above all — still moves every frame
         /// instead of standing and jumping. Balls with no snapshot yet draw live whatever this says.</param>
         /// <param name="shutterSeconds">How much simulated time the motion blur's shutter covers this frame (#402):
         /// <c>MotionBlur.SHUTTER_SECONDS</c> times however fast the world is running — scaled down under a slow-motion

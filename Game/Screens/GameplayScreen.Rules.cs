@@ -181,7 +181,7 @@ namespace BS3D.Screens
             TryBeginDropCinematic(landing.Released);
 
             //The cut as a moment (#767), after the cinematic has decided whether to take the lens: when it has, the
-            //cinematic's slow motion is the fall's and the cut adds none of its own
+            //cinematic has the lens, the world runs at game time and the cut adds no slow motion of its own
             if (cut) StageCutStrike(landing);
 
             //And the cluster has just changed, which is the only thing that can put a tall level's underside
@@ -486,8 +486,8 @@ namespace BS3D.Screens
                 int handle = ball.BallReference.Handle.Value;
                 if (!_cinematicSubject.Contains(handle)) continue;
 
-                //The pose the frame DRAWS, not the raw body: under slow motion the bodies advance only every
-                //few frames, and a camera fed the raw staircase inherits it — the balls' half of #293 fixed,
+                //The pose the frame DRAWS, not the raw body: the bodies advance in whole fixed steps, not every
+                //frame, and a camera fed the raw staircase inherits it — the balls' half of #293 fixed,
                 //the lens would still judder off this very read.
                 ball.InterpolatedPose(_renderAlpha, out System.Numerics.Vector3 position, out _);
 

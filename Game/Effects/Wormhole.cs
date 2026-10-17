@@ -22,8 +22,8 @@ namespace BS3D.Effects
     /// on what spins into the hole is a drawing (<see cref="Swallow"/>) that nothing in the simulation or the rules can see.
     /// </para>
     /// <para>
-    /// On the <b>simulation's clock</b>, like <see cref="Blasts"/>: it is a thing happening out in the world, so a drop
-    /// cinematic's slow motion slows it and a pause stops it. One quad and one draw call (<c>Wormhole.fx</c>), in the
+    /// On the <b>simulation's clock</b>, like <see cref="Blasts"/>: it is a thing happening out in the world, so a
+    /// cut's slow motion slows it and a pause stops it. One quad and one draw call (<c>Wormhole.fx</c>), in the
     /// blasts' slot of the frame; the swallowed balls go into the frame's ball collection like every other ball.
     /// </para>
     /// </summary>

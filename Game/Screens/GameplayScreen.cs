@@ -1011,9 +1011,12 @@ namespace BS3D.Screens
         private readonly List<PhysicsBall> _fallingBalls = new();
 
         //The reward shot for a big collapse: the camera lets go of the gun and follows the wreckage down the
-        //drain. It owns the pose, the time scale and the blend; this screen owns the trigger, the subject and
+        //drain, at ordinary game time (#877). It owns the pose and the blend; this screen owns the trigger, the subject and
         //the fact that the gun does not answer while it is engaged.
         private readonly DropCinematic _cinematic = new();
+
+        //The slowest the world ran while the cinematic had the lens, for the line its end writes: 1.00, the promise (#877)
+        private float _cinematicMinScale = 1f;
 
         //The loss-side counterpart (#434): the camera flown at the point the cluster crossed the line, and
         //the beat the ending is held back for while it happens.
@@ -1055,12 +1058,13 @@ namespace BS3D.Screens
         private bool CameraTakeoverEngaged => _cinematic.Engaged || _chapterIntro.Engaged || _lineLoss.Engaged;
 
         /// <summary>
-        /// How fast the world runs this frame: the drop cinematic's slow motion while it has the lens, or else a cut's
-        /// hit-stop and fall (#767) - never both. A cut adds none while the cinematic has the lens (<c>CutStaging.Strike</c>
-        /// is told), and a cinematic that engages during a cut's slow motion (a shot already in the air landing a big
-        /// release) ends it (<c>TryBeginDropCinematic</c>); this choice says the same thing once more, structurally.
+        /// How fast the world runs this frame: ordinary game time, 1, while the drop cinematic has the lens (#877: a fall in
+        /// slow motion under a moved camera reads as a replay, not as the player's own success), or else a cut's hit-stop and
+        /// fall (#767). A cut adds none while the cinematic has the lens (<c>CutStaging.Strike</c> is told), and a cinematic
+        /// that engages during a cut's slow motion (a shot already in the air landing a big release) ends it
+        /// (<c>TryBeginDropCinematic</c>); this choice says the same thing once more, structurally.
         /// </summary>
-        private float WorldTimeScale => _cinematic.Engaged ? _cinematic.TimeScale : _cutStaging.TimeScale;
+        private float WorldTimeScale => _cinematic.Engaged ? 1f : _cutStaging.TimeScale;
 
         /// <summary>Skips whichever takeover is currently running — see <see cref="CameraTakeoverEngaged"/>
         /// for why asking both is safe.</summary>
@@ -1501,9 +1505,16 @@ namespace BS3D.Screens
 
             StepDozing(elapsed);
 
-            //The cinematic reads the balls where the last step left them and answers with this frame's pose and
-            //time scale, so the scale is applied to the very step its own framing was chosen against.
+            //The cinematic reads the balls where the last step left them and answers with this frame's pose.
+            bool cinematicWasRunning = _cinematic.Running;
             _cinematic.Update(elapsed, TryGetDropCentre(out Vector3 dropCentre), dropCentre, _dropFocus.FunnelShare);
+
+            //One line when the shot ends, beside the one that opened it: how long it held the lens, why it let go, and the
+            //slowest the world ran while it had the lens (1.00: it runs at game time, #877)
+            if (cinematicWasRunning && !_cinematic.Running)
+                Console.WriteLine(FormattableString.Invariant(
+                    $"[cinematic] ended after {_cinematic.Elapsed:F2} s ({_cinematic.EndedBy}), world time scale {_cinematicMinScale:F2} at the slowest"));
+            if (!_cinematic.Engaged) _cinematicMinScale = 1f;
 
             //And the line's own (#434), which also decides when the ending it is holding back goes up.
             StepLineLoss(elapsed);
@@ -1535,8 +1546,8 @@ namespace BS3D.Screens
             //Slow motion is applied here and nowhere else: the fixed timestep is untouched and only the time
             //fed to the accumulator is scaled, so a slowed world is exactly as stable as a full-speed one. The
             //ceiling's descent rides the steps since #577, so a slowed world slows it too — and no step is let go
-            //under either slow motion (the drop cinematic's or a cut's, above), so only a slide already under way
-            //can be slowed, which keeps plate and cluster in step.
+            //under a cut's slow motion (above), so only a slide already under way can be slowed, which keeps plate and
+            //cluster in step.
             //Testing only (detonate=, #389): a bomb set off on the wall clock's schedule. Before the step, so its
             //debris moves on this frame the way a real landing's does.
             if (TryTakeForcedDetonation()) DetonateForTesting();
@@ -1549,8 +1560,9 @@ namespace BS3D.Screens
             //NOT STEPPED WHILE THE RELEASE WAITS (#690's review): stepped through a chapter intro at the builder's stiff
             //springs, the cluster snapped up into its seat unseen, and the swing let go after the tour was only a dip from
             //rest. Held exactly as built, it is let go by ReleaseCluster from the pose every other start begins at.
-            //The world's speed: the drop cinematic's slow motion, or else a cut's hit-stop and fall (#767)
+            //The world's speed: 1 under the drop cinematic, or else a cut's hit-stop and fall (#767)
             float worldScale = WorldTimeScale;
+            if (_cinematic.Engaged) _cinematicMinScale = MathF.Min(_cinematicMinScale, worldScale);
 
             if (!_releasePending)
             {
@@ -1563,7 +1575,7 @@ namespace BS3D.Screens
             StepCutShots(elapsed, worldScale);
 
             //The blasts a landing inside that step set off (#389), on the step's own scaled time: the debris they
-            //threw is moving at that speed, and a flash running at full speed over a slow-motion collapse is over
+            //threw is moving at that speed, and a cut's flash running at full speed over its slow-motion fall is over
             //before its fragments have left the hole. The rumble goes to the camera as each blast goes off.
             float blastJolt = _blasts.Update(elapsed * worldScale, Game.Audio);
             if (blastJolt > 0f)
@@ -1613,9 +1625,9 @@ namespace BS3D.Screens
 
             _smears.Update(elapsed);
 
-            //The frame's own elapsed, UNSCALED by the cinematic's time scale, exactly as the smears above
+            //The frame's own elapsed, UNSCALED by the world's time scale, exactly as the smears above
             //take it: the shower answers a moment rather than running inside the simulation, and the line
-            //loss's own cinematic does not slow time the way the drop's does anyway.
+            //loss's own cinematic does not slow time.
             _lineSparks.Update(elapsed);
 
             //The Swap's hint (#845) is asked here, once a frame, and costs a field walk only when the field or a round's
@@ -1790,7 +1802,7 @@ namespace BS3D.Screens
             //as in the frame above: the recoil and the glide are the hardware answering the shot.
             StepGunHardware(gameTime, elapsed);
 
-            //Unscaled, unlike the frame above. A drop cinematic's slow motion is over before this page can exist: neither
+            //Unscaled, unlike the frame above. A drop cinematic is over before this page can exist: neither
             //ending is declared while one is engaged (the countdown freezes for it, the loss waits on mayLose). A cut's
             //(#767) is not waited for - a level-clearing cut with the cinematic off, or a loss on the last shot, reaches
             //this page in the middle of one - so it is ended below (_cutStaging.Skip): the world under the page runs at
