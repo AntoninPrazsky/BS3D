@@ -97,11 +97,13 @@ namespace BS3D.Tests
         }
 
         //The savanna's thorn bushes (#883): the sizes the scatter makes them at under the dome's own roll (SavannaScatter.ThornSize: a
-        //radius of 2 to 3.2, its height 0.85 to 1.1 of that), with the structural seeds it builds them with
+        //reach of 2.34 to 3.70, from 0.78 to 0.88 of a dome radius of 3.0 to 4.2, and a top of 0.75 to 0.97 of that reach, never over
+        //0.8 of the dome's height, 3.17 at the lowest), with the structural seeds it builds them with. The two ends of each roll are
+        //in it: the smallest and the largest reach, and the lowest and the highest share of it
         public static TheoryData<float, float, int> ThornBushes() => new()
         {
-            { 2.0f, 1.8f, 4250 }, { 2.6f, 2.5f, 4251 }, { 3.2f, 3.4f, 4252 },
-            { 2.1f, 2.2f, 4253 }, { 2.7f, 2.7f, 4254 }, { 3.0f, 3.0f, 4255 },
+            { 2.34f, 1.76f, 4250 }, { 2.60f, 2.10f, 4251 }, { 3.70f, 3.17f, 4252 },
+            { 3.70f, 3.59f, 4253 }, { 3.00f, 2.91f, 4254 }, { 3.40f, 2.55f, 4255 },
         };
 
         [Theory]

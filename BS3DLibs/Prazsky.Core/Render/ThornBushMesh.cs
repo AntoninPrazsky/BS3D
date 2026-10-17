@@ -47,8 +47,10 @@ namespace Prazsky.Core.Render
         private const float CLOUD_HALF = 0.49f, CLOUD_CENTRE = 0.76f;
 
         //How far a card reaches past the cloud's own radius and over its top, as multiples of them: a stem stands up to 1.12 of
-        //the radius out (its noise) and the spray runs on from it by its length (0.25 of the radius at the top of its roll), and
-        //the cards at the top climb a little. Measured over the bushes the scatter builds, with a little over
+        //the radius out (its noise) and the spray runs on from it by its length (SHAPE's 0.22 of the radius, rolled up to 1.25
+        //times: 0.275 at the top of its roll), which would add to 1.4 if every card lay along the radius; they lean off it, so
+        //the figure is under that sum, and the cards at the top climb a little. Measured over the bushes the scatter builds, with
+        //a little over
         private const float CARD_REACH = 1.3f, CARD_RISE = 1.18f;
 
         //A twig's radius against the bush's, and how many sprays it carries: fine twigs (a spray's own stem is what the
