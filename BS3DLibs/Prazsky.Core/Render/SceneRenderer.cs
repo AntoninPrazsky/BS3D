@@ -281,7 +281,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Whether the scenes draw their <b>finer meshes</b> (#758): High and Ultra's, where Low and Medium draw the coarser
-        /// mesh of the same thing off the same instances. Four things today: the savanna acacias' wood — the fork grown as one
+        /// mesh of the same thing off the same instances. Five things today: the savanna acacias' wood — the fork grown as one
         /// surface out of a swollen, lobed crotch rather than tubes poking out of the trunk's cut end
         /// (<see cref="AcaciaMesh.FineWood"/>, <see cref="ScatterBucket.FineMeshes"/>, #758) — the meadow's old trees' wood
         /// grown the same way, the limbs coming out through the crotch's side (<see cref="MeadowTreeMesh.FineWood"/>, #889,
