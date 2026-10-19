@@ -1,28 +1,322 @@
 {
-    "file": "theme-summit-glacier.wav",
-    "created": "2026-09-29",
-    "issue": 280,
-    "family": "summit",
-    "chapter": "The Tower (mountains) - #280: the snowy range under an alpine evening sky (#661); replaces the bohemia family, which read as brass-band folk (dechovka) on every mountain level",
-    "purpose": "Master of Game/Music/summit-glacier.ogg, one of the summit family's recordings (#280): written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:\\Users\\panrd\\AI\\output\\masters-280 on the desktop); this sidecar is committed beside the .ogg.",
-    "generator": "ACE-Step 1.5 (acestep.cpp), local, AMD RX 6900 XT via Vulkan -- batch-280.ps1 -> generate-music.ps1 -Loop -NoCotCaption; the weak loop seams re-rendered on other seeds and the best seam kept",
-    "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
-    "license": "ACE-Step 1.5: MIT (code and weights)",
-    "request": {
-        "caption": "Glacial downtempo electronic instrumental: slow deep beat, crystalline plucked synths, icy shimmering pads, wide reverb, a simple repeating melody, still and vast, no vocals",
-        "lm_negative_prompt": "vocals, singing, brass band, polka, oompah, march, folk, accordion, fiddle, yodel, alphorn, bagpipe, hurdy-gurdy, crowd noise, live recording, heavy distortion",
-        "instrumental": true,
-        "use_cot_caption": false,
-        "duration": 120,
-        "bpm": 88,
-        "keyscale": "E minor",
-        "seed": 2803,
-        "inference_steps": 8,
-        "output_format": "wav32"
-    },
-    "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
-    "loop_log": [
-        "Wrote C:\\Users\\panrd\\AI\\output\\masters-280\\theme-summit-glacier.wav: 54.5s loop = source 35.30s..89.85s (19.99 bars at 88.0 bpm), crossfade 1.36s | context match 0.782 (best 0.830) | crossfade rhythm r=0.91 vs the track a bar later r=0.85: in time | spectrum cos=0.70"
+  "file": "theme-summit-glacier.wav",
+  "created": "2026-10-19",
+  "issue": 906,
+  "family": "summit",
+  "chapter": "The Tower (mountains) - regenerated on the desert's ember model (#906): crystalline plucked synths repeating a simple tune in the middle register with a warm solo cello over them, icy pads and a deep soft bass, the percussion a faint distant shaker (the owner's Jukebox note, 2026-10-16: the drums, beats and hits too prominent, more like blows and pounding)",
+  "purpose": "Master of Game/Music/summit-glacier.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-905-chosen on the desktop, with its .raw.wav; this is candidate c15, theme-summit-glacier-c15 in masters-905, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-905.ps1 (adapted from #706 batch) -> generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Glacial downtempo electronic instrumental: crystalline plucked synths repeating a simple melody in the middle register that a listener could hum back, a warm solo cello singing over them, icy shimmering pads, wide reverb, a deep soft round bass playing long notes, the percussion only a faint distant brushed shaker, soft and sparse, no kick, the melody always clearly in front, still and vast like a frozen alpine valley at dusk, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, the full ensemble playing throughout from the first bar, no vocals",
+    "lm_negative_prompt": "vocals, singing, choir, humming, brass band, polka, oompah, march, folk, accordion, fiddle, yodel, alphorn, bagpipe, hurdy-gurdy, crowd noise, live recording, heavy distortion, hard kick, punchy kick drum, pounding drums, heavy drums, loud drums, drum hits, blows, thuds, snare, hand claps, drum fills, drum solo, long drum-only sections, boomy sub bass, bright crash cymbals, splashy cymbals, open hi-hats, noise bursts, risers, impacts, long quiet intro, long silent passages, quiet breakdown, near silence, fade out, fade in",
+    "instrumental": true,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 88,
+    "keyscale": "E minor",
+    "seed": 763956480,
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-905\\theme-summit-glacier-c15.wav: 43.6s loop = source 46.16s..89.80s (16.02 bars at 88.1 bpm), crossfade 1.36s | context match 0.667 (best 0.709) | crossfade rhythm r=0.60 vs the track a bar later r=0.51: in time | spectrum cos=0.57"
+  ],
+  "lm_check": {
+    "request0_captured": true,
+    "caption_verbatim": true,
+    "seed_in_request0": 763956480,
+    "bpm_in_request0": 88,
+    "keyscale_in_request0": "E minor",
+    "duration_in_request0": 120.0
+  },
+  "measured": "generate-music.ps1 end to end 88,1 s (ace-lm + ace-synth + loop cut), exit 0",
+  "rendered": true,
+  "chosen": {
+    "candidate": "c15",
+    "round": 3,
+    "of": [
+      "c1",
+      "c2",
+      "c3",
+      "c4",
+      "c5",
+      "c6",
+      "c7",
+      "c8",
+      "c9",
+      "c10",
+      "c11",
+      "c12",
+      "c13",
+      "c14",
+      "c15",
+      "c16",
+      "c17",
+      "c18"
     ],
-    "rendered": true
+    "why": "Chosen by measurement, on the baked recording beside the ember family in one run (Tools/Generation/measure-music.py --reference ember --sidecars): the only one of eighteen candidates inside ember's range on every column with its drums down, 200 Hz-2 kHz 33.5 % and 300 Hz-4 kHz 19.9 % (the replaced recording 5.5 % and 4.4 %; band shares are held to a lowest only), 0.1 % above 6 kHz, tonal mid 85 % (replaced 36 %), flatness 0.01, 3.41 held-note changes a second (2.99), tempo wander 0.03 %, 0 clipped runs (6), pitch wobble 2.7 and detune 3.0 cents, 0.0 short gaps a minute (2.2), the opening repeats 1 bar (2.7 s) and the longest repeat is 9 bars (24.5 s), 0 of 160 held notes out of E minor (replaced 5.4 %); 93.6 % of its pitched energy (Tools/Generation/key-share.py: every note, not just the dominant one) lies on the E minor scale where the replaced recording read 80.3 %. The loop is 43.6 s (16.02 bars at 88.1 bpm), the cut's context match 0.667, rhythm r 0.60 against 0.51 a bar later, spectrum cosine 0.57 (weaker than the replaced cut's 0.782 / 0.91 / 0.70, which had a +14.5 dB step across the wrap); the step across the wrap is +1.6 dB over 250 ms (p38 of its own steps), +5.6 dB over 1 s (p86; the loop's largest 1 s step is 10.9 dB) and +3.8 dB over 2 s (p93; largest 6.0 dB); the level swings 8.8 dB and 2 % of the loop is more than 10 dB under its loud level. The drums layer (the stem Demucs separates from this very recording) stands 18.5 dB under the mix in 300 Hz-4 kHz (replaced: 2.3 dB, level with the mix), 13.4 dB under in its loudest 250 ms (replaced: 1.1 dB under) and in 5 % of the 250 ms windows within 6 dB of the mix (replaced: 22 %); over the whole band the stem is 6.1 dB under the recording (MusicBake: -21.1 against -15.0 dBFS), the deep soft bass notes that Demucs puts in it. Its crest (the stem's loud 250 ms over its median) reads 43 dB, as the replaced recording's 38 dB did: the stem is near silence between its phrases, so the figure says sparse, not loud. No trim: the bake's gain is -1.9 dB, the post-codec peak -1.18 dBFS, 0 clipped runs. Judged by numbers only: whether the tune is pleasant and the drums are now unobtrusive enough are for the owner's ear.",
+    "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wobble, detune, short gaps, opening repeat, notes out of key, wrap step) beside the loop cut's own check, the hole and dropout shares, the wrap step over 250 ms, 1 s and 2 s, the pitched energy on the key's scale (Tools/Generation/key-share.py), and each candidate's separated drums stem against its loop (Tools/Generation/drum-share.py --pairs); a seam below its own rhythm, a hole over 15 % of the loop, a 2 s dropout more than 20 dB down, a wrap step of 10 dB or more or at p97 of the loop's own, a seam cosine under 0.3, a loop under 30 s, more short gaps a minute than ember's highest, or any column outside ember's range ruled a candidate out; three rounds of six renders over six briefs; the baked recording measured again from its .ogg; the table is in the closing comment of #906"
+  },
+  "alternatives": [
+    {
+      "candidate": "c1",
+      "round": "1",
+      "seed": 277513846,
+      "bpm": 88,
+      "caption": "brief_1 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-905\\theme-summit-glacier-c1.wav: 66.2s loop = source 39.14s..105.35s (23.98 bars at 86.9 bpm), crossfade 1.38s | context match 0.780 (best 0.823) | crossfade rhythm r=0.67 vs the track a bar later r=0.74: in time | spectrum cos=0.82"
+      ],
+      "refused_or_not_chosen": "Not chosen: 200 Hz-2 kHz 8.6 % and 2.73 held-note changes a second (ember at least 9.5 and 2.74) and a drums stem only 6.6 dB under the mix in 300 Hz-4 kHz with crest 42 dB (the hits are still there); round 1, bell and cello with a muted frame drum."
+    },
+    {
+      "candidate": "c2",
+      "round": "1",
+      "seed": 52200973,
+      "bpm": 88,
+      "caption": "brief_1 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-905\\theme-summit-glacier-c2.wav: 60.0s loop = source 33.65s..93.65s (23.03 bars at 92.1 bpm), crossfade 1.30s | context match 0.684 (best 0.731) | crossfade rhythm r=0.94 vs the track a bar later r=0.08: in time | spectrum cos=0.65"
+      ],
+      "refused_or_not_chosen": "Refused: a hole (22 % of the loop more than 10 dB under its loud level, a 15.8 dB dip), 1.15 held-note changes a second and a rhythm r of 0.94 against 0.08 a bar later; round 1."
+    },
+    {
+      "candidate": "c3",
+      "round": "1",
+      "seed": 1370513998,
+      "bpm": 88,
+      "caption": "brief_1 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-905\\theme-summit-glacier-c3.wav: 54.5s loop = source 47.50s..102.05s (20.02 bars at 88.1 bpm), crossfade 1.36s | context match 0.835 (best 0.864) | crossfade rhythm r=0.75 vs the track a bar later r=0.86: BELOW the track's own timekeeping -- listen | spectrum cos=0.90"
+      ],
+      "refused_or_not_chosen": "Refused: the cut's rhythm r 0.75 below the track's own 0.86 a bar later, 2.47 held-note changes a second and a drums stem only 4.3 dB under the mix in 300 Hz-4 kHz; round 1."
+    },
+    {
+      "candidate": "c4",
+      "round": "1",
+      "seed": 1139925333,
+      "bpm": 88,
+      "caption": "brief_2 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-905\\theme-summit-glacier-c4.wav: 76.3s loop = source 26.50s..102.85s (28.00 bars at 88.0 bpm), crossfade 1.36s | context match 0.434 (best 0.479) | crossfade rhythm r=0.13 vs the track a bar later r=0.07: in time | spectrum cos=0.46"
+      ],
+      "refused_or_not_chosen": "Refused: a loop cut that does not hold (context match 0.434, rhythm r 0.13 against 0.07, cosine 0.46) and 2.49 held-note changes a second; the drums stem 29 dB under the mix (the electric piano and harp brief gave nearly no drums); round 1."
+    },
+    {
+      "candidate": "c5",
+      "round": "1",
+      "seed": 1141019995,
+      "bpm": 88,
+      "caption": "brief_2 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-905\\theme-summit-glacier-c5.wav: 40.9s loop = source 34.65s..75.55s (15.03 bars at 88.2 bpm), crossfade 1.36s | context match 0.288 (best 0.337) | crossfade rhythm r=0.33 vs the track a bar later r=0.05: in time | spectrum cos=0.42"
+      ],
+      "refused_or_not_chosen": "Refused: a hole (38 % of the loop, a 14.5 dB dip), a weak cut (context match 0.288) and 2.22 held-note changes a second; round 1."
+    },
+    {
+      "candidate": "c6",
+      "round": "1",
+      "seed": 2030807367,
+      "bpm": 88,
+      "caption": "brief_2 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-905\\theme-summit-glacier-c6.wav: 44.1s loop = source 35.11s..79.25s (16.00 bars at 87.0 bpm), crossfade 1.38s | context match 0.897 (best 0.945) | crossfade rhythm r=0.94 vs the track a bar later r=0.59: in time | spectrum cos=0.97"
+      ],
+      "refused_or_not_chosen": "Refused: +11.2 dB across the wrap (p93 of its own 250 ms steps) and 2.54 held-note changes a second, otherwise the best cut of round 1 (context 0.897, cosine 0.97); no drums to speak of (31 dB under the mix); round 1."
+    },
+    {
+      "candidate": "c7",
+      "round": "2",
+      "seed": 191628044,
+      "bpm": 96,
+      "caption": "brief_3 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-905\\theme-summit-glacier-c7.wav: 40.1s loop = source 29.20s..69.35s (15.97 bars at 95.5 bpm), crossfade 1.26s | context match 0.415 (best 0.463) | crossfade rhythm r=0.67 vs the track a bar later r=0.70: in time | spectrum cos=0.53"
+      ],
+      "refused_or_not_chosen": "Refused: a weak cut (context match 0.415, cosine 0.53) and 2.67 held-note changes a second; round 2 (96 bpm, a flowing melody of steady eighth notes asked)."
+    },
+    {
+      "candidate": "c8",
+      "round": "2",
+      "seed": 2089721878,
+      "bpm": 96,
+      "caption": "brief_3 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-905\\theme-summit-glacier-c8.wav: 60.0s loop = source 33.85s..93.85s (23.98 bars at 95.9 bpm), crossfade 1.25s | context match 0.779 (best 0.827) | crossfade rhythm r=0.81 vs the track a bar later r=0.66: in time | spectrum cos=0.86"
+      ],
+      "refused_or_not_chosen": "Refused: -12.3 dB across the wrap (p94 of its own 250 ms steps) and 33.0 short gaps a minute, 1.87 held-note changes a second, a pitch wobble of 4.4 cents, thin mids (7.4 % in 200 Hz-2 kHz) and one pattern repeating for the 55 s of the loop; round 2."
+    },
+    {
+      "candidate": "c9",
+      "round": "2",
+      "seed": 724173617,
+      "bpm": 96,
+      "caption": "brief_3 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-905\\theme-summit-glacier-c9.wav: 58.8s loop = source 37.35s..96.15s (23.00 bars at 93.9 bpm), crossfade 1.28s | context match 0.632 (best 0.681) | crossfade rhythm r=0.64 vs the track a bar later r=0.20: in time | spectrum cos=0.81"
+      ],
+      "refused_or_not_chosen": "Refused: 2.01 held-note changes a second, a weak rhythm r 0.64 against 0.20 a bar later and an 11.3 dB dip with a 9 % hole; round 2."
+    },
+    {
+      "candidate": "c10",
+      "round": "2",
+      "seed": 900812768,
+      "bpm": 96,
+      "caption": "brief_4 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-905\\theme-summit-glacier-c10.wav: 60.0s loop = source 13.45s..73.45s (23.97 bars at 95.9 bpm), crossfade 1.25s | context match 0.996 (best 0.997) | crossfade rhythm r=1.00 vs the track a bar later r=0.24: in time | spectrum cos=1.00"
+      ],
+      "refused_or_not_chosen": "Refused: 36.0 short gaps a minute (ember at most 27.0), 2.27 held-note changes a second and one pattern repeating for the 60 s of the loop; round 2."
+    },
+    {
+      "candidate": "c11",
+      "round": "2",
+      "seed": 1002434509,
+      "bpm": 96,
+      "caption": "brief_4 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-905\\theme-summit-glacier-c11.wav: 60.0s loop = source 24.70s..84.70s (24.05 bars at 96.2 bpm), crossfade 1.25s | context match 0.506 (best 0.551) | crossfade rhythm r=0.99 vs the track a bar later r=0.36: in time | spectrum cos=0.99"
+      ],
+      "refused_or_not_chosen": "Refused: 32.0 short gaps a minute and 8.6 % in 200 Hz-2 kHz (ember at least 9.5); round 2."
+    },
+    {
+      "candidate": "c12",
+      "round": "2",
+      "seed": 431947198,
+      "bpm": 96,
+      "caption": "brief_4 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-905\\theme-summit-glacier-c12.wav: 47.7s loop = source 37.51s..85.20s (18.97 bars at 95.5 bpm), crossfade 1.26s | context match 0.715 (best 0.764) | crossfade rhythm r=0.78 vs the track a bar later r=0.60: in time | spectrum cos=0.72"
+      ],
+      "refused_or_not_chosen": "Refused: 2.54 held-note changes a second, and the drums stem only 10.7 dB under the mix in 300 Hz-4 kHz; the rest inside ember; round 2."
+    },
+    {
+      "candidate": "c13",
+      "round": "3",
+      "seed": 234748671,
+      "bpm": 88,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-905\\theme-summit-glacier-c13.wav: 65.5s loop = source 36.70s..102.15s (24.02 bars at 88.1 bpm), crossfade 1.36s | context match 0.819 (best 0.868) | crossfade rhythm r=0.87 vs the track a bar later r=0.67: in time | spectrum cos=0.82"
+      ],
+      "refused_or_not_chosen": "Not chosen, the busiest tune (3.79 held-note changes a second) with a good cut (context 0.819, cosine 0.82) and a 65.5 s loop, but one bar pattern that repeats for the whole loop at the 0.90 similarity (ember 1.4-7.5 s) and a drums stem only 7.2 dB under the mix in 300 Hz-4 kHz (5.4 dB in its loudest 250 ms); round 3, the replaced brief with the beat taken out."
+    },
+    {
+      "candidate": "c14",
+      "round": "3",
+      "seed": 854247875,
+      "bpm": 88,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-905\\theme-summit-glacier-c14.wav: 43.6s loop = source 38.41s..82.05s (16.02 bars at 88.1 bpm), crossfade 1.36s | context match 0.455 (best 0.502) | crossfade rhythm r=0.90 vs the track a bar later r=0.56: in time | spectrum cos=0.54"
+      ],
+      "refused_or_not_chosen": "Runner-up, inside ember on every column: but a weak cut (context match 0.455, cosine 0.54), a 14.4 dB dip with 12 % of the loop more than 10 dB under its loud level, and a drums stem only 8.4 dB under the mix in 300 Hz-4 kHz (25 % of the windows within 6 dB); round 3."
+    },
+    {
+      "candidate": "c16",
+      "round": "3",
+      "seed": 1821578929,
+      "bpm": 100,
+      "caption": "brief_5 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-905\\theme-summit-glacier-c16.wav: 76.8s loop = source 29.85s..106.65s (32.01 bars at 100.0 bpm), crossfade 1.20s | context match 0.860 (best 0.906) | crossfade rhythm r=0.84 vs the track a bar later r=0.28: in time | spectrum cos=0.84"
+      ],
+      "refused_or_not_chosen": "Refused: 11.0 % of its held notes out of E minor, one pattern repeating for the 76.8 s of the loop; round 3 (the arpeggio brief at 100 bpm)."
+    },
+    {
+      "candidate": "c17",
+      "round": "3",
+      "seed": 881535823,
+      "bpm": 100,
+      "caption": "brief_5 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-905\\theme-summit-glacier-c17.wav: 57.6s loop = source 38.45s..96.05s (24.00 bars at 100.0 bpm), crossfade 1.20s | context match 0.645 (best 0.670) | crossfade rhythm r=0.58 vs the track a bar later r=0.64: in time | spectrum cos=0.67"
+      ],
+      "refused_or_not_chosen": "Refused: -10.1 dB across the wrap (p97) and one pattern repeating for the 57.6 s of the loop; round 3."
+    },
+    {
+      "candidate": "c18",
+      "round": "3",
+      "seed": 2128362523,
+      "bpm": 100,
+      "caption": "brief_5 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-905\\theme-summit-glacier-c18.wav: 76.8s loop = source 16.70s..93.50s (32.00 bars at 100.0 bpm), crossfade 1.20s | context match 0.942 (best 0.991) | crossfade rhythm r=0.98 vs the track a bar later r=0.88: in time | spectrum cos=0.98"
+      ],
+      "refused_or_not_chosen": "Refused: 0.62 held-note changes a second, a pitch wobble of 4.6 cents and one pattern repeating for the 76.8 s of the loop; round 3."
+    }
+  ],
+  "alternative_briefs": {
+    "brief_1": {
+      "caption": "Glacial downtempo instrumental: a crystalline plucked synth bell playing a slow simple melody in the middle register that a listener could hum back, answered by a warm solo cello, icy shimmering pads and a slow string ensemble holding long wintry chords, a deep soft round synth bass, the percussion soft and distant far behind the melody, only a quiet brushed shaker and a gentle muted frame drum barely heard, still and vast like a frozen alpine valley at dusk, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, wide spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, brass band, polka, oompah, march, folk, accordion, fiddle, yodel, alphorn, bagpipe, hurdy-gurdy, crowd noise, live recording, heavy distortion, hard kick, punchy kick drum, pounding drums, heavy drums, loud drums, drum hits, blows, thuds, snare, hand claps, drum fills, drum solo, long drum-only sections, boomy sub bass, bright crash cymbals, splashy cymbals, open hi-hats, noise bursts, risers, impacts, long quiet intro, long silent passages, quiet breakdown, near silence, fade out, fade in",
+      "bpm": 88,
+      "round": "1",
+      "candidates": [
+        "c1",
+        "c2",
+        "c3"
+      ]
+    },
+    "brief_2": {
+      "caption": "Still wintry ambient instrumental for a snowy mountain pass: a clear glassy electric piano and a plucked harp playing a slow simple melody together in the middle register, a warm solo cello answering it, soft icy string pads holding long chords, a deep soft round bass, the percussion only a very quiet distant frame drum and a faint brushed shaker, soft and sparse, the melody always clearly in front, vast, calm and crystalline, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, wide spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, brass band, polka, oompah, march, folk, accordion, fiddle, yodel, alphorn, bagpipe, hurdy-gurdy, crowd noise, live recording, heavy distortion, hard kick, punchy kick drum, pounding drums, heavy drums, loud drums, drum hits, blows, thuds, snare, hand claps, drum fills, drum solo, long drum-only sections, boomy sub bass, bright crash cymbals, splashy cymbals, open hi-hats, noise bursts, risers, impacts, long quiet intro, long silent passages, quiet breakdown, near silence, fade out, fade in",
+      "bpm": 88,
+      "round": "1",
+      "candidates": [
+        "c4",
+        "c5",
+        "c6"
+      ]
+    },
+    "brief_3": {
+      "caption": "Glacial downtempo instrumental with a flowing tune: a crystalline plucked synth bell playing a flowing melody of steady eighth notes that rises and falls in the middle register, a warm solo cello answering it in long phrases, a slow warm string ensemble holding wintry chords underneath, icy shimmering pads, a deep soft round synth bass, the percussion soft and distant far behind the melody, only a quiet brushed shaker and a gentle muted frame drum barely heard, still and vast like a frozen alpine valley at dusk, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, wide spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, brass band, polka, oompah, march, folk, accordion, fiddle, yodel, alphorn, bagpipe, hurdy-gurdy, crowd noise, live recording, heavy distortion, hard kick, punchy kick drum, pounding drums, heavy drums, loud drums, drum hits, blows, thuds, snare, hand claps, drum fills, drum solo, long drum-only sections, boomy sub bass, bright crash cymbals, splashy cymbals, open hi-hats, noise bursts, risers, impacts, long quiet intro, long silent passages, quiet breakdown, near silence, fade out, fade in",
+      "bpm": 96,
+      "round": "2",
+      "candidates": [
+        "c7",
+        "c8",
+        "c9"
+      ]
+    },
+    "brief_4": {
+      "caption": "Still wintry downtempo instrumental for a snowy mountain pass: a clear glassy electric piano and a plucked harp playing one flowing melody of steady eighth notes together in the middle register, a warm solo cello answering it between the phrases, soft icy string pads holding long chords, a deep soft round bass, the percussion only a very quiet distant frame drum and a faint brushed shaker, soft and sparse, the melody always clearly in front, vast, calm and crystalline, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, wide spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, brass band, polka, oompah, march, folk, accordion, fiddle, yodel, alphorn, bagpipe, hurdy-gurdy, crowd noise, live recording, heavy distortion, hard kick, punchy kick drum, pounding drums, heavy drums, loud drums, drum hits, blows, thuds, snare, hand claps, drum fills, drum solo, long drum-only sections, boomy sub bass, bright crash cymbals, splashy cymbals, open hi-hats, noise bursts, risers, impacts, long quiet intro, long silent passages, quiet breakdown, near silence, fade out, fade in",
+      "bpm": 96,
+      "round": "2",
+      "candidates": [
+        "c10",
+        "c11",
+        "c12"
+      ]
+    },
+    "brief_5": {
+      "caption": "Glacial cinematic electronic instrumental: a crystalline plucked synth arpeggio running in steady sixteenth notes through slow wintry chords, a warm solo cello singing a simple melody over it in the middle register, soft icy string pads, a deep soft round bass playing long notes, the percussion only a faint distant brushed shaker, soft and sparse, the melody always clearly in front, vast and still like a frozen alpine valley at dusk, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, wide spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, brass band, polka, oompah, march, folk, accordion, fiddle, yodel, alphorn, bagpipe, hurdy-gurdy, crowd noise, live recording, heavy distortion, hard kick, punchy kick drum, pounding drums, heavy drums, loud drums, drum hits, blows, thuds, snare, hand claps, drum fills, drum solo, long drum-only sections, boomy sub bass, bright crash cymbals, splashy cymbals, open hi-hats, noise bursts, risers, impacts, long quiet intro, long silent passages, quiet breakdown, near silence, fade out, fade in",
+      "bpm": 100,
+      "round": "3",
+      "candidates": [
+        "c16",
+        "c17",
+        "c18"
+      ]
+    }
+  },
+  "replaces": {
+    "issue": 280,
+    "created": "2026-09-29",
+    "caption": "Glacial downtempo electronic instrumental: slow deep beat, crystalline plucked synths, icy shimmering pads, wide reverb, a simple repeating melody, still and vast, no vocals",
+    "negative": "vocals, singing, brass band, polka, oompah, march, folk, accordion, fiddle, yodel, alphorn, bagpipe, hurdy-gurdy, crowd noise, live recording, heavy distortion",
+    "seed": 2803,
+    "bpm": 88,
+    "keyscale": "E minor",
+    "loop_log": [
+      "Wrote C:\\Users\\panrd\\AI\\output\\masters-280\\theme-summit-glacier.wav: 54.5s loop = source 35.30s..89.85s (19.99 bars at 88.0 bpm), crossfade 1.36s | context match 0.782 (best 0.830) | crossfade rhythm r=0.91 vs the track a bar later r=0.85: in time | spectrum cos=0.70"
+    ],
+    "why_replaced": "The owner's Jukebox note of 2026-10-16 (translated from Czech): the drums, beats and hits are too prominent and sound more like blows and pounding, which is not pleasant (#906). Measured on 2026-10-17 beside ember: 5.5 % in 200 Hz-2 kHz and 4.4 % in 300 Hz-4 kHz, tonal mid 36 %, 6 clipped runs and a +14.5 dB step across the wrap; measured on 2026-10-19 its drums stem stood level with the mix in 300 Hz-4 kHz (-2.3 dB, -1.1 dB in its loudest 250 ms, crest 38 dB; its family -6.1 to -21.2, only the house track summit-deephouse as high). Its brief asked for a slow deep beat and named no drum in the negative (brass band, folk and heavy distortion only)."
+  }
 }

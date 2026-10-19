@@ -1134,3 +1134,8 @@ Pravidla:
 - Hotovo: `/blog/` (od nejnovějšího, datum, témata, shrnutí), stránka článku ve stávajícím vzhledu, Atom feed `/feed.xml` s plným textem, odkazy z hlavičky, patičky a pod galerií; nový článek je jeden Markdown v `Web/src/blog/` (`docs/website.md`). Pět článků z deníku, docs a issues: mřížka a řez (38 míčů z jednoho, spočteno na Umbrelle), Pi a Potato, hudba a měření děr, 10bitový buffer, dráha kamery kolem ostrova (#878).
 - ⚠ Headless Edge má okno nejméně 492 px; 400 px dá až emulace přes DevTools protokol. Markdown běží bez Liquidu.
 - Otevřené: oko majitele na vzhled a znění; všechny články mají datum 19. 10., nastaví se při publikaci (`publish.ps1` je majitelův).
+
+## 2026-10-19 — #905 #906 Sunset a Glacier přegenerovány — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: `mural-sunset` (c4 přeřezaný ze 40–120 s surového renderu: první střih měl krok −9,3 dB přes zlom při 1 s; trim −2,5 dB) a `summit-glacier` (c15 z 18 kandidátů, jediný uvnitř `ember` s tichými bicími). Nové `drum-share.py`: starý Glacier měl bicí na úrovni mixu (−2,3 dB v 300 Hz–4 kHz, rodina −6 až −21), Sunset ne (−8,9, rodina −8 až −18). `key-share.py`: tóny na stupnici, Sunset 90,7 → 97,4 %.
+- ⚠ Bez zvukového zařízení nikdo neposlouchal; ve hře `[music] … (drums layered)`.
+- Otevřené: `verdict-eye` obou, `verdicts\905\`.
