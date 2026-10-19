@@ -27,6 +27,13 @@ namespace BS3D.Effects
     /// vertex shader (see <c>LaserGrid.fx</c>) — the play camera stands barely below the grid's plane, and
     /// a flat quad lying in it would be seen edge-on and vanish.
     /// </para>
+    /// <para>
+    /// <b>The net is projected</b> (#874): from each of the four emitters' lenses in the funnel
+    /// (<see cref="LaserEmitterRing.Lens"/>) a soft cone of the same red runs to its corner of the net, a pencil as thin
+    /// as a beam where it leaves the centre of the lens and widening as it goes (<see cref="CONE_SPREAD"/>), dimmer the
+    /// wider (<see cref="CONE_GAIN_POWER"/>), landing on its corner and dissolving just past it. The cones are quads of the
+    /// same buffer and the same draw, so they carry the net's own pulse, wave and flare, and are lit only while it is.
+    /// </para>
     /// </summary>
     internal sealed class LaserGrid : IDisposable
     {
@@ -40,6 +47,34 @@ namespace BS3D.Effects
         //Half-thickness of a beam. Thin on purpose: the red halo and the glare's bloom carry the visual
         //weight, and a fat beam reads as a glowing bar rather than a laser.
         private const float BEAM_HALF_WIDTH = 0.055f;
+
+        //A beam's soft ends, as shares of its length: short, so the grid's edge still comes out straight
+        private const float BEAM_FADE = 0.06f;
+
+        //The projection cones (#874). A cone leaves the lens as thin as a beam and widens by this much half-width per unit
+        //of its length (a half-angle of about 15 degrees), its width at the corner held between the two figures after it:
+        //a 17-wide net's corner stands almost over its emitter, under a unit off, and a cone that short still has to read
+        //as spreading; an 11-wide one's is four units off, and a cone that wide would hide the corner it lands on.
+        private const float CONE_SPREAD = 0.27f;
+        private const float CONE_CORNER_MIN_HALF_WIDTH = 0.45f;
+        private const float CONE_CORNER_MAX_HALF_WIDTH = 1.0f;
+
+        //How a cone dims as it widens: the radiance goes as (start / half-width) to this power, so the pencil at the lens
+        //is as hot as a beam and the wide end a red haze. Under 1, so the cone's whole light still grows a little as it
+        //opens and the landing reads.
+        private const float CONE_GAIN_POWER = 0.6f;
+
+        //A cone does not stop at the corner: it lands on the net there, half its light left, and dissolves this share of
+        //its width at the corner beyond it, so the corner is lit by it rather than the cone fading out short of it. Its
+        //axis is the lens's through the corner all the same.
+        private const float CONE_LANDING = 0.5f;
+
+        //It starts at once at the lens, a share of its length
+        private const float CONE_FADE_IN = 0.02f;
+
+        //The quads each cone is cut into along its length: the gain is not linear in the length, and each quad's corners
+        //carry it, so a few of them make the falloff a curve
+        private const int CONE_SECTIONS = 6;
 
         //The envelope's two slopes. Arrival is fast — it is an alarm — and departure slow enough to read
         //as the net standing down rather than flickering out when the player frees the bottom level.
@@ -60,17 +95,22 @@ namespace BS3D.Effects
         private const float PULSE_HZ = 1.6f;
         private const float PULSE_FLOOR = 0.35f;
 
-        /// <summary>One corner of one beam's quad. Both endpoints ride along so the shader needs no per-beam uniforms.</summary>
+        /// <summary>
+        /// One corner of one quad of a beam or a cone. Both endpoints of the whole axis ride along, and the corner's own
+        /// half-width and gain, so the shader needs no per-beam uniforms and a cone's quads are slices of one axis.
+        /// </summary>
         private struct LaserVertex : IVertexType
         {
             public Vector3 Start;
             public Vector3 End;
-            public Vector2 Data;    //(side in {-1,1}, along in {0,1})
+            public Vector4 Data;    //(side in {-1,1}, along in [0,1], half-width here, gain here)
+            public Vector2 Fade;    //(fade-in, fade-out) as shares of the axis
 
             public static readonly VertexDeclaration Declaration = new(
                 new VertexElement(0, VertexElementFormat.Vector3, VertexElementUsage.Position, 0),
                 new VertexElement(12, VertexElementFormat.Vector3, VertexElementUsage.TextureCoordinate, 0),
-                new VertexElement(24, VertexElementFormat.Vector2, VertexElementUsage.TextureCoordinate, 1));
+                new VertexElement(24, VertexElementFormat.Vector4, VertexElementUsage.TextureCoordinate, 1),
+                new VertexElement(40, VertexElementFormat.Vector2, VertexElementUsage.TextureCoordinate, 2));
 
             readonly VertexDeclaration IVertexType.VertexDeclaration => Declaration;
         }
@@ -133,9 +173,8 @@ namespace BS3D.Effects
             _timeParam = effect.Parameters["Time"];
 
             //Set once: the colour is handed in (the ceiling alarm's own red, so the two warnings cannot
-            //drift apart) and the width never changes. A parameter's value persists on the effect.
+            //drift apart). A parameter's value persists on the effect; the widths ride on the vertices.
             effect.Parameters["LaserColor"].SetValue(color);
-            effect.Parameters["LaserHalfWidth"].SetValue(BEAM_HALF_WIDTH);
         }
 
         /// <summary>
@@ -156,19 +195,13 @@ namespace BS3D.Effects
             int alongX = (int)(halfZ / BEAM_PITCH) * 2 + 1;     //beams running along X are spaced in Z
             int alongZ = (int)(halfX / BEAM_PITCH) * 2 + 1;
 
-            //Where the outermost beams stand: the net's corners, which the four emitters on the drain's rim are placed
-            //at and fed from (#874). Integer division on purpose, the very expression the beams below are placed by.
+            //Where the outermost beams stand: the net's corners, which the four emitters in the funnel aim at and project
+            //the net onto (#874). Integer division on purpose, the very expression the beams below are placed by.
             CornerX = ((alongZ - 1) / 2) * BEAM_PITCH;
             CornerZ = ((alongX - 1) / 2) * BEAM_PITCH;
+            PlaneY = y;
 
-            //One feeder from each emitter's lens to its corner of the net - the net starts at the lenses and not in the
-            //air. None where the lens does not stand clear outside the corner (the largest footprints reach the band the
-            //emitters stand on): there the lens is at the corner already and the net starts at it
-            int feeders = 0;
-            for (int k = 0; k < LaserEmitterRing.COUNT; k++)
-                if (FeederLength(k, y) > MIN_FEEDER) feeders++;
-
-            _quadCount = alongX + alongZ + feeders;
+            _quadCount = alongX + alongZ + LaserEmitterRing.COUNT * CONE_SECTIONS;
 
             LaserVertex[] vertices = new LaserVertex[_quadCount * 4];
             short[] indices = new short[_quadCount * 6];
@@ -187,10 +220,10 @@ namespace BS3D.Effects
                 AddBeam(vertices, indices, ref quad, new Vector3(x, y, -halfZ), new Vector3(x, y, halfZ));
             }
 
+            //The four projection cones, each from the centre of its emitter's lens to its corner of the net
             for (int k = 0; k < LaserEmitterRing.COUNT; k++)
-                if (FeederLength(k, y) > MIN_FEEDER)
-                    AddBeam(vertices, indices, ref quad, LaserEmitterRing.Lens(k, CornerX, CornerZ),
-                        LaserEmitterRing.NetCorner(k, CornerX, CornerZ, y));
+                AddCone(vertices, indices, ref quad, LaserEmitterRing.Lens(k, CornerX, CornerZ, y),
+                    LaserEmitterRing.NetCorner(k, CornerX, CornerZ, y));
 
             _vertexBuffer = new VertexBuffer(_device, LaserVertex.Declaration, vertices.Length, BufferUsage.WriteOnly);
             _vertexBuffer.SetData(vertices);
@@ -199,35 +232,59 @@ namespace BS3D.Effects
             _indexBuffer.SetData(indices);
         }
 
-        //A feeder shorter than this is not drawn: a lens that stands at its corner already has nothing to feed across
-        private const float MIN_FEEDER = 0.5f;
-
-        //How far the lens of emitter k stands outside its corner of the net, measured along the line between them (a lens
-        //inside the corner has no feeder to draw, and the sign says so)
-        private float FeederLength(int k, float planeY)
-        {
-            Vector3 lens = LaserEmitterRing.Lens(k, CornerX, CornerZ);
-            Vector3 corner = LaserEmitterRing.NetCorner(k, CornerX, CornerZ, planeY);
-            Vector3 outward = LaserEmitterRing.Outward(k, CornerX, CornerZ);
-
-            return Vector3.Dot(lens - corner, outward) > 0f ? Vector3.Distance(lens, corner) : 0f;
-        }
-
         /// <summary>Where the net's outermost beams along Z stand in X, the net's corners' half-extent (#874); set by <see cref="Fit"/>.</summary>
         internal float CornerX { get; private set; }
 
         /// <summary>Where the outermost beams along X stand in Z; set by <see cref="Fit"/>.</summary>
         internal float CornerZ { get; private set; }
 
-        private static void AddBeam(LaserVertex[] vertices, short[] indices, ref int quad, Vector3 start, Vector3 end)
+        /// <summary>The height of the net's plane, which the emitters aim at with its corners; set by <see cref="Fit"/>.</summary>
+        internal float PlaneY { get; private set; }
+
+        private static void AddBeam(LaserVertex[] vertices, short[] indices, ref int quad, Vector3 start, Vector3 end) =>
+            AddQuad(vertices, indices, ref quad, start, end, 0f, 1f, BEAM_HALF_WIDTH, BEAM_HALF_WIDTH, 1f, 1f,
+                new Vector2(BEAM_FADE, BEAM_FADE));
+
+        /// <summary>
+        /// One projection cone from <paramref name="lens"/> through <paramref name="corner"/>: <see cref="CONE_SECTIONS"/>
+        /// quads of one axis, the half-width growing linearly from a beam's at the lens (a true cone, billboarded) and the
+        /// gain falling with it (<see cref="CONE_GAIN_POWER"/>), landing on the corner and dissolving just past it
+        /// (<see cref="CONE_LANDING"/>).
+        /// </summary>
+        private static void AddCone(LaserVertex[] vertices, short[] indices, ref int quad, Vector3 lens, Vector3 corner)
+        {
+            float length = Vector3.Distance(lens, corner);
+            float cornerHalfWidth = Math.Clamp(length * CONE_SPREAD, CONE_CORNER_MIN_HALF_WIDTH, CONE_CORNER_MAX_HALF_WIDTH);
+
+            //The axis runs on past the corner by the landing, and the fade-out is twice that, so the corner sits halfway down it
+            float total = length + CONE_LANDING * cornerHalfWidth;
+            Vector3 end = lens + (corner - lens) * (total / length);
+            float endHalfWidth = BEAM_HALF_WIDTH + (cornerHalfWidth - BEAM_HALF_WIDTH) * (total / length);
+            Vector2 fade = new(CONE_FADE_IN, MathF.Min(2f * (total - length) / total, 0.8f));
+
+            for (int i = 0; i < CONE_SECTIONS; i++)
+            {
+                float a0 = (float)i / CONE_SECTIONS;
+                float a1 = (float)(i + 1) / CONE_SECTIONS;
+                float w0 = MathHelper.Lerp(BEAM_HALF_WIDTH, endHalfWidth, a0);
+                float w1 = MathHelper.Lerp(BEAM_HALF_WIDTH, endHalfWidth, a1);
+
+                AddQuad(vertices, indices, ref quad, lens, end, a0, a1, w0, w1, ConeGain(w0), ConeGain(w1), fade);
+            }
+        }
+
+        private static float ConeGain(float halfWidth) => MathF.Pow(BEAM_HALF_WIDTH / halfWidth, CONE_GAIN_POWER);
+
+        private static void AddQuad(LaserVertex[] vertices, short[] indices, ref int quad, Vector3 start, Vector3 end,
+            float along0, float along1, float halfWidth0, float halfWidth1, float gain0, float gain1, Vector2 fade)
         {
             int v = quad * 4;
             int n = quad * 6;
 
-            vertices[v + 0] = new LaserVertex { Start = start, End = end, Data = new Vector2(-1f, 0f) };
-            vertices[v + 1] = new LaserVertex { Start = start, End = end, Data = new Vector2(1f, 0f) };
-            vertices[v + 2] = new LaserVertex { Start = start, End = end, Data = new Vector2(-1f, 1f) };
-            vertices[v + 3] = new LaserVertex { Start = start, End = end, Data = new Vector2(1f, 1f) };
+            vertices[v + 0] = new LaserVertex { Start = start, End = end, Data = new Vector4(-1f, along0, halfWidth0, gain0), Fade = fade };
+            vertices[v + 1] = new LaserVertex { Start = start, End = end, Data = new Vector4(1f, along0, halfWidth0, gain0), Fade = fade };
+            vertices[v + 2] = new LaserVertex { Start = start, End = end, Data = new Vector4(-1f, along1, halfWidth1, gain1), Fade = fade };
+            vertices[v + 3] = new LaserVertex { Start = start, End = end, Data = new Vector4(1f, along1, halfWidth1, gain1), Fade = fade };
 
             indices[n + 0] = (short)(v + 0);
             indices[n + 1] = (short)(v + 1);
@@ -366,8 +423,8 @@ namespace BS3D.Effects
 
         /// <summary>
         /// How brightly the net burns at <paramref name="now"/>, 0 when it is dark: the envelope times the pulse, with the
-        /// kill flare over it. The beams are drawn at exactly this, and so are the four emitters' lenses (#874), which is
-        /// what makes the glass and the beam leaving it one light. Pure of the wall clock, but it executes the linger's
+        /// kill flare over it. The beams and the cones are drawn at exactly this, and so are the four emitters' lenses
+        /// (#874), which is what makes the glass and the light leaving it one light. Pure of the wall clock, but it executes the linger's
         /// expiry like <see cref="Draw"/> (the expiry is stamped, and running it twice in a frame changes nothing).
         /// </summary>
         internal float IntensityAt(float now)

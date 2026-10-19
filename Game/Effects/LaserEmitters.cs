@@ -10,20 +10,22 @@ using System.Collections.Generic;
 namespace BS3D.Effects
 {
     /// <summary>
-    /// The four laser emitters on the drain's rim (#874): where the floor net comes from. Four of one mesh, in four parts
-    /// (<see cref="LaserEmitterMesh"/>), each part one instanced draw of four, in the gun's own metal and glass
-    /// (<see cref="CannonRig.STEEL_COLOR"/>, <see cref="CannonRig.FRAME_COLOR"/>, <see cref="CannonRig.GLASS_COLOR"/>) so
-    /// they read as made by the same hand. Placed by <see cref="LaserEmitterRing"/>, per level, at the net's corners.
+    /// The four laser emitters mounted inside the drain's funnel (#874): where the floor net is projected from. Four of one
+    /// mesh, in four parts (<see cref="LaserEmitterMesh"/>), each part one instanced draw of four, in the gun's own metal
+    /// and glass (<see cref="CannonRig.STEEL_COLOR"/>, <see cref="CannonRig.FRAME_COLOR"/>,
+    /// <see cref="CannonRig.GLASS_COLOR"/>) so they read as made by the same hand. Placed by
+    /// <see cref="LaserEmitterRing"/> on the glass just under the rim at the corners' bearings, and aimed per level at the
+    /// net's corners.
     /// <para>
     /// <b>The glow.</b> The lens always carries a faint ember (standby) and takes the net's own brightness when it is up
-    /// (<see cref="LaserGrid.IntensityAt"/>), so the glass and the beam that leaves it are one light and pulse together.
+    /// (<see cref="LaserGrid.IntensityAt"/>), so the glass and the cone that leaves it are one light and pulse together.
     /// It is the renderer's <see cref="InstancedModelRenderer.EmissiveTint"/>, which the glass's alpha does not dim.
     /// </para>
     /// <para>
     /// <b>Two draws, two places in the frame.</b> The metal is opaque and goes with the gun and the level's crates
     /// (<see cref="DrawBody"/>); the lens is glass and goes with the translucents, after the drain's glass and
-    /// <b>before</b> the net (<see cref="DrawLens"/>), writing no depth — the beam starts at the lens's crest, so a lens
-    /// that wrote depth would hide the first hand's breadth of every feeder behind its own dome. Built and fitted with the
+    /// <b>before</b> the net (<see cref="DrawLens"/>), writing no depth — the cone starts at the lens's crest, so a lens
+    /// that wrote depth would hide the first hand's breadth of every cone behind its own dome. Built and fitted with the
     /// level, lit with the rest of the scene through the host's sky-lit enrolment
     /// (<c>BS3DGame.SessionEmitters</c>).
     /// </para>
@@ -83,15 +85,16 @@ namespace BS3D.Effects
         public IReadOnlyList<InstancedModelRenderer> Renderers => _renderers;
 
         /// <summary>
-        /// Stands the four at this level's net corners (<see cref="LaserGrid.CornerX"/>, <see cref="LaserGrid.CornerZ"/>).
-        /// Per level, never per frame: the matrices are kept.
+        /// Mounts the four at this level's net corners' bearings and aims each at its corner (<see cref="LaserGrid.CornerX"/>,
+        /// <see cref="LaserGrid.CornerZ"/>, on the net's plane <see cref="LaserGrid.PlaneY"/>). Per level, never per frame:
+        /// the matrices are kept.
         /// </summary>
-        public void Fit(float cornerX, float cornerZ)
+        public void Fit(float cornerX, float cornerZ, float planeY)
         {
             for (int k = 0; k < LaserEmitterRing.COUNT; k++)
             {
                 _stands[k] = new ModelInstance(LaserEmitterRing.Stand(k, cornerX, cornerZ), new Vector4(0f, 0f, 0f, 1f));
-                _housings[k] = new ModelInstance(LaserEmitterRing.Housing(k, cornerX, cornerZ), new Vector4(0f, 0f, 0f, 1f));
+                _housings[k] = new ModelInstance(LaserEmitterRing.Housing(k, cornerX, cornerZ, planeY), new Vector4(0f, 0f, 0f, 1f));
             }
 
             _fitted = true;

@@ -219,6 +219,12 @@ namespace BS3D.Screens
         /// </summary>
         private readonly Tutorial _tutorial;
 
+        /// <summary>
+        /// The "fire" chip for a player who has stopped, in the first five levels (#925): the rules are its own class, this
+        /// screen tells it when a shot leaves and when something else has the player's attention, and the HUD draws it.
+        /// </summary>
+        private readonly FireHint _fireHint = new();
+
         //The crosshair: four bars around a clear centre, struck from a white texel it makes itself. Its own
         //component since #76 — the bars, their size on the screen, the premultiplied white they are drawn in
         //and the skip below a hundredth of an opacity are all Crosshair's, and the Testbed draws the same one
@@ -697,7 +703,7 @@ namespace BS3D.Screens
 
         private readonly LaserGrid _laserGrid;
 
-        //The four emitters on the drain's rim the net comes from (#874), made with the first level and kept for the
+        //The four emitters inside the funnel the net is projected from (#874), made with the first level and kept for the
         //session's life; null before it
         private LaserEmitters _emitters;
 
@@ -1500,11 +1506,25 @@ namespace BS3D.Screens
                 float walk = script.Walk(WallClock), turn = script.Turn(WallClock);
                 if (walk != 0f) _cannon.Advance(walk * CANNON_ADVANCE_RATE);
                 if (turn != 0f) _cannon.Orbit(turn * CANNON_ORBIT_RATE);
+
+                //And the holds the keys report to the tutorial (#925): a scripted turn completes the orbit card and a scripted walk
+                //the walk card, as a player's A/D and W/S do, so a run can reproduce a player who has done what the card asked
+                //and then stopped. UpdateInput reports them itself while the window is the active one (and would reset a hold
+                //reported twice), so this is the unfocused run's
+                if (!Game.IsActive)
+                {
+                    _tutorial.NoteHold(Tutorial.Lesson.Traverse, turn != 0f, elapsed);
+                    _tutorial.NoteHold(Tutorial.Lesson.Walk, walk != 0f, elapsed);
+                }
             }
 
             //The gun's own frame — its orbit and walk, the queue's glide, the wildcards and the recoil stroke —
             //in one copy with the result page's frame below (#582)
             StepGunHardware(gameTime, elapsed);
+
+            //Testing only: where a scripted walk or turn has put the gun, and the lens (last frame's), for a run to show it
+            //is continuous; silent without walk= or turn=
+            ScriptedPlay.Current?.TraceGun(WallClock, _cannon.Position, _cannon.OrbitRadius, Camera.Position);
 
             //The Cut's beats on the wall clock (#767): the press's charge and its hold in the hand, the flight's pinch, and
             //the strike's slow motion, which is a property of time and so not slowed by itself. The hold is asked every
@@ -1675,6 +1695,20 @@ namespace BS3D.Screens
                 _hud.KickTutorial();
                 Game.Audio.PlayStarEarned(0, 1, 0f);
             }
+
+            //The "fire" chip for a player who has stopped (#925), after the card above so it reads the card's state of this
+            //frame. Anything that already has the player's attention, or that would make the word false, takes it down and
+            //restarts its count: a card up or queued, a camera takeover or the chapter's tour still holding the release, the
+            //glass stepping or its alarm, the floor's net, a shot still in the air, a decided level, the Tutorial row off
+            bool fireHintWas = _fireHint.Showing;
+            FireHint.Distractions distractions = FireHintDistractions();
+            _fireHint.Update(elapsed, in distractions);
+            _hud.SetFireHint(_fireHint.Presence, _fireHint.Age);
+
+            //One line when the chip comes and one when it goes, on the clock shot= counts, so a run says when it was up
+            if (_fireHint.Showing != fireHintWas)
+                Console.WriteLine(FormattableString.Invariant(
+                    $"[firehint] {(_fireHint.Showing ? "up" : "down")} at {WallClock:F2} s ({_run.Seconds:F2} s of play, next pause {_fireHint.Threshold:F0} s)"));
 
             UpdateCamera(elapsed);
 
@@ -2052,7 +2086,7 @@ namespace BS3D.Screens
             //it — while the descending plate is above, so an overhead shot seeing the net through the glass
             //still gets the plate composited over it. Wall-clock driven, so its pulse and its linger-and-
             //fade keep running while a result screen covers this screen and only draws still arrive.
-            //The four emitters' lenses first (#874), glass writing no depth, so the feeders that start at their crests are
+            //The four emitters' lenses first (#874), glass writing no depth, so the cones that start at their crests are
             //drawn over the glass and not behind it - and glowing with the very brightness the beams are drawn at
             _emitters?.DrawLens(GraphicsDevice, Camera, Game.SceneEffectParams, _laserGrid.IntensityAt(WallClock));
 
@@ -2132,7 +2166,7 @@ namespace BS3D.Screens
             DrawMuzzleCollar(barrelWorld);
             Game.CannonRig.DrawCarriage(Camera, carriageWorld, _cannon.WheelTravel, _cannon.SlideTravel, Game.SceneEffectParams);
 
-            //The laser emitters' metal on the drain's rim (#874), with the gun in both frames: the front end's over a kept
+            //The laser emitters' metal inside the funnel (#874), with the gun in both frames: the front end's over a kept
             //session shows them standing there too, and a pod that appeared only in play would pop in with the level
             _emitters?.DrawBody(Camera, Game.SceneEffectParams);
 

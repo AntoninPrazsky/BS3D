@@ -118,6 +118,9 @@ namespace BS3D.Screens
                 swapOffered: _run.SwapOffered, retry: retry, kindsOnMap: _kindsOnMap, brakeOffered: _run.BrakeOffered,
                 cutOffered: _run.CutOffered);
 
+            //The first five levels carry the "fire" chip for a player who stops (#925), on the level's own count from zero
+            _fireHint.BeginLevel(tutorialLevel && FireHint.CarriesHint(chapter, levelInChapter));
+
             //And no floor alarm either: whatever the last level's ending left lingering over the drain is
             //not this level's danger.
             _laserGrid.Reset();
@@ -218,6 +221,7 @@ namespace BS3D.Screens
 
             //And a tutorial card caught up, which belongs to the level that is going (#189)
             _tutorial.Reset();
+            _fireHint.BeginLevel(false);
 
             //The magazine is not refilled here: its colours belong to a level, and InstallLevel loads the
             //next one's before the queue means anything again
@@ -539,12 +543,11 @@ namespace BS3D.Screens
                 CeilingPlate.FootprintFor(_map.StageSizeZ) * Constants.HALF,
                 CEILING_DEATH_Y - Constants.HALF);
 
-            //The four emitters the net comes from, at its corners (#874), and the gun held off them: the carriage may not
-            //stand inside their circles, whatever the player does with the walk and the orbit (Cannon.SetKeepouts)
+            //The four emitters the net is projected from (#874), inside the funnel at its corners' bearings and aimed at its
+            //corners. Nothing of the gun's reaches in there (LaserEmitterRing), so the walk and the orbit are left alone
             _emitters ??= new BS3D.Effects.LaserEmitters(GraphicsDevice, Game.InstancingEffect, CeilingDescent.CEILING_FLASH_COLOR);
-            _emitters.Fit(_laserGrid.CornerX, _laserGrid.CornerZ);
+            _emitters.Fit(_laserGrid.CornerX, _laserGrid.CornerZ, _laserGrid.PlaneY);
             Game.SessionEmitters = _emitters;
-            _cannon.SetKeepouts(_laserGrid.CornerX, _laserGrid.CornerZ);
 
             //And the front end's own camera framed for THIS field (#254). It is not up while a level is
             //played — but the result screen flies the lens out onto it the moment the level ends, and a

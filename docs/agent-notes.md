@@ -1092,3 +1092,28 @@ Pravidla:
 - Jedna sdílená stránka verdiktů (bs3d-5f, 21 karet, db `verdicts`); fronta 17 → hudba #905/#906 zastavena před renderem. Křížová recenze s bs3d-5f: u mých 10 merge 2 chyby (odměna za řez vs. 2,5 s beat při vypnuté cinematic; stall hodiny vs. svět pod 30 fps) a jedna změna chování (#872 střílel pod podlahu), opraveno `ab2e6d24`; u jejích 21 žádná chyba, 6 drobností. Smoke run `f83d983f` čistý.
 - ⚠ Před claimem číst stav issue: #895, #898, #891, #902 už měla bs3d-5f. ⚠ Monitor spí = žádný zvukový výstup, nikdo dnes nic neslyšel.
 - Otevřené: #924 (měření), odpovědi majitele na stránce; hudba #905–#917 čeká na pokles fronty.
+
+## 2026-10-19 — #927 krátké release notes — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Poznámky v0.4.0 zkráceny na dvanáct řádků o hře a jeden závěrečný: stránka vydání 116 → 61 řádků, nadpis „Download and play“ z řádku 80 na 24. Dlouhá verze je v komentáři #927 a na tagu (`blob/v0.4.0`); `Images/releases/v0.4.0.md` je teď krátká.
+- Pravidlo je v `docs/build-and-release.md`. Pořadí v `release.yml` zůstává: GitHub řadí assety pod celé tělo, rozhoduje tedy délka, ne pořadí.
+- Hotové vydání se upravuje přes `gh release view --json body` + `gh release edit --notes-file`, sekce Download beze změny.
+
+## 2026-10-19 — #904 Ska: kandidát c3 jako bloom-ska — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: majitel 18. 10. řekl, že c3 je lepší než původní Ska; nasazen jako `bloom-ska.ogg` (45 s, bez trimu, post-codec špička -0,25 dBFS), bicí vrstva oddělena znovu, sidecar nese brief, seed, měření a výrok majitele, který pro tuto jednu nahrávku přebíjí hranici krátkých děr (29,3 za minutu proti 27,0; stará 99,2, 21 oříznutých běhů → 0). `MusicBake --shipped`, LevelGen a 1764 testů v pořádku; `[music] bloom: bloom-ska.ogg (drums layered)` ve hře.
+- Nic neposlouchal agent; poslech je majitelův.
+
+## 2026-10-19 — #925 „Fire!“ pro hráče, který přestal střílet — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: v prvních pěti levelech první kapitoly se po 10 s bez výstřelu (dvojnásobek 5 s na výstřel z majitelových `Stats.json`), když nemluví karta, alarm ani kamera, objeví tučný jantarový čip „Fire!“ s tlačítkem pro aktuální ruku (LMB, RT) pod zaměřovačem; tepe jednou za vteřinu, výstřel ho smaže, zpět až po 30 s. Pravidla v `FireHint` (čistá logika, testy viděny selhat), popis v `docs/game-feedback/fire-hint.md`.
+- ⚠ `turn=`/`walk=` teď hlásí držení kartám traverse/walk; bez toho skript kartu orbitu nikdy nedokončil.
+- Otevřené: verdikt newcomer (pauzu u nováčka nikdo neměřil), snímky ve `verdicts\925\`.
+
+## 2026-10-19 — #874 zářiče uvnitř trychtýře, projekční paprsky — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Po majitelově „Vrať“: čtyři zářiče sedí na skle trychtýře 0,6 pod okrajem (patka podél normály skla) a hlavice se na čepu natočí přesně na svůj roh sítě; z čočky vede měkký, rozšiřující se kužel, který na rohu přistane. `Cannon.SetKeepouts` je pryč, dělo obíhá volně. Čep třmenu je výš (0,95), jinak by se ocas hlavice zabořil do patky.
+- ⚠ Na 16–17 širokých sítích je roh skoro nad čočkou: hlavice míří svisle a kužel měří 0,8.
+- ⚠ Kulička přes okraj v ose zářiče jím projde (bez kolize, záměrně).
+- Otevřené: `verdict-eye`, snímky ve `verdicts\874b\`.
+
+## 2026-10-19 — #930 karty tutoriálu: jedna akce na krok — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Inventura všech karet je na issue. Dvě věci chtěla jediná karta, `combine` (pravé tlačítko + A/D): je z ní dvoukroková karta („Hold to look down the barrel“, po splnění „Now walk the gun round“); zaznamená se po druhém kroku pod starým klíčem, uložené hry se neučí znovu. Ostatní karty jsou jeden rozkaz bez „proč“ (to drží Help), `TutorialCopyTests` je hlídá a na starém textu selhal.
+- ⚠ Lekce s držením nehrají skripty `rmb=`/`walk=`: druhý krok je vidět jen v reelu `tutorial=demo`; skutečnou detekci nikdo ručně nehrál.
+- Otevřené: verdikt newcomer + oko majitele na formulaci (snímky ve `verdicts\930\`).

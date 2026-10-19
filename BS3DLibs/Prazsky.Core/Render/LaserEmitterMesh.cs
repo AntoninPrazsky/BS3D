@@ -5,18 +5,24 @@ using System;
 namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// One of the four laser emitters on the funnel's rim (#874), in four parts so that each material is a draw of its
-    /// own: the flared <see cref="Part.Pedestal"/> that stands on the gold band, the swivel <see cref="Part.Yoke"/> (two
-    /// arms and a pin through the housing, the gun's trunnion language), the short ribbed <see cref="Part.Housing"/> and
-    /// the glass <see cref="Part.Lens"/> set into its muzzle. The drawn references were a stubby cast-iron barrel with a
-    /// thick rimmed lens, a ribbed collar behind it and a swivel on a round foot; every figure below is read off that.
+    /// One of the four laser emitters mounted inside the drain's funnel (#874), in four parts so that each material is a
+    /// draw of its own: the flared <see cref="Part.Pedestal"/> whose foot is set on the glass, the swivel
+    /// <see cref="Part.Yoke"/> (two arms and a pin through the housing, the gun's trunnion language), the short ribbed
+    /// <see cref="Part.Housing"/> and the glass <see cref="Part.Lens"/> set into its muzzle. The drawn references were a
+    /// stubby cast-iron barrel with a thick rimmed lens, a ribbed collar behind it and a swivel on a round foot; every
+    /// figure below is read off that.
     /// <para>
     /// <b>Two frames.</b> The pedestal and the yoke are modelled in the <i>stand</i> frame: the origin on the foot
-    /// (the point on the band the pedestal sits on), +Y up, -Z towards the funnel's centre. The housing and the lens are
-    /// modelled in the <i>housing</i> frame: the emission axis is +Y, the rear face at 0, the lens at
-    /// <see cref="LENS_APEX_Y"/>; the layout (<c>LaserEmitterRing</c> in the game library) pitches that axis about the
-    /// pin at <see cref="PIVOT_Y"/> above the foot. Everything is smaller than the gun's tube: about 1.3 units tall at
-    /// most, which is what keeps the barrel passing over it at the lowest elevation.
+    /// (the point on the glass the pedestal sits on), +Y out of the surface it stands on, the pin along +X. The housing
+    /// and the lens are modelled in the <i>housing</i> frame: the emission axis is +Y, the rear face at 0, the lens at
+    /// <see cref="LENS_APEX_Y"/>; the layout (<c>LaserEmitterRing</c> in the game library) swings that axis about the
+    /// pin at <see cref="PIVOT_Y"/> off the foot until it points at its corner of the floor net.
+    /// </para>
+    /// <para>
+    /// <b>The yoke is tall enough for the housing to point straight out of its foot.</b> Set on the funnel's wall, the
+    /// emitter aims roughly along the glass's normal (the corners stand up and in from it), so the housing turns on its
+    /// pin to within half a right angle of the arms instead of lying across them; with the pin at
+    /// <see cref="PIVOT_Y"/> the tail behind it (<see cref="PIVOT_ALONG"/>) clears the pedestal's cup however it is aimed.
     /// </para>
     /// <para>
     /// Wound clockwise from outside, like every procedural mesh: the lathes by their profile direction (a closed
@@ -33,11 +39,20 @@ namespace Prazsky.Core.Render
         public int PrimitiveCount { get; }
         public BoundingSphere BoundingSphere { get; }
 
-        /// <summary>The pedestal's outer radius at its flange: the footprint the emitter takes of the band it stands on.</summary>
+        /// <summary>The pedestal's outer radius at its flange: the footprint the emitter takes of the glass it stands on.</summary>
         public const float FOOT_RADIUS = 0.5f;
 
-        /// <summary>How far above the foot the pin runs through the housing.</summary>
-        public const float PIVOT_Y = 0.72f;
+        /// <summary>
+        /// How far off the foot the pin runs through the housing: the tail behind the pin (<see cref="PIVOT_ALONG"/>)
+        /// plus the pedestal's cup it has to clear when the housing points straight out of the foot, and a margin.
+        /// </summary>
+        public const float PIVOT_Y = 0.95f;
+
+        /// <summary>The top of the pedestal's cup, off the foot: what the housing's tail has to clear however it is aimed.</summary>
+        public const float PEDESTAL_TOP = 0.30f;
+
+        /// <summary>The radius of the pedestal's cup at its top.</summary>
+        public const float CUP_RADIUS = 0.30f;
 
         /// <summary>Where along the housing's axis (from its rear face) the pin crosses it.</summary>
         public const float PIVOT_ALONG = 0.55f;
@@ -62,7 +77,6 @@ namespace Prazsky.Core.Render
         private const float ARM_HALF_WIDTH = 0.045f;
         private const float PIN_RADIUS = 0.085f;
         private const float PIN_HALF_LENGTH = ARM_X + ARM_HALF_WIDTH + 0.05f;
-        private const float PEDESTAL_TOP = 0.30f;
 
         public LaserEmitterMesh(GraphicsDevice device, Part part)
         {
@@ -74,8 +88,8 @@ namespace Prazsky.Core.Render
                     Adopt(new LatheMesh(device, new[]
                     {
                         new LathePoint(0f, PEDESTAL_TOP, crease: true),
-                        new LathePoint(0.30f, PEDESTAL_TOP, crease: true),
-                        new LathePoint(0.30f, PEDESTAL_TOP - 0.06f, crease: true),
+                        new LathePoint(CUP_RADIUS, PEDESTAL_TOP, crease: true),
+                        new LathePoint(CUP_RADIUS, PEDESTAL_TOP - 0.06f, crease: true),
                         new LathePoint(0.21f, PEDESTAL_TOP - 0.10f, crease: true),
                         new LathePoint(0.21f, 0.14f),
                         new LathePoint(0.38f, 0.10f, crease: true),

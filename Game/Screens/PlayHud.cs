@@ -841,6 +841,8 @@ namespace BS3D.Screens
             _swapHintAge = 0f;
             _swapPulse.Reset();
             _cutPulse.Reset();
+            _fireHintPresence = 0f;
+            _fireHintAge = 0f;
             _streakCapped = score.Multiplier >= ScoreKeeper.MaxMultiplier;
             _streakCapFlare = 0f;
             _clock = 0f;
@@ -1312,6 +1314,10 @@ namespace BS3D.Screens
             //caption - the right way round: the caption cannot be born once the level is decided (EndStreakQuietly), and a clear's
             //own award has already started its fade (FadeLostCaption), so the newer number takes the read
             if ((parts & HudParts.Play) != 0) DrawStreakLost(viewport);
+
+            //The "fire" chip for a player who has stopped (#925), over the aim point's own space: after the awards and the lost
+            //streak's words, which cannot be up together with it (it needs ten seconds without a shot)
+            if ((parts & HudParts.Play) != 0) DrawFireHint(viewport, tutorial.OnGamepad);
 
             batch.End();
         }
@@ -3419,6 +3425,67 @@ namespace BS3D.Screens
 
             DrawString(glyphFont, glyph, origin + new Vector2(0f, (height - glyphSize.Y) * 0.5f), BS3DGame.MENU_TEXT * alpha, 1f);
             DrawString(captionFont, caption, origin + new Vector2(glyphSize.X + gap, (height - captionSize.Y) * 0.5f), HUD_CAPTION * alpha, 1f);
+        }
+
+        #endregion
+
+        #region The "fire" chip (#925)
+
+        //For a player who has stopped in the first five levels: the fire button's glyph and one word, in the tutorial card's two
+        //faces (the loudest standing type, the owner's rule that a cue ships at the bold end), a little under the card's size
+        //because it is up for seconds and at the aim point, with an amber halo that beats once a second. The rules - when it
+        //comes, when it goes - are FireHint's; this draws what it reads. Design units like every other readout.
+        private const float HUD_FIRE_HINT_SIZE = 1f;
+        private const int HUD_FIRE_HINT_GAP = 36;
+
+        //It arrives popped in from this share of its size, as the card does (HUD_TUTORIAL_ARRIVE_FROM)
+        private const float HUD_FIRE_HINT_ARRIVE_FROM = 0.6f;
+
+        private float _fireHintPresence;
+        private float _fireHintAge;
+
+        /// <summary>
+        /// What the session's <see cref="FireHint"/> says this frame: how present the chip is and the age its beat is counted
+        /// from. Two floats copied, nothing held.
+        /// </summary>
+        internal void SetFireHint(float presence, float age)
+        {
+            _fireHintPresence = presence;
+            _fireHintAge = age;
+        }
+
+        private void DrawFireHint(Viewport viewport, bool onGamepad)
+        {
+            float presence = _fireHintPresence;
+            if (presence <= 0.01f) return;
+
+            string glyph = Tutorial.SkipGlyphFor(onGamepad);
+            SpriteFontBase glyphFont = _game.HudFontPrompt;
+            SpriteFontBase captionFont = _game.HudFontTutorial;
+
+            Vector2 glyphSize = glyphFont.MeasureString(glyph);
+            Vector2 captionSize = captionFont.MeasureString(FireHint.CAPTION);
+            float gap = Scaled(HUD_FIRE_HINT_GAP);
+
+            float alpha = MathHelper.Clamp(presence, 0f, 1f);
+            float beat = FireHint.Beat(_fireHintAge);
+            float scale = HUD_FIRE_HINT_SIZE * MathHelper.Lerp(HUD_FIRE_HINT_ARRIVE_FROM, 1f, HudEase.OutBack(alpha))
+                * (1f + FireHint.BEAT_SWELL * beat);
+
+            float width = (glyphSize.X + gap + captionSize.X) * scale;
+            float height = MathF.Max(glyphSize.Y, captionSize.Y) * scale;
+
+            //Centred under the aim point, clear of the crosshair at its most swollen by the lost streak's own clearance (the
+            //crosshair's scale, StreakCues.ClearancePixels), the top edge fixed so the beat grows downwards, away from it
+            Vector2 origin = new(viewport.Width * 0.5f - width * 0.5f,
+                viewport.Height * 0.5f + StreakCues.ClearancePixels(viewport.Height));
+
+            Vector2 glyphAt = origin + new Vector2(0f, (height - glyphSize.Y * scale) * 0.5f);
+            Vector2 captionAt = origin + new Vector2((glyphSize.X + gap) * scale, (height - captionSize.Y * scale) * 0.5f);
+
+            DrawGlow(captionFont, FireHint.CAPTION, captionAt, captionSize, scale, beat * alpha, HUD_ACCENT, HUD_GLOW_PASSES);
+            DrawString(glyphFont, glyph, glyphAt, BS3DGame.MENU_TEXT * alpha, scale);
+            DrawString(captionFont, FireHint.CAPTION, captionAt, HUD_ACCENT * alpha, scale);
         }
 
         #endregion

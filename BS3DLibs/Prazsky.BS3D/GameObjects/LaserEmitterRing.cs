@@ -5,55 +5,52 @@ using System;
 namespace Prazsky.BS3D.GameObjects
 {
     /// <summary>
-    /// Where the four laser emitters stand (#874), in one copy: the session draws them from it, the floor net's feeder
-    /// beams start at their lenses, and the gun's carriage is kept off them by it (<see cref="Cannon.SetKeepouts"/>), so the
-    /// picture, the light and the clearance cannot disagree about where an emitter is.
+    /// Where the four laser emitters stand and where they aim (#874), in one copy: the session draws them from it and the
+    /// floor net's four projection cones start at their lenses, so the picture and the light cannot disagree about where
+    /// an emitter is or which way it points.
     /// <para>
-    /// <b>One at each corner of the net</b>, on the gold band round the drain's mouth, on the line from the drain's centre
-    /// through that corner and facing the centre, so they read as the net's corners made of metal. They stand
-    /// <see cref="FOOT_RADIUS"/> from the centre, which puts the pedestal on the band
-    /// (<see cref="ArenaIsland.FUNNEL_TOP_RADIUS"/> to one unit past it), the housing leaning out over the glass mouth
-    /// and its lens <see cref="LensRadius"/> from the centre — just outside the corner of every shipped level's net
-    /// (the largest footprint's corner is 13.8 out), so a feeder runs from the lens to the corner at its longest on the
-    /// small levels and not at all on the largest.
+    /// <b>Mounted inside the funnel, on its glass, just under the rim.</b> One at each corner's bearing (the line from
+    /// the drain's centre through that corner of the net), its foot <see cref="FOOT_SLANT"/> down the glass from the
+    /// mouth and its pedestal standing straight out of the wall (<see cref="WallNormal"/>), so the housing and the lens
+    /// peek a little over the rim. Inside the mouth and under the stone's plane nothing of the gun's ever comes: the
+    /// walk's near end keeps the trunnions <c>GameCameraFit.CANNON_DRAIN_CLEARANCE</c> outside the mouth, so the wheels
+    /// traversed to their full reach (<c>CannonRig.StandReach</c>) overhang the glass only above the rim, and the barrel
+    /// at its lowest aim passes over the lenses. So the gun orbits and walks as it would with no emitters at all, and
+    /// <c>LaserEmitterClearanceTests</c> sweeps the real poses against these matrices to keep it so.
     /// </para>
     /// <para>
-    /// <b>Why they are this small and where the gun is held off them.</b> The gun orbits the whole island and walks
-    /// between <c>rest ± 4</c> from the drain, so there is no ring of the island that is not the gun's. What it cannot
-    /// do is reach an emitter: the barrel passes over (the emitter's top, <see cref="TopAboveBand"/>, is under the tube's
-    /// underside at the lowest elevation, which the clearance test checks) and the carriage is kept out by
-    /// <see cref="GunFloorRadius"/> — on every shipped level the rest radius is 17.5, and the emitters' circle does not
-    /// reach it, so the walk is shortened only within about ten degrees of each emitter.
+    /// <b>Aimed at the corner, per level.</b> The mount is fixed; the housing turns on its pin until its axis runs from
+    /// the pin through its corner of this level's net (<see cref="Axis"/>), so the axis meets the corner exactly whatever
+    /// the footprint. The pin lies along the rim's tangent, and the pin and the corner are both on the corner's bearing,
+    /// so one swing about the pin is all the aim needs.
     /// </para>
     /// </summary>
     public static class LaserEmitterRing
     {
         public const int COUNT = 4;
 
-        /// <summary>How far from the island's centre the pedestal stands: on the band, a unit wide, from the mouth outwards.</summary>
-        public const float FOOT_RADIUS = ArenaIsland.FUNNEL_TOP_RADIUS + 0.4f;
+        /// <summary>
+        /// How far down the glass from the mouth (along the wall, not straight down) the pedestal's foot is set: the
+        /// flange's upper edge just under the rim, over the gold band's collar, so the emitter reads as fixed to the
+        /// drain's lip and its head peeks over it.
+        /// </summary>
+        public const float FOOT_SLANT = 0.6f;
 
-        /// <summary>The housing's pitch about the pin, up towards the net: the lens stands higher than the rear, so the beam leaves slightly rising.</summary>
-        public const float PITCH = 0.14f;
+        //The drawn glass the emitters stand on: a straight cone from the mouth down to the drawn hole (ArenaIsland's own
+        //figures, the very ones FunnelMesh is built from)
+        private const float RIM_Y = ArenaIsland.TOP_Y - ArenaIsland.DISH_DEPTH;
+        private const float WALL_RUN = ArenaIsland.FUNNEL_TOP_RADIUS - ArenaIsland.FUNNEL_DRAWN_HOLE_RADIUS;
+        private const float WALL_DROP = RIM_Y - ArenaIsland.FUNNEL_BOTTOM_Y;
+        private static readonly float WALL_LENGTH = MathF.Sqrt(WALL_RUN * WALL_RUN + WALL_DROP * WALL_DROP);
 
         /// <summary>
-        /// How far from the foot the emitter reaches towards the gun, in plan: the housing's rear end and its radius. The
-        /// circle the gun's carriage is held out of is this about the foot, widened by the carriage's own reach.
+        /// The glass's normal on the inside, in the (outward, up) plane of any bearing: pointing into the funnel, inward and
+        /// up (the wall leans 56 degrees from level, so this rises 34 degrees). The pedestal stands along it.
         /// </summary>
-        public const float KEEPOUT_RADIUS = 0.8f;
+        public static readonly Vector2 WallNormal = new(-WALL_DROP / WALL_LENGTH, WALL_RUN / WALL_LENGTH);
 
-        /// <summary>
-        /// How far the lens crests above the band, and the highest the whole emitter gets (the housing's collar at the
-        /// lens end): what the barrel's underside has to clear.
-        /// </summary>
-        public static readonly float TopAboveBand = LensApexAbove() + LaserEmitterMesh.COLLAR_RADIUS;
-
-        private static float LensApexAbove() =>
-            LaserEmitterMesh.PIVOT_Y + (LaserEmitterMesh.LENS_APEX_Y - LaserEmitterMesh.PIVOT_ALONG) * MathF.Sin(PITCH);
-
-        /// <summary>The horizontal distance from the centre of the lens apex: the foot's radius less the housing's reach to the lens.</summary>
-        public static readonly float LensRadius = FOOT_RADIUS
-            - (LaserEmitterMesh.LENS_APEX_Y - LaserEmitterMesh.PIVOT_ALONG) * MathF.Cos(PITCH);
+        /// <summary>Down the glass, in the same (outward, up) plane: from the mouth towards the hole.</summary>
+        public static readonly Vector2 WallDown = new(-WALL_RUN / WALL_LENGTH, -WALL_DROP / WALL_LENGTH);
 
         /// <summary>
         /// The sign pair of corner <paramref name="index"/> of the net: (+,+), (-,+), (-,-), (+,-), so the four stand at
@@ -91,22 +88,33 @@ namespace Prazsky.BS3D.GameObjects
             return new Vector3(MathF.Cos(bearing), 0f, MathF.Sin(bearing));
         }
 
-        /// <summary>Where the pedestal's foot sits: on the band at <see cref="FOOT_RADIUS"/>, a hair into it.</summary>
+        /// <summary>A direction given in the (outward, up) plane of a bearing, carried into the world.</summary>
+        private static Vector3 OnBearing(Vector3 outward, Vector2 radialUp) =>
+            new(outward.X * radialUp.X, radialUp.Y, outward.Z * radialUp.X);
+
+        /// <summary>The wall's normal at emitter <paramref name="index"/>, in the world (unit): the pedestal's axis.</summary>
+        public static Vector3 Normal(int index, float cornerX, float cornerZ) =>
+            OnBearing(Outward(index, cornerX, cornerZ), WallNormal);
+
+        /// <summary>Where the pedestal's foot sits: on the glass, <see cref="FOOT_SLANT"/> down it from the mouth.</summary>
         public static Vector3 Foot(int index, float cornerX, float cornerZ)
         {
             Vector3 outward = Outward(index, cornerX, cornerZ);
+            Vector2 foot = new Vector2(ArenaIsland.FUNNEL_TOP_RADIUS, RIM_Y) + WallDown * FOOT_SLANT;
 
-            return new Vector3(outward.X * FOOT_RADIUS, ArenaIsland.FloorHeightAt(FOOT_RADIUS), outward.Z * FOOT_RADIUS);
+            return new Vector3(outward.X * foot.X, foot.Y, outward.Z * foot.X);
         }
 
         /// <summary>
-        /// The stand frame's world matrix: origin on the foot, +Y up, local -Z towards the island's centre (the way the
-        /// emitter faces), local +X to the side. The pedestal and the yoke are drawn with it as it is.
+        /// The stand frame's world matrix: origin on the foot, +Y out of the glass (<see cref="Normal"/>), +X along the
+        /// rim's tangent (the pin's axis), -Z down the glass. The pedestal and the yoke are drawn with it as it is.
         /// </summary>
         public static Matrix Stand(int index, float cornerX, float cornerZ)
         {
             Vector3 outward = Outward(index, cornerX, cornerZ);
-            Matrix world = Matrix.CreateWorld(Vector3.Zero, -outward, Vector3.Up);
+
+            //Forward down the glass: CreateWorld's +X is forward x up, which with up the wall's normal is the rim's tangent
+            Matrix world = Matrix.CreateWorld(Vector3.Zero, OnBearing(outward, WallDown), OnBearing(outward, WallNormal));
             Vector3 foot = Foot(index, cornerX, cornerZ);
 
             world.M41 = foot.X;
@@ -116,69 +124,45 @@ namespace Prazsky.BS3D.GameObjects
             return world;
         }
 
-        /// <summary>The emission axis in the stand frame: forward (-Z) and rising by <see cref="PITCH"/>.</summary>
-        private static Vector3 AxisInStand => new(0f, MathF.Sin(PITCH), -MathF.Cos(PITCH));
+        /// <summary>Where the pin runs through the housing, in the world: <see cref="LaserEmitterMesh.PIVOT_Y"/> out of the foot.</summary>
+        public static Vector3 Pin(int index, float cornerX, float cornerZ) =>
+            Foot(index, cornerX, cornerZ) + Normal(index, cornerX, cornerZ) * LaserEmitterMesh.PIVOT_Y;
 
         /// <summary>
-        /// The housing's world matrix: the housing frame (axis +Y, rear face at the origin) carried into the stand frame,
-        /// the pin at <see cref="LaserEmitterMesh.PIVOT_ALONG"/> along it landing on the yoke's pin.
+        /// The emission axis in the world (unit): from the pin straight at the corner of this level's net on its plane
+        /// <paramref name="planeY"/>. The housing turns on its pin to it, so the lens faces the corner and the beam leaves
+        /// along it.
         /// </summary>
-        public static Matrix Housing(int index, float cornerX, float cornerZ)
-        {
-            Vector3 axis = AxisInStand;
-            //Right is the stand's own +X, and the back is the axis crossed from it: the pair with the axis a right-handed basis
-            Vector3 back = Vector3.Cross(Vector3.UnitX, axis);
-            Vector3 rear = new Vector3(0f, LaserEmitterMesh.PIVOT_Y, 0f) - axis * LaserEmitterMesh.PIVOT_ALONG;
+        public static Vector3 Axis(int index, float cornerX, float cornerZ, float planeY) =>
+            Vector3.Normalize(NetCorner(index, cornerX, cornerZ, planeY) - Pin(index, cornerX, cornerZ));
 
-            Matrix local = new(
-                1f, 0f, 0f, 0f,
+        /// <summary>
+        /// The housing's world matrix: the housing frame (axis +Y, rear face at the origin) carried onto the pin, the
+        /// point <see cref="LaserEmitterMesh.PIVOT_ALONG"/> along its axis landing on the yoke's pin, and the axis turned
+        /// about the pin onto <see cref="Axis"/>.
+        /// </summary>
+        public static Matrix Housing(int index, float cornerX, float cornerZ, float planeY)
+        {
+            Vector3 axis = Axis(index, cornerX, cornerZ, planeY);
+            Vector3 pin = Pin(index, cornerX, cornerZ);
+
+            //The pin's own axis, the stand's +X, is perpendicular to the emission axis by construction (the pin and the
+            //corner are both on the bearing's plane); the basis is re-derived from the pair anyway, so it is orthonormal
+            //to the last bit and right-handed (right x axis = back)
+            Vector3 back = Vector3.Normalize(Vector3.Cross(Stand(index, cornerX, cornerZ).Right, axis));
+            Vector3 right = Vector3.Cross(axis, back);
+            Vector3 rear = pin - axis * LaserEmitterMesh.PIVOT_ALONG;
+
+            return new Matrix(
+                right.X, right.Y, right.Z, 0f,
                 axis.X, axis.Y, axis.Z, 0f,
                 back.X, back.Y, back.Z, 0f,
                 rear.X, rear.Y, rear.Z, 1f);
-
-            return local * Stand(index, cornerX, cornerZ);
         }
 
-        /// <summary>The point the beam leaves from, in the world: the lens's crest.</summary>
-        public static Vector3 Lens(int index, float cornerX, float cornerZ) =>
-            Vector3.Transform(new Vector3(0f, LaserEmitterMesh.LENS_APEX_Y, 0f), Housing(index, cornerX, cornerZ));
-
-        /// <summary>
-        /// The emission axis in the world (unit): the housing frame's +Y. Where the lens faces; the glint on it and the
-        /// beam's direction at the start follow it.
-        /// </summary>
-        public static Vector3 Axis(int index, float cornerX, float cornerZ) =>
-            Vector3.TransformNormal(Vector3.UnitY, Housing(index, cornerX, cornerZ));
-
-        /// <summary>
-        /// The least radius the gun's trunnions may stand at on <paramref name="bearing"/> (radians from the +X axis, any
-        /// range) for the carriage to clear every emitter: the outside of a circle of radius
-        /// <paramref name="gunReach"/> + <see cref="KEEPOUT_RADIUS"/> about each foot, as the gun moves round it. Zero away
-        /// from every emitter, so a gun at rest is never touched by it.
-        /// </summary>
-        /// <param name="cornerX">Where the net's outermost beams stand in X (see <c>LaserGrid.CornerX</c>).</param>
-        /// <param name="cornerZ">And in Z.</param>
-        /// <param name="gunReach">The carriage's reach from its trunnions towards anything inward of them
-        /// (<c>CannonRig.StandReach</c>).</param>
-        public static float GunFloorRadius(float bearing, float cornerX, float cornerZ, float gunReach)
-        {
-            float d = gunReach + KEEPOUT_RADIUS;
-            float floor = 0f;
-
-            for (int i = 0; i < COUNT; i++)
-            {
-                float delta = bearing - Bearing(i, cornerX, cornerZ);
-                float sin = FOOT_RADIUS * MathF.Sin(delta);
-                float inside = d * d - sin * sin;
-
-                //Past the circle's flank in angle there is nothing to be held off (and the far side of the island is
-                //never near a foot: cosine negative would be the circle's other intersection, which is not the gun's side)
-                if (inside <= 0f || MathF.Cos(delta) <= 0f) continue;
-
-                floor = MathF.Max(floor, FOOT_RADIUS * MathF.Cos(delta) + MathF.Sqrt(inside));
-            }
-
-            return floor;
-        }
+        /// <summary>The point the beam leaves from, in the world: the lens's crest, the centre of its face.</summary>
+        public static Vector3 Lens(int index, float cornerX, float cornerZ, float planeY) =>
+            Pin(index, cornerX, cornerZ)
+            + Axis(index, cornerX, cornerZ, planeY) * (LaserEmitterMesh.LENS_APEX_Y - LaserEmitterMesh.PIVOT_ALONG);
     }
 }
