@@ -249,8 +249,8 @@ namespace BS3D.Screens
         /// <summary>Which of how many blocks a finished one was (#184), or empty on any other ending.</summary>
         public string MilestoneLine => BlockComplete ? $"Block {BlockNumber} of {BlockCount} complete" : string.Empty;
 
-        /// <summary>The line under a run that beat every run before it.</summary>
-        public const string NEW_BEST = "New best";
+        /// <summary>The word under a run that beat every run before it (#926: in capitals, as the heading above it, because it is struck onto the page as a title).</summary>
+        public const string NEW_BEST = "NEW BEST";
 
         /// <summary>The score reached, said on a loss (<see cref="ShowsBareScore"/>), or empty.</summary>
         public string BareScoreLine => ShowsBareScore ? $"Score {ScoreText.Of(Score)}" : string.Empty;

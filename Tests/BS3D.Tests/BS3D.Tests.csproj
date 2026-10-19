@@ -110,6 +110,10 @@
     <!--#845: the streak break's falling run, pure arithmetic whose spectrum the tests measure, and the rules of when the
         break is told and when the Swap chip points at the cure-->
     <Compile Include="..\..\Game\Audio\StreakBreakSynth.cs" />
+    <!--#926: the result page's new best - its glitter and chord (pure arithmetic whose spectrum the tests measure) and its bounce,
+        rainbow fill and sparkles as functions of the page's clock-->
+    <Compile Include="..\..\Game\Audio\NewBestSynth.cs" />
+    <Compile Include="..\..\Game\Screens\NewBestCelebration.cs" />
     <Compile Include="..\..\Game\Screens\StreakCues.cs" />
     <!--#726: the blue ceiling step's bake, and the game's own Ogg decoder and FFT, so the tests measure the shipped
         recording decoded the way the game loads it, and the red step's beside it-->

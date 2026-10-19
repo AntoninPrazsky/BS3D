@@ -1112,3 +1112,9 @@ Pravidla:
 - Inventura všech karet je na issue. Dvě věci chtěla jediná karta, `combine` (pravé tlačítko + A/D): je z ní dvoukroková karta („Hold to look down the barrel“, po splnění „Now walk the gun round“); zaznamená se po druhém kroku pod starým klíčem, uložené hry se neučí znovu. Ostatní karty jsou jeden rozkaz bez „proč“ (to drží Help), `TutorialCopyTests` je hlídá a na starém textu selhal.
 - ⚠ Lekce s držením nehrají skripty `rmb=`/`walk=`: druhý krok je vidět jen v reelu `tutorial=demo`; skutečnou detekci nikdo ručně nehrál.
 - Otevřené: verdikt newcomer + oko majitele na formulaci (snímky ve `verdicts\930\`).
+
+## 2026-10-19 — #926 NEW BEST jako oslava — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: po nejlepším výsledku slovo NEW BEST (písmo 200, nad titulem) dopadne po poslední hvězdě s odskokem (pružina, přestřelí na 1,36×); výplň je pastelová duha plynoucí po slově, 24 jisker při dopadu a 8 blýskání dál. Barva jde po vrcholech přes `IFontStashRenderer2` a `BasicEffect`, bez shaderu, takže ji kreslí i Potato a GamePi. Zvuk `NewBestSynth` (trylek zvonků a akord, 99,9 % energie v 300–4000 Hz).
+- ⚠ `BasicEffect` vybere techniku až při prvním `Apply` (dřív bílé kostky); obrys `Stroked` přes `DrawText` sedí o `effectAmount` vpravo dole.
+- Slovo kreslí `MenuPage.DrawOverUi` nad Myrou, strom drží prázdné místo.
+- Otevřené: `verdict-eye`; pohyb a zvuk agent neposoudil, snímky ve `verdicts\926\`.
