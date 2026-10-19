@@ -40,4 +40,4 @@ Cards are gated on the save and a real run would write the owner's (scripted run
 
 - **`tutorial`**: every lesson with the **real** detection. **`tutorial=demo`**: a **reel**, every lesson eligible whatever the level, each card done after `DEMO_SECONDS`; for scripted Game runs, where no key can be pressed.
 - **`settings`** opens the Settings page at boot. **`pad`** draws every prompt (cards, skip hint, chips) for a pad all run (`Tutorial.PinDevice`): an unplayed run reads as a mouse, so a device merely noted at start was gone by the first card.
-- Pad half of the first chapter: `play level=1 tutorial=demo pad powerups=swap:1,brake:1,cut:1`. No script has run the real detection; play `level=One tutorial`.
+- Pad half of the first chapter: `play level=1 tutorial=demo pad powerups=swap:1,brake:1,cut:1`. `turn=` and `walk=` report their holds to the traverse and walk cards as the keys do (#925), so a scripted run completes them; no script has run the rest of the real detection: play `level=One tutorial`.

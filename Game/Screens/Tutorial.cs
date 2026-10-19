@@ -551,6 +551,13 @@ namespace BS3D.Screens
             ? _kindColours[(int)kind]
             : BallType.Type1;
 
+        /// <summary>
+        /// Whether a card is up, arriving, leaving, or still waiting its turn in the queue: the player has something to read or
+        /// do, which the "fire" hint must not talk over (#925). A contextual lesson that is merely armed does not count - it is
+        /// not a card until its event fires.
+        /// </summary>
+        internal bool CardStands => _card != null || _queue.Count > 0;
+
         /// <summary>Whether the last input was the pad: what any prompt outside the cards asks to pick its glyph (#499).</summary>
         internal bool OnGamepad => _device == Device.Gamepad;
 

@@ -977,6 +977,23 @@ namespace BS3D.Screens
             return false;
         }
 
+        /// <summary>
+        /// What else has the player's attention, or would make the "fire" chip untrue (#925): while any of it holds the chip is
+        /// taken down and its count of idle seconds stays at zero. A pause or the result page never get here: this screen is
+        /// covered and not updated. The Tutorial row off is an off switch for the hint too.
+        /// </summary>
+        private FireHint.Distractions FireHintDistractions() => new()
+        {
+            TutorialOff = !Game.IsTutorialEnabled,
+            LevelDecided = LevelDecided,
+            CameraTakeover = CameraTakeoverEngaged,
+            ReleaseWaiting = _releasePending,
+            CardStands = _tutorial.CardStands,
+            CeilingAlarm = _ceilingDescent.Moving || _ceilingDescent.Flash > 0.01f,
+            FloorAlarm = _laserGrid.Visible,
+            ShotInAir = AnyShotUndecided()
+        };
+
         /// <summary>The cluster's lowest live ball, for <see cref="StepLineLoss"/>'s staged loss. False on an empty field.</summary>
         private bool TryGetLowestBall(out Vector3 lowest)
         {
