@@ -59,8 +59,14 @@ namespace BS3D.Tests
 
         private static void Stop(OnlineScores client)
         {
-            Task worker = client.Stop();
+            Finished(client.Stop());
+        }
+
+        //Whether the worker ended within the wait: its own failure was its own to log
+        private static bool Finished(Task worker)
+        {
             try { worker.Wait(TimeSpan.FromSeconds(20)); } catch (AggregateException) { }
+            return worker.IsCompleted;
         }
 
         private static bool Within(Func<bool> condition, double seconds = 20)
@@ -210,8 +216,7 @@ namespace BS3D.Tests
             //That worker is over before anything is counted: a request it had in flight when it was stopped (a retry of the
             //frozen batch on a timer) is its own, and would reach the stand-in after the count, whichever way it was read
             Task worker = on.Stop();
-            try { worker.Wait(TimeSpan.FromSeconds(20)); } catch (AggregateException) { }
-            Assert.True(worker.IsCompleted, "the first client's worker stopped");
+            Assert.True(Finished(worker), "the first client's worker stopped");
             int sent = Stats.Count;
             Assert.Equal(1, sent);
 
