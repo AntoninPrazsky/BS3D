@@ -199,13 +199,18 @@ namespace Prazsky.Core.Render
                 i++;
             }
 
-            //--- The shrubs: three rounded hawthorn-like masses, alone and in the hedgerows
+            //--- The shrubs: three rounded hawthorn-like masses, alone and in the hedgerows. Each is a lobed loaf on every tier and
+            //in every hedgerow; a free-standing one is a shrub of stems and leaf clumps at High and Ultra (#890), fitted to the
+            //loaf it stands in for and built off dice of its own, so not one roll of the planting moves
             var shrubMeshes = new FoliageMesh[3];
+            var fineShrubs = new MeadowShrubMesh[3];
             var shrubInstances = new List<ModelInstance>[3];
             for (int m = 0; m < shrubMeshes.Length; m++)
             {
                 float r = 1.6f + 0.5f * (float)rng.NextDouble();
-                shrubMeshes[m] = Own(new FoliageMesh(device, r, r * 0.8f, r * 0.7f, 6100 + m, FoliageStyle.Scrub));
+                shrubMeshes[m] = Own(new FoliageMesh(device, r, r * 0.8f, r * 0.7f, LOAF_SEED + m, FoliageStyle.Scrub));
+                (float fineReach, float fineTop) = FineShrubSize(r, LOAF_SEED + m);
+                fineShrubs[m] = Own(new MeadowShrubMesh(device, fineReach, fineTop, FINE_SHRUB_SEED + m));
                 shrubInstances[m] = new List<ModelInstance>();
             }
             for (int i = 0, tries = 0; i < SHRUBS && tries < 1000; tries++)
@@ -214,9 +219,12 @@ namespace Prazsky.Core.Render
                 if (!Free(x, z, 2.5f)) continue;
                 occupied.Add((x, z, 2.5f));
                 shrubInstances[rng.Next(3)].Add(At(x, z, 0.8f + 0.6f * (float)rng.NextDouble(), (float)rng.NextDouble() * MathHelper.TwoPi,
-                    0.3f + seat(x, z, SHRUB_SEAT), (float)rng.NextDouble(), Jitter()));
+                    SHRUB_SINK + seat(x, z, SHRUB_SEAT), (float)rng.NextDouble(), Jitter()));
                 i++;
             }
+            //The free-standing ones are the first of each list, the hedgerows' the rest (#890)
+            var freeShrubs = new int[shrubMeshes.Length];
+            for (int m = 0; m < shrubMeshes.Length; m++) freeShrubs[m] = shrubInstances[m].Count;
 
             //The hedgerows: a field edge is a line, not a scatter. Each a gently bent run of overlapping shrubs.
             for (int h = 0; h < HEDGEROWS; h++)
@@ -484,9 +492,7 @@ namespace Prazsky.Core.Render
             }
             buckets.Add(new ScatterBucket(device, Own(BenchMesh(device)), benchInstances, BENCH_WOOD, BENCH_WOOD * 1.2f, dapple: 0f, bark: 0.35f,
                 detailOnly: false));
-            for (int m = 0; m < shrubMeshes.Length; m++)
-                if (shrubInstances[m].Count > 0)
-                    buckets.Add(new ScatterBucket(device, shrubMeshes[m], shrubInstances[m], SHRUB, SHRUB_DRY, dapple: 0.6f, bark: 0f, detailOnly: false));
+            AddShrubs(device, buckets, shrubMeshes, fineShrubs, shrubInstances, freeShrubs, tuftMeshes, stand, seed);
             if (baleInstances.Count > 0)
                 buckets.Add(new ScatterBucket(device, bale, baleInstances, STRAW, STRAW * new Vector3(0.9f, 0.85f, 0.7f), dapple: 0.3f, bark: 0.3f, detailOnly: false));
             if (fenceInstances.Count > 0)
@@ -536,6 +542,135 @@ namespace Prazsky.Core.Render
 
         //How far from its centre a shrub's and a fence post's foot reach (#892): what each is sunk by on the swale's edge
         private const float SHRUB_SEAT = 1.5f, POST_SEAT = 0.3f;
+
+        //=== The shrubs (#890). How far a free-standing shrub's pivot is sunk under the ground (world units, as every shrub's
+        //always was), the loaves' and the fine shrubs' structural seeds, and the fine shrubs' own dice for the grass at their foot
+        internal const float SHRUB_SINK = 0.3f;
+        internal const int LOAF_SEED = 6100, FINE_SHRUB_SEED = 8900;
+        private const int FOOT_GRASS_STREAM = 0x890;
+
+        //The fine shrub's wood: a little greyer and lighter than the old trees' bark (the references' hawthorn and hazel stems)
+        private static readonly Vector3 SHRUB_WOOD = new(0.220f, 0.230f, 0.190f);
+
+        //The grass round a fine shrub's foot: how many tufts (4 to 6), how far out from the axis (shares of the shrub's own reach
+        //at its scale) and how big against the field's tufts, and by how much more at most
+        private const int FOOT_TUFTS_MIN = 4, FOOT_TUFTS_EXTRA = 2;
+        private const float FOOT_TUFT_FROM = 0.02f, FOOT_TUFT_TO = 0.2f, FOOT_TUFT_SCALE = 0.7f, FOOT_TUFT_SPREAD = 0.5f;
+
+        /// <summary>What of a shrub a draw is (#890).</summary>
+        internal enum ShrubPart { Loaf, Wood, Leaves, FootGrass }
+
+        /// <summary>Which shrubs a draw is of (#890).</summary>
+        internal enum ShrubSet { All, Hedgerows, FreeStanding }
+
+        /// <summary>
+        /// The shrubs' draws, in this order (#890). The loaf of every shrub is drawn where <see cref="SceneRenderer.FineMeshes"/> is
+        /// off - Low, Medium and the Potato path, the one bucket and the one place in the list they always had, so not a pixel of
+        /// theirs moves - and at High and Ultra the hedgerows keep a loaf of their own while each free-standing shrub is stems,
+        /// leaf clumps and the grass at its foot (<see cref="MeadowShrubMesh"/>). <c>MeadowShrubTests</c> holds that every shrub
+        /// is drawn once either way.
+        /// </summary>
+        internal static readonly (ShrubPart Part, ShrubSet Set, bool? FineMeshes)[] SHRUB_DRAWS =
+        {
+            (ShrubPart.Loaf, ShrubSet.All, false),
+            (ShrubPart.Loaf, ShrubSet.Hedgerows, true),
+            (ShrubPart.Wood, ShrubSet.FreeStanding, true),
+            (ShrubPart.Leaves, ShrubSet.FreeStanding, true),
+            (ShrubPart.FootGrass, ShrubSet.FreeStanding, true),
+        };
+
+        /// <summary>
+        /// How far from its axis a loaf of <paramref name="radius"/> reaches and how high over its pivot it stands (#890), off its
+        /// own vertices: what the fine shrub that stands in for it is fitted to, so it fills the volume the meadow was planted by
+        /// and stays inside the loaf's sphere, which is what a camera keeps out of.
+        /// </summary>
+        internal static (float Reach, float Top) FineShrubSize(float radius, int loafSeed)
+        {
+            var vertices = new List<VertexPositionNormalTexture>();
+            FoliageMesh.Generate(vertices, new List<short>(), radius, radius * 0.8f, new Vector3(0f, radius * 0.7f, 0f), loafSeed, FoliageStyle.Scrub);
+            float reach = 0f, top = 0f;
+            foreach (VertexPositionNormalTexture v in vertices)
+            {
+                reach = MathF.Max(reach, MathF.Sqrt(v.Position.X * v.Position.X + v.Position.Z * v.Position.Z));
+                top = MathF.Max(top, v.Position.Y);
+            }
+            return (reach * FINE_REACH, top * FINE_TOP);
+        }
+
+        //The fine shrub's reach and top against its loaf's
+        private const float FINE_REACH = 0.97f, FINE_TOP = 1f;
+
+        private void AddShrubs(GraphicsDevice device, List<ScatterBucket> buckets, FoliageMesh[] loaves, MeadowShrubMesh[] fine,
+            List<ModelInstance>[] planted, int[] freeCount, GrassTuftMesh[] tufts, Func<float, float, float> stand, int seed)
+        {
+            var free = new List<ModelInstance>[loaves.Length];
+            var hedges = new List<ModelInstance>[loaves.Length];
+            for (int m = 0; m < loaves.Length; m++)
+            {
+                free[m] = planted[m].GetRange(0, freeCount[m]);
+                hedges[m] = planted[m].GetRange(freeCount[m], planted[m].Count - freeCount[m]);
+            }
+
+            //The grass round each fine shrub's stems, a few of the field's tufts standing in its shade, so the stems go into grass
+            //rather than into the painted field: off dice of their own, in the free-standing shrubs' order. They cast nothing: the
+            //shrub's own leaves shade them, and a shadow of theirs under it would be a second draw no one sees
+            var footGrass = new List<ModelInstance>[tufts.Length];
+            for (int k = 0; k < tufts.Length; k++) footGrass[k] = new List<ModelInstance>();
+            Random dice = new(seed * 890 + FOOT_GRASS_STREAM);
+            for (int m = 0; m < loaves.Length; m++)
+                foreach (ModelInstance shrub in free[m])
+                {
+                    Vector3 at = shrub.World.Translation;
+                    float scale = shrub.World.Right.Length();
+                    float reach = fine[m].Reach * scale;
+                    int count = FOOT_TUFTS_MIN + dice.Next(FOOT_TUFTS_EXTRA + 1);
+                    float phase = (float)dice.NextDouble() * MathHelper.TwoPi;
+                    for (int t = 0; t < count; t++)
+                    {
+                        float a = phase + MathHelper.TwoPi * t / count + 0.8f * ((float)dice.NextDouble() - 0.5f);
+                        float d = reach * MathHelper.Lerp(FOOT_TUFT_FROM, FOOT_TUFT_TO, (float)dice.NextDouble());
+                        float x = at.X + MathF.Cos(a) * d, z = at.Z + MathF.Sin(a) * d;
+                        float tuftScale = FOOT_TUFT_SCALE * (1f + FOOT_TUFT_SPREAD * (float)dice.NextDouble());
+                        footGrass[dice.Next(tufts.Length)].Add(new ModelInstance(
+                            Matrix.CreateScale(tuftScale) * Matrix.CreateRotationY((float)dice.NextDouble() * MathHelper.TwoPi)
+                                * Matrix.CreateTranslation(x, stand(x, z) - 0.05f, z),
+                            new Vector4((float)dice.NextDouble() * 0.6f, ((float)dice.NextDouble() - 0.5f) * 0.2f, 0f, 0f)));
+                    }
+                }
+
+            foreach ((ShrubPart part, ShrubSet set, bool? fineMeshes) in SHRUB_DRAWS)
+            {
+                if (part == ShrubPart.FootGrass)
+                {
+                    for (int k = 0; k < tufts.Length; k++)
+                        if (footGrass[k].Count > 0)
+                            buckets.Add(new ScatterBucket(device, tufts[k], footGrass[k], TUFT, TUFT * new Vector3(1.6f, 1.3f, 0.9f), dapple: 0.5f,
+                                bark: 0f, detailOnly: true, castsShadow: false, fineMeshes: fineMeshes));
+                    continue;
+                }
+                for (int m = 0; m < loaves.Length; m++)
+                {
+                    List<ModelInstance> instances = set switch
+                    {
+                        ShrubSet.Hedgerows => hedges[m],
+                        ShrubSet.FreeStanding => free[m],
+                        _ => planted[m],
+                    };
+                    if (instances.Count == 0) continue;
+                    buckets.Add(part switch
+                    {
+                        //Bark, ridged less than a trunk; too thin to cast anything the leaves over it do not
+                        ShrubPart.Wood => new ScatterBucket(device, fine[m].Wood, instances, SHRUB_WOOD, SHRUB_WOOD * 1.15f, dapple: 0f, bark: 0.35f,
+                            detailOnly: false, castsShadow: false, fineMeshes: fineMeshes),
+                        //Broad leaves (LeafStrength 2, the old trees' BroadLeafMask) in the loaf's own greens; they cast the shrub's shade
+                        ShrubPart.Leaves => new ScatterBucket(device, fine[m].Leaves, instances, SHRUB, SHRUB_DRY, dapple: 0f, bark: 0f,
+                            detailOnly: false, leaves: 2f, fineMeshes: fineMeshes),
+                        _ => new ScatterBucket(device, loaves[m], instances, SHRUB, SHRUB_DRY, dapple: 0.6f, bark: 0f, detailOnly: false,
+                            fineMeshes: fineMeshes),
+                    });
+                }
+            }
+        }
 
         //How far everything keeps off the pond's shore, past its own reach, and how far out of the water the willows stand
         private const float POND_CLEARANCE = 4f;

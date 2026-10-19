@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-20 — #890 louka: volně stojící keře z kmínků a listů na High/Ultra — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: na High/Ultra je 55 volných keřů `MeadowShrubMesh` – 5–7 kmínků z jednoho místa v trávě, 13–17 trsů listových karet (spreje starých stromů), tmavý spodek, trsy trávy u paty, uvnitř bochníku, podle kterého se sázelo. Živé ploty a Low/Medium/Potato kreslí bochník beze změny (pixelově, census Potato shodný). Hra: +0,10/+0,12 ms ve hře, oblet balíků +0,27/+0,29.
+- ⚠ Testbed `alt=finemeshes` tu měří artefakt (znaménko se mezi běhy otáčí); měř oddělené běhy obou buildů. Cenu nedělají trojúhelníky.
+- Otevřené: `verdict-eye`, `verdicts\890\`.
+
 ## 2026-10-19 — #924 cena louky po #892 — desktop (RDT-PC), Claude Code (bs3d-bf)
 - Hotovo: pixelově shodně levnější. Grid čte řez z vertex shaderu (flat interpolant) místo literálu `NO_CUT`: hra −0,5 ms (kratší program vyšel dražší), patch se ořezává frustem a na High/Ultra kreslí hloubku napřed u objektivu. High: hra 12,21 → 11,72, nejhorší vteřina průletu potokem 13,52 → 12,82 (rozpočet 13,33), Medium −0,1 až −0,3, Low −0,15 až 0.
 - ⚠ Počet registrů cenu tohohle programu nepředpovídá (64 VGPR dražší než 96); měř při 3840×1600. Absolutní ms mezi sezeními driftují o 0,4.
