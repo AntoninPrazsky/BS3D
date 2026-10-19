@@ -1096,3 +1096,9 @@ Pravidla:
 ## 2026-10-19 — #904 Ska: kandidát c3 jako bloom-ska — desktop (RDT-PC), Claude Code (bs3d-bf)
 - Hotovo: majitel 18. 10. řekl, že c3 je lepší než původní Ska; nasazen jako `bloom-ska.ogg` (45 s, bez trimu, post-codec špička -0,25 dBFS), bicí vrstva oddělena znovu, sidecar nese brief, seed, měření a výrok majitele, který pro tuto jednu nahrávku přebíjí hranici krátkých děr (29,3 za minutu proti 27,0; stará 99,2, 21 oříznutých běhů → 0). `MusicBake --shipped`, LevelGen a 1764 testů v pořádku; `[music] bloom: bloom-ska.ogg (drums layered)` ve hře.
 - Nic neposlouchal agent; poslech je majitelův.
+
+## 2026-10-19 — #874 zářiče uvnitř trychtýře, projekční paprsky — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Po majitelově „Vrať“: čtyři zářiče sedí na skle trychtýře 0,6 pod okrajem (patka podél normály skla) a hlavice se na čepu natočí přesně na svůj roh sítě; z čočky vede měkký, rozšiřující se kužel, který na rohu přistane. `Cannon.SetKeepouts` je pryč, dělo obíhá volně. Čep třmenu je výš (0,95), jinak by se ocas hlavice zabořil do patky.
+- ⚠ Na 16–17 širokých sítích je roh skoro nad čočkou: hlavice míří svisle a kužel měří 0,8.
+- ⚠ Kulička přes okraj v ose zářiče jím projde (bez kolize, záměrně).
+- Otevřené: `verdict-eye`, snímky ve `verdicts\874b\`.
