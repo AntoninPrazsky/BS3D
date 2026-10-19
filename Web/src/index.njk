@@ -2,6 +2,13 @@
 layout: base.njk
 ---
   <header class="hero">
+    <nav class="topnav wrap-wide" aria-label="Site">
+{%- if collections.posts and collections.posts.length %}
+      <a href="/blog/">Blog</a>
+{%- endif %}
+      <a href="#download">Download</a>
+      <a href="{{ site.repo }}">GitHub</a>
+    </nav>
     <div class="wrap hero-inner">
       <h1 class="logo">
         <img src="/img/logo-1000.webp" srcset="/img/logo-600.webp 600w, /img/logo-1000.webp 1000w"
@@ -78,6 +85,9 @@ layout: base.njk
 {%- else %}
         <p class="later">A video of it in motion is on its way.</p>
 {%- endif %}
+{%- if collections.posts and collections.posts.length %}
+        <p class="later">How it is made (the lattice, the Pi renderer, the music) is told <a href="/blog/">on the blog</a>.</p>
+{%- endif %}
       </div>
     </section>
 
@@ -99,11 +109,18 @@ layout: base.njk
     <section class="section" id="workshop" aria-labelledby="workshop-title">
       <div class="wrap">
         <h2 id="workshop-title">From the workshop</h2>
+        <p class="lead">What we ran into while making it, and what we did about it.</p>
         <ul class="posts">
 {%- for post in collections.posts | reverse %}
-          <li><a href="{{ post.url }}">{{ post.data.title }}</a> <time datetime="{{ post.date.toISOString() }}">{{ post.date | readableDate }}</time></li>
+{%- if loop.index <= 3 %}
+          <li>
+            <a href="{{ post.url }}">{{ post.data.title }}</a> <time datetime="{{ post.date.toISOString() }}">{{ post.date | readableDate }}</time>
+            <span class="post-summary">{{ post.data.summary }}</span>
+          </li>
+{%- endif %}
 {%- endfor %}
         </ul>
+        <p><a href="/blog/">All posts on the blog</a></p>
       </div>
     </section>
 {%- endif %}

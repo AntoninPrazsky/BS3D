@@ -1123,3 +1123,8 @@ Pravidla:
 - ⚠ `BasicEffect` vybere techniku až při prvním `Apply` (dřív bílé kostky); obrys `Stroked` přes `DrawText` sedí o `effectAmount` vpravo dole.
 - Slovo kreslí `MenuPage.DrawOverUi` nad Myrou, strom drží prázdné místo.
 - Otevřené: `verdict-eye`; pohyb a zvuk agent neposoudil, snímky ve `verdicts\926\`.
+
+## 2026-10-19 — #928 Blog na webu: sekce a prvních pět článků — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: `/blog/` (od nejnovějšího, datum, témata, shrnutí), stránka článku ve stávajícím vzhledu, Atom feed `/feed.xml` s plným textem, odkazy z hlavičky, patičky a pod galerií; nový článek je jeden Markdown v `Web/src/blog/` (`docs/website.md`). Pět článků z deníku, docs a issues: mřížka a řez (38 míčů z jednoho, spočteno na Umbrelle), Pi a Potato, hudba a měření děr, 10bitový buffer, dráha kamery kolem ostrova (#878).
+- ⚠ Headless Edge má okno nejméně 492 px; 400 px dá až emulace přes DevTools protokol. Markdown běží bez Liquidu.
+- Otevřené: oko majitele na vzhled a znění; všechny články mají datum 19. 10., nastaví se při publikaci (`publish.ps1` je majitelův).

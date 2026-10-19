@@ -1,15 +1,21 @@
 ---
 layout: base.njk
 ---
-  <header class="bar">
-    <div class="wrap bar-inner">
-      <a class="bar-home" href="/"><img src="/img/logo-600.webp" width="120" height="74" alt="{{ site.title }}"></a>
-      <a class="button button-small" href="/#download">Download</a>
-    </div>
-  </header>
+{% include "bar.njk" %}
   <main class="wrap post">
-    <p class="post-date"><time datetime="{{ page.date.toISOString() }}">{{ page.date | readableDate }}</time></p>
+    <p class="post-meta"><time datetime="{{ page.date.toISOString() }}">{{ page.date | readableDate }}</time>
+{%- for topic in topics %}<span class="topic">{{ topic }}</span>{% endfor %}</p>
     <h1>{{ title }}</h1>
 {{ content | safe }}
-    <p class="post-back"><a href="/#workshop">All posts</a></p>
+    <nav class="post-more" aria-label="Other posts">
+{%- set older = collections.posts | getPreviousCollectionItem(page) %}
+{%- set newer = collections.posts | getNextCollectionItem(page) %}
+{%- if newer %}
+      <p><span>Newer</span> <a href="{{ newer.url }}">{{ newer.data.title }}</a></p>
+{%- endif %}
+{%- if older %}
+      <p><span>Older</span> <a href="{{ older.url }}">{{ older.data.title }}</a></p>
+{%- endif %}
+      <p class="post-back"><a href="/blog/">All posts</a> · <a href="/feed.xml">Atom feed</a></p>
+    </nav>
   </main>
