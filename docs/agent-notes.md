@@ -1102,3 +1102,9 @@ Pravidla:
 - ⚠ Na 16–17 širokých sítích je roh skoro nad čočkou: hlavice míří svisle a kužel měří 0,8.
 - ⚠ Kulička přes okraj v ose zářiče jím projde (bez kolize, záměrně).
 - Otevřené: `verdict-eye`, snímky ve `verdicts\874b\`.
+
+## 2026-10-19 — #926 NEW BEST jako oslava — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: po nejlepším výsledku slovo NEW BEST (písmo 200, nad titulem) dopadne po poslední hvězdě s odskokem (pružina, přestřelí na 1,36×); výplň je pastelová duha plynoucí po slově, 24 jisker při dopadu a 8 blýskání dál. Barva jde po vrcholech přes `IFontStashRenderer2` a `BasicEffect`, bez shaderu, takže ji kreslí i Potato a GamePi. Zvuk `NewBestSynth` (trylek zvonků a akord, 99,9 % energie v 300–4000 Hz).
+- ⚠ `BasicEffect` vybere techniku až při prvním `Apply` (dřív bílé kostky); obrys `Stroked` přes `DrawText` sedí o `effectAmount` vpravo dole.
+- Slovo kreslí `MenuPage.DrawOverUi` nad Myrou, strom drží prázdné místo.
+- Otevřené: `verdict-eye`; pohyb a zvuk agent neposoudil, snímky ve `verdicts\926\`.
