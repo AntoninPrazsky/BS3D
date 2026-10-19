@@ -1181,3 +1181,8 @@ Pravidla:
 - Hotovo (větev `960-spruce-stem`): na High/Ultra neměla osa smrku pod vrcholovým výhonem 1,25–6 jednotek žádné dřevo (vnitřek začíná 1/8 koruny pod špičkou, na polární záři ho vlnění dokonce převrátilo), takže výhon a horní přesleny visely ve vzduchu. Nově jeden kmínek z kůry (stínovaný ×0,55) od vrcholu kmene až do výhonu; větve koření v něm. Low/Medium a Potato beze změny (sítě bajtově shodné). Fish +0,02–0,03 ms.
 - ⚠ Testbed `nocap` dával na desktopu nesmysly (rozdíl −0,13 až +7 ms); `fpscap=1000` sedí se hrou.
 - Otevřené: verdikt oka.
+
+## 2026-10-20 — #907 hudba Silhouettes přegenerována — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: Fantasy, Jazz, Nordic, Oud a Theatre (`puppet`) nahrazeny v místě, názvy i levely beze změny. 50 renderů ve třech kolech, výběr měřením proti `ember` na vybalených .ogg: Fantasy c1 (flétna a housle, kapela místo orchestru), Jazz c10 přeřezaný 0–100 s (klavírní trio; první střih měl 9,4 % not mimo tóninu), Nordic c3, Oud c7 přeřezaný 10–110 s, Theatre c7. Trim: Theatre −3,5 dB (292 clipped runs), Fantasy a Oud −1,0, Nordic −0,5. Bicí vrstvy má teď všech pět (Fantasy a Jazz dřív žádnou).
+- ⚠ Nikdo neposlouchal (stroj bez zvuku). Nesáhl jsem na waltz (222 clipped runs) a triphop (275).
+- Otevřené: `verdict-eye`, `verdicts\907\`.
