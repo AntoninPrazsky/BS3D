@@ -21,6 +21,12 @@ namespace Prazsky.Core.Render
         /// <summary>Where the crown starts: the trunk's top.</summary>
         public float BaseY { get; }
 
+        /// <summary>
+        /// The trunk's radius at its top, where the bark stops under the crown: what the boughs' stem
+        /// (<see cref="SpruceCrownGeometry.StemRadius"/>, #960) starts from at <see cref="BaseY"/> and tapers up from.
+        /// </summary>
+        public float StemRadius { get; }
+
         /// <summary>The lathe's wobble phase and peak amplitude (<see cref="LatheMesh.Irregularity"/>).</summary>
         public float Phase { get; }
         public float WobbleAmplitude { get; }
@@ -41,12 +47,13 @@ namespace Prazsky.Core.Render
         /// </summary>
         public float Reach { get; }
 
-        public SpruceWhorlPlan(float radius, float height, float baseY, float phase, float wobbleAmplitude, float raggedness,
-            float[] skirtRadii, float[] skirtHeights)
+        public SpruceWhorlPlan(float radius, float height, float baseY, float stemRadius, float phase, float wobbleAmplitude,
+            float raggedness, float[] skirtRadii, float[] skirtHeights)
         {
             Radius = radius;
             Height = height;
             BaseY = baseY;
+            StemRadius = stemRadius;
             Phase = phase;
             WobbleAmplitude = wobbleAmplitude;
             Raggedness = raggedness;
@@ -172,13 +179,25 @@ namespace Prazsky.Core.Render
     /// <b>What the references drew</b> (#733's set, both models): a spruce's silhouette is the tips of its boughs, each
     /// poking out on its own at its own length and height and turned up at the end; a bough is an arm that leaves the stem,
     /// sags and curls its tip up, with a plate of foliage over it and branchlets hanging under it in a fringe; the snow lies
-    /// in lumps on the arms; between the arms the crown is dark and, high up, open round the leader. So a bough here is an
-    /// arm of a few rings (<see cref="SpruceDetail"/>) with a diamond cross-section: a ridge over the arm, two side edges a
-    /// little below it, and a keel hanging under it, deeper low in the crown — the fringe. The top and the underside keep
-    /// normals of their own across the side edges, so a plate is lit on top and dark beneath. Arms come in whorls of four to
-    /// seven with a few smaller arms between the whorls, each reaching the plan's outline at the height its tip ends at,
-    /// ragged by the config's raggedness and the lathe's own wobble, so the variant leans the way its coarse crown does. High
-    /// in the crown an arm climbs; low down it hangs and curls up harder. A thin leader closes the top.
+    /// in lumps on the arms; between the arms the crown is dark. So a bough here is an arm of a few rings
+    /// (<see cref="SpruceDetail"/>) with a diamond cross-section: a ridge over the arm, two side edges a little below it, and
+    /// a keel hanging under it, deeper low in the crown — the fringe. The top and the underside keep normals of their own
+    /// across the side edges, so a plate is lit on top and dark beneath. Arms come in whorls of four to seven with a few
+    /// smaller arms between the whorls, each reaching the plan's outline at the height its tip ends at, ragged by the
+    /// config's raggedness and the lathe's own wobble, so the variant leans the way its coarse crown does. High in the crown
+    /// an arm climbs; low down it hangs and curls up harder. A thin leader closes the top.
+    /// </para>
+    /// <para>
+    /// <b>One stem, from the trunk's top into the leader</b> (#960, <see cref="StemRadius"/>, <see cref="TreeMesh.FineStem"/>).
+    /// The owner, of both woods on High: the tree tips levitate. The interior opens an eighth of the crown under the tip, so
+    /// with the arms rooted a twentieth of the crown's radius off an empty axis, the leader and the top whorls hung over 1.25
+    /// to 6 units of nothing; on the aurora's spruces the interior's wobble, as large as its thin top, turned that top inside
+    /// out. The #960 references draw a spruce's top as one bark stem, bare between the top whorls: the leader is its last
+    /// shoot and the whorls grow out of it. So a stem of the trunk's own bark tapers from the trunk's top radius at the
+    /// crown's foot to <see cref="STEM_IN_LEADER"/> of the leader's at the leader's foot and closes inside the leader; an arm
+    /// roots no further out than <see cref="ROOT_IN_STEM"/> of the stem at its height and its root ring is no wider than the
+    /// stem, so the ring stands inside it; and no ring of the interior is pushed in by the wobble past
+    /// <see cref="SHADE_WOBBLE_ROOM"/> of its radius.
     /// </para>
     /// <para>
     /// <b>The snow is geometry</b> (<see cref="SnowVertices"/>): a soft lump on the plate of half the arms, drawn in the
@@ -188,12 +207,12 @@ namespace Prazsky.Core.Render
     /// </para>
     /// <para>
     /// <b>The interior is a mesh of its own</b> (<see cref="ShadeProfileFor"/>, drawn in a darker tint by the scatter): a
-    /// narrow lathe at a share of the outline (<see cref="SpruceDetail.Shade"/>), which the arms root inside. Without it a gap between
-    /// the arms opens onto the arms on the far side of the tree, lit as brightly as the near ones, and the crown reads as a
-    /// wire frame; with it the gaps are the shaded old needles round the stem.
+    /// narrow lathe at a share of the outline (<see cref="SpruceDetail.Shade"/>) round the stem. Without it a gap between the
+    /// arms opens onto the arms on the far side of the tree, lit as brightly as the near ones, and the crown reads as a wire
+    /// frame; with it the gaps are the shaded old needles round the stem.
     /// </para>
     /// <para>
-    /// The arms' root rings stand inside the interior and are left open. Every triangle is wound clockwise seen from
+    /// The arms' root rings stand inside the stem and are left open. Every triangle is wound clockwise seen from
     /// outside (CLAUDE.md), checked against the outward direction it is built for as <see cref="MeshBuilder"/> does.
     /// </para>
     /// </summary>
@@ -213,6 +232,40 @@ namespace Prazsky.Core.Render
         private const float SNOW_ON_ARMS = 0.5f;
         private const float SNOW_ON_SMALL_ARMS = 0.3f;
 
+        /// <summary>The stem's facets round the axis: the bark trunk's eight, which it continues.</summary>
+        public const int STEM_SEGMENTS = 8;
+
+        /// <summary>
+        /// The stem's radius at the leader's foot as a share of the leader's (#960): inside the leader's five sides, whose
+        /// apothem is 0.81 of its radius, so the leader's open foot is a rim round the stem and never a lip over a gap.
+        /// </summary>
+        public const float STEM_IN_LEADER = 0.75f;
+
+        //How far up the leader the stem runs before it closes on the axis, as a share of the leader's length: well inside it
+        private const float STEM_INTO_LEADER = 0.5f;
+
+        /// <summary>
+        /// The furthest an arm roots from the axis, as a share of the stem's radius at its height (#960): its open root ring
+        /// stands inside the stem. Low in the crown, where the stem is thicker, it is the twentieth of the crown's radius the
+        /// arms always rooted at.
+        /// </summary>
+        public const float ROOT_IN_STEM = 0.5f;
+
+        //How far out an arm's root ring may reach, as a share of the stem's radius: inside its eight facets, whose apothem is
+        //0.92 of it
+        private const float ROOT_FIT = 0.88f;
+
+        //The most of its own radius a ring of the interior may be pushed in by the wobble: a ring as thin as the wobble is
+        //wide turned inside out (the aurora's, near its top, before #960)
+        private const float SHADE_WOBBLE_ROOM = 0.5f;
+
+        //The leader, a thin five-sided spike from its foot to the tip: its length, and its radius as a share of the crown's
+        //plus a floor. One leader for both details, so one stem fits inside it (#960): it was rolled per detail from the first
+        //whorl's height, 1.3 to 1.6 units, which is the range this sits in the middle of.
+        private const float LEADER_LENGTH = 1.45f;
+        private const float LEADER_RADIUS_SHARE = 0.03f;
+        private const float LEADER_RADIUS_FLOOR = 0.04f;
+
         /// <summary>The boughs and the leader, one draw.</summary>
         public List<VertexPositionNormalTexture> Vertices => _needles.Vertices;
         public List<int> Indices => _needles.Indices;
@@ -231,7 +284,11 @@ namespace Prazsky.Core.Render
         /// <summary>Round every vertex of the boughs; the snow lies on them.</summary>
         public BoundingSphere Bounds { get; private set; }
 
+        /// <summary>The first vertex of every arm's root ring in <see cref="Vertices"/>: six vertices each, left open.</summary>
+        internal IReadOnlyList<int> ArmRoots => _armRoots;
+
         private readonly Part _needles = new(), _snow = new();
+        private readonly List<int> _armRoots = new();
         private readonly SpruceDetail _detail;
 
         private SpruceCrownGeometry(SpruceDetail detail) => _detail = detail;
@@ -244,11 +301,54 @@ namespace Prazsky.Core.Render
             return crown;
         }
 
+        /// <summary>The height the leader's open five-sided foot stands at, the same at both details.</summary>
+        public static float LeaderFoot(SpruceWhorlPlan plan) => plan.Top - LEADER_LENGTH;
+
+        /// <summary>The leader's radius at its foot.</summary>
+        public static float LeaderRadius(SpruceWhorlPlan plan) => LEADER_RADIUS_SHARE * plan.Radius + LEADER_RADIUS_FLOOR;
+
+        /// <summary>
+        /// The stem's radius at a height (#960): the trunk's top radius (<see cref="SpruceWhorlPlan.StemRadius"/>) at the
+        /// crown's foot, tapering straight to <see cref="STEM_IN_LEADER"/> of the leader's radius at the leader's foot, and
+        /// from there closing to the axis halfway up the leader, inside it. Zero above that.
+        /// </summary>
+        public static float StemRadius(SpruceWhorlPlan plan, float y)
+        {
+            float foot = LeaderFoot(plan);
+            float atLeader = STEM_IN_LEADER * LeaderRadius(plan);
+            float close = foot + STEM_INTO_LEADER * LEADER_LENGTH;
+            if (y >= close) return 0f;
+            if (y >= foot) return atLeader * (close - y) / (close - foot);
+
+            float span = MathF.Max(foot - plan.BaseY, 1e-3f);
+            return MathHelper.Lerp(atLeader, MathF.Max(plan.StemRadius, atLeader), Math.Clamp((foot - y) / span, 0f, 1f));
+        }
+
+        /// <summary>
+        /// The stem's profile (#960), top → outside → underside, for <see cref="TreeMesh.FineStem"/> to lathe with
+        /// <see cref="STEM_SEGMENTS"/> facets and no wobble: a point inside the leader, the leader's foot, the trunk's top
+        /// (its top ring's radius, at its height, so the bark runs on unbroken) and a point a radius down inside the trunk.
+        /// Straight between them, as <see cref="StemRadius"/> is.
+        /// </summary>
+        public static List<LathePoint> StemProfileFor(SpruceWhorlPlan plan)
+        {
+            float foot = LeaderFoot(plan);
+            float trunk = MathF.Max(plan.StemRadius, STEM_IN_LEADER * LeaderRadius(plan));
+            return new List<LathePoint>
+            {
+                new(0f, foot + STEM_INTO_LEADER * LEADER_LENGTH),
+                new(StemRadius(plan, foot), foot),
+                new(trunk, plan.BaseY),
+                new(0f, plan.BaseY - trunk),
+            };
+        }
+
         /// <summary>
         /// The interior lathe's profile, top → outside → underside (<see cref="LatheMesh"/>'s direction): from an eighth of
-        /// the crown under its tip (above that the crown is open round the leader, as the references draw it) down to the
-        /// lowest skirt, at the detail's share of the outline (<see cref="SpruceDetail.Shade"/>). It takes the same share of
-        /// the lathe's wobble.
+        /// the crown under its tip (above that the stem stands bare between the top whorls, as the references draw it) down
+        /// to the lowest skirt, at the detail's share of the outline (<see cref="SpruceDetail.Shade"/>). It takes the same
+        /// share of the lathe's wobble, less where a ring is too thin for it: no ring is pushed in by more than
+        /// <see cref="SHADE_WOBBLE_ROOM"/> of its radius.
         /// </summary>
         public static List<LathePoint> ShadeProfileFor(SpruceWhorlPlan plan, SpruceDetail detail)
         {
@@ -256,12 +356,15 @@ namespace Prazsky.Core.Render
             float bottom = plan.SkirtHeights[plan.SkirtHeights.Count - 1];
             float top = plan.Top - plan.Height * 0.12f;
             float thinnest = plan.Radius * 0.03f;
+            float amplitude = plan.WobbleAmplitude * detail.Shade;
 
             var profile = new List<LathePoint> { new(0f, top) };
             for (int k = 1; k <= RINGS; k++)
             {
                 float at = MathHelper.Lerp(top, bottom + 0.3f, k / (float)RINGS);
-                profile.Add(new LathePoint(MathF.Max(detail.Shade * plan.Envelope(at), thinnest), at, wobble: 1f));
+                float radius = MathF.Max(detail.Shade * plan.Envelope(at), thinnest);
+                float wobble = amplitude > 0f ? MathF.Min(1f, SHADE_WOBBLE_ROOM * radius / amplitude) : 1f;
+                profile.Add(new LathePoint(radius, at, wobble: wobble));
             }
             profile.Add(new LathePoint(0f, bottom));
             return profile;
@@ -273,8 +376,8 @@ namespace Prazsky.Core.Render
             float rootRadius = plan.Radius * 0.05f;
             float spacing = _detail.WhorlSpacing;
 
-            //The whorls, from just under the leader down to the crown's foot, each turned on from the last by the golden
-            //angle so no two stack their arms in one plane
+            //The whorls, from the first round the leader's lower end down to the crown's foot, each turned on from the
+            //last by the golden angle so no two stack their arms in one plane
             float firstWhorl = top - MathF.Min(spacing, 1.1f) * (0.9f + 0.3f * (float)rng.NextDouble());
             float y = firstWhorl;
             float turn = (float)rng.NextDouble() * MathHelper.TwoPi;
@@ -304,7 +407,7 @@ namespace Prazsky.Core.Render
                 y -= step;
             }
 
-            AddLeader(plan, firstWhorl, top);
+            AddLeader(plan);
 
             _needles.FinishNormals();
             _snow.FinishNormals();
@@ -324,10 +427,19 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// One arm: from the stem at <paramref name="rootY"/> out along <paramref name="bearing"/> to the outline, its spine a
         /// cubic that climbs or hangs by where in the crown it grows (<paramref name="f"/>, 0 at the top, 1 at the foot), sags
-        /// and turns its tip up. Some carry a lump of snow on the middle of their plate.
+        /// and turns its tip up. Some carry a lump of snow on the middle of their plate. It roots at
+        /// <paramref name="rootRadius"/> from the axis, or nearer where the stem is thinner (<see cref="ROOT_IN_STEM"/>).
         /// </summary>
         private void AddArm(SpruceWhorlPlan plan, Random rng, float bearing, float rootY, float f, float lengthShare, float rootRadius)
         {
+            float stem = StemRadius(plan, rootY);
+            rootRadius = MathF.Min(rootRadius, ROOT_IN_STEM * stem);
+            _armRoots.Add(_needles.Count);
+
+            //The root ring's half-width, so its side edges stand inside the stem's facets too: a branch leaves the stem
+            //narrow and its plate widens out along it (#960). Only the far crown's wide plates ever meet it.
+            float rootWidth = MathF.Sqrt(MathF.Max(ROOT_FIT * ROOT_FIT * stem * stem - rootRadius * rootRadius, 0f));
+
             //The spine's height as a share of its run, at t along it: s0 t - sag t^2 + curl t^3. High arms climb, low ones
             //hang and curl up harder at the end
             float slope = MathHelper.Lerp(0.55f, -0.5f, MathF.Pow(f, 0.8f)) + 0.24f * ((float)rng.NextDouble() - 0.5f);
@@ -384,6 +496,7 @@ namespace Prazsky.Core.Render
                 up = Vector3.Normalize(Vector3.Cross(across, along));
 
                 float w = width * _detail.RingWidth[k];
+                if (r == 0) w = MathF.Min(w, rootWidth);
                 float h = hang * _detail.RingHang[k];
                 float ridgeHeight = ridge * _detail.RingRidge[k] * (0.6f + 0.9f * (float)rng.NextDouble());
 
@@ -477,12 +590,13 @@ namespace Prazsky.Core.Render
             SnowLumps++;
         }
 
-        //The leader: a thin five-sided spike from inside the first whorl to the crown's tip
-        private void AddLeader(SpruceWhorlPlan plan, float firstWhorl, float top)
+        //The leader: a thin five-sided spike from its foot, round the top of the stem, to the crown's tip
+        private void AddLeader(SpruceWhorlPlan plan)
         {
             const int SIDES = 5;
-            float baseY = firstWhorl - 0.3f;
-            float radius = 0.03f * plan.Radius + 0.04f;
+            float top = plan.Top;
+            float baseY = LeaderFoot(plan);
+            float radius = LeaderRadius(plan);
 
             int ring = _needles.Count;
             for (int s = 0; s < SIDES; s++)

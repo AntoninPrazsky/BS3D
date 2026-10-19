@@ -1154,3 +1154,8 @@ Pravidla:
 - Hotovo: `mural-sunset` (c4 přeřezaný ze 40–120 s surového renderu: první střih měl krok −9,3 dB přes zlom při 1 s; trim −2,5 dB) a `summit-glacier` (c15 z 18 kandidátů, jediný uvnitř `ember` s tichými bicími). Nové `drum-share.py`: starý Glacier měl bicí na úrovni mixu (−2,3 dB v 300 Hz–4 kHz, rodina −6 až −21), Sunset ne (−8,9, rodina −8 až −18). `key-share.py`: tóny na stupnici, Sunset 90,7 → 97,4 %.
 - ⚠ Bez zvukového zařízení nikdo neposlouchal; ve hře `[music] … (drums layered)`.
 - Otevřené: `verdict-eye` obou, `verdicts\905\`.
+
+## 2026-10-20 — #960 levitující špičky smrků — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo (větev `960-spruce-stem`): na High/Ultra neměla osa smrku pod vrcholovým výhonem 1,25–6 jednotek žádné dřevo (vnitřek začíná 1/8 koruny pod špičkou, na polární záři ho vlnění dokonce převrátilo), takže výhon a horní přesleny visely ve vzduchu. Nově jeden kmínek z kůry (stínovaný ×0,55) od vrcholu kmene až do výhonu; větve koření v něm. Low/Medium a Potato beze změny (sítě bajtově shodné). Fish +0,02–0,03 ms.
+- ⚠ Testbed `nocap` dával na desktopu nesmysly (rozdíl −0,13 až +7 ms); `fpscap=1000` sedí se hrou.
+- Otevřené: verdikt oka.

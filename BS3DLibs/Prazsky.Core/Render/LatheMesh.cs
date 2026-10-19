@@ -75,6 +75,38 @@ namespace Prazsky.Core.Render
             + 0.30f * MathF.Sin(7f * angle + 4.1f - 0.53f * y)
             + 0.15f * MathF.Sin(13f * angle + 2.3f + 0.19f * y);
 
+        /// <summary>
+        /// Where every vertex of a lathe stands, ring by ring (<c>[ring, segment]</c>), the irregularity and the height
+        /// field applied: what the constructor builds its faces on, and what a test reads without a device (#960).
+        /// </summary>
+        internal static Vector3[,] RingPositions(IReadOnlyList<LathePoint> profile, int segments,
+            float irregularityAmplitude = 0f, float irregularityPhase = 0f, Func<Vector3, float> heightField = null)
+        {
+            int rings = profile.Count;
+            var positions = new Vector3[rings, segments];
+
+            for (int s = 0; s < segments; s++)
+            {
+                float angle = MathHelper.TwoPi * s / segments;
+                float cos = MathF.Cos(angle);
+                float sin = MathF.Sin(angle);
+
+                for (int k = 0; k < rings; k++)
+                {
+                    LathePoint point = profile[k];
+
+                    float radius = point.Radius;
+                    if (irregularityAmplitude != 0f && point.Wobble != 0f)
+                        radius += irregularityAmplitude * point.Wobble
+                            * Irregularity(angle + irregularityPhase, point.Y + irregularityPhase);
+
+                    positions[k, s] = new Vector3(radius * cos, point.Y, radius * sin);
+                    if (heightField != null) positions[k, s].Y += heightField(positions[k, s]);
+                }
+            }
+            return positions;
+        }
+
         /// <param name="profile">The cross-section, in order along the surface. At least two points.</param>
         /// <param name="segments">Facets around the axis (minimum 3).</param>
         /// <param name="irregularityAmplitude">
@@ -107,29 +139,7 @@ namespace Prazsky.Core.Render
             //Every ring's world position, so the normals below can be taken from the geometry that is
             //actually drawn rather than from the ideal profile — with the irregularity on, the two differ,
             //and it is exactly the difference that makes the undulation read.
-            var positions = new Vector3[rings, segments];
-            var cos = new float[segments];
-            var sin = new float[segments];
-
-            for (int s = 0; s < segments; s++)
-            {
-                float angle = MathHelper.TwoPi * s / segments;
-                cos[s] = MathF.Cos(angle);
-                sin[s] = MathF.Sin(angle);
-
-                for (int k = 0; k < rings; k++)
-                {
-                    LathePoint point = profile[k];
-
-                    float radius = point.Radius;
-                    if (irregularityAmplitude != 0f && point.Wobble != 0f)
-                        radius += irregularityAmplitude * point.Wobble
-                            * Irregularity(angle + irregularityPhase, point.Y + irregularityPhase);
-
-                    positions[k, s] = new Vector3(radius * cos[s], point.Y, radius * sin[s]);
-                    if (heightField != null) positions[k, s].Y += heightField(positions[k, s]);
-                }
-            }
+            Vector3[,] positions = RingPositions(profile, segments, irregularityAmplitude, irregularityPhase, heightField);
 
             //One flat normal per quad. Outward is the tangent around the ring crossed into the tangent
             //along the profile, in that order — check it against the top of a disc: running outward with
