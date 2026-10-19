@@ -384,17 +384,23 @@ struct MeadowVertexInput
     float4 Position : POSITION0;
 };
 
+//The camera grid's: the field uncut, so what it hands down about the cut is NO_CUT, the same on every vertex
 struct MeadowVertexOutput
 {
     float4 Position : SV_POSITION;
     float3 WorldPosition : TEXCOORD0;
     float3 WorldNormal : TEXCOORD1;
+    nointerpolation float4 Carve : TEXCOORD2;
 };
 
 //The patch's (#892), with the cut: x how far under the field, y how far under the water (negative over it), z how much of
-//the sun the groove lets in, w 1 where the cut is the brook's. The camera grid hands down nothing cut, and its programs
-//take NO_CUT as a literal, so none of the cut's arithmetic or registers is in them: the field's program is a full-screen
-//pass bound by how many waves fit, and a few more live values in it cost two tenths of a millisecond at 4K.
+//the sun the groove lets in, w 1 where the cut is the brook's. The camera grid hands down NO_CUT through the same slot
+//(MeadowVertexOutput, flat: the constant arrives exactly), and its programs read it as the patch's do. ⚠ That is
+//deliberate and measured: the programs of this scene are full-screen passes whose cost follows how the GPU compiler
+//allocates them, and with NO_CUT a literal in them (all of the cut's arithmetic folded away, 0.4 ms of play gone with
+//it) the grid's program came out 64 registers against the 71 of the one before the cut, and 0.4 ms DEARER at 4K on the
+//RX 6900 XT in the Game's play (#924). Count the registers of an edit to this body (docs/scenes/meadow.md) before
+//believing that a smaller program is a cheaper one.
 struct CarvedVertexOutput
 {
     float4 Position : SV_POSITION;
@@ -413,6 +419,7 @@ MeadowVertexOutput MeadowVS(MeadowVertexInput input)
     float2 xz = input.Position.xz + OriginXZ;
     float h = GroundHeight(xz);
     output.WorldNormal = GroundNormal(xz, h);
+    output.Carve = NO_CUT;
 
     float3 worldPosition = float3(xz.x, h, xz.y);
     output.WorldPosition = worldPosition;
@@ -1011,8 +1018,8 @@ float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool 
 //the glow). SceneRenderer.SceneDetail picks; the Game's Low tier takes the reduced one. Each comes twice since #892:
 //over the camera grid (and the far ring, which takes "MeadowReduced"), with the hole the cut is drawn in, and over the
 //patch that draws the cut.
-float4 MeadowPS(MeadowVertexOutput input) : COLOR { return MeadowField(input.WorldPosition, input.WorldNormal, NO_CUT, true, true); }
-float4 MeadowReducedPS(MeadowVertexOutput input) : COLOR { return MeadowField(input.WorldPosition, input.WorldNormal, NO_CUT, false, true); }
+float4 MeadowPS(MeadowVertexOutput input) : COLOR { return MeadowField(input.WorldPosition, input.WorldNormal, input.Carve, true, true); }
+float4 MeadowReducedPS(MeadowVertexOutput input) : COLOR { return MeadowField(input.WorldPosition, input.WorldNormal, input.Carve, false, true); }
 float4 MeadowCarvedPS(CarvedVertexOutput input) : COLOR { return MeadowField(input.WorldPosition, input.WorldNormal, input.Carve, true, false); }
 float4 MeadowCarvedReducedPS(CarvedVertexOutput input) : COLOR { return MeadowField(input.WorldPosition, input.WorldNormal, input.Carve, false, false); }
 
@@ -1168,6 +1175,19 @@ technique MeadowCarvedReduced
     }
 };
 
+
+//The patch's depth alone (#924): the same vertex program as the field's, so the depth it lays is the one the field's pass tests
+//against, bit for bit, and the field's pass shades each pixel once
+float4 MeadowDepthPS(CarvedVertexOutput input) : COLOR { return 0.0; }
+
+technique MeadowCarvedDepth
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MeadowCarvedVS();
+        PixelShader = compile PS_SHADERMODEL MeadowDepthPS();
+    }
+};
 
 technique MeadowBed
 {
