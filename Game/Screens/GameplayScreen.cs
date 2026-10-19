@@ -703,7 +703,7 @@ namespace BS3D.Screens
 
         private readonly LaserGrid _laserGrid;
 
-        //The four emitters on the drain's rim the net comes from (#874), made with the first level and kept for the
+        //The four emitters inside the funnel the net is projected from (#874), made with the first level and kept for the
         //session's life; null before it
         private LaserEmitters _emitters;
 
@@ -1522,6 +1522,10 @@ namespace BS3D.Screens
             //in one copy with the result page's frame below (#582)
             StepGunHardware(gameTime, elapsed);
 
+            //Testing only: where a scripted walk or turn has put the gun, and the lens (last frame's), for a run to show it
+            //is continuous; silent without walk= or turn=
+            ScriptedPlay.Current?.TraceGun(WallClock, _cannon.Position, _cannon.OrbitRadius, Camera.Position);
+
             //The Cut's beats on the wall clock (#767): the press's charge and its hold in the hand, the flight's pinch, and
             //the strike's slow motion, which is a property of time and so not slowed by itself. The hold is asked every
             //frame it lasts (a hold is gone the first frame it is not), the click once, as the charge tops out.
@@ -2082,7 +2086,7 @@ namespace BS3D.Screens
             //it — while the descending plate is above, so an overhead shot seeing the net through the glass
             //still gets the plate composited over it. Wall-clock driven, so its pulse and its linger-and-
             //fade keep running while a result screen covers this screen and only draws still arrive.
-            //The four emitters' lenses first (#874), glass writing no depth, so the feeders that start at their crests are
+            //The four emitters' lenses first (#874), glass writing no depth, so the cones that start at their crests are
             //drawn over the glass and not behind it - and glowing with the very brightness the beams are drawn at
             _emitters?.DrawLens(GraphicsDevice, Camera, Game.SceneEffectParams, _laserGrid.IntensityAt(WallClock));
 
@@ -2162,7 +2166,7 @@ namespace BS3D.Screens
             DrawMuzzleCollar(barrelWorld);
             Game.CannonRig.DrawCarriage(Camera, carriageWorld, _cannon.WheelTravel, _cannon.SlideTravel, Game.SceneEffectParams);
 
-            //The laser emitters' metal on the drain's rim (#874), with the gun in both frames: the front end's over a kept
+            //The laser emitters' metal inside the funnel (#874), with the gun in both frames: the front end's over a kept
             //session shows them standing there too, and a pod that appeared only in play would pop in with the level
             _emitters?.DrawBody(Camera, Game.SceneEffectParams);
 

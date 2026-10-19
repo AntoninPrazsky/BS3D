@@ -1101,3 +1101,9 @@ Pravidla:
 - Hotovo: v prvních pěti levelech první kapitoly se po 10 s bez výstřelu (dvojnásobek 5 s na výstřel z majitelových `Stats.json`), když nemluví karta, alarm ani kamera, objeví tučný jantarový čip „Fire!“ s tlačítkem pro aktuální ruku (LMB, RT) pod zaměřovačem; tepe jednou za vteřinu, výstřel ho smaže, zpět až po 30 s. Pravidla v `FireHint` (čistá logika, testy viděny selhat), popis v `docs/game-feedback/fire-hint.md`.
 - ⚠ `turn=`/`walk=` teď hlásí držení kartám traverse/walk; bez toho skript kartu orbitu nikdy nedokončil.
 - Otevřené: verdikt newcomer (pauzu u nováčka nikdo neměřil), snímky ve `verdicts\925\`.
+
+## 2026-10-19 — #874 zářiče uvnitř trychtýře, projekční paprsky — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Po majitelově „Vrať“: čtyři zářiče sedí na skle trychtýře 0,6 pod okrajem (patka podél normály skla) a hlavice se na čepu natočí přesně na svůj roh sítě; z čočky vede měkký, rozšiřující se kužel, který na rohu přistane. `Cannon.SetKeepouts` je pryč, dělo obíhá volně. Čep třmenu je výš (0,95), jinak by se ocas hlavice zabořil do patky.
+- ⚠ Na 16–17 širokých sítích je roh skoro nad čočkou: hlavice míří svisle a kužel měří 0,8.
+- ⚠ Kulička přes okraj v ose zářiče jím projde (bez kolize, záměrně).
+- Otevřené: `verdict-eye`, snímky ve `verdicts\874b\`.

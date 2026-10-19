@@ -47,7 +47,9 @@ namespace BS3D
     /// <item><c>walk=&lt;from&gt;:&lt;to&gt;[:in|out]</c> and <c>turn=&lt;from&gt;:&lt;to&gt;[:left|right]</c> — hold W (or S)
     /// and A (or D) across the interval, through the very calls the keys make. Written for the resize fault: a
     /// window resized mid-level re-solves the fit, and whether the player's walk and turn survive that could only be
-    /// shown with the gun actually walked and turned first. The defaults are <c>in</c> and <c>left</c>.</item>
+    /// shown with the gun actually walked and turned first. The defaults are <c>in</c> and <c>left</c>. While either holds
+    /// a key, and half a second after, a <c>[gun]</c> line every tenth of a second says where the gun stands (bearing,
+    /// radius, position) and where the lens is, so a run can show the walk and the orbit are continuous (#874).</item>
     /// <item><c>mbflip=&lt;seconds&gt;</c> — turns the motion blur off and on every that many seconds, printing an
     /// <c>[mbflip]</c> line at each flip: its cost measured <b>inside one process</b>, the two states alternating
     /// against the same drift, which separate runs on a machine other sessions are also rendering on cannot give.
@@ -80,6 +82,11 @@ namespace BS3D
         private float _turnFrom = float.NaN, _turnTo, _turnSign = 1f;
         private float _flipPeriod;
         private bool _flipReportedOff = true;
+        private float _traceNext;
+
+        //How often the [gun] line is printed while walk= or turn= holds a key, and how long after it lets go
+        private const float GUN_TRACE_PERIOD = 0.1f;
+        private const float GUN_TRACE_TAIL = 0.5f;
 
         /// <summary>Takes one command-line argument if it is one of this class's, and says whether it was.</summary>
         internal static bool TryParse(string arg)
@@ -322,6 +329,24 @@ namespace BS3D
             }
 
             return off;
+        }
+
+        /// <summary>
+        /// A <c>[gun]</c> line every <see cref="GUN_TRACE_PERIOD"/> while <c>walk=</c> or <c>turn=</c> holds a key (and
+        /// <see cref="GUN_TRACE_TAIL"/> after): the gun's bearing from the island's centre, its orbit radius and position,
+        /// and the lens's position. Nothing at all in a run with neither.
+        /// </summary>
+        internal void TraceGun(float clock, Vector3 gun, float radius, Vector3 lens)
+        {
+            bool walking = !float.IsNaN(_walkFrom) && clock >= _walkFrom && clock <= _walkTo + GUN_TRACE_TAIL;
+            bool turning = !float.IsNaN(_turnFrom) && clock >= _turnFrom && clock <= _turnTo + GUN_TRACE_TAIL;
+            if (!walking && !turning || clock < _traceNext) return;
+
+            _traceNext = clock + GUN_TRACE_PERIOD;
+
+            float bearing = MathHelper.ToDegrees(MathF.Atan2(gun.Z, gun.X));
+            Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                $"[gun] {clock:0.00} s bearing {bearing:0.00} deg radius {radius:0.000} at ({gun.X:0.000}, {gun.Y:0.000}, {gun.Z:0.000}) lens ({lens.X:0.00}, {lens.Y:0.00}, {lens.Z:0.00})"));
         }
 
         /// <summary>+1 while W is held by <c>walk=</c> at this instant, -1 for S, 0 outside its interval.</summary>
