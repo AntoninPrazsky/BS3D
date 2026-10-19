@@ -1328,10 +1328,12 @@ namespace BS3D.Screens
 
         #region The online boards (#547)
 
-        //The plate is at most this wide — ranks, nicknames and scores in the small face, sixteen characters of a name
-        //with room — and gives way to the width actually beside the column (see BuildBoards): at 16:9 there are about
-        //1420 design units either side of it; at 4:3 about 940, and the first cut, which assumed the full width would
-        //always fit, was photographed laid across the score breakdown.
+        //The plate is this wide up to 16:9 — ranks, nicknames and scores in the small face; a row that wears "not finished" leaves
+        //its name only a few characters, and BoardView cuts it with an ellipsis - and gives way to the width actually beside the
+        //column (see BuildBoards): at 16:9 there are about 1420 design units either side of it; at 4:3 about 940, and the first cut,
+        //which assumed the full width would always fit, was photographed laid across the score breakdown. On a display wider
+        //than 16:9 it GROWS (#934, BoardLayout.Ceiling), by half of what the display is wider, up to the width the longest
+        //nickname shows whole at (BoardView.FullWidth).
         //⚠ CENTRED IN THAT STRIP since #701, the same free width towards the column and towards the edge. It was pinned
         //to the right edge with a margin capped at 150 units, so every unit a wider screen gave went between the column
         //and the plate: centred at 4:3, and leaning ever further right on the owner's 3840x1600. The two floors below
@@ -1373,7 +1375,12 @@ namespace BS3D.Screens
             int beside = (Game.GraphicsDevice.PresentationParameters.BackBufferWidth - ColumnWidth) / 2;
             int padding = 2 * Scaled(BOARD_PADDING);
             int sideFloor = Math.Max(Scaled(BOARD_COLUMN_GAP), Scaled(BOARD_MIN_EDGE_MARGIN));
-            _boardWidth = Math.Clamp(beside - padding - 2 * sideFloor, Scaled(BOARD_MIN_WIDTH), Scaled(BOARD_WIDTH));
+            //The ceiling is BOARD_WIDTH up to 16:9 and grows with the strip past it (#934): the margins stay the ones 16:9 has and
+            //what a wider display adds goes to the names, up to the width the longest nickname shows whole at
+            var screen = Game.GraphicsDevice.PresentationParameters;
+            int ceiling = BoardLayout.Ceiling(screen.BackBufferWidth, screen.BackBufferHeight, Scaled(BOARD_WIDTH),
+                BoardView.FullWidth(FontSmall, Game.MenuFontPromptSmall, Scaled));
+            _boardWidth = Math.Clamp(beside - padding - 2 * sideFloor, Scaled(BOARD_MIN_WIDTH), ceiling);
             int margin = Math.Max((beside - _boardWidth - padding) / 2, Scaled(BOARD_MIN_EDGE_MARGIN));
 
             //Held to the width worked out above: a stack sizes to its widest child, and one long line — the first cut's
