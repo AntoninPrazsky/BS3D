@@ -302,7 +302,9 @@ jobs:
   # And Images/releases/<tag>.md, when one was committed with the picture, goes between the picture and the
   # download text: what this release says before anything else (v0.3.0's "the first release with online scores,
   # and how to turn them on" had to be in the notes from their first minute, not edited in after them).
-  # Optional the same way.
+  # Optional the same way. Keep it SHORT (#927): GitHub lists the assets beneath the whole body, so the body's
+  # length is the scroll to the download - about a dozen one-line bullets of what changes play and one closing
+  # line, the rule in "The workflows and the release" in docs/build-and-release.md.
   publish:
     needs: [release, release-linux-arm64]
     runs-on: ubuntu-latest

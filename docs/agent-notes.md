@@ -1087,3 +1087,8 @@ Pravidla:
 - Jedna sdílená stránka verdiktů (bs3d-5f, 21 karet, db `verdicts`); fronta 17 → hudba #905/#906 zastavena před renderem. Křížová recenze s bs3d-5f: u mých 10 merge 2 chyby (odměna za řez vs. 2,5 s beat při vypnuté cinematic; stall hodiny vs. svět pod 30 fps) a jedna změna chování (#872 střílel pod podlahu), opraveno `ab2e6d24`; u jejích 21 žádná chyba, 6 drobností. Smoke run `f83d983f` čistý.
 - ⚠ Před claimem číst stav issue: #895, #898, #891, #902 už měla bs3d-5f. ⚠ Monitor spí = žádný zvukový výstup, nikdo dnes nic neslyšel.
 - Otevřené: #924 (měření), odpovědi majitele na stránce; hudba #905–#917 čeká na pokles fronty.
+
+## 2026-10-19 — #927 krátké release notes — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Poznámky v0.4.0 zkráceny na dvanáct řádků o hře a jeden závěrečný: stránka vydání 116 → 61 řádků, nadpis „Download and play“ z řádku 80 na 24. Dlouhá verze je v komentáři #927 a na tagu (`blob/v0.4.0`); `Images/releases/v0.4.0.md` je teď krátká.
+- Pravidlo je v `docs/build-and-release.md`. Pořadí v `release.yml` zůstává: GitHub řadí assety pod celé tělo, rozhoduje tedy délka, ne pořadí.
+- Hotové vydání se upravuje přes `gh release view --json body` + `gh release edit --notes-file`, sekce Download beze změny.
