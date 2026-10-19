@@ -71,6 +71,14 @@ namespace Prazsky.Core.Render
         /// nearest first, so the early depth test throws away what a nearer bank hides.</summary>
         public const int CHUNK_BLOCK_ROWS = 4;
 
+        /// <summary>How far a chunk's box stands round the vertices it was measured from (#924): sideways, for the curve of a
+        /// block's edge between its sampled corners, and in height down past the deepest cut (the pond's deep middle under its
+        /// level is 2.3, the groove's bed 1.8 under the field) and up past the lip and the field's own rise across a block.</summary>
+        public const float BOUNDS_SIDEWAYS = 1f, BOUNDS_BELOW = 4f, BOUNDS_ABOVE = 1.5f;
+
+        /// <summary>How far from the lens, in units across the ground, a chunk is still laid in the depth-first pass (#924).</summary>
+        public const float DEPTH_FIRST_RANGE = 45f;
+
         /// <summary>The ground patch, as <see cref="Ground"/> builds it.</summary>
         public sealed class GroundMesh
         {
@@ -89,6 +97,12 @@ namespace Prazsky.Core.Render
             /// <summary>The field's draws: their first index, their index count and the world XZ the distance to them is
             /// taken from.</summary>
             public (int Start, int Count, Vector2 Centre)[] Chunks;
+
+            /// <summary>A box round each chunk's vertices at every level they slide to, and round the bed's: what the draw tests
+            /// against the lens' frustum (#924), so the vertex work of a chunk nowhere near the frame is not paid. Conservative,
+            /// so that nothing a chunk would have drawn is ever left out.</summary>
+            public BoundingBox[] ChunkBounds;
+            public BoundingBox BedBounds;
 
             /// <summary>Where vertex <paramref name="v"/> stands with its rows at <paramref name="rowLevel"/> and its columns at
             /// <paramref name="sideLevel"/> (0 the finest).</summary>
@@ -188,6 +202,8 @@ namespace Prazsky.Core.Render
             var indices = new List<int>();
             var bed = new List<int>();
             var chunks = new List<(int, int, Vector2)>();
+            var chunkBounds = new List<BoundingBox>();
+            BoundingBox chunkBox = EmptyBox(), bedBox = EmptyBox();
             int blockRows = (rows.Count - 1) / LOD_BLOCK, blockColumns = (columns - 1) / LOD_BLOCK;
             int chunkStart = 0, chunkFirstRow = 0;
             for (int bi = 0; bi < blockRows; bi++)
@@ -205,6 +221,10 @@ namespace Prazsky.Core.Render
                     for (int i = i0; i <= i0 + LOD_BLOCK && underAll; i++)
                         for (int j = j0; j <= j0 + LOD_BLOCK && underAll; j++)
                             underAll = Under(i, j) >= BED_UNDER;
+
+                    BoundingBox block = BlockBox(i0, j0);
+                    chunkBox = underAll ? chunkBox : BoundingBox.CreateMerged(chunkBox, block);
+                    bedBox = underAll ? BoundingBox.CreateMerged(bedBox, block) : bedBox;
 
                     //Rows run outward and columns towards +side, which turns clockwise round the arena seen from above
                     //(atan2(z, x) grows from +X towards +Z): a, c, b is clockwise from above, the front face under the default
@@ -227,7 +247,9 @@ namespace Prazsky.Core.Render
                         float middle = rows[(chunkFirstRow + (bi + 1) * LOD_BLOCK) / 2];
                         (float cx, float cz) = MeadowPath.BrookPoint(MathF.Max(middle, brookStart), 0f, config);
                         chunks.Add((chunkStart, indices.Count - chunkStart, new Vector2(cx, cz)));
+                        chunkBounds.Add(chunkBox);
                     }
+                    chunkBox = EmptyBox();
                     chunkStart = indices.Count;
                     chunkFirstRow = (bi + 1) * LOD_BLOCK;
                 }
@@ -243,7 +265,28 @@ namespace Prazsky.Core.Render
                 Indices = indices.ToArray(),
                 BedStart = bedStart,
                 Chunks = chunks.ToArray(),
+                ChunkBounds = chunkBounds.ToArray(),
+                BedBounds = bedBox,
             };
+
+            static BoundingBox EmptyBox() => new(new Vector3(float.MaxValue), new Vector3(float.MinValue));
+
+            //The box of one block: its corners and its middle by their world XZ, the cut's own height at those (the field is
+            //smooth over a block and the margins are generous), and BOUNDS_SIDEWAYS round
+            BoundingBox BlockBox(int i0, int j0)
+            {
+                Vector3 low = new(float.MaxValue), high = new(float.MinValue);
+                for (int i = i0; i <= i0 + LOD_BLOCK; i += LOD_BLOCK / 2)
+                    for (int j = j0; j <= j0 + LOD_BLOCK; j += LOD_BLOCK / 2)
+                    {
+                        Vector2 p = at[i * columns + j];
+                        float y = MeadowCarve.Height(p.X, p.Y, config);
+                        low = Vector3.Min(low, new Vector3(p.X, y, p.Y));
+                        high = Vector3.Max(high, new Vector3(p.X, y, p.Y));
+                    }
+                return new BoundingBox(low - new Vector3(BOUNDS_SIDEWAYS, BOUNDS_BELOW, BOUNDS_SIDEWAYS),
+                    high + new Vector3(BOUNDS_SIDEWAYS, BOUNDS_ABOVE, BOUNDS_SIDEWAYS));
+            }
         }
 
         /// <summary>The water's vertices (world XZ, Y 0 for the brook and 1 for the pond) and its triangles.</summary>
@@ -331,6 +374,8 @@ namespace Prazsky.Core.Render
 
         //The field's chunks and this frame's order of them, nearest first: filled in place, no allocation a frame
         private readonly (int Start, int Count, Vector2 Centre)[] _chunks;
+        private readonly BoundingBox[] _chunkBounds;
+        private readonly BoundingBox _bedBounds;
         private readonly int[] _order;
         private readonly float[] _distance;
 
@@ -345,6 +390,8 @@ namespace Prazsky.Core.Render
             _groundTriangles = ground.Indices.Length / 3;
             _bedStart = ground.BedStart;
             _chunks = ground.Chunks;
+            _chunkBounds = ground.ChunkBounds;
+            _bedBounds = ground.BedBounds;
             _order = new int[_chunks.Length];
             _distance = new float[_chunks.Length];
 
@@ -365,8 +412,12 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>Draws the ground patch: its field with <paramref name="field"/>, chunk by chunk from the one nearest
-        /// <paramref name="camera"/>, then its bed under the water with <paramref name="bed"/>.</summary>
-        public void DrawGround(GraphicsDevice device, EffectPass field, EffectPass bed, Vector3 camera)
+        /// <paramref name="camera"/>, then its bed under the water with <paramref name="bed"/>; with <paramref name="depth"/> laid first
+        /// for the chunks within <see cref="MeadowPatchGeometry.DEPTH_FIRST_RANGE"/> when <paramref name="depthFirst"/>. A chunk whose box lies outside
+        /// <paramref name="frustum"/> is not drawn (#924): its vertex work, about 2 000 instructions a vertex, was paid wherever
+        /// the lens looked.</summary>
+        public void DrawGround(GraphicsDevice device, EffectPass depth, EffectPass field, EffectPass bed, Vector3 camera, BoundingFrustum frustum,
+            bool depthFirst)
         {
             //Nearest first (an insertion sort of a few dozen, in place)
             var eye = new Vector2(camera.X, camera.Z);
@@ -386,18 +437,51 @@ namespace Prazsky.Core.Render
 
             device.SetVertexBuffer(_groundVertices);
             device.Indices = _groundIndices;
-            field.Apply();
-            for (int k = 0; k < _order.Length; k++)
+
+            //The depth first when asked to (#924: where pixels are the cost, the tiers that supersample) and only for the chunks within
+            //MeadowPatchGeometry.DEPTH_FIRST_RANGE of the lens, then the field's program on exactly the depth it has laid, which is bit for bit its own
+            //(one vertex program): every pixel of the cut near the lens is shaded once, whichever way the lens looks along the brook.
+            //The rows run outward, so within a chunk the triangles come far to near for a lens beyond them, and over the pond's crater
+            //every wall hides the one behind it: the pond shot's last second lost 0.6 ms at High to the pixels shaded twice. A far
+            //chunk is a few pixels and its second pass of vertex work (about 2 000 instructions a vertex) would cost more than it
+            //saves, so it is drawn as before, writing its own depth. At Low and Medium, whose frames are a third of High's and carry
+            //8x multisampling, the second rasterisation cost more than it saved.
+            int near = 0;
+            if (depthFirst)
+                while (near < _order.Length && _distance[near] <= MeadowPatchGeometry.DEPTH_FIRST_RANGE * MeadowPatchGeometry.DEPTH_FIRST_RANGE) near++;
+
+            if (near > 0)
             {
-                (int start, int count, _) = _chunks[_order[k]];
-                device.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, start, count / 3);
+                device.BlendState = NoColor;
+                depth.Apply();
+                DrawVisible(device, frustum, 0, near);
+                device.BlendState = BlendState.Opaque;
+                device.DepthStencilState = DepthStencilState.DepthRead;
             }
-            if (_groundTriangles > _bedStart / 3)
+
+            field.Apply();
+            DrawVisible(device, frustum, 0, near);
+            device.DepthStencilState = DepthStencilState.Default;
+            DrawVisible(device, frustum, near, _order.Length);
+            if (_groundTriangles > _bedStart / 3 && frustum.Contains(_bedBounds) != ContainmentType.Disjoint)
             {
                 bed.Apply();
                 device.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, _bedStart, _groundTriangles - _bedStart / 3);
             }
         }
+
+        private void DrawVisible(GraphicsDevice device, BoundingFrustum frustum, int from, int to)
+        {
+            for (int k = from; k < to; k++)
+            {
+                int chunk = _order[k];
+                if (frustum.Contains(_chunkBounds[chunk]) == ContainmentType.Disjoint) continue;
+                (int start, int count, _) = _chunks[chunk];
+                device.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, start, count / 3);
+            }
+        }
+
+        private static readonly BlendState NoColor = new() { ColorWriteChannels = ColorWriteChannels.None };
 
         /// <summary>Draws the water with whatever pass the caller has applied.</summary>
         public void DrawWater(GraphicsDevice device)

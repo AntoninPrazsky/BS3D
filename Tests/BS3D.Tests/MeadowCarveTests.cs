@@ -134,6 +134,34 @@ namespace BS3D.Tests
             Assert.True(open == 0, $"{open} of {tried} points of the grid's hole have no patch over them at rows {rowLevel}, sides {sideLevel}, the first {first}");
         }
 
+        [Theory]
+        [MemberData(nameof(Levels))]
+        public void EveryChunkHoldsItsVerticesInItsBoxAtEveryLevel(int rowLevel, int sideLevel)
+        {
+            //What the frustum test (#924) throws away must be wholly out of frame: a chunk's box holds every vertex of its
+            //triangles where the shader puts it at this level of coarsening, sideways and in height (the cut's own, which is
+            //the vertex shader's before it eases onto the grid near the hole's edge, where the margins are generous),
+            //and the bed's box holds the bed's
+            Assert.Equal(Patch.Chunks.Length, Patch.ChunkBounds.Length);
+            int checkedVertices = 0;
+            void Hold(BoundingBox box, int from, int count, string what)
+            {
+                for (int k = from; k < from + count; k++)
+                {
+                    int v = Patch.Indices[k];
+                    Vector2 p = Patch.At(v, rowLevel, sideLevel, Config);
+                    float y = MeadowCarve.Height(p.X, p.Y, Config);
+                    Assert.True(p.X >= box.Min.X && p.X <= box.Max.X && p.Y >= box.Min.Z && p.Y <= box.Max.Z && y >= box.Min.Y && y <= box.Max.Y,
+                        $"{what}: vertex {v} at ({p.X:F2}, {y:F2}, {p.Y:F2}) is outside its box {box.Min} .. {box.Max}");
+                    checkedVertices++;
+                }
+            }
+            for (int c = 0; c < Patch.Chunks.Length; c++)
+                Hold(Patch.ChunkBounds[c], Patch.Chunks[c].Start, Patch.Chunks[c].Count, $"chunk {c}");
+            Hold(Patch.BedBounds, Patch.BedStart, Patch.Indices.Length - Patch.BedStart, "the bed");
+            Assert.True(checkedVertices > 100000, $"only {checkedVertices} vertices checked");
+        }
+
         [Fact]
         public void APatchVertexSlidesOntoAnotherAndTheBlocksEdgesStay()
         {

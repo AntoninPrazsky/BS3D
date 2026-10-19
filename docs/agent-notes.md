@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-19 — #924 cena louky po #892 — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: pixelově shodně levnější. Grid čte řez z vertex shaderu (flat interpolant) místo literálu `NO_CUT`: hra −0,5 ms (kratší program vyšel dražší), patch se ořezává frustem a na High/Ultra kreslí hloubku napřed u objektivu. High: hra 12,21 → 11,72, nejhorší vteřina průletu potokem 13,52 → 12,82 (rozpočet 13,33), Medium −0,1 až −0,3, Low −0,15 až 0.
+- ⚠ Počet registrů cenu tohohle programu nepředpovídá (64 VGPR dražší než 96); měř při 3840×1600. Absolutní ms mezi sezeními driftují o 0,4.
+- Otevřené: patch za pixel dražší než grid, příčina nenalezena.
+
 ## 2026-10-19 — #931 nestabilní OnlineStatsTests — desktop (RDT-PC), Claude Code (bs3d-bf)
 - Hotovo: chyba byla v testu, klient je v pořádku. `Stop()` jen žádá o konec, takže opakování zmrazené dávky mohlo dorazit na stand-in až po přečtení `sent` („expected 1, got 2“); a `File.ReadAllText` v `ReadOutbox` držel soubor proti `File.Replace`, zápis workeru selhal a test čekal 20 s. Opraveno `OneTry`, čekáním na worker a čtením s `FileShare.Delete`.
 - ⚠ Při dvou jádrech padalo 11 z 42 běhů, po opravě 0 z 50.

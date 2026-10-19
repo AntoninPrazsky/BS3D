@@ -34,7 +34,10 @@ namespace Prazsky.Core.Render
         //coarse to carry, and the water in it; drawn through the meadow's own effect by the programs resolved here once
         //(BestPractices §1). See MeadowCarve for the cut and MeadowPatchGeometry for the meshes.
         private MeadowPatch _patch;
-        private readonly EffectTechnique _carvedTechnique, _carvedReducedTechnique, _bedTechnique, _waterTechnique;
+
+        //The lens' frustum for the patch's chunks (#924): a class, so held and re-pointed rather than built per frame
+        private readonly BoundingFrustum _patchFrustum = new(Matrix.Identity);
+        private readonly EffectTechnique _carvedTechnique, _carvedReducedTechnique, _carvedDepthTechnique, _bedTechnique, _waterTechnique;
 
         private const int MEADOW_GRID_N = 220;
         private const float MEADOW_EXTENT = 1200f;
@@ -55,6 +58,7 @@ namespace Prazsky.Core.Render
             _meadowPass = new TerrainPass(Services, _meadowEffect, MEADOW_GRID_N, MEADOW_EXTENT, "MeadowTime");
             _carvedTechnique = _meadowEffect.Techniques["MeadowCarved"];
             _carvedReducedTechnique = _meadowEffect.Techniques["MeadowCarvedReduced"];
+            _carvedDepthTechnique = _meadowEffect.Techniques["MeadowCarvedDepth"];
             _bedTechnique = _meadowEffect.Techniques["MeadowBed"];
             _waterTechnique = _meadowEffect.Techniques["MeadowWater"];
 
@@ -145,7 +149,7 @@ namespace Prazsky.Core.Render
         public override void Draw(in SceneFrame frame)
         {
             _meadowPass.Draw(frame, Services.TerrainHoleRadius);
-            DrawCut(frame.Camera.Position);
+            DrawCut(frame.Camera);
             DrawPlanting(frame);
         }
 
@@ -153,17 +157,21 @@ namespace Prazsky.Core.Render
         /// The brook's groove and the pond's crater (#892), into the hole the camera grid left for them: the pass has set
         /// the camera, the sky, the clouds and the far fade on the effect, and left the far ring's clip off. Opaque and
         /// uncull'd as the grid is, and after it, its chunks nearest the lens first: its program never discards, so the
-        /// early depth test throws away what the grid or a nearer bank already hides. On every tier the meadow draws (the
-        /// Potato path has its own ground); its cost is in "The brook's groove and the pond's crater" in docs/scenes/meadow.md.
+        /// early depth test throws away what the grid or a nearer bank already hides. A chunk outside the lens' frustum is not
+        /// drawn at all, and on the tiers that supersample the depth of the chunks near the lens is laid first so that every pixel
+        /// of them is shaded once (#924, <see cref="MeadowPatch.DrawGround"/>). On every tier the meadow draws (the Potato path has its own ground); its
+        /// cost is in "The brook's groove and the pond's crater" in docs/scenes/meadow.md.
         /// </summary>
-        private void DrawCut(Vector3 camera)
+        private void DrawCut(Prazsky.Core.Camera.ICamera camera)
         {
             if (_patch == null) return;
 
+            _patchFrustum.Matrix = camera.View * camera.Projection;
+
             _graphicsDevice.BlendState = BlendState.Opaque;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-            _patch.DrawGround(_graphicsDevice, (_sceneDetail > 0.5f ? _carvedTechnique : _carvedReducedTechnique).Passes[0],
-                _bedTechnique.Passes[0], camera);
+            _patch.DrawGround(_graphicsDevice, _carvedDepthTechnique.Passes[0], (_sceneDetail > 0.5f ? _carvedTechnique : _carvedReducedTechnique).Passes[0],
+                _bedTechnique.Passes[0], camera.Position, _patchFrustum, Services.SupersampleFactor > 1);
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
