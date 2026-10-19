@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-19 — #887 ohně savany: víc než špičky — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: ohně stojí na návrších (zem pod nimi zvednutá na y -11,0, 2,5 pod deskou ostrova, `SeatBelowPlate`). Hrana ostrova skrývá z plamene nejvýš 15 % místo 33 až 49 % (viditelná výška nejméně 0,52 → 0,85, pixely plamene nad hranou 0,35 až 0,49 → 0,74 až 0,79). Posun kruhu ven nedává nic: zorný paprsek přes hranu klesá o 0,02 na jednotku (test `MovingTheRingOutBuysAlmostNothing`).
+- ⚠ Světlo ostrova drží absolutní výšku: `LightHeightScale` 0,65 → 0,45, jinak by deska dostala o 55 % víc než v #885.
+- Cena: kamera hráče +0,54 ms (10,65 → 11,19), shora +0,01; 0,4 ms z toho nevysvětleno. Potato beze změny.
+- Otevřené: verdikt oka, `verdicts\887\`.
+
 ## 2026-10-19 — #924 cena louky po #892 — desktop (RDT-PC), Claude Code (bs3d-bf)
 - Hotovo: pixelově shodně levnější. Grid čte řez z vertex shaderu (flat interpolant) místo literálu `NO_CUT`: hra −0,5 ms (kratší program vyšel dražší), patch se ořezává frustem a na High/Ultra kreslí hloubku napřed u objektivu. High: hra 12,21 → 11,72, nejhorší vteřina průletu potokem 13,52 → 12,82 (rozpočet 13,33), Medium −0,1 až −0,3, Low −0,15 až 0.
 - ⚠ Počet registrů cenu tohohle programu nepředpovídá (64 VGPR dražší než 96); měř při 3840×1600. Absolutní ms mezi sezeními driftují o 0,4.

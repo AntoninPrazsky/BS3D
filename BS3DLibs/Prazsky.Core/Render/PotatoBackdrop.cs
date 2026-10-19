@@ -1040,6 +1040,10 @@ namespace Prazsky.Core.Render
         private static PotatoBackdrop Savanna(GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius)
         {
             var config = new SavannaSceneConfig();
+
+            //This path draws no fires, so the mounds they stand on (#887) would be eight bumps with nothing on them, on a grid of cells too coarse to
+            //model them. The plain is planted and drawn without them, from one height function.
+            config.Campfire.MoundFootScale = 0f;
             float Height(float x, float z) => TerrainMirror.Savanna(x, z, config);
 
             var backdrop = new PotatoBackdrop(graphicsDevice);
