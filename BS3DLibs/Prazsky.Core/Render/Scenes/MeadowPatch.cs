@@ -76,6 +76,9 @@ namespace Prazsky.Core.Render
         /// level is 2.3, the groove's bed 1.8 under the field) and up past the lip and the field's own rise across a block.</summary>
         public const float BOUNDS_SIDEWAYS = 1f, BOUNDS_BELOW = 4f, BOUNDS_ABOVE = 1.5f;
 
+        /// <summary>How far from the lens, in units across the ground, a chunk is still laid in the depth-first pass (#924).</summary>
+        public const float DEPTH_FIRST_RANGE = 45f;
+
         /// <summary>The ground patch, as <see cref="Ground"/> builds it.</summary>
         public sealed class GroundMesh
         {
@@ -410,7 +413,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>Draws the ground patch: its field with <paramref name="field"/>, chunk by chunk from the one nearest
         /// <paramref name="camera"/>, then its bed under the water with <paramref name="bed"/>; with <paramref name="depth"/> laid first
-        /// when <paramref name="depthFirst"/>. A chunk whose box lies outside
+        /// for the chunks within <see cref="MeadowPatchGeometry.DEPTH_FIRST_RANGE"/> when <paramref name="depthFirst"/>. A chunk whose box lies outside
         /// <paramref name="frustum"/> is not drawn (#924): its vertex work, about 2 000 instructions a vertex, was paid wherever
         /// the lens looked.</summary>
         public void DrawGround(GraphicsDevice device, EffectPass depth, EffectPass field, EffectPass bed, Vector3 camera, BoundingFrustum frustum,
@@ -435,24 +438,31 @@ namespace Prazsky.Core.Render
             device.SetVertexBuffer(_groundVertices);
             device.Indices = _groundIndices;
 
-            //The depth first when asked to (#924: where pixels are the cost, the tiers that supersample), then the field's program
-            //on exactly the depth it has laid, which is bit for bit its own (one vertex program): every pixel of the cut is
-            //shaded once, whichever way the lens looks along the brook. The rows run outward, so within a chunk the triangles
-            //come far to near for a lens beyond them, and over the pond's crater every wall hides the one behind it: the pond
-            //shot's last second lost 0.6 ms at High to the pixels shaded twice. At Low and Medium, whose frames are a third of
-            //High's and carry 8x multisampling, the second rasterisation cost more than it saved.
+            //The depth first when asked to (#924: where pixels are the cost, the tiers that supersample) and only for the chunks within
+            //MeadowPatchGeometry.DEPTH_FIRST_RANGE of the lens, then the field's program on exactly the depth it has laid, which is bit for bit its own
+            //(one vertex program): every pixel of the cut near the lens is shaded once, whichever way the lens looks along the brook.
+            //The rows run outward, so within a chunk the triangles come far to near for a lens beyond them, and over the pond's crater
+            //every wall hides the one behind it: the pond shot's last second lost 0.6 ms at High to the pixels shaded twice. A far
+            //chunk is a few pixels and its second pass of vertex work (about 2 000 instructions a vertex) would cost more than it
+            //saves, so it is drawn as before, writing its own depth. At Low and Medium, whose frames are a third of High's and carry
+            //8x multisampling, the second rasterisation cost more than it saved.
+            int near = 0;
             if (depthFirst)
+                while (near < _order.Length && _distance[near] <= MeadowPatchGeometry.DEPTH_FIRST_RANGE * MeadowPatchGeometry.DEPTH_FIRST_RANGE) near++;
+
+            if (near > 0)
             {
                 device.BlendState = NoColor;
                 depth.Apply();
-                DrawVisible(device, frustum);
+                DrawVisible(device, frustum, 0, near);
                 device.BlendState = BlendState.Opaque;
                 device.DepthStencilState = DepthStencilState.DepthRead;
             }
 
             field.Apply();
-            DrawVisible(device, frustum);
+            DrawVisible(device, frustum, 0, near);
             device.DepthStencilState = DepthStencilState.Default;
+            DrawVisible(device, frustum, near, _order.Length);
             if (_groundTriangles > _bedStart / 3 && frustum.Contains(_bedBounds) != ContainmentType.Disjoint)
             {
                 bed.Apply();
@@ -460,9 +470,9 @@ namespace Prazsky.Core.Render
             }
         }
 
-        private void DrawVisible(GraphicsDevice device, BoundingFrustum frustum)
+        private void DrawVisible(GraphicsDevice device, BoundingFrustum frustum, int from, int to)
         {
-            for (int k = 0; k < _order.Length; k++)
+            for (int k = from; k < to; k++)
             {
                 int chunk = _order[k];
                 if (frustum.Contains(_chunkBounds[chunk]) == ContainmentType.Disjoint) continue;

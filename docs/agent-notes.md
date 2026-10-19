@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-19 — #924 cena louky po #892 — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: pixelově shodně levnější. Grid čte řez z vertex shaderu (flat interpolant) místo literálu `NO_CUT`: hra −0,5 ms (kratší program vyšel dražší), patch se ořezává frustem a na High/Ultra kreslí hloubku napřed u objektivu. High: hra 12,21 → 11,72, nejhorší vteřina průletu potokem 13,52 → 12,82 (rozpočet 13,33), Medium −0,1 až −0,3, Low −0,15 až 0.
+- ⚠ Počet registrů cenu tohohle programu nepředpovídá (64 VGPR dražší než 96); měř při 3840×1600. Absolutní ms mezi sezeními driftují o 0,4.
+- Otevřené: patch za pixel dražší než grid, příčina nenalezena.
+
 ## 2026-10-19 — #892 břehy potoka přirozeně rozložené — desktop (RDT-PC), Claude Code (bs3d-bf)
 - Majitel (Vrať, 18. 10.): rybník dobrý, potok vypadá jako vykopaný bagrem. Hotovo: potok leží v širokém mělkém úvalu (`MeadowCarve.BrookSwale` = shader): štěrková mez, nízký hliněný stupínek, travnatý břeh 2–3,2 do vlastní výšky pole (do kopce širší), nízký lem. Úval 2,6–3,4× šířka vody; sklon břehu medián 0,47. Rybník beze změny, výsadba stojí kde stála (posazená, ne přesunutá).
 - ⚠ Cena: konec průletu potokem +0,2 až +0,5 ms (13,48 > 13,33), pevná kamera +0,66: patch kreslí dvojnásob země u objektivu za svou přirážku (#924).

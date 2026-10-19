@@ -158,8 +158,8 @@ namespace Prazsky.Core.Render
         /// the camera, the sky, the clouds and the far fade on the effect, and left the far ring's clip off. Opaque and
         /// uncull'd as the grid is, and after it, its chunks nearest the lens first: its program never discards, so the
         /// early depth test throws away what the grid or a nearer bank already hides. A chunk outside the lens' frustum is not
-        /// drawn at all, and on the tiers that supersample the depth is laid first so that every pixel is shaded once (#924,
-        /// <see cref="MeadowPatch.DrawGround"/>). On every tier the meadow draws (the Potato path has its own ground); its
+        /// drawn at all, and on the tiers that supersample the depth of the chunks near the lens is laid first so that every pixel
+        /// of them is shaded once (#924, <see cref="MeadowPatch.DrawGround"/>). On every tier the meadow draws (the Potato path has its own ground); its
         /// cost is in "The brook's groove and the pond's crater" in docs/scenes/meadow.md.
         /// </summary>
         private void DrawCut(Prazsky.Core.Camera.ICamera camera)
