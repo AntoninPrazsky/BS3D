@@ -1,0 +1,22 @@
+---
+layout: base.njk
+title: Blog
+description: How Bubble Shooter 3D is made, from the people making it - the problems we ran into and what we did about them, written for the curious.
+permalink: /blog/
+---
+{% include "bar.njk" %}
+  <main class="wrap blog">
+    <h1>Blog</h1>
+    <p class="lead">What we ran into while making a bubble shooter in three dimensions, and what we did about it: the lattice, the Raspberry Pi, the music, the colour. Written from the project's own record, with the figures we measured.</p>
+    <ol class="postlist">
+{%- for post in collections.posts | reverse %}
+      <li class="postcard">
+        <p class="post-meta"><time datetime="{{ post.date.toISOString() }}">{{ post.date | readableDate }}</time>
+{%- for topic in post.data.topics %}<span class="topic">{{ topic }}</span>{% endfor %}</p>
+        <h2><a href="{{ post.url }}">{{ post.data.title }}</a></h2>
+        <p>{{ post.data.summary }}</p>
+      </li>
+{%- endfor %}
+    </ol>
+    <p class="post-back">Follow along with the <a href="/feed.xml">Atom feed</a>, or read the <a href="{{ site.repo }}">source</a> every post is written from.</p>
+  </main>

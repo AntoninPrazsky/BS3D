@@ -2233,6 +2233,9 @@ namespace BS3D
                     _desktop.RenderVisual();
                 }
 
+                //What the page puts over its own tree (#926): the result page's NEW BEST, in its own colours and its own bounce
+                page.DrawOverUi();
+
                 //A or Enter on the entry the cursor stands on (#799), over the page that has just laid it out
                 DrawFocusPrompt();
             }

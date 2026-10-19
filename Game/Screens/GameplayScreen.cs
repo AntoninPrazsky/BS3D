@@ -219,6 +219,12 @@ namespace BS3D.Screens
         /// </summary>
         private readonly Tutorial _tutorial;
 
+        /// <summary>
+        /// The "fire" chip for a player who has stopped, in the first five levels (#925): the rules are its own class, this
+        /// screen tells it when a shot leaves and when something else has the player's attention, and the HUD draws it.
+        /// </summary>
+        private readonly FireHint _fireHint = new();
+
         //The crosshair: four bars around a clear centre, struck from a white texel it makes itself. Its own
         //component since #76 — the bars, their size on the screen, the premultiplied white they are drawn in
         //and the skip below a hundredth of an opacity are all Crosshair's, and the Testbed draws the same one
@@ -1500,6 +1506,16 @@ namespace BS3D.Screens
                 float walk = script.Walk(WallClock), turn = script.Turn(WallClock);
                 if (walk != 0f) _cannon.Advance(walk * CANNON_ADVANCE_RATE);
                 if (turn != 0f) _cannon.Orbit(turn * CANNON_ORBIT_RATE);
+
+                //And the holds the keys report to the tutorial (#925): a scripted turn completes the orbit card and a scripted walk
+                //the walk card, as a player's A/D and W/S do, so a run can reproduce a player who has done what the card asked
+                //and then stopped. UpdateInput reports them itself while the window is the active one (and would reset a hold
+                //reported twice), so this is the unfocused run's
+                if (!Game.IsActive)
+                {
+                    _tutorial.NoteHold(Tutorial.Lesson.Traverse, turn != 0f, elapsed);
+                    _tutorial.NoteHold(Tutorial.Lesson.Walk, walk != 0f, elapsed);
+                }
             }
 
             //The gun's own frame — its orbit and walk, the queue's glide, the wildcards and the recoil stroke —
@@ -1679,6 +1695,20 @@ namespace BS3D.Screens
                 _hud.KickTutorial();
                 Game.Audio.PlayStarEarned(0, 1, 0f);
             }
+
+            //The "fire" chip for a player who has stopped (#925), after the card above so it reads the card's state of this
+            //frame. Anything that already has the player's attention, or that would make the word false, takes it down and
+            //restarts its count: a card up or queued, a camera takeover or the chapter's tour still holding the release, the
+            //glass stepping or its alarm, the floor's net, a shot still in the air, a decided level, the Tutorial row off
+            bool fireHintWas = _fireHint.Showing;
+            FireHint.Distractions distractions = FireHintDistractions();
+            _fireHint.Update(elapsed, in distractions);
+            _hud.SetFireHint(_fireHint.Presence, _fireHint.Age);
+
+            //One line when the chip comes and one when it goes, on the clock shot= counts, so a run says when it was up
+            if (_fireHint.Showing != fireHintWas)
+                Console.WriteLine(FormattableString.Invariant(
+                    $"[firehint] {(_fireHint.Showing ? "up" : "down")} at {WallClock:F2} s ({_run.Seconds:F2} s of play, next pause {_fireHint.Threshold:F0} s)"));
 
             UpdateCamera(elapsed);
 

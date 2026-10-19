@@ -68,7 +68,7 @@ namespace Prazsky.Core.Render
 
         /// <param name="config">The meadow: its field (<see cref="TerrainMirror.Meadow"/>) and its footpath
         /// (<see cref="MeadowPath"/>) — nothing is planted on the path, and the first fence runs along it.</param>
-        /// <param name="ground">What everything stands on: null for the ground the desktop draws, the brook's groove and the
+        /// <param name="ground">What everything stands on: null for the ground the desktop draws, the brook's swale and the
         /// pond's crater cut into it (<see cref="TerrainMirror.Meadow"/>, #892), so a reed in the shallows stands on the
         /// pond's bed; the Potato path, whose grid has no cut, passes the field uncut (<see cref="TerrainMirror.MeadowGround"/>).
         /// Nothing is placed differently for it, only stood at another height.</param>
@@ -82,6 +82,33 @@ namespace Prazsky.Core.Render
             var occupied = new List<(float X, float Z, float R)>();
             var buckets = new List<ScatterBucket>();
             var treeFigures = new List<PlantFigure>();
+
+            //How steep the ground is at a point: the cut one, which is what decides where a thing may stand on both paths, and
+            //the one this planting stands on, which decides how far a foot is sunk into it so its downhill side is not in the air
+            static float SlopeOf(Func<float, float, float> h, float x, float z) =>
+                new Vector2(h(x + SLOPE_STEP, z) - h(x - SLOPE_STEP, z), h(x, z + SLOPE_STEP) - h(x, z - SLOPE_STEP)).Length() / (2f * SLOPE_STEP);
+            float cutSlope(float x, float z) => SlopeOf((px, pz) => TerrainMirror.Meadow(px, pz, config), x, z);
+            float standSlope(float x, float z) => SlopeOf(height, x, z);
+
+            //How much deeper the brook's swale (#892) is cut anywhere under a base r across than under its centre: a shrub, a
+            //post or a stone at the swale's edge is sunk by that, or its downhill side hangs in the air over the bank. Sunk, not
+            //moved, so the planting stands where it stood before the swale: one rejected site would draw every later one anew.
+            //Nothing on the Potato path, which stands on the uncut field. The pond's crater is kept off by POND_CLEARANCE.
+            (float pondCentreX, float pondCentreZ) = MeadowPath.PondCentre(config);
+            float seat(float x, float z, float r)
+            {
+                if (ground != null || MathF.Abs(MeadowPath.BrookLateral(x, z, config)) >= r + MeadowCarve.BROOK_CARVE_HALF) return 0f;
+                float cut(float px, float pz) => TerrainMirror.MeadowGround(px, pz, config) - TerrainMirror.Meadow(px, pz, config);
+                float centre = cut(x, z), deepest = centre;
+                for (int k = 0; k < 8; k++)
+                {
+                    float px = x + MathF.Cos(k * MathHelper.PiOver4) * r, pz = z + MathF.Sin(k * MathHelper.PiOver4) * r;
+                    if ((px - pondCentreX) * (px - pondCentreX) + (pz - pondCentreZ) * (pz - pondCentreZ)
+                        < MeadowCarve.POND_CARVE_RADIUS * MeadowCarve.POND_CARVE_RADIUS) continue;
+                    deepest = MathF.Max(deepest, cut(px, pz));
+                }
+                return deepest - centre;
+            }
 
             bool Free(float x, float z, float r)
             {
@@ -129,7 +156,7 @@ namespace Prazsky.Core.Render
             void PlantTree(int m, float x, float z, float scale)
             {
                 MeadowTreeMesh tree = treeMeshes[m];
-                ModelInstance planted = At(x, z, scale, (float)rng.NextDouble() * MathHelper.TwoPi, 0.35f * scale,
+                ModelInstance planted = At(x, z, scale, (float)rng.NextDouble() * MathHelper.TwoPi, 0.35f * scale + seat(x, z, tree.BaseRadius * scale),
                     0.3f * (float)rng.NextDouble(), Jitter());
                 treeInstances[m].Add(planted);
                 treeFigures.Add(PlantFigure.Of(tree.Crown.BoundingSphere, planted.World, tree.BaseRadius));
@@ -187,7 +214,7 @@ namespace Prazsky.Core.Render
                 if (!Free(x, z, 2.5f)) continue;
                 occupied.Add((x, z, 2.5f));
                 shrubInstances[rng.Next(3)].Add(At(x, z, 0.8f + 0.6f * (float)rng.NextDouble(), (float)rng.NextDouble() * MathHelper.TwoPi,
-                    0.3f, (float)rng.NextDouble(), Jitter()));
+                    0.3f + seat(x, z, SHRUB_SEAT), (float)rng.NextDouble(), Jitter()));
                 i++;
             }
 
@@ -207,7 +234,7 @@ namespace Prazsky.Core.Render
                     Vector2 p = centre + along * s + outward * (bend * s * s);
                     if (!Free(p.X, p.Y, 1.2f)) continue;
                     shrubInstances[rng.Next(3)].Add(At(p.X, p.Y, 1.1f + 0.45f * (float)rng.NextDouble(), (float)rng.NextDouble() * MathHelper.TwoPi,
-                        0.4f, 0.2f * (float)rng.NextDouble(), Jitter()));
+                        0.4f + seat(p.X, p.Y, SHRUB_SEAT), 0.2f * (float)rng.NextDouble(), Jitter()));
                 }
                 occupied.Add((centre.X, centre.Y, 0f));
             }
@@ -237,7 +264,7 @@ namespace Prazsky.Core.Render
 
                     Vector2 heading = Vector2.Normalize(q - p);
                     float rise = height(q.X, q.Y) - height(p.X, p.Y);
-                    fenceInstances.Add(At(p.X, p.Y, 1f, -MathF.Atan2(heading.Y, heading.X), 0.15f, (float)rng.NextDouble(), Jitter(),
+                    fenceInstances.Add(At(p.X, p.Y, 1f, -MathF.Atan2(heading.Y, heading.X), 0.15f + seat(p.X, p.Y, POST_SEAT), (float)rng.NextDouble(), Jitter(),
                         MathF.Atan2(rise, FENCE_SPAN)));
                     fenceSpans.Add((p, q));
                     p = q;
@@ -262,7 +289,7 @@ namespace Prazsky.Core.Render
                     {
                         float rise = height(q.X, q.Y) - height(p.X, p.Y);
                         float yaw = -MathF.Atan2(heading.Y, heading.X);
-                        fenceInstances.Add(At(p.X, p.Y, 1f, yaw, 0.15f, (float)rng.NextDouble(), Jitter(), MathF.Atan2(rise, FENCE_SPAN)));
+                        fenceInstances.Add(At(p.X, p.Y, 1f, yaw, 0.15f + seat(p.X, p.Y, POST_SEAT), (float)rng.NextDouble(), Jitter(), MathF.Atan2(rise, FENCE_SPAN)));
                         fenceSpans.Add((p, q));
                     }
                     p = q;
@@ -320,14 +347,15 @@ namespace Prazsky.Core.Render
                 float size = 0.9f + 1.8f * (float)rng.NextDouble();
                 if (!Free(x, z, size)) continue;
                 occupied.Add((x, z, size));
-                rockInstances[rng.Next(3)].Add(At(x, z, size, (float)rng.NextDouble() * MathHelper.TwoPi, size * 0.25f, 0f, Jitter()));
+                rockInstances[rng.Next(3)].Add(At(x, z, size, (float)rng.NextDouble() * MathHelper.TwoPi, size * 0.25f + seat(x, z, size * 0.6f), 0f, Jitter()));
                 i++;
             }
 
             //--- The brook's banks (#609): stones at the water's edge and reeds standing in tufts along it, the
             //references' brook in every one of them. Placed off the centreline directly, not through Free, which
-            //keeps everything else clear of the water. Since the groove (#892) a stone sits at the foot of its wall just
-            //over the water, where the water's width puts it, and a reed on the bank's top past the lip.
+            //keeps everything else clear of the water. Since the swale (#892) a stone lies on the gravel margin, where the
+            //water's width and the margin's put it, and a reed at the water's edge, from the shallows to the earth step,
+            //its foot sunk by the ground's slope.
             var reedInstances = new List<ModelInstance>();
             for (float d = config.ClearingRadius * MeadowPath.BROOK_START + 4f; d < 420f; d += 1.6f + 1.8f * (float)rng.NextDouble())
             {
@@ -337,12 +365,15 @@ namespace Prazsky.Core.Render
                 if (MeadowPath.PondShore(cx, cz, config) < config.BrookWidth) continue;
                 if (rng.NextDouble() < 0.45)
                 {
-                    (float sx, float sz) = MeadowPath.BrookPoint(d, side * (MeadowCarve.BrookWaterHalf(d, config) + STONE_PAST_WATER), config);
+                    float onMargin = STONE_PAST_WATER + MeadowCarve.BrookMargin(d, side) * (0.3f + 0.3f * MathF.Sin(d * 2.3f));
+                    (float sx, float sz) = MeadowPath.BrookPoint(d, side * (MeadowCarve.BrookWaterHalf(d, config) + onMargin), config);
                     float size = 0.35f + 0.5f * (float)rng.NextDouble();
                     rockInstances[rng.Next(3)].Add(At(sx, sz, size, (float)rng.NextDouble() * MathHelper.TwoPi, size * 0.3f, 0f, Jitter()));
                 }
-                (float rx, float rz) = MeadowPath.BrookPoint(d, side * (config.BrookWidth * 0.5f + 0.7f + 0.8f * (float)rng.NextDouble()), config);
-                reedInstances.Add(At(rx, rz, 1.0f + 0.8f * (float)rng.NextDouble(), (float)rng.NextDouble() * MathHelper.TwoPi, 0.05f,
+                (float rx, float rz) = MeadowPath.BrookPoint(d, side * (MeadowCarve.BrookWaterHalf(d, config) + REED_FROM_WATER
+                    + (MeadowCarve.BrookShore(d, side) - REED_FROM_WATER) * (float)rng.NextDouble()), config);
+                float reedSize = 1.0f + 0.8f * (float)rng.NextDouble();
+                reedInstances.Add(At(rx, rz, reedSize, (float)rng.NextDouble() * MathHelper.TwoPi, 0.05f + REED_BASE * reedSize * standSlope(rx, rz),
                     0.3f * (float)rng.NextDouble(), Jitter()));
             }
             IProceduralMesh reeds = Own(new GrassTuftMesh(device, 0.3f, 2.2f, 6130));
@@ -416,8 +447,14 @@ namespace Prazsky.Core.Render
                     || MathF.Abs(pathLateral(x, z)) < config.PathWidth * 0.6f
                     || (x - knollX) * (x - knollX) + (z - knollZ) * (z - knollZ) < TREE_BARE * TREE_BARE)
                     continue;
-                tuftInstances[rng.Next(3)].Add(At(x, z, 0.8f + 0.7f * (float)rng.NextDouble(), (float)rng.NextDouble() * MathHelper.TwoPi,
-                    0.05f, (float)rng.NextDouble() * 0.6f, Jitter()));
+                //On the brook's swale (#892) only where the bank is gentle enough for a tuft to stand, its foot sunk by the slope
+                bool swale = MathF.Abs(MeadowPath.BrookLateral(x, z, config)) < MeadowCarve.BROOK_CARVE_HALF;
+                if (swale && cutSlope(x, z) > TUFT_SLOPE) continue;
+                int tuftKind = rng.Next(3);
+                float tuftScale = 0.8f + 0.7f * (float)rng.NextDouble();
+                float tuftSink = 0.05f + (swale ? TUFT_BASE * tuftScale * standSlope(x, z) : 0f);
+                tuftInstances[tuftKind].Add(At(x, z, tuftScale, (float)rng.NextDouble() * MathHelper.TwoPi,
+                    tuftSink, (float)rng.NextDouble() * 0.6f, Jitter()));
             }
 
             //--- The buckets
@@ -488,8 +525,17 @@ namespace Prazsky.Core.Render
             Figures = new MeadowFigures(treeFigures, benchFigure, baleFigures, solids);
         }
 
-        //How far past the brook's water a bank stone stands (#892): at the groove wall's foot, just over the water
+        //How far past the brook's water a bank stone lies at least (#892): on its margin, just over the water; and where a reed
+        //stands from, past the water's edge (in the shallows), to the top of the earth step, and its base's radius at scale 1
         private const float STONE_PAST_WATER = 0.05f;
+        private const float REED_FROM_WATER = -0.15f, REED_BASE = 0.3f;
+
+        //How far apart the slope of the ground under a foot is taken (#892), and the steepest a grass tuft is stood on: the
+        //swale's bank at its mean width is about 0.6 at its middle, its earth step steeper
+        private const float SLOPE_STEP = 0.25f, TUFT_SLOPE = 0.65f, TUFT_BASE = 0.35f;
+
+        //How far from its centre a shrub's and a fence post's foot reach (#892): what each is sunk by on the swale's edge
+        private const float SHRUB_SEAT = 1.5f, POST_SEAT = 0.3f;
 
         //How far everything keeps off the pond's shore, past its own reach, and how far out of the water the willows stand
         private const float POND_CLEARANCE = 4f;

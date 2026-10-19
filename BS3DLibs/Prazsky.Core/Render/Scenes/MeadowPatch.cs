@@ -7,13 +7,13 @@ using System.Runtime.InteropServices;
 namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// The geometry the brook's groove and the pond's crater are drawn on (#892, <see cref="MeadowCarve"/>), as lists with no
+    /// The geometry the brook's swale and the pond's crater are drawn on (#892, <see cref="MeadowCarve"/>), as lists with no
     /// device so the tests can read them. Two meshes, both fixed to the world and built once, <c>Meadow.fx</c> lifting them:
     /// <list type="bullet">
     /// <item><b>The ground</b> (<see cref="Ground"/>): one grid in the brook's own coordinates - distance from the arena by
-    /// lateral off the centreline (<see cref="MeadowPath.BrookPoint"/>) - so its columns follow the groove's walls exactly,
+    /// lateral off the centreline (<see cref="MeadowPath.BrookPoint"/>) - so its columns follow the swale's banks exactly,
     /// <see cref="SIDE_STEP"/> apart, wherever the brook wanders. Its rows are <see cref="POND_ROW_STEP"/> apart over the
-    /// pond, whose crater runs in every direction, and <see cref="BROOK_ROW_STEP"/> along the brook, whose walls run along
+    /// pond, whose crater runs in every direction, and <see cref="BROOK_ROW_STEP"/> along the brook, whose banks run along
     /// the rows. It is kept in whole blocks of <see cref="LOD_BLOCK"/> by <see cref="LOD_BLOCK"/> quads, every block with a
     /// vertex within <see cref="MeadowCarve.POND_PATCH_RADIUS"/> of the pond's centre or <see cref="MeadowCarve.BROOK_PATCH_HALF"/>
     /// of the centreline: past the coarse grid's hole on every side, so the hole is always covered, and the vertex shader eases
@@ -21,7 +21,7 @@ namespace Prazsky.Core.Render
     /// <see cref="BED_UNDER"/> is the bed and comes last (<c>BedStart</c>), drawn with a program that is the silt and its light
     /// alone, where the field's grass program worked out flowers, clumps and blades only to throw them away.</item>
     /// <item><b>The water</b> (<see cref="Water"/>): a strip down the brook and a disc over the pond, flat across, reaching a
-    /// little under the banks so the depth test cuts its edge where the water meets the wall. Each vertex's Y says which
+    /// little under the margins so the depth test cuts its edge where the water meets the bank. Each vertex's Y says which
     /// water it is (0 the brook, 1 the pond); the shader sets the level.</item>
     /// </list>
     /// <para>
@@ -39,12 +39,13 @@ namespace Prazsky.Core.Render
     /// </summary>
     internal static class MeadowPatchGeometry
     {
-        /// <summary>The ground's column spacing, world units of lateral: a groove wall about a quarter of a unit across gets
+        /// <summary>The ground's column spacing, world units of lateral: the pond's earth step, under half a unit across, gets
         /// a vertex or two on it.</summary>
         public const float SIDE_STEP = 0.2f;
 
-        /// <summary>The ground's row spacing over the pond and along the brook, world units.</summary>
-        public const float POND_ROW_STEP = 0.25f, BROOK_ROW_STEP = 0.5f;
+        /// <summary>The ground's row spacing over the pond and along the brook, world units: along the brook its swale changes
+        /// over units, not tenths, so the rows there are coarser than the columns that hold its margin and step.</summary>
+        public const float POND_ROW_STEP = 0.25f, BROOK_ROW_STEP = 0.75f;
 
         /// <summary>How many times the ground's spacing doubles with distance, and the block it is kept in: the coarsest
         /// level's cell, so that a block's vertices all slide onto its corners.</summary>
@@ -52,12 +53,12 @@ namespace Prazsky.Core.Render
 
         /// <summary>The distance at which the rows, and the columns, start to coarsen (<c>Meadow.fx</c>'s
         /// <c>LOD_ROWS_FROM</c>, <c>LOD_COLUMNS_FROM</c>): the spacing doubles at twice it, and so on. The rows go sooner:
-        /// along the brook they run across the walls' line, and they are the ones a low lens sees foreshortened.</summary>
+        /// along the brook they run across the banks' line, and they are the ones a low lens sees foreshortened.</summary>
         public const float LOD_ROWS_FROM = 14f, LOD_COLUMNS_FROM = 22f;
 
-        /// <summary>The water strip's columns either side of the centreline (under the walls wherever the water is widest)
+        /// <summary>The water strip's columns either side of the centreline (under the margin wherever the water is widest)
         /// and their spacing, and the pond disc's spokes and rings and how far past the shore it reaches.</summary>
-        public const float WATER_HALF = 2.25f, WATER_SIDE_STEP = 0.25f;
+        public const float WATER_HALF = 2.5f, WATER_SIDE_STEP = 0.25f, WATER_ROW_STEP = 0.5f;
         public const int POND_SPOKES = 160, POND_RINGS = 24;
         public const float POND_WATER_PAST_SHORE = 0.4f;
 
@@ -251,11 +252,11 @@ namespace Prazsky.Core.Render
             var vertices = new List<Vector3>();
             var indices = new List<int>();
 
-            //The brook: from its start, under the pond's water, to where the groove has shallowed away
+            //The brook: from its start, under the pond's water, to where the swale has shallowed away
             float brookStart = config.ClearingRadius * MeadowPath.BROOK_START;
             int columns = 2 * (int)MathF.Round(WATER_HALF / WATER_SIDE_STEP) + 1;
             int rows = 0;
-            for (float d = brookStart; d < MeadowCarve.BROOK_CARVE_END + BROOK_ROW_STEP; d += BROOK_ROW_STEP, rows++)
+            for (float d = brookStart; d < MeadowCarve.BROOK_CARVE_END + WATER_ROW_STEP; d += WATER_ROW_STEP, rows++)
                 for (int j = 0; j < columns; j++)
                 {
                     (float x, float z) = MeadowPath.BrookPoint(d, -WATER_HALF + j * WATER_SIDE_STEP, config);

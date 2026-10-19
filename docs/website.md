@@ -1,6 +1,6 @@
 # The website
 
-**The game's landing page is a static site in `Web/`, built with Eleventy, for `https://bs3d.winphonew.eu/` on the owner's Webglobe hosting** (#815). It is an advertisement, not documentation: what the game is, pictures of it, and how to download and run it. The page says what the **newest release** does and links to it, so it is published with a release, after the release exists.
+**The game's landing page is a static site in `Web/`, built with Eleventy, for `https://bs3d.winphonew.eu/` on the owner's Webglobe hosting** (#815). It is an advertisement, not documentation: what the game is, pictures of it, and how to download and run it. Beside it stands **the blog** (#928, `/blog/`), a few long posts about what was solved while making the game, in the first person plural, with an Atom feed. The page says what the **newest release** does and links to it, so it is published with a release, after the release exists.
 
 ## Building and looking at it
 
@@ -23,15 +23,38 @@ npx eleventy                # the plain files in Web\_site, which is all the hos
 | `src/_data/site.json` | The links (the newest release, the repository), the description the search engines and link previews show, the counts the page prints (levels, chapters, scenes) and the video slot |
 | `src/_data/gallery.json` | The gallery's pictures in order, each with its level, chapter and caption |
 | `src/_data/built.js` | The day of the build (Prague time), which the footer prints as "Last updated" |
-| `src/_includes/base.njk` | The HTML shell, the link-preview tags and the footer |
-| `src/_includes/post.njk`, `src/blog/` | The blog, ready but empty (below) |
+| `src/_includes/base.njk` | The HTML shell, the link-preview tags, the feed's autodiscovery link and the footer |
+| `src/_includes/bar.njk`, `src/_includes/post.njk` | The slim header (logo, Blog, Download) and the layout of a post: date and topics, the title, the text, the newer and older post, the way back |
+| `src/blog.njk`, `src/feed.njk` | The blog's list page (`/blog/`, newest first, each post with its date, topics and summary) and the Atom feed (`/feed.xml`, with each post's whole text) |
+| `src/blog/*.md` | The posts, and `blog.11tydata.json`, which gives every file there the layout and the `posts` tag |
+| `eleventy.config.js` | The passthrough copies, the date filters, `absoluteLinks` (the feed's links and pictures get the site's address) and **no Liquid pass over Markdown** |
 | `src/css/site.css` | The look: dark like the game's menus, headings in Anton (the game's own display face, served from `src/fonts`) |
 | `publish.ps1` | Builds and uploads (below) |
 
 - **The counts and the feature list are typed, not read from the game.** At a release, check them against what ships: `site.json`'s `levels`, `chapters` and `scenes`, and the claims in "What else is in it" and in the download steps (the latter are the release notes' own, in `.github/workflows/release.yml`).
 - **The video slot:** `site.json`'s `video` is null and the page says a video is on its way. Set it to the video's address and the page shows a button to it instead. It is a link, not an embed, so the page still makes no request to anyone else.
 - **Nothing on the page talks to a third party**: no analytics, no cookies, no web fonts from elsewhere, so it needs no consent banner. Keep it that way; the footer says so.
-- **A post for the blog** is a Markdown file in `src/blog/` with `title` and `date` in its front matter: it gets a page of its own, and the landing page grows a "From the workshop" list of the posts, newest first, which is absent while there are none. The journal (`docs/agent-notes.md`) is raw material for posts, never published as it stands.
+
+## The blog (#928)
+
+**Adding a post is one Markdown file in `src/blog/`.** Its front matter:
+
+```yaml
+---
+title: The ball that holds up thirty-eight others
+date: 2026-10-19T12:00:00Z       # shown as the day; set it to the day it is published. The list and the feed run newest first
+topics: [Physics, Data structures]   # the small labels beside the date
+summary: One or two sentences: the list, the link preview, the search result and the feed all show it.
+---
+```
+
+The file name is the address (`/blog/<file name>/`) and the first heading of the body is a `##`, because the title is the page's `<h1>`. Quote a `summary` that contains a colon. Markdown here is plain Markdown with raw HTML allowed (there is **no Liquid pass over it**, so a brace in a code sample stays a brace). A picture goes in `src/img/blog/` (or reuses `src/img/shots/`) as a `<figure>` with `width`, `height`, `loading="lazy"` and an `alt`; a table scrolls inside itself on a phone and a code block scrolls inside its own box, so neither widens the page. The landing page lists the newest three posts under "From the workshop" and links `/blog/`; the header strip, the footer and the line under the gallery link it too, and all of that is absent while there are no posts.
+
+- **The voice is "we", first person plural, and every figure is one the repository records** (the journal, the docs, the issue it came from). A post says what was measured and how, and says what is not known. Antonín is called Antonín, never "the owner". Check each figure against its source before it goes in; a post is not the place to round a number.
+- **The feed carries each post's whole text** (`feed.njk` runs the rendered HTML through `absoluteLinks`, which gives root-relative `href`, `src` and `srcset` the site's address), so a reader of the feed never needs the site. A feed is a file like any other: it is uploaded by `publish.ps1` and Cloudflare caches it.
+- **The posts' pictures** are the game as it is played, taken from the repository's own captures (`Research/pi-port/`, a verdict's before/after frames), cropped and scaled to 800 or 1600 pixels; the grey ramp in "Ten bits" is drawn by a script and says so. Retake nothing for a post.
+- **To look at it**: `npx eleventy` and serve `_site` with any static server (`python -m http.server --directory _site`): the pages use absolute paths, so opening the files directly shows no styles. Phone width is a rule of the site: no horizontal scroll at 400 pixels wide.
+- The journal (`docs/agent-notes.md`) is raw material for posts, never published as it stands.
 
 ## The pictures
 
@@ -46,7 +69,7 @@ It builds the Game in Release into a folder of its own and plays each level on a
 
 The logo is `Images/logo/bs3d-logo-2048.png` scaled to 1000 and 600 px as WebP; the link-preview picture (`img/og-meander.jpg`, 1200×630) is Meander's frame cut to that shape.
 
-**Weight** (measured on the first build): 28 files, 3.7 MB. The first screen on a desktop is about 600 KB (the page, its stylesheet, the Anton font at 171 KB, the logo at 182 KB and the big picture at 226 KB); the gallery's eight 800 px pictures, 690 KB together, load as they scroll into view.
+**Weight** (measured on the first build): 28 files, 3.7 MB. The first screen on a desktop is about 600 KB (the page, its stylesheet, the Anton font at 171 KB, the logo at 182 KB and the big picture at 226 KB); the gallery's eight 800 px pictures, 690 KB together, load as they scroll into view. With the first five posts a build is 39 files and 4.1 MB: a post's page is about 8 KB, the feed about 30 KB, the posts' own pictures (`img/blog`) 0.4 MB, loaded lazily, and nothing on the landing page's first screen changed.
 
 ## Publishing a change
 

@@ -175,8 +175,11 @@ namespace BS3D.Screens
             //What the tutorial's traverse and walk lessons wait for (#189), and which device's card it draws: a
             //key here is the keyboard's hand, a stick past its deadzone the pad's
             float elapsed = (float)gameTime.ElapsedGameTime.TotalSeconds;
-            _tutorial.NoteHold(Tutorial.Lesson.Traverse, traverseLeft || traverseRight, elapsed);
-            _tutorial.NoteHold(Tutorial.Lesson.Walk, walkIn || walkOut, elapsed);
+            //A scripted turn or walk (turn=, walk=) is the keys' hold as far as the cards go (#925)
+            bool scriptedTurn = ScriptedPlay.Current is ScriptedPlay turning && turning.Turn(WallClock) != 0f;
+            bool scriptedWalk = ScriptedPlay.Current is ScriptedPlay walking && walking.Walk(WallClock) != 0f;
+            _tutorial.NoteHold(Tutorial.Lesson.Traverse, traverseLeft || traverseRight || scriptedTurn, elapsed);
+            _tutorial.NoteHold(Tutorial.Lesson.Walk, walkIn || walkOut || scriptedWalk, elapsed);
 
             //And what the COMBINATION lesson waits for (#460): the carriage moving at all, remembered for the
             //frame so it can be read together with the close-up's hold, which is taken further down this same
@@ -583,6 +586,9 @@ namespace BS3D.Screens
 
             //The tutorial's fire lesson is the shot leaving, not the shot landing (#189)
             _tutorial.Report(Tutorial.Lesson.Fire);
+
+            //And the "fire" chip leaves with it (#925)
+            _fireHint.NoteShot();
 
             //The same shot drives the ceiling's descent: every ceilingStep-th shot steps the glass down. Checked
             //after Shot() so ShotsFired includes the one just fired, and the scorer owns the cadence exactly as it

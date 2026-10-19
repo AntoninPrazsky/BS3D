@@ -3,27 +3,31 @@ using System;
 namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// <b>The brook's groove and the pond's crater</b> (#892), cut into the meadow's field: the CPU copy of the carve in
+    /// <b>The brook's swale and the pond's crater</b> (#892), cut into the meadow's field: the CPU copy of the carve in
     /// <c>Meadow.fx</c> (<c>CarvedHeight</c> there), term for term, as <see cref="MeadowPath"/> is of its lines. The owner:
     /// the brook and the pond "have no real geometric depth - the brook should be a groove cut into the ground and the pond
-    /// a kind of irregular crater - only inside them is then the water surface". Change the one and the other has to follow,
-    /// then run the Testbed's <c>mirrorcheck</c> on the meadow.
+    /// a kind of irregular crater - only inside them is then the water surface"; and of the first groove, which had earth
+    /// walls four in one, "it looks as if an excavator dug a hole there; a natural brook looks a little different". Change
+    /// the one and the other has to follow, then run the Testbed's <c>mirrorcheck</c> on the meadow.
     /// <para>
-    /// <b>A cut is the lower of the field and a channel.</b> The brook's channel is a flat bed under level water, a wall
-    /// climbing steeply past the water's edge and on above any ground near it, so <c>min</c> with the field puts the lip
-    /// wherever the wall meets the hill, higher on the uphill side as a real cut is. Its water lies <see cref="BROOK_DROP"/>
-    /// under the LOWEST of three samples across it (<see cref="BrookReference"/>), so a cross slope can never tip the water
-    /// over the lower lip. The pond's crater is a bowl round the shore <see cref="MeadowPath.PondOutline"/> draws: a shelf
-    /// and a deeper middle under the water, a short steep step of earth at the waterline, a grassy bank whose width varies
-    /// round it, and a raised lip at its top that comes and goes. The lower of two is rounded (<see cref="CarveMin"/>), so a
-    /// lip is a curve. Sines, hermite ramps, min, max and products only, so the GPU and this agree to the last few
-    /// thousandths (#598: no gradient noise in a mirrored height).
+    /// <b>The brook lies in a wide shallow swale</b>, as the references draw a meadow brook: the bed under level water
+    /// shelving up to its edge (<see cref="BrookBed"/>), a margin of gravel just over the water, wide on one side where the
+    /// other's is narrow (<see cref="BrookMargin"/>), a low step of earth at its back, and from there a grassy bank easing up
+    /// to the field (<see cref="BrookBank"/>), its top a low rounded lip that comes and goes (<see cref="BrookLevee"/>). The
+    /// bank is a hermite blend from the step's top to the field's OWN height, so it meets the field with no crease whatever
+    /// the hill beside it does, and widens where it has further to climb, so the uphill bank is not a wall. Its water lies
+    /// <see cref="BROOK_DROP"/> under the LOWEST of three samples across it (<see cref="BrookReference"/>), so a cross slope
+    /// can never tip the water over the lower bank. The pond's crater is a bowl round the shore
+    /// <see cref="MeadowPath.PondOutline"/> draws: a shelf and a deeper middle under the water, a short steep step of earth at
+    /// the waterline, a grassy bank whose width varies round it, and a raised lip at its top that comes and goes. The lower of
+    /// two is rounded (<see cref="CarveMin"/>), so a lip is a curve. Sines, hermite ramps, min, max and products only, so the
+    /// GPU and this agree to the last few thousandths (#598: no gradient noise in a mirrored height).
     /// </para>
     /// <para>
-    /// <b>Only geometry fine enough can carry it</b>, and the meadow's camera grid is 5.5 units a cell: a cut narrower than
-    /// several cells falls between its vertices (the icesheet's lesson). So the coarse grid is drawn without it and has a
-    /// hole where it is, and a patch of its own (<see cref="MeadowPatchGeometry"/>) covers the pond and the brook to
-    /// <see cref="BROOK_CARVE_END"/>, where the groove has shallowed back into the brook painted on the field.
+    /// <b>Only geometry fine enough can carry it</b>, and the meadow's camera grid is 5.5 units a cell: a bank two or three
+    /// units wide falls between its vertices (the icesheet's lesson). So the coarse grid is drawn without it and has a hole
+    /// where it is, and a patch of its own (<see cref="MeadowPatchGeometry"/>) covers the pond and the brook to
+    /// <see cref="BROOK_CARVE_END"/>, where the swale has shallowed back into the brook painted on the field.
     /// </para>
     /// </summary>
     public static class MeadowCarve
@@ -31,25 +35,34 @@ namespace Prazsky.Core.Render
         /// <summary>How far the brook's water lies under the lower of the ground at its centreline and either side of it.</summary>
         public const float BROOK_DROP = 1.25f;
 
-        /// <summary>How far the brook's flat bed lies under its water.</summary>
-        public const float BROOK_BED = 0.55f;
+        /// <summary>How far the brook's bed lies under its water in the middle, and how far in from the water's edge it shelves
+        /// up to it.</summary>
+        public const float BROOK_BED = 0.55f, BROOK_SHALLOWS = 0.8f;
 
-        /// <summary>How far over its water the channel's wall has climbed at <see cref="BROOK_WALL_TO"/>, before the tail.</summary>
-        public const float BROOK_TOP = 2.2f;
+        /// <summary>The gravel margin: how far over the water it lies, and its width past the water's edge, narrowest and
+        /// widest (<see cref="BrookMargin"/>).</summary>
+        public const float BROOK_MARGIN_RISE = 0.1f, BROOK_MARGIN_MIN = 0.1f, BROOK_MARGIN_MAX = 0.9f;
 
-        /// <summary>Where the wall's hermite starts and ends, in world units past the water's edge: the bed is flat inside
-        /// <see cref="BROOK_WALL_FROM"/>, the water's edge is where the wall crosses the water (about 0), and the lip about a
-        /// quarter of a unit past it - a wall of about four in one.</summary>
-        public const float BROOK_WALL_FROM = -0.25f, BROOK_WALL_TO = 0.6f;
+        /// <summary>The low earth step at the margin's back: its height and the run it climbs over.</summary>
+        public const float BROOK_STEP = 0.22f, BROOK_STEP_RUN = 0.3f;
 
-        /// <summary>How fast a channel goes on climbing past its hermite (per world unit), so that the min with the field
+        /// <summary>The grassy bank from the step's top to the field: its mean width on level ground (varied along the brook
+        /// and side to side, <see cref="BrookBank"/>); at least <see cref="BROOK_BANK_PER_RISE"/> times the height it climbs,
+        /// so the uphill bank of a cross slope widens instead of steepening (its steepest is about 1.5 over that, 0.75); and
+        /// never wider than <see cref="BROOK_BANK_MAX"/>.</summary>
+        public const float BROOK_BANK = 2.4f, BROOK_BANK_PER_RISE = 2f, BROOK_BANK_MAX = 4.4f;
+
+        /// <summary>The highest the lip at the bank's top stands over the bank's own blend (<see cref="BrookLevee"/>).</summary>
+        public const float BROOK_LEVEE = 0.12f;
+
+        /// <summary>How fast the pond's crater goes on climbing past its bank (per world unit), so that the min with the field
         /// always meets it however steep the hill beside it.</summary>
         public const float CARVE_TAIL = 3f;
 
         /// <summary>How far either side of the brook's centreline the two other samples of its reference height stand.</summary>
         public const float BROOK_REFERENCE = 2.4f;
 
-        /// <summary>Where the groove starts to shallow, and where it has become the painted brook again, as distances from
+        /// <summary>Where the swale starts to shallow, and where it has become the painted brook again, as distances from
         /// the arena. The reeds stand along it to 420.</summary>
         public const float BROOK_CARVE_FADE = 400f, BROOK_CARVE_END = 470f;
 
@@ -57,10 +70,10 @@ namespace Prazsky.Core.Render
         /// of the block this falls in): the patch eases onto the coarse grid's own surface over it.</summary>
         public const float BROOK_HOLE_END = BROOK_CARVE_END + 2f, BROOK_PATCH_END = BROOK_HOLE_END + 1.5f;
 
-        /// <summary>How far to the side the groove can reach (measured: 2.86 on the steepest cross slope), where the coarse
-        /// grid's hole ends, and how far the patch reaches past it - every block of it with a vertex this near is drawn
-        /// (<see cref="MeadowPatchGeometry.LOD_BLOCK"/>) - all in world units of lateral.</summary>
-        public const float BROOK_CARVE_HALF = 3.2f, BROOK_HOLE_HALF = 4.6f, BROOK_PATCH_HALF = 5.2f;
+        /// <summary>How far to the side the swale can reach (the widest water, margin and bank at their widest stretch:
+        /// 7.0), where the coarse grid's hole ends, and how far the patch reaches past it - every block of it with a vertex
+        /// this near is drawn (<see cref="MeadowPatchGeometry.LOD_BLOCK"/>) - all in world units of lateral.</summary>
+        public const float BROOK_CARVE_HALF = 7.9f, BROOK_HOLE_HALF = 9.3f, BROOK_PATCH_HALF = 9.9f;
 
         /// <summary>How far the pond's water lies under its levelled ground - the brook's own drop, so the two waters meet
         /// at the mouth at one level.</summary>
@@ -86,21 +99,69 @@ namespace Prazsky.Core.Render
         private const float NONE = 1e4f;
 
         /// <summary>Half the brook's water width at distance <paramref name="d"/> from the arena: it narrows and widens over
-        /// tens of units and its walls waver over a few (1.24 to 2.14 at the default width).</summary>
+        /// tens of units and its edges waver over a few (1.24 to 2.14 at the default width).</summary>
         public static float BrookWaterHalf(float d, MeadowSceneConfig config) =>
             config.BrookWidth * 0.5f * (1f + 0.12f * MathF.Sin(d * 0.23f + 0.4f) + 0.07f * MathF.Sin(d * 0.61f + 2f)
                 + 0.05f * MathF.Sin(d * 1.9f + 0.7f) + 0.03f * MathF.Sin(d * 3.7f + 2.9f));
 
-        /// <summary>How far past the water's edge the groove's wall counts as bank: its foot and its climb (about 1.25 up over
-        /// 0.26 to 0.6) end inside it, so nothing with a base of its own is stood on the slope.</summary>
-        public const float BROOK_BANK_MARGIN = 0.9f;
+        /// <summary>The gravel margin's width past the water's edge at distance <paramref name="d"/> on side
+        /// <paramref name="side"/> (-1 or 1 of the centreline): wide on one side where the other's is narrow, swapping over
+        /// tens of units, as a brook leaves a gravel bar on the inside of a bend and cuts its outside.</summary>
+        public static float BrookMargin(float d, float side) =>
+            BROOK_MARGIN_MIN + (BROOK_MARGIN_MAX - BROOK_MARGIN_MIN)
+                * ShaderMath.SmoothStep(-0.6f, 0.6f, side * (0.6f * MathF.Sin(d * 0.071f + 0.8f) + 0.4f * MathF.Sin(d * 0.19f + 2.1f)));
 
-        /// <summary>Whether the point is over the brook's water or its wall (the water's wavering width, not the mean one),
-        /// where a tuft or a reed would stand with half its base in the air.</summary>
-        public static bool OnBrookBank(float x, float z, MeadowSceneConfig config) =>
-            MathF.Abs(MeadowPath.BrookLateral(x, z, config)) < BrookWaterHalf(MathF.Sqrt(x * x + z * z), config) + BROOK_BANK_MARGIN;
+        /// <summary>The grassy bank's width on level ground at distance <paramref name="d"/> on side <paramref name="side"/>:
+        /// 2.0 to 3.2 at <see cref="BROOK_BANK"/>, each side on its own wobble.</summary>
+        public static float BrookBank(float d, float side) =>
+            BROOK_BANK * (1f + 0.16f * MathF.Sin(d * 0.053f + 1.7f + 1.3f * side) + 0.08f * MathF.Sin(d * 0.137f + 0.4f + 2.2f * side));
 
-        /// <summary>How much of the groove there is at distance <paramref name="d"/>: 1, shallowing to 0 past
+        /// <summary>How high the lip at the bank's top stands at distance <paramref name="d"/> on side <paramref name="side"/>:
+        /// up to <see cref="BROOK_LEVEE"/>, and nothing over long stretches.</summary>
+        public static float BrookLevee(float d, float side) =>
+            BROOK_LEVEE * ShaderMath.SmoothStep(-0.2f, 0.8f, 0.6f * MathF.Sin(d * 0.087f + 0.3f + 1.9f * side) + 0.4f * MathF.Sin(d * 0.23f + 1.2f + 0.7f * side));
+
+        /// <summary>The brook's bed and margin <paramref name="s"/> units past the water's edge (negative over the water), over
+        /// the water's own level, with a margin <paramref name="margin"/> wide: the bed shelving up to the edge, the margin
+        /// just over the water, and the earth step at its back.</summary>
+        public static float BrookBed(float s, float margin) =>
+            -BROOK_BED * (1f - ShaderMath.SmoothStep(-BROOK_SHALLOWS, 0f, s))
+                + BROOK_MARGIN_RISE * ShaderMath.SmoothStep(-0.05f, 0.15f, s)
+                + BROOK_STEP * ShaderMath.SmoothStep(margin, margin + BROOK_STEP_RUN, s);
+
+        /// <summary>
+        /// The brook's swale at a point of the field <paramref name="field"/> high, <paramref name="lateral"/> off the
+        /// centreline (signed), <paramref name="d"/> from the arena, its water at <paramref name="water"/>: the bed and margin
+        /// (<see cref="BrookBed"/>) blended into the field across the bank, plus the lip at its top.
+        /// </summary>
+        public static float BrookSwale(float field, float lateral, float d, float water, MeadowSceneConfig config)
+        {
+            float side = lateral < 0f ? -1f : 1f;
+            float s = MathF.Abs(lateral) - BrookWaterHalf(d, config);
+            float margin = BrookMargin(d, side);
+            float bed = water + BrookBed(s, margin);
+            float foot = margin + BROOK_STEP_RUN;
+            float bank = MathF.Min(MathF.Max(BrookBank(d, side), (field - water - BROOK_MARGIN_RISE - BROOK_STEP) * BROOK_BANK_PER_RISE), BROOK_BANK_MAX);
+            float up = ShaderMath.SmoothStep(foot, foot + bank, s);
+            float lip = ShaderMath.SmoothStep(0.35f, 0.8f, up) * (1f - ShaderMath.SmoothStep(0.85f, 1f, up));
+            return CarveMin(field, bed) + (field - CarveMin(field, bed)) * up + BrookLevee(d, side) * lip;
+        }
+
+        /// <summary>How far past the water's edge the bank counts as the brook's own at distance <paramref name="d"/> on side
+        /// <paramref name="side"/>: the margin and the earth step, where a stone or a reed belongs and a grass tuft does not.</summary>
+        public static float BrookShore(float d, float side) => BrookMargin(d, side) + BROOK_STEP_RUN;
+
+        /// <summary>Whether the point is over the brook's water, its margin or its earth step (the water's wavering width,
+        /// not the mean one), where a tuft would stand with its base in the water or on the gravel.</summary>
+        public static bool OnBrookBank(float x, float z, MeadowSceneConfig config)
+        {
+            float lateral = MeadowPath.BrookLateral(x, z, config);
+            if (MathF.Abs(lateral) >= BROOK_CARVE_HALF) return false;
+            float d = MathF.Sqrt(x * x + z * z);
+            return MathF.Abs(lateral) < BrookWaterHalf(d, config) + BrookShore(d, lateral < 0f ? -1f : 1f) + 0.2f;
+        }
+
+        /// <summary>How much of the swale there is at distance <paramref name="d"/>: 1, shallowing to 0 past
         /// <see cref="BROOK_CARVE_FADE"/>.</summary>
         public static float BrookPresence(float d) => 1f - ShaderMath.SmoothStep(BROOK_CARVE_FADE, BROOK_CARVE_END, d);
 
@@ -119,12 +180,6 @@ namespace Prazsky.Core.Render
         /// lens over the water is lifted from.</summary>
         public static float BrookWaterLevel(float d, MeadowSceneConfig config) =>
             BrookReference(d, config) - BROOK_DROP * BrookPresence(d);
-
-        /// <summary>The channel's surface <paramref name="s"/> units past the water's edge (negative over the water), the
-        /// water at <paramref name="water"/>.</summary>
-        public static float BrookChannel(float s, float water) =>
-            water - BROOK_BED + (BROOK_BED + BROOK_TOP) * ShaderMath.SmoothStep(BROOK_WALL_FROM, BROOK_WALL_TO, s)
-                + CARVE_TAIL * MathF.Max(s - BROOK_WALL_TO, 0f);
 
         /// <summary>The level the pond's ground is eased to (<c>PondLevel</c> in the shader).</summary>
         public static float PondLevel(MeadowSceneConfig config)
@@ -170,7 +225,7 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// The meadow's ground with the brook's groove and the pond's crater cut into it: <see cref="TerrainMirror.Meadow"/>,
+        /// The meadow's ground with the brook's swale and the pond's crater cut into it: <see cref="TerrainMirror.Meadow"/>,
         /// what everything planted stands on. <c>Meadow.fx</c>'s <c>CarvedHeight</c>.
         /// </summary>
         public static float Height(float x, float z, MeadowSceneConfig config) => Height(x, z, config, out _);
@@ -178,7 +233,7 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// <see cref="Height(float, float, MeadowSceneConfig)"/>, and the level of the water standing over the point
         /// (<see cref="float.MinValue"/> where there is none): the pond's where the crater is the cut, the brook's where its
-        /// channel is. <c>Meadow.fx</c>'s <c>CarvedHeight</c> hands the same down to the pixel shader.
+        /// swale is. <c>Meadow.fx</c>'s <c>CarvedHeight</c> hands the same down to the pixel shader.
         /// </summary>
         public static float Height(float x, float z, MeadowSceneConfig config, out float water)
         {
@@ -200,14 +255,14 @@ namespace Prazsky.Core.Render
                 water = PondLevel(config) - POND_DROP;
             }
 
-            //The brook: the field cut down to its channel, less as it shallows towards its painted end
-            float lateral = MathF.Abs(MeadowPath.BrookLateral(x, z, config));
-            if (lateral < BROOK_CARVE_HALF)
+            //The brook: the field eased down into its swale, less as it shallows towards its painted end
+            float lateral = MeadowPath.BrookLateral(x, z, config);
+            if (MathF.Abs(lateral) < BROOK_CARVE_HALF)
             {
                 float d = MathF.Sqrt(x * x + z * z);
                 float presence = BrookPresence(d);
                 float reference = BrookReference(d, config);
-                float cut = presence * (height - CarveMin(height, BrookChannel(lateral - BrookWaterHalf(d, config), reference - BROOK_DROP)));
+                float cut = presence * (height - BrookSwale(height, lateral, d, reference - BROOK_DROP, config));
                 height -= cut;
                 if (cut > 0f && height < crater) water = reference - BROOK_DROP * presence;
             }

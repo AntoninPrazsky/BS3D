@@ -145,6 +145,10 @@ namespace BS3D.Audio
         private const float STREAK_BREAK_VOLUME = 0.4f;
         private const float STREAK_BREAK_LOW_LEVEL = 0.6f;
 
+        //A new best's glitter and chord (#926): above the star chimes it sounds over (STAR_VOLUME 0.55), because it is the moment the page
+        //is celebrating and not one more step of the count, and under the victory fanfare it plays beside
+        private const float NEW_BEST_VOLUME = 0.6f;
+
         private readonly SoundEffect _shoot;
 
         //The generated sound effects (#482): Sfx/<name>.ogg beside the executable, written by Tools/MusicBake --sfx from
@@ -181,6 +185,9 @@ namespace BS3D.Audio
 
         /// <summary>A streak breaking (#845), one per multiplier that can be lost, indexed by it (0 and 1 left empty); see <see cref="StreakBreakSynth"/>.</summary>
         private readonly SoundEffect[] _streakBreak;
+
+        /// <summary>A new best striking onto the result page (#926); see <see cref="NewBestSynth"/>.</summary>
+        private readonly SoundEffect _newBest;
 
         //[style][type]: what a ball of that material in that colour sounds like landing (#314). A row is baked
         //on demand by PrepareLanded and then kept for the life of the process — see that method for why this is
@@ -458,6 +465,9 @@ namespace BS3D.Audio
             _streakBreak = new SoundEffect[ScoreKeeper.MaxMultiplier + 1];
             for (int lost = 2; lost <= ScoreKeeper.MaxMultiplier; lost++)
                 _streakBreak[lost] = ToSoundEffect(StreakBreakSynth.Render(SAMPLE_RATE, lost));
+
+            //The result page's NEW BEST (#926): one short buffer, baked here with the rest so the word's landing never waits on its synthesis
+            _newBest = ToSoundEffect(NewBestSynth.Render(SAMPLE_RATE));
             _starEarned = BakeStarEarned();
             _thunder = BakeThunder();
             _eruption = BakeEruption();
@@ -932,6 +942,13 @@ namespace BS3D.Audio
 
             _streakBreak[index]?.Play(STREAK_BREAK_VOLUME * level * Level * NON_SPATIAL_TRIM, NextPitch(0.02f), 0f);
         }
+
+        /// <summary>
+        /// The result page's NEW BEST striking (#926): a rising glitter of bells landing on a chord (<see cref="NewBestSynth"/>), on the frame the
+        /// word lands. Dry and unplaced like the star chimes it follows, and in their key, with a small pitch nudge.
+        /// </summary>
+        public void PlayNewBest() =>
+            _newBest.Play(MathHelper.Clamp(NEW_BEST_VOLUME * Level * NON_SPATIAL_TRIM, 0f, 1f), NextPitch(0.01f), 0f);
 
         /// <summary>
         /// One star of the result screen's rating landing (#139), <paramref name="index"/> counted from 0 of
@@ -3283,6 +3300,7 @@ namespace BS3D.Audio
             _swap?.Dispose();
             if (_streakBreak != null) foreach (SoundEffect breaking in _streakBreak) breaking?.Dispose();
             _starEarned?.Dispose();
+            _newBest?.Dispose();
             _thunder?.Dispose();
             _eruption?.Dispose();
         }
