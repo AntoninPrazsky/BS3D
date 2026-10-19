@@ -222,7 +222,8 @@ namespace BS3D.Screens
         //a board laid across the tiles is worse than the Leaderboard button alone. Not fitted: a board is font-bound,
         //and the fonts are the menu's (BoardView's "Nobody is on this board yet" in the body face wants ~700 units).
         //And CENTRED in the strip right of the band (#701's rule, the result page's): the same free width towards the
-        //band and towards the edge, where a margin capped at 150 units had leaned it right on a wide screen.
+        //band and towards the edge, where a margin capped at 150 units had leaned it right on a wide screen. BOARD_WIDTH is
+        //what it is up to 16:9; on a wider display it grows with the room (#934, BoardLayout.Ceiling), as the result page's does.
         private const int BOARD_WIDTH = 780;
         private const int BOARD_MIN_WIDTH = 520;
         private const int BOARD_MIN_EDGE_MARGIN = 24;
@@ -400,7 +401,11 @@ namespace BS3D.Screens
             int most = screen - bandWidth - edgeFloor - padding - 2 * sideFloor;
             if (most < Scaled(BOARD_MIN_WIDTH)) return null;
 
-            int width = Math.Min(Scaled(BOARD_WIDTH), most);
+            //BOARD_WIDTH up to 16:9, and past it what the wider display adds (#934, "Boards" in BoardLayout)
+            var presentation = Game.GraphicsDevice.PresentationParameters;
+            int ceiling = BoardLayout.Ceiling(screen, presentation.BackBufferHeight, Scaled(BOARD_WIDTH),
+                BoardView.FullWidth(FontSmall, Game.MenuFontPromptSmall, Scaled));
+            int width = Math.Min(ceiling, most);
             int outer = width + padding;
 
             //Centred in the strip a centred band leaves (#701); where that strip is short, the band moves left and the

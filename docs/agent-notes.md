@@ -20,6 +20,21 @@ Pravidla:
 
 ---
 
+## 2026-10-20 — #890 louka: volně stojící keře z kmínků a listů na High/Ultra — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: na High/Ultra je 55 volných keřů `MeadowShrubMesh` – 5–7 kmínků z jednoho místa v trávě, 13–17 trsů listových karet (spreje starých stromů), tmavý spodek, trsy trávy u paty, uvnitř bochníku, podle kterého se sázelo. Živé ploty a Low/Medium/Potato kreslí bochník beze změny (pixelově, census Potato shodný). Hra: +0,10/+0,12 ms ve hře, oblet balíků +0,27/+0,29.
+- ⚠ Testbed `alt=finemeshes` tu měří artefakt (znaménko se mezi běhy otáčí); měř oddělené běhy obou buildů. Cenu nedělají trojúhelníky.
+- Otevřené: `verdict-eye`, `verdicts\890\`.
+
+## 2026-10-20 — #934 dlouhá přezdívka na tabuli — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: jméno na tabuli se ořízne „…“ na šířku svého sloupce (`BoardLayout`, sloupce mají pixelové šířky), řádek bez značky půjčuje sloupec značky. Na displeji širším než 16:9 deska roste o polovinu přebytku (3840x1600: 780 → 1453 jednotek). Reprodukováno proti loopback stand-inu, nikdy proti živé službě.
+- ⚠ Na 16:9 a užším nechá „not finished“ jménu jen 3 až 4 znaky; značka jako tónování nebo druhý řádek je rozhodnutí o vzhledu.
+- Otevřené: verdikt oka, `verdicts\934\`.
+
+## 2026-10-20 — #943 štěrbina v kulatých balících a díry v rekvizitách louky — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: víka balíku stála na 0,98 poloměru prstence, kolem každého konce zela štěrbina. Konec je teď z vlastních vrcholů prstence, mírně promáčknutý a s vlastním polárním UV pro #971 (`BaleGeometry`). Kontrola uzavřenosti hran (`MeshOpenness`) našla i otevřené konce kolejnic plotu (zavřeny) a špičky větviček (zašpičatěny); lavice, keře, koruny a kmeny čisté.
+- ⚠ Víko přes `AddCap` zvlášť nechá štěrbinu: `AddSweep(capStart/capEnd)` nebo kopie prstence. Doc: `scenes/meadow.md`.
+- Otevřené: verdikt oka, `verdicts\943\`.
+
 ## 2026-10-19 — #887 ohně savany: víc než špičky — desktop (RDT-PC), Claude Code (bs3d-bf)
 - Hotovo: ohně stojí na návrších (zem pod nimi zvednutá na y -11,0, 2,5 pod deskou ostrova, `SeatBelowPlate`). Hrana ostrova skrývá z plamene nejvýš 15 % místo 33 až 49 % (viditelná výška nejméně 0,52 → 0,85, pixely plamene nad hranou 0,35 až 0,49 → 0,74 až 0,79). Posun kruhu ven nedává nic: zorný paprsek přes hranu klesá o 0,02 na jednotku (test `MovingTheRingOutBuysAlmostNothing`).
 - ⚠ Světlo ostrova drží absolutní výšku: `LightHeightScale` 0,65 → 0,45, jinak by deska dostala o 55 % víc než v #885.
@@ -1154,6 +1169,13 @@ Pravidla:
 - Hotovo: `mural-sunset` (c4 přeřezaný ze 40–120 s surového renderu: první střih měl krok −9,3 dB přes zlom při 1 s; trim −2,5 dB) a `summit-glacier` (c15 z 18 kandidátů, jediný uvnitř `ember` s tichými bicími). Nové `drum-share.py`: starý Glacier měl bicí na úrovni mixu (−2,3 dB v 300 Hz–4 kHz, rodina −6 až −21), Sunset ne (−8,9, rodina −8 až −18). `key-share.py`: tóny na stupnici, Sunset 90,7 → 97,4 %.
 - ⚠ Bez zvukového zařízení nikdo neposlouchal; ve hře `[music] … (drums layered)`.
 - Otevřené: `verdict-eye` obou, `verdicts\905\`.
+
+## 2026-10-19 — poznámky majitele z hraní (scény, web, UI) → issues — desktop (RDT-PC), Claude Code (bs3d-34)
+- Jen založeno, nic nestavěno: BS3D #946–#976, ClaudeUsage #5–#7 (jiný projekt), 19 komentářů (#922 #690 #775 #777 #746 #779 #938 #752 #748 a odkazy na #756 #757 #778 #892 #943 #677 #718 #749 #776 #751). `priority-now`: #958 Cavern, #963 Aurora, #960 špičky smrků, #970 potůček a rybník, #777, #938.
+- Pokyn majitele: viditelná chyba ve scéně je bug první kategorie a spoje musí plynule navazovat, i za cenu pomalejšího vývoje.
+- Zjištěno: loga v `Game/Logos` mají 1bitovou alfu a nejsou v gitu (#951); kapitola Big Top (91–100) už je prověšená (#690); Testbed aberaci i zrno má (#922); Měsíc kreslí na High/Ultra stejný dvacetistěn jako na Low (#777).
+- ⚠ Resume workflow po limitu nevzal kontrolory z cache (prompt nesl `JSON.stringify` výsledku, změnilo se pořadí klíčů): zastavit hned, chybějící krok dodělat úzkým agentem.
+- Otevřené: dotazy majiteli (strom v Cavern, náměstí v City, které modré pruhy ve Space).
 
 ## 2026-10-20 — #960 levitující špičky smrků — desktop (RDT-PC), Claude Code (bs3d-bf)
 - Hotovo (větev `960-spruce-stem`): na High/Ultra neměla osa smrku pod vrcholovým výhonem 1,25–6 jednotek žádné dřevo (vnitřek začíná 1/8 koruny pod špičkou, na polární záři ho vlnění dokonce převrátilo), takže výhon a horní přesleny visely ve vzduchu. Nově jeden kmínek z kůry (stínovaný ×0,55) od vrcholu kmene až do výhonu; větve koření v něm. Low/Medium a Potato beze změny (sítě bajtově shodné). Fish +0,02–0,03 ms.

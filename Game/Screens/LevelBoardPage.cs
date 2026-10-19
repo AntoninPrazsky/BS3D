@@ -21,6 +21,7 @@ namespace BS3D.Screens
         /// <summary>Rows a page shows of each board: two boards of ten fit the design height with the buttons under them.</summary>
         private const int ROWS = 10;
 
+        //Each board's width up to 16:9; on a wider display they grow with the room (#934, BoardLayout.Ceiling)
         private const int BOARD_WIDTH = 820;
         private const int BOARD_GAP = 110;
         private const int PAGER_BUTTON_WIDTH = 490;
@@ -55,9 +56,15 @@ namespace BS3D.Screens
             _heading = ScreenHeading(string.Empty);
             column.Widgets.Add(_heading);
 
+            //Each board is BOARD_WIDTH up to 16:9, and past it takes half of what the wider display adds (#934: BoardLayout.Ceiling,
+            //which is half of the excess per board, so the two boards together take all of it and the plate's margins hold)
+            var screen = Game.GraphicsDevice.PresentationParameters;
+            int boardWidth = BoardLayout.Ceiling(screen.BackBufferWidth, screen.BackBufferHeight, Scaled(BOARD_WIDTH),
+                BoardView.FullWidth(FontSmall, Game.MenuFontPromptSmall, Scaled));
+
             HorizontalStackPanel boards = new() { Spacing = Scaled(BOARD_GAP), HorizontalAlignment = HorizontalAlignment.Center };
-            _month = new BoardView(FontBody, FontSmall, Game.MenuFontPromptSmall, Scaled, ROWS, Scaled(BOARD_WIDTH));
-            _allTime = new BoardView(FontBody, FontSmall, Game.MenuFontPromptSmall, Scaled, ROWS, Scaled(BOARD_WIDTH));
+            _month = new BoardView(FontBody, FontSmall, Game.MenuFontPromptSmall, Scaled, ROWS, boardWidth);
+            _allTime = new BoardView(FontBody, FontSmall, Game.MenuFontPromptSmall, Scaled, ROWS, boardWidth);
             boards.Widgets.Add(_month.Root);
             boards.Widgets.Add(_allTime.Root);
             column.Widgets.Add(boards);

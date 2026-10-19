@@ -40,11 +40,16 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Drawn only when <see cref="SceneRenderer.FineMeshes"/> is this (#758): <c>true</c> for High and Ultra's finer mesh
-        /// of a thing (an acacia's <see cref="AcaciaMesh.FineWood"/>, a bush's <see cref="ThornBushMesh"/>, #883), <c>false</c>
+        /// of a thing (an acacia's <see cref="AcaciaMesh.FineWood"/>, a bush's <see cref="ThornBushMesh"/>, #883, a meadow shrub's
+        /// <see cref="MeadowShrubMesh"/>, #890), <c>false</c>
         /// for the coarser one Low and Medium draw instead off the same instances (the bush's lobed dome), <c>null</c> for every
         /// tier. On screen and into the sun's map alike, or a tree would cast two shadows; the Potato path draws the coarse one.
         /// </summary>
         public bool? FineMeshes { get; }
+
+        /// <summary>Whether a bucket of <paramref name="fineMeshes"/> (<see cref="FineMeshes"/>) is drawn while
+        /// <see cref="SceneRenderer.FineMeshes"/> is <paramref name="fine"/>: on screen and into the sun's map alike.</summary>
+        internal static bool DrawnAt(bool? fineMeshes, bool fine) => fineMeshes is not bool meshes || meshes == fine;
 
         /// <summary>
         /// Whether it casts into the sun's map. By default everything but a <see cref="LowOnly"/> bucket does; the
@@ -54,8 +59,9 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// 1 for leaf-spray cards (#610): <c>Acacia.fx</c> cuts the leaflets out of each card, shades both sides and
-        /// lets the sun through; drawn <c>CullNone</c>. 2 for the meadow's old trees (#609's third round), whose cards
-        /// are cut into twigs of broad leaves instead (<see cref="MeadowTreeMesh"/>). 0 for every other mesh.
+        /// lets the sun through; drawn <c>CullNone</c>. 2 for the meadow's old trees (#609's third round) and its shrubs (#890),
+        /// whose cards are cut into twigs of broad leaves instead (<see cref="MeadowTreeMesh"/>, <see cref="MeadowShrubMesh"/>).
+        /// 0 for every other mesh.
         /// </summary>
         public float Leaves { get; }
 
