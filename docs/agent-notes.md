@@ -1159,3 +1159,10 @@ Pravidla:
 - Hotovo: `mural-sunset` (c4 přeřezaný ze 40–120 s surového renderu: první střih měl krok −9,3 dB přes zlom při 1 s; trim −2,5 dB) a `summit-glacier` (c15 z 18 kandidátů, jediný uvnitř `ember` s tichými bicími). Nové `drum-share.py`: starý Glacier měl bicí na úrovni mixu (−2,3 dB v 300 Hz–4 kHz, rodina −6 až −21), Sunset ne (−8,9, rodina −8 až −18). `key-share.py`: tóny na stupnici, Sunset 90,7 → 97,4 %.
 - ⚠ Bez zvukového zařízení nikdo neposlouchal; ve hře `[music] … (drums layered)`.
 - Otevřené: `verdict-eye` obou, `verdicts\905\`.
+
+## 2026-10-19 — poznámky majitele z hraní (scény, web, UI) → issues — desktop (RDT-PC), Claude Code (bs3d-34)
+- Jen založeno, nic nestavěno: BS3D #946–#976, ClaudeUsage #5–#7 (jiný projekt), 19 komentářů (#922 #690 #775 #777 #746 #779 #938 #752 #748 a odkazy na #756 #757 #778 #892 #943 #677 #718 #749 #776 #751). `priority-now`: #958 Cavern, #963 Aurora, #960 špičky smrků, #970 potůček a rybník, #777, #938.
+- Pokyn majitele: viditelná chyba ve scéně je bug první kategorie a spoje musí plynule navazovat, i za cenu pomalejšího vývoje.
+- Zjištěno: loga v `Game/Logos` mají 1bitovou alfu a nejsou v gitu (#951); kapitola Big Top (91–100) už je prověšená (#690); Testbed aberaci i zrno má (#922); Měsíc kreslí na High/Ultra stejný dvacetistěn jako na Low (#777).
+- ⚠ Resume workflow po limitu nevzal kontrolory z cache (prompt nesl `JSON.stringify` výsledku, změnilo se pořadí klíčů): zastavit hned, chybějící krok dodělat úzkým agentem.
+- Otevřené: dotazy majiteli (strom v Cavern, náměstí v City, které modré pruhy ve Space).
