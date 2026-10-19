@@ -1096,3 +1096,8 @@ Pravidla:
 ## 2026-10-19 — #904 Ska: kandidát c3 jako bloom-ska — desktop (RDT-PC), Claude Code (bs3d-bf)
 - Hotovo: majitel 18. 10. řekl, že c3 je lepší než původní Ska; nasazen jako `bloom-ska.ogg` (45 s, bez trimu, post-codec špička -0,25 dBFS), bicí vrstva oddělena znovu, sidecar nese brief, seed, měření a výrok majitele, který pro tuto jednu nahrávku přebíjí hranici krátkých děr (29,3 za minutu proti 27,0; stará 99,2, 21 oříznutých běhů → 0). `MusicBake --shipped`, LevelGen a 1764 testů v pořádku; `[music] bloom: bloom-ska.ogg (drums layered)` ve hře.
 - Nic neposlouchal agent; poslech je majitelův.
+
+## 2026-10-19 — #925 „Fire!“ pro hráče, který přestal střílet — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: v prvních pěti levelech první kapitoly se po 10 s bez výstřelu (dvojnásobek 5 s na výstřel z majitelových `Stats.json`), když nemluví karta, alarm ani kamera, objeví tučný jantarový čip „Fire!“ s tlačítkem pro aktuální ruku (LMB, RT) pod zaměřovačem; tepe jednou za vteřinu, výstřel ho smaže, zpět až po 30 s. Pravidla v `FireHint` (čistá logika, testy viděny selhat), popis v `docs/game-feedback/fire-hint.md`.
+- ⚠ `turn=`/`walk=` teď hlásí držení kartám traverse/walk; bez toho skript kartu orbitu nikdy nedokončil.
+- Otevřené: verdikt newcomer (pauzu u nováčka nikdo neměřil), snímky ve `verdicts\925\`.

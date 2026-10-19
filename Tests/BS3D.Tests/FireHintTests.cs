@@ -24,7 +24,7 @@ namespace BS3D.Tests
             return hint;
         }
 
-        /// <summary>Runs <paramref name="seconds"/> of frames under <paramref name="distractions"/>; stops early when the chip is wanted if asked.</summary>
+        /// <summary>Runs <paramref name="seconds"/> of frames under <paramref name="distractions"/> (none by default).</summary>
         private static void Run(FireHint hint, float seconds, in FireHint.Distractions distractions = default)
         {
             int frames = (int)MathF.Round(seconds / FRAME);
@@ -62,10 +62,14 @@ namespace BS3D.Tests
         {
             FireHint hint = Level(eligible: false);
 
-            Run(hint, 3f * FireHint.LATER_PAUSE_SECONDS);
-
-            Assert.False(hint.Showing);
-            Assert.Equal(0f, hint.Presence);
+            //Frame by frame over long enough to have shown it twice on a level that carries it: a check at the end could land
+            //in a gap between two showings
+            for (int frame = 0; frame < 3 * (int)(FireHint.LATER_PAUSE_SECONDS / FRAME); frame++)
+            {
+                hint.Update(FRAME, default);
+                Assert.False(hint.Showing, $"shown on a level that does not carry it, at frame {frame}");
+                Assert.Equal(0f, hint.Presence);
+            }
         }
 
         [Fact]
