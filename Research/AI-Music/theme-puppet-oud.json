@@ -1,244 +1,220 @@
 {
-    "file": "theme-puppet-oud.wav",
-    "created": "2026-10-15",
-    "issue": 732,
-    "family": "puppet",
-    "chapter": "The Silhouettes (aurora, levels 41-50) - regenerated on the owner's ruling of 2026-10-11 (#732): mysterious and magical, with a melody; from the desert's ember model only the followable tune and the mid range, not its guitar rock",
-    "purpose": "Master of Game/Music/puppet-oud.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-732-chosen on the desktop, with its .raw.wav; every candidate in masters-732); this sidecar is committed beside the .ogg.",
-    "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-puppet.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
-    "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
-    "license": "ACE-Step 1.5: MIT (code and weights)",
-    "request": {
-        "caption": "Mysterious Arabian-nights instrumental: a haunting oud melody you can hum in an exotic minor scale, a breathy ney flute answering it, plucked qanun runs, a deep steady groove of darbuka, frame drum, kick and toms playing throughout, a warm bass, cello drones under the theme, the full ensemble playing from the first bar with the melody passing between oud, ney and qanun, magical and secretive like an old shadow-puppet tale, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
-        "lm_negative_prompt": "vocals, singing, choir, humming, chanting, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, ragtime, polka, belly dance pop, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, finger cymbals, zills, riq jingles, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro",
-        "instrumental": true,
-        "use_cot_caption": false,
-        "duration": 120,
-        "bpm": 108,
-        "keyscale": "D minor",
-        "seed": 1707249300,
-        "inference_steps": 8,
-        "output_format": "wav32"
-    },
-    "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
-    "loop_log": [
-        "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-oud-c5.wav: 62.8s loop = source 21.00s..83.80s (28.01 bars at 107.1 bpm), crossfade 1.12s | context match 0.891 (best 0.939) | crossfade rhythm r=0.99 vs the track a bar later r=0.86: in time | spectrum cos=0.96"
+  "file": "theme-puppet-oud.wav",
+  "created": "2026-10-19",
+  "issue": 907,
+  "family": "puppet",
+  "chapter": "The Silhouettes (aurora, levels 41-50) - regenerated on the desert's ember model (#907): an oud and a cello playing one flowing, ornamented melody together in the middle register, a ney flute answering, strings sustaining, with only a soft frame drum and a fingertip darbuka for the pulse - no kick, no toms (the owner's Jukebox note, 2026-10-16: Nordic, Oud and Theatre rather too pounding, primitive and a bit unpleasant)",
+  "purpose": "Master of Game/Music/puppet-oud.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-907-chosen on the desktop, with its .raw.wav; this is candidate c7r, theme-puppet-oud-c7r in masters-907, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-907.ps1 (adapted from the #905 batch) -> generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Dreamy Middle Eastern chamber instrumental: an oud and a cello playing one flowing, ornamented, singable melody of many notes together in the middle register, a breathy ney flute answering it, a warm string ensemble sustaining long glowing chords that never stop, a plucked qanun, a round acoustic bass, the percussion only a soft frame drum and a very quiet fingertip darbuka keeping a gentle steady pulse, the melody growing a little in each section, warm, magical and mysterious like lantern light on a desert night, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+    "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, kick drum, toms, bass drum, heavy drums, loud drums, pounding drums, driving drums, thudding, stomping, marching, war drums, drum fills, ride cymbal, hi-hats, cymbals, finger cymbals, zills, riq jingles, belly dance pop, bright darbuka slaps, pauses, stops, rests, silences",
+    "instrumental": true,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 92,
+    "keyscale": "A minor",
+    "seed": 1978253772,
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-oud-c7r.wav: 89.7s loop = source 13.98s..103.65s of the raw render (34.03 bars at 91.1 bpm), crossfade 1.32s | context match 0.770 (best 0.787) | crossfade rhythm r=0.79 vs the track a bar later r=0.53: in time | spectrum cos=0.85"
+  ],
+  "recut": "Cut again from the raw render's seconds 10-110 with loop_crossfade.py (c7's first cut: a 1 s step of +4.5 dB across the wrap (p94 of its loop's own 1 s steps) and +2.6 dB over 2 s (p96)).",
+  "lm_check": {
+    "request0_captured": true,
+    "caption_verbatim": true,
+    "seed_in_request0": 1978253772,
+    "bpm_in_request0": 92,
+    "keyscale_in_request0": "A minor",
+    "duration_in_request0": 120.0
+  },
+  "measured": "generate-music.ps1 end to end 63,5 s (ace-lm + ace-synth + loop cut), exit 0",
+  "rendered": true,
+  "bake": {
+    "trim_db": -1.0,
+    "why": "Untrimmed it decoded to 5 clipped runs (post-codec peak +0.01 dBFS); trimmed 0.5 dB 1 run, 1.0 dB none (peak -0.53 dBFS, -14.9 LUFS)."
+  },
+  "chosen": {
+    "candidate": "c7r",
+    "round": 2,
+    "of": [
+      "c1",
+      "c2",
+      "c3",
+      "c4",
+      "c5",
+      "c6",
+      "c7",
+      "c7r",
+      "c8",
+      "c9",
+      "c10"
     ],
-    "lm_check": {
-        "request0_captured": true,
-        "caption_verbatim": true,
-        "seed_in_request0": 1707249300,
-        "bpm_in_request0": 108,
-        "keyscale_in_request0": "D minor",
-        "duration_in_request0": 120.0
+    "why": "Chosen by measurement on the baked recording beside the ember family in one run: every column inside ember's range (200 Hz-2 kHz 18.7 % and 300 Hz-4 kHz 17.4 %, band shares are held to a lowest only; 0.0 % above 6 kHz; tonal mid 86 %, flatness 0.02, 2.77 held-note changes a second, tempo wander 0.10 %, 0 clipped runs after the -1.0 dB trim, wobble 1.9 / detune 2.0 cents, 15.4 short gaps a minute (the old Oud 37.3), the opening pattern repeats for 2.6 s, 0.0 % of held notes outside A minor); an 89.7 s loop (34 bars at 91.1 bpm) with cut context 0.770, rhythm r 0.79 against 0.53 a bar later, spectrum cosine 0.85, wrap -2.5 / -0.7 / -0.2 dB over 250 ms / 1 s / 2 s (p25 / p19 / p15), 96.9 % of its pitched energy on A minor (the old Oud 81.3 % on D minor), and the drums stem 18.4 dB under the mix in 300 Hz-4 kHz (-17.8 dB in its loudest 250 ms, 8 % of windows within 6 dB) where the replaced recording's stood 9.2 dB under (-7.1 dB loud, 28 % of windows). The first cut of the same render (c7) stepped +4.5 dB over 1 s across the wrap (p94 of its own 1 s steps) and +2.6 dB over 2 s (p96), so it was cut again from seconds 10-110. Held-note changes (2.77, ember at least 2.74) are the thinnest margin. The best of ten renders of two briefs over two rounds: the first round left every candidate outside ember on at least one column (short gaps 27.1-58.0 a minute, 2.46-2.64 held-note changes, holes of 30 %); round 2 asked the strings to sustain without a pause.",
+    "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wobble, detune, short gaps, opening repeat, notes out of key, wrap step) beside the loop cut's own check, the hole and dropout shares, the wrap step over 250 ms, 1 s and 2 s, the pitched energy on the key's scale (Tools/Generation/key-share.py) and the drums stem against the mix in 300 Hz-4 kHz (Tools/Generation/drum-share.py on the stem separate_drums.py makes of the loop); a seam below its own rhythm, a hole over 15 %, a dropout over 20 dB, a wrap step of 10 dB or more or at p97, a seam spectrum cosine under 0.3, a loop under 30 s or short gaps over ember's 27.0 a minute ruled a candidate out; the chosen one measured again on the baked .ogg beside ember and the old recording, with the bake's trim"
+  },
+  "alternatives": [
+    {
+      "candidate": "c1",
+      "round": "1",
+      "seed": 92254092,
+      "bpm": 100,
+      "caption": "brief_1 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-oud-c1.wav: 67.2s loop = source 26.85s..94.05s (28.00 bars at 100.0 bpm), crossfade 1.20s | context match 0.947 (best 0.995) | crossfade rhythm r=0.98 vs the track a bar later r=0.33: in time | spectrum cos=1.00"
+      ],
+      "refused_or_not_chosen": "Ruled out: short gaps 58.0/min; also outside ember on held_changes 2.6, gaps_per_min 58.0, out_of_key 22.4; 67.2 s loop."
     },
-    "measured": "generate-music.ps1 end to end 60,8 s (ace-lm + ace-synth + loop cut), exit 0",
-    "measured_against_ember": {
-        "loop_s": 62.8,
-        "bpm": 107.1,
-        "context": 0.891,
-        "r_cross": 0.99,
-        "r_bar": 0.86,
-        "in_time": true,
-        "cos": 0.96,
-        "dip": 4.2,
-        "quiet": 0,
-        "lr_corr": 0.957,
-        "knee_pct": 0.069,
-        "b200_2k": 14.6,
-        "b300_4k": 13.6,
-        "above6k": 0.5,
-        "tonal_mid": 70,
-        "mid_flatness": 0.06,
-        "held_changes": 3.03,
-        "tempo_wander": 0.01,
-        "wrap_db": -7.9,
-        "wrap_pct": 73
+    {
+      "candidate": "c2",
+      "round": "1",
+      "seed": 1358549951,
+      "bpm": 100,
+      "caption": "brief_1 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-oud-c2.wav: 57.6s loop = source 26.80s..84.40s (24.00 bars at 100.0 bpm), crossfade 1.20s | context match 0.947 (best 0.997) | crossfade rhythm r=1.00 vs the track a bar later r=0.64: in time | spectrum cos=1.00"
+      ],
+      "refused_or_not_chosen": "Runner-up (preview .ogg): the 100 bpm oud, ney and qanun brief (D minor, 57.6 s loop), 3.35 held-note changes a second, 94.8 % of its pitched energy on D minor, the drums stem 19.6 dB under the mix in 300 Hz-4 kHz; ruled out by the short-gap gate alone: 27.1 short gaps a minute, 0.1 over ember's 27.0."
     },
-    "measured_note": "measure-music.py --reference ember on the loop (band shares %, tonal mid %, mid flatness, held-note changes/s, tempo wander %, wrap step dB and its percentile) beside sel.py: the loop cut, dip = the quietest 2 s under the loop's p95 1 s level (dB), quiet = the % of the loop more than 10 dB under it, L/R correlation, knee_pct = the % of samples MusicBake's knee bends",
-    "rendered": true,
-    "chosen": {
-        "candidate": "c5",
-        "round": 2,
-        "of": [
-            "c1",
-            "c2",
-            "c3",
-            "c4",
-            "c5",
-            "c6"
-        ],
-        "why": "inside ember's range on every column: 200 Hz-2 kHz 14.6 %, 300 Hz-4 kHz 13.6 %, 0.5 % above 6 kHz, tonal mid 70 %, 3.03 held-note changes/s; no stretch under -10 dB, the cleanest cut of six (context match 0.89, crossfade r 0.99 against 0.86 a bar later), wrap step -7.9 dB (p73: the loop's own steps are as large). Round 1 left a 25 dB dropout (c1), a -10.8 dB wrap (c2) or a 27 % hole (c3); round 2 asked the groove to play throughout. c4 changes note 2.48 times a second; c6 sits 26 % under -10 dB",
-        "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wrap step) beside the loop cut's own check, the hole share (the loop more than 10 dB under its loud level), the breakdown dip and the stereo correlation; a seam below its own rhythm, a hole over 15 % or a wrap step over 6 dB ruled a candidate out; the table is on #732"
+    {
+      "candidate": "c3",
+      "round": "1",
+      "seed": 1319821002,
+      "bpm": 100,
+      "caption": "brief_1 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-oud-c3.wav: 81.6s loop = source 20.70s..102.30s (34.00 bars at 100.0 bpm), crossfade 1.20s | context match 0.995 (best 0.996) | crossfade rhythm r=0.99 vs the track a bar later r=0.44: in time | spectrum cos=1.00"
+      ],
+      "refused_or_not_chosen": "Ruled out: hole 30 %; dropout 31.0 dB; 81.6 s loop."
     },
-    "alternatives": [
-        {
-            "candidate": "c1",
-            "seed": 244886631,
-            "caption": "Mysterious Arabian-nights instrumental: a haunting oud melody you can hum in an exotic minor scale, a breathy ney flute answering it, plucked qanun runs, a deep steady groove of darbuka, frame drum, kick and toms, a warm bass, cello drones under the theme, a hushed breakdown to the oud alone that rises back into the full ensemble, magical and secretive like an old shadow-puppet tale, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
-            "negative": "vocals, singing, choir, humming, chanting, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, ragtime, polka, belly dance pop, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, finger cymbals, zills, riq jingles, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance",
-            "loop_log": [
-                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-oud-c1.wav: 72.5s loop = source 11.43s..83.90s (31.94 bars at 105.8 bpm), crossfade 1.13s | context match 0.619 (best 0.619) | crossfade rhythm r=0.83 vs the track a bar later r=0.35: in time | spectrum cos=0.83"
-            ],
-            "measured": {
-                "loop_s": 72.5,
-                "bpm": 105.8,
-                "context": 0.619,
-                "r_cross": 0.83,
-                "r_bar": 0.35,
-                "in_time": true,
-                "cos": 0.83,
-                "dip": 24.7,
-                "quiet": 12,
-                "lr_corr": 0.945,
-                "knee_pct": 0.038,
-                "b200_2k": 14.6,
-                "b300_4k": 12.7,
-                "above6k": 0.4,
-                "tonal_mid": 57,
-                "mid_flatness": 0.06,
-                "held_changes": 4.13,
-                "tempo_wander": 0.05,
-                "wrap_db": -3.0,
-                "wrap_pct": 43
-            }
-        },
-        {
-            "candidate": "c2",
-            "seed": 2125929526,
-            "caption": "Mysterious Arabian-nights instrumental: a haunting oud melody you can hum in an exotic minor scale, a breathy ney flute answering it, plucked qanun runs, a deep steady groove of darbuka, frame drum, kick and toms, a warm bass, cello drones under the theme, a hushed breakdown to the oud alone that rises back into the full ensemble, magical and secretive like an old shadow-puppet tale, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
-            "negative": "vocals, singing, choir, humming, chanting, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, ragtime, polka, belly dance pop, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, finger cymbals, zills, riq jingles, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance",
-            "loop_log": [
-                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-oud-c2.wav: 89.7s loop = source 14.03s..103.75s (40.04 bars at 107.1 bpm), crossfade 1.12s | context match 0.539 (best 0.588) | crossfade rhythm r=0.71 vs the track a bar later r=0.69: in time | spectrum cos=0.69"
-            ],
-            "measured": {
-                "loop_s": 89.7,
-                "bpm": 107.1,
-                "context": 0.539,
-                "r_cross": 0.71,
-                "r_bar": 0.69,
-                "in_time": true,
-                "cos": 0.69,
-                "dip": 9.4,
-                "quiet": 2,
-                "lr_corr": 0.859,
-                "knee_pct": 0.004,
-                "b200_2k": 23.5,
-                "b300_4k": 20.4,
-                "above6k": 0.3,
-                "tonal_mid": 86,
-                "mid_flatness": 0.04,
-                "held_changes": 2.96,
-                "tempo_wander": 0.06,
-                "wrap_db": -10.8,
-                "wrap_pct": 76
-            }
-        },
-        {
-            "candidate": "c3",
-            "seed": 1719110513,
-            "caption": "Mysterious Arabian-nights instrumental: a haunting oud melody you can hum in an exotic minor scale, a breathy ney flute answering it, plucked qanun runs, a deep steady groove of darbuka, frame drum, kick and toms, a warm bass, cello drones under the theme, a hushed breakdown to the oud alone that rises back into the full ensemble, magical and secretive like an old shadow-puppet tale, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
-            "negative": "vocals, singing, choir, humming, chanting, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, ragtime, polka, belly dance pop, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, finger cymbals, zills, riq jingles, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance",
-            "loop_log": [
-                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-oud-c3.wav: 73.3s loop = source 24.02s..97.35s (32.94 bars at 107.8 bpm), crossfade 1.11s | context match 0.426 (best 0.467) | crossfade rhythm r=0.88 vs the track a bar later r=0.41: in time | spectrum cos=0.86"
-            ],
-            "measured": {
-                "loop_s": 73.3,
-                "bpm": 107.8,
-                "context": 0.426,
-                "r_cross": 0.88,
-                "r_bar": 0.41,
-                "in_time": true,
-                "cos": 0.86,
-                "dip": 45.4,
-                "quiet": 27,
-                "lr_corr": 0.931,
-                "knee_pct": 0.423,
-                "b200_2k": 28.7,
-                "b300_4k": 23.9,
-                "above6k": 0.1,
-                "tonal_mid": 88,
-                "mid_flatness": 0.01,
-                "held_changes": 2.56,
-                "tempo_wander": 1.2,
-                "wrap_db": 1.5,
-                "wrap_pct": 18
-            }
-        },
-        {
-            "candidate": "c4",
-            "seed": 326414828,
-            "caption": "same brief",
-            "negative": "same negative",
-            "loop_log": [
-                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-oud-c4.wav: 52.8s loop = source 29.25s..82.10s (23.97 bars at 108.8 bpm), crossfade 1.10s | context match 0.920 (best 0.969) | crossfade rhythm r=0.96 vs the track a bar later r=0.74: in time | spectrum cos=0.95"
-            ],
-            "measured": {
-                "loop_s": 52.8,
-                "bpm": 108.8,
-                "context": 0.92,
-                "r_cross": 0.96,
-                "r_bar": 0.74,
-                "in_time": true,
-                "cos": 0.95,
-                "dip": 8.3,
-                "quiet": 8,
-                "lr_corr": 0.917,
-                "knee_pct": 0.121,
-                "b200_2k": 22.9,
-                "b300_4k": 20.1,
-                "above6k": 0.4,
-                "tonal_mid": 68,
-                "mid_flatness": 0.06,
-                "held_changes": 2.48,
-                "tempo_wander": 0.07,
-                "wrap_db": -8.6,
-                "wrap_pct": 87
-            }
-        },
-        {
-            "candidate": "c6",
-            "seed": 578454769,
-            "caption": "same brief",
-            "negative": "same negative",
-            "loop_log": [
-                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-oud-c6.wav: 61.1s loop = source 4.11s..65.25s (26.96 bars at 105.8 bpm), crossfade 1.13s | context match 0.580 (best 0.629) | crossfade rhythm r=0.65 vs the track a bar later r=0.57: in time | spectrum cos=0.68"
-            ],
-            "measured": {
-                "loop_s": 61.1,
-                "bpm": 105.8,
-                "context": 0.58,
-                "r_cross": 0.65,
-                "r_bar": 0.57,
-                "in_time": true,
-                "cos": 0.68,
-                "dip": 34.0,
-                "quiet": 26,
-                "lr_corr": 0.868,
-                "knee_pct": 0.026,
-                "b200_2k": 20.9,
-                "b300_4k": 16.0,
-                "above6k": 0.1,
-                "tonal_mid": 80,
-                "mid_flatness": 0.04,
-                "held_changes": 2.11,
-                "tempo_wander": 2.21,
-                "wrap_db": -3.4,
-                "wrap_pct": 53
-            }
-        }
-    ],
-    "replaces": {
-        "stem": "puppet-rag",
-        "issue": 558,
-        "created": "2026-09-25",
-        "caption": "Bouncy silent-film ragtime instrumental: bright upright piano rag with stride left hand, clarinet and banjo accents, woodblock and slide whistle hints, cheerful and quick-witted, vintage but clean, no vocals",
-        "negative": "vocals, singing, audience applause, crowd noise, live recording, dark ambient drone, heavy distortion",
-        "bpm": 120,
-        "keyscale": "F major",
-        "loop_log": [
-            "Wrote C:\\Users\\panrd\\AI\\output\\masters-558\\theme-puppet-rag.wav: 57.0s loop = source 19.05s..76.10s (29.03 bars at 122.1 bpm), crossfade 0.98s | context match 0.774 (best 0.819) | crossfade rhythm r=0.87 vs the track a bar later r=0.70: in time | spectrum cos=0.73"
-        ],
-        "why_replaced": "replaces puppet-rag, briefed as a bouncy silent-film ragtime (stride piano, banjo, slide whistle); the owner, 2026-10-11 (#732): mysterious and magical, with a melody; tonal mid 49 % and 36 clipped runs in the old loop"
+    {
+      "candidate": "c4",
+      "round": "1",
+      "seed": 570485059,
+      "bpm": 92,
+      "caption": "brief_2 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-oud-c4.wav: 64.0s loop = source 14.35s..78.35s (23.99 bars at 89.9 bpm), crossfade 1.33s | context match 0.828 (best 0.873) | crossfade rhythm r=0.69 vs the track a bar later r=0.65: in time | spectrum cos=0.88"
+      ],
+      "refused_or_not_chosen": "Not chosen: outside ember on held_changes 2.64; 64.0 s loop; drums stem 12.3 dB under the mix in 300 Hz-4 kHz."
+    },
+    {
+      "candidate": "c5",
+      "round": "1",
+      "seed": 52381643,
+      "bpm": 92,
+      "caption": "brief_2 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-oud-c5.wav: 86.0s loop = source 18.77s..104.75s (32.98 bars at 92.1 bpm), crossfade 1.30s | context match 0.236 (best 0.286) | crossfade rhythm r=0.15 vs the track a bar later r=-0.04: in time | spectrum cos=0.15"
+      ],
+      "refused_or_not_chosen": "Ruled out: seam cos 0.15; also outside ember on tempo_wander 1.12; 86.0 s loop."
+    },
+    {
+      "candidate": "c6",
+      "round": "1",
+      "seed": 1560437914,
+      "bpm": 92,
+      "caption": "brief_2 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-oud-c6.wav: 62.6s loop = source 36.04s..98.65s (24.03 bars at 92.1 bpm), crossfade 1.30s | context match 0.789 (best 0.837) | crossfade rhythm r=0.85 vs the track a bar later r=0.22: in time | spectrum cos=0.78"
+      ],
+      "refused_or_not_chosen": "Not chosen: outside ember on held_changes 2.46; 62.6 s loop; drums stem 16.2 dB under the mix in 300 Hz-4 kHz."
+    },
+    {
+      "candidate": "c7",
+      "round": "2",
+      "seed": 1978253772,
+      "bpm": 92,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-oud-c7.wav: 89.7s loop = source 5.08s..94.75s (34.03 bars at 91.1 bpm), crossfade 1.32s | context match 0.744 (best 0.791) | crossfade rhythm r=0.77 vs the track a bar later r=0.54: in time | spectrum cos=0.79"
+      ],
+      "refused_or_not_chosen": "Inside ember on every column too: the first cut of the render c7r was cut from again. Its wrap stepped +4.5 dB over 1 s (p94 of its loop's own 1 s steps) and +2.6 dB over 2 s (p96); the recut reads -0.7 and -0.2 dB at a better cut (context 0.770 against 0.744, rhythm r 0.79 against 0.77, cosine 0.85 against 0.79)."
+    },
+    {
+      "candidate": "c8",
+      "round": "2",
+      "seed": 145735958,
+      "bpm": 92,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-oud-c8.wav: 73.8s loop = source 8.65s..82.50s (27.99 bars at 91.0 bpm), crossfade 1.32s | context match 0.949 (best 0.986) | crossfade rhythm r=0.92 vs the track a bar later r=0.77: in time | spectrum cos=0.99"
+      ],
+      "refused_or_not_chosen": "Ruled out: hole 18 %; dropout 46.8 dB; also outside ember on held_changes 2.1; 73.8 s loop."
+    },
+    {
+      "candidate": "c9",
+      "round": "2",
+      "seed": 1157814388,
+      "bpm": 100,
+      "caption": "brief_3 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-oud-c9.wav: 67.2s loop = source 20.95s..88.15s (28.03 bars at 100.1 bpm), crossfade 1.20s | context match 0.946 (best 0.996) | crossfade rhythm r=1.00 vs the track a bar later r=-0.04: in time | spectrum cos=1.00"
+      ],
+      "refused_or_not_chosen": "Ruled out: hole 24 %; also outside ember on tempo_wander 3.24; 67.2 s loop."
+    },
+    {
+      "candidate": "c10",
+      "round": "2",
+      "seed": 2000737479,
+      "bpm": 100,
+      "caption": "brief_3 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-oud-c10.wav: 58.2s loop = source 33.50s..91.70s (24.03 bars at 99.1 bpm), crossfade 1.21s | context match 0.119 (best 0.139) | crossfade rhythm r=0.14 vs the track a bar later r=0.31: BELOW the track's own timekeeping -- listen | spectrum cos=0.11"
+      ],
+      "refused_or_not_chosen": "Ruled out: seam BELOW; seam cos 0.11; short gaps 61.9/min; also outside ember on gaps_per_min 61.9; 58.2 s loop."
     }
+  ],
+  "alternative_briefs": {
+    "brief_1": {
+      "caption": "Mysterious Arabian-nights instrumental: a haunting oud melody that a listener could hum back, in an exotic harmonic minor scale, in the middle register, developing from a simple theme into a richer variation, answered by a breathy ney flute and a plucked qanun, a warm cello and strings holding the chords, a round warm bass, the pulse only a soft darbuka played with fingertips and a low frame drum on the beat, gentle and steady far under the melody, magical and secretive like an old shadow-puppet tale, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, kick drum, toms, bass drum, heavy drums, loud drums, pounding drums, driving drums, thudding, stomping, marching, war drums, drum fills, ride cymbal, hi-hats, cymbals, finger cymbals, zills, riq jingles, belly dance pop, bright darbuka slaps",
+      "bpm": 100,
+      "round": "1",
+      "candidates": [
+        "c1",
+        "c2",
+        "c3"
+      ]
+    },
+    "brief_2": {
+      "caption": "Dreamy Middle Eastern chamber instrumental: an oud and a cello playing one singable melody together in the middle register, a breathy ney flute answering it, a warm string ensemble holding long glowing chords, a plucked qanun, a round acoustic bass, the percussion only a soft frame drum and a very quiet fingertip darbuka keeping a gentle steady pulse, the melody growing a little in each section, warm, magical and mysterious like lantern light on a desert night, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, kick drum, toms, bass drum, heavy drums, loud drums, pounding drums, driving drums, thudding, stomping, marching, war drums, drum fills, ride cymbal, hi-hats, cymbals, finger cymbals, zills, riq jingles, belly dance pop, bright darbuka slaps",
+      "bpm": 92,
+      "round": "1",
+      "candidates": [
+        "c4",
+        "c5",
+        "c6"
+      ]
+    },
+    "brief_3": {
+      "caption": "Mysterious Arabian-nights instrumental: a haunting oud melody that a listener could hum back, in an exotic harmonic minor scale, flowing in the middle register, developing from a simple theme into a richer variation, answered by a breathy ney flute and a plucked qanun, a warm cello and strings sustaining the chords without a pause, a round warm bass, the whole ensemble keeping on playing with no rests and no stops, the pulse only a soft darbuka played with fingertips and a low frame drum on the beat, gentle and steady far under the melody, magical and secretive like an old shadow-puppet tale, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, kick drum, toms, bass drum, heavy drums, loud drums, pounding drums, driving drums, thudding, stomping, marching, war drums, drum fills, ride cymbal, hi-hats, cymbals, finger cymbals, zills, riq jingles, belly dance pop, bright darbuka slaps, pauses, stops, rests, silences",
+      "bpm": 100,
+      "round": "2",
+      "candidates": [
+        "c9",
+        "c10"
+      ]
+    }
+  },
+  "replaces": {
+    "issue": 732,
+    "created": "2026-10-15",
+    "caption": "Mysterious Arabian-nights instrumental: a haunting oud melody you can hum in an exotic minor scale, a breathy ney flute answering it, plucked qanun runs, a deep steady groove of darbuka, frame drum, kick and toms playing throughout, a warm bass, cello drones under the theme, the full ensemble playing from the first bar with the melody passing between oud, ney and qanun, magical and secretive like an old shadow-puppet tale, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+    "negative": "vocals, singing, choir, humming, chanting, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, ragtime, polka, belly dance pop, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, finger cymbals, zills, riq jingles, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro",
+    "seed": 1707249300,
+    "bpm": 108,
+    "keyscale": "D minor",
+    "loop_log": [
+      "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-oud-c5.wav: 62.8s loop = source 21.00s..83.80s (28.01 bars at 107.1 bpm), crossfade 1.12s | context match 0.891 (best 0.939) | crossfade rhythm r=0.99 vs the track a bar later r=0.86: in time | spectrum cos=0.96"
+    ],
+    "why_replaced": "The owner's Jukebox note of 2026-10-16 (translated from Czech): Nordic, Oud and Theatre rather too pounding, primitive, a bit unpleasant (#907). The #732 brief asked for a deep steady groove of darbuka, frame drum, kick and toms. Measured on 2026-10-17: 18 clipped runs (ember at most 3), 37.3 short gaps a minute (ember at most 27.0), 7.0 % of held notes outside D minor; its drums stem stood 9.2 dB under the mix in 300 Hz-4 kHz (-7.1 dB in its loudest 250 ms, 28 % of 250 ms windows within 6 dB)."
+  }
 }

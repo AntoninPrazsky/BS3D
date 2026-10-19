@@ -1143,3 +1143,8 @@ Pravidla:
 - Hotovo: `mural-sunset` (c4 přeřezaný ze 40–120 s surového renderu: první střih měl krok −9,3 dB přes zlom při 1 s; trim −2,5 dB) a `summit-glacier` (c15 z 18 kandidátů, jediný uvnitř `ember` s tichými bicími). Nové `drum-share.py`: starý Glacier měl bicí na úrovni mixu (−2,3 dB v 300 Hz–4 kHz, rodina −6 až −21), Sunset ne (−8,9, rodina −8 až −18). `key-share.py`: tóny na stupnici, Sunset 90,7 → 97,4 %.
 - ⚠ Bez zvukového zařízení nikdo neposlouchal; ve hře `[music] … (drums layered)`.
 - Otevřené: `verdict-eye` obou, `verdicts\905\`.
+
+## 2026-10-20 — #907 hudba Silhouettes přegenerována — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: Fantasy, Jazz, Nordic, Oud a Theatre (`puppet`) nahrazeny v místě, názvy i levely beze změny. 50 renderů ve třech kolech, výběr měřením proti `ember` na vybalených .ogg: Fantasy c1 (flétna a housle, kapela místo orchestru), Jazz c10 přeřezaný 0–100 s (klavírní trio; první střih měl 9,4 % not mimo tóninu), Nordic c3, Oud c7 přeřezaný 10–110 s, Theatre c7. Trim: Theatre −3,5 dB (292 clipped runs), Fantasy a Oud −1,0, Nordic −0,5. Bicí vrstvy má teď všech pět (Fantasy a Jazz dřív žádnou).
+- ⚠ Nikdo neposlouchal (stroj bez zvuku). Nesáhl jsem na waltz (222 clipped runs) a triphop (275).
+- Otevřené: `verdict-eye`, `verdicts\907\`.
