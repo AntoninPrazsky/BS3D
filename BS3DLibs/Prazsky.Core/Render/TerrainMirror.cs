@@ -426,9 +426,17 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The savanna terrain height at a world point, mirroring <c>Savanna.fx</c>'s <c>TerrainHeight</c>, so the
-        /// acacia trees can be planted on the ground the shader draws.
+        /// acacia trees can be planted on the ground the shader draws: the plain's relief (<see cref="SavannaPlain"/>)
+        /// plus the mound each campfire stands on (<see cref="SavannaMound"/>, #887).
         /// </summary>
-        public static float Savanna(float x, float z, SavannaSceneConfig config)
+        public static float Savanna(float x, float z, SavannaSceneConfig config) =>
+            SavannaPlain(x, z, config) + SavannaMound(x, z, config);
+
+        /// <summary>
+        /// The plain's own height, the rolling relief without the fires' mounds: what <c>Savanna.fx</c>'s <c>TerrainHeight</c>
+        /// returned before #887, and still its first term.
+        /// </summary>
+        public static float SavannaPlain(float x, float z, SavannaSceneConfig config)
         {
             float dist = MathF.Sqrt(x * x + z * z);
             //The clearing's ramp spelled out as the clamp-then-hermite it is, rather than through
@@ -444,6 +452,74 @@ namespace Prazsky.Core.Render
             float gentle = config.ClearingRelief * (MathF.Sin(x * 0.04f + z * 0.03f) + 0.6f * MathF.Sin(x * -0.055f + z * 0.048f + 2.1f));
 
             return config.LevelY + gentle + config.HillHeight * ramp * (rolling * 0.5f + 0.5f);
+        }
+
+        /// <summary>
+        /// How high fire <paramref name="fire"/>'s mound stands at its own centre (#887): the rise from the plain there to the seat,
+        /// <c>ArenaIsland.TOP_Y</c> less <see cref="CampfireConfig.SeatBelowPlate"/>, or 0 where the plain is already that high.
+        /// The one figure the mound's mirror and <c>Savanna.fx</c>'s <c>HearthLift</c> both take.
+        /// </summary>
+        public static float SavannaMoundLift(SavannaSceneConfig config, int fire)
+        {
+            Vec2 centre = SavannaBackdrop.CampfireRingXZ(config, fire);
+            float seat = ArenaIsland.TOP_Y - config.Campfire.SeatBelowPlate;
+            return MathF.Max(0f, seat - SavannaPlain(centre.X, centre.Y, config));
+        }
+
+        /// <summary>
+        /// The mounds' flat top and foot in world units as the ground is built with them (#887), or (0, 0) with the mounds off: the config's
+        /// (<see cref="CampfireConfig.MoundTop"/>, <see cref="CampfireConfig.MoundFoot"/>) with the foot held under half the ring's centre-to-centre
+        /// spacing, so that a point is inside one mound at most and the NEAREST fire's mound is its mound (the shader finds that one in a single
+        /// pass, and a mirror that took the highest of overlapping mounds would stand off it). Shipped, the foot is 10.6 against 12.8.
+        /// </summary>
+        public static (float top, float foot) SavannaMoundShape(SavannaSceneConfig config)
+        {
+            CampfireConfig fires = config.Campfire;
+            float foot = fires.MoundFoot;
+            if (foot <= 0f) return (0f, 0f);
+
+            int count = SavannaBackdrop.CampfireRingCount(config);
+            if (count > 1)
+            {
+                Vec2 anchor = fires.GroundXZ;
+                float ring = MathF.Sqrt(anchor.X * anchor.X + anchor.Y * anchor.Y);
+                foot = MathF.Min(foot, ring * MathF.Sin(MathF.PI / count) * 0.999f);
+            }
+
+            foot = MathF.Max(foot, 0.1f);
+            return (MathF.Min(fires.MoundTop, foot - 0.05f), foot);
+        }
+
+        /// <summary>
+        /// The height the campfires' mounds add to the plain at a world point (#887), mirroring <c>Savanna.fx</c>'s <c>HearthMound</c>: the
+        /// <b>nearest</b> fire's <see cref="SavannaMoundLift"/> times one minus a smoothstep from the flat top to the foot
+        /// (<see cref="SavannaMoundShape"/>), nothing past the foot and nothing outside the ring's band (the early-out the shader has), and
+        /// nothing at all with <see cref="CampfireConfig.MoundFootScale"/> 0.
+        /// </summary>
+        public static float SavannaMound(float x, float z, SavannaSceneConfig config)
+        {
+            (float top, float foot) = SavannaMoundShape(config);
+            if (foot <= 0f) return 0f;
+
+            //The band the fires' centres stand in, as the shader measures it (HearthNear/HearthFar): a point outside it by more than the foot is in no mound
+            Vec2 anchor = config.Campfire.GroundXZ;
+            float ring = MathF.Sqrt(anchor.X * anchor.X + anchor.Y * anchor.Y);
+            float r = MathF.Sqrt(x * x + z * z);
+            if (MathF.Abs(r - ring) > foot) return 0f;
+
+            //The nearest fire, the first of equals, as the shader's strict comparison finds it
+            int count = SavannaBackdrop.CampfireRingCount(config), nearest = 0;
+            float best = float.MaxValue;
+            for (int fire = 0; fire < count; fire++)
+            {
+                Vec2 centre = SavannaBackdrop.CampfireRingXZ(config, fire);
+                float dx = x - centre.X, dz = z - centre.Y;
+                float d2 = dx * dx + dz * dz;
+                if (d2 < best) { best = d2; nearest = fire; }
+            }
+
+            float d = MathF.Sqrt(best);
+            return d >= foot ? 0f : SavannaMoundLift(config, nearest) * (1f - ShaderMath.SmoothStep(top, foot, d));
         }
 
         #endregion

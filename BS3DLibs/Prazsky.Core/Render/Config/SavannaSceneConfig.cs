@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using System;
+using System.Text.Json.Serialization;
 
 namespace Prazsky.Core.Render
 {
@@ -385,15 +386,54 @@ namespace Prazsky.Core.Render
         public float HeightAboveTerrain { get; set; } = 0.2f;
 
         /// <summary>
+        /// How far under the island's top plate (<c>ArenaIsland.TOP_Y</c>) each fire's ground is raised to (#887): a fire stands on a
+        /// low <b>mound</b> whose top is at this one depth whatever the relief under it, so every flame rises from the same height.
+        /// The play camera stands about level with the plate (1.1 over it), so the far arris hides everything under a sight line
+        /// through it, and the fires stood on grass 3 to 7 units below the plate (the plain's relief, y -15.5 to -11.3): the rim hid
+        /// 8 to 49 per cent of the 13.8-tall billboard, its broad base where the flame's mass is, and left the tips (the owner's note
+        /// of 2026-10-16). The line falls only 0.02 per unit of distance, so <b>moving the ring out buys nothing</b> (ten units
+        /// out left the share of the flame in view at 0.52 at the least, and made the fire about a seventh smaller on the screen); the seat is the lever. 0 or less would seat the fires at the
+        /// plate's own height, a hill 5 to 7 units high. <see cref="MoundFootScale"/> of 0 leaves the ground as the relief made it.
+        /// </summary>
+        public float SeatBelowPlate { get; set; } = 2.5f;
+
+        /// <summary>
+        /// The mound's flat top, as a multiple of <see cref="FlameSize"/> (#887): the fire's own hearth, the ring of stones, stands on level
+        /// ground. 1.4 is <see cref="StoneRingScale"/> times the 1.12 the stones' laying jitters out to; the burnt ground and the stones'
+        /// own bodies run on onto the slope.
+        /// </summary>
+        public float MoundTopScale { get; set; } = 1.4f;
+
+        /// <summary>
+        /// Where the mound has run out into the plain's relief again, as a multiple of <see cref="FlameSize"/> (#887). Eight mounds
+        /// on the ring stand 25.5 apart centre to centre, so feet this wide never touch, and the inner foot reaches in under the island's
+        /// drum, which banks 1.9 units of grass at most against its wall. <b>0 turns the mounds off</b>: the Potato
+        /// path, which draws no fires, plants the plain without them.
+        /// </summary>
+        public float MoundFootScale { get; set; } = 4.6f;
+
+        /// <summary>The mound's flat top in world units (<see cref="MoundTopScale"/> times <see cref="FlameSize"/>).</summary>
+        [JsonIgnore]
+        public float MoundTop => FlameSize * MoundTopScale;
+
+        /// <summary>The mound's foot in world units (<see cref="MoundFootScale"/> times <see cref="FlameSize"/>, never less than a tenth of a unit
+        /// past the top), 0 with the mounds off.</summary>
+        [JsonIgnore]
+        public float MoundFoot => MoundFootScale > 0f ? Math.Max(MoundFootScale * FlameSize, MoundTop + 0.1f) : 0f;
+
+        /// <summary>
         /// Where the light the island, the gun and the balls take stands over the ground, as a multiple of the flame's
         /// own height (<see cref="FlameSize"/> times <see cref="FlameHeightScale"/>), so a light belongs to the fire it
         /// is in, as the hearth does (#885). <b>It has to stand above the island's top plate</b>
-        /// (<c>ArenaIsland.TOP_Y</c>, about 3 to 7 units over the ground the fires stand on, 2.8 to 7.0 at the defaults): a point light below an up-facing
+        /// (<c>ArenaIsland.TOP_Y</c>, <see cref="SeatBelowPlate"/> over the seat the fires stand on, 2.5 at the defaults): a point light below an up-facing
         /// surface has N.L at or under zero there, so at <see cref="HeightAboveTerrain"/> the ring lit the coping and the
         /// drum, which face outward, and never the plate round the gun. The flame and the grass's light stay on the
-        /// ground, where the fire is; see <see cref="LightHeightAboveTerrain"/>.
+        /// ground, where the fire is; see <see cref="LightHeightAboveTerrain"/>. 0.65 until #887 raised the fires onto
+        /// their mounds: 0.65 of the flame over a seat 2.5 under the plate put the light at y -2.0 where it had stood at -6.5 to -2.3
+        /// (mean -4.5), and the plate took 0.122 of the ring on average against the 0.079 that #885 was judged at. 0.45 puts it
+        /// at y -4.8 and the plate at 0.077.
         /// </summary>
-        public float LightHeightScale { get; set; } = 0.65f;
+        public float LightHeightScale { get; set; } = 0.45f;
 
         /// <summary>
         /// The height over the terrain of the light the island, the gun and the balls take (#885): the flame's height
@@ -412,8 +452,8 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The billboard's height as a multiple of <see cref="FlameSize"/>. <b>Separate from the width on
         /// purpose</b>, and the reason is the game's own camera: it sits low, about level with the island's
-        /// stone, while the fires stand on grass roughly five units below it. At the shader's old fixed 2.4
-        /// the flames were 5.5 units tall and cleared the stone by barely half a unit — from the play camera
+        /// stone, while the fires stand 2.5 units under it on their mounds (<see cref="SeatBelowPlate"/>; on the plain's own relief 3 to 7). At the shader's old
+        /// fixed 2.4 the flames were 5.5 units tall and cleared the stone by barely half a unit — from the play camera
         /// all that showed of a fire was the tip of one. Growing <see cref="FlameSize"/> instead would have
         /// raised the tips by widening the fires into bonfires.
         /// <para>

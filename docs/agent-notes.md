@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-19 — #887 ohně savany: víc než špičky — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: ohně stojí na návrších (zem pod nimi zvednutá na y -11,0, 2,5 pod deskou ostrova, `SeatBelowPlate`). Hrana ostrova skrývá z plamene nejvýš 15 % místo 33 až 49 % (viditelná výška nejméně 0,52 → 0,85, pixely plamene nad hranou 0,35 až 0,49 → 0,74 až 0,79). Posun kruhu ven nedává nic: zorný paprsek přes hranu klesá o 0,02 na jednotku (test `MovingTheRingOutBuysAlmostNothing`).
+- ⚠ Světlo ostrova drží absolutní výšku: `LightHeightScale` 0,65 → 0,45, jinak by deska dostala o 55 % víc než v #885.
+- Cena: kamera hráče +0,54 ms (10,65 → 11,19), shora +0,01; 0,4 ms z toho nevysvětleno. Potato beze změny.
+- Otevřené: verdikt oka, `verdicts\887\`.
+
 ## 2026-10-19 — #931 nestabilní OnlineStatsTests — desktop (RDT-PC), Claude Code (bs3d-bf)
 - Hotovo: chyba byla v testu, klient je v pořádku. `Stop()` jen žádá o konec, takže opakování zmrazené dávky mohlo dorazit na stand-in až po přečtení `sent` („expected 1, got 2“); a `File.ReadAllText` v `ReadOutbox` držel soubor proti `File.Replace`, zápis workeru selhal a test čekal 20 s. Opraveno `OneTry`, čekáním na worker a čtením s `FileShare.Delete`.
 - ⚠ Při dvou jádrech padalo 11 z 42 běhů, po opravě 0 z 50.

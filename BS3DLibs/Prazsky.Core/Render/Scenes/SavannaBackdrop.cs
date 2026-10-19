@@ -75,6 +75,7 @@ namespace Prazsky.Core.Render
         private Vector3 _hearthStoneColor;
         private float _hearthStoneFirelight;
         private readonly Vector3[] _hearthPositions = new Vector3[MAX_SCENE_LIGHTS];
+        private readonly float[] _hearthLifts = new float[MAX_SCENE_LIGHTS];  //how high each fire's mound stands at its centre (#887)
 
         private readonly Effect _flameEffect;
         private readonly VertexBuffer _flameVertexBuffer;
@@ -208,16 +209,25 @@ namespace Prazsky.Core.Render
         /// </summary>
         internal static Vector3 CampfireRingPoint(SavannaSceneConfig config, int index, float heightAboveTerrain)
         {
-            CampfireConfig fires = config.Campfire;
-            Vec2 anchor = fires.GroundXZ;
+            Vec2 at = CampfireRingXZ(config, index);
+
+            return new Vector3(at.X, TerrainMirror.Savanna(at.X, at.Y, config) + heightAboveTerrain, at.Y);
+        }
+
+        /// <summary>
+        /// Where fire <paramref name="index"/> of the ring stands on the ground plane (X, Z in the vector's X, Y): <see cref="CampfireConfig.GroundXZ"/>
+        /// is fire zero and the rest are evenly spaced round the circle it sits on. The ring's rule in its one copy, which the ground's mounds
+        /// (<see cref="TerrainMirror.SavannaMound"/>, #887) read as well as <see cref="CampfireRingPoint"/>, since the mound under a fire is
+        /// part of the height it stands at.
+        /// </summary>
+        internal static Vec2 CampfireRingXZ(SavannaSceneConfig config, int index)
+        {
+            Vec2 anchor = config.Campfire.GroundXZ;
 
             float radius = MathF.Sqrt(anchor.X * anchor.X + anchor.Y * anchor.Y);
             float angle = MathF.Atan2(anchor.Y, anchor.X) + index * MathHelper.TwoPi / CampfireRingCount(config);
 
-            float x = MathF.Cos(angle) * radius;
-            float z = MathF.Sin(angle) * radius;
-
-            return new Vector3(x, TerrainMirror.Savanna(x, z, config) + heightAboveTerrain, z);
+            return new Vec2(MathF.Cos(angle) * radius, MathF.Sin(angle) * radius);
         }
 
         /// <summary><see cref="SceneRenderer.SavannaCampfireRange"/>.</summary>
@@ -276,8 +286,8 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// The hearth uniforms <c>Savanna.fx</c> burns the ground with (#282), pushed at config time rather
-        /// than per frame: the fires stand on static terrain at config-derived places, so every one of these
+        /// The hearth uniforms <c>Savanna.fx</c> burns the ground with (#282) and the lifts of the mounds the fires stand on (#887),
+        /// pushed at config time rather than per frame: the fires stand on static terrain at config-derived places, so every one of these
         /// is constant until the config or the terrain changes — which is when this runs.
         /// <para>
         /// <c>HearthNear</c>/<c>HearthFar</c> are the ring's own extent, measured here <b>from the positions
@@ -291,11 +301,15 @@ namespace Prazsky.Core.Render
             CampfireConfig cf = _savannaConfig.Campfire;
             int fires = CampfireCount;
 
+            (float moundTop, float moundFoot) = TerrainMirror.SavannaMoundShape(_savannaConfig);
+            bool mounds = moundFoot > 0f;
+
             float near = float.MaxValue, far = 0f;
             for (int fire = 0; fire < fires; fire++)
             {
                 Vector3 at = CampfirePosition(fire);
                 _hearthPositions[fire] = at;
+                _hearthLifts[fire] = mounds ? TerrainMirror.SavannaMoundLift(_savannaConfig, fire) : 0f;
 
                 float radius = MathF.Sqrt(at.X * at.X + at.Z * at.Z);
                 near = MathF.Min(near, radius);
@@ -309,6 +323,13 @@ namespace Prazsky.Core.Render
             _savannaEffect.Parameters["HearthFar"].SetValue(far);
             _savannaEffect.Parameters["HearthAsh"].SetValue(cf.HearthAsh.ToVector3());
             _savannaEffect.Parameters["HearthChar"].SetValue(cf.HearthChar.ToVector3());
+
+            //The mounds the fires stand on (#887): the ground is raised under every fire by its own lift, so the lift is the mirror's own figure
+            //(TerrainMirror.SavannaMoundLift) pushed once, and the shader adds the same smoothstep the mirror does round each hearth position.
+            //With the mounds off every lift is 0 and the shape a harmless (0, 1), so the shader has no switch to read
+            _savannaEffect.Parameters["HearthLift"].SetValue(_hearthLifts);
+            _savannaEffect.Parameters["MoundTop"].SetValue(mounds ? moundTop : 0f);
+            _savannaEffect.Parameters["MoundFoot"].SetValue(mounds ? moundFoot : 1f);
         }
 
         private void ApplyAcaciaParameters()
