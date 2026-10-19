@@ -33,6 +33,10 @@ namespace BS3D.Tests
         //Fast, so a test waits a moment: a batch at least 300 ms after the last, and 250 to 350 ms after a request that names the player
         private static readonly StatsSchedule Fast = new(TimeSpan.FromMilliseconds(300), TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(350));
 
+        //The same quiet, but a batch tried again only an hour after the last try: a test that counts requests across a Stop
+        //has exactly the one the batch's first try made, because no timer of the worker's is due while it runs
+        private static readonly StatsSchedule OneTry = new(TimeSpan.FromHours(1), Fast.QuietMin, Fast.QuietMax);
+
         private readonly TempDirectory _temp = new();
         private readonly StandIn _server = new();
         private string Outbox => _temp.File(OnlineScores.OutboxFileName);
@@ -43,9 +47,9 @@ namespace BS3D.Tests
             _temp.Dispose();
         }
 
-        private OnlineScores Client(bool? online) =>
+        private OnlineScores Client(bool? online, StatsSchedule schedule = null) =>
             OnlineScores.Start(new GameSettings { Online = online, Server = _server.Url }, OnlineIdentity.Create("Tester"), Outbox,
-                schedule: Fast);
+                schedule: schedule ?? Fast);
 
         private static LevelPlayCounts Change(int starts = 1, int startsToFirstClear = 0) => new()
         {
@@ -55,8 +59,14 @@ namespace BS3D.Tests
 
         private static void Stop(OnlineScores client)
         {
-            Task worker = client.Stop();
+            Finished(client.Stop());
+        }
+
+        //Whether the worker ended within the wait: its own failure was its own to log
+        private static bool Finished(Task worker)
+        {
             try { worker.Wait(TimeSpan.FromSeconds(20)); } catch (AggregateException) { }
+            return worker.IsCompleted;
         }
 
         private static bool Within(Func<bool> condition, double seconds = 20)
@@ -72,12 +82,18 @@ namespace BS3D.Tests
 
         private OutboxFile ReadOutbox()
         {
-            //The worker swaps the file in while a test polls it: a read caught mid-swap is no file yet
+            //Read so as to let the worker swap the file in under the reader: File.ReadAllText holds the file against
+            //File.Replace, and a write that collided with a poll failed (the worker logs it and goes on, as a player's does
+            //with a virus scanner on the file), so the file kept its old counts and a test waiting for the new ones waited
+            //for nothing. A read caught mid-swap is no file yet.
             try
             {
-                return File.Exists(Outbox) ? JsonSerializer.Deserialize<OutboxFile>(File.ReadAllText(Outbox)) : null;
+                if (!File.Exists(Outbox)) return null;
+
+                using FileStream stream = new(Outbox, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                return JsonSerializer.Deserialize<OutboxFile>(stream);
             }
-            catch (IOException)
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
                 return null;
             }
@@ -190,14 +206,19 @@ namespace BS3D.Tests
                 _server.ScoreAnswers.Enqueue((503, null));
                 _server.StatsAnswers.Enqueue((503, null));
             }
-            OnlineScores on = Client(true);
+            OnlineScores on = Client(true, OneTry);
             on.Submit(on.NewSubmission(new LevelIdentity("One.json", "0123456789abcdef"), 300, 3, 4, 12.5f));
             on.SubmitStats(Change());
-            Assert.True(Within(() => ReadOutbox()?.StatsSending != null), "a batch frozen and kept");
+            Assert.True(Within(() => Stats.Count == 1 && ReadOutbox()?.StatsSending != null), "a batch frozen, kept and tried once");
             on.SubmitStats(Change());
             Assert.True(Within(() => ReadOutbox() is { StatsOpen: not null, StatsSending: not null } f && f.Submissions.Count == 1), "queued");
+
+            //That worker is over before anything is counted: a request it had in flight when it was stopped (a retry of the
+            //frozen batch on a timer) is its own, and would reach the stand-in after the count, whichever way it was read
             Task worker = on.Stop();
+            Assert.True(Finished(worker), "the first client's worker stopped");
             int sent = Stats.Count;
+            Assert.Equal(1, sent);
 
             //The switch turned off: the client that replaces it is started off, after that worker
             OnlineScores off = OnlineScores.Start(new GameSettings { Online = online, Server = _server.Url }, OnlineIdentity.Create("Tester"),
