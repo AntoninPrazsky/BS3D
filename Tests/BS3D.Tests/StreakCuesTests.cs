@@ -125,21 +125,21 @@ namespace BS3D.Tests
         }
 
         /// <summary>
-        /// #875: both placements that must clear the crosshair - the lost streak's words and the completion bonus - take their
-        /// clearance from <c>StreakCues.ClearancePixels</c>, the crosshair's own scale, and neither from the HUD's <c>Scaled</c>. The two
-        /// scales are the same in a window wider than about 1.2:1 and differ below it: the HUD's follows the layout height
+        /// #875: every placement that must clear the crosshair - the lost streak's words, the completion bonus and (#925) the
+        /// "fire" chip, which stands the same clearance below the middle - takes its clearance from <c>StreakCues.ClearancePixels</c>,
+        /// the crosshair's own scale, and none from the HUD's <c>Scaled</c>. The two scales are the same in a window wider than about 1.2:1 and differ below it: the HUD's follows the layout height
         /// (<c>MenuLayoutHeight</c>, shrunk with the width of a narrow window), the crosshair's follows the viewport's height alone, so in a
         /// 1200x1600 window <c>Scaled(170)</c> is 78 px against the mark's 98 and the words stood over the crosshair. Read as source,
         /// because <c>PlayHud</c> needs a device (as <see cref="MusicDecodeHeadroomTests"/> reads the voices').
         /// </summary>
         [Fact]
-        public void Both_placements_that_clear_the_crosshair_use_its_scale_and_not_the_huds()
+        public void Every_placement_that_clears_the_crosshair_uses_its_scale_and_not_the_huds()
         {
             string code = Regex.Replace(File.ReadAllText(Path.Combine(
                 Path.GetDirectoryName(Shipped.LevelsDirectory)!, "Screens", "PlayHud.cs")), @"//[^\r\n]*", string.Empty);
 
             Assert.DoesNotContain("Scaled(StreakCues.LOST_CAPTION_CLEARANCE)", code);
-            Assert.Equal(2, Regex.Matches(code, Regex.Escape("StreakCues.ClearancePixels(viewport.Height)")).Count);
+            Assert.Equal(3, Regex.Matches(code, Regex.Escape("StreakCues.ClearancePixels(viewport.Height)")).Count);
         }
 
         [Fact]

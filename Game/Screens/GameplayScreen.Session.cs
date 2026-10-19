@@ -118,6 +118,9 @@ namespace BS3D.Screens
                 swapOffered: _run.SwapOffered, retry: retry, kindsOnMap: _kindsOnMap, brakeOffered: _run.BrakeOffered,
                 cutOffered: _run.CutOffered);
 
+            //The first five levels carry the "fire" chip for a player who stops (#925), on the level's own count from zero
+            _fireHint.BeginLevel(tutorialLevel && FireHint.CarriesHint(chapter, levelInChapter));
+
             //And no floor alarm either: whatever the last level's ending left lingering over the drain is
             //not this level's danger.
             _laserGrid.Reset();
@@ -218,6 +221,7 @@ namespace BS3D.Screens
 
             //And a tutorial card caught up, which belongs to the level that is going (#189)
             _tutorial.Reset();
+            _fireHint.BeginLevel(false);
 
             //The magazine is not refilled here: its colours belong to a level, and InstallLevel loads the
             //next one's before the queue means anything again
