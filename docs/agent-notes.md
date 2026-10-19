@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-19 — #892 břehy potoka přirozeně rozložené — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Majitel (Vrať, 18. 10.): rybník dobrý, potok vypadá jako vykopaný bagrem. Hotovo: potok leží v širokém mělkém úvalu (`MeadowCarve.BrookSwale` = shader): štěrková mez, nízký hliněný stupínek, travnatý břeh 2–3,2 do vlastní výšky pole (do kopce širší), nízký lem. Úval 2,6–3,4× šířka vody; sklon břehu medián 0,47. Rybník beze změny, výsadba stojí kde stála (posazená, ne přesunutá).
+- ⚠ Cena: konec průletu potokem +0,2 až +0,5 ms (13,48 > 13,33), pevná kamera +0,66: patch kreslí dvojnásob země u objektivu za svou přirážku (#924).
+- Otevřené: verdikt oka, `verdicts\892b\`.
+
 ## 2026-10-17 — #892 potok a rybník vyříznuté do louky — desktop (RDT-PC), Claude Code (bs3d-48)
 - Hotovo: potok je rýha s hliněnými stěnami, rybník nepravidelný kráter, voda je samostatná plocha uvnitř. `MeadowCarve` je CPU kopie shaderu (mirrorcheck 0,0021). Hrubá mřížka má díru a tu kreslí jemnější patch v souřadnicích potoka (`MeadowPatch`, CDLOD); Low a Medium řežou také, Potato ne.
 - Cena (Game, Pennant, 3840×1581, High): hra +0,45 ms, průlet potokem na dnešním úvodu 10,9 → 12,2 ms, jeho poslední vteřina 12,8 (jednou 13,4). ⚠ Většinu ceny hry patch nezpůsobuje: i bez jeho země +0,3 ms (BrookLateral s atan2, společné tělo, vrcholy); Low/Medium na APU neměřeno.

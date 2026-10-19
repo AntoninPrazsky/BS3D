@@ -117,6 +117,11 @@ static const float3 POND_SHALLOW_BED = float3(0.075, 0.07, 0.035);
 static const float3 CUT_EARTH = float3(0.12, 0.08, 0.045);
 static const float3 CUT_EARTH_DARK = float3(0.045, 0.032, 0.02);
 static const float WATER_MURK = 1.8;
+//The brook's gravel margin, its pale stones and its dark, and how much of the sky its swale takes away from the ground in it
+//(the pond's crater takes 0.25)
+static const float3 GRAVEL = float3(0.2, 0.18, 0.14);
+static const float3 GRAVEL_DARK = float3(0.075, 0.065, 0.05);
+static const float BROOK_OCCLUSION = 0.3;
 static const float LILY_SPACING = 1.5;                    //one pad a cell, world units
 static const float3 LILY_PAD = float3(0.03, 0.085, 0.018);
 static const float3 LILY_FLOWER = float3(0.92, 0.9, 0.86);
@@ -184,25 +189,32 @@ float3 GroundNormal(float2 xz, float h)
     return normalize(float3(-(hx - h) / e, 1.0, -(hz - h) / e));
 }
 
-//--- THE BROOK'S GROOVE AND THE POND'S CRATER (#892) -----------------------------------------------------------------
+//--- THE BROOK'S SWALE AND THE POND'S CRATER (#892) ------------------------------------------------------------------
 //The owner: the brook and the pond "have no real geometric depth - the brook should be a groove cut into the ground and
-//the pond a kind of irregular crater - only inside them is then the water surface". MeadowCarve.cs is the CPU copy, term
-//for term, and its notes say why a cut is the lower of the field and a channel; change the one and the other has to
-//follow, then run mirrorcheck on the meadow. The camera grid cannot carry the cut (5.5 units a cell against a wall a
-//quarter of a unit wide): it draws GroundHeight with a hole here, and the patch MeadowPatch.cs builds draws the cut.
+//the pond a kind of irregular crater - only inside them is then the water surface"; and of the first groove's earth walls,
+//"as if an excavator dug a hole there; a natural brook looks a little different". MeadowCarve.cs is the CPU copy, term
+//for term, and its notes say how the swale and the crater are made; change the one and the other has to follow, then run
+//mirrorcheck on the meadow. The camera grid cannot carry the cut (5.5 units a cell against a bank two or three units
+//wide): it draws GroundHeight with a hole here, and the patch MeadowPatch.cs builds draws the cut.
 static const float BROOK_DROP = 1.25;                     //MeadowCarve.BROOK_DROP: the water under the field
 static const float BROOK_CARVE_BED = 0.55;                //MeadowCarve.BROOK_BED: the bed under the water
-static const float BROOK_TOP = 2.2;                       //MeadowCarve.BROOK_TOP
-static const float BROOK_WALL_FROM = -0.25;               //MeadowCarve.BROOK_WALL_FROM, _TO
-static const float BROOK_WALL_TO = 0.6;
+static const float BROOK_SHALLOWS = 0.8;                  //MeadowCarve.BROOK_SHALLOWS: how far in from the edge it shelves up
+static const float BROOK_MARGIN_RISE = 0.1;               //MeadowCarve.BROOK_MARGIN_RISE, _MIN, _MAX: the gravel margin
+static const float BROOK_MARGIN_MIN = 0.1;
+static const float BROOK_MARGIN_MAX = 0.9;
+static const float BROOK_STEP = 0.22;                     //MeadowCarve.BROOK_STEP, BROOK_STEP_RUN: the earth step at its back
+static const float BROOK_STEP_RUN = 0.3;
+static const float BROOK_BANK_WIDTH = 2.4;                //MeadowCarve.BROOK_BANK, _PER_RISE, _MAX: the grassy bank
+static const float BROOK_BANK_PER_RISE = 2.0;
+static const float BROOK_BANK_MAX = 4.4;
+static const float BROOK_LEVEE = 0.12;                    //MeadowCarve.BROOK_LEVEE: the lip at its top
 static const float CARVE_TAIL = 3.0;                      //MeadowCarve.CARVE_TAIL
 static const float BROOK_REFERENCE = 2.4;                 //MeadowCarve.BROOK_REFERENCE
 static const float BROOK_CARVE_FADE = 400.0;              //MeadowCarve.BROOK_CARVE_FADE, _END
 static const float BROOK_CARVE_END = 470.0;
 static const float BROOK_HOLE_END = 472.0;                //MeadowCarve.BROOK_HOLE_END
-static const float BROOK_CARVE_HALF = 3.2;                //MeadowCarve.BROOK_CARVE_HALF, BROOK_HOLE_HALF
-static const float BROOK_HOLE_HALF = 4.6;
-static const float BROOK_LIP_OUT = 0.26;                  //where the wall reaches BROOK_DROP over its water, past its edge
+static const float BROOK_CARVE_HALF = 7.9;                //MeadowCarve.BROOK_CARVE_HALF, BROOK_HOLE_HALF
+static const float BROOK_HOLE_HALF = 9.3;
 static const float POND_DROP = 1.25;                      //MeadowCarve.POND_DROP
 static const float POND_SHELF_DEPTH = 0.35;               //MeadowCarve.POND_SHELF_DEPTH (POND_SHELF is the shelf's width)
 static const float POND_DEEP = 1.0;                       //MeadowCarve.POND_DEEP, POND_DEEP_OVER
@@ -246,10 +258,30 @@ float BrookReference(float d)
     return min(centre, min(GroundHeight(BrookPointAt(d, -BROOK_REFERENCE)), GroundHeight(BrookPointAt(d, BROOK_REFERENCE))));
 }
 
-float BrookChannel(float s, float water)
+//MeadowCarve.BrookMargin, BrookBank, BrookLevee: the gravel margin's width, the grassy bank's on level ground and the lip's
+//height at distance d on side `side` (-1 or 1) of the centreline, each on its own slow wobble
+float BrookMargin(float d, float side)
 {
-    return water - BROOK_CARVE_BED + (BROOK_CARVE_BED + BROOK_TOP) * smoothstep(BROOK_WALL_FROM, BROOK_WALL_TO, s)
-        + CARVE_TAIL * max(s - BROOK_WALL_TO, 0.0);
+    return BROOK_MARGIN_MIN + (BROOK_MARGIN_MAX - BROOK_MARGIN_MIN)
+        * smoothstep(-0.6, 0.6, side * (0.6 * sin(d * 0.071 + 0.8) + 0.4 * sin(d * 0.19 + 2.1)));
+}
+
+float BrookBank(float d, float side)
+{
+    return BROOK_BANK_WIDTH * (1.0 + 0.16 * sin(d * 0.053 + 1.7 + 1.3 * side) + 0.08 * sin(d * 0.137 + 0.4 + 2.2 * side));
+}
+
+float BrookLevee(float d, float side)
+{
+    return BROOK_LEVEE * smoothstep(-0.2, 0.8, 0.6 * sin(d * 0.087 + 0.3 + 1.9 * side) + 0.4 * sin(d * 0.23 + 1.2 + 0.7 * side));
+}
+
+//MeadowCarve.BrookBed: the bed and the margin s past the water's edge, over the water's own level
+float BrookBed(float s, float margin)
+{
+    return -BROOK_CARVE_BED * (1.0 - smoothstep(-BROOK_SHALLOWS, 0.0, s))
+        + BROOK_MARGIN_RISE * smoothstep(-0.05, 0.15, s)
+        + BROOK_STEP * smoothstep(margin, margin + BROOK_STEP_RUN, s);
 }
 
 //MeadowPath.PondOutline: the shore as a multiple of the mean radius
@@ -287,6 +319,21 @@ float CarveMin(float a, float b)
     return min(a, b) - h * h * CARVE_ROUND * 0.25;
 }
 
+//MeadowCarve.BrookSwale: the bed and the margin blended into the field's own height across the bank, so the bank meets the
+//field with no crease on any hill, widening where it has further to climb; and the lip at its top
+float BrookSwale(float field, float lateral, float d, float water)
+{
+    float side = lateral < 0.0 ? -1.0 : 1.0;
+    float s = abs(lateral) - BrookWaterHalf(d);
+    float margin = BrookMargin(d, side);
+    float bed = CarveMin(field, water + BrookBed(s, margin));
+    float foot = margin + BROOK_STEP_RUN;
+    float bank = min(max(BrookBank(d, side), (field - water - BROOK_MARGIN_RISE - BROOK_STEP) * BROOK_BANK_PER_RISE), BROOK_BANK_MAX);
+    float up = smoothstep(foot, foot + bank, s);
+    float lip = smoothstep(0.35, 0.8, up) * (1.0 - smoothstep(0.85, 1.0, up));
+    return bed + (field - bed) * up + BrookLevee(d, side) * lip;
+}
+
 //MeadowCarve.Height: the field with the cut in it. Beside it, the field the cut is made in (the pond's lip on it), the
 //water standing over this point (far below where there is none) and whether the cut here is the brook's.
 float CarvedHeight(float2 p, out float field, out float water, out float brook)
@@ -310,14 +357,14 @@ float CarvedHeight(float2 p, out float field, out float water, out float brook)
     }
     field = height;
 
-    float lateral = abs(BrookLateral(p));
+    float lateral = BrookLateral(p);
     [branch]
-    if (lateral < BROOK_CARVE_HALF)
+    if (abs(lateral) < BROOK_CARVE_HALF)
     {
         float d = length(p);
         float presence = BrookPresence(d);
         float reference = BrookReference(d);
-        float cut = presence * (height - CarveMin(height, BrookChannel(lateral - BrookWaterHalf(d), reference - BROOK_DROP)));
+        float cut = presence * (height - BrookSwale(height, lateral, d, reference - BROOK_DROP));
         height -= cut;
         if (cut > 0.0 && height < crater)
         {
@@ -364,17 +411,19 @@ float PatchWeight(float2 p)
     return max(pond, brook);
 }
 
-//How much sun reaches a point down in the brook's groove at height y: a low sun across the groove is stood in the way of
-//by the lip on its own side, so the far wall is lit, and the near wall and the water under it are in the lip's shade. The
-//cross section only: along a straight groove the sun's run along it changes nothing.
+//How much sun reaches a point down in the brook's swale at height y: a low sun across the swale is stood in the way of by
+//the top of the bank on its own side, so the far bank is lit, and the lower part of the near one and the water under it are
+//in its shade. The cross section only: along a straight swale the sun's run along it changes nothing. The top is where the
+//bank meets the field on level ground (its widening on a hill left out: the shade is soft, and this is per vertex).
 float GrooveSun(float2 p, float y)
 {
     float d = length(p);
     float2 across = float2(-p.y, p.x) / d;                //the way BrookLateral grows here
     float sunAcross = dot(SunDirection.xz, across);
     float towards = sunAcross >= 0.0 ? 1.0 : -1.0;
-    float run = towards * (BrookWaterHalf(d) + BROOK_LIP_OUT) - BrookLateral(p);
-    float lip = GroundHeight(BrookPointAt(d, towards * BROOK_REFERENCE));
+    float top = BrookWaterHalf(d) + BrookMargin(d, towards) + BROOK_STEP_RUN + BrookBank(d, towards);
+    float run = towards * top - BrookLateral(p);
+    float lip = GroundHeight(BrookPointAt(d, towards * top));
     float rise = run * SunDirection.y / max(abs(sunAcross), 1e-3);
     return lerp(1.0, smoothstep(-0.12, 0.12, y + rise - lip), BrookPresence(d) * step(0.0, run));
 }
@@ -446,8 +495,8 @@ float PatchLevel(float4 places, float level)
     return lerp(at, places.w, saturate(level - 2.0));
 }
 
-//The patch (#892): the brook's groove and the pond's crater, on a mesh fixed to the world, fine enough across the groove to
-//hold its walls near the lens and coarser with distance (MeadowPatchGeometry's notes): how far it has coarsened is read off
+//The patch (#892): the brook's swale and the pond's crater, on a mesh fixed to the world, fine enough across the brook to
+//hold its margin and step near the lens and coarser with distance (MeadowPatchGeometry's notes): how far it has coarsened is read off
 //the vertex's own finest place, so a vertex shared by two triangles lands in the same place for both and the mesh never opens
 CarvedVertexOutput MeadowCarvedVS(PatchVertexInput input)
 {
@@ -613,9 +662,14 @@ float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool 
             || (brookLateral < BROOK_HOLE_HALF && length(worldPosition.xz) < BROOK_HOLE_END) ? -1.0 : 1.0);
     }
 
-    //What the patch's vertices said about the cut: how far into it this is, how far under the water, and the groove's sun
+    //What the patch's vertices said about the cut: how far into it this is, how far under the water, and the swale's sun
     float cut = saturate((carve.x - 0.04) / 0.2);
     float under = saturate(carve.y / 0.06);
+    //The brook's shore (carve.w): its margin and its earth step, up to about BROOK_MARGIN_RISE + BROOK_STEP over its water,
+    //bare of grass; and its flowers kept off only the wet ground near the water, so the swale's upper bank flowers as the
+    //field does. The pond's whole crater goes without, as it did.
+    float shore = carve.w * cut * (1.0 - smoothstep(0.24, 0.42, -carve.y)) * (1.0 - under);
+    float flowerless = cut * lerp(1.0, 1.0 - smoothstep(0.5, 0.9, -carve.y), carve.w);
 
     float3 baseNormal = normalize(worldNormal);
     float footprint = length(fwidth(worldPosition.xz));
@@ -690,7 +744,7 @@ float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool 
         bank = (1.0 - smoothstep(BrookWidth * 0.5, BrookWidth * 1.4, brookLateral + brookRagged)) * painted;
     }
 
-    present *= (1.0 - bank) * (1.0 - cut);
+    present *= (1.0 - bank) * (1.0 - flowerless);
 
     //Per-flower character: the species' petal count, petal shape and size, then the cell hash's own variation.
     //0 oxeye daisy: many thin white rays round a big yellow eye. 1 buttercup: five round glossy yellow petals.
@@ -774,10 +828,10 @@ float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool 
     float gust = WindGust(worldPosition.xz, WindDirection, MeadowTime, WindRippleFrequency,
         WindRippleSpeed / max(WindRippleFrequency, 1e-4), footprint);
 
-    //The cut's faces (#892): steep enough and the grass gives way to bare earth, and under the water to silt; both keep a
-    //little of the relief, which reads as lumps of earth and not as blades
+    //The cut's faces (#892): steep enough and the grass gives way to bare earth, under the water to silt and on the brook's
+    //shore to gravel and earth; all keep a little of the relief, which reads as lumps of earth and not as blades
     float earth = cut * (1.0 - smoothstep(0.5, 0.78, baseNormal.y));
-    float bare = max(earth, under);
+    float bare = max(max(earth, under), shore);
 
     float relief = GrassRelief(worldPosition.xz, footprint, gust) * (1.0 - flowerCover) * (1.0 - 0.8 * verge) * (1.0 - 0.6 * bare);
     float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, relief + flowerRelief);
@@ -886,7 +940,7 @@ float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool 
     //take one side - and past that only the tint below, which needs no cell of its own: measured at 0.125 ms on the
     //desktop's High with every pixel of the field walking the cell, and the far field is most of the pixels.
     float smallDensity = saturate(FlowerDensity * SMALL_FLOWER_DENSITY * (0.2 + 2.6 * driftField * driftField))
-        * (1.0 - verge) * (1.0 - bank) * (1.0 - cut);
+        * (1.0 - verge) * (1.0 - bank) * (1.0 - flowerless);
     float smallResolvable = saturate(1.5 - footprint / (SMALL_FLOWER_RADIUS * 2.5));
 
     [branch]
@@ -926,17 +980,25 @@ float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool 
     //The brook's bank: the grass darkens and goes muddy towards the water
     grass = lerp(grass, BROOK_BANK, bank * (1.0 - water) * 0.75);
 
-    //THE CUT (#892), as the references draw it: the brook's walls and the pond's step at the waterline bare earth in
-    //layers, the bed under the water silt, the earth dark and wet just over the waterline. Behind a branch, since the
-    //camera grid is never cut; nothing in it takes a derivative.
+    //THE CUT (#892), as the references draw it: the pond's step at the waterline and anything as steep bare earth in
+    //layers, the brook's shore a low step of earth over a margin of gravel, the bed under the water silt, the earth dark
+    //and wet just over the waterline. Behind a branch on the pixels any of it reaches - the swale's grassy bank and the
+    //pond's take none of it - since the camera grid is never cut; nothing in it takes a derivative.
     [branch]
-    if (cut > 0.0)
+    if (cut > 0.0 && (earth > 0.0 || -carve.y < 0.45))
     {
         float layers = sin(worldPosition.y * 11.0 + 2.0 * GradientNoise2(worldPosition.xz * 0.5)) * 0.5 + 0.5;
         float clods = GradientNoise2(worldPosition.xz * 3.1 + worldPosition.y * 2.3);
         float3 earthColor = lerp(CUT_EARTH_DARK, CUT_EARTH, saturate(0.65 * layers + 0.35 + 0.3 * clods));
         float3 siltColor = POND_SHALLOW_BED * (0.85 + 0.3 * clods);
-        grass = lerp(grass, earthColor, earth);
+        grass = lerp(grass, earthColor, max(earth, shore));
+        //The margin's gravel, up to a ragged line under the step's foot: small pale pebbles packed in darker grit, their
+        //grain faded to its mean where a pebble is under a pixel or two (the field's footprint, taken before any branch)
+        float gravel = shore * (1.0 - smoothstep(0.1, 0.16, -carve.y + 0.05 * clods));
+        float grain = saturate(2.0 - footprint * 40.0);
+        float pebbles = max(GradientNoise2(worldPosition.xz * 14.0), 0.85 * GradientNoise2(worldPosition.xz * 23.0 + 5.3));
+        float3 gravelColor = lerp(GRAVEL_DARK, GRAVEL, lerp(0.6, 0.25 + 0.75 * smoothstep(0.0, 0.3, pebbles), grain));
+        grass = lerp(grass, gravelColor * (0.85 + 0.3 * clods), gravel);
         grass = lerp(grass, siltColor, under);
         grass *= 1.0 - 0.45 * cut * (1.0 - smoothstep(0.0, 0.35, -carve.y));
     }
@@ -960,8 +1022,8 @@ float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool 
     float ndotl = saturate(dot(normal, SunDirection));
     float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
 
-    //Down in the cut less of the sky reaches (#892): the narrow groove more than the open bowl
-    float occlusion = 1.0 - saturate(carve.x / 1.6) * lerp(0.25, 0.55, carve.w);
+    //Down in the cut less of the sky reaches (#892): the open bowl and the open swale alike
+    float occlusion = 1.0 - saturate(carve.x / 1.6) * lerp(0.25, BROOK_OCCLUSION, carve.w);
     float3 color = grass * (skyAmbient * AmbientStrength * occlusion + SunColor * ndotl * sunlight);
 
     //THE VELVET AND THE GLOW (#281), the two things no matte surface does and grass always does. Both off the
@@ -1033,7 +1095,7 @@ float4 MeadowBedPS(CarvedVertexOutput input) : COLOR
     float clods = GradientNoise2(worldPosition.xz * 3.1 + worldPosition.y * 2.3);
     float3 silt = POND_SHALLOW_BED * (0.85 + 0.3 * clods) * 0.55;
     float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
-    float occlusion = 1.0 - saturate(input.Carve.x / 1.6) * lerp(0.25, 0.55, input.Carve.w);
+    float occlusion = 1.0 - saturate(input.Carve.x / 1.6) * lerp(0.25, BROOK_OCCLUSION, input.Carve.w);
     float3 color = silt * (skyAmbient * AmbientStrength * occlusion + SunColor * saturate(dot(normal, SunDirection)) * sunlight);
 
     float haze = saturate(distance(CameraPosition, worldPosition) / HorizonHazeDistance);
@@ -1096,7 +1158,7 @@ float4 MeadowWaterPS(WaterVertexOutput input) : COLOR
 
     //How deep it is, off the cut's own profile: the bed is drawn under it, and this is how much of the bed shows
     float depth = pond > 0.5 ? -PondCrater(e, PondBankWidth(a))
-        : -BrookChannel(abs(BrookLateral(worldPosition.xz)) - BrookWaterHalf(length(worldPosition.xz)), 0.0);
+        : -BrookBed(abs(BrookLateral(worldPosition.xz)) - BrookWaterHalf(length(worldPosition.xz)), BROOK_MARGIN_MAX);
     depth = max(depth, 0.0);
 
     float sunlight = CloudSunlight(worldPosition, SunDirection) * input.Water.z;
