@@ -92,6 +92,12 @@
 /processorParam:DebugMode=Auto
 /build:Shaders/Wormhole.fx
 
+#begin Shaders/Wordmark.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Wordmark.fx
+
 #begin Shaders/MuzzleRays.fx
 /importer:EffectImporter
 /processor:EffectProcessor

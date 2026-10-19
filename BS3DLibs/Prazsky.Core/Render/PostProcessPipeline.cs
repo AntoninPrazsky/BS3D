@@ -181,6 +181,7 @@ namespace Prazsky.Core.Render
         private readonly EffectParameter _tonemapGrainSeedParam;
         private readonly EffectParameter _tonemapOutputSizeParam;
         private readonly EffectParameter _tonemapUnderwaterAmountParam;
+        private readonly EffectParameter _tonemapDisplayReferredParam;
 
         private float _glareThreshold;
         private float _glareIntensity;
@@ -264,6 +265,8 @@ namespace Prazsky.Core.Render
             _tonemapGrainSeedParam = tonemapEffect.Parameters["GrainSeed"];
             _tonemapOutputSizeParam = tonemapEffect.Parameters["OutputSize"];
             _tonemapUnderwaterAmountParam = tonemapEffect.Parameters["UnderwaterAmount"];
+            _tonemapDisplayReferredParam = tonemapEffect.Parameters["DisplayReferred"];
+            _tonemapDisplayReferredParam.SetValue(0f);
 
             //Constant for the run in every executable; the per-frame amount starts at "not submerged"
             tonemapEffect.Parameters["UnderwaterAbsorb"].SetValue(UNDERWATER_ABSORB);
@@ -336,6 +339,27 @@ namespace Prazsky.Core.Render
             get => _filmGrain;
             set { _filmGrain = value; _tonemapGrainStrengthParam.SetValue(value); }
         }
+
+        /// <summary>
+        /// Whether this frame's scene holds a <b>display-referred layer</b> (#929): pixels written with a negative
+        /// alpha, whose colour is already the picture and which the resolve lays over the mapped frame without the
+        /// curve, the exposure, the grain or the colour fringe (Tonemap.fx, <c>DisplayReferred</c>). The Game's 3D
+        /// wordmark on High and Ultra is the one writer, and its host states this every frame before the resolve:
+        /// false skips the alpha read, so a frame that drew no such layer pays nothing for it.
+        /// </summary>
+        public bool DisplayReferredLayer
+        {
+            get => _displayReferredLayer;
+            set
+            {
+                if (_displayReferredLayer == value) return;
+
+                _displayReferredLayer = value;
+                _tonemapDisplayReferredParam.SetValue(value ? 1f : 0f);
+            }
+        }
+
+        private bool _displayReferredLayer;
 
         /// <summary>
         /// The scene renders into a target this many times larger per axis and is box-filtered down on the

@@ -635,6 +635,9 @@ namespace BS3D
                 _sceneRenderer.FineMeshes = preset.FineMeshes;
             }
 
+            //And the title on the same switch (#929): the PNG logo at High and Ultra, the rainbow below. Read per draw.
+            if (_titleWordmark != null) _titleWordmark.Fine = preset.FineMeshes;
+
             //And the arena's stone cap, which is the first thing the tier reaches that is NOT a scene — it is
             //in all fifteen of them and under the gun in every frame of every level, and #151 measured it at
             //88 % of the arena's cost. Reduced, its height field is two relief octaves instead of four (three sines

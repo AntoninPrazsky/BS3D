@@ -21,6 +21,13 @@ Red sampled outward, blue inward, growing with the **square** of the distance fr
 
 Monochrome per-output-pixel noise re-rolled every frame (seed off the wall clock handed to `Resolve`), applied **after** ACES and before the sRGB encode, weighted by `4 * luma * (1 - luma)` so blacks and highlights stay clean. Peak `FILM_GRAIN` (0.10; 0.05 was invisible); one grain per *output* pixel whatever the supersample factor (`OutputSize`). The **Film grain** row works like the aberration's.
 
+## The display-referred layer (#929)
+
+Pixels the scene pass writes with a **negative alpha** hold a colour that is already the picture (display-linear), not light: where `PostProcessPipeline.DisplayReferredLayer` is set, `MainPS` reads the scene's alpha at the pixel and lays those pixels over the mapped frame **without the exposure, the curve, the grain or the aberration** (the glare, mapped on its own, still lands on them). The Game's wordmark at High and Ultra is the one writer ([The 3D title](../game-shell/title-wordmark.md#high-and-ultra-the-png-logo-929)).
+
+- **The sign is the mask** because nothing else writes one: opaque writes land in 0..1, alpha blending keeps them there, additive blending only adds. The multisample resolve and the supersample filter average the layer's -1 with the frame's alpha at its edges; the cover is `saturate(-alpha)`, so a pixel the layer only half covers keeps the frame's own path. ⚠ A new pass that writes a negative alpha joins the layer on the front end.
+- **Off is free**: the flag is a uniform `[branch]` and the host clears it every frame before the on-top slot, so the read happens only on a frame that drew the layer. The Testbed and the MapEditor never set it.
+
 ## The bloom pyramid (`Glare.fx`)
 
 Bright pass over `GLARE_THRESHOLD` (tinted by the pixel's own colour) into a **half**-size target, dual-filter down to a thirty-second and additive tent upsampling back; `Tonemap.fx` adds the head **before** ACES. `GLARE_INTENSITY` is 0.1. ⚠ **The levels must be `PreserveContents`**: as `DiscardContents` (#69 to #565) MonoGame cleared each level on its second bind, so the head was only the foot upsampled and no tight halo existed; preserved, the head carries five times the energy, hence 0.1.

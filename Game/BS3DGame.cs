@@ -1552,8 +1552,11 @@ namespace BS3D
             //records the same ordering for the same reason. The inset is the front end's own figure converted
             //to a fraction of the frame's height; MainMenuPage.FRONT_INSET is the one copy of it.
             ShowLoading();
+            //High and Ultra draw it as the PNG logo (#929), through an effect the Potato path does not have
             _titleWordmark = new TitleWordmark(GraphicsDevice, _instancingEffect, GAME_TITLE,
-                SCENE_AMBIENT_INTENSITY, Screens.MainMenuPage.FRONT_INSET / (float)MENU_DESIGN_HEIGHT);
+                SCENE_AMBIENT_INTENSITY, Screens.MainMenuPage.FRONT_INSET / (float)MENU_DESIGN_HEIGHT,
+                PotatoPath ? null : Content.Load<Effect>("Shaders/Wordmark"),
+                fine: QualityPreset.Presets[(int)_quality].FineMeshes);
 
             //The trophy cups (#183), for the identical reason and at the identical point: since #232's second
             //half they reflect the dome the way the cannon does (TrophyPodium.Renderers, enrolled below), so

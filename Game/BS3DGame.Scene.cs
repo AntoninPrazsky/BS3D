@@ -1375,6 +1375,16 @@ namespace BS3D
         private readonly BoundingFrustum _ceilingFrustum = new(Matrix.Identity);
 
         /// <summary>
+        /// Called from <see cref="FinishSceneDraw"/>'s on-top slot when what it drew wrote display-referred colour (#929:
+        /// the wordmark at High and Ultra, whose <c>Draw</c> says so), so this frame's resolve lays it over the mapped frame
+        /// instead of tonemapping it as light. See <c>PostProcessPipeline.DisplayReferredLayer</c>.
+        /// </summary>
+        internal void MarkDisplayReferredLayer()
+        {
+            if (_pipeline != null) _pipeline.DisplayReferredLayer = true;
+        }
+
+        /// <summary>
         /// The frame's close: the scene's foreground weather — the mountain's snow, the sea's spray, the
         /// savanna's flame — settles over everything, and the resolve takes the HDR target to the back
         /// buffer. Display space from here on.
@@ -1384,8 +1394,9 @@ namespace BS3D
         /// has nothing moving worth blurring, which is all of them but the session.</param>
         /// <param name="drawOnTop">What stands in FRONT of the whole scene (#600): drawn last of the HDR pass, after the
         /// weather and the fireworks, over a depth buffer cleared for it — so nothing the scene drew can cut into it, and
-        /// it still takes the frame's exposure, curve, grain and bloom. The front end's 3D wordmark is the one caller.
-        /// Not meant to be combined with <paramref name="drawMotion"/>: what stands on top is in no velocity pass, so the
+        /// it still takes the frame's bloom, and its exposure, curve and grain unless it marks itself display-referred
+        /// (<see cref="MarkDisplayReferredLayer"/>, the wordmark at High and Ultra, #929). The front end's 3D wordmark is
+        /// the one caller. Not meant to be combined with <paramref name="drawMotion"/>: what stands on top is in no velocity pass, so the
         /// reconstruction would drag the moving scene's streaks across it. Nothing asks for both — the session, the only
         /// screen that blurs, has nothing to stand on top, and the front end passes no velocity pass.</param>
         internal void FinishSceneDraw(SceneFrame sceneFrame, Action<MotionBlur> drawMotion = null, Action drawOnTop = null)
@@ -1420,6 +1431,10 @@ namespace BS3D
             //weather, because anything drawn after the clear would test against the caller's depth
             //alone and show through the island. The copy the ceiling's glass bends (#541) was taken before this, so it
             //cannot hold the caller either. Nothing after it reads the scene's depth: the resolve samples colour only.
+            //Whether the resolve has a display-referred layer to lay over the frame (#929): off unless the caller says
+            //so this frame, through MarkDisplayReferredLayer, so a frame without the logo pays nothing for the read
+            _pipeline.DisplayReferredLayer = false;
+
             if (drawOnTop != null)
             {
                 GraphicsDevice.Clear(ClearOptions.DepthBuffer, Vector4.Zero, 1f, 0);

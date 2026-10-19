@@ -1255,9 +1255,12 @@ namespace BS3D.Screens
             };
 
             //Zero is skipped inside Draw (MIN_PRESENCE), so the legs of the splash before the hand-over cost nothing
-            if (arrival > 0f)
-                Game.TitleWordmark?.Draw(Game.Camera, Game.WallClock,
-                    presence: arrival * MathHelper.Lerp(1f, WORDMARK_ASIDE_SCALE, Closeness(_flightClock)));
+            //The logo build at High and Ultra writes display-referred colour, which the resolve has to be told of (#929)
+            if (arrival > 0f
+                && Game.TitleWordmark != null
+                && Game.TitleWordmark.Draw(Game.Camera, Game.WallClock,
+                    presence: arrival * MathHelper.Lerp(1f, WORDMARK_ASIDE_SCALE, Closeness(_flightClock))))
+                Game.MarkDisplayReferredLayer();
         }
     }
 }
