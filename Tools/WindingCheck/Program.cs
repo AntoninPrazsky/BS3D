@@ -236,7 +236,29 @@ namespace BS3D.Tools.WindingCheck
                 if (c == ' ' || !LetterShapes.Supports(c)) continue;
                 char ch = c;
                 yield return ($"LetterMesh['{ch}']", () => new LetterMesh(d, ch, 0.12f));
+
+                //#929: the wordmark's High and Ultra build, finer and carrying each stroke's direction
+                yield return ($"LetterMesh['{ch}'] fine", () => new LetterMesh(d, ch, 0.13f, 32, 8, 0.0005f, tangentCoordinates: true));
             }
+
+            //#929: the wordmark's badge disc at High and Ultra (a closed lathe with a half-round rim)
+            yield return ("LatheMesh(wordmark disc)", () => new LatheMesh(d, WordmarkDisc(1.1f, 0.1f), 128));
+        }
+
+        /// <summary>TitleWordmark.DiscProfile's profile (#929), which is private there and in the Game.</summary>
+        private static List<LathePoint> WordmarkDisc(float radius, float halfThickness)
+        {
+            const int RIM_STEPS = 16;
+
+            var profile = new List<LathePoint> { new(0f, halfThickness) };
+            for (int k = 0; k <= RIM_STEPS; k++)
+            {
+                float angle = MathHelper.PiOver2 - MathHelper.Pi * k / RIM_STEPS;
+                profile.Add(new LathePoint(radius - halfThickness + halfThickness * MathF.Cos(angle), halfThickness * MathF.Sin(angle)));
+            }
+
+            profile.Add(new LathePoint(0f, -halfThickness));
+            return profile;
         }
 
         /// <summary>SceneRenderer.BuildMossCap's profile, which is private there.</summary>

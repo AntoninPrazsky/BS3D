@@ -11,7 +11,7 @@ Three rules govern most of it. **The scene renders in linear radiance and is ton
 - [Scene point lights](rendering/scene-lights.md): shader slots, `SceneLights`, which scenes carry lights, a blast's flash.
 - [Sun shadows](rendering/sun-shadows.md): the map, its fit, bias and cost, which scenes have it, the city, the ceiling glass's analytic shadow, photographing a shadow.
 - [The weather](rendering/weather.md): the flat cloud deck, five skies, the sun disc and per-dome sun, the rejected vertical-extent deck.
-- [The post-process pipeline](rendering/post-processing.md): resolve, aberration, grain, bloom, defocus, the foreground and overlay layers.
+- [The post-process pipeline](rendering/post-processing.md): resolve, aberration, grain, the display-referred layer, bloom, defocus, the foreground and overlay layers.
 - [Glass](rendering/glass.md): the cup's refraction, the crystal and drain glass, the ceiling plate bending a frame copy.
 - [Colour decoding and the lighting model](rendering/lighting-model.md): where colours decode, Blinn-Phong plus specular ambient, per-draw uniforms, polished metal.
 - [The instanced effect's files](rendering/instanced-effect.md): `InstancedModel.fx`'s includes, the constant-buffer rule, shader warnings.

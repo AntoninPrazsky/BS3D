@@ -82,6 +82,12 @@ namespace BS3D.Effects
     /// against and the glow's floor is what carries the word instead. That is the trade, made with the owner's
     /// eyes on both versions rather than inferred.
     /// </para>
+    /// <para>
+    /// <b>All of that is the Low and Medium build.</b> At High and Ultra (<see cref="Fine"/>, #929) the title is the PNG
+    /// logo in three dimensions instead: the logo's own colour on each letter, its violet rims, its badge on a violet
+    /// disc, a studio light of its own, and colours written as the picture rather than as light - see the constants
+    /// under "HIGH AND ULTRA: THE LOGO" and <see cref="DrawFine"/>.
+    /// </para>
     /// </summary>
     public sealed class TitleWordmark : IDisposable
     {
@@ -383,6 +389,106 @@ namespace BS3D.Effects
         //sky reflection is turned off entirely, for the reason in GlyphIndex.
         private static readonly Vector3 OUTLINE_MATERIAL = new(0.008f, 0.008f, 0.010f);
 
+        //=== HIGH AND ULTRA: THE LOGO (#929) ===
+
+        //The owner on the wordmark at High and Ultra: "not detailed and sharp enough, and it does not match the PNG
+        //logo". So at those two tiers (QualityPreset.FineMeshes, the scenes' own High/Ultra switch, #758) the title is
+        //the logo of Images/logo in three dimensions: the logo's own colour on each letter (PNG_LETTERS), a dark
+        //violet keyline and a violet line round every letter (FINE_KEYLINE_*, FINE_OUTLINE_*), the last word sitting
+        //on a violet disc (the DISC_* figures), the lines centred over one another as the logo stacks them, and the
+        //letters shaded by a studio light of their own (Wordmark.fx) - a crisp white streak along every stroke and the
+        //colour running deep into the shade - instead of the scene's rig. Its colours are written as the picture
+        //itself and the resolve lays them over the frame without the curve, the grain or the lens's colour fringe
+        //(PostProcessPipeline.DisplayReferredLayer), which is most of "sharp": at the frame's corner the fringe
+        //alone split a letter's edge into red and blue about two pixels either way at 4K, and the grain is strongest
+        //in exactly the mid-tones a saturated letter sits in. Low and Medium keep the rainbow wordmark below, and
+        //the Potato path never has this effect at all.
+
+        //Facets round a tube, rings in a dome and the arcs' chord tolerance at High and Ultra: the studio streak is
+        //one crisp band and shows the facets and the three-ring domes the old soft gradient hid. All four shells
+        //share the one facet count, for the reason TUBE_SIDES gives.
+        private const int FINE_TUBE_SIDES = 32;
+
+        //THE LOGO'S LETTERS ARE FATTER AND TIGHTER than the rainbow's: half the stroke weight and the gap left between two
+        //letters' ink, in cap heights, as TUBE_RADIUS and DAYLIGHT are. The PNG's strokes are about 0.3 of a cap height
+        //and its letters all but touch, their violet lines running together into one outline round the word; this
+        //daylight is less than two violet lines, so neighbours' lines meet as the logo's do. The weight is bounded by
+        //the fold as AURA_WIDTH is: its outermost shell (FINE_AURA_WIDTH) stays under LetterShapes.MIN_BEND_RADIUS, and
+        //the B's counters keep about 0.13 of a cap height of daylight inside their rims.
+        private const float FINE_TUBE_RADIUS = 0.145f;
+        private const float FINE_DAYLIGHT = 0.04f;
+        private const float FINE_AURA_WIDTH = 0.040f;
+        private const int FINE_CAP_RINGS = 8;
+        private const float FINE_ARC_TOLERANCE = 0.0005f;
+
+        //THE LOGO'S RIMS, from the letter's surface, in cap heights: a dark violet keyline hugging the letter and a
+        //violet line outside it - the logo's sticker outline, which its cut left as a dark gap and a violet stroke -
+        //and the coloured halo of FINE_AURA_WIDTH outside both. The three nest under the fold's ceiling (see
+        //AURA_WIDTH), so none of them can be made bolder without the counters of B, O, D and 3 filling in.
+        private const float FINE_KEYLINE_WIDTH = 0.016f;
+        private const float FINE_OUTLINE_WIDTH = 0.032f;
+
+        //Sampled off Images/logo/bs3d-logo-2048.png (sRGB): the keyline's dark violet, the line's violet, and the dark
+        //rim the logo draws round the badge's letters and its disc.
+        private static readonly Vector3 FINE_KEYLINE_COLOUR = new(45f / 255f, 5f / 255f, 85f / 255f);
+        private static readonly Vector3 FINE_OUTLINE_COLOUR = new(160f / 255f, 60f / 255f, 195f / 255f);
+        private static readonly Vector3 BADGE_RIM_COLOUR = new(50f / 255f, 0f, 100f / 255f);
+
+        //EVERY LETTER'S OWN COLOUR, IN READING ORDER, off the PNG logo (the median of each letter's lit pixels, sRGB):
+        //each line its own sweep of the wheel, BUBBLE magenta to green and SHOOTER red to violet, and the badge's 3
+        //orange and its D cyan. Used when the title has exactly this many drawable letters, which "Bubble Shooter 3D"
+        //does; any other title falls back to the rainbow ramp (Hue).
+        private static readonly Vector3[] PNG_LETTERS =
+        {
+            new(251f / 255f, 58f / 255f, 194f / 255f),   //B
+            new(253f / 255f, 102f / 255f, 65f / 255f),   //U
+            new(252f / 255f, 105f / 255f, 20f / 255f),   //B
+            new(255f / 255f, 217f / 255f, 41f / 255f),   //B
+            new(159f / 255f, 252f / 255f, 77f / 255f),   //L
+            new(59f / 255f, 228f / 255f, 73f / 255f),    //E
+            new(243f / 255f, 45f / 255f, 96f / 255f),    //S
+            new(253f / 255f, 115f / 255f, 34f / 255f),   //H
+            new(255f / 255f, 195f / 255f, 50f / 255f),   //O
+            new(189f / 255f, 237f / 255f, 62f / 255f),   //O
+            new(31f / 255f, 219f / 255f, 186f / 255f),   //T
+            new(0f, 198f / 255f, 255f / 255f),           //E
+            new(139f / 255f, 61f / 255f, 255f / 255f),   //R
+            new(254f / 255f, 166f / 255f, 57f / 255f),   //3
+            new(98f / 255f, 228f / 255f, 254f / 255f),   //D
+        };
+
+        //THE DISC, the logo's badge: its two ends of a gradient, magenta-violet at the upper left and blue-violet at
+        //the lower right, as the logo shades it (sRGB, sampled).
+        private static readonly Vector3 DISC_COLOUR_A = new(215f / 255f, 45f / 255f, 255f / 255f);
+        private static readonly Vector3 DISC_COLOUR_B = new(105f / 255f, 50f / 255f, 255f / 255f);
+
+        //The badge's letters on the disc, as a share of a cap height. Smaller than BADGE_SCALE's blown-up 3D,
+        //because the disc is what is big now: at this figure it comes out a little over two cap heights across,
+        //against the logo's 1.33 - the owner picked the big badge, so it stays the bolder of the two.
+        private const float FINE_BADGE_SCALE = 0.95f;
+
+        //The badge's own gap between its letters' ink: the logo's 3 and D touch at their thick dark rims, and this lets
+        //the two (FINE_OUTLINE_WIDTH each) just overlap into one.
+        private const float FINE_BADGE_DAYLIGHT = 0.05f;
+
+        //The disc's radius over the half-diagonal of the badge's ink, its half-thickness (the rounded rim is a half
+        //round of this radius) and its dark rim's width, in cap heights.
+        private const float DISC_MARGIN = 1.10f;
+        private const float DISC_HALF_THICKNESS = 0.10f;
+        private const float DISC_RIM = 0.035f;
+        private const int DISC_SEGMENTS = 128;
+
+        //How far the disc rises into the line above it (the logo's badge tucks up behind the middle of SHOOTER), and
+        //how far behind the letters' plane its face stands, so the letters above stay in front of it: the last must
+        //clear a line's outermost shell (FINE_TUBE_RADIUS + FINE_AURA_WIDTH) and its turn (LETTER_YAW).
+        private const float DISC_OVERLAP = 0.22f;
+        private const float DISC_BEHIND = 0.30f;
+
+        //How far in front of the disc's face the badge's letters stand, per unit of their scale: their outermost
+        //rim's radius, their own turn and a little air. Any nearer and the rims' far halves, which are what draws
+        //them, would sink behind the disc's face and the badge letters would lose their outline.
+        private const float BADGE_LIFT = 0.24f;
+
         private readonly GraphicsDevice _device;
 
         //One mesh and one renderer per DISTINCT letter, twice over: the body and its keyline. A letter that
@@ -436,6 +542,31 @@ namespace BS3D.Effects
         //When the dance last started, on the wall clock Draw is handed; far in the past until it first does.
         private float _dancedAt = float.NegativeInfinity;
 
+        //THE HIGH AND ULTRA BUILD (#929), null on the Potato path, which has no such effect: the effect, its four
+        //techniques and the uniforms set per draw, cached at load.
+        private readonly Effect _fineEffect;
+        private readonly EffectPass _fineBodyPass, _fineDiscPass, _fineFlatPass, _fineGlowPass;
+        private readonly EffectParameter _fineWorldViewParam, _fineProjectionParam, _fineAlbedoParam;
+
+        //Four shells a glyph, keyed as the meshes above are, and the disc with its rim
+        private readonly List<LetterMesh> _fineBodies = new(), _fineKeylines = new(), _fineOutlines = new(), _fineAuras = new();
+        private readonly LatheMesh _disc, _discRim;
+
+        //The logo's composition and every letter's colour in it (sRGB), and whether it stands on the disc
+        private readonly Placement[] _finePlacements;
+        private readonly float _fineBlockWidth, _fineBlockHeight, _fineWidestLetter;
+        private readonly Placement _discPlacement;
+        private readonly float _discPhase;
+        private readonly Vector3[] _fineColours;
+        private readonly bool[] _onBadge;
+
+        /// <summary>
+        /// Whether the title is drawn as the PNG logo (#929): the host's High and Ultra (<c>QualityPreset.FineMeshes</c>),
+        /// stated at construction and on every tier change, and read per draw, so nothing is rebuilt. Ignored where the
+        /// effect it needs was not handed in (the Potato path).
+        /// </summary>
+        public bool Fine { get; set; }
+
         /// <summary>
         /// Every renderer the wordmark owns, for the host's sky-lighting enrolment.
         /// <para>
@@ -486,13 +617,15 @@ namespace BS3D.Effects
             public readonly float X, Y;      //the letter's own centre
             public readonly float Scale;     //its line's scale (1, or BADGE_SCALE on the badge line)
             public readonly float Across;    //-1..+1 across the block's WIDTH: the depth bow
+            public readonly float Lift;      //cap heights towards the lens on top of the bow (the logo's badge)
 
-            public Placement(float x, float y, float scale, float across)
+            public Placement(float x, float y, float scale, float across, float lift = 0f)
             {
                 X = x;
                 Y = y;
                 Scale = scale;
                 Across = across;
+                Lift = lift;
             }
         }
 
@@ -510,11 +643,18 @@ namespace BS3D.Effects
         /// How far the block is held off the frame's top and right edges, as a fraction of the frame's
         /// <b>height</b> — one figure for both, which is the front end's own rule for its two corners.
         /// </param>
+        /// <param name="fineEffect">
+        /// <c>Shaders/Wordmark</c>, for the High and Ultra build (#929, <see cref="Fine"/>); null where it does not exist
+        /// (the Potato path), and then that build is neither made nor drawn.
+        /// </param>
+        /// <param name="fine">The tier's answer at construction; see <see cref="Fine"/>.</param>
         public TitleWordmark(GraphicsDevice device, Effect instancingEffect, string title,
-            float ambientIntensity, float insetFraction)
+            float ambientIntensity, float insetFraction, Effect fineEffect = null, bool fine = false)
         {
             _device = device;
             _insetFraction = insetFraction;
+            _fineEffect = fineEffect;
+            Fine = fine;
 
             string[] words = (title ?? string.Empty).ToUpperInvariant()
                 .Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -564,6 +704,176 @@ namespace BS3D.Effects
             //emitted colour and nothing else, and every term the scene could add to it would be light the
             //frame adds twice.
             _auraParams = new BasicEffectParams(Vector3.Zero, new Vector3(0.001f, 0.001f, 0.001f), 4f, Vector3.Zero);
+
+            //=== The High and Ultra build (#929) ===
+            if (_fineEffect == null) return;
+
+            _fineBodyPass = _fineEffect.Techniques["Body"].Passes[0];
+            _fineDiscPass = _fineEffect.Techniques["Disc"].Passes[0];
+            _fineFlatPass = _fineEffect.Techniques["Flat"].Passes[0];
+            _fineGlowPass = _fineEffect.Techniques["Glow"].Passes[0];
+            _fineWorldViewParam = _fineEffect.Parameters["WorldView"];
+            _fineProjectionParam = _fineEffect.Parameters["Projection"];
+            _fineAlbedoParam = _fineEffect.Parameters["Albedo"];
+
+            //Four shells a glyph, built in the order the glyph indices were handed out, so a letter's Glyph indexes
+            //these exactly as it indexes the meshes above
+            foreach (LetterMesh body in _bodyMeshes)
+            {
+                char c = body.Character;
+                _fineBodies.Add(FineLetter(device, c, FINE_TUBE_RADIUS));
+                _fineKeylines.Add(FineLetter(device, c, FINE_TUBE_RADIUS + FINE_KEYLINE_WIDTH));
+                _fineOutlines.Add(FineLetter(device, c, FINE_TUBE_RADIUS + FINE_OUTLINE_WIDTH));
+                _fineAuras.Add(FineLetter(device, c, FINE_TUBE_RADIUS + FINE_AURA_WIDTH));
+            }
+
+            PlaceFine(words, 2f * FINE_TUBE_RADIUS + FINE_DAYLIGHT, out _finePlacements, out _fineBlockWidth,
+                out _fineBlockHeight, out _discPlacement, out float discRadius);
+
+            for (int i = 0; i < _letters.Length; i++)
+                _fineWidestLetter = MathF.Max(_fineWidestLetter, _letters[i].Advance * _finePlacements[i].Scale);
+
+            //Which letters stand on the disc: the last line's, when there is more than one
+            _onBadge = new bool[_letters.Length];
+            int badgeLetters = words.Length > 1 ? words[^1].Length : 0;
+            float phaseSum = 0f;
+            for (int i = _letters.Length - badgeLetters; i < _letters.Length; i++)
+            {
+                _onBadge[i] = true;
+                phaseSum += _letters[i].Phase;
+            }
+
+            _discPhase = badgeLetters > 0 ? phaseSum / badgeLetters : 0f;
+
+            //The logo's own colour on each letter; the ramp where the title is not the logo's
+            _fineColours = new Vector3[_letters.Length];
+            for (int i = 0; i < _letters.Length; i++)
+                _fineColours[i] = _letters.Length == PNG_LETTERS.Length ? PNG_LETTERS[i] : Hue(_letters[i].Phase);
+
+            if (badgeLetters > 0)
+            {
+                _disc = new LatheMesh(device, DiscProfile(discRadius, DISC_HALF_THICKNESS), DISC_SEGMENTS);
+                _discRim = new LatheMesh(device, DiscProfile(discRadius + DISC_RIM, DISC_HALF_THICKNESS + DISC_RIM),
+                    DISC_SEGMENTS);
+
+                //The gradient runs from the disc's upper left to its lower right. The lathe stands about its own Y and is
+                //turned a quarter about X to face the lens (DrawFine), which takes its +Z to the block's -Y, so the
+                //block's down-and-right is the lathe's +X +Z; over the diameter, so the dot runs -0.5..+0.5.
+                _fineEffect.Parameters["GradientAxis"].SetValue(
+                    new Vector2(1f, 1f) / (MathF.Sqrt(2f) * 2f * discRadius));
+                _fineEffect.Parameters["AlbedoB"].SetValue(ColorSpace.SrgbToLinear(DISC_COLOUR_B));
+            }
+        }
+
+        private static LetterMesh FineLetter(GraphicsDevice device, char c, float radius) =>
+            new(device, c, radius, FINE_TUBE_SIDES, FINE_CAP_RINGS, FINE_ARC_TOLERANCE, tangentCoordinates: true);
+
+        /// <summary>
+        /// The badge's disc as a lathe profile about Y: from the axis out along the face, round a half-round rim of the
+        /// disc's own half-thickness, and back in along the back - the order <see cref="LatheMesh"/> reads as facing
+        /// outwards.
+        /// </summary>
+        private static LathePoint[] DiscProfile(float radius, float halfThickness)
+        {
+            const int RIM_STEPS = 16;
+
+            LathePoint[] profile = new LathePoint[RIM_STEPS + 3];
+            profile[0] = new LathePoint(0f, halfThickness);
+
+            for (int k = 0; k <= RIM_STEPS; k++)
+            {
+                float angle = MathHelper.PiOver2 - MathHelper.Pi * k / RIM_STEPS;
+                profile[k + 1] = new LathePoint(radius - halfThickness + halfThickness * MathF.Cos(angle),
+                    halfThickness * MathF.Sin(angle));
+            }
+
+            profile[RIM_STEPS + 2] = new LathePoint(0f, -halfThickness);
+
+            return profile;
+        }
+
+        /// <summary>
+        /// The logo's composition (#929): one word to a line as <see cref="Place"/> lays it, but every line CENTRED over
+        /// the next as the PNG stacks them, and the last word set at <see cref="FINE_BADGE_SCALE"/> on a disc that rises
+        /// <see cref="DISC_OVERLAP"/> into the line above. Hands back the letters' placements, the block's size, and the
+        /// disc's centre (as a placement: its X, Y, the badge's scale for the wave, its bow and its lift) and radius.
+        /// </summary>
+        private static void PlaceFine(string[] lines, float tracking, out Placement[] placements, out float width,
+            out float height, out Placement disc, out float discRadius)
+        {
+            int badge = lines.Length > 1 ? lines.Length - 1 : -1;
+            float badgeTracking = 2f * FINE_TUBE_RADIUS + FINE_BADGE_DAYLIGHT;
+
+            float widest = 0f;
+            discRadius = 0f;
+
+            for (int l = 0; l < lines.Length; l++)
+            {
+                if (l == badge)
+                {
+                    float inkWidth = (LetterShapes.WordWidth(lines[l], badgeTracking) + 2f * FINE_TUBE_RADIUS) * FINE_BADGE_SCALE;
+                    float inkHeight = (LetterShapes.CAP_HEIGHT + 2f * FINE_TUBE_RADIUS) * FINE_BADGE_SCALE;
+                    discRadius = DISC_MARGIN * 0.5f * MathF.Sqrt(inkWidth * inkWidth + inkHeight * inkHeight);
+                    widest = MathF.Max(widest, 2f * (discRadius + DISC_RIM));
+                }
+                else widest = MathF.Max(widest, LetterShapes.WordWidth(lines[l], tracking) + 2f * FINE_TUBE_RADIUS);
+            }
+
+            //In block space y runs DOWN from 0, the first line's top ink edge, as in Place
+            List<Placement> raw = new();
+            float inkTop = 0f;
+            float discY = 0f;
+
+            for (int l = 0; l < lines.Length; l++)
+            {
+                bool onDisc = l == badge;
+                float scale = onDisc ? FINE_BADGE_SCALE : 1f;
+                float track = onDisc ? badgeTracking : tracking;
+                float centreY;
+
+                if (onDisc)
+                {
+                    discY = inkTop + DISC_OVERLAP - DISC_RIM - discRadius;
+                    centreY = discY;
+                }
+                else centreY = inkTop - FINE_TUBE_RADIUS - LetterShapes.CAP_HEIGHT * 0.5f;
+
+                float pen = -LetterShapes.WordWidth(lines[l], track) * scale * 0.5f;
+                foreach (char c in lines[l])
+                {
+                    float advance = LetterShapes.Advance(c);
+
+                    if (c != ' ')
+                        raw.Add(new Placement(pen + advance * 0.5f * scale, centreY, scale, 0f,
+                            onDisc ? BADGE_LIFT * scale - DISC_BEHIND : 0f));
+
+                    pen += (advance + track) * scale;
+                }
+
+                if (onDisc) inkTop = discY - discRadius - DISC_RIM;
+                else
+                {
+                    inkTop -= LetterShapes.CAP_HEIGHT + 2f * FINE_TUBE_RADIUS;
+                    if (l + 1 < lines.Length && l + 1 != badge) inkTop -= LINE_GAP;
+                }
+            }
+
+            //The wave carries a letter WAVE_DEPTH above and below its line, so the swept box is the ink grown by that at
+            //both ends; the shift puts its centre at 0
+            float reach = WAVE_DEPTH * MathF.Max(1f, FINE_BADGE_SCALE);
+            width = widest;
+            height = -inkTop + 2f * reach;
+            float shift = height * 0.5f - reach;
+
+            placements = new Placement[raw.Count];
+            for (int i = 0; i < raw.Count; i++)
+            {
+                Placement p = raw[i];
+                float across = width > 1e-4f ? MathHelper.Clamp(2f * p.X / width, -1f, 1f) : 0f;
+                placements[i] = new Placement(p.X, p.Y + shift, p.Scale, across, p.Lift);
+            }
+
+            disc = new Placement(0f, discY + shift, FINE_BADGE_SCALE, 0f, -DISC_BEHIND);
         }
 
         /// <summary>
@@ -774,12 +1084,24 @@ namespace BS3D.Effects
         /// themselves.
         /// </para>
         /// </remarks>
-        public void Draw(ICamera camera, float wallClock, float presence = 1f)
+        /// <returns>
+        /// Whether what was drawn is the High and Ultra build (#929), whose colours are display-referred: the host then
+        /// has to tell the resolve (<c>PostProcessPipeline.DisplayReferredLayer</c>) this frame, or they are tonemapped
+        /// as light.
+        /// </returns>
+        public bool Draw(ICamera camera, float wallClock, float presence = 1f)
         {
-            if (_letters.Length == 0) return;
+            if (_letters.Length == 0) return false;
 
             //The step aside (#261), eased by the caller; this class only scales
-            if (presence <= MIN_PRESENCE) return;
+            if (presence <= MIN_PRESENCE) return false;
+
+            //Which composition: the logo's at High and Ultra (#929), the rainbow's below them
+            bool fine = Fine && _fineEffect != null;
+            Placement[] placements = fine ? _finePlacements : _placements;
+            float blockWidth = fine ? _fineBlockWidth : _blockWidth;
+            float blockHeight = fine ? _fineBlockHeight : _blockHeight;
+            float widestLetter = fine ? _fineWidestLetter : _widestLetter;
 
             _device.BlendState = BlendState.Opaque;
             _device.DepthStencilState = DepthStencilState.Default;
@@ -819,16 +1141,16 @@ namespace BS3D.Effects
             //nothing at both ends). A bowed middle letter does project outwards a little, but it starts well
             //inside the frame and 0.45 of a cap height out of seven units moves it by six per cent of the way
             //it still has to go.
-            float reach = 0.5f * _blockWidth * MathF.Sin(MathF.Abs(YAW_CENTRE) + YAW_SWAY)
-                + 0.5f * _blockHeight * MathF.Sin(PITCH_ANGLE)
-                + 0.5f * _widestLetter * MathF.Sin(LETTER_YAW);
+            float reach = 0.5f * blockWidth * MathF.Sin(MathF.Abs(YAW_CENTRE) + YAW_SWAY)
+                + 0.5f * blockHeight * MathF.Sin(PITCH_ANGLE)
+                + 0.5f * widestLetter * MathF.Sin(LETTER_YAW);
 
             float availableHeight = BLOCK_HEIGHT_FRACTION * 2f * halfHeight / (1f + SCALE_BEAT);
             float availableWidth = BLOCK_WIDTH_FRACTION * 2f * halfWidth / (1f + SCALE_BEAT);
 
             float cap = MathF.Min(
-                availableHeight * DISTANCE / (_blockHeight * DISTANCE + availableHeight * reach),
-                availableWidth * DISTANCE / (_blockWidth * DISTANCE + availableWidth * reach));
+                availableHeight * DISTANCE / (blockHeight * DISTANCE + availableHeight * reach),
+                availableWidth * DISTANCE / (blockWidth * DISTANCE + availableWidth * reach));
 
             //THE INSET, one figure for both edges and both of them in world units off the frame's own extent —
             //the front end's own rule for its two corners ("so the name's distance from its edges and the
@@ -854,8 +1176,8 @@ namespace BS3D.Effects
 
             Vector3 blockCentre = camera.Position
                 + forward * DISTANCE
-                + right * ((halfWidth - inset) * shrink - _blockWidth * cap * 0.5f)
-                + up * ((halfHeight - inset) * shrink - _blockHeight * cap * 0.5f);
+                + right * ((halfWidth - inset) * shrink - blockWidth * cap * 0.5f)
+                + up * ((halfHeight - inset) * shrink - blockHeight * cap * 0.5f);
 
             //Block space to world: x right, y up, z towards the lens — then the block's own two sways, applied
             //BEFORE the basis so they turn the word about its own axes rather than about the world's.
@@ -872,8 +1194,14 @@ namespace BS3D.Effects
             Vector4 fullyOpen = new(0f, 0f, 0f, 1f);   //no occluder, no ambient occlusion: nothing shades a title
 
             for (int i = 0; i < _letters.Length; i++)
-                _letterWorld[i] = LetterWorld(in _letters[i], in _placements[i], cap, wallClock,
+                _letterWorld[i] = LetterWorld(in _letters[i], in placements[i], cap, wallClock,
                     Hop(_letters[i].Phase, wallClock), in blockToWorld);
+
+            if (fine)
+            {
+                DrawFine(camera, wallClock, cap, beat, in blockToWorld);
+                return true;
+            }
 
             //The rainbow's extra run while the dance lasts, zero otherwise, on all three shells alike
             float hueTurns = wallClock * HUE_FLOW + DanceHue(wallClock);
@@ -959,6 +1287,133 @@ namespace BS3D.Effects
             _device.BlendState = BlendState.AlphaBlend;
             _device.DepthStencilState = DepthStencilState.Default;
             _device.RasterizerState = RasterizerState.CullCounterClockwise;
+
+            return false;
+        }
+
+        /// <summary>
+        /// The High and Ultra build (#929), on the letter matrices <see cref="Draw"/> has solved: the bodies and the disc
+        /// first (the only passes that write depth, so early-Z rejects the rims they cover, the reason the rainbow build
+        /// draws its letters first), then the rims from the outside in - the additive halo, the violet line, the dark
+        /// keyline, each drawn by its FAR surface (front faces culled, as the rainbow's keyline is) and each painting
+        /// over the inner part of the one before, so every band survives only as its own ring. The disc's dark rim
+        /// last. Every opaque pass writes a display-referred colour (Wordmark.fx); the halo writes light.
+        /// </summary>
+        private void DrawFine(ICamera camera, float wallClock, float cap, float beat, in Matrix blockToWorld)
+        {
+            Matrix view = camera.View;
+            _fineProjectionParam.SetValue(camera.Projection);
+
+            //The Konami dance's extra turn of the wheel (#230) runs through the logo's colours too; zero at rest
+            float danceTurns = DanceHue(wallClock);
+
+            //The disc rides its letters' mean wave and stands DISC_BEHIND the letters' plane, its face towards the lens
+            Matrix discWorld = Matrix.Identity;
+            if (_disc != null)
+            {
+                float wave = MathF.Sin((_discPhase - wallClock * WAVE_RATE) * MathHelper.TwoPi);
+                float z = BOW_DEPTH * (1f - _discPlacement.Across * _discPlacement.Across) + _discPlacement.Lift
+                    - DISC_HALF_THICKNESS;
+
+                discWorld = Matrix.CreateRotationX(MathHelper.PiOver2)
+                    * Matrix.CreateScale(cap)
+                    * Matrix.CreateTranslation(_discPlacement.X * cap,
+                        (_discPlacement.Y + wave * WAVE_DEPTH * _discPlacement.Scale) * cap, z * cap)
+                    * blockToWorld;
+            }
+
+            _device.BlendState = BlendState.Opaque;
+            _device.DepthStencilState = DepthStencilState.Default;
+            _device.RasterizerState = RasterizerState.CullCounterClockwise;
+
+            for (int i = 0; i < _letters.Length; i++)
+            {
+                _fineAlbedoParam.SetValue(ColorSpace.SrgbToLinear(FineColour(i, danceTurns)));
+                DrawFineMesh(_fineBodies[_letters[i].Glyph], _fineBodyPass, in _letterWorld[i], in view);
+            }
+
+            if (_disc != null)
+            {
+                _fineAlbedoParam.SetValue(ColorSpace.SrgbToLinear(DISC_COLOUR_A));
+                DrawFineMesh(_disc, _fineDiscPass, in discWorld, in view);
+            }
+
+            //The halo: the rainbow build's aura, in each letter's own colour, breathing with the beat. Not round the badge's
+            //letters, where it would only lighten the disc behind them.
+            _device.BlendState = BlendState.Additive;
+            _device.DepthStencilState = DepthStencilState.DepthRead;
+            _device.RasterizerState = RasterizerState.CullClockwise;
+
+            float auraLevel = MathHelper.Lerp(AURA_REST, AURA_PEAK, beat);
+
+            for (int i = 0; i < _letters.Length; i++)
+            {
+                if (_onBadge[i]) continue;
+
+                float flare = 1f + HOP_FLARE * MathF.Sin(MathF.PI * Hop(_letters[i].Phase, wallClock));
+                _fineAlbedoParam.SetValue(Glow(FineColour(i, danceTurns), auraLevel * flare));
+                DrawFineMesh(_fineAuras[_letters[i].Glyph], _fineGlowPass, in _letterWorld[i], in view);
+            }
+
+            //The violet line, and on the badge's letters the logo's one thick dark rim in its place
+            _device.BlendState = BlendState.Opaque;
+
+            Vector3 outline = ColorSpace.SrgbToLinear(FINE_OUTLINE_COLOUR);
+            Vector3 badgeRim = ColorSpace.SrgbToLinear(BADGE_RIM_COLOUR);
+
+            for (int i = 0; i < _letters.Length; i++)
+            {
+                _fineAlbedoParam.SetValue(_onBadge[i] ? badgeRim : outline);
+                DrawFineMesh(_fineOutlines[_letters[i].Glyph], _fineFlatPass, in _letterWorld[i], in view);
+            }
+
+            //The dark keyline hugging every word letter
+            _fineAlbedoParam.SetValue(ColorSpace.SrgbToLinear(FINE_KEYLINE_COLOUR));
+
+            for (int i = 0; i < _letters.Length; i++)
+            {
+                if (_onBadge[i]) continue;
+
+                DrawFineMesh(_fineKeylines[_letters[i].Glyph], _fineFlatPass, in _letterWorld[i], in view);
+            }
+
+            if (_discRim != null)
+            {
+                _fineAlbedoParam.SetValue(badgeRim);
+                DrawFineMesh(_discRim, _fineFlatPass, in discWorld, in view);
+            }
+
+            _device.BlendState = BlendState.AlphaBlend;
+            _device.DepthStencilState = DepthStencilState.Default;
+            _device.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        private void DrawFineMesh(IProceduralMesh mesh, EffectPass pass, in Matrix world, in Matrix view)
+        {
+            _fineWorldViewParam.SetValue(world * view);
+            pass.Apply();
+
+            _device.SetVertexBuffer(mesh.VertexBuffer);
+            _device.Indices = mesh.IndexBuffer;
+            _device.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount);
+        }
+
+        /// <summary>
+        /// A letter's colour in the logo build (sRGB): its own off the PNG, turned round the wheel by the dance's extra
+        /// turn when one is running (a rotation about the grey axis, which keeps a colour's lightness as it turns).
+        /// </summary>
+        private Vector3 FineColour(int letter, float turns)
+        {
+            Vector3 colour = _fineColours[letter];
+            if (turns == 0f) return colour;
+
+            (float s, float c) = MathF.SinCos(turns * MathHelper.TwoPi);
+            float k = (1f - c) / 3f, r = MathF.Sqrt(1f / 3f) * s;
+
+            return Vector3.Clamp(new Vector3(
+                colour.X * (c + k) + colour.Y * (k - r) + colour.Z * (k + r),
+                colour.X * (k + r) + colour.Y * (c + k) + colour.Z * (k - r),
+                colour.X * (k - r) + colour.Y * (k + r) + colour.Z * (c + k)), Vector3.Zero, Vector3.One);
         }
 
         /// <summary>
@@ -974,7 +1429,7 @@ namespace BS3D.Effects
             float wave = MathF.Sin(wavePhase);
 
             //Bowed towards the lens by how far across the BLOCK it stands - see Placement.Across
-            float z = BOW_DEPTH * (1f - at.Across * at.Across);
+            float z = BOW_DEPTH * (1f - at.Across * at.Across) + at.Lift;
 
             //The dance: a jump's parabola, one eased whole turn, a swell at the top - all zero at rest
             float lift = HOP_LIFT * 4f * hop * (1f - hop);
@@ -1048,6 +1503,12 @@ namespace BS3D.Effects
             foreach (LetterMesh mesh in _bodyMeshes) mesh?.Dispose();
             foreach (LetterMesh mesh in _outlineMeshes) mesh?.Dispose();
             foreach (LetterMesh mesh in _auraMeshes) mesh?.Dispose();
+            foreach (LetterMesh mesh in _fineBodies) mesh?.Dispose();
+            foreach (LetterMesh mesh in _fineKeylines) mesh?.Dispose();
+            foreach (LetterMesh mesh in _fineOutlines) mesh?.Dispose();
+            foreach (LetterMesh mesh in _fineAuras) mesh?.Dispose();
+            _disc?.Dispose();
+            _discRim?.Dispose();
         }
     }
 }

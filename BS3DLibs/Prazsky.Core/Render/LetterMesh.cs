@@ -88,6 +88,27 @@ namespace Prazsky.Core.Render
         /// </param>
         /// <param name="sides">Facets around the tube; the outline pass asks for fewer, being one flat tone.</param>
         public LetterMesh(GraphicsDevice device, char character, float tubeRadius, int sides = DEFAULT_SIDES)
+            : this(device, character, tubeRadius, sides, CAP_RINGS, ARC_TOLERANCE, tangentCoordinates: false)
+        {
+        }
+
+        /// <summary>
+        /// The same letter at a resolution of the caller's choosing (#929): the wordmark's High and Ultra build asks
+        /// for more facets, rounder domes and finer arcs than <see cref="DEFAULT_SIDES"/>, <see cref="CAP_RINGS"/> and
+        /// <see cref="ARC_TOLERANCE"/>, since its letters are lit by a studio streak that shows every facet the old
+        /// gradient hid.
+        /// </summary>
+        /// <param name="capRings">Rings in each domed end, equator to pole.</param>
+        /// <param name="arcTolerance">How far an arc may depart from its chords, in cap heights.</param>
+        /// <param name="tangentCoordinates">
+        /// Writes the stroke's own direction in the letter's plane into every vertex's texture coordinate, which is
+        /// what a shader needs to lay a highlight ALONG a tube rather than round a sphere: the streak a round stroke
+        /// carries is the line where its normal faces the light's half vector with the tube's axis taken out of it,
+        /// and the axis is not recoverable from the normal alone. Zero (the default) leaves the coordinate empty, as
+        /// every letter was built until then.
+        /// </param>
+        public LetterMesh(GraphicsDevice device, char character, float tubeRadius, int sides, int capRings,
+            float arcTolerance, bool tangentCoordinates)
         {
             Character = char.ToUpperInvariant(character);
             TubeRadius = tubeRadius;
@@ -107,8 +128,12 @@ namespace Prazsky.Core.Render
 
             Advance = LetterShapes.Advance(Character);
 
+            if (capRings < 1) throw new ArgumentOutOfRangeException(nameof(capRings));
+            if (arcTolerance <= 0f) throw new ArgumentOutOfRangeException(nameof(arcTolerance));
+
             MeshBuilder builder = new();
-            foreach (LetterStroke stroke in strokes) SweepStroke(builder, stroke, tubeRadius, sides);
+            foreach (LetterStroke stroke in strokes)
+                SweepStroke(builder, stroke, tubeRadius, sides, capRings, arcTolerance, tangentCoordinates);
 
             (VertexBuffer, IndexBuffer, PrimitiveCount) = builder.Build(device);
 
@@ -142,16 +167,18 @@ namespace Prazsky.Core.Render
         /// eight domes and eight overlapping hemispheres, at <see cref="CAP_RINGS"/> rings apiece.
         /// </para>
         /// </summary>
-        private static void SweepStroke(MeshBuilder builder, LetterStroke stroke, float radius, int sides)
+        private static void SweepStroke(MeshBuilder builder, LetterStroke stroke, float radius, int sides,
+            int capRings, float arcTolerance, bool tangentCoordinates)
         {
             //The skeleton, then the domes on either end of it. Sampled into a list rather than an array
             //because an arc's step count is solved from its own curvature, so the length is not known until
             //it has been walked; this runs once, at load, so the allocation is not on any frame's path.
-            List<(Vector3 Centre, Vector3 Tangent)> path = stroke.Sample(ARC_TOLERANCE);
+            List<(Vector3 Centre, Vector3 Tangent)> path = stroke.Sample(arcTolerance);
 
-            int ringCount = path.Count + 2 * CAP_RINGS;
+            int ringCount = path.Count + 2 * capRings;
             Vector3[,] ring = new Vector3[ringCount, sides];
             Vector3[,] ringNormal = new Vector3[ringCount, sides];
+            Vector2[] ringAxis = new Vector2[ringCount];
             bool[] degenerate = new bool[ringCount];
 
             for (int r = 0; r < ringCount; r++)
@@ -162,26 +189,29 @@ namespace Prazsky.Core.Render
                 float theta;
                 float alongTangent;
 
-                if (r < CAP_RINGS)
+                if (r < capRings)
                 {
                     sample = 0;
-                    theta = (CAP_RINGS - r) / (float)CAP_RINGS * MathHelper.PiOver2;
+                    theta = (capRings - r) / (float)capRings * MathHelper.PiOver2;
                     alongTangent = -MathF.Sin(theta);        //the entry dome walks BACK along the tangent
                 }
-                else if (r >= CAP_RINGS + path.Count)
+                else if (r >= capRings + path.Count)
                 {
                     sample = path.Count - 1;
-                    theta = (r - (CAP_RINGS + path.Count) + 1) / (float)CAP_RINGS * MathHelper.PiOver2;
+                    theta = (r - (capRings + path.Count) + 1) / (float)capRings * MathHelper.PiOver2;
                     alongTangent = MathF.Sin(theta);
                 }
                 else
                 {
-                    sample = r - CAP_RINGS;
+                    sample = r - capRings;
                     theta = 0f;
                     alongTangent = 0f;
                 }
 
                 (Vector3 centre, Vector3 tangent) = path[sample];
+
+                //The stroke's direction for the shader's streak, the dome taking its stroke's: zero unless asked for
+                if (tangentCoordinates) ringAxis[r] = new Vector2(tangent.X, tangent.Y);
 
                 float ringRadius = radius * MathF.Cos(theta);
                 Vector3 ringCentre = centre + tangent * (radius * alongTangent);
@@ -223,19 +253,21 @@ namespace Prazsky.Core.Render
                     Vector3 face = Vector3.Normalize(
                         ringNormal[r, i] + ringNormal[r, j] + ringNormal[r + 1, i] + ringNormal[r + 1, j]);
 
+                    Vector2 low = ringAxis[r], high = ringAxis[r + 1];
+
                     if (highPole)
                         builder.AddTriangle(
                             ring[r, i], ring[r, j], ring[r + 1, i],
-                            ringNormal[r, i], ringNormal[r, j], ringNormal[r + 1, i], face);
+                            ringNormal[r, i], ringNormal[r, j], ringNormal[r + 1, i], low, low, high, face);
                     else if (lowPole)
                         builder.AddTriangle(
                             ring[r, i], ring[r + 1, j], ring[r + 1, i],
-                            ringNormal[r, i], ringNormal[r + 1, j], ringNormal[r + 1, i], face);
+                            ringNormal[r, i], ringNormal[r + 1, j], ringNormal[r + 1, i], low, high, high, face);
                     else
                         builder.AddQuad(
                             ring[r, i], ring[r, j], ring[r + 1, j], ring[r + 1, i],
                             ringNormal[r, i], ringNormal[r, j],
-                            ringNormal[r + 1, j], ringNormal[r + 1, i], face);
+                            ringNormal[r + 1, j], ringNormal[r + 1, i], low, low, high, high, face);
                 }
             }
         }

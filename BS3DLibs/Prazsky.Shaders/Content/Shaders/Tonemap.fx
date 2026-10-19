@@ -92,6 +92,17 @@ float GrainStrength;
 float GrainSeed;      //advanced per frame off the wall clock, so the grain never freezes
 float2 OutputSize;    //back-buffer pixels: one grain per OUTPUT pixel, whatever the supersample factor
 
+//THE DISPLAY-REFERRED LAYER (#929): pixels the scene pass wrote with a NEGATIVE alpha hold a colour that is already
+//the picture - display-linear, authored the way a logo is - not light for the curve to map. The Game's 3D wordmark
+//on High and Ultra is the one writer: its letters have to come out as the PNG logo's own colours, and through ACES a
+//saturated channel at full brightness is infinite radiance; it is also the game's name and is spared the film grain
+//and the lens's colour fringe, as the UI is. Nothing else in the scene pass writes a negative alpha (opaque writes
+//land in 0..1, alpha blending keeps it there, additive blending only adds), so the sign is the mask; the
+//multisample resolve and the supersample filter average it with the frame's positive alpha at the layer's edges,
+//which turns the edge into a coverage ramp. Zero (every frame without the layer, and every other executable) skips
+//the read altogether.
+float DisplayReferred;
+
 //Underwater tint. When the camera dips below the sea surface the whole frame is pulled into a blue-green
 //murk so it reads as being submerged rather than showing the world unchanged with a water plane cutting
 //through it. Applied in LINEAR light before the curve, as a cheap water column: the scene is absorbed
@@ -437,6 +448,31 @@ float4 SampleRefraction(float2 uv)
     return bend / (SupersampleFactor * SupersampleFactor);
 }
 
+//The scene's colour AND alpha at one screen position, filtered exactly as SampleScene filters the colour - for the
+//display-referred layer, whose mask is the alpha (see DisplayReferred). Read only inside that layer's branch.
+float4 SampleSceneWithAlpha(float2 uv)
+{
+    float4 scene = 0;
+
+    [branch]
+    if (MagnifyScene > 0 || SupersampleFactor == 2) scene = tex2Dlod(SceneSamplerLinear, float4(uv, 0, 0));
+    else
+    {
+        for (int y = 0; y < SupersampleFactor; y++)
+        {
+            for (int x = 0; x < SupersampleFactor; x++)
+            {
+                float2 offset = (float2(x, y) + 0.5 - SupersampleFactor * 0.5) * SourceTexelSize;
+                scene += tex2Dlod(SceneSampler, float4(uv + offset, 0, 0));
+            }
+        }
+
+        scene /= SupersampleFactor * SupersampleFactor;
+    }
+
+    return scene;
+}
+
 float4 MainPS(VertexShaderOutput input) : COLOR
 {
     float3 color = ResolveLinear(input.TexCoord);
@@ -448,6 +484,26 @@ float4 MainPS(VertexShaderOutput input) : COLOR
     //The grain, on the tonemapped value (see the uniforms). The seed's fraction shifts the hash lattice
     //to a fresh position every frame, which is what makes grain read as film rather than as a dirty pane.
     mapped = ApplyGrain(mapped, input.TexCoord);
+
+    //The display-referred layer (#929, see DisplayReferred): where the alpha is negative the scene holds the picture
+    //itself, read here un-fringed and laid over the mapped frame without the curve, the exposure or the grain. The
+    //glare still lands on it, mapped on its own, so a halo round the layer crosses it as it crosses everything. The
+    //mask is the alpha's negative half, so a pixel the layer only half covers (alpha 0) keeps the frame's own path.
+    [branch]
+    if (DisplayReferred > 0.0)
+    {
+        float4 layer = SampleSceneWithAlpha(input.TexCoord);
+        float cover = saturate(-layer.a);
+
+        [branch]
+        if (cover > 0.0)
+        {
+            float3 glare = tex2Dlod(GlareSampler, float4(input.TexCoord, 0, 0)).rgb * GlareIntensity;
+            float3 title = saturate(layer.rgb + ACESFilmic(glare * Exposure));
+
+            mapped = lerp(mapped, title, cover);
+        }
+    }
 
     return float4(LinearToSrgb(mapped), 1);
 }

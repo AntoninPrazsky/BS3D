@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-19 — #929 titulek v menu na High/Ultra jako PNG logo — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: na High/Ultra je nápis 3D verzí loga: barvy písmen z PNG, tlustší těsnější trubky, fialové obrysy, 3D na fialovém disku, studiový lesk podél tahů (`Wordmark.fx`). Low/Medium i Potato beze změny.
+- ⚠ Ostrost brala hlavně aberace a zrno v rohu snímku: písmena jdou se zápornou alfou jako hotový obraz a resolve je klade bez křivky, zrna a aberace (`DisplayReferredLayer`).
+- Cena +0,03 a +0,07 ms z 10,5 ms (Ultra, 4K); další páry zkreslil cizí Testbed na GPU.
+- Otevřené: verdikt oka, snímky ve `verdicts\929\`.
+
 ## 2026-10-19 — #892 břehy potoka přirozeně rozložené — desktop (RDT-PC), Claude Code (bs3d-bf)
 - Majitel (Vrať, 18. 10.): rybník dobrý, potok vypadá jako vykopaný bagrem. Hotovo: potok leží v širokém mělkém úvalu (`MeadowCarve.BrookSwale` = shader): štěrková mez, nízký hliněný stupínek, travnatý břeh 2–3,2 do vlastní výšky pole (do kopce širší), nízký lem. Úval 2,6–3,4× šířka vody; sklon břehu medián 0,47. Rybník beze změny, výsadba stojí kde stála (posazená, ne přesunutá).
 - ⚠ Cena: konec průletu potokem +0,2 až +0,5 ms (13,48 > 13,33), pevná kamera +0,66: patch kreslí dvojnásob země u objektivu za svou přirážku (#924).
