@@ -109,7 +109,7 @@ namespace BS3D
         internal BS3D.Effects.CrateField SessionCrates { get; set; }
 
         /// <summary>
-        /// The session's four laser emitters on the drain's rim (#874): their renderers join the sky-lit walk for as long as
+        /// The session's four laser emitters inside the drain's funnel (#874): their renderers join the sky-lit walk for as long as
         /// they stand, as the crates' do, so a renderer made after the scene's lighting is not drawn under the library's default rig.
         /// </summary>
         internal BS3D.Effects.LaserEmitters SessionEmitters { get; set; }
@@ -421,7 +421,7 @@ namespace BS3D
             if (SessionCrates != null)
                 foreach (InstancedModelRenderer renderer in SessionCrates.Renderers) yield return renderer;
 
-            //The laser emitters on the drain's rim (#874), made with the session's first level
+            //The laser emitters inside the drain's funnel (#874), made with the session's first level
             if (SessionEmitters != null)
                 foreach (InstancedModelRenderer renderer in SessionEmitters.Renderers) yield return renderer;
 
