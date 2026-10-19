@@ -1,28 +1,150 @@
 {
-    "file":  "theme-mural-sunset.wav",
-    "created":  "2026-09-23",
-    "issue":  486,
-    "family":  "mural",
-    "chapter":  "The Gallery (savanna) - Mural: log drum and marimba, G major 120",
-    "purpose":  "Master of Game/Music/mural-sunset.ogg, one of the mural family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "Slow warm savanna sunset instrumental: soft marimba and kalimba melody, low log drum pulse, gentle strings, light shaker, peaceful and glowing, major key, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  92,
-                    "keyscale":  "G major",
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-mural-sunset.wav: 63.3s loop = source 32.60s..95.90s (23.98 bars at 90.9 bpm), crossfade 1.32s | context match 0.698 (best 0.747) | crossfade rhythm r=0.79 vs the track a bar later r=0.83: in time | spectrum cos=0.76"
-                 ],
-    "measured":  "generate-music.ps1 end to end 60.2 s (ace-lm + ace-synth + loop cut)",
-    "rendered":  true
+  "file": "theme-mural-sunset.wav",
+  "created": "2026-10-19",
+  "issue": 905,
+  "family": "mural",
+  "chapter": "The Gallery (savanna) - regenerated on the desert's ember model (#905): a soft marimba and kalimba tune in the middle register that the ear can follow, strummed nylon guitar and warm strings under it, the percussion a very soft figure far behind the melody (the owner's Jukebox note, 2026-10-16: a bit disharmonic, as if the drums were overriding the melody)",
+  "purpose": "Master of Game/Music/mural-sunset.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-905-chosen on the desktop, with its .raw.wav; this is candidate c4r, theme-mural-sunset-c4r in masters-905, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-905.ps1 (adapted from #706 batch) -> generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Gentle warm savanna sunset instrumental: a warm kalimba and a nylon-string guitar playing one simple singing melody together in the middle register, a soft marimba answering it between the phrases, warm strings holding long glowing chords, a round plucked acoustic bass walking under the chords, the percussion only a very quiet shaker and fingertip conga far behind everything, soft and sparse, the melody always clearly in front, tender and glowing like the last golden light over the grassland, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+    "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, kick drum, snare, toms, log drum, heavy drums, loud drums, pounding drums, drum fills, drum solo, long drum-only sections, clatter, boomy sub bass, bright crash cymbals, splashy cymbals, open hi-hats, tambourine, hand claps, dissonance, out of tune, atonal, discordant, clashing notes, comedy, cartoon, silly, childish, toy piano, music box, kazoo, slide whistle, circus, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, fade out, fade in",
+    "instrumental": true,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 92,
+    "keyscale": "G major",
+    "seed": 612582960,
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-905\\theme-mural-sunset-c4r.wav: 42.7s loop = source 44.98s..87.65s of the raw render (15.96 bars at 89.8 bpm), crossfade 1.34s | context match 0.745 (best 0.790) | crossfade rhythm r=0.95 vs the track a bar later r=0.64: in time | spectrum cos=0.93"
+  ],
+  "lm_check": {
+    "request0_captured": true,
+    "caption_verbatim": true,
+    "seed_in_request0": 612582960,
+    "bpm_in_request0": 92,
+    "keyscale_in_request0": "G major",
+    "duration_in_request0": 120.0
+  },
+  "measured": "generate-music.ps1 end to end 77,8 s (ace-lm + ace-synth + loop cut), exit 0",
+  "rendered": true,
+  "bake": {
+    "trim_db": -2.5,
+    "why": "The master's peaks are lifted over full scale by the themes' loudness: untrimmed it decoded to 44 clipped runs and 92 samples at the rail (post-codec peak +0.14 dBFS); trimmed 1.0 dB 1 run and 8 samples, 1.5 dB 1 run and 3 samples, 2.0 dB 1 run and 4 samples, 2.5 dB no run and no sample at the rail (post-codec peak -0.25 dBFS, -15.8 LUFS, 2.5 dB under the themes' -15.0 dBFS RMS)."
+  },
+  "chosen": {
+    "candidate": "c4r",
+    "round": 1,
+    "of": [
+      "c1",
+      "c2",
+      "c3",
+      "c4",
+      "c4r",
+      "c5",
+      "c6"
+    ],
+    "why": "Chosen by measurement, on the baked recording beside the ember family in one run (Tools/Generation/measure-music.py --reference ember --sidecars): every column inside ember's range (200 Hz-2 kHz 31.7 % and 300 Hz-4 kHz 26.8 %, band shares are held to a lowest only; 0.1 % above 6 kHz; tonal mid 79 %, flatness 0.02, 3.45 held-note changes a second, tempo wander 0.03 %, 0 clipped runs, pitch wobble 1.7 and detune 1.3 cents, both under ember's lowest, which only means steadier), 8.4 short gaps a minute (deepest 27 dB, longest 240 ms; ember 0.0-27.0), the opening repeats 1 bar (2.7 s) and the longest repeat is 1 bar, 2.6 % of 155 held notes out of G major (4 notes; 0.6 % out of the best scale). 97.4 % of its pitched energy (Tools/Generation/key-share.py: every note in 100 Hz-2.5 kHz, not just the dominant one) lies on the G major scale where the replaced recording read 90.7 %. The loop is 42.7 s (15.96 bars at 89.8 bpm), the cut's context match 0.745, rhythm r 0.95 against 0.64 a bar later, spectrum cosine 0.93; the step across the wrap is +2.9 dB over 250 ms (p34 of its own steps), +1.9 dB over 1 s (p51) and +0.4 dB over 2 s (p20); the level swings 6.5 dB and no 2 s stretch is a hole. The drums layer (the stem Demucs separates from this very recording) stands 11.4 dB under the mix over the whole band and 15.3 dB under it in 300 Hz-4 kHz (replaced: 8.9 dB), 10.4 dB under in its loudest 250 ms against 5.1, and in 1 % of the 250 ms windows within 6 dB of the mix (replaced: 20 %; Tools/Generation/drum-share.py). c4's first cut (the same render, source 36.4-79.1 s) had a 1 s step of -9.3 dB across the wrap, the largest of its loop's own 1 s steps, which the 250 ms step (-6.6 dB, p67) did not show; cut again from the render's seconds 40-120 it reads +1.9 dB. Judged by numbers only: whether the tune is harmonious and the drums sit where he wants them are for the owner's ear.",
+    "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wobble, detune, short gaps, opening repeat, notes out of key, wrap step) beside the loop cut's own check, the hole and dropout shares, the wrap step over 250 ms, 1 s and 2 s, the pitched energy on the key's scale (Tools/Generation/key-share.py), and each candidate's separated drums stem against its loop (Tools/Generation/drum-share.py --pairs); a seam below its own rhythm, a hole over 15 % of the loop, a 2 s dropout more than 20 dB down, a wrap step of 10 dB or more or at p97 of the loop's own, a seam cosine under 0.3, a loop under 30 s, more short gaps a minute than ember's highest, or any column outside ember's range ruled a candidate out; the baked recording measured again from its .ogg; the table is in the closing comment of #905"
+  },
+  "alternatives": [
+    {
+      "candidate": "c1",
+      "round": "1",
+      "seed": 2019187835,
+      "bpm": 92,
+      "caption": "brief_1 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-905\\theme-mural-sunset-c1.wav: 62.6s loop = source 46.70s..109.30s (24.03 bars at 92.1 bpm), crossfade 1.30s | context match 0.726 (best 0.776) | crossfade rhythm r=0.74 vs the track a bar later r=0.52: in time | spectrum cos=0.83"
+      ],
+      "refused_or_not_chosen": "Not chosen: 2.67 held-note changes a second (ember at least 2.74) and only 90.4 % of its pitched energy on the G major scale; inside ember on every other column, with the drums stem 12.1 dB under the mix in 300 Hz-4 kHz."
+    },
+    {
+      "candidate": "c2",
+      "round": "1",
+      "seed": 453503248,
+      "bpm": 92,
+      "caption": "brief_1 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-905\\theme-mural-sunset-c2.wav: 57.4s loop = source 23.46s..80.85s (22.04 bars at 92.2 bpm), crossfade 1.30s | context match 0.301 (best 0.347) | crossfade rhythm r=0.32 vs the track a bar later r=0.20: in time | spectrum cos=0.57"
+      ],
+      "refused_or_not_chosen": "Not chosen, the nearest on every column but one: inside ember everywhere and the quietest drums of the six that have any (21.7 dB under the mix in 300 Hz-4 kHz, 96.0 % of its pitched energy on the scale), but a loop cut that does not hold: context match 0.301, rhythm r 0.32 against 0.20 a bar later, spectrum cosine 0.57."
+    },
+    {
+      "candidate": "c3",
+      "round": "1",
+      "seed": 1099887301,
+      "bpm": 92,
+      "caption": "brief_1 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-905\\theme-mural-sunset-c3.wav: 42.2s loop = source 37.70s..79.90s (15.99 bars at 91.0 bpm), crossfade 1.32s | context match 0.815 (best 0.862) | crossfade rhythm r=0.82 vs the track a bar later r=0.77: in time | spectrum cos=0.81"
+      ],
+      "refused_or_not_chosen": "Not chosen: 2.70 held-note changes a second (ember at least 2.74); a 42.2 s loop with a good cut (context 0.815, cosine 0.81) and the drums 12.4 dB under the mix in 300 Hz-4 kHz, 93.2 % of its pitched energy on the scale."
+    },
+    {
+      "candidate": "c4",
+      "round": "1",
+      "seed": 612582960,
+      "bpm": 92,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-905\\theme-mural-sunset-c4.wav: 42.7s loop = source 36.43s..79.10s (15.96 bars at 89.8 bpm), crossfade 1.34s | context match 0.756 (best 0.765) | crossfade rhythm r=0.93 vs the track a bar later r=0.59: in time | spectrum cos=0.98"
+      ],
+      "refused_or_not_chosen": "The chosen render, first cut: a 1 s step of -9.3 dB across the wrap, the largest of its loop's own 1 s steps (see the chosen recut c4r), otherwise the same figures."
+    },
+    {
+      "candidate": "c5",
+      "round": "1",
+      "seed": 786179906,
+      "bpm": 92,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-905\\theme-mural-sunset-c5.wav: 47.5s loop = source 38.66s..86.15s (17.97 bars at 90.8 bpm), crossfade 1.32s | context match 0.521 (best 0.568) | crossfade rhythm r=0.70 vs the track a bar later r=-0.02: in time | spectrum cos=0.78"
+      ],
+      "refused_or_not_chosen": "Refused: 2.63 held-note changes a second, tempo wander 0.38 % (ember at most 0.29) and a weak cut (context 0.521, rhythm r 0.70 against -0.02 a bar later); 47.2 % of its energy in 200 Hz-2 kHz and a drums stem 35 dB under the mix, so a recording without drums in practice."
+    },
+    {
+      "candidate": "c6",
+      "round": "1",
+      "seed": 2069984212,
+      "bpm": 92,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-905\\theme-mural-sunset-c6.wav: 41.7s loop = source 31.21s..72.95s (16.00 bars at 92.0 bpm), crossfade 1.30s | context match 0.722 (best 0.764) | crossfade rhythm r=0.77 vs the track a bar later r=0.82: in time | spectrum cos=0.71"
+      ],
+      "refused_or_not_chosen": "Runner-up, inside ember on every column: a 41.7 s loop with a good cut (context 0.722, rhythm r 0.77 against 0.82, cosine 0.71), a steady soft groove (drums stem 12.6 dB under the mix in 300 Hz-4 kHz, 14 % of the windows within 6 dB), but 89.9 % of its pitched energy on the G major scale where c4r reads 97.4 %."
+    }
+  ],
+  "alternative_briefs": {
+    "brief_1": {
+      "caption": "Slow warm savanna sunset instrumental: a soft marimba playing a simple singing melody a listener could hum back, in the middle register, answered phrase by phrase by a kalimba, warm nylon-string guitar chords strummed gently under it, a gentle string ensemble holding long warm chords, a round warm acoustic bass, the percussion very soft and far behind the melody, only a quiet shaker and a soft low hand drum on the beat, barely louder than the room, peaceful and glowing like the last light over the grassland, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, kick drum, snare, toms, log drum, heavy drums, loud drums, pounding drums, drum fills, drum solo, long drum-only sections, clatter, boomy sub bass, bright crash cymbals, splashy cymbals, open hi-hats, tambourine, hand claps, dissonance, out of tune, atonal, discordant, clashing notes, comedy, cartoon, silly, childish, toy piano, music box, kazoo, slide whistle, circus, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, fade out, fade in",
+      "bpm": 92,
+      "round": "1",
+      "candidates": [
+        "c1",
+        "c2",
+        "c3"
+      ]
+    }
+  },
+  "replaces": {
+    "issue": 486,
+    "created": "2026-09-23",
+    "caption": "Slow warm savanna sunset instrumental: soft marimba and kalimba melody, low log drum pulse, gentle strings, light shaker, peaceful and glowing, major key, no vocals",
+    "negative": "vocals, singing, audience applause, crowd noise, live recording",
+    "seed": null,
+    "bpm": 92,
+    "keyscale": "G major",
+    "loop_log": [
+      "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-mural-sunset.wav: 63.3s loop = source 32.60s..95.90s (23.98 bars at 90.9 bpm), crossfade 1.32s | context match 0.698 (best 0.747) | crossfade rhythm r=0.79 vs the track a bar later r=0.83: in time | spectrum cos=0.76"
+    ],
+    "why_replaced": "The owner's Jukebox note of 2026-10-16 (translated from Czech): it sounds a bit disharmonic, as if the drums were overriding the melody (#905). Measured on 2026-10-17 beside ember it sat inside the line on every column, so the tool named nothing; measured on 2026-10-19 its drums stem stood 8.9 dB under the mix in 300 Hz-4 kHz (its family -7.9 to -18.3), 5.1 dB under in its loudest 250 ms (family -5.4 to -14.1, the highest), within 6 dB of the mix in 20 % of the windows (family 1-35 %), and 90.7 % of its pitched energy lay on the G major scale (the family 84.8-99.8 %), so the drums were not an outlier by number and the harmony not clearly off. Its brief asked for a low log drum pulse and a light shaker under a soft marimba and kalimba melody and named only vocals, singing, audience applause, crowd noise and live recording in the negative."
+  }
 }

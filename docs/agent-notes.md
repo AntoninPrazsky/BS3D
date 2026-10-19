@@ -1112,3 +1112,8 @@ Pravidla:
 - Inventura všech karet je na issue. Dvě věci chtěla jediná karta, `combine` (pravé tlačítko + A/D): je z ní dvoukroková karta („Hold to look down the barrel“, po splnění „Now walk the gun round“); zaznamená se po druhém kroku pod starým klíčem, uložené hry se neučí znovu. Ostatní karty jsou jeden rozkaz bez „proč“ (to drží Help), `TutorialCopyTests` je hlídá a na starém textu selhal.
 - ⚠ Lekce s držením nehrají skripty `rmb=`/`walk=`: druhý krok je vidět jen v reelu `tutorial=demo`; skutečnou detekci nikdo ručně nehrál.
 - Otevřené: verdikt newcomer + oko majitele na formulaci (snímky ve `verdicts\930\`).
+
+## 2026-10-19 — #905 #906 Sunset a Glacier přegenerovány — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: `mural-sunset` (c4 přeřezaný ze 40–120 s surového renderu: první střih měl krok −9,3 dB přes zlom při 1 s; trim −2,5 dB) a `summit-glacier` (c15 z 18 kandidátů, jediný uvnitř `ember` s tichými bicími). Nové `drum-share.py`: starý Glacier měl bicí na úrovni mixu (−2,3 dB v 300 Hz–4 kHz, rodina −6 až −21), Sunset ne (−8,9, rodina −8 až −18). `key-share.py`: tóny na stupnici, Sunset 90,7 → 97,4 %.
+- ⚠ Bez zvukového zařízení nikdo neposlouchal; ve hře `[music] … (drums layered)`.
+- Otevřené: `verdict-eye` obou, `verdicts\905\`.
