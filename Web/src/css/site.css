@@ -129,6 +129,7 @@ h3 { font-size: 1.45rem; }
 .gallery figcaption { color: var(--muted); font-size: 0.95rem; margin-top: 8px; }
 .gallery figcaption strong { color: var(--text); font-weight: 600; }
 .later, .video { color: var(--muted); text-align: center; margin: 28px 0 0; }
+.later + .later { margin-top: 6px; }
 
 .features { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
 @media (min-width: 800px) { .features { grid-template-columns: 1fr 1fr; gap: 16px 32px; } }
@@ -141,8 +142,16 @@ h3 { font-size: 1.45rem; }
 }
 .features strong { color: var(--text); font-weight: 600; }
 
-.posts { padding-left: 1.2em; }
-.posts time { color: var(--muted); font-size: 0.95rem; margin-left: 0.5em; }
+.posts { list-style: none; padding: 0; margin: 0 0 20px; display: grid; gap: 16px; }
+.posts li { padding-left: 16px; border-left: 4px solid var(--accent); }
+.posts a { font-weight: 600; }
+.posts time { color: var(--muted); font-size: 0.95rem; margin-left: 0.5em; white-space: nowrap; }
+.post-summary { display: block; color: var(--muted); }
+
+/* The slim row of links above the landing page's logo */
+.topnav { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 4px 22px; font-size: 0.95rem; }
+.topnav a { color: var(--muted); text-decoration: none; }
+.topnav a:hover { color: var(--text); text-decoration: underline; }
 
 .download { background: var(--bg-sunken); border-top: 1px solid var(--line); }
 .platforms { display: grid; gap: 20px; }
@@ -155,12 +164,52 @@ h3 { font-size: 1.45rem; }
 
 .footer { border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--muted); font-size: 0.95rem; }
 
-/* A post (the blog, later): the bar to get home, then the words */
+/* The blog (#928): the bar to get home, a list of posts, and a post as a column of prose in the site's own type */
 .bar { border-bottom: 1px solid var(--line); background: var(--bg-sunken); }
 .bar-inner { display: flex; align-items: center; justify-content: space-between; padding-block: 10px; }
+.bar-nav { display: flex; align-items: center; gap: 22px; }
+.bar-nav > a:not(.button) { color: var(--text); text-decoration: none; font-weight: 600; }
+.bar-nav > a:not(.button):hover { color: var(--link); text-decoration: underline; }
+
+.blog { padding-block: 40px 56px; max-width: 760px; }
+.blog h1 { font-size: clamp(2.4rem, 6vw, 3.4rem); }
+.postlist { list-style: none; padding: 0; margin: 32px 0; display: grid; gap: 16px; }
+.postcard { background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px 22px; }
+.postcard h2 { font-size: clamp(1.6rem, 3.6vw, 2rem); margin: 0 0 0.3em; }
+.postcard h2 a { color: var(--text); text-decoration: none; }
+.postcard h2 a:hover { color: var(--accent); }
+.postcard p { margin: 0; color: var(--muted); }
+.postcard .post-meta { margin-bottom: 8px; }
+
 .post { padding-block: 40px 56px; max-width: 760px; }
-.post-date { color: var(--muted); margin: 0 0 6px; }
-.post h1 { font-size: clamp(2.2rem, 5vw, 3rem); }
-.post-back { margin-top: 40px; }
+.post-meta { color: var(--muted); margin: 0 0 6px; font-size: 0.95rem; }
+.topic {
+  display: inline-block; margin-left: 8px; padding: 0 0.6em;
+  border: 1px solid var(--line); border-radius: 999px;
+  font-size: 0.82rem; letter-spacing: 0.04em; text-transform: uppercase;
+}
+.post h1 { font-size: clamp(2.2rem, 5vw, 3rem); margin-bottom: 0.6em; }
+.post h2 { font-size: clamp(1.55rem, 3.4vw, 1.95rem); margin: 1.9em 0 0.5em; }
+.post p, .post ul, .post ol { margin: 0 0 1.1em; }
+.post ul, .post ol { padding-left: 1.3em; }
+.post li { margin-bottom: 0.35em; }
+.post code { white-space: normal; overflow-wrap: anywhere; }
+.post pre {
+  background: var(--bg-sunken); border: 1px solid var(--line); border-radius: 8px;
+  padding: 14px 16px; margin: 0 0 1.3em; overflow-x: auto;
+  font: 0.88rem/1.5 ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+.post pre code { background: none; border: 0; padding: 0; white-space: pre; overflow-wrap: normal; font: inherit; }
+.post blockquote { margin: 0 0 1.2em; padding: 2px 0 2px 16px; border-left: 4px solid var(--accent); color: var(--muted); }
+.post table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; margin: 0 0 1.3em; font-size: 0.95rem; }
+.post th, .post td { padding: 6px 14px; text-align: left; border-bottom: 1px solid var(--line); }
+.post th { color: var(--muted); font-weight: 600; }
+.post figure { margin: 1.7em 0; }
+.post figure img { width: 100%; border-radius: var(--radius); }
+.post figcaption { color: var(--muted); font-size: 0.95rem; margin-top: 8px; }
+.post-more { margin-top: 44px; padding-top: 20px; border-top: 1px solid var(--line); }
+.post-more p { margin: 0 0 0.5em; }
+.post-more span { display: inline-block; min-width: 4.5em; color: var(--muted); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.post-back { margin-top: 1.1em; }
 
 @media (prefers-reduced-motion: reduce) { .button { transition: none; } .button:hover { transform: none; } }
