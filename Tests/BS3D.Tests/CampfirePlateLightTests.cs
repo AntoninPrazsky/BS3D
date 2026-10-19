@@ -9,8 +9,8 @@ using Xunit.Abstractions;
 namespace BS3D.Tests
 {
     /// <summary>
-    /// The savanna's campfires light the island's top plate (#885). The fires burn on the ground about 3 to 7 units below
-    /// the plate (2.8 to 7.0 at the defaults, <see cref="TheFiresStandThreeToSevenUnitsBelowThePlate"/>), and a point light below an up-facing surface has N.L at or under zero there: with the light at the ground
+    /// The savanna's campfires light the island's top plate (#885). The fires burn 2.5 units below the plate on their mounds (#887; on
+    /// the plain's own relief, 2.8 to 7.0 below it, <see cref="ThePlainsReliefUnderTheRingStandsThreeToSevenUnitsBelowThePlate"/>), and a point light below an up-facing surface has N.L at or under zero there: with the light at the ground
     /// point the ring lit the coping and the drum, which face outward, and never the plate round the gun (the owner's
     /// note of 2026-10-16). The light the island, the gun and the balls take therefore stands at
     /// <see cref="CampfireConfig.LightHeightAboveTerrain"/>, the flame's height over the plate, while the flame and the
@@ -90,11 +90,12 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void TheFiresStandThreeToSevenUnitsBelowThePlate()
+        public void ThePlainsReliefUnderTheRingStandsThreeToSevenUnitsBelowThePlate()
         {
-            //The figure the comments and the savanna fires page quote ("about 3 to 7 units"), measured here so it cannot
-            //drift from the relief: the ground under the ring (height 0, no lift) against the plate's top, TOP_Y.
+            //The relief the mounds (#887) stand on, measured so the comments' "3 to 7 units" cannot drift: the plain under the ring (the
+            //mounds off, height 0, no lift) against the plate's top, TOP_Y.
             var config = new SavannaSceneConfig();
+            config.Campfire.MoundFootScale = 0f;
             int fires = SavannaBackdrop.CampfireRingCount(config);
             float nearest = float.MaxValue, farthest = float.MinValue;
 
@@ -109,6 +110,22 @@ namespace BS3D.Tests
 
             Assert.InRange(nearest, 2.5f, 3.2f);
             Assert.InRange(farthest, 6.5f, 7.5f);
+        }
+
+        [Fact]
+        public void EveryFireStandsOnItsMoundAtTheSameSeatUnderThePlate()
+        {
+            //With the mounds on (#887) every fire stands at one height, SeatBelowPlate under the plate, whatever the relief under it
+            var config = new SavannaSceneConfig();
+            int fires = SavannaBackdrop.CampfireRingCount(config);
+            float seat = ArenaIsland.TOP_Y - config.Campfire.SeatBelowPlate;
+
+            for (int fire = 0; fire < fires; fire++)
+            {
+                float ground = SavannaBackdrop.CampfireRingPoint(config, fire, 0f).Y;
+                _output.WriteLine($"fire {fire}: ground y {ground:0.00}, {ArenaIsland.TOP_Y - ground:0.00} below the plate");
+                Assert.Equal(seat, ground, 3);
+            }
         }
 
         [Fact]
@@ -137,6 +154,20 @@ namespace BS3D.Tests
             //and it still takes some. A light that did not reach it would leave a dark patch the ring should not.
             Assert.True(least > 0.005f, $"the least lit point of the plate takes {least:0.0000} from the ring");
             Assert.True(mean > 0.03f, $"the plate takes {mean:0.0000} from the ring on average");
+        }
+
+        [Fact]
+        public void TheMoundsLeaveThePlateTheLightItWasJudgedAt()
+        {
+            //#885 was judged at a plate mean of 0.079 (least 0.015). Raising the fires onto their mounds (#887) raised the light with them, and at the
+            //old 0.65 of the flame it took the mean to 0.122; LightHeightScale 0.45 keeps the light where it stood (y -4.8, was -4.5 on average).
+            var config = new SavannaSceneConfig();
+
+            (float least, float mean) = OverThePlate(config, config.Campfire.LightHeightAboveTerrain);
+            _output.WriteLine($"light {config.Campfire.LightHeightAboveTerrain:0.0} above the seat: plate least {least:0.0000}, mean {mean:0.0000}");
+
+            Assert.InRange(mean, 0.065f, 0.095f);
+            Assert.True(least >= 0.015f, $"the least lit point of the plate takes {least:0.0000}, under the 0.015 it was judged at");
         }
 
         [Fact]

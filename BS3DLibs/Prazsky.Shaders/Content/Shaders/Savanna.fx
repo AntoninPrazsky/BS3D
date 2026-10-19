@@ -124,9 +124,52 @@ float HearthNear, HearthFar;   //how far the nearest and furthest fire stand fro
 float3 HearthAsh;        //the burnt ring's cold ash (linear)
 float3 HearthChar;       //and the near-black char at the fire's own foot
 
+//The mounds the fires stand on (#887): the ground under every fire is raised to one seat, so the flames rise from the same height
+//whatever the relief. C# pushes each fire's rise at its centre (TerrainMirror.SavannaMoundLift, the mirror's own figure) and the flat top
+//and the foot (TerrainMirror.SavannaMoundShape: the foot never past half the spacing of the ring, so the NEAREST fire's mound is the only
+//one a point is in); with no mounds every lift is 0. MoundFoot > MoundTop always.
+float HearthLift[MAX_HEARTHS];
+float MoundTop, MoundFoot;
+
+//What the fires' mounds add to the ground at a point, and the slope it adds to the normal: TerrainMirror.SavannaMound, line for line, with the
+//gradient beside it. The early-out is the hearth's own (the ring's band, measured from the fires' positions): a point outside it by more than the
+//foot is in no mound, which keeps the loop off the rest of the field. ONE pass over the fires finds the nearest, and the height is
+//lift * (1 - smoothstep(top, foot, d)), so its gradient points back at the fire: -lift * 6t(1 - t) / (foot - top) along (xz - fire) / d.
+//Only the VERTEX shader runs it (the slope reaches the pixels interpolated, the cell being 3 units against a mound 10 wide): the pixel shader's
+//own pass over the fires is the hearth's burn alone, as it was.
+float HearthMound(float2 xz, out float2 slope)
+{
+    slope = float2(0.0, 0.0);
+
+    float r = length(xz);
+    if (r < HearthNear - MoundFoot || r > HearthFar + MoundFoot) return 0.0;
+
+    float best = 1e30;
+    float index = 0.0;
+
+    [loop]
+    for (int i = 0; i < HearthCount; i++)
+    {
+        float2 delta = xz - HearthPosition[i].xz;
+        float d2 = dot(delta, delta);
+        bool closer = d2 < best;
+        best = closer ? d2 : best;
+        index = closer ? (float)i : index;
+    }
+
+    int fire = (int)index;
+    float d = sqrt(best);
+    float span = MoundFoot - MoundTop;
+    float t = saturate((d - MoundTop) / span);
+    float lift = HearthLift[fire];
+
+    slope = -lift * (6.0 * t * (1.0 - t) / span) * ((xz - HearthPosition[fire].xz) / max(d, 1e-4));
+    return lift * (1.0 - smoothstep(MoundTop, MoundFoot, d));
+}
+
 //Gentle rolling savanna: smooth low sines, flat within the clearing around the origin (where the island
 //stands) and rising into low rises with distance. Kept flatter than the meadow's hills - a savanna is open.
-float TerrainHeight(float2 p)
+float PlainHeight(float2 p)
 {
     float dist = length(p);
     float ramp = smoothstep(ClearingRadius, ClearingRadius + ClearingTransition, dist);
@@ -142,6 +185,13 @@ float TerrainHeight(float2 p)
     return SavannaLevelY + gentle + HillHeight * ramp * (rolling * 0.5 + 0.5);
 }
 
+//The ground the vertices are displaced by: the plain's relief and the fires' mounds on it (#887)
+float TerrainHeight(float2 p)
+{
+    float2 slope;
+    return PlainHeight(p) + HearthMound(p, slope);
+}
+
 struct SavannaVertexInput
 {
     float4 Position : POSITION0;
@@ -151,6 +201,7 @@ struct SavannaVertexOutput
 {
     float4 Position : SV_POSITION;
     float3 WorldPosition : TEXCOORD0;
+    float2 MoundSlope : TEXCOORD1;   //the fires' mounds' slope (#887), for the normal
 };
 
 SavannaVertexOutput SavannaVS(SavannaVertexInput input)
@@ -158,9 +209,12 @@ SavannaVertexOutput SavannaVS(SavannaVertexInput input)
     SavannaVertexOutput output;
 
     float2 xz = input.Position.xz + OriginXZ;
-    float3 worldPosition = float3(xz.x, TerrainHeight(xz), xz.y);
+    float2 moundSlope;
+    float mound = HearthMound(xz, moundSlope);
+    float3 worldPosition = float3(xz.x, PlainHeight(xz) + mound, xz.y);
 
     output.WorldPosition = worldPosition;
+    output.MoundSlope = moundSlope;
     output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
 
     return output;
@@ -225,11 +279,12 @@ float4 SavannaField(SavannaVertexOutput input, bool detail)
 
     //The base terrain normal, taken PER PIXEL from the height field's gradient (three cheap taps) rather than
     //interpolated from per-vertex normals - this is what removes the coarse mesh's facet/grid pattern.
+    //The fires' mounds (#887) come in as their analytic slope from the vertex shader: the plain's taps are the three it always was.
     float e = 1.5;
-    float h = TerrainHeight(worldPosition.xz);
-    float hx = TerrainHeight(worldPosition.xz + float2(e, 0.0));
-    float hz = TerrainHeight(worldPosition.xz + float2(0.0, e));
-    float3 baseNormal = normalize(float3(-(hx - h) / e, 1.0, -(hz - h) / e));
+    float h = PlainHeight(worldPosition.xz);
+    float hx = PlainHeight(worldPosition.xz + float2(e, 0.0));
+    float hz = PlainHeight(worldPosition.xz + float2(0.0, e));
+    float3 baseNormal = normalize(float3(-((hx - h) / e + input.MoundSlope.x), 1.0, -((hz - h) / e + input.MoundSlope.y)));
 
     //ONE gust field, and everything the wind does reads off it (#276): the grass leans by it here and the
     //shading darkens by it below. The speed handed over is the old plane wave's own phase speed,

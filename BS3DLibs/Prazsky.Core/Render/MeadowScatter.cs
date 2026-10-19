@@ -844,17 +844,17 @@ namespace Prazsky.Core.Render
         //ground and the post's top (1.35 high in the mesh's own units, as FenceMesh builds it)
         private const float FENCE_SOLID_HEIGHT = 0.675f * FENCE_SCALE, FENCE_SOLID_RADIUS = 0.7f * FENCE_SCALE;
 
-        /// <summary>A round bale lying on its side: a straw cylinder along X with its two faces, resting on the ground.</summary>
+        /// <summary>A round bale lying on its side: a straw cylinder along X with its two dished faces, resting on the ground
+        /// (<see cref="BaleGeometry"/>: the faces are made of the tube's own rings, #943).</summary>
         private static UploadedMesh BaleMesh(GraphicsDevice device)
         {
-            var v = new List<VertexPositionNormalTexture>();
-            var idx = new List<short>();
-            Vector3 a = new(-BALE_HALF_LENGTH, BALE_RADIUS, 0f), b = new(BALE_HALF_LENGTH, BALE_RADIUS, 0f);
-            TubeGeometry.AddTube(v, idx, 18, a, BALE_RADIUS, b, BALE_RADIUS);
-            TubeGeometry.AddCap(v, idx, 18, b, BALE_RADIUS * 0.98f, Vector3.UnitX);
-            TubeGeometry.AddCap(v, idx, 18, a, BALE_RADIUS * 0.98f, -Vector3.UnitX);
+            (List<VertexPositionNormalTexture> v, List<short> idx) = BaleLists();
             return new UploadedMesh(device, v, idx, BaleBounds);
         }
+
+        /// <summary>The bale's vertices and indices, with no device: <see cref="BaleMesh"/> uploads them.</summary>
+        internal static (List<VertexPositionNormalTexture> Vertices, List<short> Indices) BaleLists() =>
+            BaleGeometry.Build(BALE_RADIUS, BALE_HALF_LENGTH);
 
         /// <summary>How far <paramref name="at"/> is from the fence span <paramref name="from"/> to <paramref name="to"/>, over the ground.</summary>
         private static float DistanceToSpan(Vector2 at, Vector2 from, Vector2 to)
@@ -870,15 +870,28 @@ namespace Prazsky.Core.Render
         /// </summary>
         private static UploadedMesh FenceMesh(GraphicsDevice device)
         {
+            (List<VertexPositionNormalTexture> v, List<short> idx, BoundingSphere bounds) = FenceGeometry();
+            return new UploadedMesh(device, v, idx, bounds);
+        }
+
+        /// <summary>
+        /// The fence span's vertices, indices and bounding sphere, with no device: <see cref="FenceMesh"/> uploads them. The
+        /// post's foot is the one open end, buried 0.3 of <see cref="FENCE_SCALE"/> below the ground it stands on; the post's top
+        /// and both ends of each rail are closed (#943: a rail's end ring reaches past the post it ends at, and an open one
+        /// there is a hole under back-face culling).
+        /// </summary>
+        internal static (List<VertexPositionNormalTexture> Vertices, List<short> Indices, BoundingSphere Bounds) FenceGeometry()
+        {
             var v = new List<VertexPositionNormalTexture>();
             var idx = new List<short>();
             const float k = FENCE_SCALE;
             TubeGeometry.AddTube(v, idx, 6, new Vector3(0f, -0.3f * k, 0f), FENCE_POST_RADIUS, new Vector3(0f, 1.35f * k, 0f), 0.085f * k);
             TubeGeometry.AddCap(v, idx, 6, new Vector3(0f, 1.35f * k, 0f), 0.085f * k, Vector3.Up);
             foreach (float y in new[] { 0.55f * k, 1.05f * k })
-                TubeGeometry.AddTube(v, idx, 5, new Vector3(-0.05f * k, y, 0.06f * k), 0.055f * k,
-                    new Vector3(FENCE_SPAN + 0.05f * k, y, 0.06f * k), 0.055f * k);
-            return new UploadedMesh(device, v, idx, new BoundingSphere(new Vector3(FENCE_SPAN * 0.5f, 0.6f * k, 0f), FENCE_SPAN * 0.6f));
+                TubeGeometry.AddSweep(v, idx, 5,
+                    new[] { new Vector3(-0.05f * k, y, 0.06f * k), new Vector3(FENCE_SPAN + 0.05f * k, y, 0.06f * k) },
+                    new[] { 0.055f * k, 0.055f * k }, capStart: true, capEnd: true);
+            return (v, idx, new BoundingSphere(new Vector3(FENCE_SPAN * 0.5f, 0.6f * k, 0f), FENCE_SPAN * 0.6f));
         }
 
         private T Own<T>(T disposable) where T : IDisposable
