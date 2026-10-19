@@ -197,7 +197,9 @@ namespace Prazsky.Core.Render
                     points[k] = (1f - t) * (1f - t) * foot + 2f * t * (1f - t) * control + t * t * spray;
                     radii[k] = stemRadius * MathHelper.Lerp(1.25f, 0.35f, t);
                 }
-                TubeGeometry.AddSweep(g.WoodVertices, g.WoodIndices, 6, points, radii, capEnd: true);
+                //Closed at both ends from its own rings (#943's rule for a prop that ends in a tube): the foot is buried and the top
+                //is inside its clump, but a ring left open is a hole wherever the ground or the leaf fails to hide it
+                TubeGeometry.AddSweep(g.WoodVertices, g.WoodIndices, 6, points, radii, capStart: true, capEnd: true);
                 stems.Add((points, radii));
                 for (int k = 0; k < STEM_PIECES; k++) g.Skeleton.Add((points[k], points[k + 1]));
                 g.Stems.Add(points);
@@ -232,7 +234,7 @@ namespace Prazsky.Core.Render
                     points2[k] = (1f - t) * (1f - t) * from + 2f * t * (1f - t) * mid + t * t * spray;
                     radii2[k] = MathHelper.Lerp(fromRadius * BRANCH_FROM, stemRadius * 0.3f, t);
                 }
-                TubeGeometry.AddSweep(g.WoodVertices, g.WoodIndices, 5, points2, radii2, capEnd: true);
+                TubeGeometry.AddSweep(g.WoodVertices, g.WoodIndices, 5, points2, radii2, capStart: true, capEnd: true);
                 for (int k = 0; k < BRANCH_PIECES; k++) g.Skeleton.Add((points2[k], points2[k + 1]));
                 g.Branches.Add((from, fromRadius));
             }
@@ -245,6 +247,7 @@ namespace Prazsky.Core.Render
                 MeadowTreeMesh.AddSpray(g.WoodVertices, g.WoodIndices, g.LeafVertices, g.LeafIndices, sprayBases[c], centre, domeCentre,
                     r, r * 0.8f, shaded[c], H * TWIG_RADIUS, leafRng, SHRUB_COVER, SHRUB_CARD, SHRUB_TWIGS_MIN, SHRUB_TWIGS_MAX);
             }
+            g.TwigRadius = H * TWIG_RADIUS;
             g.SprayBases.AddRange(sprayBases);
 
             //--- Fitted: scaled as a whole about the pivot so the outermost vertex is at the reach asked for, or the highest at the
@@ -301,6 +304,9 @@ namespace Prazsky.Core.Render
         /// <summary>How far from its axis its farthest vertex stands.</summary>
         public float Reach;
 
+        /// <summary>A twig's radius where it leaves its spray base: the one ring of the wood left open (inside the branch's end).</summary>
+        public float TwigRadius;
+
         /// <summary>Scales everything about the pivot (#890's fit): positions and the recorded points; normals stay.</summary>
         internal void Scale(float s)
         {
@@ -320,6 +326,7 @@ namespace Prazsky.Core.Render
                 for (int k = 0; k < stem.Length; k++) stem[k] *= s;
             for (int i = 0; i < Branches.Count; i++) Branches[i] = (Branches[i].From * s, Branches[i].StemRadius * s);
             for (int i = 0; i < SprayBases.Count; i++) SprayBases[i] *= s;
+            TwigRadius *= s;
         }
     }
 }
