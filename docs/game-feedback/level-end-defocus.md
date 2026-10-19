@@ -21,6 +21,7 @@ A level's ending is the game's own spectacle (fireworks, the camera swinging rou
 - **A shadow, not a plate**: the star row sits between the level line and "New best", so a plate is two or three, and the heading stays unreadable over a bright sky.
 - ⚠ **FontStashSharp 1.5.6 has no `FontSystemSettings.Effect`**: an effect is an argument of each `DrawText` call and Myra's `RenderContext.DrawString` passes none. What works is Myra's `DrawRichText` with the effect as a rich-text command before the string (`/es3`; `/eb` blurs).
 - ⚠ A `RichTextLayout` given `Width = 0` wraps at every glyph; `null` means no wrapping.
+- **NEW BEST is the one line of the stack that is not a `ShadowedLabel` (#926)**: its fill changes colour across each glyph, which a label cannot draw, so it draws its own outline (`NewBestBanner`, the same Stroked draw at its own size, 7 design pixels) and fill over the page. [The result page](../game-shell/level-picker-and-result.md#the-result-page) has how.
 
 ## A pause blurs too
 

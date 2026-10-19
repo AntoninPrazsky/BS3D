@@ -18,7 +18,7 @@ namespace BS3D.Effects
     /// and the path are analytic lines on the field (<see cref="MeadowPath"/>), the very ones <c>Meadow.fx</c> draws, so a
     /// shot can follow one without asking the planting; and the planting keeps off both, so a lens on either centreline has
     /// nothing to run into. Every lens but the two low orbits' is lifted off the field before the brook's groove and the pond's
-    /// crater are cut into it (<see cref="TerrainMirror.MeadowGround"/>, #892), so it rides over the groove at the height it
+    /// crater are cut into it (<see cref="TerrainMirror.MeadowGround"/>, #892), so it rides over the swale at the height it
     /// rode over the painted brook, and the brook's shot looks at the pond's water down in its crater; the orbits stand on
     /// the cut ground (<see cref="TerrainMirror.Meadow"/>) and keep off the water and its banks (<c>Dry</c>). Built once
     /// when the intro begins.
@@ -60,7 +60,7 @@ namespace BS3D.Effects
         //on the pond ahead. A stretch of it that ends short of the pond's bank, where the brook's own banks are planted.
         private const float BROOK_FROM = 22f;              //past the brook's inner end, where the stretch finishes, clear of the pond's reeds
         private const float BROOK_RUN = 32f;
-        private const float BROOK_ABOVE = 1.8f;             //over the field, the groove's lips; at 1.1 the bank stones and the reeds filled the corners of the frame
+        private const float BROOK_ABOVE = 1.8f;             //over the field, the swale's banks; at 1.1 the bank stones and the reeds filled the corners of the frame
         private const float BROOK_SECONDS = 3.2f;
 
         //The path: along its centreline at a walker's height, the fence beside it, the lens on the old tree it leads to,

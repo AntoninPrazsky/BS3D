@@ -25,7 +25,12 @@ namespace BS3D.Screens
     /// </summary>
     internal sealed class ResultPage : MenuPage
     {
-        private Label _heading, _milestone, _levelLine, _newBest, _reason, _bareScore, _skipNote;
+        private Label _heading, _milestone, _levelLine, _reason, _bareScore, _skipNote;
+
+        //The place NEW BEST stands in (#926): an empty widget of the word's exact size, so the layout is the finished one from the first
+        //frame, with the word itself drawn over the page by _newBestBanner (DrawOverUi) because a label draws one colour and cannot bounce over its neighbours
+        private Widget _newBest;
+        private NewBestBanner _newBestBanner;
 
         //THE UPPER STACK CARRIES ITS OWN BACKING (#465), because it is the one part of this page that has no
         //plate and cannot have the scrim back. Everything from the heading down to "New best" stands on the
@@ -36,9 +41,8 @@ namespace BS3D.Screens
         //played under.
         //
         //Brightness was the lever three times — #238's failure reason, #313's level line and #199's "New
-        //best" each walked from MENU_TEXT_DIM up to MENU_TEXT_BODY after a capture — and _newBest's own note
-        //already says why it cannot go a fourth: "Backdrop-dependent legibility is not a dimmer shade of
-        //legible." The owner's report is the body white itself vanishing over a bright sky, and photographed
+        //best" each walked from MENU_TEXT_DIM up to MENU_TEXT_BODY after a capture — and it cannot go a
+        //fourth: backdrop-dependent legibility is not a dimmer shade of legible. The owner's report is the body white itself vanishing over a bright sky, and photographed
         //over the tropical beach it is not only the two small lines: the HEADING goes too, white on white
         //cloud, which is why the shadow is put under every line of the stack rather than under the two that
         //were named.
@@ -225,6 +229,10 @@ namespace BS3D.Screens
             //through this same page, and it owes the next ending the same few seconds in focus as the first
             _blurClock = 0f;
 
+            //And NEW BEST strikes again, with its cue, if the next ending is a best too (#926)
+            _bannerClock = 0f;
+            _newBestAnnounced = false;
+
             //The reveal is timed from the page opening, so it restarts on every arrival — a retry that earned
             //a different rating has to show that rating being earned, not a row already sitting there.
             _revealClock = 0f;
@@ -284,6 +292,10 @@ namespace BS3D.Screens
             //The defocus's whole state: FrameBlur is a pure function of it, so the host reads what this frame
             //left rather than a value written from two places (see the region above)
             _blurClock += elapsed;
+
+            //NEW BEST's own clock (#926), and the sound that goes with its landing
+            _bannerClock += elapsed;
+            AnnounceNewBest();
 
             if (!_revealSettled)
             {
@@ -593,6 +605,52 @@ namespace BS3D.Screens
 
         #endregion
 
+        #region NEW BEST strikes (#926)
+
+        //Since the page opened and never stopped: the reveal's own clock latches when its last row has landed, and the rainbow keeps flowing and
+        //the glints keep twinkling for as long as the page is up. The defocus has its own for its own reason (_blurClock); this one is the word's.
+        private float _bannerClock;
+        private bool _newBestAnnounced;
+
+        /// <summary>Whether this ending is a clear that beat the best: the only one that carries the word.</summary>
+        private bool CelebratesNewBest => _result.Cleared && _result.NewBest;
+
+        /// <summary>When the word strikes, in seconds since the page opened: right after the last <i>earned</i> star seats, so the rating is read first.</summary>
+        private float NewBestArrival =>
+            NewBestCelebration.Arrival(RevealTimeOf(Math.Max(1, _result.Stars) - 1), REVEAL_PUNCH_SECONDS);
+
+        /// <summary>
+        /// Sounds the word's landing, once for the life of the page. Written as a test of the clock against the arrival, so a frame long enough to
+        /// skip over it still plays it (as <see cref="AnnounceLandedStars"/> owes every star).
+        /// </summary>
+        private void AnnounceNewBest()
+        {
+            if (_newBestAnnounced || !CelebratesNewBest || _bannerClock < NewBestArrival) return;
+
+            _newBestAnnounced = true;
+            Game.Audio?.PlayNewBest();
+
+            //Once a page, and the one line a run's log has of the word's timing: when it was struck against when it was due
+            Console.WriteLine($"[result] NEW BEST struck at {_bannerClock:F2} s (due {NewBestArrival:F2} s, {_result.Stars} star(s))");
+        }
+
+        /// <summary>The word, over the page, about the place the tree reserved for it. Nothing before it strikes.</summary>
+        internal override void DrawOverUi()
+        {
+            if (!CelebratesNewBest || _newBestBanner == null || !_newBest.Visible) return;
+
+            float age = _bannerClock - NewBestArrival;
+            if (age < 0f) return;
+
+            //The widget's bounds are in its parent's space; the batch draws in the frame's
+            Rectangle local = _newBest.ActualBounds;
+            Point origin = _newBest.ToGlobal(local.Location);
+
+            _newBestBanner.Draw(Game.OverlayBatch, new Rectangle(origin.X, origin.Y, local.Width, local.Height), age, _bannerClock);
+        }
+
+        #endregion
+
         #region The sum adds up (#479)
 
         //The breakdown used to be written once, whole, the instant Refresh ran — every row and the total
@@ -882,26 +940,27 @@ namespace BS3D.Screens
 
             column.Widgets.Add(_starRow);
 
-            //Under the stars, and only when a best actually moved: a line that is always there says nothing.
-            //Body, not small (#199): the one label on this screen that says the run beat every run before it
-            //was the quietest thing on it, so it took a size that carries at play distance.
+            //Under the stars, and only when a best actually moved: a line that is always there says nothing (#199).
             //
-            //AND NOW THE COLOUR TOO (#313), which #199 left at MENU_TEXT_DIM and is the third time this page has
-            //been caught by the same rule. The palette's own line for that grey is "asides, ALWAYS on a dark
-            //plate", and nothing above this page's breakdown has a plate or a scrim: over the neon city it read
-            //perfectly and over the bright tropical sky it vanished, which is exactly how the failure reason
-            //line (#238) and #313's own identity line each came to be photographed as the least legible thing on
-            //the screen. Backdrop-dependent legibility is not a dimmer shade of legible.
+            //A CELEBRATION AT THE LOUD END (#926), no longer a line of the breakdown's own type. It was body-size white under the stars and
+            //the owner's playtest said it should be celebrated: bigger, animated, a pastel rainbow in the letters. He added that he need not
+            //say "discreetly", because he keeps having to write "it looks amazing, but enlarge it, multiply it, emphasise it" under a verdict.
+            //So it ships big and he scales it down: twice the height of the lines around it, struck onto the page with a bounce after the last
+            //earned star, filled with a slowly flowing pastel rainbow, throwing sparkles (NewBestBanner, NewBestCelebration).
             //
-            //Secondary is now carried by POSITION and by RARITY — it is one short line under the rating, shown
-            //only on the runs that earned it — rather than by a brightness that only works over half the
-            //backdrops. It sits at the same MENU_TEXT_BODY as the milestone and the identity line above it, a
-            //shade under the heading, which is what those two ranks are for.
-            _newBest = new ShadowedLabel(shadow)
+            //Only the place is in the tree. A Myra label draws a string in one colour and its bounce has to overshoot the star row above and the
+            //plate below, so the word is drawn over the page (DrawOverUi) about this widget's centre. The widget is the word's exact size, so
+            //nothing under it moves when the word lands, and it is hidden on any run that earned no best, as the old label was.
+            //
+            //It stands on the live arena like the heading, so it carries the dark outline the stack's backing is (at the word's size) and
+            //not a brightness (#313). Its pastel fill is a deliberate exception to the chrome's "brightness, never hue": a rare celebration and
+            //not chrome, argued in "The deliberate colours" (docs/game-shell/menu-look.md).
+            _newBestBanner = new NewBestBanner(Game, LevelResult.NEW_BEST, Game.DisplayFontAt(Scaled(NewBestBanner.FONT_DESIGN)),
+                Scaled(NewBestBanner.STROKE_DESIGN), Scaled(NewBestBanner.PAD_DESIGN));
+            _newBest = new Widget
             {
-                Text = LevelResult.NEW_BEST,
-                Font = FontBody,
-                TextColor = BS3DGame.MENU_TEXT_BODY,
+                Width = _newBestBanner.SlotWidth,
+                Height = _newBestBanner.SlotHeight,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 12),
             };

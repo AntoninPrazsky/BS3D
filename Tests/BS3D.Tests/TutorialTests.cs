@@ -3,6 +3,7 @@ using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.Levels;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Xunit;
 
 namespace BS3D.Tests
@@ -16,13 +17,24 @@ namespace BS3D.Tests
     /// </summary>
     public class TutorialTests
     {
-        private const string STREAK = "Hit after hit multiplies your score";
-        private const string BUDGET = "Spare shots pay a bonus at the end";
-        private const string LINE_RULE = "If the cluster reaches the line, the level is lost";
+        private const string STREAK = "Keep hitting to multiply your score";
+        private const string BUDGET = "Save shots for a bonus";
+        private const string LINE_RULE = "Keep the cluster off the line";
         private const string SEND_OFF = "That’s the basics — you know how to play";
         private const string SWAP = "Swap the next two balls";
         private const string BRAKE = "Lift the glass back one step";
         private const string CUT = "Turn the next ball into a cutter";
+
+        //The precise aim's card, and the combination's first step, which says the same (#930)
+        private const string LEAN = "Hold to look down the barrel";
+        private const string LEAN_PAD = "Hold the left trigger to look down the barrel";
+        private const string WALK_ROUND = "Now walk the gun round";
+
+        //PromptFont's codepoints, as Tutorial draws them: the mouse's right button, the two keys, the left trigger and stick
+        private const string MOUSE_RIGHT = "⟶";
+        private const string KEYS_A_D = "ＡＤ";
+        private const string PAD_LEFT_TRIGGER = "↖";
+        private const string PAD_LEFT_STICK_SIDEWAYS = "⇄";
 
         private static LevelSet ShippedSet() =>
             LevelSet.Load(Path.Combine(Shipped.LevelsDirectory, LevelSet.DefaultFileName));
@@ -33,7 +45,7 @@ namespace BS3D.Tests
 
         /// <summary>Begins the set's entry <paramref name="index"/> and returns every caption the level shows, in order.</summary>
         private static List<string> Play(Tutorial tutorial, LevelSet set, int index, bool lightStreak = false, bool swapOffered = false,
-            bool retry = false, bool brakeOffered = false, bool cutOffered = false, int glassStepsAt = -1)
+            bool retry = false, bool brakeOffered = false, bool cutOffered = false, int glassStepsAt = -1, bool holding = false)
         {
             bool placed = Tutorial.TryPlace(set, index, out int chapter, out int levelInChapter, out int length);
             tutorial.BeginLevel(placed ? chapter : -1, levelInChapter, length, ceilingStep: 6, swapOffered: swapOffered, retry: retry,
@@ -50,6 +62,15 @@ namespace BS3D.Tests
                 {
                     tutorial.Trigger(Tutorial.Lesson.Ceiling);
                     tutorial.Trigger(Tutorial.Lesson.Brake);
+                }
+
+                //A player holding the close-up and walking the whole time: every hold lesson is done as it comes up
+                if (holding)
+                {
+                    tutorial.NoteHold(Tutorial.Lesson.LeanIn, true, 0.1f);
+                    tutorial.NoteHold(Tutorial.Lesson.Traverse, true, 0.1f);
+                    tutorial.NoteHold(Tutorial.Lesson.Walk, true, 0.1f);
+                    tutorial.NoteTwoStepHold(Tutorial.Lesson.Combine, true, true, 0.1f);
                 }
 
                 tutorial.Update(0.1f, enabled: true, takeoverEngaged: false, levelDecided: false);
@@ -84,7 +105,7 @@ namespace BS3D.Tests
 
             List<string> pennant = Play(tutorial, ShippedSet(), 0);
 
-            Assert.Equal(new[] { "Move the mouse to aim", "Click to fire", "Three of a colour together fall" }, pennant);
+            Assert.Equal(new[] { "Move the mouse to aim", "Click to fire", "Match three of a colour" }, pennant);
             Assert.Equal(0, writes());
         }
 
@@ -95,7 +116,7 @@ namespace BS3D.Tests
             //earlier card the player still owed, but a finished save owes none
             List<string> sixth = Play(Finished(out _), ShippedSet(), 5);
 
-            Assert.Equal(new[] { "Hold the close-up and turn with it" }, sixth);
+            Assert.Equal(new[] { LEAN }, sixth);
         }
 
         [Fact]
@@ -388,12 +409,13 @@ namespace BS3D.Tests
             for (int i = 0; i < 3; i++) set.Levels.Add(new LevelSetEntry { File = $"b{i}.json", Name = $"B{i}", Block = "B" });
 
             Tutorial tutorial = Fresh(new HashSet<string>());
-            List<string> shown = Play(tutorial, set, 0, lightStreak: false);
-            List<string> second = Play(tutorial, set, 1);
+            List<string> shown = Play(tutorial, set, 0, lightStreak: false, holding: true);
+            List<string> second = Play(tutorial, set, 1, holding: true);
             shown.AddRange(second);
 
-            foreach (string caption in new[] { "Click to fire", "Hold to look down the barrel", "Walk the gun round the field",
-                         "Step in for a steeper shot", "Hold the close-up and turn with it", LINE_RULE })
+            //The combination's first step says what the precise aim's own card does, so it is its second step that shows it came
+            foreach (string caption in new[] { "Click to fire", LEAN, "Walk the gun round the field",
+                         "Step closer to the cluster", WALK_ROUND, LINE_RULE })
                 Assert.Contains(caption, shown);
             Assert.Equal(SEND_OFF, second[^1]);
         }
@@ -443,6 +465,190 @@ namespace BS3D.Tests
             //And the arrival still finishes under the praise
             for (int i = 0; i < 60; i++) tutorial.Update(frame, enabled: true, takeoverEngaged: false, levelDecided: false);
             Assert.Equal(1f, tutorial.Presence, 3);
+        }
+
+        //--- #930: the combination is two steps, the second shown once the first is done ---
+
+        private const float STEP = 0.1f;
+
+        /// <summary>
+        /// The sixth level's combination card, up and waiting at its first step, for a player who has been through every card
+        /// before it (and not yet sent off, which would end what the chapter still owes).
+        /// </summary>
+        private static Tutorial CombinationCard(HashSet<string> save, bool pad = false)
+        {
+            save.UnionWith(new[] { "aim", "fire", "match", "lean", "ceiling", "line", "traverse", "walk" });
+            Tutorial tutorial = Fresh(save);
+            if (pad) tutorial.NoteDevice(Tutorial.Device.Gamepad);
+
+            Assert.True(Tutorial.TryPlace(ShippedSet(), 5, out int chapter, out int level, out int length));
+            tutorial.BeginLevel(chapter, level, length, ceilingStep: 6);
+            for (int frame = 0; frame < 100 && tutorial.Presence < 1f; frame++)
+                tutorial.Update(STEP, enabled: true, takeoverEngaged: false, levelDecided: false);
+
+            Assert.Equal(1f, tutorial.Presence);
+            return tutorial;
+        }
+
+        /// <summary>Holds the close-up (and, with <paramref name="moving"/>, the walk) for <paramref name="seconds"/>, a frame at a time.</summary>
+        private static void Hold(Tutorial tutorial, float seconds, bool lean = true, bool moving = false)
+        {
+            for (float t = 0f; t < seconds - 1e-4f; t += STEP)
+            {
+                tutorial.NoteTwoStepHold(Tutorial.Lesson.Combine, lean, lean && moving, STEP);
+                tutorial.Update(STEP, enabled: true, takeoverEngaged: false, levelDecided: false);
+            }
+        }
+
+        [Fact]
+        public void TheCombinationAsksTheCloseUpFirstAndTheWalkOnceItIsDone()
+        {
+            HashSet<string> save = new();
+            Tutorial tutorial = CombinationCard(save);
+
+            //Step one stands alone: one glyph, one imperative, and walking without the close-up does nothing to it
+            Assert.Equal((0, MOUSE_RIGHT, LEAN, (string)null), (tutorial.Step, tutorial.Glyph, tutorial.Caption, tutorial.Detail));
+            Hold(tutorial, 2f, lean: false, moving: true);
+            Assert.Equal(0, tutorial.Step);
+
+            //The close-up held: the card turns to the walk, with the cue a done action gives, and records nothing yet
+            Hold(tutorial, 0.5f);
+            Assert.Equal(1, tutorial.Step);
+            Assert.Equal((KEYS_A_D, WALK_ROUND, (string)null), (tutorial.Glyph, tutorial.Caption, tutorial.Detail));
+            Assert.True(tutorial.TakePraiseCue());
+            Assert.False(tutorial.Praising);
+            Assert.DoesNotContain("combine", save);
+
+            //Then the walk, with the close-up still held: done, praised, and recorded under the lesson's old key
+            Hold(tutorial, 0.5f, moving: true);
+            Assert.True(tutorial.Praising);
+            Assert.Equal("Together!", tutorial.Praise);
+            Assert.Equal(WALK_ROUND, tutorial.Caption);
+            Assert.True(tutorial.TakePraiseCue());
+            Assert.Contains("combine", save);
+        }
+
+        [Fact]
+        public void TheCombinationOnThePadAsksTheTriggerThenTheStick()
+        {
+            Tutorial tutorial = CombinationCard(new HashSet<string>(), pad: true);
+
+            Assert.Equal((PAD_LEFT_TRIGGER, LEAN_PAD), (tutorial.Glyph, tutorial.Caption));
+            Hold(tutorial, 2f);
+            Assert.Equal((PAD_LEFT_STICK_SIDEWAYS, "Now push the left stick sideways"), (tutorial.Glyph, tutorial.Caption));
+        }
+
+        [Fact]
+        public void TheCombinationIsNotDoneByAlternatingItsTwoHalves()
+        {
+            HashSet<string> save = new();
+            Tutorial tutorial = CombinationCard(save);
+
+            //The button held, then the walk with the button let go, over and over: never both on one frame
+            for (int i = 0; i < 20; i++)
+            {
+                Hold(tutorial, 0.3f);
+                Hold(tutorial, 0.1f, lean: false, moving: true);
+            }
+
+            Assert.Equal(0, tutorial.Step);
+
+            //And on the second step: the walk and the button together, but never for the whole hold at once
+            Hold(tutorial, 2f);
+            Assert.Equal(1, tutorial.Step);
+            for (int i = 0; i < 20; i++)
+            {
+                Hold(tutorial, 0.3f, moving: true);
+                Hold(tutorial, 0.1f);
+            }
+
+            Assert.False(tutorial.Praising);
+            Assert.DoesNotContain("combine", save);
+        }
+
+        [Fact]
+        public void TheFirstStepStandsLongEnoughToBeReadEvenIfTheButtonIsAlreadyDown()
+        {
+            Tutorial tutorial = CombinationCard(new HashSet<string>());
+
+            //The player has held the button since before the card came up: the card still gives its first step a moment
+            Hold(tutorial, 0.5f);
+            Assert.Equal(0, tutorial.Step);
+            Hold(tutorial, 0.5f);
+            Assert.Equal(1, tutorial.Step);
+        }
+
+        [Fact]
+        public void LettingTheCloseUpGoSendsTheCardBackToTheStepThatSaysWhatToHold()
+        {
+            Tutorial tutorial = CombinationCard(new HashSet<string>());
+            Hold(tutorial, 2f);
+            Assert.Equal(1, tutorial.Step);
+
+            //A flicker is not a release; half a second is
+            Hold(tutorial, 0.2f, lean: false);
+            Assert.Equal(1, tutorial.Step);
+            Hold(tutorial, 0.2f);
+            Hold(tutorial, 0.6f, lean: false);
+            Assert.Equal(0, tutorial.Step);
+            Assert.Equal(LEAN, tutorial.Caption);
+            Assert.False(tutorial.Praising);
+
+            //And held again it comes straight back to the walk, without the first step's minimum
+            Hold(tutorial, 0.5f);
+            Assert.Equal(1, tutorial.Step);
+        }
+
+        [Fact]
+        public void AHalfDoneCombinationIsNotRecordedAndIsOfferedAgainFromItsFirstStep()
+        {
+            //The second step reached, never finished: the card gives up on its clock like any action that times out
+            HashSet<string> save = new();
+            Tutorial tutorial = CombinationCard(save);
+            Hold(tutorial, 2f);
+            Assert.Equal(1, tutorial.Step);
+
+            for (int frame = 0; frame < 400; frame++)
+                tutorial.Update(STEP, enabled: true, takeoverEngaged: false, levelDecided: false);
+            Assert.Null(tutorial.Caption);
+            Assert.DoesNotContain("combine", save);
+
+            //The next level offers it again, from the top
+            Assert.Contains(LEAN, Play(tutorial, ShippedSet(), 6));
+        }
+
+        [Fact]
+        public void ASaveThatTaughtTheCombinationBeforeItWasSplitIsNotTaughtItAgain()
+        {
+            //The lesson's key is unchanged, so a save that holds it owes nothing and sees the card only as the sixth level's own
+            HashSet<string> save = new(EVERY_LESSON);
+            Assert.Equal(new[] { LEAN }, Play(Fresh(save), ShippedSet(), 5));
+            Assert.Empty(Play(Fresh(save), ShippedSet(), 6));
+        }
+
+        [Fact]
+        public void TheReelShowsBothStepsOfTheCombinationOnItsClock()
+        {
+            Tutorial tutorial = Reel();
+            List<string> shown = new();
+            bool praised = false;
+
+            for (int frame = 0; frame < 75 * 400; frame++)
+            {
+                //A window with the focus reads the hands every frame, and nobody is holding anything: that must not move the reel
+                tutorial.NoteTwoStepHold(Tutorial.Lesson.Combine, false, false, FRAME);
+                Step(tutorial, takeover: false, decided: false);
+
+                string caption = tutorial.Caption;
+                if (caption != null && (shown.Count == 0 || shown[^1] != caption)) shown.Add(caption);
+                if (tutorial.Praise == "Together!") praised = true;
+            }
+
+            //The lean card and the combination's first step say the same, so the dedup folds them into one
+            int walkRound = shown.IndexOf(WALK_ROUND);
+            Assert.True(walkRound > 0 && shown.LastIndexOf(LEAN) == walkRound - 1, string.Join(" | ", shown));
+            Assert.Equal(1, shown.Count(c => c == WALK_ROUND));
+            Assert.True(praised, "the reel never finished the combination");
         }
 
         //--- #700: a card dealt with does not come back when a camera takeover lifts ---

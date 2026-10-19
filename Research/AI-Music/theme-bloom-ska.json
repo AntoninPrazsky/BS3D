@@ -1,30 +1,156 @@
 {
   "file": "theme-bloom-ska.wav",
-  "created": "2026-09-23",
-  "issue": 486,
+  "created": "2026-10-17",
+  "issue": 904,
   "family": "bloom",
-  "chapter": "The Meadow (meadow) - #449: positive, melodic, its own",
-  "purpose": "Master of Game/Music/bloom-ska.ogg, one of the bloom family's recordings (#486): written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
+  "chapter": "The Meadow (meadow) - regenerated on the desert's ember model (#904): a mid-register trombone tune the ear can follow over offbeat guitar skanks and a walking bass, a first section that lifts into a fuller second one, the sunshine carried by warm horns and a steady beat rather than by shrill, toy-like highs",
+  "purpose": "Master of Game/Music/bloom-ska.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-904-chosen on the desktop, with its .raw.wav; this is candidate c3, theme-bloom-ska-c3 in masters-904, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-904.ps1 (adapted from #841's batch) -> generate-music.ps1 -Loop -NoCotCaption",
   "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
   "license": "ACE-Step 1.5: MIT (code and weights)",
   "request": {
-    "caption": "Light cheerful ska-pop instrumental: offbeat skanking guitar chords, bright trumpet and trombone melody, walking bass, snappy drums, sunny and playful, no vocals",
-    "lm_negative_prompt": "vocals, singing, audience applause, crowd noise, live recording",
+    "caption": "Warm laid-back ska instrumental with a tune: a steady ska pulse of offbeat guitar skanks on the upbeats and a rolling walking bass guitar, a tight drum groove on kick, snare and toms with a dark ride cymbal, a mellow trombone playing a memorable singable melody in the middle register, a warm baritone saxophone answering it, a first section with the tune alone over the skank that lifts into a fuller second section where the horns play together, warm mid-forward mix, modern production, wide stereo mix with guitar and horns panned left and right, the full band playing throughout, no vocals",
+    "lm_negative_prompt": "vocals, singing, choir, audience applause, crowd noise, live recording, childish, cute, sugary, shrill, squeaky, piccolo, whistle, toy, toy piano, music box, glockenspiel, bells, kazoo, high-pitched trumpet, bright trumpet, boomy sub bass, bright crash cymbals, splashy cymbals, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, quiet breakdown, near silence, fade in",
     "instrumental": true,
     "use_cot_caption": false,
     "duration": 120,
     "bpm": 128,
     "keyscale": "C major",
+    "seed": 1295520282,
     "inference_steps": 8,
     "output_format": "wav32"
   },
   "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
   "loop_log": [
-    "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-bloom-ska.wav: 75.0s loop = source 18.30s..93.30s (39.96 bars at 127.9 bpm), crossfade 0.94s | context match 0.945 (best 0.994) | crossfade rhythm r=0.92 vs the track a bar later r=0.72: in time | spectrum cos=0.97"
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-904\\theme-bloom-ska-c3.wav: 45.0s loop = source 33.20s..78.20s (23.98 bars at 127.9 bpm), crossfade 0.94s | context match 0.960 (best 0.961) | crossfade rhythm r=0.92 vs the track a bar later r=0.65: in time | spectrum cos=0.95"
   ],
-  "measured": "generate-music.ps1 end to end 60.5 s (ace-lm + ace-synth + loop cut)",
+  "lm_check": {
+    "request0_captured": true,
+    "caption_verbatim": true,
+    "seed_in_request0": 1295520282,
+    "bpm_in_request0": 128,
+    "keyscale_in_request0": "C major",
+    "duration_in_request0": 120.0
+  },
+  "measured": "generate-music.ps1 end to end 66,9 s (ace-lm + ace-synth + loop cut), exit 0",
   "rendered": true,
-  "seed_used": 1748674343,
-  "seed_note": "the request asked for seed -1 (rolled); this is the seed ace-lm rolled and printed (matched to the render by order in the batch's log), so the render can be repeated. The other families' batch ran detached with only stdout logged and ace-lm prints the seed on stderr, so theirs are not recorded - the master .wav is the artefact either way"
+  "chosen": {
+    "candidate": "c3",
+    "round": 1,
+    "of": [
+      "c1",
+      "c2",
+      "c3",
+      "c4",
+      "c5",
+      "c6",
+      "c7",
+      "c8"
+    ],
+    "owner_ruling": "The owner, 2026-10-18 (translated from Czech): \"Sunny new, Ska not yet; the candidate c3 for Ska is better than the original.\" He answered on the listening page of 2026-10-17, where c3 and the shipped #486 recording could both be played. That ruling overrides the short-gap gate for this one recording: it reads 29.3 short gaps a minute where ember's highest is 27.0 (the replaced recording: 99.2), and it is the only column outside ember's range.",
+    "why": "Measured on the baked recording beside the ember family in one run (Tools/Generation/measure-music.py --reference ember --sidecars Research/AI-Music), against the replaced recording: 29.3 short gaps a minute (replaced 99.2; ember 0.0-27.0, the one column outside the line, the deepest gap 36 dB and the longest 160 ms against 42 dB and 150 ms); 0 clipped runs (replaced 21; the master reads 543, none once baked); 14.8 % in 300 Hz-4 kHz (replaced 11.6 %) and 0.7 % above 6 kHz (replaced 1.7 %); tonal mid 75 % (66 %), 2.82 held-note changes a second (3.07; ember at least 2.74), tempo wander 0.13 % (0.04 %), pitch wobble 2.9 and detune 2.7 cents (3.4 and 2.7); 0.0 % of 140 held notes out of C major; the opening repeats 1 bar and the longest repeat is 1 bar. The loop is 45.0 s (23.98 bars at 127.9 bpm), the cut's context match 0.960, rhythm r 0.92 against 0.65 a bar later, spectrum cosine 0.95; the level swings 4 dB and no 2 s stretch is a hole. It needed no trim: the master's own peak is +2.15 dBFS (543 clipped runs), the themes' loudness takes 2.2 dB off, 0.001 % of the samples pass the knee and the post-codec peak is -0.25 dBFS. Eight renders over three briefs (below) read 26.7-101.3 short gaps a minute, and the one inside the line lost its tune figures, so c3 is the nearest on every column. Judged by numbers and by the owner's ear: the tune and the warmth are his.",
+    "how": "every candidate measured on its master with measure-music.py (ember loops in the same run) beside the loop cut's own check; the baked recording measured again from its .ogg; the table is in the closing comment of #904"
+  },
+  "alternatives": [
+    {
+      "candidate": "c1",
+      "round": "1",
+      "seed": 1566962932,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-904\\theme-bloom-ska-c1.wav: 90.0s loop = source 5.95s..95.95s (48.00 bars at 128.0 bpm), crossfade 0.94s | context match 0.845 (best 0.887) | crossfade rhythm r=0.95 vs the track a bar later r=0.56: in time | spectrum cos=0.91"
+      ],
+      "refused_or_not_chosen": "Refused: 40.7 short gaps a minute (ember at most 27.0), 2.4 % above 6 kHz (ember at most 2.0) and a loop cut of context match 0.845 (48 bars)."
+    },
+    {
+      "candidate": "c2",
+      "round": "1",
+      "seed": 2059405161,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-904\\theme-bloom-ska-c2.wav: 84.6s loop = source 8.93s..93.50s (44.95 bars at 127.5 bpm), crossfade 0.94s | context match 0.143 (best 0.186) | crossfade rhythm r=0.13 vs the track a bar later r=0.54: BELOW the track's own timekeeping -- listen | spectrum cos=0.22"
+      ],
+      "refused_or_not_chosen": "Refused: 46.8 short gaps a minute, 2.59 held-note changes a second (ember at least 2.74), tempo wander 0.43 % (ember at most 0.29) and a loop cut that does not hold (context match 0.143, rhythm r 0.13)."
+    },
+    {
+      "candidate": "c4",
+      "round": "2",
+      "seed": 328684277,
+      "caption": "round 2 brief (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-904\\theme-bloom-ska-c4.wav: 60.0s loop = source 34.60s..94.60s (31.95 bars at 127.8 bpm), crossfade 0.94s | context match 0.610 (best 0.658) | crossfade rhythm r=0.64 vs the track a bar later r=0.38: in time | spectrum cos=0.93"
+      ],
+      "refused_or_not_chosen": "Refused: 66.0 short gaps a minute (the round-2 brief added a warm organ holding the chords between the skanks and stop-time, band hits and pauses to the negative) and a weak loop cut (context match 0.610)."
+    },
+    {
+      "candidate": "c5",
+      "round": "2",
+      "seed": 1919629722,
+      "caption": "round 2 brief (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-904\\theme-bloom-ska-c5.wav: 45.0s loop = source 32.00s..77.00s (23.96 bars at 127.8 bpm), crossfade 0.94s | context match 0.572 (best 0.602) | crossfade rhythm r=0.59 vs the track a bar later r=0.63: in time | spectrum cos=0.50"
+      ],
+      "refused_or_not_chosen": "Refused: 101.3 short gaps a minute (round-2 brief) and a weak loop cut (context match 0.572)."
+    },
+    {
+      "candidate": "c6",
+      "round": "3",
+      "seed": 1909328301,
+      "caption": "round 3 brief (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-904\\theme-bloom-ska-c6.wav: 90.2s loop = source 13.87s..104.10s (47.97 bars at 127.6 bpm), crossfade 0.94s | context match 0.119 (best 0.162) | crossfade rhythm r=0.10 vs the track a bar later r=0.66: BELOW the track's own timekeeping -- listen | spectrum cos=0.23"
+      ],
+      "refused_or_not_chosen": "Refused: 82.5 short gaps a minute (round-3 brief: tape echo and room reverb on the guitar and horns, smooth connected bass notes) and a loop cut that does not hold (context match 0.119)."
+    },
+    {
+      "candidate": "c7",
+      "round": "3",
+      "seed": 155994026,
+      "caption": "round 3 brief (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-904\\theme-bloom-ska-c7.wav: 60.6s loop = source 28.98s..89.55s (32.03 bars at 126.9 bpm), crossfade 0.95s | context match 0.782 (best 0.831) | crossfade rhythm r=0.76 vs the track a bar later r=0.32: in time | spectrum cos=0.86"
+      ],
+      "refused_or_not_chosen": "Refused: inside the gap line (26.7 a minute) but only 2.10 held-note changes a second (ember at least 2.74) and a pitch wobble of 4.5 cents (ember at most 3.8); round-3 brief."
+    },
+    {
+      "candidate": "c8",
+      "round": "3",
+      "seed": 755246459,
+      "caption": "round 3 brief (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-904\\theme-bloom-ska-c8.wav: 60.0s loop = source 18.85s..78.85s (31.96 bars at 127.8 bpm), crossfade 0.94s | context match 0.938 (best 0.954) | crossfade rhythm r=0.93 vs the track a bar later r=0.72: in time | spectrum cos=0.94"
+      ],
+      "refused_or_not_chosen": "Refused: 61.0 short gaps a minute, 1.72 held-note changes a second and a level step of +12.6 dB across the wrap (the 96th percentile of the loop's own steps); round-3 brief."
+    }
+  ],
+  "alternative_briefs": {
+    "round_2": {
+      "caption": "Warm laid-back ska instrumental with a tune and an unbroken groove: a steady ska pulse of offbeat guitar skanks on the upbeats with a warm organ bubble holding the chords between them, a rolling walking bass guitar that never stops, a tight drum groove on kick, snare and toms with a dark ride cymbal, a mellow trombone playing a memorable singable melody in the middle register, a warm baritone saxophone answering it, a first section with the tune over the skank that lifts into a fuller second section where the horns play together, warm mid-forward mix, modern production, wide stereo mix with guitar and horns panned left and right, the full band playing continuously from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, audience applause, crowd noise, live recording, childish, cute, sugary, shrill, squeaky, piccolo, whistle, toy, toy piano, music box, glockenspiel, bells, kazoo, high-pitched trumpet, bright trumpet, stop-time, sudden stops, band hits, pauses, silent breaks, rests between phrases, boomy sub bass, bright crash cymbals, splashy cymbals, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, quiet breakdown, near silence, fade in",
+      "candidates": [
+        "c4",
+        "c5"
+      ]
+    },
+    "round_3": {
+      "caption": "Warm laid-back ska instrumental with a tune and a rolling groove: a steady ska pulse of offbeat guitar skanks on the upbeats with a warm tape echo and spacious room reverb on the guitar and horns, a round warm walking bass guitar playing smooth connected notes that ring on, a tight drum groove on kick, snare and toms with a dark ride cymbal, a mellow trombone playing a memorable singable melody in the middle register, a warm baritone saxophone answering it, a first section with the tune over the skank that lifts into a fuller second section where the horns play together, warm mid-forward mix, modern production, wide stereo mix with guitar and horns panned left and right with stereo delays, the full band playing continuously from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, audience applause, crowd noise, live recording, childish, cute, sugary, shrill, squeaky, piccolo, whistle, toy, toy piano, music box, glockenspiel, bells, kazoo, high-pitched trumpet, bright trumpet, dry sound, staccato bass, plucky bass, slap bass, boomy sub bass, bright crash cymbals, splashy cymbals, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, quiet breakdown, near silence, fade in",
+      "candidates": [
+        "c6",
+        "c7",
+        "c8"
+      ]
+    }
+  },
+  "replaces": {
+    "issue": 486,
+    "created": "2026-09-23",
+    "caption": "Light cheerful ska-pop instrumental: offbeat skanking guitar chords, bright trumpet and trombone melody, walking bass, snappy drums, sunny and playful, no vocals",
+    "negative": "vocals, singing, audience applause, crowd noise, live recording",
+    "seed": 1748674343,
+    "loop_log": [
+      "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-bloom-ska.wav: 75.0s loop = source 18.30s..93.30s (39.96 bars at 127.9 bpm), crossfade 0.94s | context match 0.945 (best 0.994) | crossfade rhythm r=0.92 vs the track a bar later r=0.72: in time | spectrum cos=0.97"
+    ],
+    "why_replaced": "Measured 2026-10-17 beside ember: 99.2 short gaps a minute (ember at most 27.0) and 21 clipped runs (ember at most 3) in a 75 s loop, and the owner's note of 2026-10-16 (translated from Czech): it is maybe too childlike, high-pitched (squeaky) and simple, and for someone it may be unpleasantly intrusive (#904). Its brief asked for a bright trumpet and a playful, sunny feeling and named only vocals, singing, applause, crowd noise and live recording in the negative."
+  }
 }

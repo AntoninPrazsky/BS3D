@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-19 — #892 břehy potoka přirozeně rozložené — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Majitel (Vrať, 18. 10.): rybník dobrý, potok vypadá jako vykopaný bagrem. Hotovo: potok leží v širokém mělkém úvalu (`MeadowCarve.BrookSwale` = shader): štěrková mez, nízký hliněný stupínek, travnatý břeh 2–3,2 do vlastní výšky pole (do kopce širší), nízký lem. Úval 2,6–3,4× šířka vody; sklon břehu medián 0,47. Rybník beze změny, výsadba stojí kde stála (posazená, ne přesunutá).
+- ⚠ Cena: konec průletu potokem +0,2 až +0,5 ms (13,48 > 13,33), pevná kamera +0,66: patch kreslí dvojnásob země u objektivu za svou přirážku (#924).
+- Otevřené: verdikt oka, `verdicts\892b\`.
+
 ## 2026-10-17 — #892 potok a rybník vyříznuté do louky — desktop (RDT-PC), Claude Code (bs3d-48)
 - Hotovo: potok je rýha s hliněnými stěnami, rybník nepravidelný kráter, voda je samostatná plocha uvnitř. `MeadowCarve` je CPU kopie shaderu (mirrorcheck 0,0021). Hrubá mřížka má díru a tu kreslí jemnější patch v souřadnicích potoka (`MeadowPatch`, CDLOD); Low a Medium řežou také, Potato ne.
 - Cena (Game, Pennant, 3840×1581, High): hra +0,45 ms, průlet potokem na dnešním úvodu 10,9 → 12,2 ms, jeho poslední vteřina 12,8 (jednou 13,4). ⚠ Většinu ceny hry patch nezpůsobuje: i bez jeho země +0,3 ms (BrookLateral s atan2, společné tělo, vrcholy); Low/Medium na APU neměřeno.
@@ -1081,3 +1086,40 @@ Pravidla:
 ## 2026-10-17 — kanárek v bráně levelů, zkouška release.yml — desktop (RDT-PC), Claude Code (bs3d-5f)
 - Hotovo (merge 4abbb7ec, CI zelené): brána regenerace levelů v build.yml i release.yml nejdřív vyprázdní `Levels.json`; generátor, který nic nezapíše (nebo zapíše jinam), už neprojde tím, že nechá commitnuté soubory být.
 - Zkouška release.yml přes „Run workflow“ (běh 39064166894, `dev-4abbb7e`, nic nepublikováno): všechny tři joby a tři brány (levely s kanárkem, GL efekty GamePi, nová hudební) zelené — změny v release.yml z dneška jsou ověřené před příštím tagem.
+
+## 2026-10-17 — po v0.4.0: devět merge, strop fronty, křížová recenze — desktop (RDT-PC), Claude Code (bs3d-48)
+- Hotovo (všechno Sonnet, implementace #889 a #892 Opus): #923 zvuk bez zařízení (objektivní, zavřeno), #872 dolní limit bez alarmu (ruce), #877 cinematic v reálném čase, #878 kamera u okraje ostrova, #880 finále kampaně, #871 Swap s pohybem a zvukem, #874 emitory laserů, #879 Mirage lehčí + bomby, #889 rozsocha dubů, #892 potok a rybník v geometrii. #921 změřeno a zavřeno (clip() na Low/Medium nic nestojí), #709 zavřeno (první dávka statistik na Pi: Pennant), #924 založeno (louka po #892: +0,45 ms ve hře, záběr potoka nad 75 Hz; většina ceny v programu pole).
+- Jedna sdílená stránka verdiktů (bs3d-5f, 21 karet, db `verdicts`); fronta 17 → hudba #905/#906 zastavena před renderem. Křížová recenze s bs3d-5f: u mých 10 merge 2 chyby (odměna za řez vs. 2,5 s beat při vypnuté cinematic; stall hodiny vs. svět pod 30 fps) a jedna změna chování (#872 střílel pod podlahu), opraveno `ab2e6d24`; u jejích 21 žádná chyba, 6 drobností. Smoke run `f83d983f` čistý.
+- ⚠ Před claimem číst stav issue: #895, #898, #891, #902 už měla bs3d-5f. ⚠ Monitor spí = žádný zvukový výstup, nikdo dnes nic neslyšel.
+- Otevřené: #924 (měření), odpovědi majitele na stránce; hudba #905–#917 čeká na pokles fronty.
+
+## 2026-10-19 — #927 krátké release notes — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Poznámky v0.4.0 zkráceny na dvanáct řádků o hře a jeden závěrečný: stránka vydání 116 → 61 řádků, nadpis „Download and play“ z řádku 80 na 24. Dlouhá verze je v komentáři #927 a na tagu (`blob/v0.4.0`); `Images/releases/v0.4.0.md` je teď krátká.
+- Pravidlo je v `docs/build-and-release.md`. Pořadí v `release.yml` zůstává: GitHub řadí assety pod celé tělo, rozhoduje tedy délka, ne pořadí.
+- Hotové vydání se upravuje přes `gh release view --json body` + `gh release edit --notes-file`, sekce Download beze změny.
+
+## 2026-10-19 — #904 Ska: kandidát c3 jako bloom-ska — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: majitel 18. 10. řekl, že c3 je lepší než původní Ska; nasazen jako `bloom-ska.ogg` (45 s, bez trimu, post-codec špička -0,25 dBFS), bicí vrstva oddělena znovu, sidecar nese brief, seed, měření a výrok majitele, který pro tuto jednu nahrávku přebíjí hranici krátkých děr (29,3 za minutu proti 27,0; stará 99,2, 21 oříznutých běhů → 0). `MusicBake --shipped`, LevelGen a 1764 testů v pořádku; `[music] bloom: bloom-ska.ogg (drums layered)` ve hře.
+- Nic neposlouchal agent; poslech je majitelův.
+
+## 2026-10-19 — #925 „Fire!“ pro hráče, který přestal střílet — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: v prvních pěti levelech první kapitoly se po 10 s bez výstřelu (dvojnásobek 5 s na výstřel z majitelových `Stats.json`), když nemluví karta, alarm ani kamera, objeví tučný jantarový čip „Fire!“ s tlačítkem pro aktuální ruku (LMB, RT) pod zaměřovačem; tepe jednou za vteřinu, výstřel ho smaže, zpět až po 30 s. Pravidla v `FireHint` (čistá logika, testy viděny selhat), popis v `docs/game-feedback/fire-hint.md`.
+- ⚠ `turn=`/`walk=` teď hlásí držení kartám traverse/walk; bez toho skript kartu orbitu nikdy nedokončil.
+- Otevřené: verdikt newcomer (pauzu u nováčka nikdo neměřil), snímky ve `verdicts\925\`.
+
+## 2026-10-19 — #874 zářiče uvnitř trychtýře, projekční paprsky — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Po majitelově „Vrať“: čtyři zářiče sedí na skle trychtýře 0,6 pod okrajem (patka podél normály skla) a hlavice se na čepu natočí přesně na svůj roh sítě; z čočky vede měkký, rozšiřující se kužel, který na rohu přistane. `Cannon.SetKeepouts` je pryč, dělo obíhá volně. Čep třmenu je výš (0,95), jinak by se ocas hlavice zabořil do patky.
+- ⚠ Na 16–17 širokých sítích je roh skoro nad čočkou: hlavice míří svisle a kužel měří 0,8.
+- ⚠ Kulička přes okraj v ose zářiče jím projde (bez kolize, záměrně).
+- Otevřené: `verdict-eye`, snímky ve `verdicts\874b\`.
+
+## 2026-10-19 — #930 karty tutoriálu: jedna akce na krok — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Inventura všech karet je na issue. Dvě věci chtěla jediná karta, `combine` (pravé tlačítko + A/D): je z ní dvoukroková karta („Hold to look down the barrel“, po splnění „Now walk the gun round“); zaznamená se po druhém kroku pod starým klíčem, uložené hry se neučí znovu. Ostatní karty jsou jeden rozkaz bez „proč“ (to drží Help), `TutorialCopyTests` je hlídá a na starém textu selhal.
+- ⚠ Lekce s držením nehrají skripty `rmb=`/`walk=`: druhý krok je vidět jen v reelu `tutorial=demo`; skutečnou detekci nikdo ručně nehrál.
+- Otevřené: verdikt newcomer + oko majitele na formulaci (snímky ve `verdicts\930\`).
+
+## 2026-10-19 — #926 NEW BEST jako oslava — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: po nejlepším výsledku slovo NEW BEST (písmo 200, nad titulem) dopadne po poslední hvězdě s odskokem (pružina, přestřelí na 1,36×); výplň je pastelová duha plynoucí po slově, 24 jisker při dopadu a 8 blýskání dál. Barva jde po vrcholech přes `IFontStashRenderer2` a `BasicEffect`, bez shaderu, takže ji kreslí i Potato a GamePi. Zvuk `NewBestSynth` (trylek zvonků a akord, 99,9 % energie v 300–4000 Hz).
+- ⚠ `BasicEffect` vybere techniku až při prvním `Apply` (dřív bílé kostky); obrys `Stroked` přes `DrawText` sedí o `effectAmount` vpravo dole.
+- Slovo kreslí `MenuPage.DrawOverUi` nad Myrou, strom drží prázdné místo.
+- Otevřené: `verdict-eye`; pohyb a zvuk agent neposoudil, snímky ve `verdicts\926\`.

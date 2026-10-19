@@ -939,8 +939,8 @@ namespace Prazsky.Core.Render
         private static PotatoBackdrop Meadow(GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius)
         {
             var config = new MeadowSceneConfig();
-            //The field uncut (#892): the brook's groove and the pond's crater are a quarter of a unit's walls, and at 15
-            //units a cell a vertex that fell into one would pull a whole cell down into a dent. So no cut here, as no
+            //The field uncut (#892): the brook's swale and the pond's crater are banks a few units wide, and at 15 units
+            //a cell a vertex that fell into one would pull a whole cell down into a dent. So no cut here, as no
             //brook or pond is painted here, and the planting stands on the same uncut field, at the rim's height.
             float Height(float x, float z) => TerrainMirror.MeadowGround(x, z, config);
 

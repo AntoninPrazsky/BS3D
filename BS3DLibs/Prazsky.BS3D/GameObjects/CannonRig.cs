@@ -405,8 +405,10 @@ namespace Prazsky.BS3D
         /// <summary>
         /// How far the standing carriage reaches from its trunnions towards anything inward of them, whatever way it is
         /// yawed (#874): the circle round the trunnions that holds a wheel's outer face and the front of its disc. Taken
-        /// from the wheels' own figures (the plates' outer face, the disc's front) with a hair of margin, because it is what keeps the gun off the laser emitters on the
-        /// drain's rim (<see cref="GameObjects.Cannon.SetKeepouts"/>), and the clearance test sweeps the real pose against it.
+        /// from the wheels' own figures (the plates' outer face, the disc's front) with a hair of margin. The walk's near
+        /// end less this is the nearest the wheels come to the drain's axis, which is what the laser emitters inside the
+        /// funnel are placed against (<see cref="GameObjects.LaserEmitterRing"/>), and the clearance test holds its model of
+        /// the wheels to it.
         /// </summary>
         public static readonly float StandReach = MathF.Sqrt(
             (WHEEL_TRACK + ROLLER_ROW_OFFSET + ROLLER_RADIUS + PLATE_THICKNESS + 0.01f) * (WHEEL_TRACK + ROLLER_ROW_OFFSET + ROLLER_RADIUS + PLATE_THICKNESS + 0.01f)

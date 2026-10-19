@@ -208,6 +208,15 @@ namespace BS3D.Screens
         internal virtual void DrawForeground() { }
 
         /// <summary>
+        /// Draws what the page puts <b>over</b> its own tree (#926), into the host's overlay batch after the desktop has been laid out and
+        /// drawn and before the focus prompt: the result page's "NEW BEST", whose rainbow fill is a colour that changes across each letter,
+        /// which a Myra label cannot draw, and whose bounce overshoots the lines around it on purpose. Asked every frame the page is the active
+        /// one; a page that draws nothing leaves it alone. The positions to draw at are the tree's own (<c>Widget.ToGlobal</c> of a widget's
+        /// <c>ActualBounds</c>), which are laid out by then.
+        /// </summary>
+        internal virtual void DrawOverUi() { }
+
+        /// <summary>
         /// Whether this page is laid out as a grid the pad walks in the direction pressed (#848): the D-pad and the left
         /// stick move the focus cursor to the entry beside, above or below it, and its left and right are the cursor's,
         /// not <see cref="PageSideways"/>' (the shoulders still turn the page). The arrow keys keep walking the list in

@@ -11,7 +11,7 @@ using Xunit;
 namespace BS3D.Tests
 {
     /// <summary>
-    /// The brook's groove and the pond's crater (#892, <see cref="MeadowCarve"/>), and the patch that draws them
+    /// The brook's swale and the pond's crater (#892, <see cref="MeadowCarve"/>), and the patch that draws them
     /// (<see cref="MeadowPatchGeometry"/>). The camera grid draws the field uncut with a hole where the cut is, so what can
     /// go wrong without a frame is arithmetic: a cut reaching past the zone the shader evaluates it in (a step in the field
     /// where its branch ends), a hole the patch does not cover (the sky through the ground), water standing over its banks
@@ -28,10 +28,11 @@ namespace BS3D.Tests
         private static float BrookStart => Config.ClearingRadius * MeadowPath.BROOK_START;
 
         [Fact]
-        public void TheGrooveEndsInsideTheZoneTheShaderCutsIn()
+        public void TheSwaleEndsInsideTheZoneTheShaderCutsIn()
         {
-            //Past BROOK_CARVE_HALF the shader does not evaluate the channel at all, so the cut must be nothing just inside it,
-            //on the steepest cross slopes the brook crosses, or the field steps where the branch ends
+            //Past BROOK_CARVE_HALF the shader does not evaluate the swale at all, so the cut must be nothing just inside it,
+            //on the steepest cross slopes the brook crosses (where its uphill bank is widest), or the field steps where the
+            //branch ends
             float worst = 0f;
             for (float d = BrookStart + 25f; d < MeadowCarve.BROOK_CARVE_END; d += 0.5f)
                 for (float side = MeadowCarve.BROOK_CARVE_HALF - 0.3f; side < MeadowCarve.BROOK_CARVE_HALF; side += 0.05f)
@@ -42,7 +43,7 @@ namespace BS3D.Tests
                         worst = Math.Max(worst, Math.Abs(Cut(x, z)));
                     }
 
-            Assert.True(worst < 1e-3f, $"the groove still cuts {worst:F4} deep at the edge of the zone it is cut in");
+            Assert.True(worst < 1e-3f, $"the swale still cuts {worst:F4} deep at the edge of the zone it is cut in");
         }
 
         [Fact]
@@ -184,21 +185,27 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void TheBrooksWaterStandsUnderItsBanksAndItsEdgeUnderTheWalls()
+        public void TheBrooksWaterStandsUnderItsBanksAndItsEdgeUnderTheMargin()
         {
-            //The water lies under the lower of the field and its two sides, so neither lip may stand under it; and the water
-            //mesh's edge (WATER_HALF either side) must be under the walls, where the depth test cuts it, wherever the water is
-            //drawn whole (before the groove starts to shallow) and outside the pond
-            float lowestLip = float.MaxValue, lowestEdge = float.MaxValue;
+            //The water lies under the lower of the field and its two sides, so no ground past its edge may stand under it -
+            //the margin, the step, the bank, the downhill field the bank eases into; and the water mesh's edge (WATER_HALF
+            //either side) must be under the margin, where the depth test cuts it, wherever the water is drawn whole (before
+            //the swale starts to shallow) and outside the pond
+            float lowestBank = float.MaxValue, lowestEdge = float.MaxValue;
+            string where = null;
             for (float d = BrookStart + 2f; d < MeadowCarve.BROOK_CARVE_FADE; d += 0.25f)
             {
                 float water = MeadowCarve.BrookWaterLevel(d, Config);
                 float half = MeadowCarve.BrookWaterHalf(d, Config);
                 foreach (float sign in new[] { -1f, 1f })
                 {
-                    (float lx, float lz) = MeadowPath.BrookPoint(d, sign * (half + 0.5f), Config);
-                    if (MeadowPath.PondShore(lx, lz, Config) > 1f)
-                        lowestLip = Math.Min(lowestLip, TerrainMirror.Meadow(lx, lz, Config) - water);
+                    for (float s = 0.05f; half + s < MeadowCarve.BROOK_CARVE_HALF; s += 0.1f)
+                    {
+                        (float lx, float lz) = MeadowPath.BrookPoint(d, sign * (half + s), Config);
+                        if (MeadowPath.PondShore(lx, lz, Config) < 1f) continue;
+                        float over = TerrainMirror.Meadow(lx, lz, Config) - water;
+                        if (over < lowestBank) { lowestBank = over; where = $"{d:F1} out, {s:F2} past the water"; }
+                    }
 
                     (float ex, float ez) = MeadowPath.BrookPoint(d, sign * MeadowPatchGeometry.WATER_HALF, Config);
                     if (MeadowPath.PondShore(ex, ez, Config) > 0.5f)
@@ -206,8 +213,48 @@ namespace BS3D.Tests
                 }
             }
 
-            Assert.True(lowestLip > 0.5f, $"a bank of the brook stands only {lowestLip:F3} over its water");
-            Assert.True(lowestEdge > 0.1f, $"the water's edge is only {lowestEdge:F3} under the wall");
+            Assert.True(lowestBank > 0.03f, $"the brook's bank stands only {lowestBank:F3} over its water at {where}");
+            Assert.True(lowestEdge > 0.09f, $"the water's edge is only {lowestEdge:F3} under the margin");
+        }
+
+        [Fact]
+        public void TheBrooksBankIsASwaleNotAWall()
+        {
+            //The owner on the first groove: "as if an excavator dug a hole there". The bank from the earth step's top to the
+            //field is grass at a slope a meadow has - a quarter of the field's (the slope where Meadow.fx turns grass to earth,
+            //a normal 0.78 up, is 0.8) - and the swale it makes is two to three times the water's width, as the references'
+            float start = BrookStart + 25f;
+            var slopes = new List<float>();
+            var spreads = new List<float>();
+            for (float d = start; d < MeadowCarve.BROOK_CARVE_FADE; d += 0.5f)
+            {
+                (float cx, float cz) = MeadowPath.BrookPoint(d, 0f, Config);
+                if (MeadowPath.PondShore(cx, cz, Config) < MeadowCarve.POND_CARVE_RADIUS) continue;
+                float half = MeadowCarve.BrookWaterHalf(d, Config);
+                float spread = 0f;
+                foreach (float sign in new[] { -1f, 1f })
+                {
+                    float previous = float.NaN, seen = 0f;
+                    for (float lateral = half + MeadowCarve.BrookShore(d, sign) + 0.1f; lateral < MeadowCarve.BROOK_CARVE_HALF; lateral += 0.05f)
+                    {
+                        (float x, float z) = MeadowPath.BrookPoint(d, sign * lateral, Config);
+                        float h = TerrainMirror.Meadow(x, z, Config);
+                        if (!float.IsNaN(previous) && Cut(x, z) > 0.02f) slopes.Add(MathF.Abs(h - previous) / 0.05f);
+                        if (Cut(x, z) > 0.05f) seen = lateral;
+                        previous = h;
+                    }
+                    spread += seen;
+                }
+                spreads.Add(spread / (2f * half));
+            }
+
+            slopes.Sort();
+            spreads.Sort();
+            float median = slopes[slopes.Count / 2], p90 = slopes[slopes.Count * 9 / 10], steepest = slopes[^1];
+            Assert.True(median < 0.55f && p90 < 0.8f && steepest < 1.2f,
+                $"the brook's grassy bank climbs {median:F2} at the median, {p90:F2} at the 90th percentile and {steepest:F2} at most");
+            float spreadMedian = spreads[spreads.Count / 2];
+            Assert.InRange(spreadMedian, 2.4f, 3.2f);
         }
 
         [Fact]
@@ -299,11 +346,16 @@ namespace BS3D.Tests
                 if (field.IsLiteral && field.FieldType == typeof(float)) mirror[field.Name] = (float)field.GetRawConstantValue();
 
             //The shader's names that differ from the mirror's
-            var renamed = new Dictionary<string, string> { ["BROOK_CARVE_BED"] = "BROOK_BED", ["POND_BANK_WIDTH"] = "POND_BANK" };
+            var renamed = new Dictionary<string, string>
+            {
+                ["BROOK_CARVE_BED"] = "BROOK_BED", ["POND_BANK_WIDTH"] = "POND_BANK", ["BROOK_BANK_WIDTH"] = "BROOK_BANK",
+            };
             string[] required =
             {
                 "BROOK_CARVE_HALF", "BROOK_HOLE_HALF", "BROOK_HOLE_END", "BROOK_CARVE_END", "BROOK_CARVE_FADE", "POND_CARVE_RADIUS",
-                "POND_HOLE_RADIUS", "POND_DROP", "BROOK_DROP", "CARVE_ROUND", "BROOK_TOP", "POND_LIP",
+                "POND_HOLE_RADIUS", "POND_DROP", "BROOK_DROP", "CARVE_ROUND", "POND_LIP", "BROOK_CARVE_BED", "BROOK_SHALLOWS",
+                "BROOK_MARGIN_RISE", "BROOK_MARGIN_MIN", "BROOK_MARGIN_MAX", "BROOK_STEP", "BROOK_STEP_RUN", "BROOK_BANK_WIDTH",
+                "BROOK_BANK_PER_RISE", "BROOK_BANK_MAX", "BROOK_LEVEE",
             };
             var seen = new HashSet<string>();
             foreach (Match m in Regex.Matches(source, @"^static const float (\w+)\s*=\s*([-0-9.eE+]+);", RegexOptions.Multiline))

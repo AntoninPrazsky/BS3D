@@ -36,7 +36,7 @@ namespace BS3D.Tests
             { "aim", new Vector2(80f, 96f), new Vector2(620f, 62f), Vector2.Zero },
             //"Click to fire / Space fires too": the text is the taller
             { "fire", new Vector2(60f, 70f), new Vector2(330f, 62f), new Vector2(250f, 36f) },
-            //"Three of a colour together fall": no glyph at all
+            //"Match three of a colour": no glyph at all
             { "match", Vector2.Zero, new Vector2(780f, 62f), new Vector2(560f, 36f) },
         };
 

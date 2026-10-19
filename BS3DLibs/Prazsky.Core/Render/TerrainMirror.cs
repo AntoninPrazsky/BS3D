@@ -517,7 +517,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The meadow's ground height at a world point, mirroring <c>Meadow.fx</c>'s <c>TerrainHeight</c> term
-        /// for term: the field with the brook's groove and the pond's crater cut into it (<see cref="MeadowCarve"/>, #892),
+        /// for term: the field with the brook's swale and the pond's crater cut into it (<see cref="MeadowCarve"/>, #892),
         /// what everything planted stands on. Keep this and the shader in the same change.
         /// </summary>
         public static float Meadow(float x, float z, MeadowSceneConfig config) => MeadowCarve.Height(x, z, config);
