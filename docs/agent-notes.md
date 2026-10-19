@@ -1176,3 +1176,8 @@ Pravidla:
 - Zjištěno: loga v `Game/Logos` mají 1bitovou alfu a nejsou v gitu (#951); kapitola Big Top (91–100) už je prověšená (#690); Testbed aberaci i zrno má (#922); Měsíc kreslí na High/Ultra stejný dvacetistěn jako na Low (#777).
 - ⚠ Resume workflow po limitu nevzal kontrolory z cache (prompt nesl `JSON.stringify` výsledku, změnilo se pořadí klíčů): zastavit hned, chybějící krok dodělat úzkým agentem.
 - Otevřené: dotazy majiteli (strom v Cavern, náměstí v City, které modré pruhy ve Space).
+
+## 2026-10-20 — #960 levitující špičky smrků — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo (větev `960-spruce-stem`): na High/Ultra neměla osa smrku pod vrcholovým výhonem 1,25–6 jednotek žádné dřevo (vnitřek začíná 1/8 koruny pod špičkou, na polární záři ho vlnění dokonce převrátilo), takže výhon a horní přesleny visely ve vzduchu. Nově jeden kmínek z kůry (stínovaný ×0,55) od vrcholu kmene až do výhonu; větve koření v něm. Low/Medium a Potato beze změny (sítě bajtově shodné). Fish +0,02–0,03 ms.
+- ⚠ Testbed `nocap` dával na desktopu nesmysly (rozdíl −0,13 až +7 ms); `fpscap=1000` sedí se hrou.
+- Otevřené: verdikt oka.
