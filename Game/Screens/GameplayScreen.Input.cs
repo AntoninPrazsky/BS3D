@@ -334,8 +334,8 @@ namespace BS3D.Screens
 
             //And the combination (#460), read here rather than beside the carriage's own keys because this is
             //where the close-up's half of it is known — so the AND is taken on one frame's two facts and not
-            //across two frames.
-            _tutorial.NoteHold(Tutorial.Lesson.Combine, _adsHeld && _carriageMoving,
+            //across two frames. Two steps since #930: the close-up held, then the carriage moved while it is
+            _tutorial.NoteTwoStepHold(Tutorial.Lesson.Combine, _adsHeld, _adsHeld && _carriageMoving,
                 (float)gameTime.ElapsedGameTime.TotalSeconds);
 
             if (_cursorCaptured) _mouseAim.Recentre(centreX, centreY);

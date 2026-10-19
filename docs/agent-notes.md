@@ -1102,3 +1102,8 @@ Pravidla:
 - ⚠ Na 16–17 širokých sítích je roh skoro nad čočkou: hlavice míří svisle a kužel měří 0,8.
 - ⚠ Kulička přes okraj v ose zářiče jím projde (bez kolize, záměrně).
 - Otevřené: `verdict-eye`, snímky ve `verdicts\874b\`.
+
+## 2026-10-19 — #930 karty tutoriálu: jedna akce na krok — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Inventura všech karet je na issue. Dvě věci chtěla jediná karta, `combine` (pravé tlačítko + A/D): je z ní dvoukroková karta („Hold to look down the barrel“, po splnění „Now walk the gun round“); zaznamená se po druhém kroku pod starým klíčem, uložené hry se neučí znovu. Ostatní karty jsou jeden rozkaz bez „proč“ (to drží Help), `TutorialCopyTests` je hlídá a na starém textu selhal.
+- ⚠ Lekce s držením nehrají skripty `rmb=`/`walk=`: druhý krok je vidět jen v reelu `tutorial=demo`; skutečnou detekci nikdo ručně nehrál.
+- Otevřené: verdikt newcomer + oko majitele na formulaci (snímky ve `verdicts\930\`).

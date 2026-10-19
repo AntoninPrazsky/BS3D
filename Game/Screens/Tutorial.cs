@@ -66,6 +66,13 @@ namespace BS3D.Screens
     /// promising A/D to a pad player would have been a card lying.
     /// </para>
     /// <para>
+    /// <b>One thing a step, in plain imperatives</b> (#930, the owner's: "players have a short attention span - they respond
+    /// to quick, clear instructions, they do not enjoy deciphering text"). A card says what to <i>do</i>, in the fewest words,
+    /// with the glyph for the hand in use; why it matters is the Help page's. A card that asks for two things is two steps
+    /// (<see cref="Definition.Second"/>): the combination of the close-up and a walk is the only one, its second step shown once
+    /// the first has been done. <c>TutorialCopyTests</c> holds every card to it.
+    /// </para>
+    /// <para>
     /// This class owns the rules and the state and draws nothing; <c>PlayHud.DrawTutorial</c> draws what it
     /// reads here, the way the HUD is handed the score keeper. It allocates nothing per frame: the captions
     /// are literals, the one formatted string (the glass's cadence) is built once per level.
@@ -140,8 +147,18 @@ namespace BS3D.Screens
 
             public string Glyph, PadGlyph;
             public string Caption, PadCaption;
-            public string Detail, PadDetail;
+            public string Detail;
             public string Praise;
+
+            /// <summary>
+            /// The lesson's <b>second step</b> (#930), or null for the one-step cards every other lesson is. A card that
+            /// asks for two things is two cards' worth of asking, and a player told both at once does neither: the first
+            /// step stands alone until the game sees it done (<see cref="NoteTwoStepHold"/>), the card then turns to this
+            /// one in place (only its words: glyph, caption, detail), and the lesson is complete, praised and recorded
+            /// under <see cref="Key"/> when <i>this</i> one is done. The step is a <see cref="Definition"/> only so it
+            /// shares the words' fields and the hand's fallbacks; nothing else on it is read.
+            /// </summary>
+            public Definition Second;
 
             /// <summary>
             /// The kind a <b>kind card</b> introduces (#735), or null for every lesson of the ladder. A kind card belongs
@@ -192,6 +209,10 @@ namespace BS3D.Screens
         //The glass lesson's caption, formatted once per level with that level's own cadence
         private const string CEILING_CAPTION = "The glass steps down every {0} shots";
 
+        //The precise aim's words, said by two cards: its own lesson, and the combination's first step (#930)
+        private const string LEAN_CAPTION = "Hold to look down the barrel";
+        private const string LEAN_PAD_CAPTION = "Hold the left trigger to look down the barrel";
+
         //In the order they are offered when several are eligible at once — which is also the order a player
         //who missed some catches up in. A pad caption left null falls back to the keyboard one (the lessons
         //with no key in them); a pad glyph likewise.
@@ -201,7 +222,7 @@ namespace BS3D.Screens
             {
                 Lesson = Lesson.Aim, Key = "aim", FromLevel = 0, Action = true,
                 Glyph = MOUSE, Caption = "Move the mouse to aim",
-                PadGlyph = PAD_RIGHT_STICK, PadCaption = "Aim with the right stick",
+                PadGlyph = PAD_RIGHT_STICK, PadCaption = "Move the right stick to aim",
                 Praise = "Nice!",
             },
             new()
@@ -214,41 +235,38 @@ namespace BS3D.Screens
             new()
             {
                 Lesson = Lesson.Match, Key = "match", FromLevel = 0, Action = true,
-                Caption = "Three of a colour together fall", Detail = "And everything hanging under them",
+                Caption = "Match three of a colour", Detail = "Shoot beside two of the same colour",
                 Praise = "Perfect!",
             },
             new()
             {
                 Lesson = Lesson.LeanIn, Key = "lean", FromLevel = 1, Action = true,
-                Glyph = MOUSE_RIGHT, Caption = "Hold to look down the barrel", Detail = "A close-up for the precise shot",
-                PadGlyph = PAD_LEFT_TRIGGER, PadCaption = "Hold the left trigger to look down the barrel",
-                PadDetail = "A close-up for the precise shot",
+                Glyph = MOUSE_RIGHT, Caption = LEAN_CAPTION,
+                PadGlyph = PAD_LEFT_TRIGGER, PadCaption = LEAN_PAD_CAPTION,
                 Praise = "Sharp!",
             },
             new()
             {
                 Lesson = Lesson.Ceiling, Key = "ceiling", FromLevel = 1, Contextual = true,
-                Caption = CEILING_CAPTION, Detail = "The panel on the left shows how far it has come",
+                Caption = CEILING_CAPTION, Detail = "Watch the panel on the left",
             },
             new()
             {
                 Lesson = Lesson.Line, Key = "line", FromLevel = 1, Contextual = true,
-                Caption = "The cluster is near the line!", Detail = "Drop a group to lift it. Under the line you have one second",
+                Caption = "Drop a group to lift the cluster", Detail = "It is near the line",
             },
             new()
             {
                 Lesson = Lesson.Traverse, Key = "traverse", FromLevel = 3, Action = true,
-                Glyph = KEY_A + KEY_D, Caption = "Walk the gun round the field", Detail = "Come at the cluster from another side",
+                Glyph = KEY_A + KEY_D, Caption = "Walk the gun round the field",
                 PadGlyph = PAD_LEFT_STICK_SIDEWAYS, PadCaption = "Push the left stick sideways to walk round",
-                PadDetail = "Come at the cluster from another side",
                 Praise = "Smooth!",
             },
             new()
             {
                 Lesson = Lesson.Walk, Key = "walk", FromLevel = 4, Action = true,
-                Glyph = KEY_W + KEY_S, Caption = "Step in for a steeper shot", Detail = "Closer means a shot up into the underside",
-                PadGlyph = PAD_LEFT_STICK_UP_DOWN, PadCaption = "Push the left stick up to step in",
-                PadDetail = "Closer means a shot up into the underside",
+                Glyph = KEY_W + KEY_S, Caption = "Step closer to the cluster",
+                PadGlyph = PAD_LEFT_STICK_UP_DOWN, PadCaption = "Push the left stick up to step closer",
                 Praise = "Closer!",
             },
             new()
@@ -258,10 +276,15 @@ namespace BS3D.Screens
                 //three cards separately has no reason to try holding two at once. Late in the ladder on
                 //purpose: it asks for all three of its parts to be in hand.
                 Lesson = Lesson.Combine, Key = "combine", FromLevel = 5, Action = true,
-                Glyph = MOUSE_RIGHT + KEY_A + KEY_D, Caption = "Hold the close-up and turn with it",
-                Detail = "Line the shot up from inside the close-up",
-                PadGlyph = PAD_LEFT_TRIGGER + PAD_LEFT_STICK_SIDEWAYS, PadCaption = "Hold the left trigger and push the left stick",
-                PadDetail = "Line the shot up from inside the close-up",
+                //Two steps since #930, the owner's "aim and move at the same time" card: the first is the lean card's own
+                //words, the second the walk's, and the card turns from one to the other when the hold has been kept
+                Glyph = MOUSE_RIGHT, Caption = LEAN_CAPTION,
+                PadGlyph = PAD_LEFT_TRIGGER, PadCaption = LEAN_PAD_CAPTION,
+                Second = new Definition
+                {
+                    Glyph = KEY_A + KEY_D, Caption = "Now walk the gun round",
+                    PadGlyph = PAD_LEFT_STICK_SIDEWAYS, PadCaption = "Now push the left stick sideways",
+                },
                 Praise = "Together!",
             },
             new()
@@ -277,8 +300,7 @@ namespace BS3D.Screens
                 //this read 6 from #459 to #649, which the three sheets inserted in front had quietly turned into
                 //Pinwheel.
                 Lesson = Lesson.LineRule, Key = "linerule", FromLevel = -3,
-                Caption = "If the cluster reaches the line, the level is lost",
-                Detail = "Keep it light — a heavy cluster hangs low and swings lower",
+                Caption = "Keep the cluster off the line", Detail = "Reaching it loses the level",
             },
             new()
             {
@@ -290,7 +312,7 @@ namespace BS3D.Screens
                 //said "everything" would be the one card that lied.
                 Lesson = Lesson.Graduated, Key = "graduated", FromLevel = -1, Celebrates = true,
                 Caption = "That’s the basics — you know how to play",
-                Detail = "The rest is the adventure. Go!",
+                Detail = "On to the adventure!",
             },
             new()
             {
@@ -302,13 +324,13 @@ namespace BS3D.Screens
                 //anybody has explained it. After the send-off in DEFINITIONS, as it is in play. Contextual on the
                 //Gallery's first level, as it was on the Meadow's third: shown when the streak first lights.
                 Lesson = Lesson.Streak, Key = "streak", Chapter = 1, FromLevel = 0, Contextual = true,
-                Caption = "Hit after hit multiplies your score", Detail = "A miss resets the streak",
+                Caption = "Keep hitting to multiply your score", Detail = "A miss resets it",
             },
             new()
             {
                 //And the budget one level on, so the chapter's first two levels teach one idea each.
                 Lesson = Lesson.Budget, Key = "budget", Chapter = 1, FromLevel = 1,
-                Caption = "Spare shots pay a bonus at the end", Detail = "Clear the field in fewer for more stars",
+                Caption = "Save shots for a bonus", Detail = "Fewer shots earn more stars",
             },
             new()
             {
@@ -319,9 +341,8 @@ namespace BS3D.Screens
                 //who spends the one swap on the level's first shot has nothing left for the shot that needed it. Its key
                 //stays "swap", so a player taught it on the old schedule is not taught it again.
                 Lesson = Lesson.Swap, Key = "swap", Tool = true, Action = true,
-                Glyph = KEY_E, Caption = "Swap the next two balls", Detail = "One swap a level, for when the queue lets you down",
-                PadGlyph = PAD_X, PadCaption = "Press X to swap the next two balls",
-                PadDetail = "One swap a level, for when the queue lets you down",
+                Glyph = KEY_E, Caption = "Swap the next two balls", Detail = "One swap a level",
+                PadGlyph = PAD_X,
                 Praise = "Swapped!",
             },
             new()
@@ -330,9 +351,8 @@ namespace BS3D.Screens
                 //has a step to give back, and the moment its chip lights - and an action card from there, done when the key is
                 //pressed.
                 Lesson = Lesson.Brake, Key = "brake", Tool = true, Contextual = true, Action = true,
-                Glyph = KEY_Q, Caption = "Lift the glass back one step", Detail = "One brake a level, once the glass has come down",
-                PadGlyph = PAD_Y, PadCaption = "Press Y to lift the glass back one step",
-                PadDetail = "One brake a level, once the glass has come down",
+                Glyph = KEY_Q, Caption = "Lift the glass back one step", Detail = "One brake a level",
+                PadGlyph = PAD_Y,
                 Praise = "Lifted!",
             },
             new()
@@ -341,9 +361,8 @@ namespace BS3D.Screens
                 //the cutter strikes, never more than the cluster's lower half, previewed lit as it is aimed. Done when the key
                 //is pressed, which arms the round in the bore.
                 Lesson = Lesson.Cut, Key = "cut", Tool = true, Action = true,
-                Glyph = KEY_R, Caption = "Turn the next ball into a cutter", Detail = "It takes the whole storey it hits, and all that hangs on it",
-                PadGlyph = PAD_RIGHT_BUMPER, PadCaption = "Press the right bumper for a cutter",
-                PadDetail = "It takes the whole storey it hits, and all that hangs on it",
+                Glyph = KEY_R, Caption = "Turn the next ball into a cutter", Detail = "One cut a level",
+                PadGlyph = PAD_RIGHT_BUMPER,
                 Praise = "Armed!",
             },
 
@@ -398,10 +417,55 @@ namespace BS3D.Screens
         {
             foreach (Definition definition in DEFINITIONS)
             {
-                foreach (string text in new[] { definition.Caption, definition.PadCaption, definition.Detail, definition.PadDetail, definition.Praise })
-                    if (text != null) yield return text;
+                for (Definition face = definition; face != null; face = face.Second)
+                    foreach (string text in new[] { face.Caption, face.PadCaption, face.Detail, face.Praise })
+                        if (text != null) yield return text;
             }
         }
+
+        /// <summary>One step of a card as one hand draws it (<see cref="Steps"/>).</summary>
+        /// <param name="Key">The lesson's save key.</param>
+        /// <param name="Step">0 for the card's first step, 1 for its second (#930).</param>
+        /// <param name="Pad">The gamepad's words, not the keyboard and mouse's.</param>
+        /// <param name="Glyph">The prompt font's glyphs, or null for none (a kind card's is the ball itself).</param>
+        /// <param name="Caption">The big line; the glass lesson's with its cadence put in.</param>
+        /// <param name="Detail">The small line, or null.</param>
+        /// <param name="Instructs">The card tells the player to <i>do</i> something: not the send-off, which is a reward,
+        /// and not a kind's card, which says what a ball is.</param>
+        internal readonly record struct StepCopy(string Key, int Step, bool Pad, string Glyph, string Caption, string Detail, bool Instructs);
+
+        /// <summary>
+        /// Every step of every card, for each hand, exactly as the card draws it (#930): what <c>TutorialCopyTests</c> holds to
+        /// "one thing at a time". Read through the same <see cref="Words"/> the card is, so a hand's fallbacks are the ones
+        /// the player sees.
+        /// </summary>
+        internal static IEnumerable<StepCopy> Steps()
+        {
+            foreach (Definition definition in DEFINITIONS)
+            {
+                bool instructs = !definition.Celebrates && definition.Kind == null;
+                int step = 0;
+
+                for (Definition face = definition; face != null; face = face.Second, step++)
+                    foreach (bool pad in new[] { false, true })
+                    {
+                        (string glyph, string caption, string detail) = Words(face, pad);
+                        if (definition.Lesson == Lesson.Ceiling)
+                            caption = string.Format(CultureInfo.InvariantCulture, caption, 6);
+
+                        yield return new StepCopy(definition.Key, step, pad, glyph, caption, detail, instructs);
+                    }
+            }
+        }
+
+        /// <summary>
+        /// The words of one step for one hand. A pad caption left null falls back to the keyboard one (the lessons with no key
+        /// in them, and the tools', whose glyph already says which button), a pad glyph likewise. The small line is the
+        /// hands' alike: it names no control, since #930 cut every one that explained why.
+        /// </summary>
+        private static (string Glyph, string Caption, string Detail) Words(Definition face, bool pad) =>
+            pad ? (face.PadGlyph ?? face.Glyph, face.PadCaption ?? face.Caption, face.Detail)
+                : (face.Glyph, face.Caption, face.Detail);
 
         /// <summary>How many kinds there are, for the per-kind colour table <see cref="BeginLevel"/> is handed.</summary>
         internal static readonly int KIND_COUNT = MaxKind() + 1;
@@ -451,6 +515,12 @@ namespace BS3D.Screens
         private const float AIM_TRAVEL = 0.06f;
         private const float HOLD_SECONDS = 0.35f;
 
+        //A two-step card (#930, Definition.Second): the first step stands at least this long before the card turns to the
+        //second - a player already holding the button when the card pops would otherwise see it flash by - and the second
+        //step falls back to the first when its hold has been let go this long, since only the first says what to hold
+        private const float STEP_MIN_SECONDS = 1.2f;
+        private const float STEP_BACK_SECONDS = 0.5f;
+
         private readonly Func<string, bool> _wasTaught;
         private readonly Action<string> _teach;
 
@@ -480,6 +550,11 @@ namespace BS3D.Screens
         private float _praise;
         private float _gap;
         private float _held;
+
+        //Which step of a two-step card is up (#930), how long it has stood, and how long the first step's hold has been let go
+        private int _step;
+        private float _stepAge;
+        private float _released;
         private float _travel;
         private float _lastTraverse, _lastElevation;
         private bool _aimBaselined;
@@ -561,8 +636,7 @@ namespace BS3D.Screens
         internal static string SkipGlyphFor(bool gamepad) => gamepad ? PAD_RIGHT_TRIGGER : MOUSE_LEFT;
 
         /// <summary>The prompt font's glyphs for the card — a keycap, a mouse, a trigger — or null for none.</summary>
-        internal string Glyph => _card == null ? null
-            : _device == Device.Gamepad ? _card.PadGlyph ?? _card.Glyph : _card.Glyph;
+        internal string Glyph => _card == null ? null : Words(Face, _device == Device.Gamepad).Glyph;
 
         /// <summary>The line of what to do. It stays up through the praise since #466 — see <see cref="Praise"/>.</summary>
         internal string Caption
@@ -572,18 +646,26 @@ namespace BS3D.Screens
                 if (_card == null) return null;
                 if (_card.Lesson == Lesson.Ceiling) return _ceilingCaption;
 
-                return _device == Device.Gamepad ? _card.PadCaption ?? _card.Caption : _card.Caption;
+                return Words(Face, _device == Device.Gamepad).Caption;
             }
         }
 
         /// <summary>The smaller second line, or null for a one-line card. It stays up through the praise too (#466).</summary>
-        internal string Detail => _card == null ? null
-            : _device == Device.Gamepad && _card.PadCaption != null ? _card.PadDetail : _card.Detail;
+        internal string Detail => _card == null ? null : Words(Face, _device == Device.Gamepad).Detail;
 
         /// <summary>
-        /// True once per completed action, on the frame it completed — the session plays the chime and kicks
-        /// the praise word's spring off it (the whole card's, for the send-off, which has no praise row), and the
-        /// read clears it.
+        /// The words the card shows now (#930): the lesson's own, or its second step's once the first has been done. The
+        /// praise, the kind and the clocks are always the lesson's.
+        /// </summary>
+        private Definition Face => _step > 0 && _card.Second != null ? _card.Second : _card;
+
+        /// <summary>Which step of the card is up, 0 for the first (and for every one-step card) - see <see cref="Definition.Second"/>.</summary>
+        internal int Step => _step;
+
+        /// <summary>
+        /// True once per completed action or finished step, on the frame it happened — the session plays the chime and kicks
+        /// the praise word's spring off it (the whole card's, for the send-off and for a card turning to its second step,
+        /// which have no praise row), and the read clears it.
         /// </summary>
         internal bool TakePraiseCue()
         {
@@ -869,6 +951,9 @@ namespace BS3D.Screens
             _praise = 0f;
             _gap = 0f;
             _held = 0f;
+            _step = 0;
+            _stepAge = 0f;
+            _released = 0f;
             _travel = 0f;
             _aimBaselined = false;
             _praiseCue = false;
@@ -961,6 +1046,7 @@ namespace BS3D.Screens
 
                 case Phase.Arriving:
                     _age += elapsed;
+                    _stepAge += elapsed;
                     _presence = MathF.Min(1f, _presence + elapsed / ARRIVE_SECONDS);
 
                     if (_presence >= 1f) _phase = Phase.Shown;
@@ -968,15 +1054,17 @@ namespace BS3D.Screens
 
                 case Phase.Shown:
                     _age += elapsed;
+                    _stepAge += elapsed;
 
                     //An action card gives up rather than nagging, and is NOT recorded: it comes back on the
                     //next level of the chapter. An informational one has been read by now and is. The reel
-                    //counts every card done on its own clock.
+                    //counts every card done on its own clock, each step of a two-step card on its own (#930).
                     if (_demo)
                     {
-                        if (_age >= DEMO_SECONDS)
+                        if (_stepAge >= DEMO_SECONDS)
                         {
-                            if (_card.Action) Complete();
+                            if (_card.Second != null && _step == 0) AdvanceStep();
+                            else if (_card.Action) Complete();
                             else Retreat(taught: true);
                         }
                     }
@@ -1030,6 +1118,9 @@ namespace BS3D.Screens
             _age = 0f;
             _praise = 0f;
             _held = 0f;
+            _step = 0;
+            _stepAge = 0f;
+            _released = 0f;
             _travel = 0f;
             _aimBaselined = false;
             _praised = false;
@@ -1057,10 +1148,15 @@ namespace BS3D.Screens
             _phase = Phase.Leaving;
         }
 
-        /// <summary>The action on the card was done: recorded, and the praise joins the instruction under it.</summary>
+        /// <summary>
+        /// The action on the card was done: recorded, and the praise joins the instruction under it. A two-step card (#930) is
+        /// done when its <b>last</b> step is: the first turns the card to the second (<see cref="AdvanceStep"/>) and records
+        /// nothing, so a lesson left half done is owed again exactly as an action that timed out is.
+        /// </summary>
         private void Complete()
         {
             if (_card == null || !_card.Action || _phase is Phase.Praising or Phase.Leaving) return;
+            if (_card.Second != null && _step == 0) return;
 
             Teach(_card);
 
@@ -1068,6 +1164,29 @@ namespace BS3D.Screens
             _praise = 0f;
             _praised = true;
             _praiseCue = true;
+        }
+
+        /// <summary>
+        /// The first step of a two-step card is done (#930): the card turns to the second in place, with the same cue a done
+        /// action gives (the chime, the whole card's kick - there is no praise row to take it), because the player has just
+        /// done something and should hear it.
+        /// </summary>
+        private void AdvanceStep()
+        {
+            _step = 1;
+            _stepAge = 0f;
+            _held = 0f;
+            _released = 0f;
+            _praiseCue = true;
+        }
+
+        /// <summary>The second step's hold was let go: the card is the first step again, which says what to hold. No cue.</summary>
+        private void BackStep()
+        {
+            _step = 0;
+            _stepAge = STEP_MIN_SECONDS;
+            _held = 0f;
+            _released = 0f;
         }
 
         /// <summary>Whether <paramref name="lesson"/> is the card up and still waiting to be done.</summary>
@@ -1133,10 +1252,46 @@ namespace BS3D.Screens
         /// </summary>
         internal void NoteHold(Lesson lesson, bool held, float elapsed)
         {
-            if (!IsUp(lesson)) return;
+            //A two-step card reads its holds through NoteTwoStepHold (#930)
+            if (!IsUp(lesson) || _card.Second != null) return;
 
             _held = held ? _held + elapsed : 0f;
 
+            if (_held >= HOLD_SECONDS) Complete();
+        }
+
+        /// <summary>
+        /// A lesson of two steps, each a hold (#930): the precise aim's button, then a movement kept up <i>with</i> it. The
+        /// first step is done after <see cref="HOLD_SECONDS"/> of <paramref name="first"/> unbroken, once it has stood
+        /// <see cref="STEP_MIN_SECONDS"/>, and the card turns to the second; the lesson is done after
+        /// <see cref="HOLD_SECONDS"/> of <paramref name="both"/>, which has to be the two facts of one frame - alternating the
+        /// button and the movement is not the gesture. If the first is let go for <see cref="STEP_BACK_SECONDS"/> the card
+        /// shows the first step again, since only that one says what to hold.
+        /// </summary>
+        /// <param name="first">The first step's hold this frame (the precise aim's button).</param>
+        /// <param name="both">The second step's hold this frame (the button and a movement).</param>
+        internal void NoteTwoStepHold(Lesson lesson, bool first, bool both, float elapsed)
+        {
+            //The reel counts each step on its own clock (Update): a window that has the focus reads no button held, and
+            //would send the second step straight back to the first
+            if (_demo || !IsUp(lesson) || _card.Second == null) return;
+
+            if (_step == 0)
+            {
+                _held = first ? _held + elapsed : 0f;
+                if (_held >= HOLD_SECONDS && _stepAge >= STEP_MIN_SECONDS) AdvanceStep();
+
+                return;
+            }
+
+            _released = first ? 0f : _released + elapsed;
+            if (_released >= STEP_BACK_SECONDS)
+            {
+                BackStep();
+                return;
+            }
+
+            _held = both ? _held + elapsed : 0f;
             if (_held >= HOLD_SECONDS) Complete();
         }
 
