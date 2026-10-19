@@ -1092,3 +1092,7 @@ Pravidla:
 - Poznámky v0.4.0 zkráceny na dvanáct řádků o hře a jeden závěrečný: stránka vydání 116 → 61 řádků, nadpis „Download and play“ z řádku 80 na 24. Dlouhá verze je v komentáři #927 a na tagu (`blob/v0.4.0`); `Images/releases/v0.4.0.md` je teď krátká.
 - Pravidlo je v `docs/build-and-release.md`. Pořadí v `release.yml` zůstává: GitHub řadí assety pod celé tělo, rozhoduje tedy délka, ne pořadí.
 - Hotové vydání se upravuje přes `gh release view --json body` + `gh release edit --notes-file`, sekce Download beze změny.
+
+## 2026-10-19 — #904 Ska: kandidát c3 jako bloom-ska — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: majitel 18. 10. řekl, že c3 je lepší než původní Ska; nasazen jako `bloom-ska.ogg` (45 s, bez trimu, post-codec špička -0,25 dBFS), bicí vrstva oddělena znovu, sidecar nese brief, seed, měření a výrok majitele, který pro tuto jednu nahrávku přebíjí hranici krátkých děr (29,3 za minutu proti 27,0; stará 99,2, 21 oříznutých běhů → 0). `MusicBake --shipped`, LevelGen a 1764 testů v pořádku; `[music] bloom: bloom-ska.ogg (drums layered)` ve hře.
+- Nic neposlouchal agent; poslech je majitelův.
