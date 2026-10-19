@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-20 — #890 louka: volně stojící keře z kmínků a listů na High/Ultra — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: na High/Ultra je 55 volných keřů `MeadowShrubMesh` – 5–7 kmínků z jednoho místa v trávě, 13–17 trsů listových karet (spreje starých stromů), tmavý spodek, trsy trávy u paty, uvnitř bochníku, podle kterého se sázelo. Živé ploty a Low/Medium/Potato kreslí bochník beze změny (pixelově, census Potato shodný). Hra: +0,10/+0,12 ms ve hře, oblet balíků +0,27/+0,29.
+- ⚠ Testbed `alt=finemeshes` tu měří artefakt (znaménko se mezi běhy otáčí); měř oddělené běhy obou buildů. Cenu nedělají trojúhelníky.
+- Otevřené: `verdict-eye`, `verdicts\890\`.
+
 ## 2026-10-20 — #934 dlouhá přezdívka na tabuli — desktop (RDT-PC), Claude Code (bs3d-bf)
 - Hotovo: jméno na tabuli se ořízne „…“ na šířku svého sloupce (`BoardLayout`, sloupce mají pixelové šířky), řádek bez značky půjčuje sloupec značky. Na displeji širším než 16:9 deska roste o polovinu přebytku (3840x1600: 780 → 1453 jednotek). Reprodukováno proti loopback stand-inu, nikdy proti živé službě.
 - ⚠ Na 16:9 a užším nechá „not finished“ jménu jen 3 až 4 znaky; značka jako tónování nebo druhý řádek je rozhodnutí o vzhledu.

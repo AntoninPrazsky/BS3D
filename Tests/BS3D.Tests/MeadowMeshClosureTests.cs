@@ -162,6 +162,26 @@ namespace BS3D.Tests
             Assert.Empty(MeshOpenness.OpenEdges(v, idx));
         }
 
+        /// <summary>
+        /// The free-standing shrubs of High and Ultra (#890): every stem and branch is closed at both ends from its own rings, so
+        /// the wood's only open edges are the twigs' base rings, within a twig's radius of a spray base, as a tree's are.
+        /// </summary>
+        [Theory]
+        [InlineData(0, 1.6f)]
+        [InlineData(1, 1.85f)]
+        [InlineData(2, 2.1f)]
+        public void TheFineShrubsWoodIsOpenOnlyWhereItsTwigsLeave(int m, float r)
+        {
+            (float reach, float top) = MeadowScatter.FineShrubSize(r, MeadowScatter.LOAF_SEED + m);
+            MeadowShrubGeometry shrub = MeadowShrubMesh.Build(reach, top, MeadowScatter.FINE_SHRUB_SEED + m);
+            List<(Vector3 A, Vector3 B)> open = MeshOpenness.OpenEdges(shrub.WoodVertices, shrub.WoodIndices);
+            Assert.NotEmpty(open);
+            float near = shrub.TwigRadius * 1.01f;
+            foreach ((Vector3 a, Vector3 b) in open)
+                Assert.True(shrub.SprayBases.Any(s => Vector3.Distance(s, a) <= near && Vector3.Distance(s, b) <= near),
+                    $"shrub {m}: an open edge of the wood at {a} is not a twig's base ring");
+        }
+
         public static TheoryData<int, int> Trees() => new()
         {
             { 0, 6090 }, { 0, 6091 }, { 1, 6092 }, { 1, 6093 }, { 2, 6094 },

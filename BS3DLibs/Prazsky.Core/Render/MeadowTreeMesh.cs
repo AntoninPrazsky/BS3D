@@ -986,14 +986,21 @@ namespace Prazsky.Core.Render
         /// twig leaf by leaf. The card count is the shell's cover it had, so the leaf mass and the cost are what they were.
         /// The shading normal is still mostly the clump's shell, so a spray shades as one rounded mass of leaves, lit on
         /// top and dark beneath; the layer code the same as the shell's (top, flanks, underside and inside).
+        /// <para>
+        /// A meadow shrub's clumps are the same sprays (<see cref="MeadowShrubMesh"/>, #890), denser and finer: <paramref name="cover"/>
+        /// is the shell's cover, <paramref name="cardSize"/> a card's side against the clump's radius and
+        /// <paramref name="twigsMin"/> to <paramref name="twigsMax"/> how many twigs carry them, a tree's <see cref="CARD_COVER"/>,
+        /// <see cref="CARD_SIZE"/> and <see cref="TWIGS_MIN"/> to <see cref="TWIGS_MAX"/> unless a caller states its own.
+        /// </para>
         /// </summary>
-        private static void AddSpray(List<VertexPositionNormalTexture> tv, List<short> tidx,
+        internal static void AddSpray(List<VertexPositionNormalTexture> tv, List<short> tidx,
             List<VertexPositionNormalTexture> lv, List<int> lidx, Vector3 basePoint, Vector3 centre, Vector3 crownCentre,
-            float radius, float halfHeight, bool inner, float twigRadius, Random rng)
+            float radius, float halfHeight, bool inner, float twigRadius, Random rng, float cover = CARD_COVER, float cardSize = CARD_SIZE,
+            int twigsMin = TWIGS_MIN, int twigsMax = TWIGS_MAX)
         {
-            float size = radius * CARD_SIZE;
-            int cardsLeft = (int)(CARD_COVER * MathHelper.TwoPi * radius * radius * (1f - CARD_LOWEST) / (size * size));
-            int twigs = TWIGS_MIN + rng.Next(TWIGS_MAX - TWIGS_MIN + 1);
+            float size = radius * cardSize;
+            int cardsLeft = (int)(cover * MathHelper.TwoPi * radius * radius * (1f - CARD_LOWEST) / (size * size));
+            int twigs = twigsMin + rng.Next(twigsMax - twigsMin + 1);
 
             //Out of the crown and a little up: the side of the shell the twigs reach for first
             Vector3 outward = centre - crownCentre;

@@ -248,7 +248,7 @@ namespace Testbed.Diagnostics
 
         /// <summary>
         /// <c>finemeshes=&lt;0|1&gt;</c>: High and Ultra's finer meshes - <c>SceneRenderer.FineMeshes</c> (#758 the savanna
-        /// acacias' grown fork, #889 the meadow trees' grown fork, #883 the savanna's thorn bushes, #733 the spruces' boughs,
+        /// acacias' grown fork, #889 the meadow trees' grown fork, #883 the savanna's thorn bushes, #890 the meadow's shrubs, #733 the spruces' boughs,
         /// #781 the finer mountain range). On by default, the authored look; 0 draws Low and Medium's tubes, lobed domes,
         /// lathes and range, so the two can be photographed from one pinned camera and, through <c>alt=</c>, measured in one
         /// process.
