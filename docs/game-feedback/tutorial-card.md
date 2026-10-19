@@ -19,14 +19,14 @@ Part of [The game: feedback](../game-feedback.md). Which lessons exist, their or
 
 - The last device to produce input is latched (`Tutorial.NoteDevice`) and read **at draw time**, so picking up the pad swaps the prompt next frame. **A level's tutorial starts from the menus' hand** (#799, `BS3DGame.PromptsForPad`; "The keys are drawn in the UI" in `docs/game-shell.md`), noted in `GameplayScreen.BuildLevel` on every build and not in the constructor, which runs once (#852); the rumble's hand is set from it on the same line ([The pad](pad-rumble.md)).
 - **The pad's left stick traverses and walks the gun** (`GameplayScreen.UpdateInput`): a pad could aim, fire and lean but not turn or walk, and a card promising it would have lied. **At the speed it is pushed, from the first step** (#802): push to the power 1.5 is the share of full speed (MonoGame rescales the stick from 0 past its dead zone); `Cannon.Orbit`/`Advance` ramp to that.
-- **Each stick by name:** aim the right stick (`↻`), walk-round the left sideways (`⇄`), step-in the left up and down (`⇅`), the combination LT with the left sideways.
+- **Each stick by name:** aim the right stick (`↻`), walk-round the left sideways (`⇄`), step-in the left up and down (`⇅`), the combination LT and then the left sideways, a step each (#930). A tool's card names no button in words on the pad (the glyph is the button): its caption and its small line are the keyboard's.
 
 ## What the detection reads
 
-- **Aim reads the pose** (`Cannon.Traverse`/`Elevation`, travel since the card came up), so mouse and stick are judged alike. The holds want `HOLD_SECONDS` **unbroken**.
+- **Aim reads the pose** (`Cannon.Traverse`/`Elevation`, travel since the card came up), so mouse and stick are judged alike. The holds want `HOLD_SECONDS` **unbroken**. **The combination reads two holds** (`Tutorial.NoteTwoStepHold`, #930): the precise-aim button, then the button and a movement as the facts of **one** frame (alternating them is not the gesture); [the steps](tutorial.md#one-thing-a-step-in-plain-imperatives-930).
 - **Fire is the shot leaving** (`Shoot`), not landing; **match is a landing that scored**. The streak cue is the multiplier above ×1 *after* `Landed`. The glass lesson fires from `AnnounceCeilingStep` on a pressure step only; the line lesson from `UpdateLaserWarning` on the net's off-to-on edge only.
 - **A lesson reported while its card is not the one up is ignored.** Nothing allocates (captions are literals).
-- **The copy is held to the typesetting rules** ("Typesetting" in `docs/game-shell/menu-look.md`): `CopyRulesTests` runs `CopyRules.Fault` over every string `Tutorial.Copy` returns, both hands', so a card written with a straight apostrophe, a hyphen for a dash or three dots fails there.
+- **The copy is held to the typesetting rules** ("Typesetting" in `docs/game-shell/menu-look.md`): `CopyRulesTests` runs `CopyRules.Fault` over every string `Tutorial.Copy` returns, both hands' and both steps', so a card written with a straight apostrophe, a hyphen for a dash or three dots fails there; `TutorialCopyTests` holds what they say to one thing a step.
 
 ## Takeovers and decided levels
 
@@ -38,6 +38,6 @@ Part of [The game: feedback](../game-feedback.md). Which lessons exist, their or
 
 Cards are gated on the save and a real run would write the owner's (scripted runs pass `userdata=<dir>`).
 
-- **`tutorial`**: every lesson with the **real** detection. **`tutorial=demo`**: a **reel**, every lesson eligible whatever the level, each card done after `DEMO_SECONDS`; for scripted Game runs, where no key can be pressed.
+- **`tutorial`**: every lesson with the **real** detection. **`tutorial=demo`**: a **reel**, every lesson eligible whatever the level, each card (each step of the two-step one) done after `DEMO_SECONDS`; for scripted Game runs, where no key can be pressed. The hold lessons read the player's own hands, which `rmb=`/`walk=`/`turn=` do not write (and an unfocused run reads none), so a two-step card's second step is seen in the reel.
 - **`settings`** opens the Settings page at boot. **`pad`** draws every prompt (cards, skip hint, chips) for a pad all run (`Tutorial.PinDevice`): an unplayed run reads as a mouse, so a device merely noted at start was gone by the first card.
 - Pad half of the first chapter: `play level=1 tutorial=demo pad powerups=swap:1,brake:1,cut:1`. No script has run the real detection; play `level=One tutorial`.
