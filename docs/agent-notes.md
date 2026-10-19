@@ -20,6 +20,10 @@ Pravidla:
 
 ---
 
+## 2026-10-19 — #931 nestabilní OnlineStatsTests — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: chyba byla v testu, klient je v pořádku. `Stop()` jen žádá o konec, takže opakování zmrazené dávky mohlo dorazit na stand-in až po přečtení `sent` („expected 1, got 2“); a `File.ReadAllText` v `ReadOutbox` držel soubor proti `File.Replace`, zápis workeru selhal a test čekal 20 s. Opraveno `OneTry`, čekáním na worker a čtením s `FileShare.Delete`.
+- ⚠ Při dvou jádrech padalo 11 z 42 běhů, po opravě 0 z 50.
+
 ## 2026-10-19 — #929 titulek v menu na High/Ultra jako PNG logo — desktop (RDT-PC), Claude Code (bs3d-bf)
 - Hotovo: na High/Ultra je nápis 3D verzí loga: barvy písmen z PNG, tlustší těsnější trubky, fialové obrysy, 3D na fialovém disku, studiový lesk podél tahů (`Wordmark.fx`). Low/Medium i Potato beze změny.
 - ⚠ Ostrost brala hlavně aberace a zrno v rohu snímku: písmena jdou se zápornou alfou jako hotový obraz a resolve je klade bez křivky, zrna a aberace (`DisplayReferredLayer`).
