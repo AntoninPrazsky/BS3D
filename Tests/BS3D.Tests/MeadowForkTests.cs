@@ -154,55 +154,8 @@ namespace BS3D.Tests
         }
 
         /// <summary>The edges (of welded positions) only one triangle uses.</summary>
-        private static List<(Vector3 A, Vector3 B)> OpenEdges(List<VertexPositionNormalTexture> vertices, List<short> indices)
-        {
-            //Welded within WELD whichever side of a grid line two copies of a point fall: a rounded key alone split a
-            //knuckle's tip, whose copies differ in the eighth decimal, into two points and called its triangles open
-            const float WELD = 1e-4f;
-            var cells = new Dictionary<(int, int, int), List<int>>();
-            var points = new List<Vector3>();
-            var ids = new int[vertices.Count];
-            for (int i = 0; i < vertices.Count; i++)
-            {
-                Vector3 p = vertices[i].Position;
-                var cell = ((int)MathF.Floor(p.X / WELD), (int)MathF.Floor(p.Y / WELD), (int)MathF.Floor(p.Z / WELD));
-                int id = -1;
-                for (int dx = -1; dx <= 1 && id < 0; dx++)
-                    for (int dy = -1; dy <= 1 && id < 0; dy++)
-                        for (int dz = -1; dz <= 1 && id < 0; dz++)
-                            if (cells.TryGetValue((cell.Item1 + dx, cell.Item2 + dy, cell.Item3 + dz), out List<int> near))
-                                foreach (int other in near)
-                                    if (Vector3.DistanceSquared(points[other], p) <= WELD * WELD) { id = other; break; }
-                if (id < 0)
-                {
-                    id = points.Count;
-                    points.Add(p);
-                    if (!cells.TryGetValue(cell, out List<int> list)) cells[cell] = list = new List<int>();
-                    list.Add(id);
-                }
-                ids[i] = id;
-            }
-
-            var edges = new Dictionary<(int, int), (int Count, Vector3 A, Vector3 B)>();
-            for (int t = 0; t + 2 < indices.Count; t += 3)
-            {
-                for (int e = 0; e < 3; e++)
-                {
-                    int i = (ushort)indices[t + e], j = (ushort)indices[t + (e + 1) % 3];
-                    int a = ids[i], b = ids[j];
-                    if (a == b) continue;
-                    var key = a < b ? (a, b) : (b, a);
-                    edges[key] = edges.TryGetValue(key, out var seen)
-                        ? (seen.Count + 1, seen.A, seen.B)
-                        : (1, vertices[i].Position, vertices[j].Position);
-                }
-            }
-
-            var open = new List<(Vector3, Vector3)>();
-            foreach ((int count, Vector3 a, Vector3 b) in edges.Values)
-                if (count == 1) open.Add((a, b));
-            return open;
-        }
+        private static List<(Vector3 A, Vector3 B)> OpenEdges(List<VertexPositionNormalTexture> vertices, List<short> indices) =>
+            MeshOpenness.OpenEdges(vertices, indices);
 
         private static float DistanceToSegment(Vector3 point, Vector3 from, Vector3 to)
         {

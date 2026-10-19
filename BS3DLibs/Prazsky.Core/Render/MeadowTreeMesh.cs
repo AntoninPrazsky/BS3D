@@ -1022,8 +1022,9 @@ namespace Prazsky.Core.Render
                 Vector3 At(float f) => (1f - f) * (1f - f) * basePoint + 2f * f * (1f - f) * mid + f * f * tip;
                 Vector3 TangentAt(float f) => Vector3.Normalize(2f * (1f - f) * (mid - basePoint) + 2f * f * (tip - mid));
 
+                //The tip comes to a point: a ring a quarter of the base's size left an open end there (#943)
                 TubeGeometry.AddSweep(tv, tidx, 4, new[] { basePoint, At(0.33f), At(0.67f), tip },
-                    new[] { twigRadius, twigRadius * 0.75f, twigRadius * 0.5f, twigRadius * 0.25f });
+                    new[] { twigRadius, twigRadius * 0.75f, twigRadius * 0.5f, 0f });
 
                 //This twig's share of the clump's cards, along its outer part, turned round it leaf by leaf
                 int cards = cardsLeft / (twigs - t);
