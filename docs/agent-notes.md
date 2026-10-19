@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-20 — #943 štěrbina v kulatých balících a díry v rekvizitách louky — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: víka balíku stála na 0,98 poloměru prstence, kolem každého konce zela štěrbina. Konec je teď z vlastních vrcholů prstence, mírně promáčknutý a s vlastním polárním UV pro #971 (`BaleGeometry`). Kontrola uzavřenosti hran (`MeshOpenness`) našla i otevřené konce kolejnic plotu (zavřeny) a špičky větviček (zašpičatěny); lavice, keře, koruny a kmeny čisté.
+- ⚠ Víko přes `AddCap` zvlášť nechá štěrbinu: `AddSweep(capStart/capEnd)` nebo kopie prstence. Doc: `scenes/meadow.md`.
+- Otevřené: verdikt oka, `verdicts\943\`.
+
 ## 2026-10-19 — #887 ohně savany: víc než špičky — desktop (RDT-PC), Claude Code (bs3d-bf)
 - Hotovo: ohně stojí na návrších (zem pod nimi zvednutá na y -11,0, 2,5 pod deskou ostrova, `SeatBelowPlate`). Hrana ostrova skrývá z plamene nejvýš 15 % místo 33 až 49 % (viditelná výška nejméně 0,52 → 0,85, pixely plamene nad hranou 0,35 až 0,49 → 0,74 až 0,79). Posun kruhu ven nedává nic: zorný paprsek přes hranu klesá o 0,02 na jednotku (test `MovingTheRingOutBuysAlmostNothing`).
 - ⚠ Světlo ostrova drží absolutní výšku: `LightHeightScale` 0,65 → 0,45, jinak by deska dostala o 55 % víc než v #885.
