@@ -27,6 +27,21 @@ namespace Prazsky.Core.Render
         /// <param name="seed">Rolls the bend, the break and the branch stubs.</param>
         public SnagMesh(GraphicsDevice device, float height, float radius, int seed)
         {
+            (List<VertexPositionNormalTexture> v, List<short> idx, BoundingSphere bounds) = Build(height, radius, seed);
+            PrimitiveCount = idx.Count / 3;
+            BoundingSphere = bounds;
+            (VertexBuffer, IndexBuffer) = TubeGeometry.Upload(device, v, idx);
+        }
+
+        /// <summary>
+        /// The snag's geometry with no device, so a test holds it shut (#974). <b>The trunk is one sweep</b> from the foot to the
+        /// broken top and on to the splinter's tip, a ring at every kink shared by the two runs it joins and mitred to both: the
+        /// four straight tubes it used to be, laid end to end at an angle, met in rings in two planes - a wedge of open ring at each
+        /// bend, and a stub that started on the bend left standing in the gap (the knees #938 found open). The foot and the splinter's
+        /// tip are closed from their own rings, as the stubs' ends are.
+        /// </summary>
+        internal static (List<VertexPositionNormalTexture> Vertices, List<short> Indices, BoundingSphere Bounds) Build(float height, float radius, int seed)
+        {
             Random rng = new(seed);
             var v = new List<VertexPositionNormalTexture>();
             var idx = new List<short>();
@@ -47,22 +62,21 @@ namespace Prazsky.Core.Render
             Vector3 kink = new Vector3(0f, height * kinkAt, 0f) + bendDir * bend;
             Vector3 top = new Vector3(0f, height, 0f) - bendDir * bend * 0.4f;
 
-            //The root flare: a short fat cone at the foot, so the trunk grips the snow rather than stands in it
-            //like a pole.
-            TubeGeometry.AddTube(v, idx, SEG, foot, radius * 1.45f, foot + new Vector3(0f, radius * 1.6f, 0f), radius);
-            TubeGeometry.AddTube(v, idx, SEG, foot + new Vector3(0f, radius * 1.6f, 0f), radius, kink, kinkRadius);
-            TubeGeometry.AddTube(v, idx, SEG, kink, kinkRadius, top, topRadius);
-
             //The break: the top is snapped, not sawn, so it ends in a short splinter leaning off the axis rather
             //than a flat cap facing up.
             Vector3 splinterDir = Vector3.Normalize(top - kink + new Vector3((float)rng.NextDouble() - 0.5f, 0f, (float)rng.NextDouble() - 0.5f) * 0.6f);
             Vector3 splinterTip = top + splinterDir * radius * (1.5f + 2f * (float)rng.NextDouble());
-            TubeGeometry.AddTube(v, idx, 4, top, topRadius, splinterTip, topRadius * 0.15f);
-            TubeGeometry.AddCap(v, idx, 4, splinterTip, topRadius * 0.15f, splinterDir);
+
+            //The root flare (a short fat cone at the foot, so the trunk grips the snow rather than stands in it like a pole),
+            //the two runs and the splinter: one skin
+            TubeGeometry.AddSweep(v, idx, SEG,
+                new[] { foot, foot + new Vector3(0f, radius * 1.6f, 0f), kink, top, splinterTip },
+                new[] { radius * 1.45f, radius, kinkRadius, topRadius, topRadius * 0.15f },
+                capStart: true, capEnd: true);
 
             //The dead branches: stubs in rough whorls up the upper three quarters, pointing out and a little
             //down the way a spruce's branches hang, longest low and shortest near the break. A few are longer
-            //than the rest — a snag keeps one or two whole boughs and loses the others.
+            //than the rest - a snag keeps one or two whole boughs and loses the others.
             int stubs = 10 + rng.Next(8);
             float reach = 0f;
             for (int s = 0; s < stubs; s++)
@@ -87,9 +101,7 @@ namespace Prazsky.Core.Render
                 reach = MathF.Max(reach, length);
             }
 
-            PrimitiveCount = idx.Count / 3;
-            BoundingSphere = new BoundingSphere(new Vector3(0f, height * 0.5f, 0f), height * 0.5f + bend + reach + radius * 3f);
-            (VertexBuffer, IndexBuffer) = TubeGeometry.Upload(device, v, idx);
+            return (v, idx, new BoundingSphere(new Vector3(0f, height * 0.5f, 0f), height * 0.5f + bend + reach + radius * 3f));
         }
 
         public void Dispose()

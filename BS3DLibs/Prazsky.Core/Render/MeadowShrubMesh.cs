@@ -162,6 +162,7 @@ namespace Prazsky.Core.Render
             var stems = new List<(Vector3[] Points, float[] Radii)>(stemCount);
             var led = new bool[clumpCount];
             var sprayBases = new Vector3[clumpCount];
+            var sprayBacks = new Vector3[clumpCount];   //back along the stem or branch from its end, for the twigs' buried bases
             for (int s = 0; s < stemCount; s++)
             {
                 float a = stemPhase + MathHelper.TwoPi * s / stemCount + 0.6f * ((float)rng.NextDouble() - 0.5f);
@@ -200,6 +201,7 @@ namespace Prazsky.Core.Render
                 //Closed at both ends from its own rings (#943's rule for a prop that ends in a tube): the foot is buried and the top
                 //is inside its clump, but a ring left open is a hole wherever the ground or the leaf fails to hide it
                 TubeGeometry.AddSweep(g.WoodVertices, g.WoodIndices, 6, points, radii, capStart: true, capEnd: true);
+                sprayBacks[lead] = Vector3.Normalize(points[STEM_PIECES - 1] - points[STEM_PIECES]);
                 stems.Add((points, radii));
                 for (int k = 0; k < STEM_PIECES; k++) g.Skeleton.Add((points[k], points[k + 1]));
                 g.Stems.Add(points);
@@ -235,6 +237,7 @@ namespace Prazsky.Core.Render
                     radii2[k] = MathHelper.Lerp(fromRadius * BRANCH_FROM, stemRadius * 0.3f, t);
                 }
                 TubeGeometry.AddSweep(g.WoodVertices, g.WoodIndices, 5, points2, radii2, capStart: true, capEnd: true);
+                sprayBacks[c] = Vector3.Normalize(points2[BRANCH_PIECES - 1] - points2[BRANCH_PIECES]);
                 for (int k = 0; k < BRANCH_PIECES; k++) g.Skeleton.Add((points2[k], points2[k + 1]));
                 g.Branches.Add((from, fromRadius));
             }
@@ -244,7 +247,7 @@ namespace Prazsky.Core.Render
             for (int c = 0; c < clumpCount; c++)
             {
                 (Vector3 centre, float r, _) = clumps[c];
-                MeadowTreeMesh.AddSpray(g.WoodVertices, g.WoodIndices, g.LeafVertices, g.LeafIndices, sprayBases[c], centre, domeCentre,
+                MeadowTreeMesh.AddSpray(g.WoodVertices, g.WoodIndices, g.LeafVertices, g.LeafIndices, sprayBases[c], sprayBacks[c], centre, domeCentre,
                     r, r * 0.8f, shaded[c], H * TWIG_RADIUS, leafRng, SHRUB_COVER, SHRUB_CARD, SHRUB_TWIGS_MIN, SHRUB_TWIGS_MAX);
             }
             g.TwigRadius = H * TWIG_RADIUS;

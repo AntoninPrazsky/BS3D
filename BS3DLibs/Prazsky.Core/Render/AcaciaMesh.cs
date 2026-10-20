@@ -1385,7 +1385,7 @@ namespace Prazsky.Core.Render
 
     /// <summary>A mesh over vertex and index lists somebody else generated — the several tiers of an acacia's
     /// canopy in one draw. Owns the buffers.</summary>
-    internal sealed class UploadedMesh : IProceduralMesh, IDisposable
+    internal class UploadedMesh : IProceduralMesh, IDisposable
     {
         public VertexBuffer VertexBuffer { get; private set; }
         public IndexBuffer IndexBuffer { get; private set; }

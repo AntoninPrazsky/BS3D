@@ -205,7 +205,7 @@ namespace Prazsky.Core.Render
                 path[i] = rimCentre + (right * MathF.Cos(a) + upInBowl * MathF.Sin(a)) * (DISH_RADIUS + 0.01f);
             }
 
-            builder.AddSweptTube(path, axis, 0.022f, 6);
+            builder.AddSweptTube(path, axis, 0.022f, 6, closed: true);
 
             return new RooftopMesh(device, builder, new BoundingSphere(rimCentre, DISH_RADIUS + 0.05f));
         }

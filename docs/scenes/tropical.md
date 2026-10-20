@@ -31,7 +31,7 @@ One radial profile keyed on the distance to the **waterline**: flat dry sand, a 
 
 ## Palms and rocks
 
-- `PalmMesh` is two meshes over one instance: solids (trunk, boot, coconuts) and leaves (live fronds, dead skirt); never stretch an instance (the normals' inverse-transpose). `Palm.fx` is `Acacia.fx` plus a sway whose weight is baked into `TEXCOORD0.x`.
+- `PalmMesh` is two meshes over one instance: solids (trunk, boot, coconuts) and leaves (live fronds, dead skirt); never stretch an instance (the normals' inverse-transpose). `Palm.fx` is `Acacia.fx` plus a sway whose weight is baked into `TEXCOORD0.x`. **The wood is shut** (#974, `SeamAuditClosureTests`, `WindingCheck --openness`): the trunk runs on `FOOT_SINK` (1.2 trunk radii) under the ground and ends in a disc, so a dune that falls away under the low side of a leaning palm shows a skin and not the inside of a tube (the lip #754 describes), and the boot closes over its top; only the fronds are open, as sheets.
 - ⚠ **`SwayStrength` and `PalmShading` are per-DRAW arguments** (`DrawPalmPart`). `TEXCOORD0` is a sway weight only because `PalmMesh` bakes one; `LatheMesh` (`RockMesh` and the moss cap) writes `s / segments` there, so rocks drawn at the palms' strength sheared open.
 - **Planting**: dry sand only, clumped by `ScatterSpacing`, sunk a fraction into the sand. ⚠ **The crown, not the root, is tested against the menu orbit** (#555): the bow and lean carry a crown several units off its root, so a spot is a candidate only if the crown's position less `PalmMesh.FrondReach` stays outside `PalmConfig.OrbitClearance`.
 - ⚠ Rocks and dressing draw from the same rng stream after the palms, so a change to the palm loop re-rolls the beach behind it.
