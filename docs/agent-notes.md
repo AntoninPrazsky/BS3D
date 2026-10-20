@@ -1198,6 +1198,6 @@ Pravidla:
 - Otevřené: `verdict-eye`, `verdicts\907\`.
 
 ## 2026-10-20 — #963 polární záře přestavěna od základu — desktop (RDT-PC), Claude Code (bs3d-bf)
-- Hotovo (větev `963-aurora-rebuild`, nemergováno, čeká na review): měsícem osvětlené sněhové pole pod velkou zvlněnou září podle referencí obou modelů. Nebe: tři oblouky (ostrá zelená spodní hrana, paprsky, červený vršek, svítí po úsecích), Měsíc, záře nad obzorem. Sníh jako geometrie (závěje, val u ostrova, mapa závějí u každého kmene, klády, kamene), Měsíc vrhá stíny lesa, přízemní mlha (`SceneFog.fxh`, i pro les), 10 000 vzdálených smrků na kopcích, nové intro (les, měsíc, závěsy). Potato beze změny. Fish High 9,68 → 8,79 ms, Ultra 9,70 → 9,15.
+- Hotovo (větev `963-aurora-rebuild`, nemergováno, čeká na review): měsícem osvětlené sněhové pole pod velkou zvlněnou září podle referencí obou modelů. Nebe: tři oblouky (ostrá zelená spodní hrana, paprsky, červený vršek, svítí po úsecích), Měsíc, záře nad obzorem. Sníh jako geometrie (závěje, val u ostrova, mapa závějí u každého kmene, klády, kamene), Měsíc vrhá stíny lesa, přízemní mlha (`SceneFog.fxh`, i pro les), 10 000 vzdálených smrků na kopcích, nové intro (les, měsíc, závěsy). Potato beze změny. Fish High 9,65 → 8,81 ms, Ultra 9,68 → 9,16.
 - ⚠ Iterovaný průsečík přes záhyb kreslil spodní hranu jako pilu; tmavé nebe pod ostrou hranou vypadalo jako hory (pomohla záře pod hranou). `LogDrift` 0,95 zahrabal klády.
 - Otevřené: verdikt oka (pohyb), sníh na kládách je jen pruh, `verdicts\963\`.
