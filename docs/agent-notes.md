@@ -26,6 +26,21 @@ Pravidla:
 - ⚠ NaN normála = černý osmiúhelník velikosti bloomu. ⚠ Posun světlušek ve z/w na dálku propouští přes sloupy, posouvat ve světě.
 - Otevřené: verdikt oka, `verdicts\958\`.
 
+## 2026-10-20 — #974 audit spár: každá procedurální síť je uzavřená, brána v CI — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: `WindingCheck --openness` pustí `MeshOpenness.ExposedLoops` přes 434 částí všech scén, tabulka `Allowed` s důvodem u každé výjimky, exit 1 na nepojmenovanou otevřenou síť; v `build.yml` brána + dvě samokontroly (podstrčená otevřená krabice). Zavřeno: kolena `SnagMesh` (jeden sweep), pata a špice dlaně, základy větviček louky (zapuštěné do větve), spára víka a těla lunárního ostrova, prstenec talíře, štěrbina vývrtu hlavně.
+- ⚠ Před opravou 27 otevřených sítí; tabulka čeká na `#963`/`#960` (jehličí smrků) – kdo mění `ForestScatter*`, spustí `--openness`.
+- Otevřené: spoje, které nejsou sítě (#970, #968, #959, #969, strop jeskyně v #958); `GroundSettling` mimo savanu neměřen.
+
+## 2026-10-20 — #938 savana: dřevo je uzavřené, klády a skály leží na zemi — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: každý volný konec dřeva (větve, větvičky, kořeny, baobab, trnitý keř, doum) je disk, špička nebo kopule, do které další kus začíná; kloub je jeden `AddSweep`. `SavannaMeshClosureTests` přes `MeshOpenness.ExposedLoops`, staré stavby nalezeny (117–210 děr na strom). Kláda, skály a hliníky leží po svahu (`GroundSettling`; 36 z 60 klád mělo konec ve vzduchu).
+- ⚠ Počet hran nerozliší prstenec zapuštěný v rodiči od díry; plocha pětibokého průřezu je na 0,81 poloměru, potomek začíná uvnitř.
+- Otevřené: `verdict-eye`; `SnagMesh` má stejné spáry (#974).
+
+## 2026-10-20 — #890 louka: volně stojící keře z kmínků a listů na High/Ultra — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: na High/Ultra je 55 volných keřů `MeadowShrubMesh` – 5–7 kmínků z jednoho místa v trávě, 13–17 trsů listových karet (spreje starých stromů), tmavý spodek, trsy trávy u paty, uvnitř bochníku, podle kterého se sázelo. Živé ploty a Low/Medium/Potato kreslí bochník beze změny (pixelově, census Potato shodný). Hra: +0,10/+0,12 ms ve hře, oblet balíků +0,27/+0,29.
+- ⚠ Testbed `alt=finemeshes` tu měří artefakt (znaménko se mezi běhy otáčí); měř oddělené běhy obou buildů. Cenu nedělají trojúhelníky.
+- Otevřené: `verdict-eye`, `verdicts\890\`.
+
 ## 2026-10-20 — #934 dlouhá přezdívka na tabuli — desktop (RDT-PC), Claude Code (bs3d-bf)
 - Hotovo: jméno na tabuli se ořízne „…“ na šířku svého sloupce (`BoardLayout`, sloupce mají pixelové šířky), řádek bez značky půjčuje sloupec značky. Na displeji širším než 16:9 deska roste o polovinu přebytku (3840x1600: 780 → 1453 jednotek). Reprodukováno proti loopback stand-inu, nikdy proti živé službě.
 - ⚠ Na 16:9 a užším nechá „not finished“ jménu jen 3 až 4 znaky; značka jako tónování nebo druhý řádek je rozhodnutí o vzhledu.
@@ -1177,3 +1192,13 @@ Pravidla:
 - Zjištěno: loga v `Game/Logos` mají 1bitovou alfu a nejsou v gitu (#951); kapitola Big Top (91–100) už je prověšená (#690); Testbed aberaci i zrno má (#922); Měsíc kreslí na High/Ultra stejný dvacetistěn jako na Low (#777).
 - ⚠ Resume workflow po limitu nevzal kontrolory z cache (prompt nesl `JSON.stringify` výsledku, změnilo se pořadí klíčů): zastavit hned, chybějící krok dodělat úzkým agentem.
 - Otevřené: dotazy majiteli (strom v Cavern, náměstí v City, které modré pruhy ve Space).
+
+## 2026-10-20 — #960 levitující špičky smrků — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo (větev `960-spruce-stem`): na High/Ultra neměla osa smrku pod vrcholovým výhonem 1,25–6 jednotek žádné dřevo (vnitřek začíná 1/8 koruny pod špičkou, na polární záři ho vlnění dokonce převrátilo), takže výhon a horní přesleny visely ve vzduchu. Nově jeden kmínek z kůry (stínovaný ×0,55) od vrcholu kmene až do výhonu; větve koření v něm. Low/Medium a Potato beze změny (sítě bajtově shodné). Fish +0,02–0,03 ms.
+- ⚠ Testbed `nocap` dával na desktopu nesmysly (rozdíl −0,13 až +7 ms); `fpscap=1000` sedí se hrou.
+- Otevřené: verdikt oka.
+
+## 2026-10-20 — #907 hudba Silhouettes přegenerována — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: Fantasy, Jazz, Nordic, Oud a Theatre (`puppet`) nahrazeny v místě, názvy i levely beze změny. 50 renderů ve třech kolech, výběr měřením proti `ember` na vybalených .ogg: Fantasy c1 (flétna a housle, kapela místo orchestru), Jazz c10 přeřezaný 0–100 s (klavírní trio; první střih měl 9,4 % not mimo tóninu), Nordic c3, Oud c7 přeřezaný 10–110 s, Theatre c7. Trim: Theatre −3,5 dB (292 clipped runs), Fantasy a Oud −1,0, Nordic −0,5. Bicí vrstvy má teď všech pět (Fantasy a Jazz dřív žádnou).
+- ⚠ Nikdo neposlouchal (stroj bez zvuku). Nesáhl jsem na waltz (222 clipped runs) a triphop (275).
+- Otevřené: `verdict-eye`, `verdicts\907\`.

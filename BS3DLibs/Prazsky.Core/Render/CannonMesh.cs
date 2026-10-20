@@ -243,11 +243,19 @@ namespace Prazsky.Core.Render
 
             //=== The bore and the chamber cavity ==================================================
 
-            var boreSlotted = new List<Station>
+            //One station wherever the window's cheeks are cut (#974): a cheek's bore edge runs along the outer profile's stations,
+            //and a bore that was a single span from the muzzle to the window's end met it in a row of T-junctions, a crack along
+            //the slot that only the rasteriser's rounding decides. The stations are collinear, so the bore shades as it did.
+            var boreSlotted = new List<Station> { new(frontZ, boreRadius, crease: true) };
+            float lastBoreZ = frontZ;
+            for (int k = 1; k < slotEndIndex; k++)
             {
-                new(frontZ, boreRadius, crease: true),
-                new(slotEndZ, boreRadius, crease: true),
-            };
+                if (outerProfile[k].Z - lastBoreZ < 1e-5f) continue;
+                boreSlotted.Add(new Station(outerProfile[k].Z, boreRadius, crease: false));
+                lastBoreZ = outerProfile[k].Z;
+            }
+
+            boreSlotted.Add(new Station(slotEndZ, boreRadius, crease: true));
 
             Revolve(builder, dirs, boreSlotted, 0, boreSlotted.Count, 0, segments, inward: true);
 

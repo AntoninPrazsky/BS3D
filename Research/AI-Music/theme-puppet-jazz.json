@@ -1,148 +1,341 @@
 {
-    "file": "theme-puppet-jazz.wav",
-    "created": "2026-10-15",
-    "issue": 732,
-    "family": "puppet",
-    "chapter": "The Silhouettes (aurora, levels 41-50) - regenerated on the owner's ruling of 2026-10-11 (#732): mysterious and magical, with a melody; from the desert's ember model only the followable tune and the mid range, not its guitar rock",
-    "purpose": "Master of Game/Music/puppet-jazz.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-732-chosen on the desktop, with its .raw.wav; every candidate in masters-732); this sidecar is committed beside the .ogg.",
-    "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-puppet.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
-    "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
-    "license": "ACE-Step 1.5: MIT (code and weights)",
-    "request": {
-        "caption": "Mysterious late-night jazz instrumental: a sly, haunting vibraphone melody you can hum, a muted trumpet answering it, walking upright bass, a soft brushed snare and toms with a dark ride cymbal, smoky piano chords, a hushed breakdown to vibraphone and bass that swings back into the full band, secretive and magical like a shadow play after midnight, warm mid-forward mix, modern clean production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
-        "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, big band, bright brass section, ragtime, polka, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, sizzling cymbals, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance",
-        "instrumental": true,
-        "use_cot_caption": false,
-        "duration": 120,
-        "bpm": 118,
-        "keyscale": "C minor",
-        "seed": 2001124498,
-        "inference_steps": 8,
-        "output_format": "wav32"
-    },
-    "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
-    "loop_log": [
-        "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-jazz-c3.wav: 89.5s loop = source 18.76s..108.25s (44.00 bars at 118.0 bpm), crossfade 1.02s | context match 0.906 (best 0.954) | crossfade rhythm r=0.92 vs the track a bar later r=0.13: in time | spectrum cos=0.95"
+  "file": "theme-puppet-jazz.wav",
+  "created": "2026-10-19",
+  "issue": 907,
+  "family": "puppet",
+  "chapter": "The Silhouettes (aurora, levels 41-50) - regenerated on the desert's ember model (#907): modern, clean piano-trio jazz with momentum - a flowing hummable piano melody of running eighth notes over a driving double bass and a steady ride pulse, a second theme in the middle (the owner's Jukebox note, 2026-10-16: very dated and boring)",
+  "purpose": "Master of Game/Music/puppet-jazz.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-907-chosen on the desktop, with its .raw.wav; this is candidate c10r, theme-puppet-jazz-c10r in masters-907, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-907.ps1 (adapted from the #905 batch) -> generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Contemporary piano trio jazz instrumental: a flowing hummable piano melody of running eighth notes and quick syncopated turns in the middle register, a different second theme in the middle of the piece, the chords changing every two bars, a double bass with a driving pulse, drums with a steady dark ride cymbal and a light snare keeping constant momentum, modern and cinematic, clean production, mysterious and magical, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+    "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, smoky, retro, vintage, lounge, elevator music, cocktail party, swing, bebop, big band, cool jazz, easy listening, muzak, bossa nova, background music, nostalgic, old-fashioned, repetitive loop, one chord vamp, drone",
+    "instrumental": true,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 112,
+    "keyscale": "F minor",
+    "seed": 1283676590,
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-jazz-c10r.wav: 42.6s loop = source 32.85s..75.45s (20.02 bars at 112.8 bpm), crossfade 1.06s | context match 0.790 (best 0.838) | crossfade rhythm r=0.89 vs the track a bar later r=0.83: in time | spectrum cos=0.79"
+  ],
+  "recut": "Cut again from the raw render's seconds 0-100 with loop_crossfade.py (c10's first cut: a 59.6 s loop with 9.4 % of its held notes outside F minor (ember at most 8.6 %), six of them in one stretch of a few hundred milliseconds, and 200 Hz-2 kHz at 10.0 %; this shorter cut leaves that stretch out).",
+  "lm_check": {
+    "request0_captured": true,
+    "caption_verbatim": true,
+    "seed_in_request0": 1283676590,
+    "bpm_in_request0": 112,
+    "keyscale_in_request0": "F minor",
+    "duration_in_request0": 120.0
+  },
+  "measured": "generate-music.ps1 end to end 64,5 s (ace-lm + ace-synth + loop cut), exit 0",
+  "rendered": true,
+  "chosen": {
+    "candidate": "c10r",
+    "round": 2,
+    "of": [
+      "c1",
+      "c2",
+      "c3",
+      "c4",
+      "c5",
+      "c6",
+      "c7",
+      "c8",
+      "c9",
+      "c10",
+      "c10r",
+      "c11",
+      "c12",
+      "c13",
+      "c14",
+      "c15",
+      "c16",
+      "c17",
+      "c18"
     ],
-    "lm_check": {
-        "request0_captured": true,
-        "caption_verbatim": true,
-        "seed_in_request0": 2001124498,
-        "bpm_in_request0": 118,
-        "keyscale_in_request0": "C minor",
-        "duration_in_request0": 120.0
+    "why": "Chosen by measurement on the baked recording beside the ember family in one run: the only one of eighteen renders (nineteen cuts) inside ember on every column - 200 Hz-2 kHz 9.7 % (ember at least 9.5) and 300 Hz-4 kHz 8.1 %, 0.7 % above 6 kHz, tonal mid 76 %, flatness 0.04, 3.40 held-note changes a second, tempo wander 0.06 %, 0 clipped runs with no trim (the old jazz: 372), wobble 1.3 / detune 1.9 cents, 14.1 short gaps a minute, the opening pattern repeats for 2.1 s, 6.5 % of held notes outside F minor (ember at most 8.6 %); a 42.6 s loop (20 bars at 112.8 bpm) with cut context 0.790, rhythm r 0.89 against 0.83 a bar later, spectrum cosine 0.79, wrap -3.1 / 0.0 / -2.2 dB over 250 ms / 1 s / 2 s (p33 / p0 / p79), and the drums stem 12.1 dB under the mix in 300 Hz-4 kHz (-11.5 dB in its loudest 250 ms, 18 % of windows within 6 dB; ember reads -4.5 to -13.8 and -2.0 to -10.3). Honest caveat: only 74.1 % of its pitched energy sits on F minor (84.4 % on the best-fitting scale, F major / D minor; ember 75.6-86.4 %, the old jazz 79.1 %), which a jazz that uses chromatic notes will read. The first cut of its render (c10, 59.6 s) had 9.4 % of held notes outside the key, six of them in one stretch of a few hundred milliseconds, so it was cut again from seconds 0-100 of the same render. 18 renders over three rounds: three sax and Rhodes nu-jazz briefs, piano trio, jazz fusion; no other candidate was inside on every column.",
+    "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wobble, detune, short gaps, opening repeat, notes out of key, wrap step) beside the loop cut's own check, the hole and dropout shares, the wrap step over 250 ms, 1 s and 2 s, the pitched energy on the key's scale (Tools/Generation/key-share.py) and the drums stem against the mix in 300 Hz-4 kHz (Tools/Generation/drum-share.py on the stem separate_drums.py makes of the loop); a seam below its own rhythm, a hole over 15 %, a dropout over 20 dB, a wrap step of 10 dB or more or at p97, a seam spectrum cosine under 0.3, a loop under 30 s or short gaps over ember's 27.0 a minute ruled a candidate out; the chosen one measured again on the baked .ogg beside ember and the old recording, with the bake's trim"
+  },
+  "alternatives": [
+    {
+      "candidate": "c1",
+      "round": "1",
+      "seed": 1472032822,
+      "bpm": 112,
+      "caption": "brief_1 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-jazz-c1.wav: 61.1s loop = source 37.61s..98.70s (27.96 bars at 109.8 bpm), crossfade 1.09s | context match 0.642 (best 0.691) | crossfade rhythm r=0.56 vs the track a bar later r=0.39: in time | spectrum cos=0.59"
+      ],
+      "refused_or_not_chosen": "Ruled out: wrap +13.2 dB (p98); also outside ember on b200_2k 7.6, opening repeat 17.5 s; 61.1 s loop."
     },
-    "measured": "generate-music.ps1 end to end 62,3 s (ace-lm + ace-synth + loop cut), exit 0",
-    "measured_against_ember": {
-        "loop_s": 89.5,
-        "bpm": 118.0,
-        "context": 0.906,
-        "r_cross": 0.92,
-        "r_bar": 0.13,
-        "in_time": true,
-        "cos": 0.95,
-        "dip": 8.4,
-        "quiet": 1,
-        "lr_corr": 0.822,
-        "knee_pct": 0.155,
-        "b200_2k": 32.9,
-        "b300_4k": 27.9,
-        "above6k": 0.0,
-        "tonal_mid": 87,
-        "mid_flatness": 0.01,
-        "held_changes": 2.36,
-        "tempo_wander": 0.77,
-        "wrap_db": -1.4,
-        "wrap_pct": 20
+    {
+      "candidate": "c2",
+      "round": "1",
+      "seed": 51225884,
+      "bpm": 112,
+      "caption": "brief_1 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-jazz-c2.wav: 88.6s loop = source 6.25s..94.90s (41.02 bars at 111.0 bpm), crossfade 1.08s | context match 0.918 (best 0.967) | crossfade rhythm r=0.94 vs the track a bar later r=0.76: in time | spectrum cos=0.96"
+      ],
+      "refused_or_not_chosen": "Ruled out: short gaps 33.2/min; also outside ember on held_changes 1.52, above6k 2.2, wobble 4.9, gaps_per_min 33.2, opening repeat 47.6 s; 88.6 s loop."
     },
-    "measured_note": "measure-music.py --reference ember on the loop (band shares %, tonal mid %, mid flatness, held-note changes/s, tempo wander %, wrap step dB and its percentile) beside sel.py: the loop cut, dip = the quietest 2 s under the loop's p95 1 s level (dB), quiet = the % of the loop more than 10 dB under it, L/R correlation, knee_pct = the % of samples MusicBake's knee bends",
-    "rendered": true,
-    "chosen": {
-        "candidate": "c3",
-        "round": 1,
-        "of": [
-            "c1",
-            "c2",
-            "c3"
-        ],
-        "why": "the mid range: 200 Hz-2 kHz 32.9 %, 300 Hz-4 kHz 27.9 % (c2 6.0 %, at the floor of ember's range), nothing above 6 kHz (c2 1.6 %), tonal mid 87 %, an 89.5 s loop with 1 % under -10 dB, wrap step -1.4 dB (p20), L/R 0.82 where c2 is nearly mono (0.99). Counted by columns outside ember c2 would rank first (one against two): c3's second is a tempo wander of 0.77 % (ember <= 0.29 %, a swing feel), and both change note 2.2-2.4 times a second (ember >= 2.74). c1 steps -12.3 dB at its wrap",
-        "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wrap step) beside the loop cut's own check, the hole share (the loop more than 10 dB under its loud level), the breakdown dip and the stereo correlation; a seam below its own rhythm, a hole over 15 % or a wrap step over 6 dB ruled a candidate out; the table is on #732"
+    {
+      "candidate": "c3",
+      "round": "1",
+      "seed": 2053806077,
+      "bpm": 104,
+      "caption": "brief_2 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-jazz-c3.wav: 75.3s loop = source 25.66s..100.95s (31.98 bars at 101.9 bpm), crossfade 1.18s | context match 0.692 (best 0.739) | crossfade rhythm r=0.84 vs the track a bar later r=0.77: in time | spectrum cos=0.86"
+      ],
+      "refused_or_not_chosen": "Not chosen: outside ember on held_changes 2.13; 75.3 s loop; drums stem 9.6 dB under the mix in 300 Hz-4 kHz."
     },
-    "alternatives": [
-        {
-            "candidate": "c1",
-            "seed": 762308590,
-            "caption": "same brief",
-            "negative": "same negative",
-            "loop_log": [
-                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-jazz-c1.wav: 65.1s loop = source 18.57s..83.65s (31.99 bars at 118.0 bpm), crossfade 1.02s | context match 0.890 (best 0.939) | crossfade rhythm r=0.90 vs the track a bar later r=0.64: in time | spectrum cos=0.98"
-            ],
-            "measured": {
-                "loop_s": 65.1,
-                "bpm": 118.0,
-                "context": 0.89,
-                "r_cross": 0.9,
-                "r_bar": 0.64,
-                "in_time": true,
-                "cos": 0.98,
-                "dip": 4.8,
-                "quiet": 0,
-                "lr_corr": 0.988,
-                "knee_pct": 0.033,
-                "b200_2k": 13.9,
-                "b300_4k": 11.5,
-                "above6k": 0.3,
-                "tonal_mid": 88,
-                "mid_flatness": 0.03,
-                "held_changes": 2.04,
-                "tempo_wander": 0.11,
-                "wrap_db": -12.3,
-                "wrap_pct": 90
-            }
-        },
-        {
-            "candidate": "c2",
-            "seed": 63355560,
-            "caption": "same brief",
-            "negative": "same negative",
-            "loop_log": [
-                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-jazz-c2.wav: 65.1s loop = source 23.52s..88.60s (31.96 bars at 117.8 bpm), crossfade 1.02s | context match 0.821 (best 0.870) | crossfade rhythm r=0.93 vs the track a bar later r=0.48: in time | spectrum cos=0.86"
-            ],
-            "measured": {
-                "loop_s": 65.1,
-                "bpm": 117.8,
-                "context": 0.821,
-                "r_cross": 0.93,
-                "r_bar": 0.48,
-                "in_time": true,
-                "cos": 0.86,
-                "dip": 12.0,
-                "quiet": 2,
-                "lr_corr": 0.987,
-                "knee_pct": 0.431,
-                "b200_2k": 12.7,
-                "b300_4k": 6.0,
-                "above6k": 1.6,
-                "tonal_mid": 79,
-                "mid_flatness": 0.02,
-                "held_changes": 2.17,
-                "tempo_wander": 0.14,
-                "wrap_db": 1.3,
-                "wrap_pct": 21
-            }
-        }
-    ],
-    "replaces": {
-        "stem": "puppet-jazz",
-        "issue": 558,
-        "created": "2026-09-25",
-        "caption": "Cool 1960s cartoon jazz instrumental: vibraphone melody, walking upright bass, brushed drums with finger snaps, muted trumpet and flute answers, sly and playful, clean retro production, no vocals",
-        "negative": "vocals, singing, audience applause, crowd noise, live recording, dark ambient drone, heavy distortion",
-        "bpm": 126,
-        "keyscale": "F major",
-        "loop_log": [
-            "Wrote C:\\Users\\panrd\\AI\\output\\masters-558\\theme-puppet-jazz.wav: 57.0s loop = source 24.75s..81.75s (30.02 bars at 126.4 bpm), crossfade 0.95s | context match 0.919 (best 0.968) | crossfade rhythm r=0.92 vs the track a bar later r=0.58: in time | spectrum cos=0.97"
-        ],
-        "why_replaced": "briefed as sly, playful 1960s cartoon jazz; the owner, 2026-10-11 (#732): mysterious and magical, with a melody"
+    {
+      "candidate": "c4",
+      "round": "1",
+      "seed": 1239172421,
+      "bpm": 104,
+      "caption": "brief_2 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-jazz-c4.wav: 60.6s loop = source 37.17s..97.75s (26.04 bars at 103.2 bpm), crossfade 1.16s | context match 0.363 (best 0.413) | crossfade rhythm r=0.86 vs the track a bar later r=0.85: in time | spectrum cos=0.41"
+      ],
+      "refused_or_not_chosen": "Not chosen: outside ember on tonal_mid 44, above6k 5.8, out_of_key 36.2; 60.6 s loop; drums stem 11.7 dB under the mix in 300 Hz-4 kHz."
+    },
+    {
+      "candidate": "c5",
+      "round": "1",
+      "seed": 432782788,
+      "bpm": 116,
+      "caption": "brief_3 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-jazz-c5.wav: 49.2s loop = source 34.52s..83.75s (24.03 bars at 117.1 bpm), crossfade 1.02s | context match 0.541 (best 0.588) | crossfade rhythm r=0.87 vs the track a bar later r=0.65: in time | spectrum cos=0.92"
+      ],
+      "refused_or_not_chosen": "Not chosen: outside ember on held_changes 2.11, opening repeat 49.2 s; 49.2 s loop; drums stem 11.7 dB under the mix in 300 Hz-4 kHz."
+    },
+    {
+      "candidate": "c6",
+      "round": "1",
+      "seed": 1186293966,
+      "bpm": 116,
+      "caption": "brief_3 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-jazz-c6.wav: 99.8s loop = source 4.56s..104.35s (47.96 bars at 115.4 bpm), crossfade 1.04s | context match 0.529 (best 0.566) | crossfade rhythm r=0.76 vs the track a bar later r=0.71: in time | spectrum cos=0.54"
+      ],
+      "refused_or_not_chosen": "Not chosen: outside ember on held_changes 2.65, tempo_wander 0.33; 99.8 s loop; drums stem 8.7 dB under the mix in 300 Hz-4 kHz."
+    },
+    {
+      "candidate": "c7",
+      "round": "2",
+      "seed": 339216760,
+      "bpm": 120,
+      "caption": "brief_4 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-jazz-c7.wav: 96.0s loop = source 4.95s..100.95s (48.00 bars at 120.0 bpm), crossfade 1.00s | context match 0.952 (best 0.996) | crossfade rhythm r=0.99 vs the track a bar later r=0.63: in time | spectrum cos=0.99"
+      ],
+      "refused_or_not_chosen": "Runner-up (preview .ogg): a clean electric guitar and a warm flugelhorn trading a busy melody over Rhodes at 120 bpm (E minor, 96.0 s loop, the cleanest cut of its round: context 0.952, cosine 0.99), outside ember on one column: 2.51 held-note changes a second (ember at least 2.74; eleven other cuts of its render read 2.27-2.52); 20.6 short gaps a minute, 85.1 % of its pitched energy on E minor; the drums stem only 7.1 dB under the mix in 300 Hz-4 kHz (2.6 dB in its loudest 250 ms, crest 28 dB), the loudest drums of the five picks and runner-ups."
+    },
+    {
+      "candidate": "c8",
+      "round": "2",
+      "seed": 280093344,
+      "bpm": 120,
+      "caption": "brief_4 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-jazz-c8.wav: 56.5s loop = source 29.58s..86.05s (28.04 bars at 119.2 bpm), crossfade 1.01s | context match 0.531 (best 0.570) | crossfade rhythm r=0.75 vs the track a bar later r=0.82: in time | spectrum cos=0.74"
+      ],
+      "refused_or_not_chosen": "Ruled out: wrap -11.6 dB (p95); also outside ember on held_changes 2.36, above6k 3.2; 56.5 s loop."
+    },
+    {
+      "candidate": "c9",
+      "round": "2",
+      "seed": 1199611650,
+      "bpm": 112,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-jazz-c9.wav: 101.5s loop = source 4.00s..105.45s (47.99 bars at 113.5 bpm), crossfade 1.06s | context match 0.891 (best 0.903) | crossfade rhythm r=0.80 vs the track a bar later r=-0.06: in time | spectrum cos=0.90"
+      ],
+      "refused_or_not_chosen": "Ruled out: wrap +12.2 dB (p93); short gaps 49.7/min; also outside ember on b200_2k 5.6, b300_4k 5.4, gaps_per_min 49.7; 101.5 s loop."
+    },
+    {
+      "candidate": "c10",
+      "round": "2",
+      "seed": 1283676590,
+      "bpm": 112,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-jazz-c10.wav: 59.6s loop = source 34.31s..93.95s (28.02 bars at 112.8 bpm), crossfade 1.06s | context match 0.702 (best 0.750) | crossfade rhythm r=0.85 vs the track a bar later r=0.82: in time | spectrum cos=0.70"
+      ],
+      "refused_or_not_chosen": "The same render as c10r, first cut (59.6 s loop, context 0.702): 9.4 % of its held notes outside F minor (ember at most 8.6 %), six of them in one stretch of a few hundred milliseconds near 12-13 s of the loop; every other column inside ember. Cut again from seconds 0-100 as c10r (thirty-one stretches of the render were cut and measured: every 59.6 s and 34.1 s cut read 8.9-10.4 % out of key, the 42.6 s cuts that leave the stretch out read 5.8-6.4 %)."
+    },
+    {
+      "candidate": "c11",
+      "round": "2",
+      "seed": 970639792,
+      "bpm": 118,
+      "caption": "brief_5 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-jazz-c11.wav: 48.8s loop = source 39.19s..88.00s (23.98 bars at 117.9 bpm), crossfade 1.02s | context match 0.376 (best 0.426) | crossfade rhythm r=0.52 vs the track a bar later r=0.70: BELOW the track's own timekeeping -- listen | spectrum cos=0.49"
+      ],
+      "refused_or_not_chosen": "Ruled out: seam BELOW; wrap +10.8 dB (p94); short gaps 28.3/min; also outside ember on tonal_mid 40, above6k 2.2, gaps_per_min 28.3; 48.8 s loop."
+    },
+    {
+      "candidate": "c12",
+      "round": "2",
+      "seed": 336314889,
+      "bpm": 118,
+      "caption": "brief_5 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-jazz-c12.wav: 49.2s loop = source 29.12s..78.35s (24.04 bars at 117.2 bpm), crossfade 1.02s | context match 0.589 (best 0.638) | crossfade rhythm r=0.92 vs the track a bar later r=0.67: in time | spectrum cos=0.97"
+      ],
+      "refused_or_not_chosen": "Ruled out: short gaps 28.0/min; also outside ember on b200_2k 4.1, b300_4k 3.4, tonal_mid 41, gaps_per_min 28.0; 49.2 s loop."
+    },
+    {
+      "candidate": "c13",
+      "round": "3",
+      "seed": 13945218,
+      "bpm": 112,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-jazz-c13.wav: 61.1s loop = source 30.31s..91.40s (27.97 bars at 109.9 bpm), crossfade 1.09s | context match 0.827 (best 0.874) | crossfade rhythm r=0.91 vs the track a bar later r=0.77: in time | spectrum cos=0.97"
+      ],
+      "refused_or_not_chosen": "Ruled out: short gaps 28.5/min; also outside ember on b200_2k 8.2, gaps_per_min 28.5; 61.1 s loop."
+    },
+    {
+      "candidate": "c14",
+      "round": "3",
+      "seed": 1727986576,
+      "bpm": 112,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-jazz-c14.wav: 59.1s loop = source 26.93s..86.00s (26.94 bars at 109.5 bpm), crossfade 1.10s | context match 0.367 (best 0.389) | crossfade rhythm r=0.23 vs the track a bar later r=0.11: in time | spectrum cos=0.50"
+      ],
+      "refused_or_not_chosen": "Not chosen: outside ember on above6k 2.4, tempo_wander 0.55; 59.1 s loop; drums stem 17.0 dB under the mix in 300 Hz-4 kHz."
+    },
+    {
+      "candidate": "c15",
+      "round": "3",
+      "seed": 1281517651,
+      "bpm": 112,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-jazz-c15.wav: 50.1s loop = source 29.59s..79.65s (23.04 bars at 110.4 bpm), crossfade 1.09s | context match 0.902 (best 0.942) | crossfade rhythm r=0.79 vs the track a bar later r=0.52: in time | spectrum cos=0.96"
+      ],
+      "refused_or_not_chosen": "Not chosen: outside ember on held_changes 2.4; 50.1 s loop; drums stem 20.7 dB under the mix in 300 Hz-4 kHz."
+    },
+    {
+      "candidate": "c16",
+      "round": "3",
+      "seed": 1369570404,
+      "bpm": 108,
+      "caption": "brief_6 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-jazz-c16.wav: 77.5s loop = source 10.46s..87.95s (35.01 bars at 108.4 bpm), crossfade 1.11s | context match 0.264 (best 0.314) | crossfade rhythm r=0.26 vs the track a bar later r=0.06: in time | spectrum cos=0.39"
+      ],
+      "refused_or_not_chosen": "Ruled out: wrap +13.6 dB (p82); short gaps 41.0/min; also outside ember on held_changes 2.31, gaps_per_min 41.0; 77.5 s loop."
+    },
+    {
+      "candidate": "c17",
+      "round": "3",
+      "seed": 960358643,
+      "bpm": 108,
+      "caption": "brief_6 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-jazz-c17.wav: 94.2s loop = source 4.00s..98.20s (42.00 bars at 107.0 bpm), crossfade 1.12s | context match 0.938 (best 0.978) | crossfade rhythm r=0.86 vs the track a bar later r=0.89: in time | spectrum cos=0.96"
+      ],
+      "refused_or_not_chosen": "Ruled out: short gaps 147.1/min; also outside ember on b200_2k 3.8, b300_4k 3.1, tonal_mid 46, held_changes 0.79, gaps_per_min 147.1, opening repeat 92.0 s; 94.2 s loop."
+    },
+    {
+      "candidate": "c18",
+      "round": "3",
+      "seed": 2056863435,
+      "bpm": 108,
+      "caption": "brief_6 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-jazz-c18.wav: 72.4s loop = source 31.58s..104.00s (32.05 bars at 106.2 bpm), crossfade 1.13s | context match 0.369 (best 0.376) | crossfade rhythm r=0.22 vs the track a bar later r=0.21: in time | spectrum cos=0.41"
+      ],
+      "refused_or_not_chosen": "Ruled out: hole 42 %; dropout 33.5 dB; also outside ember on held_changes 2.21, tempo_wander 0.33; 72.4 s loop."
     }
+  ],
+  "alternative_briefs": {
+    "brief_1": {
+      "caption": "Modern nu-jazz instrumental: a warm tenor saxophone playing a catchy memorable melody that a listener could hum back, in the middle register, over Rhodes electric piano chords, a deep round electric bass groove and a tight modern drum groove of kick, snare and toms with a dark ride cymbal playing throughout, the melody developing with a second theme in the middle, forward-moving, clean and fresh, mysterious and magical like lantern light on a midnight stage, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, smoky, retro, vintage, lounge, elevator music, cocktail party, swing, bebop, big band, cool jazz, easy listening, muzak, bossa nova, background music, nostalgic, old-fashioned",
+      "bpm": 112,
+      "round": "1",
+      "candidates": [
+        "c1",
+        "c2"
+      ]
+    },
+    "brief_2": {
+      "caption": "Contemporary piano trio jazz instrumental: a hypnotic repeating piano melody in the middle register that a listener could hum back, growing and developing as it goes, a double bass with a driving pulse, drums with a steady dark ride cymbal and a light snare keeping constant momentum, minimalist, modern and cinematic, clean production, mysterious and magical, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, smoky, retro, vintage, lounge, elevator music, cocktail party, swing, bebop, big band, cool jazz, easy listening, muzak, bossa nova, background music, nostalgic, old-fashioned",
+      "bpm": 104,
+      "round": "1",
+      "candidates": [
+        "c3",
+        "c4"
+      ]
+    },
+    "brief_3": {
+      "caption": "Modern jazz fusion instrumental: a clean electric guitar playing a melodic hummable lead line in the middle register, answered by a warm flugelhorn, Rhodes electric piano chords, a melodic electric bass, a tight energetic drum groove of kick, snare and toms with a dark ride cymbal playing throughout, driving forward with a second melody in the middle, bright and clean, mysterious and magical, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, smoky, retro, vintage, lounge, elevator music, cocktail party, swing, bebop, big band, cool jazz, easy listening, muzak, bossa nova, background music, nostalgic, old-fashioned",
+      "bpm": 116,
+      "round": "1",
+      "candidates": [
+        "c5",
+        "c6"
+      ]
+    },
+    "brief_4": {
+      "caption": "Modern jazz fusion instrumental: a clean electric guitar and a warm flugelhorn trading a flowing, busy, hummable melody of running eighth notes in the middle register, two different themes alternating, a bright first theme and a darker second theme with a bridge between them, Rhodes electric piano chords, a melodic electric bass, a tight energetic drum groove of kick, snare and toms with a dark ride cymbal playing throughout, the chords changing every two bars, bright and clean, mysterious and magical, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, smoky, retro, vintage, lounge, elevator music, cocktail party, swing, bebop, big band, cool jazz, easy listening, muzak, bossa nova, background music, nostalgic, old-fashioned, repetitive loop, one chord vamp, drone",
+      "bpm": 120,
+      "round": "2",
+      "candidates": [
+        "c7",
+        "c8"
+      ]
+    },
+    "brief_5": {
+      "caption": "Modern nu-jazz instrumental: a warm tenor saxophone playing a busy, catchy, hummable melody of running eighth notes in the middle register, a different second theme in the middle of the piece, over Rhodes electric piano chords that change every two bars, a deep round electric bass groove and a tight modern drum groove of kick, snare and toms with a dark ride cymbal playing throughout, forward-moving, clean and fresh, mysterious and magical like lantern light on a midnight stage, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, smoky, retro, vintage, lounge, elevator music, cocktail party, swing, bebop, big band, cool jazz, easy listening, muzak, bossa nova, background music, nostalgic, old-fashioned, repetitive loop, one chord vamp, drone",
+      "bpm": 118,
+      "round": "2",
+      "candidates": [
+        "c11",
+        "c12"
+      ]
+    },
+    "brief_6": {
+      "caption": "Contemporary piano trio jazz instrumental in the natural minor scale: a flowing hummable piano melody of running eighth notes and quick syncopated turns in the middle register, a different second theme in the middle of the piece, the chords changing every two bars, staying inside the key, a double bass with a driving pulse, drums with a steady dark ride cymbal and a light snare keeping constant momentum, modern and cinematic, clean production, mysterious and magical, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, smoky, retro, vintage, lounge, elevator music, cocktail party, swing, bebop, big band, cool jazz, easy listening, muzak, bossa nova, background music, nostalgic, old-fashioned, repetitive loop, one chord vamp, drone",
+      "bpm": 108,
+      "round": "3",
+      "candidates": [
+        "c16",
+        "c17",
+        "c18"
+      ]
+    }
+  },
+  "replaces": {
+    "issue": 732,
+    "created": "2026-10-15",
+    "caption": "Mysterious late-night jazz instrumental: a sly, haunting vibraphone melody you can hum, a muted trumpet answering it, walking upright bass, a soft brushed snare and toms with a dark ride cymbal, smoky piano chords, a hushed breakdown to vibraphone and bass that swings back into the full band, secretive and magical like a shadow play after midnight, warm mid-forward mix, modern clean production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+    "negative": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, big band, bright brass section, ragtime, polka, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, sizzling cymbals, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance",
+    "seed": 2001124498,
+    "bpm": 118,
+    "keyscale": "C minor",
+    "loop_log": [
+      "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-jazz-c3.wav: 89.5s loop = source 18.76s..108.25s (44.00 bars at 118.0 bpm), crossfade 1.02s | context match 0.906 (best 0.954) | crossfade rhythm r=0.92 vs the track a bar later r=0.13: in time | spectrum cos=0.95"
+    ],
+    "why_replaced": "The owner's Jukebox note of 2026-10-16 (translated from Czech): it sounds very dated and boring (#907). Measured on 2026-10-17 beside ember: 372 clipped runs (ember at most 3), a tempo wander of 0.55 % (ember at most 0.29), 2.38 held-note changes a second (ember at least 2.74), 12.6 % of held notes outside C minor (ember at most 8.6) and 20.1 short gaps a minute. It had no drums layer: its drums stem stood 55 dB under the mix in 300 Hz-4 kHz."
+  }
 }

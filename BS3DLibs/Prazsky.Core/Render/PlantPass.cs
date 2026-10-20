@@ -101,7 +101,7 @@ namespace Prazsky.Core.Render
                 ScatterBucket bucket = buckets[i];
                 if (bucket.DetailOnly && !detail) continue;
                 if (bucket.LowOnly && detail) continue;
-                if (bucket.FineMeshes is bool meshes && meshes != fineMeshes) continue;
+                if (!ScatterBucket.DrawnAt(bucket.FineMeshes, fineMeshes)) continue;
 
                 _diffuse.SetValue(bucket.Diffuse);
                 _diffuseDry.SetValue(bucket.DiffuseDry);
@@ -132,7 +132,7 @@ namespace Prazsky.Core.Render
             {
                 ScatterBucket bucket = buckets[i];
                 if (!bucket.CastsShadow) continue;
-                if (bucket.FineMeshes is bool meshes && meshes != fineMeshes) continue;
+                if (!ScatterBucket.DrawnAt(bucket.FineMeshes, fineMeshes)) continue;
                 _leaves.SetValue(bucket.Leaves);
                 Effect.CurrentTechnique.Passes[0].Apply();
                 DrawBucket(bucket);

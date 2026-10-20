@@ -281,12 +281,13 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Whether the scenes draw their <b>finer meshes</b> (#758): High and Ultra's, where Low and Medium draw the coarser
-        /// mesh of the same thing off the same instances. Five things today: the savanna acacias' wood — the fork grown as one
+        /// mesh of the same thing off the same instances. Six things today: the savanna acacias' wood — the fork grown as one
         /// surface out of a swollen, lobed crotch rather than tubes poking out of the trunk's cut end
         /// (<see cref="AcaciaMesh.FineWood"/>, <see cref="ScatterBucket.FineMeshes"/>, #758) — the meadow's old trees' wood
         /// grown the same way, the limbs coming out through the crotch's side (<see cref="MeadowTreeMesh.FineWood"/>, #889,
         /// drawn by <see cref="PlantPass"/>) — the savanna's bushes, thorn shrubs of stems, twigs and leaf cards in place of a
-        /// lobed dome with nothing inside it (<see cref="ThornBushMesh"/>, #883) — the spruces of the aurora's
+        /// lobed dome with nothing inside it (<see cref="ThornBushMesh"/>, #883) — the meadow's free-standing shrubs, stems and
+        /// clumps of broad-leaf cards in place of the lobed loaf the hedgerows keep (<see cref="MeadowShrubMesh"/>, #890) — the spruces of the aurora's
         /// wood and the daytime forest, whose crowns are separate boughs with snow lying on them in lumps instead of a lathe
         /// of smooth skirts (<see cref="TreeMesh.FineCrown"/>, #733), and the mountain range (#781): a grid twice as fine
         /// carrying a sixth octave and crags, shaded by a program that lays the rock in three dimensions where the coarser
@@ -297,7 +298,7 @@ namespace Prazsky.Core.Render
         /// this one is Medium's too: Medium is the weak machine's rung. A plain flag for <see cref="SupersampleFactor"/>'s
         /// reason — the tier lives in the Game. Left on, a caller that never sets it draws the authored look, which is what
         /// the Testbed and the map editor want. Costed in "The fork, grown for High and Ultra (#758)" and "The bush (#883)" in
-        /// docs/scenes/savanna-trees.md, in "Two woods (#889)" in docs/scenes/meadow.md, in "The spruces on High and Ultra"
+        /// docs/scenes/savanna-trees.md, in "Two woods (#889)" and "The shrubs (#890)" in docs/scenes/meadow.md, in "The spruces on High and Ultra"
         /// in docs/scenes/aurora.md and in "High and Ultra's range" in docs/scenes/mountains.md.
         /// </para>
         /// </summary>

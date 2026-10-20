@@ -24,6 +24,9 @@ namespace Prazsky.Core.Render
         public int PrimitiveCount => _lathe.PrimitiveCount;
         public BoundingSphere BoundingSphere => _lathe.BoundingSphere;
 
+        /// <summary>The apron's radius at the foot, at scale 1 (#938): what a planter rests the flat underside by.</summary>
+        public float FootRadius { get; }
+
         /// <param name="graphicsDevice">The device the buffers are created on.</param>
         /// <param name="radius">Half-width at the foot.</param>
         /// <param name="height">Height of the spire above the foot.</param>
@@ -50,6 +53,7 @@ namespace Prazsky.Core.Render
 
             //Sixteen facets resolve the 3- and 7-wave terms of the lathe's irregularity (see RockMesh); the
             //amplitude is a large share of the radius so the flutes show against the sky.
+            FootRadius = radius * 1.5f;
             _lathe = new LatheMesh(graphicsDevice, profile, 16, irregularityAmplitude: radius * 0.28f,
                 irregularityPhase: irregularityPhase);
         }

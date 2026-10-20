@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Generic;
 
 namespace Prazsky.Core.Render
 {
@@ -80,19 +81,33 @@ namespace Prazsky.Core.Render
         public PalmMesh(GraphicsDevice device, float trunkRadius, float height, float frondLength, int seed)
         {
             Random rng = new(seed);
-
-            //The trunk's bow. Palms curve — grown on a shore wind, never machined straight up — and the
-            //curve accumulates towards the crown (t², a palm bending under its own crown), which is why
-            //the trunk cannot be a lathe: a lathe is strictly about the Y axis.
-            float bow = height * (0.10f + 0.14f * (float)rng.NextDouble());
-            float bowAngle = (float)rng.NextDouble() * MathHelper.TwoPi;
-            Vector3 bowDir = new(MathF.Cos(bowAngle), 0f, MathF.Sin(bowAngle));
-            Vector3 crown = bowDir * bow + Vector3.Up * height;
+            (Vector3 bowDir, float bow, Vector3 crown) = Bow(height, rng);
             Crown = crown;
             FrondReach = frondLength * 1.15f;
 
             Wood = new WoodMesh(device, trunkRadius, height, bowDir, bow, crown, rng);
             Fronds = new FrondMesh(device, crown, frondLength, rng);
+        }
+
+        /// <summary>
+        /// The trunk's bow. Palms curve - grown on a shore wind, never machined straight up - and the curve accumulates towards
+        /// the crown (t squared, a palm bending under its own crown), which is why the trunk cannot be a lathe: a lathe is
+        /// strictly about the Y axis. Rolled off the seed's first two draws.
+        /// </summary>
+        private static (Vector3 Direction, float Bow, Vector3 Crown) Bow(float height, Random rng)
+        {
+            float bow = height * (0.10f + 0.14f * (float)rng.NextDouble());
+            float bowAngle = (float)rng.NextDouble() * MathHelper.TwoPi;
+            Vector3 bowDir = new(MathF.Cos(bowAngle), 0f, MathF.Sin(bowAngle));
+            return (bowDir, bow, bowDir * bow + Vector3.Up * height);
+        }
+
+        /// <summary>The palm's wood as triangles with no device, for the closure test (#974): the same arguments as the constructor.</summary>
+        internal static (List<VertexPositionNormalTexture> Vertices, List<int> Indices) WoodGeometry(float trunkRadius, float height, int seed)
+        {
+            Random rng = new(seed);
+            (Vector3 bowDir, float bow, Vector3 crown) = Bow(height, rng);
+            return WoodMesh.Compose(trunkRadius, height, bowDir, bow, crown, rng).Geometry;
         }
 
         public void Dispose()
@@ -215,8 +230,22 @@ namespace Prazsky.Core.Render
             public int PrimitiveCount { get; }
             public BoundingSphere BoundingSphere { get; }
 
+            /// <summary>How far under the ground the trunk runs on, in trunk radii (the skirt under the foot ring).</summary>
+            private const float FOOT_SINK = 1.2f;
+
             public WoodMesh(GraphicsDevice device, float trunkRadius, float height, Vector3 bowDir,
                 float bow, Vector3 crown, Random rng)
+            {
+                MeshBuilder builder = Compose(trunkRadius, height, bowDir, bow, crown, rng);
+                (VertexBuffer vertices, IndexBuffer indices, int primitives) = builder.Build(device);
+                VertexBuffer = vertices;
+                IndexBuffer = indices;
+                PrimitiveCount = primitives;
+                BoundingSphere = new BoundingSphere(new Vector3(0f, height * 0.5f, 0f), height * 0.6f + bow);
+            }
+
+            /// <summary>The trunk, boot and coconuts as triangles, with no device: <c>PalmMeshClosureTests</c> holds them shut (#974).</summary>
+            public static MeshBuilder Compose(float trunkRadius, float height, Vector3 bowDir, float bow, Vector3 crown, Random rng)
             {
                 MeshBuilder builder = new();
 
@@ -238,6 +267,26 @@ namespace Prazsky.Core.Render
                     float t = r / (float)RINGS;
                     Vector3 tangent = Centre(Math.Min(t + 0.01f, 1f)) - Centre(Math.Max(t - 0.01f, 0f));
                     ringDir[r] = Vector3.Normalize(Vector3.Cross(tangent, binormal));
+                }
+
+                //--- The foot: the trunk runs on straight down from its first ring, a trunk radius under the ground, and is shut by a
+                //disc fanned from the ring's own points (#974). The first ring was the trunk's open end on the ground itself, so on
+                //a slope the dune fell away under its low side and showed the inside of the tube (the lip #754 describes); sunk, the
+                //ground meets a skin on every side. The skirt is hidden wherever the ground is level with the foot.
+                {
+                    float footRadius = RootRadius(trunkRadius, 0f);
+                    Vector3 sunk = Centre(0f) - Vector3.Up * (trunkRadius * FOOT_SINK);
+                    Vector2 uvFoot = new(0f, (float)Part.Trunk);
+                    for (int s = 0; s < SIDES; s++)
+                    {
+                        float a0 = MathHelper.TwoPi * s / SIDES, a1 = MathHelper.TwoPi * (s + 1) / SIDES;
+                        Vector3 d0 = binormal * MathF.Cos(a0) + ringDir[0] * MathF.Sin(a0);
+                        Vector3 d1 = binormal * MathF.Cos(a1) + ringDir[0] * MathF.Sin(a1);
+                        builder.AddQuad(sunk + d0 * footRadius, sunk + d1 * footRadius, Centre(0f) + d1 * footRadius, Centre(0f) + d0 * footRadius,
+                            d0, d1, d1, d0, uvFoot, uvFoot, uvFoot, uvFoot, d0 + d1);
+                        builder.AddTriangle(sunk, sunk + d1 * footRadius, sunk + d0 * footRadius, Vector3.Down, Vector3.Down, Vector3.Down,
+                            uvFoot, uvFoot, uvFoot, Vector3.Down);
+                    }
                 }
 
                 for (int r = 0; r < RINGS; r++)
@@ -290,6 +339,21 @@ namespace Prazsky.Core.Render
                     }
                 }
 
+                //The boot closes over its top: a fan from the ring's own points to its middle. The ring was left open (the spindle
+                //closes to 0.35 of its girth at the tip, not to a point), so the crown's heart was a tube end that only the fronds
+                //hid (#974).
+                {
+                    Vector3 pole = bootBase + axis * bootLength;
+                    float tipRadius = BootRadius(trunkRadius, 1f);
+                    for (int s = 0; s < SIDES; s++)
+                    {
+                        float a0 = MathHelper.TwoPi * s / SIDES, a1 = MathHelper.TwoPi * (s + 1) / SIDES;
+                        Vector3 d0 = binormal * MathF.Cos(a0) + bootA * MathF.Sin(a0);
+                        Vector3 d1 = binormal * MathF.Cos(a1) + bootA * MathF.Sin(a1);
+                        builder.AddTriangle(pole + d0 * tipRadius, pole + d1 * tipRadius, pole, axis, axis, axis, uvBoot, uvBoot, uvBoot, axis);
+                    }
+                }
+
                 //--- The coconuts: a bunch of six to ten hanging just under the crown, round the boot. Small
                 //against a 22-unit palm, and from the play camera a few dark dots at the crown's heart — which is
                 //exactly what they are in every reference, and what makes the crown's centre read as a crown.
@@ -307,11 +371,7 @@ namespace Prazsky.Core.Render
                         (float)Part.Coconut + 0.99f * (float)rng.NextDouble());
                 }
 
-                (VertexBuffer vertices, IndexBuffer indices, int primitives) = builder.Build(device);
-                VertexBuffer = vertices;
-                IndexBuffer = indices;
-                PrimitiveCount = primitives;
-                BoundingSphere = new BoundingSphere(new Vector3(0f, height * 0.5f, 0f), height * 0.6f + bow);
+                return builder;
             }
 
             //The trunk's radius along its run: a bole flared to 1.55× at the root that has settled within

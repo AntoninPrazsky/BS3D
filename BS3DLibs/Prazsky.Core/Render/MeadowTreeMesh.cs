@@ -254,7 +254,7 @@ namespace Prazsky.Core.Render
                 float a = rootPhase + MathHelper.TwoPi * i / roots + 0.4f * ((float)rng.NextDouble() - 0.5f);
                 Vector3 dir = new(MathF.Cos(a), 0f, MathF.Sin(a));
                 float spread = trunk * (2.3f + 0.9f * (float)rng.NextDouble());
-                Vector3 rootFrom = dir * (trunk * 0.7f) + new Vector3(0f, trunk * 0.9f, 0f), rootTo = dir * spread + new Vector3(0f, -0.45f, 0f);
+                Vector3 rootFrom = dir * (trunk * 0.55f) + new Vector3(0f, trunk * 0.9f, 0f), rootTo = dir * spread + new Vector3(0f, -0.45f, 0f);
                 TubeGeometry.AddTube(wv, widx, 7, rootFrom, trunk * 0.42f, rootTo, trunk * 0.1f);
                 //The tip, closed in AddTube's own frame (AddCap's basis for the same axis): it dives into the ground, but a
                 //slope can bare it
@@ -266,13 +266,15 @@ namespace Prazsky.Core.Render
             //swept skin through a quarter, the middle and three quarters of the bow, closed at both ends from its own
             //rings (#889) - at a knee the next bough starts thinner than this one ends and at an angle to it, so an open end
             //showed the sky through the wood. Unplugged only for the test that must see that hole.
-            void Bough(Vector3 from, float fromRadius, Vector3 to, float toRadius, int segments, float bow)
+            //It returns the direction it ends in, which a twig starting on its end needs to bury its base along (#974)
+            Vector3 Bough(Vector3 from, float fromRadius, Vector3 to, float toRadius, int segments, float bow)
             {
                 float rise = bow * Vector3.Distance(from, to);
                 Vector3 At(float f) => Vector3.Lerp(from, to, f) + new Vector3(0f, rise * 4f * f * (1f - f), 0f);
                 TubeGeometry.AddSweep(wv, widx, segments, new[] { from, At(0.25f), At(0.5f), At(0.75f), to },
                     new[] { fromRadius, MathHelper.Lerp(fromRadius, toRadius, 0.25f), MathHelper.Lerp(fromRadius, toRadius, 0.5f),
                         MathHelper.Lerp(fromRadius, toRadius, 0.75f), toRadius }, capStart: plugged, capEnd: plugged);
+                return Vector3.Normalize(to - At(0.75f));
             }
 
             //The limbs: out of the fork at evenly turned bearings, each to a knee a third of the way out and a little up
@@ -315,6 +317,7 @@ namespace Prazsky.Core.Render
 
             //The branches: from the nearest knee by bearing into every clump, or off the leader over the middle
             var sprayBases = new List<Vector3>(clumps.Count);
+            var sprayBacks = new List<Vector3>(clumps.Count);   //back along the branch from its end
             foreach ((Vector3 centre, float r, bool inner) in clumps)
             {
                 Vector3 offset = centre - crownCentre;
@@ -344,11 +347,12 @@ namespace Prazsky.Core.Render
 
                 //Into the clump to a third of its radius short of the centre - where its spray of twigs starts (#697)
                 Vector3 to = centre - Vector3.Normalize(centre - from + new Vector3(0f, 1e-3f, 0f)) * (r * 0.33f);
-                Bough(from, fromRadius, to, trunk * 0.06f, 5, BRANCH_BOW);
+                Vector3 ending = Bough(from, fromRadius, to, trunk * 0.06f, 5, BRANCH_BOW);
                 //Capped: no lump hides the branch's end any more, and an open tube is a hole seen from inside the crown
                 //(Bough closes it from its own ring since #889; this disc, turned against that ring, left slivers open)
                 if (!plugged) TubeGeometry.AddCap(wv, widx, 5, to, trunk * 0.06f, to - from);
                 sprayBases.Add(to);
+                sprayBacks.Add(-ending);
                 grown.Branches.Add((from, fromRadius, to, parent));
             }
             g.SprayBases.AddRange(sprayBases);
@@ -367,7 +371,7 @@ namespace Prazsky.Core.Render
                 (Vector3 centre, float r, bool inner) = clumps[i];
                 FoliageMesh.Generate(cv, cidx, r, r * 0.8f, centre, seed * 17 + i, FoliageStyle.Crown, lumpSlices, lumpStacks);
                 if (!cards) continue;
-                AddSpray(tv, tidx, lv, lidx, sprayBases[i], centre, crownCentre, r, r * 0.8f, inner, trunk * TWIG_RADIUS, leafRng);
+                AddSpray(tv, tidx, lv, lidx, sprayBases[i], sprayBacks[i], centre, crownCentre, r, r * 0.8f, inner, trunk * TWIG_RADIUS, leafRng);
             }
 
             g.CrownReach = reach;
@@ -986,14 +990,25 @@ namespace Prazsky.Core.Render
         /// twig leaf by leaf. The card count is the shell's cover it had, so the leaf mass and the cost are what they were.
         /// The shading normal is still mostly the clump's shell, so a spray shades as one rounded mass of leaves, lit on
         /// top and dark beneath; the layer code the same as the shell's (top, flanks, underside and inside).
+        /// <para>
+        /// <paramref name="backAlong"/> is the unit direction back along the branch from its end, along which the twigs' bases are
+        /// buried (#974).
+        /// </para>
+        /// <para>
+        /// A meadow shrub's clumps are the same sprays (<see cref="MeadowShrubMesh"/>, #890), denser and finer: <paramref name="cover"/>
+        /// is the shell's cover, <paramref name="cardSize"/> a card's side against the clump's radius and
+        /// <paramref name="twigsMin"/> to <paramref name="twigsMax"/> how many twigs carry them, a tree's <see cref="CARD_COVER"/>,
+        /// <see cref="CARD_SIZE"/> and <see cref="TWIGS_MIN"/> to <see cref="TWIGS_MAX"/> unless a caller states its own.
+        /// </para>
         /// </summary>
-        private static void AddSpray(List<VertexPositionNormalTexture> tv, List<short> tidx,
-            List<VertexPositionNormalTexture> lv, List<int> lidx, Vector3 basePoint, Vector3 centre, Vector3 crownCentre,
-            float radius, float halfHeight, bool inner, float twigRadius, Random rng)
+        internal static void AddSpray(List<VertexPositionNormalTexture> tv, List<short> tidx,
+            List<VertexPositionNormalTexture> lv, List<int> lidx, Vector3 basePoint, Vector3 backAlong, Vector3 centre, Vector3 crownCentre,
+            float radius, float halfHeight, bool inner, float twigRadius, Random rng, float cover = CARD_COVER, float cardSize = CARD_SIZE,
+            int twigsMin = TWIGS_MIN, int twigsMax = TWIGS_MAX)
         {
-            float size = radius * CARD_SIZE;
-            int cardsLeft = (int)(CARD_COVER * MathHelper.TwoPi * radius * radius * (1f - CARD_LOWEST) / (size * size));
-            int twigs = TWIGS_MIN + rng.Next(TWIGS_MAX - TWIGS_MIN + 1);
+            float size = radius * cardSize;
+            int cardsLeft = (int)(cover * MathHelper.TwoPi * radius * radius * (1f - CARD_LOWEST) / (size * size));
+            int twigs = twigsMin + rng.Next(twigsMax - twigsMin + 1);
 
             //Out of the crown and a little up: the side of the shell the twigs reach for first
             Vector3 outward = centre - crownCentre;
@@ -1002,6 +1017,9 @@ namespace Prazsky.Core.Render
 
             float golden = MathF.PI * (3f - MathF.Sqrt(5f));
             float spin = (float)rng.NextDouble() * MathHelper.TwoPi;
+
+            //Two radii back along the branch from its end: where the twigs' first rings lie, inside the wood
+            Vector3 buried = basePoint + backAlong * (2f * twigRadius);
             for (int t = 0; t < twigs; t++)
             {
                 //The tip: spread evenly over the shell's cap facing outward (a cosine from 1 down to -0.35 off the outward
@@ -1022,8 +1040,13 @@ namespace Prazsky.Core.Render
                 Vector3 At(float f) => (1f - f) * (1f - f) * basePoint + 2f * f * (1f - f) * mid + f * f * tip;
                 Vector3 TangentAt(float f) => Vector3.Normalize(2f * (1f - f) * (mid - basePoint) + 2f * f * (tip - mid));
 
-                //The tip comes to a point: a ring a quarter of the base's size left an open end there (#943)
-                TubeGeometry.AddSweep(tv, tidx, 4, new[] { basePoint, At(0.33f), At(0.67f), tip },
+                //The tip comes to a point: a ring a quarter of the base's size left an open end there (#943). And the base starts
+                //inside its branch: the twig's first ring lay on the branch end's own disc, tilted to it, so half the ring stood
+                //proud of the disc and its open edge showed (#974). Two radii back along the branch the ring is wholly inside the
+                //wood whichever way the twig leaves (a ring square to the twig reaches no further than a radius from its middle,
+                //and the branch is thicker than that). The cards below hang off At, which is untouched, so only the twig's
+                //first hand-width moves - and it moves inside the wood.
+                TubeGeometry.AddSweep(tv, tidx, 4, new[] { buried, At(0.33f), At(0.67f), tip },
                     new[] { twigRadius, twigRadius * 0.75f, twigRadius * 0.5f, 0f });
 
                 //This twig's share of the clump's cards, along its outer part, turned round it leaf by leaf

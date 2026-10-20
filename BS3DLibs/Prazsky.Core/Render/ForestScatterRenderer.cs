@@ -11,9 +11,10 @@ namespace Prazsky.Core.Render
     /// The forest scatter's rendering hardware: everything the trees, boulders, stumps and dead wood are
     /// drawn <b>with</b>, as <see cref="ForestScatter"/> is everything about <b>where</b> they stand. The two
     /// procedural <see cref="SurfaceTexture"/>s, the twenty mesh variants (six spruces, four broadleaves,
-    /// three boulders, two stumps, and since #462 three snags and two fallen logs), the sixty-six
+    /// three boulders, two stumps, and since #462 three snags and two fallen logs), the seventy-two
     /// <see cref="InstancedModelRenderer"/>s that dress them as bark, foliage, snow, weathered stone and sawn wood
-    /// (thirty-six of them High and Ultra's spruce crowns, #733), the three matte <see cref="BasicEffectParams"/>,
+    /// (forty-two of them High and Ultra's spruce crowns, #733, and their stems, #960), the three matte
+    /// <see cref="BasicEffectParams"/>,
     /// the per-variant tints and the instanced draws.
     /// <para>
     /// It lived in the Game alone until #75, which is exactly why the Testbed and the map editor drew the
@@ -167,9 +168,9 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// How dark the interior of High and Ultra's spruce crown (<see cref="TreeMesh.FineShade"/>, #733) is against its
-        /// boughs, as a share of the needles' linear colour. The shader has no occlusion term a mesh could feed, so the old
-        /// needles round the stem, shaded by every bough above them, take it as pigment; and no snow, which the boughs
-        /// over them catch.
+        /// boughs, as a share of the needles' linear colour, and its stem (<see cref="TreeMesh.FineStem"/>, #960) against
+        /// the trunk's bark. The shader has no occlusion term a mesh could feed, so the old needles and the stem inside the
+        /// crown, shaded by every bough above them, take it as pigment; and no snow, which the boughs over them catch.
         /// </summary>
         private const float SPRUCE_SHADE = 0.55f;
 
@@ -202,10 +203,12 @@ namespace Prazsky.Core.Render
         //is why these are arrays rather than single renderers.
         private InstancedModelRenderer[] _coniferTrunkRenderers, _coniferCrownRenderers;
 
-        //High and Ultra's spruce crowns (#733): the boughs and the darker interior they grow out of, drawn instead of the
-        //lathe above off the same instances when the caller asks for the finer meshes (see Draw)
+        //High and Ultra's spruce crowns (#733): the boughs and the darker interior round them, drawn instead of the lathe
+        //above off the same instances when the caller asks for the finer meshes (see Draw), and the bark stem they grow out
+        //of, one for both details (#960)
         private InstancedModelRenderer[] _coniferFineCrownRenderers, _coniferFineShadeRenderers, _coniferFineSnowRenderers;
         private InstancedModelRenderer[] _coniferFineCrownFarRenderers, _coniferFineSnowFarRenderers, _coniferFineShadeFarRenderers;
+        private InstancedModelRenderer[] _coniferFineStemRenderers;
 
         //The spruces split by how far they stand from the arena (FINE_NEAR_RADIUS), per variant: the near ones wear the
         //finer of High and Ultra's two crowns, the rest the lighter one (#733)
@@ -214,13 +217,13 @@ namespace Prazsky.Core.Render
         private InstancedModelRenderer[] _rockRenderers, _stumpRenderers;
         private InstancedModelRenderer[] _snagRenderers, _logRenderers;
 
-        //The flat list of all sixty-six, in draw order. See Renderers.
+        //The flat list of all seventy-two, in draw order. See Renderers.
         private InstancedModelRenderer[] _renderers;
 
-        //One already-encoded sRGB tint per mesh variant per draw — the whole point of the cache. Six arrays
-        //rather than two colours and two multiplier tables, so the draw is one uniform path with no branch and
+        //One already-encoded sRGB tint per mesh variant per draw — the whole point of the cache. Eleven arrays
+        //rather than a few colours and multiplier tables, so the draw is one uniform path with no branch and
         //no arithmetic in it (see EncodeTints, which holds the colour-space reasoning).
-        private Vector3[] _coniferTrunkTints, _coniferCrownTints, _coniferShadeTints, _coniferSnowTints;
+        private Vector3[] _coniferTrunkTints, _coniferCrownTints, _coniferShadeTints, _coniferSnowTints, _coniferStemTints;
         private Vector3[] _broadleafTrunkTints, _broadleafCrownTints;
         private Vector3[] _rockTints, _stumpTints;
         private Vector3[] _snagTints, _logTints;
@@ -243,7 +246,7 @@ namespace Prazsky.Core.Render
         private ForestScatter _scatter;
 
         /// <summary>
-        /// Builds the whole wood here and now: both procedural textures, the twenty mesh variants, the sixty-six
+        /// Builds the whole wood here and now: both procedural textures, the twenty mesh variants, the seventy-two
         /// renderers with their per-material dressing, the encoded tints and the scatter itself. There is
         /// nothing runtime about any of it — the scatter is a fixed default forest, as the city is a fixed
         /// default city — so a caller with a static config builds it once at load and never touches it again.
@@ -337,15 +340,15 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The instanced draws, in order: conifer trunks, conifer crowns, broadleaf trunks, broadleaf
         /// crowns, boulders, stumps, snags, logs — one draw per kind per mesh variant, and per material within a tree. On
-        /// High and Ultra a conifer's crown is six draws instead of one (#733): the near and the far boughs, their snow, and
-        /// the two interiors, drawn after the boughs that hide most of them. A
+        /// High and Ultra a conifer's crown is seven draws instead of one (#733): the near and the far boughs, their snow, the
+        /// two interiors, drawn after the boughs that hide most of them, and the bark stem they all grow out of (#960). A
         /// species' trunk and crown read that variant's own scatter of world matrices (the crown mesh is built
         /// sitting on its trunk's top, so one position places both) and are two draws because their tints
         /// differ — bark and foliage — and the diffuse tint is a per-draw uniform.
         /// <para>
         /// <b>Touches no GPU state, on purpose</b>, and needs none of its own: every mesh here is a closed
         /// solid wound clockwise seen from outside (the convention in CLAUDE.md) — High and Ultra's boughs are open only
-        /// at their roots, which stand inside the crown's interior — so the scene's ordinary
+        /// at their roots, which stand inside the stem — so the scene's ordinary
         /// back-face culling is exactly right and drawing it that way is what would <i>show</i> a winding
         /// mistake rather than hide one. What it assumes on entry is the opaque scene state the callers already
         /// set before their backdrop: the HDR scene target bound, <see cref="BlendState.AlphaBlend"/>,
@@ -366,9 +369,9 @@ namespace Prazsky.Core.Render
         /// </summary>
         /// <param name="camera">This frame's camera, for the view and projection each draw needs.</param>
         /// <param name="fineMeshes">Whether the spruces wear High and Ultra's crown (#733, <see cref="TreeMesh.FineCrown"/>
-        /// over <see cref="TreeMesh.FineShade"/>, and <see cref="TreeMesh.FineSnow"/> where the config lays snow on the
-        /// crowns) or Low and Medium's lathe: the caller's <c>SceneRenderer.FineMeshes</c>, read per draw, so a tier change
-        /// rebuilds nothing.</param>
+        /// over <see cref="TreeMesh.FineShade"/> round <see cref="TreeMesh.FineStem"/>, and <see cref="TreeMesh.FineSnow"/>
+        /// where the config lays snow on the crowns) or Low and Medium's lathe: the caller's <c>SceneRenderer.FineMeshes</c>,
+        /// read per draw, so a tier change rebuilds nothing.</param>
         public void Draw(ICamera camera, bool fineMeshes)
         {
             DrawScatter(camera, _coniferTrunkRenderers, _scatter.Conifers, _barkEffectParams, _coniferTrunkTints);
@@ -384,6 +387,7 @@ namespace Prazsky.Core.Render
                 }
                 DrawScatter(camera, _coniferFineShadeRenderers, _coniferNear, _foliageEffectParams, _coniferShadeTints);
                 DrawScatter(camera, _coniferFineShadeFarRenderers, _coniferFar, _foliageEffectParams, _coniferShadeTints);
+                DrawScatter(camera, _coniferFineStemRenderers, _scatter.Conifers, _barkEffectParams, _coniferStemTints);
             }
             else DrawScatter(camera, _coniferCrownRenderers, _scatter.Conifers, _foliageEffectParams, _coniferCrownTints);
             DrawScatter(camera, _broadleafTrunkRenderers, _scatter.Broadleaves, _barkEffectParams, _broadleafTrunkTints);
@@ -427,6 +431,7 @@ namespace Prazsky.Core.Render
                 CastScatter(shadowViewProjection, _coniferFineShadeFarRenderers, _coniferFar);
                 CastScatter(shadowViewProjection, _coniferFineCrownRenderers, _coniferNear);
                 CastScatter(shadowViewProjection, _coniferFineCrownFarRenderers, _coniferFar);
+                CastScatter(shadowViewProjection, _coniferFineStemRenderers, _scatter.Conifers);
                 if (_crownSnow > 0f)
                 {
                     CastScatter(shadowViewProjection, _coniferFineSnowRenderers, _coniferNear);
@@ -443,7 +448,7 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Everything this component made: the twenty mesh variants, all sixty-six renderers (each holding a
+        /// Everything this component made: the twenty mesh variants, all seventy-two renderers (each holding a
         /// native instance buffer), the bark and foliage textures — and the stone texture only if it built
         /// that one itself. A stone texture handed to the constructor belongs to the caller and is left
         /// alone; the Game's used to be the island's own, disposed with the island's block, and disposing a
@@ -538,6 +543,7 @@ namespace Prazsky.Core.Render
             _coniferFineCrownFarRenderers = Array.ConvertAll(_coniferMeshes, m => NewBoughRenderer(m.FineCrownFar));
             _coniferFineSnowFarRenderers = Array.ConvertAll(_coniferMeshes, m => NewSnowRenderer(m.FineSnowFar));
             _coniferFineShadeFarRenderers = Array.ConvertAll(_coniferMeshes, m => NewCrownRenderer(m.FineShadeFar));
+            _coniferFineStemRenderers = Array.ConvertAll(_coniferMeshes, m => NewTrunkRenderer(m.FineStem));
             _broadleafTrunkRenderers = Array.ConvertAll(_broadleafMeshes, m => NewTrunkRenderer(m.Trunk));
             _broadleafCrownRenderers = Array.ConvertAll(_broadleafMeshes, m => NewCrownRenderer(m.Crown));
             _rockRenderers = Array.ConvertAll(_rockMeshes, m => NewRockRenderer(m));
@@ -552,6 +558,7 @@ namespace Prazsky.Core.Render
                 _coniferTrunkRenderers.Length + _coniferCrownRenderers.Length +
                 _coniferFineCrownRenderers.Length + _coniferFineShadeRenderers.Length + _coniferFineSnowRenderers.Length +
                 _coniferFineCrownFarRenderers.Length + _coniferFineSnowFarRenderers.Length + _coniferFineShadeFarRenderers.Length +
+                _coniferFineStemRenderers.Length +
                 _broadleafTrunkRenderers.Length + _broadleafCrownRenderers.Length +
                 _rockRenderers.Length + _stumpRenderers.Length + _snagRenderers.Length + _logRenderers.Length];
 
@@ -564,6 +571,7 @@ namespace Prazsky.Core.Render
             next = CopyInto(_coniferFineCrownFarRenderers, next);
             next = CopyInto(_coniferFineSnowFarRenderers, next);
             next = CopyInto(_coniferFineShadeFarRenderers, next);
+            next = CopyInto(_coniferFineStemRenderers, next);
             next = CopyInto(_broadleafTrunkRenderers, next);
             next = CopyInto(_broadleafCrownRenderers, next);
             next = CopyInto(_rockRenderers, next);
@@ -683,7 +691,7 @@ namespace Prazsky.Core.Render
             return Vector3.Lerp(linear, domeHued, SKY_TINT_STRENGTH);
         }
 
-        //Re-encodes every tint table from the authored linear colours, in place: ten small arrays, forty-two entries
+        //Re-encodes every tint table from the authored linear colours, in place: eleven small arrays, forty-eight entries
         //between them, run at build and whenever the dome's hue moves — which under the aurora's drifting glow is every
         //frame, so nothing here may allocate once the tables exist.
         private void EncodeAllTints()
@@ -693,6 +701,8 @@ namespace Prazsky.Core.Render
             EncodeTints(_barkColorLinear, _coniferMeshes.Length, null, ref _coniferTrunkTints);
             EncodeTints(_coniferColorLinear, _coniferMeshes.Length, CONIFER_TINTS, ref _coniferCrownTints);
             EncodeTints(_coniferColorLinear * SPRUCE_SHADE, _coniferMeshes.Length, CONIFER_TINTS, ref _coniferShadeTints);
+            //High and Ultra's stem (#960) is the bark under every bough above it, shaded as the interior round it is
+            EncodeTints(_barkColorLinear * SPRUCE_SHADE, _coniferMeshes.Length, null, ref _coniferStemTints);
             //The boughs' lumps of snow are the snow's own colour, unshifted: what the lathe's dust term arrives at too
             _coniferSnowTints ??= new Vector3[_coniferMeshes.Length];
             Array.Fill(_coniferSnowTints, ColorSpace.LinearToSrgb(_crownSnowLinear));
