@@ -85,6 +85,9 @@ float4 TriplanarPS(VertexShaderOutput input) : COLOR
         shaded.rgb += JointGlow * (groove * groove * lerp(1.0, patch, JointGlowPatchiness));
     }
 
+    //The mist the wood stands in (#963); SceneFogDensity is 0 in every scene but the aurora
+    shaded.rgb = ApplySceneFog(shaded.rgb, EyePosition, input.WorldPosition);
+
     return shaded;
 }
 
@@ -172,6 +175,9 @@ float4 TriplanarCoarsePS(VertexShaderOutput input) : COLOR
         float patch = smoothstep(0.05, 0.45, GradientNoise3(input.WorldPosition * 0.23 + 3.7));
         shaded.rgb += JointGlow * (groove * groove * lerp(1.0, patch, JointGlowPatchiness));
     }
+
+    //The mist the wood stands in (#963); SceneFogDensity is 0 in every scene but the aurora
+    shaded.rgb = ApplySceneFog(shaded.rgb, EyePosition, input.WorldPosition);
 
     return shaded;
 }

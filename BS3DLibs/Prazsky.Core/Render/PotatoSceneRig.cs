@@ -32,7 +32,7 @@ namespace Prazsky.Core.Render
                 case SceneKind.Moon: rig = Of(MOON.Lighting.SkyAmbient, MOON.Lighting.GroundAmbient, MOON.Lighting.KeyTint, MOON.Lighting.BackTint); return true;
                 case SceneKind.Space: rig = Of(SPACE.Lighting.SkyAmbient, SPACE.Lighting.GroundAmbient, SPACE.Lighting.KeyTint, SPACE.Lighting.BackTint); return true;
                 case SceneKind.Dream: rig = Of(DREAM.Lighting.SkyAmbient, DREAM.Lighting.GroundAmbient, DREAM.Lighting.KeyTint, DREAM.Lighting.BackTint); return true;
-                case SceneKind.Aurora: rig = Of(AURORA.Lighting.SkyAmbient, AURORA.Lighting.GroundAmbient, AURORA.Lighting.KeyTint, AURORA.Lighting.BackTint); return true;
+                case SceneKind.Aurora: rig = Of(AURORA.Potato.Lighting.SkyAmbient, AURORA.Potato.Lighting.GroundAmbient, AURORA.Potato.Lighting.KeyTint, AURORA.Potato.Lighting.BackTint); return true;
                 case SceneKind.Circus: rig = Of(CIRCUS.Lighting.SkyAmbient, CIRCUS.Lighting.GroundAmbient, CIRCUS.Lighting.KeyTint, CIRCUS.Lighting.BackTint); return true;
                 default: rig = default; return false;
             }
@@ -68,7 +68,7 @@ namespace Prazsky.Core.Render
                 case SceneKind.Moon: linear = MOON.VoidColor.ToVector3(); return true;
                 case SceneKind.Space: linear = SPACE.VoidColor.ToVector3(); return true;
                 case SceneKind.Dream: linear = DREAM.DeepColor.ToVector3(); return true;
-                case SceneKind.Aurora: linear = AURORA.VoidColor.ToVector3(); return true;
+                case SceneKind.Aurora: linear = AURORA.Potato.VoidColor.ToVector3(); return true;
                 case SceneKind.Circus: linear = CIRCUS.Lights.HazeColor.ToVector3(); return true;
                 default: linear = default; return false;
             }
@@ -102,8 +102,8 @@ namespace Prazsky.Core.Render
                 }
                 case SceneKind.Aurora:
                 {
-                    AuroraSkyConfig sky = AURORA.Aurora;
-                    return new PotatoSkyLook("PotatoSkyAurora", AURORA.VoidColor.ToVector3(),
+                    AuroraSkyConfig sky = AURORA.Potato.Sky;
+                    return new PotatoSkyLook("PotatoSkyAurora", AURORA.Potato.VoidColor.ToVector3(),
                         sky.ColorLow.ToVector3(), sky.ColorHigh.ToVector3(), new Vector3(0.9f, 0.95f, 1.05f), Vector3.Zero, Vector3.Up, Vector3.Up,
                         new Vector4(sky.Intensity * 0.5f, sky.BandHeight, sky.RayStrength, sky.PulseDepth),
                         new Vector4(sky.DriftSpeed, sky.MorphSpeed, sky.CurtainScale, sky.RayScale));

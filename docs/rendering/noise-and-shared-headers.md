@@ -15,5 +15,5 @@ The tangent-free normal tilt every height field ends in (terrain, sea chop, rego
 ## Shared headers (#581)
 
 - `Hash21` lives in `Noise.fxh`; ⚠ **keep its constants**: they placed every lit window and meadow flower. `Noise.fxh` also has integer hashes `HashMix`/`HashCell`/`HashSalt`/`HashBits` for what is rolled once a cell (#674).
-- `Craters.fxh` (moon, Mars), `Rocks.fxh` (outback, Mars), `Grass.fxh` (meadow, savanna, each with its own `GRASS_COMB_STRETCH`/`GRASS_FBM_GAIN`), `ForestGround.fxh` (forest, aurora's night forest).
+- `Craters.fxh` (moon, Mars), `Rocks.fxh` (outback, Mars), `Grass.fxh` (meadow, savanna, each with its own `GRASS_COMB_STRETCH`/`GRASS_FBM_GAIN`), `ForestGround.fxh` (forest, aurora's night forest), `SceneFog.fxh` (#963: a scene's height mist and haze, closed form along the ray; the aurora's snow, far stand and sky, and `InstancedModel`'s triplanar programs, behind a branch on `SceneFogDensity`, 0 in every other scene).
 - **A shared header holds functions and static constants only**; the uniforms it reads stay declared in each scene *before* the include, so no scene's constant buffer moves. Genuinely diverged copies stay separate (`CraterLayer`/`CraterField`, `RockLayer`, `Fbm3` in `Space.fx`, the other scenes' `TerrainHeight`s).

@@ -399,6 +399,47 @@ namespace Prazsky.Core.Render
         private Effect _instancedShadowEffect;
         private ShadowReceiver _instancedShadowReceiver;
 
+        //The mist the shared instanced effect veils the wood with (SceneFog.fxh, #963): the aurora's, and nothing anywhere
+        //else. Handed over in DrawShadowMaps, the one call every host makes each frame with that effect in hand.
+        private InstancedFogParameters _instancedFogParameters;
+        private bool _instancedFogOn;
+
+        //SceneFog.fxh's uniforms on the shared instanced effect, resolved once (BestPractices §1)
+        private sealed class InstancedFogParameters
+        {
+            public readonly Effect Effect;
+            public readonly EffectParameter Density, Drift;
+
+            public InstancedFogParameters(Effect effect)
+            {
+                Effect = effect;
+                Density = effect.Parameters["SceneFogDensity"];
+                Drift = effect.Parameters["SceneFogDrift"];
+            }
+        }
+
+        /// <summary>
+        /// The mist on the shared instanced effect this frame: the aurora's (its banks blown on by the backdrop's clock),
+        /// or none. The fixed figures go across once when the aurora comes up; after that a frame writes the banks' drift,
+        /// and leaving the scene writes one zero.
+        /// </summary>
+        private void PushInstancedFog(SceneKind scene)
+        {
+            if (_instancedFogParameters == null) return;
+
+            if (scene == SceneKind.Aurora)
+            {
+                if (!_instancedFogOn) _aurora.PushFog(_instancedFogParameters.Effect, Vector2.Zero);
+                _instancedFogOn = true;
+                _instancedFogParameters.Drift?.SetValue(_aurora.FogDrift(_aurora.LastTime));
+            }
+            else if (_instancedFogOn)
+            {
+                _instancedFogOn = false;
+                _instancedFogParameters.Density?.SetValue(0f);
+            }
+        }
+
         //The depth bias in world units, turned into the map's own units each frame off its depth range. About a
         //texel of a 2048 map over 260 units since #642, when the receivers began reading the map from a point
         //lifted off the surface along its normal (Shadows.fxh's SHADOW_NORMAL_OFFSET_TEXELS), which is what keeps a
@@ -1590,7 +1631,10 @@ namespace Prazsky.Core.Render
                 _instancedShadowEffect = instancedEffect;
                 _instancedShadowReceiver = new ShadowReceiver(instancedEffect);
                 _instancedShadowReceiver.Disable();
+                _instancedFogParameters = new InstancedFogParameters(instancedEffect);
             }
+
+            PushInstancedFog(scene);
 
             //Is there anything to cast at all? A scene with planting of its own casts it (Backdrop.HasShadowCasters -
             //the savanna, the beach, the meadow, the volcano, the Moon's rocks and the rest); in the others the casters are
@@ -1875,25 +1919,23 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// The aurora's current dominant colour and brightness (linear radiance), on the same slow hue-drift
-        /// clock <c>Aurora.fx</c>'s own sky pass runs (<see cref="AuroraSkyConfig.DriftHueSpeed"/>) but
-        /// without that shader's curtain noise or its faster brightness pulse
-        /// (<see cref="AuroraSkyConfig.PulseSpeed"/>) — a flat approximation good enough for an ambient wash,
-        /// not a re-derivation of what the sky pass draws pixel for pixel. Two callers share it:
-        /// <see cref="AuroraBackdrop.Draw"/> (the ground's own hemisphere ambient) and, separately, a per-frame call
-        /// each host adds beside its scene lights, feeding it to the scene's own
-        /// <c>ForestScatterRenderer</c> planting. <b>Deliberately not routed through the daytime forest's own
-        /// tint call</b> (<c>ApplySkyLighting</c>/<c>SkyLightRig.KeyTint</c>): that call only runs on a
-        /// dome/scene switch or a config edit, which is right for a dome that does not move between switches
-        /// but would freeze this scene's hue at whatever it happened to be the moment the scene was entered.
-        /// <para>
-        /// Only the slow drift crosses to C#. The fast pulse and the curtain noise stay in the shader because
-        /// they exist to give the SKY per-pixel structure a player watches move; carried onto a flat ground
-        /// wash they would read as the whole clearing strobing, which is not what a real aurora's glow does
-        /// to the land under it — the light on the ground breathes far less than the curtains themselves do.
-        /// </para>
+        /// The tint the aurora's wood takes from its sky (the hosts' per-frame <c>ApplySkyTint</c> on their aurora
+        /// planting): mostly the Moon's white with a little of the curtains' green (#963). Routed per frame rather than
+        /// through the daytime forest's tint call, which runs only on a dome or scene switch.
         /// </summary>
         public Vector3 AuroraGlowColor(float wallClock) => _aurora.GlowColor(wallClock);
+
+        /// <summary>
+        /// Where the aurora's wood stands (#963): the planting its snow is drifted round, which every host's aurora
+        /// <see cref="ForestScatterRenderer"/> draws (its <c>planting</c> argument), so the drifts and the trunks agree.
+        /// </summary>
+        public ForestScatter AuroraPlanting => _aurora.Planting;
+
+        /// <summary>
+        /// The aurora's snow as drawn at a world point, the drifts round the planting included (<c>Aurora.fx</c>'s
+        /// <c>SnowHeight</c>): what a lens laid over it keeps off (the chapter intro's shots, #963).
+        /// </summary>
+        public float AuroraGroundHeight(float x, float z) => _aurora.GroundHeight(x, z);
 
         public void Dispose()
         {

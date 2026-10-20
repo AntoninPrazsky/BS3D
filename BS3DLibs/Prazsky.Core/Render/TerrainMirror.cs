@@ -688,6 +688,61 @@ namespace Prazsky.Core.Render
 
         #endregion
 
+        #region The aurora's snowfield (Aurora.fx: SnowDrift, SnowBank, SnowBaseHeight, SnowHeight)
+
+        /// <summary>
+        /// The aurora's ground before the mounds round the planting (#963): the forest's field on
+        /// <see cref="AuroraSceneConfig.Terrain"/>, the wind's drifts and the bank against the island — <c>Aurora.fx</c>'s
+        /// <c>SnowBaseHeight</c>, term for term. What the wood, the far stand and the mound map are planted on.
+        /// </summary>
+        public static float AuroraBase(float x, float z, AuroraSceneConfig config) =>
+            Forest(x, z, config.Terrain) + SnowDrift(x, z, config.Snowfield) + SnowBank(x, z, config.Snowfield);
+
+        /// <summary>
+        /// The ground as <c>Aurora.fx</c> draws it (<c>SnowHeight</c>): <see cref="AuroraBase"/> plus the drifts round the
+        /// planting, read off <paramref name="mounds"/> with the shader's own bilinear arithmetic. Null mounds is the base.
+        /// </summary>
+        public static float Aurora(float x, float z, AuroraSceneConfig config, AuroraMoundMap mounds) =>
+            AuroraBase(x, z, config) + (mounds?.Height(x, z) ?? 0f);
+
+        /// <summary>The wind normalised as <c>DriftWind</c> is pushed: the one place it is, so the mirror and the uniform cannot disagree.</summary>
+        public static Vector2 SnowWind(AuroraSnowfieldConfig snowfield)
+        {
+            Vector2 wind = snowfield.Wind.ToVector2();
+            return wind.LengthSquared() > 1e-8f ? Vector2.Normalize(wind) : Vector2.UnitX;
+        }
+
+        /// <summary><c>Aurora.fx</c>'s <c>SnowDrift</c>: long low dunes, their crests across the wind, in patches.</summary>
+        public static float SnowDrift(float x, float z, AuroraSnowfieldConfig snowfield)
+        {
+            Vector2 wind = SnowWind(snowfield);
+            float acrossX = -wind.Y, acrossZ = wind.X;
+
+            float qx = (x * wind.X + z * wind.Y) / snowfield.DriftAlong;
+            float qz = (x * acrossX + z * acrossZ) / snowfield.DriftAcross;
+            qx += 1.4f * ShaderMath.Noise(new Vector2(x * 0.009f + 3.7f, z * 0.009f + 8.1f));
+
+            float dune = ShaderMath.Noise(new Vector2(qx, qz))
+                + 0.45f * ShaderMath.Noise(new Vector2(qx * 2.1f + 5.2f, qz * 1.7f + 1.3f));
+            float patch = MathHelper.Clamp(0.6f + 0.8f * ShaderMath.Noise(new Vector2(x * 0.0065f + 9.1f, z * 0.0065f + 2.4f)), 0f, 1f);
+
+            return snowfield.DriftHeight * dune * patch;
+        }
+
+        /// <summary><c>Aurora.fx</c>'s <c>SnowBank</c>: the snow piled against the island's drum, deeper on the lee side.</summary>
+        public static float SnowBank(float x, float z, AuroraSnowfieldConfig snowfield)
+        {
+            Vector2 wind = SnowWind(snowfield);
+            float r = MathF.Sqrt(x * x + z * z);
+            float inverse = 1f / MathF.Max(r, 1e-3f);
+            float lee = 1f + snowfield.BankLee * (x * inverse * wind.X + z * inverse * wind.Y);
+            float rise = MathF.Exp(-MathF.Max(r - snowfield.BankRadius, 0f) / snowfield.BankReach);
+
+            return snowfield.BankHeight * rise * lee;
+        }
+
+        #endregion
+
         #region The volcano (Volcano.fx: TerrainHeight without its scoria, VolcanoMassing)
 
         /// <summary>

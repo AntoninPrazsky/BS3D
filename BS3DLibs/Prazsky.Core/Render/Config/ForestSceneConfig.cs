@@ -244,6 +244,12 @@ namespace Prazsky.Core.Render
         /// </summary>
         public float CrownSnow { get; set; }
 
+        /// <summary>
+        /// The share of <see cref="CrownSnow"/>'s dust term High and Ultra's boughs take (#733), over the lumps of snow they
+        /// carry as geometry: a frost at the forest's 0.25, a heavier coat in the aurora's moonlit winter wood (#963).
+        /// </summary>
+        public float BoughFrost { get; set; } = 0.25f;
+
         /// <summary>The snow on the crowns (linear radiance), when there is any — see <see cref="CrownSnow"/>.</summary>
         public Rgb CrownSnowColor { get; set; } = new(0.58f, 0.64f, 0.76f);
 
@@ -317,6 +323,9 @@ namespace Prazsky.Core.Render
         /// boulders came out as pale buns lying in the grass rather than as granite.
         /// </summary>
         public Rgb Color { get; set; } = new(0.075f, 0.077f, 0.08f);
+
+        /// <summary>Snow lying on its top (the triplanar dust term, in <see cref="ForestTreeConfig.CrownSnowColor"/>), 0 to 1: none in the daytime forest, a cap in the aurora's snow (#963).</summary>
+        public float TopSnow { get; set; }
     }
 
     /// <summary>
@@ -359,6 +368,9 @@ namespace Prazsky.Core.Render
         /// weathers silver, which is what makes a snag read against the dark spruces round it.
         /// </summary>
         public Rgb Color { get; set; } = new(0.11f, 0.105f, 0.10f);
+
+        /// <summary>Snow lying on its top (the triplanar dust term, in <see cref="ForestTreeConfig.CrownSnowColor"/>), 0 to 1: none in the daytime forest, a cap in the aurora's snow (#963).</summary>
+        public float TopSnow { get; set; }
     }
 
     /// <summary>The scattered stumps and fallen logs of the forest floor.</summary>
@@ -394,6 +406,9 @@ namespace Prazsky.Core.Render
         /// <summary>Stump wood colour (linear radiance), applied as the stump renderers' diffuse tint. Lighter
         /// than the bark it shares a texture with — a stump is mostly the pale sawn face.</summary>
         public Rgb Color { get; set; } = new(0.095f, 0.072f, 0.048f);
+
+        /// <summary>Snow lying on its top (the triplanar dust term, in <see cref="ForestTreeConfig.CrownSnowColor"/>), 0 to 1: none in the daytime forest, a cap in the aurora's snow (#963).</summary>
+        public float TopSnow { get; set; }
     }
 
     /// <summary>

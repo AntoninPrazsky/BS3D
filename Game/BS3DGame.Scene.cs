@@ -357,10 +357,11 @@ namespace BS3D
                     (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
                     seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
 
-                //The aurora's own wood, a second planting from its own config - see AuroraSceneConfig's class doc.
+                //The aurora's own wood, a second planting from its own config - see AuroraSceneConfig's class doc. The planting
+                //is the backdrop's (#963), which drifts the snow round it, so this draws the trees the drifts were made for.
                 _auroraScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
                     ((AuroraSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Aurora)).Terrain, SCENE_AMBIENT_INTENSITY,
-                    seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
+                    planting: _sceneRenderer.AuroraPlanting);
 
                 _forestFireflies = new ForestFireflies(GraphicsDevice, _instancingEffect,
                     (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
@@ -1041,15 +1042,13 @@ namespace BS3D
 
             if (_scene == SceneKind.Aurora)
             {
-                //Re-tinted here rather than in ApplySkyLighting (see there): the aurora's hue keeps
-                //drifting for as long as the scene is up, and ApplySkyTint's own value guard is what
-                //keeps this cheap once it settles. The clock is the same wall clock the scene lights and
-                //the city windows already use above, so nothing here can drift out of step with the sky.
+                //Re-tinted here rather than in ApplySkyLighting (see there), on the scene's own tint: constant since
+                //#963, so ApplySkyTint's value guard encodes the wood once and every later frame is a compare.
                 _auroraScatter.ApplySkyTint(_sceneRenderer.AuroraGlowColor(_wallClock));
 
-                //And the island, the gun and the balls take the sky's hue through the scene's own light rig
-                //(#462), on the same clock. The rig steps rather than slides (SceneRenderer.AnimatesLightRig),
-                //so the re-light — whose walk is an iterator — runs about once a second at most, not per frame.
+                //And the island, the gun, the balls and the wood take the curtains' light through the scene's own rig,
+                //its back light following the arcs' breath on the same clock. The rig steps rather than slides
+                //(SceneRenderer.AnimatesLightRig), so the re-light — whose walk is an iterator — runs only on a step.
                 if (_rig.StepSceneLight(_wallClock)) ApplySkyLighting();
 
                 if (SceneryShown) _auroraScatter.Draw(_camera, _sceneRenderer.FineMeshes);
@@ -1141,6 +1140,9 @@ namespace BS3D
 
             //Scenery only where it is drawn (#808): the wood and the towers stay out of the map with the Scenery row off
             if (_scene == SceneKind.Forest && SceneryShown) _forestScatter?.DrawShadow(shadowViewProjection, _sceneRenderer.FineMeshes);
+
+            //The aurora's wood under its Moon (#963): the spruces' long shadows across the snow
+            if (_scene == SceneKind.Aurora && SceneryShown) _auroraScatter?.DrawShadow(shadowViewProjection, _sceneRenderer.FineMeshes);
 
             //And the city's towers (#471). ⚠ ALL of them, not City.Visible: that set is culled to the
             //CAMERA's frustum, and a tower just off the side of the screen is exactly the one whose shadow

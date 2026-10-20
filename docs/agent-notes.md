@@ -1203,3 +1203,8 @@ Pravidla:
 - Hotovo: Fantasy, Jazz, Nordic, Oud a Theatre (`puppet`) nahrazeny v místě, názvy i levely beze změny. 50 renderů ve třech kolech, výběr měřením proti `ember` na vybalených .ogg: Fantasy c1 (flétna a housle, kapela místo orchestru), Jazz c10 přeřezaný 0–100 s (klavírní trio; první střih měl 9,4 % not mimo tóninu), Nordic c3, Oud c7 přeřezaný 10–110 s, Theatre c7. Trim: Theatre −3,5 dB (292 clipped runs), Fantasy a Oud −1,0, Nordic −0,5. Bicí vrstvy má teď všech pět (Fantasy a Jazz dřív žádnou).
 - ⚠ Nikdo neposlouchal (stroj bez zvuku). Nesáhl jsem na waltz (222 clipped runs) a triphop (275).
 - Otevřené: `verdict-eye`, `verdicts\907\`.
+
+## 2026-10-20 — #963 polární záře přestavěna od základu — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: měsícem osvětlené sněhové pole pod velkou zvlněnou září podle referencí obou modelů. Nebe: tři oblouky (ostrá zelená spodní hrana, paprsky, červený vršek, svítí po úsecích), Měsíc, záře nad obzorem. Sníh jako geometrie (závěje, val u ostrova, závětrné ocasy) a ke každé patě kmene, klády a kamene vlastní „límec“ sněhu (`AuroraCollars`). Měsíc vrhá stíny lesa, přízemní mlha (`SceneFog.fxh`, i pro les), 25 000 vzdálených smrků v mezerách mezi háji až k posledním hřebenům, nové intro. Potato beze změny (i led ostrova). Fish High 9,73 → 9,11 ms, Ultra 9,69 → 9,46, Medium 3,96 → 4,40 (stínová mapa).
+- ⚠ Závěj zapečená do mapy (1 jednotka/texel, mřížka 0,75) se rozmazala a paty vypadaly jako válce v rovině; iterovaný průsečík přes záhyb kreslil hranu jako pilu; tmavé nebe pod ostrou hranou četl recenzent jako holý hřeben.
+- Otevřené: verdikt oka (pohyb), sníh navrchu klád je jen pruh, APU neměřeno, `verdicts\963\`.

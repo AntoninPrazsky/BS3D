@@ -141,11 +141,9 @@ namespace Testbed
                 //campfire's light and its flame billboard cannot drift.
                 _sceneLights.Apply(_scene, _sceneRenderer, _cityConfig.NeonLook, SceneClock);
 
-                //The aurora's own wood re-tints every frame rather than only on a dome/scene switch
-                //(SkyLightRig.KeyTint's usual cadence): its hue keeps drifting while the scene is up, and
-                //ApplySkyTint's own value guard is what keeps this cheap the moment it stops changing.
-                //Gated on the scene, unlike the forest's unconditional call, because this one would
-                //otherwise recompute a moving colour every frame of every OTHER scene for nothing.
+                //The aurora's own wood takes the scene's own tint rather than the dome's (SkyLightRig.KeyTint's usual
+                //cadence): constant since #963, so ApplySkyTint's value guard encodes it once. Gated on the scene,
+                //unlike the forest's unconditional call, because no other scene has this tint to ask for.
                 if (_scene == SceneKind.Aurora)
                     _auroraScatter?.ApplySkyTint(_sceneRenderer.AuroraGlowColor(SceneClock));
 
@@ -298,9 +296,10 @@ namespace Testbed
             if (_ballShadowCasting) _balls?.DrawShadow(shadowViewProjection);
 
             //The wood, on the same gate the scene block draws it on (#471). It is the host's object like the
-            //island is, which is why it casts from here and not from inside the renderer. The AURORA's stand
-            //is deliberately left out: that scene's sun is below the horizon and DrawShadowMaps never asks.
+            //island is, which is why it casts from here and not from inside the renderer. The aurora's casts under
+            //its Moon (#963).
             if (_scene == SceneKind.Forest) _forestScatter?.DrawShadow(shadowViewProjection, _sceneRenderer.FineMeshes);
+            if (_scene == SceneKind.Aurora) _auroraScatter?.DrawShadow(shadowViewProjection, _sceneRenderer.FineMeshes);
 
             //And the city's towers (#471). ⚠ ALL of them rather than City.Visible, which is culled to the
             //CAMERA's frustum — a tower just off the side of the screen is exactly the one whose shadow falls

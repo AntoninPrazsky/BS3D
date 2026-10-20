@@ -44,6 +44,15 @@ namespace Prazsky.Core.Render
         /// The log is one sweep through its bend, so its two halves have no gap between them on the bend's outer side (two tubes
         /// laid end to end at an angle opened a slit there, as the meadow's knees did), and each stub is one capped sweep.
         /// </summary>
+        /// <summary>
+        /// How far the log of <paramref name="length"/> built with <paramref name="seed"/> bows sideways at its middle (local
+        /// +Z): the first roll of its seed, so the aurora's drift along a log (<c>AuroraCollars</c>) follows the log drawn.
+        /// </summary>
+        public static float Bend(float length, int seed) => RollBend(new Random(seed), length);
+
+        private static float RollBend(Random rng, float length) =>
+            length * (0.04f + 0.06f * (float)rng.NextDouble()) * (rng.Next(2) == 0 ? 1f : -1f);
+
         internal static (List<VertexPositionNormalTexture> Vertices, List<short> Indices, BoundingSphere Bounds) Build(float length, float radius, int seed)
         {
             Random rng = new(seed);
@@ -53,7 +62,7 @@ namespace Prazsky.Core.Render
 
             //The log sits a quarter of its own thickness into the ground (the planter puts its origin on the
             //terrain), so it reads as lying in the grass rather than balanced on it.
-            float bend = length * (0.04f + 0.06f * (float)rng.NextDouble()) * (rng.Next(2) == 0 ? 1f : -1f);
+            float bend = RollBend(rng, length);
             float thinEnd = radius * (0.5f + 0.15f * (float)rng.NextDouble());
             Vector3 root = new(-length * 0.5f, radius * 0.75f, 0f);
             Vector3 middle = new(0f, radius * 0.7f, bend);

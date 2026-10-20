@@ -38,6 +38,10 @@ float3 SrgbToLinear(float3 color)
 //and the gun INTO the map; the two halves share ShadowViewProjection, so there is one matrix and not two.
 #include "Shadows.fxh"
 
+//A scene's ground mist and haze (#963): the aurora's wood stands in the same mist as the snow under it. Applied in the
+//triplanar programs the scatters draw through, behind a branch on SceneFogDensity, which is 0 in every other scene.
+#include "SceneFog.fxh"
+
 //THE REST OF THE EFFECT, ONE FILE PER CONCERN (#581). It is still ONE Effect - the renderer switches technique
 //on one shared set of parameters, and that is the whole reason every surface in the game draws through it - but
 //the 7,500 lines it had grown to are split into the includes below, and every technique is in the file of what

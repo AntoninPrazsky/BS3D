@@ -93,8 +93,8 @@ namespace BS3D.Tools.WindingCheck
             ("MeadowScatter._owned[4] {FineWood+Twigs}", 2, "the willow's twig bases on a fine branch's end, which arrives a few degrees off the coarse branch's direction"),
 
             //---- pending: a rebuild is under way
-            ("{FineStem+FineCrown+FineSnow}", ANY, "the conifers' needle sprays and bough tips, pending the Aurora rebuild (#963, #960)"),
-            ("{FineStem+FineCrownFar+FineSnowFar}", ANY, "the conifers' far needle sprays, pending the Aurora rebuild (#963, #960)"),
+            ("{FineStem+FineCrown+FineSnow}", ANY, "the conifers' needle sprays and bough tips, pending #960 (the aurora's rebuild, #963, left the boughs as they were)"),
+            ("{FineStem+FineCrownFar+FineSnowFar}", ANY, "the conifers' far needle sprays, pending #960 (the aurora's rebuild, #963, left the boughs as they were)"),
         };
 
         /// <summary>
