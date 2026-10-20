@@ -384,10 +384,9 @@ jobs:
           ### Raspberry Pi 5 (Linux ARM64)
 
           `BS3D-...-linux-arm64.tar.gz` is the same game, from the same tag, for a Raspberry Pi 5 running 64-bit
-          Raspberry Pi OS. It draws at one fixed graphics tier, **Potato** — a plainer picture than Windows' (no
-          shadows, no scenery behind the island, no post effects), which is what the Pi's GPU can hold at 1080p —
-          and shows `ARM64` beside its version in the menu. Nothing to install: the .NET runtime, SDL2 and OpenAL
-          travel inside it.
+          Raspberry Pi OS. It draws at one fixed graphics tier, **Potato** — a plainer picture than Windows'
+          (@@PI_PICTURE@@) — and shows `ARM64` beside its version in the menu. Nothing to install: the .NET
+          runtime, SDL2 and OpenAL travel inside it.
 
           1. Download the `BS3D-...-linux-arm64.tar.gz` below and extract it: `tar xzf BS3D-*-linux-arm64.tar.gz`
           2. From a desktop session, run it: `cd BS3D-*-linux-arm64 && ./BS3D`
@@ -396,6 +395,12 @@ jobs:
 
           `SHA256SUMS` lists a checksum for every file below; check a download with `sha256sum -c SHA256SUMS`.
           '@
+          # What the Pi's picture lacks and keeps is stated once, in the website's data (#947): the page prints the
+          # same words. PiPictureCopyTests refuses a hand-typed copy here and a placeholder that is gone.
+          $piPicture = (Get-Content -Raw -Encoding utf8 'Web/src/_data/site.json' | ConvertFrom-Json).piPicture
+          if (-not $piPicture) { throw "Web/src/_data/site.json has no piPicture for the Raspberry Pi section of the notes" }
+          if (-not $notes.Contains('@@PI_PICTURE@@')) { throw "The release notes lost the @@PI_PICTURE@@ placeholder" }
+          $notes = $notes.Replace('@@PI_PICTURE@@', $piPicture)
           $picture = ''
           foreach ($extension in 'jpg', 'png') {
             $path = "Images/releases/$env:BUILD_VERSION.$extension"

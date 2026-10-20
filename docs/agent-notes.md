@@ -1213,3 +1213,7 @@ Pravidla:
 - Hotovo: měsícem osvětlené sněhové pole pod velkou zvlněnou září podle referencí obou modelů. Nebe: tři oblouky (ostrá zelená spodní hrana, paprsky, červený vršek, svítí po úsecích), Měsíc, záře nad obzorem. Sníh jako geometrie (závěje, val u ostrova, závětrné ocasy) a ke každé patě kmene, klády a kamene vlastní „límec“ sněhu (`AuroraCollars`). Měsíc vrhá stíny lesa, přízemní mlha (`SceneFog.fxh`, i pro les), 25 000 vzdálených smrků v mezerách mezi háji až k posledním hřebenům, nové intro. Potato beze změny (i led ostrova). Fish High 9,73 → 9,11 ms, Ultra 9,69 → 9,46, Medium 3,96 → 4,40 (stínová mapa).
 - ⚠ Závěj zapečená do mapy (1 jednotka/texel, mřížka 0,75) se rozmazala a paty vypadaly jako válce v rovině; iterovaný průsečík přes záhyb kreslil hranu jako pilu; tmavé nebe pod ostrou hranou četl recenzent jako holý hřeben.
 - Otevřené: verdikt oka (pohyb), sníh navrchu klád je jen pruh, APU neměřeno, `verdicts\963\`.
+
+## 2026-10-20 — #947 věta o obraze na Pi — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: věta „no scenery behind the island“ měla dvě ruční kopie (web, šablona poznámek k vydání). Teď je jedna: `piPicture` v `Web/src/_data/site.json`, web ji tiskne, `release.yml` ji čte do `@@PI_PICTURE@@`. `PiPictureCopyTests` zakazuje ruční kopii a ověřuje, že každá kapitola má na Potatu pozadí. Živá stránka v0.4.0 opravena (`gh release edit`).
+- Otevřené: web se opraví až ruční publikací (`Web/publish.ps1`, majitel).
