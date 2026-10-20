@@ -92,6 +92,19 @@ namespace Prazsky.Core.Render
         /// and how far the patch reaches past it (every block of it with a vertex this near).</summary>
         public const float POND_CARVE_RADIUS = 19f, POND_HOLE_RADIUS = 21.5f, POND_PATCH_RADIUS = 22.4f;
 
+        /// <summary>
+        /// <b>The mouth</b> (#970), where the brook runs into the pond as one water. The owner saw "a sharp straight line in the
+        /// water separating the brook from the pond ... here it must connect smoothly". The two water meshes still meet at the
+        /// shore, each clipping the other's side, but nothing the water is shaded by depends on which drew a pixel
+        /// (<see cref="WaterShading"/>): how far up the brook from its mouth its current starts to slacken, how far into the
+        /// pond the current carries, how fast it fans out there (per unit in) and over how much its sides fade.
+        /// </summary>
+        public const float MOUTH_UP = 3f, MOUTH_INTO = 7f, MOUTH_SPREAD = 0.5f, MOUTH_SOFT = 2f;
+
+        /// <summary>How far either side of the centreline the current is whole at the mouth: the brook's water mesh's own
+        /// half-width, so the current is whole wherever that mesh draws.</summary>
+        public const float MOUTH_CURRENT_HALF = MeadowPatchGeometry.WATER_HALF;
+
         /// <summary>How far in height the lower of the field and a channel is rounded (<see cref="CarveMin"/>).</summary>
         public const float CARVE_ROUND = 0.35f;
 
@@ -190,6 +203,76 @@ namespace Prazsky.Core.Render
 
         /// <summary>The pond's water level.</summary>
         public static float PondWaterLevel(MeadowSceneConfig config) => PondLevel(config) - POND_DROP;
+
+        /// <summary>The distance from the arena at which the brook's centreline crosses the pond's shore: its mouth.</summary>
+        public static float BrookMouth(MeadowSceneConfig config)
+        {
+            float inside = config.ClearingRadius * MeadowPath.BROOK_START, outside = inside + POND_CARVE_RADIUS;
+            for (int i = 0; i < 40; i++)
+            {
+                float d = (inside + outside) * 0.5f;
+                (float x, float z) = MeadowPath.BrookPoint(d, 0f, config);
+                if (MeadowPath.PondShore(x, z, config) < 0f) inside = d;
+                else outside = d;
+            }
+            return (inside + outside) * 0.5f;
+        }
+
+        /// <summary>
+        /// What the water at (x, z) is shaded by (<c>Meadow.fx</c>'s <c>MeadowWaterPS</c>): how still it is (0 the brook's
+        /// running ripples, 1 the pond's calm), how deep over the bed it is (what its cover is worked out from), and how much of
+        /// the swale's shade on the sun (<c>GrooveSun</c>) it keeps. The pond's mesh draws it inside the shore and the brook's
+        /// outside; <paramref name="mouth"/> is <see cref="BrookMouth"/>.
+        /// </summary>
+        public static (float Still, float Depth, float GrooveShade) WaterShading(float x, float z, float mouth, MeadowSceneConfig config)
+        {
+            float shore = MeadowPath.PondShore(x, z, config);
+            (float px, float pz) = MeadowPath.PondCentre(config);
+            float bank = PondBankWidth(MathF.Atan2(z - pz, x - px));
+            float d = MathF.Sqrt(x * x + z * z);
+            float lateral = MeadowPath.BrookLateral(x, z, config);
+            float still, depth;
+            if (shore < 0f)
+            {
+                //The pond's: still but for the brook's current near the mouth, over the deeper of its crater and the brook's
+                //channel running on into its shallows
+                still = 1f;
+                depth = -PondCrater(shore, bank);
+                if (d > mouth - MOUTH_INTO)
+                {
+                    still = 1f - MouthCurrent(d, lateral, mouth);
+                    float s = MathF.Abs(lateral) - BrookWaterHalf(d, config);
+                    if (s < 0f) depth = MathF.Max(depth, -BrookBed(s, BROOK_MARGIN_MAX));
+                }
+                return (still, MathF.Max(depth, 0f), 0f);
+            }
+
+            //The brook's: running, over its bed and, at the mouth, the pond's crater where that is the deeper
+            still = 0f;
+            depth = -BrookBed(MathF.Abs(lateral) - BrookWaterHalf(d, config), BROOK_MARGIN_MAX);
+            if (d < mouth + MOUTH_UP)
+            {
+                still = 1f - MouthCurrent(d, lateral, mouth);
+                depth = MathF.Max(depth, BrookWaterLevel(d, config) - PondWaterLevel(config) - PondCrater(shore, bank));
+            }
+            return (still, MathF.Max(depth, 0f), GrooveShadeShare(shore));
+        }
+
+        /// <summary>How much of the brook's current there is at distance <paramref name="d"/> from the arena,
+        /// <paramref name="lateral"/> off its centreline, its mouth at <paramref name="mouth"/>: all of it on the brook,
+        /// slackening over its last <see cref="MOUTH_UP"/> units, and carried <see cref="MOUTH_INTO"/> units into the pond in a
+        /// tongue that fans out and fades; none on the rest of the pond.</summary>
+        public static float MouthCurrent(float d, float lateral, float mouth)
+        {
+            float fan = MOUTH_CURRENT_HALF + MOUTH_SPREAD * MathF.Max(mouth - d, 0f);
+            return ShaderMath.SmoothStep(mouth - MOUTH_INTO, mouth + MOUTH_UP, d)
+                * (1f - ShaderMath.SmoothStep(fan, fan + MOUTH_SOFT, MathF.Abs(lateral)));
+        }
+
+        /// <summary>How much of the swale's shade on the sun (<c>GrooveSun</c>) is kept <paramref name="shore"/> units outside
+        /// the pond's shore: all of it from <see cref="MOUTH_UP"/> out, none at the shore, where the swale's bank has opened
+        /// into the crater's and the pond's water, lit whole, takes over.</summary>
+        public static float GrooveShadeShare(float shore) => ShaderMath.SmoothStep(0f, MOUTH_UP, shore);
 
         /// <summary>The width of the pond's bank at bearing <paramref name="a"/> round its centre: 1.2 to 4.8 units, so the
         /// crater is steep on one side and a gentle bowl on another.</summary>

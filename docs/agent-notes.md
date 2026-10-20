@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-20 — #970 potůček a rybník jsou jedna voda — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: v ústí vodu nestínuje to, která ze dvou sítí pixel kreslí, ale poloha: hloubka je hlubší z koryta a kráteru (koryto běží ~4,7 j. pod mělčinou), proud slábne poslední 3 j. potoka a nese se jazykem 7 j. do rybníka, stín rýhy (`GrooveSun`) mizí k břehu i na zemi. CPU kopie `MeadowCarve.WaterShading`; test spojitosti na příznaku padal skokem 1,0.
+- ⚠ Dvě sítě na jednom břehu nemají šev, jen když každý vstup stínování je funkcí polohy, ne příznaku sítě.
+- Otevřené: `verdict-eye` (vlnky v pohybu).
+
 ## 2026-10-20 — #958 jeskyně postavená znovu — desktop (RDT-PC), Claude Code (bs3d-bf)
 - Hotovo: celá síň je geometrie z CPU (`CavernChamber`): skořepina jako krychlová koule bez pólu a švu, dno jezera s ostrůvky (jemnější buňky kolem nich), záclony krápníků a stalagmity pod nimi, sloupy, 12 shluků průsvitných krystalů, 9000 světlušek jako pixelové sprity, dvě uzavřené šachty světla. Jezero zrcadlí síň. Staví se až při výběru scény. Levnější na všech stupních. #756 #757 #778 složeny sem.
 - Majitel 20. 10.: „Cavern now looks good“ – vzhled schválen.

@@ -125,6 +125,8 @@ namespace Prazsky.Core.Render
             _meadowEffect.Parameters["PondCentre"].SetValue(new Vector2(pondX, pondZ));
             _meadowEffect.Parameters["PondRadius"].SetValue(_meadowConfig.PondRadius);
             _meadowEffect.Parameters["PondLevel"].SetValue(TerrainMirror.MeadowNatural(pondX, pondZ, _meadowConfig));
+            //Where the brook's centreline crosses the pond's shore, round which the two waters are blended into one (#970)
+            _meadowEffect.Parameters["BrookMouth"].SetValue(MeadowCarve.BrookMouth(_meadowConfig));
             (float knollX, float knollZ) = MeadowPath.PathEnd(_meadowConfig);
             _meadowEffect.Parameters["KnollCentre"].SetValue(new Vector2(knollX, knollZ));
             _meadowEffect.Parameters["KnollRadius"].SetValue(_meadowConfig.KnollRadius);
