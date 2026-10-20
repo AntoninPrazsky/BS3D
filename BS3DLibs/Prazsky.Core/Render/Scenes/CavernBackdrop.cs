@@ -10,8 +10,8 @@ namespace Prazsky.Core.Render
     /// <summary>
     /// The cavern (#958): an irregular limestone hall over a still black lake, every surface of it real geometry
     /// (<see cref="CavernChamber"/>, <see cref="CavernGeometry"/>) shaded by <c>Cavern.fx</c>. The hall is built on a
-    /// worker thread when the renderer is made, so the first frame that wants it rarely waits; the buffers are made on the
-    /// first draw at each detail and kept. Under supersampling it is shaded at the display's resolution into a multisampled
+    /// worker thread when a host first selects the scene (<see cref="Prepare"/>), and each detail's arrays when that detail
+    /// is first wanted; the buffers are made from them on the frame thread and the arrays let go. Under supersampling it is shaded at the display's resolution into a multisampled
     /// target of its own and scaled up, the formations' depth then written into the scene's own target where one can stand
     /// in front of the arena. See "The cavern" in docs/scenes.md.
     /// </summary>
@@ -19,8 +19,10 @@ namespace Prazsky.Core.Render
     {
         private readonly GraphicsDevice _graphicsDevice;
         private readonly CavernSceneConfig _config = new();
-        private readonly Task<Built> _build;
-        private Built _built;
+        private readonly int _seed;
+        private Task<CavernChamber> _chamberBuild;
+        private CavernChamber _chamber;
+        private Task<CavernMeshes.Arrays> _fineBuild, _coarseBuild;
         private CavernMeshes _fine, _coarse;
 
         private readonly Effect _effect;
@@ -49,6 +51,7 @@ namespace Prazsky.Core.Render
 
         private bool _fullDetail = true;
         private bool _wroteSceneDepth;
+        private CavernMeshes _drawn;
 
         //The formations' depth (#755): the box round the arena the pass is scissored to
         private const float ARENA_BOUND_RADIUS = ArenaIsland.RADIUS + 4f;
@@ -75,13 +78,7 @@ namespace Prazsky.Core.Render
             AlphaDestinationBlend = Blend.One,
         };
 
-        private sealed class Built
-        {
-            public CavernChamber Chamber;
-            public CavernMeshes.Arrays Fine, Coarse;
-        }
-
-        /// <summary>Loads the effect, caches its parameters, pushes the config at it and starts building the hall.</summary>
+        /// <summary>Loads the effect, caches its parameters and pushes the config at it. The hall is not built yet.</summary>
         public CavernBackdrop(BackdropServices services, ContentManager content) : base(services)
         {
             _graphicsDevice = services.GraphicsDevice;
@@ -112,24 +109,52 @@ namespace Prazsky.Core.Render
 
             ApplyParameters();
 
-            CavernSceneConfig config = _config;
-            int seed = services.SeedOffset;
-            _build = Task.Run(() =>
+            _seed = services.SeedOffset;
+        }
+
+        /// <summary>
+        /// Starts building the hall on a worker thread, and the arrays of the detail the renderer draws now, if they are not
+        /// built or building: a host calls it when it selects the scene (<see cref="SceneRenderer.Prepare"/>), and every
+        /// query that needs the hall calls it too. Nothing is built for a launch that never shows the cavern.
+        /// </summary>
+        public override void Prepare()
+        {
+            if (_chamberBuild == null)
+            {
+                CavernSceneConfig config = _config;
+                int seed = _seed;
+                _chamberBuild = Task.Run(() =>
+                {
+                    var clock = System.Diagnostics.Stopwatch.StartNew();
+                    var chamber = new CavernChamber(config, seed);
+                    Console.WriteLine($"[cavern] hall placed off the frame in {clock.ElapsedMilliseconds} ms: {chamber.Stalactites.Count} stalactites, " +
+                        $"{chamber.Stalagmites.Count} stalagmites, {chamber.Columns.Count} columns, {chamber.Clusters.Count} crystal clusters, " +
+                        $"{chamber.Glowworms.Count} glowworms");
+                    return chamber;
+                });
+            }
+
+            StartDetail(Services.FineMeshes);
+        }
+
+        //The arrays of one detail, built off the frame once the hall is placed; null once their buffers are made
+        private void StartDetail(bool fine)
+        {
+            if (fine ? (_fine != null || _fineBuild != null) : (_coarse != null || _coarseBuild != null)) return;
+
+            Task<CavernChamber> chamberBuild = _chamberBuild;
+            CavernGeometry.Detail detail = fine ? CavernGeometry.Detail.Fine : CavernGeometry.Detail.Coarse;
+            Task<CavernMeshes.Arrays> build = chamberBuild.ContinueWith(placed =>
             {
                 var clock = System.Diagnostics.Stopwatch.StartNew();
-                var chamber = new CavernChamber(config, seed);
-                long placed = clock.ElapsedMilliseconds;
-                var built = new Built
-                {
-                    Chamber = chamber,
-                    Fine = CavernMeshes.Arrays.Build(chamber, CavernGeometry.Detail.Fine),
-                    Coarse = CavernMeshes.Arrays.Build(chamber, CavernGeometry.Detail.Coarse),
-                };
-                Console.WriteLine($"[cavern] hall built off the frame in {clock.ElapsedMilliseconds} ms (placed in {placed} ms): " +
-                    $"{chamber.Stalactites.Count} stalactites, {chamber.Stalagmites.Count} stalagmites, {chamber.Columns.Count} columns, " +
-                    $"{chamber.Clusters.Count} crystal clusters, {chamber.Glowworms.Count} glowworms; fine rock {built.Fine.Rock.Vertices.Length} vertices");
-                return built;
-            });
+                CavernMeshes.Arrays arrays = CavernMeshes.Arrays.Build(placed.Result, detail);
+                Console.WriteLine($"[cavern] {(fine ? "fine" : "coarse")} meshes built off the frame in {clock.ElapsedMilliseconds} ms: " +
+                    $"rock {arrays.Rock.Vertices.Length} vertices, formations {arrays.Formations.Indices.Length / 3} triangles");
+                return arrays;
+            }, TaskScheduler.Default);
+
+            if (fine) _fineBuild = build;
+            else _coarseBuild = build;
         }
 
         /// <inheritdoc/>
@@ -148,13 +173,18 @@ namespace Prazsky.Core.Render
         /// <inheritdoc/>
         public override bool DisplayResolutionDepth => true;
 
-        /// <summary>The hall, waiting for its build if it has not finished (it is begun when the renderer is made).</summary>
-        public CavernChamber Chamber => Ready().Chamber;
-
-        private Built Ready()
+        /// <summary>The hall, waiting for its placement if it has not finished (and starting it if no host has).</summary>
+        public CavernChamber Chamber
         {
-            if (_built == null) _built = _build.GetAwaiter().GetResult();
-            return _built;
+            get
+            {
+                if (_chamber == null)
+                {
+                    Prepare();
+                    _chamber = _chamberBuild.GetAwaiter().GetResult();
+                }
+                return _chamber;
+            }
         }
 
         /// <inheritdoc/>
@@ -262,27 +292,27 @@ namespace Prazsky.Core.Render
             _lightCount.SetValue(count);
         }
 
+        //The buffers for the detail the renderer draws now. Its arrays are waited for if they are the only ones there are; if
+        //the other detail is already up (a tier changed mid-session), that one is drawn until these are ready, so a change of
+        //tier is never a hitch. Arrays are let go once they are buffers.
         private CavernMeshes Meshes()
         {
-            Built built = Ready();
-            if (!_chamberPushed) PushChamber(built.Chamber);
+            CavernChamber chamber = Chamber;
+            if (!_chamberPushed) PushChamber(chamber);
 
-            if (Services.FineMeshes)
-            {
-                if (_fine == null)
-                {
-                    _fine = new CavernMeshes(_graphicsDevice, built.Fine);
-                    built.Fine = null;
-                }
-                return _fine;
-            }
+            bool fine = Services.FineMeshes;
+            StartDetail(fine);
+            CavernMeshes wanted = fine ? _fine : _coarse;
+            if (wanted != null) return wanted;
 
-            if (_coarse == null)
-            {
-                _coarse = new CavernMeshes(_graphicsDevice, built.Coarse);
-                built.Coarse = null;
-            }
-            return _coarse;
+            Task<CavernMeshes.Arrays> build = fine ? _fineBuild : _coarseBuild;
+            CavernMeshes other = fine ? _coarse : _fine;
+            if (other != null && !build.IsCompleted) return other;
+
+            var meshes = new CavernMeshes(_graphicsDevice, build.GetAwaiter().GetResult());
+            if (fine) { _fine = meshes; _fineBuild = null; }
+            else { _coarse = meshes; _coarseBuild = null; }
+            return meshes;
         }
 
         /// <summary>
@@ -293,7 +323,7 @@ namespace Prazsky.Core.Render
         public override void Draw(in SceneFrame frame)
         {
             CavernMeshes meshes = Meshes();
-            CavernChamber chamber = _built.Chamber;
+            CavernChamber chamber = _chamber;
             ICamera camera = frame.Camera;
             Viewport viewport = _graphicsDevice.Viewport;
 
@@ -320,6 +350,7 @@ namespace Prazsky.Core.Render
                 RasterizerState.CullCounterClockwise);
 
             _wroteSceneDepth = !Services.ShadingAtDisplayResolution;
+            _drawn = meshes;
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
@@ -347,8 +378,10 @@ namespace Prazsky.Core.Render
 
             if (meshes.Crystals != null)
             {
+                //Writing depth, though they blend: the arena draws after the hall, and over a cluster it would otherwise be
+                //drawn through it (a nearer prism of the same cluster drawn later still blends over a farther one)
                 _graphicsDevice.BlendState = CRYSTAL_BLEND;
-                _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+                _graphicsDevice.DepthStencilState = DepthStencilState.Default;
                 _effect.CurrentTechnique = crystal;
                 _effect.CurrentTechnique.Passes[0].Apply();
                 meshes.Crystals.Draw(_graphicsDevice);
@@ -414,22 +447,21 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// The formations' depth (#755) in the scene's own target, when the hall was shaded into the display-resolution one
-        /// and its depth stayed there: the island, the funnel, the gun and the cluster are hidden where a column, a
-        /// stalactite or a stalagmite stands in front of them. Only for a lens out where one can (the play camera never
+        /// The hall's depth (#755) in the scene's own target, when the hall was shaded into the display-resolution one and its
+        /// depth stayed there: the island, the funnel, the gun and the cluster are hidden where a column, a stalactite, a
+        /// stalagmite, a crystal, a rock island or the shore stands in front of them. Only for a lens out where one can (the play camera never
         /// pays), scissored to the arena's box on the screen. Drawn depth-only, colour writes off.
         /// </summary>
         public override void DrawDepth(in SceneFrame frame)
         {
-            if (_wroteSceneDepth || _built == null) return;
+            if (_wroteSceneDepth || _drawn == null) return;
             Vector3 lens = frame.Camera.Position;
             if (lens.X * lens.X + lens.Z * lens.Z < CavernChamber.ARENA_AIR_RADIUS * CavernChamber.ARENA_AIR_RADIUS) return;
 
             Matrix viewProjection = frame.Camera.View * frame.Camera.Projection;
             if (!TryScissorArena(viewProjection, out Rectangle scissor)) return;
 
-            CavernMeshes meshes = Services.FineMeshes ? _fine : _coarse;
-            if (meshes?.Formations == null) return;
+            CavernMeshes meshes = _drawn;
 
             _viewProjection.SetValue(viewProjection);
             _graphicsDevice.BlendState = DEPTH_ONLY;
@@ -439,7 +471,12 @@ namespace Prazsky.Core.Render
 
             _effect.CurrentTechnique = _depth;
             _effect.CurrentTechnique.Passes[0].Apply();
-            meshes.Formations.Draw(_graphicsDevice);
+            meshes.Formations?.Draw(_graphicsDevice);
+            //The rock too: a rock island or the bed's shore stands between a lens out on the lake and the funnel (the cone
+            //drew through an island from the intro's glide until it did). And the crystals: translucent in the hall, but the
+            //arena draws after the hall, so without their depth an island behind a cluster was drawn over it
+            meshes.Rock.Draw(_graphicsDevice);
+            meshes.Crystals?.Draw(_graphicsDevice);
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
@@ -526,9 +563,14 @@ namespace Prazsky.Core.Render
         public int ArenaLights(float time, Vector3[] position, Vector3[] colour, float[] range, int max)
         {
             float strength = _config.Crystals.ArenaLight;
-            if (strength <= 0f || (_built == null && !_build.IsCompleted)) return 0;
+            if (strength <= 0f) return 0;
+            if (_chamber == null)
+            {
+                Prepare();
+                if (!_chamberBuild.IsCompleted) return 0;
+            }
 
-            CavernChamber chamber = Ready().Chamber;
+            CavernChamber chamber = Chamber;
             int count = 0;
             for (int k = 0; k < chamber.Clusters.Count && count < max; k++)
             {

@@ -21,10 +21,11 @@ Pravidla:
 ---
 
 ## 2026-10-20 — #958 jeskyně postavená znovu — desktop (RDT-PC), Claude Code (bs3d-bf)
-- Hotovo (větev `958-cavern-rebuild`, čeká na review a merge): celá síň je geometrie z CPU (`CavernChamber`): hvězdicová skořepina jako krychlová koule bez pólu a švu (laloky, kapsy, římsy, tři chodby), dno jezera s ostrůvky, záclony krápníků, sloupy z vrstvených talířů, 12 shluků průsvitných šestibokých krystalů, 9000 světlušek jako pixelové sprity, dvě šachty světla. Jezero zrcadlí celou síň. Úvod (síň, krystaly, šachta, podhled) kontroluje cesty přes `Clearance`; Potato kreslí tutéž síň hrubě. Levnější na všech stupních (Chest High 7,18 → 6,71 ms). #756 #757 #778 složeny sem.
+- Hotovo: celá síň je geometrie z CPU (`CavernChamber`): skořepina jako krychlová koule bez pólu a švu, dno jezera s ostrůvky (jemnější buňky kolem nich), záclony krápníků a stalagmity pod nimi, sloupy, 12 shluků průsvitných krystalů, 9000 světlušek jako pixelové sprity, dvě uzavřené šachty světla. Jezero zrcadlí síň. Staví se až při výběru scény. Levnější na všech stupních. #756 #757 #778 složeny sem.
+- Majitel 20. 10.: „Cavern now looks good“ – vzhled schválen.
 - Strom se světluškami byl sloup se sporami; natažené světlušky gaussovka na stěně z boku; „lom“ kruh, kde válec potkal víko.
-- ⚠ NaN normála = černý osmiúhelník velikosti bloomu. ⚠ Posun světlušek ve z/w na dálku propouští přes sloupy, posouvat ve světě.
-- Otevřené: verdikt oka, `verdicts\958\`.
+- ⚠ NaN normála = černý osmiúhelník velikosti bloomu. ⚠ Hloubka síně se při ssaa 2 do scény píše zvlášť: skály a krystaly taky, jinak trychtýř prosvítá ostrůvkem.
+- Otevřené: nic; Pi neměřeno.
 
 ## 2026-10-20 — #974 audit spár: každá procedurální síť je uzavřená, brána v CI — desktop (RDT-PC), Claude Code (bs3d-bf)
 - Hotovo: `WindingCheck --openness` pustí `MeshOpenness.ExposedLoops` přes 434 částí všech scén, tabulka `Allowed` s důvodem u každé výjimky, exit 1 na nepojmenovanou otevřenou síť; v `build.yml` brána + dvě samokontroly (podstrčená otevřená krabice). Zavřeno: kolena `SnagMesh` (jeden sweep), pata a špice dlaně, základy větviček louky (zapuštěné do větve), spára víka a těla lunárního ostrova, prstenec talíře, štěrbina vývrtu hlavně.

@@ -1424,15 +1424,23 @@ namespace Prazsky.Core.Render
         #endregion
 
         /// <summary>
+        /// States that the host has selected <paramref name="scene"/>: a backdrop that builds itself off the frame (the
+        /// cavern's hall, #958) starts its build here, so it is under way while the host loads, and a launch that never
+        /// shows the scene builds nothing. Cheap to call again; every host calls it where it sets its scene.
+        /// </summary>
+        public void Prepare(SceneKind scene) => BackdropFor(scene)?.Prepare();
+
+        /// <summary>
         /// Draws the scene's backdrop — its <see cref="Backdrop.Draw"/>, or for the dream and the cavern at a
         /// supersampled frame <c>DrawBackdropAtDisplayResolution</c>. A no-op for
         /// <see cref="SceneKind.City"/>/<see cref="SceneKind.NeonCity"/>, which the caller draws itself. Opaque, so it stands in for the city as the thing the arena glass
         /// shows beneath it; it leaves the alpha-blend / back-face-cull state the rest of the opaque scene wants.
         /// <para>
-        /// The four sky-replacing draws also touch the <b>depth</b> state: space, the dream and the cavern
-        /// are backgrounds rather than geometry, so they draw with <see cref="DepthStencilState.None"/>,
-        /// while the Moon writes depth with its terrain and then reads it under its sky quad
-        /// (<see cref="DepthStencilState.DepthRead"/>) — and every one of them restores
+        /// The sky-replacing draws also touch the <b>depth</b> state: space and the dream are backgrounds
+        /// rather than geometry, so they draw with <see cref="DepthStencilState.None"/>; the cavern's hall is
+        /// meshes that write depth (into its own target under supersampling, then the scene's through
+        /// <see cref="Backdrop.DrawDepth"/>); the Moon writes depth with its terrain and then reads it under its
+        /// sky quad (<see cref="DepthStencilState.DepthRead"/>) — and every one of them restores
         /// <see cref="DepthStencilState.Default"/> on the way out.
         /// </para>
         /// </summary>
@@ -1448,7 +1456,12 @@ namespace Prazsky.Core.Render
                 if (sceneTarget != null && SupersampleFactor > 1 && backdrop.DrawsAtDisplayResolution)
                     DrawBackdropAtDisplayResolution(backdrop, frame, sceneTarget);
                 else
+                {
+                    //The display-resolution target is let go as soon as a frame does not use it: the cavern's (four samples, a
+                    //depth buffer) is about 340 MB at 3840x1600, and a drop to ssaa 1 or another scene keeps none of it
+                    ReleaseBackdropTarget();
                     backdrop.Draw(frame);
+                }
 
                 //Into the bound target either way, which is the scene target with its depth (#755)
                 backdrop.DrawDepth(frame);
@@ -1803,6 +1816,12 @@ namespace Prazsky.Core.Render
         /// <see cref="SpriteBatch"/> then leaves its own behind.
         /// </para>
         /// </summary>
+        private void ReleaseBackdropTarget()
+        {
+            _backdropTarget?.Dispose();
+            _backdropTarget = null;
+        }
+
         private void DrawBackdropAtDisplayResolution(Backdrop backdrop, in SceneFrame frame, RenderTarget2D sceneTarget)
         {
             //The scene target's size without the supersample factor: the back buffer's, or the player's lower resolution

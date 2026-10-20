@@ -669,9 +669,11 @@ RockOutput ShaftVS(RockInput input)
 
 float4 ShaftPS(RockOutput input) : COLOR0
 {
-    //Only the far side of the cone, so the beam is counted once whether the lens is outside it or in it
+    //Only the side towards the lens, the beam gathered along the whole ray from there. The cone reaches back into the rock
+    //over the crack, so a ray looking up into the opening still crosses a face under the vault: kept on its far side, whose
+    //top lies in the rock, the opening was ringed by a dark ellipse with the haze only round it
     float3 toP = input.World - CameraPosition;
-    clip(dot(input.Normal, toP));
+    clip(-dot(input.Normal, toP));
 
     int s = (int)(input.Data.x + 0.5);
     float3 source = ShaftSource[s].xyz;
@@ -685,7 +687,7 @@ float4 ShaftPS(RockOutput input) : COLOR0
     float3 w = CameraPosition - source;
     float b = dot(ray, axis);
     float denom = max(1.0 - b * b, 1e-4);
-    float tRay = clamp((b * dot(w, axis) - dot(w, ray)) / denom, 0.0, distanceTravelled);
+    float tRay = max((b * dot(w, axis) - dot(w, ray)) / denom, 0.0);
     float3 nearest = CameraPosition + ray * tRay;
     float along = clamp(dot(nearest - source, axis), 0.0, len);
     float radius = ShaftSource[s].w * (1.0 + 0.5 * along / len);

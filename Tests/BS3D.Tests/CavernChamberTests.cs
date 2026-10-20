@@ -31,10 +31,14 @@ namespace BS3D.Tests
         [Fact]
         public void Every_vertex_of_every_mesh_is_a_number_with_a_unit_normal()
         {
-            foreach (int seed in new[] { 0, 3 })
+            foreach (int seed in new[] { 0, 3, 11, 42 })
             {
                 var chamber = new CavernChamber(new CavernSceneConfig(), seed);
-                foreach (CavernGeometry.Detail detail in new[] { CavernGeometry.Detail.Coarse, CavernGeometry.Detail.Potato })
+                //High and Ultra's mesh on two of the seeds (it is the slow one), Low and Medium's and the Pi's on all four
+                CavernGeometry.Detail[] details = seed < 5
+                    ? new[] { CavernGeometry.Detail.Fine, CavernGeometry.Detail.Coarse, CavernGeometry.Detail.Potato }
+                    : new[] { CavernGeometry.Detail.Coarse, CavernGeometry.Detail.Potato };
+                foreach (CavernGeometry.Detail detail in details)
                 {
                     AssertFinite(CavernGeometry.BuildRock(chamber, detail).Vertices, $"rock, seed {seed}");
                     AssertFinite(CavernGeometry.BuildFormations(chamber, detail).Vertices, $"formations, seed {seed}");

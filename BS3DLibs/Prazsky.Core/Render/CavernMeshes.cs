@@ -21,10 +21,10 @@ namespace Prazsky.Core.Render
         /// the facets round a formation.</summary>
         public readonly struct Detail
         {
-            public readonly int ShellCells, FloorCells, Around, MaxHanging, ColumnRings;
+            public readonly int ShellCells, FloorCells, Around, MaxHanging, ColumnRings, IslandSubdivision;
             public readonly float ShortestHanging;
 
-            public Detail(int shellCells, int floorCells, int around, float shortestHanging, int maxHanging, int columnRings)
+            public Detail(int shellCells, int floorCells, int around, float shortestHanging, int maxHanging, int columnRings, int islandSubdivision)
             {
                 ShellCells = shellCells;
                 FloorCells = floorCells;
@@ -32,16 +32,17 @@ namespace Prazsky.Core.Render
                 ShortestHanging = shortestHanging;
                 MaxHanging = maxHanging;
                 ColumnRings = columnRings;
+                IslandSubdivision = islandSubdivision;
             }
 
             /// <summary>High and Ultra's (<see cref="SceneRenderer.FineMeshes"/>).</summary>
-            public static Detail Fine => new(176, 300, 14, 0f, int.MaxValue, 140);
+            public static Detail Fine => new(176, 300, 14, 0f, int.MaxValue, 140, 5);
 
             /// <summary>Low and Medium's: the same hall on fewer vertices, and the smallest stalactites left out.</summary>
-            public static Detail Coarse => new(104, 180, 9, 8f, int.MaxValue, 80);
+            public static Detail Coarse => new(104, 180, 9, 8f, int.MaxValue, 80, 3);
 
             /// <summary>The Raspberry Pi's: the hall's shape, its columns and its longest stalactites.</summary>
-            public static Detail Potato => new(18, 40, 6, 22f, 50, 14);
+            public static Detail Potato => new(18, 40, 6, 22f, 50, 14, 1);
         }
 
         private static void AddTriangle(List<int> indices, IList<Vector3> positions, int a, int b, int c, Vector3 shown)
@@ -64,7 +65,7 @@ namespace Prazsky.Core.Render
             var vertices = new List<VertexPositionNormalTexture>();
             var indices = new List<int>();
             AddShell(chamber, detail.ShellCells, vertices, indices);
-            AddFloor(chamber, detail.FloorCells, vertices, indices);
+            AddFloor(chamber, detail, vertices, indices);
             return (vertices.ToArray(), indices.ToArray());
         }
 
@@ -130,12 +131,40 @@ namespace Prazsky.Core.Render
             indices.Add(first + c);
         }
 
-        private static void AddFloor(CavernChamber chamber, int n, List<VertexPositionNormalTexture> vertices, List<int> indices)
+        //One vertex of the bed at (x, z): its height, its normal by central differences over `e`, and its occlusion (a hollow
+        //of the bed is darker, and so is the foot of the wall)
+        private static VertexPositionNormalTexture FloorVertex(CavernChamber chamber, float x, float z, float e, float hollowReach)
         {
+            float h = chamber.FloorHeight(x, z);
+            float hx = chamber.FloorHeight(x + e, z) - chamber.FloorHeight(x - e, z);
+            float hz = chamber.FloorHeight(x, z + e) - chamber.FloorHeight(x, z - e);
+            Vector3 normal = Vector3.Normalize(new Vector3(-hx, 2f * e, -hz));
+            float around = 0.25f * (chamber.FloorHeight(x + hollowReach, z) + chamber.FloorHeight(x - hollowReach, z)
+                + chamber.FloorHeight(x, z + hollowReach) + chamber.FloorHeight(x, z - hollowReach));
+            float hollow = Math.Clamp((around - h) * 0.25f, 0f, 0.5f);
+            float wall = chamber.WallAtWater(x, z);
+            float foot = ShaderMath.SmoothStep(wall - 14f, wall + 2f, MathF.Sqrt(x * x + z * z));
+            float occlusion = Math.Clamp(1f - hollow - 0.45f * foot, 0.3f, 1f);
+            return new VertexPositionNormalTexture(new Vector3(x, h, z), normal, new Vector2(occlusion, 1f));
+        }
+
+        private static VertexPositionNormalTexture Lerp(VertexPositionNormalTexture a, VertexPositionNormalTexture b, float t) =>
+            new(Vector3.Lerp(a.Position, b.Position, t), Vector3.Normalize(Vector3.Lerp(a.Normal, b.Normal, t)),
+                Vector2.Lerp(a.TextureCoordinate, b.TextureCoordinate, t));
+
+        /// <summary>
+        /// The lake's bed as a grid, and round every rock island its cells subdivided <see cref="Detail.IslandSubdivision"/>
+        /// times each way: an island eight to seventeen units across on a grid three units a cell came out a faceted pyramid.
+        /// Where a subdivided cell meets a plain one, its points along the shared edge lie on that edge's straight line, so the
+        /// two meet without a crack; two subdivided cells compute their shared points from the same integer coordinates.
+        /// </summary>
+        private static void AddFloor(CavernChamber chamber, Detail detail, List<VertexPositionNormalTexture> vertices, List<int> indices)
+        {
+            int n = detail.FloorCells;
             float extent = 0f;
-            for (int k = 0; k < 360; k++)
+            for (int b = 0; b < 360; b++)
             {
-                float bearing = k * MathHelper.TwoPi / 360f;
+                float bearing = b * MathHelper.TwoPi / 360f;
                 extent = MathF.Max(extent, chamber.WallAtWater(MathF.Cos(bearing), MathF.Sin(bearing)));
             }
             extent = MathF.Min(extent + 30f, 700f);
@@ -152,33 +181,77 @@ namespace Prazsky.Core.Render
                     float x = -extent + i * cell;
                     float wall = chamber.WallAtWater(x, z);
                     keep[j * side + i] = x * x + z * z < (wall + 30f) * (wall + 30f);
-                    float h = chamber.FloorHeight(x, z);
-                    float e = cell * 0.5f;
-                    float hx = chamber.FloorHeight(x + e, z) - chamber.FloorHeight(x - e, z);
-                    float hz = chamber.FloorHeight(x, z + e) - chamber.FloorHeight(x, z - e);
-                    Vector3 normal = Vector3.Normalize(new Vector3(-hx, 2f * e, -hz));
-                    //A hollow of the bed is darker, and so is the foot of the wall
-                    float around = 0.25f * (chamber.FloorHeight(x + 3f * cell, z) + chamber.FloorHeight(x - 3f * cell, z)
-                        + chamber.FloorHeight(x, z + 3f * cell) + chamber.FloorHeight(x, z - 3f * cell));
-                    float hollow = Math.Clamp((around - h) * 0.25f, 0f, 0.5f);
-                    float foot = ShaderMath.SmoothStep(wall - 14f, wall + 2f, MathF.Sqrt(x * x + z * z));
-                    float occlusion = Math.Clamp(1f - hollow - 0.45f * foot, 0.3f, 1f);
-                    grid[j * side + i] = new VertexPositionNormalTexture(new Vector3(x, h, z), normal, new Vector2(occlusion, 1f));
+                    grid[j * side + i] = FloorVertex(chamber, x, z, cell * 0.5f, 3f * cell);
                 }
             });
+
+            //Which cells round an island are subdivided
+            int k = Math.Max(detail.IslandSubdivision, 1);
+            var fine = new bool[n * n];
+            if (k > 1)
+                for (int j = 0; j < n; j++)
+                    for (int i = 0; i < n; i++)
+                    {
+                        Vector2 centre = new(-extent + (i + 0.5f) * cell, -extent + (j + 0.5f) * cell);
+                        foreach (CavernOutcrop o in chamber.Outcrops)
+                            if (Vector2.Distance(centre, o.Centre) < o.Radius * 1.9f + cell) { fine[j * n + i] = true; break; }
+                    }
 
             int first = vertices.Count;
             vertices.AddRange(grid);
             var positions = new Vector3[grid.Length];
-            for (int k = 0; k < grid.Length; k++) positions[k] = grid[k].Position;
+            for (int v = 0; v < grid.Length; v++) positions[v] = grid[v].Position;
+            var fineCells = new List<(int I, int J)>();
             for (int j = 0; j < n; j++)
                 for (int i = 0; i < n; i++)
                 {
                     int v00 = j * side + i, v10 = v00 + 1, v01 = v00 + side, v11 = v01 + 1;
                     if (!keep[v00] && !keep[v10] && !keep[v01] && !keep[v11]) continue;
+                    if (fine[j * n + i]) { fineCells.Add((i, j)); continue; }
                     AddTriangleOffset(indices, positions, first, v00, v10, v11, Vector3.Up);
                     AddTriangleOffset(indices, positions, first, v00, v11, v01, Vector3.Up);
                 }
+
+            if (fineCells.Count == 0) return;
+
+            //The subdivided cells, each (k + 1) x (k + 1) points: corners from the grid, an edge shared with a plain cell on
+            //that edge's line, everything else off the bed itself
+            int per = (k + 1) * (k + 1);
+            var patch = new VertexPositionNormalTexture[fineCells.Count * per];
+            float step = cell / k;
+            Parallel.For(0, fineCells.Count, c =>
+            {
+                (int i, int j) = fineCells[c];
+                bool Fine(int ci, int cj) => ci >= 0 && cj >= 0 && ci < n && cj < n && fine[cj * n + ci];
+                VertexPositionNormalTexture c00 = grid[j * side + i], c10 = grid[j * side + i + 1];
+                VertexPositionNormalTexture c01 = grid[(j + 1) * side + i], c11 = grid[(j + 1) * side + i + 1];
+                for (int b = 0; b <= k; b++)
+                    for (int a = 0; a <= k; a++)
+                    {
+                        float ta = a / (float)k, tb = b / (float)k;
+                        VertexPositionNormalTexture v;
+                        if ((a == 0 || a == k) && (b == 0 || b == k)) v = a == 0 ? (b == 0 ? c00 : c01) : (b == 0 ? c10 : c11);
+                        else if (b == 0 && !Fine(i, j - 1)) v = Lerp(c00, c10, ta);
+                        else if (b == k && !Fine(i, j + 1)) v = Lerp(c01, c11, ta);
+                        else if (a == 0 && !Fine(i - 1, j)) v = Lerp(c00, c01, tb);
+                        else if (a == k && !Fine(i + 1, j)) v = Lerp(c10, c11, tb);
+                        else v = FloorVertex(chamber, -extent + (i * k + a) * step, -extent + (j * k + b) * step, step * 0.5f, 3f * cell);
+                        patch[c * per + b * (k + 1) + a] = v;
+                    }
+            });
+
+            int patchFirst = vertices.Count;
+            vertices.AddRange(patch);
+            var patchPositions = new Vector3[patch.Length];
+            for (int v = 0; v < patch.Length; v++) patchPositions[v] = patch[v].Position;
+            for (int c = 0; c < fineCells.Count; c++)
+                for (int b = 0; b < k; b++)
+                    for (int a = 0; a < k; a++)
+                    {
+                        int v00 = c * per + b * (k + 1) + a, v10 = v00 + 1, v01 = v00 + k + 1, v11 = v01 + 1;
+                        AddTriangleOffset(indices, patchPositions, patchFirst, v00, v10, v11, Vector3.Up);
+                        AddTriangleOffset(indices, patchPositions, patchFirst, v00, v11, v01, Vector3.Up);
+                    }
         }
 
         #endregion
@@ -269,6 +342,9 @@ namespace Prazsky.Core.Render
                 }
             for (int a = 0; a < around; a++)
                 AddTriangleList(indices, positions, first, rings * around + a, rings * around + (a + 1) % around, tipIndex, axis);
+
+            //The root is shut too, though it lies buried in the rock: a mesh is closed (WindingCheck --openness)
+            AddRingCap(positions, vertices, indices, first, 0, around, -axis, new Vector2(0f, s.Seed % 1f));
         }
 
         private static void AddTriangleList(List<int> indices, List<Vector3> positions, int first, int a, int b, int c, Vector3 shown)
@@ -345,6 +421,32 @@ namespace Prazsky.Core.Render
                     AddTriangleList(indices, positions, first, v00, v10, v11, shown);
                     AddTriangleList(indices, positions, first, v00, v11, v01, shown);
                 }
+
+            //Both ends shut, though one is buried in the bed and the other in the vault
+            AddRingCap(positions, vertices, indices, first, 0, around, -Vector3.UnitY, new Vector2(0f, 2f));
+            AddRingCap(positions, vertices, indices, first, rings * around, around, Vector3.UnitY, new Vector2(1f, 2f));
+        }
+
+        //A fan over one ring of a lathe, from the ring's own centre, facing `shown`: the ring's points again with the cap's own
+        //normal, a crease, so no cap triangle takes a side's normal leaning the other way (a column's head flares down into
+        //the vault, and its top ring's normals face down)
+        private static void AddRingCap(List<Vector3> positions, List<VertexPositionNormalTexture> vertices, List<int> indices, int first,
+            int ringStart, int around, Vector3 shown, Vector2 data)
+        {
+            Vector3 centre = Vector3.Zero;
+            for (int a = 0; a < around; a++) centre += positions[ringStart + a];
+            centre /= around;
+            int capStart = positions.Count;
+            for (int a = 0; a < around; a++)
+            {
+                positions.Add(positions[ringStart + a]);
+                vertices.Add(new VertexPositionNormalTexture(positions[ringStart + a], shown, data));
+            }
+            positions.Add(centre);
+            vertices.Add(new VertexPositionNormalTexture(centre, shown, data));
+            int centreIndex = positions.Count - 1;
+            for (int a = 0; a < around; a++)
+                AddTriangleList(indices, positions, first, capStart + a, capStart + (a + 1) % around, centreIndex, shown);
         }
 
         #endregion
@@ -430,6 +532,12 @@ namespace Prazsky.Core.Render
                 vertices.Add(new CavernCrystalVertex(apex, slope, frame0, frame1, frame2));
                 AddTri(indices, tipFirst, p3, p2, apex, slope, 0, 1, 2);
             }
+
+            //The foot, shut though it stands in the rock
+            int footFirst = vertices.Count;
+            for (int i = 0; i < 6; i++) vertices.Add(new CavernCrystalVertex(prism.Base + corner[i] * prism.Radius, -prism.Axis, frame0, frame1, frame2));
+            for (int i = 1; i < 5; i++)
+                AddTri(indices, footFirst, vertices[footFirst].Position, vertices[footFirst + i].Position, vertices[footFirst + i + 1].Position, -prism.Axis, 0, i, i + 1);
         }
 
         private static void AddQuad(List<int> indices, int first, Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, Vector3 shown)
@@ -472,8 +580,9 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Each shaft as an open cone round its beam, wide enough to hold the beam's glow (twice its radius, flaring towards
-        /// the lake). Texture coordinate X is which shaft. Drawn with no culling; the shader keeps only the near side.
+        /// Each shaft as a closed cone round its beam, wide enough to hold the beam's glow (2.4 times its radius, flaring towards
+        /// the lake), its top reaching back into the rock over the crack so its rim is hidden in the vault. Texture coordinate X
+        /// is which shaft. The shader keeps the side towards the lens and gathers the beam along the whole ray from there.
         /// </summary>
         public static (VertexPositionNormalTexture[] Vertices, int[] Indices) BuildShafts(CavernChamber chamber)
         {
@@ -486,21 +595,25 @@ namespace Prazsky.Core.Render
                 Vector3 helper = MathF.Abs(shaft.Direction.Y) < 0.9f ? Vector3.Up : Vector3.Right;
                 Vector3 side = Vector3.Normalize(Vector3.Cross(shaft.Direction, helper));
                 Vector3 other = Vector3.Cross(shaft.Direction, side);
+                float back = shaft.Radius * 3f;
+                Vector3 top = shaft.Source - shaft.Direction * back;
+                float length = shaft.Length + back;
                 int first = vertices.Count;
+                var positions = new List<Vector3>();
                 for (int r = 0; r <= ALONG; r++)
                 {
                     float t = r / (float)ALONG;
-                    Vector3 centre = shaft.Source + shaft.Direction * (shaft.Length * t);
-                    float radius = shaft.Radius * (1f + 0.5f * t) * 2.4f;
+                    Vector3 centre = top + shaft.Direction * (length * t);
+                    float along = MathF.Max(0f, length * t - back) / shaft.Length;
+                    float radius = shaft.Radius * (1f + 0.5f * along) * 2.4f;
                     for (int a = 0; a < AROUND; a++)
                     {
                         float angle = a * MathHelper.TwoPi / AROUND;
                         Vector3 radial = side * MathF.Cos(angle) + other * MathF.Sin(angle);
+                        positions.Add(centre + radial * radius);
                         vertices.Add(new VertexPositionNormalTexture(centre + radial * radius, radial, new Vector2(s, t)));
                     }
                 }
-                var positions = new List<Vector3>();
-                for (int k = first; k < vertices.Count; k++) positions.Add(vertices[k].Position);
                 for (int r = 0; r < ALONG; r++)
                     for (int a = 0; a < AROUND; a++)
                     {
@@ -510,6 +623,8 @@ namespace Prazsky.Core.Render
                         AddTriangleList(indices, positions, first, v00, v10, v11, outward);
                         AddTriangleList(indices, positions, first, v00, v11, v01, outward);
                     }
+                AddRingCap(positions, vertices, indices, first, 0, AROUND, -shaft.Direction, new Vector2(s, 0f));
+                AddRingCap(positions, vertices, indices, first, ALONG * AROUND, AROUND, shaft.Direction, new Vector2(s, 1f));
             }
             return (vertices.ToArray(), indices.ToArray());
         }

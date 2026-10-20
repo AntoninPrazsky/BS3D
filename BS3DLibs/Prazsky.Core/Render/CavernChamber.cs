@@ -42,6 +42,7 @@ namespace Prazsky.Core.Render
         public float WaterY { get; }
         public Vector3 Centre { get; }
 
+        private readonly int _seed;
         private readonly float _yawCos, _yawSin, _planA, _planB, _vaultUp, _vaultDown;
         private readonly Vector3 _shift;
         private readonly Vector3[] _tunnelAxis;
@@ -63,7 +64,8 @@ namespace Prazsky.Core.Render
             Centre = new Vector3(0f, WaterY + CENTRE_ABOVE_WATER, 0f);
 
             CavernRockConfig rock = config.Rock;
-            var rng = new Random(rock.Seed * 7919 + seedOffset * 104729);
+            _seed = rock.Seed * 7919 + seedOffset * 104729;
+            var rng = new Random(_seed);
 
             float yaw = (float)(rng.NextDouble() * MathHelper.Pi);
             _yawCos = MathF.Cos(yaw);
@@ -101,6 +103,7 @@ namespace Prazsky.Core.Render
             PlaceColumns(rng);
             PlaceStalactites(rng);
             PlaceStalagmites(rng);
+            PlaceStalagmitesUnderCurtains();
             PlaceShafts(rng);
             PlaceGlowworms(rng, config.Air.GlowwormCount);
         }
@@ -534,6 +537,25 @@ namespace Prazsky.Core.Render
                 float wall = WallAtWater(dir.X, dir.Y);
                 Vector2 at = dir * (wall - 2f - 40f * (float)rng.NextDouble());
                 TryStand(at, MathHelper.Lerp(2.5f, 16f, MathF.Pow((float)rng.NextDouble(), 1.5f)), rng);
+            }
+        }
+
+        //Under a curtain hanging over dry rock, the stalagmites its drips have built (#757): each long stalactite over a beach
+        //or an island has a partner standing under it, a third of the way up to its tip at most. Off a generator of their
+        //own, so the rest of the hall rolls as it did without them
+        private void PlaceStalagmitesUnderCurtains()
+        {
+            var rng = new Random(_seed + 757);
+            int count = Stalactites.Count;
+            for (int k = 0; k < count; k++)
+            {
+                CavernHanging s = Stalactites[k];
+                if (s.Length < 12f || rng.NextDouble() > 0.6) continue;
+                Vector3 tip = s.Root + s.Direction * s.Length;
+                float floor = FloorHeight(tip.X, tip.Z);
+                float gap = tip.Y - floor;
+                if (gap < 8f) continue;
+                TryStand(new Vector2(tip.X, tip.Z), MathF.Min(gap * MathHelper.Lerp(0.15f, 0.35f, (float)rng.NextDouble()), 12f), rng);
             }
         }
 

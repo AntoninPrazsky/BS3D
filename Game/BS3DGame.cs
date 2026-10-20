@@ -1504,6 +1504,10 @@ namespace BS3D
                 FineMeshes = QualityPreset.Presets[(int)_quality].FineMeshes
             };
 
+            //The startup pick was made before the renderer existed: a scene that builds off the frame (the cavern, #958)
+            //starts now, while the rest loads
+            _sceneRenderer?.Prepare(_scene);
+
             //After the scene renderer, which the rig consults for the scenes that state their own lighting. The
             //cloud hook is captured ONCE here rather than per frame: a method group written at the call site
             //builds a fresh delegate every time it is evaluated, and this one used to be evaluated in Draw.

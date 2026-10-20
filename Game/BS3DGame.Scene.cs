@@ -527,6 +527,9 @@ namespace BS3D
         {
             _scene = scene;
 
+            //A scene that builds itself off the frame (the cavern's hall, #958) starts here, ahead of its first draw
+            _sceneRenderer?.Prepare(scene);
+
             //The Potato path's ground and scatter for this scene (#829), before the rig below lights them - built only
             //when the scene is not the one already up (#897)
             EnsurePotatoBackdrop();

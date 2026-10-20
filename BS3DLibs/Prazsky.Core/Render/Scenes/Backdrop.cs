@@ -179,6 +179,12 @@ namespace Prazsky.Core.Render
         public virtual void OnDetailChanged(float sceneDetail) { }
 
         /// <summary>
+        /// The host has selected this scene (<see cref="SceneRenderer.Prepare"/>): a backdrop that builds itself off the
+        /// frame starts then, so a launch that never shows it builds nothing. Nothing by default.
+        /// </summary>
+        public virtual void Prepare() { }
+
+        /// <summary>
         /// Frees what this backdrop built. An effect loaded from the content manager is the manager's and is not
         /// disposed; a clone of one (<c>Effect.Clone</c>, the aurora's snow) is the backdrop's own and is.
         /// </summary>
