@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-20 — #958 jeskyně postavená znovu — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo (větev `958-cavern-rebuild`, čeká na review a merge): celá síň je geometrie z CPU (`CavernChamber`): hvězdicová skořepina jako krychlová koule bez pólu a švu (laloky, kapsy, římsy, tři chodby), dno jezera s ostrůvky, záclony krápníků, sloupy z vrstvených talířů, 12 shluků průsvitných šestibokých krystalů, 9000 světlušek jako pixelové sprity, dvě šachty světla. Jezero zrcadlí celou síň. Úvod (síň, krystaly, šachta, podhled) kontroluje cesty přes `Clearance`; Potato kreslí tutéž síň hrubě. Levnější na všech stupních (Chest High 7,18 → 6,71 ms). #756 #757 #778 složeny sem.
+- Strom se světluškami byl sloup se sporami; natažené světlušky gaussovka na stěně z boku; „lom“ kruh, kde válec potkal víko.
+- ⚠ NaN normála = černý osmiúhelník velikosti bloomu. ⚠ Posun světlušek ve z/w na dálku propouští přes sloupy, posouvat ve světě.
+- Otevřené: verdikt oka, `verdicts\958\`.
+
 ## 2026-10-20 — #934 dlouhá přezdívka na tabuli — desktop (RDT-PC), Claude Code (bs3d-bf)
 - Hotovo: jméno na tabuli se ořízne „…“ na šířku svého sloupce (`BoardLayout`, sloupce mají pixelové šířky), řádek bez značky půjčuje sloupec značky. Na displeji širším než 16:9 deska roste o polovinu přebytku (3840x1600: 780 → 1453 jednotek). Reprodukováno proti loopback stand-inu, nikdy proti živé službě.
 - ⚠ Na 16:9 a užším nechá „not finished“ jménu jen 3 až 4 znaky; značka jako tónování nebo druhý řádek je rozhodnutí o vzhledu.

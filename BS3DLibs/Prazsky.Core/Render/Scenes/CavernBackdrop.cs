@@ -1,188 +1,445 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
+using Prazsky.Core.Camera;
 using System;
+using System.Threading.Tasks;
 
 namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// The cavern (the eleventh scene, the third sky-replacing pass): <c>Cavern.fx</c> over the renderer's
-    /// shared full-screen quad, shaded at display resolution under supersampling. Moved out of
-    /// <see cref="SceneRenderer"/> whole in #580; the renderer's public <c>CavernCrystalCenter</c> and
-    /// <c>CavernGodRayXZ</c> forward here. See "The cavern" in docs/scenes.md.
+    /// The cavern (#958): an irregular limestone hall over a still black lake, every surface of it real geometry
+    /// (<see cref="CavernChamber"/>, <see cref="CavernGeometry"/>) shaded by <c>Cavern.fx</c>. The hall is built on a
+    /// worker thread when the renderer is made, so the first frame that wants it rarely waits; the buffers are made on the
+    /// first draw at each detail and kept. Under supersampling it is shaded at the display's resolution into a multisampled
+    /// target of its own and scaled up, the formations' depth then written into the scene's own target where one can stand
+    /// in front of the arena. See "The cavern" in docs/scenes.md.
     /// </summary>
     internal sealed class CavernBackdrop : Backdrop
     {
         private readonly GraphicsDevice _graphicsDevice;
+        private readonly CavernSceneConfig _config = new();
+        private readonly Task<Built> _build;
+        private Built _built;
+        private CavernMeshes _fine, _coarse;
 
-        private CavernSceneConfig _cavernConfig = new();
+        private readonly Effect _effect;
+        private readonly EffectTechnique _rock, _rockReduced, _rockMirrored, _formation, _formationReduced, _formationMirrored,
+            _crystal, _crystalMirrored, _glowworm, _shaft, _depth;
+        private readonly EffectParameter _viewProjection, _cameraPosition, _time, _viewportSize, _lightPosition, _lightColor,
+            _lightCount, _reflection, _reflectionAvailable, _glowwormPixels;
 
-        //The eleventh scene, the third sky-replacing pass — the same machinery again.
-        private readonly Effect _cavernEffect;
-        private readonly EffectParameter _cavernViewRayBasis, _cavernCameraPosition, _cavernTime;
+        private const int MAX_LIGHTS = 12;
+        private readonly Vector4[] _lightPositions = new Vector4[MAX_LIGHTS];
+        private readonly Vector4[] _lightColors = new Vector4[MAX_LIGHTS];
 
-        //The formations' depth (#755): its technique and matrix, whether the scene pass draws formations at all (only the
-        //full program does), and how far off the axis a lens has to stand before one can come between it and the arena
-        private readonly EffectTechnique _depthTechnique;
-        private readonly EffectParameter _cavernViewProjection;
-        private bool _drawsFormations = true;
-        private float _formationsClearRadius;
+        /// <summary>A cluster's light reaches this far, scaled by its size; the inverse square has done most of its work by then.</summary>
+        private const float LIGHT_RANGE = 150f;
 
-        private static readonly BlendState DEPTH_ONLY = new() { ColorWriteChannels = ColorWriteChannels.None };
+        /// <summary>A cluster's light, at the shader's own falloff scale, over its colour: the pool on the rock round it.</summary>
+        private const float LIGHT_INTENSITY = 3.4f;
 
-        //Where the formations' depth can matter at all (#755): only where the arena draws - the island and its drain, the
-        //gun walking round it, the cluster and the glass over them. A box round it, generous on every side, projected
-        //to the screen and the pass scissored to it: from the intro's first shot the arena is a small part of the frame,
-        //and the pass marched every formation across the whole of it, +1.37 ms at 1600x900 x2 for depth nothing used.
+        /// <summary>A glowworm's radius on the screen, in pixels at 1080 lines (#507: a point stays about a pixel and a half wide).</summary>
+        private const float GLOWWORM_PIXELS = 1.6f;
+
+        //The mirrored hall the lake reflects, half the bound target's size each way: a reflection on a rippled lake is
+        //never sharper than that, and it is a quarter of the pixels
+        private RenderTarget2D _reflectionTarget;
+        private readonly RenderTargetBinding[] _bound = new RenderTargetBinding[8];
+
+        private bool _fullDetail = true;
+        private bool _wroteSceneDepth;
+
+        //The formations' depth (#755): the box round the arena the pass is scissored to
         private const float ARENA_BOUND_RADIUS = ArenaIsland.RADIUS + 4f;
         private const float ARENA_BOUND_BOTTOM = ArenaIsland.FUNNEL_BOTTOM_Y - 1f;
         private const float ARENA_BOUND_TOP = 40f;
         private static readonly RasterizerState SCISSORED = new() { CullMode = CullMode.None, ScissorTestEnable = true };
+        private static readonly BlendState DEPTH_ONLY = new() { ColorWriteChannels = ColorWriteChannels.None };
 
-        /// <summary>Loads the effect, caches its per-frame parameters and pushes the config at it.</summary>
+        //A crystal keeps what is behind it by its transmittance and adds its own light: One, SourceAlpha. The alpha the
+        //scene target carries is left as it was
+        private static readonly BlendState CRYSTAL_BLEND = new()
+        {
+            ColorSourceBlend = Blend.One,
+            ColorDestinationBlend = Blend.SourceAlpha,
+            AlphaSourceBlend = Blend.Zero,
+            AlphaDestinationBlend = Blend.One,
+        };
+
+        private static readonly BlendState ADDITIVE = new()
+        {
+            ColorSourceBlend = Blend.One,
+            ColorDestinationBlend = Blend.One,
+            AlphaSourceBlend = Blend.Zero,
+            AlphaDestinationBlend = Blend.One,
+        };
+
+        private sealed class Built
+        {
+            public CavernChamber Chamber;
+            public CavernMeshes.Arrays Fine, Coarse;
+        }
+
+        /// <summary>Loads the effect, caches its parameters, pushes the config at it and starts building the hall.</summary>
         public CavernBackdrop(BackdropServices services, ContentManager content) : base(services)
         {
             _graphicsDevice = services.GraphicsDevice;
+            _effect = content.Load<Effect>("Shaders/Cavern");
 
-            //--- Cavern: the eleventh scene, the third sky-replacing pass, on the same shared quad.
-            _cavernEffect = content.Load<Effect>("Shaders/Cavern");
+            _rock = _effect.Techniques["Rock"];
+            _rockReduced = _effect.Techniques["RockReduced"];
+            _rockMirrored = _effect.Techniques["RockMirrored"];
+            _formation = _effect.Techniques["Formation"];
+            _formationReduced = _effect.Techniques["FormationReduced"];
+            _formationMirrored = _effect.Techniques["FormationMirrored"];
+            _crystal = _effect.Techniques["Crystal"];
+            _crystalMirrored = _effect.Techniques["CrystalMirrored"];
+            _glowworm = _effect.Techniques["Glowworm"];
+            _shaft = _effect.Techniques["Shaft"];
+            _depth = _effect.Techniques["Depth"];
 
-            _cavernViewRayBasis = _cavernEffect.Parameters["ViewRayBasis"];
-            _cavernCameraPosition = _cavernEffect.Parameters["CameraPosition"];
-            _cavernTime = _cavernEffect.Parameters["CavernTime"];
-            _cavernViewProjection = _cavernEffect.Parameters["ViewProjection"];
-            _depthTechnique = _cavernEffect.Techniques["CavernDepth"];
+            _viewProjection = _effect.Parameters["ViewProjection"];
+            _cameraPosition = _effect.Parameters["CameraPosition"];
+            _time = _effect.Parameters["CavernTime"];
+            _viewportSize = _effect.Parameters["ViewportSize"];
+            _lightPosition = _effect.Parameters["LightPosition"];
+            _lightColor = _effect.Parameters["LightColor"];
+            _lightCount = _effect.Parameters["LightCount"];
+            _reflection = _effect.Parameters["Reflection"];
+            _reflectionAvailable = _effect.Parameters["ReflectionAvailable"];
+            _glowwormPixels = _effect.Parameters["GlowwormPixels"];
 
-            ApplyCavernParameters();
+            ApplyParameters();
+
+            CavernSceneConfig config = _config;
+            int seed = services.SeedOffset;
+            _build = Task.Run(() =>
+            {
+                var clock = System.Diagnostics.Stopwatch.StartNew();
+                var chamber = new CavernChamber(config, seed);
+                long placed = clock.ElapsedMilliseconds;
+                var built = new Built
+                {
+                    Chamber = chamber,
+                    Fine = CavernMeshes.Arrays.Build(chamber, CavernGeometry.Detail.Fine),
+                    Coarse = CavernMeshes.Arrays.Build(chamber, CavernGeometry.Detail.Coarse),
+                };
+                Console.WriteLine($"[cavern] hall built off the frame in {clock.ElapsedMilliseconds} ms (placed in {placed} ms): " +
+                    $"{chamber.Stalactites.Count} stalactites, {chamber.Stalagmites.Count} stalagmites, {chamber.Columns.Count} columns, " +
+                    $"{chamber.Clusters.Count} crystal clusters, {chamber.Glowworms.Count} glowworms; fine rock {built.Fine.Rock.Vertices.Length} vertices");
+                return built;
+            });
         }
 
         /// <inheritdoc/>
         public override SceneKind Kind => SceneKind.Cavern;
 
         /// <inheritdoc/>
-        public override SceneConfig Config => _cavernConfig;
+        public override SceneConfig Config => _config;
 
-        /// <summary>
-        /// True: a supersampled frame shades this pass at the back buffer's size and scales it up — see
-        /// <see cref="SceneRenderer"/>'s <c>DrawBackdropAtDisplayResolution</c> for the measurement and for why
-        /// it is the dream and the cavern and not space.
-        /// </summary>
+        /// <summary>True: under supersampling the hall is shaded at the display's resolution, into a multisampled target
+        /// with a depth buffer, and scaled up — see <see cref="SceneRenderer"/>'s <c>DrawBackdropAtDisplayResolution</c>.</summary>
         public override bool DrawsAtDisplayResolution => true;
 
+        /// <summary>Four samples: the formations' silhouettes keep the edges supersampling would have given them.</summary>
+        public override int DisplayResolutionMultiSampleCount => 4;
+
         /// <inheritdoc/>
-        public override void OnDetailChanged(float sceneDetail)
+        public override bool DisplayResolutionDepth => true;
+
+        /// <summary>The hall, waiting for its build if it has not finished (it is begun when the renderer is made).</summary>
+        public CavernChamber Chamber => Ready().Chamber;
+
+        private Built Ready()
         {
-            //The cavern is BACK (#298), and it left and returned for different reasons — see Cavern.fx's own
-            //note at the techniques. It went in #250, when the pair it used to drop was cut from the authored
-            //scene outright; it returned because it is the one scene the ladder could not help any other way,
-            //being immune to supersampling by #155's construction. Its new pair is the wall's bump gradient
-            //(twelve octaves of 3D noise a pixel) and the crack network.
-            _cavernEffect.CurrentTechnique = _cavernEffect.Techniques[sceneDetail > 0.5f ? "Cavern" : "CavernReduced"];
-            _drawsFormations = sceneDetail > 0.5f;
+            if (_built == null) _built = _build.GetAwaiter().GetResult();
+            return _built;
         }
 
-        private void ApplyCavernParameters()
+        /// <inheritdoc/>
+        public override void OnDetailChanged(float sceneDetail) => _fullDetail = sceneDetail > 0.5f;
+
+        private void ApplyParameters()
         {
-            CavernSceneConfig cavern = _cavernConfig;
+            CavernRockConfig rock = _config.Rock;
+            _effect.Parameters["RockColor"].SetValue(rock.RockColor.ToVector3());
+            _effect.Parameters["CalciteColor"].SetValue(rock.CalciteColor.ToVector3());
+            _effect.Parameters["FogColor"].SetValue(rock.FogColor.ToVector3());
+            _effect.Parameters["FogDensity"].SetValue(rock.FogDensity);
+            _effect.Parameters["AmbientTop"].SetValue(_config.Lighting.SkyAmbient.ToVector3() * 2.2f);
 
-            CavernRockConfig rock = cavern.Rock;
-            _cavernEffect.Parameters["CaveRadius"].SetValue(rock.CaveRadius);
+            CavernWaterConfig water = _config.Water;
+            _effect.Parameters["WaterLevelY"].SetValue(water.LevelY);
+            _effect.Parameters["WaterDeepColor"].SetValue(water.DeepColor.ToVector3());
+            _effect.Parameters["WaterAbsorption"].SetValue(water.Absorption);
+            _effect.Parameters["WaterGlowColor"].SetValue(water.GlowColor.ToVector3());
+            _effect.Parameters["RippleStrength"].SetValue(water.RippleStrength);
+            _effect.Parameters["RippleScale"].SetValue(water.RippleScale);
+            _effect.Parameters["RippleSpeed"].SetValue(water.RippleSpeed);
+            _effect.Parameters["MistColor"].SetValue(water.MistColor.ToVector3());
+            _effect.Parameters["MistDensity"].SetValue(water.MistDensity);
+            _effect.Parameters["MistHeight"].SetValue(water.MistHeight);
 
-            //Cavern.fx's own figures: the nearest stalactite group's anchor stands 0.3 of the radius off the axis, and a
-            //group's cones stand up to 15 off its anchor on EACH axis (FormationSdf's (roll - 0.5) x 30) - 21.2 radially -
-            //and are up to 6.5 thick with a knob or so on top; the columns stand at 0.46 and further. So nothing of them
-            //comes nearer the axis than this, and a lens inside it has none between it and anything on the arena (#755) -
-            //the play camera, the menu's orbit; the chapter intro's first shot is 168 out. At the shipped radius (240) it
-            //is 42, where the nearest cone of the twelve actual groups stands 63.7 off the axis (the review of #755, which
-            //also caught the first figure's 15 taken radially). Never below zero: CaveRadius is a config file's to set.
-            _formationsClearRadius = MathF.Max(0f, 0.3f * rock.CaveRadius - 30f);
-            _cavernEffect.Parameters["CaveCeilingY"].SetValue(rock.CeilingY);
-            _cavernEffect.Parameters["RockColor"].SetValue(rock.RockColor.ToVector3());
-            _cavernEffect.Parameters["VeinColor"].SetValue(rock.VeinColor.ToVector3());
-            _cavernEffect.Parameters["FogColor"].SetValue(rock.FogColor.ToVector3());
-            _cavernEffect.Parameters["FogDensity"].SetValue(rock.FogDensity);
+            CavernAirConfig air = _config.Air;
+            _effect.Parameters["GlowwormColor"].SetValue(air.GlowwormColor.ToVector3());
+            _effect.Parameters["ShaftColor"].SetValue(air.ShaftColor.ToVector3());
+            _effect.Parameters["ShaftStrength"].SetValue(air.ShaftStrength);
 
-            CavernWaterConfig water = cavern.Water;
-            _cavernEffect.Parameters["WaterLevelY"].SetValue(water.LevelY);
-            _cavernEffect.Parameters["WaterDeepColor"].SetValue(water.DeepColor.ToVector3());
-            _cavernEffect.Parameters["WaterGlowColor"].SetValue(water.GlowColor.ToVector3());
-            _cavernEffect.Parameters["WaveScale"].SetValue(water.WaveScale);
-            _cavernEffect.Parameters["WaveSpeed"].SetValue(water.WaveSpeed);
-            _cavernEffect.Parameters["WaveAmplitude"].SetValue(water.WaveAmplitude);
-            _cavernEffect.Parameters["CausticStrength"].SetValue(water.CausticStrength);
-            _cavernEffect.Parameters["MistColor"].SetValue(water.MistColor.ToVector3());
-            _cavernEffect.Parameters["MistDensity"].SetValue(water.MistDensity);
-            _cavernEffect.Parameters["MistHeight"].SetValue(water.MistHeight);
+            CavernCrystalConfig crystals = _config.Crystals;
+            _effect.Parameters["CrystalColorA"].SetValue(crystals.ColorA.ToVector3());
+            _effect.Parameters["CrystalColorB"].SetValue(crystals.ColorB.ToVector3());
+            _effect.Parameters["CrystalEmission"].SetValue(crystals.Emission);
+            _effect.Parameters["CrystalPulseSpeed"].SetValue(crystals.PulseSpeed);
+        }
 
-            CavernAirConfig air = cavern.Air;
-            _cavernEffect.Parameters["GodRayColor"].SetValue(air.GodRayColor.ToVector3());
-            _cavernEffect.Parameters["GodRayStrength"].SetValue(air.GodRayStrength);
-            _cavernEffect.Parameters["GlowwormColor"].SetValue(air.GlowwormColor.ToVector3());
-            _cavernEffect.Parameters["SporeColor"].SetValue(air.SporeColor.ToVector3());
-            _cavernEffect.Parameters["SporeBrightness"].SetValue(air.SporeBrightness);
+        //The shafts come out of the hall's build, so they are pushed once it is in
+        private bool _chamberPushed;
 
-            CavernCrystalConfig crystals = cavern.Crystals;
-            _cavernEffect.Parameters["CrystalColorA"].SetValue(crystals.ColorA.ToVector3());
-            _cavernEffect.Parameters["CrystalColorB"].SetValue(crystals.ColorB.ToVector3());
-            _cavernEffect.Parameters["CrystalEmission"].SetValue(crystals.Emission);
-            _cavernEffect.Parameters["CrystalPulseSpeed"].SetValue(crystals.PulseSpeed);
-            _cavernEffect.Parameters["CrystalWallLight"].SetValue(crystals.WallLight);
+        private void PushChamber(CavernChamber chamber)
+        {
+            var source = new Vector4[2];
+            var direction = new Vector4[2];
+            for (int s = 0; s < 2; s++)
+            {
+                if (s < chamber.Shafts.Count)
+                {
+                    CavernShaft shaft = chamber.Shafts[s];
+                    source[s] = new Vector4(shaft.Source, shaft.Radius);
+                    direction[s] = new Vector4(shaft.Direction, shaft.Length);
+                }
+                else
+                {
+                    source[s] = new Vector4(0f, -1000f, 0f, 1f);
+                    direction[s] = new Vector4(0f, -1f, 0f, 1f);
+                }
+            }
+            _effect.Parameters["ShaftSource"].SetValue(source);
+            _effect.Parameters["ShaftDirection"].SetValue(direction);
+            _chamberPushed = true;
         }
 
         /// <summary>
-        /// Draws the cavern: the third sky-replacing pass, over the shared full-screen quad. Everything animated —
-        /// the river, the god rays' breath, the crystals' pulse, the rising spores — runs off the frame's
-        /// wall-clock time, so the cave keeps living while the simulation is paused.
+        /// The breath of cluster <paramref name="index"/> at <paramref name="time"/>: <c>Cavern.fx</c>'s <c>CrystalPulse</c>
+        /// with the same phase the cluster's prisms carry (<see cref="CavernGeometry.BuildCrystals"/>), so the light a
+        /// cluster throws swells with the glow in its prisms.
+        /// </summary>
+        private float Pulse(CavernCluster cluster, int index, float time)
+        {
+            float beat = 0.5f + 0.5f * MathF.Sin(time * _config.Crystals.PulseSpeed + cluster.Phase + index * 0.37f);
+            return 0.65f + 0.35f * beat * beat;
+        }
+
+        /// <summary>A cluster's colour (linear), on the cyan-magenta axis at its hue.</summary>
+        public Vector3 ClusterColor(CavernCluster cluster) =>
+            Vector3.Lerp(_config.Crystals.ColorA.ToVector3(), _config.Crystals.ColorB.ToVector3(), cluster.Hue);
+
+        //The light a cluster throws is its colour paler than its glow: a crystal's light on wet stone reads as a tint, and at
+        //its own saturation it painted the columns magenta and teal
+        private Vector3 LightTint(CavernCluster cluster)
+        {
+            Vector3 colour = ClusterColor(cluster);
+            float luminance = Vector3.Dot(colour, new Vector3(0.2126f, 0.7152f, 0.0722f));
+            return Vector3.Lerp(colour, new Vector3(luminance), LIGHT_PALE);
+        }
+
+        /// <summary>How far a cluster's light is paled towards white.</summary>
+        private const float LIGHT_PALE = 0.5f;
+
+        private void PushLights(CavernChamber chamber, float time)
+        {
+            int count = Math.Min(chamber.Clusters.Count, MAX_LIGHTS);
+            for (int k = 0; k < count; k++)
+            {
+                CavernCluster cluster = chamber.Clusters[k];
+                float range = LIGHT_RANGE * cluster.Size;
+                _lightPositions[k] = new Vector4(cluster.LightPosition, 1f / (range * range));
+                Vector3 colour = LightTint(cluster) * (LIGHT_INTENSITY * cluster.Size * cluster.Size * Pulse(cluster, k, time) * _config.Crystals.WallLight);
+                _lightColors[k] = new Vector4(colour, 0f);
+            }
+            _lightPosition.SetValue(_lightPositions);
+            _lightColor.SetValue(_lightColors);
+            _lightCount.SetValue(count);
+        }
+
+        private CavernMeshes Meshes()
+        {
+            Built built = Ready();
+            if (!_chamberPushed) PushChamber(built.Chamber);
+
+            if (Services.FineMeshes)
+            {
+                if (_fine == null)
+                {
+                    _fine = new CavernMeshes(_graphicsDevice, built.Fine);
+                    built.Fine = null;
+                }
+                return _fine;
+            }
+
+            if (_coarse == null)
+            {
+                _coarse = new CavernMeshes(_graphicsDevice, built.Coarse);
+                built.Coarse = null;
+            }
+            return _coarse;
+        }
+
+        /// <summary>
+        /// Draws the hall: first the mirrored hall into the lake's reflection, then the formations and the rock (opaque,
+        /// writing depth), the crystals over them (translucent), the glowworms and the shafts (added). Everything animated
+        /// runs off the frame's wall-clock time, so the cave keeps living while the simulation is paused.
         /// </summary>
         public override void Draw(in SceneFrame frame)
         {
-            _cavernViewRayBasis.SetValue(SkyRay.Basis(frame.Camera));
-            _cavernCameraPosition.SetValue(frame.Camera.Position);
-            _cavernTime.SetValue(frame.Time);
+            CavernMeshes meshes = Meshes();
+            CavernChamber chamber = _built.Chamber;
+            ICamera camera = frame.Camera;
+            Viewport viewport = _graphicsDevice.Viewport;
 
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.DepthStencilState = DepthStencilState.None;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+            _time.SetValue(frame.Time);
+            PushLights(chamber, frame.Time);
 
-            _graphicsDevice.SetVertexBuffer(Services.FullScreenQuad);
-            _cavernEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
+            //Low gives the mirror up (its reduced program, SceneDetail): the lake reads a dark ramp and the clusters' glints
+            bool mirrored = _fullDetail && DrawReflection(meshes, chamber, camera, viewport);
+            _reflectionAvailable.SetValue(mirrored ? 1f : 0f);
+            if (mirrored) _reflection.SetValue(_reflectionTarget);
 
-            //Space's rule (SpaceBackdrop.Draw): the depth state left at None would draw the rest of the frame in submission order.
+            //The display-resolution target comes back from the reflection pass discarded: its depth is cleared again here.
+            //The scene target in the direct path was cleared by its host and keeps what it holds across the switch
+            //(PreserveContents), so nothing is cleared there
+            if (mirrored && Services.ShadingAtDisplayResolution)
+                _graphicsDevice.Clear(ClearOptions.Target | ClearOptions.DepthBuffer, Color.Black, 1f, 0);
+
+            _viewProjection.SetValue(camera.View * camera.Projection);
+            _cameraPosition.SetValue(camera.Position);
+            _viewportSize.SetValue(new Vector2(viewport.Width, viewport.Height));
+            _glowwormPixels.SetValue(GLOWWORM_PIXELS * viewport.Height / 1080f);
+
+            DrawHall(meshes, _fullDetail ? _rock : _rockReduced, _fullDetail ? _formation : _formationReduced, _crystal,
+                RasterizerState.CullCounterClockwise);
+
+            _wroteSceneDepth = !Services.ShadingAtDisplayResolution;
+
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
+        private void DrawHall(CavernMeshes meshes, EffectTechnique rock, EffectTechnique formation, EffectTechnique crystal, RasterizerState cull)
+        {
+            _graphicsDevice.BlendState = BlendState.Opaque;
+            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            _graphicsDevice.RasterizerState = cull;
+
+            //The formations first: they stand in front of the shell, so the shell's pixels behind them are rejected by the
+            //depth test before they are shaded
+            if (meshes.Formations != null)
+            {
+                _effect.CurrentTechnique = formation;
+                _effect.CurrentTechnique.Passes[0].Apply();
+                meshes.Formations.Draw(_graphicsDevice);
+            }
+
+            _effect.CurrentTechnique = rock;
+            _effect.CurrentTechnique.Passes[0].Apply();
+            meshes.Rock.Draw(_graphicsDevice);
+
+            if (meshes.Crystals != null)
+            {
+                _graphicsDevice.BlendState = CRYSTAL_BLEND;
+                _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+                _effect.CurrentTechnique = crystal;
+                _effect.CurrentTechnique.Passes[0].Apply();
+                meshes.Crystals.Draw(_graphicsDevice);
+            }
+
+            _graphicsDevice.BlendState = ADDITIVE;
+            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            if (meshes.Glowworms != null)
+            {
+                _effect.CurrentTechnique = _glowworm;
+                _effect.CurrentTechnique.Passes[0].Apply();
+                meshes.Glowworms.Draw(_graphicsDevice);
+            }
+
+            if (meshes.Shafts != null && _config.Air.ShaftStrength > 0f)
+            {
+                _effect.CurrentTechnique = _shaft;
+                _effect.CurrentTechnique.Passes[0].Apply();
+                meshes.Shafts.Draw(_graphicsDevice);
+            }
+        }
+
         /// <summary>
-        /// The depth of the stalactites and columns (#755): Cavern.fx's <c>CavernDepth</c>, colour writes off, so the
-        /// island, the funnel, the gun and the cluster are hidden where a formation stands in front of them. The scene
-        /// pass writes no depth - it is a background, and under supersampling it is shaded into a target of its own and
-        /// scaled up - so every formation stood at infinite depth and the arena drew over it: the chapter intro's first
-        /// shot, out among the columns, showed the island through one. Only when the formations are drawn (the full
-        /// program) and only for a lens outside <see cref="_formationsClearRadius"/>, where one can stand between it and
-        /// the arena: the play camera never pays for it.
+        /// The hall seen in the lake: the camera mirrored in the water's plane, the hall drawn through it into a target of
+        /// its own (everything under the waterline clipped away), so the lake can read it at its own pixel. The winding
+        /// flips in a mirror, so the culling does. False when the lens is under the water, where there is no mirror to see.
+        /// </summary>
+        private bool DrawReflection(CavernMeshes meshes, CavernChamber chamber, ICamera camera, Viewport viewport)
+        {
+            if (camera.Position.Y <= chamber.WaterY + 0.05f) return false;
+
+            int width = Math.Max(viewport.Width / 2, 1), height = Math.Max(viewport.Height / 2, 1);
+            if (_reflectionTarget == null || _reflectionTarget.Width != width || _reflectionTarget.Height != height)
+            {
+                _reflectionTarget?.Dispose();
+                _reflectionTarget = new RenderTarget2D(_graphicsDevice, width, height, false, SurfaceFormat.HdrBlendable,
+                    DepthFormat.Depth24, 0, RenderTargetUsage.DiscardContents);
+            }
+
+            int bound = _graphicsDevice.RenderTargetCount;
+            _graphicsDevice.GetRenderTargets(_bound);
+            _graphicsDevice.SetRenderTarget(_reflectionTarget);
+            _graphicsDevice.Clear(ClearOptions.Target | ClearOptions.DepthBuffer, Color.Black, 1f, 0);
+
+            Matrix mirror = Matrix.CreateReflection(new Plane(Vector3.Up, -chamber.WaterY));
+            Vector3 eye = camera.Position;
+            _viewProjection.SetValue(mirror * camera.View * camera.Projection);
+            _cameraPosition.SetValue(new Vector3(eye.X, 2f * chamber.WaterY - eye.Y, eye.Z));
+            _viewportSize.SetValue(new Vector2(width, height));
+            _glowwormPixels.SetValue(GLOWWORM_PIXELS * height / 1080f);
+
+            DrawHall(meshes, _rockMirrored, _formationMirrored, _crystalMirrored, RasterizerState.CullClockwise);
+
+            //Back to what was bound. One target is every caller this has (the display-resolution target or the scene's),
+            //and the one-target call allocates nothing
+            if (bound == 0) _graphicsDevice.SetRenderTarget(null);
+            else if (bound == 1) _graphicsDevice.SetRenderTarget(_bound[0].RenderTarget as RenderTarget2D);
+            else _graphicsDevice.SetRenderTargets(_bound[..bound]);
+            Array.Clear(_bound);
+            return true;
+        }
+
+        /// <summary>
+        /// The formations' depth (#755) in the scene's own target, when the hall was shaded into the display-resolution one
+        /// and its depth stayed there: the island, the funnel, the gun and the cluster are hidden where a column, a
+        /// stalactite or a stalagmite stands in front of them. Only for a lens out where one can (the play camera never
+        /// pays), scissored to the arena's box on the screen. Drawn depth-only, colour writes off.
         /// </summary>
         public override void DrawDepth(in SceneFrame frame)
         {
+            if (_wroteSceneDepth || _built == null) return;
             Vector3 lens = frame.Camera.Position;
-            if (!_drawsFormations || lens.X * lens.X + lens.Z * lens.Z < _formationsClearRadius * _formationsClearRadius) return;
+            if (lens.X * lens.X + lens.Z * lens.Z < CavernChamber.ARENA_AIR_RADIUS * CavernChamber.ARENA_AIR_RADIUS) return;
 
             Matrix viewProjection = frame.Camera.View * frame.Camera.Projection;
             if (!TryScissorArena(viewProjection, out Rectangle scissor)) return;
 
-            _cavernViewRayBasis.SetValue(SkyRay.Basis(frame.Camera));
-            _cavernCameraPosition.SetValue(lens);
-            _cavernViewProjection.SetValue(viewProjection);
+            CavernMeshes meshes = Services.FineMeshes ? _fine : _coarse;
+            if (meshes?.Formations == null) return;
 
+            _viewProjection.SetValue(viewProjection);
             _graphicsDevice.BlendState = DEPTH_ONLY;
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
             _graphicsDevice.RasterizerState = SCISSORED;
             _graphicsDevice.ScissorRectangle = scissor;
 
-            _graphicsDevice.SetVertexBuffer(Services.FullScreenQuad);
-            _depthTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
+            _effect.CurrentTechnique = _depth;
+            _effect.CurrentTechnique.Passes[0].Apply();
+            meshes.Formations.Draw(_graphicsDevice);
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
@@ -190,9 +447,9 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// The bound target's pixels the arena's box covers (see <see cref="ARENA_BOUND_RADIUS"/>), for the formations'
-        /// depth pass. False when it covers none - the arena is off screen and the depth would serve nothing; the whole
-        /// target when a corner stands behind the lens, where a projection says nothing useful.
+        /// The bound target's pixels the arena's box covers, for the formations' depth pass. False when it covers none - the
+        /// arena is off screen and the depth would serve nothing; the whole target when a corner stands behind the lens,
+        /// where a projection says nothing useful.
         /// </summary>
         private bool TryScissorArena(Matrix viewProjection, out Rectangle scissor)
         {
@@ -200,7 +457,6 @@ namespace Prazsky.Core.Render
             scissor = new Rectangle(0, 0, viewport.Width, viewport.Height);
 
             float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
-
             for (int corner = 0; corner < 8; corner++)
             {
                 Vector4 world = new(
@@ -235,9 +491,9 @@ namespace Prazsky.Core.Render
         /// <inheritdoc/>
         public override bool TryGetLightRig(float wallClock, out SceneLightRig rig)
         {
-            //The cavern's is dim and cool — a cave lit by its own bioluminescence, the ground bounce
-            //carrying the river's teal up onto the island's underside.
-            CavernLightingConfig cavern = _cavernConfig.Lighting;
+            //Dim and cool - a cave lit by its own bioluminescence, the ground bounce carrying the lake's teal up onto the
+            //island's underside
+            CavernLightingConfig cavern = _config.Lighting;
             rig = new SceneLightRig(
                 cavern.SkyAmbient.ToVector3(),
                 cavern.GroundAmbient.ToVector3(),
@@ -249,35 +505,51 @@ namespace Prazsky.Core.Render
         /// <inheritdoc/>
         public override bool TryGetViewpoint(float bearing, out SceneViewpoint viewpoint)
         {
-            //Down at the water, not up at the roof — and the first draft did aim at the roof, on the
-            //argument that a cavern's defining feature is overhead and the gameplay camera never looks
-            //up. Photographed, that shot is very nearly BLACK: the ceiling is unlit rock a hundred units
-            //off, and everything this scene has to show glows from BELOW. The river is the light source,
-            //so the island stands between the lens and it and reads as a silhouette over the glow.
-            viewpoint = new SceneViewpoint(SceneRenderer.AtBearing(bearing, 130f, _cavernConfig.Water.LevelY + 2f),
-                1.8f, 16f, 168f, "the river");
+            //Low over the lake, the island a silhouette against the hall's lights: everything this scene shows glows from
+            //the shores and the water, and the vault reads over it
+            viewpoint = new SceneViewpoint(SceneRenderer.AtBearing(bearing, 120f, _config.Water.LevelY + 6f),
+                1.8f, 16f, 168f, "the lake");
             return true;
         }
 
-        /// <summary>See <see cref="SceneRenderer.CavernCrystalCenter"/>.</summary>
-        public Vector3 CrystalCenter(int index)
-        {
-            float k = index;
-            float angle = k * 2.39996f + 0.7f;
-            float radius = _cavernConfig.Rock.CaveRadius * 0.965f;
-            float y = _cavernConfig.Water.LevelY + 6f + (k * 37f) % 70f;
+        /// <summary>A cluster further from the axis than this does not light the arena.</summary>
+        private const float ARENA_LIGHT_REACH = 130f;
 
-            return new Vector3(MathF.Cos(angle) * radius, y, MathF.Sin(angle) * radius);
+        /// <summary>The scene light's colour over the cluster's: the instanced effect's falloff is quadratic over its range.</summary>
+        private const float ARENA_LIGHT_STRENGTH = 1.1f;
+
+        /// <summary>
+        /// The clusters whose light reaches the arena, for the scene lights on the instanced effect: those within
+        /// <see cref="ARENA_LIGHT_REACH"/> of the axis, their colour on this frame's breath. Answers how many it wrote; none
+        /// until the hall is built (the light is a nicety; a frame does not wait for it).
+        /// </summary>
+        public int ArenaLights(float time, Vector3[] position, Vector3[] colour, float[] range, int max)
+        {
+            float strength = _config.Crystals.ArenaLight;
+            if (strength <= 0f || (_built == null && !_build.IsCompleted)) return 0;
+
+            CavernChamber chamber = Ready().Chamber;
+            int count = 0;
+            for (int k = 0; k < chamber.Clusters.Count && count < max; k++)
+            {
+                CavernCluster cluster = chamber.Clusters[k];
+                Vector3 at = cluster.LightPosition;
+                float distance = MathF.Sqrt(at.X * at.X + at.Z * at.Z);
+                if (distance > ARENA_LIGHT_REACH) continue;
+                position[count] = at;
+                colour[count] = ClusterColor(cluster) * (strength * ARENA_LIGHT_STRENGTH * Pulse(cluster, k, time));
+                range[count] = distance * 1.6f + 20f;
+                count++;
+            }
+            return count;
         }
 
-        /// <summary>See <see cref="SceneRenderer.CavernGodRayXZ"/>.</summary>
-        public Vector2 GodRayXZ(int index)
+        /// <summary>Frees the buffers and the reflection target; the effect is the content manager's.</summary>
+        public override void Dispose()
         {
-            float r = index;
-            float angle = r * 1.62f + 0.4f;
-            float radius = _cavernConfig.Rock.CaveRadius * (0.30f + 0.14f * ShaderMath.Frac(r * 0.53f));
-
-            return new Vector2(MathF.Cos(angle) * radius, MathF.Sin(angle) * radius);
+            _fine?.Dispose();
+            _coarse?.Dispose();
+            _reflectionTarget?.Dispose();
         }
     }
 }

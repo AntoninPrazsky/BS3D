@@ -35,6 +35,7 @@
     <Compile Include="..\..\Game\Effects\MountainIntroShots.cs" />
     <Compile Include="..\..\Game\Effects\DesertIntroShots.cs" />
     <Compile Include="..\..\Game\Effects\VolcanoIntroShots.cs" />
+    <Compile Include="..\..\Game\Effects\CavernIntroShots.cs" />
   </ItemGroup>
 
   <!--The tutorial's rules (#666), compiled in the same way: Tutorial is a ladder of lessons and clocks with no device
