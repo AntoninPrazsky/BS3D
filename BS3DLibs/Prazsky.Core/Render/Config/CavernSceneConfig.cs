@@ -3,11 +3,12 @@
 namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// Configuration of the cavern backdrop: a bioluminescent crystal cave over an underground river — deep
-    /// noise-carved rock veined with glowing minerals, god rays falling from unseen gaps, crystal clusters
-    /// pulsing cyan and magenta and pooling their light on the rock, spores drifting up through the dark.
-    /// The eleventh scene, and the third that replaces the SKY (see Space and the Dream): no dome, no
-    /// weather, no horizon, its own light rig (<see cref="Lighting"/>).
+    /// Configuration of the cavern backdrop (#958): an irregular limestone hall over a still black lake, its vault
+    /// pocketed and hung with stalactite curtains, flowstone columns standing in the water, clusters of translucent
+    /// crystals glowing cyan and magenta on rock islands and along the shore, a constellation of glowworms overhead
+    /// and shafts of pale light falling through cracks in the vault. Every surface is real geometry built on the
+    /// CPU (<see cref="CavernChamber"/>); the lake mirrors all of it. The eleventh scene, and one that replaces the
+    /// SKY: no dome, no weather, no horizon, its own light rig (<see cref="Lighting"/>).
     /// <para>
     /// Named nested objects rather than arrays — the shape the map editor's PropertyGrid once required (it
     /// was built <c>IgnoreCollections</c>; the panel went in #522), kept because a named group reads as a
@@ -24,140 +25,134 @@ namespace Prazsky.Core.Render
         /// </summary>
         public CavernSceneConfig() => Weather = WeatherPreset.Clear;
 
-        /// <summary>The cave shell — the rock, its veins and the abyssal fog.</summary>
+        /// <summary>The hall: its size, its rock and the dark it sinks into.</summary>
         public CavernRockConfig Rock { get; set; } = new();
 
-        /// <summary>The underground river under the island.</summary>
+        /// <summary>The lake the hall stands in.</summary>
         public CavernWaterConfig Water { get; set; } = new();
 
-        /// <summary>The god rays and the drifting spores — the air of the cave.</summary>
+        /// <summary>The glowworms and the light shafts: the air of the cave.</summary>
         public CavernAirConfig Air { get; set; } = new();
 
-        /// <summary>The crystal clusters on the walls.</summary>
+        /// <summary>The crystal clusters.</summary>
         public CavernCrystalConfig Crystals { get; set; } = new();
 
         /// <summary>The scene's own light rig — it draws no dome, so a dome-derived rig would be a lie.</summary>
         public CavernLightingConfig Lighting { get; set; } = new();
     }
 
-    /// <summary>The cave shell: an analytic cylinder-and-ceiling of noise-shaded rock.</summary>
+    /// <summary>The hall: an irregular chamber built once on the CPU (<see cref="CavernChamber"/>).</summary>
     public sealed class CavernRockConfig
     {
-        /// <summary>The rock cylinder's radius around the world origin (world units). Far enough out that
-        /// the walls read as a cavern, near enough that their texture still resolves.</summary>
-        public float CaveRadius { get; set; } = 240f;
+        /// <summary>The hall's mean horizontal radius at the waterline (world units). Its plan is stretched by
+        /// <see cref="Elongation"/>, its walls bulge and recede by a fifth of this and more, and passages run off it.</summary>
+        public float HallRadius { get; set; } = 180f;
 
-        /// <summary>The ceiling plane the god rays fall from.</summary>
-        public float CeilingY { get; set; } = 95f;
+        /// <summary>How much longer the hall is along its long axis than across it.</summary>
+        public float Elongation { get; set; } = 1.3f;
 
-        /// <summary>The walls' base colour (linear) — desaturated blue-grey, kept dark: a cave is dark, and
-        /// the dark is what makes every glow in it read.</summary>
-        public Rgb RockColor { get; set; } = new(0.042f, 0.036f, 0.030f);
+        /// <summary>The vault's height over the lake at its crown, before its pockets and shelves (world units).</summary>
+        public float VaultHeight { get; set; } = 104f;
 
-        /// <summary>The glowing mineral veins threading the rock (linear, gently over the rock).</summary>
-        public Rgb VeinColor { get; set; } = new(0.10f, 0.26f, 0.30f);
+        /// <summary>The seed of the hall's shape and of everything placed in it; the renderer's seed offset is added,
+        /// so a launch can roll another hall (<c>sceneseed=0</c> pins the shipped one).</summary>
+        public int Seed { get; set; } = 958;
 
-        /// <summary>The abyssal blue-purple the far cave sinks into (linear).</summary>
-        public Rgb FogColor { get; set; } = new(0.010f, 0.008f, 0.026f);
+        /// <summary>The rock's albedo (linear): a dark warm grey-brown — a cave is dark, and the dark is what makes
+        /// every light in it read.</summary>
+        public Rgb RockColor { get; set; } = new(0.060f, 0.050f, 0.042f);
 
-        /// <summary>Exponential distance-fog density. The reciprocal is roughly the distance at which the
-        /// rock has lost two thirds of itself to the abyss.</summary>
-        public float FogDensity { get; set; } = 0.0045f;
+        /// <summary>Flowstone and calcite (linear): the paler, cream-ochre stone the formations are built of, and the
+        /// flowstone sheets on the walls. Pale stone is what shows the crystals' colour.</summary>
+        public Rgb CalciteColor { get; set; } = new(0.36f, 0.30f, 0.22f);
+
+        /// <summary>The blue-violet the far hall sinks into (linear).</summary>
+        public Rgb FogColor { get; set; } = new(0.003f, 0.004f, 0.010f);
+
+        /// <summary>Exponential distance-fog density: the reciprocal is roughly where the rock has lost two thirds of itself.</summary>
+        public float FogDensity { get; set; } = 0.0024f;
     }
 
-    /// <summary>The underground river: a wave-normal mirror of the cave, glowing along its crests.</summary>
+    /// <summary>The lake: a still black mirror over a rocky bed.</summary>
     public sealed class CavernWaterConfig
     {
-        /// <summary>The river's surface plane. Below the drain's kill plane, so a ball that falls through
-        /// the funnel is culled before it would visibly reach water it can never splash.</summary>
+        /// <summary>The lake's surface. Below the drain's kill plane, so a ball that falls through the funnel is culled
+        /// before it would visibly reach water it can never splash.</summary>
         public float LevelY { get; set; } = -34f;
 
-        /// <summary>What the depths transmit (linear, dark).</summary>
-        public Rgb DeepColor { get; set; } = new(0.008f, 0.024f, 0.030f);
+        /// <summary>What the water scatters back out of its depths (linear, very dark teal).</summary>
+        public Rgb DeepColor { get; set; } = new(0.002f, 0.007f, 0.009f);
 
-        /// <summary>The bioluminescent glow the crests carry (linear — allowed over the glare threshold:
-        /// a crest is a smooth area wide enough to bloom steadily).</summary>
-        public Rgb GlowColor { get; set; } = new(0.10f, 0.55f, 0.60f);
+        /// <summary>How quickly the water swallows what lies under it, per world unit of path.</summary>
+        public float Absorption { get; set; } = 0.22f;
 
-        /// <summary>Global frequency multiplier on the wave spectrum (0.16 is the authored look — the
-        /// shader maps it to 1.0, so a config that meant "calmer" still means it).</summary>
-        public float WaveScale { get; set; } = 0.16f;
+        /// <summary>The faint teal light the lake gives the rock low over it (linear): the crystals' and the shafts'
+        /// light coming back off the water.</summary>
+        public Rgb GlowColor { get; set; } = new(0.010f, 0.040f, 0.045f);
 
-        /// <summary>Global speed multiplier on the spectrum's deep-water dispersion (0.8 = authored).</summary>
-        public float WaveSpeed { get; set; } = 0.8f;
+        /// <summary>How hard the surface stirs (the slope of its ripples): still enough to mirror, not glass.</summary>
+        public float RippleStrength { get; set; } = 0.045f;
 
-        /// <summary>The dominant swell's height in world units; the spectrum's seven components hang off
-        /// it with fixed weights (total reach ≈ 2.5× this). The river is displaced geometry near the
-        /// lens — marched, with real silhouettes — fading to the flat plane with distance like the sea.</summary>
-        public float WaveAmplitude { get; set; } = 0.7f;
+        /// <summary>The ripples' size in world units.</summary>
+        public float RippleScale { get; set; } = 7f;
 
-        /// <summary>The caustic shimmer where the eye looks into the water rather than across it.
-        /// Turned down from the flat-plane era's 0.8: a web bright enough to carry a textureless plane
-        /// reads as patterned flooring on real waves, which carry themselves.</summary>
-        public float CausticStrength { get; set; } = 0.28f;
+        /// <summary>How fast the ripples drift.</summary>
+        public float RippleSpeed { get; set; } = 0.35f;
 
-        /// <summary>The steam standing over the river (linear) — the water's glow diffused, well under the
-        /// glare threshold. It earns its keep at the waterline: the analytic wall meets the analytic river
-        /// in a machined edge no real cave has, and the steam is what swallows it.</summary>
-        public Rgb MistColor { get; set; } = new(0.028f, 0.052f, 0.062f);
+        /// <summary>The steam standing over the lake (linear, well under the glare threshold).</summary>
+        public Rgb MistColor { get; set; } = new(0.012f, 0.020f, 0.026f);
 
-        /// <summary>Optical density of the steam at the water surface, per world unit. The layer thins
-        /// exponentially with height (<see cref="MistHeight"/>), so this is its densest air.</summary>
-        public float MistDensity { get; set; } = 0.020f;
+        /// <summary>Optical density of the steam at the surface, per world unit.</summary>
+        public float MistDensity { get; set; } = 0.012f;
 
         /// <summary>The e-folding height over which the steam thins (world units).</summary>
-        public float MistHeight { get; set; } = 10f;
+        public float MistHeight { get; set; } = 9f;
     }
 
-    /// <summary>The cave's air: the god rays and the spores.</summary>
+    /// <summary>The cave's air: the glowworms and the light shafts.</summary>
     public sealed class CavernAirConfig
     {
-        /// <summary>The shafts' light (linear) — cool, faintly green: day filtered through wet stone.</summary>
-        public Rgb GodRayColor { get; set; } = new(0.10f, 0.13f, 0.12f);
+        /// <summary>The glowworms' colour (linear radiance): a constellation of points on the vault, dense in places
+        /// and bare in others. Over 1 so the pixel or two each one covers survives the tonemap. Black turns them off.</summary>
+        public Rgb GlowwormColor { get; set; } = new(0.30f, 1.20f, 1.05f);
 
-        /// <summary>Overall strength of the shafts.</summary>
-        public float GodRayStrength { get; set; } = 0.9f;
+        /// <summary>How many glowworms hang on the vault.</summary>
+        public int GlowwormCount { get; set; } = 9000;
 
-        /// <summary>
-        /// The glowworms' colour (linear radiance, #507): a constellation of points on the cave's ceiling, which
-        /// is what every photograph of a living cave has and what this one read as missing — the crystals only
-        /// carry from a few tens of units and the veins only where the rock is lit at all. Blue-green and over 1,
-        /// so the few pixels each one covers survive the tonemap. 0 turns them off.
-        /// </summary>
-        public Rgb GlowwormColor { get; set; } = new(0.35f, 1.30f, 1.15f);
+        /// <summary>The shafts' light (linear): pale, faintly green daylight filtered through wet stone.</summary>
+        public Rgb ShaftColor { get; set; } = new(0.13f, 0.16f, 0.15f);
 
-        /// <summary>The drifting motes' colour (linear, at the glare threshold's edge — they read through
-        /// their slow motion, not through bloom).</summary>
-        public Rgb SporeColor { get; set; } = new(0.30f, 0.42f, 0.20f);
-
-        /// <summary>Peak brightness of a mote's core.</summary>
-        public float SporeBrightness { get; set; } = 0.8f;
+        /// <summary>Overall strength of the shafts and of the pools they light.</summary>
+        public float ShaftStrength { get; set; } = 1.8f;
     }
 
-    /// <summary>The crystal clusters: sharp octahedral growths pulsing on the walls.</summary>
+    /// <summary>The crystal clusters: translucent six-sided prisms with pyramid tips, glowing from within.</summary>
     public sealed class CavernCrystalConfig
     {
         /// <summary>One end of the cluster palette — cyan (linear).</summary>
-        public Rgb ColorA { get; set; } = new(0.10f, 0.85f, 1.00f);
+        public Rgb ColorA { get; set; } = new(0.10f, 0.80f, 1.00f);
 
         /// <summary>The other end — magenta (linear).</summary>
-        public Rgb ColorB { get; set; } = new(0.95f, 0.15f, 0.90f);
+        public Rgb ColorB { get; set; } = new(0.92f, 0.18f, 0.95f);
 
-        /// <summary>Peak emissive level of a pulsing cluster. Over the glare threshold deliberately — the
-        /// clusters are the cavern's light sources, and their bloom is the point.</summary>
-        public float Emission { get; set; } = 2.3f;
+        /// <summary>Peak emissive level of a cluster's core. Over the glare threshold deliberately — the clusters are the
+        /// cavern's lamps, and their bloom is the point.</summary>
+        public float Emission { get; set; } = 2.6f;
 
-        /// <summary>How fast the clusters pulse (phase-spread per cluster, so the cave never beats in unison).</summary>
+        /// <summary>How fast the clusters breathe (phase-spread per cluster, so the cave never beats in unison).</summary>
         public float PulseSpeed { get; set; } = 0.5f;
 
-        /// <summary>How much of a cluster's light pools on the rock and the water around it — the single
-        /// thing that makes the crystals belong to the cave instead of being stickers on it.</summary>
-        public float WallLight { get; set; } = 0.8f;
+        /// <summary>How much light a cluster throws on the rock and the water round it.</summary>
+        public float WallLight { get; set; } = 1f;
+
+        /// <summary>How much of the nearest clusters' light reaches the island, the gun and the balls (through the scene
+        /// lights); 0 keeps the arena on the rig alone.</summary>
+        public float ArenaLight { get; set; } = 1f;
     }
 
     /// <summary>
     /// The cavern's own light rig, for the reason Space states one: the scene draws no dome. Dim and cool —
-    /// a cave lit by its own bioluminescence — with the ground bounce carrying the water's teal up onto the
+    /// a cave lit by its own bioluminescence — with the ground bounce carrying the lake's teal up onto the
     /// island's underside. The drain's gold beads live almost entirely off this ambient, which is why
     /// neither half is near zero.
     /// </summary>
@@ -166,14 +161,14 @@ namespace Prazsky.Core.Render
         /// <summary>The hemisphere ambient from above (linear) — cool rock-filtered light.</summary>
         public Rgb SkyAmbient { get; set; } = new(0.045f, 0.055f, 0.075f);
 
-        /// <summary>The bounce from below (linear) — the river's teal glow.</summary>
-        public Rgb GroundAmbient { get; set; } = new(0.020f, 0.055f, 0.060f);
+        /// <summary>The bounce from below (linear) — the lake's teal.</summary>
+        public Rgb GroundAmbient { get; set; } = new(0.020f, 0.050f, 0.058f);
 
-        /// <summary>What the key light is tinted by (linear, ~1 per channel) — the god rays' cool cast.</summary>
+        /// <summary>What the key light is tinted by (linear, ~1 per channel) — the shafts' pale cast.</summary>
         public Rgb KeyTint { get; set; } = new(0.88f, 0.98f, 1.06f);
 
         /// <summary>What the back/fill light is tinted by (linear, ~1 per channel) — faintly magenta, the
-        /// crystals answering from the walls.</summary>
+        /// crystals answering from the shore.</summary>
         public Rgb BackTint { get; set; } = new(0.95f, 0.72f, 1.00f);
     }
 }

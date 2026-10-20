@@ -329,12 +329,9 @@ namespace Prazsky.Core.Render
         /// anything, so a pair of removals is the smallest useful step and a third adds nothing.
         /// </para>
         /// <para>
-        /// <b>The cavern was the third customer and is not one any more (#250).</b> Its pair — the full wall
-        /// shading inside the water's reflection, and the full spore count — measured <b>4.98 → 3.33 ms</b>
-        /// here, against 5.01 / 5.02 / 4.97 / 5.01 for each of the four single reductions on their own, which
-        /// is where the occupancy reading above comes from. The owner then traded that scene's reflections and
-        /// waves away outright, so the pair is cut from the shipped shader and there is one cavern technique
-        /// left for every tier. See "The forest" and "The cavern" in docs/scenes.md.
+        /// <b>The cavern reads it too (#958)</b>: below it the lake draws no mirror of the hall (a dark ramp and the
+        /// clusters' glints instead) and the rock and formations their reduced programs, without the creased joints and
+        /// the finest octave. See "The cavern" in docs/scenes.md.
         /// </para>
         /// </summary>
         public float SceneDetail
@@ -1164,9 +1161,9 @@ namespace Prazsky.Core.Render
 
         #region Where the strange scenes' things stand (#559)
 
-        //The chapter intro's prologue (#559) takes each shot of ONE concrete thing a scene builds, and four of
-        //the scenes build theirs in a shader: the dream's glass solids and orbs, the cavern's crystal clusters
-        //and god rays, the icesheet's crevasses and pressure front. These are the host copies of the shaders'
+        //The chapter intro's prologue (#559) takes each shot of ONE concrete thing a scene builds, and some of
+        //the scenes build theirs in a shader: the dream's glass solids and orbs, the icesheet's crevasses and
+        //pressure front (the cavern's hall is CPU geometry, CavernChamber, #958). These are the host copies of the shaders'
         //own placement, kept in step by hand exactly as StormCellPosition is with StormClouds.fx — a camera
         //aimed where the shader does not draw frames empty sky. Nothing here runs per frame; the intro asks
         //once when it begins.
@@ -1191,24 +1188,22 @@ namespace Prazsky.Core.Render
         /// </summary>
         public Vector3 DreamOrbCenter(int index, float time, out float radius) => _dream.OrbCenter(index, time, out radius);
 
-        /// <summary>How many crystal clusters <c>Cavern.fx</c> draws (its <c>CRYSTAL_COUNT</c>).</summary>
-        public const int CAVERN_CRYSTAL_COUNT = 8;
+        /// <summary>
+        /// The cavern's hall (#958): its shell, its lake's bed and where every formation, crystal and shaft stands, built on
+        /// the CPU when this renderer was made (waited for, if a caller asks before the build is done). The chapter intro
+        /// places its lenses against it and asks it how far a point stands from rock.
+        /// </summary>
+        public CavernChamber CavernChamber => _cavern.Chamber;
 
-        /// <summary>How many god rays <c>Cavern.fx</c> draws (its <c>RAY_COUNT</c>).</summary>
-        public const int CAVERN_RAY_COUNT = 4;
+        /// <summary>A cavern crystal cluster's colour (linear), on the config's cyan-magenta axis at its hue.</summary>
+        public Vector3 CavernClusterColor(CavernCluster cluster) => _cavern.ClusterColor(cluster);
 
         /// <summary>
-        /// Where the cavern's crystal cluster <paramref name="index"/> grows: <c>Cavern.fx</c>'s
-        /// <c>CrystalCenter</c>, on the wall at 0.965 of the cave's radius. Its three octahedra reach about
-        /// ten units out of that point sideways and some twenty-five up and down.
+        /// The cavern's clusters whose light reaches the arena (#958), for <see cref="SceneLights"/>: their positions, this
+        /// frame's colours and ranges, at most <paramref name="max"/>. Answers how many; none until the hall is built.
         /// </summary>
-        public Vector3 CavernCrystalCenter(int index) => _cavern.CrystalCenter(index);
-
-        /// <summary>
-        /// Where the cavern's god ray <paramref name="index"/> falls, in the XZ plane: <c>Cavern.fx</c>'s
-        /// vertical shaft from the ceiling towards the river.
-        /// </summary>
-        public Vector2 CavernGodRayXZ(int index) => _cavern.GodRayXZ(index);
+        public int CavernArenaLights(float time, Vector3[] position, Vector3[] colour, float[] range, int max) =>
+            _cavern.ArenaLights(time, position, colour, range, max);
 
         /// <summary>How many cumulus cells the storm's field was built with.</summary>
         public int StormCellCount => _storm.CellCount;
@@ -1429,15 +1424,23 @@ namespace Prazsky.Core.Render
         #endregion
 
         /// <summary>
+        /// States that the host has selected <paramref name="scene"/>: a backdrop that builds itself off the frame (the
+        /// cavern's hall, #958) starts its build here, so it is under way while the host loads, and a launch that never
+        /// shows the scene builds nothing. Cheap to call again; every host calls it where it sets its scene.
+        /// </summary>
+        public void Prepare(SceneKind scene) => BackdropFor(scene)?.Prepare();
+
+        /// <summary>
         /// Draws the scene's backdrop — its <see cref="Backdrop.Draw"/>, or for the dream and the cavern at a
         /// supersampled frame <c>DrawBackdropAtDisplayResolution</c>. A no-op for
         /// <see cref="SceneKind.City"/>/<see cref="SceneKind.NeonCity"/>, which the caller draws itself. Opaque, so it stands in for the city as the thing the arena glass
         /// shows beneath it; it leaves the alpha-blend / back-face-cull state the rest of the opaque scene wants.
         /// <para>
-        /// The four sky-replacing draws also touch the <b>depth</b> state: space, the dream and the cavern
-        /// are backgrounds rather than geometry, so they draw with <see cref="DepthStencilState.None"/>,
-        /// while the Moon writes depth with its terrain and then reads it under its sky quad
-        /// (<see cref="DepthStencilState.DepthRead"/>) — and every one of them restores
+        /// The sky-replacing draws also touch the <b>depth</b> state: space and the dream are backgrounds
+        /// rather than geometry, so they draw with <see cref="DepthStencilState.None"/>; the cavern's hall is
+        /// meshes that write depth (into its own target under supersampling, then the scene's through
+        /// <see cref="Backdrop.DrawDepth"/>); the Moon writes depth with its terrain and then reads it under its
+        /// sky quad (<see cref="DepthStencilState.DepthRead"/>) — and every one of them restores
         /// <see cref="DepthStencilState.Default"/> on the way out.
         /// </para>
         /// </summary>
@@ -1453,7 +1456,12 @@ namespace Prazsky.Core.Render
                 if (sceneTarget != null && SupersampleFactor > 1 && backdrop.DrawsAtDisplayResolution)
                     DrawBackdropAtDisplayResolution(backdrop, frame, sceneTarget);
                 else
+                {
+                    //The display-resolution target is let go as soon as a frame does not use it: the cavern's (four samples, a
+                    //depth buffer) is about 340 MB at 3840x1600, and a drop to ssaa 1 or another scene keeps none of it
+                    ReleaseBackdropTarget();
                     backdrop.Draw(frame);
+                }
 
                 //Into the bound target either way, which is the scene target with its depth (#755)
                 backdrop.DrawDepth(frame);
@@ -1779,8 +1787,15 @@ namespace Prazsky.Core.Render
         /// the cave still comes out at every pixel the display has, and the balls, the arena and the gun drawn
         /// over it keep every sample they had, because they are still drawn into the full-size target.
         /// <para>
+        /// <b>A backdrop of meshes</b> (the cavern since #958) asks for a depth buffer and samples on that target
+        /// (<see cref="Backdrop.DisplayResolutionDepth"/>, <see cref="Backdrop.DisplayResolutionMultiSampleCount"/>): the
+        /// renderer clears the depth when it binds it, and the samples give the silhouettes back the edges the
+        /// supersampling would have smoothed. Its depth stays in that target; what has to occlude the arena it writes
+        /// again in <see cref="Backdrop.DrawDepth"/>, which <see cref="BackdropServices.ShadingAtDisplayResolution"/> tells it.
+        /// </para>
+        /// <para>
         /// <b>Why this and not another feature cut.</b> Measured on the reference 6900 XT at a fixed camera,
-        /// 1600×900: the cavern pass costs 1.5 ms at ssaa 1, 5.2 at 2 and 21.0 at 4 — 4.04× for 4× the pixels
+        /// 1600×900, when the cavern was one analytic full-screen pass: it cost 1.5 ms at ssaa 1, 5.2 at 2 and 21.0 at 4 — 4.04× for 4× the pixels
         /// across the top step, and a fitted fixed cost of essentially zero. It is pure fill, so pixel count is
         /// the only dial that moves it, which is the same finding #102 reached from the other side when every
         /// individual feature it removed saved nothing. At fullscreen <c>High</c> the scene measured 21.0 ms
@@ -1801,6 +1816,12 @@ namespace Prazsky.Core.Render
         /// <see cref="SpriteBatch"/> then leaves its own behind.
         /// </para>
         /// </summary>
+        private void ReleaseBackdropTarget()
+        {
+            _backdropTarget?.Dispose();
+            _backdropTarget = null;
+        }
+
         private void DrawBackdropAtDisplayResolution(Backdrop backdrop, in SceneFrame frame, RenderTarget2D sceneTarget)
         {
             //The scene target's size without the supersample factor: the back buffer's, or the player's lower resolution
@@ -1811,14 +1832,16 @@ namespace Prazsky.Core.Render
             //A minimized window reports a zero back buffer and a zero-sized target is a device error — the
             //same guard PostProcessPipeline.EnsureTarget carries, for the same reason. Falling through draws
             //the backdrop at full price, which is correct and merely expensive.
-            if (width > 0 && height > 0 && (_backdropTarget == null || _backdropTarget.Width != width || _backdropTarget.Height != height))
+            //Linear radiance like the target it feeds. A full-screen pass (the dream) runs with the depth state off and has
+            //no edges, so it wants neither depth nor samples; a backdrop of meshes (the cavern, #958) wants both
+            DepthFormat depth = backdrop.DisplayResolutionDepth ? DepthFormat.Depth24 : DepthFormat.None;
+            int samples = backdrop.DisplayResolutionMultiSampleCount;
+            if (width > 0 && height > 0 && (_backdropTarget == null || _backdropTarget.Width != width || _backdropTarget.Height != height
+                || _backdropTarget.DepthStencilFormat != depth || _backdropTarget.MultiSampleCount != samples))
             {
                 _backdropTarget?.Dispose();
-
-                //Linear radiance like the target it feeds, and no depth: the pass runs with the depth state
-                //off, so there is nothing to write.
                 _backdropTarget = new RenderTarget2D(_graphicsDevice, width, height, false, SurfaceFormat.HdrBlendable,
-                    DepthFormat.None, 0, RenderTargetUsage.DiscardContents);
+                    depth, samples, RenderTargetUsage.DiscardContents);
             }
 
             if (_backdropTarget == null)
@@ -1828,8 +1851,11 @@ namespace Prazsky.Core.Render
             }
 
             _graphicsDevice.SetRenderTarget(_backdropTarget);
+            if (depth != DepthFormat.None) _graphicsDevice.Clear(ClearOptions.Target | ClearOptions.DepthBuffer, Color.Black, 1f, 0);
 
+            _services.ShadingAtDisplayResolution = true;
             backdrop.Draw(frame);
+            _services.ShadingAtDisplayResolution = false;
 
             _graphicsDevice.SetRenderTarget(sceneTarget);
 

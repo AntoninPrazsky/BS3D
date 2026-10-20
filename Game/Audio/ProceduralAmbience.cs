@@ -412,7 +412,7 @@ namespace BS3D.Audio
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.07f);
 
                 case SceneKind.Cavern:
-                    //The cavern: hollow underground air — a deep near-steady body of it — the river as a
+                    //The cavern: hollow underground air — a deep near-steady body of it — the lake's water as a
                     //soft high trickle, and sparse water DRIPS: the crackle machinery slowed right down, a
                     //few soft taps a second with long tails, which is the sound that says "cave" before
                     //anything else does.
