@@ -1,148 +1,138 @@
 {
-    "file": "theme-puppet-nordic.wav",
-    "created": "2026-10-15",
-    "issue": 732,
-    "family": "puppet",
-    "chapter": "The Silhouettes (aurora, levels 41-50) - regenerated on the owner's ruling of 2026-10-11 (#732): mysterious and magical, with a melody; from the desert's ember model only the followable tune and the mid range, not its guitar rock",
-    "purpose": "Master of Game/Music/puppet-nordic.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-732-chosen on the desktop, with its .raw.wav; every candidate in masters-732); this sidecar is committed beside the .ogg.",
-    "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-puppet.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
-    "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
-    "license": "ACE-Step 1.5: MIT (code and weights)",
-    "request": {
-        "caption": "Mysterious Nordic folk instrumental under the northern lights: a haunting nyckelharpa and fiddle melody in a minor mode that you can hum, a low wooden flute answering it, a droning cello, plucked kantele patterns, a steady deep groove of frame drum, kick and toms with a dark ride cymbal, a warm bass, a hushed breakdown to the fiddle alone that rises back into the full ensemble, ancient, magical and wintry, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
-        "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, silly, cheerful jig, childish, cute, sugary, polka, oompah, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright flute trills, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance",
-        "instrumental": true,
-        "use_cot_caption": false,
-        "duration": 120,
-        "bpm": 112,
-        "keyscale": "E minor",
-        "seed": 887997712,
-        "inference_steps": 8,
-        "output_format": "wav32"
-    },
-    "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
-    "loop_log": [
-        "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-nordic-c3.wav: 59.5s loop = source 42.20s..101.65s (27.98 bars at 112.9 bpm), crossfade 1.06s | context match 0.503 (best 0.547) | crossfade rhythm r=0.60 vs the track a bar later r=0.04: in time | spectrum cos=0.55"
+  "file": "theme-puppet-nordic.wav",
+  "created": "2026-10-19",
+  "issue": 907,
+  "family": "puppet",
+  "chapter": "The Silhouettes (aurora, levels 41-50) - regenerated on the desert's ember model (#907): a haunting nyckelharpa melody in the middle register, answered by a fiddle and a cello over plucked kantele, with only a soft frame drum and a brushed snare for the pulse - no kick, no toms, no cymbals (the owner's Jukebox note, 2026-10-16: Nordic, Oud and Theatre rather too pounding, primitive and a bit unpleasant)",
+  "purpose": "Master of Game/Music/puppet-nordic.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-907-chosen on the desktop, with its .raw.wav; this is candidate c3, theme-puppet-nordic-c3 in masters-907, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-907.ps1 (adapted from the #905 batch) -> generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Mysterious Nordic folk instrumental under the northern lights: a haunting nyckelharpa melody in a minor mode that a listener could hum back, in the middle register, developing from a simple theme into a richer variation, answered by a fiddle and a warm cello, plucked kantele arpeggios, a round warm bass following the chords, the pulse only a soft frame drum and a gentle brushed snare, steady and quiet far under the melody, ancient, magical and wintry, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+    "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, kick drum, toms, bass drum, heavy drums, loud drums, pounding drums, driving drums, thudding, stomping, marching, war drums, drum fills, ride cymbal, hi-hats, cymbals",
+    "instrumental": true,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 100,
+    "keyscale": "E minor",
+    "seed": 2042516155,
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-nordic-c3.wav: 67.2s loop = source 32.45s..99.65s (27.99 bars at 100.0 bpm), crossfade 1.20s | context match 0.918 (best 0.967) | crossfade rhythm r=0.97 vs the track a bar later r=0.29: in time | spectrum cos=0.97"
+  ],
+  "lm_check": {
+    "request0_captured": true,
+    "caption_verbatim": true,
+    "seed_in_request0": 2042516155,
+    "bpm_in_request0": 100,
+    "keyscale_in_request0": "E minor",
+    "duration_in_request0": 120.0
+  },
+  "measured": "generate-music.ps1 end to end 63,1 s (ace-lm + ace-synth + loop cut), exit 0",
+  "rendered": true,
+  "bake": {
+    "trim_db": -0.5,
+    "why": "Untrimmed it decoded to 3 clipped runs (post-codec peak -0.11 dBFS, ember allows 3); trimmed 0.5 dB none (peak -0.21 dBFS, -14.0 LUFS)."
+  },
+  "chosen": {
+    "candidate": "c3",
+    "round": 1,
+    "of": [
+      "c1",
+      "c2",
+      "c3",
+      "c4",
+      "c5",
+      "c6"
     ],
-    "lm_check": {
-        "request0_captured": true,
-        "caption_verbatim": true,
-        "seed_in_request0": 887997712,
-        "bpm_in_request0": 112,
-        "keyscale_in_request0": "E minor",
-        "duration_in_request0": 120.0
+    "why": "Chosen by measurement on the baked recording beside the ember family in one run: every column inside ember's range (200 Hz-2 kHz 26.7 % and 300 Hz-4 kHz 22.0 %, band shares are held to a lowest only; 0.0 % above 6 kHz; tonal mid 82 %, flatness 0.01, 2.86 held-note changes a second, tempo wander 0.03 %, 0 clipped runs after the -0.5 dB trim, wobble 1.8 / detune 1.2 cents, 1.8 short gaps a minute, the opening pattern repeats for 2.4 s, 1.5 % of held notes outside E minor); a 67.2 s loop (28 bars at 100.0 bpm) with cut context 0.918, rhythm r 0.97 against 0.29 a bar later, spectrum cosine 0.97, wrap -2.9 / +0.8 / +0.5 dB over 250 ms / 1 s / 2 s (p42 / p32 / p23), 91.0 % of its pitched energy on E minor, and the drums stem 21.6 dB under the mix in 300 Hz-4 kHz (-19.0 dB in its loudest 250 ms, 3 % of windows within 6 dB of the mix) where the replaced recording's stood 7.9 dB under (-2.8 dB loud, 16 % of windows). The only one of six renders inside ember on every column: two others held holes of 23-42 % with 24-44 dB dropouts, one a cut whose two sides disagree (cosine 0.24), one 16 % under -10 dB.",
+    "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wobble, detune, short gaps, opening repeat, notes out of key, wrap step) beside the loop cut's own check, the hole and dropout shares, the wrap step over 250 ms, 1 s and 2 s, the pitched energy on the key's scale (Tools/Generation/key-share.py) and the drums stem against the mix in 300 Hz-4 kHz (Tools/Generation/drum-share.py on the stem separate_drums.py makes of the loop); a seam below its own rhythm, a hole over 15 %, a dropout over 20 dB, a wrap step of 10 dB or more or at p97, a seam spectrum cosine under 0.3, a loop under 30 s or short gaps over ember's 27.0 a minute ruled a candidate out; the chosen one measured again on the baked .ogg beside ember and the old recording, with the bake's trim"
+  },
+  "alternatives": [
+    {
+      "candidate": "c1",
+      "round": "1",
+      "seed": 432532456,
+      "bpm": 100,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-nordic-c1.wav: 67.2s loop = source 32.90s..100.10s (27.99 bars at 100.0 bpm), crossfade 1.20s | context match 0.774 (best 0.818) | crossfade rhythm r=0.85 vs the track a bar later r=0.27: in time | spectrum cos=0.80"
+      ],
+      "refused_or_not_chosen": "Ruled out: hole 16 %; also outside ember on tempo_wander 0.67; 67.2 s loop."
     },
-    "measured": "generate-music.ps1 end to end 63,8 s (ace-lm + ace-synth + loop cut), exit 0",
-    "measured_against_ember": {
-        "loop_s": 59.5,
-        "bpm": 112.9,
-        "context": 0.503,
-        "r_cross": 0.6,
-        "r_bar": 0.04,
-        "in_time": true,
-        "cos": 0.55,
-        "dip": 10.2,
-        "quiet": 2,
-        "lr_corr": 0.897,
-        "knee_pct": 0.0,
-        "b200_2k": 12.6,
-        "b300_4k": 11.9,
-        "above6k": 0.2,
-        "tonal_mid": 68,
-        "mid_flatness": 0.03,
-        "held_changes": 3.63,
-        "tempo_wander": 0.05,
-        "wrap_db": 0.8,
-        "wrap_pct": 9
+    {
+      "candidate": "c2",
+      "round": "1",
+      "seed": 1734317454,
+      "bpm": 100,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-nordic-c2.wav: 43.2s loop = source 47.95s..91.15s (18.00 bars at 100.0 bpm), crossfade 1.20s | context match 0.641 (best 0.691) | crossfade rhythm r=0.81 vs the track a bar later r=0.19: in time | spectrum cos=0.64"
+      ],
+      "refused_or_not_chosen": "Runner-up (preview .ogg): a 43.2 s loop in the same brief, outside ember on one column, 2.41 held-note changes a second (ember at least 2.74), 89.7 % of its pitched energy on E minor; the drums stem is 42.6 dB under the mix in 300 Hz-4 kHz: no audible pulse at all, which the brief asked for."
     },
-    "measured_note": "measure-music.py --reference ember on the loop (band shares %, tonal mid %, mid flatness, held-note changes/s, tempo wander %, wrap step dB and its percentile) beside sel.py: the loop cut, dip = the quietest 2 s under the loop's p95 1 s level (dB), quiet = the % of the loop more than 10 dB under it, L/R correlation, knee_pct = the % of samples MusicBake's knee bends",
-    "rendered": true,
-    "chosen": {
-        "candidate": "c3",
-        "round": 1,
-        "of": [
-            "c1",
-            "c2",
-            "c3"
-        ],
-        "why": "inside ember's range on every column: 200 Hz-2 kHz 12.6 %, 300 Hz-4 kHz 11.9 %, 0.2 % above 6 kHz, tonal mid 68 %, 3.63 held-note changes/s (the most of the three); 2 % under -10 dB, wrap step +0.8 dB (p9), a 60 s loop in time. c1 changes note 2.43 times a second; c2's cut fell below its own timekeeping",
-        "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wrap step) beside the loop cut's own check, the hole share (the loop more than 10 dB under its loud level), the breakdown dip and the stereo correlation; a seam below its own rhythm, a hole over 15 % or a wrap step over 6 dB ruled a candidate out; the table is on #732"
+    {
+      "candidate": "c4",
+      "round": "1",
+      "seed": 964873384,
+      "bpm": 92,
+      "caption": "brief_1 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-nordic-c4.wav: 55.1s loop = source 27.85s..82.90s (21.00 bars at 91.5 bpm), crossfade 1.31s | context match 0.668 (best 0.717) | crossfade rhythm r=0.04 vs the track a bar later r=0.04: in time | spectrum cos=0.63"
+      ],
+      "refused_or_not_chosen": "Ruled out: hole 42 %; dropout 44.1 dB; also outside ember on held_changes 2.4, tempo_wander 0.92; 55.1 s loop."
     },
-    "alternatives": [
-        {
-            "candidate": "c1",
-            "seed": 1632683220,
-            "caption": "same brief",
-            "negative": "same negative",
-            "loop_log": [
-                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-nordic-c1.wav: 51.4s loop = source 29.62s..81.05s (24.00 bars at 112.0 bpm), crossfade 1.07s | context match 0.626 (best 0.671) | crossfade rhythm r=0.70 vs the track a bar later r=0.57: in time | spectrum cos=0.67"
-            ],
-            "measured": {
-                "loop_s": 51.4,
-                "bpm": 112.0,
-                "context": 0.626,
-                "r_cross": 0.7,
-                "r_bar": 0.57,
-                "in_time": true,
-                "cos": 0.67,
-                "dip": 10.9,
-                "quiet": 8,
-                "lr_corr": 0.856,
-                "knee_pct": 0.016,
-                "b200_2k": 10.1,
-                "b300_4k": 8.9,
-                "above6k": 0.5,
-                "tonal_mid": 62,
-                "mid_flatness": 0.04,
-                "held_changes": 2.43,
-                "tempo_wander": 0.03,
-                "wrap_db": -4.8,
-                "wrap_pct": 67
-            }
-        },
-        {
-            "candidate": "c2",
-            "seed": 2125260750,
-            "caption": "same brief",
-            "negative": "same negative",
-            "loop_log": [
-                "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-nordic-c2.wav: 47.7s loop = source 41.35s..89.10s (22.05 bars at 110.9 bpm), crossfade 1.08s | context match -0.002 (best 0.042) | crossfade rhythm r=0.14 vs the track a bar later r=0.25: BELOW the track's own timekeeping -- listen | spectrum cos=0.01"
-            ],
-            "measured": {
-                "loop_s": 47.7,
-                "bpm": 110.9,
-                "context": -0.002,
-                "r_cross": 0.14,
-                "r_bar": 0.25,
-                "in_time": false,
-                "cos": 0.01,
-                "dip": 12.4,
-                "quiet": 9,
-                "lr_corr": 0.816,
-                "knee_pct": 0.053,
-                "b200_2k": 15.9,
-                "b300_4k": 13.4,
-                "above6k": 0.2,
-                "tonal_mid": 87,
-                "mid_flatness": 0.01,
-                "held_changes": 2.56,
-                "tempo_wander": 0.26,
-                "wrap_db": -3.9,
-                "wrap_pct": 51
-            }
-        }
-    ],
-    "replaces": {
-        "stem": "puppet-nordic",
-        "issue": 558,
-        "created": "2026-09-25",
-        "caption": "Light Nordic folk instrumental: a dancing fiddle and nyckelharpa melody, plucked harp, frame drum and soft foot-tap percussion, bright flute, shimmering bells like the northern lights, curious and cheerful, major key, no vocals",
-        "negative": "vocals, singing, audience applause, crowd noise, live recording, dark ambient drone, heavy distortion",
-        "bpm": 104,
-        "keyscale": "F major",
-        "loop_log": [
-            "Wrote C:\\Users\\panrd\\AI\\output\\masters-558\\theme-puppet-nordic.wav: 64.6s loop = source 22.23s..86.85s (27.94 bars at 103.8 bpm), crossfade 1.16s | context match 0.283 (best 0.326) | crossfade rhythm r=0.55 vs the track a bar later r=0.29: in time | spectrum cos=0.75"
-        ],
-        "why_replaced": "briefed as light, curious and cheerful Nordic folk; the owner, 2026-10-11 (#732): mysterious and magical, with a melody"
+    {
+      "candidate": "c5",
+      "round": "1",
+      "seed": 706913180,
+      "bpm": 92,
+      "caption": "brief_1 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-nordic-c5.wav: 53.3s loop = source 25.72s..79.05s (19.97 bars at 89.9 bpm), crossfade 1.34s | context match 0.894 (best 0.935) | crossfade rhythm r=0.67 vs the track a bar later r=0.49: in time | spectrum cos=0.92"
+      ],
+      "refused_or_not_chosen": "Ruled out: hole 23 %; dropout 24.3 dB; also outside ember on held_changes 2.38, tempo_wander 4.58; 53.3 s loop."
+    },
+    {
+      "candidate": "c6",
+      "round": "1",
+      "seed": 494243995,
+      "bpm": 92,
+      "caption": "brief_1 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-907\\theme-puppet-nordic-c6.wav: 46.7s loop = source 30.57s..77.25s (18.05 bars at 92.8 bpm), crossfade 1.29s | context match 0.284 (best 0.284) | crossfade rhythm r=0.19 vs the track a bar later r=0.17: in time | spectrum cos=0.24"
+      ],
+      "refused_or_not_chosen": "Ruled out: seam cos 0.24; also outside ember on held_changes 2.4; 46.7 s loop."
     }
+  ],
+  "alternative_briefs": {
+    "brief_1": {
+      "caption": "Wintry Nordic folk-pop instrumental: a fingerpicked acoustic guitar and a hardanger fiddle playing one singable melody together in the middle register, a low wooden flute answering it, a gentle string ensemble holding warm chords, a plucked kantele, a round acoustic bass, the percussion only a soft frame drum and a very quiet brushed snare keeping a gentle steady pulse, the melody growing a little in each section, calm, magical and mysterious like snow falling under the aurora, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, kick drum, toms, bass drum, heavy drums, loud drums, pounding drums, driving drums, thudding, stomping, marching, war drums, drum fills, ride cymbal, hi-hats, cymbals",
+      "bpm": 92,
+      "round": "1",
+      "candidates": [
+        "c4",
+        "c5",
+        "c6"
+      ]
+    }
+  },
+  "replaces": {
+    "issue": 732,
+    "created": "2026-10-15",
+    "caption": "Mysterious Nordic folk instrumental under the northern lights: a haunting nyckelharpa and fiddle melody in a minor mode that you can hum, a low wooden flute answering it, a droning cello, plucked kantele patterns, a steady deep groove of frame drum, kick and toms with a dark ride cymbal, a warm bass, a hushed breakdown to the fiddle alone that rises back into the full ensemble, ancient, magical and wintry, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+    "negative": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, silly, cheerful jig, childish, cute, sugary, polka, oompah, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright flute trills, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance",
+    "seed": 887997712,
+    "bpm": 112,
+    "keyscale": "E minor",
+    "loop_log": [
+      "Wrote C:\\Users\\panrd\\AI\\output\\masters-732\\theme-puppet-nordic-c3.wav: 59.5s loop = source 42.20s..101.65s (27.98 bars at 112.9 bpm), crossfade 1.06s | context match 0.503 (best 0.547) | crossfade rhythm r=0.60 vs the track a bar later r=0.04: in time | spectrum cos=0.55"
+    ],
+    "why_replaced": "The owner's Jukebox note of 2026-10-16 (translated from Czech): Nordic, Oud and Theatre rather too pounding, primitive, a bit unpleasant (#907). The #732 brief asked for a steady deep groove of frame drum, kick and toms. Measured on 2026-10-17 it sat inside ember on every column, so the tool named nothing; its drums stem stood 7.9 dB under the mix in 300 Hz-4 kHz (-2.8 dB in its loudest 250 ms, 16 % of 250 ms windows within 6 dB of the mix, crest 22 dB)."
+  }
 }
