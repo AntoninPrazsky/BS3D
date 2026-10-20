@@ -20,7 +20,7 @@ namespace BS3D.Tests
         private const string STREAK = "Keep hitting to multiply your score";
         private const string BUDGET = "Save shots for a bonus";
         private const string LINE_RULE = "Keep the cluster off the line";
-        private const string SEND_OFF = "That’s the basics — you know how to play";
+        private const string SEND_OFF = "Fire a ball into empty space when stuck";
         private const string SWAP = "Swap the next two balls";
         private const string BRAKE = "Lift the glass back one step";
         private const string CUT = "Turn the next ball into a cutter";
@@ -45,15 +45,22 @@ namespace BS3D.Tests
 
         /// <summary>Begins the set's entry <paramref name="index"/> and returns every caption the level shows, in order.</summary>
         private static List<string> Play(Tutorial tutorial, LevelSet set, int index, bool lightStreak = false, bool swapOffered = false,
-            bool retry = false, bool brakeOffered = false, bool cutOffered = false, int glassStepsAt = -1, bool holding = false)
+            bool retry = false, bool brakeOffered = false, bool cutOffered = false, int glassStepsAt = -1, bool holding = false,
+            int stuckFrom = -1, bool everyShowing = false)
         {
             bool placed = Tutorial.TryPlace(set, index, out int chapter, out int levelInChapter, out int length);
             tutorial.BeginLevel(placed ? chapter : -1, levelInChapter, length, ceilingStep: 6, swapOffered: swapOffered, retry: retry,
                 brakeOffered: brakeOffered, cutOffered: cutOffered);
 
             List<string> shown = new();
+            string previous = null;
             for (int frame = 0; frame < 4000; frame++)
             {
+                //A player stuck near the line from this frame on: the session asks, every frame the moment holds, whether the
+                //throw-away lesson is armed, and fires it if so (GameplayScreen.UpdateLaserWarning)
+                if (stuckFrom >= 0 && frame >= stuckFrom && tutorial.IsArmed(Tutorial.Lesson.ThrowAway))
+                    tutorial.Trigger(Tutorial.Lesson.ThrowAway);
+
                 //The streak lights a little way in, as it would after a couple of landings
                 if (lightStreak && frame == 20) tutorial.Trigger(Tutorial.Lesson.Streak);
 
@@ -75,8 +82,11 @@ namespace BS3D.Tests
 
                 tutorial.Update(0.1f, enabled: true, takeoverEngaged: false, levelDecided: false);
 
+                //A caption is recorded when it changes; with everyShowing also when a card comes up after a gap, so the same
+                //card shown twice with nothing between is two entries
                 string caption = tutorial.Caption;
-                if (caption != null && (shown.Count == 0 || shown[^1] != caption)) shown.Add(caption);
+                if (caption != null && (shown.Count == 0 || shown[^1] != caption || (everyShowing && previous == null))) shown.Add(caption);
+                previous = caption;
             }
 
             return shown;
@@ -84,7 +94,7 @@ namespace BS3D.Tests
 
         //Every lesson's key, as a save that has completed the whole tutorial holds them
         private static readonly string[] EVERY_LESSON =
-            { "aim", "fire", "match", "lean", "ceiling", "line", "traverse", "walk", "combine", "linerule", "graduated", "streak", "budget", "swap",
+            { "aim", "fire", "match", "lean", "ceiling", "line", "traverse", "walk", "combine", "linerule", "throwaway", "streak", "budget", "swap",
               "brake", "cut" };
 
         /// <summary>A save that has been through every card, and a count of what the tutorial writes to it.</summary>
@@ -144,6 +154,155 @@ namespace BS3D.Tests
             Tutorial tutorial = new(key => save.Contains(key), key => save.Add(key), Tutorial.Mode.Normal);
 
             Assert.Equal(new[] { SEND_OFF }, Play(tutorial, ShippedSet(), 9));
+        }
+
+        //--- #936: the closing card is the way out of Amphora, and it comes back once at the moment it is about ---
+
+        [Fact]
+        public void AmphoraClosesOnTheWayOutAndIsTaughtUnderItsOwnKey()
+        {
+            //The card is Amphora's own and the last of a fresh run's queue; it is not the tail of the line card two levels
+            //back (Saturn's) and says something none of the cards before it did
+            HashSet<string> save = new();
+            List<string> amphora = Play(Fresh(save), ShippedSet(), 9);
+
+            Assert.Equal(SEND_OFF, amphora[^1]);
+            Assert.Equal(1, amphora.Count(c => c == SEND_OFF));
+            Assert.Contains("throwaway", save);
+            Assert.DoesNotContain("graduated", save);
+        }
+
+        [Fact]
+        public void TheWayOutComesBackOnceWhenThePlayerIsStuckAndNotBeforeTheOpeningCardIsRead()
+        {
+            LevelSet set = ShippedSet();
+
+            //Stuck from the first frame: the moment waits for the opening card to be read, then shows it again, once
+            List<string> stuck = Play(Fresh(new HashSet<string>()), set, 9, stuckFrom: 0, everyShowing: true);
+            Assert.Equal(2, stuck.Count(c => c == SEND_OFF));
+            Assert.Equal(SEND_OFF, stuck[^1]);
+
+            //Not stuck: the opening card alone
+            Assert.Equal(1, Play(Fresh(new HashSet<string>()), set, 9, everyShowing: true).Count(c => c == SEND_OFF));
+        }
+
+        [Fact]
+        public void TheWayOutIsArmedAfterItsOpeningCardAndFiresOnceALevel()
+        {
+            LevelSet set = ShippedSet();
+            Tutorial tutorial = Fresh(new HashSet<string>());
+            Assert.True(Tutorial.TryPlace(set, 9, out int chapter, out int level, out int length));
+            tutorial.BeginLevel(chapter, level, length, ceilingStep: 7);
+
+            //Waiting for the opening card to be read: not armed yet
+            Assert.False(tutorial.IsArmed(Tutorial.Lesson.ThrowAway));
+
+            //Read it out, every card of a fresh run first: the moment is armed a rest after the card has gone, never while it
+            //is up or leaving, so a player stuck just as it is read out is not shown the same words again at once
+            int cardGoneAt = -1, armedAt = -1;
+            bool wasUp = false;
+            for (int frame = 0; frame < 4000 && armedAt < 0; frame++)
+            {
+                tutorial.Update(0.1f, enabled: true, takeoverEngaged: false, levelDecided: false);
+
+                if (tutorial.Caption == SEND_OFF) wasUp = true;
+                else if (wasUp && cardGoneAt < 0 && tutorial.Caption == null) cardGoneAt = frame;
+                if (tutorial.IsArmed(Tutorial.Lesson.ThrowAway)) armedAt = frame;
+            }
+
+            Assert.True(cardGoneAt > 0 && armedAt > cardGoneAt, $"gone at {cardGoneAt}, armed at {armedAt}");
+            Assert.True((armedAt - cardGoneAt) * 0.1f >= 5f, $"armed only {(armedAt - cardGoneAt) * 0.1f} s after the card went");
+            Assert.True(tutorial.IsArmed(Tutorial.Lesson.ThrowAway));
+
+            //The moment fires it once; asked every frame after, there is nothing armed left to fire
+            tutorial.Trigger(Tutorial.Lesson.ThrowAway);
+            Assert.False(tutorial.IsArmed(Tutorial.Lesson.ThrowAway));
+
+            List<string> shown = new();
+            string previous = null;
+            for (int frame = 0; frame < 400; frame++)
+            {
+                tutorial.Trigger(Tutorial.Lesson.ThrowAway);
+                tutorial.Update(0.1f, enabled: true, takeoverEngaged: false, levelDecided: false);
+
+                string caption = tutorial.Caption;
+                if (caption != null && previous == null) shown.Add(caption);
+                previous = caption;
+            }
+
+            Assert.Equal(new[] { SEND_OFF }, shown);
+        }
+
+        [Fact]
+        public void ARetryOfAmphoraArmsTheMomentAtOnceAndNoOtherLevelArmsItAtAll()
+        {
+            LevelSet set = ShippedSet();
+            Tutorial tutorial = Fresh(new HashSet<string>());
+
+            Play(tutorial, set, 9);
+
+            //The retry has been through the opening card, so none is queued, and the moment is armed from the start
+            tutorial.BeginLevel(0, 9, 10, ceilingStep: 7, retry: true);
+            Assert.True(tutorial.IsArmed(Tutorial.Lesson.ThrowAway));
+
+            //Saturn, Gem, the Gallery and a level past the tutorial arm nothing
+            foreach (int index in new[] { 7, 8, 10, 25 })
+            {
+                Tutorial other = Fresh(new HashSet<string>());
+                bool placed = Tutorial.TryPlace(set, index, out int chapter, out int level, out int length);
+                other.BeginLevel(placed ? chapter : -1, level, length, ceilingStep: 7);
+                for (int frame = 0; frame < 400; frame++)
+                    other.Update(0.1f, enabled: true, takeoverEngaged: false, levelDecided: false);
+
+                Assert.False(other.IsArmed(Tutorial.Lesson.ThrowAway), $"level {index}");
+            }
+        }
+
+        [Fact]
+        public void APlayerTheFormerSendOffTaughtIsNotOwedTheNewCardBeyondAmphoraAndSeesItThereOnce()
+        {
+            //An older build recorded "graduated": that player was past the chapter's end, so the Gallery owes nothing on its
+            //account - the streak is not held back behind a card nobody is owed - ...
+            LevelSet set = ShippedSet();
+            HashSet<string> save = new(EVERY_LESSON.Where(k => k != "throwaway" && k != "streak" && k != "budget")) { "graduated" };
+            int writes = 0;
+            Tutorial tutorial = new(key => save.Contains(key), key => { writes++; save.Add(key); }, Tutorial.Mode.Normal);
+
+            Assert.Equal(new[] { STREAK }, Play(tutorial, set, 10, lightStreak: true));
+            Assert.DoesNotContain("throwaway", save);
+            writes = 0;
+
+            //... and Amphora, entered, shows them the new card as the level's own and records it under the new key
+            Assert.Equal(new[] { SEND_OFF }, Play(tutorial, set, 9));
+            Assert.Contains("throwaway", save);
+            Assert.Equal(1, writes);
+
+            //In the save, it is an ordinary own-level card: a retry does not show it, the next entry does, neither writes
+            Assert.DoesNotContain(SEND_OFF, Play(tutorial, set, 9, retry: true));
+            Assert.Contains(SEND_OFF, Play(tutorial, set, 9));
+            Assert.Equal(1, writes);
+        }
+
+        [Fact]
+        public void TheWayOutIsDueOnlyWhereTheNetIsOnAndTheBoreHasNowhereToScore()
+        {
+            Assert.True(Tutorial.ThrowAwayIsDue(netOn: true, boreCanScore: false));
+            Assert.False(Tutorial.ThrowAwayIsDue(netOn: true, boreCanScore: true));
+            Assert.False(Tutorial.ThrowAwayIsDue(netOn: false, boreCanScore: false));
+            Assert.False(Tutorial.ThrowAwayIsDue(netOn: false, boreCanScore: true));
+        }
+
+        [Fact]
+        public void TheWayOutIsOneInstructingCardInBothHandsWithNoGlyph()
+        {
+            List<Tutorial.StepCopy> steps = Tutorial.Steps().Where(s => s.Key == "throwaway").ToList();
+
+            Assert.Equal(2, steps.Count);
+            Assert.All(steps, s =>
+            {
+                Assert.Equal((SEND_OFF, "Wasting a ball is fine", 0, true), (s.Caption, s.Detail, s.Step, s.Instructs));
+                Assert.True(string.IsNullOrEmpty(s.Glyph));
+            });
         }
 
         [Fact]
@@ -206,7 +365,7 @@ namespace BS3D.Tests
         public void TheSecondChapterTeachesTheScoreAfterTheSendOff()
         {
             LevelSet set = ShippedSet();
-            HashSet<string> save = new() { "aim", "fire", "match", "lean", "ceiling", "line", "traverse", "walk", "combine", "linerule", "graduated" };
+            HashSet<string> save = new() { "aim", "fire", "match", "lean", "ceiling", "line", "traverse", "walk", "combine", "linerule", "throwaway" };
             Tutorial tutorial = Fresh(save);
 
             //The streak on the Gallery's first level, when it lights; the budget one level on
@@ -327,7 +486,7 @@ namespace BS3D.Tests
         public void APressOfTheSwapCompletesItsCardAndRecordsItAsTaught()
         {
             LevelSet set = ShippedSet();
-            HashSet<string> save = new() { "aim", "fire", "match", "lean", "ceiling", "line", "traverse", "walk", "combine", "linerule", "graduated", "streak", "budget" };
+            HashSet<string> save = new() { "aim", "fire", "match", "lean", "ceiling", "line", "traverse", "walk", "combine", "linerule", "throwaway", "streak", "budget" };
             Tutorial tutorial = Fresh(save);
 
             //The Coil's first level, the first that grants a Swap since #705 - past the ladder's chapters
@@ -359,7 +518,7 @@ namespace BS3D.Tests
         public void AStreakThatNeverLightsFollowsThePlayerIntoTheNextLevelOfTheChapter()
         {
             LevelSet set = ShippedSet();
-            HashSet<string> save = new() { "aim", "fire", "match", "lean", "ceiling", "line", "traverse", "walk", "combine", "linerule", "graduated" };
+            HashSet<string> save = new() { "aim", "fire", "match", "lean", "ceiling", "line", "traverse", "walk", "combine", "linerule", "throwaway" };
             Tutorial tutorial = Fresh(save);
 
             Assert.Empty(Play(tutorial, set, 10));
@@ -392,7 +551,7 @@ namespace BS3D.Tests
             List<string> heart = Play(tutorial, set, 10, lightStreak: true);
 
             Assert.Equal(new[] { LINE_RULE, SEND_OFF }, heart);
-            Assert.Contains("graduated", save);
+            Assert.Contains("throwaway", save);
             Assert.DoesNotContain("streak", save);
 
             List<string> smiley = Play(tutorial, set, 11, lightStreak: true);

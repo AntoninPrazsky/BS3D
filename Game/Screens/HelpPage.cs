@@ -630,6 +630,9 @@ namespace BS3D.Screens
                 + "anything or not, which is the other reason a miss is expensive. Clearing from the bottom "
                 + "buys height; clearing from the top does not."));
             column.Widgets.Add(Paragraph(
+                "Even so, throwing a ball away is a fair move. When the ball in the gun has nowhere to score, fire it into "
+                + "empty space, or onto a ball of another colour. It costs a shot and your streak, not the level."));
+            column.Widgets.Add(Paragraph(
                 "From the fourth chapter you also have a brake: one press a level lifts the glass a step back up, "
                 + "which is time the ceiling took. It does nothing until the glass has stepped down."));
         }

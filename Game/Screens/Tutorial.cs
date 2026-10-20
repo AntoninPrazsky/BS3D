@@ -18,7 +18,8 @@ namespace BS3D.Screens
     /// opener carries only the three that make the game a game: aim, fire, three of a colour fall. Precise aim
     /// waits for the second level, walking the gun round for the fourth — One, the first level with a far side,
     /// since the campaign opens on three flat sheets played from the stand the gun is given (#603) — stepping
-    /// it in for the fifth, and the chapter ends on the line's rule and the send-off. A lesson the player did not get to — the level
+    /// it in for the fifth, and the chapter ends on the line's rule and its closing card, the "send-off" (since #936 the advice to throw a
+    /// ball away, on Amphora). A lesson the player did not get to — the level
     /// lost, the card timed out, the event never happened — follows them into the next level, and past its
     /// chapter into the next one (#666), until that chapter's send-off has been read; only then is what it still
     /// owed let go. <b>The score is the second chapter's
@@ -49,7 +50,7 @@ namespace BS3D.Screens
     /// #715): a lesson completed — the action done, or the informational card read out in full — is written there,
     /// and is not offered again as a lesson the player still owes (the deferral ladder skips it). But starting a
     /// level shows again the cards that level itself introduces (<see cref="OwnLevel"/>: Pennant's aim, fire and
-    /// match, Rainbow's lean and its glass and line, Amphora's send-off), whatever the save says, while the
+    /// match, Rainbow's lean and its glass and line, Amphora's way out), whatever the save says, while the
     /// settings row is on: the owner, "a player may want to go over it again". A replay writes nothing to the
     /// save, so <see cref="PlayerProgress.Lessons"/> stays what the player really completed. Once per entry into
     /// the level: a retry inside one run remembers through <see cref="_taughtThisRun"/>, which also carries the
@@ -82,7 +83,7 @@ namespace BS3D.Screens
     {
         internal enum Lesson
         {
-            Aim, Fire, Match, LeanIn, Ceiling, Line, Traverse, Walk, Combine, Streak, Budget, LineRule, Graduated, Swap,
+            Aim, Fire, Match, LeanIn, Ceiling, Line, Traverse, Walk, Combine, Streak, Budget, LineRule, ThrowAway, Swap,
 
             //The other two power-ups' cards, beside the Swap's (#705) - see Definition.Tool
             Brake, Cut,
@@ -138,12 +139,21 @@ namespace BS3D.Screens
             public bool Action;
 
             /// <summary>
-            /// The card is a <b>reward rather than a notice</b> (#459): it arrives wearing the praise's own
-            /// dress — the accent, the halo, the score's spring and the chime — instead of earning it. There is
-            /// exactly one, the send-off that closes the first chapter's ladder, and it is informational because there is
-            /// nothing left to ask the player to do.
+            /// The key an earlier build recorded this lesson under, or null (#936). A save that holds it counts as having
+            /// this lesson in it - the player was past the ladder's end when it was recorded, so nothing of the chapter is
+            /// owed on its account - but the lesson itself is new, so it is shown again on the level it belongs to, and
+            /// recorded under <see cref="Key"/> then.
             /// </summary>
-            public bool Celebrates;
+            public string LegacyKey;
+
+            /// <summary>
+            /// Also armed as a contextual card on the level it belongs to (#936), for <see cref="Trigger"/> to fire at the
+            /// moment it is for, once a level: the card is shown when the level opens, and shown again when the game sees the
+            /// player in the very spot it advises about. Armed only once the opening showing has been read and has rested
+            /// (<see cref="_repriseWaits"/>, <see cref="REPRISE_REST_SECONDS"/>), so a player never meets the same card twice
+            /// running.
+            /// </summary>
+            public bool Reprise;
 
             public string Glyph, PadGlyph;
             public string Caption, PadCaption;
@@ -304,15 +314,22 @@ namespace BS3D.Screens
             },
             new()
             {
-                //AND THE SEND-OFF (#459), which is the last card of the first chapter's ladder: the tutorial had no end before
-                //this, so a player was never told they had been taught everything — the cards simply stopped.
-                //It celebrates rather than informs (see Definition.Celebrates), because being told you are done
-                //is a reward and reads as one only if it is dressed as one. "The basics" and not "everything"
-                //since #666: the score's two lessons come after it, in the second chapter, and a send-off that
-                //said "everything" would be the one card that lied.
-                Lesson = Lesson.Graduated, Key = "graduated", FromLevel = -1, Celebrates = true,
-                Caption = "That’s the basics — you know how to play",
-                Detail = "On to the adventure!",
+                //THE WAY OUT OF AMPHORA (#936), the last card of the first chapter's ladder - the "send-off" the rules below
+                //still call it by. It was a send-off in words ("That's the basics - you know how to play", #459, a reward
+                //dressed as one) until the owner's playtest of 2026-10-19: on Amphora, the hardest level of the chapter, that
+                //line arrived two levels after the card it read as the tail of, said nothing new, and nothing on the level
+                //told a player whose cluster swings low what to DO about it. The way out is to throw a ball away - fire it
+                //into empty space, where it adds nothing to the cluster and costs the streak, not the level - and a
+                //newcomer holds on to every ball as if it had to count. So the closing card says that it is fine.
+                //Informational, and it asks for one thing in the plainest words (TutorialCopyTests). The score is not taught
+                //yet (#666), so the card names no multiplier: it says wasting a ball is fine and leaves the price to the
+                //Help page. Its first key, "graduated", is the LegacyKey: a save that holds it was sent off by the old
+                //card, owes the chapter nothing, and meets this one as Amphora's own the next time it enters the level.
+                //Reprise: shown again, once a level, when the net is on and the round in the bore has nowhere to score
+                //(GameplayScreen.UpdateLaserWarning) - the moment the card is about.
+                Lesson = Lesson.ThrowAway, Key = "throwaway", LegacyKey = "graduated", FromLevel = -1, Reprise = true,
+                Caption = "Fire a ball into empty space when stuck",
+                Detail = "Wasting a ball is fine",
             },
             new()
             {
@@ -430,8 +447,8 @@ namespace BS3D.Screens
         /// <param name="Glyph">The prompt font's glyphs, or null for none (a kind card's is the ball itself).</param>
         /// <param name="Caption">The big line; the glass lesson's with its cadence put in.</param>
         /// <param name="Detail">The small line, or null.</param>
-        /// <param name="Instructs">The card tells the player to <i>do</i> something: not the send-off, which is a reward,
-        /// and not a kind's card, which says what a ball is.</param>
+        /// <param name="Instructs">The card tells the player to <i>do</i> something: not a kind's card, which says what a
+        /// ball is.</param>
         internal readonly record struct StepCopy(string Key, int Step, bool Pad, string Glyph, string Caption, string Detail, bool Instructs);
 
         /// <summary>
@@ -443,7 +460,7 @@ namespace BS3D.Screens
         {
             foreach (Definition definition in DEFINITIONS)
             {
-                bool instructs = !definition.Celebrates && definition.Kind == null;
+                bool instructs = definition.Kind == null;
                 int step = 0;
 
                 for (Definition face = definition; face != null; face = face.Second, step++)
@@ -521,6 +538,10 @@ namespace BS3D.Screens
         private const float STEP_MIN_SECONDS = 1.2f;
         private const float STEP_BACK_SECONDS = 0.5f;
 
+        //How long a card that is also armed for its moment (Definition.Reprise, #936) rests after its opening showing before
+        //the moment may fire it: a player stuck just as the card is read out is not shown the same words again at once
+        private const float REPRISE_REST_SECONDS = 8f;
+
         private readonly Func<string, bool> _wasTaught;
         private readonly Action<string> _teach;
 
@@ -543,6 +564,11 @@ namespace BS3D.Screens
         private readonly List<Definition> _armed = new(DEFINITIONS.Length);
 
         private Definition _card;
+
+        //The card whose reprise waits for its opening showing to be read (#936, Definition.Reprise), or null; and, once it has
+        //been read, the seconds of play left before the reprise is armed (infinite while the opening card is unread)
+        private Definition _repriseWaits;
+        private float _repriseRest = float.PositiveInfinity;
         private Phase _phase;
         private float _presence;
         private float _suppress;
@@ -597,14 +623,7 @@ namespace BS3D.Screens
         /// shorter than the praise's hold (see <see cref="PRAISE_FLARE_SECONDS"/>).</summary>
         internal float PraiseHeat => _phase == Phase.Praising
             ? MathF.Max(0f, 1f - _praise / PRAISE_FLARE_SECONDS)
-            : Celebrating ? MathF.Max(0f, 1f - _age / PRAISE_FLARE_SECONDS) : 0f;
-
-        /// <summary>
-        /// This card arrives already wearing the praise's dress (#459) — the send-off that closes the first chapter's ladder.
-        /// The HUD gives its caption the accent and the halo, and the cue fires on the frame it appears rather
-        /// than on a frame the player earned, because there is nothing left here to earn.
-        /// </summary>
-        internal bool Celebrating => _card != null && _card.Celebrates;
+            : 0f;
 
         /// <summary>
         /// The praise word once the action has been done, or null. <b>It stands beside the instruction rather
@@ -632,6 +651,18 @@ namespace BS3D.Screens
         /// not a card until its event fires.
         /// </summary>
         internal bool CardStands => _card != null || _queue.Count > 0;
+
+        /// <summary>
+        /// Whether <paramref name="lesson"/> is armed on this level, waiting for <see cref="Trigger"/> (#936): the session asks
+        /// before it works out the moment, so a frame with nothing to fire pays for nothing.
+        /// </summary>
+        internal bool IsArmed(Lesson lesson)
+        {
+            for (int i = 0; i < _armed.Count; i++)
+                if (_armed[i].Lesson == lesson) return true;
+
+            return false;
+        }
 
         /// <summary>Whether the last input was the pad: what any prompt outside the cards asks to pick its glyph (#499).</summary>
         internal bool OnGamepad => _device == Device.Gamepad;
@@ -671,8 +702,8 @@ namespace BS3D.Screens
 
         /// <summary>
         /// True once per completed action or finished step, on the frame it happened — the session plays the chime and kicks
-        /// the praise word's spring off it (the whole card's, for the send-off and for a card turning to its second step,
-        /// which have no praise row), and the read clears it.
+        /// the praise word's spring off it (the whole card's, for a card turning to its second step, which has no praise
+        /// row), and the read clears it.
         /// </summary>
         internal bool TakePraiseCue()
         {
@@ -772,7 +803,7 @@ namespace BS3D.Screens
 
                 //A level's own cards come back on every entry into it (#715), the save notwithstanding - unless this
                 //attempt's run already went through them (a retry)
-                if (!_force && OwnLevel(lesson, chapter, levelInChapter, chapterLength) && _wasTaught(lesson.Key))
+                if (!_force && OwnLevel(lesson, chapter, levelInChapter, chapterLength) && InSave(lesson))
                     _replaying.Add(lesson.Key);
 
                 if (Taught(lesson)) continue;
@@ -785,7 +816,29 @@ namespace BS3D.Screens
 
             if (!_demo) NothingAfterTheSendOff();
 
+            //After the closing card's rules, which would otherwise take an armed ladder card for a contextual one still owed
+            //and queue it ahead of itself: a lesson that is also armed for its moment (#936) keeps that on its own level
+            if (!_demo) ArmReprises(chapter, levelInChapter, chapterLength);
+
             _gap = FIRST_CARD_DELAY;
+        }
+
+        /// <summary>
+        /// Arms the lesson that is also a contextual card for its moment (<see cref="Definition.Reprise"/>, #936) on the level it
+        /// belongs to: at once when it is not about to be shown as the level opens (a retry that has been through it), and
+        /// when the opening showing has been read and has rested (<see cref="Retreat"/>, <see cref="Update"/>) when it is, so
+        /// the same card is never met twice running. Every entry into the level arms it again, as the level's own cards are
+        /// shown again (#715).
+        /// </summary>
+        private void ArmReprises(int chapter, int levelInChapter, int chapterLength)
+        {
+            foreach (Definition lesson in DEFINITIONS)
+            {
+                if (!lesson.Reprise || !OwnLevel(lesson, chapter, levelInChapter, chapterLength)) continue;
+
+                if (_queue.Contains(lesson)) _repriseWaits = lesson;
+                else _armed.Add(lesson);
+            }
         }
 
         /// <summary>
@@ -875,7 +928,7 @@ namespace BS3D.Screens
                 : Math.Max(0, chapterLength + lesson.FromLevel);
 
         /// <summary>
-        /// Keeps the send-off (<see cref="Lesson.Graduated"/>) the last card of its chapter's ladder (#605). The
+        /// Keeps the send-off (<see cref="Lesson.ThrowAway"/>) the last card of its chapter's ladder (#605). The
         /// owner was told "That's everything — you know the game" on Amphora and then "The glass steps down every 7
         /// shots": a contextual lesson still armed fired when its event came, after the send-off. So on the level
         /// that sends the player off, the contextual lessons still untaught are queued as plain cards <b>ahead</b> of
@@ -889,7 +942,7 @@ namespace BS3D.Screens
         {
             Definition sendOffLesson = null;
             foreach (Definition lesson in DEFINITIONS)
-                if (lesson.Lesson == Lesson.Graduated) sendOffLesson = lesson;
+                if (lesson.Lesson == Lesson.ThrowAway) sendOffLesson = lesson;
 
             if (sendOffLesson == null) return;
 
@@ -901,7 +954,7 @@ namespace BS3D.Screens
             //entering it (#715) are not owed, they are this level's, and they stay. Asked of the save and the run, not
             //of Taught: on Amphora the send-off is itself a replay, and read as untaught it would bring back every
             //lesson of the chapter still missing from the save, queued ahead of it (the review of #715)
-            if (_taughtThisRun.Contains(sendOffLesson.Key) || (!_force && _wasTaught(sendOffLesson.Key)))
+            if (_taughtThisRun.Contains(sendOffLesson.Key) || (!_force && InSave(sendOffLesson)))
             {
                 for (int i = _queue.Count - 1; i >= 0; i--)
                     if (OnLadder(_queue[i], closes) && !_replaying.Contains(_queue[i].Key)) _queue.RemoveAt(i);
@@ -912,7 +965,7 @@ namespace BS3D.Screens
 
             int sendOff = -1;
             for (int i = 0; i < _queue.Count; i++)
-                if (_queue[i].Lesson == Lesson.Graduated) { sendOff = i; break; }
+                if (_queue[i].Lesson == Lesson.ThrowAway) { sendOff = i; break; }
 
             if (sendOff < 0) return;
 
@@ -967,6 +1020,8 @@ namespace BS3D.Screens
             _praised = false;
             _hasLevel = false;
             _ceilingCaption = null;
+            _repriseWaits = null;
+            _repriseRest = float.PositiveInfinity;
 
             _queue.Clear();
             _armed.Clear();
@@ -975,9 +1030,14 @@ namespace BS3D.Screens
 
         //A replayed card (#715) counts as untaught for this level, so the send-off's rules treat it as the card it is
         private bool Taught(Definition lesson) =>
-            _taughtThisRun.Contains(lesson.Key) || (!_force && !_replaying.Contains(lesson.Key) && _wasTaught(lesson.Key));
+            _taughtThisRun.Contains(lesson.Key) || (!_force && !_replaying.Contains(lesson.Key) && InSave(lesson));
 
-        //Recorded once, and never again for a lesson the save already holds: a replay writes nothing (#715)
+        //The save holds the lesson - under its key, or under the one an earlier build recorded it by (#936)
+        private bool InSave(Definition lesson) =>
+            _wasTaught(lesson.Key) || (lesson.LegacyKey != null && _wasTaught(lesson.LegacyKey));
+
+        //Recorded once, and never again for a lesson the save already holds: a replay writes nothing (#715). Held under its
+        //own key: a lesson the save has only under its legacy key is written under the new one when it is read (#936)
         private void Teach(Definition lesson)
         {
             if (!_taughtThisRun.Add(lesson.Key) || _force || _wasTaught(lesson.Key)) return;
@@ -1009,6 +1069,13 @@ namespace BS3D.Screens
 
             //The hiding blend runs whatever else is held, or a takeover that began mid-card would cut it
             _suppress = MoveTowards(_suppress, takeoverEngaged ? 1f : 0f, elapsed / SUPPRESS_SECONDS);
+
+            //The rest of a card that is also armed for its moment (#936): once it is over, the moment may fire the card
+            if (_repriseWaits != null && _repriseRest < float.PositiveInfinity && (_repriseRest -= elapsed) <= 0f)
+            {
+                _armed.Add(_repriseWaits);
+                _repriseWaits = null;
+            }
 
             //A decided level drops the card outright (#700): no queue, no arrival, no praise finishing and no fade for a
             //takeover to freeze and hand back. A lesson already done is recorded (Complete records it as it praises); one
@@ -1117,9 +1184,6 @@ namespace BS3D.Screens
         private void Show(Definition lesson)
         {
             _card = lesson;
-
-            //A celebrating card is its own praise (#459): the chime and the score's spring go off as it lands.
-            if (lesson.Celebrates) _praiseCue = true;
             _phase = Phase.Arriving;
             _presence = 0f;
             _age = 0f;
@@ -1138,6 +1202,10 @@ namespace BS3D.Screens
         {
             if (_card == null) return;
             if (taught) Teach(_card);
+
+            //The opening showing of a card that is also armed for its moment has been read: the moment may fire it once the
+            //card has rested (Definition.Reprise, REPRISE_REST_SECONDS)
+            if (_repriseWaits == _card) _repriseRest = REPRISE_REST_SECONDS;
 
             _phase = Phase.Leaving;
         }
@@ -1330,6 +1398,14 @@ namespace BS3D.Screens
                     _armed.RemoveAt(i);
                 }
         }
+
+        /// <summary>
+        /// Whether the throw-away lesson's moment has come (#936): the floor alarm's net is on - the cluster is within
+        /// <c>LASER_WARN_STEPS</c> ceiling steps of the line - and the round in the bore has nowhere to score
+        /// (<c>MatchReach</c>'s certain "none", so the card never says "throw it away" while a match is to be had; a wildcard
+        /// or a cutter always counts as able). Pure, over the two facts the session reads, so the tests hold it without one.
+        /// </summary>
+        internal static bool ThrowAwayIsDue(bool netOn, bool boreCanScore) => netOn && !boreCanScore;
 
         /// <summary>
         /// A contextual lesson's event has happened. Ignored unless the lesson is armed for this level (so it

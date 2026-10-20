@@ -110,7 +110,7 @@ namespace BS3D.Tests
         [Fact]
         public void ACardWithoutAPraiseRowKeepsItsKick()
         {
-            //The send-off (#459) arrives celebrating and is kicked on the frame it lands, with no praise row to
+            //A card turning to its second step (#930) is kicked on the frame it turns, with no praise row to
             //carry the spring instead: the whole card swells about its own centre, as it always has
             Vector2 caption = new(900f, 62f), detail = new(600f, 36f);
             TutorialCardLayout rest = Lay(Vector2.Zero, caption, detail, Vector2.Zero, kick: 1f);
