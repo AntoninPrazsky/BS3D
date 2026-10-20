@@ -428,6 +428,44 @@ float GrooveSun(float2 p, float y)
     return lerp(1.0, smoothstep(-0.12, 0.12, y + rise - lip), BrookPresence(d) * step(0.0, run));
 }
 
+//THE MOUTH (#970): the brook runs into the pond as one water. The owner saw "a sharp straight line in the water separating
+//the brook from the pond ... here it must connect smoothly": the pond's water took its depth off the crater alone where the
+//brook's channel runs on under it, so its cover fell from nearly whole to the Fresnel's at the shore, and its ripples and its
+//sun stepped there too. The two water meshes still meet at the shore, each clipping the other's side, but nothing the water
+//is shaded by depends on which drew a pixel: the depth is the deeper of the brook's bed and the crater wherever both are, the
+//brook's current slackens over its last MOUTH_UP units and carries MOUTH_INTO units into the pond in a tongue that fans out
+//(MOUTH_SPREAD a unit in) and dies away into the pond's calm, and the swale's shade on the water and its banks lifts before
+//the shore, where the swale's bank opens into the crater's. MeadowCarve.WaterShading is the CPU copy, and
+//MeadowCarveTests.TheWaterIsOneSurfaceThroughTheMouth holds it continuous round the mouth.
+float BrookMouth;                                         //MeadowCarve.BrookMouth: the distance from the arena at which the brook's centreline crosses the shore
+static const float MOUTH_UP = 3.0;                        //MeadowCarve.MOUTH_UP, _INTO, _SPREAD, _SOFT
+static const float MOUTH_INTO = 7.0;
+static const float MOUTH_SPREAD = 0.5;
+static const float MOUTH_SOFT = 2.0;
+static const float MOUTH_CURRENT_HALF = 2.5;              //MeadowCarve.MOUTH_CURRENT_HALF: the brook's water mesh's half-width
+
+//MeadowPath.PondShore: how far p stands outside the pond's shore, negative on the water, and its bearing round the centre
+float PondShore(float2 p, out float a)
+{
+    float2 q = p - PondCentre;
+    a = atan2(q.y, q.x);
+    return length(q) - PondRadius * PondOutline(a);
+}
+
+//MeadowCarve.MouthCurrent: how much of the brook's current there is d from the arena, lateral off its line
+float MouthCurrent(float d, float lateral)
+{
+    float fan = MOUTH_CURRENT_HALF + MOUTH_SPREAD * max(BrookMouth - d, 0.0);
+    return smoothstep(BrookMouth - MOUTH_INTO, BrookMouth + MOUTH_UP, d) * (1.0 - smoothstep(fan, fan + MOUTH_SOFT, abs(lateral)));
+}
+
+//GrooveSun as the mouth leaves it: all of the swale's shade from MOUTH_UP outside the pond's shore out (bit for bit), none at
+//the shore (MeadowCarve.GrooveShadeShare)
+float MouthGrooveSun(float groove, float shore)
+{
+    return groove + (1.0 - groove) * (1.0 - smoothstep(0.0, MOUTH_UP, shore));
+}
+
 struct MeadowVertexInput
 {
     float4 Position : POSITION0;
@@ -546,7 +584,15 @@ CarvedVertexOutput MeadowCarvedVS(PatchVertexInput input)
     output.WorldPosition = worldPosition;
     output.WorldNormal = normal;
     output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
-    output.Carve = float4(max(field - h, 0.0) * weight, water - h, brook > 0.5 ? GrooveSun(xz, h) : 1.0, brook);
+    //The swale's shade on the sun, lifting at the mouth as the water's does (#970)
+    float sun = 1.0;
+    [branch]
+    if (brook > 0.5)
+    {
+        float bearing;
+        sun = MouthGrooveSun(GrooveSun(xz, h), PondShore(xz, bearing));
+    }
+    output.Carve = float4(max(field - h, 0.0) * weight, water - h, sun, brook);
 
     return output;
 }
@@ -583,7 +629,8 @@ static const float SMALL_FLOWER_DENSITY = 2.0;
 //THE WATER'S SURFACE (#609): mostly the sky it mirrors - more of it towards grazing, the Fresnel every still water has -
 //broken by ripples and glinting where they face the sun. DOWNSTREAM IS TOWARDS THE ARENA since the pond (#609's third
 //round): the brook comes down off the hills into the pond in the clearing, where until then its ripples ran away from the
-//arena - uphill. The pond (still = 1) lies still but for the wind's cat's-paws. Answers the reflection with its glint,
+//arena - uphill. The pond (still = 1) lies still but for the wind's cat's-paws, and at the mouth the one eases into the
+//other (#970: the brook's current carried into the pond). Answers the reflection with its glint,
 //and the Fresnel; what shows through the rest is the caller's - the painted brook's dark bed, or the cut's own (#892).
 float3 WaterReflection(float3 worldPosition, float3 toCamera, float still, float sunlight, out float fresnel)
 {
@@ -1158,24 +1205,55 @@ float4 MeadowWaterPS(WaterVertexOutput input) : COLOR
     float footprint = length(fwidth(worldPosition.xz));
 
     //The shore: the brook's water gives way to the pond's there, so the two never lie one over the other at the mouth
-    float2 q = worldPosition.xz - PondCentre;
-    float a = atan2(q.y, q.x);
-    float e = length(q) - PondRadius * PondOutline(a);
+    float a;
+    float e = PondShore(worldPosition.xz, a);
     clip(pond > 0.5 ? -e : e);
 
-    //How deep it is, off the cut's own profile: the bed is drawn under it, and this is how much of the bed shows
-    float depth = pond > 0.5 ? -PondCrater(e, PondBankWidth(a))
-        : -BrookBed(abs(BrookLateral(worldPosition.xz)) - BrookWaterHalf(length(worldPosition.xz)), BROOK_MARGIN_MAX);
+    //How deep it is, off the cut's own profile: the bed is drawn under it, and this is how much of the bed shows. And how
+    //still it is. Both as the ground and the current are at this point, whichever mesh drew it (#970, THE MOUTH): near the
+    //mouth the pond's water lies over the brook's channel where that is the deeper, and the brook's over the crater's
+    float d = length(worldPosition.xz);
+    float still = pond, current = 0.0;
+    float depth;
+    float grooveSun = input.Water.z;
+    [branch]
+    if (pond > 0.5)
+    {
+        depth = -PondCrater(e, PondBankWidth(a));
+        [branch]
+        if (d > BrookMouth - MOUTH_INTO)
+        {
+            float lateral = BrookLateral(worldPosition.xz);
+            current = MouthCurrent(d, lateral);
+            still = 1.0 - current;
+            float s = abs(lateral) - BrookWaterHalf(d);
+            [flatten]
+            if (s < 0.0)
+                depth = max(depth, -BrookBed(s, BROOK_MARGIN_MAX));
+        }
+    }
+    else
+    {
+        float lateral = BrookLateral(worldPosition.xz);
+        depth = -BrookBed(abs(lateral) - BrookWaterHalf(d), BROOK_MARGIN_MAX);
+        [branch]
+        if (d < BrookMouth + MOUTH_UP)
+        {
+            still = 1.0 - MouthCurrent(d, lateral);
+            depth = max(depth, worldPosition.y - (PondLevel - POND_DROP) - PondCrater(e, PondBankWidth(a)));
+        }
+        grooveSun = MouthGrooveSun(grooveSun, e);
+    }
     depth = max(depth, 0.0);
 
-    float sunlight = CloudSunlight(worldPosition, SunDirection) * input.Water.z;
+    float sunlight = CloudSunlight(worldPosition, SunDirection) * grooveSun;
     [branch]
     if (ShadowStrength > 0.0)
         sunlight *= SunShadow(worldPosition, float3(0.0, 1.0, 0.0), SunDirection);
     float3 light = ZenithColor * AmbientStrength + SunColor * 0.4 * sunlight;
 
     float fresnel;
-    float3 reflection = WaterReflection(worldPosition, toCamera, pond, sunlight, fresnel);
+    float3 reflection = WaterReflection(worldPosition, toCamera, still, sunlight, fresnel);
 
     //Premultiplied, as BlendState.AlphaBlend takes it: the reflection and the water's own dark body are the colour, and
     //alpha is how much of the bed they cover - the more, the deeper the water and the flatter it is seen
@@ -1187,7 +1265,7 @@ float4 MeadowWaterPS(WaterVertexOutput input) : COLOR
     if (pond > 0.5)
     {
         float3 padColor;
-        float pad = LilyPad(worldPosition.xz, saturate(-e / POND_SHELF), footprint, padColor);
+        float pad = LilyPad(worldPosition.xz, saturate(-e / POND_SHELF) * (1.0 - current), footprint, padColor);
         color = lerp(color, padColor * (ZenithColor * AmbientStrength + SunColor * saturate(SunDirection.y) * sunlight), pad);
         cover = lerp(cover, 1.0, pad);
     }

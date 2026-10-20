@@ -290,6 +290,53 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void TheWaterIsOneSurfaceThroughTheMouth()
+        {
+            //#970, the owner: "where the brook joins the pond there is a sharp straight line in the water separating the brook
+            //from the pond". The two water meshes meet at the shore, each clipping the other's side, so every input the water
+            //is shaded by has to be continuous across it, and across the current's fan in the pond: over every pair of
+            //neighbouring points within `reach` of the mouth that some water mesh draws, none may step by more than its slope
+            //allows. (Not as far as the pond's centre, 12.9 in: the crater's bearing is undefined there, and its depth, over a
+            //unit, comes to a point - water nothing shows through.)
+            float mouth = MeadowCarve.BrookMouth(Config);
+            (float mx, float mz) = MeadowPath.BrookPoint(mouth, 0f, Config);
+            const float step = 0.05f, reach = 10f;
+            int n = (int)(2f * reach / step) + 1;
+            var water = new (float Still, float Depth, float GrooveShade)?[n, n];
+            for (int i = 0; i < n; i++)
+                for (int j = 0; j < n; j++)
+                {
+                    float x = mx - reach + i * step, z = mz - reach + j * step;
+                    if ((x - mx) * (x - mx) + (z - mz) * (z - mz) > reach * reach) continue;
+                    bool pond = MeadowPath.PondShore(x, z, Config) < 0f;
+                    bool brook = !pond && MathF.Abs(MeadowPath.BrookLateral(x, z, Config)) <= MeadowPatchGeometry.WATER_HALF;
+                    if (pond || brook) water[i, j] = MeadowCarve.WaterShading(x, z, mouth, Config);
+                }
+
+            float still = 0f, depth = 0f, shade = 0f;
+            string stillAt = "", depthAt = "", shadeAt = "";
+            for (int i = 0; i < n; i++)
+                for (int j = 0; j < n; j++)
+                {
+                    if (water[i, j] is not { } a) continue;
+                    foreach ((int di, int dj) in new[] { (1, 0), (0, 1) })
+                    {
+                        if (i + di >= n || j + dj >= n || water[i + di, j + dj] is not { } b) continue;
+                        string at = $"{mx - reach + i * step:F2}, {mz - reach + j * step:F2}";
+                        if (MathF.Abs(a.Still - b.Still) > still) { still = MathF.Abs(a.Still - b.Still); stillAt = at; }
+                        if (MathF.Abs(a.Depth - b.Depth) > depth) { depth = MathF.Abs(a.Depth - b.Depth); depthAt = at; }
+                        if (MathF.Abs(a.GrooveShade - b.GrooveShade) > shade) { shade = MathF.Abs(a.GrooveShade - b.GrooveShade); shadeAt = at; }
+                    }
+                }
+
+            //The slopes: the stillness and the shade ease over units, the depth follows the bed's own shelving (the brook's
+            //shallows, 0.55 over 0.8, are the steepest)
+            Assert.True(still <= 1f * step, $"the water's stillness steps by {still:F3} between neighbours {step} apart at {stillAt}");
+            Assert.True(depth <= 1.5f * step, $"the water's depth over the bed steps by {depth:F3} between neighbours {step} apart at {depthAt}");
+            Assert.True(shade <= 1f * step, $"the swale's shade on the water steps by {shade:F3} between neighbours {step} apart at {shadeAt}");
+        }
+
+        [Fact]
         public void TheWaterLiesBelowTheFieldAndOverTheBed()
         {
             //A groove and a crater with water in them: the water under the field, the bed under the water
@@ -355,7 +402,8 @@ namespace BS3D.Tests
                 "BROOK_CARVE_HALF", "BROOK_HOLE_HALF", "BROOK_HOLE_END", "BROOK_CARVE_END", "BROOK_CARVE_FADE", "POND_CARVE_RADIUS",
                 "POND_HOLE_RADIUS", "POND_DROP", "BROOK_DROP", "CARVE_ROUND", "POND_LIP", "BROOK_CARVE_BED", "BROOK_SHALLOWS",
                 "BROOK_MARGIN_RISE", "BROOK_MARGIN_MIN", "BROOK_MARGIN_MAX", "BROOK_STEP", "BROOK_STEP_RUN", "BROOK_BANK_WIDTH",
-                "BROOK_BANK_PER_RISE", "BROOK_BANK_MAX", "BROOK_LEVEE",
+                "BROOK_BANK_PER_RISE", "BROOK_BANK_MAX", "BROOK_LEVEE", "MOUTH_UP", "MOUTH_INTO", "MOUTH_SPREAD", "MOUTH_SOFT",
+                "MOUTH_CURRENT_HALF",
             };
             var seen = new HashSet<string>();
             foreach (Match m in Regex.Matches(source, @"^static const float (\w+)\s*=\s*([-0-9.eE+]+);", RegexOptions.Multiline))
