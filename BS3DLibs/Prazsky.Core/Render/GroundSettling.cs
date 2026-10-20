@@ -46,6 +46,25 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// The height to stand a solid with a flat underside at when it perches on something rather than sinking into the ground: the
+        /// highest point of the support under its tipped rim, less <paramref name="embed"/>, so it sits on the top of what carries it
+        /// and its edge overhangs where the support falls away. <paramref name="support"/> is the height of what it stands on at a spot,
+        /// or <see cref="float.NegativeInfinity"/> where there is none (the rim carried past the edge of a rock). <see cref="float.NaN"/>
+        /// when no point of the rim and its centre is supported: the caller rests it on the ground instead.
+        /// </summary>
+        public static float PerchHeight(Func<float, float, float> support, float x, float z, float rimRadius, Matrix orientation, float embed)
+        {
+            float perch = support(x, z);
+            for (int k = 0; k < RIM_SAMPLES; k++)
+            {
+                float around = MathHelper.TwoPi * k / RIM_SAMPLES;
+                Vector3 rim = Vector3.TransformNormal(new Vector3(MathF.Cos(around) * rimRadius, 0f, MathF.Sin(around) * rimRadius), orientation);
+                perch = MathF.Max(perch, support(x + rim.X, z + rim.Z) - rim.Y);
+            }
+            return float.IsNegativeInfinity(perch) ? float.NaN : perch - embed;
+        }
+
+        /// <summary>
         /// Lays a stick that lies along its own +X (a fallen log) on the ground: the pitch to turn it about its Z by (positive
         /// raises +X; applied before the yaw) and the height of its pivot. <paramref name="yaw"/> is the
         /// <c>Matrix.CreateRotationY</c> angle it is turned by afterwards, which sends +X to <c>(cos yaw, 0, -sin yaw)</c>.

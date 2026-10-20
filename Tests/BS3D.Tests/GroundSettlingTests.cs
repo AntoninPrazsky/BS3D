@@ -74,6 +74,42 @@ namespace BS3D.Tests
             }
         }
 
+        /// <summary>A rock on a rock: a flat top 10 up and 5 wide, nothing beyond it.</summary>
+        private static float Plinth(float x, float z) => MathF.Sqrt(x * x + z * z) < 5f ? 10f : float.NegativeInfinity;
+
+        [Fact]
+        public void ARockPerchesOnTheHighestSupportUnderItsTippedRimAndOverhangsWhereThereIsNone()
+        {
+            //Wider than the plinth: the rim (3.5 from a spot 3 off the middle) reaches past its edge, where there is no support
+            Matrix flat = Matrix.CreateScale(1f);
+            float y = GroundSettling.PerchHeight(Plinth, 3f, 0f, 3.5f, flat, 0.6f);
+            Assert.Equal(10f - 0.6f, y, 3);
+
+            //Tipped, the high side of the rim stands over the plinth and the rock perches on the highest point under it
+            Matrix tipped = Matrix.CreateFromAxisAngle(Vector3.UnitZ, 0.3f);
+            float perched = GroundSettling.PerchHeight(Plinth, 0f, 0f, 2f, tipped, 0f);
+            float lowestRim = float.MinValue;
+            for (int k = 0; k < 64; k++)
+            {
+                float a = MathHelper.TwoPi * k / 64;
+                Vector3 p = Vector3.TransformNormal(new Vector3(MathF.Cos(a) * 2f, 0f, MathF.Sin(a) * 2f), tipped);
+                lowestRim = MathF.Max(lowestRim, 10f - p.Y);
+            }
+            Assert.True(perched >= lowestRim - 0.05f, $"perched at {perched:0.000}, a rim point of the tipped rock would stand in the plinth under {lowestRim:0.000}");
+
+            //Nothing under it at all: the caller rests it on the ground instead
+            Assert.True(float.IsNaN(GroundSettling.PerchHeight(Plinth, 30f, 0f, 2f, flat, 0f)));
+        }
+
+        /// <summary>The fault the first cut of the shoulder rocks had: rested with the ground rule on a rock they overhang, they sink all the way to the ground the overhang reaches.</summary>
+        [Fact]
+        public void RestingARockThatOverhangsItsSupportSinksItToTheGround()
+        {
+            Func<float, float, float> terrainAndPlinth = (x, z) => MathF.Max(0f, Plinth(x, z));
+            float rested = GroundSettling.RestHeight(terrainAndPlinth, 3f, 0f, 3.5f, Matrix.Identity, 0.6f);
+            Assert.True(rested < 0f, $"rested at {rested:0.0}: it sank to the ground under the overhang, where the stack was wanted");
+        }
+
         /// <summary>The underside of a log, as a straight tapered stick laid by the pivot's line.</summary>
         private static float WorstFloat(Func<float, float, float> ground, float x, float z, float yaw, float length, float underside, float pitch, float y, out float worstBuried)
         {
