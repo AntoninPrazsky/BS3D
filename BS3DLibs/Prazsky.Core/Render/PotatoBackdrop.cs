@@ -354,7 +354,7 @@ namespace Prazsky.Core.Render
                 SceneKind.Volcano => Volcano(graphicsDevice, potatoEffect, holeRadius, seedOffset),
                 SceneKind.City when cityConfig != null => CityOf(graphicsDevice, potatoEffect, cityConfig, neon: false),
                 SceneKind.NeonCity when cityConfig != null => CityOf(graphicsDevice, potatoEffect, cityConfig, neon: true),
-                SceneKind.Cavern => Cavern(graphicsDevice, potatoEffect),
+                SceneKind.Cavern => Cavern(graphicsDevice, potatoEffect, seedOffset),
                 SceneKind.Grid => Grid(graphicsDevice, potatoEffect, holeRadius, seedOffset),
                 SceneKind.Circus => BigTop(graphicsDevice, potatoEffect, holeRadius),
                 SceneKind.Space => Space(graphicsDevice, potatoEffect),
@@ -561,69 +561,54 @@ namespace Prazsky.Core.Render
             return backdrop;
         }
 
-        private const int CAVE_SEGMENTS = 64, CRYSTAL_CLUSTERS = 8, CRYSTALS_PER_CLUSTER = 7;
-
         /// <summary>
-        /// The cavern (#829): the desktop's is one marched full-screen pass (<c>Cavern.fx</c>), a noise-carved cylinder
-        /// under a ceiling, the river as a plane and eight crystal clusters on the wall. Here the cylinder and the
-        /// ceiling as a shell in the rock's colour, the river as a plane with a little of its glow, and each cluster as
-        /// six-sided prisms tapering to a point, leaning out of the wall in a nearly black casing and radiating the
-        /// cluster's colour, at <c>CrystalCenter</c>'s places (the shader's formula, as
-        /// <c>CavernBackdrop.CrystalCenter</c> mirrors it).
+        /// The cavern (#829, rebuilt with the desktop's in #958): the same hall, from the same <see cref="CavernChamber"/> on
+        /// the launch's seed, at <see cref="CavernGeometry.Detail.Potato"/>: the shell and the lake's bed as one coarse mesh in
+        /// the rock's colour, the lake as a plane with a little of its glow, the columns and the longest stalactites in the
+        /// calcite's, and every crystal cluster's prisms in a nearly black casing radiating the cluster's colour. No mirror,
+        /// no glowworms, no shafts: those are the desktop's pixels.
         /// </summary>
-        private static PotatoBackdrop Cavern(GraphicsDevice graphicsDevice, Effect potatoEffect)
+        private static PotatoBackdrop Cavern(GraphicsDevice graphicsDevice, Effect potatoEffect, int seedOffset)
         {
+            //No glowworms here, and they are placed last off the seed, so leaving them out moves nothing else
             var config = new CavernSceneConfig();
-            float water = config.Water.LevelY, ceiling = config.Rock.CeilingY, radius = config.Rock.CaveRadius;
+            config.Air.GlowwormCount = 0;
+            var chamber = new CavernChamber(config, seedOffset);
+            CavernGeometry.Detail detail = CavernGeometry.Detail.Potato;
 
             var backdrop = new PotatoBackdrop(graphicsDevice);
-            //The rock in the desktop's colour pulled a third towards its mineral veins (the owner's eye: the cave was brown;
-            //the desktop's walls are veined teal and lit by the crystals), under its own cool rig
-            Vector3 rock = Vector3.Lerp(config.Rock.RockColor.ToVector3(), config.Rock.VeinColor.ToVector3(), 0.35f) * 0.6f;
-            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoShellMesh(graphicsDevice, radius, radius, water - 2f, ceiling, CAVE_SEGMENTS)),
-                new[] { new ModelInstance(Matrix.Identity, OPEN) }, rock, null, "cave");
-            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoTerrainMesh(graphicsDevice, 2, radius, 0f, (x, z) => water)),
-                new[] { new ModelInstance(Matrix.Identity, OPEN) }, config.Water.DeepColor.ToVector3(), config.Water.GlowColor.ToVector3() * 0.25f, "river");
+            var one = new[] { new ModelInstance(Matrix.Identity, OPEN) };
 
-            //A crystal is a six-sided prism tapering to a point, closed, seen from outside (the owner's eye: leaning boxes
-            //did not read as crystals)
-            PotatoShellMesh prism = backdrop.Own(new PotatoShellMesh(graphicsDevice, 0.5f, 0.12f, 0f, 1f, 6, closeTop: true, inside: false));
-            for (int k = 0; k < CRYSTAL_CLUSTERS; k++)
+            //The rock a third of the way to the lake's teal (the desktop's walls take the clusters' and the lake's light; the
+            //Pi's only the rig), dark under the cave's own cool rig
+            Vector3 rock = Vector3.Lerp(config.Rock.RockColor.ToVector3(), config.Water.GlowColor.ToVector3() * 2f, 0.3f);
+            (VertexPositionNormalTexture[] rockVertices, int[] rockIndices) = CavernGeometry.BuildRock(chamber, detail);
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new CavernProceduralMesh(graphicsDevice, rockVertices, rockIndices)),
+                one, rock, null, "hall");
+
+            float reach = 0f;
+            for (int k = 0; k < 72; k++)
             {
-                //Cavern.fx's CrystalCenter(k): on the wall at nearly the full radius, at a golden-angle bearing, staggered in height
-                float angle = k * 2.39996f + 0.7f;
-                Vector3 centre = new(MathF.Cos(angle) * radius * 0.965f, water + 6f + (k * 37f) % 70f, MathF.Sin(angle) * radius * 0.965f);
-                Vector3 inward = Vector3.Normalize(new Vector3(-centre.X, 0f, -centre.Z));
-                Vector3 colour = Vector3.Lerp(config.Crystals.ColorA.ToVector3(), config.Crystals.ColorB.ToVector3(), ShaderMath.Frac(k * 0.381f));
+                float bearing = k * MathHelper.TwoPi / 72f;
+                reach = MathF.Max(reach, chamber.WallAtWater(MathF.Cos(bearing), MathF.Sin(bearing)));
+            }
+            float water = chamber.WaterY;
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoTerrainMesh(graphicsDevice, 2, reach + 30f, 0f, (x, z) => water)),
+                one, config.Water.DeepColor.ToVector3(), config.Water.GlowColor.ToVector3() * 0.5f, "lake");
 
-                var rng = new Random(1131 + k);
-                var spikes = new ModelInstance[CRYSTALS_PER_CLUSTER];
-                for (int j = 0; j < spikes.Length; j++)
-                {
-                    //A spike grows out of the wall, leaning off the inward line by its own angle, a few units from its
-                    //neighbours; bigger than the desktop's growths, since a cluster stands 230 units from the gun. The
-                    //first stands tallest and straightest, the rest lean out round it
-                    bool main = j == 0;
-                    float height = main ? 34f : MathHelper.Lerp(14f, 26f, (float)rng.NextDouble());
-                    float width = main ? 9f : MathHelper.Lerp(4f, 7f, (float)rng.NextDouble());
-                    Vector3 up = Vector3.Normalize(Vector3.Lerp(Vector3.Up, inward, main ? 0.35f : MathHelper.Lerp(0.25f, 0.8f, (float)rng.NextDouble()))
-                        + (main ? Vector3.Zero : new Vector3((float)rng.NextDouble() - 0.5f, 0f, (float)rng.NextDouble() - 0.5f) * 0.6f));
-                    Vector3 right = Vector3.Normalize(Vector3.Cross(up, MathF.Abs(up.Y) > 0.9f ? Vector3.Right : Vector3.Up));
-                    Vector3 backward = Vector3.Cross(right, up);
-                    Vector3 foot = centre + (main ? Vector3.Zero : new Vector3((float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f) * 9f);
+            (VertexPositionNormalTexture[] formationVertices, int[] formationIndices) = CavernGeometry.BuildFormations(chamber, detail);
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new CavernProceduralMesh(graphicsDevice, formationVertices, formationIndices)),
+                one, config.Rock.CalciteColor.ToVector3() * 0.3f, null, "formations");
 
-                    Matrix world = Matrix.CreateScale(width, height, width);
-                    Matrix orient = Matrix.Identity;
-                    orient.Right = right;
-                    orient.Up = up;
-                    orient.Backward = backward;
-                    orient.Translation = foot - up * (height * 0.15f);
-                    spikes[j] = new ModelInstance(world * orient, OPEN);
-                }
-
-                //The glow under one in linear and the casing nearly black: a casing a quarter of the colour took the key light and
-                //the prisms were pale pink; a crystal here is its own light
-                backdrop.AddPiece(graphicsDevice, potatoEffect, prism, spikes, colour * 0.06f, Vector3.Clamp(colour * 0.7f, Vector3.Zero, Vector3.One), $"crystals {k}");
+            //A cluster's prisms as one mesh in its colour; the glow under one in linear and the casing nearly black (a casing
+            //a quarter of the colour took the key light and the prisms were pale pink; a crystal here is its own light)
+            for (int k = 0; k < chamber.Clusters.Count; k++)
+            {
+                CavernCluster cluster = chamber.Clusters[k];
+                Vector3 colour = Vector3.Lerp(config.Crystals.ColorA.ToVector3(), config.Crystals.ColorB.ToVector3(), cluster.Hue);
+                (VertexPositionNormalTexture[] v, int[] i) = CavernGeometry.BuildClusterPlain(cluster, k);
+                backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new CavernProceduralMesh(graphicsDevice, v, i)), one,
+                    colour * 0.06f, Vector3.Clamp(colour * 0.7f, Vector3.Zero, Vector3.One), $"crystals {k}");
             }
 
             return backdrop;

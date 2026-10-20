@@ -629,8 +629,8 @@ namespace Prazsky.Core.Render
             //over the black basalt, half the surface, so the block reads as standing in the fallout it stands in.
             SceneKind.Volcano => new(new Vector3(0.26f, 0.036f, 0.004f), new Vector3(0.16f, 0.022f, 0.002f), 1.5f,
                 new Vector3(0.44f, 0.43f, 0.41f), 0.5f),
-            //Mineral veins: the joints carry the walls' own vein colour (CavernSceneConfig's VeinColor, half
-            //again over the walls' - a joint is a crack, and a crack is where the ore is), steady, no dust.
+            //Mineral veins: the joints carry a steady teal, the lake's own light (CavernWaterConfig's GlowColor) brought up
+            //bright enough to read on the stone - a joint is a crack, and a crack is where the ore is. No dust.
             SceneKind.Cavern => new(new Vector3(0.09f, 0.24f, 0.28f), new Vector3(0.06f, 0.16f, 0.19f), 0f, Vector3.One, 0f),
             //THE BUILT FAMILY (#537): seams in a made thing are lit EVENLY, not in patches (Patchiness 0). The
             //grid's disc carries its plane's own vector palette - the top's seams the line colour a shade up

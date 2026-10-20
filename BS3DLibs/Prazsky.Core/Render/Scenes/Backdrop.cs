@@ -44,9 +44,9 @@ namespace Prazsky.Core.Render
         public abstract void Draw(in SceneFrame frame);
 
         /// <summary>
-        /// The depth of a full-screen backdrop's solid things that can stand in front of the arena (#755), drawn into
-        /// the caller's own target right after <see cref="Draw"/> - after the scale-up when the backdrop was shaded at
-        /// display resolution, which is a target with no depth. Nothing by default: a backdrop is a background.
+        /// The depth of a backdrop's solid things that can stand in front of the arena (#755), drawn into the caller's
+        /// own target right after <see cref="Draw"/> - after the scale-up when the backdrop was shaded at display
+        /// resolution, whose depth stays in that target. Nothing by default: a backdrop is a background.
         /// </summary>
         public virtual void DrawDepth(in SceneFrame frame) { }
 
@@ -64,6 +64,17 @@ namespace Prazsky.Core.Render
         /// pure full-screen fill whose look does not depend on the sample count may.
         /// </summary>
         public virtual bool DrawsAtDisplayResolution => false;
+
+        /// <summary>
+        /// The multisample count of the display-resolution target (<see cref="DrawsAtDisplayResolution"/>): 0 for a
+        /// full-screen pass, which has no edges to smooth; a backdrop of meshes asks for samples so its silhouettes keep the
+        /// edges supersampling would have given them (the cavern, #958).
+        /// </summary>
+        public virtual int DisplayResolutionMultiSampleCount => 0;
+
+        /// <summary>Whether the display-resolution target needs a depth buffer (a backdrop of meshes); the renderer clears
+        /// it when it binds the target.</summary>
+        public virtual bool DisplayResolutionDepth => false;
 
         /// <summary>The scene's own light rig (<see cref="SceneRenderer.TryGetLightRig"/>); false takes the dome's.</summary>
         public virtual bool TryGetLightRig(float wallClock, out SceneLightRig rig)
@@ -168,6 +179,12 @@ namespace Prazsky.Core.Render
         public virtual void OnDetailChanged(float sceneDetail) { }
 
         /// <summary>
+        /// The host has selected this scene (<see cref="SceneRenderer.Prepare"/>): a backdrop that builds itself off the
+        /// frame starts then, so a launch that never shows it builds nothing. Nothing by default.
+        /// </summary>
+        public virtual void Prepare() { }
+
+        /// <summary>
         /// Frees what this backdrop built. An effect loaded from the content manager is the manager's and is not
         /// disposed; a clone of one (<c>Effect.Clone</c>, the aurora's snow) is the backdrop's own and is.
         /// </summary>
@@ -197,6 +214,12 @@ namespace Prazsky.Core.Render
         /// <summary>Whether the scenes draw their finer meshes — <see cref="SceneRenderer.FineMeshes"/>, which forwards here.
         /// Read per draw, so a tier change needs no hook.</summary>
         public bool FineMeshes { get; set; } = true;
+
+        /// <summary>
+        /// True while the renderer has a backdrop drawing into its own display-resolution target (#155) rather than the
+        /// caller's: whatever depth the backdrop writes then stays in that target and never reaches the scene's.
+        /// </summary>
+        public bool ShadingAtDisplayResolution { get; set; }
 
         /// <summary>
         /// The renderer's seed offset (its constructor's <c>seedOffset</c>): what every seeded arrangement adds to its

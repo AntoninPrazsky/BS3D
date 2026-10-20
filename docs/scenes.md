@@ -28,7 +28,7 @@ The twenty-one backdrops the Game, the Testbed and the MapEditor all share, plus
 - [The savanna](scenes/savanna.md), [The savanna's trees and plain](scenes/savanna-trees.md), [The savanna's campfires](scenes/savanna-fires.md) and [Savanna trails and planting](scenes/savanna-trails.md) — the plain, the acacias, the fires and the paths that bend round trees.
 - [Space](scenes/space.md) and [The star lattice](scenes/space-stars.md) — the sky-replacing family, the marched volume, and the stars.
 - [The dream](scenes/dream.md) — what holds the surreal scene together, and its glare policy.
-- [The cavern](scenes/cavern.md) — the shell, the river, the crystals and what hangs overhead.
+- [The cavern](scenes/cavern.md) — the hall built on the CPU (shell, lake bed, formations, crystals, glowworms, shafts), the lake that mirrors it, the tiers and the intro.
 - [The volcano](scenes/volcano.md) — the ground as the light, the flows, the eruption and the fumaroles.
 - [The desert](scenes/desert.md) — the desert scene: `Desert.fx` dunes as geometry (`DuneField`, sharp crests and the rounding rules, `DUNE_MEAN`), the braided static sand ripples and their traps, the dust haze, the generated skies of domes 6 and 14, and its costs
 - [The mountains](scenes/mountains.md) — the mountain scene: the ridged massing and its 32-bit-index trap, snow against rock, fluting, alpenglow, the rock relief and the snow sparkle, the generated dome 8, and `Snow.fx` (the premultiplied-blend trap, the lens-made flake, the snowfall veil)

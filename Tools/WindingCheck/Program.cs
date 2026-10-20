@@ -213,6 +213,15 @@ namespace BS3D.Tools.WindingCheck
                     tropical.Palms.FrondLength, 6100 + s));
             }
             yield return ("BirdMesh", () => new BirdMesh(d));
+            //The cavern's hall (#958): its rock (the shell seen from inside, the lake's bed from above), formations, crystals,
+            //glowworms and shafts at Low and Medium's detail, and the Potato path's crystals
+            var cavern = new CavernChamber(new CavernSceneConfig());
+            yield return ("CavernMeshes(coarse)", () => new CavernMeshes(d, CavernMeshes.Arrays.Build(cavern, CavernGeometry.Detail.Coarse)));
+            yield return ("CavernProceduralMesh(potato cluster)", () =>
+            {
+                (VertexPositionNormalTexture[] v, int[] i) = CavernGeometry.BuildClusterPlain(cavern.Clusters[0], 0);
+                return new CavernProceduralMesh(d, v, i);
+            });
             yield return ("FoliageMesh(scrub)", () => new FoliageMesh(d, 1.2f, 1f, 0.8f, 6200, FoliageStyle.Scrub));
             yield return ("GrassTuftMesh", () => new GrassTuftMesh(d, 0.5f, 0.8f, 6230));
             yield return ("DeadwoodMesh", () => new DeadwoodMesh(d, 3f, 0.25f, 6260));

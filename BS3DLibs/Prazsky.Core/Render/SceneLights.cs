@@ -130,10 +130,10 @@ namespace Prazsky.Core.Render
         {
             int count = 0;
 
-            //The seven guards below are mutually exclusive by construction — a scene is the volcano, or the
-            //savanna, or the neon city, or space, or the Moon, or the storm, or the big top (each TryGet returns
+            //The guards below are mutually exclusive by construction — a scene is the volcano, or the savanna, or
+            //the neon city, or space, or the Moon, or the storm, or the big top, or the cavern (each TryGet returns
             //false for every kind but its own), and no SceneKind satisfies two of them. So this order is an order
-            //and not a precedence: do not read it as one, and do not write an eighth branch that relies on being
+            //and not a precedence: do not read it as one, and do not write a further branch that relies on being
             //tested last. The storm's own branch is additionally self-gating in TIME as well as in kind —
             //between strikes its TryGet returns false and the scene takes no slot at all. The ONE branch that is a
             //precedence is the renderer-less one (#795): it has to stand after the volcano, which can light without
@@ -224,6 +224,13 @@ namespace Prazsky.Core.Render
             else if (scene == SceneKind.NeonCity)
             {
                 count = BuildNeonRing(neonLook);
+            }
+            else if (scene == SceneKind.Cavern)
+            {
+                //The cavern's nearest crystal clusters (#958), on the same breath their prisms glow on: cyan from one side
+                //and magenta from another, so the island and the cluster stand in the hall's own light. Four at most, so a
+                //blast's flash always finds a slot
+                count = sceneRenderer.CavernArenaLights(wallClock, _lightPosition, _lightColor, _lightRange, Math.Min(MaxLights, 4));
             }
 
             //And a flash over the scene's own lamps, in the first slot they left free (#389). Consumed here

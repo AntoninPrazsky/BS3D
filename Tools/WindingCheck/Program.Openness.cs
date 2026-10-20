@@ -74,6 +74,7 @@ namespace BS3D.Tools.WindingCheck
             ("FunnelMesh", ANY, "the drain's cone and pit are surfaces drawn CullNone with TwoSidedNormals: their rims are the throat and the lip"),
 
             //---- open where nothing can see it, as the mesh's own remarks say
+            ("CavernMeshes(coarse).Rock", ANY, "the cavern's shell and lake bed are sheets seen from inside the hall: the shell's lower rim stands under the bed, the bed's outline 30 units outside the wall, and where an island's subdivided cells meet the plain ones their points lie on the plain edge's line (T-junctions, no gap; CavernGeometry.AddFloor)"),
             ("ArenaIsland._driftMesh", 1, "a sheet: its inner edge is inside the drum and its two ends taper to nothing (SandDriftMesh)"),
             ("BallRenderSet._bladeMesh", 2, "the saw's inner edges lie inside the ball it is set through (SawBladeMesh)"),
             ("PotatoKindMesh.MineStuds", 8, "each stud's base ring lies on the ball it studs"),
