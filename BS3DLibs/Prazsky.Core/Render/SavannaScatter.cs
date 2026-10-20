@@ -194,6 +194,23 @@ namespace Prazsky.Core.Render
         private const int BASE_RING_SAMPLES = 8;
 
         /// <summary>
+        /// How deep the dressing with a flat underside is pressed into what it rests on (#938), as shares of its underside's
+        /// radius: a termite mound's apron, a kopje's lesser rocks on the base rock's shoulder, the small stones round the
+        /// island's bank. (A lone boulder keeps its old depth, 0.3 of its sphere; a kopje's rocks round the foot a quarter of
+        /// <c>KopjeRockSize</c>, and its base rock 0.3 of its height.) <see cref="GroundSettling.RestHeight"/> puts the whole
+        /// rim at least this far under, so none of it shows a flat underside over the grass.
+        /// </summary>
+        private const float MOUND_BURIAL = 0.12f, KOPJE_SHOULDER_BURIAL = 0.1f, BERM_STONE_BURIAL = 0.15f;
+
+        /// <summary>
+        /// A fallen log's underside against its pivot's line, and how far it is pressed into the ground at the lowest point of
+        /// its run (#938), as shares of its thickness at the root: the log's axis stands 0.7 to 0.75 of its radius over the pivot
+        /// and its wall is 0.5 to 1 of it, so its underside is about 0.15 under the line, and a quarter of a log's thickness is
+        /// in the ground, as it always was ("sunk a quarter of their thickness").
+        /// </summary>
+        private const float LOG_UNDERSIDE = 0.15f, LOG_SINK = 0.12f;
+
+        /// <summary>
         /// How many positions a plant on the plain may try before it settles for the roomiest (#653).
         /// <see cref="ScatterSpacing.TRIES"/> is the footprint rule's budget, measured on a forest, and it is not enough for the
         /// two rules together in a dense grove: asked to clear its neighbours' trunks and crowns as well as their footprints, a
@@ -567,6 +584,34 @@ namespace Prazsky.Core.Render
                 return new ModelInstance(world, new Vector4(dryness, jitter, Stand(x, z) - world.M42, 0f));
             }
 
+            //A thing with a flat underside (a rock, a termite mound), planted with the dice Plant rolls — its yaw, then the
+            //direction of its lean — and stood where its whole underside rim is under the ground, whatever the slope and the lean (#938).
+            //Planted at the ground under its centre and tipped, as every one was, the downhill side hung in the air and the lean
+            //showed the flat underside over the grass. The burial is a share of the rim, and the rim is the underside's radius at scale 1
+            ModelInstance PlantResting(float x, float z, float scale, float lean, float rimRadius, float burialShare, float dryness, float jitter)
+            {
+                float yaw = (float)rng.NextDouble() * MathHelper.TwoPi;
+                float leanDir = (float)rng.NextDouble() * MathHelper.TwoPi;
+                Matrix orientation = Matrix.CreateScale(scale)
+                    * Matrix.CreateFromAxisAngle(new Vector3(MathF.Cos(leanDir), 0f, MathF.Sin(leanDir)), lean)
+                    * Matrix.CreateRotationY(yaw);
+                float y = GroundSettling.RestHeight(Stand, x, z, rimRadius, orientation, rimRadius * scale * burialShare);
+                Matrix world = orientation * Matrix.CreateTranslation(x, y, z);
+                return new ModelInstance(world, new Vector4(dryness, jitter, Stand(x, z) - world.M42, 0f));
+            }
+
+            //A fallen log, planted with the dice Plant rolls, laid along the ground it lies on (#938): pitched to the slope under it
+            //and sunk, where it lay level at the height of its middle with a random lean — an end in the air and the other buried
+            //to the axis on any slope (36 of 60 logs over five seeds had an end 0.3 and more over the ground)
+            ModelInstance PlantLog(float x, float z, float scale, DeadwoodMesh log, float dryness, float jitter)
+            {
+                float yaw = (float)rng.NextDouble() * MathHelper.TwoPi;
+                rng.NextDouble();   //the direction of the lean: a log is laid by its slope, not tipped across its length
+                (float pitch, float y) = GroundSettling.LayLog(Stand, x, z, yaw, log.Length * scale, -LOG_UNDERSIDE * log.Radius * scale, LOG_SINK * log.Radius * scale);
+                Matrix world = Matrix.CreateScale(scale) * Matrix.CreateRotationZ(pitch) * Matrix.CreateRotationY(yaw) * Matrix.CreateTranslation(x, y, z);
+                return new ModelInstance(world, new Vector4(dryness, jitter, Stand(x, z) - world.M42, 0f));
+            }
+
             float Jitter() => (float)(rng.NextDouble() - 0.5) * 0.24f;
 
             //Everything on the plain, in one sweep — and the plain is planted SEVERAL TIMES OVER (#476).
@@ -729,7 +774,9 @@ namespace Prazsky.Core.Render
                     float s = 0.7f + 0.6f * (float)rng.NextDouble();
                     int mound = rng.Next(MOUND);
                     (float x, float z) = Place(dr.MoundHeight * 0.4f * s, ac.MinRadius + 20f, ac.MaxRadius, 0f, 0f, moundVolume[mound], s, 0.15f * s);
-                    moundInstances[mound].Add(Plant(x, z, s, 0.05f * (float)rng.NextDouble(), 0.15f * s, 0.3f * (float)rng.NextDouble(), Jitter()));
+                    float moundLean = 0.05f * (float)rng.NextDouble();
+                    float moundDry = 0.3f * (float)rng.NextDouble();
+                    moundInstances[mound].Add(PlantResting(x, z, s, moundLean, mounds[mound].FootRadius, MOUND_BURIAL, moundDry, Jitter()));
                 }
 
                 //--- The kopjes: a pile of boulders each, the biggest at the middle and set into the ground, the
@@ -739,18 +786,26 @@ namespace Prazsky.Core.Render
                     int rockCount = dr.KopjeRocksMin + rng.Next(Math.Max(1, dr.KopjeRocksMax - dr.KopjeRocksMin + 1));
                     float pileRadius = dr.KopjeRockSize * 2.2f;
                     (float kx, float kz) = Place(pileRadius, ac.MinRadius + 40f, ac.MaxRadius, 0f, 0f, new Slab[] { new(0f, dr.KopjeRockSize * 2.4f, pileRadius * 0.85f) });
-                    float ground = terrainHeight(kx, kz);
-                    float baseHeight = 0f;
+                    float baseHeight = 0f, baseY = 0f, baseScale = 1f;
+                    RockMesh baseRock = null;
+
+                    //The base rock's own surface where the lesser rocks stand on it, as the ground they rest on (#938)
+                    float BaseSurface(float px, float pz)
+                    {
+                        float radial = MathF.Sqrt((px - kx) * (px - kx) + (pz - kz) * (pz - kz)) / (baseRock.Radius * baseScale);
+                        return baseY + baseRock.SurfaceAt(radial) * baseScale;
+                    }
+
                     for (int r = 0; r < rockCount; r++)
                     {
                         int variant = rng.Next(ROCK);
-                        float s, x, z, y, tilt;
+                        float s, x, z, burial, tilt;
                         if (r == 0)
                         {
                             s = 0.9f + 0.2f * (float)rng.NextDouble();
                             x = kx; z = kz;
                             baseHeight = rocks[variant].BoundingSphere.Radius * 0.9f * s;
-                            y = ground - baseHeight * 0.3f;
+                            burial = baseHeight * 0.3f;
                             tilt = 0.05f + 0.1f * (float)rng.NextDouble();
                         }
                         else if (r < 3)
@@ -760,7 +815,7 @@ namespace Prazsky.Core.Render
                             float a = (float)rng.NextDouble() * MathHelper.TwoPi;
                             float d = dr.KopjeRockSize * (0.3f + 0.4f * (float)rng.NextDouble());
                             x = kx + MathF.Cos(a) * d; z = kz + MathF.Sin(a) * d;
-                            y = ground + baseHeight * 0.55f;
+                            burial = rocks[variant].Radius * s * KOPJE_SHOULDER_BURIAL;
                             tilt = 0.15f + 0.3f * (float)rng.NextDouble();
                         }
                         else
@@ -770,15 +825,24 @@ namespace Prazsky.Core.Render
                             float a = (float)rng.NextDouble() * MathHelper.TwoPi;
                             float d = dr.KopjeRockSize * (1.0f + 0.6f * (float)rng.NextDouble());
                             x = kx + MathF.Cos(a) * d; z = kz + MathF.Sin(a) * d;
-                            y = terrainHeight(x, z) - dr.KopjeRockSize * s * 0.25f;
+                            burial = dr.KopjeRockSize * s * 0.25f;
                             tilt = 0.1f + 0.25f * (float)rng.NextDouble();
                         }
                         float yaw = (float)rng.NextDouble() * MathHelper.TwoPi;
                         float tiltDir = (float)rng.NextDouble() * MathHelper.TwoPi;
-                        Matrix world = Matrix.CreateScale(s)
+                        Matrix orientation = Matrix.CreateScale(s)
                             * Matrix.CreateFromAxisAngle(new Vector3(MathF.Cos(tiltDir), 0f, MathF.Sin(tiltDir)), tilt)
-                            * Matrix.CreateRotationY(yaw)
-                            * Matrix.CreateTranslation(x, y, z);
+                            * Matrix.CreateRotationY(yaw);
+
+                        //Every rock rests where its whole flat underside rim is under what it stands on: the ground, and the base
+                        //rock's shoulder for the two that stand on it - at a fixed height over the middle's ground, as they were, the
+                        //downhill side of a kopje floated and the lean showed the underside of the lesser rocks (#938)
+                        Func<float, float, float> under = r >= 1 && r < 3
+                            ? (px, pz) => MathF.Max(terrainHeight(px, pz), BaseSurface(px, pz))
+                            : terrainHeight;
+                        float y = GroundSettling.RestHeight(under, x, z, rocks[variant].Radius, orientation, burial);
+                        if (r == 0) { baseRock = rocks[variant]; baseY = y; baseScale = s; }
+                        Matrix world = orientation * Matrix.CreateTranslation(x, y, z);
                         rockInstances[variant].Add(new ModelInstance(world, new Vector4(0.4f * (float)rng.NextDouble(), Jitter(), 0f, 0f)));
                     }
                 }
@@ -821,7 +885,9 @@ namespace Prazsky.Core.Render
                     float s = dr.BoulderSize / dr.KopjeRockSize * (0.6f + 0.5f * (float)rng.NextDouble());
                     float r = rocks[variant].BoundingSphere.Radius * s;
                     (float x, float z) = Place(r, ac.MinRadius, ac.MaxRadius, 0.4f, ac.ClusterSpread, rockVolume[variant], s, r * 0.3f);
-                    rockInstances[variant].Add(Plant(x, z, s, 0.1f + 0.2f * (float)rng.NextDouble(), r * 0.3f, 0.4f * (float)rng.NextDouble(), Jitter()));
+                    float boulderLean = 0.1f + 0.2f * (float)rng.NextDouble();
+                    float boulderDry = 0.4f * (float)rng.NextDouble();
+                    rockInstances[variant].Add(PlantResting(x, z, s, boulderLean, rocks[variant].Radius, 0.3f * rocks[variant].BoundingSphere.Radius / rocks[variant].Radius, boulderDry, Jitter()));
                 }
 
                 //--- The fallen trees: in the open and at the groves' edges alike, sunk a quarter of their thickness.
@@ -829,7 +895,10 @@ namespace Prazsky.Core.Render
                 {
                     float s = 0.8f + 0.4f * (float)rng.NextDouble();
                     (float x, float z) = Place(dr.LogLength * 0.5f * s, ac.MinRadius, ac.MaxRadius, 0.5f, ac.ClusterSpread);
-                    logInstances[rng.Next(LOG)].Add(Plant(x, z, s, 0.04f * (float)rng.NextDouble(), 0f, 0.5f * (float)rng.NextDouble(), Jitter()));
+                    int log = rng.Next(LOG);
+                    rng.NextDouble();   //what the lean's roll was, kept so the plain's dice stay where they were
+                    float logDry = 0.5f * (float)rng.NextDouble();
+                    logInstances[log].Add(PlantLog(x, z, s, logs[log], logDry, Jitter()));
                 }
 
                 //--- The tufts: everywhere, nearest the island of anything, and cheap to lose (DetailOnly).
@@ -946,7 +1015,10 @@ namespace Prazsky.Core.Render
                 float a = (float)rng.NextDouble() * MathHelper.TwoPi;
                 float d = ArenaIsland.RADIUS + 1.5f + 4f * (float)rng.NextDouble();
                 float s = 0.05f + 0.1f * (float)rng.NextDouble();
-                rockInstances[rng.Next(ROCK)].Add(Plant(MathF.Cos(a) * d, MathF.Sin(a) * d, s, 0.2f * (float)rng.NextDouble(), 0.05f, 0.4f * (float)rng.NextDouble(), Jitter()));
+                int stone = rng.Next(ROCK);
+                float stoneLean = 0.2f * (float)rng.NextDouble();
+                float stoneDry = 0.4f * (float)rng.NextDouble();
+                rockInstances[stone].Add(PlantResting(MathF.Cos(a) * d, MathF.Sin(a) * d, s, stoneLean, rocks[stone].Radius, BERM_STONE_BURIAL, stoneDry, Jitter()));
             }
 
             //--- The buckets, in draw order: a tree's canopy then its wood, then everything else by kind.

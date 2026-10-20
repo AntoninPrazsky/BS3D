@@ -19,11 +19,32 @@ namespace Prazsky.Core.Render
         public int PrimitiveCount { get; }
         public BoundingSphere BoundingSphere { get; }
 
+        /// <summary>End to end along +X, at scale 1: what a planter lays the log on the ground by (#938).</summary>
+        public float Length { get; }
+
+        /// <summary>The thick end's radius, at scale 1.</summary>
+        public float Radius { get; }
+
         /// <param name="device">The device the buffers are created on.</param>
         /// <param name="length">End to end.</param>
         /// <param name="radius">At the thick (root) end; the log tapers to about half of it.</param>
         /// <param name="seed">Rolls the bend, the taper and the stubs.</param>
         public DeadwoodMesh(GraphicsDevice device, float length, float radius, int seed)
+        {
+            (List<VertexPositionNormalTexture> v, List<short> idx, BoundingSphere bounds) = Build(length, radius, seed);
+            PrimitiveCount = idx.Count / 3;
+            BoundingSphere = bounds;
+            Length = length;
+            Radius = radius;
+            (VertexBuffer, IndexBuffer) = TubeGeometry.Upload(device, v, idx);
+        }
+
+        /// <summary>
+        /// The log as lists, with no device (#938): what the constructor uploads, and what a test reads to hold the log shut.
+        /// The log is one sweep through its bend, so its two halves have no gap between them on the bend's outer side (two tubes
+        /// laid end to end at an angle opened a slit there, as the meadow's knees did), and each stub is one capped sweep.
+        /// </summary>
+        internal static (List<VertexPositionNormalTexture> Vertices, List<short> Indices, BoundingSphere Bounds) Build(float length, float radius, int seed)
         {
             Random rng = new(seed);
             var v = new List<VertexPositionNormalTexture>();
@@ -38,10 +59,8 @@ namespace Prazsky.Core.Render
             Vector3 middle = new(0f, radius * 0.7f, bend);
             Vector3 tip = new(length * 0.5f, thinEnd * 0.8f, 0f);
 
-            TubeGeometry.AddTube(v, idx, SEG, root, radius, middle, radius * 0.82f);
-            TubeGeometry.AddTube(v, idx, SEG, middle, radius * 0.82f, tip, thinEnd);
-            TubeGeometry.AddCap(v, idx, SEG, root, radius, root - middle);
-            TubeGeometry.AddCap(v, idx, SEG, tip, thinEnd, tip - middle);
+            //Both ends sawn: discs fanned from the rings' own vertices, so no sliver opens between a disc and its ring
+            TubeGeometry.AddSweep(v, idx, SEG, new[] { root, middle, tip }, new[] { radius, radius * 0.82f, thinEnd }, capStart: true, capEnd: true);
 
             //Broken stubs: two to four, off the upper half of the log, each rising and leaning its own way and
             //snapped short - a fallen tree keeps the stumps of its boughs and little else.
@@ -58,14 +77,11 @@ namespace Prazsky.Core.Render
                 dir.Normalize();
                 Vector3 to = from + dir * len;
                 float r0 = radius * (0.3f + 0.15f * (float)rng.NextDouble());
-                TubeGeometry.AddTube(v, idx, 6, from, r0, to, r0 * 0.3f);
-                TubeGeometry.AddCap(v, idx, 6, to, r0 * 0.3f, dir);
+                TubeGeometry.AddSweep(v, idx, 6, new[] { from, to }, new[] { r0, r0 * 0.3f }, capEnd: true);
                 reach = MathF.Max(reach, len);
             }
 
-            PrimitiveCount = idx.Count / 3;
-            BoundingSphere = new BoundingSphere(new Vector3(0f, radius, 0f), length * 0.5f + radius + reach);
-            (VertexBuffer, IndexBuffer) = TubeGeometry.Upload(device, v, idx);
+            return (v, idx, new BoundingSphere(new Vector3(0f, radius, 0f), length * 0.5f + radius + reach));
         }
 
         public void Dispose()
