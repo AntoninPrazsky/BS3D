@@ -122,6 +122,15 @@ jobs:
           dotnet run --project Tools/MusicBake/MusicBake.csproj -c Release --no-build -- --shipped
           if ($LASTEXITCODE -ne 0) { throw "MusicBake --shipped refused a recording (exit $LASTEXITCODE)" }
 
+      # The meshes' gate (#974): WindingCheck --openness builds every procedural mesh of every scene through its own
+      # constructor on WARP and exits 1 on one with an open end that nobody has named in its Allowed table - under back-face
+      # culling an open ring shows what is behind it through the wall (the hay roll, the savanna's knees, the palm's foot).
+      # --no-build: Game.sln above built the tool; a few seconds.
+      - name: Check every procedural mesh is shut (WindingCheck --openness)
+        run: |
+          dotnet run --project Tools/WindingCheck/WindingCheck.csproj --no-build -- --openness
+          if ($LASTEXITCODE -ne 0) { throw "WindingCheck --openness refused a mesh (exit $LASTEXITCODE)" }
+
       # The logic tests (#586): the invariants the libraries state "by construction" - the neighbour rule, one
       # constraint per pair, the legacy padding's parity, the level round-trip, the save outcomes, the atomic
       # write, the scoring mechanics and the top-level ceiling anchor of #561. Game.sln above built the project;
@@ -154,13 +163,27 @@ jobs:
           }
           exit 0
 
-      # WindingCheck's self-test feeds it a box flipped on purpose and exits 1 unless both judgements fire.
+      # WindingCheck's self-test feeds it a box flipped on purpose and exits 1 unless both judgements fire; since #974 it
+      # also feeds the openness gate a shut box, a box with a face left out, a tube with one end buried in a box and a
+      # listed mesh, and exits 1 unless each is judged as it should be.
       # It asks DirectX for WARP, the software rasteriser every Windows install carries, so the runner's
       # missing GPU does not matter.
-      - name: Self-check - WindingCheck catches a flipped mesh
+      - name: Self-check - WindingCheck catches a flipped mesh and an open one
         run: |
           dotnet run --project Tools/WindingCheck/WindingCheck.csproj --no-build -- --selftest
           if ($LASTEXITCODE -ne 0) { throw "WindingCheck --selftest failed (exit $LASTEXITCODE)" }
+
+      # The openness gate on the real meshes with a box with a face left out planted among them (#974, BestPractices section
+      # 10): it must exit 1 and name the planted mesh OPEN, or the gate above passes only because it cannot fail.
+      - name: Self-check - the openness gate refuses a planted open mesh
+        run: |
+          $out = dotnet run --project Tools/WindingCheck/WindingCheck.csproj --no-build -- --openness --plant-open | Out-String
+          $code = $LASTEXITCODE
+          if ($code -ne 1 -or $out -cnotmatch 'PLANTED open box.*OPEN') {
+            $out
+            throw "WindingCheck --openness --plant-open exited $code; the planted open mesh was not refused"
+          }
+          exit 0
 
       # The hook that refuses git clean / reset --hard, exercised in both directions (Git Bash on the runner).
       - name: Self-check - the destructive-git guard

@@ -20,6 +20,18 @@ namespace Prazsky.Core.Render
     /// </summary>
     internal static class IslandBerm
     {
+        /// <summary>
+        /// A bank's mesh, a type of its own so <c>Tools/WindingCheck --openness</c> names it (#974): a bank is open at both rims on
+        /// purpose, the inner one inside the drum and the outer one under the ground it was built off, so neither is a hole.
+        /// </summary>
+        internal sealed class BermMesh : UploadedMesh
+        {
+            public BermMesh(GraphicsDevice device, List<VertexPositionNormalTexture> v, List<short> idx, BoundingSphere bounds)
+                : base(device, v, idx, bounds)
+            {
+            }
+        }
+
         //The bank's section, from the drum out: radius, and height over the ground (or, for the first ring, over the
         //island's foot). The inner ring sits inside the drum's face at the foot, the outer ones slope down onto the field.
         private static readonly (float Radius, float Above)[] SECTION =
@@ -51,7 +63,7 @@ namespace Prazsky.Core.Render
         /// <param name="fromRing">The first ring of <see cref="SECTION"/> this mesh spans (0 for the earthen band,
         /// <see cref="EARTH_TO"/> for the turf).</param>
         /// <param name="toRing">The last ring it spans.</param>
-        public static UploadedMesh Build(GraphicsDevice device, Func<float, float, float> height, int seed, int fromRing, int toRing)
+        public static BermMesh Build(GraphicsDevice device, Func<float, float, float> height, int seed, int fromRing, int toRing)
         {
             int rings = SECTION.Length;
             var positions = new Vector3[rings, SEGMENTS + 1];
@@ -96,7 +108,7 @@ namespace Prazsky.Core.Render
                 }
 
             float outer = ArenaIsland.RADIUS + 9f;
-            return new UploadedMesh(device, v, idx, new BoundingSphere(new Vector3(0f, FOOT_Y, 0f), outer));
+            return new BermMesh(device, v, idx, new BoundingSphere(new Vector3(0f, FOOT_Y, 0f), outer));
         }
 
         /// <summary>

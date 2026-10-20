@@ -36,13 +36,15 @@ namespace BS3D.Tools.WindingCheck
     /// the case that shades right from one side and is culled from the other.</item>
     /// </list>
     /// <para>
-    /// A hand-run check, not a gate: a few parts are meant to fail it — the sky dome keeps its captured order
+    /// A hand-run check, not a gate (its <c>--openness</c> mode is): a few parts are meant to fail it — the sky dome keeps its captured order
     /// on purpose (a dome is seen from inside), the editor's wire box is wound inward on purpose, and the
     /// drain's gold rims are ribbons drawn <c>CullNone</c> with nothing reading their facing. Those are listed in
     /// <see cref="Expected"/> with the reason, and still printed. The other <c>CullNone</c> sheets (palm fronds,
     /// bird wings, the drain's cone and pit) pass it anyway — and the cone and pit must, since
-    /// <c>TwoSidedNormals</c> reads <c>SV_IsFrontFace</c>. Exit 0 always; <c>--selftest</c> feeds it one
-    /// mesh flipped on purpose and exits 1 unless both judgements fire on it.
+    /// <c>TwoSidedNormals</c> reads <c>SV_IsFrontFace</c>. The winding judgement exits 0 always; <c>--selftest</c> feeds it one
+    /// mesh flipped on purpose (and the openness gate a few meshes of known answer) and exits 1 unless every judgement fires on it.
+    /// <c>--openness</c> is the other mode, and a gate: whether every mesh is shut (<c>Program.Openness.cs</c>, #974);
+    /// <c>--portrait</c> draws one mesh alone for a look at an edge (<c>Program.Portrait.cs</c>).
     /// </para>
     /// <para>
     /// Not covered: the scene grids and heightfields <c>SceneRenderer</c> fills straight into buffers (drawn
@@ -50,7 +52,7 @@ namespace BS3D.Tools.WindingCheck
     /// (<c>Blasts</c>, <c>Fireworks</c>, <c>Confetti</c>, … all <c>CullNone</c>).
     /// </para>
     /// </summary>
-    internal static class Program
+    internal static partial class Program
     {
         /// <summary>
         /// A triangle counts as disagreeing with its normals only past this cosine. Measured (2026-09-25): every
@@ -96,6 +98,8 @@ namespace BS3D.Tools.WindingCheck
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
             bool selfTest = args.Contains("--selftest");
             bool verbose = args.Contains("--verbose");
+            bool openness = args.Contains("--openness");
+            bool plant = args.Contains("--plant-open");
             int detailAt = Array.IndexOf(args, "--detail");
             string detail = detailAt >= 0 && detailAt + 1 < args.Length ? args[detailAt + 1] : null;
 
@@ -107,7 +111,7 @@ namespace BS3D.Tools.WindingCheck
             };
             using var device = new GraphicsDevice(GraphicsAdapter.DefaultAdapter, GraphicsProfile.HiDef, pp);
 
-            if (selfTest) return SelfTest(device);
+            if (selfTest) return SelfTest(device) | OpennessSelfTest(device);
 
             var services = new GameServiceContainer();
             services.AddService(typeof(IGraphicsDeviceService), new DeviceService(device));
@@ -134,6 +138,11 @@ namespace BS3D.Tools.WindingCheck
                 }
                 Collect(owner, name, parts, new HashSet<object>(ReferenceEqualityComparer.Instance), device);
             }
+
+            int portraitAt = Array.IndexOf(args, "--portrait");
+            if (portraitAt >= 0 && portraitAt + 1 < args.Length) return Portrait(device, parts, args[portraitAt + 1], args);
+
+            if (openness) return Openness(parts, verbose, detail, plant);
 
             //The same buffer reached twice (a mesh shared by two owners) is judged once.
             int findings = 0, expected = 0;
@@ -233,6 +242,19 @@ namespace BS3D.Tools.WindingCheck
                 LaserEmitterMesh.Part p = part;
                 yield return ($"LaserEmitterMesh.{p}", () => new LaserEmitterMesh(d, p));
             }
+            //The Game's result-page props (compiled into this tool): the party hat's cone bands and trim, and the cup on its podium
+            yield return ("PartyHat", () => new BS3D.Effects.PartyHat(d, fx, new CannonRig(d, fx, 5, 1f)));
+            yield return ("TrophyPodium", () => new BS3D.Effects.TrophyPodium(d, fx, 0.3f));
+
+            //The Potato path's ball shapes (#863): the desktop's vertex shaders as meshes, at the finest and the coarsest level
+            foreach ((int slices, int stacks) in new[] { (64, 32), (14, 7) })
+            {
+                int sl = slices, st = stacks;
+                yield return ($"PotatoKindMesh.Rock({sl}x{st})", () => PotatoKindMesh.Rock(d, 0.5f, sl, st, 0.20f));
+                yield return ($"PotatoKindMesh.IceBlock({sl}x{st})", () => PotatoKindMesh.IceBlock(d, 0.5f, sl, st));
+            }
+            yield return ("PotatoKindMesh.MineStuds", () => PotatoKindMesh.MineStuds(d, 0.5f));
+
             for (char c = ' '; c < (char)0x180; c++)
             {
                 if (c == ' ' || !LetterShapes.Supports(c)) continue;
@@ -340,7 +362,8 @@ namespace BS3D.Tools.WindingCheck
         }
 
         private static bool IsOurs(Type t) =>
-            t.Namespace != null && t.Namespace.StartsWith("Prazsky", StringComparison.Ordinal) && !t.IsEnum && !t.IsPrimitive;
+            t.Namespace != null && (t.Namespace.StartsWith("Prazsky", StringComparison.Ordinal) || t.Namespace == "BS3D.Effects")
+            && !t.IsEnum && !t.IsPrimitive;
 
         private static bool HasPosition(VertexBuffer vb) =>
             vb.VertexDeclaration.GetVertexElements().Any(e => e.VertexElementUsage == VertexElementUsage.Position && e.UsageIndex == 0);

@@ -36,8 +36,9 @@ namespace BS3D.Tests
         /// <summary>
         /// No open end of the wood near the fork is wider than a twig's unless the trunk closes over it: the coarse wood's
         /// flat-cut trunk top and the boughs' root rings standing in it are exactly that, and the fine wood's boughs root
-        /// inside the trunk. The same check is run over the coarse wood and must find its cut end, or a check that passes
-        /// the fine wood says nothing.
+        /// inside the trunk. The same check is run over that old fork rebuilt and must find its cut end, or a check that passes
+        /// the fine wood says nothing. (The coarse wood Low and Medium draw closes its trunk with a dome since #938, and
+        /// <c>SavannaMeshClosureTests</c> holds it.)
         /// </summary>
         [Theory]
         [MemberData(nameof(Acacias))]
@@ -47,10 +48,21 @@ namespace BS3D.Tests
             float forkY = tree.Volume[0].Top;
 
             int fine = CutEnds(tree.FineWoodVertices, tree.FineWoodIndices, tree.FineTrunkRadius, forkY, trunk);
-            int coarse = CutEnds(tree.WoodVertices, tree.WoodIndices, tree.FineTrunkRadius, forkY, trunk);
-
             Assert.True(fine == 0, $"{kind} {seed}: {fine} open edges of the fine wood stand out of the trunk at the fork");
-            Assert.True(coarse > 0, $"{kind} {seed}: the check found no cut end on the coarse wood, which has one - it is not seeing it");
+
+            //The check must find the cut end it was written for: the coarse wood as #758 found it (and as #938 closed it), a
+            //trunk tube cut off flat at the fork with every bough's tube starting at its centre
+            var oldV = new List<VertexPositionNormalTexture>();
+            var oldIdx = new List<short>();
+            TubeGeometry.AddTube(oldV, oldIdx, 7, Vector3.Zero, trunk * 1.5f, new Vector3(0f, forkY, 0f), trunk * 0.9f);
+            for (int b = 0; b < 4; b++)
+            {
+                float a = b * MathHelper.PiOver2;
+                TubeGeometry.AddTube(oldV, oldIdx, 7, new Vector3(0f, forkY, 0f), trunk * 0.6f,
+                    new Vector3(MathF.Cos(a) * trunk * 4f, forkY + trunk * 4f, MathF.Sin(a) * trunk * 4f), trunk * 0.4f);
+            }
+            int old = CutEnds(oldV, oldIdx, tree.FineTrunkRadius, forkY, trunk);
+            Assert.True(old > 0, $"{kind} {seed}: the check found no cut end on the old coarse fork, which has one - it is not seeing it");
         }
 
         /// <summary>

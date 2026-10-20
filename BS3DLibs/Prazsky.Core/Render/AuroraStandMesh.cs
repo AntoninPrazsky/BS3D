@@ -6,7 +6,7 @@ using System.Collections.Generic;
 namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// The aurora's far stand's one spruce (#963): a spire of four skirts of jagged bough tips over a short stem, about 140
+    /// The aurora's far stand's one spruce (#963): a spire of four skirts of jagged bough tips over a short stem, about 170
     /// triangles, wound clockwise from outside like every procedural mesh (<c>Tools/WindingCheck</c> judges it). The far
     /// stand draws a few thousand of it instanced on the hills past the planted wood, where a tree is a silhouette and
     /// a silhouette is its bough tips. Its vertices carry how much of a tier's top the snow may lie on.
@@ -90,6 +90,11 @@ namespace Prazsky.Core.Render
                 Vector3 outward = Vector3.Normalize(n0 + n1);
                 Triangle(b0, b1, t1, outward, 0f, 0f, 0f, n0, n1, n1);
                 Triangle(b0, t1, t0, outward, 0f, 0f, 0f, n0, n1, n0);
+
+                //Shut at both ends (#974's gate): the foot is under the snow and the top inside the first tier, but a mesh
+                //with an open ring is a mesh the seam audit cannot vouch for
+                Triangle(b0, new Vector3(0f, -1f, 0f), b1, -Vector3.UnitY, 0f, 0f, 0f, -Vector3.UnitY, -Vector3.UnitY, -Vector3.UnitY);
+                Triangle(t0, t1, new Vector3(0f, stemTop, 0f), Vector3.UnitY, 0f, 0f, 0f, Vector3.UnitY, Vector3.UnitY, Vector3.UnitY);
             }
 
             float topCollar = 0f;
@@ -123,6 +128,10 @@ namespace Prazsky.Core.Render
                     float mid = (a0 + a1) * 0.5f;
                     Vector3 down = Vector3.Normalize(new Vector3(MathF.Cos(mid) * 0.3f, -1f, MathF.Sin(mid) * 0.3f));
                     Triangle(s0, hub, s1, down, 0f, 0f, 0f, down, down, down);
+
+                    //The top tier's collar shut under the leader (the lower ones are buried in the tier above them)
+                    if (tier == STAND_TIERS - 1)
+                        Triangle(c0, c1, new Vector3(0f, collarY, 0f), Vector3.UnitY, 0.6f, 0.6f, 0.6f, Vector3.UnitY, Vector3.UnitY, Vector3.UnitY);
                 }
             }
 
@@ -136,6 +145,7 @@ namespace Prazsky.Core.Render
                 Vector3 n0 = Vector3.Normalize(new Vector3(MathF.Cos(a0), 0.4f, MathF.Sin(a0)));
                 Vector3 n1 = Vector3.Normalize(new Vector3(MathF.Cos(a1), 0.4f, MathF.Sin(a1)));
                 Triangle(b0, b1, tip, Vector3.Normalize(n0 + n1), 0.5f, 0.5f, 0.3f, n0, n1, Vector3.Up);
+                Triangle(b0, new Vector3(0f, topCollar - height * 0.04f, 0f), b1, -Vector3.UnitY, 0f, 0f, 0f, -Vector3.UnitY, -Vector3.UnitY, -Vector3.UnitY);
             }
 
             VertexBuffer = new VertexBuffer(device, StandVertex.Declaration, vertices.Count, BufferUsage.WriteOnly);

@@ -23,6 +23,9 @@ namespace Prazsky.Core.Render
         private readonly List<VertexPositionNormalTexture> _vertices = new();
         private readonly List<int> _indices = new();
 
+        /// <summary>What has been added so far, as the lists it builds buffers from: for a test to read with no device (#974).</summary>
+        public (List<VertexPositionNormalTexture> Vertices, List<int> Indices) Geometry => (_vertices, _indices);
+
         /// <summary>
         /// Adds a triangle wound so <paramref name="faceNormal"/> is the front side under MonoGame's default
         /// culling — the same convention as <see cref="CannonMesh"/> and <see cref="BoxMesh"/>: the front face
@@ -150,16 +153,18 @@ namespace Prazsky.Core.Render
         /// A round bar swept along <paramref name="path"/> — the trail legs' lifting handles (#403). The path has
         /// to lie in one plane and <paramref name="binormal"/> is that plane's normal: each ring is laid square to
         /// the path's local direction from it, so a planar bend never twists. Smooth round the bar; the ends are
-        /// open, because the only caller buries both in the part the bar is welded to.
+        /// open, because the handle buries both in the part the bar is welded to - unless <paramref name="closed"/>:
+        /// a path that returns to its start (the dish's rim) takes the same ring at its first and last station, so
+        /// the bar is a torus and not a bar with a crack across it (#974).
         /// </summary>
-        public void AddSweptTube(Vector3[] path, Vector3 binormal, float radius, int segments)
+        public void AddSweptTube(Vector3[] path, Vector3 binormal, float radius, int segments, bool closed = false)
         {
             int last = path.Length - 1;
 
             for (int k = 0; k < last; k++)
             {
-                Vector3 n0 = RingNormal(path, k, binormal);
-                Vector3 n1 = RingNormal(path, k + 1, binormal);
+                Vector3 n0 = RingNormal(path, k, binormal, closed);
+                Vector3 n1 = RingNormal(path, k + 1, binormal, closed);
 
                 for (int i = 0; i < segments; i++)
                 {
@@ -180,9 +185,12 @@ namespace Prazsky.Core.Render
 
         //The ring's in-plane axis at one station of a swept path: square to the binormal and to the path's
         //direction there, taken across the neighbouring stations so a bend is shared by the rings either side
-        private static Vector3 RingNormal(Vector3[] path, int k, Vector3 binormal)
+        private static Vector3 RingNormal(Vector3[] path, int k, Vector3 binormal, bool closed)
         {
-            Vector3 tangent = path[Math.Min(k + 1, path.Length - 1)] - path[Math.Max(k - 1, 0)];
+            int last = path.Length - 1;
+            Vector3 tangent = closed && (k == 0 || k == last)
+                ? path[1] - path[last - 1]
+                : path[Math.Min(k + 1, last)] - path[Math.Max(k - 1, 0)];
 
             return Vector3.Normalize(Vector3.Cross(tangent, binormal));
         }

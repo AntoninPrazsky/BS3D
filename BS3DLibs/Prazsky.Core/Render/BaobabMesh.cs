@@ -101,7 +101,16 @@ namespace Prazsky.Core.Render
 
         //The twiglets a leafy end carries its sprays on (#782): how thick one leaves the twig end against the trunk (the end
         //itself is 0.01 of it) and how many sprays each holds - many, since a tuft is small and its twiglets fill it
-        private const float TWIGLET_RADIUS = 0.008f;
+        private const float TWIGLET_RADIUS = 0.006f;
+
+        //A limb starts this far (in trunk radii) under the trunk's flat top, so its first ring is inside the trunk: it leaned
+        //out over the top's edge with part of the ring standing in the air above it (#938)
+        private const float LIMB_SINK = 0.2f;
+
+        //A twiglet starts at this share of the radius of the twig end it leaves (a dome), so its first ring is inside it: the
+        //twig's section is a pentagon, whose flats stand at 0.81 of its corners' radius; and the leaf twigs on a twiglet's end
+        //(TWIGLET_RADIUS, 0.006 of the trunk's radius) start inside its square section's flats (0.71 of 0.01)
+        private const float TWIGLET_START = 0.7f;
         private const int SPRAYS_PER_TWIGLET = 24;
 
         //The share of the twig ends that carry leaves: sparse, as the references' cap is
@@ -157,10 +166,13 @@ namespace Prazsky.Core.Render
                 List<VertexPositionNormalTexture> v = geometry.WoodVertices;
                 List<short> idx = geometry.WoodIndices;
 
-                void Tube(int seg, Vector3 from, float fromRadius, Vector3 to, float toRadius)
+                //One run of wood as one skin through its points, its end closed (#938): a dome where wood starts from the end (a
+                //limb's twigs, a twig's twiglets, a twiglet's leaf twigs), which begin inside it at no more than this share of its
+                //radius; two tubes laid end to end at an angle opened a slit on the outer side of the knee, and a free end was a hole
+                void Run(int seg, Vector3[] points, float[] radii)
                 {
-                    TubeGeometry.AddTube(v, idx, seg, from, fromRadius, to, toRadius);
-                    geometry.Skeleton.Add((from, to));
+                    TubeGeometry.AddSweep(v, idx, seg, points, radii, capEnd: true, endDome: 1f);
+                    for (int k = 0; k + 1 < points.Length; k++) geometry.Skeleton.Add((points[k], points[k + 1]));
                 }
 
                 //The trunk in the skeleton too: its axis from the ground to the neck
@@ -186,8 +198,7 @@ namespace Prazsky.Core.Render
                     float len = height * (0.24f + 0.1f * (float)rng.NextDouble());
                     Vector3 mid = neck + dir * (len * 0.45f) + Vector3.Up * (len * 0.6f);
                     Vector3 tip = mid + dir * (len * 0.5f) + Vector3.Up * (len * 0.3f);
-                    Tube(7, neck + dir * (r * 0.2f), r * 0.28f, mid, r * 0.16f);
-                    Tube(6, mid, r * 0.16f, tip, r * 0.09f);
+                    Run(7, new[] { neck + dir * (r * 0.2f) + Vector3.Down * (r * LIMB_SINK), mid, tip }, new[] { r * 0.28f, r * 0.16f, r * 0.09f });
 
                     int twigs = 3 + rng.Next(2);
                     for (int k = 0; k < twigs; k++)
@@ -197,14 +208,14 @@ namespace Prazsky.Core.Render
                         Vector3 tdir = Vector3.Normalize(new Vector3(MathF.Cos(ta) * 0.9f, 0.3f + 0.6f * (float)rng.NextDouble(), MathF.Sin(ta) * 0.9f));
                         Vector3 from = Vector3.Lerp(mid, tip, 0.5f + 0.5f * (float)rng.NextDouble());
                         Vector3 to = from + tdir * tl;
-                        Tube(5, from, r * 0.07f, to, r * 0.03f);
+                        Run(5, new[] { from, to }, new[] { r * 0.07f, r * 0.03f });
                         for (int t = 0; t < 2; t++)
                         {
                             float wa = ta + (t == 0 ? 0.7f : -0.7f) + (float)(rng.NextDouble() - 0.5) * 0.5f;
                             float wl = height * (0.05f + 0.04f * (float)rng.NextDouble());
                             Vector3 wdir = Vector3.Normalize(new Vector3(MathF.Cos(wa) * 0.9f, 0.2f + 0.7f * (float)rng.NextDouble(), MathF.Sin(wa) * 0.9f));
                             Vector3 end = to + wdir * wl;
-                            Tube(4, to, r * 0.03f, end, r * 0.01f);
+                            Run(4, new[] { to, end }, new[] { r * 0.03f * TWIGLET_START, r * 0.01f });
                             geometry.TwigTips.Add(end);
                             reach = MathF.Max(reach, new Vector2(end.X, end.Z).Length());
                         }

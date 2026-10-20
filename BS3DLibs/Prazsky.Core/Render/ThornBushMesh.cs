@@ -55,7 +55,13 @@ namespace Prazsky.Core.Render
 
         //A twig's radius against the bush's, and how many sprays it carries: fine twigs (a spray's own stem is what the
         //eye reads, not the twig), and more sprays on each than a tree's eight since the bush is small and its twigs few
-        private const float TWIG_RADIUS = 0.012f;
+        private const float TWIG_RADIUS = 0.0078f;
+
+        //How thick the wood is where something starts from it (#938), as shares of the stem's radius: a branch ends this thick, so
+        //the twigs that start from its dome (0.0078 of the bush's radius against the end's 0.0112) begin inside it; a branch
+        //forking from a stem's or a branch's closed end starts at this share of the radius it leaves. Both leave a five-sided
+        //section's flats clear: a pentagon's flat stands at 0.81 of its corner's radius, and a ring that reaches past it is open
+        private const float BRANCH_END = 0.28f, KNUCKLE_START = 0.75f;
         private const int SPRAYS_PER_TWIG = 6;
 
         //How the sprays lie over the wood: a mound, not a plate. Dense on top, a thinner layer under it, a ragged fringe under
@@ -106,9 +112,11 @@ namespace Prazsky.Core.Render
             //layer above it as well as the ones under
             float SurfaceAt(float d) => centreY + halfHeight * (SHAPE.Layers[1].Y - SHAPE.Droop * (d / radius) * (d / radius));
 
-            void Sweep(Vector3[] points, float[] radii)
+            //A run of wood as one skin, its end a dome (a hemisphere, #938): the branches and the twigs start inside it, and an open
+            //ring there is a hole in the joint. A stem's foot, under the ground, is closed by a floor.
+            void Sweep(Vector3[] points, float[] radii, bool foot = false)
             {
-                TubeGeometry.AddSweep(geometry.WoodVertices, geometry.WoodIndices, 5, points, radii);
+                TubeGeometry.AddSweep(geometry.WoodVertices, geometry.WoodIndices, 5, points, radii, capStart: foot, capEnd: true, endDome: 1f);
                 for (int k = 0; k + 1 < points.Length; k++) geometry.Skeleton.Add((points[k], points[k + 1]));
             }
 
@@ -124,7 +132,7 @@ namespace Prazsky.Core.Render
                 Vector3 root = dir * (radius * STEM_FOOT) + Vector3.Down * (height * 0.05f);
                 Vector3 fork = dir * (radius * (0.10f + 0.14f * (float)rng.NextDouble())) + Vector3.Up * (height * (0.22f + 0.12f * (float)rng.NextDouble()));
                 Vector3 stemMid = Vector3.Lerp(root, fork, 0.5f) + dir * (radius * 0.02f);
-                Sweep(new[] { root, stemMid, fork }, new[] { stemRadius * 1.3f, stemRadius, stemRadius * 0.8f });
+                Sweep(new[] { root, stemMid, fork }, new[] { stemRadius * 1.3f, stemRadius, stemRadius * 0.8f }, foot: true);
 
                 //Two or three branches from the fork, fanned about the stem's own bearing and each ending under the cloud's
                 //middle layer; one in two forks again part-way, the wiry look of the references
@@ -135,7 +143,7 @@ namespace Prazsky.Core.Render
                     float d = radius * (0.32f + 0.5f * (float)rng.NextDouble());
                     Vector3 end = new(MathF.Cos(ba) * d, SurfaceAt(d), MathF.Sin(ba) * d);
                     Vector3 mid = Vector3.Lerp(fork, end, 0.5f) + Vector3.Up * (Vector3.Distance(fork, end) * 0.08f);
-                    Sweep(new[] { fork, mid, end }, new[] { stemRadius * 0.8f, stemRadius * 0.5f, stemRadius * 0.2f });
+                    Sweep(new[] { fork, mid, end }, new[] { stemRadius * 0.8f * KNUCKLE_START, stemRadius * 0.5f, stemRadius * BRANCH_END });
                     supports.Add(end);
 
                     if (rng.NextDouble() < 0.5)
@@ -144,7 +152,7 @@ namespace Prazsky.Core.Render
                         float fd = Math.Min(d * (0.8f + 0.35f * (float)rng.NextDouble()), radius * 0.9f);
                         Vector3 forkEnd = new(MathF.Cos(fa) * fd, SurfaceAt(fd), MathF.Sin(fa) * fd);
                         Vector3 forkMid = Vector3.Lerp(mid, forkEnd, 0.5f) + Vector3.Up * (Vector3.Distance(mid, forkEnd) * 0.08f);
-                        Sweep(new[] { mid, forkMid, forkEnd }, new[] { stemRadius * 0.5f, stemRadius * 0.35f, stemRadius * 0.15f });
+                        Sweep(new[] { mid, forkMid, forkEnd }, new[] { stemRadius * 0.5f * KNUCKLE_START, stemRadius * 0.35f, stemRadius * BRANCH_END });
                         supports.Add(forkEnd);
                     }
                 }

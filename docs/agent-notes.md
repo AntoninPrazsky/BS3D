@@ -20,6 +20,16 @@ Pravidla:
 
 ---
 
+## 2026-10-20 — #974 audit spár: každá procedurální síť je uzavřená, brána v CI — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: `WindingCheck --openness` pustí `MeshOpenness.ExposedLoops` přes 434 částí všech scén, tabulka `Allowed` s důvodem u každé výjimky, exit 1 na nepojmenovanou otevřenou síť; v `build.yml` brána + dvě samokontroly (podstrčená otevřená krabice). Zavřeno: kolena `SnagMesh` (jeden sweep), pata a špice dlaně, základy větviček louky (zapuštěné do větve), spára víka a těla lunárního ostrova, prstenec talíře, štěrbina vývrtu hlavně.
+- ⚠ Před opravou 27 otevřených sítí; tabulka čeká na `#963`/`#960` (jehličí smrků) – kdo mění `ForestScatter*`, spustí `--openness`.
+- Otevřené: spoje, které nejsou sítě (#970, #968, #959, #969, strop jeskyně v #958); `GroundSettling` mimo savanu neměřen.
+
+## 2026-10-20 — #938 savana: dřevo je uzavřené, klády a skály leží na zemi — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Hotovo: každý volný konec dřeva (větve, větvičky, kořeny, baobab, trnitý keř, doum) je disk, špička nebo kopule, do které další kus začíná; kloub je jeden `AddSweep`. `SavannaMeshClosureTests` přes `MeshOpenness.ExposedLoops`, staré stavby nalezeny (117–210 děr na strom). Kláda, skály a hliníky leží po svahu (`GroundSettling`; 36 z 60 klád mělo konec ve vzduchu).
+- ⚠ Počet hran nerozliší prstenec zapuštěný v rodiči od díry; plocha pětibokého průřezu je na 0,81 poloměru, potomek začíná uvnitř.
+- Otevřené: `verdict-eye`; `SnagMesh` má stejné spáry (#974).
+
 ## 2026-10-20 — #890 louka: volně stojící keře z kmínků a listů na High/Ultra — desktop (RDT-PC), Claude Code (bs3d-bf)
 - Hotovo: na High/Ultra je 55 volných keřů `MeadowShrubMesh` – 5–7 kmínků z jednoho místa v trávě, 13–17 trsů listových karet (spreje starých stromů), tmavý spodek, trsy trávy u paty, uvnitř bochníku, podle kterého se sázelo. Živé ploty a Low/Medium/Potato kreslí bochník beze změny (pixelově, census Potato shodný). Hra: +0,10/+0,12 ms ve hře, oblet balíků +0,27/+0,29.
 - ⚠ Testbed `alt=finemeshes` tu měří artefakt (znaménko se mezi běhy otáčí); měř oddělené běhy obou buildů. Cenu nedělají trojúhelníky.
