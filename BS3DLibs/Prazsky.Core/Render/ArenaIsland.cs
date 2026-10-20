@@ -377,6 +377,10 @@ namespace Prazsky.Core.Render
         //until #536 made it a sea stack), and those scenes draw exactly as before - no tint at all.
         private static readonly IslandLook DEFAULT_LOOK = new(STONE_COLOR, CONCRETE_COLOR, 0.14f, 0.08f, 2f);
 
+        //The aurora's lake ice as the Potato path draws it (#534's, a shade darker and greener than the glacier): the
+        //desktop's darker ice of #963 is for its moonlit snow, which the Raspberry Pi's stand-in does not draw
+        private static readonly IslandLook POTATO_AURORA_LOOK = new(new Vector3(0.70f, 0.78f, 0.84f), new Vector3(0.54f, 0.66f, 0.76f), 0.36f, 0.26f, 2f);
+
         //The dunes' pale sand (DesertSceneConfig.SandColorPale, brought to sRGB like STONE_COLOR): the drift's own
         //colour and the film of it on the desert island's top.
         private static readonly Vector3 SAND_DRIFT_COLOR = new(0.86f, 0.70f, 0.50f);
@@ -389,7 +393,7 @@ namespace Prazsky.Core.Render
         private const float DRIFT_REACH = 6.5f;
         private const float DRIFT_HALF_ARC = 1.9f;
 
-        private static IslandLook LookFor(SceneKind scene) => scene switch
+        private static IslandLook LookFor(SceneKind scene, bool potato) => scene switch
         {
             //Polished pale concrete and brushed steel, laid in bigger plates: a plaza on a rooftop
             SceneKind.City => new(new Vector3(0.53f, 0.54f, 0.56f), new Vector3(0.36f, 0.38f, 0.41f), 0.20f, 0.18f, 3f),
@@ -431,7 +435,8 @@ namespace Prazsky.Core.Render
             //Lake ice under the aurora (#534, "ice standing in ice"): darker and greyer than the polar glacier since #963,
             //whose moonlit snow round it is the brightest thing in the picture - the old pale ice outshone the snow it
             //stood in. It was frosted stone until #534.
-            SceneKind.Aurora => new(new Vector3(0.50f, 0.57f, 0.64f), new Vector3(0.42f, 0.50f, 0.58f), 0.30f, 0.22f, 2f),
+            //The Potato path keeps the paler ice it shipped with: its stand-in has no moonlit snow to be outshone by
+            SceneKind.Aurora => potato ? POTATO_AURORA_LOOK : new(new Vector3(0.50f, 0.57f, 0.64f), new Vector3(0.42f, 0.50f, 0.58f), 0.30f, 0.22f, 2f),
             //Glossy black, for the grid's light to run in
             SceneKind.Grid => new(new Vector3(0.14f, 0.15f, 0.19f), new Vector3(0.12f, 0.13f, 0.16f), 0.45f, 0.30f, 3f),
             //The big top's pedestal (#690): a performer's tub at the island's scale - an ivory varnished top on a lacquered
@@ -1031,7 +1036,7 @@ namespace Prazsky.Core.Render
             //callers set their scene in several places (a startup argument, a level load, the scene page) and a
             //look that one of them forgot to push would stand in the wrong scene; resolving it here costs a
             //switch and four field writes. A scene with the authored look draws exactly as before, untinted.
-            IslandLook look = LookFor(scene);
+            IslandLook look = LookFor(scene, _capRenderer.Potato);
             bool authored = look.Equals(DEFAULT_LOOK);
 
             //The scene's own shape (#533): the lathe under each renderer is swapped when it changes, and the

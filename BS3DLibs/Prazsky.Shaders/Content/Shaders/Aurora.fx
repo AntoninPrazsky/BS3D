@@ -5,6 +5,7 @@
 //  AuroraSnowFine / AuroraSnowCoarse - the snowfield, depth-writing, opaque: the fine grid round the camera first, then
 //      the coarse one out to the hills, lowered wherever the fine one draws. Neither program calls clip(): the island's
 //      hole is cut in the vertex shader, so the depth test runs before the pixel shader (MountainFine's lesson, #781).
+//  AuroraCollar - the snow drifted against the foot of every trunk, log and stone of the wood, instanced.
 //  AuroraStand - the far stand: a few thousand cheap spruces on the hills past the planted wood, instanced.
 //  AuroraSky - the night sky, depth-READ at the far plane behind all of it.
 //
@@ -12,10 +13,10 @@
 //takes the same mist (SceneFog.fxh) and the same moon shadow (Shadows.fxh) as the snow under it.
 //
 //THE GROUND is the forest's clearing-and-hills field (ForestGround.fxh, the one copy) plus three things of the snow's
-//own: wind drifts (SnowDrift), the bank piled against the island's drum (SnowBank), and the drifts round every trunk,
-//log, snag and boulder (the mound map, baked once by AuroraBackdrop from the planting). TerrainMirror.AuroraBase
-//mirrors the first three on the CPU term for term; the mound map is the same array on both sides. Keep them in one
-//change - mirrorcheck catches a drift.
+//own: wind drifts (SnowDrift), the bank piled against the island's drum (SnowBank), and the lee tails and the crowns'
+//shade (the mound map, baked once by AuroraBackdrop from the planting); the drift against each foot is a collar of its
+//own (AuroraCollar). TerrainMirror.AuroraBase mirrors the first three on the CPU term for term; the mound map is the same
+//array on both sides. Keep them in one change - mirrorcheck catches a drift.
 //
 //THE SKY is a gradient from a deep blue zenith to a paler horizon with a glow along it, the stars (Stars.fxh), the
 //Moon, and the aurora: a few ARCS, each a vertical sheet hanging along a folded line across the sky. A view ray is
@@ -309,7 +310,7 @@ float4 SnowShade(SnowVertexOutput input, uniform bool detail)
 
     //Where the grid ends the ground has gone into the haze the horizon is drawn in, so its edge is never a line
     float2 fromCentre = abs(worldPosition.xz - CoarseOriginXZ);
-    color = lerp(color, SceneFogColor, smoothstep(CoarseReach * 0.72, CoarseReach, max(fromCentre.x, fromCentre.y)));
+    color = lerp(color, SceneFogColor, smoothstep(CoarseReach * 0.8, CoarseReach, max(fromCentre.x, fromCentre.y)));
 
     return float4(color, 1.0);
 }
@@ -349,6 +350,78 @@ technique AuroraSnowCoarseReduced
     pass P0
     {
         VertexShader = compile VS_SHADERMODEL SnowCoarseVS();
+        PixelShader = compile PS_SHADERMODEL SnowReducedPS();
+    }
+};
+
+//--- The collars --------------------------------------------------------------------------------------------------
+
+//The snow drifted against the foot of every trunk, snag, boulder and stump, and along every log (AuroraCollars): one
+//polar mesh, instanced, standing on the snow and shaded as the snow is, so its rim melts into the ground and only the
+//rise against the wood shows. Its rings are spaced by the drift's own reach, which the ground's grid (0.75 a cell) and
+//the mound map (a unit a texel) cannot carry. ⚠ AuroraCollars.HeightAt is this profile on the CPU: keep them in one change.
+float CollarLee;          //how much further a collar reaches downwind, as a share of its reach
+
+struct CollarVertexInput
+{
+    float2 Polar : POSITION0;            //x the ring, 0 inside the wood to 1 at the reach; y the angle round the core
+};
+
+struct CollarInstanceInput
+{
+    float4 Place : TEXCOORD1;            //the core's centre (x, z), half a log's core, the core's radius
+    float4 Shape : TEXCOORD2;            //the rise against the wood, the reach, the core's axis (x, z)
+};
+
+SnowVertexOutput CollarVS(CollarVertexInput input, CollarInstanceInput instance)
+{
+    SnowVertexOutput output;
+
+    float u = input.Polar.x;
+    float s, c;
+    sincos(input.Polar.y, s, c);
+
+    //Round a point, or round a log's axis as a stadium: the half of the ring facing either end goes round that end
+    float2 axis = instance.Shape.zw;
+    float2 outward = axis * c + float2(-axis.y, axis.x) * s;
+    float2 core = instance.Place.xy + axis * (instance.Place.z * (c < 0.0 ? -1.0 : 1.0));
+
+    float lee = 1.0 + CollarLee * saturate(dot(outward, DriftWind));
+    float reach = instance.Shape.y * lee;
+    float2 xz = core + outward * (instance.Place.w * 0.7 + reach * u);
+
+    float rise = pow(1.0 - u, 2.5);
+    float h = SnowHeight(xz) + instance.Shape.x * rise - 0.02;
+
+    //The base field's normal, as the ground's vertices take it, tilted by the collar's own slope; the mounds' slope is
+    //added per pixel as on the ground, so at the rim (where the rise is level) the two surfaces shade alike
+    float e = 0.5;
+    float base = SnowBaseHeight(xz);
+    float2 gradient = float2(SnowBaseHeight(xz + float2(e, 0.0)) - base, SnowBaseHeight(xz + float2(0.0, e)) - base) / e;
+    gradient += outward * (-2.5 * pow(1.0 - u, 1.5) * instance.Shape.x / max(reach, 1e-3));
+    output.Normal = normalize(float3(-gradient.x, 1.0, -gradient.y));
+
+    float3 world = float3(xz.x, h, xz.y);
+    output.WorldPosition = world;
+    output.Position = mul(mul(float4(world, 1.0), View), Projection);
+
+    return output;
+}
+
+technique AuroraCollar
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL CollarVS();
+        PixelShader = compile PS_SHADERMODEL SnowPS();
+    }
+};
+
+technique AuroraCollarReduced
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL CollarVS();
         PixelShader = compile PS_SHADERMODEL SnowReducedPS();
     }
 };
@@ -413,7 +486,7 @@ float4 StandPS(StandVertexOutput input) : COLOR
     color = ApplySceneFog(color, CameraPosition, input.WorldPosition);
 
     float2 fromCentre = abs(input.WorldPosition.xz - CoarseOriginXZ);
-    color = lerp(color, SceneFogColor, smoothstep(CoarseReach * 0.72, CoarseReach, max(fromCentre.x, fromCentre.y)));
+    color = lerp(color, SceneFogColor, smoothstep(CoarseReach * 0.8, CoarseReach, max(fromCentre.x, fromCentre.y)));
 
     return float4(color, 1.0);
 }

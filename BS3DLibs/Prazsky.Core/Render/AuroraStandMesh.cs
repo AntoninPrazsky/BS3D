@@ -6,7 +6,7 @@ using System.Collections.Generic;
 namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// The aurora's far stand's one spruce (#963): a spire of four skirts of jagged bough tips over a short stem, about 170
+    /// The aurora's far stand's spruce (#963): a spire of skirts of jagged bough tips over a short stem, about 170
     /// triangles, wound clockwise from outside like every procedural mesh (<c>Tools/WindingCheck</c> judges it). The far
     /// stand draws a few thousand of it instanced on the hills past the planted wood, where a tree is a silhouette and
     /// a silhouette is its bough tips. Its vertices carry how much of a tier's top the snow may lie on.
@@ -47,13 +47,15 @@ namespace Prazsky.Core.Render
             VertexDeclaration IVertexType.VertexDeclaration => Declaration;
         }
 
-        //The spire's tiers: four skirts of jagged bough tips, each a cone up to a collar inside the next, over a short
-        //stem, and a leader. A far tree is a silhouette, and a silhouette is its bough tips: each skirt's ring alternates
-        //long and short tips and droops at them.
-        private const int STAND_TIERS = 4, STAND_SIDES = 10;
-
-        public AuroraStandMesh(GraphicsDevice device, AuroraFarStandConfig stand)
+        /// <summary>
+        /// The spire: <paramref name="tiers"/> skirts of jagged bough tips, each a cone up to a collar inside the next, over a
+        /// short stem, and a leader. A far tree is a silhouette, and a silhouette is its bough tips: each skirt's ring of
+        /// <paramref name="sides"/> alternates long and short tips and droops at them. Four tiers of ten for the near ring
+        /// of the stand, two of seven past it.
+        /// </summary>
+        public AuroraStandMesh(GraphicsDevice device, AuroraFarStandConfig stand, int tiers = 4, int sides = 10)
         {
+            int STAND_TIERS = Math.Max(tiers, 1), STAND_SIDES = Math.Max(sides & ~1, 4);
             var vertices = new List<StandVertex>();
             var indices = new List<int>();
             float height = stand.Height, radius = stand.Radius;
@@ -102,7 +104,8 @@ namespace Prazsky.Core.Render
             {
                 float t = tier / (float)STAND_TIERS;
                 float skirtY = height * (0.12f + 0.62f * t);
-                float collarY = skirtY + height * 0.3f;
+                //Up past the next tier's skirt, so the collar is inside the cone above it (two tiers are spaced wider than one)
+                float collarY = skirtY + height * MathF.Max(0.3f, 0.62f / STAND_TIERS + 0.06f);
                 float skirtR = radius * (1f - 0.68f * t);
                 float collarR = skirtR * 0.22f;
                 float twist = tier * 0.7f;

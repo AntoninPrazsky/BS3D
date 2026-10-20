@@ -150,10 +150,11 @@ namespace Prazsky.Core.Render
     /// <summary>
     /// The snowfield (#963): the forest's field (<see cref="AuroraSceneConfig.Terrain"/>) under the snow's own relief.
     /// <para>
-    /// Three terms of geometry, all of them in the drawn ground and in the CPU mirror the wood is planted by:
-    /// the wind's <b>drifts</b>, the <b>bank</b> piled against the island's drum, and the <b>mounds</b> drifted round
-    /// every trunk, snag, log, boulder and stump (baked once from the planting into a map the vertex shader reads).
-    /// Below a cell of the grid, the <b>sastrugi</b> (the wind-cut ridges) and the crust's grain are per pixel.
+    /// Geometry in the drawn ground and in the CPU mirror the wood is planted by: the wind's <b>drifts</b>, the <b>bank</b>
+    /// piled against the island's drum, and the <b>lee tails</b> downwind of the trunks (baked once from the planting
+    /// into a map the vertex shader reads, <see cref="AuroraMoundMap"/>). The drift rising against every trunk, snag,
+    /// log, boulder and stump is a <b>collar</b> of its own (<see cref="AuroraCollars"/>). Below a cell of the grid, the
+    /// <b>sastrugi</b> (the wind-cut ridges) and the crust's grain are per pixel.
     /// </para>
     /// </summary>
     public sealed class AuroraSnowfieldConfig
@@ -182,20 +183,23 @@ namespace Prazsky.Core.Render
         /// <summary>How much deeper it lies on the lee side than on average, 0 to 1.</summary>
         public float BankLee { get; set; } = 0.35f;
 
-        /// <summary>How high the snow stands against a trunk of scale 1, before the lee tail.</summary>
+        /// <summary>How high the snow stands against a trunk of scale 1 (its collar, <see cref="AuroraCollars"/>), over the snow round it.</summary>
         public float TrunkDrift { get; set; } = 0.55f;
 
-        /// <summary>How far out from the bark the drift round a trunk falls away by e, at scale 1.</summary>
-        public float TrunkDriftReach { get; set; } = 0.9f;
+        /// <summary>How far out from the bark a trunk's collar runs before it has fallen to the snow, at scale 1 (further downwind, <see cref="CollarLee"/>).</summary>
+        public float TrunkDriftReach { get; set; } = 2.4f;
 
-        /// <summary>How long the lee tail behind an obstacle runs, at scale 1, and how high it is against the drift at its foot.</summary>
+        /// <summary>How much further a collar reaches on its downwind side, as a share of its reach.</summary>
+        public float CollarLee { get; set; } = 1.0f;
+
+        /// <summary>How long the lee tail behind a trunk runs downwind, at scale 1 (the mound map's, <see cref="AuroraMoundMap"/>).</summary>
         public float LeeTail { get; set; } = 5f;
 
-        /// <summary>The lee tail's height as a share of the drift at the foot.</summary>
+        /// <summary>The lee tail's height as a share of <see cref="TrunkDrift"/>.</summary>
         public float LeeTailHeight { get; set; } = 0.45f;
 
-        /// <summary>How deep the snow lies against a log, as a share of its radius: half buried, a ramp up each side.</summary>
-        public float LogDrift { get; set; } = 0.65f;
+        /// <summary>How far over a log's axis the snow stands against it, as a share of its radius: a little over half buried, a ramp up each side.</summary>
+        public float LogDrift { get; set; } = 0.15f;
 
         /// <summary>How much less sky the snow sees right under a crown (0 none, 1 none at all): the dark round a tree's foot that seats it.</summary>
         public float CanopyShade { get; set; } = 0.5f;
@@ -283,10 +287,11 @@ namespace Prazsky.Core.Render
         /// <summary>The arcs, nearest the bearing's horizon first.</summary>
         public AuroraArcConfig[] Arcs { get; set; } =
         {
-            //The great curtain over the treeline in the play camera's view: its lower edge some ten to eighteen degrees up,
-            //one long S across the view
-            new() { Offset = 4.4f, AngleDegrees = 0f, BendDepth = 1.6f, BendFrequency = 0.22f, FoldDepth = 0.25f, FoldFrequency = 1.0f,
-                LitFrequency = 0.35f, LowerEdge = 1.0f, Height = 1.5f, Brightness = 1.0f, Seed = 1.3f, PulsePhase = 0f },
+            //The great curtain over the treeline in the play camera's view, one long S across it, its lower edge some seven to
+            //twelve degrees up, just over the far ridges: ⚠ at ten to eighteen the dark sky between the ridges and the
+            //bright edge read as a smooth bare ridge of its own
+            new() { Offset = 6.5f, AngleDegrees = 0f, BendDepth = 2.2f, BendFrequency = 0.16f, FoldDepth = 0.3f, FoldFrequency = 0.75f,
+                LitFrequency = 0.25f, LowerEdge = 1.0f, Height = 2.4f, Brightness = 1.0f, Seed = 1.3f, PulsePhase = 0f },
             //A fainter one closer overhead, for a lens that looks up
             new() { Offset = 1.6f, AngleDegrees = 14f, BendDepth = 0.5f, BendFrequency = 0.35f, FoldDepth = 0.15f, FoldFrequency = 1.4f,
                 LitFrequency = 0.5f, LowerEdge = 1.3f, Height = 1.2f, Brightness = 0.4f, Seed = 7.9f, PulsePhase = 2.1f },
@@ -408,20 +413,27 @@ namespace Prazsky.Core.Render
     }
 
     /// <summary>
-    /// The far stand (#963): the hills' forest past the planted wood, a few thousand spruces of one cheap spire mesh,
-    /// instanced, so every ridge's skyline is tree tips. It stands from where the planted wood thins out to well into
-    /// the haze, and casts no shadow (the map does not reach it).
+    /// The far stand (#963): the hills' forest past the planted wood, thousands of spruces of one cheap spire mesh in two
+    /// details, instanced, so every ridge's skyline is tree tips. It stands from where the hills rise to the last ridges
+    /// in the haze, in the gaps between the planted wood's groves (the groves' clusters left whole ridges bare), casts no
+    /// shadow (the map does not reach it), is not culled and is the same at every tier.
     /// </summary>
     public sealed class AuroraFarStandConfig
     {
-        /// <summary>How many spruces.</summary>
-        public int Count { get; set; } = 10000;
+        /// <summary>How many spruces in the near ring (<see cref="InnerRadius"/> to <see cref="NearRadius"/>), four tiers each.</summary>
+        public int Count { get; set; } = 9000;
 
-        /// <summary>Where it starts, from the arena's axis.</summary>
-        public float InnerRadius { get; set; } = 260f;
+        /// <summary>How many past it (from <see cref="NearRadius"/> out to the square <see cref="OuterRadius"/> on a side's half), two tiers each.</summary>
+        public int FarCount { get; set; } = 16000;
 
-        /// <summary>Where it ends.</summary>
-        public float OuterRadius { get; set; } = 600f;
+        /// <summary>Where it starts, from the arena's axis: where the hills rise out of the clearing. Inside the planted wood's reach it fills the hills between the groves and stands in none of them.</summary>
+        public float InnerRadius { get; set; } = 200f;
+
+        /// <summary>Where the near ring gives way to the far one.</summary>
+        public float NearRadius { get; set; } = 600f;
+
+        /// <summary>Where it ends: the half side of the square the far ring fills, the last ridges as far as the coarse grid reaches round the play camera.</summary>
+        public float OuterRadius { get; set; } = 880f;
 
         /// <summary>A spruce's height at scale 1.</summary>
         public float Height { get; set; } = 21f;

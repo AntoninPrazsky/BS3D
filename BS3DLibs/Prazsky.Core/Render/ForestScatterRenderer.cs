@@ -111,6 +111,9 @@ namespace Prazsky.Core.Render
         /// <summary>The two logs' proportions against <see cref="ForestDeadwoodConfig.Length"/> and <c>Radius</c> (X length, Y radius).</summary>
         public static readonly Vector2[] LOG_SHAPES = { new(1f, 1f), new(0.7f, 0.85f) };
 
+        /// <summary>The two logs' structural rolls (<see cref="DeadwoodMesh"/>'s seed), indexed as <see cref="LOG_SHAPES"/>.</summary>
+        public static readonly int[] LOG_SEEDS = { 149, 151 };
+
         /// <summary>
         /// Where a wood of <paramref name="config"/> stands, planted on <paramref name="terrainHeight"/> with every kind
         /// split between as many variants as the renderer builds meshes for: the one planting call, so a planting made
@@ -551,8 +554,8 @@ namespace Prazsky.Core.Render
 
             _logMeshes = new[]
             {
-                new DeadwoodMesh(_device, logs.Length * LOG_SHAPES[0].X, logs.Radius * LOG_SHAPES[0].Y, seed: 149),
-                new DeadwoodMesh(_device, logs.Length * LOG_SHAPES[1].X, logs.Radius * LOG_SHAPES[1].Y, seed: 151)
+                new DeadwoodMesh(_device, logs.Length * LOG_SHAPES[0].X, logs.Radius * LOG_SHAPES[0].Y, seed: LOG_SEEDS[0]),
+                new DeadwoodMesh(_device, logs.Length * LOG_SHAPES[1].X, logs.Radius * LOG_SHAPES[1].Y, seed: LOG_SEEDS[1])
             };
 
             //The tint tables are indexed by mesh variant, so a variant past the end of its table throws inside

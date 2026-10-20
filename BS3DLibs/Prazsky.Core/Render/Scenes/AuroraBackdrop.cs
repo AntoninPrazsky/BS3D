@@ -31,8 +31,10 @@ namespace Prazsky.Core.Render
         //one runs out to the hills and sinks under the fine one wherever it draws (see Aurora.fx's SnowVS). Neither clips.
         private const int FINE_GRID_N = 481;
         private const float FINE_EXTENT = 360f;
-        private const int COARSE_GRID_N = 220;
-        private const float COARSE_EXTENT = 1200f;
+        //The coarse grid reaches 900 units: the hills' last ridges, in the haze, stand on it with the far stand's tips
+        //(at 600 the farthest ridge behind the cluster was the grid's own edge fading into the mist, smooth and bare)
+        private const int COARSE_GRID_N = 260;
+        private const float COARSE_EXTENT = 1800f;
         private readonly VertexBuffer _fineVertices, _coarseVertices;
         private readonly IndexBuffer _fineIndices, _coarseIndices;
         private readonly int _fineIndexCount, _coarseIndexCount;
@@ -43,9 +45,16 @@ namespace Prazsky.Core.Render
         private readonly Texture2D _moundTexture;
 
         //The far stand: one spire mesh, a few thousand instances
-        private readonly AuroraStandMesh _standMesh;
-        private readonly VertexBuffer _standInstances;
-        private readonly int _standCount;
+        private readonly AuroraStandMesh _standMesh, _standFarMesh;
+        private readonly VertexBuffer _standInstances, _standFarInstances;
+        private readonly int _standCount, _standFarCount;
+
+        //The collars: the snow drifted against the foot of everything the planting stands (AuroraCollars)
+        private readonly VertexBuffer _collarMesh, _collarInstances;
+        private readonly IndexBuffer _collarIndices;
+        private readonly int _collarPrimitives, _collarCount;
+        private readonly EffectTechnique _collar, _collarReduced;
+        private const int COLLAR_RINGS = 8, COLLAR_SIDES = 20;
 
         //The arcs, as the shader takes them: their places (brightness written per frame) and their shapes, fixed
         private const int ARCS = 3;
@@ -130,7 +139,23 @@ namespace Prazsky.Core.Render
             }
 
             _standMesh = new AuroraStandMesh(_graphicsDevice, config.FarStand);
-            (_standInstances, _standCount) = PlantStand(_graphicsDevice, config);
+            _standFarMesh = new AuroraStandMesh(_graphicsDevice, config.FarStand, tiers: 2, sides: 8);
+            HashSet<(int, int)> taken = TakenCells(_planting);
+            (_standInstances, _standCount) = PlantStand(_graphicsDevice, config, config.FarStand.InnerRadius, config.FarStand.NearRadius, config.FarStand.Count, 0, taken);
+            (_standFarInstances, _standFarCount) = PlantStand(_graphicsDevice, config, config.FarStand.NearRadius, config.FarStand.OuterRadius, config.FarStand.FarCount, 1, taken);
+
+            _collar = _effect.Techniques["AuroraCollar"];
+            _collarReduced = _effect.Techniques["AuroraCollarReduced"];
+            (_collarMesh, _collarIndices, _collarPrimitives) = BuildCollarMesh(_graphicsDevice);
+            AuroraCollars.Collar[] collars = AuroraCollars.Build(_planting, config, GroundHeight);
+            _collarCount = collars.Length;
+            _collarInstances = new VertexBuffer(_graphicsDevice, CollarInstance.Declaration, Math.Max(_collarCount, 1), BufferUsage.WriteOnly);
+            if (_collarCount > 0)
+            {
+                var data = new CollarInstance[_collarCount];
+                for (int i = 0; i < _collarCount; i++) data[i] = new CollarInstance(collars[i].Place, collars[i].Shape);
+                _collarInstances.SetData(data);
+            }
 
             ApplyParameters();
 
@@ -201,6 +226,7 @@ namespace Prazsky.Core.Render
             float bearing = MathHelper.ToRadians(curtains.BearingDegrees);
             _effect.Parameters["AuroraBearing"].SetValue(new Vector2(MathF.Sin(bearing), MathF.Cos(bearing)));
             _effect.Parameters["ArcShape"].SetValue(_arcShapes);
+            Set("CollarLee", _config.Snowfield.CollarLee);
             _effect.Parameters["ArcBend"].SetValue(_arcBends);
             Set("AuroraGreen", curtains.Green);
             Set("AuroraRed", curtains.Red);
@@ -346,16 +372,22 @@ namespace Prazsky.Core.Render
             _gridCell.SetValue(coarseCell);
             DrawGrid(detail ? _snowCoarse : _snowCoarseReduced, _coarseVertices, _coarseIndices, _coarseIndexCount);
 
-            //The far stand, its spires wound clockwise from outside like every procedural mesh
-            if (_standCount > 0)
+            //The collars on the snow, shaded as the snow is (they read the coarse grid's origin for nothing; the ground's
+            //uniforms they take are the field's)
+            if (_collarCount > 0)
             {
-                _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-                InstanceBinding.Set(_graphicsDevice, _standMesh.VertexBuffer, 0, _standInstances, 0);
-                _graphicsDevice.Indices = _standMesh.IndexBuffer;
-                _effect.CurrentTechnique = _stand;
+                InstanceBinding.Set(_graphicsDevice, _collarMesh, 0, _collarInstances, 0);
+                _graphicsDevice.Indices = _collarIndices;
+                _effect.CurrentTechnique = detail ? _collar : _collarReduced;
                 _effect.CurrentTechnique.Passes[0].Apply();
-                _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, _standMesh.PrimitiveCount, _standCount);
+                _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, _collarPrimitives, _collarCount);
             }
+
+            //The far stand, its spires wound clockwise from outside like every procedural mesh: the near ring's four tiers,
+            //then the two of the ring past it
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+            DrawStand(_standMesh, _standInstances, _standCount);
+            DrawStand(_standFarMesh, _standFarInstances, _standFarCount);
 
             //Then the sky, depth-READ at the far plane: every pixel the ground or the stand owns is rejected before it runs
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
@@ -370,6 +402,17 @@ namespace Prazsky.Core.Render
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        private void DrawStand(AuroraStandMesh mesh, VertexBuffer instances, int count)
+        {
+            if (count <= 0) return;
+
+            InstanceBinding.Set(_graphicsDevice, mesh.VertexBuffer, 0, instances, 0);
+            _graphicsDevice.Indices = mesh.IndexBuffer;
+            _effect.CurrentTechnique = _stand;
+            _effect.CurrentTechnique.Passes[0].Apply();
+            _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, count);
         }
 
         private void DrawGrid(EffectTechnique technique, VertexBuffer vertices, IndexBuffer indices, int indexCount)
@@ -466,6 +509,11 @@ namespace Prazsky.Core.Render
             _moundTexture?.Dispose();
             _standMesh?.Dispose();
             _standInstances?.Dispose();
+            _standFarMesh?.Dispose();
+            _standFarInstances?.Dispose();
+            _collarMesh?.Dispose();
+            _collarIndices?.Dispose();
+            _collarInstances?.Dispose();
         }
 
         #region The far stand
@@ -489,24 +537,61 @@ namespace Prazsky.Core.Render
             VertexDeclaration IVertexType.VertexDeclaration => Declaration;
         }
 
-        //The far stand's planting: spread over the ring by area, left open where a glade field says so, planted on the
-        //snow (AuroraBase) a little sunk, nearest the arena first so the depth test rejects what the near ones hide
-        private static (VertexBuffer, int) PlantStand(GraphicsDevice device, AuroraSceneConfig config)
+        //A ring of the far stand's planting: spread over the ring by area, left open where a glade field says so, planted
+        //on the snow (AuroraBase) a little sunk, nearest the arena first so the depth test rejects what the near ones hide
+        private const float STAND_CELL = 7f;
+
+        //The cells a planted spruce or snag stands in: the far stand fills the hills round the planted wood's groves and
+        //never stands a spire inside one
+        private static HashSet<(int, int)> TakenCells(ForestScatter planting)
+        {
+            var taken = new HashSet<(int, int)>();
+            void Take(ModelInstance[][] buckets)
+            {
+                foreach (ModelInstance[] bucket in buckets)
+                    foreach (ModelInstance tree in bucket)
+                    {
+                        int cx = (int)MathF.Floor(tree.World.M41 / STAND_CELL), cz = (int)MathF.Floor(tree.World.M43 / STAND_CELL);
+                        for (int dz = -1; dz <= 1; dz++)
+                            for (int dx = -1; dx <= 1; dx++) taken.Add((cx + dx, cz + dz));
+                    }
+            }
+            Take(planting.Conifers);
+            Take(planting.Snags);
+            return taken;
+        }
+
+        private static (VertexBuffer, int) PlantStand(GraphicsDevice device, AuroraSceneConfig config, float innerRadius, float outerRadius, int count, int ring,
+            HashSet<(int, int)> taken)
         {
             AuroraFarStandConfig stand = config.FarStand;
-            var rng = new Random(stand.Seed);
-            var planted = new List<StandInstance>(stand.Count);
+            var rng = new Random(stand.Seed + ring);
+            var planted = new List<StandInstance>(count);
 
-            float inner2 = stand.InnerRadius * stand.InnerRadius, outer2 = stand.OuterRadius * stand.OuterRadius;
-            for (int attempt = 0; attempt < stand.Count * 3 && planted.Count < stand.Count; attempt++)
+            float inner2 = innerRadius * innerRadius, outer2 = outerRadius * outerRadius;
+            for (int attempt = 0; attempt < count * 4 && planted.Count < count; attempt++)
             {
-                float r = MathF.Sqrt(MathHelper.Lerp(inner2, outer2, (float)rng.NextDouble()));
-                float a = (float)rng.NextDouble() * MathHelper.TwoPi;
-                float x = MathF.Cos(a) * r, z = MathF.Sin(a) * r;
+                //The near ring is a ring; the far one fills the square the coarse grid draws round the play camera out to its
+                //edge (a circle left the grid's corners bare, and they are the ridges behind the cluster)
+                float x, z;
+                if (ring == 0)
+                {
+                    float r = MathF.Sqrt(MathHelper.Lerp(inner2, outer2, (float)rng.NextDouble()));
+                    float a = (float)rng.NextDouble() * MathHelper.TwoPi;
+                    x = MathF.Cos(a) * r;
+                    z = MathF.Sin(a) * r;
+                }
+                else
+                {
+                    x = ((float)rng.NextDouble() * 2f - 1f) * outerRadius;
+                    z = ((float)rng.NextDouble() * 2f - 1f) * outerRadius;
+                    if (x * x + z * z < inner2) continue;
+                }
 
-                //Glades: open ground where a broad field is low
+                //Glades: open ground where a broad field is low; and none inside the planted wood's groves
                 float glade = 0.5f + 0.8f * ShaderMath.Noise(new Vector2(x * 0.011f + 31.7f, z * 0.011f + 5.3f));
                 if (glade < stand.Glades) continue;
+                if (taken.Contains(((int)MathF.Floor(x / STAND_CELL), (int)MathF.Floor(z / STAND_CELL)))) continue;
 
                 float scale = MathHelper.Lerp(stand.MinScale, stand.MaxScale, (float)rng.NextDouble());
                 float yaw = (float)rng.NextDouble() * MathHelper.TwoPi;
@@ -522,6 +607,63 @@ namespace Prazsky.Core.Render
             var buffer = new VertexBuffer(device, StandInstance.Declaration, Math.Max(planted.Count, 1), BufferUsage.WriteOnly);
             if (planted.Count > 0) buffer.SetData(planted.ToArray());
             return (buffer, planted.Count);
+        }
+
+        #endregion
+
+        #region The collars
+
+        /// <summary>A collar's instance: <see cref="AuroraCollars.Collar"/> as the shader takes it.</summary>
+        private readonly struct CollarInstance : IVertexType
+        {
+            public readonly Vector4 Place;
+            public readonly Vector4 Shape;
+
+            public CollarInstance(Vector4 place, Vector4 shape)
+            {
+                Place = place;
+                Shape = shape;
+            }
+
+            public static readonly VertexDeclaration Declaration = new(
+                new VertexElement(0, VertexElementFormat.Vector4, VertexElementUsage.TextureCoordinate, 1),
+                new VertexElement(16, VertexElementFormat.Vector4, VertexElementUsage.TextureCoordinate, 2));
+
+            VertexDeclaration IVertexType.VertexDeclaration => Declaration;
+        }
+
+        //The collar's one mesh: a polar grid of (ring, angle), the rings crowded towards the wood where the drift is steep.
+        //The angles stand half a step off the quarter turns, so a log's stadium never puts a vertex on the line between its
+        //two ends. Drawn CullNone (it is a skirt seen from above), so its winding is not a front face's.
+        private static (VertexBuffer, IndexBuffer, int) BuildCollarMesh(GraphicsDevice device)
+        {
+            var vertices = new Vector2[COLLAR_RINGS * COLLAR_SIDES];
+            for (int ring = 0; ring < COLLAR_RINGS; ring++)
+            {
+                float u = MathF.Pow(ring / (float)(COLLAR_RINGS - 1), 1.35f);
+                for (int side = 0; side < COLLAR_SIDES; side++)
+                    vertices[ring * COLLAR_SIDES + side] = new Vector2(u, (side + 0.5f) * MathHelper.TwoPi / COLLAR_SIDES);
+            }
+
+            var indices = new List<short>((COLLAR_RINGS - 1) * COLLAR_SIDES * 6);
+            for (int ring = 0; ring < COLLAR_RINGS - 1; ring++)
+            {
+                for (int side = 0; side < COLLAR_SIDES; side++)
+                {
+                    int next = (side + 1) % COLLAR_SIDES;
+                    short a = (short)(ring * COLLAR_SIDES + side), b = (short)(ring * COLLAR_SIDES + next);
+                    short c = (short)((ring + 1) * COLLAR_SIDES + side), d = (short)((ring + 1) * COLLAR_SIDES + next);
+                    indices.Add(a); indices.Add(c); indices.Add(b);
+                    indices.Add(b); indices.Add(c); indices.Add(d);
+                }
+            }
+
+            var vertexBuffer = new VertexBuffer(device, new VertexDeclaration(
+                new VertexElement(0, VertexElementFormat.Vector2, VertexElementUsage.Position, 0)), vertices.Length, BufferUsage.WriteOnly);
+            vertexBuffer.SetData(vertices);
+            var indexBuffer = new IndexBuffer(device, IndexElementSize.SixteenBits, indices.Count, BufferUsage.WriteOnly);
+            indexBuffer.SetData(indices.ToArray());
+            return (vertexBuffer, indexBuffer, indices.Count / 3);
         }
 
         #endregion
