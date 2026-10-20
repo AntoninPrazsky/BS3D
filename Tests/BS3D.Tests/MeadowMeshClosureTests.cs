@@ -164,7 +164,8 @@ namespace BS3D.Tests
 
         /// <summary>
         /// The free-standing shrubs of High and Ultra (#890): every stem and branch is closed at both ends from its own rings, so
-        /// the wood's only open edges are the twigs' base rings, within a twig's radius of a spray base, as a tree's are.
+        /// the wood's only open edges are the twigs' base rings, which lie two twig radii back along the stem inside it (#974), so
+        /// within three of a spray base, as a tree's are.
         /// </summary>
         [Theory]
         [InlineData(0, 1.6f)]
@@ -176,7 +177,7 @@ namespace BS3D.Tests
             MeadowShrubGeometry shrub = MeadowShrubMesh.Build(reach, top, MeadowScatter.FINE_SHRUB_SEED + m);
             List<(Vector3 A, Vector3 B)> open = MeshOpenness.OpenEdges(shrub.WoodVertices, shrub.WoodIndices);
             Assert.NotEmpty(open);
-            float near = shrub.TwigRadius * 1.01f;
+            float near = shrub.TwigRadius * 3.05f;
             foreach ((Vector3 a, Vector3 b) in open)
                 Assert.True(shrub.SprayBases.Any(s => Vector3.Distance(s, a) <= near && Vector3.Distance(s, b) <= near),
                     $"shrub {m}: an open edge of the wood at {a} is not a twig's base ring");
@@ -208,8 +209,9 @@ namespace BS3D.Tests
         }
 
         /// <summary>
-        /// A twig's tip comes to a point, and its base starts at the branch's end: the only open edges of the twigs are the
-        /// base rings, within a twig's radius of a spray base (the fault: a tip left as an open ring a quarter the base's size).
+        /// A twig's tip comes to a point, and its base starts inside the branch's end, two twig radii back (#974): the only open
+        /// edges of the twigs are the base rings, within three twig radii of a spray base (the fault: a tip left as an open ring
+        /// a quarter the base's size).
         /// </summary>
         [Theory]
         [MemberData(nameof(Trees))]
@@ -218,7 +220,7 @@ namespace BS3D.Tests
             MeadowTreeGeometry tree = MeadowTreeMesh.Build((MeadowTreeKind)kind, seed);
             List<(Vector3 A, Vector3 B)> open = MeshOpenness.OpenEdges(tree.TwigVertices, tree.TwigIndices);
             Assert.NotEmpty(open);
-            float reach = tree.Trunk * 0.04f;
+            float reach = tree.Trunk * 0.11f;   //three twig radii, a twig's being 0.035 of the trunk
             foreach ((Vector3 a, Vector3 b) in open)
                 Assert.True(tree.SprayBases.Any(s => Vector3.Distance(s, a) <= reach && Vector3.Distance(s, b) <= reach),
                     $"{kind} {seed}: an open edge of the twigs at {a} is not at a branch end");

@@ -412,7 +412,9 @@ namespace Prazsky.Core.Render
             //cap has no wobbling ring at all, which is what kept its rim a true circle; a shape whose rim
             //wanders wobbles the cap's rings too, by the same per-ring figures the drum's first ring takes.
             capMesh = new LatheMesh(device, cap, capSegments, wander, heightField: capHeightField);
-            bodyMesh = new LatheMesh(device, body, segments, wander);
+            //The body takes the cap's facet count: a shape whose cap is cut finer (the lunar pad's craters) shares its edge rings with
+            //the body, and rings of 512 and 128 facets meet in a row of T-junctions a rasteriser rounds into hairline cracks (#974)
+            bodyMesh = new LatheMesh(device, body, capSegments, wander);
         }
 
         //The lunar pad's dish is lathed in rings this far apart (world units), so a crater a unit across is

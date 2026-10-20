@@ -6,6 +6,8 @@
     <RootNamespace>BS3D.Tools.WindingCheck</RootNamespace>
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>disable</Nullable>
+    <!--CS1574: the Game files compiled in below cref types of the Game itself-->
+    <NoWarn>$(NoWarn);CS1574</NoWarn>
   </PropertyGroup>
 
   <!--Unlike the other tools this one needs a real MonoGame backend, because it runs the procedural meshes'
@@ -14,6 +16,19 @@
       is therefore Windows-only, like the three executables.-->
   <ItemGroup>
     <PackageReference Include="MonoGame.Framework.WindowsDX" />
+  </ItemGroup>
+
+  <!--The open-edge check the logic tests stand on (#889, #943, #938), compiled in so the openness mode runs the very code they do
+      over the uploaded buffers of every scene's meshes (#974).-->
+  <ItemGroup>
+    <Compile Include="..\..\Tests\BS3D.Tests\MeshOpenness.cs" Link="MeshOpenness.cs" />
+  </ItemGroup>
+
+  <!--The Game's own prop meshes (the result page's party hat and trophy podium), compiled in because the Game is an
+      executable of a newer platform version than this tool and cannot be referenced. They only compose Core's meshes.-->
+  <ItemGroup>
+    <Compile Include="..\..\Game\Effects\PartyHat.cs" Link="Game\PartyHat.cs" />
+    <Compile Include="..\..\Game\Effects\TrophyPodium.cs" Link="Game\TrophyPodium.cs" />
   </ItemGroup>
 
   <ItemGroup>
