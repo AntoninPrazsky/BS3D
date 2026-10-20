@@ -5,114 +5,131 @@ using System;
 namespace BS3D.Effects
 {
     /// <summary>
-    /// The aurora's own shots for a chapter intro's prologue (#531): a low pass between the spruces with the
-    /// curtains over the treeline, then a slow drift over the snow looking up at the sky through the trunks —
-    /// cut together, then cut to the tour's last leg. The owner's verdict on #462 was that the tour "looks
-    /// far too high up at the start, never flies through the forest, and there are no cuts": the tour is a
-    /// spline round the arena at stand-off height, and the wood #462 built stands outside the clearing,
-    /// ninety-five units out, where no such spline goes.
+    /// The aurora's own shots for a chapter intro's prologue (#531, re-authored for the rebuilt scene in #963): a low pass
+    /// between the spruces towards the curtains, a glide over the open snow into the Moon with the wood's shadows running
+    /// at the lens, and the curtains over the treeline from the far side of the clearing — then the tour's last leg, which
+    /// looks the same way. Every shot is on something the scene is for: the wood, the moonlit snow, the aurora.
     /// <para>
-    /// <b>The path between the trunks is found, not laid out</b> — the city's street shot's trick with the
-    /// trees in place of the towers. The wood is a clumped scatter (<see cref="ForestScatter"/>), so there is no
-    /// centre line to run down; instead a few dozen straight runs through the ring the trees stand in are
-    /// rolled, each is measured against every conifer and snag the planting holds (the horizontal distance
-    /// from the trunk to the run must clear the crown at its scale), and of the runs that clear, the one with
-    /// the most trees standing near it is taken — the densest wood the lens can thread. Heights come off
-    /// <see cref="TerrainMirror.Forest"/> with the aurora's own terrain, the same mirror the trees
-    /// were planted on. Built once when the intro begins; nothing here runs per frame.
+    /// <b>The path between the trunks is found, not laid out</b> — the city's street shot's trick with the trees in place of
+    /// the towers. The wood is a clumped scatter (<see cref="ForestScatter"/>), so a few dozen straight runs heading towards
+    /// the curtains are rolled, each measured against every conifer and snag the planting holds (the horizontal distance
+    /// from the trunk to the run must clear the crown at its scale), and of those that clear, the one with the most trees
+    /// standing near it on both hands is taken. Heights come off the snow as drawn
+    /// (<see cref="SceneRenderer.AuroraGroundHeight"/>, the drifts round the trunks included). Built once when the intro
+    /// begins; nothing here runs per frame.
     /// </para>
     /// </summary>
     internal static class AuroraIntroShots
     {
-        //The wood: a straight run this long through the ring between the clearing and the wood's edge, this
-        //high over the snow (an eye between the trunks, under the crowns' skirts), pitched UP so the curtains
-        //stand over the treeline in the upper half of the frame, at a lens a little wider than the game's.
+        //The wood: a straight run this long through the ring between the clearing and the wood's edge, this high over the
+        //snow (an eye between the trunks, under the crowns' skirts), heading within WOOD_HEADING of the curtains' bearing
+        //and pitched UP so they stand over the treeline in the upper half of the frame
         private const float WOOD_RUN = 70f;
         private const float WOOD_HEIGHT = 3.2f;
-        private const float WOOD_PITCH_UP_DEGREES = 6f;
+        private const float WOOD_PITCH_UP_DEGREES = 8f;
         private const float WOOD_SECONDS = 3.4f;
+        private const float WOOD_HEADING_DEGREES = 35f;
 
-        //How close a trunk's axis may come to the run: the crown's radius at the largest scale the planting
-        //rolls, plus a margin for the lean and the whorls' raggedness. Under this the lens passes through
-        //needles; the eye reads that as a green wipe, not as a tree.
+        //How close a trunk's axis may come to a run: the crown's radius at the largest scale the planting rolls, plus a
+        //margin for the lean and the whorls' raggedness. Under this the lens passes through needles.
         private const float TRUNK_MARGIN = 1.4f;
 
-        //How near a tree has to stand to count towards a run's density — the width of the corridor the lens
-        //reads as "among the trees" at this height. ⚠ Sixteen, and the count alone, chose a run along the
-        //edge of a grove: a slope of open snow with the trees all on one hand, which photographed as a
-        //snowfield with a treeline rather than a pass through a wood. Ten, and a score that weighs the
-        //thinner side twice (see ScoreRun), wants trunks on BOTH hands.
+        //How near a tree has to stand to count towards a run's density. ⚠ A bare count chose a grove's edge (#531):
+        //the thinner hand counts twice, so a run wants trunks on BOTH hands.
         private const float DENSITY_REACH = 10f;
 
-        //The snow: a slow drift this long at this height over the snow at the wood's inner edge, the lens on
-        //a fixed point in the sky this high above the horizontal and this far off, out over the wood, so the
-        //treeline crosses the bottom of the frame and the curtains fill the rest.
-        private const float SNOW_DRIFT = 14f;
-        private const float SNOW_HEIGHT = 1.7f;
-        private const float SNOW_LOOK_ELEVATION_DEGREES = 44f;
-        private const float SNOW_LOOK_DISTANCE = 220f;
-        private const float SNOW_SECONDS = 3.4f;
+        //The Moon: a glide this long, this high over the open snow between the island and the wood, beside the island
+        //rather than behind it, the lens a little under the Moon so the disc sits in the upper third and the wood on its
+        //side stands against the sky, every shadow running towards the lens
+        private const float MOON_RADIUS = 40f;
+        private const float MOON_DRIFT = 14f;
+        private const float MOON_HEIGHT = 1.6f;
+        private const float MOON_SECONDS = 3.2f;
+        private const float MOON_LOOK_BELOW_DEGREES = 7f;
 
-        //How far into the wood from the clearing's edge the snow shot stands, and how clear of trunks it wants
-        //to be: a lens on the ground among the trunks, but not against one.
-        private const float SNOW_IN_FROM_CLEARING = 22f;
-        private const float SNOW_TRUNK_CLEARANCE = 7f;   //four put a crown ON the lens for the first two seconds once
+        //The curtains: a slow drift across the snow on the far side of the clearing from them, the lens up this far over
+        //the horizontal towards their bearing, so the island and the treeline cross the bottom of the frame and the great
+        //curtain fills the rest
+        private const float CURTAINS_RADIUS = 80f;
+        private const float CURTAINS_DRIFT = 12f;
+        private const float CURTAINS_HEIGHT = 2.2f;
+        private const float CURTAINS_LOOK_ELEVATION_DEGREES = 14f;
+        private const float CURTAINS_SECONDS = 3.4f;
+        private const float TRUNK_CLEARANCE = 7f;   //four put a crown ON the lens for the first two seconds once (#531)
 
-        //How many candidates each roll weighs; the best by its own measure is taken. Each candidate is
-        //measured against all 890 trees and snags, so this is about forty thousand distance tests per shot,
-        //once per intro — nothing.
+        //A far point to look at: far enough that the drift moves the frame only a little
+        private const float LOOK_DISTANCE = 300f;
+
+        //How many candidates each roll weighs: each is measured against every tree and snag, so some forty thousand
+        //distance tests per shot, once per intro. The wood's runs are held to a heading, and most that head towards the
+        //curtains through a dense stand pass through a crown, so it rolls more of them.
         private const int CANDIDATES = 120;
+        private const int WOOD_CANDIDATES = 600;
 
-        //Points per path. The heights are read at every one, so the runs follow the snow's own rise and fall.
         private const int PATH_POINTS = IntroPaths.FINE_POINTS;
 
         /// <summary>
-        /// The prologue for the aurora being drawn, or null when there is no wood to thread.
-        /// <paramref name="fieldOfView"/> is the intro's own gameplay frame, which each shot widens from.
+        /// The prologue for the aurora being drawn, or null when there is nothing to build it from.
+        /// <paramref name="ground"/> is the snow as drawn; <paramref name="fieldOfView"/> is the intro's own gameplay frame,
+        /// which each shot widens from.
         /// </summary>
-        public static IntroShot[] Build(ForestScatterRenderer wood, AuroraSceneConfig aurora, float fieldOfView, Random random)
+        public static IntroShot[] Build(ForestScatterRenderer wood, AuroraSceneConfig aurora, Func<float, float, float> ground,
+            float fieldOfView, Random random)
         {
-            if (wood?.Scatter == null || aurora == null) return null;
+            if (wood?.Scatter == null || aurora == null || ground == null) return null;
 
-            IntroShot pass = Wood(wood.Scatter, aurora.Terrain, fieldOfView, random);
-            IntroShot sky = Snow(wood.Scatter, aurora.Terrain, fieldOfView, random);
+            float bearing = MathHelper.ToRadians(aurora.Curtains.BearingDegrees);
+            Vector2 towardsCurtains = new(MathF.Sin(bearing), MathF.Cos(bearing));
+            float moonAzimuth = MathHelper.ToRadians(aurora.Sky.MoonAzimuthDegrees);
+            Vector2 towardsMoon = new(MathF.Sin(moonAzimuth), MathF.Cos(moonAzimuth));
 
-            if (pass == null && sky == null) return null;
-            if (pass == null) return new[] { sky };
-            if (sky == null) return new[] { pass };
+            IntroShot pass = Wood(wood.Scatter, aurora, ground, towardsCurtains, fieldOfView, random);
+            IntroShot moon = Moon(wood.Scatter, aurora, ground, towardsMoon, fieldOfView, random);
+            IntroShot sky = Curtains(wood.Scatter, ground, towardsCurtains, fieldOfView, random);
 
-            return new[] { pass, sky };
+            int count = (pass != null ? 1 : 0) + (moon != null ? 1 : 0) + (sky != null ? 1 : 0);
+            if (count == 0) return null;
+
+            var shots = new IntroShot[count];
+            int at = 0;
+            if (pass != null) shots[at++] = pass;
+            if (moon != null) shots[at++] = moon;
+            if (sky != null) shots[at] = sky;
+            return shots;
         }
 
         /// <summary>
-        /// The low pass between the spruces: of a few dozen rolled straight runs through the wood's ring, the
-        /// densest one that clears every trunk. Null when none of them does — a wood planted so thick that
-        /// no seventy-unit line threads it, which the aurora's own config does not do.
+        /// The low pass between the spruces: of a few dozen rolled straight runs through the wood's ring heading towards the
+        /// curtains, the densest one that clears every trunk. Null when none of them does.
         /// </summary>
-        private static IntroShot Wood(ForestScatter scatter, ForestSceneConfig terrain, float fieldOfView, Random random)
+        private static IntroShot Wood(ForestScatter scatter, AuroraSceneConfig aurora, Func<float, float, float> ground,
+            Vector2 towardsCurtains, float fieldOfView, Random random)
         {
-            float inner = terrain.ClearingRadius + 12f;
-            float outer = MathF.Max(terrain.Trees.MaxRadius, inner + WOOD_RUN);
+            //Inside the far stand's ring: its spires are a distant silhouette, never in the planting this measures, and a
+            //run among them flew through one (the first cut of #963 opened on a black frame)
+            ForestSceneConfig terrain = aurora.Terrain;
+            float inner = terrain.ClearingRadius * 0.6f;
+            float outer = MathF.Max(MathF.Min(terrain.Trees.MaxRadius, aurora.FarStand.InnerRadius - 12f), inner + WOOD_RUN);
             float clearance = terrain.Trees.ConiferCrownRadius * terrain.Trees.MaxScale + TRUNK_MARGIN;
+            float heading = MathF.Atan2(towardsCurtains.Y, towardsCurtains.X);
+            float spread = MathHelper.ToRadians(WOOD_HEADING_DEGREES);
 
             int bestScore = -1;
             Vector2 bestFrom = Vector2.Zero, bestTo = Vector2.Zero;
 
-            for (int attempt = 0; attempt < CANDIDATES; attempt++)
+            for (int attempt = 0; attempt < WOOD_CANDIDATES; attempt++)
             {
-                //A start somewhere in the ring, and a heading that keeps the run in it: mostly round the
-                //arena, leaning in or out a little, so the run neither dives into the clearing nor leaves the
-                //wood for the hills.
-                float bearing = (float)random.NextDouble() * MathHelper.TwoPi;
+                float angle = (float)random.NextDouble() * MathHelper.TwoPi;
                 float radius = MathHelper.Lerp(inner, outer - WOOD_RUN, (float)random.NextDouble());
-                Vector2 from = new(MathF.Cos(bearing) * radius, MathF.Sin(bearing) * radius);
+                Vector2 from = new(MathF.Cos(angle) * radius, MathF.Sin(angle) * radius);
 
-                float turn = random.Next(2) == 0 ? 1f : -1f;
-                float heading = bearing + turn * MathHelper.PiOver2 + MathHelper.ToRadians(IntroPaths.RandomRange(random, -30f, 30f));
-                Vector2 to = from + new Vector2(MathF.Cos(heading), MathF.Sin(heading)) * WOOD_RUN;
+                float runHeading = heading + IntroPaths.RandomRange(random, -spread, spread);
+                Vector2 to = from + new Vector2(MathF.Cos(runHeading), MathF.Sin(runHeading)) * WOOD_RUN;
 
+                //In the wood's ring the whole way, and never over the island
                 float endRadius = to.Length();
                 if (endRadius < inner || endRadius > outer) continue;
+                if (IntroPaths.DistanceToSegment(Vector2.Zero, from, to) < ArenaIsland.RADIUS + clearance) continue;
 
                 int score = ScoreRun(scatter, from, to, clearance);
                 if (score <= bestScore) continue;
@@ -128,67 +145,101 @@ namespace BS3D.Effects
             for (int i = 0; i < PATH_POINTS; i++)
             {
                 Vector2 plan = Vector2.Lerp(bestFrom, bestTo, i / (float)(PATH_POINTS - 1));
-                path[i] = new Vector3(plan.X, TerrainMirror.Forest(plan.X, plan.Y, terrain) + WOOD_HEIGHT, plan.Y);
+                path[i] = new Vector3(plan.X, ground(plan.X, plan.Y) + WOOD_HEIGHT, plan.Y);
             }
 
             return new IntroShot("the wood", path, WOOD_SECONDS, fieldOfView * 1.15f,
-                lookAhead: 18f, pitchDownDegrees: -WOOD_PITCH_UP_DEGREES);
+                lookAhead: 18f, pitchDownDegrees: -WOOD_PITCH_UP_DEGREES, pitchDamping: 0.5f);
         }
 
         /// <summary>
-        /// From the snow looking up: a slow drift at knee height just inside the wood's edge, on a spot clear
-        /// of trunks, the lens pinned on a point high over the wood so the treeline crosses the bottom of the
-        /// frame under the curtains.
+        /// Into the Moon over the open snow: a glide beside the island, clear of every trunk, the lens a little under the
+        /// Moon so the disc and the wood on its side are in the frame and the wood's long shadows run towards the lens.
         /// </summary>
-        private static IntroShot Snow(ForestScatter scatter, ForestSceneConfig terrain, float fieldOfView, Random random)
+        private static IntroShot Moon(ForestScatter scatter, AuroraSceneConfig aurora, Func<float, float, float> ground,
+            Vector2 towardsMoon, float fieldOfView, Random random)
         {
-            float radius = terrain.ClearingRadius + SNOW_IN_FROM_CLEARING;
+            //Beside the island across the Moon's bearing, either side; the drift runs towards the Moon
+            Vector2 side = new(-towardsMoon.Y, towardsMoon.X);
+            if (random.Next(2) == 0) side = -side;
 
-            int bestScore = -1;
-            Vector2 bestAt = Vector2.Zero, bestOut = Vector2.Zero;
-
-            for (int attempt = 0; attempt < CANDIDATES; attempt++)
+            if (!ClearGlide(scatter, side, towardsMoon, out Vector2 from, out Vector2 to))
             {
-                float bearing = (float)random.NextDouble() * MathHelper.TwoPi;
-                Vector2 outward = new(MathF.Cos(bearing), MathF.Sin(bearing));
-                Vector2 at = outward * radius;
-
-                //The drift runs across the outward direction, so the lens slides along the wood's edge.
-                Vector2 across = new(-outward.Y, outward.X);
-                Vector2 from = at - across * (SNOW_DRIFT * 0.5f);
-                Vector2 to = at + across * (SNOW_DRIFT * 0.5f);
-
-                //Clear of trunks along the drift, and scored by the trees standing out beyond it — the
-                //treeline the shot looks over.
-                int score = ScoreRun(scatter, from, to, SNOW_TRUNK_CLEARANCE);
-                if (score <= bestScore) continue;
-
-                bestScore = score;
-                bestAt = at;
-                bestOut = outward;
+                side = -side;
+                if (!ClearGlide(scatter, side, towardsMoon, out from, out to)) return null;
             }
 
-            if (bestScore < 0) return null;
-
-            Vector2 driftAcross = new(-bestOut.Y, bestOut.X);
             var path = new Vector3[PATH_POINTS];
             for (int i = 0; i < PATH_POINTS; i++)
             {
-                Vector2 plan = bestAt + driftAcross * ((i / (float)(PATH_POINTS - 1) - 0.5f) * SNOW_DRIFT);
-                path[i] = new Vector3(plan.X, TerrainMirror.Forest(plan.X, plan.Y, terrain) + SNOW_HEIGHT, plan.Y);
+                Vector2 plan = Vector2.Lerp(from, to, i / (float)(PATH_POINTS - 1));
+                path[i] = new Vector3(plan.X, ground(plan.X, plan.Y) + MOON_HEIGHT, plan.Y);
             }
 
-            float elevation = MathHelper.ToRadians(SNOW_LOOK_ELEVATION_DEGREES);
-            Vector3 middle = path[PATH_POINTS / 2];
-            Vector3 lookAt = middle + new Vector3(bestOut.X * MathF.Cos(elevation), MathF.Sin(elevation), bestOut.Y * MathF.Cos(elevation)) * SNOW_LOOK_DISTANCE;
+            float elevation = MathHelper.ToRadians(Math.Max(aurora.Sky.MoonElevationDegrees - MOON_LOOK_BELOW_DEGREES, 2f));
+            Vector3 centre = path[PATH_POINTS / 2];
+            Vector3 lookAt = centre + new Vector3(towardsMoon.X * MathF.Cos(elevation), MathF.Sin(elevation), towardsMoon.Y * MathF.Cos(elevation)) * LOOK_DISTANCE;
 
-            return new IntroShot("the snow", path, SNOW_SECONDS, fieldOfView * 1.2f, lookAt: lookAt);
+            return new IntroShot("the moon", path, MOON_SECONDS, fieldOfView * 1.2f, lookAt: lookAt);
         }
 
-        //How many trees stand near a straight run, weighted so that trees on BOTH hands count for more than
-        //the same number on one — the thinner side twice, the whole once — or -1 when one stands IN it: every
-        //conifer and snag of the planting is measured against the segment, and the first within <clearance>
-        //of it rejects the run.
+        //The Moon's glide on one side of the island, and whether it is clear of every trunk
+        private static bool ClearGlide(ForestScatter scatter, Vector2 side, Vector2 towardsMoon, out Vector2 from, out Vector2 to)
+        {
+            Vector2 middle = side * MOON_RADIUS;
+            from = middle - towardsMoon * (MOON_DRIFT * 0.5f);
+            to = middle + towardsMoon * (MOON_DRIFT * 0.5f);
+            return ScoreRun(scatter, from, to, TRUNK_CLEARANCE) >= 0;
+        }
+
+        /// <summary>
+        /// The curtains over the treeline: a slow drift across the snow on the far side of the clearing from them, on the
+        /// spot with the fewest trunks close round it, the lens up towards them so the island and the treeline cross the
+        /// bottom of the frame.
+        /// </summary>
+        private static IntroShot Curtains(ForestScatter scatter, Func<float, float, float> ground, Vector2 towardsCurtains,
+            float fieldOfView, Random random)
+        {
+            Vector2 across = new(-towardsCurtains.Y, towardsCurtains.X);
+
+            int bestScore = int.MaxValue;
+            Vector2 bestAt = Vector2.Zero;
+            bool found = false;
+
+            for (int attempt = 0; attempt < CANDIDATES; attempt++)
+            {
+                //Behind the island from the curtains, a little to either side
+                float off = IntroPaths.RandomRange(random, -0.35f, 0.35f);
+                Vector2 at = (-towardsCurtains + across * off) * CURTAINS_RADIUS;
+                Vector2 from = at - across * (CURTAINS_DRIFT * 0.5f), to = at + across * (CURTAINS_DRIFT * 0.5f);
+
+                int score = ScoreRun(scatter, from, to, TRUNK_CLEARANCE);
+                if (score < 0 || score >= bestScore) continue;
+
+                bestScore = score;
+                bestAt = at;
+                found = true;
+            }
+
+            if (!found) return null;
+
+            var path = new Vector3[PATH_POINTS];
+            for (int i = 0; i < PATH_POINTS; i++)
+            {
+                Vector2 plan = bestAt + across * ((i / (float)(PATH_POINTS - 1) - 0.5f) * CURTAINS_DRIFT);
+                path[i] = new Vector3(plan.X, ground(plan.X, plan.Y) + CURTAINS_HEIGHT, plan.Y);
+            }
+
+            float elevation = MathHelper.ToRadians(CURTAINS_LOOK_ELEVATION_DEGREES);
+            Vector3 centre = path[PATH_POINTS / 2];
+            Vector3 lookAt = centre + new Vector3(towardsCurtains.X * MathF.Cos(elevation), MathF.Sin(elevation), towardsCurtains.Y * MathF.Cos(elevation)) * LOOK_DISTANCE;
+
+            return new IntroShot("the curtains", path, CURTAINS_SECONDS, fieldOfView * 1.2f, lookAt: lookAt);
+        }
+
+        //How many trees stand near a straight run, weighted so that trees on BOTH hands count for more than the same number
+        //on one — the thinner side twice, the whole once — or -1 when one stands IN it: every conifer and snag of the
+        //planting is measured against the segment, and the first within <clearance> of it rejects the run.
         private static int ScoreRun(ForestScatter scatter, Vector2 from, Vector2 to, float clearance)
         {
             int left = 0, right = 0;

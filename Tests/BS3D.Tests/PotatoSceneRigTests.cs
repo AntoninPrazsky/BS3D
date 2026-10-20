@@ -55,9 +55,9 @@ namespace BS3D.Tests
 
             PotatoSceneRig.PotatoSkyLook aurora = PotatoSceneRig.SkyLookOf(SceneKind.Aurora);
             var config = new AuroraSceneConfig();
-            Assert.Equal(config.Aurora.ColorLow.ToVector3(), aurora.ColorA);
-            Assert.Equal(config.Aurora.ColorHigh.ToVector3(), aurora.ColorB);
-            Assert.Equal(config.Aurora.BandHeight, aurora.Params.Y);
+            Assert.Equal(config.Potato.Sky.ColorLow.ToVector3(), aurora.ColorA);
+            Assert.Equal(config.Potato.Sky.ColorHigh.ToVector3(), aurora.ColorB);
+            Assert.Equal(config.Potato.Sky.BandHeight, aurora.Params.Y);
         }
 
         [Fact]

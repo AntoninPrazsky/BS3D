@@ -93,6 +93,33 @@ namespace Prazsky.Core.Render
             new(0.7f, 1.38f, 67, true),      //a spire — the one that carries the skyline, on a long bare stem
         };
 
+        /// <summary>How many broadleaf meshes every planting is split between (<see cref="Plant"/>).</summary>
+        public const int BROADLEAF_VARIANTS = 4;
+
+        /// <summary>
+        /// The three boulders' proportions against <see cref="ForestRockConfig.Radius"/> and <c>Height</c> (X radius, Y
+        /// height), one copy: the meshes are built from it, and the aurora's drifts round them are sized by it (#963).
+        /// </summary>
+        public static readonly Vector2[] ROCK_SHAPES = { new(1f, 1f), new(1.25f, 0.7f), new(0.8f, 1.5f) };
+
+        /// <summary>The two stumps' proportions against <see cref="ForestStumpConfig.Radius"/> and <c>Height</c> (X radius, Y height).</summary>
+        public static readonly Vector2[] STUMP_SHAPES = { new(1f, 1f), new(1.3f, 0.55f) };
+
+        /// <summary>The three snags' proportions against <see cref="ForestDeadwoodConfig.Length"/> and <c>Radius</c> (X length, Y radius).</summary>
+        public static readonly Vector2[] SNAG_SHAPES = { new(1f, 1f), new(1.3f, 1.1f), new(0.65f, 0.95f) };
+
+        /// <summary>The two logs' proportions against <see cref="ForestDeadwoodConfig.Length"/> and <c>Radius</c> (X length, Y radius).</summary>
+        public static readonly Vector2[] LOG_SHAPES = { new(1f, 1f), new(0.7f, 0.85f) };
+
+        /// <summary>
+        /// Where a wood of <paramref name="config"/> stands, planted on <paramref name="terrainHeight"/> with every kind
+        /// split between as many variants as the renderer builds meshes for: the one planting call, so a planting made
+        /// ahead of the renderer (the aurora's, which its snow is drifted round, #963) is the one the renderer draws.
+        /// </summary>
+        public static ForestScatter Plant(int seed, ForestSceneConfig config, Func<float, float, float> terrainHeight) =>
+            new(seed, config, CONIFER_VARIANTS.Length, BROADLEAF_VARIANTS, ROCK_SHAPES.Length, STUMP_SHAPES.Length,
+                SNAG_SHAPES.Length, LOG_SHAPES.Length, terrainHeight);
+
         //The material diffuse the scatter's meshes are built with, and it is 0.8 rather than white on
         //purpose: passing a diffuse tint makes the renderer reduce the material colour to its luminance and
         //multiply by 1.25, a boost calibrated for models whose brightest material is 0.8. On a white
@@ -181,8 +208,6 @@ namespace Prazsky.Core.Render
         /// </summary>
         public const float FINE_NEAR_RADIUS = 110f;
 
-        /// <summary>The share of the crown snow's dust term High and Ultra's boughs take — a frost (see <see cref="LaySnow"/>).</summary>
-        private const float SPRUCE_FROST = 0.25f;
 
         //Everything below is derived from the config, built by Build out of the constructor (so none of it can
         //be readonly) and released by DisposeBuilt. The mesh variants: a bark lathe under a lathed tiered cone
@@ -239,9 +264,14 @@ namespace Prazsky.Core.Render
         private Vector3 _barkColorLinear, _coniferColorLinear, _foliageColorLinear, _rockColorLinear, _stumpColorLinear;
         private Vector3 _snagColorLinear, _logColorLinear;
 
-        //Snow lying on the crowns (#647): its linear colour and how much of an up-facing skirt it covers, 0 none
+        //Snow lying on the crowns (#647): its linear colour and how much of an up-facing skirt it covers, 0 none; and on
+        //the tops of the boulders, the stumps and the dead wood (#963), in the same colour, 0 everywhere but the aurora
         private Vector3 _crownSnowLinear;
         private float _crownSnow;
+        private float _rockSnow, _stumpSnow, _snagSnow, _logSnow;
+
+        //The share of the crown snow High and Ultra's boughs take (ForestTreeConfig.BoughFrost)
+        private float _boughFrost;
 
         private ForestScatter _scatter;
 
@@ -278,12 +308,16 @@ namespace Prazsky.Core.Render
         /// the very same 512² tile the island's is — one more copy in memory and not a pixel of
         /// difference.</param>
         /// <param name="seed">Scatter seed; the same seed always plants the same forest.</param>
+        /// <param name="planting">A planting made ahead (<see cref="Plant"/>), drawn instead of one of this renderer's own:
+        /// the aurora's (<c>SceneRenderer.AuroraPlanting</c>), which the backdrop drifts its snow round (#963). Null plants
+        /// <paramref name="config"/> on <c>TerrainMirror.Forest</c> with <paramref name="seed"/>, as every other wood is.</param>
         public ForestScatterRenderer(GraphicsDevice device, Effect instancingEffect, ForestSceneConfig config,
-            float sceneAmbientIntensity, SurfaceTexture stoneTexture = null, int seed = DEFAULT_SEED)
+            float sceneAmbientIntensity, SurfaceTexture stoneTexture = null, int seed = DEFAULT_SEED, ForestScatter planting = null)
         {
             _device = device;
             _instancingEffect = instancingEffect;
             _seed = seed;
+            _scatter = planting;
 
             //The detail texture is what selects the triplanar technique — without one the renderer falls
             //through to plain and every relief and cavity setting below is silently dead, as the island's own
@@ -494,15 +528,15 @@ namespace Prazsky.Core.Render
 
             _rockMeshes = new[]
             {
-                new RockMesh(_device, config.Rocks.Radius, config.Rocks.Height),
-                new RockMesh(_device, config.Rocks.Radius * 1.25f, config.Rocks.Height * 0.7f, irregularityPhase: 2.1f),
-                new RockMesh(_device, config.Rocks.Radius * 0.8f, config.Rocks.Height * 1.5f, irregularityPhase: 4.2f)
+                new RockMesh(_device, config.Rocks.Radius * ROCK_SHAPES[0].X, config.Rocks.Height * ROCK_SHAPES[0].Y),
+                new RockMesh(_device, config.Rocks.Radius * ROCK_SHAPES[1].X, config.Rocks.Height * ROCK_SHAPES[1].Y, irregularityPhase: 2.1f),
+                new RockMesh(_device, config.Rocks.Radius * ROCK_SHAPES[2].X, config.Rocks.Height * ROCK_SHAPES[2].Y, irregularityPhase: 4.2f)
             };
 
             _stumpMeshes = new[]
             {
-                new StumpMesh(_device, config.Stumps.Radius, config.Stumps.Height),
-                new StumpMesh(_device, config.Stumps.Radius * 1.3f, config.Stumps.Height * 0.55f, irregularityPhase: 3.3f)
+                new StumpMesh(_device, config.Stumps.Radius * STUMP_SHAPES[0].X, config.Stumps.Height * STUMP_SHAPES[0].Y),
+                new StumpMesh(_device, config.Stumps.Radius * STUMP_SHAPES[1].X, config.Stumps.Height * STUMP_SHAPES[1].Y, irregularityPhase: 3.3f)
             };
 
             //Three snags and two logs: a snag is one bent trunk and its stubs, and it is the stubs' layout and
@@ -510,15 +544,15 @@ namespace Prazsky.Core.Render
             ForestDeadwoodConfig snags = config.Snags, logs = config.Logs;
             _snagMeshes = new[]
             {
-                new SnagMesh(_device, snags.Length, snags.Radius, seed: 131),
-                new SnagMesh(_device, snags.Length * 1.3f, snags.Radius * 1.1f, seed: 137),   //a tall one, broken high
-                new SnagMesh(_device, snags.Length * 0.65f, snags.Radius * 0.95f, seed: 139)  //broken low - most of it gone
+                new SnagMesh(_device, snags.Length * SNAG_SHAPES[0].X, snags.Radius * SNAG_SHAPES[0].Y, seed: 131),
+                new SnagMesh(_device, snags.Length * SNAG_SHAPES[1].X, snags.Radius * SNAG_SHAPES[1].Y, seed: 137),   //a tall one, broken high
+                new SnagMesh(_device, snags.Length * SNAG_SHAPES[2].X, snags.Radius * SNAG_SHAPES[2].Y, seed: 139)  //broken low - most of it gone
             };
 
             _logMeshes = new[]
             {
-                new DeadwoodMesh(_device, logs.Length, logs.Radius, seed: 149),
-                new DeadwoodMesh(_device, logs.Length * 0.7f, logs.Radius * 0.85f, seed: 151)
+                new DeadwoodMesh(_device, logs.Length * LOG_SHAPES[0].X, logs.Radius * LOG_SHAPES[0].Y, seed: 149),
+                new DeadwoodMesh(_device, logs.Length * LOG_SHAPES[1].X, logs.Radius * LOG_SHAPES[1].Y, seed: 151)
             };
 
             //The tint tables are indexed by mesh variant, so a variant past the end of its table throws inside
@@ -590,6 +624,11 @@ namespace Prazsky.Core.Render
             _logColorLinear = logs.Color.ToVector3();
             _crownSnowLinear = trees.CrownSnowColor.ToVector3();
             _crownSnow = trees.CrownSnow;
+            _boughFrost = trees.BoughFrost;
+            _rockSnow = config.Rocks.TopSnow;
+            _stumpSnow = config.Stumps.TopSnow;
+            _snagSnow = snags.TopSnow;
+            _logSnow = logs.TopSnow;
 
             EncodeAllTints();
 
@@ -598,10 +637,7 @@ namespace Prazsky.Core.Render
             //how many variants each kind has so it can hand back one instance array per variant — the renderer
             //draws a contiguous prefix of what it is given, so the split has to happen at plant time rather
             //than at the draw.
-            _scatter = new ForestScatter(_seed, config,
-                _coniferMeshes.Length, _broadleafMeshes.Length, _rockMeshes.Length, _stumpMeshes.Length,
-                _snagMeshes.Length, _logMeshes.Length,
-                (x, z) => TerrainMirror.Forest(x, z, config));
+            _scatter ??= Plant(_seed, config, (x, z) => TerrainMirror.Forest(x, z, config));
 
             //High and Ultra's two spruce crowns stand by distance from the arena, decided here once: a tree never changes
             //crown as the camera moves, and the near crown is spent where a tree can be large on the screen (#733)
@@ -713,10 +749,14 @@ namespace Prazsky.Core.Render
             EncodeTints(_snagColorLinear, _snagMeshes.Length, null, ref _snagTints);
             EncodeTints(_logColorLinear, _logMeshes.Length, null, ref _logTints);
 
-            LaySnow(_coniferCrownRenderers, _coniferCrownTints, 1f);
-            LaySnow(_coniferFineCrownRenderers, _coniferCrownTints, SPRUCE_FROST);
-            LaySnow(_coniferFineCrownFarRenderers, _coniferCrownTints, SPRUCE_FROST);
-            LaySnow(_broadleafCrownRenderers, _broadleafCrownTints, 1f);
+            LaySnow(_coniferCrownRenderers, _coniferCrownTints, _crownSnow);
+            LaySnow(_coniferFineCrownRenderers, _coniferCrownTints, _crownSnow * _boughFrost);
+            LaySnow(_coniferFineCrownFarRenderers, _coniferCrownTints, _crownSnow * _boughFrost);
+            LaySnow(_broadleafCrownRenderers, _broadleafCrownTints, _crownSnow);
+            LaySnow(_rockRenderers, _rockTints, _rockSnow);
+            LaySnow(_stumpRenderers, _stumpTints, _stumpSnow);
+            LaySnow(_snagRenderers, _snagTints, _snagSnow);
+            LaySnow(_logRenderers, _logTints, _logSnow);
         }
 
         /// <summary>
@@ -728,27 +768,31 @@ namespace Prazsky.Core.Render
         /// spruce the up-facing faces are the whorls' drooping tops, so the snow lies along each skirt and the tucks
         /// under them stay dark — the references' snow-laden branches.
         /// <para>
-        /// High and Ultra's boughs take only <paramref name="share"/> of it (#733): their tops are flat plates, and the
+        /// High and Ultra's boughs take only <see cref="ForestTreeConfig.BoughFrost"/> of it (#733): their tops are flat plates, and the
         /// term's <c>up²</c> falloff is too soft to leave anything of a flat plate's needles, so at the lathe's strength a
         /// whole wood of boughs came out snow-pale and lost the near-black spruces #462 put on the snow. Their snow lies in
         /// lumps of geometry instead (<see cref="TreeMesh.FineSnow"/>), over a frost.
         /// </para>
+        /// <para>
+        /// The boulders, the stumps and the dead wood take it too where the config lays any (<c>TopSnow</c>, #963): the
+        /// aurora's logs lie under a cap of snow and its stones are snow-covered humps. 0 on every other wood.
+        /// </para>
         /// </summary>
-        private void LaySnow(InstancedModelRenderer[] crowns, Vector3[] srgbTints, float share)
+        private void LaySnow(InstancedModelRenderer[] renderers, Vector3[] srgbTints, float strength)
         {
-            if (crowns == null) return;
+            if (renderers == null) return;
 
-            for (int variant = 0; variant < crowns.Length; variant++)
+            for (int variant = 0; variant < renderers.Length; variant++)
             {
-                if (_crownSnow <= 0f)
+                if (strength <= 0f)
                 {
-                    crowns[variant].TopDustStrength = 0f;
+                    renderers[variant].TopDustStrength = 0f;
                     continue;
                 }
 
                 Vector3 pigment = ColorSpace.SrgbToLinear(srgbTints[variant]);
-                crowns[variant].TopDustTint = _crownSnowLinear / Vector3.Max(pigment, new Vector3(1e-4f));
-                crowns[variant].TopDustStrength = _crownSnow * share;
+                renderers[variant].TopDustTint = _crownSnowLinear / Vector3.Max(pigment, new Vector3(1e-4f));
+                renderers[variant].TopDustStrength = strength;
             }
         }
 

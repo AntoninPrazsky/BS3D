@@ -887,10 +887,11 @@ namespace Testbed
                 (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
                 seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
 
-            //The aurora's own wood, a second planting from its own config - see AuroraSceneConfig's class doc.
+            //The aurora's own wood, a second planting from its own config - see AuroraSceneConfig's class doc. The planting
+            //is the backdrop's (#963), which drifts the snow round it, so this draws the trees the drifts were made for.
             _auroraScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
                 ((AuroraSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Aurora)).Terrain, SCENE_AMBIENT_INTENSITY,
-                seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
+                planting: _sceneRenderer.AuroraPlanting);
 
             _forestFireflies = new ForestFireflies(GraphicsDevice, _instancingEffect,
                 (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,

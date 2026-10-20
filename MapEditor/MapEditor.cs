@@ -481,10 +481,11 @@ namespace MapEditor
                 (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
                 seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
 
-            //The aurora's own wood, a second planting from its own config - see AuroraSceneConfig's class doc.
+            //The aurora's own wood, a second planting from its own config - see AuroraSceneConfig's class doc. The planting
+            //is the backdrop's (#963), which drifts the snow round it, so this draws the trees the drifts were made for.
             _auroraScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
                 ((AuroraSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Aurora)).Terrain, SCENE_AMBIENT_INTENSITY,
-                seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
+                planting: _sceneRenderer.AuroraPlanting);
 
             _forestFireflies = new ForestFireflies(GraphicsDevice, _instancingEffect,
                 (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
@@ -1033,13 +1034,12 @@ namespace MapEditor
 
             if (_scene == SceneKind.Aurora)
             {
-                //Re-tinted here rather than in ApplySkyLighting (see there): the aurora's hue keeps
-                //drifting for as long as the scene is up, not only on a switch. ApplySkyTint's own value
-                //guard is what keeps this cheap once it settles.
+                //Re-tinted here rather than in ApplySkyLighting (see there), on the scene's own tint: constant since
+                //#963, so ApplySkyTint's value guard encodes the wood once.
                 _auroraScatter?.ApplySkyTint(_sceneRenderer.AuroraGlowColor(_sceneSeconds));
 
-                //The balls take the sky's hue through the scene's own light rig (#462), on the same clock;
-                //the rig steps rather than slides, so this re-lights about once a second at most.
+                //The balls take the curtains' light through the scene's own rig, its back light following the arcs;
+                //the rig steps rather than slides, so this re-lights only on a step.
                 if (_rig.StepSceneLight(_sceneSeconds)) ApplySkyLighting();
 
                 _auroraScatter?.Draw(Camera3D, _sceneRenderer.FineMeshes);

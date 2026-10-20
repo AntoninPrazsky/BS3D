@@ -428,10 +428,10 @@ namespace Prazsky.Core.Render
             SceneKind.Storm => new(new Vector3(0.37f, 0.39f, 0.42f), new Vector3(0.30f, 0.32f, 0.35f), 0.18f, 0.12f, 2f),
             //Glacier ice: pale, blue in its depth, polished
             SceneKind.Polar => new(new Vector3(0.80f, 0.87f, 0.93f), new Vector3(0.62f, 0.74f, 0.84f), 0.42f, 0.30f, 3f),
-            //Lake ice under the aurora (#534, "ice standing in ice"): a shade darker and greener than the
-            //polar glacier, since the aurora's floor is snow over a frozen lake and its light is green. It was
-            //frosted stone until #534.
-            SceneKind.Aurora => new(new Vector3(0.70f, 0.78f, 0.84f), new Vector3(0.54f, 0.66f, 0.76f), 0.36f, 0.26f, 2f),
+            //Lake ice under the aurora (#534, "ice standing in ice"): darker and greyer than the polar glacier since #963,
+            //whose moonlit snow round it is the brightest thing in the picture - the old pale ice outshone the snow it
+            //stood in. It was frosted stone until #534.
+            SceneKind.Aurora => new(new Vector3(0.50f, 0.57f, 0.64f), new Vector3(0.42f, 0.50f, 0.58f), 0.30f, 0.22f, 2f),
             //Glossy black, for the grid's light to run in
             SceneKind.Grid => new(new Vector3(0.14f, 0.15f, 0.19f), new Vector3(0.12f, 0.13f, 0.16f), 0.45f, 0.30f, 3f),
             //The big top's pedestal (#690): a performer's tub at the island's scale - an ivory varnished top on a lacquered

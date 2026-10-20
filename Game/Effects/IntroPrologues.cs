@@ -60,7 +60,8 @@ namespace BS3D.Effects
                     scene == SceneKind.NeonCity, fieldOfView, random),
                 SceneKind.Volcano => VolcanoIntroShots.Build(renderer, fieldOfView, random),
                 SceneKind.Aurora => AuroraIntroShots.Build(context.AuroraScatter,
-                    renderer?.GetSceneConfig(SceneKind.Aurora) as AuroraSceneConfig, fieldOfView, random),
+                    renderer?.GetSceneConfig(SceneKind.Aurora) as AuroraSceneConfig, renderer == null ? null : renderer.AuroraGroundHeight,
+                    fieldOfView, random),
                 //#559: the sea, the desert, the outback and the mountains, off their own terrain (TerrainMirror)
                 //and, for the sea, the dome's sun, which its swell shot heads into.
                 SceneKind.Sea => SeaIntroShots.Build(renderer, context.SunDirection, fieldOfView, random),

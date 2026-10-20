@@ -1,57 +1,55 @@
-//Draws the aurora scene (#205): a night sky over forested land, a strong, clearly pulsing coloured aurora
-//overhead with the stars still showing through and around it. The eighteenth SceneKind, and — like the
-//Moon (#125) before it — the second to belong to BOTH scene families at once: real ground
-//(SceneRenderer.IsSolidTerrainScene, a forest clearing rising into wooded hills exactly like Forest.fx's)
-//under a REPLACED sky (SceneRenderer.ReplacesSky — no dome, the shared star lattice, its own light rig).
-//Two techniques over one effect, drawn in that order by DrawAurora: AuroraTerrain first (depth-writing,
-//opaque), then AuroraSky depth-READ against it on the shared space quad — the Moon's own measured order
-//(the opposite interleave was an 8x frame blow-up there; see DrawMoon's doc). Drawn in all three
-//executables, Shader Model 5.0, no OPENGL branch.
+//The aurora (#205, rebuilt in #963): a moonlit snowfield in a boreal clearing under a great folded aurora. Real
+//ground under a replaced sky, so the scene is in both families (SceneRenderer.IsSolidTerrainScene and ReplacesSky),
+//drawn by AuroraBackdrop in this order:
 //
-//AuroraTerrain is Forest.fx's REDUCED floor (ForestFloor's `detail=false` path) ported verbatim rather than
-//shared: the two expensive extras that path already gives up (the triplanar normal variation, the
-//procedural tree shadows) buy the least where the eye can see the least of them, and a night scene lit
-//mostly by its own dim, coloured glow is exactly that case. What is NOT ported is the sun and the cloud
-//shadow: this scene draws no dome and no clouds, so SunColor/ZenithColor/HorizonColor are pushed every
-//frame from the aurora's OWN pulsing glow (SceneRenderer.AuroraGlowColor) rather than from SceneFrame, on
-//the same reasoning TryGetLightRig's doc states for every sky-replacing scene's ground: a dome-derived sun
-//painted onto a domeless scene would be a lie. The scattered wood standing on this floor is the Game's own
-//instanced draw (a SECOND ForestScatterRenderer planting, independent of the daytime forest's — see
-//AuroraSceneConfig's class doc), over TerrainMirror.Forest, the same generic CPU mirror the
-//daytime forest already shares with its own planting — keep TerrainHeight below in one change with it.
+//  AuroraSnowFine / AuroraSnowCoarse - the snowfield, depth-writing, opaque: the fine grid round the camera first, then
+//      the coarse one out to the hills, lowered wherever the fine one draws. Neither program calls clip(): the island's
+//      hole is cut in the vertex shader, so the depth test runs before the pixel shader (MountainFine's lesson, #781).
+//  AuroraStand - the far stand: a few thousand cheap spruces on the hills past the planted wood, instanced.
+//  AuroraSky - the night sky, depth-READ at the far plane behind all of it.
 //
-//AuroraSky is Moon.fx's sky pass verbatim (the quad, the ray, the three-layer star lattice, Stars.fxh's one
-//C# push routine reused a third time) with the Earth's compositing replaced by the aurora ribbons: soft
-//vertical curtains folded out of Fbm2Combed (Noise.fxh) — stretched ALONG the curtain so the field reads as
-//streaks rather than blobs, the reason that helper exists — banded low-green to high-violet by elevation,
-//pulsing in brightness on two summed clocks so the breathing never quite repeats. Drawn ADDITIVE over the
-//stars, never composited over them the way the Moon's opaque Earth disc is: a glow adds light to what is
-//behind it and does not hide it, the storm's lightning channel's own reasoning, and the literal answer to
-//the issue's "stars partially visible through/alongside the aurora".
+//The wood standing in the snow is the hosts' ForestScatterRenderer, lit through the shared instanced effect, which
+//takes the same mist (SceneFog.fxh) and the same moon shadow (Shadows.fxh) as the snow under it.
+//
+//THE GROUND is the forest's clearing-and-hills field (ForestGround.fxh, the one copy) plus three things of the snow's
+//own: wind drifts (SnowDrift), the bank piled against the island's drum (SnowBank), and the drifts round every trunk,
+//log, snag and boulder (the mound map, baked once by AuroraBackdrop from the planting). TerrainMirror.AuroraBase
+//mirrors the first three on the CPU term for term; the mound map is the same array on both sides. Keep them in one
+//change - mirrorcheck catches a drift.
+//
+//THE SKY is a gradient from a deep blue zenith to a paler horizon with a glow along it, the stars (Stars.fxh), the
+//Moon, and the aurora: a few ARCS, each a vertical sheet hanging along a folded line across the sky. A view ray is
+//intersected with each sheet analytically (two refinements of the fold), so every curtain has a sharp, bright lower
+//edge at a real altitude, rays that run straight up it, a red top, and folds that brighten where the sheet turns
+//edge-on to the eye. AuroraBackdrop knows where the arcs hang (their places and brightness are uniforms it writes),
+//which is how the light it throws on the snow and the wood moves with the curtains.
 
 #define VS_SHADERMODEL vs_5_0
 #define PS_SHADERMODEL ps_5_0
 
 #include "Clouds.fxh"
-//For WindGust — the wind still combs the undergrowth here, the same field the meadow, the savanna and the
-//daytime forest read it off — and for Fbm2Combed, the aurora curtains' own grain.
 #include "Noise.fxh"
 #include "Stars.fxh"
+#include "Shadows.fxh"
+#include "SceneFog.fxh"
 
 float4x4 View;
 float4x4 Projection;
 float4x4 ViewRayBasis;  //the lens's axes over the projection's slopes - see SkyRay.Basis
 float3 CameraPosition;
+float AuroraTime;
 
-float2 OriginXZ;
+//--- The ground's field --------------------------------------------------------------------------------------------
 
-//Radius of the platform footprint cut out of the terrain around the world origin — see Forest.fx's own
-//uniform of the same name for why. The Testbed and the Game set this to the island's radius; the map
-//editor draws no island, so it leaves it 0 and nothing is cut.
-float IslandHoleRadius;
+float2 OriginXZ;          //where this grid is centred this frame
+float GridCell;           //its vertex spacing: the base normal's finite difference
+float IslandHoleRadius;   //the platform's footprint; 0 in the map editor, which draws no island
+float2 FineOriginXZ;      //the fine grid's centre, which the coarse grid sinks under
+float FineHalfExtent;
+float2 CoarseOriginXZ;    //the coarse grid's centre: the ground ends CoarseReach from it, and fades into the haze before
+float CoarseReach;
 
-//--- Terrain: Forest.fx's clearing-and-hills shape, ported verbatim (see the header) -------------------
-
+//ForestGround.fxh's uniforms (the forest's clearing and hills, AuroraSceneConfig.Terrain)
 float ForestLevelY;
 float HillHeight;
 float ClearingRadius;
@@ -59,260 +57,494 @@ float ClearingTransition;
 float ClearingRelief;
 float FloorLumpStrength;
 float FloorLumpFrequency;
-
-float AuroraTerrainTime;
-float2 WindDirection;
-
-float3 ForestColor;
-float3 ForestColorDark;
-float AmbientStrength;
-float HorizonHazeDistance;
-
-float3 TreelineColor;
-float TreelineStrength;
-
-float WindRippleSpeed;
-float WindRippleFrequency;
-float WindRippleStrength;
-
-float NeedleReliefStrength;
 float NeedleReliefFrequency;
-
-//Pushed every frame by DrawAurora from SceneRenderer.AuroraGlowColor(wallClock) — the one clock this scene
-//shares between the ground, the trees (ForestScatterRenderer.ApplySkyTint) and, independently, the sky's
-//own richer in-shader animation. Reused as the terrain's "sun" and "sky hemisphere" the way Forest.fx's
-//SunColor/ZenithColor/HorizonColor already are, so ForestFloor's body ports without renaming a single one
-//of them — only where their VALUES come from changes. SunDirection stays fixed, straight up: the aurora is
-//overhead, not off at a dome's sun angle.
-float3 SunColor;
-float3 SunDirection;
-float3 ZenithColor;
-float3 HorizonColor;
+float NeedleReliefStrength;
 
 #include "ForestGround.fxh"
 
-struct AuroraVertexInput
-{
-    float4 Position : POSITION0;
-};
+//The wind's drifts (AuroraSnowfieldConfig): long low dunes, their crests across the wind
+float2 DriftWind;     //unit: the way the wind blows
+float DriftHeight;
+float DriftAlong;     //the dunes' spacing along the wind
+float DriftAcross;    //their length across it
 
-struct AuroraVertexOutput
+//The bank piled against the island's drum, deeper on the lee side
+float BankRadius;
+float BankHeight;
+float BankReach;
+float BankLee;
+
+//The mound map (AuroraBackdrop.BakeMounds): x the snow drifted round the planting, yz that height's slope (exact,
+//so the normals are smooth across texels), w how much open sky the snow sees past the crowns over it.
+Texture2D MoundMap;
+sampler MoundPoint = sampler_state
+{
+    Texture = <MoundMap>;
+    MinFilter = POINT;
+    MagFilter = POINT;
+    MipFilter = NONE;
+    AddressU = CLAMP;
+    AddressV = CLAMP;
+};
+sampler MoundLinear = sampler_state
+{
+    Texture = <MoundMap>;
+    MinFilter = LINEAR;
+    MagFilter = LINEAR;
+    MipFilter = NONE;
+    AddressU = CLAMP;
+    AddressV = CLAMP;
+};
+float2 MoundOrigin;   //world XZ of the map's corner
+float MoundTexel;     //world units a texel
+float MoundSize;      //texels a side
+
+//Long low dunes, their crests across the wind: gradient noise stretched along it, warped so no crest runs straight,
+//in patches. ⚠ Mirrored line for line by TerrainMirror.SnowDrift (CloudNoise is ShaderMath.Noise).
+float SnowDrift(float2 p)
+{
+    float2 across = float2(-DriftWind.y, DriftWind.x);
+    float2 q = float2(dot(p, DriftWind) / DriftAlong, dot(p, across) / DriftAcross);
+    q.x += 1.4 * CloudNoise(p * 0.009 + float2(3.7, 8.1));
+
+    float dune = CloudNoise(q) + 0.45 * CloudNoise(q * float2(2.1, 1.7) + float2(5.2, 1.3));
+    float patch = saturate(0.6 + 0.8 * CloudNoise(p * 0.0065 + float2(9.1, 2.4)));
+
+    return DriftHeight * dune * patch;
+}
+
+//The snow piled against the island's drum: flat under the platform, falling away over BankReach outside it, deeper on
+//the side the wind blows towards. ⚠ Mirrored by TerrainMirror.SnowBank.
+float SnowBank(float2 p)
+{
+    float r = length(p);
+    float2 outward = p / max(r, 1e-3);
+    float lee = 1.0 + BankLee * dot(outward, DriftWind);
+    float rise = exp(-max(r - BankRadius, 0.0) / BankReach);
+
+    return BankHeight * rise * lee;
+}
+
+//The ground before the mounds: what the planting stands on (TerrainMirror.AuroraBase)
+float SnowBaseHeight(float2 p)
+{
+    return TerrainHeight(p) + SnowDrift(p) + SnowBank(p);
+}
+
+//The mound map's height at p, bilinear by hand over four point taps: the arithmetic TerrainMirror.Aurora repeats on
+//the same array, so the CPU and the GPU agree to the rounding (a hardware filter weights in 8-bit steps). Zero off
+//the map.
+float MoundHeight(float2 p)
+{
+    float2 t = (p - MoundOrigin) / MoundTexel - 0.5;
+    float2 cell = floor(t);
+    float2 f = t - cell;
+    float onMap = step(0.0, min(cell.x, cell.y)) * step(max(cell.x, cell.y), MoundSize - 2.0);
+
+    float texel = 1.0 / MoundSize;
+    float2 uv = (cell + 0.5) * texel;
+    float a = tex2Dlod(MoundPoint, float4(uv, 0.0, 0.0)).x;
+    float b = tex2Dlod(MoundPoint, float4(uv + float2(texel, 0.0), 0.0, 0.0)).x;
+    float c = tex2Dlod(MoundPoint, float4(uv + float2(0.0, texel), 0.0, 0.0)).x;
+    float d = tex2Dlod(MoundPoint, float4(uv + float2(texel, texel), 0.0, 0.0)).x;
+
+    return lerp(lerp(a, b, f.x), lerp(c, d, f.x), f.y) * onMap;
+}
+
+//The ground as drawn, and as the planting's mirror reads it with the mounds (SceneRenderer.AuroraGroundHeight)
+float SnowHeight(float2 p)
+{
+    return SnowBaseHeight(p) + MoundHeight(p);
+}
+
+//--- The snow -------------------------------------------------------------------------------------------------------
+
+float3 MoonDirection;          //towards the Moon: the key light, and the sun of the shadow map
+float3 MoonLight;              //on a face square to it (linear)
+float3 AuroraLightDirection;   //towards the curtains' light this frame
+float3 AuroraLight;            //what they throw on a face square to them this frame, the pulse included
+float3 SkyLightZenith;         //the night sky's own light from overhead (linear)
+float3 SkyLightHorizon;        //and from the horizon, its glow and the snow's own bounce
+float3 SnowAlbedo;
+float3 SnowDeepTint;           //light that went into the pack and came out of the shade: the blue of shadowed snow
+float SastrugiStrength;
+float SastrugiScale;
+float SparkleDensity;
+float SparkleStrength;
+
+struct SnowVertexOutput
 {
     float4 Position : SV_POSITION;
     float3 WorldPosition : TEXCOORD0;
+    float3 Normal : TEXCOORD1;
 };
 
-AuroraVertexOutput AuroraTerrainVS(AuroraVertexInput input)
+//One vertex program for both grids. The base field's normal is taken here over one cell (its finest features are tens
+//of units), the mounds' slope is the map's own in the pixel shader, and the relief finer than a cell is per pixel.
+SnowVertexOutput SnowVS(float4 position : POSITION0, uniform bool coarse)
 {
-    AuroraVertexOutput output;
+    SnowVertexOutput output;
 
-    float2 xz = input.Position.xz + OriginXZ;
-    float3 worldPosition = float3(xz.x, TerrainHeight(xz), xz.y);
+    float2 xz = position.xz + OriginXZ;
+    float base = SnowBaseHeight(xz);
+    float h = base + MoundHeight(xz);
 
-    output.WorldPosition = worldPosition;
-    output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
+    float e = GridCell;
+    float hx = SnowBaseHeight(xz + float2(e, 0.0));
+    float hz = SnowBaseHeight(xz + float2(0.0, e));
+    output.Normal = normalize(float3(-(hx - base) / e, 1.0, -(hz - base) / e));
+
+    //The coarse grid sinks wherever the fine one draws, all the way in from two of its own cells inside the fine
+    //grid's edge: the fine surface covers it there, and a pixel the depth test rejects costs nothing. Both programs
+    //shade a point alike, so where the two overlap at the seam it does not matter which wins.
+    if (coarse)
+    {
+        float2 offset = abs(xz - FineOriginXZ);
+        float inside = 1.0 - smoothstep(FineHalfExtent - 2.0 * GridCell, FineHalfExtent, max(offset.x, offset.y));
+        h -= 4.0 * inside;
+    }
+
+    float3 world = float3(xz.x, h, xz.y);
+
+    //The island's hole, in the vertex shader (MountainFine's InHole): every vertex inside it goes to one point deep
+    //under the clearing, so the triangles across the edge fall away as a cone the pit shaft hides and the drum
+    //overhangs. Never onto the circle: three corners on it would be a triangle across the hole.
+    if (length(xz) < IslandHoleRadius) world = float3(0.0, ForestLevelY - 400.0, 0.0);
+
+    output.WorldPosition = world;
+    output.Position = mul(mul(float4(world, 1.0), View), Projection);
 
     return output;
 }
 
-//Forest.fx's ForestFbm as it stood before #281 replaced it there with Fbm2BandLimited/Fbm2Combed: four
-//band-limited octaves of the cloud field's gradient noise, amplitudes summing to 1. Kept here because the
-//aurora's colour patches and litter were tuned against it and neither reads as the sines' stripes did.
-float ForestFbm(float2 p, float footprint)
-{
-    float sum = 0.0;
-    float amplitude = 0.5;
-    float frequency = 1.0;
+SnowVertexOutput SnowFineVS(float4 position : POSITION0) { return SnowVS(position, false); }
+SnowVertexOutput SnowCoarseVS(float4 position : POSITION0) { return SnowVS(position, true); }
 
-    [unroll]
-    for (int octave = 0; octave < 4; octave++)
+//Wind-cut relief finer than a cell: sharp-crested ridges across the wind (sastrugi), a second set half their size, and
+//the grain of the crust. Each octave fades out as the pixel stops resolving it.
+float Sastrugi(float2 p, float footprint, uniform bool detail)
+{
+    float2 across = float2(-DriftWind.y, DriftWind.x);
+    float2 q = float2(dot(p, DriftWind) * 0.9, dot(p, across) * 0.22) * SastrugiScale;
+
+    float r1 = 1.0 - abs(CloudNoise(q + float2(2.3, 7.7)));
+    float ridge = r1 * r1 * saturate(1.0 - footprint * SastrugiScale * 1.2);
+
+    if (detail)
     {
-        float resolvable = saturate(1.0 - footprint * frequency * 0.9);
-        sum += amplitude * resolvable * CloudNoise(p * frequency + octave * 29.7);
-        amplitude *= 0.5;
-        frequency *= 2.1;
+        float r2 = 1.0 - abs(CloudNoise(q * 2.7 + float2(11.1, 4.2)));
+        ridge += 0.45 * r2 * r2 * saturate(1.0 - footprint * SastrugiScale * 3.0);
+        ridge += 0.12 * CloudNoise(p * 7.3) * saturate(1.0 - footprint * 6.0);
     }
 
-    return sum;
+    return SastrugiStrength * ridge;
 }
 
-//Forest.fx's ForestFloor, its `detail=false` (ForestReducedPS) path inlined rather than parametrised: this
-//scene never offers the triplanar normal variation or the procedural tree shadows, so there is only ever
-//one program to compile. Everything else — the colour patches, the litter, the grain, the treeline, the
-//wind, the two-stage haze — ports untouched; only where SunColor/ZenithColor/HorizonColor and `sunlight`
-//come from differs (see the header and the uniform block above).
-float4 AuroraFloor(AuroraVertexOutput input)
+//Glitter: one grain in so many of a lattice of them catches the Moon in its own facet. Each grain's facet is the
+//surface's normal tilted its own way, so a glint lights only from where the eye is - it twinkles as the camera
+//moves, which is what tells snow from white paint. A glint is a dot about a pixel and a half across at any distance
+//and fades where a cell gets smaller than the pixel.
+float SnowSparkle(float3 worldPosition, float3 normal, float3 toEye, float footprint)
+{
+    const float SCALE = 5.0;
+
+    float2 p = worldPosition.xz * SCALE;
+    float2 cell = floor(p);
+    float2 h = NoiseHash22(cell);
+    float lit = step(1.0 - SparkleDensity * 2.0, h.x);
+
+    float2 tilt = frac(h * float2(173.3, 291.7)) * 2.0 - 1.0;
+    float3 facet = normalize(normal + float3(tilt.x, 0.0, tilt.y) * 0.3);
+    float glint = pow(saturate(dot(facet, normalize(MoonDirection + toEye))), 400.0);
+
+    float2 centre = cell + 0.5 + (frac(h * float2(431.7, 197.3)) - 0.5) * 0.5;
+    float radius = clamp(footprint * SCALE * 1.5, 0.12, 0.5);
+    float grain = 1.0 - smoothstep(radius * 0.3, radius, distance(p, centre));
+
+    return lit * glint * grain * saturate(1.0 - footprint * SCALE * 0.5);
+}
+
+float4 SnowShade(SnowVertexOutput input, uniform bool detail)
 {
     float3 worldPosition = input.WorldPosition;
-
-    clip(length(worldPosition.xz) - IslandHoleRadius);
-
-    float3 baseNormal = TerrainNormal(worldPosition.xz);
     float footprint = length(fwidth(worldPosition.xz));
 
-    float relief = NeedleRelief(worldPosition.xz, footprint);
-    float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, relief);
+    //The mounds' slope, added to the base field's in slope space, and how much sky the crowns leave the snow
+    float4 mound = tex2Dlod(MoundLinear, float4((worldPosition.xz - MoundOrigin) / (MoundTexel * MoundSize), 0.0, 0.0));
+    float3 baseNormal = normalize(input.Normal);
+    float baseY = max(baseNormal.y, 0.2);
+    float3 normal = normalize(float3(baseNormal.x / baseY - mound.y, 1.0, baseNormal.z / baseY - mound.z));
+    normal = PerturbNormalFromHeight(normal, worldPosition, Sastrugi(worldPosition.xz, footprint, detail));
 
-    float patch = saturate(ForestFbm(worldPosition.xz * 0.15, footprint) * 1.4 + 0.5);
+    float3 toEye = normalize(CameraPosition - worldPosition);
+    float openSky = mound.w;
 
-    float slope = smoothstep(0.55, 0.85, baseNormal.y);
-    float3 floorColor = lerp(ForestColorDark * 0.8, ForestColor, patch * slope);
+    float moonShadow = 1.0;
+    [branch]
+    if (ShadowStrength > 0.0)
+        moonShadow = SunShadow(worldPosition, normal, MoonDirection);
 
-    float wind = WindGust(worldPosition.xz, WindDirection, AuroraTerrainTime, WindRippleFrequency,
-        WindRippleSpeed / max(WindRippleFrequency, 1e-4), footprint);
-    floorColor *= 1.0 + wind * WindRippleStrength;
+    //Snow's terminator is soft (light scatters through the top of the pack), and the curtains are a wide light
+    float moonFacing = saturate((dot(normal, MoonDirection) + 0.15) / 1.15);
+    float auroraFacing = saturate((dot(normal, AuroraLightDirection) + 0.5) / 1.5);
+    float3 sky = lerp(SkyLightHorizon, SkyLightZenith, saturate(normal.y * 0.5 + 0.5));
 
-    float litter = saturate(ForestFbm(worldPosition.xz * 0.6 + 47.0, footprint) * 1.6 + 0.5);
-    floorColor = lerp(floorColor, ForestColorDark * 0.7, litter * litter * 0.5);
+    float moonlit = moonFacing * moonShadow;
+    float3 light = MoonLight * moonlit + (AuroraLight * auroraFacing + sky) * openSky;
 
-    float grainFade = saturate(1.0 - footprint * 2.4);
-    float grain = CloudNoise(worldPosition.xz * 2.6) * 1.8;
-    floorColor *= 1.0 + 0.22 * grain * grainFade;
+    //Wind crust and powder: the crust a shade greyer, in patches the size of the drifts
+    float crust = saturate(0.5 + 0.9 * CloudNoise(worldPosition.xz * 0.045 + float2(17.0, 3.0)));
+    float3 color = SnowAlbedo * lerp(1.0, 0.9, crust) * light;
 
-    float grove = saturate(CloudNoise(worldPosition.xz * 0.035 + 11.0) * 1.7 + 0.5);
-    float crowns = saturate(CloudNoise(worldPosition.xz * 0.17 + 73.0) * 1.7 + 0.5);
-    float treeDist = length(worldPosition.xz) + (grove - 0.5) * 40.0;
-    float canopyRamp = smoothstep(ClearingRadius * 0.75, ClearingRadius + ClearingTransition * 0.45, treeDist);
-    float crownTops = saturate(CloudNoise(worldPosition.xz * 0.45 + 31.0) * 1.7 + 0.5);
-    float crownFade = saturate(1.0 - footprint * 0.45);
-    float3 canopy = TreelineColor * (0.4 + 1.2 * grove) * (0.55 + 0.9 * crowns)
-        * (1.0 - (0.25 - 0.5 * crownTops) * crownFade);
-    floorColor = lerp(floorColor, canopy, canopyRamp * TreelineStrength);
+    //The blue of shaded snow: light that entered the lit pack nearby and came out in the shade
+    color += SnowDeepTint * (1.0 - moonlit) * openSky;
 
-    //No dome, no cloud deck: full "sunlight" always, and no tree shadow (the procedural one is the extra
-    //this scene never compiles, and the wood's own real trees cast none on the terrain shader either way).
-    float ndotl = saturate(dot(normal, SunDirection));
-    float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
+    if (detail)
+        color += MoonLight * (SparkleStrength * moonShadow) * SnowSparkle(worldPosition, normal, toEye, footprint);
 
-    float3 color = floorColor * (skyAmbient * AmbientStrength + SunColor * ndotl);
+    //Down the drain's throat the hole's cone is black, as the pit shaft round it is
+    color *= smoothstep(ForestLevelY - 10.0, ForestLevelY - 6.0, worldPosition.y);
 
-    float dist = distance(CameraPosition, worldPosition);
-    float haze = saturate(dist / HorizonHazeDistance);
-    float3 murk = (ZenithColor * 0.7 + HorizonColor * 0.3) * float3(0.5, 0.65, 0.58);
-    color = lerp(color, murk, saturate(haze * haze * 1.2) * 0.6);
-    float skyward = haze * haze;
-    skyward *= skyward;
-    color = lerp(color, HorizonColor, skyward);
+    color = ApplySceneFog(color, CameraPosition, worldPosition);
+
+    //Where the grid ends the ground has gone into the haze the horizon is drawn in, so its edge is never a line
+    float2 fromCentre = abs(worldPosition.xz - CoarseOriginXZ);
+    color = lerp(color, SceneFogColor, smoothstep(CoarseReach * 0.72, CoarseReach, max(fromCentre.x, fromCentre.y)));
 
     return float4(color, 1.0);
 }
 
-float4 AuroraTerrainPS(AuroraVertexOutput input) : COLOR { return AuroraFloor(input); }
+float4 SnowPS(SnowVertexOutput input) : COLOR { return SnowShade(input, true); }
+float4 SnowReducedPS(SnowVertexOutput input) : COLOR { return SnowShade(input, false); }
 
-//--- Sky: Moon.fx's sky pass verbatim, the Earth replaced by the aurora ribbons (see the header) --------
-
-//SupersampleFactor is declared by Stars.fxh (included above) - one copy shared with Space.fx and Moon.fx.
-float AuroraSkyTime;
-float3 VoidColor;
-
-float3 AuroraColorLow;
-float3 AuroraColorHigh;
-float AuroraIntensity;
-float AuroraBandHeight;
-float AuroraBandSoftness;
-float AuroraCurtainScale;
-float AuroraCurtainWarp;
-float AuroraDriftSpeed;
-float AuroraMorphSpeed;
-float AuroraPulseSpeed;
-float AuroraPulseDepth;
-
-//The slow hue drift (#462), pushed per frame by DrawAurora from SceneRenderer.AuroraHueShift: added to the
-//low-to-high colour ramp inside the band, so the whole curtain leans greener or more violet over minutes.
-//The same number the ground's light and the island's light rig are coloured from, which is the point of it
-//being pushed rather than re-derived here - until #462 only the CPU side had a drift at all, and the ground
-//went violet under a sky that never did.
-float AuroraHueShift;
-
-//The rays (#462): the fine vertical striation every photograph and every reference rendered for the pass
-//shows INSIDE a curtain - the folds alone read as soft smoke. RayScale is their frequency across the sky,
-//RayStrength how deep they cut the curtain's brightness. See Aurora().
-float AuroraRayScale;
-float AuroraRayStrength;
-
-//The aurora ribbons: a band across the upper sky (elevation measured from the horizon, so BandHeight reads
-//the way its own doc states it — "how much of the upper sky"), folded into curtains by 3D noise on the
-//view DIRECTION itself, stretched vertically so the field reads as long thin streaks rather than blobs —
-//sharpened with a power curve so the folds read as ribbons rather than a wash, coloured low-to-high by
-//elevation WITHIN the band, and pulsing on two summed clocks so the breathing is a breath and not a
-//metronome (the issue's own "strong, clearly pulsing"). Additive: the caller adds this to the starfield
-//rather than compositing over it, so the stars always show through at least a little.
-//
-//⚠ It was Fbm2Combed on an unwrapped AZIMUTH (atan2(dir.x, dir.z)) once, and that is the wrong shape of
-//coordinate for anything drawn on a sphere the camera orbits: atan2 has exactly one line where it jumps
-//from +pi to -pi, and feeding that jump straight into a noise function's input makes the noise jump too —
-//not a moving seam the camera carries with it, but one fixed in the WORLD, at dir.x = 0, dir.z < 0, that
-//the camera swept past and photographed (reported after #205 first shipped: "a distinct vertical seam,
-//the same kind of problem other scenes solved" — the star lattice's own cube chart is exactly that kind of
-//fix, seamless by construction rather than patched after the fact). The angle itself is never computed
-//now: DRIFT rotates the sample DIRECTION about the vertical axis instead of adding to an azimuth value (a
-//rotated vector has nothing to wrap), and the STREAKS are 3D noise on that rotated direction with its own
-//vertical axis compressed by CurtainWarp — Fbm2Combed's stretch-along-an-axis idea, carried into 3D so
-//there is no 2D chart anywhere underneath it to seam on.
-float3 AuroraLit(float3 dir, float time, float pixelAngle, float elevation, float bandLow, float band)
+technique AuroraSnowFine
 {
-    float sinDrift, cosDrift;
-    sincos(time * AuroraDriftSpeed, sinDrift, cosDrift);
-    float3 rotated = float3(
-        dir.x * cosDrift - dir.z * sinDrift,
-        dir.y,
-        dir.x * sinDrift + dir.z * cosDrift);
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL SnowFineVS();
+        PixelShader = compile PS_SHADERMODEL SnowPS();
+    }
+};
 
-    //CurtainWarp compresses the vertical axis of the noise domain, so a fold changes little as elevation
-    //rises and reads as a long streak rather than a blob — high warp, long ribbons; low warp (floored well
-    //short of zero, or the division blows up), closer to a flat mottle.
-    //
-    //MorphSpeed slides the domain along that same compressed axis (#462): the folds change shape IN PLACE
-    //rather than only being carried round the sky by the drift, which is what a real curtain does — it
-    //ripples and re-forms, it does not rotate like a carousel. Along the long axis on purpose: a slide
-    //there changes a streak slowly, where the same speed across it would sweep folds sideways.
-    float3 comb = float3(rotated.x, rotated.y / max(AuroraCurtainWarp, 0.15), rotated.z) * AuroraCurtainScale;
-    comb.y += time * AuroraMorphSpeed;
-    float streaks = Fbm3(comb, 4);
-    float curtain = pow(saturate(streaks * 0.6 + 0.55), 2.4);
+technique AuroraSnowCoarse
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL SnowCoarseVS();
+        PixelShader = compile PS_SHADERMODEL SnowPS();
+    }
+};
 
-    //The rays (#462): one octave of the same 3D noise on the same rotated direction, at a far higher
-    //frequency across the sky and stretched a further RAY_STRETCH along its long axis, so it is a comb of
-    //thin vertical striations rather than a finer mottle. They cut INTO the curtain's brightness rather than
-    //adding to it, so the folds keep their shape and gain structure inside it. Sliding along the long axis a
-    //few times faster than the folds re-form, which is the slow shimmer real rays have. Faded out as a ray
-    //approaches the pixel's own size - a comb finer than the pixels would alias into crawling moire.
-    const float RAY_STRETCH = 7.0;
-    float3 rayDomain = float3(rotated.x, rotated.y / (max(AuroraCurtainWarp, 0.15) * RAY_STRETCH), rotated.z)
-        * AuroraRayScale;
-    rayDomain.y += time * AuroraMorphSpeed * 4.0;
-    float rays = saturate(0.5 + 1.4 * GradientNoise3(rayDomain));
-    float rayFade = saturate(1.5 - pixelAngle * AuroraRayScale * 3.0);
-    curtain *= lerp(1.0, 0.3 + 1.0 * rays, AuroraRayStrength * rayFade);
+technique AuroraSnowFineReduced
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL SnowFineVS();
+        PixelShader = compile PS_SHADERMODEL SnowReducedPS();
+    }
+};
 
-    //Two clocks summed rather than one, so the envelope never repeats on a plain, watchable period — the
-    //slower is 31/100 of the primary rather than a round fraction, for the same reason.
-    float pulse = 1.0 - AuroraPulseDepth * (0.5 + 0.5 * sin(time * AuroraPulseSpeed))
-                       * (0.7 + 0.3 * sin(time * AuroraPulseSpeed * 0.31 + 1.7));
+technique AuroraSnowCoarseReduced
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL SnowCoarseVS();
+        PixelShader = compile PS_SHADERMODEL SnowReducedPS();
+    }
+};
 
-    float withinBand = saturate((elevation - bandLow) / max(AuroraBandHeight, 1e-4) + AuroraHueShift);
-    float3 colour = lerp(AuroraColorLow, AuroraColorHigh, withinBand);
+//--- The far stand --------------------------------------------------------------------------------------------------
 
-    return colour * (AuroraIntensity * band * curtain * pulse);
+float3 StandNeedles;    //the needles' colour (linear)
+float3 StandSnow;       //the snow on the tiers' tops
+
+struct StandVertexInput
+{
+    float3 Position : POSITION0;
+    float3 Normal : NORMAL0;
+    float Snow : TEXCOORD0;          //how much of a tier's top the snow lies on, per vertex
+};
+
+struct StandInstanceInput
+{
+    float4 Place : TEXCOORD1;        //foot in world, and the scale
+    float4 Look : TEXCOORD2;         //yaw (sin, cos), the height's stretch, the needles' tint
+};
+
+struct StandVertexOutput
+{
+    float4 Position : SV_POSITION;
+    float3 WorldPosition : TEXCOORD0;
+    float3 Normal : TEXCOORD1;
+    float2 Material : TEXCOORD2;     //snow, tint
+};
+
+StandVertexOutput StandVS(StandVertexInput input, StandInstanceInput instance)
+{
+    StandVertexOutput output;
+
+    float s = instance.Look.x, c = instance.Look.y;
+
+    //A spruce past where the ground is drawn would stand on nothing: it goes to a point (no triangle to draw)
+    float2 offGround = abs(instance.Place.xz - CoarseOriginXZ);
+    float onGround = step(max(offGround.x, offGround.y), CoarseReach - 4.0);
+    float3 local = input.Position * float3(1.0, instance.Look.z, 1.0) * (instance.Place.w * onGround);
+    float3 world = float3(local.x * c - local.z * s, local.y, local.x * s + local.z * c) + instance.Place.xyz;
+    float3 normal = float3(input.Normal.x * c - input.Normal.z * s, input.Normal.y / instance.Look.z, input.Normal.x * s + input.Normal.z * c);
+
+    output.WorldPosition = world;
+    output.Normal = normal;
+    output.Material = float2(input.Snow, instance.Look.w);
+    output.Position = mul(mul(float4(world, 1.0), View), Projection);
+
+    return output;
 }
 
-//Aurora: the early-out decided here and a single return (#713). A [branch] around an early return in an inlined
-//function is what fxc reports as X4000, "use of potentially uninitialized variable", so the work - and the comment
-//above - is AuroraLit, and this only chooses. Same result on every path: the test is the early-out's own, negated (fxc may fold that into the opposite comparison, which differs only for a NaN, and nothing here is fed one).
-float3 Aurora(float3 dir, float time, float pixelAngle)
+float4 StandPS(StandVertexOutput input) : COLOR
 {
-    float elevation = saturate(dir.y);
-    float bandLow = 1.0 - AuroraBandHeight - AuroraBandSoftness;
-    float bandHigh = 1.0 - AuroraBandHeight;
+    float3 normal = normalize(input.Normal);
+    float3 albedo = lerp(StandNeedles * input.Material.y, StandSnow, 0.55 * input.Material.x * saturate(normal.y * 1.6));
 
-    float band = smoothstep(bandLow, bandHigh, elevation) * (1.0 - smoothstep(0.90, 1.0, elevation));
+    float moonFacing = saturate((dot(normal, MoonDirection) + 0.3) / 1.3);
+    float auroraFacing = saturate((dot(normal, AuroraLightDirection) + 0.5) / 1.5);
+    float3 sky = lerp(SkyLightHorizon, SkyLightZenith, saturate(normal.y * 0.5 + 0.5));
+    float3 color = albedo * (MoonLight * moonFacing + AuroraLight * auroraFacing + sky);
 
-    float3 earlyOut = 0.0;
+    color = ApplySceneFog(color, CameraPosition, input.WorldPosition);
 
-    [branch]
-    if (!(band <= 0.001)) earlyOut = AuroraLit(dir, time, pixelAngle, elevation, bandLow, band);
+    float2 fromCentre = abs(input.WorldPosition.xz - CoarseOriginXZ);
+    color = lerp(color, SceneFogColor, smoothstep(CoarseReach * 0.72, CoarseReach, max(fromCentre.x, fromCentre.y)));
 
-    return earlyOut;
+    return float4(color, 1.0);
+}
+
+technique AuroraStand
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL StandVS();
+        PixelShader = compile PS_SHADERMODEL StandPS();
+    }
+};
+
+//--- The sky --------------------------------------------------------------------------------------------------------
+
+float3 SkyZenith;          //the night sky overhead (linear)
+float3 SkyHorizon;         //and at the horizon
+float SkyGradientPower;    //how fast the one turns into the other going up
+float3 HorizonGlow;        //the glow along the horizon: airglow, and the curtains' light scattered low
+float HorizonGlowWidth;    //its height, as a share of the hemisphere
+float2 AuroraBearing;      //unit XZ: the side of the sky the curtains hang over, where the glow is strongest
+
+float3 MoonDisc;           //the disc's radiance
+float MoonRadius;          //its angular radius, radians
+float3 MoonHalo;           //the glow round it, through the thin air
+float MoonHaloWidth;
+
+#define AURORA_ARCS 3
+float4 ArcPlace[AURORA_ARCS];   //x the line's offset across its axis (altitudes, + ahead of AuroraBearing), y its axis's angle, z the folds' depth, w its brightness this frame
+float4 ArcShape[AURORA_ARCS];   //x the lower edge's altitude, y the curtain's height, z the folds' frequency, w its own seed
+float4 ArcBend[AURORA_ARCS];    //x the long bend's depth, y its frequency, z how often the curtain is lit along its length
+float3 AuroraGreen;        //the curtains' body, oxygen at the lower altitudes (linear)
+float3 AuroraRed;          //their tops
+float3 AuroraFringe;       //the thin magenta of the lowest edge
+float AuroraRayScale;      //rays a unit of the arc's length
+float AuroraRayStrength;
+float AuroraRaySpeed;      //how fast the rays run along the curtain
+float AuroraFoldSpeed;     //how fast the folds change shape
+float AuroraEdge;          //the lower edge's softness, in the curtain's own height
+float AuroraLength;        //how far along its axis an arc reaches before it fades
+
+//A cheap 1D gradient noise for the curtains: no CPU mirror reads it, so it needs nothing but to be smooth
+float AuroraHash(float n)
+{
+    n = frac(n * 0.1031);
+    n *= n + 33.33;
+    n *= n + n;
+    return frac(n) * 2.0 - 1.0;
+}
+
+float AuroraNoise(float x)
+{
+    float i = floor(x);
+    float f = x - i;
+    float u = f * f * (3.0 - 2.0 * f);
+    return lerp(AuroraHash(i) * f, AuroraHash(i + 1.0) * (f - 1.0), u) * 2.0;
+}
+
+//An arc's fold at u along its axis: two octaves that re-form in place over time
+float AuroraFold(float u, float seed, float time)
+{
+    return AuroraNoise(u + seed + time * AuroraFoldSpeed)
+        + 0.45 * AuroraNoise(u * 2.3 + seed * 1.7 - time * AuroraFoldSpeed * 1.3);
+}
+
+//One arc seen along dir. The ray's line across the sky crosses the arc's mean line once; there the curtain hangs off
+//that line by its long bend and its folds, so the ray meets the sheet one step further on, and the altitude it meets it
+//at says where in the curtain's height the eye looks. ONE step and no iteration: a fixed point iterated through a deep
+//fold jumps between its roots from pixel to pixel and drew the lower edge as a saw (the first cut of #963). One step is
+//a smooth function of the direction, so the edge is a smooth curve however deep the fold.
+float3 AuroraArc(float3 dir, float4 place, float4 shape, float4 bend, float time)
+{
+    float s, c;
+    sincos(place.y, s, c);
+    float along = dir.x * c + dir.z * s;
+    float across = dir.z * c - dir.x * s;
+
+    //Only a ray heading the arc's way meets it, and one running nearly along it meets it at the horizon
+    float heads = step(0.0, across * place.x) * smoothstep(0.02, 0.06, abs(across));
+    float safeAcross = (across < 0.0 ? -1.0 : 1.0) * max(abs(across), 0.02);
+
+    float x0 = place.x / safeAcross * along;
+    float u = x0 * shape.z;
+    float hang = bend.x * AuroraNoise(x0 * bend.y + shape.w * 3.7 + time * AuroraFoldSpeed * 0.3)
+        + place.z * AuroraFold(u, shape.w, time);
+    float t = max((place.x + hang) / safeAcross, 0.0);
+
+    float x = t * along;
+    float y = t * dir.y;
+
+    //Where in the curtain the eye looks: 0 at the lower edge (a gentle ripple along it), 1 at the top
+    float edge = shape.x + 0.03 * shape.y * AuroraNoise(x0 * 0.9 + shape.w * 5.0 + time * 0.03);
+    float v = (y - edge) / shape.y;
+    float bottom = smoothstep(-AuroraEdge, 0.0, v);
+    float body = exp(-2.6 * max(v, 0.0)) * (1.0 - smoothstep(0.7, 1.0, v));
+
+    //And under the edge a faint glow, the curtain's light scattered in the air below it: without it the dark sky under
+    //a bright edge reads as a dark range of mountains cut out against the curtain
+    body += 0.35 * exp(min(v, 0.0) / 0.5) * (1.0 - bottom);
+
+    //The slant: the bend and the folds turn the sheet, and a sheet seen edge-on is looked through for longer
+    const float DELTA = 0.02;
+    float hangAhead = bend.x * AuroraNoise((x0 + DELTA) * bend.y + shape.w * 3.7 + time * AuroraFoldSpeed * 0.3)
+        + place.z * AuroraFold((x0 + DELTA) * shape.z, shape.w, time);
+    float slope = (hangAhead - hang) / DELTA;
+    float2 sheet = normalize(float2(-slope, 1.0));
+    float2 heading = normalize(float2(along, across));
+    float slant = min(1.0 / max(abs(dot(heading, sheet)), 0.2), 3.5);
+
+    //The rays: brightness running straight up the sheet, varying only along it at three widths, shimmering along it;
+    //faded where they would be finer than the pixel
+    float rayFade = saturate(1.5 - fwidth(x) * AuroraRayScale * 2.5);
+    float rays = saturate(0.4 + 0.55 * AuroraNoise(x * AuroraRayScale * 0.45 + shape.w * 1.9 + time * AuroraRaySpeed * 0.6)
+        + 0.45 * AuroraNoise(x * AuroraRayScale + shape.w * 7.1 + time * AuroraRaySpeed)
+        + 0.3 * AuroraNoise(x * AuroraRayScale * 2.7 + shape.w * 3.3 - time * AuroraRaySpeed * 1.7));
+    rays = lerp(1.0, rays * rays * 2.2, AuroraRayStrength * rayFade);
+
+    //The curtain is lit in stretches, not along its whole length: a bright fold here, a dim one there, gaps between -
+    //what makes a display of distinct curtains and not one even fence across the sky
+    float stretch = smoothstep(-0.25, 0.6, AuroraNoise(x0 * bend.z + shape.w * 2.3 + time * 0.012)
+        + 0.5 * AuroraNoise(x0 * bend.z * 2.6 + shape.w * 9.7 - time * 0.02));
+    rays *= 0.04 + 0.96 * stretch;
+
+    //Out to its ends along the axis, and dimmer far away and low, where it is seen through more air
+    float reach = 1.0 - smoothstep(AuroraLength * 0.55, AuroraLength, abs(x));
+    float air = exp(-t * 0.05) * saturate(dir.y * 9.0);
+
+    float3 colour = lerp(AuroraGreen, AuroraRed, smoothstep(0.3, 0.9, v))
+        + AuroraFringe * exp(-max(v, 0.0) * 25.0);
+
+    return colour * (place.w * heads * bottom * body * slant * rays * reach * air);
 }
 
 struct AuroraSkyVertexOutput
@@ -325,11 +557,8 @@ AuroraSkyVertexOutput AuroraSkyVS(float3 position : POSITION0)
 {
     AuroraSkyVertexOutput output;
 
-    //Depth-READ after the terrain (see the header) — z = w puts the quad on the far plane, which is what
-    //makes that test cheap and correct: LessEqual passes against the untouched far-plane clear and fails
-    //against anything the terrain wrote.
+    //On the far plane, depth-READ after the ground: LessEqual passes against the untouched clear only
     output.Position = float4(position.xy, 1.0, 1.0);
-
     output.Ray = mul(float4(position.xy, 1.0, 0.0), ViewRayBasis).xyz;
 
     return output;
@@ -339,31 +568,49 @@ float4 AuroraSkyPS(AuroraSkyVertexOutput input) : COLOR
 {
     float3 dir = normalize(input.Ray);
     float pixelAngle = max(sqrt(dot(ddx(dir), ddx(dir)) + dot(ddy(dir), ddy(dir))), 1e-6);
+    float elevation = dir.y;
+    float up = saturate(elevation);
 
-    float3 sky = VoidColor;
+    float3 sky = lerp(SkyHorizon, SkyZenith, pow(up, SkyGradientPower));
 
-    sky += StarLayer(dir, pixelAngle, StarCellScale[0], StarChance[0], StarPeak[0], true);
-    sky += StarLayer(dir, pixelAngle, StarCellScale[1], StarChance[1], StarPeak[1], false);
-    sky += StarLayer(dir, pixelAngle, StarCellScale[2], StarChance[2], StarPeak[2], false);
+    //The glow along the horizon, strongest under the curtains
+    float2 flat = normalize(dir.xz + float2(1e-5, 0.0));
+    float towards = saturate(dot(flat, AuroraBearing) * 0.5 + 0.5);
+    sky += HorizonGlow * exp(-max(elevation, 0.0) / HorizonGlowWidth) * (0.45 + 0.9 * towards * towards);
 
-    sky *= 1.0 + NoiseHash33(floor(dir / pixelAngle)).x * 0.015;
+    //The Moon and the air lit round it
+    float toMoon = dot(dir, MoonDirection);
+    float angle = acos(clamp(toMoon, -1.0, 1.0));
+    sky += MoonHalo * exp(-angle / MoonHaloWidth);
+    float disc = 1.0 - smoothstep(MoonRadius - pixelAngle, MoonRadius + pixelAngle, angle);
+    float limb = sqrt(saturate(1.0 - angle * angle / (MoonRadius * MoonRadius)));
+    float3 moonRight = normalize(cross(float3(0.0, 1.0, 0.0), MoonDirection));
+    float2 face = float2(dot(dir, moonRight), dir.y - MoonDirection.y) / MoonRadius;
+    float maria = 0.82 + 0.18 * CloudNoise(face * 2.2 + 3.0);
+    float3 moon = MoonDisc * disc * (0.75 + 0.25 * limb) * maria;
 
-    //Additive, not composited: the aurora adds light in FRONT of the stars rather than replacing them, so
-    //a bright fold never fully erases what is behind it — the issue's own "stars partially visible
-    //through/alongside the aurora".
-    sky += Aurora(dir, AuroraSkyTime, pixelAngle);
+    //The stars, thinned near the horizon and in the Moon's glare, and hidden behind its disc
+    float starsSeen = saturate(elevation * 10.0) * (1.0 - disc) * saturate(angle / (MoonRadius * 12.0));
+    float3 stars = StarLayer(dir, pixelAngle, StarCellScale[0], StarChance[0], StarPeak[0], true)
+        + StarLayer(dir, pixelAngle, StarCellScale[1], StarChance[1], StarPeak[1], false)
+        + StarLayer(dir, pixelAngle, StarCellScale[2], StarChance[2], StarPeak[2], false);
+    sky += stars * starsSeen;
+
+    //The curtains, added in front of the stars (a glow hides nothing behind it), behind the Moon
+    float3 aurora = 0.0;
+    [unroll]
+    for (int k = 0; k < AURORA_ARCS; k++)
+        aurora += AuroraArc(dir, ArcPlace[k], ArcShape[k], ArcBend[k], AuroraTime);
+    sky += aurora * (1.0 - disc);
+    sky = max(sky, moon);
+
+    //The mist at the horizon, so the hills fade into the sky and not into a line under it
+    [branch]
+    if (SceneFogDensity > 0.0)
+        sky = lerp(sky, SceneFogColor, saturate(1.0 - max(elevation, 0.0) / 0.035) * 0.85);
 
     return float4(sky, 1.0);
 }
-
-technique AuroraTerrain
-{
-    pass P0
-    {
-        VertexShader = compile VS_SHADERMODEL AuroraTerrainVS();
-        PixelShader = compile PS_SHADERMODEL AuroraTerrainPS();
-    }
-};
 
 technique AuroraSky
 {
@@ -374,8 +621,8 @@ technique AuroraSky
     }
 };
 
-//--- The height probe (#590) ----------------------------------------------------------------------------
+//--- The height probe (#590) ----------------------------------------------------------------------------------------
 
-//TerrainMirror.Forest's field on the aurora's own terrain, for the Testbed's mirrorcheck (see HeightProbe.fxh).
-#define HEIGHT_PROBE_MIRRORED(p) TerrainHeight(p)
+//TerrainMirror.Aurora's field with the mound map, for the Testbed's mirrorcheck (see HeightProbe.fxh)
+#define HEIGHT_PROBE_MIRRORED(p) SnowHeight(p)
 #include "HeightProbe.fxh"
