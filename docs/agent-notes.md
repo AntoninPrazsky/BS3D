@@ -1217,3 +1217,9 @@ Pravidla:
 ## 2026-10-20 — #947 věta o obraze na Pi — desktop (RDT-PC), Claude Code (bs3d-bf)
 - Hotovo: věta „no scenery behind the island“ měla dvě ruční kopie (web, šablona poznámek k vydání). Teď je jedna: `piPicture` v `Web/src/_data/site.json`, web ji tiskne, `release.yml` ji čte do `@@PI_PICTURE@@`. `PiPictureCopyTests` zakazuje ruční kopii a ověřuje, že každá kapitola má na Potatu pozadí. Živá stránka v0.4.0 opravena (`gh release edit`).
 - Otevřené: web se opraví až ruční publikací (`Web/publish.ps1`, majitel).
+
+## 2026-10-20 — stav po poznámkách z 19. 10., přestavby, pauza — desktop (RDT-PC), Claude Code (bs3d-bf)
+- Od 19. 10. na mainu: #904 #874 #930 #925 #926 #929 #928 #892 #905 #906 #927 #931 #887 #924 #943 #934 #890 #960 #907 #938 #974 #958 (zavřeno na OK majitele) #963 #970 #947. Majitel na stránce „Verdikty 19. 10.“ (https://claude.ai/artifact/BTJogBsnikYAxpjtbND6gh, účet panrdt@live.com, db `verdicts`) dal 15× OK → zavřeno; bez odpovědi zůstaly #963 (aurora) a #970 (potok do rybníka).
+- ⚠ Přestavby (#958, #963) i po recenzi: hlavní nálezy byly „spoje nesplývají“ (závěje u pat nebyly vidět, texel 1 jednotka) a chybějící hloubka ostrůvků; recenze před merge se u velkých změn vyplácí. ⚠ Starší stránky patří druhému účtu a nejde je z nového otevřít.
+- Pozastaveno na přání majitele (limit potřebuje jinde), rozpracováno nezcommitované ve worktrees `BS3D-wt-400/-933/-936/-952`: #400 (nálezy 13. průchodu v komentáři), #933, #936, #952; claimy uvolněny. #941 vrácen (strop fronty).
+- Otevřené: verdikty #963 #970; nové poznámky #946–#978 (bs3d-34 jen zakládá); hudba #908–#917; #777.
