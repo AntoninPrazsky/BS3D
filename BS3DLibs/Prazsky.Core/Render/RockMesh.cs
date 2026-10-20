@@ -25,6 +25,25 @@ namespace Prazsky.Core.Render
         public int PrimitiveCount => _lathe.PrimitiveCount;
         public BoundingSphere BoundingSphere => _lathe.BoundingSphere;
 
+        /// <summary>The underside's radius, at scale 1 (#938): what a planter rests the flat bottom by.</summary>
+        public float Radius { get; }
+
+        /// <summary>The peak's height above the base, at scale 1.</summary>
+        public float Height { get; }
+
+        /// <summary>
+        /// How high the stone's surface stands over a spot <paramref name="radial"/> base radii from its axis, at scale 1 (#938):
+        /// the profile the lathe is traced from (the wobble left out), so a rock that rests on this one is laid on its shoulder
+        /// and not in the air over it.
+        /// </summary>
+        public float SurfaceAt(float radial)
+        {
+            if (radial >= 1f) return 0f;
+            if (radial <= 0.5f) return Height;
+            if (radial <= 0.82f) return Height * (1f - 0.3f * (radial - 0.5f) / 0.32f);
+            return Height * (0.7f - 0.35f * (radial - 0.82f) / 0.18f);
+        }
+
         /// <param name="graphicsDevice">The device the buffers are created on.</param>
         /// <param name="radius">Half-width of the boulder at its base.</param>
         /// <param name="height">Peak height above the base.</param>
@@ -56,6 +75,9 @@ namespace Prazsky.Core.Render
                 new(radius,         0f,     crease: true, wobble: 1f),   //hard arris where the stone meets the ground
                 new(0f,             0f)
             };
+
+            Radius = radius;
+            Height = height;
 
             //The irregularity is a large share of the base radius — enough that two rocks of the same size do
             //not share a silhouette, but not so much the surface self-intersects.

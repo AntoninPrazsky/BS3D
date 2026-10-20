@@ -49,8 +49,9 @@ namespace Prazsky.Core.Render
         public AcaciaKind Kind { get; }
 
         /// <summary>
-        /// The trunk, boughs, limbs and twigs as Low and Medium draw them: straight tapered tubes of seven sides, every
-        /// bough starting at the trunk's top centre. <see cref="FineWood"/> is the same tree at High and Ultra's detail.
+        /// The trunk, boughs, limbs and twigs as Low and Medium draw them: tapered runs of seven sides (a bough is one sweep through
+        /// its knee), every bough starting at the trunk's top centre, inside the dome that closes it; every free end is closed (#938).
+        /// <see cref="FineWood"/> is the same tree at High and Ultra's detail.
         /// </summary>
         public IProceduralMesh Wood { get; }
 
@@ -119,6 +120,13 @@ namespace Prazsky.Core.Render
         //The widest a tier may run against its half-thickness: its radius over its half-thickness is never more than this, so
         //the wide-short end of the roll is thickened until it is (the narrow-tall end, already thicker, is not touched)
         internal const float MAX_TIER_ASPECT = 3.8f;
+
+        //How far a closed end bulges past its last ring, as a share of its radius (#938): the trunk's top, which the boughs
+        //start inside (a flat cut stands open between boughs that leave at an angle), and a bough's, limb's or twig's end, a
+        //hemisphere the next pieces start inside; and how much of the wood's thickness a dead tree's twig may leave it with
+        private const float FORK_DOME = 0.8f;
+        private const float JOINT_DOME = 1f;
+        private const float TWIG_ROOT_SHARE = 0.85f;
 
         //The crown's twigs (#782): how thick one leaves its bough against the trunk at the fork, and how many sprays it
         //carries - few, so a tier's twigs are many and its leaf spreads over the plate rather than in spokes
@@ -352,15 +360,19 @@ namespace Prazsky.Core.Render
                 var fineRoots = new List<(Vector3 Leave, Vector3 Knee, Vector3 End, float Foot)>();
                 var departures = new List<FineDeparture>();
 
-                void Tube(int seg, Vector3 from, float fromRadius, Vector3 to, float toRadius)
+                //One run of wood as ONE skin through all its points (#938): straight tubes laid end to end at an angle opened a slit
+                //on the outer side of every knee, an open ring each. Its free end is closed (a flat disc, or a dome where
+                //something else starts from the end), and every piece is also a segment of the skeleton.
+                void Run(int seg, Vector3[] points, float[] radii, bool capStart = false, bool capEnd = false, float endDome = 0f)
                 {
-                    TubeGeometry.AddTube(v, idx, seg, from, fromRadius, to, toRadius);
-                    geometry.Skeleton.Add((from, to));
+                    TubeGeometry.AddSweep(v, idx, seg, points, radii, capStart, capEnd, endDome);
+                    for (int k = 0; k + 1 < points.Length; k++) geometry.Skeleton.Add((points[k], points[k + 1]));
                 }
 
-                //The trunk, flared at the root and holding most of its girth to the fork.
-                Tube(SEG, new Vector3(0f, 0f, 0f), trunkRadius * ROOT_FLARE,
-                    new Vector3(0f, forkY, 0f), trunkRadius * 0.9f);
+                //The trunk, flared at the root and holding most of its girth to the fork. Its foot is a floor under the ground
+                //and its top a dome the boughs start inside: they leave the fork at an angle, and a flat cut stands open between them.
+                Run(SEG, new[] { new Vector3(0f, 0f, 0f), new Vector3(0f, forkY, 0f) }, new[] { trunkRadius * ROOT_FLARE, trunkRadius * 0.9f },
+                    capStart: true, capEnd: true, endDome: FORK_DOME);
 
                 //The foot (#670): surface roots leaving the flare, running out along the ground and diving into it,
                 //which is what every reference's trunk does where it meets the soil — a clean cylinder cut at the
@@ -378,8 +390,7 @@ namespace Prazsky.Core.Render
                     Vector3 leave = rd * (foot * 0.3f) + Vector3.Up * (foot * ROOT_RISE * (0.8f + 0.4f * (float)rootDice.NextDouble()));
                     Vector3 knee = rd * (foot * 1.1f) + Vector3.Up * (foot * 0.12f);
                     Vector3 end = rd * out_ - Vector3.Up * ((out_ - foot) * ROOT_DIVE + foot * 0.2f);
-                    Tube(5, leave, foot * 0.42f, knee, foot * 0.24f);
-                    Tube(5, knee, foot * 0.24f, end, foot * 0.08f);
+                    Run(5, new[] { leave, knee, end }, new[] { foot * 0.42f, foot * 0.24f, foot * 0.08f }, capEnd: true);
                     fineRoots.Add((leave, knee, end, foot));
                 }
 
@@ -421,8 +432,8 @@ namespace Prazsky.Core.Render
 
                     Vector3 mid = fork + dir * (spread * 0.5f) + Vector3.Up * ((tipY - forkY) * 0.55f);
                     Vector3 tip = fork + dir * spread + Vector3.Up * (tipY - forkY);
-                    Tube(SEG, fork, trunkRadius * 0.6f, mid, trunkRadius * 0.42f);
-                    Tube(SEG, mid, trunkRadius * 0.42f, tip, trunkRadius * 0.14f);
+                    //The end is a dome: the crown's twigs start from it, and from the inside of it
+                    Run(SEG, new[] { fork, mid, tip }, new[] { trunkRadius * 0.6f, trunkRadius * 0.42f, trunkRadius * 0.14f }, capEnd: true, endDome: JOINT_DOME);
                     if (carried >= 0) supports[carried].Add(tip);
                     var departure = new FineDeparture(a, mid, tip, trunkRadius * 0.6f, trunkRadius * 0.42f, trunkRadius * 0.14f);
                     departures.Add(departure);
@@ -438,7 +449,7 @@ namespace Prazsky.Core.Render
                             float sSpread = spread * (0.85f + 0.3f * (float)rng.NextDouble());
                             Vector3 sDir = new(MathF.Cos(sa), 0f, MathF.Sin(sa));
                             Vector3 sTip = fork + sDir * sSpread + Vector3.Up * (tipY - forkY + (float)(rng.NextDouble() - 0.3) * treeHeight * 0.04f);
-                            Tube(5, mid, trunkRadius * 0.3f, sTip, trunkRadius * 0.08f);
+                            Run(5, new[] { mid, sTip }, new[] { trunkRadius * 0.3f, trunkRadius * 0.08f }, capEnd: true, endDome: JOINT_DOME);
                             if (carried >= 0) supports[carried].Add(sTip);
                             departure.Limbs.Add((sTip, trunkRadius * 0.3f, trunkRadius * 0.08f));
                             reach = MathF.Max(reach, sSpread);
@@ -457,8 +468,10 @@ namespace Prazsky.Core.Render
                             float ta = a + (float)(rng.NextDouble() - 0.5) * 1.6f;
                             float len = canopyRadius * (0.25f + 0.25f * (float)rng.NextDouble());
                             Vector3 to = from + new Vector3(MathF.Cos(ta), 0f, MathF.Sin(ta)) * (len * 0.7f) + Vector3.Up * (len * 0.7f);
-                            Tube(5, from, trunkRadius * 0.22f, to, trunkRadius * 0.05f);
-                            departure.Twigs.Add((along, to - from, trunkRadius * 0.22f, trunkRadius * 0.05f));
+                            //Never thicker than the bough it leaves is where it starts (its first ring would stand out of it, open)
+                            float twigRoot = MathF.Min(trunkRadius * 0.22f, MathHelper.Lerp(trunkRadius * 0.42f, trunkRadius * 0.14f, along) * TWIG_ROOT_SHARE);
+                            Run(5, new[] { from, to }, new[] { twigRoot, trunkRadius * 0.05f }, capEnd: true);
+                            departure.Twigs.Add((along, to - from, twigRoot, trunkRadius * 0.05f));
                             reach = MathF.Max(reach, len + spread);
                         }
                     }
@@ -472,8 +485,7 @@ namespace Prazsky.Core.Render
                     float spread = canopyRadius * 0.35f;
                     Vector3 mid = fork + dir * (spread * 0.6f) + Vector3.Up * ((spars[s].Y - forkY) * 0.5f);
                     Vector3 top = fork + dir * spread + Vector3.Up * (spars[s].Y - forkY);
-                    Tube(SEG, fork, trunkRadius * 0.55f, mid, trunkRadius * 0.38f);
-                    Tube(SEG, mid, trunkRadius * 0.38f, top, trunkRadius * 0.06f);
+                    Run(SEG, new[] { fork, mid, top }, new[] { trunkRadius * 0.55f, trunkRadius * 0.38f, trunkRadius * 0.06f }, capEnd: true);
                     departures.Add(new FineDeparture(a, mid, top, trunkRadius * 0.55f, trunkRadius * 0.38f, trunkRadius * 0.06f));
                 }
 
@@ -521,7 +533,7 @@ namespace Prazsky.Core.Render
             //at the knee
             foreach ((Vector3 leave, Vector3 knee, Vector3 end, float foot) in roots)
             {
-                TubeGeometry.AddSweep(v, idx, FINE_LIMB_SIDES, new[] { leave, knee, end }, new[] { foot * 0.42f, foot * 0.24f, foot * 0.08f });
+                TubeGeometry.AddSweep(v, idx, FINE_LIMB_SIDES, new[] { leave, knee, end }, new[] { foot * 0.42f, foot * 0.24f, foot * 0.08f }, capEnd: true);
                 skeleton.Add((leave, knee));
                 skeleton.Add((knee, end));
             }
@@ -559,7 +571,8 @@ namespace Prazsky.Core.Render
                     radii.Add(MathHelper.Lerp(departure.MidRadius, departure.EndRadius, t));
                 }
                 int firstRing = v.Count;
-                TubeGeometry.AddSweep(v, idx, FINE_BOUGH_SIDES, points, radii);
+                //Its end is a dome: the crown's twigs start from it, and from the inside of it (#938)
+                TubeGeometry.AddSweep(v, idx, FINE_BOUGH_SIDES, points, radii, capEnd: true, endDome: JOINT_DOME);
                 for (int p = 0; p + 1 < points.Count; p++) skeleton.Add((points[p], points[p + 1]));
 
                 //Shaded as the trunk where it leaves it: the first rings take the trunk's own normals at their height and
@@ -584,14 +597,14 @@ namespace Prazsky.Core.Render
                 Vector3 limbRoot = Bezier(a0, a1, a2, a3, LIMB_ROOT_AT);
                 Vector3 limbLeave = Vector3.Normalize(BezierTangent(a0, a1, a2, a3, LIMB_ROOT_AT));
                 foreach ((Vector3 end, float rootRadius, float endRadius) in departure.Limbs)
-                    AddOffshoot(v, idx, skeleton, limbRoot, limbLeave, end, rootRadius, endRadius);
+                    AddOffshoot(v, idx, skeleton, limbRoot, limbLeave, end, rootRadius, endRadius, JOINT_DOME);
 
                 //A dead tree's twigs, out of the bough's outer run where the coarse twig left its chord
                 foreach ((float along, Vector3 twigReach, float rootRadius, float endRadius) in departure.Twigs)
                 {
                     Vector3 from = Bezier(b0, b1, b2, b3, along);
                     Vector3 leave = Vector3.Normalize(BezierTangent(b0, b1, b2, b3, along));
-                    AddOffshoot(v, idx, skeleton, from, leave, from + twigReach, rootRadius, endRadius);
+                    AddOffshoot(v, idx, skeleton, from, leave, from + twigReach, rootRadius, endRadius, 0f);
                 }
             }
         }
@@ -605,10 +618,11 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// A limb or a twig out of the wood it grows from (#758): from <paramref name="root"/> inside the parent, leaving along
         /// the parent's own axis there (<paramref name="leave"/>) and turning towards <paramref name="end"/> — one Bezier, so
-        /// it emerges at a slant rather than starting square out of the parent's surface.
+        /// it emerges at a slant rather than starting square out of the parent's surface. Its end is closed (#938): a dome of
+        /// <paramref name="endDome"/> where the crown's twigs start from it, a flat disc where nothing does.
         /// </summary>
         private static void AddOffshoot(List<VertexPositionNormalTexture> v, List<short> idx, List<(Vector3 From, Vector3 To)> skeleton,
-            Vector3 root, Vector3 leave, Vector3 end, float rootRadius, float endRadius)
+            Vector3 root, Vector3 leave, Vector3 end, float rootRadius, float endRadius, float endDome)
         {
             float length = Vector3.Distance(root, end);
             Vector3 c1 = root + leave * (length * LIMB_LEAVE);
@@ -620,7 +634,7 @@ namespace Prazsky.Core.Render
                 points[p] = Bezier(root, c1, c2, end, OFFSHOOT_RUN[p]);
                 radii[p] = MathHelper.Lerp(rootRadius, endRadius, OFFSHOOT_RUN[p]);
             }
-            TubeGeometry.AddSweep(v, idx, FINE_LIMB_SIDES, points, radii);
+            TubeGeometry.AddSweep(v, idx, FINE_LIMB_SIDES, points, radii, capEnd: true, endDome: endDome);
             for (int p = 0; p + 1 < points.Length; p++) skeleton.Add((points[p], points[p + 1]));
         }
 
@@ -817,6 +831,10 @@ namespace Prazsky.Core.Render
                     idx.Add((short)(lower + s + 1)); idx.Add((short)(upper + s)); idx.Add((short)(upper + s + 1));
                 }
             }
+
+            //The foot is a floor under the ground, fanned from the first ring's own vertices (#938): an open ring there is a hole
+            //into the tree on any slope that falls away from it
+            TubeGeometry.AddFan(v, idx, baseIdx, SIDES, Vector3.Zero, Vector3.Down, reversed: true);
         }
     }
 
@@ -904,7 +922,7 @@ namespace Prazsky.Core.Render
         //A twig's leafy part (#782): the inner share of it is bare wood, as a twig's base is, and the sprays hang along
         //the rest; its taper, from its base to its tip, against the radius it leaves its support at
         private const float LEAVES_FROM = 0.3f;
-        private static readonly float[] TWIG_TAPER = { 1f, 0.7f, 0.45f, 0.2f };
+        private static readonly float[] TWIG_TAPER = { 1f, 0.7f, 0.45f, 0f };
 
         //How finely a twig is written into the skeleton: its curve in this many straight pieces, so a stem on the curve is
         //on the skeleton too
