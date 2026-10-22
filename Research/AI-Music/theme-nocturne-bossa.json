@@ -1,28 +1,400 @@
 {
-    "file":  "theme-nocturne-bossa.wav",
-    "created":  "2026-09-23",
-    "issue":  486,
-    "family":  "nocturne",
-    "chapter":  "The Reveal (cavern) - Nocturne: smooth jazz, swung, 96",
-    "purpose":  "Master of Game/Music/nocturne-bossa.ogg, one of the nocturne family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "Bossa nova instrumental: nylon-string guitar comping, soft brushed drums, flute melody, warm bass, relaxed and elegant, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  104,
-                    "keyscale":  "F minor",
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-nocturne-bossa.wav: 45.7s loop = source 30.14s..75.85s (20.03 bars at 105.1 bpm), crossfade 1.14s | context match 0.773 (best 0.819) | crossfade rhythm r=0.94 vs the track a bar later r=0.62: in time | spectrum cos=0.97"
-                 ],
-    "measured":  "generate-music.ps1 end to end 59.4 s (ace-lm + ace-synth + loop cut)",
-    "rendered":  true
+  "file": "theme-nocturne-bossa.wav",
+  "created": "2026-10-22",
+  "issue": 908,
+  "family": "nocturne",
+  "chapter": "The Reveal (cavern, levels 51-60) - regenerated on the desert's ember model (#908): a warm, breathy tenor saxophone playing one lively, hummable melody of quick running eighth notes and sixteenth-note turns in the middle register, over a soft felt electric piano, a round upright bass playing the bossa nova pattern and soft brushed drums with a gentle cross-stick - no guitar, no strings to go out of tune (the owner's Jukebox note, 2026-10-16: the guitarist's strings sounded as if skipping out of tune)",
+  "purpose": "Master of Game/Music/nocturne-bossa.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-908-chosen on the desktop, with its .raw.wav; this is candidate c10r, theme-nocturne-bossa-c10r in masters-908, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-908.ps1 (adapted from the #907 batch) -> generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Modern bossa nova instrumental in the natural minor scale: a warm, soft, breathy tenor saxophone playing one lively, flowing, hummable melody of quick running eighth notes and sixteenth-note turns in the middle register, clean and perfectly in tune, staying inside the key, a soft felt electric piano comping short gentle chords, a round upright bass playing the bossa nova pattern, soft brushed drums with a gentle cross-stick, the chords changing every two bars, a different second theme in the middle of the piece, relaxed, elegant and mysterious like lantern light in a quiet cave, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+    "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, smoky, retro, vintage, lounge, elevator music, cocktail party, easy listening, muzak, background music, nostalgic, old-fashioned, repetitive loop, one chord vamp, drone, detuned strings, out-of-tune strings, string noise, fret buzz, tremolo picking, fast strumming, rasgueado, string bends, pitch bends, slide guitar, vibrato guitar, wobbly pitch, wow and flutter, chorus on the guitar, ukulele, mandolin, banjo, sitar, harp, chromatic notes, wrong notes, blues notes, modal interchange, key changes, modulation, long sustained notes, slow ballad",
+    "instrumental": true,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 112,
+    "keyscale": "F minor",
+    "seed": 1119762225,
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-bossa-c10r.wav: 34.4s loop = source 17.20s..51.65s (15.98 bars at 111.3 bpm), crossfade 1.08s | context match 0.744 (best 0.759) | crossfade rhythm r=0.63 vs the track a bar later r=0.68: in time | spectrum cos=0.79"
+  ],
+  "recut": "Cut again from the raw render's seconds 40-110 with loop_crossfade.py (c10's first cut: a 51.7 s loop with 29.0 short gaps a minute (ember at most 27.0) and 9.0 % of held notes outside F minor (ember at most 8.6), context match 0.537; this cut is a 16-bar stretch of the busier second half of the render).",
+  "lm_check": {
+    "request0_captured": true,
+    "caption_verbatim": true,
+    "seed_in_request0": 1119762225,
+    "bpm_in_request0": 112,
+    "keyscale_in_request0": "F minor",
+    "duration_in_request0": 120.0
+  },
+  "measured": "generate-music.ps1 end to end 70,4 s (ace-lm + ace-synth + loop cut), exit 0",
+  "rendered": true,
+  "chosen": {
+    "candidate": "c10r",
+    "round": 3,
+    "of": [
+      "c1",
+      "c1r",
+      "c2",
+      "c3",
+      "c4",
+      "c5",
+      "c6",
+      "c7",
+      "c8",
+      "c9",
+      "c10",
+      "c10r",
+      "c11",
+      "c11r",
+      "c12",
+      "c13",
+      "c14",
+      "c15",
+      "c16",
+      "c17",
+      "c18",
+      "c19",
+      "c20"
+    ],
+    "why": "Chosen by measurement on the baked recording beside the ember family in one run: every column inside ember's range (18.9 % in 200 Hz-2 kHz and 17.1 % in 300 Hz-4 kHz (band shares are held to a lowest only), 0.5 % above 6 kHz, tonal mid 72 %, flatness 0.02, 3.57 held-note changes a second, tempo wander 0.2 %, 0 clipped runs with no trim, wobble 2.7 / detune 3.2 cents, 20.9 short gaps a minute, the opening pattern repeats for 2.2 s, 7.2 % of held notes outside F minor (9 of 125)); a 34.4 s loop (16 bars at 111.3 bpm) with cut context 0.744, rhythm r 0.63 against 0.68 a bar later, spectrum cosine 0.79, wrap +3.9 / -1.7 / -1.4 dB over 250 ms / 1 s / 2 s (p47 / p72 / p84 of the loop's own steps), 85.4 % of its pitched energy on F minor (ember 75.6-86.4 %; the old Bossa 93.2 %), and the shipped drums layer 16.3 dB under the mix in 300 Hz-4 kHz (-10.9 dB in its loudest 250 ms, 8 % of windows within 6 dB; the old layer -16.1 / -14.9 / 12 %; ember reads -4.5 to -13.8 and -2.0 to -10.3). The old Bossa was outside ember on one column (2.67 held-note changes a second, ember at least 2.74); this one reads 3.57. None of the twenty first cuts is inside ember on every column (held-note changes 2.21-2.64 on sixteen of them, short gaps over ember's 27.0 on seven, 9.0-42.7 % of held notes out of key on ten, a wrap step of 10 dB or more on four, a dropout or a seam cosine under 0.3 on three); the saxophone render c10 missed two columns by a little (29.0 short gaps a minute, 9.0 % out of key) and its second half, cut again as c10r, is the one cut found inside on every column: the recuts screened for c1, c7, c8, c10 and c11 (eight to twenty-six stretches each) found no other. Honest caveats: the loop is short (34.4 s) and the seam is mediocre (context 0.744, where the old Bossa read 0.773); the lead is a saxophone where the old recording was a flute over a nylon-string guitar, so the instrument the owner heard out of tune is gone, but nobody has listened to the new one.",
+    "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wobble, detune, short gaps, opening repeat, notes out of key, wrap step) beside the loop cut's own check, the hole and dropout shares and the wrap step over 250 ms, 1 s and 2 s; the chosen render cut again from other stretches of its raw render (loop_crossfade.py) and each cut screened the same way; a seam below its own rhythm, a hole over 15 %, a dropout over 20 dB, a wrap step of 10 dB or more or at p97, a seam spectrum cosine under 0.3, a loop under 30 s or short gaps over ember's 27.0 a minute ruled a candidate out; the chosen cut measured again on the baked .ogg beside ember and the old recording, with the pitched energy on the key's scale (Tools/Generation/key-share.py) and the drums stem against the mix in 300 Hz-4 kHz (Tools/Generation/drum-share.py on the shipped layer)"
+  },
+  "alternatives": [
+    {
+      "candidate": "c1",
+      "round": "1",
+      "seed": 865852324,
+      "bpm": 104,
+      "caption": "brief_1 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-bossa-c1.wav: 84.0s loop = source 12.58s..96.55s (35.99 bars at 102.9 bpm), crossfade 1.17s | context match 0.445 (best 0.494) | crossfade rhythm r=0.31 vs the track a bar later r=0.21: in time | spectrum cos=0.50"
+      ],
+      "refused_or_not_chosen": "Ruled out: dropout 44.0 dB; also outside ember on held_changes 2.37; 84.0 s loop."
+    },
+    {
+      "candidate": "c1r",
+      "round": "1",
+      "seed": 865852324,
+      "bpm": 104,
+      "caption": "brief_1 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-bossa-c1r.wav: 46.5s loop = source 21.13s..67.65s (19.97 bars at 103.0 bpm), crossfade 1.16s | context match 0.851 (best 0.897) | crossfade rhythm r=0.93 vs the track a bar later r=0.25: in time | spectrum cos=0.96"
+      ],
+      "refused_or_not_chosen": "Runner-up (preview .ogg): a flute over a soft felt electric piano and upright bass, no guitar, at 104 bpm (F minor), cut again from seconds 20-120 (the first cut, 84.0 s, held a 44 dB dropout and context 0.445): 46.5 s, context 0.85, rhythm r 0.93, spectrum cosine 0.96, wrap -0.0 dB over 250 ms (p1); one column outside ember: 2.49 held-note changes a second (ember at least 2.74; eight cuts of the render read 1.92-2.51); 2.6 short gaps a minute, 4.2 % of held notes out of key."
+    },
+    {
+      "candidate": "c2",
+      "round": "1",
+      "seed": 1716123435,
+      "bpm": 104,
+      "caption": "brief_1 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-bossa-c2.wav: 37.6s loop = source 38.36s..76.00s (16.00 bars at 102.0 bpm), crossfade 1.18s | context match 0.928 (best 0.933) | crossfade rhythm r=0.86 vs the track a bar later r=0.21: in time | spectrum cos=0.97"
+      ],
+      "refused_or_not_chosen": "Ruled out: wrap +12.7 dB (p93); also outside ember on held_changes 2.26, out_of_key 18.5; 37.6 s loop."
+    },
+    {
+      "candidate": "c3",
+      "round": "1",
+      "seed": 784119162,
+      "bpm": 104,
+      "caption": "brief_2 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-bossa-c3.wav: 75.3s loop = source 7.26s..82.55s (31.98 bars at 101.9 bpm), crossfade 1.18s | context match 0.567 (best 0.616) | crossfade rhythm r=0.92 vs the track a bar later r=0.73: in time | spectrum cos=0.60"
+      ],
+      "refused_or_not_chosen": "Ruled out: wrap +11.0 dB (p98); also outside ember on held_changes 2.64, out_of_key 23.7; 75.3 s loop."
+    },
+    {
+      "candidate": "c4",
+      "round": "1",
+      "seed": 1587529049,
+      "bpm": 104,
+      "caption": "brief_2 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-bossa-c4.wav: 77.6s loop = source 9.76s..87.40s (32.96 bars at 101.9 bpm), crossfade 1.18s | context match 0.618 (best 0.666) | crossfade rhythm r=0.88 vs the track a bar later r=0.48: in time | spectrum cos=0.97"
+      ],
+      "refused_or_not_chosen": "Not chosen: outside ember on held_changes 2.59, out_of_key 42.7; 77.6 s loop."
+    },
+    {
+      "candidate": "c5",
+      "round": "2",
+      "seed": 1962228929,
+      "bpm": 112,
+      "caption": "brief_3 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-bossa-c5.wav: 51.4s loop = source 24.42s..75.85s (23.96 bars at 111.8 bpm), crossfade 1.07s | context match 0.864 (best 0.870) | crossfade rhythm r=0.92 vs the track a bar later r=0.51: in time | spectrum cos=0.98"
+      ],
+      "refused_or_not_chosen": "Ruled out: short gaps 42.0/min; also outside ember on held_changes 2.31, gaps_per_min 42.0, out_of_key 18.8; 51.4 s loop."
+    },
+    {
+      "candidate": "c6",
+      "round": "2",
+      "seed": 961118800,
+      "bpm": 112,
+      "caption": "brief_3 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-bossa-c6.wav: 101.7s loop = source 4.51s..106.20s (47.99 bars at 113.3 bpm), crossfade 1.06s | context match 0.466 (best 0.511) | crossfade rhythm r=0.43 vs the track a bar later r=0.37: in time | spectrum cos=0.56"
+      ],
+      "refused_or_not_chosen": "Ruled out: short gaps 33.0/min; also outside ember on held_changes 2.46, gaps_per_min 33.0, out_of_key 10.9; 101.7 s loop."
+    },
+    {
+      "candidate": "c7",
+      "round": "2",
+      "seed": 94374502,
+      "bpm": 112,
+      "caption": "brief_3 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-bossa-c7.wav: 85.7s loop = source 5.94s..91.65s (40.00 bars at 112.0 bpm), crossfade 1.07s | context match 0.623 (best 0.673) | crossfade rhythm r=0.67 vs the track a bar later r=0.73: in time | spectrum cos=0.51"
+      ],
+      "refused_or_not_chosen": "Ruled out: wrap -11.0 dB (p78); also outside ember on held_changes 2.42; 85.7 s loop."
+    },
+    {
+      "candidate": "c8",
+      "round": "2",
+      "seed": 1935665745,
+      "bpm": 112,
+      "caption": "brief_4 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-bossa-c8.wav: 77.4s loop = source 4.00s..81.40s (36.00 bars at 111.6 bpm), crossfade 1.08s | context match 0.439 (best 0.486) | crossfade rhythm r=0.28 vs the track a bar later r=0.28: in time | spectrum cos=0.47"
+      ],
+      "refused_or_not_chosen": "Not chosen: outside ember on held_changes 2.52, tempo_wander 0.3; 77.4 s loop."
+    },
+    {
+      "candidate": "c9",
+      "round": "3",
+      "seed": 292279893,
+      "bpm": 112,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-bossa-c9.wav: 51.3s loop = source 23.08s..74.40s (24.03 bars at 112.4 bpm), crossfade 1.07s | context match 0.916 (best 0.930) | crossfade rhythm r=0.83 vs the track a bar later r=0.39: in time | spectrum cos=0.95"
+      ],
+      "refused_or_not_chosen": "Not chosen: outside ember on held_changes 2.44, out_of_key 10.7; 51.3 s loop."
+    },
+    {
+      "candidate": "c10",
+      "round": "3",
+      "seed": 1119762225,
+      "bpm": 112,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-bossa-c10.wav: 51.7s loop = source 34.90s..86.60s (23.97 bars at 111.3 bpm), crossfade 1.08s | context match 0.537 (best 0.584) | crossfade rhythm r=0.63 vs the track a bar later r=0.69: in time | spectrum cos=0.63"
+      ],
+      "refused_or_not_chosen": "The same render as c10r, first cut (51.7 s loop, context 0.537, spectrum cosine 0.63): 29.0 short gaps a minute (ember at most 27.0) and 9.0 % of held notes outside F minor (ember at most 8.6); every other column inside ember. Cut again from seconds 40-110 as c10r (twenty-six stretches of the render were cut and measured: the 34.4 s cuts from its second half read 3.5-3.6 held-note changes a second, 17.4-19.2 short gaps a minute and 6.5-8.1 % out of key, bar the last stretch at 24.4 and 10.0 %; the 51.7 s cuts 29.0 and 9.5-10.8 %; the cuts of its first half 26-39 gaps a minute and 2.2-2.7 held-note changes)."
+    },
+    {
+      "candidate": "c11",
+      "round": "3",
+      "seed": 96441697,
+      "bpm": 116,
+      "caption": "brief_5 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-bossa-c11.wav: 66.1s loop = source 18.51s..84.65s (31.96 bars at 116.0 bpm), crossfade 1.03s | context match 0.810 (best 0.857) | crossfade rhythm r=0.70 vs the track a bar later r=0.64: in time | spectrum cos=0.87"
+      ],
+      "refused_or_not_chosen": "Ruled out: short gaps 27.2/min; also outside ember on held_changes 2.49, gaps_per_min 27.2; 66.1 s loop."
+    },
+    {
+      "candidate": "c11r",
+      "round": "3",
+      "seed": 96441697,
+      "bpm": 116,
+      "caption": "brief_5 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-bossa-c11r.wav: 33.1s loop = source 4.00s..37.05s (15.97 bars at 116.0 bpm), crossfade 1.03s | context match 0.964 (best 0.966) | crossfade rhythm r=0.87 vs the track a bar later r=0.69: in time | spectrum cos=0.97"
+      ],
+      "refused_or_not_chosen": "Runner-up (preview .ogg): a flute over fingerpicked nylon-string guitar at 116 bpm (F minor), cut from seconds 60-120: 33.1 s, context 0.96, rhythm r 0.87, spectrum cosine 0.97; one column outside ember: 2.51 held-note changes a second; 25.4 short gaps a minute, 3.4 % out of key. It carries a nylon-string guitar, the instrument the owner heard out of tune in the old recording."
+    },
+    {
+      "candidate": "c12",
+      "round": "3",
+      "seed": 1366999524,
+      "bpm": 116,
+      "caption": "brief_5 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-bossa-c12.wav: 65.6s loop = source 18.36s..84.00s (32.05 bars at 117.2 bpm), crossfade 1.02s | context match 0.455 (best 0.501) | crossfade rhythm r=0.61 vs the track a bar later r=0.33: in time | spectrum cos=0.57"
+      ],
+      "refused_or_not_chosen": "Not chosen: outside ember on held_changes 2.48; 65.6 s loop."
+    },
+    {
+      "candidate": "c13",
+      "round": "4",
+      "seed": 1773789037,
+      "bpm": 112,
+      "caption": "brief_6 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-bossa-c13.wav: 59.5s loop = source 32.75s..92.25s (28.00 bars at 112.9 bpm), crossfade 1.06s | context match 0.788 (best 0.837) | crossfade rhythm r=0.84 vs the track a bar later r=0.67: in time | spectrum cos=0.82"
+      ],
+      "refused_or_not_chosen": "Ruled out: wrap -10.7 dB (p91); also outside ember on held_changes 2.3; 59.5 s loop."
+    },
+    {
+      "candidate": "c14",
+      "round": "4",
+      "seed": 556756444,
+      "bpm": 112,
+      "caption": "brief_6 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-bossa-c14.wav: 53.7s loop = source 18.94s..72.60s (24.97 bars at 111.7 bpm), crossfade 1.07s | context match 0.429 (best 0.474) | crossfade rhythm r=0.42 vs the track a bar later r=0.45: in time | spectrum cos=0.24"
+      ],
+      "refused_or_not_chosen": "Ruled out: dropout 29.0 dB; seam cos 0.24; short gaps 39.1/min; also outside ember on gaps_per_min 39.1; 53.7 s loop."
+    },
+    {
+      "candidate": "c15",
+      "round": "4",
+      "seed": 793322757,
+      "bpm": 112,
+      "caption": "brief_6 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-bossa-c15.wav: 79.3s loop = source 11.16s..90.45s (36.96 bars at 111.9 bpm), crossfade 1.07s | context match 0.455 (best 0.505) | crossfade rhythm r=0.75 vs the track a bar later r=0.80: in time | spectrum cos=0.50"
+      ],
+      "refused_or_not_chosen": "Not chosen: outside ember on held_changes 2.26; 79.3 s loop."
+    },
+    {
+      "candidate": "c16",
+      "round": "4",
+      "seed": 1171464532,
+      "bpm": 108,
+      "caption": "brief_7 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-bossa-c16.wav: 53.3s loop = source 34.07s..87.40s (23.95 bars at 107.8 bpm), crossfade 1.11s | context match 0.355 (best 0.403) | crossfade rhythm r=0.61 vs the track a bar later r=0.43: in time | spectrum cos=0.86"
+      ],
+      "refused_or_not_chosen": "Ruled out: short gaps 28.1/min; also outside ember on gaps_per_min 28.1; 53.3 s loop."
+    },
+    {
+      "candidate": "c17",
+      "round": "5",
+      "seed": 378305360,
+      "bpm": 112,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-bossa-c17.wav: 34.9s loop = source 10.04s..44.90s (15.99 bars at 110.1 bpm), crossfade 1.09s | context match 0.713 (best 0.738) | crossfade rhythm r=0.44 vs the track a bar later r=0.46: in time | spectrum cos=0.72"
+      ],
+      "refused_or_not_chosen": "Not chosen: outside ember on held_changes 2.52, out_of_key 9.0; 34.9 s loop."
+    },
+    {
+      "candidate": "c18",
+      "round": "5",
+      "seed": 1797928657,
+      "bpm": 112,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-bossa-c18.wav: 77.1s loop = source 9.06s..86.20s (35.96 bars at 111.9 bpm), crossfade 1.07s | context match 0.973 (best 0.987) | crossfade rhythm r=0.92 vs the track a bar later r=0.67: in time | spectrum cos=0.94"
+      ],
+      "refused_or_not_chosen": "Not chosen: outside ember on held_changes 2.27, above6k 2.2, tempo_wander 1.51; 77.1 s loop."
+    },
+    {
+      "candidate": "c19",
+      "round": "5",
+      "seed": 2081997637,
+      "bpm": 112,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-bossa-c19.wav: 93.5s loop = source 4.76s..98.25s (43.97 bars at 112.9 bpm), crossfade 1.06s | context match 0.294 (best 0.342) | crossfade rhythm r=0.68 vs the track a bar later r=0.39: in time | spectrum cos=0.29"
+      ],
+      "refused_or_not_chosen": "Ruled out: seam cos 0.29; short gaps 35.3/min; also outside ember on gaps_per_min 35.3, out_of_key 10.8; 93.5 s loop."
+    },
+    {
+      "candidate": "c20",
+      "round": "5",
+      "seed": 1144791067,
+      "bpm": 112,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-bossa-c20.wav: 74.6s loop = source 20.06s..94.65s (34.00 bars at 109.4 bpm), crossfade 1.10s | context match 0.412 (best 0.457) | crossfade rhythm r=0.59 vs the track a bar later r=0.09: in time | spectrum cos=0.32"
+      ],
+      "refused_or_not_chosen": "Not chosen: outside ember on b200_2k 8.7, held_changes 2.21, out_of_key 15.8; 74.6 s loop."
+    }
+  ],
+  "alternative_briefs": {
+    "brief_1": {
+      "caption": "Modern bossa nova instrumental: a warm alto flute playing one flowing, hummable melody of running eighth notes in the middle register, clean and perfectly in tune, a soft felt electric piano comping gentle sustained chords, a round upright bass playing the bossa nova pattern, soft brushed drums with a gentle cross-stick, the chords changing every two bars, a different second theme in the middle of the piece, relaxed, elegant and mysterious like lantern light in a quiet cave, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, smoky, retro, vintage, lounge, elevator music, cocktail party, easy listening, muzak, background music, nostalgic, old-fashioned, repetitive loop, one chord vamp, drone, detuned strings, out-of-tune strings, string noise, fret buzz, tremolo picking, fast strumming, rasgueado, string bends, pitch bends, slide guitar, vibrato guitar, wobbly pitch, wow and flutter, chorus on the guitar, ukulele, mandolin, banjo, sitar, harp",
+      "bpm": 104,
+      "round": "1",
+      "candidates": [
+        "c1",
+        "c1r",
+        "c2"
+      ]
+    },
+    "brief_2": {
+      "caption": "Modern bossa nova instrumental: a warm flute playing one flowing, hummable melody of running eighth notes in the middle register, clean and perfectly in tune, over a soft nylon-string guitar playing simple sustained chords in a gentle steady pattern, a round upright bass playing the bossa nova pattern, soft brushed drums with a gentle cross-stick, the chords changing every two bars, a different second theme in the middle of the piece, relaxed, elegant and mysterious like lantern light in a quiet cave, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, smoky, retro, vintage, lounge, elevator music, cocktail party, easy listening, muzak, background music, nostalgic, old-fashioned, repetitive loop, one chord vamp, drone, detuned strings, out-of-tune strings, string noise, fret buzz, tremolo picking, fast strumming, rasgueado, string bends, pitch bends, slide guitar, vibrato guitar, wobbly pitch, wow and flutter, chorus on the guitar, ukulele, mandolin, banjo, sitar, harp",
+      "bpm": 104,
+      "round": "1",
+      "candidates": [
+        "c3",
+        "c4"
+      ]
+    },
+    "brief_3": {
+      "caption": "Modern bossa nova instrumental in the natural minor scale: a warm alto flute playing one flowing, hummable melody of running eighth notes and quick sixteenth-note turns in the middle register, clean and perfectly in tune, staying inside the key, a soft felt electric piano comping gentle chords, a round upright bass playing the bossa nova pattern, soft brushed drums with a gentle cross-stick, the chords changing every two bars, a different second theme in the middle of the piece, relaxed, elegant and mysterious like lantern light in a quiet cave, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, smoky, retro, vintage, lounge, elevator music, cocktail party, easy listening, muzak, background music, nostalgic, old-fashioned, repetitive loop, one chord vamp, drone, detuned strings, out-of-tune strings, string noise, fret buzz, tremolo picking, fast strumming, rasgueado, string bends, pitch bends, slide guitar, vibrato guitar, wobbly pitch, wow and flutter, chorus on the guitar, ukulele, mandolin, banjo, sitar, harp, chromatic notes, wrong notes, blues notes, modal interchange, key changes, modulation",
+      "bpm": 112,
+      "round": "2",
+      "candidates": [
+        "c5",
+        "c6",
+        "c7"
+      ]
+    },
+    "brief_4": {
+      "caption": "Modern bossa nova instrumental in the natural minor scale: a warm flute playing one flowing, hummable melody of running eighth notes and quick sixteenth-note turns in the middle register, clean and perfectly in tune, staying inside the key, over a soft nylon-string guitar playing simple sustained chords, a round upright bass playing the bossa nova pattern, soft brushed drums with a gentle cross-stick, the chords changing every two bars, a different second theme in the middle of the piece, relaxed, elegant and mysterious like lantern light in a quiet cave, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, smoky, retro, vintage, lounge, elevator music, cocktail party, easy listening, muzak, background music, nostalgic, old-fashioned, repetitive loop, one chord vamp, drone, detuned strings, out-of-tune strings, string noise, fret buzz, tremolo picking, fast strumming, rasgueado, string bends, pitch bends, slide guitar, vibrato guitar, wobbly pitch, wow and flutter, chorus on the guitar, ukulele, mandolin, banjo, sitar, harp, chromatic notes, wrong notes, blues notes, modal interchange, key changes, modulation",
+      "bpm": 112,
+      "round": "2",
+      "candidates": [
+        "c8"
+      ]
+    },
+    "brief_5": {
+      "caption": "Modern bossa nova instrumental in the natural minor scale: a warm flute playing a lively, hummable melody of constant quick running sixteenth-note arpeggios and eighth-note turns in the middle register, clean and perfectly in tune, staying inside the key, a soft nylon-string guitar fingerpicking a busy steady pattern of broken chords, a round upright bass playing the bossa nova pattern, soft brushed drums with a gentle cross-stick, the chords changing every two bars, a different second theme in the middle of the piece, relaxed, elegant and mysterious like lantern light in a quiet cave, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, smoky, retro, vintage, lounge, elevator music, cocktail party, easy listening, muzak, background music, nostalgic, old-fashioned, repetitive loop, one chord vamp, drone, detuned strings, out-of-tune strings, string noise, fret buzz, tremolo picking, fast strumming, rasgueado, string bends, pitch bends, slide guitar, vibrato guitar, wobbly pitch, wow and flutter, chorus on the guitar, ukulele, mandolin, banjo, sitar, harp, chromatic notes, wrong notes, blues notes, modal interchange, key changes, modulation, long sustained notes, slow ballad",
+      "bpm": 116,
+      "round": "3",
+      "candidates": [
+        "c11",
+        "c11r",
+        "c12"
+      ]
+    },
+    "brief_6": {
+      "caption": "Modern bossa nova instrumental in the natural minor scale: a warm, soft, breathy tenor saxophone playing one lively, flowing, hummable melody of quick running eighth notes and sixteenth-note turns in the middle register, never stopping, clean and perfectly in tune, staying inside the key, a soft felt electric piano comping short gentle chords, a round upright bass playing the bossa nova pattern, soft brushed drums with a gentle cross-stick, the chords changing every two bars, a different second theme in the middle of the piece, relaxed, elegant and mysterious like lantern light in a quiet cave, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, smoky, retro, vintage, lounge, elevator music, cocktail party, easy listening, muzak, background music, nostalgic, old-fashioned, repetitive loop, one chord vamp, drone, detuned strings, out-of-tune strings, string noise, fret buzz, tremolo picking, fast strumming, rasgueado, string bends, pitch bends, slide guitar, vibrato guitar, wobbly pitch, wow and flutter, chorus on the guitar, ukulele, mandolin, banjo, sitar, harp, chromatic notes, wrong notes, blues notes, modal interchange, key changes, modulation, long sustained notes, slow ballad, pauses, stops, rests, silences, breaks",
+      "bpm": 112,
+      "round": "4",
+      "candidates": [
+        "c13",
+        "c14",
+        "c15"
+      ]
+    },
+    "brief_7": {
+      "caption": "Modern bossa nova instrumental in the natural minor scale: a warm, mellow alto saxophone playing one lively, flowing, hummable melody of quick running eighth notes and sixteenth-note turns in the middle register, never stopping, clean and perfectly in tune, staying inside the key, a soft felt electric piano comping short gentle chords, a round upright bass playing the bossa nova pattern, soft brushed drums with a gentle cross-stick, the chords changing every two bars, a different second theme in the middle of the piece, relaxed, elegant and mysterious like lantern light in a quiet cave, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, smoky, retro, vintage, lounge, elevator music, cocktail party, easy listening, muzak, background music, nostalgic, old-fashioned, repetitive loop, one chord vamp, drone, detuned strings, out-of-tune strings, string noise, fret buzz, tremolo picking, fast strumming, rasgueado, string bends, pitch bends, slide guitar, vibrato guitar, wobbly pitch, wow and flutter, chorus on the guitar, ukulele, mandolin, banjo, sitar, harp, chromatic notes, wrong notes, blues notes, modal interchange, key changes, modulation, long sustained notes, slow ballad, pauses, stops, rests, silences, breaks",
+      "bpm": 108,
+      "round": "4",
+      "candidates": [
+        "c16"
+      ]
+    }
+  },
+  "replaces": {
+    "issue": 486,
+    "created": "2026-09-23",
+    "caption": "Bossa nova instrumental: nylon-string guitar comping, soft brushed drums, flute melody, warm bass, relaxed and elegant, no vocals",
+    "negative": "vocals, singing, audience applause, crowd noise, live recording",
+    "seed": null,
+    "bpm": 104,
+    "keyscale": "F minor",
+    "loop_log": [
+      "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-nocturne-bossa.wav: 45.7s loop = source 30.14s..75.85s (20.03 bars at 105.1 bpm), crossfade 1.14s | context match 0.773 (best 0.819) | crossfade rhythm r=0.94 vs the track a bar later r=0.62: in time | spectrum cos=0.97"
+    ],
+    "why_replaced": "The owner's Jukebox note of 2026-10-16 (translated from Czech): \"Bosa: it sounds as if the guitarist's strings were skipping/going out of tune - as if he tightened them too much and could not manage it technically.\" (#908). The #486 brief was a nylon-string guitar comping under a flute melody. Measured on 2026-10-17 beside ember it sat inside on every column but one (2.67 held-note changes a second, ember at least 2.74), with a detune of 2.0 cents, a wobble of 2.7 and 0.0 % of held notes outside F minor, so what he heard is timbre or playing, not pitch; its drums layer stood 16.1 dB under the mix in 300 Hz-4 kHz."
+  }
 }

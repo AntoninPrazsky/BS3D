@@ -1245,3 +1245,9 @@ Pravidla:
 - Hotovo (větev `400-drift-pass-13`): 23 nálezů čtenářů (jeskyně, záře, smrky; Cut, kinematika, HUD, tutoriál, tiery) opraveno v komentářích a docích, chování beze změny; k tomu opravená rozepsaná práce třetího čtenáře (potůček, FineMeshes, hudba, web). `WindingCheck --openness`: řádky smrků „pending #960“ lhaly (#960 je mergnuté), zbývají otevřené kořenové prstence větví (4 body) a pata výhonu (5 bodů): strop 10 a 6 a pravdivý důvod.
 - ⚠ Číslo v docu nestačí: kinematika „450 / 94“ byla ve skutečnosti 417 / 88 (560 letů v `DropCinematicPathTests`); `MusicBake --shipped` dnes čte 71 z 140. Počet scén `OpenBelow` je sedm.
 - Otevřené: řádky `Spring (cavern)` v APU tabulce měří starou jeskyni, nepřeměřeno.
+
+## 2026-10-22 — #908 hudba Reveal: Bossa a Vibes přegenerovány — desktop (RDT-PC), Claude Code (bs3d-dc)
+- Hotovo: `nocturne-bossa` a `nocturne-vibes` nahrazeny v místě (názvy i levely beze změny), bicí vrstvy znovu oddělené. 42 renderů v pěti kolech, výběr měřením proti `ember`: Bossa c10 (tenorsaxofon místo flétny nad kytarou; střih 40–110 s z druhé poloviny renderu, smyčka 34,4 s), Vibes c13 (tlumený vibrafon nad kytarou, 120 bpm; střih 10–100 s, 68 s). Oba uvnitř `ember` ve všech sloupcích, bez trimu (staré: Bossa 2,67 změn tónu/s, Vibes 104 clipped runs).
+- ⚠ Žádný z 20 (Bossa) ani 22 (Vibes) prvních střihů uvnitř nebyl; rozhodl střih z druhé poloviny renderu. `measure-music.py --key` drží ve stejném klíči i referenci (ember „mimo tóninu“ 47–78 %), takže se nic nezvýrazní.
+- ⚠ Nikdo neposlouchal. Nové Vibes mají 11,0 % v 300 Hz–4 kHz (staré 19,6) a nic nad 2 kHz: „slabé“ se může vrátit.
+- Otevřené: `verdict-eye`, `verdicts\908\`.

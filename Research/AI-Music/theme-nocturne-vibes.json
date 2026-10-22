@@ -1,28 +1,421 @@
 {
-    "file":  "theme-nocturne-vibes.wav",
-    "created":  "2026-09-23",
-    "issue":  486,
-    "family":  "nocturne",
-    "chapter":  "The Reveal (cavern) - Nocturne: smooth jazz, swung, 96",
-    "purpose":  "Master of Game/Music/nocturne-vibes.ogg, one of the nocturne family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "Cool jazz instrumental: vibraphone melody, walking upright bass, brushed snare swing, piano comping, late-night and refined, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  96,
-                    "keyscale":  "F minor",
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-nocturne-vibes.wav: 49.4s loop = source 32.54s..81.90s (19.97 bars at 97.1 bpm), crossfade 1.24s | context match 0.431 (best 0.478) | crossfade rhythm r=0.69 vs the track a bar later r=0.34: in time | spectrum cos=0.72"
-                 ],
-    "measured":  "generate-music.ps1 end to end 59.2 s (ace-lm + ace-synth + loop cut)",
-    "rendered":  true
+  "file": "theme-nocturne-vibes.wav",
+  "created": "2026-10-22",
+  "issue": 908,
+  "family": "nocturne",
+  "chapter": "The Reveal (cavern, levels 51-60) - regenerated on the desert's ember model (#908): a warm soft-mallet vibraphone, motor off and the notes dampened short, playing one clearly articulated, hummable melody of constant quick eighth notes in the middle register, over a clean hollow-body jazz guitar comping soft chords, a walking upright bass and a gentle brushed snare - no piano to blur the lead (the owner's Jukebox note, 2026-10-16: it is not clear what instrument it is played on, a bit like a piano, too weak and shrill)",
+  "purpose": "Master of Game/Music/nocturne-vibes.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-908-chosen on the desktop, with its .raw.wav; this is candidate c13r, theme-nocturne-vibes-c13r in masters-908, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-908.ps1 (adapted from the #907 batch) -> generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Modern cool jazz instrumental in the natural minor scale: a warm soft-mallet vibraphone with a full round tone, motor off and the notes dampened short, playing one flowing, clearly articulated, hummable melody of constant quick running eighth notes in the middle register, never stopping, clean and perfectly in tune, staying inside the key, a clean hollow-body jazz guitar comping soft chords in a steady rhythm, a walking upright bass, a tight steady tempo, a gentle brushed snare swing with a light ride, the chords changing every two bars, a different second theme in the middle of the piece, refined and mysterious like lantern light in a quiet cave, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+    "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, smoky, retro, vintage, lounge, elevator music, cocktail party, easy listening, muzak, background music, nostalgic, old-fashioned, repetitive loop, one chord vamp, drone, piano, grand piano, bright piano, electric piano, Rhodes, keyboard, harpsichord, celesta, marimba, xylophone, bells, music box, shrill, thin, tinny, harsh bright lead, piercing, nasal, muted trumpet, synthesizer lead, long ringing sustained notes, slow ballad, chromatic notes, wrong notes, tremolo, vibrato motor, long decaying notes, pauses, stops, rests, silences, breaks, loose timing, swung rubato",
+    "instrumental": true,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 120,
+    "keyscale": "F minor",
+    "seed": 227799444,
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-vibes-c13r.wav: 68.0s loop = source 4.00s..72.00s (35.01 bars at 123.6 bpm), crossfade 0.97s | context match 0.565 (best 0.599) | crossfade rhythm r=0.54 vs the track a bar later r=0.03: in time | spectrum cos=0.62"
+  ],
+  "recut": "Cut again from the raw render's seconds 10-100 with loop_crossfade.py (c13's first cut: a 76.0 s loop that stepped +11.7 dB across its wrap (p98 of its own 250 ms steps)).",
+  "lm_check": {
+    "request0_captured": true,
+    "caption_verbatim": true,
+    "seed_in_request0": 227799444,
+    "bpm_in_request0": 120,
+    "keyscale_in_request0": "F minor",
+    "duration_in_request0": 120.0
+  },
+  "measured": "generate-music.ps1 end to end 65,9 s (ace-lm + ace-synth + loop cut), exit 0",
+  "rendered": true,
+  "chosen": {
+    "candidate": "c13r",
+    "round": 4,
+    "of": [
+      "c1",
+      "c1r",
+      "c2",
+      "c3",
+      "c4",
+      "c5",
+      "c6",
+      "c7",
+      "c8",
+      "c9",
+      "c10",
+      "c11",
+      "c12",
+      "c13",
+      "c13r",
+      "c14",
+      "c15",
+      "c16",
+      "c17",
+      "c18",
+      "c19",
+      "c20",
+      "c21",
+      "c22"
+    ],
+    "why": "Chosen by measurement on the baked recording beside the ember family in one run: every column inside ember's range (13.0 % in 200 Hz-2 kHz and 11.0 % in 300 Hz-4 kHz (band shares are held to a lowest only), 0.0 % above 6 kHz, tonal mid 87 %, flatness 0.01, 3.76 held-note changes a second, tempo wander 0.06 %, 0 clipped runs with no trim, wobble 2.0 / detune 1.5 cents, 12.4 short gaps a minute, the opening pattern repeats for 1.9 s, 3.7 % of held notes outside F minor (10 of 268)); a 68.0 s loop (35 bars at 123.6 bpm) with cut context 0.565, crossfade rhythm r 0.54 where the track's own rhythm a bar later reads 0.03, spectrum cosine 0.62, wrap +3.5 / +0.2 / +0.7 dB over 250 ms / 1 s / 2 s (p48 / p5 / p35 of the loop's own steps), 90.6 % of its pitched energy on F minor (ember 75.6-86.4 %; the old Vibes 91.9 %), and the shipped drums layer 32.8 dB under the mix in 300 Hz-4 kHz (the old layer 12.6 dB; ember -4.5 to -13.8), so the drums are faint. The old Vibes read 104 clipped runs (ember at most 3) and a +9.7 dB step across its wrap (p89); this one 0 and +3.5 dB. None of the other twenty-one first cuts is inside ember on every tune column: held-note changes 1.6-2.63 on nineteen of the 22, short gaps over ember's 27.0 on eleven (29.0-83.1), 11.2-20.9 % of held notes out of key on seven, a wrap step of 10 dB or more on four, a hole of 36 %, a dropout of 50 dB, a tempo wander of 2.2-3.8 % on two. The first cut of c13 stepped +11.7 dB across its wrap (p98), so it was cut again from seconds 10-100; all twenty-one stretches cut from its render read inside ember on every tune column. Honest caveats: the seam is the weakest of the pair (context 0.565, spectrum cosine 0.62; the old Vibes read 0.431 and 0.72), the share of 300 Hz-4 kHz is 11.0 % where the old recording read 19.6 % (ember 5.6-27.4 %) and nothing at all sits above 2 kHz, so the vibraphone is soft and dark: the owner called the old lead weak, and a share this low may read weak again; nobody has listened to the new one.",
+    "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wobble, detune, short gaps, opening repeat, notes out of key, wrap step) beside the loop cut's own check, the hole and dropout shares and the wrap step over 250 ms, 1 s and 2 s; the chosen render cut again from other stretches of its raw render (loop_crossfade.py) and each cut screened the same way; a seam below its own rhythm, a hole over 15 %, a dropout over 20 dB, a wrap step of 10 dB or more or at p97, a seam spectrum cosine under 0.3, a loop under 30 s or short gaps over ember's 27.0 a minute ruled a candidate out; the chosen cut measured again on the baked .ogg beside ember and the old recording, with the pitched energy on the key's scale (Tools/Generation/key-share.py) and the drums stem against the mix in 300 Hz-4 kHz (Tools/Generation/drum-share.py on the shipped layer)"
+  },
+  "alternatives": [
+    {
+      "candidate": "c1",
+      "round": "1",
+      "seed": 664184005,
+      "bpm": 100,
+      "caption": "brief_1 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-vibes-c1.wav: 76.8s loop = source 32.52s..109.30s (32.01 bars at 100.1 bpm), crossfade 1.20s | context match 0.760 (best 0.810) | crossfade rhythm r=0.86 vs the track a bar later r=0.80: in time | spectrum cos=0.96"
+      ],
+      "refused_or_not_chosen": "Not chosen: outside ember on held_changes 1.86; 76.8 s loop."
+    },
+    {
+      "candidate": "c1r",
+      "round": "1",
+      "seed": 664184005,
+      "bpm": 100,
+      "caption": "brief_1 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-vibes-c1r.wav: 48.0s loop = source 22.37s..70.35s (20.01 bars at 100.1 bpm), crossfade 1.20s | context match 0.887 (best 0.931) | crossfade rhythm r=0.90 vs the track a bar later r=0.76: in time | spectrum cos=0.98"
+      ],
+      "refused_or_not_chosen": "Runner-up (preview .ogg): the vibraphone over a warm organ pad and walking bass at 100 bpm, no guitar, cut again from seconds 20-120 (the first cut, 76.8 s, read context 0.760): 48.0 s, context 0.89, rhythm r 0.90, spectrum cosine 0.98; one column outside ember: 1.88 held-note changes a second (ember at least 2.74; eight cuts read 1.78-2.17); 0.0 % out of key, 16.3 short gaps a minute; 9.2 % in 300 Hz-4 kHz."
+    },
+    {
+      "candidate": "c2",
+      "round": "1",
+      "seed": 2019627512,
+      "bpm": 100,
+      "caption": "brief_1 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-vibes-c2.wav: 96.0s loop = source 8.30s..104.30s (39.99 bars at 100.0 bpm), crossfade 1.20s | context match 0.949 (best 0.998) | crossfade rhythm r=0.99 vs the track a bar later r=0.77: in time | spectrum cos=1.00"
+      ],
+      "refused_or_not_chosen": "Ruled out: short gaps 83.1/min; also outside ember on held_changes 1.71, gaps_per_min 83.1; 96.0 s loop."
+    },
+    {
+      "candidate": "c3",
+      "round": "1",
+      "seed": 2089380688,
+      "bpm": 100,
+      "caption": "brief_2 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-vibes-c3.wav: 42.9s loop = source 34.03s..76.95s (17.95 bars at 100.4 bpm), crossfade 1.20s | context match 0.495 (best 0.504) | crossfade rhythm r=0.78 vs the track a bar later r=0.25: in time | spectrum cos=0.96"
+      ],
+      "refused_or_not_chosen": "Not chosen: outside ember on held_changes 2.1; 42.9 s loop."
+    },
+    {
+      "candidate": "c4",
+      "round": "1",
+      "seed": 102168543,
+      "bpm": 100,
+      "caption": "brief_2 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-vibes-c4.wav: 57.6s loop = source 26.70s..84.30s (23.99 bars at 100.0 bpm), crossfade 1.20s | context match 0.862 (best 0.906) | crossfade rhythm r=0.97 vs the track a bar later r=0.79: in time | spectrum cos=0.95"
+      ],
+      "refused_or_not_chosen": "Ruled out: short gaps 42.7/min; also outside ember on held_changes 1.6, gaps_per_min 42.7, out_of_key 14.6; 57.6 s loop."
+    },
+    {
+      "candidate": "c5",
+      "round": "2",
+      "seed": 1886105277,
+      "bpm": 116,
+      "caption": "brief_3 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-vibes-c5.wav: 49.7s loop = source 29.20s..78.85s (23.95 bars at 115.7 bpm), crossfade 1.04s | context match 0.393 (best 0.438) | crossfade rhythm r=0.92 vs the track a bar later r=0.48: in time | spectrum cos=0.59"
+      ],
+      "refused_or_not_chosen": "Ruled out: short gaps 35.0/min; also outside ember on held_changes 1.83, gaps_per_min 35.0; 49.7 s loop."
+    },
+    {
+      "candidate": "c6",
+      "round": "2",
+      "seed": 1961362237,
+      "bpm": 116,
+      "caption": "brief_3 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-vibes-c6.wav: 72.4s loop = source 4.08s..76.45s (34.95 bars at 115.9 bpm), crossfade 1.04s | context match 0.341 (best 0.381) | crossfade rhythm r=0.14 vs the track a bar later r=0.03: in time | spectrum cos=0.56"
+      ],
+      "refused_or_not_chosen": "Ruled out: short gaps 29.0/min; also outside ember on held_changes 2.27, tempo_wander 3.77, gaps_per_min 29.0, out_of_key 13.8; 72.4 s loop."
+    },
+    {
+      "candidate": "c7",
+      "round": "2",
+      "seed": 968223069,
+      "bpm": 124,
+      "caption": "brief_4 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-vibes-c7.wav: 62.4s loop = source 13.46s..75.90s (31.97 bars at 122.9 bpm), crossfade 0.98s | context match 0.942 (best 0.945) | crossfade rhythm r=0.80 vs the track a bar later r=0.26: in time | spectrum cos=0.97"
+      ],
+      "refused_or_not_chosen": "Not chosen: outside ember on held_changes 2.15, tempo_wander 0.31; 62.4 s loop."
+    },
+    {
+      "candidate": "c8",
+      "round": "2",
+      "seed": 350279991,
+      "bpm": 124,
+      "caption": "brief_4 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-vibes-c8.wav: 49.7s loop = source 33.79s..83.50s (25.97 bars at 125.4 bpm), crossfade 0.96s | context match 0.754 (best 0.796) | crossfade rhythm r=0.69 vs the track a bar later r=0.72: in time | spectrum cos=0.77"
+      ],
+      "refused_or_not_chosen": "Ruled out: short gaps 33.8/min; also outside ember on held_changes 2.45, gaps_per_min 33.8; 49.7 s loop."
+    },
+    {
+      "candidate": "c9",
+      "round": "3",
+      "seed": 767830723,
+      "bpm": 132,
+      "caption": "brief_5 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-vibes-c9.wav: 86.4s loop = source 12.34s..98.75s (48.03 bars at 133.4 bpm), crossfade 0.90s | context match 0.923 (best 0.971) | crossfade rhythm r=0.72 vs the track a bar later r=-0.09: in time | spectrum cos=0.94"
+      ],
+      "refused_or_not_chosen": "Ruled out: wrap +13.4 dB (p93); also outside ember on tempo_wander 2.16; 86.4 s loop."
+    },
+    {
+      "candidate": "c10",
+      "round": "3",
+      "seed": 2031676074,
+      "bpm": 132,
+      "caption": "brief_5 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-vibes-c10.wav: 72.9s loop = source 33.36s..106.25s (40.06 bars at 131.9 bpm), crossfade 0.91s | context match 0.438 (best 0.488) | crossfade rhythm r=0.47 vs the track a bar later r=0.28: in time | spectrum cos=0.61"
+      ],
+      "refused_or_not_chosen": "Ruled out: short gaps 37.9/min; also outside ember on held_changes 2.63, tempo_wander 0.42, gaps_per_min 37.9; 72.9 s loop."
+    },
+    {
+      "candidate": "c11",
+      "round": "3",
+      "seed": 462189544,
+      "bpm": 108,
+      "caption": "brief_6 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-vibes-c11.wav: 93.9s loop = source 7.50s..101.40s (41.97 bars at 107.3 bpm), crossfade 1.12s | context match 0.235 (best 0.284) | crossfade rhythm r=0.22 vs the track a bar later r=0.24: in time | spectrum cos=0.27"
+      ],
+      "refused_or_not_chosen": "Ruled out: seam cos 0.27; short gaps 33.2/min; also outside ember on gaps_per_min 33.2, out_of_key 20.9; 93.9 s loop."
+    },
+    {
+      "candidate": "c12",
+      "round": "3",
+      "seed": 783499958,
+      "bpm": 108,
+      "caption": "brief_6 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-vibes-c12.wav: 68.6s loop = source 18.53s..87.10s (30.04 bars at 105.1 bpm), crossfade 1.14s | context match 0.845 (best 0.891) | crossfade rhythm r=0.88 vs the track a bar later r=-0.04: in time | spectrum cos=0.97"
+      ],
+      "refused_or_not_chosen": "Not chosen: outside ember on held_changes 2.07, out_of_key 13.1; 68.6 s loop."
+    },
+    {
+      "candidate": "c13",
+      "round": "4",
+      "seed": 227799444,
+      "bpm": 120,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-vibes-c13.wav: 76.0s loop = source 13.00s..89.00s (39.00 bars at 123.2 bpm), crossfade 0.97s | context match 0.576 (best 0.624) | crossfade rhythm r=0.45 vs the track a bar later r=0.05: in time | spectrum cos=0.62"
+      ],
+      "refused_or_not_chosen": "The same render as c13r, first cut (76.0 s loop, context 0.576): a +11.7 dB step across its wrap (p98 of its own 250 ms steps); every tune column inside ember. Cut again from seconds 10-100 as c13r (twenty-one stretches of the render were cut and measured: every one inside ember on every tune column, context match 0.28-0.57, wrap steps of 250 ms from -9.9 to +15.3 dB)."
+    },
+    {
+      "candidate": "c14",
+      "round": "4",
+      "seed": 737397154,
+      "bpm": 120,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-vibes-c14.wav: 96.0s loop = source 10.15s..106.15s (47.98 bars at 120.0 bpm), crossfade 1.00s | context match 0.949 (best 0.998) | crossfade rhythm r=1.00 vs the track a bar later r=0.06: in time | spectrum cos=1.00"
+      ],
+      "refused_or_not_chosen": "Ruled out: hole 36 %; short gaps 46.9/min; also outside ember on b200_2k 4.7, b300_4k 3.9, held_changes 2.03, gaps_per_min 46.9, out_of_key 11.2, opening repeat 94.0 s; 96.0 s loop."
+    },
+    {
+      "candidate": "c15",
+      "round": "4",
+      "seed": 1594984169,
+      "bpm": 132,
+      "caption": "brief_7 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-vibes-c15.wav: 57.7s loop = source 25.01s..82.75s (32.01 bars at 133.1 bpm), crossfade 0.90s | context match 0.578 (best 0.618) | crossfade rhythm r=0.60 vs the track a bar later r=0.66: in time | spectrum cos=0.56"
+      ],
+      "refused_or_not_chosen": "Not chosen: outside ember on held_changes 2.58, out_of_key 18.2; 57.7 s loop."
+    },
+    {
+      "candidate": "c16",
+      "round": "4",
+      "seed": 1728035106,
+      "bpm": 132,
+      "caption": "brief_7 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-vibes-c16.wav: 65.5s loop = source 12.43s..77.90s (35.92 bars at 131.7 bpm), crossfade 0.91s | context match 0.367 (best 0.402) | crossfade rhythm r=0.34 vs the track a bar later r=0.37: in time | spectrum cos=0.87"
+      ],
+      "refused_or_not_chosen": "Ruled out: dropout 50.5 dB; short gaps 29.3/min; also outside ember on held_changes 1.91, gaps_per_min 29.3; 65.5 s loop."
+    },
+    {
+      "candidate": "c17",
+      "round": "4",
+      "seed": 435722126,
+      "bpm": 116,
+      "caption": "brief_8 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-vibes-c17.wav: 61.4s loop = source 33.77s..95.20s (29.96 bars at 117.1 bpm), crossfade 1.03s | context match 0.880 (best 0.926) | crossfade rhythm r=0.95 vs the track a bar later r=0.39: in time | spectrum cos=0.98"
+      ],
+      "refused_or_not_chosen": "Ruled out: wrap +10.1 dB (p82); also outside ember on held_changes 2.38; 61.4 s loop."
+    },
+    {
+      "candidate": "c18",
+      "round": "4",
+      "seed": 680749970,
+      "bpm": 116,
+      "caption": "brief_8 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-vibes-c18.wav: 82.8s loop = source 18.39s..101.15s (40.03 bars at 116.1 bpm), crossfade 1.03s | context match 0.918 (best 0.965) | crossfade rhythm r=0.81 vs the track a bar later r=0.55: in time | spectrum cos=0.97"
+      ],
+      "refused_or_not_chosen": "Runner-up (preview .ogg): a soft-mallet vibraphone answered by a warm electric guitar playing a countermelody of running eighth notes, upright bass and brushes, at 116 bpm (F minor): 82.8 s loop, context 0.918, spectrum cosine 0.97, wrap -8.4 dB over 250 ms (p69); one column outside ember: 2.16 held-note changes a second (ember at least 2.74); 13.8 short gaps a minute, 3.2 % out of key."
+    },
+    {
+      "candidate": "c19",
+      "round": "5",
+      "seed": 1368151299,
+      "bpm": 120,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-vibes-c19.wav: 47.8s loop = source 33.34s..81.15s (24.03 bars at 120.6 bpm), crossfade 0.99s | context match 0.705 (best 0.754) | crossfade rhythm r=0.86 vs the track a bar later r=0.57: in time | spectrum cos=0.64"
+      ],
+      "refused_or_not_chosen": "Ruled out: wrap -14.5 dB (p88); also outside ember on held_changes 2.28; 47.8 s loop."
+    },
+    {
+      "candidate": "c20",
+      "round": "5",
+      "seed": 604272300,
+      "bpm": 120,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-vibes-c20.wav: 96.0s loop = source 4.00s..100.00s (47.98 bars at 119.9 bpm), crossfade 1.00s | context match 0.995 (best 0.998) | crossfade rhythm r=1.00 vs the track a bar later r=0.12: in time | spectrum cos=1.00"
+      ],
+      "refused_or_not_chosen": "Not chosen: outside ember on held_changes 2.1, out_of_key 11.8; 96.0 s loop."
+    },
+    {
+      "candidate": "c21",
+      "round": "5",
+      "seed": 2075399205,
+      "bpm": 120,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-vibes-c21.wav: 64.0s loop = source 26.10s..90.10s (31.99 bars at 120.0 bpm), crossfade 1.00s | context match 0.912 (best 0.961) | crossfade rhythm r=0.88 vs the track a bar later r=0.37: in time | spectrum cos=0.97"
+      ],
+      "refused_or_not_chosen": "Ruled out: short gaps 42.2/min; also outside ember on held_changes 2.48, gaps_per_min 42.2; 64.0 s loop."
+    },
+    {
+      "candidate": "c22",
+      "round": "5",
+      "seed": 219400716,
+      "bpm": 120,
+      "caption": "same brief",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-908\\theme-nocturne-vibes-c22.wav: 81.4s loop = source 4.00s..85.35s (39.98 bars at 118.0 bpm), crossfade 1.02s | context match 0.904 (best 0.939) | crossfade rhythm r=0.88 vs the track a bar later r=0.50: in time | spectrum cos=0.95"
+      ],
+      "refused_or_not_chosen": "Ruled out: short gaps 48.7/min; also outside ember on held_changes 2.26, gaps_per_min 48.7; 81.4 s loop."
+    }
+  ],
+  "alternative_briefs": {
+    "brief_1": {
+      "caption": "Modern cool jazz instrumental: a warm soft-mallet vibraphone with a full round tone playing one flowing, clearly articulated, hummable melody of running eighth notes in the middle register, clean and perfectly in tune, a walking upright bass, a gentle brushed snare swing with a light ride, a warm mellow organ pad sustaining the chords underneath, the chords changing every two bars, a different second theme in the middle of the piece, refined and mysterious like lantern light in a quiet cave, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, smoky, retro, vintage, lounge, elevator music, cocktail party, easy listening, muzak, background music, nostalgic, old-fashioned, repetitive loop, one chord vamp, drone, piano, grand piano, bright piano, electric piano, Rhodes, keyboard, harpsichord, celesta, marimba, xylophone, bells, music box, shrill, thin, tinny, harsh bright lead, piercing, nasal, muted trumpet, synthesizer lead",
+      "bpm": 100,
+      "round": "1",
+      "candidates": [
+        "c1",
+        "c1r",
+        "c2"
+      ]
+    },
+    "brief_2": {
+      "caption": "Modern cool jazz instrumental: a warm soft-mallet vibraphone with a full round tone playing one flowing, clearly articulated, hummable melody of running eighth notes in the middle register, clean and perfectly in tune, a clean hollow-body jazz guitar comping soft sustained chords, a walking upright bass, a gentle brushed snare swing with a light ride, the chords changing every two bars, a different second theme in the middle of the piece, refined and mysterious like lantern light in a quiet cave, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, smoky, retro, vintage, lounge, elevator music, cocktail party, easy listening, muzak, background music, nostalgic, old-fashioned, repetitive loop, one chord vamp, drone, piano, grand piano, bright piano, electric piano, Rhodes, keyboard, harpsichord, celesta, marimba, xylophone, bells, music box, shrill, thin, tinny, harsh bright lead, piercing, nasal, muted trumpet, synthesizer lead",
+      "bpm": 100,
+      "round": "1",
+      "candidates": [
+        "c3",
+        "c4"
+      ]
+    },
+    "brief_3": {
+      "caption": "Modern up-tempo cool jazz instrumental in the natural minor scale: a warm soft-mallet vibraphone with a full round tone, motor off and the notes dampened short, playing one flowing, clearly articulated, hummable melody of quick running eighth notes and sixteenth-note turns in the middle register, clean and perfectly in tune, staying inside the key, a walking upright bass, a gentle brushed snare swing with a light ride, a warm mellow organ pad sustaining the chords underneath, the chords changing every two bars, a different second theme in the middle of the piece, refined and mysterious like lantern light in a quiet cave, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, smoky, retro, vintage, lounge, elevator music, cocktail party, easy listening, muzak, background music, nostalgic, old-fashioned, repetitive loop, one chord vamp, drone, piano, grand piano, bright piano, electric piano, Rhodes, keyboard, harpsichord, celesta, marimba, xylophone, bells, music box, shrill, thin, tinny, harsh bright lead, piercing, nasal, muted trumpet, synthesizer lead, long ringing sustained notes, slow ballad, chromatic notes, wrong notes",
+      "bpm": 116,
+      "round": "2",
+      "candidates": [
+        "c5",
+        "c6"
+      ]
+    },
+    "brief_4": {
+      "caption": "Modern up-tempo cool jazz instrumental in the natural minor scale: a warm soft-mallet vibraphone with a full round tone, motor off and the notes dampened short, playing one lively, clearly articulated, hummable melody of quick running eighth notes with syncopated stabs in the middle register, clean and perfectly in tune, staying inside the key, a clean hollow-body jazz guitar comping soft chords, a walking upright bass, a gentle brushed snare swing with a light ride, the chords changing every two bars, a different second theme in the middle of the piece, refined and mysterious like lantern light in a quiet cave, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, smoky, retro, vintage, lounge, elevator music, cocktail party, easy listening, muzak, background music, nostalgic, old-fashioned, repetitive loop, one chord vamp, drone, piano, grand piano, bright piano, electric piano, Rhodes, keyboard, harpsichord, celesta, marimba, xylophone, bells, music box, shrill, thin, tinny, harsh bright lead, piercing, nasal, muted trumpet, synthesizer lead, long ringing sustained notes, slow ballad, chromatic notes, wrong notes",
+      "bpm": 124,
+      "round": "2",
+      "candidates": [
+        "c7",
+        "c8"
+      ]
+    },
+    "brief_5": {
+      "caption": "Modern bright up-tempo cool jazz instrumental in the natural minor scale: a warm soft-mallet vibraphone with a full round tone, motor off and the notes dampened short, playing one virtuosic, clearly articulated, hummable melody of constant quick running eighth notes and sixteenth-note runs in the middle register, clean and perfectly in tune, staying inside the key, a clean hollow-body jazz guitar comping soft chords, a walking upright bass, a gentle brushed snare swing with a light ride, the chords changing every two bars, a different second theme in the middle of the piece, refined and mysterious like lantern light in a quiet cave, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, smoky, retro, vintage, lounge, elevator music, cocktail party, easy listening, muzak, background music, nostalgic, old-fashioned, repetitive loop, one chord vamp, drone, piano, grand piano, bright piano, electric piano, Rhodes, keyboard, harpsichord, celesta, marimba, xylophone, bells, music box, shrill, thin, tinny, harsh bright lead, piercing, nasal, muted trumpet, synthesizer lead, long ringing sustained notes, slow ballad, chromatic notes, wrong notes, tremolo, vibrato motor, long decaying notes",
+      "bpm": 132,
+      "round": "3",
+      "candidates": [
+        "c9",
+        "c10"
+      ]
+    },
+    "brief_6": {
+      "caption": "Modern cool jazz instrumental in the natural minor scale: a warm soft-mallet vibraphone with a full round tone, motor off and the notes dampened short, playing one lively, clearly articulated, hummable melody of quick running eighth notes in the middle register, answered phrase by phrase by a soft muted flugelhorn, clean and perfectly in tune, staying inside the key, a clean hollow-body jazz guitar playing a busy steady pattern of short chord stabs, a walking upright bass, a gentle brushed snare swing with a light ride, the chords changing every two bars, a different second theme in the middle of the piece, refined and mysterious like lantern light in a quiet cave, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, smoky, retro, vintage, lounge, elevator music, cocktail party, easy listening, muzak, background music, nostalgic, old-fashioned, repetitive loop, one chord vamp, drone, piano, grand piano, bright piano, electric piano, Rhodes, keyboard, harpsichord, celesta, marimba, xylophone, bells, music box, shrill, thin, tinny, harsh bright lead, piercing, nasal, synthesizer lead, long ringing sustained notes, slow ballad, chromatic notes, wrong notes, tremolo, vibrato motor, long decaying notes",
+      "bpm": 108,
+      "round": "3",
+      "candidates": [
+        "c11",
+        "c12"
+      ]
+    },
+    "brief_7": {
+      "caption": "Modern bright up-tempo cool jazz instrumental in the natural minor scale: a warm soft-mallet vibraphone with a full round tone, motor off and the notes dampened short, playing one clearly articulated, hummable melody of constant quick running eighth notes in the middle register, never stopping, clean and perfectly in tune, staying inside the key, a clean hollow-body jazz guitar comping soft chords in a steady rhythm, a walking upright bass, a strict steady tempo with a tight rhythm section, a gentle brushed snare swing with a light ride, the chords changing every two bars, a different second theme in the middle of the piece, refined and mysterious like lantern light in a quiet cave, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, smoky, retro, vintage, lounge, elevator music, cocktail party, easy listening, muzak, background music, nostalgic, old-fashioned, repetitive loop, one chord vamp, drone, piano, grand piano, bright piano, electric piano, Rhodes, keyboard, harpsichord, celesta, marimba, xylophone, bells, music box, shrill, thin, tinny, harsh bright lead, piercing, nasal, muted trumpet, synthesizer lead, long ringing sustained notes, slow ballad, chromatic notes, wrong notes, tremolo, vibrato motor, long decaying notes, pauses, stops, rests, silences, breaks, loose timing, swung rubato",
+      "bpm": 132,
+      "round": "4",
+      "candidates": [
+        "c15",
+        "c16"
+      ]
+    },
+    "brief_8": {
+      "caption": "Modern cool jazz instrumental in the natural minor scale: a warm soft-mallet vibraphone with a full round tone, motor off and the notes dampened short, playing one flowing, clearly articulated, hummable melody in the middle register, answered by a clean warm electric guitar playing a countermelody of running eighth notes, clean and perfectly in tune, staying inside the key, a walking upright bass, a gentle brushed snare swing with a light ride, the chords changing every two bars, a different second theme in the middle of the piece, the full ensemble never stopping, refined and mysterious like lantern light in a quiet cave, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, smoky, retro, vintage, lounge, elevator music, cocktail party, easy listening, muzak, background music, nostalgic, old-fashioned, repetitive loop, one chord vamp, drone, piano, grand piano, bright piano, electric piano, Rhodes, keyboard, harpsichord, celesta, marimba, xylophone, bells, music box, shrill, thin, tinny, harsh bright lead, piercing, nasal, muted trumpet, synthesizer lead, long ringing sustained notes, slow ballad, chromatic notes, wrong notes, tremolo, vibrato motor, long decaying notes, pauses, stops, rests, silences, breaks, loose timing, swung rubato",
+      "bpm": 116,
+      "round": "4",
+      "candidates": [
+        "c17",
+        "c18"
+      ]
+    }
+  },
+  "replaces": {
+    "issue": 486,
+    "created": "2026-09-23",
+    "caption": "Cool jazz instrumental: vibraphone melody, walking upright bass, brushed snare swing, piano comping, late-night and refined, no vocals",
+    "negative": "vocals, singing, audience applause, crowd noise, live recording",
+    "seed": null,
+    "bpm": 96,
+    "keyscale": "F minor",
+    "loop_log": [
+      "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-nocturne-vibes.wav: 49.4s loop = source 32.54s..81.90s (19.97 bars at 97.1 bpm), crossfade 1.24s | context match 0.431 (best 0.478) | crossfade rhythm r=0.69 vs the track a bar later r=0.34: in time | spectrum cos=0.72"
+    ],
+    "why_replaced": "The owner's Jukebox note of 2026-10-16 (translated from Czech): \"Vibes: it is not clear what instrument it is played on - it sounds a bit like a piano, but it is too weak and shrill, it does not go together with the other instruments.\" (#908). The #486 brief was a vibraphone melody with piano comping and a walking bass. Measured on 2026-10-17 beside ember: 104 clipped runs (ember at most 3) and a +9.7 dB step across its wrap (p89), context match 0.431 at the cut; its drums layer stood 12.6 dB under the mix in 300 Hz-4 kHz."
+  }
 }
