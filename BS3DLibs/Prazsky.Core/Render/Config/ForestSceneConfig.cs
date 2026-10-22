@@ -13,11 +13,15 @@ namespace Prazsky.Core.Render
         public override SceneKind Kind => SceneKind.Forest;
 
         /// <summary>
-        /// Under a canopy the sky is glimpsed rather than seen, and a broken deck is what those glimpses are of.
+        /// Under a canopy the sky is a lid and not a view. It was a broken deck until #961, and a broken deck is
+        /// the brightest thing in a dark wood whatever dome it hangs under (its lit side takes the sun's light
+        /// and no dome is darker than that: the upper sky's mean was 89 under dome 15 and 90 under dome 13), which
+        /// is what the owner meant by "the sky is too bright". The overcast lid is 55, and the ground under it is
+        /// lit evenly instead of being swept by cloud shadows.
         /// </summary>
         public ForestSceneConfig()
         {
-            Weather = WeatherPreset.Broken;
+            Weather = WeatherPreset.Overcast;
 
             //The sun's cast shadows (#471), at the savanna's own figures — 0.9 is a shadow that is dark without
             //reading as a hole, and 260 units at 2048 is 0.13 units a texel. The densest scatter in the
@@ -412,25 +416,28 @@ namespace Prazsky.Core.Render
     }
 
     /// <summary>
-    /// A handful of firefly-like lights hovering over the floor among the trees (#487): each one blinks ON
-    /// and then OFF on its own wall-clock period, in the spirit of the city roof beacon's hard flash
-    /// (<see cref="CityRooftops"/>, #436) rather than the campfire's continuous flicker or the city window's
-    /// soft cross-fade — a naturalistic scene's own answer to the same idiom.
+    /// A scatter of firefly-like lights drifting over the floor among the trees (#487, reshaped in #961): each
+    /// one swells up out of the dark and fades back into it on its own wall-clock period, and wanders a little
+    /// between glows. Not the city roof beacon's hard flash (<see cref="CityRooftops"/>, #436) it began as: that
+    /// read as one bare light switching on and off, on the far floor, with nothing to say what it was.
     /// </summary>
     public sealed class ForestFireflyConfig
     {
-        /// <summary>How many fireflies hover over the clearing.</summary>
-        public int Count { get; set; } = 5;
+        /// <summary>How many fireflies hover over the clearing: enough that a few are always glowing and the eye
+        /// takes them for a swarm, where five read as one odd light that blinks now and then.</summary>
+        public int Count { get; set; } = 12;
 
-        /// <summary>Nearest a firefly may sit to the island (world units from the origin).</summary>
-        public float MinRadius { get; set; } = 40f;
+        /// <summary>Nearest a firefly may sit to the island (world units from the origin): just outside the
+        /// island and its berm, so the nearest ones are a few strides from the gun.</summary>
+        public float MinRadius { get; set; } = 32f;
 
         /// <summary>Farthest a firefly may sit from the island — kept well inside the tree scatter's own
         /// <see cref="ForestTreeConfig.MaxRadius"/>, so every one stays in range of a camera in the clearing.</summary>
-        public float MaxRadius { get; set; } = 75f;
+        public float MaxRadius { get; set; } = 72f;
 
-        /// <summary>How far a firefly hovers above the ground it was planted on.</summary>
-        public float HoverHeight { get; set; } = 0.5f;
+        /// <summary>How far a firefly hovers above the ground it was planted on: well off it, so a glow reads as
+        /// a thing in the air and not as a spark on the ground.</summary>
+        public float HoverHeight { get; set; } = 1.2f;
 
         /// <summary>
         /// Radius of the small glowing sphere each firefly is (world units). Measured rather than guessed at
@@ -440,24 +447,33 @@ namespace Prazsky.Core.Render
         /// sphere already takes on a mast — chosen to hold a few pixels pre-bloom at the far end of
         /// <see cref="MaxRadius"/> so the bloom pass has a seed to work from.
         /// </summary>
-        public float BodyRadius { get; set; } = 0.3f;
+        public float BodyRadius { get; set; } = 0.25f;
 
-        /// <summary>Shortest blink period, in seconds (a randomly rolled period between this and
+        /// <summary>Shortest glow period, in seconds (a randomly rolled period between this and
         /// <see cref="MaxPeriod"/> per firefly, so the handful of them never beat in unison).</summary>
-        public float MinPeriod { get; set; } = 2.2f;
+        public float MinPeriod { get; set; } = 2.4f;
 
-        /// <summary>Longest blink period, in seconds.</summary>
-        public float MaxPeriod { get; set; } = 4.0f;
+        /// <summary>Longest glow period, in seconds.</summary>
+        public float MaxPeriod { get; set; } = 4.5f;
 
-        /// <summary>Share of its own period a firefly spends lit, the beacon's own figure (#436).</summary>
-        public float OnFraction { get; set; } = 0.22f;
+        /// <summary>Share of its own period a firefly spends glowing, 0.4: a glow of one to two seconds, long
+        /// enough to be seen to swell and fade (the roof beacon's 0.22 was a flash of two thirds of a second).</summary>
+        public float OnFraction { get; set; } = 0.4f;
 
         /// <summary>
-        /// Peak emissive brightness (linear radiance) at the centre of the ON pulse — the beacon's own figure
-        /// (<see cref="RooftopConfig.BeaconBrightness"/>), high enough over <c>GLARE_THRESHOLD</c> that so
-        /// small a body still blooms and reads from a distance.
+        /// Peak emissive brightness (linear radiance) at the centre of the glow. Far over <c>GLARE_THRESHOLD</c>
+        /// on purpose: the body is a few pixels and the soft halo round it is the bloom's, whose energy goes
+        /// with how far over the threshold the body is.
         /// </summary>
-        public float Brightness { get; set; } = 3.2f;
+        public float Brightness { get; set; } = 10f;
+
+        /// <summary>How far, in world units, a firefly wanders sideways of where it hovers (a slow circuit of
+        /// fifteen to forty seconds, so a glow moves a little and the next one is elsewhere).</summary>
+        public float WanderRadius { get; set; } = 1.6f;
+
+        /// <summary>How far it bobs up and down; never more than <see cref="HoverHeight"/>, so it stays off the
+        /// floor.</summary>
+        public float WanderBob { get; set; } = 0.4f;
 
         /// <summary>The glow's colour (linear radiance) — a firefly's own warm yellow-green, not the beacon's
         /// warning red.</summary>

@@ -566,7 +566,7 @@ namespace Testbed
             if (_skyFromCommandLine) _skyModelNumber = options.SkyNumber; //Testing: "sky=<n>" on the command line picks the starting sky dome
             else
             {
-                //The dome this scene states, if it states one — seven of the twenty do, and SkyDome.SceneDefault
+                //The dome this scene states, if it states one — eight of the twenty-one do, and SkyDome.SceneDefault
                 //carries which and why. It is the same call SetScene makes, which is the whole point of it
                 //being a call: this arm and that one were two hand-kept tables until #380.
                 byte startupDome = SkyDome.SceneDefault(_scene);

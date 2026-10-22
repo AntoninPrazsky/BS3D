@@ -36,6 +36,16 @@ namespace Prazsky.Core
         //and not this one.
         private const byte POLAR_DOME = 13;
 
+        //The forest (#961): a dark wood wants a dusk that sits with it and not a bright sky over it, and the
+        //fireflies want the dusk. It entered under whatever dome was up, and the one the Game starts on, 13, is
+        //a flat saturated teal that covered half the sky above the black hills. Dome 15 is the late twilight
+        //(sun 11 degrees, so the canopy still throws its shadows): an indigo deck with a teal skirt at the
+        //horizon, the hills going blue-black under it and the broadleaf crowns keeping their green. Picked off
+        //a sweep of all twenty under the Broken deck at the play camera, among the domes that keep the sun above
+        //the shadow map's floor and are not red or pink. Dome 9, the volcano's blue hour, was the runner-up and
+        //is the quieter one: no bright saturated sky at all, but its hills went the brown of bare earth.
+        private const byte FOREST_DOME = 15;
+
         /// <summary>
         /// The dome a scene brings with it, or 0 when it states none and keeps whatever dome is up (#595).
         /// <para>
@@ -59,6 +69,7 @@ namespace Prazsky.Core
             SceneKind.Mars => MARS_DOME,
             SceneKind.Storm => STORM_DOME,
             SceneKind.Polar => POLAR_DOME,
+            SceneKind.Forest => FOREST_DOME,
             _ => 0,
         };
     }
