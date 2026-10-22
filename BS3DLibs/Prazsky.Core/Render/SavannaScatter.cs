@@ -15,6 +15,14 @@ namespace Prazsky.Core.Render
     public sealed class ScatterBucket : IDisposable
     {
         public IProceduralMesh Mesh { get; }
+
+        /// <summary>
+        /// What casts into the sun's map, <see cref="Mesh"/> unless a planting says otherwise: the fine rocks (#777) cast the
+        /// same rock at the next coarser sampling (<see cref="FracturedRockSet"/>), since a rock is a few texels of the map and
+        /// its triangles are paid for at the primitive rate, not by the texel. The coarser skin lies inside the finer one, so
+        /// a rock never shades itself where its caster stands short of it.
+        /// </summary>
+        public IProceduralMesh CasterMesh { get; }
         public VertexBuffer Instances { get; private set; }
         public int Count { get; }
 
@@ -43,7 +51,9 @@ namespace Prazsky.Core.Render
         /// of a thing (an acacia's <see cref="AcaciaMesh.FineWood"/>, a bush's <see cref="ThornBushMesh"/>, #883, a meadow shrub's
         /// <see cref="MeadowShrubMesh"/>, #890), <c>false</c>
         /// for the coarser one Low and Medium draw instead off the same instances (the bush's lobed dome), <c>null</c> for every
-        /// tier. On screen and into the sun's map alike, or a tree would cast two shadows; the Potato path draws the coarse one.
+        /// tier. The Moon's and the volcano's rocks are the same switch (#777): <see cref="FracturedRockMesh"/>'s blocks and boulders
+        /// for High and Ultra, <see cref="VolcanoPlanting.BlockMesh"/> and <see cref="RockMesh"/> for Low and Medium.
+        /// On screen and into the sun's map alike, or a tree would cast two shadows; the Potato path draws the coarse one.
         /// </summary>
         public bool? FineMeshes { get; }
 
@@ -75,11 +85,28 @@ namespace Prazsky.Core.Render
         /// </summary>
         public bool Earthed { get; }
 
+        /// <summary>
+        /// How deep a rock's own surface goes (#777), 0 on everything else: <c>Acacia.fx</c>'s stone tilts the normal by a
+        /// relief of dents, grain and pits, mottles the colour, darkens hairline cracks and dusts the foot and the top with
+        /// <see cref="FootDust"/>, so no face of the rock is one flat tone. Only <see cref="PlantPass"/> states it; the fine
+        /// rocks of the Moon and the volcano (<see cref="FracturedRockMesh"/>) carry it, with <see cref="Dapple"/> and
+        /// <see cref="Bark"/> at 0, since the stone does their work.
+        /// </summary>
+        public float Stone { get; }
+
+        /// <summary>The ground's colour (linear) a <see cref="Stone"/> rock is dusted with at its foot and on its top; black for none.
+        /// Its height over the ground is read off the instance's <see cref="ModelInstance.Custom"/> <c>z</c>, the ground over the pivot.</summary>
+        public Vector3 FootDust { get; }
+
         internal ScatterBucket(GraphicsDevice device, IProceduralMesh mesh, List<ModelInstance> instances,
             Vector3 diffuse, Vector3 diffuseDry, float dapple, float bark, bool detailOnly,
-            bool lowOnly = false, float leaves = 0f, bool earthed = false, bool? castsShadow = null, bool? fineMeshes = null)
+            bool lowOnly = false, float leaves = 0f, bool earthed = false, bool? castsShadow = null, bool? fineMeshes = null,
+            float stone = 0f, Vector3 footDust = default, IProceduralMesh casterMesh = null)
         {
             Mesh = mesh;
+            CasterMesh = casterMesh ?? mesh;
+            Stone = stone;
+            FootDust = footDust;
             FineMeshes = fineMeshes;
             Earthed = earthed;
             LowOnly = lowOnly;

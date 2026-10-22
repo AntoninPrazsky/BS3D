@@ -62,6 +62,15 @@ namespace Prazsky.Core.Render
                 bombInstances[m] = new List<ModelInstance>();
             }
 
+            //High and Ultra's rocks (#777, MoonPlanting's): every instance again by variant and density, the ground over its
+            //pivot in Custom.z for the stone's dust
+            var fineBlocks = new List<ModelInstance>[blockMeshes.Length, FracturedRockSet.DENSITIES];
+            var fineBombs = new List<ModelInstance>[bombMeshes.Length, FracturedRockSet.DENSITIES];
+            for (int m = 0; m < blockMeshes.Length; m++)
+                for (int k = 0; k < FracturedRockSet.DENSITIES; k++) fineBlocks[m, k] = new List<ModelInstance>();
+            for (int m = 0; m < bombMeshes.Length; m++)
+                for (int k = 0; k < FracturedRockSet.DENSITIES; k++) fineBombs[m, k] = new List<ModelInstance>();
+
             bool Clear(float x, float z, float r)
             {
                 if (keepOut(x, z)) return false;
@@ -89,10 +98,13 @@ namespace Prazsky.Core.Render
                     //Sunk to the lowest of the ground under its footprint, so no side hangs over a slope (#658)
                     float ground = MathF.Min(height(x, z), MathF.Min(MathF.Min(height(x + size, z), height(x - size, z)),
                         MathF.Min(height(x, z + size), height(x, z - size))));
-                    into[variant].Add(new ModelInstance(
-                        Matrix.CreateScale(size) * Matrix.CreateRotationX(tilt) * Matrix.CreateRotationY(yaw)
-                            * Matrix.CreateTranslation(x, ground - size * sink, z),
-                        new Vector4(dust, jitter, 0f, 0f)));
+                    Matrix world = Matrix.CreateScale(size) * Matrix.CreateRotationX(tilt) * Matrix.CreateRotationY(yaw)
+                        * Matrix.CreateTranslation(x, ground - size * sink, z);
+                    into[variant].Add(new ModelInstance(world, new Vector4(dust, jitter, 0f, 0f)));
+
+                    bool block = into == blockInstances;
+                    int density = FracturedRockSet.Density(size * (block ? FracturedRockSet.BLOCK_REACH : FracturedRockSet.BOULDER_REACH));
+                    (block ? fineBlocks : fineBombs)[variant, density].Add(new ModelInstance(world, new Vector4(dust, jitter, size * sink, 0f)));
                     i++;
                 }
             }
@@ -103,11 +115,15 @@ namespace Prazsky.Core.Render
             for (int m = 0; m < blockMeshes.Length; m++)
                 if (blockInstances[m].Count > 0)
                     buckets.Add(Own(new ScatterBucket(device, blockMeshes[m], blockInstances[m], BASALT, BASALT_DUSTED,
-                        dapple: 0.3f, bark: 0.35f, detailOnly: false)));
+                        dapple: 0.3f, bark: 0.35f, detailOnly: false, fineMeshes: false)));
             for (int m = 0; m < bombMeshes.Length; m++)
                 if (bombInstances[m].Count > 0)
                     buckets.Add(Own(new ScatterBucket(device, bombMeshes[m], bombInstances[m], BASALT, BASALT_DUSTED,
-                        dapple: 0.2f, bark: 0.15f, detailOnly: false)));
+                        dapple: 0.2f, bark: 0.15f, detailOnly: false, fineMeshes: false)));
+
+            //The blocks and the bombs of High and Ultra, dusted with the field's own weathered grey at the foot
+            buckets.AddRange(Own(new FracturedRockSet(device, fineBlocks, fineBombs, boulderHeight: m => 0.75f + 0.15f * m,
+                seed: seed * 31 + 777, BASALT, BASALT_DUSTED, BASALT_DUSTED)).Buckets);
 
             //--- The spatter cones: one lathe, scaled per cone to its radius and height
             if (cones.Count > 0)
@@ -140,7 +156,9 @@ namespace Prazsky.Core.Render
         /// One broken block of basalt: an icosahedron with every vertex pushed in or out at random and the whole squashed
         /// a little, shaded flat so every face is its own facet - the angular rubble of an aa flow. Each face wound
         /// clockwise seen from outside (CLAUDE.md, "Triangle winding"), which is checked per face against its centroid.
-        /// Internal for <see cref="MoonPlanting"/>, whose blocks are the same broken rock in the regolith's grey.
+        /// Internal for <see cref="MoonPlanting"/>, whose blocks are the same broken rock in the regolith's grey. Low and Medium's:
+        /// High and Ultra draw <see cref="FracturedRockMesh"/> off the same instances (#777), since twenty flat facets of one size
+        /// read as a cut crystal under a low sun.
         /// </summary>
         internal static UploadedMesh BlockMesh(GraphicsDevice device, Random rng)
         {
