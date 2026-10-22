@@ -536,6 +536,10 @@ namespace BS3D.Screens
                 return;
             }
 
+            //A shot is leaving, so the player has the gun and has no use for the net's opening reveal (#933): whatever of it is
+            //left finishes at once and is not waited for
+            _netReveal.Skip();
+
             //And the cut's picture: the slash, the sparks and the light outlive the slow motion (#767's verdict made them last),
             //so a shot that leaves plays the rest of them out fast (Blasts.HurryBlades) and crosses a field already clearing.
             //Only a shot that leaves: a refused pull fires nothing across it, and the picture runs on at the world's pace

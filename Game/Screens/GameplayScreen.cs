@@ -707,6 +707,11 @@ namespace BS3D.Screens
         //session's life; null before it
         private LaserEmitters _emitters;
 
+        //The net shown to a player who is not in danger from it (#933): the level's opening reveal, from the level the line's
+        //card is first taught on, and the blink while that card is up. Game time, stepped in UpdatePlaying; the grid and the
+        //emitters are told what it asks for each frame (UpdateNetReveal)
+        private readonly NetReveal _netReveal = new();
+
         /// <summary>
         /// Every bomb going off (#389) — its flash, its report and the light it throws. Session content like the
         /// net above, but stepped on the world's clock rather than stamped on the wall's: see <see cref="Blasts"/>.
@@ -1690,6 +1695,8 @@ namespace BS3D.Screens
 
             _tutorial.Update(elapsed, Game.IsTutorialEnabled, CameraTakeoverEngaged, LevelDecided);
 
+            UpdateNetReveal(elapsed);
+
             if (_tutorial.TakePraiseCue())
             {
                 _hud.KickTutorial();
@@ -2088,7 +2095,7 @@ namespace BS3D.Screens
             //fade keep running while a result screen covers this screen and only draws still arrive.
             //The four emitters' lenses first (#874), glass writing no depth, so the cones that start at their crests are
             //drawn over the glass and not behind it - and glowing with the very brightness the beams are drawn at
-            _emitters?.DrawLens(GraphicsDevice, Camera, Game.SceneEffectParams, _laserGrid.IntensityAt(WallClock));
+            _emitters?.DrawLens(GraphicsDevice, Camera, Game.SceneEffectParams, LensLight());
 
             _laserGrid.Draw(Camera, WallClock);
 
@@ -2208,7 +2215,7 @@ namespace BS3D.Screens
         void IStandingGun.DrawGlass()
         {
             //The emitters' lenses under the front end as well (#874), as the metal they are set in is
-            _emitters?.DrawLens(GraphicsDevice, Camera, Game.SceneEffectParams, _laserGrid.IntensityAt(WallClock));
+            _emitters?.DrawLens(GraphicsDevice, Camera, Game.SceneEffectParams, LensLight());
 
             Game.CannonRig.DrawGlass(Camera, _cannon.BarrelWorld(), Game.SceneEffectParams);
         }

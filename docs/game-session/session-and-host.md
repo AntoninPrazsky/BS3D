@@ -13,7 +13,7 @@ The Game is a thin executable over the shared libraries, not a fork of the Testb
 
 ## What a test can change: `SessionTestOptions`
 
-The command line's testing levers reach the session as one immutable record built by `SessionTestOptions.From(LaunchOptions)`: `streak=`, `wildcard=`, `powerups=`, `lasers`, `lineloss=`, `detonate=`, `tutorial`, `balls=`, `levelfile=`, `seed=`, `wind=`, `logshots`, `logtilt`, `pad`, `cutshot=` and `swapshot=`. The host keeps the one instance as `TestOptions` because the front end's preview reads `BallStyleOverride` and `StartupScript` is told `StartupLevelFile`. The `detonate=` schedule is data with its cursor in `_detonateNext`; the screen lives for the whole program, so a schedule runs once per launch.
+The command line's testing levers reach the session as one immutable record built by `SessionTestOptions.From(LaunchOptions)`: `streak=`, `wildcard=`, `powerups=`, `lasers`, `lineloss=`, `detonate=`, `tutorial`, `balls=`, `levelfile=`, `seed=`, `wind=`, `logshots`, `logtilt`, `pad`, `cutshot=`, `swapshot=` and `revealshot=`. The host keeps the one instance as `TestOptions` because the front end's preview reads `BallStyleOverride` and `StartupScript` is told `StartupLevelFile`. The `detonate=` schedule is data with its cursor in `_detonateNext`; the screen lives for the whole program, so a schedule runs once per launch.
 
 ## The seeded generator
 

@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-22 — #933 síť se ukáže dřív, než varuje — desktop (RDT-PC), Claude Code (bs3d-dc)
+- Hotovo: dokud je vidět karta „Keep the cluster above the red line“ (Saturn), červená síť na podlaze bliká (0,75 s svítí z 1,2 s, `NetReveal`). Od téhle úrovně dál se na startu každé úrovně čtyři emitory otočí z klidové polohy (rovně nahoru) do míření (0,6 s) a síť se rozsvítí na ~1,4 s (celé odhalení 2,0 s, první výstřel ho dokončí hned). Není to alarm: `LaserGrid.SetPreview` je druhé světlo, které nevidí spoušť, karta `line`, zvuk ani HUD. Beze zvuku. `revealshot=` fotí hodiny odhalení a loguje otočení v číslech (sklon pouzdra 90 → 46,8° na 15 široké síti).
+- Rozhodnutí: klidová poloha rovně nahoru; hodiny jsou herní čas (pauza je drží), ne zeď. První úroveň kapitoly odhaluje až po průletu.
+- Otevřené: `verdict-eye` (vzhled otočení a klidové polohy, zda je síť při bliknutí vidět z hráčovy kamery); zvuk (hum) je na majiteli; `verdict-newcomer` (#768).
+
 ## 2026-10-20 — #970 potůček a rybník jsou jedna voda — desktop (RDT-PC), Claude Code (bs3d-bf)
 - Hotovo: v ústí vodu nestínuje to, která ze dvou sítí pixel kreslí, ale poloha: hloubka je hlubší z koryta a kráteru (koryto běží ~4,7 j. pod mělčinou), proud slábne poslední 3 j. potoka a nese se jazykem 7 j. do rybníka, stín rýhy (`GrooveSun`) mizí k břehu i na zemi. CPU kopie `MeadowCarve.WaterShading`; test spojitosti na příznaku padal skokem 1,0.
 - ⚠ Dvě sítě na jednom břehu nemají šev, jen když každý vstup stínování je funkcí polohy, ne příznaku sítě.

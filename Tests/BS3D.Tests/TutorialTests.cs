@@ -19,7 +19,7 @@ namespace BS3D.Tests
     {
         private const string STREAK = "Keep hitting to multiply your score";
         private const string BUDGET = "Save shots for a bonus";
-        private const string LINE_RULE = "Keep the cluster off the line";
+        private const string LINE_RULE = "Keep the cluster above the red line";
         private const string SEND_OFF = "That’s the basics — you know how to play";
         private const string SWAP = "Swap the next two balls";
         private const string BRAKE = "Lift the glass back one step";
@@ -377,6 +377,111 @@ namespace BS3D.Tests
             Assert.DoesNotContain(SEND_OFF, gem);
 
             Assert.DoesNotContain(LINE_RULE, Play(Fresh(new HashSet<string>()), set, 6));
+        }
+
+        //--- #933: the net is shown with the line's card, and at the start of every level from the one that card is first taught on ---
+
+        [Fact]
+        public void TheLinesCardIsUpExactlyWhileTheNetIsToBlinkAndNeverBeforeItIsRead()
+        {
+            LevelSet set = ShippedSet();
+            HashSet<string> save = new() { "aim", "fire", "match", "lean", "ceiling", "line", "traverse", "walk", "combine" };
+            Tutorial tutorial = Fresh(save);
+
+            Assert.True(Tutorial.TryPlace(set, 7, out int chapter, out int level, out int length));
+            tutorial.BeginLevel(chapter, level, length, ceilingStep: 6);
+
+            float shownSeconds = 0f;
+            bool everShown = false;
+
+            for (int frame = 0; frame < 400; frame++)
+            {
+                tutorial.Update(0.1f, enabled: true, takeoverEngaged: false, levelDecided: false);
+
+                //Only ever while it is that card: never for the glass's, the send-off or a frame with no card
+                if (tutorial.ShowsTheLine)
+                {
+                    Assert.Equal(LINE_RULE, tutorial.Caption);
+                    everShown = true;
+                    shownSeconds += 0.1f;
+                }
+            }
+
+            //For as long as the card is read (INFO_SECONDS, 7) and no longer, and it is recorded as read
+            Assert.True(everShown);
+            Assert.InRange(shownSeconds, 6.5f, 7.6f);
+            Assert.Contains("linerule", save);
+            Assert.False(tutorial.ShowsTheLine);
+        }
+
+        [Fact]
+        public void TheNetDoesNotBlinkForACardThatIsSteppedAsideOrSwitchedOff()
+        {
+            LevelSet set = ShippedSet();
+            HashSet<string> save = new() { "aim", "fire", "match", "lean", "ceiling", "line", "traverse", "walk", "combine" };
+            Tutorial tutorial = Fresh(save);
+
+            Assert.True(Tutorial.TryPlace(set, 7, out int chapter, out int level, out int length));
+            tutorial.BeginLevel(chapter, level, length, ceilingStep: 6);
+
+            for (int frame = 0; frame < 100 && !tutorial.ShowsTheLine; frame++)
+                tutorial.Update(0.1f, enabled: true, takeoverEngaged: false, levelDecided: false);
+            Assert.True(tutorial.ShowsTheLine);
+
+            //The Tutorial row switched off: the card steps aside at once, and the net stops with it
+            tutorial.Update(0.1f, enabled: false, takeoverEngaged: false, levelDecided: false);
+            Assert.False(tutorial.ShowsTheLine);
+
+            //On again: it comes back, and so does the blink
+            for (int frame = 0; frame < 100 && !tutorial.ShowsTheLine; frame++)
+                tutorial.Update(0.1f, enabled: true, takeoverEngaged: false, levelDecided: false);
+            Assert.True(tutorial.ShowsTheLine);
+
+            //A decided level drops the card outright
+            tutorial.Update(0.1f, enabled: true, takeoverEngaged: false, levelDecided: true);
+            Assert.False(tutorial.ShowsTheLine);
+        }
+
+        [Fact]
+        public void TheNetIsShownAtTheStartOfEveryLevelFromTheOneTheLinesCardIsFirstTaughtOn()
+        {
+            LevelSet set = ShippedSet();
+            Assert.Equal("Saturn", set.Levels[7].Name);
+
+            //Counted exactly as the card is: the level it first stands on, which a fresh save is shown it on, and every level after
+            int firstCard = -1;
+            for (int index = 0; index < set.Count; index++)
+            {
+                Tutorial.TryPlace(set, index, out int chapter, out int level, out int length);
+                bool shown = Tutorial.NetIsShownAt(chapter, level, length);
+
+                if (index < 7) Assert.False(shown, $"level {index}: the net is shown before the line's card is");
+                else Assert.True(shown, $"level {index}: the net is not shown from the line's card on");
+
+                //Whichever chapter the level is in, the card's own first level is the first the net is shown on
+                if (firstCard < 0 && Play(Fresh(new HashSet<string>()), set, index).Contains(LINE_RULE)) firstCard = index;
+            }
+
+            Assert.Equal(7, firstCard);
+
+            //No placement at all (no level set): none
+            Assert.False(Tutorial.NetIsShownAt(-1, -1, 0));
+        }
+
+        [Fact]
+        public void ACrowdedChapterShowsTheNetOnTheLevelItsLinesCardCrowdsInto()
+        {
+            //A first chapter of two levels: the card is shown on the first (a short chapter crowds its cards rather than cutting any),
+            //so the net is too, and in the second chapter of any length from its first level
+            LevelSet set = new();
+            for (int i = 0; i < 2; i++) set.Levels.Add(new LevelSetEntry { File = $"a{i}.json", Name = $"A{i}", Block = "A" });
+            for (int i = 0; i < 3; i++) set.Levels.Add(new LevelSetEntry { File = $"b{i}.json", Name = $"B{i}", Block = "B" });
+
+            for (int index = 0; index < set.Count; index++)
+            {
+                Tutorial.TryPlace(set, index, out int chapter, out int level, out int length);
+                Assert.True(Tutorial.NetIsShownAt(chapter, level, length), $"level {index}");
+            }
         }
 
         [Fact]

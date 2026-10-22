@@ -84,14 +84,15 @@ namespace BS3D.Tests
         }
 
         //Samples through the four emitters: a point and the radius around it that the emitter's metal and glass fill
-        private static List<(Vector3 Point, float Radius)> EmitterSamples(float cornerX, float cornerZ)
+        //(turn 1 is the aim a level's net asks for, 0 the rest pose, #933)
+        private static List<(Vector3 Point, float Radius)> EmitterSamples(float cornerX, float cornerZ, float turn = 1f)
         {
             List<(Vector3, float)> samples = new();
 
             for (int k = 0; k < LaserEmitterRing.COUNT; k++)
             {
                 Matrix stand = LaserEmitterRing.Stand(k, cornerX, cornerZ);
-                Matrix housing = LaserEmitterRing.Housing(k, cornerX, cornerZ, PLANE_Y);
+                Matrix housing = LaserEmitterRing.HousingTurned(k, cornerX, cornerZ, PLANE_Y, turn);
 
                 //The pedestal: a ring of points at the flange and the cup, and the middle
                 for (int i = 0; i < 12; i++)
@@ -250,6 +251,26 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void TheCarriageAndTheBarrelNeverTouchAnEmitterAtRestOrPartWayThroughItsTurn()
+        {
+            //The reveal turns the housings from straight up to the aim in front of the player, at any footprint a level can
+            //have (#933): the sweep above holds the aims, this the poses on the way and the one they start from, over the
+            //footprints whose swings are the longest and the widest (and the oblongs, which turn the bearings off the diagonals)
+            float tightest = float.MaxValue;
+            string where = "";
+
+            foreach ((int sx, int sz) in new[] { (5, 5), (11, 11), (13, 13), (15, 15), (17, 11), (17, 5) })
+                foreach (float turn in new[] { 0f, 0.25f, 0.5f, 0.75f })
+                {
+                    float cornerX = CornerFor(sx), cornerZ = CornerFor(sz);
+                    (float gap, string at) = Sweep(EmitterSamples(cornerX, cornerZ, turn), $"turn {turn} corner {cornerX},{cornerZ}", 4);
+                    if (gap < tightest) { tightest = gap; where = at; }
+                }
+
+            Assert.True(tightest >= MARGIN, $"the tightest gap between the gun and a turning emitter is {tightest:F3} at {where}");
+        }
+
+        [Fact]
         public void TheSweepCanBeSeenToFire()
         {
             //The sweep above only means something if it finds a gun that does touch: the same emitters moved out of the funnel
@@ -346,6 +367,88 @@ namespace BS3D.Tests
 
                         Assert.True(!overCup || rim.Y > LaserEmitterMesh.PEDESTAL_TOP + 0.02f,
                             $"corner {cornerX},{cornerZ}: emitter {k}'s tail dips to {rim.Y} over the cup");
+                    }
+                }
+        }
+
+        [Fact]
+        public void TheHousingTurnsAboutItsPinFromRestToExactlyItsAim()
+        {
+            foreach ((float cornerX, float cornerZ) in Corners())
+                for (int k = 0; k < LaserEmitterRing.COUNT; k++)
+                {
+                    Vector3 pin = LaserEmitterRing.Pin(k, cornerX, cornerZ);
+                    Vector3 pinAxis = Vector3.Normalize(LaserEmitterRing.Stand(k, cornerX, cornerZ).Right);
+                    Vector3 rest = LaserEmitterRing.RestAxis(k, cornerX, cornerZ);
+                    Vector3 aim = LaserEmitterRing.Axis(k, cornerX, cornerZ, PLANE_Y);
+
+                    //The ends: turn 0 is the rest axis, and turn 1 is the aimed housing to the last bit, the very matrix Fit has always drawn
+                    Assert.True(Vector3.Distance(LaserEmitterRing.AxisTurned(k, cornerX, cornerZ, PLANE_Y, 0f), rest) < 1e-5f);
+                    Assert.Equal(LaserEmitterRing.Housing(k, cornerX, cornerZ, PLANE_Y), LaserEmitterRing.HousingTurned(k, cornerX, cornerZ, PLANE_Y, 1f));
+
+                    float last = -1f;
+                    for (int i = 0; i <= 20; i++)
+                    {
+                        float turn = i / 20f;
+                        Vector3 axis = LaserEmitterRing.AxisTurned(k, cornerX, cornerZ, PLANE_Y, turn);
+                        Matrix housing = LaserEmitterRing.HousingTurned(k, cornerX, cornerZ, PLANE_Y, turn);
+
+                        //A unit axis in the plane square to the pin, which is where rest and aim both lie: a turn about the pin, nothing else
+                        Assert.True(MathF.Abs(axis.Length() - 1f) < 1e-4f);
+                        Assert.True(MathF.Abs(Vector3.Dot(axis, pinAxis)) < 1e-4f, $"emitter {k}: the axis leaves the plane of its pin at {turn}");
+
+                        //The housing's own +Y is that axis, and the pin's point on it stays on the yoke's pin whatever the turn
+                        Assert.True(Vector3.Distance(Vector3.Normalize(new Vector3(housing.M21, housing.M22, housing.M23)), axis) < 1e-4f);
+                        Vector3 pinPoint = Vector3.Transform(new Vector3(0f, LaserEmitterMesh.PIVOT_ALONG, 0f), housing);
+                        Assert.True(Vector3.Distance(pinPoint, pin) < 1e-4f, $"emitter {k}: the housing slides off its pin at {turn}");
+                        Assert.True(Vector3.Distance(Vector3.Normalize(housing.Right), pinAxis) < 1e-4f);
+
+                        //And the swing is steady: the angle from rest only grows, towards the whole angle to the aim
+                        float angle = MathF.Acos(MathHelper.Clamp(Vector3.Dot(axis, rest), -1f, 1f));
+                        Assert.True(angle >= last - 1e-4f, $"emitter {k}: the housing turned back at {turn}");
+                        last = angle;
+                    }
+
+                    Assert.True(MathF.Abs(last - MathF.Acos(MathHelper.Clamp(Vector3.Dot(aim, rest), -1f, 1f))) < 1e-3f);
+                }
+        }
+
+        [Fact]
+        public void TheHousingStaysOffTheGlassAndItsTailOverThePedestalAtEveryTurn()
+        {
+            //The swing passes through poses a level's aim never takes (the rest pose is straight up, whatever the net): clear of the
+            //glass the emitter stands on, and the rear face over the cup's top wherever it is over the cup
+            foreach ((float cornerX, float cornerZ) in Corners())
+                for (int k = 0; k < LaserEmitterRing.COUNT; k++)
+                {
+                    Matrix toStand = Matrix.Invert(LaserEmitterRing.Stand(k, cornerX, cornerZ));
+
+                    for (int step = 0; step <= 10; step++)
+                    {
+                        float turn = step / 10f;
+                        Matrix housing = LaserEmitterRing.HousingTurned(k, cornerX, cornerZ, PLANE_Y, turn);
+
+                        //The stand's +Y is the glass's normal and the foot is on the glass, so a point's Y there is its height over the glass
+                        float lowest = float.MaxValue;
+                        foreach ((float along, float radius) in HOUSING_PROFILE)
+                            for (int i = 0; i < 8; i++)
+                            {
+                                float a = MathHelper.TwoPi * i / 8f;
+                                Vector3 local = new(MathF.Cos(a) * radius, along, MathF.Sin(a) * radius);
+                                lowest = MathF.Min(lowest, Vector3.Transform(Vector3.Transform(local, housing), toStand).Y);
+                            }
+
+                        Assert.True(lowest > 0.15f, $"corner {cornerX},{cornerZ}: emitter {k}'s housing comes within {lowest} of the glass at turn {turn}");
+
+                        for (int i = 0; i < 24; i++)
+                        {
+                            float a = MathHelper.TwoPi * i / 24f;
+                            Vector3 rim = Vector3.Transform(Vector3.Transform(new Vector3(MathF.Cos(a) * 0.29f, 0f, MathF.Sin(a) * 0.29f), housing), toStand);
+                            bool overCup = new Vector2(rim.X, rim.Z).Length() < LaserEmitterMesh.CUP_RADIUS + 0.05f;
+
+                            Assert.True(!overCup || rim.Y > LaserEmitterMesh.PEDESTAL_TOP + 0.02f,
+                                $"corner {cornerX},{cornerZ}: emitter {k}'s tail dips to {rim.Y} over the cup at turn {turn}");
+                        }
                     }
                 }
         }

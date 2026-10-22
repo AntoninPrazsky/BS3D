@@ -319,6 +319,9 @@ namespace BS3D
         //Testing only: seconds of a Swap's own picture at which the frame is saved (#871). See SessionTestOptions.SwapShotSeconds.
         internal float[] SwapShotSeconds { get; private set; }
 
+        //Testing only: seconds of the floor net's opening reveal at which the frame is saved (#933). See SessionTestOptions.RevealShotSeconds.
+        internal float[] RevealShotSeconds { get; private set; }
+
         //Testing only: the wall-clock second, on ShotSeconds's clock, at which the run goes to the main menu with
         //its session KEPT (#650) — what the pause page's Main Menu does. Null when absent. See StartupScript.
         internal float? ToMenuAt { get; private set; }
@@ -587,6 +590,10 @@ namespace BS3D
             //held at each in turn for one frame, so a capture shows the stated moment of the two rounds sliding through each
             //other however long the capture before it took (a swap is a third of a second; shot= cannot frame it).
             Row.List("swapshot", (o, v) => o.SwapShotSeconds = v),
+            //"revealshot=<s1,s2,…>" saves the frame at those seconds of the floor net's opening reveal (#933), 0 to its length: the
+            //reveal's clock is held at each in turn for one frame, so a capture shows the housings and the light at the stated
+            //moment of a two-second show however long the capture before it took (shot= is the wall clock and cannot frame it).
+            Row.List("revealshot", (o, v) => o.RevealShotSeconds = v),
             //"tomenu=<s>" leaves the level being played for the main menu at that wall-clock second, the session
             //kept for Continue (#650): the front end with a live session behind it is the one state a script could
             //not reach (the pause page needs a focused window and three presses), and it is where the gun's shadow

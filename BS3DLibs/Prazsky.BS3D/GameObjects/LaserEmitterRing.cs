@@ -22,7 +22,8 @@ namespace Prazsky.BS3D.GameObjects
     /// <b>Aimed at the corner, per level.</b> The mount is fixed; the housing turns on its pin until its axis runs from
     /// the pin through its corner of this level's net (<see cref="Axis"/>), so the axis meets the corner exactly whatever
     /// the footprint. The pin lies along the rim's tangent, and the pin and the corner are both on the corner's bearing,
-    /// so one swing about the pin is all the aim needs.
+    /// so one swing about the pin is all the aim needs. A level that reveals the net (#933) opens with the housings at
+    /// <see cref="RestAxis"/> and turns them to the aim (<see cref="HousingTurned"/>): the same swing, part of the way.
     /// </para>
     /// </summary>
     public static class LaserEmitterRing
@@ -141,9 +142,50 @@ namespace Prazsky.BS3D.GameObjects
         /// point <see cref="LaserEmitterMesh.PIVOT_ALONG"/> along its axis landing on the yoke's pin, and the axis turned
         /// about the pin onto <see cref="Axis"/>.
         /// </summary>
-        public static Matrix Housing(int index, float cornerX, float cornerZ, float planeY)
+        public static Matrix Housing(int index, float cornerX, float cornerZ, float planeY) =>
+            HousingFacing(index, cornerX, cornerZ, Axis(index, cornerX, cornerZ, planeY));
+
+        /// <summary>
+        /// The axis the housings stand at before they are aimed (#933): straight up, which lies in the plane of every
+        /// bearing and square to the pin. A lamp at attention, pointing at nothing, and the swing to the aim is then as
+        /// long as the net is small: about 70 degrees on an 11-wide one, whose aim runs 21 degrees over the horizontal
+        /// inwards, down to about 5 on the widest, which already point nearly up. Clear of the glass and of the pedestal's
+        /// cup at every turn between (<c>LaserEmitterClearanceTests</c>).
+        /// </summary>
+        public static Vector3 RestAxis(int index, float cornerX, float cornerZ) => Vector3.Up;
+
+        /// <summary>
+        /// The housing's axis at <paramref name="turn"/> of the way from <see cref="RestAxis"/> to <see cref="Axis"/>
+        /// (#933): 0 is at rest, 1 is exactly the aim. A turn about the pin and nothing else - both axes lie in the
+        /// bearing's plane, square to the pin, so the housing swings through that plane at an even angle in
+        /// <paramref name="turn"/> (the caller eases it) and the pin never moves.
+        /// </summary>
+        public static Vector3 AxisTurned(int index, float cornerX, float cornerZ, float planeY, float turn)
         {
-            Vector3 axis = Axis(index, cornerX, cornerZ, planeY);
+            Vector3 aim = Axis(index, cornerX, cornerZ, planeY);
+            if (turn >= 1f) return aim;
+
+            Vector3 rest = RestAxis(index, cornerX, cornerZ);
+            if (turn <= 0f) return rest;
+
+            //The pin's axis, the stand's +X, and the signed angle from rest to aim about it
+            Vector3 pinAxis = Vector3.Normalize(Stand(index, cornerX, cornerZ).Right);
+            float full = MathF.Atan2(Vector3.Dot(pinAxis, Vector3.Cross(rest, aim)), Vector3.Dot(rest, aim));
+            float angle = full * turn;
+
+            //Rodrigues' rotation of a vector square to the axis it turns about
+            return Vector3.Normalize(rest * MathF.Cos(angle) + Vector3.Cross(pinAxis, rest) * MathF.Sin(angle));
+        }
+
+        /// <summary>
+        /// The housing's world matrix at <paramref name="turn"/> of the way from rest to aim (<see cref="AxisTurned"/>):
+        /// <see cref="Housing"/> at 1, exactly. The session turns the four with this, once a frame while they swing.
+        /// </summary>
+        public static Matrix HousingTurned(int index, float cornerX, float cornerZ, float planeY, float turn) =>
+            HousingFacing(index, cornerX, cornerZ, AxisTurned(index, cornerX, cornerZ, planeY, turn));
+
+        private static Matrix HousingFacing(int index, float cornerX, float cornerZ, Vector3 axis)
+        {
             Vector3 pin = Pin(index, cornerX, cornerZ);
 
             //The pin's own axis, the stand's +X, is perpendicular to the emission axis by construction (the pin and the

@@ -77,6 +77,9 @@ namespace BS3D.Screens
     /// <param name="SwapShotSeconds">The <c>swapshot=</c> argument (#871): seconds of a Swap's own picture at which the frame is
     /// saved, in order, the picture's age held at each for a frame (<c>SwapMotion.Pin</c>); empty or null for none. A swap is a
     /// third of a second and every capture's own hitch moves the next frame, so the wall clock's <c>shot=</c> cannot frame it.</param>
+    /// <param name="RevealShotSeconds">The <c>revealshot=</c> argument (#933): seconds of the floor net's opening reveal at which the
+    /// frame is saved, in order, the reveal's clock held at each for a frame (<c>NetReveal.Pin</c>); empty or null for none. The
+    /// reveal is two seconds and every capture's own hitch moves the next frame, so the wall clock's <c>shot=</c> cannot frame it.</param>
     internal sealed record SessionTestOptions(
         int? ForcedStreak,
         int ForcedWildcardEvery,
@@ -93,7 +96,8 @@ namespace BS3D.Screens
         bool PadPrompts = false,
         bool LogTilt = false,
         IReadOnlyList<float> CutShotSeconds = null,
-        IReadOnlyList<float> SwapShotSeconds = null)
+        IReadOnlyList<float> SwapShotSeconds = null,
+        IReadOnlyList<float> RevealShotSeconds = null)
     {
         /// <summary>
         /// Reads the levers out of what the command line said. The one place their interpretation lives: any
@@ -118,6 +122,7 @@ namespace BS3D.Screens
             PadPrompts: launch.PadPrompts,
             LogTilt: launch.LogTilt,
             CutShotSeconds: launch.CutShotSeconds ?? Array.Empty<float>(),
-            SwapShotSeconds: launch.SwapShotSeconds ?? Array.Empty<float>());
+            SwapShotSeconds: launch.SwapShotSeconds ?? Array.Empty<float>(),
+            RevealShotSeconds: launch.RevealShotSeconds ?? Array.Empty<float>());
     }
 }

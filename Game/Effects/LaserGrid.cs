@@ -156,6 +156,16 @@ namespace BS3D.Effects
         //When the flare began, or +inf for a net that has not killed anything.
         private float _flareAt = float.PositiveInfinity;
 
+        //The net lit for the telling and not the warning (#933): how brightly the session asked for it last, and when. It is
+        //not the alarm - Visible, the trigger's hysteresis, the contextual card and the HUD never read it - only a light the
+        //beams, the cones and the lenses are drawn at, over the alarm's own by whichever is more. Stamped, and let go of when
+        //it is not renewed: the session asks again every frame it is updated, and a result page that covers it stops those
+        //updates, so a light asked for at the moment the level ended would otherwise burn on under the page for ever.
+        private float _preview;
+        private float _previewAt = float.NegativeInfinity;
+        private const float PREVIEW_HOLD_SECONDS = 0.2f;
+        private const float PREVIEW_FADE_SECONDS = 0.3f;
+
         //When the result page of a loss went up, or +inf: from then the flare settles back to the warning's own
         //pulse over SETTLE_SECONDS and the net holds there for as long as the page is up (#614)
         private float _settleAt = float.PositiveInfinity;
@@ -356,9 +366,22 @@ namespace BS3D.Effects
             _expireAt = MathF.Min(_expireAt, now + LINGER_SECONDS);
         }
 
+        /// <summary>
+        /// Lights the net at <paramref name="amount"/> (0 for none) for the telling of it, not as the alarm (#933): the level's
+        /// opening reveal and the line card's blink. Asked of again every frame it should last; a light not renewed for
+        /// <see cref="PREVIEW_HOLD_SECONDS"/> goes out over <see cref="PREVIEW_FADE_SECONDS"/> (see the field).
+        /// </summary>
+        internal void SetPreview(float amount, float now)
+        {
+            _preview = amount;
+            _previewAt = now;
+        }
+
         /// <summary>Back to dark, instantly — a fresh level starts with no leftover warning. Called from BuildLevel.</summary>
         internal void Reset()
         {
+            _preview = 0f;
+            _previewAt = float.NegativeInfinity;
             _visible = false;
             _transitionAt = 0f;
             _envelopeAtTransition = 0f;
@@ -423,8 +446,9 @@ namespace BS3D.Effects
 
         /// <summary>
         /// How brightly the net burns at <paramref name="now"/>, 0 when it is dark: the envelope times the pulse, with the
-        /// kill flare over it. The beams and the cones are drawn at exactly this, and so are the four emitters' lenses
-        /// (#874), which is what makes the glass and the light leaving it one light. Pure of the wall clock, but it executes the linger's
+        /// kill flare over it, or the light the session asks for to tell of the net (<see cref="SetPreview"/>) if that is
+        /// more. The beams and the cones are drawn at exactly this, and so are the four emitters' lenses (#874), which is
+        /// what makes the glass and the light leaving it one light. Pure of the wall clock, but it executes the linger's
         /// expiry like <see cref="Draw"/> (the expiry is stamped, and running it twice in a frame changes nothing).
         /// </summary>
         internal float IntensityAt(float now)
@@ -435,8 +459,10 @@ namespace BS3D.Effects
             //(DrawsUnderlying), so this is the one place still running.
             if (_visible && now >= _expireAt) SetVisible(false, now);
 
+            float preview = PreviewAt(now);
+
             float envelope = EnvelopeAt(now);
-            if (envelope <= 0.001f) return 0f;
+            if (envelope <= 0.001f) return preview;
 
             float pulse = 0.5f - 0.5f * MathF.Cos(MathHelper.TwoPi * PULSE_HZ * now);
             float intensity = envelope * (PULSE_FLOOR + (1f - PULSE_FLOOR) * pulse * pulse);
@@ -457,7 +483,17 @@ namespace BS3D.Effects
                 intensity = MathHelper.Lerp(intensity, FLARE_INTENSITY, flare);
             }
 
-            return intensity;
+            return MathF.Max(intensity, preview);
+        }
+
+        //The light asked for to tell of the net (SetPreview), as it stands now: as asked while it is renewed, then gone
+        private float PreviewAt(float now)
+        {
+            if (_preview <= 0f) return 0f;
+
+            float stale = now - _previewAt;
+
+            return _preview * (1f - MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp((stale - PREVIEW_HOLD_SECONDS) / PREVIEW_FADE_SECONDS, 0f, 1f)));
         }
 
         public void Dispose()
