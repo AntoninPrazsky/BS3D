@@ -70,8 +70,8 @@ namespace BS3D.Screens
             float width = glyph.X + glyphGap + textWidth;
             float height = MathF.Max(glyph.Y, textHeight);
 
-            //The spring swells the praise when there is one and the card when there is not: the send-off is
-            //kicked on the frame it lands (#459) and has no praise row to carry it
+            //The spring swells the praise when there is one and the card when there is not: a card turning to its second step
+            //(#930) is kicked on the frame it turns and has no praise row to carry it
             bool praising = praise.Y > 0f;
             float clamp = width > 0f ? 2f * halfStrip / width : float.MaxValue;
             float scale = MathF.Min(arrive * (praising ? 1f : kick), clamp);

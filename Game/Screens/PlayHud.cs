@@ -3325,7 +3325,7 @@ namespace BS3D.Screens
 
         /// <summary>
         /// An action on the card was just done: its praise word pops the way the score does on a hit — the word
-        /// alone, so the instruction over it stays put (#673); the send-off, which has no praise row, pops whole.
+        /// alone, so the instruction over it stays put (#673); a card turning to its second step, which has no praise row, pops whole.
         /// </summary>
         internal void KickTutorial() => _tutorialPulse.Kick(HUD_TUTORIAL_PRAISE_KICK);
 
@@ -3596,14 +3596,7 @@ namespace BS3D.Screens
 
             Vector2 captionAt = card.CaptionAt;
 
-            //The send-off that closes the ladder wears the praise's dress from the moment it lands (#459):
-            //there is nothing left on it to earn, so it arrives celebrating instead of turning amber later.
-            if (tutorial.Celebrating)
-                DrawGlow(captionFont, caption, captionAt, captionSize, scale, tutorial.PraiseHeat, HUD_ACCENT,
-                    HUD_GLOW_PASSES);
-
-            DrawString(captionFont, caption, captionAt,
-                (tutorial.Celebrating ? HUD_ACCENT : BS3DGame.MENU_TEXT) * alpha, scale);
+            DrawString(captionFont, caption, captionAt, BS3DGame.MENU_TEXT * alpha, scale);
 
             if (detailSize.Y > 0f)
                 DrawString(detailFont, detail, card.DetailAt, HUD_CAPTION * alpha, scale);

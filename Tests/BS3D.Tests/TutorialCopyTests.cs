@@ -13,9 +13,9 @@ namespace BS3D.Tests
     /// detail, and not many words. The rule is shown to fire on the copy it replaced (the strings are the old cards', as they
     /// stood on main before #930), or "no card asks two things" would be a loop that cannot fail.
     /// <para>
-    /// Not held to it: the send-off, which is a reward and asks nothing, and the kind cards (#735), which say what a ball is
-    /// and are not steps - their copy is checked against the Help page's by hand ("A card for every kind" in
-    /// <c>docs/game-feedback.md</c>).
+    /// Not held to it: the kind cards (#735), which say what a ball is and are not steps - their copy is checked against the
+    /// Help page's by hand ("A card for every kind" in <c>docs/game-feedback.md</c>). The closing card is held to it since
+    /// #936: it was a reward that asked nothing (a send-off), and is now advice to do one thing.
     /// </para>
     /// </summary>
     public class TutorialCopyTests
@@ -83,6 +83,9 @@ namespace BS3D.Tests
         [InlineData("Ｒ", "Turn the next ball into a cutter", "It takes the whole storey it hits, and all that hangs on it")]
         [InlineData("Ｅ", "Swap the next two balls", "One swap a level, for when the queue lets you down")]
         [InlineData("Ｑ", "Lift the glass back one step", "One brake a level, once the glass has come down")]
+        [InlineData(null, "Stuck? Fire a ball into empty space — you lose the streak, not the level", null)]
+        [InlineData(null, "That’s the basics — you know how to play", "On to the adventure!")]
+        [InlineData(null, "Stuck? Throw a ball away", "Fire it into empty space, or onto another colour")]
         public void The_rule_names_each_card_it_replaced(string glyph, string caption, string detail)
         {
             Assert.NotNull(Fault(glyph, caption, detail));
@@ -94,6 +97,7 @@ namespace BS3D.Tests
         [InlineData("⟶", "Hold to look down the barrel", null)]
         [InlineData("⟵", "Click to fire", "Space fires too")]
         [InlineData(null, "Match three of a colour", "Shoot beside two of the same colour")]
+        [InlineData(null, "Fire a ball into empty space when stuck", "Wasting a ball is fine")]
         public void The_rule_lets_a_plain_card_through(string glyph, string caption, string detail)
         {
             Assert.Null(Fault(glyph, caption, detail));

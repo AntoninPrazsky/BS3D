@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-22 — #936 Amphora: cesta ven místo vítání — desktop (RDT-PC), Claude Code (bs3d-dc)
+- Hotovo: závěrečná karta žebříčku (klíč `throwaway`, dřív `graduated`, „That’s the basics“) učí „Fire a ball into empty space when stuck“ / „Wasting a ball is fine“. Podruhé se ukáže jednou za pokus o level, když svítí síť, zbývá výstřel a koule v hlavni nemá kam skórovat (`Tutorial.ThrowAwayIsDue`, `MatchReach`), nejdřív 8 s po první. `graduated` je `LegacyKey`: veterán kartu uvidí při dalším vstupu do Amphory a zapíše se mu `throwaway` (ověřeno během běhu). `Celebrates` zrušeno; Help má odstavec.
+- Recenze: druhé ukázání se mohlo objevit i s vyčerpaným rozpočtem (v hlavni zůstává kulka); teď ne. Retry arming zůstává záměrně (nový pokus).
+- ⚠ Druhé ukázání argumenty nenasnímáš (v živé hře koule bez cíle nenastane): snímek je s vynucenou mrtvou hlavní.
+- Otevřené: `verdict-eye`; nikdo to nehrál jako nováček, časování druhého ukázání ve hře.
+
 ## 2026-10-20 — #970 potůček a rybník jsou jedna voda — desktop (RDT-PC), Claude Code (bs3d-bf)
 - Hotovo: v ústí vodu nestínuje to, která ze dvou sítí pixel kreslí, ale poloha: hloubka je hlubší z koryta a kráteru (koryto běží ~4,7 j. pod mělčinou), proud slábne poslední 3 j. potoka a nese se jazykem 7 j. do rybníka, stín rýhy (`GrooveSun`) mizí k břehu i na zemi. CPU kopie `MeadowCarve.WaterShading`; test spojitosti na příznaku padal skokem 1,0.
 - ⚠ Dvě sítě na jednom břehu nemají šev, jen když každý vstup stínování je funkcí polohy, ne příznaku sítě.

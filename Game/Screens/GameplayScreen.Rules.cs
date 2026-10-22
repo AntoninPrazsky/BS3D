@@ -909,6 +909,19 @@ namespace BS3D.Screens
             //something to say it about — and never the pinned-on net of a `lasers` run, which is nobody playing
             if (warn && !_laserGrid.Visible && !_test.ForceLaserWarning) _tutorial.Trigger(Tutorial.Lesson.Line);
 
+            //And the throw-away lesson's (#936): the net is on and the round in the bore has nowhere to score, so firing it
+            //into empty space is the move - while there is a shot left to throw: the magazine keeps a round in the bore after
+            //the budget is spent, and a card advising a ball nobody has would be a lie (the Swap's hint asks the same,
+            //SwapIsTheCure). Asked only while the lesson is armed (Amphora, once its opening card has been read), and a
+            //`lasers` run's pinned net counts - the other half of the condition is the field's, and that is how the moment
+            //is photographed
+            if (warn && _map != null && !_run.Score.OutOfShots && _tutorial.IsArmed(Tutorial.Lesson.ThrowAway)
+                && Tutorial.ThrowAwayIsDue(netOn: true, boreCanScore: RoundCanScore(SWAP_SLOT_A)))
+            {
+                if (_test.LogShots) Console.WriteLine($"[tutorial] throw-away due: the net is on and {_magazine.Slot(SWAP_SLOT_A).Type} has nowhere to score");
+                _tutorial.Trigger(Tutorial.Lesson.ThrowAway);
+            }
+
             _laserGrid.SetVisible(warn, WallClock);
         }
 
