@@ -40,5 +40,5 @@ The flat deck has no silhouette with height and streaks towards the horizon from
 
 ## Cheaper sky: measured, not worth it
 
-- Testbed, sea, dome 13, `nocap`, fixed camera: the deck's shading costs 1.56 to 0.75 ms; approximating the shadow's second `CloudCover` **and** cutting `CloudDetailD` from seven octaves to five together still measure **1.56 ms**: the cost is the field evaluation itself (as for the forest floor, cavern and dream, `docs/scenes.md`). ⚠ **A fixed camera is not optional** (an orbiting-camera sweep once showed two reductions together worse than either alone).
+- Testbed, sea, dome 13, `nocap`, fixed camera: the deck's shading costs 1.56 to 0.75 ms; approximating the shadow's second `CloudCover` **and** cutting `CloudDetailD` from seven octaves to five together still measure **1.56 ms**: the cost is the field evaluation itself (as for the forest floor and the dream, `docs/scenes.md`). ⚠ **A fixed camera is not optional** (an orbiting-camera sweep once showed two reductions together worse than either alone).
 - **A lower-resolution deck target** is worth at most **~2.9-3.0 ms** (camera straight up, weakest machine, dome 13), only with the sky filling the frame and only at `High`: **not taken**.

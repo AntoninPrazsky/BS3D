@@ -1,6 +1,6 @@
 //The floor alarm: a grid of red laser beams hovering on the plane a ball's surface would touch at the
-//moment the level is lost, shown while the descending ceiling is within two more steps of pushing the
-//cluster past the death line (GameplayScreen.UpdateLaserWarning owns the trigger; LaserGrid.cs owns the
+//moment the level is lost, shown while the descending ceiling is within GameplayScreen.LASER_WARN_STEPS more steps of
+//pushing the cluster past the death line (GameplayScreen.UpdateLaserWarning owns the trigger; LaserGrid.cs owns the
 //beams), and the four soft cones that project it from the emitters' lenses in the funnel (#874). The C#
 //side bakes one static quad per beam and a short strip of quads per cone - both endpoints ride on every
 //vertex with its own half-width and gain, so nothing is rebuilt or re-uploaded per frame - and drives the

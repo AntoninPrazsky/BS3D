@@ -3432,8 +3432,8 @@ namespace BS3D.Screens
         #region The "fire" chip (#925)
 
         //For a player who has stopped in the first five levels: the fire button's glyph and one word, in the tutorial card's two
-        //faces (the loudest standing type, the owner's rule that a cue ships at the bold end), a little under the card's size
-        //because it is up for seconds and at the aim point, with an amber halo that beats once a second. The rules - when it
+        //faces (the loudest standing type, the owner's rule that a cue ships at the bold end), at the card's size
+        //(HUD_FIRE_HINT_SIZE scales the pair), up for seconds and at the aim point, with an amber halo that beats once a second. The rules - when it
         //comes, when it goes - are FireHint's; this draws what it reads. Design units like every other readout.
         private const float HUD_FIRE_HINT_SIZE = 1f;
         private const int HUD_FIRE_HINT_GAP = 36;

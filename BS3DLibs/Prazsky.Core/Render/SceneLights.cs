@@ -20,9 +20,9 @@ namespace Prazsky.Core.Render
     /// </para>
     /// <para>
     /// <b>The savanna grass shader's copy is deliberately not this one.</b>
-    /// <see cref="SceneRenderer"/>'s <c>DrawSavanna</c> writes the same four uniform names on its own grass
-    /// effect with the count hard-set to 1, out of its own arrays; that is a different effect with a different
-    /// count, so this class must not try to own it and the two must not be unified. What the two paths do
+    /// <c>SavannaBackdrop.DrawSavanna</c> writes the same four uniform names on its own grass effect, one slot
+    /// per fire out of its own arrays; that is a different effect with its own arrays, so this class must not
+    /// try to own it and the two must not be unified. What the two paths do
     /// share is the campfire itself — its colour and range (<see cref="SceneRenderer.CampfireColor"/>,
     /// <see cref="SceneRenderer.SavannaCampfireRange"/>) and its bearing and ground — which is what keeps the
     /// light on the grass and the light on the balls in step. The <b>height</b> is the one thing they do not share
@@ -76,10 +76,10 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The volcano's flows for a host that draws no <see cref="SceneRenderer"/> (#795): the Raspberry Pi's Potato
-        /// path builds no backdrop, and without one it had no lamps to light the cluster with, which on a dusk dome left
-        /// the balls near black. It solves a <see cref="VolcanoLava"/> of its own, on the same config and seed, and
-        /// <see cref="Apply"/> takes the lamps from it when it is handed no renderer. A host with a renderer leaves this
-        /// null and the renderer's own is read.
+        /// path builds none, only a <see cref="PotatoBackdrop"/> of ground and scatter with no lamps, so it had no lamps to
+        /// light the cluster with, which on a dusk dome left the balls near black. It solves a <see cref="VolcanoLava"/>
+        /// of its own, on the same config and seed, and <see cref="Apply"/> takes the lamps from it when it is handed no
+        /// renderer. A host with a renderer leaves this null and the renderer's own is read.
         /// </summary>
         public VolcanoLava Volcano { get; set; }
 

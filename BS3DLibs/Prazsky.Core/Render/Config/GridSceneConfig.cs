@@ -91,7 +91,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The Hilbert-curve trace (linear) — deliberately past the glare threshold, so the one deliberately
-        /// drawn shape on this floor is the one thing on it that blooms, the same way the aurora's ribbons
+        /// drawn shape on this floor is the one thing on it that blooms, the same way the aurora's curtains
         /// and a neon window are allowed to where a star is not.
         /// </summary>
         public Rgb AccentColor { get; set; } = new(0.55f, 2.00f, 2.35f);

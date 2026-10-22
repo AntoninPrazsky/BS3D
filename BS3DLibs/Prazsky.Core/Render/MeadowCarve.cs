@@ -70,8 +70,8 @@ namespace Prazsky.Core.Render
         /// of the block this falls in): the patch eases onto the coarse grid's own surface over it.</summary>
         public const float BROOK_HOLE_END = BROOK_CARVE_END + 2f, BROOK_PATCH_END = BROOK_HOLE_END + 1.5f;
 
-        /// <summary>How far to the side the swale can reach (the widest water, margin and bank at their widest stretch:
-        /// 7.0), where the coarse grid's hole ends, and how far the patch reaches past it - every block of it with a vertex
+        /// <summary>How far to the side the swale can reach (the widest water, margin, step and bank at their widest stretch:
+        /// 7.8), where the coarse grid's hole ends, and how far the patch reaches past it - every block of it with a vertex
         /// this near is drawn (<see cref="MeadowPatchGeometry.LOD_BLOCK"/>) - all in world units of lateral.</summary>
         public const float BROOK_CARVE_HALF = 7.9f, BROOK_HOLE_HALF = 9.3f, BROOK_PATCH_HALF = 9.9f;
 
@@ -125,7 +125,7 @@ namespace Prazsky.Core.Render
                 * ShaderMath.SmoothStep(-0.6f, 0.6f, side * (0.6f * MathF.Sin(d * 0.071f + 0.8f) + 0.4f * MathF.Sin(d * 0.19f + 2.1f)));
 
         /// <summary>The grassy bank's width on level ground at distance <paramref name="d"/> on side <paramref name="side"/>:
-        /// 2.0 to 3.2 at <see cref="BROOK_BANK"/>, each side on its own wobble.</summary>
+        /// 1.8 to 3.0 at <see cref="BROOK_BANK"/>, each side on its own wobble.</summary>
         public static float BrookBank(float d, float side) =>
             BROOK_BANK * (1f + 0.16f * MathF.Sin(d * 0.053f + 1.7f + 1.3f * side) + 0.08f * MathF.Sin(d * 0.137f + 0.4f + 2.2f * side));
 

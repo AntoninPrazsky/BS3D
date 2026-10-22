@@ -7,9 +7,10 @@ namespace Prazsky.Core.Render
 {
     /// <summary>
     /// The aurora's far stand's spruce (#963): a spire of skirts of jagged bough tips over a short stem, about 170
-    /// triangles, wound clockwise from outside like every procedural mesh (<c>Tools/WindingCheck</c> judges it). The far
-    /// stand draws a few thousand of it instanced on the hills past the planted wood, where a tree is a silhouette and
-    /// a silhouette is its bough tips. Its vertices carry how much of a tier's top the snow may lie on.
+    /// triangles at the default detail, wound clockwise from outside like every procedural mesh (<c>Tools/WindingCheck</c>
+    /// judges it). The far stand draws it instanced, at that detail for the near ring and at less past it
+    /// (<see cref="AuroraFarStandConfig.Count"/> and <see cref="AuroraFarStandConfig.FarCount"/> of them), on the hills
+    /// past the planted wood, where a tree is a silhouette and a silhouette is its bough tips. Its vertices carry how much of a tier's top the snow may lie on.
     /// </summary>
     public sealed class AuroraStandMesh : IProceduralMesh, IDisposable
     {
@@ -50,8 +51,8 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The spire: <paramref name="tiers"/> skirts of jagged bough tips, each a cone up to a collar inside the next, over a
         /// short stem, and a leader. A far tree is a silhouette, and a silhouette is its bough tips: each skirt's ring of
-        /// <paramref name="sides"/> alternates long and short tips and droops at them. Four tiers of ten for the near ring
-        /// of the stand, two of seven past it.
+        /// <paramref name="sides"/> alternates long and short tips and droops at them. Four tiers of ten sides (the defaults) for the near ring
+        /// of the stand, two of eight past it.
         /// </summary>
         public AuroraStandMesh(GraphicsDevice device, AuroraFarStandConfig stand, int tiers = 4, int sides = 10)
         {

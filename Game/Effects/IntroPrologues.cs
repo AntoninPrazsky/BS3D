@@ -31,10 +31,11 @@ namespace BS3D.Effects
     /// stands outside the clearing where the tour's spline never goes, and the shots thread the very spruces this
     /// game planted, off the planting itself. And since #559 the open-ground scenes, each off its own land — the
     /// meadow, the savanna, the forest and the tropical beach through <see cref="IntroGround"/>, off the land's
-    /// height mirror and the scene's own planting; four scenes whose things a shader builds: the dream's glass and
-    /// orbs, the cavern's crystals and god rays, the storm's cells and its strike, the icesheet's crevasses and
-    /// front, found through the renderer's host copies of the shaders' own placement (the dream's and the storm's
-    /// subjects move, so theirs are laid out on the wall clock they will play in) — and the four scenes off the
+    /// height mirror and the scene's own planting; three scenes whose things a shader builds: the dream's glass and
+    /// orbs, the storm's cells and its strike, the icesheet's crevasses and front, found through the renderer's host
+    /// copies of the shaders' own placement (the dream's and the storm's subjects move, so theirs are laid out on the
+    /// wall clock they will play in); the cavern, whose hall is geometry the shots are placed against
+    /// (<see cref="CavernIntroShots"/>, #958) — and the four scenes off the
     /// Earth, the Moon, Mars, space and the Grid, each shot about one thing the scene builds: a real crater, a real
     /// mesa, the planet and the drain, one cube and the landmark ring.
     /// </para>

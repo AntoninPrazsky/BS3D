@@ -24,7 +24,7 @@ The drop cinematic can film the sea from **below** (`OpenBelow`), swinging the e
 - ⚠ **The release must be precisely zero for any lens more than half a unit over the mean level.** A first attempt released the fade over a 1.5-unit band measured from `EyePosition`, which put the release above the surface: the fade was 93 % gone a tenth of a unit over the water, and the whole submerged drain shaft then drew straight through the standing pool (#132's composite). Every shipped camera is above the bound: the Game's play lens is pinned at Y = -7.4 (`GameCameraFit`'s `LENS_FLOOR_Y`), 5.6 units over the mean.
 - Inside that last half unit the release follows the murk, on purpose: the crests reach about +-2.4, so a lens at the mean level is as likely to be in water as above it.
 - Re-check on static geometry, no falling ball needed: the drain's glass cone and bottom gold band run through `MainPS`'s call of the fade. From `campos=0,-18,24 camtarget=0,-8,0`, five units under, the cone must be drawn, not cut dead at the waterline.
-- Open: a ball watched from under water stays drawn to the kill plane at -42 and is culled in one frame (five other `OpenBelow` scenes show the same pop), and for the top quarter of the cinematic's elevation roll the eye is still above the water while the subject is metres under.
+- Open: a ball watched from under water stays drawn to the kill plane at -42 and is culled in one frame (six other `OpenBelow` scenes show the same pop), and for the top quarter of the cinematic's elevation roll the eye is still above the water while the subject is metres under.
 
 ## The drain holds a standing pool of the same water (#132)
 

@@ -44,7 +44,7 @@ namespace Prazsky.Core.Render
         private readonly AuroraMoundMap _mounds;
         private readonly Texture2D _moundTexture;
 
-        //The far stand: one spire mesh, a few thousand instances
+        //The far stand: two spire meshes (the near ring's and the farther one's, at less detail), AuroraFarStandConfig.Count and FarCount instances of them
         private readonly AuroraStandMesh _standMesh, _standFarMesh;
         private readonly VertexBuffer _standInstances, _standFarInstances;
         private readonly int _standCount, _standFarCount;

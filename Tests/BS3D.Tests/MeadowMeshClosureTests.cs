@@ -9,10 +9,11 @@ using Xunit;
 namespace BS3D.Tests
 {
     /// <summary>
-    /// The meadow's solid props are closed (#943). The owner, on the hay rolls: "a hole along their edges". The bale's
-    /// ends were separate discs at 0.98 of the tube's ring, so a ring-shaped slit stood open all round each end, and under
-    /// back-face culling one saw through the roll. <c>Tools/WindingCheck</c> checks the way a face points and not whether the
-    /// solid is shut, so the check here counts the triangles each edge belongs to. Built with no device, what
+    /// The meadow's solid props are closed (#943). The owner, on the hay rolls: "a hole along their edges". An end made
+    /// as a separate disc a hair under the tube's ring leaves a ring-shaped slit open all round it, and under back-face
+    /// culling one sees through the roll. <c>Tools/WindingCheck</c>'s winding judgement checks the way a face points and not
+    /// whether the solid is shut (its <c>--openness</c> gate does, #974), so the check here counts the triangles each edge
+    /// belongs to. Built with no device, what
     /// <see cref="MeadowScatter"/> plants. Not covered, on purpose: the grass tufts and reeds and the trees' leaf cards
     /// (two-sided ribbons, open by design), and the boulders (a lathe whose buffers cannot be read back; its profile runs
     /// from a pole to a pole, so it is shut by construction).

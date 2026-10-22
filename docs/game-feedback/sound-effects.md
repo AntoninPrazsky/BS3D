@@ -118,7 +118,7 @@ The result screen's rating lands one star at a time, each playing `PlayStarEarne
 
 ### A new best (#926)
 
-`PlayNewBest()` sounds on the frame the result page's NEW BEST word lands (`ResultPage.AnnounceNewBest`, once a page), over the last earned star's chime ([the word](../game-shell/level-picker-and-result.md#the-result-page)). Dry and unplaced like the star cues, `NEW_BEST_VOLUME` 0.6 (over a star's 0.55: the moment the page is celebrating, not one more step of the count). It is `NewBestSynth`, pure arithmetic in a file of its own so the tests compile the lines the game plays.
+`PlayNewBest()` sounds on the frame the result page's NEW BEST word lands (`ResultPage.AnnounceNewBest`, once a page), over the last earned star's chime ([the word](../game-shell/level-picker-and-result.md#the-result-page)). Dry and unplaced like the star cues, `NEW_BEST_VOLUME` 0.6 (over the earlier stars' 0.55 and a hair under the last star's 0.63: the moment the page is celebrating, not one more step of the count). It is `NewBestSynth`, pure arithmetic in a file of its own so the tests compile the lines the game plays.
 
 - **A rising glitter landing on a chord**: six struck bells, E5 A5 C#6 E6 A6 C#7, 50 ms apart, each dying in a tenth of a second, so the run is a flurry of separate glints; struck with the last, the chord A4 E5 A5 E6 A6 (the low two swell in over 35 ms, the bed under the bells) rings for 1.1 s. A major, the star chimes' own key (A5 C#6 E6 A6) and the victory recording's, so an overlap cannot clash. 1.35 s in all.
 - **A soft mallet's tone** as the streak break's: the fundamental, a quiet octave and the struck bar's inharmonic 2.76, rolled off twice at 3.2 kHz. No noise, no drive, peak-normalised.

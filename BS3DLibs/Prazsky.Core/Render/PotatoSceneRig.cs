@@ -8,8 +8,8 @@ namespace Prazsky.Core.Render
     /// the Potato path builds none, so <see cref="SkyLightRig"/> had only the dome to light by, and the Moon, the cavern
     /// and the Grid stood in the dome's lilac where the desktop lights them with the scene's own rig
     /// (<c>Backdrop.TryGetLightRig</c>) under a void. Each answer here is the figure the scene's own backdrop gives
-    /// from its config's defaults - the aurora's without its hue drift, which rides the curtains this path does not
-    /// draw - and the colour its void or its fog is, for the frame to be cleared to in place of the dome.
+    /// from its config's defaults - the aurora's without its back light's breath, which follows the curtains this path
+    /// does not draw - and the colour its void or its fog is, for the frame to be cleared to in place of the dome.
     /// </summary>
     public static class PotatoSceneRig
     {

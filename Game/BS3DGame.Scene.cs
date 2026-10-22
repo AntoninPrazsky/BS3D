@@ -504,9 +504,8 @@ namespace BS3D
             //ShiftTowardsSky (#108). Guarded inside on the tint, so it is free every frame but a dome switch.
             _forestScatter?.ApplySkyTint(_rig.KeyTint);
 
-            //The aurora's own wood is tinted per frame instead (below, alongside the scene lights), not
-            //here: its hue keeps drifting for as long as the scene is up, where this method only runs on
-            //a dome/scene switch or a level's ceiling refit.
+            //The aurora's own wood takes the scene's glow colour instead (below, alongside the scene lights),
+            //not the rig's key tint pushed here: it is another scatter, and the tint is the scene's own.
 
             //The clouds' own colours follow the dome as well, and the lit side is handed the very radiance the
             //rig gives the scene — one sun, one number (see SkyLightRig.SunRadianceTinted). Since #220 the

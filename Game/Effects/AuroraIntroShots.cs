@@ -11,8 +11,8 @@ namespace BS3D.Effects
     /// looks the same way. Every shot is on something the scene is for: the wood, the moonlit snow, the aurora.
     /// <para>
     /// <b>The path between the trunks is found, not laid out</b> — the city's street shot's trick with the trees in place of
-    /// the towers. The wood is a clumped scatter (<see cref="ForestScatter"/>), so a few dozen straight runs heading towards
-    /// the curtains are rolled, each measured against every conifer and snag the planting holds (the horizontal distance
+    /// the towers. The wood is a clumped scatter (<see cref="ForestScatter"/>), so a few hundred straight runs
+    /// (<c>WOOD_CANDIDATES</c>) heading towards the curtains are rolled, each measured against every conifer and snag the planting holds (the horizontal distance
     /// from the trunk to the run must clear the crown at its scale), and of those that clear, the one with the most trees
     /// standing near it on both hands is taken. Heights come off the snow as drawn
     /// (<see cref="SceneRenderer.AuroraGroundHeight"/>, the drifts round the trunks included). Built once when the intro

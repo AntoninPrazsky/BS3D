@@ -188,8 +188,9 @@ namespace Prazsky.Core.Render
     /// <summary>
     /// A shell seen from inside (#829): a frustum's wall between two heights and two radii - a cylinder, a cone, a
     /// rake - and the disc that closes its top, normals inward (and up or down as the wall leans), wound for an eye
-    /// inside it. The cavern's rock and the big top's canvas, wall and seats, which the desktop marches or hits in
-    /// closed form.
+    /// inside it. The big top's canvas, wall and seats, which the desktop hits in closed form; built with
+    /// <c>inside: false</c> the same frustum is seen from outside: the planet's belts and the trees' stems, crowns and
+    /// columns.
     /// </summary>
     public sealed class PotatoShellMesh : IProceduralMesh, IDisposable
     {
@@ -201,7 +202,7 @@ namespace Prazsky.Core.Render
         /// <param name="keepSegment">Which of the wall's segments to build, by index, or null for all: the big top's
         /// canvas is two shells over one cone, the red panels and the cream.</param>
         /// <param name="closeTop">Whether the top is closed by a disc.</param>
-        /// <param name="inside">Whether the eye is inside (the cavern, the tent) or outside (a tree's trunk as a column).</param>
+        /// <param name="inside">Whether the eye is inside (the tent) or outside (a tree's trunk as a column).</param>
         public PotatoShellMesh(GraphicsDevice graphicsDevice, float radiusBottom, float radiusTop, float bottom, float top, int segments,
             Func<int, bool> keepSegment = null, bool closeTop = true, bool inside = true)
         {

@@ -24,7 +24,7 @@ float SlabJointDepth;
 float SlabWarp;
 
 //What the joints' FLOORS put out, as linear radiance (#535): the volcano island's cooling cracks glowing a
-//dull red from inside, the cavern island's mineral veins running where the walls' do. Zero on every other
+//dull red from inside, the cavern island's mineral veins, a glow along its joints. Zero on every other
 //surface, and the branch that reads it skips. Read at the groove's floor SQUARED, so the bevel stays dark
 //and only the deepest part of a crack is incandescent - which is what a cooling crack looks like.
 float3 JointGlow;

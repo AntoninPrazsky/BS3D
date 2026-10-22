@@ -10,7 +10,7 @@ The twentieth `SceneKind` (#393): an early-1980s computer-graphics backdrop draw
 
 - **⚠ Pin `sceneseed=` for any A/B**, or it is two different scenes (the Testbed re-seeds per run); `sceneseed=0` is the shipped arrangement. **⚠ `fpscap=400` measures nothing here** (both halves sat at the cap): use `fpscap=2000`.
 - **Light comes only from the seams**: a near-black body lit by its own bright seams (grid lines, the Hilbert trace, every solid's edges), fed to the same bloom (`GLARE_THRESHOLD`). The model is TRON's backlit compositing; the solids are plain `BoxMesh` prisms.
-- **Never an `atan2`/azimuth construction** (spirals, rings): an unwrapped angle jumps at its wrap line (Mars's gullies, the aurora's ribbons).
+- **Never an `atan2`/azimuth construction** (spirals, rings): an unwrapped angle jumps at its wrap line (Mars's gullies, the aurora's curtains).
 - **Backdrop-only**: balls, island and gun stay on the ordinary lit path, tinted by `GridLightingConfig`'s cool rig; there is no emissive shading mode. No seventh `SceneLights` branch and no `TryGetSceneEvent`. The viewpoint is low and close (overhead flattens the pattern to a swatch). The ambience is an electrical hum (explicit `case SceneKind.Grid` in `ProceduralAmbience.BakeScene`).
 
 ## The floor

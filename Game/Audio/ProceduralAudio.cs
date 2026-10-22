@@ -145,8 +145,9 @@ namespace BS3D.Audio
         private const float STREAK_BREAK_VOLUME = 0.4f;
         private const float STREAK_BREAK_LOW_LEVEL = 0.6f;
 
-        //A new best's glitter and chord (#926): above the star chimes it sounds over (STAR_VOLUME 0.55), because it is the moment the page
-        //is celebrating and not one more step of the count, and under the victory fanfare it plays beside
+        //A new best's glitter and chord (#926): above the earlier star chimes (STAR_VOLUME) and a hair under the last one's
+        //(STAR_VOLUME x STAR_FINAL_LIFT) it sounds over, because it is the moment the page is celebrating and not one
+        //more step of the count, and under the victory fanfare it plays beside
         private const float NEW_BEST_VOLUME = 0.6f;
 
         private readonly SoundEffect _shoot;

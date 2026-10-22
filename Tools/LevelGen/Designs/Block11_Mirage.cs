@@ -417,9 +417,9 @@ namespace BS3D.Tools.LevelGen
             CeilingStep = 8,
             OccupiedBlock = (x, z, i, depth) => MirageRadius(x, z, i, SEAM_GRID) <= SeamRadius(i),
             BlockColour = SeamColour,
-            //One course short of the glass (#343), which is Keystone's rule arriving here — see ObsidianKind
-            //for the whole argument. The seam's cells on the anchor course are still there and still drawn;
-            //they simply carry their side's colour instead of granite.
+            //SEAM_ROOF courses short of the glass (#343, #879), which is Keystone's rule arriving here — see
+            //ObsidianKind for the whole argument. The seam's cells on those courses are still there and still
+            //drawn; they simply carry their side's colour instead of granite.
             BlockKind = (x, z, i, depth) =>
                 SeamBomb(x, z, i) ? BallKind.Bomb
                 : i < depth - SEAM_ROOF && SeamStone(x, z, i) ? BallKind.Rock : BallKind.Normal,
@@ -480,10 +480,11 @@ namespace BS3D.Tools.LevelGen
         /// <para>
         /// <b>⚠ "Quartered top to bottom" is what this used to say, and #343 is why it no longer is.</b> The
         /// walls reached the anchor course, which cost 44 rocks the player could never bring down — the most
-        /// of any level in the campaign. They stop one course short now, so the anchor course is a single
-        /// roof the four chambers meet under, which is <see cref="Keystone"/>'s span arriving in a design
-        /// that did not ask for it. It is a real change to the level and not only to its rocks: the roof is
-        /// the one place a colour can be worked across two quarters at once.
+        /// of any level in the campaign. They stop <see cref="CAIRN_ROOF"/> courses short now (one, #343; more,
+        /// #879), so the top courses are a single roof the four chambers meet under, which is
+        /// <see cref="Keystone"/>'s span arriving in a design that did not ask for it. It is a real change to
+        /// the level and not only to its rocks: the roof is the one place a colour can be worked across two
+        /// quarters at once.
         /// </para>
         /// <para>
         /// <b>The walls are one cell thick and they still hold</b>, for <see cref="Keystone"/>'s reason:
@@ -514,7 +515,7 @@ namespace BS3D.Tools.LevelGen
             CeilingStep = 10,
             OccupiedBlock = (x, z, i, depth) => MirageRadius(x, z, i, CAIRN_GRID) <= CairnRadius(i),
             BlockColour = CairnColour,
-            //One course short of the glass (#343) — see Seam's own line and ObsidianKind for the argument.
+            //CAIRN_ROOF courses short of the glass (#343, #879) — see Seam's own line and ObsidianKind for the argument.
             BlockKind = (x, z, i, depth) =>
                 CairnBomb(x, z, i) ? BallKind.Bomb
                 : i < depth - CAIRN_ROOF && CairnWall(x, z, i) ? BallKind.Rock : BallKind.Normal,
