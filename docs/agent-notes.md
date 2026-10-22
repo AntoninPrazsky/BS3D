@@ -20,6 +20,15 @@ Pravidla:
 
 ---
 
+## 2026-10-22 — stav před vydáním: 4. kolo verdiktů, co zbývá — desktop (RDT-PC), Claude Code (bs3d-dc)
+- Hotovo a na main (CI zelená): #936, #933, #952, #400 (13. kolo), #977, #961, #777, #941, #908, #962 (1. etapa), #967 (1. etapa).
+- majitel (22. 10.): koupil kredity dvakrát; dokončit rozdělané, pak připravit vydání, nic nového nezačínat.
+- Stránka verdiktů 4. kola (12 karet, účet panrdt): https://claude.ai/artifact/TZAF5xh2tZUVee4ZhfzmrE, db `verdicts`, odkaz na každém issue. Po odpovědích: Vrať opravit, odpovědi na issues, OK zavřít.
+- Vydání: návrh v0.5.0, poznámky nadraftované (scratchpad bs3d-dc `release/v0.5.0.md`), screenshot Jeskyně; Mirage 133–140 má nové tabule → `update-ceilings.sh` na Pi po publikaci; BS3D-API se nemění (v0.1.26 stačí).
+- ⚠ Tři Opus agenti narazili na týdenní limit (reset 25. 10. 22:00) 3,5 h po nákupu kreditů; resume přes SendMessage drží kontext. Nejvýš dva Opus agenti naráz.
+- ⚠ #962 1. etapa stojí na 4K High +2,3 ms (12,6 → 14,9 ms, nad 13,33 ms stropu 75 Hz); úspory jsou až v 2. etapě — majitel rozhodne na stránce.
+- Zbývá otevřené: #962 2. etapa, #967 (#776, #749), #751 jehličí, #922 web screenshoty (po vydání), rozhodnutí #896/#858/#838 a kde hráč potká Les.
+
 ## 2026-10-22 — #962 Les na High/Ultra, první etapa: hustší les, listnáče v listí, kapradí, stromy na kopcích — desktop (RDT-PC), Claude Code (bs3d-dc)
 - Hotovo: reference (Z-Image + klein, `out/962-*`); High/Ultra mají +400 stromů (80 % smrky), 160 semenáčků, souše, klády, kapradí, listnáče s listy (meadow karty) a vzdálený porost na kopcích (`ForestFarStand`). Low/Medium kreslí přesně totéž (test + měření). Výsadbu vlastní backdrop (`SceneRenderer.ForestPlanting`).
 - Cena: High +2,3 ms, Ultra +2,6 ms (Testbed 3840×1600 ssaa 2, prázdné pole); největší položka jsou karty listů (pixely).
