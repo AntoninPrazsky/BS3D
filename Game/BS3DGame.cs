@@ -803,7 +803,7 @@ namespace BS3D
             _effective = new EffectiveSettings(_settings, launch.Mute);
 
             //Seeded BEFORE SetScene rather than applied after it, which is the opposite of what sky= does and
-            //deliberately so: the six scenes that state a dome of their own must still replace it, and every
+            //deliberately so: the scenes that state a dome of their own must still replace it, and every
             //other scene keeps it. An out-of-range dome from a hand-edited file is simply not applied.
             if (_settings.SkyDome >= 1 && _settings.SkyDome <= SKY_DOME_COUNT) _skyDome = _settings.SkyDome;
 

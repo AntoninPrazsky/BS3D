@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-22 — #961 Les: tmavé nebe a světlušky, které se tváří jako světlušky — desktop (RDT-PC), Claude Code (bs3d-dc)
+- Hotovo: „něco bliká na zemi“ byly světlušky (naměřeno: tvrdý šestipixelový kotouč, vynořil se jako olivová koule, za třetinu sekundy bílý, zmizel); podlaha sama je klidná (pomalý drift stínů mraků, o 0,03 posunutá kamera mění ~1 % pixelů). Teď 12 světlušek, černé tělo svítí jen emisí, sin², záře 1–2 s, halo z bloomu (jas 10), pomalé bloudění. Les má vlastní dome 15 (`SceneDefault`) a počasí Overcast.
+- ⚠ Dome samotná nebe nezatemní: pod Broken je střed horního nebe 90 (dome 13) a 89 (dome 15), jas dělá mraková vrstva; Overcast je 55. Dome 9 má hnědé kopce.
+- Otevřené: `verdict-eye`; alternativa Broken + dome 15 je v captures (vrátit = `Weather = Broken`); pohyb světlušek posoudí majitel.
+
 ## 2026-10-22 — #936 Amphora: cesta ven místo vítání — desktop (RDT-PC), Claude Code (bs3d-dc)
 - Hotovo: závěrečná karta žebříčku (klíč `throwaway`, dřív `graduated`, „That’s the basics“) učí „Fire a ball into empty space when stuck“ / „Wasting a ball is fine“. Podruhé se ukáže jednou za pokus o level, když svítí síť, zbývá výstřel a koule v hlavni nemá kam skórovat (`Tutorial.ThrowAwayIsDue`, `MatchReach`), nejdřív 8 s po první. `graduated` je `LegacyKey`: veterán kartu uvidí při dalším vstupu do Amphory a zapíše se mu `throwaway` (ověřeno během běhu). `Celebrates` zrušeno; Help má odstavec.
 - Recenze: druhé ukázání se mohlo objevit i s vyčerpaným rozpočtem (v hlavni zůstává kulka); teď ne. Retry arming zůstává záměrně (nový pokus).
