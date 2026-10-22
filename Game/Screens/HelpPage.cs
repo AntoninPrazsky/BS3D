@@ -306,7 +306,7 @@ namespace BS3D.Screens
 
         /// <summary>
         /// The wheel over the tab row turns the tab (#686's rule): away from the player is the next one. Over the body it
-        /// is the scroller's own, Myra's, and reaches nothing here.
+        /// is the scroller's own (<see cref="MenuScrollViewer"/>, a fifth of the body a notch) and reaches nothing here.
         /// </summary>
         internal override void OnScrollWheel(int delta)
         {

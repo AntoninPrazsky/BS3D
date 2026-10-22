@@ -1229,3 +1229,9 @@ Pravidla:
 - ⚠ Přestavby (#958, #963) i po recenzi: hlavní nálezy byly „spoje nesplývají“ (závěje u pat nebyly vidět, texel 1 jednotka) a chybějící hloubka ostrůvků; recenze před merge se u velkých změn vyplácí. ⚠ Starší stránky patří druhému účtu a nejde je z nového otevřít.
 - Pozastaveno na přání majitele (limit potřebuje jinde), rozpracováno nezcommitované ve worktrees `BS3D-wt-400/-933/-936/-952`: #400 (nálezy 13. průchodu v komentáři), #933, #936, #952; claimy uvolněny. #941 vrácen (strop fronty).
 - Otevřené: verdikty #963 #970; nové poznámky #946–#978 (bs3d-34 jen zakládá); hudba #908–#917; #777.
+
+## 2026-10-22 — #952 kolečko myši v menu — desktop (RDT-PC), Claude Code (bs3d-dc)
+- Hotovo: všechny rolující seznamy (Help, Jukebox, Scény, mřížka výběru) stojí v `MenuScrollViewer` místo Myry: pomalý zářez posune pětinu výšky seznamu, rychlé kolečko zrychluje (každý zářez v řadě do 0,1 s přidá půl kroku, nejvýš 4x = 0,8 výšky, jako Page Down na Helpu). Aritmetika je čistá (`WheelScroll`, `WheelScrollTests`), první otočení vypíše jeden řádek `[menu] wheel:`.
+- Změřeno ve hře (sonda v `InternalArrange`, bez vstupu): Scény 1080p/4K měly krok 19 px (2,5 % / 1,7 %, 38 / 55 zářezů), teď 154 / 225 px (20 %, 5 zářezů). Reálná cesta `OnMouseWheel` ověřena v běhu: 154, pak 385 (boost 1,5x), pak zpět 77 (obrat resetuje).
+- ⚠ Myra 1.6.3: `ScrollMultiplier` krok neladí (10 × obsah / výška viewportu v px, hodnota delty se ignoruje).
+- Otevřené: `verdict-hands`, pocit v ruce majitele (kolečko nikdo nezkoušel).
