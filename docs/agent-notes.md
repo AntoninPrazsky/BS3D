@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-22 — #977 řádek nedohrané tabule: tónování a prázdná hvězda místo sloupce — desktop (RDT-PC), Claude Code (bs3d-dc)
+- Hotovo: slovo „not finished“ přestalo být sloupcem řádku (264 ze 780 jednotek desky, jménu zbývaly 3–4 znaky). Nedohraný pokus (0 hvězd) leží v zapuštěném pásu z #898 (`MENU_ROW_UNFINISHED_BRUSH`), jeho pořadí, jméno a skóre jsou o stupeň tmavší (vlastní řádek hráče zůstává purpurový) a ve sloupci poháru má prázdnou hvězdu ☆ – pohár je jen za clear, nedohraný pokus ho nemá ani na 1.–3. místě. Slova říká dál jen hráčova vlastní řádka pod tabulí. Jedno pravidlo v `BoardLayout.SignOf`; platí pro výsledek, plaketu v pickeru i `LevelBoardPage`. Při 1280x720 se „Nonexistent Pal“ vejde celé. Na 3840x1600 je deska teď široká jen tolik, kolik potřebuje nejdelší jméno (asi 1180 místo 1453 jednotek).
+- ⚠ Myra `Widget` bez `Stretch` v obou osách nedostane žádnou velikost a pozadí nevykreslí (pás byl prvně neviditelný).
+- Otevřené: verdikt oka (`verdicts\977\`), není zkoušeno na padu, v Potato ani na Pi.
+
 ## 2026-10-22 — #936 Amphora: cesta ven místo vítání — desktop (RDT-PC), Claude Code (bs3d-dc)
 - Hotovo: závěrečná karta žebříčku (klíč `throwaway`, dřív `graduated`, „That’s the basics“) učí „Fire a ball into empty space when stuck“ / „Wasting a ball is fine“. Podruhé se ukáže jednou za pokus o level, když svítí síť, zbývá výstřel a koule v hlavni nemá kam skórovat (`Tutorial.ThrowAwayIsDue`, `MatchReach`), nejdřív 8 s po první. `graduated` je `LegacyKey`: veterán kartu uvidí při dalším vstupu do Amphory a zapíše se mu `throwaway` (ověřeno během běhu). `Celebrates` zrušeno; Help má odstavec.
 - Recenze: druhé ukázání se mohlo objevit i s vyčerpaným rozpočtem (v hlavni zůstává kulka); teď ne. Retry arming zůstává záměrně (nový pokus).
