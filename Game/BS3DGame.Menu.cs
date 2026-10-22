@@ -2600,6 +2600,11 @@ namespace BS3D
         /// overlong page: at forty levels the walk went two screens past the bottom with the list unmoved and
         /// nothing highlighted anywhere on screen.
         /// </para>
+        /// <para>
+        /// <b>The mouse wheel moves it a fifth of its height a notch, up to four times that in a fast spin</b> (<see cref="MenuScrollViewer"/>, #952): the
+        /// scroller is that subclass, because Myra's own step was about twenty pixels whatever the list or the
+        /// resolution. "The mouse wheel over a list" in <c>docs/game-shell/menu-navigation.md</c> has the figures.
+        /// </para>
         /// </summary>
         /// <param name="reservedDesignUnits">Height the page needs around the scroller — its heading, its
         /// Back button and the plate's padding — in the same 2160p design units everything else here uses.</param>
@@ -2609,7 +2614,7 @@ namespace BS3D
             //one that hides the list completely
             int available = GraphicsDevice.Viewport.Height - Scaled(reservedDesignUnits);
 
-            return new ScrollViewer
+            return new MenuScrollViewer
             {
                 Content = content,
                 ShowHorizontalScrollBar = false,

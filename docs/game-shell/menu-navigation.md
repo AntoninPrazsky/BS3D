@@ -15,6 +15,29 @@ The menus are fully drivable from a gamepad (#61): Xbox is a target, and `Button
 - **Accept with the cursor down only *raises* it**: firing the top entry would make the first press mean "New Game" over a session in progress, on the screen that exists to offer Continue.
 - **A held direction** steps once, waits `NAV_REPEAT_DELAY`, then walks at `NAV_REPEAT_INTERVAL`, in wall-clock seconds, not frames. One `HeldDirectionFires` serves **two axes** (up/down walk the entries, left/right go to the active page, `MenuPage.PageSideways`: picker, Help, Settings, High Scores), each with its own held-direction fields so a diagonal push holds both.
 
+## The mouse wheel over a list (#952)
+
+Every scrolling menu stands in a `MenuScrollViewer` (`BS3DGame.MenuScroll`: Help's six bodies, the Jukebox's chapters and recordings, the Scene list, the level picker's grid), which replaces Myra's wheel step and nothing else. **A slow notch moves a fifth of the list's own height** (`WheelScroll.VIEWPORT_SHARE`), so the same part of the picture at every resolution and for a short list as for a long one, and **a fast spin accelerates**: each notch already turned in a run of events no more than 0.1 s apart and in one direction adds half a step to the next event's, up to four times a slow notch (`WheelScroll.Momentum`, `BOOST_PER_NOTCH`, `MAX_BOOST`). Four times a fifth is 0.8 of the viewport, the share the right stick and Page Down on Help move (`HelpPage.PAGE_KEY_SHARE`), so even the fastest spin leaves a fifth of what was on screen and no line passes unseen between two events; a pause or a turn the other way starts the run again, so a correction is never thrown at the full rate.
+
+The step is `delta / 120` notches (`WheelScroll.NOTCH`, Windows' `WHEEL_DELTA`), so a free-spinning wheel that lands three detents in one frame moves three steps (paid at the boost before the event, so a burst is not squared), and a high-resolution wheel's eighth-notch deltas add up through a carried fraction. It writes `ScrollPosition`, clamped to `[0, ScrollMaximum.Y]`, which is what the pad's walk, the right stick and Page Up/Down write too, so `KeepNavFocusInView` follows it and a wheel that arrives with the cursor up takes the focus to the first entry wholly in view. The scrollbar's thumb and a drag on it are Myra's.
+
+- ⚠ **Myra 1.6.3's `ScrollViewer.OnMouseWheel` is not a step in pixels you can tune with `ScrollMultiplier`**: it moves `ScrollMultiplier × ScrollMaximum.Y / thumb travel` pixels for any non-zero delta, whatever its size. That is about ten times content height over viewport height, so the same 12 to 23 pixels at 720p and at 3840x1600 (a share of the screen that falls as the display grows), longer lists moved further than short ones, and a spin of several detents in one frame moved one. Raising the multiplier would have kept all three.
+- **Measured in the running game** (a probe in `MenuScrollViewer.InternalArrange` that called Myra's own `OnMouseWheel(-120)` and this class's on the laid-out list, 2026-10-20 and again 2026-10-22; windowed, native 3D). Px are the list's pixels; a "notch" is a delta of 120; "range" is `ScrollMaximum.Y`. The first turn of the wheel in a run prints one `[menu] wheel:` line with the slow notch in pixels and as a share of the viewport, so a "the wheel is too slow" report can be checked against the step:
+
+| List | Window | Viewport | Range | Myra's notch | Notches to cross | A slow notch now | Notches to cross |
+|---|---|---|---|---|---|---|---|
+| Scene list | 1280x720 | 513 | 486 | 19 (3.7 %) | 26 | 103 (20 %) | 5 |
+| Scene list | 1920x1080 | 770 | 708 | 19 (2.5 %) | 38 | 154 (20 %) | 5 |
+| Scene list | 3840x1600 | 1127 | 1038 | 19 (1.7 %) | 55 | 225 (20 %) | 5 |
+| Help, Odd balls | 1920x1080 | 694 | 941 | 23 (3.3 %) | 41 | 139 (20 %) | 7 |
+| Help, Odd balls | 3840x1600 | 1015 | 1267 | 22 (2.2 %) | 58 | 203 (20 %) | 7 |
+| Jukebox chapters | 3840x1600 | 1127 | 358 | 13 (1.2 %) | 28 | 225 (20 %) | 2 |
+| Jukebox recordings | 3840x1600 | 717 | 268 | 13 (1.8 %) | 21 | 143 (20 %) | 2 |
+
+- **Which lists scroll at all depends on the window.** Of Help's tabs only Controls, Scoring and Odd balls overflow the frame at 1280x720 to 3840x1600 (the other three fit), the chaptered level picker's grid fits at every size tried down to 960x540 (and its wheel turns the chapter, `LevelSelectPage.OnScrollWheel`), and a list that fits takes no wheel from its scroller, because Myra hands a delta only to a widget under the pointer that `AcceptsMouseWheel`, which a scroller does only while its content is taller than it. A range shorter than a fifth of the viewport is crossed in one notch.
+- A step is a fifth and not a third because a long body (Odd balls, 1267 px at 3840x1600) is then still read in screenfuls, with a spin as the way to cover it fast: a notch every 40 ms crosses the Scene list in four events instead of five, Odd balls in four instead of seven. The acceleration needs a run of events, so a single-detent scroller never meets it.
+- **The arithmetic is pure** (`WheelScroll.Pixels`, `Move`, `Momentum.Take`, the clock handed in) in `WheelScrollTests`, which holds the share across viewports, the independence of the content's length, the delta's scaling, the carry, the two ends, the boost's ramp, cap, pause and reversal, and the Scene list's slow and fast crossing at 1920x1080 and 3840x1600.
+
 ## The keys are drawn in the UI (#799)
 
 The binding is part of the UI, always visible beside what it does, never a legend elsewhere.

@@ -1217,3 +1217,9 @@ Pravidla:
 ## 2026-10-20 — #947 věta o obraze na Pi — desktop (RDT-PC), Claude Code (bs3d-bf)
 - Hotovo: věta „no scenery behind the island“ měla dvě ruční kopie (web, šablona poznámek k vydání). Teď je jedna: `piPicture` v `Web/src/_data/site.json`, web ji tiskne, `release.yml` ji čte do `@@PI_PICTURE@@`. `PiPictureCopyTests` zakazuje ruční kopii a ověřuje, že každá kapitola má na Potatu pozadí. Živá stránka v0.4.0 opravena (`gh release edit`).
 - Otevřené: web se opraví až ruční publikací (`Web/publish.ps1`, majitel).
+
+## 2026-10-22 — #952 kolečko myši v menu — desktop (RDT-PC), Claude Code (bs3d-dc)
+- Hotovo: všechny rolující seznamy (Help, Jukebox, Scény, mřížka výběru) stojí v `MenuScrollViewer` místo Myry: pomalý zářez posune pětinu výšky seznamu, rychlé kolečko zrychluje (každý zářez v řadě do 0,1 s přidá půl kroku, nejvýš 4x = 0,8 výšky, jako Page Down na Helpu). Aritmetika je čistá (`WheelScroll`, `WheelScrollTests`), první otočení vypíše jeden řádek `[menu] wheel:`.
+- Změřeno ve hře (sonda v `InternalArrange`, bez vstupu): Scény 1080p/4K měly krok 19 px (2,5 % / 1,7 %, 38 / 55 zářezů), teď 154 / 225 px (20 %, 5 zářezů). Reálná cesta `OnMouseWheel` ověřena v běhu: 154, pak 385 (boost 1,5x), pak zpět 77 (obrat resetuje).
+- ⚠ Myra 1.6.3: `ScrollMultiplier` krok neladí (10 × obsah / výška viewportu v px, hodnota delty se ignoruje).
+- Otevřené: `verdict-hands`, pocit v ruce majitele (kolečko nikdo nezkoušel).

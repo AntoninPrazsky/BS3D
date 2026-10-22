@@ -48,6 +48,8 @@
     <!--The power-up chips' keycap column (#694): arithmetic over measured widths, no device.-->
     <Compile Include="..\..\Game\Screens\ChipColumnLayout.cs" />
     <Compile Include="..\..\Game\Screens\NavWalk.cs" />
+    <!--How far a mouse-wheel notch moves a menu list (#952): a share of the viewport, scaled by the delta, over plain numbers and no Myra.-->
+    <Compile Include="..\..\Game\Screens\WheelScroll.cs" />
     <!--The paragraph breaker (#769, #806): lines broken at spaces only, for the paragraph's shape, over a measure handed
         in; and the copy's characters held to the typesetting rules.-->
     <Compile Include="..\..\Game\Screens\SpaceWrap.cs" />
