@@ -2,12 +2,13 @@
 //moment the level is lost, shown while the descending ceiling is within GameplayScreen.LASER_WARN_STEPS more steps of
 //pushing the cluster past the death line (GameplayScreen.UpdateLaserWarning owns the trigger; LaserGrid.cs owns the
 //beams), and the four soft cones that project it from the emitters' lenses in the funnel (#874). The C#
-//side bakes one static quad per beam and a short strip of quads per cone - both endpoints ride on every
-//vertex with its own half-width and gain, so nothing is rebuilt or re-uploaded per frame - and drives the
-//whole net with three per-frame uniforms: the camera, the pulsing intensity (computed on the CPU) and the
-//wall clock for the shallow wave running along each beam. Every quad is billboarded about its own axis
-//exactly as ShotTrail.fx billboards the launch smear, and here it is load-bearing rather than nice: the play
-//camera stands barely below the grid's plane, so a flat quad lying in it would be seen edge-on and vanish; a
+//side bakes one static ribbon per beam - a strip of quads along its bowed path (LaserNetShape, #941) - and one
+//per cone; each row of a ribbon carries the point it stands on, which way the path runs there and its own
+//half-width and gain, so nothing is rebuilt or re-uploaded per frame - and drives the whole net with three
+//per-frame uniforms: the camera, the pulsing intensity (computed on the CPU) and the wall clock for the
+//shallow wave running along each beam. Every row is billboarded about its path's own direction exactly as
+//ShotTrail.fx billboards the launch smear, and here it is load-bearing rather than nice: the play camera
+//stands barely below the grid's plane, so a flat ribbon lying in it would be seen edge-on and vanish; a
 //cone is the same billboard widening along its axis, which is what a lit cone looks like from any side.
 //Drawn additively in linear radiance far over GLARE_THRESHOLD - a red needs a channel near 2.6 before its
 //luminance clears 0.55, which is why the colour is the ceiling alarm's own (6, 0.15, 0.1) - so the beams
@@ -42,17 +43,17 @@ static const float CORE_WHITE = 0.9;
 
 struct LaserVertexInput
 {
-    float3 Start : POSITION0;   //one end of the axis (a cone's lens)
-    float3 End : TEXCOORD0;     //the other (a cone's corner of the net)
-    float4 Data : TEXCOORD1;    //(side in {-1,1}, along in [0,1], half-width here, gain here)
-    float2 Fade : TEXCOORD2;    //(fade-in, fade-out) as shares of the axis: how soft each end is
+    float3 Position : POSITION0;    //on the path of the beam or the cone's axis
+    float3 Tangent : TEXCOORD0;     //unit, which way the path runs here: the axis the ribbon turns about
+    float4 Data : TEXCOORD1;        //(side in {-1,1}, along the whole path in [0,1], half-width here, gain here)
+    float3 Fade : TEXCOORD2;        //(fade-in, fade-out) as shares of the path: how soft each end is, and the distance along it in world units
 };
 
 struct LaserVertexOutput
 {
     float4 Position : SV_POSITION;
     float4 Beam : TEXCOORD0;        //(side x half-width, along, half-width, gain)
-    float3 Extra : TEXCOORD1;       //(distance along the axis in world units - the wave's coordinate, fade-in, fade-out)
+    float3 Extra : TEXCOORD1;       //(distance along the path in world units - the wave's coordinate, fade-in, fade-out)
 };
 
 LaserVertexOutput LaserVS(LaserVertexInput input)
@@ -60,16 +61,13 @@ LaserVertexOutput LaserVS(LaserVertexInput input)
     LaserVertexOutput output;
 
     float along = input.Data.y;
-    float3 pos = lerp(input.Start, input.End, along);
+    float3 pos = input.Position;
 
-    float3 axis = input.End - input.Start;
-    float axisLen = length(axis);
-    float3 dir = axisLen > 1e-4 ? axis / axisLen : float3(1.0, 0.0, 0.0);
-
-    //Billboard about the beam's axis, ShotTrail's own trick: the width runs perpendicular to both the
-    //axis and the view ray, so the beam holds its thickness wherever the lens stands.
+    //Billboard about the beam's path, ShotTrail's own trick: the width runs perpendicular to both the
+    //path and the view ray, so the beam holds its thickness wherever the lens stands. A bent beam's tangent
+    //is the chord of its two neighbours, so the two quads that meet at a row agree on its edge.
     float3 toCam = CameraPosition - pos;
-    float3 side = cross(dir, toCam);
+    float3 side = cross(input.Tangent, toCam);
     float sideLen = length(side);
     side = sideLen > 1e-4 ? side / sideLen : float3(0.0, 1.0, 0.0);
 
@@ -83,7 +81,7 @@ LaserVertexOutput LaserVS(LaserVertexInput input)
     //along the diagonal - a crease down every cone. Both products are affine over the quad, so the quotient is exact.
     //A beam's half-width is the same at all four corners, and the quotient is the side it always was.
     output.Beam = float4(input.Data.x * halfWidth, along, halfWidth, input.Data.w);
-    output.Extra = float3(along * axisLen, input.Fade);
+    output.Extra = float3(input.Fade.z, input.Fade.xy);
 
     return output;
 }

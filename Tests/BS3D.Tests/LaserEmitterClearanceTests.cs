@@ -32,9 +32,9 @@ namespace BS3D.Tests
         //which turn the emitters' bearings off the diagonals furthest (the sweep is the costly test, so not every pairing)
         private static readonly (int X, int Z)[] SWEPT = { (5, 5), (11, 11), (13, 13), (15, 15), (17, 17), (17, 11), (11, 17), (17, 5) };
 
-        //Where a level's net's outermost beams stand: (int) of half the footprint plus the net's own margin
-        //(LaserGrid.Fit's FOOTPRINT_MARGIN, 0.75), the expression the beams are placed by
-        private static float CornerFor(int stage) => (int)((stage + CeilingPlate.FOOTPRINT_MARGIN) * 0.5f + 0.75f);
+        //Where a level's net's corners stand: the very function the grid places its outermost beams by (#941), asked of the
+        //footprint the session fits the net at (GameplayScreen.BuildLevel)
+        private static float CornerFor(int stage) => LaserNetShape.CornerFor(CeilingPlate.FootprintFor(stage) * Constants.HALF);
 
         //The net's plane: where a ball's surface touches at the moment of loss (GameplayScreen's LaserGrid.Fit call)
         private const float PLANE_Y = ClusterHang.DEATH_Y - Constants.HALF;

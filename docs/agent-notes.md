@@ -31,6 +31,12 @@ Pravidla:
 - ⚠ Dome samotná nebe nezatemní: pod Broken je střed horního nebe 90 (dome 13) a 89 (dome 15), jas dělá mraková vrstva; Overcast je 55. Dome 9 má hnědé kopce.
 - Otevřené: `verdict-eye`; alternativa Broken + dome 15 je v captures (vrátit = `Weather = Broken`); pohyb světlušek posoudí majitel.
 
+## 2026-10-22 — #941 červená síť končí na obrysu přes čtyři rohy — desktop (RDT-PC), Claude Code (bs3d-dc)
+- Hotovo: čáry už nepřesahují rohy a hrany (starý `FOOTPRINT_MARGIN` je táhl o 0,25–0,75 za nejkrajnější paprsek). Nový `LaserNetShape` (Prazsky.BS3D) drží tvar na jednom místě: rohy stojí tam, kam míří vysílače (`NetCorner`), mřížka je prohnutá jako čočkou (parabola přes rohy, `BOW` 0,08 poloosy uprostřed strany) a nejkrajnější paprsky jsou obrys, ostatní končí těsně na něm. Paprsek je stuha z 8 segmentů s tečnou v každé řadě, takže se pořád otáčí ke kameře; z kamery přesně v rovině sítě zůstává jasná čára. Rovina zůstává jedna. Shader (desktop i GamePi) má nový vrcholový formát; `GamePi/.../LaserGrid.xnb` přeložen `compile.ps1`. Testy `LaserNetShapeTests` (selžou na starém přesahu).
+- majitel (2026-10-19): „parabolicky, nemusí být čtverec, ale pořád plochá v jedné rovině“.
+- ⚠ Ve hře není kamera pin: pohledy shora a v rovině jsem dělal dočasným lokálním patchem (necommitnut).
+- Otevřené: verdikt oka (`verdict-eye`) – míra prohnutí `BOW`.
+
 ## 2026-10-22 — #977 řádek nedohrané tabule: tónování a prázdná hvězda místo sloupce — desktop (RDT-PC), Claude Code (bs3d-dc)
 - Hotovo: slovo „not finished“ přestalo být sloupcem řádku (264 ze 780 jednotek desky, jménu zbývaly 3–4 znaky). Nedohraný pokus (0 hvězd) leží v zapuštěném pásu z #898 (`MENU_ROW_UNFINISHED_BRUSH`), jeho pořadí, jméno a skóre jsou o stupeň tmavší (vlastní řádek hráče zůstává purpurový) a ve sloupci poháru má prázdnou hvězdu ☆ – pohár je jen za clear, nedohraný pokus ho nemá ani na 1.–3. místě. Slova říká dál jen hráčova vlastní řádka pod tabulí. Jedno pravidlo v `BoardLayout.SignOf`; platí pro výsledek, plaketu v pickeru i `LevelBoardPage`. Při 1280x720 se „Nonexistent Pal“ vejde celé. Na 3840x1600 je deska teď široká jen tolik, kolik potřebuje nejdelší jméno (asi 1180 místo 1453 jednotek).
 - ⚠ Myra `Widget` bez `Stretch` v obou osách nedostane žádnou velikost a pozadí nevykreslí (pás byl prvně neviditelný).
