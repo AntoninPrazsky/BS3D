@@ -177,7 +177,7 @@ namespace Prazsky.Core.Render
             var rockSpace = Footprints(Rocks, ROCK_FOOTPRINT);
             var stumpSpace = Footprints(Stumps, STUMP_FOOTPRINT);
 
-            float coniferShare = MathHelper.Clamp(trees.ConiferFraction, 0f, 1f);
+            float coniferShare = MathHelper.Clamp(trees.FineConiferFraction, 0f, 1f);
             int fineConifers = (int)MathF.Round(trees.FineCount * coniferShare);
             int youngConifers = (int)MathF.Round(trees.SaplingCount * coniferShare);
             ModelInstance[][] moreConifers = Scatter(fineConifers, trees.FineMinRadius, trees.FineMaxRadius, trees.FineClusters,

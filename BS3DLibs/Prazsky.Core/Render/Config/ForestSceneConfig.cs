@@ -145,7 +145,7 @@ namespace Prazsky.Core.Render
         /// and <see cref="ForestTreeConfig.SaplingCount"/>); the references' wall round a clearing is crowded trees of every
         /// age, and two hundred and forty old ones over the whole ring read as a park.
         /// </summary>
-        public ForestTreeConfig Trees { get; set; } = new() { FineCount = 480, FineMinRadius = 54f, FineMaxRadius = 290f, SaplingCount = 200 };
+        public ForestTreeConfig Trees { get; set; } = new() { FineCount = 400, FineMinRadius = 54f, FineMaxRadius = 290f, SaplingCount = 160 };
 
         /// <summary>The scattered rocks and boulders; High and Ultra lay more of them (#962).</summary>
         public ForestRockConfig Rocks { get; set; } = new() { FineCount = 40 };
@@ -265,6 +265,13 @@ namespace Prazsky.Core.Render
         /// none (the class default, and the aurora's).
         /// </summary>
         public int FineCount { get; set; }
+
+        /// <summary>
+        /// The share of <see cref="FineCount"/> and <see cref="SaplingCount"/> that is spruce. Higher than <see cref="ConiferFraction"/>:
+        /// the references' wood round a clearing is mostly spruce, and a broadleaf in leaf is the dearest tree on the screen (its
+        /// alpha-tested cards, #962, measured).
+        /// </summary>
+        public float FineConiferFraction { get; set; } = 0.8f;
 
         /// <summary>The ring <see cref="FineCount"/> and <see cref="SaplingCount"/> are planted in.</summary>
         public float FineMinRadius { get; set; } = 52f;

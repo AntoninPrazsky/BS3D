@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-10-22 — #962 Les na High/Ultra, první etapa: hustší les, listnáče v listí, kapradí, stromy na kopcích — desktop (RDT-PC), Claude Code (bs3d-dc)
+- Hotovo: reference (Z-Image + klein, `out/962-*`); High/Ultra mají +400 stromů (80 % smrky), 160 semenáčků, souše, klády, kapradí, listnáče s listy (meadow karty) a vzdálený porost na kopcích (`ForestFarStand`). Low/Medium kreslí přesně totéž (test + měření). Výsadbu vlastní backdrop (`SceneRenderer.ForestPlanting`).
+- Cena: High +2,3 ms, Ultra +2,6 ms (Testbed 3840×1600 ssaa 2, prázdné pole); největší položka jsou karty listů (pixely).
+- ⚠ `alt=` varianta s `ssaa` ho nechá i dalším variantám; pinovat v každé. Full.json (1000 koulí) dělá Testbed CPU-bound (~5,5 ms) a scénu schová.
+- ⚠ Jehličí jako karty na větvích vypadalo jako tmavé tečky (dva světelné modely); vyřazeno, patch v scratchpadu.
+- Otevřené: jehličí, mlha, úspora ceny, tmavá podlaha; `verdict-eye`; kde hráč les potká (rozhodnutí majitele).
+
 ## 2026-10-22 — #777 kameny na Měsíci na High a Ultra — desktop (RDT-PC), Claude Code (bs3d-dc)
 - Hotovo: na High/Ultra kreslí Měsíc i sopka místo dvacetistěnů s plochým stínováním `FracturedRockMesh` (rozlámaný blok z 9–12 rovin s otlučenými rohy, obroušené balvany) ze stejných instancí (`FracturedRockSet`, čtyři hustoty podle velikosti, stín z o stupeň hrubší sítě) a `Acacia.fx` je stínuje jako kámen (reliéf, skvrny, póry, vlasové praskliny, regolit u paty). Low/Medium beze změny.
 - Cena (desktop, 3840x1600, ssaa 2): Měsíc +0,21 ms, sopka +0,08. Platí se trojúhelníky, ne pixely.

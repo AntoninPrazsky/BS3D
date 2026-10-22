@@ -80,13 +80,15 @@ namespace Prazsky.Core.Render
                 vertices.Add(new VertexPositionNormalTexture(p + across * half, normal, new Vector2(s, 1f)));
                 if (i == 0) continue;
 
+                //Wound clockwise seen from the side its normal faces (CLAUDE.md's winding): the plant material turns a card's normal by
+                //which face it sees, and wound the other way a frond seen from above shaded as though it faced the ground
                 int a = first + 2 * (i - 1);
                 indices.Add(a);
+                indices.Add(a + 3);
                 indices.Add(a + 1);
-                indices.Add(a + 3);
                 indices.Add(a);
-                indices.Add(a + 3);
                 indices.Add(a + 2);
+                indices.Add(a + 3);
             }
         }
     }
