@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-22 — #967 Outback: obzor bez bledých „klobouků“ — desktop (RDT-PC), Claude Code (bs3d-dc)
+- Hotovo (etapa 1, obzor): „klobouky“ změřeny – vzdálené útvary (151,137,138) proti pláni (128,59,42), červená pryč; dělal je opar, který do 480 j. došel do bledé mlhy, dozvuk k obloze *za* útvarem a hrubý vzdálený prstenec (lichoběžníky). Teď má každý útvar vlastní polární disk (instancovaný, ořez frustem) na stejném výškovém poli, pláň se na jeho elipse zastaví; bochníky s pilíři a ostrými žlaby, shluky kopulí (Kata Tjuta), stíny útvarů zapečené jednou na slunce na GPU, opar jako útlum vzdáleností k barvě obzoru, vlastní dome 21 (modrá nad teplým obzorem). Levnější na všech stupních (High 11,7 → 11,1 ms).
+- ⚠ Testbed kreslí dome 21 (i 1 a 14) tyrkysově: barvu posuzuj ve hře. ⚠ Disky bez ořezu zpomalily Low o 0,4 ms.
+- Otevřené: `verdict-eye`; #776 (zem) a #749 (vegetace) nezačaté, zbytek na #967.
+
 ## 2026-10-22 — #777 kameny na Měsíci na High a Ultra — desktop (RDT-PC), Claude Code (bs3d-dc)
 - Hotovo: na High/Ultra kreslí Měsíc i sopka místo dvacetistěnů s plochým stínováním `FracturedRockMesh` (rozlámaný blok z 9–12 rovin s otlučenými rohy, obroušené balvany) ze stejných instancí (`FracturedRockSet`, čtyři hustoty podle velikosti, stín z o stupeň hrubší sítě) a `Acacia.fx` je stínuje jako kámen (reliéf, skvrny, póry, vlasové praskliny, regolit u paty). Low/Medium beze změny.
 - Cena (desktop, 3840x1600, ssaa 2): Měsíc +0,21 ms, sopka +0,08. Platí se trojúhelníky, ne pixely.

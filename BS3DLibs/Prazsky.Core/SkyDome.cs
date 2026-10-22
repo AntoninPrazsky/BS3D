@@ -32,7 +32,7 @@ namespace Prazsky.Core
     public partial class SkyDome : IDisposable
     {
         /// <summary>How many skies there are — the palette table's length, counted 1-based by callers.</summary>
-        public const byte Count = 20;
+        public const byte Count = 21;
 
         //The CAPTURED mesh: what the eighteen .dae models were, and still the authority on what a sky's colours
         //ARE. Nothing is drawn from it since the banding fix - see BuildDrawnDome - but the palette is read off

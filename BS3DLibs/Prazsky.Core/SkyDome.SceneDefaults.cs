@@ -46,6 +46,12 @@ namespace Prazsky.Core
         //is the quieter one: no bright saturated sky at all, but its hills went the brown of bare earth.
         private const byte FOREST_DOME = 15;
 
+        //The outback (#967) has a dome built for it: 21, a deep blue zenith over a warm white skyline and a gold sun
+        //at 21 degrees. It took whatever dome was up, and the one the Game starts on, 13, is a teal sky over red
+        //ground; a sweep of all twenty on the plain found none that the references of the real place drew (every
+        //one garish, flat or a dusk), and the far formations stand DARK against a pale skyline only under this one.
+        private const byte OUTBACK_DOME = 21;
+
         /// <summary>
         /// The dome a scene brings with it, or 0 when it states none and keeps whatever dome is up (#595).
         /// <para>
@@ -70,6 +76,7 @@ namespace Prazsky.Core
             SceneKind.Storm => STORM_DOME,
             SceneKind.Polar => POLAR_DOME,
             SceneKind.Forest => FOREST_DOME,
+            SceneKind.Outback => OUTBACK_DOME,
             _ => 0,
         };
     }

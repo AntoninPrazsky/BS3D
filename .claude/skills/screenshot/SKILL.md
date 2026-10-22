@@ -116,7 +116,7 @@ The synthetic-NumPad limitation from the `verify` skill still applies — scene 
 command line, not by pressing NumPad1/2:
 
 - `scene=<city|sea|savanna|desert|mountain|meadow|neon|forest|space|dream|cavern|moon|outback|tropical|volcano|mars|storm>` — starting environment. Everything past `neon` sits past the end of the NumPad2 cycle, so `scene=` is the only way to reach those in the Testbed.
-- `sky=<1..20>` — starting sky dome. `ssaa=<n>`, `exposure=<f>`, `nocap`, a map path — as in `verify`.
+- `sky=<1..21>` — starting sky dome. `ssaa=<n>`, `exposure=<f>`, `nocap`, a map path — as in `verify`.
 - `balls=<beach|bubble|marble|wool|metal|ice|gem|plasma|lava|porcelain>` — what the balls are made of (#318),
   pinned over a loaded level's own for the run. Without it a plain map draws the vinyl and a level draws what
   it names. **This is the only way to photograph a material on a chosen cluster under a chosen dome**, and

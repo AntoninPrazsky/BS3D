@@ -281,7 +281,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Whether the scenes draw their <b>finer meshes</b> (#758): High and Ultra's, where Low and Medium draw the coarser
-        /// mesh of the same thing off the same instances. Seven things today: the savanna acacias' wood — the fork grown as one
+        /// mesh of the same thing off the same instances. Nine things today: the savanna acacias' wood — the fork grown as one
         /// surface out of a swollen, lobed crotch rather than tubes poking out of the trunk's cut end
         /// (<see cref="AcaciaMesh.FineWood"/>, <see cref="ScatterBucket.FineMeshes"/>, #758) — the meadow's old trees' wood
         /// grown the same way, the limbs coming out through the crotch's side (<see cref="MeadowTreeMesh.FineWood"/>, #889,
@@ -295,14 +295,16 @@ namespace Prazsky.Core.Render
         /// along a cube face's edge, every stalactite and 14 facets round a formation, where Low and Medium use 104 cells, leave
         /// the stalactites under 8 units out and use 9 facets — and the Moon's and the volcano's rocks (#777): fractured blocks
         /// and worn boulders shaded as stone (<see cref="FracturedRockSet"/>) where Low and Medium keep twenty flat facets and the
-        /// lathes. The spruces belong to the hosts' own <see cref="ForestScatterRenderer"/>s, which take this flag at every draw.
+        /// lathes — and the outback's formations near the arena (#967): a polar disc of 160 segments by 80 rings under each,
+        /// where Low and Medium lay the far ones' 96 by 40 (<see cref="OutbackRockDiscs"/>). The spruces belong to the hosts' own <see cref="ForestScatterRenderer"/>s, which take this flag at every draw.
         /// <para>
         /// A switch of its own rather than a step of <see cref="SceneDetail"/>, because that one is Low's alone (#298) and
         /// this one is Medium's too: Medium is the weak machine's rung. A plain flag for <see cref="SupersampleFactor"/>'s
         /// reason — the tier lives in the Game. Left on, a caller that never sets it draws the authored look, which is what
         /// the Testbed and the map editor want. Costed in "The fork, grown for High and Ultra (#758)" and "The bush (#883)" in
         /// docs/scenes/savanna-trees.md, in "Two woods (#889)" and "The shrubs (#890)" in docs/scenes/meadow.md, in "The spruces on High and Ultra"
-        /// in docs/scenes/aurora.md, in "High and Ultra's range" in docs/scenes/mountains.md and in "High and Ultra's rocks" in docs/scenes/moon.md.
+        /// in docs/scenes/aurora.md, in "High and Ultra's range" in docs/scenes/mountains.md, in "High and Ultra's rocks" in docs/scenes/moon.md and in
+        /// "One height field, two kinds of mesh" in docs/scenes/outback.md.
         /// </para>
         /// </summary>
         public bool FineMeshes
@@ -469,7 +471,7 @@ namespace Prazsky.Core.Render
 
         //How high the sun has to stand (its direction's Y) for a map to be worth drawing: lower and every
         //shadow is a streak the length of the map, and at a dome's dusk the sun term is next to nothing.
-        private const float SHADOW_MIN_SUN_HEIGHT = 0.08f;
+        internal const float SHADOW_MIN_SUN_HEIGHT = 0.08f;
 
         //Slack on both ends of the fitted box (TryShadowFit), so a terrain figure that is a MEAN rather than a
         //maximum — every one of them is — does not clip a hollow out of the bottom of the map or a crown off
@@ -1638,6 +1640,9 @@ namespace Prazsky.Core.Render
             }
 
             PushInstancedFog(scene);
+
+            //A backdrop's own off-frame target, before anything else binds one (#967: the outback's baked land shadows)
+            BackdropFor(scene)?.BeforeShadowMaps(sunDirection);
 
             //Is there anything to cast at all? A scene with planting of its own casts it (Backdrop.HasShadowCasters -
             //the savanna, the beach, the meadow, the volcano, the Moon's rocks and the rest); in the others the casters are

@@ -89,8 +89,8 @@ namespace Prazsky.Core.Render
         /// so the bigger the cell the more world units of wander the same fraction is worth.
         /// <para>
         /// <b>370 until #171, and that was one skyline too few for the camera the game is played from.</b> The
-        /// play camera's frustum is 70° wide horizontally and the haze has taken the ground by about 350 units
-        /// (<see cref="OutbackAirConfig.HorizonHazeDistance"/>'s quartic), so what the player sees is a wedge
+        /// play camera's frustum is 70° wide horizontally and the haze of the time had taken the ground by about
+        /// 350 units, so what the player sees is a wedge
         /// holding some 2 lattice cells at 370 — and with <see cref="RockChance"/> under two thirds, most
         /// bearings held one formation and a bare horizon either side of it. Sampled through the play
         /// frustum at eight bearings: rock at seven of them, but a single formation at nearly all. The desert
@@ -133,6 +133,17 @@ namespace Prazsky.Core.Render
         /// Kept near the outcrop's own width in <c>Outback.fx</c>: a rock much wider than it is tall is a disc,
         /// and a gullied disc is a starfish.</summary>
         public float OutcropHeight { get; set; } = 7f;
+
+        /// <summary>
+        /// What share of the monoliths are a CLUSTER of three to five tall rounded domes leaning on each other (Kata
+        /// Tjuta) rather than one buttressed loaf (Uluru) — #967: a skyline of loaves alone was one shape repeated, and
+        /// both drew in every reference of the place. Rolled per formation, so no formation moved.
+        /// </summary>
+        public float ClusterChance { get; set; } = 0.4f;
+
+        /// <summary>How tall a cluster's tallest dome stands against <see cref="RockHeight"/>: a dome is taller for its
+        /// width than a loaf, and the cluster is what gives the skyline its peaks.</summary>
+        public float ClusterHeight { get; set; } = 1.0f;
     }
 
     /// <summary>
@@ -227,30 +238,27 @@ namespace Prazsky.Core.Render
     /// <summary>The air: the red dust the distance haze is tinted by, and the heat coming off the ground.</summary>
     public sealed class OutbackAirConfig
     {
-        /// <summary>The dust's own colour (linear), lit by the sky and the sun where it is applied.</summary>
+        /// <summary>The dust's own colour (linear): its hue, taken at the skyline's brightness where the air is applied.</summary>
         public Rgb HazeTint { get; set; } = new(0.45f, 0.26f, 0.155f);
 
         /// <summary>
-        /// How far the distance haze is carried from the dome's horizon colour towards the dust. High, and
-        /// deliberately: at 0.45 a dome with a teal horizon (13, the benchmark one) painted the far plain and
-        /// the shadowed flank of every monolith green, which is aerial perspective doing exactly what it
-        /// should and still the wrong picture. Red dust in the air is what the outback's distance is made of,
-        /// so the scene keeps its own colour under any dome instead of borrowing one.
+        /// How far the air's colour leans from the sky's own skyline (the colour the dome is drawn at the horizon)
+        /// towards the dust's hue, <see cref="HazeTint"/>. Low (#967): the references' far plain and far rock go blue-grey,
+        /// and only the near air carries the red.
         /// </summary>
-        public float DustStrength { get; set; } = 0.62f;
-
-        /// <summary>World distance over which the plain melts into the skyline. Kept inside the terrain
-        /// grid's half-extent (500), which was what hid the mesh's edge until #551. The land past the grid is the far
-        /// ring now, and this is also where its last fade to the drawn sky begins (FarField.fxh).</summary>
-        public float HorizonHazeDistance { get; set; } = 480f;
+        public float DustStrength { get; set; } = 0.3f;
 
         /// <summary>
-        /// How far the last stretch of the haze leans from the dome's horizon colour towards the dust's own hue
-        /// (0 = straight to the horizon colour). The desert's dial and for the desert's reason: under the teal and
-        /// purple domes the far plain used to fade teal, which never matched the sky either, since the dome's
-        /// horizon uniform and the horizon the dome draws differ (see <c>Outback.fx</c>).
+        /// The distance over which the light from a surface falls to 1/e in the air (#967): an extinction by distance and
+        /// nothing else, so a formation 1 000 units out keeps seven tenths of its own colour and stands darker than the skyline. The
+        /// two-stage haze it replaced reached a pale murk by 480 whatever stood there, which is what turned every far
+        /// formation into a pale "hat" (see the air in <c>Outback.fx</c>).
         /// </summary>
-        public float HazeWarmth { get; set; } = 0.85f;
+        public float HazeDistance { get; set; } = 3000f;
+
+        /// <summary>Where the far field's last fade into the drawn sky may begin (<c>FarField.fxh</c>); FarField starts it
+        /// at 600 at the latest, so a larger figure is 600.</summary>
+        public float HorizonHazeDistance { get; set; } = 600f;
 
         /// <summary>
         /// Heat shimmer over the middle distance — the one thing here that moves besides the cloud shadows and
