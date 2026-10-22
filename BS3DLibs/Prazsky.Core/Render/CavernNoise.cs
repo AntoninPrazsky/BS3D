@@ -4,7 +4,8 @@ using System;
 namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// The noise the cavern's chamber is shaped with on the CPU (#958): Ken Perlin's improved gradient noise in three
+    /// The noise the cavern's chamber is shaped with on the CPU (#958), and the undulation of High and Ultra's rocks'
+    /// fracture faces (<see cref="FracturedRockMesh"/>, #777): Ken Perlin's improved gradient noise in three
     /// dimensions (quintic fade, twelve edge gradients) and the fractal sums built on it. The chamber's geometry is built
     /// once on the CPU and never re-derived in a shader, so this is not a mirror of <c>Noise.fxh</c> and owes it no
     /// bit-for-bit agreement; what it owes is speed (a fine shell is a few hundred thousand vertices, five evaluations

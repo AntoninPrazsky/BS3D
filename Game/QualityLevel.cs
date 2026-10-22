@@ -291,13 +291,15 @@ namespace BS3D
         /// stems and clumps of broad-leaf cards where Low and Medium, and every hedgerow, keep the lobed loaf (#890), the spruces' crowns as separate
         /// boughs with lumps of snow where Low and Medium keep the lathe of smooth skirts (#733), the mountain range on a
         /// grid twice as fine with crags and the rock shaded in three dimensions (#781), and the cavern's hall in 176 cells
-        /// along a cube face's edge with every stalactite where Low and Medium use 104 and leave the short ones out (#958), and the
-        /// title wordmark, the PNG logo in three dimensions where Low and Medium keep the rainbow wordmark (#929). <b>High and Ultra only</b>: the owner asked for the detail there ("on High / Ultra this
+        /// along a cube face's edge with every stalactite where Low and Medium use 104 and leave the short ones out (#958), the Moon's
+        /// and the volcano's rocks as fractured blocks and worn boulders with a stone surface where Low and Medium keep twenty flat
+        /// facets and the lathes (#777), and the title wordmark, the PNG logo in three dimensions where Low and Medium keep the rainbow wordmark (#929). <b>High and Ultra only</b>: the owner asked for the detail there ("on High / Ultra this
         /// transition should have more detail"; of the spruces, "they could pass for Low, maybe Medium, but not High or
         /// Ultra"; of the range, "how they look now could be the look of low/medium, but on high/ultra they must have more
         /// detail"), and Medium is the weak machine's rung. What it costs is in "The fork, grown for High and Ultra (#758)" and
         /// "The bush (#883)" in docs/scenes/savanna-trees.md, "Two woods (#889)" and "The shrubs (#890)" in docs/scenes/meadow.md, "The spruces on
-        /// High and Ultra" in docs/scenes/aurora.md, "High and Ultra's range" in docs/scenes/mountains.md and "Built off the frame" in docs/scenes/cavern.md.
+        /// High and Ultra" in docs/scenes/aurora.md, "High and Ultra's range" in docs/scenes/mountains.md, "Built off the frame" in docs/scenes/cavern.md
+        /// and "High and Ultra's rocks" in docs/scenes/moon.md.
         /// </summary>
         public readonly bool FineMeshes;
 

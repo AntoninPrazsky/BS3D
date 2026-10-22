@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-22 — #777 kameny na Měsíci na High a Ultra — desktop (RDT-PC), Claude Code (bs3d-dc)
+- Hotovo: na High/Ultra kreslí Měsíc i sopka místo dvacetistěnů s plochým stínováním `FracturedRockMesh` (rozlámaný blok z 9–12 rovin s otlučenými rohy, obroušené balvany) ze stejných instancí (`FracturedRockSet`, čtyři hustoty podle velikosti, stín z o stupeň hrubší sítě) a `Acacia.fx` je stínuje jako kámen (reliéf, skvrny, póry, vlasové praskliny, regolit u paty). Low/Medium beze změny.
+- Cena (desktop, 3840x1600, ssaa 2): Měsíc +0,21 ms, sopka +0,08. Platí se trojúhelníky, ne pixely.
+- ⚠ Normály zprůměrované přes trojúhelníky dělaly z bloků polštáře; berou se z plochy samé. Plocha natočená ke slunci je plochá při jakémkoli reliéfu, nese ji albedo.
+- Otevřené: `verdict-eye`; nikdo to neviděl ve hře na High při běžném hraní.
+
 ## 2026-10-22 — #936 Amphora: cesta ven místo vítání — desktop (RDT-PC), Claude Code (bs3d-dc)
 - Hotovo: závěrečná karta žebříčku (klíč `throwaway`, dřív `graduated`, „That’s the basics“) učí „Fire a ball into empty space when stuck“ / „Wasting a ball is fine“. Podruhé se ukáže jednou za pokus o level, když svítí síť, zbývá výstřel a koule v hlavni nemá kam skórovat (`Tutorial.ThrowAwayIsDue`, `MatchReach`), nejdřív 8 s po první. `graduated` je `LegacyKey`: veterán kartu uvidí při dalším vstupu do Amphory a zapíše se mu `throwaway` (ověřeno během běhu). `Celebrates` zrušeno; Help má odstavec.
 - Recenze: druhé ukázání se mohlo objevit i s vyčerpaným rozpočtem (v hlavni zůstává kulka); teď ne. Retry arming zůstává záměrně (nový pokus).

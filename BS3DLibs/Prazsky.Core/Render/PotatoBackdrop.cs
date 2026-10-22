@@ -833,7 +833,8 @@ namespace Prazsky.Core.Render
             //The boulders stand on the ground as THIS grid draws it (MoonPlanting's height), so a rim block sits on the
             //drawn rim: the grid here is a vertex every 10 units, the desktop's every 3.34
             var planting = new MoonPlanting(graphicsDevice,
-                (x, z) => TerrainMirror.OnGrid(Height, RELIEF_CELLS + 1, MOON_EXTENT * 2f, x, z), terrain, MOON_PLANTING_SEED + seedOffset);
+                (x, z) => TerrainMirror.OnGrid(Height, RELIEF_CELLS + 1, MOON_EXTENT * 2f, x, z), terrain, MOON_PLANTING_SEED + seedOffset,
+                fineMeshes: false);   //High and Ultra's rocks (#777) are not this path's
             backdrop._owned.Add(planting);
             //The weathered boulders are 480 vertices each and 800 of them stand on the plain (384k a frame, +0.7 ms); a
             //rounded boulder is its own ellipsoid. The angular blocks (60) stay themselves
