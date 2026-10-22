@@ -883,9 +883,10 @@ namespace Testbed
             //must be built before the first ApplySkyLighting below, or the whole wood would draw a frame under a
             //white sky. No stone texture handed in: the component builds one, ArenaIsland's being its private
             //business. The ambient is the scene's, exactly as the island is given it.
+            //The planting is the backdrop's (#962), which dresses it on High and Ultra and draws the broadleaves in leaf there
             _forestScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
                 (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
-                seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
+                planting: _sceneRenderer.ForestPlanting, broadleavesInLeaf: true);
 
             //The aurora's own wood, a second planting from its own config - see AuroraSceneConfig's class doc. The planting
             //is the backdrop's (#963), which drifts the snow round it, so this draws the trees the drifts were made for.

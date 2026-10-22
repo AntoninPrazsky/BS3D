@@ -31,6 +31,16 @@ namespace Prazsky.Core.Render
         private readonly PlantPass _plants;
         private IslandBermPlanting _berm;
 
+        //Where the wood stands (#962): planted here rather than by the hosts' renderers, so what this backdrop dresses the
+        //wood with on High and Ultra hangs on the trees they draw (SceneRenderer.ForestPlanting)
+        private readonly ForestScatter _planting;
+
+        //High and Ultra's wood on the hills past the planted trees (#962), drawn through this effect after the floor
+        private ForestFarStand _farStand;
+
+        //What the wood wears on High and Ultra (#962): the broadleaves in leaf and the ferns, through the plant material
+        private ForestDressing _dressing;
+
         private const int FOREST_GRID_N = 220;
         private const float FOREST_EXTENT = 1200f;
 
@@ -54,6 +64,12 @@ namespace Prazsky.Core.Render
 
             ApplyForestParameters();
 
+            ForestSceneConfig config = _forestConfig;
+            _planting = ForestScatterRenderer.Plant(ForestScatterRenderer.DEFAULT_SEED + Services.SeedOffset, config,
+                (x, z) => TerrainMirror.Forest(x, z, config));
+            _farStand = new ForestFarStand(services.GraphicsDevice, _forestEffect, config, _planting);
+            _dressing = new ForestDressing(services.GraphicsDevice, config, _planting, ForestScatterRenderer.DEFAULT_SEED + Services.SeedOffset);
+
             _plants = new PlantPass(services.GraphicsDevice, content);
             _berm = new IslandBermPlanting(services.GraphicsDevice, (x, z) => TerrainMirror.Forest(x, z, _forestConfig),
                 ForestScatterRenderer.DEFAULT_SEED + Services.SeedOffset,
@@ -65,6 +81,10 @@ namespace Prazsky.Core.Render
         }
 
         private const int BERM_STONES = 14;
+
+        /// <summary>Where the wood stands: the hosts' <see cref="ForestScatterRenderer"/> draws this planting, so what this
+        /// backdrop dresses it with on High and Ultra hangs on the trees that are drawn (#962).</summary>
+        public ForestScatter Planting => _planting;
 
         /// <inheritdoc/>
         public override SceneKind Kind => SceneKind.Forest;
@@ -120,16 +140,26 @@ namespace Prazsky.Core.Render
         public override void Draw(in SceneFrame frame)
         {
             _forestPass.Draw(frame, Services.TerrainHoleRadius);
+
+            //The wood on the hills (#962), after the floor so the depth test turns away every tree a nearer hill hides
+            if (Services.FineMeshes) _farStand?.Draw();
+
             if (_berm != null) _plants.Draw(frame, _berm.Buckets, _forestConfig.HorizonHazeDistance, _sceneDetail > 0.5f, Services.FineMeshes);
+
+            //What the wood wears on High and Ultra (#962); every bucket of it is FineMeshes, so Low and Medium skip the lot
+            if (_dressing != null && Services.FineMeshes)
+                _plants.Draw(frame, _dressing.Buckets, _forestConfig.HorizonHazeDistance, _sceneDetail > 0.5f, fineMeshes: true);
         }
 
         /// <inheritdoc/>
-        public override bool HasShadowCasters => _berm != null;
+        public override bool HasShadowCasters => _berm != null || _dressing != null;
 
-        /// <summary>The bank casts into the sun's map; the trees are cast by the hosts.</summary>
+        /// <summary>The bank casts into the sun's map, and on High and Ultra the broadleaves' leaves and wood (#962); the rest of
+        /// the wood is cast by the hosts.</summary>
         public override void DrawShadowCasters(Matrix shadowViewProjection)
         {
             if (_berm != null) _plants.DrawShadowCasters(shadowViewProjection, _berm.Buckets, Services.FineMeshes);
+            if (_dressing != null && Services.FineMeshes) _plants.DrawShadowCasters(shadowViewProjection, _dressing.Buckets, fineMeshes: true);
         }
 
         /// <inheritdoc/>
@@ -137,6 +167,10 @@ namespace Prazsky.Core.Render
         {
             _berm?.Dispose();
             _berm = null;
+            _farStand?.Dispose();
+            _farStand = null;
+            _dressing?.Dispose();
+            _dressing = null;
         }
 
         /// <inheritdoc/>
@@ -156,7 +190,7 @@ namespace Prazsky.Core.Render
             get
             {
                 yield return _forestEffect; //its floor; the trees receive through the shared effect
-                yield return _plants.Effect; //and the bank round the island (#608)
+                yield return _plants.Effect; //and the bank round the island (#608), and High and Ultra's leaves and ferns (#962)
             }
         }
 

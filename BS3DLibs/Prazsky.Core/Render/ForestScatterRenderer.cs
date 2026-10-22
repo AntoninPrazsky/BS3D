@@ -96,6 +96,28 @@ namespace Prazsky.Core.Render
         /// <summary>How many broadleaf meshes every planting is split between (<see cref="Plant"/>).</summary>
         public const int BROADLEAF_VARIANTS = 4;
 
+        /// <summary>One of the broadleaf variants of <see cref="BROADLEAF_SHAPES"/>: its width and height as factors of the
+        /// config's broadleaf figures and the structural roll its tree is grown with.</summary>
+        public readonly record struct BroadleafVariant(float Width, float Height, int Seed);
+
+        /// <summary>
+        /// The four broadleaves every forest is planted with, in this order (the planting splits them by index): the one copy, which
+        /// this renderer grows Low and Medium's trees from and the forest's backdrop the same trees in leaf for High and Ultra (#962).
+        /// </summary>
+        public static readonly BroadleafVariant[] BROADLEAF_SHAPES =
+        {
+            new(1f, 1f, 79),          //the authored broadleaf
+            new(0.82f, 1.3f, 83),     //narrower and taller, its crown carried higher
+            new(1.22f, 0.85f, 97),    //broad and low — an old oak's spread
+            new(0.95f, 1.12f, 101),   //an ordinary tree between them
+        };
+
+        /// <summary>A broadleaf variant's figures (trunk radius, trunk height, crown radius, crown height) from the config's.</summary>
+        public static (float TrunkRadius, float TrunkHeight, float CrownRadius, float CrownHeight) BroadleafFigures(
+            ForestTreeConfig cfg, BroadleafVariant variant) =>
+            (cfg.TrunkBaseRadius * variant.Width, cfg.TrunkHeight * variant.Height, cfg.CrownRadius * variant.Width,
+                cfg.CrownHeight * variant.Height);
+
         /// <summary>
         /// The three boulders' proportions against <see cref="ForestRockConfig.Radius"/> and <c>Height</c> (X radius, Y
         /// height), one copy: the meshes are built from it, and the aurora's drifts round them are sized by it (#963).
@@ -154,6 +176,10 @@ namespace Prazsky.Core.Render
             new(0.84f, 0.94f, 0.9f),
             new(1.04f, 1.12f, 0.9f)
         };
+
+        /// <summary>A broadleaf variant's tint on the foliage's linear colour: what the forest's backdrop dresses that variant's
+        /// leaves in on High and Ultra (#962), so they are its crown's shade on Low and Medium.</summary>
+        internal static Vector3 BroadleafTint(int variant) => BROADLEAF_TINTS[variant];
 
         //World units one tile of each detail texture spans on the surface it dresses; DetailScale is the
         //reciprocal, as the island's STONE_SPAN and CONCRETE_SPAN are. A trunk gets the coarsest tiling of the
@@ -278,6 +304,9 @@ namespace Prazsky.Core.Render
 
         private ForestScatter _scatter;
 
+        //Whether High and Ultra's broadleaves are drawn in leaf by the backdrop (#962) and none of them here
+        private readonly bool _broadleavesInLeaf;
+
         /// <summary>
         /// Builds the whole wood here and now: both procedural textures, the twenty mesh variants, the seventy-two
         /// renderers with their per-material dressing, the encoded tints and the scatter itself. There is
@@ -312,15 +341,22 @@ namespace Prazsky.Core.Render
         /// difference.</param>
         /// <param name="seed">Scatter seed; the same seed always plants the same forest.</param>
         /// <param name="planting">A planting made ahead (<see cref="Plant"/>), drawn instead of one of this renderer's own:
-        /// the aurora's (<c>SceneRenderer.AuroraPlanting</c>), which the backdrop drifts its snow round (#963). Null plants
-        /// <paramref name="config"/> on <c>TerrainMirror.Forest</c> with <paramref name="seed"/>, as every other wood is.</param>
+        /// the aurora's (<c>SceneRenderer.AuroraPlanting</c>), which the backdrop drifts its snow round (#963), and the
+        /// daytime forest's (<c>SceneRenderer.ForestPlanting</c>), which the backdrop dresses (#962). Null plants
+        /// <paramref name="config"/> on <c>TerrainMirror.Forest</c> with <paramref name="seed"/>.</param>
+        /// <param name="broadleavesInLeaf">Whether High and Ultra's broadleaves are someone else's to draw: the daytime
+        /// forest's backdrop draws them in leaf (#962, <c>ForestBackdrop</c>), wood, twigs and leaf cards through the plant
+        /// material, and this then draws and casts none of them where <c>fineMeshes</c> is set. False draws them here at
+        /// every tier.</param>
         public ForestScatterRenderer(GraphicsDevice device, Effect instancingEffect, ForestSceneConfig config,
-            float sceneAmbientIntensity, SurfaceTexture stoneTexture = null, int seed = DEFAULT_SEED, ForestScatter planting = null)
+            float sceneAmbientIntensity, SurfaceTexture stoneTexture = null, int seed = DEFAULT_SEED, ForestScatter planting = null,
+            bool broadleavesInLeaf = false)
         {
             _device = device;
             _instancingEffect = instancingEffect;
             _seed = seed;
             _scatter = planting;
+            _broadleavesInLeaf = broadleavesInLeaf;
 
             //The detail texture is what selects the triplanar technique — without one the renderer falls
             //through to plain and every relief and cavity setting below is silently dead, as the island's own
@@ -411,7 +447,7 @@ namespace Prazsky.Core.Render
         /// read per draw, so a tier change rebuilds nothing.</param>
         public void Draw(ICamera camera, bool fineMeshes)
         {
-            DrawScatter(camera, _coniferTrunkRenderers, _scatter.Conifers, _barkEffectParams, _coniferTrunkTints);
+            DrawScatter(camera, _coniferTrunkRenderers, _scatter.ConifersAt(fineMeshes), _barkEffectParams, _coniferTrunkTints);
             if (fineMeshes)
             {
                 //The boughs before the interior they hide, so the depth test turns most of its pixels away unshaded
@@ -424,15 +460,18 @@ namespace Prazsky.Core.Render
                 }
                 DrawScatter(camera, _coniferFineShadeRenderers, _coniferNear, _foliageEffectParams, _coniferShadeTints);
                 DrawScatter(camera, _coniferFineShadeFarRenderers, _coniferFar, _foliageEffectParams, _coniferShadeTints);
-                DrawScatter(camera, _coniferFineStemRenderers, _scatter.Conifers, _barkEffectParams, _coniferStemTints);
+                DrawScatter(camera, _coniferFineStemRenderers, _scatter.FineConifers, _barkEffectParams, _coniferStemTints);
             }
             else DrawScatter(camera, _coniferCrownRenderers, _scatter.Conifers, _foliageEffectParams, _coniferCrownTints);
-            DrawScatter(camera, _broadleafTrunkRenderers, _scatter.Broadleaves, _barkEffectParams, _broadleafTrunkTints);
-            DrawScatter(camera, _broadleafCrownRenderers, _scatter.Broadleaves, _foliageEffectParams, _broadleafCrownTints);
-            DrawScatter(camera, _rockRenderers, _scatter.Rocks, _rockEffectParams, _rockTints);
-            DrawScatter(camera, _stumpRenderers, _scatter.Stumps, _barkEffectParams, _stumpTints);
-            DrawScatter(camera, _snagRenderers, _scatter.Snags, _barkEffectParams, _snagTints);
-            DrawScatter(camera, _logRenderers, _scatter.Logs, _barkEffectParams, _logTints);
+            if (!fineMeshes || !_broadleavesInLeaf)
+            {
+                DrawScatter(camera, _broadleafTrunkRenderers, _scatter.BroadleavesAt(fineMeshes), _barkEffectParams, _broadleafTrunkTints);
+                DrawScatter(camera, _broadleafCrownRenderers, _scatter.BroadleavesAt(fineMeshes), _foliageEffectParams, _broadleafCrownTints);
+            }
+            DrawScatter(camera, _rockRenderers, _scatter.RocksAt(fineMeshes), _rockEffectParams, _rockTints);
+            DrawScatter(camera, _stumpRenderers, _scatter.StumpsAt(fineMeshes), _barkEffectParams, _stumpTints);
+            DrawScatter(camera, _snagRenderers, _scatter.SnagsAt(fineMeshes), _barkEffectParams, _snagTints);
+            DrawScatter(camera, _logRenderers, _scatter.LogsAt(fineMeshes), _barkEffectParams, _logTints);
         }
 
         /// <summary>
@@ -461,14 +500,14 @@ namespace Prazsky.Core.Render
         /// shade the boughs inside them (#733).</param>
         public void DrawShadow(Matrix shadowViewProjection, bool fineMeshes)
         {
-            CastScatter(shadowViewProjection, _coniferTrunkRenderers, _scatter.Conifers);
+            CastScatter(shadowViewProjection, _coniferTrunkRenderers, _scatter.ConifersAt(fineMeshes));
             if (fineMeshes)
             {
                 CastScatter(shadowViewProjection, _coniferFineShadeRenderers, _coniferNear);
                 CastScatter(shadowViewProjection, _coniferFineShadeFarRenderers, _coniferFar);
                 CastScatter(shadowViewProjection, _coniferFineCrownRenderers, _coniferNear);
                 CastScatter(shadowViewProjection, _coniferFineCrownFarRenderers, _coniferFar);
-                CastScatter(shadowViewProjection, _coniferFineStemRenderers, _scatter.Conifers);
+                CastScatter(shadowViewProjection, _coniferFineStemRenderers, _scatter.FineConifers);
                 if (_crownSnow > 0f)
                 {
                     CastScatter(shadowViewProjection, _coniferFineSnowRenderers, _coniferNear);
@@ -476,12 +515,15 @@ namespace Prazsky.Core.Render
                 }
             }
             else CastScatter(shadowViewProjection, _coniferCrownRenderers, _scatter.Conifers);
-            CastScatter(shadowViewProjection, _broadleafTrunkRenderers, _scatter.Broadleaves);
-            CastScatter(shadowViewProjection, _broadleafCrownRenderers, _scatter.Broadleaves);
-            CastScatter(shadowViewProjection, _rockRenderers, _scatter.Rocks);
-            CastScatter(shadowViewProjection, _stumpRenderers, _scatter.Stumps);
-            CastScatter(shadowViewProjection, _snagRenderers, _scatter.Snags);
-            CastScatter(shadowViewProjection, _logRenderers, _scatter.Logs);
+            if (!fineMeshes || !_broadleavesInLeaf)
+            {
+                CastScatter(shadowViewProjection, _broadleafTrunkRenderers, _scatter.BroadleavesAt(fineMeshes));
+                CastScatter(shadowViewProjection, _broadleafCrownRenderers, _scatter.BroadleavesAt(fineMeshes));
+            }
+            CastScatter(shadowViewProjection, _rockRenderers, _scatter.RocksAt(fineMeshes));
+            CastScatter(shadowViewProjection, _stumpRenderers, _scatter.StumpsAt(fineMeshes));
+            CastScatter(shadowViewProjection, _snagRenderers, _scatter.SnagsAt(fineMeshes));
+            CastScatter(shadowViewProjection, _logRenderers, _scatter.LogsAt(fineMeshes));
         }
 
         /// <summary>
@@ -521,13 +563,7 @@ namespace Prazsky.Core.Render
                 _coniferMeshes[v] = NewConifer(trees, variant.Width, variant.Height, variant.Seed, variant.Stand ? trees.ConiferStandTrunk : 1f);
             }
 
-            _broadleafMeshes = new[]
-            {
-                NewBroadleaf(trees, 1f, 1f, seed: 79),        //the authored broadleaf
-                NewBroadleaf(trees, 0.82f, 1.3f, seed: 83),   //narrower and taller, its crown carried higher
-                NewBroadleaf(trees, 1.22f, 0.85f, seed: 97),  //broad and low — an old oak's spread
-                NewBroadleaf(trees, 0.95f, 1.12f, seed: 101)  //an ordinary tree between them
-            };
+            _broadleafMeshes = Array.ConvertAll(BROADLEAF_SHAPES, variant => NewBroadleaf(trees, variant));
 
             _rockMeshes = new[]
             {
@@ -644,11 +680,12 @@ namespace Prazsky.Core.Render
 
             //High and Ultra's two spruce crowns stand by distance from the arena, decided here once: a tree never changes
             //crown as the camera moves, and the near crown is spent where a tree can be large on the screen (#733)
-            SplitByDistance(_scatter.Conifers, FINE_NEAR_RADIUS, out _coniferNear, out _coniferFar);
+            SplitByDistance(_scatter.FineConifers, FINE_NEAR_RADIUS, out _coniferNear, out _coniferFar);
         }
 
-        //Each variant's instances into those standing within `radius` of the arena's axis and the rest, in their order
-        private static void SplitByDistance(ModelInstance[][] variants, float radius, out ModelInstance[][] near,
+        /// <summary>Each variant's instances into those standing within <paramref name="radius"/> of the arena's axis and the
+        /// rest, in their order: the split High and Ultra's two spruce crowns are drawn by, which the forest's needles follow.</summary>
+        internal static void SplitByDistance(ModelInstance[][] variants, float radius, out ModelInstance[][] near,
             out ModelInstance[][] far)
         {
             near = new ModelInstance[variants.Length][];
@@ -868,12 +905,14 @@ namespace Prazsky.Core.Render
                 seed: seed, coniferTiers: cfg.ConiferTiers, coniferTierSpread: cfg.ConiferTierSpread,
                 coniferRaggedness: cfg.ConiferRaggedness);
 
-        private TreeMesh NewBroadleaf(ForestTreeConfig cfg, float width, float height, int seed) =>
-            new(_device, TreeSpecies.Broadleaf,
-                trunkBaseRadius: cfg.TrunkBaseRadius * width, trunkTopRadius: cfg.TrunkTopRadius * width,
-                trunkHeight: cfg.TrunkHeight * height,
-                crownRadius: cfg.CrownRadius * width, crownHeight: cfg.CrownHeight * height,
-                seed: seed);
+        //A broadleaf grown to its variant's figures (BroadleafFigures, the one copy the backdrop grows the same tree in leaf from)
+        private TreeMesh NewBroadleaf(ForestTreeConfig cfg, BroadleafVariant variant)
+        {
+            (float trunkRadius, float trunkHeight, float crownRadius, float crownHeight) = BroadleafFigures(cfg, variant);
+            return new(_device, TreeSpecies.Broadleaf,
+                trunkBaseRadius: trunkRadius, trunkTopRadius: cfg.TrunkTopRadius * variant.Width,
+                trunkHeight: trunkHeight, crownRadius: crownRadius, crownHeight: crownHeight, seed: variant.Seed);
+        }
 
         //A trunk: bark projected triplanar (a trunk is a static vertical cylinder, so a world-fixed projection
         //stays put), with the grain the bark texture's vertical streaks carry, and a coarse relief so the bark

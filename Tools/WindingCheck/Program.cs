@@ -191,6 +191,20 @@ namespace BS3D.Tools.WindingCheck
             //And the aurora's far stand's spire (#963), drawn instanced on the hills
             yield return ("AuroraStandMesh", () => new AuroraStandMesh(d, new AuroraSceneConfig().FarStand));
             yield return ("AuroraStandMesh far", () => new AuroraStandMesh(d, new AuroraSceneConfig().FarStand, tiers: 2, sides: 8));
+            //The daytime forest on High and Ultra (#962): what its wood wears (the broadleaves in leaf, the needles, the ferns),
+            //off the forest's own planting, and the far stand's spires and broadleaf crowns at both details
+            yield return ("ForestDressing", () =>
+            {
+                var forest = new ForestSceneConfig();
+                return new ForestDressing(d, forest, ForestScatterRenderer.Plant(ForestScatterRenderer.DEFAULT_SEED, forest,
+                    (x, z) => TerrainMirror.Forest(x, z, forest)), ForestScatterRenderer.DEFAULT_SEED);
+            });
+            foreach ((string name, int slices, int stacks) in new[] { ("near", 10, 6), ("far", 7, 4) })
+            {
+                ForestFarStandConfig stand = new ForestSceneConfig().FarStand;
+                yield return ($"ForestCrownStandMesh {name}", () => new ForestCrownStandMesh(d, stand.CrownHeight, stand.CrownRadius, slices, stacks));
+            }
+            yield return ("ForestStand spire", () => new AuroraStandMesh(d, new AuroraFarStandConfig { Height = 19f, Radius = 3.6f }, tiers: 5, sides: 10));
             yield return ("ForestFireflies", () => new ForestFireflies(d, fx, new ForestSceneConfig(), 0.3f));
             yield return ("SavannaScatter", () => new SavannaScatter(d, new SavannaSceneConfig(), (x, z) => 0f,
                 Array.Empty<ScatterSpacing.Footprint>()));

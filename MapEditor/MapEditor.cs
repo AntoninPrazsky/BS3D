@@ -476,10 +476,12 @@ namespace MapEditor
             //none of its own, so the component builds one for the boulders.
             //The launch's roll goes in as the Game and the Testbed hand it (#400): the offset above reached the
             //cities and their roofs here but not the wood, so the editor planted the same forest and the same
-            //aurora wood every session while its own comment on _sceneSeedOffset said the wood rolled too.
+            //aurora wood every session while its own comment on _sceneSeedOffset said the wood rolled too. The planting
+            //is the backdrop's since #962 (planted on that roll), which dresses it on High and Ultra and draws the
+            //broadleaves in leaf there.
             _forestScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
                 (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
-                seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
+                planting: _sceneRenderer.ForestPlanting, broadleavesInLeaf: true);
 
             //The aurora's own wood, a second planting from its own config - see AuroraSceneConfig's class doc. The planting
             //is the backdrop's (#963), which drifts the snow round it, so this draws the trees the drifts were made for.

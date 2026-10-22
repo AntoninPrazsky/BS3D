@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-10-22 — #962 Les na High/Ultra, první etapa: hustší les, listnáče v listí, kapradí, stromy na kopcích — desktop (RDT-PC), Claude Code (bs3d-dc)
+- Hotovo: reference (Z-Image + klein, `out/962-*`); High/Ultra mají +400 stromů (80 % smrky), 160 semenáčků, souše, klády, kapradí, listnáče s listy (meadow karty) a vzdálený porost na kopcích (`ForestFarStand`). Low/Medium kreslí přesně totéž (test + měření). Výsadbu vlastní backdrop (`SceneRenderer.ForestPlanting`).
+- Cena: High +2,3 ms, Ultra +2,6 ms (Testbed 3840×1600 ssaa 2, prázdné pole); největší položka jsou karty listů (pixely).
+- ⚠ `alt=` varianta s `ssaa` ho nechá i dalším variantám; pinovat v každé. Full.json (1000 koulí) dělá Testbed CPU-bound (~5,5 ms) a scénu schová.
+- ⚠ Jehličí jako karty na větvích vypadalo jako tmavé tečky (dva světelné modely); vyřazeno, patch v scratchpadu.
+- Otevřené: jehličí, mlha, úspora ceny, tmavá podlaha; `verdict-eye`; kde hráč les potká (rozhodnutí majitele).
+
 ## 2026-10-22 — #967 Outback: obzor bez bledých „klobouků“ — desktop (RDT-PC), Claude Code (bs3d-dc)
 - Hotovo (etapa 1, obzor): „klobouky“ změřeny – vzdálené útvary (151,137,138) proti pláni (128,59,42), červená pryč; dělal je opar, který do 480 j. došel do bledé mlhy, dozvuk k obloze *za* útvarem a hrubý vzdálený prstenec (lichoběžníky). Teď má každý útvar vlastní polární disk (instancovaný, ořez frustem) na stejném výškovém poli, pláň se na jeho elipse zastaví; bochníky s pilíři a ostrými žlaby, shluky kopulí (Kata Tjuta), stíny útvarů zapečené jednou na slunce na GPU, opar jako útlum vzdáleností k barvě obzoru, vlastní dome 21 (modrá nad teplým obzorem). Levnější na všech stupních (High 11,7 → 11,1 ms).
 - ⚠ Testbed kreslí dome 21 (i 1 a 14) tyrkysově: barvu posuzuj ve hře. ⚠ Disky bez ořezu zpomalily Low o 0,4 ms.
