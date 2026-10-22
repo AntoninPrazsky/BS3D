@@ -123,6 +123,27 @@ static const float FOREST_SHADOW_STRENGTH_MAX = 0.80;
 
 #include "ForestGround.fxh"
 
+//Horizon haze in two stages, the floor's and everything standing on the hills (the far stand, #962), so a tree on a ridge
+//recedes exactly as the ground under it does. Straight to the horizon colour - the one stage every other terrain uses -
+//the dark wooded hills bleach cream long before the skyline and read as bare slopes; what distant forested ridges
+//actually do is turn BLUE, because the air between scatters skylight. So the hills first recede into a murk built
+//mostly from the zenith (tinted green so the canopy keeps reading through it; a fraction of the dome's own colours, so a
+//dusk's murk is dark), and only the last stretch melts into the horizon itself - reaching it exactly at the haze
+//distance, which is what keeps the terrain grid's edge invisible against the dome behind it - and on into the sky as it
+//is drawn (FarFadeToSky).
+float3 ForestHaze(float3 color, float3 worldPosition)
+{
+    float dist = distance(CameraPosition, worldPosition);
+    float haze = saturate(dist / HorizonHazeDistance);
+    float3 murk = (ZenithColor * 0.7 + HorizonColor * 0.3) * float3(0.5, 0.65, 0.58);
+    color = lerp(color, murk, saturate(haze * haze * 1.2) * 0.6);
+    float skyward = haze * haze;
+    skyward *= skyward;
+    color = lerp(color, HorizonColor, skyward);
+
+    return FarFadeToSky(color, worldPosition);
+}
+
 struct ForestVertexInput
 {
     float4 Position : POSITION0;
@@ -386,22 +407,8 @@ float4 ForestFloor(ForestVertexOutput input, bool detail)
 
     float3 color = floor * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight * treeShadow);
 
-    //Horizon haze in two stages. Straight to the horizon colour - the one stage every other terrain
-    //uses - the dark wooded hills bleach cream long before the skyline and read as bare slopes; what
-    //distant forested ridges actually do is turn BLUE, because the air between scatters skylight. So
-    //the hills first recede into a murk built mostly from the zenith (tinted green so the canopy keeps
-    //reading through it; a fraction of the dome's own colours, so a dusk's murk is dark), and only the
-    //last stretch melts into the horizon itself - reaching it exactly at the haze distance, which is
-    //what keeps the terrain grid's edge invisible against the dome behind it.
-    float dist = distance(CameraPosition, worldPosition);
-    float haze = saturate(dist / HorizonHazeDistance);
-    float3 murk = (ZenithColor * 0.7 + HorizonColor * 0.3) * float3(0.5, 0.65, 0.58);
-    color = lerp(color, murk, saturate(haze * haze * 1.2) * 0.6);
-    float skyward = haze * haze;
-    skyward *= skyward;
-    color = lerp(color, HorizonColor, skyward);
-
-    return float4(FarFadeToSky(color, worldPosition), 1.0);
+    //Horizon haze in two stages (ForestHaze above), shared with the far stand on the hills
+    return float4(ForestHaze(color, worldPosition), 1.0);
 }
 
 //Two programs from one body. "Forest" is the authored floor; "ForestReduced" is the same floor without the
@@ -425,6 +432,77 @@ technique ForestReduced
     {
         VertexShader = compile VS_SHADERMODEL ForestVS();
         PixelShader = compile PS_SHADERMODEL ForestReducedPS();
+    }
+};
+
+//--- The far stand (#962) -------------------------------------------------------------------------------------
+
+//High and Ultra's wood on the hills past the planted trees, to the last ridges in the haze: cheap spires and rounded
+//broadleaf crowns by the ten thousand, instanced (ForestFarStand), lit as the floor under them is and receding in its
+//haze (ForestHaze), so every ridge's skyline is tree tips and a tree on a ridge fades as its ground does. The aurora's
+//far stand (Aurora.fx's AuroraStand) is the pattern; this one draws two species, each its own draw in its own colour.
+float3 StandAlbedo;      //this draw's species colour (linear)
+float StandTipLight;     //how much lighter the upper faces' outer edge is: the needles' and the leaves' tips catch the sky
+
+struct StandVertexInput
+{
+    float3 Position : POSITION0;
+    float3 Normal : NORMAL0;
+    float Tip : TEXCOORD0;           //how much of a tier's or a crown's upper face the vertex is, 0 to 1
+};
+
+struct StandInstanceInput
+{
+    float4 Place : TEXCOORD1;        //foot in world, and the scale
+    float4 Look : TEXCOORD2;         //yaw (sin, cos), the height's stretch, the instance's tint
+};
+
+struct StandVertexOutput
+{
+    float4 Position : SV_POSITION;
+    float3 WorldPosition : TEXCOORD0;
+    float3 Normal : TEXCOORD1;
+    float2 Material : TEXCOORD2;     //tip, tint
+};
+
+StandVertexOutput StandVS(StandVertexInput input, StandInstanceInput instance)
+{
+    StandVertexOutput output;
+
+    float s = instance.Look.x, c = instance.Look.y;
+    float3 local = input.Position * float3(1.0, instance.Look.z, 1.0) * instance.Place.w;
+    float3 world = float3(local.x * c - local.z * s, local.y, local.x * s + local.z * c) + instance.Place.xyz;
+    float3 normal = float3(input.Normal.x * c - input.Normal.z * s, input.Normal.y / instance.Look.z, input.Normal.x * s + input.Normal.z * c);
+
+    output.WorldPosition = world;
+    output.Normal = normal;
+    output.Material = float2(input.Tip, instance.Look.w);
+    output.Position = mul(mul(float4(world, 1.0), View), Projection);
+
+    return output;
+}
+
+float4 StandPS(StandVertexOutput input) : COLOR
+{
+    float3 normal = normalize(input.Normal);
+    float3 albedo = StandAlbedo * input.Material.y * (1.0 + StandTipLight * input.Material.x);
+
+    //A crown scatters the light it takes, so the sun wraps round it; the dome's hemisphere and the clouds' shadow as the
+    //floor takes them, at the floor's own ambient
+    float wrap = saturate((dot(normal, SunDirection) + 0.35) / 1.35);
+    float sunlight = CloudSunlight(input.WorldPosition, SunDirection);
+    float3 sky = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
+    float3 color = albedo * (sky * AmbientStrength + SunColor * wrap * sunlight);
+
+    return float4(ForestHaze(color, input.WorldPosition), 1.0);
+}
+
+technique ForestStand
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL StandVS();
+        PixelShader = compile PS_SHADERMODEL StandPS();
     }
 };
 

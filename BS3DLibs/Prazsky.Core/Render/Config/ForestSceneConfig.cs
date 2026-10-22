@@ -139,29 +139,107 @@ namespace Prazsky.Core.Render
         /// <summary>Fine needle/moss texture frequency.</summary>
         public float NeedleReliefFrequency { get; set; } = 1.6f;
 
-        /// <summary>The scattered trees (conifers and broadleaves). An empty scatter renders the clearing.</summary>
-        public ForestTreeConfig Trees { get; set; } = new();
+        /// <summary>
+        /// The scattered trees (conifers and broadleaves). An empty scatter renders the clearing. High and Ultra stand a
+        /// wood twice as thick round the clearing and a young growth among it (#962, <see cref="ForestTreeConfig.FineCount"/>
+        /// and <see cref="ForestTreeConfig.SaplingCount"/>); the references' wall round a clearing is crowded trees of every
+        /// age, and two hundred and forty old ones over the whole ring read as a park.
+        /// </summary>
+        public ForestTreeConfig Trees { get; set; } = new() { FineCount = 480, FineMinRadius = 54f, FineMaxRadius = 290f, SaplingCount = 200 };
 
-        /// <summary>The scattered rocks and boulders.</summary>
-        public ForestRockConfig Rocks { get; set; } = new();
+        /// <summary>The scattered rocks and boulders; High and Ultra lay more of them (#962).</summary>
+        public ForestRockConfig Rocks { get; set; } = new() { FineCount = 40 };
 
-        /// <summary>The scattered stumps and fallen logs.</summary>
-        public ForestStumpConfig Stumps { get; set; } = new();
+        /// <summary>The scattered stumps; High and Ultra cut a few more (#962).</summary>
+        public ForestStumpConfig Stumps { get; set; } = new() { FineCount = 15 };
 
         /// <summary>
-        /// Standing dead spruces (#462, <see cref="SnagMesh"/>) — none in the daytime forest, a few in the
-        /// aurora's boreal wood. <see cref="ForestDeadwoodConfig.Length"/> is a snag's height.
+        /// Standing dead spruces (#462, <see cref="SnagMesh"/>) — a few in the aurora's boreal wood, and in the daytime
+        /// forest on High and Ultra only (#962: the references' wood keeps its dead, and a snag with a broken top is the
+        /// imperfection that says the trees grew rather than were placed). <see cref="ForestDeadwoodConfig.Length"/> is a
+        /// snag's height.
         /// </summary>
-        public ForestDeadwoodConfig Snags { get; set; } = new() { Length = 11f, Radius = 0.3f };
+        public ForestDeadwoodConfig Snags { get; set; } = new()
+        {
+            Length = 11f, Radius = 0.3f, FineCount = 16, Clusters = 8, MaxRadius = 260f,
+            Color = new(0.075f, 0.068f, 0.062f)
+        };
 
         /// <summary>
-        /// Fallen trunks lying on the floor (#462, the savanna's <see cref="DeadwoodMesh"/>) — none in the
-        /// daytime forest, a few in the aurora's. <see cref="ForestDeadwoodConfig.Length"/> is end to end.
+        /// Fallen trunks lying on the floor (#462, the savanna's <see cref="DeadwoodMesh"/>) — a few in the aurora's wood,
+        /// and in the daytime forest on High and Ultra only (#962). <see cref="ForestDeadwoodConfig.Length"/> is end to end.
         /// </summary>
-        public ForestDeadwoodConfig Logs { get; set; } = new() { Length = 8f, Radius = 0.38f, MaxScale = 1.3f };
+        public ForestDeadwoodConfig Logs { get; set; } = new()
+        {
+            Length = 8f, Radius = 0.38f, MaxScale = 1.3f, FineCount = 26, Clusters = 10, MaxRadius = 240f,
+            Color = new(0.062f, 0.058f, 0.044f)
+        };
 
         /// <summary>The firefly-like lights over the floor (#487).</summary>
         public ForestFireflyConfig Fireflies { get; set; } = new();
+
+        /// <summary>
+        /// High and Ultra's wood on the hills past the planted trees, out to the last ridges in the haze (#962,
+        /// <c>ForestFarStand</c>). Low and Medium keep the hills' canopy colour (<see cref="TreelineColor"/>), which is
+        /// under the stand at every tier.
+        /// </summary>
+        public ForestFarStandConfig FarStand { get; set; } = new();
+    }
+
+    /// <summary>
+    /// The daytime forest's far stand (#962): the hills' wood past the planted trees as thousands of cheap spires and rounded
+    /// broadleaf crowns, instanced, so every ridge's skyline is tree tips — every reference of a wooded hill (#962's set, both
+    /// models) draws the ridges jagged with them, darker spruce stands and lighter beech stands in patches, each ridge paler
+    /// and bluer than the one before. The aurora's far stand is the pattern (<see cref="AuroraFarStandConfig"/>). Planted on a
+    /// jittered grid, so the canopy closes as a real wood's does instead of clumping and leaving holes, and never inside the
+    /// planted wood's own trees. Drawn on High and Ultra only, lit and hazed as the floor under it.
+    /// </summary>
+    public sealed class ForestFarStandConfig
+    {
+        /// <summary>Where it starts, from the arena's axis: past the High and Ultra stand round the clearing
+        /// (<see cref="ForestTreeConfig.FineMaxRadius"/>), where the hills have risen.</summary>
+        public float InnerRadius { get; set; } = 270f;
+
+        /// <summary>Where the finer meshes give way to the coarser ones.</summary>
+        public float NearRadius { get; set; } = 420f;
+
+        /// <summary>Where it ends: past it the haze has carried everything into the sky (<see cref="ForestSceneConfig.HorizonHazeDistance"/>
+        /// from a camera on the island, and <c>FarFadeToSky</c> after it).</summary>
+        public float OuterRadius { get; set; } = 560f;
+
+        /// <summary>The grid a tree is jittered in, world units, inside <see cref="NearRadius"/> and past it.</summary>
+        public float Spacing { get; set; } = 6.5f;
+        public float FarSpacing { get; set; } = 8f;
+
+        /// <summary>How much of the ground is left open (glades, rides, scree), 0 to 1.</summary>
+        public float Glades { get; set; } = 0.22f;
+
+        /// <summary>The share of the stand that is broadleaf, laid in patches a grove or two across.</summary>
+        public float BroadleafShare { get; set; } = 0.4f;
+
+        /// <summary>A spire's height and skirt radius at scale 1: the planted spruces' proportions.</summary>
+        public float SpruceHeight { get; set; } = 19f;
+        public float SpruceRadius { get; set; } = 3.6f;
+
+        /// <summary>A broadleaf crown's height (ground to top) and radius at scale 1.</summary>
+        public float CrownHeight { get; set; } = 17f;
+        public float CrownRadius { get; set; } = 5f;
+
+        /// <summary>The smallest and the largest scale.</summary>
+        public float MinScale { get; set; } = 0.75f;
+        public float MaxScale { get; set; } = 1.35f;
+
+        /// <summary>The spruces' needles (linear): the planted spruces' green, a shade darker for a stand's crowded crowns.</summary>
+        public Rgb SpruceColor { get; set; } = new(0.011f, 0.030f, 0.014f);
+
+        /// <summary>The broadleaves' leaves (linear): lighter and warmer than the spruces, as the references' beech stands are.</summary>
+        public Rgb BroadleafColor { get; set; } = new(0.020f, 0.044f, 0.014f);
+
+        /// <summary>How much lighter the outer edge of a tier's or a crown's upper face is, its tips catching the sky.</summary>
+        public float TipLight { get; set; } = 0.5f;
+
+        /// <summary>The planting's seed.</summary>
+        public int Seed { get; set; } = 96201;
     }
 
     /// <summary>
@@ -175,10 +253,37 @@ namespace Prazsky.Core.Render
     /// </summary>
     public sealed class ForestTreeConfig
     {
-        /// <summary>Number of trees scattered across the clearing and its hills (both species together).
-        /// Dense enough that the stands read as woodland rather than parkland — the scatter is instanced and
-        /// measured near-free, so the count is a look decision, not a budget one.</summary>
+        /// <summary>Number of trees scattered across the clearing and its hills (both species together), at every
+        /// tier. High and Ultra add <see cref="FineCount"/> and <see cref="SaplingCount"/> to them.</summary>
         public int Count { get; set; } = 240;
+
+        /// <summary>
+        /// How many more full-grown trees High and Ultra stand (#962, <c>SceneRenderer.FineMeshes</c>), split between the
+        /// species as <see cref="Count"/> is and planted after everything else (<see cref="ForestScatter.FineConifers"/>), so
+        /// the wood the lower tiers draw does not move. Between <see cref="FineMinRadius"/> and <see cref="FineMaxRadius"/>:
+        /// round the clearing, where the camera sees them, and not on the far hills, which the far stand dresses. 0 plants
+        /// none (the class default, and the aurora's).
+        /// </summary>
+        public int FineCount { get; set; }
+
+        /// <summary>The ring <see cref="FineCount"/> and <see cref="SaplingCount"/> are planted in.</summary>
+        public float FineMinRadius { get; set; } = 52f;
+        public float FineMaxRadius { get; set; } = 340f;
+
+        /// <summary>The cluster centres the High and Ultra trees gather round: three times the base wood's, so they close it into a
+        /// wall round the clearing rather than piling into its groves.</summary>
+        public int FineClusters { get; set; } = 60;
+
+        /// <summary>
+        /// How many young trees High and Ultra stand among the old ones (#962): the same meshes at
+        /// <see cref="SaplingMinScale"/> to <see cref="SaplingMaxScale"/> of their size, the understorey of every age the
+        /// references draw. 0 plants none.
+        /// </summary>
+        public int SaplingCount { get; set; }
+
+        /// <summary>The smallest and the largest a sapling is, as a share of a grown tree's mesh.</summary>
+        public float SaplingMinScale { get; set; } = 0.16f;
+        public float SaplingMaxScale { get; set; } = 0.42f;
 
         /// <summary>Fraction of the trees that are conifers; the rest are broadleaves.</summary>
         public float ConiferFraction { get; set; } = 0.65f;
@@ -297,6 +402,9 @@ namespace Prazsky.Core.Render
         /// <summary>Number of boulders scattered across the floor.</summary>
         public int Count { get; set; } = 60;
 
+        /// <summary>How many more High and Ultra lay (#962), after everything else is planted. 0 lays none.</summary>
+        public int FineCount { get; set; }
+
         /// <summary>Inner radius of the scatter ring (kept clear of the island).</summary>
         public float MinRadius { get; set; } = 42f;
 
@@ -342,6 +450,9 @@ namespace Prazsky.Core.Render
         /// <summary>Number scattered across the floor. Zero plants none.</summary>
         public int Count { get; set; }
 
+        /// <summary>How many more High and Ultra plant (#962), after everything else. 0 plants none.</summary>
+        public int FineCount { get; set; }
+
         /// <summary>Inner radius of the scatter ring (kept clear of the island).</summary>
         public float MinRadius { get; set; } = 46f;
 
@@ -382,6 +493,9 @@ namespace Prazsky.Core.Render
     {
         /// <summary>Number of stumps scattered across the floor.</summary>
         public int Count { get; set; } = 35;
+
+        /// <summary>How many more High and Ultra cut (#962), after everything else is planted. 0 cuts none.</summary>
+        public int FineCount { get; set; }
 
         /// <summary>Inner radius of the scatter ring (kept clear of the island).</summary>
         public float MinRadius { get; set; } = 42f;

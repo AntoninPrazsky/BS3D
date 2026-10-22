@@ -63,7 +63,7 @@ namespace Prazsky.Core.Render
         /// closed by a low dome whose saddles dip between them; every limb roots just inside it and leaves along its
         /// surface, the leader rises out of the dome on a flared foot, and every bough and branch grows out of its parent
         /// from inside it. The ends are <see cref="Wood"/>'s, so the twigs and leaves hang from either. <c>null</c> for a
-        /// forest broadleaf (<see cref="ForForest"/>), which the forest's own renderer draws.
+        /// forest broadleaf as Low and Medium draw it (<see cref="ForForest"/>); the one in leaf has it (<see cref="ForestInLeaf"/>, #962).
         /// </summary>
         public IProceduralMesh FineWood { get; }
 
@@ -143,19 +143,34 @@ namespace Prazsky.Core.Render
         /// A broadleaf of the daytime forest (#647), grown the same way to the forest's own figures: a tall bare
         /// bole to <paramref name="trunkHeight"/> under a crown <paramref name="crownRadius"/> wide and
         /// <paramref name="crownHeight"/> tall, its limbs steep as a forest-grown tree's are. <b>Wood and crown
-        /// only</b> — the forest draws through <c>InstancedModel.fx</c>, which cuts no leaf cards, so its crown is
+        /// only</b>, as Low and Medium draw it through <c>InstancedModel.fx</c>, which cuts no leaf cards, so its crown is
         /// the solid clumps, coarser still since a forest holds eighty of them. <see cref="Twigs"/> and
-        /// <see cref="Leaves"/> are null.
+        /// <see cref="Leaves"/> are null; High and Ultra draw the same tree in leaf (<see cref="ForestInLeaf"/>).
         /// </summary>
         public static MeadowTreeMesh ForForest(GraphicsDevice device, float trunkRadius, float trunkHeight,
-            float crownRadius, float crownHeight, int seed)
+            float crownRadius, float crownHeight, int seed) =>
+            new(device, ForestGeometry(trunkRadius, trunkHeight, crownRadius, crownHeight, seed, inLeaf: false));
+
+        /// <summary>
+        /// The same forest broadleaf in leaf (#962, #751), for High and Ultra: <see cref="ForForest"/>'s tree, whose wood and
+        /// lumps it builds byte for byte (the leaves take a random stream of their own), with the grown wood
+        /// (<see cref="FineWood"/>), the twigs every clump's spray fans out of and the broad-leaf cards hung along them, which
+        /// the forest draws through the plant material (<c>ForestPlants.fx</c>) as the meadow draws its old trees.
+        /// </summary>
+        public static MeadowTreeMesh ForestInLeaf(GraphicsDevice device, float trunkRadius, float trunkHeight,
+            float crownRadius, float crownHeight, int seed) =>
+            new(device, ForestGeometry(trunkRadius, trunkHeight, crownRadius, crownHeight, seed, inLeaf: true));
+
+        /// <summary>A forest broadleaf as lists, with no device: the trees <see cref="ForForest"/> and <see cref="ForestInLeaf"/> upload.</summary>
+        internal static MeadowTreeGeometry ForestGeometry(float trunkRadius, float trunkHeight, float crownRadius, float crownHeight,
+            int seed, bool inLeaf)
         {
             float height = trunkHeight + crownHeight;
             var figure = new Figure(height, trunkRadius, trunkHeight * 0.82f / height, crownRadius,
                 (trunkHeight + crownHeight * 0.55f) / height, crownHeight * 0.48f / height,
                 limbsMin: 3, limbsMax: 4, elevationMin: 50f, elevationMax: 72f,
                 clumps: FOREST_CLUMPS, clumpMin: 0.24f, clumpMax: 0.32f, lean: 0.03f);
-            return new MeadowTreeMesh(device, Build(figure, seed, cards: false, FOREST_LUMP_SLICES, FOREST_LUMP_STACKS, plugged: true));
+            return Build(figure, seed, cards: inLeaf, FOREST_LUMP_SLICES, FOREST_LUMP_STACKS, plugged: true);
         }
 
         //A forest broadleaf's clumps: fewer and coarser than a meadow tree's, eighty trees standing together

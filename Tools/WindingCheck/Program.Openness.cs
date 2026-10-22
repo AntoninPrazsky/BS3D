@@ -67,6 +67,7 @@ namespace BS3D.Tools.WindingCheck
             ("PalmMesh[2].Fronds", ANY, "CullNone leaflet ribbons, shaded per face (Palm.fx): a sheet's outline"),
             ("PalmMesh[3].Fronds", ANY, "CullNone leaflet ribbons, shaded per face (Palm.fx): a sheet's outline"),
             ("SavannaScatter.Buckets", CARDS, "the savanna's leaf cards and grass fans (two-sided ribbons)"),
+            ("ForestDressing._owned", CARDS, "the forest's leaf, needle and fern cards on High and Ultra (#962: two-sided ribbons)"),
             ("SavannaScatter._meshes[30].Leaves", ANY, "the savanna's leaf cards (two-sided ribbons)"),
             (".Leaves <UploadedMesh>", ANY, "the meadow's leaf cards (two-sided ribbons)"),
             ("BirdMesh", ANY, "the wings are single sheets and the body a shell: drawn CullNone, a bird is 0.9 across"),
@@ -109,6 +110,7 @@ namespace BS3D.Tools.WindingCheck
             (new Regex(@"^(?<key>[^ ]*(?: aurora)?\._coniferMeshes\[\d+\])\.(FineStem|FineCrownFar|FineSnowFar) "), "FineStem+FineCrownFar+FineSnowFar"),
             (new Regex(@"^(?<key>MeadowScatter\._owned\[[0-4]\])\.(Wood|Twigs) "), "Wood+Twigs"),
             (new Regex(@"^(?<key>MeadowScatter\._owned\[[0-4]\])\.(FineWood|Twigs) "), "FineWood+Twigs"),
+            (new Regex(@"^(?<key>ForestDressing\._owned\[\d+\])\.(FineWood|Twigs) "), "FineWood+Twigs"),
             (new Regex(@"^(?<key>PartyHat)\._meshes\[[0-4]\] "), "stripes"),
         };
 

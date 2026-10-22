@@ -281,7 +281,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Whether the scenes draw their <b>finer meshes</b> (#758): High and Ultra's, where Low and Medium draw the coarser
-        /// mesh of the same thing off the same instances. Seven things today: the savanna acacias' wood — the fork grown as one
+        /// mesh of the same thing off the same instances. Eight things today: the savanna acacias' wood — the fork grown as one
         /// surface out of a swollen, lobed crotch rather than tubes poking out of the trunk's cut end
         /// (<see cref="AcaciaMesh.FineWood"/>, <see cref="ScatterBucket.FineMeshes"/>, #758) — the meadow's old trees' wood
         /// grown the same way, the limbs coming out through the crotch's side (<see cref="MeadowTreeMesh.FineWood"/>, #889,
@@ -289,7 +289,9 @@ namespace Prazsky.Core.Render
         /// lobed dome with nothing inside it (<see cref="ThornBushMesh"/>, #883) — the meadow's free-standing shrubs, stems and
         /// clumps of broad-leaf cards in place of the lobed loaf the hedgerows keep (<see cref="MeadowShrubMesh"/>, #890) — the spruces of the aurora's
         /// wood and the daytime forest, whose crowns are separate boughs with snow lying on them in lumps instead of a lathe
-        /// of smooth skirts (<see cref="TreeMesh.FineCrown"/>, #733), the mountain range (#781): a grid twice as fine
+        /// of smooth skirts (<see cref="TreeMesh.FineCrown"/>, #733) — the daytime forest's wood twice as thick with saplings, snags and
+        /// logs, its broadleaves in leaf, ferns at its feet and a far stand on its hills (<see cref="ForestScatter.FineConifers"/>,
+        /// <see cref="ForestDressing"/>, #962) — the mountain range (#781): a grid twice as fine
         /// carrying a sixth octave and crags, shaded by a program that lays the rock in three dimensions where the coarser
         /// one projects it on the ground plane — and the cavern's hall (<see cref="CavernGeometry.Detail"/>, #958): 176 cells
         /// along a cube face's edge, every stalactite and 14 facets round a formation, where Low and Medium use 104 cells, leave
@@ -301,7 +303,7 @@ namespace Prazsky.Core.Render
         /// reason — the tier lives in the Game. Left on, a caller that never sets it draws the authored look, which is what
         /// the Testbed and the map editor want. Costed in "The fork, grown for High and Ultra (#758)" and "The bush (#883)" in
         /// docs/scenes/savanna-trees.md, in "Two woods (#889)" and "The shrubs (#890)" in docs/scenes/meadow.md, in "The spruces on High and Ultra"
-        /// in docs/scenes/aurora.md and in "High and Ultra's range" in docs/scenes/mountains.md.
+        /// in docs/scenes/aurora.md, in "High and Ultra's range" in docs/scenes/mountains.md and "High and Ultra's wood" in docs/scenes/forest.md.
         /// </para>
         /// </summary>
         public bool FineMeshes
@@ -1932,6 +1934,13 @@ namespace Prazsky.Core.Render
         /// <see cref="ForestScatterRenderer"/> draws (its <c>planting</c> argument), so the drifts and the trunks agree.
         /// </summary>
         public ForestScatter AuroraPlanting => _aurora.Planting;
+
+        /// <summary>
+        /// Where the daytime forest's wood stands (#962): the planting the backdrop dresses on High and Ultra (the broadleaves'
+        /// leaves, the spruces' needles, the ferns at their feet), which every host's forest <see cref="ForestScatterRenderer"/>
+        /// draws (its <c>planting</c> argument), so the leaves hang on the trees that are drawn.
+        /// </summary>
+        public ForestScatter ForestPlanting => _forest.Planting;
 
         /// <summary>
         /// The aurora's snow as drawn at a world point, the drifts round the planting included (<c>Aurora.fx</c>'s

@@ -41,6 +41,29 @@ namespace Prazsky.Core.Render
         /// <summary>Fallen logs by mesh variant (#462). Empty buckets where the config plants none.</summary>
         public ModelInstance[][] Logs { get; }
 
+        /// <summary>
+        /// The wood High and Ultra stand (#962), by mesh variant: each of the arrays above with the config's <c>FineCount</c>
+        /// more of its kind after it (and the trees' saplings, <see cref="ForestTreeConfig.SaplingCount"/>), each variant's
+        /// own instances first, so every instance a lower tier draws is drawn in the same place by this one. The very arrays
+        /// above where a config plants no more (the aurora's). Planted after everything else, from the same stream, so the
+        /// lower tiers' wood does not move.
+        /// </summary>
+        public ModelInstance[][] FineConifers { get; }
+        public ModelInstance[][] FineBroadleaves { get; }
+        public ModelInstance[][] FineRocks { get; }
+        public ModelInstance[][] FineStumps { get; }
+        public ModelInstance[][] FineSnags { get; }
+        public ModelInstance[][] FineLogs { get; }
+
+        /// <summary>A kind's instances as a tier draws them: the <c>Fine</c> arrays where <paramref name="fineMeshes"/>
+        /// (<c>SceneRenderer.FineMeshes</c>), the arrays every tier draws where not.</summary>
+        public ModelInstance[][] ConifersAt(bool fineMeshes) => fineMeshes ? FineConifers : Conifers;
+        public ModelInstance[][] BroadleavesAt(bool fineMeshes) => fineMeshes ? FineBroadleaves : Broadleaves;
+        public ModelInstance[][] RocksAt(bool fineMeshes) => fineMeshes ? FineRocks : Rocks;
+        public ModelInstance[][] StumpsAt(bool fineMeshes) => fineMeshes ? FineStumps : Stumps;
+        public ModelInstance[][] SnagsAt(bool fineMeshes) => fineMeshes ? FineSnags : Snags;
+        public ModelInstance[][] LogsAt(bool fineMeshes) => fineMeshes ? FineLogs : Logs;
+
         //No neighbouring-cell occlusion; the instanced shader still expects the vector (W=1 = fully open).
         private static readonly Vector4 NO_OCCLUSION = new(0f, 0f, 0f, 1f);
 
@@ -143,9 +166,79 @@ namespace Prazsky.Core.Render
             Snags = Scatter(snags.Count, snags.MinRadius, snags.MaxRadius, snags.Clusters, snags.ClusterSpread,
                 snags.MinScale, snags.MaxScale, SNAG_LEAN, snagVariants, terrainHeight, rng,
                 SNAG_FOOTPRINT, trunks);
+            var logSpace = new List<ScatterSpacing.Footprint>(logs.Count + logs.FineCount);
             Logs = Scatter(logs.Count, logs.MinRadius, logs.MaxRadius, logs.Clusters, logs.ClusterSpread,
                 logs.MinScale, logs.MaxScale, LOG_LEAN, logVariants, terrainHeight, rng,
-                logs.Length * 0.5f, new List<ScatterSpacing.Footprint>(logs.Count));
+                logs.Length * 0.5f, logSpace);
+
+            //High and Ultra's wood (#962), after every kind above and in this order, so nothing a lower tier draws moves. The
+            //rocks and stumps above were spaced by lists of their own that are gone, so theirs are rebuilt from what they
+            //planted. A config that plants no more of a kind hands that kind's arrays above back as they are.
+            var rockSpace = Footprints(Rocks, ROCK_FOOTPRINT);
+            var stumpSpace = Footprints(Stumps, STUMP_FOOTPRINT);
+
+            float coniferShare = MathHelper.Clamp(trees.ConiferFraction, 0f, 1f);
+            int fineConifers = (int)MathF.Round(trees.FineCount * coniferShare);
+            int youngConifers = (int)MathF.Round(trees.SaplingCount * coniferShare);
+            ModelInstance[][] moreConifers = Scatter(fineConifers, trees.FineMinRadius, trees.FineMaxRadius, trees.FineClusters,
+                trees.ClusterSpread, trees.MinScale, trees.MaxScale, TREE_LEAN, coniferVariants, terrainHeight, rng,
+                trees.ConiferCrownRadius, trunks);
+            ModelInstance[][] moreBroadleaves = Scatter(trees.FineCount - fineConifers, trees.FineMinRadius, trees.FineMaxRadius,
+                trees.FineClusters, trees.ClusterSpread, trees.MinScale, trees.MaxScale, TREE_LEAN, broadleafVariants, terrainHeight,
+                rng, trees.CrownRadius, trunks);
+
+            //The saplings: the same meshes at a fraction of the size, the young growth of every age the references stand
+            //between a wood's old trees. Spaced by their own small crowns, among the old trees' feet.
+            ModelInstance[][] saplingConifers = Scatter(youngConifers, trees.FineMinRadius, trees.FineMaxRadius, trees.FineClusters,
+                trees.ClusterSpread, trees.SaplingMinScale, trees.SaplingMaxScale, TREE_LEAN, coniferVariants, terrainHeight, rng,
+                trees.ConiferCrownRadius, trunks);
+            ModelInstance[][] saplingBroadleaves = Scatter(trees.SaplingCount - youngConifers, trees.FineMinRadius,
+                trees.FineMaxRadius, trees.FineClusters, trees.ClusterSpread, trees.SaplingMinScale, trees.SaplingMaxScale, TREE_LEAN,
+                broadleafVariants, terrainHeight, rng, trees.CrownRadius, trunks);
+
+            FineConifers = Join(Conifers, moreConifers, saplingConifers);
+            FineBroadleaves = Join(Broadleaves, moreBroadleaves, saplingBroadleaves);
+            FineRocks = Join(Rocks, Scatter(rocks.FineCount, rocks.MinRadius, rocks.MaxRadius, rocks.Clusters, rocks.ClusterSpread,
+                rocks.MinScale, rocks.MaxScale, ROCK_TUMBLE, rockVariants, terrainHeight, rng, ROCK_FOOTPRINT, rockSpace));
+            FineStumps = Join(Stumps, Scatter(stumps.FineCount, stumps.MinRadius, stumps.MaxRadius, stumps.Clusters,
+                stumps.ClusterSpread, stumps.MinScale, stumps.MaxScale, STUMP_LEAN, stumpVariants, terrainHeight, rng,
+                STUMP_FOOTPRINT, stumpSpace));
+            FineSnags = Join(Snags, Scatter(snags.FineCount, snags.MinRadius, snags.MaxRadius, snags.Clusters, snags.ClusterSpread,
+                snags.MinScale, snags.MaxScale, SNAG_LEAN, snagVariants, terrainHeight, rng, SNAG_FOOTPRINT, trunks));
+            FineLogs = Join(Logs, Scatter(logs.FineCount, logs.MinRadius, logs.MaxRadius, logs.Clusters, logs.ClusterSpread,
+                logs.MinScale, logs.MaxScale, LOG_LEAN, logVariants, terrainHeight, rng, logs.Length * 0.5f, logSpace));
+        }
+
+        //Every instance of a planting as the footprint it was spaced by, so a later pass of the same kind keeps clear of it
+        private static List<ScatterSpacing.Footprint> Footprints(ModelInstance[][] planted, float footprint)
+        {
+            var space = new List<ScatterSpacing.Footprint>();
+            foreach (ModelInstance[] bucket in planted)
+                foreach (ModelInstance instance in bucket)
+                {
+                    float scale = new Vector3(instance.World.M11, instance.World.M12, instance.World.M13).Length();
+                    space.Add(new ScatterSpacing.Footprint(instance.World.M41, instance.World.M43, footprint * scale));
+                }
+            return space;
+        }
+
+        //Each variant's instances followed by the same variant's of every later planting: the arrays a lower tier draws come
+        //first, so a tier change moves no instance. The first planting's own arrays where nothing was added.
+        private static ModelInstance[][] Join(ModelInstance[][] first, params ModelInstance[][][] more)
+        {
+            bool any = false;
+            foreach (ModelInstance[][] planting in more)
+                foreach (ModelInstance[] bucket in planting) any |= bucket.Length > 0;
+            if (!any) return first;
+
+            var joined = new ModelInstance[first.Length][];
+            for (int v = 0; v < first.Length; v++)
+            {
+                var all = new List<ModelInstance>(first[v]);
+                foreach (ModelInstance[][] planting in more) all.AddRange(planting[v]);
+                joined[v] = all.ToArray();
+            }
+            return joined;
         }
 
         //One clumped scatter of <count> instances between <minRadius> and <maxRadius> from the world origin,
