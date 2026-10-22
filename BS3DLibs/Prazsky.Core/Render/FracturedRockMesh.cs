@@ -47,6 +47,18 @@ namespace Prazsky.Core.Render
         /// <param name="boulderHeight">0 for a block; a boulder's height over its base (a <see cref="RockMesh"/>'s).</param>
         internal static (List<VertexPositionNormalTexture> Vertices, List<short> Indices) Build(int seed, int subdivisions, float boulderHeight = 0f)
         {
+            (List<VertexPositionNormalTexture> vertices, List<short>[] levels) = BuildLevels(seed, subdivisions, boulderHeight);
+            return (vertices, levels[subdivisions]);
+        }
+
+        /// <summary>
+        /// The rock sampled at <paramref name="finest"/> subdivisions, and the triangles of every coarser sampling over the same
+        /// vertices: a subdivided icosahedron keeps its coarser points first, so level <c>k</c> is the first <see cref="PointCount"/>
+        /// of them under its own indices. One shape is worked out once for all its densities and its casters: built level by
+        /// level, a planting's set took 0.50 s in a Debug run, against 0.19 s.
+        /// </summary>
+        internal static (List<VertexPositionNormalTexture> Vertices, List<short>[] Indices) BuildLevels(int seed, int finest, float boulderHeight = 0f)
+        {
             bool boulder = boulderHeight > 0f;
             var rng = new Random(seed);
 
@@ -126,7 +138,7 @@ namespace Prazsky.Core.Render
             //steps over the sphere and not averaged over the triangles round it. Averaged, an edge turned over two rows of
             //triangles and every block came out a soft pillow; taken off the surface, a face is flat to its edge and the edge
             //turns over the bevel, wherever the triangles happen to lie
-            (List<Vector3> points, List<int> triangles) = Icosphere(subdivisions);
+            (List<Vector3> points, List<int>[] levels) = IcosphereLevels(finest);
             var vertices = new List<VertexPositionNormalTexture>(points.Count);
             foreach (Vector3 d in points)
             {
@@ -141,22 +153,30 @@ namespace Prazsky.Core.Render
                 vertices.Add(new VertexPositionNormalTexture(Surface(d) * scale + shift, normal, Vector2.Zero));
             }
 
-            //The sphere is wound one way throughout; turn it to this renderer's front face (CLAUDE.md, "Triangle winding":
-            //clockwise from outside, so (b - a) x (c - a) points INWARD) by the sign of the volume it encloses
+            //The sphere is wound one way throughout, at every level; turn it to this renderer's front face (CLAUDE.md, "Triangle
+            //winding": clockwise from outside, so (b - a) x (c - a) points INWARD) by the sign of the volume it encloses
             float volume = 0f;
-            for (int t = 0; t < triangles.Count; t += 3)
-                volume += Vector3.Dot(points[triangles[t]], Vector3.Cross(points[triangles[t + 1]], points[triangles[t + 2]]));
+            for (int t = 0; t < levels[0].Count; t += 3)
+                volume += Vector3.Dot(points[levels[0][t]], Vector3.Cross(points[levels[0][t + 1]], points[levels[0][t + 2]]));
             bool flip = volume > 0f;
 
-            var indices = new List<short>(triangles.Count);
-            for (int t = 0; t < triangles.Count; t += 3)
+            var indices = new List<short>[levels.Length];
+            for (int level = 0; level < levels.Length; level++)
             {
-                indices.Add((short)triangles[t]);
-                indices.Add((short)(flip ? triangles[t + 2] : triangles[t + 1]));
-                indices.Add((short)(flip ? triangles[t + 1] : triangles[t + 2]));
+                List<int> triangles = levels[level];
+                indices[level] = new List<short>(triangles.Count);
+                for (int t = 0; t < triangles.Count; t += 3)
+                {
+                    indices[level].Add((short)triangles[t]);
+                    indices[level].Add((short)(flip ? triangles[t + 2] : triangles[t + 1]));
+                    indices[level].Add((short)(flip ? triangles[t + 1] : triangles[t + 2]));
+                }
             }
             return (vertices, indices);
         }
+
+        /// <summary>How many points an icosahedron subdivided <paramref name="subdivisions"/> times has: 12, 42, 162, 642, 2562.</summary>
+        internal static int PointCount(int subdivisions) => 10 * (1 << (2 * subdivisions)) + 2;
 
         /// <summary>How many corners a block may have chipped, and how far apart two chips stand (a cosine).</summary>
         private const int CHIPS_MAX = 4;
@@ -165,10 +185,13 @@ namespace Prazsky.Core.Render
         /// <summary>The step over the unit sphere a vertex's normal is taken across: far under a triangle, well over float noise.</summary>
         private const float NORMAL_STEP = 2e-3f;
 
-        /// <summary><see cref="Build(int, int, float)"/> uploaded, with the bounding sphere round it.</summary>
-        internal static UploadedMesh Upload(GraphicsDevice device, int seed, int subdivisions, float boulderHeight = 0f)
+        /// <summary>One level of <see cref="BuildLevels(int, int, float)"/> uploaded (its own points only), with the bounding
+        /// sphere round it.</summary>
+        internal static UploadedMesh Upload(GraphicsDevice device, List<VertexPositionNormalTexture> finest, List<short>[] levels,
+            int subdivisions, float boulderHeight)
         {
-            (List<VertexPositionNormalTexture> v, List<short> idx) = Build(seed, subdivisions, boulderHeight);
+            List<VertexPositionNormalTexture> v = finest.GetRange(0, PointCount(subdivisions));
+            List<short> idx = levels[subdivisions];
             Vector3 centre = boulderHeight > 0f ? new Vector3(0f, boulderHeight * 0.45f, 0f) : new Vector3(0f, BLOCK_CENTRE_Y, 0f);
             float radius = 0f;
             foreach (VertexPositionNormalTexture vertex in v) radius = MathF.Max(radius, Vector3.Distance(vertex.Position, centre));
@@ -214,6 +237,14 @@ namespace Prazsky.Core.Render
         /// </summary>
         internal static (List<Vector3> Points, List<int> Triangles) Icosphere(int subdivisions)
         {
+            (List<Vector3> points, List<int>[] levels) = IcosphereLevels(subdivisions);
+            return (points, levels[subdivisions]);
+        }
+
+        /// <summary><see cref="Icosphere(int)"/> with the triangles of every level on the way, each over the first
+        /// <see cref="PointCount"/> points of the list.</summary>
+        internal static (List<Vector3> Points, List<int>[] Levels) IcosphereLevels(int subdivisions)
+        {
             float t = (1f + MathF.Sqrt(5f)) * 0.5f;
             var points = new List<Vector3>
             {
@@ -230,6 +261,8 @@ namespace Prazsky.Core.Render
                 3, 9, 4, 3, 4, 2, 3, 2, 6, 3, 6, 8, 3, 8, 9, 4, 9, 5, 2, 4, 11, 6, 2, 10, 8, 6, 7, 9, 8, 1,
             };
 
+            var levels = new List<int>[subdivisions + 1];
+            levels[0] = triangles;
             for (int s = 0; s < subdivisions; s++)
             {
                 var midpoints = new Dictionary<long, int>();
@@ -250,8 +283,9 @@ namespace Prazsky.Core.Render
                     next.AddRange(new[] { a, ab, ca, b, bc, ab, c, ca, bc, ab, bc, ca });
                 }
                 triangles = next;
+                levels[s + 1] = next;
             }
-            return (points, triangles);
+            return (points, levels);
         }
     }
 
@@ -300,12 +334,16 @@ namespace Prazsky.Core.Render
             void Add(List<ModelInstance>[,] instances, int salt, Func<int, float> height)
             {
                 for (int m = 0; m < instances.GetLength(0); m++)
+                {
+                    //One shape a variant, worked out once for every density and caster it is drawn at
+                    (List<VertexPositionNormalTexture> Vertices, List<short>[] Indices)? shape = null;
                     for (int k = 0; k < DENSITIES; k++)
                     {
                         if (instances[m, k].Count == 0) continue;
-                        int shape = seed + salt + 101 * m;
-                        UploadedMesh mesh = FracturedRockMesh.Upload(device, shape, SUBDIVISIONS[k], height(m));
-                        UploadedMesh caster = FracturedRockMesh.Upload(device, shape, Math.Max(1, SUBDIVISIONS[k] - 1), height(m));
+                        shape ??= FracturedRockMesh.BuildLevels(seed + salt + 101 * m, SUBDIVISIONS[DENSITIES - 1], height(m));
+                        UploadedMesh mesh = FracturedRockMesh.Upload(device, shape.Value.Vertices, shape.Value.Indices, SUBDIVISIONS[k], height(m));
+                        UploadedMesh caster = FracturedRockMesh.Upload(device, shape.Value.Vertices, shape.Value.Indices,
+                            Math.Max(1, SUBDIVISIONS[k] - 1), height(m));
                         _owned.Add(mesh);
                         _owned.Add(caster);
                         var bucket = new ScatterBucket(device, mesh, instances[m, k], rock, rockDusted, dapple: 0f, bark: 0f,
@@ -313,6 +351,7 @@ namespace Prazsky.Core.Render
                         _owned.Add(bucket);
                         buckets.Add(bucket);
                     }
+                }
             }
             Add(blocks, 0, _ => 0f);
             Add(boulders, 5000, boulderHeight);
