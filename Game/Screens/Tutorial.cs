@@ -216,6 +216,10 @@ namespace BS3D.Screens
         //U+2199 is PromptFont's RB (PlayHud's Cut chip draws the same)
         private const string PAD_RIGHT_BUMPER = "↙";
 
+        //Where the line's card sits in its chapter, counted from the chapter's end (Saturn in the campaign): also the level
+        //the net starts to be shown at (NetIsShownAt)
+        private const int LINE_RULE_FROM_LEVEL = -3;
+
         //The glass lesson's caption, formatted once per level with that level's own cadence
         private const string CEILING_CAPTION = "The glass steps down every {0} shots";
 
@@ -309,8 +313,8 @@ namespace BS3D.Screens
                 //and Amphora, the chapter's last, keeps the send-off. Counted from the end (see FromLevel) because
                 //this read 6 from #459 to #649, which the three sheets inserted in front had quietly turned into
                 //Pinwheel.
-                Lesson = Lesson.LineRule, Key = "linerule", FromLevel = -3,
-                Caption = "Keep the cluster off the line", Detail = "Reaching it loses the level",
+                Lesson = Lesson.LineRule, Key = "linerule", FromLevel = LINE_RULE_FROM_LEVEL,
+                Caption = "Keep the cluster above the red line", Detail = "Reaching it loses the level",
             },
             new()
             {
@@ -662,6 +666,29 @@ namespace BS3D.Screens
                 if (_armed[i].Lesson == lesson) return true;
 
             return false;
+        }
+
+        /// <summary>
+        /// The card that names the line (<see cref="Lesson.LineRule"/>) is on screen and being read (#933): arriving or up, not
+        /// leaving, not praised, not stepped aside. The session blinks the floor net at its real place for as long as this
+        /// holds, so the red line the card names is a red line the player has seen; it goes out with the card, whatever took
+        /// it down (read out, the Tutorial row off, a decided level).
+        /// </summary>
+        internal bool ShowsTheLine => IsUp(Lesson.LineRule);
+
+        /// <summary>
+        /// Whether a level shows the net at its start (#933): the level the line's card is first taught on and every level
+        /// after it, in the chapter it belongs to and every later one the player reaches (<see cref="TryPlace"/> gives the
+        /// placement of a level of any chapter, whether or not the ladder reaches it). Not before: the first levels do not
+        /// mention the line, and a player who has not reached it has no use for the sight of it. <paramref name="chapter"/> is
+        /// −1 for a level that has no placement at all (no level set), which is none.
+        /// </summary>
+        internal static bool NetIsShownAt(int chapter, int levelInChapter, int chapterLength)
+        {
+            if (chapter < 0) return false;
+            if (chapter > 0) return true;
+
+            return levelInChapter >= Math.Max(0, chapterLength + LINE_RULE_FROM_LEVEL);
         }
 
         /// <summary>Whether the last input was the pad: what any prompt outside the cards asks to pick its glyph (#499).</summary>

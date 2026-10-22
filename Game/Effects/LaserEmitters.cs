@@ -15,11 +15,12 @@ namespace BS3D.Effects
     /// and glass (<see cref="CannonRig.STEEL_COLOR"/>, <see cref="CannonRig.FRAME_COLOR"/>,
     /// <see cref="CannonRig.GLASS_COLOR"/>) so they read as made by the same hand. Placed by
     /// <see cref="LaserEmitterRing"/> on the glass just under the rim at the corners' bearings, and aimed per level at the
-    /// net's corners.
+    /// net's corners - turned there from a rest pose over the opening of a level that reveals the net (<see cref="SetTurn"/>, #933).
     /// <para>
     /// <b>The glow.</b> The lens always carries a faint ember (standby) and takes the net's own brightness when it is up
     /// (<see cref="LaserGrid.IntensityAt"/>), so the glass and the cone that leaves it are one light and pulse together.
-    /// It is the renderer's <see cref="InstancedModelRenderer.EmissiveTint"/>, which the glass's alpha does not dim.
+    /// It is the renderer's <see cref="InstancedModelRenderer.EmissiveTint"/>, which the glass's alpha does not dim. The caller
+    /// says how bright: the net's own light, or the reveal's charge while the housings are still turning to it (#933).
     /// </para>
     /// <para>
     /// <b>Two draws, two places in the frame.</b> The metal is opaque and goes with the gun and the level's crates
@@ -49,6 +50,10 @@ namespace BS3D.Effects
 
         private readonly InstancedModelRenderer[] _renderers;
         private bool _fitted;
+
+        //This level's net, which the housings turn between rest and aim over (SetTurn), and where they stand now
+        private float _cornerX, _cornerZ, _planeY;
+        private float _turn = 1f;
 
         /// <param name="lensColour">The net's own red (the ceiling alarm's), in linear radiance: what the lens glows.</param>
         public LaserEmitters(GraphicsDevice device, Effect instancingEffect, Vector3 lensColour)
@@ -91,14 +96,38 @@ namespace BS3D.Effects
         /// </summary>
         public void Fit(float cornerX, float cornerZ, float planeY)
         {
+            _cornerX = cornerX;
+            _cornerZ = cornerZ;
+            _planeY = planeY;
+
             for (int k = 0; k < LaserEmitterRing.COUNT; k++)
-            {
                 _stands[k] = new ModelInstance(LaserEmitterRing.Stand(k, cornerX, cornerZ), new Vector4(0f, 0f, 0f, 1f));
-                _housings[k] = new ModelInstance(LaserEmitterRing.Housing(k, cornerX, cornerZ, planeY), new Vector4(0f, 0f, 0f, 1f));
-            }
+
+            _turn = float.NaN;
+            SetTurn(1f);
 
             _fitted = true;
         }
+
+        /// <summary>
+        /// Turns the four housings to <paramref name="turn"/> of the way from their rest pose to their aim (#933): 1 is the
+        /// aim <see cref="Fit"/> left them at, 0 is <see cref="LaserEmitterRing.RestAxis"/>. A turn about the pins and
+        /// nothing else, so it moves no pedestal and no yoke; the four matrices are rewritten in place (nothing is
+        /// allocated) and only when the turn has changed, so a level standing at its aim costs nothing a frame.
+        /// </summary>
+        public void SetTurn(float turn)
+        {
+            turn = MathHelper.Clamp(turn, 0f, 1f);
+            if (turn == _turn) return;
+
+            _turn = turn;
+
+            for (int k = 0; k < LaserEmitterRing.COUNT; k++)
+                _housings[k] = new ModelInstance(LaserEmitterRing.HousingTurned(k, _cornerX, _cornerZ, _planeY, turn), new Vector4(0f, 0f, 0f, 1f));
+        }
+
+        /// <summary>Where the housings stand between rest (0) and their aim (1).</summary>
+        public float Turn => _turn;
 
         /// <summary>The emitters' metal, opaque, with the gun's: pedestals, yokes and housings, three instanced draws.</summary>
         public void DrawBody(ICamera camera, BasicEffectParams effectParams)

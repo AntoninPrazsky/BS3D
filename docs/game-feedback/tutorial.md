@@ -34,11 +34,11 @@ Each lesson has the level it first becomes eligible at; the opener carries only 
 | `combine` | 6 · Diabolo | action, **two steps** | step 1 precise aim held 0.35 s; step 2 precise aim AND A/D-or-W/S **together** 0.35 s (#460, #930) |
 | `streak` | Gallery 1 · Heart | contextual | multiplier first above ×1 after a landing (the badge lights); read 7 s |
 | `budget` | Gallery 2 · Smiley | informational | read 7 s |
-| `linerule` | Saturn (chapter end −3) | informational | read 7 s |
+| `linerule` | Saturn (chapter end −3) | informational | read 7 s; **the floor net blinks while it is up** ([the net is shown before it warns](ceiling-and-floor-alarms.md#the-net-is-shown-before-it-warns-933)) |
 | `throwaway` | Amphora (chapter end −1) | informational, **armed again for its moment** | read 7 s, after `linerule`; again when the net is on and the bore has nowhere to score (#936) |
 
 - **The closing cards are counted from the chapter's END** (`FromLevel` −3 and −1): a literal index drifted when the opening changed. The campaign opens on flat sheets (#603, "The flat opening" in `docs/formats-and-tools.md`), so walking the gun waits for **One**, the first level with a far side.
-- **A short chapter crowds its cards rather than cutting any.** `line` says what to do in the moment ("Drop a group to lift the cluster"), `linerule` what to keep off ("Keep the cluster off the line"): both stand. The `ceiling` caption is built per level from `ceilingStep`; a level whose glass holds still never arms it.
+- **A short chapter crowds its cards rather than cutting any.** `line` says what to do in the moment ("Drop a group to lift the cluster"), `linerule` what to keep above ("Keep the cluster above the red line", the net blinking under it, and every level from it on opening with the emitters turning to their aim and the net lit for a moment): both stand. The `ceiling` caption is built per level from `ceilingStep`; a level whose glass holds still never arms it.
 - **The score waits for the second chapter (#666):** even ScoreSim's sloppy player two-stars every Meadow level (what `MinStarsAt` asks), so the multiplier works unexplained. `streak` and `budget` sit on the Gallery's first two levels, **one idea a level**; a lesson names its chapter (`Definition.Chapter`). ⚠ `tutorial` (Force) on a Gallery level replays the first chapter's ladder first.
 
 ### The way out of Amphora (#936)

@@ -7,6 +7,7 @@ using Prazsky.BS3D.Levels;
 using Prazsky.BS3D.Physics;
 using Prazsky.BS3D.Scoring;
 using Prazsky.BS3D;
+using Prazsky.BS3D.GameObjects;
 using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
 using System;
@@ -924,6 +925,87 @@ namespace BS3D.Screens
 
             _laserGrid.SetVisible(warn, WallClock);
         }
+
+        //Where the net's opening reveal stands, for the one line a level's run log says of it: 0 not begun, 1 under way, 2 done
+        private int _netRevealStage;
+        private bool _lineBlinkWas;
+
+        private const float POTATO_NET_CAP = 0.6f;
+
+        //Testing only (revealshot=, #933): how far down the schedule the reveal's frames have got
+        private int _revealShotNext;
+
+        /// <summary>
+        /// Shows the net to a player who is not in danger from it (#933), two ways, neither of them the alarm: the level's
+        /// opening reveal (the emitters turn from rest to this field's aim and the net is lit for a moment, from the level the
+        /// line's card is first taught on) and the blink while that card is up. Stepped on the frame's seconds, so a pause
+        /// holds both; the reveal waits out the chapter's tour and any camera takeover and ends at the first shot
+        /// (<see cref="NetReveal"/>). Tells the emitters where to stand and the grid what to burn at; the grid's own state, the
+        /// trigger above and the contextual <c>line</c> card never see it.
+        /// </summary>
+        private void UpdateNetReveal(float elapsed)
+        {
+            if (LevelDecided) _netReveal.Skip();
+
+            bool blinking = _tutorial.ShowsTheLine && !CameraTakeoverEngaged;
+            bool held = _releasePending || CameraTakeoverEngaged;
+
+            //Testing only (revealshot=): the clock is held at the next stated moment for the one frame that is saved there
+            bool revealShot = false;
+            if (_revealShotNext < _test.RevealShotSeconds.Count && !held && _netReveal.Running
+                && _netReveal.Elapsed + elapsed >= _test.RevealShotSeconds[_revealShotNext])
+            {
+                _netReveal.Pin(_test.RevealShotSeconds[_revealShotNext++]);
+                Game.RequestScreenshot();
+                elapsed = 0f;
+                revealShot = true;
+            }
+
+            _netReveal.Advance(elapsed, held, blinking);
+
+            _emitters?.SetTurn(_netReveal.Swing);
+
+            //What the saved frame shows, in numbers: the clock, the turn, the first housing's axis over the horizontal (90 at rest, the
+            //aim's own at the end) and the light asked of the net and of the lenses
+            if (revealShot)
+            {
+                float aimed = LaserEmitterRing.AxisTurned(0, _laserGrid.CornerX, _laserGrid.CornerZ, _laserGrid.PlaneY, _netReveal.Swing).Y;
+                Console.WriteLine(FormattableString.Invariant(
+                    $"[revealshot] +{_netReveal.Elapsed:F3} s of {NetReveal.TOTAL_SECONDS:F2}: turn {_netReveal.Swing:F3}, housing 0 at {MathHelper.ToDegrees(MathF.Asin(aimed)):F1} deg, net {_netReveal.Net:F2}, lens charge {_netReveal.Lamp:F2}"));
+            }
+
+            //The Potato path has no glare to carry a light over the alarm's own, and the beams stacked edge-on whiten there as it
+            //nears 1: it is drawn at the level the alarm's pulse spends most of its time at, which is still red
+            float net = _netReveal.Net;
+            if (BS3DGame.PotatoPath) net = MathF.Min(net, POTATO_NET_CAP);
+            _laserGrid.SetPreview(net, WallClock);
+
+            //The run log's lines: when the reveal began and ended, and when the card's blink did, on the clock shot= counts
+            if (_netRevealStage == 0 && _netReveal.Running && _netReveal.Elapsed > 0f)
+            {
+                _netRevealStage = 1;
+                Console.WriteLine(FormattableString.Invariant(
+                    $"[net] reveal begins at {WallClock:F2} s: the housings turn over {NetReveal.SWING_SECONDS:F1} s, the net is lit until {NetReveal.TOTAL_SECONDS:F2} s"));
+            }
+            else if (_netRevealStage == 1 && !_netReveal.Running)
+            {
+                _netRevealStage = 2;
+                Console.WriteLine(FormattableString.Invariant($"[net] reveal ends at {WallClock:F2} s"));
+            }
+
+            if (blinking != _lineBlinkWas)
+            {
+                _lineBlinkWas = blinking;
+                Console.WriteLine(FormattableString.Invariant($"[net] blink {(blinking ? "up" : "down")} at {WallClock:F2} s with the line's card"));
+            }
+        }
+
+        /// <summary>
+        /// What the four lenses glow with: the net's own brightness, or the reveal's charge while the housings are still turning
+        /// to it, whichever is more (#933) - so the glass and the light leaving it are one light, and the glass is lit before
+        /// the light is.
+        /// </summary>
+        private float LensLight() => MathF.Max(_laserGrid.IntensityAt(WallClock), _netReveal.Lamp);
 
         /// <summary>
         /// Sounds the net's touch (#669) on the frame the cluster's lowest ball reaches the line — the net hovers where

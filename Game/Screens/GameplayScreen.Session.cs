@@ -125,6 +125,14 @@ namespace BS3D.Screens
             //not this level's danger.
             _laserGrid.Reset();
 
+            //The net's reveal starts over (#933): a level from the line's card on opens with the emitters at rest and turns them
+            //to this field's aim as the gun becomes the player's, the rest keep the aim they were fitted at
+            _netReveal.Reset(Tutorial.NetIsShownAt(chapter, levelInChapter, chapterLength));
+            _emitters?.SetTurn(_netReveal.Swing);
+            _netRevealStage = 0;
+            _lineBlinkWas = false;
+            Console.WriteLine($"[net] level {index + 1}: the net is {(_netReveal.Running ? "revealed at its start" : "not revealed")}");
+
             //Nor a blast from the last level still burning over the new field (#389).
             _blasts.Reset();
 
@@ -218,6 +226,11 @@ namespace BS3D.Screens
             //And a chapter intro caught mid-tour by the same — quitting to the main menu during one, say —
             //for the identical reason: it must not hold the camera and the controls into whatever comes next.
             _chapterIntro.Reset();
+
+            //And the emitters a reveal left half turned stand at their aim again for the front end, whose lenses are drawn from the
+            //session kept for Continue (#933); no light of it goes on
+            _netReveal.Reset(false);
+            _emitters?.SetTurn(1f);
 
             //And a tutorial card caught up, which belongs to the level that is going (#189)
             _tutorial.Reset();
