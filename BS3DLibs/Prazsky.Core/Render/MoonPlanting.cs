@@ -22,6 +22,13 @@ namespace Prazsky.Core.Render
     /// the play camera sees, since the island's deck hides the plain in front of the belt from it.</item>
     /// </list>
     /// Nothing stands on the island's pad. Deterministic off one seed.
+    /// <para>
+    /// <b>Two sets of rocks off the same instances</b> (#777, <see cref="ScatterBucket.FineMeshes"/>): Low and Medium draw the
+    /// broken icosahedra and the lathed boulders, High and Ultra <see cref="FracturedRockMesh"/>'s blocks of a few big
+    /// fracture faces and its worn boulders, shaded as stone (<see cref="ScatterBucket.Stone"/>) and dusted with the regolith at
+    /// the foot. The fine set is built at four densities and a rock takes the one its size asks for, so a pebble is not
+    /// five thousand triangles; its shapes roll off a seed of their own, so the field lies where it lay.
+    /// </para>
     /// </summary>
     public sealed class MoonPlanting : IDisposable
     {
@@ -49,7 +56,9 @@ namespace Prazsky.Core.Render
         /// units and the middle octave's rims are sharper than that - and a rock seated on the exact height floated up to
         /// two units over a drawn rim or sank into a drawn bowl.</param>
         /// <param name="terrain">The plain's config: its crater cells, for the rim blocks, and its regolith greys.</param>
-        public MoonPlanting(GraphicsDevice device, Func<float, float, float> height, MoonTerrainConfig terrain, int seed)
+        /// <param name="fineMeshes">Whether to build High and Ultra's rocks too; the Potato path draws the coarse ones only.</param>
+        public MoonPlanting(GraphicsDevice device, Func<float, float, float> height, MoonTerrainConfig terrain, int seed,
+            bool fineMeshes = true)
         {
             var buckets = new List<ScatterBucket>();
             Random rng = new(seed);
@@ -76,6 +85,15 @@ namespace Prazsky.Core.Render
                 boulderInstances[m] = new List<ModelInstance>();
             }
 
+            //High and Ultra's rocks (#777): every coarse instance again, by variant and by the density its size takes, with
+            //the ground over its pivot in Custom.z for the stone's foot dust (the coarse ones keep 0: their bark foot reads it)
+            var fineBlocks = new List<ModelInstance>[blockMeshes.Length, FracturedRockSet.DENSITIES];
+            var fineBoulders = new List<ModelInstance>[boulderMeshes.Length, FracturedRockSet.DENSITIES];
+            for (int m = 0; m < blockMeshes.Length; m++)
+                for (int k = 0; k < FracturedRockSet.DENSITIES; k++) fineBlocks[m, k] = new List<ModelInstance>();
+            for (int m = 0; m < boulderMeshes.Length; m++)
+                for (int k = 0; k < FracturedRockSet.DENSITIES; k++) fineBoulders[m, k] = new List<ModelInstance>();
+
             void Lay(List<ModelInstance>[] into, float x, float z, float size, float sink)
             {
                 float yaw = (float)rng.NextDouble() * MathHelper.TwoPi;
@@ -91,10 +109,14 @@ namespace Prazsky.Core.Render
                 //centre, and the block's own underside, half its size below its origin, takes up the downhill side.
                 float around = (height(x + size, z) + height(x - size, z) + height(x, z + size) + height(x, z - size)) * 0.25f;
                 float ground = MathF.Min(height(x, z), around);
-                into[variant].Add(new ModelInstance(
-                    Matrix.CreateScale(size) * Matrix.CreateRotationX(tilt) * Matrix.CreateRotationY(yaw)
-                        * Matrix.CreateTranslation(x, ground - size * sink, z),
-                    new Vector4(dust, jitter, 0f, 0f)));
+                Matrix world = Matrix.CreateScale(size) * Matrix.CreateRotationX(tilt) * Matrix.CreateRotationY(yaw)
+                    * Matrix.CreateTranslation(x, ground - size * sink, z);
+                into[variant].Add(new ModelInstance(world, new Vector4(dust, jitter, 0f, 0f)));
+
+                bool block = into == blockInstances;
+                List<ModelInstance>[,] fine = block ? fineBlocks : fineBoulders;
+                int density = FracturedRockSet.Density(size * (block ? FracturedRockSet.BLOCK_REACH : FracturedRockSet.BOULDER_REACH));
+                fine[variant, density].Add(new ModelInstance(world, new Vector4(dust, jitter, size * sink, 0f)));
             }
 
             //--- The strewn field, in patches: a broad noise decides how thick the field lies, so the rocks gather and
@@ -151,14 +173,23 @@ namespace Prazsky.Core.Render
                 }
             });
 
+            bool? coarse = fineMeshes ? false : null;
             for (int m = 0; m < blockMeshes.Length; m++)
                 if (blockInstances[m].Count > 0)
                     buckets.Add(Own(new ScatterBucket(device, blockMeshes[m], blockInstances[m], rock, rockDusted,
-                        dapple: 0.3f, bark: 0.4f, detailOnly: false)));
+                        dapple: 0.3f, bark: 0.4f, detailOnly: false, fineMeshes: coarse)));
             for (int m = 0; m < boulderMeshes.Length; m++)
                 if (boulderInstances[m].Count > 0)
                     buckets.Add(Own(new ScatterBucket(device, boulderMeshes[m], boulderInstances[m], rock, rockDusted,
-                        dapple: 0.25f, bark: 0.2f, detailOnly: false)));
+                        dapple: 0.25f, bark: 0.2f, detailOnly: false, fineMeshes: coarse)));
+
+            //The stone's dust is the plain's own grey, so a rock's foot goes into the regolith it lies in
+            if (fineMeshes)
+            {
+                Vector3 regolith = terrain.RegolithColor.ToVector3();
+                buckets.AddRange(Own(new FracturedRockSet(device, fineBlocks, fineBoulders, boulderHeight: m => 0.55f + 0.15f * m,
+                    seed: seed * 31 + 777, rock, rockDusted, regolith)).Buckets);
+            }
 
             Buckets = buckets.ToArray();
         }

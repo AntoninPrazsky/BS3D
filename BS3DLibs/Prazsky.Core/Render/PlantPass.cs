@@ -25,7 +25,7 @@ namespace Prazsky.Core.Render
 
         private readonly EffectTechnique _technique, _shadowTechnique;
         private readonly EffectParameter _view, _projection, _camera, _sunDirection, _sunColor, _zenith, _horizon,
-            _diffuse, _diffuseDry, _dapple, _bark, _leaves, _addedLight, _haze, _shadowViewProjection, _footEarth;
+            _diffuse, _diffuseDry, _dapple, _bark, _leaves, _addedLight, _haze, _shadowViewProjection, _footEarth, _stone;
 
         public PlantPass(GraphicsDevice device, ContentManager content)
         {
@@ -43,6 +43,7 @@ namespace Prazsky.Core.Render
             _dapple = Effect.Parameters["DappleStrength"];
             _bark = Effect.Parameters["BarkStrength"];
             _footEarth = Effect.Parameters["FootEarth"];
+            _stone = Effect.Parameters["StoneStrength"];
             _leaves = Effect.Parameters["LeafStrength"];
             _addedLight = Effect.Parameters["AddedLight"];
             _haze = Effect.Parameters["HorizonHazeDistance"];
@@ -81,8 +82,9 @@ namespace Prazsky.Core.Render
             _leaves.SetValue(0f);
 
             //The savanna's earth up the trunks' feet is the savanna's (#670): this effect is the one it draws through,
-            //and the berm's plants stand in other ground
+            //and the berm's plants stand in other ground. A rock's dust is its bucket's (#777), stated per draw below
             _footEarth.SetValue(Vector3.Zero);
+            _stone.SetValue(0f);
 
             //⚠ PUT BACK WHAT WAS FOUND (#667). This pass leaves the states the frame goes on drawing under, and it
             //used to leave Opaque: on the meadow, the mountains and the forest it is the last thing the environment
@@ -108,19 +110,24 @@ namespace Prazsky.Core.Render
                 _dapple.SetValue(bucket.Dapple);
                 _bark.SetValue(bucket.Bark);
                 _leaves.SetValue(bucket.Leaves);
+                _stone.SetValue(bucket.Stone);
+                _footEarth.SetValue(bucket.FootDust);
                 _graphicsDevice.RasterizerState = bucket.Leaves > 0f ? RasterizerState.CullNone : RasterizerState.CullCounterClockwise;
                 Effect.CurrentTechnique.Passes[0].Apply();
-                DrawBucket(bucket);
+                DrawBucket(bucket, bucket.Mesh);
             }
 
+            //Nothing of a rock's stays on the one effect the savanna's own draw shares (it states neither)
             _leaves.SetValue(0f);
+            _stone.SetValue(0f);
+            _footEarth.SetValue(Vector3.Zero);
             _graphicsDevice.BlendState = blend;
             _graphicsDevice.DepthStencilState = depth;
             _graphicsDevice.RasterizerState = raster;
         }
 
-        /// <summary>Casts <paramref name="buckets"/> into the sun's map (#469's path): those whose
-        /// <see cref="ScatterBucket.CastsShadow"/> says so — by default all but the Low tier's crowns — and of a thing drawn
+        /// <summary>Casts <paramref name="buckets"/> into the sun's map (#469's path), each as its <see cref="ScatterBucket.CasterMesh"/>:
+        /// those whose <see cref="ScatterBucket.CastsShadow"/> says so — by default all but the Low tier's crowns — and of a thing drawn
         /// in two meshes the one <paramref name="fineMeshes"/> asks for, as <see cref="Draw(in SceneFrame, IReadOnlyList{ScatterBucket}, float, bool, bool)"/>
         /// does, or a tree casts twice.</summary>
         public void DrawShadowCasters(Matrix shadowViewProjection, IReadOnlyList<ScatterBucket> buckets, bool fineMeshes)
@@ -135,18 +142,18 @@ namespace Prazsky.Core.Render
                 if (!ScatterBucket.DrawnAt(bucket.FineMeshes, fineMeshes)) continue;
                 _leaves.SetValue(bucket.Leaves);
                 Effect.CurrentTechnique.Passes[0].Apply();
-                DrawBucket(bucket);
+                DrawBucket(bucket, bucket.CasterMesh);
             }
 
             _leaves.SetValue(0f);
             Effect.CurrentTechnique = _technique;
         }
 
-        private void DrawBucket(ScatterBucket bucket)
+        private void DrawBucket(ScatterBucket bucket, IProceduralMesh mesh)
         {
-            InstanceBinding.Set(_graphicsDevice, bucket.Mesh.VertexBuffer, 0, bucket.Instances, 0);
-            _graphicsDevice.Indices = bucket.Mesh.IndexBuffer;
-            _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, bucket.Mesh.PrimitiveCount, bucket.Count);
+            InstanceBinding.Set(_graphicsDevice, mesh.VertexBuffer, 0, bucket.Instances, 0);
+            _graphicsDevice.Indices = mesh.IndexBuffer;
+            _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, bucket.Count);
         }
     }
 }

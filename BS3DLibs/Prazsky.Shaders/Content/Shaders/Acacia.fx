@@ -6,7 +6,8 @@
 //cutout: a surface of revolution has volume from every angle, where a camera-facing quad only ever shows one
 //silhouette. One instanced draw per mesh variant per material - DiffuseColor/DiffuseDry, DappleStrength and
 //BarkStrength are the per-draw material: dappled green foliage for a canopy, fissured brown for a trunk,
-//plain for a stone. The per-instance world matrix rides in a second vertex stream (TEXCOORD1-4), like
+//plain for a stone (and, on High and Ultra's rocks, a stone surface of its own: StoneStrength below, #777). The
+//per-instance world matrix rides in a second vertex stream (TEXCOORD1-4), like
 //InstancedModel.fx, and the instance's Custom vector (TEXCOORD5) carries its own dryness and brightness,
 //so one mesh variant reads as several plants by colour as well as by size (#451).
 //Testbed-shared (the map editor and the game build it too), Shader Model 5.0.
@@ -87,6 +88,36 @@ static const float FOOT_DARKEN = 0.35;
 float3 FootEarth;
 static const float EARTH_HEIGHT = 0.9;
 static const float EARTH_AMOUNT = 0.8;
+
+//--- STONE (#777). 0 on every plant; on a rock that has a real surface (the fine blocks and boulders High and Ultra plant
+//on the Moon and the volcano, FracturedRockMesh) how deep that surface goes. The owner, of the Moon's rocks: "triangular
+//rocks... rocks on the Moon do not really look like that", and the klein references say what is missing: no face of a rock
+//is one flat tone. So the normal is tilted by a relief (dents across the rock at its own size, a grain and pits at the
+//world's), the colour is mottled in patches, darkened in the relief's hollows, flecked and crossed by a few hairline
+//cracks, and the foot and the top are dusted with the ground's own colour (FootDust, through FootEarth: black is none).
+//Every octave is faded out as its period nears two pixels (StoneOctave), so a far rock goes to its mean, not to a crawl.
+//Uniform branch: one side for every pixel of a draw, so the derivatives inside are taken by every pixel of a quad alike.
+float StoneStrength;
+static const float STONE_DENTS = 2.3;            //the dents across a rock, per its own size: a fracture face is never flat
+static const float STONE_DENT_DEPTH = 0.06;      //as a share of the rock's size
+static const float STONE_GRAIN = 3.2;            //the rough grain, per world unit
+static const float STONE_GRAIN_DEPTH = 0.04;     //world units, on a rock a unit or more across
+static const float STONE_PITS = 14.0;            //the pits (vesicles), per world unit: the references' face is pocked with them
+static const float STONE_PIT_DEPTH = 0.015;
+static const float STONE_PATCHES = 1.4;          //the mottle, per the rock's size
+static const float STONE_MOTTLE = 0.6;           //how far the patches lift and lower the colour
+static const float STONE_CAVITY = 0.8;           //how much darker a hollow of the relief is than its rim
+static const float STONE_FLECKS = 40.0;          //bright mineral flecks, per world unit, and how bright
+static const float STONE_FLECK_GAIN = 0.3;
+static const float STONE_CRACKS = 1.6;           //hairline fractures, per the rock's size, and their half-width in the field's units
+static const float STONE_CRACK_HALF = 0.025;
+static const float STONE_DUST_LINE = 0.16;       //how high the foot's dust climbs, as a share of the rock's size
+static const float STONE_TOP_DUST = 0.4;         //how much of the dust lies on the faces that look up
+static const float STONE_MEAN = 0.88;            //the stone's mean shade, so the mottle lifts as much as it lowers
+
+//How much of an octave of `frequency` (per world unit) a pixel `footprint` world units wide keeps: all of it while a period
+//spans four pixels, none once it spans two (its Nyquist limit)
+float StoneOctave(float footprint, float frequency) { return saturate(2.0 - 4.0 * footprint * frequency); }
 
 //--- THE LEAF SPRAYS (#610). A card's texture coordinate runs X from the spray's stem to its tip and Y across it,
 //plus twice its layer (0 on top of the crown, 1, 2 underneath). The references: a crown of thin flat tiers of
@@ -220,6 +251,7 @@ struct AcaciaVertexOutput
     float2 UV : TEXCOORD3;
     float2 Seed : TEXCOORD4;     //the instance's own place, so two trees do not lose the same leaflets
     float RootY : TEXCOORD5;     //the ground at the instance's foot, for the bark's earth and darker base (#610, #670)
+    float Scale : TEXCOORD6;     //the instance's uniform scale: a rock's size, which its stone is laid out in (#777)
 };
 
 AcaciaVertexOutput AcaciaVS(AcaciaVertexInput input)
@@ -240,6 +272,7 @@ AcaciaVertexOutput AcaciaVS(AcaciaVertexInput input)
     //The ground the eye sees at the trunk, not the pivot: a tree planted at the lowest ground under its ring (#658)
     //stands with its pivot under the plain, and its foot measured from there went under the ground with it (#670)
     output.RootY = input.World4.y + input.Custom.z;
+    output.Scale = length(input.World1.xyz);
 
     return output;
 }
@@ -265,6 +298,55 @@ float4 AcaciaPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR
     //This instance's own shade of the draw's material: its dryness leans the colour towards the drier one,
     //its brightness offset lifts or lowers it, so a grove of one variant is not one green stamped out.
     float3 albedo = lerp(DiffuseColor, DiffuseDry, saturate(input.Tint.x)) * (1.0 + input.Tint.y);
+
+    //A rock's own surface (#777): the relief tilts N before anything is lit, the mottle and the dust go into the albedo
+    [branch]
+    if (StoneStrength > 0.0)
+    {
+        float3 p = input.WorldPosition;
+        float size = max(input.Scale, 1e-3);
+        float3 q = p / size;
+        float footprint = max(length(ddx(p)), length(ddy(p)));
+
+        //The relief, in world units: dents laid out in the rock's own size, so a landmark's faces undulate as a pebble's do,
+        //then the grain and the pits at the world's scale, shallower on a pebble than the pebble is
+        float small = saturate(size * 1.5);
+        float dentW = StoneOctave(footprint, STONE_DENTS / size);
+        float grainW = StoneOctave(footprint, STONE_GRAIN) * small;
+        //A pit's rim is several times sharper than its spacing: its tilt fades as an octave three times finer would, its shade
+        //as one half again finer
+        float pitW = StoneOctave(footprint, STONE_PITS * 3.0) * small;
+        float pitShadeW = StoneOctave(footprint, STONE_PITS * 1.5);
+        float dent = GradientNoise3(q * STONE_DENTS + 7.3);
+        float grain = GradientNoise3(p * STONE_GRAIN + 1.9);
+        float pit = smoothstep(0.26, 0.42, GradientNoise3(p * STONE_PITS + 4.7));   //round, where the field peaks
+        float relief = dent * dentW * STONE_DENT_DEPTH * size + grain * grainW * STONE_GRAIN_DEPTH - pit * pitW * STONE_PIT_DEPTH;
+        float3 geometric = N;
+        N = PerturbNormalFromHeight(N, p, relief * StoneStrength);
+
+        //The colour: patches across the rock, darker in the hollows, a few bright flecks, and hairline cracks where a second
+        //field crosses zero (only where the patches allow, so a rock has a few, not a net)
+        float patch = GradientNoise3(q * STONE_PATCHES + 11.7)
+            + 0.5 * GradientNoise3(q * STONE_PATCHES * 3.1 + 5.3) * StoneOctave(footprint, STONE_PATCHES * 3.1 / size);
+        float hollow = dent * dentW * 0.5 + grain * grainW * 0.35 - pit * pitShadeW * 0.6;
+        float fleck = smoothstep(0.34, 0.44, GradientNoise3(p * STONE_FLECKS + 2.3)) * StoneOctave(footprint, STONE_FLECKS);
+        float field = GradientNoise3(q * STONE_CRACKS + 3.1);
+        float width = max(fwidth(field), 1e-5);
+        float crack = saturate((STONE_CRACK_HALF - abs(field)) / width + 0.5) * saturate(2.0 * STONE_CRACK_HALF / width)
+            * smoothstep(-0.1, 0.1, patch);
+        float shade = STONE_MEAN * (1.0 + STONE_MOTTLE * patch) * (1.0 + STONE_CAVITY * hollow)
+            * (1.0 + STONE_FLECK_GAIN * fleck) * (1.0 - 0.7 * crack);
+        albedo *= lerp(1.0, shade, saturate(StoneStrength));
+
+        //The ground's dust: up the foot to a line the dents wander, and on what faces the sky
+        float above = (p.y - input.RootY) / size;
+        float dustLine = STONE_DUST_LINE * (0.6 + 0.8 * saturate(0.5 + dent));
+        float foot = 1.0 - saturate(above / dustLine);
+        float top = saturate(geometric.y);
+        top *= top;
+        float dust = max(foot * foot * 0.85, top * top * STONE_TOP_DUST * saturate(0.6 + patch));
+        albedo = lerp(albedo, FootEarth * (1.0 + input.Tint.y), dust * (any(FootEarth) ? 1.0 : 0.0));
+    }
 
     //The scene's own light, matched to the terrain: a hemisphere ambient tinted zenith-to-horizon by the
     //normal's height, plus the sun's own diffuse.

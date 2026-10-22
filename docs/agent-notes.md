@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-22 — #777 kameny na Měsíci na High a Ultra — desktop (RDT-PC), Claude Code (bs3d-dc)
+- Hotovo: na High/Ultra kreslí Měsíc i sopka místo dvacetistěnů s plochým stínováním `FracturedRockMesh` (rozlámaný blok z 9–12 rovin s otlučenými rohy, obroušené balvany) ze stejných instancí (`FracturedRockSet`, čtyři hustoty podle velikosti, stín z o stupeň hrubší sítě) a `Acacia.fx` je stínuje jako kámen (reliéf, skvrny, póry, vlasové praskliny, regolit u paty). Low/Medium beze změny.
+- Cena (desktop, 3840x1600, ssaa 2): Měsíc +0,21 ms, sopka +0,08. Platí se trojúhelníky, ne pixely.
+- ⚠ Normály zprůměrované přes trojúhelníky dělaly z bloků polštáře; berou se z plochy samé. Plocha natočená ke slunci je plochá při jakémkoli reliéfu, nese ji albedo.
+- Otevřené: `verdict-eye`; nikdo to neviděl ve hře na High při běžném hraní.
+
 ## 2026-10-22 — #961 Les: tmavé nebe a světlušky, které se tváří jako světlušky — desktop (RDT-PC), Claude Code (bs3d-dc)
 - Hotovo: „něco bliká na zemi“ byly světlušky (naměřeno: tvrdý šestipixelový kotouč, vynořil se jako olivová koule, za třetinu sekundy bílý, zmizel); podlaha sama je klidná (pomalý drift stínů mraků, o 0,03 posunutá kamera mění ~1 % pixelů). Teď 12 světlušek, černé tělo svítí jen emisí, sin², záře 1–2 s, halo z bloomu (jas 10), pomalé bloudění. Les má vlastní dome 15 (`SceneDefault`) a počasí Overcast.
 - ⚠ Dome samotná nebe nezatemní: pod Broken je střed horního nebe 90 (dome 13) a 89 (dome 15), jas dělá mraková vrstva; Overcast je 55. Dome 9 má hnědé kopce.
