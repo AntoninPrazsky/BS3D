@@ -1273,3 +1273,9 @@ Pravidla:
 - ⚠ Žádný z 20 (Bossa) ani 22 (Vibes) prvních střihů uvnitř nebyl; rozhodl střih z druhé poloviny renderu. `measure-music.py --key` drží ve stejném klíči i referenci (ember „mimo tóninu“ 47–78 %), takže se nic nezvýrazní.
 - ⚠ Nikdo neposlouchal. Nové Vibes mají 11,0 % v 300 Hz–4 kHz (staré 19,6) a nic nad 2 kHz: „slabé“ se může vrátit.
 - Otevřené: `verdict-eye`, `verdicts\908\`.
+
+## 2026-10-22 — #979–#995 poznámky majitele založeny (jen zakládání) — desktop (RDT-PC), Claude Code
+- Hotovo: 17 issues z jedné dávky: potůček #979, kůra Meadow #980, loga #981 #982, spoj ostrova se zemí #983, úvod Cavernu #984, blog #985, NEW BEST #986, klávesnice G513 #987, benchmark #988, mraky #989, power-upy #990 (plán a rozhodnutí 1–7, `owner-decision`) a jeho bloky #991–#995 (#992–#995 `parked`, dokud majitel neodpoví). Komentáře: #951 (nová loga: RGBA, 256 hodnot alfa; kód je ještě nečte), #970 (ostrá čára v poznámce znovu), #926 #213 #392 #608 #929 #953 #942 #892.
+- majitel: power-upy se mají získávat za 4 hvězdy a hromadit; přepisuje to jeho pravidlo (a) z #213 (jeden náboj na level).
+- ⚠ Nic nebylo sestaveno ani nasnímáno: `BS3D.exe` na stroji je z 17. 10., před #926, takže #986 je jen z kódu. Popis Logitech SDK v #987 je z paměti a neověřený.
+- Otevřené: `Game/Logos/` je dál nezasledované (`??`); `git add` je na majiteli nebo na tom, kdo vezme #951.
