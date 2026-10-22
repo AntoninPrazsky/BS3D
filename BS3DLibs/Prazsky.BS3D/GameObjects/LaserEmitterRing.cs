@@ -65,7 +65,10 @@ namespace Prazsky.BS3D.GameObjects
             _ => new Vector2(1f, -1f),
         };
 
-        /// <summary>The corner's own point on the net's plane: where its two outermost beams cross.</summary>
+        /// <summary>
+        /// The corner's own point on the net's plane: a corner of the net's boundary, where its two outermost beams end and
+        /// meet (<see cref="LaserNetShape"/>; the bow keeps the four corners where the lattice has them).
+        /// </summary>
         public static Vector3 NetCorner(int index, float cornerX, float cornerZ, float planeY)
         {
             Vector2 s = CornerSigns(index);

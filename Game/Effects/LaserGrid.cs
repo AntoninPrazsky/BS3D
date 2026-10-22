@@ -23,9 +23,15 @@ namespace BS3D.Effects
     /// </para>
     /// <para>
     /// One static vertex buffer per level, rebuilt in <see cref="Fit"/> at the field's own footprint, one
-    /// draw call, three per-frame uniforms. Each beam is a quad billboarded about its own axis in the
-    /// vertex shader (see <c>LaserGrid.fx</c>) — the play camera stands barely below the grid's plane, and
-    /// a flat quad lying in it would be seen edge-on and vanish.
+    /// draw call, three per-frame uniforms. Each beam is a ribbon, a strip of quads along its path, turned about its own
+    /// axis to face the camera in the vertex shader (see <c>LaserGrid.fx</c>) — the play camera stands barely below the
+    /// grid's plane, and a flat ribbon lying in it would be seen edge-on and vanish.
+    /// </para>
+    /// <para>
+    /// <b>The net ends on a boundary through its four corners</b> (#941): the lattice is bowed like a lens bows it
+    /// (<see cref="LaserNetShape"/>), the outermost beams are the boundary and every other beam stops exactly where it
+    /// meets one, so no line goes past an edge and the cones land on the real ends of the two lines that make each corner.
+    /// The bend is in plan only: every vertex is on <see cref="PlaneY"/>.
     /// </para>
     /// <para>
     /// <b>The net is projected</b> (#874): from each of the four emitters' lenses in the funnel
@@ -37,19 +43,15 @@ namespace BS3D.Effects
     /// </summary>
     internal sealed class LaserGrid : IDisposable
     {
-        //Beam spacing is the lattice's own cell pitch, so the net reads as sized to the balls it is
-        //waiting for; the margin bleeds it a little past the footprint so the outermost cells do not sit
-        //on its very edge. The whole grid must stay inside the drain's mouth (radius 14) so it never
-        //crosses the gold bead — the footprint of every authored level does, by a wide margin.
-        private const float BEAM_PITCH = 1f;
-        private const float FOOTPRINT_MARGIN = 0.75f;
-
         //Half-thickness of a beam. Thin on purpose: the red halo and the glare's bloom carry the visual
         //weight, and a fat beam reads as a glowing bar rather than a laser.
         private const float BEAM_HALF_WIDTH = 0.055f;
 
-        //A beam's soft ends, as shares of its length: short, so the grid's edge still comes out straight
-        private const float BEAM_FADE = 0.06f;
+        //A beam's soft ends, as a length and as most a share of the beam: barely there, because every end is on the
+        //boundary (#941) - a T where it meets the outermost beam, a corner where two of those meet and a cone lands - and a
+        //fade longer than the ribbon is wide would leave a gap in each. It only takes the edge off a cut across the ribbon.
+        private const float BEAM_FADE_LENGTH = 0.08f;
+        private const float BEAM_FADE_MAX_SHARE = 0.25f;
 
         //The projection cones (#874). A cone leaves the lens as thin as a beam and widens by this much half-width per unit
         //of its length (a half-angle of about 15 degrees), its width at the corner held between the two figures after it:
@@ -96,21 +98,23 @@ namespace BS3D.Effects
         private const float PULSE_FLOOR = 0.35f;
 
         /// <summary>
-        /// One corner of one quad of a beam or a cone. Both endpoints of the whole axis ride along, and the corner's own
-        /// half-width and gain, so the shader needs no per-beam uniforms and a cone's quads are slices of one axis.
+        /// One edge vertex of one row of a beam's or a cone's ribbon (#941): the point of the path the row stands on, which
+        /// way the path runs there, and the row's own half-width, gain, fades and place along the path, so the shader needs
+        /// no per-beam uniforms and a bent beam is as much a ribbon as a straight one. The two vertices of a row differ in
+        /// their side only; the strip's quads share them.
         /// </summary>
         private struct LaserVertex : IVertexType
         {
-            public Vector3 Start;
-            public Vector3 End;
-            public Vector4 Data;    //(side in {-1,1}, along in [0,1], half-width here, gain here)
-            public Vector2 Fade;    //(fade-in, fade-out) as shares of the axis
+            public Vector3 Position;    //on the path
+            public Vector3 Tangent;     //unit, which way the path runs here: the axis the ribbon turns about to face the camera
+            public Vector4 Data;        //(side in {-1,1}, along the whole path in [0,1], half-width here, gain here)
+            public Vector3 Fade;        //(fade-in, fade-out) as shares of the path, and the distance along it in world units
 
             public static readonly VertexDeclaration Declaration = new(
                 new VertexElement(0, VertexElementFormat.Vector3, VertexElementUsage.Position, 0),
                 new VertexElement(12, VertexElementFormat.Vector3, VertexElementUsage.TextureCoordinate, 0),
                 new VertexElement(24, VertexElementFormat.Vector4, VertexElementUsage.TextureCoordinate, 1),
-                new VertexElement(40, VertexElementFormat.Vector2, VertexElementUsage.TextureCoordinate, 2));
+                new VertexElement(40, VertexElementFormat.Vector3, VertexElementUsage.TextureCoordinate, 2));
 
             readonly VertexDeclaration IVertexType.VertexDeclaration => Declaration;
         }
@@ -197,42 +201,42 @@ namespace BS3D.Effects
             _vertexBuffer?.Dispose();
             _indexBuffer?.Dispose();
 
-            halfX += FOOTPRINT_MARGIN;
-            halfZ += FOOTPRINT_MARGIN;
-
-            //Symmetric about the origin: a centre beam on each axis and as many more as whole pitches fit
-            //inside the half-extent, so the outermost pair always lands inside the footprint.
-            int alongX = (int)(halfZ / BEAM_PITCH) * 2 + 1;     //beams running along X are spaced in Z
-            int alongZ = (int)(halfX / BEAM_PITCH) * 2 + 1;
-
             //Where the outermost beams stand: the net's corners, which the four emitters in the funnel aim at and project
-            //the net onto (#874). Integer division on purpose, the very expression the beams below are placed by.
-            CornerX = ((alongZ - 1) / 2) * BEAM_PITCH;
-            CornerZ = ((alongX - 1) / 2) * BEAM_PITCH;
+            //the net onto (#874), and which the boundary of the net passes through (#941).
+            CornerX = LaserNetShape.CornerFor(halfX);
+            CornerZ = LaserNetShape.CornerFor(halfZ);
             PlaneY = y;
 
-            _quadCount = alongX + alongZ + LaserEmitterRing.COUNT * CONE_SECTIONS;
+            //Symmetric about the origin: a centre beam on each axis and as many more as whole pitches fit
+            int alongX = LaserNetShape.BeamCount(CornerZ);      //beams running along X are spaced in Z
+            int alongZ = LaserNetShape.BeamCount(CornerX);
 
-            LaserVertex[] vertices = new LaserVertex[_quadCount * 4];
+            //Every row of every strip is two vertices, and a strip of n + 1 rows is n quads: a beam is BEAM_SEGMENTS quads
+            //and a cone CONE_SECTIONS
+            int beams = alongX + alongZ;
+            _quadCount = beams * LaserNetShape.BEAM_SEGMENTS + LaserEmitterRing.COUNT * CONE_SECTIONS;
+            int vertexCount = (beams * (LaserNetShape.BEAM_SEGMENTS + 1) + LaserEmitterRing.COUNT * (CONE_SECTIONS + 1)) * 2;
+
+            //The indices are sixteen bits: a net this fine would have to be cut into several buffers (the widest the set
+            //draws is 17 across, with about a tenth of this)
+            if (vertexCount > ushort.MaxValue)
+                throw new InvalidOperationException($"The floor net of a {CornerX} x {CornerZ} field needs {vertexCount} vertices, more than a 16-bit index reaches.");
+
+            LaserVertex[] vertices = new LaserVertex[vertexCount];
             short[] indices = new short[_quadCount * 6];
 
-            int quad = 0;
+            int vertex = 0;
+            int index = 0;
 
             for (int i = 0; i < alongX; i++)
-            {
-                float z = (i - (alongX - 1) / 2) * BEAM_PITCH;
-                AddBeam(vertices, indices, ref quad, new Vector3(-halfX, y, z), new Vector3(halfX, y, z));
-            }
+                AddBeam(vertices, indices, ref vertex, ref index, true, LaserNetShape.BeamOffset(i, alongX), y);
 
             for (int i = 0; i < alongZ; i++)
-            {
-                float x = (i - (alongZ - 1) / 2) * BEAM_PITCH;
-                AddBeam(vertices, indices, ref quad, new Vector3(x, y, -halfZ), new Vector3(x, y, halfZ));
-            }
+                AddBeam(vertices, indices, ref vertex, ref index, false, LaserNetShape.BeamOffset(i, alongZ), y);
 
             //The four projection cones, each from the centre of its emitter's lens to its corner of the net
             for (int k = 0; k < LaserEmitterRing.COUNT; k++)
-                AddCone(vertices, indices, ref quad, LaserEmitterRing.Lens(k, CornerX, CornerZ, y),
+                AddCone(vertices, indices, ref vertex, ref index, LaserEmitterRing.Lens(k, CornerX, CornerZ, y),
                     LaserEmitterRing.NetCorner(k, CornerX, CornerZ, y));
 
             _vertexBuffer = new VertexBuffer(_device, LaserVertex.Declaration, vertices.Length, BufferUsage.WriteOnly);
@@ -251,59 +255,96 @@ namespace BS3D.Effects
         /// <summary>The height of the net's plane, which the emitters aim at with its corners; set by <see cref="Fit"/>.</summary>
         internal float PlaneY { get; private set; }
 
-        private static void AddBeam(LaserVertex[] vertices, short[] indices, ref int quad, Vector3 start, Vector3 end) =>
-            AddQuad(vertices, indices, ref quad, start, end, 0f, 1f, BEAM_HALF_WIDTH, BEAM_HALF_WIDTH, 1f, 1f,
-                new Vector2(BEAM_FADE, BEAM_FADE));
+        /// <summary>
+        /// One beam of the net (#941): <see cref="LaserNetShape.BEAM_SEGMENTS"/> + 1 rows along its bowed path
+        /// (<see cref="LaserNetShape.BeamPoint"/>), the ribbon's axis at each row the path's direction there (the neighbours'
+        /// chord, so the rows of two segments agree on one edge and a bend has no crack in it). The beam fades over
+        /// <see cref="BEAM_FADE_LENGTH"/> at each end, which is where it meets the boundary or, for the outermost beams, the corner.
+        /// </summary>
+        private void AddBeam(LaserVertex[] vertices, short[] indices, ref int vertex, ref int index, bool alongX, float offset, float y)
+        {
+            const int N = LaserNetShape.BEAM_SEGMENTS;
+
+            Span<Vector3> points = stackalloc Vector3[N + 1];
+            Span<float> distance = stackalloc float[N + 1];
+
+            for (int s = 0; s <= N; s++)
+            {
+                Vector2 p = LaserNetShape.BeamPoint(alongX, offset, s, CornerX, CornerZ);
+
+                points[s] = new Vector3(p.X, y, p.Y);
+                distance[s] = s == 0 ? 0f : distance[s - 1] + Vector3.Distance(points[s - 1], points[s]);
+            }
+
+            float length = distance[N];
+            float fade = MathF.Min(BEAM_FADE_LENGTH / length, BEAM_FADE_MAX_SHARE);
+
+            for (int s = 0; s <= N; s++)
+            {
+                Vector3 tangent = Vector3.Normalize(points[Math.Min(s + 1, N)] - points[Math.Max(s - 1, 0)]);
+
+                AddRow(vertices, indices, ref vertex, ref index, s > 0, points[s], tangent, BEAM_HALF_WIDTH, 1f,
+                    distance[s] / length, distance[s], fade, fade);
+            }
+        }
 
         /// <summary>
-        /// One projection cone from <paramref name="lens"/> through <paramref name="corner"/>: <see cref="CONE_SECTIONS"/>
-        /// quads of one axis, the half-width growing linearly from a beam's at the lens (a true cone, billboarded) and the
+        /// One projection cone from <paramref name="lens"/> through <paramref name="corner"/>: <see cref="CONE_SECTIONS"/> + 1
+        /// rows of one straight axis, the half-width growing linearly from a beam's at the lens (a true cone, billboarded) and the
         /// gain falling with it (<see cref="CONE_GAIN_POWER"/>), landing on the corner and dissolving just past it
         /// (<see cref="CONE_LANDING"/>).
         /// </summary>
-        private static void AddCone(LaserVertex[] vertices, short[] indices, ref int quad, Vector3 lens, Vector3 corner)
+        private static void AddCone(LaserVertex[] vertices, short[] indices, ref int vertex, ref int index, Vector3 lens, Vector3 corner)
         {
             float length = Vector3.Distance(lens, corner);
             float cornerHalfWidth = Math.Clamp(length * CONE_SPREAD, CONE_CORNER_MIN_HALF_WIDTH, CONE_CORNER_MAX_HALF_WIDTH);
 
             //The axis runs on past the corner by the landing, and the fade-out is twice that, so the corner sits halfway down it
             float total = length + CONE_LANDING * cornerHalfWidth;
+            Vector3 axis = Vector3.Normalize(corner - lens);
             Vector3 end = lens + (corner - lens) * (total / length);
             float endHalfWidth = BEAM_HALF_WIDTH + (cornerHalfWidth - BEAM_HALF_WIDTH) * (total / length);
-            Vector2 fade = new(CONE_FADE_IN, MathF.Min(2f * (total - length) / total, 0.8f));
+            float fadeOut = MathF.Min(2f * (total - length) / total, 0.8f);
 
-            for (int i = 0; i < CONE_SECTIONS; i++)
+            for (int i = 0; i <= CONE_SECTIONS; i++)
             {
-                float a0 = (float)i / CONE_SECTIONS;
-                float a1 = (float)(i + 1) / CONE_SECTIONS;
-                float w0 = MathHelper.Lerp(BEAM_HALF_WIDTH, endHalfWidth, a0);
-                float w1 = MathHelper.Lerp(BEAM_HALF_WIDTH, endHalfWidth, a1);
+                float a = (float)i / CONE_SECTIONS;
+                float w = MathHelper.Lerp(BEAM_HALF_WIDTH, endHalfWidth, a);
 
-                AddQuad(vertices, indices, ref quad, lens, end, a0, a1, w0, w1, ConeGain(w0), ConeGain(w1), fade);
+                AddRow(vertices, indices, ref vertex, ref index, i > 0, Vector3.Lerp(lens, end, a), axis, w, ConeGain(w),
+                    a, a * total, CONE_FADE_IN, fadeOut);
             }
         }
 
         private static float ConeGain(float halfWidth) => MathF.Pow(BEAM_HALF_WIDTH / halfWidth, CONE_GAIN_POWER);
 
-        private static void AddQuad(LaserVertex[] vertices, short[] indices, ref int quad, Vector3 start, Vector3 end,
-            float along0, float along1, float halfWidth0, float halfWidth1, float gain0, float gain1, Vector2 fade)
+        /// <summary>
+        /// One row of a strip: two vertices on either side of <paramref name="position"/>, and, when <paramref name="joins"/>
+        /// (it is not the strip's first), the quad that joins it to the row before.
+        /// </summary>
+        private static void AddRow(LaserVertex[] vertices, short[] indices, ref int vertex, ref int index, bool joins,
+            Vector3 position, Vector3 tangent, float halfWidth, float gain, float along, float distance, float fadeIn, float fadeOut)
         {
-            int v = quad * 4;
-            int n = quad * 6;
+            Vector3 fade = new(fadeIn, fadeOut, distance);
 
-            vertices[v + 0] = new LaserVertex { Start = start, End = end, Data = new Vector4(-1f, along0, halfWidth0, gain0), Fade = fade };
-            vertices[v + 1] = new LaserVertex { Start = start, End = end, Data = new Vector4(1f, along0, halfWidth0, gain0), Fade = fade };
-            vertices[v + 2] = new LaserVertex { Start = start, End = end, Data = new Vector4(-1f, along1, halfWidth1, gain1), Fade = fade };
-            vertices[v + 3] = new LaserVertex { Start = start, End = end, Data = new Vector4(1f, along1, halfWidth1, gain1), Fade = fade };
+            vertices[vertex + 0] = new LaserVertex { Position = position, Tangent = tangent, Data = new Vector4(-1f, along, halfWidth, gain), Fade = fade };
+            vertices[vertex + 1] = new LaserVertex { Position = position, Tangent = tangent, Data = new Vector4(1f, along, halfWidth, gain), Fade = fade };
 
-            indices[n + 0] = (short)(v + 0);
-            indices[n + 1] = (short)(v + 1);
-            indices[n + 2] = (short)(v + 2);
-            indices[n + 3] = (short)(v + 2);
-            indices[n + 4] = (short)(v + 1);
-            indices[n + 5] = (short)(v + 3);
+            if (joins)
+            {
+                int previous = vertex - 2;
 
-            quad++;
+                indices[index + 0] = (short)(previous + 0);
+                indices[index + 1] = (short)(previous + 1);
+                indices[index + 2] = (short)(vertex + 0);
+                indices[index + 3] = (short)(vertex + 0);
+                indices[index + 4] = (short)(previous + 1);
+                indices[index + 5] = (short)(vertex + 1);
+
+                index += 6;
+            }
+
+            vertex += 2;
         }
 
         /// <summary>
