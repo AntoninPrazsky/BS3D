@@ -827,8 +827,8 @@ namespace BS3D.Screens
         /// Arms the lesson that is also a contextual card for its moment (<see cref="Definition.Reprise"/>, #936) on the level it
         /// belongs to: at once when it is not about to be shown as the level opens (a retry that has been through it), and
         /// when the opening showing has been read and has rested (<see cref="Retreat"/>, <see cref="Update"/>) when it is, so
-        /// the same card is never met twice running. Every entry into the level arms it again, as the level's own cards are
-        /// shown again (#715).
+        /// the same card is never met twice running. Every attempt at the level arms it again - an entry, as the level's own cards
+        /// are shown again (#715), and a retry that has been through the opening showing, which has none to wait for.
         /// </summary>
         private void ArmReprises(int chapter, int levelInChapter, int chapterLength)
         {
