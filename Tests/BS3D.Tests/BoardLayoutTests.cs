@@ -7,16 +7,17 @@ using Xunit;
 namespace BS3D.Tests
 {
     /// <summary>
-    /// An online board's row (#934): a name never draws over the mark or the score beside it, and the board takes the room a
-    /// wide display adds. <c>BoardLayout</c> is compiled in from the Game; the face is a stand-in whose advances are design
-    /// units of the menu's small face, read off captures: a capital W about 50, a narrow letter about 12, the other letters
-    /// about 30, a digit about 32 and "not finished" 264 (the owner's report was a long nickname printed over exactly that
-    /// word). The pages work in pixels, so the figures are scaled the way the menu scales its design units: by the window's
-    /// height over 2160.
+    /// An online board's row (#934, #977): a name never draws over the score beside it, a row that did not finish gives its name
+    /// no less room than a clear, and the board takes the room a wide display adds. <c>BoardLayout</c> is compiled in from the
+    /// Game; the face is a stand-in whose advances are design units of the menu's small face, read off captures: a capital W
+    /// about 50, a narrow letter about 12, the other letters about 30 and a digit about 32 (the owner's report was a long
+    /// nickname printed over "not finished", a word of 264 that was a column of the row until #977). The pages work in
+    /// pixels, so the figures are scaled the way the menu scales its design units: by the window's height over 2160.
     /// <para>
     /// Seen to fail on the layout the owner reported (a name column left to the Fill column with the text unclipped): the premise
     /// test below states what that layout drew, a name wider than its column, and each assertion that the cut name fits is false
-    /// when <c>Ellipsize</c> returns its text as it was.
+    /// when <c>Ellipsize</c> returns its text as it was. And on #977's: with a column of 264 for the mark put back into
+    /// <c>NameWidth</c>, the name column of a board at its base width is 102 units and the room test fails.
     /// </para>
     /// </summary>
     public class BoardLayoutTests
@@ -26,7 +27,7 @@ namespace BS3D.Tests
         //The board's own base width and floor in design units (ResultPage's BOARD_WIDTH and BOARD_MIN_WIDTH), the gap between columns
         private const int BOARD_WIDTH = 780, BOARD_MIN_WIDTH = 520, GAP = 30;
 
-        private const int CUP = 56, RANK = 32 * 2, SCORE = 32 * 5 + 14, MARK = 264;
+        private const int CUP = 56, RANK = 32 * 2, SCORE = 32 * 5 + 14;
 
         private static int Scaled(int units, int windowHeight) => Math.Max(1, (int)MathF.Round(units * (windowHeight / (float)DESIGN_HEIGHT)));
 
@@ -44,17 +45,16 @@ namespace BS3D.Tests
             text => (int)MathF.Ceiling(Face(text) * (windowHeight / (float)DESIGN_HEIGHT));
 
         /// <summary>A row of a board at a window's height, with the columns' pixel widths and where each starts.</summary>
-        private readonly record struct Row(int NameLeft, int NameWidth, int MarkLeft, int MarkWidth, int ScoreLeft)
+        private readonly record struct Row(int NameLeft, int NameWidth, int ScoreLeft)
         {
             public static Row At(int windowHeight, int boardWidth)
             {
-                int cup = Scaled(CUP, windowHeight), rank = Scaled(RANK, windowHeight), mark = Scaled(MARK, windowHeight);
+                int cup = Scaled(CUP, windowHeight), rank = Scaled(RANK, windowHeight);
                 int score = Scaled(SCORE, windowHeight), gap = Scaled(GAP, windowHeight);
 
-                int name = BoardLayout.NameWidth(boardWidth, cup, rank, mark, score, gap);
+                int name = BoardLayout.NameWidth(boardWidth, cup, rank, score, gap);
                 int nameLeft = cup + gap + rank + gap;
-                int markLeft = nameLeft + name + gap;
-                return new Row(nameLeft, name, markLeft, mark, markLeft + mark + gap);
+                return new Row(nameLeft, name, nameLeft + name + gap);
             }
         }
 
@@ -72,30 +72,30 @@ namespace BS3D.Tests
 
         [Theory]
         [MemberData(nameof(Windows))]
-        public void A_long_name_on_a_marked_row_never_reaches_the_mark(int width, int height)
+        public void A_long_name_never_reaches_the_score(int width, int height)
         {
             int board = Scaled(BOARD_WIDTH, height);
             Row row = Row.At(height, board);
             Func<string, int> face = FaceAt(height);
 
-            foreach (int length in new[] { 5, 16, 24, 40 })
+            foreach (int length in new[] { 10, 16, 24, 40 })
             {
                 string name = LongName(length);
 
                 //The premise: this is what the owner saw. The column cannot hold the name whole, so a label that is not cut draws on
                 Assert.True(face(name) > row.NameWidth, $"{length} W fit a {row.NameWidth} px column at {height} p: not a long name");
 
-                string shown = BoardLayout.Ellipsize(name, BoardLayout.RowMeasure(row.NameWidth, row.MarkWidth, 0, marked: true), face);
+                string shown = BoardLayout.Ellipsize(name, row.NameWidth, face);
 
                 int right = row.NameLeft + face(shown);
-                Assert.True(right <= row.MarkLeft - Scaled(GAP, height),
-                    $"{length} W at {width}x{height}: the name ends at {right}, the mark starts at {row.MarkLeft}");
+                Assert.True(right <= row.ScoreLeft - Scaled(GAP, height),
+                    $"{length} W at {width}x{height}: the name ends at {right}, the score starts at {row.ScoreLeft}");
                 Assert.EndsWith(BoardLayout.ELLIPSIS, shown);
             }
         }
 
         [Fact]
-        public void A_40_character_name_at_1280_by_720_never_overlaps_the_mark_column()
+        public void A_40_character_name_at_1280_by_720_never_overlaps_the_score_column()
         {
             //The brief's figure, spelled out: 40 characters of ordinary letters as well as of capitals, on the smallest window the game runs in
             int board = Scaled(BOARD_WIDTH, 720);
@@ -106,25 +106,41 @@ namespace BS3D.Tests
             {
                 string shown = BoardLayout.Ellipsize(name, row.NameWidth, face);
 
-                Assert.True(row.NameLeft + face(shown) + Scaled(GAP, 720) <= row.MarkLeft, name);
+                Assert.True(row.NameLeft + face(shown) + Scaled(GAP, 720) <= row.ScoreLeft, name);
                 Assert.True(face(shown) <= row.NameWidth, name);
             }
         }
 
         [Theory]
         [MemberData(nameof(Windows))]
-        public void A_row_with_no_mark_borrows_the_marks_column_and_still_stops_short_of_the_score(int width, int height)
+        public void On_a_board_at_its_base_width_the_name_has_room_for_a_real_nickname_whether_or_not_the_row_finished(int width, int height)
         {
+            //#977: "not finished" was a column of 264 units and left a row that wore it 102 of the 780, three or four letters. The mark
+            //is no column now, so the room is the one every row has: eleven ordinary letters and six capital Ws
             int board = Scaled(BOARD_WIDTH, height);
             Row row = Row.At(height, board);
             Func<string, int> face = FaceAt(height);
-            int gap = Scaled(GAP, height);
 
-            int measure = BoardLayout.RowMeasure(row.NameWidth, row.MarkWidth, gap, marked: false);
-            string shown = BoardLayout.Ellipsize(LongName(40), measure, face);
+            Assert.True(row.NameWidth >= face(new string('n', 11)), $"{width}x{height}: {row.NameWidth} px holds fewer than eleven letters");
+            Assert.True(row.NameWidth >= face(LongName(6)), $"{width}x{height}: {row.NameWidth} px holds fewer than six Ws");
+            Assert.Equal("Kuba", BoardLayout.Ellipsize("Kuba", row.NameWidth, face));
+        }
 
-            Assert.Equal(row.NameWidth + gap + row.MarkWidth, measure);
-            Assert.True(row.NameLeft + face(shown) + gap <= row.ScoreLeft, $"{width}x{height}: the name ends at {row.NameLeft + face(shown)}, the score starts at {row.ScoreLeft}");
+        [Theory]
+        [InlineData(1, 4, "Cup")]
+        [InlineData(2, 3, "Cup")]
+        [InlineData(3, 1, "Cup")]
+        [InlineData(4, 4, "None")]
+        [InlineData(17, 1, "None")]
+        [InlineData(0, 2, "None")]
+        [InlineData(1, 0, "Unfinished")]
+        [InlineData(3, 0, "Unfinished")]
+        [InlineData(4, 0, "Unfinished")]
+        [InlineData(17, 0, "Unfinished")]
+        public void A_cup_is_for_a_clear_in_the_first_three_places_and_an_attempt_wears_the_hollow_star_instead(int rank, int stars, string expected)
+        {
+            //Where a board holds so few clears that an attempt ranks among the first three, it does not wear the cup
+            Assert.Equal(Enum.Parse<BoardLayout.Sign>(expected), BoardLayout.SignOf(rank, stars));
         }
 
         [Theory]
@@ -231,23 +247,23 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void A_full_width_board_shows_the_longest_nickname_whole_beside_every_other_column()
+        public void A_full_width_board_shows_the_longest_nickname_whole_beside_its_rank_and_score()
         {
             foreach (int height in new[] { 720, 1080, 1600, 2160 })
             {
                 Func<string, int> face = FaceAt(height);
-                int cup = Scaled(CUP, height), rank = Scaled(RANK, height), mark = Scaled(MARK, height);
+                int cup = Scaled(CUP, height), rank = Scaled(RANK, height);
                 int score = Scaled(SCORE, height), gap = Scaled(GAP, height);
                 string widest = LongName(16);
 
-                int full = BoardLayout.FullWidth(cup, rank, face(widest), mark, score, gap);
-                int name = BoardLayout.NameWidth(full, cup, rank, mark, score, gap);
+                int full = BoardLayout.FullWidth(cup, rank, face(widest), score, gap);
+                int name = BoardLayout.NameWidth(full, cup, rank, score, gap);
 
                 Assert.Equal(face(widest), name);
-                Assert.Equal(widest, BoardLayout.Ellipsize(widest, BoardLayout.RowMeasure(name, mark, gap, marked: true), face));
+                Assert.Equal(widest, BoardLayout.Ellipsize(widest, name, face));
 
                 //One pixel less and the widest name is cut: the width is exactly what it needs
-                int tight = BoardLayout.NameWidth(full - 1, cup, rank, mark, score, gap);
+                int tight = BoardLayout.NameWidth(full - 1, cup, rank, score, gap);
                 Assert.NotEqual(widest, BoardLayout.Ellipsize(widest, tight, face));
             }
         }
@@ -261,6 +277,13 @@ namespace BS3D.Tests
             string source = File.ReadAllText(Path.Combine(ScreensDirectory(), "BoardView.cs"));
 
             Assert.DoesNotMatch(@"ColumnsProportions\.Add\(new Proportion\(ProportionType\.(Fill|Auto)", source);
+
+            //#977: the unfinished mark is no column of the row and no word in it - the row says it with the hollow star where a cup
+            //would stand and with the recessed slab High Scores' unfinished rows rest in, and the one rule for which row wears the
+            //star is BoardLayout's, so the page and the test cannot disagree about it
+            Assert.DoesNotContain("_mark", source);
+            Assert.Contains("BoardLayout.SignOf(", source);
+            Assert.Contains("MENU_ROW_UNFINISHED_BRUSH", source);
 
             string[] writes = source.Split("_name[i].Text =");
             Assert.Equal(2, writes.Length);
@@ -285,23 +308,22 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void At_the_boards_floor_a_marked_row_may_have_no_name_column_and_then_draws_none()
+        public void At_the_boards_floor_the_name_still_has_a_column()
         {
-            //BOARD_MIN_WIDTH (520 units) is narrower than the cup, rank, mark and score and their gaps together (678 here), so on a
-            //row that wears the mark the name column is nothing; the name is then not drawn rather than drawn over the mark, and a row
-            //that wears none still has the mark's column for it
+            //BOARD_MIN_WIDTH (520 units) is wider than the cup, rank and score and their gaps together (384 here), so the name keeps
+            //a column on the smallest plate the pages draw, on every row; and where a board is narrower than even those it has none
+            //and draws none rather than draw over the score
             foreach (int height in new[] { 540, 720, 1080 })
             {
                 int floor = Scaled(BOARD_MIN_WIDTH, height);
                 Row row = Row.At(height, floor);
-                int gap = Scaled(GAP, height);
 
-                Assert.Equal(0, row.NameWidth);
-                Assert.Equal(string.Empty, BoardLayout.Ellipsize("Kuba", BoardLayout.RowMeasure(row.NameWidth, row.MarkWidth, gap, marked: true), FaceAt(height)));
-                Assert.True(BoardLayout.RowMeasure(row.NameWidth, row.MarkWidth, gap, marked: false) > 0);
+                Assert.True(row.NameWidth > 0, $"{height} p: the floor leaves the name nothing");
+                Assert.NotEqual(string.Empty, BoardLayout.Ellipsize("Kuba", row.NameWidth, FaceAt(height)));
             }
 
-            Assert.Equal(0, BoardLayout.NameWidth(10, 5, 5, 5, 5, 5));
+            Assert.Equal(0, BoardLayout.NameWidth(10, 5, 5, 5, 5));
+            Assert.Equal(string.Empty, BoardLayout.Ellipsize("Kuba", 0, Face));
         }
     }
 }

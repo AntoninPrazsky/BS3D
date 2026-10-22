@@ -1328,8 +1328,9 @@ namespace BS3D.Screens
 
         #region The online boards (#547)
 
-        //The plate is this wide up to 16:9 — ranks, nicknames and scores in the small face; a row that wears "not finished" leaves
-        //its name only a few characters, and BoardView cuts it with an ellipsis - and gives way to the width actually beside the
+        //The plate is this wide up to 16:9 — ranks, nicknames and scores in the small face; a name wider than its column is cut
+        //with an ellipsis by BoardView (an attempt that did not finish is a tint and a hollow star, not a word that takes the
+        //name's room, #977) - and the plate gives way to the width actually beside the
         //column (see BuildBoards): at 16:9 there are about 1420 design units either side of it; at 4:3 about 940, and the first cut,
         //which assumed the full width would always fit, was photographed laid across the score breakdown. On a display wider
         //than 16:9 it GROWS (#934, BoardLayout.Ceiling), by half of what the display is wider, up to the width the longest
