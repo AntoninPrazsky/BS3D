@@ -558,7 +558,7 @@ namespace BS3D
             }
 
             //The dome the scene brings with it, if it states one (the sea, the savanna, the beach, the volcano,
-            //Mars, the storm and the icesheet — see SkyDome.SceneDefault for why each); every other scene keeps
+            //Mars, the storm, the icesheet, the forest and the outback — see SkyDome.SceneDefault for why each); every other scene keeps
             //whatever dome is up, including the neon city, whose default IS the dusk.
             byte sceneDome = SkyDome.SceneDefault(scene);
             if (sceneDome != 0) _skyDome = sceneDome;

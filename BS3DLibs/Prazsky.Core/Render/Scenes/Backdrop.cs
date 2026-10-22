@@ -185,6 +185,14 @@ namespace Prazsky.Core.Render
         public virtual void Prepare() { }
 
         /// <summary>
+        /// The first thing <see cref="SceneRenderer.DrawShadowMaps"/> does, every frame and before any of its gates, with the
+        /// back buffer bound and nothing of the frame drawn yet: the one moment a backdrop may draw into a target of its own
+        /// without costing the scene target a resolve. The outback bakes its formations' cast shadows here when the sun moves
+        /// (#967). It must leave the back buffer bound and the device's states as it found them. Nothing by default.
+        /// </summary>
+        public virtual void BeforeShadowMaps(Vector3 sunDirection) { }
+
+        /// <summary>
         /// Frees what this backdrop built. An effect loaded from the content manager is the manager's and is not
         /// disposed; a clone of one (<c>Effect.Clone</c>, the aurora's snow) is the backdrop's own and is.
         /// </summary>

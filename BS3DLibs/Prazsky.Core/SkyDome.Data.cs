@@ -217,6 +217,17 @@
             //(0.80,44,94,175), (1.00,16,48,126)); the string is that function's output. Change the look in
             //the formula and re-paste, never by hand-editing these digits.
             "CFE2F1D4E5F2B8D3EBCFE2F1B8D3EBDCEAF4DCEAF4B1CFE9B1CFE9E0ECF5B8D3EBCFE2F1D4E5F2B8D3EBDCEAF4B1CFE9B8D3EBCFE2F1D4E5F2B8D3EBDCEAF4B1CFE9D4E5F2B8D3EBCFE2F1B8D3EBDCEAF4B1CFE9D4E5F2B8D3EBB8D3EB5C8CCA3668B55E8ECC5E8ECC3668B58DB4DE8DB4DE3E6FB93E6FB93668B55E8ECC5C8CCA3668B55E8ECC8DB4DE8DB4DE3E6FB93668B55C8CCA5E8ECC8DB4DE8DB4DE3668B55E8ECC3E6FB95E8ECC5C8CCA3668B55E8ECC3668B58DB4DE8DB4DE3E6FB95E8ECC5C8CCA3668B55E8ECC3668B58DB4DE8DB4DE90B6DE90B6DE90B6DE90B6DE90B6DE1E4897234F9F234F9F14378514378510307E1E4897234F9F1437851E4897234F9F1437851E4897234F9F1437851E4897",
+            //Dome 21 (#967, the outback): a clear inland afternoon - a deep blue zenith paling to a warm white skyline,
+            //over a gold sun. Every one of the other twenty drew the outback garish (a teal, lilac, magenta or olive
+            //sky over red ground) or flat, and the references of the real place (both local models, #967) all drew
+            //this one: blue straight up, the colour leaving the sky towards a pale skyline that the far formations
+            //stand dark against. Generated as dome 14 was (#681) - (0.000,240,168,100), (0.030,255,196,122),
+            //(0.103,252,212,150), (0.136,252,214,154), (0.26,240,220,196), (0.41,230,226,220), (0.50,214,222,232),
+            //(0.55,186,206,230), (0.62,140,178,222), (0.72,100,148,208), (0.84,70,120,192), (1.00,52,100,178).
+            //The bottom fifth is the light rig's HorizonColor, so it is the SUN's tint: dome 14's gold a shade
+            //warmer, the light the rock glows red-orange in. The string is that function's output; change the look
+            //in the formula, never the digits.
+            "FCD69AFCD496F2DBBEFCD69AF2DBBEFFC47AFFC47AEFDDC7EFDDC7F0A864F2DBBEFCD69AFCD496F2DBBEFFC47AEFDDC7F2DBBEFCD69AFCD496F2DBBEFFC47AEFDDC7FCD496F2DBBEFCD69AF2DBBEFFC47AEFDDC7FCD496F2DBBEF2DBBE9DBCE15B8BCBA2C0E2A2C0E25B8BCBE5E2DDE5E2DD6393D06393D05B8BCBA2C0E29DBCE15B8BCBA2C0E2E5E2DDE5E2DD6393D05B8BCB9DBCE1A2C0E2E5E2DDE5E2DD5B8BCBA2C0E26393D0A2C0E29DBCE15B8BCBA2C0E25B8BCBE5E2DDE5E2DD6393D0A2C0E29DBCE15B8BCBA2C0E25B8BCBE5E2DDE5E2DDE6E2DBE6E2DBE6E2DBE6E2DBE6E2DB4071BB4375BE4375BE3768B53768B53464B24071BB4375BE3768B54071BB4375BE3768B54071BB4375BE3768B54071BB",
         };
 
         //Where each sky's sun stands (issue #220's second pass): elevation above the horizon and azimuth from
@@ -265,6 +276,8 @@
             (58f,   50f), //19 Mars (#277): a high, thin-aired midday sun over the dusty butterscotch sky
             (52f,  205f), //20 high air over a storm (#219): a high sun, and behind the opening view so the
                           //   turrets' near flanks are shaded and their crests catch the silver rim
+            (21f, -125f), //21 the outback (#967): a gold afternoon sun low enough that the formations throw long
+                          //   shadows, off to the left of the opening view so they fall across the plain towards it
         };
     }
 }

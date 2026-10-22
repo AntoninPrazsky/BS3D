@@ -293,7 +293,8 @@ namespace BS3D
         /// grid twice as fine with crags and the rock shaded in three dimensions (#781), and the cavern's hall in 176 cells
         /// along a cube face's edge with every stalactite where Low and Medium use 104 and leave the short ones out (#958), the Moon's
         /// and the volcano's rocks as fractured blocks and worn boulders with a stone surface where Low and Medium keep twenty flat
-        /// facets and the lathes (#777), and the title wordmark, the PNG logo in three dimensions where Low and Medium keep the rainbow wordmark (#929). <b>High and Ultra only</b>: the owner asked for the detail there ("on High / Ultra this
+        /// facets and the lathes (#777), the outback's near formations on a polar disc of 160 by 80 where Low and Medium lay
+        /// the far ones' 96 by 40 (#967), and the title wordmark, the PNG logo in three dimensions where Low and Medium keep the rainbow wordmark (#929). <b>High and Ultra only</b>: the owner asked for the detail there ("on High / Ultra this
         /// transition should have more detail"; of the spruces, "they could pass for Low, maybe Medium, but not High or
         /// Ultra"; of the range, "how they look now could be the look of low/medium, but on high/ultra they must have more
         /// detail"), and Medium is the weak machine's rung. What it costs is in "The fork, grown for High and Ultra (#758)" and

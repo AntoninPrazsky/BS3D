@@ -111,9 +111,11 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Draws the grid round the camera and the far ring past it, the island's footprint cut out to
         /// <paramref name="holeRadius"/>. Leaves the blend state alpha and the rasterizer culling
-        /// counter-clockwise, which is what the scene block expects after every terrain.
+        /// counter-clockwise, which is what the scene block expects after every terrain. <paramref name="beforeGrid"/>
+        /// draws first, through the same effect with the frame's parameters and the far fade already pushed and the
+        /// grid's states current: the outback's formations (#967), which the grid stops on.
         /// </summary>
-        public void Draw(in SceneFrame frame, float holeRadius)
+        public void Draw(in SceneFrame frame, float holeRadius, Action beforeGrid = null)
         {
             float originX = MathF.Round(frame.Camera.Position.X / _cell) * _cell;
             float originZ = MathF.Round(frame.Camera.Position.Z / _cell) * _cell;
@@ -135,6 +137,7 @@ namespace Prazsky.Core.Render
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
             _farField.Begin(Effect, frame, _extent);
+            beforeGrid?.Invoke();
             _graphicsDevice.SetVertexBuffer(_vertexBuffer);
             _graphicsDevice.Indices = _indexBuffer;
             Effect.CurrentTechnique.Passes[0].Apply();

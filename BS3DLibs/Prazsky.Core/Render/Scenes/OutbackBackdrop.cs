@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
+using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
 
@@ -25,11 +26,28 @@ namespace Prazsky.Core.Render
         //Its camera grid and the pass that draws it (#580): the skeleton this scene shared with two others
         private readonly TerrainPass _outbackPass;
 
-        //The monoliths are geometry, not a painted horizon, so this grid carries a silhouette rather than only
-        //a shaded surface — which is what sets the density. At 400 over 1000 the cell is 2.5 world units and a
-        //formation's flank falls its whole height over some eight of them, which the mesh can hold; the same
-        //flank on the desert's 360 grid would fall over seven. Above 255 a side, so the grid cache's 32-bit
-        //index buffer is load-bearing here (the mountain's lesson — a 16-bit one wraps silently).
+        //The formations as geometry of their own (#967), drawn through the pass before its grid, which stops on them;
+        //the delegate is made once, never per frame
+        private OutbackRockDiscs _rockDiscs;
+        private readonly EffectTechnique _rockTechnique;
+        private readonly Action _drawRock;
+
+        //The formations' cast shadows over the land (#967), baked through the effect's OutbackSunBake when the sun moves.
+        //A square of SUN_BAKE_EXTENT round the arena: the far ring's reach. 2048 a side is 1.5 units a texel; Low and
+        //Medium bake 1024 (one pass, at the scene's first frame and on a change of dome).
+        private const float SUN_BAKE_EXTENT = 3072f;
+        private const int SUN_BAKE_SIZE = 2048, SUN_BAKE_SIZE_COARSE = 1024;
+        private const float SUN_BAKE_STRENGTH = 0.9f;
+        private RenderTarget2D _sunBake;
+        private Vector3 _bakedSun;
+        private readonly EffectTechnique _bakeTechnique;
+        private readonly EffectParameter _bakeArea, _bakeSun, _terrainShadowMap, _terrainShadowArea;
+
+        //The plain's grid. It carried the monoliths until #967, which set its density (a flank falling over some
+        //eight 2.5-unit cells); the formations have their own discs now (OutbackRockDiscs) and the grid only the
+        //swell and the boulders' footprints it stops on, but it keeps the density its shading was tuned at. Above
+        //255 a side, so the grid cache's 32-bit index buffer is load-bearing here (the mountain's lesson — a 16-bit
+        //one wraps silently).
         private const int OUTBACK_GRID_N = 400;
         private const float OUTBACK_EXTENT = 1000f;
 
@@ -45,6 +63,16 @@ namespace Prazsky.Core.Render
             _outbackPass = new TerrainPass(Services, _outbackEffect, OUTBACK_GRID_N, OUTBACK_EXTENT, "OutbackTime");
 
             ApplyOutbackParameters();
+
+            _rockTechnique = _outbackEffect.Techniques["OutbackRock"];
+            _bakeTechnique = _outbackEffect.Techniques["OutbackSunBake"];
+            _bakeArea = _outbackEffect.Parameters["BakeArea"];
+            _bakeSun = _outbackEffect.Parameters["BakeSun"];
+            _terrainShadowMap = _outbackEffect.Parameters["TerrainShadowMap"];
+            _terrainShadowArea = _outbackEffect.Parameters["TerrainShadowArea"];
+            _terrainShadowArea.SetValue(Vector4.Zero);
+            _rockDiscs = new OutbackRockDiscs(services.GraphicsDevice, _outbackConfig);
+            _drawRock = () => _rockDiscs?.Draw(_outbackEffect, _rockTechnique);
 
             _plants = new PlantPass(services.GraphicsDevice, content);
             _berm = new IslandBermPlanting(services.GraphicsDevice, (x, z) => TerrainMirror.Outback(x, z, _outbackConfig), BERM_SEED + Services.SeedOffset,
@@ -82,6 +110,8 @@ namespace Prazsky.Core.Render
             _outbackEffect.Parameters["OutcropSpacing"].SetValue(MathF.Max(terrain.OutcropSpacing, 1f));
             _outbackEffect.Parameters["OutcropChance"].SetValue(terrain.OutcropChance);
             _outbackEffect.Parameters["OutcropHeight"].SetValue(terrain.OutcropHeight);
+            _outbackEffect.Parameters["ClusterChance"].SetValue(terrain.ClusterChance);
+            _outbackEffect.Parameters["ClusterHeight"].SetValue(terrain.ClusterHeight);
 
             _outbackEffect.Parameters["RockColorDeep"].SetValue(surface.RockColorDeep.ToVector3());
             _outbackEffect.Parameters["RockColorBright"].SetValue(surface.RockColorBright.ToVector3());
@@ -105,21 +135,22 @@ namespace Prazsky.Core.Render
 
             _outbackEffect.Parameters["HazeTint"].SetValue(air.HazeTint.ToVector3());
             _outbackEffect.Parameters["DustStrength"].SetValue(air.DustStrength);
+            _outbackEffect.Parameters["HazeDistance"].SetValue(MathF.Max(air.HazeDistance, 1f));
             _outbackEffect.Parameters["HorizonHazeDistance"].SetValue(air.HorizonHazeDistance);
-            _outbackEffect.Parameters["HazeWarmth"].SetValue(air.HazeWarmth);
             _outbackEffect.Parameters["HeatShimmer"].SetValue(air.HeatShimmer);
             _outbackEffect.Parameters["WindDirection"].SetValue(air.Wind.ToVector2());
         }
 
         /// <summary>
-        /// Draws the outback (#112): the grid pinned to the camera (snapped to a cell so the land does not
-        /// swim), carrying a near-flat spinifex plain with red monoliths displaced into it, shaded per-pixel by
-        /// the current dome and shadowed by the shared cloud field. Like the desert it has no point lights, so
-        /// it sets none; unlike the desert its terrain carries a real silhouette, which is why the grid is finer.
+        /// Draws the outback (#112): the formations' discs (#967), then the grid pinned to the camera (snapped to a cell
+        /// so the land does not swim) carrying the near-flat spinifex plain that stops on their footprints, and the far
+        /// ring past it, all shaded per pixel by the current dome, the formations' baked shadows and the shared cloud
+        /// field. Like the desert it has no point lights, so it sets none.
         /// </summary>
         public override void Draw(in SceneFrame frame)
         {
-            _outbackPass.Draw(frame, Services.TerrainHoleRadius);
+            _rockDiscs?.Cull(frame.Camera.View * frame.Camera.Projection, Services.FineMeshes);
+            _outbackPass.Draw(frame, Services.TerrainHoleRadius, _drawRock);
             if (_berm != null) _plants.Draw(frame, _berm.Buckets, _outbackConfig.Air.HorizonHazeDistance, detail: true, Services.FineMeshes);
             Services.Birds.Draw(frame, _outbackConfig.Birds);
         }
@@ -135,11 +166,70 @@ namespace Prazsky.Core.Render
 
         private const int BERM_SEED = 9300;
 
+        /// <summary>
+        /// Bakes the formations' cast shadows over the land (#967) when the sun has moved since the last bake: one pass of
+        /// <c>Outback.fx</c>'s <c>OutbackSunBake</c> into a square of <see cref="SUN_BAKE_EXTENT"/> round the arena, each
+        /// texel walking a ray to the sun through the height field. A sun under the shadow map's own floor bakes nothing
+        /// and the land takes no shadow from it, as the map's receivers do.
+        /// </summary>
+        public override void BeforeShadowMaps(Vector3 sunDirection)
+        {
+            if (sunDirection.Y <= SceneRenderer.SHADOW_MIN_SUN_HEIGHT)
+            {
+                _terrainShadowArea.SetValue(Vector4.Zero);
+                _bakedSun = Vector3.Zero;
+                return;
+            }
+
+            int size = Services.FineMeshes ? SUN_BAKE_SIZE : SUN_BAKE_SIZE_COARSE;
+            if (_sunBake != null && _sunBake.Width == size && Vector3.DistanceSquared(sunDirection, _bakedSun) < 1e-8f) return;
+
+            GraphicsDevice device = Services.GraphicsDevice;
+            if (_sunBake == null || _sunBake.Width != size)
+            {
+                _sunBake?.Dispose();
+                _sunBake = new RenderTarget2D(device, size, size, false, SurfaceFormat.HalfSingle, DepthFormat.None);
+            }
+
+            BlendState blend = device.BlendState;
+            DepthStencilState depth = device.DepthStencilState;
+            RasterizerState rasterizer = device.RasterizerState;
+            EffectTechnique technique = _outbackEffect.CurrentTechnique;
+
+            float corner = -SUN_BAKE_EXTENT * Constants.HALF;
+            _bakeArea.SetValue(new Vector4(corner, corner, SUN_BAKE_EXTENT, 1f / size));
+            _bakeSun.SetValue(Vector3.Normalize(sunDirection));
+            _terrainShadowMap.SetValue((Texture2D)null);
+
+            device.SetRenderTarget(_sunBake);
+            device.BlendState = BlendState.Opaque;
+            device.DepthStencilState = DepthStencilState.None;
+            device.RasterizerState = RasterizerState.CullNone;
+            device.SetVertexBuffer(Services.FullScreenQuad);
+            _outbackEffect.CurrentTechnique = _bakeTechnique;
+            _bakeTechnique.Passes[0].Apply();
+            device.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
+            device.SetRenderTarget(null);
+
+            _outbackEffect.CurrentTechnique = technique;
+            device.BlendState = blend;
+            device.DepthStencilState = depth;
+            device.RasterizerState = rasterizer;
+
+            _terrainShadowMap.SetValue(_sunBake);
+            _terrainShadowArea.SetValue(new Vector4(corner, corner, 1f / SUN_BAKE_EXTENT, SUN_BAKE_STRENGTH));
+            _bakedSun = sunDirection;
+        }
+
         /// <inheritdoc/>
         public override void Dispose()
         {
             _berm?.Dispose();
             _berm = null;
+            _rockDiscs?.Dispose();
+            _rockDiscs = null;
+            _sunBake?.Dispose();
+            _sunBake = null;
         }
 
         /// <inheritdoc/>
@@ -168,7 +258,7 @@ namespace Prazsky.Core.Render
             //The monoliths are terrain, not props, and they are what a map here has to clear.
             groundY = _outbackConfig.Terrain.LevelY;
             below = _outbackConfig.Terrain.OutcropHeight;
-            above = _outbackConfig.Terrain.RockHeight;
+            above = _outbackConfig.Terrain.RockHeight * MathF.Max(_outbackConfig.Terrain.ClusterHeight, 1f);
             return true;
         }
 

@@ -188,8 +188,20 @@ namespace Prazsky.Core.Render
 
         private const float TALUS_REACH = 1.3f;
 
-        //The two lattices' fixed figures, as OutbackHeight passes them to RockLayer.
+        //Outback.fx's constants of the same names (#967): a loaf's wall, a cluster's domes, the gullies' floor and
+        //the apron's share of the height.
+        private const float LOAF_WALL = 0.20f, DOME_WALL = 0.42f, DOME_RADIUS_MIN = 0.46f, DOME_RADIUS_MAX = 0.62f,
+            DOME_REACH = 1.25f, RIB_SHARPNESS = 2.4f, APRON_SHARE = 0.05f;
+        private const int MAX_DOMES = 5;
+
+        //The golden angle a cluster's domes are turned round its centre by, as the rotation the shader multiplies by
+        //(its cosine and sine as literals on both sides, so no sin/cos approximation stands between the two).
+        private const float GOLDEN_COS = -0.7373688f, GOLDEN_SIN = 0.6754903f;
+
+        //The two lattices' fixed figures, as OutbackHeight passes them to RockLayer (MONOLITH_ARGS, OUTCROP_ARGS).
         private const float ROCK_SEED = 13.7f, OUTCROP_SEED = 71.3f;
+        private const float ROCK_MIN_RADIUS = 0.10f, ROCK_MAX_RADIUS = 0.16f, ROCK_MAX_ELONGATION = 1.8f;
+        private const float OUTCROP_MIN_RADIUS = 0.045f, OUTCROP_MAX_RADIUS = 0.085f, OUTCROP_MAX_ELONGATION = 1.35f;
         private static readonly Vector2 OUTCROP_AXIS = new(0.8253f, 0.5647f);
 
         /// <summary>
@@ -210,22 +222,60 @@ namespace Prazsky.Core.Render
             }
         }
 
+        /// <summary>
+        /// One formation's footprint (#967): the ellipse <c>Outback.fx</c>'s plain stops on and the formation's own
+        /// polar mesh is laid over. <see cref="Axis"/> is its long axis in world XZ; the semi-axes are world units.
+        /// </summary>
+        public readonly struct Footprint
+        {
+            public readonly Vector2 Centre;
+            public readonly Vector2 Axis;
+            public readonly float SemiLong;
+            public readonly float SemiShort;
+            public readonly bool Outcrop;
+
+            public Footprint(Vector2 centre, Vector2 axis, float semiLong, float semiShort, bool outcrop)
+            {
+                Centre = centre;
+                Axis = axis;
+                SemiLong = semiLong;
+                SemiShort = semiShort;
+                Outcrop = outcrop;
+            }
+        }
+
+        //Outback.fx's RockRoll: one lattice cell's formation, if it has one
+        private struct RockRoll
+        {
+            public float Ramp;
+            public Vector2 Centre;
+            public float Radius;
+            public float Elongation;
+            public Vector2 Axis;
+            public Vector2 RollA, RollB, RollE, RollF;
+        }
+
         /// <summary>World Y of the outback's ground at a world XZ, as <c>Outback.fx</c>'s <c>OutbackHeight</c> displaces it.</summary>
         public static float Outback(float x, float z, OutbackSceneConfig config)
         {
             OutbackTerrainConfig terrain = config.Terrain;
             Vector2 p = new(x, z);
 
+            float rock = RockLayer(p, MathF.Max(terrain.RockSpacing, 1f), ROCK_SEED, terrain.RockChance, ROCK_MIN_RADIUS, ROCK_MAX_RADIUS,
+                ROCK_MAX_ELONGATION, config.Surface.RibDepth, terrain.RockHeight, LOAF_WALL, 2.0f, 3.4f, true, config);
+
+            float outcrop = RockLayer(RotateIntoOutcropFrame(p), MathF.Max(terrain.OutcropSpacing, 1f), OUTCROP_SEED, terrain.OutcropChance,
+                OUTCROP_MIN_RADIUS, OUTCROP_MAX_RADIUS, OUTCROP_MAX_ELONGATION, 0f, terrain.OutcropHeight, 0.475f, 1.5f, 5.5f, false, config);
+
+            return OutbackPlain(p, terrain) + rock + outcrop;
+        }
+
+        /// <summary>World Y of the outback's plain alone (<c>Outback.fx</c>'s <c>PlainHeight</c>): the swell, no rock.</summary>
+        public static float OutbackPlain(Vector2 p, OutbackTerrainConfig terrain)
+        {
             float swell = ShaderMath.Noise(p * 0.0062f) * 0.70f + ShaderMath.Noise(p * 0.0185f + new Vector2(5.1f)) * 0.30f;
 
-            float rock = RockLayer(p, MathF.Max(terrain.RockSpacing, 1f), ROCK_SEED, terrain.RockChance, terrain.RockHeight,
-                0.10f, 0.16f, 1.8f, config.Surface.RibDepth, 0.30f, 2.2f, 5.0f, terrain, config.Surface.RibCount);
-
-            Vector2 rotated = new(Vector2.Dot(p, OUTCROP_AXIS), Vector2.Dot(p, new Vector2(-OUTCROP_AXIS.Y, OUTCROP_AXIS.X)));
-            float outcrop = RockLayer(rotated, MathF.Max(terrain.OutcropSpacing, 1f), OUTCROP_SEED, terrain.OutcropChance, terrain.OutcropHeight,
-                0.045f, 0.085f, 1.35f, 0f, 0.475f, 1.5f, 5.5f, terrain, config.Surface.RibCount);
-
-            return terrain.LevelY + terrain.PlainRelief * swell + rock + outcrop;
+            return terrain.LevelY + terrain.PlainRelief * swell;
         }
 
         /// <summary>
@@ -244,15 +294,16 @@ namespace Prazsky.Core.Render
             {
                 for (int cx = -cells; cx <= cells; cx++)
                 {
-                    if (!Roll(cx, cz, cellSize, ROCK_SEED, terrain.RockChance, 0.10f, 0.16f, 1.8f, config.Surface.RibDepth, terrain,
-                        out Vector2 centreWorld, out float radius, out float elongation, out float ramp, out Vector2 rollB))
-                        continue;
+                    RockRoll roll = RollRock(cx, cz, cellSize, ROCK_SEED, terrain.RockChance, ROCK_MIN_RADIUS, ROCK_MAX_RADIUS,
+                        ROCK_MAX_ELONGATION, config.Surface.RibDepth, terrain);
+                    if (roll.Ramp <= 0f) continue;
 
+                    Vector2 centreWorld = (new Vector2(cx, cz) + roll.Centre) * cellSize;
                     if (centreWorld.Length() > maxRadius) continue;
 
-                    float reach = radius * TALUS_REACH * (1f + config.Surface.RibDepth) * elongation * cellSize;
-                    float crown = terrain.LevelY + terrain.PlainRelief + terrain.RockHeight * MathHelper.Lerp(0.62f, 1f, rollB.Y) * ramp
-                        + terrain.OutcropHeight;
+                    float reach = roll.Radius * TALUS_REACH * (1f + config.Surface.RibDepth) * roll.Elongation * cellSize;
+                    float crown = terrain.LevelY + terrain.PlainRelief + terrain.RockHeight * MathF.Max(config.Terrain.ClusterHeight, 1f)
+                        * MathHelper.Lerp(0.62f, 1f, roll.RollB.Y) * roll.Ramp + terrain.OutcropHeight;
                     found.Add(new Formation(centreWorld, reach, crown));
                 }
             }
@@ -260,75 +311,160 @@ namespace Prazsky.Core.Render
             return found;
         }
 
-        //RockLayer's placement rolls for one cell, shared by the height and the listing: false where the cell
-        //carries no formation or the clearing has it.
-        private static bool Roll(float cellX, float cellZ, float cellSize, float seed, float chance,
-            float minRadius, float maxRadius, float maxElongation, float ribDepth, OutbackTerrainConfig terrain,
-            out Vector2 centreWorld, out float radius, out float elongation, out float ramp, out Vector2 rollB)
+        /// <summary>
+        /// Every footprint of both lattices (#967) whose centre stands within <paramref name="maxRadius"/> of the arena:
+        /// the ellipses <c>Outback.fx</c>'s <c>InsideFootprint</c> tests, in world units, which the backdrop lays a polar
+        /// mesh over. The same rolls the height field is placed by, so a footprint listed here holds the formation the
+        /// shader raises, its apron included.
+        /// </summary>
+        public static List<Footprint> OutbackFootprints(OutbackSceneConfig config, float maxRadius)
         {
-            centreWorld = Vector2.Zero;
-            radius = elongation = ramp = 0f;
-            rollB = Vector2.Zero;
+            OutbackTerrainConfig terrain = config.Terrain;
+            var found = new List<Footprint>();
 
-            Vector2 rollA = Roll01(cellX + seed, cellZ + seed);
-            if (rollA.X > chance) return false;
+            AddFootprints(found, MathF.Max(terrain.RockSpacing, 1f), ROCK_SEED, terrain.RockChance, ROCK_MIN_RADIUS, ROCK_MAX_RADIUS,
+                ROCK_MAX_ELONGATION, config.Surface.RibDepth, terrain, maxRadius, outcrop: false);
+            AddFootprints(found, MathF.Max(terrain.OutcropSpacing, 1f), OUTCROP_SEED, terrain.OutcropChance, OUTCROP_MIN_RADIUS,
+                OUTCROP_MAX_RADIUS, OUTCROP_MAX_ELONGATION, 0f, terrain, maxRadius, outcrop: true);
 
-            rollB = Roll01(cellX + (seed + 23.7f), cellZ + (seed + 23.7f));
+            return found;
+        }
+
+        private static void AddFootprints(List<Footprint> found, float cellSize, float seed, float chance, float minRadius, float maxRadius,
+            float maxElongation, float ribDepth, OutbackTerrainConfig terrain, float searchRadius, bool outcrop)
+        {
+            int cells = (int)MathF.Ceiling(searchRadius / cellSize) + 2;
+
+            for (int cz = -cells; cz <= cells; cz++)
+            {
+                for (int cx = -cells; cx <= cells; cx++)
+                {
+                    RockRoll roll = RollRock(cx, cz, cellSize, seed, chance, minRadius, maxRadius, maxElongation, ribDepth, terrain);
+                    if (roll.Ramp <= 0f) continue;
+
+                    //The roll lives in its lattice's own frame: the outcrops' is turned by OUTCROP_AXIS, so its centre and
+                    //axis are turned back into the world's (RotateInto's inverse)
+                    Vector2 centre = (new Vector2(cx, cz) + roll.Centre) * cellSize;
+                    Vector2 axis = roll.Axis;
+                    if (outcrop)
+                    {
+                        centre = FromOutcropFrame(centre);
+                        axis = FromOutcropFrame(axis);
+                    }
+
+                    if (centre.Length() > searchRadius) continue;
+
+                    float semiShort = roll.Radius * TALUS_REACH * (1f + ribDepth) * cellSize;
+                    found.Add(new Footprint(centre, axis, semiShort * roll.Elongation, semiShort, outcrop));
+                }
+            }
+        }
+
+        //Outback.fx's RotateInto(p, OUTCROP_FRAME), and back
+        private static Vector2 RotateIntoOutcropFrame(Vector2 p) =>
+            new(Vector2.Dot(p, OUTCROP_AXIS), Vector2.Dot(p, new Vector2(-OUTCROP_AXIS.Y, OUTCROP_AXIS.X)));
+
+        private static Vector2 FromOutcropFrame(Vector2 r) => OUTCROP_AXIS * r.X + new Vector2(-OUTCROP_AXIS.Y, OUTCROP_AXIS.X) * r.Y;
+
+        //Outback.fx's RollRock, for one cell. The constants are added to the seed FIRST, as the shader compiler folds them.
+        private static RockRoll RollRock(float cellX, float cellZ, float cellSize, float seed, float chance,
+            float minRadius, float maxRadius, float maxElongation, float ribDepth, OutbackTerrainConfig terrain)
+        {
+            RockRoll roll = default;
+            roll.RollA = Roll01(cellX + seed, cellZ + seed);
+            roll.RollB = Roll01(cellX + (seed + 23.7f), cellZ + (seed + 23.7f));
             Vector2 rollC = Roll01(cellX + (seed + 57.1f), cellZ + (seed + 57.1f));
             Vector2 rollD = Roll01(cellX + (seed + 91.3f), cellZ + (seed + 91.3f));
 
-            radius = MathHelper.Lerp(minRadius, maxRadius, rollB.X);
-            elongation = MathHelper.Lerp(1f, maxElongation, rollD.Y);
+            roll.Radius = MathHelper.Lerp(minRadius, maxRadius, roll.RollB.X);
+            roll.Elongation = MathHelper.Lerp(1f, maxElongation, rollD.Y);
+            roll.Axis = RollDirection(rollD);
 
-            float margin = MathF.Min(radius * TALUS_REACH * (1f + ribDepth) * elongation, 0.45f);
-            Vector2 centre = new Vector2(margin) + rollC * (1f - 2f * margin);
+            float margin = MathF.Min(roll.Radius * TALUS_REACH * (1f + ribDepth) * roll.Elongation, 0.45f);
+            roll.Centre = new Vector2(margin) + rollC * (1f - 2f * margin);
 
-            centreWorld = (new Vector2(cellX, cellZ) + centre) * cellSize;
-            ramp = ShaderMath.SmoothStep(terrain.ClearingRadius, terrain.ClearingRadius + terrain.ClearingTransition, centreWorld.Length());
+            Vector2 centreWorld = (new Vector2(cellX, cellZ) + roll.Centre) * cellSize;
+            roll.Ramp = roll.RollA.X > chance ? 0f
+                : ShaderMath.SmoothStep(terrain.ClearingRadius, terrain.ClearingRadius + terrain.ClearingTransition, centreWorld.Length());
 
-            return ramp > 0f;
+            roll.RollE = Roll01(cellX + (seed + 131.9f), cellZ + (seed + 131.9f));
+            roll.RollF = Roll01(cellX + (seed + 173.3f), cellZ + (seed + 173.3f));
+
+            return roll;
         }
 
-        private static float RockLayer(Vector2 p, float cellSize, float seed, float chance, float height,
-            float minRadius, float maxRadius, float maxElongation, float ribDepth,
-            float wall, float minSquareness, float maxSquareness, OutbackTerrainConfig terrain, float ribCount)
+        private static float RockLayer(Vector2 p, float cellSize, float seed, float chance, float minRadius, float maxRadius,
+            float maxElongation, float ribDepth, float height, float wall, float minSquareness, float maxSquareness, bool clusters,
+            OutbackSceneConfig config)
         {
+            OutbackTerrainConfig terrain = config.Terrain;
             Vector2 q = p / cellSize;
             float cellX = MathF.Floor(q.X), cellZ = MathF.Floor(q.Y);
-            Vector2 f = q - new Vector2(cellX, cellZ);
 
-            if (!Roll(cellX, cellZ, cellSize, seed, chance, minRadius, maxRadius, maxElongation, ribDepth, terrain,
-                out Vector2 centreWorld, out float radius, out float elongation, out float ramp, out Vector2 rollB))
-                return 0f;
+            RockRoll roll = RollRock(cellX, cellZ, cellSize, seed, chance, minRadius, maxRadius, maxElongation, ribDepth, terrain);
+            if (roll.Ramp <= 0f) return 0f;
 
-            Vector2 rollA = Roll01(cellX + seed, cellZ + seed);
-            Vector2 rollD = Roll01(cellX + (seed + 91.3f), cellZ + (seed + 91.3f));
-            Vector2 centre = centreWorld / cellSize - new Vector2(cellX, cellZ);
+            Vector2 offset = q - new Vector2(cellX, cellZ) - roll.Centre;
+            Vector2 local = new(Vector2.Dot(offset, roll.Axis), Vector2.Dot(offset, new Vector2(-roll.Axis.Y, roll.Axis.X)));
+            local.X /= roll.Elongation;
 
-            Vector2 axis = RollDirection(rollD);
-            Vector2 offset = f - centre;
-            Vector2 local = new(Vector2.Dot(offset, axis), Vector2.Dot(offset, new Vector2(-axis.Y, axis.X)));
-            local.X /= elongation;
-
+            float radius = roll.Radius;
             float d1 = local.Length() / radius;
-
             Vector2 radial = local / MathF.Sqrt(MathF.Max(Vector2.Dot(local, local), 1e-6f));
-            float rib = ShaderMath.Noise(radial * ribCount + new Vector2(cellX, cellZ) * 13.1f + new Vector2(seed));
-            float ribbed = d1 * (1f + rib * ribDepth * ShaderMath.SmoothStep(0.20f, 0.62f, d1));
 
-            Vector2 rollE = Roll01(cellX + (seed + 131.9f), cellZ + (seed + 131.9f));
-            float lobeScale = MathHelper.Lerp(0.40f, 0.60f, rollE.Y);
-            Vector2 lobeCentre = RollDirection(rollE) * radius * 0.5f;
-            float d2 = (local - lobeCentre).Length() / (radius * lobeScale);
+            float rise, apron;
 
-            float squareness = MathHelper.Lerp(minSquareness, maxSquareness, rollA.Y);
-            float mainBody = Bornhardt(ribbed, squareness, wall);
-            float lobeBody = Bornhardt(d2, squareness, MathF.Min(wall / lobeScale, 0.9f)) * MathHelper.Lerp(0.55f, 0.90f, rollE.X);
-            float body = MathF.Max(mainBody, lobeBody);
+            if (clusters && roll.RollF.X < terrain.ClusterChance)
+            {
+                int count = 3 + (int)(roll.RollF.Y * 2.999f);
+                float best = 0f;
+                float nearest = 1e4f;
+                Vector2 direction = RollDirection(roll.RollE);
 
-            float apron = ShaderMath.SmoothStep(TALUS_REACH, 1f, MathF.Min(d1, d2));
+                for (int i = 0; i < MAX_DOMES; i++)
+                {
+                    Vector2 dhRaw = roll.RollE * (3.17f + 2.31f * i) + new Vector2(roll.RollF.Y, roll.RollF.X) * (1.93f + 0.77f * i)
+                        + new Vector2(0.43f, 0.71f) * i;
+                    Vector2 dh = new(ShaderMath.Frac(dhRaw.X), ShaderMath.Frac(dhRaw.Y));
+                    float spread = i == 0 ? 0.12f * dh.X : MathHelper.Lerp(0.32f, 0.50f, dh.X);
+                    Vector2 domeCentre = direction * radius * spread;
+                    float domeRadius = radius * MathHelper.Lerp(DOME_RADIUS_MIN, DOME_RADIUS_MAX, i == 0 ? 0.6f + 0.4f * dh.Y : dh.Y);
 
-            return (body * 0.9f + apron * 0.1f) * height * MathHelper.Lerp(0.62f, 1f, rollB.Y) * ramp;
+                    float d = (local - domeCentre).Length() / domeRadius;
+                    float present = i < count ? 1f : 0f;
+                    float tall = (i == 0 ? 1f : MathHelper.Lerp(0.55f, 0.85f, dh.Y)) * present;
+                    float h = Bornhardt(d, MathHelper.Lerp(2.0f, 2.5f, dh.X), DOME_WALL) * tall;
+
+                    best = MathF.Max(best, h);
+                    nearest = MathF.Min(nearest, MathHelper.Lerp(1e4f, d, present));
+
+                    direction = new Vector2(direction.X * GOLDEN_COS - direction.Y * GOLDEN_SIN, direction.X * GOLDEN_SIN + direction.Y * GOLDEN_COS);
+                }
+
+                apron = ShaderMath.SmoothStep(DOME_REACH, 1f, nearest);
+                rise = best * terrain.ClusterHeight;
+            }
+            else
+            {
+                float n = ShaderMath.Noise(radial * config.Surface.RibCount + new Vector2(cellX, cellZ) * 13.1f + new Vector2(seed));
+                float gully = 1f - MathHelper.Clamp(MathF.Abs(n) * RIB_SHARPNESS, 0f, 1f);
+                gully *= gully;
+
+                float ribbed = d1 * (1f + gully * ribDepth * ShaderMath.SmoothStep(0.20f, 0.62f, d1));
+
+                float lobeScale = MathHelper.Lerp(0.40f, 0.60f, roll.RollE.Y);
+                Vector2 lobeCentre = RollDirection(roll.RollE) * radius * 0.5f;
+                float d2 = (local - lobeCentre).Length() / (radius * lobeScale);
+
+                float squareness = MathHelper.Lerp(minSquareness, maxSquareness, roll.RollA.Y);
+                float mainBody = Bornhardt(ribbed, squareness, wall);
+                float lobeBody = Bornhardt(d2, squareness, MathF.Min(wall / lobeScale, 0.9f)) * MathHelper.Lerp(0.55f, 0.90f, roll.RollE.X);
+
+                rise = MathF.Max(mainBody, lobeBody);
+                apron = ShaderMath.SmoothStep(TALUS_REACH, 1f, MathF.Min(d1, d2));
+            }
+
+            return (rise * (1f - APRON_SHARE) + apron * APRON_SHARE) * height * MathHelper.Lerp(0.62f, 1f, roll.RollB.Y) * roll.Ramp;
         }
 
         private static float Bornhardt(float t, float squareness, float wall)
