@@ -15,7 +15,7 @@ namespace BS3D.Tests
     /// the second difference of its position - is held to a bound along the whole flight. A check is evidence only once its
     /// failing branch has been seen to fire (BestPractices section 10): the bound is exercised below on a path with the
     /// hop in it, and was run against the cinematic as it stood before this change (see the issue's trace: 4000 units/s^2
-    /// at the median and 18000 at the worst roll, against under 400 now).
+    /// at the median and 18000 at the worst roll, against about 420 now).
     /// </summary>
     public class DropCinematicPathTests
     {
@@ -28,8 +28,9 @@ namespace BS3D.Tests
         };
 
         /// <summary>
-        /// The most the lens may accelerate, in units a second squared. The smooth path peaks near 400 at the worst of sixty
-        /// rolls (the dive's own bend, ending about 80 units a second); the hop was over 4000 at the median.
+        /// The most the lens may accelerate, in units a second squared. The smooth path peaks near 420 at the worst of the 560
+        /// flights (seven scenes, two group sizes, seeds 1 to 40: the dive's own bend, ending about 88 units a second); the
+        /// hop was over 4000 at the median.
         /// </summary>
         private const float MAX_ACCELERATION = 800f;
 

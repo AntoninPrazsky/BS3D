@@ -239,7 +239,7 @@ namespace Prazsky.Core.Render
         /// the one frame its body crosses the plane. Unconditional and scene-independent, unlike
         /// <see cref="ApplySeaSubmerge"/>: the plane is not any one scene's, it is the host's own physics rule
         /// (a missed ball falling out of the world), so the fade is pushed the same way every frame regardless
-        /// of what is on screen. The pop it covers only ever showed in the six <see cref="OpenBelow"/> scenes,
+        /// of what is on screen. The pop it covers only ever showed in the seven <see cref="OpenBelow"/> scenes,
         /// where the drop cinematic can put the lens below the island and film the whole fall; every solid
         /// terrain scene hides a falling ball behind the ground long before it gets this close, so pushing it
         /// there too is harmless. The map editor never calls this — it has no simulated ball to fade — and
@@ -281,7 +281,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Whether the scenes draw their <b>finer meshes</b> (#758): High and Ultra's, where Low and Medium draw the coarser
-        /// mesh of the same thing off the same instances. Six things today: the savanna acacias' wood — the fork grown as one
+        /// mesh of the same thing off the same instances. Seven things today: the savanna acacias' wood — the fork grown as one
         /// surface out of a swollen, lobed crotch rather than tubes poking out of the trunk's cut end
         /// (<see cref="AcaciaMesh.FineWood"/>, <see cref="ScatterBucket.FineMeshes"/>, #758) — the meadow's old trees' wood
         /// grown the same way, the limbs coming out through the crotch's side (<see cref="MeadowTreeMesh.FineWood"/>, #889,
@@ -289,9 +289,11 @@ namespace Prazsky.Core.Render
         /// lobed dome with nothing inside it (<see cref="ThornBushMesh"/>, #883) — the meadow's free-standing shrubs, stems and
         /// clumps of broad-leaf cards in place of the lobed loaf the hedgerows keep (<see cref="MeadowShrubMesh"/>, #890) — the spruces of the aurora's
         /// wood and the daytime forest, whose crowns are separate boughs with snow lying on them in lumps instead of a lathe
-        /// of smooth skirts (<see cref="TreeMesh.FineCrown"/>, #733), and the mountain range (#781): a grid twice as fine
+        /// of smooth skirts (<see cref="TreeMesh.FineCrown"/>, #733), the mountain range (#781): a grid twice as fine
         /// carrying a sixth octave and crags, shaded by a program that lays the rock in three dimensions where the coarser
-        /// one projects it on the ground plane. The spruces belong to the hosts' own <see cref="ForestScatterRenderer"/>s,
+        /// one projects it on the ground plane — and the cavern's hall (<see cref="CavernGeometry.Detail"/>, #958): 176 cells
+        /// along a cube face's edge, every stalactite and 14 facets round a formation, where Low and Medium use 104 cells, leave
+        /// the stalactites under 8 units out and use 9 facets. The spruces belong to the hosts' own <see cref="ForestScatterRenderer"/>s,
         /// which take this flag at every draw.
         /// <para>
         /// A switch of its own rather than a step of <see cref="SceneDetail"/>, because that one is Low's alone (#298) and
@@ -1005,8 +1007,8 @@ namespace Prazsky.Core.Render
         /// values, and everything else there — the key light's position, the renderers it walks — is unchanged.
         /// </para>
         /// <para>
-        /// <b>One of them moves: the aurora's</b> (#462 — <see cref="AnimatesLightRig"/>), which takes the
-        /// hue of its own sky, so <paramref name="wallClock"/> is read there and nowhere else. Every other rig
+        /// <b>One of them moves: the aurora's</b> (<see cref="AnimatesLightRig"/>), whose back light follows its
+        /// curtains' breath (#963), so <paramref name="wallClock"/> is read there and nowhere else. Every other rig
         /// is a constant of its config and ignores it.
         /// </para>
         /// </summary>

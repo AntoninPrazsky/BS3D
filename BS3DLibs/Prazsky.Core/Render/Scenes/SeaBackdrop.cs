@@ -142,7 +142,7 @@ namespace Prazsky.Core.Render
         /// simulation drops it. That holds only while the lens is <b>above</b> the water: since #159 the fade is
         /// released as the camera goes under, so a ball watched from down there stays drawn all the way to the
         /// kill plane and is culled in one frame when it arrives. That pop is real, it is not this constant's to
-        /// fix, and five other <c>OpenBelow</c> scenes have always shown it — see the issue filed for it.
+        /// fix, and six other <c>OpenBelow</c> scenes have always shown it — see the issue filed for it.
         /// </para></summary>
         private const float SEA_SUBMERGE_FADE = 3f;
 

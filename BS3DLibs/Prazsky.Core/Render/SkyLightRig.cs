@@ -263,7 +263,7 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Steps a scene rig that moves with time — the aurora's, which takes the hue of its own sky (#462,
+        /// Steps a scene rig that moves with time — the aurora's, whose back light follows its curtains' breath (#963,
         /// <see cref="SceneRenderer.AnimatesLightRig"/>) — and says whether the rig changed. Call it every
         /// frame; when it returns true, push the rig to the renderers again exactly as after
         /// <see cref="SetSky"/>. For every other scene it is one static test and returns false.

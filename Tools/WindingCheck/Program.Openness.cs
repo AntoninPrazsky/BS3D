@@ -52,8 +52,8 @@ namespace BS3D.Tools.WindingCheck
         /// entry that matches a part rules it. <see cref="ANY"/> skips counting (a card sheet: thousands of rings, none a
         /// hole); a number is a ceiling the part must stay at or under, so a mesh that gets <i>more</i> open fails.
         /// <para>
-        /// A row that is not about cards is a mesh someone has looked at, with a reason that can be checked; a "pending" row
-        /// names the issue that will close it. Take a row out when its mesh is shut and the gate is stricter for it.
+        /// A row that is not about cards is a mesh someone has looked at, with a reason that can be checked; a row that only waits
+        /// for a fix names the issue that will close it. Take a row out when its mesh is shut and the gate is stricter for it.
         /// </para>
         /// </summary>
         private static readonly (string PathPart, int Max, string Reason)[] Allowed =
@@ -92,9 +92,9 @@ namespace BS3D.Tools.WindingCheck
             ("MeadowScatter._owned[10].Wood", 3, "a shrub twig's base ring on the thin end of a stem: the hexagonal stem leaves under 0.001 of the shrub's height to spare"),
             ("MeadowScatter._owned[4] {FineWood+Twigs}", 2, "the willow's twig bases on a fine branch's end, which arrives a few degrees off the coarse branch's direction"),
 
-            //---- pending: a rebuild is under way
-            ("{FineStem+FineCrown+FineSnow}", ANY, "the conifers' needle sprays and bough tips, pending #960 (the aurora's rebuild, #963, left the boughs as they were)"),
-            ("{FineStem+FineCrownFar+FineSnowFar}", ANY, "the conifers' far needle sprays, pending #960 (the aurora's rebuild, #963, left the boughs as they were)"),
+            //---- the spruces on High and Ultra (#960): every bough roots in the stem with its root ring left open, and the leader's foot is a rim round it
+            ("{FineStem+FineCrown+FineSnow}", 10, "a bough's open 4-point root ring, inside the stem's circle (SpruceCrownTests) yet not wholly inside its eight-facet solid (up to nine a crown), and the leader's open 5-point foot, a rim round the stem (SpruceCrownGeometry.STEM_IN_LEADER)"),
+            ("{FineStem+FineCrownFar+FineSnowFar}", 6, "the same on the far crown (up to five root rings and the leader's foot)"),
         };
 
         /// <summary>

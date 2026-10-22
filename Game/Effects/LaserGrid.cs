@@ -8,8 +8,8 @@ namespace BS3D.Effects
 {
     /// <summary>
     /// The floor alarm: a grid of pulsing red laser beams hovering on the plane a ball's surface would
-    /// touch at the moment the level is lost, shown while the descending ceiling is within two more steps
-    /// of pushing the cluster past the death line. It is the ceiling flash's counterpart at the other end
+    /// touch at the moment the level is lost, shown while the descending ceiling is within
+    /// <c>GameplayScreen.LASER_WARN_STEPS</c> more steps of pushing the cluster past the death line. It is the ceiling flash's counterpart at the other end
     /// of the field — the plate says "the glass stepped", this says "and this is where it ends" — so it
     /// deliberately shares that flash's red.
     /// <para>

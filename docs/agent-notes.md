@@ -1240,3 +1240,8 @@ Pravidla:
 - Změřeno ve hře (sonda v `InternalArrange`, bez vstupu): Scény 1080p/4K měly krok 19 px (2,5 % / 1,7 %, 38 / 55 zářezů), teď 154 / 225 px (20 %, 5 zářezů). Reálná cesta `OnMouseWheel` ověřena v běhu: 154, pak 385 (boost 1,5x), pak zpět 77 (obrat resetuje).
 - ⚠ Myra 1.6.3: `ScrollMultiplier` krok neladí (10 × obsah / výška viewportu v px, hodnota delty se ignoruje).
 - Otevřené: `verdict-hands`, pocit v ruce majitele (kolečko nikdo nezkoušel).
+
+## 2026-10-22 — #400 drift, třinácté kolo — desktop (RDT-PC), Claude Code (bs3d-dc)
+- Hotovo (větev `400-drift-pass-13`): 23 nálezů čtenářů (jeskyně, záře, smrky; Cut, kinematika, HUD, tutoriál, tiery) opraveno v komentářích a docích, chování beze změny; k tomu opravená rozepsaná práce třetího čtenáře (potůček, FineMeshes, hudba, web). `WindingCheck --openness`: řádky smrků „pending #960“ lhaly (#960 je mergnuté), zbývají otevřené kořenové prstence větví (4 body) a pata výhonu (5 bodů): strop 10 a 6 a pravdivý důvod.
+- ⚠ Číslo v docu nestačí: kinematika „450 / 94“ byla ve skutečnosti 417 / 88 (560 letů v `DropCinematicPathTests`); `MusicBake --shipped` dnes čte 71 z 140. Počet scén `OpenBelow` je sedm.
+- Otevřené: řádky `Spring (cavern)` v APU tabulce měří starou jeskyni, nepřeměřeno.

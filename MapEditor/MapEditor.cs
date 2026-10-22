@@ -643,9 +643,8 @@ namespace MapEditor
             //domes over a parked forest.
             _forestScatter.ApplySkyTint(_rig.KeyTint);
 
-            //The aurora's own wood is tinted per frame instead (DrawScene), not here: its hue keeps
-            //drifting while the scene is up, where this method only runs on a dome/scene switch or a
-            //config edit. A snapshot taken here would freeze the moment the scene was entered.
+            //The aurora's own wood takes the scene's glow colour instead (DrawScene), not the rig's key
+            //tint pushed here: it is another scatter, and the tint is the scene's own.
         }
 
         private void CenterViewOn(Vector3 lookDirection)

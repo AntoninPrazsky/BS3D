@@ -147,7 +147,7 @@ namespace Prazsky.Core.Render
         /// here is occlusion, not fog.
         /// <para>
         /// The skyline itself is <see cref="HighlandCrestRadius"/>, not this bulge. On its own the bulge put
-        /// the horizon 360–450 units out and 2.4° <b>below</b> the play camera's eye, which is under the
+        /// the horizon 360–450 units out and 2.5° <b>below</b> the play camera's eye, which is under the
         /// island deck's own occluding line — see <see cref="HighlandHeight"/> for the geometry and for why
         /// slackening this dial cannot answer it. What the curvature still does is everything past the crest:
         /// a quadratic drop against the belt's saturated rise, so elevation falls monotonically outward from

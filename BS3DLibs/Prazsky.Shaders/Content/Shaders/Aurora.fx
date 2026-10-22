@@ -6,7 +6,8 @@
 //      the coarse one out to the hills, lowered wherever the fine one draws. Neither program calls clip(): the island's
 //      hole is cut in the vertex shader, so the depth test runs before the pixel shader (MountainFine's lesson, #781).
 //  AuroraCollar - the snow drifted against the foot of every trunk, log and stone of the wood, instanced.
-//  AuroraStand - the far stand: a few thousand cheap spruces on the hills past the planted wood, instanced.
+//  AuroraStand - the far stand: cheap spruces by the ten thousand on the hills past the planted wood, instanced, in two
+//      meshes (AuroraFarStandConfig.Count and FarCount say how many of each).
 //  AuroraSky - the night sky, depth-READ at the far plane behind all of it.
 //
 //The wood standing in the snow is the hosts' ForestScatterRenderer, lit through the shared instanced effect, which
@@ -20,7 +21,7 @@
 //
 //THE SKY is a gradient from a deep blue zenith to a paler horizon with a glow along it, the stars (Stars.fxh), the
 //Moon, and the aurora: a few ARCS, each a vertical sheet hanging along a folded line across the sky. A view ray is
-//intersected with each sheet analytically (two refinements of the fold), so every curtain has a sharp, bright lower
+//intersected with each sheet analytically (one step along the fold, no iteration: AuroraArc), so every curtain has a sharp, bright lower
 //edge at a real altitude, rays that run straight up it, a red top, and folds that brighten where the sheet turns
 //edge-on to the eye. AuroraBackdrop knows where the arcs hang (their places and brightness are uniforms it writes),
 //which is how the light it throws on the snow and the wood moves with the curtains.

@@ -6,9 +6,10 @@ namespace Prazsky.Core.Render
     /// <summary>
     /// The volcano's lava as figures rather than as a drawing (#795): the rivers' bearings and reaches, the vents, the
     /// eruption's clock and the lamps that ride the flows. <see cref="VolcanoBackdrop"/> draws from one of these, and
-    /// the Raspberry Pi's Potato path - which builds no backdrop at all - keeps one of its own so the cluster takes the
-    /// same flows' light (<see cref="SceneLights.Volcano"/>). Moved out of the backdrop whole: nothing in it touches the
-    /// GPU, and the arithmetic, the seed and the order of the random draws are the backdrop's own, so the same config
+    /// the Raspberry Pi's Potato path - which builds no <see cref="VolcanoBackdrop"/>, only a <see cref="PotatoBackdrop"/>
+    /// of ground and scatter - keeps one of its own so the cluster takes the same flows' light
+    /// (<see cref="SceneLights.Volcano"/>). Moved out of the backdrop whole: nothing in it touches the GPU,
+    /// and the arithmetic, the seed and the order of the random draws are the backdrop's own, so the same config
     /// and seed solve the same volcano in both.
     /// </summary>
     public sealed class VolcanoLava

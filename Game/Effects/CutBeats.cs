@@ -11,7 +11,7 @@ namespace BS3D.Effects
     /// <b>Which clock each beat runs on</b> (#767's rule): the press and the flight are the gun and the lens, so their ages
     /// are wall-clock seconds; the strike's glows are the world's, so their age is the simulation's seconds (slow motion
     /// included, as the blasts', #389); the slow motion itself is a property of time, so its own timeline runs on the wall
-    /// clock, as the drop cinematic's does.
+    /// clock.
     /// </para>
     /// </summary>
     internal static class CutBeats

@@ -688,8 +688,8 @@ namespace Prazsky.Core.Render
         /// <param name="variants">How many mesh variants the kind has.</param>
         /// <param name="variantTints">Per-variant multipliers on the linear colour, or null for a kind whose
         /// variants all take the config colour as it stands (the bark and the stone).</param>
-        /// <param name="tints">The table, written in place once it exists: the aurora's glow drifts every frame and
-        /// <see cref="ApplySkyTint"/> re-encodes on every move, so a fresh table each time was garbage every frame.</param>
+        /// <param name="tints">The table, written in place once it exists: <see cref="ApplySkyTint"/> re-encodes it on
+        /// every move of the sky's tint, so a fresh table each time was garbage on every move.</param>
         private void EncodeTints(Vector3 linearColor, int variants, Vector3[] variantTints, ref Vector3[] tints)
         {
             if (tints == null || tints.Length != variants) tints = new Vector3[variants];
@@ -731,8 +731,8 @@ namespace Prazsky.Core.Render
         }
 
         //Re-encodes every tint table from the authored linear colours, in place: eleven small arrays, forty-eight entries
-        //between them, run at build and whenever the dome's hue moves — which under the aurora's drifting glow is every
-        //frame, so nothing here may allocate once the tables exist.
+        //between them, run at build and whenever the sky's tint moves, so nothing here may allocate once the tables
+        //exist.
         private void EncodeAllTints()
         {
             //The trunks of both species share the bark colour; the stumps have a lighter wood of their own,

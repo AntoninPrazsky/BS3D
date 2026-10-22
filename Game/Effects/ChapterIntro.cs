@@ -56,8 +56,8 @@ namespace BS3D.Effects
     /// </para>
     /// <para>
     /// <b>What is deliberately not here, unlike the drop cinematic.</b> There is no subject to follow — the
-    /// cluster is hanging, not falling — so there is no time scale: the world runs at its ordinary speed
-    /// throughout, because nothing about a fresh level's rest pose needs slowing down to be read. And the
+    /// cluster is hanging, not falling — and the world runs at its ordinary speed throughout, because
+    /// nothing about a fresh level's rest pose needs slowing down to be read. And the
     /// wide legs scale off the level's own solved stand-off, so they clear the arena the same way the
     /// ordinary gameplay camera already does, without needing that reasoning worked out a second time here.
     /// </para>

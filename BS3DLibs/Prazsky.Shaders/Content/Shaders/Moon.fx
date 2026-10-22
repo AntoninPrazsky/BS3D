@@ -114,7 +114,7 @@ float HighlandSaddleFloor;   //0..1, the fraction of the height the LOWEST saddl
 //The planet's curvature: the height field drops Curvature * distance^2, which is what closes the horizon
 //PAST the highland belt. 1/(2R) of the small world being stood on - at the shipped 8e-5 the "moon" has a
 //radius of 6.25 km. The skyline itself is the belt's crest at HighlandCrestRadius, not the curvature bulge:
-//the bulge alone put the horizon 360-450 units out and 2.4 degrees BELOW the play camera's eye, where the
+//the bulge alone put the horizon 360-450 units out and 2.5 degrees BELOW the play camera's eye, where the
 //island's own deck hides it (the HighlandHeight block has the geometry). What the curvature still does is
 //everything past the crest - quadratic drop against the belt's saturated rise, so the ground's elevation
 //falls monotonically outward from the crest and the grid's edge (600 round the lens) stays behind it. That

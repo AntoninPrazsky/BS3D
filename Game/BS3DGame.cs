@@ -606,7 +606,7 @@ namespace BS3D
         //glances at, and it is on screen for the whole level; the card is the one piece of text a new player
         //MUST read, it is up for a few seconds, and it appears on the levels where the eye is least able to
         //leave the cluster. So it outranks the number rather than sitting under it: 200 against the score's
-        //140, which is 83 px of caption at a 900p client and 178 at the owner's 3840×1600 panel.
+        //140, which is 83 px of caption at a 900p client and 148 at the owner's 3840×1600 panel.
         //
         //The detail line is 120 — bigger than the whole card's old CAPTION — and keeps its own rank under the
         //line it explains. The keycap is its own figure rather than the caption's, because PromptFont draws a
@@ -1405,8 +1405,8 @@ namespace BS3D
             //per-frame reason it always did: the campfire flickers, so this is not a set-once.
             _sceneLights = new SceneLights(_instancingEffect);
 
-            //The Potato path builds no backdrop, so it solves the volcano's flows itself (#795), on the desktop's config
-            //and this run's seed: the lamps on them are what lights the cluster under the volcano's dusk dome
+            //The Potato path builds no scene backdrop (its PotatoBackdrop has no lamps), so it solves the volcano's flows
+            //itself (#795), on the desktop's config and this run's seed: the lamps on them are what lights the cluster under the volcano's dusk dome
             if (PotatoPath) _sceneLights.Volcano = new VolcanoLava(new VolcanoSceneConfig(), _sceneSeedOffset);
 
             //Nothing is built here — the plate's footprint is the loaded field's, so the first Fit is a level's
