@@ -205,7 +205,9 @@ namespace BS3D.Screens
             _tracks = SubColumn();
             FillTracks();
 
-            _trackScroll = MenuScroll(_tracks, RIGHT_SURROUNDINGS);
+            //The clear band at its ends whether or not this chapter's recordings are cut (#1002): the list is refilled in place
+            //for every chapter (ShowChapter), and a band decided by the first chapter's count would be wrong for the next
+            _trackScroll = MenuScroll(_tracks, RIGHT_SURROUNDINGS, clearEdges: true);
             right.Widgets.Add(_trackScroll);
 
             RecordingPlayer player = Game.Recordings;
