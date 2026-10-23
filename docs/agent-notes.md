@@ -20,6 +20,10 @@ Pravidla:
 
 ---
 
+## 2026-10-23 — #932 koule v hrdle trychtýře zapadají do tmy — desktop (RDT-PC), Claude Code (bs3d-80)
+- Hotovo (b3ad659e): v pevných scénách koule od jednotky pod ústím tmavne (jen barva) na 7 % o 10 jednotek níž (`ApplyKillPlaneFade`, `SceneRenderer.THROAT_*`); scény s otevřeným spodkem beze změny. Příčinou nebylo rozmazání pohybem. Karta na stránce verdiktů.
+- ⚠ Skriptovaný výstřel na úrovni z `levelfile=` blok pokaždé neshodí (pod zátěží 9 FPS šel jinam); spolehlivý pád do odtoku dává Testbed `at=7:End` s pevnou kamerou nad hrdlem, před/po přes `git stash` a přestavbu.
+
 ## 2026-10-23 — #983 spoj ostrova se zemí: Les a Měsíc — desktop (RDT-PC), Claude Code (bs3d-80)
 - Hotovo (b9b3f80f, 03cc9f92, opravy z revize 4e357245): val lesa se kreslí programem lesní půdy (`Forest.fx` `ForestBank` v `beforeGrid` `TerrainPass`), mech na bubnu (výškový pás), kapradiny na valu; Měsíc dostal návěj prachu (`Moon.fx` `MoonBank`) s prolnutím normály a kráterů k pláni. Reference v `C:\Users\panrd\AI\sd\out\983-zimage`/`983-klein`. Karta na stránce verdiktů.
 - ⚠ Hladká normála valu na kráterové pláni kreslila okraj (bledý disk) — krátery jsou hlavně stínování; prolnutí podle hloubky zásypu ho smazalo.
