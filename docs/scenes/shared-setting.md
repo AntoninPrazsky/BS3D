@@ -7,13 +7,14 @@ Everything that stands in every scene is one copy in the libraries (#75), becaus
 ## What is shared
 
 - `Prazsky.Core.Render.ArenaIsland`: stone cap, concrete drum, glass drain with its gold rims, the dark pit shaft, with every mesh, texture, renderer, matrix and figure ([The island](island.md), [The drain funnel](drain.md)).
-- `CeilingPlate` (the glass a cluster hangs from); `SkyLightRig` (dome-derived light rig, `SKY_TINT_STRENGTH`, overcast palette); `SceneLights` (a scene's point lights); `FunnelPhysics`; `CloudField`'s look values; `ForestScatterRenderer` (the forest's wood: "The forest" in `docs/scenes.md`).
+- `CeilingPlate` (the glass a cluster hangs from) and `CeilingRigging` (the cables and winches it hangs by, #896); `SkyLightRig` (dome-derived light rig, `SKY_TINT_STRENGTH`, overcast palette); `SceneLights` (a scene's point lights); `FunnelPhysics`; `CloudField`'s look values; `ForestScatterRenderer` (the forest's wood: "The forest" in `docs/scenes.md`).
 - Every question about a `SceneKind` (`IsSolidTerrainScene`, `OpenBelow`, `SceneCount`, `NextScene`, `SceneName`, `TryParseScene`) is a static on `SceneRenderer`, answered from `SceneCatalog` ([Backdrops and the registry](backdrop-architecture.md)).
 
 ## What stays with each executable
 
 - **The frame sequence.** `ArenaIsland` hands its draws over in three slices, `DrawIsland`, `DrawPit`, `DrawGlass`, so each executable places them itself (the Game draws the gun, cluster and shot trails between the pit and the glass). A fourth, `DrawRims`, lifts the gold bands out of `DrawGlass` (`drawRims: false`) for a caller whose translucents must stand in front of them: the Game's, right after the pit, so a fire nearer the lens than the ring is not painted over (see [The drain](drain.md)).
 - **Sky-lit enrolment** is each caller's own list (the map editor lights the balls, city and forest scatter; it has no island). **Every list leaves the pit shaft out**, so no dome bleaches the inside of a hole in the ground.
+- **The plate's rigging is in every list** (`CeilingRigging.Renderers`, the same four renderers for the host's life: built once, only placed by `Fit`). It is steel in the scene's light, not glass.
 - **The ceiling glass is in neither list.** It stands against the sky itself, so the hosts call `SkyLightRig.ApplyToGlass`, which scales the three directional lights to the sky's own brightness; a sky-replacing scene's full-strength sun turned the plate into a bright slab over a near-black backdrop. The Game's plate renderer may be null mid-load; the push tolerates it.
 - ⚠ **Scatter renderers** are walked as the one flat array `ForestScatterRenderer.Renderers`. A re-planted wood is thirty brand-new renderers, so whoever re-plants must re-light it, as a refitted `CeilingPlate` must be.
 
@@ -25,6 +26,16 @@ Everything that stands in every scene is one copy in the libraries (#75), becaus
 - **The top's cut is evaluated in the shader**, not modelled (it needs the facet normal where a ray *leaves* the slab): a border of fine V flutes (`RIM_BAND`, `FLUTE_PERIOD`, `FLUTE_SLOPE`, `RIM_LEAN`), a groove, and a diamond cut (`CUT_PERIOD`, `CUT_SLOPE`); `GlassRimAt` finds the outline analytically.
 - ⚠ **The underside stays flat**: the ceiling socket anchors a ball's top to it and the top level's outermost balls touch it at least half a unit in (the underside's rim crosses a corner diagonal 0.38 in from both sides, where the corner ball touches 0.5 in).
 - **Only the Game refracts** (it alone hands the renderer `GlassBehind`; "And the glass in it bends what is behind it" in `docs/rendering.md`); the Testbed and editor draw a plain translucent pane. It also casts a faint shadow ("The ceiling's glass shadow" in `docs/rendering.md`).
+
+## What the plate hangs from (#896)
+
+**A steel cable at each corner of the plate, rising straight up out of the picture to a crane nobody sees, and a winch at its foot that pays it out** (`CeilingRigging`, the owner's choice C of four drawn concepts, 2026-10-18). The reason it is cables: nothing of them stands where the gun walks or the lens orbits. The plate never rotates and the cables leave it upwards, so from any camera under them they run off the top of the frame and end in empty sky (`CABLE_RISE`, 600 over the top face).
+
+- **The winch** stands `CORNER_INSET` in from both edges, on the flat top inside the crown's grind (`CeilingRiggingTests` holds that for every footprint from 10 to 17 cells). It is a drum (a closed lathe, 880 triangles: two flanges and the core with eight wraps of cable, a little uneven so its turn shows), an axle and two cast-iron pillow blocks. The drum's axle lies across the corner's diagonal, so the cable leaves its outer side and rises clear of the glass.
+- **The drum turns with the plate's height and nothing else**: `DrumTurn(y) = -y / CORE_RADIUS`, so a plate lower by one unit has let out one unit of cable, from the side the cable leaves. It is a pure function of the pose: it cannot drift, needs no clock, and the brake's lift winds it back by the same law. `CeilingRiggingTests` follows a point of the core through a step and fails on the opposite sign.
+- **Drawn with the setting, before the host grabs the copy the plate's glass bends** (`GrabCeilingBackground`). From under the plate the winches stand behind the glass and must be in that copy. The Game draws one rigging per plate (the session's, the front end's preview), and the Testbed draws one with its opaque scene. It casts no sun shadow.
+- ⚠ **From the play camera it is nearly out of sight**: the plate fills the top of the frame and the rigging stands over it. It reads from the result page's swing-out, the menu's wide orbit, an intro's long shots, and any camera above or beside the plate.
+- **Cost**: four instanced draws a plate (cables, drums, axles, blocks). The cable and the axle are one 48-triangle rod scaled per instance; side normals are radial and cap normals axial, so a scale along the axis and an equal one across leaves them true.
 
 ## Where two things meet (#974)
 

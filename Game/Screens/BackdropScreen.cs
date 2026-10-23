@@ -1172,6 +1172,10 @@ namespace BS3D.Screens
             //The savanna's fires with the setting, so the ceiling's glass bends them (#641, the session's own call)
             Game.DrawTranslucentsBehindGlass(sceneFrame);
 
+            //The preview plate's cables and winches with the setting, before the copy its glass bends (#896, the session's
+            //own order); nothing before the backdrop has rolled a map and fitted them
+            Game.MenuCeilingRigging.Draw(Game.Camera, _menuCeilingWorld, Game.SceneEffectParams);
+
             //The setting is what stands behind the preview plate from under it (#541) - see the session's own call
             Game.GrabCeilingBackground(Game.MenuCeilingRenderer, _menuCeilingWorld);
 

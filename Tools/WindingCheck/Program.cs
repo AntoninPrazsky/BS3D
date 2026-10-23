@@ -266,6 +266,9 @@ namespace BS3D.Tools.WindingCheck
                 LaserEmitterMesh.Part p = part;
                 yield return ($"LaserEmitterMesh.{p}", () => new LaserEmitterMesh(d, p));
             }
+            //#896's rigging the ceiling plate hangs from: the cable's (and the axle's) rod and the wound drum, both closed lathes
+            yield return ("CeilingRigging rod", () => CeilingRigging.BuildRod(d));
+            yield return ("CeilingRigging drum", () => CeilingRigging.BuildDrum(d));
             //The Game's result-page props (compiled into this tool): the party hat's cone bands and trim, and the cup on its podium
             yield return ("PartyHat", () => new BS3D.Effects.PartyHat(d, fx, new CannonRig(d, fx, 5, 1f)));
             yield return ("TrophyPodium", () => new BS3D.Effects.TrophyPodium(d, fx, 0.3f));

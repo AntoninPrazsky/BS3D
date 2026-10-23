@@ -221,6 +221,10 @@ namespace BS3D
         //without a renderer and only the backdrop's own draw ever asks for it (#249).
         private CeilingPlate _menuCeilingPlate;
 
+        //What each plate hangs from (#896): the cables up to a crane nobody sees and the winches that pay them out, one
+        //rigging per plate and fitted with it. Built once, so the sky-lit enrolment lists the same renderers all along
+        private CeilingRigging _ceilingRigging, _menuCeilingRigging;
+
         //The menu plate's opacity: clearly present glass rather than the played field's whisper. The menu
         //camera looks at the field almost level and from well outside the island, so a 0.4 slab against a
         //bright sky all but disappears — and the owner's ask was that this ceiling BE seen. (The stand-off
@@ -240,6 +244,12 @@ namespace BS3D
         /// only drawer — the session never sees this plate, it has the one its own level fitted.
         /// </summary>
         internal InstancedModelRenderer MenuCeilingRenderer => _menuCeilingPlate.Renderer;
+
+        /// <summary>The session plate's cables and winches (#896), drawn by the session from its kinematic body's pose.</summary>
+        internal CeilingRigging CeilingRigging => _ceilingRigging;
+
+        /// <summary>The menu plate's cables and winches (#896), drawn by the backdrop with its preview plate.</summary>
+        internal CeilingRigging MenuCeilingRigging => _menuCeilingRigging;
 
         #endregion
 
@@ -382,8 +392,11 @@ namespace BS3D
         /// <see cref="CeilingPlate"/>'s; the plate is drawn from the session's kinematic body's own pose, so
         /// the glass and the collidable cannot disagree.
         /// </summary>
-        internal void RebuildCeilingRenderer(float stageSizeX, float stageSizeZ) =>
+        internal void RebuildCeilingRenderer(float stageSizeX, float stageSizeZ)
+        {
             _ceilingPlate.Fit(stageSizeX, stageSizeZ);
+            _ceilingRigging.Fit(stageSizeX, stageSizeZ);
+        }
 
         /// <summary>
         /// <see cref="RebuildCeilingRenderer"/> for the menu's plate: refits the backdrop's glass to the preview
@@ -392,8 +405,11 @@ namespace BS3D
         /// sky-lighting caveat applies — <see cref="ApplySkyLighting"/> has to run after this, and the backdrop
         /// does so as it rolls.
         /// </summary>
-        internal void RebuildMenuCeilingRenderer(float stageSizeX, float stageSizeZ) =>
+        internal void RebuildMenuCeilingRenderer(float stageSizeX, float stageSizeZ)
+        {
             _menuCeilingPlate.Fit(stageSizeX, stageSizeZ, MENU_CEILING_ALPHA);
+            _menuCeilingRigging.Fit(stageSizeX, stageSizeZ);
+        }
 
         /// <summary>
         /// Every renderer that takes its lighting from the sky dome <b>at full strength, unadjusted</b>. Two
@@ -426,6 +442,11 @@ namespace BS3D
             //The laser emitters inside the drain's funnel (#874), made with the session's first level
             if (SessionEmitters != null)
                 foreach (InstancedModelRenderer renderer in SessionEmitters.Renderers) yield return renderer;
+
+            //The plates' cables and winches (#896): steel in the scene's light, not glass, so the full rig and not the
+            //glass push
+            foreach (InstancedModelRenderer renderer in _ceilingRigging.Renderers) yield return renderer;
+            foreach (InstancedModelRenderer renderer in _menuCeilingRigging.Renderers) yield return renderer;
 
             //The city and every kind of rooftop equipment, or a dish would stand flat white against a skyline lit by the
             //dome. Neither on the Potato path (#897), which builds no city of the host's
