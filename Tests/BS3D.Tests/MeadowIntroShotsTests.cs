@@ -257,7 +257,7 @@ namespace BS3D.Tests
                     IntroShot shot = Named(shots, name);
                     if (shot == null) continue;
 
-                    Assert.InRange(shot.Seconds, 4.5f, 5f);
+                    Assert.InRange(shot.Seconds, 5.5f, 6f);
 
                     //Walked pose by pose: the lens stays one distance from the look, and goes half way round it
                     Vector3 look = LookOf(shot);
@@ -490,13 +490,14 @@ namespace BS3D.Tests
         public void TheWholePrologueRunsNoLongerThanTheCities()
         {
             //The docs state 11-16 s for a prologue and 22 for the cities (chapter-intro-prologues.md). The meadow's two orbits
-            //take it to about the cities': this holds it there, the tour's last leg (4.5 s) included, for the next shot added
+            //take it past the cities' by up to three seconds since #945, where the owner asked both slower: this holds it there,
+            //the tour's last leg (4.5 s) included, for the next shot added
             for (int seed = 1; seed <= ROLLS; seed++)
             {
                 float seconds = 4.5f;
                 foreach (IntroShot shot in Shots(Plant(seed), seed)) seconds += shot.Seconds;
 
-                Assert.True(seconds <= 23f, $"seed {seed}: the meadow's intro runs {seconds:F1} s");
+                Assert.True(seconds <= 25f, $"seed {seed}: the meadow's intro runs {seconds:F1} s");
             }
         }
 

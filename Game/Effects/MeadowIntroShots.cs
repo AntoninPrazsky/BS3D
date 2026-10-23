@@ -71,12 +71,11 @@ namespace BS3D.Effects
         private const float PATH_TREE_LOOK_UP = 7f;         //the point on the tree the lens holds: the trunk under the crown
         private const float PATH_SECONDS = 3.2f;
 
-        //The two orbits (#893): a half circle each, this long — the owner's "very slowly": half a turn in 4.6 s is 39
-        //degrees a second round the subject, which is 4 units a second along the bench's radius and 7 along a pair of
-        //bales' (the brook shot's 10). The lens stands this high over the ground under it, rising a little: a low angle,
+        //The two orbits (#893): a half circle each, this long — the owner's "very slowly", and since #945 "a little more
+        //slowly" still: half a turn in 5.6 s is 32 degrees a second round the subject (39 at 4.6 s, #893's). The lens stands this high over the ground under it, rising a little: a low angle,
         //looking up at the subject. Over 48 layouts the bales' mean radius was 10.2 with the lens at 0.7 to 1.1 and 10.3 at 0.9
         //to 1.3: it is the subject's height (3.2 for a bale) against the lens's 47 degrees that sets the radius, not the lens's.
-        private const float ORBIT_SECONDS = 4.6f;
+        private const float ORBIT_SECONDS = 5.6f;
         //(internal: MeadowIntroShotsTests holds the lens to this band - the shot's own, inside the owner's 0.6 to 1.5)
         internal const float ORBIT_ABOVE_FROM = 0.7f;
         internal const float ORBIT_ABOVE_TO = 1.1f;
@@ -87,18 +86,20 @@ namespace BS3D.Effects
         //The nearest the lens comes: the subject's sphere and this much air (the sphere is the mesh's bounding figure, loose
         //round a bench's flat shape, so it stands farther off than it reads). The radius grows from there in steps until the
         //whole subject is in frame, and no farther than this multiple of the nearest: a lens farther out is not close, and
-        //round a wide group it is not slow.
-        private const float ORBIT_AIR = 2.2f;
+        //round a wide group it is not slow. 3.3 since #945 (the owner: "a little farther from the hay bales and from the
+        //bench"), the bench's nearest stand 7.5 out where it was 4.8.
+        private const float ORBIT_AIR = 4.9f;
         private const float RADIUS_STEP = 0.75f;
         private const float RADIUS_LIMIT = 1.75f;
 
         //The frame the subject must stay in (the test of it, MeadowIntroShotsTests, holds it to 0.92 and -0.74 over the poses it
         //walks, and this is the same asked at a few stands along the path and a little inside it): the 16:9 window, the
         //narrowest the game is played in (the projection is Hor+, so a wider window only adds room at the sides); the share of
-        //the frame's half height and half width a point may reach; and how far down a point standing in the skip hint's width
+        //the frame's half height and half width a point may reach (0.78 since #945, where 0.88 let the first stand that merely
+        //fitted fill the frame); and how far down a point standing in the skip hint's width
         //may go, the hint taking up to 12.2 % of the frame's height at the bottom centre
         private const float NARROWEST_ASPECT = 16f / 9f;
-        private const float FRAME_LIMIT = 0.88f;
+        private const float FRAME_LIMIT = 0.78f;
         private const float FRAME_FLOOR = -0.70f;
         private const float HINT_HALF_WIDTH = 0.35f;
         private const int FRAME_STANDS = 13;
