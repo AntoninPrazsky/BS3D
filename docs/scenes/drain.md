@@ -4,6 +4,11 @@ Part of [The scenes](../scenes.md).
 
 The centre of the island is a **glass funnel** shot balls fall into: they run down the cone, drop through the hole below the platform and the kill plane (`KILL_PLANE_Y`, below `ArenaIsland.FUNNEL_BOTTOM_Y`, so they fall a visible distance) removes them. The island itself: [The island](island.md).
 
+## A ball goes down into the dark (#932)
+
+- **In a solid-terrain scene a ball darkens as it goes down the throat**: from `SceneRenderer.THROAT_TOP_Y` (a unit under the mouth) over `THROAT_DEPTH` 10 to 7 % of its colour (`Lighting.fxh`'s `THROAT_DARKEN`, in `ApplyKillPlaneFade`, which every ball program ends on), its colour only, so it is a ball in the dark and not a ball going transparent. The owner's note: a dropped storey read as balls lying "over the ground, in front of the funnel", gone only after a while; behind the glass stands the pit's near-black shaft, and a ball stayed lit as on the island down to the kill plane, fourteen units under the funnel's bottom. The motion blur was not the cause: with it off the balls still stood over the throat's gold ring.
+- **Off in the open-below scenes** (`ThroatDepth` 0): there the drop cinematic can film the fall under the island in daylight. Off in the map editor, which never pushes it.
+
 ## The glass
 
 - **`FunnelMesh`**: a single-sided truncated cone from a rim flush with the dish's low inner lip (`TOP_Y - DISH_DEPTH`, radius `FUNNEL_TOP_RADIUS`) down to a hole at `FUNNEL_BOTTOM_Y`, on the drain family's own matrix (`_drainWorld`). Translucent at `FUNNEL_GLASS_ALPHA`, `CullNone` (reads from above and below), and one of the four renderers `ArenaIsland` hands the caller's sky-lighting pass.

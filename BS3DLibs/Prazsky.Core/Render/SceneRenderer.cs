@@ -251,12 +251,43 @@ namespace Prazsky.Core.Render
         /// copy of the same value) — handed in rather than owned here, the way the sea level is not: each
         /// host's stepping policy is deliberately its own (see CLAUDE.md's "Prazsky.BS3D.Physics" remarks).
         /// </param>
-        public void ApplyKillPlaneFade(Effect effect, float killPlaneY)
+        /// <param name="scene">The scene being drawn: a solid-terrain one also darkens a ball going down the drain's throat
+        /// (#932, <see cref="THROAT_DEPTH"/>), every other leaves the throat as it is.</param>
+        public void ApplyKillPlaneFade(Effect effect, float killPlaneY, SceneKind scene)
         {
-            var p = effect.Parameters;
-            p["KillPlaneY"].SetValue(killPlaneY);
-            p["KillPlaneFadeDepth"].SetValue(KILL_PLANE_FADE_DEPTH);
+            //Looked up once per effect and kept: this runs every frame (BestPractices.md, the by-name indexer is a scan). The
+            //throat's two are absent from the Potato path's effect, which draws no pit to darken into
+            if (effect != _killPlaneEffect)
+            {
+                var p = effect.Parameters;
+                _killPlaneEffect = effect;
+                _killPlaneY = p["KillPlaneY"];
+                _killPlaneFadeDepth = p["KillPlaneFadeDepth"];
+                _throatTopY = p["ThroatTopY"];
+                _throatDepth = p["ThroatDepth"];
+            }
+
+            _killPlaneY.SetValue(killPlaneY);
+            _killPlaneFadeDepth.SetValue(KILL_PLANE_FADE_DEPTH);
+            _throatTopY?.SetValue(THROAT_TOP_Y);
+            _throatDepth?.SetValue(IsSolidTerrainScene(scene) ? THROAT_DEPTH : 0f);
         }
+
+        private Effect _killPlaneEffect;
+        private EffectParameter _killPlaneY, _killPlaneFadeDepth, _throatTopY, _throatDepth;
+
+        /// <summary>
+        /// Where a ball going down the drain starts to darken (#932): a unit under the funnel's mouth (the island's top less
+        /// its dish), so a ball rolling over the rim is untouched and one in the throat is not.
+        /// </summary>
+        public const float THROAT_TOP_Y = ArenaIsland.TOP_Y - ArenaIsland.DISH_DEPTH - 1f;
+
+        /// <summary>
+        /// Over how many units under <see cref="THROAT_TOP_Y"/> a ball darkens to the shaft's black (the shader's
+        /// <c>THROAT_DARKEN</c>, 93 %): about half the funnel's depth, so a dropped storey is gone into the dark well
+        /// before the funnel's bottom (<see cref="ArenaIsland.FUNNEL_BOTTOM_Y"/>) and long before the kill plane.
+        /// </summary>
+        public const float THROAT_DEPTH = 10f;
 
         /// <summary>
         /// How many world units above the kill plane a falling ball fades out over — see

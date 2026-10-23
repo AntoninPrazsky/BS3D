@@ -1003,7 +1003,7 @@ namespace BS3D
             //frame, including on the front end, which has no ball anywhere near it: see
             //SceneRenderer.ApplyKillPlaneFade and GameplayScreen.KILL_PLANE_Y's own remarks on why this asks the
             //screen for the value rather than keeping a second copy of it here.
-            _sceneRenderer.ApplyKillPlaneFade(_instancingEffect, Screens.GameplayScreen.KILL_PLANE_Y);
+            _sceneRenderer.ApplyKillPlaneFade(_instancingEffect, Screens.GameplayScreen.KILL_PLANE_Y, _scene);
 
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;

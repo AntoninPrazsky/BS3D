@@ -74,6 +74,16 @@ float SeaLensSubmerged;
 float KillPlaneY;
 float KillPlaneFadeDepth;
 
+//The drain's throat (#932): in a solid-terrain scene the funnel's glass stands in front of the near-black pit shaft, and a
+//ball going down it stayed lit as brightly as on the island until the kill plane, fourteen units under the funnel's
+//bottom, so a dropped storey read as balls lying "over the ground, in front of the funnel" and gone only after a while.
+//Under ThroatTopY a ball darkens towards the shaft's black over ThroatDepth, its colour only: it is a ball in the dark,
+//not a ball going transparent. ThroatDepth 0 is off - the open-below scenes, where the lens can film the fall in
+//daylight under the island, and the map editor.
+float ThroatTopY;
+float ThroatDepth;
+static const float THROAT_DARKEN = 0.93;
+
 //The sea's submerge fade, applied to an already-shaded premultiplied colour. A FUNCTION since the bubbles
 //joined (#258) and not by preference: it stood written out in MainPS and again in PatternPS with a comment on
 //each saying the two copies are identical character for character, and a third hand-kept copy is how that
@@ -103,6 +113,12 @@ float4 ApplySeaSubmerge(float4 shaded, float3 worldPosition)
 //default of 0.
 float4 ApplyKillPlaneFade(float4 shaded, float3 worldPosition)
 {
+    if (ThroatDepth > 0.0)
+    {
+        float into = saturate((ThroatTopY - worldPosition.y) / ThroatDepth);
+        shaded.rgb *= 1.0 - THROAT_DARKEN * into * into * (3.0 - 2.0 * into);
+    }
+
     if (KillPlaneFadeDepth > 0.0)
     {
         float killFade = saturate((worldPosition.y - KillPlaneY) / KillPlaneFadeDepth);
