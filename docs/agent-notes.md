@@ -1300,3 +1300,10 @@ Pravidla:
 - majitel: power-upy se mají získávat za 4 hvězdy a hromadit; přepisuje to jeho pravidlo (a) z #213 (jeden náboj na level).
 - ⚠ Nic nebylo sestaveno ani nasnímáno: `BS3D.exe` na stroji je z 17. 10., před #926, takže #986 je jen z kódu. Popis Logitech SDK v #987 je z paměti a neověřený.
 - Otevřené: `Game/Logos/` je dál nezasledované (`??`); `git add` je na majiteli nebo na tom, kdo vezme #951.
+
+## 2026-10-23 — #941 ohyb sítě −0,08, verdikty kola čtyři, poznámky k Help (#996–#1004) — desktop (RDT-PC), Claude Code
+- majitel (v chatu, stránka kola čtyři pod jeho účtem nečitelná): OK na #936 #963 #977 #962 #961 #970 #777 #967 #908 #933 #952 (zavřeno s komentářem); #941: „−0,08 vypadá nejlépe“. `LaserNetShape.BOW` je −0,08 (síť stažená dovnitř, rohy beze změny), `LaserNetShapeTests` mají dosah `max(1, 1+BOW)`, doc upraven. 2194 testů, Game.sln i GamePi.sln se sestaví.
+- Hotovo: z recenze Help (Gemini) založeno #996–#1003, komentáře k #867 a #977; zbytek #977 (buňka „You: …, not finished“) je #1004.
+- ⚠ Dřív se záporný ohyb zavrhl, protože nechá boky kratší než půdorys; teď je to volba majitele. Rozdíl je spočtený z `CornerFor`, ne ze snímku. Nic nenasnímáno.
+- ⚠ Recenzní náhrada u Zapu je chybná: Zap bere všechny koule barvy výstřelu z pole, ne „řetěz“.
+- Otevřené: #941 `verdict-eye` jen pro potvrzení na snímku, pokud ho majitel chce vidět.

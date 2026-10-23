@@ -80,12 +80,15 @@ namespace BS3D.Tests
                     foreach (Vector2 p in path)
                         Assert.True(LaserNetShape.IsInside(p, cornerX, cornerZ), $"{cornerX}x{cornerZ} beam {index} of {count} (along X {alongX}): {p} is outside the boundary");
 
-                    //And, without leaning on the boundary's own formula: no tip stands further out than the corner plus the
-                    //swell - the old net's lines ran a margin (0.25 to 0.75) past the outermost beam they ruled
+                    //And, without leaning on the boundary's own formula: no tip stands further out than the corner, or than
+                    //the corner plus the swell if the bow is positive - the old net's lines ran a margin (0.25 to 0.75)
+                    //past the outermost beam they ruled
+                    float reach = MathF.Max(1f, 1f + LaserNetShape.BOW);
+
                     foreach (Vector2 p in path)
                     {
-                        Assert.True(MathF.Abs(p.X) <= cornerX * (1f + LaserNetShape.BOW) + 1e-4f, $"{cornerX}x{cornerZ}: {p} is out past the net's reach in X");
-                        Assert.True(MathF.Abs(p.Y) <= cornerZ * (1f + LaserNetShape.BOW) + 1e-4f, $"{cornerX}x{cornerZ}: {p} is out past the net's reach in Z");
+                        Assert.True(MathF.Abs(p.X) <= cornerX * reach + 1e-4f, $"{cornerX}x{cornerZ}: {p} is out past the net's reach in X");
+                        Assert.True(MathF.Abs(p.Y) <= cornerZ * reach + 1e-4f, $"{cornerX}x{cornerZ}: {p} is out past the net's reach in Z");
                     }
                 }
             }
@@ -127,7 +130,7 @@ namespace BS3D.Tests
         {
             foreach ((float cornerX, float cornerZ) in Nets())
             {
-                //The middle of each side stands out past the straight line between its corners, by the swell
+                //The middle of each side stands off the straight line between its corners by the bow (in, where it is negative)
                 Assert.True(MathF.Abs(cornerZ * (1f + LaserNetShape.BOW) - LaserNetShape.EdgeZ(0f, cornerX, cornerZ)) < 1e-4f);
                 Assert.True(MathF.Abs(cornerX * (1f + LaserNetShape.BOW) - LaserNetShape.EdgeX(0f, cornerX, cornerZ)) < 1e-4f);
 
