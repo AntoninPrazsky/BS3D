@@ -50,7 +50,10 @@ namespace BS3D.Tests
             Assert.All(entries.Skip(firstInGun), entry => Assert.True(entry.InGun, entry.Kind + " is the cluster's but stands among the cannon's"));
         }
 
-        /// <summary>Every entry names its kind in its first word and says something; the page's copy keeps the house typesetting rules.</summary>
+        /// <summary>
+        /// Every entry has a name of its own, short enough to be a lead-in, and says what the kind does in more than a phrase;
+        /// the page's copy keeps the house typesetting rules (#999).
+        /// </summary>
         [Fact]
         public void EveryEntryIsSetAndNamedLikeTheOthers()
         {
@@ -59,9 +62,12 @@ namespace BS3D.Tests
             foreach (OddBallCopy.Entry entry in OddBallCopy.Entries)
             {
                 Assert.Null(CopyRules.Fault(entry.Text));
-                Assert.Contains(" — ", entry.Text);
+                Assert.Null(CopyRules.Fault(entry.Name));
+                Assert.False(string.IsNullOrWhiteSpace(entry.Name), entry.Kind + " needs a name for its lead-in");
+                Assert.True(entry.Name.Length <= 16, entry.Kind + "'s name is a lead-in, not a sentence");
+                Assert.False(entry.Text.StartsWith(entry.Name, StringComparison.Ordinal), entry.Kind + "'s sentence repeats its name, which the lead already says");
                 Assert.EndsWith(".", entry.Text);
-                Assert.True(entry.Text.Length > 60, entry.Kind + "'s sentence is too short to explain it");
+                Assert.True(entry.Text.Length > 40, entry.Kind + "'s sentence is too short to explain it");
                 Assert.True(entry.Colour != 0, entry.Kind + " needs a colour to be drawn in: a ball of colour zero is dropped in silence");
             }
         }

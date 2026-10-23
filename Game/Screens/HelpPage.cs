@@ -554,7 +554,7 @@ namespace BS3D.Screens
                     Margin = new Thickness(0, 0, 0, ParagraphGap),
                 };
                 row.Widgets.Add(_ballSquares[i]);
-                row.Widgets.Add(Paragraph(OddBallCopy.Entries[i].Text, ProseWidth - square - gap));
+                row.Widgets.Add(Paragraph(OddBallCopy.Entries[i].Name, OddBallCopy.Entries[i].Text, ProseWidth - square - gap));
 
                 column.Widgets.Add(row);
             }
