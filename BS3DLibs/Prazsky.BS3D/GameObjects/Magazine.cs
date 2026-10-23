@@ -440,9 +440,29 @@ namespace Prazsky.BS3D
     /// </summary>
     public readonly struct BorePose
     {
+        /// <summary>
+        /// <b>How a loaded round lies in the barrel</b> (#939): turned a quarter round the barrel's right, so its own Z stands up
+        /// out of the slot and its own Y points forward along the bore. The slot is the only part of a loaded round anyone
+        /// sees, and it shows its top. Untouched, that top was the round's own Y pole, which is exactly where the colour cue's
+        /// figures are not: every band runs round its frame's Y (the wool's red wave, the marble's and the ice's whole set),
+        /// so the owner saw "only a red ball" (#737's figures are drawn for a ball seen from its side, as the cluster's are).
+        /// Turned, the slot shows the side the HUD's queue disc shows (<c>ColourCueField.BakeDisc</c>: face-on along Z, Y up),
+        /// with Y pointing up the screen as the player looks along the bore, so an emblem stands the way it was drawn.
+        /// <para>
+        /// A constant, composed with the barrel's own basis and nothing else: it reads no camera, no aim speed, no clock and
+        /// no colour, so a round never turns as the camera moves, as it slides from slot to slot, or when a swap or a
+        /// re-colour changes what it is (the owner's rule: "the rotation of the balls loaded in the cannon must never change
+        /// tied to the camera"). The Cutter is the exception and takes the barrel's frame unturned (<see cref="SlotWorld"/>'s
+        /// <c>barrelFrame</c>): its saw's bearing in the bore is #767's verdict.
+        /// </para>
+        /// </summary>
+        public static readonly Matrix LOADED_TURN = Matrix.CreateRotationX(-MathHelper.PiOver2);
+
         //The barrel's own orientation, and it carries NO translation of its own (Matrix.CreateWorld about
-        //Vector3.Zero) - which is what lets SlotWorld write a translation row instead of multiplying one in.
+        //Vector3.Zero) - which is what lets SlotWorld write a translation row instead of multiplying one in. And the
+        //orientation a round is shown in, LOADED_TURN within it, made once a pose and not per ball
         private readonly Matrix _orientation;
+        private readonly Matrix _shown;
 
         private readonly Vector3 _front;
         private readonly Vector3 _alongBore;
@@ -451,6 +471,7 @@ namespace Prazsky.BS3D
         internal BorePose(Matrix orientation, Vector3 front, Vector3 alongBore, float slide)
         {
             _orientation = orientation;
+            _shown = LOADED_TURN * orientation;
             _front = front;
             _alongBore = alongBore;
             _slide = slide;
@@ -496,14 +517,16 @@ namespace Prazsky.BS3D
         /// per frame (BestPractices.md §6). What licenses it is that the orientation arrives from
         /// <see cref="Cannon.BarrelOrientation"/>, which builds it about <see cref="Vector3.Zero"/> and so leaves
         /// its fourth row <c>(0,0,0,1)</c>. The substitution would break silently — and only here, not in the
-        /// barrel — if that method were ever given a translation of its own.
+        /// barrel — if that method were ever given a translation of its own. <see cref="LOADED_TURN"/> carries none either.
         /// </para>
         /// </summary>
-        public Matrix SlotWorld(int slot, out Vector3 position)
+        /// <param name="barrelFrame">The barrel's own frame, unturned by <see cref="LOADED_TURN"/>: the Cutter's, whose saw
+        /// takes its bearing from the round's frame (#767).</param>
+        public Matrix SlotWorld(int slot, out Vector3 position, bool barrelFrame = false)
         {
             position = SlotPosition(slot);
 
-            Matrix world = _orientation;
+            Matrix world = barrelFrame ? _orientation : _shown;
 
             world.M41 = position.X;
             world.M42 = position.Y;
