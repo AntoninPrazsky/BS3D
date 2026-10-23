@@ -853,7 +853,7 @@ namespace BS3D.Screens
             if (Game.Online.IsOn && !Game.Online.Enabled && Game.Online.Nickname != null)
                 return NO_SERVER_NOTE;
 
-            return Game.Online.PrivacySentence;
+            return Game.Online.PrivacyList(LeadIn);
         }
 
         //The note's longer texts, named so SizeOnlineNote can measure them beside the privacy sentence. The rest (a
@@ -881,7 +881,7 @@ namespace BS3D.Screens
         private void SizeOnlineNote(int pageWidth)
         {
             _onlineNote.Width = Math.Min(pageWidth, ProseMeasure);
-            _onlineNote.Height = ProseHeight(_onlineNote, Game.Online.PrivacySentence, TYPING_NOTE, REMOVED_HERE_NOTE, NO_SERVER_NOTE);
+            _onlineNote.Height = ProseHeight(_onlineNote, Game.Online.PrivacyList(LeadIn), TYPING_NOTE, REMOVED_HERE_NOTE, NO_SERVER_NOTE);
 
             //A new tree's note is empty, whatever the last one said
             _noteSource = null;

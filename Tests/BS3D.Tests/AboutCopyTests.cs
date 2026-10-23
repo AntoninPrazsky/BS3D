@@ -89,7 +89,7 @@ namespace BS3D.Tests
         [Fact]
         public void The_privacy_line_stands_under_what_the_game_is()
         {
-            //Not copy of the page's (OnlineScores.PrivacySentence, the Settings page's own), so the copy cannot hold it: the
+            //Not copy of the page's (OnlineScores.PrivacyList, the Settings page's own), so the copy cannot hold it: the
             //page holds a block that draws it, once, after the paragraph that says what the game is
             AboutCopy.Page page = Assert.Single(AboutCopy.Pages(TITLE),
                 candidate => candidate.Blocks.Any(block => block.Kind == AboutCopy.BlockKind.Privacy));

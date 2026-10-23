@@ -259,9 +259,9 @@ namespace BS3D.Screens
                         body.Widgets.Add(Paragraph(block.Text, ProseMeasure));
                         break;
 
-                    //The Settings page's own sentence, from the one place both read it (#548)
+                    //The Settings page's own list, from the one place both read it (#548, #868)
                     case AboutCopy.BlockKind.Privacy:
-                        body.Widgets.Add(Aside(Game.Online.PrivacySentence, ProseMeasure));
+                        body.Widgets.Add(Aside(Game.Online.PrivacyList(LeadIn), ProseMeasure));
                         break;
 
                     //TODO(#463): MonoGame's and BepuPhysics' logos go beside their credits on the Built on page —
