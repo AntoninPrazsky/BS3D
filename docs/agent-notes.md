@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-23 — #983 spoj ostrova se zemí: Les a Měsíc — desktop (RDT-PC), Claude Code (bs3d-80)
+- Hotovo (b9b3f80f, 03cc9f92, opravy z revize 4e357245): val lesa se kreslí programem lesní půdy (`Forest.fx` `ForestBank` v `beforeGrid` `TerrainPass`), mech na bubnu (výškový pás), kapradiny na valu; Měsíc dostal návěj prachu (`Moon.fx` `MoonBank`) s prolnutím normály a kráterů k pláni. Reference v `C:\Users\panrd\AI\sd\out\983-zimage`/`983-klein`. Karta na stránce verdiktů.
+- ⚠ Hladká normála valu na kráterové pláni kreslila okraj (bledý disk) — krátery jsou hlavně stínování; prolnutí podle hloubky zásypu ho smazalo.
+- Otevřené: otázka na majitele, co na Měsíci „nesedí“ se stínem (komentář na #983); stejný postup pro ostatních šest scén s valem čeká na jeho verdikt.
+
 ## 2026-10-23 — #896 #996 #998 #999 #1000 #1001 #400 lana stropu, nadpisy Helpu, drift — desktop (RDT-PC), Claude Code (bs3d-80)
 - Majitel na stránce (16:42): OK #1002 #1003 #1004 #867 #986 #997 → zavřeno. Vrať + „Malé nadpisy“ #996 #998–#1001 → čteno jako „nadpisy větší“, ne revert: `HelpPage.Headed`, nadpis na vlastním řádku v `MENU_FONT_BODY` (4d8cb8cf); 2. kolo na téže stránce, staré odpovědi v db smazány.
 - #896 volba C: `CeilingRigging`, 4 lana k neviditelnému jeřábu a navijáky v rozích, buben `-y/CORE_RADIUS` (c31d5d61); opravy z revize (68dcd7ad): kreslí se podle strany skla, na které je kamera, a lano končí v klenbě Jeskyně a koruně Big Topu (`SceneRenderer.RoofAbove`).
