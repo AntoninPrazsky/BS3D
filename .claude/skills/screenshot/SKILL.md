@@ -236,7 +236,8 @@ drawn from.**
 **Launch such a run with `Tools/quiet-capture.ps1`** while the owner is at the desktop. A plain launch, or
 `-WindowStyle Minimized`, activates the window and his keystrokes go into the game. The script starts the exe
 through `CreateProcess` with `SW_SHOWNOACTIVATE`, waits for the PNGs (a Game shot lands 12-16 s in, the scene's
-load varies), ends the run and copies the frames out as `<Tag>-1.png`… It exits 1 when fewer arrived than `-Shots`:
+load varies), ends the run and copies the frames out as `<Tag>-1.png`… It exits 1 when fewer arrived than `-Shots`.
+`-StdOut <file>` keeps the program's output, which makes it a quiet `logfps` run too (the `[fps]` lines):
 
 ```powershell
 .\Tools\quiet-capture.ps1 -Exe C:/src/BS3D/Game/bin/net10.0-windows/BS3D.exe -OutDir C:/tmp/caps -Tag help1 `
