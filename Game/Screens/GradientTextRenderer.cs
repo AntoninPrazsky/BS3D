@@ -23,8 +23,9 @@ namespace BS3D.Screens
     /// </summary>
     internal sealed class GradientTextRenderer : IFontStashRenderer2
     {
-        //Two draws of eight letters, with room for a longer word: a flush is one draw call, so the limit is only how many quads wait
-        private const int QUADS = 48;
+        //The banner's thirteen draws of eight letters - twelve of the outline's ring (#986) and the fill - with room for a longer word: a
+        //flush is one draw call, so the limit is only how many quads wait, and a word that outgrows it costs a draw call more, not a fault
+        private const int QUADS = 128;
 
         private static readonly short[] _indices = BuildIndices();
 

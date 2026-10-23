@@ -18,8 +18,8 @@ namespace BS3D.Screens
     /// <para>
     /// <b>The fill is per-vertex colour</b> (<see cref="GradientTextRenderer"/>): the text goes through FontStashSharp's own renderer
     /// interface and each glyph is a quad whose corners take the rainbow where they are. No shader, so Potato and GamePi draw it as they draw the
-    /// rest of the page. <b>The outline is the page's own backing</b> (the stroked second draw of <c>ShadowedLabel</c>, #521) at the banner's
-    /// size, because pastel type over a bright sky needs it as white type does.
+    /// rest of the page. <b>The outline is the word itself drawn round a ring</b> under the fill (<c>OUTLINE_RING</c>, #986), the page's
+    /// own dark backing in kind (<c>ShadowedLabel</c>, #521) at the banner's size, because pastel type over a bright sky needs it as white type does.
     /// </para>
     /// <para>
     /// A frame allocates nothing: the renderer and the sparkle textures are built once, the sparkles are functions of their index and the clock,
@@ -47,6 +47,23 @@ namespace BS3D.Screens
 
         //The dark outline, premultiplied: nearly black and nearly opaque, because the fill is light and a bright sky is what it stands on
         private static readonly Color OUTLINE = new(0, 0, 0, 225);
+
+        //The directions the outline's copies are drawn in (#986), unit vectors round the circle: twelve, so the outline's outer edge between
+        //two of them falls short of the circle by under a twelfth of the stroke (1 - cos 15 degrees), a fraction of a pixel at any size
+        private const int OUTLINE_SAMPLES = 12;
+        private static readonly Vector2[] OUTLINE_RING = BuildRing(OUTLINE_SAMPLES);
+
+        private static Vector2[] BuildRing(int samples)
+        {
+            Vector2[] ring = new Vector2[samples];
+            for (int i = 0; i < samples; i++)
+            {
+                float angle = MathHelper.TwoPi * i / samples;
+                ring[i] = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+            }
+
+            return ring;
+        }
 
         //Under each sparkle, so a white sparkle is not lost on a white cloud: premultiplied black
         private static readonly Color HALO = new(0, 0, 0, 255);
@@ -110,12 +127,15 @@ namespace BS3D.Screens
 
             _renderer.Begin();
 
-            //The outline under the fill, then the fill: the same word at the same place twice, as ShadowedLabel draws its own
-            //FontStashSharp places a stroked glyph's grown bitmap at the plain glyph's origin, so the outline sits a stroke down and to the right
-            //of the letters unless it is drawn that far back up and left
+            //The outline under the fill, then the fill. The outline is the plain word drawn OUTLINE_SAMPLES times round a circle of the
+            //stroke's radius - a round stroke, every corner whole. FontStashSharp's own Stroked effect, which drew it until #986, left a
+            //stroke-sized square empty at every outer corner of every letter (photographed at 1600x900: the owner's "squares cut out of
+            //the black corners"). The copies overlap, so the outline comes out nearer opaque than OUTLINE's own alpha, which only shows
+            //in the fade-in's few frames
             _renderer.Flat(OUTLINE);
-            _font.DrawText(_renderer, _text, centre - new Vector2(_stroke * scale), opacity, 0f, _inkCentre, size, 0f, 0f, 0f, TextStyle.None,
-                FontSystemEffect.Stroked, _stroke);
+            for (int i = 0; i < OUTLINE_RING.Length; i++)
+                _font.DrawText(_renderer, _text, centre + OUTLINE_RING[i] * (_stroke * scale), opacity, 0f, _inkCentre, size, 0f, 0f, 0f,
+                    TextStyle.None);
 
             _renderer.Rainbow(centre.X - _inkWidth * scale * 0.5f, centre.Y - _inkHeight * scale * 0.5f,
                 _inkWidth * scale, _inkHeight * scale, clock);
