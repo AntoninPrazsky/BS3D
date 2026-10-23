@@ -11,12 +11,12 @@ namespace Prazsky.BS3D.GameObjects
     /// <b>The net ends on a boundary through its four corners, and the boundary is a beam.</b> The lattice is the ball
     /// lattice's own pitch (<see cref="BEAM_PITCH"/>), a beam on every whole step from the centre out to the corners'
     /// half-extents (<see cref="CornerFor"/>), which are where the four emitters aim. Every beam is then a line of that
-    /// lattice carried through <see cref="Place"/>, which bows the lattice like a lens does: the corners stay where they
-    /// are and everything between them swells outwards (<see cref="BOW"/>), most at the middle of each side. The outermost
-    /// beams are the images of the lattice's own edge, so they are the boundary - a pair of parabolas through every corner
-    /// - and every other beam stops exactly where it meets one of them, so no line goes past the edge it ends on. The net
-    /// reads as a sheet the four emitters throw, whose corners are where their cones arrive, and not as a grid ruled on
-    /// paper and cut off wider than the lines it rules.
+    /// lattice carried through <see cref="Place"/>, which bows the lattice: the corners stay where they are and
+    /// everything between them is drawn in towards the middle (<see cref="BOW"/> is negative), most at the middle of each
+    /// side, so the net is a pincushion whose four points are where the emitters' cones arrive. The outermost beams are the
+    /// images of the lattice's own edge, so they are the boundary - a pair of parabolas through every corner - and every
+    /// other beam stops exactly where it meets one of them, so no line goes past the edge it ends on. The net reads as a
+    /// sheet the four emitters throw, and not as a grid ruled on paper and cut off wider than the lines it rules.
     /// </para>
     /// <para>
     /// Everything stays in one plane: a point's height is the caller's (<c>PlaneY</c>), and the bend is in plan only.
@@ -37,11 +37,13 @@ namespace Prazsky.BS3D.GameObjects
         public const float FOOTPRINT_MARGIN = 0.75f;
 
         /// <summary>
-        /// How far the middle of a side swells past the straight line between its corners, as a share of the side's
-        /// half-extent: a parabola through the two corners. Gentle, and the same for every shape of net, so a long net
-        /// bows more in length and a short one less.
+        /// How far the middle of a side stands off the straight line between its corners, as a share of the side's
+        /// half-extent: a parabola through the two corners, <b>negative to draw the side in</b> (positive swells it out).
+        /// Gentle, and the same for every shape of net, so a long net bows more in length and a short one less. The first
+        /// build swelled out by 0.08; the owner chose the same bow drawn in, -0.08, on 2026-10-23 (#941), at the cost of
+        /// the middle of a side standing up to 0.08 of its half-extent short of the footprint's edge.
         /// </summary>
-        public const float BOW = 0.08f;
+        public const float BOW = -0.08f;
 
         /// <summary>The segments a beam is cut into (the bow's parabola is a polyline of them); even, so a beam has a vertex at its middle.</summary>
         public const int BEAM_SEGMENTS = 8;
@@ -62,7 +64,7 @@ namespace Prazsky.BS3D.GameObjects
         /// <summary>
         /// The lattice point (<paramref name="x"/>, <paramref name="z"/>), inside the corners' rectangle, carried onto the
         /// bowed net: each coordinate is stretched by <see cref="BOW"/> of itself, most where the other is at its centre
-        /// and not at all where it is at the corner's, so the corners stay put and the sides swell between them.
+        /// and not at all where it is at the corner's, so the corners stay put and the sides bow between them.
         /// </summary>
         public static Vector2 Place(float x, float z, float cornerX, float cornerZ)
         {
@@ -83,7 +85,7 @@ namespace Prazsky.BS3D.GameObjects
             return alongX ? Place(t * cornerX, offset, cornerX, cornerZ) : Place(offset, t * cornerZ, cornerX, cornerZ);
         }
 
-        /// <summary>How far the boundary stands out on the X side at plan height <paramref name="z"/>: the corner's, plus the swell.</summary>
+        /// <summary>How far the boundary stands out on the X side at plan height <paramref name="z"/>: the corner's, plus the bow (less, where it is negative).</summary>
         public static float EdgeX(float z, float cornerX, float cornerZ)
         {
             float v = z / cornerZ;

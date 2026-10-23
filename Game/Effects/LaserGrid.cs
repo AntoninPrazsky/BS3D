@@ -28,7 +28,7 @@ namespace BS3D.Effects
     /// grid's plane, and a flat ribbon lying in it would be seen edge-on and vanish.
     /// </para>
     /// <para>
-    /// <b>The net ends on a boundary through its four corners</b> (#941): the lattice is bowed like a lens bows it
+    /// <b>The net ends on a boundary through its four corners</b> (#941): the lattice is bowed in between the corners
     /// (<see cref="LaserNetShape"/>), the outermost beams are the boundary and every other beam stops exactly where it
     /// meets one, so no line goes past an edge and the cones land on the real ends of the two lines that make each corner.
     /// The bend is in plan only: every vertex is on <see cref="PlaneY"/>.
