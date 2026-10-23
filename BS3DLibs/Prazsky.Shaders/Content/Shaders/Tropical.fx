@@ -411,9 +411,9 @@ float4 TropicalPS(TropicalVertexOutput input) : COLOR
 
     color = lerp(color, hazeLit, HazeStrength * haze2);
 
-    //The eighth power, where the outback (whose arrangement this is) uses the fourth — and the difference
-    //is the two scenes' compositions, not taste. The outback's far field is empty plain and arriving at
-    //the dome's exact horizon colour early costs it nothing; THIS scene's horizon IS a feature, the green
+    //The eighth power, where the outback used the fourth while it had this arrangement (until #967) — and the
+    //difference was the two scenes' compositions, not taste. The outback's far field was empty plain and arriving at
+    //the dome's exact horizon colour early cost it nothing; THIS scene's horizon IS a feature, the green
     //ridge that closes the lagoon, and it stands at 300–420 units against a haze distance pinned at 480
     //by the grid's own half-extent (see HorizonHazeDistance). At the fourth power the ridge's crest was
     //already 48 % of the way to the sky, which is what turned the jungle beige and left #268 measuring

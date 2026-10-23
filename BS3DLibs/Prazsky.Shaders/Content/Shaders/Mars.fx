@@ -9,7 +9,7 @@
 //    MareBase - the last two shared with it through Craters.fxh since #581 - are generic height-field math with nothing Moon-specific in them - only the constants that
 //    tune it and the colour it is coloured by are this scene's own), retextured rust/ochre instead of
 //    grey, on the outback's plumbing instead of the Moon's: an ordinary sun-and-dome light rig, the shared
-//    cloud shadow (Clouds.fxh), and the outback's two-stage haze fade to the dome's own horizon colour -
+//    cloud shadow (Clouds.fxh), and a two-stage haze fade to the dome's own horizon colour (the outback's until #967) -
 //    NOT the Moon's curvature-and-highland-belt, which exists purely because the Moon has no air to fade
 //    into. There is no highland belt here; the ordinary haze closes the horizon the way the desert's and
 //    the outback's does. Standing on it: two lattices of boulders and pebbles, the outback's RockLayer

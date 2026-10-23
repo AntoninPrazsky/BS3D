@@ -7,7 +7,7 @@ The sixteenth `SceneKind` (#277): rust-red cratered ground scattered with dark s
 ## Family and reuse
 
 - **Solid terrain, not a sky replacer.** Mars keeps a thin atmosphere (unlike the Moon, see "The Moon (Game)" in `docs/scenes.md`), so it is a solid-terrain scene under a real dome: island footprint cut out, pit shaft behind the drain's glass, no dive. `Weather` is `Clear`.
-- **Not a red Moon.** The crater field (`CraterLayer`, `TurnCrater`, `CraterField`, `MareBase`) is lifted verbatim from the Moon, being generic height-field math; the Moon's highland belt and curvature are not, since they only close a horizon with no air. Mars closes it with the outback's haze fade to `HorizonColor`.
+- **Not a red Moon.** The crater field (`CraterLayer`, `TurnCrater`, `CraterField`, `MareBase`) is lifted verbatim from the Moon, being generic height-field math; the Moon's highland belt and curvature are not, since they only close a horizon with no air. Mars closes it with a two-stage haze fade to `HorizonColor`, the one the outback had until #967.
 - **Dome 19** (`MARS_DOME`) is data, generated from five colour stops by vertex height: **brighter near the horizon, dimmer at the zenith** (dust).
 
 ## Stones, moons, materials

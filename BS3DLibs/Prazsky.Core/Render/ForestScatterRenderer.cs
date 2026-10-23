@@ -684,7 +684,7 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>Each variant's instances into those standing within <paramref name="radius"/> of the arena's axis and the
-        /// rest, in their order: the split High and Ultra's two spruce crowns are drawn by, which the forest's needles follow.</summary>
+        /// rest, in their order: the split High and Ultra's two spruce crowns are drawn by, which the broadleaves in leaf follow (<see cref="ForestDressing"/>).</summary>
         internal static void SplitByDistance(ModelInstance[][] variants, float radius, out ModelInstance[][] near,
             out ModelInstance[][] far)
         {

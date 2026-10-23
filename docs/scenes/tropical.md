@@ -26,7 +26,7 @@ One radial profile keyed on the distance to the **waterline**: flat dry sand, a 
 - ⚠ **The height field is sines and hermite ramps ONLY, no gradient noise**, because `TerrainMirror.Tropical` mirrors it to plant on. Noisy things (sand patches, canopy mottle, wind bands) live in the pixel shader.
 - The near beach has a **wet band** keyed on height above water and a ripple that shades its troughs (`RIPPLE_SHADE`; domain scale 0.28, or it fades at a third of the distance); the far shore is jungle over a sand fringe.
 - ⚠ **Vegetation is two questions** (#268): a short radial gate says which landmass, and the ridge's height above water says how green (`SHORE_SAND_FRINGE`, `JUNGLE_RISE`). Keyed on the ridge's own rise ramp, greenness grew outward and the near flank was sand.
-- The haze is the [outback's](outback.md) two-stage arrangement, weaker. ⚠ The last stage is `haze⁸`, not `haze⁴`: the ridge stands at 300–420 against a 480 haze distance, and at the fourth power its crest was already 48 % to the sky and the jungle came out beige.
+- The haze is two stages, the arrangement the [outback](outback.md) had until #967 replaced its air, weaker: `HazeStrength` towards a sky-lit tint over `haze²`, then the dome's `HorizonColor`. ⚠ The last stage is `haze⁸`, not `haze⁴`: the ridge stands at 300–420 against a 480 haze distance, and at the fourth power its crest was already 48 % to the sky and the jungle came out beige.
 - **The foam line is on the land**, as lace from one gradient-noise octave, centred a little *above* the water (on it, it reads as a ring round the island).
 
 ## Palms and rocks

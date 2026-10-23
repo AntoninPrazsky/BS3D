@@ -1943,7 +1943,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Where the daytime forest's wood stands (#962): the planting the backdrop dresses on High and Ultra (the broadleaves'
-        /// leaves, the spruces' needles, the ferns at their feet), which every host's forest <see cref="ForestScatterRenderer"/>
+        /// wood, twigs and leaves, the ferns at their feet; the spruces are the renderer's own), which every host's forest <see cref="ForestScatterRenderer"/>
         /// draws (its <c>planting</c> argument), so the leaves hang on the trees that are drawn.
         /// </summary>
         public ForestScatter ForestPlanting => _forest.Planting;

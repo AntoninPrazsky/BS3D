@@ -301,7 +301,7 @@ namespace Prazsky.Core.Render
     /// the camera is: the play camera sees a handful of these rocks and paid +0.54 ms for three densities a step finer, and
     /// +0.27 for these (desktop, 3840 x 1600, ssaa 2). <b>The sun's map takes the next coarser sampling of the same rock</b>
     /// (<see cref="ScatterBucket.CasterMesh"/>; its points are the finer one's own, so it lies inside it), which took that
-    /// to +0.19.
+    /// to +0.21 (the measurement: "What it costs" in <c>docs/scenes/moon.md</c>).
     /// </para>
     /// </summary>
     internal sealed class FracturedRockSet : IDisposable
