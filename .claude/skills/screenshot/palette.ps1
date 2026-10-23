@@ -11,6 +11,8 @@
 #
 # F5 stops the simulation so the row hangs still; the bottom row is the enum's own order, which is what -Xs
 # indexes. Change the camera and the sample points move: -Xs and -RowY are there for that.
+# A frame the Testbed saves itself (shot=, the back buffer with no title bar) puts the same camera's bottom row
+# higher: -RowY 416 -Xs 433,490,548,605,662,717,773,829,885,940,995,1050,1106 at 1600x900 (2026-10-23, #940).
 #
 # Three things this has already been wrong about, all paid for:
 #
@@ -21,8 +23,10 @@
 #   - dE76 IS THE WRONG INSTRUMENT and will mislead you: it scores a pure lightness gap the same as a hue
 #     gap, and ranked black/navy ninth while three pairs nobody has ever complained about measured tighter
 #     (#246). Everything here is CIEDE2000.
-#   - THE BALLS PULSE. They are emissive on a heartbeat and the phase differs between runs, which is about
-#     +-0.4 dE of noise on any single capture. Shoot twice before believing a small delta.
+#   - THE BALLS PULSE. They are emissive on a heartbeat, a lub-dub: two narrow peaks and then a long rest. Shots at
+#     rest agree to about +-0.4 dE. A shot that lands on a peak reads every ball far brighter and moves a pair by up
+#     to 10 dE (#940: black/brown on the wool, savanna dome 14, 9.6 at rest and 17.3 on the beat; one shot in six,
+#     0.5 s apart, landed there). Take several shots, drop the bright one, and compare like with like.
 #   - PASS "nooverc" so the reading is the game's light and is reproducible (#334). The Testbed is the only
 #     executable that steps the overcast lerp - the Game never does and the editor cannot - so without the
 #     flag this script reads the palette under an ambient the game does not ship. RE-MEASURED 2026-09-04 and
