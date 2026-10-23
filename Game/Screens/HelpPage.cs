@@ -582,24 +582,26 @@ namespace BS3D.Screens
 
         private void BuildCeiling(VerticalStackPanel column)
         {
-            column.Widgets.Add(Paragraph(
-                "The cluster does not hang still for ever. Every few shots the glass it hangs from steps down, "
-                + "and the whole cluster comes with it. The panel on the left of the screen shows the field, "
-                + "the glass at the top of it, and how far down it has come."));
-            column.Widgets.Add(Paragraph(
-                "At the bottom of that panel is a red line. If the cluster reaches it, the level is lost. You "
-                + "get a moment’s warning — the floor lights up — and under the line you have about a second "
-                + "to drop something and lift the cluster back."));
-            column.Widgets.Add(Paragraph(
-                "So the clock is your own shots. Every shot brings the glass nearer, whether it matched "
-                + "anything or not, which is the other reason a miss is expensive. Clearing from the bottom "
-                + "buys height; clearing from the top does not."));
-            column.Widgets.Add(Paragraph(
-                "Even so, throwing a ball away is a fair move. When the ball in the gun has nowhere to score, fire it into "
-                + "empty space, or onto a ball of another colour. It costs a shot and your streak, not the level."));
-            column.Widgets.Add(Paragraph(
-                "From the fourth chapter you also have a brake: one press a level lifts the glass a step back up, "
-                + "which is time the ceiling took. It does nothing until the glass has stepped down."));
+            //Each block a lead-in, and the two things on the screen a player has to look for in bold (#1001): the panel on
+            //the left and the red line in it. The warning is the floor's laser net (docs/game-feedback, "The floor's laser
+            //net"), red because it is the ceiling flash's own red, and it comes a few steps early, LASER_WARN_STEPS of them
+            column.Widgets.Add(Paragraph("The glass steps down",
+                "The cluster does not hang still for ever. Every few shots the glass it hangs from steps down, and the whole "
+                + $"cluster comes with it. The {Strong("panel on the left")} of the screen shows the field, the glass at the top "
+                + "of it and how far down it has come."));
+            column.Widgets.Add(Paragraph("The red line",
+                $"At the bottom of that panel is a {Strong("red line")}. If the cluster reaches it, the level is lost. A red "
+                + "net of light over the island says it is a few steps away, and once the cluster is over the line you have "
+                + "about a second to knock balls off its bottom."));
+            column.Widgets.Add(Paragraph("Your shots are the clock",
+                "Every shot brings the glass nearer, whether it matched anything or not, which is the other reason a miss is "
+                + "expensive. Clearing from the bottom buys height; clearing from the top does not."));
+            column.Widgets.Add(Paragraph("Throwing away is fair",
+                "When the ball in the gun has nowhere to score, fire it into empty space, or onto a ball of another colour. "
+                + "It costs a shot and your streak, not the level."));
+            column.Widgets.Add(Paragraph("The brake",
+                $"From chapter\u00A0{LevelSet.BRAKE_FROM_BLOCK}, one press a level lifts the glass a step back up, which is "
+                + "time the ceiling took. It does nothing until the glass has stepped down."));
         }
 
         //The pad's half of every line (#799), the tutorial's bindings exactly (Tutorial.cs): the right stick aims, the right
