@@ -668,8 +668,8 @@ namespace Prazsky.Core.Render
             },
             //The forest's stone in the forest floor (#983): MOSS climbing the drum from the bank, damp and dark green over
             //the grey, the way every reference drew a stone set in a wood - the lower courses green, the upper ones bare.
-            //It reaches 3.2 over the foot because the bank already covers the first unit and more of the drum, and the
-            //wander of the line keeps it from reading as a painted stripe.
+            //Full to 2.0 over the foot and gone by 3.2 (BandTopY is where the band fades out), because the bank already
+            //covers the first unit and more of the drum; the wander of the line keeps it from reading as a painted stripe.
             SceneKind.Forest => NO_DRESSING with
             {
                 BandColor = new Vector3(0.18f, 0.30f, 0.07f), BandTopY = TOP_Y - EDGE_HEIGHT + 3.2f, BandFade = 1.2f,

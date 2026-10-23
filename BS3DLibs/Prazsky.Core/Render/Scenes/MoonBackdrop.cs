@@ -88,20 +88,23 @@ namespace Prazsky.Core.Render
             _plants = new PlantPass(_graphicsDevice, content);
             //On the ground as the grid draws it, not the exact field (see MoonPlanting's height)
             MoonTerrainConfig terrain = _moonConfig.Terrain;
+            //The ground as the grid draws it, and the dust drifted against the drum (#983) built off it, so its outer edge goes
+            //under the triangles that are drawn and not under the exact field between them. The rocks stand on whichever is
+            //higher: the nearest are planted where the drift still lies half a unit deep in its widest sectors
+            Func<float, float, float> ground = (x, z) =>
+                TerrainMirror.OnGrid((px, pz) => TerrainMirror.Moon(px, pz, terrain), MOON_GRID_N, MOON_EXTENT, x, z);
+            int bankSeed = BANK_SEED + Services.SeedOffset;
             _planting = new MoonPlanting(_graphicsDevice,
-                (x, z) => TerrainMirror.OnGrid((px, pz) => TerrainMirror.Moon(px, pz, terrain), MOON_GRID_N, MOON_EXTENT, x, z),
+                (x, z) => MathF.Max(ground(x, z), IslandBerm.SurfaceY(ground, bankSeed, x, z)),
                 terrain, PLANTING_SEED + Services.SeedOffset);
 
-            //The dust drifted against the drum (#983), off the ground as the grid draws it, the rocks' own, so its outer
-            //edge goes under the triangles that are drawn and not under the exact field between them
-            _bank = IslandBerm.Build(_graphicsDevice,
-                (x, z) => TerrainMirror.OnGrid((px, pz) => TerrainMirror.Moon(px, pz, terrain), MOON_GRID_N, MOON_EXTENT, x, z),
-                BANK_SEED + Services.SeedOffset, 0, IslandBerm.RINGS - 1);
+            _bank = IslandBerm.Build(_graphicsDevice, ground, bankSeed, 0, IslandBerm.RINGS - 1);
             _moonBankTechnique = _moonEffect.Techniques["MoonBank"];
         }
 
         //The drift against the drum (#983): IslandBerm's bank, worn in the regolith (Moon.fx's MoonBank) so the drum rises out
-        //of the plain's own dust; the Moon had no bank at all, and the drum stood on the plain with a hard line
+        //of the plain's own dust. Before it the only bank was the pad's spoil ring (IslandMesh), under a unit wide, and past
+        //it the drum stood on the plain with a hard line; the drift covers the spoil ring's lower half
         private IslandBerm.BermMesh _bank;
         private readonly EffectTechnique _moonBankTechnique;
         private const int BANK_SEED = 9831;
