@@ -728,8 +728,9 @@ namespace BS3D.Online
 
         /// <summary>
         /// Pushes the play counts' earliest moment to a random <see cref="StatsSchedule.QuietMin"/> to
-        /// <see cref="StatsSchedule.QuietMax"/> from now (#709): called at the worker's start and before every request that
-        /// names the player, so a batch never goes beside one, nor at a moment that points at one.
+        /// <see cref="StatsSchedule.QuietMax"/> from now (#709): called at the worker's start, before every request that
+        /// names the player, and after the ones <see cref="SendAsync"/> makes (a clear, a rename, a removal), so a batch never
+        /// goes beside one, nor at a moment that points at one, however long a clear was in flight.
         /// </summary>
         private void QuietStats()
         {
@@ -1087,6 +1088,14 @@ namespace BS3D.Online
                 //Anything else a request can throw — an invalid charset in a Content-Type is InvalidOperationException
                 //out of ReadAsStringAsync — is no answer too, and the submission stays (#572)
                 return new Delivery(DeliveryKind.NoAnswer, 0, problem: $"{e.GetType().Name}: {e.Message}");
+            }
+            finally
+            {
+                //And again once the request is over, so the quiet runs from the END of a request that names the player as
+                //well as from its start: a slow one (a first connection, a far server) would otherwise spend the quiet in
+                //flight, and the counts could leave a moment after the service took the clear. Seen on a CI runner, where
+                //the test's 250 ms quiet was spent before the score arrived and the batch followed it by 44 ms
+                if (!anonymous) QuietStats();
             }
         }
 
