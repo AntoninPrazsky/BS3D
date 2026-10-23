@@ -25,7 +25,11 @@ namespace BS3D.Screens
     /// that looked like every display toggle — and the owner, opting in for the first online test, did not find
     /// them. The answer was not a fourth column: the rows a player comes to change are a handful at a time, and
     /// twenty-six on one plate made every one of them a search. So a tab row now picks one category's page —
-    /// ONLINE · DISPLAY · AUDIO · CONTROLS · GAME — and the page under it is one column again.
+    /// ONLINE · SCREEN · PICTURE · AUDIO · CONTROLS · GAME — and the page under it is one column again. DISPLAY was one
+    /// page until #869, and its twelve rows were the whole vertical budget (Back stood 24 px clear at 1600×900): it is two
+    /// along the seam the owner's UI review drew, how big and how fast the game draws (SCREEN) and how the picture looks
+    /// (PICTURE), six rows each. Two tabs rather than two columns, because left and right already turn the tabs and a
+    /// grid would have needed them for its columns.
     /// </para>
     /// <para>
     /// <b>The tabs are not in the pad's walk.</b> The walk is one line down the page, and five tabs ahead of the
@@ -35,8 +39,7 @@ namespace BS3D.Screens
     /// and not entries for the pad is the host's rule: a button with no action on its <c>Tag</c> is not walked.
     /// </para>
     /// <para>
-    /// <b>Every page stands in the same frame</b>: the page area is as tall as the tallest page (DISPLAY's eleven
-    /// rows) and every page as wide as the tab row, its caption column filling what the value buttons leave (#770), so a
+    /// <b>Every page stands in the same frame</b>: the page area is as tall as the tallest page and every page as wide as the tab row, its caption column filling what the value buttons leave (#770), so a
     /// tab changes what the rows say and not where they, the plate's edge or Back stand. Still no scroller (<see cref="MenuPage.MenuScroll"/>):
     /// the pad can reach a row inside one since #245, but a page that fits needs none, and every page here fits.
     /// </para>
@@ -66,18 +69,15 @@ namespace BS3D.Screens
 
         private const int COLUMN_SPACING = 58;
 
-        //12, down from 20 when DISPLAY took its eleventh row (Resolution, #801), and PAGE_GAP under the 43 the columns
-        //stood above Back (#686): DISPLAY's rows under the tab row are the tallest page there has been. At 20 its ten
-        //rows stood about 30 px clear of a 1600x900 client's top and bottom; the eleventh took that to nothing, and at
-        //12 the plate stood about 16 px clear of each (photographed at 1600x900 and 1280x720). Every size here is a
-        //design figure scaled by height, so that is the margin at every resolution.
-        private const int ROW_SPACING = 12;
+        //Between two rows: 20 again since #869 split DISPLAY's twelve rows over two tabs of six. It was cut to 12 while
+        //those twelve stood on one page (#801), the tallest there has been, which left the plate about 16 px clear of a
+        //1600x900 client's top and bottom; no page here has more than six rows now. Every size here is a design figure
+        //scaled by height, so that is the margin at every resolution.
+        private const int ROW_SPACING = 20;
 
-        //The value buttons' own padding: the menu button's 43 across, and 12 above and below rather than its 18, since
-        //DISPLAY took its twelfth row (Scenery, #808). At 18 the twelve rows ran the plate off a 1600x900 client and cut
-        //Back to a sliver (photographed); 6 off each of twelve rows gives the page 144 design units back, and the plate
-        //stands about 24 px clear of a 1600x900 client's top and bottom again (15 at 1280x720, photographed).
-        private const int ROW_PADDING_X = 43, ROW_PADDING_Y = 12;
+        //The value buttons' own padding: the menu button's own 43 across and 18 above and below. 18 again since #869, for
+        //the reason ROW_SPACING is: the 12 it was cut to (#808) paid for a twelfth row on one page.
+        private const int ROW_PADDING_X = 43, ROW_PADDING_Y = 18;
 
         //Above Back, under the page area
         private const int PAGE_GAP = 24;
@@ -89,8 +89,8 @@ namespace BS3D.Screens
 
         //The tab row (#686), in the section face the group headings were set in, since a tab is what those headings
         //became. Every tab is cut to the widest name's width so the row reads as one bar of equal parts.
-        private const int TAB_ONLINE = 0, TAB_DISPLAY = 1, TAB_AUDIO = 2, TAB_CONTROLS = 3, TAB_GAME = 4;
-        private static readonly string[] TAB_NAMES = { "ONLINE", "DISPLAY", "AUDIO", "CONTROLS", "GAME" };
+        private const int TAB_ONLINE = 0, TAB_SCREEN = 1, TAB_PICTURE = 2, TAB_AUDIO = 3, TAB_CONTROLS = 4, TAB_GAME = 5;
+        private static readonly string[] TAB_NAMES = { "ONLINE", "SCREEN", "PICTURE", "AUDIO", "CONTROLS", "GAME" };
 
         private Label _resolutionValue, _qualityValue, _exposureValue, _skyValue, _fpsLimitValue;
         private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _rumbleValue, _sensitivityValue, _aimSensitivityValue;
@@ -236,7 +236,8 @@ namespace BS3D.Screens
             column.Widgets.Add(BuildTabRow());
 
             _pages[TAB_ONLINE] = BuildOnlinePage();
-            _pages[TAB_DISPLAY] = BuildDisplayPage();
+            _pages[TAB_SCREEN] = BuildScreenPage();
+            _pages[TAB_PICTURE] = BuildPicturePage();
             _pages[TAB_AUDIO] = BuildAudioPage();
             _pages[TAB_CONTROLS] = BuildControlsPage();
             _pages[TAB_GAME] = BuildGamePage();
@@ -275,7 +276,7 @@ namespace BS3D.Screens
             //measured with every page laid out, so Back stands still as the tabs turn. Myra lays out only what is
             //visible, so without the fixed height the plate would shrink round a short page and Back would jump.
             //⚠ No margin on it: Myra counts a widget's Margin INSIDE an explicit Height, so the gap under the page area
-            //came out of the tallest page's own rows and cut DISPLAY's last one short by exactly the gap (photographed
+            //came out of the tallest page's own rows and cut the then DISPLAY's last one short by exactly the gap (photographed
             //at two gaps, short by each). The gap is Back's, above it.
             Panel pageArea = new()
             {
@@ -354,10 +355,11 @@ namespace BS3D.Screens
         internal override void NavFocusChanged(Button focused) => _focused = focused;
 
         /// <summary>
-        /// Everything about what the game looks like, in the order these rows have always been in. The drop camera
-        /// stood last here until #686 and is on GAME now, with the other switches about what the game does round play.
+        /// How big and how fast the game is drawn (#869): the window, the 3D's resolution, the quality tier and what changes
+        /// it, the frame cap. The first half of what DISPLAY was, in the order its rows were in. The drop camera stood on
+        /// DISPLAY until #686 and is on GAME now, with the other switches about what the game does round play.
         /// </summary>
-        private Grid BuildDisplayPage()
+        private Grid BuildScreenPage()
         {
             Grid grid = NewGroupGrid();
 
@@ -376,25 +378,35 @@ namespace BS3D.Screens
             //Whether the scene's scenery is drawn (#808): under the two rows it changes the meaning of, since turning it
             //off makes the Quality row read Custom. The Potato path never draws it, and says so here.
             AddCheckRow(grid, 4, "Scenery", Game.ToggleScenery, out _sceneryCheck);
-            //The tonemap's exposure, said as the brightness it is (#711): a percent of the authored look, 100 % the default
-            AddRow(grid, 5, "Brightness", Game.CycleExposure, out _exposureValue);
-            AddRow(grid, 6, "Sky", Game.CycleSkyDome, out _skyValue);
-            //The back buffer's depth where the window's monitor takes 10 bits (#859), the way back to 8: in the FPS
-            //counter's old slot, which went to GAME, because DISPLAY's twelve rows are its whole vertical budget (Back is
-            //24 px clear at 1600×900) and a thirteenth would push Back off the frame. Held, and saying why, on an 8-bit
-            //panel, on the Potato path and after a driver's refusal (TenBitHeldBy), as the lens looks say "tier"
-            AddCheckRow(grid, 7, "10-bit colour", Game.ToggleTenBitColour, out _tenBitCheck);
             //The presentation cap (#124): synced to the monitor's refresh (frames nobody can see cost only
             //heat) or unlimited — the "nocap" launch argument's toggle, in the menu so a benchmarking session
             //is not the only way to lift it. Two states, but not On and Off, so it keeps its words (#816)
-            AddRow(grid, 8, "FPS limit", Game.ToggleFpsLimit, out _fpsLimitValue);
-            //The lens's colour fringing at the frame edges — a taste toggle, and instant where it is made,
-            //like every row here: the scene behind the panel is the preview.
-            AddCheckRow(grid, 9, "Aberration", Game.ToggleAberration, out _aberrationCheck);
-            AddCheckRow(grid, 10, "Film grain", Game.ToggleGrain, out _grainCheck);
+            AddRow(grid, 5, "FPS limit", Game.ToggleFpsLimit, out _fpsLimitValue);
+
+            return grid;
+        }
+
+        /// <summary>
+        /// How the picture looks (#869): its brightness, the sky, the colour depth and the lens's looks - the second half of
+        /// what DISPLAY was, in the order its rows were in, every one instant where it is made: the scene behind the panel
+        /// is the preview.
+        /// </summary>
+        private Grid BuildPicturePage()
+        {
+            Grid grid = NewGroupGrid();
+
+            //The tonemap's exposure, said as the brightness it is (#711): a percent of the authored look, 100 % the default
+            AddRow(grid, 0, "Brightness", Game.CycleExposure, out _exposureValue);
+            AddRow(grid, 1, "Sky", Game.CycleSkyDome, out _skyValue);
+            //The back buffer's depth where the window's monitor takes 10 bits (#859), the way back to 8. Held, and saying
+            //why, on an 8-bit panel, on the Potato path and after a driver's refusal (TenBitHeldBy), as the lens looks say "tier"
+            AddCheckRow(grid, 2, "10-bit colour", Game.ToggleTenBitColour, out _tenBitCheck);
+            //The lens's colour fringing at the frame edges — a taste toggle
+            AddCheckRow(grid, 3, "Aberration", Game.ToggleAberration, out _aberrationCheck);
+            AddCheckRow(grid, 4, "Film grain", Game.ToggleGrain, out _grainCheck);
             //What moves smeared along its motion (#402). With the lens's looks, being one; a tier that cannot
             //afford it says so on the row rather than leaving an "On" that does nothing.
-            AddCheckRow(grid, 11, "Motion blur", Game.ToggleMotionBlur, out _motionBlurCheck);
+            AddCheckRow(grid, 5, "Motion blur", Game.ToggleMotionBlur, out _motionBlurCheck);
 
             return grid;
         }
@@ -597,7 +609,7 @@ namespace BS3D.Screens
 
             //"Off" until Refresh writes the real value: the page area is measured as soon as the tree is built
             //(BuildTree), and a button round an empty label measures a line shorter than it will stand - ten of those
-            //cut DISPLAY's last row in half (photographed at 1600x900, #686)
+            //cut the then DISPLAY's last row in half (photographed at 1600x900, #686)
             Button button = MenuButton("Off", typingRow ? onClick : () =>
             {
                 KeepOrDropTyping();
@@ -779,7 +791,7 @@ namespace BS3D.Screens
         /// <summary>
         /// Which page is up, and how each tab reads (#686): the chosen one inverted, the rest a control's slab with
         /// type a shade under the rows'. ONLINE stays red from another page while the boards still want something
-        /// done (#687's call to action), so turning to DISPLAY does not hide that there is something left on ONLINE.
+        /// done (#687's call to action), so turning to another tab does not hide that there is something left on ONLINE.
         /// Written with the values, which is also every time the page is shown, before the host walks its entries.
         /// </summary>
         private void ShowTabState(bool onlineAlert)
@@ -1044,7 +1056,9 @@ namespace BS3D.Screens
 
                 if (row.StartsWith("tab:", StringComparison.OrdinalIgnoreCase))
                 {
-                    int tab = Array.FindIndex(TAB_NAMES, name => name.Equals(row[4..], StringComparison.OrdinalIgnoreCase));
+                    //"display" still names the first of the two tabs DISPLAY became (#869), so an older script's picture comes out
+                    string wanted = row[4..].Equals("display", StringComparison.OrdinalIgnoreCase) ? TAB_NAMES[TAB_SCREEN] : row[4..];
+                    int tab = Array.FindIndex(TAB_NAMES, name => name.Equals(wanted, StringComparison.OrdinalIgnoreCase));
                     if (tab < 0)
                     {
                         System.Console.WriteLine($"[settings] Testing: no tab '{row[4..]}' to show");
@@ -1064,11 +1078,11 @@ namespace BS3D.Screens
                     case "esc": OnTextInput('\x1b'); break;
                     case "online": ShowTab(TAB_ONLINE); KeepOrDropTyping(); OnOnline(); break;
                     case "intro": ShowTab(TAB_GAME); KeepOrDropTyping(); Game.ToggleIntroLogo(); break;
-                    case "brightness": ShowTab(TAB_DISPLAY); KeepOrDropTyping(); Game.CycleExposure(); break;
-                    case "resolution": ShowTab(TAB_DISPLAY); KeepOrDropTyping(); Game.CycleRenderResolution(); break;
-                    case "quality": ShowTab(TAB_DISPLAY); KeepOrDropTyping(); Game.CycleQuality(); break;
-                    case "auto": ShowTab(TAB_DISPLAY); KeepOrDropTyping(); Game.ToggleAdaptiveQuality(); break;
-                    case "scenery": ShowTab(TAB_DISPLAY); KeepOrDropTyping(); Game.ToggleScenery(); break;
+                    case "brightness": ShowTab(TAB_PICTURE); KeepOrDropTyping(); Game.CycleExposure(); break;
+                    case "resolution": ShowTab(TAB_SCREEN); KeepOrDropTyping(); Game.CycleRenderResolution(); break;
+                    case "quality": ShowTab(TAB_SCREEN); KeepOrDropTyping(); Game.CycleQuality(); break;
+                    case "auto": ShowTab(TAB_SCREEN); KeepOrDropTyping(); Game.ToggleAdaptiveQuality(); break;
+                    case "scenery": ShowTab(TAB_SCREEN); KeepOrDropTyping(); Game.ToggleScenery(); break;
                     case "nickname": ShowTab(TAB_ONLINE); OnNickname(); break;
                     case "remove" when UserData.IsTestingDirectory: ShowTab(TAB_ONLINE); KeepOrDropTyping(); OnRemove(); break;
                     case "remove":
