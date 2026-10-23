@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Myra.Graphics2D;
 using Myra.Graphics2D.UI;
 using System;
 using System.Diagnostics;
@@ -18,6 +19,12 @@ namespace BS3D.Screens
     /// to the widget under the pointer that <c>AcceptsMouseWheel</c>, which a scroller does while its content is taller than
     /// it, so a list that fits takes no wheel and leaves it to the page (<c>OnScrollWheel</c>).
     /// </para>
+    /// <para>
+    /// <b>And it clips its list at its own box</b> (#1002, <see cref="InternalRender"/>): Myra cuts a scroller's content at
+    /// the edge of its margin, so the margin <c>MenuScroll</c> gives it to stand the cut clear of the tabs and of Back
+    /// would otherwise fill with the very lines it is there to keep away (photographed: a line of Help drawn a margin past
+    /// the scroll bar's end).
+    /// </para>
     /// </summary>
     internal sealed class MenuScrollViewer : ScrollViewer
     {
@@ -35,6 +42,22 @@ namespace BS3D.Screens
         /// Moves the list by the wheel's delta. <c>base.OnMouseWheel</c> is not called: it is Myra's own step, and the
         /// <c>Widget</c> under it, which that calls first, has nothing in it.
         /// </summary>
+        /// <summary>
+        /// Draws the scroller with the scissor narrowed to its own box, margin excluded (#1002), and puts the scissor back.
+        /// The box is where the desktop laid it out, in the back buffer's pixels (<c>ToGlobal</c>, as Help's odd balls are
+        /// cut, <c>HelpPage.ForegroundClip</c>), so a ball and the words beside it are cut on the same line.
+        /// </summary>
+        public override void InternalRender(RenderContext context)
+        {
+            Rectangle box = ActualBounds;
+            Point corner = ToGlobal(new Point(box.X, box.Y));
+            Rectangle scissor = context.Scissor;
+
+            context.Scissor = Rectangle.Intersect(scissor, new Rectangle(corner.X, corner.Y, box.Width, box.Height));
+            base.InternalRender(context);
+            context.Scissor = scissor;
+        }
+
         public override void OnMouseWheel(float delta)
         {
             int maximum = ScrollMaximum.Y;

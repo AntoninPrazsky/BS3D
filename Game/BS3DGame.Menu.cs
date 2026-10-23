@@ -2634,20 +2634,38 @@ namespace BS3D
         /// scroller is that subclass, because Myra's own step was about twenty pixels whatever the list or the
         /// resolution. "The mouse wheel over a list" in <c>docs/game-shell/menu-navigation.md</c> has the figures.
         /// </para>
+        /// <para>
+        /// <b>A list that is cut stands its cut clear of what is above and below it</b> (#1002): a margin of
+        /// <see cref="MENU_SCROLL_EDGE_GAP"/> at both ends, inside the bound (Myra counts a margin in <c>MaxHeight</c>), so the
+        /// list is cut a gap away from the tabs or the heading over it and from Back under it, and the scroller clips at its
+        /// own box rather than at the margin's edge (<see cref="MenuScrollViewer"/>). Before, the cut was the neighbours' own
+        /// edge: a line of Help sliced mid-sentence sat right on Back and the Jukebox's last chapter right on it, which read
+        /// as the page overlapping itself rather than as more to scroll. Only where the content is taller than the bound,
+        /// since a list that fits is never cut: the level picker's two rows of tiles fit, and the gap would only have grown
+        /// its plate over the foot of the cluster the camera frames above it (photographed).
+        /// </para>
         /// </summary>
         /// <param name="reservedDesignUnits">Height the page needs around the scroller — its heading, its
         /// Back button and the plate's padding — in the same 2160p design units everything else here uses.</param>
-        internal ScrollViewer MenuScroll(Widget content, int reservedDesignUnits)
+        /// <param name="clearEdges">Whether the clear band is kept whether or not the content is cut: a page whose
+        /// scrollers stand in one frame (Help's six tabs, #729) keeps it on all of them, or a tab that fits would start its
+        /// text a band higher than one that scrolls.</param>
+        internal ScrollViewer MenuScroll(Widget content, int reservedDesignUnits, bool clearEdges = false)
         {
             //Floored, so a window too short for the reserve gives a usable scroller rather than a zero-height
             //one that hides the list completely
             int available = GraphicsDevice.Viewport.Height - Scaled(reservedDesignUnits);
+            int bound = Math.Max(Scaled(MENU_SCROLL_MIN_HEIGHT), available);
+
+            //The content's own height, laid out unbounded: once, when the tree is built
+            bool cut = clearEdges || content.Measure(new Point(int.MaxValue / 2, int.MaxValue / 2)).Y > bound;
 
             return new MenuScrollViewer
             {
                 Content = content,
                 ShowHorizontalScrollBar = false,
-                MaxHeight = Math.Max(Scaled(MENU_SCROLL_MIN_HEIGHT), available),
+                MaxHeight = bound,
+                Margin = cut ? ScaledThickness(0, MENU_SCROLL_EDGE_GAP, 0, MENU_SCROLL_EDGE_GAP) : new Thickness(0),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
             };
@@ -2655,6 +2673,12 @@ namespace BS3D
 
         /// <summary>The least a <see cref="MenuScroll"/> may be bounded to, however short the window.</summary>
         private const int MENU_SCROLL_MIN_HEIGHT = 400;
+
+        /// <summary>
+        /// The clear band between a <see cref="MenuScroll"/>'s clip and its neighbours at each end, in design units (#1002):
+        /// the review's 15 to 20 pixels at 1080p, on top of the column's own spacing.
+        /// </summary>
+        private const int MENU_SCROLL_EDGE_GAP = 36;
 
         internal VerticalStackPanel MenuColumn() => new()
         {
