@@ -81,6 +81,36 @@ namespace Prazsky.Core.Render
                 cover: _marsConfig.Surface.RustColor.ToVector3() * new Vector3(1.5f, 1.1f, 0.65f), coverDry: _marsConfig.Surface.RustColor.ToVector3(), coverDapple: 0.5f,
                 stone: _marsConfig.Surface.BoulderColorBright.ToVector3(), stones: 40,
                 stoneRadius: (ArenaIsland.RADIUS + 0.8f, ArenaIsland.RADIUS + 7f), stoneSize: (0.15f, 0.7f));
+            _bermStones = _berm.Buckets[IslandBermPlanting.BANK_BUCKETS..];
+
+            //The bank itself as the plain's own rust (#983), the very mesh the planting's two halves are cut from
+            _bank = IslandBerm.Build(_graphicsDevice, (x, z) => _marsConfig.Terrain.LevelY, BERM_SEED + Services.SeedOffset,
+                0, IslandBerm.RINGS - 1);
+            _bankTechnique = _marsEffect.Techniques["MarsBank"];
+            _bankReducedTechnique = _marsEffect.Techniques["MarsBankReduced"];
+            _drawBank = DrawBank;
+        }
+
+        //The bank (#983): drawn as the plain, its stones as plants; the planting's buckets still cast
+        private ScatterBucket[] _bermStones;
+        private IslandBerm.BermMesh _bank;
+        private readonly EffectTechnique _bankTechnique, _bankReducedTechnique;
+        private readonly Action _drawBank;
+
+        //Inside the terrain pass, the frame's parameters pushed: the bank in the program the tier draws the plain with
+        private void DrawBank()
+        {
+            if (_bank == null) return;
+
+            EffectTechnique grid = _marsEffect.CurrentTechnique;
+            _marsEffect.CurrentTechnique = grid == _marsTerrainReduced ? _bankReducedTechnique : _bankTechnique;
+            _marsEffect.CurrentTechnique.Passes[0].Apply();
+
+            _graphicsDevice.SetVertexBuffer(_bank.VertexBuffer);
+            _graphicsDevice.Indices = _bank.IndexBuffer;
+            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _bank.PrimitiveCount);
+
+            _marsEffect.CurrentTechnique = grid;
         }
 
         /// <inheritdoc/>
@@ -176,7 +206,7 @@ namespace Prazsky.Core.Render
         public override void Draw(in SceneFrame frame)
         {
             DrawMarsTerrain(frame);
-            if (_berm != null) _plants.Draw(frame, _berm.Buckets, _marsConfig.Air.HorizonHazeDistance, detail: true, Services.FineMeshes);
+            if (_berm != null) _plants.Draw(frame, _bermStones, _marsConfig.Air.HorizonHazeDistance, detail: true, Services.FineMeshes);
             DrawMarsMoons(frame);
         }
 
@@ -196,6 +226,8 @@ namespace Prazsky.Core.Render
         {
             _berm?.Dispose();
             _berm = null;
+            _bank?.Dispose();
+            _bank = null;
         }
 
         /// <summary>
@@ -208,7 +240,7 @@ namespace Prazsky.Core.Render
         {
             //The ground technique first: the moons pass leaves its own as the current one, and the pass applies the current
             _marsEffect.CurrentTechnique = _marsTerrainTechnique;
-            _marsPass.Draw(frame, Services.TerrainHoleRadius);
+            _marsPass.Draw(frame, Services.TerrainHoleRadius, _drawBank);
         }
 
         /// <summary>

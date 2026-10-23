@@ -501,13 +501,11 @@ MarsTerrainVertexOutput MarsTerrainVS(MarsTerrainVertexInput input)
     return output;
 }
 
-float4 MarsTerrain(MarsTerrainVertexOutput input, bool detail)
+//The rust at a point of the ground: the plain's own (MarsTerrain) or the bank against the island's drum (MarsBankPS, #983),
+//whose surface is its mesh's. Both literals at each entry point, so each is a program of its own; the bank's keeps the
+//plain's gradient, which it blends to at its edge.
+float4 MarsGroundAt(float3 worldPosition, float3 meshNormal, bool onBank, bool detail)
 {
-    float3 worldPosition = input.WorldPosition;
-
-    clip(length(worldPosition.xz) - IslandHoleRadius);
-    FarRingClip(worldPosition.xz);
-
     float dist = distance(CameraPosition, worldPosition);
     float footprint = length(fwidth(worldPosition.xz));
 
@@ -536,11 +534,21 @@ float4 MarsTerrain(MarsTerrainVertexOutput input, bool detail)
     float2 slope = float2(hx - h, hz - h) / e + big.Gradient;
     float3 baseNormal = normalize(float3(-slope.x, 1.0, -slope.y));
 
+    //On the bank: the plain's normal where it lies thin and the bank's where it is deep, so its edge, where it goes
+    //under the plain, draws no line in the light; and the small craters and the fresh rims under it buried with it
+    //(the Moon's drift, #983). No paler pigment: on Mars a paler bank read as a tan ring round the island (#646)
+    float buried = 0.0;
+    if (onBank)
+    {
+        buried = saturate((worldPosition.y - (h + big.Height)) * 1.6);
+        baseNormal = normalize(lerp(baseNormal, meshNormal, buried));
+    }
+
     //Fine surface: the Moon's fourth, small-crater detail octave (normal-only - at this scale a crater is
     //shading, not silhouette) plus an isotropic fine relief, both band-limited against the footprint.
     float smallEjecta;
     float smallCraters = CraterLayer(TurnCrater(worldPosition.xz, CRATER_TURN_3) * (1.0 / 7.2), 133.7, 0.64, smallEjecta)
-        * saturate(1.0 - footprint * (2.0 / 5.0));
+        * saturate(1.0 - footprint * (2.0 / 5.0)) * (1.0 - buried);
 
     float relief = Fbm2BandLimited(worldPosition.xz * 1.7, 3, footprint * 1.7);
 
@@ -553,7 +561,7 @@ float4 MarsTerrain(MarsTerrainVertexOutput input, bool detail)
         lerp(smallCraters * (MicroReliefStrength * 3.0) + relief * MicroReliefStrength,
             rockSurface * RockRelief, rockMask));
 
-    ejecta = max(max(ejecta, smallEjecta * 0.5), big.Ejecta);
+    ejecta = max(max(ejecta, smallEjecta * 0.5), big.Ejecta) * (1.0 - buried);
 
     //--- The rust colour -----------------------------------------------------------------------------
     //Rust on rust, but never one rust: broad albedo patches, pale fresh ejecta on crater rims, and a
@@ -762,8 +770,64 @@ float4 MarsMoonsPS(MarsMoonsVertexOutput input) : COLOR
 //"MarsTerrainReduced" drops the sand drifts with their ripples, the bedrock slabs with their cracks and the
 //strata's wobble - the ground's added noise - and keeps the mesas, which are geometry and must be lit the same
 //on every tier. SceneRenderer.SceneDetail picks; the Game's Low tier takes the reduced one.
+float4 MarsTerrain(MarsTerrainVertexOutput input, bool detail)
+{
+    float3 worldPosition = input.WorldPosition;
+
+    clip(length(worldPosition.xz) - IslandHoleRadius);
+    FarRingClip(worldPosition.xz);
+
+    return MarsGroundAt(worldPosition, float3(0.0, 1.0, 0.0), false, detail);
+}
+
 float4 MarsTerrainPS(MarsTerrainVertexOutput input) : COLOR { return MarsTerrain(input, true); }
 float4 MarsTerrainReducedPS(MarsTerrainVertexOutput input) : COLOR { return MarsTerrain(input, false); }
+
+//THE BANK AGAINST THE DRUM (#983): IslandBerm's mesh worn in the rust itself, as the forest's floor and the Moon's dust
+//are, so the drum rises out of the plain's own ground and not out of a ring of flat colour laid round it
+struct MarsBankVertexInput
+{
+    float4 Position : POSITION0;
+    float3 Normal : NORMAL0;
+    float2 TextureCoordinate : TEXCOORD0;
+};
+
+struct MarsBankVertexOutput
+{
+    float4 Position : SV_POSITION;
+    float3 WorldPosition : TEXCOORD0;
+    float3 Normal : TEXCOORD1;
+};
+
+MarsBankVertexOutput MarsBankVS(MarsBankVertexInput input)
+{
+    MarsBankVertexOutput output;
+    output.WorldPosition = input.Position.xyz;
+    output.Normal = input.Normal;
+    output.Position = mul(mul(float4(input.Position.xyz, 1.0), View), Projection);
+    return output;
+}
+
+float4 MarsBankPS(MarsBankVertexOutput input) : COLOR { return MarsGroundAt(input.WorldPosition, normalize(input.Normal), true, true); }
+float4 MarsBankReducedPS(MarsBankVertexOutput input) : COLOR { return MarsGroundAt(input.WorldPosition, normalize(input.Normal), true, false); }
+
+technique MarsBank
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MarsBankVS();
+        PixelShader = compile PS_SHADERMODEL MarsBankPS();
+    }
+};
+
+technique MarsBankReduced
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MarsBankVS();
+        PixelShader = compile PS_SHADERMODEL MarsBankReducedPS();
+    }
+};
 
 technique MarsTerrain
 {
