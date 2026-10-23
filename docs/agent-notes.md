@@ -26,6 +26,8 @@ Pravidla:
 - ⚠ Myra ořezává obsah ScrollVieweru až na vnějším okraji marginu (`MenuScrollViewer.InternalRender` zužuje scissor). ⚠ `FontSystemEffect.Stroked` vynechává čtverec v každém vnějším rohu.
 - Doplněno: #937 + #935 (skóre průhledné při čtení, černé číslo na světlé svatozáři, stín roste odmocninou; zkušební úroveň s černým blokem: `levelfile=` + `fire=` + `"tutorial": false` v scratch `Settings.json`); opravy z kontrolního agenta (pád měření na příkazu ze serveru, 1px okraje, pruh Jukeboxu). Stránka verdiktů má 12 karet.
 - ⚠ `levelfile=` cestu piš s lomítky (`cygpath -m`): `\$1` v bashi zůstal jako text a hra tiše hrála skutečnou úroveň.
+- Večer (majitel u klávesnice nebyl, „zpracovávej issues“): #939 (koule v hlavni otočená `BorePose.LOADED_TURN`, štěrbina ukazuje vzor; Cutter beze změny), #868 (soukromí jako seznam s úvodními slovy), #869 (DISPLAY → SCREEN + PICTURE, rozhodnuto: záložky, ne sloupce). Stránka verdiktů má 15 karet, fronta verdiktů je 15/15: žádná další změna vzhledu, dokud majitel neodpoví.
+- #932 prozkoumáno (komentář na issue): koule přes okraj hrdla jsou vidět i bez rozmazání, spíš sklo trychtýře; #940 čeká na volbu páky (odstín hnědé jen pro wool vs. inkousty).
 - Otevřené: CLEARED má tytéž zuby obrysu (3 jednotky, nevadí).
 
 ## 2026-10-22 — stav před vydáním: 4. kolo verdiktů, co zbývá — desktop (RDT-PC), Claude Code (bs3d-dc)
