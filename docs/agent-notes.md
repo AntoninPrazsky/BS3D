@@ -24,7 +24,9 @@ Pravidla:
 - Hotovo (11 merge, CI větví zelená): Help má úvodní slova odstavců (`MenuPage.LeadIn`/`Strong`: FontStashSharp `/f[lead]`, `/f[strong]` přes `RichTextDefaults.FontResolver`), CONTROLS se vejde bez posouvání, SCORING bez aritmetiky („detached“ i na stránce výsledků), ODD BALLS bez popisu vzhledu, CAMPAIGN a THE GLASS přepsané; ořez posuvníků má pruh (`MENU_SCROLL_EDGE_GAP`), About/Settings/Help deska 94 %, období na High Scores jako vybraná záložka, ☆ místo „not finished“ v buňkách, obrys NEW BEST bez vyříznutých rohů.
 - Stránka verdiktů: https://claude.ai/artifact/N6uqNLjGVFRJsv9SfHgEio, db `verdicts` (doc = číslo issue), mlčení 30. 10.
 - ⚠ Myra ořezává obsah ScrollVieweru až na vnějším okraji marginu (`MenuScrollViewer.InternalRender` zužuje scissor). ⚠ `FontSystemEffect.Stroked` vynechává čtverec v každém vnějším rohu.
-- Otevřené: #937 s #935 (černé skóre na černém stínu), CLEARED má tytéž zuby (3 jednotky, nevadí).
+- Doplněno: #937 + #935 (skóre průhledné při čtení, černé číslo na světlé svatozáři, stín roste odmocninou; zkušební úroveň s černým blokem: `levelfile=` + `fire=` + `"tutorial": false` v scratch `Settings.json`); opravy z kontrolního agenta (pád měření na příkazu ze serveru, 1px okraje, pruh Jukeboxu). Stránka verdiktů má 12 karet.
+- ⚠ `levelfile=` cestu piš s lomítky (`cygpath -m`): `\$1` v bashi zůstal jako text a hra tiše hrála skutečnou úroveň.
+- Otevřené: CLEARED má tytéž zuby obrysu (3 jednotky, nevadí).
 
 ## 2026-10-22 — stav před vydáním: 4. kolo verdiktů, co zbývá — desktop (RDT-PC), Claude Code (bs3d-dc)
 - Hotovo a na main (CI zelená): #936, #933, #952, #400 (13. kolo), #977, #961, #777, #941, #908, #962 (1. etapa), #967 (1. etapa).
