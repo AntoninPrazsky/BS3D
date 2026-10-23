@@ -23,6 +23,12 @@ Terrain first, then the sky quad depth-**READ** against it (`DepthStencilState.D
 - ⚠ **The highland belt exists because the play camera grazes the deck.** The lens is 1.1 over `ArenaIsland.TOP_Y` (`GameCameraFit.LENS_FLOOR_Y`), so the deck hides everything below ~1° of depression, while a curved plain's skyline sits ~2.5° below the eye: without relief the scene was black sky over bare stone, and neither `LevelY` nor `Curvature` reaches it. The mare is a basin with a rim (`HighlandHeight`, `HighlandInnerRadius` to `HighlandCrestRadius`); `HighlandSaddleFloor` stops the belt dipping into a notch.
 - **The belt reuses `MareBase`'s noise**: `MoonHeight` runs four times per pixel, and a private massif field cost 2.0 ms of an 18.9 ms frame.
 
+## The drift against the drum (#983)
+
+- **The drum rises out of a drift of the plain's own dust**, not straight out of the plain with a hard line: an `IslandBerm` mesh built off the ground as the grid draws it (`TerrainMirror.OnGrid`, the rocks' own), drawn before the grid through `Moon.fx`'s `MoonBank`, which works out the regolith from the same world point as the plain's (`MoonGroundAt`).
+- ⚠ **The drift's normal alone drew its edge**: the plain's small craters are mostly shading, so a smooth drift going under them read as a pale disc with a rim. The drift takes the plain's normal where the dust lies thin and its own where it is deep (`buried`, its height over `MoonHeight` times 1.6), buries the craters' shadows and rims with it, and is a shade paler (35 % of the way to `RegolithColorPale` at full depth), fresh dust against the stone.
+- It casts nothing: the drum's own shadow is the island's.
+
 ## Sky and light
 
 - Stars are the shared `Stars.fxh`, moved verbatim out of `Space.fx`. ⚠ **The Earth ships at the true 0.95° radius (~30 px)**: an expectation-setting decision, not a bug. Its lit body stays under `GLARE_THRESHOLD` (a small bright disc flickers on the glare's sparse grid); only the rim blooms.
