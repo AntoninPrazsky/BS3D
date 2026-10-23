@@ -49,6 +49,11 @@ namespace Prazsky.Core.Render
         private const float FERN_INNER = 34f, FERN_OUTER = 260f, FERN_PATCH_RADIUS = 9f;
         private const float FERN_AT_FEET = 0.5f, FERN_FEET_REACH = 150f;
 
+        //And the island's foot (#983): clumps on the bank against the drum, how many round the ring, and how far out from the
+        //drum's face they stand, nearest and the span past it
+        private const int FERN_FOOT_CLUMPS = 14;
+        private const float FERN_FOOT_FROM = 0.5f, FERN_FOOT_SPAN = 2.6f;
+
         public ForestDressing(GraphicsDevice device, ForestSceneConfig config, ForestScatter planting, int seed)
         {
             ForestTreeConfig trees = config.Trees;
@@ -132,8 +137,9 @@ namespace Prazsky.Core.Render
             return h - MathF.Floor(h);
         }
 
-        //The ferns: clumps in patches over the floor (the damp hollows the references grow them in), and one or two at the feet
-        //of half the trees round the arena; none on the island's bank. Off a stream of their own, so nothing else moves.
+        //The ferns: clumps in patches over the floor (the damp hollows the references grow them in), one or two at the feet
+        //of half the trees round the arena, and clumps on the island's bank against the drum (#983), standing on the bank's
+        //own surface. Off a stream of their own, so nothing else moves; the bank's come last, so the floor's are as they were.
         private static List<ModelInstance>[] PlantFerns(ForestScatter planting, Func<float, float, float> ground, int seed)
         {
             var rng = new Random(unchecked(seed * 977 + 9621));
@@ -143,8 +149,13 @@ namespace Prazsky.Core.Render
             void Add(float x, float z, float scale)
             {
                 if (x * x + z * z < FERN_INNER * FERN_INNER) return;
+                AddOn(x, ground(x, z), z, scale);
+            }
+
+            void AddOn(float x, float groundY, float z, float scale)
+            {
                 float yaw = (float)rng.NextDouble() * MathHelper.TwoPi;
-                float y = ground(x, z) - 0.04f * scale;
+                float y = groundY - 0.04f * scale;
                 ferns[rng.Next(FERN_VARIANTS)].Add(new ModelInstance(
                     Matrix.CreateScale(scale) * Matrix.CreateRotationY(yaw) * Matrix.CreateTranslation(x, y, z),
                     new Vector4((float)rng.NextDouble(), (float)rng.NextDouble() * 0.3f - 0.15f, 0.04f * scale, 0f)));
@@ -183,6 +194,21 @@ namespace Prazsky.Core.Render
             }
             AtFeet(planting.FineConifers);
             AtFeet(planting.FineBroadleaves);
+
+            //The bank's: a clump every so often round the ring, each a few fronds close together against the stone. The bank is
+            //built off the same ground and the same seed (ForestBackdrop), so SurfaceY is the very surface it draws
+            for (int c = 0; c < FERN_FOOT_CLUMPS; c++)
+            {
+                float a = (c + 0.6f * (float)rng.NextDouble()) * MathHelper.TwoPi / FERN_FOOT_CLUMPS;
+                int n = 4 + rng.Next(5);
+                for (int i = 0; i < n; i++)
+                {
+                    float b = a + ((float)rng.NextDouble() - 0.5f) * 0.18f;
+                    float r = ArenaIsland.RADIUS + FERN_FOOT_FROM + (float)rng.NextDouble() * FERN_FOOT_SPAN;
+                    float x = MathF.Cos(b) * r, z = MathF.Sin(b) * r;
+                    AddOn(x, MathF.Max(ground(x, z), IslandBerm.SurfaceY(ground, seed, x, z)), z, 1.2f + 0.8f * (float)rng.NextDouble());
+                }
+            }
             return ferns;
         }
 

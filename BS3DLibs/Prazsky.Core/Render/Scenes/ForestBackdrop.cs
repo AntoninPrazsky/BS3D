@@ -26,10 +26,18 @@ namespace Prazsky.Core.Render
         //Its camera grid and the pass that draws it (#580)
         private readonly TerrainPass _forestPass;
 
-        //The bank the island sits in (#608): the floor's litter, leaning to moss, over dark soil against the drum, a few stones in it, through the
-        //shared plant material. The trees are the hosts'; this is the one thing standing on the floor that is the scene's.
+        //The bank the island sits in (#608), and the stones set into it, through the shared plant material. The trees are the
+        //hosts'; this is the one thing standing on the floor that is the scene's. Since #983 the bank itself is drawn as the
+        //floor (_bank, Forest.fx's ForestBank) and only its stones in the plant material; the planting's buckets still cast
         private readonly PlantPass _plants;
         private IslandBermPlanting _berm;
+        private ScatterBucket[] _bermStones;
+
+        //The bank as one mesh, the very one the planting's two halves are cut from (the same ground, the same seed), worn in
+        //the forest floor so it is the ground rising to the stone and not a mat laid round it (#983)
+        private IslandBerm.BermMesh _bank;
+        private readonly EffectTechnique _bankTechnique, _bankReducedTechnique;
+        private readonly Action _drawBank;
 
         //Where the wood stands (#962): planted here rather than by the hosts' renderers, so what this backdrop dresses the
         //wood with on High and Ultra hangs on the trees they draw (SceneRenderer.ForestPlanting)
@@ -78,6 +86,30 @@ namespace Prazsky.Core.Render
                 stone: _forestConfig.Rocks.Color.ToVector3(), stones: BERM_STONES,
                 //Mossy boulders at the foot, a few of them big, as the references drew the forest's
                 stoneRadius: (IslandBerm.STONE_RADIUS_MIN, IslandBerm.STONE_RADIUS_MAX + 2f), stoneSize: (0.4f, 1.4f));
+            _bermStones = _berm.Buckets[IslandBermPlanting.BANK_BUCKETS..];
+
+            _bank = IslandBerm.Build(services.GraphicsDevice, (x, z) => TerrainMirror.Forest(x, z, _forestConfig),
+                ForestScatterRenderer.DEFAULT_SEED + Services.SeedOffset, 0, IslandBerm.RINGS - 1);
+            _bankTechnique = _forestEffect.Techniques["ForestBank"];
+            _bankReducedTechnique = _forestEffect.Techniques["ForestBankReduced"];
+            _drawBank = DrawBank;
+        }
+
+        //The bank, through the floor's own program for the tier, inside the terrain pass: the frame's parameters and the far
+        //fade are pushed, and the grid drawn after it is turned away wherever the bank stands over the ground
+        private void DrawBank()
+        {
+            if (_bank == null) return;
+
+            EffectTechnique grid = _forestEffect.CurrentTechnique;
+            _forestEffect.CurrentTechnique = _sceneDetail > 0.5f ? _bankTechnique : _bankReducedTechnique;
+            _forestEffect.CurrentTechnique.Passes[0].Apply();
+
+            Services.GraphicsDevice.SetVertexBuffer(_bank.VertexBuffer);
+            Services.GraphicsDevice.Indices = _bank.IndexBuffer;
+            Services.GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _bank.PrimitiveCount);
+
+            _forestEffect.CurrentTechnique = grid;
         }
 
         private const int BERM_STONES = 14;
@@ -139,12 +171,12 @@ namespace Prazsky.Core.Render
         /// <inheritdoc/>
         public override void Draw(in SceneFrame frame)
         {
-            _forestPass.Draw(frame, Services.TerrainHoleRadius);
+            _forestPass.Draw(frame, Services.TerrainHoleRadius, _drawBank);
 
             //The wood on the hills (#962), after the floor so the depth test turns away every tree a nearer hill hides
             if (Services.FineMeshes) _farStand?.Draw();
 
-            if (_berm != null) _plants.Draw(frame, _berm.Buckets, _forestConfig.HorizonHazeDistance, _sceneDetail > 0.5f, Services.FineMeshes);
+            if (_berm != null) _plants.Draw(frame, _bermStones, _forestConfig.HorizonHazeDistance, _sceneDetail > 0.5f, Services.FineMeshes);
 
             //What the wood wears on High and Ultra (#962); every bucket of it is FineMeshes, so Low and Medium skip the lot
             if (_dressing != null && Services.FineMeshes)
@@ -167,6 +199,8 @@ namespace Prazsky.Core.Render
         {
             _berm?.Dispose();
             _berm = null;
+            _bank?.Dispose();
+            _bank = null;
             _farStand?.Dispose();
             _farStand = null;
             _dressing?.Dispose();
