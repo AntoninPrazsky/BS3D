@@ -189,7 +189,9 @@ namespace BS3D.Screens
 
             for (int tab = 0; tab < TAB_NAMES.Length; tab++)
             {
-                ScrollViewer scroller = MenuScroll(BuildBody(tab), BODY_SURROUNDINGS);
+                //Every tab with the clear band at its clip's ends (#1002), the ones that fit as well: they stand in one frame,
+                //and a tab without it would start its text a band higher than one that scrolls
+                ScrollViewer scroller = MenuScroll(BuildBody(tab), BODY_SURROUNDINGS, clearEdges: true);
                 Point size = scroller.Measure(new Point(int.MaxValue / 2, int.MaxValue / 2));
                 frame = new Point(Math.Max(frame.X, size.X), Math.Max(frame.Y, size.Y));
 

@@ -474,8 +474,8 @@ namespace BS3D.Screens
 
         protected VerticalStackPanel MenuColumn() => Game.MenuColumn();
 
-        protected ScrollViewer MenuScroll(Widget content, int reservedDesignUnits) =>
-            Game.MenuScroll(content, reservedDesignUnits);
+        protected ScrollViewer MenuScroll(Widget content, int reservedDesignUnits, bool clearEdges = false) =>
+            Game.MenuScroll(content, reservedDesignUnits, clearEdges);
 
         protected Label ScreenHeading(string text) => Game.ScreenHeading(text);
 
