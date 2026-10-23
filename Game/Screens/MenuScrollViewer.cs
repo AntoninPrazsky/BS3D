@@ -39,10 +39,6 @@ namespace BS3D.Screens
         private static bool _logged;
 
         /// <summary>
-        /// Moves the list by the wheel's delta. <c>base.OnMouseWheel</c> is not called: it is Myra's own step, and the
-        /// <c>Widget</c> under it, which that calls first, has nothing in it.
-        /// </summary>
-        /// <summary>
         /// Draws the scroller with the scissor narrowed to its own box, margin excluded (#1002), and puts the scissor back.
         /// The box is where the desktop laid it out, in the back buffer's pixels (<c>ToGlobal</c>, as Help's odd balls are
         /// cut, <c>HelpPage.ForegroundClip</c>), so a ball and the words beside it are cut on the same line.
@@ -58,6 +54,10 @@ namespace BS3D.Screens
             context.Scissor = scissor;
         }
 
+        /// <summary>
+        /// Moves the list by the wheel's delta. <c>base.OnMouseWheel</c> is not called: it is Myra's own step, and the
+        /// <c>Widget</c> under it, which that calls first, has nothing in it.
+        /// </summary>
         public override void OnMouseWheel(float delta)
         {
             int maximum = ScrollMaximum.Y;

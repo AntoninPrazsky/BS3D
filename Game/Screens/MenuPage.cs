@@ -592,9 +592,20 @@ namespace BS3D.Screens
         {
             if (line.IndexOf('/') < 0) return font.MeasureString(line).X;
 
-            LINE_LAYOUT.Font = font;
-            LINE_LAYOUT.Text = line;
-            return LINE_LAYOUT.Size.X;
+            //A command the layout cannot read throws inside it (an unknown face, a malformed /s[]), where the label itself,
+            //drawing the same text, would only show its own error: text the score server sends (a nickname's refusal reason)
+            //reaches SetProse, so a slash in it must not take a page down. Measured as plain glyphs then, which is wider
+            //than the label will draw it, so the line still fits
+            try
+            {
+                LINE_LAYOUT.Font = font;
+                LINE_LAYOUT.Text = line;
+                return LINE_LAYOUT.Size.X;
+            }
+            catch (Exception)
+            {
+                return font.MeasureString(line).X;
+            }
         }
 
         private static readonly RichTextLayout LINE_LAYOUT = new() { SupportsCommands = true };

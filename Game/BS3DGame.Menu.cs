@@ -2676,7 +2676,9 @@ namespace BS3D
                 Content = content,
                 ShowHorizontalScrollBar = false,
                 MaxHeight = bound,
-                Margin = cut ? ScaledThickness(0, MENU_SCROLL_EDGE_GAP, 0, MENU_SCROLL_EDGE_GAP) : new Thickness(0),
+                //Not ScaledThickness, whose zero is a pixel (Scaled never returns less than 1): a cut scroller would stand a
+                //pixel in from the text's left edge and two wider than one that fits
+                Margin = cut ? new Thickness(0, Scaled(MENU_SCROLL_EDGE_GAP), 0, Scaled(MENU_SCROLL_EDGE_GAP)) : new Thickness(0),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
             };
