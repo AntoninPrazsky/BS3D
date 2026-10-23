@@ -21,8 +21,8 @@ namespace BS3D.Screens
     /// <para>
     /// <b>An entry is the kind's name and what it does, never what it looks like</b> (#999): the live ball stands beside it
     /// (#856), so a clause describing the finish told the player nothing the square does not, and was wrong on the one
-    /// page that explains it each time a look was redrawn (#622). The name is the entry's lead-in, set apart in the
-    /// display face (<c>MenuPage.LeadIn</c>), so a player who comes here for the strange ball that just turned up finds it
+    /// page that explains it each time a look was redrawn (#622). The name is the entry's heading, on a line of its own in the
+    /// display face (<c>HelpPage.Headed</c>), so a player who comes here for the strange ball that just turned up finds it
     /// by its name down the column and reads one sentence.
     /// </para>
     /// <para>
