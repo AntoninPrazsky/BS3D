@@ -20,6 +20,10 @@ Pravidla:
 
 ---
 
+## 2026-10-23 — #940 vlna: černá a hnědá — desktop (RDT-PC), Claude Code (bs3d-80)
+- Hotovo (aedcd0fa), rozhodnuto místo majitele podle doporučení z měření: šedá figury černé podle plochy figury (`ColourCues.BlackFigureGrey`, průměr 0,0195, mez 0,08 až 0,15), hnědé zesílení 2,4. Na vlně (savana, obloha 14) čtverečky černé asi 2× jasnější. Karta na stránce verdiktů; fronta verdiktů 14.
+- ⚠ Jedna konstantní šedá s rezervou pod limitem by širší figury ztmavila (vinyl): spodní mez je dosavadní 0,08, kterou test unesl ve všech sadách.
+
 ## 2026-10-23 — #932 koule v hrdle trychtýře zapadají do tmy — desktop (RDT-PC), Claude Code (bs3d-80)
 - Hotovo (b3ad659e): v pevných scénách koule od jednotky pod ústím tmavne (jen barva) na 7 % o 10 jednotek níž (`ApplyKillPlaneFade`, `SceneRenderer.THROAT_*`); scény s otevřeným spodkem beze změny. Příčinou nebylo rozmazání pohybem. Karta na stránce verdiktů.
 - ⚠ Skriptovaný výstřel na úrovni z `levelfile=` blok pokaždé neshodí (pod zátěží 9 FPS šel jinam); spolehlivý pád do odtoku dává Testbed `at=7:End` s pevnou kamerou nad hrdlem, před/po přes `git stash` a přestavbu.
