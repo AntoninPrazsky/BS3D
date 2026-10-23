@@ -217,7 +217,7 @@ namespace BS3D.Screens
 
             ShowTab(_tab);
 
-            return ScreenRoot(Plate(column));
+            return ScreenRoot(Plate(column, prose: true));
         }
 
         private VerticalStackPanel BuildBody(int page)
