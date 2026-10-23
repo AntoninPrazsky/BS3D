@@ -97,8 +97,8 @@ namespace BS3D.Tests
             //Zero stars is an attempt (#716): the leader of a board nobody has cleared, and a player who has only lost on it
             HighScoresRow.Texts row = HighScoresRow.Of(true, Board("Rudi", 9000, 0, 2, myRank: 2, myScore: 4000, myStars: 0));
 
-            Assert.Equal("#1 Rudi, not finished", row.Leader);
-            Assert.Equal("You: 2nd of 2, not finished", row.Place);
+            Assert.Equal("#1 Rudi ☆", row.Leader);
+            Assert.Equal("You: 2nd of 2 ☆", row.Place);
         }
 
         [Theory]

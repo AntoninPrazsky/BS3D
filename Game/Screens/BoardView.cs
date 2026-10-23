@@ -69,8 +69,8 @@ namespace BS3D.Screens
         private const int BAND_BLEED = 14;
 
         //The hollow star an unfinished attempt wears in the cup's column: Inter's, the same glyph the picker's tiles draw an
-        //unearned star with (the cup's own face, PromptFont, would draw nothing for it)
-        private const string UnfinishedSign = "☆";
+        //unearned star with (the cup's own face, PromptFont, would draw nothing for it), and the one High Scores' cells say it with
+        private const string UnfinishedSign = PickerCopy.UNFINISHED_MARK;
 
         /// <summary>
         /// PromptFont's trophy, U+1F3C6 - outside the Basic Multilingual Plane, so a surrogate pair in a C# string, and the one

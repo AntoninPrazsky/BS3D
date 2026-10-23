@@ -63,8 +63,17 @@ namespace BS3D.Screens
         /// <summary>The picker's button onto the boards, naming the level it opens.</summary>
         internal static string BoardButton(string name) => name != null ? $"Board: {name}" : "Leaderboard";
 
-        /// <summary>What a row of the boards says of an unfinished attempt (#716), and the player's own line of theirs.</summary>
+        /// <summary>What the player's own line under a board says of their unfinished attempt (#716): words, because that line is
+        /// the display face, which has no star glyph, and it is never cut (it has no cell to fit).</summary>
         internal const string UNFINISHED = "not finished";
+
+        /// <summary>
+        /// The mark of an unfinished attempt (#716) where a cell must fit it: the hollow star, the same glyph the boards' rows
+        /// wear in the cup's column for one (#977, <c>BoardView</c>) and an unearned star is drawn with on the picker's tiles -
+        /// an attempt that did not finish earned none. High Scores' leader and place cells (#1004): ", not finished" was cut
+        /// to "not finis…" against the score beside it at 1920x1080 and below. Inter's glyph, so only in the small face.
+        /// </summary>
+        internal const string UNFINISHED_MARK = "☆";
 
         /// <summary>The player's own place under a board: their rank of how many, or that they or anyone is not on it.</summary>
         internal static string YouLine(int rank, int total, bool unfinished) =>
@@ -73,11 +82,11 @@ namespace BS3D.Screens
             : "Nobody is on this board yet";
 
         /// <summary>High Scores (#685): a board's leader, left of their score, with the mark of an unfinished attempt.</summary>
-        internal static string Leader(string name, bool unfinished) => $"#1 {name}" + (unfinished ? ", " + UNFINISHED : string.Empty);
+        internal static string Leader(string name, bool unfinished) => $"#1 {name}" + (unfinished ? " " + UNFINISHED_MARK : string.Empty);
 
         /// <summary>High Scores: the player's own place on a level's board, left of their score.</summary>
         internal static string Place(int rank, int total, bool unfinished) =>
-            (rank == 1 ? "You lead" : $"You: {Ordinal(rank)} of {N(total)}") + (unfinished ? ", " + UNFINISHED : string.Empty);
+            (rank == 1 ? "You lead" : $"You: {Ordinal(rank)} of {N(total)}") + (unfinished ? " " + UNFINISHED_MARK : string.Empty);
 
         /// <summary>"1st", "2nd", "3rd", "4th", … "11th", "12th", "13th", "21st".</summary>
         internal static string Ordinal(int n)
