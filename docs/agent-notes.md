@@ -32,6 +32,7 @@ Pravidla:
 - Hotovo (b9b3f80f, 03cc9f92, opravy z revize 4e357245): val lesa se kreslí programem lesní půdy (`Forest.fx` `ForestBank` v `beforeGrid` `TerrainPass`), mech na bubnu (výškový pás), kapradiny na valu; Měsíc dostal návěj prachu (`Moon.fx` `MoonBank`) s prolnutím normály a kráterů k pláni. Reference v `C:\Users\panrd\AI\sd\out\983-zimage`/`983-klein`. Karta na stránce verdiktů.
 - ⚠ Hladká normála valu na kráterové pláni kreslila okraj (bledý disk) — krátery jsou hlavně stínování; prolnutí podle hloubky zásypu ho smazalo.
 - Doplněno (f6ce69ea): Mars a outback stejně (val jako pláň, prolnutí normály). ⚠ Outback techniku pláně nenastavuje a kreslí první technikou efektu — nová technika musí být v `Outback.fx` až za `technique Outback`, jinak pád na vertex deklaraci.
+- Cena změřena (Testbed, 1600x900 ssaa 4, páry proti 2513465d přes `quiet-capture.ps1 -StdOut`): val jako zem stál +0,23/+0,82/+1,16 ms (les/Měsíc/Mars), lana a hrdlo +0,02. ⚠ Celou cenu dělalo dvojí stínování země pod valem, ne pořadí (to dalo 0,09): `BankCover.fxh` `UnderBank` odřízne terén uvnitř 2,4× rozptylu valu → +0,05/+0,51/+0,57 (67171adf).
 - Otevřené: otázka na majitele, co na Měsíci „nesedí“ se stínem (komentář na #983); tropy a louka beze změny (val tam čte snesitelně).
 
 ## 2026-10-23 — #896 #996 #998 #999 #1000 #1001 #400 lana stropu, nadpisy Helpu, drift — desktop (RDT-PC), Claude Code (bs3d-80)
