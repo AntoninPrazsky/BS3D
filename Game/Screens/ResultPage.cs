@@ -676,7 +676,7 @@ namespace BS3D.Screens
         /// would overshoot further than the text is tall.</summary>
         private const float BREAKDOWN_PUNCH_SECONDS = 0.22f;
 
-        /// <summary>Matched, orphaned, streak bonus, balls unused — the total lands one step after the last.</summary>
+        /// <summary>Matched, detached, streak bonus, balls unused — the total lands one step after the last.</summary>
         private const int BREAKDOWN_ROW_COUNT = 4;
 
         /// <summary>When row <paramref name="row"/> (0-based, in <see cref="BuildBreakdown"/>'s own order) lands.</summary>
@@ -816,7 +816,7 @@ namespace BS3D.Screens
             SpriteFontBase body = FontBody;
             SpriteFontBase heading = Game.MenuFontHeading;
 
-            float caption = Widest(body, "matched", "orphaned", "streak bonus", "balls unused");
+            float caption = Widest(body, "matched", "detached", "streak bonus", "balls unused");
             float detail = WidestFigures(body, _matchedDetailText, _orphanedDetailText, _unusedDetailText);
             float value = MathF.Max(
                 WidestFigures(body, PENDING_MARK, _matchedValueText, _orphanedValueText, _streakValueText, _unusedValueText),
@@ -1089,7 +1089,7 @@ namespace BS3D.Screens
             grid.ColumnsProportions.Add(new Proportion(ProportionType.Part));   //value, right-aligned by the cell
 
             AddRow(grid, 0, "matched", out _matchedDetail, out _matchedValue);
-            AddRow(grid, 1, "orphaned", out _orphanedDetail, out _orphanedValue);
+            AddRow(grid, 1, "detached", out _orphanedDetail, out _orphanedValue);
             AddRow(grid, 2, "streak bonus", out _, out _streakValue);
             AddRow(grid, 3, "balls unused", out _unusedDetail, out _unusedValue);
 

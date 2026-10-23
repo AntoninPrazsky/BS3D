@@ -35,12 +35,11 @@ namespace BS3D.Screens
     /// and so do Page Up/Page Down and the pad's right stick (<see cref="OnScrollAxis"/>).
     /// </para>
     /// <para>
-    /// <b>⚠ The worked example is COMPUTED, not written.</b> Every number on the scoring page comes out of
-    /// <see cref="ScoreKeeper"/>'s own constants at build time — the ten a matched ball is worth, the twenty an
-    /// orphaned one is, the streak's step and cap, and the unused shot's value as the real formula derives it
-    /// from a level's own size and budget. A hand-written example that looked plausible would be wrong the
-    /// first time the scoring is tuned and nothing would say so; this one cannot drift, because there is no
-    /// second copy of the arithmetic to drift from.
+    /// <b>⚠ Every number on the scoring tab is COMPUTED, not written</b>: the ten a matched ball is worth, the twenty a
+    /// detached one is, the streak's step and cap all come out of <see cref="ScoreKeeper"/>'s own constants at build time,
+    /// so a tuning of the scoring cannot leave a stale figure here. The tab is the price list and nothing of the
+    /// arithmetic (#998): the worked example it carried until then read as a page of a maths textbook, and a bubble
+    /// shooter's player concluded the game needed arithmetic.
     /// </para>
     /// <para>
     /// <b>The controls page draws real keycaps</b> out of PromptFont, the face the tutorial's cards already
@@ -106,14 +105,6 @@ namespace BS3D.Screens
         //codepoints, so a key drawn here and the same key drawn on a card cannot come out different
         private const string KEY_W = "Ｗ", KEY_A = "Ａ", KEY_S = "Ｓ", KEY_D = "Ｄ", KEY_E = "Ｅ", KEY_Q = "Ｑ", KEY_R = "Ｒ";
         private const string MOUSE = "⟼", MOUSE_LEFT = "⟵", MOUSE_RIGHT = "⟶";
-
-        //The level the worked example is played on: an early one, open within the first chapter, so a reader can go
-        //and reproduce it - the Meadow's fourth (One.json, "One" until #682, when the sheets of #603 had long since
-        //moved it off first place). Its two figures are the ones the scoring actually reads — the balls it hangs and
-        //the shots it allows.
-        private const string EXAMPLE_LEVEL = "Cannonball";
-        private const int EXAMPLE_BALLS = 385;
-        private const int EXAMPLE_SHOTS = 30;
 
         //The tabs in the order a player needs them (#857): which key does what first - what a player opens Help for - then
         //the game's rule, the score, the odd balls, the campaign, and the glass that steps down. Short names, because six
@@ -499,54 +490,24 @@ namespace BS3D.Screens
 
         private void BuildScoring(VerticalStackPanel column)
         {
-            //Every figure below is ScoreKeeper's own. Written through string interpolation rather than typed
-            //out, so a tuned constant cannot leave a stale number standing on this page.
-            column.Widgets.Add(Paragraph(
-                $"Matched — the balls in the group you completed. {ScoreKeeper.MatchedBallPoints}\u00A0points each."));
-            column.Widgets.Add(Paragraph(
-                $"Orphaned — the balls that fell because the group was the last thing holding them up. "
-                + $"{ScoreKeeper.OrphanedBallPoints}\u00A0points each, twice a matched one: bringing a mass down by "
-                + "cutting its anchor is the better shot and the score says so."));
-            column.Widgets.Add(Paragraph(
-                $"Streak — every landing that scores raises your multiplier by {ScoreKeeper.MultiplierStep}, up "
-                + $"to ×{ScoreKeeper.MaxMultiplier}. It multiplies everything that shot scores. A shot that "
-                + "matches nothing puts it back to ×1, and the game says so over the middle of the screen, where you aim: "
-                + $"“{StreakCues.LostCaption}” and the multiplier you had, with the one in the corner shattering."));
-            column.Widgets.Add(Paragraph(
-                "Balls unused — the balls you did not need. When the field empties the game says it over the middle of the "
-                + $"screen, “{AwardZoom.BonusCaption(6)}” over the points they paid, before it flies to your score. Worth a great deal, "
-                + $"and worth more on a big level: one unused ball is priced at {ScoreKeeper.UnusedShotWorthInShots}\u00A0average shots "
-                + $"of that level, i.e. {ScoreKeeper.UnusedShotWorthInShots} × {ScoreKeeper.MatchedBallPoints} × (balls ÷ "
-                + "shots)."));
-
-            //The example, arithmetic and all. UnusedShotValue is the formula ScoreKeeper itself applies when a
-            //level states both its size and its budget, which every shipped level does.
-            int unusedShotValue =
-                ScoreKeeper.UnusedShotWorthInShots * ScoreKeeper.MatchedBallPoints * EXAMPLE_BALLS / EXAMPLE_SHOTS;
-
-            int firstShot = (5 * ScoreKeeper.MatchedBallPoints + 3 * ScoreKeeper.OrphanedBallPoints) * 1;
-            int secondShot = (4 * ScoreKeeper.MatchedBallPoints) * (1 + ScoreKeeper.MultiplierStep);
-            int thirdShot = (3 * ScoreKeeper.MatchedBallPoints + 11 * ScoreKeeper.OrphanedBallPoints)
-                            * ScoreKeeper.MaxMultiplier;
-            int bonus = 6 * unusedShotValue;
-
-            column.Widgets.Add(Aside("A worked example, on " + EXAMPLE_LEVEL
-                + $" — {EXAMPLE_BALLS}\u00A0balls, {EXAMPLE_SHOTS}\u00A0shots", ProseWidth));
-            column.Widgets.Add(Paragraph(
-                $"Shot\u00A01 matches 5 and orphans 3, at ×1: 5×{ScoreKeeper.MatchedBallPoints} + "
-                + $"3×{ScoreKeeper.OrphanedBallPoints} = {firstShot}."));
-            column.Widgets.Add(Paragraph(
-                $"Shot\u00A02 matches 4 and orphans nothing, now at ×{1 + ScoreKeeper.MultiplierStep}: "
-                + $"4×{ScoreKeeper.MatchedBallPoints} × {1 + ScoreKeeper.MultiplierStep} = {secondShot}."));
-            column.Widgets.Add(Paragraph(
-                $"Shot\u00A03 cuts an anchor — 3\u00A0matched, 11\u00A0orphaned — at the ×{ScoreKeeper.MaxMultiplier} cap: "
-                + $"(3×{ScoreKeeper.MatchedBallPoints} + 11×{ScoreKeeper.OrphanedBallPoints}) × "
-                + $"{ScoreKeeper.MaxMultiplier} = {thirdShot}. Three balls matched, and the shot is worth more "
-                + "than the first two together."));
-            column.Widgets.Add(Paragraph(
-                $"Finish with 6\u00A0balls in hand and each is worth {unusedShotValue} here: 6 × {unusedShotValue} "
-                + $"= {bonus}, which on this level is more than the three shots above put together. Efficiency "
-                + "outweighs a streak you could farm by taking longer — that is deliberate."));
+            //Four values and a tip (#998): what scores, with the figure in the lead so the leads down the tab are the price
+            //list, and nothing of the arithmetic behind it. Every figure is ScoreKeeper's own, written through string
+            //interpolation rather than typed out, so a tuned constant cannot leave a stale number standing on this page.
+            //What the game shows in play as it scores (the caption over the middle of the screen, the shattering multiplier,
+            //the bonus flying to the score) is not narrated: the player sees it there. The streak's lead names its cap in words:
+            //Anton's × is a dot's size at the small face and read as "·5" (photographed)
+            column.Widgets.Add(Paragraph($"Matched balls · {ScoreKeeper.MatchedBallPoints} points each",
+                "Every ball of the same-colour group your shot completes."));
+            column.Widgets.Add(Paragraph($"Detached balls · {ScoreKeeper.OrphanedBallPoints} points each",
+                "The balls that fall because the group was the last thing holding them up. Twice a matched one: bringing a "
+                + "mass down is the better shot, and the score says so."));
+            column.Widgets.Add(Paragraph($"Streak · multiplier up to {ScoreKeeper.MaxMultiplier}",
+                $"Every shot that scores raises the multiplier by\u00A0{ScoreKeeper.MultiplierStep} for the shots "
+                + "after it. A shot that matches nothing puts it back to ×1."));
+            column.Widgets.Add(Paragraph("Unused balls · a big bonus",
+                "Every ball still in the cannon when the field is clear pays, and pays more on a big level."));
+            column.Widgets.Add(Paragraph("Tip",
+                "Finishing with balls to spare pays more than a streak you could farm by taking longer."));
         }
 
         //The squares the kinds' live balls are drawn in (#856), one per entry of OddBallCopy.Entries and at the entry's index,
