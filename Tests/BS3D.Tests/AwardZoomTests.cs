@@ -323,6 +323,84 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void TheReadTurnsSeeThroughAndNeverComesBack()
+        {
+            //#935: nearly solid through the zoom, then easing to the ghost, never rising again while it is read and never
+            //past solid, whatever the award; and a function of the age, so a hold cut short by a newer award cannot step it
+            foreach (int points in Awards)
+            {
+                float birth = AwardZoom.Birth(points), hold = AwardZoom.Hold(points);
+                float last = float.MaxValue;
+
+                for (float age = 0f; age <= hold; age += 0.005f)
+                {
+                    float alpha = AwardZoom.ReadAlpha(age, birth);
+                    Assert.InRange(alpha, AwardZoom.READ_ALPHA_HELD, 1f);
+                    Assert.True(alpha <= last + 1e-6f, $"{points} points: the read's alpha rose again at {age:F3} s");
+                    last = alpha;
+                }
+
+                Assert.Equal(AwardZoom.READ_ALPHA_PEAK, AwardZoom.ReadAlpha(birth * 0.5f, birth), 4);
+                Assert.Equal(AwardZoom.READ_ALPHA_HELD, AwardZoom.ReadAlpha(birth + AwardZoom.READ_FADE, birth), 4);
+            }
+        }
+
+        [Fact]
+        public void TheThrowStartsWhereTheReadEndedAndLandsAsItAlwaysDid()
+        {
+            //#935: no step at the hand-over from the read to the throw, however see-through the read had got, solid again by the
+            //end of the shrink, and absorbed into the corner at the share it always was
+            foreach (int points in Awards)
+            {
+                float birth = AwardZoom.Birth(points);
+
+                foreach (float hold in new[] { AwardZoom.MIN_READ, AwardZoom.Hold(points) })
+                {
+                    float readEnd = AwardZoom.ReadAlpha(hold, birth);
+                    Assert.Equal(readEnd, AwardZoom.FlightAlpha(0f, readEnd), 4);
+                    Assert.Equal(1f, AwardZoom.FlightAlpha(AwardZoom.SHRINK_SHARE, readEnd), 4);
+                    Assert.Equal(AwardZoom.ABSORBED_ALPHA, AwardZoom.FlightAlpha(1f, readEnd), 4);
+
+                    for (float flight = 0f; flight <= 1f; flight += 0.01f)
+                        Assert.InRange(AwardZoom.FlightAlpha(flight, readEnd), 0f, 1f);
+                }
+            }
+        }
+
+        [Fact]
+        public void ABigNumbersShadowGrowsWithTheRootOfItsSize()
+        {
+            //#937: in step with the type up to the face it was tuned at, then by the square root, so the overshoot's peak of a big
+            //release (LARGEST scores of 140 units, about 500 against the 112-unit face) carries under half the offset the
+            //linear rule gave it (about 2.1 times the tuned one, not 4.5)
+            Assert.Equal(0.5f, AwardZoom.ShadowGrowth(0.5f), 5);
+            Assert.Equal(1f, AwardZoom.ShadowGrowth(1f), 5);
+            Assert.Equal(1f, AwardZoom.ShadowGrowth(1.0001f), 3);
+
+            float peakShare = AwardZoom.LARGEST * 140f / 112f;
+            Assert.True(AwardZoom.ShadowGrowth(peakShare) < peakShare * 0.5f, $"the peak's shadow grows {AwardZoom.ShadowGrowth(peakShare):F2} times");
+
+            float previous = 0f;
+            for (float share = 0.1f; share <= peakShare; share += 0.05f)
+            {
+                float growth = AwardZoom.ShadowGrowth(share);
+                Assert.True(growth >= previous, "the shadow shrank as the type grew");
+                Assert.True(growth <= share + 1e-5f, "the shadow grew faster than the type");
+                previous = growth;
+            }
+        }
+
+        [Theory]
+        [InlineData(28, 28, 28, 1f)]       //black, the 8-ball as the HUD bakes it
+        [InlineData(0, 0, 0, 1f)]
+        [InlineData(39, 39, 146, 0f)]      //navy, the next darkest colour
+        [InlineData(95, 53, 33, 0f)]       //brown
+        [InlineData(208, 45, 45, 0f)]      //red
+        [InlineData(255, 190, 60, 0f)]     //the score's amber, where the throw takes every number
+        public void OnlyANearBlackFillTurnsItsHaloLight(float r, float g, float b, float expected) =>
+            Assert.Equal(expected, AwardZoom.LightHalo(r, g, b), 3);
+
+        [Fact]
         public void ACutThatDoesNotEndTheLevelOrRunsUnderADropCinematicKeepsItsWait()
         {
             Assert.Equal(AwardZoom.CUT_WORLD_WAIT, AwardZoom.CutWaitLeft(AwardZoom.CUT_WORLD_WAIT, levelCleared: false, dropCinematic: false));

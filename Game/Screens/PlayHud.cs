@@ -151,6 +151,11 @@ namespace BS3D.Screens
         private const int HUD_BACKING_PASSES = 2;
         private static readonly Color HUD_BACKING = new(0, 0, 0, 130);
 
+        //The backing a near-black fill stands on instead (#937): premultiplied white at a little over the dark one's strength,
+        //so a black cluster's number reads as black on a soft light glow over its own falling balls and over a dark scene.
+        //At the dark one's strength the see-through read (#935) lost the number over the black balls it stood on (photographed)
+        private static readonly Color HUD_BACKING_LIGHT = new(150, 150, 150, 150);
+
         //The caption under the ball count. NOT MENU_TEXT_DIM, whose own comment says what it is for — asides
         //"always on a dark plate" — and this one has no plate within a thousand pixels of it: at 146 grey on a
         //150 deck it was the least legible thing the game draws. Bright enough to hold its own over the
@@ -2499,8 +2504,9 @@ namespace BS3D.Screens
 
                 if (flight <= 0f)
                 {
-                    //The reading leg: on the balls, zooming in and then held
-                    DrawAwardAt(popup, layout, source, popup.Tint, 1f);
+                    //The reading leg: on the balls, zooming in and then held, and see-through once it has landed (#935) so the
+                    //cells under it show. The completion bonus stays solid: the field it stands over is already empty
+                    DrawAwardAt(popup, layout, source, popup.Tint, popup.IsBonus ? 1f : AwardZoom.ReadAlpha(popup.Age, popup.Birth));
                     continue;
                 }
 
@@ -2551,9 +2557,10 @@ namespace BS3D.Screens
             //is there to say. Faster than the motion, so it has clearly turned by the time it lands.
             Color colour = Color.Lerp(popup.Tint, HUD_ACCENT, MathF.Pow(flight, 0.65f));
 
-            //Held opaque nearly all the way in. It is absorbed rather than faded out: the corner's own flash is
-            //what finishes the gesture, and a number that dissolves before it arrives never delivered anything.
-            float alpha = 1f - MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp((flight - 0.88f) / 0.12f, 0f, 1f)) * 0.55f;
+            //From what the read left it at back to solid as it shrinks, then held nearly all the way in (#935). It is absorbed
+            //rather than faded out: the corner's own flash is what finishes the gesture, and a number that dissolves before it
+            //arrives never delivered anything.
+            float alpha = AwardZoom.FlightAlpha(flight, popup.IsBonus ? 1f : AwardZoom.ReadAlpha(popup.Hold, popup.Birth));
 
             float distance = Vector2.Distance(before, at);
             int ghosts = Math.Min(SMEAR_MAX, (int)(distance / Scaled(SMEAR_SPACING)));
@@ -2629,9 +2636,10 @@ namespace BS3D.Screens
         private const float POPUP_SUFFIX_SHARE = BS3DGame.HUD_FONT_LABEL / (float)BS3DGame.HUD_FONT_POPUP;
 
         /// <summary>
-        /// Lays an award out at <paramref name="size"/> scores (<see cref="AwardZoom.Size"/>). Its gap and its shadow's
-        /// offset scale with the figure exactly as they did with the old popup's one face, so the look at any size is the
-        /// old popup's at that size. <paramref name="suffixShare"/> is the caption's size as a share of the figure's: an award's
+        /// Lays an award out at <paramref name="size"/> scores (<see cref="AwardZoom.Size"/>). Its gap scales with the figure
+        /// exactly as it did with the old popup's one face; its shadow's offset in step with it up to that face and by the
+        /// square root past it (<see cref="AwardZoom.ShadowGrowth"/>, #937), so a big release's number is not carried off a
+        /// thick black copy of itself. <paramref name="suffixShare"/> is the caption's size as a share of the figure's: an award's
         /// (<see cref="POPUP_SUFFIX_SHARE"/>) unless the caller says otherwise (the lost streak's words and multiplier stand
         /// at one size, <see cref="LOST_CAPTION_SUFFIX_SHARE"/>). The completion bonus (<see cref="Popup.IsBonus"/>) is laid out
         /// stacked, its caption over its figure at <see cref="POPUP_BONUS_CAPTION_SHARE"/>, whatever the caller says.
@@ -2642,7 +2650,7 @@ namespace BS3D.Screens
 
             float units = size * BS3DGame.HUD_FONT_SCORE;
             float share = units / BS3DGame.HUD_FONT_POPUP;
-            float shadow = Scaled(HUD_SHADOW_OFFSET) * share;
+            float shadow = Scaled(HUD_SHADOW_OFFSET) * AwardZoom.ShadowGrowth(share);
 
             SpriteFontBase font = AwardFace(units, out float scale, out int blur);
             Vector2 textSize = font.MeasureString(popup.Text) * scale;
@@ -2700,20 +2708,26 @@ namespace BS3D.Screens
             Vector2 extent = layout.Extent;
             Vector2 corner = centre - extent * 0.5f;
 
+            //The backing fades slower than the type (#935): a see-through number keeps the ground it is read against, or a
+            //black one over the black balls it brought down is not read at all (photographed at half opacity)
+            float backing = MathF.Sqrt(alpha);
+
             if (layout.Stacked)
             {
                 //The words over the figure, each centred on the block's axis: what it counts, then how much
                 float figureTop = corner.Y + layout.SuffixSize.Y + layout.Gap;
 
                 DrawString(layout.SuffixFont, popup.Suffix, new Vector2(corner.X + (extent.X - layout.SuffixSize.X) * 0.5f, corner.Y),
-                    HUD_ACCENT * alpha, layout.SuffixScale, shadow, layout.SuffixBlur, layout.SuffixShadow);
+                    HUD_ACCENT * alpha, layout.SuffixScale, shadow, layout.SuffixBlur, layout.SuffixShadow, 0f, backing);
                 DrawString(layout.Font, popup.Text, new Vector2(corner.X + (extent.X - layout.TextSize.X) * 0.5f, figureTop),
-                    colour * alpha, layout.Scale, shadow, layout.Blur, layout.Shadow);
+                    colour * alpha, layout.Scale, shadow, layout.Blur, layout.Shadow, 0f, backing);
                 return;
             }
 
+            //A fill as dark as the 8-ball's stands on a light halo, not on a dark one it would vanish into (#937); the multiplier
+            //beside it is the accent's and keeps the dark one
             DrawString(layout.Font, popup.Text, corner + new Vector2(0f, (extent.Y - layout.TextSize.Y) * 0.5f),
-                colour * alpha, layout.Scale, shadow, layout.Blur, layout.Shadow);
+                colour * alpha, layout.Scale, shadow, layout.Blur, layout.Shadow, AwardZoom.LightHalo(colour.R, colour.G, colour.B), backing);
 
             if (popup.Suffix == null) return;
 
@@ -2721,7 +2735,7 @@ namespace BS3D.Screens
             //in the corner are recognisably the same thing
             DrawString(layout.SuffixFont, popup.Suffix,
                 corner + new Vector2(layout.TextSize.X + layout.Gap, (extent.Y - layout.SuffixSize.Y) * 0.5f),
-                HUD_ACCENT * alpha, layout.SuffixScale, shadow, layout.SuffixBlur, layout.SuffixShadow);
+                HUD_ACCENT * alpha, layout.SuffixScale, shadow, layout.SuffixBlur, layout.SuffixShadow, 0f, backing);
         }
 
         /// <summary>
@@ -3252,15 +3266,18 @@ namespace BS3D.Screens
         /// The same, with the backing's blur and the offset copy's distance given rather than derived from
         /// <paramref name="scale"/>: an award is drawn from several faces as it zooms (#846, <see cref="AwardFace"/>), and
         /// its backing and shadow have to follow the size it is drawn at, not the scale of whichever face drew it.
+        /// <paramref name="lightHalo"/> (0 to 1, <see cref="AwardZoom.LightHalo"/>) turns the backing from dark to light and
+        /// takes the offset copy away with it (#937): a near-black fill on a near-black ground was a blob.
+        /// <paramref name="backingAlpha"/>, when given, is the backing's and the offset copy's opacity in place of the type's.
         /// </summary>
         private void DrawString(SpriteFontBase font, string text, Vector2 position, Color colour,
-            float scale, bool shadow, int blur, float shadowOffset)
+            float scale, bool shadow, int blur, float shadowOffset, float lightHalo = 0f, float backingAlpha = -1f)
         {
             Vector2 scaling = new(scale);
 
             if (shadow)
             {
-                float alpha = colour.A / 255f;
+                float alpha = backingAlpha >= 0f ? backingAlpha : colour.A / 255f;
 
                 //The soft backing first, then the offset copy on top of it: the offset is the crisp lift and
                 //has to stay crisp, the backing is the ground it lifts off. Centred by its OWN measurement,
@@ -3272,12 +3289,15 @@ namespace BS3D.Screens
                 Vector2 backingSize = font.MeasureString(text, null, 0f, 0f, FontSystemEffect.Blurry, blur) * scale;
                 Vector2 backingAt = position + (size - backingSize) * 0.5f;
 
+                Color backing = Color.Lerp(HUD_BACKING, HUD_BACKING_LIGHT, lightHalo) * alpha;
+
                 for (int i = 0; i < HUD_BACKING_PASSES; i++)
-                    _game.OverlayBatch.DrawString(font, text, backingAt, HUD_BACKING * alpha, 0f, Vector2.Zero,
+                    _game.OverlayBatch.DrawString(font, text, backingAt, backing, 0f, Vector2.Zero,
                         scaling, 0f, 0f, 0f, TextStyle.None, FontSystemEffect.Blurry, blur);
 
-                _game.OverlayBatch.DrawString(font, text, position + new Vector2(shadowOffset),
-                    HUD_SHADOW * alpha, 0f, Vector2.Zero, scaling);
+                if (lightHalo < 1f)
+                    _game.OverlayBatch.DrawString(font, text, position + new Vector2(shadowOffset),
+                        HUD_SHADOW * (alpha * (1f - lightHalo)), 0f, Vector2.Zero, scaling);
             }
 
             _game.OverlayBatch.DrawString(font, text, position, colour, 0f, Vector2.Zero, scaling);

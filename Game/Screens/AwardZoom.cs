@@ -227,6 +227,79 @@ namespace BS3D.Screens
         public static string BonusCaption(int unusedBalls) =>
             unusedBalls.ToString(CultureInfo.InvariantCulture) + (unusedBalls == 1 ? " UNUSED BALL" : " UNUSED BALLS");
 
+        /// <summary>How opaque an award is through its zoom (#935): nearly solid, so it still reads at a glance as it bursts in.</summary>
+        public const float READ_ALPHA_PEAK = 0.9f;
+
+        /// <summary>How opaque it has become once it has been read for <see cref="READ_FADE"/> past its zoom (#935): about half, so
+        /// the cells it stands over, the ones the player is about to aim at, show through it for the rest of the read. Its
+        /// backing fades only by the square root of this (<c>PlayHud.DrawAwardAt</c>), so the number keeps its ground.</summary>
+        public const float READ_ALPHA_HELD = 0.55f;
+
+        /// <summary>The ease from <see cref="READ_ALPHA_PEAK"/> to <see cref="READ_ALPHA_HELD"/> after the zoom has landed, in
+        /// seconds: a bare match (read 0.55 s, zoom 0.2) leaves at about 0.63, a big release reaches the ghost and holds it.</summary>
+        public const float READ_FADE = 0.5f;
+
+        /// <summary>What the corner absorbs an award at, as a share of its opacity, over the last eighth of the throw.</summary>
+        public const float ABSORBED_ALPHA = 0.45f;
+
+        /// <summary>
+        /// <b>How opaque an award is while it is read</b> (#935, the owner's playtest of 2026-10-19: the big number should be
+        /// a little see-through so the map shows, and a fast player is not waiting for it to fly away). Solid enough to read
+        /// through the zoom (<see cref="READ_ALPHA_PEAK"/>), then easing to <see cref="READ_ALPHA_HELD"/> over
+        /// <see cref="READ_FADE"/>. A function of the age and the zoom's length and never of the hold, so an award whose hold a
+        /// newer one cuts short (<see cref="HandOff"/>) does not jump: its throw starts from what the read had reached.
+        /// </summary>
+        public static float ReadAlpha(float age, float birth)
+        {
+            float t = Clamp01((age - birth) / READ_FADE);
+            return Lerp(READ_ALPHA_PEAK, READ_ALPHA_HELD, t * t * (3f - 2f * t));
+        }
+
+        /// <summary>
+        /// <b>How opaque an award is in its throw</b> (#935): from what the read left it at (<paramref name="readEnd"/>,
+        /// <see cref="ReadAlpha"/> at the hold) back to solid over the shrink (<see cref="SHRINK_SHARE"/>), because a number
+        /// shrunk to the score's size and flying no longer hides what the player aims at, and one that dissolved on the way
+        /// never delivered anything; then the corner absorbs it over the last eighth, to <see cref="ABSORBED_ALPHA"/> of that,
+        /// as the throw always did.
+        /// </summary>
+        public static float FlightAlpha(float flight, float readEnd)
+        {
+            float shrink = Clamp01(flight / SHRINK_SHARE);
+            float solid = Lerp(readEnd, 1f, shrink * shrink * (3f - 2f * shrink));
+            float absorb = Clamp01((flight - 0.88f) / 0.12f);
+            return solid * (1f - absorb * absorb * (3f - 2f * absorb) * (1f - ABSORBED_ALPHA));
+        }
+
+        /// <summary>
+        /// <b>How an award's offset shadow grows with its type</b> (#937): <paramref name="share"/> is the type's size as a
+        /// share of the 112-unit popup face the shadow was tuned at. In step with it up to that face, and with its square root
+        /// past it, so the overshoot's peak of a big release (about 500 units) carries the shadow a 240-unit number had, 2.1
+        /// times the tuned one rather than 4.5: the owner's "too big, pushed off, thick, takes up space for nothing" was the
+        /// linear rule.
+        /// </summary>
+        public static float ShadowGrowth(float share) => share <= 1f ? share : MathF.Sqrt(share);
+
+        /// <summary>A fill this dark (luma, 0 to 255) or darker takes the light halo whole (#937): the 8-ball's baked (28, 28, 28).</summary>
+        public const float LIGHT_HALO_FULL = 32f;
+
+        /// <summary>A fill this light or lighter keeps the dark halo: navy, the next darkest colour, bakes to a luma of 47.</summary>
+        public const float LIGHT_HALO_NONE = 44f;
+
+        /// <summary>
+        /// <b>How far an award's halo turns from dark to light for its fill</b> (#937), 0 to 1: a black cluster's number was
+        /// near-black on its own near-black halo and shadow, a blob (the owner's playtest of 2026-10-19). Its fill stays the
+        /// colour of the balls that fell, so it is still read as black; what changes is what stands behind it. Smooth between
+        /// <see cref="LIGHT_HALO_FULL"/> and <see cref="LIGHT_HALO_NONE"/>, so the halo turns without a step as the throw takes
+        /// the number to the score's amber. <paramref name="r"/>, <paramref name="g"/> and <paramref name="b"/> are the fill in
+        /// 0 to 255, not premultiplied; the luma is Rec. 709's.
+        /// </summary>
+        public static float LightHalo(float r, float g, float b)
+        {
+            float luma = 0.2126f * r + 0.7152f * g + 0.0722f * b;
+            float t = Clamp01((LIGHT_HALO_NONE - luma) / (LIGHT_HALO_NONE - LIGHT_HALO_FULL));
+            return t * t * (3f - 2f * t);
+        }
+
         private static float ReadSize(float age, float birth, float peak)
         {
             if (age < birth) return peak * Lerp(BIRTH_FROM, 1f, HudEase.OutBack(MathF.Max(0f, age) / birth));
