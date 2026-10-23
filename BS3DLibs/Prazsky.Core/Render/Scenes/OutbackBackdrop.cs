@@ -72,7 +72,12 @@ namespace Prazsky.Core.Render
             _terrainShadowArea = _outbackEffect.Parameters["TerrainShadowArea"];
             _terrainShadowArea.SetValue(Vector4.Zero);
             _rockDiscs = new OutbackRockDiscs(services.GraphicsDevice, _outbackConfig);
-            _drawRock = () => _rockDiscs?.Draw(_outbackEffect, _rockTechnique);
+            _bankTechnique = _outbackEffect.Techniques["OutbackBank"];
+            _drawRock = () =>
+            {
+                DrawBank();
+                _rockDiscs?.Draw(_outbackEffect, _rockTechnique);
+            };
 
             _plants = new PlantPass(services.GraphicsDevice, content);
             _berm = new IslandBermPlanting(services.GraphicsDevice, (x, z) => TerrainMirror.Outback(x, z, _outbackConfig), BERM_SEED + Services.SeedOffset,
@@ -80,6 +85,11 @@ namespace Prazsky.Core.Render
                 cover: _outbackConfig.Surface.SoilColor.ToVector3(), coverDry: _outbackConfig.Surface.SoilColorPale.ToVector3(), coverDapple: 0.5f,
                 stone: _outbackConfig.Surface.RockColorBright.ToVector3(), stones: 28,
                 stoneRadius: (ArenaIsland.RADIUS + 1f, ArenaIsland.RADIUS + 6.5f), stoneSize: (0.15f, 0.6f));
+            _bermStones = _berm.Buckets[IslandBermPlanting.BANK_BUCKETS..];
+
+            //The bank itself as the plain (#983), the very mesh the planting's two halves are cut from
+            _bank = IslandBerm.Build(services.GraphicsDevice, (x, z) => TerrainMirror.Outback(x, z, _outbackConfig),
+                BERM_SEED + Services.SeedOffset, 0, IslandBerm.RINGS - 1);
         }
 
         /// <inheritdoc/>
@@ -151,7 +161,7 @@ namespace Prazsky.Core.Render
         {
             _rockDiscs?.Cull(frame.Camera.View * frame.Camera.Projection, Services.FineMeshes);
             _outbackPass.Draw(frame, Services.TerrainHoleRadius, _drawRock);
-            if (_berm != null) _plants.Draw(frame, _berm.Buckets, _outbackConfig.Air.HorizonHazeDistance, detail: true, Services.FineMeshes);
+            if (_berm != null) _plants.Draw(frame, _bermStones, _outbackConfig.Air.HorizonHazeDistance, detail: true, Services.FineMeshes);
             Services.Birds.Draw(frame, _outbackConfig.Birds);
         }
 
@@ -165,6 +175,26 @@ namespace Prazsky.Core.Render
         }
 
         private const int BERM_SEED = 9300;
+
+        //The bank (#983): drawn as the plain inside the terrain pass, its stones as plants; the planting's buckets still cast
+        private ScatterBucket[] _bermStones;
+        private IslandBerm.BermMesh _bank;
+        private readonly EffectTechnique _bankTechnique;
+
+        private void DrawBank()
+        {
+            if (_bank == null) return;
+
+            EffectTechnique grid = _outbackEffect.CurrentTechnique;
+            _outbackEffect.CurrentTechnique = _bankTechnique;
+            _outbackEffect.CurrentTechnique.Passes[0].Apply();
+
+            Services.GraphicsDevice.SetVertexBuffer(_bank.VertexBuffer);
+            Services.GraphicsDevice.Indices = _bank.IndexBuffer;
+            Services.GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _bank.PrimitiveCount);
+
+            _outbackEffect.CurrentTechnique = grid;
+        }
 
         /// <summary>
         /// Bakes the formations' cast shadows over the land (#967) when the sun has moved since the last bake: one pass of
@@ -225,6 +255,8 @@ namespace Prazsky.Core.Render
         public override void Dispose()
         {
             _berm?.Dispose();
+            _bank?.Dispose();
+            _bank = null;
             _berm = null;
             _rockDiscs?.Dispose();
             _rockDiscs = null;

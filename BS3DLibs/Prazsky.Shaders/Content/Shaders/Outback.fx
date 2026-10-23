@@ -533,8 +533,9 @@ struct OutbackVertexOutput
 };
 
 //How the land at a pixel is lit and hazed. `rocky` is false for the plain's meshes, which never hold rock, and the
-//compiler drops every rock term from their program.
-float3 ShadeOutback(float3 worldPosition, bool rocky)
+//compiler drops every rock term from their program. `onBank` is the bank against the island's drum (#983), whose
+//surface is its mesh's (`meshNormal`): the plain's ground worn on it, blended to the plain's normal at its edge.
+float3 ShadeOutback(float3 worldPosition, bool rocky, float3 meshNormal, bool onBank)
 {
     float dist = distance(CameraPosition, worldPosition);
     float footprint = length(fwidth(worldPosition.xz));
@@ -550,6 +551,10 @@ float3 ShadeOutback(float3 worldPosition, bool rocky)
 
     float2 slope = float2(hx - here.Height, hz - here.Height) / e;
     float3 baseNormal = normalize(float3(-slope.x, 1.0, -slope.y));
+
+    //On the bank: the plain's normal where it lies thin, the bank's where it is deep (the Moon's drift, #983)
+    if (onBank)
+        baseNormal = normalize(lerp(baseNormal, meshNormal, saturate((worldPosition.y - here.Height) * 1.6)));
 
     float rockMask = rocky ? smoothstep(0.03, 0.30, here.Rock) : 0.0;
 
@@ -792,7 +797,7 @@ float4 OutbackPS(OutbackVertexOutput input) : COLOR
     //Every formation's footprint is its own mesh's: the plain stops on it
     clip(InsideMonolith(worldPosition.xz) || InsideOutcrop(worldPosition.xz) ? -1.0 : 1.0);
 
-    return float4(ShadeOutback(worldPosition, false), 1.0);
+    return float4(ShadeOutback(worldPosition, false, float3(0.0, 1.0, 0.0), false), 1.0);
 }
 
 technique Outback
@@ -801,6 +806,46 @@ technique Outback
     {
         VertexShader = compile VS_SHADERMODEL OutbackVS();
         PixelShader = compile PS_SHADERMODEL OutbackPS();
+    }
+};
+
+//Declared after the plain's own technique, which the backdrop leaves current and so must stay the effect's first
+//THE BANK AGAINST THE DRUM (#983): IslandBerm's mesh worn in the plain itself - its soil, spinifex and the formations'
+//baked shadow - so the drum rises out of the ground and not out of a ring of flat colour laid round it
+struct OutbackBankVertexInput
+{
+    float4 Position : POSITION0;
+    float3 Normal : NORMAL0;
+    float2 TextureCoordinate : TEXCOORD0;
+};
+
+struct OutbackBankVertexOutput
+{
+    float4 Position : SV_POSITION;
+    float3 WorldPosition : TEXCOORD0;
+    float3 Normal : TEXCOORD1;
+};
+
+OutbackBankVertexOutput OutbackBankVS(OutbackBankVertexInput input)
+{
+    OutbackBankVertexOutput output;
+    output.WorldPosition = input.Position.xyz;
+    output.Normal = input.Normal;
+    output.Position = mul(mul(float4(input.Position.xyz, 1.0), View), Projection);
+    return output;
+}
+
+float4 OutbackBankPS(OutbackBankVertexOutput input) : COLOR
+{
+    return float4(ShadeOutback(input.WorldPosition, false, normalize(input.Normal), true), 1.0);
+}
+
+technique OutbackBank
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL OutbackBankVS();
+        PixelShader = compile PS_SHADERMODEL OutbackBankPS();
     }
 };
 
@@ -835,7 +880,7 @@ float4 OutbackRockPS(RockVertexOutput input) : COLOR
     //A boulder's mesh gives way to a monolith's where the two footprints overlap, so no point is drawn twice
     clip(input.Outcrop > 0.5 && InsideMonolith(input.WorldPosition.xz) ? -1.0 : 1.0);
 
-    return float4(ShadeOutback(input.WorldPosition, true), 1.0);
+    return float4(ShadeOutback(input.WorldPosition, true, float3(0.0, 1.0, 0.0), false), 1.0);
 }
 
 technique OutbackRock
