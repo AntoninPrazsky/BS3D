@@ -299,7 +299,7 @@ namespace BS3D.Screens
             _back.Margin = ScaledThickness(0, PAGE_GAP, 0, 0);
             column.Widgets.Add(_back);
 
-            return ScreenRoot(Plate(column));
+            return ScreenRoot(Plate(column, prose: true));
         }
 
         /// <summary>

@@ -640,7 +640,7 @@ namespace BS3D.Screens
         /// <summary>The build's name, small, in the bottom-right corner — on the front end and About only.</summary>
         protected Label VersionTag() => Game.VersionTag();
 
-        protected Panel Plate(Widget content) => Game.Plate(content);
+        protected Panel Plate(Widget content, bool prose = false) => Game.Plate(content, prose);
 
         /// <summary>
         /// The width every entry in a menu column is cut to, in pixels at the layout in force — for anything a

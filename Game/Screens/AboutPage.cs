@@ -116,7 +116,7 @@ namespace BS3D.Screens
 
             //The same tag, in the same corner, as the front end's — About is where a player looks for which version
             //they run, once they have found the entry
-            return ScreenRoot(Plate(column), VersionTag());
+            return ScreenRoot(Plate(column, prose: true), VersionTag());
         }
 
         /// <summary>

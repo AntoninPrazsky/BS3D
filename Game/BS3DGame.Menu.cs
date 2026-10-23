@@ -417,6 +417,15 @@ namespace BS3D
         //through the numbers — see the premultiplied note above for why that fraction is exactly 1 - 190/255.
         internal static readonly Color MENU_PLATE = new(42, 42, 42, 214);
 
+        //The plate under a page that is read rather than picked from (#867): About, Settings and Help. MENU_PLATE's tone at a
+        //higher opacity, 94 % against 84 %. At 84 % a bright sky no longer came through the small print, but a dark, sharp,
+        //high-contrast thing behind it still did - the hanging cluster's red, green and blue balls and the glass's rim, read
+        //right under a paragraph (the owner's UI review, photographed on About, Settings ONLINE and Help BASICS). The
+        //picture behind still shows as a pane, not a black card, and it is a step DARKER than MENU_PLATE over a bright
+        //scene (premultiplied: less of the sky is added), which only widens the controls' step above it. The boards, the
+        //result page and the pause keep MENU_PLATE: what is read on them is short and set large
+        internal static readonly Color MENU_PROSE_PLATE = new(42, 42, 42, 240);
+
 
         /// <summary>
         /// The height the menu is laid out for, in the same spirit as <see cref="InfoRenderer"/>'s overlay:
@@ -2566,11 +2575,13 @@ namespace BS3D
         /// <see cref="MENU_PLATE"/>'s own business.
         /// </para>
         /// </summary>
-        internal Panel Plate(Widget content)
+        /// <param name="prose">A page of reading (About, Settings, Help): the more opaque <see cref="MENU_PROSE_PLATE"/>, so the
+        /// cluster behind cannot be read through a paragraph (#867).</param>
+        internal Panel Plate(Widget content, bool prose = false)
         {
             Panel plate = new()
             {
-                Background = new FlatBrush(MENU_PLATE),
+                Background = new FlatBrush(prose ? MENU_PROSE_PLATE : MENU_PLATE),
                 Padding = ScaledThickness(MENU_PLATE_PADDING_X, MENU_PLATE_PADDING_Y),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
