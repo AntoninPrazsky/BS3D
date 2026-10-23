@@ -93,6 +93,14 @@ namespace Prazsky.Core.Render
             return false;
         }
 
+        /// <summary>
+        /// How high the scene's roof stands straight over (<paramref name="x"/>, <paramref name="z"/>), for what hangs from
+        /// it (<see cref="SceneRenderer.RoofAbove"/>, #896): infinity under an open sky. The two scenes with a roof answer,
+        /// and both draw it without the depth that would hide what passes through it: the cavern's vault and the Big Top's
+        /// canvas.
+        /// </summary>
+        public virtual float RoofAbove(float x, float z) => float.PositiveInfinity;
+
         /// <summary>The scene's establishing viewpoint (<see cref="SceneRenderer.TryGetViewpoint"/>).</summary>
         public virtual bool TryGetViewpoint(float bearing, out SceneViewpoint viewpoint)
         {

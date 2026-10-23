@@ -1134,6 +1134,13 @@ namespace Prazsky.Core.Render
         public SceneConfig GetSceneConfig(SceneKind kind) => BackdropFor(kind)?.Config;
 
         /// <summary>
+        /// How high <paramref name="kind"/>'s roof stands straight over (<paramref name="x"/>, <paramref name="z"/>), or
+        /// infinity under an open sky (<see cref="Backdrop.RoofAbove"/>): where the ceiling plate's cables end (#896). Both
+        /// roofs are drawn without depth, so a cable that ran on would be drawn across the rock or the canvas.
+        /// </summary>
+        public float RoofAbove(SceneKind kind, float x, float z) => BackdropFor(kind)?.RoofAbove(x, z) ?? float.PositiveInfinity;
+
+        /// <summary>
         /// The storm's lightning envelope at a wall-clock time: 0 between strikes, rising to 1 at a
         /// strike's peak. <b>A pure function of the clock with no state at all</b>, exactly as
         /// <see cref="VolcanoEruption"/> is and for the same reason — the Game, the Testbed and the map
