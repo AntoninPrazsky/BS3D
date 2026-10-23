@@ -101,6 +101,28 @@ namespace BS3D.Tests
 
         private List<StandIn.Request> Stats => _server.Requests.Where(r => r.Path == "/v1/stats").ToList();
 
+        [Fact]
+        public void A_slow_clear_does_not_spend_the_quiet_in_flight()
+        {
+            //The CI runner's failure: the quiet was pushed before the clear went, the clear took most of it on the way, and the
+            //batch followed the service's taking it by 44 ms. The quiet runs from the end of the request too, so held back
+            //longer than the longest quiet, the clear is still followed by a whole one
+            _server.ScoreDelay = Fast.QuietMax + TimeSpan.FromMilliseconds(50);
+            OnlineScores client = Client(true);
+
+            Thread.Sleep(600);
+            client.Submit(client.NewSubmission(new LevelIdentity("One.json", "0123456789abcdef"), 300, 3, 4, 12.5f));
+            client.SubmitStats(Change(startsToFirstClear: 7));
+
+            Assert.True(Within(() => Stats.Count == 1), "a batch was sent");
+            Stop(client);
+
+            StandIn.Request score = Assert.Single(_server.Requests, r => r.Path == "/v1/scores");
+            TimeSpan answered = score.At + _server.ScoreDelay;
+            Assert.True(Stats[0].At - answered >= Fast.QuietMin - TimeSpan.FromMilliseconds(100),
+                $"the batch went {(Stats[0].At - answered).TotalMilliseconds:0} ms after the clear was answered");
+        }
+
         [Theory]
         [InlineData(false)]
         [InlineData(null)]
@@ -260,6 +282,9 @@ namespace BS3D.Tests
 
             internal ConcurrentQueue<(int Status, string Body)> StatsAnswers { get; } = new();
             internal ConcurrentQueue<(int Status, string Body)> ScoreAnswers { get; } = new();
+
+            //How long a clear's answer is held back: a far or a busy service, which a slow CI runner is too
+            internal TimeSpan ScoreDelay { get; set; }
             internal string Url { get; }
             internal List<Request> Requests => _requests.ToList();
 
@@ -323,6 +348,8 @@ namespace BS3D.Tests
                                     : (201, "{\"accepted\":true,\"personalBest\":true,\"month\":{\"rank\":1,\"total\":1},\"allTime\":{\"rank\":1,\"total\":1}}"),
                                 _ => (404, null),
                             };
+
+                            if (request.Path == "/v1/scores" && ScoreDelay > TimeSpan.Zero) Thread.Sleep(ScoreDelay);
 
                             byte[] payload = Encoding.UTF8.GetBytes(answer ?? "");
                             string response = $"HTTP/1.1 {status} X\r\nContent-Length: {payload.Length}\r\n"
