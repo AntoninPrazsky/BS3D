@@ -548,7 +548,9 @@ namespace BS3D.Screens
 
             for (int i = 0; i < shown; i++)
             {
-                Matrix world = pose.SlotWorld(i, out Vector3 position);
+                //Every round lies turned in the bore so the slot shows its figure (#939, BorePose.LOADED_TURN), but for the
+                //Cutter, whose saw keeps the barrel's own bearing (#767)
+                Matrix world = pose.SlotWorld(i, out Vector3 position, barrelFrame: _magazine.Slot(i).Kind == BallKind.Cutter);
 
                 //NO ball in the barrel carries a ripple any more (#236). Slot 0 used to breathe one — see the
                 //region above for what that was for and why the channel was wrong — and the owner's ruling is
