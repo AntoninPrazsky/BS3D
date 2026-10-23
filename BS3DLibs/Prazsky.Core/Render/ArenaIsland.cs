@@ -666,6 +666,15 @@ namespace Prazsky.Core.Render
                 BandColor = new Vector3(0.44f, 0.42f, 0.36f), BandTopY = BEACH_SAND_Y + 1.0f, BandFade = 0.6f,
                 BandWet = 1f, BandStrength = 1f
             },
+            //The forest's stone in the forest floor (#983): MOSS climbing the drum from the bank, damp and dark green over
+            //the grey, the way every reference drew a stone set in a wood - the lower courses green, the upper ones bare.
+            //It reaches 3.2 over the foot because the bank already covers the first unit and more of the drum, and the
+            //wander of the line keeps it from reading as a painted stripe.
+            SceneKind.Forest => NO_DRESSING with
+            {
+                BandColor = new Vector3(0.18f, 0.30f, 0.07f), BandTopY = TOP_Y - EDGE_HEIGHT + 3.2f, BandFade = 1.2f,
+                BandWet = 0.3f, BandStrength = 1f
+            },
             //THE OFF-WORLD AND ARID FAMILY (#538). The Moon: the pad's POWDER - the regolith's pale grey settled over
             //half the top and blown clear in a ring round the drain, three units past the funnel's mouth and fading
             //back over three more (the craters are in the pad's mesh). Mars: a thin film of the plain's fine dust

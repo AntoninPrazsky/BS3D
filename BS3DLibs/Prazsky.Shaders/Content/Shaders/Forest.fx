@@ -266,15 +266,10 @@ float ForestShadow(float3 worldPosition, float3 sunDir, float density)
 //
 //And it is two entry points rather than the tidier `compile PS_SHADERMODEL ForestPS(true)`: MGFX cannot
 //parse a uniform argument in a compile statement ("Unexpected token 't' found. Expected CloseParenthesis").
-float4 ForestFloor(ForestVertexOutput input, bool detail)
+//The floor at a point of the ground, its surface turned to `baseNormal`: the terrain's own (ForestFloor below) or the
+//bank's round the island's foot (ForestBankPS, #983), so the two wear one floor and meet without a seam
+float4 ForestFloorAt(float3 worldPosition, float3 baseNormal, bool detail)
 {
-    float3 worldPosition = input.WorldPosition;
-
-    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
-    clip(length(worldPosition.xz) - IslandHoleRadius);
-    FarRingClip(worldPosition.xz);
-
-    float3 baseNormal = TerrainNormal(worldPosition.xz);
     float footprint = length(fwidth(worldPosition.xz));
     float2 xz = worldPosition.xz;
 
@@ -411,6 +406,17 @@ float4 ForestFloor(ForestVertexOutput input, bool detail)
     return float4(ForestHaze(color, worldPosition), 1.0);
 }
 
+float4 ForestFloor(ForestVertexOutput input, bool detail)
+{
+    float3 worldPosition = input.WorldPosition;
+
+    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
+    clip(length(worldPosition.xz) - IslandHoleRadius);
+    FarRingClip(worldPosition.xz);
+
+    return ForestFloorAt(worldPosition, TerrainNormal(worldPosition.xz), detail);
+}
+
 //Two programs from one body. "Forest" is the authored floor; "ForestReduced" is the same floor without the
 //triplanar normal variation and without the procedural tree shadows - the pair that has to go together,
 //since removing either alone saves nothing. The caller picks by tier; SceneRenderer.TerrainDetail decides.
@@ -423,6 +429,56 @@ technique Forest
     {
         VertexShader = compile VS_SHADERMODEL ForestVS();
         PixelShader = compile PS_SHADERMODEL ForestPS();
+    }
+};
+
+//THE BANK ROUND THE ISLAND'S FOOT (#983): IslandBerm's mesh, built in world space off the terrain mirror, worn in the
+//floor itself. It was drawn through the plant material in two flat colours, an earthen band and a cover, and read as a
+//mat laid round the island ("a smooth transition between the ground and the funnel's surroundings is missing"). Drawn
+//here, every layer of the floor - litter, earth, moss cushions, bilberry, needles - is worked out from the same world
+//point as the terrain's, so where the bank's outer edge dips under the ground the two are the same picture, and the
+//bank is the forest floor rising to the stone. Its slope sorts it as a bank's: litter and bare earth, the moss on top.
+struct ForestBankVertexInput
+{
+    float4 Position : POSITION0;
+    float3 Normal : NORMAL0;
+    float2 TextureCoordinate : TEXCOORD0;
+};
+
+struct ForestBankVertexOutput
+{
+    float4 Position : SV_POSITION;
+    float3 WorldPosition : TEXCOORD0;
+    float3 Normal : TEXCOORD1;
+};
+
+ForestBankVertexOutput ForestBankVS(ForestBankVertexInput input)
+{
+    ForestBankVertexOutput output;
+    output.WorldPosition = input.Position.xyz;
+    output.Normal = input.Normal;
+    output.Position = mul(mul(float4(input.Position.xyz, 1.0), View), Projection);
+    return output;
+}
+
+float4 ForestBankPS(ForestBankVertexOutput input) : COLOR { return ForestFloorAt(input.WorldPosition, normalize(input.Normal), true); }
+float4 ForestBankReducedPS(ForestBankVertexOutput input) : COLOR { return ForestFloorAt(input.WorldPosition, normalize(input.Normal), false); }
+
+technique ForestBank
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL ForestBankVS();
+        PixelShader = compile PS_SHADERMODEL ForestBankPS();
+    }
+};
+
+technique ForestBankReduced
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL ForestBankVS();
+        PixelShader = compile PS_SHADERMODEL ForestBankReducedPS();
     }
 };
 

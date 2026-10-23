@@ -20,6 +20,10 @@ namespace Prazsky.Core.Render
         /// <summary>The earthen band, the cover and the stones, in draw order.</summary>
         public ScatterBucket[] Buckets { get; }
 
+        /// <summary>How many of <see cref="Buckets"/> are the bank itself (the earthen band and the cover); the stones follow.
+        /// A scene that draws the bank as its own floor (the forest, #983) draws only the rest.</summary>
+        public const int BANK_BUCKETS = 2;
+
         /// <param name="height">The scene's ground at a world point (its <see cref="TerrainMirror"/>).</param>
         /// <param name="seed">Rolls the bank's wander and where the stones lie.</param>
         /// <param name="earth">The band against the drum (linear), and <paramref name="earthDry"/> the shade it mottles to.</param>
