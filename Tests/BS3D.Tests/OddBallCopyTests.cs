@@ -51,7 +51,7 @@ namespace BS3D.Tests
         }
 
         /// <summary>
-        /// Every entry has a name of its own, short enough to be a lead-in, and says what the kind does in more than a phrase;
+        /// Every entry has a name of its own, short enough to be a heading, and says what the kind does in more than a phrase;
         /// the page's copy keeps the house typesetting rules (#999).
         /// </summary>
         [Fact]
@@ -63,9 +63,9 @@ namespace BS3D.Tests
             {
                 Assert.Null(CopyRules.Fault(entry.Text));
                 Assert.Null(CopyRules.Fault(entry.Name));
-                Assert.False(string.IsNullOrWhiteSpace(entry.Name), entry.Kind + " needs a name for its lead-in");
-                Assert.True(entry.Name.Length <= 16, entry.Kind + "'s name is a lead-in, not a sentence");
-                Assert.False(entry.Text.StartsWith(entry.Name, StringComparison.Ordinal), entry.Kind + "'s sentence repeats its name, which the lead already says");
+                Assert.False(string.IsNullOrWhiteSpace(entry.Name), entry.Kind + " needs a name for its heading");
+                Assert.True(entry.Name.Length <= 16, entry.Kind + "'s name is a heading, not a sentence");
+                Assert.False(entry.Text.StartsWith(entry.Name, StringComparison.Ordinal), entry.Kind + "'s sentence repeats its name, which the heading already says");
                 Assert.EndsWith(".", entry.Text);
                 Assert.True(entry.Text.Length > 40, entry.Kind + "'s sentence is too short to explain it");
                 Assert.True(entry.Colour != 0, entry.Kind + " needs a colour to be drawn in: a ball of colour zero is dropped in silence");

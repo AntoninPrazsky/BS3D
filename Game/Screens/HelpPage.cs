@@ -96,6 +96,10 @@ namespace BS3D.Screens
         //block carry its own space, when the lines were the display face's two and three lines tall
         private const int KEY_LINE_GAP = 24;
 
+        //Between a heading and its paragraph (#996), in design units: none of its own, because the display face's line
+        //already stands a descender's depth under its capitals, which is less than a paragraph's gap above the heading
+        private const int HEADING_GAP = 0;
+
         //Back's width in the row under the text (#738): a third of the frame's row, where every other entry on a page is one
         //column wide, so it stands under the text's first letter and leaves the row's right end to the scroll prompt (#857;
         //Previous and Next had the other two thirds until the tabs took their place)
@@ -463,26 +467,26 @@ namespace BS3D.Screens
 
         private void BuildPlaying(VerticalStackPanel column)
         {
-            //Every paragraph opens on its lead-in (#996), so that the leads read down the page are the game in five
+            //Every paragraph under a heading of its own (#996), so that the headings read down the page are the game in five
             //phrases for a player who wants it in five seconds
-            column.Widgets.Add(Paragraph("The goal",
+            column.Widgets.Add(Headed("The goal",
                 "A cluster of coloured balls hangs from a sheet of glass above a stone island. You stand under it with a "
                 + "cannon and fire balls up into it. Clear every ball that can be matched and the level is done."));
-            column.Widgets.Add(Paragraph("Match & drop",
+            column.Widgets.Add(Headed("Match & drop",
                 "A shot sticks where it lands. Land it so that three or more of the same colour touch, and the whole "
                 + "group falls — and everything that was hanging from it falls with it. The group you match is usually "
                 + "the smaller half of what you bring down."));
-            column.Widgets.Add(Paragraph("Find the anchor",
+            column.Widgets.Add(Headed("Find the anchor",
                 "So the shot to look for is rarely the biggest clump of your colour. It is the one ball that is holding "
                 + "a lot of other balls up."));
-            column.Widgets.Add(Paragraph("Ammo & queue",
+            column.Widgets.Add(Headed("Ammo & queue",
                 "You have a fixed number of balls per level, shown at the bottom left. The queue at the bottom right "
                 + "shows what you are about to fire and what comes after it, so you can plan two shots ahead."));
 
             //The colour cue (#737), where the balls carry it: a pattern that only ever means its colour, said once so
             //that nobody reads a striped or a spotted ball as a special one. Not on the Potato path, which draws none.
             if (Game.Balls?.DrawsColourCue == true)
-                column.Widgets.Add(Paragraph("Patterns",
+                column.Widgets.Add(Headed("Patterns",
                     "Every colour also wears a pattern of its own: stripes, spots, checks or a printed symbol, "
                     + "depending on what the balls are made of. Every ball of a colour wears the same one, and so does "
                     + "its disc in the queue, so two colours that look alike still differ in pattern."));
@@ -490,23 +494,23 @@ namespace BS3D.Screens
 
         private void BuildScoring(VerticalStackPanel column)
         {
-            //Four values and a tip (#998): what scores, with the figure in the lead so the leads down the tab are the price
+            //Four values and a tip (#998): what scores, with the figure in the heading so the headings down the tab are the price
             //list, and nothing of the arithmetic behind it. Every figure is ScoreKeeper's own, written through string
             //interpolation rather than typed out, so a tuned constant cannot leave a stale number standing on this page.
             //What the game shows in play as it scores (the caption over the middle of the screen, the shattering multiplier,
-            //the bonus flying to the score) is not narrated: the player sees it there. The streak's lead names its cap in words:
-            //Anton's × is a dot's size at the small face and read as "·5" (photographed)
-            column.Widgets.Add(Paragraph($"Matched balls · {ScoreKeeper.MatchedBallPoints} points each",
+            //the bonus flying to the score) is not narrated: the player sees it there. The streak's heading names its cap in
+            //words: Anton's × read as "·5" when the heading was a run-in lead at the small face's size (photographed)
+            column.Widgets.Add(Headed($"Matched balls · {ScoreKeeper.MatchedBallPoints} points each",
                 "Every ball of the same-colour group your shot completes."));
-            column.Widgets.Add(Paragraph($"Detached balls · {ScoreKeeper.OrphanedBallPoints} points each",
+            column.Widgets.Add(Headed($"Detached balls · {ScoreKeeper.OrphanedBallPoints} points each",
                 "The balls that fall because the group was the last thing holding them up. Twice a matched one: bringing a "
                 + "mass down is the better shot, and the score says so."));
-            column.Widgets.Add(Paragraph($"Streak · multiplier up to {ScoreKeeper.MaxMultiplier}",
+            column.Widgets.Add(Headed($"Streak · multiplier up to {ScoreKeeper.MaxMultiplier}",
                 $"Every shot that scores raises the multiplier by\u00A0{ScoreKeeper.MultiplierStep} for the shots "
                 + "after it. A shot that matches nothing puts it back to ×1."));
-            column.Widgets.Add(Paragraph("Unused balls · a big bonus",
+            column.Widgets.Add(Headed("Unused balls · a big bonus",
                 "Every ball still in the cannon when the field is clear pays, and pays more on a big level."));
-            column.Widgets.Add(Paragraph("Tip",
+            column.Widgets.Add(Headed("Tip",
                 "Finishing with balls to spare pays more than a streak you could farm by taking longer."));
         }
 
@@ -554,7 +558,7 @@ namespace BS3D.Screens
                     Margin = new Thickness(0, 0, 0, ParagraphGap),
                 };
                 row.Widgets.Add(_ballSquares[i]);
-                row.Widgets.Add(Paragraph(OddBallCopy.Entries[i].Name, OddBallCopy.Entries[i].Text, ProseWidth - square - gap));
+                row.Widgets.Add(Headed(OddBallCopy.Entries[i].Name, OddBallCopy.Entries[i].Text, ProseWidth - square - gap));
 
                 column.Widgets.Add(row);
             }
@@ -566,40 +570,40 @@ namespace BS3D.Screens
             //stars handed over, and that stars open the way on. The arithmetic behind a threshold and the last level's price
             //are the level picker's, where the player is looking at the lock. The level and chapter counts are the set's own
             //(#606: the page once said 120 levels in 12 chapters while the game shipped 130 in 13)
-            column.Widgets.Add(Paragraph("Chapters",
+            column.Widgets.Add(Headed("Chapters",
                 $"{Game.LevelCount}\u00A0levels in {Game.BlockCount}\u00A0chapters of ten, each against one backdrop and with a "
                 + "puzzle of its own — towers, things hidden inside other things, mathematics."));
-            column.Widgets.Add(Paragraph("Stars",
+            column.Widgets.Add(Headed("Stars",
                 "Every level you clear is rated from one to four stars. One is for clearing it. Two and three are for your "
                 + "score: fewer shots, bigger drops, longer streaks. Four means you cleared it well under the shots it allows."));
-            column.Widgets.Add(Paragraph("Cups",
+            column.Widgets.Add(Headed("Cups",
                 "A cleared level hands you a cup for its stars: bronze for one, silver for two, gold for three and crystal "
                 + "for four."));
-            column.Widgets.Add(Paragraph("Stars open the way",
+            column.Widgets.Add(Headed("Stars open the way",
                 "Later levels ask for a total of stars across everything you have played, so a level you rushed is worth "
                 + "playing again."));
         }
 
         private void BuildCeiling(VerticalStackPanel column)
         {
-            //Each block a lead-in, and the two things on the screen a player has to look for in bold (#1001): the panel on
+            //Each block under a heading, and the two things on the screen a player has to look for in bold (#1001): the panel on
             //the left and the red line in it. The warning is the floor's laser net (docs/game-feedback, "The floor's laser
             //net"), red because it is the ceiling flash's own red, and it comes a few steps early, LASER_WARN_STEPS of them
-            column.Widgets.Add(Paragraph("The glass steps down",
+            column.Widgets.Add(Headed("The glass steps down",
                 "The cluster does not hang still for ever. Every few shots the glass it hangs from steps down, and the whole "
                 + $"cluster comes with it. The {Strong("panel on the left")} of the screen shows the field, the glass at the top "
                 + "of it and how far down it has come."));
-            column.Widgets.Add(Paragraph("The red line",
+            column.Widgets.Add(Headed("The red line",
                 $"At the bottom of that panel is a {Strong("red line")}. If the cluster reaches it, the level is lost. A red "
                 + "net of light over the island says it is a few steps away, and once the cluster is over the line you have "
                 + "about a second to knock balls off its bottom."));
-            column.Widgets.Add(Paragraph("Your shots are the clock",
+            column.Widgets.Add(Headed("Your shots are the clock",
                 "Every shot brings the glass nearer, whether it matched anything or not, which is the other reason a miss is "
                 + "expensive. Clearing from the bottom buys height; clearing from the top does not."));
-            column.Widgets.Add(Paragraph("Throwing away is fair",
+            column.Widgets.Add(Headed("Throwing away is fair",
                 "When the ball in the gun has nowhere to score, fire it into empty space, or onto a ball of another colour. "
                 + "It costs a shot and your streak, not the level."));
-            column.Widgets.Add(Paragraph("The brake",
+            column.Widgets.Add(Headed("The brake",
                 $"From chapter\u00A0{LevelSet.BRAKE_FROM_BLOCK}, one press a level lifts the glass a step back up, which is "
                 + "time the ceiling took. It does nothing until the glass has stepped down."));
         }
@@ -745,5 +749,24 @@ namespace BS3D.Screens
         private Label Paragraph(string text) => Paragraph(text, ProseWidth);
 
         private Label Paragraph(string lead, string text) => Paragraph(lead, text, ProseWidth);
+
+        private Widget Headed(string heading, string text) => Headed(heading, text, ProseWidth);
+
+        /// <summary>
+        /// A block under a heading of its own (#996): <paramref name="heading"/> on a line of its own in the display face at
+        /// the size CONTROLS names its actions at, in the loud white, and the paragraph under it. The owner's verdict of
+        /// 2026-10-23 on BASICS, SCORING, ODD BALLS, CAMPAIGN and THE GLASS: the lead-ins run into the first line at the
+        /// small face's size read as headings too small for the text under them. CONTROLS keeps its two run-in leads
+        /// (<see cref="Paragraph(string, string)"/>), which he passed, under its own line of the same size.
+        /// </summary>
+        private Widget Headed(string heading, string text, int width)
+        {
+            VerticalStackPanel block = new() { Spacing = Scaled(HEADING_GAP), HorizontalAlignment = HorizontalAlignment.Left };
+
+            block.Widgets.Add(new Label { Text = heading, Font = FontBody, TextColor = BS3DGame.MENU_TEXT });
+            block.Widgets.Add(Paragraph(text, width));
+
+            return block;
+        }
     }
 }
