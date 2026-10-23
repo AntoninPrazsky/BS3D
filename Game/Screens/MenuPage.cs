@@ -701,6 +701,13 @@ namespace BS3D.Screens
 
         #endregion
 
+        //What is chosen reads as unmistakably chosen, inverted: the near-white of the type as the slab and a dark grey as the
+        //type. Still the greyscale rule (BS3DGame's palette) — brightness, not hue — and the opposite of a row's focus
+        //highlight, which lifts a grey slab a step and so can never be taken for it. The tab that is up (TabRow) and the
+        //period High Scores shows (#1003) wear it, so a choice looks the same wherever the player makes one
+        protected static readonly IBrush SELECTED_BRUSH = new FlatBrush(BS3DGame.MENU_TEXT);
+        protected static readonly Color SELECTED_TEXT = new(30, 30, 30);
+
         /// <summary>
         /// A row of tabs over a page area (#686, #857): one button per page, all cut to the widest name's width, the chosen
         /// one inverted, with what turns them at the row's two ends. Buttons, so the mouse gets the shared hover, press and
@@ -717,12 +724,6 @@ namespace BS3D.Screens
             private const int PADDING_Y = 14;
             private const int SPACING = 16;
             private const int GAP = 20;
-
-            //The tab that is up reads as unmistakably chosen, inverted: the near-white of the type as the slab and a dark
-            //grey as the type. Still the greyscale rule (BS3DGame's palette) — brightness, not hue — and the opposite of
-            //a row's focus highlight, which lifts a grey slab a step and so can never be taken for it.
-            private static readonly IBrush SELECTED_BRUSH = new FlatBrush(BS3DGame.MENU_TEXT);
-            private static readonly Color SELECTED_TEXT = new(30, 30, 30);
 
             private readonly Button[] _tabs;
             private readonly Label[] _labels;
