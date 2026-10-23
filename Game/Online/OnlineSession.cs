@@ -199,10 +199,11 @@ namespace BS3D.Online
         internal string Nickname => _identity?.IsUsable == true ? _identity.Name : null;
 
         /// <summary>
-        /// What is sent and what is kept, in one sentence — the settings page's and the About page's, from the one
-        /// place (<see cref="OnlineScores.PrivacySentence"/>), so the two read the same.
+        /// What is sent and what is kept, as a short labelled list (#868) — the settings page's and the About page's, from
+        /// the one place (<see cref="OnlineScores.PrivacyList"/>), so the two read the same; <paramref name="lead"/> sets
+        /// each line's label (the page's <c>LeadIn</c>).
         /// </summary>
-        internal string PrivacySentence => OnlineScores.PrivacySentence(_settings);
+        internal string PrivacyList(Func<string, string> lead) => OnlineScores.PrivacyList(_settings, lead);
 
         /// <summary>
         /// What became of the level just cleared, once the worker knows: accepted with its ranks, refused, or

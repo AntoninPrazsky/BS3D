@@ -31,7 +31,7 @@ namespace BS3D.Screens
 
             /// <summary>
             /// The online scores' privacy sentence as an aside. Not this page's copy: the Settings page reads the same
-            /// sentence from the one place both take it (<c>OnlineScores.PrivacySentence</c>, #548), so the two cannot say
+            /// sentence from the one place both take it (<c>OnlineScores.PrivacyList</c>, #548), so the two cannot say
             /// different things about the same data.
             /// </summary>
             Privacy,
@@ -76,7 +76,7 @@ namespace BS3D.Screens
 
         /// <summary>
         /// What the game is, in four sentences. The online scores' privacy line stands under it, from the one place the
-        /// Settings page reads it too (<c>OnlineScores.PrivacySentence</c>), so it is not copy of this page's.
+        /// Settings page reads it too (<c>OnlineScores.PrivacyList</c>), so it is not copy of this page's.
         /// </summary>
         internal static string Game(string title) =>
             title.Replace(' ', SpaceWrap.TIE) + " is a 3D arcade puzzle. Aim, match, and collapse colour clusters hanging beneath "

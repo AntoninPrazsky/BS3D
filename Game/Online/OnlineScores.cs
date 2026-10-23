@@ -427,23 +427,27 @@ namespace BS3D.Online
         }
 
         /// <summary>
-        /// The one sentence that says what online scores send and what the service keeps (#548) — on the settings
-        /// page and on the About page, from here, so the two cannot drift apart. <b>It must stay exactly true of
-        /// <see cref="ScoreSubmission"/> and of the service's audit row (#544)</b>: change one, change this in the
-        /// same commit, the way the documents are held to the code. Since #709 it says the play counts too
-        /// (<see cref="StatsBatchBody"/>, and the service's <c>play_stats</c> table): only what the code guarantees, that they
-        /// are sent and stored without the player's id or name, which is also why a removal cannot find them.
+        /// What online scores send and what the service keeps (#548), as a short labelled list (#868): what is sent, where,
+        /// what the server adds, how to delete it, and the play counts — on the settings page and on the About page, from
+        /// here, so the two cannot drift apart. Each line opens on its label, set by <paramref name="lead"/> (the page's
+        /// <c>LeadIn</c>), and the lines are parted by line breaks the prose breaker keeps. <b>It must stay exactly true of
+        /// <see cref="ScoreSubmission"/> and of the service's audit row (#544)</b>: change one, change this in the same
+        /// commit, the way the documents are held to the code. It says everything the sentence it replaced said, the
+        /// unfinished attempt (#716) and the play counts (#709, <see cref="StatsBatchBody"/>, the service's
+        /// <c>play_stats</c>) included: only what the code guarantees of those, that they are sent and stored without the
+        /// player's id or name, which is also why a removal cannot find them.
         /// </summary>
-        internal static string PrivacySentence(GameSettings settings)
+        internal static string PrivacyList(GameSettings settings, Func<string, string> lead)
         {
             string host = TryResolveServer(settings, out Uri server, out _, out _) ? server.Authority : "the score server";
 
-            //Unfinished attempts too since #716, and the play counts since #709: the sentence is what a player agreed to,
-            //so it says so. The counts follow "Remove scores", because nothing in them names the player for it to remove
-            return $"With online scores on, each cleared level, and your best attempt at a level you have not cleared yet, sends your nickname, "
-                + $"a random player id, the level, its score, stars, shots, time and the game’s version to {host}, which adds only when it "
-                + "arrived and a hashed network address. Remove scores deletes it all. Counts of each level’s starts, retries, clears, "
-                + "losses, quits, skips, shots and time go there too, sent and stored without your id or name, so Remove scores cannot find them.";
+            return lead("Sent") + " With online scores on, for each level you clear, and your best attempt at one you have not cleared "
+                + "yet: your nickname, a random player id, the level, its score, stars, shots, time and the game’s version.\n"
+                + lead("Where") + $" {host}.\n"
+                + lead("Added there") + " When it arrived and a hashed network address.\n"
+                + lead("Delete") + " Remove scores deletes all of it.\n"
+                + lead("Play counts") + " Each level’s starts, retries, clears, losses, quits, skips, shots and time go there too, sent and "
+                + "stored without your id or name, so Remove scores cannot find them.";
         }
 
         #region The worker
