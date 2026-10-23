@@ -19,8 +19,11 @@ namespace BS3D.Screens
     /// group by itself and fails the test until it has its entry. <see cref="BallKind.Normal"/> needs none.
     /// </para>
     /// <para>
-    /// The look clauses are deliberately short: the looks are being redrawn one kind at a time (#622), and a sentence
-    /// describing a finish that has since changed would be wrong on the one page that explains it.
+    /// <b>An entry is the kind's name and what it does, never what it looks like</b> (#999): the live ball stands beside it
+    /// (#856), so a clause describing the finish told the player nothing the square does not, and was wrong on the one
+    /// page that explains it each time a look was redrawn (#622). The name is the entry's lead-in, set apart in the
+    /// display face (<c>MenuPage.LeadIn</c>), so a player who comes here for the strange ball that just turned up finds it
+    /// by its name down the column and reads one sentence.
     /// </para>
     /// <para>
     /// The colour is what the live ball beside the entry is drawn in (#856): any for the kinds that have none of their own
@@ -32,8 +35,8 @@ namespace BS3D.Screens
     /// </summary>
     internal static class OddBallCopy
     {
-        /// <summary>One kind's line: the kind, the colour its ball is drawn in beside it, and what the page says of it.</summary>
-        internal readonly record struct Entry(BallKind Kind, BallType Colour, string Text)
+        /// <summary>One kind's line: the kind, the colour its ball is drawn in beside it, its name and what the page says it does.</summary>
+        internal readonly record struct Entry(BallKind Kind, BallType Colour, string Name, string Text)
         {
             /// <summary>
             /// Whether the cannon holds this kind rather than the cluster (<see cref="BallKinds.Shootable"/>): drawn in
@@ -48,37 +51,35 @@ namespace BS3D.Screens
         /// <summary>Every kind but <see cref="BallKind.Normal"/>, the cluster's first and the cannon's after them.</summary>
         internal static readonly Entry[] Entries =
         {
-            new(BallKind.Transparent, BallType.Type3, "Glass — clear, with no colour of its own yet. The first ball that lands against it colours it, "
-                + "and from that moment it is an ordinary ball of that colour. It is a cell you get to choose."),
-            new(BallKind.Buckshot, BallType.Type4, "Buckshot — a clump of grey pellets. No colour takes it and the level is not cleared while it "
-                + "hangs: cut away whatever holds it up and it pours out."),
-            new(BallKind.Bomb, BallType.Type8, "Bomb — dark, and it beats harder than the cluster around it. Set it off and it destroys its "
-                + "neighbours outright, colour regardless."),
-            new(BallKind.Zap, BallType.Type5, "Zap — dark and flickering, with hard bright arcs across it. It fires along a colour rather "
-                + "than a shape."),
-            new(BallKind.Rock, BallType.Type4, "Stone — colourless, and it cannot be matched. It never falls to a colour, only to losing "
-                + "whatever was holding it up. A wall of stone is a wall you have to go around."),
-            new(BallKind.Acid, BallType.Type2, "Acid — land a shot beside it and it eats straight down through the cluster beneath it until it "
-                + "reaches a gap. Whatever it was holding up comes down with it."),
-            new(BallKind.Frozen, BallType.Type1, "Frozen — a coloured ball sealed in a block of ice. Nothing matches it and no shot removes it "
-                + "until you clear a group next to it. Then the ice breaks, and it is an ordinary ball of the colour you "
-                + "could see all along."),
-            new(BallKind.Infectious, BallType.Type7, "Infectious — an ordinary ball of its colour, and sick. Every shot you fire, it passes the "
-                + "sickness to one healthy neighbour, the highest one, and hardens into stone itself. Match it away early: "
-                + "the stone it leaves is permanent."),
-            new(BallKind.Gravity, BallType.Type6, "Gravity — an ordinary ball that pulls on shots passing near it and bends their flight. The "
-                + "aim preview shows the bend."),
-            new(BallKind.Heavy, BallType.Type3, "Heavy — an ordinary ball many times heavier than the rest. Whatever hangs from it sits lower in "
-                + "the cluster, nearer the line."),
+            new(BallKind.Transparent, BallType.Type3, "Glass", "The first ball that lands against it colours it, and from then on it "
+                + "is an ordinary ball of that colour: a cell whose colour you choose."),
+            new(BallKind.Buckshot, BallType.Type4, "Buckshot", "No colour takes it, and the level is not cleared while it hangs. Cut "
+                + "away whatever holds it up and it pours out."),
+            new(BallKind.Bomb, BallType.Type8, "Bomb", "Land a shot beside it, or bring it down, and it blows up everything around "
+                + "it, whatever the colour."),
+            new(BallKind.Zap, BallType.Type5, "Zap", "Land a shot beside it and every ordinary ball of your shot’s colour comes "
+                + "off the field, wherever it hangs, and the zap with them."),
+            new(BallKind.Rock, BallType.Type4, "Stone", "It cannot be matched and never falls to a colour, only to losing whatever "
+                + "holds it up. A wall of stone is a wall you have to go around."),
+            new(BallKind.Acid, BallType.Type2, "Acid", "Land a shot beside it and it eats straight down through the cluster beneath "
+                + "it until it reaches a gap. Whatever it was holding up comes down with it."),
+            new(BallKind.Frozen, BallType.Type1, "Frozen", "Nothing matches it and no shot removes it until you clear a group next "
+                + "to it. Then the ice breaks, and it is an ordinary ball of the colour you could see all along."),
+            new(BallKind.Infectious, BallType.Type7, "Infectious", "It matches like any ball of its colour, but every shot you fire "
+                + "it makes one healthy neighbour sick, the highest one, and hardens into stone itself. Match it away early: the "
+                + "stone it leaves is permanent."),
+            new(BallKind.Gravity, BallType.Type6, "Gravity", "An ordinary ball that pulls on shots passing near it and bends their "
+                + "flight. The aim preview shows the bend."),
+            new(BallKind.Heavy, BallType.Type3, "Heavy", "An ordinary ball many times heavier than the rest. Whatever hangs from it "
+                + "sits lower in the cluster, nearer the line."),
 
-            //The cannon's two (#895). The rainbow ball's sentences are the paragraph that stood here before it had a square,
-            //less its lead (which is GunLead's now); the Cutter's are the Controls tab's line for the Cut, less its key
-            new(BallKind.Wildcard, BallType.Type1, "Rainbow ball — a ball that never settles on a colour while it is loaded. It becomes whatever "
-                + "completes a group where it lands. A few of the later levels hand them out, and a card says so the first "
-                + "time one is loaded."),
-            new(BallKind.Cutter, BallType.Type1, "Cutter — what the Cut turns your next ball into. It destroys the whole storey it hits, so what "
-                + "hung on it falls; what it would cut off lights up as you aim, never more than the lower half; one a "
-                + "level, from the fifth chapter."),
+            //The cannon's two (#895). The rainbow ball's sentences are the paragraph that stood here before it had a square;
+            //the Cutter's are the Cut's whole story, which the Controls tab leaves here (#997)
+            new(BallKind.Wildcard, BallType.Type1, "Rainbow ball", "It never settles on a colour while it is loaded, and becomes "
+                + "whatever completes a group where it lands. A few of the later levels hand them out, and a card says so the "
+                + "first time one is loaded."),
+            new(BallKind.Cutter, BallType.Type1, "Cutter", "What the Cut turns your next ball into. It destroys the whole storey it "
+                + "hits, so what hung on it falls; what it would cut off lights up as you aim, never more than the lower half."),
         };
     }
 }
