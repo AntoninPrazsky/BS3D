@@ -90,6 +90,8 @@ namespace Prazsky.Core.Render
             //The bank itself as the plain (#983), the very mesh the planting's two halves are cut from
             _bank = IslandBerm.Build(services.GraphicsDevice, (x, z) => TerrainMirror.Outback(x, z, _outbackConfig),
                 BERM_SEED + Services.SeedOffset, 0, IslandBerm.RINGS - 1);
+            _outbackEffect.Parameters["BankCoverPhase"].SetValue(IslandBerm.Phase(BERM_SEED + Services.SeedOffset));
+            _outbackEffect.Parameters["BankCoverOn"].SetValue(1f);
         }
 
         /// <inheritdoc/>

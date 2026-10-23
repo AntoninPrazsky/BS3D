@@ -200,6 +200,7 @@ float CraterLayer(float2 p, float seedOffset, float chance, out float ejecta)
 }
 
 #include "Craters.fxh"
+#include "BankCover.fxh"
 
 float CraterField(float2 p, out float ejecta)
 {
@@ -776,6 +777,9 @@ float4 MarsTerrain(MarsTerrainVertexOutput input, bool detail)
 
     clip(length(worldPosition.xz) - IslandHoleRadius);
     FarRingClip(worldPosition.xz);
+
+    //Under the bank, which is the plain too (#983, BankCover.fxh): shaded there, not here
+    clip(UnderBank(worldPosition.xz) ? -1.0 : 1.0);
 
     return MarsGroundAt(worldPosition, float3(0.0, 1.0, 0.0), false, detail);
 }

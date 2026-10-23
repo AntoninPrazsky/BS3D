@@ -40,6 +40,7 @@
 //The shared noise library: gradient noise for the plain's swell and the rock's buttresses, Voronoi for the
 //spinifex hummocks. Its gradient noise fades QUINTICALLY, which matters because these fields drive a normal.
 #include "Noise.fxh"
+#include "BankCover.fxh"
 
 float4x4 View;
 float4x4 Projection;
@@ -796,6 +797,9 @@ float4 OutbackPS(OutbackVertexOutput input) : COLOR
 
     //Every formation's footprint is its own mesh's: the plain stops on it
     clip(InsideMonolith(worldPosition.xz) || InsideOutcrop(worldPosition.xz) ? -1.0 : 1.0);
+
+    //And so it does under the bank, which is the plain too (#983, BankCover.fxh)
+    clip(UnderBank(worldPosition.xz) ? -1.0 : 1.0);
 
     return float4(ShadeOutback(worldPosition, false, float3(0.0, 1.0, 0.0), false), 1.0);
 }

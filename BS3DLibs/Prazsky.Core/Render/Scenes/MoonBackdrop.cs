@@ -99,6 +99,8 @@ namespace Prazsky.Core.Render
                 terrain, PLANTING_SEED + Services.SeedOffset);
 
             _bank = IslandBerm.Build(_graphicsDevice, ground, bankSeed, 0, IslandBerm.RINGS - 1);
+            _moonEffect.Parameters["BankCoverPhase"].SetValue(IslandBerm.Phase(bankSeed));
+            _moonEffect.Parameters["BankCoverOn"].SetValue(1f);
             _moonBankTechnique = _moonEffect.Techniques["MoonBank"];
         }
 
