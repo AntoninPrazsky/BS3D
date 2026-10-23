@@ -250,8 +250,8 @@ namespace Prazsky.BS3D.GameStructure
         {
             (gain, grey) = type switch
             {
-                BallType.Type8 => (1.0f, 0.08f), //black
-                BallType.Type10 => (2.2f, 0f),   //brown
+                BallType.Type8 => (1.0f, 0f),    //black: its grey is the coverage's (BlackFigureGrey)
+                BallType.Type10 => (2.4f, 0f),   //brown
                 BallType.Type11 => (2.0f, 0f),   //silver
                 BallType.Type12 => (2.9f, 0f),   //navy
                 _ => (0f, 0f),
@@ -259,6 +259,32 @@ namespace Prazsky.BS3D.GameStructure
 
             return gain > 0f;
         }
+
+        /// <summary>
+        /// How bright black's figure is (#940): the grey that brings the ball's average up to <see cref="BLACK_AVERAGE"/> and
+        /// no further, its figure covering <paramref name="coverage"/> on a ground at <see cref="GROUND_MIN"/>, between
+        /// <see cref="BLACK_FIGURE_GREY_MIN"/> and <see cref="BLACK_FIGURE_GREY_MAX"/>. Black cannot pay for a paler figure with a darker ground, so what it may
+        /// spend is the average's headroom, and a small figure may be brighter than a broad one. It was one grey, 0.08, for
+        /// every set, half what the squares of the wool's set could carry: the owner saw black and brown merge on the
+        /// Savanna, and black's squares were a dim grey on near-black.
+        /// </summary>
+        internal static float BlackFigureGrey(Vector3 linearColour, float coverage)
+        {
+            float luminance = ColorSpace.Luminance(linearColour);
+            float grey = (BLACK_AVERAGE - (1f - coverage) * GROUND_MIN * luminance) / MathF.Max(coverage, 1e-3f) - luminance;
+            return Math.Clamp(grey, BLACK_FIGURE_GREY_MIN, BLACK_FIGURE_GREY_MAX);
+        }
+
+        /// <summary>The average luminance black's figure may raise the ball to: just under <c>ColourCueTests</c>' L* 15 (0.02),
+        /// so the black stays the darkest ball in every set.</summary>
+        public const float BLACK_AVERAGE = 0.0195f;
+
+        /// <summary>The dimmest black's figure gets: the one grey every set's figure had until #940, which every set's average
+        /// carries, so no broad figure is dimmer than it was.</summary>
+        public const float BLACK_FIGURE_GREY_MIN = 0.08f;
+
+        /// <summary>The brightest black's figure gets, however small: past it a figure on black reads as a grey ball's.</summary>
+        public const float BLACK_FIGURE_GREY_MAX = 0.15f;
 
         /// <summary>
         /// The figure set a ball style draws (#737, the owner's ruling of 2026-10-12: all four sets, one per style,
@@ -345,6 +371,8 @@ namespace Prazsky.BS3D.GameStructure
         {
             if (PaleInk(type, out float gain, out float grey))
             {
+                if (type == BallType.Type8) grey = BlackFigureGrey(linearColour, coverage);
+
                 Vector3 figure = linearColour * gain + new Vector3(grey);
                 float luminance = ColorSpace.Luminance(linearColour);
                 float ground = luminance > 0f
