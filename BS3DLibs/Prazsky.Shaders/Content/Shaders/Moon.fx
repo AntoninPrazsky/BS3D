@@ -444,13 +444,11 @@ MoonTerrainVertexOutput MoonTerrainVS(MoonTerrainVertexInput input)
     return output;
 }
 
-float4 MoonTerrainPS(MoonTerrainVertexOutput input) : COLOR
+//The regolith at a point of the ground: the plain's own (MoonTerrainPS) or the dust drifted against the island's drum
+//(MoonBankPS, #983), whose surface is its mesh's and not the height field's. `onBank` is a literal at each entry point, so
+//each is a program of its own and the plain's gradient taps are gone from the bank's.
+float4 MoonGroundAt(float3 worldPosition, float3 meshNormal, bool onBank)
 {
-    float3 worldPosition = input.WorldPosition;
-
-    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
-    clip(length(worldPosition.xz) - IslandHoleRadius);
-
     float footprint = length(fwidth(worldPosition.xz));
 
     //The base normal, taken PER PIXEL from the height field's gradient (three taps) rather than
@@ -466,6 +464,18 @@ float4 MoonTerrainPS(MoonTerrainVertexOutput input) : COLOR
     float2 slope = float2(hx - h, hz - h) / e;
     float3 baseNormal = normalize(float3(-slope.x, 1.0, -slope.y));
 
+    //On the drift: the plain's own normal where the dust lies thin and the drift's where it is deep, so the drift's edge,
+    //where it goes under the plain, draws no line in the light (the drift's smooth normal alone drew one, a pale disc on
+    //cratered ground); the craters under it buried with it, and the dust a shade paler, fresh against the stone
+    float buried = 0.0;
+    if (onBank)
+    {
+        buried = saturate((worldPosition.y - h) * 1.6);
+        baseNormal = normalize(lerp(baseNormal, meshNormal, buried));
+        craterShadow *= 1.0 - buried;
+        ejecta *= 1.0 - buried;
+    }
+
     //Fine surface on top of the crater normal: a fourth, small crater octave the mesh could never hold
     //(normal-only - at this scale a crater is shading, not silhouette) plus an isotropic regolith relief.
     //Both band-limited against the footprint; the perturbation is derivative-driven and would checkerboard
@@ -475,7 +485,7 @@ float4 MoonTerrainPS(MoonTerrainVertexOutput input) : COLOR
     //are the longest ones in the frame: it sat unturned on world X and Z at 5 units, which put a hundred
     //cells of it across the near ground in a single glance. Its shadow takes the depth its normal is drawn
     //at (MicroReliefStrength * 3 world units a unit of profile), which is shallow - a small crater's is a sliver.
-    float smallResolved = saturate(1.0 - footprint * (2.0 / 5.0));
+    float smallResolved = saturate(1.0 - footprint * (2.0 / 5.0)) * (1.0 - buried);
     float smallCraters = CraterLayer(TurnCrater(worldPosition.xz, CRATER_TURN_3) * (1.0 / 7.2), 133.7, 0.64,
         CraterSun(CRATER_TURN_3), CraterShadowSlope(7.2, MicroReliefStrength * 3.0), footprint / 7.2, smallEjecta, smallShadow)
         * smallResolved;
@@ -500,6 +510,7 @@ float4 MoonTerrainPS(MoonTerrainVertexOutput input) : COLOR
     //Fresh rims brighten towards the pale grey - the cheapest ejecta there is, and what makes the young
     //craters read young
     regolith = lerp(regolith, RegolithColorPale * 1.18, saturate(ejecta * EjectaBrightness));
+    regolith = lerp(regolith, RegolithColorPale, 0.35 * buried);
 
     //The grain - CASCADED, not one lattice, which is #208's finding: a single arm's-length grain faded out
     //before its cells reached pixel size (the desert's rule, kept per octave below) left everything past a
@@ -752,6 +763,54 @@ technique MoonSky
     {
         VertexShader = compile VS_SHADERMODEL MoonSkyVS();
         PixelShader = compile PS_SHADERMODEL MoonSkyPS();
+    }
+};
+
+float4 MoonTerrainPS(MoonTerrainVertexOutput input) : COLOR
+{
+    float3 worldPosition = input.WorldPosition;
+
+    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
+    clip(length(worldPosition.xz) - IslandHoleRadius);
+
+    return MoonGroundAt(worldPosition, float3(0.0, 1.0, 0.0), false);
+}
+
+//THE DUST AGAINST THE DRUM (#983): IslandBerm's mesh, built off the ground as the grid draws it, worn in the regolith
+//itself - every grey, ejecta, grain and crater shadow worked out from the same world point as the plain's - so the drum
+//rises out of a soft drift of the plain's own dust instead of standing on it with a hard line, as every reference drew
+//a stone set in the lunar surface. Where the drift's outer edge dips under the plain the two are the same picture.
+struct MoonBankVertexInput
+{
+    float4 Position : POSITION0;
+    float3 Normal : NORMAL0;
+    float2 TextureCoordinate : TEXCOORD0;
+};
+
+struct MoonBankVertexOutput
+{
+    float4 Position : SV_POSITION;
+    float3 WorldPosition : TEXCOORD0;
+    float3 Normal : TEXCOORD1;
+};
+
+MoonBankVertexOutput MoonBankVS(MoonBankVertexInput input)
+{
+    MoonBankVertexOutput output;
+    output.WorldPosition = input.Position.xyz;
+    output.Normal = input.Normal;
+    output.Position = mul(mul(float4(input.Position.xyz, 1.0), View), Projection);
+    return output;
+}
+
+float4 MoonBankPS(MoonBankVertexOutput input) : COLOR { return MoonGroundAt(input.WorldPosition, normalize(input.Normal), true); }
+
+technique MoonBank
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MoonBankVS();
+        PixelShader = compile PS_SHADERMODEL MoonBankPS();
     }
 };
 

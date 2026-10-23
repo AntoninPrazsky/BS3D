@@ -91,7 +91,20 @@ namespace Prazsky.Core.Render
             _planting = new MoonPlanting(_graphicsDevice,
                 (x, z) => TerrainMirror.OnGrid((px, pz) => TerrainMirror.Moon(px, pz, terrain), MOON_GRID_N, MOON_EXTENT, x, z),
                 terrain, PLANTING_SEED + Services.SeedOffset);
+
+            //The dust drifted against the drum (#983), off the ground as the grid draws it, the rocks' own, so its outer
+            //edge goes under the triangles that are drawn and not under the exact field between them
+            _bank = IslandBerm.Build(_graphicsDevice,
+                (x, z) => TerrainMirror.OnGrid((px, pz) => TerrainMirror.Moon(px, pz, terrain), MOON_GRID_N, MOON_EXTENT, x, z),
+                BANK_SEED + Services.SeedOffset, 0, IslandBerm.RINGS - 1);
+            _moonBankTechnique = _moonEffect.Techniques["MoonBank"];
         }
+
+        //The drift against the drum (#983): IslandBerm's bank, worn in the regolith (Moon.fx's MoonBank) so the drum rises out
+        //of the plain's own dust; the Moon had no bank at all, and the drum stood on the plain with a hard line
+        private IslandBerm.BermMesh _bank;
+        private readonly EffectTechnique _moonBankTechnique;
+        private const int BANK_SEED = 9831;
 
         /// <inheritdoc/>
         public override SceneKind Kind => SceneKind.Moon;
@@ -206,6 +219,16 @@ namespace Prazsky.Core.Render
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
+            //The drift first, so the plain drawn after it is turned away wherever the drift stands over it
+            if (_bank != null)
+            {
+                _graphicsDevice.SetVertexBuffer(_bank.VertexBuffer);
+                _graphicsDevice.Indices = _bank.IndexBuffer;
+                _moonEffect.CurrentTechnique = _moonBankTechnique;
+                _moonEffect.CurrentTechnique.Passes[0].Apply();
+                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _bank.PrimitiveCount);
+            }
+
             _graphicsDevice.SetVertexBuffer(_moonVertexBuffer);
             _graphicsDevice.Indices = _moonIndexBuffer;
             _moonEffect.CurrentTechnique = _moonTerrainTechnique;
@@ -283,6 +306,8 @@ namespace Prazsky.Core.Render
         {
             _planting?.Dispose();
             _planting = null;
+            _bank?.Dispose();
+            _bank = null;
         }
 
         /// <inheritdoc/>
