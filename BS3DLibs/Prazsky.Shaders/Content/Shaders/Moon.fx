@@ -446,7 +446,7 @@ MoonTerrainVertexOutput MoonTerrainVS(MoonTerrainVertexInput input)
 
 //The regolith at a point of the ground: the plain's own (MoonTerrainPS) or the dust drifted against the island's drum
 //(MoonBankPS, #983), whose surface is its mesh's and not the height field's. `onBank` is a literal at each entry point, so
-//each is a program of its own and the plain's gradient taps are gone from the bank's.
+//each is a program of its own. The bank's still takes the plain's gradient: it blends to the plain's normal at its edge.
 float4 MoonGroundAt(float3 worldPosition, float3 meshNormal, bool onBank)
 {
     float footprint = length(fwidth(worldPosition.xz));
@@ -496,7 +496,7 @@ float4 MoonGroundAt(float3 worldPosition, float3 meshNormal, bool onBank)
     float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition,
         smallCraters * (MicroReliefStrength * 3.0) + relief * MicroReliefStrength);
 
-    ejecta = max(ejecta, smallEjecta * 0.5);
+    ejecta = max(ejecta, smallEjecta * 0.5 * (1.0 - buried));
 
     //--- The regolith's colour -----------------------------------------------------------------------
     //Grey on grey, but never ONE grey: broad albedo patches (old flows and ray systems are visibly

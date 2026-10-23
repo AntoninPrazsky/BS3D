@@ -28,7 +28,8 @@ namespace Prazsky.Core.Render
 
         //The bank the island sits in (#608), and the stones set into it, through the shared plant material. The trees are the
         //hosts'; this is the one thing standing on the floor that is the scene's. Since #983 the bank itself is drawn as the
-        //floor (_bank, Forest.fx's ForestBank) and only its stones in the plant material; the planting's buckets still cast
+        //floor (_bank, Forest.fx's ForestBank) and only its stones in the plant material; the planting's buckets, bank and
+        //stones, still cast into the sun's map
         private readonly PlantPass _plants;
         private IslandBermPlanting _berm;
         private ScatterBucket[] _bermStones;

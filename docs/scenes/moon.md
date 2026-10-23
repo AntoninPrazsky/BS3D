@@ -27,7 +27,8 @@ Terrain first, then the sky quad depth-**READ** against it (`DepthStencilState.D
 
 - **The drum rises out of a drift of the plain's own dust**, not straight out of the plain with a hard line: an `IslandBerm` mesh built off the ground as the grid draws it (`TerrainMirror.OnGrid`, the rocks' own), drawn before the grid through `Moon.fx`'s `MoonBank`, which works out the regolith from the same world point as the plain's (`MoonGroundAt`).
 - ⚠ **The drift's normal alone drew its edge**: the plain's small craters are mostly shading, so a smooth drift going under them read as a pale disc with a rim. The drift takes the plain's normal where the dust lies thin and its own where it is deep (`buried`, its height over `MoonHeight` times 1.6), buries the craters' shadows and rims with it, and is a shade paler (35 % of the way to `RegolithColorPale` at full depth), fresh dust against the stone.
-- It casts nothing: the drum's own shadow is the island's.
+- It casts nothing: the drum's own shadow is the island's. The rocks nearest the drum stand on whichever is higher, the drift (`IslandBerm.SurfaceY`) or the plain. The drift covers the lower half of the pad's spoil ring (`IslandMesh`, under a unit wide).
+- **The drift's program costs what the plain's does**: it keeps the plain's three-tap gradient for the blend at its edge. It is a ring about six units wide.
 
 ## Sky and light
 
