@@ -1,4 +1,5 @@
 ﻿using FontStashSharp;
+using FontStashSharp.RichText;
 using Microsoft.Xna.Framework;
 using Myra.Graphics2D;
 using Myra.Graphics2D.Brushes;
@@ -502,14 +503,52 @@ namespace BS3D.Screens
             Prose(text, width, BS3DGame.MENU_TEXT_BODY, Game.ProseLeading, new Thickness(0, 0, 0, ParagraphGap));
 
         /// <summary>
-        /// An aside (#806): set as <see cref="Paragraph"/> but in the dim grey — a caption over or under a block, a note
+        /// A paragraph that opens on a lead-in (#996): <paramref name="lead"/> run into its first line (<see cref="LeadIn"/>),
+        /// so a player who reads only the leads down a page has its point. Set as <see cref="Paragraph(string, int)"/>
+        /// otherwise, and no taller than it.
+        /// </summary>
+        protected Label Paragraph(string lead, string text, int width) => Paragraph(LeadIn(lead) + " " + text, width);
+
+        /// <summary>
+        /// A lead-in (#996): a few words in the display face's capitals and the loud white, the small face's size, with a
+        /// little more than a space after them — the way a page's block says what it is about without a heading's line of
+        /// its own. One label still: the face and the colour are FontStashSharp's own commands (<c>/f</c>, <c>/c</c>), the
+        /// face reached by name (<see cref="BS3DGame.PROSE_FONT_LEAD"/>). The words are tied, so a lead never breaks.
+        /// </summary>
+        protected string LeadIn(string words) =>
+            $"/f[{BS3DGame.PROSE_FONT_LEAD}]/c[{LOUD}]{words.ToUpperInvariant().Replace(' ', SpaceWrap.TIE)}/cd/fd/s[{Scaled(LEAD_GAP)}]";
+
+        /// <summary>
+        /// A strong word or phrase inside a sentence (#1001): the reading face's bold cut in the loud white, for the thing on
+        /// the screen the sentence tells the player to look at. Each word is marked on its own, so the line breaks between
+        /// them as between any words and every line the breaker measures carries its own commands.
+        /// </summary>
+        protected static string Strong(string words)
+        {
+            string[] parts = words.Split(' ');
+            for (int i = 0; i < parts.Length; i++)
+                parts[i] = $"/f[{BS3DGame.PROSE_FONT_STRONG}]/c[{LOUD}]{parts[i]}/cd/fd";
+
+            return string.Join(" ", parts);
+        }
+
+        //The lead-in's and the strong word's colour, MENU_TEXT as FontStashSharp's colour command reads one (#RRGGBBAA)
+        private static readonly string LOUD =
+            $"#{BS3DGame.MENU_TEXT.R:X2}{BS3DGame.MENU_TEXT.G:X2}{BS3DGame.MENU_TEXT.B:X2}{BS3DGame.MENU_TEXT.A:X2}";
+
+        //What a lead-in leaves after itself on top of the space, in design units: a third of the small face's em, so the
+        //lead reads as a label for the sentence and not as its first words
+        private const int LEAD_GAP = 16;
+
+        /// <summary>
+        /// An aside (#806): set as <see cref="Paragraph(string, int)"/> but in the dim grey — a caption over or under a block, a note
         /// beside the rows, what a field wants.
         /// </summary>
         protected Label Aside(string text, int width) =>
             Prose(text, width, BS3DGame.MENU_TEXT_DIM, Game.ProseLeading, new Thickness(0, 0, 0, ParagraphGap));
 
         /// <summary>
-        /// The prose label <see cref="Paragraph"/> and <see cref="Aside"/> are made of, for a page that places it otherwise:
+        /// The prose label <see cref="Paragraph(string, int)"/> and <see cref="Aside"/> are made of, for a page that places it otherwise:
         /// its own colour, leading and margin. The margin is set before the lines are measured, and in true pixels rather
         /// than through <see cref="ScaledThickness(int, int, int, int)"/>, whose zero is a pixel (see <see cref="LaidOutWidth"/>).
         /// </summary>
@@ -541,7 +580,24 @@ namespace BS3D.Screens
         /// <c>ProseLabelsTests</c> reads the pages' sources and holds every <c>Wrap = true</c> initializer to it.
         /// </summary>
         protected static void SetProse(Label label, string text) =>
-            label.Text = SpaceWrap.Wrap(text, LaidOutWidth(label), line => label.Font.MeasureString(line).X);
+            label.Text = SpaceWrap.Wrap(text, LaidOutWidth(label), line => LineWidth(label.Font, line));
+
+        /// <summary>
+        /// A line's width as the label will draw it: the font's own measure for plain copy, and FontStashSharp's rich-text
+        /// layout's — the class the label lays its text out with — for a line that carries a command (a lead-in's face and
+        /// colour, #996; a doubled slash), whose letters the font's measure would count as glyphs and whose other faces
+        /// it would not know. Called while a tree is built, never per frame, so the one layout is reused.
+        /// </summary>
+        private static float LineWidth(SpriteFontBase font, string line)
+        {
+            if (line.IndexOf('/') < 0) return font.MeasureString(line).X;
+
+            LINE_LAYOUT.Font = font;
+            LINE_LAYOUT.Text = line;
+            return LINE_LAYOUT.Size.X;
+        }
+
+        private static readonly RichTextLayout LINE_LAYOUT = new() { SupportsCommands = true };
 
         /// <summary>
         /// The height a prose label needs to show the tallest of <paramref name="texts"/> without moving what stands under

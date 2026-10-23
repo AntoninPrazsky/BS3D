@@ -468,26 +468,26 @@ namespace BS3D.Screens
 
         private void BuildPlaying(VerticalStackPanel column)
         {
-            column.Widgets.Add(Paragraph(
-                "A cluster of coloured balls hangs from a sheet of glass above a stone island. You stand under "
-                + "it with a cannon and fire balls up into it."));
-            column.Widgets.Add(Paragraph(
-                "A shot sticks where it lands. Land it so that three or more of the same colour touch, and the "
-                + "whole group falls — and everything that was hanging from it falls with it. Those two "
-                + "sentences are the game: the group you match is usually the smaller half of what you bring "
-                + "down."));
-            column.Widgets.Add(Paragraph(
-                "So the shot to look for is rarely the biggest clump of your colour. It is the one ball that is "
-                + "holding a lot of other balls up."));
-            column.Widgets.Add(Paragraph(
-                "You have a fixed number of balls per level, shown at the bottom left. The queue at the bottom "
-                + "right shows what you are about to fire and what comes after it, so you can plan two shots "
-                + "ahead. Clear every ball that can be matched and the level is done."));
+            //Every paragraph opens on its lead-in (#996), so that the leads read down the page are the game in five
+            //phrases for a player who wants it in five seconds
+            column.Widgets.Add(Paragraph("The goal",
+                "A cluster of coloured balls hangs from a sheet of glass above a stone island. You stand under it with a "
+                + "cannon and fire balls up into it. Clear every ball that can be matched and the level is done."));
+            column.Widgets.Add(Paragraph("Match & drop",
+                "A shot sticks where it lands. Land it so that three or more of the same colour touch, and the whole "
+                + "group falls — and everything that was hanging from it falls with it. The group you match is usually "
+                + "the smaller half of what you bring down."));
+            column.Widgets.Add(Paragraph("Find the anchor",
+                "So the shot to look for is rarely the biggest clump of your colour. It is the one ball that is holding "
+                + "a lot of other balls up."));
+            column.Widgets.Add(Paragraph("Ammo & queue",
+                "You have a fixed number of balls per level, shown at the bottom left. The queue at the bottom right "
+                + "shows what you are about to fire and what comes after it, so you can plan two shots ahead."));
 
             //The colour cue (#737), where the balls carry it: a pattern that only ever means its colour, said once so
             //that nobody reads a striped or a spotted ball as a special one. Not on the Potato path, which draws none.
             if (Game.Balls?.DrawsColourCue == true)
-                column.Widgets.Add(Paragraph(
+                column.Widgets.Add(Paragraph("Patterns",
                     "Every colour also wears a pattern of its own: stripes, spots, checks or a printed symbol, "
                     + "depending on what the balls are made of. Every ball of a colour wears the same one, and so does "
                     + "its disc in the queue, so two colours that look alike still differ in pattern."));
@@ -763,5 +763,7 @@ namespace BS3D.Screens
         private int ProseWidth => Scaled(TEXT_WIDTH);
 
         private Label Paragraph(string text) => Paragraph(text, ProseWidth);
+
+        private Label Paragraph(string lead, string text) => Paragraph(lead, text, ProseWidth);
     }
 }

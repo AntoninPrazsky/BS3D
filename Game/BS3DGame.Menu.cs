@@ -2,6 +2,7 @@ using BS3D.Audio;
 using BS3D.Online;
 using BS3D.Screens;
 using FontStashSharp;
+using FontStashSharp.RichText;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Myra;
@@ -198,6 +199,14 @@ namespace BS3D
         private FontSystem _menuFontSystemPrompt;
         private SpriteFontBase _menuFontBody, _menuFontSmall, _menuFontHeading, _menuFontTitle, _menuFontStars;
         private SpriteFontBase _menuFontPrompt;
+
+        //The two faces a paragraph may switch to inside its own line (#996), at the small face's size so a line keeps its
+        //height: the display face for a lead-in, the reading face's bold cut for a strong word. Reached by name through
+        //FontStashSharp's rich-text command (ResolveProseFont), never set on a label
+        private SpriteFontBase _menuFontLead, _menuFontStrong;
+
+        /// <summary>The names a paragraph's copy switches face by (<c>/f[lead]</c>, <c>/f[strong]</c>, #996): see <see cref="ResolveProseFont"/>.</summary>
+        internal const string PROSE_FONT_LEAD = "lead", PROSE_FONT_STRONG = "strong";
         private SpriteFontBase _menuFontPromptSmall;
         private SpriteFontBase _menuFontSection;
         private SpriteFontBase _menuFontFrontEntry;
@@ -644,6 +653,10 @@ namespace BS3D
             _menuFontSystemBold = LoadEmbeddedFont("BS3D.Content.Fonts.Inter-Bold.ttf");
             _menuFontSystemPrompt = LoadEmbeddedFont("BS3D.Content.Fonts.PromptFont.ttf");
 
+            //What a /f[name] command in a label's text switches to (#996). FontStashSharp's rich text asks this for every
+            //such command; Myra sets nothing here, so without it the command throws inside the layout
+            RichTextDefaults.FontResolver = ResolveProseFont;
+
             _desktop = new Desktop();
 
             //Held for the life of the game rather than made per navigation: nothing is allocated on a button
@@ -704,6 +717,8 @@ namespace BS3D
             //are the loud type and are set in the display face; SMALL stays in Inter, because it is the size
             //About's paragraphs and a level's rules are read at and a condensed display face closes up there.
             _menuFontSmall = _menuFontSystem.GetFont(Scaled(MENU_FONT_SMALL));
+            _menuFontLead = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_SMALL));
+            _menuFontStrong = _menuFontSystemBold.GetFont(Scaled(MENU_FONT_SMALL));
             _menuFontBody = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_BODY));
             _menuFontPrompt = _menuFontSystemPrompt.GetFont(Scaled(MENU_FONT_BODY * 6 / 5));
             _focusPromptInkCentre = PromptGlyph.InkCentreY(_menuFontPrompt);
@@ -767,6 +782,20 @@ namespace BS3D
 
             return system;
         }
+
+        /// <summary>
+        /// The face a <c>/f[name]</c> command in a paragraph switches to (#996, <see cref="Screens.MenuPage"/>'s
+        /// <c>LeadIn</c> and <c>Strong</c>): the display face for a lead-in, Inter Bold for a strong word, both at the small
+        /// face's size, so a paragraph that carries one is set and measured as one label of one line height. Read at the
+        /// moment a label lays its text out, so it always hands over the fonts of the layout in force. An unknown name
+        /// throws: it is a typo in copy, and a run that drew it in the plain face would hide it.
+        /// </summary>
+        private SpriteFontBase ResolveProseFont(string name) => name.Trim() switch
+        {
+            PROSE_FONT_LEAD => _menuFontLead,
+            PROSE_FONT_STRONG => _menuFontStrong,
+            _ => throw new ArgumentException($"No prose face is named '{name}'", nameof(name)),
+        };
 
         /// <summary>
         /// The display face at any size, for lettering that fits itself to the frame instead of taking a step of the menu's
