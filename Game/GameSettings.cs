@@ -117,7 +117,7 @@ namespace BS3D
         /// The sky the front end comes up under, or 0 for "whatever the scene wants". It is seeded
         /// <b>before</b> <c>SetScene</c> runs rather than after, which is what keeps it from overriding the
         /// scenes that state a dome of their own (<c>SkyDome.SceneDefault</c>: the sea, the savanna, the tropics,
-        /// the volcano, Mars, the storm, the icesheet and the forest) — those replace it, every other scene keeps it. This is therefore exactly as
+        /// the volcano, Mars, the storm, the icesheet, the forest and the outback) — those replace it, every other scene keeps it. This is therefore exactly as
         /// durable as the dome ever is: a scene change or a level still says what sky it stands under, which
         /// is the dome's nature and not this file failing to hold it.
         /// </summary>

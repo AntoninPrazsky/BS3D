@@ -191,7 +191,7 @@ namespace BS3D.Tools.WindingCheck
             //And the aurora's far stand's spire (#963), drawn instanced on the hills
             yield return ("AuroraStandMesh", () => new AuroraStandMesh(d, new AuroraSceneConfig().FarStand));
             yield return ("AuroraStandMesh far", () => new AuroraStandMesh(d, new AuroraSceneConfig().FarStand, tiers: 2, sides: 8));
-            //The daytime forest on High and Ultra (#962): what its wood wears (the broadleaves in leaf, the needles, the ferns),
+            //The daytime forest on High and Ultra (#962): what its wood wears (the broadleaves in leaf, the ferns),
             //off the forest's own planting, and the far stand's spires and broadleaf crowns at both details
             yield return ("ForestDressing", () =>
             {

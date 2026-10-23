@@ -36,7 +36,7 @@ The thirteenth `SceneKind` (#112, the horizon rebuilt in #967): red monoliths on
 
 ## The formations' shadows
 
-- **Baked once per sun on the GPU** (`OutbackBackdrop.BeforeShadowMaps`, technique `OutbackSunBake`): a `HalfSingle` target over 3072 units round the arena (2048 a side on High and Ultra, 1.5 units a texel; 1024 on Low and Medium), each texel walking 48 steps towards the sun through `OutbackHeight` with a soft edge. It runs in `Backdrop.BeforeShadowMaps`, the first thing `SceneRenderer.DrawShadowMaps` does, before any target of the frame is bound, and again only when the sun moves (a dome change).
+- **Baked once per sun on the GPU** (`OutbackBackdrop.BeforeShadowMaps`, technique `OutbackSunBake`): a `HalfSingle` target over 3072 units round the arena (2048 a side on High and Ultra, 1.5 units a texel; 1024 on Low and Medium), each texel walking 48 steps towards the sun through `OutbackHeight` with a soft edge. It runs in `Backdrop.BeforeShadowMaps`, the first thing `SceneRenderer.DrawShadowMaps` does, before any target of the frame is bound, and again only when the sun moves (a dome change) or the bake's size does (`Services.FineMeshes` turning over with the tier).
 - Both meshes read it (`TerrainSunShadow`, 0.9 of the sun) and take the darker of it and the sun's [shadow map](shadows-and-far-field.md), which still holds the island, the gun and the bank near the lens. A sun under `SHADOW_MIN_SUN_HEIGHT` bakes nothing.
 - ⚠ **Only the land receives it**: the island, the gun and the cluster read the sun's map alone, which the formations do not cast into. Under dome 21 no formation's shadow reaches the island; a dome with a low sun from another side could lay one up to the island's edge and leave the island lit inside it.
 

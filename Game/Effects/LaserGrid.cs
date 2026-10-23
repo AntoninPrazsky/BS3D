@@ -218,7 +218,7 @@ namespace BS3D.Effects
             int vertexCount = (beams * (LaserNetShape.BEAM_SEGMENTS + 1) + LaserEmitterRing.COUNT * (CONE_SECTIONS + 1)) * 2;
 
             //The indices are sixteen bits: a net this fine would have to be cut into several buffers (the widest the set
-            //draws is 17 across, with about a tenth of this)
+            //draws is 17 across, with about a hundredth of this)
             if (vertexCount > ushort.MaxValue)
                 throw new InvalidOperationException($"The floor net of a {CornerX} x {CornerZ} field needs {vertexCount} vertices, more than a 16-bit index reaches.");
 

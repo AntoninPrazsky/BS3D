@@ -25,8 +25,8 @@ namespace Prazsky.Core.Render
 
             //The sun's cast shadows (#471), at the savanna's own figures — 0.9 is a shadow that is dark without
             //reading as a hole, and 260 units at 2048 is 0.13 units a texel. The densest scatter in the
-            //project: 380 trees, boulders and stumps, which until #471 stood on an evenly lit floor. Under a
-            //broken deck the sun is intermittent, which is what a wood looks like.
+            //project (335 trees, boulders and stumps at the base, more on High and Ultra, #962), which until #471
+            //stood on an evenly lit floor.
             Shadows = new ShadowConfig(strength: 0.9f);
         }
 

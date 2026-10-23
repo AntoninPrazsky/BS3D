@@ -30,9 +30,9 @@ namespace Prazsky.Core.Render
             Weather = WeatherPreset.Scattered;
 
             //The sun's cast shadows (#471), at the savanna's own figures — 0.9 is a shadow that is dark without
-            //reading as a hole, and 260 units at 2048 is 0.13 units a texel. The dusk dome this scene is
-            //usually seen under throws the island's shadow a long way over the spinifex, which is the whole of
-            //what the map buys here.
+            //reading as a hole, and 260 units at 2048 is 0.13 units a texel. The scene's own dome (21, #967)
+            //has its gold sun 21 degrees up, which throws the island's shadow a long way over the spinifex, and
+            //that is the whole of what the map buys here.
             Shadows = new ShadowConfig(strength: 0.9f);
         }
 

@@ -155,7 +155,7 @@ namespace Prazsky.Core.Render
         /// The same forest broadleaf in leaf (#962, #751), for High and Ultra: <see cref="ForForest"/>'s tree, whose wood and
         /// lumps it builds byte for byte (the leaves take a random stream of their own), with the grown wood
         /// (<see cref="FineWood"/>), the twigs every clump's spray fans out of and the broad-leaf cards hung along them, which
-        /// the forest draws through the plant material (<c>ForestPlants.fx</c>) as the meadow draws its old trees.
+        /// the forest draws through the plant material (<c>Acacia.fx</c>, <see cref="PlantPass"/>) as the meadow draws its old trees.
         /// </summary>
         public static MeadowTreeMesh ForestInLeaf(GraphicsDevice device, float trunkRadius, float trunkHeight,
             float crownRadius, float crownHeight, int seed) =>

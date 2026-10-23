@@ -520,8 +520,8 @@ namespace MapEditor
             //what it could not fix was the prefix itself.)
             //
             //Nothing here counts the scenes, which is the point and is the rule L already follows for materials:
-            //an eighteenth kind is reachable the moment it is declared. There is no backwards key — B cycles
-            //twenty sky domes on one key already, so an eighteen-long wrap is this program's own idiom rather
+            //a new kind is reachable the moment it is declared. There is no backwards key — B cycles all
+            //twenty-one sky domes on one key already, so a wrap as long as the scene list is this program's own idiom rather
             //than a new burden, and a modifier would want a keyboard state CameraInputHelper does not hand out.
             _scene = SceneRenderer.NextScene(_scene);
 
