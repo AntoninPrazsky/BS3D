@@ -117,9 +117,9 @@ namespace Prazsky.Core.Render
         /// </summary>
         private static Vector3 RingPoint(Func<float, float, float> height, int seed, float a, int ring)
         {
-            float phase = seed * 0.6180339f;
+            float phase = Phase(seed);
             (float sin, float cos) = MathF.SinCos(a);
-            float spread = 1f + 0.35f * MathF.Sin(a * 3f + phase) + 0.2f * MathF.Sin(a * 7f + phase * 2.3f);
+            float spread = Spread(phase, a);
             float lift = 1f + 0.25f * MathF.Sin(a * 5f + phase * 1.7f) + 0.15f * MathF.Sin(a * 11f + phase * 0.9f);
 
             (float radius, float above) = SECTION[ring];
@@ -157,6 +157,26 @@ namespace Prazsky.Core.Render
             }
             return float.NegativeInfinity;
         }
+
+        /// <summary>The phase the bank's wander takes from its seed: what a shader drawing beside the bank is handed
+        /// (<c>BankCover.fxh</c>'s <c>BankCoverPhase</c>, #983).</summary>
+        public static float Phase(int seed) => seed * 0.6180339f;
+
+        //How far the bank reaches out at angle a, as a multiple of each ring's offset from the drum (BankCover.fxh repeats it)
+        private static float Spread(float phase, float a) =>
+            1f + 0.35f * MathF.Sin(a * 3f + phase) + 0.2f * MathF.Sin(a * 7f + phase * 2.3f);
+
+        /// <summary>
+        /// How far from the island's centre, at <paramref name="angle"/> round it, the bank of <paramref name="seed"/> surely
+        /// stands over the ground it was built off (#983): <see cref="COVER_REACH"/> times its wander, inside its fourth ring.
+        /// A scene that draws the bank as its own ground turns its terrain away inside this line (<c>BankCover.fxh</c>'s
+        /// <c>UnderBank</c>, the shader's twin of this), so the ground there is shaded once and not twice.
+        /// </summary>
+        public static float CoverRadius(int seed, float angle) => ArenaIsland.RADIUS + COVER_REACH * Spread(Phase(seed), angle);
+
+        /// <summary>The cover's reach as a multiple of the wander (<c>BankCover.fxh</c>'s <c>BANK_COVER_REACH</c>): the fourth
+        /// ring is 2.6 out and still 0.3 times its lift over the ground, and the margin is for the mesh's straight segments.</summary>
+        public const float COVER_REACH = 2.4f;
 
         /// <summary>A point on the bank's middle, for a stone or a tuft set into it: its radius from the arena's centre.</summary>
         public const float STONE_RADIUS_MIN = ArenaIsland.RADIUS + 1.2f, STONE_RADIUS_MAX = ArenaIsland.RADIUS + 3.2f;

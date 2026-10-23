@@ -86,6 +86,8 @@ namespace Prazsky.Core.Render
             //The bank itself as the plain's own rust (#983), the very mesh the planting's two halves are cut from
             _bank = IslandBerm.Build(_graphicsDevice, (x, z) => _marsConfig.Terrain.LevelY, BERM_SEED + Services.SeedOffset,
                 0, IslandBerm.RINGS - 1);
+            _marsEffect.Parameters["BankCoverPhase"].SetValue(IslandBerm.Phase(BERM_SEED + Services.SeedOffset));
+            _marsEffect.Parameters["BankCoverOn"].SetValue(1f);
             _bankTechnique = _marsEffect.Techniques["MarsBank"];
             _bankReducedTechnique = _marsEffect.Techniques["MarsBankReduced"];
             _drawBank = DrawBank;

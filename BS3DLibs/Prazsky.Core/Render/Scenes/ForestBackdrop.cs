@@ -91,6 +91,8 @@ namespace Prazsky.Core.Render
 
             _bank = IslandBerm.Build(services.GraphicsDevice, (x, z) => TerrainMirror.Forest(x, z, _forestConfig),
                 ForestScatterRenderer.DEFAULT_SEED + Services.SeedOffset, 0, IslandBerm.RINGS - 1);
+            _forestEffect.Parameters["BankCoverPhase"].SetValue(IslandBerm.Phase(ForestScatterRenderer.DEFAULT_SEED + Services.SeedOffset));
+            _forestEffect.Parameters["BankCoverOn"].SetValue(1f);
             _bankTechnique = _forestEffect.Techniques["ForestBank"];
             _bankReducedTechnique = _forestEffect.Techniques["ForestBankReduced"];
             _drawBank = DrawBank;

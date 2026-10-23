@@ -309,6 +309,7 @@ float CraterLayer(float2 p, float seedOffset, float chance, float2 sunDir, float
 }
 
 #include "Craters.fxh"
+#include "BankCover.fxh"
 
 //The crater field: three octaves, so small craters sit inside and on top of larger ones the way the real
 //surface is layered. Amplitudes fall roughly with the radius (a crater's depth scales with its size), and
@@ -772,6 +773,9 @@ float4 MoonTerrainPS(MoonTerrainVertexOutput input) : COLOR
 
     //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
     clip(length(worldPosition.xz) - IslandHoleRadius);
+
+    //Under the drift, which is the regolith too (#983, BankCover.fxh): shaded there, not here
+    clip(UnderBank(worldPosition.xz) ? -1.0 : 1.0);
 
     return MoonGroundAt(worldPosition, float3(0.0, 1.0, 0.0), false);
 }

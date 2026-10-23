@@ -122,6 +122,7 @@ static const float FOREST_SHADOW_STRENGTH_MIN = 0.40;
 static const float FOREST_SHADOW_STRENGTH_MAX = 0.80;
 
 #include "ForestGround.fxh"
+#include "BankCover.fxh"
 
 //Horizon haze in two stages, the floor's and everything standing on the hills (the far stand, #962), so a tree on a ridge
 //recedes exactly as the ground under it does. Straight to the horizon colour - the one stage every other terrain uses -
@@ -413,6 +414,9 @@ float4 ForestFloor(ForestVertexOutput input, bool detail)
     //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
     clip(length(worldPosition.xz) - IslandHoleRadius);
     FarRingClip(worldPosition.xz);
+
+    //Under the bank, which is the floor too (#983, BankCover.fxh): shaded there, not here
+    clip(UnderBank(worldPosition.xz) ? -1.0 : 1.0);
 
     return ForestFloorAt(worldPosition, TerrainNormal(worldPosition.xz), detail);
 }
