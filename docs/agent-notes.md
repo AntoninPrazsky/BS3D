@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-10-23 — #896 #996 #998 #999 #1000 #1001 #400 lana stropu, nadpisy Helpu, drift — desktop (RDT-PC), Claude Code (bs3d-80)
+- Majitel na stránce (16:42): OK #1002 #1003 #1004 #867 #986 #997 → zavřeno. Vrať + „Malé nadpisy“ #996 #998–#1001 → čteno jako „nadpisy větší“, ne revert: `HelpPage.Headed`, nadpis na vlastním řádku v `MENU_FONT_BODY` (4d8cb8cf); 2. kolo na téže stránce, staré odpovědi v db smazány.
+- #896 volba C: `CeilingRigging`, 4 lana k neviditelnému jeřábu a navijáky v rozích, buben `-y/CORE_RADIUS` (c31d5d61); opravy z revize (68dcd7ad): kreslí se podle strany skla, na které je kamera, a lano končí v klenbě Jeskyně a koruně Big Topu (`SceneRenderer.RoofAbove`).
+- ⚠ Z herní kamery je rigging skoro mimo záběr; čte se z odletu kamery, menu a dálkových záběrů.
+- #400 14. kolo (04410102); `Tools/quiet-capture.ps1` (a586b0a8): focení `shot=` bez krádeže fokusu.
+- Otevřené: #935/#937, #939, #868, #869, #896 a 2. kolo Helpu čekají na stránce; #940 na volbu páky.
+
 ## 2026-10-23 — #996 #997 #998 #999 #1000 #1001 #1002 #867 #1003 #1004 #986 revize UI Help a High Scores — desktop (RDT-PC), Claude Code (bs3d-80)
 - Hotovo (11 merge, CI větví zelená): Help má úvodní slova odstavců (`MenuPage.LeadIn`/`Strong`: FontStashSharp `/f[lead]`, `/f[strong]` přes `RichTextDefaults.FontResolver`), CONTROLS se vejde bez posouvání, SCORING bez aritmetiky („detached“ i na stránce výsledků), ODD BALLS bez popisu vzhledu, CAMPAIGN a THE GLASS přepsané; ořez posuvníků má pruh (`MENU_SCROLL_EDGE_GAP`), About/Settings/Help deska 94 %, období na High Scores jako vybraná záložka, ☆ místo „not finished“ v buňkách, obrys NEW BEST bez vyříznutých rohů.
 - Stránka verdiktů: https://claude.ai/artifact/N6uqNLjGVFRJsv9SfHgEio, db `verdicts` (doc = číslo issue), mlčení 30. 10.
