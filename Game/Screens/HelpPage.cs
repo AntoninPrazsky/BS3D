@@ -4,6 +4,7 @@ using Myra.Graphics2D.UI;
 using Prazsky.BS3D;
 using Prazsky.BS3D.GameObjects;
 using Prazsky.BS3D.GameStructure;
+using Prazsky.BS3D.Levels;
 using Prazsky.BS3D.Scoring;
 using Prazsky.Core.Tools;
 using System;
@@ -91,9 +92,10 @@ namespace BS3D.Screens
         //sees a loaded round from about 14 degrees above its bore at the opening aim (BallRenderSet.CUTTER_FACE_LIFT's note)
         private const float CUTTER_BORE_RISE = 0.25f;
 
-        //Under each of the controls page's lines: the 26 of its own and the 26 of the column it stood in before #806 let
-        //every block carry its own space
-        private const int KEY_LINE_GAP = 52;
+        //Under each of the controls page's lines: a quarter of a keycap, so the nine lines and the two under them fit the
+        //tab's frame (#997). 52 until then, the 26 of its own and the 26 of the column it stood in before #806 let every
+        //block carry its own space, when the lines were the display face's two and three lines tall
+        private const int KEY_LINE_GAP = 24;
 
         //Back's width in the row under the text (#738): a third of the frame's row, where every other entry on a page is one
         //column wide, so it stands under the text's first letter and leaves the row's right end to the scroll prompt (#857;
@@ -641,54 +643,60 @@ namespace BS3D.Screens
 
         //The pad's half of every line (#799), the tutorial's bindings exactly (Tutorial.cs): the right stick aims, the right
         //trigger fires, the left holds the precise aim, the left stick walks and steps, X, Y and the right bumper are the
-        //three power-ups, and the Menu button pauses
-        private static readonly (string Keys, string Pad, string What)[] CONTROLS =
+        //three power-ups, and the Menu button pauses. Each line is the action's name and what the key does, and nothing
+        //more (#997): the mechanics behind a power-up are the Cutter's entry on ODD BALLS and THE GLASS's brake, and the
+        //chapter it arrives in is LevelSet's own constant, so a moved power-up cannot leave a stale chapter here
+        private static readonly (string Keys, string Pad, string Name, string What)[] CONTROLS =
         {
-            (MOUSE, PromptGlyph.PAD_RIGHT_STICK, "Aim"),
-            (MOUSE_LEFT, PromptGlyph.PAD_RT, "Fire — Space fires too"),
-            (MOUSE_RIGHT, PromptGlyph.PAD_LT, "Hold to look down the barrel, for the precise shot"),
-            (KEY_A + KEY_D, PromptGlyph.PAD_LEFT_STICK_SIDEWAYS, "Walk the gun round the field"),
-            (KEY_W + KEY_S, PromptGlyph.PAD_LEFT_STICK_UP_DOWN, "Step in and out — closer means a steeper shot"),
-            (KEY_E, PromptGlyph.PAD_X, "Swap the next two balls — one swap a level, from the third chapter"),
-            (KEY_Q, PromptGlyph.PAD_Y, "Brake the ceiling — lift the glass one step back, one a level, from the fourth chapter"),
-            (KEY_R, PromptGlyph.PAD_RB, "Cut — the next ball destroys the whole storey it hits, so what hung on it falls; what it would cut off lights up as you aim, never more than the lower half; one a level, from the fifth chapter"),
-            (PromptGlyph.KEY_ESCAPE, PromptGlyph.PAD_MENU, "Pause"),
+            (MOUSE, PromptGlyph.PAD_RIGHT_STICK, "Aim", ""),
+            (MOUSE_LEFT, PromptGlyph.PAD_RT, "Fire", "Space fires too."),
+            (MOUSE_RIGHT, PromptGlyph.PAD_LT, "Precise aim", "Hold it to look down the barrel."),
+            (KEY_A + KEY_D, PromptGlyph.PAD_LEFT_STICK_SIDEWAYS, "Walk", "Move the gun round the field."),
+            (KEY_W + KEY_S, PromptGlyph.PAD_LEFT_STICK_UP_DOWN, "Step", "In and out: closer means a steeper shot."),
+            (KEY_E, PromptGlyph.PAD_X, "Swap", "The next two balls change places."),
+            (KEY_Q, PromptGlyph.PAD_Y, "Brake", "Lifts the glass one step back up."),
+            (KEY_R, PromptGlyph.PAD_RB, "Cut", "Your next ball destroys the whole storey it hits."),
+            (PromptGlyph.KEY_ESCAPE, PromptGlyph.PAD_MENU, "Pause", $"{BS3DGame.NOTE_ENTRY} is there too."),
         };
 
         private void BuildControls(VerticalStackPanel column)
         {
-            //A column of keycaps and a column of the pad's buttons, each as wide as the widest of it, with the words in a
-            //column beside them (#728, #799). Each line used to be centred as a unit, so where a keycap landed depended on
-            //how long its own words were and the icons zig-zagged down the page. Both hands at once rather than the one on
-            //the menus: this is the page a player reads to learn the other one.
-            int keyWidth = 0, padWidth = 0;
+            //Three columns of their own width - the keycaps, the pad's buttons and the action's name, each as wide as the
+            //widest of it - and what the key does beside them (#728, #799, #997). Each line used to be centred as a unit, so
+            //where a keycap landed depended on how long its own words were and the icons zig-zagged down the page. Both
+            //hands at once rather than the one on the menus: this is the page a player reads to learn the other one.
+            int keyWidth = 0, padWidth = 0, nameWidth = 0;
 
-            foreach ((string keys, string pad, _) in CONTROLS)
+            foreach ((string keys, string pad, string name, _) in CONTROLS)
             {
                 keyWidth = Math.Max(keyWidth, (int)MathF.Ceiling(Game.MenuFontPrompt.MeasureString(keys).X));
                 padWidth = Math.Max(padWidth, (int)MathF.Ceiling(Game.MenuFontPrompt.MeasureString(pad).X));
+                nameWidth = Math.Max(nameWidth, (int)MathF.Ceiling(FontBody.MeasureString(name).X));
             }
 
-            foreach ((string keys, string pad, string what) in CONTROLS)
-                column.Widgets.Add(KeyLine(keys, pad, what, keyWidth, padWidth));
+            foreach ((string keys, string pad, string name, string what) in CONTROLS)
+                column.Widgets.Add(KeyLine(keys, pad, name, what, keyWidth, padWidth, nameWidth));
 
-            column.Widgets.Add(Paragraph(
-                "In the pause menu, Write to the Author sends a line about what you just saw — something unclear, something "
-                + "broken, something you liked — with a picture of that moment. F11 is fullscreen, F12 saves a screenshot, F10 "
-                + "hides the frame-rate counter."));
+            //Under the table, one line each: when the three power-ups arrive and their price, said once for the three, and the
+            //keys that are not play. The tab fits its frame with both (#997), as it did not with the price on every line
+            column.Widgets.Add(Paragraph("Power-ups", $"Swap from chapter\u00A0{LevelSet.SWAP_FROM_BLOCK}, Brake from {LevelSet.BRAKE_FROM_BLOCK}, Cut from {LevelSet.CUT_FROM_BLOCK}. Each once a level."));
+            column.Widgets.Add(Paragraph("More keys", "F11 fullscreen, F12 screenshot, F10 the frame-rate counter."));
         }
 
         /// <summary>
-        /// One control: the key and the pad's button as PromptFont draws them, and what they do beside them. Each glyph is
-        /// its own label in its own face, because PromptFont fills its em with a rounded keycap while a line of body text
-        /// stands well short of one — set as a single string they would not sit on the same line.
+        /// One control: the key and the pad's button as PromptFont draws them, the action's name in the display face and what
+        /// it does in the reading face beside them (#997). Each glyph is its own label in its own face, because PromptFont
+        /// fills its em with a rounded keycap while a line of body text stands well short of one — set as a single string
+        /// they would not sit on the same line.
         /// <para>
-        /// The glyphs' labels are <paramref name="keyWidth"/> and <paramref name="padWidth"/> wide and the words' label
-        /// fills the rest of the text width and wraps (#728), so every line is the same width and the glyphs stand at the
-        /// same x whichever words follow them.
+        /// The glyphs' and the name's labels are <paramref name="keyWidth"/>, <paramref name="padWidth"/> and
+        /// <paramref name="nameWidth"/> wide and the words' label fills the rest of the text width and wraps (#728), so every
+        /// line is the same width and the glyphs and the names stand at the same x whichever words follow them. The name is
+        /// the condensed face because it is what the eye looks for down the column; the sentence after it is the small face,
+        /// because a paragraph in the condensed face closes up into a block the reader leaves halfway through its first line.
         /// </para>
         /// </summary>
-        private Widget KeyLine(string keys, string pad, string what, int keyWidth, int padWidth)
+        private Widget KeyLine(string keys, string pad, string name, string what, int keyWidth, int padWidth, int nameWidth)
         {
             int gap = Scaled(KEY_GAP);
 
@@ -701,19 +709,26 @@ namespace BS3D.Screens
 
             line.Widgets.Add(GlyphLabel(keys, keyWidth));
             line.Widgets.Add(GlyphLabel(pad, padWidth));
-
-            //The words' lines chosen for their shape like a paragraph's (#806): the Cut's took three lines with one word
-            //on the last. In the display face at its own pitch, which is 1.5 of its em already
-            Label words = new()
+            //A gap more after the name than between the glyphs: the widest name ("Precise aim") otherwise ran into its words
+            //(photographed), where a keycap's own round edge keeps it clear of the next
+            line.Widgets.Add(new Label
             {
+                Text = name,
                 Font = FontBody,
-                TextColor = BS3DGame.MENU_TEXT_BODY,
-                Wrap = true,
-                Width = Scaled(TEXT_WIDTH) - keyWidth - padWidth - 2 * gap,
+                TextColor = BS3DGame.MENU_TEXT,
+                Width = nameWidth + gap,
                 VerticalAlignment = VerticalAlignment.Center,
-            };
-            SetProse(words, what);
-            line.Widgets.Add(words);
+            });
+
+            //What it does, in the paragraphs' face and grey with its lines chosen for their shape (#806); a line with nothing
+            //to add (Aim, Pause) has no label at all
+            if (what.Length > 0)
+            {
+                Label words = Prose(what, Scaled(TEXT_WIDTH) - keyWidth - padWidth - nameWidth - 4 * gap,
+                    BS3DGame.MENU_TEXT_BODY, ProseLeading, new Thickness(0));
+                words.VerticalAlignment = VerticalAlignment.Center;
+                line.Widgets.Add(words);
+            }
 
             return line;
         }

@@ -99,7 +99,7 @@ FontStashSharp 1.5.6 under Myra 1.6.3, read off the assemblies and the faces' ow
 
 ### Leading and paragraphs
 
-- **Prose has a line pitch of 1.46 em**: Inter's own 1.21 plus `MENU_PROSE_LEADING` (12 at size 58, a pitch of 70). That is the open end of the usual 1.3 to 1.5, because it is light type on a dark plate. Anton keeps its own 1.51 em (the words on Help's controls page).
+- **Prose has a line pitch of 1.46 em**: Inter's own 1.21 plus `MENU_PROSE_LEADING` (12 at size 58, a pitch of 70). That is the open end of the usual 1.3 to 1.5, because it is light type on a dark plate. Anton keeps its own 1.51 em.
 - **One gap between paragraphs, `MENU_PARAGRAPH_GAP`**: one em of the small face (48), two thirds of a line. It is tied to the face, not a per-page figure. A block carries the gap under itself and a stack of prose adds none (Help's body has `Spacing` 0).
 
 ### Hierarchy and the scale
