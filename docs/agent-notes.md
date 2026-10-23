@@ -20,6 +20,10 @@ Pravidla:
 
 ---
 
+## 2026-10-23 — #945 úvod louky: oblety dál a pomaleji — desktop (RDT-PC), Claude Code (bs3d-80)
+- Hotovo (b52d8a2b): `ORBIT_AIR` 4,9, `FRAME_LIMIT` 0,78, `ORBIT_SECONDS` 5,6 → lavička 7,5 (6,3), balíky průměr 11,4 (10,2), 32°/s (39). Úvod louky 24,9 s, rozpočet testu zvednut na 25 s záměrně. Karta na stránce verdiktů; fronta verdiktů na stropu, další vzhledové změny až po odpovědích.
+- ⚠ Hledání poloměru bere první vyhovující stanoviště: u lavičky ho určuje start (`ORBIT_AIR`), ne `FRAME_LIMIT` — poloměry měřit přes testy (24 rozmístění), ne odhadem.
+
 ## 2026-10-23 — #940 vlna: černá a hnědá — desktop (RDT-PC), Claude Code (bs3d-80)
 - Hotovo (aedcd0fa), rozhodnuto místo majitele podle doporučení z měření: šedá figury černé podle plochy figury (`ColourCues.BlackFigureGrey`, průměr 0,0195, mez 0,08 až 0,15), hnědé zesílení 2,4. Na vlně (savana, obloha 14) čtverečky černé asi 2× jasnější. Karta na stránce verdiktů; fronta verdiktů 14.
 - ⚠ Jedna konstantní šedá s rezervou pod limitem by širší figury ztmavila (vinyl): spodní mez je dosavadní 0,08, kterou test unesl ve všech sadách.
