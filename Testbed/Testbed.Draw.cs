@@ -206,7 +206,7 @@ namespace Testbed
                 _balls.Draw(SceneClock);
 
                 //What the plate hangs from (#896), opaque, with the scene: the cables and the winches
-                _ceilingRigging.Draw(_camera, _ceiling.World, _sceneEffectParams);
+                _ceilingRigging.Draw(_camera, _ceiling.World, _sceneEffectParams, _sceneRenderer, _scene);
 
                 //The launch smears trailing the shots, over the opaque scene (which the depth buffer now holds,
                 //so the cluster/cannon/platform occlude them) and additive, so they glow through the glare.

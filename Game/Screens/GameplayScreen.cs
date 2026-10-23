@@ -2016,12 +2016,12 @@ namespace BS3D.Screens
 
             SceneFrame sceneFrame = Game.BeginSceneDraw();
 
+            //What the plate hangs from (#896), from under the plate: with the setting, behind the glass, before the fires
+            //(the host holds the why)
+            Game.DrawCeilingRigging(Game.CeilingRigging, _ceiling.World, overGlass: false);
+
             //The savanna's fires with the setting they stand in (#641), so the copy the ceiling's glass bends holds them
             Game.DrawTranslucentsBehindGlass(sceneFrame);
-
-            //What the plate hangs from (#896) is the setting too: from under the plate its winches stand behind the glass
-            //and have to be in the copy it bends
-            Game.CeilingRigging.Draw(Camera, _ceiling.World, Game.SceneEffectParams);
 
             //Everything so far is the setting, which from under the plate is all that stands behind the ceiling's
             //glass: the copy it bends is taken here, before the gun and the cluster hang in front of it (#541).
@@ -2113,6 +2113,9 @@ namespace BS3D.Screens
             Game.CeilingRenderer.EmissiveTint = _ceilingDescent.FlashColor * (_ceilingDescent.Flash * _ceilingDescent.Flash);
 
             Game.DrawCeilingGlass(Game.CeilingRenderer, _ceiling.World);
+
+            //The plate's rigging from level with it or above (#896): in front of the pane, so after it
+            Game.DrawCeilingRigging(Game.CeilingRigging, _ceiling.World, overGlass: true);
 
             //And the gun's own glass after all of them, because it is far and away the nearest translucent
             //surface in the frame: the loaded queue it covers is in the depth buffer by now, and so are the

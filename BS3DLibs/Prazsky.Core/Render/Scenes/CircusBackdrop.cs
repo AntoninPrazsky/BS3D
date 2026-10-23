@@ -127,6 +127,25 @@ namespace Prazsky.Core.Render
         /// <inheritdoc/>
         public override SceneConfig Config => _config;
 
+        //The crown's band over CrownY: Circus.fx's CROWN_BAND, the height the disc that caps the ring is drawn at
+        private const float CROWN_BAND = 3.5f;
+
+        /// <summary>
+        /// The canvas over (<paramref name="x"/>, <paramref name="z"/>) (#896): the cone from the wall's top to the crown
+        /// (r = a + b y, as the shader traces it) and, inside the crown's ring, the disc that caps it.
+        /// </summary>
+        public override float RoofAbove(float x, float z)
+        {
+            CircusTentConfig tent = _config.Tent;
+            float r = MathF.Sqrt(x * x + z * z);
+            if (r <= tent.CrownRadius) return tent.CrownY + CROWN_BAND;
+            if (r >= tent.WallRadius) return tent.WallTopY;
+
+            float roofB = (tent.CrownRadius - tent.WallRadius) / (tent.CrownY - tent.WallTopY);
+            float roofA = tent.WallRadius - roofB * tent.WallTopY;
+            return (r - roofA) / roofB;
+        }
+
         /// <inheritdoc/>
         public override void OnDetailChanged(float sceneDetail)
         {

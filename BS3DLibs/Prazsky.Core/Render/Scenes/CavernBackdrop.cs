@@ -190,6 +190,33 @@ namespace Prazsky.Core.Render
         /// <inheritdoc/>
         public override void OnDetailChanged(float sceneDetail) => _fullDetail = sceneDetail > 0.5f;
 
+        //The vault over the points asked about (#896): each host asks over the four corners of each plate it hangs, every
+        //frame, and the answer is a march through the shell, so the last few are kept (x, the vault's height, z)
+        private readonly Vector3[] _roofs = new Vector3[8];
+        private int _roofCount, _roofNext;
+
+        /// <summary>
+        /// The vault straight over (<paramref name="x"/>, <paramref name="z"/>) (#896, <see cref="CavernChamber.VaultHeight"/>):
+        /// infinity until the hall has been placed, which happens off the frame, so nothing here waits for it.
+        /// </summary>
+        public override float RoofAbove(float x, float z)
+        {
+            if (_chamber == null)
+            {
+                if (_chamberBuild == null || !_chamberBuild.IsCompletedSuccessfully) return float.PositiveInfinity;
+                _chamber = _chamberBuild.Result;
+            }
+
+            for (int i = 0; i < _roofCount; i++)
+                if (_roofs[i].X == x && _roofs[i].Z == z) return _roofs[i].Y;
+
+            float y = _chamber.VaultHeight(x, z);
+            _roofs[_roofNext] = new Vector3(x, y, z);
+            _roofNext = (_roofNext + 1) % _roofs.Length;
+            _roofCount = Math.Min(_roofCount + 1, _roofs.Length);
+            return y;
+        }
+
         private void ApplyParameters()
         {
             CavernRockConfig rock = _config.Rock;

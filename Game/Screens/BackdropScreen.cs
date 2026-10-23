@@ -1169,12 +1169,12 @@ namespace BS3D.Screens
 
             SceneFrame sceneFrame = Game.BeginSceneDraw();
 
+            //The preview plate's cables and winches from under it, with the setting (#896, the session's own order); nothing
+            //before the backdrop has rolled a map and fitted them
+            Game.DrawCeilingRigging(Game.MenuCeilingRigging, _menuCeilingWorld, overGlass: false);
+
             //The savanna's fires with the setting, so the ceiling's glass bends them (#641, the session's own call)
             Game.DrawTranslucentsBehindGlass(sceneFrame);
-
-            //The preview plate's cables and winches with the setting, before the copy its glass bends (#896, the session's
-            //own order); nothing before the backdrop has rolled a map and fitted them
-            Game.MenuCeilingRigging.Draw(Game.Camera, _menuCeilingWorld, Game.SceneEffectParams);
 
             //The setting is what stands behind the preview plate from under it (#541) - see the session's own call
             Game.GrabCeilingBackground(Game.MenuCeilingRenderer, _menuCeilingWorld);
@@ -1192,6 +1192,9 @@ namespace BS3D.Screens
             //Through the host, so this plate and the session's are one decision about how glass draws (#299).
             if (Game.MenuCeilingRenderer != null)
                 Game.DrawCeilingGlass(Game.MenuCeilingRenderer, _menuCeilingWorld);
+
+            //And its rigging from level with it or above, in front of the pane (#896)
+            Game.DrawCeilingRigging(Game.MenuCeilingRigging, _menuCeilingWorld, overGlass: true);
 
             //The gun's own glazing after the plate, as in play: the nearest translucent surface in the frame
             Game.StandingGun?.DrawGlass();

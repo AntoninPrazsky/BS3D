@@ -12,7 +12,9 @@ namespace Prazsky.Core.Render
     /// crane nobody sees, and the winch at its foot that pays it out. The owner's ruling on the four concepts drawn for
     /// it (2026-10-18) was this one, the cables, because nothing of it stands in the space the gun walks or the lens
     /// orbits: the plate never rotates and the cables leave it upwards, so from any camera under them they run off the
-    /// top of the frame and end in empty sky. It answers the playtest note that the plate "levitates there magically":
+    /// top of the frame and end in empty sky, or in the roof of the two scenes that have one (<see cref="SceneRenderer.RoofAbove"/>:
+    /// the cavern's vault and the Big Top's canvas, both drawn without depth, so a cable that ran on would be drawn across
+    /// them). It answers the playtest note that the plate "levitates there magically":
     /// the plate steps down because the four drums let out cable, and lifts because they wind it in.
     /// <para>
     /// <b>The winch.</b> At each corner of the plate's top face, inside the crown's grind (<see cref="CeilingPlate.CROWN"/>),
@@ -27,9 +29,11 @@ namespace Prazsky.Core.Render
     /// and one under the front end's preview plate, the Testbed one under its own. Built once (nothing about it depends on
     /// the footprint but where it stands, which <see cref="Fit"/> keeps as four numbers), so its renderers are the same
     /// objects for the life of the host and a sky-lit enrolment can list them once (<see cref="Renderers"/>).
-    /// <b>Opaque, and drawn with the setting</b>, before the host takes the copy the plate's glass bends: from under the
-    /// plate, the drums are behind the glass and have to be in that copy to be seen through it (#541). It casts no sun
-    /// shadow: a cable a few hundredths of a unit thick casts nothing a shadow map resolves.
+    /// <b>Opaque, and drawn on the side of the glass the camera sees it on</b> (the Game's <c>DrawCeilingRigging</c>): from
+    /// under the plate it stands behind the glass, so it goes in with the setting, before the copy the glass bends (#541);
+    /// from level with the plate or above, that copy is taken at the pane and would hold the winches standing in front of
+    /// it, so they are drawn after the pane. It casts no sun shadow: a cable a few hundredths of a unit thick casts
+    /// nothing a shadow map resolves.
     /// </para>
     /// </summary>
     public sealed class CeilingRigging : IDisposable
@@ -154,9 +158,12 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The cables, the drums, their axles and their blocks, four instanced draws, opaque, hung from the plate's own pose
-        /// (the kinematic body's world, the one the plate is drawn from). Nothing before the first <see cref="Fit"/>.
+        /// (the kinematic body's world, the one the plate is drawn from). Nothing before the first <see cref="Fit"/>. Each
+        /// cable ends <see cref="CABLE_RISE"/> over the plate, or at <paramref name="scenes"/>' roof over it for
+        /// <paramref name="scene"/> (none asked when it is null: the Potato path has no scene renderer).
         /// </summary>
-        public void Draw(ICamera camera, in Matrix plateWorld, BasicEffectParams effectParams)
+        public void Draw(ICamera camera, in Matrix plateWorld, BasicEffectParams effectParams, SceneRenderer scenes = null,
+            SceneKind scene = default)
         {
             if (!_fitted) return;
 
@@ -189,9 +196,11 @@ namespace Prazsky.Core.Render
                     _blocks[k * 2 + side] = new ModelInstance(blockFrame, custom);
                 }
 
-                //The cable off the core's outer side, straight up
+                //The cable off the core's outer side, straight up to the crane or into the roof
                 Vector3 foot = drumAt + outward * CORE_RADIUS;
-                Matrix cable = Matrix.CreateScale(CABLE_RADIUS, CABLE_RISE, CABLE_RADIUS);
+                float rise = CABLE_RISE;
+                if (scenes != null) rise = MathHelper.Clamp(scenes.RoofAbove(scene, foot.X, foot.Z) - foot.Y, 0f, CABLE_RISE);
+                Matrix cable = Matrix.CreateScale(CABLE_RADIUS, rise, CABLE_RADIUS);
                 cable.M41 = foot.X;
                 cable.M42 = foot.Y;
                 cable.M43 = foot.Z;

@@ -1335,6 +1335,28 @@ namespace BS3D
         }
 
         /// <summary>
+        /// The cables and winches a plate hangs at <paramref name="plateWorld"/> by (#896), drawn on the side of its glass the
+        /// camera sees them on. A screen that draws a plate calls this twice a frame and it draws in one of the two: with the
+        /// setting, straight after <see cref="BeginSceneDraw"/> (<paramref name="overGlass"/> false), and after the pane
+        /// (true).
+        /// <para>
+        /// From under the plate the rigging stands behind the glass, so it goes in with the setting: before the copy the pane
+        /// bends (<see cref="GrabCeilingBackground"/>), and before <see cref="DrawTranslucentsBehindGlass"/>, whose fires and
+        /// shells write no depth, so an opaque cable drawn after them would be painted over a flame standing in front of it.
+        /// From level with the plate or above it, the copy is taken at the pane, where the winches standing in front of the
+        /// glass would be bent into it beside themselves: so they are drawn after the pane, whose depth they are tested
+        /// against. The line is the one <see cref="GrabCeilingBackground"/> draws, the plate's underside.
+        /// </para>
+        /// </summary>
+        internal void DrawCeilingRigging(CeilingRigging rigging, Matrix plateWorld, bool overGlass)
+        {
+            float underside = plateWorld.Translation.Y - CeilingPlate.THICKNESS * Constants.HALF;
+            if ((_camera.Position.Y < underside) == overGlass) return;
+
+            rigging.Draw(_camera, plateWorld, _sceneEffectParams, _sceneRenderer, _scene);
+        }
+
+        /// <summary>
         /// The copy of the frame the ceiling's glass bends this frame (#541), or null until one is taken - reset at
         /// the top of <see cref="BeginSceneDraw"/>, taken by <see cref="GrabCeilingBackground"/> or failing that by
         /// <see cref="DrawCeilingGlass"/>, which is how a frame bends exactly one copy and never last frame's.
