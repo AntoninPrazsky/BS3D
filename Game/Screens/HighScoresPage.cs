@@ -207,9 +207,11 @@ namespace BS3D.Screens
             VerticalStackPanel column = MenuColumn();
             column.Widgets.Add(ScreenHeading("HIGH SCORES"));
 
-            //The period, two entries side by side and both in the pad's walk. The one up is told by its type's brightness and
-            //not by its slab: the host's focus highlight repaints every entry's slab each pass (ApplyNavHighlight), which is
-            //why the settings page's inverted tabs (#686) are kept out of the walk and these, which a pad must reach, are not
+            //The period, two entries side by side and both in the pad's walk. The one up wears the inverted slab the Help and
+            //Settings tabs do (#1003): told by its type's brightness alone, the player was not sure which was chosen. The host's
+            //focus highlight repaints every entry's slab each pass (ApplyNavHighlight), so the slab is handed over through
+            //EntryRestBrushFor rather than set once; focused or under the pointer the chosen one takes the shared hover slab
+            //like any entry, its dark type still readable on it
             HorizontalStackPanel periods = new() { Spacing = Scaled(20), HorizontalAlignment = HorizontalAlignment.Center };
             _monthButton = MenuButton("This month", () => SetPeriod(false), out _monthLabel);
             _allTimeButton = MenuButton("All time", () => SetPeriod(true), out _allTimeLabel);
@@ -444,6 +446,9 @@ namespace BS3D.Screens
 
             _allTime = allTime;
             Refresh();
+
+            //The chosen slab moved to the other entry (#1003): the host repaints the slabs, the cursor staying where it stood
+            if (IsActive) Game.RefreshNavEntries(_focused);
         }
 
         /// <summary>
@@ -504,6 +509,9 @@ namespace BS3D.Screens
         /// </summary>
         internal override IBrush EntryRestBrushFor(Button entry)
         {
+            if (entry != null && (entry == _monthButton || entry == _allTimeButton))
+                return (entry == _allTimeButton) == _allTime ? SELECTED_BRUSH : BS3DGame.MENU_BUTTON_BRUSH;
+
             int slot = _rows.IndexOf(entry);
             return slot >= 0 && slot < _rowRest.Count ? _rowRest[slot] : base.EntryRestBrushFor(entry);
         }
@@ -512,9 +520,11 @@ namespace BS3D.Screens
         {
             if (_chapterName == null || _pageStart.Length == 0) return;
 
-            //The period up in the bright type, the other in the aside grey - emphasis by brightness, the menu's rule
-            _monthLabel.TextColor = !_allTime ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM;
-            _allTimeLabel.TextColor = _allTime ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM;
+            //The period up inverted, as a chosen tab is (#1003), the other a plain entry in the body grey. The type only: the
+            //slab is the host's to paint (EntryRestBrushFor), so a reply arriving under a focused period cannot repaint its
+            //focus away, and SetPeriod has the host repaint at once
+            _monthLabel.TextColor = !_allTime ? SELECTED_TEXT : BS3DGame.MENU_TEXT_BODY;
+            _allTimeLabel.TextColor = _allTime ? SELECTED_TEXT : BS3DGame.MENU_TEXT_BODY;
 
             //The arrows: one that would leave the campaign is off, and dim rather than greyed out by Myra (see Arrow)
             _previousArrow.Enabled = _page > 0;
