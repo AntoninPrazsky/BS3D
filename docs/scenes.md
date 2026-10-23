@@ -9,7 +9,7 @@ The twenty-one backdrops the Game, the Testbed and the MapEditor all share, plus
 ### Shared by every scene
 
 - [Backdrops and the scene registry](scenes/backdrop-architecture.md) — what a scene is (`SceneCatalog`, `Backdrop` and its services), the traps for whoever adds the next scene, and how to check a scene change against captures.
-- [The setting, in one copy](scenes/shared-setting.md) — what the executables share (island, ceiling plate, sky rig, scene lights, scatters) and what stays with each one.
+- [The setting, in one copy](scenes/shared-setting.md) — what the executables share (island, ceiling plate and the cables it hangs by, sky rig, scene lights, scatters) and what stays with each one.
 - [The island: shape, material and berm](scenes/island.md) — the arena island's structure and rules, its material and shape per scene, the unpaved variants and the berm.
 - [The island's dressing per scene family](scenes/island-dressing.md) — the dials and the five dressing families, with their costs.
 - [The island's surface and its cost](scenes/island-surface-and-cost.md) — surface shading, what the arena costs and the traps of measuring it.

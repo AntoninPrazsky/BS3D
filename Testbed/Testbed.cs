@@ -85,6 +85,9 @@ namespace Testbed
         /// </summary>
         private CeilingPlate _ceilingPlate;
 
+        //What the plate hangs from (#896), in the game's own copy: fitted with the plate, drawn from the same body
+        private CeilingRigging _ceilingRigging;
+
         /// <summary>
         /// Lighting parameters shared by all scene objects; the ambient color is set by
         /// <see cref="ApplySkyLighting"/>, zero specular keeps each mesh part's own material specular.
@@ -784,6 +787,8 @@ namespace Testbed
 
             _ceilingPlate = new CeilingPlate(GraphicsDevice, _instancingEffect);
             _ceilingPlate.Fit(DEFAULT_CEILING_STAGE_SIZE, DEFAULT_CEILING_STAGE_SIZE);
+            _ceilingRigging = new CeilingRigging(GraphicsDevice, _instancingEffect);
+            _ceilingRigging.Fit(DEFAULT_CEILING_STAGE_SIZE, DEFAULT_CEILING_STAGE_SIZE);
 
             BuildCeiling();
 
@@ -1023,6 +1028,7 @@ namespace Testbed
             _skyLitRenderers.Add(_cannonRig.CarriageRenderer);
             _skyLitRenderers.Add(_cannonRig.WheelRenderer);
             _skyLitRenderers.Add(_cannonRig.RollerRenderer);
+            foreach (InstancedModelRenderer renderer in _ceilingRigging.Renderers) _skyLitRenderers.Add(renderer);
             if (_cityRenderer != null) _skyLitRenderers.Add(_cityRenderer);
             if (_rooftops != null)
                 foreach (InstancedModelRenderer renderer in _rooftops.Renderers) _skyLitRenderers.Add(renderer);
@@ -1595,6 +1601,7 @@ namespace Testbed
             //caller re-runs ApplySkyLighting afterwards — the new renderer has never been told the dome.
             _ceiling = new KinematicBody(ceilingReference, _ceiling.BodyHandle);
             _ceilingPlate.Fit(map.StageSizeX, map.StageSizeZ);
+            _ceilingRigging.Fit(map.StageSizeX, map.StageSizeZ);
         }
 
         private void LoadBallsMap()
@@ -1874,6 +1881,7 @@ namespace Testbed
             _rooftops?.Dispose();
             _streets?.Dispose();
             _ceilingPlate?.Dispose();
+            _ceilingRigging?.Dispose();
             _sceneRenderer?.Dispose();
             _pipeline?.Dispose();
             //The smears' shared billboard quad (both buffers) and the crosshair's white texel - not the trail

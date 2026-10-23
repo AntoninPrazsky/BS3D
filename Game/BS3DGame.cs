@@ -1416,6 +1416,10 @@ namespace BS3D
             //never refits the session's: a kept session continues drawing the one its level fitted.
             _menuCeilingPlate = new CeilingPlate(GraphicsDevice, _instancingEffect);
 
+            //And what each hangs from (#896), fitted with its plate
+            _ceilingRigging = new CeilingRigging(GraphicsDevice, _instancingEffect);
+            _menuCeilingRigging = new CeilingRigging(GraphicsDevice, _instancingEffect);
+
             //The overlay's own batch, shared by the HUD and the crosshair the session draws into it
             _spriteBatch = new SpriteBatch(GraphicsDevice);
 
@@ -2485,6 +2489,8 @@ namespace BS3D
             _auroraScatter?.Dispose();
             _forestFireflies?.Dispose();
             _ceilingPlate?.Dispose();
+            _ceilingRigging?.Dispose();
+            _menuCeilingRigging?.Dispose();
 
             //The self-lit backdrops own their own meshes, particle buffers and effects
             _sceneRenderer?.Dispose();

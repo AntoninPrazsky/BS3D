@@ -205,6 +205,9 @@ namespace Testbed
                 //gun are in the depth buffer, and before the shots' additive smears and the drain's glass.
                 _balls.Draw(SceneClock);
 
+                //What the plate hangs from (#896), opaque, with the scene: the cables and the winches
+                _ceilingRigging.Draw(_camera, _ceiling.World, _sceneEffectParams);
+
                 //The launch smears trailing the shots, over the opaque scene (which the depth buffer now holds,
                 //so the cluster/cannon/platform occlude them) and additive, so they glow through the glare.
                 //It states the three states it needs and puts back exactly what it found, so the frame's
