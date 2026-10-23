@@ -562,22 +562,22 @@ namespace BS3D.Screens
 
         private void BuildCampaign(VerticalStackPanel column)
         {
-            //Read from the level set rather than typed: the page said 120 levels in 12 chapters and 236 stars for
-            //the last level while the game shipped 130, 13 and 256 (#606)
-            column.Widgets.Add(Paragraph(
-                $"The campaign is {Game.LevelCount}\u00A0levels in {Game.BlockCount}\u00A0chapters. Each chapter is ten levels against one backdrop, "
-                + "and each has its own shape of puzzle — a chapter of towers, a chapter of things hidden "
-                + "inside other things, a chapter of mathematics."));
-            column.Widgets.Add(Paragraph(
-                "Every level you clear is rated from one to four stars. One star is clearing it at all; the "
-                + "rest are score, and the thresholds are multiples of what the level is worth if you simply "
-                + "finish it. Four stars means you cleared it well under the shots it allows."));
-            column.Widgets.Add(Paragraph(
-                "Stars are also a key. Later levels ask for a total across everything you have played, so a "
-                + $"chapter you rushed can be gone back to. The last level of the campaign asks for {Game.LevelMinStars(Game.LevelCount - 1)}."));
-            column.Widgets.Add(Paragraph(
-                "A cleared level presents a cup: bronze, silver, gold, or — for four stars — crystal. It is the "
-                + "same information as the stars, handed over as an object."));
+            //In game terms and in the order a player asks (#1000): what a chapter is, what a star is for, that the cup is the
+            //stars handed over, and that stars open the way on. The arithmetic behind a threshold and the last level's price
+            //are the level picker's, where the player is looking at the lock. The level and chapter counts are the set's own
+            //(#606: the page once said 120 levels in 12 chapters while the game shipped 130 in 13)
+            column.Widgets.Add(Paragraph("Chapters",
+                $"{Game.LevelCount}\u00A0levels in {Game.BlockCount}\u00A0chapters of ten, each against one backdrop and with a "
+                + "puzzle of its own — towers, things hidden inside other things, mathematics."));
+            column.Widgets.Add(Paragraph("Stars",
+                "Every level you clear is rated from one to four stars. One is for clearing it. Two and three are for your "
+                + "score: fewer shots, bigger drops, longer streaks. Four means you cleared it well under the shots it allows."));
+            column.Widgets.Add(Paragraph("Cups",
+                "A cleared level hands you a cup for its stars: bronze for one, silver for two, gold for three and crystal "
+                + "for four."));
+            column.Widgets.Add(Paragraph("Stars open the way",
+                "Later levels ask for a total of stars across everything you have played, so a level you rushed is worth "
+                + "playing again."));
         }
 
         private void BuildCeiling(VerticalStackPanel column)
