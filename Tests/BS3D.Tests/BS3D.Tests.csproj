@@ -30,6 +30,7 @@
       shots through their own code and holds their ride to a limit.-->
   <ItemGroup>
     <Compile Include="..\..\Game\Effects\IntroShot.cs" />
+    <Compile Include="..\..\Game\Effects\ChapterIntro.cs" />
     <Compile Include="..\..\Game\Effects\IntroPaths.cs" />
     <Compile Include="..\..\Game\Effects\AridIntroPaths.cs" />
     <Compile Include="..\..\Game\Effects\MountainIntroShots.cs" />

@@ -17,8 +17,10 @@ namespace BS3D.Effects
     /// <param name="AuroraScatter">The aurora's wood.</param>
     /// <param name="SunDirection">The dome's sun, when there is a rig.</param>
     /// <param name="WallClock">The game's wall clock now, which the moving subjects are laid out on.</param>
+    /// <param name="Clock">The game's wall clock to read later (#975): a shot timed to a scene event re-reads it as it
+    /// comes on screen, because the intro's own clock stops for a pause and a hitch and the wall clock does not.</param>
     internal sealed record IntroContext(SceneRenderer Renderer, City City, CityRooftops Rooftops, ForestScatterRenderer ForestScatter,
-        ForestScatterRenderer AuroraScatter, Vector3? SunDirection, float WallClock);
+        ForestScatterRenderer AuroraScatter, Vector3? SunDirection, float WallClock, Func<float> Clock);
 
     /// <summary>
     /// <b>The live scene's own shots to cut together ahead of its chapter tour</b>, or null for a scene with none —
@@ -59,7 +61,7 @@ namespace BS3D.Effects
             {
                 SceneKind.City or SceneKind.NeonCity => CityIntroShots.Build(context.City, context.Rooftops?.Showcases,
                     scene == SceneKind.NeonCity, fieldOfView, random),
-                SceneKind.Volcano => VolcanoIntroShots.Build(renderer, context.WallClock, fieldOfView, random),
+                SceneKind.Volcano => VolcanoIntroShots.Build(renderer, context.WallClock, context.Clock, fieldOfView, random),
                 SceneKind.Aurora => AuroraIntroShots.Build(context.AuroraScatter,
                     renderer?.GetSceneConfig(SceneKind.Aurora) as AuroraSceneConfig, renderer == null ? null : renderer.AuroraGroundHeight,
                     fieldOfView, random),
