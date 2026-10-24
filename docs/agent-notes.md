@@ -20,6 +20,9 @@ Pravidla:
 
 ---
 
+## 2026-10-24 — verdikty stránky 23. 10.: vše OK — desktop (RDT-PC), Claude Code (bs3d-80)
+- majitel (24. 10.): všech 20 karet OK, vč. 2. kola nadpisů Helpu, lan stropu (#896), valů (#983), hrdla (#932), vlny (#940), úvodu louky (#945), #935/#937, #939, #868, #869. Zavřeno 15 issues s jeho odpovědí; otázka ke stínu na Měsíci zůstala bez odpovědi (případně nové issue).
+
 ## 2026-10-23 — #945 úvod louky: oblety dál a pomaleji — desktop (RDT-PC), Claude Code (bs3d-80)
 - Hotovo (b52d8a2b): `ORBIT_AIR` 4,9, `FRAME_LIMIT` 0,78, `ORBIT_SECONDS` 5,6 → lavička 7,5 (6,3), balíky průměr 11,4 (10,2), 32°/s (39). Úvod louky 24,9 s, rozpočet testu zvednut na 25 s záměrně. Karta na stránce verdiktů; fronta verdiktů na stropu, další vzhledové změny až po odpovědích.
 - ⚠ Hledání poloměru bere první vyhovující stanoviště: u lavičky ho určuje start (`ORBIT_AIR`), ne `FRAME_LIMIT` — poloměry měřit přes testy (24 rozmístění), ne odhadem.
