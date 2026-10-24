@@ -3,7 +3,7 @@ using System;
 namespace Prazsky.BS3D
 {
     /// <summary>
-    /// <b>When a release is worth the camera</b> (#615, #719): the drop cinematic's trigger as one pure rule, so the Game, the
+    /// <b>When a release is worth the camera</b> (#615, #719, #1011): the drop cinematic's trigger as one pure rule, so the Game, the
     /// logic tests and <c>LevelGen --drops</c> (which plays the whole campaign to count how often it fires) read the same
     /// three dials instead of one copy each. It stood in <c>GameplayScreen.TryBeginDropCinematic</c> and
     /// <c>DropCinematic</c> until #719, and the harness #615 measured it with was a throwaway that did not outlive its
@@ -28,22 +28,23 @@ namespace Prazsky.BS3D
         /// The floor's other half (#615): a drop has to take at least this share of the balls the level <b>started</b>
         /// with, as well as <see cref="MIN_BALLS"/>. Twelve is a big drop on a 250-ball level and a small one on a 1600-ball
         /// level, so on its own it let the biggest levels treat every sizeable shot as a spectacle; a share scales "big" with
-        /// the level, as the record rule below already does, and needs no per-level authoring. The absolute twelve still
-        /// governs the small levels, where the share is fewer.
+        /// the level, as the record rule below already does, and needs no per-level authoring. The absolute twelve governs
+        /// only a level under 48 balls, which none of the shipped ones is: it stays as the floor of a small authored or
+        /// edited level.
         /// <para>
-        /// <b>5 % until #719, 9 % since — the owner's playtest, "still too often", about 20 % fewer.</b> Measured with
-        /// <c>LevelGen --drops</c> (the shipped set, a greedy and a casual player to a clear, six deals, the real match and
-        /// orphan rule, on the lattice): cinematics before the clearing shot, a level, 5 % gave 1.34 (greedy) and 1.25 (casual);
-        /// 8 % gave 1.17 and 1.02, 9 % <b>1.11 and 0.96 (−17 % and −23 %)</b>, 10 % 1.04 and 0.90, and a margin of ×3 on
-        /// 5 % gave 1.13 and 1.00. The share is the lever because it scales with the level, where the margin only thins a run
-        /// of ever bigger drops. The same harness reads #615's old rule (12 balls, ×1.25) at 1.94 and 2.16, which is the 2.0–2.1
-        /// that pass reported, so the numbers are comparable. The price is at the low end: before the clearing shot, which
-        /// always has one, about one play in nine (greedy) to one in six (casual) shows none, against one in forty and one in
-        /// seventeen, and #615's own target was one to two a level. The lattice plays no physics, blasts or ceiling, so the
-        /// game's own <c>[cinematic]</c> lines will differ somewhat.
+        /// <b>A quarter of the level since #1011: only a really big release takes the camera.</b> The owner's ruling, after
+        /// an outside player called the cinematic "extremely annoying" (it stays on by default, at game speed): 5 % until #719,
+        /// 9 % from #719 to #1011. Measured with <c>LevelGen --drops</c> (the shipped set, a greedy and a casual player to a
+        /// clear, six deals, the real match and orphan rule, on the lattice), cinematics before the clearing shot, a level:
+        /// 9 % gave 1.11 (greedy) and 0.98 (casual), 15 % 0.78 and 0.70, 20 % 0.60 and 0.52, <b>25 % 0.45 and 0.40 (−60 %
+        /// and −59 %)</b>, 30 % 0.35 and 0.31; a margin of ×3 on 20 % read as 25 % does. The share is the lever because it
+        /// scales with the level, where the margin only thins a run of ever bigger drops. The price is the one asked for:
+        /// before the clearing shot, which always has one (#424), 55 % of the greedy plays and 60 % of the casual ones show
+        /// none, against 12 % and 16 % at 9 %. The lattice plays no physics, blasts or ceiling, so the game's own
+        /// <c>[cinematic]</c> lines will differ somewhat.
         /// </para>
         /// </summary>
-        public const float MIN_SHARE_OF_LEVEL = 0.09f;
+        public const float MIN_SHARE_OF_LEVEL = 0.25f;
 
         /// <summary>
         /// How much a drop has to beat the level's biggest so far to earn a cinematic — the rest of the trigger, and the part

@@ -6,8 +6,8 @@ The reward for a good shot: the camera lets go of the gun and follows the wrecka
 
 ## When it fires
 
-- **The bar is a record, not a count.** A drop fires it when it beats the level's biggest so far by `DropTrigger.MustBeatBestBy` (2x) and is at least `MIN_BALLS` (12) and `MIN_SHARE_OF_LEVEL` (9 %) of the balls the level started with, or when it clears the level. A flat count cannot survive a new level (Pinwheel drops 102, Mosaic's best is 24), and a per-level figure is a dial to get wrong. The first qualifying drop always fires.
-- **Measured on the lattice** (`LevelGen --drops`): about one a level before the clearing shot; the old 1.25x margin gave about two, too often (#615).
+- **The bar is a record, not a count.** A drop fires it when it beats the level's biggest so far by `DropTrigger.MustBeatBestBy` (2x) and is at least `MIN_BALLS` (12) and `MIN_SHARE_OF_LEVEL` (25 %, a quarter) of the balls the level started with, or when it clears the level. A flat count cannot survive a new level (Pinwheel drops 102, Mosaic's best is 24), and a per-level figure is a dial to get wrong. The first qualifying drop always fires.
+- **Only a really big release** (#1011, the owner's ruling; it stays on by default). Measured on the lattice (`LevelGen --drops`): 0.45 (greedy) and 0.40 (casual) a level before the clearing shot, and more than half the plays show none before it; #719's 9 % gave about one a level, #615's 1.25x margin about two.
 - **Every release raises the record**, even ones the gates refuse; the `[cinematic]` line prints the bar it beat. **A blast counts** (#326): `BallsReleased.Total` has a third category, balls a bomb destroyed by geometry, and the bar and `Audio.PlayRelease` read the total.
 - **The clearing shot always gets it (#424)**: `GetRemovableBallsCount() == 0` (the count `CheckLevelCleared` reads a line later) and something fell; the trigger runs *before* `CheckLevelCleared`. The line says `cleared the level`. Other gates stand.
 - **Both level endings wait for it** (`CheckLevelLost`, the cleared countdown).
