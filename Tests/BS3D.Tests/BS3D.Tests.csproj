@@ -86,6 +86,8 @@
     <!--The overview lens's tilt with the aim (#720): its target, the gun-keep limit and its chase, plain geometry and a
         closed-form follow over floats, no device.-->
     <Compile Include="..\..\Game\Screens\AimTilt.cs" />
+    <!--The overview's focus on the aim (#1006): two closed-form chases and a pose built off the tilt's geometry.-->
+    <Compile Include="..\..\Game\Screens\OverviewFocus.cs" />
     <!--The ceiling's descent and the player's brake on it (#213): a state machine over floats, no device.-->
     <Compile Include="..\..\Game\Screens\CeilingDescent.cs" />
     <!--The city intro's shot builder (#488): plain geometry over City's block grid.-->
