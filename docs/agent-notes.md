@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-10-24 — #975 #972 úvody Erupce a Města — desktop (RDT-PC), Claude Code (bs3d-80)
+- Hotovo #975 (bdb9d34b, 795ca590): sopka zdálky → erupce od úpatí → kráter. Výbuch je vyvolaný (`CueVolcanoBurst`), ne náhodný; záběr erupce ho při rozjezdu přeplánuje, když úvod zaostal (pauza, záškub). `shipped-awaiting-verdict`, `verdict-eye`.
+- Hotovo #972 (2f5fb699): Město končí „švihem domů“ (`CitySwing`) ulicemi na herní pózu, bez cesty turné; náměstí výš (72–105). Neon zatím beze změny (#973).
+- ⚠ Revize 1. verze #975 našla: výbuch na nástěnných hodinách, úvod na vlastních, takže pauza ho odpálila za stránkou pauzy. Cokoli v úvodu časované na událost scény musí počítat s tím, že hodiny úvodu stojí.
+- ⚠ Pohled švihu podle tětivy k bodu vpředu se na rozích klopil 140 °/s; podle průměrovaného směru dráhy ne.
+- Otevřené: #973 Neon na stejném `CitySwing` s vlastní trasou.
+
 ## 2026-10-24 — #1005–#1011 report cizího hráče (v0.4.0, všech 140 levelů) založen — desktop (RDT-PC), Claude Code (bs3d-0b)
 - Hotovo: 7 issues `owner-decision`, nic nepostaveno: směr hry a obtížnost #1005, kanon zabírá půl obrazu #1006, střela bez fyziky #1007, odmítnutý výstřel nahoru #1008, minutí nic nestojí #1009, málo speciálních koulí #1010, výchozí stav kamery při pádu #1011. Komentáře: #768 (shrnutí, otázky zpět hráči), #936, #720, #290, #872.
 - Změřeno: `LevelGen --clearfile=` nad všemi 140 soubory (jen čte): nejkratší vyčištění má medián 6 střel proti mediánu rozpočtu 48. Na snímku úvodního záběru (1920x1080) sahá kanon do 50 % výšky obrazu a je stejně velký jako shluk, nebo větší.
