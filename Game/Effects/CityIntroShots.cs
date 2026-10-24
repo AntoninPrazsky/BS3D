@@ -48,6 +48,13 @@ namespace BS3D.Effects
         private const float STREET_START_BLOCKS = 6.5f, STREET_START_JITTER = 2f;
         private const float STREET_RUN_BLOCKS = 2.0f;
         private const float STREET_PITCH_DEGREES = 36f;
+
+        //The neon city's street (#973), the owner: "the camera should be higher ... so that the details that the street level
+        //is actually 2D are hard to notice (we will not change that, we just do not want to point it out)". From 26 up at 36
+        //degrees the frame's bottom edge met the asphalt about 15 units ahead and the painted cars were close; from here, at a
+        //shallower look, it meets it about 40 ahead and the towers' neon takes most of the frame.
+        private const float NEON_STREET_HEIGHT = 46f;
+        private const float NEON_STREET_PITCH_DEGREES = 24f;
         private const float STREET_SECONDS = 4.5f;
 
         //The swing (#433's "like Spider-Man"): a run down one street, round the corner, off down the next,
@@ -56,13 +63,14 @@ namespace BS3D.Effects
         private const float SWING_LEG_BLOCKS = 1.8f;
         private const float SWING_SECONDS = 4.0f;
 
-        //The orbit: round the plaza's trees while rising to above the lower roofs, looking down at them. ⚠ Not
-        //lower: the trees are discs painted on the paving, and from 16 units over them the first cut read them
-        //as holes in the plaza. From twice that they are a park's canopy among the streets and cars round it. The day
-        //city's goes higher still (#972, the owner: "we do not want a close view of the square ... the camera should only
-        //go higher"), so the plaza is a park among the towers and not the paving close up.
-        private const float PLAZA_FROM_HEIGHT = 32f, PLAZA_TO_HEIGHT = 54f;
+        //The orbit: round the plaza's trees while rising, looking down at them. ⚠ Not low: the trees are discs painted on
+        //the paving, and from 16 units over them the first cut read them as holes in the plaza; from 30 they were a park's
+        //canopy, and the reel flew 32 to 54 until the owner asked for it higher still (#972: "we do not want a close view of
+        //the square ... the camera should only go higher"; #973: higher, "so that the details that the street level is
+        //actually 2D are hard to notice"). So the plaza is a park among the towers and not the paving close up: the day city
+        //72 to 105, the neon city higher again, its towers standing taller (a roofline of 46 to the day city's 34).
         private const float DAY_PLAZA_FROM_HEIGHT = 72f, DAY_PLAZA_TO_HEIGHT = 105f;
+        private const float NEON_PLAZA_FROM_HEIGHT = 78f, NEON_PLAZA_TO_HEIGHT = 112f;
         private const float PLAZA_ORBIT_RADIUS_BLOCKS = 0.45f, PLAZA_ORBIT_DEGREES = 80f;
         private const float PLAZA_SECONDS = 4.0f;
 
@@ -130,24 +138,39 @@ namespace BS3D.Effects
         {
             if (city == null) return null;
 
-            //THE DAY CITY ENDS ON ITS SWING HOME (#972): the street, the plaza from higher, the rooftop, then a run through
-            //the streets that lands on the gameplay pose itself, so no tour leg follows. Where no rolled route is clear the
-            //old reel below plays instead, its one-corner swing and the tour's arrival included.
-            if (!neon)
+            //EACH CITY ENDS ON ITS SWING HOME (#972, #973): a run through its streets that lands on the gameplay pose itself,
+            //so no tour leg follows. They are two places (the owner, 2026-10-20), so two reels: the day city's street, plaza
+            //from higher, rooftop and a two-corner swing; the neon city's plaza from higher still, its street from higher and
+            //looking less steeply down so its flat paint is not pointed out, rooftop and a three-corner swing of its own.
+            //Where no rolled route is clear the old reel below plays instead, its one-corner swing and the tour's arrival
+            //included.
+            float streetHeight = neon ? NEON_STREET_HEIGHT : STREET_HEIGHT;
+            float streetPitch = neon ? NEON_STREET_PITCH_DEGREES : STREET_PITCH_DEGREES;
+            float plazaFrom = neon ? NEON_PLAZA_FROM_HEIGHT : DAY_PLAZA_FROM_HEIGHT;
+            float plazaTo = neon ? NEON_PLAZA_TO_HEIGHT : DAY_PLAZA_TO_HEIGHT;
+
+            var reel = new List<IntroShot>(4);
+            IntroShot reelPlaza = Plaza(city, fieldOfView, random, plazaFrom, plazaTo);
+            IntroShot reelStreet = Street(city, fieldOfView, random, out _, streetHeight, streetPitch);
+
+            if (neon)
             {
-                var day = new List<IntroShot>(4) { Street(city, fieldOfView, random, out _) };
+                if (reelPlaza != null) reel.Add(reelPlaza);
+                reel.Add(reelStreet);
+            }
+            else
+            {
+                reel.Add(reelStreet);
+                if (reelPlaza != null) reel.Add(reelPlaza);
+            }
 
-                IntroShot dayPlaza = Plaza(city, fieldOfView, random, DAY_PLAZA_FROM_HEIGHT, DAY_PLAZA_TO_HEIGHT);
-                if (dayPlaza != null) day.Add(dayPlaza);
+            reel.Add(Rooftop(city, rooftops, neon, fieldOfView, random) ?? Roofs(city, fieldOfView, random));
 
-                day.Add(Rooftop(city, rooftops, neon, fieldOfView, random) ?? Roofs(city, fieldOfView, random));
-
-                IntroShot home = CitySwing.Build(city, gamePosition, gameTarget, fieldOfView, random, CitySwing.Day);
-                if (home != null)
-                {
-                    day.Add(home);
-                    return day.ToArray();
-                }
+            IntroShot home = CitySwing.Build(city, gamePosition, gameTarget, fieldOfView, random, neon ? CitySwing.Neon : CitySwing.Day);
+            if (home != null)
+            {
+                reel.Add(home);
+                return reel.ToArray();
             }
 
             //The order alternates what the lens sees, so that no two shots in a row are a variation of one (#488's second
@@ -155,9 +178,9 @@ namespace BS3D.Effects
             //different angle — it looks like a glitch"): the street from the ground looking down it, the plaza from
             //above, the swing between the towers, the roofs over the top. The swing turns in from the OTHER axis than
             //the street ran along, so its walls do not stand where the street's did.
-            var shots = new List<IntroShot>(4) { Street(city, fieldOfView, random, out bool streetAlongZ) };
+            var shots = new List<IntroShot>(4) { Street(city, fieldOfView, random, out bool streetAlongZ, streetHeight, streetPitch) };
 
-            IntroShot plaza = Plaza(city, fieldOfView, random, PLAZA_FROM_HEIGHT, PLAZA_TO_HEIGHT);
+            IntroShot plaza = Plaza(city, fieldOfView, random, plazaFrom, plazaTo);
             if (plaza != null) shots.Add(plaza);
 
             IntroShot swing = Swing(city, fieldOfView, random, streetAlongZ);
@@ -176,7 +199,7 @@ namespace BS3D.Effects
         /// rolled streets the one flanked by the most built blocks is taken — the deepest canyon — because a
         /// street with a plaza on each side is not the city the owner asked to see.
         /// </summary>
-        private static IntroShot Street(City city, float fieldOfView, Random random, out bool streetAlongZ)
+        private static IntroShot Street(City city, float fieldOfView, Random random, out bool streetAlongZ, float height, float pitchDegrees)
         {
             float pitch = city.BlockPitch;
             int bestScore = -1;
@@ -204,7 +227,7 @@ namespace BS3D.Effects
                 bestScore = score;
                 streetAlongZ = alongZ;
                 float across = (line + 0.5f) * pitch + lane;
-                float y = city.GroundY + STREET_HEIGHT;
+                float y = city.GroundY + height;
                 from = alongZ ? new Vector3(across, y, start) : new Vector3(start, y, across);
                 to = alongZ ? new Vector3(across, y, end) : new Vector3(end, y, across);
             }
@@ -213,7 +236,7 @@ namespace BS3D.Effects
             for (int i = 0; i < PATH_POINTS; i++) path[i] = Vector3.Lerp(from, to, i / (float)(PATH_POINTS - 1));
 
             return new IntroShot("the street", path, STREET_SECONDS, fieldOfView * 1.1f,
-                lookAhead: 20f, pitchDownDegrees: STREET_PITCH_DEGREES);
+                lookAhead: 20f, pitchDownDegrees: pitchDegrees);
         }
 
         /// <summary>
