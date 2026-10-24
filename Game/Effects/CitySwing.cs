@@ -12,7 +12,8 @@ namespace BS3D.Effects
     /// and the camera gets into the game camera position".
     /// <para>
     /// <b>The route is a staircase on the street grid.</b> Down one street, a corner, along the cross street, a
-    /// corner the other way, and down a last street towards the pose — every leg on a street's centre line, where
+    /// corner the other way, and down a last street towards the pose (the day city's two corners; the neon city's three,
+    /// its own route, #973) — every leg on a street's centre line, where
     /// nothing stands at any height (see <see cref="CityIntroShots"/>), and every corner a fillet whose radius keeps the
     /// lens off the block it turns round. Then the release: a curve off the last street's line onto the pose, climbing
     /// out of the canyon into the clearing the island floats over and slowing to a stop on the pose, the look easing
@@ -48,8 +49,12 @@ namespace BS3D.Effects
         /// <param name="ReleaseRunMin">How far behind the pose, along the last street, the curve onto it begins, shortest.</param>
         /// <param name="ReleaseRunMax">The longest.</param>
         /// <param name="WideLens">The field of view it opens at, times the game's: it eases to the game's own by the landing.</param>
+        /// <param name="Corners">How many corners the staircase turns before the last street, alternating left and right.</param>
+        /// <param name="ReleaseTimeScale">How long the release takes against its length over the speed it enters with: 2 is a
+        /// steady deceleration to rest, more settles slower, and under 3 the cubic never runs backwards.</param>
         internal readonly record struct Style(float TopHeight, float Dip, float TopSpeed, float Gravity,
-            int LegBlocksMin, int LegBlocksMax, float FinalBlocks, float ReleaseRunMin, float ReleaseRunMax, float WideLens);
+            int LegBlocksMin, int LegBlocksMax, float FinalBlocks, float ReleaseRunMin, float ReleaseRunMax, float WideLens,
+            int Corners, float ReleaseTimeScale);
 
         //How far every point of the path stays from a tower's box (cornices included) and from the island's rim
         private const float CLEARANCE = 2f;
@@ -58,13 +63,16 @@ namespace BS3D.Effects
         //so the lens clears it by this plus that. The fillet's radius follows from it (see Fillet).
         private const float CORNER_CLEARANCE = 2.6f;
 
+        //The least share of the candidates whose last street runs across the pose's facing (see Lay)
+        private const float CROSS_STREET_SHARE = 0.25f;
+
+        //How deep a sag between two corners may be against the leg it hangs in: a leg a block long sagging the full Dip
+        //pitched the look over 99 degrees a second in the neon city's short legs; the day city's two-block legs sag in full
+        private const float DIP_PER_LENGTH = 0.3f;
+
         //Where the bottom of the last sag falls between the last corner and the pose, as a share of that run: the rest
         //is the climb out of the canyon
         private const float RELEASE_BOTTOM_SHARE = 0.3f;
-
-        //How long the release's cubic takes against its length over the speed it enters with: 2 is a steady
-        //deceleration to rest, and under 3 the cubic never runs backwards
-        private const float RELEASE_TIME_SCALE = 2.0f;
 
         //How much of the path's own rise and fall the look follows, how far out it looks, and over how long either side
         //of the moment its direction is averaged. ⚠ Along the path's own direction, not at a point some way ahead: a
@@ -87,11 +95,22 @@ namespace BS3D.Effects
         private const float STEP = 0.5f;
         private const int POINTS = 240;
 
-        private const int CANDIDATES = 64;
+        private const int CANDIDATES = 96;
 
         /// <summary>The day city's swing (#972).</summary>
         internal static readonly Style Day = new(TopHeight: 80f, Dip: 20f, TopSpeed: 28f, Gravity: 46f,
-            LegBlocksMin: 2, LegBlocksMax: 2, FinalBlocks: 1.5f, ReleaseRunMin: 26f, ReleaseRunMax: 40f, WideLens: 1.3f);
+            LegBlocksMin: 2, LegBlocksMax: 2, FinalBlocks: 1.5f, ReleaseRunMin: 26f, ReleaseRunMax: 40f, WideLens: 1.3f,
+            Corners: 2, ReleaseTimeScale: 2f);
+
+        /// <summary>
+        /// The neon city's swing (#973): its own route and pacing, the owner's "they are two scenes and different cities".
+        /// Three corners to the day city's two through its narrower streets (7.5 to 9), so it turns more and runs shorter
+        /// legs, higher between the towers and sagging deeper, so the street's flat paint stays far under the lens; slower
+        /// round a corner, because the narrower street's fillet is tighter, and faster at the bottom of a sag.
+        /// </summary>
+        internal static readonly Style Neon = new(TopHeight: 92f, Dip: 22f, TopSpeed: 22f, Gravity: 52f,
+            LegBlocksMin: 1, LegBlocksMax: 2, FinalBlocks: 1.2f, ReleaseRunMin: 24f, ReleaseRunMax: 36f, WideLens: 1.35f,
+            Corners: 3, ReleaseTimeScale: 2.2f);
 
         /// <summary>
         /// The swing home through <paramref name="city"/>, landing on <paramref name="endPosition"/> looking at
@@ -130,11 +149,18 @@ namespace BS3D.Effects
             if (facing.LengthSquared() < 1e-6f) return null;
             facing.Normalize();
 
-            //The last street runs the way the pose faces, along whichever axis is rolled — weighted by how much of the
-            //facing lies along it, so a pose facing along Z mostly comes in down a Z street
-            bool alongZ = random.NextDouble() < MathF.Abs(facing.Y) / (MathF.Abs(facing.X) + MathF.Abs(facing.Y));
-            Vector2 d = alongZ ? new Vector2(0f, MathF.Sign(facing.Y)) : new Vector2(MathF.Sign(facing.X), 0f);
-            if (d == Vector2.Zero) return null;
+            //The last street runs the way the pose faces along whichever axis is rolled, weighted by how much of the facing
+            //lies along it, so a pose facing along Z mostly comes in down a Z street — but never less than CROSS_STREET_SHARE
+            //of the time down a cross street. ⚠ A level opens with the gun on an axis (bearing 90), and in the neon city no
+            //street along the facing can curve onto a pose 30 out on the axis: its streets run 12.5 either side of it and the
+            //clearing ends 41 out, so the release had 11 units to move 12 across. Down the cross street that is the
+            //boundary of the clearing, it comes in along the edge and swivels onto the pose. Where the facing has nothing
+            //along the rolled axis, which side the lens comes in from is rolled too.
+            float alongZShare = MathF.Abs(facing.Y) / (MathF.Abs(facing.X) + MathF.Abs(facing.Y));
+            bool alongZ = random.NextDouble() < MathHelper.Clamp(alongZShare, CROSS_STREET_SHARE, 1f - CROSS_STREET_SHARE);
+            float component = alongZ ? facing.Y : facing.X;
+            float heading = MathF.Abs(component) > 0.15f ? MathF.Sign(component) : (random.Next(2) == 0 ? 1f : -1f);
+            Vector2 d = alongZ ? new Vector2(0f, heading) : new Vector2(heading, 0f);
             Vector2 across = new(-d.Y, d.X);
 
             //Its line: the street nearest the pose across the travel, or now and then the next one over
@@ -150,31 +176,44 @@ namespace BS3D.Effects
             if (releaseAlong - cornerAlong < style.FinalBlocks * pitch * 0.75f) cornerAlong -= pitch;
 
             Vector2 release = d * releaseAlong + across * line;
-            Vector2 corner2 = d * cornerAlong + across * line;
+            Vector2 lastCorner = d * cornerAlong + across * line;
 
-            //The middle leg runs across, from the first corner to the second; the entry down the street parallel to the last
+            //Back from the last corner the legs alternate, across into it, down a street parallel to the last into the one
+            //before, and so on: a staircase that keeps closing on the arena. The leg into each corner, the last corner first.
             Vector2 side = random.Next(2) == 0 ? across : -across;
-            Vector2 corner1 = corner2 - side * (random.Next(style.LegBlocksMin, style.LegBlocksMax + 1) * pitch);
-            Vector2 start = corner1 - d * (random.Next(style.LegBlocksMin, style.LegBlocksMax + 1) * pitch);
+            int count = Math.Max(style.Corners, 1);
+            var corners = new Vector2[count];
+            var inbound = new Vector2[count];
+            Vector2 start = lastCorner;
+            for (int k = count - 1; k >= 0; k--)
+            {
+                inbound[k] = (count - 1 - k) % 2 == 0 ? side : d;
+                corners[k] = start;
+                start -= inbound[k] * (random.Next(style.LegBlocksMin, style.LegBlocksMax + 1) * pitch);
+            }
 
             //Inside the city and out of the clearing until the last street
             float edge = (city.RadiusBlocks - 1) * pitch;
-            foreach (Vector2 p in new[] { start, corner1, corner2 })
+            float radius = Fillet(city.StreetWidth);
+            for (int k = -1; k < count; k++)
             {
+                Vector2 p = k < 0 ? start : corners[k];
                 float ring = MathF.Max(MathF.Abs(p.X), MathF.Abs(p.Y));
                 if (ring > edge || ring < 2f * pitch) return null;
             }
+            if (Vector2.Distance(start, corners[0]) < radius + 4f || Vector2.Distance(lastCorner, release) < radius + 4f) return null;
 
-            float radius = Fillet(city.StreetWidth);
-            if (Vector2.Distance(start, corner1) < radius + 4f || Vector2.Distance(corner2, release) < radius + 4f) return null;
-
-            //The plan, cut fine: straight, fillet, straight, fillet, straight, then the curve onto the pose
+            //The plan, cut fine: straight and fillet for every corner, the last street, then the curve onto the pose; the
+            //length at each corner's middle is the top of a swing
             var plan = new List<Vector2>();
-            float s1 = Straight(plan, start, corner1 - d * radius);
-            s1 += Arc(plan, corner1, d, side, radius) * 0.5f;
-            float s2 = Straight(plan, corner1 + side * radius, corner2 - side * radius) + MathHelper.PiOver2 * radius * 0.5f;
-            Arc(plan, corner2, side, d, radius);
-            Straight(plan, corner2 + d * radius, release);
+            var tops = new float[count];
+            float laid = Straight(plan, start, corners[0] - inbound[0] * radius);
+            for (int k = 0; k < count; k++)
+            {
+                Vector2 outbound = k + 1 < count ? inbound[k + 1] : d;
+                tops[k] = laid + Arc(plan, corners[k], inbound[k], outbound, radius) * 0.5f;
+                laid = Straight(plan, corners[k] + outbound * radius, k + 1 < count ? corners[k + 1] - inbound[k + 1] * radius : release);
+            }
             int releaseStart = plan.Count - 1;
 
             //Which way the lens moves as it arrives: along the pose's facing, so it comes in towards what it will look
@@ -185,18 +224,24 @@ namespace BS3D.Effects
             Release(plan, release, d, end, arrive);
             float total = PlanLength(plan);
 
-            //No tighter onto the pose than round a corner: the curve's radius, read over every few of its points
+            //No tighter onto the pose than twice a corner's fillet: the curve's radius, read over every few of its points. A corner is
+            //the top of a swing and taken slowly; the release begins at the bottom of a sag, at twice the speed, and a
+            //curve as tight as a corner turned the view 170 degrees a second there
             for (int i = releaseStart + 2; i + 2 < plan.Count; i += 2)
             {
                 Vector2 a = plan[i] - plan[i - 2], b = plan[i + 2] - plan[i];
                 float turned = MathF.Abs(MathHelper.WrapAngle(MathF.Atan2(b.Y, b.X) - MathF.Atan2(a.Y, a.X)));
-                if (turned > 1e-4f && (a.Length() + b.Length()) * 0.5f / turned < radius) return null;
+                if (turned > 1e-4f && (a.Length() + b.Length()) * 0.5f / turned < 2f * radius) return null;
             }
 
             //The heights: the corners at the tops of the swings, a sag between them, and the climb out onto the pose
             float ground = city.GroundY;
-            float top = ground + style.TopHeight, bottom = top - style.Dip;
-            float sBottom = s2 + (total - s2) * RELEASE_BOTTOM_SHARE;
+            float top = ground + style.TopHeight;
+            float sLast = tops[count - 1];
+            float sBottom = sLast + (total - sLast) * RELEASE_BOTTOM_SHARE;
+
+            //The last sag is half of one (a top down to a bottom), so it is held to the depth a whole sag twice its length may have
+            float releaseDip = MathF.Min(style.Dip, 2f * (sBottom - sLast) * DIP_PER_LENGTH), bottom = top - releaseDip;
 
             var path = new List<Vector3>(plan.Count);
             float s = 0f;
@@ -209,9 +254,16 @@ namespace BS3D.Effects
                 //Every piece level at both its ends, so the swings meet over a corner without a kink: a sine sag meets the
                 //next at an angle, and the look, which follows half the climb, pitched 200 degrees a second over it
                 float y;
-                if (s <= s1) y = top - style.Dip * 0.5f * (1f + MathF.Cos(MathHelper.Pi * s / s1));
-                else if (s <= s2) y = top - style.Dip * 0.5f * (1f - MathF.Cos(MathHelper.TwoPi * (s - s1) / (s2 - s1)));
-                else if (s <= sBottom) y = top - style.Dip * 0.5f * (1f - MathF.Cos(MathHelper.Pi * (s - s2) / (sBottom - s2)));
+                if (s <= tops[0]) y = top - style.Dip * 0.5f * (1f + MathF.Cos(MathHelper.Pi * s / tops[0]));
+                else if (s <= sLast)
+                {
+                    int j = 0;
+                    while (s > tops[j + 1]) j++;
+                    float span = tops[j + 1] - tops[j];
+                    float dip = MathF.Min(style.Dip, span * DIP_PER_LENGTH);
+                    y = top - dip * 0.5f * (1f - MathF.Cos(MathHelper.TwoPi * (s - tops[j]) / span));
+                }
+                else if (s <= sBottom) y = top - releaseDip * 0.5f * (1f - MathF.Cos(MathHelper.Pi * (s - sLast) / (sBottom - sLast)));
                 else y = MathHelper.Lerp(bottom, endPosition.Y, MathHelper.SmoothStep(0f, 1f, (s - sBottom) / (total - sBottom)));
 
                 path.Add(new Vector3(plan[i].X, y, plan[i].Y));
@@ -264,7 +316,7 @@ namespace BS3D.Effects
             //The release: distance along it on the cubic x(τ) = v0·T·h10 + L·h01, entering at the bottom's speed, at rest on the pose
             float v0 = MathF.Sqrt(style.TopSpeed * style.TopSpeed + 2f * style.Gravity * MathF.Max(top - path[releaseFrom].Y, 0f));
             float releaseLength = length[^1] - length[releaseFrom];
-            float releaseSeconds = RELEASE_TIME_SCALE * releaseLength / v0;
+            float releaseSeconds = style.ReleaseTimeScale * releaseLength / v0;
             float seconds = time[releaseFrom] + releaseSeconds;
 
             var positions = new Vector3[POINTS];
