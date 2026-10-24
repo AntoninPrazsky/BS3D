@@ -974,8 +974,8 @@ namespace BS3D.Screens
 
         //The trigger motors (#188): RT is the gun's own trigger, so it answers the shot under the finger that fired it — a
         //full, short break, shorter than the body's thump so the two read as the trigger and then the recoil. A refused
-        //shot (the aim pressed into its stop, a cutter aimed where the Cut may not strike) is a dry click instead: weak and
-        //short, beside PlayShotRefused's own dry "no", so a pull that fires nothing still says it was heard.
+        //shot (a cutter aimed where the Cut may not strike) is a dry click instead: weak and short, beside PlayShotRefused's
+        //own dry "no", so a pull that fires nothing still says it was heard.
         private const float SHOT_TRIGGER_RUMBLE = 1f;
         private const float SHOT_TRIGGER_RUMBLE_SECONDS = 0.09f;
         private const float REFUSED_TRIGGER_RUMBLE = 0.35f;

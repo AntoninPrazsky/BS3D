@@ -6,10 +6,10 @@ using Xunit;
 namespace BS3D.Tests
 {
     /// <summary>
-    /// The two ends of the elevation clamp are not alike (#872). The upper one keeps its alarm and its refusal to fire
-    /// (#431, #811, #842): it closes a band of cluster the camera does not frame. The lower one is a soft stop and no
-    /// more: pushing under it never raises the strain, never refuses a shot, and the rubber lets go without swinging
-    /// back past the clamp.
+    /// The two ends of the elevation clamp are not alike (#872). The upper one keeps its alarm (#431, #811, #842): it closes
+    /// a band of cluster the camera does not frame. The lower one is a soft stop and no more: pushing under it never raises
+    /// the strain, and the rubber lets go without swinging back past the clamp. Neither refuses a shot (#872, #1008): one
+    /// fired with the barrel stretched past a clamp leaves at the clamp, the stretch being only drawn.
     /// </summary>
     public class CannonElevationTests
     {
@@ -50,18 +50,6 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void TheLowerLimitNeverRefusesAShot()
-        {
-            Cannon cannon = NewCannon();
-            bool refused = false;
-
-            Push(cannon, -1f, 200, () => refused |= cannon.ElevationRefusesShot);
-            Idle(cannon, 120, () => refused |= cannon.ElevationRefusesShot);
-
-            Assert.False(refused);
-        }
-
-        [Fact]
         public void TheLowerRubberStretchesUnderTheClampAndEasesBackWithoutAnyRebound()
         {
             Cannon cannon = NewCannon();
@@ -93,7 +81,6 @@ namespace BS3D.Tests
             Push(cannon, -1f, 200);
 
             Assert.True(cannon.ElevationOvershoot < -0.05f, "the rubber is not stretched, so the test checks nothing");
-            Assert.False(cannon.ElevationRefusesShot);
 
             //The drawn pose is under the floor, the shot is not
             Assert.True(cannon.AimDirection.Y < reference.AimDirection.Y - 0.05f);
@@ -107,22 +94,57 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void AnythingAboveTheFloorFiresAlongTheDrawnPose()
+        public void AShotAgainstTheUpperClampLeavesAtTheClampWhateverTheRubberShows()
+        {
+            //The owner's ruling on #1008: when aiming too high, fire at the limit. Along the stretched barrel the shot would
+            //leave up to ~6 degrees past a tall level's limit, into the band it closes (#431). The reference is the same gun
+            //put exactly on the clamp.
+            const float limit = 0.5f;
+            Cannon reference = NewCannon();
+            reference.ElevationLimit = limit;
+            reference.AimTo(limit, 0f);
+
+            Cannon cannon = NewCannon();
+            cannon.ElevationLimit = limit;
+            Push(cannon, 1f, 200);
+
+            Assert.True(cannon.ElevationOvershoot > 0.05f, "the rubber is not stretched, so the test checks nothing");
+            Assert.Equal(1f, cannon.ElevationStrain);
+
+            //The drawn pose is over the limit, the shot is not
+            Assert.True(cannon.AimDirection.Y > reference.AimDirection.Y + 0.03f);
+            Assert.Equal(reference.AimDirection.X, cannon.FireDirection.X, 4);
+            Assert.Equal(reference.AimDirection.Y, cannon.FireDirection.Y, 4);
+            Assert.Equal(reference.AimDirection.Z, cannon.FireDirection.Z, 4);
+            Assert.Equal(reference.MuzzlePosition(2f).Y, cannon.FireMuzzle(2f).Y, 4);
+
+            //And never over it while the spring brings the barrel back, every frame of it
+            Idle(cannon, 120, () => Assert.True(cannon.FireDirection.Y <= reference.AimDirection.Y + 1e-4f,
+                $"a shot would leave at {cannon.FireDirection.Y:F4} against the clamp's {reference.AimDirection.Y:F4}"));
+        }
+
+        [Fact]
+        public void BetweenTheClampsAShotFiresAlongTheDrawnPose()
         {
             Cannon cannon = NewCannon();
             Assert.Equal(cannon.AimDirection, cannon.FireDirection);
 
+            //The upper rubber's rebound UNDER its clamp is a pose the level allows, and fires as drawn
             cannon.ElevationLimit = 0.5f;
             Push(cannon, 1f, 200);
-            Assert.True(cannon.ElevationOvershoot > 0f);
-            Assert.Equal(cannon.AimDirection, cannon.FireDirection);
+            bool rebounded = false;
+            Idle(cannon, 120, () =>
+            {
+                if (cannon.ElevationOvershoot >= 0f) return;
+                rebounded = true;
+                Assert.Equal(cannon.AimDirection, cannon.FireDirection);
+            });
 
-            //The upper rubber's rebound under its clamp is still the pose that fires, not the floor's rule
-            Idle(cannon, 40, () => Assert.Equal(cannon.AimDirection, cannon.FireDirection));
+            Assert.True(rebounded, "the rubber never swung under the clamp, so the test checks nothing");
         }
 
         [Fact]
-        public void TheUpperLimitKeepsItsStrainRefusalAndRebound()
+        public void TheUpperLimitKeepsItsStrainAndRebound()
         {
             Cannon cannon = NewCannon();
             cannon.ElevationLimit = 0.5f;
@@ -130,7 +152,6 @@ namespace BS3D.Tests
             Push(cannon, 1f, 200);
 
             Assert.Equal(1f, cannon.ElevationStrain);
-            Assert.True(cannon.ElevationRefusesShot);
             Assert.True(cannon.ElevationOvershoot > 0f);
 
             //Let go: the strain runs out and the spring swings the barrel back past the clamp, as it always did

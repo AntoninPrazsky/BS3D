@@ -136,11 +136,6 @@ namespace BS3D.Screens
             _previewHasCell = ShotPlacement.TrySolveAgainstBall(_map, hit, contact, _clusterWorldOffset,
                 out _previewCell, out _previewDrift);
 
-            //No ghost for a shot the gun will refuse (#431): a cell shown while the aim is pressed past the elevation
-            //clamp is a landing promised for a shot that cannot leave, which is #70's broken promise. The beam stays
-            //up and reads refused, because in the overview it is what carries the blink.
-            if (_cannon.ElevationRefusesShot) _previewHasCell = false;
-
             //And none for a cutter (#213): it does not land in a cell, so the ghost would show a ball that will not be there.
             //The beam ends at the ball it will strike, which is the promise a cutter can keep - and when that ball stands in
             //a storey the Cut may not strike (more than the lower half of the cluster, #692), the aim is refused as one past
@@ -151,7 +146,7 @@ namespace BS3D.Screens
                 _cutterRefused = BallsConstraintsBuilder.IsCutProtected(hit.ArrayPosition, _map);
 
                 //And what it would cut off, lit before the shot (#692, the owner's ask) - only where the gun would fire
-                if (!_cutterRefused && !_cannon.ElevationRefusesShot) LightCutPreview(hit.ArrayPosition);
+                if (!_cutterRefused) LightCutPreview(hit.ArrayPosition);
             }
         }
 

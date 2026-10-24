@@ -69,20 +69,13 @@ namespace Testbed
 
         private void ShootBall(Vector3? targetOverride = null)
         {
-            //The Game's rule, off the same hardware (#431): no shot while the aim is pressed into or stretched past
-            //the elevation clamp. Said on a line, because the Testbed has no refusal sound, and a scripted press
-            //that silently did nothing is exactly what a timeline cannot tell apart from a typo.
-            if (_gameMode && targetOverride == null && _cannon.ElevationRefusesShot)
-            {
-                System.Console.WriteLine("[shot] refused: the aim is pressed into the elevation clamp");
-                return;
-            }
-
             //In game mode the shot leaves from the ball the player watched sitting at the head of the queue,
             //not from the pivot in the middle of the barrel, so the drawn ball and the physics one that
-            //replaces it are at the same place and the shot reads as that ball leaving the bore
-            var sourcePosition = _gameMode ? _cannon.MuzzlePosition(_cannonRig.PivotToFrontBall) : _camera.Position;
-            var shootTarget = targetOverride ?? (_gameMode ? _cannon.AimTarget : _camera.Target);
+            //replaces it are at the same place and the shot reads as that ball leaving the bore. Along the
+            //Game's line, off the same hardware (#872, #1008): a barrel stretched past an elevation clamp fires
+            //at the clamp, the stretch being only drawn
+            var sourcePosition = _gameMode ? _cannon.FireMuzzle(_cannonRig.PivotToFrontBall) : _camera.Position;
+            var shootTarget = targetOverride ?? (_gameMode ? sourcePosition + _cannon.FireDirection : _camera.Target);
 
             var direction = shootTarget - sourcePosition;
             direction.Normalize();

@@ -62,8 +62,9 @@ namespace Prazsky.BS3D.GameObjects
         /// not a signal.
         /// <para>
         /// <b>Never raised at <see cref="MinElevation"/></b> (#872): a player looks down at the floor on purpose, so that
-        /// end is a soft stop with no alarm — no red mark, no sound, no rumble, no refusal to fire (see
-        /// <see cref="ElevationRefusesShot"/>) — and its rubber has no rebound (<see cref="ElevationOvershoot"/>).
+        /// end is a soft stop with no alarm — no red mark, no sound, no rumble — and its rubber has no rebound
+        /// (<see cref="ElevationOvershoot"/>). <b>Neither end refuses a shot</b> (#1008): the strain says the gun will go no
+        /// higher, and a shot fired against it leaves at the clamp (<see cref="FireDirection"/>).
         /// </para>
         /// <para>
         /// <b>It is raised by <see cref="Aim"/> alone</b> — the input — never by a walk steepening the rest, an eased
@@ -106,11 +107,10 @@ namespace Prazsky.BS3D.GameObjects
         /// <see cref="MinElevation"/> the spring is critically damped (#872): the barrel runs out onto the stretch and
         /// eases back onto the clamp, and never swings past it.
         /// <para>
-        /// <b>The cost, the owner's call:</b> this is one pose, so a shot fired mid-stretch at the <b>upper</b> end would leave
-        /// along the stretched barrel, up to this far past the limit and the spring's first swing a little further (the gun
-        /// refuses it, <see cref="ElevationRefusesShot"/>; the lower end's stretch is drawn only, <see cref="FireDirection"/>). On a tall
-        /// level that reopens, for as long as the hand pushes and the barrel comes back, part of the unframed band
-        /// its limit is there to close. At the hardware's own <see cref="MaxElevation"/> the stretch is stopped short
+        /// <b>The stretch is drawn, never fired</b> (#872 at the floor, #1008 at the top): a shot fired mid-stretch leaves at
+        /// the clamp (<see cref="FireDirection"/>). Fired along the stretched barrel it would leave up to this far past a tall
+        /// level's limit, into the unframed band the limit is there to close — the exploit #431 first answered by refusing
+        /// the shot, which an outside player read as the proof that the shot is faked. At the hardware's own <see cref="MaxElevation"/> the stretch is stopped short
         /// of vertical by <see cref="POSE_ELEVATION_CEILING"/>; nothing of the gun collides on the way, because the
         /// cascabel clears the stone by 0.29 at 80.2° and falls less than 0.05 further before vertical, and the
         /// carriage's clearances are a rule that holds at every elevation (see <c>CannonRig</c>).
@@ -153,37 +153,6 @@ namespace Prazsky.BS3D.GameObjects
         /// rubber's stretch as the spring carries it. Zero at rest, exactly.
         /// </summary>
         public float ElevationOvershoot => _elevationOvershoot;
-
-        /// <summary>
-        /// Whether the gun must refuse to fire this instant because the aim is pressed against, or stretched past,
-        /// the <b>upper</b> elevation clamp (#431). The rubber was an exploit: a shot fired from the top of the stretch
-        /// left up to ~6° past a tall level's limit, straight into the unframed band the limit exists to close. So a
-        /// shot is refused for as long as <see cref="ElevationStrain"/> lasts — exactly while the crosshair and the beam
-        /// blink red, so the refusal is never unannounced — and, as a net under that, while the pose stands past the
-        /// clamp by more than <see cref="ELEVATION_FIRE_TOLERANCE"/>. At rest on the clamp the gun fires: the limit is
-        /// what the level allows, and nothing is pushing. <b>The lower end never refuses</b> (#872): nothing is hidden
-        /// down there, so a shot at, against or stretched under <see cref="MinElevation"/> fires, along
-        /// <see cref="FireDirection"/>: the clamped elevation, the stretch under it being only drawn.
-        /// </summary>
-        public bool ElevationRefusesShot
-        {
-            get
-            {
-                if (ElevationStrain > 0f) return true;
-
-                float pose = PoseElevation;
-                return pose > _elevationLimit + ELEVATION_FIRE_TOLERANCE;
-            }
-        }
-
-        /// <summary>
-        /// How far past the clamp the pose may stand and still fire once the strain is over, in radians (~0.57°).
-        /// Not zero, because the spring's second swing back over the clamp comes after the blink has stopped — 0.33°
-        /// from a full stretch, measured at 30, 75 and 240 Hz — and a shot refused under a white crosshair would be a
-        /// refusal nobody was told about. Half a degree is nothing a player can exploit against a tall level's 3°
-        /// margin.
-        /// </summary>
-        public const float ELEVATION_FIRE_TOLERANCE = 0.01f;
 
         //Traverse (yaw) the aim may swing either side of the resting heading, in radians (±45°).
         public const float MaxTraverse = Constants.QUARTER_PI;
@@ -1117,20 +1086,24 @@ namespace Prazsky.BS3D.GameObjects
             Position + AimDirection * pivotToFrontBall;
 
         /// <summary>
-        /// The direction a shot leaves along and the aim preview is solved along (#872): <see cref="AimDirection"/>, except
-        /// that the lower rubber's stretch is left out. The owner asked for the alarm to go at <see cref="MinElevation"/>,
-        /// not for a gun that fires under its floor, so a shot fired with the barrel pulled under the clamp leaves at the
-        /// clamped elevation and the stretch is only what the barrel and a precise-aim lens draw. At the upper end the
-        /// stretch is part of the pose by design and the gun refuses to fire out of it (<see cref="ElevationRefusesShot"/>),
-        /// so there this is <see cref="AimDirection"/> itself.
+        /// The direction a shot leaves along and the aim preview is solved along: <see cref="AimDirection"/>, except that the
+        /// rubber's stretch past either clamp is left out, so a shot fired with the barrel stretched past a clamp leaves at
+        /// the clamped elevation and the stretch is only what the barrel and a precise-aim lens draw. At the floor (#872) the
+        /// owner asked for the alarm to go, not for a gun that fires under its floor. At the top (#1008) the gun refused to
+        /// fire out of the stretch until an outside player took the refusal for the proof that the shot is faked: "that is
+        /// the only moment you cannot fire the cannon". It fires now, along the clamp, which keeps the unframed band a tall
+        /// level's limit closes (#431) closed. The upper rubber's rebound UNDER its clamp is a pose the level allows, and fires
+        /// as drawn.
         /// </summary>
         public Vector3 FireDirection
         {
             get
             {
-                //Only the lower end's stretch: the upper rubber's rebound under its clamp is a shot the level allows
+                //Only a stretch past a clamp: over the upper one, or under the floor
                 float aimed = _rotationToOrbitCenter.X + _rotationAim.X;
-                if (_elevationOvershoot >= 0f || aimed > MinElevation + 1e-4f) return AimDirection;
+                bool pastUpper = _elevationOvershoot > 0f;
+                bool underFloor = _elevationOvershoot < 0f && aimed <= MinElevation + 1e-4f;
+                if (!pastUpper && !underFloor) return AimDirection;
 
                 float elevation = MathF.Min(aimed, POSE_ELEVATION_CEILING);
                 Matrix rotation = Matrix.CreateRotationX(elevation - Constants.HALF_PI)
