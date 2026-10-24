@@ -380,7 +380,7 @@ namespace BS3D.Screens
             else _aimStopArmed = true;
 
             //And held (#835), the owner's ask: the pad buzzes "constantly, until the player stops pushing the stick or is back
-            //in the window he may fire from". Past the upper clamp that is the strain itself (the lower end raises none, #872): full while the push
+            //in the window". Past the upper clamp that is the strain itself (the lower end raises none, #872): full while the push
             //lasts, and let go over ELEVATION_STRAIN_RELEASE once it stops, so the buzz fades with the crosshair's blink. A
             //cutter aimed into the storeys the Cut may not strike (#692) has no clamp to push against, so there it is the
             //right stick pushed up or down while the cutter is refused. The knock above stays the arrival.
@@ -512,12 +512,11 @@ namespace BS3D.Screens
             //in CheckLevelLost, against the state of the field then.
             if (_run.Score.OutOfShots) return;
 
-            //Refused while the aim is pressed into, or stretched past, the elevation clamp (#431). The rubber lets
-            //the barrel run up to ~6° past a tall level's limit, and a shot fired from the top of that stretch went
-            //straight into the band the limit closes. Said out loud rather than silently eaten: the marks are already
-            //blinking red, and a click that does nothing and says nothing reads as a dropped input.
-            //And a cutter aimed into the storeys the Cut may not strike (#692), on the owner's word "the effect as if shooting too
-            //high, and it cannot be fired": the same blink (AimStrain) and the same dry "no". Asked again HERE, of the aim and
+            //Never refused for the elevation clamp (#1008): a shot pushed against it leaves along it (Cannon.FireDirection),
+            //the stretch past it being only drawn, which keeps a tall level's unframed band closed (#431).
+            //Refused only for a cutter aimed into the storeys the Cut may not strike (#692), on the owner's word "the effect as if
+            //shooting too high, and it cannot be fired": the blink (AimStrain) and the dry "no", said out loud rather than
+            //silently eaten, because a click that does nothing and says nothing reads as a dropped input. Asked again HERE, of the aim and
             //the round as they stand at the trigger, and not read off the preview: that is solved after the step, a frame
             //before the input, so R and a click in one frame fired a cutter the preview had not seen loaded, a flick across the
             //boundary fired one at the storey it crossed into, and a Swap that took the cutter out refused the ball after it
@@ -529,7 +528,7 @@ namespace BS3D.Screens
                 cutterRefused = _cutterRefused;
             }
 
-            if (_cannon.ElevationRefusesShot || cutterRefused)
+            if (cutterRefused)
             {
                 Game.Audio.PlayShotRefused();
                 Game.Rumble.KickTriggers(0f, REFUSED_TRIGGER_RUMBLE, REFUSED_TRIGGER_RUMBLE_SECONDS);
@@ -547,7 +546,7 @@ namespace BS3D.Screens
 
             //No recoil in either of these: the shot leaves along the TRUE aim on the frame it is fired, before
             //the barrel has moved. The stroke below is drawing only — see CannonRecoilBack.
-            //Along FireDirection, not the drawn pose: a barrel stretched under the lower clamp (#872) draws there and fires from it
+            //Along FireDirection, not the drawn pose: a barrel stretched past a clamp (#872, #1008) draws there and fires at it
             Vector3 direction = _cannon.FireDirection;
             Vector3 muzzle = _cannon.FireMuzzle(Game.CannonRig.PivotToFrontBall);
             //A wildcard fires as the colour it is SHOWING (#330), not as the one dealt into the slot underneath

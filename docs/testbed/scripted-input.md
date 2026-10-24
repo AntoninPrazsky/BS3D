@@ -28,7 +28,7 @@ Use it instead of sending input from another process, which fails silently: wron
 - The gun's clamps (`Cannon.MinElevation`/`ElevationLimit`/`MaxTraverse`) apply and are **reported**: `aim=9:95:70` prints `[script] aim clamped to 80.2/45.0 deg`, because a clipped pose will not reproduce the framing it was copied from.
 - A lean outside game mode prints `[script] precise aim asked for outside game mode; it needs F10 (at=<t>:F10)`.
 - Angles are degrees everywhere a reader sees them and become radians only in the delegate handed to `InputScript`.
-- Fire with `at=<t>:Space`; a shot pressed into the elevation clamp is refused with a `[shot] refused:` line ([The elevation clamp](camera-and-aim.md#the-elevation-clamp)).
+- Fire with `at=<t>:Space`; a shot pressed into the elevation clamp leaves at the clamp ([The elevation clamp](camera-and-aim.md#the-elevation-clamp)).
 
 ## Why it works minimised
 
