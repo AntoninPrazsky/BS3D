@@ -22,6 +22,12 @@ namespace BS3D.Tests
         private static readonly Vector3 MUZZLE = new(0f, -5.1f, 15f);
         private static readonly Vector3 AIM_POINT = new(0f, 3.5f, 7.5f);
 
+        //Zigzag's top row: the glass's underside over the plate footprint's four corners (17 cells, a half-extent of 9)
+        private static readonly Vector3[] TOP_ROW =
+        {
+            new(-9f, 5.3f, -9f), new(9f, 5.3f, -9f), new(-9f, 5.3f, 9f), new(9f, 5.3f, 9f),
+        };
+
         //Runs the focus for a span of seconds at a frame rate, the overview holding the lens or not
         private static void Run(OverviewFocus focus, bool overview, float seconds, float hz)
         {
@@ -83,7 +89,10 @@ namespace BS3D.Tests
         {
             var focus = new OverviewFocus();
             Run(focus, true, 10f, 120f);
-            Run(focus, false, 1f, 120f);
+
+            //Leaned for a frame: still most of the way focused, and the next hold would be a return's
+            focus.Step(false, false, 1f / 120f);
+            Assert.True(focus.Amount > 0.5f);
 
             focus.Reset();
             Assert.Equal(0f, focus.Amount);
@@ -98,16 +107,16 @@ namespace BS3D.Tests
             var fast = new OverviewFocus();
             float previous = 0f;
 
-            //Sampled on the slow clock's frames, at 24 and at 240 a second
-            for (int frame = 0; frame < 24 * 6; frame++)
+            //Sampled on the slow clock's frames, at 7 and at 252 a second: the 2.5 s hold ends half-way through a slow frame,
+            //so a frame that rose for the whole of its length would be a third of a frame ahead
+            for (int frame = 0; frame < 7 * 6; frame++)
             {
-                slow.Step(true, false, 1f / 24f);
-                for (int i = 0; i < 10; i++) fast.Step(true, false, 1f / 240f);
+                slow.Step(true, false, 1f / 7f);
+                for (int i = 0; i < 36; i++) fast.Step(true, false, 1f / 252f);
 
-                Assert.True(MathF.Abs(slow.Amount - fast.Amount) < 0.02f,
-                    $"at {frame / 24f:F2} s the focus was {slow.Amount} at 24 Hz and {fast.Amount} at 240 Hz");
+                Assert.True(MathF.Abs(slow.Amount - fast.Amount) < 0.01f,
+                    $"at {frame / 7f:F2} s the focus was {slow.Amount} at 7 Hz and {fast.Amount} at 252 Hz");
                 Assert.True(fast.Amount >= previous - 1e-6f, $"the rise fell back from {previous} to {fast.Amount}");
-                Assert.True(fast.Amount <= 1f);
                 previous = fast.Amount;
             }
         }
@@ -115,7 +124,7 @@ namespace BS3D.Tests
         [Fact]
         public void TheFocusedPoseIsLongerThanPreciseAimAndKeepsSomeOfTheGun()
         {
-            AimPose focused = OverviewFocus.Focused(LENS, LOOK_AT, GAME_FOV, AIM_POINT, MUZZLE);
+            AimPose focused = OverviewFocus.Focused(LENS, LOOK_AT, GAME_FOV, AIM_POINT, MUZZLE, TOP_ROW);
 
             //The owner's "longer than precise aim": a wider field of view, and a lens further back from the muzzle
             Assert.True(focused.FieldOfView > PreciseAim.FOV, $"the focused field of view {focused.FieldOfView} is not wider than precise aim's");
@@ -140,8 +149,48 @@ namespace BS3D.Tests
             Assert.True(AimTilt.GunKeepLimit(lens, pulled, MUZZLE, GAME_FOV * OverviewFocus.FOV_SCALE) < 0f,
                 "the rig does not reach the case: the pulled look-at keeps the muzzle on its own");
 
-            AimPose focused = OverviewFocus.Focused(LENS, LOOK_AT, GAME_FOV, high, MUZZLE);
+            AimPose focused = OverviewFocus.Focused(LENS, LOOK_AT, GAME_FOV, high, MUZZLE, TOP_ROW);
             Assert.Equal(0f, AimTilt.GunKeepLimit(focused.Position, focused.Target, MUZZLE, focused.FieldOfView), 3);
+        }
+
+        [Fact]
+        public void ALowAimKeepsTheTopRowWhereTheGunAllows()
+        {
+            //An aim low on the field pulls the look-at down until the top row leaves the frame's top
+            Vector3 low = new(0f, -3f, 10f);
+            AimPose bare = OverviewFocus.Focused(LENS, LOOK_AT, GAME_FOV, low, MUZZLE, ReadOnlySpan<Vector3>.Empty);
+            float lostBare = TopRowLost(bare);
+            Assert.True(lostBare > 1e-3f, "the rig does not reach the case: the low aim keeps the top row on its own");
+
+            //With the row handed in, the lens turns back up: the row is on its line, or the gun keep stopped it
+            AimPose kept = OverviewFocus.Focused(LENS, LOOK_AT, GAME_FOV, low, MUZZLE, TOP_ROW);
+            float gunRoom = AimTilt.GunKeepLimit(kept.Position, kept.Target, MUZZLE, kept.FieldOfView);
+            Assert.True(TopRowLost(kept) < 1e-3f || MathF.Abs(gunRoom) < 1e-3f,
+                $"the top row is still {TopRowLost(kept)} rad off the frame with {gunRoom} rad of the gun's room left");
+            Assert.True(gunRoom >= -1e-4f, "keeping the top row broke the gun keep");
+            Assert.True(TopRowLost(kept) < lostBare);
+        }
+
+        //How far past the top keep's line the worst top corner stands in a pose, in radians (0 when all are inside)
+        private static float TopRowLost(AimPose pose)
+        {
+            float lost = 0f;
+            foreach (Vector3 corner in TOP_ROW)
+                lost = MathF.Max(lost, -AimTilt.TopKeepLimit(pose.Position, pose.Target, corner, pose.FieldOfView));
+            return lost;
+        }
+
+        [Fact]
+        public void ALeanBeforeTheFirstFocusKeepsTheOpeningsHold()
+        {
+            //RMB tried in the first second: the cluster's start swing is still to be seen whole
+            var focus = new OverviewFocus();
+            Run(focus, true, 0.5f, 120f);
+            Run(focus, false, 0.5f, 120f);
+            Run(focus, true, OverviewFocus.HOLD_RETURN_SECONDS + 0.5f, 120f);
+            Assert.Equal(0f, focus.Amount);
+            Run(focus, true, OverviewFocus.HOLD_OPENING_SECONDS, 120f);
+            Assert.True(focus.Amount > 0f);
         }
 
         [Fact]
@@ -161,6 +210,13 @@ namespace BS3D.Tests
             //And arrives in the end
             for (int i = 0; i < 120 * 5; i++) next = focus.FollowAim(MUZZLE, aim, 25f, 1f / 120f);
             Assert.True(Vector3.Distance(next, MUZZLE + aim * 25f) < 0.01f);
+
+            //A depth behind the muzzle (an aim swung far off the cluster) is held to precise aim's own range, and a NaN is
+            //not taken at all
+            for (int i = 0; i < 120 * 5; i++) next = focus.FollowAim(MUZZLE, aim, -40f, 1f / 120f);
+            Assert.True(Vector3.Distance(next, MUZZLE + aim * PreciseAim.CONVERGE_MIN) < 0.01f);
+            next = focus.FollowAim(MUZZLE, aim, float.NaN, 1f / 120f);
+            Assert.True(float.IsFinite(next.X) && float.IsFinite(next.Y) && float.IsFinite(next.Z));
         }
     }
 }

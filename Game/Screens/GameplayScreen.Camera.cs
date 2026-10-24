@@ -87,7 +87,12 @@ namespace BS3D.Screens
 
             if (focus > 0f)
             {
-                AimPose focused = OverviewFocus.Focused(overviewPosition, overviewTarget, GAME_FOV, focusPoint, lensMuzzle);
+                int corners = 0;
+                if (_map != null)
+                    for (; corners < _focusTopRow.Length; corners++) _focusTopRow[corners] = TopRowCorner(corners);
+
+                AimPose focused = OverviewFocus.Focused(overviewPosition, overviewTarget, GAME_FOV, focusPoint, lensMuzzle,
+                    _focusTopRow.AsSpan(0, corners));
 
                 overviewPosition = Vector3.Lerp(overviewPosition, focused.Position, focus);
                 overviewTarget = Vector3.Lerp(overviewTarget, focused.Target, focus);
@@ -225,8 +230,10 @@ namespace BS3D.Screens
         //The overview's tilt with the aim (#720), reseeded by a level's fit like the bearing's trail above
         private readonly AimTilt _aimTilt = new();
 
-        //The overview's focus on the aim (#1006), reset by a level's fit to the full frame and the opening's hold
+        //The overview's focus on the aim (#1006), reset by a level's fit to the full frame and the opening's hold, and the
+        //four top-row corners it keeps in the frame, filled each frame it focuses
         private readonly OverviewFocus _focus = new();
+        private readonly Vector3[] _focusTopRow = new Vector3[4];
 
         //The elevation clamp the level opened against (#842), as the fit solved it (OpeningElevationLimit): the tilt's
         //zero stands under it. Held for the attempt and not read off Cannon.ElevationLimit, which LiftTallAimOnceFramed

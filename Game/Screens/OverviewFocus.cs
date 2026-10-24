@@ -103,9 +103,11 @@ namespace BS3D.Screens
         /// <summary>How fast <see cref="Amount"/> is moving, a second — the chase's second state.</summary>
         public float Rate { get; private set; }
 
-        //How long the overview has had the lens alone, and whether the next hold is a return's (shorter) or the opening's
+        //How long the overview has had the lens alone, whether the next hold is a return's (shorter) or the opening's, and
+        //whether this level's opening hold has run out: a lean or a tour before it does not cut the opening short
         private float _held;
         private bool _returning;
+        private bool _opened;
 
         //The followed aim point: its eased depth, the point and its velocity
         private float _depth;
@@ -122,6 +124,7 @@ namespace BS3D.Screens
             Rate = 0f;
             _held = 0f;
             _returning = false;
+            _opened = false;
             _aimSeeded = false;
         }
 
@@ -129,7 +132,8 @@ namespace BS3D.Screens
         /// Moves <see cref="Amount"/> on by <paramref name="elapsedSeconds"/> of real time and returns it.
         /// <paramref name="overviewHasTheLens"/> is false while precise aim or any takeover has any weight in the pose;
         /// <paramref name="heldByTheOpening"/> says the takeover is the chapter's opening tour, whose end is the level's
-        /// opening for the player, so the hold after it is the opening's and not a return's.
+        /// opening for the player, so the hold after it is the opening's and not a return's. A lean before the level has
+        /// focused once keeps the opening's hold too, so the cluster's start swing is seen whole however early RMB is tried.
         /// </summary>
         public float Step(bool overviewHasTheLens, bool heldByTheOpening, float elapsedSeconds)
         {
@@ -138,7 +142,7 @@ namespace BS3D.Screens
             if (!overviewHasTheLens)
             {
                 _held = 0f;
-                _returning = !heldByTheOpening;
+                _returning = _opened && !heldByTheOpening;
                 Chase(0f, FALL_SECONDS, dt);
                 return Amount;
             }
@@ -148,6 +152,7 @@ namespace BS3D.Screens
             float hold = _returning ? HOLD_RETURN_SECONDS : HOLD_OPENING_SECONDS;
             float before = MathF.Min(dt, MathF.Max(0f, hold - _held));
             _held += dt;
+            if (_held >= hold) _opened = true;
 
             if (before > 0f) Chase(0f, FALL_SECONDS, before);
             if (dt > before) Chase(1f, RISE_SECONDS, dt - before);
@@ -184,6 +189,13 @@ namespace BS3D.Screens
         {
             float dt = MathF.Max(0f, elapsedSeconds);
 
+            //Held to precise aim's own convergence range (an aim swung far off the cluster projects its centre to a depth
+            //at or behind the muzzle), and a depth that is not a number leaves the last one standing: the chase feeds on
+            //itself, so one NaN would hold for the rest of the level
+            targetDepth = float.IsFinite(targetDepth)
+                ? Math.Clamp(targetDepth, PreciseAim.CONVERGE_MIN, PreciseAim.CONVERGE_MAX)
+                : (_aimSeeded ? _depth : PreciseAim.CONVERGE_MAX);
+
             if (!_aimSeeded)
             {
                 _depth = targetDepth;
@@ -213,9 +225,12 @@ namespace BS3D.Screens
         /// horizontal bearing, the look-at taken <see cref="PULL"/> of the way to <paramref name="aimPoint"/>, the field of
         /// view narrowed to <see cref="FOV_SCALE"/> — and then turned down, if need be, so the muzzle stays
         /// <see cref="AimTilt.GUN_KEEP_FRACTION"/> of the frame over its bottom edge (#720's condition: some of the gun stays
-        /// in view).
+        /// in view), and up, as far as that leaves room, so the cluster's top row (<paramref name="topRow"/>, the corners the
+        /// tilt keeps) stays <see cref="AimTilt.TOP_KEEP_FRACTION"/> under the top edge. The gun keep wins: a low aim on a
+        /// deep field may still lose the top row, which is where the focus is not looking.
         /// </summary>
-        public static AimPose Focused(Vector3 lens, Vector3 lookAt, float fov, Vector3 aimPoint, Vector3 muzzle)
+        public static AimPose Focused(Vector3 lens, Vector3 lookAt, float fov, Vector3 aimPoint, Vector3 muzzle,
+            ReadOnlySpan<Vector3> topRow)
         {
             Vector3 forward = lookAt - lens;
             Vector3 horizontal = new Vector3(forward.X, 0f, forward.Z);
@@ -226,7 +241,17 @@ namespace BS3D.Screens
             float focusedFov = fov * FOV_SCALE;
 
             float room = AimTilt.GunKeepLimit(focusedLens, focusedLookAt, muzzle, focusedFov);
-            if (room < 0f) focusedLookAt = AimTilt.Tilted(focusedLens, focusedLookAt, room);
+            if (room < 0f)
+            {
+                focusedLookAt = AimTilt.Tilted(focusedLens, focusedLookAt, room);
+                room = 0f;
+            }
+
+            float lost = 0f;
+            for (int i = 0; i < topRow.Length; i++)
+                lost = MathF.Max(lost, -AimTilt.TopKeepLimit(focusedLens, focusedLookAt, topRow[i], focusedFov));
+
+            if (lost > 0f && room > 0f) focusedLookAt = AimTilt.Tilted(focusedLens, focusedLookAt, MathF.Min(lost, room));
 
             return new AimPose(focusedLens, focusedLookAt, focusedFov);
         }
