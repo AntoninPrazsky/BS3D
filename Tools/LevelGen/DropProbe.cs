@@ -30,21 +30,20 @@ namespace BS3D.Tools.LevelGen
         private const int DEALS = 6;
         private const int SHOT_CAP = 1500;
 
-        /// <summary>The settings run side by side: the game's own, the rule #615 replaced, then the candidates for #719.</summary>
+        /// <summary>The settings run side by side: the game's own, the rule #615 replaced, #719's 9 %, then the candidates for #1011.</summary>
         private static readonly (string Name, float Share, float Factor)[] Rules =
         {
             ("game's own", DropTrigger.MIN_SHARE_OF_LEVEL, DropTrigger.MustBeatBestBy),
             ("#615 before", 0f, 1.25f),
-            ("share 6 %", 0.06f, DropTrigger.MustBeatBestBy),
-            ("share 7 %", 0.07f, DropTrigger.MustBeatBestBy),
-            ("share 8 %", 0.08f, DropTrigger.MustBeatBestBy),
-            ("share 9 %", 0.09f, DropTrigger.MustBeatBestBy),
-            ("share 10 %", 0.10f, DropTrigger.MustBeatBestBy),
-            ("x2.5", DropTrigger.MIN_SHARE_OF_LEVEL, 2.5f),
-            ("x3", DropTrigger.MIN_SHARE_OF_LEVEL, 3f),
-            ("8 % and x2.5", 0.08f, 2.5f),
-            ("10 % and x2.5", 0.10f, 2.5f),
-            ("8 % and x3", 0.08f, 3f),
+            ("#719's 9 %", 0.09f, DropTrigger.MustBeatBestBy),
+            ("share 12 %", 0.12f, DropTrigger.MustBeatBestBy),
+            ("share 15 %", 0.15f, DropTrigger.MustBeatBestBy),
+            ("share 18 %", 0.18f, DropTrigger.MustBeatBestBy),
+            ("share 20 %", 0.20f, DropTrigger.MustBeatBestBy),
+            ("share 25 %", 0.25f, DropTrigger.MustBeatBestBy),
+            ("share 30 %", 0.30f, DropTrigger.MustBeatBestBy),
+            ("15 % and x3", 0.15f, 3f),
+            ("20 % and x3", 0.20f, 3f),
         };
 
         private static readonly ClearProbe.DropPlayer[] Players = { ClearProbe.DropPlayer.Greedy, ClearProbe.DropPlayer.Casual };
