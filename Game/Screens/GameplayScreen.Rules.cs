@@ -192,7 +192,11 @@ namespace BS3D.Screens
             CheckLevelCleared();
 
             //Last, once the clear test has had its say, so a break is never told over a level just decided (#845)
-            if (!award.Scored) AnswerLostStreak(streakBefore);
+            if (!award.Scored)
+            {
+                AnswerLostStreak(streakBefore);
+                OfferAimHint();
+            }
         }
 
         /// <summary>
@@ -541,6 +545,26 @@ namespace BS3D.Screens
 
             //Last, after anything that can decide the level, as the landing's own break is (#845)
             AnswerLostStreak(streakBefore);
+            OfferAimHint();
+        }
+
+        /// <summary>
+        /// A shot has just resolved dropping nothing (#1012): if it was fired outside precise aim and the player has not been
+        /// using the lean (<see cref="PreciseAimHint.DueAfterUnscoredShot"/>), the hint's card is put up - once a level, as
+        /// the tutorial arms it, and never with the Tutorial row off or the level decided. Called by both doors a shot
+        /// resolves through without scoring, after the streak's break.
+        /// </summary>
+        private void OfferAimHint()
+        {
+            if (LevelDecided || !Game.IsTutorialEnabled || !_aimHint.DueAfterUnscoredShot
+                || !_tutorial.IsArmed(Tutorial.Lesson.AimHint)) return;
+
+            _tutorial.Trigger(Tutorial.Lesson.AimHint);
+            _aimHint.NoteShown();
+
+            //A rare event, a handful a session at most
+            Console.WriteLine(FormattableString.Invariant($"[aimhint] shown at {WallClock:F2} s: a shot outside precise aim dropped nothing, ")
+                + (_aimHint.ShotsSinceRealLean < 0 ? "no real lean yet" : $"{_aimHint.ShotsSinceRealLean} shots since the last real lean"));
         }
 
         /// <summary>

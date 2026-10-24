@@ -91,6 +91,9 @@ namespace BS3D.Screens
             //A card per special kind, the first time it is met (#735) - see Definition.Kind
             KindStone, KindGlass, KindBomb, KindZap, KindAcid, KindFrozen, KindInfectious, KindGravity, KindHeavy, KindBuckshot,
             KindWildcard,
+
+            //The precise-aim hint (#1012): a reminder shown again while it is needed - see Definition.Hint
+            AimHint,
         }
 
         /// <summary>What the player's hand was last on, which is what the card draws for.</summary>
@@ -188,6 +191,17 @@ namespace BS3D.Screens
             /// shown on the glass's first pressure step, the one moment it has something to give back.
             /// </summary>
             public bool Tool;
+
+            /// <summary>
+            /// A <b>hint</b> (#1012), not a lesson: the precise-aim reminder, shown when a shot fired outside the lean drops
+            /// nothing (<see cref="PreciseAimHint"/> decides when it is due). Like a kind or a tool card it belongs to no
+            /// chapter, but it is <b>never recorded</b>, so the save cannot retire it: it is armed on every level the session
+            /// asks for (<see cref="BeginLevel"/>'s <c>aimHintArmed</c>), fired by <see cref="Trigger"/> at most once a level,
+            /// and it waits behind a card already up instead of pushing it aside. Done when the button is held, as the lean's
+            /// own card is; unheld, it goes after <see cref="INFO_SECONDS"/>, which is enough to read it, rather than standing
+            /// for an action card's timeout.
+            /// </summary>
+            public bool Hint;
         }
 
         //PromptFont's own codepoints (Game/Content/Fonts/PromptFont.ttf, glyphs.json in its release): the keycaps
@@ -421,6 +435,17 @@ namespace BS3D.Screens
             {
                 Lesson = Lesson.KindWildcard, Key = "kind-wildcard", Kind = BallKind.Wildcard, Contextual = true,
                 Caption = "The rainbow ball counts as any colour", Detail = "It becomes whatever completes a group where it lands",
+            },
+
+            //THE PRECISE-AIM HINT (#1012), the owner's ruling after an outside player played the whole campaign from the
+            //overview: a shot outside the lean that drops nothing says the lean is there. The lean card's own words, so the
+            //reminder reads as the thing the second level taught; its key is never written (Definition.Hint)
+            new()
+            {
+                Lesson = Lesson.AimHint, Key = "aimhint", Hint = true, Contextual = true, Action = true,
+                Glyph = MOUSE_RIGHT, Caption = LEAN_CAPTION, Detail = "A close-up for the precise shot",
+                PadGlyph = PAD_LEFT_TRIGGER, PadCaption = LEAN_PAD_CAPTION,
+                Praise = "Sharp!",
             },
         };
 
@@ -657,6 +682,18 @@ namespace BS3D.Screens
         internal bool CardStands => _card != null || _queue.Count > 0;
 
         /// <summary>
+        /// Whether the player has been taught <paramref name="lesson"/>, in the save or in this run: the session asks it of the
+        /// lean's card before it arms the precise-aim hint (#1012), which reminds of what that card taught.
+        /// </summary>
+        internal bool HasBeenTaught(Lesson lesson)
+        {
+            foreach (Definition definition in DEFINITIONS)
+                if (definition.Lesson == lesson) return _taughtThisRun.Contains(definition.Key) || InSave(definition);
+
+            return false;
+        }
+
+        /// <summary>
         /// Whether <paramref name="lesson"/> is armed on this level, waiting for <see cref="Trigger"/> (#936): the session asks
         /// before it works out the moment, so a frame with nothing to fire pays for nothing.
         /// </summary>
@@ -792,7 +829,8 @@ namespace BS3D.Screens
         /// ball of that kind, or zero for a kind the map does not carry. Its kind cards are offered on any level, chapter or
         /// none.</param>
         internal void BeginLevel(int chapter, int levelInChapter, int chapterLength, int? ceilingStep, bool swapOffered = false,
-            bool retry = false, ReadOnlySpan<BallType> kindsOnMap = default, bool brakeOffered = false, bool cutOffered = false)
+            bool retry = false, ReadOnlySpan<BallType> kindsOnMap = default, bool brakeOffered = false, bool cutOffered = false,
+            bool aimHintArmed = false)
         {
             Reset();
 
@@ -809,6 +847,10 @@ namespace BS3D.Screens
 
             //And the tools' (#705), for the same reason: the level that first grants one is past the ladder's chapters
             QueueTools(swapOffered, brakeOffered, cutOffered);
+
+            //And the precise-aim hint (#1012), wherever the session arms it - on any level, the ladder's or none; the reel
+            //queues it so it can be photographed
+            ArmHints(aimHintArmed);
 
             if (!_hasLevel)
             {
@@ -892,6 +934,21 @@ namespace BS3D.Screens
                 else if (!offered) continue;
                 else if (lesson.Contextual) _armed.Add(lesson);
                 else _queue.Add(lesson);
+            }
+        }
+
+        /// <summary>
+        /// Arms the hints (<see cref="Definition.Hint"/>, #1012) for this level when the session asks for them, whatever the
+        /// save says, since a hint is never recorded; the reel queues them.
+        /// </summary>
+        private void ArmHints(bool armed)
+        {
+            foreach (Definition lesson in DEFINITIONS)
+            {
+                if (!lesson.Hint) continue;
+
+                if (_demo) _queue.Add(lesson);
+                else if (armed) _armed.Add(lesson);
             }
         }
 
@@ -1025,7 +1082,7 @@ namespace BS3D.Screens
         private static bool OnLadder(Definition lesson, int chapter) => !Chapterless(lesson) && lesson.Chapter == chapter;
 
         /// <summary>A kind's card (#735) or a tool's (#705): offered where the thing is met, at no chapter of the ladder.</summary>
-        private static bool Chapterless(Definition lesson) => lesson.Kind != null || lesson.Tool;
+        private static bool Chapterless(Definition lesson) => lesson.Kind != null || lesson.Tool || lesson.Hint;
 
         /// <summary>Drops everything, for a session being torn down under it — and the first thing a new level does.</summary>
         internal void Reset()
@@ -1067,6 +1124,9 @@ namespace BS3D.Screens
         //own key: a lesson the save has only under its legacy key is written under the new one when it is read (#936)
         private void Teach(Definition lesson)
         {
+            //A hint is never taught for good (#1012): it comes back while it is needed
+            if (lesson.Hint) return;
+
             if (!_taughtThisRun.Add(lesson.Key) || _force || _wasTaught(lesson.Key)) return;
 
             _teach(lesson.Key);
@@ -1174,7 +1234,7 @@ namespace BS3D.Screens
                         //A tool's card that times out has been read even if its key was not pressed (#705, the review): it
                         //belongs to no chapter, so unrecorded it would come back on every level of the campaign - the chip
                         //stays on screen as the reminder. A ladder's action card comes back, within its chapter, as before
-                        if (_age >= ACTION_TIMEOUT) Retreat(taught: _card.Tool);
+                        if (_age >= (_card.Hint ? INFO_SECONDS : ACTION_TIMEOUT)) Retreat(taught: _card.Tool);
                     }
                     else if (_age >= INFO_SECONDS) Retreat(taught: true);
                     break;
@@ -1437,7 +1497,8 @@ namespace BS3D.Screens
         /// <summary>
         /// A contextual lesson's event has happened. Ignored unless the lesson is armed for this level (so it
         /// fires once a level at most, and never for one already taught); otherwise it goes to the front of
-        /// the queue, and a card already up gives way to it and comes back straight after.
+        /// the queue, and a card already up gives way to it and comes back straight after - a hint (#1012) excepted, which
+        /// is shown after the card up.
         /// </summary>
         internal void Trigger(Lesson lesson)
         {
@@ -1451,8 +1512,9 @@ namespace BS3D.Screens
             Definition triggered = _armed[index];
             _armed.RemoveAt(index);
 
-            //The card up returns behind the event's own card
-            if (_phase is Phase.Arriving or Phase.Shown) StepAside();
+            //The card up returns behind the event's own card - unless that card is a hint (#1012), which waits behind the
+            //card up instead: a reminder never pushes aside a card the player has not read
+            if (!triggered.Hint && _phase is (Phase.Arriving or Phase.Shown)) StepAside();
 
             _queue.Insert(0, triggered);
         }

@@ -114,9 +114,11 @@ namespace BS3D.Screens
             _tutorial.NoteDevice(Game.PromptsForPad ? Tutorial.Device.Gamepad : Tutorial.Device.KeyboardMouse);
             Game.Rumble.HandOnPad = _tutorial.OnGamepad;
 
+            //The precise-aim hint (#1012) is armed on every level once the lean's own card has been taught: it reminds of
+            //that card, so it never comes before it
             _tutorial.BeginLevel(tutorialLevel ? chapter : -1, levelInChapter, chapterLength, LevelCeilingStep(index),
                 swapOffered: _run.SwapOffered, retry: retry, kindsOnMap: _kindsOnMap, brakeOffered: _run.BrakeOffered,
-                cutOffered: _run.CutOffered);
+                cutOffered: _run.CutOffered, aimHintArmed: _tutorial.HasBeenTaught(Tutorial.Lesson.LeanIn));
 
             //The first five levels carry the "fire" chip for a player who stops (#925), on the level's own count from zero
             _fireHint.BeginLevel(tutorialLevel && FireHint.CarriesHint(chapter, levelInChapter));

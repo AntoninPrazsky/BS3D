@@ -225,6 +225,13 @@ namespace BS3D.Screens
         /// </summary>
         private readonly FireHint _fireHint = new();
 
+        /// <summary>
+        /// When the precise-aim hint is due (#1012): told every frame whether the lean is held, and of every shot fired and
+        /// every shot that drops nothing; the card itself is the tutorial's (<see cref="Tutorial.Lesson.AimHint"/>). Kept for
+        /// the screen's life, so across levels.
+        /// </summary>
+        private readonly PreciseAimHint _aimHint = new();
+
         //The crosshair: four bars around a clear centre, struck from a white texel it makes itself. Its own
         //component since #76 — the bars, their size on the screen, the premultiplied white they are drawn in
         //and the skip below a hundredth of an opacity are all Crosshair's, and the Testbed draws the same one

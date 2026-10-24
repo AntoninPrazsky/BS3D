@@ -43,6 +43,8 @@
       in it. TutorialTests walks the shipped level set through it and holds which chapter teaches what.-->
   <ItemGroup>
     <Compile Include="..\..\Game\Screens\Tutorial.cs" />
+    <!--When the precise-aim hint is due (#1012): counters over shots and a hold, no device.-->
+    <Compile Include="..\..\Game\Screens\PreciseAimHint.cs" />
     <!--The floor net's reveal at a level's start and the blink with the line's card (#933): its clocks over plain floats, no device.-->
     <Compile Include="..\..\Game\Effects\NetReveal.cs" />
     <!--The "fire" chip for a player who has stopped (#925): its rules over plain values, no device.-->
