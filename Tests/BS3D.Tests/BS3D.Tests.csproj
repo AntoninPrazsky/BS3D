@@ -90,6 +90,7 @@
     <Compile Include="..\..\Game\Screens\CeilingDescent.cs" />
     <!--The city intro's shot builder (#488): plain geometry over City's block grid.-->
     <Compile Include="..\..\Game\Effects\CityIntroShots.cs" />
+    <Compile Include="..\..\Game\Effects\CitySwing.cs" />
     <!--The meadow's prologue (#893): the ground and solids a lens is held against, and the bench and bale orbits over the
         planting's figures. The planting itself needs a device, so MeadowIntroShotsTests builds figures of its own from the
         constants and the geometry MeadowScatter keeps without one.-->

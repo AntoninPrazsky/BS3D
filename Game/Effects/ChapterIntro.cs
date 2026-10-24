@@ -92,6 +92,10 @@ namespace BS3D.Effects
 
         public float FieldOfView { get; private set; }
 
+        /// <summary>The lens's roll, radians, for <see cref="Prazsky.Core.Camera.RecoilCamera.BaseRoll"/>: a prologue shot's
+        /// bank into its turns (#972), 0 for the tour, which stays level.</summary>
+        public float Roll { get; private set; }
+
         //How long the tour runs before it ends on its own. A tour of the PLACE, not just the map: two legs
         //of environment, one of the map, one of arrival — long enough to read as a flight over a new scene,
         //short enough that a player eager to play is not held from a new chapter's very first shot for much
@@ -131,6 +135,10 @@ namespace BS3D.Effects
         //How many of the prologue's shots have come on screen, so each is told so once (IntroShot.Start, #975)
         private int _shotsStarted;
 
+        //Whether the prologue's last shot ends on the gameplay pose itself (IntroShot.Lands, #972): then no tour leg
+        //follows it, and its last frame is held while the gun's own pose blends back in.
+        private bool _lands;
+
         //How long the tour's last leg runs on its own after a prologue — the map and the arrival (see the
         //class doc). Long enough for one proper look at the cluster before the gun is handed over.
         private const float ARRIVAL_SECONDS = 4.5f;
@@ -139,7 +147,7 @@ namespace BS3D.Effects
         //filled in Begin, so Frame walks whichever it is handed and allocates nothing).
         private readonly Vector3[] _tailPolar = new Vector3[2];
         private readonly Vector3[] _tailTargets = new Vector3[2];
-        private float TourSeconds => _prologue.Length > 0 ? ARRIVAL_SECONDS : DURATION_SECONDS;
+        private float TourSeconds => _lands ? 0f : _prologue.Length > 0 ? ARRIVAL_SECONDS : DURATION_SECONDS;
 
         //The whole intro, prologue and tour.
         private float TotalSeconds => _prologueSeconds + TourSeconds;
@@ -208,6 +216,7 @@ namespace BS3D.Effects
             _prologueSeconds = 0f;
             _shotsStarted = 0;
             foreach (IntroShot shot in _prologue) _prologueSeconds += shot.Seconds;
+            _lands = _prologue.Length > 0 && _prologue[^1].Lands;
 
             //Taken with a CUT when it opens on a shot of its own: the first shot is a street under the island,
             //and a blend in from the gameplay pose would glide there through the towers (see the class doc).
@@ -412,12 +421,16 @@ namespace BS3D.Effects
             _prologue = Array.Empty<IntroShot>();
             _prologueSeconds = 0f;
             _shotsStarted = 0;
+            _lands = false;
+            Roll = 0f;
         }
 
         /// <summary>What the roll picked, for the one log line the trigger writes.</summary>
         //ASCII only and invariant, for the same reason DropCinematic.Describe is: a console whose code page
         //mangles a degree sign, and a figure two machines might compare.
-        public string Describe() => _prologue.Length > 0
+        public string Describe() => _lands
+            ? DescribePrologue() + string.Format(CultureInfo.InvariantCulture, "{0:F1}s in all", TotalSeconds)
+            : _prologue.Length > 0
             ? DescribePrologue() + string.Format(CultureInfo.InvariantCulture,
                 "map {0:F0} out at {1:F0}deg -> game pose, {2:F1}s; {3:F1}s in all",
                 _polar[2].Z, MathHelper.ToDegrees(_elev2), ARRIVAL_SECONDS, TotalSeconds)
@@ -437,7 +450,7 @@ namespace BS3D.Effects
                 text.Append(i == 0 ? "" : " | ").Append('\'').Append(_prologue[i].Name).Append('\'').Append(' ')
                     .Append(_prologue[i].Seconds.ToString("F1", CultureInfo.InvariantCulture)).Append('s');
 
-            return text.Append(" | cut -> ").ToString();
+            return text.Append(_lands ? " -> game pose; " : " | cut -> ").ToString();
         }
 
         private Vector3 _centre;
@@ -473,29 +486,34 @@ namespace BS3D.Effects
         /// </summary>
         private void Frame()
         {
-            //A prologue shot, while one is running: its own pose, and the next shot's first frame is a cut.
-            if (_elapsed < _prologueSeconds)
+            //A prologue shot, while one is running: its own pose, and the next shot's first frame is a cut. A last shot
+            //that lands on the gameplay pose is held on its last frame after it, while the gun's pose blends back in.
+            if (_elapsed < _prologueSeconds || _lands)
             {
                 float start = 0f;
 
                 for (int i = 0; i < _prologue.Length; i++)
                 {
                     IntroShot shot = _prologue[i];
-                    if (_elapsed < start + shot.Seconds)
+                    if (_elapsed < start + shot.Seconds || (_lands && i == _prologue.Length - 1))
                     {
                         //On screen from this frame: told so once, on the intro's own clock (a pause or a hitch holds it)
                         while (_shotsStarted <= i) _prologue[_shotsStarted++].Start();
 
-                        shot.Pose((_elapsed - start) / shot.Seconds, out Vector3 position, out Vector3 target);
+                        float local = (_elapsed - start) / shot.Seconds;
+                        shot.Pose(local, out Vector3 position, out Vector3 target);
                         Position = position;
                         Target = target;
-                        FieldOfView = shot.FieldOfView;
+                        FieldOfView = shot.FieldOfViewAt(local);
+                        Roll = shot.RollAt(local);
                         return;
                     }
 
                     start += shot.Seconds;
                 }
             }
+
+            Roll = 0f;
 
             float t = IntroPaths.Smooth(IntroPaths.Saturate((_elapsed - _prologueSeconds) / TourSeconds));
             bool tail = _prologue.Length > 0;

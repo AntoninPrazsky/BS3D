@@ -29,10 +29,20 @@ namespace BS3D.Effects
         /// <summary>How long the shot holds before the cut to the next.</summary>
         public float Seconds { get; }
 
-        /// <summary>The shot's vertical field of view, in radians — a wider lens reads speed and height.</summary>
+        /// <summary>The shot's vertical field of view, in radians — a wider lens reads speed and height. Where the shot
+        /// eases to another (<see cref="FieldOfViewAt"/>), this is the one it opens on.</summary>
         public float FieldOfView { get; }
 
+        /// <summary>
+        /// Whether the shot ENDS ON THE GAMEPLAY POSE (#972): its last point and its last look are the pose the
+        /// intro hands the gun over from, so <see cref="ChapterIntro"/> plays no tour leg after it and holds its last
+        /// frame while the gun's own pose blends back in, which is then a blend between two identical poses.
+        /// </summary>
+        public bool Lands { get; }
+
         private readonly Vector3[] _path;
+        private readonly float[] _rollPath;
+        private readonly float _endFieldOfView;
         private readonly Vector3? _lookAt;
         private readonly Vector3[] _lookAtPath;
         private readonly float _lookAhead;
@@ -62,9 +72,15 @@ namespace BS3D.Effects
         /// look uses it; a shot on a fixed or moving point looks where it is told.</param>
         /// <param name="onStart">Called once, on the frame the shot comes on screen (#975): for a shot timed to
         /// something the scene does on the wall clock, whose own clock the intro's can fall behind.</param>
+        /// <param name="rollPath">The lens's roll in radians on the path's own clock (#972), for a shot that banks into
+        /// its turns; null keeps the lens level, as every shot did before.</param>
+        /// <param name="endFieldOfView">The field of view the shot eases to by its end, or NaN to hold
+        /// <paramref name="fieldOfView"/> throughout.</param>
+        /// <param name="lands">Whether the path and the look end on the gameplay pose: see <see cref="Lands"/>.</param>
         public IntroShot(string name, Vector3[] path, float seconds, float fieldOfView,
             Vector3? lookAt = null, float lookAhead = 12f, float pitchDownDegrees = 0f, Vector3[] lookAtPath = null,
-            float pitchDamping = 0f, Action onStart = null)
+            float pitchDamping = 0f, Action onStart = null, float[] rollPath = null, float endFieldOfView = float.NaN,
+            bool lands = false)
         {
             if (path == null || path.Length < 2) throw new ArgumentException("A shot needs at least two points.", nameof(path));
 
@@ -78,6 +94,30 @@ namespace BS3D.Effects
             _pitchDown = MathHelper.ToRadians(pitchDownDegrees);
             _pitchDamping = MathHelper.Clamp(pitchDamping, 0f, 1f);
             _onStart = onStart;
+            _rollPath = rollPath != null && rollPath.Length >= 2 ? rollPath : null;
+            _endFieldOfView = endFieldOfView;
+            Lands = lands;
+        }
+
+        /// <summary>The field of view at <paramref name="t"/> (0–1 of the shot), on the pose's own eased clock.</summary>
+        public float FieldOfViewAt(float t) =>
+            float.IsNaN(_endFieldOfView) ? FieldOfView : MathHelper.Lerp(FieldOfView, _endFieldOfView, Eased(t));
+
+        /// <summary>The lens's roll at <paramref name="t"/> (0–1 of the shot), radians; 0 for a shot that never banks.</summary>
+        public float RollAt(float t)
+        {
+            if (_rollPath == null) return 0f;
+
+            float index = Eased(t) * (_rollPath.Length - 1);
+            int i = Math.Min((int)index, _rollPath.Length - 2);
+            return MathHelper.Lerp(_rollPath[i], _rollPath[i + 1], index - i);
+        }
+
+        //The shot's clock, eased only a little at the ends (see Pose)
+        private static float Eased(float t)
+        {
+            t = MathHelper.Clamp(t, 0f, 1f);
+            return MathHelper.Lerp(t, t * t * (3f - 2f * t), 0.3f);
         }
 
         /// <summary>The shot has come on screen: <see cref="ChapterIntro"/> calls this once, on its first frame.</summary>
@@ -90,8 +130,7 @@ namespace BS3D.Effects
         /// </summary>
         public void Pose(float t, out Vector3 position, out Vector3 target)
         {
-            t = MathHelper.Clamp(t, 0f, 1f);
-            float eased = MathHelper.Lerp(t, t * t * (3f - 2f * t), 0.3f);
+            float eased = Eased(t);
 
             position = At(_path, eased);
 

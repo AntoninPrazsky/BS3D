@@ -65,11 +65,20 @@ namespace BS3D.Tests
             return city;
         }
 
-        //The whole prologue as the game builds it, the rooftop's arc round a real dressed roof included
+        //The whole prologue as the game builds it, the rooftop's arc round a real dressed roof included, handing the camera
+        //back to a gameplay pose on a bearing the seed turns (the lens about 40 out and level with the gun, GameCameraFit)
         private static IntroShot[] Shots(bool neon, int seed, out City city)
         {
             city = Build(neon, seed, out CityRooftops.RoofShowcases rooftops);
-            return CityIntroShots.Build(city, rooftops, neon, FieldOfView, new Random(seed));
+            GamePose(seed, out Vector3 position, out Vector3 target);
+            return CityIntroShots.Build(city, rooftops, neon, position, target, FieldOfView, new Random(seed));
+        }
+
+        internal static void GamePose(int seed, out Vector3 position, out Vector3 target)
+        {
+            float bearing = seed * 0.83f;
+            position = new Vector3(MathF.Cos(bearing) * 40f, -4f, MathF.Sin(bearing) * 40f);
+            target = new Vector3(0f, 3.5f, 0f);
         }
 
         [Fact]
