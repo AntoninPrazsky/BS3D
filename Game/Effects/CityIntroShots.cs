@@ -58,8 +58,11 @@ namespace BS3D.Effects
 
         //The orbit: round the plaza's trees while rising to above the lower roofs, looking down at them. ⚠ Not
         //lower: the trees are discs painted on the paving, and from 16 units over them the first cut read them
-        //as holes in the plaza. From twice that they are a park's canopy among the streets and cars round it.
+        //as holes in the plaza. From twice that they are a park's canopy among the streets and cars round it. The day
+        //city's goes higher still (#972, the owner: "we do not want a close view of the square ... the camera should only
+        //go higher"), so the plaza is a park among the towers and not the paving close up.
         private const float PLAZA_FROM_HEIGHT = 32f, PLAZA_TO_HEIGHT = 54f;
+        private const float DAY_PLAZA_FROM_HEIGHT = 72f, DAY_PLAZA_TO_HEIGHT = 105f;
         private const float PLAZA_ORBIT_RADIUS_BLOCKS = 0.45f, PLAZA_ORBIT_DEGREES = 80f;
         private const float PLAZA_SECONDS = 4.0f;
 
@@ -119,10 +122,33 @@ namespace BS3D.Effects
         /// <paramref name="fieldOfView"/> is the intro's own gameplay frame, which each shot widens from.
         /// <paramref name="rooftops"/> is the city's dressed roofs, for the rooftop's showcase (#780), and
         /// <paramref name="neon"/> whether it is the neon city's, whose extra pieces count.
+        /// <paramref name="gamePosition"/> and <paramref name="gameTarget"/> are the pose the intro hands the camera back
+        /// at, which the day city's swing home lands on (#972).
         /// </summary>
-        public static IntroShot[] Build(City city, CityRooftops.RoofShowcases rooftops, bool neon, float fieldOfView, Random random)
+        public static IntroShot[] Build(City city, CityRooftops.RoofShowcases rooftops, bool neon, Vector3 gamePosition, Vector3 gameTarget,
+            float fieldOfView, Random random)
         {
             if (city == null) return null;
+
+            //THE DAY CITY ENDS ON ITS SWING HOME (#972): the street, the plaza from higher, the rooftop, then a run through
+            //the streets that lands on the gameplay pose itself, so no tour leg follows. Where no rolled route is clear the
+            //old reel below plays instead, its one-corner swing and the tour's arrival included.
+            if (!neon)
+            {
+                var day = new List<IntroShot>(4) { Street(city, fieldOfView, random, out _) };
+
+                IntroShot dayPlaza = Plaza(city, fieldOfView, random, DAY_PLAZA_FROM_HEIGHT, DAY_PLAZA_TO_HEIGHT);
+                if (dayPlaza != null) day.Add(dayPlaza);
+
+                day.Add(Rooftop(city, rooftops, neon, fieldOfView, random) ?? Roofs(city, fieldOfView, random));
+
+                IntroShot home = CitySwing.Build(city, gamePosition, gameTarget, fieldOfView, random, CitySwing.Day);
+                if (home != null)
+                {
+                    day.Add(home);
+                    return day.ToArray();
+                }
+            }
 
             //The order alternates what the lens sees, so that no two shots in a row are a variation of one (#488's second
             //round: "a quick cut that looks at the square, and straight after it the square again from a very slightly
@@ -131,7 +157,7 @@ namespace BS3D.Effects
             //the street ran along, so its walls do not stand where the street's did.
             var shots = new List<IntroShot>(4) { Street(city, fieldOfView, random, out bool streetAlongZ) };
 
-            IntroShot plaza = Plaza(city, fieldOfView, random);
+            IntroShot plaza = Plaza(city, fieldOfView, random, PLAZA_FROM_HEIGHT, PLAZA_TO_HEIGHT);
             if (plaza != null) shots.Add(plaza);
 
             IntroShot swing = Swing(city, fieldOfView, random, streetAlongZ);
@@ -285,7 +311,7 @@ namespace BS3D.Effects
         /// The orbit over a plaza: a block the generator left open, three to seven out, shot from above as the lens
         /// arcs round it and rises — its trees are painted onto the paving, so they read only from over them.
         /// </summary>
-        private static IntroShot Plaza(City city, float fieldOfView, Random random)
+        private static IntroShot Plaza(City city, float fieldOfView, Random random, float fromHeight, float toHeight)
         {
             float pitch = city.BlockPitch;
             var open = new List<Point>();
@@ -317,7 +343,7 @@ namespace BS3D.Effects
             {
                 float u = i / (float)(PATH_POINTS - 1);
                 float angle = startAngle + sweep * u;
-                path[i] = centre + new Vector3(MathF.Cos(angle) * orbit, MathHelper.Lerp(PLAZA_FROM_HEIGHT, PLAZA_TO_HEIGHT, u),
+                path[i] = centre + new Vector3(MathF.Cos(angle) * orbit, MathHelper.Lerp(fromHeight, toHeight, u),
                     MathF.Sin(angle) * orbit);
             }
 

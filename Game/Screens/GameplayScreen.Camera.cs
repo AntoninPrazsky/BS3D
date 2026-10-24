@@ -111,8 +111,8 @@ namespace BS3D.Screens
 
             //And the chapter intro is a third Lerp, on the identical idiom (#267) — chained after the drop
             //cinematic's rather than before it for no reason beyond call order, since CameraTakeoverEngaged's
-            //own remarks are what actually keep the two from ever being nonzero on the same frame. No roll:
-            //an establishing shot stays level, so only the drop cinematic's tilt above ever moves BaseRoll.
+            //own remarks are what actually keep the two from ever being nonzero on the same frame. Its roll is a
+            //prologue shot's bank (#972, the city's swing home); the tour itself stays level.
             //The line's loss, on the same idiom again (#434). Before the chapter intro for no reason beyond
             //call order: the two cannot be nonzero on the same frame - an intro runs on a level's opening and
             //this on its ending - and CameraTakeoverEngaged is what actually holds that.
@@ -137,7 +137,7 @@ namespace BS3D.Screens
             Camera.BasePosition = position;
             Camera.BaseTarget = target;
             Camera.FieldOfView = fov;
-            Camera.BaseRoll = _cinematic.Roll * cinematic;
+            Camera.BaseRoll = _cinematic.Roll * cinematic + _chapterIntro.Roll * intro;
 
             Camera.Update(elapsed);
 

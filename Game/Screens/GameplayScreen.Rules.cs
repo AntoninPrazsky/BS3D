@@ -458,9 +458,10 @@ namespace BS3D.Screens
 
             //The ordinary gameplay pose, verbatim: the tour's last key is it, so the flight lands where the
             //player is handed the camera and the blend-out is a nudge between identical poses.
+            Vector3 gamePosition = GameCameraPositionAt(_gameCameraDistance);
             _chapterIntro.Begin(centre, _gameCameraDistance, GAME_FOV,
-                GameCameraPositionAt(_gameCameraDistance), centre, Game.SceneViewpointAt, _random,
-                Game.IntroPrologue(GAME_FOV, _random));
+                gamePosition, centre, Game.SceneViewpointAt, _random,
+                Game.IntroPrologue(GAME_FOV, _random, gamePosition, centre));
 
             //One line per intro, in the manner of [cinematic]: a rare event — eleven times over the whole
             //campaign — and the shot is rolled, so this is the only record of what it actually chose.

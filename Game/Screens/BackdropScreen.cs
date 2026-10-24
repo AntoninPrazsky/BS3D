@@ -505,10 +505,13 @@ namespace BS3D.Screens
             Vector3 centre = new(0f, _framing.CentreY, 0f);
 
             _tour.Begin(centre, Vector3.Distance(_lens, centre), FOV, _lens, centre,
-                Game.SceneViewpointAt, TOUR_RANDOM, Game.IntroPrologue(FOV, TOUR_RANDOM));
+                Game.SceneViewpointAt, TOUR_RANDOM, Game.IntroPrologue(FOV, TOUR_RANDOM, _lens, centre));
 
             Console.WriteLine($"[tour] {SceneRenderer.SceneName(Game.Scene)}: {_tour.Describe()}");
         }
+
+        //Whether the replayed tour has set the camera's roll, so it is put back level once when the tour ends
+        private bool _tourRolled;
 
         /// <summary>Cuts a replayed tour short: a skip key pressed while the Scene page stands aside for it (#861).</summary>
         internal bool TrySkipTour() => _tour.TrySkip();
@@ -660,14 +663,23 @@ namespace BS3D.Screens
             //onto it the way the chapter's own does - the flight has gone on turning underneath, so what it
             //returns to is a live pose and not the one it left.
             _tour.Update(elapsed);
+            RecoilCamera camera = Game.Camera;
             if (_tour.Engaged)
             {
                 position = Vector3.Lerp(position, _tour.Position, _tour.Blend);
                 target = Vector3.Lerp(target, _tour.Target, _tour.Blend);
                 fieldOfView = MathHelper.Lerp(fieldOfView, _tour.FieldOfView, _tour.Blend);
-            }
 
-            RecoilCamera camera = Game.Camera;
+                //A prologue shot's bank (#972), set only while a tour flies and put back level as it ends, so the
+                //roll the result page eases out of the drop cinematic is left to it
+                camera.BaseRoll = _tour.Roll * _tour.Blend;
+                _tourRolled = true;
+            }
+            else if (_tourRolled)
+            {
+                camera.BaseRoll = 0f;
+                _tourRolled = false;
+            }
 
             camera.BasePosition = position;
             camera.BaseTarget = target;
