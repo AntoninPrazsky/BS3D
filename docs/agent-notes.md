@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-24 — #1008 #1009 #973 příprava 0.5.0 — desktop (RDT-PC), Claude Code (bs3d-80)
+- majitel (24. 10.): minutí nemá nic stát (#1009 zavřeno), při míření moc vysoko výstřel po hranici (#1008).
+- Hotovo: #1008 (94fdc8de) střela leží na klampu, odmítnutí zmizelo; #973 (d740bf1b) Neon má vlastní úvod a švih se třemi rohy; opravy z revize #972 (bd793aee: náklon v menu, menu čeká na tour). Poznámky k 0.5.0 a snímek (Grotto) na mainu (f6335fd3). Verdikty #975 #972 #973: https://claude.ai/artifact/3pNjyHUKX2KR7Uqe4cQR7v.
+- ⚠ Hra začíná s kanónem na ose (bearing 90): testy švihu s posunem 0,1 rad to schovaly, den našel švih jen pro 77 ze 108 póz na osách, Neon pro Arcade žádný. Teď alespoň čtvrtina kandidátů přijede příčnou ulicí.
+- Otevřené: tag v0.5.0 až na pokyn majitele; při vydání `update-ceilings.sh` na Pi (Mirage).
+
 ## 2026-10-24 — #1011 kamera při pádu jen při opravdu velkém pádu — desktop (RDT-PC), Claude Code (bs3d-0b)
 - majitel: kamera při pádu zůstane ve výchozím stavu zapnutá a v reálném čase, ale má se spustit jen při opravdu velkém uvolnění.
 - Hotovo: `DropTrigger.MIN_SHARE_OF_LEVEL` jde z 9 % na 25 %. `LevelGen --drops`: 0,45 (greedy) a 0,40 (casual) kamer na level před čisticí střelou místo 1,11 a 0,98; čisticí střela si kameru nechává (#424). Test `OnlyAReallyBigReleaseTakesTheCamera` při 9 % viditelně selže.
