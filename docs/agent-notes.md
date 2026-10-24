@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-24 — #1006 #1012 zaostření kamery a nápověda k přesnému míření — desktop (RDT-PC), Claude Code (bs3d-0b)
+- majitel: kamera na začátku ukáže celek a po chvíli se zaostří na místo, kam se míří (smí se měnit FOV); po RMB nebo převzetí kamery znovu z celku. Pořád širší než RMB. K tomu nápověda, když střela mimo RMB nic neshodí; opakovat, když hráč RMB jen ťukne nebo ho dlouho nepoužije.
+- Hotovo, ale **nesloučeno** (čeká na tag v0.5.0, dohoda s bs3d-80): větev `1006-overview-focus` (`OverviewFocus`: o 3 výš a o 4 blíž, FOV 0,88, ústí na 88 % obrazu) a `1012-precise-aim-hint` (`PreciseAimHint` + `Definition.Hint`, do save se nikdy nezapisuje).
+- ⚠ Kanon z obrazu dostane hlavně zvednutí kamery, ne samotný zoom. Snímek `shot=` zastaví běh asi na 0,5 s, takže na měřeném úseku zkreslí časy v `logtilt`.
+- Otevřené: sloučit obě větve po tagu, verdikt majitele (`verdict-hands`).
+
 ## 2026-10-24 — #1008 #1009 #973 příprava 0.5.0 — desktop (RDT-PC), Claude Code (bs3d-80)
 - majitel (24. 10.): minutí nemá nic stát (#1009 zavřeno), při míření moc vysoko výstřel po hranici (#1008).
 - Hotovo: #1008 (94fdc8de) střela leží na klampu, odmítnutí zmizelo; #973 (d740bf1b) Neon má vlastní úvod a švih se třemi rohy; opravy z revize #972 (bd793aee: náklon v menu, menu čeká na tour). Poznámky k 0.5.0 a snímek (Grotto) na mainu (f6335fd3). Verdikty #975 #972 #973: https://claude.ai/artifact/3pNjyHUKX2KR7Uqe4cQR7v.
