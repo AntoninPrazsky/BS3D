@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-24 — #1005–#1011 report cizího hráče (v0.4.0, všech 140 levelů) založen — desktop (RDT-PC), Claude Code (bs3d-0b)
+- Hotovo: 7 issues `owner-decision`, nic nepostaveno: směr hry a obtížnost #1005, kanon zabírá půl obrazu #1006, střela bez fyziky #1007, odmítnutý výstřel nahoru #1008, minutí nic nestojí #1009, málo speciálních koulí #1010, výchozí stav kamery při pádu #1011. Komentáře: #768 (shrnutí, otázky zpět hráči), #936, #720, #290, #872.
+- Změřeno: `LevelGen --clearfile=` nad všemi 140 soubory (jen čte): nejkratší vyčištění má medián 6 střel proti mediánu rozpočtu 48. Na snímku úvodního záběru (1920x1080) sahá kanon do 50 % výšky obrazu a je stejně velký jako shluk, nebo větší.
+- ⚠ #1009 jde proti kartě z #936 („Wasting a ball is fine“), tak ať se o obou rozhoduje spolu. Nová výchozí hodnota v #1011 se dostane jen k novým hráčům, protože `Settings.json` ukládá i výchozí `dropCinematic`.
+- Otevřené: všech 7 čeká na rozhodnutí majitele.
+
 ## 2026-10-24 — verdikty stránky 23. 10.: vše OK — desktop (RDT-PC), Claude Code (bs3d-80)
 - majitel (24. 10.): všech 20 karet OK, vč. 2. kola nadpisů Helpu, lan stropu (#896), valů (#983), hrdla (#932), vlny (#940), úvodu louky (#945), #935/#937, #939, #868, #869. Zavřeno 15 issues s jeho odpovědí; otázka ke stínu na Měsíci zůstala bez odpovědi (případně nové issue).
 
