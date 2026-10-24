@@ -1346,19 +1346,27 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// How hard the volcano is erupting at a wall-clock time, 0 between bursts and up to 1 at the peak of
-        /// one. A pure function of the clock with no state, so the game, the Testbed and the map editor all
-        /// see the same eruption at the same second, and so a burst can drive the jets, the plume and the
-        /// crater's light off ONE figure rather than three that drift apart.
+        /// one. A function of the clock, and of nothing else but a burst an intro cued (<see cref="CueVolcanoBurst"/>),
+        /// so the game, the Testbed and the map editor all see the same eruption at the same second, and so a
+        /// burst can drive the jets, the plume and the crater's light off ONE figure rather than three that drift
+        /// apart.
         /// <para>
         /// The schedule is irregular by construction: each period contains one burst, but where in the period
         /// it starts and how big it is are hashed off the period's own index, so the eruption never becomes a
         /// metronome — the failure a fixed interval always ends in, and the one #219's lightning has to solve
         /// too. The envelope is a fast attack and a long decay, which is the shape of the thing: a volcano
-        /// goes off and then subsides. <b>Light first, sound a beat behind</b> — the sound is not built yet
-        /// (it wants to land with #219's thunder rather than be invented twice), and this is where it hangs.
+        /// goes off and then subsides. <b>Light first, sound a beat behind</b>: the boom rides
+        /// <see cref="TryGetSceneEvent"/> off the same schedule.
         /// </para>
         /// </summary>
         public float VolcanoEruption(float time) => _volcano.Eruption(time);
+
+        /// <summary>
+        /// One burst of the volcano at <paramref name="onset"/>, at its full size, for a shot cut to meet it (#975,
+        /// the Eruption chapter's intro); the natural bursts that would start between <paramref name="now"/> and a
+        /// while after it give way. See <see cref="VolcanoLava.CueBurst"/>.
+        /// </summary>
+        public void CueVolcanoBurst(float now, float onset) => _volcano.Lava.CueBurst(now, onset);
 
         /// <summary>
         /// The event this scene has staged on its own clock at <paramref name="time"/>, described as the

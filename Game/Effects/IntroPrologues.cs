@@ -59,7 +59,7 @@ namespace BS3D.Effects
             {
                 SceneKind.City or SceneKind.NeonCity => CityIntroShots.Build(context.City, context.Rooftops?.Showcases,
                     scene == SceneKind.NeonCity, fieldOfView, random),
-                SceneKind.Volcano => VolcanoIntroShots.Build(renderer, fieldOfView, random),
+                SceneKind.Volcano => VolcanoIntroShots.Build(renderer, context.WallClock, fieldOfView, random),
                 SceneKind.Aurora => AuroraIntroShots.Build(context.AuroraScatter,
                     renderer?.GetSceneConfig(SceneKind.Aurora) as AuroraSceneConfig, renderer == null ? null : renderer.AuroraGroundHeight,
                     fieldOfView, random),

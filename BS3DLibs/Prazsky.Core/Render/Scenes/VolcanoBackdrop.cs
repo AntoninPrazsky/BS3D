@@ -336,13 +336,12 @@ namespace Prazsky.Core.Render
         /// <inheritdoc/>
         public override bool TryGetSceneEvent(float time, out SceneEvent staged)
         {
-            float period = _lava.BurstSchedule(time, out float index, out float start, out float _, out float size);
-
             //Slot 0 is the crater and does not move, so the time is not read for it - see
             //VolcanoLightPosition. The boom comes from the crater and not from the flows: a river
             //front is silent, and the plume is what is heard.
-            staged = new SceneEvent((int)index, (index + start) * period, LightPosition(0, time), size);
-            return true;
+            bool any = _lava.TryGetBurst(time, out int index, out float onset, out float size);
+            staged = any ? new SceneEvent(index, onset, LightPosition(0, time), size) : default;
+            return any;
         }
 
         /// <inheritdoc/>

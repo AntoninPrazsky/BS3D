@@ -5,17 +5,35 @@ using System;
 namespace BS3D.Effects
 {
     /// <summary>
-    /// The volcano's own shots for a chapter intro's prologue (#530): a pass along the flank across the lava
-    /// rivers, then a climb up the flank that crests the rim and looks down into the crater — cut together,
-    /// then cut to the tour's last leg. The owner's verdict on #509 was that the intro "never looks INTO the
-    /// volcano from above", and the standard tour cannot: it is a spline round the arena, and the crater is a
-    /// bowl on a summit 250 units off, up 140, that every reference of #509 is built round.
+    /// The volcano's own shots for a chapter intro's prologue (#530, #975): the whole volcano from far out, a cut to
+    /// the cone from its foot as a burst goes off, then a climb up the flank that crests the rim and looks down into
+    /// the crater — cut together, then cut to the tour's last leg. The owner's verdict on #509 was that the intro
+    /// "never looks INTO the volcano from above", and the standard tour cannot: it is a spline round the arena, and
+    /// the crater is a bowl on a summit 250 units off, up 140, that every reference of #509 is built round. His note
+    /// on #975 was that the first two shots were the same picture (both from the arena's side with the lens on the
+    /// vent): "start with a global view of the volcano, then a cut to the volcano spewing, then the continuation".
     /// <para>
-    /// <b>Every height is read off the cone itself</b> (<see cref="SceneRenderer.VolcanoGroundHeight"/>, the
-    /// host's mirror of <c>Volcano.fx</c>'s height field, gullies and crater included), so a path hugs the
-    /// flank by a stated clearance whatever the config's cone is, and the rim is where the mirror says it is.
-    /// The rivers are found through <see cref="SceneRenderer.VolcanoLightPosition"/>, the lamps that ride
-    /// them, so the flank shot arcs across river 0 — the one aimed past the arena — and its neighbour.
+    /// <b>The three stand on three different sides and at three distances.</b> The volcano is seen from five hundred
+    /// units out, high, a little round from the arena's side so the island stands in the same frame as the cone; the
+    /// eruption from the cone's foot, low, ninety degrees and more round the other way; the crater run climbs from
+    /// the arena's side. <c>VolcanoIntroShotsTests</c> holds every cut to a lens that moves at least
+    /// <c>MIN_CUT_DISTANCE</c> AND a view that turns at least <c>MIN_CUT_ANGLE_DEGREES</c>, stricter than the cities'
+    /// either-or, because a view that only slides along its own line is still the same picture.
+    /// </para>
+    /// <para>
+    /// <b>The burst is cued, not hoped for.</b> A burst is on for 4.5 s of every 19, jittered inside its period, so a
+    /// shot of a few seconds met one by luck about a third of the time, and the storm's way (stretching the shots to
+    /// land on the next event) cannot reach events nineteen seconds apart. So the builder cues one
+    /// (<see cref="SceneRenderer.CueVolcanoBurst"/>): it goes off <see cref="BURST_LEAD"/> into the eruption shot at
+    /// its full size, the natural bursts that would crowd it give way, and the light, the jets, the deck's glow and
+    /// the boom all ride it because they all read the one schedule. The lead also absorbs the intro's own clock
+    /// falling behind the wall clock on a hitch (<c>ChapterIntro.MAX_INTRO_STEP</c>): two 110-ms frames cost about a
+    /// tenth of a second of it.
+    /// </para>
+    /// <para>
+    /// <b>Every height is read off the cone itself</b> (<see cref="SceneRenderer.VolcanoGroundHeight"/>, the host's
+    /// mirror of <c>Volcano.fx</c>'s height field, gullies and crater included), so a path clears the ground by a
+    /// stated margin whatever the config's cone is, and the rim is where the mirror says it is.
     /// </para>
     /// <para>
     /// <b>The crater shot passes BESIDE the axis, never over it.</b> Its look is pinned on the vent, and a lens
@@ -27,17 +45,35 @@ namespace BS3D.Effects
     /// </summary>
     internal static class VolcanoIntroShots
     {
-        //The flank pass: an arc round the cone at this fraction of its radius, this many radians either side of
-        //the river-0 side (the arena's), this far over the highest ground under the arc (the gullies are eleven
-        //units deep here, so a constant height is what keeps the lens from bobbing over them), looking up the
-        //flank at the vent. ⚠ Twenty units up and looking at a point on the river, the first cut was nothing
-        //but river: three flows crossed the frame as bands of saturated orange with no cone round them. From
-        //thirty-six up with the vent as the look the rivers run down the frame towards the lens and the summit
-        //stands over them with its fountain, which is the "eruption from a distance" every reference drew.
-        private const float FLANK_RADIUS_FRACTION = 0.60f;
-        private const float FLANK_ARC_RADIANS = 0.42f;
-        private const float FLANK_CLEARANCE = 36f;
-        private const float FLANK_SECONDS = 3.2f;
+        //The volcano: a slow push in from VIEW_FROM to VIEW_TO units off the cone's axis, VIEW_HEIGHT over the highest
+        //ground under it, on a bearing rolled between the two angles round from the arena's side, drifting
+        //VIEW_DRIFT_DEGREES back towards it so the island comes into the frame as the shot runs. The look is on the
+        //axis VIEW_LOOK_UNDER_VENT under the vent: the cone, the plain round it and the column over it in one frame.
+        private const float VIEW_FROM = 600f;
+        private const float VIEW_TO = 520f;
+        private const float VIEW_HEIGHT = 120f;
+        private const float VIEW_OFF_MIN_DEGREES = 22f;
+        private const float VIEW_OFF_MAX_DEGREES = 45f;
+        private const float VIEW_DRIFT_DEGREES = 8f;
+        private const float VIEW_LOOK_UNDER_VENT = 30f;
+        private const float VIEW_SECONDS = 3.6f;
+
+        //The eruption: a push in along one bearing from ERUPTION_FROM to ERUPTION_TO off the axis — the cone's foot,
+        //its radius being 215 — ERUPTION_CLEARANCE over the ground, the bearing rolled between the two angles round
+        //the OTHER way from the arena's side, the look ERUPTION_LOOK_OVER_VENT over the vent so the rim sits under the
+        //middle of a narrower frame and the jets and the column fill the rest.
+        private const float ERUPTION_FROM = 310f;
+        private const float ERUPTION_TO = 270f;
+        private const float ERUPTION_CLEARANCE = 12f;
+        private const float ERUPTION_OFF_MIN_DEGREES = 85f;
+        private const float ERUPTION_OFF_MAX_DEGREES = 125f;
+        private const float ERUPTION_LOOK_OVER_VENT = 40f;
+        private const float ERUPTION_FOV = 0.8f;
+        private const float ERUPTION_SECONDS = 3.8f;
+
+        /// <summary>How far into the eruption shot the cued burst goes off: long enough for the cone to be read
+        /// before it lights, short enough that the attack and most of the decay play out inside the shot.</summary>
+        internal const float BURST_LEAD = 0.9f;
 
         //The crater: a straight run from this fraction of the cone's radius on the arena's side to this much
         //beyond the axis, offset abeam of the axis, hugging the flank by CLIMB_CLEARANCE until the ramp lifts it
@@ -61,63 +97,77 @@ namespace BS3D.Effects
         private const float RAMP_FROM_FRACTION = 0.30f;
         private const float CRATER_SECONDS = 5.4f;
 
-        //Points per path. The heights are read at every one, so the climb follows the flank's own curve.
-        private const int PATH_POINTS = IntroPaths.FINE_POINTS;
+        //How far either side of a level path the ground is read, so a gully's wall beside the line cannot stand
+        //into the lens.
+        private const float LEVEL_LATERAL = 10f;
 
         /// <summary>
-        /// The prologue for the volcano the renderer is drawing, or null when it has no volcano config.
+        /// The prologue for the volcano the renderer is drawing, starting at <paramref name="time"/> on its wall
+        /// clock, or null when it has no volcano config; cues the burst the eruption shot meets.
         /// <paramref name="fieldOfView"/> is the intro's own gameplay frame, which each shot widens from.
         /// </summary>
-        public static IntroShot[] Build(SceneRenderer scenes, float fieldOfView, Random random)
+        public static IntroShot[] Build(SceneRenderer scenes, float time, float fieldOfView, Random random)
         {
             if (scenes?.GetSceneConfig(SceneKind.Volcano) is not VolcanoSceneConfig volcano) return null;
 
+            IntroShot[] shots = Shots(scenes.VolcanoGroundHeight, scenes.VolcanoLightPosition(0, 0f), volcano, fieldOfView, random);
+            scenes.CueVolcanoBurst(time, BurstOnset(time));
+            return shots;
+        }
+
+        /// <summary>The second the cued burst goes off, for a prologue that starts at <paramref name="time"/>.</summary>
+        internal static float BurstOnset(float time) => time + VIEW_SECONDS + BURST_LEAD;
+
+        /// <summary>
+        /// The three shots off the ground, the vent and the config alone, for a test with no renderer. The volcano
+        /// and the eruption stand on opposite sides of the arena's bearing, which side rolled.
+        /// </summary>
+        internal static IntroShot[] Shots(Func<float, float, float> ground, Vector3 vent, VolcanoSceneConfig volcano, float fieldOfView, Random random)
+        {
+            float side = random.Next(2) == 0 ? 1f : -1f;
+
             return new[]
             {
-                Flank(scenes, volcano, fieldOfView, random),
-                Crater(scenes.VolcanoGroundHeight, scenes.VolcanoLightPosition(0, 0f), volcano, fieldOfView, random),
+                Volcano(ground, vent, volcano, side, fieldOfView, random),
+                Eruption(ground, vent, volcano, -side, fieldOfView, random),
+                Crater(ground, vent, volcano, fieldOfView, random),
             };
         }
 
         /// <summary>
-        /// Along the flank across the rivers: an arc round the cone at mid-flank height, centred on the side
-        /// river 0 runs down, the lens on the vent so the flows stream down the frame and the eruption stands
-        /// over them.
+        /// The whole volcano from far out and high: the cone with its rivers and its column, the plain round it,
+        /// and the island standing to one side of it as the lens drifts back round towards the arena.
         /// </summary>
-        private static IntroShot Flank(SceneRenderer scenes, VolcanoSceneConfig volcano, float fieldOfView, Random random)
+        private static IntroShot Volcano(Func<float, float, float> ground, Vector3 vent, VolcanoSceneConfig volcano, float side,
+            float fieldOfView, Random random)
         {
             Vector2 cone = volcano.ConeCenter.ToVector2();
-            float radius = volcano.ConeRadius * FLANK_RADIUS_FRACTION;
+            float towardsArena = MathF.Atan2(-cone.Y, -cone.X);
+            float off = MathHelper.ToRadians(AridIntroPaths.Roll(random, VIEW_OFF_MIN_DEGREES, VIEW_OFF_MAX_DEGREES));
 
-            //River 0's bearing off the lamp that rides it (slot 1), at whatever point of its run the clock has
-            //put it; the wander is small against the arc.
-            Vector3 lamp = scenes.VolcanoLightPosition(1, 0f);
-            float centre = MathF.Atan2(lamp.Z - cone.Y, lamp.X - cone.X);
+            Vector2[] plan = AridIntroPaths.Arc(cone, towardsArena + side * off,
+                towardsArena + side * (off - MathHelper.ToRadians(VIEW_DRIFT_DEGREES)), VIEW_FROM, VIEW_TO);
 
-            //Which way round is rolled; the arc is the same either way.
-            float sign = random.Next(2) == 0 ? 1f : -1f;
-            float from = centre - sign * FLANK_ARC_RADIANS;
-            float to = centre + sign * FLANK_ARC_RADIANS;
+            return new IntroShot("the volcano", Level(plan, ground, VIEW_HEIGHT), VIEW_SECONDS, fieldOfView * 1.1f,
+                lookAt: new Vector3(cone.X, vent.Y - VIEW_LOOK_UNDER_VENT, cone.Y));
+        }
 
-            var path = new Vector3[PATH_POINTS];
-            float highest = float.MinValue;
+        /// <summary>
+        /// The cone from its foot as it goes off: a low push in towards the axis, the look over the vent, so the
+        /// flank rises through the bottom of the frame to the rim and the burst's jets and the column stand over it.
+        /// </summary>
+        private static IntroShot Eruption(Func<float, float, float> ground, Vector3 vent, VolcanoSceneConfig volcano, float side,
+            float fieldOfView, Random random)
+        {
+            Vector2 cone = volcano.ConeCenter.ToVector2();
+            float towardsArena = MathF.Atan2(-cone.Y, -cone.X);
+            Vector2 bearing = AridIntroPaths.Bearing(towardsArena
+                + side * MathHelper.ToRadians(AridIntroPaths.Roll(random, ERUPTION_OFF_MIN_DEGREES, ERUPTION_OFF_MAX_DEGREES)));
 
-            for (int i = 0; i < PATH_POINTS; i++)
-            {
-                float bearing = MathHelper.Lerp(from, to, i / (float)(PATH_POINTS - 1));
-                float x = cone.X + MathF.Cos(bearing) * radius;
-                float z = cone.Y + MathF.Sin(bearing) * radius;
-                path[i] = new Vector3(x, 0f, z);
-                highest = MathF.Max(highest, scenes.VolcanoGroundHeight(x, z));
-            }
+            Vector2[] plan = AridIntroPaths.Line(cone + bearing * ERUPTION_FROM, cone + bearing * ERUPTION_TO);
 
-            float y = highest + FLANK_CLEARANCE;
-            for (int i = 0; i < PATH_POINTS; i++) path[i].Y = y;
-
-            //The look: the vent, so the rivers run down the frame towards the lens and the summit with its
-            //fountain stands over them. The rim hides the vent itself from here; what shows above it is the
-            //eruption.
-            return new IntroShot("the flank", path, FLANK_SECONDS, fieldOfView * 1.15f, lookAt: scenes.VolcanoLightPosition(0, 0f));
+            return new IntroShot("the eruption", Level(plan, ground, ERUPTION_CLEARANCE), ERUPTION_SECONDS, fieldOfView * ERUPTION_FOV,
+                lookAt: vent + new Vector3(0f, ERUPTION_LOOK_OVER_VENT, 0f));
         }
 
         /// <summary>
@@ -158,6 +208,22 @@ namespace BS3D.Effects
             }, CLIMB_SMOOTHING);
 
             return new IntroShot("the crater", path, CRATER_SECONDS, fieldOfView * 1.15f, lookAt: vent);
+        }
+
+        //A path at ONE height, the clearance over the highest ground under the plan and beside it: on the plain and
+        //across the gullies a lens that followed the ground would bob, and a level one reads as a crane.
+        private static Vector3[] Level(Vector2[] plan, Func<float, float, float> ground, float clearance)
+        {
+            float highest = float.MinValue;
+            foreach (Vector2 p in plan)
+                for (int k = -1; k <= 1; k++)
+                    for (int m = -1; m <= 1; m++)
+                        highest = MathF.Max(highest, ground(p.X + k * LEVEL_LATERAL, p.Y + m * LEVEL_LATERAL));
+
+            var path = new Vector3[plan.Length];
+            for (int i = 0; i < plan.Length; i++) path[i] = new Vector3(plan[i].X, highest + clearance, plan[i].Y);
+
+            return path;
         }
     }
 }

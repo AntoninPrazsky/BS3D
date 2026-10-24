@@ -146,33 +146,90 @@ namespace Prazsky.Core.Render
         /// <summary><see cref="SceneRenderer.VolcanoGroundHeight"/>.</summary>
         public float GroundHeight(float x, float z) => TerrainMirror.Volcano(x, z, _volcanoConfig);
 
+        //Where in its period a burst may start (BurstSchedule). So the shortest gap two natural bursts ever leave is
+        //(1 - START_SPAN) periods, and that is the quiet a cued burst keeps after itself (CueBurst).
+        private const float START_FROM = 0.10f;
+        private const float START_SPAN = 0.55f;
+
+        //A burst cued for one second (#975), NaN for none; the second it was cued at; and its own event index, below
+        //every period's (those count up from 0 with the clock), so each cue's boom is a new event to the sound.
+        private float _cueOnset = float.NaN;
+        private float _cuedAt = float.NaN;
+        private int _cueIndex;
+
         /// <summary><see cref="SceneRenderer.VolcanoEruption"/>.</summary>
         public float Eruption(float time)
         {
             float period = BurstSchedule(time, out float index, out float start, out float length, out float size);
-            float u = time / period;
-
-            float p = (u - index - start) / length;
-            if (p <= 0f || p >= 1f) return 0f;
-
-            float envelope = p < 0.14f ? p / 0.14f : MathF.Pow(1f - (p - 0.14f) / 0.86f, 1.7f);
 
             //Not every burst is the same size: a scene whose every event is identical stops being an event.
-            return envelope * size;
+            float burst = GivesWay((index + start) * period) ? 0f : Envelope((time / period - index - start) / length) * size;
+
+            //A cued burst is the full size, over whatever natural one it shares a moment with
+            return float.IsNaN(_cueOnset) ? burst : MathF.Max(burst, Envelope((time - _cueOnset) / (length * period)));
         }
+
+        //A burst's shape over its length, 0 to 1: a fast attack and a long decay, which is how a volcano goes off.
+        private static float Envelope(float p) =>
+            p <= 0f || p >= 1f ? 0f : p < 0.14f ? p / 0.14f : MathF.Pow(1f - (p - 0.14f) / 0.86f, 1.7f);
+
+        /// <summary>
+        /// <b>One burst at a stated second</b> (#975): the Eruption chapter's intro cuts to the cone as it goes off, and a
+        /// burst on 4.5 s of every 19, jittered inside its period, meets a shot of a few seconds by luck about a third
+        /// of the time. The cued burst goes off at <paramref name="onset"/> at its full size, and every natural burst
+        /// that would have started after <paramref name="now"/> and before the shortest natural gap after the cue gives
+        /// way, so the shot before the cue does not spend it and no second burst answers it a few seconds later. Still
+        /// a function of the clock, with the cue as one more figure: the light, the jets, the deck's glow and the boom
+        /// (<see cref="TryGetBurst"/>) stay one event. A later cue replaces this one.
+        /// </summary>
+        public void CueBurst(float now, float onset)
+        {
+            _cuedAt = now;
+            _cueOnset = onset;
+            _cueIndex--;
+        }
+
+        /// <summary>
+        /// The burst the clock is in, or is waiting for, at <paramref name="time"/>, as
+        /// <see cref="SceneRenderer.TryGetSceneEvent"/> hands it to the sound: its event index, the second it starts
+        /// and its size. A cue answers from the moment it is made to the end of its quiet; a natural burst that gave
+        /// way to it answers false.
+        /// </summary>
+        internal bool TryGetBurst(float time, out int index, out float onset, out float size)
+        {
+            if (!float.IsNaN(_cueOnset) && time >= _cuedAt && time < _cueOnset + CueQuiet)
+            {
+                index = _cueIndex;
+                onset = _cueOnset;
+                size = 1f;
+                return true;
+            }
+
+            float period = BurstSchedule(time, out float slot, out float start, out float _, out size);
+            index = (int)slot;
+            onset = (slot + start) * period;
+            return !GivesWay(onset);
+        }
+
+        //How long after a cued burst's onset no natural one starts: the shortest gap the schedule ever leaves.
+        private float CueQuiet => (1f - START_SPAN) * MathF.Max(_volcanoConfig.Eruption.Period, 1f);
+
+        //Whether a natural burst starting at this second gives way to the cue. One that began before the cue was
+        //made keeps playing: cutting a burst off in the middle would be the one thing worse than two.
+        private bool GivesWay(float onset) => !float.IsNaN(_cueOnset) && onset > _cuedAt && onset < _cueOnset + CueQuiet;
 
         /// <summary>
         /// The burst's SCHEDULE, in one place, for StormStrikeSchedule's reason exactly: the light and the boom have to
         /// be one event, and they are only one event while one function decides when it starts. Answers the period.
         /// </summary>
-        internal float BurstSchedule(float time, out float index, out float start, out float length, out float size)
+        private float BurstSchedule(float time, out float index, out float start, out float length, out float size)
         {
             EruptionConfig eruption = _volcanoConfig.Eruption;
 
             float period = MathF.Max(eruption.Period, 1f);
 
             index = MathF.Floor(time / period);
-            start = 0.10f + 0.55f * SceneRenderer.Hash01(index);
+            start = START_FROM + START_SPAN * SceneRenderer.Hash01(index);
             length = Math.Clamp(eruption.Length / period, 0.02f, 0.85f);
             size = 0.55f + 0.45f * SceneRenderer.Hash01(index + 101f);
 
