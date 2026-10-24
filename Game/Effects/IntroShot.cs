@@ -38,6 +38,7 @@ namespace BS3D.Effects
         private readonly float _lookAhead;
         private readonly float _pitchDown;
         private readonly float _pitchDamping;
+        private readonly Action _onStart;
 
         /// <param name="name">What the shot is of.</param>
         /// <param name="path">The lens's path, at least two points, evenly spaced along it.</param>
@@ -59,9 +60,11 @@ namespace BS3D.Effects
         /// PATH can stop that, because it is the path's slope that is the pitch — measured on the desert's crest
         /// as 29 degrees a second rms and up to 80 with the height already smoothed. Only the travel-following
         /// look uses it; a shot on a fixed or moving point looks where it is told.</param>
+        /// <param name="onStart">Called once, on the frame the shot comes on screen (#975): for a shot timed to
+        /// something the scene does on the wall clock, whose own clock the intro's can fall behind.</param>
         public IntroShot(string name, Vector3[] path, float seconds, float fieldOfView,
             Vector3? lookAt = null, float lookAhead = 12f, float pitchDownDegrees = 0f, Vector3[] lookAtPath = null,
-            float pitchDamping = 0f)
+            float pitchDamping = 0f, Action onStart = null)
         {
             if (path == null || path.Length < 2) throw new ArgumentException("A shot needs at least two points.", nameof(path));
 
@@ -74,7 +77,11 @@ namespace BS3D.Effects
             _lookAhead = lookAhead;
             _pitchDown = MathHelper.ToRadians(pitchDownDegrees);
             _pitchDamping = MathHelper.Clamp(pitchDamping, 0f, 1f);
+            _onStart = onStart;
         }
+
+        /// <summary>The shot has come on screen: <see cref="ChapterIntro"/> calls this once, on its first frame.</summary>
+        public void Start() => _onStart?.Invoke();
 
         /// <summary>
         /// The pose at <paramref name="t"/> (0–1 of the shot). The clock is eased only a little at the ends —

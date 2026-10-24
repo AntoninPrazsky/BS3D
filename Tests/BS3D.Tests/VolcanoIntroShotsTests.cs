@@ -150,6 +150,38 @@ namespace BS3D.Tests
             Assert.InRange(peak, shots[0].Seconds, shots[0].Seconds + shots[1].Seconds - 1f);
         }
 
+        [Fact]
+        public void TheEruptionShotRecuesTheBurstAsItComesOnScreen()
+        {
+            int cues = 0;
+            var config = new VolcanoSceneConfig();
+            IntroShot[] shots = VolcanoIntroShots.Shots((x, z) => TerrainMirror.Volcano(x, z, config), new VolcanoLava(config, 0).VentPosition[0],
+                config, INTRO_FIELD_OF_VIEW, new Random(1), () => cues++);
+
+            shots[0].Start();
+            shots[2].Start();
+            Assert.Equal(0, cues);
+
+            shots[1].Start();
+            Assert.Equal(1, cues);
+        }
+
+        [Fact]
+        public void TheBurstIsCuedAgainOnlyWhenTheIntroFellBehind()
+        {
+            const float start = 600f;
+            float onTime = start + shotsBefore();
+
+            //On time, or a hitch's worth late: the cue made at the build stands
+            Assert.True(float.IsNaN(VolcanoIntroShots.Recue(start, onTime)));
+            Assert.True(float.IsNaN(VolcanoIntroShots.Recue(start, onTime + 0.05f)));
+
+            //Four seconds behind a pause page: the burst goes off the lead after the shot really starts
+            Assert.Equal(onTime + 4f + VolcanoIntroShots.BURST_LEAD, VolcanoIntroShots.Recue(start, onTime + 4f), 3);
+
+            static float shotsBefore() => VolcanoIntroShots.BurstOnset(0f) - VolcanoIntroShots.BURST_LEAD;
+        }
+
         private static void AssertInFrame(IntroShot shot, float t, Vector3 point, string what)
         {
             shot.Pose(t, out Vector3 position, out Vector3 target);

@@ -128,6 +128,9 @@ namespace BS3D.Effects
         private IntroShot[] _prologue = Array.Empty<IntroShot>();
         private float _prologueSeconds;
 
+        //How many of the prologue's shots have come on screen, so each is told so once (IntroShot.Start, #975)
+        private int _shotsStarted;
+
         //How long the tour's last leg runs on its own after a prologue — the map and the arrival (see the
         //class doc). Long enough for one proper look at the cluster before the gun is handed over.
         private const float ARRIVAL_SECONDS = 4.5f;
@@ -203,6 +206,7 @@ namespace BS3D.Effects
 
             _prologue = prologue ?? Array.Empty<IntroShot>();
             _prologueSeconds = 0f;
+            _shotsStarted = 0;
             foreach (IntroShot shot in _prologue) _prologueSeconds += shot.Seconds;
 
             //Taken with a CUT when it opens on a shot of its own: the first shot is a street under the island,
@@ -407,6 +411,7 @@ namespace BS3D.Effects
             _elapsed = 0f;
             _prologue = Array.Empty<IntroShot>();
             _prologueSeconds = 0f;
+            _shotsStarted = 0;
         }
 
         /// <summary>What the roll picked, for the one log line the trigger writes.</summary>
@@ -473,10 +478,14 @@ namespace BS3D.Effects
             {
                 float start = 0f;
 
-                foreach (IntroShot shot in _prologue)
+                for (int i = 0; i < _prologue.Length; i++)
                 {
+                    IntroShot shot = _prologue[i];
                     if (_elapsed < start + shot.Seconds)
                     {
+                        //On screen from this frame: told so once, on the intro's own clock (a pause or a hitch holds it)
+                        while (_shotsStarted <= i) _prologue[_shotsStarted++].Start();
+
                         shot.Pose((_elapsed - start) / shot.Seconds, out Vector3 position, out Vector3 target);
                         Position = position;
                         Target = target;

@@ -987,7 +987,8 @@ namespace BS3D
             //None where no scenery is drawn (the Potato path, #789, and the Scenery row off, #808): the shots are of the
             //backdrop's own features
             !SceneryShown ? null : BS3D.Effects.IntroPrologues.For(_scene,
-                new BS3D.Effects.IntroContext(_sceneRenderer, _city, _rooftops, _forestScatter, _auroraScatter, _rig?.SunDirection, _wallClock),
+                new BS3D.Effects.IntroContext(_sceneRenderer, _city, _rooftops, _forestScatter, _auroraScatter, _rig?.SunDirection, _wallClock,
+                    () => _wallClock),
                 fieldOfView, random);
 
         internal int LevelCount => _levelSet?.Count ?? 0;

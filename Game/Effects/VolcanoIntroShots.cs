@@ -26,9 +26,11 @@ namespace BS3D.Effects
     /// land on the next event) cannot reach events nineteen seconds apart. So the builder cues one
     /// (<see cref="SceneRenderer.CueVolcanoBurst"/>): it goes off <see cref="BURST_LEAD"/> into the eruption shot at
     /// its full size, the natural bursts that would crowd it give way, and the light, the jets, the deck's glow and
-    /// the boom all ride it because they all read the one schedule. The lead also absorbs the intro's own clock
-    /// falling behind the wall clock on a hitch (<c>ChapterIntro.MAX_INTRO_STEP</c>): two 110-ms frames cost about a
-    /// tenth of a second of it.
+    /// the boom all ride it because they all read the one schedule. It is cued twice: when the intro is built, so the
+    /// natural bursts that would start in the first shot give way, and again on the eruption shot's first frame
+    /// (<see cref="IntroShot.Start"/>) if the intro's own clock has fallen behind the wall clock by then — a pause
+    /// stops it, and so does a hitch (<c>ChapterIntro.MAX_INTRO_STEP</c>), while the burst runs on the wall clock and
+    /// would otherwise go off behind the pause page or in the shot before.
     /// </para>
     /// <para>
     /// <b>Every height is read off the cone itself</b> (<see cref="SceneRenderer.VolcanoGroundHeight"/>, the host's
@@ -75,6 +77,10 @@ namespace BS3D.Effects
         /// before it lights, short enough that the attack and most of the decay play out inside the shot.</summary>
         internal const float BURST_LEAD = 0.9f;
 
+        //How far the eruption shot's real start may be from the one the intro was built for before the burst is cued
+        //again for it: under it, a cue would only restart a burst already lined up.
+        private const float RECUE_TOLERANCE = 0.1f;
+
         //The crater: a straight run from this fraction of the cone's radius on the arena's side to this much
         //beyond the axis, offset abeam of the axis, hugging the flank by CLIMB_CLEARANCE until the ramp lifts it
         //to RIM_CLEARANCE over the rim between the two radii below — so the crater opens as the lens crests.
@@ -103,16 +109,31 @@ namespace BS3D.Effects
 
         /// <summary>
         /// The prologue for the volcano the renderer is drawing, starting at <paramref name="time"/> on its wall
-        /// clock, or null when it has no volcano config; cues the burst the eruption shot meets.
+        /// clock, or null when it has no volcano config; cues the burst the eruption shot meets, and cues it again
+        /// off <paramref name="clock"/> as that shot comes on screen if the intro has fallen behind.
         /// <paramref name="fieldOfView"/> is the intro's own gameplay frame, which each shot widens from.
         /// </summary>
-        public static IntroShot[] Build(SceneRenderer scenes, float time, float fieldOfView, Random random)
+        public static IntroShot[] Build(SceneRenderer scenes, float time, Func<float> clock, float fieldOfView, Random random)
         {
             if (scenes?.GetSceneConfig(SceneKind.Volcano) is not VolcanoSceneConfig volcano) return null;
 
-            IntroShot[] shots = Shots(scenes.VolcanoGroundHeight, scenes.VolcanoLightPosition(0, 0f), volcano, fieldOfView, random);
             scenes.CueVolcanoBurst(time, BurstOnset(time));
-            return shots;
+            return Shots(scenes.VolcanoGroundHeight, scenes.VolcanoLightPosition(0, 0f), volcano, fieldOfView, random,
+                eruptionStarts: () =>
+                {
+                    float onset = Recue(time, clock?.Invoke() ?? time + VIEW_SECONDS);
+                    if (!float.IsNaN(onset)) scenes.CueVolcanoBurst(time, onset);
+                });
+        }
+
+        /// <summary>
+        /// The burst's second the eruption shot wants when it comes on screen at <paramref name="now"/> on the wall
+        /// clock, for an intro built at <paramref name="time"/>; NaN when the cue made at the build already lands it.
+        /// </summary>
+        internal static float Recue(float time, float now)
+        {
+            float onset = now + BURST_LEAD;
+            return MathF.Abs(onset - BurstOnset(time)) > RECUE_TOLERANCE ? onset : float.NaN;
         }
 
         /// <summary>The second the cued burst goes off, for a prologue that starts at <paramref name="time"/>.</summary>
@@ -121,15 +142,17 @@ namespace BS3D.Effects
         /// <summary>
         /// The three shots off the ground, the vent and the config alone, for a test with no renderer. The volcano
         /// and the eruption stand on opposite sides of the arena's bearing, which side rolled.
+        /// <paramref name="eruptionStarts"/> is called as the eruption shot comes on screen.
         /// </summary>
-        internal static IntroShot[] Shots(Func<float, float, float> ground, Vector3 vent, VolcanoSceneConfig volcano, float fieldOfView, Random random)
+        internal static IntroShot[] Shots(Func<float, float, float> ground, Vector3 vent, VolcanoSceneConfig volcano, float fieldOfView,
+            Random random, Action eruptionStarts = null)
         {
             float side = random.Next(2) == 0 ? 1f : -1f;
 
             return new[]
             {
                 Volcano(ground, vent, volcano, side, fieldOfView, random),
-                Eruption(ground, vent, volcano, -side, fieldOfView, random),
+                Eruption(ground, vent, volcano, -side, fieldOfView, random, eruptionStarts),
                 Crater(ground, vent, volcano, fieldOfView, random),
             };
         }
@@ -157,7 +180,7 @@ namespace BS3D.Effects
         /// flank rises through the bottom of the frame to the rim and the burst's jets and the column stand over it.
         /// </summary>
         private static IntroShot Eruption(Func<float, float, float> ground, Vector3 vent, VolcanoSceneConfig volcano, float side,
-            float fieldOfView, Random random)
+            float fieldOfView, Random random, Action starts)
         {
             Vector2 cone = volcano.ConeCenter.ToVector2();
             float towardsArena = MathF.Atan2(-cone.Y, -cone.X);
@@ -167,7 +190,7 @@ namespace BS3D.Effects
             Vector2[] plan = AridIntroPaths.Line(cone + bearing * ERUPTION_FROM, cone + bearing * ERUPTION_TO);
 
             return new IntroShot("the eruption", Level(plan, ground, ERUPTION_CLEARANCE), ERUPTION_SECONDS, fieldOfView * ERUPTION_FOV,
-                lookAt: vent + new Vector3(0f, ERUPTION_LOOK_OVER_VENT, 0f));
+                lookAt: vent + new Vector3(0f, ERUPTION_LOOK_OVER_VENT, 0f), onStart: starts);
         }
 
         /// <summary>

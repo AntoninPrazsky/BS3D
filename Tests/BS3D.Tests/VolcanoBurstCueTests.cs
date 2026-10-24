@@ -67,6 +67,25 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void No_natural_burst_answers_a_cue_inside_its_quiet()
+        {
+            VolcanoLava lava = Lava();
+            VolcanoConfigFigures(out float length, out float quiet);
+
+            //Cued so that a natural burst would start a second after the cued one has run out: inside the quiet
+            float natural = NextNaturalOnset(lava, 1100f);
+            float onset = natural - length - 1f;
+            Assert.True(natural < onset + quiet, "the natural burst is not inside the quiet; move the cue");
+            lava.CueBurst(onset - 2f, onset);
+
+            for (float t = onset + length; t < natural + length; t += STEP)
+            {
+                Assert.Equal(0f, lava.Eruption(t));
+                Assert.True(!lava.TryGetBurst(t, out int index, out _, out _) || index < 0, $"a natural burst answers the cue at {t:F2}");
+            }
+        }
+
+        [Fact]
         public void A_burst_already_going_is_not_cut_off()
         {
             VolcanoLava lava = Lava();
