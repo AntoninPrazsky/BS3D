@@ -151,18 +151,24 @@ namespace BS3D.Tests
         [Fact]
         public void NoTwoShotsInARowAreTheSameKindOfShot()
         {
-            //The alternation itself: street, plaza, swing, roofs — never the swing beside the street it is a variation of
+            //The alternation itself: never the swing beside the street it is a variation of, whichever swing the reel flies -
+            //the old one-corner swing or the swing home (#972), which lands on the gameplay pose and so is always last
             for (int seed = 1; seed <= ROLLS; seed++)
-            {
-                IntroShot[] shots = Shots(false, seed, out _);
+                foreach (bool neon in new[] { false, true })
+                {
+                    IntroShot[] shots = Shots(neon, seed, out _);
 
-                for (int i = 0; i + 1 < shots.Length; i++)
-                    Assert.NotEqual(shots[i].Name, shots[i + 1].Name);
+                    for (int i = 0; i + 1 < shots.Length; i++)
+                        Assert.NotEqual(shots[i].Name, shots[i + 1].Name);
 
-                int street = Array.FindIndex(shots, s => s.Name == "the street");
-                int swing = Array.FindIndex(shots, s => s.Name == "the swing");
-                if (swing >= 0) Assert.True(swing - street >= 2, $"seed {seed}: the swing stands next to the street");
-            }
+                    int street = Array.FindIndex(shots, s => s.Name == "the street");
+                    int swing = Array.FindIndex(shots, s => s.Name == "the swing" || s.Name == "the swing home");
+                    Assert.True(swing >= 0, $"seed {seed}, neon {neon}: the reel has no swing");
+                    Assert.True(Math.Abs(swing - street) >= 2, $"seed {seed}, neon {neon}: the swing stands next to the street");
+
+                    int lands = Array.FindIndex(shots, s => s.Lands);
+                    if (lands >= 0) Assert.Equal(shots.Length - 1, lands);
+                }
         }
 
         /// <summary>
