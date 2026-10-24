@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-24 — #1011 kamera při pádu jen při opravdu velkém pádu — desktop (RDT-PC), Claude Code (bs3d-0b)
+- majitel: kamera při pádu zůstane ve výchozím stavu zapnutá a v reálném čase, ale má se spustit jen při opravdu velkém uvolnění.
+- Hotovo: `DropTrigger.MIN_SHARE_OF_LEVEL` jde z 9 % na 25 %. `LevelGen --drops`: 0,45 (greedy) a 0,40 (casual) kamer na level před čisticí střelou místo 1,11 a 0,98; čisticí střela si kameru nechává (#424). Test `OnlyAReallyBigReleaseTakesTheCamera` při 9 % viditelně selže.
+- ⚠ Nejlepší důkaz byl `%LOCALAPPDATA%\BS3D\Logs\*.log` majitele: ze tří kamer uprostřed levelu dvě přeskočil do vteřiny (Umbrella 49 z 368, Pagoda 76 z 724). Ty novým prahem neprojdou, Fish (189 z 368) ano.
+- Otevřené: `verdict-eye`.
+
 ## 2026-10-24 — #975 #972 úvody Erupce a Města — desktop (RDT-PC), Claude Code (bs3d-80)
 - Hotovo #975 (bdb9d34b, 795ca590): sopka zdálky → erupce od úpatí → kráter. Výbuch je vyvolaný (`CueVolcanoBurst`), ne náhodný; záběr erupce ho při rozjezdu přeplánuje, když úvod zaostal (pauza, záškub). `shipped-awaiting-verdict`, `verdict-eye`.
 - Hotovo #972 (2f5fb699): Město končí „švihem domů“ (`CitySwing`) ulicemi na herní pózu, bez cesty turné; náměstí výš (72–105). Neon zatím beze změny (#973).
