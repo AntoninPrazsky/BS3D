@@ -510,9 +510,6 @@ namespace BS3D.Screens
             Console.WriteLine($"[tour] {SceneRenderer.SceneName(Game.Scene)}: {_tour.Describe()}");
         }
 
-        //Whether the replayed tour has set the camera's roll, so it is put back level once when the tour ends
-        private bool _tourRolled;
-
         /// <summary>Cuts a replayed tour short: a skip key pressed while the Scene page stands aside for it (#861).</summary>
         internal bool TrySkipTour() => _tour.TrySkip();
 
@@ -657,33 +654,30 @@ namespace BS3D.Screens
             //frame is the one the framing starts drifting towards on the same frame.
             StepPreviewRequest(elapsed);
 
-            AdvanceOrbit(elapsed, out Vector3 position, out Vector3 target, out float fieldOfView);
+            //A replayed tour takes the camera off the flight for as long as it runs (#406), and the flight WAITS for it
+            //where it was: the tour ends on the pose it was handed at its start (a city's swing home lands on it, #972),
+            //and a flight that had gone on turning under a twenty-second reel was 76 to 114 degrees round by then, so the
+            //blend back was a fast sweep round the arena and not a nudge between two poses (the review of #972).
+            AdvanceOrbit(_tour.Running ? 0f : elapsed, out Vector3 position, out Vector3 target, out float fieldOfView);
 
-            //A replayed tour takes the camera off the flight for as long as it runs (#406), and blends back
-            //onto it the way the chapter's own does - the flight has gone on turning underneath, so what it
-            //returns to is a live pose and not the one it left.
             _tour.Update(elapsed);
-            RecoilCamera camera = Game.Camera;
             if (_tour.Engaged)
             {
                 position = Vector3.Lerp(position, _tour.Position, _tour.Blend);
                 target = Vector3.Lerp(target, _tour.Target, _tour.Blend);
                 fieldOfView = MathHelper.Lerp(fieldOfView, _tour.FieldOfView, _tour.Blend);
+            }
 
-                //A prologue shot's bank (#972), set only while a tour flies and put back level as it ends, so the
-                //roll the result page eases out of the drop cinematic is left to it
-                camera.BaseRoll = _tour.Roll * _tour.Blend;
-                _tourRolled = true;
-            }
-            else if (_tourRolled)
-            {
-                camera.BaseRoll = 0f;
-                _tourRolled = false;
-            }
+            RecoilCamera camera = Game.Camera;
 
             camera.BasePosition = position;
             camera.BaseTarget = target;
             camera.FieldOfView = fieldOfView;
+
+            //Every frame, as the pose is: a prologue shot's bank (#972) while a replayed tour flies, level otherwise. Written
+            //only while a tour flew, it kept the bank a session left on the camera when Pause and Main Menu were taken in
+            //the middle of the city's swing (the review of #972); the menu owns the whole camera while it updates
+            camera.BaseRoll = _tour.Engaged ? _tour.Roll * _tour.Blend : 0f;
 
             camera.Update(elapsed);
 
