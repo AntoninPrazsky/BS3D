@@ -236,6 +236,10 @@ namespace BS3D
         //sitting at, or on one we do not own; the result is the [bench] lines and Benchmark.json
         internal bool Benchmark { get; private set; }
 
+        //"continue" presses the main menu's first entry at boot (#870): New Game on an empty save, the saved campaign
+        //continued, with its scene's intro, on one with progress; the one path into a level a script could not take
+        internal bool ContinueGame { get; private set; }
+
         //Testing only: open the Settings page at boot (#189), on "about"'s and "pick"'s reasoning — three
         //presses reach it on a machine somebody is sitting at, and none reach it from a script.
         internal bool Settings { get; private set; }
@@ -625,6 +629,7 @@ namespace BS3D
             //bars are only worth a shot while a recording plays, which takes presses nobody is there to make
             Row.Flag("extras", o => o.Extras = true),
             Row.Flag("benchmark", o => o.Benchmark = true),
+            Row.Flag("continue", o => o.ContinueGame = true),
             Row.Flag("jukebox", o => o.Jukebox = string.Empty),
             Row.Text("jukebox", (o, v) => o.Jukebox = v),
             //"settings" puts the Settings page up at boot (#189), for photographing a row.

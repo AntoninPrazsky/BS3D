@@ -442,17 +442,29 @@ namespace BS3D.Screens
         /// </summary>
         private void TryBeginChapterIntro()
         {
+            //Asked once, and spent here whether or not this level can tour, so a retry, the next level or the picker after a
+            //Continue plays none (RequestWelcomeTour)
+            bool welcome = _welcomeTourRequested;
+            _welcomeTourRequested = false;
+
             LevelSet set = Game.LevelSet;
             if (set == null || !set.HasBlocks) return;
 
             set.BlockRange(_run.Index, out int first, out _);
-            if (first != _run.Index) return;
 
-            //Add answers false when the key is already in the set — one call is both the test and the record,
-            //so there is no window between asking and marking where a re-entrant BuildLevel could see stale
-            //state. Never removed: a fresh launch of the program is the only thing that shows a chapter's
-            //opening twice, and that is the point (see the field's own remarks).
-            if (!_chapterIntroShown.Add(first)) return;
+            //A Continue tours whatever the level's place in its chapter and whether or not the chapter has been seen, and
+            //counts as the chapter's opening seen
+            if (welcome) _chapterIntroShown.Add(first);
+            else
+            {
+                if (first != _run.Index) return;
+
+                //Add answers false when the key is already in the set — one call is both the test and the record,
+                //so there is no window between asking and marking where a re-entrant BuildLevel could see stale
+                //state. Never removed: a fresh launch of the program is the only thing that shows a chapter's
+                //opening twice, and that is the point (see the field's own remarks).
+                if (!_chapterIntroShown.Add(first)) return;
+            }
 
             Vector3 centre = new(_cannon.OrbitCenter.X, _gameCameraTargetY, _cannon.OrbitCenter.Z);
 
@@ -466,8 +478,17 @@ namespace BS3D.Screens
             //One line per intro, in the manner of [cinematic]: a rare event — eleven times over the whole
             //campaign — and the shot is rolled, so this is the only record of what it actually chose.
             Console.WriteLine($"[intro] block '{set.BlockName(_run.Index)}' ({set.BlockNumber(_run.Index)}/{set.BlockCount}), "
-                + _chapterIntro.Describe());
+                + (welcome ? "on Continue, " : "") + _chapterIntro.Describe());
         }
+
+        /// <summary>
+        /// Asks the next <see cref="BuildLevel"/> for the scene's whole intro whatever the level (#870), as the main menu's
+        /// Continue does. The owner: a player continuing from the menu has probably not played for a while and needs a moment
+        /// to settle, so the same prologue a new chapter opens with, skippable, even mid-chapter and even when the chapter's
+        /// opening was shown this launch. Never on a resume from the pause page, which keeps its standing session exactly as
+        /// it was, nor the picker, the next level or a retry.
+        /// </summary>
+        internal void RequestWelcomeTour() => _welcomeTourRequested = true;
 
         /// <summary>
         /// Where the cinematic should look now: <see cref="DropFocus"/> over the released balls the kill plane
