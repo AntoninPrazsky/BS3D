@@ -21,6 +21,9 @@ namespace Prazsky.Core.Render
 
         private GridSceneConfig _gridConfig = new();
 
+        //The light cycles (#956), riding the floor round the arena
+        private readonly LightCycles _cycles;
+
         //The twentieth scene (#393), and the third in both families at once — see IsSolidTerrainScene's and
         //ReplacesSky's own docs. A flat, glowing circuit-board floor and distant solids under a starless
         //sky-replacing void, three techniques in one effect, the Moon's own shape (Draw draws the terrain
@@ -147,6 +150,8 @@ namespace Prazsky.Core.Render
             //board per solid included (BuildGridTowers) - one call for both, since a later config edit
             //needs to redo exactly the same pair.
             ApplyGridParameters();
+
+            _cycles = new LightCycles(_graphicsDevice, content, _gridConfig);
         }
 
         /// <inheritdoc/>
@@ -282,6 +287,9 @@ namespace Prazsky.Core.Render
             _gridEffect.CurrentTechnique = _gridSkyTechnique;
             _gridEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
+
+            //The light cycles over the floor and the void, and their walls of light behind them (#956)
+            _cycles.Draw(frame);
 
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
 
@@ -724,6 +732,7 @@ namespace Prazsky.Core.Render
             _gridTowerVertexBuffer?.Dispose();
             _gridTowerIndexBuffer?.Dispose();
             foreach (GridLifeBoard board in _gridLifeBoards) board.Texture?.Dispose();
+            _cycles?.Dispose();
         }
     }
 }

@@ -37,6 +37,14 @@ The twentieth `SceneKind` (#393): an early-1980s computer-graphics backdrop draw
 
 `GridLandmarkConfig`: a ring on edge, far out, with its own Life round its band: the one silhouette nothing else here has (every other solid is a box). A faceted torus of `Segments` trapezoid segments, facing the arena. **⚠ Segment joins must not glow, or the ring is a barrel of ribs**: the seam shader lights all four borders of a quad, so each quad reports a face-local X pinned mid-way across a wide face and only the long borders draw, as two rails.
 
+## The light cycles (#956)
+
+The owner, "for fun": a few light cycles as a homage to the film, in its own render style. `LightCycles` (drawn by `GridBackdrop` after the void's quad) rides three along the floor's lattice (`LATTICE` 16, the trace's stride) in right-angled runs, each trailing a wall of light; references in `C:\Users\panrd\AI\sd\out\956-zimage` and `956-klein`.
+
+- **Where they ride**: in a ring `RING_MIN` 56 to `RING_MAX` 124 round the axis, clear of the island's hole and inside the solids' ring (`GridTowerConfig.RadiusMin` 140), so a cycle never rides through a solid. At every node a rider goes straight on (`STRAIGHT_SHARE`) or turns a right angle, by a hash of its seed and the node's place in its run, never back and never out of the ring: the run is the same at any frame rate, and where a rider is, is the run's point at `SPEED` times the wall clock. No allocation a frame (a fixed ring of the last nodes, one array for the walls).
+- **The look** (`LightCycle.fx`), the scene's rule that light comes only from the seams: a near-black body of the film's primitives (three boxes and two disc wheels), one flat value a face, every edge glowing in the rider's colour past the glare threshold, the wheels ringed at the rim and the hub (each vertex carries its face-local seam data). The wall is added over the frame writing no depth, brightest along its top and foot, fading to its tail. ⚠ `BlendState.Additive` scales the source by its alpha: a shader returning alpha 0 adds nothing.
+- Not handled: a lens inside a cycle (the intro keeps its lenses near the island and the solids), and a wall in front of the island drawn under it (the island draws after the backdrop; only a lens out past the ring can see one between).
+
 ## Costs
 
 Desktop, Testbed, `sceneseed=0`, 3840x1600 ssaa 2, `nopost nooverc`, `fpscap=2000`: **1.81 ms** at the play pose, 1.26 where the ring fills a third of the frame; the flat shade and the landmark were free.
