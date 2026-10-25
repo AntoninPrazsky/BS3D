@@ -80,7 +80,8 @@ namespace Prazsky.Core.Render
         /// field applied: what the constructor builds its faces on, and what a test reads without a device (#960).
         /// </summary>
         internal static Vector3[,] RingPositions(IReadOnlyList<LathePoint> profile, int segments,
-            float irregularityAmplitude = 0f, float irregularityPhase = 0f, Func<Vector3, float> heightField = null)
+            float irregularityAmplitude = 0f, float irregularityPhase = 0f, Func<Vector3, float> heightField = null,
+            Func<float, float, float> radialField = null)
         {
             int rings = profile.Count;
             var positions = new Vector3[rings, segments];
@@ -99,6 +100,7 @@ namespace Prazsky.Core.Render
                     if (irregularityAmplitude != 0f && point.Wobble != 0f)
                         radius += irregularityAmplitude * point.Wobble
                             * Irregularity(angle + irregularityPhase, point.Y + irregularityPhase);
+                    if (radialField != null) radius += radialField(angle, point.Y);
 
                     positions[k, s] = new Vector3(radius * cos, point.Y, radius * sin);
                     if (heightField != null) positions[k, s].Y += heightField(positions[k, s]);
@@ -126,8 +128,14 @@ namespace Prazsky.Core.Render
         /// from the positions actually drawn. The field is the caller's to keep zero where a ring must stay
         /// exact (the floor's arris, a ring another lathe shares); null leaves the profile's heights.
         /// </param>
+        /// <param name="radialField">
+        /// A push outward for every vertex, given its angle and its ring's profile height — how the dream island's drips
+        /// run down its side (#779). A function of the angle and the height alone, like <see cref="Irregularity"/>, so two
+        /// lathes handed the same field are pushed identically along the ring they share. Null pushes nothing.
+        /// </param>
         public LatheMesh(GraphicsDevice graphicsDevice, IReadOnlyList<LathePoint> profile, int segments,
-            float irregularityAmplitude = 0f, float irregularityPhase = 0f, Func<Vector3, float> heightField = null)
+            float irregularityAmplitude = 0f, float irregularityPhase = 0f, Func<Vector3, float> heightField = null,
+            Func<float, float, float> radialField = null)
         {
             if (profile == null) throw new ArgumentNullException(nameof(profile));
             if (profile.Count < 2) throw new ArgumentOutOfRangeException(nameof(profile));
@@ -139,7 +147,7 @@ namespace Prazsky.Core.Render
             //Every ring's world position, so the normals below can be taken from the geometry that is
             //actually drawn rather than from the ideal profile — with the irregularity on, the two differ,
             //and it is exactly the difference that makes the undulation read.
-            Vector3[,] positions = RingPositions(profile, segments, irregularityAmplitude, irregularityPhase, heightField);
+            Vector3[,] positions = RingPositions(profile, segments, irregularityAmplitude, irregularityPhase, heightField, radialField);
 
             //One flat normal per quad. Outward is the tangent around the ring crossed into the tangent
             //along the profile, in that order — check it against the top of a disc: running outward with

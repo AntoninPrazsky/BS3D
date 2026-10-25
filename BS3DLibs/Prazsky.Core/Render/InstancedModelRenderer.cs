@@ -235,6 +235,9 @@ namespace Prazsky.Core.Render
         private EffectTechnique _mainTechnique;
         private EffectTechnique _triplanarTechnique;
         private EffectTechnique _triplanarCoarseTechnique;
+        private EffectTechnique _triplanarDreamTechnique;
+        private EffectParameter _dreamPaletteAParam, _dreamPaletteBParam, _dreamPaletteCParam, _dreamPaletteDParam;
+        private EffectParameter _dreamMarbleParam, _dreamSheenParam, _dreamRingParam, _dreamGlowParam, _dreamRecessParam;
         private EffectTechnique[] _triplanarProbeTechniques;
         private EffectTechnique[] _ballTechniques;
 
@@ -419,6 +422,38 @@ namespace Prazsky.Core.Render
         /// #151 was opened on is the weak machine's and still has to be re-derived there.
         /// </summary>
         public int TriplanarProbe { get; set; }
+
+        /// <summary>
+        /// Draws the triplanar surface as the dream's melting island (#779): the <c>InstancedModelTriplanarDream</c>
+        /// technique, swirled pastel marble from <see cref="DreamPalette"/>, a thin film's sheen and a ring of light inlaid
+        /// in the top, and no height field. A technique of its own for <see cref="CoarseSurfaceRelief"/>'s reason; read
+        /// only on the triplanar path, and every tier draws it (it has no relief to coarsen).
+        /// </summary>
+        public bool DreamSurface { get; set; }
+
+        /// <summary>The scene's cosine palette (A, B, C, D of <c>A + B·cos(2π(C·t + D))</c>, linear) the dream's island
+        /// indexes, so it shares the ramp of the sky and the solids round it. Read only with <see cref="DreamSurface"/>.</summary>
+        public Vector3[] DreamPalette { get; } = { Vector3.Zero, Vector3.Zero, Vector3.Zero, Vector3.Zero };
+
+        /// <summary>How strongly the marble's bands colour the dream's island (0 = the plain material). With
+        /// <see cref="DreamSurface"/>.</summary>
+        public float DreamMarble { get; set; }
+
+        /// <summary>The thin film's strength on the dream's island: the rainbow sheen at a grazing angle. With
+        /// <see cref="DreamSurface"/>.</summary>
+        public float DreamSheen { get; set; }
+
+        /// <summary>The ring of light inlaid in the dream island's top: its radius from the axis, its half-width (world
+        /// units) and its radiance (0 = none). With <see cref="DreamSurface"/>.</summary>
+        public Vector3 DreamRing { get; set; }
+
+        /// <summary>The dream island's glow of its own, as a fraction of its colour (an opal lit from inside). With
+        /// <see cref="DreamSurface"/>.</summary>
+        public float DreamGlow { get; set; }
+
+        /// <summary>The recess under the dream island's roll: the radius from the axis where it starts, where it is full,
+        /// and how much light it takes there (side faces only). With <see cref="DreamSurface"/>.</summary>
+        public Vector3 DreamRecess { get; set; }
 
         /// <summary>
         /// Edge length of one floor slab in world units (0 = no slabs). The joints between slabs are cut
@@ -1259,6 +1294,16 @@ namespace Prazsky.Core.Render
             _mainTechnique = _effect.Techniques["InstancedModel"];
             _triplanarTechnique = _effect.Techniques["InstancedModelTriplanar"];
             _triplanarCoarseTechnique = _effect.Techniques["InstancedModelTriplanarCoarse"];
+            _triplanarDreamTechnique = _effect.Techniques["InstancedModelTriplanarDream"];
+            _dreamPaletteAParam = _effect.Parameters["DreamPaletteA"];
+            _dreamPaletteBParam = _effect.Parameters["DreamPaletteB"];
+            _dreamPaletteCParam = _effect.Parameters["DreamPaletteC"];
+            _dreamPaletteDParam = _effect.Parameters["DreamPaletteD"];
+            _dreamMarbleParam = _effect.Parameters["DreamMarble"];
+            _dreamSheenParam = _effect.Parameters["DreamSheen"];
+            _dreamRingParam = _effect.Parameters["DreamRing"];
+            _dreamGlowParam = _effect.Parameters["DreamGlow"];
+            _dreamRecessParam = _effect.Parameters["DreamRecess"];
 
             //#151's measurement probes, kept on purpose: they are the Testbed's capprobe= contract (see
             //TriplanarProbe). Looked up once here like every other technique, so selecting one costs an
@@ -1962,8 +2007,22 @@ namespace Prazsky.Core.Render
             else if (DetailTexture != null && part.DiffuseColor.W >= 1f)
             {
                 _effect.CurrentTechnique = TriplanarProbe > 0 ? _triplanarProbeTechniques[TriplanarProbe - 1]
+                    : DreamSurface ? _triplanarDreamTechnique
                     : CoarseSurfaceRelief ? _triplanarCoarseTechnique
                     : _triplanarTechnique;
+
+                if (DreamSurface)
+                {
+                    _dreamPaletteAParam.SetValue(DreamPalette[0]);
+                    _dreamPaletteBParam.SetValue(DreamPalette[1]);
+                    _dreamPaletteCParam.SetValue(DreamPalette[2]);
+                    _dreamPaletteDParam.SetValue(DreamPalette[3]);
+                    _dreamMarbleParam.SetValue(DreamMarble);
+                    _dreamSheenParam.SetValue(DreamSheen);
+                    _dreamRingParam.SetValue(DreamRing);
+                    _dreamGlowParam.SetValue(DreamGlow);
+                    _dreamRecessParam.SetValue(DreamRecess);
+                }
 
                 _textureParam.SetValue(DetailTexture);
                 _detailScaleParam.SetValue(DetailScale);
