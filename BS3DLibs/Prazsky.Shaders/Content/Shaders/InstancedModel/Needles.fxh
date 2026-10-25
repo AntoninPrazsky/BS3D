@@ -85,6 +85,54 @@ float NeedleHash(float n)
     return frac(sin(n * 12.9898 + 4.1414) * 43758.5453);
 }
 
+//Where a pixel is on its bough's strands, and the comb's cut there: one function for the depth pass that cuts the comb and the
+//shading pass that draws on what it left, so the two cannot disagree about a strand
+struct NeedleBands
+{
+    float Under, Outward, F, Rnd, Footprint, Fine, HalfWidth, NeedleRnd, NeedleFade, Strand, Coverage;
+};
+
+NeedleBands NeedleBandsAt(float2 bough)
+{
+    NeedleBands b;
+
+    //Which surface, and how far outward a pixel is on its strands: from the midrib (0) to the plate's edge (1) on the top,
+    //from the side edge the fringe hangs from (0) to the keel (1) underneath
+    float plain = step(PLAIN_MARK, bough.y);
+    b.Under = step(UNDERSIDE_MARK * 0.5, bough.y) * (1 - plain);
+    float across = saturate(abs(bough.y - UNDERSIDE_MARK * b.Under));
+    b.Outward = lerp(across, 1 - across, b.Under);
+
+    //The bands the strands run in: forward along the arm as they go outward. Each has its own width, reach and shade
+    float phase = bough.x / BRANCHLET_SPACING - b.Outward * BRANCHLET_SWEEP + 0.5 * b.Under;
+    float band = floor(phase);
+    b.F = frac(phase) - 0.5;
+    b.Rnd = NeedleHash(band + 31.0 * b.Under);
+    b.F -= STRAND_STRAY * (b.Rnd - 0.5);
+    b.Footprint = fwidth(phase);
+    b.Fine = saturate((DETAIL_FADE_START + DETAIL_FADE_SPAN - b.Footprint) / DETAIL_FADE_SPAN) * (1 - plain);
+    b.HalfWidth = lerp(STRAND_ROOT, STRAND_END, b.Outward) * (0.85 + 0.3 * b.Rnd);
+
+    //Along a strand, the needles: each leaves the midrib leaning towards the strand's end, at its own length and shade, so
+    //the strand's sides are needle tips. Their own footprint fades them before the strands go
+    float needlePhase = b.Outward * NEEDLES_PER_STRAND - abs(b.F) / max(b.HalfWidth, 1e-3) * NEEDLE_LEAN;
+    float needleCell = floor(needlePhase);
+    b.NeedleRnd = NeedleHash(needleCell * 3.17 + band * 7.71 + 11.0 * sign(b.F));
+    b.NeedleFade = saturate((0.6 - fwidth(needlePhase)) / 0.3) * b.Fine;
+    float edge = b.HalfWidth * lerp(1, lerp(NEEDLE_SHORTEST, 1.15, b.NeedleRnd), b.NeedleFade);
+    b.Strand = 1 - smoothstep(edge - b.Footprint, edge + b.Footprint, abs(b.F));
+
+    //The comb: past the fringe's depth a pixel is plate only inside a strand that reaches it, each ending at its own length;
+    //all plate where the bands are too fine to cut
+    float depth = lerp(FRINGE_DEPTH, FRINGE_DEPTH_UNDER, b.Under);
+    float reach = 1 - depth * (0.2 + 0.8 * NeedleHash(band * 1.7 + 5.0 + 13.0 * b.Under));
+    float outFootprint = fwidth(b.Outward) + 1e-4;
+    float within = 1 - smoothstep(reach - outFootprint, reach + outFootprint, b.Outward);
+    float fringe = smoothstep(1 - depth - 0.05, 1 - depth, b.Outward);
+    b.Coverage = lerp(1, lerp(1, b.Strand * within, fringe), b.Fine);
+    return b;
+}
+
 float4 TriplanarNeedlesPS(NeedleVertexOutput input) : COLOR
 {
     float3 worldNormal = normalize(input.WorldNormal);
@@ -106,39 +154,10 @@ float4 TriplanarNeedlesPS(NeedleVertexOutput input) : COLOR
 
     float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
 
-    //--- The needles. Which surface, and how far outward a pixel is on its strands: from the midrib (0) to the plate's edge (1)
-    //on the top, from the side edge the fringe hangs from (0) to the keel (1) underneath
-    float plain = step(PLAIN_MARK, input.Bough.y);
-    float under = step(UNDERSIDE_MARK * 0.5, input.Bough.y) * (1 - plain);
-    float across = saturate(abs(input.Bough.y - UNDERSIDE_MARK * under));
-    float outward = lerp(across, 1 - across, under);
-
-    //The bands the strands run in: forward along the arm as they go outward. Each has its own width, reach and shade
-    float phase = input.Bough.x / BRANCHLET_SPACING - outward * BRANCHLET_SWEEP + 0.5 * under;
-    float band = floor(phase);
-    float f = frac(phase) - 0.5;
-    float rnd = NeedleHash(band + 31.0 * under);
-    f -= STRAND_STRAY * (rnd - 0.5);
-    float footprint = fwidth(phase);
-    float fine = saturate((DETAIL_FADE_START + DETAIL_FADE_SPAN - footprint) / DETAIL_FADE_SPAN) * (1 - plain);
-    float halfWidth = lerp(STRAND_ROOT, STRAND_END, outward) * (0.85 + 0.3 * rnd);
-
-    //Along a strand, the needles: each leaves the midrib leaning towards the strand's end, at its own length and shade, so
-    //the strand's sides are needle tips. Their own footprint fades them before the strands go
-    float needlePhase = outward * NEEDLES_PER_STRAND - abs(f) / max(halfWidth, 1e-3) * NEEDLE_LEAN;
-    float needleCell = floor(needlePhase);
-    float needleRnd = NeedleHash(needleCell * 3.17 + band * 7.71 + 11.0 * sign(f));
-    float needleFade = saturate((0.6 - fwidth(needlePhase)) / 0.3) * fine;
-    float edge = halfWidth * lerp(1, lerp(NEEDLE_SHORTEST, 1.15, needleRnd), needleFade);
-    float strand = 1 - smoothstep(edge - footprint, edge + footprint, abs(f));
-
-    //The comb: past the fringe's depth a pixel is plate only inside a strand that reaches it, each ending at its own length
-    float depth = lerp(FRINGE_DEPTH, FRINGE_DEPTH_UNDER, under);
-    float reach = 1 - depth * (0.2 + 0.8 * NeedleHash(band * 1.7 + 5.0 + 13.0 * under));
-    float outFootprint = fwidth(outward) + 1e-4;
-    float within = 1 - smoothstep(reach - outFootprint, reach + outFootprint, outward);
-    float fringe = smoothstep(1 - depth - 0.05, 1 - depth, outward);
-    float coverage = lerp(1, strand * within, fringe);
+    //--- The needles: where the pixel is on its strands (the comb itself was cut by the depth pass, NeedleDepthPS)
+    NeedleBands b = NeedleBandsAt(input.Bough);
+    float under = b.Under, outward = b.Outward, f = b.F, rnd = b.Rnd, footprint = b.Footprint, fine = b.Fine;
+    float halfWidth = b.HalfWidth, needleRnd = b.NeedleRnd, needleFade = b.NeedleFade, strand = b.Strand;
 
     float midrib = (1 - smoothstep(0.04, 0.04 + 2 * footprint, abs(f))) * fine;
     float growth = smoothstep(0.55, 1.0, outward) * strand * fine * (1 - under);
@@ -173,10 +192,29 @@ float4 TriplanarNeedlesPS(NeedleVertexOutput input) : COLOR
     float4 shaded = ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity, surface);
     shaded.rgb = ApplySceneFog(shaded.rgb, EyePosition, input.WorldPosition);
 
-    //The comb last, after every gradient the pixel's neighbours need
-    clip(lerp(1, coverage, fine) - 0.5);
     return shaded;
 }
+
+//THE COMB, CUT IN A DEPTH PASS OF ITS OWN. A clip anywhere in a pixel program keeps the GPU from rejecting a hidden pixel
+//before it is shaded, and a crown is plate over plate: measured at the close camera (3840 x 1600, ssaa 2) the comb's clip was
+//1.0 of the near crowns' 1.09 ms, the strands without it 0.09. So the near crowns are drawn twice (ForestScatterRenderer):
+//this pass writes their depth with the comb cut and no colour, and InstancedModelTriplanarNeedles shades on exactly that depth
+//(an EQUAL test, no clip), every visible pixel once. Both run NeedleVS, so the two depths are the same to the bit.
+float4 NeedleDepthPS(NeedleVertexOutput input) : COLOR
+{
+    NeedleBands b = NeedleBandsAt(input.Bough);
+    clip(b.Coverage - 0.5);
+    return 0;
+}
+
+technique InstancedModelNeedleDepth
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL NeedleVS();
+        PixelShader = compile PS_SHADERMODEL NeedleDepthPS();
+    }
+};
 
 technique InstancedModelTriplanarNeedles
 {

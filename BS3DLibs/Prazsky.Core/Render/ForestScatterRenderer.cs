@@ -451,7 +451,7 @@ namespace Prazsky.Core.Render
             if (fineMeshes)
             {
                 //The boughs before the interior they hide, so the depth test turns most of its pixels away unshaded
-                DrawScatter(camera, _coniferFineCrownRenderers, _coniferNear, _foliageEffectParams, _coniferCrownTints);
+                DrawNeedleCrowns(camera);
                 DrawScatter(camera, _coniferFineCrownFarRenderers, _coniferFar, _foliageEffectParams, _coniferCrownTints);
                 if (_crownSnow > 0f)
                 {
@@ -613,7 +613,7 @@ namespace Prazsky.Core.Render
             _coniferFineCrownRenderers = Array.ConvertAll(_coniferMeshes, m => NewBoughRenderer(m.FineCrown));
             _coniferFineShadeRenderers = Array.ConvertAll(_coniferMeshes, m => NewCrownRenderer(m.FineShade));
             _coniferFineSnowRenderers = Array.ConvertAll(_coniferMeshes, m => NewSnowRenderer(m.FineSnow));
-            _coniferFineCrownFarRenderers = Array.ConvertAll(_coniferMeshes, m => NewBoughRenderer(m.FineCrownFar));
+            _coniferFineCrownFarRenderers = Array.ConvertAll(_coniferMeshes, m => NewBoughRenderer(m.FineCrownFar, needles: false));
             _coniferFineSnowFarRenderers = Array.ConvertAll(_coniferMeshes, m => NewSnowRenderer(m.FineSnowFar));
             _coniferFineShadeFarRenderers = Array.ConvertAll(_coniferMeshes, m => NewCrownRenderer(m.FineShadeFar));
             _coniferFineStemRenderers = Array.ConvertAll(_coniferMeshes, m => NewTrunkRenderer(m.FineStem));
@@ -878,6 +878,34 @@ namespace Prazsky.Core.Render
             }
         }
 
+        //The near crowns in needle (#751): their depth first, the comb cut and no colour written, then shaded on exactly that depth
+        //with an equal test, so the shading needs no clip and every visible pixel of plate over plate is shaded once (see
+        //InstancedModel/Needles.fxh: the clip alone was 1.0 ms of the near crowns' 1.09 at the close camera). The states are put
+        //back as they were found.
+        private void DrawNeedleCrowns(ICamera camera)
+        {
+            BlendState blend = _device.BlendState;
+            DepthStencilState depth = _device.DepthStencilState;
+
+            _device.BlendState = NO_COLOR;
+            foreach (InstancedModelRenderer renderer in _coniferFineCrownRenderers) renderer.NeedleDepthOnly = true;
+            DrawScatter(camera, _coniferFineCrownRenderers, _coniferNear, _foliageEffectParams, _coniferCrownTints);
+            foreach (InstancedModelRenderer renderer in _coniferFineCrownRenderers) renderer.NeedleDepthOnly = false;
+
+            _device.BlendState = blend;
+            _device.DepthStencilState = DEPTH_EQUAL;
+            DrawScatter(camera, _coniferFineCrownRenderers, _coniferNear, _foliageEffectParams, _coniferCrownTints);
+            _device.DepthStencilState = depth;
+        }
+
+        private static readonly BlendState NO_COLOR = new() { ColorWriteChannels = ColorWriteChannels.None };
+        private static readonly DepthStencilState DEPTH_EQUAL = new()
+        {
+            DepthBufferEnable = true,
+            DepthBufferWriteEnable = false,
+            DepthBufferFunction = CompareFunction.Equal,
+        };
+
         //DrawScatter's depth twin (#471): the same per-variant loop with no material to push. A second small
         //method rather than a flag on DrawScatter, because the two share only the loop - the drawn one needs a
         //camera and a tint, this one needs neither and cannot be given them.
@@ -952,11 +980,14 @@ namespace Prazsky.Core.Render
         //faces, and at the canopy's relief (a swing a unit and a half long, a whisper deep) they read as smooth green leaves;
         //a relief a quarter of a unit long and deep enough to tilt the normal, with the cavity term darkening its pits, breaks
         //each face into the bristle of the references' needles. The relief is band-limited, so it fades out on a far tree
-        //instead of shimmering. And over it the branchlets and their needles, drawn on the plates (#751, NeedleSurface)
-        private InstancedModelRenderer NewBoughRenderer(IProceduralMesh mesh) =>
+        //instead of shimmering. And over it, on the near crowns, the branchlets and their needles drawn on the plates (#751,
+        //NeedleSurface). Not on the far crowns: past FINE_NEAR_RADIUS a branchlet band is two pixels or less at 3840 x 1600 and
+        //the footprint fade has all but drawn the plate already, yet every pixel still paid for the technique (+0.76 ms at
+        //the play camera with them, docs/scenes/aurora.md)
+        private InstancedModelRenderer NewBoughRenderer(IProceduralMesh mesh, bool needles = true) =>
             new(_device, mesh, SCATTER_MATERIAL_DIFFUSE, _instancingEffect)
             {
-                NeedleSurface = true,
+                NeedleSurface = needles,
                 DetailTexture = _foliageTexture.Texture,
                 DetailScale = 1f / CROWN_FOLIAGE_SPAN,
                 DetailBoost = 1f / _foliageTexture.LinearMean,
