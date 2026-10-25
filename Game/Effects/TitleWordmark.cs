@@ -83,10 +83,13 @@ namespace BS3D.Effects
     /// eyes on both versions rather than inferred.
     /// </para>
     /// <para>
-    /// <b>All of that is the Low and Medium build.</b> At High and Ultra (<see cref="Fine"/>, #929) the title is the PNG
-    /// logo in three dimensions instead: the logo's own colour on each letter, its violet rims, its badge on a violet
-    /// disc, a studio light of its own, and colours written as the picture rather than as light - see the constants
-    /// under "HIGH AND ULTRA: THE LOGO" and <see cref="DrawFine"/>.
+    /// <b>All of that is now the fallback for a title that is not the logo's.</b> Every tier draws the PNG logo in three
+    /// dimensions (#929, on every tier since #981 - the owner: "so that we do not have two different logos"): the logo's
+    /// own colour on each letter, its violet rims, its badge on a violet disc, a studio light of its own, and colours
+    /// written as the picture rather than as light - see the constants under "HIGH AND ULTRA: THE LOGO" and
+    /// <see cref="DrawFine"/>. Low and Medium draw it without the halo (<see cref="Lean"/>). The Potato path, which has no
+    /// such effect, draws the logo's composition through the instanced effect instead: the tubes above in the picture's
+    /// colours, the logo's violet line for the keyline, and the disc lit as the scene is.
     /// </para>
     /// </summary>
     public sealed class TitleWordmark : IDisposable
@@ -465,6 +468,8 @@ namespace BS3D.Effects
         //the lower right, as the logo shades it (sRGB, sampled).
         private static readonly Vector3 DISC_COLOUR_A = new(215f / 255f, 45f / 255f, 255f / 255f);
         private static readonly Vector3 DISC_COLOUR_B = new(105f / 255f, 50f / 255f, 255f / 255f);
+        //The Potato path's disc (#981): how much of its colour it emits, the scene's light not reaching its face
+        private const float POTATO_DISC_GLOW = 0.45f;
 
         //The badge's letters on the disc, as a share of a cap height. Smaller than BADGE_SCALE's blown-up 3D,
         //because the disc is what is big now: at this figure it comes out a little over two cap heights across,
@@ -555,6 +560,10 @@ namespace BS3D.Effects
         //Four shells a glyph, keyed as the meshes above are, and the disc with its rim
         private readonly List<LetterMesh> _fineBodies = new(), _fineKeylines = new(), _fineOutlines = new(), _fineAuras = new();
         private readonly LatheMesh _disc, _discRim;
+        private readonly float _discRadius;
+
+        //The Potato path's disc and its rim (#981), through the instanced effect; null where the logo build draws them
+        private readonly InstancedModelRenderer _potatoDisc, _potatoDiscRim;
 
         //The logo's composition and every letter's colour in it (sRGB), and whether it stands on the disc
         private readonly Placement[] _finePlacements;
@@ -566,11 +575,11 @@ namespace BS3D.Effects
         private readonly bool[] _onBadge;
 
         /// <summary>
-        /// Whether the title is drawn as the PNG logo (#929): the host's High and Ultra (<c>QualityPreset.FineMeshes</c>),
-        /// stated at construction and on every tier change, and read per draw, so nothing is rebuilt. Ignored where the
-        /// effect it needs was not handed in (the Potato path).
+        /// The logo build's cheaper copy (#981), for the host's Low and Medium (<c>!QualityPreset.FineMeshes</c>): the same
+        /// letters, colours, rims and disc without the additive halo round the word's letters, the one pass whose
+        /// pixels stack (a shell behind each letter, all blended). Read per draw.
         /// </summary>
-        public bool Fine { get; set; }
+        public bool Lean { get; set; }
 
         /// <summary>
         /// Every renderer the wordmark owns, for the host's sky-lighting enrolment.
@@ -592,6 +601,8 @@ namespace BS3D.Effects
                 foreach (InstancedModelRenderer renderer in _bodyRenderers) yield return renderer;
                 foreach (InstancedModelRenderer renderer in _outlineRenderers) yield return renderer;
                 foreach (InstancedModelRenderer renderer in _auraRenderers) yield return renderer;
+                if (_potatoDisc != null) yield return _potatoDisc;
+                if (_potatoDiscRim != null) yield return _potatoDiscRim;
             }
         }
 
@@ -649,17 +660,15 @@ namespace BS3D.Effects
         /// <b>height</b> — one figure for both, which is the front end's own rule for its two corners.
         /// </param>
         /// <param name="fineEffect">
-        /// <c>Shaders/Wordmark</c>, for the High and Ultra build (#929, <see cref="Fine"/>); null where it does not exist
-        /// (the Potato path), and then that build is neither made nor drawn.
+        /// <c>Shaders/Wordmark</c>, for the logo build (#929), which every tier draws since #981; null where it does not
+        /// exist (the Potato path), and then the logo's composition is drawn through the instanced effect instead.
         /// </param>
-        /// <param name="fine">The tier's answer at construction; see <see cref="Fine"/>.</param>
         public TitleWordmark(GraphicsDevice device, Effect instancingEffect, string title,
-            float ambientIntensity, float insetFraction, Effect fineEffect = null, bool fine = false)
+            float ambientIntensity, float insetFraction, Effect fineEffect = null)
         {
             _device = device;
             _insetFraction = insetFraction;
             _fineEffect = fineEffect;
-            Fine = fine;
 
             string[] words = (title ?? string.Empty).ToUpperInvariant()
                 .Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -710,30 +719,9 @@ namespace BS3D.Effects
             //frame adds twice.
             _auraParams = new BasicEffectParams(Vector3.Zero, new Vector3(0.001f, 0.001f, 0.001f), 4f, Vector3.Zero);
 
-            //=== The High and Ultra build (#929) ===
-            if (_fineEffect == null) return;
-
-            _fineBodyPass = _fineEffect.Techniques["Body"].Passes[0];
-            _fineDiscPass = _fineEffect.Techniques["Disc"].Passes[0];
-            _fineFlatPass = _fineEffect.Techniques["Flat"].Passes[0];
-            _fineGlowPass = _fineEffect.Techniques["Glow"].Passes[0];
-            _fineWorldViewParam = _fineEffect.Parameters["WorldView"];
-            _fineProjectionParam = _fineEffect.Parameters["Projection"];
-            _fineAlbedoParam = _fineEffect.Parameters["Albedo"];
-
-            //Four shells a glyph, built in the order the glyph indices were handed out, so a letter's Glyph indexes
-            //these exactly as it indexes the meshes above
-            foreach (LetterMesh body in _bodyMeshes)
-            {
-                char c = body.Character;
-                _fineBodies.Add(FineLetter(device, c, FINE_TUBE_RADIUS));
-                _fineKeylines.Add(FineLetter(device, c, FINE_TUBE_RADIUS + FINE_KEYLINE_WIDTH));
-                _fineOutlines.Add(FineLetter(device, c, FINE_TUBE_RADIUS + FINE_OUTLINE_WIDTH));
-                _fineAuras.Add(FineLetter(device, c, FINE_TUBE_RADIUS + FINE_AURA_WIDTH));
-            }
-
+            //=== The logo's composition (#929), on every path since #981 ===
             PlaceFine(words, 2f * FINE_TUBE_RADIUS + FINE_DAYLIGHT, out _finePlacements, out _fineBlockWidth,
-                out _fineBlockHeight, out _discPlacement, out float discRadius);
+                out _fineBlockHeight, out _discPlacement, out _discRadius);
 
             for (int i = 0; i < _letters.Length; i++)
                 _fineWidestLetter = MathF.Max(_fineWidestLetter, _letters[i].Advance * _finePlacements[i].Scale);
@@ -764,15 +752,61 @@ namespace BS3D.Effects
 
             if (badgeLetters > 0)
             {
-                _disc = new LatheMesh(device, DiscProfile(discRadius, DISC_HALF_THICKNESS), DISC_SEGMENTS);
-                _discRim = new LatheMesh(device, DiscProfile(discRadius + DISC_RIM, DISC_HALF_THICKNESS + DISC_RIM),
+                _disc = new LatheMesh(device, DiscProfile(_discRadius, DISC_HALF_THICKNESS), DISC_SEGMENTS);
+                _discRim = new LatheMesh(device, DiscProfile(_discRadius + DISC_RIM, DISC_HALF_THICKNESS + DISC_RIM),
                     DISC_SEGMENTS);
+            }
 
+            //=== The Potato path (#981): no Wordmark effect, so the logo's composition through the instanced one - the
+            //thinner tubes above in the picture's colours, a violet line round them, and the disc lit as everything in
+            //the scene is, its rim drawn by its far surface as the keylines are ===
+            if (_fineEffect == null)
+            {
+                if (_disc != null)
+                {
+                    _potatoDisc = new InstancedModelRenderer(device, _disc, BODY_MATERIAL, instancingEffect)
+                    {
+                        SpecularAmbientStrength = 0.55f,
+                        LinearLightRig = true
+                    };
+                    _potatoDiscRim = new InstancedModelRenderer(device, _discRim, OUTLINE_MATERIAL, instancingEffect)
+                    {
+                        SpecularAmbientStrength = 0f,
+                        LinearLightRig = true
+                    };
+                }
+
+                return;
+            }
+
+            //=== The logo build (#929): the effect's own shells and the disc's gradient ===
+
+            _fineBodyPass = _fineEffect.Techniques["Body"].Passes[0];
+            _fineDiscPass = _fineEffect.Techniques["Disc"].Passes[0];
+            _fineFlatPass = _fineEffect.Techniques["Flat"].Passes[0];
+            _fineGlowPass = _fineEffect.Techniques["Glow"].Passes[0];
+            _fineWorldViewParam = _fineEffect.Parameters["WorldView"];
+            _fineProjectionParam = _fineEffect.Parameters["Projection"];
+            _fineAlbedoParam = _fineEffect.Parameters["Albedo"];
+
+            //Four shells a glyph, built in the order the glyph indices were handed out, so a letter's Glyph indexes
+            //these exactly as it indexes the meshes above
+            foreach (LetterMesh body in _bodyMeshes)
+            {
+                char c = body.Character;
+                _fineBodies.Add(FineLetter(device, c, FINE_TUBE_RADIUS));
+                _fineKeylines.Add(FineLetter(device, c, FINE_TUBE_RADIUS + FINE_KEYLINE_WIDTH));
+                _fineOutlines.Add(FineLetter(device, c, FINE_TUBE_RADIUS + FINE_OUTLINE_WIDTH));
+                _fineAuras.Add(FineLetter(device, c, FINE_TUBE_RADIUS + FINE_AURA_WIDTH));
+            }
+
+            if (_disc != null)
+            {
                 //The gradient runs from the disc's upper left to its lower right. The lathe stands about its own Y and is
                 //turned a quarter about X to face the lens (DrawFine), which takes its +Z to the block's -Y, so the
                 //block's down-and-right is the lathe's +X +Z; over the diameter, so the dot runs -0.5..+0.5.
                 _fineEffect.Parameters["GradientAxis"].SetValue(
-                    new Vector2(1f, 1f) / (MathF.Sqrt(2f) * 2f * discRadius));
+                    new Vector2(1f, 1f) / (MathF.Sqrt(2f) * 2f * _discRadius));
                 _fineEffect.Parameters["AlbedoB"].SetValue(ColorSpace.SrgbToLinear(DISC_COLOUR_B));
             }
         }
@@ -1108,12 +1142,15 @@ namespace BS3D.Effects
             //The step aside (#261), eased by the caller; this class only scales
             if (presence <= MIN_PRESENCE) return false;
 
-            //Which composition: the logo's at High and Ultra (#929), the rainbow's below them
-            bool fine = Fine && _fineEffect != null;
-            Placement[] placements = fine ? _finePlacements : _placements;
-            float blockWidth = fine ? _fineBlockWidth : _blockWidth;
-            float blockHeight = fine ? _fineBlockHeight : _blockHeight;
-            float widestLetter = fine ? _fineWidestLetter : _widestLetter;
+            //Which build: the logo's through its own effect wherever that exists (#929; every tier since #981), and on the
+            //Potato path the logo's composition through the instanced effect - or the rainbow's, for a title that is not
+            //the logo's
+            bool fine = _fineEffect != null;
+            bool logo = fine || _letters.Length == PNG_LETTERS.Length;
+            Placement[] placements = logo ? _finePlacements : _placements;
+            float blockWidth = logo ? _fineBlockWidth : _blockWidth;
+            float blockHeight = logo ? _fineBlockHeight : _blockHeight;
+            float widestLetter = logo ? _fineWidestLetter : _widestLetter;
 
             _device.BlendState = BlendState.Opaque;
             _device.DepthStencilState = DepthStencilState.Default;
@@ -1240,7 +1277,7 @@ namespace BS3D.Effects
 
             for (int i = 0; i < _letters.Length; i++)
             {
-                Vector3 hue = Hue(_letters[i].Phase + hueTurns);
+                Vector3 hue = logo ? FineColour(i, DanceHue(wallClock)) : Hue(_letters[i].Phase + hueTurns);
 
                 InstancedModelRenderer renderer = _bodyRenderers[_letters[i].Glyph];
                 renderer.EmissiveTint = Glow(hue, glowLevel);
@@ -1270,9 +1307,13 @@ namespace BS3D.Effects
 
             for (int i = 0; i < _letters.Length; i++)
             {
+                //Not round the badge's letters in the logo's composition, where it would only lighten the disc behind them
+                if (logo && _onBadge[i]) continue;
+
                 InstancedModelRenderer renderer = _auraRenderers[_letters[i].Glyph];
                 float flare = 1f + HOP_FLARE * MathF.Sin(MathF.PI * Hop(_letters[i].Phase, wallClock));
-                renderer.EmissiveTint = Glow(Hue(_letters[i].Phase + hueTurns), auraLevel * flare);
+                renderer.EmissiveTint = Glow(logo ? FineColour(i, DanceHue(wallClock)) : Hue(_letters[i].Phase + hueTurns),
+                    auraLevel * flare);
 
                 _oneInstance[0] = new ModelInstance(_letterWorld[i], fullyOpen);
                 renderer.Draw(camera, _oneInstance, 1, _auraParams);
@@ -1286,12 +1327,34 @@ namespace BS3D.Effects
                 InstancedModelRenderer renderer = _outlineRenderers[_letters[i].Glyph];
 
                 //Through EmissiveTint and in LINEAR radiance, for the reason on OUTLINE_MATERIAL: this pass
-                //has no usable normals, so its colour cannot come from the light.
-                renderer.EmissiveTint = ColorSpace.SrgbToLinear(
-                    Hue(_letters[i].Phase + hueTurns + OUTLINE_HUE_SHIFT) * OUTLINE_VALUE);
+                //has no usable normals, so its colour cannot come from the light. In the logo's composition the
+                //logo's violet line round the word and its dark rim round the badge's letters (#981).
+                renderer.EmissiveTint = ColorSpace.SrgbToLinear(logo
+                    ? (_onBadge[i] ? BADGE_RIM_COLOUR : FINE_OUTLINE_COLOUR)
+                    : Hue(_letters[i].Phase + hueTurns + OUTLINE_HUE_SHIFT) * OUTLINE_VALUE);
 
                 _oneInstance[0] = new ModelInstance(_letterWorld[i], fullyOpen);
                 renderer.Draw(camera, _oneInstance, 1, _outlineParams);
+            }
+
+            //=== The badge's disc on the Potato path (#981): lit like the letters, then its rim by its far surface ===
+            if (logo && _potatoDisc != null)
+            {
+                Matrix discWorld = DiscWorld(camera, wallClock, cap, in blockToWorld);
+
+                //Its face looks at the lens, square to the sun above, so the light alone left it a navy hole: most of its
+                //violet arrives as its own glow, as the logo build's display-referred disc does
+                //And it writes depth, which the shells before it do not, or its rim's far surface paints over it
+                _device.DepthStencilState = DepthStencilState.Default;
+                _device.RasterizerState = RasterizerState.CullCounterClockwise;
+                _potatoDisc.EmissiveTint = ColorSpace.SrgbToLinear(DISC_COLOUR_A) * POTATO_DISC_GLOW;
+                _oneInstance[0] = new ModelInstance(discWorld, fullyOpen);
+                _potatoDisc.Draw(camera, _oneInstance, 1, _bodyParams, DISC_COLOUR_A);
+
+                _device.DepthStencilState = DepthStencilState.DepthRead;
+                _device.RasterizerState = RasterizerState.CullClockwise;
+                _potatoDiscRim.EmissiveTint = ColorSpace.SrgbToLinear(BADGE_RIM_COLOUR);
+                _potatoDiscRim.Draw(camera, _oneInstance, 1, _outlineParams);
             }
 
             //Put back what BeginSceneDraw stated for the scene, so the glass that follows finds the frame as
@@ -1320,35 +1383,7 @@ namespace BS3D.Effects
             float danceTurns = DanceHue(wallClock);
 
             //The disc rides its letters' mean wave and stands DISC_BEHIND the letters' plane, its face towards the lens
-            Matrix discWorld = Matrix.Identity;
-            if (_disc != null)
-            {
-                float wave = MathF.Sin((_discPhase - wallClock * WAVE_RATE) * MathHelper.TwoPi);
-                float z = BOW_DEPTH * (1f - _discPlacement.Across * _discPlacement.Across) + _discPlacement.Lift
-                    - DISC_HALF_THICKNESS;
-
-                Vector3 centre = new(_discPlacement.X * cap, (_discPlacement.Y + wave * WAVE_DEPTH * _discPlacement.Scale) * cap,
-                    z * cap);
-
-                //UNDER ITS LETTERS AS THE LENS SEES THEM (#982). The letters stand in front of the disc, and the lens looks at
-                //the block from off its axis, so they project shifted against it by their depth times the slope of the
-                //sight line through the block: on the frame's right, at the owner's pose, the D stood out over the disc's
-                //right rim. The disc is slid in its own plane to where the sight line through the letters meets it, so
-                //"3D" sits in the middle of the ring wherever the block hangs, however it sways and on any aspect.
-                Matrix worldToBlock = Matrix.Invert(blockToWorld);
-                Vector3 sight = centre - Vector3.Transform(camera.Position, worldToBlock);
-                if (sight.Z < -1e-3f)
-                {
-                    float depth = _discParallaxDepth * cap;
-                    centre.X -= depth * sight.X / sight.Z;
-                    centre.Y -= depth * sight.Y / sight.Z;
-                }
-
-                discWorld = Matrix.CreateRotationX(MathHelper.PiOver2)
-                    * Matrix.CreateScale(cap)
-                    * Matrix.CreateTranslation(centre)
-                    * blockToWorld;
-            }
+            Matrix discWorld = _disc != null ? DiscWorld(camera, wallClock, cap, in blockToWorld) : Matrix.Identity;
 
             _device.BlendState = BlendState.Opaque;
             _device.DepthStencilState = DepthStencilState.Default;
@@ -1376,7 +1411,7 @@ namespace BS3D.Effects
 
             for (int i = 0; i < _letters.Length; i++)
             {
-                if (_onBadge[i]) continue;
+                if (_onBadge[i] || Lean) continue;
 
                 float flare = 1f + HOP_FLARE * MathF.Sin(MathF.PI * Hop(_letters[i].Phase, wallClock));
                 _fineAlbedoParam.SetValue(Glow(FineColour(i, danceTurns), auraLevel * flare));
@@ -1414,6 +1449,39 @@ namespace BS3D.Effects
             _device.BlendState = BlendState.AlphaBlend;
             _device.DepthStencilState = DepthStencilState.Default;
             _device.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
+        /// The badge's disc in the world, for both builds: on its letters' mean wave, <see cref="DISC_BEHIND"/> the
+        /// letters' plane with its face towards the lens, and slid under its letters as the lens sees them (#982).
+        /// </summary>
+        private Matrix DiscWorld(ICamera camera, float wallClock, float cap, in Matrix blockToWorld)
+        {
+            float wave = MathF.Sin((_discPhase - wallClock * WAVE_RATE) * MathHelper.TwoPi);
+            float z = BOW_DEPTH * (1f - _discPlacement.Across * _discPlacement.Across) + _discPlacement.Lift
+                - DISC_HALF_THICKNESS;
+
+            Vector3 centre = new(_discPlacement.X * cap, (_discPlacement.Y + wave * WAVE_DEPTH * _discPlacement.Scale) * cap,
+                z * cap);
+
+            //UNDER ITS LETTERS AS THE LENS SEES THEM (#982). The letters stand in front of the disc, and the lens looks at
+            //the block from off its axis, so they project shifted against it by their depth times the slope of the
+            //sight line through the block: on the frame's right, at the owner's pose, the D stood out over the disc's
+            //right rim. The disc is slid in its own plane to where the sight line through the letters meets it, so
+            //"3D" sits in the middle of the ring wherever the block hangs, however it sways and on any aspect.
+            Matrix worldToBlock = Matrix.Invert(blockToWorld);
+            Vector3 sight = centre - Vector3.Transform(camera.Position, worldToBlock);
+            if (sight.Z < -1e-3f)
+            {
+                float depth = _discParallaxDepth * cap;
+                centre.X -= depth * sight.X / sight.Z;
+                centre.Y -= depth * sight.Y / sight.Z;
+            }
+
+            return Matrix.CreateRotationX(MathHelper.PiOver2)
+                * Matrix.CreateScale(cap)
+                * Matrix.CreateTranslation(centre)
+                * blockToWorld;
         }
 
         private void DrawFineMesh(IProceduralMesh mesh, EffectPass pass, in Matrix world, in Matrix view)
@@ -1528,6 +1596,8 @@ namespace BS3D.Effects
             foreach (InstancedModelRenderer renderer in _bodyRenderers) renderer?.Dispose();
             foreach (InstancedModelRenderer renderer in _outlineRenderers) renderer?.Dispose();
             foreach (InstancedModelRenderer renderer in _auraRenderers) renderer?.Dispose();
+            _potatoDisc?.Dispose();
+            _potatoDiscRim?.Dispose();
             foreach (LetterMesh mesh in _bodyMeshes) mesh?.Dispose();
             foreach (LetterMesh mesh in _outlineMeshes) mesh?.Dispose();
             foreach (LetterMesh mesh in _auraMeshes) mesh?.Dispose();
