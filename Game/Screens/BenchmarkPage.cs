@@ -1,9 +1,12 @@
 using Microsoft.Xna.Framework;
 using Myra.Graphics2D.UI;
+using Prazsky.BS3D.GameStructure;
+using Prazsky.BS3D.Levels;
 using Prazsky.Core.Render;
 using System;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Text;
 using System.Text.Json.Nodes;
 using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
@@ -19,7 +22,8 @@ namespace BS3D.Screens
     /// measures every frame. A segment's first <see cref="SETTLE_SECONDS"/> are the scene's first-use cost (shaders, a hall
     /// built off the frame) and are reported apart. The result is shown here, written to the log as <c>[bench]</c> lines and
     /// to <c>Benchmark.json</c> in the player's profile with the machine it ran on (<see cref="BS3DGame.BenchmarkSystem"/>);
-    /// nothing is changed and nothing is sent. The skip key stops it.
+    /// nothing is changed and nothing is sent. The skip key stops it. After the tours the CPU's physics is timed on its own
+    /// (<see cref="PhysicsBench"/>), the largest shipped cluster stepped off screen.
     /// </summary>
     internal sealed class BenchmarkPage : MenuPage
     {
@@ -29,7 +33,7 @@ namespace BS3D.Screens
         private const float SETTLE_SECONDS = 1.5f;
         private const int SEED = 988;
 
-        private enum Phase { Idle, Settling, Touring, Done }
+        private enum Phase { Idle, Settling, Touring, Physics, Done }
 
         private Phase _phase = Phase.Idle;
         private int _segment;
@@ -46,12 +50,20 @@ namespace BS3D.Screens
         private readonly FrameProbe.Verdict[] _probes = new FrameProbe.Verdict[SEGMENTS.Length];
         private readonly float[] _probeMean = new float[SEGMENTS.Length], _probeSpread = new float[SEGMENTS.Length];
         private bool _probed, _skipNext;
+
+        //The physics segment (PhysicsBench): stepped a frame's slice at a time so the window keeps answering on a slow machine;
+        //measured is false until every step is taken
+        private const double PHYSICS_SLICE_MILLISECONDS = 25.0;
+        private PhysicsBench _physics;
+        private FrameStats.Summary _physicsResult, _physicsWarmup;
+        private int _physicsBalls;
+        private bool _physicsMeasured;
         private readonly PlayHud _skipHint;
         private Button _firstEntry;
 
         public BenchmarkPage(BS3DGame game) : base(game) => _skipHint = new PlayHud(game);
 
-        private bool Running => _phase is Phase.Settling or Phase.Touring;
+        private bool Running => _phase is Phase.Settling or Phase.Touring or Phase.Physics;
 
         internal override bool StandsAside => Running;
 
@@ -71,7 +83,7 @@ namespace BS3D.Screens
             else
             {
                 column.Widgets.Add(Paragraph(string.Create(CultureInfo.InvariantCulture,
-                    $"Flies through {SEGMENTS.Length} of the most demanding scenes at your quality ({Game.QualityLabel}), with the frame rate unlocked, and measures every frame. About a minute. The skip key stops it."),
+                    $"Flies through {SEGMENTS.Length} of the most demanding scenes at your quality ({Game.QualityLabel}), with the frame rate unlocked, and measures every frame, then times the physics of the biggest level. About a minute. The skip key stops it."),
                     ProseMeasure));
             }
 
@@ -97,6 +109,23 @@ namespace BS3D.Screens
                     HorizontalAlignment = HorizontalAlignment.Center,
                     Margin = ScaledThickness(0, 6, 0, 6),
                 });
+            }
+
+            //The physics: a step's time and the share of every frame it takes, which no quality tier changes
+            if (_physicsMeasured)
+            {
+                float share = PhysicsBench.TimeShare(_physicsResult.Median);
+                column.Widgets.Add(new Label
+                {
+                    Text = string.Create(CultureInfo.InvariantCulture,
+                        $"Physics ({_physicsBalls} balls): {_physicsResult.Median:0.00} ms a step · p99 {_physicsResult.P99:0.00} ms · {share * 100f:0} % of every frame"),
+                    Font = FontBody,
+                    TextColor = BS3DGame.MENU_TEXT,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = ScaledThickness(0, 6, 0, 6),
+                });
+                if (share > PHYSICS_HEAVY_SHARE)
+                    column.Widgets.Add(Paragraph("The physics alone takes most of each frame on this processor: the biggest levels may run slow at any quality.", ProseMeasure));
             }
 
             //A frame the probe found wrong is the surprise this page exists to find: said plainly, with where to send it
@@ -150,6 +179,9 @@ namespace BS3D.Screens
             Rebuild();
         }
 
+        //The share of every frame past which the physics is said to be the machine's limit: no tier lowers it
+        private const float PHYSICS_HEAVY_SHARE = 0.5f;
+
         //A frame's budget: one frame of the display's refresh, or 60 Hz's where the display does not say
         private float Budget => 1000f / (Game.DisplayRefreshHz > 0 ? Game.DisplayRefreshHz : 60);
 
@@ -161,6 +193,7 @@ namespace BS3D.Screens
             if (Running) return;
             _segment = 0;
             _measured = 0;
+            _physicsMeasured = false;
             Game.BeginBenchmark();
             BeginSegment();
         }
@@ -184,6 +217,11 @@ namespace BS3D.Screens
             BackdropScreen backdrop = Manager?.Find<BackdropScreen>();
             _skipHint.UpdateSkipHint((float)gameTime.ElapsedGameTime.TotalSeconds, Running, chapterIntro: true,
                 Running ? _phaseSeconds : 0f, 0f);
+            if (_phase == Phase.Physics)
+            {
+                StepPhysics();
+                return;
+            }
             if (!Running || backdrop == null) return;
 
             //The wall time since the last frame: what the frame cost, the limiter let go
@@ -214,7 +252,47 @@ namespace BS3D.Screens
             Log(_segment);
 
             if (++_segment < SEGMENTS.Length) BeginSegment();
-            else Finish();
+            else BeginPhysics();
+        }
+
+        //The physics segment: the largest shipped cluster hung off screen; a level that cannot be read is said and skipped
+        private void BeginPhysics()
+        {
+            _phase = Phase.Physics;
+            string path = Path.Combine(AppContext.BaseDirectory, BS3DGame.LEVELS_DIRECTORY, PhysicsBench.LEVEL + ".json");
+            try
+            {
+                Level level = Level.Load(path);
+                _physics = new PhysicsBench(new BallsMap(level.Map), SceneWind.For(level.Scene ?? SceneKind.City, null));
+                _physicsBalls = _physics.Balls;
+                Console.WriteLine($"[bench] physics {PhysicsBench.LEVEL}: {_physicsBalls} balls, {Environment.ProcessorCount} threads");
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidDataException)
+            {
+                Console.WriteLine($"[bench] physics skipped: {e.Message}");
+                Finish();
+            }
+        }
+
+        private void StepPhysics()
+        {
+            _physics.Run(PHYSICS_SLICE_MILLISECONDS);
+            if (!_physics.Done) return;
+
+            _physicsResult = _physics.Summarize();
+            _physicsWarmup = _physics.SummarizeWarmup();
+            _physicsMeasured = true;
+            DisposePhysics();
+            FrameStats.Summary s = _physicsResult, first = _physicsWarmup;
+            Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                $"[bench] physics: {s.Frames} steps, mean {s.Mean:0.000} ms, median {s.Median:0.000}, p95 {s.P95:0.000}, p99 {s.P99:0.000}, worst {s.Worst:0.00} ms, {s.OverBudgetShare * 100f:0.0} % over {PhysicsBench.STEP_BUDGET_MILLISECONDS:0.00} ms, {PhysicsBench.TimeShare(s.Median) * 100f:0.0} % of every frame; first {PhysicsBench.WARMUP_STEPS} steps: worst {first.Worst:0.0} ms, median {first.Median:0.000}"));
+            Finish();
+        }
+
+        private void DisposePhysics()
+        {
+            _physics?.Dispose();
+            _physics = null;
         }
 
         private void Log(int i)
@@ -250,6 +328,25 @@ namespace BS3D.Screens
                     ["frame"] = _probes[i].ToString(),
                 });
             }
+            JsonObject physics = null;
+            if (_physicsMeasured)
+                physics = new JsonObject
+                {
+                    ["level"] = PhysicsBench.LEVEL,
+                    ["balls"] = _physicsBalls,
+                    ["threads"] = Environment.ProcessorCount,
+                    ["steps"] = _physicsResult.Frames,
+                    ["stepBudgetMs"] = Math.Round(PhysicsBench.STEP_BUDGET_MILLISECONDS, 3),
+                    ["meanMs"] = Math.Round(_physicsResult.Mean, 4),
+                    ["medianMs"] = Math.Round(_physicsResult.Median, 4),
+                    ["p95Ms"] = Math.Round(_physicsResult.P95, 4),
+                    ["p99Ms"] = Math.Round(_physicsResult.P99, 4),
+                    ["worstMs"] = Math.Round(_physicsResult.Worst, 3),
+                    ["overBudgetShare"] = Math.Round(_physicsResult.OverBudgetShare, 4),
+                    ["frameShare"] = Math.Round(PhysicsBench.TimeShare(_physicsResult.Median), 4),
+                    ["warmupWorstMs"] = Math.Round(_physicsWarmup.Worst, 3),
+                    ["warmupMedianMs"] = Math.Round(_physicsWarmup.Median, 4),
+                };
             QualityLevel recommended = BenchmarkVerdict.Recommend(Game.Quality, _results, _measured, out _);
             Console.WriteLine($"[bench] recommends {recommended} (ran at {Game.Quality})");
             Game.SaveBenchmark(new JsonObject
@@ -259,6 +356,7 @@ namespace BS3D.Screens
                 ["recommended"] = recommended.ToString(),
                 ["system"] = system,
                 ["segments"] = segments,
+                ["physics"] = physics,
             });
             Game.EndBenchmark();
             Rebuild();
@@ -276,6 +374,7 @@ namespace BS3D.Screens
         {
             if (!Running) return;
             Manager?.Find<BackdropScreen>()?.TrySkipTour();
+            DisposePhysics();
             Console.WriteLine("[bench] stopped");
             if (_measured > 0) Finish();
             else

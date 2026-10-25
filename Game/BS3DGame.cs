@@ -564,7 +564,7 @@ namespace BS3D
         /// <summary>The play counts (#709): <c>Stats.json</c>, and the anonymous batches the online client sends while it is on.</summary>
         private readonly PlayStatsSession _playStats;
 
-        private const string LEVELS_DIRECTORY = "Levels";
+        internal const string LEVELS_DIRECTORY = "Levels";
 
         /// <summary>The set the session installs its levels from. Null when none could be read.</summary>
         internal LevelSet LevelSet => _levelSet;
