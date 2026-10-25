@@ -20,7 +20,9 @@ namespace BS3D.Screens
     /// </summary>
     internal static class FrameProbe
     {
-        internal enum Verdict : byte { Ok, Black, Flat, NonFinite }
+        //Unread: the frame could not be read back at all, which says nothing about the picture (an odd back-buffer format, a
+        //platform's readback) and is never reported to the player as a driver fault
+        internal enum Verdict : byte { Ok, Black, Flat, NonFinite, Unread }
 
         //The mean luma (0 to 1) under which a frame is black, and the spread of luma under which it is one flat colour
         internal const float BLACK = 0.01f, FLAT = 0.004f;
@@ -30,7 +32,7 @@ namespace BS3D.Screens
         {
             mean = 0f;
             spread = 0f;
-            if (frame == null || width <= 0 || height <= 0 || frame.Length < width * height) return Verdict.Black;
+            if (frame == null || width <= 0 || height <= 0 || frame.Length < width * height) return Verdict.Unread;
 
             //A grid of about 64 x 36 samples is plenty to tell a picture from a black or a flat one
             int stepX = Math.Max(1, width / 64), stepY = Math.Max(1, height / 36);
