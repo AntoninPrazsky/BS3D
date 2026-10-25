@@ -25,6 +25,16 @@ namespace Prazsky.Core.Render
 
         private readonly Effect _marsEffect;
 
+        //THE ROVER'S TRAVERSE (#745). The owner: "Mars could also get the tracks of a rover ... a small easter egg". The
+        //references (745-klein, 745-zimage) run a twin chevron track off across the plain to the dusty horizon. It comes in
+        //from the mesas, swings past the arena outside the clearing and runs off towards the far side's mesas, where the
+        //menu's orbit, the chapter tour and the drop all look across it; both ends fade under dust (RoverTracks.fxh)
+        private static readonly Vector2[] TRAVERSE =
+        {
+            new(-260f, 120f), new(-200f, 104f), new(-150f, 96f), new(-104f, 80f), new(-80f, 44f), new(-78f, 0f),
+            new(-90f, -46f), new(-122f, -96f), new(-170f, -140f), new(-232f, -186f),
+        };
+
         //Its camera grid and the pass that draws it (#580); a tier's crossing retakes the grid (SelectMarsTechnique, #540)
         private readonly TerrainPass _marsPass;
 
@@ -71,6 +81,9 @@ namespace Prazsky.Core.Render
             _marsMoonsCameraPosition = _marsEffect.Parameters["CameraPosition"];
 
             ApplyMarsParameters();
+
+            //The rover's tracks (#745): pressed into the plain the shader draws, along the traverse below
+            RoverTracks.Push(_marsEffect, RoverTracks.Resample(TRAVERSE));
 
             //The clearing round the island is the plain at LevelY: the craters and the mesas stand far out past it
             _plants = new PlantPass(_graphicsDevice, content);

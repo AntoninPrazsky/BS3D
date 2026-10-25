@@ -18,6 +18,9 @@ namespace Prazsky.Core.Render
         /// <summary>The points the shader reads (<c>RoverTracks.fxh</c>'s <c>TRACK_POINTS</c>): keep the two in one change.</summary>
         public const int POINTS = 24;
 
+        //The runs the shader tests by their own boxes (RoverTracks.fxh's TRACK_CHUNK and TRACK_CHUNKS)
+        private const int CHUNK = 4, CHUNKS = (POINTS - 1 + CHUNK - 1) / CHUNK;
+
         /// <summary>Half the track's width over both ruts and their berms, world units: what the bounds are padded by and
         /// what a planting keeps clear of (<c>TRACK_GAUGE</c> / 2 + a tyre and a berm).</summary>
         public const float HALF_WIDTH = 1.4f;
@@ -61,7 +64,22 @@ namespace Prazsky.Core.Render
                 max = Vector2.Max(max, path[i]);
             }
 
+            //Each run of CHUNK segments in its own padded box (RoverTracks.fxh's TrackChunks)
+            var chunks = new Vector4[CHUNKS];
+            for (int c = 0; c < CHUNKS; c++)
+            {
+                Vector2 lo = new(float.MaxValue), hi = new(float.MinValue);
+                for (int i = c * CHUNK; i <= Math.Min(c * CHUNK + CHUNK, count - 1); i++)
+                {
+                    lo = Vector2.Min(lo, path[i]);
+                    hi = Vector2.Max(hi, path[i]);
+                }
+                chunks[c] = lo.X > hi.X ? new Vector4(1f, 1f, -1f, -1f)
+                    : new Vector4(lo.X - HALF_WIDTH, lo.Y - HALF_WIDTH, hi.X + HALF_WIDTH, hi.Y + HALF_WIDTH);
+            }
+
             effect.Parameters["TrackPath"].SetValue(packed);
+            effect.Parameters["TrackChunks"].SetValue(chunks);
             effect.Parameters["TrackCount"].SetValue((float)count);
             effect.Parameters["TrackBounds"].SetValue(new Vector4(min.X - HALF_WIDTH, min.Y - HALF_WIDTH, max.X + HALF_WIDTH, max.Y + HALF_WIDTH));
         }

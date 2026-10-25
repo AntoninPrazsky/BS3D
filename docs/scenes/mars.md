@@ -33,6 +33,10 @@ The field's biggest bowls were about 2.6 units deep, a dark ellipse from the gro
 - **Evaluated once a pixel.** The profile is radial, so `BigCraterSample` evaluates all three lattices once and adds the closed-form gradient to the normal taps' slope. Summed into `MarsHeight` it cost +0.65 ms at High, +0.38 at Low.
 - **CPU copy:** `OffworldGround.MarsBigCraters` (via `ShaderMath.Hash22`); `MarsCeiling` adds its positive part exactly, not at a bound (which would lift every intro lens by the biggest rims' height); the intro's mesa is `MarsMesa` against `MesaHeight`. There is **no `TerrainMirror` of `MarsHeight`** (nothing is planted), so Mars is not in `mirrorcheck`.
 
+## The rover's tracks (#745)
+
+The owner: a rover's tracks as a small easter egg. The references (`745-klein`, `745-zimage`) run a twin chevron track across the plain to the dusty horizon, its ends lost under drifted dust. The Moon's mechanism ([The Moon](moon.md), #746: `RoverTracks.fxh`, `RoverTracks.cs`): `MarsBackdrop.TRAVERSE` comes in from the mesas, swings past the arena outside the clearing and runs off towards the far side's, pushed once at load. `MarsGroundAt` presses the ruts into the normal and darkens the ground the wheels turned over (`TRACK_DARKEN`, the darker ground under the dust skin every rover photograph shows), never over a rock or the island's bank. The full program's only: the reduced one keeps its budget. No level plays on Mars, so the tracks are for the menu's orbit, the chapter tour and the drop. Cost: none measurable (Testbed 3840x1600, ssaa 2, `campos=-60,-9,20 camtarget=-90,-13,-40`: 15.93 against 16.01).
+
 ## Tiers and costs
 
 - **`MarsTerrainReduced`**: `MarsTerrain(input, detail)` behind two techniques by `SceneDetail`, so the Game's `Low` takes it; it drops sand, slabs, the strata wobble and the coarse grain, keeps the mesas (geometry must light the same on every tier), and runs on a coarser grid (`MARS_GRID_N_REDUCED`, #540). Not taken: dropping the pebble lattice (-1.12 ms) emptied the plain, and a crater octave (-0.25 ms) lost the small craters.
