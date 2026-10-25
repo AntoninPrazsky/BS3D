@@ -41,6 +41,12 @@ namespace Prazsky.Core.Render
         //The share of the trees planted at a formation's foot, and how far out from its outline (a share of its short axis)
         private const float TREES_AT_ROCK = 0.65f;
 
+        //The gibber (#776): so many out to GIBBER_NEAR_TO and so many more on to GIBBER_FARTHEST, past which a stone is
+        //under a pixel; and its colours, iron-stained and dusted with the plain's own red
+        private const int GIBBER_NEAR = 3200, GIBBER_FAR = 1400;
+        private const float GIBBER_NEAR_TO = 90f, GIBBER_FARTHEST = 180f;
+        private static readonly Vector3 GIBBER = new(0.15f, 0.058f, 0.034f), GIBBER_DUSTED = new(0.32f, 0.12f, 0.055f);
+
         //The colours, linear: the hummocks' grey-green and their straw-dry tips, the saltbush's silver, the bleached
         //timber, the mulga's dark grey-green phyllodes and its near-black bark, and a dead tree's grey
         private static readonly Vector3 SPINIFEX_GREEN = new(0.18f, 0.19f, 0.10f), SPINIFEX_DRY = new(0.34f, 0.28f, 0.13f);
@@ -224,6 +230,20 @@ namespace Prazsky.Core.Render
                 buckets.Add(Own(new ScatterBucket(device, tree.FineWood, treeAt[m], bark, bark * 1.15f, dapple: 0f, bark: 0.6f,
                     detailOnly: false, earthed: true, fineMeshes: true)));
             }
+
+            //--- The gibber (#776), last so that it moves nothing above it: the small dark iron-stained stones of the plain, at High and Ultra (where Outback.fx cracks the
+            //crust they lie on). Geometry, because painted in the ground a stone with no silhouette read as a hole in the
+            //earth at any low angle: the volcano's broken block (twenty faces), a hand or a fist across, lit and shadowed by
+            //the pass like everything else here
+            var gibber = new IProceduralMesh[4];
+            var gibberAt = Lists(gibber.Length);
+            for (int m = 0; m < gibber.Length; m++) gibber[m] = Own(VolcanoPlanting.BlockMesh(device, rng));
+            Scatter(gibberAt, GIBBER_NEAR, 0.12f, 0.38f, 0.5f, 0.5f, 0.05f, 0.6f, NEAREST, GIBBER_NEAR_TO);
+            Scatter(gibberAt, GIBBER_FAR, 0.2f, 0.45f, 0.5f, 0.5f, 0.05f, 0.6f, GIBBER_NEAR_TO, GIBBER_FARTHEST);
+            for (int m = 0; m < gibber.Length; m++)
+                if (gibberAt[m].Count > 0)
+                    buckets.Add(Own(new ScatterBucket(device, gibber[m], gibberAt[m], GIBBER, GIBBER_DUSTED, dapple: 0.2f, bark: 0.3f,
+                        detailOnly: false, fineMeshes: true)));
 
             Buckets = buckets.ToArray();
         }

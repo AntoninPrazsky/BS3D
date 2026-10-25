@@ -50,6 +50,8 @@ The thirteenth `SceneKind` (#112, the horizon rebuilt in #967): red monoliths on
 - **`SoilBounce`** 0.35 (light off `SoilColorPale`, weighted `1 − normal.y`): without it shaded walls go near black under a low sun.
 - **The spinifex is cellular**, and a raw `Voronoi2` is a honeycomb. ⚠ Both fixes are needed: warp the domain at about a third of the hummock spacing, and let the same field jitter the threshold. Band-limit the **rim**, not the hummock, and fade to the field's **average cover**, not to bare sand.
 - ⚠ Tussocks read as beans until the relief became a low dome `(1 − x²)²` (`SpinifexRelief` 0.06) with a frayed outline and a colour lighter than the sand (darker read as pits).
+- **The crust** (#776, `GroundDetail`, on at High and Ultra): the bare earth between the tussocks cracks into plates (`VoronoiEdge2`, `CRACK_SCALE` 2.4 plates a unit, warped by one noise) in patches, and is mottled over a few metres, as the references (`776-klein`, `776-zimage`) draw it. Never on a tussock or on the rock. ⚠ **It is computed only where a plate spans `CRUST_PIXELS` (6) pixels and whole at twice that**: out to a plate in three pixels it cost a low lens 0.7 ms (Testbed 3840x1600, ssaa 2), and past it the network is an even texture. Now +0.55 ms at that lens (`campos=-20,-9,40 camtarget=-35,-12,60`: 11.97 against 11.42), and nothing in the front end's orbit, which sees little near ground.
+- ⚠ **The gibber is geometry, not paint** (`OutbackPlanting`): drawn in the ground with a lit top and a cast shadow, a stone with no silhouette still read as a hole in the earth at every low angle.
 
 ## What grows on the plain (#749)
 
@@ -59,6 +61,7 @@ The owner: "there is no vegetation at all", only the painted spinifex. `OutbackP
 - ⚠ **`PlantPass` draws every instance every frame, into the scene and into the sun's map.** At one 180-needle mesh for all of them the first cut cost the plain 2.5 ms. So the hummocks are dense within `SPINIFEX_NEAR_TO` (140) and sparse past it, where the painted spinifex carries the plain; the near band has `NEEDLES` (130) at High and Ultra and the far band's `FAR_NEEDLES` (50) below that; the far band always has 50; every hummock casts as a `CASTER_NEEDLES` (24) stand-in.
 - **The saltbush is the sea grape's build** ([The tropical beach](tropical.md), #753): the scrub dome at Low, Medium and on the Potato path, the meadow's shrub with round leaves at High and Ultra.
 - ⚠ The timber was bone-white at first, and a log with its stubs read as a toy aeroplane on the red earth: it is weathered grey (`TIMBER`).
+- **The gibber** (#776, High and Ultra): 4,600 small faceted stones (the volcano's `BlockMesh`, twenty faces) out to 180 units, dense to 90, iron red-brown and dusted, casting. Planted last, so it moves nothing above it. About 0.3 ms at the low lens.
 - **Cost**, the Game's front end as in the table below (one run each, `sceneseed=3`): `High` 11.95 against 11.45 ms, `Medium` 5.11 against 4.83, `Low` 3.83 against 3.79. In the Testbed at 3840x1600, ssaa 2: a low camera among the hummocks (`campos=-20,-9,40 camtarget=-35,-12,60`) 11.14 against 9.97, the plain from above (`campos=40,10,60 camtarget=120,-12,180`) 14.37 against 13.93.
 
 ## The air
