@@ -3,12 +3,13 @@ title: The ball that holds up thirty-eight others
 date: 2026-10-19T12:00:00Z
 topics: [Physics, Data structures]
 summary: How the cluster is laid out, what it means for a ball to hang from the glass, and the bookkeeping that keeps hundreds of physics bodies honest.
+thumb: /img/blog/thumbs/the-ball-that-holds-up-thirty-eight.jpg
 ---
 
 The shot to look for in Bubble Shooter 3D is rarely the biggest clump of one colour. It is the one ball that holds a lot of others up. We wanted to know how rare such a ball is, so we asked a level file.
 
 <figure>
-  <img src="/img/shots/umbrella-800.jpg" srcset="/img/shots/umbrella-800.jpg 800w, /img/shots/umbrella-1600.jpg 1600w" sizes="(max-width: 800px) 100vw, 760px" width="800" height="450" loading="lazy" alt="A canopy of black and gold balls hangs under glass, with a handle of red balls hanging from its middle, in front of the northern lights.">
+  <img src="/img/shots/umbrella-800.jpg" srcset="/img/shots/umbrella-800.jpg 800w, /img/shots/umbrella-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="A canopy of black and gold balls hangs under glass, with a handle of red balls hanging from its middle, in front of the northern lights.">
   <figcaption>Umbrella, in The Silhouettes: a canopy hung from the glass, and a handle hung from the canopy.</figcaption>
 </figure>
 

@@ -3,6 +3,7 @@ title: Music made at home, chosen by measurement
 date: 2026-10-19T10:00:00Z
 topics: [Music, Measurement]
 summary: A local model writes the game's loops on a graphics card at home. Choosing between its renders turned into a script that knows what "choppy" means, and a lesson about instruments that cannot fail.
+thumb: /img/blog/thumbs/music-made-at-home-chosen-by-measurement.jpg
 ---
 
 Every chapter of Bubble Shooter 3D has about ten loops of its own, generated at home. The model is ACE-Step 1.5, run through `acestep.cpp` on an AMD RX 6900 XT over Vulkan, at 48 kHz. Each render is prompted from a written description of the piece it is for, and a loop is cut from the body of the render at whole bars. Never from its ends: a generated piece *ends*, so folding its tail onto its head gave an ending followed by a beginning, and the level fell from 1.0 to 0.04 of the median across the join.
@@ -10,7 +11,7 @@ Every chapter of Bubble Shooter 3D has about ten loops of its own, generated at 
 The model makes a lot of music. The hard part is choosing, and "by ear" does not scale to three candidates for each of a hundred and forty slots.
 
 <figure>
-  <img src="/img/shots/minaret-800.jpg" srcset="/img/shots/minaret-800.jpg 800w, /img/shots/minaret-1600.jpg 1600w" sizes="(max-width: 800px) 100vw, 760px" width="800" height="450" loading="lazy" alt="A cluster hangs under glass over a desert island, with vultures circling in a pale sky above sand dunes.">
+  <img src="/img/shots/minaret-800.jpg" srcset="/img/shots/minaret-800.jpg 800w, /img/shots/minaret-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="A cluster hangs under glass over a desert island, with vultures circling in a pale sky above sand dunes.">
   <figcaption>Minaret, in The Coil, the desert chapter. Its music, the family called <code>ember</code>, is the one the others are measured against.</figcaption>
 </figure>
 

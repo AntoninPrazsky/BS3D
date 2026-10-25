@@ -10,11 +10,16 @@ permalink: /blog/
     <p class="lead">What we ran into while making a bubble shooter in three dimensions, and what we did about it: the lattice, the Raspberry Pi, the music, the colour. Written from the project's own record, with the figures we measured.</p>
     <ol class="postlist">
 {%- for post in collections.posts | reverse %}
-      <li class="postcard">
-        <p class="post-meta"><time datetime="{{ post.date.toISOString() }}">{{ post.date | readableDate }}</time>
+      <li class="postcard{% if post.data.thumb %} has-thumb{% endif %}">
+{%- if post.data.thumb %}
+        <a class="thumb" href="{{ post.url }}" tabindex="-1" aria-hidden="true"><img src="{{ post.data.thumb }}" width="480" height="270" loading="lazy" alt=""></a>
+{%- endif %}
+        <div class="postcard-text">
+          <p class="post-meta"><time datetime="{{ post.date.toISOString() }}">{{ post.date | readableDate }}</time>
 {%- for topic in post.data.topics %}<span class="topic">{{ topic }}</span>{% endfor %}</p>
-        <h2><a href="{{ post.url }}">{{ post.data.title }}</a></h2>
-        <p>{{ post.data.summary }}</p>
+          <h2><a href="{{ post.url }}">{{ post.data.title }}</a></h2>
+          <p>{{ post.data.summary }}</p>
+        </div>
       </li>
 {%- endfor %}
     </ol>
