@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #753 #968 #749 #776 tropická pláž a outback — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo: #753 (f427b4f6) keře na pláži jsou na High/Ultra mořské hrozny (`MeadowShrubMesh` s většími kartami, kulaté listy `LeafStrength` 3); #968 (4a1efd93) laguna u břehu průzračná a tyrkysová, krajka pěny, kaustiky, země laguny v `TropicalTerrain.fxh`; #749 (7f6e6a5b) `OutbackPlanting`: spinifex, saltbush, dřevo, mulga; #776 (23ebd9c7) popraskaná krusta v `Outback.fx` a gibber jako geometrie. Vše `verdict-eye`, karty na stránce 25. 10.
+- ⚠ `PlantPass` kreslí každou instanci každý snímek dvakrát (scéna a mapa stínu): tisíce kusů chtějí LOD a levný `casterMesh`. Namalovaný kámen bez siluety vypadá zespodu jako díra. Hrubá síť moře s vlnami řezala břeh rovnými hranami (`SHORE_CALM_DEPTH`).
+- Otevřené: mulga je zatím mladá akácie; ghost gumy a suchá koryta z referencí #749 chybí.
+
 ## 2026-10-25 — #903 #754 #980 #774 ryby, kořeny palem, kůra dubů, panorama města — desktop (RDT-PC), Claude Code (bs3d-21)
 - Hotovo: #903 (74188f8d) hejno plave asi délku těla za sekundu; #754 (9e4e5f02) palmy stojí v rohoži kořenů (`PalmFootMesh`, 40 trubic); #980 (7a8c1850) kůra dubů na High/Ultra s brázdami a reliéfem (+0,15 ms v záběru potoka); #774 (d234361d) dvě řady vzdálených budov kolem města uzavírají konce ulic (`City.FarSkyline`), kreslí je `CityRooftops` levnou technikou `InstancedCityFar`. Vše `verdict-eye`, karty na stránce 25. 10.
 - ⚠ Cokoli přidaného do `CityPS` stojí všude (occupancy): panorama v něm stálo průlet ulicí v úvodu levelu 111 +0,45 ms, opar stejně. Vlastní program to srazil na nulu.
