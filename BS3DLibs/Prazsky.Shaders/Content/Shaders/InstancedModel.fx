@@ -94,6 +94,7 @@ float3 SrgbToLinear(float3 color)
 #include "InstancedModel/Triplanar.fxh"
 #include "InstancedModel/IslandDream.fxh"
 #include "InstancedModel/IslandStation.fxh"
+#include "InstancedModel/Needles.fxh"
 #include "InstancedModel/City.fxh"
 #include "InstancedModel/Depth.fxh"
 #include "InstancedModel/Glass.fxh"

@@ -239,6 +239,7 @@ namespace Prazsky.Core.Render
         private EffectParameter _dreamPaletteAParam, _dreamPaletteBParam, _dreamPaletteCParam, _dreamPaletteDParam;
         private EffectParameter _dreamMarbleParam, _dreamSheenParam, _dreamRingParam, _dreamGlowParam, _dreamRecessParam;
         private EffectTechnique _triplanarStationTechnique;
+        private EffectTechnique _triplanarNeedleTechnique, _needleDepthTechnique;
         private EffectParameter _stationRingsParam, _stationSpokesParam, _stationHazardParam, _stationStripParam, _stationStripColorParam;
         private EffectTechnique[] _triplanarProbeTechniques;
         private EffectTechnique[] _ballTechniques;
@@ -465,6 +466,22 @@ namespace Prazsky.Core.Render
         /// precedence over <see cref="DreamSurface"/> if both are set, which nothing does.
         /// </summary>
         public bool StationSurface { get; set; }
+
+        /// <summary>
+        /// Draws the triplanar surface as High and Ultra's spruce boughs in needle (#751): the
+        /// <c>InstancedModelTriplanarNeedles</c> technique, branchlets, needles and a comb of their tips drawn on the plates
+        /// from where on its bough each vertex stands (<see cref="SpruceCrownGeometry.UNDERSIDE"/>), lit as the plain triplanar
+        /// surface is. Only for a mesh whose texture coordinate carries that; a technique of its own for
+        /// <see cref="CoarseSurfaceRelief"/>'s reason; read only on the triplanar path.
+        /// </summary>
+        public bool NeedleSurface { get; set; }
+
+        /// <summary>
+        /// With <see cref="NeedleSurface"/>, draws the needles' depth pass instead of the surface (#751,
+        /// <c>InstancedModelNeedleDepth</c>): the comb cut, no colour (the caller's blend writes none). The caller then draws the
+        /// surface on that depth with an equal test, so the shading pass needs no clip and the GPU rejects hidden plates early.
+        /// </summary>
+        public bool NeedleDepthOnly { get; set; }
 
         /// <summary>The station deck's ring seams' radii from the axis: the collar's edge and the two rings between the
         /// wedge bands. With <see cref="StationSurface"/>.</summary>
@@ -1333,6 +1350,8 @@ namespace Prazsky.Core.Render
             _dreamGlowParam = _effect.Parameters["DreamGlow"];
             _dreamRecessParam = _effect.Parameters["DreamRecess"];
             _triplanarStationTechnique = _effect.Techniques["InstancedModelTriplanarStation"];
+            _triplanarNeedleTechnique = _effect.Techniques["InstancedModelTriplanarNeedles"];
+            _needleDepthTechnique = _effect.Techniques["InstancedModelNeedleDepth"];
             _stationRingsParam = _effect.Parameters["StationRings"];
             _stationSpokesParam = _effect.Parameters["StationSpokes"];
             _stationHazardParam = _effect.Parameters["StationHazard"];
@@ -2042,6 +2061,7 @@ namespace Prazsky.Core.Render
             {
                 _effect.CurrentTechnique = TriplanarProbe > 0 ? _triplanarProbeTechniques[TriplanarProbe - 1]
                     : StationSurface ? _triplanarStationTechnique
+                    : NeedleSurface ? (NeedleDepthOnly ? _needleDepthTechnique : _triplanarNeedleTechnique)
                     : DreamSurface ? _triplanarDreamTechnique
                     : CoarseSurfaceRelief ? _triplanarCoarseTechnique
                     : _triplanarTechnique;
