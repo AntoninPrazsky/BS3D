@@ -802,7 +802,7 @@ namespace Prazsky.Core.Render
 
             //--- Outback (#112): its own Backdrop since #580 (Render/Scenes), built here where
             //its code stood
-            _outback = new OutbackBackdrop(_services, content);
+            _outback = new OutbackBackdrop(_services, content, _sceneDetail);
             _backdrops[(int)SceneKind.Outback] = _outback;
 
             //--- Tropical (#244): its own Backdrop since #580 (Render/Scenes), built here where its code stood

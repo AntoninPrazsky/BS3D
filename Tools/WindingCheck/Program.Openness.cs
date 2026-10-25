@@ -91,6 +91,8 @@ namespace BS3D.Tools.WindingCheck
             ("MeadowScatter._owned[6].Wood", 2, "a shrub twig's base ring on the thin end of a stem: the hexagonal stem leaves under 0.001 of the shrub's height to spare"),
             ("MeadowScatter._owned[8].Wood", 4, "a shrub twig's base ring on the thin end of a stem: the hexagonal stem leaves under 0.001 of the shrub's height to spare"),
             ("MeadowScatter._owned[10].Wood", 3, "a shrub twig's base ring on the thin end of a stem: the hexagonal stem leaves under 0.001 of the shrub's height to spare"),
+            ("OutbackPlanting._owned[19].Wood", 3, "the saltbush's shrub (#749, the meadow's at a metre across): a twig's base ring on the thin end of a stem, as the meadow's"),
+            ("OutbackPlanting._owned[21].Wood", 9, "the saltbush's shrub (#749, the meadow's at a metre across): a twig's base ring on the thin end of a stem, as the meadow's"),
             ("MeadowScatter._owned[4] {FineWood+Twigs}", 2, "the willow's twig bases on a fine branch's end, which arrives a few degrees off the coarse branch's direction"),
 
             //---- the spruces on High and Ultra (#960): every bough roots in the stem with its root ring left open, and the leader's foot is a rim round it
@@ -117,7 +119,7 @@ namespace BS3D.Tools.WindingCheck
         /// <summary>Objects planted on the ground: their own y = 0 is the earth, so a foot ring sunk under it is buried.</summary>
         private static readonly string[] PlantedPrefixes =
         {
-            "ForestScatterRenderer", "SavannaScatter", "MeadowScatter", "VolcanoPlanting", "MoonPlanting", "PalmMesh", "DeadwoodMesh",
+            "ForestScatterRenderer", "SavannaScatter", "MeadowScatter", "VolcanoPlanting", "MoonPlanting", "OutbackPlanting", "PalmMesh", "DeadwoodMesh",
             "RockMesh", "FoliageMesh", "GrassTuftMesh", "LatheMesh(moss",
         };
 
