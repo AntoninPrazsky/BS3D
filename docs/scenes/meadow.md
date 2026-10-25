@@ -4,6 +4,8 @@ Part of [The scenes](../scenes.md).
 
 The Windows XP *Bliss* hill: vivid green rolling to a crisp horizon, a flat flowering clearing where the arena stands, rolling up into hills. `SceneKind.Meadow`, `scene=meadow`, sixth in the NumPad2 cycle.
 
+**It brings its own dome, 1** (`SkyDome.SceneDefault`, #1019), the clear sunny blue every level of its chapter names, so the scene picker, the menu after another chapter, the benchmark's tour and the Testbed's `scene=meadow` all show it under that sky unless `sky=` says otherwise. ⚠ Kept the dome that was up, it took the forest's late twilight (15) into the benchmark's Meadow tour and the menu after a forest level, which the owner read as a purple meadow ("very positive and bright... the sky should be azure").
+
 ## What it is made of
 
 - **`MeadowBackdrop`**, **`Meadow.fx`**, `MeadowSceneConfig`: the displaced grid (shared `AcquireGridMesh`, [Terrain grids](terrain-grids-and-mirrors.md)) with smooth rolling sines, normal by finite differences. The grid draws the **field** (`GroundHeight`; its CPU copy `TerrainMirror.MeadowGround`), and a patch of its own draws the brook's swale and the pond's crater cut into it (below). `TerrainMirror.Meadow` is the cut ground, the CPU copy everything planted is placed by (`MeadowNatural` is the field without the pond's levelling).

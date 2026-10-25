@@ -27,7 +27,7 @@ namespace BS3D
 
         //Dome 13 is the violet/teal dusk. The neon city reads best under a dark sky — the facades stay dark
         //under any dome, so a bright one only fights the neon it is meant to set off. It is the default the
-        //game starts on; the sky setting cycles the whole set, and nine scenes bring a dome of their own (SkyDome.SceneDefault).
+        //game starts on; the sky setting cycles the whole set, and ten scenes bring a dome of their own (SkyDome.SceneDefault).
         internal const byte SKY_DOME_COUNT = SkyDome.Count;
         private const byte DEFAULT_SKY_DOME = 13;
 
@@ -585,7 +585,7 @@ namespace BS3D
             }
 
             //The dome the scene brings with it, if it states one (the sea, the savanna, the beach, the volcano,
-            //Mars, the storm, the icesheet, the forest and the outback — see SkyDome.SceneDefault for why each); every other scene keeps
+            //Mars, the storm, the icesheet, the forest, the outback and the meadow — see SkyDome.SceneDefault for why each); every other scene keeps
             //whatever dome is up, including the neon city, whose default IS the dusk.
             byte sceneDome = SkyDome.SceneDefault(scene);
             if (sceneDome != 0) _skyDome = sceneDome;

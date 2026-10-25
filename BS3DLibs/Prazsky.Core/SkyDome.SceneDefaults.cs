@@ -52,6 +52,12 @@ namespace Prazsky.Core
         //one garish, flat or a dusk), and the far formations stand DARK against a pale skyline only under this one.
         private const byte OUTBACK_DOME = 21;
 
+        //The meadow (#1019) is the first chapter's Bliss hill, and every one of its levels names dome 1, the clear
+        //sunny blue: a meadow that kept whatever dome was up flew the benchmark under the forest's late twilight just
+        //before it, and showed the menu a purple dusk after a forest level. The owner: "very positive and bright...
+        //the sky should be azure"
+        private const byte MEADOW_DOME = 1;
+
         /// <summary>
         /// The dome a scene brings with it, or 0 when it states none and keeps whatever dome is up (#595).
         /// <para>
@@ -77,6 +83,7 @@ namespace Prazsky.Core
             SceneKind.Polar => POLAR_DOME,
             SceneKind.Forest => FOREST_DOME,
             SceneKind.Outback => OUTBACK_DOME,
+            SceneKind.Meadow => MEADOW_DOME,
             _ => 0,
         };
     }
