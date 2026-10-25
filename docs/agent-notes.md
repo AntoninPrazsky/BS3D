@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #969 ropné plošiny na moři — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo: #969 (240d5a5d) dvě ropné plošiny za doběhem vln (`OilRigs`, `Rig.fx`): z kvádrů, žluté nohy s trubkovým vyztužením, paluba s moduly, červená věž, jeřáb, fléra, heliport; řez u hladiny `clip` a pruh pěny (hladina nezapisuje hloubku, #131). Reference v `969-zimage`/`969-klein`. `verdict-eye`, karta na stránce 25. 10.
+- ⚠ Příhradové panely s barvou oblohy mezi pruty vypadaly jako děrovaný plech zabarvený oblohou: vyztužení je z trubek, mezery věže tmavší ocel.
+- Otevřené: lodě a maják, plamen fléry výraznější, Pi plošiny nekreslí.
+
 ## 2026-10-25 — #965 pyramidy v poušti — desktop (RDT-PC), Claude Code (bs3d-21)
 - Hotovo: #965 (c984b888) nad dunami stojí skupina z Gízy (`Pyramids`, `Pyramid.fx`): skutečné proporce i půdorys, rozestupy stažené do mřížky dun, Chufu 700 daleko za mrakem koulí; vrstvený vápenec, vypadlé bloky jako ve zdivu, obklad Rachefa, navátý písek; opar lehčí než u dun. Reference v `965-zimage`/`965-klein`. `verdict-eye`, karta na stránce 25. 10.
 - ⚠ Šum podle pevné osy (x + z) běží po jedné stěně a pruhuje ji: každá stěna vlastní vodorovnou osu. Diagonála mířící přímo od ostrova schová Rachefa za Chufu.
