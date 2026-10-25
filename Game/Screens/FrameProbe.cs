@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics.PackedVector;
 using System;
 
 namespace BS3D.Screens
@@ -10,10 +11,16 @@ namespace BS3D.Screens
     /// a driver would not make), <see cref="Verdict.Flat"/> when it is one colour from edge to edge (a clear colour and no
     /// scene), and <see cref="Verdict.Ok"/> otherwise. Pure: <c>FrameProbeTests</c>. Every scene the benchmark tours has a
     /// sky, ground and an island in every frame, so neither failure is a scene's own look.
+    /// <para>
+    /// And the HDR scene behind it (<see cref="CountNonFinite"/>): a NaN or an infinity in the scene target (a shader's
+    /// division by zero, a driver's broken half floats) is <see cref="Verdict.NonFinite"/> even where the finished frame
+    /// passed, because the tonemap clamps it to black or white in its own pixel and the glare spreads it into blocks
+    /// only where it is bright enough.
+    /// </para>
     /// </summary>
     internal static class FrameProbe
     {
-        internal enum Verdict : byte { Ok, Black, Flat }
+        internal enum Verdict : byte { Ok, Black, Flat, NonFinite }
 
         //The mean luma (0 to 1) under which a frame is black, and the spread of luma under which it is one flat colour
         internal const float BLACK = 0.01f, FLAT = 0.004f;
@@ -42,5 +49,43 @@ namespace BS3D.Screens
             spread = (float)Math.Sqrt(Math.Max(sumSquares / n - mean * (double)mean, 0.0));
             return mean < BLACK ? Verdict.Black : spread < FLAT ? Verdict.Flat : Verdict.Ok;
         }
+
+        /// <summary>
+        /// How many of the first <paramref name="count"/> HDR samples carry a NaN or an infinity in any channel, and the
+        /// brightest finite colour channel among them (for the record: a target clamped to 1 would never pass it).
+        /// <para>
+        /// ⚠ Read from the packed bits, never through <see cref="HalfVector4.ToVector4"/>: MonoGame's half conversion does not
+        /// keep a NaN or an infinity (a NaN put in came back finite in <c>FrameProbeTests</c>), which is exactly what this
+        /// looks for. A half is not finite when its five exponent bits are all set.
+        /// </para>
+        /// </summary>
+        internal static int CountNonFinite(HalfVector4[] samples, int count, out float brightest)
+        {
+            brightest = 0f;
+            int bad = 0;
+            for (int i = 0; i < count && i < samples.Length; i++)
+            {
+                ulong packed = samples[i].PackedValue;
+                bool finite = true;
+                float colour = 0f;
+                for (int channel = 0; channel < 4; channel++)
+                {
+                    ushort bits = (ushort)(packed >> (16 * channel));
+                    if ((bits & HALF_EXPONENT) == HALF_EXPONENT)
+                    {
+                        finite = false;
+                        break;
+                    }
+                    //x, y and z are the colour; w the alpha
+                    if (channel < 3) colour = MathF.Max(colour, (float)BitConverter.UInt16BitsToHalf(bits));
+                }
+                if (finite) brightest = MathF.Max(brightest, colour);
+                else bad++;
+            }
+            return bad;
+        }
+
+        //A half's exponent bits
+        private const ushort HALF_EXPONENT = 0x7C00;
     }
 }
