@@ -89,6 +89,10 @@ namespace Prazsky.Core.Render
         private StaticInstances[] _tropicalScrubInstances;
         private StaticInstances[] _tropicalTuftInstances;
         private StaticInstances[] _tropicalDriftInstances;
+        //The scrub at High and Ultra (#753): each dome a sea grape of red stems and round leaves, drawn through the plant pass
+        //in the dome's place, off the domes' own instances
+        private MeadowShrubMesh[] _seaGrapeMeshes;
+        private List<ScatterBucket> _seaGrapeBuckets;
         //The root mats round the palms' feet (#754): a few variants, an instance a palm, not leaned with it
         private PalmFootMesh[] _palmFootMeshes;
         private StaticInstances[] _palmFootInstances;
@@ -129,6 +133,20 @@ namespace Prazsky.Core.Render
         //where the references' root mats lie over the sand (#754)
         private static readonly Vector3 PALM_ROOT_COLOR = new(0.055f, 0.038f, 0.024f);
         private const int PALM_FOOT_VARIANTS = 3;
+
+        //The sea grapes (#753): their own seed (the shrubs' build and each bush's shade), the stems' red-brown (the references'
+        //sea grape stands on red stems), the leaves against the domes' green and their drier shade (a yellower, paler green:
+        //a sea grape's old leaves turn yellow and red), and how far a bush leans to it and how much lighter or darker it is
+        private const int SEA_GRAPE_SEED = 7530;
+        private static readonly Vector3 SEA_GRAPE_STEM = new(0.150f, 0.062f, 0.040f);
+        private const float SEA_GRAPE_LEAF = 1.35f;
+        private static readonly Vector3 SEA_GRAPE_LEAF_DRY = new(1.45f, 1.25f, 0.8f);
+        private const float SEA_GRAPE_DRY = 0.5f, SEA_GRAPE_SHADE = 0.2f;
+
+        //A sea grape's leaf card against its clump, and its clumps' cover (the meadow's shrub is 0.55 and 2.4): a sea grape's
+        //leaves are a hand across, several times a hawthorn's, so its cards are twice the side and a quarter as many, which is
+        //also what two hundred and fifty of them on one beach can cost (#753: the meadow's cards drew 790 000 triangles of leaf)
+        private const float SEA_GRAPE_CARD = 1.1f, SEA_GRAPE_COVER = 2.4f;
 
         private EffectTechnique _palmTechnique, _palmShadowTechnique;
 
@@ -354,6 +372,7 @@ namespace Prazsky.Core.Render
 
             const int SCRUB_VARIANTS = 3, TUFT_VARIANTS = 3, DRIFT_VARIANTS = 3;
             _tropicalScrubMeshes = new FoliageMesh[SCRUB_VARIANTS];
+            _seaGrapeMeshes = new MeadowShrubMesh[SCRUB_VARIANTS];
             for (int m = 0; m < SCRUB_VARIANTS; m++)
             {
                 //⚠ Taller than it is wide is wrong for a savanna bush and right for this one. At the
@@ -366,6 +385,11 @@ namespace Prazsky.Core.Render
                 float hh = r * (0.75f + 0.35f * (float)rng.NextDouble());
                 _tropicalScrubMeshes[m] = new FoliageMesh(_graphicsDevice, r, hh,
                     centreY: hh * 0.8f, seed: 6200 + m, style: FoliageStyle.Scrub);
+
+                //The sea grape High and Ultra draw in its place (#753), fitted to it: the meadow's shrub (#890), stems and
+                //clumps of leaf cards, which is the build the references (753-klein) draw a sea grape with
+                (float reach, float top) = MeadowScatter.FineShrubSize(r, hh, hh * 0.8f, 6200 + m);
+                _seaGrapeMeshes[m] = new MeadowShrubMesh(_graphicsDevice, reach, top, SEA_GRAPE_SEED + m, SEA_GRAPE_CARD, SEA_GRAPE_COVER);
             }
 
             _tropicalTuftMeshes = new GrassTuftMesh[TUFT_VARIANTS];
@@ -654,6 +678,25 @@ namespace Prazsky.Core.Render
 
             _tropicalScrubInstances = new StaticInstances[SCRUB_VARIANTS];
             for (int m = 0; m < SCRUB_VARIANTS; m++) _tropicalScrubInstances[m] = new StaticInstances(_graphicsDevice, scrubBuckets[m]);
+
+            //The sea grapes (#753), on the domes' own matrices: each bush its own shade, off dice of their own so not one roll of
+            //the beach moves, stems and leaves drawn where FineMeshes is on and the domes where it is off
+            _seaGrapeBuckets = new List<ScatterBucket>();
+            Random grapeDice = new(SEA_GRAPE_SEED);
+            for (int m = 0; m < SCRUB_VARIANTS; m++)
+            {
+                if (scrubBuckets[m].Count == 0) continue;
+                var grapes = new List<ModelInstance>(scrubBuckets[m].Count);
+                foreach (ModelInstance scrub in scrubBuckets[m])
+                    grapes.Add(new ModelInstance(scrub.World, new Vector4((float)grapeDice.NextDouble() * SEA_GRAPE_DRY,
+                        ((float)grapeDice.NextDouble() - 0.5f) * SEA_GRAPE_SHADE, 0f, 0f)));
+
+                Vector3 leaf = _tropicalScrubColor * SEA_GRAPE_LEAF;
+                _seaGrapeBuckets.Add(new ScatterBucket(_graphicsDevice, _seaGrapeMeshes[m].Wood, grapes, SEA_GRAPE_STEM, SEA_GRAPE_STEM * 1.15f,
+                    dapple: 0f, bark: 0.35f, detailOnly: false, castsShadow: false, fineMeshes: true));
+                _seaGrapeBuckets.Add(new ScatterBucket(_graphicsDevice, _seaGrapeMeshes[m].Leaves, grapes, leaf, leaf * SEA_GRAPE_LEAF_DRY,
+                    dapple: 0f, bark: 0f, detailOnly: false, leaves: 3f, fineMeshes: true));
+            }
             _tropicalTuftInstances = new StaticInstances[TUFT_VARIANTS];
             for (int m = 0; m < TUFT_VARIANTS; m++) _tropicalTuftInstances[m] = new StaticInstances(_graphicsDevice, tuftBuckets[m]);
             _tropicalDriftInstances = new StaticInstances[DRIFT_VARIANTS];
@@ -773,6 +816,10 @@ namespace Prazsky.Core.Render
             if (_palmMeshes != null) foreach (PalmMesh mesh in _palmMeshes) mesh?.Dispose();
             if (_palmFootMeshes != null) foreach (PalmFootMesh mesh in _palmFootMeshes) mesh?.Dispose();
             if (_tropicalScrubMeshes != null) foreach (FoliageMesh mesh in _tropicalScrubMeshes) mesh?.Dispose();
+            if (_seaGrapeBuckets != null) foreach (ScatterBucket bucket in _seaGrapeBuckets) bucket.Dispose();
+            if (_seaGrapeMeshes != null) foreach (MeadowShrubMesh mesh in _seaGrapeMeshes) mesh?.Dispose();
+            _seaGrapeBuckets = null;
+            _seaGrapeMeshes = null;
             if (_tropicalTuftMeshes != null) foreach (GrassTuftMesh mesh in _tropicalTuftMeshes) mesh?.Dispose();
             if (_tropicalDriftMeshes != null) foreach (DeadwoodMesh mesh in _tropicalDriftMeshes) mesh?.Dispose();
             if (_tropicalRockMeshes != null) foreach (RockMesh mesh in _tropicalRockMeshes) mesh?.Dispose();
@@ -912,9 +959,13 @@ namespace Prazsky.Core.Render
         {
             if (_tropicalScrubMeshes == null) return;
 
+            //The scrub: sea grapes at High and Ultra (#753), the domes below them
+            if (Services.FineMeshes)
+                _plants.Draw(frame, _seaGrapeBuckets, _tropicalConfig.Terrain.HorizonHazeDistance, detail: true, fineMeshes: true);
+
             ApplyPalmFrame(frame);
 
-            for (int m = 0; m < _tropicalScrubMeshes.Length; m++)
+            for (int m = 0; m < _tropicalScrubMeshes.Length && !Services.FineMeshes; m++)
             {
                 StaticInstances instances = _tropicalScrubInstances[m];
                 if (instances.Count == 0) continue;
@@ -1112,8 +1163,9 @@ namespace Prazsky.Core.Render
         /// </summary>
         public override void DrawShadowCasters(Matrix shadowViewProjection)
         {
-            //The bank round the island (#646)
+            //The bank round the island (#646), and the sea grapes' leaves at High and Ultra (#753; the domes never cast)
             if (_berm != null) _plants.DrawShadowCasters(shadowViewProjection, _berm.Buckets, Services.FineMeshes);
+            if (_seaGrapeBuckets != null && Services.FineMeshes) _plants.DrawShadowCasters(shadowViewProjection, _seaGrapeBuckets, fineMeshes: true);
 
             if (_palmMeshes == null) return;
 

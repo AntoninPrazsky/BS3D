@@ -71,7 +71,7 @@ namespace Prazsky.Core.Render
         /// 1 for leaf-spray cards (#610): <c>Acacia.fx</c> cuts the leaflets out of each card, shades both sides and
         /// lets the sun through; drawn <c>CullNone</c>. 2 for the meadow's old trees (#609's third round) and its shrubs (#890),
         /// whose cards are cut into twigs of broad leaves instead (<see cref="MeadowTreeMesh"/>, <see cref="MeadowShrubMesh"/>).
-        /// 0 for every other mesh.
+        /// 3 for the tropical beach's sea grapes (#753): the same twigs, the leaves round. 0 for every other mesh.
         /// </summary>
         public float Leaves { get; }
 

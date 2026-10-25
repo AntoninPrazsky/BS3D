@@ -42,7 +42,8 @@ float BarkStrength;
 
 //1 for the acacias' leaf-spray cards (#610), 0 for every other mesh: the leaflets are cut out of each card here,
 //both of its sides are lit, and the sun comes through it. See LeafMask and AcaciaMesh's LeafSprays. 2 for the
-//meadow's old trees (#609's third round), whose cards are twigs of broad leaves instead - see BroadLeafMask.
+//meadow's old trees (#609's third round), whose cards are twigs of broad leaves instead - see BroadLeafMask. 3 for the
+//tropical beach's sea grapes (#753): the same twigs, the leaves round.
 float LeafStrength;
 
 //The distance the plant melts into the skyline over - Savanna.fx's own HorizonHazeDistance, handed over so a
@@ -214,8 +215,14 @@ static const float BROAD_LEAF_HALF_WIDTH = 0.065;
 static const float BROAD_STEM_HALF = 0.015;
 static const int BROAD_LEAVES = 9;
 
-float BroadLeafMask(float2 uv)
+//ROUND LEAVES (#753): LeafStrength 3, the tropical beach's sea grape. The same twig, its leaves as wide as they are long:
+//the round, leathery leaves the references (753-klein) draw on a sea grape's red stems
+static const float ROUND_LEAF_HALF = 0.11;
+
+float BroadLeafMask(float2 uv, float round)
 {
+    float halfLength = lerp(BROAD_LEAF_HALF_LENGTH, ROUND_LEAF_HALF, round);
+    float halfWidth = lerp(BROAD_LEAF_HALF_WIDTH, ROUND_LEAF_HALF, round);
     float layer = floor(uv.y * 0.5);
     float2 p = float2(uv.x, uv.y - 2.0 * layer - 0.5);     //x along the stem 0..1, y across it -0.5..0.5
     //The stem, and nothing past its end. It was this times step(p.x, 0.74), which is ZERO beyond the stem, not negative,
@@ -230,11 +237,10 @@ float BroadLeafMask(float2 uv)
         bool tip = i == BROAD_LEAVES - 1;
         float side = tip ? 0.0 : ((i & 1) ? -1.0 : 1.0);
         float2 dir = tip ? float2(1.0, 0.0) : float2(0.55, 0.835 * side);
-        float2 centre = float2(tip ? 0.74 : 0.08 + 0.08 * i, 0.0) + dir * BROAD_LEAF_HALF_LENGTH;
+        float2 centre = float2(tip ? 0.74 : 0.08 + 0.08 * i, 0.0) + dir * halfLength;
         float2 d = p - centre;
         float2 q = float2(dot(d, dir), dot(d, float2(-dir.y, dir.x)));
-        fine = max(fine, 1.0 - (q.x * q.x) / (BROAD_LEAF_HALF_LENGTH * BROAD_LEAF_HALF_LENGTH)
-            - (q.y * q.y) / (BROAD_LEAF_HALF_WIDTH * BROAD_LEAF_HALF_WIDTH));
+        fine = max(fine, 1.0 - (q.x * q.x) / (halfLength * halfLength) - (q.y * q.y) / (halfWidth * halfWidth));
     }
 
     float coarse = (0.4 - length(p - float2(0.5, 0.0))) * 2.5;
@@ -250,7 +256,7 @@ float CardMask(float2 uv, float2 seed)
     float mask;
     [branch]
     if (LeafStrength > 1.5)
-        mask = BroadLeafMask(uv);
+        mask = BroadLeafMask(uv, step(2.5, LeafStrength));
     else
         mask = LeafMask(uv, seed);
     return mask;
