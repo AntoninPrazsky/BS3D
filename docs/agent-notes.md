@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #965 pyramidy v poušti — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo: #965 (c984b888) nad dunami stojí skupina z Gízy (`Pyramids`, `Pyramid.fx`): skutečné proporce i půdorys, rozestupy stažené do mřížky dun, Chufu 700 daleko za mrakem koulí; vrstvený vápenec, vypadlé bloky jako ve zdivu, obklad Rachefa, navátý písek; opar lehčí než u dun. Reference v `965-zimage`/`965-klein`. `verdict-eye`, karta na stránce 25. 10.
+- ⚠ Šum podle pevné osy (x + z) běží po jedné stěně a pruhuje ji: každá stěna vlastní vodorovnou osu. Diagonála mířící přímo od ostrova schová Rachefa za Chufu.
+- Otevřené: úrovně pouště ve hře neviděny, Pi pyramidy nekreslí.
+
 ## 2026-10-25 — #956 světelné motorky v Gridu — desktop (RDT-PC), Claude Code (bs3d-21)
 - Hotovo: #956 (6f27982a) po podlaze Gridu jezdí tři motorky se zdmi světla (`LightCycles`, `LightCycle.fx`): pravoúhlé jízdy po mřížce 16 v prstenci 56–124, cesta z hashe, takže stejná při každé frekvenci; těla jen ze svítících hran. Reference v `956-zimage`/`956-klein`. `verdict-eye`, karta na stránce 25. 10.
 - ⚠ `BlendState.Additive` je SourceAlpha/One: aditivní shader musí vracet alfu 1, jinak nepřidá nic.
