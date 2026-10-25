@@ -119,10 +119,9 @@ static const float3 CUT_EARTH_DARK = float3(0.045, 0.032, 0.02);
 static const float BROOK_MURK = 0.6;
 static const float POND_MURK = 1.8;
 static const float3 BROOK_BODY = float3(0.05, 0.085, 0.06);
-//The brook's bed (#979): sand with pebbles in it and a few bigger stones, one to a cell of these sizes (world units) where
-//a cell has one, and their colours dry
+//The brook's bed (#979): sand with pebbles in it, one to a cell this many world units across where a cell has one, and
+//their colours dry
 static const float PEBBLE_SPACING = 0.22;
-static const float STONE_SPACING = 0.6;
 static const float3 PEBBLE = float3(0.24, 0.21, 0.16);
 static const float3 BED_SAND = float3(0.13, 0.11, 0.075);
 //Its water's fall (#979): what slope along the brook (height over distance) begins and completes its running fast and
@@ -658,13 +657,23 @@ float3 WaterReflection(float3 worldPosition, float3 toCamera, float still, float
     [branch]
     if (still < 1.0)
     {
-        float2 slow = float2(flow.x * 1.6 + MeadowTime * 1.2, flow.y * 1.6);
-        float2 fast = float2(flow.x * 0.9 + MeadowTime * 3.8, flow.y * 2.8);
-        float2 slowSlope = float2(GradientNoise2(slow), GradientNoise2(slow * 1.7 + 4.2));
-        float2 fastSlope = float2(GradientNoise2(fast), GradientNoise2(fast * 1.7 + 4.2));
+        //Each layer only where it shows: `steep` is one value over whole stretches of the brook (the fall per vertex), so
+        //the branches hardly diverge
         float running = 1.0 - still;
-        slope = lerp(slowSlope * 0.18, fastSlope * 0.3, steep) * running;
-        foam = smoothstep(0.2, 0.55, GradientNoise2(fast * float2(0.7, 1.3) + 13.0)) * steep * running;
+        [branch]
+        if (steep < 1.0)
+        {
+            float2 slow = float2(flow.x * 1.6 + MeadowTime * 1.2, flow.y * 1.6);
+            slope = float2(GradientNoise2(slow), GradientNoise2(slow * 1.7 + 4.2)) * (0.18 * (1.0 - steep) * running);
+        }
+        [branch]
+        if (steep > 0.0)
+        {
+            float2 fast = float2(flow.x * 0.9 + MeadowTime * 3.8, flow.y * 2.8);
+            float2 fastSlope = float2(GradientNoise2(fast), GradientNoise2(fast * 1.7 + 4.2));
+            slope += fastSlope * (0.3 * steep * running);
+            foam = smoothstep(0.3, 0.6, fastSlope.x + 0.5 * fastSlope.y) * steep * running;
+        }
     }
     [branch]
     if (still > 0.0)
@@ -750,8 +759,8 @@ float2 PebbleCell(float2 p)
     return float2(sqrt(best), id);
 }
 
-//The brook's bed (#979): it runs clear, and a clear stream shows a stony bed, not the pond's silt - sand, rounded pebbles
-//in it and a few bigger stones, faded to their mean where a pebble is under a few pixels. Dry; the callers wet it as they
+//The brook's bed (#979): it runs clear, and a clear stream shows a stony bed, not the pond's silt - sand with rounded
+//pebbles in it, faded to their mean where a pebble is under a few pixels. Dry; the callers wet it as they
 //wet the silt. No derivative: the footprint is the caller's.
 //One round pebble of a PebbleCell, its radius (cells) its own: how much of this point it covers in `at`, and its colour,
 //pale on its crown and dark at its rim, its own tone, warm or grey. Where two sites stand close their pebbles meet along
@@ -771,15 +780,11 @@ float3 BrookPebbles(float2 xz, float footprint, float clods)
 {
     float3 bed = BED_SAND * (0.85 + 0.3 * clods);
 
-    //Pebbles in four cells of five, and over them a bigger stone in two cells of five of a coarser lattice, all round:
-    //polygons packed one to every cell read as crazy paving
-    float smallAt, bigAt;
-    float2 small = PebbleCell(xz / PEBBLE_SPACING);
-    float3 smallColor = Pebble(small, clods, smallAt);
-    float2 big = PebbleCell(xz / STONE_SPACING + 7.7);
-    float3 bigColor = Pebble(big, clods, bigAt);
-    bed = lerp(bed, smallColor, smallAt * step(0.2, small.y));
-    bed = lerp(bed, bigColor * 0.9, bigAt * step(0.6, big.y));
+    //Pebbles in four cells of five, round: polygons packed one to every cell read as crazy paving
+    float at;
+    float2 pebble = PebbleCell(xz / PEBBLE_SPACING);
+    float3 pebbleColor = Pebble(pebble, clods, at);
+    bed = lerp(bed, pebbleColor, at * step(0.2, pebble.y));
 
     float resolved = saturate(1.6 - footprint / PEBBLE_SPACING * 2.0);
     return lerp(lerp(BED_SAND, PEBBLE, 0.6), bed, resolved);
