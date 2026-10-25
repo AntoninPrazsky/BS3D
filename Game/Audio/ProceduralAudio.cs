@@ -952,6 +952,22 @@ namespace BS3D.Audio
             _newBest.Play(MathHelper.Clamp(NEW_BEST_VOLUME * Level * NON_SPATIAL_TRIM, 0f, 1f), NextPitch(0.01f), 0f);
 
         /// <summary>
+        /// One of the unused balls counted (#881), <paramref name="progress"/> of the way through the volley: the star chime,
+        /// quiet, its pitch climbing with the count.
+        /// </summary>
+        public void PlayVolleyTick(float progress)
+        {
+            //The star chime, quiet and climbing: from an octave under its A5 to a fifth over it across the volley, so the count
+            //is heard rising as the figure does, in the band the owner's monitor speakers carry (it is the result page's chime)
+            float semitones = MathHelper.Lerp(-12f, 7f, MathHelper.Clamp(progress, 0f, 1f));
+            float pitch = MathHelper.Clamp(semitones / 12f + NextPitch(0.01f), -1f, 1f);
+            _starEarned.Play(MathHelper.Clamp(VOLLEY_TICK_VOLUME * Level * NON_SPATIAL_TRIM, 0f, 1f), pitch, 0f);
+        }
+
+        /// <summary>The unused balls' count (#881): a tick each, quieter than a star, as many as thirty a second.</summary>
+        private const float VOLLEY_TICK_VOLUME = 0.3f;
+
+        /// <summary>
         /// One star of the result screen's rating landing (#139), <paramref name="index"/> counted from 0 of
         /// <paramref name="total"/> earned. Unplaced like the other UI sounds, and for the same reason.
         /// <para>

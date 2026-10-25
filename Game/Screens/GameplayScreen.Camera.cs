@@ -125,6 +125,17 @@ namespace BS3D.Screens
                 fov = MathHelper.Lerp(fov, _lineLoss.FieldOfView, lineLoss);
             }
 
+            //The unused balls' volley (#881), on the same idiom: it begins only once the drop cinematic has let go and ends before
+            //the result page takes the camera, so it is never nonzero beside another
+            float volley = _spareVolley.Blend;
+
+            if (volley > 0f)
+            {
+                position = Vector3.Lerp(position, _spareVolley.Position, volley);
+                target = Vector3.Lerp(target, _spareVolley.Target, volley);
+                fov = MathHelper.Lerp(fov, _spareVolley.FieldOfView, volley);
+            }
+
             float intro = _chapterIntro.Blend;
 
             if (intro > 0f)

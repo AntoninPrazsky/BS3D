@@ -221,6 +221,8 @@ namespace BS3D.Screens
             //controls into the next level, and its subject handles belong to a simulation that is now gone
             _cinematic.Reset();
             _lineLoss.Reset();
+            _spareVolley.Reset();
+            _volleyPending = _volleyCounting = false;
             _cinematicSubject.Clear();
 
             //And a chapter intro caught mid-tour by the same — quitting to the main menu during one, say —

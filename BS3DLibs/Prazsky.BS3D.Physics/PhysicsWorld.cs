@@ -433,6 +433,19 @@ namespace Prazsky.BS3D.Physics
         }
 
         /// <summary>
+        /// A ball stamped from the shot's template with <b>no</b> contact listener: a ball nobody waits on to land, which
+        /// resolves nothing and scores nothing (#881, the unused balls fired off once a level is cleared). The caller keeps it
+        /// with the released balls, which are drawn, interpolated and culled at the kill plane the same way.
+        /// </summary>
+        public BodyReference AddLooseBall(Vector3 position, Vector3 velocity)
+        {
+            BodyDescription description = _shotBallTemplate;
+            description.Pose.Position = position;
+            description.Velocity.Linear = velocity;
+            return new BodyReference(Simulation.Bodies.Add(description), Simulation.Bodies);
+        }
+
+        /// <summary>
         /// Takes a ball's body out of the simulation, unregistering its contact listener first if it still has
         /// one. The single primitive under every removal path in both executables — the Testbed's
         /// <c>RemoveDynamicBalls</c> and <c>RemoveFallenBalls</c> and the Game's <c>RemoveFallenBalls</c> — all

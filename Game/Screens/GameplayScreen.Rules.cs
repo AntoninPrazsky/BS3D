@@ -700,11 +700,20 @@ namespace BS3D.Screens
             //on the world's clock, which the cut's slow motion stretches past what the cleared beat has room for
             _hud.BirthWaitingAwards(_cinematic.Engaged);
 
-            //What the unused balls were worth, shown like any award (#846) and said in words (#881): "12 UNUSED BALLS" over
-            //the figure, born over the aim point a moment after the clearing shot's own award, read for AwardZoom.BONUS_HOLD
-            //and flown into the score, which takes it on arrival. The balls are the ones the keeper recorded paying for, not
-            //ShotsRemaining, which a player firing into the emptied field moves. Nothing on a level with no budget: no bonus.
-            if (bonus > 0) _hud.AddBonus(bonus, _run.Score.UnusedShotsAwarded);
+            //What the unused balls were worth (#846), said in words and now shown being earned (#881): once the drop cinematic has
+            //let the lens go, the gun fires them off from a camera beside it and "12 UNUSED BALLS" counts up over the figure a ball
+            //at a time, then flies into the score, which takes it on arrival (StepSpareVolley). The balls are the ones the keeper
+            //recorded paying for, not ShotsRemaining, which a player firing into the emptied field moves. Nothing on a level with
+            //no budget: no bonus. A bonus with no balls behind it (none recorded) is thrown as it always was
+            int unused = _run.Score.UnusedShotsAwarded;
+            if (bonus > 0 && unused > 0)
+            {
+                _volleyPending = true;
+                _volleyBalls = unused;
+                _volleyBonus = bonus;
+                _hud.HoldBonusCount(bonus, unused);
+            }
+            else if (bonus > 0) _hud.AddBonus(bonus, unused);
 
             Console.WriteLine($"[level] Cleared '{LevelName(_run.Index)}' with {_run.Score.Score}"
                 + $" (+{bonus} for {_run.Score.ShotsRemaining?.ToString() ?? "unlimited"} unused)"
