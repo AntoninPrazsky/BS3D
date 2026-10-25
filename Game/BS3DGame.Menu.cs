@@ -1646,8 +1646,13 @@ namespace BS3D
                 return;
             }
 
+            //The saved campaign continued: the scene's intro first, to settle a player back in (#870)
             int next = ContinueLevel;
-            if (next >= 0) StartGameAt(next);
+            if (next >= 0)
+            {
+                _gameplayScreen.RequestWelcomeTour();
+                StartGameAt(next);
+            }
             else OpenLevelSelect();
         }
 

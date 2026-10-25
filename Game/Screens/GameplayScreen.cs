@@ -1073,6 +1073,9 @@ namespace BS3D.Screens
         //block's own opening level must not replay it a second time in the same sitting.
         private readonly HashSet<int> _chapterIntroShown = new();
 
+        //A Continue from the main menu asked for the scene's intro whatever the level (#870): consumed by the next build
+        private bool _welcomeTourRequested;
+
         /// <summary>
         /// True while either camera takeover holds the frame — the drop cinematic or the chapter's
         /// establishing shot — which is everywhere the gun must not answer and a skip button means "let go of
