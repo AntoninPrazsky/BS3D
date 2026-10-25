@@ -396,11 +396,11 @@ namespace BS3D.Effects
         //sky reflection is turned off entirely, for the reason in GlyphIndex.
         private static readonly Vector3 OUTLINE_MATERIAL = new(0.008f, 0.008f, 0.010f);
 
-        //=== HIGH AND ULTRA: THE LOGO (#929) ===
+        //=== THE LOGO (#929; every tier since #981) ===
 
         //The owner on the wordmark at High and Ultra: "not detailed and sharp enough, and it does not match the PNG
-        //logo". So at those two tiers (QualityPreset.FineMeshes, the scenes' own High/Ultra switch, #758) the title is
-        //the logo of Images/logo in three dimensions: the logo's own colour on each letter (PNG_LETTERS), a dark
+        //logo"; and later, of the rainbow left below them, "so that we do not have two different logos". So on every
+        //tier the title is the logo of Images/logo in three dimensions: the logo's own colour on each letter (PNG_LETTERS), a dark
         //violet keyline and a violet line round every letter (FINE_KEYLINE_*, FINE_OUTLINE_*), the last word sitting
         //on a violet disc (the DISC_* figures), the lines centred over one another as the logo stacks them, and the
         //letters shaded by a studio light of their own (Wordmark.fx) - a crisp white streak along every stroke and the
@@ -408,8 +408,8 @@ namespace BS3D.Effects
         //itself and the resolve lays them over the frame without the curve, the grain or the lens's colour fringe
         //(PostProcessPipeline.DisplayReferredLayer), which is most of "sharp": at the frame's corner the fringe
         //alone split a letter's edge into red and blue about two pixels either way at 4K, and the grain is strongest
-        //in exactly the mid-tones a saturated letter sits in. Low and Medium keep the rainbow wordmark below, and
-        //the Potato path never has this effect at all.
+        //in exactly the mid-tones a saturated letter sits in. Low and Medium leave out its halo (Lean), and the Potato
+        //path, which never has this effect, draws the logo's composition through the instanced one (Draw).
 
         //Facets round a tube, rings in a dome and the arcs' chord tolerance at High and Ultra: the studio streak is
         //one crisp band and shows the facets and the three-ring domes the old soft gradient hid. All four shells
@@ -551,7 +551,7 @@ namespace BS3D.Effects
         //When the dance last started, on the wall clock Draw is handed; far in the past until it first does.
         private float _dancedAt = float.NegativeInfinity;
 
-        //THE HIGH AND ULTRA BUILD (#929), null on the Potato path, which has no such effect: the effect, its four
+        //THE LOGO BUILD (#929), null on the Potato path, which has no such effect: the effect, its four
         //techniques and the uniforms set per draw, cached at load.
         private readonly Effect _fineEffect;
         private readonly EffectPass _fineBodyPass, _fineDiscPass, _fineFlatPass, _fineGlowPass;
@@ -1131,7 +1131,7 @@ namespace BS3D.Effects
         /// </para>
         /// </remarks>
         /// <returns>
-        /// Whether what was drawn is the High and Ultra build (#929), whose colours are display-referred: the host then
+        /// Whether what was drawn is the logo build (#929), whose colours are display-referred: the host then
         /// has to tell the resolve (<c>PostProcessPipeline.DisplayReferredLayer</c>) this frame, or they are tonemapped
         /// as light.
         /// </returns>
@@ -1286,6 +1286,21 @@ namespace BS3D.Effects
                 renderer.Draw(camera, _oneInstance, 1, _bodyParams, hue);
             }
 
+            //=== The badge's disc on the Potato path (#981), lit like the letters, straight after them as the logo build
+            //draws its own: it writes depth, so the rims after it test against it and stay in front of its face. Drawn
+            //after the rims it painted over the badge's dark rims and every line of SHOOTER that crosses it. ===
+            Matrix potatoDiscWorld = Matrix.Identity;
+            if (logo && _potatoDisc != null)
+            {
+                potatoDiscWorld = DiscWorld(camera, wallClock, cap, in blockToWorld);
+
+                //Its face looks at the lens, square to the sun above, so the light alone left it a navy hole: most of its
+                //violet arrives as its own glow, as the logo build's display-referred disc does
+                _potatoDisc.EmissiveTint = ColorSpace.SrgbToLinear(DISC_COLOUR_A) * POTATO_DISC_GLOW;
+                _oneInstance[0] = new ModelInstance(potatoDiscWorld, fullyOpen);
+                _potatoDisc.Draw(camera, _oneInstance, 1, _bodyParams, DISC_COLOUR_A);
+            }
+
             //=== Then the ghosts: an additive band of the letter's own colour, running from the letter's own
             //edge outwards, which the glare pass turns into the halo. FRONT faces culled so what is drawn is
             //the shell's FAR surface, behind the letter, and only what lies outside the letter survives. ===
@@ -1337,23 +1352,11 @@ namespace BS3D.Effects
                 renderer.Draw(camera, _oneInstance, 1, _outlineParams);
             }
 
-            //=== The badge's disc on the Potato path (#981): lit like the letters, then its rim by its far surface ===
+            //=== The badge's disc's rim on the Potato path (#981), by its far surface, as the keylines are ===
             if (logo && _potatoDisc != null)
             {
-                Matrix discWorld = DiscWorld(camera, wallClock, cap, in blockToWorld);
-
-                //Its face looks at the lens, square to the sun above, so the light alone left it a navy hole: most of its
-                //violet arrives as its own glow, as the logo build's display-referred disc does
-                //And it writes depth, which the shells before it do not, or its rim's far surface paints over it
-                _device.DepthStencilState = DepthStencilState.Default;
-                _device.RasterizerState = RasterizerState.CullCounterClockwise;
-                _potatoDisc.EmissiveTint = ColorSpace.SrgbToLinear(DISC_COLOUR_A) * POTATO_DISC_GLOW;
-                _oneInstance[0] = new ModelInstance(discWorld, fullyOpen);
-                _potatoDisc.Draw(camera, _oneInstance, 1, _bodyParams, DISC_COLOUR_A);
-
-                _device.DepthStencilState = DepthStencilState.DepthRead;
-                _device.RasterizerState = RasterizerState.CullClockwise;
                 _potatoDiscRim.EmissiveTint = ColorSpace.SrgbToLinear(BADGE_RIM_COLOUR);
+                _oneInstance[0] = new ModelInstance(potatoDiscWorld, fullyOpen);
                 _potatoDiscRim.Draw(camera, _oneInstance, 1, _outlineParams);
             }
 
@@ -1367,7 +1370,8 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// The High and Ultra build (#929), on the letter matrices <see cref="Draw"/> has solved: the bodies and the disc
+        /// The logo build (#929, every tier but the Potato path's since #981), on the letter matrices <see cref="Draw"/> has
+        /// solved: the bodies and the disc
         /// first (the only passes that write depth, so early-Z rejects the rims they cover, the reason the rainbow build
         /// draws its letters first), then the rims from the outside in - the additive halo, the violet line, the dark
         /// keyline, each drawn by its FAR surface (front faces culled, as the rainbow's keyline is) and each painting
