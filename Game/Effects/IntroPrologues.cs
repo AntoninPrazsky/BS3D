@@ -83,6 +83,8 @@ namespace BS3D.Effects
                 SceneKind.Tropical => TropicalIntroShots.Build(renderer, fieldOfView, random),
                 SceneKind.Dream => DreamIntroShots.Build(renderer, context.WallClock, fieldOfView, random),
                 SceneKind.Cavern => CavernIntroShots.Build(renderer, fieldOfView, random),
+                //#752: the big top had no prologue: the canvas, a seat in the stands, the performers' gate
+                SceneKind.Circus => CircusIntroShots.Build(renderer, fieldOfView, random),
                 SceneKind.Storm => StormIntroShots.Build(renderer, context.WallClock, fieldOfView, random),
                 SceneKind.Polar => PolarIntroShots.Build(renderer, fieldOfView, random),
                 //#559: the four off the Earth, on absolute lenses (see GridIntroShots) — the Moon's and Mars's

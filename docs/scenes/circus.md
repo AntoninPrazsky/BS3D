@@ -20,6 +20,10 @@ The twenty-first `SceneKind` (#690): **the inside of a circus tent between shows
 - **The beams come out of lamps, and the lamps turn.** Each spot is a dark can with a lens (`HitFixture`) on a rod from a square truss ring (`HitTruss`), turning about the can's middle (`PIVOT_TO_APEX`, matched by `FIXTURE_BACK * 0.5` in the shader) with the ring placed by the pivots, so the rod meets it at every angle. The lens is `LENS_GAIN` over the lamp's colour, past the glare threshold, with a halo (`LampGlows`) weighted by how squarely it faces the camera. `UpdateSpots` turns all five on the wall clock, slowly; the island's three wander over the cap, where a pool can be seen, not the funnel's glass.
 - **The footlights are real lights**: the drum is a vertical wall the overhead key grazes and stands **black** without them. `FOOTLIGHT_COUNT` lamps on the curb go through `SceneLights`, and the pass draws their lamps and pools from the same positions (`FootlightPosition`). **The island spots' pools** likewise: each of the three is a point light `POOL_LIFT` over its aim point (`SpotAim`, the answer `UpdateSpots` turns the lamp by). Four footlights and three pools (`POOL_COUNT`) make seven of `SceneLights`' eight slots; **the eighth stays free for the blast flash**.
 
+## The chapter intro
+
+`Game/Effects/CircusIntroShots.cs` (#752): *the canvas*, *the seats*, *the gate*; see "Big Top" in [the chapter intro's scene shots](../game-feedback/chapter-intro-scene-shots.md).
+
 ## Costs
 
 - At 2560x1440 it matches the other full-screen scenes (7.00 ms against the cavern's 6.88; `Sag_Chain.json`, `fpscap=600`, desktop, 2026-10-02): something common to them bounds the frame. The reduced program (`detail` at or under 0.5) drops the beams, the one part integrating five cones a pixel.
