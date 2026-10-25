@@ -79,6 +79,10 @@ namespace Prazsky.Core.Render
         //The flag, at its size 1: the pole's height, the bar along the cloth's top, the cloth's width and drop, and the
         //colours of the anodised pole and the cloth
         private const float FLAG_POLE = 2.4f, FLAG_BAR_Y = 2.3f, FLAG_WIDTH = 1.2f, FLAG_DROP = 0.78f;
+
+        /// <summary>The height of the bar the cloth hangs from (<see cref="FlagCloth"/>), at size 1: the polar camp's flag (#747) is
+        /// this cloth on a mast of its own.</summary>
+        internal const float FlagBarY = FLAG_BAR_Y;
         private static readonly Vector3 FLAG_METAL = new(0.50f, 0.50f, 0.49f), FLAG_CLOTH = new(0.52f, 0.52f, 0.50f);
 
         /// <param name="height">The Moon's ground AS DRAWN: <see cref="TerrainMirror.Moon"/> across the grid's own triangles

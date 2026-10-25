@@ -553,7 +553,10 @@ namespace Prazsky.Core.Render
             float field = ShaderMath.SmoothStep(0.05f, 0.55f, ShaderMath.Noise(p * 0.005f + new Vector2(19f)) + 0.34f);
             float clear = ShaderMath.SmoothStep(config.ClearingRadius * 0.8f, config.ClearingRadius * 1.5f, p.Length());
 
-            return slot * MathHelper.Clamp(field + ridge * 1.2f, 0f, 1f) * clear;
+            //The ice round the research camp (#747, Polar.fx's CampClear)
+            float camp = ShaderMath.SmoothStep(config.CampClearRadius, config.CampClearRadius * 1.5f, Vector2.Distance(p, config.CampCentre));
+
+            return slot * MathHelper.Clamp(field + ridge * 1.2f, 0f, 1f) * clear * camp;
         }
 
         #endregion
