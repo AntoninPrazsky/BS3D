@@ -166,6 +166,23 @@ namespace BS3D.Screens
         }
 
         /// <summary>
+        /// Draws the glass the cluster hangs from, in one of two slots of the scene pass (#1013: before the additive layers
+        /// from under the plate, last of the session's objects otherwise). It is translucent, so everything it should be
+        /// seen through has to be in the depth buffer and the frame already — and, since #299, it must not WRITE depth
+        /// itself, or the victory fireworks burst behind an invisible wall. That is why this goes through the host rather
+        /// than touching CeilingRenderer directly; the state and the reasoning live in <c>BS3DGame.DrawCeilingGlass</c>,
+        /// in one copy with the front end's preview plate.
+        /// </summary>
+        private void DrawCeilingPane()
+        {
+            //Squared, so the glass is unmistakable on the frame it steps and has thinned well before the slide
+            //ends — it marks the event rather than colouring the plate for the duration
+            Game.CeilingRenderer.EmissiveTint = _ceilingDescent.FlashColor * (_ceilingDescent.Flash * _ceilingDescent.Flash);
+
+            Game.DrawCeilingGlass(Game.CeilingRenderer, _ceiling.World);
+        }
+
+        /// <summary>
         /// Draws the aim beam. Coloured by what the far end means — the loaded ball's own tint where the shot
         /// sticks, <see cref="PREVIEW_REFUSED"/> where it certainly will not.
         /// </summary>
