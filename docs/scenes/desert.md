@@ -33,6 +33,14 @@ A Sahara erg: dunes to a hazed horizon, the round island standing in the sand. `
 
 Dome 6 (desert) and dome 14 (savanna) are **generated** like dome 8 ([The mountains](mountains.md)); the **bottom fifth keeps the old palettes' lowest rings to the digit** (the light rig reads it as `HorizonColor`). ⚠ A saturated blue goes violet through the tonemap and turned the savanna's yellow grass green.
 
+## The pyramids (#965)
+
+The owner reversed his own ruling of 2026-10-02 (#677, dunes only): "pyramids, realistically placed and rendered after the real pyramids ... players must feel: wow, that is beautiful". `Pyramids` (drawn by `DesertBackdrop` after the dunes, opaque, writing depth) stands the Giza group far out over the dunes, shaded by `Pyramid.fx`; references in `C:\Users\panrd\AI\sd\out\965-zimage` and `965-klein`.
+
+- **Giza's figures, compressed**: the sizes are the real ones at `SIZE_SCALE` 1.4 units a metre (Khufu 139 m today), the plan the real one (Khufu, Khafre, Menkaure on their diagonal, the queens east of Khufu and south of Menkaure, sides on the compass) drawn in by `SPACING_SCALE` 0.6, so the group stands inside the dunes' grid (extent 1000) with Khufu `NEAREST` 700 out on `BEARING`, behind the play view the Testbed opens on and the cluster's backdrop there. ⚠ The diagonal is turned `DIAGONAL_TURN` off the line of sight: straight away from the island, Khufu hid Khafre; the photographs show the three staggered side by side. Khafre's higher ground is added to its height (lifted, its foot stood on air). Each sits on the lowest dune under its corners and middle less `SINK`, so the sand meets every face.
+- **The stone** (`Pyramid.fx`): golden limestone in courses (`COURSE` 1.5), a tone a course and a dark line under each, faded as a course nears a pixel; weathering in patches and blocks gone a course high and a few long, staggered as masonry is laid; Khafre's pale casing at the top; sand drifted up the foot in the dunes' colour with a ragged top. ⚠ Weathering along a fixed axis (x + z) runs along one face and streaks it: each face takes its own horizontal. ⚠ Square broken blocks read as tiles.
+- **The light and the air**: the scene's sun on four flat faces and the sky's ambient kept low, so a lit face stands against a shaded one; the haze the desert's horizon colour at `HAZE` 1600, far lighter than the dunes' 420, or the group dissolves into the sky. No cast shadows (beyond the sun's map).
+
 ## Costs a change must compare against
 
 Testbed, dome 13, 1600x900 `ssaa` 2, `nocap`, the pass against `main`: **-0.02 ms** from the play camera (`campos=0,-4,30 camtarget=0,-2,-60`), **+0.35** across the dunes (`campos=35,-8,45 camtarget=70,-14,110`), **+0.27** from above (`campos=0,25,60 camtarget=30,-14,140`); three finite-difference normal taps would cost +1.60 / +1.53. The Game at High, 3840x1600: 11.40 ms (Rope's play view).
