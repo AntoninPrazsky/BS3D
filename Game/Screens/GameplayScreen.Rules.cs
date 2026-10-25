@@ -479,6 +479,11 @@ namespace BS3D.Screens
                 gamePosition, centre, Game.SceneViewpointAt, _random,
                 Game.IntroPrologue(GAME_FOV, _random, gamePosition, centre));
 
+            //The player's very first opening is seen whole (#1021, the owner: "the player has switched the game on for the very
+            //first time; let us let him see the opening animation"): a save with nothing cleared and this opening never seen
+            //through shows no skip hint and takes no skip, and the save records it once it has played to its end
+            _introWhole = !_run.Benchmark && Game.TotalStars == 0 && !Game.WasLessonTaught(FIRST_OPENING_LESSON);
+
             //One line per intro, in the manner of [cinematic]: a rare event — eleven times over the whole
             //campaign — and the shot is rolled, so this is the only record of what it actually chose.
             Console.WriteLine($"[intro] block '{set.BlockName(_run.Index)}' ({set.BlockNumber(_run.Index)}/{set.BlockCount}), "
@@ -493,6 +498,24 @@ namespace BS3D.Screens
         /// it was, nor the picker, the next level or a retry.
         /// </summary>
         internal void RequestWelcomeTour() => _welcomeTourRequested = true;
+
+        /// <summary>The save's record that the player has seen their first opening through (#1021); a lesson, as the tutorial's are.</summary>
+        internal const string FIRST_OPENING_LESSON = "opening";
+
+        //Whether the intro now playing is the player's first opening, to be seen whole (#1021, TryBeginChapterIntro)
+        private bool _introWhole;
+
+        /// <summary>
+        /// The first opening's end (#1021): once it has played through, the save says so and every later one can be skipped.
+        /// One left before its end (the game closed in it) is not recorded, so the next start shows it whole again.
+        /// </summary>
+        private void NoteFirstOpeningSeen()
+        {
+            if (!_introWhole || _chapterIntro.Running) return;
+            _introWhole = false;
+            Game.RecordLessonTaught(FIRST_OPENING_LESSON);
+            Console.WriteLine("[intro] the first opening seen whole: every later one can be skipped");
+        }
 
         /// <summary>
         /// Where the cinematic should look now: <see cref="DropFocus"/> over the released balls the kill plane

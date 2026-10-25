@@ -1101,7 +1101,8 @@ namespace BS3D.Screens
         {
             //Said in the run log, one line a skip, so a report that a button did not skip can be checked against what did
             if (_cinematic.TrySkip()) Console.WriteLine("[skip] drop cinematic");
-            if (_chapterIntro.TrySkip()) Console.WriteLine("[skip] chapter intro");
+            //Not the player's first opening (#1021), which is seen whole
+            if (!_introWhole && _chapterIntro.TrySkip()) Console.WriteLine("[skip] chapter intro");
             if (_spareVolley.TrySkip())
             {
                 Console.WriteLine("[skip] spare volley");
@@ -1702,7 +1703,8 @@ namespace BS3D.Screens
             if (_cinematic.Running)
                 _hud.UpdateSkipHint(elapsed, !LevelDecided, chapterIntro: false, _cinematic.Elapsed, float.MaxValue);
             else
-                _hud.UpdateSkipHint(elapsed, _chapterIntro.Running, chapterIntro: true, _chapterIntro.Elapsed, _chapterIntro.Remaining);
+                _hud.UpdateSkipHint(elapsed, _chapterIntro.Running && !_introWhole, chapterIntro: true, _chapterIntro.Elapsed, _chapterIntro.Remaining);
+            NoteFirstOpeningSeen();
 
             //The tutorial's card (#189): the settings row read here every frame, a camera takeover hiding it, and
             //a decided level ending it. A lesson just done is answered the way a point scored is — the HUD's own
