@@ -61,18 +61,55 @@ namespace BS3D.Effects
         private const float FLOCK_OFF_ARENA_RADIANS = 1.35f;
         private const float FLOCK_SECONDS = 2.9f;
 
+        //The scorpion (#966): a low lens this far from the burrow and this high over the sand, the burrow somewhere in the
+        //clearing at a radius between these, the lens easing in this much over the shot; the scorpion comes up this long into
+        //it and walks across the frame
+        private const float SCORPION_STAND = 3.4f, SCORPION_CLEARANCE = 0.85f, SCORPION_PUSH = 0.7f;
+        private const float SCORPION_INNER = 42f, SCORPION_OUTER = 70f;
+        private const float SCORPION_ONSET = 0.4f, SCORPION_SECONDS = 4.4f;
+
         /// <summary>The prologue for the desert being drawn, or null when there is no desert config.</summary>
-        public static IntroShot[] Build(SceneRenderer scenes, float fieldOfView, Random random)
+        public static IntroShot[] Build(SceneRenderer scenes, Func<float> clock, float fieldOfView, Random random)
         {
             if (scenes?.GetSceneConfig(SceneKind.Desert) is not DesertSceneConfig desert) return null;
 
             float Ground(float x, float z) => TerrainMirror.Desert(x, z, desert);
 
             IntroShot erg = Erg(Ground, fieldOfView, random);
+            IntroShot scorpion = Scorpion(scenes, clock, Ground, fieldOfView, random);
             IntroShot crest = Crest(desert, Ground, fieldOfView, random);
             IntroShot flock = Flock(desert, Ground, fieldOfView, random);
 
-            return flock == null ? new[] { erg, crest } : new[] { erg, crest, flock };
+            return flock == null ? new[] { erg, scorpion, crest } : new[] { erg, scorpion, crest, flock };
+        }
+
+        /// <summary>
+        /// A scorpion coming up out of the sand (#966, the owner's "players must feel: wow"): the lens low on the sand a few
+        /// lengths off a burrow in the clearing, easing in, and the scorpion cued to come up nose first in a puff of sand the
+        /// moment the shot is on screen (<see cref="SceneRenderer.CueDesertCritter"/>), then to walk across the frame.
+        /// </summary>
+        private static IntroShot Scorpion(SceneRenderer scenes, Func<float> clock, Func<float, float, float> ground, float fieldOfView,
+            Random random)
+        {
+            float bearing = AridIntroPaths.Roll(random, 0f, MathHelper.TwoPi);
+            Vector2 burrow = AridIntroPaths.Bearing(bearing) * AridIntroPaths.Roll(random, SCORPION_INNER, SCORPION_OUTER);
+            float view = AridIntroPaths.Roll(random, 0f, MathHelper.TwoPi);
+            Vector2 back = AridIntroPaths.Bearing(view);
+            Vector2 from = burrow + back * SCORPION_STAND, to = burrow + back * (SCORPION_STAND - SCORPION_PUSH);
+            Vector3[] path =
+            {
+                new(from.X, ground(from.X, from.Y) + SCORPION_CLEARANCE, from.Y),
+                new(to.X, ground(to.X, to.Y) + SCORPION_CLEARANCE * 0.9f, to.Y),
+            };
+            //Across the frame: square to the lens's line, to one side or the other. Yaw runs from +Z towards +X
+            Vector2 across = new Vector2(-back.Y, back.X) * (random.Next(2) == 0 ? 1f : -1f);
+            float yaw = MathF.Atan2(across.X, across.Y);
+            //The burrow a little back from the middle of the frame, so the walk crosses it
+            Vector2 start = burrow - across * 0.6f;
+            var look = new Vector3(burrow.X, ground(burrow.X, burrow.Y) + 0.25f, burrow.Y);
+
+            return new IntroShot("the scorpion", path, SCORPION_SECONDS, fieldOfView * 0.75f, lookAt: look,
+                onStart: () => scenes.CueDesertCritter(start, yaw, (clock?.Invoke() ?? 0f) + SCORPION_ONSET));
         }
 
         /// <summary>The establishing view: over the dunes looking back at the island standing in its clearing.</summary>
