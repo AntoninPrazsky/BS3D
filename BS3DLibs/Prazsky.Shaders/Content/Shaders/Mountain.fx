@@ -60,6 +60,7 @@ float RockSlope;
 float SnowSlope;
 float SnowlineLow;
 float SnowlineHigh;
+float LowlandSnowSlope;   //how much flatter the ground below the snowline must be to keep its snow (#959)
 
 //Fine rock relief: a normal-tilting height field on the rock faces, its amplitude and features per world unit
 float RockReliefStrength;
@@ -678,7 +679,14 @@ float4 MountainSurface(MountainVertexOutput input, float4 strata, uniform bool f
     //shoulder below and was bare rock round the island, which the darker rock of #504 turned near black. The
     //clearing's own ramp is what says "floor": flat and inside it, snow; up the range's foot, the snowline rules.
     float floorSnow = 1.0 - smoothstep(ClearingRadius, ClearingRadius + ClearingTransition * 0.6, length(worldPosition.xz));
-    float snowDetailed = slopeSnow * saturate(altSnow + 0.15 + floorSnow); //a little snow even on lower shoulders
+    //And the LOWLANDS are snow too where they are gentle (#959). The owner, of the chapter intro's pass between the
+    //peaks: "what is missing is snow during the fly-throughs in the lowlands, similar to the snow under the island". It
+    //snows here, so snow lies on every valley floor; below the snowline it only sheds sooner as the ground steepens -
+    //the same sharp slope band moved up by LowlandSnowSlope - so the floors are white and the foot of every flank is
+    //rock, where a lower snowline would have whitened the flanks too.
+    float lowlandSnow = smoothstep(0.5 - SNOW_EDGE, 0.5 + SNOW_EDGE,
+        smoothstep(RockSlope + LowlandSnowSlope, SnowSlope + LowlandSnowSlope, snowFacing));
+    float snowDetailed = max(slopeSnow * saturate(altSnow + 0.15 + floorSnow), lowlandSnow); //a little snow even on lower shoulders
 
     //Fade the snow/rock DETAIL to a smooth snowy value with distance (footprint): the sharp rock/snow split
     //aliases into a crawl on the far, stacked ranges, so smoothing it there leaves clean snowy peaks while the

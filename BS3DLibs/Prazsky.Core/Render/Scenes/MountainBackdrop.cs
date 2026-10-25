@@ -105,6 +105,7 @@ namespace Prazsky.Core.Render
             _mountainEffect.Parameters["RockColorLight"].SetValue(_mountainConfig.RockColorLight.ToVector3());
             _mountainEffect.Parameters["RockSlope"].SetValue(_mountainConfig.RockSlope);
             _mountainEffect.Parameters["SnowSlope"].SetValue(_mountainConfig.SnowSlope);
+            _mountainEffect.Parameters["LowlandSnowSlope"].SetValue(_mountainConfig.LowlandSnowSlope);
             _mountainEffect.Parameters["SnowlineLow"].SetValue(_mountainConfig.SnowlineLow);
             _mountainEffect.Parameters["SnowlineHigh"].SetValue(_mountainConfig.SnowlineHigh);
             _mountainEffect.Parameters["RockReliefStrength"].SetValue(_mountainConfig.RockReliefStrength);

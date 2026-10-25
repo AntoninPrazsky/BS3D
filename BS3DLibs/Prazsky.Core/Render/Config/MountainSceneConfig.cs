@@ -65,11 +65,20 @@ namespace Prazsky.Core.Render
         /// gullies, leaving a bare rock range in a scene it snows in.</summary>
         public float SnowSlope { get; set; } = 0.78f;
 
-        /// <summary>Altitude below which the snowline is bare rock.</summary>
+        /// <summary>Altitude below which the snowline is bare rock - on the steeper ground: below it the gentle ground keeps
+        /// its snow (<see cref="LowlandSnowSlope"/>).</summary>
         public float SnowlineLow { get; set; } = -15f;
 
         /// <summary>Altitude above which the snowline is snow.</summary>
         public float SnowlineHigh { get; set; } = 50f;
+
+        /// <summary>
+        /// How much flatter (in normal.y) the ground below the snowline must be than the slope band
+        /// (<see cref="RockSlope"/>..<see cref="SnowSlope"/>) to keep its snow (#959): the valley floors the chapter
+        /// intro's pass flies over are white, the foot of every flank stays rock. 0 would snow the lowlands as the
+        /// heights are snowed; at 1 no ground below the snowline is flat enough.
+        /// </summary>
+        public float LowlandSnowSlope { get; set; } = 0.15f;
 
         /// <summary>
         /// Fine rock relief: peak height of the normal-tilting height field on the rock faces.

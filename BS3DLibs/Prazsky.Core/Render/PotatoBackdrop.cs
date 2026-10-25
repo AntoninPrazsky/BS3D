@@ -798,14 +798,17 @@ namespace Prazsky.Core.Render
 
             //Mountain.fx's rule, at the middle of each of its bands: snow lies where the face is gentler than the middle of
             //RockSlope..SnowSlope and either above the middle of the snowline or on the clearing's floor (#504: the basin
-            //is snow), rock everywhere else. A triangle is one or the other; the desktop's edge is sharp too
+            //is snow), or anywhere gentler still by LowlandSnowSlope (#959: the valley floors); rock everywhere else. A
+            //triangle is one or the other; the desktop's edge is sharp too
             float slope = (config.RockSlope + config.SnowSlope) * 0.5f;
+            float lowlandSlope = slope + config.LowlandSnowSlope;
             float snowline = (config.SnowlineLow + config.SnowlineHigh) * 0.5f;
             float floor = config.ClearingRadius + config.ClearingTransition * 0.3f;
             bool Snowy(Vector3 a, Vector3 b, Vector3 c)
             {
                 Vector3 normal = Vector3.Normalize(Vector3.Cross(b - a, c - a));
                 if (MathF.Abs(normal.Y) < slope) return false;
+                if (MathF.Abs(normal.Y) >= lowlandSlope) return true;
                 Vector3 centre = (a + b + c) / 3f;
                 return centre.Y > snowline || MathF.Sqrt(centre.X * centre.X + centre.Z * centre.Z) < floor;
             }
