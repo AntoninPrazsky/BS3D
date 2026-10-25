@@ -938,7 +938,9 @@ namespace Prazsky.Core.Render
             Vector3 grass = Vector3.Lerp(config.GrassColor.ToVector3(), config.GrassColorDark.ToVector3(), 0.35f);
             backdrop.AddGround(graphicsDevice, potatoEffect, new PotatoTerrainMesh(graphicsDevice, SAVANNA_CELLS, SAVANNA_EXTENT, holeRadius, Height), grass);
 
-            var scatter = new MeadowScatter(graphicsDevice, config, MeadowScatter.DEFAULT_SEED, Height);
+            //The bench's feet are seated on the grid as drawn, not the field between its vertices (#1022)
+            var scatter = new MeadowScatter(graphicsDevice, config, MeadowScatter.DEFAULT_SEED, Height,
+                (x, z) => TerrainMirror.OnGrid(Height, SAVANNA_CELLS + 1, SAVANNA_EXTENT * 2f, x, z));
             backdrop._owned.Add(scatter);
             backdrop.AddScatter(graphicsDevice, potatoEffect, scatter.Buckets);
 

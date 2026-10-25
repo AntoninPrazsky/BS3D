@@ -39,8 +39,9 @@ namespace Prazsky.Core.Render
         private readonly BoundingFrustum _patchFrustum = new(Matrix.Identity);
         private readonly EffectTechnique _carvedTechnique, _carvedReducedTechnique, _carvedDepthTechnique, _bedTechnique, _waterTechnique;
 
-        private const int MEADOW_GRID_N = 220;
-        private const float MEADOW_EXTENT = 1200f;
+        //The camera grid's vertices a side and its extent: internal because the planting seats a bench's feet on the ground it draws
+        internal const int MEADOW_GRID_N = 220;
+        internal const float MEADOW_EXTENT = 1200f;
 
         //Look/tuning parameters (hills, clearing, grass colours, ambient, haze, wind, relief) and the
         //wildflowers now live in MeadowSceneConfig (Flowers = FlowersConfig); read from _meadowConfig.

@@ -148,6 +148,32 @@ namespace BS3D.Tests
         {
             var (vertices, indices, _) = MeadowScatter.BenchGeometry();
             Assert.Empty(MeshOpenness.OpenEdges(vertices, indices));
+            Assert.Equal(0, MeshOpenness.NonManifoldEdges(vertices, indices));
+        }
+
+        /// <summary>Each of the bench's two meshes is shut by itself (#1022): they are uploaded and drawn apart.</summary>
+        [Fact]
+        public void TheBenchsPlanksAndItsIronAreEachClosed()
+        {
+            foreach ((string part, (List<VertexPositionNormalTexture> v, List<short> idx, _)) in new[]
+                     { ("planks", MeadowScatter.BenchWoodGeometry()), ("iron", MeadowScatter.BenchIronGeometry()) })
+            {
+                List<(Vector3 A, Vector3 B)> open = MeshOpenness.OpenEdges(v, idx);
+                Assert.True(open.Count == 0, $"{open.Count} open edges on the bench's {part}, the first at {(open.Count > 0 ? open[0].A : Vector3.Zero)}");
+                Assert.Equal(0, MeshOpenness.NonManifoldEdges(v, idx));
+            }
+        }
+
+        /// <summary>
+        /// The check seen to fire on the bench's own slats (BestPractices section 10): with the last triangles of the planks (the
+        /// far end of the back's top slat) left out, the same count must find open edges, or a check that passes says nothing.
+        /// </summary>
+        [Fact]
+        public void ThePlanksWithAnEndLeftOffAreOpen()
+        {
+            var (vertices, indices, _) = MeadowScatter.BenchWoodGeometry();
+            List<short> cut = indices.Take(indices.Count - 12).ToList();
+            Assert.True(MeshOpenness.OpenEdges(vertices, cut).Count > 0, "a slat with its end left off was found shut");
         }
 
         /// <summary>The three shrubs' lobed masses: a sphere with its poles, as the planting builds them.</summary>
