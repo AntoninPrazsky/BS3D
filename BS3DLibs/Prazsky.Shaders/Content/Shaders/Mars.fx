@@ -681,7 +681,7 @@ float4 MarsGroundAt(float3 worldPosition, float3 meshNormal, bool onBank, bool d
 
     //The height field's stones are mounds of the plain's own dust now (#775): coloured basalt they were low dark mounds the
     //grid gave no silhouette, and from any distance dark ovals, holes in the ground. The rock is MarsBackdrop's geometry.
-    float3 albedo = lerp(rust, lerp(rust * 0.82, boulder, 0.3), rockMask);
+    float3 albedo = lerp(rust, lerp(rust * 0.93, boulder, 0.1), rockMask);
 
     //--- Lighting ------------------------------------------------------------------------------------
     float sunlight = CloudSunlight(worldPosition, SunDirection);
