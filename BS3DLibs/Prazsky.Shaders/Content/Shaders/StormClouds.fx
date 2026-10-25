@@ -84,6 +84,17 @@ float HorizonHazeDistance;
 
 //Where the field thins out towards the band's edges (#551): in from the narrowest one, the band's 560 across the
 //wind, by more than any Game camera stands off the arena.
+//THE BILLOWS (#953). The owner: "the clouds still have visible circles - they do not look like real clouds". The outline's
+//wobble below runs two noise octaves round a disc: a softer disc, still a disc, and a cell of them read as a heap of
+//cotton balls, where every reference (953-zimage, 953-klein) draws the cauliflower of a cumulonimbus, round lobes along
+//every edge with dark creases between them. So each puff's rim is SCALLOPED: BILLOW_LOBES_MIN to that plus three round
+//lobes, on its own seed, pushing the edge out at each lobe and in at each crease, the creases in shade. Analytic, one
+//atan2 and a cosine: a 3D noise on the puff's sphere did it too and cost the storm's frame 3.5 ms, the puffs' overdraw
+//being what it is.
+static const float BILLOW_LOBES_MIN = 5.0;
+static const float BILLOW_EDGE = 0.42;      //how far the lobes push the fringe out and the creases pull it in, in r squared
+static const float BILLOW_CREASE = 0.32;    //how dark a crease between lobes goes
+
 static const float STORM_FAR_THIN_START = 380.0;
 static const float STORM_FAR_THIN_END = 460.0;
 float HazeStrength;
@@ -211,11 +222,6 @@ float4 CloudPS(CloudVertexOutput input) : COLOR
                  + GradientNoise2(corner * 4.7 + seed * 91.0) * 0.22;
     float r2 = dot(corner, corner) * (1.0 + wobble);
 
-    //The soft edge. `EdgeSoftness` is where the falloff STARTS, so under it the puff has a solid middle and
-    //over it it is all fringe: this is the dial that decides body against wisp.
-    float body = smoothstep(1.0, EdgeSoftness, r2);
-    clip(body - 0.004);
-
     //--- The puff as a sphere -------------------------------------------------------------------------
     //A billboard has no normal of its own, so a flat one shades as a coin and a field of them reads as
     //paper. Reconstructing the SPHERE the disc is a section of costs one square root and is the whole
@@ -224,6 +230,16 @@ float4 CloudPS(CloudVertexOutput input) : COLOR
     float3 towardsEye = normalize(CameraPosition - input.WorldCentre);
     float z = sqrt(saturate(1.0 - saturate(r2)));
     float3 sphere = normalize(CameraRight * corner.x + CameraUp * corner.y + towardsEye * z);
+
+    //The billows (#953): see BILLOW_LOBES_MIN above. -1 in a crease, +1 at a lobe's crown, felt only towards the rim
+    float lobes = BILLOW_LOBES_MIN + floor(frac(seed * 7.31) * 4.0);
+    float billow = cos(atan2(corner.y, corner.x) * lobes + seed * 19.0) * saturate(r2 * 1.6);
+    r2 -= billow * BILLOW_EDGE * saturate(r2);
+
+    //The soft edge. `EdgeSoftness` is where the falloff STARTS, so under it the puff has a solid middle and
+    //over it it is all fringe: this is the dial that decides body against wisp.
+    float body = smoothstep(1.0, EdgeSoftness, r2);
+    clip(body - 0.004);
 
     //⚠ AND THEN BLENDED TOWARDS THE CELL'S OWN NORMAL, which is what stops the field reading as bubble
     //wrap. A puff shaded from its own disc alone gets a full light-to-dark gradient across it and a crisp
@@ -244,6 +260,9 @@ float4 CloudPS(CloudVertexOutput input) : COLOR
     float3 skyAmbient = lerp(HorizonColor, ZenithColor, upFacing);
 
     float3 color = cloud * (SunColor * ndotl + skyAmbient * AmbientStrength);
+
+    //The creases between the billows hold shade: the sun and the sky both see less of a fold (#953)
+    color *= 1.0 - BILLOW_CREASE * saturate(-billow * 1.6);
 
     //Where the puff stands in the layer. A storm is dark UNDERNEATH because the cloud above it is in the
     //way, and that is a property of the whole field rather than of any one puff - so it is taken from the
