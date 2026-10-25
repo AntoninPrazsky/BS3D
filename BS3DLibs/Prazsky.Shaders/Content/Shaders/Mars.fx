@@ -754,8 +754,10 @@ float3 CraterCells(float3 s, float frequency, float depth, float salt)
 float3 MoonBody(float3 dir, float3 moonDirection, float angularRadius, float3 albedo, float3 axes, float tilt,
                 float detail, float stickney, float pixelAngle, out float coverage)
 {
-    //The body's frame: across the sky and up it, tilted in the sky plane, and along the line of sight
-    float3 across = normalize(cross(float3(0.0, 1.0, 0.0), moonDirection));
+    //The body's frame: across the sky and up it, tilted in the sky plane, and along the line of sight (a moon a
+    //config stands at the zenith takes its "up" from +Z instead of the world's up)
+    float3 skyUp = abs(moonDirection.y) > 0.999 ? float3(0.0, 0.0, 1.0) : float3(0.0, 1.0, 0.0);
+    float3 across = normalize(cross(skyUp, moonDirection));
     float3 up = cross(moonDirection, across);
     float sine, cosine;
     sincos(tilt, sine, cosine);
@@ -803,9 +805,9 @@ float3 MoonBody(float3 dir, float3 moonDirection, float angularRadius, float3 al
     float viewCos = saturate(-dot(normal, dir));
     float lit = lerp(sunCos, 2.0 * sunCos / max(sunCos + viewCos, 1e-3), 0.6);
 
-    //Marsshine: from either moon Mars fills a great part of the sky, lit by the same sun, and it stands below the
-    //moon and behind the camera, about 1.8 planet radii from the moon for every one the camera stands above
-    //the planet's centre - so the side the camera sees is never black.
+    //Marsshine: from either moon Mars fills a great part of the sky, lit by the same sun. Its centre lies behind
+    //the camera and below it - the moon stands roughly 1.8 times as far from the camera as the camera does from
+    //the planet's centre - so the side the camera sees is the side Mars lights, and it is never black.
     float3 towardMars = normalize(-moonDirection * 1.8 - float3(0.0, 1.0, 0.0));
     float shine = saturate(dot(normal, towardMars));
 
