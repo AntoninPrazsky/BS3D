@@ -21,6 +21,10 @@ Sweeps for conventions no test covers. DocDrift and WindingCheck's winding judge
 - **Named exceptions, printed**: the sky dome (captured order, seen from inside), the editor's `WireBoxMesh` (inward on purpose) and the drain's `FunnelRimsMesh`, **wound wholly backwards** and harmless only because drawn `CullNone`. ⚠ Enrol the rims in `TwoSidedNormals`, or any culled pass, and they shade from the wrong side: rewind first.
 - ⚠ Every mesh is uploaded `WriteOnly` and MonoGame refuses `GetData` on it (`NotSupportedException`) though the DirectX read works; the tool flips the flag by reflection (nothing in the game does).
 
+### `--export-cannon <dir>`: the cannon for the website (#949)
+
+Not a check: the same WARP device and read-back, used to write the game's cannon (`CannonRig`'s six meshes and the figures that join them) as `cannon.bin` and `cannon.json` for the landing page's live canvas. What it writes and when to run it: "The live cannon" in [The website](../website.md).
+
 ### `--openness`: is every mesh shut? A gate (#974)
 
 `dotnet run --project Tools\WindingCheck -- --openness [--verbose] [--detail <text>] [--plant-open]`. A winding check says which way a face points and never whether the solid has a hole, and under back-face culling an open ring shows what is behind it through the wall (the hay roll, the savanna's knees, the palm's foot). The mode reads the same buffers and runs `MeshOpenness.ExposedLoops` (`Tests/BS3D.Tests/MeshOpenness.cs`, compiled into the tool: the code the logic tests stand on) over every mesh of every scene: the cannon rig, the island's ten shapes, the station's thrusters and the drain, the ball kinds' meshes (the saw blade, the Potato path's rock, ice block and studs), the forest, savanna, meadow, volcano and moon plantings, the palms, the bird, the city's props, the crate, the laser emitter, the trophy and the letters, the result page's party hat and podium. **Exit 1** when a mesh has an exposed ring that the table does not name, or more of them than its row allows.

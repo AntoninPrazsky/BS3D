@@ -6,6 +6,9 @@ module.exports = function (eleventyConfig) {
     eleventyConfig.addPassthroughCopy("src/css");
     eleventyConfig.addPassthroughCopy("src/fonts");
     eleventyConfig.addPassthroughCopy("src/img");
+    // The live cannon (#949): its script and the game's meshes Tools/WindingCheck --export-cannon writes
+    eleventyConfig.addPassthroughCopy("src/js");
+    eleventyConfig.addPassthroughCopy("src/cannon");
 
     // A post's date as a reader says it, for the blog (src/blog/*.md, tagged "posts" by blog.11tydata.json)
     eleventyConfig.addFilter("readableDate", (date) =>
