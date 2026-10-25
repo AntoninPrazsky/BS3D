@@ -206,6 +206,11 @@ float CraterLayer(float2 p, float seedOffset, float chance, out float ejecta)
 
 #include "Craters.fxh"
 #include "BankCover.fxh"
+#include "RoverTracks.fxh"
+
+//How much darker the ground the rover's wheels turned over is (#745): the dust skin is thin, and every rover photograph
+//shows its tracks as the darker ground under it
+static const float TRACK_DARKEN = 0.25;
 
 float CraterField(float2 p, out float ejecta)
 {
@@ -563,8 +568,16 @@ float4 MarsGroundAt(float3 worldPosition, float3 meshNormal, bool onBank, bool d
     float rockMask = smoothstep(0.03, 0.30, rockShape);
     float rockSurface = Fbm2BandLimited(worldPosition.xz * 0.42 + worldPosition.y * 0.24, 3, footprint * 0.42);
 
+    //The rover's tracks (#745, RoverTracks.fxh): pressed into the regolith, never over a rock or the island's bank. The
+    //full program's: the reduced one keeps its budget (the drifts and slabs go the same way, below)
+    TrackPrint track;
+    track.Height = 0.0;
+    track.Disturbed = 0.0;
+    if (detail) track = RoverTrack(worldPosition.xz, footprint);
+    float trackShare = (1.0 - rockMask) * (1.0 - buried);
+
     float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition,
-        lerp(smallCraters * (MicroReliefStrength * 3.0) + relief * MicroReliefStrength,
+        lerp(smallCraters * (MicroReliefStrength * 3.0) + relief * MicroReliefStrength + track.Height * trackShare,
             rockSurface * RockRelief, rockMask));
 
     ejecta = max(max(ejecta, smallEjecta * 0.5), big.Ejecta) * (1.0 - buried);
@@ -578,6 +591,7 @@ float4 MarsGroundAt(float3 worldPosition, float3 meshNormal, bool onBank, bool d
     float3 rust = lerp(RustColor, RustColorPale, saturate(broad * 1.5 + 0.35));
 
     rust = lerp(rust, RustColorPale * 1.18, saturate(ejecta * EjectaBrightness));
+    rust *= 1.0 - TRACK_DARKEN * track.Disturbed * trackShare;
 
     //The coarse grain is SMOOTH NOISE, not a hash per cell, since the skyline pass: it was two hashes held
     //constant over a 1.3- and a 5.5-unit square, stepping at their edges, and they drew a visible checkerboard
