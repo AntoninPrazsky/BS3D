@@ -65,9 +65,11 @@ $root = $env:BS3D_WEB_ROOT.TrimEnd('/')
 if ($Protocol -eq 'ftps') {
     if (-not $env:BS3D_WEB_PASSWORD) { throw 'BS3D_WEB_PASSWORD is not set (FTPS)' }
     # curl.exe, not PowerShell's alias of the same name; explicit TLS from the first byte, folders made as needed.
-    # ONE curl run carries every file over one connection and one login: a run per file (87 logins in a row) had the
-    # server drop the connection 38 files in. The pairs go in a config file, with forward slashes since a config file
-    # reads a backslash as an escape; a dropped transfer is retried, and the first that still fails ends the run
+    # ONE curl run carries every file over one connection and one login, not a login per file. The pairs go in a config
+    # file, with forward slashes since a config file
+    # reads a backslash as an escape. A dropped transfer is retried; one that still fails does not stop the others
+    # (the same picture was refused four times running while the rest went up), and every failure is named at the end
+    # from curl's own per-transfer exit code, since curl's exit code is only the last transfer's
     $config = New-TemporaryFile
     try {
         $pairs = for ($i = 0; $i -lt $files.Count; $i++) {
@@ -75,9 +77,14 @@ if ($Protocol -eq 'ftps') {
             "url = `"ftp://$hostName$root/$($relative[$i])`""
         }
         $pairs | Set-Content -Encoding ascii $config
-        curl.exe --silent --show-error --ssl-reqd --ftp-create-dirs --retry 3 --retry-all-errors --retry-delay 3 --fail-early `
-            --write-out "  %{url}\n" --user "$($env:BS3D_WEB_USER):$($env:BS3D_WEB_PASSWORD)" --config $config
-        if ($LASTEXITCODE -ne 0) { throw "upload failed (curl exit $LASTEXITCODE); the lines above are the files that made it" }
+        $failed = @()
+        curl.exe --silent --show-error --ssl-reqd --ftp-create-dirs --retry 3 --retry-all-errors --retry-delay 3 `
+            --write-out "%{exitcode} %{url}\n" --user "$($env:BS3D_WEB_USER):$($env:BS3D_WEB_PASSWORD)" --config $config |
+            ForEach-Object {
+                $code, $url = $_ -split ' ', 2
+                if ($code -eq '0') { Write-Host "  $url" } else { Write-Host "  FAILED (curl exit $code) $url"; $failed += $url }
+            }
+        if ($failed.Count -gt 0) { throw "$($failed.Count) of $($files.Count) uploads failed:`n  $($failed -join "`n  ")" }
     }
     finally {
         Remove-Item $config
