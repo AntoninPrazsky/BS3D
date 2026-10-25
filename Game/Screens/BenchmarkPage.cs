@@ -92,6 +92,20 @@ namespace BS3D.Screens
                 });
             }
 
+            //What the numbers recommend (BenchmarkVerdict), offered as an entry and never applied unasked
+            QualityLevel tier = Game.Quality;
+            QualityLevel recommended = BenchmarkVerdict.Recommend(tier, _results, _measured, out int decidedBy);
+            int hz = Game.DisplayRefreshHz > 0 ? Game.DisplayRefreshHz : 60;
+            string verdict = recommended < tier
+                ? string.Create(CultureInfo.InvariantCulture,
+                    $"{tier} drops frames in {SceneRenderer.SceneName(SEGMENTS[decidedBy])} ({_results[decidedBy].OverBudgetShare * 100f:0} % over {hz} Hz). {recommended} should hold it.")
+                : recommended > tier
+                    ? $"{tier} holds {hz} Hz in every scene with room to spare. {recommended} may hold it too."
+                    : $"{tier} holds your display's {hz} Hz.";
+            column.Widgets.Add(Paragraph(verdict, ProseMeasure));
+            if (recommended != tier && Game.CanOfferQuality)
+                column.Widgets.Add(MenuButton(recommended > tier ? $"Try {recommended}" : $"Use {recommended}", () => TakeOffer(recommended)));
+
             JsonObject system = Game.BenchmarkSystem();
             column.Widgets.Add(new Label
             {
@@ -101,6 +115,14 @@ namespace BS3D.Screens
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 20, 0, 20),
             });
+        }
+
+        //The offer taken: the tier on, and the page ready to run again on it
+        private void TakeOffer(QualityLevel tier)
+        {
+            Game.ChooseQuality(tier);
+            _phase = Phase.Idle;
+            Rebuild();
         }
 
         //A frame's budget: one frame of the display's refresh, or 60 Hz's where the display does not say
@@ -199,10 +221,13 @@ namespace BS3D.Screens
                     ["firstSecondsMedianMs"] = Math.Round(first.Median, 3),
                 });
             }
+            QualityLevel recommended = BenchmarkVerdict.Recommend(Game.Quality, _results, _measured, out _);
+            Console.WriteLine($"[bench] recommends {recommended} (ran at {Game.Quality})");
             Game.SaveBenchmark(new JsonObject
             {
                 ["when"] = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture),
                 ["budgetMs"] = Math.Round(Budget, 3),
+                ["recommended"] = recommended.ToString(),
                 ["system"] = system,
                 ["segments"] = segments,
             });
