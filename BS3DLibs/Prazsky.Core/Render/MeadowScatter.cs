@@ -44,7 +44,9 @@ namespace Prazsky.Core.Render
         //A willow's silver-green, paler and greyer than the oaks' (#609's third round)
         private static readonly Vector3 WILLOW_LEAF = new(0.140f, 0.210f, 0.090f);
         private static readonly Vector3 WILLOW_LEAF_DRY = new(0.180f, 0.230f, 0.110f);
-        private static readonly Vector3 BENCH_WOOD = new(0.200f, 0.150f, 0.095f);
+        private static readonly Vector3 BENCH_WOOD = new(0.160f, 0.132f, 0.102f);
+        //The bench's cast ends (#1022): iron painted a dark green-black, which the planks and the bright field both stand out from
+        private static readonly Vector3 BENCH_IRON = new(0.028f, 0.034f, 0.030f);
         private static readonly Vector3 SHRUB = new(0.085f, 0.200f, 0.040f);
         private static readonly Vector3 SHRUB_DRY = new(0.140f, 0.220f, 0.055f);
         private static readonly Vector3 STRAW = new(0.55f, 0.43f, 0.19f);
@@ -72,8 +74,15 @@ namespace Prazsky.Core.Render
         /// pond's crater cut into it (<see cref="TerrainMirror.Meadow"/>, #892), so a reed in the shallows stands on the
         /// pond's bed; the Potato path, whose grid has no cut, passes the field uncut (<see cref="TerrainMirror.MeadowGround"/>).
         /// Nothing is placed differently for it, only stood at another height.</param>
-        public MeadowScatter(GraphicsDevice device, MeadowSceneConfig config, int seed, Func<float, float, float> ground = null)
+        /// <param name="drawn">The surface the ground is DRAWN as, between its vertices (<see cref="TerrainMirror.OnGrid"/>): a
+        /// grid draws a plane through three of them where the field is curved, so a foot seated on the exact field can stand in
+        /// the air over a hollow cell. Null for the desktop's camera grid; the Potato path passes its own, 15 units a cell.
+        /// Only the bench's feet are seated on it (#1022).</param>
+        public MeadowScatter(GraphicsDevice device, MeadowSceneConfig config, int seed, Func<float, float, float> ground = null,
+            Func<float, float, float> drawn = null)
         {
+            Func<float, float, float> drawnOn = drawn ?? new Func<float, float, float>((x, z) => TerrainMirror.OnGrid(
+                (px, pz) => TerrainMirror.MeadowGround(px, pz, config), MeadowBackdrop.MEADOW_GRID_N, MeadowBackdrop.MEADOW_EXTENT, x, z));
             Func<float, float, float> standOn = ground ?? ((x, z) => TerrainMirror.Meadow(x, z, config));
             float height(float x, float z) => standOn(x, z);
             float pathLateral(float x, float z) => MeadowPath.Lateral(x, z, config);
@@ -169,12 +178,14 @@ namespace Prazsky.Core.Render
             PlantTree(0, knollX, knollZ, KNOLL_OAK_SCALE);
             var benchInstances = new List<ModelInstance>();
             PlantFigure benchFigure;
+            float[] benchFeet;
             {
                 //The bench's seat runs along its X; it faces +Z, turned to face the arena. Its size is in the mesh
                 //(BENCH_SCALE), so the instance's own scale stays 1 and BENCH_OUT is in world units.
                 (float bx, float bz, float yaw) = BenchStand(knollX, knollZ);
                 benchInstances.Add(At(bx, bz, 1f, yaw, BENCH_SINK, 0f, 0f));
                 benchFigure = BenchFigure(knollX, knollZ, stand(bx, bz));
+                benchFeet = BenchFeet(knollX, knollZ, stand, drawnOn);
             }
 
             //By the pond: willows on its far side from the arena, where the brook comes in
@@ -493,6 +504,10 @@ namespace Prazsky.Core.Render
             buckets.Add(new ScatterBucket(device, Own(BenchMesh(device)), benchInstances, BENCH_WOOD, BENCH_WOOD * 1.2f, dapple: 0f, bark: 0.35f,
                 detailOnly: false));
             AddShrubs(device, buckets, shrubMeshes, fineShrubs, shrubInstances, freeShrubs, tuftMeshes, stand, seed);
+            //The bench's cast ends, the planks' own instance in another colour (#1022). Made after the shrubs so that nothing
+            //owned before them moves in the list WindingCheck's openness table names its rows by.
+            buckets.Add(new ScatterBucket(device, Own(BenchIronMesh(device, benchFeet)), benchInstances, BENCH_IRON, BENCH_IRON * 1.2f, dapple: 0f, bark: 0f,
+                detailOnly: false));
             if (baleInstances.Count > 0)
                 buckets.Add(new ScatterBucket(device, bale, baleInstances, STRAW, STRAW * new Vector3(0.9f, 0.85f, 0.7f), dapple: 0.15f, bark: 0f,
                     detailOnly: false, straw: 1f));
@@ -690,11 +705,11 @@ namespace Prazsky.Core.Render
         //The bench under the old tree: how far its centre stands from the trunk's axis (BENCH_OUT, world units) and how far
         //round from the direction of the arena (BENCH_ROUND, radians). The bare ground round the foot is Meadow.fx's
         //TREE_BARE, which the grass tufts keep off; the trodden patch's edge is a smoothstep from TREE_BARE -
-        //TREE_BARE_EDGE to TREE_BARE + TREE_BARE_EDGE. The bench's back corner is its nearest to the trunk, 1.4 nearer than
-        //its centre at this turn, and BENCH_OUT puts it past that edge and past the oak's longest root (1.3 x 1.08 x 3.2 x
-        //KNOLL_OAK_SCALE, 5.15: the figure's widest trunk radius by its widest root spread, MeadowTreeMesh). It was 6 when
-        //the bench was half this size (#891).
-        internal const float BENCH_OUT = 6.6f;
+        //TREE_BARE_EDGE to TREE_BARE + TREE_BARE_EDGE. The bench's nearest point to the trunk is the top of its back's uprights,
+        //1.5 nearer than its centre at this turn, and BENCH_OUT puts it past that edge and past the oak's longest root
+        //(1.3 x 1.08 x 3.2 x KNOLL_OAK_SCALE, 5.15: the figure's widest trunk radius by its widest root spread,
+        //MeadowTreeMesh). It was 6 when the bench was half this size (#891) and 6.6 before its back leaned (#1022).
+        internal const float BENCH_OUT = 6.7f;
         private const float BENCH_ROUND = 0.55f;
         internal const float TREE_BARE = 4.8f;
         internal const float TREE_BARE_EDGE = 0.4f;
@@ -727,73 +742,103 @@ namespace Prazsky.Core.Render
 
         /// <summary>The bench as a figure (#893): the sphere round its mesh at <see cref="BenchWorld"/>.</summary>
         internal static PlantFigure BenchFigure(float knollX, float knollZ, float standY) =>
-            PlantFigure.Of(BenchGeometry().Bounds, BenchWorld(knollX, knollZ, standY), 0f);
+            PlantFigure.Of(MeadowBenchGeometry.Bounds(BENCH_SCALE), BenchWorld(knollX, knollZ, standY), 0f);
+
+        //How far a foot's bottom is buried under the ground it stands on (#1022), world units: the disc of a foot a few hundredths
+        //across stands on a slope, so its uphill side is under the ground by more than its centre is
+        internal const float FOOT_BURY = 0.08f;
+
+        /// <summary>
+        /// Where each of the bench's four feet ends, as its height over the mesh's origin (<see cref="BenchWorld"/>'s: the ground
+        /// under the bench's middle, less <see cref="BENCH_SINK"/>), in <see cref="MeadowBenchGeometry.FootSites"/>'s order
+        /// (#1022). The owner: "the bench has one leg in the air and does not come out of the ground ... a person sitting on it
+        /// would tip over". The knoll falls away under the front legs and the legs were as long as for level ground, so each
+        /// is now as long as the ground under it asks: its bottom <see cref="FOOT_BURY"/> under the LOWEST of what is under its
+        /// disc, in the exact field the planting stands on (<paramref name="standOn"/>) and in the surface the grid draws between
+        /// its vertices (<paramref name="drawn"/>, <see cref="TerrainMirror.OnGrid"/>: over a hollow cell the plane it draws is
+        /// under the field). The seat stays level; only the legs differ.
+        /// </summary>
+        internal static float[] BenchFeet(float knollX, float knollZ, Func<float, float, float> standOn, Func<float, float, float> drawn)
+        {
+            (float bx, float bz, float yaw) = BenchStand(knollX, knollZ);
+            float originY = standOn(bx, bz) - BENCH_SINK;
+            Matrix turn = Matrix.CreateRotationY(yaw);
+            float radius = MeadowBenchGeometry.FootRadius(BENCH_SCALE);
+
+            (float X, float Z)[] sites = MeadowBenchGeometry.FootSites(BENCH_SCALE);
+            var feet = new float[sites.Length];
+            for (int i = 0; i < sites.Length; i++)
+            {
+                Vector3 at = Vector3.Transform(new Vector3(sites[i].X, 0f, sites[i].Z), turn);
+                float x = bx + at.X, z = bz + at.Z;
+                float lowest = MathF.Min(standOn(x, z), drawn(x, z));
+                for (int k = 0; k < 8; k++)
+                {
+                    float px = x + MathF.Cos(k * MathHelper.PiOver4) * radius, pz = z + MathF.Sin(k * MathHelper.PiOver4) * radius;
+                    lowest = MathF.Min(lowest, MathF.Min(standOn(px, pz), drawn(px, pz)));
+                }
+
+                feet[i] = lowest - originY - FOOT_BURY;
+            }
+
+            return feet;
+        }
 
         //How much bigger the bench is than a real one at one unit to a metre (#891): the fence's own factor, as the bale's
-        //(BALE_SCALE), so it is set at the metre #698 set the fence at. Its 1.9 long, 0.5 high seat and 0.98 high back are a
-        //real bench (about 1.8 m long, 0.45 and 0.9 high) at one unit to a metre, and the scene's metre is two: at 1 it was
+        //(BALE_SCALE), so it is set at the metre #698 set the fence at. Its 1.9 long, 0.47 high seat and 0.92 high back
+        //(MeadowBenchGeometry) are a real bench (about 1.8 m long, 0.45 and 0.9 high) at one unit to a metre, and the scene's metre is two: at 1 it was
         //shorter than the knoll oak's trunk is thick (2.75 to 3.2) and the owner could hardly find it. The mesh is scaled,
         //not the instance, so BENCH_OUT stays in world units.
         private const float BENCH_SCALE = FENCE_SCALE;
 
         /// <summary>
-        /// A plain wooden bench (#609's third round), the references' bench under the tree at a path's end: a seat of
-        /// two planks along X on four legs, a back of one plank behind it, facing +Z, at the scene's metre
-        /// (<see cref="BENCH_SCALE"/>).
+        /// A park bench (#609's third round, #1022): the planks of a seat of five slats and a back of three
+        /// (<see cref="MeadowBenchGeometry.Wood"/>), at the scene's metre (<see cref="BENCH_SCALE"/>), facing +Z. The cast ends
+        /// they are bolted to are a mesh of their own, <see cref="BenchIronMesh"/>, in another colour.
         /// </summary>
         private static UploadedMesh BenchMesh(GraphicsDevice device)
         {
-            (List<VertexPositionNormalTexture> v, List<short> idx, BoundingSphere bounds) = BenchGeometry();
+            (List<VertexPositionNormalTexture> v, List<short> idx, BoundingSphere bounds) = BenchWoodGeometry();
             return new UploadedMesh(device, v, idx, bounds);
         }
 
-        /// <summary>The bench's vertices, indices and bounding sphere, with no device: <see cref="BenchMesh"/> uploads them.</summary>
-        internal static (List<VertexPositionNormalTexture> Vertices, List<short> Indices, BoundingSphere Bounds) BenchGeometry()
+        /// <summary>The bench's cast ends (<see cref="MeadowBenchGeometry.Iron"/>): the same frame and instance as <see cref="BenchMesh"/>.</summary>
+        private static UploadedMesh BenchIronMesh(GraphicsDevice device, float[] feet)
         {
-            var v = new List<VertexPositionNormalTexture>();
-            var idx = new List<short>();
-            const float k = BENCH_SCALE;
-            const float LENGTH = 1.9f, SEAT = 0.46f;
-            void Box(Vector3 centre, Vector3 half) => AddBox(v, idx, centre * k, half * k);
+            (List<VertexPositionNormalTexture> v, List<short> idx, BoundingSphere bounds) = BenchIronGeometry(feet);
+            return new UploadedMesh(device, v, idx, bounds);
+        }
 
-            Box(new Vector3(0f, SEAT, 0.1f), new Vector3(LENGTH * 0.5f, 0.035f, 0.11f));
-            Box(new Vector3(0f, SEAT, -0.14f), new Vector3(LENGTH * 0.5f, 0.035f, 0.11f));
-            Box(new Vector3(0f, SEAT + 0.42f, -0.3f), new Vector3(LENGTH * 0.5f, 0.1f, 0.03f));
-            foreach (float x in new[] { -LENGTH * 0.4f, LENGTH * 0.4f })
-            {
-                Box(new Vector3(x, SEAT * 0.5f - 0.1f, 0.14f), new Vector3(0.05f, SEAT * 0.5f + 0.1f, 0.05f));
-                Box(new Vector3(x, (SEAT + 0.52f) * 0.5f - 0.1f, -0.3f), new Vector3(0.05f, (SEAT + 0.52f) * 0.5f + 0.1f, 0.05f));
-            }
-            return (v, idx, new BoundingSphere(new Vector3(0f, 0.5f * k, 0f), 1.3f * k));
+        /// <summary>The bench's planks, with no device: <see cref="BenchMesh"/> uploads them. The sphere is the whole bench's.</summary>
+        internal static (List<VertexPositionNormalTexture> Vertices, List<short> Indices, BoundingSphere Bounds) BenchWoodGeometry()
+        {
+            (List<VertexPositionNormalTexture> v, List<short> idx) = MeadowBenchGeometry.Wood(BENCH_SCALE);
+            return (v, idx, MeadowBenchGeometry.Bounds(BENCH_SCALE));
+        }
+
+        /// <summary>The bench's cast ends, with no device: <see cref="BenchIronMesh"/> uploads them. The sphere is the whole bench's.
+        /// <paramref name="feet"/> is <see cref="BenchFeet"/>'s answer, or null for level ground.</summary>
+        internal static (List<VertexPositionNormalTexture> Vertices, List<short> Indices, BoundingSphere Bounds) BenchIronGeometry(float[] feet = null)
+        {
+            (List<VertexPositionNormalTexture> v, List<short> idx) = MeadowBenchGeometry.Iron(BENCH_SCALE, feet);
+
+            //The sphere the culling and the sun's map read holds the legs as made: a long one on the knoll's far side is past the
+            //figure's sphere (which the shot reads, and which is the bench's, not the legs')
+            BoundingSphere bounds = MeadowBenchGeometry.Bounds(BENCH_SCALE);
+            float farthest = 0f;
+            foreach (VertexPositionNormalTexture vertex in v) farthest = MathF.Max(farthest, Vector3.Distance(vertex.Position, bounds.Center));
+            return (v, idx, new BoundingSphere(bounds.Center, MathF.Max(bounds.Radius, farthest + 0.01f)));
         }
 
         /// <summary>
-        /// An axis-aligned box, its faces wound clockwise seen from outside (CLAUDE.md, "Triangle winding"): on each
-        /// face (u, w) span it with u × w the outward normal, and the triangles run (−u−w, −u+w, +u+w), whose
-        /// (b − a) × (c − a) is w × u — the inward normal, which is what this renderer draws as the front.
+        /// The whole bench as one list, planks then iron, with its bounding sphere: what the tests measure (its length, its
+        /// sphere, its nearest corner to the trunk, whether it is shut) and what a figure is taken off (<see cref="BenchFigure"/>).
+        /// The two are drawn as two meshes in two colours.
         /// </summary>
-        private static void AddBox(List<VertexPositionNormalTexture> v, List<short> idx, Vector3 centre, Vector3 half)
+        internal static (List<VertexPositionNormalTexture> Vertices, List<short> Indices, BoundingSphere Bounds) BenchGeometry()
         {
-            (Vector3 N, Vector3 U, Vector3 W)[] faces =
-            {
-                (Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ), (-Vector3.UnitX, Vector3.UnitZ, Vector3.UnitY),
-                (Vector3.UnitY, Vector3.UnitZ, Vector3.UnitX), (-Vector3.UnitY, Vector3.UnitX, Vector3.UnitZ),
-                (Vector3.UnitZ, Vector3.UnitX, Vector3.UnitY), (-Vector3.UnitZ, Vector3.UnitY, Vector3.UnitX),
-            };
-            foreach ((Vector3 n, Vector3 u, Vector3 w) in faces)
-            {
-                Vector3 c = centre + n * Vector3.Dot(half, Abs(n));
-                Vector3 du = u * Vector3.Dot(half, Abs(u)), dw = w * Vector3.Dot(half, Abs(w));
-                short b = (short)v.Count;
-                v.Add(new VertexPositionNormalTexture(c - du - dw, n, Vector2.Zero));
-                v.Add(new VertexPositionNormalTexture(c - du + dw, n, Vector2.UnitY));
-                v.Add(new VertexPositionNormalTexture(c + du + dw, n, Vector2.One));
-                v.Add(new VertexPositionNormalTexture(c + du - dw, n, Vector2.UnitX));
-                idx.Add(b); idx.Add((short)(b + 1)); idx.Add((short)(b + 2));
-                idx.Add(b); idx.Add((short)(b + 2)); idx.Add((short)(b + 3));
-            }
-
-            static Vector3 Abs(Vector3 a) => new(MathF.Abs(a.X), MathF.Abs(a.Y), MathF.Abs(a.Z));
+            (List<VertexPositionNormalTexture> v, List<short> idx) = MeadowBenchGeometry.Both(BENCH_SCALE);
+            return (v, idx, MeadowBenchGeometry.Bounds(BENCH_SCALE));
         }
 
         //How much bigger the fence is than a field fence would be at this world's metre (#698). The owner: the trees are the
