@@ -89,6 +89,9 @@ namespace Prazsky.Core.Render
         private StaticInstances[] _tropicalScrubInstances;
         private StaticInstances[] _tropicalTuftInstances;
         private StaticInstances[] _tropicalDriftInstances;
+        //The root mats round the palms' feet (#754): a few variants, an instance a palm, not leaned with it
+        private PalmFootMesh[] _palmFootMeshes;
+        private StaticInstances[] _palmFootInstances;
 
         /// <summary>
         /// One variant's placed instances, uploaded once when the beach is planted (#589) — the savanna's
@@ -121,6 +124,11 @@ namespace Prazsky.Core.Render
         //Colours, stored from the config so the per-draw DiffuseColor can be set as each part draws.
         private Vector3 _palmFrondColor, _palmFrondDry, _palmTrunkColor, _tropicalStoneColor, _tropicalMossColor;
         private Vector3 _tropicalScrubColor, _tropicalTuftColor, _tropicalDriftColor;
+
+        //The roots' fibre (linear): darker and browner than the trunk's grey bark, the colour of the coir a husk is made of
+        //where the references' root mats lie over the sand (#754)
+        private static readonly Vector3 PALM_ROOT_COLOR = new(0.055f, 0.038f, 0.024f);
+        private const int PALM_FOOT_VARIANTS = 3;
 
         private EffectTechnique _palmTechnique, _palmShadowTechnique;
 
@@ -326,6 +334,11 @@ namespace Prazsky.Core.Render
                 _palmDryness[m] = (float)rng.NextDouble();
             }
 
+            _palmFootMeshes = new PalmFootMesh[PALM_FOOT_VARIANTS];
+            for (int m = 0; m < PALM_FOOT_VARIANTS; m++) _palmFootMeshes[m] = new PalmFootMesh(_graphicsDevice, 6300 + m);
+            var footBuckets = new List<ModelInstance>[PALM_FOOT_VARIANTS];
+            for (int m = 0; m < PALM_FOOT_VARIANTS; m++) footBuckets[m] = new List<ModelInstance>();
+
             //--- The rock variants: the stone (RockMesh, the forest's own boulder) and its moss cap —
             //a low lathe dome whose rim is buried in the stone's upper flank and whose own irregularity
             //phase runs against the stone's, so where the green meets the grey is a ragged line that
@@ -493,6 +506,7 @@ namespace Prazsky.Core.Render
 
                 standing.Add(new ScatterSpacing.Footprint(x, z, halfWidth));
                 palmBuckets[variant].Add(new ModelInstance(world, Vector4.Zero));
+                AddPalmFoot(footBuckets, x, z, mesh.FootRadius * sizeScale);
                 //The figure's stem is the chord from the root to the crown; the trunk bows off that chord by a
                 //fraction of how far the crown stands off the root, so the stem is widened by that much.
                 Vector3 crownAt = Vector3.Transform(mesh.Crown, world);
@@ -650,6 +664,8 @@ namespace Prazsky.Core.Render
 
             _palmInstances = new StaticInstances[PALM_VARIANTS];
             for (int m = 0; m < PALM_VARIANTS; m++) _palmInstances[m] = new StaticInstances(_graphicsDevice, palmBuckets[m]);
+            _palmFootInstances = new StaticInstances[PALM_FOOT_VARIANTS];
+            for (int m = 0; m < PALM_FOOT_VARIANTS; m++) _palmFootInstances[m] = new StaticInstances(_graphicsDevice, footBuckets[m]);
             _tropicalRockInstances = new StaticInstances[ROCK_VARIANTS];
             for (int m = 0; m < ROCK_VARIANTS; m++) _tropicalRockInstances[m] = new StaticInstances(_graphicsDevice, rockBuckets[m]);
         }
@@ -716,6 +732,33 @@ namespace Prazsky.Core.Render
                 * Matrix.CreateTranslation(basePos);
         }
 
+        /// <summary>
+        /// One palm's root mat (#754): at the sand under the palm's root, scaled by its foot's radius, stood on the dune's own
+        /// slope rather than leaned with the palm, its variant and its turn taken off the place (not the planting's random
+        /// stream, which would move every rock and bush planted after the palms).
+        /// </summary>
+        private void AddPalmFoot(List<ModelInstance>[] buckets, float x, float z, float footRadius)
+        {
+            float ground = TerrainMirror.Tropical(x, z, _tropicalConfig);
+            const float e = 0.6f;
+            float dx = TerrainMirror.Tropical(x + e, z, _tropicalConfig) - TerrainMirror.Tropical(x - e, z, _tropicalConfig);
+            float dz = TerrainMirror.Tropical(x, z + e, _tropicalConfig) - TerrainMirror.Tropical(x, z - e, _tropicalConfig);
+            Vector3 up = Vector3.Normalize(new Vector3(-dx / (2f * e), 1f, -dz / (2f * e)));
+
+            float hash = MathF.Abs(MathF.Sin(x * 12.9898f + z * 78.233f) * 43758.547f);
+            hash -= MathF.Floor(hash);
+            int variant = Math.Min((int)(hash * PALM_FOOT_VARIANTS), PALM_FOOT_VARIANTS - 1);
+
+            //Up onto the slope: the shortest turn that carries +Y to the ground's normal
+            Vector3 axis = Vector3.Cross(Vector3.Up, up);
+            float tilt = MathF.Asin(MathHelper.Clamp(axis.Length(), 0f, 1f));
+            Matrix slope = axis.LengthSquared() > 1e-8f ? Matrix.CreateFromAxisAngle(Vector3.Normalize(axis), tilt) : Matrix.Identity;
+
+            Matrix world = Matrix.CreateScale(footRadius) * Matrix.CreateRotationY(hash * 61.0f) * slope
+                * Matrix.CreateTranslation(new Vector3(x, ground, z));
+            buckets[variant].Add(new ModelInstance(world, Vector4.Zero));
+        }
+
         private static void DisposeInstances(StaticInstances[] sets)
         {
             if (sets != null) foreach (StaticInstances set in sets) set.Dispose();
@@ -728,17 +771,20 @@ namespace Prazsky.Core.Render
         private void DisposeTropical()
         {
             if (_palmMeshes != null) foreach (PalmMesh mesh in _palmMeshes) mesh?.Dispose();
+            if (_palmFootMeshes != null) foreach (PalmFootMesh mesh in _palmFootMeshes) mesh?.Dispose();
             if (_tropicalScrubMeshes != null) foreach (FoliageMesh mesh in _tropicalScrubMeshes) mesh?.Dispose();
             if (_tropicalTuftMeshes != null) foreach (GrassTuftMesh mesh in _tropicalTuftMeshes) mesh?.Dispose();
             if (_tropicalDriftMeshes != null) foreach (DeadwoodMesh mesh in _tropicalDriftMeshes) mesh?.Dispose();
             if (_tropicalRockMeshes != null) foreach (RockMesh mesh in _tropicalRockMeshes) mesh?.Dispose();
             if (_tropicalMossMeshes != null) foreach (LatheMesh mesh in _tropicalMossMeshes) mesh?.Dispose();
             DisposeInstances(_palmInstances);
+            DisposeInstances(_palmFootInstances);
             DisposeInstances(_tropicalRockInstances);
             DisposeInstances(_tropicalScrubInstances);
             DisposeInstances(_tropicalTuftInstances);
             DisposeInstances(_tropicalDriftInstances);
             _palmMeshes = null;
+            _palmFootMeshes = null;
             _tropicalScrubMeshes = null;
             _tropicalTuftMeshes = null;
             _tropicalDriftMeshes = null;
@@ -887,6 +933,14 @@ namespace Prazsky.Core.Render
                 StaticInstances instances = _tropicalDriftInstances[m];
                 if (instances.Count == 0) continue;
                 DrawPalmPart(_tropicalDriftMeshes[m], instances, _tropicalDriftColor, dappleStrength: 0f, swayStrength: 0f);
+            }
+
+            //The palms' root mats (#754): no sway (a root does not move), no mottle
+            for (int m = 0; m < _palmFootMeshes.Length; m++)
+            {
+                StaticInstances instances = _palmFootInstances[m];
+                if (instances.Count == 0) continue;
+                DrawPalmPart(_palmFootMeshes[m], instances, PALM_ROOT_COLOR, dappleStrength: 0f, swayStrength: 0f);
             }
         }
 

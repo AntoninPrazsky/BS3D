@@ -54,6 +54,10 @@ namespace Prazsky.Core.Render
         /// so this bounds the crown's reach in every direction.</summary>
         public float FrondReach { get; }
 
+        /// <summary>The trunk's radius at its foot, the bole's flare included (<c>RootRadius</c> at the ground): what the
+        /// root mat round it (<see cref="PalmFootMesh"/>, #754) is scaled by.</summary>
+        public float FootRadius { get; }
+
         /// <summary>
         /// What a vertex belongs to, as the integer part of its UV.y (<c>Palm.fx</c>'s <c>PalmSurface</c> holds
         /// the same table). The live fronds take one code per AGE, so a crown can yellow from the outside in —
@@ -84,6 +88,7 @@ namespace Prazsky.Core.Render
             (Vector3 bowDir, float bow, Vector3 crown) = Bow(height, rng);
             Crown = crown;
             FrondReach = frondLength * 1.15f;
+            FootRadius = trunkRadius * 1.55f;
 
             Wood = new WoodMesh(device, trunkRadius, height, bowDir, bow, crown, rng);
             Fronds = new FrondMesh(device, crown, frondLength, rng);

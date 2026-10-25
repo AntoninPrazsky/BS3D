@@ -226,6 +226,11 @@ namespace BS3D.Tools.WindingCheck
                 yield return ($"PalmMesh[{s}]", () => new PalmMesh(d, tropical.Palms.TrunkRadius, tropical.Palms.Height,
                     tropical.Palms.FrondLength, 6100 + s));
             }
+            for (int m = 0; m < 3; m++)
+            {
+                int s = m;
+                yield return ($"PalmFootMesh[{s}]", () => new PalmFootMesh(d, 6300 + s));
+            }
             yield return ("BirdMesh", () => new BirdMesh(d));
             //The cavern's hall (#958): its rock (the shell seen from inside, the lake's bed from above), formations, crystals,
             //glowworms and shafts at Low and Medium's detail, and the Potato path's crystals
