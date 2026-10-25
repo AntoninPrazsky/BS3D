@@ -49,6 +49,9 @@ namespace BS3D.Screens
         private const float PROBE_AT = 3f;
         private readonly FrameProbe.Verdict[] _probes = new FrameProbe.Verdict[SEGMENTS.Length];
         private readonly float[] _probeMean = new float[SEGMENTS.Length], _probeSpread = new float[SEGMENTS.Length];
+        //The HDR scene's patches: how many texels were read (0: none, the Potato path), how many were NaN or infinite, the brightest
+        private readonly int[] _hdrRead = new int[SEGMENTS.Length], _hdrNonFinite = new int[SEGMENTS.Length];
+        private readonly float[] _hdrBrightest = new float[SEGMENTS.Length];
         private bool _probed, _skipNext;
 
         //The physics segment (PhysicsBench): stepped a frame's slice at a time so the window keeps answering on a slow machine;
@@ -131,7 +134,7 @@ namespace BS3D.Screens
             //A frame the probe found wrong is the surprise this page exists to find: said plainly, with where to send it
             for (int i = 0; i < _measured; i++)
                 if (_probes[i] != FrameProbe.Verdict.Ok)
-                    column.Widgets.Add(Paragraph($"{SceneRenderer.SceneName(SEGMENTS[i])} drew a {(_probes[i] == FrameProbe.Verdict.Black ? "black" : "one-colour")} frame: your graphics driver may not draw this game right. Please tell the author: Extras > {BS3DGame.NOTE_ENTRY}.", ProseMeasure));
+                    column.Widgets.Add(Paragraph($"{SceneRenderer.SceneName(SEGMENTS[i])} drew {ProbeFault(_probes[i])}: your graphics driver may not draw this game right. Please tell the author: Extras > {BS3DGame.NOTE_ENTRY}.", ProseMeasure));
 
             //What the numbers recommend (BenchmarkVerdict), offered as an entry and never applied unasked
             QualityLevel tier = Game.Quality;
@@ -158,17 +161,32 @@ namespace BS3D.Screens
             });
         }
 
+        //A failed probe in the page's words
+        private static string ProbeFault(FrameProbe.Verdict verdict) => verdict switch
+        {
+            FrameProbe.Verdict.Black => "a black frame",
+            FrameProbe.Verdict.Flat => "a one-colour frame",
+            _ => "broken values in its picture",
+        };
+
         /// <summary>Whether the game should read the next finished frame back for the probe: once a segment, a few seconds into its tour.</summary>
         internal bool WantsProbe => _phase == Phase.Touring && !_probed && _phaseSeconds >= PROBE_AT;
 
-        /// <summary>The frame read back (null when it could not be): the probe's verdict on this segment, and the next frame left out.</summary>
-        internal void TakeProbe(Color[] frame, int width, int height)
+        /// <summary>
+        /// The frame read back (null when it could not be) and <paramref name="hdrCount"/> texels of the HDR scene behind it:
+        /// the probe's verdict on this segment, and the next frame left out.
+        /// </summary>
+        internal void TakeProbe(Color[] frame, int width, int height, Microsoft.Xna.Framework.Graphics.PackedVector.HalfVector4[] hdr, int hdrCount)
         {
             _probed = true;
             _skipNext = true;
-            _probes[_segment] = FrameProbe.Check(frame, width, height, out _probeMean[_segment], out _probeSpread[_segment]);
+            int i = _segment;
+            _probes[i] = FrameProbe.Check(frame, width, height, out _probeMean[i], out _probeSpread[i]);
+            _hdrRead[i] = hdr == null ? 0 : hdrCount;
+            _hdrNonFinite[i] = _hdrRead[i] > 0 ? FrameProbe.CountNonFinite(hdr, hdrCount, out _hdrBrightest[i]) : 0;
+            if (_probes[i] == FrameProbe.Verdict.Ok && _hdrNonFinite[i] > 0) _probes[i] = FrameProbe.Verdict.NonFinite;
             Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
-                $"[bench] {SceneRenderer.SceneName(SEGMENTS[_segment])} frame {_probes[_segment]} (mean {_probeMean[_segment]:0.000}, spread {_probeSpread[_segment]:0.000})"));
+                $"[bench] {SceneRenderer.SceneName(SEGMENTS[i])} frame {_probes[i]} (mean {_probeMean[i]:0.000}, spread {_probeSpread[i]:0.000}; HDR {_hdrRead[i]} texels, {_hdrNonFinite[i]} not finite, brightest {_hdrBrightest[i]:0.00})"));
         }
 
         //The offer taken: the tier on, and the page ready to run again on it
@@ -207,6 +225,8 @@ namespace BS3D.Screens
             _settle.Clear();
             _probed = false;
             _probes[_segment] = FrameProbe.Verdict.Ok;
+            _hdrRead[_segment] = _hdrNonFinite[_segment] = 0;
+            _hdrBrightest[_segment] = 0f;
             _lastTick = Stopwatch.GetTimestamp();
             Console.WriteLine($"[bench] segment {_segment + 1}/{SEGMENTS.Length} {SceneRenderer.SceneName(SEGMENTS[_segment])}");
         }
@@ -326,6 +346,9 @@ namespace BS3D.Screens
                     ["firstSecondsWorstMs"] = Math.Round(first.Worst, 2),
                     ["firstSecondsMedianMs"] = Math.Round(first.Median, 3),
                     ["frame"] = _probes[i].ToString(),
+                    ["hdrTexels"] = _hdrRead[i],
+                    ["hdrNonFinite"] = _hdrNonFinite[i],
+                    ["hdrBrightest"] = Math.Round(_hdrBrightest[i], 3),
                 });
             }
             JsonObject physics = null;
