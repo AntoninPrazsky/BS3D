@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #988 benchmark, první etapa — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo: #988 (c59e4d06) Extras > Benchmark: prolétne úvodní túry Cavern, Neon City, Forest, Meadow na pevném seedu při hráčově úrovni, snímky volné (limit i čekání na kompozitor vypnuté, adaptivní sonda stojí), `FrameStats` (medián, p95, p99, 1 % low, nejhorší, podíl nad rozpočtem, první 1,5 s zvlášť), systémová zpráva, `[bench]` řádky, `Benchmark.json`, argument `benchmark`. Doc `docs/game-shell/benchmark.md`.
+- ⚠ Vypnutý `FrameLimitHz` nestačí: `PaceFrame` čeká na kompozitor a drží 13,34 ms.
+- ⚠ Stránka, která se změní, když stojí, potřebuje `InvalidateTree` + `Game.RebuildPage`.
+- Otevřené: doporučená úroveň z čísel, kontrolní snímky, fyzika zvlášť, Pi segmenty.
+
 ## 2026-10-25 — #991 ikony power-upů, #989 kupy k obzoru — desktop (RDT-PC), Claude Code (bs3d-21)
 - Hotovo: #991 (d2080e5f) piktogramy u čipů Swap/Brake/Cut (`PowerupPictograms`, signed distance pečené ve velikosti písma, `PowerupPictogramTests`); `PowerupKind` má vlastní soubor kvůli testům. Reference `991-zimage`/`991-klein` kreslí stejné tvary. `verdict-eye`.
 - Hotovo: #989 druhý krok (f38da57d) kupy až k obzoru na vlastní vzdálené rovině (vrstva nemá hloubku), vzdálené kupy 5 kroků, poloměr do půl buňky; hory (Broken) +1,08 ms.
