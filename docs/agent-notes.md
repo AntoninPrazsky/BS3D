@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #964 listí akácií podle referencí — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo: #964 (293721b6) změřen rozdíl proti referencím (tabulka na issue): list byl kapradina, koruna 3× světlejší a žlutá. Nový `TuftMask` (`LeafStrength` 4, dvakrát zpeřený list) pro akácie a trnité keře, tmavší zelenější `CanopyColor`/`CanopyDry`. +0,1 ms. `verdict-eye`, karta na stránce 25. 10.
+- ⚠ Hustší koruna (cover ×1,5) stála +1,6 ms pod korunou (overdraw kartiček u kamery); větší natočení kartiček +0,16 ms bez viditelného rozdílu. Obojí vynecháno.
+- ⚠ Testbed se stejnými argumenty občas zabere jiný výřez (posun kamery); páry před/po kontrolovat.
+- Otevřené: hvězdice větviček na konci větví, hustší rohož levněji, baobab má dál kapradiny.
+
 ## 2026-10-25 — #775 Mars jako z fotek roveru — desktop (RDT-PC), Claude Code (bs3d-21)
 - Hotovo: #775 (f53ad72a, 9fac92ed) kameny jsou geometrie (čedičový blok sopečky ve třech velikostech, v mýtině mimo stopu roveru, vrhají stín), štěrk v shaderu za `[branch]` na footprintu, tlumenější rez, světlejší měkké závěje, širší maska rovné země. `verdict-eye`, karta na stránce 25. 10.
 - ⚠ Tmavé ovály nebyly písek, ale kameny výškového pole: nízké hrboly bez obrysu. Teď mají barvu prachu (0,93 rzi).
