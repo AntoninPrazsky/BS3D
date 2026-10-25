@@ -60,6 +60,16 @@ So the ambient is low, cold and **deliberately non-zero**. At zero the balls wou
 
 `SpaceSceneConfig` uses **named nested objects, never arrays** (`NebulaOne`/`Two`/`Three`, `Stars`, `MilkyWay`, `Galaxies`, `Planet`, `Lighting`, `Volume`): the shape the map editor's `PropertyGrid` required (`IgnoreCollections = true`, so a list was invisible). The grid went in #522; the shape stays because a named group reads as a config where an index does not. Every other scene that says "the named-groups shape" means this paragraph.
 
+## The island: a station's deck (#954)
+
+The owner: the island "does not feel finished", and he asked for a space base, perhaps held up by simple rocket engines. It was the grid's machined disc with a square grid of seams. The references (`954-zimage`, `954-klein`) agree on a machined disc laid in radial wedge plates round a collar at the drain, a blue light strip running round the rim in a groove, a darker hull stepping in underneath and thruster pods hanging from it.
+
+- **The shape is `IslandShape.Station`** (`IslandMesh`): the machined top and chamfer, the rim's face, the strip's groove (`STATION_GROOVE_DEPTH`, `STATION_GROOVE_TOP`/`BOTTOM`), a second band and three steps in to a flat ring at `THRUSTER_MOUNT_Y`. The Grid keeps the plain machined disc.
+- **The material is its own technique** (`InstancedModelTriplanarStation`, `IslandStation.fxh`, selected by `InstancedModelRenderer.StationSurface`): polar seams cut as grooves (the normal leans into them), the collar uncut, then 16 wedges and 24 staggered (`STATION_RINGS`, `STATION_SPOKES`), plates of slightly different tones with a darker panel here and there, a round hatch on one plate in five, yellow and black hazard arcs inside the floor's arris (`STATION_HAZARD`), the seams' faint running light (`JointGlow`, #537), and the strip on the groove's face at a radiance that blooms, with its spill on the groove's floor and ceiling. The island's detail texture gives the metal its grain.
+- **The thrusters** are five pods on the mount ring (`ArenaIsland.THRUSTER_*`): a lathe shell in brushed steel, sky-lit like the hull, and a core inside the bell lit by its own emissive blue, steady (#401). ⚠ Wide and squat on purpose: the drop cinematic keeps its lens 1.5 under the drum (`STONE_CLEARANCE`), and a pod as long as the references' would stand in that band; the foot stops about 0.2 above it. WindingCheck joins shell and core (`Shell+Core`).
+- **Cost**: cheaper than the machined disc it replaces, which drew the four-octave relief (Testbed 3840x1600, ssaa 2, `nopost`, two pairs: play pose `campos=0,-2,34 camtarget=0,-9,0` 8.08 against 8.72 ms, from below `campos=18,-19,40 camtarget=0,-12,0` 8.46 against 8.75).
+- **The Potato path** draws the shape and the pods (their cores emissive there too) in the plain colour: it has no station technique.
+
 ## Cost
 
 A full-screen procedural pass, so the expensive parts sit behind **uniform-coherent `[branch]`es** (a nebula's angular falloff, the Milky Way's band mask, the planet's disc), and the pixel footprint is taken **once at the top of the pixel shader**, before any of them: a gradient operation inside a divergent branch is undefined, and that ordering is the only reason those branches are safe. Frame cost by tier: "The quality tier" in `docs/game-shell.md`.

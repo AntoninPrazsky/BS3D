@@ -337,6 +337,12 @@ namespace Prazsky.Core.Render
         private readonly SandDriftMesh _driftMesh;
         private readonly InstancedModelRenderer _driftRenderer;
         private readonly ModelInstance[] _driftInstance = new ModelInstance[1];
+
+        //The station's thrusters (#954): the pods' shells and their glowing cores, and where the five hang
+        private readonly LatheMesh _thrusterMesh, _thrusterCoreMesh;
+        private readonly InstancedModelRenderer _thrusterRenderer, _thrusterCoreRenderer;
+        private readonly BasicEffectParams _thrusterCoreParams;
+        private readonly ModelInstance[] _thrusterInstances = new ModelInstance[THRUSTER_COUNT];
         private bool _driftDrawn;
 
         private readonly FunnelMesh _funnelMesh;
@@ -397,6 +403,53 @@ namespace Prazsky.Core.Render
         private static readonly Vector3 DREAM_RECESS = new(RADIUS - 0.55f, RADIUS - 1.15f, 0.55f);
         private static readonly Vector3 DREAM_RING = new(IslandMesh.FloorRadius(RADIUS) - 0.45f, 0.09f, 1.1f);
 
+        //The space station's deck (#954): the ring seams round the drain (the collar's edge, then two rings between the
+        //wedge bands), how many wedges the bands are cut into, the hazard arcs inside the floor's arris, and the light strip
+        //in the rim's groove - a cool blue at a radiance that blooms, as every reference lights it.
+        private static readonly Vector3 STATION_RINGS = new(FUNNEL_TOP_RADIUS + 1.3f, FUNNEL_TOP_RADIUS + 4.6f, FUNNEL_TOP_RADIUS + 8f);
+        private static readonly Vector2 STATION_SPOKES = new(16f, 24f);
+        private static readonly Vector2 STATION_HAZARD = new(IslandMesh.FloorRadius(RADIUS) - 1.3f, IslandMesh.FloorRadius(RADIUS) - 0.25f);
+        private static readonly Vector4 STATION_STRIP = new(TOP_Y + IslandMesh.STATION_GROOVE_TOP + 0.01f,
+            TOP_Y + IslandMesh.STATION_GROOVE_BOTTOM - 0.01f, RADIUS - 0.05f, 2.2f);
+        private static readonly Vector3 STATION_STRIP_COLOR = new(0.30f, 0.62f, 1.55f);
+
+        //THE STATION'S THRUSTERS (#954): the owner asked for "rocket engines that hold it in place - just simple ones". Five
+        //pods hang from the hull's flat ring (IslandMesh.THRUSTER_MOUNT_Y), as both reference models hang them: a mount
+        //collar, a housing, a band, a throat and a bell, and inside the bell a glow of the strip's blue, steady (#401: no
+        //strobe). Wide and squat: their foot stops about 0.2 above the drop cinematic's clearance under the drum
+        //(DropCinematic's STONE_CLEARANCE, 1.5 under EDGE_HEIGHT), so no lens it keeps out of the island stands in a pod,
+        //and a pod as long as the references' would reach into it.
+        private const int THRUSTER_COUNT = 5;
+        private const float THRUSTER_RADIUS = RADIUS - 5.3f;
+        private const float THRUSTER_PHASE = 0.3f;
+        private static readonly Vector3 THRUSTER_COLOR = new(0.46f, 0.48f, 0.52f);
+        private static readonly Vector3 THRUSTER_GLOW = new(0.90f, 1.25f, 1.65f);
+
+        //The pod's outside, the mount at y 0 (a hair up into the hull) to the bell's lip, and the bell's glowing inside
+        private static readonly LathePoint[] THRUSTER_SHELL =
+        {
+            new(0f, 0.05f),
+            new(1.58f, 0.05f, crease: true),
+            new(1.58f, -0.22f, crease: true),   //the mount collar
+            new(1.27f, -0.28f, crease: true),
+            new(1.27f, -1.02f, crease: true),   //the housing
+            new(1.42f, -1.10f, crease: true),
+            new(1.42f, -1.22f, crease: true),   //a band
+            new(0.93f, -1.32f, crease: true),
+            new(0.69f, -1.40f),                 //the throat
+            new(0.93f, -1.60f),
+            new(1.20f, -1.80f),
+            new(1.32f, -1.90f, crease: true),   //the bell's lip
+            new(1.23f, -1.92f, crease: true)
+        };
+        private static readonly LathePoint[] THRUSTER_CORE =
+        {
+            new(1.23f, -1.92f, crease: true),
+            new(0.90f, -1.66f),
+            new(0.60f, -1.44f),
+            new(0f, -1.40f)
+        };
+
         //The dunes' pale sand (DesertSceneConfig.SandColorPale, brought to sRGB like STONE_COLOR): the drift's own
         //colour and the film of it on the desert island's top.
         private static readonly Vector3 SAND_DRIFT_COLOR = new(0.86f, 0.70f, 0.50f);
@@ -423,8 +476,9 @@ namespace Prazsky.Core.Render
             SceneKind.Mountain => new(new Vector3(0.50f, 0.52f, 0.55f), new Vector3(0.40f, 0.42f, 0.45f), 0.16f, 0.09f, 2f),
             //Stone gone green with moss
             SceneKind.Forest => new(new Vector3(0.45f, 0.49f, 0.40f), new Vector3(0.37f, 0.40f, 0.33f), 0.10f, 0.06f, 2f),
-            //Machined plates of pale metal on a dark hull
-            SceneKind.Space => new(new Vector3(0.44f, 0.46f, 0.50f), new Vector3(0.26f, 0.28f, 0.32f), 0.22f, 0.20f, 4f),
+            //Machined plates of pale metal on a dark hull - the station's deck a shade paler since #954, as the references
+            //lay it, so its plates read against the hull and the void
+            SceneKind.Space => new(new Vector3(0.54f, 0.56f, 0.60f), new Vector3(0.26f, 0.28f, 0.32f), 0.22f, 0.20f, 4f),
             //Polished pastel marble (#779): a pale ground the dream's own technique bands in the scene's palette (the swirl
             //carries the hue, so the base is near white), glassier than any stone. The Potato path, which has no marble,
             //keeps the pastel tint it shipped with.
@@ -546,19 +600,21 @@ namespace Prazsky.Core.Render
         //InstancedModelRenderer reduces the material to its luminance and multiplies by 1.25 before applying a
         //tint, so the tint that lands a colour exactly is that colour over the product.
         /// <summary>
-        /// THE ISLAND'S SHAPE PER SCENE (#533), resolved where its material is: which of the nine silhouettes
+        /// THE ISLAND'S SHAPE PER SCENE (#533), resolved where its material is: which of the ten silhouettes
         /// (<see cref="IslandShape"/>) a scene stands its cannon on. The families follow the ground each scene
         /// draws — a block of the volcano's own basalt, a floe on the two ice sheets, a weathered coral platform
-        /// where there is a sea, a machined disc where there is no ground at all, a poured plinth on the two
-        /// cities' rooftops, a monolith's stub on the outback's red soil and a landing pad cut into the Moon's
-        /// regolith (#538), and the authored stone for every scene whose ground is rock, sand, snow or grass.
+        /// where there is a sea, a machined disc on the grid, a space station's deck in space (#954), a melting pearl in
+        /// the dream (#779), a poured plinth on the two cities' rooftops, a monolith's stub on the outback's red soil and a
+        /// landing pad cut into the Moon's regolith (#538), and the authored stone for every scene whose ground is rock,
+        /// sand, snow or grass.
         /// </summary>
         private static IslandShape ShapeFor(SceneKind scene) => scene switch
         {
             SceneKind.Volcano => IslandShape.Basalt,
             SceneKind.Polar or SceneKind.Aurora => IslandShape.Ice,
             SceneKind.Tropical or SceneKind.Sea => IslandShape.Coral,
-            SceneKind.Space or SceneKind.Grid => IslandShape.Machined,
+            SceneKind.Space => IslandShape.Station,
+            SceneKind.Grid => IslandShape.Machined,
             SceneKind.City or SceneKind.NeonCity or SceneKind.Circus => IslandShape.Plinth,
             SceneKind.Outback => IslandShape.Monolith,
             SceneKind.Moon => IslandShape.Pad,
@@ -614,6 +670,8 @@ namespace Prazsky.Core.Render
             //The landing pad (#538): no joints anywhere (regolith does not pave), a faint relief. Its craters are
             //in the MESH (IslandMesh.PadCraters), not here: a crater is a hole, not a texture.
             IslandShape.Pad => new(5f, 0.006f, 0f, 0f, 0f, 0f, 0f, 0f, 4f, 0.010f),
+            //The station's deck (#954): its own technique cuts the plates, so no grid and no relief here
+            IslandShape.Station => new(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f),
             //The melting solid (#779): no joints and no relief - it is polished, and the dream's own technique draws no
             //height field at all (its swirl is its structure)
             IslandShape.Melt => new(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f),
@@ -742,6 +800,15 @@ namespace Prazsky.Core.Render
                 : Vector3.One;
             renderer.StrataSpacing = dressing.StrataSpacing;
             renderer.StrataStrength = dressing.StrataStrength;
+        }
+
+        private static void PushStation(InstancedModelRenderer renderer)
+        {
+            renderer.StationRings = STATION_RINGS;
+            renderer.StationSpokes = STATION_SPOKES;
+            renderer.StationHazard = STATION_HAZARD;
+            renderer.StationStrip = STATION_STRIP;
+            renderer.StationStripColor = STATION_STRIP_COLOR;
         }
 
         private static void PushDreamPalette(InstancedModelRenderer renderer)
@@ -977,12 +1044,29 @@ namespace Prazsky.Core.Render
             _world = Matrix.CreateTranslation(0f, TOP_Y, 0f);
             _drainWorld = Matrix.CreateTranslation(0f, TOP_Y - DISH_DEPTH, 0f);
 
-            _skyLit = new[] { _capRenderer, _bodyRenderer, _funnelRenderer, _funnelRimsRenderer, _driftRenderer };
+            //The station's thrusters (#954): brushed steel shells, sky-lit like the hull, and cores lit by their own glow
+            _thrusterMesh = new LatheMesh(device, THRUSTER_SHELL, 32);
+            _thrusterCoreMesh = new LatheMesh(device, THRUSTER_CORE, 32);
+            _thrusterRenderer = new InstancedModelRenderer(device, _thrusterMesh, THRUSTER_COLOR, instancingEffect)
+            {
+                Metalness = 0.6f,
+                SpecularAmbientStrength = 0.35f
+            };
+            _thrusterCoreRenderer = new InstancedModelRenderer(device, _thrusterCoreMesh, new Vector3(0.05f, 0.05f, 0.06f), instancingEffect);
+            _thrusterCoreParams = new BasicEffectParams(Vector3.One * sceneAmbientIntensity, Vector3.Zero, 16f, THRUSTER_GLOW);
+            for (int i = 0; i < THRUSTER_COUNT; i++)
+            {
+                float angle = THRUSTER_PHASE + MathHelper.TwoPi * i / THRUSTER_COUNT;
+                var mount = new Vector3(MathF.Cos(angle) * THRUSTER_RADIUS, TOP_Y + IslandMesh.THRUSTER_MOUNT_Y, MathF.Sin(angle) * THRUSTER_RADIUS);
+                _thrusterInstances[i] = new ModelInstance(Matrix.CreateTranslation(mount), new Vector4(0f, 0f, 0f, 1f));
+            }
+
+            _skyLit = new[] { _capRenderer, _bodyRenderer, _funnelRenderer, _funnelRimsRenderer, _driftRenderer, _thrusterRenderer };
         }
 
         /// <summary>
-        /// The four renderers that take the sky palette, in draw order — the stone, the concrete, the glass
-        /// and the gold — for a caller whose enrolment pass is change-driven rather than per-frame (the
+        /// The renderers that take the sky palette, in draw order — the stone, the concrete, the glass, the gold, the
+        /// desert's drift and the station's thrusters — for a caller whose enrolment pass is change-driven rather than per-frame (the
         /// Game's iterator over its own objects). A fixed array built in the constructor: never rebuilt, and
         /// never an iterator. The pit is deliberately absent (see the class remarks).
         /// <para>
@@ -1130,6 +1214,16 @@ namespace Prazsky.Core.Render
             //The arid family (#538): the top dust blown clear round the drain
             _capRenderer.TopDustClear = new Vector2(dressing.DustClearRadius, 3f);
 
+            //The space station's deck (#954): its own technique on both, the plates, the hazard arcs and the light strip
+            bool station = scene == SceneKind.Space;
+            _capRenderer.StationSurface = station;
+            _bodyRenderer.StationSurface = station;
+            if (station)
+            {
+                PushStation(_capRenderer);
+                PushStation(_bodyRenderer);
+            }
+
             //The dream's melting island (#779): its own technique on both, the marble and the film, and the ring on the top
             bool dream = scene == SceneKind.Dream;
             _capRenderer.DreamSurface = dream;
@@ -1170,6 +1264,13 @@ namespace Prazsky.Core.Render
 
             //The drift (#550) is the desert's alone, and goes with the drum it leans on - in its own colour,
             //untinted.
+            //The station's thrusters (#954) go with the hull they hang from
+            if (station && (Members & ArenaMembers.Drum) != 0)
+            {
+                _thrusterRenderer.Draw(camera, _thrusterInstances, THRUSTER_COUNT, sceneParams);
+                _thrusterCoreRenderer.Draw(camera, _thrusterInstances, THRUSTER_COUNT, _thrusterCoreParams);
+            }
+
             _driftDrawn = scene == SceneKind.Desert && (Members & ArenaMembers.Drum) != 0;
             if (_driftDrawn)
             {
@@ -1364,6 +1465,10 @@ namespace Prazsky.Core.Render
             _funnelRimsRenderer?.Dispose();
             _driftRenderer?.Dispose();
             _driftMesh?.Dispose();
+            _thrusterRenderer?.Dispose();
+            _thrusterCoreRenderer?.Dispose();
+            _thrusterMesh?.Dispose();
+            _thrusterCoreMesh?.Dispose();
             _funnelRimsMesh?.Dispose();
 
             _pitRenderer?.Dispose();
