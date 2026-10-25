@@ -365,7 +365,7 @@ namespace Prazsky.Core.Render
             //water's width and the margin's put it, and a reed at the water's edge, from the shallows to the earth step,
             //its foot sunk by the ground's slope.
             var reedInstances = new List<ModelInstance>();
-            for (float d = config.ClearingRadius * MeadowPath.BROOK_START + 4f; d < 420f; d += 1.6f + 1.8f * (float)rng.NextDouble())
+            for (float d = config.ClearingRadius * MeadowPath.BROOK_START + 4f; d < MeadowCarve.BROOK_CARVE_FADE; d += 1.6f + 1.8f * (float)rng.NextDouble())
             {
                 float side = rng.Next(2) == 0 ? -1f : 1f;
                 //Not in the pond, whose own shore is planted below
