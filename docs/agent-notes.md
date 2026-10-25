@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #978 #982 #981 #951 mlhovina, logo, loga v About — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo: #978 (967eeb51) tyrkysová mlhovina je dvoubarevná (OIII jádro v červených vláknech) v měkké záři, podle referencí 978-zimage/klein; #982 (8bd38d44) disk odznaku se posouvá pod písmena podle paralaxy, yaw −0,27; #981 (ee1d6241, 9372ed17) Low/Medium kreslí logo z High bez aury (Low +0 ms, Medium +0,08), Potato kompozici loga přes instancovaný efekt; #951 (43747747) loga MonoGame a Bepu na Built on, mipmapy + anizotropní vzorkování. Vše `verdict-eye`, stránka https://claude.ai/artifact/3dzuLbU3uR3sd6MP5WwVh3 (db `verdicts`, ticho do 1. 11.).
+- ⚠ Revize #981 našla: Potato disk kreslený po obrysech přemaloval jejich okraje (obrysy nepíšou hloubku). Disk patří hned za těla písmen, jako v High buildu.
+- ⚠ CI na mainu ruší starší běhy novým pushem: zelený je až běh posledního merge.
+
 ## 2026-10-25 — #979 potůček teče z pramene do rybníka — desktop (RDT-PC), Claude Code (bs3d-21)
 - Hotovo (ec177f1f): změřeno `BrookWaterLevel` od ústí ven: rybník ležel 1,46 nad dnem údolí (posledních 30 jednotek teklo do kopce) a za hřebenem u d 206 potok stoupal o 16. Rybník je teď na dně údolí (`BROOK_START` 1,18), potok pramení pod hřebenem (`BROOK_CARVE_END` 190), malovaný potok zmizel. Vlnky jedou v souřadnicích toku, na strmém úseku rychlá vrstva s pěnou, čistá voda nad oblázky. Test `TheBrookFallsAllTheWayToThePond`, `mirrorcheck` PASS. `verdict-eye`.
 - Cena (hra, High, 3840x1581): záběr potoka v úvodu nejhůř 13,10 ms (dřív 12,81), pod 13,33; kamínky nestojí nic, rozdíl je obsah záběru (strmý úsek).
