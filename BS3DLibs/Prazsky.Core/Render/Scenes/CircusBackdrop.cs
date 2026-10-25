@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Generic;
 
 namespace Prazsky.Core.Render
 {
@@ -67,6 +68,12 @@ namespace Prazsky.Core.Render
         private const int POLE_SIDES = 16;
         private const float POLE_DEPTH_SHARE = 0.96f;
 
+        //The seats' and the curb's depth (#752's verdict): facets round the rake and the curb, and how far each depth face is
+        //pushed into its own solid, so the depth never covers a pixel the pass shaded as something in front of it
+        private const int SEAT_SEGMENTS = 128;
+        private const int CURB_SEGMENTS = 96;
+        private const float SOLID_DEPTH_INSET = 0.05f;
+
         private readonly GraphicsDevice _graphicsDevice;
         private readonly CircusSceneConfig _config = new();
 
@@ -86,6 +93,10 @@ namespace Prazsky.Core.Render
         private readonly VertexBuffer _floorVertices;
         private readonly IndexBuffer _floorIndices;
         private float _floorInnerRadius = -1f;
+
+        private readonly VertexBuffer _solidVertices;
+        private readonly IndexBuffer _solidIndices;
+        private readonly int _solidPrimitives;
 
         private readonly VertexBuffer _poleVertices;
         private readonly IndexBuffer _poleIndices;
@@ -129,6 +140,7 @@ namespace Prazsky.Core.Render
             _floorVertices = new VertexBuffer(_graphicsDevice, typeof(VertexPosition), (FLOOR_SEGMENTS + 1) * 2, BufferUsage.WriteOnly);
             _floorIndices = BuildFloorIndices();
             BuildPoles(out _poleVertices, out _poleIndices, out _polePrimitives);
+            BuildSolids(out _solidVertices, out _solidIndices, out _solidPrimitives);
         }
 
         /// <inheritdoc/>
@@ -375,6 +387,14 @@ namespace Prazsky.Core.Render
                 _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _polePrimitives);
             }
 
+            //And the seats' and the curb's (#752's verdict): the island stands inside both, and without their depth it was drawn
+            //in FRONT of the grandstands wherever they stand between it and the lens - the chapter intro's gate shot looks
+            //across the rake at it, and a low lens outside the ring across the curb at its foot
+            _graphicsDevice.SetVertexBuffer(_solidVertices);
+            _graphicsDevice.Indices = _solidIndices;
+            _floorDepthTechnique.Passes[0].Apply();
+            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _solidPrimitives);
+
             //Space's rule (SpaceBackdrop.Draw): the rest of the frame expects these
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
@@ -450,6 +470,81 @@ namespace Prazsky.Core.Render
             vertices.SetData(v);
             indices = new IndexBuffer(_graphicsDevice, IndexElementSize.SixteenBits, index.Length, BufferUsage.WriteOnly);
             indices.SetData(index);
+        }
+
+        /// <summary>
+        /// The seats and the curb as the solids the pass traces them as, for the depth pass (#752's verdict): the rake's cone
+        /// and the riser under its front row, both cut away across the performers' entrance exactly where <c>InEntrance</c>
+        /// cuts them, the entrance's two side walls, and the curb's inner face, top and outer face - each face pushed
+        /// <see cref="SOLID_DEPTH_INSET"/> into its own solid, as the poles are drawn thinner, so from wherever the lens
+        /// stands the depth lies a hair behind the surface the pass shaded. Built once off the config.
+        /// </summary>
+        private void BuildSolids(out VertexBuffer vertices, out IndexBuffer indices, out int primitives)
+        {
+            CircusSeatingConfig seats = _config.Seating;
+            CircusRingConfig ring = _config.Ring;
+            float floorY = ring.FloorY;
+            float frontY = floorY + seats.RowRise;
+            float topY = frontY + (seats.OuterRadius - seats.InnerRadius) * seats.RowRise / seats.RowDepth;
+            float entrance = MathHelper.ToRadians(seats.EntranceBearingDegrees);
+            float halfGap = seats.EntranceWidth * 0.5f / seats.InnerRadius;
+            float inset = SOLID_DEPTH_INSET;
+
+            var v = new List<VertexPosition>();
+            var index = new List<short>();
+
+            //A band of quads between two rings, round an arc of a turn: the ring points are (radius, y) at each end
+            void Band(float fromAngle, float span, int segments, Vector2 a, Vector2 b)
+            {
+                int first = v.Count;
+                for (int i = 0; i <= segments; i++)
+                {
+                    float angle = fromAngle + span * i / segments;
+                    float cos = MathF.Cos(angle), sin = MathF.Sin(angle);
+                    v.Add(new VertexPosition(new Vector3(cos * a.X, a.Y, sin * a.X)));
+                    v.Add(new VertexPosition(new Vector3(cos * b.X, b.Y, sin * b.X)));
+                }
+                for (int i = 0; i < segments; i++)
+                {
+                    short a0 = (short)(first + i * 2), b0 = (short)(a0 + 1), a1 = (short)(a0 + 2), b1 = (short)(a0 + 3);
+                    index.Add(a0); index.Add(b0); index.Add(a1);
+                    index.Add(a1); index.Add(b0); index.Add(b1);
+                }
+            }
+
+            //The rake and the riser, from one edge of the entrance round to the other, so no facet crosses the gap. Pushed
+            //outward, which on the rising cone is also down: into the seats from in front and from above alike.
+            float from = entrance + halfGap, span = MathHelper.TwoPi - 2f * halfGap;
+            Band(from, span, SEAT_SEGMENTS, new Vector2(seats.InnerRadius + inset, frontY - inset), new Vector2(seats.OuterRadius + inset, topY - inset));
+            Band(from, span, SEAT_SEGMENTS, new Vector2(seats.InnerRadius + inset, floorY), new Vector2(seats.InnerRadius + inset, frontY - inset));
+
+            //The entrance's side walls: radial planes from the front row back, up to the rake's line, each turned a hair into
+            //the seats on its own side
+            for (int side = -1; side <= 1; side += 2)
+            {
+                float bearing = entrance + side * (halfGap + inset / seats.InnerRadius);
+                float cos = MathF.Cos(bearing), sin = MathF.Sin(bearing);
+                short first = (short)v.Count;
+                v.Add(new VertexPosition(new Vector3(cos * seats.InnerRadius, floorY, sin * seats.InnerRadius)));
+                v.Add(new VertexPosition(new Vector3(cos * seats.OuterRadius, floorY, sin * seats.OuterRadius)));
+                v.Add(new VertexPosition(new Vector3(cos * seats.OuterRadius, topY - inset, sin * seats.OuterRadius)));
+                v.Add(new VertexPosition(new Vector3(cos * seats.InnerRadius, frontY - inset, sin * seats.InnerRadius)));
+                index.Add(first); index.Add((short)(first + 1)); index.Add((short)(first + 2));
+                index.Add(first); index.Add((short)(first + 2)); index.Add((short)(first + 3));
+            }
+
+            //The curb: its inner face out, its outer face in and its top down, all into the curb
+            float curbTop = floorY + ring.CurbHeight - inset;
+            float curbIn = ring.CurbRadius + inset, curbOut = ring.CurbRadius + ring.CurbThickness - inset;
+            Band(0f, MathHelper.TwoPi, CURB_SEGMENTS, new Vector2(curbIn, floorY), new Vector2(curbIn, curbTop));
+            Band(0f, MathHelper.TwoPi, CURB_SEGMENTS, new Vector2(curbIn, curbTop), new Vector2(curbOut, curbTop));
+            Band(0f, MathHelper.TwoPi, CURB_SEGMENTS, new Vector2(curbOut, curbTop), new Vector2(curbOut, floorY));
+
+            primitives = index.Count / 3;
+            vertices = new VertexBuffer(_graphicsDevice, typeof(VertexPosition), v.Count, BufferUsage.WriteOnly);
+            vertices.SetData(v.ToArray());
+            indices = new IndexBuffer(_graphicsDevice, IndexElementSize.SixteenBits, index.Count, BufferUsage.WriteOnly);
+            indices.SetData(index.ToArray());
         }
 
         private IndexBuffer BuildFloorIndices()
@@ -541,6 +636,8 @@ namespace Prazsky.Core.Render
             _floorIndices.Dispose();
             _poleVertices?.Dispose();
             _poleIndices?.Dispose();
+            _solidVertices?.Dispose();
+            _solidIndices?.Dispose();
             _wearMap?.Dispose();
             _wearMap = null;
         }
