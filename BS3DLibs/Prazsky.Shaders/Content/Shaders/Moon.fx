@@ -200,9 +200,6 @@ float NightAmbient;         //what the unlit side keeps, so it stays a sphere an
 //weakest exactly where it mattered most, and no amount of hashing could have hidden that.
 //
 //At 0.21 the worst case leaves 33 % of the cell and the median crater 55 % (the squared roll below).
-//How much darker the regolith the rover's wheels turned over is (#746)
-static const float TRACK_DARKEN = 0.22;
-
 static const float CRATER_MIN_RADIUS = 0.12;
 static const float CRATER_MAX_RADIUS = 0.21;
 
@@ -314,6 +311,9 @@ float CraterLayer(float2 p, float seedOffset, float chance, float2 sunDir, float
 #include "Craters.fxh"
 #include "BankCover.fxh"
 #include "RoverTracks.fxh"
+
+//How much darker the regolith the rover's wheels turned over is (#746)
+static const float TRACK_DARKEN = 0.22;
 
 //The crater field: three octaves, so small craters sit inside and on top of larger ones the way the real
 //surface is layered. Amplitudes fall roughly with the radius (a crater's depth scales with its size), and

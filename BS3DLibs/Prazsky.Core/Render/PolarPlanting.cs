@@ -72,7 +72,11 @@ namespace Prazsky.Core.Render
             Add(Station(), new[] { At(0f, 0f, 0f, 9f) }, 16f);
             Add(Turbine(), new[] { At(-14f, 5f, 0.5f, 1f) }, 7f);
             Add(Vehicle(), new[] { At(-4f, -12f, 0.35f, 2.5f) }, 4f);
-            Add(Sled(), new[] { At(-9.3f, -14.2f, 0.35f, 2f) }, 3f);
+            //The sled behind it on its tow line: the vehicle's tail and the sled's tow bar meet SLED_BEHIND back along the
+            //vehicle's nose (local +X turned by its own 0.35 in the camp's frame, which CreateRotationY makes (cos, -sin))
+            Vector2 nose = new(MathF.Cos(0.35f), -MathF.Sin(0.35f));
+            Vector2 sled = new Vector2(-4f, -12f) - nose * SLED_BEHIND;
+            Add(Sled(), new[] { At(sled.X, sled.Y, 0.35f, 2f) }, 3.3f);
             Add(Mast(), new[] { At(13f, -3.5f, 0f, 0.5f) }, 12f);
 
             //The flag: the Moon's frozen cloth (#746), at the mast's top and twice its own size
@@ -125,6 +129,9 @@ namespace Prazsky.Core.Render
         private static readonly (float X, float HalfLength, float Z)[] MODULES = { (-5f, 3.2f, 0f), (2.4f, 2.4f, 0.4f), (8.6f, 2.8f, -0.2f) };
         private const float DECK = 1.4f, MODULE_HALF_HEIGHT = 1.3f, MODULE_HALF_DEPTH = 1.6f;
         private const float MAST_HEIGHT = 11f;
+
+        //From the vehicle's middle to the sled's: the vehicle's tracks reach 2 back, the sled's tow bar 3.2 forward
+        private const float SLED_BEHIND = 5.3f;
 
         private static Dictionary<Vector3, MeshBuilder> Station()
         {
