@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #976 opotřebovaný Velký stan — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo: #976 (26e40d5e) stan je starý a používaný: plachta má vybledlé panely, švy pruhů se šmouhami, skvrny od vody, plíseň u okraje a záplaty; sedadla, piliny, obrubník a sloupy jsou opotřebované. Jen High. Reference v `976-zimage`/`976-klein`. `verdict-eye`, karta na stránce 25. 10.
+- ⚠ Opotřebení plachty počítané na každý pixel stálo 1,3–1,8 ms (7680x3200 pixelů každý snímek pro vzor, který se nehýbe): je vypálené jednou do mapy v `BeforeShadowMaps`, střecha ji čte jedním `tex2Dlod` (+0,15 ms). Pod větví zásahu nejde implicitní gradient, proto explicitní úroveň mipmapy z footprintu.
+- Otevřené: šněrování švů (jemnější než texel), praporky, hrazda a síť.
+
 ## 2026-10-25 — #954 vesmírná stanice — desktop (RDT-PC), Claude Code (bs3d-21)
 - Hotovo: #954 (dab19384) ostrov ve Vesmíru je paluba stanice: tvar `IslandShape.Station`, vlastní technika `InstancedModelTriplanarStation` (klínové pláty kolem límce, poklopy, výstražné oblouky, modrý pás v drážce okraje) a pět trysek se svítícími hrdly. Levnější než obrobený disk (8,08 proti 8,72 ms). Reference v `954-zimage`/`954-klein`. `verdict-eye`, karta na stránce 25. 10.
 - ⚠ Trysky nesmí sahat pod 6,5 pod vrch: film pádu tam drží kameru (`STONE_CLEARANCE`), proto jsou široké a nízké. Testbed bere knihovnu jen z vlastního buildu: po `Game.sln` je třeba sestavit i `Testbed.sln`, jinak snímek ukáže starý stav.
