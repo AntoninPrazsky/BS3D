@@ -272,6 +272,10 @@ namespace BS3D
         /// </summary>
         internal Texture2D Logo => _logo;
 
+        /// <summary>MonoGame's and BepuPhysics' logos (#951), for About's Built on page; premultiplied and mipmapped.</summary>
+        internal Texture2D MonoGameLogo => _monoGameLogo;
+        internal Texture2D BepuLogo => _bepuLogo;
+
         /// <summary>
         /// The one white texel the host stretches its full-frame quads from: the scrim under a page that dims
         /// a stopped game (#114), and the black the intro opens on (#454).
@@ -710,7 +714,7 @@ namespace BS3D
         private Texture2D _scrimTexel;
 
         //The 2D logo (#454), content-managed like the effects: it is unloaded with the rest of the content
-        private Texture2D _logo;
+        private Texture2D _logo, _monoGameLogo, _bepuLogo;
 
         private KeyboardState _previousKeyboard;
         private GamePadState _previousPad;
@@ -1435,6 +1439,10 @@ namespace BS3D
             //1267 rows high, which block compression cannot take without padding, and its large smooth
             //gradients are the case where BC3 bands — the reasoning is on the entry in Content.mgcb.
             _logo = Content.Load<Texture2D>("Images/Logo");
+
+            //The two engines' logos on About's Built on page (#951), the owner's files, mipmapped (Content.mgcb)
+            _monoGameLogo = Content.Load<Texture2D>("Images/MonoGameLogo");
+            _bepuLogo = Content.Load<Texture2D>("Images/BepuLogo");
 
             #region Balls
 

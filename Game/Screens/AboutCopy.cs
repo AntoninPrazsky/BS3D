@@ -39,6 +39,9 @@ namespace BS3D.Screens
             /// <summary>A credit list, what is credited beside what it does: <see cref="Block.Credits"/>.</summary>
             Credits,
 
+            /// <summary>MonoGame's and BepuPhysics' own logos, side by side (#951).</summary>
+            Logos,
+
             /// <summary>The original score's player: the piece's name, the spectrum, Play and Next.</summary>
             Player,
 
@@ -61,7 +64,10 @@ namespace BS3D.Screens
         internal static Page[] Pages(string title) => new Page[]
         {
             new("THE GAME", new Block[] { new(BlockKind.Paragraph, Game(title)), new(BlockKind.Privacy) }),
-            new("BUILT ON", new Block[] { new(BlockKind.Paragraph, BUILT_ON), new(BlockKind.Credits, Credits: LIBRARIES) }),
+            new("BUILT ON", new Block[]
+            {
+                new(BlockKind.Paragraph, BUILT_ON), new(BlockKind.Logos), new(BlockKind.Credits, Credits: LIBRARIES),
+            }),
             new("MADE WITH", new Block[]
             {
                 new(BlockKind.Paragraph, MADE_WITH),

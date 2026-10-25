@@ -1,8 +1,10 @@
 using BS3D.Audio;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Diagnostics;
 using Myra.Graphics2D;
+using Myra.Graphics2D.TextureAtlases;
 using Myra.Graphics2D.UI;
 using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
 using Label = Myra.Graphics2D.UI.Label;
@@ -67,6 +69,12 @@ namespace BS3D.Screens
 
         //Between the repository's entry and the way to the author: the menu column's own spacing
         private const int LINK_GAP = 26;
+
+        //The two engines' logos (#951), in design units: MonoGame's wide wordmark and Bepu's tall mark at widths that
+        //give them about the same weight, a credit gap and a half apart
+        private const int LOGO_MONOGAME_WIDTH = 560;
+        private const int LOGO_BEPU_WIDTH = 280;
+        private const int LOGO_GAP = 90;
 
         private const string REPOSITORY = "https://github.com/AntoninPrazsky/BS3D";
 
@@ -264,11 +272,10 @@ namespace BS3D.Screens
                         body.Widgets.Add(Aside(Game.Online.PrivacyList(LeadIn), ProseMeasure));
                         break;
 
-                    //TODO(#463): MonoGame's and BepuPhysics' logos go beside their credits on the Built on page —
-                    //waiting on the owner's own artwork, which this issue does not carry. An image widget each, through
-                    //the content pipeline the splash logo already goes through (Content.mgcb, PremultiplyAlpha), plus
-                    //each project's logo-usage terms recorded beside the asset the way the fonts' OFL files sit beside
-                    //the TTFs — see the issue for the full note.
+                    case AboutCopy.BlockKind.Logos:
+                        body.Widgets.Add(LogoRow());
+                        break;
+
                     case AboutCopy.BlockKind.Credits:
                         body.Widgets.Add(CreditList(block.Credits));
                         break;
@@ -289,6 +296,38 @@ namespace BS3D.Screens
             }
 
             return body;
+        }
+
+        /// <summary>
+        /// MonoGame's and BepuPhysics' own logos over their credits (#951; the owner's files in Game/Logos, 640 wide, 32-bit
+        /// with soft alpha), side by side and centred on the page. Drawn at a sixth to under a half of their size, so the
+        /// textures carry mipmaps and the images ask for the anisotropic sampler: Myra draws an image point-sampled
+        /// otherwise, and a point-sampled minification steps every edge. MonoGame's is its version for a dark background.
+        /// </summary>
+        private Widget LogoRow()
+        {
+            HorizontalStackPanel row = new()
+            {
+                Spacing = Scaled(LOGO_GAP),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, ParagraphGap),
+            };
+            row.Widgets.Add(LogoImage(Game.MonoGameLogo, LOGO_MONOGAME_WIDTH));
+            row.Widgets.Add(LogoImage(Game.BepuLogo, LOGO_BEPU_WIDTH));
+            return row;
+        }
+
+        private Image LogoImage(Texture2D texture, int designWidth)
+        {
+            int width = Scaled(designWidth);
+            return new Image
+            {
+                Renderable = new TextureRegion(texture),
+                Width = width,
+                Height = width * texture.Height / texture.Width,
+                IsAnisotropicFiltering = true,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
         }
 
         /// <summary>One line that stands alone, so centred (a line on its own is, prose is not): the player's, over the piece.</summary>

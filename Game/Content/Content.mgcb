@@ -54,6 +54,33 @@
 /processorParam:TextureFormat=Color
 /build:../../Images/logo/bs3d-logo-2048.png;Images/Logo.png
 
+# MonoGame's and BepuPhysics' logos on About's Built on page (#951): the owner's files, 640 wide, 8-bit RGBA with soft
+# alpha (MonoGame's in its version for a dark background). Drawn at a sixth to under a half of their size, so WITH mipmaps,
+# unlike the splash logo, which is drawn at 1:1 or a half: a chain averages each reduction before the sampler sees it.
+#begin ../Logos/bepu.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=False
+/processorParam:GenerateMipmaps=True
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:../Logos/bepu.png;Images/BepuLogo.png
+
+#begin ../Logos/monogame.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=False
+/processorParam:GenerateMipmaps=True
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:../Logos/monogame.png;Images/MonoGameLogo.png
+
 # No shaders here: every effect - the instancing shader, the post-process passes, the effects and all twenty
 # scene backdrops - is compiled once in BS3DLibs/Prazsky.Shaders (#618) and reaches Content/Shaders beside
 # this executable through Game.csproj's project reference to that library.
