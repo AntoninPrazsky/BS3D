@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #955 létající talíř ve Vesmíru — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo: #955 (c3d97589) kolem vesmírné stanice krouží chromový talíř (`SaucerFlight`, `SaucerMesh`, `Saucer.fx`): teplé žárovky, záře pod břichem, kopule s třemi šedými mimozemšťany a anténa s červeným světýlkem; 240 jednotek daleko, kolo za 70 s. Reference v `955-zimage`/`955-klein`. `verdict-eye`, karta na stránce 25. 10.
+- ⚠ Chrom, který zrcadlí jen tmavou sestavu světel scény, vypadá jako matný plast: chce studiový pás světla kolem horizontu. Tmavá posádka v tmavé kabině není vidět. Malá světla držet pod prahem glare (#401).
+- Otevřené: pohyb mimozemšťanů (#718), Pi talíř nekreslí.
+
 ## 2026-10-25 — #752 #971 #980 verdikty 25. 10. a druhá kola — desktop (RDT-PC), Claude Code (bs3d-21)
 - majitel (25. 10. ráno, stránka verdiktů): 21× OK, zavřeno (#744–#747 #749 #753 #754 #774 #776 #779 #903 #944 #951 #953 #959 #968 #978 #979 #981 #982 #984); Vrať: #752 (ostrov před tribunami v záběru Brána), #971 (plášť balíku bez pruhů), #980 (víc detailu kůry).
 - Hotovo: #752 (7f254cfa) hlediště, stěny vchodu a obrubník zapisují hloubku; #971 (98a16042) plášť bez provázků; #980 (140c0841) dvě vrstvy brázd, bloky, zrno, lišejník (+0,25 ms s kmenem přes obraz). Druhá kola jsou na stránce, staré řádky v db smazané (odpovědi zůstaly na issues).
