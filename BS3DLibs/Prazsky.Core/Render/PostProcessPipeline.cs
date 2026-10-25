@@ -344,7 +344,7 @@ namespace Prazsky.Core.Render
         /// Whether this frame's scene holds a <b>display-referred layer</b> (#929): pixels written with a negative
         /// alpha, whose colour is already the picture and which the resolve lays over the mapped frame without the
         /// curve, the exposure, the grain or the colour fringe (Tonemap.fx, <c>DisplayReferred</c>). The Game's 3D
-        /// wordmark on High and Ultra is the one writer, and its host states this every frame before the resolve:
+        /// wordmark (every tier but the Potato path's) is the one writer, and its host states this every frame before the resolve:
         /// false skips the alpha read, so a frame that drew no such layer pays nothing for it.
         /// </summary>
         public bool DisplayReferredLayer

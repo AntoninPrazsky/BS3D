@@ -1424,7 +1424,7 @@ namespace BS3D
 
         /// <summary>
         /// Called from <see cref="FinishSceneDraw"/>'s on-top slot when what it drew wrote display-referred colour (#929:
-        /// the wordmark at High and Ultra, whose <c>Draw</c> says so), so this frame's resolve lays it over the mapped frame
+        /// the logo wordmark, whose <c>Draw</c> says so), so this frame's resolve lays it over the mapped frame
         /// instead of tonemapping it as light. See <c>PostProcessPipeline.DisplayReferredLayer</c>.
         /// </summary>
         internal void MarkDisplayReferredLayer()
@@ -1443,7 +1443,7 @@ namespace BS3D
         /// <param name="drawOnTop">What stands in FRONT of the whole scene (#600): drawn last of the HDR pass, after the
         /// weather and the fireworks, over a depth buffer cleared for it — so nothing the scene drew can cut into it, and
         /// it still takes the frame's bloom, and its exposure, curve and grain unless it marks itself display-referred
-        /// (<see cref="MarkDisplayReferredLayer"/>, the wordmark at High and Ultra, #929). The front end's 3D wordmark is
+        /// (<see cref="MarkDisplayReferredLayer"/>, the logo wordmark on every tier but the Potato path's, #929, #981). The front end's 3D wordmark is
         /// the one caller. Not meant to be combined with <paramref name="drawMotion"/>: what stands on top is in no velocity pass, so the
         /// reconstruction would drag the moving scene's streaks across it. Nothing asks for both — the session, the only
         /// screen that blurs, has nothing to stand on top, and the front end passes no velocity pass.</param>
