@@ -1,3 +1,5 @@
+using System;
+using System.Globalization;
 using System.Text;
 
 namespace BS3D.Online
@@ -121,9 +123,86 @@ namespace BS3D.Online
                 return false;
             }
 
-            name = built.ToString();
+            string normal = built.ToString();
+
+            //The service's denied names and words (#1020), here so the player is told while typing rather than refused later
+            if (Array.Exists(DeniedNames, d => string.Equals(d, normal, StringComparison.OrdinalIgnoreCase)) || HasDeniedWord(normal))
+            {
+                name = null;
+                problem = "That name is not allowed.";
+                return false;
+            }
+
+            name = normal;
             problem = null;
             return true;
+        }
+
+        /// <summary>The names the score service refuses outright (its <c>Scores:DeniedNames</c>), compared without regard to case.</summary>
+        internal static readonly string[] DeniedNames = { "admin", "administrator", "moderator", "system", "bs3d" };
+
+        /// <summary>
+        /// Vulgar and hateful words no part of a name may hold (#1020: "KuloMrd" on the boards, the owner: "Mrd must be a
+        /// forbidden word"), matched in the name folded (<see cref="Fold"/>): diacritics off, lower case, separators out, and
+        /// the digits that stand for letters read as those letters, so "KuloMrd", "k_u_r_v_a" and "kurv4" are all caught.
+        /// <b>The service's copy is BS3D-API's <c>Nicknames.DeniedWords</c>, the authority</b>: change both in step.
+        /// </summary>
+        internal static readonly string[] DeniedWords =
+        {
+            "mrd", "kurv", "kokot", "curak", "prdel", "hovn", "srac", "jebat", "jeban", "jebn", "zasran", "buzna", "buzerant",
+            "negr", "kreten", "hajzl", "sukat", "picus", "picovin", "debil",
+            "fuck", "shit", "cunt", "nigg", "fagg", "bitch", "whore", "slut", "porn", "nazi", "hitler", "penis", "vagin",
+            "asshole", "bastard", "retard", "wanker", "dildo", "pussy", "motherf", "cocksuck", "blowjob",
+            "ficken", "fotze", "arschloch",
+        };
+
+        /// <summary>
+        /// Words refused only as a whole part of a name, because they also sit inside ordinary ones ("pica" in Picard, "ass"
+        /// in Bass, "kunda" in Kundera). A part is what spaces, <c>_</c>, <c>-</c>, digits and a change from a lower-case to a
+        /// capital letter divide, folded with no digit read as a letter. The service's copy is <c>Nicknames.DeniedParts</c>.
+        /// </summary>
+        internal static readonly string[] DeniedParts =
+        {
+            "pica", "pice", "pici", "kunda", "suka", "jeb", "sex", "rape", "anal", "cock", "dick", "fag", "ass", "kys", "hure",
+            "fick", "cum", "tit", "tits", "boob", "boobs",
+        };
+
+        /// <summary>Whether <paramref name="name"/> holds a denied word anywhere, or a denied part as one of its parts.</summary>
+        internal static bool HasDeniedWord(string name)
+        {
+            string folded = Fold(name, digitsAsLetters: true);
+            foreach (string word in DeniedWords)
+                if (folded.Contains(word, StringComparison.Ordinal)) return true;
+
+            int start = 0;
+            for (int i = 1; i <= name.Length; i++)
+            {
+                bool end = i == name.Length || !char.IsLetter(name[i]) || (char.IsLower(name[i - 1]) && char.IsUpper(name[i]));
+                if (!end) continue;
+                string part = Fold(name[start..i], digitsAsLetters: false);
+                if (part.Length > 0 && Array.IndexOf(DeniedParts, part) >= 0) return true;
+                start = i;
+                while (start < name.Length && !char.IsLetter(name[start])) start++;
+                i = start;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// A name as the word lists read it: decomposed and its combining marks dropped (so "Píča" reads "pica"), lower case,
+        /// letters only; with <paramref name="digitsAsLetters"/> the digits that stand for letters read as them (0 o, 1 i, 3 e,
+        /// 4 a, 5 s, 7 t, 8 b) and the rest dropped with the separators.
+        /// </summary>
+        internal static string Fold(string name, bool digitsAsLetters)
+        {
+            StringBuilder folded = new(name.Length);
+            foreach (char c in name.Normalize(NormalizationForm.FormD))
+            {
+                if (CharUnicodeInfo.GetUnicodeCategory(c) == UnicodeCategory.NonSpacingMark) continue;
+                if (char.IsLetter(c)) folded.Append(char.ToLowerInvariant(c));
+                else if (digitsAsLetters && "0134578".IndexOf(c) is int at && at >= 0) folded.Append("oieastb"[at]);
+            }
+            return folded.ToString();
         }
     }
 }
