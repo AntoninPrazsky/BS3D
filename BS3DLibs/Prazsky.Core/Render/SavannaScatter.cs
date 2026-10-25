@@ -101,6 +101,13 @@ namespace Prazsky.Core.Render
         /// </summary>
         public float Straw { get; }
 
+        /// <summary>
+        /// The bark's relief (#980), 0 on everything else: <c>Acacia.fx</c> gives the bark plates parted by fissures, lit
+        /// through a tilted normal. Only <see cref="PlantPass"/> states it; the meadow's oaks carry it at 1 on their fine
+        /// wood, which only High and Ultra draw.
+        /// </summary>
+        public float BarkRelief { get; }
+
         /// <summary>The ground's colour (linear) a <see cref="Stone"/> rock is dusted with at its foot and on its top; black for none.
         /// Its height over the ground is read off the instance's <see cref="ModelInstance.Custom"/> <c>z</c>, the ground over the pivot.</summary>
         public Vector3 FootDust { get; }
@@ -108,12 +115,13 @@ namespace Prazsky.Core.Render
         internal ScatterBucket(GraphicsDevice device, IProceduralMesh mesh, List<ModelInstance> instances,
             Vector3 diffuse, Vector3 diffuseDry, float dapple, float bark, bool detailOnly,
             bool lowOnly = false, float leaves = 0f, bool earthed = false, bool? castsShadow = null, bool? fineMeshes = null,
-            float stone = 0f, Vector3 footDust = default, IProceduralMesh casterMesh = null, float straw = 0f)
+            float stone = 0f, Vector3 footDust = default, IProceduralMesh casterMesh = null, float straw = 0f, float barkRelief = 0f)
         {
             Mesh = mesh;
             CasterMesh = casterMesh ?? mesh;
             Stone = stone;
             Straw = straw;
+            BarkRelief = barkRelief;
             FootDust = footDust;
             FineMeshes = fineMeshes;
             Earthed = earthed;

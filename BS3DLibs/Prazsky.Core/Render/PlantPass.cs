@@ -25,7 +25,7 @@ namespace Prazsky.Core.Render
 
         private readonly EffectTechnique _technique, _shadowTechnique;
         private readonly EffectParameter _view, _projection, _camera, _sunDirection, _sunColor, _zenith, _horizon,
-            _diffuse, _diffuseDry, _dapple, _bark, _leaves, _addedLight, _haze, _shadowViewProjection, _footEarth, _stone, _straw;
+            _diffuse, _diffuseDry, _dapple, _bark, _leaves, _addedLight, _haze, _shadowViewProjection, _footEarth, _stone, _straw, _barkRelief;
 
         public PlantPass(GraphicsDevice device, ContentManager content)
         {
@@ -45,6 +45,7 @@ namespace Prazsky.Core.Render
             _footEarth = Effect.Parameters["FootEarth"];
             _stone = Effect.Parameters["StoneStrength"];
             _straw = Effect.Parameters["StrawStrength"];
+            _barkRelief = Effect.Parameters["BarkRelief"];
             _leaves = Effect.Parameters["LeafStrength"];
             _addedLight = Effect.Parameters["AddedLight"];
             _haze = Effect.Parameters["HorizonHazeDistance"];
@@ -87,6 +88,7 @@ namespace Prazsky.Core.Render
             _footEarth.SetValue(Vector3.Zero);
             _stone.SetValue(0f);
             _straw.SetValue(0f);
+            _barkRelief.SetValue(0f);
 
             //⚠ PUT BACK WHAT WAS FOUND (#667). This pass leaves the states the frame goes on drawing under, and it
             //used to leave Opaque: on the meadow, the mountains and the forest it is the last thing the environment
@@ -114,6 +116,7 @@ namespace Prazsky.Core.Render
                 _leaves.SetValue(bucket.Leaves);
                 _stone.SetValue(bucket.Stone);
                 _straw.SetValue(bucket.Straw);
+                _barkRelief.SetValue(bucket.BarkRelief);
                 _footEarth.SetValue(bucket.FootDust);
                 _graphicsDevice.RasterizerState = bucket.Leaves > 0f ? RasterizerState.CullNone : RasterizerState.CullCounterClockwise;
                 Effect.CurrentTechnique.Passes[0].Apply();
@@ -124,6 +127,7 @@ namespace Prazsky.Core.Render
             _leaves.SetValue(0f);
             _stone.SetValue(0f);
             _straw.SetValue(0f);
+            _barkRelief.SetValue(0f);
             _footEarth.SetValue(Vector3.Zero);
             _graphicsDevice.BlendState = blend;
             _graphicsDevice.DepthStencilState = depth;

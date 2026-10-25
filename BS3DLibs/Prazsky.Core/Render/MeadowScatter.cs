@@ -476,7 +476,7 @@ namespace Prazsky.Core.Render
                 buckets.Add(new ScatterBucket(device, tree.Wood, treeInstances[m], OAK_BARK, OAK_BARK * 1.2f, dapple: 0f, bark: 0.6f,
                     detailOnly: false, fineMeshes: false));
                 buckets.Add(new ScatterBucket(device, tree.FineWood, treeInstances[m], OAK_BARK, OAK_BARK * 1.2f, dapple: 0f, bark: 0.6f,
-                    detailOnly: false, fineMeshes: true));
+                    detailOnly: false, fineMeshes: true, barkRelief: 1f));
                 //The solid lumps for the Low tier, which casts nothing (the sun's map exists only at scene detail); at every
                 //other, twigs with leaves (#697, the acacias' #610 split)
                 buckets.Add(new ScatterBucket(device, tree.Crown, treeInstances[m], leaf, leafDry, dapple: 0.7f, bark: 0f,

@@ -65,6 +65,10 @@ The owner, in a close-up of the hay rolls: "a hole along their edges". An end ma
 
 `MeadowTreeMesh`: oaks, limes and a willow, **grown from the crown inwards**: the dome first, then wood to it (limbs from the fork, boughs from each limb's knee, a branch into every clump), so no clump floats. Trunk and thick boughs are **swept, not stacked** (`TubeGeometry.AddSweep`: stacked end rings met in two planes, a sleeve over the wood). `MeadowTreeMesh.Build` makes the whole tree as lists with no device (`MeadowTreeGeometry`), which the mesh uploads and `MeadowForkTests` reads.
 
+### The bark at High and Ultra (#980)
+
+The owner: the bark "looks like a blurred texture" at High and Ultra. `Acacia.fx`'s `BARK` is an albedo multiplication only, so the oaks' fine wood (the bucket only High and Ultra draw) carries `BarkRelief` 1: ridges and furrows from a noise's zero set stretched up the trunk (`BARK_RELIEF_FREQUENCY` 6 across, `BARK_RELIEF_STRETCH` 0.1 along: the references in `C:\Users\panrd\AI\sd\out\980-klein` and `980-zimage` draw an oak's furrows long, dense and nearly parallel), the normal tilted by them (`BARK_RELIEF_DEPTH`) and the furrows in their own shade, faded with the pixel footprint. One octave: a second of cracks across the ridges cost 0.12 ms more in the intro's brook shot, whose two trees fill much of the frame; with one the relief costs 0.15 there (13.02 to 13.05 against 12.83 to 12.90 ms at High, 3840x1581) and nothing measurable in play. Per bucket, so the seven other backdrops on `PlantPass` are untouched. ⚠ Stretched up world Y as `BARK` is: where a limb leaves the trunk at an angle the furrows swirl.
+
 ### Two woods (#889)
 
 The owner's playtest note: the trunks and the branches "do not connect up", in the flybys and in play. Both faults were in the photographs.

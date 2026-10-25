@@ -99,6 +99,19 @@ static const float EARTH_AMOUNT = 0.8;
 //Uniform branch: one side for every pixel of a draw, so the derivatives inside are taken by every pixel of a quad alike.
 float StoneStrength;
 
+//--- THE BARK'S RELIEF (#980). 0 on everything but the meadow's oaks at High and Ultra (their fine wood's bucket carries
+//it at 1, and that bucket is drawn only there). The owner: "tree bark on High/Ultra ... now it looks like a blurred texture",
+//and BARK above is an albedo multiplication only - no normal, nothing in shade. So the bark gets a surface: thick plates
+//parted by fissures that run up the trunk, from a noise's zero set (a winding network of lines: wrong for a lawn, #944,
+//right for bark); the normal tilted by it and the fissures in their own
+//shade, the plates' faces a little paler with weathering. Every octave fades as its period nears a few pixels, so a far
+//trunk keeps the plain bark. Stretched up world Y as BARK is (AcaciaMesh: the bark stays the world's), and harder: the
+//references (980-klein, 980-zimage) draw an oak's furrows long, dense and nearly parallel. Uniform branch.
+float BarkRelief;
+static const float BARK_RELIEF_FREQUENCY = 6.0;  //plates across the trunk per world unit; up it BARK_RELIEF_STRETCH times that
+static const float BARK_RELIEF_STRETCH = 0.1;    //the references' furrows run ten times as long as they are apart
+static const float BARK_RELIEF_DEPTH = 0.05;     //the plates' height over the fissures, world units
+
 //--- STRAW (#971). 0 on everything but the meadow's round hay bales, which carry it at 1. The owner: "on the bottom and top
 //side of the cylinder there is not that typical tangle/swirl - we need to think about how a cylindrical bale of straw is
 //formed". A round baler rolls the windrow up from a loose core outward and ties the roll round, so an END shows the layers
@@ -360,6 +373,25 @@ float4 AcaciaPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR
         top *= top;
         float dust = max(foot * foot * 0.85, top * top * STONE_TOP_DUST * saturate(0.6 + patch));
         albedo = lerp(albedo, FootEarth * (1.0 + input.Tint.y), dust * (any(FootEarth) ? 1.0 : 0.0));
+    }
+
+    //The bark's relief (#980): see THE BARK'S RELIEF above
+    [branch]
+    if (BarkRelief > 0.0)
+    {
+        float3 p = input.WorldPosition;
+        float footprint = max(length(fwidth(p)), 1e-4);
+        float3 q = p * float3(BARK_RELIEF_FREQUENCY, BARK_RELIEF_FREQUENCY * BARK_RELIEF_STRETCH, BARK_RELIEF_FREQUENCY);
+        //Bands about the zero sets: ridges between furrows, the furrows deep and a little narrower than the ridges
+        float plates = smoothstep(0.0, 0.14, abs(GradientNoise3(q + 3.7)));
+        float plateSeen = saturate(1.6 - footprint * BARK_RELIEF_FREQUENCY * 3.0);
+
+        //One octave: with a second, finer one of cracks across the plates the relief cost 0.27 ms in the intro's brook shot,
+        //whose two trees fill much of the frame (0.16 under the 75 Hz frame), and 0.15 without it; the ridges are what read
+        N = PerturbNormalFromHeight(N, p, plates * plateSeen * BARK_RELIEF_DEPTH * BarkRelief);
+
+        float fissure = (1.0 - plates) * plateSeen;
+        albedo *= (1.0 - 0.55 * fissure * BarkRelief) * (1.0 + 0.18 * plates * plateSeen * BarkRelief);
     }
 
     //A round bale's straw (#971): see STRAW above
