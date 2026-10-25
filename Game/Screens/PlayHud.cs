@@ -2237,6 +2237,12 @@ namespace BS3D.Screens
 
         //The two widths above, measured once per pair of fonts (a resize rebuilds the HUD's fonts), never per frame
         private SpriteFontBase _chipGlyphFontFor, _chipCaptionFontFor;
+
+        //The power-ups' pictograms beside their keycaps (#991, PowerupPictograms): baked at the keycap's own ink height each
+        //time the fonts are rebuilt (a resize does), the picture and the soft backing it stands on as a chip's words do,
+        //indexed by PowerupKind; and the clear margin round each, wide enough for the backing's falloff
+        private readonly Texture2D[] _chipIcons = new Texture2D[4], _chipIconBackings = new Texture2D[4];
+        private int _chipIconSize, _chipIconPad;
         private float _chipGlyphColumn, _chipCaptionColumn;
 
         //Where the chip glyphs' ink is centred down their line box, and where a caption's capitals are centred down
@@ -2318,16 +2324,16 @@ namespace BS3D.Screens
             int row = 0;
 
             if (swapCharges >= 0)
-                DrawChip(row++, onGamepad ? SWAP_GLYPH_PAD : SWAP_GLYPH_KEY, swapText, State(swapCharges, null), in layout, viewport, margin,
-                    hint ? SwapHintGlow() : 0f);
+                DrawChip(row++, PowerupKind.Swap, onGamepad ? SWAP_GLYPH_PAD : SWAP_GLYPH_KEY, swapText, State(swapCharges, null), in layout,
+                    viewport, margin, hint ? SwapHintGlow() : 0f);
 
             if (brakeCharges >= 0)
-                DrawChip(row++, onGamepad ? BRAKE_GLYPH_PAD : BRAKE_GLYPH_KEY, _brakeText, State(brakeCharges, brakeNotNow), in layout,
-                    viewport, margin);
+                DrawChip(row++, PowerupKind.Brake, onGamepad ? BRAKE_GLYPH_PAD : BRAKE_GLYPH_KEY, _brakeText, State(brakeCharges, brakeNotNow),
+                    in layout, viewport, margin);
 
             if (cutCharges >= 0)
-                DrawChip(row, onGamepad ? CUT_GLYPH_PAD : CUT_GLYPH_KEY, _cutText, State(cutCharges, cutNotNow), in layout, viewport, margin,
-                    _cutPulse.Heat, HUD_CUT_PULSE);
+                DrawChip(row, PowerupKind.Cut, onGamepad ? CUT_GLYPH_PAD : CUT_GLYPH_KEY, _cutText, State(cutCharges, cutNotNow), in layout,
+                    viewport, margin, _cutPulse.Heat, HUD_CUT_PULSE);
         }
 
         /// <summary>The Cut's press (#767): the chip flares in the cutter's white-hot as its charge goes into the round.</summary>
@@ -2354,7 +2360,36 @@ namespace BS3D.Screens
             _chipCaptionCapCentre = InkCentreY(captionFont, "H");
 
             foreach (string caption in CHIP_CAPTIONS) _chipCaptionColumn = MathF.Max(_chipCaptionColumn, captionFont.MeasureString(caption).X);
+
+            BuildChipIcons(glyphFont);
         }
+
+        /// <summary>
+        /// The three pictograms (#991) at the keycap's ink height on <paramref name="glyphFont"/>, the old ones disposed: they
+        /// are drawn by <see cref="PowerupPictograms"/> at the size they are shown, never scaled, so they stay crisp at any
+        /// resolution, and they follow the HUD's scale as the fonts do.
+        /// </summary>
+        private void BuildChipIcons(SpriteFontBase glyphFont)
+        {
+            FontStashSharp.Bounds ink = glyphFont.TextBounds(BRAKE_GLYPH_PAD, Vector2.Zero);
+            _chipIconSize = Math.Max(8, (int)MathF.Round((ink.Y2 - ink.Y) * CHIP_ICON_SCALE));
+            int blur = Math.Max(1, Scaled(HUD_BACKING_BLUR));
+            _chipIconPad = blur * 2 + 2;
+            int side = _chipIconSize + 2 * _chipIconPad;
+            foreach (PowerupKind kind in CHIP_ICON_KINDS)
+            {
+                _chipIcons[(int)kind]?.Dispose();
+                _chipIconBackings[(int)kind]?.Dispose();
+                _chipIcons[(int)kind] = new Texture2D(_game.GraphicsDevice, side, side);
+                _chipIcons[(int)kind].SetData(PowerupPictograms.Raster(kind, _chipIconSize, _chipIconPad, 0f));
+                _chipIconBackings[(int)kind] = new Texture2D(_game.GraphicsDevice, side, side);
+                _chipIconBackings[(int)kind].SetData(PowerupPictograms.Raster(kind, _chipIconSize, _chipIconPad, blur * 1.5f));
+            }
+        }
+
+        //The pictogram's height against the keycap's ink, and the kinds that have one
+        private const float CHIP_ICON_SCALE = 1.0f;
+        private static readonly PowerupKind[] CHIP_ICON_KINDS = { PowerupKind.Swap, PowerupKind.Brake, PowerupKind.Cut };
 
         /// <summary>Where a glyph's ink is centred, down from the top of its line box, as the font rasterises it.</summary>
         private static float InkCentreY(SpriteFontBase font, string glyph)
@@ -2396,8 +2431,8 @@ namespace BS3D.Screens
         /// <param name="hint">How brightly the chip is pointing at itself (#845, the Swap's hint), 0 for not at all: an amber
         /// halo behind the keycap and the words, and both tinted towards the amber, by this much.</param>
         /// <param name="hintColour">The halo's colour when it is not the amber of gain: the Cut's white-hot flare (#767).</param>
-        private void DrawChip(int row, string glyph, string text, ChipState state, in ChipColumnLayout layout, Viewport viewport,
-            int margin, float hint = 0f, Color hintColour = default)
+        private void DrawChip(int row, PowerupKind kind, string glyph, string text, ChipState state, in ChipColumnLayout layout,
+            Viewport viewport, int margin, float hint = 0f, Color hintColour = default)
         {
             Color halo = hintColour.A == 0 ? HUD_ACCENT : hintColour;
 
@@ -2441,6 +2476,19 @@ namespace BS3D.Screens
 
             DrawString(glyphFont, glyph, glyphAt, glyphColour, 1f);
             DrawString(captionFont, text, captionAt, captionColour, 1f);
+
+            //The pictogram (#991) left of the keycap's column, centred on the keycap's ink, in the keycap's own colour and state:
+            //its soft backing, its offset shadow, then the picture, as the chip's words are drawn
+            Texture2D icon = _chipIcons[(int)kind];
+            if (icon != null)
+            {
+                Vector2 iconAt = new(MathF.Round(layout.GlyphColumnLeft - Scaled(HUD_SWAP_GLYPH_GAP) - _chipIconSize - _chipIconPad),
+                    MathF.Round(glyphTop + _chipGlyphInkCentre - _chipIconSize * 0.5f - _chipIconPad));
+                for (int i = 0; i < HUD_BACKING_PASSES; i++)
+                    _game.OverlayBatch.Draw(_chipIconBackings[(int)kind], iconAt, HUD_BACKING * alpha);
+                _game.OverlayBatch.Draw(icon, iconAt + new Vector2(Scaled(HUD_SHADOW_OFFSET)), HUD_SHADOW * alpha);
+                _game.OverlayBatch.Draw(icon, iconAt, glyphColour);
+            }
         }
 
         /// <summary>
