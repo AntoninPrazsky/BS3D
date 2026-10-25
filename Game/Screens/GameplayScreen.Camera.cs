@@ -33,7 +33,10 @@ namespace BS3D.Screens
         /// barrel's own axis. The shake is added on top of this pose, never into it.
         /// <para>
         /// The overview's look-at <b>tilts with the barrel's elevation</b> (<see cref="AimTilt"/>, #720): up as the
-        /// gun is raised, down as it is lowered, chased on real time and zero at the aim the level opened on.
+        /// gun is raised, down as it is lowered, chased on real time and zero at the aim the level opened on. And after a
+        /// moment it <b>focuses on the aim</b> (<see cref="OverviewFocus"/>, #1006): a lens a little higher and closer, a
+        /// narrower field of view, the look-at drawn towards where the gun aims, opening on the full frame again whenever
+        /// precise aim or a takeover has held the lens.
         /// </para>
         /// <para>
         /// That overview is one end of a Lerp; the other is the precise-aim lean over the barrel, and
@@ -73,12 +76,35 @@ namespace BS3D.Screens
             Vector3 overviewTarget = TiltedOverviewTarget(overviewPosition,
                 new Vector3(_cannon.OrbitCenter.X, _gameCameraTargetY, _cannon.OrbitCenter.Z), lensMuzzle, elapsed);
 
+            //The overview focuses on the aim after a moment (#1006), and opens on the full frame again whenever anything
+            //else has held the lens: precise aim, or a takeover lerped over the pose below. Applied to the overview end
+            //only, the tilt's route, so precise aim's lean interpolates it out and a takeover lands on whatever it is
+            float overviewFov = GAME_FOV;
+            bool overviewHasTheLens = _preciseAim.Blend <= 0f && _cinematic.Blend <= 0f
+                && _lineLoss.Blend <= 0f && _chapterIntro.Blend <= 0f;
+            float focus = _focus.Step(overviewHasTheLens, _chapterIntro.Blend > 0f, elapsed);
+            Vector3 focusPoint = _focus.FollowAim(lensMuzzle, lensAim, convergeTarget, elapsed);
+
+            if (focus > 0f)
+            {
+                int corners = 0;
+                if (_map != null)
+                    for (; corners < _focusTopRow.Length; corners++) _focusTopRow[corners] = TopRowCorner(corners);
+
+                AimPose focused = OverviewFocus.Focused(overviewPosition, overviewTarget, GAME_FOV, focusPoint, lensMuzzle,
+                    _focusTopRow.AsSpan(0, corners));
+
+                overviewPosition = Vector3.Lerp(overviewPosition, focused.Position, focus);
+                overviewTarget = Vector3.Lerp(overviewTarget, focused.Target, focus);
+                overviewFov = MathHelper.Lerp(GAME_FOV, focused.FieldOfView, focus);
+            }
+
             //Taken as a VALUE, not written into the camera: the cinematic below goes on lerping over it, and
             //the base pose the shake composes onto is whatever comes out of both. The muzzle and the aim are
             //read after _cannon.Update this frame, or the lens lags the barrel and reads as jitter — and
             //without the recoil, which is the barrel's drawing offset and not where it is pointed. The depth
             //it converges at is the eased one Step took above.
-            AimPose aim = _preciseAim.BlendedPose(overviewPosition, overviewTarget, GAME_FOV, lensMuzzle, lensAim);
+            AimPose aim = _preciseAim.BlendedPose(overviewPosition, overviewTarget, overviewFov, lensMuzzle, lensAim);
 
             Vector3 position = aim.Position;
             Vector3 target = aim.Target;
@@ -225,6 +251,11 @@ namespace BS3D.Screens
         //The overview's tilt with the aim (#720), reseeded by a level's fit like the bearing's trail above
         private readonly AimTilt _aimTilt = new();
 
+        //The overview's focus on the aim (#1006), reset by a level's fit to the full frame and the opening's hold, and the
+        //four top-row corners it keeps in the frame, filled each frame it focuses
+        private readonly OverviewFocus _focus = new();
+        private readonly Vector3[] _focusTopRow = new Vector3[4];
+
         //The elevation clamp the level opened against (#842), as the fit solved it (OpeningElevationLimit): the tilt's
         //zero stands under it. Held for the attempt and not read off Cannon.ElevationLimit, which LiftTallAimOnceFramed
         //raises mid-attempt while the barrel stays where it is: a zero read live would jump up to the rest there and dip
@@ -329,7 +360,7 @@ namespace BS3D.Screens
                 + FormattableString.Invariant(
                 $" target {_aimTiltTarget * RAD_TO_DEG:F3} up {_aimTiltRoomUp * RAD_TO_DEG:F2} down {_aimTiltRoomDown * RAD_TO_DEG:F2} tilt {_aimTilt.Angle * RAD_TO_DEG:F3}")
                 + FormattableString.Invariant(
-                $" blend {_preciseAim.Blend:F3} pitch {pitch * RAD_TO_DEG:F3} pos {Camera.Position.X:F3},{Camera.Position.Y:F3},{Camera.Position.Z:F3}")
+                $" blend {_preciseAim.Blend:F3} focus {_focus.Amount:F3} fov {Camera.FieldOfView * RAD_TO_DEG:F2} pitch {pitch * RAD_TO_DEG:F3} pos {Camera.Position.X:F3},{Camera.Position.Y:F3},{Camera.Position.Z:F3}")
                 + (_map == null ? " topY none" : FormattableString.Invariant(
                 $" topY {MathF.Min(MathF.Min(ScreenY(TopRowCorner(0)), ScreenY(TopRowCorner(1))), MathF.Min(ScreenY(TopRowCorner(2)), ScreenY(TopRowCorner(3)))):F3}"))
                 + FormattableString.Invariant(
@@ -457,7 +488,11 @@ namespace BS3D.Screens
             //(#366) — a placed gun is a placed camera, the same rule Cannon.RestRadius follows for the walk. The aim's
             //tilt (#720) starts over on a load the same way; a resize keeps it, since the aim it follows is kept
             _lensBearingSeeded = false;
-            if (!keepStance) _aimTilt.Reseed();
+            if (!keepStance)
+            {
+                _aimTilt.Reseed();
+                _focus.Reset();
+            }
 
             Console.WriteLine($"[camera] Field {_map.StageSizeX}x{_map.StageSizeZ}x{_map.Levels}"
                 + (FieldIsTallerThanFrame ? $" (framing its lowest {FRAMED_LEVELS} to y {FramedTopY():F1})" : string.Empty)
