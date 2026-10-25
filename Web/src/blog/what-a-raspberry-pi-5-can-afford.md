@@ -3,6 +3,7 @@ title: What a Raspberry Pi 5 can afford
 date: 2026-10-19T11:00:00Z
 topics: [Raspberry Pi, Rendering]
 summary: "The Pi version draws through a second, much plainer renderer: nine shaders, no HDR, edges drawn instead of filtered. What each choice cost, in milliseconds."
+thumb: /img/blog/thumbs/what-a-raspberry-pi-5-can-afford.jpg
 ---
 
 The Raspberry Pi 5 version of Bubble Shooter 3D is the same game: the same levels, the same physics, the same leaderboards. It does not draw the same way. It goes through a second, much plainer renderer that we call Potato, for two reasons.

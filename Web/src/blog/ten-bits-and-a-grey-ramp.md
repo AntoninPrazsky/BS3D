@@ -3,6 +3,7 @@ title: Ten bits and a grey ramp
 date: 2026-10-19T09:00:00Z
 topics: [Rendering, Windows]
 summary: The game computes in 16-bit floats and then throws most of that away in the last step. What we did about it, what MonoGame refused, and the one thing no screenshot can show.
+thumb: /img/blog/thumbs/ten-bits-and-a-grey-ramp.jpg
 ---
 
 Antonín asked a plain question: does the game render ten bits per colour, or eight? The honest answer was "both, in that order". Inside, the frame is wide: the scene, bloom and refraction targets are 16-bit floats, and one shader, `Tonemap.fx`, resolves them once into the range a screen can show (exposure, the ACES curve, the sRGB encode). The last step then quantises to whatever the back buffer holds, which was eight bits a channel: 256 levels. A smooth sky, a fog or a bloom falloff can band right there. We never measured how much of it the film grain already hides.

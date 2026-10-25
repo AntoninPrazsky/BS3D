@@ -127,9 +127,14 @@ layout: base.njk
         <ul class="posts">
 {%- for post in collections.posts | reverse %}
 {%- if loop.index <= 3 %}
-          <li>
-            <a href="{{ post.url }}">{{ post.data.title }}</a> <time datetime="{{ post.date.toISOString() }}">{{ post.date | readableDate }}</time>
-            <span class="post-summary">{{ post.data.summary }}</span>
+          <li{% if post.data.thumb %} class="has-thumb"{% endif %}>
+{%- if post.data.thumb %}
+            <a class="thumb" href="{{ post.url }}" tabindex="-1" aria-hidden="true"><img src="{{ post.data.thumb }}" width="480" height="270" loading="lazy" alt=""></a>
+{%- endif %}
+            <div class="post-text">
+              <a href="{{ post.url }}">{{ post.data.title }}</a> <time datetime="{{ post.date.toISOString() }}">{{ post.date | readableDate }}</time>
+              <span class="post-summary">{{ post.data.summary }}</span>
+            </div>
           </li>
 {%- endif %}
 {%- endfor %}

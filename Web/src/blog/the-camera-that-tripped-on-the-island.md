@@ -3,6 +3,7 @@ title: The camera that tripped on the island's edge
 date: 2026-10-19T08:00:00Z
 topics: [Camera, Testing]
 summary: A camera path with a switch in it hops. How logging the lens every frame found three terms behind one kink, and what a smooth curve cost.
+thumb: /img/blog/thumbs/the-camera-that-tripped-on-the-island.jpg
 ---
 
 When a shot brings down a big part of the cluster, the camera lets go of the cannon and follows the wreckage down the funnel. In the scenes where the island floats, in space, in a dream, on the sea, it goes on out under the island and looks up. Antonín's note about it was short: as the camera comes down beside the rim it hops away from the edge, which is not smooth, and it may swing out wider if that is what it takes not to stumble on the island.
