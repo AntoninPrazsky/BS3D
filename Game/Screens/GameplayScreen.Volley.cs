@@ -34,15 +34,30 @@ namespace BS3D.Screens
         //The gun's buzz under each ball, a fraction of a shot's
         private const float VOLLEY_RUMBLE = 0.18f, VOLLEY_RUMBLE_SECONDS = 0.05f;
 
+        //How long after the clear the volley waits when no drop cinematic has the lens (the Drop camera off): the released
+        //group is still on its way down, and the first balls would fly through it
+        private const float VOLLEY_SETTLE = 0.8f;
+
         private void StepSpareVolley(float elapsed)
         {
-            if (_volleyPending && _phase == LevelPhase.ClearedBeat && !_cinematic.Engaged) BeginSpareVolley();
+            //Once the lens is free and the world runs at game time: not under a cut's slow motion, whose hit-stop and fall
+            //would slow the balls under a count running at full speed; and not in the clear's first moments without a cinematic
+            if (_volleyPending && _phase == LevelPhase.ClearedBeat && !_cinematic.Engaged && !_cutStaging.Slowed
+                && _clearedElapsed >= VOLLEY_SETTLE)
+                BeginSpareVolley();
             if (!_spareVolley.Engaged) return;
 
             bool wasRunning = _spareVolley.Running;
             int due = _spareVolley.Update(elapsed);
-            for (int i = 0; i < due; i++) FireSpareBall();
-            if (due > 0) _hud.CountBonus(_spareVolley.Counted);
+
+            //A frame that owes more than one (a hitch, a slow machine, the floor's cadence at 60 Hz) puts the earlier ones where
+            //they would be by now, along their flight, rather than stacking them at the muzzle; one tick for the lot
+            for (int i = 0; i < due; i++) FireSpareBall((due - 1 - i) * _spareVolley.CurrentInterval);
+            if (due > 0)
+            {
+                Game.Audio.PlayVolleyTick(_spareVolley.Balls <= 1 ? 1f : (_spareVolley.Fired - 1f) / (_spareVolley.Balls - 1f));
+                _hud.CountBonus(_spareVolley.Counted);
+            }
             if (wasRunning && !_spareVolley.Running) FinishSpareVolley(skipped: false);
         }
 
@@ -63,14 +78,19 @@ namespace BS3D.Screens
         //One spare ball out of the barrel: the colour at the muzzle, a ball with no listener (it lands on nothing that counts)
         //kept with the released balls, so it is drawn and culled as they are; and the shot's smear, recoil, sound and buzz,
         //smaller, with the count's tick climbing
-        private void FireSpareBall()
+        private void FireSpareBall(float ago)
         {
             Vector3 direction = _cannon.FireDirection;
             Vector3 muzzle = _cannon.FireMuzzle(Game.CannonRig.PivotToFrontBall);
+            Vector3 velocity = direction * VOLLEY_SPEED;
+
+            //Fired ago seconds back: where its flight has carried it since, and as fast as it falls by now
+            Vector3 at = muzzle + velocity * ago + new Vector3(0f, 0.5f * Constants.EARTH_GRAVITY * ago * ago, 0f);
+            velocity.Y += Constants.EARTH_GRAVITY * ago;
 
             _fallingBalls.Add(new PhysicsBall
             {
-                BallReference = _world.AddLooseBall(muzzle.ToNumerics(), direction.ToNumerics() * VOLLEY_SPEED),
+                BallReference = _world.AddLooseBall(at.ToNumerics(), velocity.ToNumerics()),
                 Type = LoadedColour(0),
                 Kind = BallKind.Normal,
             });
@@ -81,7 +101,6 @@ namespace BS3D.Screens
             Camera.Shake.Kick(VOLLEY_KICK);
             Game.Rumble.Kick(VOLLEY_RUMBLE, 0f, VOLLEY_RUMBLE_SECONDS);
             Game.Audio.PlayShoot(muzzle);
-            Game.Audio.PlayVolleyTick(_spareVolley.Balls <= 1 ? 1f : (_spareVolley.Fired - 1f) / (_spareVolley.Balls - 1f));
         }
 
         /// <summary>The count done, by its last ball or a skip: the whole figure up and on its way, and the beat cut to the throw.</summary>
@@ -94,7 +113,7 @@ namespace BS3D.Screens
             else _hud.CountBonus(_volleyBonus);
 
             _clearedCountdown = MathF.Min(_clearedCountdown, AFTER_VOLLEY_BEAT);
-            Console.WriteLine($"[volley] {(skipped ? "skipped" : "done")}: {_spareVolley.Fired} of {_volleyBalls} fired, counted {_volleyBonus}");
+            Console.WriteLine($"[volley] {(skipped ? "skipped" : "done")}: {_spareVolley.Launched} of {_volleyBalls} fired, counted {_volleyBonus}");
         }
     }
 }

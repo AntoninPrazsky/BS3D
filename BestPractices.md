@@ -83,7 +83,8 @@ allocating `Calculate` overload, and the allocation-free one is not reachable fr
 ~430 B per call (mono into stereo). It is accepted because it is bounded to **one call per sound event and
 never per frame**: a handful a second in play, and — from the fireworks' own constants, two calls per shell —
 a peak of ~28 a second through the 2.2 s opening barrage, settling to ~12/s and then ~4/s, about 390 calls
-over a whole 60 s display. That bound is the whole of its safety, and it holds only while nothing tracks a
+over a whole 60 s display; and the unused balls' volley at a clear (#881), one shot sound a ball, at most one a
+`SpareVolley.MIN_INTERVAL` (40 a second) and for at most its `MAX_SECONDS` (2.2 s). That bound is the whole of its safety, and it holds only while nothing tracks a
 *moving* emitter —
 the moment something calls `Apply3D` every frame to follow a source, this becomes a per-frame allocation
 like any other and the rule applies again. `ProceduralAudio.Speak` is the only call site in the process,

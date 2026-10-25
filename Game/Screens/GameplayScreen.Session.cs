@@ -165,6 +165,10 @@ namespace BS3D.Screens
         /// </summary>
         internal void TearDown()
         {
+            //A level cleared and torn down before its page came (a quit from the pause page while the drop or the volley runs): the
+            //clear is recorded as its page would record it, so it is kept and sent, and the abandon below then counts nothing
+            if (_phase == LevelPhase.ClearedBeat) RecordEnding();
+
             //An attempt torn down before its result page was left (#709): a Restart, another level started over a session
             //kept for Continue, a New Game, the game closing. After an ending nothing is open, and this counts nothing.
             AbandonAttempt();

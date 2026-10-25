@@ -596,6 +596,10 @@ namespace BS3D.Screens
             /// point in screen space rather than projected from a cell, with its caption stacked over the figure instead
             /// of beside it, and waiting its turn (<see cref="AddBonus"/>).</summary>
             public bool IsBonus;
+
+            /// <summary>The hold the counted bonus (#881) was placed for at its birth: a skip shortens its hold, and its block
+            /// would otherwise hop on the frame it is skipped. Zero places by the hold itself.</summary>
+            public float PlaceHold;
         }
 
         private readonly List<Popup> _popups = new();
@@ -1009,7 +1013,7 @@ namespace BS3D.Screens
                 Popup popup = _popups[i];
                 if (!popup.IsBonus || popup.Age >= 0f) continue;
                 popup.Age = 0f;
-                popup.Hold = countSeconds + BONUS_AFTER_COUNT;
+                popup.Hold = popup.PlaceHold = countSeconds + BONUS_AFTER_COUNT;
                 _popups[i] = popup;
             }
         }
@@ -2647,7 +2651,7 @@ namespace BS3D.Screens
         /// </summary>
         private Vector2 BonusSource(in Popup popup, Viewport viewport)
         {
-            AwardLayout tallest = LayOutAward(popup, AwardZoom.ReadMax(popup.Peak, popup.Birth, popup.Hold));
+            AwardLayout tallest = LayOutAward(popup, AwardZoom.ReadMax(popup.Peak, popup.Birth, popup.PlaceHold > 0f ? popup.PlaceHold : popup.Hold));
             float bottom = viewport.Height * 0.5f - StreakCues.ClearancePixels(viewport.Height)
                            - Scaled(POPUP_BONUS_RISE) * AwardZoom.Rise(popup.Age, popup.Hold);
 

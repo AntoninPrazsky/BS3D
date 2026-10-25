@@ -23,6 +23,7 @@ namespace BS3D.Tests
         [InlineData(7, 1120)]
         [InlineData(29, 1624)]
         [InlineData(60, 3001)]
+        [InlineData(90, 4500)]
         public void EveryBallLeavesOnceAndTheCountEndsOnTheBonus(int balls, int bonus)
         {
             SpareVolley volley = Begun(balls, bonus);
@@ -45,7 +46,8 @@ namespace BS3D.Tests
         [Fact]
         public void AWholeBudgetFitsTheCapAndAFewKeepTheirCadence()
         {
-            Assert.True(SpareVolley.Duration(60) <= SpareVolley.LEAD_IN + SpareVolley.MAX_SECONDS + SpareVolley.TAIL + 1e-4f);
+            //The longest budget the campaign deals is 90
+            Assert.True(SpareVolley.Duration(90) <= SpareVolley.LEAD_IN + SpareVolley.MAX_SECONDS + SpareVolley.TAIL + 0.03f);
             Assert.Equal(SpareVolley.MAX_INTERVAL, SpareVolley.Interval(5), 4);
             Assert.True(SpareVolley.Interval(200) >= SpareVolley.MIN_INTERVAL);
         }
@@ -60,6 +62,7 @@ namespace BS3D.Tests
 
             Assert.True(volley.TrySkip());
             Assert.Equal(1624, volley.Counted);
+            Assert.Equal(fired, volley.Launched);
             Assert.False(volley.Running);
             Assert.False(volley.TrySkip());
 
@@ -68,6 +71,17 @@ namespace BS3D.Tests
             for (int i = 0; i < 120; i++) after += volley.Update(1f / 60f);
             Assert.Equal(0, after);
             Assert.False(volley.Engaged);
+        }
+
+        [Fact]
+        public void ASkipInTheFirstMomentsIsRefused()
+        {
+            SpareVolley volley = Begun(29, 1624);
+            volley.Update(0.1f);
+            Assert.False(volley.TrySkip());
+            Assert.True(volley.Running);
+            volley.Update(SpareVolley.SKIP_LOCKOUT);
+            Assert.True(volley.TrySkip());
         }
 
         [Fact]

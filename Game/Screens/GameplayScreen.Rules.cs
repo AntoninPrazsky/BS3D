@@ -1279,6 +1279,7 @@ namespace BS3D.Screens
                     _pendingFailure = LevelFailure.None;
                     _blockCompleted = false;
                     _campaignCompleted = false;
+                    _endingRecord = null;
                     break;
 
                 case LevelPhase.ClearedBeat:
@@ -1343,40 +1344,19 @@ namespace BS3D.Screens
             EnterPhase(LevelPhase.Over);
         }
 
-        /// <summary>
-        /// Puts the result screen over the level that has just ended. The screen is a push over this one,
-        /// exactly as a pause is — but where a pause stops what is underneath, this page leaves its
-        /// <c>UpdatesUnderlying</c> true and the arena goes on living behind the numbers (#241, and
-        /// <see cref="UpdateUnderResult"/> for what "living" is allowed to mean). <see cref="LevelPhase.Over"/>'s
-        /// entry work, and called from nowhere but <see cref="EnterPhase"/> — see <see cref="FinishLevel"/> and
-        /// <see cref="LoseLevel"/> for the two ways in.
-        /// </summary>
-        private void ShowResultScreen()
+        //What an ending recorded (#881's review): the rating, the save's record, the play counts and the boards' submission, done
+        //once a level. The result page's funnel takes it; and a session torn down during a clear's beat (a quit from the pause page
+        //while the drop or the volley runs, which the volley made seconds longer) takes it too, so a level won is never lost to its
+        //own celebration. Null until the level ends
+        private EndingRecord? _endingRecord;
+
+        private readonly record struct EndingRecord(bool Cleared, int Stars, bool NewBest, bool Submitted);
+
+        private EndingRecord RecordEnding()
         {
-            //The floor alarm has said its piece: from the moment the ending is actually put in front of the
-            //player, a standing net keeps pulsing under the page for a moment and then goes out — unless it is the
-            //net that ended the level, which stays for as long as the page is up (#614, see NoticeLevelEnded). Stamped here,
-            //the one funnel both endings come through, and not back where the level logically ended — a clear's
-            //page arrives LEVEL_CLEARED_BEAT after the field empties, plus a whole cinematic when one is
-            //running (the countdown freezes for it), and a linger stamped at the clear was spent before anyone
-            //saw it. Wall-clock stamped, because nothing steps the net once the page is up: the frame that
-            //runs under it is the world's, and the alarm is a rule of the level (see LaserGrid).
-            _laserGrid.NoticeLevelEnded(WallClock);
+            if (_endingRecord is EndingRecord done) return done;
 
-            //Smears age in Update and draw in Draw, and the frame under the page ages neither — so one still
-            //mid-fade would hang at a fixed alpha for as long as the result page is up, while the page's own
-            //camera turns around it. Dropped rather than converted to wall clock: a level that has ended has
-            //no shot worth still showing.
-            _smears.Clear();
-            _lineSparks.Clear();
-            _swapMotion.Cancel();
-
-            //The figures are handed over as a SNAPSHOT taken now, not read by the screen when it draws. The
-            //level does not stop the instant it is cleared — the collapse is held for a beat and a player who
-            //keeps firing moves the balls remaining — so a screen that re-read the keeper printed a row that
-            //did not add up to the total above it. See LevelResult.
             bool cleared = _pendingFailure == LevelFailure.None;
-            bool lastEntry = Game.LevelSet == null || _run.Index + 1 >= Game.LevelSet.Count;
 
             //The rating and the record, at the one funnel both endings come through. Recorded BEFORE the
             //unlock below is read, so the stars this clear just earned already count towards the next
@@ -1409,6 +1389,47 @@ namespace BS3D.Screens
                 Console.WriteLine("[online] This run used the debug row (#876): the ending is not sent to the boards or the play counts");
             bool submitted = !_run.DebugKindLoaded && Game.Online.SubmitEnding(_run.Identity, _run.Score.Score, stars, _run.EndShots, _run.EndSeconds,
                 savedClear: Game.LevelStars(_run.Index) > 0);
+
+            _endingRecord = new EndingRecord(cleared, stars, newBest, submitted);
+            return _endingRecord.Value;
+        }
+
+        /// <summary>
+        /// Puts the result screen over the level that has just ended. The screen is a push over this one,
+        /// exactly as a pause is — but where a pause stops what is underneath, this page leaves its
+        /// <c>UpdatesUnderlying</c> true and the arena goes on living behind the numbers (#241, and
+        /// <see cref="UpdateUnderResult"/> for what "living" is allowed to mean). <see cref="LevelPhase.Over"/>'s
+        /// entry work, and called from nowhere but <see cref="EnterPhase"/> — see <see cref="FinishLevel"/> and
+        /// <see cref="LoseLevel"/> for the two ways in.
+        /// </summary>
+        private void ShowResultScreen()
+        {
+            //The floor alarm has said its piece: from the moment the ending is actually put in front of the
+            //player, a standing net keeps pulsing under the page for a moment and then goes out — unless it is the
+            //net that ended the level, which stays for as long as the page is up (#614, see NoticeLevelEnded). Stamped here,
+            //the one funnel both endings come through, and not back where the level logically ended — a clear's
+            //page arrives LEVEL_CLEARED_BEAT after the field empties, plus a whole cinematic when one is
+            //running (the countdown freezes for it), and a linger stamped at the clear was spent before anyone
+            //saw it. Wall-clock stamped, because nothing steps the net once the page is up: the frame that
+            //runs under it is the world's, and the alarm is a rule of the level (see LaserGrid).
+            _laserGrid.NoticeLevelEnded(WallClock);
+
+            //Smears age in Update and draw in Draw, and the frame under the page ages neither — so one still
+            //mid-fade would hang at a fixed alpha for as long as the result page is up, while the page's own
+            //camera turns around it. Dropped rather than converted to wall clock: a level that has ended has
+            //no shot worth still showing.
+            _smears.Clear();
+            _lineSparks.Clear();
+            _swapMotion.Cancel();
+
+            //The figures are handed over as a SNAPSHOT taken now, not read by the screen when it draws. The
+            //level does not stop the instant it is cleared — the collapse is held for a beat and a player who
+            //keeps firing moves the balls remaining — so a screen that re-read the keeper printed a row that
+            //did not add up to the total above it. See LevelResult.
+            bool lastEntry = Game.LevelSet == null || _run.Index + 1 >= Game.LevelSet.Count;
+            EndingRecord ending = RecordEnding();
+            bool cleared = ending.Cleared, newBest = ending.NewBest, submitted = ending.Submitted;
+            int stars = ending.Stars;
 
             Game.PresentResult(new LevelResult(
                 cleared: cleared,
