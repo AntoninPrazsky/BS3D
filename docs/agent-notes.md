@@ -20,6 +20,16 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #979 potůček teče z pramene do rybníka — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo (ec177f1f): změřeno `BrookWaterLevel` od ústí ven: rybník ležel 1,46 nad dnem údolí (posledních 30 jednotek teklo do kopce) a za hřebenem u d 206 potok stoupal o 16. Rybník je teď na dně údolí (`BROOK_START` 1,18), potok pramení pod hřebenem (`BROOK_CARVE_END` 190), malovaný potok zmizel. Vlnky jedou v souřadnicích toku, na strmém úseku rychlá vrstva s pěnou, čistá voda nad oblázky. Test `TheBrookFallsAllTheWayToThePond`, `mirrorcheck` PASS. `verdict-eye`.
+- Cena (hra, High, 3840x1581): záběr potoka v úvodu nejhůř 13,10 ms (dřív 12,81), pod 13,33; kamínky nestojí nic, rozdíl je obsah záběru (strmý úsek).
+- ⚠ 25. 10. se ve 3:00 posunul čas zpět: `quiet-capture` bere hodinu staré snímky za nové a ukončí běh hned. Do 3:00 nového času porovnávat jména souborů, ne čas (kopie skriptu ve scratchpadu).
+- ⚠ Výsadba potoka bere z hlavního `rng` louky: posun potoka jednou přelosoval břeh rybníka, kameny u ostrova a trsy.
+
+## 2026-10-25 — #744 Phobos je měsíc, ne díra — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo (1e9a6838): oba měsíce jsou elipsoidy (dlouhá osa k Marsu), Stickney a krátery naklánějí normálu analyticky, Lommel-Seeliger + Marsshine, složení přes vzduch (`Transmission` 0,95, `Airlight` 0,62), odrazivost 0,40 místo 0,095. `verdict-eye`.
+- ⚠ Tmavý měsíc na denní obloze bez vzduchu před ním je vždycky černá díra; vzduch (dome za ním se zčásti přičte) to řeší fyzikálně.
+
 ## 2026-10-24 — #1006 #1012 zaostření kamery a nápověda k přesnému míření — desktop (RDT-PC), Claude Code (bs3d-0b)
 - majitel: kamera na začátku ukáže celek a po chvíli se zaostří na místo, kam se míří (smí se měnit FOV); po RMB nebo převzetí kamery znovu z celku. Pořád širší než RMB. K tomu nápověda, když střela mimo RMB nic neshodí; opakovat, když hráč RMB jen ťukne nebo ho dlouho nepoužije.
 - Hotovo, ale **nesloučeno** (čeká na tag v0.5.0, dohoda s bs3d-80): větev `1006-overview-focus` (`OverviewFocus`: o 3 výš a o 4 blíž, FOV 0,88, ústí na 88 % obrazu) a `1012-precise-aim-hint` (`PreciseAimHint` + `Definition.Hint`, do save se nikdy nezapisuje).
