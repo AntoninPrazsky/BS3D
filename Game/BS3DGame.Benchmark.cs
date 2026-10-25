@@ -49,11 +49,13 @@ namespace BS3D
 
         /// <summary>
         /// The benchmark's play ended (its time, the level decided, or the player's stop): the session torn down, as the result
-        /// page's Main Menu tears it down, and the benchmark page back over the main menu for what it measures next.
+        /// page's Main Menu tears it down, and the benchmark page back over Extras, where it was opened, for what it measures
+        /// next.
         /// </summary>
         internal void EndBenchmarkPlay()
         {
             EndSessionAndReturnToMainMenu();
+            OpenExtras();
             OpenPage(_benchmarkPage);
         }
 

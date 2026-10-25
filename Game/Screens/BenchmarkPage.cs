@@ -144,17 +144,30 @@ namespace BS3D.Screens
                 column.Widgets.Add(Paragraph(string.Create(CultureInfo.InvariantCulture,
                     $"Flies through {TOURS} of the most demanding scenes at your quality ({Game.QualityLabel}), with the frame rate unlocked, then plays the biggest level: the city's opening flight to the cannon, and the cannon firing by itself. It measures every frame, then times the physics. About two minutes. The skip key stops it."),
                     ProseMeasure));
-                if (Game.HasKeptSession)
-                    column.Widgets.Add(Paragraph("The benchmark plays a level of its own, so the level you left unfinished will be closed.", ProseMeasure));
                 if (!Game.SceneryShown && !BS3DGame.PotatoPath)
                     column.Widgets.Add(Paragraph("The scenery is off in your settings: the benchmark shows it, so that it has something to measure.", ProseMeasure));
                 column.Widgets.Add(Paragraph(SENT_NOTE, ProseMeasure));
             }
 
+            //Read as the tree is built, and the tree built again whenever it changes (Refresh): a level kept for Continue can be
+            //left after the page was first seen, and a run started over it closes it
+            _builtWithKeptSession = Game.HasKeptSession;
+            if (_builtWithKeptSession)
+                column.Widgets.Add(Paragraph("The benchmark plays a level of its own, so the level you left unfinished will be closed.", ProseMeasure));
+
             _firstEntry = MenuButton(_phase == Phase.Done ? "Run again" : "Start", () => StartNow());
             column.Widgets.Add(_firstEntry);
             column.Widgets.Add(BackButton());
             return ScreenRoot(Plate(column));
+        }
+
+        //Whether the tree was built with a level kept for Continue, which it warns of
+        private bool _builtWithKeptSession;
+
+        /// <summary>The page is built again when a level has been kept or let go since its tree was built: the warning follows it.</summary>
+        internal override void Refresh()
+        {
+            if (!Running && _builtWithKeptSession != Game.HasKeptSession) InvalidateTree();
         }
 
         /// <summary>What the page says before a run about what leaves the machine: the Start press is the consent to it.</summary>
@@ -215,7 +228,10 @@ namespace BS3D.Screens
             //What the numbers recommend (BenchmarkVerdict) for the tier they were measured at, offered as an entry and never
             //applied unasked; a stopped run says how far it got and offers nothing
             QualityLevel tier = _measuredTier;
-            QualityLevel recommended = BenchmarkVerdict.Recommend(tier, _results, _measured, out int decidedBy);
+            //Over the tours alone: the play's frames carry the physics, the shots and the falls, which no tier changes, and a
+            //machine short of processor would be told to lower a graphics tier that would not help it (the physics' own line
+            //says when the processor is the limit)
+            QualityLevel recommended = BenchmarkVerdict.Recommend(tier, _results, Math.Min(_measured, TOURS), out int decidedBy);
             int hz = Game.DisplayRefreshHz > 0 ? Game.DisplayRefreshHz : 60;
             string verdict = recommended < tier
                 ? string.Create(CultureInfo.InvariantCulture,
@@ -398,6 +414,11 @@ namespace BS3D.Screens
             _phase = Phase.Play;
             BeginPlaySegment();
             Game.StartBenchmarkPlay();
+
+            //The clock starts after the level's build, which blocks: its stall is no frame, and the first-use frames after it
+            //are what the settle window is for
+            _lastTick = Stopwatch.GetTimestamp();
+            _phaseSeconds = 0f;
         }
 
         private void BeginPlaySegment()
@@ -610,7 +631,7 @@ namespace BS3D.Screens
                     ["warmupWorstMs"] = Math.Round(_physicsWarmup.Worst, 3),
                     ["warmupMedianMs"] = Math.Round(_physicsWarmup.Median, 4),
                 };
-            QualityLevel recommended = BenchmarkVerdict.Recommend(Game.Quality, _results, _measured, out _);
+            QualityLevel recommended = BenchmarkVerdict.Recommend(Game.Quality, _results, Math.Min(_measured, TOURS), out _);
             Console.WriteLine($"[bench] recommends {recommended} (ran at {Game.Quality}){(complete ? "" : $", stopped after {_measured} of {SEGMENTS.Length} parts: not saved or sent")}");
             if (complete)
             {
