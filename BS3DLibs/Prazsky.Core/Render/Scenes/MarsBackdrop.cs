@@ -109,6 +109,8 @@ namespace Prazsky.Core.Render
         }
 
         private const int ROCK_SEED = 7750;
+        //How far a stone is sunk into the plain, a share of its size
+        private const float ROCK_SINK = 0.12f;
 
         /// <summary>The stones of the clearing (#775): see THE STONES.</summary>
         private ScatterBucket[] PlantRocks(MarsSceneConfig config, int seed)
@@ -116,12 +118,16 @@ namespace Prazsky.Core.Render
             var rng = new Random(seed);
             var meshes = new IProceduralMesh[4];
             var at = new List<ModelInstance>[meshes.Length];
+            //High and Ultra's rocks off the same instances (#777, the volcano's and the Moon's): by variant and by density, the
+            //ground over each pivot in Custom.z for the stone's dust
+            var fine = new List<ModelInstance>[meshes.Length, FracturedRockSet.DENSITIES];
             for (int m = 0; m < meshes.Length; m++)
             {
                 var mesh = VolcanoPlanting.BlockMesh(_graphicsDevice, rng);
                 _rockOwned.Add(mesh);
                 meshes[m] = mesh;
                 at[m] = new List<ModelInstance>();
+                for (int k = 0; k < FracturedRockSet.DENSITIES; k++) fine[m, k] = new List<ModelInstance>();
             }
 
             float ground = config.Terrain.LevelY, to = config.Terrain.ClearingRadius;
@@ -137,8 +143,12 @@ namespace Prazsky.Core.Render
 
                     float yaw = (float)rng.NextDouble() * MathHelper.TwoPi, lean = ((float)rng.NextDouble() - 0.5f) * 0.5f;
                     var tint = new Vector4((float)rng.NextDouble(), ((float)rng.NextDouble() - 0.5f) * 0.2f, 0f, 0f);
-                    at[rng.Next(meshes.Length)].Add(new ModelInstance(Matrix.CreateScale(size) * Matrix.CreateRotationX(lean)
-                        * Matrix.CreateRotationY(yaw) * Matrix.CreateTranslation(x, ground - size * 0.12f, z), tint));
+                    int variant = rng.Next(meshes.Length);
+                    Matrix world = Matrix.CreateScale(size) * Matrix.CreateRotationX(lean) * Matrix.CreateRotationY(yaw)
+                        * Matrix.CreateTranslation(x, ground - size * ROCK_SINK, z);
+                    at[variant].Add(new ModelInstance(world, tint));
+                    fine[variant, FracturedRockSet.Density(size * FracturedRockSet.BLOCK_REACH)]
+                        .Add(new ModelInstance(world, new Vector4(tint.X, tint.Y, size * ROCK_SINK, 0f)));
                     i++;
                 }
             }
@@ -150,11 +160,19 @@ namespace Prazsky.Core.Render
             for (int m = 0; m < meshes.Length; m++)
             {
                 if (at[m].Count == 0) continue;
+                //The faceted block is Low and Medium's (#777); High and Ultra draw the fractured rock below. ⚠ Flagged for the finer
+                //meshes, the first cut drew no stone at all on Low and Medium and the coarse block on High (found by review)
                 var bucket = new ScatterBucket(_graphicsDevice, meshes[m], at[m], BASALT, BASALT_DUSTED, dapple: 0.2f, bark: 0.3f,
-                    detailOnly: false, fineMeshes: true);
+                    detailOnly: false, fineMeshes: false);
                 _rockOwned.Add(bucket);
                 buckets.Add(bucket);
             }
+            //Dusted at the foot and on top with the plain's own rust
+            Vector3 dust = Vector3.Lerp(config.Surface.RustColor.ToVector3(), config.Surface.RustColorPale.ToVector3(), 0.5f);
+            var set = new FracturedRockSet(_graphicsDevice, fine, new List<ModelInstance>[0, FracturedRockSet.DENSITIES], _ => 0f,
+                seed * 31 + 775, BASALT, BASALT_DUSTED, dust);
+            _rockOwned.Add(set);
+            buckets.AddRange(set.Buckets);
             return buckets.ToArray();
         }
 
