@@ -218,6 +218,194 @@ float4 FlamePS(FlameVertexOutput input) : COLOR
     return float4(color * alpha, alpha);
 }
 
+//--- THE FIRE AS A VOLUME (#886), High and Ultra. The owner: "Fire is plasma in space." However many billboards
+//stand in a fire, each is a picture turned to the lens, and a 2D field painted on it has no inside: walking round a
+//fire shows the same flat plasma. Here the fire is a field in the WORLD - the same tongues, turbulence and colour
+//ramp as FlamePS, but each tongue a column round its own wandering axis and the turbulence a 3D noise rising
+//through it - and every pixel of the fire's bounding box marches its view ray through that field. So the fire has
+//depth: a tongue in front glows over one behind it, a view from the side sees different tongues, and the plasma moves
+//through the fire rather than across a card. Low and Medium keep the billboards (the Flame technique above); a lens
+//inside the box draws them too, the box having no face before it.
+//
+//The box stands FLAME_VOLUME_RADIUS fire sizes round the hearth's axis, the billboard's height tall. The march runs
+//only where the ray is inside the cone the tongues can reach - FLAME_REACH_BASE fire sizes round the axis at the
+//hearth, FLAME_REACH_FALL less by the top (their spread at the base, 0.45, plus their width, 0.9, and the lean) -
+//worked out per pixel, so the box's empty corners cost a quadratic and no sample. ⚠ The first cut marched the whole
+//cylinder in twenty steps with a third noise for the sheets: +2.0 ms at the #468 camera and +1.4 at the play camera.
+static const float FLAME_VOLUME_RADIUS = 1.45;
+static const float FLAME_REACH_BASE = 1.4;
+static const float FLAME_REACH_FALL = 0.8;
+static const int FLAME_VOLUME_STEPS = 12;
+//The fire GLOWS through itself: it emits more than it hides. Per fire size of depth at full heat, how much light it
+//gives (as a share of its ramp's colour) and how much of what is behind it it takes away. Composited as a surface
+//(each sample covering what is behind it by its own opacity) the cool red skin on the near side hid the hot core, and
+//the fire read as a column of orange gel; with the absorption under the emission the core shines through the skin.
+//The absorption is what keeps the fire red over the daylit sky (#468's reason for blending it at all) and its body
+//solid.
+static const float FLAME_VOLUME_EMISSION = 2.4;
+static const float FLAME_VOLUME_ABSORPTION = 3.0;
+//The plasma's sheets: where the turbulence crosses zero it draws a surface through the fire, and the flame is brighter
+//along it - thin bright sheets streaming up with the plasma, for no noise of their own
+static const float FLAME_SHEET_SHARPNESS = 5.0;
+static const float FLAME_SHEET_GAIN = 1.4;
+//The tongues: one up the middle and three round it, spread at the base and leaning in as they rise
+static const int FLAME_TONGUES = 4;
+
+//The plasma's noise, baked (SavannaBackdrop.FlameNoiseTexels): gradient noise repeating every FLAME_NOISE_PERIOD units,
+//four texels a unit, read with trilinear filtering. Two fetches a sample where Fbm3's two octaves were two gradient
+//noises of eight hashed corners each: the noise was most of the march's cost.
+static const float FLAME_NOISE_PERIOD = 8.0;
+Texture3D FlameNoiseVolume;
+sampler3D FlameNoiseSampler = sampler_state
+{
+    Texture = <FlameNoiseVolume>;
+    MinFilter = LINEAR;
+    MagFilter = LINEAR;
+    MipFilter = NONE;
+    AddressU = WRAP;
+    AddressV = WRAP;
+    AddressW = WRAP;
+};
+
+//Fbm3(p, 2) off the baked noise: the same two octaves, the second rotated and at twice the frequency
+float FlameFbm(float3 p)
+{
+    float first = tex3Dlod(FlameNoiseSampler, float4(p / FLAME_NOISE_PERIOD, 0.0)).r;
+    float second = tex3Dlod(FlameNoiseSampler, float4(mul(NOISE_ROTATE3, p) * (2.02 / FLAME_NOISE_PERIOD), 0.0)).r;
+    return 0.5 * first + 0.25 * second;
+}
+
+struct FlameVolumeVertexOutput
+{
+    float4 Position : SV_POSITION;
+    float3 WorldPosition : TEXCOORD0;
+};
+
+FlameVolumeVertexOutput FlameVolumeVS(FlameVertexInput input)
+{
+    FlameVolumeVertexOutput output;
+    //A corner of the unit box (X and Z -1 or 1, Y 0 or 1) round the hearth's axis
+    float3 extent = float3(FLAME_VOLUME_RADIUS * FlameSize, FlameSize * FlameHeightScale, FLAME_VOLUME_RADIUS * FlameSize);
+    float3 world = FlamePosition + input.Position.xyz * extent;
+    output.Position = mul(mul(float4(world, 1.0), View), Projection);
+    output.WorldPosition = world;
+    return output;
+}
+
+//The fire's heat at q (fire sizes from the hearth's centre), v its share of the fire's height: FlamePS's body, in 3D.
+//`bearing` is each tongue's direction off the axis this frame, the same for every sample of a pixel. `turb` is handed
+//back for the sheets.
+float FlameVolumeHeat(float3 q, float v, float r, float t, float2 bearing[FLAME_TONGUES], out float turb)
+{
+    //The plasma: fBm in the world scrolling up through the fire, offset per fire so no two share it
+    //Finer than FlamePS's (1.8 across, 3.2 up): a billboard's plasma is one sheet, and in a volume that coarse it merged
+    //the tongues into one smooth plume
+    float3 p = float3(q.x * 2.5, v * 4.2 - t * 1.4 * r, q.z * 2.5) + float3(r * 11.0, 0.0, r * 7.0);
+    turb = FlameFbm(p);
+
+    //The whole fire leans with height on the turbulence, the lean's bearing turning slowly up it and in time
+    float leanAt = v * 2.3 + t * 0.35 * r;
+    float2 lean = float2(cos(leanAt), sin(leanAt)) * (turb * 0.7 * v);
+
+    float body = 0.0;
+    [unroll]
+    for (int i = 0; i < FLAME_TONGUES; i++)
+    {
+        float fi = (float)i;
+        //Tongue 0 up the middle; 1 to 3 at a third of a turn apart, each wobbling square to its own bearing
+        float spread = (i == 0 ? 0.0 : 0.45) * (1.0 - 0.6 * v);
+        float wobble = 0.22 * sin(v * (5.0 + fi * 1.7) * r - t * (7.0 + 2.0 * fi) * r + fi * 2.1);
+        float2 c = bearing[i] * spread + float2(-bearing[i].y, bearing[i].x) * wobble + lean;
+        float w = lerp(i == 0 ? 0.9 : 0.75, 0.1, pow(saturate(v), 0.6)) * (0.85 + 0.15 * sin(t * (6.0 + fi) * r + fi * 1.3));
+        body = max(body, 1.0 - length(q.xz - c) / w);
+    }
+
+    //The turbulence cuts harder with height than FlamePS's (0.3 + 1.5 v), so the tongues part into licks as they climb
+    return saturate(body * 1.3 - (turb * 0.5 + 0.5) * (0.3 + 1.9 * v)) * smoothstep(-0.02, 0.10, v) * smoothstep(1.0, 0.55, v);
+}
+
+float4 FlameVolumePS(FlameVolumeVertexOutput input) : COLOR
+{
+    //In fire sizes from the hearth's centre from here on
+    float height = FlameHeightScale;
+    float3 o = (CameraPosition - FlamePosition) / FlameSize;
+    float3 rd = normalize(input.WorldPosition - CameraPosition);
+
+    //Where the ray is inside the cone the tongues reach: radius k + m t along it, squared against the distance off the
+    //axis. A ray nearly as steep as the cone's side (a lens straight over the fire) takes the cylinder at the base's reach
+    float fall = FLAME_REACH_FALL / height;
+    float k = FLAME_REACH_BASE - fall * o.y;
+    float m = -fall * rd.y;
+    float a = dot(rd.xz, rd.xz) - m * m;
+    float b = dot(o.xz, rd.xz) - k * m;
+    float c = dot(o.xz, o.xz) - k * k;
+    [flatten]
+    if (a < 1e-4)
+    {
+        a = max(dot(rd.xz, rd.xz), 1e-6);
+        b = dot(o.xz, rd.xz);
+        c = dot(o.xz, o.xz) - FLAME_REACH_BASE * FLAME_REACH_BASE;
+    }
+    float disc = b * b - a * c;
+    clip(disc);
+    float root = sqrt(max(disc, 0.0));
+    float t0 = (-b - root) / a;
+    float t1 = (-b + root) / a;
+    //And between the hearth and the top
+    float ry = abs(rd.y) > 1e-5 ? rd.y : 1e-5;
+    float ya = -o.y / ry, yb = (height - o.y) / ry;
+    t0 = max(max(t0, min(ya, yb)), 0.0);
+    t1 = min(t1, max(ya, yb));
+    clip(t1 - t0);
+
+    float r = FlameSeed;
+    float t = FlameTime;
+    //Each tongue's bearing this frame: a third of a turn apart, swaying a little
+    float2 bearing[FLAME_TONGUES];
+    [unroll]
+    for (int i = 0; i < FLAME_TONGUES; i++)
+    {
+        float angle = i * 2.0944 + 0.4 * sin(t * 0.7 * r + i);
+        bearing[i] = float2(cos(angle), sin(angle));
+    }
+
+    float dt = (t1 - t0) / FLAME_VOLUME_STEPS;
+    //Each pixel starts its samples at its own fraction of a step (interleaved gradient noise), so the steps do not
+    //draw contour lines across the fire
+    float jitter = frac(52.9829189 * frac(dot(input.Position.xy, float2(0.06711056, 0.00583715))));
+
+    float transmit = 1.0;
+    float3 color = 0.0;
+    [loop]
+    for (int j = 0; j < FLAME_VOLUME_STEPS; j++)
+    {
+        float3 q = o + rd * (t0 + (j + jitter) * dt);
+        float v = q.y / height;
+        float turb;
+        float heat = FlameVolumeHeat(q, v, r, t, bearing, turb);
+        [branch]
+        if (heat > 0.02)
+        {
+            //FlamePS's ramp: red where the fire is thin, orange through the body, the yellow-white core only low down
+            float h = saturate(heat * (0.55 + 0.75 * (1.0 - v)));
+            float3 ramp = lerp(FIRE_RED, FIRE_ORANGE, smoothstep(0.10, 0.65, h));
+            ramp = lerp(ramp, FIRE_CORE, smoothstep(0.85, 1.0, h) * smoothstep(0.34, 0.06, v));
+            float sheet = saturate(1.0 - abs(turb) * FLAME_SHEET_SHARPNESS);
+            sheet *= sheet;
+            float body = smoothstep(0.02, 0.10, heat);
+            //A tongue thins as it climbs, and the light it gives over a shorter path with it: the tips glow more per depth
+            color += transmit * ramp * (body * FLAME_VOLUME_EMISSION * (1.0 + 1.2 * v) * dt * (0.7 + FLAME_SHEET_GAIN * sheet));
+            transmit *= exp(-FLAME_VOLUME_ABSORPTION * body * dt);
+        }
+        if (transmit < 0.02)
+            break;
+    }
+
+    //Premultiplied, as FlamePS's: the blend is AlphaBlend
+    clip(0.995 - transmit);
+    return float4(color, 1.0 - transmit);
+}
+
 //A spark: one small camera-facing quad on a looping life off the wall clock - born in the fire's base,
 //climbing on a swirl, drifting, shrinking and cooling, gone by the top of its rise. Everything is a function
 //of the clock and the vertex's own randoms, so there is no particle state anywhere (the volcano's rule).
@@ -267,6 +455,15 @@ technique Flame
     {
         VertexShader = compile VS_SHADERMODEL FlameVS();
         PixelShader = compile PS_SHADERMODEL FlamePS();
+    }
+};
+
+technique FlameVolume
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL FlameVolumeVS();
+        PixelShader = compile PS_SHADERMODEL FlameVolumePS();
     }
 };
 
