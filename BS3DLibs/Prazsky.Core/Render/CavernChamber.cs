@@ -104,6 +104,7 @@ namespace Prazsky.Core.Render
             PlaceStalactites(rng);
             PlaceStalagmites(rng);
             PlaceStalagmitesUnderCurtains();
+            ClearStalagmitesOffMovedClusters();
             PlaceShafts(rng);
             PlaceGlowworms(rng, config.Air.GlowwormCount);
         }
@@ -355,7 +356,7 @@ namespace Prazsky.Core.Render
             {
                 if (rng.NextDouble() < 0.25) continue;
                 Vector2 at = o.Centre + new Vector2((float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f) * o.Radius * 0.4f;
-                AddCluster(rng, at, index++, MathHelper.Lerp(1.3f, 1.9f, (float)rng.NextDouble()));
+                AddCluster(rng, at, at, index++, MathHelper.Lerp(1.3f, 1.9f, (float)rng.NextDouble()));
             }
 
             //And along the shore at the wall's foot, on beaches, a few round the hall
@@ -367,20 +368,52 @@ namespace Prazsky.Core.Render
                 Vector2 at = dir * (wall - 4f - 10f * (float)rng.NextDouble());
                 if (FloorHeight(at.X, at.Y) < WaterY - 0.5f) continue;
                 bool crowded = false;
-                foreach (CavernCluster c in Clusters)
-                    if (Vector2.Distance(new Vector2(c.Base.X, c.Base.Z), at) < 70f) { crowded = true; break; }
+                foreach (Vector3 rolled in _rolled)
+                    if (Vector2.Distance(new Vector2(rolled.X, rolled.Z), at) < 70f) { crowded = true; break; }
                 if (crowded) continue;
-                AddCluster(rng, at, index++, MathHelper.Lerp(1.4f, 2.2f, (float)rng.NextDouble()));
+                AddCluster(rng, at, OutOfTheWater(dir, at, wall), index++, MathHelper.Lerp(1.4f, 2.2f, (float)rng.NextDouble()));
             }
 
             PlaceWallClusters(rng, index);
         }
 
-        private void AddCluster(Random rng, Vector2 at, int index, float size)
+        //Where the roll put each cluster's base, in the order of Clusters. The decisions that follow a roll and that the rest of
+        //the hall's rolls hang on (how crowded a shore is, where a stalagmite may stand) are made against these, so that
+        //moving a cluster to dry ground (below) leaves every other formation exactly where it rolled
+        private readonly List<Vector3> _rolled = new();
+
+        //The test above lets in a bed down to half a unit under the water (the rubble dips and rises along a beach), and a
+        //cluster rolled there stood in the shallows (#1017). It goes to the nearest dry ground instead: outwards, where the bed
+        //rises to the wall, then along the shore a degree at a time to either side, keeping its distance from the wall and
+        //the room round the clusters already placed. Nothing is rolled here (see _rolled).
+        private Vector2 OutOfTheWater(Vector2 dir, Vector2 at, float wall)
         {
-            float y = FloorHeight(at.X, at.Y);
+            float inFront = wall - at.Length();
+            for (int step = 0; step <= 180; step++)
+            {
+                float turn = MathHelper.ToRadians((step + 1) / 2 * (step % 2 == 0 ? -1 : 1));
+                float cos = MathF.Cos(turn), sin = MathF.Sin(turn);
+                Vector2 d = new(dir.X * cos - dir.Y * sin, dir.X * sin + dir.Y * cos);
+                float wallThere = WallAtWater(d.X, d.Y);
+                for (float r = wallThere - inFront; r < wallThere - 1.5f; r += 0.5f)
+                {
+                    Vector2 p = d * r;
+                    //Dry enough that a prism leaning off it comes out of the rock over the water
+                    if (FloorHeight(p.X, p.Y) < WaterY + SEAT_DRY + 0.5f) continue;
+                    bool crowded = false;
+                    foreach (CavernCluster c in Clusters)
+                        if (Vector2.Distance(new Vector2(c.Base.X, c.Base.Z), p) < 70f) { crowded = true; break; }
+                    if (!crowded) return p;
+                }
+            }
+            return at;
+        }
+
+        private void AddCluster(Random rng, Vector2 rolled, Vector2 at, int index, float size)
+        {
             Vector3 normal = FloorNormal(at.X, at.Y, 1.5f);
-            AddCluster(rng, new Vector3(at.X, y - 0.6f, at.Y), Vector3.Normalize(Vector3.Lerp(Vector3.Up, normal, 0.6f)), index, size);
+            AddCluster(rng, new Vector3(at.X, FloorHeight(at.X, at.Y) - 0.6f, at.Y), Vector3.Normalize(Vector3.Lerp(Vector3.Up, normal, 0.6f)),
+                new Vector3(rolled.X, FloorHeight(rolled.X, rolled.Y) - 0.6f, rolled.Y), index, size, true);
         }
 
         //Up on the walls: clusters grown out of ledges between the waterline and the vault, where the play camera, looking
@@ -395,15 +428,21 @@ namespace Prazsky.Core.Render
                 Vector3 n = ShellNormal(u, 0.01f);
                 if (n.Y < (attempt < 2500 ? 0.22f : 0.0f)) continue;
                 bool crowded = false;
-                foreach (CavernCluster c in Clusters)
-                    if (Vector3.Distance(c.Base, p) < 60f) { crowded = true; break; }
+                foreach (Vector3 rolled in _rolled)
+                    if (Vector3.Distance(rolled, p) < 60f) { crowded = true; break; }
                 if (crowded) continue;
                 Vector3 up = Vector3.Normalize(n + Vector3.Up * 0.7f);
-                AddCluster(rng, p - n * 0.8f, up, index++, MathHelper.Lerp(1.1f, 1.7f, (float)rng.NextDouble()));
+                AddCluster(rng, p - n * 0.8f, up, p - n * 0.8f, index++, MathHelper.Lerp(1.1f, 1.7f, (float)rng.NextDouble()), false);
             }
         }
 
-        private void AddCluster(Random rng, Vector3 foot, Vector3 up, int index, float size)
+        //How far under the rock's surface every corner of a prism's foot is put at the least, and how far over the water the
+        //bed must stand where a prism comes out of it. The mesh the draw builds is a chord of the functions it samples, and a
+        //crest or a crag can stand over it: by up to 0.8 on the bed at the coarse detail, and on the shell by a share of the
+        //distance from the centre (the cells grow with it, and the crags with them), which is what the other two are
+        private const float SEAT_MARGIN = 0.5f, SEAT_DRY = 0.8f, SEAT_BED_SAG = 0.8f, SEAT_SAG = 0.007f;
+
+        private void AddCluster(Random rng, Vector3 foot, Vector3 up, Vector3 rolled, int index, float size, bool onBed)
         {
             //Alternating cyan and magenta round the hall with a lean either way, so neighbours differ
             float hue = (index % 2 == 0 ? 0.08f : 0.92f) + ((float)rng.NextDouble() - 0.5f) * 0.16f;
@@ -421,12 +460,104 @@ namespace Prazsky.Core.Render
                 float length = size * (main ? MathHelper.Lerp(11f, 15f, (float)rng.NextDouble()) : MathHelper.Lerp(3.5f, 10f, (float)rng.NextDouble()));
                 float radius = size * (main ? 2.1f : MathHelper.Lerp(0.7f, 1.6f, (float)rng.NextDouble()));
                 float spread = main ? 0f : size * MathHelper.Lerp(1.2f, 3.6f, (float)rng.NextDouble());
-                Vector3 baseAt = foot + (side * MathF.Cos(around) + other * MathF.Sin(around)) * spread - axis * radius * 0.6f;
+                Vector3 dir = side * MathF.Cos(around) + other * MathF.Sin(around);
+                Vector3 normal = SurfaceNormal(foot + dir * spread, onBed);
+                axis = HoldToNormal(axis, normal);
+                Vector3 baseAt = SeatPrism(foot, dir, spread, axis, radius, onBed ? Vector3.Down : -normal, onBed);
                 cluster.Prisms.Add(new CavernPrism(baseAt, axis, radius, length, radius * MathHelper.Lerp(1.3f, 2.2f, (float)rng.NextDouble()),
                     (float)rng.NextDouble() * MathHelper.TwoPi));
             }
 
             Clusters.Add(cluster);
+            _rolled.Add(rolled);
+        }
+
+        /// <summary>
+        /// Where one prism's foot goes (#1017). The cluster's base is a single point seated in the rock, and a prism stands up
+        /// to a few units from it across a plane the bed and the walls do not lie in: rubble, an island's dome and a ledge's
+        /// curve put the ground a unit or two under the prism, and the foot hung in the air. So each foot is seated on its own,
+        /// sunk <paramref name="into"/> the rock (straight down on the bed, against the surface's normal on a wall: along the
+        /// prism's own axis a foot slid off the flank of a bump it was sinking into) until the whole disc of its foot (twelve
+        /// points round, since the hexagon's turn is rolled later) is inside the rock by <see cref="SEAT_MARGIN"/>; a foot
+        /// already deeper than that stays where it was. On the lake's bed a prism that would come out of the rock under the
+        /// water is pulled back towards the base, in eighths, until it comes out above it.
+        /// </summary>
+        private Vector3 SeatPrism(Vector3 foot, Vector3 dir, float spread, Vector3 axis, float radius, Vector3 into, bool onBed)
+        {
+            const int RING = 12;
+            Vector3 helper = MathF.Abs(axis.Y) < 0.9f ? Vector3.Up : Vector3.Right;
+            Vector3 s = Vector3.Normalize(Vector3.Cross(axis, helper));
+            Vector3 o = Vector3.Cross(axis, s);
+            Span<Vector3> ring = stackalloc Vector3[RING];
+            for (int i = 0; i < RING; i++)
+            {
+                float a = i * MathHelper.TwoPi / RING;
+                ring[i] = (s * MathF.Cos(a) + o * MathF.Sin(a)) * radius;
+            }
+
+            Vector3 c = foot;
+            for (int pull = 0; pull <= 8; pull++)
+            {
+                Vector3 baseAt = foot + dir * (spread * (1f - pull / 8f)) - axis * (radius * 0.6f);
+                c = baseAt;
+                for (float depth = 0f; depth <= SEAT_MAX_DEPTH; depth += 0.15f)
+                {
+                    c = baseAt + into * depth;
+                    bool seated = InRock(c, SEAT_MARGIN, !onBed);
+                    for (int i = 0; i < RING && seated; i++) seated = InRock(c + ring[i], SEAT_MARGIN, !onBed);
+                    if (seated) break;
+                }
+                if (!onBed) break;
+
+                //Where the axis comes out of the rock
+                Vector3 exit = c;
+                for (float t = 0f; t <= SEAT_MAX_DEPTH + 4f && InRock(exit, -SEAT_BED_SAG, !onBed); t += 0.15f) exit = c + axis * t;
+                if (exit.Y >= WaterY + SEAT_DRY) break;
+            }
+            return c;
+        }
+
+        private const float SEAT_MAX_DEPTH = 8f;
+
+        /// <summary>The rock's normal facing the hall at <paramref name="at"/>: the bed's, or the shell's in the direction of
+        /// the point from the centre.</summary>
+        private Vector3 SurfaceNormal(Vector3 at, bool onBed)
+        {
+            if (onBed) return FloorNormal(at.X, at.Z, 1.5f);
+            Vector3 d = at - Centre;
+            return ShellNormal(d / MathF.Max(d.Length(), 1e-3f), 0.01f);
+        }
+
+        //A flat foot cut by a surface it meets at a slant has to be buried by its radius times the slant's tangent to get every
+        //corner under: a prism leaning 70 degrees off the normal along a steep ledge by three radii, which is the whole prism
+        //in the wall. So a prism is held within this far of the surface's normal at its own foot, turned towards it if it leans
+        //more (a ledge's up and a prism's lean add to 70 degrees; a bed's seldom do)
+        private const float MAX_TILT = MathHelper.PiOver4;
+
+        private static Vector3 HoldToNormal(Vector3 axis, Vector3 n)
+        {
+            float cos = Vector3.Dot(axis, n);
+            if (cos >= MathF.Cos(MAX_TILT)) return axis;
+            Vector3 along = axis - n * cos;
+            float length = along.Length();
+            if (length < 1e-4f) return axis;
+            return Vector3.Normalize(n * MathF.Cos(MAX_TILT) + along / length * MathF.Sin(MAX_TILT));
+        }
+
+        /// <summary>Whether <paramref name="p"/> is inside the rock by at least <paramref name="margin"/>: under the lake's bed,
+        /// or outside the shell (radially). The rock the draw builds is the one sheet of both.</summary>
+        private bool InRock(Vector3 p, float margin, bool onWall)
+        {
+            //The bed is built out to thirty units past the wall at the waterline, and its height field runs on far beyond that
+            //(rising at 0.6 a unit): over a hall that widens above the waterline it says "rock" in the hall's own air
+            float wall = WallAtWater(p.X, p.Z);
+            float r2 = p.X * p.X + p.Z * p.Z;
+            if (r2 < (wall + 20f) * (wall + 20f) && p.Y <= FloorHeight(p.X, p.Z) - margin - SEAT_BED_SAG) return true;
+            //The shell is far from the middle of the lake: a point on an island is not asked about it
+            if (!onWall && p.Y < WaterY + 30f && r2 < (wall - 25f) * (wall - 25f)) return false;
+            Vector3 d = p - Centre;
+            float length = d.Length();
+            return length > 1e-3f && length - ShellRadius(d / length) >= margin + SEAT_SAG * length;
         }
 
         private void PlaceColumns(Random rng)
@@ -574,12 +705,25 @@ namespace Prazsky.Core.Render
             }
         }
 
+        //A cluster moved to dry ground (OutOfTheWater) stands where the stalagmites were not kept off it; they come off it now,
+        //after every roll, so that nothing is rolled differently for it
+        private void ClearStalagmitesOffMovedClusters()
+        {
+            for (int i = 0; i < Clusters.Count; i++)
+            {
+                var now = new Vector2(Clusters[i].Base.X, Clusters[i].Base.Z);
+                if (Vector2.Distance(now, new Vector2(_rolled[i].X, _rolled[i].Z)) < 0.01f) continue;
+                float keepOff = 5f * Clusters[i].Size;
+                Stalagmites.RemoveAll(s => Vector2.Distance(new Vector2(s.Root.X, s.Root.Z), now) < keepOff);
+            }
+        }
+
         private void TryStand(Vector2 at, float height, Random rng)
         {
             float y = FloorHeight(at.X, at.Y);
             if (y < WaterY + 0.4f) return;
-            foreach (CavernCluster c in Clusters)
-                if (Vector2.Distance(new Vector2(c.Base.X, c.Base.Z), at) < 5f * c.Size) return;
+            for (int i = 0; i < Clusters.Count; i++)
+                if (Vector2.Distance(new Vector2(_rolled[i].X, _rolled[i].Z), at) < 5f * Clusters[i].Size) return;
             float girth = MathHelper.Lerp(0.9f, 2.4f, (float)rng.NextDouble()) * (0.55f + 0.45f * height / 12f);
             Stalagmites.Add(new CavernHanging(new Vector3(at.X, y - 1.5f, at.Y), Vector3.Up, height + 1.5f, girth,
                 (float)rng.NextDouble() * 100f, rng.Next(3)));
