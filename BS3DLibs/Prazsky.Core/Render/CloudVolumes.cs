@@ -21,16 +21,17 @@ namespace Prazsky.Core.Render
     public sealed class CloudVolumes : IDisposable
     {
         //The lattice: a heap a cell, the cell this share of the weather layer's feature size (1 / Scale); how far out heaps
-        //stand (inside the camera's far plane, DEFAULT_FAR_PLANE_DISTANCE 2000) and where they dissolve into the sky
+        //stand (past the camera's far plane, DEFAULT_FAR_PLANE_DISTANCE 2000: the layer has a far plane of its own, FarProjection)
+        //and where they dissolve into the sky
         private const float CELL_SHARE = 0.5f;
-        private const float REACH = 1750f, FADE_NEAR = 1250f, FADE_FAR = 1700f;
-        private const int MAX_HEAPS = 320;
+        private const float REACH = 4000f, FADE_NEAR = 2600f, FADE_FAR = 3900f;
+        private const int MAX_HEAPS = 900;
 
         //A heap's size against the cover under it: none under COVER_MIN, its radius a share of the cell and its height a
         //share of its radius, both growing with the cover, so a dense patch towers
         private const float COVER_MIN = 0.12f, COVER_FADE = 0.15f;
-        private const float RADIUS_MIN = 0.30f, RADIUS_GROWTH = 0.32f;
-        private const float HEIGHT_MIN = 0.75f, HEIGHT_GROWTH = 0.9f;
+        private const float RADIUS_MIN = 0.30f, RADIUS_GROWTH = 0.22f;
+        private const float HEIGHT_MIN = 0.75f, HEIGHT_GROWTH = 1.1f;
 
         //Which skies stand as heaps: the weather's coverage bias, below which a sky is cumulus (Scattered 0.02, Broken 0.30) and
         //above which it is a lid (Storm 0.72, Overcast 0.85), the volumes and the deck's cut fading between them as a change of
@@ -160,7 +161,7 @@ namespace Prazsky.Core.Render
 
             ReadSky(skyEffect);
             _view.SetValue(camera.View);
-            _projection.SetValue(camera.Projection);
+            _projection.SetValue(FarProjection(camera.Projection, REACH + 500f));
             _cameraPosition.SetValue(camera.Position);
             _sunDirection.SetValue(_skySunDirection.GetValueVector3());
             _sunColor.SetValue(_skySunColor.GetValueVector3());
@@ -200,6 +201,20 @@ namespace Prazsky.Core.Render
 
             _device.DepthStencilState = DepthStencilState.Default;
             _device.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
+        /// The camera's projection with its far plane moved to <paramref name="far"/>: the layer has no depth buffer, so the
+        /// heaps need not stop at the scene's far plane (2000), and the band just over the skyline, where every reference has
+        /// small heaps down to the horizon, is past it. The near plane is the camera's own (M43 / M33 of a right-handed
+        /// perspective matrix).
+        /// </summary>
+        internal static Matrix FarProjection(Matrix projection, float far)
+        {
+            float near = projection.M43 / projection.M33;
+            projection.M33 = far / (near - far);
+            projection.M43 = near * far / (near - far);
+            return projection;
         }
 
         private void ReadSky(Effect skyEffect)

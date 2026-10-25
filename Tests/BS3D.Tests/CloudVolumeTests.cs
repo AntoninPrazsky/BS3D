@@ -76,6 +76,22 @@ namespace BS3D.Tests
             Assert.True(found >= countA * 0.9f, $"{found} of {countA} heaps found a second later where the wind took them");
         }
 
+        /// <summary>The layer's own far plane (it has no depth buffer, so the heaps may stand past the scene's): only the far plane moves.</summary>
+        [Fact]
+        public void TheLayersProjectionMovesOnlyTheFarPlane()
+        {
+            Matrix camera = Matrix.CreatePerspectiveFieldOfView(MathHelper.ToRadians(60f), 16f / 9f, 0.1f, 2000f);
+            Matrix far = CloudVolumes.FarProjection(camera, 4500f);
+            Assert.Equal(0.1f, far.M43 / far.M33, 4);
+            Assert.Equal(camera.M11, far.M11);
+            Assert.Equal(camera.M22, far.M22);
+            //A point 4400 ahead is inside it (depth under 1), and was past the camera's own
+            Vector4 point = Vector4.Transform(new Vector4(0f, 0f, -4400f, 1f), far);
+            Assert.InRange(point.Z / point.W, 0f, 1f);
+            Vector4 before = Vector4.Transform(new Vector4(0f, 0f, -4400f, 1f), camera);
+            Assert.True(before.Z / before.W > 1f, "the camera's own projection already reached 4400");
+        }
+
         [Fact]
         public void ALidOfASkyStandsNoHeaps()
         {
