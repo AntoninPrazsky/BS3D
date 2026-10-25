@@ -109,6 +109,17 @@ float SpinifexSpacing;
 float SpinifexCover;
 float SpinifexRelief;
 
+//THE CRUST (#776): 1 at High and Ultra, 0 below. The owner: "details are missing"; every reference (776-klein,
+//776-zimage) draws the bare earth between the tussocks as a crust cracked into plates a hand or two across and mottled
+//lighter and darker over a few metres. Both are under a pixel past a few tens of metres, so they fade with the footprint
+//and are computed only where they can be seen, behind a branch on this and on the footprint. The gibber on it is
+//geometry (OutbackPlanting): painted here, a stone with no silhouette read as a hole in the earth at any low angle.
+float GroundDetail;
+static const float CRACK_SCALE = 2.4;      //crust plates per world unit (a unit is about a metre)
+static const float CRACK_WIDTH = 0.045;    //a crack's half-width, in plates (F2 - F1)
+static const float CRACK_DEPTH = 0.32;     //how dark a crack goes
+static const float CRUST_PIXELS = 6.0;     //the fewest pixels a plate spans where the crust is drawn (whole at twice that)
+
 //Reflectances, all LINEAR radiance.
 float3 RockColorDeep;
 float3 RockColorBright;
@@ -665,10 +676,32 @@ float3 ShadeOutback(float3 worldPosition, bool rocky, float3 meshNormal, bool on
 
     float3 soil = lerp(SoilColor, SoilColorPale, saturate(broad * -1.7 + 0.5));
 
-    //The gibber: one hash per pixel over a fine lattice, gone within a few units
+    //The grain: one hash per pixel over a fine lattice, gone within a few units
     float grainFade = saturate(1.0 - footprint * 90.0);
     soil *= 1.0 + NoiseHash22(floor(worldPosition.xz * 45.0)).x * 0.20 * grainFade;
     soil *= 1.0 - 0.3 * saturate(ring - hummock);
+
+    //The crust and the mottle (#776): see GroundDetail above. Never on a tussock, never on the rock
+    //Gone once a plate is under CRUST_PIXELS pixels: past it the network is an even texture, and every pixel of it was a
+    //cellular field and four noises (computed out to a plate in three pixels it cost a low lens over the plain 0.7 ms)
+    float platePixels = 1.0 / max(footprint * CRACK_SCALE, 1e-5);
+    float crustSeen = saturate(platePixels / CRUST_PIXELS - 1.0) * GroundDetail * (1.0 - rockMask);
+    [branch]
+    if (crustSeen > 0.0)
+    {
+        float bare = 1.0 - hummock;
+
+        //Mottled lighter and darker over a few metres, as the references' earth is
+        soil *= 1.0 + 0.13 * GradientNoise2(worldPosition.xz * 0.23 + 5.3) * crustSeen;
+
+        //The crust cracked into plates, in patches (a sheltered stretch keeps its crust, a trodden one has none)
+        float crustPatch = smoothstep(-0.15, 0.15, GradientNoise2(worldPosition.xz * 0.07 + 11.0));
+        float warp = GradientNoise2(worldPosition.xz * 0.9);
+        float2 plateAt = worldPosition.xz * CRACK_SCALE + float2(warp, 0.6 - warp * 0.8) * 0.35;
+        float crackWidth = CRACK_WIDTH + footprint * CRACK_SCALE * 0.7;
+        float crack = (1.0 - smoothstep(crackWidth * 0.4, crackWidth, VoronoiEdge2(plateAt))) * crustPatch * crustSeen * bare;
+        soil *= 1.0 - CRACK_DEPTH * crack;
+    }
 
     float3 ground = lerp(soil, tussockColor, hummock);
 

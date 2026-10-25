@@ -47,6 +47,9 @@ namespace Prazsky.Core.Render
         private readonly EffectTechnique _bakeTechnique;
         private readonly EffectParameter _bakeArea, _bakeSun, _terrainShadowMap, _terrainShadowArea;
 
+        //The crust and the gibber (#776): on at High and Ultra, stated every frame off the tier
+        private readonly EffectParameter _groundDetail;
+
         //The plain's grid. It carried the monoliths until #967, which set its density (a flank falling over some
         //eight 2.5-unit cells); the formations have their own discs now (OutbackRockDiscs) and the grid only the
         //swell and the boulders' footprints it stops on, but it keeps the density its shading was tuned at. Above
@@ -80,6 +83,7 @@ namespace Prazsky.Core.Render
             _terrainShadowMap = _outbackEffect.Parameters["TerrainShadowMap"];
             _terrainShadowArea = _outbackEffect.Parameters["TerrainShadowArea"];
             _terrainShadowArea.SetValue(Vector4.Zero);
+            _groundDetail = _outbackEffect.Parameters["GroundDetail"];
             _rockDiscs = new OutbackRockDiscs(services.GraphicsDevice, _outbackConfig);
             _bankTechnique = _outbackEffect.Techniques["OutbackBank"];
             _drawRock = () =>
@@ -178,6 +182,7 @@ namespace Prazsky.Core.Render
         public override void Draw(in SceneFrame frame)
         {
             _rockDiscs?.Cull(frame.Camera.View * frame.Camera.Projection, Services.FineMeshes);
+            _groundDetail.SetValue(Services.FineMeshes ? 1f : 0f);
             _outbackPass.Draw(frame, Services.TerrainHoleRadius, _drawRock);
             if (_berm != null) _plants.Draw(frame, _bermStones, _outbackConfig.Air.HorizonHazeDistance, detail: true, Services.FineMeshes);
             if (_planting != null)
