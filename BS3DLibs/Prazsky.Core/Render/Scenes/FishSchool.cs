@@ -34,10 +34,12 @@ namespace Prazsky.Core.Render
         private const float SCHOOL_Y = ArenaIsland.FUNNEL_BOTTOM_Y + 2f;
         private const float SCHOOL_DEPTH = 6f;
 
-        //How fast they swim along the ring, in units a second, and how fast a tail beats. Unhurried: a lap of the
-        //middle of the ring (17 out) is about 33 seconds.
-        internal const float SWIM_SPEED = 3.2f;
-        private const float TAIL_HZ = 2.6f;
+        //How fast they swim along the ring, in units a second, and how fast a tail beats. A schooling baitfish's
+        //cruise, about a body length a second (#903, the owner: they "swim too fast"; at 3.2 it was 1.5 to 2.6 of
+        //their lengths): a lap of the middle of the ring (17 out) is about 53 seconds, and the tail beats slower with
+        //it. FishRingAngleTests holds that the angle still always advances (above 1.18 a second).
+        internal const float SWIM_SPEED = 2.0f;
+        private const float TAIL_HZ = 1.9f;
 
         //The fish's own colours (linear): a dark blue back over a silver belly, the countershading every pelagic fish
         //has and the concept sheets drew; and the flash a silver flank throws when it turns towards the light
