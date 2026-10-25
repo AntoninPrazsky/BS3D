@@ -63,7 +63,7 @@ namespace BS3D.Effects
             return new[]
             {
                 Sheet(scenes, polar, fieldOfView, random),
-                Crevasses(scenes, fieldOfView, random),
+                Crevasses(scenes, polar, fieldOfView, random),
                 Front(scenes, polar, fieldOfView, random),
             };
         }
@@ -95,8 +95,9 @@ namespace BS3D.Effects
         }
 
         /// <summary>Low over a crevasse field, looking down into its slots.</summary>
-        private static IntroShot Crevasses(SceneRenderer scenes, float fieldOfView, Random random)
+        private static IntroShot Crevasses(SceneRenderer scenes, PolarSceneConfig polar, float fieldOfView, Random random)
         {
+            Vector2 camp = polar.CampCentre;
             float bestScore = -1f;
             Vector2 bestFrom = Vector2.Zero, bestTo = Vector2.Zero;
 
@@ -111,6 +112,10 @@ namespace BS3D.Effects
 
                 //The run must not head in over the island: the look ahead would frame the arena, not the ice.
                 if (IntroPaths.DistanceToSegment(Vector2.Zero, from, to + forward * CREVASSE_LOOK_FAR) < ArenaIsland.RADIUS + 24f) continue;
+
+                //Nor fly through the research camp (#747), seven units over the ice past a mast eleven high: it stands on ice
+                //cleared of crevasses, so the score would seldom pick it, but a run can cross it on the way to some
+                if (IntroPaths.DistanceToSegment(camp, from, to) < polar.CampClearRadius) continue;
 
                 //How much slot the lens looks down on over the run: a grid of taps in the ground ahead of it.
                 float score = 0f;
