@@ -29,6 +29,7 @@ npx eleventy                # the plain files in Web\_site, which is all the hos
 | `src/blog/*.md` | The posts, and `blog.11tydata.json`, which gives every file there the layout and the `posts` tag |
 | `eleventy.config.js` | The passthrough copies, the date filters, `absoluteLinks` (the feed's links and pictures get the site's address) and **no Liquid pass over Markdown** |
 | `src/css/site.css` | The look: dark like the game's menus, headings in Anton (the game's own display face, served from `src/fonts`) |
+| `src/js/sound.js` | The sound toggle (below); the music and the shot it plays are the game's own `Game/Music/menu.ogg` and `Game/Sfx/shoot.ogg`, copied by `eleventy.config.js` at the build |
 | `src/js/cannon.js`, `src/cannon/` | The live cannon (below): the WebGL2 script, and the game's meshes and figures it draws (`cannon.bin`, `cannon.json`), written by `Tools/WindingCheck --export-cannon` |
 | `publish.ps1` | Builds and uploads (below) |
 
@@ -47,6 +48,16 @@ The owner: "a rotating cannon right in the browser, using graphics acceleration 
 - ⚠ **The glass is drawn at 0.45 of the game's alpha**: the game's glass is lit by reflections this program does not draw, and at 0.84 the pane hid the queue the game shows through it.
 - **It runs only while seen**: paused off screen (`IntersectionObserver`) and in a hidden tab, at most two device pixels a CSS pixel; under `prefers-reduced-motion` it draws one frame and stops; without WebGL2 the canvas keeps its CSS gradient.
 - **Looking at it without a display**: `?cannon-t=<seconds>` draws the pose at that moment and stops, since headless Edge's virtual time does not advance animation frames. Serve `_site` (`python -m http.server` in it) and photograph it: `msedge --headless=new --use-angle=swiftshader --enable-unsafe-swiftshader --window-size=1400,2900 --virtual-time-budget=3000 --screenshot=<png> "http://127.0.0.1:<port>/?cannon-t=2.6"` (2.6 s: driving, the first ball in the air; 7: crabbing; 9.3: just fired).
+
+## The sound (#950)
+
+The owner: "the website could also have the game's sounds and music - then there needs to be an always-visible mute button at the bottom of the site."
+- **A toggle fixed to the bottom corner, off until pressed** (`button.sound-toggle`, `aria-pressed`, a 44 px target; shown only once the script runs, so a page without JavaScript has no dead button). **Nothing is fetched before the first press**: the game's menu loop and its shot, about 1.2 MB, which the button's title says.
+- **The files are the game's**: `eleventy.config.js` copies `Game/Music/menu.ogg` and `Game/Sfx/shoot.ogg` into `audio/` at the build, so the site never keeps a copy that could fall behind them.
+- **The loop plays through Web Audio** (`AudioBufferSourceNode.loop`, which wraps sample-exactly where `<audio loop>` often gaps), at the game's level for the menu (`MusicLevels.MENU_LEVEL` times `DECODE_HEADROOM`: the recordings overshoot full scale once decoded), faded in and out over the front end's `MENU_FADE_SECONDS` (0.5 s). Suspended in a hidden tab. Nothing is remembered between visits: no cookie, no storage, so the footer's "sets no cookies" holds.
+- **The live cannon's shots are heard** (#949): `cannon.js` sends `bs3d:shot` with where the gun is across the canvas, and the toggle's script plays the game's shot, panned there and nudged in pitch.
+- ⚠ **Decoded through an `OfflineAudioContext`**, which needs no output device: a playing `AudioContext` that could not reach one never finished decoding in headless Edge, and the button stayed on "Loading…". An `AudioBuffer` belongs to no context, so the playing one takes it as it is. A browser that cannot decode Ogg Vorbis (Safari's support is unchecked) gets "No sound in this browser" and a disabled button; so does a load that takes over 20 s.
+- **Checked without a display** through the DevTools protocol (headless Edge with `--remote-debugging-port`, a Node script that opens the page, presses the button and reads the label): "Sound on" 0.3 s after the press, "Sound off" after the second; both files decode (the loop 59.2 s, 48 kHz stereo, peak 0.65; the shot 2.0 s). Nothing was heard.
 
 ## The blog (#928)
 

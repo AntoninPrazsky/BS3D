@@ -166,3 +166,9 @@ layout: base.njk
       </div>
     </section>
   </main>
+
+  <button class="sound-toggle" type="button" aria-pressed="false" title="The game's menu music and its cannon's shot, about 1.2 MB, loaded when you press" hidden>
+    <svg class="sound-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path class="sound-waves" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path class="sound-cross" d="M16 9l5 6M21 9l-5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    <span class="sound-label">Sound off</span>
+  </button>
+  <script type="module" src="/js/sound.js"></script>
