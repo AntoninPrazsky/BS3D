@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #991 ikony power-upů, #989 kupy k obzoru — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo: #991 (d2080e5f) piktogramy u čipů Swap/Brake/Cut (`PowerupPictograms`, signed distance pečené ve velikosti písma, `PowerupPictogramTests`); `PowerupKind` má vlastní soubor kvůli testům. Reference `991-zimage`/`991-klein` kreslí stejné tvary. `verdict-eye`.
+- Hotovo: #989 druhý krok (f38da57d) kupy až k obzoru na vlastní vzdálené rovině (vrstva nemá hloubku), vzdálené kupy 5 kroků, poloměr do půl buňky; hory (Broken) +1,08 ms.
+- ⚠ Šipky Swapu přes koule splynuly v prstenec s dírou; ve 40 px musí být tvary oddělené.
+- Otevřené: #991 karta výsledků, Help, výběr levelů (čeká na #990); #989 ostřejší okraje, Overcast/Storm.
+
 ## 2026-10-25 — #989 mraky jako objemy, oprava kamenů Marsu — desktop (RDT-PC), Claude Code (bs3d-21)
 - Hotovo: #989 první etapa (238d4a37): na High/Ultra je každá kupa u kamery objem (`CloudVolumes`, `CloudVolume.fx`) na mřížce driftující s vrstvou, stojí tam, kde má vrstva podle `CloudField.Cover` mrak; vrstva u kup ustoupí (`CloudVolumeCut`), Overcast/Storm zůstávají víkem. Pochod v rozlišení displeje do vlastní vrstvy, složené hned po obloze. +0,47 až +0,96 ms. Reference `989-zimage`/`989-klein`. `verdict-eye`.
 - ⚠ Pochod do scénového cíle po zemi s hloubkou: Broken +3,2 ms. Bílé „žilky“ pod plochými dny byly nasvícené boky vzdálenějších kup: spodní třetina kupy musí šednout.
