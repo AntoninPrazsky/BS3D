@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #966 brouci a štíři v poušti, #988 doporučení a kontrolní snímek — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo: #966 (11366c98) 14 brouků a 6 štírů kolem ostrova (`DesertCritters`, `CritterMesh`, `Critter.fx`): vylezou z nory v obláčku písku, ujdou kus po výšce dun, zahrabou se; život je čistá funkce hodin (`DesertCritterTests`). Nový záběr úvodní túry „the scorpion“ (`SceneRenderer.CueDesertCritter` z `onStart`). `verdict-eye`.
+- Hotovo: #988 druhá a třetí etapa (d42cf51a, 4abcdbb5): `BenchmarkVerdict` doporučí úroveň a nabídne ji, `FrameProbe` ve 3 s zkontroluje, že snímek scény není černý ani plochý.
+- ⚠ Ocas štíra z koulí četl jako šňůra korálků; sytě písková barva krunýře splynula s pískem.
+- ⚠ Časovač bez rezervy (`OVER_SLACK`) počítal snímky těsně nad rozpočtem jako přetečené.
+- Otevřené: #988 fyzika zvlášť, Pi segmenty; fronta verdiktů je na 15, vzhledové změny stojí.
+
 ## 2026-10-25 — #988 benchmark, první etapa — desktop (RDT-PC), Claude Code (bs3d-21)
 - Hotovo: #988 (c59e4d06) Extras > Benchmark: prolétne úvodní túry Cavern, Neon City, Forest, Meadow na pevném seedu při hráčově úrovni, snímky volné (limit i čekání na kompozitor vypnuté, adaptivní sonda stojí), `FrameStats` (medián, p95, p99, 1 % low, nejhorší, podíl nad rozpočtem, první 1,5 s zvlášť), systémová zpráva, `[bench]` řádky, `Benchmark.json`, argument `benchmark`. Doc `docs/game-shell/benchmark.md`.
 - ⚠ Vypnutý `FrameLimitHz` nestačí: `PaceFrame` čeká na kompozitor a drží 13,34 ms.
