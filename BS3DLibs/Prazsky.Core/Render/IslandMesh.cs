@@ -144,17 +144,20 @@ namespace Prazsky.Core.Render
         /// (<see cref="FloorRadius"/>, y = 0) to the bore's lip — the dish that rolls a landed ball into
         /// the drain. The bore's lip, and with it the drain's rim, sits this far below y = 0.</param>
         /// <param name="shape">Which silhouette to build (#533); the authored stone by default.</param>
+        /// <param name="reduced">The Potato path's cut (#779): the melting shape at <paramref name="segments"/> facets and
+        /// without its drips, which are four times the facets and a dense run of rings for a detail the Raspberry Pi's
+        /// island, with no marble and no relief, has nothing to show off. The other shapes ignore it.</param>
         public IslandMesh(GraphicsDevice graphicsDevice, float boreRadius, float outerRadius, float height, int segments,
-            float dishDepth, IslandShape shape = IslandShape.Stone)
+            float dishDepth, IslandShape shape = IslandShape.Stone, bool reduced = false)
         {
             Shape = shape;
-            Build(graphicsDevice, boreRadius, outerRadius, height, segments, dishDepth, shape, out LatheMesh cap, out LatheMesh body);
+            Build(graphicsDevice, boreRadius, outerRadius, height, segments, dishDepth, shape, reduced, out LatheMesh cap, out LatheMesh body);
             Cap = cap;
             Body = body;
         }
 
         private static void Build(GraphicsDevice device, float bore, float r, float height, int segments, float dish,
-            IslandShape shape, out LatheMesh capMesh, out LatheMesh bodyMesh)
+            IslandShape shape, bool reduced, out LatheMesh capMesh, out LatheMesh bodyMesh)
         {
             //Every shape starts at the bore's lip and rises to the floor's arris; every drum ends on the
             //underside and closes back up the bore's shaft. The three points the invariants above name.
@@ -380,7 +383,7 @@ namespace Prazsky.Core.Render
                         new(r - 0.25f, -0.32f, wobble: 0.5f)
                     };
                     LathePoint[] run = MeltRun(r);
-                    List<LathePoint> dense = Subdivided(run, MELT_RING_STEP);
+                    List<LathePoint> dense = reduced ? new List<LathePoint>(run) : Subdivided(run, MELT_RING_STEP);
                     int turn = dense.FindIndex(point => point.Y <= -1.70f + 1e-4f);
                     cap.AddRange(dense.GetRange(0, turn + 1));
                     body = dense.GetRange(turn, dense.Count - turn);
@@ -391,8 +394,11 @@ namespace Prazsky.Core.Render
                         new(r - 6.00f, -5.20f, wobble: 0.4f),
                         new(bore + 2f, -5.05f, wobble: 0.2f)
                     });
-                    capSegments = segments * 4;
-                    radialField = MeltDrips(run);
+                    if (!reduced)
+                    {
+                        capSegments = segments * 4;
+                        radialField = MeltDrips(run);
+                    }
                     break;
 
                 default:

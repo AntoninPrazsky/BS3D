@@ -20,6 +20,10 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #779 ostrov Snění — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo: #779 (e46c607c) ostrov ve Snění je tající perla: tvar `IslandShape.Melt` (nafouklý val, z něj tlusté kapky, radiální pole `LatheMesh.radialField`) a vlastní technika `InstancedModelTriplanarDream`: pastelové pruhy z palety scény, duhový lesk, svítící prstenec, buben svítí sám. O 0,1 ms levnější než kámen. Pi kreslí tvar bez kapek a na fazetách kamene. `verdict-eye`, karta na stránce 25. 10.
+- ⚠ Posouvat při kapce celé prstence dolů zubatě vrubovalo každý lalok stěny; dlouhá kapka, která se nezužuje, vypadá jako tyčka. Svislé plochy stíní polokoule všechny stejně: kapky vystoupí až proti ztmavenému výklenku. Spirála na 3D šumu stála +0,45 ms.
+
 ## 2026-10-25 — #953 bouře: laloky a déšť — desktop (RDT-PC), Claude Code (bs3d-21)
 - Hotovo: #953 (3d32bfa1, ec71e0b3) obláčky bouře mají okraj zvlněný do kulatých laloků se stínem v záhybech (květák místo vaty) a pod 42 % buněk visí clona deště (`StormRain` ve `StormClouds.fx`). Dohromady +0,7 až +0,9 ms. Karta na stránce 25. 10. je aktualizovaná.
 - ⚠ 3D šum na rekonstruované kouli obláčku stál 3,5 ms (překryv obláčků): laloky jsou analytické. Prostý kosinus dělal z obláčků hvězdičky, `|cos|` poloviny úhlu dává kulaté koruny.
