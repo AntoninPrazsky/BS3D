@@ -91,6 +91,13 @@ namespace Prazsky.Core.Render
         private readonly IndexBuffer _poleIndices;
         private readonly int _polePrimitives;
 
+        //The canvas's wear (#976), baked once into a map the roof reads (Circus.fx's CircusCanvasWearBake: why it is baked
+        //is that technique's header): the canvas unrolled, the bearing across and the slant down, mipmapped
+        private const int WEAR_MAP_WIDTH = 4096, WEAR_MAP_HEIGHT = 1024;
+        private RenderTarget2D _wearMap;
+        private readonly EffectTechnique _wearBakeTechnique;
+        private readonly EffectParameter _canvasWearMap;
+
         //Colour writes off: the floor pass writes depth and nothing anyone can see. Built once, never per frame.
         private static readonly BlendState DEPTH_ONLY = new() { ColorWriteChannels = ColorWriteChannels.None };
 
@@ -103,6 +110,9 @@ namespace Prazsky.Core.Render
             _fullTechnique = _effect.Techniques["Circus"];
             _reducedTechnique = _effect.Techniques["CircusReduced"];
             _floorDepthTechnique = _effect.Techniques["CircusFloorDepth"];
+            _wearBakeTechnique = _effect.Techniques["CircusCanvasWearBake"];
+            _canvasWearMap = _effect.Parameters["CanvasWearMap"];
+            _effect.Parameters["CanvasWearTexel"].SetValue(new Vector2(1f / WEAR_MAP_WIDTH, 1f / WEAR_MAP_HEIGHT));
             _sceneTechnique = _fullTechnique;
 
             _viewRayBasis = _effect.Parameters["ViewRayBasis"];
@@ -281,6 +291,38 @@ namespace Prazsky.Core.Render
             CircusSeatingConfig seats = _config.Seating;
             if (radius < seats.InnerRadius) return _config.Ring.FloorY;
             return _config.Ring.FloorY + seats.RowRise + (radius - seats.InnerRadius) * seats.RowRise / seats.RowDepth;
+        }
+
+        /// <summary>
+        /// Bakes the canvas's wear (#976) the first time the scene is drawn: one pass of <c>CircusCanvasWearBake</c> into
+        /// <see cref="WEAR_MAP_WIDTH"/> by <see cref="WEAR_MAP_HEIGHT"/>, mipmapped, here where nothing of the frame is bound
+        /// yet. The figures it reads are the config's, pushed at load and never changed, so it is never baked again.
+        /// </summary>
+        public override void BeforeShadowMaps(Vector3 sunDirection)
+        {
+            if (_wearMap != null) return;
+
+            _wearMap = new RenderTarget2D(_graphicsDevice, WEAR_MAP_WIDTH, WEAR_MAP_HEIGHT, true, SurfaceFormat.Color, DepthFormat.None);
+
+            BlendState blend = _graphicsDevice.BlendState;
+            DepthStencilState depth = _graphicsDevice.DepthStencilState;
+            RasterizerState rasterizer = _graphicsDevice.RasterizerState;
+
+            _graphicsDevice.SetRenderTarget(_wearMap);
+            _graphicsDevice.BlendState = BlendState.Opaque;
+            _graphicsDevice.DepthStencilState = DepthStencilState.None;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+            _graphicsDevice.SetVertexBuffer(Services.FullScreenQuad);
+            _effect.CurrentTechnique = _wearBakeTechnique;
+            _wearBakeTechnique.Passes[0].Apply();
+            _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
+            _graphicsDevice.SetRenderTarget(null);
+
+            _graphicsDevice.BlendState = blend;
+            _graphicsDevice.DepthStencilState = depth;
+            _graphicsDevice.RasterizerState = rasterizer;
+
+            _canvasWearMap.SetValue(_wearMap);
         }
 
         /// <summary>
@@ -499,6 +541,8 @@ namespace Prazsky.Core.Render
             _floorIndices.Dispose();
             _poleVertices?.Dispose();
             _poleIndices?.Dispose();
+            _wearMap?.Dispose();
+            _wearMap = null;
         }
     }
 }
