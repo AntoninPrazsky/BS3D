@@ -282,6 +282,35 @@ h3 { font-size: 1.45rem; }
 .post figure a { display: block; width: fit-content; max-width: 100%; margin-inline: auto; }
 .post figcaption { color: var(--muted); font-size: 0.9em; margin: 8px auto 0; max-width: var(--measure); }
 .post > :not(figure) { max-width: var(--measure); margin-inline: auto; }
+
+/* A before/after figure (#942). Without the script (js/compare.js) both pictures show, the before one above the after one, each
+   with its label in the corner. With it the figure is .is-live: the two panes lie on one another in one grid cell, only the
+   shown one is visible (visibility, so the hidden picture still loads lazily), and a Before / After pair of buttons and a click on
+   the picture switch between them. Both pictures have one size, so the figure never changes height */
+.compare-pane { position: relative; }
+.compare-pane + .compare-pane { margin-top: 12px; }
+.compare-tag {
+  position: absolute; left: 12px; top: 12px; padding: 0.1em 0.75em;
+  font: 600 0.8rem/1.6 var(--body); letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text); background: rgba(13, 1, 24, 0.72); border: 1px solid var(--line); border-radius: 999px;
+}
+.compare-controls { display: none; }
+.compare.is-live .compare-controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; }
+.compare-controls button {
+  min-height: 44px; min-width: 6.5rem; padding: 0 20px; cursor: pointer;
+  font: 600 0.95rem var(--body); color: var(--text); background: var(--bg-raised); border: 1px solid var(--line); border-radius: 999px;
+}
+.compare-controls button:hover { border-color: var(--muted); }
+.compare-controls button[aria-pressed="true"] { color: var(--accent-text); background: var(--accent); border-color: var(--accent); }
+.compare-controls button:focus-visible { outline: 3px solid var(--link); outline-offset: 3px; }
+.compare.is-live .compare-frame { display: grid; border-radius: var(--radius); overflow: hidden; cursor: pointer; }
+.compare.is-live .compare-pane { grid-area: 1 / 1; margin: 0; visibility: hidden; opacity: 0; }
+.compare.is-live .compare-pane.is-shown { visibility: visible; opacity: 1; }
+@media (prefers-reduced-motion: no-preference) {
+  .compare.is-live .compare-pane { transition: opacity 0.18s ease, visibility 0s linear 0.18s; }
+  .compare.is-live .compare-pane.is-shown { transition: opacity 0.18s ease, visibility 0s; }
+}
+
 .post-more { margin-top: 44px; padding-top: 20px; border-top: 1px solid var(--line); }
 .post-more p { margin: 0 0 0.5em; }
 .post-more span { display: inline-block; min-width: 4.5em; color: var(--muted); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.06em; }
