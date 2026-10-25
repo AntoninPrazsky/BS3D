@@ -76,8 +76,8 @@ namespace BS3D.Screens
         //READOUT_SECONDS) and the last frames against the budget, so a run is worth watching and a hitch is seen where it
         //happens. Its strings are made once a part and the readout's in reused builders, so a frame allocates nothing
         private const float READOUT_SECONDS = 0.25f;
-        private const int PANEL_MARGIN = 64, PANEL_WIDTH = 540, PANEL_PAD = 22, PANEL_GAP = 8, GRAPH_HEIGHT = 110, PROGRESS_HEIGHT = 6;
-        private const int TITLE_FONT = 44, READOUT_FONT = 64, CAPTION_FONT = 24, BUDGET_LINE = 2;
+        private const int PANEL_MARGIN = 64, PANEL_WIDTH = 760, PANEL_PAD = 28, PANEL_GAP = 10, GRAPH_HEIGHT = 150, PROGRESS_HEIGHT = 8;
+        private const int TITLE_FONT = 60, READOUT_FONT = 92, CAPTION_FONT = 32, BUDGET_LINE = 3;
         private readonly FrameTrace _trace = new();
         private readonly StringBuilder _readout = new(16), _readoutUnit = new(32);
         private float _readoutSum, _readoutSeconds;
