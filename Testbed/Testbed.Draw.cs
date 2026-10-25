@@ -106,8 +106,12 @@ namespace Testbed
                 _clouds.ApplyTo(_instancingEffect);
 
                 _skyCameraPositionParam.SetValue(_camera.Position);
+                _cloudVolumes?.ApplyToSky(_skyEffect, _clouds, _sceneRenderer.FineMeshes);
 
                 _sky.Draw(_camera);
+
+                //The clouds as volumes on High and Ultra (#989), over the deck and under everything that stands in front of them
+                if (_sceneRenderer.FineMeshes) _cloudVolumes?.Draw(_camera, _clouds, _skyEffect);
             }
 
             //The sea's submerge fade for missed balls — a no-op off the sea scene (see SceneRenderer.ApplySeaSubmerge).

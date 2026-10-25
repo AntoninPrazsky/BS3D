@@ -54,7 +54,7 @@ namespace BS3D.Tests
         [Fact]
         public void TheBoxIsWoundAsEveryProceduralMeshIs()
         {
-            (SceneRenderer.BillboardVertex[] vertices, short[] indices) = SavannaBackdrop.FlameBox();
+            (SceneRenderer.BillboardVertex[] vertices, short[] indices) = ProxyVolumes.UnitBox();
             Assert.Equal(36, indices.Length);
             Assert.Equal(0, OutwardWound(vertices, indices));
 
@@ -78,7 +78,8 @@ namespace BS3D.Tests
         [Fact]
         public void TheNoiseRepeatsWithoutASeam()
         {
-            float[] texels = SavannaBackdrop.FlameNoiseTexels();
+            float[] texels = ProxyVolumes.GradientNoiseTexels(SavannaBackdrop.FLAME_NOISE_PERIOD, SavannaBackdrop.FLAME_NOISE_TEXELS_PER_UNIT,
+                SavannaBackdrop.FLAME_NOISE_SEED);
             int side = SavannaBackdrop.FLAME_NOISE_PERIOD * SavannaBackdrop.FLAME_NOISE_TEXELS_PER_UNIT;
             Assert.Equal(side * side * side, texels.Length);
 

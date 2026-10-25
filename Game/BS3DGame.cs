@@ -2497,6 +2497,7 @@ namespace BS3D
             _forestScatter?.Dispose();
             _auroraScatter?.Dispose();
             _forestFireflies?.Dispose();
+            _cloudVolumes?.Dispose();
             _ceilingPlate?.Dispose();
             _ceilingRigging?.Dispose();
             _menuCeilingRigging?.Dispose();

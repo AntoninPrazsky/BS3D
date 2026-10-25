@@ -64,6 +64,13 @@ float CloudShapeStrength;
 //plane), a colour in linear radiance and a reach along the plane. Black for every scene with nothing burning
 //under its sky, which makes the term an exact no-op rather than a branch: this is the hottest pass in the game
 //and a runtime branch keeps its registers whether it is taken or not.
+//Where the clouds stand as volumes (#989, CloudVolumes on High and Ultra), the deck gives way to them: by this much (0 when
+//there are none: Low, Medium, a sky-replacing scene, an overcast that is a lid), fully inside CloudVolumeNear of the lens
+//and not at all past CloudVolumeFar, where the volumes have dissolved into the sky
+float CloudVolumeCut;
+float CloudVolumeNear;
+float CloudVolumeFar;
+
 float3 GroundGlowPosition;
 float3 GroundGlowColor;
 float GroundGlowRange;
@@ -178,6 +185,7 @@ float4 SkyPS(SkyVertexOutput input) : COLOR
     //Cloud never reaches the horizon: the ray runs out along the plane long before it gets there, and
     //a sky that stays cloudy right down to the skyline reads as a lid rather than as weather.
     float coverage = saturate(density * CloudOpacity) * smoothstep(0.0, CloudHorizonFade, direction.y);
+    coverage *= 1.0 - CloudVolumeCut * (1.0 - smoothstep(CloudVolumeNear, CloudVolumeFar, length(hit - CameraPosition.xz)));
 
     return float4(lerp(sky, lit, coverage), 1.0);
 }
