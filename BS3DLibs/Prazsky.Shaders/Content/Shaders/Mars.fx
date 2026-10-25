@@ -15,13 +15,14 @@
 //    the outback's does. Standing on it: two lattices of boulders and pebbles, the outback's RockLayer
 //    lifted VERBATIM too and retuned from a skyline of monoliths to the litter of stones a rover
 //    photograph shows, dark volcanic basalt rather than more of the ground's own rust.
-//  - MarsMoons: Phobos and Deimos, two small analytic discs composited over the dome and the terrain -
-//    space's full-screen-quad machinery (the shared corner quad, ViewRayBasis), depth-READ
-//    against the depth MarsTerrain just wrote (Moon.fx's own measured reason: depth-read after the ground,
-//    never before it) so a moon low enough to sit behind a crater rim is occluded by it, and ALPHA-BLENDED
-//    (unlike the Moon's opaque sky pass) so the dome and the terrain show through everywhere neither disc
-//    covers. No continents, no clouds, no atmosphere rim - that is the Moon's Earth, and neither of these
-//    moons has an atmosphere of its own to put one on.
+//  - MarsMoons: Phobos and Deimos, two small analytic potatoes (ray-ellipsoid bodies with craters, #744)
+//    composited over the dome and the terrain - space's full-screen-quad machinery (the shared corner quad,
+//    ViewRayBasis), depth-READ against the depth MarsTerrain just wrote (Moon.fx's own measured reason:
+//    depth-read after the ground, never before it) so a moon low enough to sit behind a crater rim is occluded
+//    by it, and ALPHA-BLENDED (unlike the Moon's opaque sky pass) so the dome and the terrain show through
+//    everywhere neither moon covers, and part of the dome in front of the moons as well: the airlight. No
+//    continents, no clouds, no atmosphere rim - that is the Moon's Earth, and neither of these moons has an
+//    atmosphere of its own to put one on.
 //
 //DELIBERATELY NOT IN THIS PASS (see issue #277's own open questions, and MarsSceneConfig's doc): a
 //foreground dust-haze/dust-devil overlay (Spray.fx's or the volcano's ash's machinery). A real gap, left
@@ -147,6 +148,10 @@ float3 PhobosColor;          //linear
 float3 DeimosDirection;      //normalized
 float DeimosAngularRadius;   //radians
 float3 DeimosColor;          //linear
+
+float MoonTransmission;      //the share of a moon's own light the dust lets through
+float MoonAirlight;          //the share of the dome behind a moon that still shows in front of it
+float3 MarsshineColor;       //linear: the planet's own sunlit ground lighting the moons' Mars-facing side
 
 //=====================================================================================================
 //The terrain
@@ -688,39 +693,139 @@ float4 MarsGroundAt(float3 worldPosition, float3 meshNormal, bool onBank, bool d
 //touches).
 //=====================================================================================================
 
-//One moon: a plain diffuse-lit rock, ray-sphere tested the way Moon.fx's Earth is - a unit sphere at the
-//distance that gives the configured angular radius - but with none of the Earth's continents, weather or
-//atmosphere rim, because neither Phobos nor Deimos has an atmosphere of its own to put one on. Returns the
-//lit colour; `coverage` comes back as the antialiased 0..1 the caller composites by.
-//X4000 LEFT ON PURPOSE (#713): "use of potentially uninitialized variable (MoonDisc)" is the [branch] early return below, which Aurora()
-//and Glowworms() were split to get rid of (the body in a MoonDiscLit, a wrapper that chooses and returns once, as #587 did for the
-//clouds). Here the split compiles to different code and the picture could not be shown to stay the same:
-//the moon is not in the Testbed's default view, so no capture reached the function's body, only its early-out. Left as it
-//was until one does.
-float3 MoonDisc(float3 dir, float3 moonDirection, float angularRadius, float3 albedo, float pixelAngle, out float coverage)
+//The two bodies' shapes (#744): semi-axes across the sky (the configured angular radius, so always 1), up the
+//sky and along the line of sight, and the outline's tilt in the sky plane. Both moons are tidally locked with
+//their long axis on Mars, so from the ground that axis points at the camera and the outline is the two shorter
+//ones: Phobos's 27 x 22 x 18 km shows as a 1 : 0.8 potato end-on, Deimos's 15 x 12 x 10 km as 1 : 0.83. A sphere
+//was what made Phobos a disc punched out of the dome.
+static const float3 PHOBOS_AXES = float3(1.0, 0.8, 1.2);
+static const float PHOBOS_TILT = 0.45;   //radians
+static const float3 DEIMOS_AXES = float3(1.0, 0.83, 1.15);
+static const float DEIMOS_TILT = -0.3;
+
+//Stickney, Phobos's one great crater, a third of the body across: in body space (x across the sky, y up it, z
+//away from the camera), on the Mars-facing hemisphere towards the upper limb, where the high sun rakes it.
+static const float3 STICKNEY_CENTRE = float3(0.35, 0.5, -0.79);
+static const float STICKNEY_RADIUS = 0.42;
+//The grooves' common axis: Phobos's parallel striations, chains of pits running round the body.
+static const float3 GROOVE_AXIS = float3(0.8, -0.35, 0.5);
+
+//The gain the old disc lit its sunward side by, kept: MarsMoonsConfig's reflectances are tuned against it.
+static const float MOON_SUN_GAIN = 1.35;
+
+//One crater's slope at `s`, a point of the body's unit sphere: a parabolic bowl inside `radius` with a raised rim
+//just outside it, as the tangent vector the surface normal tilts away by. Analytic, so the [branch] it runs under
+//holds no gradient op. `depth` is the bowl's depth over its radius, so a crater's slopes do not depend on its
+//size. `centre` need not lie on the sphere: a ball cut by the sphere still rims a round crater.
+float3 CraterTilt(float3 s, float3 centre, float radius, float depth)
 {
+    float3 away = s - centre;
+    float x = length(away) / radius;
+
+    //d/dx of depth * (min(x, 1)^2 - 1) + 0.35 * depth * exp(-((x - 1) / 0.25)^2), the bowl and its rim
+    float rimX = (x - 1.0) / 0.25;
+    float slope = depth * ((x < 1.0 ? 2.0 * x : 0.0) - 2.8 * rimX * exp(-rimX * rimX));
+
+    float3 tangent = away - s * dot(away, s);
+    return tangent * (slope / max(length(tangent), 1e-5));
+}
+
+//A field of small craters, one per cell of a 3D lattice laid over the unit sphere: the single-cell trick the
+//terrain's craters use, with every crater's rim (it has died away by 1.6 radii) kept inside its own cell so no
+//cell boundary ever cuts one.
+float3 CraterCells(float3 s, float frequency, float depth, float salt)
+{
+    float3 cell = floor(s * frequency);
+    float3 h = NoiseHash33(cell + salt);    //-1..1
+
+    float3 centre = (cell + 0.5 + h * 0.12) / frequency;
+    float radius = (0.17 + 0.05 * h.x) / frequency;     //0.12..0.22 of a cell, 0.12 + 0.22 * 1.6 < 0.5
+    float present = step(-0.4, h.z);                     //seven cells in ten carry one
+
+    return CraterTilt(s, centre, radius, depth) * present;
+}
+
+//One moon's body: the ray is intersected with the ellipsoid by scaling both into the space where the ellipsoid
+//is the unit sphere (Moon.fx's Earth's ray-sphere test, on a scaled ray), and the craters, the grooves and a
+//low-frequency lumpiness then tilt the normal on that sphere. Returns the radiance the moon itself sends towards
+//the camera, before the air; `coverage` is the antialiased 0..1 the caller composites by. `detail` scales the
+//small craters, the lumps and the mottling (Deimos is smoother: its regolith has filled them); `stickney` is 1
+//for the body that carries Stickney and its grooves.
+float3 MoonBody(float3 dir, float3 moonDirection, float angularRadius, float3 albedo, float3 axes, float tilt,
+                float detail, float stickney, float pixelAngle, out float coverage)
+{
+    //The body's frame: across the sky and up it, tilted in the sky plane, and along the line of sight
+    float3 across = normalize(cross(float3(0.0, 1.0, 0.0), moonDirection));
+    float3 up = cross(moonDirection, across);
+    float sine, cosine;
+    sincos(tilt, sine, cosine);
+    float3 axisA = across * cosine + up * sine;
+    float3 axisB = up * cosine - across * sine;
+
+    //The camera at the origin and the centre `distance` radii out, in the space where the body is the unit sphere
+    float distance = 1.0 / max(sin(angularRadius), 1e-4);
+    float3 origin = float3(0.0, 0.0, -distance / axes.z);
+    float3 ray = float3(dot(dir, axisA), dot(dir, axisB), dot(dir, moonDirection)) / axes;
+
+    //The ray's closest approach to the centre: under 1, it hits. A slow wobble of the outline makes the
+    //silhouette a lump rather than an ellipse.
+    float rayLength2 = dot(ray, ray);
+    float3 closest = origin - ray * (dot(origin, ray) / rayLength2);
+    float miss = length(closest);
+    float outline = 1.0 + 0.05 * GradientNoise3(closest / max(miss, 1e-4) * 2.3 + 5.1);
+
+    //One pixel's angle, carried into the scaled space (an angle moves the point `distance` times as far, then
+    //over the outline's semi-axes)
+    float edge = max(pixelAngle * distance * 1.6 / (axes.x + axes.y), 1e-5);
+    coverage = 1.0 - smoothstep(outline - edge, outline + edge, miss);
+
+    //The near surface; where the wobble reaches past the ellipsoid, the limb's own closest point
+    float3 s = normalize(closest - ray * sqrt(max(1.0 - miss * miss, 0.0) / rayLength2));
+
+    //Craters and lumps, as one tilt of the unit sphere's normal
+    float3 tilted = CraterTilt(s, normalize(STICKNEY_CENTRE), STICKNEY_RADIUS, 0.22) * stickney;
+    tilted += (CraterCells(s, 2.6, 0.3, 1.7) + CraterCells(s, 5.5, 0.26, 7.3) + CraterCells(s, 11.0, 0.14, 4.9)) * detail;
+    float3 lump = float3(GradientNoise3(s * 1.6 + 3.1), GradientNoise3(s * 1.6 + 11.7), GradientNoise3(s * 1.6 + 23.3));
+    tilted += (lump - s * dot(lump, s)) * 0.7 * detail;
+
+    //Back to world space through the ellipsoid's scale: the gradient of x^2/a^2 + y^2/b^2 + z^2/c^2
+    float3 scaled = (s - tilted) / axes;
+    float3 normal = normalize(scaled.x * axisA + scaled.y * axisB + scaled.z * moonDirection);
+
+    //The surface: mottled, and on Phobos crossed by the faint dark lines of its grooves
+    float3 surface = albedo * (1.0 + 0.9 * detail * Fbm3(s * 3.5 + 2.0, 3));
+    float groove = sin(dot(s, normalize(GROOVE_AXIS)) * 34.0 + 2.5 * GradientNoise3(s * 2.7));
+    surface *= 1.0 - 0.12 * stickney * smoothstep(0.75, 1.0, groove);
+
+    //Regolith scatters by Lommel-Seeliger rather than Lambert: the lit side stays bright out to the limb, which
+    //is what reads as a moon; mixed with Lambert, the terminator stays soft.
+    float sunCos = saturate(dot(normal, SunDirection));
+    float viewCos = saturate(-dot(normal, dir));
+    float lit = lerp(sunCos, 2.0 * sunCos / max(sunCos + viewCos, 1e-3), 0.6);
+
+    //Marsshine: from either moon Mars fills a great part of the sky, lit by the same sun, and it stands below the
+    //moon and behind the camera, about 1.8 planet radii from the moon for every one the camera stands above
+    //the planet's centre - so the side the camera sees is never black.
+    float3 towardMars = normalize(-moonDirection * 1.8 - float3(0.0, 1.0, 0.0));
+    float shine = saturate(dot(normal, towardMars));
+
+    return surface * (SunColor * (lit * MOON_SUN_GAIN) + MarsshineColor * shine);
+}
+
+//The cheap test every pixel of the full-screen pass runs: only those inside the body's bounding cone (the outline
+//at most 5 % past its largest semi-axis, axes.x = 1, and a pixel's antialiasing) run MoonBody. The body is
+//assigned in the branch rather than returned from it, so nothing is left uninitialised on the way out (#713).
+float3 MoonDisc(float3 dir, float3 moonDirection, float angularRadius, float3 albedo, float3 axes, float tilt,
+                float detail, float stickney, float pixelAngle, out float coverage)
+{
+    float3 color = 0.0;
     coverage = 0.0;
 
-    float cosine = dot(dir, moonDirection);
-    float cosLimb = cos(angularRadius);
-
     [branch]
-    if (cosine <= cosLimb || angularRadius <= 0.0) return 0.0;
+    if (angularRadius > 0.0 && dot(dir, moonDirection) > cos(angularRadius * 1.08 + pixelAngle))
+        color = MoonBody(dir, moonDirection, angularRadius, albedo, axes, tilt, detail, stickney, pixelAngle, coverage);
 
-    //The limb is where cos(angle) crosses cosLimb, antialiased over one pixel's worth of angle
-    float edge = max(pixelAngle * sin(angularRadius) * 0.8, 1e-6);
-    coverage = smoothstep(cosLimb - edge, cosLimb + edge, cosine);
-
-    float distance = 1.0 / max(sin(angularRadius), 1e-4);
-    float discriminant = max(distance * distance * (cosine * cosine - 1.0) + 1.0, 0.0);
-    float t = distance * cosine - sqrt(discriminant);
-    float3 normal = normalize(t * dir - distance * moonDirection);
-
-    float ndotl = saturate(dot(normal, SunDirection));
-
-    //A small ambient floor, or the dark limb reads as a hole cut in the dome rather than the shadowed side
-    //of a small lit rock (the space scene's lesson about the island, restated at a moon's scale).
-    return albedo * (ndotl * 1.35 + 0.05);
+    return color;
 }
 
 struct MarsMoonsVertexOutput
@@ -751,20 +856,24 @@ float4 MarsMoonsPS(MarsMoonsVertexOutput input) : COLOR
     float pixelAngle = max(sqrt(dot(ddx(dir), ddx(dir)) + dot(ddy(dir), ddy(dir))), 1e-6);
 
     float deimosCoverage;
-    float3 deimos = MoonDisc(dir, DeimosDirection, DeimosAngularRadius, DeimosColor, pixelAngle, deimosCoverage);
+    float3 deimos = MoonDisc(dir, DeimosDirection, DeimosAngularRadius, DeimosColor, DEIMOS_AXES, DEIMOS_TILT,
+                             0.45, 0.0, pixelAngle, deimosCoverage);
 
     float phobosCoverage;
-    float3 phobos = MoonDisc(dir, PhobosDirection, PhobosAngularRadius, PhobosColor, pixelAngle, phobosCoverage);
+    float3 phobos = MoonDisc(dir, PhobosDirection, PhobosAngularRadius, PhobosColor, PHOBOS_AXES, PHOBOS_TILT,
+                             1.0, 1.0, pixelAngle, phobosCoverage);
 
-    //Phobos composited over Deimos - the two never actually overlap at the shipped directions, but the
-    //nearer moon should win if a level's own config ever moves them together.
-    float3 color = lerp(deimos, phobos, phobosCoverage);
-    float coverage = max(deimosCoverage, phobosCoverage);
+    //Phobos composited over Deimos, premultiplied - the two never actually overlap at the shipped directions,
+    //but the nearer moon should win if a level's own config ever moves them together.
+    float3 color = phobos * phobosCoverage + deimos * (deimosCoverage * (1.0 - phobosCoverage));
+    float coverage = phobosCoverage + deimosCoverage * (1.0 - phobosCoverage);
 
-    //Alpha IS the coverage: unlike Moon.fx's opaque sky pass (which repaints every pixel of a domeless
-    //void) this composites over an already-drawn dome and terrain, so everywhere neither disc covers must
-    //stay fully transparent.
-    return float4(color, coverage);
+    //Through the air: the moon's own light arrives dimmed by MoonTransmission, and the daylight the dust
+    //scatters between the camera and the moon is still in front of it, MoonAirlight of the dome behind. That is
+    //how a daytime moon looks: its shadowed side sinks most of the way into the sky instead of reading as a hole
+    //cut in it (#744). BlendState.AlphaBlend is premultiplied, out = rgb + dome * (1 - a), so everywhere neither
+    //moon covers stays the dome and terrain already drawn - unlike Moon.fx's opaque sky pass.
+    return float4(color * MoonTransmission, coverage * (1.0 - MoonAirlight));
 }
 
 //Two programs from one body, the forest's and the meadow's pattern. "MarsTerrain" is the authored ground;
