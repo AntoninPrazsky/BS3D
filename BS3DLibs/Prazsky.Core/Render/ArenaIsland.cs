@@ -803,11 +803,14 @@ namespace Prazsky.Core.Render
             //draws them (#804). NOT the drain's glass and the pit behind it: seen from above the island they are the
             //inside of a cone - no outline of theirs shows, and their rims lie under the gold band - and their thousand
             //rim edges were a third of the fins a frame drew.
+            //The Potato path (GamePi's effect, recognised as the renderers recognise it) takes the dream's melting shape cut down
+            //(#779): no drips, the stone's facets
+            bool potato = instancingEffect.Techniques["PotatoLit"] != null;
             _islandMeshes = new IslandMesh[IslandMesh.SHAPE_COUNT];
             using (EdgeFins.Wanted())
             {
                 for (int shape = 0; shape < _islandMeshes.Length; shape++)
-                    _islandMeshes[shape] = new IslandMesh(device, FUNNEL_TOP_RADIUS, RADIUS, EDGE_HEIGHT, SEGMENTS, DISH_DEPTH, (IslandShape)shape);
+                    _islandMeshes[shape] = new IslandMesh(device, FUNNEL_TOP_RADIUS, RADIUS, EDGE_HEIGHT, SEGMENTS, DISH_DEPTH, (IslandShape)shape, potato);
             }
             IslandMesh _islandMesh = _islandMeshes[(int)IslandShape.Stone];
 
