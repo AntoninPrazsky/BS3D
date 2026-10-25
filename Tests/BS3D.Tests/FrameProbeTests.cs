@@ -28,7 +28,8 @@ namespace BS3D.Tests
 
             Assert.Equal(FrameProbe.Verdict.Black, FrameProbe.Check(Frame((x, y) => Color.Black), W, H, out _, out _));
             Assert.Equal(FrameProbe.Verdict.Flat, FrameProbe.Check(Frame((x, y) => new Color(255, 0, 255)), W, H, out _, out _));
-            Assert.Equal(FrameProbe.Verdict.Black, FrameProbe.Check(null, W, H, out _, out _));
+            //A frame that could not be read is not a black one: no driver alarm for a failed readback
+            Assert.Equal(FrameProbe.Verdict.Unread, FrameProbe.Check(null, W, H, out _, out _));
         }
 
         //A texel as the GPU writes an R16G16B16A16 float one: x in the low bits, w in the high, each a System.Half

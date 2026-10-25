@@ -61,6 +61,13 @@ namespace BS3D.Screens
         private FrameStats.Summary _physicsResult, _physicsWarmup;
         private int _physicsBalls;
         private bool _physicsMeasured;
+
+        //What the result was measured at, kept with it: the page is kept between visits and the player may change the tier
+        //in Settings before coming back, and a result judged against a tier it never ran at would be a verdict on nothing.
+        //And whether the run went to its end: a stopped one is shown, never saved and never acted on
+        private QualityLevel _measuredTier;
+        private JsonObject _measuredSystem;
+        private bool _complete;
         private readonly PlayHud _skipHint;
         private Button _firstEntry;
 
@@ -88,6 +95,8 @@ namespace BS3D.Screens
                 column.Widgets.Add(Paragraph(string.Create(CultureInfo.InvariantCulture,
                     $"Flies through {SEGMENTS.Length} of the most demanding scenes at your quality ({Game.QualityLabel}), with the frame rate unlocked, and measures every frame, then times the physics of the biggest level. About a minute. The skip key stops it."),
                     ProseMeasure));
+                if (!Game.SceneryShown && !BS3DGame.PotatoPath)
+                    column.Widgets.Add(Paragraph("The scenery is off in your settings: the benchmark shows it, so that it has something to measure.", ProseMeasure));
             }
 
             _firstEntry = MenuButton(_phase == Phase.Done ? "Run again" : "Start", Start);
@@ -133,11 +142,12 @@ namespace BS3D.Screens
 
             //A frame the probe found wrong is the surprise this page exists to find: said plainly, with where to send it
             for (int i = 0; i < _measured; i++)
-                if (_probes[i] != FrameProbe.Verdict.Ok)
+                if (_probes[i] is FrameProbe.Verdict.Black or FrameProbe.Verdict.Flat or FrameProbe.Verdict.NonFinite)
                     column.Widgets.Add(Paragraph($"{SceneRenderer.SceneName(SEGMENTS[i])} drew {ProbeFault(_probes[i])}: your graphics driver may not draw this game right. Please tell the author: Extras > {BS3DGame.NOTE_ENTRY}.", ProseMeasure));
 
-            //What the numbers recommend (BenchmarkVerdict), offered as an entry and never applied unasked
-            QualityLevel tier = Game.Quality;
+            //What the numbers recommend (BenchmarkVerdict) for the tier they were measured at, offered as an entry and never
+            //applied unasked; a stopped run says how far it got and offers nothing
+            QualityLevel tier = _measuredTier;
             QualityLevel recommended = BenchmarkVerdict.Recommend(tier, _results, _measured, out int decidedBy);
             int hz = Game.DisplayRefreshHz > 0 ? Game.DisplayRefreshHz : 60;
             string verdict = recommended < tier
@@ -146,14 +156,17 @@ namespace BS3D.Screens
                 : recommended > tier
                     ? $"{tier} holds {hz} Hz in every scene with room to spare. {recommended} may hold it too."
                     : $"{tier} holds your display's {hz} Hz.";
+            if (!_complete)
+                verdict = string.Create(CultureInfo.InvariantCulture, $"Stopped after {_measured} of {SEGMENTS.Length} scenes. ") + verdict;
+            if (Game.Quality != tier) verdict += $" Measured at {tier}; your quality is {Game.Quality} now.";
             column.Widgets.Add(Paragraph(verdict, ProseMeasure));
-            if (recommended != tier && Game.CanOfferQuality)
+            if (_complete && recommended != tier && recommended != Game.Quality && Game.CanOfferQuality)
                 column.Widgets.Add(MenuButton(recommended > tier ? $"Try {recommended}" : $"Use {recommended}", () => TakeOffer(recommended)));
 
-            JsonObject system = Game.BenchmarkSystem();
+            JsonObject system = _measuredSystem ?? Game.BenchmarkSystem();
             column.Widgets.Add(new Label
             {
-                Text = $"{system["gpu"]} · {system["backBuffer"]} · {system["quality"]} · saved as Benchmark.json",
+                Text = $"{system["gpu"]} · {system["backBuffer"]} · {system["quality"]} · {(_complete ? "saved as Benchmark.json" : "not saved")}",
                 Font = FontSmall,
                 TextColor = BS3DGame.MENU_TEXT_DIM,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -212,6 +225,7 @@ namespace BS3D.Screens
             _segment = 0;
             _measured = 0;
             _physicsMeasured = false;
+            _complete = false;
             Game.BeginBenchmark();
             BeginSegment();
         }
@@ -278,19 +292,22 @@ namespace BS3D.Screens
         //The physics segment: the largest shipped cluster hung off screen; a level that cannot be read is said and skipped
         private void BeginPhysics()
         {
-            _phase = Phase.Physics;
             string path = Path.Combine(AppContext.BaseDirectory, BS3DGame.LEVELS_DIRECTORY, PhysicsBench.LEVEL + ".json");
             try
             {
                 Level level = Level.Load(path);
                 _physics = new PhysicsBench(new BallsMap(level.Map), SceneWind.For(level.Scene ?? SceneKind.City, null));
                 _physicsBalls = _physics.Balls;
+                _phase = Phase.Physics;
                 Console.WriteLine($"[bench] physics {PhysicsBench.LEVEL}: {_physicsBalls} balls, {Environment.ProcessorCount} threads");
             }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidDataException)
+            catch (Exception e)
             {
-                Console.WriteLine($"[bench] physics skipped: {e.Message}");
-                Finish();
+                //Whatever the reason (a missing file, a map the builder refuses, a machine out of memory), the tours stand
+                //measured: said in the log and finished without the physics, never the game taken down mid-benchmark
+                Console.WriteLine($"[bench] physics skipped: {e.GetType().Name}: {e.Message}");
+                DisposePhysics();
+                Finish(complete: true);
             }
         }
 
@@ -306,7 +323,7 @@ namespace BS3D.Screens
             FrameStats.Summary s = _physicsResult, first = _physicsWarmup;
             Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
                 $"[bench] physics: {s.Frames} steps, mean {s.Mean:0.000} ms, median {s.Median:0.000}, p95 {s.P95:0.000}, p99 {s.P99:0.000}, worst {s.Worst:0.00} ms, {s.OverBudgetShare * 100f:0.0} % over {PhysicsBench.STEP_BUDGET_MILLISECONDS:0.00} ms, {PhysicsBench.TimeShare(s.Median) * 100f:0.0} % of every frame; first {PhysicsBench.WARMUP_STEPS} steps: worst {first.Worst:0.0} ms, median {first.Median:0.000}"));
-            Finish();
+            Finish(complete: true);
         }
 
         private void DisposePhysics()
@@ -322,10 +339,14 @@ namespace BS3D.Screens
                 $"[bench] {SceneRenderer.SceneName(SEGMENTS[i])}: {s.Frames} frames, mean {s.Mean:0.00} ms, median {s.Median:0.00}, p95 {s.P95:0.00}, p99 {s.P99:0.00}, 1% low {s.OnePercentLowFps:0.0} FPS, worst {s.Worst:0.0} ms, {s.OverBudgetShare * 100f:0.0} % over {Budget:0.00} ms; first {SETTLE_SECONDS:0.0} s: worst {first.Worst:0.0} ms, median {first.Median:0.00}"));
         }
 
-        private void Finish()
+        //The run's end: what it measured kept with the tier and the machine it measured them on, and saved only when it went
+        //to its end, so a run stopped after one scene never overwrites a whole one
+        private void Finish(bool complete)
         {
             _phase = Phase.Done;
-            JsonObject system = Game.BenchmarkSystem();
+            _complete = complete;
+            _measuredTier = Game.Quality;
+            JsonObject system = _measuredSystem = Game.BenchmarkSystem();
             Console.WriteLine($"[bench] system {system.ToJsonString()}");
 
             var segments = new JsonArray();
@@ -371,8 +392,8 @@ namespace BS3D.Screens
                     ["warmupMedianMs"] = Math.Round(_physicsWarmup.Median, 4),
                 };
             QualityLevel recommended = BenchmarkVerdict.Recommend(Game.Quality, _results, _measured, out _);
-            Console.WriteLine($"[bench] recommends {recommended} (ran at {Game.Quality})");
-            Game.SaveBenchmark(new JsonObject
+            Console.WriteLine($"[bench] recommends {recommended} (ran at {Game.Quality}){(complete ? "" : $", stopped after {_measured} of {SEGMENTS.Length} scenes: not saved")}");
+            if (complete) Game.SaveBenchmark(new JsonObject
             {
                 ["when"] = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture),
                 ["budgetMs"] = Math.Round(Budget, 3),
@@ -392,14 +413,17 @@ namespace BS3D.Screens
             Game.RebuildPage(this, () => _firstEntry);
         }
 
-        /// <summary>The skip key stops a running benchmark: what was measured so far is kept and shown.</summary>
+        /// <summary>The skip key stops a running benchmark: what was measured so far is shown, not saved.</summary>
         internal override void SkipPressed()
         {
             if (!Running) return;
-            Manager?.Find<BackdropScreen>()?.TrySkipTour();
+            //A press the tour refuses (its opening moments' lockout) is no press at all: stopping the run under a tour that
+            //flies on would put the player's scene back behind the old scene's shots, and the next run would find it engaged
+            BackdropScreen backdrop = Manager?.Find<BackdropScreen>();
+            if (backdrop != null && backdrop.TourRunning && !backdrop.TrySkipTour()) return;
             DisposePhysics();
             Console.WriteLine("[bench] stopped");
-            if (_measured > 0) Finish();
+            if (_measured > 0) Finish(complete: false);
             else
             {
                 _phase = Phase.Idle;

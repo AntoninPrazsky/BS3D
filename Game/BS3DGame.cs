@@ -1974,10 +1974,12 @@ namespace BS3D
         /// Which entry the front end's backdrop should hang, or <c>null</c> for the roll a player gets — the
         /// <c>preview=</c> argument, resolved the way <see cref="ResolveStartupLevel"/> resolves
         /// <c>level=</c>. Asked on every roll rather than resolved once, which costs a walk of the set on an
-        /// event that happens when a player returns to the menu and is what keeps this a one-liner.
+        /// event that happens when a player returns to the menu and is what keeps this a one-liner. While the benchmark runs
+        /// it is the largest cluster that ships (<see cref="PhysicsBench.LEVEL"/>, #988), so every run tours past the same one.
         /// </summary>
         internal int? PinnedPreviewLevel =>
-            _startupPreview == null ? null : ResolveStartupLevel(_startupPreview);
+            _benchmarking ? ResolveStartupLevel(PhysicsBench.LEVEL)
+            : _startupPreview == null ? null : ResolveStartupLevel(_startupPreview);
 
         /// <summary>
         /// Which entry the <c>level=</c> argument names: a <b>1-based place</b> in the set, as the title bar
