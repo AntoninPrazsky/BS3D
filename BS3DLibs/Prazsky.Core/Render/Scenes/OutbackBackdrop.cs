@@ -21,6 +21,10 @@ namespace Prazsky.Core.Render
         private readonly PlantPass _plants;
         private IslandBermPlanting _berm;
 
+        //What grows on the plain (#749), through the same pass; the trees' low plates and fine wood follow the tier
+        private OutbackPlanting _planting;
+        private float _sceneDetail;
+
         private readonly Effect _outbackEffect;
 
         //Its camera grid and the pass that draws it (#580): the skeleton this scene shared with two others
@@ -54,9 +58,14 @@ namespace Prazsky.Core.Render
         //Look/tuning parameters (plain, monoliths, rock and ground materials, dust, shimmer) live in
         //OutbackSceneConfig; the backdrop reads them from _outbackConfig.
 
-        /// <summary>Loads the effect, takes its grid through its <see cref="TerrainPass"/> and pushes the config at it.</summary>
-        public OutbackBackdrop(BackdropServices services, ContentManager content) : base(services)
+        /// <summary>
+        /// Loads the effect, takes its grid through its <see cref="TerrainPass"/> and pushes the config at it;
+        /// <paramref name="sceneDetail"/> is the renderer's tier at load, which the planting's trees are drawn by.
+        /// </summary>
+        public OutbackBackdrop(BackdropServices services, ContentManager content, float sceneDetail) : base(services)
         {
+            _sceneDetail = sceneDetail;
+
             //--- Outback (#112): the desert's machinery with rock on it — the same flat lattice, displaced into
             //a near-flat spinifex plain with red monoliths standing on a jittered single-cell lattice
             _outbackEffect = content.Load<Effect>("Shaders/Outback");
@@ -92,7 +101,14 @@ namespace Prazsky.Core.Render
                 BERM_SEED + Services.SeedOffset, 0, IslandBerm.RINGS - 1);
             _outbackEffect.Parameters["BankCoverPhase"].SetValue(IslandBerm.Phase(BERM_SEED + Services.SeedOffset));
             _outbackEffect.Parameters["BankCoverOn"].SetValue(1f);
+
+            //The plain's spinifex, saltbush, timber and trees (#749), kept off the very footprints the plain stops on
+            _planting = new OutbackPlanting(services.GraphicsDevice, (x, z) => TerrainMirror.Outback(x, z, _outbackConfig),
+                TerrainMirror.OutbackFootprints(_outbackConfig, PLANTING_REACH), PLANTING_SEED + Services.SeedOffset);
         }
+
+        /// <inheritdoc/>
+        public override void OnDetailChanged(float sceneDetail) => _sceneDetail = sceneDetail;
 
         /// <inheritdoc/>
         public override SceneKind Kind => SceneKind.Outback;
@@ -164,19 +180,26 @@ namespace Prazsky.Core.Render
             _rockDiscs?.Cull(frame.Camera.View * frame.Camera.Projection, Services.FineMeshes);
             _outbackPass.Draw(frame, Services.TerrainHoleRadius, _drawRock);
             if (_berm != null) _plants.Draw(frame, _bermStones, _outbackConfig.Air.HorizonHazeDistance, detail: true, Services.FineMeshes);
+            if (_planting != null)
+                _plants.Draw(frame, _planting.Buckets, _outbackConfig.Air.HorizonHazeDistance, _sceneDetail > 0.5f, Services.FineMeshes);
             Services.Birds.Draw(frame, _outbackConfig.Birds);
         }
 
         /// <inheritdoc/>
-        public override bool HasShadowCasters => _berm != null;
+        public override bool HasShadowCasters => _berm != null || _planting != null;
 
-        /// <summary>The bank round the island casts into the sun's map (#646).</summary>
+        /// <summary>The bank round the island (#646) and what grows on the plain (#749) cast into the sun's map.</summary>
         public override void DrawShadowCasters(Matrix shadowViewProjection)
         {
             if (_berm != null) _plants.DrawShadowCasters(shadowViewProjection, _berm.Buckets, Services.FineMeshes);
+            if (_planting != null) _plants.DrawShadowCasters(shadowViewProjection, _planting.Buckets, Services.FineMeshes);
         }
 
         private const int BERM_SEED = 9300;
+
+        //The planting's seed, and how far out the formations it keeps off are listed (past its own reach)
+        private const int PLANTING_SEED = 7490;
+        private const float PLANTING_REACH = 420f;
 
         //The bank (#983): drawn as the plain inside the terrain pass, its stones as plants; the planting's buckets still cast
         private ScatterBucket[] _bermStones;
@@ -257,6 +280,8 @@ namespace Prazsky.Core.Render
         public override void Dispose()
         {
             _berm?.Dispose();
+            _planting?.Dispose();
+            _planting = null;
             _bank?.Dispose();
             _bank = null;
             _berm = null;
