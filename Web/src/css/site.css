@@ -152,8 +152,14 @@ h3 { font-size: 1.45rem; }
 .sound-toggle:disabled { opacity: 0.7; cursor: default; }
 .has-sound .footer { padding-bottom: 80px; }
 
-/* The live cannon (#949): the canvas keeps its place before the script has drawn, and shows the page's raised panel until it has */
-.cannon-canvas { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: var(--radius); background: radial-gradient(ellipse at 50% 60%, var(--bg-raised), var(--bg-sunken) 75%); }
+/* The live cannon (#949): the canvas is transparent and has no box of its own, so the gun stands in the page itself. It keeps its
+   place before the script has drawn, and its edges are feathered by an elliptical mask (opaque inside 75 % of the way out, clear at
+   the sides' middles and beyond), so nothing it draws ends at a straight line */
+.cannon-canvas {
+  display: block; width: 100%; aspect-ratio: 16 / 9; background: none;
+  -webkit-mask-image: radial-gradient(ellipse closest-side at 50% 50%, #000 80%, transparent 100%);
+  mask-image: radial-gradient(ellipse closest-side at 50% 50%, #000 80%, transparent 100%);
+}
 
 /* The numbers band: the campaign's size, in the display face */
 .numbers { background: var(--bg-sunken); border-block: 1px solid var(--line); padding: 28px 0; }
