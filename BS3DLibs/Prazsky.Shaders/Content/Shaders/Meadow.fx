@@ -93,7 +93,7 @@ float BrookBearing;
 float BrookWidth;
 float BrookMeander;
 static const float BROOK_START = 1.18;                    //MeadowPath.BROOK_START
-static const float3 BROOK_BED = float3(0.035, 0.05, 0.045);
+static const float3 POND_BODY = float3(0.035, 0.05, 0.045);   //the pond water's own dark body (the brook's is BROOK_BODY)
 
 //The pond the brook runs into and the knoll the footpath climbs to its old tree (#609's third round). The owner: the
 //brook "ends abruptly in the middle of the meadow ... it should flow into something, a pond for example", and "a path
@@ -759,9 +759,6 @@ float2 PebbleCell(float2 p)
     return float2(sqrt(best), id);
 }
 
-//The brook's bed (#979): it runs clear, and a clear stream shows a stony bed, not the pond's silt - sand with rounded
-//pebbles in it, faded to their mean where a pebble is under a few pixels. Dry; the callers wet it as they
-//wet the silt. No derivative: the footprint is the caller's.
 //One round pebble of a PebbleCell, its radius (cells) its own: how much of this point it covers in `at`, and its colour,
 //pale on its crown and dark at its rim, its own tone, warm or grey. Where two sites stand close their pebbles meet along
 //the border between their cells, as stones packed in a bed do.
@@ -776,6 +773,9 @@ float3 Pebble(float2 cell, float clods, out float at)
     return PEBBLE * tone * hue * (0.35 + 0.65 * crown);
 }
 
+//The brook's bed (#979): it runs clear, and a clear stream shows a stony bed, not the pond's silt - sand with rounded
+//pebbles in it, faded to their mean where a pebble is under a few pixels. Dry; the callers wet it as they wet the silt.
+//No derivative: the footprint is the caller's.
 float3 BrookPebbles(float2 xz, float footprint, float clods)
 {
     float3 bed = BED_SAND * (0.85 + 0.3 * clods);
@@ -1344,7 +1344,7 @@ float4 MeadowWaterPS(WaterVertexOutput input) : COLOR
     //green, the pond murky and dark (#979). Then the foam, white and opaque where it runs.
     float through = exp(-depth * lerp(BROOK_MURK, POND_MURK, still) / max(toCamera.y, 0.12));
     float cover = 1.0 - (1.0 - fresnel) * through;
-    float3 color = reflection + (1.0 - fresnel) * (1.0 - through) * lerp(BROOK_BODY, BROOK_BED, still) * light;
+    float3 color = reflection + (1.0 - fresnel) * (1.0 - through) * lerp(BROOK_BODY, POND_BODY, still) * light;
     color = lerp(color, FOAM * light, foam);
     cover = lerp(cover, 1.0, foam);
 
@@ -1358,7 +1358,7 @@ float4 MeadowWaterPS(WaterVertexOutput input) : COLOR
     }
 
     //The haze and the far fade on the colour as seen, not on its premultiplied share; then the brook's last stretch fades
-    //out with its groove, into the brook painted on the field
+    //out with its groove, into the field at its spring
     float3 seen = color / max(cover, 1e-4);
     float haze = saturate(distance(CameraPosition, worldPosition) / HorizonHazeDistance);
     seen = FarFadeToSky(lerp(seen, HorizonColor, haze * haze), worldPosition);
