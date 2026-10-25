@@ -20,6 +20,15 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — večer: benchmark do releasu, poznámky majitele z testování — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo #988: živý panel (a1f8ea72). Výsledek jde po dokončení na server: `OnlineBenchmarks` v game (3b6285f2), BS3D-API `POST /v1/benchmarks` v0.1.28/0.1.29. Pi zatím na v0.1.27 (schema 4), čeká na majitele nebo Pi session.
+- Hotovo #1018 (98f6206f, review e901c2cb): benchmark hraje Girandole, úvod města ke kanonu a pak kanon střílí sám. Míření jako ruka, cíl z `ShotPlacement`.
+- Hotovo: #1019 louka nese kopuli 1, #1021 první úvod bez Skip, #1020 zakázaná slova v přezdívce (game 52ca3b9c a API v0.1.29).
+- Hotovo pomocníky: #1017 krystaly, #949 dělo bez rámečku, #942 článek s před/po. #1022 lavička běží.
+- ⚠ API CI: `10.0.x` → 409 při stahování SDK, připnuto `10.0.2xx`.
+- ⚠ Klik do okna testovacího běhu ho zastaví: během hry benchmark myš neruší.
+- Otevřené: „KuloMrd“ (vede 107 ze 150 tabulek) přejmenovat na Pi; 19 OK verdiktů zapsat.
+
 ## 2026-10-25 — #950 zvuk na webu, #948 web v pohybu — desktop (RDT-PC), Claude Code (bs3d-21)
 - Hotovo: #950 (7e212d43): tlačítko zvuku vpravo dole, do prvního stisku se nic nestahuje. Pak hraje smyčka z menu hry a výstřely živého děla. `verdict-eye`.
 - Hotovo: #948 krok 1 (5e613c0e): úvod naskočí, kusy sekcí vyjíždějí při scrollu, čísla se načítají, dělo má viditelné „Pause“. Pod reduced motion nic. Když `motion.js` selže, hlavička po 3 s třídu `motion` sundá. `verdict-eye`; kroky 2–3 čekají na #946. Web nenahrán.
