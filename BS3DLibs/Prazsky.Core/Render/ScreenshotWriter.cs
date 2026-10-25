@@ -93,11 +93,12 @@ namespace Prazsky.Core.Render
         /// tenth of a second is never counted as part of the frame it follows.
         /// </summary>
         /// <param name="wallClock">Seconds since the run started, on the host's own clock.</param>
-        /// <param name="label">
+        /// <param name="scene">
         /// What the run is looking at, for the file name — the scene, in both executables. The backdrop is the
-        /// first thing anybody asks about a shot of this game.
+        /// first thing anybody asks about a shot of this game. Spelled only when a shot is due: this is called every
+        /// frame, and an enum's <c>ToString</c> boxes it, which was a third of the Game's whole per-frame allocation.
         /// </param>
-        public void Service(float wallClock, string label)
+        public void Service(float wallClock, SceneKind scene)
         {
             _frame++;
 
@@ -123,7 +124,7 @@ namespace Prazsky.Core.Render
 
             _requested = false;
 
-            SaveBackBuffer(label);
+            SaveBackBuffer(scene.ToString());
         }
 
         /// <summary>

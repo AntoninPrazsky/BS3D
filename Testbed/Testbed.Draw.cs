@@ -67,7 +67,8 @@ namespace Testbed
             //shadow pass; glassshadow=0 leaves it out for an A/B in one process
             if (_draw && _ceilingShadowCasting) _sceneRenderer.CastCeilingShadow(_ceilingPlate.Renderer, _ceiling.World.Translation);
 
-            _sceneRenderer.DrawShadowMaps(_scene, _camera, _rig.SunDirection, _instancingEffect, DrawShadowCasters);
+            //The casters as a delegate built once: a method group handed over here is a new delegate every frame
+            _sceneRenderer.DrawShadowMaps(_scene, _camera, _rig.SunDirection, _instancingEffect, _drawShadowCasters ??= DrawShadowCasters);
 
             //The scene goes through the HDR target; the crosshair and the text overlay are drawn after the
             //resolve, at native resolution and in display space, so they stay exactly as authored instead
@@ -271,7 +272,7 @@ namespace Testbed
             //the crosshair and the text overlay - i.e. the frame as presented (#371). The clock is the wall
             //clock the clouds and the pulse run on, so a scheduled shot lands at the same moment whether the
             //simulation is running, slowed or frozen.
-            _shots?.Service(_pulseSeconds, _scene.ToString());
+            _shots?.Service(_pulseSeconds, _scene);
         }
 
         /// <summary>
@@ -288,6 +289,8 @@ namespace Testbed
         /// only ever filled while <c>_draw</c> is true — see the collection moved to the top of <c>Draw</c>.
         /// </para>
         /// </summary>
+        private Action<Matrix> _drawShadowCasters;
+
         private void DrawShadowCasters(Matrix shadowViewProjection)
         {
 

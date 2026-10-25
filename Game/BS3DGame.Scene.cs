@@ -905,7 +905,9 @@ namespace BS3D
             // has to exist before the scene target is bound and cannot be made between two binds of it.
             // The effect is what makes everything drawn through it RECEIVE, and the callback is what the
             // island and a live session's gun CAST with (#470).
-            _sceneRenderer.DrawShadowMaps(_scene, _camera, _rig.SunDirection, _instancingEffect, DrawShadowCasters,
+            //The casters as a delegate built once: a method group handed over here was a new 64-byte delegate every frame,
+            //most of the Game's whole per-frame allocation (BestPractices.md §3)
+            _sceneRenderer.DrawShadowMaps(_scene, _camera, _rig.SunDirection, _instancingEffect, _drawShadowCasters ??= DrawShadowCasters,
                 sceneryCasts: SceneryShown);
 
             //No copy of this frame for the ceiling's glass yet (#541) - see _ceilingGlassBehind
@@ -1164,6 +1166,8 @@ namespace BS3D
         /// <see cref="DrawSetting"/> was one, and every keyboard exit from a result page crashed on it (#672).
         /// </para>
         /// </summary>
+        private Action<Matrix> _drawShadowCasters;
+
         private void DrawShadowCasters(Matrix shadowViewProjection)
         {
             _island?.DrawShadow(shadowViewProjection);

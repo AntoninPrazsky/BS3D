@@ -66,6 +66,14 @@ read a few dozen bytes. The offenders:
   but a sliver of the frame thread's steady allocation (an allocation-tick listener named the type; 2026-10-17).
   `InstanceBinding.Set` reuses one array (MonoGame copies the bindings out of it), and a source test refuses any
   other caller. After it: 24 B a frame on the menu and 27 to 100 B in play between shots.
+- **A method group handed over is a new delegate every call, and an enum's `ToString` boxes it.** After the
+  `params` fix the Game still allocated 88 B a frame in play (scaling with the frame rate: 6.4 KB a second at
+  72 FPS, 12.7 KB at 145), and the allocation-tick listener named both (2026-10-25): the shadow casters passed to
+  `SceneRenderer.DrawShadowMaps` as `DrawShadowCasters`, a fresh 64-byte `Action<Matrix>` each frame, and
+  `ScreenshotWriter.Service` labelled with `_scene.ToString()` on every frame for a shot almost never due, 24 B of
+  boxed `SceneKind`. The delegate is built once (`_drawShadowCasters ??= DrawShadowCasters`), and `Service` takes the
+  scene and spells it only when a shot is due; both executables had both. After it: 0 B a frame in play and on the
+  menu; 40 to 72 B a second remain, flat whatever the frame rate, so no frame's.
 - Watch also: LINQ in Update/Draw, closures capturing locals, other `params` methods, boxing structs through
   interfaces. None were found hot — keep it that way.
 

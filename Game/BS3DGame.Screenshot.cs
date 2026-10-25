@@ -49,6 +49,6 @@ namespace BS3D
         /// file is one of the two places (the <c>[fps]</c> line is the other) that say what was really drawn.
         /// </para>
         /// </summary>
-        private void ServiceScreenshots() => _shots?.Service(_wallClock, _scene.ToString());
+        private void ServiceScreenshots() => _shots?.Service(_wallClock, _scene);
     }
 }
