@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #956 světelné motorky v Gridu — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo: #956 (6f27982a) po podlaze Gridu jezdí tři motorky se zdmi světla (`LightCycles`, `LightCycle.fx`): pravoúhlé jízdy po mřížce 16 v prstenci 56–124, cesta z hashe, takže stejná při každé frekvenci; těla jen ze svítících hran. Reference v `956-zimage`/`956-klein`. `verdict-eye`, karta na stránce 25. 10.
+- ⚠ `BlendState.Additive` je SourceAlpha/One: aditivní shader musí vracet alfu 1, jinak nepřidá nic.
+- Otevřené: Pi motorky nekreslí; objektiv za prstencem by viděl zeď pod ostrovem.
+
 ## 2026-10-25 — #955 létající talíř ve Vesmíru — desktop (RDT-PC), Claude Code (bs3d-21)
 - Hotovo: #955 (c3d97589) kolem vesmírné stanice krouží chromový talíř (`SaucerFlight`, `SaucerMesh`, `Saucer.fx`): teplé žárovky, záře pod břichem, kopule s třemi šedými mimozemšťany a anténa s červeným světýlkem; 240 jednotek daleko, kolo za 70 s. Reference v `955-zimage`/`955-klein`. `verdict-eye`, karta na stránce 25. 10.
 - ⚠ Chrom, který zrcadlí jen tmavou sestavu světel scény, vypadá jako matný plast: chce studiový pás světla kolem horizontu. Tmavá posádka v tmavé kabině není vidět. Malá světla držet pod prahem glare (#401).
