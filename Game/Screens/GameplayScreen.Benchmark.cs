@@ -112,7 +112,10 @@ namespace BS3D.Screens
             GamePadState pad = GamePad.GetState(PlayerIndex.One);
             bool pressed = Game.IsKeyEdge(keyboard, Keys.Escape) || Game.IsKeyEdge(keyboard, Keys.Space) || Game.IsKeyEdge(keyboard, Keys.Enter)
                 || Edge(pad, Buttons.A) || Edge(pad, Buttons.B) || Edge(pad, Buttons.Back) || Edge(pad, Buttons.Start);
+            //The window's own keys, as in play
             if (Game.IsKeyEdge(keyboard, Keys.F12)) Game.RequestScreenshot();
+            if (Game.IsKeyEdge(keyboard, Keys.F11)) Game.ToggleFullscreen();
+            if (Game.IsKeyEdge(keyboard, Keys.F10)) Game.ToggleFpsOverlay();
 
             Game.PreviousKeyboard = keyboard;
             Game.PreviousPad = pad;
