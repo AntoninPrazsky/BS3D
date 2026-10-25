@@ -214,7 +214,11 @@ namespace BS3D.Effects
         //towards the lens, and CreateRotationY carries +z to (sin, 0, cos) - so a POSITIVE angle tilts the
         //face towards +x, screen right, off the frame, and a NEGATIVE one turns it towards the centre. Hence
         //the centre angle is negative and the sway is smaller than it, so their sum never reaches zero.
-        private const float YAW_CENTRE = -0.20f, YAW_SWAY = 0.07f, YAW_RATE = 0.34f;
+        //
+        //TURNED FURTHER TOWARDS THE LENS since #982 (it was -0.20): the block hangs off the lens' axis, up and to the
+        //right, so the lens sees it from the left, about 35 degrees off at 16:9 - and at -0.20 its face still looked
+        //away from the lens by most of that. The owner: "the logo must be turned more towards us".
+        private const float YAW_CENTRE = -0.27f, YAW_SWAY = 0.07f, YAW_RATE = 0.34f;
         private const float PITCH_ANGLE = 0.055f, PITCH_RATE = 0.23f;
 
         //=== STEPPING ASIDE ===
@@ -557,6 +561,7 @@ namespace BS3D.Effects
         private readonly float _fineBlockWidth, _fineBlockHeight, _fineWidestLetter;
         private readonly Placement _discPlacement;
         private readonly float _discPhase;
+        private readonly float _discParallaxDepth;
         private readonly Vector3[] _fineColours;
         private readonly bool[] _onBadge;
 
@@ -744,6 +749,13 @@ namespace BS3D.Effects
             }
 
             _discPhase = badgeLetters > 0 ? phaseSum / badgeLetters : 0f;
+
+            //How far in front of the disc's middle the badge's letters stand, on average, for the parallax DrawFine takes out
+            float depthSum = 0f;
+            for (int i = _letters.Length - badgeLetters; i < _letters.Length; i++)
+                depthSum += BOW_DEPTH * (1f - _finePlacements[i].Across * _finePlacements[i].Across) + _finePlacements[i].Lift;
+            _discParallaxDepth = badgeLetters > 0 ? depthSum / badgeLetters
+                - (BOW_DEPTH * (1f - _discPlacement.Across * _discPlacement.Across) + _discPlacement.Lift - DISC_HALF_THICKNESS) : 0f;
 
             //The logo's own colour on each letter; the ramp where the title is not the logo's
             _fineColours = new Vector3[_letters.Length];
@@ -1315,10 +1327,26 @@ namespace BS3D.Effects
                 float z = BOW_DEPTH * (1f - _discPlacement.Across * _discPlacement.Across) + _discPlacement.Lift
                     - DISC_HALF_THICKNESS;
 
+                Vector3 centre = new(_discPlacement.X * cap, (_discPlacement.Y + wave * WAVE_DEPTH * _discPlacement.Scale) * cap,
+                    z * cap);
+
+                //UNDER ITS LETTERS AS THE LENS SEES THEM (#982). The letters stand in front of the disc, and the lens looks at
+                //the block from off its axis, so they project shifted against it by their depth times the slope of the
+                //sight line through the block: on the frame's right, at the owner's pose, the D stood out over the disc's
+                //right rim. The disc is slid in its own plane to where the sight line through the letters meets it, so
+                //"3D" sits in the middle of the ring wherever the block hangs, however it sways and on any aspect.
+                Matrix worldToBlock = Matrix.Invert(blockToWorld);
+                Vector3 sight = centre - Vector3.Transform(camera.Position, worldToBlock);
+                if (sight.Z < -1e-3f)
+                {
+                    float depth = _discParallaxDepth * cap;
+                    centre.X -= depth * sight.X / sight.Z;
+                    centre.Y -= depth * sight.Y / sight.Z;
+                }
+
                 discWorld = Matrix.CreateRotationX(MathHelper.PiOver2)
                     * Matrix.CreateScale(cap)
-                    * Matrix.CreateTranslation(_discPlacement.X * cap,
-                        (_discPlacement.Y + wave * WAVE_DEPTH * _discPlacement.Scale) * cap, z * cap)
+                    * Matrix.CreateTranslation(centre)
                     * blockToWorld;
             }
 
