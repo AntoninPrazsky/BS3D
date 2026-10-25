@@ -117,15 +117,14 @@ static const float BARK_RELIEF_DEPTH = 0.05;     //the plates' height over the f
 //side of the cylinder there is not that typical tangle/swirl - we need to think about how a cylindrical bale of straw is
 //formed". A round baler rolls the windrow up from a loose core outward and ties the roll round, so an END shows the layers
 //as a spiral round a darker, looser core, the straws laid along the turns and loose ends at the rim; the SIDE shows straws
-//running round the bale, held by a few bands of twine. Painted on BaleGeometry's own UV: the side's u 0..1 round the bale
+//running round the bale in clumps (the twine that ties a real one read as stripes, and the owner ruled them out). Painted
+//on BaleGeometry's own UV: the side's u 0..1 round the bale
 //and v 0..1 along it, an end's u 2..3 round it (CAP_U) and v 1 at the rim to 0 at its centre. Every term fades to its mean
 //as its period nears two pixels. Uniform branch, as STONE's, so the derivatives inside are taken by every pixel alike.
 float StrawStrength;
 static const float STRAW_LAYERS = 9.0;           //turns of the spiral from the core to the rim
 static const float STRAW_SIDES = 32.0;           //BaleGeometry.SIDES: the end is a 32-gon, its v linear across each sector
 static const float STRAW_CORE = 0.2;             //the loose core's radius, as a share of the end's
-static const float STRAW_TWINES = 7.0;           //bands of twine along the side
-static const float3 STRAW_TWINE = float3(0.32, 0.27, 0.16);   //weathered sisal, linear
 static const float STONE_DENTS = 2.3;            //the dents across a rock, per its own size: a fracture face is never flat
 static const float STONE_DENT_DEPTH = 0.06;      //as a share of the rock's size
 static const float STONE_GRAIN = 3.2;            //the rough grain, per world unit
@@ -451,16 +450,13 @@ float4 AcaciaPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR
         }
         else
         {
-            //The side: straws running round it, a few bands of twine, the roll's layers faintly at its surface
+            //The side: straws running round it in clumps, and NO twine - the owner on the first cut's seven bands: "the ends
+            //look good, but the cylinder's side does not - there should be no stripes there"
             float footprint = uvFootprint.y;
             float straws = GradientNoise2(float2(uv.x * 14.0, uv.y * 160.0)) * saturate(1.0 - footprint * 160.0);
             float clumps = GradientNoise2(float2(uv.x * 5.0, uv.y * 18.0) + 3.3);
-            //How far from the nearest twine, in twine spacings; each twine wanders a little round the bale
-            float along = frac(uv.y * STRAW_TWINES + 0.06 * sin(uv.x * 18.849556) + 0.5) - 0.5;
-            float twine = (1.0 - smoothstep(0.035, 0.065, abs(along))) * saturate(1.0 - footprint * STRAW_TWINES * 6.0);
-            relief = 0.35 * straws + 0.3 * clumps - 0.6 * twine;
-            shade = (1.0 + 0.18 * straws + 0.1 * clumps) * (1.0 - 0.15 * twine);
-            albedo = lerp(albedo, STRAW_TWINE * (1.0 + input.Tint.y), 0.8 * twine);
+            relief = 0.35 * straws + 0.3 * clumps;
+            shade = 1.0 + 0.18 * straws + 0.1 * clumps;
         }
 
         N = PerturbNormalFromHeight(N, p, relief * 0.012 * StrawStrength);
