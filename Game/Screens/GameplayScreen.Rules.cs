@@ -454,7 +454,11 @@ namespace BS3D.Screens
 
             //A Continue tours whatever the level's place in its chapter and whether or not the chapter has been seen, and
             //counts as the chapter's opening seen
-            if (welcome) _chapterIntroShown.Add(first);
+            if (welcome)
+            {
+                //The benchmark's play (#1018) marks nothing seen: the player's own first visit still opens on it
+                if (!_run.Benchmark) _chapterIntroShown.Add(first);
+            }
             else
             {
                 if (first != _run.Index) return;
@@ -478,7 +482,7 @@ namespace BS3D.Screens
             //One line per intro, in the manner of [cinematic]: a rare event — eleven times over the whole
             //campaign — and the shot is rolled, so this is the only record of what it actually chose.
             Console.WriteLine($"[intro] block '{set.BlockName(_run.Index)}' ({set.BlockNumber(_run.Index)}/{set.BlockCount}), "
-                + (welcome ? "on Continue, " : "") + _chapterIntro.Describe());
+                + (_run.Benchmark ? "for the benchmark, " : welcome ? "on Continue, " : "") + _chapterIntro.Describe());
         }
 
         /// <summary>
@@ -1358,6 +1362,13 @@ namespace BS3D.Screens
 
             bool cleared = _pendingFailure == LevelFailure.None;
 
+            //The benchmark's play (#1018) ends recording nothing: no save, no play count, no board
+            if (_run.Benchmark)
+            {
+                _endingRecord = new EndingRecord(cleared, 0, false, false);
+                return _endingRecord.Value;
+            }
+
             //The rating and the record, at the one funnel both endings come through. Recorded BEFORE the
             //unlock below is read, so the stars this clear just earned already count towards the next
             //level's gate — a clear that pushes the total over it unlocks Next Level on this very screen.
@@ -1404,6 +1415,9 @@ namespace BS3D.Screens
         /// </summary>
         private void ShowResultScreen()
         {
+            //The benchmark's play (#1018) has no result page: the benchmark ends the session at the decision
+            if (_run.Benchmark) return;
+
             //The floor alarm has said its piece: from the moment the ending is actually put in front of the
             //player, a standing net keeps pulsing under the page for a moment and then goes out — unless it is the
             //net that ended the level, which stays for as long as the page is up (#614, see NoticeLevelEnded). Stamped here,

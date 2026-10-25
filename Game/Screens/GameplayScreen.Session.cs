@@ -56,13 +56,19 @@ namespace BS3D.Screens
             //and InstallLevel — see LevelRun. First, because InstallLevel fills in what the file decides.
             _run = new LevelRun(index);
 
+            //The benchmark's play (#1018) is marked before anything reads the run, and asks its chapter's whole intro
+            _run.Benchmark = _benchmarkNext;
+            if (_run.Benchmark) _welcomeTourRequested = true;
+            _demo.Stop();
+
             //The map first: the ceiling's height and footprint come off the field, and the ceiling body has
             //to exist before the cluster, whose top level is constrained to it.
             InstallLevel(index);
 
             //A counted attempt starts (#709), now that the install has said which board it is on (null for the built-in
             //fallback, which is counted nowhere). The one before it was closed by the TearDown above.
-            Game.Stats?.Started(_run.Identity);
+            //Not the benchmark's (#1018), which nobody plays
+            if (!_run.Benchmark) Game.Stats?.Started(_run.Identity);
 
             //And the theme comes up — from the top, since TearDown above has already stopped it — but only
             //now, because InstallLevel is where SetTheme says which of the two pieces this level plays.
@@ -114,12 +120,15 @@ namespace BS3D.Screens
             _tutorial.NoteDevice(Game.PromptsForPad ? Tutorial.Device.Gamepad : Tutorial.Device.KeyboardMouse);
             Game.Rumble.HandOnPad = _tutorial.OnGamepad;
 
-            _tutorial.BeginLevel(tutorialLevel ? chapter : -1, levelInChapter, chapterLength, LevelCeilingStep(index),
-                swapOffered: _run.SwapOffered, retry: retry, kindsOnMap: _kindsOnMap, brakeOffered: _run.BrakeOffered,
-                cutOffered: _run.CutOffered);
+            //The benchmark's play (#1018) is taught nothing: no card is queued, so none is shown and no lesson is written
+            if (_run.Benchmark) _tutorial.BeginLevel(-1, 0, 0, null, retry: retry);
+            else
+                _tutorial.BeginLevel(tutorialLevel ? chapter : -1, levelInChapter, chapterLength, LevelCeilingStep(index),
+                    swapOffered: _run.SwapOffered, retry: retry, kindsOnMap: _kindsOnMap, brakeOffered: _run.BrakeOffered,
+                    cutOffered: _run.CutOffered);
 
             //The first five levels carry the "fire" chip for a player who stops (#925), on the level's own count from zero
-            _fireHint.BeginLevel(tutorialLevel && FireHint.CarriesHint(chapter, levelInChapter));
+            _fireHint.BeginLevel(tutorialLevel && !_run.Benchmark && FireHint.CarriesHint(chapter, levelInChapter));
 
             //And no floor alarm either: whatever the last level's ending left lingering over the drain is
             //not this level's danger.
@@ -172,6 +181,7 @@ namespace BS3D.Screens
             //An attempt torn down before its result page was left (#709): a Restart, another level started over a session
             //kept for Continue, a New Game, the game closing. After an ending nothing is open, and this counts nothing.
             AbandonAttempt();
+            _demo.Stop();
 
             //There is no level any more, so there is no level theme, and no celebration either. BuildLevel
             //starts the music again; a return to the main menu leaves both stopped. The display outlasts the
@@ -258,7 +268,12 @@ namespace BS3D.Screens
         /// change still reaches its outbox. Counts nothing when no attempt is open. A run that used the dev build's debug row
         /// (#876) is counted in <c>Stats.json</c> but not handed to the online play counts, as its ending is not.
         /// </summary>
-        internal void AbandonAttempt() => Game.Stats?.Abandoned(_run.Score.ShotsFired, _run.Seconds, online: !_run.DebugKindLoaded);
+        internal void AbandonAttempt()
+        {
+            //The benchmark's play (#1018) is no attempt of the player's
+            if (_run is { Benchmark: true }) return;
+            Game.Stats?.Abandoned(_run.Score.ShotsFired, _run.Seconds, online: !_run.DebugKindLoaded);
+        }
 
         /// <summary>The session's own graphics resources, on the way out of the program.</summary>
         internal void DisposeResources()
@@ -425,10 +440,11 @@ namespace BS3D.Screens
         /// </summary>
         private void SeedSession()
         {
-            _seed = _test.Seed ?? Random.Shared.Next();
+            //The benchmark's play (#1018) is dealt off its own seed, so two runs of one machine play it the same way
+            _seed = _run.Benchmark ? BENCHMARK_SEED : _test.Seed ?? Random.Shared.Next();
             _random = new Random(_seed);
 
-            Console.WriteLine($"[session] seed {_seed}" + (_test.Seed.HasValue ? " (pinned)" : " (rolled; replay it with seed=)"));
+            Console.WriteLine($"[session] seed {_seed}" + (_run.Benchmark ? " (the benchmark's)" : _test.Seed.HasValue ? " (pinned)" : " (rolled; replay it with seed=)"));
         }
 
         /// <summary>

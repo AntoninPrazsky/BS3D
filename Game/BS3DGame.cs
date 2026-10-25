@@ -2134,6 +2134,9 @@ namespace BS3D
             //top-down until a screen freezes what is under it — which is how a pause stops the game and how
             //the front end keeps the backdrop turning under itself. Myra runs its click handlers in Draw, so
             //a page opened by a click lands here on the following frame, which is the deferred design.
+            //The benchmark's play (#1018) is measured from here, above the stack: the page is not on it while the level plays
+            if (_benchmarking) _benchmarkPage?.TickPlay();
+
             _screens.Update(gameTime);
 
             //The pad's own decay, and the one write to its motors a frame (#378, #188). Play's rumble belongs to play:
@@ -2263,6 +2266,8 @@ namespace BS3D
                 //A or Enter on the entry the cursor stands on (#799), over the page that has just laid it out
                 DrawFocusPrompt();
             }
+            //The benchmark's panel and skip hint over its play (#1018), as over a tour
+            else if (_benchmarking && _screens.Active is GameplayScreen) _benchmarkPage?.DrawAside();
 
             //THE SHARP FOREGROUND LAYER GOES OVER EVERYTHING, the UI included (#242). It used to be composited
             //the moment the resolve finished, deliberately, so the HUD and the page's panels sat over the cup —

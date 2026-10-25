@@ -58,6 +58,7 @@
     <Compile Include="..\..\Game\Screens\BenchmarkVerdict.cs" />
     <Compile Include="..\..\Game\Screens\FrameProbe.cs" />
     <Compile Include="..\..\Game\Effects\SpareVolley.cs" />
+    <Compile Include="..\..\Game\Effects\BenchmarkDemo.cs" />
     <Compile Include="..\..\Game\Screens\PhysicsBench.cs" />
     <Compile Include="..\..\Game\Screens\NavWalk.cs" />
     <!--How far a mouse-wheel notch moves a menu list (#952): a share of the viewport, scaled by the delta, over plain numbers and no Myra.-->

@@ -83,7 +83,8 @@ namespace BS3D.Screens
             //flight (#767): what it will cut off stays lit until the strike hands the glow on to the cut faces (OnBallLanded)
             if (!CutterInFlight) ClearCutPreview();
 
-            if (CameraTakeoverEngaged || _run.Score.OutOfShots || LevelDecided || _physicsBalls == null || _map == null) return;
+            //No preview for the benchmark's play either (#1018): its gun aims itself, and a beam would be a pointer nobody holds
+            if (CameraTakeoverEngaged || _run.Score.OutOfShots || LevelDecided || _physicsBalls == null || _map == null || _run.Benchmark) return;
 
             //The shot's own line (FireDirection, #872), so the ghost promises what a shot fired this frame does
             Vector3 muzzle = _cannon.FireMuzzle(Game.CannonRig.PivotToFrontBall);

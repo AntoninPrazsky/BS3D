@@ -236,6 +236,10 @@ namespace BS3D
         //sitting at, or on one we do not own; the result is the [bench] lines and Benchmark.json
         internal bool Benchmark { get; private set; }
 
+        //"benchmarkplay" starts the benchmark at its play (#1018), the city's opening and the gun firing, without the tours:
+        //testing only, so the play is seen in half a minute; such a run is shown, never saved or sent
+        internal bool BenchmarkPlayOnly { get; private set; }
+
         //"continue" presses the main menu's first entry at boot (#870): New Game on an empty save, the saved campaign
         //continued, with its scene's intro, on one with progress; the one path into a level a script could not take
         internal bool ContinueGame { get; private set; }
@@ -629,6 +633,7 @@ namespace BS3D
             //bars are only worth a shot while a recording plays, which takes presses nobody is there to make
             Row.Flag("extras", o => o.Extras = true),
             Row.Flag("benchmark", o => o.Benchmark = true),
+            Row.Flag("benchmarkplay", o => o.Benchmark = o.BenchmarkPlayOnly = true),
             Row.Flag("continue", o => o.ContinueGame = true),
             Row.Flag("jukebox", o => o.Jukebox = string.Empty),
             Row.Text("jukebox", (o, v) => o.Jukebox = v),

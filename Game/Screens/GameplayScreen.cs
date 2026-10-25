@@ -1416,7 +1416,12 @@ namespace BS3D.Screens
             //would never see a shot that "skipped" and its [cinematic] ended line could not print
             bool cinematicWasRunning = _cinematic.Running;
 
-            if (Game.IsActive)
+            //The benchmark's play (#1018): no hand on the gun, a lost focus pauses nothing, and its own input ends it
+            if (_run.Benchmark)
+            {
+                if (StepBenchmarkInput()) return;
+            }
+            else if (Game.IsActive)
             {
                 //Hidden only once the aim actually holds the cursor (#99). While it does not, this is the
                 //pointer the player manages the window with, and it has to be visible to be usable.
@@ -1531,6 +1536,9 @@ namespace BS3D.Screens
                     _tutorial.NoteHold(Tutorial.Lesson.Walk, walk != 0f, elapsed);
                 }
             }
+
+            //The benchmark's gun aims and fires by itself (#1018), before its frame below takes the pose
+            if (_run.Benchmark) StepBenchmarkDemo(elapsed);
 
             //The gun's own frame — its orbit and walk, the queue's glide, the wildcards and the recoil stroke —
             //in one copy with the result page's frame below (#582)
@@ -1955,7 +1963,8 @@ namespace BS3D.Screens
             //drop's skip hint stay sharp over it, drawn straight onto the frame, until the result page takes the frame.
             //Under a page's blur the beat's layer carries the account alone; the Potato path, which has no layer, drops
             //the rest at once.
-            float hudOpacity = _chapterIntro.HudOpacity;
+            //The benchmark's play (#1018) shows no HUD: nobody is playing it
+            float hudOpacity = _run is { Benchmark: true } ? 0f : _chapterIntro.HudOpacity;
             bool overlayUp = !LevelOver && hudOpacity > 0f;
             bool lossPreviews = LevelOver && _pendingFailure != LevelFailure.None;
             float overlayBlur = overlayUp ? OverlayBlur : 0f;
@@ -2173,7 +2182,7 @@ namespace BS3D.Screens
             //this screen is on top (#814). It is drawn straight onto the frame, past the blur a page puts over the rest,
             //and its fade is stepped by an Update a covered screen does not get, so under the pause it stood sharp at
             //full strength telling the player a click would skip what the page had stopped
-            else if (!LevelOver && IsActive && _hud.SkipHintShowing) _hud.DrawSkipHintAlone(_tutorial);
+            else if (!LevelOver && IsActive && _hud.SkipHintShowing && _run is not { Benchmark: true }) _hud.DrawSkipHintAlone(_tutorial);
         }
 
         /// <summary>
