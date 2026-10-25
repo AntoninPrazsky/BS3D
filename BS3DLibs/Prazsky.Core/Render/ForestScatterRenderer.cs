@@ -952,10 +952,11 @@ namespace Prazsky.Core.Render
         //faces, and at the canopy's relief (a swing a unit and a half long, a whisper deep) they read as smooth green leaves;
         //a relief a quarter of a unit long and deep enough to tilt the normal, with the cavity term darkening its pits, breaks
         //each face into the bristle of the references' needles. The relief is band-limited, so it fades out on a far tree
-        //instead of shimmering.
+        //instead of shimmering. And over it the branchlets and their needles, drawn on the plates (#751, NeedleSurface)
         private InstancedModelRenderer NewBoughRenderer(IProceduralMesh mesh) =>
             new(_device, mesh, SCATTER_MATERIAL_DIFFUSE, _instancingEffect)
             {
+                NeedleSurface = true,
                 DetailTexture = _foliageTexture.Texture,
                 DetailScale = 1f / CROWN_FOLIAGE_SPAN,
                 DetailBoost = 1f / _foliageTexture.LinearMean,
