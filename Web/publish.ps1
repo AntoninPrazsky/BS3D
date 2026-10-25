@@ -8,10 +8,10 @@
     the site no longer has stays there until it is removed by hand.
 
     The credentials come from the environment and never from a file, since this repository is public:
-      BS3D_WEB_HOST      the server, e.g. the hosting's FTP or SSH host name
+      BS3D_WEB_HOST      the server, by a name its certificate covers (docs/website.md says which)
       BS3D_WEB_USER      the WEB account's login (never the off-site backup's account: see docs/website.md)
-      BS3D_WEB_ROOT      the subdomain's document root on the server, e.g. /www/bs3d (no trailing slash)
-      BS3D_WEB_PASSWORD  FTPS only; SFTP asks for the password itself, or uses your SSH key
+      BS3D_WEB_ROOT      the subdomain's document root as the account sees it, / when the account is rooted there
+      BS3D_WEB_PASSWORD  FTPS only; SFTP needs your SSH key, since sftp -b runs in batch mode and never asks
 
     See docs/website.md for the whole route: the build, the DNS at Cloudflare, the hosting and this script.
 
@@ -64,12 +64,23 @@ $root = $env:BS3D_WEB_ROOT.TrimEnd('/')
 
 if ($Protocol -eq 'ftps') {
     if (-not $env:BS3D_WEB_PASSWORD) { throw 'BS3D_WEB_PASSWORD is not set (FTPS)' }
-    # curl.exe, not PowerShell's alias of the same name; explicit TLS from the first byte, folders made as needed
-    for ($i = 0; $i -lt $files.Count; $i++) {
-        $url = "ftp://$hostName$root/$($relative[$i])"
-        curl.exe --silent --show-error --ssl-reqd --ftp-create-dirs --user "$($env:BS3D_WEB_USER):$($env:BS3D_WEB_PASSWORD)" -T $files[$i].FullName $url
-        if ($LASTEXITCODE -ne 0) { throw "upload of $($relative[$i]) failed (curl exit $LASTEXITCODE)" }
-        Write-Host "  $($relative[$i])"
+    # curl.exe, not PowerShell's alias of the same name; explicit TLS from the first byte, folders made as needed.
+    # ONE curl run carries every file over one connection and one login: a run per file (87 logins in a row) had the
+    # server drop the connection 38 files in. The pairs go in a config file, with forward slashes since a config file
+    # reads a backslash as an escape; a dropped transfer is retried, and the first that still fails ends the run
+    $config = New-TemporaryFile
+    try {
+        $pairs = for ($i = 0; $i -lt $files.Count; $i++) {
+            "upload-file = `"$($files[$i].FullName.Replace('\', '/'))`""
+            "url = `"ftp://$hostName$root/$($relative[$i])`""
+        }
+        $pairs | Set-Content -Encoding ascii $config
+        curl.exe --silent --show-error --ssl-reqd --ftp-create-dirs --retry 3 --retry-all-errors --retry-delay 3 --fail-early `
+            --write-out "  %{url}\n" --user "$($env:BS3D_WEB_USER):$($env:BS3D_WEB_PASSWORD)" --config $config
+        if ($LASTEXITCODE -ne 0) { throw "upload failed (curl exit $LASTEXITCODE); the lines above are the files that made it" }
+    }
+    finally {
+        Remove-Item $config
     }
 }
 else {

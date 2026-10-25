@@ -116,13 +116,18 @@ The logo is `Images/logo/bs3d-logo-2048.png` scaled to 1000 and 600 px as WebP; 
 ## Publishing a change
 
 ```powershell
-$env:BS3D_WEB_HOST = '<the hosting server>'
+$env:BS3D_WEB_HOST = '<the server, by the name its FTP certificate covers>'
 $env:BS3D_WEB_USER = '<the web account>'
-$env:BS3D_WEB_ROOT = '<the subdomain document root, e.g. /www/bs3d>'
-.\Web\publish.ps1 -Protocol sftp          # or -Protocol ftps with $env:BS3D_WEB_PASSWORD; -DryRun lists the files
+$env:BS3D_WEB_ROOT = '/'
+$env:BS3D_WEB_PASSWORD = [Net.NetworkCredential]::new('', (Read-Host 'Password' -AsSecureString)).Password
+.\Web\publish.ps1 -Protocol ftps          # -DryRun builds and lists the files
+Remove-Item Env:BS3D_WEB_PASSWORD
 ```
 
 - **The credentials live in the environment, never in a file**: the repository is public. A GitHub Actions workflow that publishes on a release would keep them in repository secrets.
+- **The web account is an FTP sub-account rooted at the subdomain's own folder** (Webglobe's Subdomény point `bs3d` at `_sub/bs3dweb`), so `BS3D_WEB_ROOT` is `/` and the account can reach nothing else. Webglobe's SFTP (port 222) serves only the main account, which reaches the whole hosting, the backups included, and `sftp -b` never asks for a password anyway: FTPS is the route.
+- ⚠ **FTPS goes to the server's own name, not `ftp.<domain>`**: the domain's records are at Cloudflare, which proxies that name, and port 21 never answers through it. Webglobe's "Základní nastavení" gives the server's IP; by the IP alone the certificate check fails, and the certificate the server presents (`openssl s_client -starttls ftp -connect <ip>:21`) names the host to use. A login refused (`530`) is a wrong account or password; a new account can take a few minutes to work.
+- **One curl run carries every file** over one connection and one login, retrying a dropped transfer; a curl run per file had the server drop the connection 38 files in.
 - **⚠ Upload with the web account, never the off-site backup's.** The Pi's database backup (BS3D-API #6) goes to its own SFTP account on the same hosting, chrooted outside the web root, so nothing a deploy writes can reach the backups and nothing in them is served. The account names stay out of this public repository.
 - The script only uploads: a file the site no longer has stays on the server until it is deleted by hand.
 - **The footer's "Last updated" is the day of the build, not of the last commit.** `publish.ps1` builds a clean `_site` and uploads it at once, so the date is the last publish's; a build that is not uploaded (`npx eleventy`, `-DryRun`) stamps its own day only into the files it writes locally.
