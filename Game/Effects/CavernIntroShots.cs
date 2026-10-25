@@ -57,6 +57,25 @@ namespace BS3D.Effects
         private const float UNDER_FOV_DEGREES = 62f;
         private const float UNDER_SECONDS = 3.0f;
 
+        //THE PASSAGE (#984). The owner: "the cave also has access tunnels at the edges - the first shot could be from such a
+        //tunnel, the camera slowly approaching through it and taking in the crystals and the island in the background". A
+        //slow push out of a passage, low over the water, from this share of the way between its mouth and its dead end to
+        //this share of the mouth's distance inside the hall, the look on the island; the passage is the one whose look takes
+        //in the most crystal clusters (within PASSAGE_CONE of it), and the height the first of these that clears
+        private const float PASSAGE_FROM = 0.45f, PASSAGE_TO = 0.72f;
+        private static readonly float[] PASSAGE_HEIGHTS = { 5f, 8f, 3.5f, 12f, 16f };
+        private const float PASSAGE_CONE_DEGREES = 28f;
+        private const float PASSAGE_SECONDS = 4.6f;
+        internal const float PASSAGE_MARGIN = 2.5f;
+        private const float ISLAND_LOOK_Y = 12f;
+
+        //The glide from beyond (#984): "shots low by the surface, ideally so that the island is still visible in the
+        //background". The lens comes in from the cluster's far side, this far out of it to this far, so the island stands
+        //behind the cluster and its reflection; the look leans this share of the way from the cluster towards the island.
+        //Tried first, on the clusters with room behind them; the glide from the island's side is what is left
+        private const float BEYOND_FROM = 50f, BEYOND_TO = 25f;
+        private const float BEYOND_ISLAND_LEAN = 0.18f;
+
         private const int ATTEMPTS = 60;
         private const int PATH_POINTS = IntroPaths.FINE_POINTS;
 
@@ -73,7 +92,7 @@ namespace BS3D.Effects
         /// <summary>The prologue against a hall, with no renderer: what the tests fly.</summary>
         internal static IntroShot[] Build(CavernChamber chamber, float fieldOfView, Random random) => new[]
         {
-            Hall(chamber, fieldOfView, random),
+            Passage(chamber, fieldOfView) ?? Hall(chamber, fieldOfView, random),
             Crystals(chamber, fieldOfView, random),
             Shaft(chamber, fieldOfView, random),
             Underside(chamber, random),
@@ -85,6 +104,58 @@ namespace BS3D.Effects
             foreach (Vector3 p in path)
                 if (chamber.Clearance(p) < margin) return false;
             return true;
+        }
+
+        /// <summary>
+        /// Out of a passage into the hall (#984): the lens starts in the dark of a passage off the hall, low over its water, and
+        /// pushes slowly out towards the island, the lake and the crystals opening ahead as a bright window. Of the passages
+        /// whose path clears, the one whose look takes in the most crystal clusters; null when none clears, and the hall's
+        /// establishing view opens instead.
+        /// </summary>
+        private static IntroShot Passage(CavernChamber chamber, float fieldOfView)
+        {
+            float waterY = chamber.WaterY;
+            Vector3 island = new(0f, waterY + ISLAND_LOOK_Y, 0f);
+            float cone = MathF.Cos(MathHelper.ToRadians(PASSAGE_CONE_DEGREES));
+            Vector3[] best = null;
+            int bestScore = -1;
+
+            for (int t = 0; t < chamber.PassageCount; t++)
+            {
+                (Vector3 axis, float mouth, float end) = chamber.Passage(t);
+                Vector2 along = Vector2.Normalize(new Vector2(axis.X, axis.Z));
+                Vector2 centre = new(chamber.Centre.X, chamber.Centre.Z);
+                float from = MathHelper.Lerp(mouth, end, PASSAGE_FROM), to = mouth * PASSAGE_TO;
+
+                foreach (float height in PASSAGE_HEIGHTS)
+                {
+                    var path = new Vector3[PATH_POINTS];
+                    for (int i = 0; i < PATH_POINTS; i++)
+                    {
+                        //Eased in, so the push starts slow in the dark and gathers as the hall opens
+                        float s = i / (float)(PATH_POINTS - 1);
+                        float r = MathHelper.Lerp(from, to, s * s * (3f - 2f * s));
+                        Vector2 at = centre + along * r;
+                        path[i] = new Vector3(at.X, waterY + height, at.Y);
+                    }
+                    if (!Clear(chamber, path, PASSAGE_MARGIN)) continue;
+
+                    //Its score: the clusters in the look from where it starts
+                    Vector3 look = Vector3.Normalize(island - path[0]);
+                    int score = 0;
+                    foreach (CavernCluster cluster in chamber.Clusters)
+                        if (Vector3.Dot(Vector3.Normalize(cluster.LightPosition - path[0]), look) > cone) score++;
+                    if (score > bestScore)
+                    {
+                        bestScore = score;
+                        best = path;
+                    }
+                    break;
+                }
+            }
+
+            return best == null ? null
+                : new IntroShot("the passage", best, PASSAGE_SECONDS, fieldOfView * 1.15f, lookAt: island);
         }
 
         /// <summary>The hall from high on one side, across to the far side: the establishing view.</summary>
@@ -126,6 +197,25 @@ namespace BS3D.Effects
         {
             float waterY = chamber.WaterY;
             var path = new Vector3[PATH_POINTS];
+
+            //From beyond the cluster first, the island behind it (#984)
+            for (int attempt = 0; attempt < ATTEMPTS && chamber.Clusters.Count > 0; attempt++)
+            {
+                CavernCluster cluster = chamber.Clusters[random.Next(chamber.Clusters.Count)];
+                if (cluster.Base.Y > waterY + CRYSTAL_LOW) continue;
+                Vector3 at = cluster.LightPosition;
+                Vector2 outward = Vector2.Normalize(new Vector2(at.X, at.Z));
+                float side = MathHelper.ToRadians(CRYSTAL_SIDE_DEGREES) * 0.6f * (random.Next(2) == 0 ? 1f : -1f);
+                Vector2 approach = IntroPaths.Rotate(outward, side);
+                for (int i = 0; i < PATH_POINTS; i++)
+                {
+                    float d = MathHelper.Lerp(BEYOND_FROM, BEYOND_TO, i / (float)(PATH_POINTS - 1));
+                    path[i] = new Vector3(at.X + approach.X * d, waterY + CRYSTAL_GLIDE_HEIGHT, at.Z + approach.Y * d);
+                }
+                Vector3 look = Vector3.Lerp(at + new Vector3(0f, 1f, 0f), new Vector3(0f, waterY + ISLAND_LOOK_Y, 0f), BEYOND_ISLAND_LEAN);
+                if (Clear(chamber, path, CRYSTAL_MARGIN))
+                    return new IntroShot("the crystals", path, CRYSTAL_SECONDS, fieldOfView * 1.15f, lookAt: look);
+            }
 
             for (int attempt = 0; attempt < ATTEMPTS && chamber.Clusters.Count > 0; attempt++)
             {

@@ -185,6 +185,21 @@ namespace Prazsky.Core.Render
         /// <summary>The shell's point in the unit direction <paramref name="u"/> from the centre.</summary>
         public Vector3 ShellPoint(Vector3 u) => Centre + u * ShellRadius(u);
 
+        /// <summary>How many passages lead off the hall (#984): a chapter intro opens inside one.</summary>
+        public int PassageCount => _tunnelAxis.Length;
+
+        /// <summary>
+        /// One passage (#984): the unit direction from <see cref="Centre"/> its shell runs back along, and how far the shell
+        /// stands from the centre along it with the passage and without it - the hall's wall at the mouth, and the passage's
+        /// far end, which the shell's soft cone makes a dead end.
+        /// </summary>
+        public (Vector3 Axis, float Mouth, float End) Passage(int t)
+        {
+            Vector3 axis = _tunnelAxis[t];
+            float end = ShellRadius(axis);
+            return (axis, end / (1f + _tunnelDepth[t]), end);
+        }
+
         /// <summary>Whether <paramref name="p"/> is inside the shell by at least <paramref name="margin"/> (radially).</summary>
         public bool InsideShell(Vector3 p, float margin = 0f)
         {
