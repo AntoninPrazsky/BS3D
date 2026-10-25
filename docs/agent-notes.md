@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #954 vesmírná stanice — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo: #954 (dab19384) ostrov ve Vesmíru je paluba stanice: tvar `IslandShape.Station`, vlastní technika `InstancedModelTriplanarStation` (klínové pláty kolem límce, poklopy, výstražné oblouky, modrý pás v drážce okraje) a pět trysek se svítícími hrdly. Levnější než obrobený disk (8,08 proti 8,72 ms). Reference v `954-zimage`/`954-klein`. `verdict-eye`, karta na stránce 25. 10.
+- ⚠ Trysky nesmí sahat pod 6,5 pod vrch: film pádu tam drží kameru (`STONE_CLEARANCE`), proto jsou široké a nízké. Testbed bere knihovnu jen z vlastního buildu: po `Game.sln` je třeba sestavit i `Testbed.sln`, jinak snímek ukáže starý stav.
+- Otevřené: měkký výtok světla pod tryskami (reference ho mají).
+
 ## 2026-10-25 — #779 ostrov Snění — desktop (RDT-PC), Claude Code (bs3d-21)
 - Hotovo: #779 (e46c607c) ostrov ve Snění je tající perla: tvar `IslandShape.Melt` (nafouklý val, z něj tlusté kapky, radiální pole `LatheMesh.radialField`) a vlastní technika `InstancedModelTriplanarDream`: pastelové pruhy z palety scény, duhový lesk, svítící prstenec, buben svítí sám. O 0,1 ms levnější než kámen. Pi kreslí tvar bez kapek a na fazetách kamene. `verdict-eye`, karta na stránce 25. 10.
 - ⚠ Posouvat při kapce celé prstence dolů zubatě vrubovalo každý lalok stěny; dlouhá kapka, která se nezužuje, vypadá jako tyčka. Svislé plochy stíní polokoule všechny stejně: kapky vystoupí až proti ztmavenému výklenku. Spirála na 3D šumu stála +0,45 ms.
