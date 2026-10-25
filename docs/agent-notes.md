@@ -20,6 +20,14 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #1006 #1012 vydání v0.5.0 — desktop (RDT-PC), Claude Code (bs3d-21)
+- majitel: „Dal jsem všude OK. Udělej release 0.5.0“. Verdikty v42 (#1022 #1018 #1019 #1017 #949 #942) zapsány a zavřeny.
+- Hotovo: **v0.5.0 vydána** (tag na 80c498c0, Release run 40230514007). SHA256SUMS sedí, zip má jednu složku s BS3D.exe a Content/Levels/Music/Sfx, menu staženého buildu ukazuje v0.5.0. Poznámky doplněny o 25. 10. (9f032cc7): benchmark a co posílá, salva nepoužitých koulí, scény, úvody.
+- Pi: služba odpovídá na `/v1/benchmarks` (schema 5), „KuloMrd“ už na žádné tabulce není.
+- Hotovo po tagu: #1006 (ad56feb1) a #1012 (82d06768) sloučeny; af4235d3: zaostření čeká i na objektiv benchmarku a na salvu. Obojí `verdict-hands`.
+- ⚠ SSH z desktopu na Pi pořád neprojde (port 22 timeout).
+- Otevřené: `update-ceilings.sh` na Pi (nové tabulky Mirage) musí spustit majitel nebo Pi session.
+
 ## 2026-10-25 — večer: benchmark do releasu, poznámky majitele z testování — desktop (RDT-PC), Claude Code (bs3d-21)
 - Hotovo #988: živý panel (a1f8ea72). Výsledek jde po dokončení na server: `OnlineBenchmarks` v game (3b6285f2), BS3D-API `POST /v1/benchmarks` v0.1.28/0.1.29. Pi zatím na v0.1.27 (schema 4), čeká na majitele nebo Pi session.
 - Hotovo #1018 (98f6206f, review e901c2cb): benchmark hraje Girandole, úvod města ke kanonu a pak kanon střílí sám. Míření jako ruka, cíl z `ShotPlacement`.
