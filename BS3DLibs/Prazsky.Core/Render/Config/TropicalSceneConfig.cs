@@ -224,6 +224,14 @@ namespace Prazsky.Core.Render
         /// </summary>
         public float ShallowBias { get; set; } = 0.78f;
 
+        /// <summary>
+        /// How fast the lagoon's water hides the sand under it, per world unit of depth (#968): at the waterline the water is
+        /// clear and the wet sand shows, a unit down about a third of it still does, and past three units the lagoon is its
+        /// own colour. The depth is the beach's own height under the surface, so the shore follows the coastline exactly.
+        /// 0 would draw the opaque surface the lagoon had before, with the hard line where it met the sand.
+        /// </summary>
+        public float ShoreClarity { get; set; } = 1.6f;
+
         /// <summary>Dominant swell height. Well under the sea's: a lagoon inside a reef is sheltered
         /// water, and the waves also fade to flat approaching the shore (Sea.fx's calm band).</summary>
         public float WaveAmplitude { get; set; } = 0.35f;

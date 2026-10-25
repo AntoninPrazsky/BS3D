@@ -110,6 +110,24 @@ float3 SssColor;
 //finite grid has no visible edge and no hard seam against the dome.
 float HorizonHazeDistance;
 
+//THE LAGOON'S SHORE (#968): how fast the water hides the bed under it, per world unit of depth. 0 for the open sea, which
+//has no bed and keeps its opaque surface bit for bit; the tropical lagoon reads its depth off the beach's own height
+//(TropicalTerrain.fxh, pushed into its clone) and is drawn premultiplied over the sand it stands on.
+float ShoreClarity;
+#include "TropicalTerrain.fxh"
+
+//The swash line's foam (#968): how deep the water over the sand its thread wanders to (world units), the thread's width in depth, its lace's cells per
+//world unit, how fast the lace creeps on the wind, and how white it goes at its whitest
+static const float SWASH_DEPTH = 0.16;
+static const float SWASH_WIDTH = 0.025;
+static const float SWASH_LACE = 1.4;
+static const float SWASH_DRIFT = 0.12;
+static const float SWASH_STRENGTH = 0.8;
+//How deep the water over the sand is where the swell has died to nothing (world units)
+static const float SHORE_CALM_DEPTH = 1.5;
+//How deep the water is where its very edge has faded in (world units)
+static const float SHORE_EDGE = 0.04;
+
 static const float TWO_PI = 6.28318530718;
 static const float GRAVITY = 9.81;
 
@@ -337,14 +355,23 @@ SeaVertexOutput SeaVS(SeaVertexInput input)
     //makes this saturate to 0 and the open sea is untouched.
     float calm = saturate((IslandHoleRadius - length(restXZ)) / CALM_BAND);
 
+    //The lagoon's shore (#968): the swell dies over the last SHORE_CALM_DEPTH of water over the sand, so the surface meets
+    //the beach where the beach says the water is. Moving, on a grid this coarse, its triangles cut the sand along their own
+    //straight edges - a notch at every cell where a crest met a trough - and the shore's depth read the trough as dry
+    //sand. Keyed on the rest position, like the island's shelter. 1 on the open sea, which never takes the branch.
+    float shore = 1.0;
+    [branch]
+    if (ShoreClarity > 0.0)
+        shore = saturate((SeaLevelY - TropicalHeight(restXZ)) / SHORE_CALM_DEPTH);
+
     float3 disp, slope;
     float fold, crest;
-    OceanSurface(restXZ, ampScale * (1.0 - calm), disp, slope, fold, crest);
+    OceanSurface(restXZ, ampScale * (1.0 - calm) * shore, disp, slope, fold, crest);
 
     float3 worldPosition = float3(restXZ.x + disp.x, SeaLevelY + disp.y, restXZ.y + disp.z);
 
     output.WorldPosition = worldPosition;
-    output.Rest = float3(restXZ, ampScale * (1.0 - calm));
+    output.Rest = float3(restXZ, ampScale * (1.0 - calm) * shore);
     output.Slope = slope;
     output.Foam = float2(fold, crest);
     output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
@@ -475,7 +502,49 @@ float4 SeaPS(SeaVertexOutput input) : COLOR
 
     float3 body = lerp(WaterColorDeep, WaterColorShallow, shallowMix) * ambient + ZenithColor * 0.05;
 
-    float3 color = lerp(body, reflection, fresnel);
+    //THE SHORE (#968). The owner: the sea met the sand "sharp and unreal". Every reference (968-zimage, 968-klein) draws
+    //the same shore: at the edge the water is clear and the wet sand lies under it, a few units out it is pale turquoise
+    //over the sand, then the lagoon's own colour. So the column's body hides the bed by Beer-Lambert over its depth -
+    //the beach's own height under this pixel, the very function the sand was drawn from, so the two cannot disagree -
+    //and what it does not hide is left to the sand behind: the draw is premultiplied, and `seen` is the share of the
+    //sand that shows. The mirror stays whole however shallow the water: a film of water reflects the sky as a sea
+    //does. Uniform branch: ShoreClarity is 0 on the open sea, where `seen` stays 0 and both lines below are exact.
+    //And the swash's edge: where the water thins to nothing, a lace of foam - the line every reference draws where the
+    //last wave dies on the sand, and without which clear water fading into sand read as a fog lying on the beach.
+    //The water's very edge fades in over its first SHORE_EDGE of depth (`edge`), mirror and all: a film thinning to nothing
+    //on the sand, where the depth test alone cut a line as crisp as the old one.
+    float seen = 0.0;
+    float swash = 0.0;
+    float edge = 1.0;
+    [branch]
+    if (ShoreClarity > 0.0)
+    {
+        //Between the beach's run and the far shore's foot the bed is flat at SeabedY by construction (TropicalHeight's ramps
+        //are both done there and the ridge has not begun), so most of the lagoon reads its depth without the land's height
+        float bedY = SeabedY;
+        [branch]
+        if (r < ShoreRadius + CoastNoise + BeachRun || r > RingRadius - RingNoise)
+            bedY = TropicalHeight(worldPosition.xz);
+        float depth = max(worldPosition.y - bedY, 0.0);
+        seen = exp(-depth * ShoreClarity);
+        edge = smoothstep(0.0, SHORE_EDGE, depth);
+
+        //Lace, not a band: two octaves of the noise drifting on the wind, cut sharp into threads and holes, thinning as
+        //the water deepens, faded with the pixel footprint. Only over the band it can lie in
+        float laceSeen = saturate(1.0 - footprint * SWASH_LACE * 4.0);
+        [branch]
+        if (depth < SWASH_DEPTH + SWASH_WIDTH && laceSeen > 0.0)
+        {
+            float2 laceAt = worldPosition.xz * SWASH_LACE + WindDirection * (SeaTime * SWASH_DRIFT);
+            float lace = GradientNoise2(laceAt) + 0.5 * GradientNoise2(laceAt * 2.3 + float2(7.1, 3.4));
+            //The line wanders across the band with the lace itself, so it is a scalloped thread and not a contour
+            float thread = 1.0 - smoothstep(0.0, SWASH_WIDTH, abs(depth - SWASH_DEPTH * saturate(0.5 + lace)));
+            swash = thread * smoothstep(0.1, 0.35, lace + 0.5) * SWASH_STRENGTH * laceSeen;
+        }
+    }
+
+    float3 color = lerp(body * (1.0 - seen), reflection, fresnel);
+    float alpha = 1.0 - (1.0 - fresnel) * seen;
 
     //Subsurface scattering: a crest glows when the sun is behind it and the eye looks into the water. The
     //classic cheap term - looking towards the sun, strongest on the raised faces of the waves, snuffed by cloud.
@@ -533,7 +602,9 @@ float4 SeaPS(SeaVertexOutput input) : COLOR
         * smoothstep(0.74 - density * 0.30, 0.88 - density * 0.26, streaks) * chopFade;
     float3 foamCol = FoamColor * (ambient * FOAM_AMBIENT_GAIN
         + SunColor * sunlight * saturate(dot(normal, SunDirection)) * 0.7);
+    foam = max(foam, swash);
     color = lerp(color, foamCol, foam);
+    alpha = lerp(alpha, 1.0, foam);
 
     //Horizon haze: melt the sea into the skyline color over distance, so the plane has no visible edge -
     //towards a DESATURATED horizon since #503, for the reason HAZE_DESATURATION carries. The brightness of
@@ -541,8 +612,9 @@ float4 SeaPS(SeaVertexOutput input) : COLOR
     float3 hazeTarget = lerp(HorizonColor, dot(HorizonColor, LUMA), HAZE_DESATURATION);
     float haze = saturate(dist / HorizonHazeDistance);
     color = lerp(color, hazeTarget, haze * haze);
+    alpha = lerp(alpha, 1.0, haze * haze);
 
-    return float4(FarFadeToSky(color, worldPosition), 1.0);
+    return float4(FarFadeToSky(color, worldPosition), alpha) * edge;
 }
 
 technique Sea

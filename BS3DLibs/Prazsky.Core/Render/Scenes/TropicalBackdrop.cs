@@ -254,6 +254,37 @@ namespace Prazsky.Core.Render
             _lagoonEffect.Parameters["SssStrength"].SetValue(water.SssStrength);
             _lagoonEffect.Parameters["SssColor"].SetValue(water.SssColor.ToVector3());
             _lagoonEffect.Parameters["HorizonHazeDistance"].SetValue(water.HorizonHazeDistance);
+
+            //The shore (#968): the lagoon reads its depth off the land's own height, so the land's profile goes into it too
+            _lagoonEffect.Parameters["ShoreClarity"].SetValue(MathF.Max(water.ShoreClarity, 0f));
+            PushLand(_lagoonEffect);
+        }
+
+        /// <summary>
+        /// The land's profile (<c>TropicalTerrain.fxh</c>): into <c>Tropical.fx</c>, which draws the land, and into the lagoon's
+        /// <c>Sea.fx</c>, which reads the depth of the water over it (#968). One push, so the two cannot be handed different land.
+        /// </summary>
+        private void PushLand(Effect effect)
+        {
+            TropicalTerrainConfig terrain = _tropicalConfig.Terrain;
+
+            effect.Parameters["TropicalLevelY"].SetValue(terrain.LevelY);
+            effect.Parameters["ClearingRelief"].SetValue(terrain.ClearingRelief);
+            effect.Parameters["ShoreRadius"].SetValue(terrain.ShoreRadius);
+            effect.Parameters["CoastNoise"].SetValue(terrain.CoastNoise);
+            effect.Parameters["BeachRise"].SetValue(MathF.Max(terrain.BeachRise, 0.5f));
+            effect.Parameters["BeachRun"].SetValue(MathF.Max(terrain.BeachRun, 0.5f));
+            effect.Parameters["SeabedY"].SetValue(terrain.SeabedY);
+            effect.Parameters["RingRadius"].SetValue(terrain.RingRadius);
+            effect.Parameters["RingNoise"].SetValue(terrain.RingNoise);
+            effect.Parameters["RingWidth"].SetValue(MathF.Max(terrain.RingWidth, 1f));
+            effect.Parameters["HillHeight"].SetValue(terrain.HillHeight);
+            effect.Parameters["ChannelBearing"].SetValue(terrain.ChannelBearing);
+            effect.Parameters["ChannelSharpness"].SetValue(MathF.Max(terrain.ChannelSharpness, 1f));
+
+            //The terrain reads the water level so the wet sand band and the far shore's fringe sit on
+            //the waterline the water itself draws (Sea.fx) — the two cannot drift apart.
+            effect.Parameters["WaterLevelY"].SetValue(_tropicalConfig.Water.LevelY);
         }
 
         /// <summary>
@@ -267,23 +298,7 @@ namespace Prazsky.Core.Render
             PalmConfig palms = _tropicalConfig.Palms;
             TropicalRockConfig rocks = _tropicalConfig.Rocks;
 
-            _tropicalEffect.Parameters["TropicalLevelY"].SetValue(terrain.LevelY);
-            _tropicalEffect.Parameters["ClearingRelief"].SetValue(terrain.ClearingRelief);
-            _tropicalEffect.Parameters["ShoreRadius"].SetValue(terrain.ShoreRadius);
-            _tropicalEffect.Parameters["CoastNoise"].SetValue(terrain.CoastNoise);
-            _tropicalEffect.Parameters["BeachRise"].SetValue(MathF.Max(terrain.BeachRise, 0.5f));
-            _tropicalEffect.Parameters["BeachRun"].SetValue(MathF.Max(terrain.BeachRun, 0.5f));
-            _tropicalEffect.Parameters["SeabedY"].SetValue(terrain.SeabedY);
-            _tropicalEffect.Parameters["RingRadius"].SetValue(terrain.RingRadius);
-            _tropicalEffect.Parameters["RingNoise"].SetValue(terrain.RingNoise);
-            _tropicalEffect.Parameters["RingWidth"].SetValue(MathF.Max(terrain.RingWidth, 1f));
-            _tropicalEffect.Parameters["HillHeight"].SetValue(terrain.HillHeight);
-            _tropicalEffect.Parameters["ChannelBearing"].SetValue(terrain.ChannelBearing);
-            _tropicalEffect.Parameters["ChannelSharpness"].SetValue(MathF.Max(terrain.ChannelSharpness, 1f));
-
-            //The terrain reads the water level so the wet sand band and the far shore's fringe sit on
-            //the waterline the water itself draws (Sea.fx) — the two cannot drift apart.
-            _tropicalEffect.Parameters["WaterLevelY"].SetValue(_tropicalConfig.Water.LevelY);
+            PushLand(_tropicalEffect);
 
             _tropicalEffect.Parameters["SandColor"].SetValue(terrain.SandColor.ToVector3());
             _tropicalEffect.Parameters["SandColorPale"].SetValue(terrain.SandColorPale.ToVector3());
@@ -904,7 +919,9 @@ namespace Prazsky.Core.Render
             //depth up, and the terrain (drawn before it, opaque) still writes and owns its own.
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
 
-            _lagoonPass.Draw(frame, clip);
+            //Premultiplied over the sand (#968): Sea.fx's shore leaves the bed showing where the water is shallow. Everywhere
+            //else its alpha is 1, which the blend draws exactly as the opaque surface it was
+            _lagoonPass.Draw(frame, clip, blend: BlendState.AlphaBlend);
 
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
         }

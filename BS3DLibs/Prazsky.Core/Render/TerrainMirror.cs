@@ -660,10 +660,10 @@ namespace Prazsky.Core.Render
 
         #endregion
 
-        #region The tropical beach (Tropical.fx: TropicalHeight, CoastRadius, ShoreRingRadius, ChannelMask)
+        #region The tropical beach (TropicalTerrain.fxh: TropicalHeight, CoastRadius, ShoreRingRadius, ChannelMask)
 
         /// <summary>
-        /// The tropical terrain height at a world point, mirroring <c>Tropical.fx</c>'s
+        /// The tropical terrain height at a world point, mirroring <c>TropicalTerrain.fxh</c>'s
         /// <c>TropicalHeight</c> term for term (and its <c>CoastRadius</c>/<c>ShoreRingRadius</c>/
         /// <c>ChannelMask</c> beside it), so the palms and the waterline's rocks can be planted on the
         /// ground the shader draws. Keep this and the shader in the same change: a drift here plants palms in
@@ -705,21 +705,21 @@ namespace Prazsky.Core.Render
             return h;
         }
 
-        //The waterline's radius at a bearing — Tropical.fx's CoastRadius, in one change with it.
+        //The waterline's radius at a bearing — TropicalTerrain.fxh's CoastRadius, in one change with it.
         private static float TropicalCoastRadius(float b, TropicalTerrainConfig terrain) =>
             terrain.ShoreRadius + terrain.CoastNoise
                 * (0.45f * MathF.Sin(2f * b + 0.7f)
                     + 0.35f * MathF.Sin(3f * b + 1.3f)
                     + 0.20f * MathF.Sin(5f * b + 4.1f));
 
-        //The far shore's coastline — Tropical.fx's ShoreRingRadius.
+        //The far shore's coastline — TropicalTerrain.fxh's ShoreRingRadius.
         private static float TropicalRingRadius(float b, TropicalTerrainConfig terrain) =>
             terrain.RingRadius + terrain.RingNoise
                 * (0.40f * MathF.Sin(2f * b + 2.9f)
                     + 0.34f * MathF.Sin(3f * b + 0.6f)
                     + 0.26f * MathF.Sin(7f * b + 3.4f));
 
-        //The channel through the far ridge — Tropical.fx's ChannelMask.
+        //The channel through the far ridge — TropicalTerrain.fxh's ChannelMask.
         private static float TropicalChannelMask(float b, TropicalTerrainConfig terrain) =>
             MathF.Pow(MathF.Max(0f, MathF.Cos(b - terrain.ChannelBearing)), terrain.ChannelSharpness);
 
