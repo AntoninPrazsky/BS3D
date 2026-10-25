@@ -82,6 +82,8 @@ float MilkyWayStarBoost;    //extra star density inside the band
 float3 NebulaDirection[NEBULA_COUNT];
 float3 NebulaColor[NEBULA_COUNT];
 float4 NebulaShape[NEBULA_COUNT];
+float3 NebulaRimColor[NEBULA_COUNT];    //the skirts' colour, the core's NebulaColor (#978)
+float NebulaGlow[NEBULA_COUNT];         //how much soft glow the filaments sit in (#978)
 
 //--- Distant galaxies --------------------------------------------------------------------------------
 float GalaxyCellScale;
@@ -272,7 +274,17 @@ float3 Nebulae(float3 dir, out float transmittance)
             float shell = falloff * falloff * (0.35 + 0.65 * falloff);
             float density = shell * body * body;
 
-            total += NebulaColor[i] * (shape.y * density);
+            //AND THE GLOW THE FILAMENTS SIT IN (#978): the ionised gas between them, which every astrophoto shows as a
+            //diffuse light round the knots - without it the spread body is a scatter of hard blobs on black, and the teal
+            //one, alone on its side of the sky, read to the owner as "random blue stripes". Mottled by the warp's own
+            //slow noise and by the body, so it is a cloud with the filaments' own structure in it and not a disc. And
+            //two colours where a nebula has them, as a bicolour emission region does (the references in 978-zimage):
+            //the filaments in the skirts' colour but at the very middle, the glow in the core's - an oxygen core
+            //glowing inside hydrogen filaments.
+            float haze = shell * shell * saturate(0.3 + 1.8 * warp.x) * (0.5 + 0.5 * body);
+            float3 filaments = lerp(NebulaRimColor[i], NebulaColor[i], smoothstep(0.55, 0.95, falloff));
+
+            total += shape.y * (filaments * density + NebulaColor[i] * (NebulaGlow[i] * haze));
             transmittance *= 1.0 - saturate(density * 1.35);
         }
     }

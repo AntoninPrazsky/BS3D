@@ -53,28 +53,35 @@ namespace Prazsky.Core.Render
             Strength = 0.78f,
             DetailScale = 5.4f,
             Warp = 1.5f,
+            Glow = 0.12f,
         };
 
-        /// <summary>The second nebula — doubly ionised oxygen, the teal an astrophoto is half made of.</summary>
+        /// <summary>The second nebula — a bicolour emission region (#978): doubly ionised oxygen, the teal an
+        /// astrophoto is half made of, in its core, inside hydrogen-alpha skirts, in a soft glow. Alone and
+        /// hard-edged on its side of the sky, the plain teal one read as "random blue stripes".</summary>
         public SpaceNebulaConfig NebulaTwo { get; set; } = new()
         {
             Direction = new Vec3(0.74f, 0.14f, 0.66f),
-            Color = new Rgb(0.16f, 0.88f, 0.80f),
-            AngularRadiusDegrees = 21f,
-            Strength = 0.52f,
-            DetailScale = 7.1f,
-            Warp = 1.8f,
+            Color = new Rgb(0.20f, 0.78f, 0.72f),
+            RimColor = new Rgb(1.00f, 0.20f, 0.14f),
+            AngularRadiusDegrees = 25f,
+            Strength = 0.55f,
+            DetailScale = 6.0f,
+            Warp = 1.6f,
+            Glow = 0.4f,
         };
 
-        /// <summary>The third nebula — a blue reflection region, dust lit by the stars inside it.</summary>
+        /// <summary>The third nebula — a blue reflection region, dust lit by the stars inside it: soft, more glow
+        /// than filament (#978), as a reflection nebula is.</summary>
         public SpaceNebulaConfig NebulaThree { get; set; } = new()
         {
             Direction = new Vec3(-0.55f, -0.42f, 0.72f),
             Color = new Rgb(0.30f, 0.52f, 0.95f),
             AngularRadiusDegrees = 17f,
-            Strength = 0.44f,
+            Strength = 0.36f,
             DetailScale = 8.6f,
-            Warp = 1.3f,
+            Warp = 1.0f,
+            Glow = 0.7f,
         };
 
         /// <summary>The field of distant galaxies.</summary>
@@ -405,6 +412,14 @@ namespace Prazsky.Core.Render
         /// scene — at 0 the nebula is a blob of clouds, and at 1.5 it is filaments and cavities.
         /// </summary>
         public float Warp { get; set; } = 1.5f;
+
+        /// <summary>The colour of its outer skirts (linear), <see cref="Color"/> being its core's; null keeps it one
+        /// colour (#978).</summary>
+        public Rgb? RimColor { get; set; }
+
+        /// <summary>How much soft glow its filaments sit in, 0..1 of <see cref="Strength"/> (#978): the diffuse
+        /// light of the gas between them. 0 is the bare filaments.</summary>
+        public float Glow { get; set; } = 0.3f;
     }
 
     /// <summary>

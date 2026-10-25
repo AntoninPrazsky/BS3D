@@ -107,6 +107,8 @@ namespace Prazsky.Core.Render
             Vector3[] nebulaDirections = new Vector3[nebulae.Length];
             Vector3[] nebulaColors = new Vector3[nebulae.Length];
             Vector4[] nebulaShapes = new Vector4[nebulae.Length];
+            Vector3[] nebulaRims = new Vector3[nebulae.Length];
+            float[] nebulaGlows = new float[nebulae.Length];
 
             for (int i = 0; i < nebulae.Length; i++)
             {
@@ -117,11 +119,15 @@ namespace Prazsky.Core.Render
                     nebulae[i].Strength,
                     nebulae[i].DetailScale,
                     nebulae[i].Warp);
+                nebulaRims[i] = (nebulae[i].RimColor ?? nebulae[i].Color).ToVector3();
+                nebulaGlows[i] = MathHelper.Clamp(nebulae[i].Glow, 0f, 1f);
             }
 
             _spaceEffect.Parameters["NebulaDirection"].SetValue(nebulaDirections);
             _spaceEffect.Parameters["NebulaColor"].SetValue(nebulaColors);
             _spaceEffect.Parameters["NebulaShape"].SetValue(nebulaShapes);
+            _spaceEffect.Parameters["NebulaRimColor"].SetValue(nebulaRims);
+            _spaceEffect.Parameters["NebulaGlow"].SetValue(nebulaGlows);
 
             SpaceGalaxyConfig galaxies = space.Galaxies;
             _spaceEffect.Parameters["GalaxyCellScale"].SetValue(galaxies.CellScale);
