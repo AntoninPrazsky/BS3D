@@ -80,55 +80,98 @@ namespace BS3D
         private Microsoft.Xna.Framework.Color[] _benchmarkFrame;
 
         //And the HDR scene target's patches (FrameProbe.CountNonFinite): HDR_PATCHES squares of HDR_PATCH texels, the middle
-        //and the four quarters' middles of the target at whatever size the supersample made it
+        //and the four quarters' middles of the target at whatever size the supersample made it, copied side by side into
+        //_benchmarkHdrTarget before the resolve (CopyBenchmarkHdr) and read back with the frame
         private const int HDR_PATCH = 64;
         private static readonly Microsoft.Xna.Framework.Vector2[] HDR_PATCHES =
             { new(0.5f, 0.5f), new(0.25f, 0.25f), new(0.75f, 0.25f), new(0.25f, 0.75f), new(0.75f, 0.75f) };
         private readonly Microsoft.Xna.Framework.Graphics.PackedVector.HalfVector4[] _benchmarkHdr =
             new Microsoft.Xna.Framework.Graphics.PackedVector.HalfVector4[HDR_PATCH * HDR_PATCH * 5];
+        private RenderTarget2D _benchmarkHdrTarget;
+        private SpriteBatch _benchmarkHdrBatch;
+        private bool _benchmarkHdrCopied;
 
         /// <summary>
         /// The benchmark's correctness probe (#988, <see cref="FrameProbe"/>): when the page asks, the finished frame is read
-        /// back at the end of Draw, as a note's picture is, and handed to it. The read stalls the GPU, which is why the page
-        /// asks once a segment and leaves the frame after it out of its figures.
+        /// back at the end of Draw, as a note's picture is, and handed to it with the HDR patches this frame copied. The read
+        /// stalls the GPU, which is why the page asks once a segment and leaves the frame after it out of its figures.
         /// </summary>
         private void ServiceBenchmarkProbe()
         {
             if (!_benchmarking || _benchmarkPage == null || !_benchmarkPage.WantsProbe) return;
             int width = GraphicsDevice.PresentationParameters.BackBufferWidth;
             int height = GraphicsDevice.PresentationParameters.BackBufferHeight;
+            int hdr = ReadBenchmarkHdr();
             try
             {
                 if (_benchmarkFrame == null || _benchmarkFrame.Length != width * height)
                     _benchmarkFrame = new Microsoft.Xna.Framework.Color[width * height];
                 BackBufferPixels.Read(GraphicsDevice, _benchmarkFrame);
-                int hdr = ReadHdrPatches();
                 _benchmarkPage.TakeProbe(_benchmarkFrame, width, height, _benchmarkHdr, hdr);
             }
             catch (Exception exception)
             {
                 Console.WriteLine($"[bench] the frame could not be read back: {exception.GetType().Name}: {exception.Message}");
-                _benchmarkPage.TakeProbe(null, width, height, null, 0);
+                _benchmarkPage.TakeProbe(null, width, height, _benchmarkHdr, hdr);
             }
         }
 
         /// <summary>
-        /// The HDR scene target's patches into <see cref="_benchmarkHdr"/>, and how many texels were read: none on the Potato
-        /// path (it draws no HDR target) or where the target is not the half-float one the full path makes.
+        /// Before the resolve, on a frame the probe will read: the HDR scene's patches drawn texel for texel (point sampled,
+        /// opaque, so a NaN or an infinity arrives as it is) into a small target MonoGame can read back. The scene target itself
+        /// cannot be: its <see cref="SurfaceFormat.HdrBlendable"/> is a format <c>Texture2D.GetData</c>'s size check refuses
+        /// ("Value does not fall within the expected range", <c>GraphicsExtensions.GetSize</c>), and its
+        /// <see cref="SurfaceFormat.HalfVector4"/> twin is the same texels. Here and not at the end of Draw because binding a
+        /// target and then the back buffer clears the back buffer (its usage is the default discard), and the resolve after
+        /// this draws all of it anyway. No-op on the Potato path (no HDR target) and on any frame the probe does not want.
         /// </summary>
-        private int ReadHdrPatches()
+        private void CopyBenchmarkHdr()
         {
-            if (PotatoPath || _pipeline?.SceneTarget is not RenderTarget2D scene || scene.Format != SurfaceFormat.HdrBlendable) return 0;
-            int patch = Math.Min(HDR_PATCH, Math.Min(scene.Width, scene.Height) / 4);
-            if (patch <= 0) return 0;
-            int read = 0;
-            foreach (Microsoft.Xna.Framework.Vector2 at in HDR_PATCHES)
+            _benchmarkHdrCopied = false;
+            if (!_benchmarking || _benchmarkPage == null || !_benchmarkPage.WantsProbe || PotatoPath) return;
+            if (_pipeline?.SceneTarget is not RenderTarget2D scene || Math.Min(scene.Width, scene.Height) < HDR_PATCH * 4) return;
+
+            _benchmarkHdrTarget ??= new RenderTarget2D(GraphicsDevice, HDR_PATCH * HDR_PATCHES.Length, HDR_PATCH, false,
+                SurfaceFormat.HalfVector4, DepthFormat.None);
+            _benchmarkHdrBatch ??= new SpriteBatch(GraphicsDevice);
+
+            BlendState blend = GraphicsDevice.BlendState;
+            DepthStencilState depth = GraphicsDevice.DepthStencilState;
+            RasterizerState rasterizer = GraphicsDevice.RasterizerState;
+            SamplerState sampler = GraphicsDevice.SamplerStates[0];
+            GraphicsDevice.SetRenderTarget(_benchmarkHdrTarget);
+            _benchmarkHdrBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullNone);
+            for (int i = 0; i < HDR_PATCHES.Length; i++)
             {
-                var rect = new Microsoft.Xna.Framework.Rectangle((int)(at.X * scene.Width) - patch / 2, (int)(at.Y * scene.Height) - patch / 2, patch, patch);
-                scene.GetData(0, rect, _benchmarkHdr, read, patch * patch);
-                read += patch * patch;
+                var source = new Microsoft.Xna.Framework.Rectangle((int)(HDR_PATCHES[i].X * scene.Width) - HDR_PATCH / 2,
+                    (int)(HDR_PATCHES[i].Y * scene.Height) - HDR_PATCH / 2, HDR_PATCH, HDR_PATCH);
+                _benchmarkHdrBatch.Draw(scene, new Microsoft.Xna.Framework.Rectangle(i * HDR_PATCH, 0, HDR_PATCH, HDR_PATCH), source,
+                    Microsoft.Xna.Framework.Color.White);
             }
-            return read;
+            _benchmarkHdrBatch.End();
+            GraphicsDevice.BlendState = blend;
+            GraphicsDevice.DepthStencilState = depth;
+            GraphicsDevice.RasterizerState = rasterizer;
+            GraphicsDevice.SamplerStates[0] = sampler;
+            _benchmarkHdrCopied = true;
+        }
+
+        /// <summary>The patches <see cref="CopyBenchmarkHdr"/> drew this frame into <see cref="_benchmarkHdr"/>, and how many texels: 0 when none were.</summary>
+        private int ReadBenchmarkHdr()
+        {
+            if (!_benchmarkHdrCopied) return 0;
+            _benchmarkHdrCopied = false;
+            try
+            {
+                _benchmarkHdrTarget.GetData(_benchmarkHdr);
+                return _benchmarkHdr.Length;
+            }
+            catch (Exception exception)
+            {
+                //Its own failure, never the frame's: the back buffer is read and judged on its own
+                Console.WriteLine($"[bench] the HDR scene could not be read back: {exception.GetType().Name}: {exception.Message}");
+                return 0;
+            }
         }
 
         /// <summary>The display's refresh, or 0 when the adapter reports nothing sensible: a frame's budget is a thousandth of it.</summary>

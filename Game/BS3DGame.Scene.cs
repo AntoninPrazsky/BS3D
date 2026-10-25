@@ -1546,6 +1546,9 @@ namespace BS3D
             //The resolve consumes it; a frame that opens none resolves exactly as before.
             if (drawMotion != null && MotionBlurActive && _pipeline.MotionBlur != null) drawMotion(_pipeline.MotionBlur);
 
+            //The benchmark's probe of the HDR scene (#988), on the one frame a segment it asks for, for the same reason
+            CopyBenchmarkHdr();
+
             _pipeline.Resolve(_wallClock, underwater, defocus, defocusFocus, foreground);
 
             //And the layer back on top of the resolved frame, in display space now but through the same curve,
