@@ -299,6 +299,10 @@ namespace Prazsky.Core.Render
             return (reach, top);
         }
 
+        //Acacia.fx's LeafStrength for the acacias' and the thorn bushes' sprays (#964): twiglets of twice-pinnate leaves (its
+        //TuftMask), not the fern frond (1) the baobab's tufts keep
+        private const float ACACIA_TUFTS = 4f;
+
         //The thorn bushes' colours, graded off the trees' so a level that repaints the canopy or the trunks repaints them (#883): how
         //far the canopy's colours are taken towards their own grey (silver-green leaf, not the trees' green; at 0.6 and brightened
         //a quarter the shaded cards photographed teal, at 0.4 and a third brighter the sunlit ones near white at a distance), how far
@@ -1090,7 +1094,7 @@ namespace Prazsky.Core.Render
                     buckets.Add(new ScatterBucket(device, tree.Canopy, treeInstances[m], canopy, canopyDry, dapple: 0.6f, bark: 0f,
                         detailOnly: false, lowOnly: true));
                     buckets.Add(new ScatterBucket(device, tree.Leaves, treeInstances[m], canopy, canopyDry, dapple: 0.35f, bark: 0f,
-                        detailOnly: true, leaves: 1f));
+                        detailOnly: true, leaves: ACACIA_TUFTS));
                 }
                 //The wood: Low and Medium's tubes, and High and Ultra's grown fork (#758) — the same instances
                 bool dead = tree.Kind == AcaciaKind.Dead;
@@ -1120,7 +1124,7 @@ namespace Prazsky.Core.Render
                 buckets.Add(new ScatterBucket(device, thorns[m].Wood, thornInstances[m], bushWood, bushWood * 1.2f, dapple: 0f, bark: THORN_BARK,
                     detailOnly: false, fineMeshes: true));
                 buckets.Add(new ScatterBucket(device, thorns[m].Leaves, thornInstances[m], bushLeaf, bushLeafDry, dapple: 0.35f, bark: 0f,
-                    detailOnly: false, leaves: 1f, fineMeshes: true));
+                    detailOnly: false, leaves: ACACIA_TUFTS, fineMeshes: true));
             }
             Vector3 scrubColor = dr.ScrubColor.ToVector3();
             Add(buckets, device, scrub, scrubInstances, scrubColor, scrubColor * new Vector3(1.5f, 1.25f, 0.9f), dapple: 0.5f, bark: 0f, detailOnly: false);

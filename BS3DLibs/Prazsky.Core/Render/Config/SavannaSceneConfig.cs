@@ -218,10 +218,10 @@ namespace Prazsky.Core.Render
         public float ClusterSpread { get; set; } = 30f;
 
         /// <summary>Acacia canopy green (linear).</summary>
-        public Rgb CanopyColor { get; set; } = new(0.09f, 0.17f, 0.05f);
+        public Rgb CanopyColor { get; set; } = new(0.055f, 0.115f, 0.032f);
 
         /// <summary>Drier yellow-green canopy (linear).</summary>
-        public Rgb CanopyDry { get; set; } = new(0.22f, 0.22f, 0.07f);
+        public Rgb CanopyDry { get; set; } = new(0.12f, 0.14f, 0.045f);
 
         /// <summary>Dark brown trunk (linear).</summary>
         public Rgb TrunkColor { get; set; } = new(0.09f, 0.06f, 0.035f);

@@ -43,7 +43,8 @@ float BarkStrength;
 //1 for the acacias' leaf-spray cards (#610), 0 for every other mesh: the leaflets are cut out of each card here,
 //both of its sides are lit, and the sun comes through it. See LeafMask and AcaciaMesh's LeafSprays. 2 for the
 //meadow's old trees (#609's third round), whose cards are twigs of broad leaves instead - see BroadLeafMask. 3 for the
-//tropical beach's sea grapes (#753): the same twigs, the leaves round.
+//tropical beach's sea grapes (#753): the same twigs, the leaves round. 4 for the savanna's acacias and thorn bushes
+//(#964): twiglets of twice-pinnate leaves - see TuftMask.
 float LeafStrength;
 
 //The distance the plant melts into the skyline over - Savanna.fx's own HorizonHazeDistance, handed over so a
@@ -262,6 +263,69 @@ float BroadLeafMask(float2 uv, float round)
     return lerp(fine, coarse, smoothstep(0.35, 0.8, blur));
 }
 
+//--- THE ACACIA'S TUFTS (#964): LeafStrength 4, the savanna's acacias and thorn bushes. Every reference crown is a flat mat
+//of fine, spiky foliage, because an acacia's leaf is twice pinnate: a stalk carrying pairs of thin pinnae, each fringed
+//with leaflets a few millimetres long. LeafMask's frond, eleven broad leaflets a side on a card a metre long, read as a
+//fern. A card here is a twiglet: its stalk, TUFT_PAIRS pairs of thin pinnae leaning forwards off it, ragged in length,
+//fringed with leaflets while a pixel can hold them, a plain strip once it cannot, and the spray's outline once the pinnae
+//themselves are finer than a pixel. The stalk runs on past the last pair as a spike.
+static const float TUFT_ASPECT = 0.45;            //AcaciaMesh's SPRAY_ASPECT: the card's width against its length
+static const float TUFT_PAIRS = 10.0;             //pairs of pinnae up the stalk
+static const float TUFT_FIRST = 0.1;              //where the first pair leaves the stalk, as a share of the card's length
+static const float TUFT_STEP = 0.08;              //and the next ones, so the last leaves at 0.82
+static const float TUFT_SIN = 0.766;              //the pinnae lean 50 degrees off the stalk: its sine and cotangent
+static const float TUFT_COT = 0.839;
+static const float TUFT_PINNA_HALF = 0.027;       //a pinna's half-width with its leaflets, in the card's lengths
+static const float TUFT_LEAFLET = 0.014;          //a leaflet's spacing along its pinna
+static const float TUFT_RIB_HALF = 0.004;         //a pinna's own rib
+static const float TUFT_STALK_HALF = 0.011;       //the stalk at the stem, tapering to the spike's point
+
+float TuftMask(float2 uv, float2 seed)
+{
+    float layer = floor(uv.y * 0.5);
+    float v = uv.y - 2.0 * layer;
+    //The card in its own lengths: x up the stalk, s off it to either side
+    float x = uv.x;
+    float y = (v - 0.5) * TUFT_ASPECT;
+    float s = abs(y);
+
+    //The pair whose pinna passes nearest: every pinna of a side is parallel, so the point on the stalk a pinna through
+    //this pixel would leave from says which one it is
+    float from = x - s * TUFT_COT;
+    float slot = (from - TUFT_FIRST) / TUFT_STEP;
+    float id = clamp(floor(slot + 0.5), 0.0, TUFT_PAIRS - 1.0);
+    float off = (slot - id) * TUFT_STEP * TUFT_SIN;        //square off that pinna's line
+    float t = s / TUFT_SIN;                                 //along it, from the stalk
+
+    //Its length: the most the card's half-width allows, shorter near the stem and towards the tip, ragged, and a few missing
+    float at = TUFT_FIRST + id * TUFT_STEP;
+    float envelope = sin(PI * saturate(at * 0.95 + 0.05));
+    float side = step(0.5, v);
+    float roll = LeafHash(seed + float2(id, side) * 1.7);
+    float reach = (0.5 * TUFT_ASPECT / TUFT_SIN) * envelope * (0.6 + 0.4 * roll) * step(roll, 0.93);
+    float taper = 1.0 - 0.55 * saturate(t / max(reach, 1e-3));
+
+    //The leaflets: an ellipse across the rib at every step along it, so a pinna is a string of them
+    float lf = frac(t / TUFT_LEAFLET) - 0.5;
+    float half_ = TUFT_PINNA_HALF * taper;
+    float leaflets = 1.0 - (lf * lf) / (0.48 * 0.48) - (off * off) / (half_ * half_);
+    leaflets = max(leaflets, (TUFT_RIB_HALF - abs(off)) / TUFT_RIB_HALF);
+    //Past the leaflets' resolution the pinna is a strip of their mean width
+    float strip = (0.8 * half_ - abs(off)) / half_;
+    float pinna = lerp(leaflets, strip, smoothstep(0.3, 0.6, fwidth(t / TUFT_LEAFLET)));
+    pinna = min(pinna, (reach - t) / TUFT_PINNA_HALF);
+
+    //The stalk, from just past the stem's own start to the spike's point (nothing before it: clip() keeps a 0, #697)
+    float stalkHalf = TUFT_STALK_HALF * (1.0 - 0.85 * x);
+    float stalk = x >= 0.02 && x <= 0.98 ? (stalkHalf - s) / stalkHalf : -1.0;
+    float fine = max(pinna, stalk);
+
+    //The spray as one outline, as LeafMask's, once the pinnae are finer than a pixel
+    float across = s / (0.5 * TUFT_ASPECT);
+    float coarse = sin(PI * saturate(x * 0.92 + 0.08)) * step(0.05, x) * 0.85 - across;
+    return lerp(fine, coarse, smoothstep(0.35, 0.8, fwidth(from / TUFT_STEP)));
+}
+
 //Which cut a card takes: the draw says, one side for every pixel of it, so the derivatives inside either are
 //taken by every pixel of a quad alike
 float CardMask(float2 uv, float2 seed)
@@ -269,7 +333,9 @@ float CardMask(float2 uv, float2 seed)
     //One return: an inlined early return inside a branch is the X4000 pattern Clouds.fxh records
     float mask;
     [branch]
-    if (LeafStrength > 1.5)
+    if (LeafStrength > 3.5)
+        mask = TuftMask(uv, seed);
+    else if (LeafStrength > 1.5)
         mask = BroadLeafMask(uv, step(2.5, LeafStrength));
     else
         mask = LeafMask(uv, seed);
