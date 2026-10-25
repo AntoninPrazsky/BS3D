@@ -120,12 +120,14 @@ namespace BS3D.Screens
             _tutorial.NoteDevice(Game.PromptsForPad ? Tutorial.Device.Gamepad : Tutorial.Device.KeyboardMouse);
             Game.Rumble.HandOnPad = _tutorial.OnGamepad;
 
-            //The benchmark's play (#1018) is taught nothing: no card is queued, so none is shown and no lesson is written
+            //The benchmark's play (#1018) is taught nothing: no card is queued, so none is shown and no lesson is written.
+            //The precise-aim hint (#1012) is armed on every other level once the lean's own card has been taught: it reminds
+            //of that card, so it never comes before it
             if (_run.Benchmark) _tutorial.BeginLevel(-1, 0, 0, null, retry: retry);
             else
                 _tutorial.BeginLevel(tutorialLevel ? chapter : -1, levelInChapter, chapterLength, LevelCeilingStep(index),
                     swapOffered: _run.SwapOffered, retry: retry, kindsOnMap: _kindsOnMap, brakeOffered: _run.BrakeOffered,
-                    cutOffered: _run.CutOffered);
+                    cutOffered: _run.CutOffered, aimHintArmed: _tutorial.HasBeenTaught(Tutorial.Lesson.LeanIn));
 
             //The first five levels carry the "fire" chip for a player who stops (#925), on the level's own count from zero
             _fireHint.BeginLevel(tutorialLevel && !_run.Benchmark && FireHint.CarriesHint(chapter, levelInChapter));

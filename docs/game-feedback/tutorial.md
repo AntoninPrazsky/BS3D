@@ -75,3 +75,15 @@ Each lesson has the level it first becomes eligible at; the opener carries only 
 - **The ball on the card is live** (a still would age as kinds are redrawn): `HUD_TUTORIAL_BALL` keeps a square where a keycap stands, `PlayHud.TryGetTutorialBall` hands its place to the next frame, `GameplayScreen.CollectTutorialBall` adds a ball `TUTORIAL_BALL_DEPTH` in front of the lens, after the shadow pass.
 - ⚠ **It must go into the motion record, pinned** (`_motionPinnedBack`): left out, `MotionBlur.fx` gives an empty velocity pixel the camera's motion at the cluster's depth, and the ball smears while the text stands sharp.
 - **Not done:** a LevelGen gate that a level introducing a kind introduces nothing else; the Help page and the cards are kept in step by hand.
+
+## The precise-aim hint (#1012)
+
+The owner's ruling, after an outside player played the whole campaign from the overview and, the owner believes, never used precise aim after its card: a shot fired **outside** precise aim that drops nothing shows the lean's own card again, *"Hold to look down the barrel"* / *"A close-up for the precise shot"*, with the right button's glyph (the left trigger's on a pad).
+
+- **A hint, not a lesson** (`Definition.Hint`, `Lesson.AimHint`, key `aimhint`). It belongs to no chapter, like a kind or a tool card. It is **never written to the save**, so nothing retires it. `BeginLevel`'s `aimHintArmed` arms it on any level, and the session asks for it once the lean's own card has been taught (`Tutorial.HasBeenTaught(Lesson.LeanIn)`), so it never comes before that card. `Trigger` fires it **at most once a level**. It **waits behind a card already up** instead of pushing it aside. Holding the button completes it with *Sharp!*. Unheld, it goes after `INFO_SECONDS`, not after an action card's 22 s. The Tutorial row turns it off with the rest.
+- **When it is due is `PreciseAimHint`'s, counted in shots, never in seconds**, so a player who stops to think is not nagged for thinking.
+  - A **real lean** is a hold of `REAL_LEAN_SECONDS` (1 s) unbroken. A player with one within the last `LONG_SHOTS` (25) shots is using the lean and is never told.
+  - Otherwise the first shot that drops nothing outside the lean shows it, and at least `MIN_SHOTS_BETWEEN` (10) shots pass before it may come back. So a player who only taps the button sees it again after ten shots, and one who stopped leaning sees it 25 shots after the last real lean.
+  - A shot counts as fired from the lean when precise aim's blend is at least `LEANED_BLEND` (0.5) as it leaves.
+  - The counts live for the gameplay screen's life (across levels, not across launches).
+- **The doors:** both places a shot resolves without scoring call `GameplayScreen.OfferAimHint`, after the streak's break: `OnBallLanded` when the award did not score, and `OnShotSpent`. It prints `[aimhint] shown at <s> s: ...` once a showing. Seen in play on Zigzag, with a save that holds the lean and one shot fired into the island.

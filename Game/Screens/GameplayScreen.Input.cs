@@ -332,8 +332,12 @@ namespace BS3D.Screens
             _adsHeld = _cursorCaptured ? PreciseAim.ButtonHeld(mouse, pad) : PreciseAim.ButtonHeld(default, pad);
             _adsPull = _cursorCaptured ? PreciseAim.LeanAmount(mouse, pad) : PreciseAim.LeanAmount(default, pad);
 
-            //The lean lesson waits on the hold (#189)
-            _tutorial.NoteHold(Tutorial.Lesson.LeanIn, _adsHeld, (float)gameTime.ElapsedGameTime.TotalSeconds);
+            //The lean lesson waits on the hold (#189), and so does the precise-aim hint's card (#1012), whose rules also
+            //watch how long a hold lasts: a tap is "only for a moment"
+            float leanElapsed = (float)gameTime.ElapsedGameTime.TotalSeconds;
+            _tutorial.NoteHold(Tutorial.Lesson.LeanIn, _adsHeld, leanElapsed);
+            _tutorial.NoteHold(Tutorial.Lesson.AimHint, _adsHeld, leanElapsed);
+            _aimHint.NoteLean(_adsHeld, leanElapsed);
 
             //And the combination (#460), read here rather than beside the carriage's own keys because this is
             //where the close-up's half of it is known — so the AND is taken on one frame's two facts and not
@@ -592,6 +596,9 @@ namespace BS3D.Screens
 
             //And the "fire" chip leaves with it (#925)
             _fireHint.NoteShot();
+
+            //And the precise-aim hint counts it, fired from the lean or not (#1012)
+            _aimHint.NoteShotFired(leaned: _preciseAim.Blend >= PreciseAimHint.LEANED_BLEND);
 
             //The same shot drives the ceiling's descent: every ceilingStep-th shot steps the glass down. Checked
             //after Shot() so ShotsFired includes the one just fired, and the scorer owns the cadence exactly as it
