@@ -17,9 +17,11 @@ if (root.classList.contains("motion")) {
     el.classList.add("rise");
   }
 
+  // Only the counts count up: a figure in a sentence's bold ("A Raspberry Pi 5 version") is words, and counted it read "5"
   const counted = new WeakSet();
   const reveal = (el) => {
     el.classList.add("in");
+    if (!el.matches(".numbers-row p")) return;
     for (const n of el.querySelectorAll("strong")) if (!counted.has(n)) { counted.add(n); countUp(n); }
   };
 
