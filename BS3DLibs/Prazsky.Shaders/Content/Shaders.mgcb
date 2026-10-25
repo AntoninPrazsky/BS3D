@@ -170,6 +170,12 @@
 /processorParam:DebugMode=Auto
 /build:Shaders/Saucer.fx
 
+#begin Shaders/LightCycle.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/LightCycle.fx
+
 #begin Shaders/LightShafts.fx
 /importer:EffectImporter
 /processor:EffectProcessor
