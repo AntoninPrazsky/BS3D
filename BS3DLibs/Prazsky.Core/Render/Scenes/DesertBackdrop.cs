@@ -21,6 +21,9 @@ namespace Prazsky.Core.Render
         //Its camera grid and the pass that draws it (#580): the skeleton this scene shared with two others
         private readonly TerrainPass _desertPass;
 
+        //The Giza group far out over the dunes (#965)
+        private readonly Pyramids _pyramids;
+
         //The dunes are real geometry: a camera-centred grid of this many vertices per side over this world
         //extent, displaced in the shader and snapped to a cell so they do not swim. Finer than the old dune
         //grid (200) so the crest silhouettes read smooth; the shading normal is per-pixel, so no grid shows.
@@ -38,7 +41,12 @@ namespace Prazsky.Core.Render
             _desertPass = new TerrainPass(Services, _desertEffect, DESERT_GRID_N, DESERT_EXTENT, "DesertTime");
 
             ApplyDesertParameters();
+
+            _pyramids = new Pyramids(services.GraphicsDevice, content, _desertConfig);
         }
+
+        /// <inheritdoc/>
+        public override void Dispose() => _pyramids?.Dispose();
 
         /// <inheritdoc/>
         public override SceneKind Kind => SceneKind.Desert;
@@ -79,6 +87,7 @@ namespace Prazsky.Core.Render
         public override void Draw(in SceneFrame frame)
         {
             _desertPass.Draw(frame, Services.TerrainHoleRadius);
+            _pyramids.Draw(frame);
             Services.Birds.Draw(frame, _desertConfig.Birds);
         }
 
