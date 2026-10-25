@@ -7,12 +7,20 @@
 // WebGL reads them transposed, which is exactly what a column-vector shader needs, so `mul(a, b)` here means what a * b
 // means in the game: a first, then b.
 //
+// The canvas is transparent (alpha, premultiplied) and the CSS feathers its edges, so the gun stands in the page itself and not in
+// a picture of it; the ground it drives on is only a pool of light that dissolves well inside the canvas.
+//
 // It runs only while it is on screen and the tab is shown, at most two device pixels a CSS pixel, and under
-// prefers-reduced-motion it draws one frame and stops. Without WebGL2 the canvas is left to its poster.
+// prefers-reduced-motion it draws one frame and stops. Without WebGL2 (or if the meshes cannot be fetched) the section is hidden:
+// there is no poster to stand in for a gun that is not drawn.
 
 const canvas = document.querySelector("canvas.cannon-canvas");
 const gl = canvas && canvas.getContext("webgl2", { antialias: true, alpha: true, premultipliedAlpha: true });
-if (canvas && gl) start(canvas, gl).catch((e) => console.warn("[cannon]", e));
+if (canvas) {
+  const giveUp = () => { const section = canvas.closest("section"); if (section) section.hidden = true; };
+  if (gl) start(canvas, gl).catch((e) => { console.warn("[cannon]", e); giveUp(); });
+  else giveUp();
+}
 
 async function start(canvas, gl) {
   const base = canvas.dataset.src || "/cannon/";
@@ -40,48 +48,89 @@ precision highp float;
 in vec3 vWorld;
 in vec3 vNormal;
 uniform vec3 uColor, uEmissive, uEye, uShadowAt;
-uniform float uSky, uAlpha, uFade;
+uniform float uSky, uAlpha, uFade, uMetal, uRough;
 out vec4 outColor;
 
 // The light: a warm key from up and to the left, a cool fill from the other side, the sky over it all and a floor under it,
 // in the page's own violet
 const vec3 KEY_DIR = normalize(vec3(-0.55, 0.75, 0.45));
-const vec3 KEY = vec3(1.15, 1.03, 0.9);
+const vec3 KEY = vec3(1.0, 0.9, 0.78);
 const vec3 FILL_DIR = normalize(vec3(0.7, 0.35, -0.6));
-const vec3 FILL = vec3(0.22, 0.27, 0.5);
-const vec3 SKY = vec3(0.16, 0.13, 0.25);
-const vec3 FLOOR = vec3(0.04, 0.025, 0.06);
+const vec3 FILL = vec3(0.2, 0.25, 0.48);
+const vec3 SKY = vec3(0.14, 0.11, 0.22);
+const vec3 FLOOR = vec3(0.035, 0.022, 0.055);
 
 vec3 aces(vec3 x) { return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
+
+// A soft rectangular light seen from the middle of the room: where it is, how far it reaches to either side and up and down
+// (in tangents, so it is a rectangle of the view), and how soft its edge is
+float panel(vec3 r, vec3 dir, vec2 reach, float soft) {
+  vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), dir));
+  vec3 top = cross(dir, right);
+  float z = dot(r, dir);
+  vec2 p = vec2(dot(r, right), dot(r, top)) / max(z, 0.05);
+  vec2 d = clamp((reach - abs(p)) / soft, 0.0, 1.0);
+  return smoothstep(0.0, 1.0, d.x) * smoothstep(0.0, 1.0, d.y) * step(0.0, z);
+}
+
+// The room the metal reflects, seen from the reflected direction alone: the page's violet dome with a bright band along its
+// horizon, a dark floor, and a few soft panels (a big warm one where the key is, a tall cool strip on the other side, a small one
+// overhead). A rougher metal sees all of it blurred.
+vec3 studio(vec3 r, float rough) {
+  float soft = 0.05 + rough * 0.9;
+  vec3 dome = mix(vec3(0.22, 0.14, 0.34), vec3(0.025, 0.018, 0.07), smoothstep(0.0, 0.85, r.y));
+  float band = exp(-pow((r.y - 0.06) / (0.05 + rough * 0.4), 2.0));
+  dome += vec3(1.0, 0.82, 1.1) * band * 0.9;
+  vec3 ground = mix(vec3(0.1, 0.06, 0.13), vec3(0.008, 0.005, 0.016), 1.0 - smoothstep(-0.6, 0.0, r.y));
+  vec3 e = mix(ground, dome, smoothstep(-soft * 0.4, soft * 0.4, r.y));
+  e += vec3(1.0, 0.93, 0.85) * 9.0 * panel(r, KEY_DIR, vec2(0.6, 0.4), soft);
+  e += vec3(0.62, 0.72, 1.0) * 6.0 * panel(r, normalize(vec3(0.85, 0.2, -0.3)), vec2(0.14, 0.7), soft);
+  e += vec3(0.95, 0.9, 1.0) * 2.5 * panel(r, normalize(vec3(0.05, 0.95, -0.3)), vec2(0.35, 0.18), soft);
+  return e;
+}
 
 void main() {
   vec3 n = normalize(vNormal);
   if (!gl_FrontFacing) n = -n;
   vec3 v = normalize(uEye - vWorld);
+  float nv = max(dot(n, v), 0.0);
   float key = max(dot(n, KEY_DIR), 0.0), fill = max(dot(n, FILL_DIR), 0.0);
   vec3 ambient = mix(FLOOR, SKY, n.y * 0.5 + 0.5) * 0.6;
-  vec3 lit = uColor * (ambient + KEY * key + FILL * fill * 0.6);
-
-  // Polished where the game polishes: a highlight off each light and the sky's reflection, by the part's own sky figure
-  float fresnel = 0.04 + 0.96 * pow(1.0 - max(dot(n, v), 0.0), 5.0);
-  vec3 h = normalize(KEY_DIR + v);
-  vec3 spec = KEY * pow(max(dot(n, h), 0.0), 60.0) * key * (0.25 + uSky);
+  // A metal keeps a trace of its colour in the shade and has no diffuse beyond it
+  vec3 lit = uColor * mix(1.0, 0.07, uMetal) * (ambient + KEY * key * 1.1 + FILL * fill * 0.6);
   vec3 r = reflect(-v, n);
-  vec3 env = mix(FLOOR, SKY * 0.9, smoothstep(-0.2, 0.6, r.y));
-  lit += spec + env * uSky * (0.35 + 0.65 * fresnel);
+  vec3 h = normalize(KEY_DIR + v);
+
+  if (uMetal > 0.0) {
+    // Polished metal: what it shows is the room, weighted by a Fresnel that climbs to a mirror at the grazing edges (less so the
+    // rougher it is), and the key's own glint. The inside of the bore sees only itself, so it stays dark.
+    float grazing = pow(1.0 - nv, 5.0);
+    vec3 fr = uColor + (max(vec3(1.0 - uRough), uColor) - uColor) * grazing;
+    float inner = gl_FrontFacing ? 1.0 : 0.15;
+    float expo = 2.0 / max(pow(uRough, 4.0), 0.0005) - 2.0;
+    lit += studio(r, uRough) * fr * inner;
+    lit += KEY * pow(max(dot(n, h), 0.0), expo) * key * fr * 2.0 * inner;
+  } else {
+    // Glossy where the game is: a highlight off the key and the sky's reflection, by the part's own sky figure
+    float fresnel = 0.04 + 0.96 * pow(1.0 - nv, 5.0);
+    lit += KEY * pow(max(dot(n, h), 0.0), 60.0) * key * (0.25 + uSky) * 1.1;
+    vec3 env = mix(FLOOR, SKY * 0.9, smoothstep(-0.2, 0.6, r.y));
+    lit += env * uSky * (0.35 + 0.65 * fresnel);
+  }
   lit += uEmissive;
 
-  // The ground alone (uFade, its radius): darker under the gun, and fading out to the page at its rim
+  // The ground alone (uFade, its radius): darker under the gun, and dissolving into the page well inside its rim
   float alpha = uAlpha;
   if (uFade > 0.0) {
     lit *= mix(0.35, 1.0, smoothstep(0.6, 3.6, distance(vWorld.xz, uShadowAt.xz)));
-    alpha *= 1.0 - smoothstep(uFade * 0.45, uFade, length(vWorld.xz));
+    float rim = 1.0 - smoothstep(uFade * 0.25, uFade, length(vWorld.xz));
+    alpha *= rim * rim;
   }
 
   vec3 c = pow(aces(lit), vec3(1.0 / 2.2));
   outColor = vec4(c * alpha, alpha);
 }`);
-  const u = uniforms(gl, program, ["uModel", "uViewProj", "uScale", "uColor", "uEmissive", "uEye", "uSky", "uAlpha", "uFade", "uShadowAt"]);
+  const u = uniforms(gl, program, ["uModel", "uViewProj", "uScale", "uColor", "uEmissive", "uEye", "uSky", "uAlpha", "uFade", "uShadowAt", "uMetal", "uRough"]);
 
   // --- The meshes: one vertex buffer and one index buffer for every part, each part's attributes pointed at its own first vertex
   const vbo = gl.createBuffer();
@@ -91,6 +140,10 @@ void main() {
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint8Array(bin, meta.indexOffset), gl.STATIC_DRAW);
 
+  // How each part is finished, as [how much of a metal it is, how rough, and the colour it reflects as a multiple of the game's
+  // colour for it]: the barrel a polished blue steel, the rollers chrome, the carriage a darker steel and the hubs and the collar
+  // a dark gunmetal. Everything else (the balls, the glass, the ground) is shaded as before.
+  const FINISH = { barrel: [1, 0.18, 1.4], carriage: [1, 0.26, 1.5], wheel: [0.75, 0.3, 3.5], roller: [1, 0.14, 1.2], collar: [1, 0.22, 3] };
   const parts = {};
   for (const [name, p] of Object.entries(meta.parts)) {
     const vao = gl.createVertexArray();
@@ -102,10 +155,12 @@ void main() {
     gl.vertexAttribPointer(0, 4, gl.SHORT, true, meta.vertexStride, at);
     gl.enableVertexAttribArray(1);
     gl.vertexAttribPointer(1, 4, gl.BYTE, true, meta.vertexStride, at + 8);
-    parts[name] = { vao, count: p.indexCount, offset: p.indexStart * 2, material: meta.materials[name], scale: meta.positionScale };
+    const material = meta.materials[name], finish = FINISH[name];
+    parts[name] = { vao, count: p.indexCount, offset: p.indexStart * 2, material, scale: meta.positionScale,
+      metal: finish ? finish[0] : 0, rough: finish ? finish[1] : 0.5, reflects: finish && material.color.map((c) => Math.min(c * finish[2], 1)) };
   }
   parts.ball = sphere(gl, f.ballRadius, 24, 16);
-  const GROUND_RADIUS = 11, GLASS_THINNING = 0.45;
+  const GROUND_RADIUS = 9.5, GLASS_THINNING = 0.45;
   parts.ground = disc(gl, GROUND_RADIUS, 72);
   gl.bindVertexArray(null);
 
@@ -184,7 +239,7 @@ void main() {
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.uniform1f(u.uFade, GROUND_RADIUS);
     gl.uniform3fv(u.uShadowAt, pose.pivot);
-    drawPart(parts.ground, IDENTITY, [0.05, 0.038, 0.065], 0.04, 1, [0, 0, 0]);
+    drawPart(parts.ground, IDENTITY, [0.036, 0.027, 0.047], 0.04, 1, [0, 0, 0]);
     gl.uniform1f(u.uFade, 0);
     gl.disable(gl.BLEND);
 
@@ -236,7 +291,9 @@ void main() {
     gl.bindVertexArray(part.vao);
     gl.uniformMatrix4fv(u.uModel, false, model);
     gl.uniform1f(u.uScale, part.scale || 1);
-    gl.uniform3fv(u.uColor, color || m.color || [0.5, 0.5, 0.5]);
+    gl.uniform3fv(u.uColor, color || part.reflects || m.color || [0.5, 0.5, 0.5]);
+    gl.uniform1f(u.uMetal, part.metal || 0);
+    gl.uniform1f(u.uRough, part.rough ?? 0.5);
     gl.uniform1f(u.uSky, sky ?? m.sky ?? 0.2);
     gl.uniform1f(u.uAlpha, alpha ?? m.alpha ?? 1);
     gl.uniform3fv(u.uEmissive, emissive || [0, 0, 0]);
