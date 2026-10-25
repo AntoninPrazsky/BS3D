@@ -18,7 +18,8 @@ namespace Prazsky.Core.Render
         /// <summary>The points the shader reads (<c>RoverTracks.fxh</c>'s <c>TRACK_POINTS</c>): keep the two in one change.</summary>
         public const int POINTS = 24;
 
-        //The runs the shader tests by their own boxes (RoverTracks.fxh's TRACK_CHUNK and TRACK_CHUNKS)
+        //The runs the shader tests by their own boxes: RoverTracks.fxh's TRACK_CHUNK and TRACK_CHUNKS, keep the two in one
+        //change as POINTS is
         private const int CHUNK = 4, CHUNKS = (POINTS - 1 + CHUNK - 1) / CHUNK;
 
         /// <summary>Half the track's width over both ruts and their berms, world units: what the bounds are padded by and
@@ -47,8 +48,9 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Hands <paramref name="path"/> (at most <see cref="POINTS"/> points) to <paramref name="effect"/>'s <c>TrackPath</c>,
-        /// <c>TrackCount</c> and <c>TrackBounds</c>: each point's world XZ and the distance along the track to it, and the box
-        /// round it all padded by <see cref="HALF_WIDTH"/>. Once at load; the track does not move.
+        /// <c>TrackCount</c>, <c>TrackBounds</c> and <c>TrackChunks</c>: each point's world XZ and the distance along the track
+        /// to it, the box round it all and the box round each run of <c>CHUNK</c> segments, padded by <see cref="HALF_WIDTH"/>.
+        /// Once at load; the track does not move.
         /// </summary>
         public static void Push(Effect effect, IReadOnlyList<Vector2> path)
         {
