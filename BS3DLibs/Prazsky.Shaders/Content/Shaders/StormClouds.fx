@@ -92,7 +92,7 @@ float HorizonHazeDistance;
 //atan2 and a cosine: a 3D noise on the puff's sphere did it too and cost the storm's frame 3.5 ms, the puffs' overdraw
 //being what it is.
 static const float BILLOW_LOBES_MIN = 5.0;
-static const float BILLOW_EDGE = 0.42;      //how far the lobes push the fringe out and the creases pull it in, in r squared
+static const float BILLOW_EDGE = 0.2;       //how far the lobes push the fringe out and the creases pull it in, in r squared
 static const float BILLOW_CREASE = 0.32;    //how dark a crease between lobes goes
 
 static const float STORM_FAR_THIN_START = 380.0;
@@ -232,8 +232,10 @@ float4 CloudPS(CloudVertexOutput input) : COLOR
     float3 sphere = normalize(CameraRight * corner.x + CameraUp * corner.y + towardsEye * z);
 
     //The billows (#953): see BILLOW_LOBES_MIN above. -1 in a crease, +1 at a lobe's crown, felt only towards the rim
+    //|cos| of half the angle: ROUND crowns and sharp narrow creases, the profile of a cauliflower's lobes. A plain cosine
+    //cut lobes and creases alike, and seen from most angles the puffs came out as stars and flowers
     float lobes = BILLOW_LOBES_MIN + floor(frac(seed * 7.31) * 4.0);
-    float billow = cos(atan2(corner.y, corner.x) * lobes + seed * 19.0) * saturate(r2 * 1.6);
+    float billow = (abs(cos(atan2(corner.y, corner.x) * lobes * 0.5 + seed * 19.0)) * 2.0 - 1.3) * saturate(r2 * 1.6);
     r2 -= billow * BILLOW_EDGE * saturate(r2);
 
     //The soft edge. `EdgeSoftness` is where the falloff STARTS, so under it the puff has a solid middle and
@@ -523,6 +525,85 @@ float4 BoltPS(BoltVertexOutput input) : COLOR
 
     return float4((BoltColor * core + BoltHaloColor * halo) * (input.Shape.y * fade * BoltEnvelope), 1.0);
 }
+
+//=====================================================================================================
+//The rain
+//=====================================================================================================
+//
+//THE RAIN SHAFTS (#953). The owner: "does it rain downward?" - it did not: nothing fell. Every reference (953-zimage,
+//953-klein) hangs grey curtains of rain under the heaviest cells, streaked downward and thinning towards the ground.
+//So under some of the cells (StormBackdrop picks them) a curtain hangs from the cell's base: a quad turned to face
+//the lens about the vertical, carried on the cell's own drift so it stays under the cell, streaked by a noise
+//stretched along its fall and scrolled down it, its sides wavering and its foot thinning to nothing. Premultiplied,
+//like the puffs, and drawn before them, so the cell's base stands over the curtain's top.
+static const float RAIN_LENGTH = 150.0;     //how far a curtain falls below its cell's base, world units
+static const float RAIN_FALL = 0.55;        //how fast the streaks run down, curtain lengths a second... in noise cells
+static const float RAIN_OPACITY = 0.62;
+static const float3 RAIN_TINT = float3(0.42, 0.45, 0.50);
+
+struct RainVertexOutput
+{
+    float4 Position : SV_POSITION;
+    float3 Shaft : TEXCOORD0;    //(across -1..1, down 0..1, seed)
+    float Distance : TEXCOORD1;
+};
+
+RainVertexOutput RainVS(CloudVertexInput input)
+{
+    RainVertexOutput output;
+    float2 corner = input.Data.xy;
+    float halfWidth = input.Data.z;
+    float seed = input.Data.w;
+
+    float3 top = input.Centre;
+    top.xz += StormCellOffset(input.MassCentre.xz);
+
+    //Turned to the lens about the vertical only: a curtain stands upright whatever the camera does
+    float3 toEye = CameraPosition - top;
+    float3 across = normalize(float3(toEye.z, 0.0, -toEye.x) + float3(1e-4, 0.0, 0.0));
+    float3 world = top + across * (corner.x * halfWidth) - float3(0.0, corner.y * RAIN_LENGTH, 0.0);
+
+    output.Position = mul(mul(float4(world, 1.0), View), Projection);
+    output.Shaft = float3(corner, seed);
+    output.Distance = distance(CameraPosition, world);
+    return output;
+}
+
+float4 RainPS(RainVertexOutput input) : COLOR
+{
+    float across = input.Shaft.x;
+    float down = input.Shaft.y;
+    float seed = input.Shaft.z;
+
+    //The curtain's sides waver down its fall, and it is densest under the cell's middle
+    float waver = GradientNoise2(float2(down * 3.0, seed * 41.0)) * 0.35;
+    float side = 1.0 - smoothstep(0.35, 1.0, abs(across + waver));
+
+    //Streaks: a noise stretched along the fall, scrolled down it, in two widths
+    float2 streakAt = float2(across * 9.0 + seed * 13.0, down * 1.6 - CloudTime * RAIN_FALL);
+    float streaks = 0.55 + 0.45 * GradientNoise2(streakAt * float2(1.0, 0.18)) + 0.25 * GradientNoise2(streakAt * float2(2.7, 0.3) + 7.0);
+
+    //It hangs from the base and thins out towards the ground below
+    float fall = smoothstep(0.0, 0.05, down) * (1.0 - smoothstep(0.45, 1.0, down));
+
+    //The far curtains thin out with the field (STORM_FAR_THIN_*) and take the air's haze
+    float farThin = 1.0 - smoothstep(STORM_FAR_THIN_START, STORM_FAR_THIN_END, input.Distance);
+    float3 color = RAIN_TINT * (HorizonColor * 0.6 + ZenithColor * 0.25) * (0.75 + 0.25 * streaks);
+    float haze = saturate(input.Distance / max(HorizonHazeDistance, 1e-3));
+    color = lerp(color, HazeTint, pow(haze, 8.0) * HazeStrength);
+
+    float alpha = saturate(side * fall * saturate(streaks) * RAIN_OPACITY * farThin);
+    return float4(color * alpha, alpha);
+}
+
+technique StormRain
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL RainVS();
+        PixelShader = compile PS_SHADERMODEL RainPS();
+    }
+};
 
 technique StormClouds
 {

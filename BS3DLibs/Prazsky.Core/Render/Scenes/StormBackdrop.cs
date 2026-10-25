@@ -41,6 +41,15 @@ namespace Prazsky.Core.Render
         //own period index — so a bolt's shape costs no CPU work per frame. Where it stands and which way it
         //runs are the strike's latched cell and direction (#750), a handful of uniforms.
         private VertexBuffer _stormBoltVertexBuffer;
+
+        //The rain (#953): a curtain under some of the cells, StormClouds.fx's StormRain, built with the field
+        private VertexBuffer _stormRainVertexBuffer;
+        private IndexBuffer _stormRainIndexBuffer;
+        private int _stormRainCount;
+        private readonly EffectTechnique _rainTechnique;
+
+        //The share of the cells that rain, the curtain's half-width against its cell's radius
+        private const float RAIN_SHARE = 0.42f, RAIN_WIDTH = 0.62f;
         private IndexBuffer _stormBoltIndexBuffer;
         private int _stormBoltQuadCount;
 
@@ -121,6 +130,7 @@ namespace Prazsky.Core.Render
             //carry it and why the shared sky cloud field could not either.
             _stormEffect = content.Load<Effect>("Shaders/StormClouds");
             _boltOrigin = _stormEffect.Parameters["BoltOrigin"];
+            _rainTechnique = _stormEffect.Techniques["StormRain"];
             _boltRun = _stormEffect.Parameters["BoltRun"];
             _boltReach = _stormEffect.Parameters["BoltReach"];
             _boltDrop = _stormEffect.Parameters["BoltDrop"];
@@ -128,6 +138,7 @@ namespace Prazsky.Core.Render
             _viewportSize = _stormEffect.Parameters["ViewportSize"];
             BuildStormCloudBuffers();
             BuildStormBoltBuffers();
+            BuildStormRainBuffers();
 
             ApplyStormParameters();
         }
@@ -340,6 +351,50 @@ namespace Prazsky.Core.Render
             _stormBoltVertexBuffer = new VertexBuffer(_graphicsDevice, CloudPuffVertex.Declaration, vertices.Length, BufferUsage.WriteOnly);
             _stormBoltVertexBuffer.SetData(vertices);
             _stormBoltIndexBuffer = Services.BuildQuadIndexBuffer(_stormBoltQuadCount);
+        }
+
+        /// <summary>
+        /// (Re)builds the rain (#953): a curtain under <see cref="RAIN_SHARE"/> of the cells, the ones a hash of the cell
+        /// picks, hung from its base and as wide as <see cref="RAIN_WIDTH"/> of its radius, carrying the cell's own middle so
+        /// the shader drifts it with the cell. Off the field's own record of its cells, after the field is built.
+        /// </summary>
+        private void BuildStormRainBuffers()
+        {
+            _stormRainVertexBuffer?.Dispose();
+            _stormRainIndexBuffer?.Dispose();
+            _stormRainVertexBuffer = null;
+            _stormRainIndexBuffer = null;
+            _stormRainCount = 0;
+            if (_stormStrikeCells == null) return;
+
+            var vertices = new System.Collections.Generic.List<CloudPuffVertex>();
+            for (int m = 0; m < _stormStrikeCells.Length; m++)
+            {
+                //A hash of the cell's own index, so the field's random stream is not touched
+                uint h = (uint)m * 0x9E3779B1u;
+                h ^= h >> 15;
+                h *= 0x85EBCA6Bu;
+                h ^= h >> 13;
+                float roll = (h & 0xFFFF) / 65535f;
+                if (roll > RAIN_SHARE) continue;
+
+                Vector2 at = _stormStrikeCells[m];
+                Vector3 body = _stormCellBodies[m];   //(base y, radius, height)
+                var top = new Vector3(at.X, body.X + body.Y * 0.15f, at.Y);
+                var middle = new Vector3(at.X, body.X + body.Z * 0.45f, at.Y);
+                float halfWidth = body.Y * RAIN_WIDTH;
+                float seed = roll / RAIN_SHARE;
+                vertices.Add(new CloudPuffVertex(top, new Vector4(-1f, 0f, halfWidth, seed), middle));
+                vertices.Add(new CloudPuffVertex(top, new Vector4(1f, 0f, halfWidth, seed), middle));
+                vertices.Add(new CloudPuffVertex(top, new Vector4(-1f, 1f, halfWidth, seed), middle));
+                vertices.Add(new CloudPuffVertex(top, new Vector4(1f, 1f, halfWidth, seed), middle));
+                _stormRainCount++;
+            }
+            if (_stormRainCount == 0) return;
+
+            _stormRainVertexBuffer = new VertexBuffer(_graphicsDevice, CloudPuffVertex.Declaration, vertices.Count, BufferUsage.WriteOnly);
+            _stormRainVertexBuffer.SetData(vertices.ToArray());
+            _stormRainIndexBuffer = Services.BuildQuadIndexBuffer(_stormRainCount);
         }
 
         private static float Lerp(float a, float b, float t) => a + (b - a) * t;
@@ -761,6 +816,16 @@ namespace Prazsky.Core.Render
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
+            //The rain first (#953), so the cells' bases stand over the curtains' tops
+            if (_stormRainCount > 0)
+            {
+                _graphicsDevice.SetVertexBuffer(_stormRainVertexBuffer);
+                _graphicsDevice.Indices = _stormRainIndexBuffer;
+                _stormEffect.CurrentTechnique = _rainTechnique;
+                _stormEffect.CurrentTechnique.Passes[0].Apply();
+                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _stormRainCount * 2);
+            }
+
             _graphicsDevice.SetVertexBuffer(_stormCloudVertexBuffer);
             _graphicsDevice.Indices = _stormCloudIndexBuffer;
             _stormEffect.CurrentTechnique = _stormEffect.Techniques["StormClouds"];
@@ -849,6 +914,8 @@ namespace Prazsky.Core.Render
             _stormCloudIndexBuffer?.Dispose();
             _stormBoltVertexBuffer?.Dispose();
             _stormBoltIndexBuffer?.Dispose();
+            _stormRainVertexBuffer?.Dispose();
+            _stormRainIndexBuffer?.Dispose();
         }
     }
 }
