@@ -1077,11 +1077,12 @@ namespace BS3D.Screens
         private bool _welcomeTourRequested;
 
         /// <summary>
-        /// True while either camera takeover holds the frame — the drop cinematic or the chapter's
-        /// establishing shot — which is everywhere the gun must not answer and a skip button means "let go of
-        /// it". At most one is ever engaged at once: the intro blocks the very shot the drop cinematic needs
-        /// to begin, and <see cref="BuildLevel"/> resets the drop cinematic before a new level's own intro
-        /// could ever start. Asking both costs nothing and needs no third flag to say which one is live.
+        /// True while any camera takeover holds the frame — the drop cinematic, the chapter's establishing shot, the line's
+        /// loss or the unused balls' volley (#881) — which is everywhere the gun must not answer and a skip button means "let
+        /// go of it". At most one is ever engaged at once: the intro blocks the very shot the drop cinematic needs to begin,
+        /// <see cref="BuildLevel"/> resets every one before a new level's own intro could start, the loss and the volley belong
+        /// to two different endings, and the volley begins only once the drop cinematic has let go. Asking them all costs
+        /// nothing and needs no further flag to say which one is live.
         /// </summary>
         private bool CameraTakeoverEngaged => _cinematic.Engaged || _chapterIntro.Engaged || _lineLoss.Engaged || _spareVolley.Engaged;
 

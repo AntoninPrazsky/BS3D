@@ -24,14 +24,18 @@ namespace BS3D.Effects
     /// </summary>
     internal sealed class SpareVolley
     {
-        //The rhythm: a few balls at a steady cadence, a whole budget inside MAX_SECONDS (the longest budget, 68, at the floor
-        //is still two frames a ball at 75 Hz)
-        internal const float MAX_INTERVAL = 0.11f, MIN_INTERVAL = 0.03f;
+        //The rhythm: a few balls at a steady cadence, a whole budget inside MAX_SECONDS (the longest budget, 90, at the floor;
+        //a frame that owes several spreads them along their flight, GameplayScreen.StepSpareVolley)
+        internal const float MAX_INTERVAL = 0.11f, MIN_INTERVAL = 0.025f;
         internal const float MAX_SECONDS = 2.2f;
 
         //The lens arriving before the first shot, and the last balls in the air after the last one before it goes back
         internal const float LEAD_IN = 0.45f;
         internal const float TAIL = 0.55f;
+
+        //A skip is refused this long after the volley begins, as the drop cinematic's is: the click or Space that was meant as
+        //one more shot as the field emptied would otherwise skip it before a ball left
+        internal const float SKIP_LOCKOUT = 0.3f;
 
         //Where the lens stands, from the gun's pivot: to its side, behind it and above it, in world units; how far along the
         //barrel it looks and how far under that line (the barrel climbs to the cluster, and a lens looking along it framed the
@@ -49,8 +53,9 @@ namespace BS3D.Effects
         public int Balls { get; private set; }
         public int Bonus { get; private set; }
 
-        /// <summary>How many have left the barrel, and the count they have made.</summary>
+        /// <summary>How many have been counted, and how many of them really left the barrel (a skip counts the rest unfired).</summary>
         public int Fired { get; private set; }
+        public int Launched { get; private set; }
         public int Counted => CountAt(Fired, Balls, Bonus);
 
         /// <summary>Whether the lens is held or still on its way back.</summary>
@@ -90,7 +95,7 @@ namespace BS3D.Effects
         {
             Balls = Math.Max(balls, 0);
             Bonus = Math.Max(bonus, 0);
-            Fired = 0;
+            Fired = Launched = 0;
             _running = Balls > 0;
             _skipped = false;
             _elapsed = 0f;
@@ -128,7 +133,7 @@ namespace BS3D.Effects
                     float interval = Interval(Balls);
                     int shouldHave = _elapsed < LEAD_IN ? 0 : Math.Min(Balls, 1 + (int)((_elapsed - LEAD_IN) / interval));
                     due = shouldHave - Fired;
-                    Fired = shouldHave;
+                    Fired = Launched = shouldHave;
                 }
                 if (_elapsed >= Duration(Balls)) _running = false;
 
@@ -149,7 +154,7 @@ namespace BS3D.Effects
         /// <summary>The rest counted at once and no more fired: the same figure, sooner. False when there is nothing to skip.</summary>
         public bool TrySkip()
         {
-            if (!_running || _skipped) return false;
+            if (!_running || _skipped || _elapsed < SKIP_LOCKOUT) return false;
             _skipped = true;
             _running = false;
             Fired = Balls;
@@ -163,8 +168,11 @@ namespace BS3D.Effects
             _skipped = false;
             _blend = 0f;
             _elapsed = 0f;
-            Fired = Balls = Bonus = 0;
+            Fired = Launched = Balls = Bonus = 0;
         }
+
+        /// <summary>The time between two shots of this volley.</summary>
+        public float CurrentInterval => Interval(Balls);
 
         public string Describe() => string.Create(CultureInfo.InvariantCulture,
             $"{Balls} balls worth {Bonus} at {Interval(Balls):0.000} s, {Duration(Balls):0.00} s in all");
