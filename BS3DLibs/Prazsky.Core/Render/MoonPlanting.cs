@@ -51,6 +51,36 @@ namespace Prazsky.Core.Render
         private const int LANDMARKS = 110;
         private const float LANDMARK_NEAREST = 120f;
 
+        //=== THE LANDING (#746). The owner: "the tracks of the lunar rover ... would be a good easter egg if you could see the
+        //ruts. Maybe a white flag could wave somewhere in the distance :)". The rover came in off the eastern highlands, drove
+        //past the flag on the plain beyond the arena (where the front end, the chapter intro and the drop look) and went off
+        //to the south-west; a second flag stands high on the belt's slope behind the cluster, in the play view's
+        //own direction (the gun starts on +Z and looks across the arena to -Z), the one place the play camera sees ground:
+        //the deck hides the plain to some three hundred units (see LANDMARKS). Both flags white, as he asked; neither waves,
+        //since nothing can wave a flag where there is no air: like Apollo's, each is held out by a bar along its top and
+        //keeps the creases it was packed with.
+
+        /// <summary>The rover's traverse as designed (#746): its control points, world XZ.</summary>
+        public static readonly Vector2[] TRAVERSE =
+        {
+            new(235f, -150f), new(170f, -128f), new(112f, -112f), new(60f, -100f), new(18f, -96f), new(-10f, -100f),
+            new(-34f, -112f), new(-72f, -126f), new(-120f, -146f), new(-170f, -176f), new(-220f, -214f),
+        };
+
+        /// <summary>The traverse as the shader draws it (<see cref="RoverTracks.Resample"/>), and as the rocks keep off it.</summary>
+        public static readonly Vector2[] TRAVERSE_PATH = RoverTracks.Resample(TRAVERSE);
+
+        /// <summary>The flags (#746): where each stands, world XZ, and its size against a 2.4-unit pole.</summary>
+        public static readonly (Vector2 At, float Scale)[] FLAGS = { (new Vector2(-14f, -92f), 1f), (new Vector2(-40f, -292f), 2.2f) };
+
+        //How far the rocks keep from the ruts' middle line and from a flag's pole (times its size)
+        private const float TRAVERSE_CLEAR = RoverTracks.HALF_WIDTH + 0.6f, FLAG_CLEAR = 5f;
+
+        //The flag, at its size 1: the pole's height, the bar along the cloth's top, the cloth's width and drop, and the
+        //colours of the anodised pole and the cloth
+        private const float FLAG_POLE = 2.4f, FLAG_BAR_Y = 2.3f, FLAG_WIDTH = 1.2f, FLAG_DROP = 0.78f;
+        private static readonly Vector3 FLAG_METAL = new(0.50f, 0.50f, 0.49f), FLAG_CLOTH = new(0.52f, 0.52f, 0.50f);
+
         /// <param name="height">The Moon's ground AS DRAWN: <see cref="TerrainMirror.Moon"/> across the grid's own triangles
         /// (<see cref="TerrainMirror.OnGrid"/>). The exact field is not what the lens sees - the grid samples it every 3.34
         /// units and the middle octave's rims are sharper than that - and a rock seated on the exact height floated up to
@@ -107,6 +137,12 @@ namespace Prazsky.Core.Render
                 //the lowest point under a house-sized block is several units down the hill, and the block went into the
                 //slope with it - the landmark boulders were planted and not one of them showed. On a plane the mean IS the
                 //centre, and the block's own underside, half its size below its origin, takes up the downhill side.
+                //Off the rover's ruts and away from the flags (#746). After every roll this rock took, so the field round them is
+                //the field it always was, less the few that stood in the way
+                if (RoverTracks.Distance(TRAVERSE_PATH, x, z) < TRAVERSE_CLEAR + size * 0.5f) return;
+                foreach ((Vector2 at, float scale) in FLAGS)
+                    if (Vector2.Distance(at, new Vector2(x, z)) < FLAG_CLEAR * scale + size * 0.5f) return;
+
                 float around = (height(x + size, z) + height(x - size, z) + height(x, z + size) + height(x, z - size)) * 0.25f;
                 float ground = MathF.Min(height(x, z), around);
                 Matrix world = Matrix.CreateScale(size) * Matrix.CreateRotationX(tilt) * Matrix.CreateRotationY(yaw)
@@ -191,7 +227,72 @@ namespace Prazsky.Core.Render
                     seed: seed * 31 + 777, rock, rockDusted, regolith)).Buckets);
             }
 
+            //--- The flags (#746): each turned three-quarters to the arena, so the cloth shows its face and its creases
+            (IProceduralMesh metal, IProceduralMesh cloth) = (Own(FlagPole(device)), Own(FlagCloth(device)));
+            var flags = new List<ModelInstance>();
+            foreach ((Vector2 at, float scale) in FLAGS)
+            {
+                float yaw = MathF.Atan2(-at.X, -at.Y) + 0.6f;
+                flags.Add(new ModelInstance(Matrix.CreateScale(scale) * Matrix.CreateRotationY(yaw) * Matrix.CreateTranslation(at.X, height(at.X, at.Y), at.Y),
+                    new Vector4(0f, 0f, 0f, 0f)));
+            }
+            buckets.Add(Own(new ScatterBucket(device, metal, flags, FLAG_METAL, FLAG_METAL, dapple: 0f, bark: 0f, detailOnly: false)));
+            buckets.Add(Own(new ScatterBucket(device, cloth, flags, FLAG_CLOTH, FLAG_CLOTH, dapple: 0f, bark: 0f, detailOnly: false)));
+
             Buckets = buckets.ToArray();
+        }
+
+        /// <summary>
+        /// A flag's pole and the bar along its cloth's top (#746), each a capped tube, the pole driven a little into the ground.
+        /// </summary>
+        internal static UploadedMesh FlagPole(GraphicsDevice device)
+        {
+            var v = new List<VertexPositionNormalTexture>();
+            var idx = new List<short>();
+            TubeGeometry.AddSweep(v, idx, 8, new[] { new Vector3(0f, -0.4f, 0f), new Vector3(0f, FLAG_POLE, 0f) },
+                new[] { 0.026f, 0.022f }, capStart: true, capEnd: true);
+            TubeGeometry.AddSweep(v, idx, 6, new[] { new Vector3(0f, FLAG_BAR_Y, 0f), new Vector3(FLAG_WIDTH + 0.05f, FLAG_BAR_Y, 0f) },
+                new[] { 0.013f, 0.013f }, capStart: true, capEnd: true);
+            return new UploadedMesh(device, v, idx, new BoundingSphere(new Vector3(FLAG_WIDTH * 0.5f, FLAG_POLE * 0.5f, 0f), FLAG_POLE * 0.75f));
+        }
+
+        /// <summary>
+        /// A flag's cloth (#746): hung from the bar and the pole, in the creases it was folded with - two broad folds across
+        /// and a smaller wrinkle down - and frozen in them. A sheet emitted once for each face, each face wound clockwise seen
+        /// from its own side (CLAUDE.md's rule) and lit by its own normal.
+        /// </summary>
+        internal static UploadedMesh FlagCloth(GraphicsDevice device)
+        {
+            const int across = 14, down = 7;
+            Vector3 At(float u, float w) => new(0.03f + u * FLAG_WIDTH,
+                FLAG_BAR_Y - 0.015f - w * FLAG_DROP,
+                0.11f * MathF.Sin(u * MathHelper.Pi * 2.4f + 0.4f) * (0.25f + 0.75f * u) + 0.03f * MathF.Sin(w * 6.5f + u * 4f));
+
+            var v = new List<VertexPositionNormalTexture>();
+            var idx = new List<short>();
+            foreach (float side in new[] { 1f, -1f })
+            {
+                short first = (short)v.Count;
+                for (int j = 0; j <= down; j++)
+                    for (int i = 0; i <= across; i++)
+                    {
+                        float u = i / (float)across, w = j / (float)down;
+                        Vector3 p = At(u, w);
+                        Vector3 normal = Vector3.Normalize(Vector3.Cross(At(u + 0.01f, w) - p, At(u, w + 0.01f) - p)) * side;
+                        v.Add(new VertexPositionNormalTexture(p, normal, new Vector2(u, w)));
+                    }
+
+                for (int j = 0; j < down; j++)
+                    for (int i = 0; i < across; i++)
+                    {
+                        short a = (short)(first + j * (across + 1) + i), b = (short)(a + 1), c = (short)(a + across + 1), d = (short)(c + 1);
+                        //(b - a) x (c - a) is the sheet's own normal: the face it points out of takes the other order
+                        if (side > 0f) { idx.Add(a); idx.Add(c); idx.Add(b); idx.Add(b); idx.Add(c); idx.Add(d); }
+                        else { idx.Add(a); idx.Add(b); idx.Add(c); idx.Add(b); idx.Add(d); idx.Add(c); }
+                    }
+            }
+
+            return new UploadedMesh(device, v, idx, new BoundingSphere(new Vector3(FLAG_WIDTH * 0.5f, FLAG_BAR_Y - FLAG_DROP * 0.5f, 0f), FLAG_WIDTH * 0.75f));
         }
 
         private T Own<T>(T item) where T : IDisposable

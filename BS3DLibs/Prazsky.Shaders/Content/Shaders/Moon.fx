@@ -200,6 +200,9 @@ float NightAmbient;         //what the unlit side keeps, so it stays a sphere an
 //weakest exactly where it mattered most, and no amount of hashing could have hidden that.
 //
 //At 0.21 the worst case leaves 33 % of the cell and the median crater 55 % (the squared roll below).
+//How much darker the regolith the rover's wheels turned over is (#746)
+static const float TRACK_DARKEN = 0.22;
+
 static const float CRATER_MIN_RADIUS = 0.12;
 static const float CRATER_MAX_RADIUS = 0.21;
 
@@ -310,6 +313,7 @@ float CraterLayer(float2 p, float seedOffset, float chance, float2 sunDir, float
 
 #include "Craters.fxh"
 #include "BankCover.fxh"
+#include "RoverTracks.fxh"
 
 //The crater field: three octaves, so small craters sit inside and on top of larger ones the way the real
 //surface is layered. Amplitudes fall roughly with the radius (a crater's depth scales with its size), and
@@ -494,8 +498,13 @@ float4 MoonGroundAt(float3 worldPosition, float3 meshNormal, bool onBank)
 
     float relief = Fbm2BandLimited(worldPosition.xz * 1.7, 3, footprint * 1.7);
 
+    //The rover's tracks (#746, RoverTracks.fxh): pressed into the regolith, and the ground they turned over darker
+    TrackPrint track = RoverTrack(worldPosition.xz, footprint);
+    track.Height *= 1.0 - buried;
+    track.Disturbed *= 1.0 - buried;
+
     float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition,
-        smallCraters * (MicroReliefStrength * 3.0) + relief * MicroReliefStrength);
+        smallCraters * (MicroReliefStrength * 3.0) + relief * MicroReliefStrength + track.Height);
 
     ejecta = max(ejecta, smallEjecta * 0.5 * (1.0 - buried));
 
@@ -512,6 +521,10 @@ float4 MoonGroundAt(float3 worldPosition, float3 meshNormal, bool onBank)
     //craters read young
     regolith = lerp(regolith, RegolithColorPale * 1.18, saturate(ejecta * EjectaBrightness));
     regolith = lerp(regolith, RegolithColorPale, 0.35 * buried);
+
+    //Turned-over regolith is darker than the undisturbed surface round it: its fine fairy-castle crust is crushed, which
+    //is why the rover's tracks and every bootprint read dark in the Apollo photographs (#746)
+    regolith *= 1.0 - TRACK_DARKEN * track.Disturbed;
 
     //The grain - CASCADED, not one lattice, which is #208's finding: a single arm's-length grain faded out
     //before its cells reached pixel size (the desert's rule, kept per octave below) left everything past a
