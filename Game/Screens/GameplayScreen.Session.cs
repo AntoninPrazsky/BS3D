@@ -182,6 +182,7 @@ namespace BS3D.Screens
             //kept for Continue, a New Game, the game closing. After an ending nothing is open, and this counts nothing.
             AbandonAttempt();
             _demo.Stop();
+            _introWhole = false;
 
             //There is no level any more, so there is no level theme, and no celebration either. BuildLevel
             //starts the music again; a return to the main menu leaves both stopped. The display outlasts the
