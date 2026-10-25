@@ -8,7 +8,7 @@
 //island, and that is the whole of its shape: flat dry sand at the island's foot slopes down through the
 //waterline (where the profile crosses the water level BY CONSTRUCTION — two hermite ramps meeting at
 //the coast radius, so the waterline and the coast are the same line and cannot drift), carries on to
-//the lagoon bed hidden under opaque water, and rises past its own wiggling radius into the far shore
+//the lagoon bed (seen through the shallows since #968, lost in the lagoon's colour past them), and rises past its own wiggling radius into the far shore
 //ridge. The waterline is a mean radius wobbled by sine octaves of BEARING — integer multipliers, so
 //the wobble is continuous round the full circle and the coast breaks into bays and headlands instead
 //of reading as the circle it is.
@@ -66,26 +66,7 @@ float2 OriginXZ;
 //draws no island and leaves it 0.
 float IslandHoleRadius;
 
-//The land's profile (see the header): the dry sand's level and undulation, the waterline's mean radius
-//and wiggle, the beach's rise and run either side of it, the lagoon bed, and the far shore ridge's
-//radius, wiggle, width, height, channel and hills.
-float TropicalLevelY;
-float ClearingRelief;
-float ShoreRadius;
-float CoastNoise;
-float BeachRise;
-float BeachRun;
-float SeabedY;
-float RingRadius;
-float RingNoise;
-float RingWidth;
-float HillHeight;
-float ChannelBearing;
-float ChannelSharpness;
-
-//The lagoon's mean level. The terrain shader only reads it to know where the waterline is (the wet
-//sand band, and the sand fringe on the far shore) — the water itself is Sea.fx.
-float WaterLevelY;
+#include "TropicalTerrain.fxh"
 
 //Reflectances, all LINEAR radiance. The sand runs between warm white-gold and the paler shell debris
 //the surf bands; the ridge's jungle between a deep green and a drier, sun-bleached one.
@@ -146,79 +127,28 @@ static const float FOAM_STRENGTH = 0.55;   //how far the sand goes towards white
 static const float FOAM_LACE_SCALE = 0.75; //the lace's frequency, in cycles per world unit
 static const float FOAM_DRIFT = 0.10;      //how fast the lace creeps along the shore
 
+//THE SAND UNDER THE LAGOON (#968). Sea.fx's shallows now let the bed show, and the light that reaches it has crossed
+//the water twice: the red goes first, so white sand under a metre of water is the pale turquoise every reference
+//(968-zimage, 968-klein) draws, and deeper it is gone into the lagoon's own colour. That tint is a multiplication,
+//which a premultiplied blend over the sand cannot do, so it is done here, per channel, over the depth to the water
+//level and back (BED_EXTINCTION: per world unit of depth). And the sun through a moving surface draws CAUSTICS on the
+//bed: a network of bright lines where two drifting ridged noises meet, strongest a little under the surface, gone
+//with depth, faded with the pixel footprint like everything else here. Under the water only, behind a branch on
+//the depth, so the dry beach pays nothing.
+static const float3 BED_EXTINCTION = float3(0.95, 0.24, 0.20);
+//How much brighter the sand under the water is than the wet band in the air over it: the band's darkening (`wet`) is
+//the surf's, and a white bed under clear water is the brightest thing in every reference
+static const float BED_BRIGHT = 1.35;
+static const float BED_BRIGHT_RAMP = 0.4;
+static const float CAUSTIC_SCALE = 0.55;     //the network's cells per world unit, about two units across
+static const float CAUSTIC_SPEED = 0.16;     //how fast the two layers drift
+static const float CAUSTIC_STRENGTH = 0.9;   //against the sun's own light on the sand
+static const float CAUSTIC_DEPTH = 0.6;      //how fast they fade with depth, per world unit
+static const float CAUSTIC_MAX_DEPTH = 3.0;  //and the depth past which no pixel computes them
+
 //--- The land ------------------------------------------------------------------------------------------
 
-//The waterline's radius at a bearing: the mean wobbled by three sine octaves (integer multipliers of
-//the bearing, so the wobble comes back round the circle continuous). The weights sum to 1, so
-//CoastNoise is the full peak wiggle in world units.
-float CoastRadius(float b)
-{
-    return ShoreRadius + CoastNoise * (0.45 * sin(2.0 * b + 0.7)
-        + 0.35 * sin(3.0 * b + 1.3)
-        + 0.20 * sin(5.0 * b + 4.1));
-}
-
-//The far shore's own coastline, on its own octaves and phases so the two coasts share no lines.
-float ShoreRingRadius(float b)
-{
-    return RingRadius + RingNoise * (0.40 * sin(2.0 * b + 2.9)
-        + 0.34 * sin(3.0 * b + 0.6)
-        + 0.26 * sin(7.0 * b + 3.4));
-}
-
-//The one channel through the far ridge: a cosine bump of the bearing, sharp enough to read as a pass
-//rather than a dip, that takes the ridge's rise back out of the ground inside it. pow(max(0, cos))
-//is continuous and zero almost everywhere — no pole, no seam, and the open sea shows through to the
-//horizon in the gap.
-float ChannelMask(float b)
-{
-    return pow(max(0.0, cos(b - ChannelBearing)), ChannelSharpness);
-}
-
-//The land's height at a world point. Sines and hermite ramps only — TerrainMirror.Tropical on the CPU
-//mirrors this term for term to plant the scatter, and a gradient noise in here would plant palms in
-//the air the day the two drifted. Keep the two in one change.
-float TropicalHeight(float2 p)
-{
-    float r = length(p);
-    float b = atan2(p.y, p.x);
-
-    //The dry sand's gentle undulation — a beach is not a snooker table. Amplitudes are kept well under
-    //the sand's height above water, so no dip ever puddles below a waterline it is not at.
-    float gentle = ClearingRelief * 0.5 * (sin(p.x * 0.043 + p.y * 0.031)
-        + 0.6 * sin(-p.x * 0.052 + p.y * 0.046 + 2.1));
-
-    //The beach, as two hermite ramps meeting at the coast: the first takes the flat sand down THROUGH
-    //the water level exactly at the coast radius (the waterline is where the coast is, by construction
-    //rather than by tuning), the second carries the slope on to the bed. Past the second ramp the
-    //ground is under opaque water and nothing about it is ever seen.
-    float d = r - CoastRadius(b);
-
-    float toWaterline = smoothstep(-BeachRise, 0.0, d);
-    float toBed = smoothstep(0.0, BeachRun, d);
-
-    float h = lerp(TropicalLevelY + gentle, WaterLevelY, toWaterline);
-    h = lerp(h, SeabedY, toBed);
-
-    //The far shore ridge, rising out of the bed past its own wiggling coastline, scaled by rolling
-    //hills and pierced by the one channel. The hills are DOMAIN-WARPED sines — summed plane waves keep
-    //their planes however many terms they have, and the warp is what bends their wavefronts into
-    //ridges (the forest's own trick, and exact to mirror for the same reason everything else here is:
-    //a warp by a sine is still a sine).
-    float ring = smoothstep(0.0, RingWidth, r - ShoreRingRadius(b)) * (1.0 - ChannelMask(b));
-
-    float qx = p.x + 26.0 * sin(p.y * 0.011 + 2.0);
-    float qz = p.y + 26.0 * sin(p.x * 0.013 + 5.0);
-
-    float rolling = 0.40 * sin(qx * 0.020 + qz * 0.015)
-        + 0.27 * sin(-qx * 0.013 + qz * 0.024 + 1.5)
-        + 0.19 * sin(qx * 0.031 + qz * 0.026 + 3.0)
-        + 0.14 * sin(-qx * 0.056 + qz * 0.041 + 0.7);
-
-    h += ring * HillHeight * (0.55 + 0.45 * (0.5 + 0.5 * rolling));
-
-    return h;
-}
+//CoastRadius, ShoreRingRadius, ChannelMask and TropicalHeight are TropicalTerrain.fxh's (#968), with the land's uniforms.
 
 struct TropicalVertexInput
 {
@@ -393,6 +323,30 @@ float4 TropicalPS(TropicalVertexOutput input) : COLOR
     float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
 
     float3 color = albedo * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight);
+
+    //Under the lagoon (#968): see THE SAND UNDER THE LAGOON above
+    float underwater = WaterLevelY - here;
+    [branch]
+    if (underwater > 0.0)
+    {
+        //The caustics only where the lagoon's shallows show the bed (Sea.fx's ShoreClarity hides 99 % of it by
+        //CAUSTIC_MAX_DEPTH): the whole floor under the opaque lagoon is shaded too, since the land is drawn first
+        float seenCaustic = saturate(1.0 - footprint * CAUSTIC_SCALE * 4.0);
+        [branch]
+        if (underwater < CAUSTIC_MAX_DEPTH && seenCaustic > 0.0)
+        {
+            float2 cp = worldPosition.xz * CAUSTIC_SCALE;
+            float drift = TropicalTime * CAUSTIC_SPEED;
+            float lines = min(1.0 - abs(GradientNoise2(cp + float2(drift, 0.6 * drift))),
+                1.0 - abs(GradientNoise2(cp * 1.37 + float2(5.2, 1.3) - float2(0.4 * drift, drift))));
+            float caustic = pow(saturate(lines), 12.0) * seenCaustic * smoothstep(0.0, 0.25, underwater)
+                * exp(-underwater * CAUSTIC_DEPTH);
+            color += albedo * SunColor * (sunlight * saturate(SunDirection.y) * CAUSTIC_STRENGTH * caustic);
+        }
+
+        //Brightened over the first BED_BRIGHT_RAMP of depth, not at the waterline: a step there drew the old hard line again
+        color *= lerp(1.0, BED_BRIGHT, smoothstep(0.0, BED_BRIGHT_RAMP, underwater)) * exp(-2.0 * underwater * BED_EXTINCTION);
+    }
 
     //--- The air ---------------------------------------------------------------------------------------
     //The outback's two-stage fade, for the outback's reason: the mid-distance keeps the scene's own

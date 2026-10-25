@@ -113,9 +113,10 @@ namespace Prazsky.Core.Render
         /// <paramref name="holeRadius"/>. Leaves the blend state alpha and the rasterizer culling
         /// counter-clockwise, which is what the scene block expects after every terrain. <paramref name="beforeGrid"/>
         /// draws first, through the same effect with the frame's parameters and the far fade already pushed and the
-        /// grid's states current: the outback's formations (#967), which the grid stops on.
+        /// grid's states current: the outback's formations (#967), which the grid stops on. <paramref name="blend"/> is what the
+        /// grid is drawn with, opaque unless said: the tropical lagoon is premultiplied over the sand its shallows show (#968).
         /// </summary>
-        public void Draw(in SceneFrame frame, float holeRadius, Action beforeGrid = null)
+        public void Draw(in SceneFrame frame, float holeRadius, Action beforeGrid = null, BlendState blend = null)
         {
             float originX = MathF.Round(frame.Camera.Position.X / _cell) * _cell;
             float originZ = MathF.Round(frame.Camera.Position.Z / _cell) * _cell;
@@ -133,7 +134,7 @@ namespace Prazsky.Core.Render
 
             frame.ApplyClouds?.Invoke(Effect);
 
-            _graphicsDevice.BlendState = BlendState.Opaque;
+            _graphicsDevice.BlendState = blend ?? BlendState.Opaque;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
             _farField.Begin(Effect, frame, _extent);
