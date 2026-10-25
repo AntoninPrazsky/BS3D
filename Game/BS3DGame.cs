@@ -804,6 +804,9 @@ namespace BS3D
             //earlier run left in the outbox, off this thread
             StartNotes();
 
+            //The benchmark's results (#988), the same way: starting one is the consent, and what an earlier run left goes now
+            _benchmarkResults = OnlineBenchmarks.Start(_settings, UserData.PathTo(OnlineBenchmarks.FolderName));
+
             //The eleven rows that are only the player's answer are read through the file from here on (#583), with
             //"mute" held over the master as a flag and never stored — see EffectiveSettings
             _effective = new EffectiveSettings(_settings, launch.Mute);
@@ -2471,8 +2474,9 @@ namespace BS3D
             //And the play counts' last write of Stats.json, waited for a moment (#709)
             _playStats?.Dispose();
 
-            //And the note sender, the same way: a note in flight is in its outbox (#813)
+            //And the note sender, the same way: a note in flight is in its outbox (#813), and the benchmark's (#988)
             _notes?.Dispose();
+            _benchmarkResults?.Dispose();
 
             _pipeline?.Dispose();
             _spriteBatch?.Dispose();

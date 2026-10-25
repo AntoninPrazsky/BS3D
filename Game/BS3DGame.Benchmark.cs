@@ -1,3 +1,4 @@
+using BS3D.Online;
 using BS3D.Platform;
 using BS3D.Screens;
 using Microsoft.Xna.Framework.Graphics;
@@ -21,9 +22,13 @@ namespace BS3D
     public partial class BS3DGame
     {
         private BenchmarkPage _benchmarkPage;
+        private OnlineBenchmarks _benchmarkResults;
         private bool _benchmarking;
         private SceneKind _sceneBeforeBenchmark;
         private byte _domeBeforeBenchmark;
+
+        /// <summary>The worker that sends a finished benchmark to the author (#988), or null before <c>LoadContent</c>.</summary>
+        internal OnlineBenchmarks BenchmarkResults => _benchmarkResults;
 
         /// <summary>Whether a benchmark is running: the limiter lets go and the quality probe waits.</summary>
         internal bool Benchmarking => _benchmarking;
@@ -210,8 +215,11 @@ namespace BS3D
                 ["cpu"] = CpuName(),
                 ["cpuThreads"] = Environment.ProcessorCount,
                 ["gpu"] = adapter.Description,
+                ["memoryGb"] = Math.Round(GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / (double)(1L << 30), 1),
                 ["backBuffer"] = string.Create(CultureInfo.InvariantCulture,
                     $"{GraphicsDevice.PresentationParameters.BackBufferWidth}x{GraphicsDevice.PresentationParameters.BackBufferHeight}"),
+                //What the 3D was drawn at (the Resolution row, #801): the back buffer's own size unless a lower one is chosen
+                ["renderSize"] = string.Create(CultureInfo.InvariantCulture, $"{_renderSize.X}x{_renderSize.Y}"),
                 ["refreshHz"] = _displayRefreshHz,
                 ["fullscreen"] = _graphics.IsFullScreen,
                 ["quality"] = _quality.ToString(),
@@ -224,6 +232,10 @@ namespace BS3D
                 if (adapter.GetType().GetProperty(id)?.GetValue(adapter) is int value)
                     system["gpu" + id] = value.ToString("X4", CultureInfo.InvariantCulture);
 
+            //The display driver and the card's own memory where Windows says them, and the board's model on a Pi
+            AddDriver(system, adapter.Description);
+            if (MachineModel() is { Length: > 0 } model) system["machine"] = model;
+
             //The display's scale (#825): a benchmark from a scaled laptop says whether the back buffer is the panel's own
             if (DisplayRefresh.TryGetScale(Window.Handle, out float scale, out bool aware))
             {
@@ -231,6 +243,65 @@ namespace BS3D
                 system["dpiAware"] = aware;
             }
             return system;
+        }
+
+        /// <summary>
+        /// The display driver's version and date and the card's memory, read on Windows from the display adapter's own key in
+        /// the registry (the one whose <c>DriverDesc</c> is the adapter's name): what a result from an unknown machine is read
+        /// against, since a driver is the commonest cause of a wrong picture. The memory is <c>HardwareInformation.qwMemorySize</c>,
+        /// the card's whole memory, which WMI's <c>AdapterRAM</c> cuts at 4 GB. Nothing when the key cannot be read.
+        /// </summary>
+        private static void AddDriver(JsonObject system, string adapter)
+        {
+            if (!OperatingSystem.IsWindows() || string.IsNullOrEmpty(adapter)) return;
+            try
+            {
+                using var display = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+                    @"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}");
+                if (display == null) return;
+                foreach (string name in display.GetSubKeyNames())
+                {
+                    if (name.Length != 4 || !char.IsAsciiDigit(name[0])) continue;
+                    try
+                    {
+                        using var card = display.OpenSubKey(name);
+                        if (!string.Equals((card?.GetValue("DriverDesc") as string)?.Trim(), adapter.Trim(), StringComparison.OrdinalIgnoreCase)) continue;
+                        if (card.GetValue("DriverVersion") is string version) system["driver"] = version;
+                        if (card.GetValue("DriverDate") is string date) system["driverDate"] = date;
+                        long memory = card.GetValue("HardwareInformation.qwMemorySize") switch
+                        {
+                            long q => q,
+                            byte[] b when b.Length >= 8 => BitConverter.ToInt64(b, 0),
+                            byte[] b when b.Length >= 4 => BitConverter.ToUInt32(b, 0),
+                            int d => (uint)d,
+                            _ => 0,
+                        };
+                        if (memory > 0) system["gpuMemoryGb"] = Math.Round(memory / (double)(1L << 30), 1);
+                        return;
+                    }
+                    catch (System.Security.SecurityException)
+                    {
+                        //A key this account may not read (the class's Properties): not the adapter's
+                    }
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+            {
+            }
+        }
+
+        /// <summary>The board's own model on a single-board computer (a Raspberry Pi's device tree), else empty.</summary>
+        private static string MachineModel()
+        {
+            try
+            {
+                const string path = "/proc/device-tree/model";
+                return File.Exists(path) ? File.ReadAllText(path).TrimEnd('\0', '\n', ' ') : string.Empty;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                return string.Empty;
+            }
         }
 
         /// <summary>The CPU's own name where the platform says it (the registry on Windows, /proc/cpuinfo on Linux), else empty.</summary>

@@ -1,3 +1,4 @@
+using BS3D.Online;
 using FontStashSharp;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -23,8 +24,10 @@ namespace BS3D.Screens
     /// refresh (<see cref="BS3DGame.BeginBenchmark"/>), each tour on a fixed seed so two runs of one machine fly one path, and
     /// measures every frame. A segment's first <see cref="SETTLE_SECONDS"/> are the scene's first-use cost (shaders, a hall
     /// built off the frame) and are reported apart. The result is shown here, written to the log as <c>[bench]</c> lines and
-    /// to <c>Benchmark.json</c> in the player's profile with the machine it ran on (<see cref="BS3DGame.BenchmarkSystem"/>);
-    /// nothing is changed and nothing is sent. The skip key stops it. After the tours the CPU's physics is timed on its own
+    /// to <c>Benchmark.json</c> in the player's profile with the machine it ran on (<see cref="BS3DGame.BenchmarkSystem"/>), and
+    /// sent to the author (<see cref="OnlineBenchmarks"/>, the owner's ask of 2026-10-25), which the page says before it starts:
+    /// the Start press is the consent, as a note's Send is. Nothing is changed unasked. The skip key stops it, and a stopped run
+    /// is neither saved nor sent. After the tours the CPU's physics is timed on its own
     /// (<see cref="PhysicsBench"/>), the largest shipped cluster stepped off screen. While it runs, a panel in the corner shows
     /// the part being measured, the frame's time and the last frames against the display's budget (<see cref="FrameTrace"/>).
     /// </summary>
@@ -72,6 +75,12 @@ namespace BS3D.Screens
         private JsonObject _measuredSystem;
         private bool _complete;
 
+        //The finished result's way to the author: its id once handed to the sender, and how it fared once the sender knows
+        //(null while it is on its way); the label that says so is changed in place, so the arrival moves no focus
+        private Guid _resultId;
+        private BenchmarkDelivery? _delivery;
+        private Label _deliveryLabel;
+
         //The live panel beside the flight: the part being measured, a readout of its time (the mean of the last
         //READOUT_SECONDS) and the last frames against the budget, so a run is worth watching and a hitch is seen where it
         //happens. Its strings are made once a part and the readout's in reused builders, so a frame allocates nothing
@@ -116,6 +125,7 @@ namespace BS3D.Screens
                     ProseMeasure));
                 if (!Game.SceneryShown && !BS3DGame.PotatoPath)
                     column.Widgets.Add(Paragraph("The scenery is off in your settings: the benchmark shows it, so that it has something to measure.", ProseMeasure));
+                column.Widgets.Add(Paragraph(SENT_NOTE, ProseMeasure));
             }
 
             _firstEntry = MenuButton(_phase == Phase.Done ? "Run again" : "Start", Start);
@@ -123,6 +133,20 @@ namespace BS3D.Screens
             column.Widgets.Add(BackButton());
             return ScreenRoot(Plate(column));
         }
+
+        /// <summary>What the page says before a run about what leaves the machine: the Start press is the consent to it.</summary>
+        internal const string SENT_NOTE = "When it finishes, the result and your computer's specification (graphics card, processor, memory, "
+            + "system and screen) go to the author, to see how the game runs on computers like yours. Nothing that names you goes with them.";
+
+        //How the result fared, in the page's words
+        private string DeliveryText() => _delivery switch
+        {
+            null => "Sending the result to the author…",
+            BenchmarkDelivery.Sent => "Sent to the author with your computer's specification. Thank you!",
+            BenchmarkDelivery.Kept => "Not sent yet: the author's server did not answer. It goes the next time the game starts.",
+            BenchmarkDelivery.Refused => "The author's server did not take the result.",
+            _ => "Not sent: this build of the game sends results nowhere.",
+        };
 
         private void AddResults(VerticalStackPanel column)
         {
@@ -182,10 +206,17 @@ namespace BS3D.Screens
             if (_complete && recommended != tier && recommended != Game.Quality && Game.CanOfferQuality)
                 column.Widgets.Add(MenuButton(recommended > tier ? $"Try {recommended}" : $"Use {recommended}", () => TakeOffer(recommended)));
 
+            _deliveryLabel = null;
+            if (_complete && _resultId != Guid.Empty)
+            {
+                _deliveryLabel = Paragraph(DeliveryText(), ProseMeasure);
+                column.Widgets.Add(_deliveryLabel);
+            }
+
             JsonObject system = _measuredSystem ?? Game.BenchmarkSystem();
             column.Widgets.Add(new Label
             {
-                Text = $"{system["gpu"]} · {system["backBuffer"]} · {system["quality"]} · {(_complete ? "saved as Benchmark.json" : "not saved")}",
+                Text = $"{system["gpu"]} · {system["backBuffer"]} · {system["quality"]} · {(_complete ? "saved as Benchmark.json" : "not saved or sent")}",
                 Font = FontSmall,
                 TextColor = BS3DGame.MENU_TEXT_DIM,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -247,6 +278,8 @@ namespace BS3D.Screens
             _measured = 0;
             _physicsMeasured = false;
             _complete = false;
+            _resultId = Guid.Empty;
+            _delivery = null;
             Game.BeginBenchmark();
             BeginSegment();
         }
@@ -271,6 +304,7 @@ namespace BS3D.Screens
         public override void Update(GameTime gameTime)
         {
             base.Update(gameTime);
+            TakeDelivery();
             BackdropScreen backdrop = Manager?.Find<BackdropScreen>();
             _skipHint.UpdateSkipHint((float)gameTime.ElapsedGameTime.TotalSeconds, Running, chapterIntro: true,
                 Running ? _phaseSeconds : 0f, 0f);
@@ -422,18 +456,35 @@ namespace BS3D.Screens
                     ["warmupMedianMs"] = Math.Round(_physicsWarmup.Median, 4),
                 };
             QualityLevel recommended = BenchmarkVerdict.Recommend(Game.Quality, _results, _measured, out _);
-            Console.WriteLine($"[bench] recommends {recommended} (ran at {Game.Quality}){(complete ? "" : $", stopped after {_measured} of {SEGMENTS.Length} scenes: not saved")}");
-            if (complete) Game.SaveBenchmark(new JsonObject
+            Console.WriteLine($"[bench] recommends {recommended} (ran at {Game.Quality}){(complete ? "" : $", stopped after {_measured} of {SEGMENTS.Length} scenes: not saved or sent")}");
+            if (complete)
             {
-                ["when"] = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture),
-                ["budgetMs"] = Math.Round(Budget, 3),
-                ["recommended"] = recommended.ToString(),
-                ["system"] = system,
-                ["segments"] = segments,
-                ["physics"] = physics,
-            });
+                JsonObject result = new()
+                {
+                    ["when"] = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture),
+                    ["budgetMs"] = Math.Round(Budget, 3),
+                    ["recommended"] = recommended.ToString(),
+                    ["system"] = system,
+                    ["segments"] = segments,
+                    ["physics"] = physics,
+                };
+                Game.SaveBenchmark(result);
+                //To the author, as the page said before the run (the consent): written to the sender's outbox first, so a
+                //result the server does not answer for goes at the next start
+                _resultId = Game.BenchmarkResults?.Send(result) ?? Guid.Empty;
+                _delivery = null;
+            }
             Game.EndBenchmark();
             Rebuild();
+        }
+
+        //The sender's word on the finished result, said in place on the page whenever it arrives (also on a later visit)
+        private void TakeDelivery()
+        {
+            if (_resultId == Guid.Empty || _delivery != null || Game.BenchmarkResults is not { } results) return;
+            if (!results.TryTakeOutcome(out BenchmarkOutcome outcome) || outcome.BenchmarkId != _resultId) return;
+            _delivery = outcome.Delivery;
+            if (_deliveryLabel != null) _deliveryLabel.Text = DeliveryText();
         }
 
         //The page's content changed while it stands: built again and put up, the focus on its first entry (Run again)

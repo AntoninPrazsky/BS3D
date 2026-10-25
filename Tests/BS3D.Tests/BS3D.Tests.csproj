@@ -115,6 +115,7 @@
     <!--The online client (#709's play counts): the real OnlineScores against a loopback stand-in, its identity, its wire
         types and the build's name it reads. Plain .NET and HttpClient, no device.-->
     <Compile Include="..\..\Game\Online\OnlineScores.cs" />
+    <Compile Include="..\..\Game\Online\OnlineBenchmarks.cs" />
     <Compile Include="..\..\Game\Online\OnlineIdentity.cs" />
     <Compile Include="..\..\Game\Online\ScoreSubmission.cs" />
     <!--The play counts' seam (#709): what a run kept off the boards hands the online client (#876). It takes the client as a
