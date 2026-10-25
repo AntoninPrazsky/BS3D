@@ -72,7 +72,7 @@ namespace BS3D.Effects
                 //#559: the sea, the desert, the outback and the mountains, off their own terrain (TerrainMirror)
                 //and, for the sea, the dome's sun, which its swell shot heads into.
                 SceneKind.Sea => SeaIntroShots.Build(renderer, context.SunDirection, fieldOfView, random),
-                SceneKind.Desert => DesertIntroShots.Build(renderer, fieldOfView, random),
+                SceneKind.Desert => DesertIntroShots.Build(renderer, context.Clock, fieldOfView, random),
                 SceneKind.Outback => OutbackIntroShots.Build(renderer, fieldOfView, random),
                 SceneKind.Mountain => MountainIntroShots.Build(renderer, fieldOfView, random),
                 SceneKind.Meadow => MeadowIntroShots.Build(

@@ -158,6 +158,12 @@
 /processorParam:DebugMode=Auto
 /build:Shaders/CloudVolume.fx
 
+#begin Shaders/Critter.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Critter.fx
+
 #begin Shaders/Birds.fx
 /importer:EffectImporter
 /processor:EffectProcessor

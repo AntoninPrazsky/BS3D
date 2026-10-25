@@ -1369,6 +1369,12 @@ namespace Prazsky.Core.Render
         public void CueVolcanoBurst(float now, float onset) => _volcano.Lava.CueBurst(now, onset);
 
         /// <summary>
+        /// Cues the desert's featured scorpion (#966) to come up out of the sand at <paramref name="at"/> (world XZ) at
+        /// <paramref name="onset"/> on the scene's clock, walking along <paramref name="yaw"/>: the chapter tour's close shot.
+        /// </summary>
+        public void CueDesertCritter(Vector2 at, float yaw, float onset) => _desert.Critters.Feature(at, yaw, onset);
+
+        /// <summary>
         /// The event this scene has staged on its own clock at <paramref name="time"/>, described as the
         /// <b>sound</b> needs it rather than as the light does (#219's thunder, #223's eruption boom): which
         /// event it is, when its LIGHT began, where it happened and how big it is. False for the fifteen

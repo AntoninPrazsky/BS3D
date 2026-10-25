@@ -24,6 +24,9 @@ namespace Prazsky.Core.Render
         //The Giza group far out over the dunes (#965)
         private readonly Pyramids _pyramids;
 
+        //The beetles and scorpions coming up out of the sand and digging back in (#966)
+        private readonly DesertCritters _critters;
+
         //The dunes are real geometry: a camera-centred grid of this many vertices per side over this world
         //extent, displaced in the shader and snapped to a cell so they do not swim. Finer than the old dune
         //grid (200) so the crest silhouettes read smooth; the shading normal is per-pixel, so no grid shows.
@@ -43,10 +46,18 @@ namespace Prazsky.Core.Render
             ApplyDesertParameters();
 
             _pyramids = new Pyramids(services.GraphicsDevice, content, _desertConfig);
+            _critters = new DesertCritters(services.GraphicsDevice, content, _desertConfig);
         }
 
+        /// <summary>The creatures (#966), for the chapter tour's shot of one coming up out of the sand.</summary>
+        internal DesertCritters Critters => _critters;
+
         /// <inheritdoc/>
-        public override void Dispose() => _pyramids?.Dispose();
+        public override void Dispose()
+        {
+            _pyramids?.Dispose();
+            _critters?.Dispose();
+        }
 
         /// <inheritdoc/>
         public override SceneKind Kind => SceneKind.Desert;
@@ -88,6 +99,7 @@ namespace Prazsky.Core.Render
         {
             _desertPass.Draw(frame, Services.TerrainHoleRadius);
             _pyramids.Draw(frame);
+            _critters.Draw(frame);
             Services.Birds.Draw(frame, _desertConfig.Birds);
         }
 
