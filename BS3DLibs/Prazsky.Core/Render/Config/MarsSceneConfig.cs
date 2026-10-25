@@ -234,9 +234,10 @@ namespace Prazsky.Core.Render
     }
 
     /// <summary>
-    /// Phobos and Deimos, two small analytic discs drawn over the dome in <c>Mars.fx</c>'s own
+    /// Phobos and Deimos, two small analytic bodies drawn over the dome in <c>Mars.fx</c>'s own
     /// <c>MarsMoons</c> pass — the Moon scene's Earth, minus the continents, the weather and the
-    /// atmosphere rim neither moon has one of.
+    /// atmosphere rim neither moon has one of, and potato-shaped and cratered rather than round (#744): the
+    /// shapes live in the shader beside the code that draws them.
     /// <para>
     /// <b>Not drawn at their true angular size, and that is a deliberate departure from the Moon Earth's
     /// own rule.</b> The real Phobos subtends at most about 0.2° and Deimos under 0.06° — roughly a
@@ -245,6 +246,14 @@ namespace Prazsky.Core.Render
     /// pleasant, readable postcard of each place gains nothing from two moons nobody can see; these are
     /// sized instead for the same legibility the Earth was sized <i>down</i> to, just from the other
     /// direction.
+    /// </para>
+    /// <para>
+    /// <b>Nor at their true brightness, for the same reason.</b> Both moons are among the darkest bodies in
+    /// the solar system (a reflectance near 0.07), and in the daylight sky a body that dark is either lost
+    /// in the dome or, drawn without the air in front of it, a black hole cut in it — which is what the
+    /// first Phobos read as. The reflectances below are a moon's, chosen so the sunlit side stands out from
+    /// the dome; the air (<see cref="Transmission"/>, <see cref="Airlight"/>) and Mars's own light on the
+    /// side the camera sees (<see cref="MarsshineColor"/>) keep the shadowed side from going black.
     /// </para>
     /// </summary>
     public sealed class MarsMoonsConfig
@@ -259,8 +268,9 @@ namespace Prazsky.Core.Render
         /// <summary>Angular radius in degrees (see the class doc for why this is not the real ~0.1°).</summary>
         public float PhobosAngularRadiusDegrees { get; set; } = 1.05f;
 
-        /// <summary>Phobos's own reflectance (linear) — a very dark, near-neutral carbonaceous grey.</summary>
-        public Rgb PhobosColor { get; set; } = new(0.095f, 0.088f, 0.080f);
+        /// <summary>Phobos's reflectance (linear) — a warm grey, not its true carbonaceous near-black
+        /// (see the class doc).</summary>
+        public Rgb PhobosColor { get; set; } = new(0.40f, 0.41f, 0.44f);
 
         /// <summary>Where Deimos hangs (degrees, the same convention as <see cref="PhobosElevation"/>).</summary>
         public float DeimosElevation { get; set; } = 58f;
@@ -270,7 +280,22 @@ namespace Prazsky.Core.Render
         /// <summary>Angular radius in degrees — smaller and further than Phobos, as the real moon is.</summary>
         public float DeimosAngularRadiusDegrees { get; set; } = 0.45f;
 
-        /// <summary>Deimos's own reflectance (linear) — a shade paler than Phobos.</summary>
-        public Rgb DeimosColor { get; set; } = new(0.115f, 0.108f, 0.100f);
+        /// <summary>Deimos's reflectance (linear) — a shade paler than Phobos.</summary>
+        public Rgb DeimosColor { get; set; } = new(0.44f, 0.45f, 0.48f);
+
+        /// <summary>The share of a moon's own light the dust between it and the camera lets through,
+        /// 0..1.</summary>
+        public float Transmission { get; set; } = 0.95f;
+
+        /// <summary>The share of the dome behind a moon that still shows in front of it, 0..1: the
+        /// daylight the dust scatters towards the camera along the whole sight line, the moon behind all of
+        /// it. 1 is physical and sinks a daytime moon's shadowed side into the sky entirely; a little under
+        /// keeps the whole body faintly there.</summary>
+        public float Airlight { get; set; } = 0.62f;
+
+        /// <summary>Mars's sunlit ground lighting the moons' Mars-facing side (linear, at full facing):
+        /// from either moon the planet fills a great part of the sky, and that side is the one the camera
+        /// sees.</summary>
+        public Rgb MarsshineColor { get; set; } = new(0.08f, 0.04f, 0.02f);
     }
 }

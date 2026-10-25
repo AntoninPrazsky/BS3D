@@ -180,6 +180,10 @@ namespace Prazsky.Core.Render
             _marsEffect.Parameters["DeimosDirection"].SetValue(SceneRenderer.DirectionFromElevationAzimuth(moons.DeimosElevation, moons.DeimosAzimuth));
             _marsEffect.Parameters["DeimosAngularRadius"].SetValue(MathHelper.ToRadians(MathF.Max(moons.DeimosAngularRadiusDegrees, 0f)));
             _marsEffect.Parameters["DeimosColor"].SetValue(moons.DeimosColor.ToVector3());
+
+            _marsEffect.Parameters["MoonTransmission"].SetValue(MathHelper.Clamp(moons.Transmission, 0f, 1f));
+            _marsEffect.Parameters["MoonAirlight"].SetValue(MathHelper.Clamp(moons.Airlight, 0f, 1f));
+            _marsEffect.Parameters["MarsshineColor"].SetValue(moons.MarsshineColor.ToVector3());
         }
 
         /// <summary>
