@@ -18,4 +18,7 @@ layout: base.njk
 {%- endif %}
       <p class="post-back"><a href="/blog/">All posts</a> · <a href="/feed.xml">Atom feed</a></p>
     </nav>
+{%- if '<figure class="compare"' in content %}
+    <script type="module" src="/js/compare.js"></script>
+{%- endif %}
   </main>
