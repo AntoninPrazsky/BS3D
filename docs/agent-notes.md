@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #950 zvuk na webu, #948 web v pohybu — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo: #950 (7e212d43): tlačítko zvuku vpravo dole, do prvního stisku se nic nestahuje. Pak hraje smyčka z menu hry a výstřely živého děla. `verdict-eye`.
+- Hotovo: #948 krok 1 (5e613c0e): úvod naskočí, kusy sekcí vyjíždějí při scrollu, čísla se načítají, dělo má viditelné „Pause“. Pod reduced motion nic. Když `motion.js` selže, hlavička po 3 s třídu `motion` sundá. `verdict-eye`; kroky 2–3 čekají na #946. Web nenahrán.
+- ⚠ Oprava k #949: headless Edge animaci posouvá (rAF ~28/s přes DevTools protokol). Neposouvá ji jen virtuální čas `--virtual-time-budget`. Pauza se ověřuje počtem rAF, ne snímky plátna.
+- ⚠ Majitel odpověděl 16:04–16:09 na 19 karet (vše OK), ale zápis a zavření issues klasifikátor hromadně odmítl. Čeká na jeho svolení.
+- Otevřené: #922, #946 (rozhodnutí majitele), hudba #909–#917.
+
 ## 2026-10-25 — #881 salva nevyužitých kuliček, #949 dělo na webu — desktop (RDT-PC), Claude Code (bs3d-21)
 - Hotovo: #881 (0a1dddf3, oprava z review 8cc34ef5): po vyčištění pole dělo vystřílí nevyužité kuličky a bonus se načítá po kuličkách (`SpareVolley`, `GameplayScreen.Volley`). Kamera stojí vedle děla, výstřel jde přeskočit. `verdict-eye`.
 - ⚠ Review našlo starší díru: odchod z pauzy během oslavy zahodil vyhraný level. Nově se zapíše (`RecordEnding`).
