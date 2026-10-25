@@ -256,7 +256,8 @@ namespace BS3D
         /// </param>
         internal void TuneQualityToFrameRate(float elapsed, string where)
         {
-            if (_qualitySettled) return;
+            //Nor under a running benchmark (#988), which measures the tier the player has and lets the frame run free
+            if (_qualitySettled || _benchmarking) return;
 
             if (_qualityWarmupLeft > 0f)
             {

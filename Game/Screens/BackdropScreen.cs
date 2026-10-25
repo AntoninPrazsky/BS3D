@@ -495,7 +495,10 @@ namespace BS3D.Screens
         /// camera stands. Ignored while one is already running, so leaning on the scene list does not stack
         /// flights.
         /// </summary>
-        internal void PlayTour()
+        internal void PlayTour() => PlayTour(TOUR_RANDOM);
+
+        /// <summary>The tour on <paramref name="random"/>'s rolls: a benchmark's (#988) seeds it, so two runs fly one path.</summary>
+        internal void PlayTour(Random random)
         {
             if (_tour.Engaged) return;
 
@@ -505,7 +508,7 @@ namespace BS3D.Screens
             Vector3 centre = new(0f, _framing.CentreY, 0f);
 
             _tour.Begin(centre, Vector3.Distance(_lens, centre), FOV, _lens, centre,
-                Game.SceneViewpointAt, TOUR_RANDOM, Game.IntroPrologue(FOV, TOUR_RANDOM, _lens, centre));
+                Game.SceneViewpointAt, random, Game.IntroPrologue(FOV, random, _lens, centre));
 
             Console.WriteLine($"[tour] {SceneRenderer.SceneName(Game.Scene)}: {_tour.Describe()}");
         }

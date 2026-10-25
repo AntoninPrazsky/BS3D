@@ -232,6 +232,10 @@ namespace BS3D
         internal bool Extras { get; private set; }
         internal string Jukebox { get; private set; }
 
+        //"benchmark" opens Extras > Benchmark at boot and starts it (#988): one command to run it on a machine nobody is
+        //sitting at, or on one we do not own; the result is the [bench] lines and Benchmark.json
+        internal bool Benchmark { get; private set; }
+
         //Testing only: open the Settings page at boot (#189), on "about"'s and "pick"'s reasoning — three
         //presses reach it on a machine somebody is sitting at, and none reach it from a script.
         internal bool Settings { get; private set; }
@@ -620,6 +624,7 @@ namespace BS3D
             //"extras" and "jukebox[=<chapter>[:play]]" open those pages at boot (#704) - about's wall, and the Jukebox's
             //bars are only worth a shot while a recording plays, which takes presses nobody is there to make
             Row.Flag("extras", o => o.Extras = true),
+            Row.Flag("benchmark", o => o.Benchmark = true),
             Row.Flag("jukebox", o => o.Jukebox = string.Empty),
             Row.Text("jukebox", (o, v) => o.Jukebox = v),
             //"settings" puts the Settings page up at boot (#189), for photographing a row.

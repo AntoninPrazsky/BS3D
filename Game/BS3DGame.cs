@@ -112,7 +112,9 @@ namespace BS3D
         /// refresh (the default) and no limit at all.
         /// </summary>
         private int FrameLimitHz =>
-            _fpsCap > 0 ? _fpsCap
+            //A running benchmark measures what a frame costs, not the limiter (#988)
+            _benchmarking ? 0
+            : _fpsCap > 0 ? _fpsCap
             : _uncappedFps ? 0
             : FrameLimiter.TargetForRefresh(_displayRefreshHz);
 
@@ -2320,7 +2322,8 @@ namespace BS3D
         {
             _frameLimiter.TargetHz = FrameLimitHz;
 
-            if (_fpsCap <= 0 && !_uncappedFps && _displayRefreshHz > 0)
+            //A running benchmark (#988) waits for nothing: the compositor's wait would hold it at the refresh as surely as the limit
+            if (_fpsCap <= 0 && !_uncappedFps && !_benchmarking && _displayRefreshHz > 0)
             {
                 _gpuFlush.Flush(GraphicsDevice);
                 if (_frameLimiter.WaitForCompositor()) return;
