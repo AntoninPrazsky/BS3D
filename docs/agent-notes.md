@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #881 salva nevyužitých kuliček, #949 dělo na webu — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo: #881 (0a1dddf3, oprava z review 8cc34ef5): po vyčištění pole dělo vystřílí nevyužité kuličky a bonus se načítá po kuličkách (`SpareVolley`, `GameplayScreen.Volley`). Kamera stojí vedle děla, výstřel jde přeskočit. `verdict-eye`.
+- ⚠ Review našlo starší díru: odchod z pauzy během oslavy zahodil vyhraný level. Nově se zapíše (`RecordEnding`).
+- Hotovo: #949 (3ab3e5dd): na úvodní stránce webu je živé dělo ve WebGL2 z meshů hry (`WindingCheck --export-cannon`). Nenahráno, web se nahrává jen přes `publish.ps1`. `verdict-eye`.
+- ⚠ Headless Edge neposouvá animaci; zkouší se přes `?cannon-t=`.
+- Otevřené: web #948, #950, #922; hudba #909–#917.
+
 ## 2026-10-25 — #751 jehličí, #870 Continue s úvodem, #988 opravy z review, alokace snímku — desktop (RDT-PC), Claude Code (bs3d-21)
 - Hotovo: #751 (67221435) jehličí na deskách blízkých smrků na High/Ultra (`Needles.fxh`), svítí se jako deska. Les i polární záře zlevnily: herní kamera 15,00 → 14,90 ms. `verdict-eye`.
 - Hotovo: #870 (ede0dd6e) Continue z menu přehraje celý úvod scény i uprostřed kapitoly. Ne po Pauze, výběru, dalším levelu ani Retry. Argument `continue`. `verdict-hands`.
