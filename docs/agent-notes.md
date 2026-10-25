@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #886 oheň jako objem — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo: #886 krok 3 (78d53123) na High/Ultra je oheň objem: krabice kolem ohně, pochod paprsku (12 vzorků jen uvnitř kužele jazyků), 3D turbulence zapečená do `Texture3D` 32³, emise nad absorpcí, pláty plazmy v nulách turbulence. Low/Medium/Potato mají billboardy. +0,30/+0,38 ms. `verdict-eye`, karta na stránce 25. 10.
+- ⚠ První verze stála +2,0/+1,4 ms (celý válec, 20 kroků, ALU šum); kužel a zapečený šum ji srazily na pětinu. Skládání jako povrch (každý vzorek zakrývá) dělalo oranžový gel; emise s menší absorpcí nechá jádro prosvítat.
+- Otevřené: pohyb neviděn, měkké okraje objemu, zrno na špičkách. Stránka verdiktů má 13,5 MB z 16.
+
 ## 2026-10-25 — #964 listí akácií podle referencí — desktop (RDT-PC), Claude Code (bs3d-21)
 - Hotovo: #964 (293721b6) změřen rozdíl proti referencím (tabulka na issue): list byl kapradina, koruna 3× světlejší a žlutá. Nový `TuftMask` (`LeafStrength` 4, dvakrát zpeřený list) pro akácie a trnité keře, tmavší zelenější `CanopyColor`/`CanopyDry`. +0,1 ms. `verdict-eye`, karta na stránce 25. 10.
 - ⚠ Hustší koruna (cover ×1,5) stála +1,6 ms pod korunou (overdraw kartiček u kamery); větší natočení kartiček +0,16 ms bez viditelného rozdílu. Obojí vynecháno.
