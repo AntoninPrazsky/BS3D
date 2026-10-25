@@ -100,6 +100,16 @@ namespace BS3D.Screens
             //and for the same reason: at a blend of 0 these three lines return the pose above bit for bit, so
             //a cinematic that ends — or is skipped halfway — hands the player back exactly the frame the game
             //would have given them. The tilt rides along, and is the camera's only deliberate roll.
+            //The benchmark's lens (#1018) stands in for the play pose: the takeovers below lerp over it as they do over that
+            float demo = _demo.Blend;
+
+            if (demo > 0f)
+            {
+                position = Vector3.Lerp(position, _demo.Position, demo);
+                target = Vector3.Lerp(target, _demo.Target, demo);
+                fov = MathHelper.Lerp(fov, _demo.FieldOfView, demo);
+            }
+
             float cinematic = _cinematic.Blend;
 
             if (cinematic > 0f)

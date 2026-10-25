@@ -35,11 +35,45 @@ namespace BS3D
 
         internal void OpenBenchmark() => OpenBenchmark(start: false);
 
-        /// <summary>The page, and with <paramref name="start"/> the run at once (the <c>benchmark</c> argument's).</summary>
-        internal void OpenBenchmark(bool start)
+        /// <summary>
+        /// The benchmark's play (#1018): <see cref="PhysicsBench.LEVEL"/>, the city's biggest cluster, built as a benchmark run
+        /// (<c>GameplayScreen.BuildBenchmarkLevel</c>: its chapter's whole intro to the gun, then the gun firing by itself) and
+        /// put on the stack as any level is. A session kept for Continue is torn down by the build, as a level picked from the
+        /// list tears it down; the page says so before it starts.
+        /// </summary>
+        internal void StartBenchmarkPlay()
+        {
+            _gameplayScreen.BuildBenchmarkLevel(ResolveStartupLevel(PhysicsBench.LEVEL));
+            EnterPlaying();
+        }
+
+        /// <summary>
+        /// The benchmark's play ended (its time, the level decided, or the player's stop): the session torn down, as the result
+        /// page's Main Menu tears it down, and the benchmark page back over the main menu for what it measures next.
+        /// </summary>
+        internal void EndBenchmarkPlay()
+        {
+            EndSessionAndReturnToMainMenu();
+            OpenPage(_benchmarkPage);
+        }
+
+        /// <summary>A key or a button the benchmark's play reads as the end of the benchmark (#1018): the page stops, as its skip key stops a tour.</summary>
+        internal void StopBenchmarkPlay() => _benchmarkPage?.StopFromPlay();
+
+        /// <summary>Where the benchmark's play stands (#1018), for the page that measures it from above the stack.</summary>
+        internal GameplayScreen.BenchmarkStage BenchmarkStage => _gameplayScreen?.BenchmarkPlay ?? GameplayScreen.BenchmarkStage.None;
+
+        /// <summary>Whether a session is kept for Continue: the benchmark's play would tear it down, and the page says so.</summary>
+        internal bool HasKeptSession => _gameplayScreen != null && _gameplayScreen.IsBuilt;
+
+        /// <summary>
+        /// The page, and with <paramref name="start"/> the run at once (the <c>benchmark</c> argument's); with
+        /// <paramref name="playOnly"/> from its play, without the tours (<c>benchmarkplay</c>, testing only).
+        /// </summary>
+        internal void OpenBenchmark(bool start, bool playOnly = false)
         {
             OpenPage(_benchmarkPage ??= new BenchmarkPage(this));
-            if (start) _benchmarkPage.StartNow();
+            if (start) _benchmarkPage.StartNow(playOnly);
         }
 
         /// <summary>

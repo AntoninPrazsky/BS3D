@@ -20,26 +20,47 @@ namespace BS3D.Screens
     /// <summary>
     /// Extras > Benchmark (#988, first stage): the owner wants a benchmark that finds the surprises on hardware we do not own
     /// (Intel, Qualcomm, other drivers, the Pi and whatever follows it) and is worth watching. It flies the chapter tour of
-    /// each of <see cref="SEGMENTS"/>, the dearest scenes, at the player's own tier with the frame left free of the display's
+    /// each of the dearest scenes (<see cref="SEGMENTS"/>), at the player's own tier with the frame left free of the display's
     /// refresh (<see cref="BS3DGame.BeginBenchmark"/>), each tour on a fixed seed so two runs of one machine fly one path, and
     /// measures every frame. A segment's first <see cref="SETTLE_SECONDS"/> are the scene's first-use cost (shaders, a hall
     /// built off the frame) and are reported apart. The result is shown here, written to the log as <c>[bench]</c> lines and
     /// to <c>Benchmark.json</c> in the player's profile with the machine it ran on (<see cref="BS3DGame.BenchmarkSystem"/>), and
     /// sent to the author (<see cref="OnlineBenchmarks"/>, the owner's ask of 2026-10-25), which the page says before it starts:
     /// the Start press is the consent, as a note's Send is. Nothing is changed unasked. The skip key stops it, and a stopped run
-    /// is neither saved nor sent. After the tours the CPU's physics is timed on its own
+    /// is neither saved nor sent. After the tours it plays the city's biggest level (#1018): the chapter's opening, which ends
+    /// at the gun, and then the gun firing at the cluster by itself under a lens of its own (<c>GameplayScreen.Benchmark</c>),
+    /// measured as the tours are. Then the CPU's physics is timed on its own
     /// (<see cref="PhysicsBench"/>), the largest shipped cluster stepped off screen. While it runs, a panel in the corner shows
     /// the part being measured, the frame's time and the last frames against the display's budget (<see cref="FrameTrace"/>).
     /// </summary>
     internal sealed class BenchmarkPage : MenuPage
     {
+        //What a segment measures: a chapter's tour over the front end, or the benchmark's play (#1018): the city's opening
+        //flown into the gun, and the gun firing at the cluster by itself
+        private enum Part { Tour, Intro, Action }
+
+        /// <summary>One segment: its name on the page, its title on the panel, its scene and what it measures.</summary>
+        private readonly record struct Segment(string Name, string Title, SceneKind Scene, Part Part);
+
         //The dearest scenes on the desktop's High (docs/game-shell/quality-measurements.md): the cavern's chamber, the neon
-        //city's towers, the forest's wood and the meadow's trees under the volume clouds
-        private static readonly SceneKind[] SEGMENTS = { SceneKind.Cavern, SceneKind.NeonCity, SceneKind.Forest, SceneKind.Meadow };
+        //city's towers, the forest's wood and the meadow's trees under the volume clouds; then the city's biggest level played
+        //(#1018), the gun, the shots and the falls the tours never draw
+        private static readonly Segment[] SEGMENTS =
+        {
+            new("Cavern", "CAVERN", SceneKind.Cavern, Part.Tour),
+            new("Neon City", "NEON CITY", SceneKind.NeonCity, Part.Tour),
+            new("Forest", "FOREST", SceneKind.Forest, Part.Tour),
+            new("Meadow", "MEADOW", SceneKind.Meadow, Part.Tour),
+            new("City intro", "CITY INTRO", SceneKind.City, Part.Intro),
+            new("City in action", "IN ACTION", SceneKind.City, Part.Action),
+        };
+
+        //How many of them are tours, which come first
+        private static readonly int TOURS = Array.FindAll(SEGMENTS, s => s.Part == Part.Tour).Length;
         private const float SETTLE_SECONDS = 1.5f;
         private const int SEED = 988;
 
-        private enum Phase { Idle, Settling, Touring, Physics, Done }
+        private enum Phase { Idle, Settling, Touring, Play, Physics, Done }
 
         private Phase _phase = Phase.Idle;
         private int _segment;
@@ -101,7 +122,7 @@ namespace BS3D.Screens
 
         public BenchmarkPage(BS3DGame game) : base(game) => _skipHint = new PlayHud(game);
 
-        private bool Running => _phase is Phase.Settling or Phase.Touring or Phase.Physics;
+        private bool Running => _phase is Phase.Settling or Phase.Touring or Phase.Play or Phase.Physics;
 
         internal override bool StandsAside => Running;
 
@@ -121,14 +142,16 @@ namespace BS3D.Screens
             else
             {
                 column.Widgets.Add(Paragraph(string.Create(CultureInfo.InvariantCulture,
-                    $"Flies through {SEGMENTS.Length} of the most demanding scenes at your quality ({Game.QualityLabel}), with the frame rate unlocked, and measures every frame, then times the physics of the biggest level. About a minute. The skip key stops it."),
+                    $"Flies through {TOURS} of the most demanding scenes at your quality ({Game.QualityLabel}), with the frame rate unlocked, then plays the biggest level: the city's opening flight to the cannon, and the cannon firing by itself. It measures every frame, then times the physics. About two minutes. The skip key stops it."),
                     ProseMeasure));
+                if (Game.HasKeptSession)
+                    column.Widgets.Add(Paragraph("The benchmark plays a level of its own, so the level you left unfinished will be closed.", ProseMeasure));
                 if (!Game.SceneryShown && !BS3DGame.PotatoPath)
                     column.Widgets.Add(Paragraph("The scenery is off in your settings: the benchmark shows it, so that it has something to measure.", ProseMeasure));
                 column.Widgets.Add(Paragraph(SENT_NOTE, ProseMeasure));
             }
 
-            _firstEntry = MenuButton(_phase == Phase.Done ? "Run again" : "Start", Start);
+            _firstEntry = MenuButton(_phase == Phase.Done ? "Run again" : "Start", () => StartNow());
             column.Widgets.Add(_firstEntry);
             column.Widgets.Add(BackButton());
             return ScreenRoot(Plate(column));
@@ -154,8 +177,9 @@ namespace BS3D.Screens
             for (int i = 0; i < _measured; i++)
             {
                 FrameStats.Summary s = _results[i];
+                if (s.Frames == 0) continue;
                 string line = string.Create(CultureInfo.InvariantCulture,
-                    $"{SceneRenderer.SceneName(SEGMENTS[i])}: {s.MedianFps:0} FPS · 1 % low {s.OnePercentLowFps:0} · {s.OverBudgetShare * 100f:0} % over {budget:0.0} ms");
+                    $"{SEGMENTS[i].Name}: {s.MedianFps:0} FPS · 1 % low {s.OnePercentLowFps:0} · {s.OverBudgetShare * 100f:0} % over {budget:0.0} ms");
                 column.Widgets.Add(new Label
                 {
                     Text = line,
@@ -186,7 +210,7 @@ namespace BS3D.Screens
             //A frame the probe found wrong is the surprise this page exists to find: said plainly, with where to send it
             for (int i = 0; i < _measured; i++)
                 if (_probes[i] is FrameProbe.Verdict.Black or FrameProbe.Verdict.Flat or FrameProbe.Verdict.NonFinite)
-                    column.Widgets.Add(Paragraph($"{SceneRenderer.SceneName(SEGMENTS[i])} drew {ProbeFault(_probes[i])}: your graphics driver may not draw this game right. Please tell the author: Extras > {BS3DGame.NOTE_ENTRY}.", ProseMeasure));
+                    column.Widgets.Add(Paragraph($"{SEGMENTS[i].Name} drew {ProbeFault(_probes[i])}: your graphics driver may not draw this game right. Please tell the author: Extras > {BS3DGame.NOTE_ENTRY}.", ProseMeasure));
 
             //What the numbers recommend (BenchmarkVerdict) for the tier they were measured at, offered as an entry and never
             //applied unasked; a stopped run says how far it got and offers nothing
@@ -195,12 +219,12 @@ namespace BS3D.Screens
             int hz = Game.DisplayRefreshHz > 0 ? Game.DisplayRefreshHz : 60;
             string verdict = recommended < tier
                 ? string.Create(CultureInfo.InvariantCulture,
-                    $"{tier} drops frames in {SceneRenderer.SceneName(SEGMENTS[decidedBy])} ({_results[decidedBy].OverBudgetShare * 100f:0} % over {hz} Hz). {recommended} should hold it.")
+                    $"{tier} drops frames in {SEGMENTS[decidedBy].Name} ({_results[decidedBy].OverBudgetShare * 100f:0} % over {hz} Hz). {recommended} should hold it.")
                 : recommended > tier
                     ? $"{tier} holds {hz} Hz in every scene with room to spare. {recommended} may hold it too."
                     : $"{tier} holds your display's {hz} Hz.";
             if (!_complete)
-                verdict = string.Create(CultureInfo.InvariantCulture, $"Stopped after {_measured} of {SEGMENTS.Length} scenes. ") + verdict;
+                verdict = string.Create(CultureInfo.InvariantCulture, $"Stopped after {_measured} of {SEGMENTS.Length} parts. ") + verdict;
             if (Game.Quality != tier) verdict += $" Measured at {tier}; your quality is {Game.Quality} now.";
             column.Widgets.Add(Paragraph(verdict, ProseMeasure));
             if (_complete && recommended != tier && recommended != Game.Quality && Game.CanOfferQuality)
@@ -233,7 +257,7 @@ namespace BS3D.Screens
         };
 
         /// <summary>Whether the game should read the next finished frame back for the probe: once a segment, a few seconds into its tour.</summary>
-        internal bool WantsProbe => _phase == Phase.Touring && !_probed && _phaseSeconds >= PROBE_AT;
+        internal bool WantsProbe => _phase is Phase.Touring or Phase.Play && !_probed && _phaseSeconds >= PROBE_AT;
 
         /// <summary>
         /// The frame read back (null when it could not be) and <paramref name="hdrCount"/> texels of the HDR scene behind it:
@@ -249,7 +273,7 @@ namespace BS3D.Screens
             _hdrNonFinite[i] = _hdrRead[i] > 0 ? FrameProbe.CountNonFinite(hdr, hdrCount, out _hdrBrightest[i]) : 0;
             if (_probes[i] == FrameProbe.Verdict.Ok && _hdrNonFinite[i] > 0) _probes[i] = FrameProbe.Verdict.NonFinite;
             Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
-                $"[bench] {SceneRenderer.SceneName(SEGMENTS[i])} frame {_probes[i]} (mean {_probeMean[i]:0.000}, spread {_probeSpread[i]:0.000}; HDR {_hdrRead[i]} texels, {_hdrNonFinite[i]} not finite, brightest {_hdrBrightest[i]:0.00})"));
+                $"[bench] {SEGMENTS[i].Name} frame {_probes[i]} (mean {_probeMean[i]:0.000}, spread {_probeSpread[i]:0.000}; HDR {_hdrRead[i]} texels, {_hdrNonFinite[i]} not finite, brightest {_hdrBrightest[i]:0.00})"));
         }
 
         //The offer taken: the tier on, and the page ready to run again on it
@@ -268,8 +292,18 @@ namespace BS3D.Screens
 
         private float Budget => 1000f / RefreshHz;
 
-        /// <summary>Starts at once, without the press (the <c>benchmark</c> argument's, #988).</summary>
-        internal void StartNow() => Start();
+        /// <summary>
+        /// Starts at once, without the press (the <c>benchmark</c> argument's, #988); with <paramref name="playOnly"/> at the
+        /// play, the tours left out (<c>benchmarkplay</c>, #1018, testing only: the run is shown, never saved or sent).
+        /// </summary>
+        internal void StartNow(bool playOnly = false)
+        {
+            _playOnly = playOnly;
+            Start();
+        }
+
+        //A run begun at the play by the benchmarkplay argument: complete or not, it is never saved or sent, since its tours are missing
+        private bool _playOnly;
 
         private void Start()
         {
@@ -280,14 +314,20 @@ namespace BS3D.Screens
             _complete = false;
             _resultId = Guid.Empty;
             _delivery = null;
+            Array.Clear(_results);
             Game.BeginBenchmark();
-            BeginSegment();
+            if (_playOnly)
+            {
+                _segment = TOURS;
+                BeginPlay();
+            }
+            else BeginSegment();
         }
 
         private void BeginSegment()
         {
-            Game.SetScene(SEGMENTS[_segment]);
-            BeginPart(SceneRenderer.SceneName(SEGMENTS[_segment]).ToUpperInvariant(), _segment + 1,
+            Game.SetScene(SEGMENTS[_segment].Scene);
+            BeginPart(SEGMENTS[_segment].Title, _segment + 1,
                 string.Create(CultureInfo.InvariantCulture, $"{RefreshHz} Hz"), Budget);
             _phase = Phase.Settling;
             _phaseSeconds = 0f;
@@ -298,7 +338,7 @@ namespace BS3D.Screens
             _hdrRead[_segment] = _hdrNonFinite[_segment] = 0;
             _hdrBrightest[_segment] = 0f;
             _lastTick = Stopwatch.GetTimestamp();
-            Console.WriteLine($"[bench] segment {_segment + 1}/{SEGMENTS.Length} {SceneRenderer.SceneName(SEGMENTS[_segment])}");
+            Console.WriteLine($"[bench] segment {_segment + 1}/{SEGMENTS.Length} {SEGMENTS[_segment].Name}");
         }
 
         public override void Update(GameTime gameTime)
@@ -347,8 +387,120 @@ namespace BS3D.Screens
             _measured = _segment + 1;
             Log(_segment);
 
-            if (++_segment < SEGMENTS.Length) BeginSegment();
-            else BeginPhysics();
+            if (++_segment < TOURS) BeginSegment();
+            else BeginPlay();
+        }
+
+        //The benchmark's play (#1018): the city's biggest level built as a benchmark run and put on the stack; this page leaves
+        //it, and the host ticks TickPlay above the stack until the play is over
+        private void BeginPlay()
+        {
+            _phase = Phase.Play;
+            BeginPlaySegment();
+            Game.StartBenchmarkPlay();
+        }
+
+        private void BeginPlaySegment()
+        {
+            BeginPart(SEGMENTS[_segment].Title, _segment + 1,
+                string.Create(CultureInfo.InvariantCulture, $"{RefreshHz} Hz"), Budget);
+            _phaseSeconds = 0f;
+            _frames.Clear();
+            _settle.Clear();
+            _probed = false;
+            _probes[_segment] = FrameProbe.Verdict.Ok;
+            _hdrRead[_segment] = _hdrNonFinite[_segment] = 0;
+            _hdrBrightest[_segment] = 0f;
+            _lastTick = Stopwatch.GetTimestamp();
+            Console.WriteLine($"[bench] segment {_segment + 1}/{SEGMENTS.Length} {SEGMENTS[_segment].Name}");
+        }
+
+        /// <summary>
+        /// The benchmark's play, measured from the host's frame while the level is on the stack (#1018): the intro's frames (its
+        /// first <see cref="SETTLE_SECONDS"/> apart, the level's build and first draws), then the action's from the moment the
+        /// gun is handed over, each summed as a tour's when it ends; when the play is over the session goes and this page comes
+        /// back for the physics.
+        /// </summary>
+        internal void TickPlay()
+        {
+            if (_phase != Phase.Play) return;
+
+            long now = Stopwatch.GetTimestamp();
+            float milliseconds = (float)((now - _lastTick) * 1000.0 / Stopwatch.Frequency);
+            _lastTick = now;
+            _phaseSeconds += milliseconds / 1000f;
+            _skipHint.UpdateSkipHint(milliseconds / 1000f, true, chapterIntro: true, _phaseSeconds, 0f);
+
+            GameplayScreen.BenchmarkStage stage = Game.BenchmarkStage;
+            Part part = SEGMENTS[_segment].Part;
+
+            //The intro handed the gun over: its figures, and the action's begin
+            if (part == Part.Intro && stage != GameplayScreen.BenchmarkStage.Intro)
+            {
+                EndPlaySegment();
+                if (++_segment < SEGMENTS.Length && stage == GameplayScreen.BenchmarkStage.Action) BeginPlaySegment();
+                else
+                {
+                    LeavePlay();
+                    return;
+                }
+                part = SEGMENTS[_segment].Part;
+            }
+
+            if (stage == GameplayScreen.BenchmarkStage.Done || stage == GameplayScreen.BenchmarkStage.None)
+            {
+                if (part == Part.Action && _frames.Count > 0) EndPlaySegment();
+                LeavePlay();
+                return;
+            }
+
+            if (part == Part.Intro && _phaseSeconds < SETTLE_SECONDS)
+            {
+                _settle.Add(milliseconds);
+                Tally(milliseconds, milliseconds / 1000f, apart: true);
+            }
+            else if (_skipNext) _skipNext = false;
+            else
+            {
+                _frames.Add(milliseconds);
+                Tally(milliseconds, milliseconds / 1000f, apart: false);
+            }
+        }
+
+        //A play segment's figures, as a tour's
+        private void EndPlaySegment()
+        {
+            float budget = Budget;
+            _results[_segment] = _frames.Summarize(budget);
+            _settles[_segment] = _settle.Summarize(budget);
+            _measured = _segment + 1;
+            Log(_segment);
+        }
+
+        //The play is over: the session goes, this page comes back over the main menu, and the physics runs
+        private void LeavePlay()
+        {
+            Game.EndBenchmarkPlay();
+            BeginPhysics();
+        }
+
+        /// <summary>
+        /// A key or a button pressed while the benchmark's level plays: the benchmark stops, as the skip key stops a tour,
+        /// keeping what was measured (the part in progress is left out).
+        /// </summary>
+        internal void StopFromPlay()
+        {
+            if (_phase != Phase.Play) return;
+
+            Console.WriteLine("[bench] stopped");
+            Game.EndBenchmarkPlay();
+            if (_measured > 0) Finish(complete: false);
+            else
+            {
+                _phase = Phase.Idle;
+                Game.EndBenchmark();
+                Rebuild();
+            }
         }
 
         //The physics segment: the largest shipped cluster hung off screen; a level that cannot be read is said and skipped
@@ -400,7 +552,7 @@ namespace BS3D.Screens
         {
             FrameStats.Summary s = _results[i], first = _settles[i];
             Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
-                $"[bench] {SceneRenderer.SceneName(SEGMENTS[i])}: {s.Frames} frames, mean {s.Mean:0.00} ms, median {s.Median:0.00}, p95 {s.P95:0.00}, p99 {s.P99:0.00}, 1% low {s.OnePercentLowFps:0.0} FPS, worst {s.Worst:0.0} ms, {s.OverBudgetShare * 100f:0.0} % over {Budget:0.00} ms; first {SETTLE_SECONDS:0.0} s: worst {first.Worst:0.0} ms, median {first.Median:0.00}"));
+                $"[bench] {SEGMENTS[i].Name}: {s.Frames} frames, mean {s.Mean:0.00} ms, median {s.Median:0.00}, p95 {s.P95:0.00}, p99 {s.P99:0.00}, 1% low {s.OnePercentLowFps:0.0} FPS, worst {s.Worst:0.0} ms, {s.OverBudgetShare * 100f:0.0} % over {Budget:0.00} ms; first {SETTLE_SECONDS:0.0} s: worst {first.Worst:0.0} ms, median {first.Median:0.00}"));
         }
 
         //The run's end: what it measured kept with the tier and the machine it measured them on, and saved only when it went
@@ -408,6 +560,8 @@ namespace BS3D.Screens
         private void Finish(bool complete)
         {
             _phase = Phase.Done;
+            //A run begun at the play (benchmarkplay) lacks its tours: shown, never saved or sent
+            complete &= !_playOnly;
             _complete = complete;
             _measuredTier = Game.Quality;
             JsonObject system = _measuredSystem = Game.BenchmarkSystem();
@@ -419,7 +573,8 @@ namespace BS3D.Screens
                 FrameStats.Summary s = _results[i], first = _settles[i];
                 segments.Add(new JsonObject
                 {
-                    ["scene"] = SceneRenderer.SceneName(SEGMENTS[i]),
+                    ["scene"] = SceneRenderer.SceneName(SEGMENTS[i].Scene),
+                    ["part"] = SEGMENTS[i].Part switch { Part.Intro => "intro", Part.Action => "action", _ => "tour" },
                     ["frames"] = s.Frames,
                     ["meanMs"] = Math.Round(s.Mean, 3),
                     ["medianMs"] = Math.Round(s.Median, 3),
@@ -456,7 +611,7 @@ namespace BS3D.Screens
                     ["warmupMedianMs"] = Math.Round(_physicsWarmup.Median, 4),
                 };
             QualityLevel recommended = BenchmarkVerdict.Recommend(Game.Quality, _results, _measured, out _);
-            Console.WriteLine($"[bench] recommends {recommended} (ran at {Game.Quality}){(complete ? "" : $", stopped after {_measured} of {SEGMENTS.Length} scenes: not saved or sent")}");
+            Console.WriteLine($"[bench] recommends {recommended} (ran at {Game.Quality}){(complete ? "" : $", stopped after {_measured} of {SEGMENTS.Length} parts: not saved or sent")}");
             if (complete)
             {
                 JsonObject result = new()

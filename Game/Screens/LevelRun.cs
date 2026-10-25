@@ -169,6 +169,13 @@ namespace BS3D.Screens
         internal bool DebugKindLoaded { get; set; }
 
         /// <summary>
+        /// Whether this attempt is the benchmark's play (#1018, <c>GameplayScreen.BuildBenchmarkLevel</c>): a level played by
+        /// nobody, which writes nothing a player's attempt writes - no play count, no record in the save, nothing to the
+        /// online boards, no lesson, no chapter's opening seen. A level's own by construction, as <see cref="DebugKindLoaded"/>.
+        /// </summary>
+        internal bool Benchmark { get; set; }
+
+        /// <summary>
         /// The line's grace — <see cref="ClusterLineWatch"/>'s since #301/#302, so the level generator's sag gate
         /// decides a simulated run by running <i>this</i> rule rather than a second copy of it that could drift
         /// lenient. A field and not a property because it is a mutable struct the screen updates in place. It
