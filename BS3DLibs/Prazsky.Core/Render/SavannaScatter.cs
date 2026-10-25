@@ -94,6 +94,13 @@ namespace Prazsky.Core.Render
         /// </summary>
         public float Stone { get; }
 
+        /// <summary>
+        /// A round bale's straw (#971), 0 on everything else: <c>Acacia.fx</c> paints the ends' spiral of layers round a
+        /// loose core and the side's straws and twine on the bale's own UV (<see cref="BaleGeometry"/>). Only
+        /// <see cref="PlantPass"/> states it; the meadow's bales carry it at 1 with <see cref="Bark"/> at 0.
+        /// </summary>
+        public float Straw { get; }
+
         /// <summary>The ground's colour (linear) a <see cref="Stone"/> rock is dusted with at its foot and on its top; black for none.
         /// Its height over the ground is read off the instance's <see cref="ModelInstance.Custom"/> <c>z</c>, the ground over the pivot.</summary>
         public Vector3 FootDust { get; }
@@ -101,11 +108,12 @@ namespace Prazsky.Core.Render
         internal ScatterBucket(GraphicsDevice device, IProceduralMesh mesh, List<ModelInstance> instances,
             Vector3 diffuse, Vector3 diffuseDry, float dapple, float bark, bool detailOnly,
             bool lowOnly = false, float leaves = 0f, bool earthed = false, bool? castsShadow = null, bool? fineMeshes = null,
-            float stone = 0f, Vector3 footDust = default, IProceduralMesh casterMesh = null)
+            float stone = 0f, Vector3 footDust = default, IProceduralMesh casterMesh = null, float straw = 0f)
         {
             Mesh = mesh;
             CasterMesh = casterMesh ?? mesh;
             Stone = stone;
+            Straw = straw;
             FootDust = footDust;
             FineMeshes = fineMeshes;
             Earthed = earthed;

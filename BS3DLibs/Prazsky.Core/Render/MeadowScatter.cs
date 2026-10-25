@@ -494,7 +494,8 @@ namespace Prazsky.Core.Render
                 detailOnly: false));
             AddShrubs(device, buckets, shrubMeshes, fineShrubs, shrubInstances, freeShrubs, tuftMeshes, stand, seed);
             if (baleInstances.Count > 0)
-                buckets.Add(new ScatterBucket(device, bale, baleInstances, STRAW, STRAW * new Vector3(0.9f, 0.85f, 0.7f), dapple: 0.3f, bark: 0.3f, detailOnly: false));
+                buckets.Add(new ScatterBucket(device, bale, baleInstances, STRAW, STRAW * new Vector3(0.9f, 0.85f, 0.7f), dapple: 0.15f, bark: 0f,
+                    detailOnly: false, straw: 1f));
             if (fenceInstances.Count > 0)
                 buckets.Add(new ScatterBucket(device, fence, fenceInstances, FENCE_WOOD, FENCE_WOOD * 1.25f, dapple: 0f, bark: 0.5f, detailOnly: false));
             for (int m = 0; m < rockMeshes.Length; m++)

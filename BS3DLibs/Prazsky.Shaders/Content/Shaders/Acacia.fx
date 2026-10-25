@@ -98,6 +98,20 @@ static const float EARTH_AMOUNT = 0.8;
 //Every octave is faded out as its period nears two pixels (StoneOctave), so a far rock goes to its mean, not to a crawl.
 //Uniform branch: one side for every pixel of a draw, so the derivatives inside are taken by every pixel of a quad alike.
 float StoneStrength;
+
+//--- STRAW (#971). 0 on everything but the meadow's round hay bales, which carry it at 1. The owner: "on the bottom and top
+//side of the cylinder there is not that typical tangle/swirl - we need to think about how a cylindrical bale of straw is
+//formed". A round baler rolls the windrow up from a loose core outward and ties the roll round, so an END shows the layers
+//as a spiral round a darker, looser core, the straws laid along the turns and loose ends at the rim; the SIDE shows straws
+//running round the bale, held by a few bands of twine. Painted on BaleGeometry's own UV: the side's u 0..1 round the bale
+//and v 0..1 along it, an end's u 2..3 round it (CAP_U) and v 1 at the rim to 0 at its centre. Every term fades to its mean
+//as its period nears two pixels. Uniform branch, as STONE's, so the derivatives inside are taken by every pixel alike.
+float StrawStrength;
+static const float STRAW_LAYERS = 9.0;           //turns of the spiral from the core to the rim
+static const float STRAW_SIDES = 32.0;           //BaleGeometry.SIDES: the end is a 32-gon, its v linear across each sector
+static const float STRAW_CORE = 0.2;             //the loose core's radius, as a share of the end's
+static const float STRAW_TWINES = 7.0;           //bands of twine along the side
+static const float3 STRAW_TWINE = float3(0.32, 0.27, 0.16);   //weathered sisal, linear
 static const float STONE_DENTS = 2.3;            //the dents across a rock, per its own size: a fracture face is never flat
 static const float STONE_DENT_DEPTH = 0.06;      //as a share of the rock's size
 static const float STONE_GRAIN = 3.2;            //the rough grain, per world unit
@@ -346,6 +360,79 @@ float4 AcaciaPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR
         top *= top;
         float dust = max(foot * foot * 0.85, top * top * STONE_TOP_DUST * saturate(0.6 + patch));
         albedo = lerp(albedo, FootEarth * (1.0 + input.Tint.y), dust * (any(FootEarth) ? 1.0 : 0.0));
+    }
+
+    //A round bale's straw (#971): see STRAW above
+    [branch]
+    if (StrawStrength > 0.0)
+    {
+        float2 uv = input.UV;
+        float3 p = input.WorldPosition;
+        //The footprints before the branch an end and the side take, which a quad on the rim splits
+        float2 uvFootprint = max(fwidth(uv), 1e-4);
+        float relief, shade;
+        [branch]
+        if (uv.x > 1.5)
+        {
+            //An end. Its v is the share of the radius at the 18-gon's corners and linear across each sector, so along a
+            //sector's chord it overstates the true radius by 1 / cos of the angle off the sector's middle: taken out, the
+            //spiral's turns come out round instead of 18-sided.
+            float turn = frac(uv.x);
+            float offset = (frac(turn * STRAW_SIDES) - 0.5) * (6.2831853 / STRAW_SIDES);
+            float r = uv.y * cos(3.1415927 / STRAW_SIDES) / cos(offset);
+            float footprint = uvFootprint.y;
+
+            //The spiral: one layer more for every turn round, so the phase is radius in layers less the turn. Each layer
+            //bulges between two seams, the seams wander and come and go where the straw was fed in unevenly, and every
+            //layer is its own swath of the windrow, a shade lighter or darker. Cut as clean as its first version, the
+            //spiral read as a tree's rings.
+            float2 polar = float2(cos(turn * 6.2831853), sin(turn * 6.2831853)) * r;
+            float wobble = 0.3 * GradientNoise2(polar * 3.1 + 4.1) + 0.12 * GradientNoise2(polar * 9.3 + 1.7);
+            float phase = r * STRAW_LAYERS - turn + wobble;
+            float layer = frac(phase);
+            float seen = saturate(1.0 - 2.0 * footprint * STRAW_LAYERS);
+            float bulge = 4.0 * layer * (1.0 - layer);
+            float seam = (1.0 - smoothstep(0.0, 0.16, layer) * smoothstep(1.0, 0.84, layer))
+                * saturate(0.55 + 0.9 * GradientNoise2(polar * 6.7 + 9.2));
+            //The swath's tone runs along the strip, which is ONE strip wound round: its place along it is the layer plus the
+            //turn, continuous across u's seam where both jump by one (a tone per layer index stepped there in a radial line)
+            float swath = 0.6 * GradientNoise2(float2((floor(phase) + turn) * 0.9, 3.7));
+
+            //The straws, along the turns: fine across the radius, long round it, in two sizes; and the core loose, its
+            //straws every way
+            float arc = turn * 6.2831853 * max(r, 0.05);
+            float straws = GradientNoise2(float2(r * 140.0, arc * 9.0)) * saturate(1.0 - footprint * 140.0)
+                + 0.8 * GradientNoise2(float2(r * 55.0, arc * 3.5) + 2.2) * saturate(1.0 - footprint * 55.0);
+            float loose = GradientNoise2(polar * 26.0 + 7.7) * saturate(1.0 - footprint * 30.0);
+            float core = 1.0 - smoothstep(STRAW_CORE * 0.6, STRAW_CORE, r);
+
+            relief = lerp(0.6 * bulge * seen + 0.25 * straws, 0.5 * loose, core);
+            shade = lerp((1.0 - 0.32 * seam * seen + 0.2 * straws) * (1.0 + 0.24 * swath * seen), 0.62 + 0.25 * loose, core);
+            //Loose ends at the rim catch the light
+            shade += 0.12 * smoothstep(0.9, 1.0, r) * saturate(0.5 + straws);
+        }
+        else
+        {
+            //The side: straws running round it, a few bands of twine, the roll's layers faintly at its surface
+            float footprint = uvFootprint.y;
+            float straws = GradientNoise2(float2(uv.x * 14.0, uv.y * 160.0)) * saturate(1.0 - footprint * 160.0);
+            float clumps = GradientNoise2(float2(uv.x * 5.0, uv.y * 18.0) + 3.3);
+            //How far from the nearest twine, in twine spacings; each twine wanders a little round the bale
+            float along = frac(uv.y * STRAW_TWINES + 0.06 * sin(uv.x * 18.849556) + 0.5) - 0.5;
+            float twine = (1.0 - smoothstep(0.035, 0.065, abs(along))) * saturate(1.0 - footprint * STRAW_TWINES * 6.0);
+            relief = 0.35 * straws + 0.3 * clumps - 0.6 * twine;
+            shade = (1.0 + 0.18 * straws + 0.1 * clumps) * (1.0 - 0.15 * twine);
+            albedo = lerp(albedo, STRAW_TWINE * (1.0 + input.Tint.y), 0.8 * twine);
+        }
+
+        N = PerturbNormalFromHeight(N, p, relief * 0.012 * StrawStrength);
+        albedo *= lerp(1.0, saturate(shade), StrawStrength);
+
+        //Weathered where the rain sits, on top; darker and damp at the foot, where it lies on the grass
+        float top = saturate(N.y);
+        albedo *= 1.0 - 0.18 * top * top * saturate(0.5 + GradientNoise2(p.xz * 0.9 + 2.7));
+        float foot = 1.0 - saturate((p.y - input.RootY) / FOOT_HEIGHT);
+        albedo *= 1.0 - FOOT_DARKEN * foot * foot;
     }
 
     //The scene's own light, matched to the terrain: a hemisphere ambient tinted zenith-to-horizon by the
