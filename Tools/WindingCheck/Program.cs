@@ -213,6 +213,7 @@ namespace BS3D.Tools.WindingCheck
                 new[] { (new Vector3(80f, 0f, 0f), 6f, 4f) }, 6795));
             yield return ("MoonPlanting", () => new MoonPlanting(d, (x, z) => 0f, new MoonTerrainConfig(), 8125));
             yield return ("PolarPlanting", () => new PolarPlanting(d, (x, z) => 0f, new Vector2(60f, -60f)));
+            yield return ("SaucerMesh", () => new SaucerMesh(d));
             yield return ("OutbackPlanting", () => new OutbackPlanting(d, (x, z) => 0f, Array.Empty<TerrainMirror.Footprint>(), 7490));
             for (int dome = 1; dome <= 20; dome++)
             {
