@@ -56,6 +56,15 @@ The owner, on High and Ultra: "triangular rocks on the ground. That is a bug." A
 - ⚠ **A face square to the sun is lit at N·L near 1, where a tilt changes almost nothing**: what keeps it from one tone is the albedo (patches, pits, cracks), not the relief. The relief is what reads on the faces the sun grazes.
 - **What it costs is the triangles**, paid at the primitive rate wherever the camera looks: the play pin, which shows a handful of rocks, pays what a pin among them pays. Desktop Testbed, Release, 3840x1600, `ssaa=2`, `nopost`, `fpscap=1000`, `sceneseed=0`, `alt=finemeshes=0;finemeshes=1`: the play pin (`campos=0,-4,45 camtarget=0,-9,0`) **6.70 to 6.91 ms (+0.21)**, a pin among the rocks (`campos=-31,-11.2,39 camtarget=-23,-13.4,31`) **6.62 to 6.84 (+0.22)**, the sign held in every one of the 21 uncontended cycles of each run (another process's GPU load took the other 23). The same set a density finer everywhere cost +0.54; the coarser casters took +0.27 to +0.21.
 
+## The landing: the rover's tracks and the flags (#746)
+
+The owner: the lunar rover's ruts would be a good easter egg, "maybe a white flag could wave somewhere in the distance". The references (`746-klein`, `746-zimage`) draw twin ruts with chevron cleats curving away, and a flag held out stiff by a bar along its top.
+
+- **The tracks are a decal in the ground** (`RoverTracks.fxh`, `RoverTracks.cs`; #745 puts the same on Mars): `MoonPlanting.TRAVERSE` is the designed traverse, resampled to `RoverTracks.POINTS` (24) along a Catmull-Rom curve and pushed once at load. `Moon.fx`'s `MoonGroundAt` presses the two ruts (`TRACK_GAUGE` 1.83 apart, a tyre wide) into the normal with a berm beside each and the cleats across the floor, and darkens the turned-over regolith (`TRACK_DARKEN`), as disturbed regolith reads in the Apollo photographs. Behind a branch on the track's own bounds; inside them the nearest of the 23 segments is found by brute force. ⚠ At 16 points the curve's corners showed as kinks.
+- **A decal, where the rocks are not**: a rut lies in the ground and is shading, not silhouette, which is the opposite of the painted rock this shader refused (#508). The rocks keep off the ruts and the flags (`TRAVERSE_CLEAR`, `FLAG_CLEAR`); the test comes after every roll a rock takes, so the field round them is unchanged.
+- **The flags** (`MoonPlanting.FlagPole`, `FlagCloth`): a pole, a bar along the cloth's top and the cloth frozen in its creases, white as he asked. Neither waves: there is no air. One stands beside the tracks on the plain (the front end, the chapter intro, the drop); one, 2.2 times the size, high on the belt's slope behind the cluster in the play view's own direction (the gun starts on +Z), the one stretch of ground the play camera sees over the deck. It shows there, small, left of the gun.
+- **Cost**: +0.25 ms with the track's bounds over most of the frame (Testbed 3840x1600, ssaa 2, `campos=12,-9.5,-70 camtarget=-14,-13,-92`: 7.11 against 6.86).
+
 ## Costs to compare against
 
 - Game front end **~17.7 ms at `High`** (ssaa 2), reference APU, 1600×900, `nocap`; the belt is ~1.5 ms. No reduced program.

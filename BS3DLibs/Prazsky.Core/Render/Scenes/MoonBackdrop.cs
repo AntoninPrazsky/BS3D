@@ -85,6 +85,9 @@ namespace Prazsky.Core.Render
 
             ApplyMoonParameters();
 
+            //The rover's tracks (#746): pressed into the plain the shader draws, along the traverse MoonPlanting keeps its rocks off
+            RoverTracks.Push(_moonEffect, MoonPlanting.TRAVERSE_PATH);
+
             _plants = new PlantPass(_graphicsDevice, content);
             //On the ground as the grid draws it, not the exact field (see MoonPlanting's height)
             MoonTerrainConfig terrain = _moonConfig.Terrain;
