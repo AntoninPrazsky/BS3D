@@ -23,6 +23,7 @@ namespace BS3D
         private BenchmarkPage _benchmarkPage;
         private bool _benchmarking;
         private SceneKind _sceneBeforeBenchmark;
+        private byte _domeBeforeBenchmark;
 
         /// <summary>Whether a benchmark is running: the limiter lets go and the quality probe waits.</summary>
         internal bool Benchmarking => _benchmarking;
@@ -36,21 +37,34 @@ namespace BS3D
             if (start) _benchmarkPage.StartNow();
         }
 
-        /// <summary>Lets go of the frame limit and the quality probe and remembers the scene, to put it back in <see cref="EndBenchmark"/>.</summary>
+        /// <summary>
+        /// Lets go of the frame limit and the quality probe, shows the scenery whatever the Scenery row says
+        /// (<see cref="SceneryShown"/>: with it off the tours draw no scene and the run would measure nothing), hangs the
+        /// one preview cluster every run tours past (<see cref="PinnedPreviewLevel"/>), and remembers the scene and its dome to
+        /// put them back in <see cref="EndBenchmark"/>.
+        /// </summary>
         internal void BeginBenchmark()
         {
             if (_benchmarking) return;
             _benchmarking = true;
             _sceneBeforeBenchmark = _scene;
+            _domeBeforeBenchmark = _skyDome;
+            _screens?.Find<BackdropScreen>()?.RollPreviewMap();
             Console.WriteLine("[bench] begin");
         }
 
-        /// <summary>The frame limit and the probe back as they were, and the scene the player had.</summary>
+        /// <summary>
+        /// The frame limit, the probe and the Scenery row back as they were, the scene the player had under the dome it had
+        /// (a toured scene that brings a dome of its own, the forest's, would otherwise stay over it), and a preview of the
+        /// player's own roll again.
+        /// </summary>
         internal void EndBenchmark()
         {
             if (!_benchmarking) return;
             _benchmarking = false;
             SetScene(_sceneBeforeBenchmark);
+            SetSkyDome(_domeBeforeBenchmark);
+            _screens?.Find<BackdropScreen>()?.RollPreviewMap();
             Console.WriteLine("[bench] end");
         }
 

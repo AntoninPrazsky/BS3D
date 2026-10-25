@@ -12,8 +12,9 @@ namespace BS3D.Screens
 {
     /// <summary>
     /// The benchmark's physics segment (#988): the CPU's cost of the game's own simulation, measured apart from the GPU. The
-    /// tours fly scenes with no cluster in them, so this hangs a shipped level's cluster in a <see cref="PhysicsWorld"/> the
-    /// way <c>GameplayScreen</c> builds one - the kinematic glass sized off <see cref="CeilingPlate"/>, the island's funnel
+    /// tours' only cluster is the front end's preview, drawn without the game's simulation, so this hangs a shipped level's
+    /// cluster in a <see cref="PhysicsWorld"/> the way <c>GameplayScreen</c> builds one - the kinematic glass sized off
+    /// <see cref="CeilingPlate"/>, the island's funnel
     /// floor, <see cref="BallsConstraintsBuilder.BuildBallsStructure"/> at <see cref="ClusterHang.FitWorldOffset"/>, the
     /// spring from the glass (<see cref="PhysicsWorld.BeginStartSwing"/>), the scene's air keeping it awake - and times every
     /// <see cref="PhysicsWorld.FIXED_TIMESTEP"/> step on the stopwatch. Nothing is drawn: the world exists only here.
@@ -62,6 +63,21 @@ namespace BS3D.Screens
             Microsoft.Xna.Framework.Vector3 offset = ClusterHang.FitWorldOffset(map, out float fieldTopY);
 
             _world = new PhysicsWorld();
+            try
+            {
+                Balls = Hang(map, offset, fieldTopY);
+            }
+            catch
+            {
+                //A world half built is still a buffer pool and a dispatcher's threads
+                _world.Dispose();
+                throw;
+            }
+        }
+
+        //The glass, the floor and the cluster, as GameplayScreen builds them; how many balls it hung
+        private int Hang(BallsMap map, Microsoft.Xna.Framework.Vector3 offset, float fieldTopY)
+        {
             float ceilingY = CeilingPlate.CentreYAbove(fieldTopY);
             Box glass = new(CeilingPlate.FootprintFor(map.StageSizeX), CeilingPlate.THICKNESS, CeilingPlate.FootprintFor(map.StageSizeZ));
             BodyHandle ceilingHandle = _world.Simulation.Bodies.Add(BodyDescription.CreateKinematic(
@@ -76,11 +92,13 @@ namespace BS3D.Screens
 
             PhysicsBall[,,] balls = BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), _world.Simulation, ceiling,
                 offset.ToNumerics());
+            int count = 0;
             foreach (PhysicsBall ball in balls)
-                if (ball != null) Balls++;
+                if (ball != null) count++;
 
             _world.BeginStartSwing(balls);
-            if (wind.Strength > 0f) _world.KeepClusterAwake(balls);
+            if (_wind.Strength > 0f) _world.KeepClusterAwake(balls);
+            return count;
         }
 
         /// <summary>Whether every step has been taken.</summary>

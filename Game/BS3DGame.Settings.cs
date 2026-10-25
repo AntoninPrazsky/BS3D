@@ -345,7 +345,7 @@ namespace BS3D
         /// (<see cref="PotatoBackdrop"/>, #829) are drawn by <see cref="BeginPotatoSceneDraw"/> whatever this says (see
         /// <c>BS3DGame.Potato.cs</c>).
         /// </summary>
-        internal bool SceneryShown => !PotatoPath && _settings.Scenery != false;
+        internal bool SceneryShown => !PotatoPath && (_settings.Scenery != false || _benchmarking);
 
         /// <summary>
         /// Whether the clouds stand as volumes this frame (#989): High and Ultra (the finer meshes' switch), a scene that draws
