@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #988 fyzika a HDR sonda, pád Gridu (#956) — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo: #988 čtvrtá etapa (06901db0): `PhysicsBench` krokuje Girandole (1204 koulí) mimo obraz, krok má rozpočet 8,33 ms při každé obnovovací frekvenci; desktop medián 1,29 ms, 15,5 % každého snímku. Pátá (4d39f6c2): HDR cíl scény zkoumán na NaN a nekonečno.
+- Hotovo: pád Gridu (488f05bc): v prvních 0,11 s hodin nemá žádný světelný motocykl stopu a `SetData` s počtem 0 hází výjimku; hra na Medium spadla při startu 2× ze 2. Žádné vydání ho nenese.
+- ⚠ Benchmark na jiné úrovni než High našel pád, který všechna ověření na High minula. Pouštím sweep 21 scén × 5 úrovní.
+- ⚠ `Texture2D.GetData` neumí `HdrBlendable` a `HalfVector4` ztrácí NaN (`docs/game-shell/benchmark.md`).
+- Otevřené: #988 fyzika se střelbou, zátěžové finále, Pi segmenty.
+
 ## 2026-10-25 — #966 brouci a štíři v poušti, #988 doporučení a kontrolní snímek — desktop (RDT-PC), Claude Code (bs3d-21)
 - Hotovo: #966 (11366c98) 14 brouků a 6 štírů kolem ostrova (`DesertCritters`, `CritterMesh`, `Critter.fx`): vylezou z nory v obláčku písku, ujdou kus po výšce dun, zahrabou se; život je čistá funkce hodin (`DesertCritterTests`). Nový záběr úvodní túry „the scorpion“ (`SceneRenderer.CueDesertCritter` z `onStart`). `verdict-eye`.
 - Hotovo: #988 druhá a třetí etapa (d42cf51a, 4abcdbb5): `BenchmarkVerdict` doporučí úroveň a nabídne ji, `FrameProbe` ve 3 s zkontroluje, že snímek scény není černý ani plochý.
