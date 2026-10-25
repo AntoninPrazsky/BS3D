@@ -1,4 +1,6 @@
+using FontStashSharp;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using Myra.Graphics2D.UI;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.Levels;
@@ -23,7 +25,8 @@ namespace BS3D.Screens
     /// built off the frame) and are reported apart. The result is shown here, written to the log as <c>[bench]</c> lines and
     /// to <c>Benchmark.json</c> in the player's profile with the machine it ran on (<see cref="BS3DGame.BenchmarkSystem"/>);
     /// nothing is changed and nothing is sent. The skip key stops it. After the tours the CPU's physics is timed on its own
-    /// (<see cref="PhysicsBench"/>), the largest shipped cluster stepped off screen.
+    /// (<see cref="PhysicsBench"/>), the largest shipped cluster stepped off screen. While it runs, a panel in the corner shows
+    /// the part being measured, the frame's time and the last frames against the display's budget (<see cref="FrameTrace"/>).
     /// </summary>
     internal sealed class BenchmarkPage : MenuPage
     {
@@ -68,6 +71,22 @@ namespace BS3D.Screens
         private QualityLevel _measuredTier;
         private JsonObject _measuredSystem;
         private bool _complete;
+
+        //The live panel beside the flight: the part being measured, a readout of its time (the mean of the last
+        //READOUT_SECONDS) and the last frames against the budget, so a run is worth watching and a hitch is seen where it
+        //happens. Its strings are made once a part and the readout's in reused builders, so a frame allocates nothing
+        private const float READOUT_SECONDS = 0.25f;
+        private const int PANEL_MARGIN = 64, PANEL_WIDTH = 760, PANEL_PAD = 28, PANEL_GAP = 10, GRAPH_HEIGHT = 150, PROGRESS_HEIGHT = 8;
+        private const int TITLE_FONT = 60, READOUT_FONT = 92, CAPTION_FONT = 32, BUDGET_LINE = 3;
+        private readonly FrameTrace _trace = new();
+        private readonly StringBuilder _readout = new(16), _readoutUnit = new(32);
+        private float _readoutSum, _readoutSeconds;
+        private int _readoutFrames;
+        private string _partTitle = "", _partStep = "", _partBudgetCaption = "";
+        private float _partBudget;
+        private SpriteFontBase _titleFont, _readoutFont, _captionFont;
+        private int _laidOutWidth, _laidOutHeight;
+
         private readonly PlayHud _skipHint;
         private Button _firstEntry;
 
@@ -214,7 +233,9 @@ namespace BS3D.Screens
         private const float PHYSICS_HEAVY_SHARE = 0.5f;
 
         //A frame's budget: one frame of the display's refresh, or 60 Hz's where the display does not say
-        private float Budget => 1000f / (Game.DisplayRefreshHz > 0 ? Game.DisplayRefreshHz : 60);
+        private int RefreshHz => Game.DisplayRefreshHz > 0 ? Game.DisplayRefreshHz : 60;
+
+        private float Budget => 1000f / RefreshHz;
 
         /// <summary>Starts at once, without the press (the <c>benchmark</c> argument's, #988).</summary>
         internal void StartNow() => Start();
@@ -233,6 +254,8 @@ namespace BS3D.Screens
         private void BeginSegment()
         {
             Game.SetScene(SEGMENTS[_segment]);
+            BeginPart(SceneRenderer.SceneName(SEGMENTS[_segment]).ToUpperInvariant(), _segment + 1,
+                string.Create(CultureInfo.InvariantCulture, $"{RefreshHz} Hz"), Budget);
             _phase = Phase.Settling;
             _phaseSeconds = 0f;
             _frames.Clear();
@@ -253,7 +276,7 @@ namespace BS3D.Screens
                 Running ? _phaseSeconds : 0f, 0f);
             if (_phase == Phase.Physics)
             {
-                StepPhysics();
+                StepPhysics((float)gameTime.ElapsedGameTime.TotalSeconds);
                 return;
             }
             if (!Running || backdrop == null) return;
@@ -267,6 +290,7 @@ namespace BS3D.Screens
             if (_phase == Phase.Settling)
             {
                 _settle.Add(milliseconds);
+                Tally(milliseconds, milliseconds / 1000f, apart: true);
                 if (_phaseSeconds < SETTLE_SECONDS) return;
                 _phase = Phase.Touring;
                 _phaseSeconds = 0f;
@@ -275,7 +299,11 @@ namespace BS3D.Screens
             }
 
             if (_skipNext) _skipNext = false;
-            else _frames.Add(milliseconds);
+            else
+            {
+                _frames.Add(milliseconds);
+                Tally(milliseconds, milliseconds / 1000f, apart: false);
+            }
             if (backdrop.TourRunning || _phaseSeconds < 0.5f) return;
 
             //The tour is home: this segment's figures
@@ -299,6 +327,7 @@ namespace BS3D.Screens
                 _physics = new PhysicsBench(new BallsMap(level.Map), SceneWind.For(level.Scene ?? SceneKind.City, null));
                 _physicsBalls = _physics.Balls;
                 _phase = Phase.Physics;
+                BeginPart("PHYSICS", SEGMENTS.Length + 1, "real time", PhysicsBench.STEP_BUDGET_MILLISECONDS);
                 Console.WriteLine($"[bench] physics {PhysicsBench.LEVEL}: {_physicsBalls} balls, {Environment.ProcessorCount} threads");
             }
             catch (Exception e)
@@ -311,9 +340,10 @@ namespace BS3D.Screens
             }
         }
 
-        private void StepPhysics()
+        private void StepPhysics(float seconds)
         {
             _physics.Run(PHYSICS_SLICE_MILLISECONDS);
+            Tally(_physics.SliceMean, seconds, apart: false);
             if (!_physics.Done) return;
 
             _physicsResult = _physics.Summarize();
@@ -432,6 +462,127 @@ namespace BS3D.Screens
             }
         }
 
-        internal override void DrawAside() => _skipHint.DrawSkipHintAlone(Game.PromptsForPad);
+        //A part of the run begins: the panel's title, its place in the run (the physics is the last part), what its budget's
+        //line stands for, and an empty graph
+        private void BeginPart(string title, int part, string budgetCaption, float budget)
+        {
+            _partTitle = title;
+            _partStep = string.Create(CultureInfo.InvariantCulture, $"{part} / {SEGMENTS.Length + 1}");
+            _partBudgetCaption = budgetCaption;
+            _partBudget = budget;
+            _trace.Clear();
+            _readout.Clear();
+            _readoutUnit.Clear();
+            _readoutSum = _readoutSeconds = 0f;
+            _readoutFrames = 0;
+        }
+
+        //One frame (or one physics slice's mean step) into the graph, and the readout renewed every READOUT_SECONDS
+        private void Tally(float milliseconds, float seconds, bool apart)
+        {
+            _trace.Add(milliseconds, apart);
+            _readoutSum += milliseconds;
+            _readoutFrames++;
+            _readoutSeconds += seconds;
+            if (_readoutSeconds < READOUT_SECONDS && _readout.Length > 0) return;
+
+            float mean = _readoutSum / _readoutFrames;
+            bool physics = _phase == Phase.Physics;
+            _readout.Clear();
+            if (physics) _readout.Append(CultureInfo.InvariantCulture, $"{mean:0.00} ms");
+            else _readout.Append(CultureInfo.InvariantCulture, $"{mean:0.0} ms");
+            _readoutUnit.Clear();
+            if (physics) _readoutUnit.Append("a step, ").Append(_physicsBalls).Append(" balls");
+            else if (apart) _readoutUnit.Append("warming up");
+            else if (mean > 0f) _readoutUnit.Append(CultureInfo.InvariantCulture, $"{1000f / mean:0} FPS");
+            _readoutSum = _readoutSeconds = 0f;
+            _readoutFrames = 0;
+        }
+
+        internal override void DrawAside()
+        {
+            if (Running && _partTitle.Length > 0) DrawPanel();
+            _skipHint.DrawSkipHintAlone(Game.PromptsForPad);
+        }
+
+        //The panel in the top right corner (the FPS line owns the top left, and is on by default): the part and its place in
+        //the run, the readout, then the graph, a bar a frame with the newest on the right and the budget's line across its
+        //middle; first-use frames dim, frames over the budget in the alert colour, the rest in the note colour; under the
+        //physics, how far through its steps it is
+        private void DrawPanel()
+        {
+            Viewport viewport = Game.GraphicsDevice.Viewport;
+            if (viewport.Width != _laidOutWidth || viewport.Height != _laidOutHeight)
+            {
+                _laidOutWidth = viewport.Width;
+                _laidOutHeight = viewport.Height;
+                _titleFont = Game.DisplayFontAt(Scaled(TITLE_FONT));
+                _readoutFont = Game.DisplayFontAt(Scaled(READOUT_FONT));
+                _captionFont = Game.ReadingFontAt(Scaled(CAPTION_FONT));
+            }
+
+            int margin = Scaled(PANEL_MARGIN), pad = Scaled(PANEL_PAD), gap = Scaled(PANEL_GAP);
+            int width = Math.Min(Scaled(PANEL_WIDTH), viewport.Width - 2 * margin);
+            int inner = width - 2 * pad;
+            int panelLeft = viewport.Width - margin - width;
+            int left = panelLeft + pad;
+            int titleTop = margin + pad;
+            int readoutTop = titleTop + _titleFont.LineHeight + gap;
+            int graphTop = readoutTop + _readoutFont.LineHeight + gap;
+            int graphHeight = Scaled(GRAPH_HEIGHT);
+            bool physics = _phase == Phase.Physics;
+            int bottom = graphTop + graphHeight + (physics ? gap + Scaled(PROGRESS_HEIGHT) : 0) + pad;
+
+            SpriteBatch batch = Game.OverlayBatch;
+            Texture2D texel = Game.Texel;
+            batch.Begin();
+            batch.Draw(texel, new Rectangle(panelLeft, margin, width, bottom - margin), BS3DGame.MENU_PLATE);
+
+            batch.DrawString(_titleFont, _partTitle, new Vector2(left, titleTop), BS3DGame.MENU_TEXT);
+            Vector2 stepSize = _captionFont.MeasureString(_partStep);
+            batch.DrawString(_captionFont, _partStep,
+                new Vector2(left + inner - MathF.Round(stepSize.X), titleTop + MathF.Round((_titleFont.LineHeight - stepSize.Y) * 0.5f)),
+                BS3DGame.MENU_TEXT_DIM);
+
+            if (_readout.Length > 0)
+            {
+                batch.DrawString(_readoutFont, _readout, new Vector2(left, readoutTop), BS3DGame.MENU_TEXT);
+                float readoutWidth = _readoutFont.MeasureString(_readout).X;
+                batch.DrawString(_captionFont, _readoutUnit,
+                    new Vector2(left + MathF.Round(readoutWidth) + gap * 2, readoutTop + _readoutFont.LineHeight - _captionFont.LineHeight - gap),
+                    BS3DGame.MENU_TEXT_BODY);
+            }
+
+            //The graph's ground, faint, so its extent reads before it fills; then the bars; then the budget's line over them
+            batch.Draw(texel, new Rectangle(left, graphTop, inner, graphHeight), BS3DGame.MENU_TEXT * 0.05f);
+            int count = _trace.Count;
+            for (int i = 0; i < count; i++)
+            {
+                int slot = FrameTrace.CAPACITY - count + i;
+                int x0 = left + (int)((long)inner * slot / FrameTrace.CAPACITY);
+                int x1 = left + (int)((long)inner * (slot + 1) / FrameTrace.CAPACITY);
+                int barWidth = Math.Max(1, x1 - x0 - (x1 - x0 >= 3 ? 1 : 0));
+                float ms = _trace[i];
+                int height = Math.Max(1, (int)MathF.Round(FrameTrace.Height(ms, _partBudget) * graphHeight));
+                Color colour = _trace.IsApart(i) ? BS3DGame.MENU_TEXT_DIM
+                    : FrameTrace.Over(ms, _partBudget) ? BS3DGame.MENU_TEXT_ALERT : BS3DGame.MENU_TEXT_NOTE;
+                batch.Draw(texel, new Rectangle(x0, graphTop + graphHeight - height, barWidth, height), colour);
+            }
+            int line = Math.Max(1, Scaled(BUDGET_LINE));
+            int lineY = graphTop + (int)MathF.Round(graphHeight * (1f - 1f / FrameTrace.HEADROOM)) - line / 2;
+            batch.Draw(texel, new Rectangle(left, lineY, inner, line), PlayHud.HUD_ACCENT);
+            Vector2 captionSize = _captionFont.MeasureString(_partBudgetCaption);
+            batch.DrawString(_captionFont, _partBudgetCaption,
+                new Vector2(left + inner - MathF.Round(captionSize.X), lineY - MathF.Round(captionSize.Y) - line), PlayHud.HUD_ACCENT);
+
+            if (physics && _physics != null)
+            {
+                int progressTop = graphTop + graphHeight + gap, progressHeight = Scaled(PROGRESS_HEIGHT);
+                batch.Draw(texel, new Rectangle(left, progressTop, inner, progressHeight), BS3DGame.MENU_TEXT * 0.12f);
+                batch.Draw(texel, new Rectangle(left, progressTop, (int)MathF.Round(inner * _physics.Progress), progressHeight),
+                    BS3DGame.MENU_TEXT_NOTE);
+            }
+            batch.End();
+        }
     }
 }
