@@ -381,6 +381,22 @@ namespace Prazsky.Core.Render
         //desktop's darker ice of #963 is for its moonlit snow, which the Raspberry Pi's stand-in does not draw
         private static readonly IslandLook POTATO_AURORA_LOOK = new(new Vector3(0.70f, 0.78f, 0.84f), new Vector3(0.54f, 0.66f, 0.76f), 0.36f, 0.26f, 2f);
 
+        //The dream's island as the Potato path draws it: one pastel tint, since its island has no marble (#779)
+        private static readonly IslandLook POTATO_DREAM_LOOK = new(new Vector3(0.78f, 0.67f, 0.78f), new Vector3(0.66f, 0.59f, 0.74f), 0.32f, 0.20f, 2.5f);
+
+        //The dream's island (#779): the scene's own palette, read off its config so the marble cannot drift off the sky it
+        //stands in; how strongly the cap and the drum are banded and how much thin film each shows; and the ring of light
+        //inlaid in the top, 0.45 inside the floor's arris (a true circle, so the ring is one too), its half-width and its
+        //radiance - at the glare's edge, so it glows without blooming the top white.
+        private static readonly DreamPaletteConfig DREAM_PALETTE = new DreamSceneConfig().Palette;
+        private const float DREAM_CAP_MARBLE = 1f, DREAM_DRUM_MARBLE = 0.6f;
+        private const float DREAM_CAP_SHEEN = 0.35f, DREAM_DRUM_SHEEN = 0.7f;
+        private const float DREAM_CAP_GLOW = 0f, DREAM_DRUM_GLOW = 0.1f;
+        //The recess under the roll the drips run down (IslandMesh's melting shape: its wall stands about 1.05 inside the
+        //roll's face and a drip's face 0.14 to 0.4): in shade from 0.55 inside the rim, fully by 1.15
+        private static readonly Vector3 DREAM_RECESS = new(RADIUS - 0.55f, RADIUS - 1.15f, 0.55f);
+        private static readonly Vector3 DREAM_RING = new(IslandMesh.FloorRadius(RADIUS) - 0.45f, 0.09f, 1.1f);
+
         //The dunes' pale sand (DesertSceneConfig.SandColorPale, brought to sRGB like STONE_COLOR): the drift's own
         //colour and the film of it on the desert island's top.
         private static readonly Vector3 SAND_DRIFT_COLOR = new(0.86f, 0.70f, 0.50f);
@@ -409,8 +425,10 @@ namespace Prazsky.Core.Render
             SceneKind.Forest => new(new Vector3(0.45f, 0.49f, 0.40f), new Vector3(0.37f, 0.40f, 0.33f), 0.10f, 0.06f, 2f),
             //Machined plates of pale metal on a dark hull
             SceneKind.Space => new(new Vector3(0.44f, 0.46f, 0.50f), new Vector3(0.26f, 0.28f, 0.32f), 0.22f, 0.20f, 4f),
-            //Pastel marble, polished
-            SceneKind.Dream => new(new Vector3(0.78f, 0.67f, 0.78f), new Vector3(0.66f, 0.59f, 0.74f), 0.32f, 0.20f, 2.5f),
+            //Polished pastel marble (#779): a pale ground the dream's own technique bands in the scene's palette (the swirl
+            //carries the hue, so the base is near white), glassier than any stone. The Potato path, which has no marble,
+            //keeps the pastel tint it shipped with.
+            SceneKind.Dream => potato ? POTATO_DREAM_LOOK : new(new Vector3(0.84f, 0.82f, 0.86f), new Vector3(0.78f, 0.75f, 0.84f), 0.42f, 0.30f, 2.5f),
             //Wet dark rock - WET since #535: the polish is the river's and the crystals' light standing on the
             //cap as a sheen, which 0.30 read as damp and 0.48 reads as dripping.
             SceneKind.Cavern => new(new Vector3(0.31f, 0.32f, 0.34f), new Vector3(0.25f, 0.26f, 0.28f), 0.48f, 0.36f, 2f),
@@ -528,7 +546,7 @@ namespace Prazsky.Core.Render
         //InstancedModelRenderer reduces the material to its luminance and multiplies by 1.25 before applying a
         //tint, so the tint that lands a colour exactly is that colour over the product.
         /// <summary>
-        /// THE ISLAND'S SHAPE PER SCENE (#533), resolved where its material is: which of the eight silhouettes
+        /// THE ISLAND'S SHAPE PER SCENE (#533), resolved where its material is: which of the nine silhouettes
         /// (<see cref="IslandShape"/>) a scene stands its cannon on. The families follow the ground each scene
         /// draws — a block of the volcano's own basalt, a floe on the two ice sheets, a weathered coral platform
         /// where there is a sea, a machined disc where there is no ground at all, a poured plinth on the two
@@ -544,6 +562,7 @@ namespace Prazsky.Core.Render
             SceneKind.City or SceneKind.NeonCity or SceneKind.Circus => IslandShape.Plinth,
             SceneKind.Outback => IslandShape.Monolith,
             SceneKind.Moon => IslandShape.Pad,
+            SceneKind.Dream => IslandShape.Melt,
             _ => IslandShape.Stone
         };
 
@@ -595,6 +614,9 @@ namespace Prazsky.Core.Render
             //The landing pad (#538): no joints anywhere (regolith does not pave), a faint relief. Its craters are
             //in the MESH (IslandMesh.PadCraters), not here: a crater is a hole, not a texture.
             IslandShape.Pad => new(5f, 0.006f, 0f, 0f, 0f, 0f, 0f, 0f, 4f, 0.010f),
+            //The melting solid (#779): no joints and no relief - it is polished, and the dream's own technique draws no
+            //height field at all (its swirl is its structure)
+            IslandShape.Melt => new(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f),
             _ => STONE_RELIEF
         };
 
@@ -720,6 +742,14 @@ namespace Prazsky.Core.Render
                 : Vector3.One;
             renderer.StrataSpacing = dressing.StrataSpacing;
             renderer.StrataStrength = dressing.StrataStrength;
+        }
+
+        private static void PushDreamPalette(InstancedModelRenderer renderer)
+        {
+            renderer.DreamPalette[0] = DREAM_PALETTE.A.ToVector3();
+            renderer.DreamPalette[1] = DREAM_PALETTE.B.ToVector3();
+            renderer.DreamPalette[2] = DREAM_PALETTE.C.ToVector3();
+            renderer.DreamPalette[3] = DREAM_PALETTE.D.ToVector3();
         }
 
         private static Vector3 TintFor(Vector3 wanted, Vector3 authored) =>
@@ -1096,6 +1126,26 @@ namespace Prazsky.Core.Render
 
             //The arid family (#538): the top dust blown clear round the drain
             _capRenderer.TopDustClear = new Vector2(dressing.DustClearRadius, 3f);
+
+            //The dream's melting island (#779): its own technique on both, the marble and the film, and the ring on the top
+            bool dream = scene == SceneKind.Dream;
+            _capRenderer.DreamSurface = dream;
+            _bodyRenderer.DreamSurface = dream;
+            if (dream)
+            {
+                PushDreamPalette(_capRenderer);
+                PushDreamPalette(_bodyRenderer);
+                _capRenderer.DreamMarble = DREAM_CAP_MARBLE;
+                _bodyRenderer.DreamMarble = DREAM_DRUM_MARBLE;
+                _capRenderer.DreamSheen = DREAM_CAP_SHEEN;
+                _bodyRenderer.DreamSheen = DREAM_DRUM_SHEEN;
+                _capRenderer.DreamGlow = DREAM_CAP_GLOW;
+                _bodyRenderer.DreamGlow = DREAM_DRUM_GLOW;
+                _capRenderer.DreamRecess = DREAM_RECESS;
+                _bodyRenderer.DreamRecess = DREAM_RECESS;
+                _capRenderer.DreamRing = DREAM_RING;
+                _bodyRenderer.DreamRing = Vector3.Zero;
+            }
 
             //The coastal family's height bands and bedding planes (#536), on the drum and on the cap's own sides -
             //the cap's nose is a side face too, and a sea stack's layers run up to its top. The band is a ratio

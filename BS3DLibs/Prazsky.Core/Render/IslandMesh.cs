@@ -45,14 +45,18 @@ namespace Prazsky.Core.Render
         /// <summary>A landing pad cut into regolith (#538): a thin flat slab with a plain cut edge, and round its
         /// foot the spoil the cut threw up, banked against the edge and spreading past the rim onto the ground
         /// (the Moon).</summary>
-        Pad
+        Pad,
+
+        /// <summary>A melting solid (#779): a soft rolled rim whose lower half pours down in drips over a lobed,
+        /// sagging drum, the underside hanging a little at every drip (the dream).</summary>
+        Melt
     }
 
     /// <summary>
     /// The round platform the game is played on: a cast-concrete drum with a dressed stone top, a moulded
     /// coping around its rim and a drain bored through the middle. It replaces the plain extruded washer
     /// the arena used to be — a cylinder with a hole, whose every edge was a raw 90° cut. Since #533 that is
-    /// one of six silhouettes (<see cref="IslandShape"/>); the remarks below describe the authored stone, and
+    /// one of the <see cref="IslandShape"/> silhouettes; the remarks below describe the authored stone, and
     /// the invariants they state hold for every shape.
     /// <para>
     /// <b>Two meshes, because it is two materials.</b> <see cref="Cap"/> is the dressed stone — the dished
@@ -168,6 +172,7 @@ namespace Prazsky.Core.Render
             float wander;
             int capSegments = segments;
             Func<Vector3, float> capHeightField = null;
+            Func<float, float, float> radialField = null;
 
             switch (shape)
             {
@@ -357,6 +362,39 @@ namespace Prazsky.Core.Render
                     capHeightField = PadCraters(bore, r - COPING_WIDTH);
                     break;
 
+                case IslandShape.Melt:
+                    //A MELTING SOLID (#779), the dream's own vocabulary turned on the island: every reference
+                    //(779-zimage, 779-klein) draws the platform as a soft pearl disc whose rolled rim pours down in
+                    //glossy drips, over an underside that melts like the scene's tumbling solids. So the rim is a
+                    //puffy roll (no arris below the floor's), the drum a soft wall swelling a little under it, and
+                    //the whole edge wanders like the floe. The drips are a radial field (MeltDrips): each one is the
+                    //roll carried on straight down the wall, proud of it, to a bulb and a round end. Their run is cut
+                    //in rings MELT_RING_STEP apart and four times the stone's facets, or a drip a unit wide and a
+                    //few long would be one facet and one span. The one foot that rounds under well inside the rim: the
+                    //dream floats, with no terrain hole for a foot to cover.
+                    wander = 0.45f;
+                    cap = new()
+                    {
+                        lip, arris,
+                        new(r - 0.75f, -0.05f, wobble: 0.2f),
+                        new(r - 0.25f, -0.32f, wobble: 0.5f)
+                    };
+                    LathePoint[] run = MeltRun(r);
+                    List<LathePoint> dense = Subdivided(run, MELT_RING_STEP);
+                    int turn = dense.FindIndex(point => point.Y <= -1.70f + 1e-4f);
+                    cap.AddRange(dense.GetRange(0, turn + 1));
+                    body = dense.GetRange(turn, dense.Count - turn);
+                    body.AddRange(new LathePoint[]
+                    {
+                        new(r - 1.90f, -4.95f, wobble: 0.8f),                        //rounding under
+                        new(r - 3.00f, -5.15f, wobble: 0.6f),                        //the underside, sagging a little
+                        new(r - 6.00f, -5.20f, wobble: 0.4f),
+                        new(bore + 2f, -5.05f, wobble: 0.2f)
+                    });
+                    capSegments = segments * 4;
+                    radialField = MeltDrips(run);
+                    break;
+
                 default:
                     //THE AUTHORED STONE, exactly as it was before #533. The stone, from the bore outward: the
                     //top face is a shallow dish rising from the bore's lip to its arris at the coping, then
@@ -411,10 +449,12 @@ namespace Prazsky.Core.Render
             //displaced identically on each - the seam rule in LatheMesh's own remarks. The authored stone's
             //cap has no wobbling ring at all, which is what kept its rim a true circle; a shape whose rim
             //wanders wobbles the cap's rings too, by the same per-ring figures the drum's first ring takes.
-            capMesh = new LatheMesh(device, cap, capSegments, wander, heightField: capHeightField);
+            capMesh = new LatheMesh(device, cap, capSegments, wander, heightField: capHeightField, radialField: radialField);
             //The body takes the cap's facet count: a shape whose cap is cut finer (the lunar pad's craters) shares its edge rings with
             //the body, and rings of 512 and 128 facets meet in a row of T-junctions a rasteriser rounds into hairline cracks (#974)
-            bodyMesh = new LatheMesh(device, body, capSegments, wander);
+            //The two take the same radial field where they take one at all (the melting rim's drips), so the ring they share is
+            //pushed identically on each, as it is displaced identically by the wander
+            bodyMesh = new LatheMesh(device, body, capSegments, wander, radialField: radialField);
         }
 
         //The lunar pad's dish is lathed in rings this far apart (world units), so a crater a unit across is
@@ -477,6 +517,129 @@ namespace Prazsky.Core.Render
                 float r = xz.Length();
                 float fade = Math.Clamp((r - bore - 0.3f) / 0.6f, 0f, 1f) * Math.Clamp((floorRadius - 0.3f - r) / 0.6f, 0f, 1f);
                 return lift * fade;
+            };
+        }
+
+        //The melting rim's drips (#779): how many, the longest one's run down the side from the roll's equator, how wide one
+        //is across its middle and how far its bulb swells back out from the tongue's run (world units). Fat drops, as the pearl
+        //references hang them, not long runs: a long drip barely narrowing read as a bar stood on the wall. The longest stops
+        //1.2 above the drum's turn under (y -4.4), so a drip never runs round under the platform, where the drop cinematic's
+        //lens is kept out (DropCinematic's STONE_CLEARANCE).
+        private const int MELT_DRIPS = 30;
+        private const float MELT_DRIP_LONGEST = 2.4f;
+        private const float MELT_DRIP_HALF_WIDTH = 0.6f;
+        private const float MELT_DRIP_PROUD = 0.35f;
+
+        //How far apart the rings of the drips' run are cut (world units along the profile)
+        private const float MELT_RING_STEP = 0.16f;
+
+        /// <summary>
+        /// The melting rim's outer profile from the roll's equator (its widest) down the side (#779): what the drips run
+        /// over, single-valued in height. The cap ends where it turns under (y -1.70) and the drum carries on from there.
+        /// </summary>
+        internal static LathePoint[] MeltRun(float outerRadius) => new LathePoint[]
+        {
+            new(outerRadius - 0.02f, -0.80f, wobble: 0.8f),                         //the roll's widest
+            new(outerRadius - 0.12f, -1.30f, wobble: 1f),
+            new(outerRadius - 0.55f, -1.70f, wobble: 1f),                           //turning under: the cap ends here
+            new(outerRadius - 0.95f, -1.95f, wobble: 1f),                           //the hollow under the roll
+            new(outerRadius - 1.05f, -2.60f, wobble: 1f),                           //the wall
+            new(outerRadius - 0.90f, -3.50f, wobble: 1f),                           //swelling a little
+            new(outerRadius - 1.15f, -4.40f, wobble: 1f)
+        };
+
+        /// <summary>
+        /// A profile with every span longer than <paramref name="step"/> cut into equal pieces, the radius, the height and
+        /// the wobble interpolated along it: the same polyline in more rings, so a field can shape it finely. The new points
+        /// are never creases.
+        /// </summary>
+        private static List<LathePoint> Subdivided(IReadOnlyList<LathePoint> profile, float step)
+        {
+            var dense = new List<LathePoint> { profile[0] };
+            for (int k = 1; k < profile.Count; k++)
+            {
+                LathePoint from = profile[k - 1], to = profile[k];
+                float length = new Vector2(to.Radius - from.Radius, to.Y - from.Y).Length();
+                int pieces = Math.Max(1, (int)MathF.Ceiling(length / step));
+                for (int i = 1; i < pieces; i++)
+                {
+                    float t = (float)i / pieces;
+                    dense.Add(new LathePoint(MathHelper.Lerp(from.Radius, to.Radius, t), MathHelper.Lerp(from.Y, to.Y, t),
+                        wobble: MathHelper.Lerp(from.Wobble, to.Wobble, t)));
+                }
+                dense.Add(to);
+            }
+            return dense;
+        }
+
+        /// <summary>
+        /// The drips of the melting rim (#779), as a radial field for both lathes: a fixed scatter of drips round the rim,
+        /// each the roll carried on straight down the side from its equator - a tongue whose face runs down at the roll's
+        /// own radius less a slow taper, so it stands proud of the hollow and the wall under it - swelling to a bulb near
+        /// its end and closing there in a round tip. Across, each is a rounded ridge. Nothing above the equator moves (the
+        /// floor's arris, the lip and the roll's crown stay exact), and nothing under <paramref name="run"/>'s last point.
+        /// <para>
+        /// <paramref name="run"/> is the outer profile the drips run over, from the equator down, single-valued in height,
+        /// so the push at a height is the drip's face less the profile's own radius there.
+        /// </para>
+        /// </summary>
+        internal static Func<float, float, float> MeltDrips(IReadOnlyList<LathePoint> run)
+        {
+            float top = run[0].Y, bottom = run[run.Count - 1].Y, face = run[0].Radius - 0.12f;
+            var rng = new Random(779);
+            var drips = new (float Angle, float HalfWidth, float Length)[MELT_DRIPS];
+            for (int i = 0; i < MELT_DRIPS; i++)
+            {
+                //Evenly spaced with a jitter, so they never bunch or leave a long bare stretch; mostly short with a few long
+                //ones (a power of a uniform), the widths varying a little
+                float angle = MathHelper.TwoPi * (i + 0.15f + 0.7f * (float)rng.NextDouble()) / MELT_DRIPS;
+                float length = MELT_DRIP_LONGEST * (0.45f + 0.55f * MathF.Pow((float)rng.NextDouble(), 1.4f));
+                float halfWidth = MELT_DRIP_HALF_WIDTH * (0.75f + 0.5f * (float)rng.NextDouble());
+                drips[i] = (angle, halfWidth / face, length);
+            }
+
+            return (angle, y) =>
+            {
+                if (y >= top || y < bottom) return 0f;
+
+                //The profile's own radius at this height, off the run (straight spans between its points)
+                float profile = run[run.Count - 1].Radius;
+                for (int k = 1; k < run.Count; k++)
+                {
+                    if (y >= run[k].Y)
+                    {
+                        float t = (run[k - 1].Y - y) / (run[k - 1].Y - run[k].Y);
+                        profile = MathHelper.Lerp(run[k - 1].Radius, run[k].Radius, t);
+                        break;
+                    }
+                }
+
+                float push = 0f;
+                foreach (var drip in drips)
+                {
+                    float along = (top - y) / drip.Length;   //0 at the equator, 1 at the tip
+                    if (along >= 1f) continue;
+
+                    //The bulb swells over the last third, and the tip closes on a quarter circle
+                    float bulb = MathF.Max(0f, 1f - MathF.Abs(along - 0.78f) / 0.25f);
+                    float tip = along > 0.88f ? MathF.Sqrt(MathF.Max(0f, 1f - (along - 0.88f) * (along - 0.88f) / (0.12f * 0.12f))) : 1f;
+                    //Wide where it leaves the roll, narrowing as it runs, swelling again at the bulb
+                    float halfWidth = drip.HalfWidth * (1.3f - 0.8f * along + 0.55f * bulb) * tip;
+                    if (halfWidth <= 0f) continue;
+
+                    float across = MathF.IEEERemainder(angle - drip.Angle, MathHelper.TwoPi) / halfWidth;
+                    if (across * across >= 1f) continue;
+
+                    //The tongue's face: the roll's own carried straight down, so the drip leaves the roll with no ledge, tapering
+                    //in as it runs, and the bulb swelling back out to the roll's face - never past the roll's widest, which is
+                    //the platform's (MeltIslandTests)
+                    float tongue = face - 0.4f * along + MELT_DRIP_PROUD * bulb;
+                    float shape = 1f - across * across;
+                    //A rounded ridge across, falling to the wall in a soft curve (a semicircle stood on it with vertical
+                    //sides and read as a bar)
+                    push = MathF.Max(push, MathF.Max(0f, tongue - profile) * shape * shape * (3f - 2f * shape) * tip);
+                }
+                return push;
             };
         }
 
