@@ -20,6 +20,10 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #984 #752 úvody Jeskyně a Velkého stanu — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo: #984 (03b674e9) úvod Jeskyně začíná průletem z tunelu (`CavernChamber.Passage`), klouzání ke krystalům přilétá zpoza nich s ostrovem v pozadí; #752 (59f18adc) Velký stan má vlastní prolog: plachta, hlediště, brána (`CircusIntroShots`, test drží pózy ve stanu). Revize nočních merge: sáně stály 3,9 jednotky mimo tažnou osu (opačné znaménko rotace), opraveno; polární průlet nad trhlinami se vyhýbá táboru. Vše `verdict-eye`, karty na stránce 25. 10.
+- ⚠ Stan nemá CPU geometrii: test drží kamery jen jeho čísly (stěna, kužel plachty, podlaha, sklon hlediště); viděno selhat se zlomenými konstantami.
+
 ## 2026-10-25 — #746 #745 #747 koleje, vlajky, polární tábor — desktop (RDT-PC), Claude Code (bs3d-21)
 - Hotovo: #746 (918247f5) koleje roveru na Měsíci (`RoverTracks.fxh/.cs`, decal v normále) a dvě bílé zmrzlé vlajky, ta vzdálená je vidět při hře; #745 (4d678711) stejné koleje na Marsu, test po bězích čtyř segmentů; #747 (a1387e0d) `PolarPlanting`: stanice, stožár, větrník, pásák se saněmi, sudy, závěje. Vše `verdict-eye`, karty na stránce 25. 10.
 - ⚠ Jeden box kolem celé koleje poslal každý pixel pod ním přes všech 23 segmentů (Mars +0,43 ms); boxy po čtyřech to srazily na nulu. Trhliny polárního ledu pokrývají celou pláň za mýtinou: místo pro tábor se nenajde, led se kolem tábora čistí v shaderu i mirroru (`CampClear`).
