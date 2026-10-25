@@ -147,6 +147,8 @@ void main() {
       //The front round leaves, the queue moves up and a fresh one is dealt at the back, as the magazine does
       state.shots.push({ p: muzzle, v: scale(aim, SHOT_SPEED), age: 0, color: ballColors[state.queue.shift()] });
       state.queue.push(deal());
+      //Heard, where the page has sound on (#950, js/sound.js): from where the gun is across the canvas
+      window.dispatchEvent(new CustomEvent("bs3d:shot", { detail: { x: Math.max(-1, Math.min(1, muzzle[0] / RADIUS)) } }));
     }
     for (const shot of state.shots) {
       shot.age += dt;

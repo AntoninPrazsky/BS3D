@@ -9,6 +9,9 @@ module.exports = function (eleventyConfig) {
     // The live cannon (#949): its script and the game's meshes Tools/WindingCheck --export-cannon writes
     eleventyConfig.addPassthroughCopy("src/js");
     eleventyConfig.addPassthroughCopy("src/cannon");
+    // And the game's sound behind the page's toggle (#950): the game's own files, copied at the build, so the page never keeps
+    // a copy that could fall behind them
+    eleventyConfig.addPassthroughCopy({ "../Game/Music/menu.ogg": "audio/menu.ogg", "../Game/Sfx/shoot.ogg": "audio/shoot.ogg" });
 
     // A post's date as a reader says it, for the blog (src/blog/*.md, tagged "posts" by blog.11tydata.json)
     eleventyConfig.addFilter("readableDate", (date) =>
