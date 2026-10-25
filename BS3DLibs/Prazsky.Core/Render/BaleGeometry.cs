@@ -28,8 +28,9 @@ namespace Prazsky.Core.Render
     /// </summary>
     internal static class BaleGeometry
     {
-        /// <summary>Facets round the bale: the tube's, and so the rim of each end.</summary>
-        public const int SIDES = 18;
+        /// <summary>Facets round the bale: the tube's, and so the rim of each end. 32 since #971 (it was 18): an end close to a
+        /// lens showed its corners, and <c>Acacia.fx</c>'s straw takes this figure as <c>STRAW_SIDES</c>.</summary>
+        public const int SIDES = 32;
 
         /// <summary>How far an end's centre recedes into the bale, as a share of its radius (a quarter of a hand on a roll as
         /// tall as a post): shallow enough to read as a flat end from the front, deep enough to catch the light at a
