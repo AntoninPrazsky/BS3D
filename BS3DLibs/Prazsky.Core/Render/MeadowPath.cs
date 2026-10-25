@@ -33,8 +33,10 @@ namespace Prazsky.Core.Render
         public static float Wander(float d, MeadowSceneConfig config) =>
             config.PathMeander * (0.7f * MathF.Sin(d * 0.021f + 0.6f) + 0.3f * MathF.Sin(d * 0.057f + 2.1f));
 
-        /// <summary>Where the brook starts, as a share of the clearing's radius.</summary>
-        public const float BROOK_START = 0.82f;
+        /// <summary>Where the brook starts, as a share of the clearing's radius: the pond's centre (<see cref="PondCentre"/>), at
+        /// the foot of the valley the brook comes down (#979), so the water falls all the way into it. At 0.82 the pond lay up
+        /// the slope from the foot, a unit and a half over it, and the brook's last thirty units ran uphill into it.</summary>
+        public const float BROOK_START = 1.18f;
 
         /// <summary>How far (x, z) stands to the side of the brook's centreline — <c>Meadow.fx</c>'s <c>BrookLateral</c>: the
         /// arc at its distance from the arena, negative on one side, <see cref="float.MaxValue"/> before its start or more than

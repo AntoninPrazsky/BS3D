@@ -130,7 +130,8 @@ namespace BS3D.Tests
                     if (!Covered(x, z)) { open++; first ??= $"({x:F1}, {z:F1}) on the brook, {d:F1} out"; }
                 }
 
-            Assert.True(tried > 30000, $"only {tried} points tried");
+            //About 10,700 over the pond and 12,500 down the brook from the pond to its spring (#979)
+            Assert.True(tried > 20000, $"only {tried} points tried");
             Assert.True(open == 0, $"{open} of {tried} points of the grid's hole have no patch over them at rows {rowLevel}, sides {sideLevel}, the first {first}");
         }
 
@@ -274,6 +275,24 @@ namespace BS3D.Tests
             }
 
             Assert.True(lowest > 0.1f, $"the pond's water reaches out from under its bank: the bank is {lowest:F3} over it");
+        }
+
+        [Fact]
+        public void TheBrookFallsAllTheWayToThePond()
+        {
+            //#979, the owner: "the water does not flow downhill". The brook's level follows the ground under its course, so it
+            //falls towards the pond only if that ground does: from the mouth to the spring, never a step back up. Before the
+            //fix the pond lay 1.5 over the valley's foot, so the last thirty units ran uphill into it, and past the crest the
+            //painted brook climbed 16 units to the next valley.
+            float mouth = MeadowCarve.BrookMouth(Config);
+            float previous = MeadowCarve.BrookWaterLevel(mouth, Config);
+            Assert.True(MathF.Abs(previous - MeadowCarve.PondWaterLevel(Config)) < 1e-3f, $"the mouth stands at {previous:F3}, the pond at {MeadowCarve.PondWaterLevel(Config):F3}");
+            for (float d = mouth + 0.25f; d <= MeadowCarve.BROOK_CARVE_END; d += 0.25f)
+            {
+                float level = MeadowCarve.BrookWaterLevel(d, Config);
+                Assert.True(level >= previous - 1e-4f, $"the water rises {previous - level:F4} going downstream at {d:F2} out");
+                previous = level;
+            }
         }
 
         [Fact]

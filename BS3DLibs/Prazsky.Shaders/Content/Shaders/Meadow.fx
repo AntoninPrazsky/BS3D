@@ -92,10 +92,8 @@ static const float PATH_RAGGED = 0.35;                    //how far the noise mo
 float BrookBearing;
 float BrookWidth;
 float BrookMeander;
-static const float BROOK_START = 0.82;                    //MeadowPath.BROOK_START
-static const float3 BROOK_BANK = float3(0.07, 0.11, 0.035);
+static const float BROOK_START = 1.18;                    //MeadowPath.BROOK_START
 static const float3 BROOK_BED = float3(0.035, 0.05, 0.045);
-static const float BROOK_RAGGED = 0.3;                    //and the brook's
 
 //The pond the brook runs into and the knoll the footpath climbs to its old tree (#609's third round). The owner: the
 //brook "ends abruptly in the middle of the meadow ... it should flow into something, a pond for example", and "a path
@@ -113,10 +111,25 @@ static const float POND_LEVEL_FADE = 14.0;                //TerrainMirror.MEADOW
 static const float POND_SHELF = 3.0;                      //MeadowCarve.POND_SHELF: how far in from the shore the shallow shelf reaches
 static const float3 POND_SHALLOW_BED = float3(0.075, 0.07, 0.035);
 //The cut's bare earth, lit and in its darker layers, and how fast the water's body hides the bed: per world unit of the
-//light's path through it, which is the depth over the view's steepness (#892)
+//light's path through it, which is the depth over the view's steepness (#892). The brook runs clear (#979): its shallow
+//bed shows and only its deeper middle and the grazing view darken, into a green body of its own; the pond, still and
+//silted, is as murky and as dark as all the water was.
 static const float3 CUT_EARTH = float3(0.12, 0.08, 0.045);
 static const float3 CUT_EARTH_DARK = float3(0.045, 0.032, 0.02);
-static const float WATER_MURK = 1.8;
+static const float BROOK_MURK = 0.6;
+static const float POND_MURK = 1.8;
+static const float3 BROOK_BODY = float3(0.05, 0.085, 0.06);
+//The brook's bed (#979): sand with pebbles in it and a few bigger stones, one to a cell of these sizes (world units) where
+//a cell has one, and their colours dry
+static const float PEBBLE_SPACING = 0.22;
+static const float STONE_SPACING = 0.6;
+static const float3 PEBBLE = float3(0.24, 0.21, 0.16);
+static const float3 BED_SAND = float3(0.13, 0.11, 0.075);
+//Its water's fall (#979): what slope along the brook (height over distance) begins and completes its running fast and
+//white, and the white of its foam
+static const float BROOK_FAST_FROM = 0.08;
+static const float BROOK_FAST_AT = 0.45;
+static const float3 FOAM = float3(0.75, 0.78, 0.76);
 //The brook's gravel margin, its pale stones and its dark, and how much of the sky its swale takes away from the ground in it
 //(the pond's crater takes 0.25)
 static const float3 GRAVEL = float3(0.2, 0.18, 0.14);
@@ -210,9 +223,9 @@ static const float BROOK_BANK_MAX = 4.4;
 static const float BROOK_LEVEE = 0.12;                    //MeadowCarve.BROOK_LEVEE: the lip at its top
 static const float CARVE_TAIL = 3.0;                      //MeadowCarve.CARVE_TAIL
 static const float BROOK_REFERENCE = 2.4;                 //MeadowCarve.BROOK_REFERENCE
-static const float BROOK_CARVE_FADE = 400.0;              //MeadowCarve.BROOK_CARVE_FADE, _END
-static const float BROOK_CARVE_END = 470.0;
-static const float BROOK_HOLE_END = 472.0;                //MeadowCarve.BROOK_HOLE_END
+static const float BROOK_CARVE_FADE = 168.0;              //MeadowCarve.BROOK_CARVE_FADE, _END: its spring
+static const float BROOK_CARVE_END = 190.0;
+static const float BROOK_HOLE_END = 192.0;                //MeadowCarve.BROOK_HOLE_END
 static const float BROOK_CARVE_HALF = 7.9;                //MeadowCarve.BROOK_CARVE_HALF, BROOK_HOLE_HALF
 static const float BROOK_HOLE_HALF = 9.3;
 static const float POND_DROP = 1.25;                      //MeadowCarve.POND_DROP
@@ -241,15 +254,16 @@ float2 BrookPointAt(float d, float side)
     return float2(cos(angle), sin(angle)) * d;
 }
 
-float BrookWaterHalf(float d)
-{
-    return BrookWidth * 0.5 * (1.0 + 0.12 * sin(d * 0.23 + 0.4) + 0.07 * sin(d * 0.61 + 2.0)
-        + 0.05 * sin(d * 1.9 + 0.7) + 0.03 * sin(d * 3.7 + 2.9));
-}
-
 float BrookPresence(float d)
 {
     return 1.0 - smoothstep(BROOK_CARVE_FADE, BROOK_CARVE_END, d);
+}
+
+//MeadowCarve.BrookWaterHalf: the water's half-width, wavering, and narrowing to a trickle at its spring (#979)
+float BrookWaterHalf(float d)
+{
+    return BrookWidth * 0.5 * (1.0 + 0.12 * sin(d * 0.23 + 0.4) + 0.07 * sin(d * 0.61 + 2.0)
+        + 0.05 * sin(d * 1.9 + 0.7) + 0.03 * sin(d * 3.7 + 2.9)) * (0.4 + 0.6 * BrookPresence(d));
 }
 
 float BrookReference(float d)
@@ -627,20 +641,30 @@ static const float SMALL_FLOWER_DENSITY = 2.0;
 #include "Grass.fxh"
 
 //THE WATER'S SURFACE (#609): mostly the sky it mirrors - more of it towards grazing, the Fresnel every still water has -
-//broken by ripples and glinting where they face the sun. DOWNSTREAM IS TOWARDS THE ARENA since the pond (#609's third
-//round): the brook comes down off the hills into the pond in the clearing, where until then its ripples ran away from the
-//arena - uphill. The pond (still = 1) lies still but for the wind's cat's-paws, and at the mouth the one eases into the
-//other (#970: the brook's current carried into the pond). Answers the reflection with its glint,
-//and the Fresnel; what shows through the rest is the caller's - the painted brook's dark bed, or the cut's own (#892).
-float3 WaterReflection(float3 worldPosition, float3 toCamera, float still, float sunlight, out float fresnel)
+//broken by ripples and glinting where they face the sun. The pond (still = 1) lies still but for the wind's cat's-paws,
+//and at the mouth the one eases into the other (#970: the brook's current carried into the pond).
+//DOWNSTREAM IS DOWN THE BROOK'S OWN COURSE, from its spring on the hill to the pond (#979). The running ripples scroll in
+//the brook's coordinates, `flow` = (distance out, lateral off its centreline), towards smaller distance, so they follow
+//every bend; until then they ran radially, across the water wherever the course bent. In those coordinates each layer
+//scrolls at one speed, so the pattern never shears however long the scene runs. Two layers: a slow one, and a fast one
+//drawn out along the flow that takes over where the water falls steeply (`steep`, 0..1), with white streaks of foam in
+//it - a brook coming down a hillside reads as running downhill by its speed and its white. Answers the reflection with
+//its glint, the Fresnel and the foam's cover; what shows through the rest is the caller's, the cut's bed (#892).
+float3 WaterReflection(float3 worldPosition, float3 toCamera, float still, float2 flow, float steep, float sunlight,
+                       out float fresnel, out float foam)
 {
     float2 slope = 0.0;
+    foam = 0.0;
     [branch]
     if (still < 1.0)
     {
-        float2 flowDir = normalize(worldPosition.xz + 1e-3);
-        float2 rippleDomain = worldPosition.xz * 1.6 + flowDir * MeadowTime * 1.2;
-        slope = float2(GradientNoise2(rippleDomain), GradientNoise2(rippleDomain * 1.7 + 4.2)) * (0.18 * (1.0 - still));
+        float2 slow = float2(flow.x * 1.6 + MeadowTime * 1.2, flow.y * 1.6);
+        float2 fast = float2(flow.x * 0.9 + MeadowTime * 3.8, flow.y * 2.8);
+        float2 slowSlope = float2(GradientNoise2(slow), GradientNoise2(slow * 1.7 + 4.2));
+        float2 fastSlope = float2(GradientNoise2(fast), GradientNoise2(fast * 1.7 + 4.2));
+        float running = 1.0 - still;
+        slope = lerp(slowSlope * 0.18, fastSlope * 0.3, steep) * running;
+        foam = smoothstep(0.2, 0.55, GradientNoise2(fast * float2(0.7, 1.3) + 13.0)) * steep * running;
     }
     [branch]
     if (still > 0.0)
@@ -697,6 +721,68 @@ float LilyPad(float2 xz, float deep, float footprint, out float3 padColor)
         * step(0.85, HashBits(padSeed2, 12u, 8u));
     padColor = lerp(LILY_PAD * (0.8 + 0.4 * HashBits(padSeed2, 20u, 8u)), LILY_FLOWER, bloom);
     return pad;
+}
+
+//Noise.fxh's Voronoi2 with what a pebble needs of its cell besides: x = the distance to the nearest site (F1); y = that
+//site's own 0..1, which names the pebble so each can be its own stone
+float2 PebbleCell(float2 p)
+{
+    float2 i = floor(p);
+    float2 f = frac(p);
+    float best = 8.0, id = 0.0;
+
+    [unroll]
+    for (int y = -1; y <= 1; y++)
+    {
+        [unroll]
+        for (int x = -1; x <= 1; x++)
+        {
+            float2 cell = float2(x, y);
+            float2 h = NoiseHash22(i + cell);
+            float2 toSite = f - (cell + 0.5 + 0.4 * h);
+            float d = dot(toSite, toSite);
+
+            id = d < best ? h.x * 0.5 + 0.5 : id;
+            best = min(best, d);
+        }
+    }
+
+    return float2(sqrt(best), id);
+}
+
+//The brook's bed (#979): it runs clear, and a clear stream shows a stony bed, not the pond's silt - sand, rounded pebbles
+//in it and a few bigger stones, faded to their mean where a pebble is under a few pixels. Dry; the callers wet it as they
+//wet the silt. No derivative: the footprint is the caller's.
+//One round pebble of a PebbleCell, its radius (cells) its own: how much of this point it covers in `at`, and its colour,
+//pale on its crown and dark at its rim, its own tone, warm or grey. Where two sites stand close their pebbles meet along
+//the border between their cells, as stones packed in a bed do.
+float3 Pebble(float2 cell, float clods, out float at)
+{
+    float radius = 0.32 + 0.14 * frac(cell.y * 5.7);
+    float r = cell.x / radius;
+    at = 1.0 - smoothstep(0.85, 1.0, r);
+    float crown = sqrt(saturate(1.0 - r * r));
+    float tone = 0.55 + 0.9 * frac(cell.y * 3.1) + 0.2 * clods;
+    float3 hue = lerp(float3(1.0, 0.9, 0.76), float3(0.86, 0.9, 0.96), frac(cell.y * 7.3));
+    return PEBBLE * tone * hue * (0.35 + 0.65 * crown);
+}
+
+float3 BrookPebbles(float2 xz, float footprint, float clods)
+{
+    float3 bed = BED_SAND * (0.85 + 0.3 * clods);
+
+    //Pebbles in four cells of five, and over them a bigger stone in two cells of five of a coarser lattice, all round:
+    //polygons packed one to every cell read as crazy paving
+    float smallAt, bigAt;
+    float2 small = PebbleCell(xz / PEBBLE_SPACING);
+    float3 smallColor = Pebble(small, clods, smallAt);
+    float2 big = PebbleCell(xz / STONE_SPACING + 7.7);
+    float3 bigColor = Pebble(big, clods, bigAt);
+    bed = lerp(bed, smallColor, smallAt * step(0.2, small.y));
+    bed = lerp(bed, bigColor * 0.9, bigAt * step(0.6, big.y));
+
+    float resolved = saturate(1.6 - footprint / PEBBLE_SPACING * 2.0);
+    return lerp(lerp(BED_SAND, PEBBLE, 0.6), bed, resolved);
 }
 
 float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool detail, bool grid)
@@ -783,22 +869,10 @@ float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool 
 
     present *= 1.0 - verge;
 
-    //The brook (#609): water down the middle, a wet dark bank either side, no flower near it. Only near its line,
-    //for the path's reason. PAINTED only past its groove (#892): to BROOK_CARVE_FADE it is cut into the field and its water
-    //is a surface of its own (MeadowWaterPS), and over the groove's last stretch the paint comes back as the cut shallows.
-    //The pond is cut along its whole shore and has no paint at all.
-    float water = 0.0, bank = 0.0;
-
-    [branch]
-    if (brookLateral < max(BrookWidth * 1.4, BrookWidth * 0.5 + 0.2) + BROOK_RAGGED)
-    {
-        float painted = 1.0 - BrookPresence(length(worldPosition.xz));
-        float brookRagged = BROOK_RAGGED * GradientNoise2(worldPosition.xz * 0.7 + 9.1);
-        water = (1.0 - smoothstep(BrookWidth * 0.5 - 0.2, BrookWidth * 0.5 + 0.2, brookLateral + brookRagged)) * painted;
-        bank = (1.0 - smoothstep(BrookWidth * 0.5, BrookWidth * 1.4, brookLateral + brookRagged)) * painted;
-    }
-
-    present *= (1.0 - bank) * (1.0 - flowerless);
+    //The brook (#609) is cut into the field all the way from its spring to the pond (#892, #979): its water is a surface of
+    //its own (MeadowWaterPS), and nothing of it is painted on the field. Until #979 it ran on, painted, past its groove to
+    //the horizon - over the hills, uphill.
+    present *= 1.0 - flowerless;
 
     //Per-flower character: the species' petal count, petal shape and size, then the cell hash's own variation.
     //0 oxeye daisy: many thin white rays round a big yellow eye. 1 buttercup: five round glossy yellow petals.
@@ -994,7 +1068,7 @@ float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool 
     //take one side - and past that only the tint below, which needs no cell of its own: measured at 0.125 ms on the
     //desktop's High with every pixel of the field walking the cell, and the far field is most of the pixels.
     float smallDensity = saturate(FlowerDensity * SMALL_FLOWER_DENSITY * (0.2 + 2.6 * driftField * driftField))
-        * (1.0 - verge) * (1.0 - bank) * (1.0 - flowerless);
+        * (1.0 - verge) * (1.0 - flowerless);
     float smallResolvable = saturate(1.5 - footprint / (SMALL_FLOWER_RADIUS * 2.5));
 
     [branch]
@@ -1031,9 +1105,6 @@ float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool 
 
     grass = lerp(grass, flowerColor, flowerMask);
 
-    //The brook's bank: the grass darkens and goes muddy towards the water
-    grass = lerp(grass, BROOK_BANK, bank * (1.0 - water) * 0.75);
-
     //THE CUT (#892), as the references draw it: the pond's step at the waterline and anything as steep bare earth in
     //layers, the brook's shore a low step of earth over a margin of gravel, the bed under the water silt, the earth dark
     //and wet just over the waterline. Behind a branch on the pixels any of it reaches - the swale's grassy bank and the
@@ -1045,6 +1116,9 @@ float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool 
         float clods = GradientNoise2(worldPosition.xz * 3.1 + worldPosition.y * 2.3);
         float3 earthColor = lerp(CUT_EARTH_DARK, CUT_EARTH, saturate(0.65 * layers + 0.35 + 0.3 * clods));
         float3 siltColor = POND_SHALLOW_BED * (0.85 + 0.3 * clods);
+        [branch]
+        if (carve.w > 0.0 && under > 0.0)
+            siltColor = lerp(siltColor, BrookPebbles(worldPosition.xz, footprint, clods), carve.w);
         grass = lerp(grass, earthColor, max(earth, shore));
         //The margin's gravel, up to a ragged line under the step's foot: small pale pebbles packed in darker grit, their
         //grain faded to its mean where a pebble is under a pixel or two (the field's footprint, taken before any branch)
@@ -1091,7 +1165,7 @@ float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool 
     float3 toCamera = normalize(CameraPosition - worldPosition);
     float grazing = 1.0 - saturate(dot(baseNormal, toCamera));
     grazing *= grazing * grazing;
-    float bladeCover = (1.0 - flowerMask) * (1.0 - trodden) * (1.0 - bank) * (1.0 - bare);
+    float bladeCover = (1.0 - flowerMask) * (1.0 - trodden) * (1.0 - bare);
 
     float3 sheenColor = lerp(grass, GrassTipColor, 0.5) + 0.12;
     color += bladeCover * GrassSheenStrength * grazing * sheenColor
@@ -1102,16 +1176,6 @@ float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool 
     backlit *= backlit * backlit;
     color += bladeCover * GrassTranslucency * backlit * sunlight * (0.35 + 0.65 * pow(grazing, 0.33))
         * SunColor * lerp(grass, GrassTipColor, 0.6);
-
-    //The painted brook past its groove (#609; only there since #892): the water's surface over a dark bed
-    [branch]
-    if (water > 0.0)
-    {
-        float fresnel;
-        float3 reflection = WaterReflection(worldPosition, toCamera, 0.0, sunlight, fresnel);
-        float3 waterColor = BROOK_BED * (skyAmbient * AmbientStrength + SunColor * 0.4 * sunlight) * (1.0 - fresnel) + reflection;
-        color = lerp(color, waterColor, water);
-    }
 
     //Horizon haze: the distant hills soften into the skyline
     float dist = distance(CameraPosition, worldPosition);
@@ -1148,6 +1212,13 @@ float4 MeadowBedPS(CarvedVertexOutput input) : COLOR
 
     float clods = GradientNoise2(worldPosition.xz * 3.1 + worldPosition.y * 2.3);
     float3 silt = POND_SHALLOW_BED * (0.85 + 0.3 * clods) * 0.55;
+
+    //The brook's is pebbles (#979), wetted as the silt is
+    float footprint = length(fwidth(worldPosition.xz));
+    [branch]
+    if (input.Carve.w > 0.0)
+        silt = lerp(silt, BrookPebbles(worldPosition.xz, footprint, clods) * 0.55, input.Carve.w);
+
     float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
     float occlusion = 1.0 - saturate(input.Carve.x / 1.6) * lerp(0.25, BROOK_OCCLUSION, input.Carve.w);
     float3 color = silt * (skyAmbient * AmbientStrength * occlusion + SunColor * saturate(dot(normal, SunDirection)) * sunlight);
@@ -1167,8 +1238,8 @@ struct WaterVertexOutput
     float4 Position : SV_POSITION;
     float3 WorldPosition : TEXCOORD0;
     //x: 1 the pond, 0 the brook; y: how much of the groove there is (the brook's water fades out with it); z: the
-    //groove's sun
-    float3 Water : TEXCOORD1;
+    //groove's sun; w: how steeply the brook falls here, 0..1 (#979)
+    float4 Water : TEXCOORD1;
 };
 
 //The water mesh (MeadowPatch.cs) carries world XZ and in Y which water a vertex is: the level is set here, the pond's
@@ -1179,7 +1250,7 @@ WaterVertexOutput MeadowWaterVS(MeadowVertexInput input)
 
     float2 xz = input.Position.xz;
     float pond = input.Position.y;
-    float level = PondLevel - POND_DROP, presence = 1.0, sun = 1.0;
+    float level = PondLevel - POND_DROP, presence = 1.0, sun = 1.0, steep = 0.0;
     [branch]
     if (pond < 0.5)
     {
@@ -1187,12 +1258,17 @@ WaterVertexOutput MeadowWaterVS(MeadowVertexInput input)
         presence = BrookPresence(d);
         level = BrookReference(d) - BROOK_DROP * presence;
         sun = GrooveSun(xz, level);
+
+        //Its fall over the two units about here, as the level is worked out
+        float fall = (BrookReference(d + 1.0) - BROOK_DROP * BrookPresence(d + 1.0)
+            - BrookReference(d - 1.0) + BROOK_DROP * BrookPresence(d - 1.0)) * 0.5;
+        steep = smoothstep(BROOK_FAST_FROM, BROOK_FAST_AT, fall);
     }
 
     float3 worldPosition = float3(xz.x, level, xz.y);
     output.WorldPosition = worldPosition;
     output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
-    output.Water = float3(pond, presence, sun);
+    output.Water = float4(pond, presence, sun, steep);
 
     return output;
 }
@@ -1216,6 +1292,7 @@ float4 MeadowWaterPS(WaterVertexOutput input) : COLOR
     float still = pond, current = 0.0;
     float depth;
     float grooveSun = input.Water.z;
+    float2 flow = 0.0;
     [branch]
     if (pond > 0.5)
     {
@@ -1224,6 +1301,7 @@ float4 MeadowWaterPS(WaterVertexOutput input) : COLOR
         if (d > BrookMouth - MOUTH_INTO)
         {
             float lateral = BrookLateral(worldPosition.xz);
+            flow = float2(d, lateral);
             current = MouthCurrent(d, lateral);
             still = 1.0 - current;
             float s = abs(lateral) - BrookWaterHalf(d);
@@ -1235,6 +1313,7 @@ float4 MeadowWaterPS(WaterVertexOutput input) : COLOR
     else
     {
         float lateral = BrookLateral(worldPosition.xz);
+        flow = float2(d, lateral);
         depth = -BrookBed(abs(lateral) - BrookWaterHalf(d), BROOK_MARGIN_MAX);
         [branch]
         if (d < BrookMouth + MOUTH_UP)
@@ -1252,14 +1331,17 @@ float4 MeadowWaterPS(WaterVertexOutput input) : COLOR
         sunlight *= SunShadow(worldPosition, float3(0.0, 1.0, 0.0), SunDirection);
     float3 light = ZenithColor * AmbientStrength + SunColor * 0.4 * sunlight;
 
-    float fresnel;
-    float3 reflection = WaterReflection(worldPosition, toCamera, still, sunlight, fresnel);
+    float fresnel, foam;
+    float3 reflection = WaterReflection(worldPosition, toCamera, still, flow, input.Water.w, sunlight, fresnel, foam);
 
-    //Premultiplied, as BlendState.AlphaBlend takes it: the reflection and the water's own dark body are the colour, and
-    //alpha is how much of the bed they cover - the more, the deeper the water and the flatter it is seen
-    float through = exp(-depth * WATER_MURK / max(toCamera.y, 0.12));
+    //Premultiplied, as BlendState.AlphaBlend takes it: the reflection and the water's own body are the colour, and alpha
+    //is how much of the bed they cover - the more, the deeper the water and the flatter it is seen. The brook clear and
+    //green, the pond murky and dark (#979). Then the foam, white and opaque where it runs.
+    float through = exp(-depth * lerp(BROOK_MURK, POND_MURK, still) / max(toCamera.y, 0.12));
     float cover = 1.0 - (1.0 - fresnel) * through;
-    float3 color = reflection + (1.0 - fresnel) * (1.0 - through) * BROOK_BED * light;
+    float3 color = reflection + (1.0 - fresnel) * (1.0 - through) * lerp(BROOK_BODY, BROOK_BED, still) * light;
+    color = lerp(color, FOAM * light, foam);
+    cover = lerp(cover, 1.0, foam);
 
     [branch]
     if (pond > 0.5)

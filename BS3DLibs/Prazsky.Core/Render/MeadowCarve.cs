@@ -27,7 +27,16 @@ namespace Prazsky.Core.Render
     /// <b>Only geometry fine enough can carry it</b>, and the meadow's camera grid is 5.5 units a cell: a bank two or three
     /// units wide falls between its vertices (the icesheet's lesson). So the coarse grid is drawn without it and has a hole
     /// where it is, and a patch of its own (<see cref="MeadowPatchGeometry"/>) covers the pond and the brook to
-    /// <see cref="BROOK_CARVE_END"/>, where the swale has shallowed back into the brook painted on the field.
+    /// <see cref="BROOK_CARVE_END"/>, its spring.
+    /// </para>
+    /// <para>
+    /// <b>The water falls all the way from its spring to the pond</b> (#979, the owner: "the water does not flow downhill").
+    /// Its level follows the ground, so it can only fall towards the pond if the ground under its course does, and the
+    /// course was chosen so it does: the pond lies at the foot of the valley the brook comes down
+    /// (<see cref="MeadowPath.BROOK_START"/>), and the spring stands on the hillside short of the crest
+    /// (<see cref="BROOK_CARVE_END"/>). Over the crest the old brook, painted on the field, climbed sixteen units to the
+    /// next valley and on over the hills, and the pond had lain on the slope a unit and a half over the valley's foot.
+    /// <c>MeadowCarveTests.TheBrookFallsAllTheWayToThePond</c> holds it.
     /// </para>
     /// </summary>
     public static class MeadowCarve
@@ -62,9 +71,10 @@ namespace Prazsky.Core.Render
         /// <summary>How far either side of the brook's centreline the two other samples of its reference height stand.</summary>
         public const float BROOK_REFERENCE = 2.4f;
 
-        /// <summary>Where the swale starts to shallow, and where it has become the painted brook again, as distances from
-        /// the arena. The reeds stand along it to 420.</summary>
-        public const float BROOK_CARVE_FADE = 400f, BROOK_CARVE_END = 470f;
+        /// <summary>Where the swale starts to shallow, and its spring, where it has shallowed into the field, as distances from
+        /// the arena (#979): short of the crest the brook comes down, 206 out on the default meadow. Its water narrows and
+        /// fades with it, and its reeds and stones stop at the first.</summary>
+        public const float BROOK_CARVE_FADE = 168f, BROOK_CARVE_END = 190f;
 
         /// <summary>How far past <see cref="BROOK_CARVE_END"/> the coarse grid's hole and the patch run (the patch to the end
         /// of the block this falls in): the patch eases onto the coarse grid's own surface over it.</summary>
@@ -112,10 +122,11 @@ namespace Prazsky.Core.Render
         private const float NONE = 1e4f;
 
         /// <summary>Half the brook's water width at distance <paramref name="d"/> from the arena: it narrows and widens over
-        /// tens of units and its edges waver over a few (1.24 to 2.14 at the default width).</summary>
+        /// tens of units and its edges waver over a few (1.24 to 2.14 at the default width), and it narrows to two fifths of
+        /// that towards its spring (<see cref="BrookPresence"/>, #979).</summary>
         public static float BrookWaterHalf(float d, MeadowSceneConfig config) =>
             config.BrookWidth * 0.5f * (1f + 0.12f * MathF.Sin(d * 0.23f + 0.4f) + 0.07f * MathF.Sin(d * 0.61f + 2f)
-                + 0.05f * MathF.Sin(d * 1.9f + 0.7f) + 0.03f * MathF.Sin(d * 3.7f + 2.9f));
+                + 0.05f * MathF.Sin(d * 1.9f + 0.7f) + 0.03f * MathF.Sin(d * 3.7f + 2.9f)) * (0.4f + 0.6f * BrookPresence(d));
 
         /// <summary>The gravel margin's width past the water's edge at distance <paramref name="d"/> on side
         /// <paramref name="side"/> (-1 or 1 of the centreline): wide on one side where the other's is narrow, swapping over
