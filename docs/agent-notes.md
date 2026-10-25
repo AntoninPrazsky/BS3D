@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #775 Mars jako z fotek roveru — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo: #775 (f53ad72a, 9fac92ed) kameny jsou geometrie (čedičový blok sopečky ve třech velikostech, v mýtině mimo stopu roveru, vrhají stín), štěrk v shaderu za `[branch]` na footprintu, tlumenější rez, světlejší měkké závěje, širší maska rovné země. `verdict-eye`, karta na stránce 25. 10.
+- ⚠ Tmavé ovály nebyly písek, ale kameny výškového pole: nízké hrboly bez obrysu. Teď mají barvu prachu (0,93 rzi).
+- ⚠ Druhá oktáva závějí a štěrk bez branche stály ~0,3 ms bez viditelného rozdílu; po ořezu je cena stejná jako předtím (15,9 ms).
+- Otevřené: kameny dál než mýtina (Mars nemá CPU kopii kráterů), úvod kapitoly neviděn.
+
 ## 2026-10-25 — #969 ropné plošiny na moři — desktop (RDT-PC), Claude Code (bs3d-21)
 - Hotovo: #969 (240d5a5d) dvě ropné plošiny za doběhem vln (`OilRigs`, `Rig.fx`): z kvádrů, žluté nohy s trubkovým vyztužením, paluba s moduly, červená věž, jeřáb, fléra, heliport; řez u hladiny `clip` a pruh pěny (hladina nezapisuje hloubku, #131). Reference v `969-zimage`/`969-klein`. `verdict-eye`, karta na stránce 25. 10.
 - ⚠ Příhradové panely s barvou oblohy mezi pruty vypadaly jako děrovaný plech zabarvený oblohou: vyztužení je z trubek, mezery věže tmavší ocel.
