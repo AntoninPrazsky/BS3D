@@ -32,6 +32,10 @@ float FadeFar;
 
 //The steps a ray takes through a heap, and the two taps towards the sun each lit sample takes
 static const int CLOUD_STEPS = 10;
+//And a far heap's: a few pixels tall past STEPS_FAR_FROM, it has no detail ten steps could find, and the band over the
+//skyline is where the heaps stand thickest on the screen
+static const int CLOUD_STEPS_FAR = 5;
+static const float STEPS_FAR_FROM = 1500.0, STEPS_FAR_AT = 3000.0;
 //How much light a heap takes away per world unit at full density: a heap a hundred units across is all but solid
 static const float CLOUD_SIGMA = 0.09;
 //How bright the sunlit side is against the deck's lit colour, and how much of the sky's light reaches the shaded side
@@ -153,7 +157,8 @@ float4 CloudVolumePS(CloudVertexOutput input) : COLOR
     float t1 = min((-b + root) / a, max(ya, yb));
     clip(t1 - t0);
 
-    float dt = (t1 - t0) / CLOUD_STEPS;
+    int steps = (int)round(lerp((float)CLOUD_STEPS, (float)CLOUD_STEPS_FAR, saturate((t0 - STEPS_FAR_FROM) / (STEPS_FAR_AT - STEPS_FAR_FROM))));
+    float dt = (t1 - t0) / steps;
     float jitter = frac(52.9829189 * frac(dot(input.Position.xy, float2(0.06711056, 0.00583715))));
 
     //Forward scattering towards the sun and a little back towards the lens: a heap with the sun behind it glows at its rim.
@@ -166,7 +171,7 @@ float4 CloudVolumePS(CloudVertexOutput input) : COLOR
     float transmit = 1.0;
     float3 color = 0.0;
     [loop]
-    for (int i = 0; i < CLOUD_STEPS; i++)
+    for (int i = 0; i < steps; i++)
     {
         float3 p = CameraPosition + rd * (t0 + (i + jitter) * dt);
         float h;
