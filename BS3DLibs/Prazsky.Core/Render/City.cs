@@ -39,6 +39,14 @@ namespace Prazsky.Core.Render
         public int TowerCount { get; }
 
         /// <summary>
+        /// The far skyline round the grid (#774): plain slabs past the last block, so a street's view ends in a city and
+        /// not in the sky. Not among <see cref="Buildings"/>: drawn by <see cref="CityRooftops"/> through the plain lit
+        /// technique, since in the city's own program every pixel of them cost the chapter intro's street swing up to
+        /// 0.45 ms where the sky had been, and they never come near the sun's map, the swing's path or a roof.
+        /// </summary>
+        public ModelInstance[] FarSkyline { get; }
+
+        /// <summary>
         /// How far above its own box a tower box's roof really stands (#678): the cornice is a solid slab over the whole
         /// roof, its top <c>CORNICE_OVER_ROOF</c> above the tier's, so a crowned box's roof is that much higher and what
         /// stands on it has to stand there, or its foot is buried in the stone. 0 for an uncrowned box.
@@ -256,6 +264,9 @@ namespace Prazsky.Core.Render
             foreach (int box in crowned) _crowned[box] = true;
             buildings.AddRange(cornices);
             Buildings = buildings.ToArray();
+            var skyline = new List<ModelInstance>();
+            AddFarSkyline(skyline, layout);
+            FarSkyline = skyline.ToArray();
 
             //The bounds the per-frame pass works from. A building's world matrix is CreateScale * translation
             //with no rotation, so M41..M43 is its centre and the diagonal M11/M22/M33 its full size; half of
@@ -283,6 +294,67 @@ namespace Prazsky.Core.Render
             //edge and looking at the other. Beyond that everything lands in the last bucket, which is correct
             //— those are the farthest buildings and belong last.
             _bucketScale = DEPTH_BUCKETS / (2f * farthest);
+        }
+
+        //THE FAR SKYLINE (#774): rows of slabs round the grid past its last block, so a street's view ends in a city and
+        //not in the sky. The owner: "behind the city we see 'nothing' - through the streets the end of the rendering is
+        //visible". Two rows a side, each cut into slabs of its own widths, the first with thin gaps between them; the
+        //second stands behind it shoulder to shoulder and rises higher, the skyline the
+        //references (774-klein, 774-zimage) close the view with. Plain boxes, drawn plainly (see FarSkyline). Off a
+        //generator of their own, so the city inside is untouched.
+        private const int SKYLINE_SEED = 774;
+        private const float SKYLINE_GAP = 1.2f;             //from the grid's last block to the first row, in block pitches
+        private const float SKYLINE_ROW_DEPTH = 1.6f;       //a row's depth, in block pitches
+        //Heights as shares of the grid's own roofline at its last block (the taper's end), the first row's and how much
+        //higher the back row stands: about level with the last blocks, so the skyline continues the city's own and does
+        //not stand over the horizon as a wall of blocks (the first cut, at 70 to 216 over the street, did)
+        private const float SKYLINE_MIN_SHARE = 0.7f, SKYLINE_MAX_SHARE = 1.0f;
+        private const float SKYLINE_BACK_RISE = 0.08f;
+
+        private static void AddFarSkyline(List<ModelInstance> slabs, CityLayout layout)
+        {
+            Random random = new(SKYLINE_SEED);
+            float edgeHeight = MathF.Max(layout.RooflineY - layout.RadiusBlocks * layout.TaperPerBlock - layout.BaseY, 20f);
+            float inner = (layout.RadiusBlocks + 0.5f + SKYLINE_GAP) * layout.BlockPitch;
+            float depth = SKYLINE_ROW_DEPTH * layout.BlockPitch;
+
+            for (int row = 0; row < 2; row++)
+            {
+                float near = inner + row * (depth + layout.StreetWidth);
+                float reach = near + depth;
+                for (int side = 0; side < 4; side++)
+                {
+                    //Along the side from one corner to the other, the corners included, in slabs of their own widths
+                    for (float along = -reach; along < reach;)
+                    {
+                        float width = layout.BlockPitch * (0.6f + 1.3f * (float)random.NextDouble());
+                        float slabDepth = depth * (0.6f + 0.4f * (float)random.NextDouble());
+                        float height = edgeHeight * (SKYLINE_MIN_SHARE + (SKYLINE_MAX_SHARE - SKYLINE_MIN_SHARE) * (float)random.NextDouble()
+                            + row * SKYLINE_BACK_RISE);
+                        //A taller one now and then, the skyline's landmarks
+                        if (random.NextDouble() < 0.1) height *= 1.2f;
+                        //Gaps in the first row only: the back row stands shoulder to shoulder behind them, so a sight
+                        //line through a gap ends on a wall (a gap in each row let a slit of the horizon through where two lined up)
+                        float gap = row == 0 ? 1.5f + 3f * (float)random.NextDouble() : 0f;
+                        float middle = along + width * 0.5f;
+                        float outward = near + slabDepth * 0.5f;
+
+                        Vector3 centre = side switch
+                        {
+                            0 => new Vector3(middle, 0f, outward),
+                            1 => new Vector3(middle, 0f, -outward),
+                            2 => new Vector3(outward, 0f, middle),
+                            _ => new Vector3(-outward, 0f, middle),
+                        };
+                        Vector3 size = side < 2 ? new Vector3(width, height, slabDepth) : new Vector3(slabDepth, height, width);
+                        centre.Y = layout.BaseY + height * 0.5f;
+
+                        float kind = FacadeRoll(centre.X, centre.Z);
+                        slabs.Add(new ModelInstance(Matrix.CreateScale(size) * Matrix.CreateTranslation(centre), new Vector4(kind, 0f, 0f, 0f)));
+                        along += width + gap;
+                    }
+                }
+            }
         }
 
         /// <summary>

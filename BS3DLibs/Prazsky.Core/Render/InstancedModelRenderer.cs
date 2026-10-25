@@ -282,8 +282,15 @@ namespace Prazsky.Core.Render
         private EffectParameter _stoneGrainContrastParam;
         private EffectParameter _stoneRoughnessParam;
         private EffectParameter _stoneShapeDepthParam;
-        private EffectTechnique _cityTechnique;
+        private EffectTechnique _cityTechnique, _cityFarTechnique;
         private EffectParameter _cityWindowBrightnessParam;
+
+        /// <summary>
+        /// With <see cref="CityWindowBrightness"/> over 0, draws the city's far facades (#774): the window grid, the lamps,
+        /// the tone and the neon of the city's own program and none of its fine work (frames, sills, bars, grain,
+        /// cornices), which is under a pixel from across the grid. For <see cref="City.FarSkyline"/>.
+        /// </summary>
+        public bool CityFar { get; set; }
 
         /// <summary>
         /// How brightly the lit windows of a city building glow (0 = this renderer is not a city, and
@@ -1301,6 +1308,7 @@ namespace Prazsky.Core.Render
             _stoneRoughnessParam = _effect.Parameters["StoneRoughness"];
             _stoneShapeDepthParam = _effect.Parameters["StoneShapeDepth"];
             _cityTechnique = _effect.Techniques["InstancedCity"];
+            _cityFarTechnique = _effect.Techniques["InstancedCityFar"];
             _cityWindowBrightnessParam = _effect.Parameters["CityWindowBrightness"];
             _cityWindowTimeParam = _effect.Parameters["CityWindowTime"];
             _cityNeonParam = _effect.Parameters["CityNeon"];
@@ -1769,7 +1777,7 @@ namespace Prazsky.Core.Render
             if (CityWindowBrightness > 0f)
             {
                 //A city building: no texture, no UVs, its facade drawn from world position
-                _effect.CurrentTechnique = _cityTechnique;
+                _effect.CurrentTechnique = CityFar ? _cityFarTechnique : _cityTechnique;
                 _cityWindowBrightnessParam.SetValue(CityWindowBrightness);
                 _cityWindowTimeParam.SetValue(CityWindowTime);
                 _cityNeonParam.SetValue(CityNeon);

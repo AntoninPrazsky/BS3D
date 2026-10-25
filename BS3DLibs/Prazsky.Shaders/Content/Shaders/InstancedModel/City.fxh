@@ -672,3 +672,91 @@ technique InstancedCity
         PixelShader = compile PS_SHADERMODEL CityPS();
     }
 };
+
+//THE FAR SKYLINE'S FACADES (#774): the slabs City.cs stands round the grid past its last block, so a street's view ends
+//in a city and not in the sky. Only ever seen from across the whole grid, where a frame, a sill, a glazing bar or the
+//render's grain is under a pixel and CityPS has faded it out anyway; what still reads there is kept to the letter - the
+//window grid of the tower's kind, its lit share and lamps, the facade's tone per building, the neon's colours and sign
+//bands - and nothing else is computed. A program of its own and not a branch in CityPS: that one is occupancy-bound, and
+//drawn through it the slabs cost the chapter intro's street swing up to 0.45 ms where the sky had been. Every window here
+//is a settled one (CityPS's restless few switch over minutes; nobody watches a pane a kilometre off for that long).
+float4 CityFarPS(CityVSOutput input) : COLOR
+{
+    float3 worldNormal = normalize(input.WorldNormal);
+    float facingX = step(abs(worldNormal.z), abs(worldNormal.x));
+    float2 posFromCenter = float2(lerp(input.PosFromCenter.x, input.PosFromCenter.z, facingX), input.PosFromCenter.y);
+    float2 halfSize = float2(lerp(input.BuildingSize.x, input.BuildingSize.z, facingX), input.BuildingSize.y) * 0.5;
+    float vertical = 1 - step(0.5, abs(worldNormal.y));
+    float2 buildingId = floor((input.WorldPosition.xz - input.PosFromCenter.xz) * 0.37);
+
+    //The tower's kind of facade, as CityPS reads it
+    float facadeKind = input.Style.x;
+    float2 fill = float2(WindowFillX, WindowFillY);
+    float2 pitch = float2(WindowPitchX, WindowPitchY);
+    fill = facadeKind < 0.5 ? fill : (facadeKind < 0.68 ? float2(0.9, 0.84) : (facadeKind < 0.84 ? float2(0.97, 0.5) : float2(0.34, 0.88)));
+    pitch.x *= facadeKind < 0.5 ? 1.0 : (facadeKind < 0.68 ? 0.85 : (facadeKind < 0.84 ? 1.0 : 0.8));
+
+    float2 interior = halfSize - WindowMargin;
+    float2 count = floor(interior * 2.0 / pitch + 0.5);
+    float2 cellPitch = (interior * 2.0) / max(count, 1.0);
+    float2 grid = (posFromCenter + interior) / cellPitch;
+    float2 cell = floor(grid);
+    float2 withinCell = abs(frac(grid) - 0.5) * 2;
+    float2 footprint = (abs(ddx(posFromCenter)) + abs(ddy(posFromCenter))) / cellPitch;
+    float resolvable = saturate(1 - max(footprint.x, footprint.y));
+
+    float2 inside = step(abs(posFromCenter), interior);
+    float gate = step(1.0, count.x) * step(1.0, count.y) * vertical * inside.x * inside.y;
+    float2 shape = smoothstep(fill + footprint, fill - footprint, withinCell);
+    float window = shape.x * shape.y * gate;
+
+    uint windowSeed = WindowSeed(buildingId, cell);
+    float lit = step(1 - WindowLitFraction, WindowRoll(windowSeed, (uint)floor(HashBits(windowSeed, 20u, 12u) * 37.0)));
+    float3 lampColor = lerp(WindowWarm, WindowCool, step(0.5, HashBits(windowSeed, 11u, 1u)));
+    float coverage = lerp(fill.x * fill.y * WindowLitFraction * gate, window * lit, resolvable);
+    float glass = lerp(fill.x * fill.y * gate, window, resolvable);
+
+    float3 facadeColor = FacadeColor * (1.0 + FacadeColorVariation * (BuildingRoll(buildingId, 1u) - 0.5) * 2.0);
+    float3 signEmission = float3(0.0, 0.0, 0.0);
+
+    //The neon city's colours, as CityPS's own block draws them (no buzz: a tired tube is not seen from here)
+    [branch]
+    if (CityNeon > 0.0)
+    {
+        float3 neonMagenta = float3(1.0, 0.04, 0.85);
+        float3 neonCyan = float3(0.05, 0.85, 1.0);
+        float pickBuilding = BuildingRoll(buildingId, 2u);
+        float3 buildingNeon = pickBuilding < 0.45 ? neonMagenta : (pickBuilding < 0.9 ? neonCyan : HueToRGB(BuildingRoll(buildingId, 3u)));
+        float3 contrast = buildingNeon.r > buildingNeon.b ? neonCyan : neonMagenta;
+        float3 neonWindow = lerp(buildingNeon, contrast, step(0.83, HashBits(windowSeed, 3u, 8u)));
+
+        float hasSign = step(0.5, BuildingRoll(buildingId, 4u));
+        float signHeight = 5.0 + BuildingRoll(buildingId, 5u) * 34.0;
+        float signBand = hasSign * vertical * (1.0 - smoothstep(1.1, 1.9, abs(input.WorldPosition.y - signHeight))) * resolvable;
+
+        lampColor = lerp(lampColor, neonWindow, CityNeon);
+        signEmission = signBand * contrast * (CityWindowBrightness * 1.6) * CityNeon;
+        facadeColor = lerp(facadeColor, FacadeNeonColor, CityNeon);
+    }
+
+    facadeColor = lerp(facadeColor, WindowGlassColor, glass);
+
+    SurfaceSpecular surface;
+    surface.Highlight = lerp(FacadeHighlight, WindowHighlightBoost, glass);
+    surface.Environment = lerp(1.0, WindowReflectionBoost, glass);
+    surface.Smoothness = lerp(FacadeSmoothness, WindowSmoothness, glass);
+
+    float4 shaded = ShadePixel(input.WorldPosition, worldNormal, float4(0, 0, 0, 1), float4(facadeColor, 1), 1, 1, surface);
+    shaded.rgb += coverage * lampColor * CityWindowBrightness;
+    shaded.rgb += signEmission;
+    return shaded;
+}
+
+technique InstancedCityFar
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL CityVS();
+        PixelShader = compile PS_SHADERMODEL CityFarPS();
+    }
+};
