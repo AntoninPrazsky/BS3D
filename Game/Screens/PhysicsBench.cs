@@ -107,6 +107,9 @@ namespace BS3D.Screens
         /// <summary>How far through the steps it is, 0 to 1.</summary>
         internal float Progress => (float)_taken / (WARMUP_STEPS + _steps);
 
+        /// <summary>The mean step of the last <see cref="Run"/>, in milliseconds: what the benchmark's live graph shows (0 before any).</summary>
+        internal float SliceMean { get; private set; }
+
         /// <summary>
         /// Takes steps until <paramref name="milliseconds"/> of wall time have gone or every step is taken, each timed on its
         /// own: a frame's share, so the window keeps answering while a slow machine steps.
@@ -115,6 +118,8 @@ namespace BS3D.Screens
         {
             long start = Stopwatch.GetTimestamp();
             double tick = 1000.0 / Stopwatch.Frequency;
+            float sum = 0f;
+            int count = 0;
             while (!Done && (Stopwatch.GetTimestamp() - start) * tick < milliseconds)
             {
                 long before = Stopwatch.GetTimestamp();
@@ -123,7 +128,10 @@ namespace BS3D.Screens
                 _world.Step(PhysicsWorld.FIXED_TIMESTEP, NO_CONTACT_WORK);
                 float took = (float)((Stopwatch.GetTimestamp() - before) * tick);
                 (_taken++ < WARMUP_STEPS ? _warmup : _measured).Add(took);
+                sum += took;
+                count++;
             }
+            if (count > 0) SliceMean = sum / count;
         }
 
         /// <summary>

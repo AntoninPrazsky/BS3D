@@ -54,6 +54,7 @@
     <Compile Include="..\..\Game\Screens\PowerupKind.cs" />
     <Compile Include="..\..\Game\Screens\PowerupPictograms.cs" />
     <Compile Include="..\..\Game\Screens\FrameStats.cs" />
+    <Compile Include="..\..\Game\Screens\FrameTrace.cs" />
     <Compile Include="..\..\Game\Screens\BenchmarkVerdict.cs" />
     <Compile Include="..\..\Game\Screens\FrameProbe.cs" />
     <Compile Include="..\..\Game\Effects\SpareVolley.cs" />
