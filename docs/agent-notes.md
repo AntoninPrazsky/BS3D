@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #746 #745 #747 koleje, vlajky, polární tábor — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo: #746 (918247f5) koleje roveru na Měsíci (`RoverTracks.fxh/.cs`, decal v normále) a dvě bílé zmrzlé vlajky, ta vzdálená je vidět při hře; #745 (4d678711) stejné koleje na Marsu, test po bězích čtyř segmentů; #747 (a1387e0d) `PolarPlanting`: stanice, stožár, větrník, pásák se saněmi, sudy, závěje. Vše `verdict-eye`, karty na stránce 25. 10.
+- ⚠ Jeden box kolem celé koleje poslal každý pixel pod ním přes všech 23 segmentů (Mars +0,43 ms); boxy po čtyřech to srazily na nulu. Trhliny polárního ledu pokrývají celou pláň za mýtinou: místo pro tábor se nenajde, led se kolem tábora čistí v shaderu i mirroru (`CampClear`).
+- Otevřené: stopy bot kolem vlajky, rover na konci kolejí na Marsu.
+
 ## 2026-10-25 — #753 #968 #749 #776 tropická pláž a outback — desktop (RDT-PC), Claude Code (bs3d-21)
 - Hotovo: #753 (f427b4f6) keře na pláži jsou na High/Ultra mořské hrozny (`MeadowShrubMesh` s většími kartami, kulaté listy `LeafStrength` 3); #968 (4a1efd93) laguna u břehu průzračná a tyrkysová, krajka pěny, kaustiky, země laguny v `TropicalTerrain.fxh`; #749 (7f6e6a5b) `OutbackPlanting`: spinifex, saltbush, dřevo, mulga; #776 (23ebd9c7) popraskaná krusta v `Outback.fx` a gibber jako geometrie. Vše `verdict-eye`, karty na stránce 25. 10.
 - ⚠ `PlantPass` kreslí každou instanci každý snímek dvakrát (scéna a mapa stínu): tisíce kusů chtějí LOD a levný `casterMesh`. Namalovaný kámen bez siluety vypadá zespodu jako díra. Hrubá síť moře s vlnami řezala břeh rovnými hranami (`SHORE_CALM_DEPTH`).
