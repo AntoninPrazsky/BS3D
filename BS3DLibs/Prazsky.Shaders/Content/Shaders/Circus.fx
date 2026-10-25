@@ -748,6 +748,107 @@ float StringWarmth(float bearing, float r)
     return exp(-delta * delta / 18.0);
 }
 
+//--- The wear (#976) ------------------------------------------------------------------------------------
+//The owner: the big top "looks rather primitive, lacking detail and dirt" - and he praised the light cones, which stay as
+//they are. Every reference (976-zimage, 976-klein) draws an old travelling tent: the canvas sewn from strips with a
+//horizontal join every few metres, laced along its seams (not drawn: finer than the baked map), brown water stains gathering
+//towards its lower edge and darker grime there, a stitched patch here and there, panels faded by the sun each its own
+//amount; a sawdust ring trodden into a track by the curb, a curb with chipped paint, worn seats, poles with paint peeling.
+//All of it on the High technique (`detail`) only: Reduced draws the clean tent it always drew.
+//
+//⚠ THE CANVAS'S WEAR IS BAKED, not shaded per pixel. Evaluated in the roof's shading it cost the view up at the canvas 1.3
+//to 1.8 ms at 3840x1600 (ssaa 2: every canvas pixel of a 7680x3200 frame, every frame, for a pattern that never moves).
+//CircusBackdrop bakes it once into CanvasWearMap (CircusCanvasWearBake: the canvas unrolled, the bearing across and the
+//slant down) and the roof reads it with one tap: 0.15 ms. What is finer than the map's texel (the lacing through the
+//grommets, the stitches round a patch) is given up.
+
+static const float CANVAS_JOIN_STEP = 7.0;     //the canvas's horizontal joins, world units along the radius
+static const float PATCH_CELL = 7.0;           //a patch may sit in each run of this many units along a panel
+static const float PATCH_SHARE = 0.22;
+static const float3 STAIN_TINT = float3(0.56, 0.42, 0.24);
+static const float3 GRIME_TINT = float3(0.80, 0.70, 0.55);
+
+//The baked wear (CircusBackdrop): the canvas's worn colour, the square root of linear in an 8-bit target so the darks do
+//not band. u is the bearing (a turn from -pi), v the slant from the crown (0) to the wall (1).
+texture CanvasWearMap;
+sampler CanvasWearSampler = sampler_state
+{
+    Texture = <CanvasWearMap>;
+    MinFilter = Linear;
+    MagFilter = Linear;
+    MipFilter = Linear;
+    AddressU = Wrap;
+    AddressV = Clamp;
+};
+float2 CanvasWearTexel;   //one over the map's width and height
+
+//The wear on the canvas at a point of a panel (#976): `albedo` is the panel's colour, `other` the neighbouring panels'
+//(what a patch may be cut from), `index` which panel, `x` the
+//signed distance from the nearest seam and `panelWidth` the panel's width there (world units), `depth` 0 at the crown to 1
+//at the wall
+float3 CanvasWear(float3 albedo, float3 other, float index, float x, float across, float r, float bearing, float panelWidth,
+    float depth, float footprint)
+{
+    //Sun-faded panels: paler and warmer, each by its own amount
+    float fade = Hash21(float2(index, 3.7));
+    albedo = lerp(albedo, dot(albedo, float3(0.30, 0.59, 0.11)) * float3(1.06, 0.98, 0.84), 0.08 + 0.22 * fade)
+        * (0.95 + 0.10 * Hash21(float2(index, 9.1)));
+
+    //The strips the canvas is sewn from: a darker join across the panel every few metres
+    float joinAt = frac(r / CANVAS_JOIN_STEP);
+    float join = 1.0 - smoothstep(0.0, max(0.1, footprint) / CANVAS_JOIN_STEP, min(joinAt, 1.0 - joinAt));
+    albedo *= 1.0 - 0.3 * join;
+
+    //Dirt the rain carried down from each join, in thin streaks fading towards the next
+    float streaks = smoothstep(0.15, 0.55, GradientNoise2(float2(across * panelWidth * 2.2, index * 7.0 + floor(r / CANVAS_JOIN_STEP) * 3.1)));
+    albedo *= 1.0 - 0.3 * streaks * exp(-joinAt * 3.5) * (0.4 + 0.6 * depth);
+
+    //Water stains: blotches with a soft darker margin, more of them towards the wall and down the seams. Each panel is its
+    //own cloth with its own stains, on 2D noise across and along it: ⚠ 3D noise on a circle round the axis (the creases'
+    //way, seamless across the panels) cost the view up at the canvas 2 ms, and a crisp tide line round every blotch read
+    //as a map's contours
+    float2 sp = float2(across * panelWidth, r) * 0.12 + index * float2(3.7, 11.3);
+    float blot = GradientNoise2(sp) + 0.5 * GradientNoise2(sp * 2.3 + 4.1);
+    float weight = (0.45 + 0.55 * depth) * (0.8 + 0.5 * exp(-x * x / 2.0));
+    float stain = smoothstep(0.16, 0.50, blot * weight);
+    float tide = smoothstep(0.10, 0.17, blot * weight) * (1.0 - smoothstep(0.17, 0.32, blot * weight));
+    albedo = lerp(albedo, albedo * STAIN_TINT, saturate(stain * 0.9 + tide * 0.25));
+
+    //Mould: dark speckles spattered along the lower edge, where the canvas met the wet ground in every field it stood in,
+    //a few texels of the baked map each (finer ones were lost in it), faded out where one would be under a texel
+    float2 speckAt = float2(x, r) * 2.5;
+    float2 speckCell = floor(speckAt) + index * 13.0;
+    float speckRoll = Hash21(speckCell);
+    float2 speckMiddle = 0.25 + 0.5 * float2(frac(speckRoll * 17.3), frac(speckRoll * 29.1));
+    float speckSize = 0.08 + 0.14 * frac(speckRoll * 43.7);
+    float speck = step(0.93 - 0.18 * smoothstep(0.80, 1.0, depth), speckRoll)
+        * (1.0 - smoothstep(speckSize, speckSize + 0.06, length(frac(speckAt) - speckMiddle))) * smoothstep(0.70, 0.95, depth)
+        * (1.0 - smoothstep(0.18, 0.32, footprint));
+    albedo *= 1.0 - 0.7 * speck;
+
+    //Grime gathering at the lower edge, browner than the shade the existing falloff gives it
+    albedo = lerp(albedo, albedo * GRIME_TINT, depth * depth * 0.85);
+
+    //A stitched patch now and then: a square of other canvas with a dark stitch line just inside its edge
+    float cell = floor(r / PATCH_CELL);
+    float roll = Hash21(float2(index * 1.7, cell));
+    if (roll < PATCH_SHARE && panelWidth > 2.5)
+    {
+        float2 centre = float2((0.32 + 0.36 * frac(roll * 13.1) - across) * panelWidth, (cell + 0.5) * PATCH_CELL - r);
+        //Up to a third of the panel across and a few units along it, as the references sew them
+        float2 extent = float2(min(0.8 + 1.4 * frac(roll * 7.9), panelWidth * 0.17), 0.7 + 1.3 * frac(roll * 5.3));
+        float2 out2 = abs(centre) - extent;
+        float box = max(out2.x, out2.y);
+        float inside = 1.0 - smoothstep(-footprint, footprint, box);
+        float stitch = 1.0 - smoothstep(0.02, 0.02 + footprint, abs(box + 0.07));
+        float3 cloth = frac(roll * 23.3) < 0.5 ? other * (0.85 + 0.2 * frac(roll * 31.7)) : albedo * (0.72 + 0.45 * frac(roll * 31.7));
+        albedo = lerp(albedo, cloth, inside);
+        albedo *= 1.0 - 0.55 * stitch * inside;
+    }
+
+    return albedo;
+}
+
 //--- Shading -------------------------------------------------------------------------------------------
 
 float3 HouseIrradiance(float3 n)
@@ -765,7 +866,7 @@ float StripeMix(float coordinate, float width)
 //X4000 LEFT (#713, not attempted): "use of potentially uninitialized variable (ShadeRoof)" comes from the early returns inside nested ifs below.
 //Unlike the [branch] early-outs split in Aurora.fx and Cavern.fx this needs the body turned into if/else chains, and the
 //compiled code changes with it; nothing here has been compared against a capture, so it stays as it was until one is.
-float3 ShadeRoof(float3 p, float3 n, float footprint)
+float3 ShadeRoof(float3 p, float3 n, float footprint, bool detail)
 {
     float bearing = atan2(p.z, p.x);
     float r = length(p.xz);
@@ -816,6 +917,18 @@ float3 ShadeRoof(float3 p, float3 n, float footprint)
     float crease = Fbm3(float3(cos(bearing) * 60.0, sin(bearing) * 60.0, r * 0.05), 3);
     albedo *= (0.92 + 0.10 * crease) * (1.0 - 0.18 * seam) * lerp(1.0, 0.82, depth * depth);
 
+    //The wear (#976), baked (see the wear's header): the worn colour in place of the panel's plain one, at the mip the
+    //pixel's footprint asks for - an explicit level, since this runs under the hit's branch, where an implicit gradient
+    //is undefined (and where the bearing wraps it would jump)
+    if (detail)
+    {
+        float texel = max(r * TWO_PI * CanvasWearTexel.x, (WallRadius - CrownRadius) * CanvasWearTexel.y);
+        float level = log2(max(footprint * 1.5 / texel, 1.0));
+        float3 worn = tex2Dlod(CanvasWearSampler, float4(bearing / TWO_PI + 0.5, depth, 0.0, level)).rgb;
+        float3 plain = lerp(CanvasRed, CanvasCream, StripeMix(panels, footprint / panelWidth));
+        albedo *= (worn * worn) / max(plain, 1e-3);
+    }
+
     //The canvas's edge at the crown, bound in gilded iron
     float crownBand = 1.0 - smoothstep(0.8, 0.8 + max(0.2, footprint), r - CrownRadius);
     albedo = lerp(albedo, CurbGold * 0.7, crownBand);
@@ -827,7 +940,7 @@ float3 ShadeRoof(float3 p, float3 n, float footprint)
     return albedo * light;
 }
 
-float3 ShadeWall(float3 p, float3 n, float footprint)
+float3 ShadeWall(float3 p, float3 n, float footprint, bool detail)
 {
     float bearing = atan2(p.z, p.x);
     float arc = bearing * WallRadius;
@@ -840,6 +953,10 @@ float3 ShadeWall(float3 p, float3 n, float footprint)
     float valance = smoothstep(-max(0.08, footprint), max(0.08, footprint), aboveValance);
     float3 valanceColor = lerp(CanvasRed, CanvasCream, StripeMix(arc / scallopPeriod, footprint / scallopPeriod));
     valanceColor = lerp(valanceColor, CurbGold * 0.8, 1.0 - smoothstep(0.15, 0.35, aboveValance));
+
+    //The curtain's foot and the valance's scallops hold the dust (#976)
+    float dusty = detail ? 1.0 - smoothstep(0.0, 3.0, p.y - (WallTopY - 4.2)) : 0.0;
+    valanceColor = lerp(valanceColor, valanceColor * GRIME_TINT, dusty * 0.6);
 
     //The curtain: red velvet hung in folds, about one every two units, shaded as a cosine across it - a WHOLE NUMBER of
     //folds round the wall, and of the slower wander in their spacing, so the pattern meets itself where the bearing
@@ -872,7 +989,7 @@ float3 ShadeWall(float3 p, float3 n, float footprint)
 //X4000 LEFT (#713, not attempted): "use of potentially uninitialized variable (ShadeSeats)" comes from the early returns inside nested ifs below.
 //Unlike the [branch] early-outs split in Aurora.fx and Cavern.fx this needs the body turned into if/else chains, and the
 //compiled code changes with it; nothing here has been compared against a capture, so it stays as it was until one is.
-float3 ShadeSeats(float3 p, float3 n, float footprint)
+float3 ShadeSeats(float3 p, float3 n, float footprint, bool detail)
 {
     float r = length(p.xz);
     float bearing = atan2(p.z, p.x);
@@ -913,9 +1030,21 @@ float3 ShadeSeats(float3 p, float3 n, float footprint)
     float3 treadNormal = float3(0.0, 1.0, 0.0);
     float3 shadingNormal = normalize(lerp(treadNormal, backNormal, seatPart * (1.0 - aisle)));
 
-    float3 seatColor = SeatRed * (0.85 + 0.15 * Hash21(float2(row, floor(bearing / TWO_PI * seatsInRow)))) * (1.0 - 0.55 * gap);
-    float3 albedo = lerp(SeatWood, seatColor, seatPart);
-    albedo = lerp(albedo, SeatWood * 1.25 * (0.8 + 0.2 * step(0.5, frac(rowCoord * 2.0))), aisle);
+    float seatRoll = Hash21(float2(row, floor(bearing / TWO_PI * seatsInRow)));
+    float3 seatColor = SeatRed * (0.85 + 0.15 * seatRoll) * (1.0 - 0.55 * gap);
+
+    //The wear (#976): some seats faded, the paint rubbed off the front edge of many down to the wood, scuffs on the treads
+    float3 tread = SeatWood;
+    if (detail)
+    {
+        seatColor = lerp(seatColor, dot(seatColor, float3(0.30, 0.59, 0.11)) * float3(1.2, 0.9, 0.75), step(0.82, seatRoll) * 0.45);
+        float rubbed = smoothstep(0.26, 0.42, inRow) * step(0.35, frac(seatRoll * 17.3));
+        seatColor = lerp(seatColor, SeatWood * 1.2, rubbed * 0.55);
+        tread *= 0.85 + 0.3 * frac(seatRoll * 41.3);
+    }
+
+    float3 albedo = lerp(tread, seatColor, seatPart);
+    albedo = lerp(albedo, tread * 1.25 * (0.8 + 0.2 * step(0.5, frac(rowCoord * 2.0))), aisle);
 
     //Under the back of each row the tread is in the shadow of the row behind
     float occlusion = lerp(0.55, 1.0, smoothstep(0.42, 1.0, inRow)) * (1.0 - seatPart) + seatPart;
@@ -951,7 +1080,7 @@ float3 ShadeGate(float3 p, float3 n, float footprint)
     return albedo * (HouseIrradiance(n) * 0.7 + SpotLight(p, n));
 }
 
-float3 ShadeFloor(float3 p, float footprint)
+float3 ShadeFloor(float3 p, float footprint, bool detail)
 {
     float r = length(p.xz);
     float3 n = float3(0.0, 1.0, 0.0);
@@ -962,6 +1091,19 @@ float3 ShadeFloor(float3 p, float footprint)
     float rakeFade = saturate(1.0 - footprint * 5.0 / PI);
     float3 sawdust = SawdustColor * (0.88 + 0.16 * grain + 0.06 * rake * rakeFade);
     float3 outside = FloorColor * (0.85 + 0.25 * grain);
+
+    //The wear (#976): the horses' and the performers' track trodden dark and flat inside the curb, wandering a little, and
+    //the sawdust kicked into clumps
+    if (detail)
+    {
+        float trackR = r + 0.8 * GradientNoise2(p.xz * 0.06);
+        float track = exp(-pow((trackR - (CurbRadius - 2.8)) / 1.4, 2.0));
+        sawdust = lerp(sawdust, SawdustColor * (0.70 + 0.06 * grain), track);
+        float2 cell = floor(p.xz * 1.6);
+        float clumpRoll = Hash21(cell);
+        float clump = (1.0 - smoothstep(0.12, 0.12 + footprint * 1.6, length(frac(p.xz * 1.6) - 0.5) / 1.6)) * step(0.86, clumpRoll);
+        sawdust *= 1.0 + clump * (clumpRoll > 0.93 ? 0.18 : -0.22);
+    }
     float inRing = 1.0 - smoothstep(CurbRadius - max(0.05, footprint), CurbRadius, r);
     float3 albedo = lerp(outside, sawdust, inRing);
 
@@ -969,7 +1111,7 @@ float3 ShadeFloor(float3 p, float footprint)
     return albedo * light;
 }
 
-float3 ShadeCurb(float3 p, float3 n, float footprint)
+float3 ShadeCurb(float3 p, float3 n, float footprint, bool detail)
 {
     //Red faces, a gold lip on the top and a gold line along the foot
     float height = (p.y - FloorY) / CurbHeight;
@@ -977,16 +1119,34 @@ float3 ShadeCurb(float3 p, float3 n, float footprint)
     float lip = smoothstep(0.80, 0.82, height) + (1.0 - smoothstep(0.10, 0.12, height));
     float3 albedo = lerp(CurbRed, CurbGold, saturate(lip + top));
 
+    //The wear (#976): the red chipped down to the wood in places, the gold rubbed dull
+    if (detail)
+    {
+        float chips = GradientNoise3(p * 3.4);
+        float chipped = smoothstep(0.42, 0.50, chips) * (1.0 - saturate(lip + top));
+        albedo = lerp(albedo, SeatWood * 0.9, chipped);
+        albedo = lerp(albedo, albedo * 0.65, saturate(lip + top) * smoothstep(-0.2, 0.5, chips));
+    }
+
     float3 light = HouseIrradiance(n) + SpotLight(p, n) + FootlightPools(p, n);
     return albedo * light;
 }
 
-float3 ShadePole(float3 p, float3 n, float footprint)
+float3 ShadePole(float3 p, float3 n, float footprint, bool detail)
 {
     //Painted wood, with a gilded band every eight units and grain running up it
     float band = 1.0 - smoothstep(0.35, 0.35 + max(0.05, footprint), abs(frac((p.y - FloorY) / 8.0) - 0.5) * 8.0 - 3.3);
     float grain = GradientNoise3(float3(n.x * 0.5, n.z * 0.5, p.y * 0.3));
     float3 albedo = lerp(PoleColor * (0.9 + 0.15 * grain), CurbGold * 0.8, band);
+
+    //The wear (#976): the paint peeling in flakes to the paler wood under it, more of it low down where hands and props hit
+    if (detail)
+    {
+        float flakes = GradientNoise3(p * 2.2);
+        float low = 1.0 - smoothstep(FloorY + 2.0, FloorY + 14.0, p.y);
+        float peeled = smoothstep(0.48 - 0.25 * low, 0.56 - 0.25 * low, flakes) * (1.0 - band);
+        albedo = lerp(albedo, PoleColor * float3(1.35, 1.25, 1.05), peeled);
+    }
 
     float3 light = HouseIrradiance(n) + SpotLight(p, n);
     return albedo * light;
@@ -1027,12 +1187,12 @@ float4 CircusScene(CircusVertexOutput input, uniform bool detail) : COLOR
 
     float3 color = 0.0;
 
-    if (hit.Kind == HIT_FLOOR) color = ShadeFloor(p, footprint);
-    else if (hit.Kind == HIT_CURB) color = ShadeCurb(p, hit.Normal, footprint);
-    else if (hit.Kind == HIT_SEATS) color = ShadeSeats(p, hit.Normal, footprint);
-    else if (hit.Kind == HIT_WALL) color = ShadeWall(p, hit.Normal, footprint);
-    else if (hit.Kind == HIT_ROOF) color = ShadeRoof(p, hit.Normal, footprint);
-    else if (hit.Kind == HIT_POLE) color = ShadePole(p, hit.Normal, footprint);
+    if (hit.Kind == HIT_FLOOR) color = ShadeFloor(p, footprint, detail);
+    else if (hit.Kind == HIT_CURB) color = ShadeCurb(p, hit.Normal, footprint, detail);
+    else if (hit.Kind == HIT_SEATS) color = ShadeSeats(p, hit.Normal, footprint, detail);
+    else if (hit.Kind == HIT_WALL) color = ShadeWall(p, hit.Normal, footprint, detail);
+    else if (hit.Kind == HIT_ROOF) color = ShadeRoof(p, hit.Normal, footprint, detail);
+    else if (hit.Kind == HIT_POLE) color = ShadePole(p, hit.Normal, footprint, detail);
     else if (hit.Kind == HIT_GATE) color = ShadeGate(p, hit.Normal, footprint);
     else if (hit.Kind == HIT_FIXTURE || hit.Kind == HIT_TRUSS) color = ShadeRig(hit.Normal);
     else if (hit.Kind == HIT_LENS) color = ShadeLens(p, hit.Spot);
@@ -1055,6 +1215,45 @@ float4 CircusScene(CircusVertexOutput input, uniform bool detail) : COLOR
 
 float4 CircusPS(CircusVertexOutput input) : COLOR { return CircusScene(input, true); }
 float4 CircusReducedPS(CircusVertexOutput input) : COLOR { return CircusScene(input, false); }
+
+//--- The canvas's wear, baked (#976) ----------------------------------------------------------------------
+//One pass over CanvasWearMap: each texel is a point of the canvas (the bearing across, the slant down), its panel's plain
+//colour worn by CanvasWear, square-rooted for the 8-bit target. The footprint is the texel's own size there.
+
+float4 CanvasWearBakeVS(float4 position : POSITION0) : SV_POSITION
+{
+    return position;
+}
+
+float4 CanvasWearBakePS(float4 screen : SV_POSITION) : COLOR
+{
+    float2 uv = screen.xy * CanvasWearTexel;
+    float bearing = (uv.x - 0.5) * TWO_PI;
+    float depth = uv.y;
+    float r = CrownRadius + depth * (WallRadius - CrownRadius);
+
+    float panels = bearing / TWO_PI * PanelCount;
+    float across = frac(panels);
+    float panelWidth = max(r * TWO_PI / PanelCount, 1e-3);
+    float footprint = max(r * TWO_PI * CanvasWearTexel.x, (WallRadius - CrownRadius) * CanvasWearTexel.y);
+
+    float3 plain = lerp(CanvasRed, CanvasCream, StripeMix(panels, footprint / panelWidth));
+    float3 other = lerp(CanvasCream, CanvasRed, StripeMix(panels, footprint / panelWidth));
+    float index = fmod(floor(panels) + PanelCount, PanelCount);
+    float x = (across < 0.5 ? across : across - 1.0) * panelWidth;
+
+    float3 worn = CanvasWear(plain, other, index, x, across, r, bearing, panelWidth, depth, footprint);
+    return float4(sqrt(saturate(worn)), 1.0);
+}
+
+technique CircusCanvasWearBake
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL CanvasWearBakeVS();
+        PixelShader = compile PS_SHADERMODEL CanvasWearBakePS();
+    }
+};
 
 //--- The floor's depth -----------------------------------------------------------------------------------
 //The floor as an annulus round the island, drawn with colour writes off (the caller's blend state) so it writes only

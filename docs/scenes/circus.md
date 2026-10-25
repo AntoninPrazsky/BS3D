@@ -24,6 +24,15 @@ The twenty-first `SceneKind` (#690): **the inside of a circus tent between shows
 
 `Game/Effects/CircusIntroShots.cs` (#752): *the canvas*, *the seats*, *the gate*; see "Big Top" in [the chapter intro's scene shots](../game-feedback/chapter-intro-scene-shots.md).
 
+## The wear (#976)
+
+The owner: the big top "looks rather primitive, lacking detail and dirt" (and the light cones are praised, so they stay). The references (`976-zimage`, `976-klein`) draw an old travelling tent, and on the High technique only (`detail`; Reduced draws the clean tent):
+
+- **The canvas** (`CanvasWear`): panels sun-faded each by its own amount; the horizontal joins of the strips it is sewn from, with dirt streaks running down from each; water stains with a soft darker margin, more towards the wall and down the seams, each panel its own (⚠ a crisp tide line round every blotch read as a map's contours); browner grime at the lower edge with mould speckles; stitched patches, some cut from the other stripe's cloth. ⚠ **It is baked**, once, into `CanvasWearMap` (4096x1024, mipmapped, the bearing across and the slant down) in `BeforeShadowMaps`, and the roof reads it with one explicit-level tap: shaded per pixel it cost the view up at the canvas 1.3 to 1.8 ms, baked 0.15. The lacing through grommets along the seams was tried and is finer than the map's texel, so it is gone with the per-pixel version.
+- **The rest**, cheap enough per pixel: the curtain's foot and the valance dusty; some seats faded and many rubbed to the wood at the front edge, the treads scuffed; the sawdust trodden into a dark track inside the curb and kicked into clumps; the curb chipped to the wood, its gold rubbed dull; the poles' paint peeling, more of it low down.
+- **Cost** (Testbed 3840x1600, ssaa 2, `nopost`, against the tent before #976): up at the canvas `campos=20,-5,20 camtarget=60,40,45` 7.88 against 7.73 ms; the play pose `campos=0,-2,34 camtarget=0,-9,0` 14.06 against 13.96.
+- Not done: bunting, the trapeze and its net, and the rope rigging the references hang across the tent.
+
 ## Costs
 
 - At 2560x1440 it matches the other full-screen scenes (7.00 ms against the cavern's 6.88; `Sag_Chain.json`, `fpscap=600`, desktop, 2026-10-02): something common to them bounds the frame. The reduced program (`detail` at or under 0.5) drops the beams, the one part integrating five cones a pixel.
