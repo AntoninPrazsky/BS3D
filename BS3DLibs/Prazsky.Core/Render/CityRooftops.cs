@@ -39,6 +39,12 @@ namespace Prazsky.Core.Render
     /// per cluster instead of one, and no shader channel: the tint is read at each <c>Draw</c>.
     /// </para>
     /// <para>
+    /// <b>It draws the far skyline too</b> (#774): <see cref="City.FarSkyline"/>'s slabs round the grid, through the city's
+    /// far technique (<see cref="InstancedModelRenderer.CityFar"/>), after the equipment. Not equipment, but the one thing
+    /// every host already draws after the city in the city's state and enrols for the sky light, so the skyline reached
+    /// all three executables without a line in any of them.
+    /// </para>
+    /// <para>
     /// <b>Sky-lit enrolment and the frame sequence stay the caller's</b>, as they do for
     /// <see cref="ForestScatterRenderer"/>: <see cref="Renderers"/> is the one array the enrolment and the
     /// disposal walk, and <see cref="Draw"/> touches no GPU state and gates on no scene — the caller draws it
@@ -156,8 +162,14 @@ namespace Prazsky.Core.Render
         private readonly int _seed;
         private readonly RooftopMesh[] _meshes = new RooftopMesh[(int)Kind.Count];
         private readonly SphereMesh _beaconMesh;
-        private readonly InstancedModelRenderer[] _renderers = new InstancedModelRenderer[(int)Kind.Count];
-        private readonly BasicEffectParams _paint, _lamp;
+        //One renderer per kind, and the far skyline's after them (SKYLINE): the one array the enrolment and disposal walk
+        private readonly InstancedModelRenderer[] _renderers = new InstancedModelRenderer[(int)Kind.Count + 1];
+        private const int SKYLINE = (int)Kind.Count;
+        private readonly BasicEffectParams _paint, _lamp, _facade;
+
+        //The far skyline (#774): City.FarSkyline's slabs, drawn whole (a few hundred boxes; the GPU clips them)
+        private readonly BoxMesh _skylineMesh;
+        private ModelInstance[] _skyline;
 
         private CitySceneConfig _config;
 
@@ -292,6 +304,16 @@ namespace Prazsky.Core.Render
             _paint = new BasicEffectParams(ambient, new Vector3(0.22f), 22f, Vector3.Zero);
             _lamp = new BasicEffectParams(ambient, new Vector3(0.6f), 60f, Vector3.Zero);
 
+            //The far skyline in the city's own terms: the hosts' scene parameters (no specular colour of their own; the
+            //facade's material is the city's config) and the city renderer's specular ambient, for the reason it gives
+            _facade = new BasicEffectParams(ambient, Vector3.Zero, 0f, Vector3.Zero);
+            _skylineMesh = new BoxMesh(device, 1f, 1f, 1f);
+            _renderers[SKYLINE] = new InstancedModelRenderer(device, _skylineMesh, Vector3.One, instancingEffect)
+            {
+                CityFar = true,
+                SpecularAmbientStrength = 0.07f
+            };
+
             InstancedModelRenderer Painted(IProceduralMesh mesh, Vector3 colour) =>
                 new(device, mesh, colour, instancingEffect) { SpecularAmbientStrength = 0.08f };
 
@@ -319,6 +341,8 @@ namespace Prazsky.Core.Render
         {
             _config = config;
             Showcases = Arrange(city, config, _seed, out List<Matrix>[] worlds, out List<Matrix>[] neon);
+            _skyline = city.FarSkyline;
+            _renderers[SKYLINE].CityConfig = config;
 
             _worlds = new Matrix[(int)Kind.Count][];
             _bounds = new BoundingSphere[(int)Kind.Count][];
@@ -684,6 +708,16 @@ namespace Prazsky.Core.Render
                     _renderers[k].Draw(camera, visible, count, IsBeacon(k) ? _lamp : _paint);
             }
 
+            //The far skyline last, behind everything it closes the streets with (#774), lit as the city's facades are
+            if (_skyline.Length > 0)
+            {
+                InstancedModelRenderer skyline = _renderers[SKYLINE];
+                skyline.CityNeon = neon ? 1f : 0f;
+                skyline.CityWindowBrightness = neon ? _config.NeonLook.WindowBrightness : _config.WindowBrightness;
+                skyline.CityWindowTime = seconds;
+                skyline.Draw(camera, _skyline, _skyline.Length, _facade);
+            }
+
             LastDrawn = drawn;
         }
 
@@ -698,6 +732,7 @@ namespace Prazsky.Core.Render
             _meshes[(int)Kind.Dish1]?.Dispose();
             _meshes[(int)Kind.Sector]?.Dispose();
             _meshes[(int)Kind.Hvac]?.Dispose();
+            _skylineMesh?.Dispose();
             _meshes[(int)Kind.Ring0Magenta]?.Dispose();
             _meshes[(int)Kind.Ring1Magenta]?.Dispose();
             _beaconMesh?.Dispose();
