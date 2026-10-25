@@ -52,7 +52,7 @@ namespace BS3D.Screens
             for (int i = n - slowest; i < n; i++) slowSum += sorted[i];
 
             return new Summary(n, (float)(sum / n), Percentile(sorted, 0.5f), Percentile(sorted, 0.95f), Percentile(sorted, 0.99f),
-                (float)(1000.0 / (slowSum / slowest)), sorted[n - 1], (float)over / n);
+                (float)(1000.0 / (slowSum / slowest)), sorted[n - 1], (float)over / n, budgetMilliseconds);
         }
 
         /// <summary>The value below which <paramref name="share"/> of the sorted values lie, interpolated between neighbours.</summary>
@@ -67,7 +67,7 @@ namespace BS3D.Screens
 
         /// <summary>A segment's figures. Frame times in milliseconds; <see cref="OnePercentLowFps"/> in frames a second.</summary>
         internal readonly record struct Summary(int Frames, float Mean, float Median, float P95, float P99, float OnePercentLowFps,
-            float Worst, float OverBudgetShare)
+            float Worst, float OverBudgetShare, float BudgetMilliseconds)
         {
             /// <summary>The median's frame rate.</summary>
             public float MedianFps => Median > 0f ? 1000f / Median : 0f;

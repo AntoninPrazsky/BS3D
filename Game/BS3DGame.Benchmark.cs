@@ -54,6 +54,28 @@ namespace BS3D
             Console.WriteLine("[bench] end");
         }
 
+        /// <summary>Whether the player may be offered another tier: not on a locked or a Potato run, whose renderer cannot change while it runs.</summary>
+        internal bool CanOfferQuality => !IsQualityLocked && !PotatoPath;
+
+        /// <summary>
+        /// Puts <paramref name="tier"/> on, as the Quality row's press does (<see cref="CycleQuality"/>): the tier's own look,
+        /// pinned by the player, stored, and the Auto quality row off. The benchmark's offer (#988), taken by a press.
+        /// </summary>
+        internal void ChooseQuality(QualityLevel tier)
+        {
+            if (!CanOfferQuality || tier == QualityLevel.Potato) return;
+            _settings.Scenery = null;
+            ApplyQuality(tier);
+            _qualityPinnedByPlayer = true;
+            _qualitySettled = true;
+            _settings.Quality = _quality;
+            _settings.AdaptiveQuality = false;
+            SaveSettings();
+            _mainMenuPage.ClearQualityNotice();
+            _settingsPage.Refresh();
+            Console.WriteLine($"[bench] quality {tier} chosen");
+        }
+
         /// <summary>The display's refresh, or 0 when the adapter reports nothing sensible: a frame's budget is a thousandth of it.</summary>
         internal int DisplayRefreshHz => _displayRefreshHz;
 
