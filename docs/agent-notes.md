@@ -20,6 +20,15 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #751 jehličí, #870 Continue s úvodem, #988 opravy z review, alokace snímku — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo: #751 (67221435) jehličí na deskách blízkých smrků na High/Ultra (`Needles.fxh`), svítí se jako deska. Les i polární záře zlevnily: herní kamera 15,00 → 14,90 ms. `verdict-eye`.
+- Hotovo: #870 (ede0dd6e) Continue z menu přehraje celý úvod scény i uprostřed kapitoly. Ne po Pauze, výběru, dalším levelu ani Retry. Argument `continue`. `verdict-hands`.
+- Hotovo: #988 osm nálezů review (fe039397). Snímek zase nealokuje (f4780a66): bylo to 88 B/snímek, `BestPractices.md` §3.
+- Sweepy bez pádu: 21 scén × 5 úrovní při startu, 21 levelů × 5 ve hře, 17 stránek × 4 okna.
+- ⚠ `clip` v shaderu zakáže včasné zahození skrytých pixelů (stálo 1,0 ms); hřebínek se proto řeže v hloubkovém průchodu a stínuje se s testem EQUAL.
+- ⚠ Na 4:3 zasahuje ucho poháru do tabulky výsledků (jen 4:3).
+- Otevřené: #881 rozpracované (větev 881-spare-volley).
+
 ## 2026-10-25 — #988 fyzika a HDR sonda, pád Gridu (#956) — desktop (RDT-PC), Claude Code (bs3d-21)
 - Hotovo: #988 čtvrtá etapa (06901db0): `PhysicsBench` krokuje Girandole (1204 koulí) mimo obraz, krok má rozpočet 8,33 ms při každé obnovovací frekvenci; desktop medián 1,29 ms, 15,5 % každého snímku. Pátá (4d39f6c2): HDR cíl scény zkoumán na NaN a nekonečno.
 - Hotovo: pád Gridu (488f05bc): v prvních 0,11 s hodin nemá žádný světelný motocykl stopu a `SetData` s počtem 0 hází výjimku; hra na Medium spadla při startu 2× ze 2. Žádné vydání ho nenese.
