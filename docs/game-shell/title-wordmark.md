@@ -2,7 +2,7 @@
 
 Part of [The game: shell](../game-shell.md).
 
-The game's name is a 3D object standing in the front end's scene, not a label over it (#248). `Game/Effects/TitleWordmark.cs` sets it in round tube letters: one word to a line in the top-right corner, the last a badge, the block drifting and breathing. It has **two builds on the tier's one switch** (`QualityPreset.FineMeshes`, read per draw): at **High and Ultra the PNG logo** in three dimensions ([below](#high-and-ultra-the-png-logo-929)), at Low and Medium the rainbow wordmark the rest of this page describes. Potato has only the rainbow.
+The game's name is a 3D object standing in the front end's scene, not a label over it (#248). `Game/Effects/TitleWordmark.cs` sets it in round tube letters: one word to a line in the top-right corner, the last a badge, the block drifting and breathing. **Every tier draws the PNG logo** in three dimensions ([below](#high-and-ultra-the-png-logo-929)) since #981 (the owner: "so that we do not have two different logos"): High and Ultra in full, Low and Medium without the halo (`Lean`, from `QualityPreset.FineMeshes`, read per draw). **The Potato path**, which has no `Wordmark.fx`, draws the logo's composition through the instanced effect: the rainbow build's thinner tubes in the picture's colours, the logo's violet line as their keyline (the badge's letters the dark rim) and the badge on a violet disc lit like the scene, most of its colour its own glow (`POTATO_DISC_GLOW`: its face looks at the lens, square to the sun, and lit alone it was a navy hole). The rainbow wordmark the rest of this page describes is what a title that is not the logo's falls back to.
 
 ## The letters
 
@@ -71,5 +71,7 @@ The owner: the wordmark at High and Ultra was "not detailed and sharp enough, an
 ## Cost
 
 About 1.16 ms of a 24 ms frame for the rainbow build, front end only (pinned rig: `preview=` fixing the map, orbit frozen). ⚠ Compare only runs with the same preview map at the same orbit bearing.
+
+**Low and Medium on the logo build** (#981; Game front end, 3840x1581, `preview=1 sceneseed=1 fpscap=1000`, the meadow, two alternated runs each, medians): Low 3.01 to 3.02 ms against the rainbow's 3.01 to 3.02; Medium 4.31 against 4.21 to 4.24. With the halo kept, Low 3.02 to 3.03 and Medium 4.34 to 4.35: the halo is the one pass left out of the cheap copy. The front end only; nothing of it is drawn in play.
 
 The logo build costs what the rainbow did: +0.03 and +0.07 ms of a 10.5 ms frame at Ultra, 3840×1581, on the meadow's front end (`preview=1 sceneseed=1 nocap`, the same 50 s of the orbit in each run, two before/after pairs on an idle desktop; the per-second differences spread 0.2 ms). ⚠ Another process on the GPU moves a whole run by a millisecond: check that nothing else is drawing before trusting a pair.

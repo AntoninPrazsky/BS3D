@@ -635,8 +635,8 @@ namespace BS3D
                 _sceneRenderer.FineMeshes = preset.FineMeshes;
             }
 
-            //And the title on the same switch (#929): the PNG logo at High and Ultra, the rainbow below. Read per draw.
-            if (_titleWordmark != null) _titleWordmark.Fine = preset.FineMeshes;
+            //And the title (#981): every tier draws the PNG logo, Low and Medium its lean copy without the halo
+            if (_titleWordmark != null) _titleWordmark.Lean = !preset.FineMeshes;
 
             //And the arena's stone cap, which is the first thing the tier reaches that is NOT a scene — it is
             //in all fifteen of them and under the gun in every frame of every level, and #151 measured it at
