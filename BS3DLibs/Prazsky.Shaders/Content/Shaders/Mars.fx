@@ -650,7 +650,8 @@ float4 MarsGroundAt(float3 worldPosition, float3 meshNormal, bool onBank, bool d
         float2 pebbleCell = floor(worldPosition.xz * 1.3);
         float2 pebbleRoll = NoiseHash22(pebbleCell + 41.0);
         float pebbleSize = 0.05 + 0.16 * pebbleRoll.y * pebbleRoll.y;
-        float2 pebbleAt = (pebbleCell + 0.5 + 0.3 * NoiseHash22(pebbleCell + 7.0)) / 1.3;   //the hash is -1..1: inside its cell
+        //The hash is -1..1: jittered no further than keeps the largest pebble (0.21) inside its own cell, the only one evaluated
+        float2 pebbleAt = (pebbleCell + 0.5 + 0.22 * NoiseHash22(pebbleCell + 7.0)) / 1.3;
         float pebble = step(0.62, pebbleRoll.x) * (1.0 - smoothstep(pebbleSize * 0.6, pebbleSize, length(worldPosition.xz - pebbleAt)))
             * saturate(1.0 - footprint * 6.0) * (1.0 - slab) * (1.0 - buried);
         rust = lerp(rust, BoulderColorDeep * 1.6, pebble * 0.85);
