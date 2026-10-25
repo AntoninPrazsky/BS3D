@@ -77,11 +77,12 @@ namespace BS3D.Screens
                 new Vector3(_cannon.OrbitCenter.X, _gameCameraTargetY, _cannon.OrbitCenter.Z), lensMuzzle, elapsed);
 
             //The overview focuses on the aim after a moment (#1006), and opens on the full frame again whenever anything
-            //else has held the lens: precise aim, or a takeover lerped over the pose below. Applied to the overview end
+            //else has held the lens: precise aim, or a takeover lerped over the pose below (the benchmark's lens and the
+            //unused balls' volley among them). Applied to the overview end
             //only, the tilt's route, so precise aim's lean interpolates it out and a takeover lands on whatever it is
             float overviewFov = GAME_FOV;
             bool overviewHasTheLens = _preciseAim.Blend <= 0f && _cinematic.Blend <= 0f
-                && _lineLoss.Blend <= 0f && _chapterIntro.Blend <= 0f;
+                && _lineLoss.Blend <= 0f && _chapterIntro.Blend <= 0f && _spareVolley.Blend <= 0f && _demo.Blend <= 0f;
             float focus = _focus.Step(overviewHasTheLens, _chapterIntro.Blend > 0f, elapsed);
             Vector3 focusPoint = _focus.FollowAim(lensMuzzle, lensAim, convergeTarget, elapsed);
 
