@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #752 #971 #980 verdikty 25. 10. a druhá kola — desktop (RDT-PC), Claude Code (bs3d-21)
+- majitel (25. 10. ráno, stránka verdiktů): 21× OK, zavřeno (#744–#747 #749 #753 #754 #774 #776 #779 #903 #944 #951 #953 #959 #968 #978 #979 #981 #982 #984); Vrať: #752 (ostrov před tribunami v záběru Brána), #971 (plášť balíku bez pruhů), #980 (víc detailu kůry).
+- Hotovo: #752 (7f254cfa) hlediště, stěny vchodu a obrubník zapisují hloubku; #971 (98a16042) plášť bez provázků; #980 (140c0841) dvě vrstvy brázd, bloky, zrno, lišejník (+0,25 ms s kmenem přes obraz). Druhá kola jsou na stránce, staré řádky v db smazané (odpovědi zůstaly na issues).
+- ⚠ Python v bash heredocu s Windows cestou nebo textem obsahujícím zpětné lomítko a U spadne na unicode escape a commit odejde bez dokumentace: takové skripty psát přes Write.
+
 ## 2026-10-25 — #1013 #1014 #1015 #1016 upřesnění cizího hráče, paprsek za sklem — desktop (RDT-PC), Claude Code (bs3d-c9)
 - Kamarád majitele odpověděl na otázky z #768: **nepoužil žádný nástroj** (RMB, Swap, Brake ani Cut), Cut si všiml až na konci, na 3 hvězdy měl asi 10 ze 140 levelů na první pokus a opakoval jen 2–3 levely. Zapsáno na #768, #1005, #1006, #1007, #692 (newcomer: ne), #990, #1012. Nová issues: #1014 (stejná barva se dotkne a nespojí; `owner-decision`), #1015 (čas ve skóre; `owner-decision`), #1016 (místo Brzdy něco, co shluk posune níž; `parked`).
 - majitel: Swap má smysl kvůli násobiči, kamarád hrál offline. ⚠ Karta pro RMB ve v0.4.0 byla (Rainbow); akční karta po 22 s zmizí, takže ji lze přejít bez stisku.
