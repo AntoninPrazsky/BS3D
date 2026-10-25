@@ -62,13 +62,13 @@ float GrassReliefFrequency;
 
 //THE GRASS AS A MATERIAL (#281). The relief above is the same bump-and-matte recipe the mountain's rock and
 //the island's stone use, which is why the field read as green stone: nothing in it said "blades". What does,
-//read off real meadows (references rendered for #281): clumps of slightly different greens with darker seams
-//between them, light dry tips over dark hollows, broad drier patches, a velvety sheen where the field is seen
+//read off real meadows (references rendered for #281): clumps of slightly different greens in soft patches (no
+//dark seams between them since #944), light dry tips over dark hollows, broad drier patches, a velvety sheen where the field is seen
 //edge-on, and blades that glow when the sun is behind them.
 float3 GrassTipColor;        //the light, drier colour a blade's tip takes, linear
 float GrassTipStrength;      //how far tips lighten and hollows darken, 0..1
 float GrassClumpSize;        //world units across one clump
-float GrassClumpStrength;    //how much clumps differ and how dark the seams between them are, 0..1
+float GrassClumpStrength;    //how much clumps and their patches differ in shade, 0..1
 float GrassDryPatchStrength; //how far the broad dry patches pull towards yellow-green, 0..1
 float GrassSheenStrength;    //the velvet: light the field gives back where it is seen edge-on
 float GrassTranslucency;     //the glow of blades with the sun behind them
@@ -978,31 +978,23 @@ float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool 
     float dry = saturate(CloudNoise(worldPosition.xz * 0.043 + 17.3) * 0.5 + 0.5);
     grass = lerp(grass, grass * float3(1.20, 1.03, 0.62), GrassDryPatchStrength * dry * dry);
 
-    //CLUMPS (#281): grass grows in tufts, and a tuft is its own shade of green with a darker seam of shadow
-    //between it and the next. The zero-crossings of a gradient noise one clump across give the seams — a
-    //connected web of thin lines, which is what a cellular field would give, at one noise instead of Voronoi2's
-    //nine hashes (measured: 0.43 → 0.36 ms added at the near camera) — and a noise at the same scale gives each
-    //clump its own brightness.
-    //Band-limited as a whole: once a clump is a couple of pixels the seams would shimmer, so the lot fades to
-    //its mean and the far field is simply green.
+    //CLUMPS (#281): grass grows in tufts, and a tuft is its own shade of green, in soft patches of a few tufts each
+    //(clumpShade) inside broader ones of many (patchShade). Gradient noise used as it comes, never its zero set: a
+    //noise's zero crossings are a web of thin winding lines, and darkened as "the seams between clumps" they read as
+    //bark-beetle galleries - the owner (#944): "dark snaking curves, like the tracks of a bark beetle... we should
+    //rather see a lawn". A lawn's ground detail is the blades' strokes below and the tips and hollows above; the
+    //shade between tufts is the hollows' already. (The web was also a lattice of dark knots once, #674, until it
+    //was the zero set of two noises; the patches here are smooth, with no knot.)
+    //Band-limited as a whole: once a clump is a couple of pixels it would shimmer, so the lot fades to its mean and
+    //the far field is simply green.
     //One of the reduced program's two cuts (see MeadowReducedPS).
     if (detail)
     {
         float clumpFade = saturate(1.0 - 2.5 * footprint / max(GrassClumpSize, 1e-3));
         float2 clumpDomain = worldPosition.xz / max(GrassClumpSize, 1e-3);
-
-        //⚠ THE SEAM IS THE ZERO SET OF TWO NOISES, NOT ONE (#674). A gradient noise is exactly zero at every integer
-        //lattice point (every dot product in GradientNoise2 is against f, and f is 0 there), so |noise| is small in a
-        //disc round each of them and the web of its zero crossings ties a knot at every lattice point - a lattice of dark
-        //spots one clump apart. That is arithmetic. Tools/LatticeProbe measured the meadow from above at 83 % of its
-        //scored tiles over the noise null (50 of 60; one wave, period 15 px, on the axis) and 2 % after; a continuous
-        //narrow-band texture is not flagged by it (its ring case: one tile in ten), so what it saw was a lattice. The second noise is turned and at another scale, so the two zero sets share no
-        //lattice point; 0.7 each keeps the sum's spread about what one noise's was, so the threshold below means
-        //what it did.
-        float2 seamDomain = float2(clumpDomain.x * 0.8 - clumpDomain.y * 0.6, clumpDomain.x * 0.6 + clumpDomain.y * 0.8) * 1.37 + 7.3;
-        float seam = 1.0 - smoothstep(0.0, 0.22, abs(0.7 * (GradientNoise2(clumpDomain) + GradientNoise2(seamDomain))));
         float clumpShade = GradientNoise2(clumpDomain * 0.7 + 5.1);
-        grass *= 1.0 + GrassClumpStrength * clumpFade * (0.32 * clumpShade - 0.55 * seam + 0.2);
+        float patchShade = GradientNoise2(clumpDomain * 0.23 + 11.9);
+        grass *= 1.0 + GrassClumpStrength * clumpFade * (0.32 * clumpShade + 0.22 * patchShade + 0.03);
         grass = lerp(grass, grass * float3(1.10, 1.0, 0.82), GrassClumpStrength * clumpFade * saturate(clumpShade));
     }
 
@@ -1191,7 +1183,7 @@ float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool 
 }
 
 //Two programs from one body (#281), the forest's pattern. "Meadow" is the authored field; "MeadowReduced" is the
-//same field without the two near-field terms that cost the most — the clump seams and the blade strokes —
+//same field without the two near-field terms that cost the most — the clump patches and the blade strokes —
 //and keeps everything that is arithmetic on values already computed (the tips, the dry patches, the velvet and
 //the glow). SceneRenderer.SceneDetail picks; the Game's Low tier takes the reduced one. Each comes twice since #892:
 //over the camera grid (and the far ring, which takes "MeadowReduced"), with the hole the cut is drawn in, and over the

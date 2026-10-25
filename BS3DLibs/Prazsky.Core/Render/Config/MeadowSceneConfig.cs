@@ -84,7 +84,7 @@ namespace Prazsky.Core.Render
         /// <summary>World units across one clump of grass (#281).</summary>
         public float GrassClumpSize { get; set; } = 0.55f;
 
-        /// <summary>How much one clump's shade differs from the next, and how dark the seams between them are, 0..1.</summary>
+        /// <summary>How much one clump's shade differs from the next, in soft patches (no dark seams between them, #944), 0..1.</summary>
         public float GrassClumpStrength { get; set; } = 0.6f;
 
         /// <summary>How far the broad dry patches pull the grass towards yellow-green, 0..1.</summary>
