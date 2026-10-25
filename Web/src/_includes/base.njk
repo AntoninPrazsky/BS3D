@@ -22,6 +22,15 @@
   <link rel="preload" href="/fonts/Anton-Regular.ttf" as="font" type="font/ttf" crossorigin>
   <link rel="alternate" type="application/atom+xml" title="{{ site.title }}: the blog" href="/feed.xml">
   <link rel="stylesheet" href="/css/site.css">
+  <!-- The page in motion (#948): set before the first paint so nothing is shown and then hidden, never under reduced motion,
+       and taken off again if js/motion.js has not said it has finished a moment later, so a failed script never hides the page -->
+  <script>
+    if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      document.documentElement.classList.add("motion");
+      setTimeout(function () { if (!window.bs3dMotion) document.documentElement.classList.remove("motion"); }, 3000);
+    }
+  </script>
+  <script type="module" src="/js/motion.js"></script>
 </head>
 <body>
 {{ content | safe }}

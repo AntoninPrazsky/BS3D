@@ -247,18 +247,31 @@ void main() {
   // ?cannon-t=<seconds> draws the pose at that moment and stops: how a page without a display (a headless capture) is checked
   const pinned = Number(new URLSearchParams(location.search).get("cannon-t"));
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches || pinned > 0;
-  let visible = true, last = 0, time = 4, running = false;
+  let visible = true, last = 0, time = 4, running = false, paused = false;
   if (pinned > 0) for (let t = 0; t < pinned; t += 1 / 60) step(1 / 60, (time = t));
   const frame = (now) => {
     running = false;
-    if (!visible || document.hidden) return;
+    if (!visible || document.hidden || paused) return;
     const dt = last ? Math.min((now - last) / 1000, 0.05) : 0;
     last = now;
     time += dt;
     draw(time, step(dt, time));
     if (!still) loop();
   };
-  const loop = () => { if (!running) { running = true; requestAnimationFrame(frame); } };
+  const loop = () => { if (!running && !paused) { running = true; requestAnimationFrame(frame); } };
+
+  // A visible stop for something that moves on its own (#948): pressed, the gun holds where it is; pressed again, it goes on
+  const pause = document.querySelector("button.cannon-pause");
+  if (pause && !still) {
+    pause.hidden = false;
+    pause.addEventListener("click", () => {
+      paused = !paused;
+      pause.textContent = paused ? "Play" : "Pause";
+      pause.setAttribute("aria-pressed", paused ? "true" : "false");
+      last = 0;
+      if (!paused) loop();
+    });
+  }
   new IntersectionObserver((entries) => {
     visible = entries.some((e) => e.isIntersecting);
     last = 0;

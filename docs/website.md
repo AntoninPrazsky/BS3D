@@ -29,6 +29,7 @@ npx eleventy                # the plain files in Web\_site, which is all the hos
 | `src/blog/*.md` | The posts, and `blog.11tydata.json`, which gives every file there the layout and the `posts` tag |
 | `eleventy.config.js` | The passthrough copies, the date filters, `absoluteLinks` (the feed's links and pictures get the site's address) and **no Liquid pass over Markdown** |
 | `src/css/site.css` | The look: dark like the game's menus, headings in Anton (the game's own display face, served from `src/fonts`) |
+| `src/js/motion.js` | The page in motion (below): the sections' pieces rising into view and the counts counting up; the hero's entrance is `site.css`'s alone |
 | `src/js/sound.js` | The sound toggle (below); the music and the shot it plays are the game's own `Game/Music/menu.ogg` and `Game/Sfx/shoot.ogg`, copied by `eleventy.config.js` at the build |
 | `src/js/cannon.js`, `src/cannon/` | The live cannon (below): the WebGL2 script, and the game's meshes and figures it draws (`cannon.bin`, `cannon.json`), written by `Tools/WindingCheck --export-cannon` |
 | `publish.ps1` | Builds and uploads (below) |
@@ -47,6 +48,7 @@ The owner: "a rotating cannon right in the browser, using graphics acceleration 
 - ⚠ **The game winds its meshes clockwise seen from outside**, a back face to WebGL's default: `gl.frontFace(gl.CW)`, so `gl_FrontFacing` is true outside and the normal is turned only for an inner face seen through (the bore).
 - ⚠ **The glass is drawn at 0.45 of the game's alpha**: the game's glass is lit by reflections this program does not draw, and at 0.84 the pane hid the queue the game shows through it.
 - **It runs only while seen**: paused off screen (`IntersectionObserver`) and in a hidden tab, at most two device pixels a CSS pixel; under `prefers-reduced-motion` it draws one frame and stops; without WebGL2 the canvas keeps its CSS gradient.
+- **A visible Pause** (#948) in the canvas's corner holds the gun where it is (`button.cannon-pause`, `aria-pressed`; "Play" goes on): anything that moves on its own carries a way to stop it. It is shown only when the gun moves at all, so not under reduced motion nor with `?cannon-t=`.
 - **Looking at it without a display**: `?cannon-t=<seconds>` draws the pose at that moment and stops, since headless Edge's virtual time does not advance animation frames. Serve `_site` (`python -m http.server` in it) and photograph it: `msedge --headless=new --use-angle=swiftshader --enable-unsafe-swiftshader --window-size=1400,2900 --virtual-time-budget=3000 --screenshot=<png> "http://127.0.0.1:<port>/?cannon-t=2.6"` (2.6 s: driving, the first ball in the air; 7: crabbing; 9.3: just fired).
 
 ## The sound (#950)
@@ -58,6 +60,14 @@ The owner: "the website could also have the game's sounds and music - then there
 - **The live cannon's shots are heard** (#949): `cannon.js` sends `bs3d:shot` with where the gun is across the canvas, and the toggle's script plays the game's shot, panned there and nudged in pitch.
 - ⚠ **Decoded through an `OfflineAudioContext`**, which needs no output device: a playing `AudioContext` that could not reach one never finished decoding in headless Edge, and the button stayed on "Loading…". An `AudioBuffer` belongs to no context, so the playing one takes it as it is. A browser that cannot decode Ogg Vorbis (Safari's support is unchecked) gets "No sound in this browser" and a disabled button; so does a load that takes over 20 s.
 - **Checked without a display** through the DevTools protocol (headless Edge with `--remote-debugging-port`, a Node script that opens the page, presses the button and reads the label): "Sound on" 0.3 s after the press, "Sound off" after the second; both files decode (the loop 59.2 s, 48 kHz stereo, peak 0.65; the shot 2.0 s). Nothing was heard.
+
+## The motion (#948)
+
+The owner: "it is a game, the site must be fun and attention-grabbing even for someone who cannot read English." Step 1 is the page moving by itself; the looping clips of play (steps 2-3) wait for a capture tool (#946).
+- **The hero enters**: the logo pops in (scaled from 0.82 with a slight overshoot), the pitch, the buttons, the note and the big picture rise after it, 0.25-0.55 s apart. CSS only (`@keyframes logo-in`, `rise-in`).
+- **The sections' pieces rise into view**: every section's heading and lead, the cards, the gallery's pictures, the feature list, the platforms, the posts, the cannon's stage and the three counts fade in from 28 px below as they are scrolled to (`IntersectionObserver`, the bottom 8 % of the window excluded), up to six siblings 90 ms apart. What is on screen when the script runs is shown at once, with no frame hidden. **The counts count up** from 0 to their figure in 0.9 s, eased out.
+- ⚠ **Nothing is hidden unless motion is welcome and the script has run.** An inline script in the head sets `html.motion` before the first paint, and never under `prefers-reduced-motion`; every hidden state is written under `.motion`, and `js/motion.js` itself marks the pieces it hides. It sets `window.bs3dMotion` once it has finished, and the head takes `motion` off again 3 s after the start if it has not, so a script that fails to load, or throws halfway, leaves the whole page visible. Without JavaScript the page is the static one.
+- **Checked without a display** through the DevTools protocol (headless Edge with SwiftShader, a Node script, a 1280x900 window): all 36 pieces reveal on a continuous scroll and none is left below 0.5 opacity; the counts read 57 / 6 / 9 a moment into the count and 140 / 14 / 21 after; the cannon runs at about 28 animation frames a second there, 0 while paused, 28 again after "Play"; under emulated reduced motion no class, no hidden piece, no count and no Pause; with `motion.js` blocked the class is gone by 3.6 s and nothing was hidden. A piece jumped past (an anchor link) stays hidden until it is scrolled back to, and rises then.
 
 ## The blog (#928)
 
