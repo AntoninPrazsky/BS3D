@@ -58,6 +58,15 @@ Blown spray and spindrift: `Spray.fx`, drawn by `SceneRenderer.DrawOverlays` in 
 
 References were rendered locally (`design-references`, not in the repository): a dusk ocean, breaking crests, a low sun's glitter path, a backlit crest, wind-blown spray, the sea from height. They left the geometry alone and said **the water is darker than it was drawn and the white on it is whiter**. The decisions are in the shading list above (the crest-keyed body colour, the rarer and stronger foam, the third-power subsurface term, the desaturated haze) and the spray list (the lens fade).
 
+## The oil platforms (#969)
+
+The owner: objects found at a real sea, oil platforms first (lower priority, his words). `OilRigs` (drawn by `SeaBackdrop` after the water, opaque, writing depth) stands two far out, shaded by `Rig.fx`; references in `C:\Users\panrd\AI\sd\out\969-zimage` and `969-klein`.
+
+- **Where**: beyond `WaveFadeEnd` (780), where the water is a flat plane at `LevelY`: the nearer `NEAR_DISTANCE` 820 out on `NEAR_BEARING`, behind the play view the Testbed opens on, a smaller one 1150 out on another bearing. Sizes at about two units a metre.
+- **Built of boxes**: four thick yellow legs, bracing as tubes (a horizontal and an X of diagonals on every side, two storeys), a deck of two levels with white and orange modules, a red lattice derrick, a crane, a flare boom with its flame, a helideck and steady lamps (#401). ⚠ Bracing as lattice panels with the sky's colour between the members read as perforated sheets tinted by the sky: the derrick's gaps are darker steel.
+- **The water** (`Rig.fx`): the surface writes no depth (#131), so the legs are `clip`ped at the waterline (the fault #761 fixed for the fireworks: anything under the water drawn after it shows through as through glass), with a band of foam where they meet it. Standing where the swell is flat makes the cut a straight line the water agrees with.
+- **The air**: the sea's horizon colour at `HAZE` 1700, lighter than the water's 700, or a rig a kilometre off is gone.
+
 ## Costs a change must compare against
 
 Desktop, 3840 x 1600, ssaa 2, play-height view, alternating pairs (#674):
