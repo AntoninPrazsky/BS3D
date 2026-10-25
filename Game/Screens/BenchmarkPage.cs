@@ -39,6 +39,13 @@ namespace BS3D.Screens
         private readonly FrameStats.Summary[] _results = new FrameStats.Summary[SEGMENTS.Length];
         private readonly FrameStats.Summary[] _settles = new FrameStats.Summary[SEGMENTS.Length];
         private int _measured;
+
+        //The probe's verdict on each segment's frame (FrameProbe), asked PROBE_AT seconds into its tour; and whether the frame
+        //after a probe is still to be left out of the figures (the read back stalled it)
+        private const float PROBE_AT = 3f;
+        private readonly FrameProbe.Verdict[] _probes = new FrameProbe.Verdict[SEGMENTS.Length];
+        private readonly float[] _probeMean = new float[SEGMENTS.Length], _probeSpread = new float[SEGMENTS.Length];
+        private bool _probed, _skipNext;
         private readonly PlayHud _skipHint;
         private Button _firstEntry;
 
@@ -92,6 +99,11 @@ namespace BS3D.Screens
                 });
             }
 
+            //A frame the probe found wrong is the surprise this page exists to find: said plainly, with where to send it
+            for (int i = 0; i < _measured; i++)
+                if (_probes[i] != FrameProbe.Verdict.Ok)
+                    column.Widgets.Add(Paragraph($"{SceneRenderer.SceneName(SEGMENTS[i])} drew a {(_probes[i] == FrameProbe.Verdict.Black ? "black" : "one-colour")} frame: your graphics driver may not draw this game right. Please tell the author: Extras > {BS3DGame.NOTE_ENTRY}.", ProseMeasure));
+
             //What the numbers recommend (BenchmarkVerdict), offered as an entry and never applied unasked
             QualityLevel tier = Game.Quality;
             QualityLevel recommended = BenchmarkVerdict.Recommend(tier, _results, _measured, out int decidedBy);
@@ -115,6 +127,19 @@ namespace BS3D.Screens
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 20, 0, 20),
             });
+        }
+
+        /// <summary>Whether the game should read the next finished frame back for the probe: once a segment, a few seconds into its tour.</summary>
+        internal bool WantsProbe => _phase == Phase.Touring && !_probed && _phaseSeconds >= PROBE_AT;
+
+        /// <summary>The frame read back (null when it could not be): the probe's verdict on this segment, and the next frame left out.</summary>
+        internal void TakeProbe(Color[] frame, int width, int height)
+        {
+            _probed = true;
+            _skipNext = true;
+            _probes[_segment] = FrameProbe.Check(frame, width, height, out _probeMean[_segment], out _probeSpread[_segment]);
+            Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                $"[bench] {SceneRenderer.SceneName(SEGMENTS[_segment])} frame {_probes[_segment]} (mean {_probeMean[_segment]:0.000}, spread {_probeSpread[_segment]:0.000})"));
         }
 
         //The offer taken: the tier on, and the page ready to run again on it
@@ -147,6 +172,8 @@ namespace BS3D.Screens
             _phaseSeconds = 0f;
             _frames.Clear();
             _settle.Clear();
+            _probed = false;
+            _probes[_segment] = FrameProbe.Verdict.Ok;
             _lastTick = Stopwatch.GetTimestamp();
             Console.WriteLine($"[bench] segment {_segment + 1}/{SEGMENTS.Length} {SceneRenderer.SceneName(SEGMENTS[_segment])}");
         }
@@ -175,7 +202,8 @@ namespace BS3D.Screens
                 return;
             }
 
-            _frames.Add(milliseconds);
+            if (_skipNext) _skipNext = false;
+            else _frames.Add(milliseconds);
             if (backdrop.TourRunning || _phaseSeconds < 0.5f) return;
 
             //The tour is home: this segment's figures
@@ -219,6 +247,7 @@ namespace BS3D.Screens
                     ["overBudgetShare"] = Math.Round(s.OverBudgetShare, 4),
                     ["firstSecondsWorstMs"] = Math.Round(first.Worst, 2),
                     ["firstSecondsMedianMs"] = Math.Round(first.Median, 3),
+                    ["frame"] = _probes[i].ToString(),
                 });
             }
             QualityLevel recommended = BenchmarkVerdict.Recommend(Game.Quality, _results, _measured, out _);

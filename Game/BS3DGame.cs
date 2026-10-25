@@ -2278,6 +2278,7 @@ namespace BS3D
             //A note's picture (#813): the frame the note page drew without itself, read back like a screenshot and for
             //its reason, before the screenshot so a shot asked for on this frame is not the one read first
             ServiceNoteShot();
+            ServiceBenchmarkProbe();
 
             //And after even that, so a saved frame is the finished one — the scene, the overlay and whatever
             //page is over them (#191). It reads the back buffer, so it has to be the last thing in the frame

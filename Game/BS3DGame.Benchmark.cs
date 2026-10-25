@@ -76,6 +76,33 @@ namespace BS3D
             Console.WriteLine($"[bench] quality {tier} chosen");
         }
 
+        //The frame the probe reads back into, kept for the back buffer's size: four reads a run, never a frame's allocation
+        private Microsoft.Xna.Framework.Color[] _benchmarkFrame;
+
+        /// <summary>
+        /// The benchmark's correctness probe (#988, <see cref="FrameProbe"/>): when the page asks, the finished frame is read
+        /// back at the end of Draw, as a note's picture is, and handed to it. The read stalls the GPU, which is why the page
+        /// asks once a segment and leaves the frame after it out of its figures.
+        /// </summary>
+        private void ServiceBenchmarkProbe()
+        {
+            if (!_benchmarking || _benchmarkPage == null || !_benchmarkPage.WantsProbe) return;
+            int width = GraphicsDevice.PresentationParameters.BackBufferWidth;
+            int height = GraphicsDevice.PresentationParameters.BackBufferHeight;
+            try
+            {
+                if (_benchmarkFrame == null || _benchmarkFrame.Length != width * height)
+                    _benchmarkFrame = new Microsoft.Xna.Framework.Color[width * height];
+                BackBufferPixels.Read(GraphicsDevice, _benchmarkFrame);
+                _benchmarkPage.TakeProbe(_benchmarkFrame, width, height);
+            }
+            catch (Exception exception)
+            {
+                Console.WriteLine($"[bench] the frame could not be read back: {exception.GetType().Name}: {exception.Message}");
+                _benchmarkPage.TakeProbe(null, width, height);
+            }
+        }
+
         /// <summary>The display's refresh, or 0 when the adapter reports nothing sensible: a frame's budget is a thousandth of it.</summary>
         internal int DisplayRefreshHz => _displayRefreshHz;
 
