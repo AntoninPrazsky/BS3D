@@ -585,10 +585,17 @@ namespace Prazsky.Core.Render
         /// own vertices: what the fine shrub that stands in for it is fitted to, so it fills the volume the meadow was planted by
         /// and stays inside the loaf's sphere, which is what a camera keeps out of.
         /// </summary>
-        internal static (float Reach, float Top) FineShrubSize(float radius, int loafSeed)
+        internal static (float Reach, float Top) FineShrubSize(float radius, int loafSeed) =>
+            FineShrubSize(radius, radius * 0.8f, radius * 0.7f, loafSeed);
+
+        /// <summary>
+        /// The same for any <see cref="FoliageStyle.Scrub"/> loaf, by the radius, half-height and centre height it is built with: the
+        /// tropical beach's scrub is a loaf of its own proportions (#753).
+        /// </summary>
+        internal static (float Reach, float Top) FineShrubSize(float radius, float halfHeight, float centreY, int loafSeed)
         {
             var vertices = new List<VertexPositionNormalTexture>();
-            FoliageMesh.Generate(vertices, new List<short>(), radius, radius * 0.8f, new Vector3(0f, radius * 0.7f, 0f), loafSeed, FoliageStyle.Scrub);
+            FoliageMesh.Generate(vertices, new List<short>(), radius, halfHeight, new Vector3(0f, centreY, 0f), loafSeed, FoliageStyle.Scrub);
             float reach = 0f, top = 0f;
             foreach (VertexPositionNormalTexture v in vertices)
             {

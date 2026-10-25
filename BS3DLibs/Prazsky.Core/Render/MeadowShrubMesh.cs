@@ -30,6 +30,10 @@ namespace Prazsky.Core.Render
     /// to the reach and the height of the loaf it stands in for (<see cref="Build"/>), so the meadow is planted once and what a camera
     /// keeps out of is the loaf's sphere either way.
     /// </para>
+    /// <para>
+    /// <b>The tropical beach's sea grape is this shrub too</b> (#753), fitted to that beach's scrub domes, with cards twice the side and
+    /// round leaves (<c>Acacia.fx</c>'s leaves 3): the card size and the cover are arguments, the meadow's by default.
+    /// </para>
     /// </summary>
     internal sealed class MeadowShrubMesh : IDisposable
     {
@@ -71,7 +75,7 @@ namespace Prazsky.Core.Render
         //A clump's leaf cover and a card's side against the clump's radius, a tree's being 1.5 and 0.7 (MeadowTreeMesh's CARD_COVER
         //and CARD_SIZE): a shrub's mass is dense, the light does not show through its middle, and its leaves are small against it.
         //And how many twigs carry a clump's cards, a tree's being 5 to 8: a shrub's clump is small, and its twigs are hidden in it
-        private const float SHRUB_COVER = 2.4f, SHRUB_CARD = 0.55f;
+        internal const float SHRUB_COVER = 2.4f, SHRUB_CARD = 0.55f;
         private const int SHRUB_TWIGS_MIN = 3, SHRUB_TWIGS_MAX = 5;
 
         //=== The stems: how many (5 to 7), how far from the axis they leave the ground (a share of the reach), how deep the foot is
@@ -92,8 +96,11 @@ namespace Prazsky.Core.Render
         /// <param name="reach">How far from its axis anything of the shrub stands, at scale 1.</param>
         /// <param name="top">How high it stands over its pivot, at scale 1.</param>
         /// <param name="seed">Rolls the clumps, the stems and the sprays.</param>
-        public MeadowShrubMesh(GraphicsDevice device, float reach, float top, int seed)
-            : this(device, Build(reach, top, seed))
+        /// <param name="cardSize">A leaf card's side against its clump's radius; the meadow's by default. Bigger is bigger leaves
+        /// and fewer cards: the tropical beach's sea grape (#753) has leaves several times a hawthorn's.</param>
+        /// <param name="cover">How many cards' worth of leaf a clump's shell is covered with; the meadow's by default.</param>
+        public MeadowShrubMesh(GraphicsDevice device, float reach, float top, int seed, float cardSize = SHRUB_CARD, float cover = SHRUB_COVER)
+            : this(device, Build(reach, top, seed, cardSize, cover))
         {
         }
 
@@ -113,7 +120,7 @@ namespace Prazsky.Core.Render
         /// out or the highest is <paramref name="top"/> up, whichever binds first: the loaf it stands in for is the volume the
         /// meadow was planted by, and its sphere is what a camera keeps out of.
         /// </summary>
-        internal static MeadowShrubGeometry Build(float reach, float top, int seed)
+        internal static MeadowShrubGeometry Build(float reach, float top, int seed, float cardSize = SHRUB_CARD, float cover = SHRUB_COVER)
         {
             var g = new MeadowShrubGeometry();
             Random rng = new(seed);
@@ -248,7 +255,7 @@ namespace Prazsky.Core.Render
             {
                 (Vector3 centre, float r, _) = clumps[c];
                 MeadowTreeMesh.AddSpray(g.WoodVertices, g.WoodIndices, g.LeafVertices, g.LeafIndices, sprayBases[c], sprayBacks[c], centre, domeCentre,
-                    r, r * 0.8f, shaded[c], H * TWIG_RADIUS, leafRng, SHRUB_COVER, SHRUB_CARD, SHRUB_TWIGS_MIN, SHRUB_TWIGS_MAX);
+                    r, r * 0.8f, shaded[c], H * TWIG_RADIUS, leafRng, cover, cardSize, SHRUB_TWIGS_MIN, SHRUB_TWIGS_MAX);
             }
             g.TwigRadius = H * TWIG_RADIUS;
             g.SprayBases.AddRange(sprayBases);
