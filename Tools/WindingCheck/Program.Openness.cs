@@ -107,6 +107,7 @@ namespace BS3D.Tools.WindingCheck
         private static readonly (Regex Member, string Label)[] Assemblies =
         {
             (new Regex(@"^(?<key>ArenaIsland\._islandMeshes\[\d+\])\.(Cap|Body) "), "Cap+Body"),
+            (new Regex(@"^(?<key>ArenaIsland\._thruster)(Core)?Mesh "), "Shell+Core"),
             (new Regex(@"^(?<key>[^ ]*(?: aurora)?\._coniferMeshes\[\d+\])\.(Trunk|Crown) "), "Trunk+Crown"),
             (new Regex(@"^(?<key>[^ ]*(?: aurora)?\._coniferMeshes\[\d+\])\.(FineStem|FineCrown|FineSnow) "), "FineStem+FineCrown+FineSnow"),
             (new Regex(@"^(?<key>[^ ]*(?: aurora)?\._coniferMeshes\[\d+\])\.(FineStem|FineCrownFar|FineSnowFar) "), "FineStem+FineCrownFar+FineSnowFar"),

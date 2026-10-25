@@ -47,9 +47,12 @@ namespace Prazsky.Core.Render
         /// (the Moon).</summary>
         Pad,
 
-        /// <summary>A melting solid (#779): a soft rolled rim whose lower half pours down in drips over a lobed,
-        /// sagging drum, the underside hanging a little at every drip (the dream).</summary>
-        Melt
+        /// <summary>A melting solid (#779): a soft rolled rim pouring down in fat drops over a soft wall (the dream).</summary>
+        Melt,
+
+        /// <summary>A space station's deck (#954): a machined disc whose rim carries a recessed groove for a light strip,
+        /// over a hull stepping in three times to a flat ring the thruster pods hang from (space).</summary>
+        Station
     }
 
     /// <summary>
@@ -401,6 +404,40 @@ namespace Prazsky.Core.Render
                     }
                     break;
 
+                case IslandShape.Station:
+                    //A SPACE STATION'S DECK (#954). The owner: the island "does not feel finished", and he asked for a
+                    //space base, perhaps held up by simple rocket engines. Every reference (954-zimage, 954-klein) draws
+                    //a machined disc with a light strip running round its rim in a recessed groove, over a darker hull
+                    //that steps in towards the underside, with thruster pods hanging under it. So: the machined disc's
+                    //flat top and chamfer, the rim's face, the GROOVE the strip glows in (StationSurface lights its inner
+                    //face), a second band, and three steps in to a flat ring at THRUSTER_MOUNT_Y where ArenaIsland hangs the
+                    //pods (the deck's own technique cuts the plates). No wander: a machined part. The underside steps
+                    //well inside the rim, which only a floating scene allows (no terrain hole to cover).
+                    wander = 0f;
+                    cap = new()
+                    {
+                        lip, arris,
+                        new(r - 0.50f, -0.02f),                                     //the flat top's outer edge
+                        new(r,         -0.52f, crease: true),                       //the chamfer
+                        new(r,         STATION_GROOVE_TOP, crease: true),           //the rim's face
+                        new(r - STATION_GROOVE_DEPTH, STATION_GROOVE_TOP, crease: true)   //into the groove: shared
+                    };
+                    body = new()
+                    {
+                        new(r - STATION_GROOVE_DEPTH, STATION_GROOVE_TOP, crease: true),
+                        new(r - STATION_GROOVE_DEPTH, STATION_GROOVE_BOTTOM, crease: true),   //the groove's face: the strip
+                        new(r - 0.10f, STATION_GROOVE_BOTTOM, crease: true),
+                        new(r - 0.10f, -2.70f, crease: true),                       //the second band
+                        new(r - 0.70f, -2.95f, crease: true),                       //stepping in
+                        new(r - 0.70f, -3.60f, crease: true),
+                        new(r - 1.60f, -4.00f, crease: true),                       //and under
+                        new(r - 3.20f, THRUSTER_MOUNT_Y, crease: true),             //the ring the pods hang from
+                        new(r - 7.50f, THRUSTER_MOUNT_Y, crease: true),
+                        new(r - 8.00f, -4.90f, crease: true),                       //the inner hull, a step lower
+                        new(bore + 1.2f, -4.90f, crease: true)
+                    };
+                    break;
+
                 default:
                     //THE AUTHORED STONE, exactly as it was before #533. The stone, from the bore outward: the
                     //top face is a shallow dish rising from the bore's lip to its arris at the coping, then
@@ -525,6 +562,18 @@ namespace Prazsky.Core.Render
                 return lift * fade;
             };
         }
+
+        /// <summary>How deep the station deck's light-strip groove is cut into its rim (#954): the strip glows on the
+        /// groove's face, <c>outerRadius</c> less this, between <see cref="STATION_GROOVE_TOP"/> and
+        /// <see cref="STATION_GROOVE_BOTTOM"/>.</summary>
+        public const float STATION_GROOVE_DEPTH = 0.40f;
+
+        /// <summary>The height of the station deck's light-strip groove's top and bottom, under the top (#954).</summary>
+        public const float STATION_GROOVE_TOP = -1.35f, STATION_GROOVE_BOTTOM = -1.75f;
+
+        /// <summary>The height (under the top, so negative) of the station deck's flat ring, from <c>outerRadius - 7.5</c>
+        /// to <c>outerRadius - 3.2</c>, that the thruster pods hang from (#954).</summary>
+        public const float THRUSTER_MOUNT_Y = -4.40f;
 
         //The melting rim's drips (#779): how many, the longest one's run down the side from the roll's equator, how wide one
         //is across its middle and how far its bulb swells back out from the tongue's run (world units). Fat drops, as the pearl

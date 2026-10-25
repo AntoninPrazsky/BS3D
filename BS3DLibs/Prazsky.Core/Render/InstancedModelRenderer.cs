@@ -238,6 +238,8 @@ namespace Prazsky.Core.Render
         private EffectTechnique _triplanarDreamTechnique;
         private EffectParameter _dreamPaletteAParam, _dreamPaletteBParam, _dreamPaletteCParam, _dreamPaletteDParam;
         private EffectParameter _dreamMarbleParam, _dreamSheenParam, _dreamRingParam, _dreamGlowParam, _dreamRecessParam;
+        private EffectTechnique _triplanarStationTechnique;
+        private EffectParameter _stationRingsParam, _stationSpokesParam, _stationHazardParam, _stationStripParam, _stationStripColorParam;
         private EffectTechnique[] _triplanarProbeTechniques;
         private EffectTechnique[] _ballTechniques;
 
@@ -454,6 +456,32 @@ namespace Prazsky.Core.Render
         /// <summary>The recess under the dream island's roll: the radius from the axis where it starts, where it is full,
         /// and how much light it takes there (side faces only). With <see cref="DreamSurface"/>.</summary>
         public Vector3 DreamRecess { get; set; }
+
+        /// <summary>
+        /// Draws the triplanar surface as the space station's deck (#954): the <c>InstancedModelTriplanarStation</c>
+        /// technique, radial wedge plates round the drain cut as seams (<see cref="StationRings"/>,
+        /// <see cref="StationSpokes"/>), hatches, hazard arcs at the edge and the light strip in the rim's groove. A
+        /// technique of its own for <see cref="CoarseSurfaceRelief"/>'s reason; read only on the triplanar path. Takes
+        /// precedence over <see cref="DreamSurface"/> if both are set, which nothing does.
+        /// </summary>
+        public bool StationSurface { get; set; }
+
+        /// <summary>The station deck's ring seams' radii from the axis: the collar's edge and the two rings between the
+        /// wedge bands. With <see cref="StationSurface"/>.</summary>
+        public Vector3 StationRings { get; set; }
+
+        /// <summary>How many wedges the station deck's two bands are cut into. With <see cref="StationSurface"/>.</summary>
+        public Vector2 StationSpokes { get; set; }
+
+        /// <summary>The station deck's hazard arcs: their inner and outer radius. With <see cref="StationSurface"/>.</summary>
+        public Vector2 StationHazard { get; set; }
+
+        /// <summary>The station's light strip: the world height of its groove's top and bottom, the radius inside which a
+        /// face in that band is the groove's, and the strip's radiance (0 = dark). With <see cref="StationSurface"/>.</summary>
+        public Vector4 StationStrip { get; set; }
+
+        /// <summary>The station's light strip's colour (linear). With <see cref="StationSurface"/>.</summary>
+        public Vector3 StationStripColor { get; set; }
 
         /// <summary>
         /// Edge length of one floor slab in world units (0 = no slabs). The joints between slabs are cut
@@ -1304,6 +1332,12 @@ namespace Prazsky.Core.Render
             _dreamRingParam = _effect.Parameters["DreamRing"];
             _dreamGlowParam = _effect.Parameters["DreamGlow"];
             _dreamRecessParam = _effect.Parameters["DreamRecess"];
+            _triplanarStationTechnique = _effect.Techniques["InstancedModelTriplanarStation"];
+            _stationRingsParam = _effect.Parameters["StationRings"];
+            _stationSpokesParam = _effect.Parameters["StationSpokes"];
+            _stationHazardParam = _effect.Parameters["StationHazard"];
+            _stationStripParam = _effect.Parameters["StationStrip"];
+            _stationStripColorParam = _effect.Parameters["StationStripColor"];
 
             //#151's measurement probes, kept on purpose: they are the Testbed's capprobe= contract (see
             //TriplanarProbe). Looked up once here like every other technique, so selecting one costs an
@@ -2007,11 +2041,20 @@ namespace Prazsky.Core.Render
             else if (DetailTexture != null && part.DiffuseColor.W >= 1f)
             {
                 _effect.CurrentTechnique = TriplanarProbe > 0 ? _triplanarProbeTechniques[TriplanarProbe - 1]
+                    : StationSurface ? _triplanarStationTechnique
                     : DreamSurface ? _triplanarDreamTechnique
                     : CoarseSurfaceRelief ? _triplanarCoarseTechnique
                     : _triplanarTechnique;
 
-                if (DreamSurface)
+                if (StationSurface)
+                {
+                    _stationRingsParam.SetValue(StationRings);
+                    _stationSpokesParam.SetValue(StationSpokes);
+                    _stationHazardParam.SetValue(StationHazard);
+                    _stationStripParam.SetValue(StationStrip);
+                    _stationStripColorParam.SetValue(StationStripColor);
+                }
+                else if (DreamSurface)
                 {
                     _dreamPaletteAParam.SetValue(DreamPalette[0]);
                     _dreamPaletteBParam.SetValue(DreamPalette[1]);
