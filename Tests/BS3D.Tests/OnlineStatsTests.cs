@@ -149,6 +149,10 @@ namespace BS3D.Tests
             client.SubmitStats(Change(startsToFirstClear: 7));
 
             Assert.True(Within(() => Stats.Count == 1), "a batch was sent");
+
+            //The stand-in records the request as it takes it; the client writes the delivery into its outbox once it has read
+            //the answer. Waited for before the stop: a worker stopped between the two never writes it (CI, 2026-10-25)
+            Assert.True(Within(() => ReadOutbox() is { StatsSending: null, StatsOpen: null }), "a delivered batch leaves the outbox");
             Stop(client);
 
             StandIn.Request score = Assert.Single(_server.Requests, r => r.Path == "/v1/scores");
@@ -171,7 +175,7 @@ namespace BS3D.Tests
             Assert.False(row.TryGetProperty("startsToFirstClear", out _), "the starts to a first clear stay on the machine");
             Assert.Equal(1, row.GetProperty("starts").GetInt32());
 
-            Assert.True(ReadOutbox().StatsSending == null && ReadOutbox().StatsOpen == null, "a delivered batch leaves the outbox");
+            Assert.True(ReadOutbox() is { StatsSending: null, StatsOpen: null }, "the stop keeps the batch delivered");
         }
 
         [Fact]
@@ -210,11 +214,14 @@ namespace BS3D.Tests
             client.SubmitStats(Change());
 
             Assert.True(Within(() => Stats.Count == 1), "the batch was sent");
+            //The refusal is read and the outbox written after the stand-in has the request: waited for, as a delivery is
+            Assert.True(Within(() => ReadOutbox() is { StatsSending: null, StatsOpen: null }), "a refused batch leaves the outbox");
+            //And a moment more, so a second send, which must not happen, would have
             Thread.Sleep(1000);
             Stop(client);
 
             Assert.Single(Stats);
-            Assert.True(ReadOutbox().StatsSending == null && ReadOutbox().StatsOpen == null, "a refused batch leaves the outbox");
+            Assert.True(ReadOutbox() is { StatsSending: null, StatsOpen: null }, "the stop keeps the batch dropped");
         }
 
         [Theory]
