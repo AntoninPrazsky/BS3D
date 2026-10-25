@@ -108,7 +108,9 @@ namespace Prazsky.Core.Render
                 _trailCounts[i] = _riders[i].Trail(distance, _trail, written, _floorY);
                 written += _trailCounts[i];
             }
-            _trailVertices.SetData(_trail, 0, written, SetDataOptions.Discard);
+            //⚠ Nothing to upload in the clock's first moments (no rider has cleared TRAIL_FROM yet), and MonoGame's SetData
+            //throws on a count of 0: the Grid at boot took the game down within its first tenth of a second
+            if (written > 0) _trailVertices.SetData(_trail, 0, written, SetDataOptions.Discard);
 
             //The cycles
             _graphicsDevice.BlendState = BlendState.Opaque;
