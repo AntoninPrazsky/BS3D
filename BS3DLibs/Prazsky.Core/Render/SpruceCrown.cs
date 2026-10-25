@@ -221,6 +221,16 @@ namespace Prazsky.Core.Render
         /// <summary>The interior's facets round the axis.</summary>
         public const int SHADE_SEGMENTS = 10;
 
+        /// <summary>
+        /// Where on its bough a vertex of the boughs stands (#751), in its texture coordinate, for the needles High and Ultra
+        /// draw on the plates (<c>InstancedModel/Needles.fxh</c>): x is how far along the arm from the stem, in world units;
+        /// y is where across the plate, -1 at its left edge, 0 on the ridge and 1 at its right edge on the top, and the same
+        /// offset by this underneath (the keel at it), so the shader tells the two surfaces apart; <see cref="PLAIN"/> marks the
+        /// leader, which wears no needles of its own.
+        /// </summary>
+        public const float UNDERSIDE = 4f;
+        public const float PLAIN = 10f;
+
         /// <summary>An arm shorter than this, from the stem to its tip (world units), keeps <see cref="SpruceDetail.ShortRings"/>.</summary>
         public const float SHORT_ARM = 1f;
 
@@ -484,16 +494,18 @@ namespace Prazsky.Core.Render
 
             int previous = -1;
             Vector3 previousCentre = Vector3.Zero, previousCrest = Vector3.Zero;
+            float along = 0f;
             for (int r = 0; r < ringCount; r++)
             {
                 int k = rings == null ? r : rings[r];
                 float t = _detail.RingT[k];
 
                 Vector3 centre = Spine(t);
-                Vector3 along = Vector3.Normalize(Spine(MathF.Min(t + 0.05f, 1f)) - Spine(MathF.Max(t - 0.05f, 0f)));
-                Vector3 up = Vector3.Normalize(Vector3.Cross(side, along));
+                Vector3 tangent = Vector3.Normalize(Spine(MathF.Min(t + 0.05f, 1f)) - Spine(MathF.Max(t - 0.05f, 0f)));
+                Vector3 up = Vector3.Normalize(Vector3.Cross(side, tangent));
                 Vector3 across = side * MathF.Cos(roll) + up * MathF.Sin(roll);
-                up = Vector3.Normalize(Vector3.Cross(across, along));
+                up = Vector3.Normalize(Vector3.Cross(across, tangent));
+                if (r > 0) along += Vector3.Distance(centre, previousCentre);
 
                 float w = width * _detail.RingWidth[k];
                 if (r == 0) w = MathF.Min(w, rootWidth);
@@ -506,8 +518,8 @@ namespace Prazsky.Core.Render
                 Vector3 keel = centre - Vector3.Up * h;
 
                 int at = _needles.Count;
-                _needles.Add(left); _needles.Add(crest); _needles.Add(right);   //the top: at, at+1, at+2
-                _needles.Add(left); _needles.Add(keel); _needles.Add(right);    //the underside: at+3, at+4, at+5
+                _needles.Add(left, new Vector2(along, -1f)); _needles.Add(crest, new Vector2(along, 0f)); _needles.Add(right, new Vector2(along, 1f));   //the top: at, at+1, at+2
+                _needles.Add(left, new Vector2(along, UNDERSIDE - 1f)); _needles.Add(keel, new Vector2(along, UNDERSIDE)); _needles.Add(right, new Vector2(along, UNDERSIDE + 1f));    //the underside: at+3, at+4, at+5
 
                 if (previous >= 0)
                 {
@@ -539,10 +551,11 @@ namespace Prazsky.Core.Render
 
             //The tip: both surfaces close on one point, each with a vertex of its own
             Vector3 tip = Spine(1f);
+            along += Vector3.Distance(tip, previousCentre);
             int tipTop = _needles.Count;
-            _needles.Add(tip);
+            _needles.Add(tip, new Vector2(along, 0f));
             int tipUnder = _needles.Count;
-            _needles.Add(tip);
+            _needles.Add(tip, new Vector2(along, UNDERSIDE));
             Vector3 tipAxis = (tip + previousCentre) * 0.5f;
             _needles.Triangle(previous, previous + 1, tipTop, tipAxis);
             _needles.Triangle(previous + 1, previous + 2, tipTop, tipAxis);
@@ -602,10 +615,10 @@ namespace Prazsky.Core.Render
             for (int s = 0; s < SIDES; s++)
             {
                 float angle = MathHelper.TwoPi * s / SIDES;
-                _needles.Add(new Vector3(radius * MathF.Cos(angle), baseY, radius * MathF.Sin(angle)));
+                _needles.Add(new Vector3(radius * MathF.Cos(angle), baseY, radius * MathF.Sin(angle)), new Vector2(0f, PLAIN));
             }
             int tip = _needles.Count;
-            _needles.Add(new Vector3(0f, top, 0f));
+            _needles.Add(new Vector3(0f, top, 0f), new Vector2(0f, PLAIN));
 
             Vector3 axis = new(0f, (baseY + top) * 0.5f, 0f);
             for (int s = 0; s < SIDES; s++)
@@ -621,9 +634,12 @@ namespace Prazsky.Core.Render
 
             public int Count => Vertices.Count;
 
-            public void Add(Vector3 position)
+            public void Add(Vector3 position) => Add(position, Vector2.Zero);
+
+            /// <summary>A vertex with its place on the bough (<see cref="UNDERSIDE"/>).</summary>
+            public void Add(Vector3 position, Vector2 bough)
             {
-                Vertices.Add(new VertexPositionNormalTexture(position, Vector3.Up, Vector2.Zero));
+                Vertices.Add(new VertexPositionNormalTexture(position, Vector3.Up, bough));
                 _normalSums.Add(Vector3.Zero);
             }
 
