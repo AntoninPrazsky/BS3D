@@ -53,6 +53,7 @@
     <Compile Include="..\..\Game\Screens\ChipColumnLayout.cs" />
     <Compile Include="..\..\Game\Screens\PowerupKind.cs" />
     <Compile Include="..\..\Game\Screens\PowerupPictograms.cs" />
+    <Compile Include="..\..\Game\Screens\FrameStats.cs" />
     <Compile Include="..\..\Game\Screens\NavWalk.cs" />
     <!--How far a mouse-wheel notch moves a menu list (#952): a share of the viewport, scaled by the delta, over plain numbers and no Myra.-->
     <Compile Include="..\..\Game\Screens\WheelScroll.cs" />

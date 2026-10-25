@@ -145,6 +145,7 @@ namespace BS3D
 
         //Extras and the Jukebox at boot (#704)
         private bool _extras;
+        private bool _benchmark;
         private string _jukebox;
 
         //Testing only: the "settings" argument (#189) — the Settings page at boot, on _about's reasoning
@@ -234,6 +235,7 @@ namespace BS3D
             ParsePickFocus(launch.PickFocus);
             _about = launch.About;
             _extras = launch.Extras;
+            _benchmark = launch.Benchmark;
             _jukebox = launch.Jukebox;
             _settings = launch.Settings || launch.SettingsRows != null;
             _settingsRows = launch.SettingsRows;
@@ -256,7 +258,7 @@ namespace BS3D
             _menuCursorPresses = launch.MenuCursorPresses == null ? null
                 : new Queue<string>(launch.MenuCursorPresses.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 
-            Drives = _celebrate || _confetti || _play || _result || _pick != null || _about != null || _extras || _jukebox != null || _settings
+            Drives = _celebrate || _confetti || _play || _result || _pick != null || _about != null || _extras || _benchmark || _jukebox != null || _settings
                 || _board != null || _highScores != null || _help != null || _scenes || _tour || _toMenuAt != null || _actions != null || _noteAt != null || _quitAt != null
                 || _menuCursorAt != null;
         }
@@ -374,10 +376,17 @@ namespace BS3D
 
             //The About page and its player (#443), held back past the title card for the same reason.
             //Extras, and the Jukebox over it on a chapter, playing if asked (#704)
-            if ((_extras || _jukebox != null) && !game.IsSplashUp)
+            if ((_extras || _benchmark || _jukebox != null) && !game.IsSplashUp)
             {
                 _extras = false;
                 game.OpenExtras();
+
+                //The benchmark over Extras, started at once (#988)
+                if (_benchmark)
+                {
+                    _benchmark = false;
+                    game.OpenBenchmark(start: true);
+                }
 
                 if (_jukebox != null)
                 {

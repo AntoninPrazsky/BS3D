@@ -7,8 +7,8 @@ using VerticalAlignment = Myra.Graphics2D.UI.VerticalAlignment;
 namespace BS3D.Screens
 {
     /// <summary>
-    /// The main menu's Extras (#704): the Scene picker, which stood in the main menu itself until now, and the Jukebox,
-    /// with room for more. The owner wanted no ninth entry in the main menu, so Scene gave its slot up to this page.
+    /// The main menu's Extras (#704): the Scene picker, which stood in the main menu itself until now, the Jukebox and the
+    /// Benchmark (#988), with room for more. The owner wanted no ninth entry in the main menu, so Scene gave its slot up to this page.
     /// <para>
     /// It wears the front end's composition rather than a plate (<see cref="MainMenuPage"/>): the entries hang off the
     /// bottom-left corner over the turning scene, at the same inset, so it reads as the menu going one level deeper
@@ -33,6 +33,7 @@ namespace BS3D.Screens
 
             column.Widgets.Add(FrontEndEntry("Scene", Game.OpenSceneSelect));
             column.Widgets.Add(FrontEndEntry("Jukebox", Game.OpenJukebox));
+            column.Widgets.Add(FrontEndEntry("Benchmark", Game.OpenBenchmark));
 
             //The way to the author from the front end, beside About's (#813, the owner's ask): Extras is where a player
             //looks for what else there is
