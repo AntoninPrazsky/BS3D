@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #971 #944 #959 balíky, trávník, sníh v horách — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo: #971 (3cbec994) `StrawStrength` v Acacia.fx: spirála vrstev na konci balíku kolem volného jádra, provázky na plášti, balík 32 stran; #944 (8b77f12b) švy trsů (nulová množina šumu) pryč, trávník z měkkých skvrn, o 0,1–0,25 ms levnější, LatticeProbe 2 %; #959 (cd49d2f4) pod sněžnou čarou sníh na mírných dnech údolí (`LowlandSnowSlope` 0,15), i na Potato. Vše `verdict-eye`, karty na stránce 25. 10.
+- ⚠ Polární UV se při 18hranu lineárně interpoluje přes sektor: poloměr na tětivě je nadsazený o 1/cos, spirála z něj vyjde mnohoúhelníková. A tón pásu podle indexu vrstvy skáče na švu u; podél pásu (vrstva + otočka) ne.
+- Otevřené: #944 bohatší trávník zblízka jen pro High/Ultra (krok 3 issue) a reference, pokud majitel bude chtít.
+
 ## 2026-10-25 — #978 #982 #981 #951 mlhovina, logo, loga v About — desktop (RDT-PC), Claude Code (bs3d-21)
 - Hotovo: #978 (967eeb51) tyrkysová mlhovina je dvoubarevná (OIII jádro v červených vláknech) v měkké záři, podle referencí 978-zimage/klein; #982 (8bd38d44) disk odznaku se posouvá pod písmena podle paralaxy, yaw −0,27; #981 (ee1d6241, 9372ed17) Low/Medium kreslí logo z High bez aury (Low +0 ms, Medium +0,08), Potato kompozici loga přes instancovaný efekt; #951 (43747747) loga MonoGame a Bepu na Built on, mipmapy + anizotropní vzorkování. Vše `verdict-eye`, stránka https://claude.ai/artifact/3dzuLbU3uR3sd6MP5WwVh3 (db `verdicts`, ticho do 1. 11.).
 - ⚠ Revize #981 našla: Potato disk kreslený po obrysech přemaloval jejich okraje (obrysy nepíšou hloubku). Disk patří hned za těla písmen, jako v High buildu.
