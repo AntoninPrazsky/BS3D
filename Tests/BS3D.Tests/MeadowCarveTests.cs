@@ -435,6 +435,12 @@ namespace BS3D.Tests
             }
 
             foreach (string name in required) Assert.True(seen.Contains(name), $"Meadow.fx has no `static const float {name} = <number>;` to compare with the mirror's");
+
+            //And where the brook starts, MeadowPath's: the pond's centre is pushed from the CPU, but BrookLateral's start is the
+            //shader's own copy (#979 moved it)
+            Match start = Regex.Match(source, @"^static const float BROOK_START\s*=\s*([-0-9.eE+]+);", RegexOptions.Multiline);
+            Assert.True(start.Success, "Meadow.fx has no `static const float BROOK_START = <number>;`");
+            Assert.Equal(MeadowPath.BROOK_START, float.Parse(start.Groups[1].Value, CultureInfo.InvariantCulture), 4);
         }
 
         private static Vector2 Xz(Vector3 v) => new(v.X, v.Z);

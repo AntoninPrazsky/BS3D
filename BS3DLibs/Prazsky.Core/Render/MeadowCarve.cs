@@ -349,7 +349,7 @@ namespace Prazsky.Core.Render
                 water = PondLevel(config) - POND_DROP;
             }
 
-            //The brook: the field eased down into its swale, less as it shallows towards its painted end
+            //The brook: the field eased down into its swale, less as it shallows towards its spring
             float lateral = MeadowPath.BrookLateral(x, z, config);
             if (MathF.Abs(lateral) < BROOK_CARVE_HALF)
             {

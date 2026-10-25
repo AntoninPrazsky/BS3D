@@ -18,8 +18,8 @@ namespace BS3D.Effects
     /// and the path are analytic lines on the field (<see cref="MeadowPath"/>), the very ones <c>Meadow.fx</c> draws, so a
     /// shot can follow one without asking the planting; and the planting keeps off both, so a lens on either centreline has
     /// nothing to run into. Every lens but the two low orbits' is lifted off the field before the brook's groove and the pond's
-    /// crater are cut into it (<see cref="TerrainMirror.MeadowGround"/>, #892), so it rides over the swale at the height it
-    /// rode over the painted brook, and the brook's shot looks at the pond's water down in its crater; the orbits stand on
+    /// crater are cut into it (<see cref="TerrainMirror.MeadowGround"/>, #892), so it rides over the swale as over the uncut
+    /// field, and the brook's shot looks at the pond's water down in its crater; the orbits stand on
     /// the cut ground (<see cref="TerrainMirror.Meadow"/>) and keep off the water and its banks (<c>Dry</c>). Built once
     /// when the intro begins.
     /// </para>
