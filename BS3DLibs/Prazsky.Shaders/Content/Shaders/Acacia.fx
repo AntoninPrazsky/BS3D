@@ -108,10 +108,25 @@ float StoneStrength;
 //shade, the plates' faces a little paler with weathering. Every octave fades as its period nears a few pixels, so a far
 //trunk keeps the plain bark. Stretched up world Y as BARK is (AcaciaMesh: the bark stays the world's), and harder: the
 //references (980-klein, 980-zimage) draw an oak's furrows long, dense and nearly parallel. Uniform branch.
+//
+//THE SECOND CUT (the owner's verdict on the first: "it needs a larger detail of the bark, at least on high/ultra"). One
+//octave of broad plates read as wavy wood grain beside the references, which draw MANY narrow, deep furrows, the ridges
+//between them broken across into plates by cracks, the plates' faces rough, and pale lichen sitting on them. So: two
+//octaves of furrows (the second finer, inside the plates), the ridges broken into blocks of different heights (the steps
+//between them are the cracks: ⚠ drawn as a noise's zero set, the cracks were thin wiggly loops, doodles on the bark), a
+//grain on the faces and lichen, every one faded as its period nears a few pixels, the furrows far darker than the first
+//cut's.
 float BarkRelief;
-static const float BARK_RELIEF_FREQUENCY = 6.0;  //plates across the trunk per world unit; up it BARK_RELIEF_STRETCH times that
-static const float BARK_RELIEF_STRETCH = 0.1;    //the references' furrows run ten times as long as they are apart
-static const float BARK_RELIEF_DEPTH = 0.05;     //the plates' height over the fissures, world units
+static const float BARK_RELIEF_FREQUENCY = 9.0;  //furrows across the trunk per world unit; up it BARK_RELIEF_STRETCH times that
+static const float BARK_RELIEF_STRETCH = 0.09;   //the references' furrows run about eleven times as long as they are apart
+static const float BARK_RELIEF_DEPTH = 0.06;     //the plates' height over the furrows, world units
+static const float BARK_FINE_FREQUENCY = 23.0;   //the finer furrows inside the plates
+static const float BARK_BLOCK_ALONG = 2.2;       //the blocks a ridge is broken into, per world unit up the trunk (a plate several
+static const float BARK_BLOCK_ACROSS = 4.0;      //furrows long) and across it (two or three ridges: squashed further across, the
+                                                 //steps lined up round the trunk as fine horizontal stripes)
+static const float BARK_GRAIN_FREQUENCY = 70.0;  //the roughness of a plate's face
+static const float BARK_LICHEN_FREQUENCY = 1.2;  //the lichen's patches
+static const float3 BARK_LICHEN = float3(0.36, 0.42, 0.33);   //pale grey-green, linear
 
 //--- STRAW (#971). 0 on everything but the meadow's round hay bales, which carry it at 1. The owner: "on the bottom and top
 //side of the cylinder there is not that typical tangle/swirl - we need to think about how a cylindrical bale of straw is
@@ -386,17 +401,30 @@ float4 AcaciaPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR
     {
         float3 p = input.WorldPosition;
         float footprint = max(length(fwidth(p)), 1e-4);
-        float3 q = p * float3(BARK_RELIEF_FREQUENCY, BARK_RELIEF_FREQUENCY * BARK_RELIEF_STRETCH, BARK_RELIEF_FREQUENCY);
-        //Bands about the zero sets: ridges between furrows, the furrows deep and a little narrower than the ridges
-        float plates = smoothstep(0.0, 0.14, abs(GradientNoise3(q + 3.7)));
+        float3 stretch = float3(1.0, BARK_RELIEF_STRETCH, 1.0);
+
+        //The furrows: bands about a noise's zero set, deep and narrow between flat-topped ridges, and the finer furrows
+        //inside the plates, each faded out as its period nears a few pixels
         float plateSeen = saturate(1.6 - footprint * BARK_RELIEF_FREQUENCY * 3.0);
+        float fineSeen = saturate(1.6 - footprint * BARK_FINE_FREQUENCY * 3.0);
+        float ridge = smoothstep(0.0, 0.22, abs(GradientNoise3(p * stretch * BARK_RELIEF_FREQUENCY + 3.7)));
+        float fine = smoothstep(0.0, 0.3, abs(GradientNoise3(p * stretch * BARK_FINE_FREQUENCY + 8.1)));
 
-        //One octave: with a second, finer one of cracks across the plates the relief cost 0.27 ms in the intro's brook shot,
-        //whose two trees fill much of the frame (0.16 under the 75 Hz frame), and 0.15 without it; the ridges are what read
-        N = PerturbNormalFromHeight(N, p, plates * plateSeen * BARK_RELIEF_DEPTH * BarkRelief);
+        //The ridges broken into blocks of their own heights
+        float block = smoothstep(-0.12, 0.12, GradientNoise3(p * float3(BARK_BLOCK_ACROSS, BARK_BLOCK_ALONG, BARK_BLOCK_ACROSS) + 1.3));
 
-        float fissure = (1.0 - plates) * plateSeen;
-        albedo *= (1.0 - 0.55 * fissure * BarkRelief) * (1.0 + 0.18 * plates * plateSeen * BarkRelief);
+        //A plate's face is rough; the grain only near the lens
+        float grainSeen = saturate(1.6 - footprint * BARK_GRAIN_FREQUENCY * 3.0);
+        float grain = grainSeen > 0.0 ? GradientNoise3(p * BARK_GRAIN_FREQUENCY + 5.9) * grainSeen : 0.0;
+
+        float plate = lerp(1.0, ridge, plateSeen) * lerp(1.0, 0.55 + 0.45 * fine, fineSeen) * lerp(1.0, 0.6 + 0.4 * block, plateSeen);
+        float height = (plate + 0.12 * grain) * BARK_RELIEF_DEPTH;
+        N = PerturbNormalFromHeight(N, p, height * BarkRelief);
+
+        //The furrows in deep shade, the plates' faces weathered paler, and lichen on them
+        albedo *= lerp(1.0, lerp(0.32, 1.3, plate) * (1.0 + 0.12 * grain), BarkRelief);
+        float lichen = smoothstep(0.15, 0.45, GradientNoise3(p * BARK_LICHEN_FREQUENCY + 2.2) + 0.25 * fine) * plate;
+        albedo = lerp(albedo, BARK_LICHEN * (0.8 + 0.3 * grain), 0.75 * lichen * BarkRelief);
     }
 
     //A round bale's straw (#971): see STRAW above
