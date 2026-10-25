@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #1013 #1014 #1015 #1016 upřesnění cizího hráče, paprsek za sklem — desktop (RDT-PC), Claude Code (bs3d-c9)
+- Kamarád majitele odpověděl na otázky z #768: **nepoužil žádný nástroj** (RMB, Swap, Brake ani Cut), Cut si všiml až na konci, na 3 hvězdy měl asi 10 ze 140 levelů na první pokus a opakoval jen 2–3 levely. Zapsáno na #768, #1005, #1006, #1007, #692 (newcomer: ne), #990, #1012. Nová issues: #1014 (stejná barva se dotkne a nespojí; `owner-decision`), #1015 (čas ve skóre; `owner-decision`), #1016 (místo Brzdy něco, co shluk posune níž; `parked`).
+- majitel: Swap má smysl kvůli násobiči, kamarád hrál offline. ⚠ Karta pro RMB ve v0.4.0 byla (Rainbow); akční karta po 22 s zmizí, takže ji lze přejít bez stisku.
+- Hotovo: #1013 (fceedb3d) paprsek mířidla mizel na stropní desce: lámající sklo kreslí celé pixely z kopie pořízené před aditivními vrstvami. Zpod desky se sklo teď kreslí hned po koulích. `BS3DGame.CameraUnderCeiling`.
+
 ## 2026-10-25 — #976 opotřebovaný Velký stan — desktop (RDT-PC), Claude Code (bs3d-21)
 - Hotovo: #976 (26e40d5e) stan je starý a používaný: plachta má vybledlé panely, švy pruhů se šmouhami, skvrny od vody, plíseň u okraje a záplaty; sedadla, piliny, obrubník a sloupy jsou opotřebované. Jen High. Reference v `976-zimage`/`976-klein`. `verdict-eye`, karta na stránce 25. 10.
 - ⚠ Opotřebení plachty počítané na každý pixel stálo 1,3–1,8 ms (7680x3200 pixelů každý snímek pro vzor, který se nehýbe): je vypálené jednou do mapy v `BeforeShadowMaps`, střecha ji čte jedním `tex2Dlod` (+0,15 ms). Pod větví zásahu nejde implicitní gradient, proto explicitní úroveň mipmapy z footprintu.
