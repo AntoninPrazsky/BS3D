@@ -348,6 +348,12 @@ namespace BS3D
         internal bool SceneryShown => !PotatoPath && _settings.Scenery != false;
 
         /// <summary>
+        /// Whether the clouds stand as volumes this frame (#989): High and Ultra (the finer meshes' switch), a scene that draws
+        /// the sky's deck at all, and not the Potato path. Part of the sky, so the Scenery row leaves them, as it leaves the deck.
+        /// </summary>
+        internal bool CloudVolumesShown => _cloudVolumes != null && _sceneRenderer.FineMeshes && !SceneRenderer.ReplacesSky(_scene);
+
+        /// <summary>
         /// What the Scenery row says. On the Potato path "On (Potato)", ticked and held (#897): the scenes do have their
         /// scenery there, the path's own, and the row cannot turn it off.
         /// </summary>

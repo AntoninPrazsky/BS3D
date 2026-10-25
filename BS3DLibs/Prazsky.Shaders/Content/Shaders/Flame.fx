@@ -251,7 +251,7 @@ static const float FLAME_SHEET_GAIN = 1.4;
 //The tongues: one up the middle and three round it, spread at the base and leaning in as they rise
 static const int FLAME_TONGUES = 4;
 
-//The plasma's noise, baked (SavannaBackdrop.FlameNoiseTexels): gradient noise repeating every FLAME_NOISE_PERIOD units,
+//The plasma's noise, baked (ProxyVolumes.GradientNoiseTexels): gradient noise repeating every FLAME_NOISE_PERIOD units,
 //four texels a unit, read with trilinear filtering. Two fetches a sample where Fbm3's two octaves were two gradient
 //noises of eight hashed corners each: the noise was most of the march's cost.
 static const float FLAME_NOISE_PERIOD = 8.0;

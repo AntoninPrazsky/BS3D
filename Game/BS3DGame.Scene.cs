@@ -199,6 +199,9 @@ namespace BS3D
         //The forest's handful of firefly-like blinking lights (#487), planted over the same floor.
         private ForestFireflies _forestFireflies;
 
+        //The clouds as volumes on High and Ultra (#989), over the deck. Null on the Potato path, which has no deck to stand on.
+        private CloudVolumes _cloudVolumes;
+
         //The scene's own point lights (the neon city's ring of magenta and cyan around the island, the
         //savanna's campfire, space's planetshine) pushed onto the shared instanced effect each frame, so the
         //balls, the island, the gun and the city all take them on top of the sun and the dome. The slots, the
@@ -377,6 +380,8 @@ namespace BS3D
                 _forestFireflies = new ForestFireflies(GraphicsDevice, _instancingEffect,
                     (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
                     seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
+
+                _cloudVolumes = new CloudVolumes(GraphicsDevice, Content);
             }
 
             //Note the glass the cluster hangs from is NOT built here: its footprint is the loaded level's
@@ -984,6 +989,9 @@ namespace BS3D
 
                 _skyCameraPositionParam.SetValue(_camera.Position);
 
+                //The deck gives way to the volumes where they stand (#989): stated every frame, off wherever none are drawn
+                _cloudVolumes?.ApplyToSky(_skyEffect, _clouds, CloudVolumesShown);
+
                 //Stated before the frame's first draw rather than only after it. SkyDome.Draw sets the sampler
                 //and the depth state it needs but neither the blend nor the cull mode, and what ran last is the
                 //overlay's SpriteBatch (AlphaBlend, CullCounterClockwise) over the tonemap's full-screen quad
@@ -992,6 +1000,9 @@ namespace BS3D
                 GraphicsDevice.RasterizerState = RasterizerState.CullNone;
 
                 _sky.Draw(_camera);
+
+                //The clouds as volumes on High and Ultra (#989), over the deck and under everything that stands in front of them
+                if (CloudVolumesShown) _cloudVolumes.Draw(_camera, _clouds, _skyEffect);
             }
 
             //The sea's submerge fade for missed balls — a no-op off the sea scene (see SceneRenderer.ApplySeaSubmerge).

@@ -346,6 +346,9 @@ namespace Testbed
         //The forest's handful of firefly-like blinking lights (#487), planted over the same floor.
         private ForestFireflies _forestFireflies;
 
+        //The clouds as volumes on High and Ultra (#989), over the deck
+        private CloudVolumes _cloudVolumes;
+
         //Which environment the arena stands in. City is the default; Sea, Savanna, Desert, Mountain, Meadow and
         //NeonCity swap the city (and only the city) for open water, a savanna, a Sahara of dunes, a snowy range,
         //a flowering meadow, or the same city lit up in neon — the round island stays in all seven.
@@ -902,6 +905,8 @@ namespace Testbed
             _forestFireflies = new ForestFireflies(GraphicsDevice, _instancingEffect,
                 (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
                 seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
+
+            _cloudVolumes = new CloudVolumes(GraphicsDevice, Content);
 
             //No trunnion height goes in: the gun stands on the island's dished stone, so its height is the
             //carriage's own figure of its radius (CannonRig.TrunnionHeightAt) and the pose re-seats it on
@@ -1878,6 +1883,7 @@ namespace Testbed
             _forestScatter?.Dispose();
             _auroraScatter?.Dispose();
             _forestFireflies?.Dispose();
+            _cloudVolumes?.Dispose();
             _rooftops?.Dispose();
             _streets?.Dispose();
             _ceilingPlate?.Dispose();
