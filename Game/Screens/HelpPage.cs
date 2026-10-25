@@ -509,7 +509,7 @@ namespace BS3D.Screens
                 $"Every shot that scores raises the multiplier by\u00A0{ScoreKeeper.MultiplierStep} for the shots "
                 + "after it. A shot that matches nothing puts it back to ×1."));
             column.Widgets.Add(Headed("Unused balls · a big bonus",
-                "Every ball still in the cannon when the field is clear pays, and pays more on a big level."));
+                "Every ball still in the cannon when the field is clear pays, and pays more on a big level: the cannon fires them off and counts them."));
             column.Widgets.Add(Headed("Tip",
                 "Finishing with balls to spare pays more than a streak you could farm by taking longer."));
         }

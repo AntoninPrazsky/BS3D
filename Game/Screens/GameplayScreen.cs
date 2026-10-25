@@ -1083,7 +1083,7 @@ namespace BS3D.Screens
         /// to begin, and <see cref="BuildLevel"/> resets the drop cinematic before a new level's own intro
         /// could ever start. Asking both costs nothing and needs no third flag to say which one is live.
         /// </summary>
-        private bool CameraTakeoverEngaged => _cinematic.Engaged || _chapterIntro.Engaged || _lineLoss.Engaged;
+        private bool CameraTakeoverEngaged => _cinematic.Engaged || _chapterIntro.Engaged || _lineLoss.Engaged || _spareVolley.Engaged;
 
         /// <summary>
         /// How fast the world runs this frame: ordinary game time, 1, while the drop cinematic has the lens (#877: a fall in
@@ -1101,6 +1101,11 @@ namespace BS3D.Screens
             //Said in the run log, one line a skip, so a report that a button did not skip can be checked against what did
             if (_cinematic.TrySkip()) Console.WriteLine("[skip] drop cinematic");
             if (_chapterIntro.TrySkip()) Console.WriteLine("[skip] chapter intro");
+            if (_spareVolley.TrySkip())
+            {
+                Console.WriteLine("[skip] spare volley");
+                FinishSpareVolley(skipped: true);
+            }
         }
 
         //The template a shot is stamped from — the sphere, its inertia, its bare shape index and its sleep
@@ -1719,6 +1724,10 @@ namespace BS3D.Screens
             if (_fireHint.Showing != fireHintWas)
                 Console.WriteLine(FormattableString.Invariant(
                     $"[firehint] {(_fireHint.Showing ? "up" : "down")} at {WallClock:F2} s ({_run.Seconds:F2} s of play, next pause {_fireHint.Threshold:F0} s)"));
+
+            //The unused balls fired off and counted (#881), once the drop cinematic has let the lens go: before the camera, whose pose
+            //it is part of
+            StepSpareVolley(elapsed);
 
             UpdateCamera(elapsed);
 

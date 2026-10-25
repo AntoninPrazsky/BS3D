@@ -973,6 +973,78 @@ namespace BS3D.Screens
             });
         }
 
+        /// <summary>
+        /// The completion bonus to be counted up (#881), waiting unborn from the moment the field empties: its points, the whole
+        /// bonus, are withheld from the readout from then until it lands, as <see cref="AddBonus"/>'s are, so the score neither
+        /// shows the figure early nor drops when the count begins. <see cref="BeginBonusCount"/> brings it to life.
+        /// </summary>
+        internal void HoldBonusCount(int points, int unusedBalls)
+        {
+            _popups.Add(new Popup
+            {
+                Text = "+0",
+                Suffix = AwardZoom.BonusCaption(unusedBalls),
+                Points = points,
+                Tint = BS3DGame.MENU_TEXT,
+                Age = -BONUS_COUNT_UNBORN,
+                Peak = AwardZoom.Peak(points),
+                Birth = AwardZoom.Birth(points),
+                Hold = AwardZoom.BONUS_HOLD,
+                IsBonus = true,
+            });
+        }
+
+        /// <summary>
+        /// The waiting bonus born (#881): the unused balls fired off one by one, the figure climbing from nothing with them
+        /// (<see cref="CountBonus"/>), read for <paramref name="countSeconds"/> plus <see cref="BONUS_AFTER_COUNT"/> and then
+        /// thrown to the score as <see cref="AddBonus"/>'s is.
+        /// </summary>
+        internal void BeginBonusCount(float countSeconds)
+        {
+            FadeLostCaption();
+            HandOffReads(sparingTheBonus: true);
+
+            for (int i = 0; i < _popups.Count; i++)
+            {
+                Popup popup = _popups[i];
+                if (!popup.IsBonus || popup.Age >= 0f) continue;
+                popup.Age = 0f;
+                popup.Hold = countSeconds + BONUS_AFTER_COUNT;
+                _popups[i] = popup;
+            }
+        }
+
+        //How far into the future a held bonus waits: further than any cinematic runs, so only BeginBonusCount births it
+        private const float BONUS_COUNT_UNBORN = 1e5f;
+
+        /// <summary>The counted bonus's figure now (#881). Spoken once a ball, never a frame: the string is built on the change.</summary>
+        internal void CountBonus(int counted)
+        {
+            for (int i = 0; i < _popups.Count; i++)
+            {
+                Popup popup = _popups[i];
+                if (!popup.IsBonus || popup.Age >= popup.Hold) continue;
+                popup.Text = "+" + ScoreText.Of(counted);
+                _popups[i] = popup;
+            }
+        }
+
+        /// <summary>The count skipped (#881): the whole figure at once, and the throw now, once it has been read for <see cref="AwardZoom.MIN_READ"/>.</summary>
+        internal void CutBonusCount(int points)
+        {
+            for (int i = 0; i < _popups.Count; i++)
+            {
+                Popup popup = _popups[i];
+                if (!popup.IsBonus || popup.Age >= popup.Hold) continue;
+                popup.Text = "+" + ScoreText.Of(points);
+                popup.Hold = MathF.Min(popup.Hold, MathF.Max(popup.Age, AwardZoom.MIN_READ) + BONUS_AFTER_COUNT);
+                _popups[i] = popup;
+            }
+        }
+
+        /// <summary>How long the counted bonus stays to be read at its whole figure before it is thrown (#881).</summary>
+        internal const float BONUS_AFTER_COUNT = 0.5f;
+
         /// <summary>Every award still being read leaves for the corner, once it has been read for
         /// <see cref="AwardZoom.MIN_READ"/>: a newer one is taking the read (see <see cref="AddAward"/>) — or the
         /// completion bonus is, and is spared (<paramref name="sparingTheBonus"/>).</summary>
