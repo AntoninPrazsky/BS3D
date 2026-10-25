@@ -13,6 +13,10 @@ The owner: a benchmark in Extras "that both measures valuable data and is visual
 - **Where the result goes**: the page (each scene's median FPS, 1 % low and share over the budget, and the machine in a line), `[bench]` lines in the run log, and `Benchmark.json` in the player's profile (`AtomicFile`, no backup: a benchmark is retaken). Never `Progress.json`, never the settings, never online.
 - **`benchmark`** (a launch argument) opens Extras > Benchmark at boot and starts it: one command for a machine nobody is sitting at, or one we do not own. With `userdata=<dir>` the JSON lands there.
 
+## The correctness probe
+
+A driver that draws the wrong picture is a surprise no frame time shows. `PROBE_AT` (3) seconds into each tour the finished frame is read back at the end of Draw (`BS3DGame.ServiceBenchmarkProbe`, through `BackBufferPixels` as a note's picture is, into one buffer kept for the back buffer's size) and judged by `FrameProbe` on a sparse grid: **black** when its mean luma is under `BLACK` (0.01), **flat** when the spread of its luma is under `FLAT` (0.004: one colour from edge to edge), else ok. The read stalls the GPU, so the frame after it is left out of the figures. A failed frame is said plainly on the result page, with where to tell the author, and goes into the log and the JSON (`frame`). On the desktop every scene passed with room: mean luma 0.125 (Neon City) to 0.349 (Meadow), spread 0.17 to 0.20. `FrameProbeTests` (a picture passes, a black and a flat frame are each caught).
+
 ## What it recommends
 
 `BenchmarkVerdict.Recommend`, read from the numbers alone, never from the device's name, so a machine nobody has seen needs no code. **One step at a time**, as the adaptive probe steps, because the run measured one tier and a tier's cost is not a scale factor of another's: a tier that drops frames in any scene (more than `DROPS`, 5 %, of its frames over the refresh's budget) recommends the one under it, naming the scene; a tier whose every scene's 99th percentile stays under `ROOM` (0.6) of the budget recommends the one over it; anything between keeps the tier. The result page says so in a sentence and **offers** the tier as an entry ("Use Medium", "Try Ultra"), which puts it on as the Quality row's press does (`BS3DGame.ChooseQuality`: pinned, stored, Auto quality off) and leaves the page ready to run again on it. Nothing is applied unasked; a locked or Potato run is offered nothing (its renderer cannot change while it runs). `BenchmarkVerdictTests`. On the desktop at 1920 x 1080 Medium recommended High (every scene over 480 FPS).
@@ -23,4 +27,4 @@ RX 6900 XT, Ryzen 9 5900X, 1920 x 1080 windowed, High (ssaa 2), two runs: Cavern
 
 ## Not yet
 
-The correctness probes (a known frame read back against ranges: a black or NaN frame, a clamped HDR target), the CPU's physics step apart from the GPU, a stress finale, a live frame-time graph, and the Pi's own segments (the Potato path cannot draw the SM 5 scenes; on GamePi today the page runs the same scenes through it).
+A probe of the HDR target itself (a NaN, a clamped target), the CPU's physics step apart from the GPU, a stress finale, a live frame-time graph, and the Pi's own segments (the Potato path cannot draw the SM 5 scenes; on GamePi today the page runs the same scenes through it).
