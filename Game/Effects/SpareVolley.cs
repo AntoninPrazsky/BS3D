@@ -36,7 +36,7 @@ namespace BS3D.Effects
         //Where the lens stands, from the gun's pivot: to its side, behind it and above it, in world units; how far along the
         //barrel it looks and how far under that line (the barrel climbs to the cluster, and a lens looking along it framed the
         //glass with the gun half out at the bottom); and a field of view wider than the player's so the gun and the flight fit
-        private const float SIDE = 6f, BACK = 0.5f, RISE = 2.2f, LOOK_AHEAD = 3f, LOOK_DOWN = 1.2f;
+        private const float SIDE = 7f, BACK = 3.2f, RISE = 2.4f, LOOK_AHEAD = 3f, LOOK_DOWN = 1.6f;
         private const float FIELD_OF_VIEW_SCALE = 1.15f;
         private const float BLEND_IN = 0.35f, BLEND_OUT = 0.45f;
 
