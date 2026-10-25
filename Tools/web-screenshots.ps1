@@ -10,8 +10,10 @@
     Builds the Game in Release into a folder of its own, so the everyday Game\bin is left alone, and runs it once per
     level on a scratch profile (userdata=) whose settings turn the tutorial cards, the intro logo and the FPS counter
     off and hold the High tier, so nothing but the game is in the picture and no run touches your save or posts to
-    the online boards. Each frame is the back buffer at this display's native resolution (shot=), cut to 16:9 round
-    its centre (a 3840x1600 display gives 2844x1600) and written as a JPEG at two widths for the page's srcset.
+    the online boards. The game runs in a 16:9 window, the largest of a few standard sizes the display's working area
+    holds (2560x1440 on a 3840x1600 display), and each frame is its back buffer (shot=), written as a JPEG at two
+    widths for the page's srcset. Not fullscreen cut to 16:9: the HUD is anchored to the window's edges, so on a wider
+    display the crop cut the score, the balls left and the magazine away and halved the icons at its edge.
 
     The game's window opens for about fifteen seconds a level and takes the focus, so do not type while it runs.
 
@@ -63,7 +65,7 @@ $settings = @'
 {
   "format": "bs3d-settings",
   "version": 1,
-  "fullscreen": true,
+  "fullscreen": false,
   "fpsOverlay": false,
   "tutorial": false,
   "introLogo": false,
@@ -76,6 +78,14 @@ $settings = @'
 
 New-Item -ItemType Directory -Force $target | Out-Null
 Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName System.Windows.Forms
+
+# The largest 16:9 window the working area holds with its title bar (the HUD is laid out to the window, see the help)
+$area = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+$window = @(@(3840, 2160), @(2560, 1440), @(1920, 1080), @(1600, 900)) |
+    Where-Object { $_[0] -le $area.Width -and $_[1] + 40 -le $area.Height } | Select-Object -First 1
+if (-not $window) { throw "The display's working area ($($area.Width)x$($area.Height)) holds no 16:9 window of 1600x900 or more" }
+Write-Host "Window: $($window[0])x$($window[1])"
 $encoder = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object { $_.MimeType -eq 'image/jpeg' }
 $parameters = New-Object System.Drawing.Imaging.EncoderParameters 1
 $parameters.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter ([System.Drawing.Imaging.Encoder]::Quality), ([long]$Quality)
@@ -84,7 +94,7 @@ foreach ($level in $Levels) {
     $log = Join-Path $build "run-$level.log"
     # sweep with a 0 degree amplitude holds the barrel dead ahead (release-screenshot.ps1 says why)
     $hold = $Seconds + 20
-    $arguments = "nosplash mute nofps quality=high level=$level seed=$Seed sweep=0:${hold}:0 shot=$Seconds userdata=`"$profileDir`""
+    $arguments = "windowed width=$($window[0]) height=$($window[1]) nosplash mute nofps quality=high level=$level seed=$Seed sweep=0:${hold}:0 shot=$Seconds userdata=`"$profileDir`""
     Write-Host "Running: BS3D.exe $arguments"
     $process = Start-Process $exe -ArgumentList $arguments -WorkingDirectory $build -PassThru `
         -RedirectStandardOutput $log -RedirectStandardError "$log.err"
@@ -107,7 +117,8 @@ foreach ($level in $Levels) {
 
     $image = [System.Drawing.Image]::FromFile($png)
     try {
-        # 16:9 round the centre, whatever the display's shape
+        # 16:9 round the centre: nothing to cut from the 16:9 window, unless Windows gave it another size
+        Write-Host "  frame $($image.Width)x$($image.Height)"
         $cropWidth = [Math]::Min($image.Width, [int][Math]::Round($image.Height * 16 / 9))
         $cropHeight = [Math]::Min($image.Height, [int][Math]::Round($cropWidth * 9 / 16))
         $source = New-Object System.Drawing.Rectangle ([int](($image.Width - $cropWidth) / 2)), ([int](($image.Height - $cropHeight) / 2)), $cropWidth, $cropHeight
