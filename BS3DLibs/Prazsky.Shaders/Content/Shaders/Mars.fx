@@ -588,7 +588,8 @@ float4 MarsGroundAt(float3 worldPosition, float3 meshNormal, bool onBank, bool d
     //colour it modulates is Mars's own).
     float broad = GradientNoise2(worldPosition.xz * 0.021);
 
-    float3 rust = lerp(RustColor, RustColorPale, saturate(broad * 1.5 + 0.35));
+    //The broad patches gentle (#775: the owner's "blotches" - every rover frame is one muted tone across the plain)
+    float3 rust = lerp(RustColor, RustColorPale, saturate(broad * 0.8 + 0.45));
 
     rust = lerp(rust, RustColorPale * 1.18, saturate(ejecta * EjectaBrightness));
     rust *= 1.0 - TRACK_DARKEN * track.Disturbed * trackShare;
@@ -609,13 +610,15 @@ float4 MarsGroundAt(float3 worldPosition, float3 meshNormal, bool onBank, bool d
     //
     // * Dark basaltic sand lying in DRIFTS on the flats - long streaks along the prevailing wind, not blobs -
     //   and only where the ground is level: sand does not hold on a crater wall or a boulder.
-    float level = smoothstep(0.90, 0.985, baseNormal.y);
+    //Wide, so a patch thins out up a crater's wall instead of stopping on it (#775: the owner's "torn" areas)
+    float level = smoothstep(0.78, 0.97, baseNormal.y);
     [branch]
     if (detail)
     {
     float2 drift = float2(dot(worldPosition.xz, float2(0.81, 0.59)) * 0.35, dot(worldPosition.xz, float2(-0.59, 0.81)));
+    //Soft-edged, so a drift fades into the plain rather than stopping on a line (#775)
     float sandField = GradientNoise2(drift * 0.060);
-    float sand = smoothstep(0.36 - SandCoverage, 0.56 - SandCoverage, sandField) * level;
+    float sand = smoothstep(0.30 - SandCoverage, 0.70 - SandCoverage, sandField) * level;
 
     // * Pale bedrock SLABS where the dust is thin: flat plates the colour of dry clay, broken by dark cracks.
     //   The cracks are a noise's zero-crossings - a connected web of thin lines - faded out before they could
@@ -635,8 +638,23 @@ float4 MarsGroundAt(float3 worldPosition, float3 meshNormal, bool onBank, bool d
     float rippleFade = saturate(1.0 - footprint * 2.2);
     float ripple = sin(dot(worldPosition.xz, float2(0.81, 0.59)) * 3.1
         + sin(dot(worldPosition.xz, float2(-0.59, 0.81)) * 0.45) * 1.8 + broad * 6.0);
-    rust = lerp(rust, SandColor * (1.0 + 0.25 * broad) * (1.0 + 0.22 * ripple * rippleFade), sand);
-    rust = lerp(rust, SlabColor * (1.0 - 0.55 * crack), slab);
+    rust = lerp(rust, SandColor * (1.0 + 0.25 * broad) * (1.0 + 0.12 * ripple * rippleFade), sand * 0.85);
+    rust = lerp(rust, SlabColor * (1.0 - 0.3 * crack), slab);
+
+    // * GRAVEL (#775): every rover frame's plain is carpeted with small dark stones, scattered by a power law - many
+    //   pebbles, few cobbles. A jittered point a cell, most cells empty, dark basalt, faded out before it is a pixel, and
+    //   not evaluated at all past that (the branch is coherent across the frame: the footprint grows with distance).
+    [branch]
+    if (footprint < 1.0 / 6.0)
+    {
+        float2 pebbleCell = floor(worldPosition.xz * 1.3);
+        float2 pebbleRoll = NoiseHash22(pebbleCell + 41.0);
+        float pebbleSize = 0.05 + 0.16 * pebbleRoll.y * pebbleRoll.y;
+        float2 pebbleAt = (pebbleCell + 0.5 + 0.3 * NoiseHash22(pebbleCell + 7.0)) / 1.3;   //the hash is -1..1: inside its cell
+        float pebble = step(0.62, pebbleRoll.x) * (1.0 - smoothstep(pebbleSize * 0.6, pebbleSize, length(worldPosition.xz - pebbleAt)))
+            * saturate(1.0 - footprint * 6.0) * (1.0 - slab) * (1.0 - buried);
+        rust = lerp(rust, BoulderColorDeep * 1.6, pebble * 0.85);
+    }
     }
 
     // * The MESAS' strata: layers of pale and dark sediment banded by height, the band wobbling a little so it
@@ -661,7 +679,9 @@ float4 MarsGroundAt(float3 worldPosition, float3 meshNormal, bool onBank, bool d
     //ROCK rather than as lumps of the dust it stands in.
     float3 boulder = lerp(BoulderColorDeep, BoulderColorBright, saturate(broad * 0.6 + rockSurface * 0.9 + 0.45));
 
-    float3 albedo = lerp(rust, boulder, rockMask);
+    //The height field's stones are mounds of the plain's own dust now (#775): coloured basalt they were low dark mounds the
+    //grid gave no silhouette, and from any distance dark ovals, holes in the ground. The rock is MarsBackdrop's geometry.
+    float3 albedo = lerp(rust, lerp(rust * 0.82, boulder, 0.3), rockMask);
 
     //--- Lighting ------------------------------------------------------------------------------------
     float sunlight = CloudSunlight(worldPosition, SunDirection);

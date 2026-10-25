@@ -104,10 +104,74 @@ namespace Prazsky.Core.Render
             _bankTechnique = _marsEffect.Techniques["MarsBank"];
             _bankReducedTechnique = _marsEffect.Techniques["MarsBankReduced"];
             _drawBank = DrawBank;
+
+            _rocks = PlantRocks(_marsConfig, ROCK_SEED + Services.SeedOffset);
+        }
+
+        private const int ROCK_SEED = 7750;
+
+        /// <summary>The stones of the clearing (#775): see THE STONES.</summary>
+        private ScatterBucket[] PlantRocks(MarsSceneConfig config, int seed)
+        {
+            var rng = new Random(seed);
+            var meshes = new IProceduralMesh[4];
+            var at = new List<ModelInstance>[meshes.Length];
+            for (int m = 0; m < meshes.Length; m++)
+            {
+                var mesh = VolcanoPlanting.BlockMesh(_graphicsDevice, rng);
+                _rockOwned.Add(mesh);
+                meshes[m] = mesh;
+                at[m] = new List<ModelInstance>();
+            }
+
+            float ground = config.Terrain.LevelY, to = config.Terrain.ClearingRadius;
+            void Scatter(int count, float sizeMin, float sizeMax)
+            {
+                for (int i = 0, tries = 0; i < count && tries < count * 10; tries++)
+                {
+                    float a = (float)rng.NextDouble() * MathHelper.TwoPi;
+                    float d = MathF.Sqrt(MathHelper.Lerp(ROCKS_FROM * ROCKS_FROM, to * to, (float)rng.NextDouble()));
+                    float x = MathF.Cos(a) * d, z = MathF.Sin(a) * d;
+                    float size = MathHelper.Lerp(sizeMin, sizeMax, MathF.Pow((float)rng.NextDouble(), 2f));
+                    if (RoverTracks.Distance(TRAVERSE, x, z) < TRACK_CLEAR + size) continue;
+
+                    float yaw = (float)rng.NextDouble() * MathHelper.TwoPi, lean = ((float)rng.NextDouble() - 0.5f) * 0.5f;
+                    var tint = new Vector4((float)rng.NextDouble(), ((float)rng.NextDouble() - 0.5f) * 0.2f, 0f, 0f);
+                    at[rng.Next(meshes.Length)].Add(new ModelInstance(Matrix.CreateScale(size) * Matrix.CreateRotationX(lean)
+                        * Matrix.CreateRotationY(yaw) * Matrix.CreateTranslation(x, ground - size * 0.12f, z), tint));
+                    i++;
+                }
+            }
+            Scatter(ROCKS_SMALL, 0.12f, 0.42f);
+            Scatter(ROCKS_MEDIUM, 0.45f, 1.1f);
+            Scatter(ROCKS_LARGE, 1.2f, 2.6f);
+
+            var buckets = new List<ScatterBucket>();
+            for (int m = 0; m < meshes.Length; m++)
+            {
+                if (at[m].Count == 0) continue;
+                var bucket = new ScatterBucket(_graphicsDevice, meshes[m], at[m], BASALT, BASALT_DUSTED, dapple: 0.2f, bark: 0.3f,
+                    detailOnly: false, fineMeshes: true);
+                _rockOwned.Add(bucket);
+                buckets.Add(bucket);
+            }
+            return buckets.ToArray();
         }
 
         //The bank (#983): drawn as the plain, its stones as plants; the planting's buckets still cast
         private ScatterBucket[] _bermStones;
+
+        //THE STONES (#775). The owner: "the rocks need tuning; they do not look like the real photographs from Mars". Every
+        //rover frame (775-zimage, 775-klein) litters the plain with dark angular basalt at every size, many pebbles and few
+        //boulders; the height field's own stones were low dark mounds the grid could give no silhouette, and from any distance
+        //they read as dark ovals, holes in the ground. So the stones are geometry - the volcano's broken block, as the
+        //outback's gibber - in three sizes by a power law, inside the clearing, where the plain is LevelY exactly (Mars has
+        //no CPU copy of its craters to stand them on further out), and off the rover's traverse.
+        private readonly List<IDisposable> _rockOwned = new();
+        private readonly ScatterBucket[] _rocks;
+        private const int ROCKS_SMALL = 1800, ROCKS_MEDIUM = 360, ROCKS_LARGE = 45;
+        private const float ROCKS_FROM = ArenaIsland.RADIUS + 8f, TRACK_CLEAR = 5f;
+        private static readonly Vector3 BASALT = new(0.050f, 0.046f, 0.044f), BASALT_DUSTED = new(0.17f, 0.115f, 0.085f);
         private IslandBerm.BermMesh _bank;
         private readonly EffectTechnique _bankTechnique, _bankReducedTechnique;
         private readonly Action _drawBank;
@@ -226,16 +290,18 @@ namespace Prazsky.Core.Render
         {
             DrawMarsTerrain(frame);
             if (_berm != null) _plants.Draw(frame, _bermStones, _marsConfig.Air.HorizonHazeDistance, detail: true, Services.FineMeshes);
+            _plants.Draw(frame, _rocks, _marsConfig.Air.HorizonHazeDistance, detail: true, Services.FineMeshes);
             DrawMarsMoons(frame);
         }
 
         /// <inheritdoc/>
-        public override bool HasShadowCasters => _berm != null;
+        public override bool HasShadowCasters => true;
 
-        /// <summary>The bank round the island casts into the sun's map (#646).</summary>
+        /// <summary>The bank round the island (#646) and the clearing's stones (#775) cast into the sun's map.</summary>
         public override void DrawShadowCasters(Matrix shadowViewProjection)
         {
             if (_berm != null) _plants.DrawShadowCasters(shadowViewProjection, _berm.Buckets, Services.FineMeshes);
+            _plants.DrawShadowCasters(shadowViewProjection, _rocks, Services.FineMeshes);
         }
 
         private const int BERM_SEED = 9200;
@@ -247,6 +313,8 @@ namespace Prazsky.Core.Render
             _berm = null;
             _bank?.Dispose();
             _bank = null;
+            foreach (IDisposable owned in _rockOwned) owned.Dispose();
+            _rockOwned.Clear();
         }
 
         /// <summary>

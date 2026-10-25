@@ -141,10 +141,10 @@ namespace Prazsky.Core.Render
     public sealed class MarsSurfaceConfig
     {
         /// <summary>The rust in shadow — deep oxidised iron.</summary>
-        public Rgb RustColor { get; set; } = new(0.190f, 0.078f, 0.042f);
+        public Rgb RustColor { get; set; } = new(0.175f, 0.092f, 0.056f);
 
         /// <summary>The paler, dustier rust that gathers in patches and on fresh crater rims.</summary>
-        public Rgb RustColorPale { get; set; } = new(0.440f, 0.255f, 0.148f);
+        public Rgb RustColorPale { get; set; } = new(0.380f, 0.245f, 0.165f);
 
         /// <summary>How strongly a crater's raised rim brightens towards <see cref="RustColorPale"/> —
         /// fresh material thrown up by the impact, not yet weathered back to the plain's own tone.</summary>
@@ -178,22 +178,22 @@ namespace Prazsky.Core.Render
         public float RockRelief { get; set; } = 0.35f;
 
         /// <summary>The pale layers of sediment in a mesa's cliffs.</summary>
-        public Rgb StrataColorPale { get; set; } = new(0.500f, 0.360f, 0.235f);
+        public Rgb StrataColorPale { get; set; } = new(0.420f, 0.300f, 0.205f);
 
         /// <summary>The dark layers between them.</summary>
-        public Rgb StrataColorDark { get; set; } = new(0.215f, 0.125f, 0.075f);
+        public Rgb StrataColorDark { get; set; } = new(0.265f, 0.165f, 0.105f);
 
         /// <summary>Layers per world unit of height, times 2π — about one pale band every seven units at 0.9.</summary>
         public float StrataFrequency { get; set; } = 0.9f;
 
         /// <summary>Dark basaltic sand lying in drifts on the flats — the grey streaks every rover panorama shows.</summary>
-        public Rgb SandColor { get; set; } = new(0.062f, 0.050f, 0.045f);
+        public Rgb SandColor { get; set; } = new(0.115f, 0.082f, 0.064f);
 
         /// <summary>How much of the level plain the sand drifts cover, roughly 0..0.3.</summary>
-        public float SandCoverage { get; set; } = 0.30f;
+        public float SandCoverage { get; set; } = 0.20f;
 
         /// <summary>Flat pale bedrock showing through thin dust, cracked into plates.</summary>
-        public Rgb SlabColor { get; set; } = new(0.380f, 0.255f, 0.165f);
+        public Rgb SlabColor { get; set; } = new(0.330f, 0.232f, 0.162f);
 
         /// <summary>How much of the level plain the bedrock slabs cover, roughly 0..0.3.</summary>
         public float SlabCoverage { get; set; } = 0.08f;
