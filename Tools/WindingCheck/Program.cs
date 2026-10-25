@@ -126,6 +126,10 @@ namespace BS3D.Tools.WindingCheck
             var content = new ContentManager(services, contentDir);
             Effect instancing = content.Load<Effect>("Shaders/InstancedModel");
 
+            //The cannon for the landing page (#949): its meshes and figures written out, nothing judged
+            int exportAt = Array.IndexOf(args, "--export-cannon");
+            if (exportAt >= 0 && exportAt + 1 < args.Length) return ExportCannon(device, instancing, args[exportAt + 1]);
+
             var parts = new List<Part>();
             foreach ((string name, Func<object> make) in Sources(device, instancing))
             {

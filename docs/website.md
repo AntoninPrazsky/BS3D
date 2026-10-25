@@ -19,7 +19,7 @@ npx eleventy                # the plain files in Web\_site, which is all the hos
 
 | File | Holds |
 |---|---|
-| `src/index.njk` | The page: the logo and pitch, the big picture, how it plays, the numbers, the gallery, what else is in it, the download steps for Windows and the Raspberry Pi 5 |
+| `src/index.njk` | The page: the logo and pitch, the big picture, how it plays, the numbers, the live cannon, the gallery, what else is in it, the download steps for Windows and the Raspberry Pi 5 |
 | `src/_data/site.json` | The links (the newest release, the repository), the description the search engines and link previews show, the counts the page prints (levels, chapters, scenes) and the video slot |
 | `src/_data/gallery.json` | The gallery's pictures in order, each with its level, chapter and caption |
 | `src/_data/built.js` | The day of the build (Prague time), which the footer prints as "Last updated" |
@@ -29,12 +29,24 @@ npx eleventy                # the plain files in Web\_site, which is all the hos
 | `src/blog/*.md` | The posts, and `blog.11tydata.json`, which gives every file there the layout and the `posts` tag |
 | `eleventy.config.js` | The passthrough copies, the date filters, `absoluteLinks` (the feed's links and pictures get the site's address) and **no Liquid pass over Markdown** |
 | `src/css/site.css` | The look: dark like the game's menus, headings in Anton (the game's own display face, served from `src/fonts`) |
+| `src/js/cannon.js`, `src/cannon/` | The live cannon (below): the WebGL2 script, and the game's meshes and figures it draws (`cannon.bin`, `cannon.json`), written by `Tools/WindingCheck --export-cannon` |
 | `publish.ps1` | Builds and uploads (below) |
 
 - **The counts and the feature list are typed, not read from the game.** At a release, check them against what ships: `site.json`'s `levels`, `chapters` and `scenes`, and the claims in "What else is in it" and in the download steps (the latter are the release notes' own, in `.github/workflows/release.yml`).
 - **The Pi's picture is one sentence with one source** (#947): `site.json`'s `piPicture` says what the Raspberry Pi build lacks (shadows, clouds, post effects) and keeps (each chapter's scenery behind the island, simplified). `index.njk` prints it (`{{ site.piPicture }}`) and `release.yml` reads the same key into the notes' Pi section (the `@@PI_PICTURE@@` placeholder), so the page and every release page say the same words. **At a release, check it against `docs/rendering/potato-path.md`** and edit it in `site.json` only; `PiPictureCopyTests` (run by CI) refuses a hand-typed copy, a lost placeholder, the phrase "no scenery" anywhere in `Web/src`, and a chapter set in a scene `PotatoBackdrop.For` draws no backdrop for. A page already published is corrected with `gh release edit <tag> --notes-file` (see "What the release notes carry" in `docs/build-and-release.md`), the site by a hand publish.
 - **The video slot:** `site.json`'s `video` is null and the page says a video is on its way. Set it to the video's address and the page shows a button to it instead. It is a link, not an embed, so the page still makes no request to anyone else.
 - **Nothing on the page talks to a third party**: no analytics, no cookies, no web fonts from elsewhere, so it needs no consent banner. Keep it that way; the footer says so.
+
+## The live cannon (#949)
+
+The owner: "a rotating cannon right in the browser, using graphics acceleration ... the detail of the turning wheels of a cannon that drives round in a circle; it could even fire a ball." The section "The cannon, live" draws the game's own cannon in a WebGL2 canvas, from the game's own meshes.
+- **The meshes and figures are exported, never copied**: `dotnet run --project Tools\WindingCheck -- --export-cannon Web\src\cannon` builds a `CannonRig` on the tool's WARP device and writes the barrel, the glass, the muzzle collar, the carriage, a wheel and a roller (`cannon.bin`, about 300 KB: 16-bit positions, byte normals, 16-bit indices), and `cannon.json` with every figure that joins them, read off the game's constants: the wheel's radius, track and drop under the trunnions, the rollers' seats on a wheel, the recoil's stroke and decay, the magazine's spacing and front seat, each part's colour, sky reflection and alpha, and the thirteen ball colours. **Run it again whenever the cannon's meshes or figures change**, and commit both files.
+- **The script is raw WebGL2, no library** (`src/js/cannon.js`), so the page still makes no third-party request. Matrices are the game's (row vectors, row order, uploaded as they are), so the parts compose exactly as `CannonRig` and `Cannon` compose them: the carriage yawed to its heading with its recoil shove, the wheels at their place on the axle rolled by the ground covered, the rollers on their seats spun by the ground crossed sideways, the barrel about the trunnions with its stroke, the collar in the next round's colour, the queue of five on the bore's axis behind the glass, a shot every 3.4 s.
+- **It drives round a circle, easing between rolling on its wheels and crabbing across on its rollers** (what omni wheels are for), the barrel breathing up and down. The light is the page's own violet (a warm key, a cool fill, a hemisphere), tonemapped with ACES; the ground fades into the page and darkens under the gun.
+- ⚠ **The game winds its meshes clockwise seen from outside**, a back face to WebGL's default: `gl.frontFace(gl.CW)`, so `gl_FrontFacing` is true outside and the normal is turned only for an inner face seen through (the bore).
+- ⚠ **The glass is drawn at 0.45 of the game's alpha**: the game's glass is lit by reflections this program does not draw, and at 0.84 the pane hid the queue the game shows through it.
+- **It runs only while seen**: paused off screen (`IntersectionObserver`) and in a hidden tab, at most two device pixels a CSS pixel; under `prefers-reduced-motion` it draws one frame and stops; without WebGL2 the canvas keeps its CSS gradient.
+- **Looking at it without a display**: `?cannon-t=<seconds>` draws the pose at that moment and stops, since headless Edge's virtual time does not advance animation frames. Serve `_site` (`python -m http.server` in it) and photograph it: `msedge --headless=new --use-angle=swiftshader --enable-unsafe-swiftshader --window-size=1400,2900 --virtual-time-budget=3000 --screenshot=<png> "http://127.0.0.1:<port>/?cannon-t=2.6"` (2.6 s: driving, the first ball in the air; 7: crabbing; 9.3: just fired).
 
 ## The blog (#928)
 
