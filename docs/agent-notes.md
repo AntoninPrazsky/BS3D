@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-10-25 — #989 mraky jako objemy, oprava kamenů Marsu — desktop (RDT-PC), Claude Code (bs3d-21)
+- Hotovo: #989 první etapa (238d4a37): na High/Ultra je každá kupa u kamery objem (`CloudVolumes`, `CloudVolume.fx`) na mřížce driftující s vrstvou, stojí tam, kde má vrstva podle `CloudField.Cover` mrak; vrstva u kup ustoupí (`CloudVolumeCut`), Overcast/Storm zůstávají víkem. Pochod v rozlišení displeje do vlastní vrstvy, složené hned po obloze. +0,47 až +0,96 ms. Reference `989-zimage`/`989-klein`. `verdict-eye`.
+- ⚠ Pochod do scénového cíle po zemi s hloubkou: Broken +3,2 ms. Bílé „žilky“ pod plochými dny byly nasvícené boky vzdálenějších kup: spodní třetina kupy musí šednout.
+- ⚠ Měření běžící souběžně s generováním referencí (sd-server na GPU) nafoukla obě strany; měřit až po doběhnutí.
+- Review po merge: kameny Marsu byly jen na High a hrubé (opraveno f7fcc33d, FracturedRockSet); objem ohně netestuje hloubku uvnitř krabice (poznámka na #886).
+- Otevřené: kupy u obzoru (vzdálená rovina 2000), ostřejší okraje, Overcast/Storm.
+
 ## 2026-10-25 — #886 oheň jako objem — desktop (RDT-PC), Claude Code (bs3d-21)
 - Hotovo: #886 krok 3 (78d53123) na High/Ultra je oheň objem: krabice kolem ohně, pochod paprsku (12 vzorků jen uvnitř kužele jazyků), 3D turbulence zapečená do `Texture3D` 32³, emise nad absorpcí, pláty plazmy v nulách turbulence. Low/Medium/Potato mají billboardy. +0,30/+0,38 ms. `verdict-eye`, karta na stránce 25. 10.
 - ⚠ První verze stála +2,0/+1,4 ms (celý válec, 20 kroků, ALU šum); kužel a zapečený šum ji srazily na pětinu. Skládání jako povrch (každý vzorek zakrývá) dělalo oranžový gel; emise s menší absorpcí nechá jádro prosvítat.
