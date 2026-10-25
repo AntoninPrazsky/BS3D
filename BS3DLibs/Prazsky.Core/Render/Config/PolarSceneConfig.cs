@@ -91,6 +91,23 @@ namespace Prazsky.Core.Render
         public float ClearingTransition { get; set; } = 90f;
 
         /// <summary>
+        /// Where the research camp stands (#747, <see cref="PolarPlanting"/>): its bearing from the arena (radians, from +X
+        /// towards +Z) and its distance. The crevasse fields cover the plain past the clearing with parallel slots, so no
+        /// spot that far out is clear of them by luck; the ice is cleared round the camp instead (<see cref="CampClearRadius"/>).
+        /// </summary>
+        public float CampBearing { get; set; } = -0.9f;
+
+        /// <inheritdoc cref="CampBearing"/>
+        public float CampDistance { get; set; } = 78f;
+
+        /// <summary>How far round the camp the ice has no crevasses (#747); they come back over half as far again.</summary>
+        public float CampClearRadius { get; set; } = 24f;
+
+        /// <summary>The camp's centre, world XZ (<see cref="CampBearing"/>, <see cref="CampDistance"/>).</summary>
+        public Microsoft.Xna.Framework.Vector2 CampCentre =>
+            new(System.MathF.Cos(CampBearing) * CampDistance, System.MathF.Sin(CampBearing) * CampDistance);
+
+        /// <summary>
         /// Where the pressure ridge stands, as a distance from the arena. A <b>belt</b> rather than a wall
         /// across the view, so the expanse keeps its flat horizon in every direction but one and still has a
         /// skyline to read distance against — on a white plain there is nothing else to read it by.

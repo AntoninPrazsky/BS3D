@@ -27,6 +27,13 @@ Dome **13** (`POLAR_DOME`): a 13 degree sun over a teal horizon into indigo rake
 - **Blue-ice brightness.** A scoured patch photographs as a pale cyan lagoon brighter than the snow; references show it slightly darker. Holding back its reflection (as a crevasse wall's is) was tried and made it **brighter** (a lower Fresnel hands back `snow * 0.55 + transmission`). The transmission is deliberate (it answered "the glowing cracked ice is nowhere"), so the lever is `TransmissionStrength` and `BlueIce`'s weight in `thickness`. The measurement is in `Polar.fx`.
 - **Cast.** The lavender cast is the dome's (references are gold-and-blue).
 
+## The research camp (#747)
+
+The owner: "a polar station, a mast with a flag, a tracked vehicle". Nothing stood on the ice. `PolarPlanting` builds the camp the references (`747-zimage`, `747-klein`) draw, as hand-placed landmarks through a `PlantPass` the scene now has, casting into the sun's map: three red modules on stilts with snow on their roofs and a railed walkway, an antenna, a mast with a white flag (the Moon's frozen cloth, #746, twice its size), a small wind turbine, an orange tracked vehicle towing a sled of crates, red fuel drums and snow drifts banked against them all. Every object stands on its own spot of `TerrainMirror.Polar` (the swells are metres high across the camp), and the stilts run down into the snow.
+
+- ⚠ **The crevasse fields cover the plain past the clearing with parallel slots**: no spot at the camp's distance came out clear of them (every candidate read 0.27 or worse). So the ice is cleared round the camp instead: `PolarSceneConfig.CampBearing`, `CampDistance` and `CampClearRadius` (24, the crevasses back over half as far again), in `Polar.fx`'s `CrevasseField` (`CampClear`) and term for term in `TerrainMirror.PolarCrevasse` (`mirrorcheck` PASS).
+- Seen from the front end's orbit behind the island and from the tour; no level plays here. Cost: about +0.15 ms close to it (Testbed 3840x1600, ssaa 2, `campos=30,-9,-38 camtarget=50,-11,-63`: 9.75 against 9.60).
+
 ## Costs
 
 - **Against the desert** (Testbed, laptop, ssaa 2, 1600x900, `fpscap=400`): **+16 %** (32.6 against 28.2 ms); crevasse fields and blue ice add about six gradient-noise evaluations a pixel.

@@ -110,6 +110,9 @@ float CrevasseSharpness;
 //How far down the inside of a slot goes against its own lip - see the darkening in PolarPS
 float CrevasseDarkening;
 
+//The research camp's place (#747): its centre XZ and the radius the crevasses keep from it (PolarSceneConfig.CampClearRadius)
+float3 CampClear;
+
 //Where the blue ice starts: the field's own threshold, so a lower number bares more of the sheet
 float BlueIceThreshold;
 
@@ -255,7 +258,10 @@ float CrevasseField(float2 p, float ridge)
     //would be a hole the player cannot fall into - the one thing on this plain that has to read as solid.
     float clear = smoothstep(ClearingRadius * 0.8, ClearingRadius * 1.5, length(p));
 
-    return slot * saturate(field + ridge * 1.2) * clear;
+    //The ice round the research camp (#747): its centre and radius, the crevasses back over half as far again
+    float camp = smoothstep(CampClear.z, CampClear.z * 1.5, distance(p, CampClear.xy));
+
+    return slot * saturate(field + ridge * 1.2) * clear * camp;
 }
 
 //BLUE ICE: the patches where the wind has scoured the snow off and the glacier underneath is bare.

@@ -21,6 +21,10 @@ namespace Prazsky.Core.Render
         //Its camera grid and the pass that draws it (#580): the skeleton this scene shared with two others
         private readonly TerrainPass _polarPass;
 
+        //The research camp on the ice (#747), through a plant pass of its own: the scene had none
+        private readonly PlantPass _plants;
+        private PolarPlanting _camp;
+
         //The icesheet is real geometry, on the desert's terms: a camera-centred grid of this many vertices per
         //side over this world extent, displaced in the shader and snapped to a cell so it does not swim.
         //
@@ -44,6 +48,26 @@ namespace Prazsky.Core.Render
             _polarPass = new TerrainPass(Services, _polarEffect, POLAR_GRID_N, POLAR_EXTENT, "PolarTime");
 
             ApplyPolarParameters();
+
+            _plants = new PlantPass(services.GraphicsDevice, content);
+            _camp = new PolarPlanting(services.GraphicsDevice, (x, z) => TerrainMirror.Polar(x, z, _polarConfig), _polarConfig.CampCentre);
+        }
+
+        /// <inheritdoc/>
+        public override bool HasShadowCasters => _camp != null;
+
+        /// <summary>The camp casts into the sun's map (#747).</summary>
+        public override void DrawShadowCasters(Matrix shadowViewProjection)
+        {
+            if (_camp != null) _plants.DrawShadowCasters(shadowViewProjection, _camp.Buckets, Services.FineMeshes);
+        }
+
+        /// <inheritdoc/>
+        public override void Dispose()
+        {
+            _camp?.Dispose();
+            _camp = null;
+            base.Dispose();
         }
 
         /// <inheritdoc/>
@@ -55,6 +79,8 @@ namespace Prazsky.Core.Render
         private void ApplyPolarParameters()
         {
             _polarEffect.Parameters["PolarLevelY"].SetValue(_polarConfig.LevelY);
+            Vector2 camp = _polarConfig.CampCentre;
+            _polarEffect.Parameters["CampClear"].SetValue(new Vector3(camp.X, camp.Y, _polarConfig.CampClearRadius));
             _polarEffect.Parameters["DriftAmplitude"].SetValue(_polarConfig.DriftAmplitude);
             _polarEffect.Parameters["DriftFrequency"].SetValue(_polarConfig.DriftFrequency);
             _polarEffect.Parameters["DriftStretch"].SetValue(_polarConfig.DriftStretch);
@@ -92,6 +118,7 @@ namespace Prazsky.Core.Render
         public override void Draw(in SceneFrame frame)
         {
             _polarPass.Draw(frame, Services.TerrainHoleRadius);
+            if (_camp != null) _plants.Draw(frame, _camp.Buckets, _polarConfig.HorizonHazeDistance, detail: true, Services.FineMeshes);
         }
 
         /// <inheritdoc/>
@@ -110,7 +137,11 @@ namespace Prazsky.Core.Render
         /// <inheritdoc/>
         public override IEnumerable<Effect> ShadowReceivers
         {
-            get { yield return _polarEffect; }
+            get
+            {
+                yield return _polarEffect;
+                yield return _plants.Effect; //the camp (#747)
+            }
         }
 
         /// <inheritdoc/>
