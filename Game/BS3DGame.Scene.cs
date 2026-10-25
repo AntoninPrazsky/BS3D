@@ -1390,18 +1390,29 @@ namespace BS3D
         /// <para>
         /// What it gives up, knowingly: something the caller draws after this that stands ABOVE the plate is not
         /// in the copy, and the pane, which writes its pixels whole, covers it where it passes behind the glass.
-        /// Nothing the game draws between the two stands there.
+        /// Nothing the game draws between the two stands there. What stands BELOW the plate and holds no depth would
+        /// be covered the same way - the additive layers, the aim beam among them - which is why the session draws
+        /// its pane before those layers whenever <see cref="CameraUnderCeiling"/> says this copy was the one taken
+        /// (#1013: the aim beam vanished wherever the plate stood behind it).
         /// </para>
         /// </summary>
         internal void GrabCeilingBackground(InstancedModelRenderer renderer, Matrix plateWorld)
         {
             if (!RefractsCeiling || renderer == null || !CeilingInView(renderer, plateWorld)) return;
 
-            float underside = plateWorld.Translation.Y - CeilingPlate.THICKNESS * Constants.HALF;
-            if (_camera.Position.Y >= underside) return;
+            if (!CameraUnderCeiling(plateWorld)) return;
 
             _ceilingGlassBehind = _pipeline.GrabScene();
         }
+
+        /// <summary>
+        /// Whether the camera stands under the underside of the ceiling's glass hanging at <paramref name="plateWorld"/>:
+        /// from there everything the session hangs under the glass stands between the lens and the pane, which is when
+        /// <see cref="GrabCeilingBackground"/> takes its copy early (#541) and the session draws its pane before the layers
+        /// that hold no depth (#1013).
+        /// </summary>
+        internal bool CameraUnderCeiling(Matrix plateWorld) =>
+            _camera.Position.Y < plateWorld.Translation.Y - CeilingPlate.THICKNESS * Constants.HALF;
 
         /// <summary>
         /// Whether any of the plate can be on screen this frame (#541) — the slab's own box, the one the renderer was

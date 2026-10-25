@@ -2059,6 +2059,15 @@ namespace BS3D.Screens
             Game.Balls.CutterGlow = 1f;
             Game.Balls.CutterSpinOffset = 0f;
 
+            //From under the plate the ceiling's pane goes here, after the last thing that writes depth and BEFORE the
+            //additive layers below (#1013). Those layers stand between the lens and the glass and hold no depth, so the
+            //pane, which writes its pixel whole from a copy taken before any of them (GrabCeilingBackground), painted over
+            //every one it stood behind on screen: the aim beam vanished against the plate, as did a shot's smear fired up
+            //past the cluster. From level with the plate or above, what hangs under the glass is seen through it, so there
+            //the pane keeps its slot at the end.
+            bool paneBeforeLayers = Game.CameraUnderCeiling(_ceiling.World);
+            if (paneBeforeLayers) DrawCeilingPane();
+
             //Over the opaque scene (which the depth buffer now holds, so the cluster and the gun occlude
             //them) and additive, so they glow through the glare. It puts back exactly the states it found,
             //so the frame's translucent baseline still stands for the glass below.
@@ -2090,12 +2099,13 @@ namespace BS3D.Screens
 
             Game.DrawSettingGlass();
 
-            //The floor alarm, in the trails' states but AFTER the drain's glass and BEFORE the ceiling's,
-            //because the net lies between the two in Y and neither translucent draw can depth-test against
+            //The floor alarm, in the trails' states but AFTER the drain's glass and, seen from above the plate, BEFORE
+            //the ceiling's, because the net lies between the two in Y and neither translucent draw can depth-test against
             //it (the net writes no depth): the funnel is entirely below the net, so a cinematic looking
             //down the throat has the net in front of the glass — drawn earlier, the cone would wrongly dim
             //it — while the descending plate is above, so an overhead shot seeing the net through the glass
-            //still gets the plate composited over it. Wall-clock driven, so its pulse and its linger-and-
+            //still gets the plate composited over it (from under the plate the net is nearer than the pane, which
+            //is already drawn: paneBeforeLayers above). Wall-clock driven, so its pulse and its linger-and-
             //fade keep running while a result screen covers this screen and only draws still arrive.
             //The four emitters' lenses first (#874), glass writing no depth, so the cones that start at their crests are
             //drawn over the glass and not behind it - and glowing with the very brightness the beams are drawn at
@@ -2103,16 +2113,9 @@ namespace BS3D.Screens
 
             _laserGrid.Draw(Camera, WallClock);
 
-            //The glass the cluster hangs from, last of the session's objects: it is translucent, so everything
-            //it should be seen through has to be in the depth buffer and the frame already — and, since #299,
-            //so it must not WRITE depth itself, or the victory fireworks burst behind an invisible wall. That
-            //is why this goes through the host rather than touching CeilingRenderer directly; the state and the
-            //reasoning live in BS3DGame.DrawCeilingGlass, in one copy with the front end's preview plate.
-            //Squared, so the glass is unmistakable on the frame it steps and has thinned well before the slide
-            //ends — it marks the event rather than colouring the plate for the duration
-            Game.CeilingRenderer.EmissiveTint = _ceilingDescent.FlashColor * (_ceilingDescent.Flash * _ceilingDescent.Flash);
-
-            Game.DrawCeilingGlass(Game.CeilingRenderer, _ceiling.World);
+            //The glass the cluster hangs from, last of the session's objects when the camera is level with the plate or
+            //above it (from under it, it went in before the additive layers: paneBeforeLayers)
+            if (!paneBeforeLayers) DrawCeilingPane();
 
             //The plate's rigging from level with it or above (#896): in front of the pane, so after it
             Game.DrawCeilingRigging(Game.CeilingRigging, _ceiling.World, overGlass: true);
