@@ -24,6 +24,9 @@ namespace Prazsky.Core.Render
         //indexer is a linear scan). Everything else is pushed by ApplySpaceParameters when a config lands.
         private readonly EffectParameter _spaceViewRayBasis, _spaceCameraPosition, _spaceSunDirection, _spaceSupersample, _spaceTime;
 
+        //The flying saucer (#955), far out round the station
+        private readonly SaucerFlight _saucer;
+
         /// <summary>Loads the effect, caches its per-frame parameters and pushes the config at it.</summary>
         public SpaceBackdrop(BackdropServices services, ContentManager content) : base(services)
         {
@@ -41,7 +44,12 @@ namespace Prazsky.Core.Render
             _spaceTime = _spaceEffect.Parameters["SpaceTime"];
 
             ApplySpaceParameters();
+
+            _saucer = new SaucerFlight(_graphicsDevice, content);
         }
+
+        /// <inheritdoc/>
+        public override void Dispose() => _saucer?.Dispose();
 
         /// <inheritdoc/>
         public override SceneKind Kind => SceneKind.Space;
@@ -193,6 +201,9 @@ namespace Prazsky.Core.Render
             _graphicsDevice.SetVertexBuffer(Services.FullScreenQuad);
             _spaceEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
+
+            //The saucer over the sky, writing depth so the station stands in front of it (#955)
+            _saucer.Draw(frame, _spaceConfig.Lighting);
 
             //Put back what the rest of the opaque scene wants. The depth state especially: left at None, the
             //island would not occlude the cluster and the whole frame would draw in submission order.

@@ -70,6 +70,14 @@ The owner: the island "does not feel finished", and he asked for a space base, p
 - **Cost**: cheaper than the machined disc it replaces, which drew the four-octave relief (Testbed 3840x1600, ssaa 2, `nopost`, two pairs: play pose `campos=0,-2,34 camtarget=0,-9,0` 8.08 against 8.72 ms, from below `campos=18,-19,40 camtarget=0,-12,0` 8.46 against 8.75).
 - **The Potato path** draws the shape and the pods (their cores emissive there too) in the plain colour: it has no station technique.
 
+## The saucer (#955)
+
+The owner: the scene "lacks something to make it special - a flying saucer with aliens". The references (`955-zimage`, `955-klein`) agree on a classic chrome saucer: a ring of warm bulbs round the rim, a glass dome with grey aliens with big black eyes, an antenna, a glow under the belly.
+
+- **`SaucerFlight`** (drawn by `SpaceBackdrop` after the sky's quad, opaque, writing depth, so the station stands in front of it) flies one rigid craft (`SaucerMesh`: a hull lathe and a dome lathe with its antenna, both shut) on a slow loop `ORBIT_RADIUS` 240 out round the station, rising and falling, banked into the turn, rocking and spinning about its axis, off the wall clock (`WorldAt`). 240 is over twice the chapter intro's widest lens (90, `SpaceIntroShots`), so nothing that films the station meets it; at that distance it is about fifty pixels across at 1080p.
+- **`Saucer.fx`**: the hull is chrome mirroring the scene's rig plus a studio's band of light round the horizon broken into softboxes (⚠ mirroring only the scene's dark rig, it read as matte grey plastic); round warm bulbs on the rim and on a ring round the top with a soft halo and a slow wave of brightness, **under the glare threshold** (#401: small lights over it strobe); a belly glow. The dome is opaque and painted: a warm cabin with three grey figures standing round it looking out, big round heads with black eyes (⚠ a dark crew on a dark cabin did not read), the glass's fresnel over it; the antenna's tip a small red light.
+- Not measured: it covers a few thousand pixels at most and two small meshes.
+
 ## Cost
 
 A full-screen procedural pass, so the expensive parts sit behind **uniform-coherent `[branch]`es** (a nebula's angular falloff, the Milky Way's band mask, the planet's disc), and the pixel footprint is taken **once at the top of the pixel shader**, before any of them: a gradient operation inside a divergent branch is undefined, and that ordering is the only reason those branches are safe. Frame cost by tier: "The quality tier" in `docs/game-shell.md`.
