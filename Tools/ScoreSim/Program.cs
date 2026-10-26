@@ -236,6 +236,19 @@ namespace BS3D.Tools.ScoreSim
                 ok = false;
             }
 
+            //THE STAR FLOORS (#1024): the score service rates a clear by them, so each must sit exactly where the rating
+            //turns and the three must rise, or the service refuses real clears on a boundary
+            int[] floors = StarFloors(level.Balls);
+            for (int stars = 2; stars <= StarRating.MAX; stars++)
+            {
+                int floor = floors[stars - 2];
+                if (StarRating.Rate(floor - 1, level.Balls) < stars && StarRating.Rate(floor, level.Balls) >= stars
+                    && (stars == 2 || floor > floors[stars - 3])) continue;
+
+                Console.WriteLine($"    STAR FLOORS: {stars} stars from {floor} is not where the rating turns");
+                ok = false;
+            }
+
             return ok;
         }
 
@@ -416,6 +429,15 @@ namespace BS3D.Tools.ScoreSim
         /// call.
         /// </para>
         /// <para>
+        /// <b>And the star floors (#1024)</b>: the least score for 2, 3 and 4 stars, <see cref="StarRating.LeastScoreFor"/>
+        /// over the same ball count the game rates a clear by (its <c>InitialBallCount</c> is the map's
+        /// <c>GetBallsCount()</c>, as here). The service refuses a clear whose stars its score does not earn
+        /// (AntoninPrazsky/BS3D-API#16), by the floors of any table that names the board: a retune of
+        /// <see cref="StarRating"/> moves them under an unchanged board key, and a release already out keeps rating by the
+        /// old ones, so a star retune needs no <see cref="ScoreKeeper.RulesVersion"/> bump. They come last in a row, so the
+        /// rest of the table reads as it always did.
+        /// </para>
+        /// <para>
         /// <b>And the chapter, for the service's admin page (#695).</b> The rows come in the set's play order, and each
         /// names its level's <c>block</c> when the set names one, so the page can list the boards chapter by chapter
         /// rather than by name. Nothing on either side checks or ranks by it, and it is not in the identity: a
@@ -428,7 +450,7 @@ namespace BS3D.Tools.ScoreSim
             List<CeilingRow> rows = new();
             foreach (Playable level in levels)
                 rows.Add(new CeilingRow(level.Identity.File, level.Name, level.Identity.Hash, ScoreKeeper.RulesVersion,
-                    level.Shots, level.Ceiling, level.MinShots, level.Block));
+                    level.Shots, level.Ceiling, level.MinShots, level.Block, StarFloors(level.Balls)));
 
             CeilingTable table = new(CeilingTable.FormatMarker, CeilingTable.CurrentVersion, ScoreKeeper.RulesVersion,
                 LevelIdentity.HashLength, rows);
@@ -499,6 +521,14 @@ namespace BS3D.Tools.ScoreSim
             return Math.Max(1, colours);
         }
 
+        /// <summary>The least score for 2, 3 and 4 stars on a level of <paramref name="balls"/> balls (#1024).</summary>
+        private static int[] StarFloors(int balls)
+        {
+            int[] floors = new int[StarRating.MAX - 1];
+            for (int stars = 2; stars <= StarRating.MAX; stars++) floors[stars - 2] = StarRating.LeastScoreFor(stars, balls);
+            return floors;
+        }
+
         private readonly record struct Playable(string Name, int Balls, int Shots, LevelIdentity Identity, int Ceiling,
             int MinShots, string Block);
 
@@ -525,6 +555,7 @@ namespace BS3D.Tools.ScoreSim
             [property: JsonPropertyName("shots")] int Shots,
             [property: JsonPropertyName("ceiling")] int Ceiling,
             [property: JsonPropertyName("minShots")] int MinShots,
-            [property: JsonPropertyName("block"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string Block);
+            [property: JsonPropertyName("block"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string Block,
+            [property: JsonPropertyName("starFloors")] int[] StarFloors);
     }
 }

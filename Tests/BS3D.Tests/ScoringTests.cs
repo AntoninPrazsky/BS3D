@@ -126,5 +126,54 @@ namespace BS3D.Tests
                 previous = stars;
             }
         }
+
+        /// <summary>
+        /// The star floors the score service checks a clear's stars by (#1024, BS3D-API#16) sit exactly where the rating
+        /// turns, on a small level and a large one alike, and rise.
+        /// </summary>
+        [Theory]
+        [InlineData(1)]
+        [InlineData(7)]
+        [InlineData(61)]
+        [InlineData(238)]
+        [InlineData(1000)]
+        public void EachStarFloorIsWhereTheRatingTurns(int balls)
+        {
+            int previous = 0;
+            for (int stars = 2; stars <= StarRating.MAX; stars++)
+            {
+                int floor = StarRating.LeastScoreFor(stars, balls);
+
+                Assert.True(StarRating.Rate(floor - 1, balls) < stars, $"{floor - 1} already rates {stars} stars on {balls} balls");
+                Assert.True(StarRating.Rate(floor, balls) >= stars, $"{floor} rates under {stars} stars on {balls} balls");
+                Assert.True(floor > previous);
+                previous = floor;
+            }
+        }
+
+        /// <summary>
+        /// The service's rule, one star for a clear and one more for each floor its score reaches, is the game's rating
+        /// for every score: what lets the service refuse a clear whose stars are not its score's.
+        /// </summary>
+        [Fact]
+        public void OneStarPlusTheFloorsReachedIsTheRating()
+        {
+            const int balls = 61;
+            int[] floors = { StarRating.LeastScoreFor(2, balls), StarRating.LeastScoreFor(3, balls), StarRating.LeastScoreFor(4, balls) };
+
+            for (int score = 0; score <= floors[2] + 100; score++)
+            {
+                int reached = 0;
+                foreach (int floor in floors) if (score >= floor) reached++;
+                Assert.Equal(StarRating.Rate(score, balls), 1 + reached);
+            }
+        }
+
+        [Theory]
+        [InlineData(1, 61)]
+        [InlineData(StarRating.MAX + 1, 61)]
+        [InlineData(2, 0)]
+        public void OnlyTwoToFourStarsOnALevelWithBallsHaveAFloor(int stars, int balls) =>
+            Assert.Throws<System.ArgumentOutOfRangeException>(() => StarRating.LeastScoreFor(stars, balls));
     }
 }
