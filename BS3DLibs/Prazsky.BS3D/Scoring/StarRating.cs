@@ -70,5 +70,31 @@ namespace Prazsky.BS3D.Scoring
 
             return 1;
         }
+
+        /// <summary>
+        /// The least score <see cref="Rate"/> gives <paramref name="stars"/> or more on a level of
+        /// <paramref name="levelBalls"/> balls, for 2 to <see cref="MAX"/> stars: the star floors the score service checks
+        /// a clear's stars against (#1024, AntoninPrazsky/BS3D-API#16), since a clear's stars are its score's and nothing
+        /// else's. <b>Found by asking <see cref="Rate"/> itself</b>, never by re-deriving its arithmetic: it compares a
+        /// <c>float</c>, and a floor one point off would have the service refuse a real clear on the boundary.
+        /// </summary>
+        public static int LeastScoreFor(int stars, int levelBalls)
+        {
+            if (stars < 2 || stars > MAX) throw new ArgumentOutOfRangeException(nameof(stars), stars, "Only 2 to MAX stars have a floor.");
+            if (levelBalls <= 0) throw new ArgumentOutOfRangeException(nameof(levelBalls), levelBalls, "A level with no balls rates every clear one star.");
+
+            //Rate never falls as the score rises, so the boundary is found by halving: below it fewer stars, at it this many
+            int below = 0, at = 1;
+            while (Rate(at, levelBalls) < stars) at = checked(at * 2);
+
+            while (at - below > 1)
+            {
+                int middle = below + (at - below) / 2;
+                if (Rate(middle, levelBalls) >= stars) at = middle;
+                else below = middle;
+            }
+
+            return at;
+        }
     }
 }

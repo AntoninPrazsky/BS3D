@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-10-26 — #1024 hranice hvězd v tabulce stropů — Raspberry Pi (BS3DServer), Claude Code (rdt-9a)
+- majitel: skript vydávající se za hru (25. 10.) obsadil první místa všech žebříčků. Rozhodnutí: „Ano, založ to issue“ a „Začni issues implementovat.“
+- Hotovo: `StarRating.LeastScoreFor` a `ScoreSim --ceilings` píše ke každému řádku `starFloors` (2, 3 a 4 hvězdy). Nová brána STAR FLOORS hlídá, že hranice sedí přesně tam, kde se hodnocení láme. Strana služby je BS3D-API#16 (55327b6).
+- Ověřeno: tabulka bez `starFloors` je shodná s tabulkou v0.5.0 (140 řádků). 96 skutečných výher na těchto deskách hranice splňuje, 133 výsledků skriptu by služba odmítla.
+- ⚠ Přeladění `StarRating` nepotřebuje zvýšit `RulesVersion`. Služba bere hranice z kterékoli tabulky, která desku jmenuje (`docs/formats-and-tools/score-sim.md`).
+- Otevřené: platí od příštího releasu hry, protože tabulku přikládá `release.yml`.
+
 ## 2026-10-26 — #1023 karta zaseknuté koule — desktop (RDT-PC), Claude Code
 - majitel: kamaráda zmátly pixelovatě průhledné koule. Rozhodnutí: „Implementuj tu kartu tutoriálu, to bude všechno.“ Jiný vzhled dead weight (část 2 issue) se nedělá.
 - Hotovo: karta „This ball is already shot down“ s ditherovanou koulí v barvě koule, která ji spustila. Učí se jednou a čeká za kartou, která už je nahoře. K tomu záznam „Shot down“ na záložce Odd balls v Helpu.
