@@ -87,3 +87,13 @@ The owner's ruling, after an outside player played the whole campaign from the o
   - A shot counts as fired from the lean when precise aim's blend is at least `LEANED_BLEND` (0.5) as it leaves.
   - The counts live for the gameplay screen's life (across levels, not across launches).
 - **The doors:** both places a shot resolves without scoring call `GameplayScreen.OfferAimHint`, after the streak's break: `OnBallLanded` when the award did not score, and `OnShotSpent`. It prints `[aimhint] shown at <s> s: ...` once a showing. Seen in play on Zigzag, with a save that holds the lean and one shot fired into the island.
+
+## The dead weight's card (#1023)
+
+A friend of the owner's saw the balls with pixels missing ([dead weight](dead-weight.md)) and could not tell what they were: the mark had been tuned three times for how it looks and never taught.
+
+- **One card, the first time a ball comes to rest as dead weight:** *"This ball is already shot down"* over *"It just hasn’t fallen yet"*. The ball itself stands where a glyph would, drawn as the map draws dead weight: an ordinary ball with `BallRenderSet.DEAD_DISSOLVE` of it dithered out, not breathing, **in the colour of the ball that fired the card** (`Tutorial.NoteDeadWeight`, `CardBallIsDead`).
+- `Lesson.DeadWeight`, key `deadweight` (**stable**). It belongs to no chapter (`Definition.DeadBall`). It is armed on every level but the benchmark's until taught (`BeginLevel`'s `deadWeightArmed`), and is informational: it holds `INFO_SECONDS` and is recorded. It says what a ball is, so it is not an instructing card, though its words pass the one-thing rule.
+- **It waits behind a card already up**, as the hint does: the ball it is about stays where it came to rest.
+- **The trigger** is `GameplayScreen.OfferDeadWeightCard`, asked every frame; the walk over the released balls is paid only while the card is armed. It fires on the first released ball of kind `Normal` whose `DeadWeight` has reached 1, about 1.15 s after it came to rest (the mark's hold and fade). Only an ordinary ball counts, because only those are dithered (`BallRenderSet.Route`): a stuck special keeps its own look. Never with the Tutorial row off (the card stays armed) or on a decided level. It prints `[deadweight] card fired at <s> s by a <colour> ball`.
+- **The Help page says the same** on the Odd balls tab, last, under a line of its own, with the same dithered ball (`OddBallCopy.DeadName`, `DeadText`).

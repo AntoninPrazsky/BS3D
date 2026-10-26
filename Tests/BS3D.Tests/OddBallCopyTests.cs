@@ -71,5 +71,19 @@ namespace BS3D.Tests
                 Assert.True(entry.Colour != 0, entry.Kind + " needs a colour to be drawn in: a ball of colour zero is dropped in silence");
             }
         }
+
+        /// <summary>The dead weight's entry (#1023), which is not a kind and stands outside the table, is held to the same.</summary>
+        [Fact]
+        public void TheDeadWeightsEntryIsSetLikeTheKinds()
+        {
+            Assert.Null(CopyRules.Fault(OddBallCopy.DeadLead));
+            Assert.Null(CopyRules.Fault(OddBallCopy.DeadName));
+            Assert.Null(CopyRules.Fault(OddBallCopy.DeadText));
+            Assert.True(OddBallCopy.DeadName.Length <= 16, "the dead weight's name is a heading, not a sentence");
+            Assert.False(OddBallCopy.DeadText.StartsWith(OddBallCopy.DeadName, StringComparison.Ordinal));
+            Assert.EndsWith(".", OddBallCopy.DeadText);
+            Assert.True(OddBallCopy.DeadText.Length > 40);
+            Assert.True(OddBallCopy.DeadColour != 0, "a ball of colour zero is dropped in silence");
+        }
     }
 }

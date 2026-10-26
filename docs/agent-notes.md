@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-10-26 — #1023 karta zaseknuté koule — desktop (RDT-PC), Claude Code
+- majitel: kamaráda zmátly pixelovatě průhledné koule. Rozhodnutí: „Implementuj tu kartu tutoriálu, to bude všechno.“ Jiný vzhled dead weight (část 2 issue) se nedělá.
+- Hotovo: karta „This ball is already shot down“ s ditherovanou koulí v barvě koule, která ji spustila. Učí se jednou a čeká za kartou, která už je nahoře. K tomu záznam „Shot down“ na záložce Odd balls v Helpu.
+- Ověřeno naostro: úroveň se sondou (deska na čtyřech pilířích, nad ní skupina na bombě) a `detonate=22`. Skupina zůstane ležet, karta naskočí ~5 s po výbuchu v barvě skupiny. Recept je v `docs/game-feedback/dead-weight.md`.
+- ⚠ Úroveň 110 nese power-upy: akční karta Swap stojí ve frontě až 22 s. Pro snímky `powerups=swap:0,brake:0,cut:0`.
+- Otevřené: `verdict-newcomer`, jestli kartě rozumí nový hráč.
+
 ## 2026-10-25 — #1006 #1012 vydání v0.5.0 — desktop (RDT-PC), Claude Code (bs3d-21)
 - majitel: „Dal jsem všude OK. Udělej release 0.5.0“. Verdikty v42 (#1022 #1018 #1019 #1017 #949 #942) zapsány a zavřeny.
 - Hotovo: **v0.5.0 vydána** (tag na 80c498c0, Release run 40230514007). SHA256SUMS sedí, zip má jednu složku s BS3D.exe a Content/Levels/Music/Sfx, menu staženého buildu ukazuje v0.5.0. Poznámky doplněny o 25. 10. (9f032cc7): benchmark a co posílá, salva nepoužitých koulí, scény, úvody.

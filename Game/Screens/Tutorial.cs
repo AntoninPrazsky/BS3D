@@ -26,7 +26,8 @@ namespace BS3D.Screens
     /// (#666)</b>: the streak and the spare shots' bonus wait for it, so the first chapter is played before it
     /// is explained (<see cref="Definition.Chapter"/>), and past the second chapter the ladder offers nothing —
     /// the first two chapters <i>are</i> the tutorial, which is what the owner asked for. What reaches past them are the
-    /// chapterless cards, of a kind (#735) or a tool (#705) met for the first time.
+    /// chapterless cards, of a kind (#735) or a tool (#705) met for the first time, the first ball left stuck as dead
+    /// weight (#1023), and the precise-aim hint (#1012).
     /// </para>
     /// <para>
     /// <b>Two kinds of lesson, told apart by how they end.</b> An <see cref="Definition.Action"/> lesson stays
@@ -94,6 +95,10 @@ namespace BS3D.Screens
 
             //The precise-aim hint (#1012): a reminder shown again while it is needed - see Definition.Hint
             AimHint,
+
+            //The dead weight's card (#1023): what a ball with pixels missing is, the first time one comes to rest - see
+            //Definition.DeadBall
+            DeadWeight,
         }
 
         /// <summary>What the player's hand was last on, which is what the card draws for.</summary>
@@ -202,6 +207,16 @@ namespace BS3D.Screens
             /// for an action card's timeout.
             /// </summary>
             public bool Hint;
+
+            /// <summary>
+            /// The <b>dead weight's card</b> (#1023): its glyph is a ball as the map draws dead weight (an ordinary ball with
+            /// <c>BallRenderSet.DEAD_DISSOLVE</c> of its pixels dithered out, not breathing), in the colour of the ball that
+            /// fired it (<see cref="NoteDeadWeight"/>). Like a kind card it belongs to no chapter and is taught once per player;
+            /// it is armed on every level the session asks for until then (<see cref="BeginLevel"/>'s <c>deadWeightArmed</c>),
+            /// and, like a hint, it waits behind a card already up: the ball it explains stays where it came to rest, so the
+            /// card is never urgent.
+            /// </summary>
+            public bool DeadBall;
         }
 
         //PromptFont's own codepoints (Game/Content/Fonts/PromptFont.ttf, glyphs.json in its release): the keycaps
@@ -447,6 +462,17 @@ namespace BS3D.Screens
                 PadGlyph = PAD_LEFT_TRIGGER, PadCaption = LEAN_PAD_CAPTION,
                 Praise = "Sharp!",
             },
+
+            //DEAD WEIGHT (#1023), the owner's relay of a friend's playtest of 2026-10-26: the friend saw the balls with pixels
+            //missing (#620's mark) and could not tell what they meant - that a group the cluster has let go of has wedged on
+            //its way down, is shot down and counted, and a shot passes through it (#410). The mark was tuned three times for
+            //how it looks (#342, #412, #620) and never taught. Informational, with the ball itself where a glyph would stand,
+            //drawn as the map draws the one that fired the card
+            new()
+            {
+                Lesson = Lesson.DeadWeight, Key = "deadweight", DeadBall = true, Contextual = true,
+                Caption = "This ball is already shot down", Detail = "It just hasn’t fallen yet",
+            },
         };
 
         /// <summary>A kind card's definition (#735): informational, at no chapter, its glyph the ball.</summary>
@@ -476,8 +502,8 @@ namespace BS3D.Screens
         /// <param name="Glyph">The prompt font's glyphs, or null for none (a kind card's is the ball itself).</param>
         /// <param name="Caption">The big line; the glass lesson's with its cadence put in.</param>
         /// <param name="Detail">The small line, or null.</param>
-        /// <param name="Instructs">The card tells the player to <i>do</i> something: not a kind's card, which says what a
-        /// ball is.</param>
+        /// <param name="Instructs">The card tells the player to <i>do</i> something: not a kind's card or the dead weight's,
+        /// which say what a ball is.</param>
         internal readonly record struct StepCopy(string Key, int Step, bool Pad, string Glyph, string Caption, string Detail, bool Instructs);
 
         /// <summary>
@@ -489,7 +515,7 @@ namespace BS3D.Screens
         {
             foreach (Definition definition in DEFINITIONS)
             {
-                bool instructs = definition.Kind == null;
+                bool instructs = definition.Kind == null && !definition.DeadBall;
                 int step = 0;
 
                 for (Definition face = definition; face != null; face = face.Second, step++)
@@ -623,6 +649,9 @@ namespace BS3D.Screens
         //The colour each kind card's ball is drawn in this level (#735): the first ball of that kind on the map, by kind
         private readonly BallType[] _kindColours = new BallType[KIND_COUNT];
 
+        //The colour the dead weight's card draws its ball in (#1023): the ball that fired it, or zero before one has
+        private BallType _deadColour;
+
         /// <param name="wasTaught">Whether the save records a lesson, by key.</param>
         /// <param name="teach">Records a lesson in the save, by key.</param>
         /// <param name="mode">See <see cref="Mode"/>.</param>
@@ -664,15 +693,33 @@ namespace BS3D.Screens
         internal string Praise => Praising && _card != null ? _card.Praise : null;
 
         /// <summary>
-        /// The kind the card up introduces, or null (#735): the HUD reserves the glyph's place for it and the session draws
-        /// the ball there, live, in the frame - see <see cref="Definition.Kind"/>.
+        /// The kind of the ball the card up draws, or null for a card with none (#735): the HUD reserves the glyph's place for
+        /// it and the session draws the ball there, live, in the frame - see <see cref="Definition.Kind"/>. The kind a kind
+        /// card introduces, and an ordinary ball on the dead weight's card (#1023, <see cref="CardBallIsDead"/>).
         /// </summary>
-        internal BallKind? CardKind => _card?.Kind;
+        internal BallKind? CardKind => _card?.DeadBall == true ? BallKind.Normal : _card?.Kind;
 
-        /// <summary>The colour of the card's ball (<see cref="CardKind"/>): the first one of its kind on this level's map.</summary>
-        internal BallType CardColour => _card?.Kind is BallKind kind && (int)kind < _kindColours.Length && _kindColours[(int)kind] != 0
-            ? _kindColours[(int)kind]
-            : BallType.Type1;
+        /// <summary>
+        /// The colour of the card's ball (<see cref="CardKind"/>): the first one of its kind on this level's map, or on the
+        /// dead weight's card the ball that fired it.
+        /// </summary>
+        internal BallType CardColour
+        {
+            get
+            {
+                if (_card?.DeadBall == true) return _deadColour != 0 ? _deadColour : BallType.Type1;
+
+                return _card?.Kind is BallKind kind && (int)kind < _kindColours.Length && _kindColours[(int)kind] != 0
+                    ? _kindColours[(int)kind]
+                    : BallType.Type1;
+            }
+        }
+
+        /// <summary>
+        /// The card's ball is drawn as dead weight (#1023): dithered as the map dithers a ball that has come to rest above the
+        /// field's floor, and still - see <see cref="Definition.DeadBall"/>.
+        /// </summary>
+        internal bool CardBallIsDead => _card?.DeadBall == true;
 
         /// <summary>
         /// Whether a card is up, arriving, leaving, or still waiting its turn in the queue: the player has something to read or
@@ -828,9 +875,12 @@ namespace BS3D.Screens
         /// <param name="kindsOnMap">The level's map by kind (#735), indexed by <see cref="BallKind"/>: the colour of the first
         /// ball of that kind, or zero for a kind the map does not carry. Its kind cards are offered on any level, chapter or
         /// none.</param>
+        /// <param name="aimHintArmed">Whether the precise-aim hint is armed on this level (#1012).</param>
+        /// <param name="deadWeightArmed">Whether the dead weight's card may be fired on this level (#1023): every level of
+        /// play until it is taught, never the benchmark's.</param>
         internal void BeginLevel(int chapter, int levelInChapter, int chapterLength, int? ceilingStep, bool swapOffered = false,
             bool retry = false, ReadOnlySpan<BallType> kindsOnMap = default, bool brakeOffered = false, bool cutOffered = false,
-            bool aimHintArmed = false)
+            bool aimHintArmed = false, bool deadWeightArmed = false)
         {
             Reset();
 
@@ -851,6 +901,9 @@ namespace BS3D.Screens
             //And the precise-aim hint (#1012), wherever the session arms it - on any level, the ladder's or none; the reel
             //queues it so it can be photographed
             ArmHints(aimHintArmed);
+
+            //And the dead weight's card (#1023), likewise on any level, for the first ball that comes to rest wearing the mark
+            ArmDeadWeight(deadWeightArmed);
 
             if (!_hasLevel)
             {
@@ -946,6 +999,21 @@ namespace BS3D.Screens
             foreach (Definition lesson in DEFINITIONS)
             {
                 if (!lesson.Hint) continue;
+
+                if (_demo) _queue.Add(lesson);
+                else if (armed) _armed.Add(lesson);
+            }
+        }
+
+        /// <summary>
+        /// Arms the dead weight's card (<see cref="Definition.DeadBall"/>, #1023) when the session asks and the player has not
+        /// been taught it, for <see cref="NoteDeadWeight"/> to fire; the reel queues it, drawn in the first colour.
+        /// </summary>
+        private void ArmDeadWeight(bool armed)
+        {
+            foreach (Definition lesson in DEFINITIONS)
+            {
+                if (!lesson.DeadBall || Taught(lesson)) continue;
 
                 if (_demo) _queue.Add(lesson);
                 else if (armed) _armed.Add(lesson);
@@ -1081,8 +1149,11 @@ namespace BS3D.Screens
         /// </summary>
         private static bool OnLadder(Definition lesson, int chapter) => !Chapterless(lesson) && lesson.Chapter == chapter;
 
-        /// <summary>A kind's card (#735) or a tool's (#705): offered where the thing is met, at no chapter of the ladder.</summary>
-        private static bool Chapterless(Definition lesson) => lesson.Kind != null || lesson.Tool || lesson.Hint;
+        /// <summary>
+        /// A kind's card (#735), a tool's (#705), a hint (#1012) or the dead weight's (#1023): offered where the thing is met,
+        /// at no chapter of the ladder.
+        /// </summary>
+        private static bool Chapterless(Definition lesson) => lesson.Kind != null || lesson.Tool || lesson.Hint || lesson.DeadBall;
 
         /// <summary>Drops everything, for a session being torn down under it — and the first thing a new level does.</summary>
         internal void Reset()
@@ -1106,6 +1177,7 @@ namespace BS3D.Screens
             _ceilingCaption = null;
             _repriseWaits = null;
             _repriseRest = float.PositiveInfinity;
+            _deadColour = 0;
 
             _queue.Clear();
             _armed.Clear();
@@ -1497,8 +1569,8 @@ namespace BS3D.Screens
         /// <summary>
         /// A contextual lesson's event has happened. Ignored unless the lesson is armed for this level (so it
         /// fires once a level at most, and never for one already taught); otherwise it goes to the front of
-        /// the queue, and a card already up gives way to it and comes back straight after - a hint (#1012) excepted, which
-        /// is shown after the card up.
+        /// the queue, and a card already up gives way to it and comes back straight after - a hint (#1012) and the dead
+        /// weight's card (#1023) excepted, which are shown after the card up.
         /// </summary>
         internal void Trigger(Lesson lesson)
         {
@@ -1513,10 +1585,24 @@ namespace BS3D.Screens
             _armed.RemoveAt(index);
 
             //The card up returns behind the event's own card - unless that card is a hint (#1012), which waits behind the
-            //card up instead: a reminder never pushes aside a card the player has not read
-            if (!triggered.Hint && _phase is (Phase.Arriving or Phase.Shown)) StepAside();
+            //card up instead: a reminder never pushes aside a card the player has not read. Nor does the dead weight's
+            //(#1023): the ball it is about stays where it came to rest
+            if (!triggered.Hint && !triggered.DeadBall && _phase is (Phase.Arriving or Phase.Shown)) StepAside();
 
             _queue.Insert(0, triggered);
+        }
+
+        /// <summary>
+        /// A ball has come to rest above the field's floor wearing the dead weight's mark (#1023): fires the dead weight's
+        /// card, its ball drawn in <paramref name="colour"/>, if the card is armed on this level - so the first such ball of a
+        /// level is the one the card shows, and a later one changes nothing.
+        /// </summary>
+        internal void NoteDeadWeight(BallType colour)
+        {
+            if (!IsArmed(Lesson.DeadWeight)) return;
+
+            _deadColour = colour;
+            Trigger(Lesson.DeadWeight);
         }
 
         #endregion
