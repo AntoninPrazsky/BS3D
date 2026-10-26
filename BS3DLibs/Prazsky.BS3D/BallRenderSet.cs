@@ -1314,7 +1314,8 @@ namespace Prazsky.BS3D
         //Not much lower than half either — a ball with most of itself intact, standing still, reads as a ball that is
         //already there (the ghost's own remarks say it of a ghost that stood still), which is exactly the mistake a dead
         //ball is there to prevent.
-        internal const float DEAD_DISSOLVE = 0.5f;
+        //Public for the pictures of a dead ball the Game draws beside its words (#1023): the tutorial's card and the Help page
+        public const float DEAD_DISSOLVE = 0.5f;
 
         private readonly ModelInstance[][] _buckets;
         private readonly int[] _counts;

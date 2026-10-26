@@ -616,6 +616,32 @@ namespace BS3D.Screens
         }
 
         /// <summary>
+        /// Fires the dead weight's card (#1023) on the first released ball that wears the mark in full: an ordinary ball whose
+        /// <c>DeadWeight</c> has eased up to 1, so it has stood still above the field's floor for the mark's hold and its
+        /// fade (<c>ClusterCollector</c>, on the draw clock), and the map shows it as the card will. Only an ordinary ball:
+        /// a special kind keeps its own look when it comes to rest (<c>BallRenderSet.Route</c> dithers the ordinary ones), so
+        /// it is not the ball the card explains. The card's ball is drawn in its colour. Asked every frame, and the walk over
+        /// the released balls is paid only while the card is armed, which is until a player has been taught it; never with
+        /// the Tutorial row off (it stays armed) or on a decided level.
+        /// </summary>
+        private void OfferDeadWeightCard()
+        {
+            if (LevelDecided || !Game.IsTutorialEnabled || !_tutorial.IsArmed(Tutorial.Lesson.DeadWeight)) return;
+
+            for (int i = 0; i < _fallingBalls.Count; i++)
+            {
+                PhysicsBall ball = _fallingBalls[i];
+                if (ball.Kind != BallKind.Normal || ball.DeadWeight < 1f) continue;
+
+                _tutorial.NoteDeadWeight(ball.Type);
+
+                //Once a player, at most once a level for the testing arguments
+                Console.WriteLine(FormattableString.Invariant($"[deadweight] card fired at {WallClock:F2} s by a {ball.Type} ball"));
+                return;
+            }
+        }
+
+        /// <summary>
         /// A shot has just resolved without scoring, and the streak the readout showed was <paramref name="lost"/> (#845).
         /// Above ×1 that is a break, and the player is told (the badge cracks and shatters, "×5 lost", the falling run)
         /// unless the level is decided or its last shot is spent: there the break would play over the result, so the badge

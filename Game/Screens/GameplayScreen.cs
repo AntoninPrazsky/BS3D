@@ -553,6 +553,11 @@ namespace BS3D.Screens
         /// shutter pose is the one that projects to the very pixel it stands on now, precise aim's pinned pose for the barrel
         /// (<see cref="AgainstCamera"/>). Leaned in, the frame's soft periphery (#214) still takes it with the scenery.
         /// </para>
+        /// <para>
+        /// The dead weight's card (#1023) draws an ordinary ball the way the map draws dead weight: in the colour of the ball
+        /// that fired the card, with <see cref="BallRenderSet.DEAD_DISSOLVE"/> of it dithered out and still, so the ball on the
+        /// card is the ball the player is looking at in the cluster.
+        /// </para>
         /// </summary>
         private void CollectTutorialBall(BallDrawFrame frame, float hudOpacity)
         {
@@ -576,7 +581,9 @@ namespace BS3D.Screens
             world.M42 = position.Y;
             world.M43 = position.Z;
 
-            frame.Add(_tutorial.CardColour, position, world, BallRenderSet.UNOCCLUDED, kind: kind,
+            bool dead = _tutorial.CardBallIsDead;
+            frame.Add(_tutorial.CardColour, position, world, BallRenderSet.UNOCCLUDED,
+                dissolve: dead ? BallRenderSet.DEAD_DISSOLVE : 0f, still: dead, kind: kind,
                 shutterWorld: _motionThisFrame ? world * _motionPinnedBack : default);
         }
 
@@ -1718,6 +1725,9 @@ namespace BS3D.Screens
             //kick, and the rating's chime at its root — because the card is a small dare and doing it wins it.
             //The wildcard's card (#735) is the first one at the muzzle's: armed until taught, so this fires it once
             if (_magazine.Slot(0).Kind == BallKind.Wildcard) _tutorial.Trigger(Tutorial.Lesson.KindWildcard);
+
+            //And the dead weight's (#1023), the first ball to come to rest wearing the mark
+            OfferDeadWeightCard();
 
             _tutorial.Update(elapsed, Game.IsTutorialEnabled, CameraTakeoverEngaged, LevelDecided);
 

@@ -1128,5 +1128,87 @@ namespace BS3D.Tests
 
             Assert.Equal(new[] { BallKind.Bomb }, KindsShown(finished, MapWith(BallKind.Bomb), chapter, levelInChapter, length));
         }
+
+        //THE DEAD WEIGHT'S CARD (#1023)
+
+        private const string DEAD_WEIGHT = "This ball is already shot down";
+        private const string BOMB = "Land a ball beside a bomb to set it off";
+
+        /// <summary>
+        /// Begins a level the ladder does not reach (chapter −1) with the dead weight's card armed or not, steps it through and
+        /// returns every caption shown, in order. From frame <paramref name="deadAt"/> on (never when negative) a dead ball is
+        /// reported every frame, as the session reports one for as long as it lies there: the first of <paramref name="colour"/>,
+        /// every later one of the first colour. <paramref name="drawn"/> is the colour the card's ball was drawn in, zero if none.
+        /// </summary>
+        private static List<string> DeadWeightShown(Tutorial tutorial, int deadAt, BallType colour, out BallType drawn,
+            bool armed = true, BallType[] map = null)
+        {
+            tutorial.BeginLevel(-1, 0, 10, ceilingStep: 6, kindsOnMap: map ?? MapWith(), deadWeightArmed: armed);
+
+            List<string> shown = new();
+            drawn = 0;
+            for (int frame = 0; frame < 4000; frame++)
+            {
+                if (deadAt >= 0 && frame >= deadAt) tutorial.NoteDeadWeight(frame == deadAt ? colour : BallType.Type1);
+                tutorial.Update(0.1f, enabled: true, takeoverEngaged: false, levelDecided: false);
+
+                //The card's ball is an ordinary one, dithered: the HUD keeps it a square because it has a kind
+                if (tutorial.CardBallIsDead)
+                {
+                    Assert.Equal(BallKind.Normal, tutorial.CardKind);
+                    drawn = tutorial.CardColour;
+                }
+
+                string caption = tutorial.Caption;
+                if (caption != null && (shown.Count == 0 || shown[^1] != caption)) shown.Add(caption);
+            }
+
+            return shown;
+        }
+
+        /// <summary>
+        /// The dead weight's card waits for a dead ball, shows it in that ball's colour (the first one's, not a later one's), and
+        /// is taught once: armed on every level until a player has read it, then never again.
+        /// </summary>
+        [Fact]
+        public void TheDeadWeightsCardWaitsForADeadBallAndIsTaughtOnce()
+        {
+            HashSet<string> save = new();
+            Tutorial tutorial = Fresh(save);
+
+            Assert.Empty(DeadWeightShown(tutorial, deadAt: -1, BallType.Type5, out _));
+            Assert.DoesNotContain("deadweight", save);
+
+            Assert.Equal(new[] { DEAD_WEIGHT }, DeadWeightShown(tutorial, deadAt: 30, BallType.Type5, out BallType drawn));
+            Assert.Equal(BallType.Type5, drawn);
+            Assert.Contains("deadweight", save);
+
+            Assert.Empty(DeadWeightShown(tutorial, deadAt: 30, BallType.Type5, out _));
+        }
+
+        /// <summary>A level the session does not arm it on - the benchmark's - shows no card for a dead ball, and teaches nothing.</summary>
+        [Fact]
+        public void TheDeadWeightsCardIsShownOnlyWhereTheSessionArmsIt()
+        {
+            HashSet<string> save = new();
+
+            Assert.Empty(DeadWeightShown(Fresh(save), deadAt: 30, BallType.Type5, out _, armed: false));
+            Assert.Empty(save);
+        }
+
+        /// <summary>
+        /// A dead ball under a card already up does not push it aside (the hint's rule, #1012): the card up is read out, the
+        /// dead weight's follows it, and the card up does not come back a second time.
+        /// </summary>
+        [Fact]
+        public void TheDeadWeightsCardWaitsBehindTheCardUp()
+        {
+            Tutorial tutorial = Fresh(new HashSet<string>());
+
+            //The bomb's card is queued at the level's start and up from about frame 9 (FIRST_CARD_DELAY)
+            Assert.Equal(new[] { BOMB, DEAD_WEIGHT },
+                DeadWeightShown(tutorial, deadAt: 20, BallType.Type2, out BallType drawn, map: MapWith(BallKind.Bomb)));
+            Assert.Equal(BallType.Type2, drawn);
+        }
     }
 }

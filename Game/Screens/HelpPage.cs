@@ -54,7 +54,8 @@ namespace BS3D.Screens
     /// table is <see cref="OddBallCopy"/> and a test holds it to every kind (#895): the ten the cluster holds, and the two
     /// the cannon holds under a line of their own — the rainbow ball and the Cutter, drawn as they sit loaded in the gun.
     /// The rainbow ball cycles its colours here on a cycle of the page's own (<see cref="_cycle"/>), since only a session
-    /// steps the game's.
+    /// steps the game's. Last, outside the table, the dead weight (#1023): a ball the cluster let go of that stuck on its
+    /// way down, drawn with its pixels dithered out as the map draws it.
     /// </para>
     /// </summary>
     internal sealed class HelpPage : MenuPage
@@ -391,41 +392,67 @@ namespace BS3D.Screens
             for (int i = 0; i < _ballSquares.Length; i++)
             {
                 OddBallCopy.Entry entry = OddBallCopy.Entries[i];
-                Rectangle square = OnDesktop(_ballSquares[i]);
-                if (!square.Intersects(_ballFrameRect) || (BS3DGame.PotatoPath && !_ballFrameRect.Contains(square))) continue;
-
-                //The square's centre and half-height in the frame's normalised coordinates (x and y −1..1, y up)
-                float cx = (square.X + square.Width * 0.5f) / _ballBufferWidth * 2f - 1f;
-                float cy = 1f - (square.Y + square.Height * 0.5f) / _ballBufferHeight * 2f;
-                float radius = square.Height / _ballBufferHeight * BALL_FILL;
-
-                //The point on the ray through the square at the chosen depth, in view space and then in the world
-                Vector3 inView = new(cx * BALL_DEPTH / _ballProjection.M11, cy * BALL_DEPTH / _ballProjection.M22, -BALL_DEPTH);
-                Vector3 position = Vector3.Transform(inView, _ballToWorld);
-                float worldRadius = radius * BALL_DEPTH / _ballProjection.M22;
-
-                //Sized, turned about the camera's up, then the whole tilted about its right, so the axis leans towards
-                //the viewer and the top of the ball is seen as well as its side
-                Matrix world = Matrix.CreateScale(worldRadius / Constants.HALF)
-                    * Matrix.CreateFromAxisAngle(_ballToWorld.Up, _ballSpin + i * BALL_PHASE)
-                    * Matrix.CreateFromAxisAngle(_ballToWorld.Right, BALL_TILT);
+                if (!TryPlaceBall(_ballSquares[i], i, out Vector3 position, out Matrix world, out float worldRadius)) continue;
 
                 //The Cutter's saw takes its frame from the round's own, which in the gun is the barrel's (#767's verdict,
                 //BallRenderSet.CutterFrame), and turns itself: the page's turntable would swing its face away. So it is
                 //handed a barrel's frame as the bore holds one, away from the viewer and up by the rise the overview lens
                 //sees a loaded round's bore at
                 if (entry.Kind == BallKind.Cutter)
+                {
                     world = Matrix.CreateScale(worldRadius / Constants.HALF) * Matrix.CreateWorld(Vector3.Zero,
                         Vector3.Normalize(_ballToWorld.Forward + _ballToWorld.Up * CUTTER_BORE_RISE), _ballToWorld.Up);
-
-                world.M41 = position.X;
-                world.M42 = position.Y;
-                world.M43 = position.Z;
+                    world.M41 = position.X;
+                    world.M42 = position.Y;
+                    world.M43 = position.Z;
+                }
 
                 //The cannon's two as they sit loaded in it (#895): still, so the rainbow ball does not breathe and the Cutter's
                 //blade idles at its loaded rate - the look the player will see in the bore, which is what this entry is for
                 balls.Add(entry.Colour, position, world, BallRenderSet.UNOCCLUDED, still: entry.InGun, kind: entry.Kind);
             }
+
+            //The dead weight (#1023) as the map draws it: an ordinary ball with its pixels dithered out, and still, since a
+            //ball the cluster has let go of does not breathe (#473)
+            if (TryPlaceBall(_deadSquare, _ballSquares.Length, out Vector3 deadAt, out Matrix deadWorld, out _))
+                balls.Add(OddBallCopy.DeadColour, deadAt, deadWorld, BallRenderSet.UNOCCLUDED, dissolve: BallRenderSet.DEAD_DISSOLVE,
+                    still: true);
+        }
+
+        /// <summary>
+        /// Where the ball of the square <paramref name="square"/> hangs (#856), its <paramref name="phase"/>th turntable's,
+        /// or false for a square scrolled wholly past the frame (or, on the Potato path, partly past it).
+        /// </summary>
+        private bool TryPlaceBall(Panel square, int phase, out Vector3 position, out Matrix world, out float worldRadius)
+        {
+            position = default;
+            world = default;
+            worldRadius = 0f;
+            if (square == null) return false;
+
+            Rectangle at = OnDesktop(square);
+            if (!at.Intersects(_ballFrameRect) || (BS3DGame.PotatoPath && !_ballFrameRect.Contains(at))) return false;
+
+            //The square's centre and half-height in the frame's normalised coordinates (x and y −1..1, y up)
+            float cx = (at.X + at.Width * 0.5f) / _ballBufferWidth * 2f - 1f;
+            float cy = 1f - (at.Y + at.Height * 0.5f) / _ballBufferHeight * 2f;
+            float radius = at.Height / _ballBufferHeight * BALL_FILL;
+
+            //The point on the ray through the square at the chosen depth, in view space and then in the world
+            Vector3 inView = new(cx * BALL_DEPTH / _ballProjection.M11, cy * BALL_DEPTH / _ballProjection.M22, -BALL_DEPTH);
+            position = Vector3.Transform(inView, _ballToWorld);
+            worldRadius = radius * BALL_DEPTH / _ballProjection.M22;
+
+            //Sized, turned about the camera's up, then the whole tilted about its right, so the axis leans towards
+            //the viewer and the top of the ball is seen as well as its side
+            world = Matrix.CreateScale(worldRadius / Constants.HALF)
+                * Matrix.CreateFromAxisAngle(_ballToWorld.Up, _ballSpin + phase * BALL_PHASE)
+                * Matrix.CreateFromAxisAngle(_ballToWorld.Right, BALL_TILT);
+            world.M41 = position.X;
+            world.M42 = position.Y;
+            world.M43 = position.Z;
+
+            return true;
         }
 
         /// <summary>
@@ -515,8 +542,9 @@ namespace BS3D.Screens
         }
 
         //The squares the kinds' live balls are drawn in (#856), one per entry of OddBallCopy.Entries and at the entry's index,
-        //built with the tree; DrawForeground reads where each stands
+        //built with the tree; DrawForeground reads where each stands. And the dead weight's (#1023), after them
         private readonly Panel[] _ballSquares = new Panel[OddBallCopy.Entries.Length];
+        private Panel _deadSquare;
 
         private void BuildBalls(VerticalStackPanel column)
         {
@@ -530,6 +558,10 @@ namespace BS3D.Screens
             column.Widgets.Add(Paragraph(OddBallCopy.GunLead));
             AddOddBalls(column, inGun: true);
 
+            //And the dead weight (#1023), a ball of any colour on its way out rather than a kind, under a line of its own
+            column.Widgets.Add(Paragraph(OddBallCopy.DeadLead));
+            column.Widgets.Add(BallRow(out _deadSquare, OddBallCopy.DeadName, OddBallCopy.DeadText));
+
             column.Widgets.Add(Aside("And the power-ups — the Swap, the Brake and the Cut — are on the Controls tab.", ProseWidth));
         }
 
@@ -541,27 +573,33 @@ namespace BS3D.Screens
         /// </summary>
         private void AddOddBalls(VerticalStackPanel column, bool inGun)
         {
-            int square = Scaled(BALL_SQUARE), gap = Scaled(BALL_GAP);
-
             for (int i = 0; i < OddBallCopy.Entries.Length; i++)
             {
                 if (OddBallCopy.Entries[i].InGun != inGun) continue;
 
-                HorizontalStackPanel row = new() { Spacing = gap, HorizontalAlignment = HorizontalAlignment.Left };
-
-                //With the paragraph's own gap under it, so an entry of one line is not a row the next square touches
-                _ballSquares[i] = new Panel
-                {
-                    Width = square,
-                    Height = square,
-                    VerticalAlignment = VerticalAlignment.Top,
-                    Margin = new Thickness(0, 0, 0, ParagraphGap),
-                };
-                row.Widgets.Add(_ballSquares[i]);
-                row.Widgets.Add(Headed(OddBallCopy.Entries[i].Name, OddBallCopy.Entries[i].Text, ProseWidth - square - gap));
-
-                column.Widgets.Add(row);
+                column.Widgets.Add(BallRow(out _ballSquares[i], OddBallCopy.Entries[i].Name, OddBallCopy.Entries[i].Text));
             }
+        }
+
+        /// <summary>One entry with its ball (#856): the square at the left, the heading and the words beside it.</summary>
+        private Widget BallRow(out Panel ballSquare, string name, string text)
+        {
+            int square = Scaled(BALL_SQUARE), gap = Scaled(BALL_GAP);
+
+            HorizontalStackPanel row = new() { Spacing = gap, HorizontalAlignment = HorizontalAlignment.Left };
+
+            //With the paragraph's own gap under it, so an entry of one line is not a row the next square touches
+            ballSquare = new Panel
+            {
+                Width = square,
+                Height = square,
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(0, 0, 0, ParagraphGap),
+            };
+            row.Widgets.Add(ballSquare);
+            row.Widgets.Add(Headed(name, text, ProseWidth - square - gap));
+
+            return row;
         }
 
         private void BuildCampaign(VerticalStackPanel column)
