@@ -54,7 +54,7 @@ namespace BS3D.Screens
     /// table is <see cref="OddBallCopy"/> and a test holds it to every kind (#895): the ten the cluster holds, and the two
     /// the cannon holds under a line of their own — the rainbow ball and the Cutter, drawn as they sit loaded in the gun.
     /// The rainbow ball cycles its colours here on a cycle of the page's own (<see cref="_cycle"/>), since only a session
-    /// steps the game's. Last, outside the table, the dead weight (#1023): a ball the cluster let go of that stuck on its
+    /// steps the game's. After them, outside the table, the dead weight (#1023): a ball the cluster let go of that stuck on its
     /// way down, drawn with its pixels dithered out as the map draws it.
     /// </para>
     /// </summary>

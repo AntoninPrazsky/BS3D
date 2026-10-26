@@ -635,7 +635,7 @@ namespace BS3D.Screens
 
                 _tutorial.NoteDeadWeight(ball.Type);
 
-                //Once a player, at most once a level for the testing arguments
+                //Once a player: a card cut short before it was read out comes back on a later level, and the tutorial argument fires it once a run
                 Console.WriteLine(FormattableString.Invariant($"[deadweight] card fired at {WallClock:F2} s by a {ball.Type} ball"));
                 return;
             }

@@ -20,7 +20,7 @@ A group the cluster has let go of usually falls into the drain. On some map shap
 ## How it is taught
 
 - **The tutorial's card, once per player** (#1023, "The dead weight's card" in [the tutorial](tutorial.md)): the first ordinary ball to wear the mark in full fires *"This ball is already shot down"* / *"It just hasn’t fallen yet"*, with a ball drawn beside it as the map draws this one, in its colour.
-- **The Help page's Odd balls tab**, last, under a line of its own: *Shot down*, with the same dithered ball in its square (`OddBallCopy.DeadName`/`DeadText`, `HelpPage.CollectBalls`). It is not a kind, so it is not an entry of the kinds' table.
+- **The Help page's Odd balls tab**, after the two kinds the cannon holds, under a line of its own: *Shot down*, with the same dithered ball in its square (`OddBallCopy.DeadName`/`DeadText`, `HelpPage.CollectBalls`). It is not a kind, so it is not an entry of the kinds' table.
 
 ## Making one in a scripted run
 
