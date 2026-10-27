@@ -1,28 +1,86 @@
 {
-    "file":  "theme-bigtop-carousel.wav",
-    "created":  "2026-10-02",
-    "issue":  690,
-    "family":  "bigtop",
-    "chapter":  "The Big Top (circus, #690) - in Colossus\u0027s style (#292: the eurodance Pulse it played then), a carnival colour over a dance groove, A minor",
-    "purpose":  "Master of Game/Music/bigtop-carousel.ogg, one of the bigtop family\u0027s recordings (#690): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-690.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "Italo dance instrumental: drum machine, bouncy octave synth bass, merry-go-round organ melody, glittering arpeggios, warm and nostalgic, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording, polka, oompah brass band, marching band",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  120,
-                    "keyscale":  "A minor",
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-690\\theme-bigtop-carousel.wav: 96.0s loop = source 5.85s..101.85s (48.00 bars at 120.0 bpm), crossfade 1.00s | context match 0.636 (best 0.682) | crossfade rhythm r=0.79 vs the track a bar later r=0.87: in time | spectrum cos=0.63"
-                 ],
-    "measured":  "generate-music.ps1 end to end 61.5 s (ace-lm + ace-synth + loop cut)",
-    "rendered":  true
+  "file": "theme-bigtop-carousel.wav",
+  "created": "2026-10-27",
+  "issue": 912,
+  "family": "bigtop",
+  "chapter": "The Big Top",
+  "purpose": "Master of Game/Music/bigtop-carousel.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>. The master stays outside the repository (C:/Users/panrd/AI/output/masters-909-chosen on the desktop, with its .raw.wav; this is candidate c3, theme-bigtop-carousel-c3 in masters-909, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-r.ps1 (#909-#917, adapted from the #908 batch) -> Tools/Generation/generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Modern Italo-disco synth-pop instrumental: bouncy octave synth bass, crisp punchy electronic drums, a bright catchy analog synth lead melody in the middle register, warm electric piano chords, glittering soft arpeggios, a big build-up into a soaring euphoric peak with wide supersaw chords, warm and nostalgic, confident and sincere from the first bar, glossy modern production, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar, no vocals",
+    "lm_negative_prompt": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, out of tune, detuned, dissonance, clashing notes, atonal, ambient drone, free tempo, rubato, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, distorted bass, white noise, hiss, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, tambourine, shakers, long drum-only sections, drum solo, one-bar loop, repetitive loop, polka, oompah brass band, marching band, circus music, carnival organ, calliope organ, merry-go-round organ, parody, oriental scale, middle eastern scale, arabic, harmonic minor, exotic scale, plucked strings, pizzicato strings, glockenspiel, xylophone, squeaky, shrill, whistle, sparkling bells, high stabs, shrill high synth shots, pitch bends",
+    "instrumental": true,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 120,
+    "keyscale": "A minor",
+    "seed": 2095447540,
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-bigtop-carousel-c3.wav: 64.0s loop = source 14.45s..78.45s (32.00 bars at 120.0 bpm), crossfade 1.00s | context match 0.731 (best 0.732) | crossfade rhythm r=0.78 vs the track a bar later r=0.87: in time | spectrum cos=0.71"
+  ],
+  "lm_check": {
+    "request0_captured": true,
+    "caption_verbatim": true,
+    "seed_in_request0": 2095447540,
+    "bpm_in_request0": 120,
+    "keyscale_in_request0": "A minor",
+    "duration_in_request0": 120.0,
+    "lyrics_in_request0": "[Instrumental]"
+  },
+  "measured": "generate-music.ps1 end to end 89,2 s (ace-lm + ace-synth + loop cut), exit 0",
+  "rendered": true,
+  "chosen": {
+    "candidate": "c3",
+    "round": 1,
+    "of": [
+      "c3",
+      "c1",
+      "c2"
+    ],
+    "why": "Chosen by measurement beside the ember family in one measure-music.py run, then the owner's ear: 12.6 % in 200 Hz-2 kHz, 10.9 % in 300 Hz-4 kHz, 3.8 % above 6 kHz, tonal mid 69 %, 3.05 held-note changes a second, tempo wander 0.04 %, wobble 2.7 / detune 2.0 cents, 7.5 short gaps a minute, the opening repeats for 2.0 s, 0.0 % of held notes out of key; a 64.0 s loop at 120.0 bpm, cut context 0.731, crossfade rhythm r 0.78 against 0.87 a bar later, spectrum cosine 0.71, quietest 2 s 16.2 dB under the loud level, 14 % of the loop 10 dB under it. Outside ember's range: above6k 3.8. The Clowns recipe (#690): oriental scale, parody, circus organ and calliope in the negative.",
+    "how": "Tools/Generation/measure-music.py --reference ember with ember in the same run, the documented gates (docs/game-feedback/music-generation.md, 'Choosing a candidate'), then the owner's listening page (2026-10-27)."
+  },
+  "alternatives": [
+    {
+      "candidate": "c1",
+      "round": 1,
+      "seed": 95282570,
+      "bpm": 120,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-bigtop-carousel-c1.wav: 80.0s loop = source 18.70s..98.70s (40.00 bars at 120.0 bpm), crossfade 1.00s | context match 0.946 (best 0.994) | crossfade rhythm r=0.99 vs the track a bar later r=0.88: in time | spectrum cos=0.99"
+      ],
+      "refused_or_not_chosen": "out: short gaps 41.2/min",
+      "caption": "same brief"
+    },
+    {
+      "candidate": "c2",
+      "round": 1,
+      "seed": 2100188611,
+      "bpm": 120,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-bigtop-carousel-c2.wav: 66.0s loop = source 13.45s..79.45s (33.00 bars at 120.0 bpm), crossfade 1.00s | context match 0.946 (best 0.995) | crossfade rhythm r=0.99 vs the track a bar later r=0.92: in time | spectrum cos=0.99"
+      ],
+      "refused_or_not_chosen": "out: short gaps 99.1/min",
+      "caption": "same brief"
+    }
+  ],
+  "replaces": {
+    "issue": 690,
+    "created": "2026-10-02",
+    "caption": "Italo dance instrumental: drum machine, bouncy octave synth bass, merry-go-round organ melody, glittering arpeggios, warm and nostalgic, no vocals",
+    "negative": "vocals, singing, audience applause, crowd noise, live recording, polka, oompah brass band, marching band",
+    "seed": null,
+    "bpm": 120,
+    "keyscale": "A minor",
+    "loop_log": [
+      "Wrote C:\\Users\\panrd\\AI\\output\\masters-690\\theme-bigtop-carousel.wav: 96.0s loop = source 5.85s..101.85s (48.00 bars at 120.0 bpm), crossfade 1.00s | context match 0.636 (best 0.682) | crossfade rhythm r=0.79 vs the track a bar later r=0.87: in time | spectrum cos=0.63"
+    ],
+    "why_replaced": "Owner 2026-10-16: 'like a parody, but then tries for seriousness ... oriental and a bit amateurish, poor'."
+  }
 }
