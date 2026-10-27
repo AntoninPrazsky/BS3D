@@ -147,6 +147,12 @@ namespace BS3D.Tests
         [InlineData(60, -1f, 1f)]
         [InlineData(60, 0f, -1f)]
         [InlineData(60, float.NaN, 1f)]
+        [InlineData(60, 0f, float.NaN)]
+        [InlineData(60, float.PositiveInfinity, 1f)]
+        [InlineData(60, 0f, float.PositiveInfinity)]
+        [InlineData(60, 1e10f, 1f)]
+        [InlineData(60, 0f, 1e10f)]
+        [InlineData(60, CapturePlan.MAX_SECONDS + 1f, 1f)]
         public void ArgumentsThatCannotBeFilmedAreRefused(int fps, float from, float seconds) =>
             Assert.Throws<ArgumentOutOfRangeException>(() => new CapturePlan(fps, from, seconds));
     }

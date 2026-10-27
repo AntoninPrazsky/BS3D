@@ -52,7 +52,9 @@ namespace BS3D
                 {
                     BS3D.Capture.CaptureRun.Create(options);
                 }
-                catch (Exception ex) when (ex is FormatException or ArgumentException or System.IO.IOException or UnauthorizedAccessException)
+                //NotSupportedException is Path.GetFullPath's answer to a colon past the drive (capture=C:\a:b)
+                catch (Exception ex) when (ex is FormatException or ArgumentException or System.IO.IOException or UnauthorizedAccessException
+                    or NotSupportedException)
                 {
                     Console.WriteLine($"[capture] refused: {ex.Message}");
                     Environment.ExitCode = 2;
