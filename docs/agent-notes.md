@@ -20,6 +20,14 @@ Pravidla:
 
 ---
 
+## 2026-10-27 — #1030 pořadí čipů klávesa – ikona – popisek — desktop (RDT-PC), Claude Code (Sonnet 5.5)
+- Hotovo: #991 pověsil piktogram vlevo od sloupce kláves, řádek četl ikona – klávesa – text. `ChipColumnLayout` má třetí sloupec (`IconLeft`), `DrawChip` kreslí ikonu mezi klávesou a popiskem, šířka řádku se nemění. `ChipColumnLayoutTests` pinují pořadí a šířku (s rozbitou mezerou padají tři). Před/po na Pennantu 1920x1080, klávesnice i pad: pořadí sedí.
+- Otevřené: `verdict-eye`, přijde na další stránku verdiktů; spuštění `BS3D.exe play level=Pennant powerups=swap:2,brake:1,cut:1`.
+
+## 2026-10-27 — #none výchozí endpoint lokálního modelu je 8765 — desktop (RDT-PC), Claude Code (Sonnet 5.5)
+- Hotovo: `Tools/SemanticSearch` a skripty skillů mají výchozí `http://localhost:8765/v1` (Base URL v Bionicu). Port 1234 a okolí Windows vyhrazuje (`netsh interface ipv4 show excludedportrange protocol=tcp`), server tam hlásí `EACCES`.
+- ⚠ `lms status` a `lms ps` se dívají na vlastní port a hlásí `OFF`, i když server na 8765 běží; model se při prvním dotazu načte sám. Zkoušej `/api/v0/models`. Podrobnosti ve skillu `local-ai`.
+
 ## 2026-10-27 — #1026 tabulka APU po v0.5.0, alokace jeskyně — notebook (ThinkPad), Claude Code (github-4d)
 - Hotovo: tabulka v `quality-measurements.md` přeměřena na APU, v0.5.0 vedle v0.4.0, `Low` i `Medium`, 15 levelů. Na `Low` jsou nově přes 16,1 ms polární záře (+3,76, #963), jeskyně (+2,29) a louka (+3,20, první kapitola). Navazují #1027 #1028 #1029. Na `Medium` záře +8,68 a louka +5,42.
 - Hotovo: jeskyně alokovala 48 B na snímek. Lambda v `StartDetail` zachytávala parametr, closure tak vznikala před časným `return`. Teď 0 B (e5462816).
