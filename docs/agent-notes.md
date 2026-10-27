@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-10-27 — #909–#917 hudba šesti kapitol, hlasy, styl interpreta — desktop (RDT-PC), Claude Code (bs3d-8a)
+- majitel: Přelud podle nápadu (a), dream pop na čistou kytaru. #912: Finale zůstává.
+- Hotovo: 130 renderů ve třech kolech, 0 pádů. Přegenerováno 25 nahrávek (#909–#915) s novými bubnovými vrstvami. Trance zůstal, žádný kandidát nebyl lepší. Stránka verdiktů https://claude.ai/artifact/HPBD23MLMSRKjesaVd9usk (db `verdicts`, klíč je jméno skladby).
+- ⚠ Taneční styly mají krátké mezery, dokud zadání nedrží akordy přes každý takt. Pomohlo zadání Clowns s „lush sustained supersaw chords … holding through every bar“ a gate/sidechain v negativu (`music-generation.md`).
+- ⚠ Hlas: blok slabik místo `[Instrumental]` dá hlas spolehlivě, samotný popis ne vždy. `vocal-share.py` vokodér nevidí.
+- Otevřené: verdikty z ucha. #917: slepý test na stránce, jména interpretů měření neodliší.
+
 ## 2026-10-27 — #1027 ořez vzdáleného lesa polární záře — notebook (ThinkPad), Claude Code (github-4d)
 - Hotovo: v Testbedu nový číselník `aurora=` (vrstvy záře) pro `alt=`. Sonda na APU v nastavení `Low`: prstence vzdáleného lesa 2,54 + 2,50 ms, osázený les 2,27, obloha 2,05.
 - Hotovo: prstence se kreslí jen v sektorech, kam kamera vidí (32 sektorů podle azimutu, kvádr na sektor, kreslení od `baseInstance`). Umbrella na `Low` 17,78 → 14,39 ms (v0.4.0 14,27), Fish 18,07 → 14,71, na `Medium` −3,05 / −3,37. Poušť beze změny. Snímky z pěti pohledů se liší jen vločkami.
