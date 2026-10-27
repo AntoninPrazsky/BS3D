@@ -2394,7 +2394,7 @@ namespace BS3D.Screens
             if (brakeCharges >= 0) captionColumn = MathF.Max(captionColumn, captionFont.MeasureString(_brakeText).X);
             if (cutCharges >= 0) captionColumn = MathF.Max(captionColumn, captionFont.MeasureString(_cutText).X);
 
-            ChipColumnLayout layout = ChipColumnLayout.Compute(viewport.Width - margin, _chipGlyphColumn, captionColumn,
+            ChipColumnLayout layout = ChipColumnLayout.Compute(viewport.Width - margin, _chipGlyphColumn, _chipIconSize, captionColumn,
                 Scaled(HUD_SWAP_GLYPH_GAP));
 
             int row = 0;
@@ -2501,8 +2501,9 @@ namespace BS3D.Screens
 
         /// <summary>
         /// One power-up chip on <paramref name="row"/> above the magazine (0 nearest it), <see cref="DrawSwap"/>'s subject:
-        /// its keycap centred in the shared column and its caption from the shared left edge (<see cref="ChipColumnLayout"/>,
-        /// #694), so the keycaps of every chip stand in one column whatever their captions say.
+        /// its keycap centred in the shared column, its pictogram after it and its caption from the shared left edge
+        /// (<see cref="ChipColumnLayout"/>, #694, #1030), so the keycaps of every chip stand in one column whatever their
+        /// captions say.
         /// </summary>
         /// <param name="hint">How brightly the chip is pointing at itself (#845, the Swap's hint), 0 for not at all: an amber
         /// halo behind the keycap and the words, and both tinted towards the amber, by this much.</param>
@@ -2553,12 +2554,13 @@ namespace BS3D.Screens
             DrawString(glyphFont, glyph, glyphAt, glyphColour, 1f);
             DrawString(captionFont, text, captionAt, captionColour, 1f);
 
-            //The pictogram (#991) left of the keycap's column, centred on the keycap's ink, in the keycap's own colour and state:
-            //its soft backing, its offset shadow, then the picture, as the chip's words are drawn
+            //The pictogram (#991) between the keycap's column and the caption (#1030: key, picture, word), centred on the
+            //keycap's ink, in the keycap's own colour and state: its soft backing, its offset shadow, then the picture, as the
+            //chip's words are drawn. The texture carries a clear margin round the ink, which the layout's column does not count.
             Texture2D icon = _chipIcons[(int)kind];
             if (icon != null)
             {
-                Vector2 iconAt = new(MathF.Round(layout.GlyphColumnLeft - Scaled(HUD_SWAP_GLYPH_GAP) - _chipIconSize - _chipIconPad),
+                Vector2 iconAt = new(MathF.Round(layout.IconLeft - _chipIconPad),
                     MathF.Round(glyphTop + _chipGlyphInkCentre - _chipIconSize * 0.5f - _chipIconPad));
                 for (int i = 0; i < HUD_BACKING_PASSES; i++)
                     _game.OverlayBatch.Draw(_chipIconBackings[(int)kind], iconAt, HUD_BACKING * alpha);
