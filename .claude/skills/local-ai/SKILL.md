@@ -1,15 +1,15 @@
 ---
 name: local-ai
-description: Use the local AI models LM Studio serves on the owner's desktop — rank GitHub issues by meaning before filing one (Tools/SemanticSearch), and ask Gemma 4 what changed between two screenshots or about a cropped detail (vision.ps1). Load before filing an issue or before comparing a batch of captures by eye, and only when LM Studio answers on localhost:1234.
+description: Use the local AI models LM Studio serves on the owner's desktop — rank GitHub issues by meaning before filing one (Tools/SemanticSearch), and ask Gemma 4 what changed between two screenshots or about a cropped detail (vision.ps1). Load before filing an issue or before comparing a batch of captures by eye, and only when LM Studio answers on localhost:8765.
 ---
 
 # Local AI on the desktop (LM Studio)
 
-The owner's desktop runs **LM Studio** with an OpenAI-compatible server at `http://localhost:1234` (the RX 6900 XT has 16 GB). Other machines, the laptop included, probably do not — **check before relying on any of this**:
+The owner's desktop runs **LM Studio** with an OpenAI-compatible server at `http://localhost:8765` (the RX 6900 XT has 16 GB). Other machines, the laptop included, probably do not — **check before relying on any of this**:
 
 ```powershell
 & "$env:USERPROFILE\.lmstudio\bin\lms.exe" ps          # what is loaded, at what context, with what TTL
-curl.exe -s http://localhost:1234/api/v0/models        # every model on disk, loaded or not
+curl.exe -s http://localhost:8765/api/v0/models        # every model on disk, loaded or not
 ```
 
 What follows is not a menu of plausible uses. **Every line was measured on 2026-09-16 against answers known in advance**, and half the obvious ideas failed. Use the model where it earned its place and nowhere else; `docs/agent-notes.md` (the entry "lokální AI: co funguje a co ne") has the runs.
@@ -103,7 +103,7 @@ To photograph the Game for a question: `BS3D.exe play level=<Name> shot=14`, the
 ## Running LM Studio
 
 - `lms load <key> -c <context> --ttl <seconds> -y`, `lms unload <key>`, `lms ps`. Give everything you load a **TTL** so the card is handed back when you are done.
-- **After a reboot the server may not be on 1234.** `lms server status` says whether it runs; `lms server start` answering `listen EACCES … 1234` means Windows reserved the port (`netsh interface ipv4 show excludedportrange protocol=tcp`; on 2026-09-21 the range 1136–1235 covered it after one reboot and 1237–1336 covered 1240 after the next). Start it on a free port (`lms server start --port 8765`) and pass the tool `--endpoint http://localhost:8765/v1`; `vision.ps1` and the other scripts still expect 1234.
+- **The server is on 8765, not 1234.** The owner's Bionic has it as Base URL `http://localhost:8765/v1`, and the tool and the scripts default to it. 1234 sits in a block Windows reserves for itself (`netsh interface ipv4 show excludedportrange protocol=tcp`), and the blocks move after a reboot (1136–1235 on 2026-09-21, 1237–1336 after the next, 1146–1245 on 2026-10-27), so Bionic's "Failed to start the server: listen EACCES" means the port chosen is inside one: pick another outside the listed ranges and pass `--endpoint`/`-Endpoint`. **`lms ps` and `lms status` look at their own port, say `Server: OFF` or time out while the server runs on 8765**, and `lms load` has no `--port`: probe `curl.exe -s http://localhost:8765/api/v0/models` instead (every model `not-loaded` is normal; the embedding model loads on the first request, so `Tools/SemanticSearch` needs no `lms load`).
 - **Gemma 4 at 8k context.** At 16k a full-size frame killed it: `terminated`, then `Model is unloaded`. Qwen3-VL-8B survived 16k with full frames.
 - **One big model at a time.** Gemma is 12.8 GB loaded, Qwen3-VL-8B 9.9 GB and DeepSeek 15.6 GiB, on a 16 GB card.
 - **The card is shared with other sessions** — music generation (ACE-Step, ~6 GB) and image generation (`design-references`, ~10.5 GB) run on it too. Check `lms ps` and ask a session that holds the GPU before loading anything big, and unload your model when a peer asks for a window; on 2026-09-16 two such handovers by message went cleanly.

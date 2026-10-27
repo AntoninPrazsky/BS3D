@@ -30,7 +30,7 @@ param(
     [string]$Model,
 
     [string]$Out,
-    [string]$Endpoint = 'http://localhost:1234'
+    [string]$Endpoint = 'http://localhost:8765'
 )
 
 $ErrorActionPreference = 'Stop'

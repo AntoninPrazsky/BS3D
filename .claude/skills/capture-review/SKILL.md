@@ -1,6 +1,6 @@
 ---
 name: capture-review
-description: Compare before/after screenshots of a BS3D change — an exact block diff says which pairs changed and where (identical pairs never reach a model), then the local vision model (Gemma 4 in LM Studio) describes each change over the whole frame and over crops of the sharpest changed regions, so you open only the pairs whose description is unexpected. Load whenever a rendering, shader, HUD, camera or scene change is verified with captures, especially more than a couple of pairs or a sweep across scenes, and to confirm a refactor left the picture unchanged. The descriptions need LM Studio on the owner's desktop (localhost:1234); the pixel diff runs anywhere.
+description: Compare before/after screenshots of a BS3D change — an exact block diff says which pairs changed and where (identical pairs never reach a model), then the local vision model (Gemma 4 in LM Studio) describes each change over the whole frame and over crops of the sharpest changed regions, so you open only the pairs whose description is unexpected. Load whenever a rendering, shader, HUD, camera or scene change is verified with captures, especially more than a couple of pairs or a sweep across scenes, and to confirm a refactor left the picture unchanged. The descriptions need LM Studio on the owner's desktop (localhost:8765); the pixel diff runs anywhere.
 ---
 
 # Reviewing captures

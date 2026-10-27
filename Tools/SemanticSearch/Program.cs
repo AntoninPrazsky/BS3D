@@ -49,7 +49,12 @@ namespace BS3D.Tools.SemanticSearch
     /// </summary>
     internal static class Program
     {
-        private const string DEFAULT_ENDPOINT = "http://localhost:1234/v1";
+        //The owner's Bionic (= LM Studio) serves on 8765: 1234 and its neighbours sit in a block Windows reserves
+        private const string DEFAULT_ENDPOINT = "http://localhost:8765/v1";
+
+        //What to check when nothing answers: `lms status` looks at its own port and says OFF while the server runs, so it is no test
+        internal const string SERVER_HINT = "Is the server on (Bionic: Settings > Local Model API)? If it will not start with EACCES, "
+            + "its port is in a range Windows reserved: netsh interface ipv4 show excludedportrange protocol=tcp";
         //Qwen3-Embedding-0.6B since #439: never worse than nomic on the English issues and far better on the Czech journal
         private const string DEFAULT_MODEL = "text-embedding-qwen3-embedding-0.6b";
         private const string NOMIC_MODEL = "text-embedding-nomic-embed-text-v1.5";
@@ -403,7 +408,7 @@ namespace BS3D.Tools.SemanticSearch
             }
             catch (HttpRequestException e)
             {
-                throw new EmbeddingException($"[ask] LM Studio is not answering at {options.Endpoint} ({e.Message})");
+                throw new EmbeddingException($"[ask] LM Studio is not answering at {options.Endpoint} ({e.Message}). {SERVER_HINT}");
             }
             catch (TaskCanceledException)
             {
@@ -624,7 +629,7 @@ namespace BS3D.Tools.SemanticSearch
             }
             catch (HttpRequestException e)
             {
-                throw new EmbeddingException($"[search] LM Studio is not answering at {_endpoint} ({e.Message}). Start it and load the model: lms load {_model}");
+                throw new EmbeddingException($"[search] LM Studio is not answering at {_endpoint} ({e.Message}). {Program.SERVER_HINT}");
             }
             catch (TaskCanceledException)
             {
