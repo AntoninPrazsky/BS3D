@@ -1389,7 +1389,7 @@ namespace Testbed
         /// or a setter whose whole effect lands in the same frame.
         /// </summary>
         private static readonly string[] ALTERNATION_DIALS =
-            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano" };
+            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora" };
 
         /// <summary>
         /// Prints the sweep's plan before the first window, and names anything it will not switch. A pin that
@@ -1517,6 +1517,11 @@ namespace Testbed
                     //carries across the switch - each layer is simply drawn or not on the next frame.
                     case "volcano":
                         _sceneRenderer.VolcanoLayers = TestOptions.ParseVolcanoLayers(pin.Value);
+                        break;
+
+                    //The aurora's layers (#1027), the same grammar: "aurora=all/-farstand". The wood is this host's own draw
+                    case "aurora":
+                        _sceneRenderer.AuroraLayers = TestOptions.ParseAuroraLayers(pin.Value);
                         break;
 
                     //On/off like the switch it mirrors: "nopost=1" is the argument, "nopost=0" the authored look

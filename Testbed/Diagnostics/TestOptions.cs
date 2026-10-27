@@ -596,12 +596,16 @@ namespace Testbed.Diagnostics
             return members;
         }
 
-        //The volcano's layers (#540), the arena members' grammar - names of VolcanoLayer, each added or, with a
-        //leading '-', removed, left to right - separated by '/' as well as ',' so a list fits in one alternation
+        //The volcano's layers (#540) and the aurora's (#1027), the arena members' grammar - names of the flags, each added
+        //or, with a leading '-', removed, left to right - separated by '/' as well as ',' so a list fits in one alternation
         //pin, where ',' already separates pins: "alt=volcano=all;volcano=all/-plume;volcano=all/-ash".
-        public static VolcanoLayer ParseVolcanoLayers(string list)
+        public static VolcanoLayer ParseVolcanoLayers(string list) => ParseLayers<VolcanoLayer>(list);
+
+        public static AuroraLayer ParseAuroraLayers(string list) => ParseLayers<AuroraLayer>(list);
+
+        private static T ParseLayers<T>(string list) where T : struct, Enum
         {
-            VolcanoLayer layers = VolcanoLayer.None;
+            long layers = 0;
 
             foreach (string token in list.Split(',', '/'))
             {
@@ -611,13 +615,13 @@ namespace Testbed.Diagnostics
                 bool remove = name[0] == '-';
                 if (remove) name = name.Substring(1);
 
-                if (!Enum.TryParse(name, ignoreCase: true, out VolcanoLayer one)) continue;
+                if (!Enum.TryParse(name, ignoreCase: true, out T one)) continue;
 
-                if (remove) layers &= ~one;
-                else layers |= one;
+                long bits = Convert.ToInt64(one);
+                layers = remove ? layers & ~bits : layers | bits;
             }
 
-            return layers;
+            return (T)Enum.ToObject(typeof(T), layers);
         }
 
         //Parses the alternation cycle: variants separated by ';', each an arena member list with an optional

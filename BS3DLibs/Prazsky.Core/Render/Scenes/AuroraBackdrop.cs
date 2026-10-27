@@ -47,7 +47,13 @@ namespace Prazsky.Core.Render
         //The far stand: two spire meshes (the near ring's and the farther one's, at less detail), AuroraFarStandConfig.Count and FarCount instances of them
         private readonly AuroraStandMesh _standMesh, _standFarMesh;
         private readonly VertexBuffer _standInstances, _standFarInstances;
-        private readonly int _standCount, _standFarCount;
+        private readonly StandSectors _standSectors, _standFarSectors;
+
+        //Each ring's instances lie sorted by sector of bearing round the arena's axis, and only the sectors the lens can see
+        //are drawn (#1027): the rings close round the clearing, about 3 million triangles, and a lens sees a fifth of them.
+        //On the reference APU at Low the two rings cost 5 ms drawn whole
+        private const int STAND_SECTORS = 32;
+        private readonly BoundingFrustum _standFrustum = new(Matrix.Identity);
 
         //The collars: the snow drifted against the foot of everything the planting stands (AuroraCollars)
         private readonly VertexBuffer _collarMesh, _collarInstances;
@@ -141,8 +147,8 @@ namespace Prazsky.Core.Render
             _standMesh = new AuroraStandMesh(_graphicsDevice, config.FarStand);
             _standFarMesh = new AuroraStandMesh(_graphicsDevice, config.FarStand, tiers: 2, sides: 8);
             HashSet<(int, int)> taken = TakenCells(_planting);
-            (_standInstances, _standCount) = PlantStand(_graphicsDevice, config, config.FarStand.InnerRadius, config.FarStand.NearRadius, config.FarStand.Count, 0, taken);
-            (_standFarInstances, _standFarCount) = PlantStand(_graphicsDevice, config, config.FarStand.NearRadius, config.FarStand.OuterRadius, config.FarStand.FarCount, 1, taken);
+            (_standInstances, _standSectors) = PlantStand(_graphicsDevice, config, config.FarStand.InnerRadius, config.FarStand.NearRadius, config.FarStand.Count, 0, taken);
+            (_standFarInstances, _standFarSectors) = PlantStand(_graphicsDevice, config, config.FarStand.NearRadius, config.FarStand.OuterRadius, config.FarStand.FarCount, 1, taken);
 
             _collar = _effect.Techniques["AuroraCollar"];
             _collarReduced = _effect.Techniques["AuroraCollarReduced"];
@@ -363,18 +369,18 @@ namespace Prazsky.Core.Render
             _gridCell.SetValue(fineCell);
             _fineOriginXZ.SetValue(fineOrigin);
             _fineHalfExtent.SetValue(FINE_EXTENT * 0.5f);
-            DrawGrid(detail ? _snowFine : _snowFineReduced, _fineVertices, _fineIndices, _fineIndexCount);
+            if ((Layers & AuroraLayer.FineGrid) != 0) DrawGrid(detail ? _snowFine : _snowFineReduced, _fineVertices, _fineIndices, _fineIndexCount);
 
             float coarseCell = COARSE_EXTENT / (COARSE_GRID_N - 1);
             Vector2 coarseOrigin = new(MathF.Round(eye.X / coarseCell) * coarseCell, MathF.Round(eye.Z / coarseCell) * coarseCell);
             _originXZ.SetValue(coarseOrigin);
             _coarseOriginXZ.SetValue(coarseOrigin);
             _gridCell.SetValue(coarseCell);
-            DrawGrid(detail ? _snowCoarse : _snowCoarseReduced, _coarseVertices, _coarseIndices, _coarseIndexCount);
+            if ((Layers & AuroraLayer.CoarseGrid) != 0) DrawGrid(detail ? _snowCoarse : _snowCoarseReduced, _coarseVertices, _coarseIndices, _coarseIndexCount);
 
             //The collars on the snow, shaded as the snow is (they read the coarse grid's origin for nothing; the ground's
             //uniforms they take are the field's)
-            if (_collarCount > 0)
+            if (_collarCount > 0 && (Layers & AuroraLayer.Collars) != 0)
             {
                 InstanceBinding.Set(_graphicsDevice, _collarMesh, 0, _collarInstances, 0);
                 _graphicsDevice.Indices = _collarIndices;
@@ -386,34 +392,51 @@ namespace Prazsky.Core.Render
             //The far stand, its spires wound clockwise from outside like every procedural mesh: the near ring's four tiers,
             //then the two of the ring past it
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-            DrawStand(_standMesh, _standInstances, _standCount);
-            DrawStand(_standFarMesh, _standFarInstances, _standFarCount);
+            _standFrustum.Matrix = frame.Camera.View * frame.Camera.Projection;
+            if ((Layers & AuroraLayer.NearStand) != 0) DrawStand(_standMesh, _standInstances, _standSectors);
+            if ((Layers & AuroraLayer.FarStand) != 0) DrawStand(_standFarMesh, _standFarInstances, _standFarSectors);
 
             //Then the sky, depth-READ at the far plane: every pixel the ground or the stand owns is rejected before it runs
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-            _viewRayBasis.SetValue(SkyRay.Basis(frame.Camera));
-            _supersample.SetValue((float)Services.SupersampleFactor);
-            _graphicsDevice.SetVertexBuffer(Services.FullScreenQuad);
-            _effect.CurrentTechnique = _sky;
-            _effect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
+            if ((Layers & AuroraLayer.Sky) != 0)
+            {
+                _viewRayBasis.SetValue(SkyRay.Basis(frame.Camera));
+                _supersample.SetValue((float)Services.SupersampleFactor);
+                _graphicsDevice.SetVertexBuffer(Services.FullScreenQuad);
+                _effect.CurrentTechnique = _sky;
+                _effect.CurrentTechnique.Passes[0].Apply();
+                _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
+            }
 
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
-        private void DrawStand(AuroraStandMesh mesh, VertexBuffer instances, int count)
+        //One draw per run of neighbouring sectors the lens sees, off the one buffer by its first instance
+        private void DrawStand(AuroraStandMesh mesh, VertexBuffer instances, StandSectors sectors)
         {
-            if (count <= 0) return;
+            if (sectors.Total <= 0) return;
 
             InstanceBinding.Set(_graphicsDevice, mesh.VertexBuffer, 0, instances, 0);
             _graphicsDevice.Indices = mesh.IndexBuffer;
             _effect.CurrentTechnique = _stand;
             _effect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, count);
+
+            int s = 0;
+            while (s < STAND_SECTORS)
+            {
+                if (!SectorSeen(sectors, s)) { s++; continue; }
+                int first = s;
+                while (s < STAND_SECTORS && SectorSeen(sectors, s)) s++;
+                int start = sectors.Start[first], count = sectors.Start[s - 1] + sectors.Count[s - 1] - start;
+                if (count > 0) _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, start, count);
+            }
         }
+
+        private bool SectorSeen(StandSectors sectors, int s) =>
+            sectors.Count[s] > 0 && _standFrustum.Contains(sectors.Bounds[s]) != ContainmentType.Disjoint;
 
         private void DrawGrid(EffectTechnique technique, VertexBuffer vertices, IndexBuffer indices, int indexCount)
         {
@@ -425,7 +448,16 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>The falling snow, through the shared flake buffer and the aurora's own clone of <c>Snow.fx</c>.</summary>
-        public override void DrawOverlays(in SceneFrame frame) => Services.Snowfall.Draw(frame, _snowLook, _config.Snow);
+        public override void DrawOverlays(in SceneFrame frame)
+        {
+            if ((Layers & AuroraLayer.Snow) != 0) Services.Snowfall.Draw(frame, _snowLook, _config.Snow);
+        }
+
+        /// <summary>
+        /// The layers drawn (#1027): a measurement dial (<see cref="SceneRenderer.AuroraLayers"/>, the Testbed's <c>aurora=</c>),
+        /// <see cref="AuroraLayer.All"/> for every other caller. Each layer is drawn or not on the next frame; nothing carries.
+        /// </summary>
+        public AuroraLayer Layers { get; set; } = AuroraLayer.All;
 
         /// <inheritdoc/>
         public override void OnDetailChanged(float sceneDetail) => _sceneDetail = sceneDetail;
@@ -561,7 +593,7 @@ namespace Prazsky.Core.Render
             return taken;
         }
 
-        private static (VertexBuffer, int) PlantStand(GraphicsDevice device, AuroraSceneConfig config, float innerRadius, float outerRadius, int count, int ring,
+        private static (VertexBuffer, StandSectors) PlantStand(GraphicsDevice device, AuroraSceneConfig config, float innerRadius, float outerRadius, int count, int ring,
             HashSet<(int, int)> taken)
         {
             AuroraFarStandConfig stand = config.FarStand;
@@ -602,11 +634,51 @@ namespace Prazsky.Core.Render
                 planted.Add(new StandInstance(new Vector4(x, y, z, scale), new Vector4(MathF.Sin(yaw), MathF.Cos(yaw), stretch, tint)));
             }
 
-            planted.Sort((p, q) => (p.Place.X * p.Place.X + p.Place.Z * p.Place.Z).CompareTo(q.Place.X * q.Place.X + q.Place.Z * q.Place.Z));
+            //By sector of bearing (the runs DrawStand culls), and inside a sector nearest the axis first, so a near spire's depth
+            //rejects the far ones' pixels behind it
+            planted.Sort((p, q) =>
+            {
+                int bySector = StandSector(p.Place).CompareTo(StandSector(q.Place));
+                return bySector != 0 ? bySector
+                    : (p.Place.X * p.Place.X + p.Place.Z * p.Place.Z).CompareTo(q.Place.X * q.Place.X + q.Place.Z * q.Place.Z);
+            });
+
+            //Each sector's box holds its spires whole: up to the tallest a spire stretches, out by the widest skirt, down by the stem
+            float up = stand.Height * stand.MaxScale * STAND_STRETCH_MAX, side = stand.Radius * stand.MaxScale, down = stand.MaxScale;
+            var sectors = new StandSectors(planted.Count);
+            for (int i = 0; i < planted.Count; i++)
+            {
+                Vector4 place = planted[i].Place;
+                int s = StandSector(place);
+                if (sectors.Count[s] == 0) sectors.Start[s] = i;
+                sectors.Count[s]++;
+                var low = new Vector3(place.X - side, place.Y - down, place.Z - side);
+                var high = new Vector3(place.X + side, place.Y + up, place.Z + side);
+                sectors.Bounds[s] = sectors.Count[s] == 1 ? new BoundingBox(low, high)
+                    : new BoundingBox(Vector3.Min(sectors.Bounds[s].Min, low), Vector3.Max(sectors.Bounds[s].Max, high));
+            }
 
             var buffer = new VertexBuffer(device, StandInstance.Declaration, Math.Max(planted.Count, 1), BufferUsage.WriteOnly);
             if (planted.Count > 0) buffer.SetData(planted.ToArray());
-            return (buffer, planted.Count);
+            return (buffer, sectors);
+        }
+
+        //The tallest a spire is stretched (the instance's Look.z, drawn from 0.85 + 0.35 x [0, 1) above)
+        private const float STAND_STRETCH_MAX = 1.2f;
+
+        private static int StandSector(Vector4 place) =>
+            Math.Clamp((int)((MathF.Atan2(place.Z, place.X) + MathF.PI) / MathHelper.TwoPi * STAND_SECTORS), 0, STAND_SECTORS - 1);
+
+        /// <summary>A ring's instances by sector of bearing: where each sector's run starts in the buffer, how long it is, and a
+        /// box round its spires (#1027).</summary>
+        private sealed class StandSectors
+        {
+            public readonly int[] Start = new int[STAND_SECTORS];
+            public readonly int[] Count = new int[STAND_SECTORS];
+            public readonly BoundingBox[] Bounds = new BoundingBox[STAND_SECTORS];
+            public readonly int Total;
+
+            public StandSectors(int total) => Total = total;
         }
 
         #endregion
