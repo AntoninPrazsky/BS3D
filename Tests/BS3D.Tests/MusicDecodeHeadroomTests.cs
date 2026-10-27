@@ -12,8 +12,8 @@ namespace BS3D.Tests
     /// measured; <c>MusicBake --shipped</c> prints today's count), up to +0.90 dBFS - and the decode
     /// pressed every such sample onto the 16-bit rail (it was NVorbis's own clip, on by default, that did it).
     /// <para>
-    /// Held here: a real recording that overshoots (<c>mirage-musicbox</c>: 9 196 samples over) reaches the 16-bit limit
-    /// at no sample once it is decoded as the music is, and does at 9 209 of them as it was; the headroom and the voice
+    /// Held here: a real recording that overshoots (<c>puppet-triphop</c>, a peak of 1.086) reaches the 16-bit limit
+    /// at no sample once it is decoded as the music is, and does at 2 287 of them as it was; the headroom and the voice
     /// volumes are each other's inverse, so nothing got quieter, and none is over 1; and, by reading the players'
     /// source as <see cref="RecordingLoopTests"/> reads the Jukebox's, that every voice playing a headroomed decode is given
     /// a compensated volume and every decode that is not the music's keeps its own. Every recording through the game's
@@ -28,7 +28,10 @@ namespace BS3D.Tests
         //Where the decode's clip leaves a sample: 0.99999994 converts to 32766, not to 32767
         private const int RAIL = OggTrack.RAIL_SAMPLE;
 
-        private const string OVERSHOOTING_RECORDING = "mirage-musicbox";
+        //⚠ A regenerated recording keeps its name and loses its overshoot: mirage-musicbox was this fixture until #915 made it
+        //a new recording with a peak of 0.959. Of the shipped set on 2026-10-27, puppet-triphop is the one that overshoots well
+        //clear of 1.05 with more than a thousand samples on the rail at unity, in a chapter no open issue regenerates
+        private const string OVERSHOOTING_RECORDING = "puppet-triphop";
 
         [Fact]
         public void A_recording_the_codec_overshoots_decodes_with_no_sample_on_the_rail()
