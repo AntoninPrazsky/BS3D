@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-10-27 — #946 režim snímání ve hře — desktop (RDT-PC), Claude Code (bs3d-8a)
+- majitel (25. 10.): snímky a smyčky pro web má točit hra sama (přístup A).
+- Hotovo: `capture=<dir>` s pevným krokem herního času na snímek (`capturefps=`, `capturefrom=`, `captureseconds=`), bez HUD, s kamerou `campos=`/`camtarget=`/`fov=` nebo `campath=`, `capturedemo` (samostřílející dělo benchmarku). `Tools/web-capture.ps1` kóduje WebM, MP4 a plakát přes PyAV z venvu ComfyUI (ffmpeg na PATH není).
+- Ověřeno: Meander s demem, dva běhy, 480 ze 480 snímků shodných. Hra bez `capture=` beze změny (`[alloc]` jako dřív).
+- ⚠ Bepu na 24 vláknech není opakovatelný: dva stejné běhy se rozešly do 40 kroků. Snímání proto jede s fyzikou na jednom vlákně.
+- Otevřené: jeskyně (Chest) se mezi běhy liší v desítkách pixelů, příčina nenalezena.
+
 ## 2026-10-27 — #1026 tabulka APU po v0.5.0, alokace jeskyně — notebook (ThinkPad), Claude Code (github-4d)
 - Hotovo: tabulka v `quality-measurements.md` přeměřena na APU, v0.5.0 vedle v0.4.0, `Low` i `Medium`, 15 levelů. Na `Low` jsou nově přes 16,1 ms polární záře (+3,76, #963), jeskyně (+2,29) a louka (+3,20, první kapitola). Navazují #1027 #1028 #1029. Na `Medium` záře +8,68 a louka +5,42.
 - Hotovo: jeskyně alokovala 48 B na snímek. Lambda v `StartDetail` zachytávala parametr, closure tak vznikala před časným `return`. Teď 0 B (e5462816).
