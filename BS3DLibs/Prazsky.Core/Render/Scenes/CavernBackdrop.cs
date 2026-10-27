@@ -195,6 +195,12 @@ namespace Prazsky.Core.Render
         /// <inheritdoc/>
         public override void OnDetailChanged(float sceneDetail) => _fullDetail = sceneDetail > 0.5f;
 
+        /// <summary>
+        /// The layers drawn (#1029): a measurement dial (<see cref="SceneRenderer.CavernLayers"/>, the Testbed's <c>cavern=</c>),
+        /// <see cref="CavernLayer.All"/> for every other caller. Each layer is drawn or not on the next frame; nothing carries.
+        /// </summary>
+        public CavernLayer Layers { get; set; } = CavernLayer.All;
+
         //The vault over the points asked about (#896): each host asks over the four corners of each plate it hangs, every
         //frame, and the answer is a march through the shell, so the last few are kept (x, the vault's height, z)
         private readonly Vector3[] _roofs = new Vector3[8];
@@ -363,7 +369,7 @@ namespace Prazsky.Core.Render
             PushLights(chamber, frame.Time);
 
             //Low gives the mirror up (its reduced program, SceneDetail): the lake reads a dark ramp and the clusters' glints
-            bool mirrored = _fullDetail && DrawReflection(meshes, chamber, camera, viewport);
+            bool mirrored = _fullDetail && (Layers & CavernLayer.Reflection) != 0 && DrawReflection(meshes, chamber, camera, viewport);
             _reflectionAvailable.SetValue(mirrored ? 1f : 0f);
             if (mirrored) _reflection.SetValue(_reflectionTarget);
 
@@ -397,18 +403,21 @@ namespace Prazsky.Core.Render
 
             //The formations first: they stand in front of the shell, so the shell's pixels behind them are rejected by the
             //depth test before they are shaded
-            if (meshes.Formations != null)
+            if (meshes.Formations != null && (Layers & CavernLayer.Formations) != 0)
             {
                 _effect.CurrentTechnique = formation;
                 _effect.CurrentTechnique.Passes[0].Apply();
                 meshes.Formations.Draw(_graphicsDevice);
             }
 
-            _effect.CurrentTechnique = rock;
-            _effect.CurrentTechnique.Passes[0].Apply();
-            meshes.Rock.Draw(_graphicsDevice);
+            if ((Layers & CavernLayer.Rock) != 0)
+            {
+                _effect.CurrentTechnique = rock;
+                _effect.CurrentTechnique.Passes[0].Apply();
+                meshes.Rock.Draw(_graphicsDevice);
+            }
 
-            if (meshes.Crystals != null)
+            if (meshes.Crystals != null && (Layers & CavernLayer.Crystals) != 0)
             {
                 //Writing depth, though they blend: the arena draws after the hall, and over a cluster it would otherwise be
                 //drawn through it (a nearer prism of the same cluster drawn later still blends over a farther one)
@@ -423,14 +432,14 @@ namespace Prazsky.Core.Render
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
-            if (meshes.Glowworms != null)
+            if (meshes.Glowworms != null && (Layers & CavernLayer.Glowworms) != 0)
             {
                 _effect.CurrentTechnique = _glowworm;
                 _effect.CurrentTechnique.Passes[0].Apply();
                 meshes.Glowworms.Draw(_graphicsDevice);
             }
 
-            if (meshes.Shafts != null && _config.Air.ShaftStrength > 0f)
+            if (meshes.Shafts != null && _config.Air.ShaftStrength > 0f && (Layers & CavernLayer.Shafts) != 0)
             {
                 _effect.CurrentTechnique = _shaft;
                 _effect.CurrentTechnique.Passes[0].Apply();

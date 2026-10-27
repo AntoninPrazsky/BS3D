@@ -25,6 +25,17 @@ namespace Prazsky.Core.Render
     }
 
     /// <summary>
+    /// The cavern's separately drawn layers, for <see cref="SceneRenderer.CavernLayers"/> (#1029): the rock shell, the
+    /// formations, the crystals, the glowworms, the shafts of light and the lake's mirror (High and Ultra's alone).
+    /// </summary>
+    [System.Flags]
+    public enum CavernLayer
+    {
+        None = 0, Rock = 1, Formations = 2, Crystals = 4, Glowworms = 8, Shafts = 16, Reflection = 32,
+        All = Rock | Formations | Crystals | Glowworms | Shafts | Reflection
+    }
+
+    /// <summary>
     /// The per-frame inputs a scene needs that are not its own static tuning: the camera, the sun direction,
     /// the sky palette in <b>linear</b> radiance (zenith and horizon), the sun's own radiance already tinted
     /// by the dome (for the sea glint and the warm cast on the terrain), the wall-clock time its motion runs
@@ -427,6 +438,16 @@ namespace Prazsky.Core.Render
         {
             get => _aurora.Layers;
             set => _aurora.Layers = value;
+        }
+
+        /// <summary>
+        /// The cavern's layers (#1029), the same kind of measurement dial: the Testbed's <c>cavern=</c> sets it, every other
+        /// caller leaves it at <see cref="CavernLayer.All"/>.
+        /// </summary>
+        public CavernLayer CavernLayers
+        {
+            get => _cavern.Layers;
+            set => _cavern.Layers = value;
         }
 
         #region The sun's shadow map (#469, in every terrain scene since #471)
