@@ -889,13 +889,46 @@ namespace Prazsky.Core.Render
         /// scoria fBm term, which is the one thing this mirror leaves out and can afford to — three units of
         /// clinker under a lamp or a vent is invisible, and reproducing four octaves of gradient noise on the
         /// CPU to place them would be the tail wagging the dog. Everything that decides where the cone, the
-        /// crater and the gullies are is here term for term.
+        /// crater and the gullies are is here term for term, and since #748 the field's front and the country past
+        /// it (<see cref="VolcanoCountry"/>, solved once per config object).
         /// </summary>
-        public static float Volcano(float x, float z, VolcanoSceneConfig volcano)
+        public static float Volcano(float x, float z, VolcanoSceneConfig volcano) => Volcano(x, z, volcano, VolcanoCountry.Of(volcano));
+
+        /// <summary>
+        /// <see cref="Volcano(float, float, VolcanoSceneConfig)"/> on a country the caller holds: what a per-frame caller (the
+        /// lamps, through <see cref="VolcanoLava"/>) asks, so no frame looks a config up.
+        /// </summary>
+        public static float Volcano(float x, float z, VolcanoSceneConfig volcano, VolcanoCountry country)
         {
             float ramp = ShaderMath.SmoothStep(volcano.ClearingRadius, volcano.ClearingRadius + MathF.Max(volcano.ClearingTransition, 1f),
                 MathF.Sqrt(x * x + z * z));
 
+            //The field's front and, past it, the land (#748): Volcano.fx's TerrainHeightAt, after the massing, in its order
+            Vector2 cone = volcano.ConeCenter.ToVector2();
+            float coneR = MathF.Sqrt((x - cone.X) * (x - cone.X) + (z - cone.Y) * (z - cone.Y));
+            float outside = coneR - country.FieldEdge(x, z);
+            float relative = VolcanoMassing(x, z, volcano) + country.FrontProfile(outside);
+            if (outside > 0f) relative = country.CountryHeight(x, z, coneR, outside, relative);
+
+            return volcano.LevelY + ramp * relative;
+        }
+
+        /// <summary>
+        /// The cone alone, on its plain: <see cref="Volcano(float, float, VolcanoSceneConfig)"/> without the field's front and
+        /// the country past it (#748). What the Potato path's grid stands on, which draws the cone, its flows and its lake and
+        /// no country (the meadow's <see cref="MeadowGround"/> is the same kind of answer).
+        /// </summary>
+        public static float VolcanoCone(float x, float z, VolcanoSceneConfig volcano)
+        {
+            float ramp = ShaderMath.SmoothStep(volcano.ClearingRadius, volcano.ClearingRadius + MathF.Max(volcano.ClearingTransition, 1f),
+                MathF.Sqrt(x * x + z * z));
+
+            return volcano.LevelY + ramp * VolcanoMassing(x, z, volcano);
+        }
+
+        /// <summary><c>Volcano.fx</c>'s <c>VolcanoMassing</c>: the flank, the crater bitten out of its summit and the gullies, over the field's level.</summary>
+        private static float VolcanoMassing(float x, float z, VolcanoSceneConfig volcano)
+        {
             Vector2 cone = volcano.ConeCenter.ToVector2();
             float dx = x - cone.X;
             float dz = z - cone.Y;
@@ -921,7 +954,7 @@ namespace Prazsky.Core.Render
             float gullyBand = ShaderMath.SmoothStep(craterRadius * 1.3f, volcano.ConeRadius * 0.30f, r)
                 * ShaderMath.SmoothStep(volcano.ConeRadius * 1.15f, volcano.ConeRadius * 0.85f, r);
 
-            return volcano.LevelY + ramp * (flank - crater - volcano.GullyDepth * rake * gullyBand);
+            return flank - crater - volcano.GullyDepth * rake * gullyBand;
         }
 
         #endregion

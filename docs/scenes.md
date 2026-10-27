@@ -29,7 +29,7 @@ The twenty-one backdrops the Game, the Testbed and the MapEditor all share, plus
 - [Space](scenes/space.md) and [The star lattice](scenes/space-stars.md) — the sky-replacing family, the marched volume, and the stars.
 - [The dream](scenes/dream.md) — what holds the surreal scene together, and its glare policy.
 - [The cavern](scenes/cavern.md) — the hall built on the CPU (shell, lake bed, formations, crystals, glowworms, shafts), the lake that mirrors it, the tiers and the intro.
-- [The volcano](scenes/volcano.md) — the ground as the light, the flows, the eruption and the fumaroles.
+- [The volcano](scenes/volcano.md) — the ground as the light, the flows, the eruption, the fumaroles, and the land past the field (#748).
 - [The desert](scenes/desert.md) — the desert scene: `Desert.fx` dunes as geometry (`DuneField`, sharp crests and the rounding rules, `DUNE_MEAN`), the braided static sand ripples and their traps, the dust haze, the generated skies of domes 6 and 14, and its costs
 - [The mountains](scenes/mountains.md) — the mountain scene: the ridged massing and its 32-bit-index trap, snow against rock, fluting, alpenglow, the rock relief and the snow sparkle, the generated dome 8, and `Snow.fx` (the premultiplied-blend trap, the lens-made flake, the snowfall veil)
 - [The mountain's frame cost](scenes/mountain-cost.md) — why the "38 FPS mountain" was the present path (`FrameLimiter`, `fpscap=`), the mountain's real fullscreen cost and what is left of it, the other scenes' figures, and the two benchmark traps it left
@@ -87,6 +87,7 @@ Code comments cite sections of this document by title; this table resolves them.
 | The volcano | [The volcano](scenes/volcano.md) |
 | Redrawn from references (#509) | [The volcano](scenes/volcano.md) |
 | Fumaroles on the lava field (#679) | [The volcano](scenes/volcano.md) |
+| The land past the field (#748) | [The volcano](scenes/volcano.md) |
 | The desert (Testbed) | [The desert](scenes/desert.md) |
 | The sky, from references (#681) | [The desert](scenes/desert.md) |
 | The mountains (Testbed) | [The mountains](scenes/mountains.md) |

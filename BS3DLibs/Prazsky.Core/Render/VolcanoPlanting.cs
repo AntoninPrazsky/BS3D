@@ -34,7 +34,7 @@ namespace Prazsky.Core.Render
         private const int BLOCKS = 1400, BOMBS = 600;
         private const float NEAREST = ArenaIsland.RADIUS + 8f, FARTHEST = 300f;
 
-        /// <param name="height">The volcano's ground (<see cref="TerrainMirror.Volcano"/>).</param>
+        /// <param name="height">The volcano's ground (<see cref="TerrainMirror.Volcano(float, float, VolcanoSceneConfig)"/>).</param>
         /// <param name="keepOut">True where nothing may stand: a river's line, the cone's crater.</param>
         /// <param name="cones">The spatter cones: where each stands (on the ground), its base radius and its height.</param>
         public VolcanoPlanting(GraphicsDevice device, Func<float, float, float> height, Func<float, float, bool> keepOut,

@@ -120,7 +120,7 @@ namespace BS3D.Tools.WindingCheck
         /// <summary>Objects planted on the ground: their own y = 0 is the earth, so a foot ring sunk under it is buried.</summary>
         private static readonly string[] PlantedPrefixes =
         {
-            "ForestScatterRenderer", "SavannaScatter", "MeadowScatter", "VolcanoPlanting", "MoonPlanting", "OutbackPlanting", "PolarPlanting", "PalmMesh", "DeadwoodMesh",
+            "ForestScatterRenderer", "SavannaScatter", "MeadowScatter", "VolcanoPlanting", "VolcanoCountryPlanting", "MoonPlanting", "OutbackPlanting", "PolarPlanting", "PalmMesh", "DeadwoodMesh",
             "RockMesh", "FoliageMesh", "GrassTuftMesh", "LatheMesh(moss",
         };
 

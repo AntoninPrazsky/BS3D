@@ -333,8 +333,8 @@ namespace Prazsky.Core.Render
         /// oaks, the fence and the rest. The mountains: the range of <see cref="TerrainMirror.Mountain"/> as two grids
         /// over one field, snow where the desktop's rule lays it and rock where not. The Moon: the plain of
         /// <see cref="TerrainMirror.Moon"/> in the regolith's grey and <see cref="MoonPlanting"/>'s boulders. The volcano: the
-        /// cone of <see cref="TerrainMirror.Volcano"/> in its basalt, with <see cref="VolcanoLava"/>'s rivers as glowing
-        /// ribbons and the lake in its crater - the rivers the lamps of #795 already ride.
+        /// cone of <see cref="TerrainMirror.VolcanoCone"/> in its basalt (none of the country past the field, #748), with
+        /// <see cref="VolcanoLava"/>'s rivers as glowing ribbons and the lake in its crater - the rivers the lamps of #795 already ride.
         /// </summary>
         /// <param name="seedOffset">The scene's roll for the launch, the desktop's <c>SceneRenderer</c> seed: the Moon's
         /// boulders and the volcano's rivers fall where the desktop's would, and the rivers where the Potato lamps run.</param>
@@ -866,7 +866,7 @@ namespace Prazsky.Core.Render
         private static PotatoBackdrop Volcano(GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius, int seedOffset)
         {
             var config = new VolcanoSceneConfig();
-            float Height(float x, float z) => TerrainMirror.Volcano(x, z, config);
+            float Height(float x, float z) => TerrainMirror.VolcanoCone(x, z, config);
 
             var backdrop = new PotatoBackdrop(graphicsDevice);
             Vector3 basalt = Vector3.Lerp(config.RockColor.ToVector3(), config.RockColorLight.ToVector3(), 0.5f);

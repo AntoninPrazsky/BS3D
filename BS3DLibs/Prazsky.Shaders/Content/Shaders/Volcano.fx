@@ -2,7 +2,9 @@
 //red-orange lava running down them and out past the arena, thin incandescent rivulets threading down the
 //cone from its crater, and a lava lake in the crater itself. The cone stands off to one side with its
 //crater against the sky; the lava fountains and the smoke plume over it are LavaFountain.fx and the drifting
-//ash is Ash.fx, both drawn after this.
+//ash is Ash.fx, both drawn after this. Past the field's raised edge lies a landscape (#748): a scorched band, pasture
+//and woods, a river and a village's fields, ranges and a dormant cone - "The country" below, its height and its
+//surface, with the snags, woods and houses on it planted by VolcanoCountryPlanting.
 //
 //The machinery is the desert's and the mountain's: a camera-centred grid (360 a side, 32-bit indices - see
 //CreateGridMesh) snapped to its cell so it does not swim, displaced in the vertex shader, its base normal by
@@ -141,6 +143,90 @@ static const float RIVULET_WIDTH = 0.03;
 static const float FIELD_CRACK_SCALE = 0.045;
 static const float FIELD_CRACK_HALF_WIDTH = 0.22;
 
+//--- The country past the field (#748) ---------------------------------------------------------------------
+//The owner, three times: the far side was "just a sort of lunar landscape", "there are no trees, mountains, rivers,
+//human dwellings", "it now looks more like some alien planet". The references (C:\Users\panrd\AI\sd\out\748r2-zimage
+//and 748r2-klein) all paint one gradient: the black field ends at a raised, ragged flow front, a band of scorched
+//ground with dead trunks standing in it, then pasture, dark conifer belts, a river with pale gravel bars mirroring
+//the dusk, a small village, and layered ridges with a second, dormant cone on the horizon. VolcanoCountry (C#)
+//holds the same figures, solves the river's course and its levels, and TerrainMirror.Volcano mirrors the height
+//below term for term; VolcanoCountryPlanting stands the snags, the woods and the village on it.
+
+float FieldReach;
+float FieldLobes;
+float FrontHeight;
+float LandRise;
+float HillHeight;
+float RidgeHeight;
+float4 DormantCone;        //xy its axis, z its foot's radius, w its height
+float RiverHalfWidth;
+float2 VillageXZ;
+float2 VillageRiver;       //the village's place along the river's course, and which bank it stands on (+1 or -1)
+
+//The river's course (VolcanoCountry.RiverPath): xy a point, z the distance along the course to it, w the water's
+//level there over VolcanoLevelY. Matched by VolcanoCountry.MAX_RIVER_POINTS.
+#define MAX_RIVER_POINTS 28
+float4 RiverPath[MAX_RIVER_POINTS];
+int RiverPoints;
+
+float3 PastureColor;
+float3 PastureDry;
+float3 ScorchedColor;
+float3 AshColor;
+float3 ForestFloorColor;
+float3 HeathColor;
+float3 ScreeColor;
+float3 SoilColor;
+float3 StubbleColor;
+float3 CropColor;
+float3 HedgeColor;
+float3 GravelColor;
+float3 LaneColor;
+float3 WaterColor;
+float WaterFire;
+
+//What the air over the land is, away from the cone (VolcanoBackdrop.CountryHaze, stated every frame): the dome as it is
+//drawn at the horizon, dimmed. The ash pall the field hazes into is the eruption's and thins away from it over PALL_THINS
+//past the field's edge; hazed into the pall all the way out, the green hills went the brown of felt, where every reference
+//turns its far ranges blue. The land's plants are hazed into the same colour (PlantPass.DrawInWeather).
+float3 LandHazeColor;
+
+//The land's shape, VolcanoCountry's constants to the figure (see there for what each says): the field's edge, the
+//front, the country's rise, hills and ridges, the dormant cone, the valley and the meanders, the woods, the fields.
+static const float EDGE_F1 = 0.0017, EDGE_O1 = 3.1, EDGE_W1 = 1.4;
+static const float EDGE_F2 = 0.0055, EDGE_O2 = 7.7, EDGE_W2 = 0.55;
+static const float EDGE_F3 = 0.016, EDGE_O3 = 1.3, EDGE_W3 = 0.3;
+static const float FRONT_LIP = 2.0, FRONT_FOOT = 5.0, LEVEE_HEIGHT = 1.1, LEVEE_RUN = 16.0;
+static const float LAND_RAMP = 30.0, LAND_RISE_RUN = 600.0;
+static const float HILLS_FROM = 40.0, HILLS_TO = 260.0, HILL_F1 = 0.0075, HILL_O1 = 1.3, HILL_F2 = 0.019, HILL_O2 = 5.1;
+static const float RIDGES_FROM = 250.0, RIDGES_TO = 650.0, RIDGE_F1 = 0.0028, RIDGE_O1 = 9.4, RIDGE_F2 = 0.0071, RIDGE_O2 = 2.6;
+static const float RIDGE_F3 = 0.018, RIDGE_O3 = 5.7, RIDGE_W3 = 0.12;
+static const float DORMANT_SUMMIT = 0.1, DORMANT_PROFILE = 1.6, DORMANT_HOLLOW = 0.04;
+static const float VALLEY_HALF = 80.0, VALLEY_WIDENING = 140.0, BANK_RUN = 9.0, GRAVEL_RISE = 0.8, FLOOD_SLOPE = 0.1;
+static const float MEANDER_A1 = 20.0, MEANDER_K1 = 0.0273, MEANDER_P1 = 0.7;
+static const float MEANDER_A2 = 7.0, MEANDER_K2 = 0.0661, MEANDER_P2 = 2.9;
+static const float FOREST_F1 = 0.0062, FOREST_O1 = 4.4, FOREST_F2 = 0.019, FOREST_O2 = 1.9;
+static const float FOREST_LOW = 0.04, FOREST_HIGH = 0.24, FOREST_FROM = 70.0, FOREST_RUN = 50.0;
+static const float FOREST_RIVER_FROM = 16.0, FOREST_RIVER_TO = 44.0;
+static const float FIELDS_REACH = 260.0, VILLAGE_CORE = 62.0;
+
+//The pixels' own figures, which nothing on the CPU reads. Where the field's shading gives way to the land's, past the
+//edge (the front's lower face is still the field's rubble; the land starts at its foot), and how ragged that line is:
+//a noise of RAGGED_SIZE world units, RAGGED units either way, worked out only within RAGGED_BAND of the edge.
+static const float LAND_FROM = 2.5, LAND_TO = 7.0;
+static const float RAGGED = 4.0, RAGGED_BAND = 24.0;
+//The scorched band before the front: char and ash out to between these, its far line broken by noise
+static const float SCORCH_FROM = 26.0, SCORCH_TO = 70.0;
+//How far past the field's edge the ash pall has thinned into the land's own air
+static const float PALL_THINS = 220.0;
+//How much of the far fade (FarField.fxh) a pixel may have before it is left to it: past this the ground is the sky behind
+//it to within a hundredth, whatever is shaded there, so neither the field nor the land is
+static const float SKY_TAKES_OVER = 0.99;
+//The village's plots: a long side, a short side, the axis they are laid out along, and the lane along the river
+static const float PLOT_LENGTH = 46.0, PLOT_DEPTH = 27.0;
+static const float2 PLOT_AXIS = float2(0.94, 0.34);
+static const float LANE_OFFSET = 44.0, LANE_HALF = 1.6, LANE_SPAN = 420.0;
+
 //--- Height field ------------------------------------------------------------------------------------------
 
 //The cone's analytic massing at a world XZ, relative to VolcanoLevelY and BEFORE the clearing ramp: the
@@ -186,18 +272,252 @@ float VolcanoMassing(float2 p)
     return flank - crater - GullyDepth * rake * gullyBand;
 }
 
-//The terrain displacement at a world XZ: flat at the island's foot, rising into the flank with distance from
-//the ARENA (not from the cone), so the play surface sits in a clearing exactly as it does in every other
-//terrain scene. Evaluated three times per vertex for the finite-difference normal.
-float TerrainHeight(float2 p, uniform int scoriaOctaves)
+//--- The country's height (#748) --------------------------------------------------------------------------
+
+//The flow's margin over the field's level: a levee standing proud of the field behind it, then the front's face
+//falling FrontHeight to the land. A flow ends in a WALL, not a colour line - every reference draws the black lava
+//stopping at a raised, ragged edge with the land lower beyond it.
+float FrontProfile(float outside)
+{
+    float levee = LEVEE_HEIGHT * smoothstep(-LEVEE_RUN, -FRONT_LIP, outside);
+    float fall = smoothstep(-FRONT_LIP, FRONT_FOOT, outside);
+    return levee * (1.0 - fall) - FrontHeight * fall;
+}
+
+//The river at p: the signed distance across its meandering centre line, how far along the course the nearest point
+//is, and the water's level there over VolcanoLevelY; and the course's direction there and how fast its water falls
+//along it, which LandAt carries the three on by. A loop over a uniform count with no gradient operation, run once a
+//vertex (the pixels read its answers interpolated) and in the height probe.
+float3 RiverCourse(float2 p, out float2 direction, out float levelRate)
+{
+    float best = 1e12;
+    float side = 1.0;
+    float along = 0.0;
+    float level = 0.0;
+    float2 run = float2(1.0, 0.0);
+    float fall = 0.0;
+
+    for (int i = 0; i < RiverPoints - 1; i++)
+    {
+        float4 a = RiverPath[i];
+        float4 b = RiverPath[i + 1];
+        float2 e = b.xy - a.xy;
+        float2 w = p - a.xy;
+        float t = saturate(dot(w, e) / dot(e, e));
+        float2 q = w - e * t;
+        float d2 = dot(q, q);
+        if (d2 < best)
+        {
+            best = d2;
+            side = e.x * w.y - e.y * w.x < 0.0 ? -1.0 : 1.0;
+            along = lerp(a.z, b.z, t);
+            level = lerp(a.w, b.w, t);
+            run = e;
+            fall = b.w - a.w;
+        }
+    }
+
+    float runLength = length(run);
+    direction = run / runLength;
+    levelRate = fall / runLength;
+
+    //The meanders: two sines of the distance along the course, so the river swings across its valley and the
+    //valley follows it (a meander is the river's, not the ground's)
+    float meander = MEANDER_A1 * sin(along * MEANDER_K1 + MEANDER_P1) + MEANDER_A2 * sin(along * MEANDER_K2 + MEANDER_P2);
+    return float3(side * sqrt(best) - meander, along, level);
+}
+
+//The ranges from their three noises: rounded crests along the zero contours of a broad one, over a finer one, and knolls
+//and saddles along them from a third (a range's skyline is never one smooth curve). Rounded, not the sharp 1 - |n| of a
+//ridged noise: the ranges stand 700 units out and more, on the far ring's cells of about a degree, and a sharp crest
+//drawn by them was a polyline of straight runs against the sky - the low-poly look, not a mountain.
+float Ridge(float3 n)
+{
+    float crest = saturate(1.0 - 2.6 * n.x * n.x);
+    return 0.75 * crest * crest + 0.25 * saturate(1.0 - 2.6 * n.y * n.y) + RIDGE_W3 * n.z;
+}
+
+//The dormant cone on the horizon: an old volcano, worn round. Its flank plateaus at DORMANT_SUMMIT of its radius for
+//the main cone's reason (VolcanoMassing), with a shallow hollow worn into the plateau where its crater was.
+float DormantRise(float2 p)
+{
+    float r = length(p - DormantCone.xy);
+    float t = saturate(1.0 - max(r, DormantCone.z * DORMANT_SUMMIT) / DormantCone.z);
+    return DormantCone.w * (pow(t, DORMANT_PROFILE) - DORMANT_HOLLOW * smoothstep(DormantCone.z * DORMANT_SUMMIT, 0.0, r));
+}
+
+//The land's figures at a point (#748), what its height is composed from: how far past the field's edge, the river, and
+//the noises the hills and the ranges are made of. LandAt works them out with their slopes, and the vertex program
+//carries them two units on (Carried) to the neighbours its normal is differenced against instead of working them out
+//three times: the river's course is a loop over 27 points and the edge, hills and ranges eight noises, and evaluated at
+//all three points they made the vertex program three times its old length. The height at the vertex itself - the one
+//the mirror copies - takes them exact.
+struct Land
+{
+    float ConeR;      //distance from the cone's axis (exact at a neighbour too: it is cheap)
+    float Outside;    //how far past the field's edge
+    float3 River;     //RiverCourse's: across, along, the water's level
+    float Hills;      //the hills' two octaves
+    float3 Ridge;     //the ranges' three noises
+};
+
+struct LandSlopes
+{
+    float2 Outside;
+    float2 Across;
+    float2 Along;
+    float2 Level;
+    float2 Hills;
+    float2 Ridge1;
+    float2 Ridge2;
+    float2 Ridge3;
+};
+
+//How far short of the field's edge the land's own figures are worked out: the neighbours stand two units off, and the
+//distance past the edge moves under two units for each (its slope is the bearing's plus the edge's, under 1.83)
+static const float LAND_FIGURES_FROM = -6.0;
+
+//The field's edge is three octaves of the clouds' noise read on the world (a bearing would tear along atan2's seam):
+//tongues where one flow ran further than the next, lobes on them and the margin's ragged run. One octave drew a wavy
+//circle, the rim of a plate seen from the cone's far side. Their slopes summed stay under one, so the distance past it
+//is a true distance to within that. CloudNoiseD's values are CloudNoise's (the same corners and fade), with the slope.
+Land LandAt(float2 p, out LandSlopes slopes)
+{
+    Land land;
+    float2 fromCone = p - ConeCenterXZ;
+    land.ConeR = length(fromCone);
+
+    float3 e1 = CloudNoiseD(p * EDGE_F1 + EDGE_O1);
+    float3 e2 = CloudNoiseD(p * EDGE_F2 + EDGE_O2);
+    float3 e3 = CloudNoiseD(p * EDGE_F3 + EDGE_O3);
+    land.Outside = land.ConeR - (FieldReach + FieldLobes * (EDGE_W1 * e1.x + EDGE_W2 * e2.x + EDGE_W3 * e3.x));
+    slopes.Outside = fromCone / max(land.ConeR, 1e-3)
+        - FieldLobes * (EDGE_W1 * EDGE_F1 * e1.yz + EDGE_W2 * EDGE_F2 * e2.yz + EDGE_W3 * EDGE_F3 * e3.yz);
+
+    land.River = float3(1e4, 0.0, 0.0);
+    land.Hills = 0.0;
+    land.Ridge = 0.0;
+    slopes.Across = 0.0;
+    slopes.Along = 0.0;
+    slopes.Level = 0.0;
+    slopes.Hills = 0.0;
+    slopes.Ridge1 = 0.0;
+    slopes.Ridge2 = 0.0;
+    slopes.Ridge3 = 0.0;
+
+    [branch]
+    if (land.Outside > LAND_FIGURES_FROM)
+    {
+        float2 direction;
+        float levelRate;
+        land.River = RiverCourse(p, direction, levelRate);
+        float meanderRate = MEANDER_A1 * MEANDER_K1 * cos(land.River.y * MEANDER_K1 + MEANDER_P1)
+            + MEANDER_A2 * MEANDER_K2 * cos(land.River.y * MEANDER_K2 + MEANDER_P2);
+        slopes.Across = float2(-direction.y, direction.x) - meanderRate * direction;
+        slopes.Along = direction;
+        slopes.Level = levelRate * direction;
+
+        float3 h1 = CloudNoiseD(p * HILL_F1 + HILL_O1);
+        float3 h2 = CloudNoiseD(p * HILL_F2 + HILL_O2);
+        land.Hills = h1.x + 0.5 * h2.x;
+        slopes.Hills = HILL_F1 * h1.yz + 0.5 * HILL_F2 * h2.yz;
+
+        float3 r1 = CloudNoiseD(p * RIDGE_F1 + RIDGE_O1);
+        float3 r2 = CloudNoiseD(p * RIDGE_F2 + RIDGE_O2);
+        float3 r3 = CloudNoiseD(p * RIDGE_F3 + RIDGE_O3);
+        land.Ridge = float3(r1.x, r2.x, r3.x);
+        slopes.Ridge1 = RIDGE_F1 * r1.yz;
+        slopes.Ridge2 = RIDGE_F2 * r2.yz;
+        slopes.Ridge3 = RIDGE_F3 * r3.yz;
+    }
+
+    return land;
+}
+
+//The land's figures carried `offset` on from where they were worked out, to first order (offset is two units; the
+//noises' shortest wavelength is 55 and the river's bends are rounded), at the point p they are carried to
+Land Carried(Land land, LandSlopes slopes, float2 offset, float2 p)
+{
+    Land carried;
+    carried.ConeR = length(p - ConeCenterXZ);
+    carried.Outside = land.Outside + dot(slopes.Outside, offset);
+    carried.River = land.River + float3(dot(slopes.Across, offset), dot(slopes.Along, offset), dot(slopes.Level, offset));
+    carried.Hills = land.Hills + dot(slopes.Hills, offset);
+    carried.Ridge = land.Ridge + float3(dot(slopes.Ridge1, offset), dot(slopes.Ridge2, offset), dot(slopes.Ridge3, offset));
+    return carried;
+}
+
+//The land past the front, added to `relative` (the massing and the front over the field's level), and the river's
+//valley cut into it. Only past the field's edge (the caller's branch); `land` brings it in over the front's foot.
+//
+//The land RISES from the front's foot towards the horizon (LandRise), rolls (the hills) and stands up into ranges past
+//them, with the dormant cone among them; that rise is also what keeps it in view from a camera at the arena, which
+//looks across the field's raised edge. The hills and ridges ease down to nothing in the valley (`shoulder`), so the
+//valley floor is the rise alone, and the water lies RIVER_SINK under that (its levels are VolcanoCountry's): the cut
+//is a min() against the bank's profile, so it carves where the land stands higher and leaves lower ground alone, and
+//the channel itself is laid exactly level across, which is what the water is drawn on.
+float CountryHeight(float2 p, Land figures, float relative)
+{
+    float3 river = figures.River;
+    float outside = figures.Outside;
+    float d = abs(river.x);
+    float land = smoothstep(0.0, LAND_RAMP, outside);
+
+    float rise = LandRise * smoothstep(0.0, LAND_RISE_RUN, figures.ConeR - FieldReach);
+    float hills = HillHeight * smoothstep(HILLS_FROM, HILLS_TO, outside) * figures.Hills;
+    float ridgeShare = smoothstep(RIDGES_FROM, RIDGES_TO, outside);
+    float ridges = RidgeHeight * ridgeShare * Ridge(figures.Ridge);
+    float valleyHalf = VALLEY_HALF + VALLEY_WIDENING * ridgeShare;
+    float shoulder = smoothstep(RiverHalfWidth + BANK_RUN, valleyHalf, d);
+    float ground = rise + (hills + ridges) * shoulder;
+    ground = max(ground, rise + DormantRise(p));
+
+    relative += land * ground;
+
+    float bank = river.z + GRAVEL_RISE * smoothstep(RiverHalfWidth, RiverHalfWidth + BANK_RUN, d)
+        + FLOOD_SLOPE * max(d - RiverHalfWidth - BANK_RUN, 0.0);
+    relative = lerp(relative, min(relative, bank), land * smoothstep(valleyHalf, valleyHalf * 0.5, d));
+    relative = lerp(relative, river.z, land * (1.0 - smoothstep(RiverHalfWidth - 0.5, RiverHalfWidth + 0.5, d)));
+    return relative;
+}
+
+//The terrain displacement at a world XZ from the land's figures there: flat at the island's foot, rising into the flank
+//with distance from the ARENA (not from the cone), so the play surface sits in a clearing exactly as it does in every
+//other terrain scene.
+float HeightOf(float2 p, Land figures, uniform int scoriaOctaves)
 {
     float ramp = smoothstep(ClearingRadius, ClearingRadius + ClearingTransition, length(p));
 
     //Broken scoria over the whole field. Mean zero, so it does not lift the clearing as the ramp opens - the
-    //failure Desert.fx's trailing constant exists to prevent.
-    float scoria = ScoriaRelief * Fbm2(p * 0.038, scoriaOctaves);
+    //failure Desert.fx's trailing constant exists to prevent. Past the front a quarter of it is left: ground is
+    //never a table, and what is left is under the land's own grain.
+    float scoria = ScoriaRelief * Fbm2(p * 0.038, scoriaOctaves)
+        * lerp(0.25, 1.0, 1.0 - smoothstep(-FRONT_LIP, FRONT_FOOT, figures.Outside));
 
-    return VolcanoLevelY + ramp * (VolcanoMassing(p) + scoria);
+    float relative = VolcanoMassing(p) + scoria + FrontProfile(figures.Outside);
+
+    [branch]
+    if (figures.Outside > 0.0)
+        relative = CountryHeight(p, figures, relative);
+
+    return VolcanoLevelY + ramp * relative;
+}
+
+//The height at p with its land worked out there, exact: what the vertex program displaces each vertex by and what the
+//height probe reads. `country` hands back what the pixels need of the land (#748): how far past the field's edge p
+//stands, and the river's across and along there.
+float TerrainHeightAt(float2 p, uniform int scoriaOctaves, out float3 country)
+{
+    LandSlopes slopes;
+    Land figures = LandAt(p, slopes);
+    country = float3(figures.Outside, figures.River.x, figures.River.y);
+    return HeightOf(p, figures, scoriaOctaves);
+}
+
+float TerrainHeight(float2 p, uniform int scoriaOctaves)
+{
+    float3 country;
+    return TerrainHeightAt(p, scoriaOctaves, country);
 }
 
 //--- Rivers ------------------------------------------------------------------------------------------------
@@ -338,6 +658,9 @@ struct VolcanoVertexOutput
     float4 Position : SV_POSITION;
     float3 WorldPosition : TEXCOORD0;
     float3 WorldNormal : TEXCOORD1;
+    //The country (#748): how far past the field's edge, and the river's across and along - smooth at the grid's
+    //scale, so interpolated they are exact enough, and the pixels pay no loop over the river's course
+    float3 Country : TEXCOORD2;
 };
 
 VolcanoVertexOutput VolcanoVSImpl(VolcanoVertexInput input, uniform int scoriaOctaves)
@@ -345,14 +668,21 @@ VolcanoVertexOutput VolcanoVSImpl(VolcanoVertexInput input, uniform int scoriaOc
     VolcanoVertexOutput output;
 
     float2 xz = input.Position.xz + OriginXZ;
-    float height = TerrainHeight(xz, scoriaOctaves);
+
+    //The land's figures once, with their slopes (#748: see LandAt), and the height at the vertex from them exact
+    LandSlopes slopes;
+    Land figures = LandAt(xz, slopes);
+    output.Country = float3(figures.Outside, figures.River.x, figures.River.y);
+    float height = HeightOf(xz, figures, scoriaOctaves);
 
     //Base normal per vertex, as on the mountain and for the same reason: a per-pixel finite-difference
     //normal on this much distant, steep ground aliases into shimmer, and the per-pixel relief below carries
-    //the near detail anyway.
+    //the near detail anyway. The neighbours take the land's figures carried to them.
     float e = 2.0;
-    float hx = TerrainHeight(xz + float2(e, 0.0), scoriaOctaves);
-    float hz = TerrainHeight(xz + float2(0.0, e), scoriaOctaves);
+    float2 xa = xz + float2(e, 0.0);
+    float2 xb = xz + float2(0.0, e);
+    float hx = HeightOf(xa, Carried(figures, slopes, float2(e, 0.0), xa), scoriaOctaves);
+    float hz = HeightOf(xb, Carried(figures, slopes, float2(0.0, e), xb), scoriaOctaves);
     output.WorldNormal = normalize(float3(-(hx - height) / e, 1.0, -(hz - height) / e));
 
     float3 worldPosition = float3(xz.x, height, xz.y);
@@ -468,18 +798,20 @@ float Rivulets(float2 around, float coneR, float footprint)
     return thread * active * start * stop;
 }
 
-float4 VolcanoSurface(VolcanoVertexOutput input, uniform bool fullDetail)
+//The field's own surface at one pixel (#223, #509, #554), as radiance before the haze: the rock, the heat off the
+//flows and the hairlines, the flows themselves, the crater's lake and the sheen. Its own function since #748, so a
+//pixel of the land past the field pays for none of it (VolcanoSurface's branches). `normal` and `relief` come in,
+//because the derivatives behind them cannot be taken in the branch this runs in; `rubble` is the flow front's face
+//(#748), broken clinker in blocks that takes no sheen and glows in a few cracks. Everything else it works out from the
+//interpolants itself rather than taking it in, so nothing of the field's is held live across the land's branch.
+float3 FieldSurface(VolcanoVertexOutput input, float footprint, float3 normal, float relief, float sunlight, float rubble,
+    uniform bool fullDetail)
 {
     float3 worldPosition = input.WorldPosition;
-
-    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
-    clip(length(worldPosition.xz) - IslandHoleRadius);
-    FarRingClip(worldPosition.xz);
-
-    float3 toEye = CameraPosition - worldPosition;
-    float dist = length(toEye);
-    float3 view = toEye / max(dist, 1e-4);
-    float footprint = length(fwidth(worldPosition.xz));
+    float3 view = normalize(CameraPosition - worldPosition);
+    float2 fromCone = worldPosition.xz - ConeCenterXZ;
+    float coneR = length(fromCone);
+    float2 around = fromCone / max(coneR, 1e-3);
 
     //How much per-pixel detail this pixel can still resolve. Everything cellular fades out against it well
     //before its cells reach pixel size - a Voronoi web left running to the horizon is a field of crawling
@@ -487,13 +819,7 @@ float4 VolcanoSurface(VolcanoVertexOutput input, uniform bool fullDetail)
     float detail = saturate(1.0 - footprint * 0.09);
     float crackleFade = saturate(1.0 - footprint * 0.55);
 
-    float3 baseNormal = normalize(input.WorldNormal);
-
     RiverSample river = SampleRivers(worldPosition.xz, footprint, fullDetail);
-
-    float2 fromCone = worldPosition.xz - ConeCenterXZ;
-    float coneR = river.ConeR;
-    float2 around = fromCone / max(coneR, 1e-3);
 
     //--- The rock ----------------------------------------------------------------------------------------
     //Black basalt with patches of weathered grey scoria, and the ground round the summit OXIDISED: every
@@ -505,24 +831,8 @@ float4 VolcanoSurface(VolcanoVertexOutput input, uniform bool fullDetail)
     float oxide = (1.0 - smoothstep(CraterRadius * 1.1, ConeRadius * 0.6, coneR)) * saturate(rockPatch * 1.5 + 0.2);
     albedo = lerp(albedo, ScoriaColor, oxide);
 
-    //A fine relief so the near scoria reads as broken clinker rather than as a smooth floor. Combed, because
-    //isotropic noise has no grain and reads as gravel (the savanna's #117 lesson) - and the grain runs ACROSS
-    //the way the flow that laid it was moving, which is how pahoehoe folds into ropes. Until #509 it ran
-    //downhill, which the sheen then drew as a brushed-metal field of streaks converging on the cone.
-    //The reduced program (#540) has none: the combed fBm and the derivative normal behind it were 0.5 ms of the APU's Low
-    //frame, and at 1600×900 the ropes it draws are a few pixels wide beyond the island's own edge.
-    float relief = fullDetail ? Fbm2Combed(worldPosition.xz * 0.55, float2(-around.y, around.x), 1.8, 4, footprint * 0.55) * 0.5 : 0.0;
-    float3 normal = fullDetail ? PerturbNormalFromHeight(baseNormal, worldPosition, relief) : baseNormal;
 
     //--- Lighting ----------------------------------------------------------------------------------------
-    float sunlight = CloudSunlight(worldPosition, SunDirection);
-
-    //The sun's cast shadows (#471), into the same sunlight factor the clouds dim, so everything read off it
-    //is shadowed at once. What casts here: the island and the gun on the flank.
-    [branch]
-    if (ShadowStrength > 0.0)
-        sunlight *= SunShadow(worldPosition, baseNormal, SunDirection);
-
     float ndotl = saturate(dot(normal, SunDirection));
     float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
     float3 light = skyAmbient * AmbientStrength + SunColor * ndotl * sunlight;
@@ -554,8 +864,12 @@ float4 VolcanoSurface(VolcanoVertexOutput input, uniform bool fullDetail)
         //ground is still hot underneath: the zero contour of a noise, which draws a WANDERING line where a
         //Voronoi web would draw a net. Which patches crack is decided first and cheaply, and the line itself
         //only where one does - see FieldCracks for why that needs a noise that knows its own slope.
-        float cracked = max(smoothstep(0.25, 0.5, GradientNoise2(worldPosition.xz * 0.006 + 17.3)), river.Halo * 0.6)
-            * (1.0 - river.Mask);
+        //And along a stretch of the front here and there (#748): the margin is where the crust is thinnest.
+        float cracked = max(smoothstep(0.25, 0.5, GradientNoise2(worldPosition.xz * 0.006 + 17.3)), river.Halo * 0.6);
+        [branch]
+        if (rubble > 0.0)
+            cracked = max(cracked, rubble * smoothstep(0.15, 0.4, GradientNoise2(worldPosition.xz * 0.012 + 8.8)));
+        cracked *= 1.0 - river.Mask;
 
         [branch]
         if (cracked > 0.0)
@@ -565,7 +879,7 @@ float4 VolcanoSurface(VolcanoVertexOutput input, uniform bool fullDetail)
     //--- The flow ----------------------------------------------------------------------------------------
     //Behind a data branch: a flow is a narrow band of any frame, and its crust costs a Voronoi and three
     //noise taps that every pixel beside it paid until #509.
-    float gloss = (1.0 - rockPatch) * (1.0 - oxide);
+    float gloss = (1.0 - rockPatch) * (1.0 - oxide) * (1.0 - rubble);
 
     [branch]
     if (river.Mask > 0.0)
@@ -617,12 +931,248 @@ float4 VolcanoSurface(VolcanoVertexOutput input, uniform bool fullDetail)
     float crests = saturate(0.35 + relief * 2.5);
     color += skyReflection * fresnel * gloss * crests * SheenStrength;
 
+    //The front's face (#748): aa clinker, blocks of it lighter and darker - a flow's margin is rubble that has tumbled
+    //off its top, not the glassy skin of the field behind it. A shade on the finished colour and the last thing done,
+    //where little else is live: laid into the albedo at the top, with the rock's patches and the rivers still live, it
+    //cost the compiled program four temporaries.
+    [branch]
+    if (rubble > 0.0)
+        color *= lerp(1.0, 0.55 + 1.6 * saturate(0.5 + 1.4 * GradientNoise2(worldPosition.xz * 0.7 + 3.3)), rubble);
+
+    return color;
+}
+
+//How wooded the land is at p, 0 to 1 (#748): a two-octave field thresholded into belts, kept off the front, the
+//river's banks and the village's fields. VolcanoCountry.ForestCover is the same mask, and the planting stands its
+//spruces where it is high; here it darkens the ground under them to a forest floor - and past where anything is
+//planted, to the dark a wooded hill is from far away.
+float ForestCover(float2 p, float outside, float d, float villageD)
+{
+    float n = CloudNoise(p * FOREST_F1 + FOREST_O1) + 0.5 * CloudNoise(p * FOREST_F2 + FOREST_O2);
+    return smoothstep(FOREST_LOW, FOREST_HIGH, n)
+        * smoothstep(FOREST_FROM, FOREST_FROM + FOREST_RUN, outside)
+        * smoothstep(RiverHalfWidth + FOREST_RIVER_FROM, RiverHalfWidth + FOREST_RIVER_TO, d)
+        * smoothstep(FIELDS_REACH * 0.7, FIELDS_REACH * 1.05, villageD);
+}
+
+//The land past the field (#748), as radiance before the haze: the scorched band the flow burned on its way, pasture,
+//the woods' floor, the village's patchwork of plots and the lane along the river, heath and scree on the ranges, the
+//dormant cone bare above its woods, the river's gravel bars and the water. `country` is the vertex shader's (how far
+//past the edge, the river's across and along). Everything here is a field of the world position or a noise that hands
+//back its own slope (CloudNoiseD): this runs in a data branch, where no derivative may be taken. It works out its own
+//normal and view from the interpolants, as FieldSurface does, for the same reason.
+float3 CountrySurface(VolcanoVertexOutput input, float footprint, float sunlight)
+{
+    float3 worldPosition = input.WorldPosition;
+    float2 p = worldPosition.xz;
+    float outside = input.Country.x;
+    float across = input.Country.y;
+    float along = input.Country.z;
+    float d = abs(across);
+    float rise = worldPosition.y - (VolcanoLevelY - FrontHeight);
+
+    //The ground's own grain: tussocks, ruts and clods tilting the light near, an even field far; and the folds a hillside
+    //is made of - spurs and the gullies between them, too fine for the grid that draws the land - which still read across
+    //a valley, where the grain is long gone. Both tilt the normal by the noise's own slope. The light is worked out
+    //straight away, so the normal and the slopes are done with before the materials are laid (register pressure: see
+    //VolcanoSurface): lit as the field is, the dome's hemisphere and the sun through the clouds and the shadow map.
+    float3 baseNormal = normalize(input.WorldNormal);
+    float steep = 1.0 - smoothstep(0.62, 0.82, baseNormal.y);
+    float3 grain = CloudNoiseD(p * 0.23 + 4.7);
+    float3 folds = CloudNoiseD(p * 0.03 + 8.3);
+    float near = saturate(1.0 - footprint * 0.45);
+    float3 normal = normalize(baseNormal - float3(grain.y, 0.0, grain.z) * (0.23 * 0.6 * near)
+        - float3(folds.y, 0.0, folds.z) * (0.03 * 7.0 * saturate(1.5 - footprint * 0.04)));
+    float3 light = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5)) * AmbientStrength
+        + SunColor * (saturate(dot(normal, SunDirection)) * sunlight);
+    float tussock = grain.x * near;
+
+    //The pasture: green, and dried to straw in patches
+    float patch = CloudNoise(p * 0.017 + 6.1) + 0.5 * CloudNoise(p * 0.061 + 1.7);
+    float3 albedo = lerp(PastureColor, PastureDry, saturate(0.5 + 1.2 * patch)) * (1.0 + 0.2 * tussock);
+
+    //The village's fields: a patchwork of plots laid along one axis, the hedges between them. No surveyor drew these:
+    //the boundaries wander, every row of plots is shifted along on its own, and no plot grows evenly.
+    float villageD = length(p - VillageXZ);
+    [branch]
+    if (villageD < FIELDS_REACH)
+    {
+        float2 rel = p - VillageXZ;
+        float2 q = float2(dot(rel, PLOT_AXIS), dot(rel, float2(-PLOT_AXIS.y, PLOT_AXIS.x)))
+            + float2(CloudNoise(p * 0.011 + 2.2), CloudNoise(p * 0.011 + 9.9)) * 10.0;
+        float row = floor(q.y / PLOT_DEPTH);
+        float2 cellF = float2(q.x / PLOT_LENGTH + Hash21(float2(row, 3.7)), q.y / PLOT_DEPTH);
+        float2 cell = floor(cellF);
+        float2 f = frac(cellF);
+        float2 edge = min(f, 1.0 - f) * float2(PLOT_LENGTH, PLOT_DEPTH);
+        //A hedge is a metre wide: past the distance it resolves it widens to the pixel and dims in proportion
+        float hedgeWidth = 0.8 + footprint * 0.5;
+        float hedge = (1.0 - smoothstep(hedgeWidth, hedgeWidth + 0.8 + footprint, min(edge.x, edge.y))) * (0.9 / (0.9 + footprint * 0.25));
+
+        float kind = Hash21(cell + 17.0);
+        float3 plot = kind < 0.28 ? CropColor : kind < 0.48 ? SoilColor : kind < 0.7 ? StubbleColor : kind < 0.86 ? PastureColor * 1.12 : PastureDry;
+        float furrows = (kind < 0.48 ? 0.5 : 0.0) * sin(q.y * 4.2) * saturate(1.0 - footprint * 1.6);
+        plot *= (1.0 + 0.3 * furrows) * (0.82 + 0.36 * saturate(0.5 + CloudNoise(p * 0.05 + cell * 3.1)));
+
+        float fields = (1.0 - smoothstep(FIELDS_REACH * 0.55, FIELDS_REACH, villageD + 45.0 * patch))
+            * smoothstep(VILLAGE_CORE, VILLAGE_CORE + 25.0, villageD)
+            * smoothstep(RiverHalfWidth + 14.0, RiverHalfWidth + 30.0, d)
+            * smoothstep(FOREST_FROM, FOREST_FROM + 40.0, outside);
+        albedo = lerp(albedo, lerp(plot, HedgeColor, hedge), fields);
+    }
+
+    //The woods' floor, and the dark of a wooded hill past the planting
+    float forest = ForestCover(p, outside, d, villageD);
+    albedo = lerp(albedo, ForestFloorColor * (0.8 + 0.4 * saturate(0.5 + patch)), forest);
+
+    //The high ground: heath on the ranges with the woods thinning into it, scree where they are steep, and the dormant
+    //cone bare above its own woods
+    float high = smoothstep(55.0, 95.0, rise + 18.0 * patch);
+    albedo = lerp(albedo, HeathColor * (1.0 + 0.3 * patch), high * (1.0 - 0.6 * forest));
+    albedo = lerp(albedo, ScreeColor, steep * high);
+    float bare = 1.0 - smoothstep(DormantCone.z * 0.36, DormantCone.z * 0.6, length(p - DormantCone.xy) + 40.0 * patch);
+    albedo = lerp(albedo, ScorchedColor * 1.8, bare);
+
+    //The scorched band before the front: what the flow burned on its way, char with ash lying on it in drifts, its far
+    //line broken into the grass rather than ruled round the field
+    float scorch = 1.0 - smoothstep(SCORCH_FROM, SCORCH_TO, outside + 26.0 * CloudNoise(p * 0.013 + 3.3) + 9.0 * patch);
+    float ash = smoothstep(-0.1, 0.35, CloudNoise(p * 0.045 + 8.2));
+    albedo = lerp(albedo, lerp(ScorchedColor, AshColor, 0.6 * ash), scorch);
+
+    //The lane along the river to the village, on its bank, a fixed way off the river's course (not off its meanders:
+    //a lane runs straight where the water swings)
+    [branch]
+    if (abs(along - VillageRiver.x) < LANE_SPAN)
+    {
+        float course = across + MEANDER_A1 * sin(along * MEANDER_K1 + MEANDER_P1) + MEANDER_A2 * sin(along * MEANDER_K2 + MEANDER_P2);
+        float lane = (1.0 - smoothstep(LANE_HALF, LANE_HALF + 0.6 + footprint, abs(course - VillageRiver.y * LANE_OFFSET)))
+            * (1.0 - smoothstep(LANE_SPAN * 0.6, LANE_SPAN, abs(along - VillageRiver.x)));
+        albedo = lerp(albedo, LaneColor * (0.85 + 0.3 * tussock), lane * (1.0 - steep));
+    }
+
+    //The gravel bars beside the water, pale and uneven
+    float bar = 1.0 - smoothstep(RiverHalfWidth + 3.0, RiverHalfWidth + 10.0, d + 3.5 * CloudNoise(p * 0.08 + 5.5));
+    albedo = lerp(albedo, GravelColor * (0.85 + 0.3 * tussock), bar);
+
+    float3 color = albedo * light;
+
+    //--- The water ---------------------------------------------------------------------------------------
+    //Deep and nearly black under its reflection, which is the whole of how a river reads at dusk: a bright line of
+    //the sky laid in the dark land. Wind ripples in two drifting octaves break it, flattened to a mirror as they near
+    //the pixel; the sky is the dome as it is drawn (FarField.fxh's table) where the scene hands one over; and where the
+    //reflection looks at the crater it carries the eruption's red, as every reference looking back over water does.
+    [branch]
+    if (d < RiverHalfWidth + 1.0)
+    {
+        float3 view = normalize(CameraPosition - worldPosition);
+        float wet = 1.0 - smoothstep(RiverHalfWidth - 0.4 - footprint * 0.5, RiverHalfWidth + footprint * 0.5, d);
+        float3 r1 = CloudNoiseD(p * 0.3 + VolcanoTime * float2(0.04, 0.07));
+        float3 r2 = CloudNoiseD(p * 1.1 - VolcanoTime * float2(0.09, 0.02));
+        float2 slope = (r1.yz * 0.3 + r2.yz * (1.1 * 0.35)) * (0.12 * saturate(1.0 - footprint * 0.6));
+        float3 waterNormal = normalize(float3(-slope.x, 1.0, -slope.y));
+        float3 reflected = reflect(-view, waterNormal);
+        float fresnel = 0.02 + 0.98 * pow(1.0 - saturate(dot(waterNormal, view)), 5.0);
+
+        //The ripples' slopes throw a river's reflection down towards the horizon's glow (a calm river at dusk is a band of
+        //the brightest sky there is), so it is read a little lower than the mirror direction
+        float lookUp = reflected.y * 0.7;
+        float3 sky = lerp(HorizonColor, ZenithColor, saturate(lookUp * 2.5));
+        [branch]
+        if (FarFade.y > FarFade.x)
+            sky = lerp(FarSkyAt(lookUp), ZenithColor, saturate((lookUp - 0.3) * 2.0));
+
+        float3 crater = float3(ConeCenterXZ.x, VolcanoLevelY + ConeHeight - CraterDepth * 0.5, ConeCenterXZ.y);
+        float fire = pow(saturate(dot(reflected, normalize(crater - worldPosition))), 90.0);
+
+        float3 water = WaterColor * light + sky * fresnel + lerp(LavaCool, LavaHot, 0.2) * (fire * WaterFire);
+        color = lerp(color, water, wet);
+    }
+
+    return color;
+}
+
+//Whether a pixel is shaded at all: not where the far fade has all but finished (FarField.fxh), where the ground is the
+//sky behind it to within a hundredth whatever is shaded there (#748: the land's ranges stand where the dome was). Worked
+//out again at each branch rather than held, since anything held is live through the field's branch, the register peak.
+bool Shaded(float3 worldPosition)
+{
+    return FarFade.y <= FarFade.x || smoothstep(FarFade.x, FarFade.y, length(CameraPosition - worldPosition)) < SKY_TAKES_OVER;
+}
+
+float4 VolcanoSurface(VolcanoVertexOutput input, uniform bool fullDetail)
+{
+    float3 worldPosition = input.WorldPosition;
+
+    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
+    clip(length(worldPosition.xz) - IslandHoleRadius);
+    FarRingClip(worldPosition.xz);
+
+    float footprint = length(fwidth(worldPosition.xz));
+    float3 baseNormal = normalize(input.WorldNormal);
+
+
+    //Where the field gives way to the land past it (#748): the distance past the field's edge off the vertex shader,
+    //made ragged per pixel near the edge (a flow's margin is broken blocks, not a curve). The front's face is the
+    //field's rubble down to about its foot; the land's own ground starts there.
+    float outside = input.Country.x;
+    [branch]
+    if (abs(outside) < RAGGED_BAND)
+        outside += RAGGED * (GradientNoise2(worldPosition.xz * 0.21 + 2.7) + 0.5 * GradientNoise2(worldPosition.xz * 0.63 + 6.1));
+    float landShare = smoothstep(LAND_FROM, LAND_TO, outside);
+    float rubble = smoothstep(-7.0, -2.0, outside) * (1.0 - landShare);
+
+    //A fine relief so the near scoria reads as broken clinker rather than as a smooth floor. Combed, because
+    //isotropic noise has no grain and reads as gravel (the savanna's #117 lesson) - and the grain runs ACROSS
+    //the way the flow that laid it was moving, which is how pahoehoe folds into ropes. Until #509 it ran
+    //downhill, which the sheen then drew as a brushed-metal field of streaks converging on the cone.
+    //The reduced program (#540) has none: the combed fBm and the derivative normal behind it were 0.5 ms of the APU's Low
+    //frame, and at 1600×900 the ropes it draws are a few pixels wide beyond the island's own edge.
+    //The field's alone since #748, faded out across the front so the derivative below meets no step: the land past it
+    //tilts its light by a grain of its own (CountrySurface).
+    float relief = 0.0;
+    if (fullDetail)
+    {
+        [branch]
+        if (landShare < 1.0 && Shaded(worldPosition))
+        {
+            //Across the bearing from the cone: Fbm2Combed normalises the direction itself
+            float2 fromCone = worldPosition.xz - ConeCenterXZ;
+            relief = Fbm2Combed(worldPosition.xz * 0.55, float2(-fromCone.y, fromCone.x), 1.8, 4, footprint * 0.55) * 0.5 * (1.0 - landShare);
+        }
+    }
+    float3 normal = fullDetail ? PerturbNormalFromHeight(baseNormal, worldPosition, relief) : baseNormal;
+
+    //--- Lighting ----------------------------------------------------------------------------------------
+    float sunlight = CloudSunlight(worldPosition, SunDirection);
+
+    //The sun's cast shadows (#471), into the same sunlight factor the clouds dim, so everything read off it
+    //is shadowed at once. What casts here: the island and the gun on the flank.
+    [branch]
+    if (ShadowStrength > 0.0)
+        sunlight *= SunShadow(worldPosition, baseNormal, SunDirection);
+
+    //The field and the land, each behind a data branch on where the pixel stands: a pixel of the field pays nothing
+    //for the land past it, and one of the land nothing for the flows, the cracks and the sheen it has none of. ⚠ What
+    //either needs it works out itself from the interpolants (FieldSurface, CountrySurface): every value the land's branch
+    //takes in is held live through the field's, which is this program's register peak, and the pass is occupancy-bound
+    float3 color = 0.0;
+    [branch]
+    if (landShare < 1.0 && Shaded(worldPosition))
+        color = FieldSurface(input, footprint, normal, relief, sunlight, rubble, fullDetail);
+    [branch]
+    if (landShare > 0.0 && Shaded(worldPosition))
+        color = lerp(color, CountrySurface(input, footprint, sunlight), landShare);
+
     //Haze, and it is the dome's horizon TINTED DOWN rather than the horizon itself. Every other terrain
     //scene here stands under a sky whose horizon is roughly its own ground's tone, so lerping to it is
     //aerial perspective; black basalt under a cream horizon at the desert's haze distance came out as a
     //SAND DUNE, cone and all. An ash pall is what is actually in this air.
-    float haze = saturate(dist / HorizonHazeDistance);
-    color = lerp(color, HorizonColor * HazeTint, haze * haze * HazeStrength);
+    //Past the field's edge the pall thins into the land's own air (#748), over PALL_THINS: see LandHazeColor.
+    float3 hazeColor = HorizonColor * HazeTint;
+    hazeColor = lerp(hazeColor, LandHazeColor, landShare * smoothstep(0.0, PALL_THINS, input.Country.x));
+
+    float haze = saturate(length(CameraPosition - worldPosition) / HorizonHazeDistance);
+    color = lerp(color, hazeColor, haze * haze * HazeStrength);
 
     return float4(FarFadeToSky(color, worldPosition), 1.0);
 }
