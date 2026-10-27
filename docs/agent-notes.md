@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-27 — #1027 ořez vzdáleného lesa polární záře — notebook (ThinkPad), Claude Code (github-4d)
+- Hotovo: v Testbedu nový číselník `aurora=` (vrstvy záře) pro `alt=`. Sonda na APU v nastavení `Low`: prstence vzdáleného lesa 2,54 + 2,50 ms, osázený les 2,27, obloha 2,05.
+- Hotovo: prstence se kreslí jen v sektorech, kam kamera vidí (32 sektorů podle azimutu, kvádr na sektor, kreslení od `baseInstance`). Umbrella na `Low` 17,78 → 14,39 ms (v0.4.0 14,27), Fish 18,07 → 14,71, na `Medium` −3,05 / −3,37. Poušť beze změny. Snímky z pěti pohledů se liší jen vločkami.
+- Otevřené: #1027 lze zavřít (Umbrella je pod 16,1). Zbývá #1029 (jeskyně) a ~0,1 ms louky (#1028).
+
 ## 2026-10-27 — #748 krajina za lávovým polem sopky — desktop (RDT-PC), Claude Code (bs3d-8a)
 - majitel (27. 10.): druhé kolo AI referencí a podle nich krajina, ne až při velkém přepracování scény. Reference jsou v `C:\Users\panrd\AI\sd\out\748r2-zimage` a `748r2-klein`.
 - Hotovo: lávové pole končí zubatou zvednutou frontou s ohořelým pásem. Za ním louky, políčka, les, řeka (skutečná voda), 22 domů a kostel s rozsvícenými okny, hřebeny a spící kužel. Tvary drží `VolcanoCountry.cs` pro shader, zrcadlo, sázení i testy. `Low` kreslí jen zem, `PotatoBackdrop` beze změny.

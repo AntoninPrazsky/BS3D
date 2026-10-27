@@ -179,7 +179,8 @@ namespace Testbed
                 //frame's point lights, already on the shared effect; the component touches none of it, so the
                 //island's slices below are unaffected.
                 if (_scene == SceneKind.Forest) _forestScatter?.Draw(_camera, _sceneRenderer.FineMeshes);
-                if (_scene == SceneKind.Aurora) _auroraScatter?.Draw(_camera, _sceneRenderer.FineMeshes);
+                if (_scene == SceneKind.Aurora && (_sceneRenderer.AuroraLayers & AuroraLayer.Wood) != 0)
+                    _auroraScatter?.Draw(_camera, _sceneRenderer.FineMeshes);
 
                 //The forest's firefly-like blinking lights (#487), on the same scene clock the beacon and the
                 //campfire blink and flicker on — off pause, on with the game.

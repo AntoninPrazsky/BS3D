@@ -13,6 +13,18 @@ namespace Prazsky.Core.Render
     public enum VolcanoLayer { None = 0, Terrain = 1, Plume = 2, Jets = 4, Glow = 8, Ash = 16, All = Terrain | Plume | Jets | Glow | Ash }
 
     /// <summary>
+    /// The aurora's separately drawn layers, for <see cref="SceneRenderer.AuroraLayers"/> (#1027): the fine and the coarse
+    /// snow grid, the collars, the far stand's near and far rings, the sky, the planted wood (drawn by the host, which asks)
+    /// and the falling snow.
+    /// </summary>
+    [System.Flags]
+    public enum AuroraLayer
+    {
+        None = 0, FineGrid = 1, CoarseGrid = 2, Collars = 4, NearStand = 8, FarStand = 16, Sky = 32, Wood = 64, Snow = 128,
+        All = FineGrid | CoarseGrid | Collars | NearStand | FarStand | Sky | Wood | Snow
+    }
+
+    /// <summary>
     /// The per-frame inputs a scene needs that are not its own static tuning: the camera, the sun direction,
     /// the sky palette in <b>linear</b> radiance (zenith and horizon), the sun's own radiance already tinted
     /// by the dome (for the sea glint and the warm cast on the terrain), the wall-clock time its motion runs
@@ -404,6 +416,17 @@ namespace Prazsky.Core.Render
         {
             get => _volcano.Layers;
             set => _volcano.Layers = value;
+        }
+
+        /// <summary>
+        /// The aurora's layers, for taking them apart on the APU (#1027): a measurement dial like <see cref="VolcanoLayers"/>,
+        /// set by the Testbed's <c>aurora=</c> alternation dial and left at <see cref="AuroraLayer.All"/> by every other caller.
+        /// <see cref="AuroraLayer.Wood"/> is the host's to honour: the planted wood is its own renderer's draw.
+        /// </summary>
+        public AuroraLayer AuroraLayers
+        {
+            get => _aurora.Layers;
+            set => _aurora.Layers = value;
         }
 
         #region The sun's shadow map (#469, in every terrain scene since #471)
