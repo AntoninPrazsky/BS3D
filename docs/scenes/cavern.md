@@ -46,7 +46,7 @@ The arena draws after the backdrop. When the hall was shaded into the display-re
 
 ## Tiers
 
-- **Low** (`SceneDetail` reduced) draws no mirror (the lake reads a dark ramp and the clusters' glints) and the reduced programs `RockReduced` and `FormationReduced`, without the creased joints and the finest octave.
+- **Low** (`SceneDetail` reduced) draws no mirror (the lake reads a dark ramp and the clusters' glints) and the reduced programs: `RockReduced` without the creased joints, with three of the relief's five octaves and the flowstone's and the mottle's fields at one octave (#1029), and `FormationReduced` without its finest octave. The mirror on High and Ultra draws the rock through the same reduced body.
 - **Low and Medium** draw the coarse meshes (`FineMeshes` off); High and Ultra the fine ones.
 - **The Potato path** (`PotatoBackdrop.Cavern`) draws the same hall off the same `CavernChamber` on the launch's seed at `Detail.Potato`: a shell of 18 cells a face edge and the bed in the rock's colour, the columns and up to fifty of the longest stalactites and stalagmites on 6 facets, every cluster's prisms in a nearly black casing radiating the cluster's colour, the lake as a plane with a little of its glow, under the cave's rig. No mirror, no glowworms, no shafts.
 
@@ -70,7 +70,7 @@ The arena draws after the backdrop. When the hall was shaded into the display-re
 
 ## Cost
 
-**On the desktop, cheaper than the analytic pass it replaced on every tier; on the reference APU only on `Medium`.** There Spring, 1600x900, goes from v0.4.0's build to v0.5.0's **15.74 to 18.03 ms at `Low`** (over the 16.1 ms budget) and 30.95 to 27.00 at `Medium` ("The reference APU against shipped levels" in [What the frame costs](../game-shell/quality-measurements.md)); `Low` draws the coarse meshes, about 100 000 rock vertices and 224 000 formation triangles, and 9 000 glowworms. The desktop's figures: the Game, 3840x1600 fullscreen, `nocap`, desktop (RX 6900 XT), the whole frame, the minimum of the run medians of alternating runs against the build before the rebuild (`sceneseed=0 seed=1`):
+**On the desktop, cheaper than the analytic pass it replaced on every tier; on the reference APU only on `Medium`, until `Low`'s rock was cut (#1029).** There Spring, 1600x900, went from v0.4.0's build to v0.5.0's 15.74 to 18.03 ms at `Low`, over the 16.1 ms budget, and 30.95 to 27.00 at `Medium` ("The reference APU against shipped levels" in [What the frame costs](../game-shell/quality-measurements.md)). `Low` draws the coarse meshes, about 100 000 rock vertices and 224 000 formation triangles, and 9 000 glowworms, and the shell is nearly every pixel: taken apart with the Testbed's `cavern=` dial at `Low`'s settings (one process, `campos=0,-4,30 camtarget=0,6,-60`, 35 cycles), of a 17.25 ms frame the rock was **10.69 ms**, the formations 0.82, the shafts 0.30, the glowworms 0.17 and the crystals 0.15. `RockReduced`'s three relief octaves and one-octave albedo fields (Tiers, above) took Spring 16.80 → **15.31 ms** and Chest 15.18 → 13.67 at `Low` in the Game, beside the build before them; the near rock loses its finest grain and nothing else moves at block level. The desktop's figures: the Game, 3840x1600 fullscreen, `nocap`, desktop (RX 6900 XT), the whole frame, the minimum of the run medians of alternating runs against the build before the rebuild (`sceneseed=0 seed=1`):
 
 | Pose | Tier | Before | This hall |
 |---|---|---|---|

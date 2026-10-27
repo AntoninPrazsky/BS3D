@@ -263,7 +263,7 @@ can submit and nothing about the frame.
 
   The dials are `arena`, `capprobe`, `scene`, `sky`, `balls`, `ssaa`, `msaa`, `rscale`, `detail`, `exposure`,
   `nopost`, `aurora` (the aurora's layers, #1027: `aurora=all/-farstand`, `…/-nearstand`, `…/-sky`, `…/-wood`, and
-  the grids, collars and snow) and `volcano` (the volcano's layers, #540: `volcano=all/-plume`, `…/-jets/-glow`, `…/-ash`,
+  the grids, collars and snow), `cavern` (#1029: `cavern=all/-rock`, `…/-formations`, …) and `volcano` (the volcano's layers, #540: `volcano=all/-plume`, `…/-jets/-glow`, `…/-ash`,
   `…/-terrain` — `/` separates them because `,` separates pins; **⚠ a dial a variant does not name keeps the
   last variant's value**, so give every variant `volcano=all` when one of them takes a layer out, or every cycle
   after the first measures the frame without it — which is how #540's first probe run read seven variants alike), and **the list is short for one reason: a switch must leave nothing behind**, or the window
