@@ -1,29 +1,184 @@
 {
-    "file": "theme-bigtop-calliope.wav",
-    "created": "2026-10-02",
-    "issue": 690,
-    "family": "bigtop",
-    "chapter": "The Big Top (circus, #690) - second round on the owner's ear: calliope less whiny, trapeze melodic throughout, tightrope lighter bass; every brief asks for a wide, spacious stereo mix",
-    "purpose": "Master of Game/Music/bigtop-calliope.ogg, one of the bigtop family's recordings (#690): written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-    "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-690.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
-    "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
-    "license": "ACE-Step 1.5: MIT (code and weights)",
-    "request": {
-        "caption": "Eurodance instrumental: four-on-the-floor kick, octave synth bass, a warm mellow carnival calliope organ hook with a rounded tone, lush string synths, playful and energetic, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
-        "lm_negative_prompt": "vocals, singing, audience applause, crowd noise, live recording, polka, oompah brass band, marching band, shrill whiny lead, pitch-bending lead, long drum-only sections, drum solo, boomy sub bass, distorted bass",
-        "instrumental": true,
-        "use_cot_caption": false,
-        "duration": 120,
-        "bpm": 128,
-        "keyscale": "A minor",
-        "inference_steps": 8,
-        "output_format": "wav32"
-    },
-    "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
-    "loop_log": [
-        "Wrote C:\\Users\\panrd\\AI\\output\\masters-690b\\theme-bigtop-calliope-a.wav: 45.0s loop = source 34.25s..79.25s (23.97 bars at 127.8 bpm), crossfade 0.94s | context match 0.918 (best 0.964) | crossfade rhythm r=0.96 vs the track a bar later r=0.88: in time | spectrum cos=0.96"
+  "file": "theme-bigtop-calliope.wav",
+  "created": "2026-10-27",
+  "issue": 912,
+  "family": "bigtop",
+  "chapter": "The Big Top",
+  "purpose": "Master of Game/Music/bigtop-calliope.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>. The master stays outside the repository (C:/Users/panrd/AI/output/masters-909-chosen on the desktop, with its .raw.wav; this is candidate c1, theme-bigtop-calliope-c1 in masters-909, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-r.ps1 (#909-#917, adapted from the #908 batch) -> Tools/Generation/generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Modern eurodance instrumental: four-on-the-floor kick, octave synth bass, a warm hummable analog synth lead with a rising call-and-response melody of its own in the middle register, lush string synths, warm piano chords, a big build-up into a soaring euphoric peak with wide supersaw chords, playful and energetic, glossy modern production, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar, no vocals",
+    "lm_negative_prompt": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, out of tune, detuned, dissonance, clashing notes, atonal, ambient drone, free tempo, rubato, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, distorted bass, white noise, hiss, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, tambourine, shakers, long drum-only sections, drum solo, one-bar loop, repetitive loop, polka, oompah brass band, marching band, circus music, carnival organ, calliope organ, merry-go-round organ, parody, oriental scale, middle eastern scale, arabic, harmonic minor, exotic scale, plucked strings, pizzicato strings, glockenspiel, xylophone, squeaky, shrill, whistle, sparkling bells, high stabs, shrill high synth shots, pitch bends, organ lead, melody doubled by an organ",
+    "instrumental": true,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 128,
+    "keyscale": "A minor",
+    "seed": 1096506354,
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-bigtop-calliope-c1.wav: 45.0s loop = source 33.55s..78.55s (23.96 bars at 127.8 bpm), crossfade 0.94s | context match 0.894 (best 0.941) | crossfade rhythm r=0.82 vs the track a bar later r=0.82: in time | spectrum cos=0.94"
+  ],
+  "lm_check": {
+    "request0_captured": true,
+    "caption_verbatim": true,
+    "seed_in_request0": 1096506354,
+    "bpm_in_request0": 128,
+    "keyscale_in_request0": "A minor",
+    "duration_in_request0": 120.0,
+    "lyrics_in_request0": "[Instrumental]"
+  },
+  "measured": "generate-music.ps1 end to end 62,3 s (ace-lm + ace-synth + loop cut), exit 0",
+  "rendered": true,
+  "chosen": {
+    "candidate": "c1",
+    "round": 1,
+    "of": [
+      "c1",
+      "c2",
+      "c3",
+      "c4",
+      "c5",
+      "c6",
+      "c7",
+      "c8",
+      "c9"
     ],
-    "measured": "generate-music.ps1 end to end 64.5 s (ace-lm + ace-synth + loop cut)",
-    "rendered": true,
-    "round": "Second round (2026-10-02) on the owner's ear: the first render's verdict was \"a bit squeaky, whiny\"; candidate a of two chosen by measurement, the brief asking for a wide spacious stereo mix as well."
+    "why": "Chosen by measurement beside the ember family in one measure-music.py run, then the owner's ear: 7.4 % in 200 Hz-2 kHz, 6.3 % in 300 Hz-4 kHz, 3.4 % above 6 kHz, tonal mid 56 %, 2.31 held-note changes a second, tempo wander 0.01 %, wobble 3.0 / detune 2.8 cents, 8.0 short gaps a minute, the opening repeats for 3.8 s, 1.4 % of held notes out of key; a 45.0 s loop at 127.8 bpm, cut context 0.894, crossfade rhythm r 0.82 against 0.82 a bar later, spectrum cosine 0.94, quietest 2 s 4.6 dB under the loud level, 0 % of the loop 10 dB under it. Outside ember's range: b200_2k 7.4, held_changes 2.31, above6k 3.4. No organ lead, a call-and-response melody of its own so it no longer echoes Finale. The only candidate of nine inside the gates; rounds 2-3 gave 28-64 short gaps a minute.",
+    "how": "Tools/Generation/measure-music.py --reference ember with ember in the same run, the documented gates (docs/game-feedback/music-generation.md, 'Choosing a candidate'), then the owner's listening page (2026-10-27)."
+  },
+  "alternatives": [
+    {
+      "candidate": "c2",
+      "round": 1,
+      "seed": 1465851025,
+      "bpm": 128,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-bigtop-calliope-c2.wav: 45.0s loop = source 35.10s..80.10s (23.96 bars at 127.8 bpm), crossfade 0.94s | context match 0.964 (best 0.972) | crossfade rhythm r=0.96 vs the track a bar later r=0.74: in time | spectrum cos=0.98"
+      ],
+      "refused_or_not_chosen": "out: short gaps 37.3/min",
+      "caption": "same brief"
+    },
+    {
+      "candidate": "c3",
+      "round": 1,
+      "seed": 1389385891,
+      "bpm": 128,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-bigtop-calliope-c3.wav: 41.2s loop = source 35.95s..77.20s (21.96 bars at 127.8 bpm), crossfade 0.94s | context match 0.474 (best 0.474) | crossfade rhythm r=0.85 vs the track a bar later r=0.81: in time | spectrum cos=0.52"
+      ],
+      "refused_or_not_chosen": "out: hole 17 %, short gaps 34.9/min",
+      "caption": "same brief"
+    },
+    {
+      "candidate": "c4",
+      "round": 2,
+      "seed": 1279481575,
+      "bpm": 128,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-bigtop-calliope-c4.wav: 58.1s loop = source 28.62s..86.75s (30.96 bars at 127.8 bpm), crossfade 0.94s | context match 0.144 (best 0.184) | crossfade rhythm r=0.15 vs the track a bar later r=0.11: in time | spectrum cos=0.19"
+      ],
+      "refused_or_not_chosen": "out: seam cos 0.19, short gaps 35.1/min",
+      "caption": "brief_1 (below)"
+    },
+    {
+      "candidate": "c5",
+      "round": 2,
+      "seed": 461085336,
+      "bpm": 128,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-bigtop-calliope-c5.wav: 54.4s loop = source 34.92s..89.30s (28.95 bars at 127.8 bpm), crossfade 0.94s | context match 0.467 (best 0.516) | crossfade rhythm r=0.76 vs the track a bar later r=0.64: in time | spectrum cos=0.57"
+      ],
+      "refused_or_not_chosen": "out: wrap -7.0 dB (p100), short gaps 64.0/min",
+      "caption": "brief_1 (below)"
+    },
+    {
+      "candidate": "c6",
+      "round": 2,
+      "seed": 717912165,
+      "bpm": 128,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-bigtop-calliope-c6.wav: 48.7s loop = source 31.15s..79.90s (25.96 bars at 127.8 bpm), crossfade 0.94s | context match 0.287 (best 0.332) | crossfade rhythm r=0.88 vs the track a bar later r=0.84: in time | spectrum cos=0.32"
+      ],
+      "refused_or_not_chosen": "out: short gaps 40.6/min",
+      "caption": "brief_1 (below)"
+    },
+    {
+      "candidate": "c7",
+      "round": 3,
+      "seed": 1644480911,
+      "bpm": 128,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-bigtop-calliope-c7.wav: 41.2s loop = source 33.85s..75.10s (21.96 bars at 127.8 bpm), crossfade 0.94s | context match 0.671 (best 0.682) | crossfade rhythm r=0.85 vs the track a bar later r=0.65: in time | spectrum cos=0.62"
+      ],
+      "refused_or_not_chosen": "out: short gaps 48.0/min",
+      "caption": "brief_2 (below)"
+    },
+    {
+      "candidate": "c8",
+      "round": 3,
+      "seed": 560178298,
+      "bpm": 128,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-bigtop-calliope-c8.wav: 75.0s loop = source 26.20s..101.20s (39.97 bars at 127.9 bpm), crossfade 0.94s | context match 0.944 (best 0.991) | crossfade rhythm r=0.95 vs the track a bar later r=0.62: in time | spectrum cos=0.95"
+      ],
+      "refused_or_not_chosen": "out: wrap +9.6 dB (p97), short gaps 44.8/min",
+      "caption": "brief_2 (below)"
+    },
+    {
+      "candidate": "c9",
+      "round": 3,
+      "seed": 1118298430,
+      "bpm": 128,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-bigtop-calliope-c9.wav: 88.3s loop = source 20.41s..108.70s (47.03 bars at 127.9 bpm), crossfade 0.94s | context match 0.094 (best 0.124) | crossfade rhythm r=0.64 vs the track a bar later r=0.78: BELOW the track's own timekeeping -- listen | spectrum cos=0.12"
+      ],
+      "refused_or_not_chosen": "out: seam BELOW, seam cos 0.12, short gaps 27.9/min",
+      "caption": "brief_2 (below)"
+    }
+  ],
+  "alternative_briefs": {
+    "brief_1": {
+      "caption": "Modern eurodance instrumental: four-on-the-floor kick, octave synth bass, a warm hummable analog synth lead with a rising call-and-response melody of its own, running eighth notes, in the middle register, lush string synths, warm piano chords, a big build-up into a soaring euphoric peak with wide supersaw chords, playful and energetic, glossy modern production, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, out of tune, detuned, dissonance, clashing notes, atonal, ambient drone, free tempo, rubato, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, distorted bass, white noise, hiss, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, tambourine, shakers, long drum-only sections, drum solo, one-bar loop, repetitive loop, polka, oompah brass band, marching band, circus music, carnival organ, calliope organ, merry-go-round organ, parody, oriental scale, middle eastern scale, arabic, harmonic minor, exotic scale, plucked strings, pizzicato strings, glockenspiel, xylophone, squeaky, shrill, whistle, sparkling bells, high stabs, shrill high synth shots, pitch bends, organ lead, melody doubled by an organ",
+      "lyrics": null,
+      "bpm": 128,
+      "round": 2,
+      "candidates": [
+        "c4",
+        "c5",
+        "c6"
+      ]
+    },
+    "brief_2": {
+      "caption": "Modern eurodance synth-pop instrumental: a four-on-the-floor kick, a bouncy octave synth bass, a bright catchy analog synth lead with a rising melody of its own in the middle register, lush sustained supersaw chords and warm pads holding through every bar without a break, warm piano chords, a big build-up into a soaring euphoric peak, playful and energetic, glossy modern production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, out of tune, detuned, dissonance, clashing notes, atonal, ambient drone, free tempo, rubato, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, distorted bass, white noise, hiss, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, tambourine, shakers, long drum-only sections, drum solo, one-bar loop, repetitive loop, polka, oompah brass band, marching band, circus music, carnival organ, calliope organ, merry-go-round organ, parody, oriental scale, middle eastern scale, arabic, harmonic minor, exotic scale, plucked strings, pizzicato strings, glockenspiel, xylophone, squeaky, shrill, whistle, sparkling bells, high stabs, shrill high synth shots, pitch bends, organ lead, melody doubled by an organ, trance gate, gated synths, gated pads, chopped pads, sidechain pumping, stutter, stop-start, staccato stabs, rests, pauses, silences, dropouts, breakdown, drum fills",
+      "lyrics": null,
+      "bpm": 128,
+      "round": 3,
+      "candidates": [
+        "c7",
+        "c8",
+        "c9"
+      ]
+    }
+  },
+  "replaces": {
+    "issue": 690,
+    "created": "2026-10-02",
+    "caption": "Eurodance instrumental: four-on-the-floor kick, octave synth bass, a warm mellow carnival calliope organ hook with a rounded tone, lush string synths, playful and energetic, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+    "negative": "vocals, singing, audience applause, crowd noise, live recording, polka, oompah brass band, marching band, shrill whiny lead, pitch-bending lead, long drum-only sections, drum solo, boomy sub bass, distorted bass",
+    "seed": null,
+    "bpm": 128,
+    "keyscale": "A minor",
+    "loop_log": [
+      "Wrote C:\\Users\\panrd\\AI\\output\\masters-690b\\theme-bigtop-calliope-a.wav: 45.0s loop = source 34.25s..79.25s (23.97 bars at 127.8 bpm), crossfade 0.94s | context match 0.918 (best 0.964) | crossfade rhythm r=0.96 vs the track a bar later r=0.88: in time | spectrum cos=0.96"
+    ],
+    "why_replaced": "Owner 2026-10-16: Finale 'sounds similar (a similar melody) to Calliope, but better. So Calliope would probably need to be changed'."
+  }
 }

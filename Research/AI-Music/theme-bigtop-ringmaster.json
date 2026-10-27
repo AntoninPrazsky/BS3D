@@ -1,28 +1,86 @@
 {
-    "file":  "theme-bigtop-ringmaster.wav",
-    "created":  "2026-10-02",
-    "issue":  690,
-    "family":  "bigtop",
-    "chapter":  "The Big Top (circus, #690) - in Colossus\u0027s style (#292: the eurodance Pulse it played then), a carnival colour over a dance groove, A minor",
-    "purpose":  "Master of Game/Music/bigtop-ringmaster.ogg, one of the bigtop family\u0027s recordings (#690): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-690.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "Big room dance instrumental: huge kick, riser builds, a grand theatrical synth lead, off-beat claps, sparkling bells, showtime festival energy, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording, polka, oompah brass band, marching band",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  128,
-                    "keyscale":  "A minor",
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-690\\theme-bigtop-ringmaster.wav: 45.0s loop = source 35.85s..80.85s (23.96 bars at 127.8 bpm), crossfade 0.94s | context match 0.774 (best 0.823) | crossfade rhythm r=0.72 vs the track a bar later r=0.75: in time | spectrum cos=0.84"
-                 ],
-    "measured":  "generate-music.ps1 end to end 63.9 s (ace-lm + ace-synth + loop cut)",
-    "rendered":  true
+  "file": "theme-bigtop-ringmaster.wav",
+  "created": "2026-10-27",
+  "issue": 912,
+  "family": "bigtop",
+  "chapter": "The Big Top",
+  "purpose": "Master of Game/Music/bigtop-ringmaster.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>. The master stays outside the repository (C:/Users/panrd/AI/output/masters-909-chosen on the desktop, with its .raw.wav; this is candidate c3, theme-bigtop-ringmaster-c3 in masters-909, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-r.ps1 (#909-#917, adapted from the #908 batch) -> Tools/Generation/generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Modern festival house instrumental: a huge warm kick, rolling bass, a grand theatrical analog synth lead melody in the middle register, perfectly in tune, warm piano chords, a big build-up into a soaring euphoric peak with wide supersaw chords, showtime energy, glossy modern production, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar, no vocals",
+    "lm_negative_prompt": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, out of tune, detuned, dissonance, clashing notes, atonal, ambient drone, free tempo, rubato, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, distorted bass, white noise, hiss, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, tambourine, shakers, long drum-only sections, drum solo, one-bar loop, repetitive loop, polka, oompah brass band, marching band, circus music, carnival organ, calliope organ, merry-go-round organ, parody, oriental scale, middle eastern scale, arabic, harmonic minor, exotic scale, plucked strings, pizzicato strings, glockenspiel, xylophone, squeaky, shrill, whistle, sparkling bells, high stabs, shrill high synth shots, pitch bends, risers, sirens, noise sweeps",
+    "instrumental": true,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 128,
+    "keyscale": "A minor",
+    "seed": 1944201361,
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-bigtop-ringmaster-c3.wav: 45.0s loop = source 48.55s..93.55s (23.96 bars at 127.8 bpm), crossfade 0.94s | context match 0.854 (best 0.903) | crossfade rhythm r=0.60 vs the track a bar later r=0.67: in time | spectrum cos=0.89"
+  ],
+  "lm_check": {
+    "request0_captured": true,
+    "caption_verbatim": true,
+    "seed_in_request0": 1944201361,
+    "bpm_in_request0": 128,
+    "keyscale_in_request0": "A minor",
+    "duration_in_request0": 120.0,
+    "lyrics_in_request0": "[Instrumental]"
+  },
+  "measured": "generate-music.ps1 end to end 58,1 s (ace-lm + ace-synth + loop cut), exit 0",
+  "rendered": true,
+  "chosen": {
+    "candidate": "c3",
+    "round": 1,
+    "of": [
+      "c3",
+      "c1",
+      "c2"
+    ],
+    "why": "Chosen by measurement beside the ember family in one measure-music.py run, then the owner's ear: 16.2 % in 200 Hz-2 kHz, 16.4 % in 300 Hz-4 kHz, 1.4 % above 6 kHz, tonal mid 80 %, 4.04 held-note changes a second, tempo wander 0.05 %, wobble 1.4 / detune 0.9 cents, 0.0 short gaps a minute, the opening repeats for 45.0 s, 5.2 % of held notes out of key; a 45.0 s loop at 127.8 bpm, cut context 0.854, crossfade rhythm r 0.6 against 0.67 a bar later, spectrum cosine 0.89, quietest 2 s 1.6 dB under the loud level, 0 % of the loop 10 dB under it. Outside ember's range: opening repeat 45.0 s. Bells, high stabs and pitch bends in the negative (the owner's 'out-of-tune high shots'): 1.4 % above 6 kHz where the old one read 7.2 %. Its opening pattern runs the whole 45 s loop, the one column outside ember.",
+    "how": "Tools/Generation/measure-music.py --reference ember with ember in the same run, the documented gates (docs/game-feedback/music-generation.md, 'Choosing a candidate'), then the owner's listening page (2026-10-27)."
+  },
+  "alternatives": [
+    {
+      "candidate": "c1",
+      "round": 1,
+      "seed": 1783467342,
+      "bpm": 128,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-bigtop-ringmaster-c1.wav: 45.0s loop = source 34.20s..79.20s (23.96 bars at 127.8 bpm), crossfade 0.94s | context match 0.567 (best 0.568) | crossfade rhythm r=0.65 vs the track a bar later r=0.64: in time | spectrum cos=0.68"
+      ],
+      "refused_or_not_chosen": "out: hole 16 %, wrap +12.2 dB (p90)",
+      "caption": "same brief"
+    },
+    {
+      "candidate": "c2",
+      "round": 1,
+      "seed": 608543634,
+      "bpm": 128,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-bigtop-ringmaster-c2.wav: 92.8s loop = source 11.04s..103.85s (48.98 bars at 126.7 bpm), crossfade 0.95s | context match -0.044 (best 0.005) | crossfade rhythm r=0.58 vs the track a bar later r=0.11: in time | spectrum cos=-0.21"
+      ],
+      "refused_or_not_chosen": "out: hole 30 %, seam cos -0.21",
+      "caption": "same brief"
+    }
+  ],
+  "replaces": {
+    "issue": 690,
+    "created": "2026-10-02",
+    "caption": "Big room dance instrumental: huge kick, riser builds, a grand theatrical synth lead, off-beat claps, sparkling bells, showtime festival energy, no vocals",
+    "negative": "vocals, singing, audience applause, crowd noise, live recording, polka, oompah brass band, marching band",
+    "seed": null,
+    "bpm": 128,
+    "keyscale": "A minor",
+    "loop_log": [
+      "Wrote C:\\Users\\panrd\\AI\\output\\masters-690\\theme-bigtop-ringmaster.wav: 45.0s loop = source 35.85s..80.85s (23.96 bars at 127.8 bpm), crossfade 0.94s | context match 0.774 (best 0.823) | crossfade rhythm r=0.72 vs the track a bar later r=0.75: in time | spectrum cos=0.84"
+    ],
+    "why_replaced": "Owner 2026-10-16: 'those out-of-tune high shots are unpleasant, it sounds strange'; the old brief asked for sparkling bells."
+  }
 }

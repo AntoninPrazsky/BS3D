@@ -1,28 +1,184 @@
 {
-    "file":  "theme-bigtop-juggler.wav",
-    "created":  "2026-10-02",
-    "issue":  690,
-    "family":  "bigtop",
-    "chapter":  "The Big Top (circus, #690) - in Colossus\u0027s style (#292: the eurodance Pulse it played then), a carnival colour over a dance groove, A minor",
-    "purpose":  "Master of Game/Music/bigtop-juggler.ogg, one of the bigtop family\u0027s recordings (#690): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-690.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "Electro funk instrumental: slap synth bass, crisp drum machine, playful pizzicato strings and glockenspiel riffs, bright and cheeky, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording, polka, oompah brass band, marching band",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  112,
-                    "keyscale":  "A minor",
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-690\\theme-bigtop-juggler.wav: 48.0s loop = source 20.75s..68.75s (21.98 bars at 109.9 bpm), crossfade 1.09s | context match 0.553 (best 0.600) | crossfade rhythm r=0.73 vs the track a bar later r=0.74: in time | spectrum cos=0.44"
-                 ],
-    "measured":  "generate-music.ps1 end to end 61.9 s (ace-lm + ace-synth + loop cut)",
-    "rendered":  true
+  "file": "theme-bigtop-juggler.wav",
+  "created": "2026-10-27",
+  "issue": 912,
+  "family": "bigtop",
+  "chapter": "The Big Top",
+  "purpose": "Master of Game/Music/bigtop-juggler.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>. The master stays outside the repository (C:/Users/panrd/AI/output/masters-909-chosen on the desktop, with its .raw.wav; this is candidate c9, theme-bigtop-juggler-c9 in masters-909, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-r.ps1 (#909-#917, adapted from the #908 batch) -> Tools/Generation/generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Modern funky synth-pop instrumental: a bouncy slap synth bass, crisp punchy electronic drums, a bright catchy analog synth lead with a playful melody in the middle register, a clean funky rhythm guitar, lush sustained supersaw chords and warm pads holding through every bar without a break, a big build-up into a soaring euphoric peak, cheeky and cool, glossy modern production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar, no vocals",
+    "lm_negative_prompt": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, out of tune, detuned, dissonance, clashing notes, atonal, ambient drone, free tempo, rubato, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, distorted bass, white noise, hiss, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, tambourine, shakers, long drum-only sections, drum solo, one-bar loop, repetitive loop, polka, oompah brass band, marching band, circus music, carnival organ, calliope organ, merry-go-round organ, parody, oriental scale, middle eastern scale, arabic, harmonic minor, exotic scale, plucked strings, pizzicato strings, glockenspiel, xylophone, squeaky, shrill, whistle, sparkling bells, high stabs, shrill high synth shots, pitch bends, trance gate, gated synths, gated pads, chopped pads, sidechain pumping, stutter, stop-start, staccato stabs, rests, pauses, silences, dropouts, breakdown, drum fills",
+    "instrumental": true,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 112,
+    "keyscale": "A minor",
+    "seed": 478062082,
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-bigtop-juggler-c9.wav: 52.4s loop = source 22.58s..74.95s (23.95 bars at 109.8 bpm), crossfade 1.09s | context match 0.326 (best 0.355) | crossfade rhythm r=0.58 vs the track a bar later r=0.64: in time | spectrum cos=0.83"
+  ],
+  "lm_check": {
+    "request0_captured": true,
+    "caption_verbatim": true,
+    "seed_in_request0": 478062082,
+    "bpm_in_request0": 112,
+    "keyscale_in_request0": "A minor",
+    "duration_in_request0": 120.0,
+    "lyrics_in_request0": "[Instrumental]"
+  },
+  "measured": "generate-music.ps1 end to end 82,7 s (ace-lm + ace-synth + loop cut), exit 0",
+  "rendered": true,
+  "chosen": {
+    "candidate": "c9",
+    "round": 3,
+    "of": [
+      "c9",
+      "c1",
+      "c2",
+      "c3",
+      "c4",
+      "c5",
+      "c6",
+      "c7",
+      "c8"
+    ],
+    "why": "Chosen by measurement beside the ember family in one measure-music.py run, then the owner's ear: 8.6 % in 200 Hz-2 kHz, 8.1 % in 300 Hz-4 kHz, 4.4 % above 6 kHz, tonal mid 43 %, 3.74 held-note changes a second, tempo wander 0.01 %, wobble 2.9 / detune 2.8 cents, 24.1 short gaps a minute, the opening repeats for 2.2 s, 5.4 % of held notes out of key; a 52.4 s loop at 109.8 bpm, cut context 0.326, crossfade rhythm r 0.58 against 0.64 a bar later, spectrum cosine 0.83, quietest 2 s 4.1 dB under the loud level, 0 % of the loop 10 dB under it. Outside ember's range: b200_2k 8.6, tonal_mid 43, above6k 4.4. Round 3, the Clowns brief itself with a funk bass and held chords: 24.1 short gaps a minute where rounds 1-2 gave 34-77 in six of six; no pizzicato or glockenspiel (the owner's 'squeaky').",
+    "how": "Tools/Generation/measure-music.py --reference ember with ember in the same run, the documented gates (docs/game-feedback/music-generation.md, 'Choosing a candidate'), then the owner's listening page (2026-10-27)."
+  },
+  "alternatives": [
+    {
+      "candidate": "c1",
+      "round": 1,
+      "seed": 1904736257,
+      "bpm": 112,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-bigtop-juggler-c1.wav: 42.9s loop = source 29.64s..72.50s (19.97 bars at 111.8 bpm), crossfade 1.07s | context match 0.811 (best 0.859) | crossfade rhythm r=0.93 vs the track a bar later r=0.69: in time | spectrum cos=0.93"
+      ],
+      "refused_or_not_chosen": "out: short gaps 42.0/min",
+      "caption": "brief_1 (below)"
+    },
+    {
+      "candidate": "c2",
+      "round": 1,
+      "seed": 265598519,
+      "bpm": 112,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-bigtop-juggler-c2.wav: 43.6s loop = source 31.96s..75.60s (19.97 bars at 109.8 bpm), crossfade 1.09s | context match 0.622 (best 0.622) | crossfade rhythm r=0.77 vs the track a bar later r=0.69: in time | spectrum cos=0.64"
+      ],
+      "refused_or_not_chosen": "out: short gaps 77.0/min",
+      "caption": "brief_1 (below)"
+    },
+    {
+      "candidate": "c3",
+      "round": 1,
+      "seed": 142548293,
+      "bpm": 112,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-bigtop-juggler-c3.wav: 47.1s loop = source 31.76s..78.90s (21.96 bars at 111.8 bpm), crossfade 1.07s | context match 0.448 (best 0.497) | crossfade rhythm r=0.82 vs the track a bar later r=0.77: in time | spectrum cos=0.57"
+      ],
+      "refused_or_not_chosen": "out: hole 23 %, wrap -12.2 dB (p96), short gaps 59.8/min",
+      "caption": "brief_1 (below)"
+    },
+    {
+      "candidate": "c4",
+      "round": 2,
+      "seed": 620135766,
+      "bpm": 112,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-bigtop-juggler-c4.wav: 51.4s loop = source 35.07s..86.50s (23.96 bars at 111.8 bpm), crossfade 1.07s | context match 0.676 (best 0.724) | crossfade rhythm r=0.91 vs the track a bar later r=0.81: in time | spectrum cos=0.96"
+      ],
+      "refused_or_not_chosen": "out: short gaps 33.8/min",
+      "caption": "brief_2 (below)"
+    },
+    {
+      "candidate": "c5",
+      "round": 2,
+      "seed": 1219622372,
+      "bpm": 112,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-bigtop-juggler-c5.wav: 42.9s loop = source 34.94s..77.80s (19.97 bars at 111.8 bpm), crossfade 1.07s | context match 0.919 (best 0.922) | crossfade rhythm r=0.92 vs the track a bar later r=0.70: in time | spectrum cos=0.96"
+      ],
+      "refused_or_not_chosen": "out: short gaps 71.4/min",
+      "caption": "brief_2 (below)"
+    },
+    {
+      "candidate": "c6",
+      "round": 2,
+      "seed": 1747967540,
+      "bpm": 112,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-bigtop-juggler-c6.wav: 51.0s loop = source 4.73s..55.70s (24.04 bars at 113.2 bpm), crossfade 1.06s | context match 0.804 (best 0.840) | crossfade rhythm r=0.94 vs the track a bar later r=0.79: in time | spectrum cos=0.97"
+      ],
+      "refused_or_not_chosen": "out: short gaps 61.2/min",
+      "caption": "brief_2 (below)"
+    },
+    {
+      "candidate": "c7",
+      "round": 3,
+      "seed": 1772160663,
+      "bpm": 112,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-bigtop-juggler-c7.wav: 102.9s loop = source 5.04s..107.90s (48.00 bars at 112.0 bpm), crossfade 1.07s | context match 0.876 (best 0.917) | crossfade rhythm r=0.90 vs the track a bar later r=0.73: in time | spectrum cos=0.92"
+      ],
+      "refused_or_not_chosen": "out: short gaps 81.7/min",
+      "caption": "same brief"
+    },
+    {
+      "candidate": "c8",
+      "round": 3,
+      "seed": 1186802086,
+      "bpm": 112,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-bigtop-juggler-c8.wav: 51.4s loop = source 26.47s..77.90s (23.97 bars at 111.9 bpm), crossfade 1.07s | context match 0.593 (best 0.635) | crossfade rhythm r=0.80 vs the track a bar later r=0.69: in time | spectrum cos=0.67"
+      ],
+      "refused_or_not_chosen": "out: short gaps 70.0/min",
+      "caption": "same brief"
+    }
+  ],
+  "alternative_briefs": {
+    "brief_1": {
+      "caption": "Modern electro-funk instrumental: a rubbery slap-style synth bass groove, crisp punchy electronic drums, clean funky rhythm guitar, a warm analog synth lead with a catchy funky melody in the middle register, warm electric piano stabs, a big build-up into a euphoric peak with wide chords, playful and cool, glossy modern production, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, out of tune, detuned, dissonance, clashing notes, atonal, ambient drone, free tempo, rubato, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, distorted bass, white noise, hiss, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, tambourine, shakers, long drum-only sections, drum solo, one-bar loop, repetitive loop, polka, oompah brass band, marching band, circus music, carnival organ, calliope organ, merry-go-round organ, parody, oriental scale, middle eastern scale, arabic, harmonic minor, exotic scale, plucked strings, pizzicato strings, glockenspiel, xylophone, squeaky, shrill, whistle, sparkling bells, high stabs, shrill high synth shots, pitch bends",
+      "lyrics": null,
+      "bpm": 112,
+      "round": 1,
+      "candidates": [
+        "c1",
+        "c2",
+        "c3"
+      ]
+    },
+    "brief_2": {
+      "caption": "Modern nu-disco instrumental: a rolling legato bass line that never stops, a four-on-the-floor kick with a warm clap on kick, snare and toms, a clean funky rhythm guitar strumming sixteenths, a warm analog synth lead with a catchy playful melody of running eighth notes in the middle register, warm electric piano chords sustained under it, every instrument holding its notes through every beat, no rests, no stops, no breaks, one continuous unbroken flow, a big build-up into a euphoric peak with wide chords, playful and cool, glossy modern production, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, out of tune, detuned, dissonance, clashing notes, atonal, ambient drone, free tempo, rubato, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, distorted bass, white noise, hiss, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, tambourine, shakers, long drum-only sections, drum solo, one-bar loop, repetitive loop, polka, oompah brass band, marching band, circus music, carnival organ, calliope organ, merry-go-round organ, parody, oriental scale, middle eastern scale, arabic, harmonic minor, exotic scale, plucked strings, pizzicato strings, glockenspiel, xylophone, squeaky, shrill, whistle, sparkling bells, high stabs, shrill high synth shots, pitch bends, staccato, stabs, stop-start, chopped edits, stutter edits, gated breaks, rests, pauses, silences, dropouts, breakdown, drum fills",
+      "lyrics": null,
+      "bpm": 112,
+      "round": 2,
+      "candidates": [
+        "c4",
+        "c5",
+        "c6"
+      ]
+    }
+  },
+  "replaces": {
+    "issue": 690,
+    "created": "2026-10-02",
+    "caption": "Electro funk instrumental: slap synth bass, crisp drum machine, playful pizzicato strings and glockenspiel riffs, bright and cheeky, no vocals",
+    "negative": "vocals, singing, audience applause, crowd noise, live recording, polka, oompah brass band, marching band",
+    "seed": null,
+    "bpm": 112,
+    "keyscale": "A minor",
+    "loop_log": [
+      "Wrote C:\\Users\\panrd\\AI\\output\\masters-690\\theme-bigtop-juggler.wav: 48.0s loop = source 20.75s..68.75s (21.98 bars at 109.9 bpm), crossfade 1.09s | context match 0.553 (best 0.600) | crossfade rhythm r=0.73 vs the track a bar later r=0.74: in time | spectrum cos=0.44"
+    ],
+    "why_replaced": "Owner 2026-10-16: 'rather squeaky and again sounds amateurish'; the old brief asked for pizzicato strings and glockenspiel."
+  }
 }
