@@ -70,7 +70,7 @@ The arena draws after the backdrop. When the hall was shaded into the display-re
 
 ## Cost
 
-**Cheaper than the analytic pass it replaced, on every tier.** The Game, 3840x1600 fullscreen, `nocap`, desktop (RX 6900 XT), the whole frame, the minimum of the run medians of alternating runs against the build before the rebuild (`sceneseed=0 seed=1`):
+**On the desktop, cheaper than the analytic pass it replaced on every tier; on the reference APU only on `Medium`.** There Spring, 1600x900, goes from v0.4.0's build to v0.5.0's **15.74 to 18.03 ms at `Low`** (over the 16.1 ms budget) and 30.95 to 27.00 at `Medium` ("The reference APU against shipped levels" in [What the frame costs](../game-shell/quality-measurements.md)); `Low` draws the coarse meshes, about 100 000 rock vertices and 224 000 formation triangles, and 9 000 glowworms. The desktop's figures: the Game, 3840x1600 fullscreen, `nocap`, desktop (RX 6900 XT), the whole frame, the minimum of the run medians of alternating runs against the build before the rebuild (`sceneseed=0 seed=1`):
 
 | Pose | Tier | Before | This hall |
 |---|---|---|---|

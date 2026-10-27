@@ -8,11 +8,18 @@
 #
 #   .\history-sweep.ps1 -From e097a475 -To HEAD -Points 7 -Levels 'Spyglass,Colossus' -Tier low
 #
+# On the APU add -ByLevel (each level's builds measured back to back) and, to narrow one scene's step, -Paths
+# with that scene's files (#1026):
+#   .\history-sweep.ps1 -From v0.4.0 -Points 4 -Levels Amphora -ByLevel -Paths ':(glob)**/*Meadow*' -Extra 'userdata=C:\Temp\p'
+#
 # Levels are ONE comma string, not an array: an array handed through `powershell -File` spills into the
 # positional parameters (the trap the game-capture notes record).
 #
 # ⚠ An old build has no userdata= and reads the PLAYER'S OWN profile. Nothing here clears a level or changes a
 # setting, but the save's two files are hashed before and after and a difference is reported loudly.
+# -Extra is one space-separated string of arguments every run gets, for the same reason -Levels is one string.
+# Any build since #546 reads `userdata=<dir>`: pass one whose Settings.json has "online": false, or every run's
+# start and quit lands in the player's Stats.json and, with online scores on, is sent to the server (#709).
 param(
     [Parameter(Mandatory)][string]$From,
     [string]$To = 'HEAD',
@@ -22,6 +29,9 @@ param(
     [int]$Seconds = 40,
     [string]$OutDir = "$env:TEMP\bs3d-history-sweep",
     [string]$WorktreeRoot = 'C:\bs3d-sweep',
+    [string]$Extra = '',
+    [string]$Paths = '',
+    [switch]$ByLevel,
     [switch]$Keep
 )
 $ErrorActionPreference = 'Stop'
@@ -35,15 +45,21 @@ Assert-SanePath WorktreeRoot $WorktreeRoot -Full
 $repo = (Resolve-Path "$PSScriptRoot\..\..\..").Path
 $tm = Join-Path $PSScriptRoot 'tier-matrix.ps1'
 $levelList = $Levels.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+$extraList = @($Extra.Split(' ') | Where-Object { $_ })
 
-# The builds: both ends, and Points merges evenly spaced between them
-$merges = @(git -C $repo rev-list --first-parent --merges --reverse "$From..$To")
+# The builds: both ends, and Points merges evenly spaced between them - among only the merges that touched -Paths
+# (one comma string of pathspecs, ':(glob)**/*Meadow*' and the like) when it is given, so a scene's step is narrowed
+# over the merges that changed that scene rather than over every merge of a busy week
+$pathList = @($Paths.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+$merges = @(if ($pathList.Count) { git -C $repo rev-list --first-parent --merges --reverse "$From..$To" -- $pathList }
+            else { git -C $repo rev-list --first-parent --merges --reverse "$From..$To" })
 $picked = @()
 for ($k = 1; $k -le $Points; $k++) {
     $i = [math]::Round($merges.Count * $k / ($Points + 1)) - 1
     if ($i -ge 0 -and $i -lt $merges.Count) { $picked += $merges[$i] }
 }
-$commits = @((git -C $repo rev-parse --short $From)) + @($picked | ForEach-Object { git -C $repo rev-parse --short $_ }) + @((git -C $repo rev-parse --short $To))
+# ^{commit}: a tag (v0.4.0) is otherwise labelled with the hash of the tag object, which names no build
+$commits = @((git -C $repo rev-parse --short "$From^{commit}")) + @($picked | ForEach-Object { git -C $repo rev-parse --short $_ }) + @((git -C $repo rev-parse --short "$To^{commit}"))
 $commits = $commits | Select-Object -Unique
 
 $save = Join-Path $env:LOCALAPPDATA 'BS3D'
@@ -66,11 +82,18 @@ foreach ($c in $commits) {
 }
 
 $names = @($builds.Keys)
-for ($pass = 1; $pass -le 2; $pass++) {
-    $order = if ($pass -eq 1) { $names } else { $r = $names.Clone(); [array]::Reverse($r); $r }
-    foreach ($b in $order) {
-        & $tm -Targets ($levelList | ForEach-Object { "level:$_" }) -Tiers @($Tier) -Seconds $Seconds `
-            -OutDir (Join-Path $OutDir "$b~$pass") -Exe $builds[$b] | Out-Null
+# -ByLevel turns the loops round: every build, forward then reversed, on ONE level before the next level, so the
+# two runs a build's minimum is taken from sit minutes apart instead of a whole pass apart. On 2026-10-27 (#1026) the
+# APU slowed by up to 50 % half an hour into a pass-ordered sweep and stayed slow: the builds measured before the
+# drop and the builds after it read as a step that was the machine.
+if ($ByLevel) { $groups = @($levelList | ForEach-Object { , @($_) }) } else { $groups = @(, $levelList) }
+foreach ($g in $groups) {
+    for ($pass = 1; $pass -le 2; $pass++) {
+        $order = if ($pass -eq 1) { $names } else { $r = $names.Clone(); [array]::Reverse($r); $r }
+        foreach ($b in $order) {
+            & $tm -Targets ($g | ForEach-Object { "level:$_" }) -Tiers @($Tier) -Seconds $Seconds `
+                -OutDir (Join-Path $OutDir "$b~$pass") -Exe $builds[$b] -Extra $extraList | Out-Null
+        }
     }
 }
 

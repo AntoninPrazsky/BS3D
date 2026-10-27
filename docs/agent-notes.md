@@ -20,6 +20,14 @@ Pravidla:
 
 ---
 
+## 2026-10-27 — #1026 tabulka APU po v0.5.0, alokace jeskyně — notebook (ThinkPad), Claude Code (github-4d)
+- Hotovo: tabulka v `quality-measurements.md` přeměřena na APU, v0.5.0 vedle v0.4.0, `Low` i `Medium`, 15 levelů. Na `Low` jsou nově přes 16,1 ms polární záře (+3,76, #963), jeskyně (+2,29) a louka (+3,20, první kapitola). Navazují #1027 #1028 #1029. Na `Medium` záře +8,68 a louka +5,42.
+- Hotovo: jeskyně alokovala 48 B na snímek. Lambda v `StartDetail` zachytávala parametr, closure tak vznikala před časným `return`. Teď 0 B (e5462816).
+- majitel: zúžení na konkrétní merge jen v navazujících issues („Jen Medium, bez zúžení“).
+- ⚠ Řazení po průchodech lže: APU po ~25 min zpomalí až o 50 % a tři kroky vyšly s opačným znaménkem. Proto `history-sweep.ps1 -ByLevel`.
+- ⚠ Notebook zamrzl (Kernel-Power 41), když majitel odpojil nabíječku během měření s GPU naplno.
+- Otevřené: #1027–#1029.
+
 ## 2026-10-27 — #1025 článek o poctivosti hráčů — Raspberry Pi (BS3DServer), Claude Code (rdt-9a)
 - majitel: „Jinak až to bude hotové, myslím, že by téma poctivosti hráčů bylo dobré téma na článek na blog na webu.“ Pak: „Ano, napiš článek na blog.“
 - Hotovo: příspěvek `two-and-a-half-hours-of-play` o skriptu z 25. 10. a o kontrolách z BS3D-API#16, #17 a #1024. Má dva grafy, které nakreslil skript z kopie databáze služby; žádná přezdívka ani adresa v něm není.

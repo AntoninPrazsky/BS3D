@@ -35,7 +35,15 @@ step from the one before. Run it again inside the window that moved; three round
 cost the mountain a millisecond at `Low` (#551). **Compare builds, never afternoons**: a table from a week ago
 measured that week's machine (trap 14), and #540's own build run beside today's is the only comparison that says
 the code changed. `-Levels` is one comma string. ⚠ An old build has no `userdata=` and plays in the player's own
-profile; the script hashes the save before and after and says so loudly if it moved.
+profile; the script hashes the save before and after and says so loudly if it moved. Any build since #546 takes
+`-Extra 'userdata=<dir>'`, and that dir's `Settings.json` should say `"online": false`: a level run counts a start
+and a quit in `Stats.json`, which online scores send to the server (#709).
+**On the APU pass `-ByLevel`** (#1026): every build, forward then reversed, on one level before the next, so a
+build's two runs sit minutes apart. Pass-ordered (the default), a 15-level sweep put each build's two runs 25
+minutes apart, and half an hour in the laptop slowed by up to 50 % and stayed slow (cheap levels compressed towards
+12–13 ms, trap 14): the steps it read between v0.4.0 and v0.5.0 were up to 2 ms off, three of them with the wrong
+sign. By level, the same builds' two runs agreed to 0.1–0.3 ms on most levels. **`-Paths`** (one comma string of pathspecs, `':(glob)**/*Meadow*'`) picks the
+`-Points` among only the merges that touched those files, which is how one scene's step is narrowed.
 
 ## The four ways to measure nothing at all
 
