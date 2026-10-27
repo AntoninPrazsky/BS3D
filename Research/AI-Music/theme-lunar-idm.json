@@ -1,29 +1,87 @@
 {
-    "file":  "theme-lunar-idm.wav",
-    "created":  "2026-09-23",
-    "issue":  486,
-    "family":  "lunar",
-    "chapter":  "The Quarry (moon) - new: spacious, slow, grey light",
-    "purpose":  "Master of Game/Music/lunar-idm.ogg, one of the lunar family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "Gentle IDM instrumental: intricate soft glitchy drum programming, melodic bell-like synths, warm bass, floating pads, curious and delicate, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  100,
-                    "keyscale":  "A minor",
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it). Re-cut 2026-10-04 (#772): the first cut (source 25.40..102.20 s) ran across the render\u0027s 18 s near-silent breakdown at 57.6..75.9 s, so the game played silence for a quarter of every loop; this one is cut from the second loud body alone (the render cropped to 74.0..118.0 s and cut there), and the first cut is kept beside the master as theme-lunar-idm.loop-2026-09-23.wav",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-lunar-idm.wav: 76.8s loop = source 25.40s..102.20s (32.00 bars at 100.0 bpm), crossfade 1.20s | context match 0.653 (best 0.701) | crossfade rhythm r=0.90 vs the track a bar later r=0.86: in time | spectrum cos=0.64",
-                     "Re-cut 2026-10-04 (#772): 28.8s loop = source 80.65s..109.45s (12.00 bars at 100.0 bpm), crossfade 1.20s | context match 0.940 (best 0.988) | crossfade rhythm r=0.99 vs the track a bar later r=0.96: in time | spectrum cos=0.99"
-                 ],
-    "measured":  "generate-music.ps1 end to end 59.7 s (ace-lm + ace-synth + loop cut)",
-    "rendered":  true
+  "file": "theme-lunar-idm.wav",
+  "created": "2026-10-27",
+  "issue": 909,
+  "family": "lunar",
+  "chapter": "The Quarry",
+  "purpose": "Master of Game/Music/lunar-idm.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>. The master stays outside the repository (C:/Users/panrd/AI/output/masters-909-chosen on the desktop, with its .raw.wav; this is candidate c3, theme-lunar-idm-c3 in masters-909, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-r.ps1 (#909-#917, adapted from the #908 batch) -> Tools/Generation/generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Melodic electronica instrumental: a clear, hummable warm analog synth lead melody in the middle register, perfectly in tune, a main theme stated early and a contrasting second theme in the middle, intricate soft programmed drums on kick, snare and toms, a warm round bass line, soft electric piano chords, warm floating pads, curious and delicate, building into a glowing peak, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar, no vocals",
+    "lm_negative_prompt": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, out of tune, detuned, dissonance, clashing notes, atonal, ambient drone, free tempo, rubato, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, distorted bass, white noise, hiss, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, tambourine, shakers, long drum-only sections, drum solo, one-bar loop, repetitive loop, bells, bell-like synths, chimes, glockenspiel, celesta, metallic tones, harsh glitch, noise bursts",
+    "instrumental": true,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 100,
+    "keyscale": "A minor",
+    "seed": 1123749722,
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-lunar-idm-c3.wav: 76.8s loop = source 22.70s..99.50s (32.00 bars at 100.0 bpm), crossfade 1.20s | context match 0.880 (best 0.927) | crossfade rhythm r=0.99 vs the track a bar later r=0.95: in time | spectrum cos=0.91"
+  ],
+  "lm_check": {
+    "request0_captured": true,
+    "caption_verbatim": true,
+    "seed_in_request0": 1123749722,
+    "bpm_in_request0": 100,
+    "keyscale_in_request0": "A minor",
+    "duration_in_request0": 120.0,
+    "lyrics_in_request0": "[Instrumental]"
+  },
+  "measured": "generate-music.ps1 end to end 63,2 s (ace-lm + ace-synth + loop cut), exit 0",
+  "rendered": true,
+  "chosen": {
+    "candidate": "c3",
+    "round": 1,
+    "of": [
+      "c3",
+      "c1",
+      "c2"
+    ],
+    "why": "Chosen by measurement beside the ember family in one measure-music.py run, then the owner's ear: 10.8 % in 200 Hz-2 kHz, 9.4 % in 300 Hz-4 kHz, 1.2 % above 6 kHz, tonal mid 81 %, 2.6 held-note changes a second, tempo wander 0.02 %, wobble 2.0 / detune 1.2 cents, 8.6 short gaps a minute, the opening repeats for 2.4 s, 0.0 % of held notes out of key; a 76.8 s loop at 100.0 bpm, cut context 0.88, crossfade rhythm r 0.99 against 0.95 a bar later, spectrum cosine 0.91, quietest 2 s 5.3 dB under the loud level, 0 % of the loop 10 dB under it. Outside ember's range: held_changes 2.6. ",
+    "how": "Tools/Generation/measure-music.py --reference ember with ember in the same run, the documented gates (docs/game-feedback/music-generation.md, 'Choosing a candidate'), then the owner's listening page (2026-10-27)."
+  },
+  "alternatives": [
+    {
+      "candidate": "c1",
+      "round": 1,
+      "seed": 1198110680,
+      "bpm": 100,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-lunar-idm-c1.wav: 74.4s loop = source 35.70s..110.10s (31.00 bars at 100.0 bpm), crossfade 1.20s | context match 0.203 (best 0.253) | crossfade rhythm r=0.43 vs the track a bar later r=0.45: in time | spectrum cos=-0.05"
+      ],
+      "refused_or_not_chosen": "out: seam cos -0.05",
+      "caption": "same brief"
+    },
+    {
+      "candidate": "c2",
+      "round": 1,
+      "seed": 1953669424,
+      "bpm": 100,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-lunar-idm-c2.wav: 84.0s loop = source 8.30s..92.30s (35.00 bars at 100.0 bpm), crossfade 1.20s | context match 0.685 (best 0.734) | crossfade rhythm r=0.96 vs the track a bar later r=0.94: in time | spectrum cos=0.70"
+      ],
+      "refused_or_not_chosen": "ranked under the pick; outside ember: held_changes 2.24",
+      "caption": "same brief"
+    }
+  ],
+  "replaces": {
+    "issue": 486,
+    "created": "2026-09-23",
+    "caption": "Gentle IDM instrumental: intricate soft glitchy drum programming, melodic bell-like synths, warm bass, floating pads, curious and delicate, no vocals",
+    "negative": "vocals, singing, audience applause, crowd noise, live recording",
+    "seed": null,
+    "bpm": 100,
+    "keyscale": "A minor",
+    "loop_log": [
+      "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-lunar-idm.wav: 76.8s loop = source 25.40s..102.20s (32.00 bars at 100.0 bpm), crossfade 1.20s | context match 0.653 (best 0.701) | crossfade rhythm r=0.90 vs the track a bar later r=0.86: in time | spectrum cos=0.64",
+      "Re-cut 2026-10-04 (#772): 28.8s loop = source 80.65s..109.45s (12.00 bars at 100.0 bpm), crossfade 1.20s | context match 0.940 (best 0.988) | crossfade rhythm r=0.99 vs the track a bar later r=0.96: in time | spectrum cos=0.99"
+    ],
+    "why_replaced": "Owner 2026-10-16: 'a bit out of tune and as if something is missing - some main idea'; measured 4.4 % above 6 kHz, 12-bar opening repeat."
+  }
 }
