@@ -865,6 +865,9 @@ namespace BS3D
             _noInternet = launch.NoInternet;
             Birthday = launch.Birthday || IsBirthday(DateTime.Now);
 
+            //A capture run (#946) films itself; every other run holds null here and asks it nothing
+            BeginCapture(launch);
+
             //A tier the player chose in Settings is honoured exactly as quality= is — it is the same kind of
             //statement, made in a different place — and an argument outranks it, being this run's instruction.
             //The probe's own verdict is NOT stored (see GameSettings.Quality): it can only step a tier down,
@@ -2083,6 +2086,10 @@ namespace BS3D
 
         protected override void Update(GameTime gameTime)
         {
+            //A capture run's clock is a fixed step a frame, whatever the frame cost (#946): set on the very object every screen
+            //reads and the Draw after this reads too, before anything below takes its elapsed. Null in every other run
+            _capture?.FixStep(gameTime);
+
             //The frame is paced by the compositor at the END of Draw (PaceFrame, #634) — it used to be paced here,
             //at the top, which put every frame's GPU work after the wait (#448). Nothing waits before the work now,
             //so MonoGame's clock, read just before this, is read just after the last frame's wait ended.
@@ -2294,6 +2301,15 @@ namespace BS3D
             //page is over them (#191). It reads the back buffer, so it has to be the last thing in the frame
             //that touches the device.
             ServiceScreenshots();
+
+            //A capture run (#946) writes its frame here, after everything else has touched the back buffer, and is not paced: its
+            //game time does not follow the wall clock, so a frame is as fast as it can be drawn and read back, and the wait for the
+            //compositor and the idle of the limiter would be time spent for nothing
+            if (_capture != null)
+            {
+                ServiceCapture();
+                return;
+            }
 
             //Dead last, after the frame has been counted: the idle must not be inside anything the log
             //measures, or the instrument reads itself instead of the frame.

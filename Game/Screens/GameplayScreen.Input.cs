@@ -454,27 +454,8 @@ namespace BS3D.Screens
                 && Game.PreviousPad.Triggers.Left < PreciseAim.TRIGGER_FULL)
                 Game.Rumble.KickTriggers(LEAN_DETENT_RUMBLE, 0f, LEAN_DETENT_RUMBLE_SECONDS);
 
-            //Testing only (#402): a scripted run's hands — the barrel swung, precise aim held, a shot fired — after the
-            //mouse and the pad, so the script has the last word on the pose. Nothing at all without a script.
-            if (ScriptedPlay.Current is ScriptedPlay script)
-            {
-                if (script.TrySweep(WallClock, _cannon.Elevation, out float elevation, out float traverse))
-                    _cannon.AimTo(elevation, traverse);
-
-                if (script.TryAim(WallClock, out float pinnedElevation, out float pinnedTraverse))
-                    _cannon.AimTo(MathHelper.ToRadians(pinnedElevation), MathHelper.ToRadians(pinnedTraverse));
-
-                if (script.Rmb(WallClock))
-                {
-                    _adsHeld = true;
-                    _adsPull = 1f;
-                }
-
-                if (script.TryTakeFire(WallClock)) Shoot();
-                if (script.TryTakeSwap(WallClock)) PressSwap();
-                if (script.TryTakeBrake(WallClock)) PressBrake();
-                if (script.TryTakeCut(WallClock)) PressCut();
-            }
+            //Testing only (#402): a scripted run's hands, after the mouse and the pad, so the script has the last word on the pose
+            StepScriptedHands();
 
             //And the aim lesson reads the pose once the mouse and the pad have both had their say (#189)
             _tutorial.NoteAim(_cannon.Traverse, _cannon.Elevation);
@@ -483,6 +464,35 @@ namespace BS3D.Screens
             //measured against the previous *frame*, so the snapshot has to be the last thing the frame does
             //with the pad. Both methods are handed the one poll taken at the top of Update.
             Game.PreviousPad = pad;
+        }
+
+        /// <summary>
+        /// <b>Testing only</b> (#402): a scripted run's hands — the barrel swung (<c>sweep=</c>) or posed (<c>aim=</c>), precise aim held
+        /// (<c>rmb=</c>), a shot fired (<c>fire=</c>), the swap, the brake and the cut pressed — each on <see cref="WallClock"/>, through
+        /// the very call the key or the button makes. Nothing at all without a script. Called from <see cref="UpdateAim"/> after the
+        /// mouse and the pad have had their say, and by <see cref="Update"/> itself in a capture run (#946), which is never the focused
+        /// frame that reaches the aim.
+        /// </summary>
+        private void StepScriptedHands()
+        {
+            if (ScriptedPlay.Current is not ScriptedPlay script) return;
+
+            if (script.TrySweep(WallClock, _cannon.Elevation, out float elevation, out float traverse))
+                _cannon.AimTo(elevation, traverse);
+
+            if (script.TryAim(WallClock, out float pinnedElevation, out float pinnedTraverse))
+                _cannon.AimTo(MathHelper.ToRadians(pinnedElevation), MathHelper.ToRadians(pinnedTraverse));
+
+            if (script.Rmb(WallClock))
+            {
+                _adsHeld = true;
+                _adsPull = 1f;
+            }
+
+            if (script.TryTakeFire(WallClock)) Shoot();
+            if (script.TryTakeSwap(WallClock)) PressSwap();
+            if (script.TryTakeBrake(WallClock)) PressBrake();
+            if (script.TryTakeCut(WallClock)) PressCut();
         }
 
         /// <summary>

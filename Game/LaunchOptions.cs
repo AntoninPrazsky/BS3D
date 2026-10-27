@@ -383,6 +383,37 @@ namespace BS3D
         //can be walked without taking the machine's network down
         internal bool NoInternet { get; private set; }
 
+        //Testing and the website's pictures (#946): "capture=<folder>" turns the run into a capture - the frames of a window of
+        //game time written there as numbered PNGs, on a clock that steps a fixed amount a frame, with no HUD and, if stated, a
+        //lens of its own. Null when absent. See BS3D.Capture.CaptureRun for what a capture run is and ImplyCapture for what
+        //it implies of the other arguments.
+        internal string CaptureDirectory { get; private set; }
+
+        //"capturefps=<n>": frames of game time a second, whatever a frame takes to draw (CapturePlan.MIN_FPS to MAX_FPS)
+        internal int CaptureFps { get; private set; } = Capture.CapturePlan.DEFAULT_FPS;
+
+        //"capturefrom=<s>" and "captureseconds=<s>": the window of game time that is written; 0 seconds is a single frame
+        internal float CaptureFrom { get; private set; }
+        internal float CaptureSeconds { get; private set; } = Capture.CapturePlan.DEFAULT_SECONDS;
+
+        //"campos=x,y,z", "camtarget=x,y,z" and "fov=<degrees>" (the Testbed's spellings): a lens stated in world coordinates,
+        //held for the whole capture; "campath=<file>" a path of them flown over the window. Null when absent.
+        internal Microsoft.Xna.Framework.Vector3? CamPos { get; private set; }
+        internal Microsoft.Xna.Framework.Vector3? CamTarget { get; private set; }
+        internal float? CamFov { get; private set; }
+        internal string CamPath { get; private set; }
+
+        //"captureshake": a stated lens keeps the shake the gun's kick gives the play camera; otherwise it is held still
+        internal bool CaptureShake { get; private set; }
+
+        //"captureaim": the capture shows the aim preview - the beam along the bore and the ghost ball in the cell the shot would
+        //take - which it hides otherwise, as the benchmark does: nobody holds the aim of a clip
+        internal bool CaptureAim { get; private set; }
+
+        //"capturedemo": the benchmark's action in the capture - the gun fires by itself (GameplayScreen.StepBenchmarkDemo) and the
+        //benchmark's lens circles it, unless a lens of the capture's own is stated
+        internal bool CaptureDemo { get; private set; }
+
         #endregion
 
         /// <summary>
@@ -394,8 +425,45 @@ namespace BS3D
             LaunchOptions options = new();
             foreach (string arg in args)
                 if (!options.TryApply(arg)) Console.WriteLine(string.Format(CultureInfo.InvariantCulture, IGNORED_FORMAT, arg));
+            if (options.CaptureDirectory != null) options.ImplyCapture();
             return options;
         }
+
+        /// <summary>
+        /// What a capture (#946) implies of the arguments it was not given: it is a run nobody is at and that has to come out the
+        /// same every time, so it is silent, has no FPS line or splash, never pauses for lost focus, is windowed (a fullscreen
+        /// capture is the display's size, not the one asked for), draws at High unless a tier is named (the adaptive probe would
+        /// step it on a clock that no longer measures the machine), on an 8-bit back buffer (a PNG is 8-bit and the 10-bit one
+        /// is read back through an allocation a frame), pins both seeds (the magazine's deal and the scene's arrangement, which
+        /// each launch otherwise rolls) and plays the first level when none is named. And it keeps its files out of the player's
+        /// profile: a level that is cleared on camera must not write a save or reach the online boards.
+        /// <para>
+        /// <b>It pins the front end too</b> (<c>scene=</c> and <c>preview=</c>): the front end is on screen for the run's first frame, before
+        /// the level replaces it, and its scene and its preview map are rolled at random each launch. What it was is not gone with it:
+        /// measured on the same level twice, the meadow, the city and the savanna differed from the eleventh frame of the window (up to 33 of
+        /// 255, in the sky and the far scenery) with two different front ends and were bit-identical with one (the cavern is the exception,
+        /// <c>docs/website.md</c>).
+        /// </para>
+        /// </summary>
+        private void ImplyCapture()
+        {
+            Mute = true;
+            NoFpsOverlay = true;
+            NoSplash = true;
+            NoFocusPause = true;
+            Fullscreen ??= false;
+            TenBit ??= false;
+            Quality ??= QualityLevel.High;
+            SceneSeed ??= 0;
+            Seed ??= CAPTURE_SEED;
+            Scene ??= SceneKind.Space;
+            Preview ??= "1";
+            if (Level == null && LevelFile == null) Play = true;
+            if (string.IsNullOrWhiteSpace(UserDataDirectory)) UserDataDirectory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "bs3d-capture-userdata");
+        }
+
+        /// <summary>The session seed a capture plays on when none is given (a capture's magazine is dealt the same every time).</summary>
+        internal const int CAPTURE_SEED = 946;
 
         //The rows in order, the first that takes the argument wins. A row whose name matches but whose value
         //does not parse (or is refused) does NOT take it, and the walk goes on - which, since no two rows share a
@@ -729,6 +797,20 @@ namespace BS3D
                 }
                 else Console.WriteLine($"[cursor] Testing: 'menucursor={v}' dropped, expected <seconds>[:<steps>[:<presses>]]");
             }),
+            //"capture=<folder>" films the run (#946): the frames of a window of game time as numbered PNGs, on a clock that steps a
+            //fixed amount a frame, with no HUD. "capturefps=", "capturefrom=" and "captureseconds=" say how fast, from when and for
+            //how long; "campos=", "camtarget=" and "fov=" or "campath=" state the lens; "capturedemo" lets the benchmark's gun play
+            Row.Text("capture", (o, v) => o.CaptureDirectory = v, v => !string.IsNullOrWhiteSpace(v)),
+            Row.Int("capturefps", (o, v) => o.CaptureFps = v, v => v >= Capture.CapturePlan.MIN_FPS && v <= Capture.CapturePlan.MAX_FPS),
+            Row.Float("capturefrom", (o, v) => o.CaptureFrom = v, v => v >= 0f),
+            Row.Float("captureseconds", (o, v) => o.CaptureSeconds = v, v => v >= 0f),
+            Row.Value<Microsoft.Xna.Framework.Vector3>("campos", Capture.CaptureCamera.TryParseVector, (o, v) => o.CamPos = v),
+            Row.Value<Microsoft.Xna.Framework.Vector3>("camtarget", Capture.CaptureCamera.TryParseVector, (o, v) => o.CamTarget = v),
+            Row.Float("fov", (o, v) => o.CamFov = v, v => v > 1f && v < 170f),
+            Row.Text("campath", (o, v) => o.CamPath = v, v => !string.IsNullOrWhiteSpace(v)),
+            Row.Flag("captureshake", o => o.CaptureShake = true),
+            Row.Flag("captureaim", o => o.CaptureAim = true),
+            Row.Flag("capturedemo", o => o.CaptureDemo = true),
         ];
 
         private static bool TryParseSkyDome(string text, out byte dome) =>

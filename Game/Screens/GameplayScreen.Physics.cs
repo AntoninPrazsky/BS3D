@@ -33,7 +33,8 @@ namespace BS3D.Screens
             //hooks the freshness pass onto the timestepper twice), the solver description tuned together with
             //the contact material and the BallSocket spring, and the shot template whose SWEPT collidable is
             //what gives a ball leaving at SHOOT_SPEED continuous collision detection.
-            _world = new PhysicsWorld();
+            //One worker thread in a capture run (#946): the multithreaded solver is not repeatable run to run, and a clip has to be
+            _world = new PhysicsWorld(workerThreads: Game.Capturing ? 1 : 0);
 
             //And the FORCES each step applies before it integrates (#332) — the gravity wells pulling on the
             //shots in flight. Built once and not written at the call site for the reason PhysicsWorld's own
@@ -98,8 +99,9 @@ namespace BS3D.Screens
             _physicsAccumulator += elapsed;
 
             int steps = 0;
+            int stepCap = Game.Capturing ? CAPTURE_MAX_STEPS_PER_FRAME : PHYSICS_MAX_STEPS_PER_FRAME;
 
-            while (_physicsAccumulator >= PHYSICS_TIMESTEP && steps < PHYSICS_MAX_STEPS_PER_FRAME)
+            while (_physicsAccumulator >= PHYSICS_TIMESTEP && steps < stepCap)
             {
                 //The glass slides by the STEP, not by the frame (#577): it used to move by the frame's whole
                 //elapsed, so at 30 FPS it jumped four steps' worth at once and at 240 FPS half a step, and on a
@@ -136,7 +138,7 @@ namespace BS3D.Screens
             //A frame that hitched must not try to catch the whole gap up — it would take even longer doing so
             //and fall further behind on the next frame, and the one after that. Drop what is left and let the
             //world run slow for that single frame instead.
-            if (steps == PHYSICS_MAX_STEPS_PER_FRAME) _physicsAccumulator = 0f;
+            if (steps == stepCap) _physicsAccumulator = 0f;
 
             //What the world actually lived through this frame, for the rules that have to agree with it (#577)
             _simulatedThisFrame = steps * PHYSICS_TIMESTEP;

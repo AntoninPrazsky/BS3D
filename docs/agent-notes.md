@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-10-27 — #946 režim snímání ve hře — desktop (RDT-PC), Claude Code (bs3d-8a)
+- majitel (25. 10.): snímky a smyčky pro web má točit hra sama (přístup A).
+- Hotovo: `capture=<dir>` s pevným krokem herního času na snímek (`capturefps=`, `capturefrom=`, `captureseconds=`), bez HUD, s kamerou `campos=`/`camtarget=`/`fov=` nebo `campath=`, `capturedemo` (samostřílející dělo benchmarku). `Tools/web-capture.ps1` kóduje WebM, MP4 a plakát přes PyAV z venvu ComfyUI (ffmpeg na PATH není).
+- Ověřeno: Meander s demem, dva běhy, 480 ze 480 snímků shodných. Hra bez `capture=` beze změny (`[alloc]` jako dřív).
+- ⚠ Bepu na 24 vláknech není opakovatelný: dva stejné běhy se rozešly do 40 kroků. Snímání proto jede s fyzikou na jednom vlákně.
+- Otevřené: jeskyně (Chest) se mezi běhy liší v desítkách pixelů, příčina nenalezena.
+
 ## 2026-10-27 — #957 blog o světelných motorkách — desktop (RDT-PC), Claude Code (Sonnet 5.5)
 - Hotovo: `Web/src/blog/light-cycles-from-a-hash-and-a-strip.md`, osmý příspěvek: hash jízdy a pozice z hodin, zeď jako triangle strip, tělo jen ze švů, proč zdi bloomují. Tři snímky z Testbedu (`scene=grid sceneseed=0 shot=10`, `at=1:F12` schová překryv), náhled, váha v `docs/website.md`. Eleventy build projde, příspěvek je v seznamu, feedu i na úvodní straně.
 - ⚠ Motorky se v Gridu nedrží Hilbertovy křivky, jen její mřížky (16 jednotek); osnova v issue s „stopou jako oknem indexů“ neplatila. Čísla v textu jsou z konstant: počty trojúhelníků a vrcholů, svítivost (Rec. 709) proti prahu 0,55; to, kdy zeď přestane bloomovat (36 až 63 jednotek), je aritmetika, ne měření ve snímku.

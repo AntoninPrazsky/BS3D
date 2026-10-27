@@ -44,6 +44,22 @@ namespace BS3D
             //Only now, because the log lives in UserData.Directory and userdata= has to have had its say first
             RunLog.Open();
 
+            //A capture whose arguments cannot be taken ends here, before a window opens and with the reason in the log (#946): one
+            //that filmed the wrong lens for its whole length, or into a folder of an earlier take, would be found out an hour late
+            if (options.CaptureDirectory != null)
+            {
+                try
+                {
+                    BS3D.Capture.CaptureRun.Create(options);
+                }
+                catch (Exception ex) when (ex is FormatException or ArgumentException or System.IO.IOException or UnauthorizedAccessException)
+                {
+                    Console.WriteLine($"[capture] refused: {ex.Message}");
+                    Environment.ExitCode = 2;
+                    return;
+                }
+            }
+
             //Anything the game throws out of its loop ends the run with a report rather than silently (#570):
             //a shipped build has no console, so without this a player's crash left nothing behind
             try
