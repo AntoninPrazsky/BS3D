@@ -1,28 +1,100 @@
 {
-    "file":  "theme-neon-cyber.wav",
-    "created":  "2026-09-23",
-    "issue":  486,
-    "family":  "neon",
-    "chapter":  "The Arcade (neon city) - new: the night lights up",
-    "purpose":  "Master of Game/Music/neon-cyber.ogg, one of the neon family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "Cyberpunk industrial synth instrumental: heavy distorted synth bass, hard drums, dark arpeggios, glitchy textures, rain-slick city menace, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  120,
-                    "keyscale":  "E minor",
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-neon-cyber.wav: 64.0s loop = source 24.75s..88.75s (32.01 bars at 120.0 bpm), crossfade 1.00s | context match 0.831 (best 0.869) | crossfade rhythm r=0.87 vs the track a bar later r=0.96: in time | spectrum cos=0.79"
-                 ],
-    "measured":  "generate-music.ps1 end to end 59.6 s (ace-lm + ace-synth + loop cut)",
-    "rendered":  true
+  "file": "theme-neon-cyber.wav",
+  "created": "2026-10-27",
+  "issue": 914,
+  "family": "neon",
+  "chapter": "The Arcade",
+  "purpose": "Master of Game/Music/neon-cyber.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>. The master stays outside the repository (C:/Users/panrd/AI/output/masters-909-chosen on the desktop, with its .raw.wav; this is candidate c1, theme-neon-cyber-c1 in masters-909, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-r.ps1 (#909-#917, adapted from the #908 batch) -> Tools/Generation/generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Dark cyberpunk synthwave instrumental for a rain-slick neon city: a driving pulsing synth bass, punchy drums on kick, snare and toms, a dark, memorable analog synth lead melody in the middle register, warm dark arpeggios in the same key, wide chord pads, chopped, pitched human-voice samples as a rhythmic hook - breaths, wordless oh and ah syllables, whispered syllables, no words, no lyrics - mixed forward in the middle register, building into a big menacing peak, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar",
+    "lm_negative_prompt": "lyrics, sung words, intelligible words, rap, spoken word, lead singer, pop vocal, opera, choir singing words, audience applause, crowd noise, live recording, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, out of tune, detuned, dissonance, clashing notes, atonal, ambient drone, free tempo, rubato, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, distorted bass, white noise, hiss, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, tambourine, shakers, long drum-only sections, drum solo, one-bar loop, repetitive loop, chiptune, 8-bit, electroswing, swing, brass stabs, stop-start, rests, pauses, silences, harsh glitch, industrial noise, fizzy synths, sizzling high synth leads, distorted synth bass, harsh",
+    "instrumental": false,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 120,
+    "keyscale": "E minor",
+    "seed": 86923315,
+    "inference_steps": 8,
+    "output_format": "wav32",
+    "lyrics": "[Intro]\nooh\n\n[Verse]\nah ah, oh\nhm, ah\n\n[Chorus]\nooh ah\noh, ah ah\n\n[Bridge]\nah\nooh"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-neon-cyber-c1.wav: 64.0s loop = source 38.20s..102.20s (32.00 bars at 120.0 bpm), crossfade 1.00s | context match 0.634 (best 0.679) | crossfade rhythm r=0.78 vs the track a bar later r=0.85: in time | spectrum cos=0.65"
+  ],
+  "lm_check": {
+    "request0_captured": true,
+    "caption_verbatim": true,
+    "seed_in_request0": 86923315,
+    "bpm_in_request0": 120,
+    "keyscale_in_request0": "E minor",
+    "duration_in_request0": 120.0,
+    "lyrics_in_request0": "[Intro]\nooh\n\n[Verse]\nah ah, oh\nhm, ah\n\n[Chorus]\nooh ah\noh, ah ah\n\n[Bridge]\nah\nooh"
+  },
+  "measured": "generate-music.ps1 end to end 69,9 s (ace-lm + ace-synth + loop cut), exit 0",
+  "rendered": true,
+  "chosen": {
+    "candidate": "c1",
+    "round": 1,
+    "of": [
+      "c1",
+      "c2",
+      "c3",
+      "c4"
+    ],
+    "why": "Chosen by measurement beside the ember family in one measure-music.py run, then the owner's ear: 9.6 % in 200 Hz-2 kHz, 7.1 % in 300 Hz-4 kHz, 2.5 % above 6 kHz, tonal mid 59 %, 3.09 held-note changes a second, tempo wander 0.07 %, wobble 3.4 / detune 2.4 cents, 0.9 short gaps a minute, the opening repeats for 2.0 s, 7.7 % of held notes out of key; a 64.0 s loop at 120.0 bpm, cut context 0.634, crossfade rhythm r 0.78 against 0.85 a bar later, spectrum cosine 0.65, quietest 2 s 10.4 dB under the loud level, 3 % of the loop 10 dB under it. Outside ember's range: above6k 2.5. #916's voice arm: its separated vocals stand 6.6 dB under the mix in 300 Hz-4 kHz, within 10 dB in 30 % of 250 ms windows (the old recording's 17.3 dB and 2 %).",
+    "how": "Tools/Generation/measure-music.py --reference ember with ember in the same run, the documented gates (docs/game-feedback/music-generation.md, 'Choosing a candidate'), then the owner's listening page (2026-10-27)."
+  },
+  "alternatives": [
+    {
+      "candidate": "c2",
+      "round": 1,
+      "seed": 1487197838,
+      "bpm": 120,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-neon-cyber-c2.wav: 64.1s loop = source 41.15s..105.20s (32.03 bars at 120.0 bpm), crossfade 1.00s | context match 0.418 (best 0.459) | crossfade rhythm r=0.32 vs the track a bar later r=0.78: BELOW the track's own timekeeping -- listen | spectrum cos=0.37"
+      ],
+      "refused_or_not_chosen": "out: seam BELOW",
+      "caption": "same brief"
+    },
+    {
+      "candidate": "c3",
+      "round": 1,
+      "seed": 867741128,
+      "bpm": 120,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-neon-cyber-c3.wav: 88.0s loop = source 19.60s..107.60s (44.01 bars at 120.0 bpm), crossfade 1.00s | context match 0.955 (best 0.993) | crossfade rhythm r=0.95 vs the track a bar later r=0.56: in time | spectrum cos=0.98"
+      ],
+      "refused_or_not_chosen": "out: dropout 34.7 dB",
+      "caption": "same brief"
+    },
+    {
+      "candidate": "c4",
+      "round": 1,
+      "seed": 35575278,
+      "bpm": 120,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-neon-cyber-c4.wav: 48.0s loop = source 34.40s..82.40s (24.00 bars at 120.0 bpm), crossfade 1.00s | context match 0.414 (best 0.456) | crossfade rhythm r=0.84 vs the track a bar later r=0.97: BELOW the track's own timekeeping -- listen | spectrum cos=0.43"
+      ],
+      "refused_or_not_chosen": "out: seam BELOW",
+      "caption": "same brief"
+    }
+  ],
+  "arm": "916 voice (lyrics block)",
+  "replaces": {
+    "issue": 486,
+    "created": "2026-09-23",
+    "caption": "Cyberpunk industrial synth instrumental: heavy distorted synth bass, hard drums, dark arpeggios, glitchy textures, rain-slick city menace, no vocals",
+    "negative": "vocals, singing, audience applause, crowd noise, live recording",
+    "seed": null,
+    "bpm": 120,
+    "keyscale": "E minor",
+    "loop_log": [
+      "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-neon-cyber.wav: 64.0s loop = source 24.75s..88.75s (32.01 bars at 120.0 bpm), crossfade 1.00s | context match 0.831 (best 0.869) | crossfade rhythm r=0.87 vs the track a bar later r=0.96: in time | spectrum cos=0.79"
+    ],
+    "why_replaced": "Owner 2026-10-16: 'that also quite begs for some remixed vocals'; measured tonal share 35 %, 7.1 % above 6 kHz."
+  }
 }

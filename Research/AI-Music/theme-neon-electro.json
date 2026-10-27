@@ -1,28 +1,205 @@
 {
-    "file":  "theme-neon-electro.wav",
-    "created":  "2026-09-23",
-    "issue":  486,
-    "family":  "neon",
-    "chapter":  "The Arcade (neon city) - new: the night lights up",
-    "purpose":  "Master of Game/Music/neon-electro.ogg, one of the neon family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "Electro instrumental: 808 drum machine, robotic synth bass, vocoder-like synth stabs without words, sharp leads, futuristic and funky, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  126,
-                    "keyscale":  "E minor",
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-neon-electro.wav: 54.6s loop = source 26.72s..81.35s (27.96 bars at 122.8 bpm), crossfade 0.98s | context match 0.794 (best 0.839) | crossfade rhythm r=0.94 vs the track a bar later r=0.65: in time | spectrum cos=0.93"
-                 ],
-    "measured":  "generate-music.ps1 end to end 59.9 s (ace-lm + ace-synth + loop cut)",
-    "rendered":  true
+  "file": "theme-neon-electro.wav",
+  "created": "2026-10-27",
+  "issue": 914,
+  "family": "neon",
+  "chapter": "The Arcade",
+  "purpose": "Master of Game/Music/neon-electro.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>. The master stays outside the repository (C:/Users/panrd/AI/output/masters-909-chosen on the desktop, with its .raw.wav; this is candidate c8, theme-neon-electro-c8 in masters-909, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-r.ps1 (#909-#917, adapted from the #908 batch) -> Tools/Generation/generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Modern electro-pop instrumental: a pulsing warm synth bass, crisp punchy electronic drums, lush sustained supersaw chords and warm pads holding through every bar without a break, a vocoder voice singing a long sustained wordless melody on oh and ah in the middle register, breathy whispered syllables layered under it, no words, a catchy analog synth lead answering the voice, futuristic and funky, a big build-up into a soaring peak, glossy modern production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar",
+    "lm_negative_prompt": "lyrics, sung words, intelligible words, rap, spoken word, lead singer, pop vocal, opera, choir singing words, audience applause, crowd noise, live recording, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, out of tune, detuned, dissonance, clashing notes, atonal, ambient drone, free tempo, rubato, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, distorted bass, white noise, hiss, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, tambourine, shakers, long drum-only sections, drum solo, one-bar loop, repetitive loop, chiptune, 8-bit, electroswing, swing, brass stabs, stop-start, rests, pauses, silences, harsh glitch, industrial noise, fizzy synths, sizzling high synth leads, trance gate, gated synths, gated pads, chopped pads, sidechain pumping, stutter, stop-start, staccato stabs, rests, pauses, silences, dropouts, breakdown, drum fills",
+    "instrumental": false,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 126,
+    "keyscale": "E minor",
+    "seed": 931241587,
+    "inference_steps": 8,
+    "output_format": "wav32",
+    "lyrics": "[Intro]\nooh\n\n[Verse]\nah ah, oh\nhm, ah\n\n[Chorus]\nooh ah\noh, ah ah\n\n[Bridge]\nah\nooh"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-neon-electro-c8.wav: 53.8s loop = source 33.69s..87.45s (28.00 bars at 125.0 bpm), crossfade 0.96s | context match 0.501 (best 0.543) | crossfade rhythm r=0.74 vs the track a bar later r=0.89: BELOW the track's own timekeeping -- listen | spectrum cos=0.59"
+  ],
+  "recut": {
+    "how": "loop_crossfade.py on seconds 30-110 of theme-neon-electro-c8.raw.wav (recut.py, #905's recipe): the first cut's seam fell below the track's own timekeeping.",
+    "loop_log": [
+      "46.1s loop = source 23.32s..69.40s (24.00 bars at 125.0 bpm), crossfade 0.96s | context match 0.508 (best 0.556) | crossfade rhythm r=0.71 vs the track a bar later r=0.78: in time | spectrum cos=0.49"
+    ]
+  },
+  "lm_check": {
+    "request0_captured": true,
+    "caption_verbatim": true,
+    "seed_in_request0": 931241587,
+    "bpm_in_request0": 126,
+    "keyscale_in_request0": "E minor",
+    "duration_in_request0": 120.0,
+    "lyrics_in_request0": "[Intro]\nooh\n\n[Verse]\nah ah, oh\nhm, ah\n\n[Chorus]\nooh ah\noh, ah ah\n\n[Bridge]\nah\nooh"
+  },
+  "measured": "generate-music.ps1 end to end 77,2 s (ace-lm + ace-synth + loop cut), exit 0",
+  "rendered": true,
+  "chosen": {
+    "candidate": "c8",
+    "round": 3,
+    "of": [
+      "c8",
+      "c1",
+      "c2",
+      "c3",
+      "c4",
+      "c5",
+      "c6",
+      "c7",
+      "c9",
+      "c10"
+    ],
+    "why": "Round 3's c8 (the Clowns brief with a vocoder voice singing a long wordless melody), recut from seconds 30-110 of its render: measured beside ember in one run it is inside ember's range on every column - 12.0 % in 200 Hz-2 kHz, 11.0 % in 300 Hz-4 kHz, 1.5 % above 6 kHz, tonal mid 79 %, 3.52 held-note changes a second, no clipped run, wobble 3.1 / detune 2.2 cents, 0.0 short gaps a minute where rounds 1-3 gave 33-127 in ten candidates, the opening repeats for 1.9 s, 0 of 188 held notes out of E minor; a 46.1 s loop of 24 bars at 125.0 bpm, cut context 0.508, crossfade rhythm r 0.71 against 0.78 a bar later (in time), spectrum cosine 0.49. ",
+    "how": "Tools/Generation/measure-music.py --reference ember with ember in the same run, the documented gates (docs/game-feedback/music-generation.md, 'Choosing a candidate'), then the owner's listening page (2026-10-27)."
+  },
+  "alternatives": [
+    {
+      "candidate": "c1",
+      "round": 1,
+      "seed": 34901190,
+      "bpm": 126,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-neon-electro-c1.wav: 76.4s loop = source 5.63s..82.00s (39.04 bars at 122.7 bpm), crossfade 0.98s | context match 0.434 (best 0.483) | crossfade rhythm r=0.45 vs the track a bar later r=0.53: BELOW the track's own timekeeping -- listen | spectrum cos=0.58"
+      ],
+      "refused_or_not_chosen": "out: seam BELOW, wrap -15.4 dB (p96), dropout 32.3 dB, short gaps 62.1/min",
+      "caption": "brief_1 (below)"
+    },
+    {
+      "candidate": "c2",
+      "round": 1,
+      "seed": 1755055198,
+      "bpm": 126,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-neon-electro-c2.wav: 92.7s loop = source 8.37s..101.05s (48.03 bars at 124.4 bpm), crossfade 0.96s | context match 0.214 (best 0.260) | crossfade rhythm r=0.44 vs the track a bar later r=0.18: in time | spectrum cos=0.38"
+      ],
+      "refused_or_not_chosen": "out: dropout 21.7 dB, short gaps 49.9/min",
+      "caption": "brief_1 (below)"
+    },
+    {
+      "candidate": "c3",
+      "round": 1,
+      "seed": 1941105843,
+      "bpm": 126,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-neon-electro-c3.wav: 61.4s loop = source 26.91s..88.35s (31.96 bars at 124.9 bpm), crossfade 0.96s | context match 0.902 (best 0.946) | crossfade rhythm r=0.99 vs the track a bar later r=0.75: in time | spectrum cos=0.97"
+      ],
+      "refused_or_not_chosen": "out: short gaps 35.2/min",
+      "caption": "brief_1 (below)"
+    },
+    {
+      "candidate": "c4",
+      "round": 1,
+      "seed": 587774726,
+      "bpm": 126,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-neon-electro-c4.wav: 82.2s loop = source 9.90s..92.10s (42.01 bars at 122.7 bpm), crossfade 0.98s | context match 0.245 (best 0.267) | crossfade rhythm r=0.63 vs the track a bar later r=0.70: in time | spectrum cos=0.16"
+      ],
+      "refused_or_not_chosen": "out: seam cos 0.16, short gaps 100.7/min",
+      "caption": "brief_1 (below)"
+    },
+    {
+      "candidate": "c5",
+      "round": 2,
+      "seed": 1257957077,
+      "bpm": 126,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-neon-electro-c5.wav: 61.4s loop = source 40.36s..101.80s (32.00 bars at 125.0 bpm), crossfade 0.96s | context match 0.843 (best 0.893) | crossfade rhythm r=0.95 vs the track a bar later r=0.90: in time | spectrum cos=0.88"
+      ],
+      "refused_or_not_chosen": "out: wrap +13.0 dB (p89), short gaps 83.0/min",
+      "caption": "brief_2 (below)"
+    },
+    {
+      "candidate": "c6",
+      "round": 2,
+      "seed": 926766452,
+      "bpm": 126,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-neon-electro-c6.wav: 61.4s loop = source 32.91s..94.35s (32.00 bars at 125.0 bpm), crossfade 0.96s | context match 0.883 (best 0.932) | crossfade rhythm r=0.92 vs the track a bar later r=0.75: in time | spectrum cos=0.94"
+      ],
+      "refused_or_not_chosen": "out: short gaps 127.0/min",
+      "caption": "brief_2 (below)"
+    },
+    {
+      "candidate": "c7",
+      "round": 2,
+      "seed": 1010739854,
+      "bpm": 126,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-neon-electro-c7.wav: 42.0s loop = source 34.94s..76.95s (21.94 bars at 125.4 bpm), crossfade 0.96s | context match 0.413 (best 0.413) | crossfade rhythm r=0.95 vs the track a bar later r=0.77: in time | spectrum cos=0.86"
+      ],
+      "refused_or_not_chosen": "out: short gaps 32.8/min",
+      "caption": "brief_2 (below)"
+    },
+    {
+      "candidate": "c9",
+      "round": 3,
+      "seed": 749628220,
+      "bpm": 126,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-neon-electro-c9.wav: 65.6s loop = source 17.72s..83.30s (34.01 bars at 124.5 bpm), crossfade 0.96s | context match 0.297 (best 0.297) | crossfade rhythm r=0.21 vs the track a bar later r=0.45: BELOW the track's own timekeeping -- listen | spectrum cos=0.17"
+      ],
+      "refused_or_not_chosen": "out: seam BELOW, seam cos 0.17",
+      "caption": "same brief"
+    },
+    {
+      "candidate": "c10",
+      "round": 3,
+      "seed": 1122201887,
+      "bpm": 126,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-neon-electro-c10.wav: 47.9s loop = source 40.09s..87.95s (25.03 bars at 125.5 bpm), crossfade 0.96s | context match 0.246 (best 0.250) | crossfade rhythm r=0.33 vs the track a bar later r=0.54: BELOW the track's own timekeeping -- listen | spectrum cos=0.18"
+      ],
+      "refused_or_not_chosen": "out: seam BELOW, seam cos 0.18",
+      "caption": "same brief"
+    }
+  ],
+  "arm": "916 voice (lyrics block)",
+  "alternative_briefs": {
+    "brief_1": {
+      "caption": "Electro-funk instrumental: an 808 drum machine with soft dark percussion, a robotic funky synth bass, vocoder and talk-box style human-voice syllables singing a wordless hook, pitched vocal chops and whispered syllables answering it, no words, a catchy analog synth lead, warm chord stabs, futuristic and funky, building into a big peak, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar",
+      "lm_negative_prompt": "lyrics, sung words, intelligible words, rap, spoken word, lead singer, pop vocal, opera, choir singing words, audience applause, crowd noise, live recording, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, out of tune, detuned, dissonance, clashing notes, atonal, ambient drone, free tempo, rubato, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, distorted bass, white noise, hiss, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, tambourine, shakers, long drum-only sections, drum solo, one-bar loop, repetitive loop, chiptune, 8-bit, electroswing, swing, brass stabs, stop-start, rests, pauses, silences, harsh glitch, industrial noise, fizzy synths, sizzling high synth leads",
+      "lyrics": "[Intro]\nooh\n\n[Verse]\nah ah, oh\nhm, ah\n\n[Chorus]\nooh ah\noh, ah ah\n\n[Bridge]\nah\nooh",
+      "bpm": 126,
+      "round": 1,
+      "candidates": [
+        "c1",
+        "c2",
+        "c3",
+        "c4"
+      ]
+    },
+    "brief_2": {
+      "caption": "Electro-funk instrumental: an 808 drum machine with soft dark percussion playing a steady unbroken groove, a rolling robotic funky synth bass, a vocoder voice singing a long sustained wordless melody on oh and ah, breathy whispered syllables layered under it, no words, a warm analog synth pad holding chords through every bar, a catchy analog synth lead answering the voice, every instrument holding its notes through every beat, no rests, no stops, no breaks, one continuous unbroken flow, futuristic and funky, building into a big peak, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar",
+      "lm_negative_prompt": "lyrics, sung words, intelligible words, rap, spoken word, lead singer, pop vocal, opera, choir singing words, audience applause, crowd noise, live recording, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, out of tune, detuned, dissonance, clashing notes, atonal, ambient drone, free tempo, rubato, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, distorted bass, white noise, hiss, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, tambourine, shakers, long drum-only sections, drum solo, one-bar loop, repetitive loop, chiptune, 8-bit, electroswing, swing, brass stabs, stop-start, rests, pauses, silences, harsh glitch, industrial noise, fizzy synths, sizzling high synth leads, staccato, stabs, stop-start, chopped edits, stutter edits, gated breaks, rests, pauses, silences, dropouts, breakdown, drum fills",
+      "lyrics": "[Intro]\nooh\n\n[Verse]\nah ah, oh\nhm, ah\n\n[Chorus]\nooh ah\noh, ah ah\n\n[Bridge]\nah\nooh",
+      "bpm": 126,
+      "round": 2,
+      "candidates": [
+        "c5",
+        "c6",
+        "c7"
+      ]
+    }
+  },
+  "replaces": {
+    "issue": 486,
+    "created": "2026-09-23",
+    "caption": "Electro instrumental: 808 drum machine, robotic synth bass, vocoder-like synth stabs without words, sharp leads, futuristic and funky, no vocals",
+    "negative": "vocals, singing, audience applause, crowd noise, live recording",
+    "seed": null,
+    "bpm": 126,
+    "keyscale": "E minor",
+    "loop_log": [
+      "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-neon-electro.wav: 54.6s loop = source 26.72s..81.35s (27.96 bars at 122.8 bpm), crossfade 0.98s | context match 0.794 (best 0.839) | crossfade rhythm r=0.94 vs the track a bar later r=0.65: in time | spectrum cos=0.93"
+    ],
+    "why_replaced": "Owner 2026-10-16: 'I even hear bits of vocals there - whispering, syllables. That is good, but they should be more prominent'."
+  }
 }
