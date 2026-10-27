@@ -142,6 +142,16 @@ Two cases found:
 - `CloudSunlight` evaluated eight hash calls per lit pixel only to multiply the result by a coverage gain
   of zero in the MapEditor (which never sets the cloud uniforms). One early-out line.
 
+**But a branch not taken still costs its registers.** The GPU allocates a program for its widest path, so a big
+optional block behind a uniform branch lowers the occupancy of every pixel the program shades, taken or not, and a
+pixel-bound pass pays it. `Acacia.fx` draws every plant, and three blocks of noise octaves went into its one program
+behind uniform branches: the stone (#777), the bark's relief (#980) and the straw (#971), each for one kind of bucket.
+On the reference APU at `Low`, where none of the three is drawn, compiling them out of the plain program
+(`AcaciaShade`'s literal flags, one technique per block, #1028) took **1.95 ms** off the meadow and **1.41** off the
+savanna, and nothing off the desert, which draws no plants through it. So when a block is big and only some draws
+take it, give those draws a program of their own (the `MeadowReduced` pattern: one body, literal flags) rather than a
+branch in the program everything else runs.
+
 The counter-lesson matters equally: know *why* a "branchless on purpose" comment exists before overruling
 it. Both of these functions sit near derivative-driven code, and the original comments guarded real
 derivative-coherence concerns — which a uniform branch does not violate, but a data-dependent one would.

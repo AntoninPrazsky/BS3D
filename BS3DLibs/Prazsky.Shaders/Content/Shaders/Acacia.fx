@@ -390,7 +390,14 @@ AcaciaVertexOutput AcaciaVS(AcaciaVertexInput input)
     return output;
 }
 
-float4 AcaciaPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR
+//ONE BODY, FIVE PROGRAMS (#1028). The stone (#777), the bark's relief (#980) and the straw (#971) are each a block of
+//noise octaves that only rocks, oak trunks or bales take, and each sat behind a uniform branch in the one program every
+//plant pixel ran. A branch that is not taken skips the arithmetic but not the registers: the program is allocated for its
+//widest path, so every leaf card paid for the stone it never shaded. On the reference APU that was the meadow's Low
+//+1.04 ms from the stone alone. So each block is compiled in only where its flag is a literal true here, and PlantPass
+//picks the program by what a bucket carries (Acacia for plain plants, the savanna's own draw included; AcaciaFull for a
+//bucket with more than one).
+float4 AcaciaShade(AcaciaVertexOutput input, bool front, bool stone, bool barkRelief, bool straw)
 {
     float3 N = normalize(input.WorldNormal);
 
@@ -414,7 +421,7 @@ float4 AcaciaPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR
 
     //A rock's own surface (#777): the relief tilts N before anything is lit, the mottle and the dust go into the albedo
     [branch]
-    if (StoneStrength > 0.0)
+    if (stone && StoneStrength > 0.0)
     {
         float3 p = input.WorldPosition;
         float size = max(input.Scale, 1e-3);
@@ -463,7 +470,7 @@ float4 AcaciaPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR
 
     //The bark's relief (#980): see THE BARK'S RELIEF above
     [branch]
-    if (BarkRelief > 0.0)
+    if (barkRelief && BarkRelief > 0.0)
     {
         float3 p = input.WorldPosition;
         float footprint = max(length(fwidth(p)), 1e-4);
@@ -495,7 +502,7 @@ float4 AcaciaPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR
 
     //A round bale's straw (#971): see STRAW above
     [branch]
-    if (StrawStrength > 0.0)
+    if (straw && StrawStrength > 0.0)
     {
         float2 uv = input.UV;
         float3 p = input.WorldPosition;
@@ -630,12 +637,54 @@ float4 AcaciaPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR
     return float4(color, 1.0);
 }
 
+float4 AcaciaPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR { return AcaciaShade(input, front, false, false, false); }
+float4 AcaciaStonePS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR { return AcaciaShade(input, front, true, false, false); }
+float4 AcaciaBarkReliefPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR { return AcaciaShade(input, front, false, true, false); }
+float4 AcaciaStrawPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR { return AcaciaShade(input, front, false, false, true); }
+float4 AcaciaFullPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR { return AcaciaShade(input, front, true, true, true); }
+
 technique Acacia
 {
     pass P0
     {
         VertexShader = compile VS_SHADERMODEL AcaciaVS();
         PixelShader = compile PS_SHADERMODEL AcaciaPS();
+    }
+};
+
+technique AcaciaStone
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL AcaciaVS();
+        PixelShader = compile PS_SHADERMODEL AcaciaStonePS();
+    }
+};
+
+technique AcaciaBarkRelief
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL AcaciaVS();
+        PixelShader = compile PS_SHADERMODEL AcaciaBarkReliefPS();
+    }
+};
+
+technique AcaciaStraw
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL AcaciaVS();
+        PixelShader = compile PS_SHADERMODEL AcaciaStrawPS();
+    }
+};
+
+technique AcaciaFull
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL AcaciaVS();
+        PixelShader = compile PS_SHADERMODEL AcaciaFullPS();
     }
 };
 
