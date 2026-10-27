@@ -802,8 +802,8 @@ namespace BS3D
             //how long; "campos=", "camtarget=" and "fov=" or "campath=" state the lens; "capturedemo" lets the benchmark's gun play
             Row.Text("capture", (o, v) => o.CaptureDirectory = v, v => !string.IsNullOrWhiteSpace(v)),
             Row.Int("capturefps", (o, v) => o.CaptureFps = v, v => v >= Capture.CapturePlan.MIN_FPS && v <= Capture.CapturePlan.MAX_FPS),
-            Row.Float("capturefrom", (o, v) => o.CaptureFrom = v, v => v >= 0f),
-            Row.Float("captureseconds", (o, v) => o.CaptureSeconds = v, v => v >= 0f),
+            Row.Float("capturefrom", (o, v) => o.CaptureFrom = v, v => v >= 0f && v <= Capture.CapturePlan.MAX_SECONDS),
+            Row.Float("captureseconds", (o, v) => o.CaptureSeconds = v, v => v >= 0f && v <= Capture.CapturePlan.MAX_SECONDS),
             Row.Value<Microsoft.Xna.Framework.Vector3>("campos", Capture.CaptureCamera.TryParseVector, (o, v) => o.CamPos = v),
             Row.Value<Microsoft.Xna.Framework.Vector3>("camtarget", Capture.CaptureCamera.TryParseVector, (o, v) => o.CamTarget = v),
             Row.Float("fov", (o, v) => o.CamFov = v, v => v > 1f && v < 170f),

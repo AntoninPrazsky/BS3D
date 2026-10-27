@@ -37,11 +37,18 @@ namespace BS3D.Capture
         /// <summary>How much of the run is taken when <c>captureseconds=</c> is not given.</summary>
         internal const float DEFAULT_SECONDS = 5f;
 
+        /// <summary>
+        /// The latest game time a capture may start at or run for, an hour: an Infinity or a 1e10 would saturate the frame
+        /// count's int cast into a run that never starts filming or never ends, and nothing a site wants is that long.
+        /// </summary>
+        internal const float MAX_SECONDS = 3600f;
+
         internal CapturePlan(int fps, float fromSeconds, float seconds)
         {
             if (fps < MIN_FPS || fps > MAX_FPS) throw new ArgumentOutOfRangeException(nameof(fps), fps, $"capturefps must be {MIN_FPS} to {MAX_FPS}");
-            if (fromSeconds < 0f || float.IsNaN(fromSeconds)) throw new ArgumentOutOfRangeException(nameof(fromSeconds), fromSeconds, "capturefrom must not be negative");
-            if (seconds < 0f || float.IsNaN(seconds)) throw new ArgumentOutOfRangeException(nameof(seconds), seconds, "captureseconds must not be negative");
+            //Written as "not inside" so a NaN, which fails every comparison, is refused with the rest
+            if (!(fromSeconds >= 0f && fromSeconds <= MAX_SECONDS)) throw new ArgumentOutOfRangeException(nameof(fromSeconds), fromSeconds, $"capturefrom must be 0 to {MAX_SECONDS} seconds");
+            if (!(seconds >= 0f && seconds <= MAX_SECONDS)) throw new ArgumentOutOfRangeException(nameof(seconds), seconds, $"captureseconds must be 0 to {MAX_SECONDS} seconds");
 
             Fps = fps;
             StepTicks = (TimeSpan.TicksPerSecond + fps - 1) / fps;
