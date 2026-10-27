@@ -296,7 +296,9 @@ RockOutput RockVS(RockInput input)
 }
 
 //The stone's relief as a height: five octaves of 3D noise from fifteen units down to a hand's width, each faded as its
-//period nears the pixel (a world-fixed octave under a pixel is shimmer), and where `full`, creased joints between blocks
+//period nears the pixel (a world-fixed octave under a pixel is shimmer), and where `full`, creased joints between blocks.
+//The reduced program (Low, and the mirror) keeps the three broad octaves (#1029): the shell is nearly every pixel of the
+//cavern's frame, and on the reference APU the shell was 10.7 ms of a 17.3 ms Low frame
 float ReliefHeight(float3 p, float footprint, uniform bool full)
 {
     float h = 0.0;
@@ -304,7 +306,7 @@ float ReliefHeight(float3 p, float footprint, uniform bool full)
     float frequency = 0.07;
 
     [unroll]
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i < (full ? 5 : 3); i++)
     {
         float fade = 1.0 - smoothstep(0.25, 0.6, footprint * frequency);
         h += amplitude * fade * GradientNoise3(p * frequency + i * 7.3);
@@ -321,16 +323,18 @@ float ReliefHeight(float3 p, float footprint, uniform bool full)
     return h;
 }
 
-float3 RockAlbedo(float3 p, float3 baseNormal, float floorWeight, float height)
+//The reduced program takes the sheets' and the mottle's fields at one octave (#1029), the finer of their two being the
+//part of them a Low frame resolves least
+float3 RockAlbedo(float3 p, float3 baseNormal, float floorWeight, float height, uniform bool full)
 {
     //Flowstone: sheets of paler calcite running down the steep walls in curtains, streaked along their fall, in patches
     float steep = 1.0 - abs(baseNormal.y);
-    float sheet = smoothstep(0.05, 0.35, Fbm3(p * float3(0.022, 0.006, 0.022) + 3.0, 2)) * smoothstep(0.35, 0.8, steep);
+    float sheet = smoothstep(0.05, 0.35, Fbm3(p * float3(0.022, 0.006, 0.022) + 3.0, full ? 2 : 1)) * smoothstep(0.35, 0.8, steep);
     float streak = 0.5 + 0.5 * GradientNoise3(p * float3(0.55, 0.035, 0.55) + 9.0);
     float3 albedo = lerp(RockColor, CalciteColor * (0.30 + 0.30 * streak), sheet * (1.0 - floorWeight));
 
     //The rock's own mottle, and the relief's hollows a little darker
-    float mottle = Fbm3(p * 0.035 + 17.0, 2);
+    float mottle = Fbm3(p * 0.035 + 17.0, full ? 2 : 1);
     albedo *= 0.75 + 0.5 * saturate(mottle + 0.5);
     albedo *= 0.8 + 0.2 * saturate(height * 0.4 + 0.5);
 
@@ -354,7 +358,7 @@ float4 RockScene(RockOutput input, uniform bool full, uniform bool mirrored)
 
     //Wet near the water, and darker: wet stone is
     float wet = 1.0 - smoothstep(0.0, 7.0, p.y - WaterLevelY);
-    float3 albedo = RockAlbedo(p, baseNormal, input.Data.y, height) * lerp(1.0, 0.55, wet);
+    float3 albedo = RockAlbedo(p, baseNormal, input.Data.y, height, full) * lerp(1.0, 0.55, wet);
 
     float3 colour;
     if (!mirrored && p.y < WaterLevelY)
