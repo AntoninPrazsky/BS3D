@@ -596,12 +596,14 @@ namespace Testbed.Diagnostics
             return members;
         }
 
-        //The volcano's layers (#540) and the aurora's (#1027), the arena members' grammar - names of the flags, each added
+        //The volcano's layers (#540), the aurora's (#1027) and the cavern's (#1029), the arena members' grammar - names of the flags, each added
         //or, with a leading '-', removed, left to right - separated by '/' as well as ',' so a list fits in one alternation
         //pin, where ',' already separates pins: "alt=volcano=all;volcano=all/-plume;volcano=all/-ash".
         public static VolcanoLayer ParseVolcanoLayers(string list) => ParseLayers<VolcanoLayer>(list);
 
         public static AuroraLayer ParseAuroraLayers(string list) => ParseLayers<AuroraLayer>(list);
+
+        public static CavernLayer ParseCavernLayers(string list) => ParseLayers<CavernLayer>(list);
 
         private static T ParseLayers<T>(string list) where T : struct, Enum
         {
