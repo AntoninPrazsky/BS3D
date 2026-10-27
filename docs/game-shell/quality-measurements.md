@@ -31,27 +31,29 @@ The figures a future tier change compares against (#64: measured, because intuit
 
 ## The reference APU against shipped levels
 
-Each chapter's heaviest level that is not its block's first; `level=<name> quality=<tier> nocap logfps windowed width=1600 height=900 mute nofocuspause nofps sceneseed=0`; 45 s, first 8 readings dropped. **`High`**: one first pass (2026-09-23, an upper bound). **`Medium`/`Low`**: minimum of two runs (2026-09-29, `main` at `e0c9a833`). ms:
+Each chapter's heaviest level that is not its block's first (by balls; the city has two rows), in the Game: `level=<name> quality=<tier> nocap logfps windowed width=1600 height=900 mute nofocuspause nofps sceneseed=0`, with `userdata=` a scratch profile whose settings have online scores and the tutorial off. 45 s a run, the first six readings dropped, the median of the rest. **v0.5.0's code (`main` at be2c5420) measured beside v0.4.0's (9ed06dc4)** on 2026-10-27, `history-sweep.ps1 -ByLevel`: each level's two builds forward then reversed, back to back, and the minimum of each build's two runs (builds' `[build]` sets: v0.4.0 libraries `db10bfd5`, shaders `c56d60af`; `main` `c664fd3b`, `36dad7c5`). ms:
 
-| level (scene) | `High` | `Medium` | `Low` |
-|---|---|---|---|
-| Caldera (volcano) | 58.8 | 31.04 | 14.88 |
-| Spyglass (mountain) | 54.3 | 23.97 | **16.55** over |
-| Diadem (dream) | 29.2 | 24.25 | 15.04 |
-| Spring (cavern, before #958) | 29.1 | 22.83 | 14.45 |
-| Balloon (savanna) | 36.2 | 24.81 | 14.40 |
-| Amphora (meadow) | 42.5 | 22.88 | 13.67 |
-| Ghost (neon city) | 40.6 | 18.96 | 13.49 |
-| Pendulum (desert) | 35.2 | 19.82 | 13.12 |
-| Girandole (city) | 43.7 | 19.55 | 11.99 |
-| Colossus (Moon), hand-drawn ⚠ | 22.5 | 17.42 | 11.79 |
-| Turbine (city) | 40.4 | 17.36 | 10.95 |
-| Orrery (space) | 35.8 | **12.49** | 10.75 |
-| Tesseract (Grid) | 19.1 | **14.77** | 9.57 |
+| level (scene) | `Low` v0.4.0 | `Low` v0.5.0 | step | `Medium` v0.4.0 | `Medium` v0.5.0 | step |
+|---|---|---|---|---|---|---|
+| Umbrella (aurora) | 14.27 | **18.03** over | **+3.76** | 20.59 | 29.27 | **+8.68** |
+| Spring (cavern) | 15.74 | **18.03** over | **+2.29** | 30.95 | 27.00 | −3.95 |
+| Amphora (meadow) | 14.71 | **17.91** over | **+3.20** | 28.28 | 33.70 | **+5.42** |
+| Spyglass (mountain) | **16.73** over | **16.95** over | +0.22 | 26.02 | 25.20 | −0.82 |
+| Caldera (volcano) | **16.15** over | **16.21** over | +0.06 | 33.53 | 33.57 | +0.04 |
+| Balloon (savanna) | 14.55 | 15.90 | +1.35 | 27.16 | 29.48 | +2.32 |
+| Diadem (dream) | 14.71 | 15.83 | +1.12 | 25.25 | 25.03 | −0.22 |
+| SafetyNet (big top) | 15.33 | 14.42 | −0.91 | 20.22 | 19.43 | −0.79 |
+| Ghost (neon city) | 13.97 | 13.90 | −0.07 | 19.87 | 20.04 | +0.17 |
+| Pendulum (desert) | 12.80 | 12.51 | −0.29 | 19.82 | 19.85 | +0.03 |
+| Girandole (city) | 12.44 | 12.56 | +0.12 | 21.07 | 20.66 | −0.41 |
+| Tesseract (Grid) | 10.17 | 11.46 | +1.29 | **16.05** | 17.87 | +1.82 |
+| Colossus (Moon) | 12.00 | 11.12 | −0.88 | 22.31 | 20.35 | −1.96 |
+| Orrery (space) | 11.16 | 10.24 | −0.92 | **14.67** | **13.08** | −1.59 |
+| Turbine (city) | 10.77 | 10.13 | −0.64 | 19.95 | 18.86 | −1.09 |
 
-- **The aurora has no row**: its scene was rebuilt (#963) and has not been measured on the APU since. **Spring's row is the cavern before its rebuild (#958)**, here and in the re-measure below: the hall is rebuilt and has not been measured on the APU since (its desktop cost is in "Cost" in `docs/scenes/cavern.md`).
-- **The Moon's row is the hand-drawn Colossus**, a solid 364-ball block. #849's 337-ball figure read **13.83 ms at `Low` and 21.23 at `Medium`** on 2026-10-17 (`main` at 188dda1b, the same conditions, `Low` the minimum of two runs), on a day the whole table read dearer (next bullet), so it sits with the city levels rather than under them.
-- **`High` misses the panel by 1.2–3.7×; `Medium` fits only space and the Grid; `Low` fits everywhere but the mountain.** `Medium` is 8–43 % and `Low` 1–18 % dearer than #540's build (2026-09-29): refraction, motion blur, full-detail scene work.
-- **Re-measured on 2026-10-17** (`main` at 188dda1b, the same conditions, `Low` the minimum of two runs): every `Low` row reads **4–20 % dearer than the table** (Caldera 16.31, Spyglass 17.78, Diadem 15.71, Spring 15.46, Balloon 14.97, Amphora 15.03, Ghost 14.71, Pendulum 14.61, Girandole 12.41, Turbine 11.40, Orrery 12.13, Tesseract 10.05, Anchor 13.57), **and the table's own build (e0c9a833), measured beside `main` that day, run for run, reads the same as `main`** (Pendulum 14.62 against 14.72, Girandole 12.10 against 12.41, Caldera 16.55 against 17.78 inside the volcano's ±1 ms run-to-run spread): the gap is the day's machine, not the code (trap 14 in `.claude/skills/benchmark`), so a figure above is that afternoon's floor, not a promise. On such a day the volcano misses 16.1 ms at `Low` on both builds. `colourcue=none` (the pre-#737 gores) is not the cheaper path on the APU: +2.5 ms on Girandole, +0.0 on Pendulum. `Medium`, one pass: 14.07–33.38 ms, 1–27 % over the table.
-- ⚠ **`Low` keeps the far plane #551 asked for (the owner's ruling, 2026-09-29), so the mountain runs about half a millisecond over.** With only `DEFAULT_FAR_PLANE_DISTANCE` back at 500, Spyglass reads 15.68 and the hand-drawn Colossus 11.12. **Do not shorten it to win the time back.**
+- **`Low` misses the 16.1 ms budget in five chapters, three of them since v0.5.0**: the aurora, the cavern and the meadow (the first chapter) were inside it on v0.4.0. **`Medium` fits only space** (the Grid fitted on v0.4.0). `High` is not in the table; on 2026-09-23 it missed the panel by 1.2–3.7×.
+- **The steps and the merges between the two builds that touched the scene:** the aurora's is **#963** (its rebuild, the one such merge): the far stand, the collars and both terrain grids drawn whole at every tier, and on `Medium` the Moon's shadow map (2048). The cavern's span holds **#958** (the hall rebuilt on the CPU), #1017 and #984; on the desktop that hall is cheaper on every tier ("Cost" in `docs/scenes/cavern.md`), on the APU only on `Medium`. The meadow's holds a dozen: the brook (#892 twice, #924, #970, #979), the lawn (#944), the bales (#943, #971), the bench (#891, #1022) and the trees' fork (#889: `Low` and `Medium` draw the coarse wood, +14 to +18 % triangles). The Grid's own is the light cycles (#956). The savanna's holds the acacia leaves (#964), the wood shut at every joint (#938) and the campfires' mounds and light (#887, #885). **Moon, space, the big top and Turbine got 0.6–2.0 ms cheaper** at both tiers.
+- **Each build's two runs agree to 0.3 ms or better on eight rows of fifteen at each tier**; on the rest they spread 0.6–2.4 ms (the dream at `Low` 1.65, Girandole at `Medium` 2.38), so a step under about a millisecond there is inside the noise: the dream's +1.12 at `Low` is. The cavern's, meadow's, mountain's, volcano's, savanna's and dream's `Medium` pairs were measured in one session and the rest after the machine restarted, on AC both times.
+- **The day's machine is not the code**: two DisplayLink monitors were attached, another session's JVM held four to nine cores for stretches (the frame barely moved with it: the APU is bound by its GPU here), and a pass-ordered sweep the same morning read the cheap levels up to 40 % lower in its first 25 minutes than the interleaved one did after (Pendulum on v0.5.0, 7.64 against 12.51 ms at `Low`). So a figure above is that afternoon's floor; **the steps are the comparison**. `colourcue=none` (the pre-#737 gores) is not the cheaper path on the APU: +2.5 ms on Girandole, +0.0 on Pendulum (2026-10-17).
+- ⚠ **`Low` keeps the far plane #551 asked for (the owner's ruling, 2026-09-29), so the mountain runs over** (0.6–0.9 ms in the table). With only `DEFAULT_FAR_PLANE_DISTANCE` back at 500, Spyglass read 15.68 ms on 2026-09-29. **Do not shorten it to win the time back.**
 - **Front end at `Low`** (2026-09-29, 55 s per scene, orbit spreads of 4–6 ms): five of twenty scenes miss 16.1 ms (Mars 17.88, savanna 17.57, tropical 16.83, outback 16.82, polar 16.18); **left by the owner's ruling: the menu is not worked on for `Low`.**
