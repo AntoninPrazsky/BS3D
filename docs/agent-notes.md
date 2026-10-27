@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-10-27 — #748 krajina za lávovým polem sopky — desktop (RDT-PC), Claude Code (bs3d-8a)
+- majitel (27. 10.): druhé kolo AI referencí a podle nich krajina, ne až při velkém přepracování scény. Reference jsou v `C:\Users\panrd\AI\sd\out\748r2-zimage` a `748r2-klein`.
+- Hotovo: lávové pole končí zubatou zvednutou frontou s ohořelým pásem. Za ním louky, políčka, les, řeka (skutečná voda), 22 domů a kostel s rozsvícenými okny, hřebeny a spící kužel. Tvary drží `VolcanoCountry.cs` pro shader, zrcadlo, sázení i testy. `Low` kreslí jen zem, `PotatoBackdrop` beze změny.
+- Cena na desktopu: hra +0,13 až +0,23 ms, pohled na odvrácenou stranu +0,83 ms (High).
+- ⚠ Les osvětlený plným sluncem a zamlžený k jasnému horizontu stál na tmavých svazích jako bledé kužely. Stromy proto mají vlastní barvu oparu a stín mraků (`PlantPass.DrawInWeather`).
+- Otevřené: `verdict-eye`. Kulaté stromy u řeky zblízka čtou jako koule. Cena na APU nezměřena.
+
 ## 2026-10-27 — #1026 tabulka APU po v0.5.0, alokace jeskyně — notebook (ThinkPad), Claude Code (github-4d)
 - Hotovo: tabulka v `quality-measurements.md` přeměřena na APU, v0.5.0 vedle v0.4.0, `Low` i `Medium`, 15 levelů. Na `Low` jsou nově přes 16,1 ms polární záře (+3,76, #963), jeskyně (+2,29) a louka (+3,20, první kapitola). Navazují #1027 #1028 #1029. Na `Medium` záře +8,68 a louka +5,42.
 - Hotovo: jeskyně alokovala 48 B na snímek. Lambda v `StartDetail` zachytávala parametr, closure tak vznikala před časným `return`. Teď 0 B (e5462816).
