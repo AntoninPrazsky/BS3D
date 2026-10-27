@@ -1,28 +1,86 @@
 {
-    "file":  "theme-mirage-bossa.wav",
-    "created":  "2026-09-23",
-    "issue":  486,
-    "family":  "mirage",
-    "chapter":  "The Mirage (dream) - new: the dream",
-    "purpose":  "Master of Game/Music/mirage-bossa.ogg, one of the mirage family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "Slow dreamy bossa instrumental: nylon guitar, brushed drums, soft flute, warm bass, hazy lounge pads, unreal and gentle, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  92,
-                    "keyscale":  "E major",
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-mirage-bossa.wav: 78.3s loop = source 3.99s..82.25s (30.02 bars at 92.1 bpm), crossfade 1.30s | context match 0.758 (best 0.763) | crossfade rhythm r=0.82 vs the track a bar later r=0.61: in time | spectrum cos=0.71"
-                 ],
-    "measured":  "generate-music.ps1 end to end 59.4 s (ace-lm + ace-synth + loop cut)",
-    "rendered":  true
+  "file": "theme-mirage-bossa.wav",
+  "created": "2026-10-27",
+  "issue": 915,
+  "family": "mirage",
+  "chapter": "The Mirage",
+  "purpose": "Master of Game/Music/mirage-bossa.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>. The master stays outside the repository (C:/Users/panrd/AI/output/masters-909-chosen on the desktop, with its .raw.wav; this is candidate c1, theme-mirage-bossa-c1 in masters-909, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-r.ps1 (#909-#917, adapted from the #908 batch) -> Tools/Generation/generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Melodic dream pop instrumental: a clean chorus electric guitar playing one long hummable melody in the middle register, perfectly in tune, over a warm electric piano, the dream carried in the harmony with lush major seventh and ninth chords and gentle unexpected chord changes, a round bass guitar, a gentle bossa nova lilt with brushed drums and a soft cross-stick, a nylon-string guitar comping under the lead, warm and unhurried, building into a soaring peak with layered guitars and wide pads, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar, no vocals",
+    "lm_negative_prompt": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, out of tune, detuned, dissonance, clashing notes, atonal, ambient drone, free tempo, rubato, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, distorted bass, white noise, hiss, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, tambourine, shakers, long drum-only sections, drum solo, one-bar loop, repetitive loop, eerie, creepy, horror, chimes, bells, glockenspiel, celesta, music box, glass harmonica, gamelan, metallophone, harp glissando, sitar, mellotron flutes, steel pan, granular textures, swirling noise",
+    "instrumental": true,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 92,
+    "keyscale": "E major",
+    "seed": 410174767,
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-mirage-bossa-c1.wav: 64.0s loop = source 14.75s..78.75s (23.96 bars at 89.8 bpm), crossfade 1.34s | context match 0.534 (best 0.576) | crossfade rhythm r=0.66 vs the track a bar later r=0.44: in time | spectrum cos=0.77"
+  ],
+  "lm_check": {
+    "request0_captured": true,
+    "caption_verbatim": true,
+    "seed_in_request0": 410174767,
+    "bpm_in_request0": 92,
+    "keyscale_in_request0": "E major",
+    "duration_in_request0": 120.0,
+    "lyrics_in_request0": "[Instrumental]"
+  },
+  "measured": "generate-music.ps1 end to end 61,8 s (ace-lm + ace-synth + loop cut), exit 0",
+  "rendered": true,
+  "chosen": {
+    "candidate": "c1",
+    "round": 1,
+    "of": [
+      "c1",
+      "c2",
+      "c3"
+    ],
+    "why": "Chosen by measurement beside the ember family in one measure-music.py run, then the owner's ear: 21.9 % in 200 Hz-2 kHz, 17.6 % in 300 Hz-4 kHz, 0.2 % above 6 kHz, tonal mid 84 %, 2.55 held-note changes a second, tempo wander 0.02 %, wobble 2.1 / detune 1.9 cents, 0.0 short gaps a minute, the opening repeats for 2.7 s, 6.2 % of held notes out of key; a 64.0 s loop at 89.8 bpm, cut context 0.534, crossfade rhythm r 0.66 against 0.44 a bar later, spectrum cosine 0.77, quietest 2 s 5.2 dB under the loud level, 0 % of the loop 10 dB under it. Outside ember's range: held_changes 2.55. The owner's idea (a) of 2026-10-27 for the whole chapter: melodic dream pop on a clean chorus guitar over a warm electric piano, the dream in the harmony; tuned bells, music box, glass and gamelan out of the brief.",
+    "how": "Tools/Generation/measure-music.py --reference ember with ember in the same run, the documented gates (docs/game-feedback/music-generation.md, 'Choosing a candidate'), then the owner's listening page (2026-10-27)."
+  },
+  "alternatives": [
+    {
+      "candidate": "c2",
+      "round": 1,
+      "seed": 1752073517,
+      "bpm": 92,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-mirage-bossa-c2.wav: 63.3s loop = source 25.76s..89.05s (23.99 bars at 91.0 bpm), crossfade 1.32s | context match 0.587 (best 0.636) | crossfade rhythm r=0.93 vs the track a bar later r=0.69: in time | spectrum cos=0.65"
+      ],
+      "refused_or_not_chosen": "ranked under the pick; outside ember: held_changes 2.29, out_of_key 9.4",
+      "caption": "same brief"
+    },
+    {
+      "candidate": "c3",
+      "round": 1,
+      "seed": 1629981641,
+      "bpm": 92,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-mirage-bossa-c3.wav: 74.7s loop = source 32.24s..106.90s (27.99 bars at 90.0 bpm), crossfade 1.33s | context match 0.473 (best 0.522) | crossfade rhythm r=0.72 vs the track a bar later r=0.78: in time | spectrum cos=0.59"
+      ],
+      "refused_or_not_chosen": "ranked under the pick; outside ember: out_of_key 10.4",
+      "caption": "same brief"
+    }
+  ],
+  "replaces": {
+    "issue": 486,
+    "created": "2026-09-23",
+    "caption": "Slow dreamy bossa instrumental: nylon guitar, brushed drums, soft flute, warm bass, hazy lounge pads, unreal and gentle, no vocals",
+    "negative": "vocals, singing, audience applause, crowd noise, live recording",
+    "seed": null,
+    "bpm": 92,
+    "keyscale": "E major",
+    "loop_log": [
+      "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-mirage-bossa.wav: 78.3s loop = source 3.99s..82.25s (30.02 bars at 92.1 bpm), crossfade 1.30s | context match 0.758 (best 0.763) | crossfade rhythm r=0.82 vs the track a bar later r=0.61: in time | spectrum cos=0.71"
+    ],
+    "why_replaced": "Owner 2026-10-16: 'The whole chapter must be regenerated ... ill-considered, of poor quality, amateurish ... needs a new idea'; on 2026-10-27 he chose (a), melodic dream pop on a clean chorus guitar over a warm electric piano."
+  }
 }

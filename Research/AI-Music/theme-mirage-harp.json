@@ -1,28 +1,90 @@
 {
-    "file":  "theme-mirage-harp.wav",
-    "created":  "2026-09-23",
-    "issue":  486,
-    "family":  "mirage",
-    "chapter":  "The Mirage (dream) - new: the dream",
-    "purpose":  "Master of Game/Music/mirage-harp.ogg, one of the mirage family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "Ethereal harp and pads instrumental: flowing harp arpeggios, soft choir-like synth pads, gentle percussion, distant bells, weightless and serene, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  84,
-                    "keyscale":  "E major",
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-mirage-harp.wav: 42.9s loop = source 38.15s..81.00s (15.03 bars at 84.2 bpm), crossfade 1.43s | context match 0.366 (best 0.411) | crossfade rhythm r=0.67 vs the track a bar later r=0.55: in time | spectrum cos=0.71"
-                 ],
-    "measured":  "generate-music.ps1 end to end 59.4 s (ace-lm + ace-synth + loop cut)",
-    "rendered":  true
+  "file": "theme-mirage-harp.wav",
+  "created": "2026-10-27",
+  "issue": 915,
+  "family": "mirage",
+  "chapter": "The Mirage",
+  "purpose": "Master of Game/Music/mirage-harp.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>. The master stays outside the repository (C:/Users/panrd/AI/output/masters-909-chosen on the desktop, with its .raw.wav; this is candidate c2, theme-mirage-harp-c2 in masters-909, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-r.ps1 (#909-#917, adapted from the #908 batch) -> Tools/Generation/generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Melodic dream pop instrumental: a clean chorus electric guitar playing one long hummable melody in the middle register, perfectly in tune, over a warm electric piano, the dream carried in the harmony with lush major seventh and ninth chords and gentle unexpected chord changes, a round bass guitar, fingerpicked clean guitar arpeggios rippling like a harp under the lead, soft brushed drums, weightless and serene, building into a soaring peak with layered guitars and wide pads, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar, no vocals",
+    "lm_negative_prompt": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, out of tune, detuned, dissonance, clashing notes, atonal, ambient drone, free tempo, rubato, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, distorted bass, white noise, hiss, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, tambourine, shakers, long drum-only sections, drum solo, one-bar loop, repetitive loop, eerie, creepy, horror, chimes, bells, glockenspiel, celesta, music box, glass harmonica, gamelan, metallophone, harp glissando, sitar, mellotron flutes, steel pan, granular textures, swirling noise",
+    "instrumental": true,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 84,
+    "keyscale": "E major",
+    "seed": 1913836733,
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-mirage-harp-c2.wav: 74.3s loop = source 23.37s..97.65s (26.04 bars at 84.1 bpm), crossfade 1.43s | context match 0.396 (best 0.443) | crossfade rhythm r=0.51 vs the track a bar later r=0.55: in time | spectrum cos=0.38"
+  ],
+  "lm_check": {
+    "request0_captured": true,
+    "caption_verbatim": true,
+    "seed_in_request0": 1913836733,
+    "bpm_in_request0": 84,
+    "keyscale_in_request0": "E major",
+    "duration_in_request0": 120.0,
+    "lyrics_in_request0": "[Instrumental]"
+  },
+  "measured": "generate-music.ps1 end to end 60,7 s (ace-lm + ace-synth + loop cut), exit 0",
+  "rendered": true,
+  "chosen": {
+    "candidate": "c2",
+    "round": 1,
+    "of": [
+      "c2",
+      "c1",
+      "c3"
+    ],
+    "why": "Chosen by measurement beside the ember family in one measure-music.py run, then the owner's ear: 18.8 % in 200 Hz-2 kHz, 14.4 % in 300 Hz-4 kHz, 0.4 % above 6 kHz, tonal mid 87 %, 2.95 held-note changes a second, tempo wander 0.01 %, wobble 2.2 / detune 1.7 cents, 0.8 short gaps a minute, the opening repeats for 2.9 s, 4.5 % of held notes out of key; a 74.3 s loop at 84.1 bpm, cut context 0.396, crossfade rhythm r 0.51 against 0.55 a bar later, spectrum cosine 0.38, quietest 2 s 4.7 dB under the loud level, 0 % of the loop 10 dB under it. Outside ember's range: nothing. The owner's idea (a) of 2026-10-27 for the whole chapter: melodic dream pop on a clean chorus guitar over a warm electric piano, the dream in the harmony; tuned bells, music box, glass and gamelan out of the brief.",
+    "how": "Tools/Generation/measure-music.py --reference ember with ember in the same run, the documented gates (docs/game-feedback/music-generation.md, 'Choosing a candidate'), then the owner's listening page (2026-10-27)."
+  },
+  "alternatives": [
+    {
+      "candidate": "c1",
+      "round": 1,
+      "seed": 1069125128,
+      "bpm": 84,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-mirage-harp-c1.wav: 50.8s loop = source 35.93s..86.75s (17.97 bars at 84.9 bpm), crossfade 1.41s | context match 0.585 (best 0.634) | crossfade rhythm r=0.89 vs the track a bar later r=0.35: in time | spectrum cos=0.55"
+      ],
+      "refused_or_not_chosen": "ranked under the pick; outside ember: nothing",
+      "caption": "same brief"
+    },
+    {
+      "candidate": "c3",
+      "round": 1,
+      "seed": 90526905,
+      "bpm": 84,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-mirage-harp-c3.wav: 67.8s loop = source 35.13s..102.90s (24.03 bars at 85.1 bpm), crossfade 1.41s | context match 0.453 (best 0.500) | crossfade rhythm r=0.51 vs the track a bar later r=0.18: in time | spectrum cos=0.49"
+      ],
+      "refused_or_not_chosen": "ranked under the pick; outside ember: tempo_wander 0.86",
+      "caption": "same brief"
+    }
+  ],
+  "replaces": {
+    "issue": 486,
+    "created": "2026-09-23",
+    "caption": "Ethereal harp and pads instrumental: flowing harp arpeggios, soft choir-like synth pads, gentle percussion, distant bells, weightless and serene, no vocals",
+    "negative": "vocals, singing, audience applause, crowd noise, live recording",
+    "seed": null,
+    "bpm": 84,
+    "keyscale": "E major",
+    "loop_log": [
+      "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-mirage-harp.wav: 42.9s loop = source 38.15s..81.00s (15.03 bars at 84.2 bpm), crossfade 1.43s | context match 0.366 (best 0.411) | crossfade rhythm r=0.67 vs the track a bar later r=0.55: in time | spectrum cos=0.71"
+    ],
+    "why_replaced": "Owner 2026-10-16: 'The whole chapter must be regenerated ... ill-considered, of poor quality, amateurish ... needs a new idea'; on 2026-10-27 he chose (a), melodic dream pop on a clean chorus guitar over a warm electric piano."
+  },
+  "bake": {
+    "trim_db": -1.0,
+    "why": "Baked at the themes' loudness the master's peaks went over full scale into the knee: measure-music.py read 9 clipped runs on the baked recording (ember at most 3). A render that clipped by itself has a flat top; this one's peaks are a sustained guitar and piano's transients, so the trim is the cure (music-bake.md)."
+  }
 }
