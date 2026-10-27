@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-27 — #957 blog o světelných motorkách — desktop (RDT-PC), Claude Code (Sonnet 5.5)
+- Hotovo: `Web/src/blog/light-cycles-from-a-hash-and-a-strip.md`, osmý příspěvek: hash jízdy a pozice z hodin, zeď jako triangle strip, tělo jen ze švů, proč zdi bloomují. Tři snímky z Testbedu (`scene=grid sceneseed=0 shot=10`, `at=1:F12` schová překryv), náhled, váha v `docs/website.md`. Eleventy build projde, příspěvek je v seznamu, feedu i na úvodní straně.
+- ⚠ Motorky se v Gridu nedrží Hilbertovy křivky, jen její mřížky (16 jednotek); osnova v issue s „stopou jako oknem indexů“ neplatila. Čísla v textu jsou z konstant: počty trojúhelníků a vrcholů, svítivost (Rec. 709) proti prahu 0,55; to, kdy zeď přestane bloomovat (36 až 63 jednotek), je aritmetika, ne měření ve snímku.
+- Otevřené: cena motorek samotných nezměřena; publikuje majitel (`Web\publish.ps1`).
+
 ## 2026-10-27 — #1030 pořadí čipů klávesa – ikona – popisek — desktop (RDT-PC), Claude Code (Sonnet 5.5)
 - Hotovo: #991 pověsil piktogram vlevo od sloupce kláves, řádek četl ikona – klávesa – text. `ChipColumnLayout` má třetí sloupec (`IconLeft`), `DrawChip` kreslí ikonu mezi klávesou a popiskem, šířka řádku se nemění. `ChipColumnLayoutTests` pinují pořadí a šířku (s rozbitou mezerou padají tři). Před/po na Pennantu 1920x1080, klávesnice i pad: pořadí sedí.
 - Otevřené: `verdict-eye`, přijde na další stránku verdiktů; spuštění `BS3D.exe play level=Pennant powerups=swap:2,brake:1,cut:1`.
