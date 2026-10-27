@@ -1,148 +1,136 @@
 {
-    "file": "theme-pulse-progressive.wav",
-    "created": "2026-10-15",
-    "issue": 824,
-    "family": "pulse",
-    "chapter": "The Grid (levels 71-80, the neon wireframe world of mathematical solids) - regenerated on the desert's ember model (the owner, 2026-10-11, #824): a lead line the ear can follow, its identity in the mid range, the drive carried by arrangement rather than by noise and sub bass; the family's electronic dance root kept",
-    "purpose": "Master of Game/Music/pulse-progressive.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:/Users/panrd/AI/output/masters-824-chosen on the desktop, with its .raw.wav; every candidate in masters-824); this sidecar is committed beside the .ogg.",
-    "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-pulse.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
-    "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
-    "license": "ACE-Step 1.5: MIT (code and weights)",
-    "request": {
-        "caption": "Melodic progressive house instrumental for a neon wireframe world of glowing geometric shapes: a long, memorable synth lead melody you can hum carried in the mid range, evolving plucked synth arpeggios beneath it, a warm rolling bass line in the mid range, warm wide chord pads, a punchy four-on-the-floor kick with a dark snare clap and toms and a dark ride cymbal playing throughout, the melody passing between a warm pluck and a soft analog lead over the unbroken groove, building and glowing into a big warm peak with wide synth chords, hopeful and spacious, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
-        "lm_negative_prompt": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, deep sub bass, rumble, distorted bass, growling bass, wobble bass, white noise, noise sweeps, risers, hiss, glitch, siren synths, industrial noise, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, bright hand claps, tambourine, shakers, snare rolls, long drum-only sections, drum solo, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, droning, one-note bass",
-        "instrumental": true,
-        "use_cot_caption": false,
-        "duration": 120,
-        "bpm": 126,
-        "keyscale": "A minor",
-        "seed": 2007270154,
-        "inference_steps": 8,
-        "output_format": "wav32"
-    },
-    "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
-    "loop_log": [
-        "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-progressive-c3.wav: 45.4s loop = source 37.04s..82.40s (24.02 bars at 127.1 bpm), crossfade 0.94s | context match 0.548 (best 0.548) | crossfade rhythm r=0.65 vs the track a bar later r=0.43: in time | spectrum cos=0.71"
+  "file": "theme-pulse-progressive.wav",
+  "created": "2026-10-27",
+  "issue": 910,
+  "family": "pulse",
+  "chapter": "The Grid",
+  "purpose": "Master of Game/Music/pulse-progressive.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>. The master stays outside the repository (C:/Users/panrd/AI/output/masters-909-chosen on the desktop, with its .raw.wav; this is candidate c6, theme-pulse-progressive-c6 in masters-909, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-r.ps1 (#909-#917, adapted from the #908 batch) -> Tools/Generation/generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Melodic progressive house instrumental for a neon wireframe world of glowing geometric shapes: one long, memorable synth lead melody you can hum, played by one warm analog lead and perfectly in tune, carried in the mid range, evolving plucked synth arpeggios beneath it in the same key, a warm rolling bass line in the mid range, warm wide chord pads, a warm piano doubling the chords in the middle register, a punchy four-on-the-floor kick with a dark snare clap and toms and a dark ride cymbal playing throughout, building and glowing into a big warm peak with wide synth chords, hopeful and spacious, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar, no vocals",
+    "lm_negative_prompt": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, out of tune, detuned, dissonance, clashing notes, atonal, ambient drone, free tempo, rubato, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, distorted bass, white noise, hiss, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, tambourine, shakers, long drum-only sections, drum solo, one-bar loop, repetitive loop, two melodies at once, clashing leads, pitch bends, portamento glide, wobbly pitch, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, risers, noise sweeps",
+    "instrumental": true,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 126,
+    "keyscale": "A minor",
+    "seed": 196398113,
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-pulse-progressive-c6.wav: 40.0s loop = source 31.90s..71.90s (20.94 bars at 125.6 bpm), crossfade 0.96s | context match 0.251 (best 0.297) | crossfade rhythm r=0.84 vs the track a bar later r=0.56: in time | spectrum cos=0.60"
+  ],
+  "lm_check": {
+    "request0_captured": true,
+    "caption_verbatim": true,
+    "seed_in_request0": 196398113,
+    "bpm_in_request0": 126,
+    "keyscale_in_request0": "A minor",
+    "duration_in_request0": 120.0,
+    "lyrics_in_request0": "[Instrumental]"
+  },
+  "measured": "generate-music.ps1 end to end 60,2 s (ace-lm + ace-synth + loop cut), exit 0",
+  "rendered": true,
+  "chosen": {
+    "candidate": "c6",
+    "round": 2,
+    "of": [
+      "c6",
+      "c1",
+      "c2",
+      "c3",
+      "c4",
+      "c5"
     ],
-    "lm_check": {
-        "request0_captured": true,
-        "caption_verbatim": true,
-        "seed_in_request0": 2007270154,
-        "bpm_in_request0": 126,
-        "keyscale_in_request0": "A minor",
-        "duration_in_request0": 120.0
+    "why": "Chosen by measurement beside the ember family in one measure-music.py run, then the owner's ear: 11.5 % in 200 Hz-2 kHz, 10.5 % in 300 Hz-4 kHz, 1.0 % above 6 kHz, tonal mid 82 %, 2.42 held-note changes a second, tempo wander 0.01 %, wobble 1.3 / detune 0.9 cents, 21.0 short gaps a minute, the opening repeats for 1.9 s, 0.0 % of held notes out of key; a 40.0 s loop at 125.6 bpm, cut context 0.251, crossfade rhythm r 0.84 against 0.56 a bar later, spectrum cosine 0.6, quietest 2 s 2.0 dB under the loud level, 0 % of the loop 10 dB under it. Outside ember's range: held_changes 2.42. Round 2: a piano doubling the chords in the mids; one lead timbre instead of the old brief's two.",
+    "how": "Tools/Generation/measure-music.py --reference ember with ember in the same run, the documented gates (docs/game-feedback/music-generation.md, 'Choosing a candidate'), then the owner's listening page (2026-10-27)."
+  },
+  "alternatives": [
+    {
+      "candidate": "c1",
+      "round": 1,
+      "seed": 664250402,
+      "bpm": 126,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-pulse-progressive-c1.wav: 68.8s loop = source 32.04s..100.85s (36.01 bars at 125.6 bpm), crossfade 0.96s | context match 0.340 (best 0.389) | crossfade rhythm r=0.70 vs the track a bar later r=0.65: in time | spectrum cos=0.24"
+      ],
+      "refused_or_not_chosen": "out: seam cos 0.24",
+      "caption": "brief_1 (below)"
     },
-    "measured": "generate-music.ps1 end to end 68,2 s (ace-lm + ace-synth + loop cut), exit 0",
-    "measured_against_ember": {
-        "loop_s": 45.4,
-        "bpm": 127.1,
-        "context": 0.548,
-        "r_cross": 0.65,
-        "r_bar": 0.43,
-        "in_time": true,
-        "cos": 0.71,
-        "dip": 5.2,
-        "quiet": 0,
-        "lr_corr": 0.479,
-        "knee_pct": 0.0,
-        "b200_2k": 29.5,
-        "b300_4k": 20.3,
-        "above6k": 0.4,
-        "tonal_mid": 93,
-        "mid_flatness": 0.02,
-        "held_changes": 4.03,
-        "tempo_wander": 0.2,
-        "wrap_db": -0.6,
-        "wrap_pct": 16
+    {
+      "candidate": "c2",
+      "round": 1,
+      "seed": 1942161085,
+      "bpm": 126,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-pulse-progressive-c2.wav: 46.5s loop = source 32.20s..78.65s (24.06 bars at 124.3 bpm), crossfade 0.97s | context match 0.497 (best 0.539) | crossfade rhythm r=0.94 vs the track a bar later r=0.74: in time | spectrum cos=0.96"
+      ],
+      "refused_or_not_chosen": "ranked under the pick; outside ember: held_changes 2.71, above6k 5.1, opening repeat 46.5 s",
+      "caption": "brief_1 (below)"
     },
-    "measured_note": "measure-music.py --reference ember on the loop (band shares %, tonal mid %, mid flatness, held-note changes/s, tempo wander %, wrap step dB and its percentile) beside sel.py: the loop cut, dip = the quietest 2 s under the loop's p95 1 s level (dB), quiet = the % of the loop more than 10 dB under it, L/R correlation, knee_pct = the % of samples MusicBake's knee bends",
-    "rendered": true,
-    "chosen": {
-        "candidate": "c3",
-        "round": 1,
-        "of": [
-            "c1",
-            "c2",
-            "c3"
-        ],
-        "why": "inside ember on every column: 29.5 % in 200 Hz-2 kHz (old 8.4 %), 20.3 % in 300 Hz-4 kHz, 0.4 % above 6 kHz, tonal mid 93 %, 4.03 held-note changes/s, a 45 s loop in time (context 0.55, crossfade r 0.65 against 0.43, spectrum cos 0.71), no hole, wrap step -0.6 dB (p16), the widest stereo of the family (L/R 0.48). It has no drums for a layer to take (Demucs found them 42 dB under the mix), so the old layer is gone. c2 is 3.4 % above 6 kHz",
-        "how": "every candidate measured with Tools/Generation/measure-music.py --reference ember in one run (band shares, tonal mid, mid flatness, held-note changes, tempo wander, wrap step) beside the loop cut's own check, the hole share (the loop more than 10 dB under its loud level), the breakdown dip and the stereo correlation; a seam below its own rhythm, a hole over 15 %, a 2 s dropout more than 20 dB down, a wrap step of 10 dB or more or at or above p97 of the loop's own steps, a seam spectrum cosine under 0.3 or a loop under 30 s ruled a candidate out; the table is on #824"
+    {
+      "candidate": "c3",
+      "round": 1,
+      "seed": 1836400462,
+      "bpm": 126,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-pulse-progressive-c3.wav: 39.7s loop = source 55.47s..95.15s (21.06 bars at 127.3 bpm), crossfade 0.94s | context match 0.320 (best 0.360) | crossfade rhythm r=0.67 vs the track a bar later r=0.75: in time | spectrum cos=0.67"
+      ],
+      "refused_or_not_chosen": "ranked under the pick; outside ember: b200_2k 4.3, b300_4k 3.5",
+      "caption": "brief_1 (below)"
     },
-    "alternatives": [
-        {
-            "candidate": "c1",
-            "seed": 1205181465,
-            "caption": "same brief",
-            "negative": "same negative",
-            "loop_log": [
-                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-progressive-c1.wav: 69.4s loop = source 31.36s..100.80s (35.98 bars at 124.4 bpm), crossfade 0.96s | context match 0.449 (best 0.490) | crossfade rhythm r=0.54 vs the track a bar later r=0.59: in time | spectrum cos=0.51"
-            ],
-            "measured": {
-                "loop_s": 69.4,
-                "bpm": 124.4,
-                "context": 0.449,
-                "r_cross": 0.54,
-                "r_bar": 0.59,
-                "in_time": true,
-                "cos": 0.51,
-                "dip": 25.0,
-                "quiet": 14,
-                "lr_corr": 0.936,
-                "knee_pct": 0.001,
-                "b200_2k": 6.9,
-                "b300_4k": 5.8,
-                "above6k": 1.1,
-                "tonal_mid": 58,
-                "mid_flatness": 0.08,
-                "held_changes": 2.59,
-                "tempo_wander": 0.02,
-                "wrap_db": -5.9,
-                "wrap_pct": 79
-            }
-        },
-        {
-            "candidate": "c2",
-            "seed": 911902086,
-            "caption": "same brief",
-            "negative": "same negative",
-            "loop_log": [
-                "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-progressive-c2.wav: 76.8s loop = source 32.30s..109.10s (40.00 bars at 125.0 bpm), crossfade 0.96s | context match 0.768 (best 0.811) | crossfade rhythm r=0.83 vs the track a bar later r=0.92: in time | spectrum cos=0.78"
-            ],
-            "measured": {
-                "loop_s": 76.8,
-                "bpm": 125.0,
-                "context": 0.768,
-                "r_cross": 0.83,
-                "r_bar": 0.92,
-                "in_time": true,
-                "cos": 0.78,
-                "dip": 2.7,
-                "quiet": 0,
-                "lr_corr": 0.845,
-                "knee_pct": 0.0,
-                "b200_2k": 17.2,
-                "b300_4k": 12.2,
-                "above6k": 3.4,
-                "tonal_mid": 72,
-                "mid_flatness": 0.04,
-                "held_changes": 3.98,
-                "tempo_wander": 0.01,
-                "wrap_db": -4.2,
-                "wrap_pct": 70
-            }
-        }
-    ],
-    "replaces": {
-        "stem": "pulse-progressive",
-        "issue": 486,
-        "created": "2026-09-23",
-        "caption": "Progressive dance instrumental: long evolving arpeggios, deep bass, wide chord pads, steady kick, building and glowing, no vocals",
-        "negative": "vocals, singing, audience applause, crowd noise, live recording",
-        "bpm": 126,
-        "keyscale": "A minor",
-        "loop_log": [
-            "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-pulse-progressive.wav: 82.6s loop = source 20.29s..102.85s (43.00 bars at 125.0 bpm), crossfade 0.96s | context match 0.945 (best 0.995) | crossfade rhythm r=1.00 vs the track a bar later r=0.99: in time | spectrum cos=0.99"
-        ],
-        "why_replaced": "its tune measured well (tonal mid 81 %) but it carried 8.4 % in 200 Hz-2 kHz (ember at least 9.5 %) and clipped 32 times (#824, 2026-10-13): regenerated, kept if no candidate beats it"
+    {
+      "candidate": "c4",
+      "round": 2,
+      "seed": 1940009524,
+      "bpm": 126,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-pulse-progressive-c4.wav: 69.4s loop = source 10.16s..79.60s (35.97 bars at 124.3 bpm), crossfade 0.97s | context match 0.379 (best 0.427) | crossfade rhythm r=0.60 vs the track a bar later r=0.74: BELOW the track's own timekeeping -- listen | spectrum cos=0.49"
+      ],
+      "refused_or_not_chosen": "out: seam BELOW",
+      "caption": "same brief"
+    },
+    {
+      "candidate": "c5",
+      "round": 2,
+      "seed": 219989408,
+      "bpm": 126,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-pulse-progressive-c5.wav: 42.6s loop = source 49.47s..92.05s (22.05 bars at 124.3 bpm), crossfade 0.97s | context match 0.541 (best 0.591) | crossfade rhythm r=0.93 vs the track a bar later r=0.65: in time | spectrum cos=0.80"
+      ],
+      "refused_or_not_chosen": "ranked under the pick; outside ember: b200_2k 7.1, b300_4k 4.2",
+      "caption": "same brief"
     }
+  ],
+  "alternative_briefs": {
+    "brief_1": {
+      "caption": "Melodic progressive house instrumental for a neon wireframe world of glowing geometric shapes: one long, memorable synth lead melody you can hum, played by one warm analog lead and perfectly in tune, carried in the mid range, evolving plucked synth arpeggios beneath it in the same key, a warm rolling bass line in the mid range, warm wide chord pads, a punchy four-on-the-floor kick with a dark snare clap and toms and a dark ride cymbal playing throughout, building and glowing into a big warm peak with wide synth chords, hopeful and spacious, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, out of tune, detuned, dissonance, clashing notes, atonal, ambient drone, free tempo, rubato, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, distorted bass, white noise, hiss, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, tambourine, shakers, long drum-only sections, drum solo, one-bar loop, repetitive loop, two melodies at once, clashing leads, pitch bends, portamento glide, wobbly pitch, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, risers, noise sweeps",
+      "lyrics": null,
+      "bpm": 126,
+      "round": 1,
+      "candidates": [
+        "c1",
+        "c2",
+        "c3"
+      ]
+    }
+  },
+  "replaces": {
+    "issue": 824,
+    "created": "2026-10-15",
+    "caption": "Melodic progressive house instrumental for a neon wireframe world of glowing geometric shapes: a long, memorable synth lead melody you can hum carried in the mid range, evolving plucked synth arpeggios beneath it, a warm rolling bass line in the mid range, warm wide chord pads, a punchy four-on-the-floor kick with a dark snare clap and toms and a dark ride cymbal playing throughout, the melody passing between a warm pluck and a soft analog lead over the unbroken groove, building and glowing into a big warm peak with wide synth chords, hopeful and spacious, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+    "negative": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, ambient drone, free tempo, rubato, long quiet intro, long silent passages, boomy sub bass, 808 sub bass, deep sub bass, rumble, distorted bass, growling bass, wobble bass, white noise, noise sweeps, risers, hiss, glitch, siren synths, industrial noise, bright supersaw, fizzy synths, sizzling high synth leads, airy shimmer, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, bright hand claps, tambourine, shakers, snare rolls, long drum-only sections, drum solo, harsh dissonance, quiet breakdown, near silence, long soft passages, fade out, fade in, long soft intro, droning, one-note bass",
+    "seed": 2007270154,
+    "bpm": 126,
+    "keyscale": "A minor",
+    "loop_log": [
+      "Wrote C:\\Users\\panrd\\AI\\output\\masters-824\\theme-pulse-progressive-c3.wav: 45.4s loop = source 37.04s..82.40s (24.02 bars at 127.1 bpm), crossfade 0.94s | context match 0.548 (best 0.548) | crossfade rhythm r=0.65 vs the track a bar later r=0.43: in time | spectrum cos=0.71"
+    ],
+    "why_replaced": "Owner 2026-10-16: 'a good, mighty sound, but the main melody sounds completely out of tune and disharmonic several times'; the old brief passed the melody between two lead timbres."
+  }
 }
