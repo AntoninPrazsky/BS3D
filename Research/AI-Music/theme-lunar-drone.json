@@ -1,28 +1,136 @@
 {
-    "file":  "theme-lunar-drone.wav",
-    "created":  "2026-09-23",
-    "issue":  486,
-    "family":  "lunar",
-    "chapter":  "The Quarry (moon) - new: spacious, slow, grey light",
-    "purpose":  "Master of Game/Music/lunar-drone.ogg, one of the lunar family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "Drone ambient instrumental with a slow rhythmic pulse: deep evolving synth drones, subtle ticking percussion, distant choir-like pads, vast and still, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  80,
-                    "keyscale":  "A minor",
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-lunar-drone.wav: 99.2s loop = source 10.25s..109.45s (31.00 bars at 75.0 bpm), crossfade 1.50s | context match 0.869 (best 0.917) | crossfade rhythm r=0.95 vs the track a bar later r=0.98: in time | spectrum cos=0.90"
-                 ],
-    "measured":  "generate-music.ps1 end to end 58.9 s (ace-lm + ace-synth + loop cut)",
-    "rendered":  true
+  "file": "theme-lunar-drone.wav",
+  "created": "2026-10-27",
+  "issue": 909,
+  "family": "lunar",
+  "chapter": "The Quarry",
+  "purpose": "Master of Game/Music/lunar-drone.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>. The master stays outside the repository (C:/Users/panrd/AI/output/masters-909-chosen on the desktop, with its .raw.wav; this is candidate c5, theme-lunar-drone-c5 in masters-909, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-r.ps1 (#909-#917, adapted from the #908 batch) -> Tools/Generation/generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Atmospheric ambient rock instrumental for a moonlit quarry: a clean electric guitar playing a flowing hummable melody of steady running eighth notes in the middle register, perfectly in tune, never stopping, over a deep warm evolving synth pad, crystalline plucked synths repeating a simple counter-melody, warm electric piano chords changing every two bars, a round bass guitar, a slow half-time groove on kick, snare and toms with a dark ride cymbal, building into a wide glowing peak with layered guitars, vast, still and lonely, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar, no vocals",
+    "lm_negative_prompt": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, out of tune, detuned, dissonance, clashing notes, atonal, ambient drone, free tempo, rubato, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, distorted bass, white noise, hiss, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, tambourine, shakers, long drum-only sections, drum solo, one-bar loop, repetitive loop, one-note drone, monotone pulse, ticking percussion only, no melody, endless build-up, glitch, bells, chimes, long sustained notes only, slow melody, sparse",
+    "instrumental": true,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 80,
+    "keyscale": "A minor",
+    "seed": 2057120414,
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-lunar-drone-c5.wav: 75.0s loop = source 28.60s..103.60s (26.00 bars at 83.2 bpm), crossfade 1.44s | context match 0.734 (best 0.784) | crossfade rhythm r=0.87 vs the track a bar later r=-0.04: in time | spectrum cos=0.69"
+  ],
+  "lm_check": {
+    "request0_captured": true,
+    "caption_verbatim": true,
+    "seed_in_request0": 2057120414,
+    "bpm_in_request0": 80,
+    "keyscale_in_request0": "A minor",
+    "duration_in_request0": 120.0,
+    "lyrics_in_request0": "[Instrumental]"
+  },
+  "measured": "generate-music.ps1 end to end 62,7 s (ace-lm + ace-synth + loop cut), exit 0",
+  "rendered": true,
+  "chosen": {
+    "candidate": "c5",
+    "round": 2,
+    "of": [
+      "c5",
+      "c1",
+      "c2",
+      "c3",
+      "c4",
+      "c6"
+    ],
+    "why": "Chosen by measurement beside the ember family in one measure-music.py run, then the owner's ear: 5.7 % in 200 Hz-2 kHz, 5.3 % in 300 Hz-4 kHz, 0.1 % above 6 kHz, tonal mid 65 %, 3.72 held-note changes a second, tempo wander 0.06 %, wobble 1.7 / detune 1.2 cents, 0.0 short gaps a minute, the opening repeats for 2.9 s, 0.0 % of held notes out of key; a 75.0 s loop at 83.2 bpm, cut context 0.734, crossfade rhythm r 0.87 against -0.04 a bar later, spectrum cosine 0.69, quietest 2 s 3.6 dB under the loud level, 0 % of the loop 10 dB under it. Outside ember's range: b200_2k 5.7, b300_4k 5.3. Round 2's melody brief: 3.72 held-note changes a second where round 1's passing candidate read 1.55, the owner's 'without a melody'; its mids sit just under ember's lowest band share.",
+    "how": "Tools/Generation/measure-music.py --reference ember with ember in the same run, the documented gates (docs/game-feedback/music-generation.md, 'Choosing a candidate'), then the owner's listening page (2026-10-27)."
+  },
+  "alternatives": [
+    {
+      "candidate": "c1",
+      "round": 1,
+      "seed": 1614510231,
+      "bpm": 80,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-lunar-drone-c1.wav: 60.8s loop = source 44.39s..105.15s (20.01 bars at 79.0 bpm), crossfade 1.50s | context match 0.278 (best 0.327) | crossfade rhythm r=0.11 vs the track a bar later r=0.20: BELOW the track's own timekeeping -- listen | spectrum cos=0.19"
+      ],
+      "refused_or_not_chosen": "out: seam BELOW, seam cos 0.19",
+      "caption": "brief_1 (below)"
+    },
+    {
+      "candidate": "c2",
+      "round": 1,
+      "seed": 1303902160,
+      "bpm": 80,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-lunar-drone-c2.wav: 78.8s loop = source 14.52s..93.30s (27.02 bars at 82.3 bpm), crossfade 1.46s | context match 0.302 (best 0.349) | crossfade rhythm r=0.04 vs the track a bar later r=-0.02: in time | spectrum cos=0.38"
+      ],
+      "refused_or_not_chosen": "out: wrap -10.5 dB (p81)",
+      "caption": "brief_1 (below)"
+    },
+    {
+      "candidate": "c3",
+      "round": 1,
+      "seed": 363260562,
+      "bpm": 80,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-lunar-drone-c3.wav: 66.4s loop = source 38.58s..104.95s (22.02 bars at 79.6 bpm), crossfade 1.50s | context match 0.394 (best 0.401) | crossfade rhythm r=0.32 vs the track a bar later r=0.35: in time | spectrum cos=0.51"
+      ],
+      "refused_or_not_chosen": "ranked under the pick; outside ember: held_changes 1.55",
+      "caption": "brief_1 (below)"
+    },
+    {
+      "candidate": "c4",
+      "round": 2,
+      "seed": 1927114740,
+      "bpm": 80,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-lunar-drone-c4.wav: 62.3s loop = source 35.80s..98.05s (20.99 bars at 80.9 bpm), crossfade 1.48s | context match 0.202 (best 0.243) | crossfade rhythm r=0.23 vs the track a bar later r=0.14: in time | spectrum cos=0.18"
+      ],
+      "refused_or_not_chosen": "out: seam cos 0.18",
+      "caption": "same brief"
+    },
+    {
+      "candidate": "c6",
+      "round": 2,
+      "seed": 689172169,
+      "bpm": 80,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-lunar-drone-c6.wav: 53.6s loop = source 43.92s..97.55s (17.99 bars at 80.5 bpm), crossfade 1.49s | context match 0.414 (best 0.458) | crossfade rhythm r=0.28 vs the track a bar later r=0.28: in time | spectrum cos=0.41"
+      ],
+      "refused_or_not_chosen": "ranked under the pick; outside ember: b200_2k 8.4, b300_4k 5.5, held_changes 2.18, opening repeat 23.8 s",
+      "caption": "same brief"
+    }
+  ],
+  "alternative_briefs": {
+    "brief_1": {
+      "caption": "Atmospheric ambient rock instrumental for a moonlit quarry: a slow, hummable clean electric guitar melody with long sustained notes and gentle vibrato in the middle register, perfectly in tune, over a deep evolving warm synth pad, warm electric piano chords changing every two bars, a round bass guitar, a slow half-time groove on kick, snare and toms with a dark ride cymbal, the melody passing to a soft analog synth lead in the second half, building into a wide glowing peak with layered guitars, vast, still and lonely, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, out of tune, detuned, dissonance, clashing notes, atonal, ambient drone, free tempo, rubato, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, distorted bass, white noise, hiss, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, tambourine, shakers, long drum-only sections, drum solo, one-bar loop, repetitive loop, one-note drone, monotone pulse, ticking percussion only, no melody, endless build-up, glitch, bells, chimes",
+      "lyrics": null,
+      "bpm": 80,
+      "round": 1,
+      "candidates": [
+        "c1",
+        "c2",
+        "c3"
+      ]
+    }
+  },
+  "replaces": {
+    "issue": 486,
+    "created": "2026-09-23",
+    "caption": "Drone ambient instrumental with a slow rhythmic pulse: deep evolving synth drones, subtle ticking percussion, distant choir-like pads, vast and still, no vocals",
+    "negative": "vocals, singing, audience applause, crowd noise, live recording",
+    "seed": null,
+    "bpm": 80,
+    "keyscale": "A minor",
+    "loop_log": [
+      "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-lunar-drone.wav: 99.2s loop = source 10.25s..109.45s (31.00 bars at 75.0 bpm), crossfade 1.50s | context match 0.869 (best 0.917) | crossfade rhythm r=0.95 vs the track a bar later r=0.98: in time | spectrum cos=0.90"
+    ],
+    "why_replaced": "Owner 2026-10-16: 'a stuck gramophone record ... only fast pounding without a melody'; measured: 0.0 held-note changes, the opening repeats for all 31 bars."
+  }
 }
