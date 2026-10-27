@@ -1,28 +1,100 @@
 {
-    "file":  "theme-neon-breaks.wav",
-    "created":  "2026-09-23",
-    "issue":  486,
-    "family":  "neon",
-    "chapter":  "The Arcade (neon city) - new: the night lights up",
-    "purpose":  "Master of Game/Music/neon-breaks.ogg, one of the neon family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "Breakbeat electro instrumental: chopped breakbeats, acid synth line, electro bass, robotic stabs, gritty and fun, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  132,
-                    "keyscale":  "E minor",
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-neon-breaks.wav: 43.3s loop = source 32.39s..75.70s (24.03 bars at 133.2 bpm), crossfade 0.90s | context match 0.827 (best 0.827) | crossfade rhythm r=0.86 vs the track a bar later r=0.66: in time | spectrum cos=0.81"
-                 ],
-    "measured":  "generate-music.ps1 end to end 60 s (ace-lm + ace-synth + loop cut)",
-    "rendered":  true
+  "file": "theme-neon-breaks.wav",
+  "created": "2026-10-27",
+  "issue": 914,
+  "family": "neon",
+  "chapter": "The Arcade",
+  "purpose": "Master of Game/Music/neon-breaks.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>. The master stays outside the repository (C:/Users/panrd/AI/output/masters-909-chosen on the desktop, with its .raw.wav; this is candidate c2, theme-neon-breaks-c2 in masters-909, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-r.ps1 (#909-#917, adapted from the #908 batch) -> Tools/Generation/generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Modern breakbeat electro instrumental: a rolling breakbeat drum groove playing without a break, a warm acid bass line, a catchy analog synth lead melody in the middle register, warm chord stabs, chopped, pitched human-voice samples as a rhythmic hook - breaths, wordless oh and ah syllables, whispered syllables, no words, no lyrics - mixed forward in the middle register, a new section every eight bars, gritty and fun, building into a big peak, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar",
+    "lm_negative_prompt": "lyrics, sung words, intelligible words, rap, spoken word, lead singer, pop vocal, opera, choir singing words, audience applause, crowd noise, live recording, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, out of tune, detuned, dissonance, clashing notes, atonal, ambient drone, free tempo, rubato, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, distorted bass, white noise, hiss, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, tambourine, shakers, long drum-only sections, drum solo, one-bar loop, repetitive loop, chiptune, 8-bit, electroswing, swing, brass stabs, stop-start, rests, pauses, silences, harsh glitch, industrial noise, fizzy synths, sizzling high synth leads",
+    "instrumental": false,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 132,
+    "keyscale": "E minor",
+    "seed": 700767040,
+    "inference_steps": 8,
+    "output_format": "wav32",
+    "lyrics": "[Intro]\nooh\n\n[Verse]\nah ah, oh\nhm, ah\n\n[Chorus]\nooh ah\noh, ah ah\n\n[Bridge]\nah\nooh"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-neon-breaks-c2.wav: 43.6s loop = source 34.11s..77.75s (24.05 bars at 132.3 bpm), crossfade 0.91s | context match 0.517 (best 0.565) | crossfade rhythm r=0.92 vs the track a bar later r=0.68: in time | spectrum cos=0.78"
+  ],
+  "lm_check": {
+    "request0_captured": true,
+    "caption_verbatim": true,
+    "seed_in_request0": 700767040,
+    "bpm_in_request0": 132,
+    "keyscale_in_request0": "E minor",
+    "duration_in_request0": 120.0,
+    "lyrics_in_request0": "[Intro]\nooh\n\n[Verse]\nah ah, oh\nhm, ah\n\n[Chorus]\nooh ah\noh, ah ah\n\n[Bridge]\nah\nooh"
+  },
+  "measured": "generate-music.ps1 end to end 74,0 s (ace-lm + ace-synth + loop cut), exit 0",
+  "rendered": true,
+  "chosen": {
+    "candidate": "c2",
+    "round": 1,
+    "of": [
+      "c2",
+      "c1",
+      "c3",
+      "c4"
+    ],
+    "why": "Chosen by measurement beside the ember family in one measure-music.py run, then the owner's ear: 15.8 % in 200 Hz-2 kHz, 13.5 % in 300 Hz-4 kHz, 2.2 % above 6 kHz, tonal mid 43 %, 3.23 held-note changes a second, tempo wander 0.28 %, wobble 3.9 / detune 3.4 cents, 16.5 short gaps a minute, the opening repeats for 1.8 s, 10.8 % of held notes out of key; a 43.6 s loop at 132.3 bpm, cut context 0.517, crossfade rhythm r 0.92 against 0.68 a bar later, spectrum cosine 0.78, quietest 2 s 10.3 dB under the loud level, 2 % of the loop 10 dB under it. Outside ember's range: tonal_mid 43, above6k 2.2, wobble 3.9, out_of_key 10.8. #916's voice arm (wordless syllables as the lyrics), chosen over the instrumental arm's c3 because the owner asked for voices 'to cover the gaps': its separated vocals stand 8.6 dB under the mix in 300 Hz-4 kHz (c3's 53.7 dB, nothing). The opening repeats for 1.8 s where the old loop's ran 39.7 s; 16.5 short gaps a minute where the old read 59.6.",
+    "how": "Tools/Generation/measure-music.py --reference ember with ember in the same run, the documented gates (docs/game-feedback/music-generation.md, 'Choosing a candidate'), then the owner's listening page (2026-10-27)."
+  },
+  "alternatives": [
+    {
+      "candidate": "c1",
+      "round": 1,
+      "seed": 1885436133,
+      "bpm": 132,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-neon-breaks-c1.wav: 57.5s loop = source 28.63s..86.15s (31.92 bars at 133.2 bpm), crossfade 0.90s | context match 0.249 (best 0.280) | crossfade rhythm r=0.60 vs the track a bar later r=0.74: BELOW the track's own timekeeping -- listen | spectrum cos=0.44"
+      ],
+      "refused_or_not_chosen": "out: seam BELOW, hole 16 %",
+      "caption": "same brief"
+    },
+    {
+      "candidate": "c3",
+      "round": 1,
+      "seed": 138983110,
+      "bpm": 132,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-neon-breaks-c3.wav: 81.2s loop = source 24.95s..106.15s (45.03 bars at 133.1 bpm), crossfade 0.90s | context match 0.797 (best 0.844) | crossfade rhythm r=0.96 vs the track a bar later r=0.83: in time | spectrum cos=0.83"
+      ],
+      "refused_or_not_chosen": "ranked under the pick; outside ember: tonal_mid 35",
+      "caption": "same brief"
+    },
+    {
+      "candidate": "c4",
+      "round": 1,
+      "seed": 154072982,
+      "bpm": 132,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-neon-breaks-c4.wav: 72.2s loop = source 16.02s..88.20s (40.05 bars at 133.2 bpm), crossfade 0.90s | context match 0.862 (best 0.911) | crossfade rhythm r=0.88 vs the track a bar later r=0.77: in time | spectrum cos=0.95"
+      ],
+      "refused_or_not_chosen": "out: hole 22 %, dropout 37.7 dB",
+      "caption": "same brief"
+    }
+  ],
+  "arm": "916 voice (lyrics block)",
+  "replaces": {
+    "issue": 486,
+    "created": "2026-09-23",
+    "caption": "Breakbeat electro instrumental: chopped breakbeats, acid synth line, electro bass, robotic stabs, gritty and fun, no vocals",
+    "negative": "vocals, singing, audience applause, crowd noise, live recording",
+    "seed": null,
+    "bpm": 132,
+    "keyscale": "E minor",
+    "loop_log": [
+      "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-neon-breaks.wav: 43.3s loop = source 32.39s..75.70s (24.03 bars at 133.2 bpm), crossfade 0.90s | context match 0.827 (best 0.827) | crossfade rhythm r=0.86 vs the track a bar later r=0.66: in time | spectrum cos=0.81"
+    ],
+    "why_replaced": "Owner 2026-10-16: 'the opening loop repeats too many times ... something between electroswing and chiptune ... perhaps some vocals would suit it to cover the gaps'; measured 59.6 short gaps a minute, 22-bar opening repeat."
+  }
 }
