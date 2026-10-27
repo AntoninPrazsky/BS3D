@@ -9,7 +9,7 @@ things out — nothing here is trying to be groundbreaking, it's just a small ga
 
 ![Screenshot](/Images/screenshot3.jpg)
 
-*Cannonball, a level of the meadow chapter, captured in game at 3840×1600.*
+*Cannonball, a level of the meadow chapter, captured in game at 2560×1080 on v0.5.0.*
 
 ## Download and play
 
