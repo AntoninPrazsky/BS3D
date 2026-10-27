@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-10-27 — #1025 článek o poctivosti hráčů — Raspberry Pi (BS3DServer), Claude Code (rdt-9a)
+- majitel: „Jinak až to bude hotové, myslím, že by téma poctivosti hráčů bylo dobré téma na článek na blog na webu.“ Pak: „Ano, napiš článek na blog.“
+- Hotovo: příspěvek `two-and-a-half-hours-of-play` o skriptu z 25. 10. a o kontrolách z BS3D-API#16, #17 a #1024. Má dva grafy, které nakreslil skript z kopie databáze služby; žádná přezdívka ani adresa v něm není.
+- Grafy mají verzi pro telefon (`<picture>`, `docs/website.md`), protože zmenšené by měly popisky kolem 7 px. Ověřeno buildem Eleventy na Pi při 320 až 1920 px.
+- ⚠ Headless Chromium na Pi: snímek 1440×6200 od asi 4 090 px opakoval začátek stránky. Delší stránku snímej po částech, přes iframe posunutý nahoru.
+- Otevřené: zveřejnění (`Web/publish.ps1`) je na majiteli. V hlavičce je datum 27. 10. 2026; při pozdějším zveřejnění ho přepiš.
+
 ## 2026-10-26 — #1024 hranice hvězd v tabulce stropů — Raspberry Pi (BS3DServer), Claude Code (rdt-9a)
 - majitel: skript vydávající se za hru (25. 10.) obsadil první místa všech žebříčků. Rozhodnutí: „Ano, založ to issue“ a „Začni issues implementovat.“
 - Hotovo: `StarRating.LeastScoreFor` a `ScoreSim --ceilings` píše ke každému řádku `starFloors` (2, 3 a 4 hvězdy). Nová brána STAR FLOORS hlídá, že hranice sedí přesně tam, kde se hodnocení láme. Strana služby je BS3D-API#16 (55327b6).
