@@ -33,7 +33,7 @@ param(
     [switch]$Load,
 
     [string]$Model = 'google/gemma-4-12b',
-    [string]$Endpoint = 'http://localhost:1234'
+    [string]$Endpoint = 'http://localhost:8765'
 )
 
 $ErrorActionPreference = 'Stop'

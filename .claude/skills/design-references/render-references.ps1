@@ -133,7 +133,7 @@ function Test-ServerPort([int]$p) {
 
 # The card is shared: say what else holds it before taking ~10.5 GB of it.
 try {
-    $loaded = @((Invoke-RestMethod -Uri 'http://localhost:1234/api/v0/models' -TimeoutSec 3).data |
+    $loaded = @((Invoke-RestMethod -Uri 'http://localhost:8765/api/v0/models' -TimeoutSec 3).data |
         Where-Object { $_.state -eq 'loaded' -and $_.type -ne 'embeddings' })
     if ($loaded.Count) {
         Write-Warning ("LM Studio has loaded: " + (($loaded | ForEach-Object { $_.id }) -join ', ') +
