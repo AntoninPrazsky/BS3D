@@ -1,29 +1,86 @@
 {
   "file": "theme-mirage-electronica.wav",
-  "created": "2026-09-23",
-  "issue": 486,
+  "created": "2026-10-27",
+  "issue": 915,
   "family": "mirage",
-  "chapter": "The Mirage (dream) - new: the dream",
-  "purpose": "Master of Game/Music/mirage-electronica.ogg, one of the mirage family's recordings (#486): written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
+  "chapter": "The Mirage",
+  "purpose": "Master of Game/Music/mirage-electronica.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>. The master stays outside the repository (C:/Users/panrd/AI/output/masters-909-chosen on the desktop, with its .raw.wav; this is candidate c1, theme-mirage-electronica-c1 in masters-909, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-r.ps1 (#909-#917, adapted from the #908 batch) -> Tools/Generation/generate-music.ps1 -Loop -NoCotCaption",
   "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
   "license": "ACE-Step 1.5: MIT (code and weights)",
   "request": {
-    "caption": "Ethereal electronica instrumental: soft breakbeat, deep bass, granular textures, bell melody, wide pads, luminous and dreamlike, no vocals",
-    "lm_negative_prompt": "vocals, singing, audience applause, crowd noise, live recording",
+    "caption": "Melodic dream pop instrumental: a clean chorus electric guitar playing one long hummable melody in the middle register, perfectly in tune, over a warm electric piano, the dream carried in the harmony with lush major seventh and ninth chords and gentle unexpected chord changes, a round bass guitar, soft electronic drums on kick, snare and toms, warm analog synth pads and a soft synth bass under the guitar, luminous, building into a soaring peak with layered guitars and wide pads, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar, no vocals",
+    "lm_negative_prompt": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, out of tune, detuned, dissonance, clashing notes, atonal, ambient drone, free tempo, rubato, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, distorted bass, white noise, hiss, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, tambourine, shakers, long drum-only sections, drum solo, one-bar loop, repetitive loop, eerie, creepy, horror, chimes, bells, glockenspiel, celesta, music box, glass harmonica, gamelan, metallophone, harp glissando, sitar, mellotron flutes, steel pan, granular textures, swirling noise",
     "instrumental": true,
     "use_cot_caption": false,
     "duration": 120,
     "bpm": 100,
     "keyscale": "E major",
+    "seed": 404710674,
     "inference_steps": 8,
     "output_format": "wav32"
   },
   "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
   "loop_log": [
-    "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-mirage-electronica.wav: 57.6s loop = source 32.15s..89.75s (23.96 bars at 99.8 bpm), crossfade 1.20s | context match 0.762 (best 0.811) | crossfade rhythm r=0.98 vs the track a bar later r=0.54: in time | spectrum cos=1.00"
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-mirage-electronica-c1.wav: 72.0s loop = source 9.95s..81.95s (30.00 bars at 100.0 bpm), crossfade 1.20s | context match 0.919 (best 0.969) | crossfade rhythm r=0.99 vs the track a bar later r=0.83: in time | spectrum cos=0.92"
   ],
-  "measured": "generate-music.ps1 end to end 61 s (ace-lm + ace-synth + loop cut)",
+  "lm_check": {
+    "request0_captured": true,
+    "caption_verbatim": true,
+    "seed_in_request0": 404710674,
+    "bpm_in_request0": 100,
+    "keyscale_in_request0": "E major",
+    "duration_in_request0": 120.0,
+    "lyrics_in_request0": "[Instrumental]"
+  },
+  "measured": "generate-music.ps1 end to end 61,6 s (ace-lm + ace-synth + loop cut), exit 0",
   "rendered": true,
-  "retake": "a second take: the first render's loop came out BELOW the track's own timekeeping on every tempo grid tried (the requested one, half, double, two thirds), so the same brief was rendered again with a fresh rolled seed and this take's loop cuts in time"
+  "chosen": {
+    "candidate": "c1",
+    "round": 1,
+    "of": [
+      "c1",
+      "c2",
+      "c3"
+    ],
+    "why": "Chosen by measurement beside the ember family in one measure-music.py run, then the owner's ear: 24.0 % in 200 Hz-2 kHz, 20.1 % in 300 Hz-4 kHz, 0.6 % above 6 kHz, tonal mid 87 %, 2.17 held-note changes a second, tempo wander 0.03 %, wobble 1.9 / detune 1.5 cents, 0.0 short gaps a minute, the opening repeats for 2.4 s, 0.0 % of held notes out of key; a 72.0 s loop at 100.0 bpm, cut context 0.919, crossfade rhythm r 0.99 against 0.83 a bar later, spectrum cosine 0.92, quietest 2 s 14.0 dB under the loud level, 3 % of the loop 10 dB under it. Outside ember's range: held_changes 2.17. The owner's idea (a) of 2026-10-27 for the whole chapter: melodic dream pop on a clean chorus guitar over a warm electric piano, the dream in the harmony; tuned bells, music box, glass and gamelan out of the brief.",
+    "how": "Tools/Generation/measure-music.py --reference ember with ember in the same run, the documented gates (docs/game-feedback/music-generation.md, 'Choosing a candidate'), then the owner's listening page (2026-10-27)."
+  },
+  "alternatives": [
+    {
+      "candidate": "c2",
+      "round": 1,
+      "seed": 1728384004,
+      "bpm": 100,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-mirage-electronica-c2.wav: 57.6s loop = source 18.30s..75.90s (24.00 bars at 100.0 bpm), crossfade 1.20s | context match 0.382 (best 0.406) | crossfade rhythm r=0.81 vs the track a bar later r=0.90: in time | spectrum cos=0.48"
+      ],
+      "refused_or_not_chosen": "out: wrap +22.9 dB (p100)",
+      "caption": "same brief"
+    },
+    {
+      "candidate": "c3",
+      "round": 1,
+      "seed": 1853972603,
+      "bpm": 100,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-mirage-electronica-c3.wav: 86.4s loop = source 10.15s..96.55s (36.00 bars at 100.0 bpm), crossfade 1.20s | context match 0.868 (best 0.913) | crossfade rhythm r=0.93 vs the track a bar later r=0.94: in time | spectrum cos=0.90"
+      ],
+      "refused_or_not_chosen": "ranked under the pick; outside ember: held_changes 2.56",
+      "caption": "same brief"
+    }
+  ],
+  "replaces": {
+    "issue": 486,
+    "created": "2026-09-23",
+    "caption": "Ethereal electronica instrumental: soft breakbeat, deep bass, granular textures, bell melody, wide pads, luminous and dreamlike, no vocals",
+    "negative": "vocals, singing, audience applause, crowd noise, live recording",
+    "seed": null,
+    "bpm": 100,
+    "keyscale": "E major",
+    "loop_log": [
+      "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-mirage-electronica.wav: 57.6s loop = source 32.15s..89.75s (23.96 bars at 99.8 bpm), crossfade 1.20s | context match 0.762 (best 0.811) | crossfade rhythm r=0.98 vs the track a bar later r=0.54: in time | spectrum cos=1.00"
+    ],
+    "why_replaced": "Owner 2026-10-16: 'The whole chapter must be regenerated ... ill-considered, of poor quality, amateurish ... needs a new idea'; on 2026-10-27 he chose (a), melodic dream pop on a clean chorus guitar over a warm electric piano."
+  }
 }

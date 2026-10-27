@@ -1,28 +1,86 @@
 {
-    "file":  "theme-mirage-slowwave.wav",
-    "created":  "2026-09-23",
-    "issue":  486,
-    "family":  "mirage",
-    "chapter":  "The Mirage (dream) - new: the dream",
-    "purpose":  "Master of Game/Music/mirage-slowwave.ogg, one of the mirage family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "Slow ambient wave instrumental: swelling synth chords like breathing, soft piano, sub bass drone, sparse rim clicks, sleepy and vast, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  80,
-                    "keyscale":  "E major",
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-mirage-slowwave.wav: 72.0s loop = source 23.00s..95.00s (23.98 bars at 79.9 bpm), crossfade 1.50s | context match 0.881 (best 0.912) | crossfade rhythm r=0.89 vs the track a bar later r=0.10: in time | spectrum cos=0.89"
-                 ],
-    "measured":  "generate-music.ps1 end to end 58.7 s (ace-lm + ace-synth + loop cut)",
-    "rendered":  true
+  "file": "theme-mirage-slowwave.wav",
+  "created": "2026-10-27",
+  "issue": 915,
+  "family": "mirage",
+  "chapter": "The Mirage",
+  "purpose": "Master of Game/Music/mirage-slowwave.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>. The master stays outside the repository (C:/Users/panrd/AI/output/masters-909-chosen on the desktop, with its .raw.wav; this is candidate c3, theme-mirage-slowwave-c3 in masters-909, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-r.ps1 (#909-#917, adapted from the #908 batch) -> Tools/Generation/generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Melodic dream pop instrumental: a clean chorus electric guitar playing one long hummable melody in the middle register, perfectly in tune, over a warm electric piano, the dream carried in the harmony with lush major seventh and ninth chords and gentle unexpected chord changes, a round bass guitar, a slow swelling ballad feel, soft half-time drums on kick, snare and toms, sleepy and vast, building into a soaring peak with layered guitars and wide pads, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar, no vocals",
+    "lm_negative_prompt": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, out of tune, detuned, dissonance, clashing notes, atonal, ambient drone, free tempo, rubato, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, distorted bass, white noise, hiss, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, tambourine, shakers, long drum-only sections, drum solo, one-bar loop, repetitive loop, eerie, creepy, horror, chimes, bells, glockenspiel, celesta, music box, glass harmonica, gamelan, metallophone, harp glissando, sitar, mellotron flutes, steel pan, granular textures, swirling noise",
+    "instrumental": true,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 80,
+    "keyscale": "E major",
+    "seed": 1641198579,
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-mirage-slowwave-c3.wav: 89.4s loop = source 5.15s..94.55s (30.01 bars at 80.6 bpm), crossfade 1.49s | context match 0.746 (best 0.789) | crossfade rhythm r=0.86 vs the track a bar later r=0.11: in time | spectrum cos=0.67"
+  ],
+  "lm_check": {
+    "request0_captured": true,
+    "caption_verbatim": true,
+    "seed_in_request0": 1641198579,
+    "bpm_in_request0": 80,
+    "keyscale_in_request0": "E major",
+    "duration_in_request0": 120.0,
+    "lyrics_in_request0": "[Instrumental]"
+  },
+  "measured": "generate-music.ps1 end to end 77,1 s (ace-lm + ace-synth + loop cut), exit 0",
+  "rendered": true,
+  "chosen": {
+    "candidate": "c3",
+    "round": 1,
+    "of": [
+      "c3",
+      "c1",
+      "c2"
+    ],
+    "why": "Chosen by measurement beside the ember family in one measure-music.py run, then the owner's ear: 20.3 % in 200 Hz-2 kHz, 15.4 % in 300 Hz-4 kHz, 0.5 % above 6 kHz, tonal mid 92 %, 2.6 held-note changes a second, tempo wander 0.05 %, wobble 1.4 / detune 2.3 cents, 0.7 short gaps a minute, the opening repeats for 3.0 s, 5.1 % of held notes out of key; a 89.4 s loop at 80.6 bpm, cut context 0.746, crossfade rhythm r 0.86 against 0.11 a bar later, spectrum cosine 0.67, quietest 2 s 7.5 dB under the loud level, 2 % of the loop 10 dB under it. Outside ember's range: held_changes 2.6. The owner's idea (a) of 2026-10-27 for the whole chapter: melodic dream pop on a clean chorus guitar over a warm electric piano, the dream in the harmony; tuned bells, music box, glass and gamelan out of the brief.",
+    "how": "Tools/Generation/measure-music.py --reference ember with ember in the same run, the documented gates (docs/game-feedback/music-generation.md, 'Choosing a candidate'), then the owner's listening page (2026-10-27)."
+  },
+  "alternatives": [
+    {
+      "candidate": "c1",
+      "round": 1,
+      "seed": 1356083640,
+      "bpm": 80,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-mirage-slowwave-c1.wav: 52.7s loop = source 25.14s..77.85s (18.02 bars at 82.0 bpm), crossfade 1.46s | context match 0.670 (best 0.718) | crossfade rhythm r=0.43 vs the track a bar later r=0.17: in time | spectrum cos=0.69"
+      ],
+      "refused_or_not_chosen": "out: wrap -10.2 dB (p82)",
+      "caption": "same brief"
+    },
+    {
+      "candidate": "c2",
+      "round": 1,
+      "seed": 583023636,
+      "bpm": 80,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-mirage-slowwave-c2.wav: 54.0s loop = source 40.70s..94.70s (17.99 bars at 80.0 bpm), crossfade 1.50s | context match 0.540 (best 0.587) | crossfade rhythm r=0.71 vs the track a bar later r=0.41: in time | spectrum cos=0.48"
+      ],
+      "refused_or_not_chosen": "ranked under the pick; outside ember: out_of_key 12.4",
+      "caption": "same brief"
+    }
+  ],
+  "replaces": {
+    "issue": 486,
+    "created": "2026-09-23",
+    "caption": "Slow ambient wave instrumental: swelling synth chords like breathing, soft piano, sub bass drone, sparse rim clicks, sleepy and vast, no vocals",
+    "negative": "vocals, singing, audience applause, crowd noise, live recording",
+    "seed": null,
+    "bpm": 80,
+    "keyscale": "E major",
+    "loop_log": [
+      "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-mirage-slowwave.wav: 72.0s loop = source 23.00s..95.00s (23.98 bars at 79.9 bpm), crossfade 1.50s | context match 0.881 (best 0.912) | crossfade rhythm r=0.89 vs the track a bar later r=0.10: in time | spectrum cos=0.89"
+    ],
+    "why_replaced": "Owner 2026-10-16: 'The whole chapter must be regenerated ... ill-considered, of poor quality, amateurish ... needs a new idea'; on 2026-10-27 he chose (a), melodic dream pop on a clean chorus guitar over a warm electric piano."
+  }
 }
