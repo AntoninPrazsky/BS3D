@@ -24,7 +24,7 @@ Pravidla:
 - Hotovo: v Testbedu číselník `cavern=`. Na `Low` tvoří skalní plášť 10,69 ms ze 17,25. `RockReduced` má teď 3 oktávy reliéfu místo 5 a barevná pole o jedné oktávě. Spring na `Low` 16,80 → 15,31 ms (v0.4.0 15,74), Chest −1,51. Blízká skála přijde o nejjemnější zrno.
 - Hotovo: po #915 byl main červený, protože `MusicDecodeHeadroomTests` počítal s přesahem nahrávky `mirage-musicbox`. Nový přípravek je `puppet-triphop` (478c6f8a).
 - ⚠ Přegenerovaná nahrávka si nechá jméno, ale přesah ztratí. Test vázaný na jméno nahrávky se tím rozbije.
-- Otevřené: #1029 `verdict-eye` (vzhled skály na `Low`). #1028 zbývá ~0,1 ms. Krajina sopky #748 na APU neměřena, sopka byla na `Low` přes rozpočet už předtím.
+- Otevřené: #1029 `verdict-eye` (vzhled skály na `Low`). #1028 zbývá ~0,1 ms. Krajina sopky #748 na APU: Caldera na `Low` +0,61 (16,40 ms, znovu přes rozpočet), Paroxysm +1,01. Zapsáno v #748.
 
 ## 2026-10-27 — #909–#917 hudba šesti kapitol, hlasy, styl interpreta — desktop (RDT-PC), Claude Code (bs3d-8a)
 - majitel: Přelud podle nápadu (a), dream pop na čistou kytaru. #912: Finale zůstává.
