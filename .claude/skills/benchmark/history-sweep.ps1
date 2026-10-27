@@ -20,8 +20,11 @@
 # -Extra is one space-separated string of arguments every run gets, for the same reason -Levels is one string.
 # Any build since #546 reads `userdata=<dir>`: pass one whose Settings.json has "online": false, or every run's
 # start and quit lands in the player's Stats.json and, with online scores on, is sent to the server (#709).
+# -Commits (one comma string, oldest first) measures exactly those builds instead of From, the Points and To: the
+# second round once the first has said which merges to suspect. A worktree already under -WorktreeRoot at the same
+# commit (any index, from a run before with -Keep) is built and measured again rather than checked out anew.
 param(
-    [Parameter(Mandatory)][string]$From,
+    [string]$From = '',
     [string]$To = 'HEAD',
     [int]$Points = 7,
     [Parameter(Mandatory)][string]$Levels,
@@ -31,6 +34,7 @@ param(
     [string]$WorktreeRoot = 'C:\bs3d-sweep',
     [string]$Extra = '',
     [string]$Paths = '',
+    [string]$Commits = '',
     [switch]$ByLevel,
     [switch]$Keep
 )
@@ -50,17 +54,25 @@ $extraList = @($Extra.Split(' ') | Where-Object { $_ })
 # The builds: both ends, and Points merges evenly spaced between them - among only the merges that touched -Paths
 # (one comma string of pathspecs, ':(glob)**/*Meadow*' and the like) when it is given, so a scene's step is narrowed
 # over the merges that changed that scene rather than over every merge of a busy week
-$pathList = @($Paths.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
-$merges = @(if ($pathList.Count) { git -C $repo rev-list --first-parent --merges --reverse "$From..$To" -- $pathList }
-            else { git -C $repo rev-list --first-parent --merges --reverse "$From..$To" })
-$picked = @()
-for ($k = 1; $k -le $Points; $k++) {
-    $i = [math]::Round($merges.Count * $k / ($Points + 1)) - 1
-    if ($i -ge 0 -and $i -lt $merges.Count) { $picked += $merges[$i] }
+#⚠ $shas, never $commits: PowerShell's names ignore case, so $commits IS the [string] parameter -Commits, and an array
+#assigned to it is joined into one string with spaces
+if ($Commits) {
+    $shas = @($Commits.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ } |
+        ForEach-Object { git -C $repo rev-parse --short "$_^{commit}" })
+} else {
+    if (-not $From) { throw 'Give -From (with -To and -Points) or -Commits' }
+    $pathList = @($Paths.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    $merges = @(if ($pathList.Count) { git -C $repo rev-list --first-parent --merges --reverse "$From..$To" -- $pathList }
+                else { git -C $repo rev-list --first-parent --merges --reverse "$From..$To" })
+    $picked = @()
+    for ($k = 1; $k -le $Points; $k++) {
+        $i = [math]::Round($merges.Count * $k / ($Points + 1)) - 1
+        if ($i -ge 0 -and $i -lt $merges.Count) { $picked += $merges[$i] }
+    }
+    # ^{commit}: a tag (v0.4.0) is otherwise labelled with the hash of the tag object, which names no build
+    $shas = @((git -C $repo rev-parse --short "$From^{commit}")) + @($picked | ForEach-Object { git -C $repo rev-parse --short $_ }) + @((git -C $repo rev-parse --short "$To^{commit}"))
 }
-# ^{commit}: a tag (v0.4.0) is otherwise labelled with the hash of the tag object, which names no build
-$commits = @((git -C $repo rev-parse --short "$From^{commit}")) + @($picked | ForEach-Object { git -C $repo rev-parse --short $_ }) + @((git -C $repo rev-parse --short "$To^{commit}"))
-$commits = $commits | Select-Object -Unique
+$shas = @($shas | Select-Object -Unique)
 
 $save = Join-Path $env:LOCALAPPDATA 'BS3D'
 function SaveHashes { Get-ChildItem $save -Filter *.json -ErrorAction SilentlyContinue | ForEach-Object { "$($_.Name)=$((Get-FileHash $_.FullName).Hash)" } }
@@ -70,8 +82,10 @@ New-Item -ItemType Directory -Force $OutDir, $WorktreeRoot | Out-Null
 $builds = [ordered]@{}
 $worktrees = @()
 $n = 0
-foreach ($c in $commits) {
+foreach ($c in $shas) {
     $w = Join-Path $WorktreeRoot "$n-$c"
+    $earlier = Get-ChildItem $WorktreeRoot -Directory -Filter "*-$c" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($earlier -and -not (Test-Path $w)) { git -C $repo worktree move $earlier.FullName $w | Out-Null }
     if (-not (Test-Path $w)) { git -C $repo worktree add -q --detach $w $c | Out-Null }
     $worktrees += $w
     Write-Output "building $n $c"

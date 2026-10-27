@@ -23,7 +23,9 @@ namespace Prazsky.Core.Render
         /// <summary>The shared plant effect, for a backdrop to list among its shadow receivers.</summary>
         public Effect Effect { get; }
 
-        private readonly EffectTechnique _technique, _shadowTechnique;
+        //The plain plant program, and the ones that carry the stone, the bark's relief, the straw or all three (#1028: see
+        //ONE BODY, FIVE PROGRAMS in Acacia.fx)
+        private readonly EffectTechnique _technique, _stoneTechnique, _barkReliefTechnique, _strawTechnique, _fullTechnique, _shadowTechnique;
         private readonly EffectParameter _view, _projection, _camera, _sunDirection, _sunColor, _zenith, _horizon,
             _diffuse, _diffuseDry, _dapple, _bark, _leaves, _addedLight, _haze, _shadowViewProjection, _footEarth, _stone, _straw, _barkRelief;
 
@@ -51,7 +53,25 @@ namespace Prazsky.Core.Render
             _haze = Effect.Parameters["HorizonHazeDistance"];
             _shadowViewProjection = Effect.Parameters["ShadowViewProjection"];
             _technique = Effect.Techniques["Acacia"];
+            _stoneTechnique = Effect.Techniques["AcaciaStone"];
+            _barkReliefTechnique = Effect.Techniques["AcaciaBarkRelief"];
+            _strawTechnique = Effect.Techniques["AcaciaStraw"];
+            _fullTechnique = Effect.Techniques["AcaciaFull"];
             _shadowTechnique = Effect.Techniques["ShadowCaster"];
+        }
+
+        /// <summary>
+        /// The program <paramref name="bucket"/> is drawn with: the plain one unless it carries the stone, the bark's relief or
+        /// the straw, each of which only its own program compiles in (#1028), and the one with all three for a bucket with more.
+        /// </summary>
+        private EffectTechnique TechniqueFor(ScatterBucket bucket)
+        {
+            bool stone = bucket.Stone > 0f, barkRelief = bucket.BarkRelief > 0f, straw = bucket.Straw > 0f;
+            int extras = (stone ? 1 : 0) + (barkRelief ? 1 : 0) + (straw ? 1 : 0);
+            if (extras > 1) return _fullTechnique;
+            if (stone) return _stoneTechnique;
+            if (barkRelief) return _barkReliefTechnique;
+            return straw ? _strawTechnique : _technique;
         }
 
         /// <summary>
@@ -119,11 +139,14 @@ namespace Prazsky.Core.Render
                 _barkRelief.SetValue(bucket.BarkRelief);
                 _footEarth.SetValue(bucket.FootDust);
                 _graphicsDevice.RasterizerState = bucket.Leaves > 0f ? RasterizerState.CullNone : RasterizerState.CullCounterClockwise;
+                Effect.CurrentTechnique = TechniqueFor(bucket);
                 Effect.CurrentTechnique.Passes[0].Apply();
                 DrawBucket(bucket, bucket.Mesh);
             }
 
-            //Nothing of a rock's or a bale's stays on the one effect the savanna's own draw shares (it states neither)
+            //Nothing of a rock's or a bale's stays on the one effect the savanna's own draw shares (it states neither), its
+            //program included: that draw applies whatever technique the effect holds
+            Effect.CurrentTechnique = _technique;
             _leaves.SetValue(0f);
             _stone.SetValue(0f);
             _straw.SetValue(0f);
