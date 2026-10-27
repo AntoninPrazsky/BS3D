@@ -74,8 +74,16 @@ read a few dozen bytes. The offenders:
   boxed `SceneKind`. The delegate is built once (`_drawShadowCasters ??= DrawShadowCasters`), and `Service` takes the
   scene and spells it only when a shot is due; both executables had both. After it: 0 B a frame in play and on the
   menu; 40 to 72 B a second remain, flat whatever the frame rate, so no frame's.
-- Watch also: LINQ in Update/Draw, closures capturing locals, other `params` methods, boxing structs through
-  interfaces. None were found hot — keep it that way.
+- **A lambda that captures a parameter costs its closure on every call, even one that returns before reaching
+  it.** C# makes the closure object where the captured variable comes into scope, and a parameter is in scope from
+  the method's first line. `CavernBackdrop.StartDetail` is asked every frame and returns at once once its build has
+  started, but its `ContinueWith` lambda captured `fine`, so the cavern allocated **48 B a frame** in play on every
+  tier (2026-10-27, #1026: the `[alloc]` line read 48 B in the cavern against 4–9 B everywhere else, and an EventPipe
+  trace's AllocationTick named `<>c__DisplayClass` under `CavernBackdrop.Meshes`). The lambda moved into a method of
+  its own (`BuildDetail`), called only when a build starts. A capture declared inside the guarded block is safe
+  (`Prepare` does that); a captured parameter or a local declared above the guard is not.
+- Watch also: LINQ in Update/Draw, other `params` methods, boxing structs through interfaces. None were found hot —
+  keep it that way.
 
 **One knowing exception, bounded and written down so the next reader finds the exception rather than the
 violation.** `SoundEffectInstance.Apply3D` allocates inside the framework — MonoGame calls SharpDX's

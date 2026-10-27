@@ -137,14 +137,22 @@ namespace Prazsky.Core.Render
             StartDetail(Services.FineMeshes);
         }
 
-        //The arrays of one detail, built off the frame once the hall is placed; null once their buffers are made
+        //The arrays of one detail, built off the frame once the hall is placed; null once their buffers are made. Asked every
+        //frame (Meshes), so the lambda lives in BuildDetail: a lambda here captured the parameter, and C# makes a captured
+        //parameter's closure on entry to the method, before the return - 48 B a frame for a build long since started
         private void StartDetail(bool fine)
         {
             if (fine ? (_fine != null || _fineBuild != null) : (_coarse != null || _coarseBuild != null)) return;
 
-            Task<CavernChamber> chamberBuild = _chamberBuild;
+            Task<CavernMeshes.Arrays> build = BuildDetail(_chamberBuild, fine);
+            if (fine) _fineBuild = build;
+            else _coarseBuild = build;
+        }
+
+        private static Task<CavernMeshes.Arrays> BuildDetail(Task<CavernChamber> chamberBuild, bool fine)
+        {
             CavernGeometry.Detail detail = fine ? CavernGeometry.Detail.Fine : CavernGeometry.Detail.Coarse;
-            Task<CavernMeshes.Arrays> build = chamberBuild.ContinueWith(placed =>
+            return chamberBuild.ContinueWith(placed =>
             {
                 var clock = System.Diagnostics.Stopwatch.StartNew();
                 CavernMeshes.Arrays arrays = CavernMeshes.Arrays.Build(placed.Result, detail);
@@ -152,9 +160,6 @@ namespace Prazsky.Core.Render
                     $"rock {arrays.Rock.Vertices.Length} vertices, formations {arrays.Formations.Indices.Length / 3} triangles");
                 return arrays;
             }, TaskScheduler.Default);
-
-            if (fine) _fineBuild = build;
-            else _coarseBuild = build;
         }
 
         /// <inheritdoc/>
