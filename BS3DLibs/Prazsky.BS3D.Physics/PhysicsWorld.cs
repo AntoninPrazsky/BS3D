@@ -191,9 +191,16 @@ namespace Prazsky.BS3D.Physics
         /// through a hole in the floor; both callers passed <see cref="Constants.EARTH_GRAVITY"/>, which is the
         /// default.
         /// </param>
-        public PhysicsWorld(float gravityY = Constants.EARTH_GRAVITY)
+        /// <param name="workerThreads">
+        /// How many threads the step runs on: 0, the default, one per logical processor. <b>One makes a run bit-for-bit repeatable</b>
+        /// (#946): with the workers racing for the solver's batches the same level, stepped by the same calls, came out differently
+        /// run to run - the hanging cluster's poses of two identical runs split within the first forty steps (24 workers), and with one
+        /// they matched on every frame of the first three seconds and, with shots, falls and cuts, on all 480 frames of an 8 s clip - and
+        /// a capture's clip has to be the same clip every time. It is a capture's alone: a player's game wants the cores.
+        /// </param>
+        public PhysicsWorld(float gravityY = Constants.EARTH_GRAVITY, int workerThreads = 0)
         {
-            _threadDispatcher = new ThreadDispatcher(Environment.ProcessorCount);
+            _threadDispatcher = new ThreadDispatcher(workerThreads > 0 ? workerThreads : Environment.ProcessorCount);
             BufferPool = new BufferPool();
             Events = new ContactEvents(_threadDispatcher, BufferPool);
 

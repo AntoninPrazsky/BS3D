@@ -67,11 +67,52 @@ The owner: "the website could also have the game's sounds and music - then there
 
 ## The motion (#948)
 
-The owner: "it is a game, the site must be fun and attention-grabbing even for someone who cannot read English." Step 1 is the page moving by itself; the looping clips of play (steps 2-3) wait for a capture tool (#946).
+The owner: "it is a game, the site must be fun and attention-grabbing even for someone who cannot read English." Step 1 is the page moving by itself; the looping clips of play (steps 2-3) are filmed with the capture tool (#946, "Filming the game" below) and no page uses one yet.
 - **The hero enters**: the logo pops in (scaled from 0.82 with a slight overshoot), the pitch, the buttons, the note and the big picture rise after it, 0.25-0.55 s apart. CSS only (`@keyframes logo-in`, `rise-in`).
 - **The sections' pieces rise into view**: every section's heading and lead, the cards, the gallery's pictures, the feature list, the platforms, the posts, the cannon's stage and the three counts fade in from 28 px below as they are scrolled to (`IntersectionObserver`, the bottom 8 % of the window excluded), up to six siblings 90 ms apart. What is on screen when the script runs is shown at once, with no frame hidden. **The counts count up** from 0 to their figure in 0.9 s, eased out: only the bold of `.numbers-row p`, since the count keeps the digits alone (counting every bold in a revealed piece turned the feature list's "A Raspberry Pi 5 version" into "5").
 - ⚠ **Nothing is hidden unless motion is welcome and the script has run.** An inline script in the head sets `html.motion` before the first paint, and never under `prefers-reduced-motion`; every hidden state is written under `.motion`, and `js/motion.js` itself marks the pieces it hides. It sets `window.bs3dMotion` once it has finished, and the head takes `motion` off again 3 s after the start if it has not, so a script that fails to load, or throws halfway, leaves the whole page visible. Without JavaScript the page is the static one.
 - **Checked without a display** through the DevTools protocol (headless Edge with SwiftShader, a Node script, a 1280x900 window): all 36 pieces reveal on a continuous scroll and none is left below 0.5 opacity; the counts read 57 / 6 / 9 a moment into the count and 140 / 14 / 21 after; the cannon runs at about 28 animation frames a second there, 0 while paused, 28 again after "Play"; under emulated reduced motion no class, no hidden piece, no count and no Pause; with `motion.js` blocked the class is gone by 3.6 s and nothing was hidden. A piece jumped past (an anchor link) stays hidden until it is scrolled back to, and rises then.
+
+## Filming the game (#946)
+
+The owner's ruling (2026-10-25): the pictures and the looping clips are made **by the Game**, which has a capture mode (`capture=<folder>`: no HUD, a stated camera, a fixed step of game time a frame, frames written off the render thread; the arguments, the clock and what repeats are in [Capture: filming the game](game-session/controls-and-testing.md#capture-filming-the-game-946)). **`Tools/web-capture.ps1` is the route**: it builds the Game in Release into `%TEMP%\bs3d-web-capture`, runs one capture on a scratch profile in a 16:9 window (the largest of 1920x1080, 1600x900 and 1280x720 the display holds, started without taking the keyboard), and encodes the frames.
+
+```powershell
+# a clip of the benchmark's action: the gun fires by itself, groups fall, two cuts (8 s at 60 a second, the video scaled to 1280 wide)
+.\Tools\web-capture.ps1 -Name meander-demo -Level Meander -Demo -From 6 -Seconds 8 -VideoWidth 1280
+# a scripted clip from a stated camera: the barrel posed, shots at 3.5 and 4.5 s of game time
+.\Tools\web-capture.ps1 -Name reel-fall -Level Reel -From 3 -Seconds 4 -Fps 30 -CamPos 24,-3,15 -CamTarget 0,-2,5 -Fov 45 -GameArgs 'aim=0:34:0 fire=3.5,4.5'
+# a flown camera
+.\Tools\web-capture.ps1 -Name orbit -Level Vortex -From 3 -Seconds 3 -CamPath .\orbit.json
+# a still (-Seconds 0): the gallery's pair, <Name>-1600.jpg and <Name>-800.jpg
+.\Tools\web-capture.ps1 -Name island-still -Level Meander -From 9 -Seconds 0 -CamPos 30,-6,40 -CamTarget 0,-5,0 -Fov 45
+```
+
+- **Output** goes to `Web\src\video` (`-OutDir`): `<Name>.webm` (VP9), `<Name>.mp4` (H.264) and `<Name>-poster.jpg` (frame `-PosterFrame`, the window's size). **Nothing on the page uses them yet**: `eleventy.config.js` copies no `src/video`, so a page that embeds a clip also adds that passthrough, and `site.json`'s `video` is a link, not an embed. In a page: `<video autoplay muted loop playsinline poster="…"><source src="x.webm" type="video/webm"><source src="x.mp4" type="video/mp4"></video>`.
+- **The encoder is `Tools/web-capture-encode.py`**, run with a Python that has PyAV (its bundled FFmpeg) and Pillow: no ffmpeg is installed or needed, and `-Python` names the interpreter (the default is the ComfyUI venv on the desktop; its build carries `libx264` and `libvpx-vp9`). The frames are decoded once and fed to both encoders: **yuv420p, converted and tagged as BT.709** (the default conversion is BT.601, which shifts every colour; decoded back, a clip's mean colours were within 1.3 of 255 of its frames'), no audio, a keyframe every two seconds, VP9 at `crf 31` (`deadline good`, `cpu-used 2`, row-mt) and x264 at `crf 21` (`preset slow`, `high`, `+faststart`).
+- **Measured**: the Meander demo above, 480 frames of 1920x1080, scaled to 1280x720 at 60 a second, 8 s: **WebM 3.9 MB, MP4 3.4 MB, poster 368 KB**, and the script's whole run 69 s (the game 16 s, the encode the rest). **The picture's film grain and fine detail are what the bits go to**: the same engine at the native 1080p, a calmer 2 s, came to 4.3 MB WebM and 1.9 MB MP4, and scaled to 1280 wide 512 KB and 463 KB; scale a clip for a page (`-VideoWidth`) before judging its weight. The frames are 4.5 MB each, so 480 of them are 2 GB in `%TEMP%\bs3d-web-capture-frames\<Name>` (removed after the encode unless `-KeepFrames`).
+- **A loop does not jump at its seam only if the content is chosen so**: the file loops as it is, so pick a window where the lens and the cluster end where they began (a closed camera path, a swing and its return), or let the seam be a cut. A fall has no such window: it ends with the cluster changed, so its seam is a cut.
+- **Look at every clip before using it**, as with the gallery: a level's first-of-chapter tour, a result page that comes up in the window and the cavern's few differing pixels are in the picture or the numbers, not in the arguments.
+
+### The camera path file
+
+`-CamPath` (`campath=` for the Game) is JSON; comments and trailing commas are allowed. `t` is seconds into the clip (0 is its first frame), strictly rising; `position` and `target` are world coordinates, which the run prints for the play camera (`[capture] play lens: campos=… camtarget=…; gun at …; cluster centre …`) to start from; `fov` is the vertical field in degrees, on every key or on none (then the play lens's); before the first key and after the last the lens holds that key.
+
+```json
+{
+  "format": "bs3d-camera-path",
+  "interpolation": "spline",
+  "keys": [
+    { "t": 0, "position": [0, -3, 30],  "target": [0, -1, 0], "fov": 42 },
+    { "t": 1, "position": [14, -2, 26], "target": [0, -1, 0], "fov": 40 },
+    { "t": 2, "position": [24, -1, 15], "target": [0, -1, 0], "fov": 38 },
+    { "t": 3, "position": [29, 0, 2],   "target": [0, -1, 0], "fov": 38 }
+  ]
+}
+```
+
+- **`"interpolation": "eased"`** (the default) eases each segment by its **first** key's `"ease"` (`smooth`, the default, `linear`, `in`, `out`), so the lens comes to rest at every key; **`"spline"`** is one cubic Hermite curve through the keys, with each key's rate taken from its neighbours (one-sided at the ends), so the lens never stops at one, and `ease` is ignored. A file that cannot be flown (no `target`, a `t` that does not rise, `fov` on some keys only, a lens on its own target) is refused before a window opens, with the reason in the log, exit code 2.
+- The lens is held level and still: the gun's kick does not shake it (`-Shake`), and the roll of a cinematic is not applied. The curve's own shape is held by `CaptureCameraTests`.
 
 ## The blog (#928)
 

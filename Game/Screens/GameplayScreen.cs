@@ -305,6 +305,13 @@ namespace BS3D.Screens
         /// </summary>
         private const int PHYSICS_MAX_STEPS_PER_FRAME = 4;
 
+        /// <summary>
+        /// The ceiling of a capture run's frame (#946). A capture steps a fixed time a frame, so no frame hitches and none has a gap
+        /// to catch up, and the cap above would only cut a slow capture rate short (30 FPS is four steps a frame, 24 is five: the world
+        /// would run at four fifths of its speed). Sixteen holds every rate <see cref="BS3D.Capture.CapturePlan.MIN_FPS"/> and up.
+        /// </summary>
+        private const int CAPTURE_MAX_STEPS_PER_FRAME = 16;
+
         private float _physicsAccumulator;
 
         //The air over this level's scene and the play clock it gusts on (#95). The clock counts fixed steps, so it stops
@@ -1436,7 +1443,9 @@ namespace BS3D.Screens
             {
                 if (StepBenchmarkInput()) return;
             }
-            else if (Game.IsActive)
+            //A capture run (#946) is never the focused branch: nobody is at it, and a hand that is must not move a frame - its
+            //scripted hands are the only hands there are, and the unfocused branch below runs them
+            else if (Game.IsActive && !Game.Capturing)
             {
                 //Hidden only once the aim actually holds the cursor (#99). While it does not, this is the
                 //pointer the player manages the window with, and it has to be visible to be usable.
@@ -1530,6 +1539,10 @@ namespace BS3D.Screens
                     Game.PauseGame();
                     return;
                 }
+
+                //A capture run's scripted hands (#946): fire=, aim=, sweep=, rmb=, swap=, brake= and cut= on the capture's clock, as
+                //the focused frame's aim update runs them, and held off by a takeover as that is
+                if (Game.Capturing && !CameraTakeoverEngaged) StepScriptedHands();
             }
 
             //Testing only: walk= and turn= hold W/S and A/D for a run nobody is sitting at (see ScriptedPlay), at the
@@ -1552,8 +1565,9 @@ namespace BS3D.Screens
                 }
             }
 
-            //The benchmark's gun aims and fires by itself (#1018), before its frame below takes the pose
-            if (_run.Benchmark) StepBenchmarkDemo(elapsed);
+            //The benchmark's gun aims and fires by itself (#1018), before its frame below takes the pose - and in a capture run that
+            //asked for the benchmark's action (capturedemo, #946), on the capture's own clock like the rest of the frame
+            if (_run.Benchmark || Game.CaptureDemo) StepBenchmarkDemo(elapsed);
 
             //The gun's own frame — its orbit and walk, the queue's glide, the wildcards and the recoil stroke —
             //in one copy with the result page's frame below (#582)
@@ -1983,9 +1997,10 @@ namespace BS3D.Screens
             //Under a page's blur the beat's layer carries the account alone; the Potato path, which has no layer, drops
             //the rest at once.
             //The benchmark's play (#1018) shows no HUD: nobody is playing it
-            float hudOpacity = _run is { Benchmark: true } ? 0f : _chapterIntro.HudOpacity;
+            //Nor for a capture run's (#946), which is made of nothing but the picture
+            float hudOpacity = _run is { Benchmark: true } || Game.Capturing ? 0f : _chapterIntro.HudOpacity;
             bool overlayUp = !LevelOver && hudOpacity > 0f;
-            bool lossPreviews = LevelOver && _pendingFailure != LevelFailure.None;
+            bool lossPreviews = LevelOver && _pendingFailure != LevelFailure.None && !Game.Capturing;
             float overlayBlur = overlayUp ? OverlayBlur : 0f;
             bool clearedBeat = overlayUp && _phase == LevelPhase.ClearedBeat;
             float layerOpacity = hudOpacity * (clearedBeat ? PlayReadoutsOpacity : 1f);
@@ -2083,7 +2098,8 @@ namespace BS3D.Screens
             //shadow of a whole ball on neighbours while the ghost itself beat between a third of one and a whole one. It
             //is still a ball in the cluster's own frame, so it is bucketed and LOD-picked with the rest and drawn by the
             //same instanced draw, and it still receives the sun and the shadows of the others
-            CollectShotPreview(ballFrame);
+            //Not in a capture run (#946) unless it asks for the aim (captureaim): a ghost is a pointer, and nobody holds the aim
+            if (!Game.HidesAimPreview) CollectShotPreview(ballFrame);
 
             //A kind card's ball (#735), into the same frame AFTER the shadow pass BeginSceneDraw ran, so it casts nothing
             CollectTutorialBall(ballFrame, layerOpacity);
@@ -2123,7 +2139,7 @@ namespace BS3D.Screens
             //The aim beam in the smears' own slot and states — additive, depth-read — so the cluster and the gun
             //occlude it and it blooms through the glare with them. After the smears rather than before for one
             //reason: a shot's flare should sit over the guide that aimed it, not under it.
-            DrawShotPreviewBeam();
+            if (!Game.HidesAimPreview) DrawShotPreviewBeam();
 
             //A special round's rays (#820), in the beam's slot for its reasons: added light, depth-read, so the cluster in
             //front of the muzzle covers them and they bloom through the glare
@@ -2201,7 +2217,7 @@ namespace BS3D.Screens
             //this screen is on top (#814). It is drawn straight onto the frame, past the blur a page puts over the rest,
             //and its fade is stepped by an Update a covered screen does not get, so under the pause it stood sharp at
             //full strength telling the player a click would skip what the page had stopped
-            else if (!LevelOver && IsActive && _hud.SkipHintShowing && _run is not { Benchmark: true }) _hud.DrawSkipHintAlone(_tutorial);
+            else if (!LevelOver && IsActive && _hud.SkipHintShowing && _run is not { Benchmark: true } && !Game.Capturing) _hud.DrawSkipHintAlone(_tutorial);
         }
 
         /// <summary>

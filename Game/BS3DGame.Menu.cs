@@ -941,8 +941,8 @@ namespace BS3D
         internal bool IsDropCinematicEnabled => _effective.DropCinematic;
 
         //The tutorial's switch (#189), read by the session every frame on MouseSensitivity's argument: the row
-        //can move under a level standing paused behind the settings page.
-        internal bool IsTutorialEnabled => _effective.Tutorial;
+        //can move under a level standing paused behind the settings page. Never in a capture run (#946): a card is a HUD.
+        internal bool IsTutorialEnabled => _effective.Tutorial && _capture == null;
 
         /// <summary>The Settings row "Intro logo" (#621): the player's answer, as the file holds it.</summary>
         internal bool IsIntroLogoEnabled => _effective.IntroLogo;

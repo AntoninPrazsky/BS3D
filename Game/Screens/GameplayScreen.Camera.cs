@@ -110,6 +110,11 @@ namespace BS3D.Screens
             Vector3 position = aim.Position;
             Vector3 target = aim.Target;
 
+            //A capture run says once where the play lens, the gun and the cluster are, in the spelling campos= takes (#946)
+            if (Game.Capturing)
+                Game.ReportCapturePose(aim.Position, aim.Target, aim.FieldOfView, _cannon.Position,
+                    new Vector3(_cannon.OrbitCenter.X, _clusterCentreY, _cannon.OrbitCenter.Z));
+
             //A cutter leaving the barrel pinches the lens for a moment (#767), on the wall clock: the play's own pose, so a
             //takeover lerped over it below carries none of it
             float fov = aim.FieldOfView * _cutStaging.FovScale;
@@ -182,10 +187,23 @@ namespace BS3D.Screens
                 fov = MathHelper.Lerp(fov, _chapterIntro.FieldOfView, intro);
             }
 
+            float roll = _cinematic.Roll * cinematic + _chapterIntro.Roll * intro;
+
+            //A capture run's stated lens (#946) replaces everything composed above - the play pose, the benchmark's lens and every
+            //takeover - and is held level and, unless captureshake says otherwise, still: the gun's kick is cleared each frame
+            if (Game.TryCaptureLens(out Vector3 lensPosition, out Vector3 lensTarget, out float lensFov, out bool keepShake))
+            {
+                position = lensPosition;
+                target = lensTarget;
+                if (!float.IsNaN(lensFov)) fov = lensFov;
+                roll = 0f;
+                if (!keepShake) Camera.Shake.Reset();
+            }
+
             Camera.BasePosition = position;
             Camera.BaseTarget = target;
             Camera.FieldOfView = fov;
-            Camera.BaseRoll = _cinematic.Roll * cinematic + _chapterIntro.Roll * intro;
+            Camera.BaseRoll = roll;
 
             Camera.Update(elapsed);
 
