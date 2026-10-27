@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-10-27 — #1028 programy rostlin, louka na Low — notebook (ThinkPad), Claude Code (github-4d)
+- Hotovo: `Acacia.fx` se kompiluje v pěti variantách. Kámen (#777), reliéf kůry (#980) a sláma (#971) jsou jen v programu bucketu, který je používá. Na APU na `Low` to dává louce −1,82 až −1,95 ms a savaně −1,41 až −1,54. Poušť, hory, sopka a záře 0. Snímky jsou na úrovni bloků shodné.
+- Rozpad kroku louky: kámen +1,04, zářez potoka +0,97, kůra +0,66, okno 25. 10. večer +0,94 (nerozloženo), tok potoka −0,61. Amphora teď 16,22 ms (v0.4.0 15,18), tedy pořád o 0,1 ms nad rozpočtem.
+- ⚠ Větev na uniformu ušetří výpočet, ne registry. Zapsáno v `BestPractices.md` §7.
+- ⚠ Neměř, dokud se baterie nabíjí: rozptyl až 3,5 ms. `MeadowLow` (literál `NO_CUT`) zisk nepřinesl, zahozen.
+- Otevřené: #1028 (zbývá ~0,1 ms), #1027, #1029.
+
 ## 2026-10-27 — #946 režim snímání ve hře — desktop (RDT-PC), Claude Code (bs3d-8a)
 - majitel (25. 10.): snímky a smyčky pro web má točit hra sama (přístup A).
 - Hotovo: `capture=<dir>` s pevným krokem herního času na snímek (`capturefps=`, `capturefrom=`, `captureseconds=`), bez HUD, s kamerou `campos=`/`camtarget=`/`fov=` nebo `campath=`, `capturedemo` (samostřílející dělo benchmarku). `Tools/web-capture.ps1` kóduje WebM, MP4 a plakát přes PyAV z venvu ComfyUI (ffmpeg na PATH není).
