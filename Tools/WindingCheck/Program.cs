@@ -215,6 +215,14 @@ namespace BS3D.Tools.WindingCheck
             yield return ("MeadowScatter", () => new MeadowScatter(d, new MeadowSceneConfig(), MeadowScatter.DEFAULT_SEED));
             yield return ("VolcanoPlanting", () => new VolcanoPlanting(d, (x, z) => 0f, (x, z) => false,
                 new[] { (new Vector3(80f, 0f, 0f), 6f, 4f) }, 6795));
+            //The land past the volcano's field (#748): its snags, rubble, woods and village, planted on the real mirror so the
+            //masks that decide what stands where are the shipped ones
+            yield return ("VolcanoCountryPlanting", () =>
+            {
+                var volcano = new VolcanoSceneConfig();
+                VolcanoCountry country = VolcanoCountry.Of(volcano);
+                return new VolcanoCountryPlanting(d, volcano, country, (x, z) => TerrainMirror.Volcano(x, z, volcano, country), 7480);
+            });
             yield return ("MoonPlanting", () => new MoonPlanting(d, (x, z) => 0f, new MoonTerrainConfig(), 8125));
             yield return ("PolarPlanting", () => new PolarPlanting(d, (x, z) => 0f, new Vector2(60f, -60f)));
             yield return ("SaucerMesh", () => new SaucerMesh(d));

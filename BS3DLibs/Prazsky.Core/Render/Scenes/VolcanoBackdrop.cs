@@ -74,6 +74,13 @@ namespace Prazsky.Core.Render
         private readonly PlantPass _plants;
         private VolcanoPlanting _planting;
 
+        //What stands on the land past the field (#748): the snags, the woods and the village, by quarters round the arena so a
+        //frame draws only the quarters its camera looks into, and the frustum that asks (one, its matrix set per frame)
+        private VolcanoCountryPlanting _country;
+        private readonly List<ScatterBucket> _countryVisible = new();
+        private readonly BoundingFrustum _countryFrustum = new(Matrix.Identity);
+        private float _sceneDetail = 1f;
+
         //How many of the fumaroles stand on a spatter cone, the strongest first, and the cones' figures
         private const int SPATTER_CONES = 3;
         private const float CONE_RADIUS = 6f, CONE_HEIGHT = 4f;
@@ -174,6 +181,35 @@ namespace Prazsky.Core.Render
             _volcanoEffect.Parameters["HazeStrength"].SetValue(volcano.HazeStrength);
             _volcanoEffect.Parameters["WindDirection"].SetValue(volcano.Wind.ToVector2());
 
+            //The land past the field (#748): its shape's dials and its colours. The river's course is solved off the land, so
+            //it is BuildVolcanoBuffers'.
+            VolcanoCountryConfig country = volcano.Country;
+            _volcanoEffect.Parameters["FieldReach"].SetValue(country.FieldReach);
+            _volcanoEffect.Parameters["FieldLobes"].SetValue(country.FieldLobes);
+            _volcanoEffect.Parameters["FrontHeight"].SetValue(country.FrontHeight);
+            _volcanoEffect.Parameters["LandRise"].SetValue(country.LandRise);
+            _volcanoEffect.Parameters["HillHeight"].SetValue(country.HillHeight);
+            _volcanoEffect.Parameters["RidgeHeight"].SetValue(country.RidgeHeight);
+            _volcanoEffect.Parameters["DormantCone"].SetValue(new Vector4(country.DormantCone.X, country.DormantCone.Y,
+                MathF.Max(country.DormantRadius, 1f), country.DormantHeight));
+            _volcanoEffect.Parameters["RiverHalfWidth"].SetValue(country.RiverHalfWidth);
+            _volcanoEffect.Parameters["VillageXZ"].SetValue(country.Village.ToVector2());
+            _volcanoEffect.Parameters["PastureColor"].SetValue(country.Pasture.ToVector3());
+            _volcanoEffect.Parameters["PastureDry"].SetValue(country.PastureDry.ToVector3());
+            _volcanoEffect.Parameters["ScorchedColor"].SetValue(country.Scorched.ToVector3());
+            _volcanoEffect.Parameters["AshColor"].SetValue(country.Ash.ToVector3());
+            _volcanoEffect.Parameters["ForestFloorColor"].SetValue(country.ForestFloor.ToVector3());
+            _volcanoEffect.Parameters["HeathColor"].SetValue(country.Heath.ToVector3());
+            _volcanoEffect.Parameters["ScreeColor"].SetValue(country.Scree.ToVector3());
+            _volcanoEffect.Parameters["SoilColor"].SetValue(country.Soil.ToVector3());
+            _volcanoEffect.Parameters["StubbleColor"].SetValue(country.Stubble.ToVector3());
+            _volcanoEffect.Parameters["CropColor"].SetValue(country.Crop.ToVector3());
+            _volcanoEffect.Parameters["HedgeColor"].SetValue(country.Hedge.ToVector3());
+            _volcanoEffect.Parameters["GravelColor"].SetValue(country.Gravel.ToVector3());
+            _volcanoEffect.Parameters["LaneColor"].SetValue(country.Lane.ToVector3());
+            _volcanoEffect.Parameters["WaterColor"].SetValue(country.Water.ToVector3());
+            _volcanoEffect.Parameters["WaterFire"].SetValue(country.WaterFire);
+
             LavaFountainConfig fountains = volcano.Fountains;
 
             _fountainEffect.Parameters["LaunchSpeed"].SetValue(fountains.Speed);
@@ -242,6 +278,16 @@ namespace Prazsky.Core.Render
             _volcanoEffect.Parameters["RiverReach"].SetValue(_lava.RiverReach);
             _volcanoEffect.Parameters["RiverCount"].SetValue(_lava.RiverCount);
 
+            //The water river past the field (#748): its course, the running length and the levels solved off the land, and
+            //where along it the village stands and on which bank (the lane to the village is laid off that)
+            VolcanoCountry country = _lava.Country;
+            _volcanoEffect.Parameters["RiverPath"].SetValue(country.RiverPath);
+            _volcanoEffect.Parameters["RiverPoints"].SetValue(country.RiverPoints);
+            Vector2 village = volcano.Country.Village.ToVector2();
+            (float villageAcross, float villageAlong, float _) = country.River(village.X, village.Y);
+            float villageCourse = villageAcross + VolcanoCountry.MeanderAt(villageAlong);
+            _volcanoEffect.Parameters["VillageRiver"].SetValue(new Vector2(villageAlong, villageCourse < 0f ? -1f : 1f));
+
             _fountainEffect.Parameters["VentPosition"].SetValue(_lava.VentPosition);
             _fountainEffect.Parameters["VentStrength"].SetValue(_lava.VentStrength);
             _fountainEffect.Parameters["VentCount"].SetValue(_lava.VentCount);
@@ -271,6 +317,7 @@ namespace Prazsky.Core.Render
                 float strength = 0.6f + 0.4f * (float)steamRng.NextDouble();
                 if (Vector2.Distance(new Vector2(x, z), cone) < volcano.ConeRadius * 0.35f) continue;
                 if (DistanceToRiver(new Vector2(x, z), cone, _lava.RiverBearing[0]) < volcano.RiverWidth * 2.5f) continue;
+                if (country.Outside(x, z) > -FIELD_MARGIN) continue;   //a fumarole is the field's, never the land's (#748)
                 _fumarolePosition[fumaroles] = new Vector3(x, GroundHeight(x, z) + 0.3f, z);
                 _fumaroleStrength[fumaroles] = strength;
                 fumaroles++;
@@ -297,6 +344,7 @@ namespace Prazsky.Core.Render
             {
                 Vector2 p = new(x, z);
                 if (Vector2.Distance(p, cone) < volcano.ConeRadius * 0.3f) return true;
+                if (country.Outside(x, z) > -FIELD_MARGIN) return true;   //the field's blocks stay on the field (#748)
                 for (int r = 0; r < _lava.RiverCount; r++)
                 {
                     Vector2 along = new(MathF.Cos(_lava.RiverBearing[r]), MathF.Sin(_lava.RiverBearing[r]));
@@ -311,12 +359,32 @@ namespace Prazsky.Core.Render
             _planting?.Dispose();
             _planting = new VolcanoPlanting(_graphicsDevice, GroundHeight, KeepOut, cones, 6795 + Services.SeedOffset);
 
+            //And what stands on the land past it (#748)
+            _country?.Dispose();
+            _country = new VolcanoCountryPlanting(_graphicsDevice, volcano, country, GroundHeight, 7480 + Services.SeedOffset);
+
             _fountainEffect.Parameters["FumarolePosition"].SetValue(_fumarolePosition);
             _fountainEffect.Parameters["FumaroleStrength"].SetValue(_fumaroleStrength);
             _fountainEffect.Parameters["FumaroleCount"].SetValue(Math.Max(fumaroles, 1));
             _steamQuads = fumaroles > 0 ? Math.Clamp(steam.ParticleCount, 0, MAX_BILLBOARD_PARTICLES) : 0;
             Services.BuildBillboardParticles(_steamQuads, 6792, ref _steamVertexBuffer, ref _steamIndexBuffer);
         }
+
+        /// <summary>
+        /// The air over the land past the field (#748), which its ground (<c>Volcano.fx</c>'s <c>LandHazeColor</c>) and its plants
+        /// haze into: the dome as it is drawn at the horizon (<see cref="SceneFrame.FarSky"/>'s direction.y 0), dimmed to
+        /// <see cref="LAND_HAZE_SKY"/>, or the light rig's horizon where a frame hands no drawn dome over.
+        /// </summary>
+        private static Vector3 CountryHaze(in SceneFrame frame) =>
+            (frame.FarSky != null ? frame.FarSky[FAR_SKY_HORIZON] : frame.HorizonLinear) * LAND_HAZE_SKY;
+
+        //FarSky's slot at direction.y 0 (FarField.fxh's FAR_SKY_Y0 -0.10 and FAR_SKY_DY 0.05), and how much of the drawn
+        //horizon the land's air is: the far ranges stay darker than the sky behind them, so they read as ranges
+        private const int FAR_SKY_HORIZON = 2;
+        private const float LAND_HAZE_SKY = 0.55f;
+
+        //How far inside the field's edge a fumarole and a block keep (#748): off the front's levee and face, which are its margin
+        private const float FIELD_MARGIN = 20f;
 
         //How far a point stands from a river's line: the ray from the cone's axis along its bearing (#679's vents keep off it)
         private static float DistanceToRiver(Vector2 point, Vector2 cone, float bearing)
@@ -390,6 +458,9 @@ namespace Prazsky.Core.Render
             //paid per vertex whatever the pixels, and the reduced program's scoria has no octave the finer grid resolves.
             _volcanoEffect.CurrentTechnique = _volcanoEffect.Techniques[sceneDetail > 0.5f ? "Volcano" : "VolcanoReduced"];
             EnsureVolcanoGrid(sceneDetail > 0.5f ? VOLCANO_GRID_N : VOLCANO_GRID_N_REDUCED);
+
+            //The land's snags, woods and village (#748) are the full tier's: Low keeps the land's ground alone
+            _sceneDetail = sceneDetail;
         }
 
         /// <summary>
@@ -418,7 +489,29 @@ namespace Prazsky.Core.Render
             //What stands on the field (#679), opaque and depth-writing, before anything translucent over it
             if (_planting != null && (Layers & VolcanoLayer.Terrain) != 0)
                 _plants.Draw(frame, _planting.Buckets, _volcanoConfig.HorizonHazeDistance, detail: true, Services.FineMeshes);
+            if (_country != null && _sceneDetail > 0.5f && (Layers & VolcanoLayer.Terrain) != 0) DrawCountry(frame);
             DrawLavaFountains(frame);
+        }
+
+        /// <summary>
+        /// What stands on the land past the field (#748), the quarters round the arena the camera can see and none of the
+        /// others: from the play pose most of the land is behind the lens. The list is refilled, never reallocated.
+        /// </summary>
+        private void DrawCountry(in SceneFrame frame)
+        {
+            _countryFrustum.Matrix = frame.Camera.View * frame.Camera.Projection;
+            _countryVisible.Clear();
+            foreach (VolcanoCountryPlanting.Quarter quarter in _country.Quarters)
+                if (quarter.Buckets.Length > 0 && _countryFrustum.Intersects(quarter.Bounds)) _countryVisible.AddRange(quarter.Buckets);
+            if (_countryVisible.Count == 0) return;
+
+            //Hazed as the ground under it is (Volcano.fx: HorizonHazeDistance, HazeStrength, the horizon tinted down by HazeTint):
+            //the plant effect's haze is (d / (distance * 1.5))^2, the ground's HazeStrength * (d / distance)^2, so the distance
+            //handed over is the ground's over 1.5 and the root of the strength (1.5 is Acacia.fx's PLANT_HAZE_REACH). Hazed to
+            //the bright horizon instead, a spruce wood stood on its dark hillside as pale cones.
+            VolcanoSceneConfig volcano = _volcanoConfig;
+            float hazeDistance = volcano.HorizonHazeDistance / (1.5f * MathF.Sqrt(MathF.Max(volcano.HazeStrength, 0.01f)));
+            _plants.DrawInWeather(frame, _countryVisible, hazeDistance, detail: true, Services.FineMeshes, CountryHaze(frame));
         }
 
         /// <summary>The drifting ash, unless the layers dial has taken it off.</summary>
@@ -449,6 +542,7 @@ namespace Prazsky.Core.Render
             _volcanoEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
             _volcanoEffect.Parameters["SunColor"].SetValue(frame.SunColor);
             _volcanoEffect.Parameters["VolcanoTime"].SetValue(frame.Time);
+            _volcanoEffect.Parameters["LandHazeColor"].SetValue(CountryHaze(frame));
 
             frame.ApplyClouds?.Invoke(_volcanoEffect);
 
@@ -631,6 +725,8 @@ namespace Prazsky.Core.Render
             _steamIndexBuffer?.Dispose();
             _planting?.Dispose();
             _planting = null;
+            _country?.Dispose();
+            _country = null;
         }
     }
 }

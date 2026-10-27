@@ -251,6 +251,98 @@ namespace Prazsky.Core.Render
 
         /// <summary>The fumaroles steaming on the lava field (#679).</summary>
         public SteamConfig Steam { get; set; } = new();
+
+        /// <summary>The land past the young lava field (#748): where the field ends, the country beyond, the river and the village.</summary>
+        public VolcanoCountryConfig Country { get; set; } = new();
+    }
+
+    /// <summary>
+    /// <b>The land past the young lava field</b> (#748). The owner, three times over: "on the other side there is nothing,
+    /// just a sort of lunar landscape ... there should be trees, or a river", then "trees, mountains, rivers, human
+    /// dwellings", then "it now looks more like some alien planet". The references (<c>C:\Users\panrd\AI\sd\out\748r2-zimage</c>
+    /// and <c>748r2-klein</c>) all paint the same gradient: the black field ends at a raised, ragged flow front with scorched
+    /// dead trunks before it, then pasture, dark conifer belts, a river with pale gravel banks reflecting the dusk, a small
+    /// village with lit windows, and blue ridges with a second, dormant cone on the horizon. The green stays a minority and
+    /// far from the arena, so the scene's black and red keep the frame.
+    /// <para>
+    /// <c>Volcano.fx</c> draws the ground (its <c>CountryHeight</c> and <c>CountrySurface</c>) and <see cref="TerrainMirror.Volcano(float, float, VolcanoSceneConfig, VolcanoCountry)"/>
+    /// mirrors its height; <see cref="VolcanoCountry"/> solves the river's course and levels for both; <see cref="VolcanoCountryPlanting"/>
+    /// stands the snags, the woods and the village on it. The figures that say what SHAPE the land is are constants in
+    /// <see cref="VolcanoCountry"/>; these are the dials.
+    /// </para>
+    /// </summary>
+    public sealed class VolcanoCountryConfig
+    {
+        /// <summary>How far from the cone's axis the young field reaches on average: its edge is this, give or take <see cref="FieldLobes"/>.
+        /// On the arena's far side the edge stands 270 to 300 units out, past the fumaroles and the blocks.</summary>
+        public float FieldReach { get; set; } = 520f;
+
+        /// <summary>How far the field's edge wanders in and out of <see cref="FieldReach"/> (scaled by its three octaves, about
+        /// 55 units either way): the tongues and lobes a flow front ends in.</summary>
+        public float FieldLobes { get; set; } = 55f;
+
+        /// <summary>How far the field stands over the land at its edge: the height of the flow front's face (a levee of its own above it).</summary>
+        public float FrontHeight { get; set; } = 4.5f;
+
+        /// <summary>How far the country rises from the front's foot towards the horizon, before its hills and ridges.</summary>
+        public float LandRise { get; set; } = 34f;
+
+        /// <summary>The rolling hills' height, either way of the rise.</summary>
+        public float HillHeight { get; set; } = 15f;
+
+        /// <summary>The ridges' height at their crests, past the hills: the layered blue ranges of the references.</summary>
+        public float RidgeHeight { get; set; } = 105f;
+
+        /// <summary>Where the dormant cone on the horizon stands (XZ): an older volcano, grassed and wooded below its bare summit.</summary>
+        public Vec2 DormantCone { get; set; } = new(40f, 900f);
+
+        /// <summary>The dormant cone's foot radius and height.</summary>
+        public float DormantRadius { get; set; } = 300f;
+        public float DormantHeight { get; set; } = 175f;
+
+        /// <summary>The river's half-width. Its course is a shape (<see cref="VolcanoCountry"/>), its levels are solved off the land.</summary>
+        public float RiverHalfWidth { get; set; } = 11f;
+
+        /// <summary>Where the village stands (XZ), on the river's far bank; its fields lie round it in a patchwork.</summary>
+        public Vec2 Village { get; set; } = new(160f, 440f);
+
+        /// <summary>The pasture (linear albedo), green and the drier shade it goes to in patches. Dark: a dusk meadow under an ash sky.</summary>
+        public Rgb Pasture { get; set; } = new(0.050f, 0.072f, 0.030f);
+        public Rgb PastureDry { get; set; } = new(0.085f, 0.076f, 0.042f);
+
+        /// <summary>The scorched band before the front: char, and the grey ash lying on it in drifts.</summary>
+        public Rgb Scorched { get; set; } = new(0.019f, 0.017f, 0.016f);
+        public Rgb Ash { get; set; } = new(0.062f, 0.060f, 0.057f);
+
+        /// <summary>The floor of the woods, and the dark a wooded hill is from far away.</summary>
+        public Rgb ForestFloor { get; set; } = new(0.014f, 0.019f, 0.012f);
+
+        /// <summary>The high ground: heath on the ridges, and the bare scree where it is steep.</summary>
+        public Rgb Heath { get; set; } = new(0.050f, 0.043f, 0.034f);
+        public Rgb Scree { get; set; } = new(0.060f, 0.058f, 0.056f);
+
+        /// <summary>The village's fields: ploughed soil, stubble, a green crop, and the hedges between them.</summary>
+        public Rgb Soil { get; set; } = new(0.045f, 0.032f, 0.023f);
+        public Rgb Stubble { get; set; } = new(0.105f, 0.083f, 0.044f);
+        public Rgb Crop { get; set; } = new(0.042f, 0.066f, 0.026f);
+        public Rgb Hedge { get; set; } = new(0.016f, 0.024f, 0.012f);
+
+        /// <summary>The river's pale gravel bars, and the lane that runs along it to the village.</summary>
+        public Rgb Gravel { get; set; } = new(0.20f, 0.19f, 0.175f);
+        public Rgb Lane { get; set; } = new(0.095f, 0.085f, 0.068f);
+
+        /// <summary>The water's own colour under its reflection (linear albedo): nearly black, as deep water is.</summary>
+        public Rgb Water { get; set; } = new(0.005f, 0.007f, 0.009f);
+
+        /// <summary>
+        /// How strongly the river mirrors the crater's fire where its reflection looks at the cone, as a multiple of the lava's
+        /// colour. Every reference that looks back at the volcano over the water has the eruption's red in it.
+        /// </summary>
+        public float WaterFire { get; set; } = 0.55f;
+
+        /// <summary>The village's lit windows (linear radiance): warm, under the glare threshold, so they read as lamps
+        /// behind glass and not as sparks that would fight the lava.</summary>
+        public Rgb WindowLight { get; set; } = new(0.62f, 0.34f, 0.12f);
     }
 
     /// <summary>

@@ -21,6 +21,11 @@
 //The sun's cast shadows (#469): every plant receives them, and the ShadowCaster technique below is how
 //every plant is drawn INTO the map.
 #include "Shadows.fxh"
+//The cloud deck's shadow on the sun (#748), for the one draw that asks for it. PlantPass zeroes the deck's gain before
+//every draw (the savanna's own draw does too), so every planted scene's plants stand in full sun as they always have and
+//CloudSunlight answers a flat 1 without evaluating anything; the volcano's land hands it the frame's clouds, because under
+//its storm deck the ground gets a sixth of the sun, and a wood in full sun on that ground stood out as pale cones.
+#include "Clouds.fxh"
 
 float4x4 View;
 float4x4 Projection;
@@ -56,12 +61,18 @@ float LeafStrength;
 float HorizonHazeDistance;
 static const float PLANT_HAZE_REACH = 1.5;
 
+//What that haze is made of: the dome's horizon for every scene but one (PlantPass states it with the horizon, the savanna's
+//own draw states it too), and the volcano's ash pall for the land past its lava field (#748) - Volcano.fx hazes its ground
+//to the horizon tinted DOWN, and a wood hazed to the bright horizon over that ground stood on it as pale cones.
+float3 HazeColor;
+
 //Light this draw carries that the scene's own sun and dome do not account for, added flat after them. It is
-//zero for every plant and non-zero for exactly one thing: the campfires' hearth stones (#282), which stand
-//in a ring at one distance from one fire, so what a point light would work out per pixel is a constant per
-//draw here - and it flickers, because SceneRenderer hands over the fire's own colour at this frame. It buys
-//the fire pit its firelight for one add and no loop; what it does not do is favour the side of a stone that
-//faces the flame.
+//zero for every plant and non-zero for two things. The campfires' hearth stones (#282), which stand in a ring
+//at one distance from one fire, so what a point light would work out per pixel is a constant per draw here -
+//and it flickers, because SceneRenderer hands over the fire's own colour at this frame. It buys the fire pit
+//its firelight for one add and no loop; what it does not do is favour the side of a stone that faces the
+//flame. And the volcano's village windows (#748, ScatterBucket.Emissive): lamps behind glass, the light of
+//their own.
 float3 AddedLight;
 
 //The leaf mottle's world-space frequency and its mean (a canopy is dappled foliage, not a flat green mass).
@@ -581,6 +592,7 @@ float4 AcaciaShade(AcaciaVertexOutput input, bool front, bool stone, bool barkRe
     [branch]
     if (ShadowStrength > 0.0)
         shadow = SunShadow(input.WorldPosition, N, SunDirection);
+    shadow *= CloudSunlight(input.WorldPosition, SunDirection);
 
     float3 color = albedo * (ambient + SunColor * (ndotl * shadow));
 
@@ -626,13 +638,13 @@ float4 AcaciaShade(AcaciaVertexOutput input, bool front, bool stone, bool barkRe
         color *= 1.0 - FOOT_DARKEN * foot * foot * saturate(BarkStrength * 1.7);
     }
 
-    //The per-draw light that is not the sky's - a hearth stone's own fire, and nothing else today.
+    //The per-draw light that is not the sky's - a hearth stone's own fire, a lit window's lamp.
     color += AddedLight;
 
     //Horizon haze, the ground's own: a far plant softens into the skyline at the rate the field under it does.
     float dist = distance(CameraPosition, input.WorldPosition);
     float haze = saturate(dist / (HorizonHazeDistance * PLANT_HAZE_REACH));
-    color = lerp(color, HorizonColor, haze * haze);
+    color = lerp(color, HazeColor, haze * haze);
 
     return float4(color, 1.0);
 }

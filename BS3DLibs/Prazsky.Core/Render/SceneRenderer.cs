@@ -1239,7 +1239,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The volcano's ground height at a world point, for a host laying a camera path over the cone (the
-        /// chapter intro's prologue, #530): <see cref="TerrainMirror.Volcano"/> on the live config. The
+        /// chapter intro's prologue, #530): <see cref="TerrainMirror.Volcano(float, float, VolcanoSceneConfig)"/> on the live config. The
         /// scoria clinker is missing from it by that mirror's own argument, so a path wants a clearance of a
         /// few units more than the picture suggests.
         /// </summary>

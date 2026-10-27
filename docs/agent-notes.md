@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-10-27 — #748 krajina za lávovým polem sopky — desktop (RDT-PC), Claude Code (bs3d-8a)
+- majitel (27. 10.): druhé kolo AI referencí a podle nich krajina, ne až při velkém přepracování scény. Reference jsou v `C:\Users\panrd\AI\sd\out\748r2-zimage` a `748r2-klein`.
+- Hotovo: lávové pole končí zubatou zvednutou frontou s ohořelým pásem. Za ním louky, políčka, les, řeka (skutečná voda), 22 domů a kostel s rozsvícenými okny, hřebeny a spící kužel. Tvary drží `VolcanoCountry.cs` pro shader, zrcadlo, sázení i testy. `Low` kreslí jen zem, `PotatoBackdrop` beze změny.
+- Cena na desktopu: hra +0,13 až +0,23 ms, pohled na odvrácenou stranu +0,83 ms (High).
+- ⚠ Les osvětlený plným sluncem a zamlžený k jasnému horizontu stál na tmavých svazích jako bledé kužely. Stromy proto mají vlastní barvu oparu a stín mraků (`PlantPass.DrawInWeather`).
+- Otevřené: `verdict-eye`. Kulaté stromy u řeky zblízka čtou jako koule. Cena na APU nezměřena.
+
 ## 2026-10-27 — #1028 programy rostlin, louka na Low — notebook (ThinkPad), Claude Code (github-4d)
 - Hotovo: `Acacia.fx` se kompiluje v pěti variantách. Kámen (#777), reliéf kůry (#980) a sláma (#971) jsou jen v programu bucketu, který je používá. Na APU na `Low` to dává louce −1,82 až −1,95 ms a savaně −1,41 až −1,54. Poušť, hory, sopka a záře 0. Snímky jsou na úrovni bloků shodné.
 - Rozpad kroku louky: kámen +1,04, zářez potoka +0,97, kůra +0,66, okno 25. 10. večer +0,94 (nerozloženo), tok potoka −0,61. Amphora teď 16,22 ms (v0.4.0 15,18), tedy pořád o 0,1 ms nad rozpočtem.

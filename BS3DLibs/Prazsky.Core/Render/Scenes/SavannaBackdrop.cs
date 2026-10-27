@@ -45,7 +45,7 @@ namespace Prazsky.Core.Render
 
         //Cached effect parameters for the per-frame instanced draw (the by-name indexer is a linear scan).
         private EffectParameter _acaciaViewParam, _acaciaProjectionParam, _acaciaCameraParam,
-            _acaciaSunDirectionParam, _acaciaSunColorParam, _acaciaZenithParam, _acaciaHorizonParam,
+            _acaciaSunDirectionParam, _acaciaSunColorParam, _acaciaZenithParam, _acaciaHorizonParam, _acaciaHazeColorParam, _acaciaCloudGainParam,
             _acaciaDiffuseParam, _acaciaDiffuseDryParam, _acaciaDappleParam, _acaciaBarkParam, _acaciaLeavesParam, _acaciaAddedLightParam,
             _acaciaHazeParam, _acaciaFootEarthParam;
 
@@ -153,6 +153,8 @@ namespace Prazsky.Core.Render
             _acaciaSunColorParam = _acaciaEffect.Parameters["SunColor"];
             _acaciaZenithParam = _acaciaEffect.Parameters["ZenithColor"];
             _acaciaHorizonParam = _acaciaEffect.Parameters["HorizonColor"];
+            _acaciaHazeColorParam = _acaciaEffect.Parameters["HazeColor"];
+            _acaciaCloudGainParam = _acaciaEffect.Parameters["CloudCoverageGain"];
             _acaciaDiffuseParam = _acaciaEffect.Parameters["DiffuseColor"];
             _acaciaDiffuseDryParam = _acaciaEffect.Parameters["DiffuseDry"];
             _acaciaDappleParam = _acaciaEffect.Parameters["DappleStrength"];
@@ -574,6 +576,10 @@ namespace Prazsky.Core.Render
             _acaciaSunColorParam.SetValue(frame.SunColor);
             _acaciaZenithParam.SetValue(frame.ZenithLinear);
             _acaciaHorizonParam.SetValue(frame.HorizonLinear);
+            //The plant effect is shared with every planted scene's PlantPass, which states its own haze colour and, for the
+            //volcano's land, a cloud deck (#748): the savanna's plants stand in full sun as they always have
+            _acaciaHazeColorParam.SetValue(frame.HorizonLinear);
+            _acaciaCloudGainParam.SetValue(0f);
 
             //Per frame since #609: the plant material is one effect the meadow's planting shares, at its own haze —
             //and, since #670, with the plain's own bare earth up every trunk's foot, taken back to black after

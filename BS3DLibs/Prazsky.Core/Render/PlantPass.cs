@@ -27,7 +27,8 @@ namespace Prazsky.Core.Render
         //ONE BODY, FIVE PROGRAMS in Acacia.fx)
         private readonly EffectTechnique _technique, _stoneTechnique, _barkReliefTechnique, _strawTechnique, _fullTechnique, _shadowTechnique;
         private readonly EffectParameter _view, _projection, _camera, _sunDirection, _sunColor, _zenith, _horizon,
-            _diffuse, _diffuseDry, _dapple, _bark, _leaves, _addedLight, _haze, _shadowViewProjection, _footEarth, _stone, _straw, _barkRelief;
+            _diffuse, _diffuseDry, _dapple, _bark, _leaves, _addedLight, _haze, _hazeColor, _cloudGain, _shadowViewProjection, _footEarth,
+            _stone, _straw, _barkRelief;
 
         public PlantPass(GraphicsDevice device, ContentManager content)
         {
@@ -51,6 +52,8 @@ namespace Prazsky.Core.Render
             _leaves = Effect.Parameters["LeafStrength"];
             _addedLight = Effect.Parameters["AddedLight"];
             _haze = Effect.Parameters["HorizonHazeDistance"];
+            _hazeColor = Effect.Parameters["HazeColor"];
+            _cloudGain = Effect.Parameters["CloudCoverageGain"];
             _shadowViewProjection = Effect.Parameters["ShadowViewProjection"];
             _technique = Effect.Techniques["Acacia"];
             _stoneTechnique = Effect.Techniques["AcaciaStone"];
@@ -89,7 +92,22 @@ namespace Prazsky.Core.Render
         /// that ground has to be lit by the same glow or it glares.
         /// </summary>
         public void Draw(in SceneFrame frame, IReadOnlyList<ScatterBucket> buckets, float hazeDistance, bool detail, bool fineMeshes,
-            Vector3 sunColor, Vector3 zenith, Vector3 horizon)
+            Vector3 sunColor, Vector3 zenith, Vector3 horizon) =>
+            Draw(frame, buckets, hazeDistance, detail, fineMeshes, sunColor, zenith, horizon, horizon, clouds: false);
+
+        /// <summary>
+        /// <see cref="Draw(in SceneFrame, IReadOnlyList{ScatterBucket}, float, bool, bool)"/> in the weather the ground under it
+        /// stands in (#748): hazed to <paramref name="hazeColor"/> rather than to the dome's horizon, and the sun shadowed by the
+        /// frame's cloud deck (<see cref="SceneFrame.ApplyClouds"/>) as the terrain shaders shadow it. The volcano's land past
+        /// its field stands in an ash pall under a storm deck; drawn in full sun and hazed to the bright horizon, its woods
+        /// stood on their dark hillsides as pale cones.
+        /// </summary>
+        public void DrawInWeather(in SceneFrame frame, IReadOnlyList<ScatterBucket> buckets, float hazeDistance, bool detail, bool fineMeshes,
+            Vector3 hazeColor) =>
+            Draw(frame, buckets, hazeDistance, detail, fineMeshes, frame.SunColor, frame.ZenithLinear, frame.HorizonLinear, hazeColor, clouds: true);
+
+        private void Draw(in SceneFrame frame, IReadOnlyList<ScatterBucket> buckets, float hazeDistance, bool detail, bool fineMeshes,
+            Vector3 sunColor, Vector3 zenith, Vector3 horizon, Vector3 hazeColor, bool clouds)
         {
             Effect.CurrentTechnique = _technique;
             _view.SetValue(frame.Camera.View);
@@ -100,7 +118,12 @@ namespace Prazsky.Core.Render
             _zenith.SetValue(zenith);
             _horizon.SetValue(horizon);
             _haze.SetValue(hazeDistance);
+            _hazeColor.SetValue(hazeColor);
             _addedLight.SetValue(Vector3.Zero);
+
+            //No deck unless asked for (the effect is shared, so a deck one draw states would stay for the next)
+            _cloudGain.SetValue(0f);
+            if (clouds) frame.ApplyClouds?.Invoke(Effect);
             _leaves.SetValue(0f);
 
             //The savanna's earth up the trunks' feet is the savanna's (#670): this effect is the one it draws through,
@@ -138,15 +161,18 @@ namespace Prazsky.Core.Render
                 _straw.SetValue(bucket.Straw);
                 _barkRelief.SetValue(bucket.BarkRelief);
                 _footEarth.SetValue(bucket.FootDust);
+                _addedLight.SetValue(bucket.Emissive);
                 _graphicsDevice.RasterizerState = bucket.Leaves > 0f ? RasterizerState.CullNone : RasterizerState.CullCounterClockwise;
                 Effect.CurrentTechnique = TechniqueFor(bucket);
                 Effect.CurrentTechnique.Passes[0].Apply();
                 DrawBucket(bucket, bucket.Mesh);
             }
 
-            //Nothing of a rock's or a bale's stays on the one effect the savanna's own draw shares (it states neither), its
-            //program included: that draw applies whatever technique the effect holds
+            //Nothing of a rock's, a bale's or a lit window's stays on the one effect the savanna's own draw shares (it states
+            //neither, and its hearth stones' light is stated per draw), its program included: that draw applies whatever
+            //technique the effect holds
             Effect.CurrentTechnique = _technique;
+            _addedLight.SetValue(Vector3.Zero);
             _leaves.SetValue(0f);
             _stone.SetValue(0f);
             _straw.SetValue(0f);

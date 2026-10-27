@@ -56,6 +56,7 @@ namespace Prazsky.Core.Render
         public VolcanoLava(VolcanoSceneConfig volcano, int seedOffset)
         {
             _volcanoConfig = volcano;
+            Country = new VolcanoCountry(volcano);
             Random rng = new(4177 + seedOffset);
 
             //--- The rivers. Radial from the cone's axis, and the FIRST one is aimed to pass the arena: that
@@ -143,8 +144,11 @@ namespace Prazsky.Core.Render
             return b;
         }
 
+        /// <summary>The land past the field (#748): the river's course and the masks the ground and the planting share.</summary>
+        public VolcanoCountry Country { get; }
+
         /// <summary><see cref="SceneRenderer.VolcanoGroundHeight"/>.</summary>
-        public float GroundHeight(float x, float z) => TerrainMirror.Volcano(x, z, _volcanoConfig);
+        public float GroundHeight(float x, float z) => TerrainMirror.Volcano(x, z, _volcanoConfig, Country);
 
         //Where in its period a burst may start (BurstSchedule). So the shortest gap two natural bursts ever leave is
         //(1 - START_SPAN) periods, and that is the quiet a cued burst keeps after itself (CueBurst).

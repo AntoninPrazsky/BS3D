@@ -73,7 +73,7 @@ Compares the current scene's terrain height on the GPU with `TerrainMirror`, the
 ```
 
 - **Exit code 0 pass, 1 fail, 2 no mirror in this scene**, so a script runs it per scene (`scene=forest mirrorcheck`). Eleven scenes have one: desert, mountains, outback, polar, savanna, tropical, meadow, forest, aurora, volcano, Moon.
-- The volcano adds a line for the drawn ground, which includes scoria the mirror leaves out by design; the verdict is on the massing.
+- The volcano adds a line for the drawn ground, which includes scoria the mirror leaves out by design; the verdict is on the massing and, since #748, the land past the field.
 - **Run it on every mirrored scene after touching a terrain shader's height or its mirror.** Figures and current failures: "The terrain mirrors, in one copy and checked against the GPU" in `docs/scenes.md`.
 
 ## Hanging a map as rope or cloth: `softness=`
