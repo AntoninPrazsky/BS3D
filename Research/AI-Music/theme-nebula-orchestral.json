@@ -1,28 +1,100 @@
 {
-    "file":  "theme-nebula-orchestral.wav",
-    "created":  "2026-09-23",
-    "issue":  486,
-    "family":  "nebula",
-    "chapter":  "The Nebula (space) - new: synthwave and the cosmos",
-    "purpose":  "Master of Game/Music/nebula-orchestral.ogg, one of the nebula family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "Epic space orchestral instrumental: sweeping strings, low brass swells, choir-like synth pads, timpani, a grand rising theme, awe and scale, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  100,
-                    "keyscale":  "F# minor",
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-nebula-orchestral.wav: 67.2s loop = source 31.45s..98.65s (29.96 bars at 107.0 bpm), crossfade 1.12s | context match 0.581 (best 0.630) | crossfade rhythm r=0.56 vs the track a bar later r=0.03: in time | spectrum cos=0.77"
-                 ],
-    "measured":  "generate-music.ps1 end to end 59.1 s (ace-lm + ace-synth + loop cut)",
-    "rendered":  true
+  "file": "theme-nebula-orchestral.wav",
+  "created": "2026-10-27",
+  "issue": 911,
+  "family": "nebula",
+  "chapter": "The Nebula",
+  "purpose": "Master of Game/Music/nebula-orchestral.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>. The master stays outside the repository (C:/Users/panrd/AI/output/masters-909-chosen on the desktop, with its .raw.wav; this is candidate c1, theme-nebula-orchestral-c1 in masters-909, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-r.ps1 (#909-#917, adapted from the #908 batch) -> Tools/Generation/generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Epic cinematic space anthem instrumental: a clear, noble main theme on French horns and strings that a listener could hum, a tight punchy modern drum groove on kick, snare, toms and taiko keeping a steady driving pulse throughout, a staccato string ostinato, a round bass, chopped, pitched human-voice samples as a rhythmic hook - breaths, wordless oh and ah syllables, whispered syllables, no words, no lyrics - mixed forward in the middle register, dry and close, short reverb, crisp and defined, building into a grand soaring peak with the full orchestra, awe and scale, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar",
+    "lm_negative_prompt": "lyrics, sung words, intelligible words, rap, spoken word, lead singer, pop vocal, opera, choir singing words, audience applause, crowd noise, live recording, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, out of tune, detuned, dissonance, clashing notes, atonal, ambient drone, free tempo, rubato, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, distorted bass, white noise, hiss, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, tambourine, shakers, long drum-only sections, drum solo, one-bar loop, repetitive loop, long reverb tails, washy, blurry, echoes, ambient wash, soundtrack underscore, trailer braams",
+    "instrumental": false,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 100,
+    "keyscale": "F# minor",
+    "seed": 1118999920,
+    "inference_steps": 8,
+    "output_format": "wav32",
+    "lyrics": "[Intro]\nooh\n\n[Verse]\nah ah, oh\nhm, ah\n\n[Chorus]\nooh ah\noh, ah ah\n\n[Bridge]\nah\nooh"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-nebula-orchestral-c1.wav: 57.6s loop = source 41.20s..98.80s (24.02 bars at 100.1 bpm), crossfade 1.20s | context match 0.616 (best 0.665) | crossfade rhythm r=0.52 vs the track a bar later r=0.46: in time | spectrum cos=0.72"
+  ],
+  "lm_check": {
+    "request0_captured": true,
+    "caption_verbatim": true,
+    "seed_in_request0": 1118999920,
+    "bpm_in_request0": 100,
+    "keyscale_in_request0": "F# minor",
+    "duration_in_request0": 120.0,
+    "lyrics_in_request0": "[Intro]\nooh\n\n[Verse]\nah ah, oh\nhm, ah\n\n[Chorus]\nooh ah\noh, ah ah\n\n[Bridge]\nah\nooh"
+  },
+  "measured": "generate-music.ps1 end to end 66,4 s (ace-lm + ace-synth + loop cut), exit 0",
+  "rendered": true,
+  "chosen": {
+    "candidate": "c1",
+    "round": 1,
+    "of": [
+      "c1",
+      "c2",
+      "c3",
+      "c4"
+    ],
+    "why": "Chosen by measurement beside the ember family in one measure-music.py run, then the owner's ear: 31.3 % in 200 Hz-2 kHz, 28.8 % in 300 Hz-4 kHz, 0.5 % above 6 kHz, tonal mid 83 %, 2.47 held-note changes a second, tempo wander 1.75 %, wobble 3.5 / detune 2.5 cents, 0.0 short gaps a minute, the opening repeats for 2.4 s, 7.2 % of held notes out of key; a 57.6 s loop at 100.1 bpm, cut context 0.616, crossfade rhythm r 0.52 against 0.46 a bar later, spectrum cosine 0.72, quietest 2 s 18.2 dB under the loud level, 12 % of the loop 10 dB under it. Outside ember's range: held_changes 2.47, tempo_wander 1.75. #916's voice arm (a block of wordless syllables as the lyrics): its separated vocals stand 1.5 dB under the mix in 300 Hz-4 kHz, within 10 dB in 78 % of 250 ms windows, where the old recording's read 9.2 dB and 24 %. Whether any syllable reads as a word is the ear's.",
+    "how": "Tools/Generation/measure-music.py --reference ember with ember in the same run, the documented gates (docs/game-feedback/music-generation.md, 'Choosing a candidate'), then the owner's listening page (2026-10-27)."
+  },
+  "alternatives": [
+    {
+      "candidate": "c2",
+      "round": 1,
+      "seed": 819638225,
+      "bpm": 100,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-nebula-orchestral-c2.wav: 79.2s loop = source 20.10s..99.30s (33.01 bars at 100.0 bpm), crossfade 1.20s | context match 0.001 (best 0.038) | crossfade rhythm r=0.20 vs the track a bar later r=0.12: in time | spectrum cos=-0.31"
+      ],
+      "refused_or_not_chosen": "out: hole 51 %, dropout 53.3 dB, seam cos -0.31",
+      "caption": "same brief"
+    },
+    {
+      "candidate": "c3",
+      "round": 1,
+      "seed": 1694468150,
+      "bpm": 100,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-nebula-orchestral-c3.wav: 43.2s loop = source 40.15s..83.35s (18.00 bars at 100.0 bpm), crossfade 1.20s | context match 0.544 (best 0.554) | crossfade rhythm r=0.62 vs the track a bar later r=0.83: BELOW the track's own timekeeping -- listen | spectrum cos=0.80"
+      ],
+      "refused_or_not_chosen": "out: seam BELOW, dropout 24.8 dB, short gaps 48.6/min",
+      "caption": "same brief"
+    },
+    {
+      "candidate": "c4",
+      "round": 1,
+      "seed": 1382336664,
+      "bpm": 100,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-nebula-orchestral-c4.wav: 48.0s loop = source 37.30s..85.30s (20.01 bars at 100.0 bpm), crossfade 1.20s | context match 0.945 (best 0.995) | crossfade rhythm r=0.99 vs the track a bar later r=0.89: in time | spectrum cos=0.99"
+      ],
+      "refused_or_not_chosen": "ranked under the pick; outside ember: tonal_mid 37, above6k 2.4, out_of_key 13.3, opening repeat 26.4 s",
+      "caption": "same brief"
+    }
+  ],
+  "arm": "916 voice (lyrics block)",
+  "replaces": {
+    "issue": 486,
+    "created": "2026-09-23",
+    "caption": "Epic space orchestral instrumental: sweeping strings, low brass swells, choir-like synth pads, timpani, a grand rising theme, awe and scale, no vocals",
+    "negative": "vocals, singing, audience applause, crowd noise, live recording",
+    "seed": null,
+    "bpm": 100,
+    "keyscale": "F# minor",
+    "loop_log": [
+      "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-nebula-orchestral.wav: 67.2s loop = source 31.45s..98.65s (29.96 bars at 107.0 bpm), crossfade 1.12s | context match 0.581 (best 0.630) | crossfade rhythm r=0.56 vs the track a bar later r=0.03: in time | spectrum cos=0.77"
+    ],
+    "why_replaced": "Owner 2026-10-16: 'hallucinatory and blurred, as if made of echoes. Vocals would suit it' - remixed human-voice sounds, not sung lyrics (#916)."
+  }
 }

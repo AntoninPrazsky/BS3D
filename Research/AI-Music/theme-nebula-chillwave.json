@@ -1,28 +1,136 @@
 {
-    "file":  "theme-nebula-chillwave.wav",
-    "created":  "2026-09-23",
-    "issue":  486,
-    "family":  "nebula",
-    "chapter":  "The Nebula (space) - new: synthwave and the cosmos",
-    "purpose":  "Master of Game/Music/nebula-chillwave.ogg, one of the nebula family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
-    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
-    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
-    "license":  "ACE-Step 1.5: MIT (code and weights)",
-    "request":  {
-                    "caption":  "Chillwave instrumental: hazy detuned synths, mid-tempo drum machine, warm bass, nostalgic melody, sun-bleached and floating, no vocals",
-                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
-                    "instrumental":  true,
-                    "use_cot_caption":  false,
-                    "duration":  120,
-                    "bpm":  98,
-                    "keyscale":  "F# minor",
-                    "inference_steps":  8,
-                    "output_format":  "wav32"
-                },
-    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
-    "loop_log":  [
-                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-nebula-chillwave.wav: 49.0s loop = source 24.42s..73.40s (20.04 bars at 98.2 bpm), crossfade 1.22s | context match 0.799 (best 0.820) | crossfade rhythm r=0.96 vs the track a bar later r=0.61: in time | spectrum cos=0.96"
-                 ],
-    "measured":  "generate-music.ps1 end to end 60.2 s (ace-lm + ace-synth + loop cut)",
-    "rendered":  true
+  "file": "theme-nebula-chillwave.wav",
+  "created": "2026-10-27",
+  "issue": 911,
+  "family": "nebula",
+  "chapter": "The Nebula",
+  "purpose": "Master of Game/Music/nebula-chillwave.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>. The master stays outside the repository (C:/Users/panrd/AI/output/masters-909-chosen on the desktop, with its .raw.wav; this is candidate c5, theme-nebula-chillwave-c5 in masters-909, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-r.ps1 (#909-#917, adapted from the #908 batch) -> Tools/Generation/generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Modern dreamy synth-pop instrumental with a chillwave haze: a warm soft analog synth lead playing a long nostalgic melody of steady eighth notes in the middle register, perfectly in tune, a clean chorus electric guitar doubling it, a warm electric piano holding chords in the middle register, a laid-back steady drum machine groove on kick, snare and toms, a warm round bass, every instrument holding its notes through every beat, no rests, no stops, no breaks, one continuous unbroken flow, building gently into a glowing peak, sun-bleached and floating, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar, no vocals",
+    "lm_negative_prompt": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, out of tune, detuned, dissonance, clashing notes, atonal, ambient drone, free tempo, rubato, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, distorted bass, white noise, hiss, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, tambourine, shakers, long drum-only sections, drum solo, one-bar loop, repetitive loop, warbly tape wobble, pitch drift, wobbly vibrato, lo-fi, vinyl crackle, bitcrushed, staccato, stabs, stop-start, chopped edits, stutter edits, gated breaks, rests, pauses, silences, dropouts, breakdown, drum fills",
+    "instrumental": true,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 98,
+    "keyscale": "F# minor",
+    "seed": 207822169,
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-nebula-chillwave-c5.wav: 69.3s loop = source 28.82s..98.10s (27.97 bars at 96.9 bpm), crossfade 1.24s | context match 0.690 (best 0.738) | crossfade rhythm r=0.94 vs the track a bar later r=0.76: in time | spectrum cos=0.85"
+  ],
+  "lm_check": {
+    "request0_captured": true,
+    "caption_verbatim": true,
+    "seed_in_request0": 207822169,
+    "bpm_in_request0": 98,
+    "keyscale_in_request0": "F# minor",
+    "duration_in_request0": 120.0,
+    "lyrics_in_request0": "[Instrumental]"
+  },
+  "measured": "generate-music.ps1 end to end 63,2 s (ace-lm + ace-synth + loop cut), exit 0",
+  "rendered": true,
+  "chosen": {
+    "candidate": "c5",
+    "round": 2,
+    "of": [
+      "c5",
+      "c1",
+      "c2",
+      "c3",
+      "c4",
+      "c6"
+    ],
+    "why": "Chosen by measurement beside the ember family in one measure-music.py run, then the owner's ear: 14.2 % in 200 Hz-2 kHz, 10.6 % in 300 Hz-4 kHz, 1.9 % above 6 kHz, tonal mid 75 %, 3.12 held-note changes a second, tempo wander 0.02 %, wobble 3.2 / detune 2.4 cents, 19.1 short gaps a minute, the opening repeats for 2.5 s, 6.9 % of held notes out of key; a 69.3 s loop at 96.9 bpm, cut context 0.69, crossfade rhythm r 0.94 against 0.76 a bar later, spectrum cosine 0.85, quietest 2 s 2.5 dB under the loud level, 0 % of the loop 10 dB under it. Outside ember's range: nothing. Round 2: inside ember on every column.",
+    "how": "Tools/Generation/measure-music.py --reference ember with ember in the same run, the documented gates (docs/game-feedback/music-generation.md, 'Choosing a candidate'), then the owner's listening page (2026-10-27)."
+  },
+  "alternatives": [
+    {
+      "candidate": "c1",
+      "round": 1,
+      "seed": 114693385,
+      "bpm": 98,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-nebula-chillwave-c1.wav: 49.0s loop = source 32.37s..81.35s (20.04 bars at 98.2 bpm), crossfade 1.22s | context match 0.596 (best 0.645) | crossfade rhythm r=0.87 vs the track a bar later r=0.64: in time | spectrum cos=0.92"
+      ],
+      "refused_or_not_chosen": "out: short gaps 52.7/min",
+      "caption": "brief_1 (below)"
+    },
+    {
+      "candidate": "c2",
+      "round": 1,
+      "seed": 1378658309,
+      "bpm": 98,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-nebula-chillwave-c2.wav: 59.4s loop = source 10.67s..70.05s (23.97 bars at 96.9 bpm), crossfade 1.24s | context match 0.789 (best 0.839) | crossfade rhythm r=0.88 vs the track a bar later r=0.86: in time | spectrum cos=0.92"
+      ],
+      "refused_or_not_chosen": "out: wrap -11.7 dB (p94)",
+      "caption": "brief_1 (below)"
+    },
+    {
+      "candidate": "c3",
+      "round": 1,
+      "seed": 1055243736,
+      "bpm": 98,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-nebula-chillwave-c3.wav: 39.2s loop = source 43.72s..82.90s (16.02 bars at 98.1 bpm), crossfade 1.22s | context match 0.893 (best 0.894) | crossfade rhythm r=0.95 vs the track a bar later r=0.79: in time | spectrum cos=0.96"
+      ],
+      "refused_or_not_chosen": "out: hole 36 %, short gaps 33.7/min",
+      "caption": "brief_1 (below)"
+    },
+    {
+      "candidate": "c4",
+      "round": 2,
+      "seed": 262790302,
+      "bpm": 98,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-nebula-chillwave-c4.wav: 49.0s loop = source 33.77s..82.75s (20.04 bars at 98.2 bpm), crossfade 1.22s | context match 0.496 (best 0.545) | crossfade rhythm r=0.93 vs the track a bar later r=0.79: in time | spectrum cos=0.67"
+      ],
+      "refused_or_not_chosen": "ranked under the pick; outside ember: held_changes 2.45",
+      "caption": "same brief"
+    },
+    {
+      "candidate": "c6",
+      "round": 2,
+      "seed": 1313401451,
+      "bpm": 98,
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-909\\theme-nebula-chillwave-c6.wav: 59.4s loop = source 18.02s..77.40s (23.97 bars at 96.9 bpm), crossfade 1.24s | context match 0.854 (best 0.900) | crossfade rhythm r=0.92 vs the track a bar later r=0.81: in time | spectrum cos=0.95"
+      ],
+      "refused_or_not_chosen": "ranked under the pick; outside ember: out_of_key 13.5, opening repeat 59.4 s",
+      "caption": "same brief"
+    }
+  ],
+  "alternative_briefs": {
+    "brief_1": {
+      "caption": "Modern chillwave instrumental: a warm soft analog synth lead playing a nostalgic, hummable melody in the middle register, perfectly in tune and steady in pitch, a clean chorus electric guitar answering it, warm electric piano chords, a laid-back mid-tempo drum machine groove on kick, snare and toms, a warm round bass, soft lush pads, sun-bleached and floating, building gently into a glowing peak, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar, no vocals",
+      "lm_negative_prompt": "vocals, singing, choir, humming, sampled vocal chops, vocoder, talk box, audience applause, crowd noise, live recording, comedy, cartoon, silly, childish, cute, sugary, toy piano, music box, out of tune, detuned, dissonance, clashing notes, atonal, ambient drone, free tempo, rubato, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, distorted bass, white noise, hiss, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, sizzling hi-hats, tambourine, shakers, long drum-only sections, drum solo, one-bar loop, repetitive loop, warbly tape wobble, pitch drift, wobbly vibrato, lo-fi, vinyl crackle, bitcrushed",
+      "lyrics": null,
+      "bpm": 98,
+      "round": 1,
+      "candidates": [
+        "c1",
+        "c2",
+        "c3"
+      ]
+    }
+  },
+  "replaces": {
+    "issue": 486,
+    "created": "2026-09-23",
+    "caption": "Chillwave instrumental: hazy detuned synths, mid-tempo drum machine, warm bass, nostalgic melody, sun-bleached and floating, no vocals",
+    "negative": "vocals, singing, audience applause, crowd noise, live recording",
+    "seed": null,
+    "bpm": 98,
+    "keyscale": "F# minor",
+    "loop_log": [
+      "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-nebula-chillwave.wav: 49.0s loop = source 24.42s..73.40s (20.04 bars at 98.2 bpm), crossfade 1.22s | context match 0.799 (best 0.820) | crossfade rhythm r=0.96 vs the track a bar later r=0.61: in time | spectrum cos=0.96"
+    ],
+    "why_replaced": "Owner 2026-10-16: 'almost good, but not quite chill, because the melody sounds out of tune at times'; the old brief asked for 'hazy detuned synths'."
+  }
 }
