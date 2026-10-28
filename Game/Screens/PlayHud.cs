@@ -2264,8 +2264,8 @@ namespace BS3D.Screens
         //already, or no shots left)
         private const string CUT_NOT_NOW = "Cut · not now";
 
-        //The space between a keycap and its words, and between two rows, a fifth under what they were beside the card-sized
-        //fonts (14 and 8): they scale with the text they separate (#703)
+        //The space between a chip's columns (keycap, picture, words since #1030) and between two rows, a fifth under what they
+        //were beside the card-sized fonts (14 and 8): they scale with the text they separate (#703)
         private const int HUD_SWAP_GLYPH_GAP = 11;
         private const int HUD_SWAP_ROW_GAP = 6;
 

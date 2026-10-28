@@ -163,7 +163,7 @@ namespace BS3D.Audio
         //sit one octave either way of it rather than two octaves up
         private const int LANDED_SFX_ROOT_TYPE = 7;
 
-        /// <summary>The gun refusing a shot at the elevation clamp (#431); see <see cref="BakeShotRefused"/>.</summary>
+        /// <summary>The gun or a power-up refusing what the player asked (#431, #1008); see <see cref="PlayShotRefused"/>.</summary>
         private readonly SoundEffect _shotRefused;
 
         /// <summary>The barrel pressed into its stop (#811); see <see cref="AimStopSynth"/>.</summary>
@@ -860,7 +860,9 @@ namespace BS3D.Audio
         }
 
         /// <summary>
-        /// The gun refusing a shot because the aim is pressed into the elevation clamp (#431). Unplaced and dry like
+        /// The gun refusing what the player asked: a cutter aimed where the Cut may not strike, and a power-up's key pressed
+        /// while it cannot act. It answered the elevation clamp (#431) until #1008 made a shot aimed too high fire along the
+        /// clamp instead. Unplaced and dry like
         /// the UI's sounds, for the reason <see cref="BakeShotRefused"/> gives, but billed to the effects row with the
         /// gun: it answers a trigger the player pulled in play. A small pitch nudge only, so it stays one recognisable
         /// "no" however often it is asked.
@@ -1548,7 +1550,8 @@ namespace BS3D.Audio
         }
 
         /// <summary>
-        /// The gun refusing a shot (#431): the aim is pressed into, or stretched past, the elevation clamp. A soft,
+        /// The gun refusing what the player asked (<see cref="PlayShotRefused"/> says when; #431 made it for the elevation
+        /// clamp, which since #1008 fires along the clamp rather than refusing). A soft,
         /// low "bwom-bwoww" — two round notes falling a minor third, the second sagging a further tone as it dies —
         /// so it reads as "no" without a buzzer's edge.
         /// <list type="bullet">
