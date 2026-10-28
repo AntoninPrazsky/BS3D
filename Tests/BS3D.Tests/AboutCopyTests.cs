@@ -9,7 +9,7 @@ namespace BS3D.Tests
     /// before it was split still on it — a shorter page was the point, and a library, a licence or a tool quietly dropped
     /// on the way would be the one thing a reader of the old page could not see was gone. Read off
     /// <c>AboutCopy.Pages</c>, which is what <c>AboutPage</c> draws block by block (and throws on a block it cannot set),
-    /// so a credit list, the privacy line or the player taken off a page is taken out of what these tests read.
+    /// so a credit list, the privacy list or the player taken off a page is taken out of what these tests read.
     /// </summary>
     public class AboutCopyTests
     {
@@ -69,7 +69,7 @@ namespace BS3D.Tests
         {
             AboutCopy.Page[] pages = AboutCopy.Pages(TITLE);
 
-            Assert.Equal(4, pages.Length);
+            Assert.Equal(5, pages.Length);
             Assert.All(pages, page => Assert.False(string.IsNullOrWhiteSpace(page.Title)));
             Assert.Equal(pages.Length, pages.Select(page => page.Title).Distinct().Count());
         }
@@ -87,17 +87,17 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void The_privacy_line_stands_under_what_the_game_is()
+        public void The_privacy_list_is_the_page_after_what_the_game_is()
         {
-            //Not copy of the page's (OnlineScores.PrivacyList, the Settings page's own), so the copy cannot hold it: the
-            //page holds a block that draws it, once, after the paragraph that says what the game is
-            AboutCopy.Page page = Assert.Single(AboutCopy.Pages(TITLE),
-                candidate => candidate.Blocks.Any(block => block.Kind == AboutCopy.BlockKind.Privacy));
+            //Not copy of the page's (OnlineScores.PrivacyList, the Settings page's own), so the copy cannot hold it: a page
+            //holds a block that draws it, once, and it is the page after the one that says what the game is. It stood under
+            //that paragraph until #1034's two columns made the two together too tall for a 1600x900 window
+            AboutCopy.Page[] pages = AboutCopy.Pages(TITLE);
 
-            int privacy = System.Array.FindIndex(page.Blocks, block => block.Kind == AboutCopy.BlockKind.Privacy);
-            int game = System.Array.FindIndex(page.Blocks, block => block.Text == AboutCopy.Game(TITLE));
+            int privacy = System.Array.FindIndex(pages, page => page.Blocks.Any(block => block.Kind == AboutCopy.BlockKind.Privacy));
+            int game = System.Array.FindIndex(pages, page => page.Blocks.Any(block => block.Text == AboutCopy.Game(TITLE)));
 
-            Assert.True(game >= 0 && game < privacy, "the privacy line must stand under what the game is, on its page");
+            Assert.True(game >= 0 && privacy == game + 1, "the privacy list must be the page after what the game is");
             Assert.Single(Blocks(AboutCopy.BlockKind.Privacy));
         }
 

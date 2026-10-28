@@ -11,7 +11,7 @@ namespace BS3D.Screens
     /// <para>
     /// <b>The page draws <see cref="Pages"/> and nothing else</b>: each page is its name and a list of blocks, and
     /// <c>AboutPage</c> sets every block it is handed, in order, and throws on a kind it has no way to set. So what the test
-    /// reads is what the player sees: a credit list, the privacy line or the player cannot leave the page without leaving
+    /// reads is what the player sees: a credit list, the privacy list or the player cannot leave the page without leaving
     /// this list, where the test sees it go.
     /// </para>
     /// </summary>
@@ -30,9 +30,9 @@ namespace BS3D.Screens
             Paragraph,
 
             /// <summary>
-            /// The online scores' privacy sentence as an aside. Not this page's copy: the Settings page reads the same
-            /// sentence from the one place both take it (<c>OnlineScores.PrivacyList</c>, #548), so the two cannot say
-            /// different things about the same data.
+            /// The online scores' privacy list as an aside, its labels in a column of their own (#1034). Not this page's
+            /// copy: the Settings page reads the same list from the one place both take it (<c>OnlineScores.PrivacyList</c>,
+            /// #548), so the two cannot say different things about the same data.
             /// </summary>
             Privacy,
 
@@ -56,14 +56,20 @@ namespace BS3D.Screens
         internal readonly record struct Page(string Title, Block[] Blocks);
 
         /// <summary>
-        /// The pages, in the order they turn: what the game is with the privacy line, what it is built on, what it was made
-        /// with (the repository and the way to the author under it), and <b>the player last</b> — the owner's ruling
-        /// (2026-10-12): it is a small easter egg, waiting at the end for whoever turns that far, so About opens on what the
-        /// game is. <paramref name="title"/> is the game's name as the page says it (<c>BS3DGame.GAME_TITLE</c>).
+        /// The pages, in the order they turn: what the game is, what online scores send (#1034), what it is built on, what it
+        /// was made with (the repository and the way to the author under it), and <b>the player last</b> — the owner's
+        /// ruling (2026-10-12): it is a small easter egg, waiting at the end for whoever turns that far, so About opens on
+        /// what the game is. <paramref name="title"/> is the game's name as the page says it (<c>BS3DGame.GAME_TITLE</c>).
+        /// <para>
+        /// The privacy list stood under what the game is until #1034 set it as Settings sets it, its labels in a column of
+        /// their own: at the prose measure that is some fourteen lines, and with the paragraph over them the page ran Back
+        /// off a 1600x900 window (photographed). One idea a page, as #807 has it, so the list has its page.
+        /// </para>
         /// </summary>
         internal static Page[] Pages(string title) => new Page[]
         {
-            new("THE GAME", new Block[] { new(BlockKind.Paragraph, Game(title)), new(BlockKind.Privacy) }),
+            new("THE GAME", new Block[] { new(BlockKind.Paragraph, Game(title)) }),
+            new("PRIVACY", new Block[] { new(BlockKind.Privacy) }),
             new("BUILT ON", new Block[]
             {
                 new(BlockKind.Paragraph, BUILT_ON), new(BlockKind.Logos), new(BlockKind.Credits, Credits: LIBRARIES),
@@ -81,7 +87,7 @@ namespace BS3D.Screens
         internal const string SCORE = "Written as code — synthesized the moment it plays.";
 
         /// <summary>
-        /// What the game is, in four sentences. The online scores' privacy line stands under it, from the one place the
+        /// What the game is, in four sentences. The online scores' privacy list is the next page, from the one place the
         /// Settings page reads it too (<c>OnlineScores.PrivacyList</c>), so it is not copy of this page's.
         /// </summary>
         internal static string Game(string title) =>

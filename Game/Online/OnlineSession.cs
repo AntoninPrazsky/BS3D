@@ -200,10 +200,10 @@ namespace BS3D.Online
 
         /// <summary>
         /// What is sent and what is kept, as a short labelled list (#868) — the settings page's and the About page's, from
-        /// the one place (<see cref="OnlineScores.PrivacyList"/>), so the two read the same; <paramref name="lead"/> sets
-        /// each line's label (the page's <c>LeadIn</c>).
+        /// the one place (<see cref="OnlineScores.PrivacyList"/>), so the two read the same: each line a label and what it
+        /// says.
         /// </summary>
-        internal string PrivacyList(Func<string, string> lead) => OnlineScores.PrivacyList(_settings, lead);
+        internal (string Label, string Text)[] PrivacyList() => OnlineScores.PrivacyList(_settings);
 
         /// <summary>
         /// What became of the level just cleared, once the worker knows: accepted with its ranks, refused, or

@@ -429,28 +429,31 @@ namespace BS3D.Online
         /// <summary>
         /// What online scores send and what the service keeps (#548), as a short labelled list (#868): what is sent, where,
         /// what the server adds, how to delete it, and the play counts — on the settings page and on the About page, from
-        /// here, so the two cannot drift apart. Each line opens on its label, set by <paramref name="lead"/> (the page's
-        /// <c>LeadIn</c>), and the lines are parted by line breaks the prose breaker keeps. <b>It must stay exactly true of
-        /// <see cref="ScoreSubmission"/> and of the service's audit row (#544)</b>: change one, change this in the same
-        /// commit, the way the documents are held to the code. It says everything the sentence it replaced said, the
-        /// unfinished attempt (#716) and the play counts (#709, <see cref="StatsBatchBody"/>, the service's
-        /// <c>play_stats</c>) included: only what the code guarantees of those, that they are sent and stored without the
-        /// player's id or name, which is also why a removal cannot find them. And the benchmark's result (#988,
-        /// <see cref="OnlineBenchmarks"/>), which goes whether online scores are on or not, the Start press being its consent.
+        /// here, so the two cannot drift apart. Each line is a label and what it says, which the pages set as two columns
+        /// (<c>MenuPage.FactList</c>, #1034). <b>It must stay exactly true of <see cref="ScoreSubmission"/> and of the
+        /// service's audit row (#544)</b>: change one, change this in the same commit, the way the documents are held to
+        /// the code. It says everything the sentence it replaced said, the unfinished attempt (#716) and the play counts
+        /// (#709, <see cref="StatsBatchBody"/>, the service's <c>play_stats</c>) included: only what the code guarantees of
+        /// those, that they are sent and stored without the player's id or name, which is also why a removal cannot find
+        /// them. And the benchmark's result (#988, <see cref="OnlineBenchmarks"/>), which goes whether online scores are on
+        /// or not, the Start press being its consent.
         /// </summary>
-        internal static string PrivacyList(GameSettings settings, Func<string, string> lead)
+        internal static (string Label, string Text)[] PrivacyList(GameSettings settings)
         {
             string host = TryResolveServer(settings, out Uri server, out _, out _) ? server.Authority : "the score server";
 
-            return lead("Sent") + " With online scores on, for each level you clear, and your best attempt at one you have not cleared "
-                + "yet: your nickname, a random player id, the level, its score, stars, shots, time and the game’s version.\n"
-                + lead("Where") + $" {host}.\n"
-                + lead("Added there") + " When it arrived and a hashed network address.\n"
-                + lead("Delete") + " Remove scores deletes all of it.\n"
-                + lead("Play counts") + " Each level’s starts, retries, clears, losses, quits, skips, shots and time go there too, sent and "
-                + "stored without your id or name, so Remove scores cannot find them.\n"
-                + lead("Benchmark") + " A finished benchmark (Extras) sends its figures and your computer’s specification there too, "
-                + "with online scores on or off, without your id or name.";
+            return new[]
+            {
+                ("Sent", "With online scores on, for each level you clear, and your best attempt at one you have not cleared "
+                    + "yet: your nickname, a random player id, the level, its score, stars, shots, time and the game’s version."),
+                ("Where", $"{host}."),
+                ("Added there", "When it arrived and a hashed network address."),
+                ("Delete", "Remove scores deletes all of it."),
+                ("Play counts", "Each level’s starts, retries, clears, losses, quits, skips, shots and time go there too, sent and "
+                    + "stored without your id or name, so Remove scores cannot find them."),
+                ("Benchmark", "A finished benchmark (Extras) sends its figures and your computer’s specification there too, "
+                    + "with online scores on or off, without your id or name."),
+            };
         }
 
         #region The worker
