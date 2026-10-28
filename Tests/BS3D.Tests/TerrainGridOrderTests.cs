@@ -67,6 +67,36 @@ namespace BS3D.Tests
             Assert.Equal(expected.ToArray(), TerrainGridCache.Indices(n, nearFirst: false));
         }
 
+        //The block order (#1032): the row order's triangles once each, every block one run of the buffer with the quads it
+        //names, the runs back to back - a block whose range strayed would draw another's quads, or leave a hole
+        [Theory]
+        [InlineData(4, 2)]
+        [InlineData(61, 32)]
+        [InlineData(256, 32)]
+        [InlineData(360, 32)]
+        public void TheBlockOrderHoldsEveryTriangleOnceInRunsOfItsBlocks(int n, int block)
+        {
+            int[] rows = TerrainGridCache.Indices(n, nearFirst: false);
+            int[] blocks = TerrainGridCache.BlockIndices(n, block, out int side, out int[] start, out int[] count);
+
+            Assert.Equal(rows.Length, blocks.Length);
+            Assert.Equal(Triangles(rows).OrderBy(t => t).ToArray(), Triangles(blocks).OrderBy(t => t).ToArray());
+
+            int next = 0;
+            for (int b = 0; b < side * side; b++)
+            {
+                Assert.Equal(next, start[b]);
+                for (int q = start[b]; q < start[b] + count[b]; q += 6)
+                {
+                    //The quad's lower-left vertex, z * n + x, lies in this block
+                    int a = blocks[q];
+                    Assert.Equal(b, (a / n / block) * side + (a % n / block));
+                }
+                next = start[b] + count[b];
+            }
+            Assert.Equal(blocks.Length, next);
+        }
+
         private static IEnumerable<(int, int, int)> Triangles(int[] indices)
         {
             for (int i = 0; i < indices.Length; i += 3)

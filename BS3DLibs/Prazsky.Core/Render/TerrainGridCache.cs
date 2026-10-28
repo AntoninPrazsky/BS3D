@@ -160,5 +160,39 @@ namespace Prazsky.Core.Render
 
             return indices;
         }
+
+        /// <summary>
+        /// The same quads in square blocks of <paramref name="block"/> a side (#1032), block row by block row and each block's
+        /// quads row by row, so a block is one run of the buffer and a caller can draw only the blocks its lens sees:
+        /// <paramref name="blockStart"/> and <paramref name="blockCount"/> are each block's first index and index count, block
+        /// <c>bz * blocksPerSide + bx</c> covering the quads from <c>bx * block</c> and <c>bz * block</c> (the last of a row
+        /// narrower when <paramref name="block"/> does not divide the grid). Static and device-free so the order is testable.
+        /// </summary>
+        internal static int[] BlockIndices(int n, int block, out int blocksPerSide, out int[] blockStart, out int[] blockCount)
+        {
+            int quads = n - 1;
+            blocksPerSide = (quads + block - 1) / block;
+            blockStart = new int[blocksPerSide * blocksPerSide];
+            blockCount = new int[blocksPerSide * blocksPerSide];
+
+            int[] indices = new int[quads * quads * 6];
+            int i = 0;
+            for (int bz = 0; bz < blocksPerSide; bz++)
+                for (int bx = 0; bx < blocksPerSide; bx++)
+                {
+                    int b = bz * blocksPerSide + bx;
+                    blockStart[b] = i;
+                    for (int z = bz * block; z < Math.Min(quads, (bz + 1) * block); z++)
+                        for (int x = bx * block; x < Math.Min(quads, (bx + 1) * block); x++)
+                        {
+                            int a = z * n + x, bb = z * n + x + 1, c = (z + 1) * n + x, d = (z + 1) * n + x + 1;
+                            indices[i++] = a; indices[i++] = c; indices[i++] = bb;
+                            indices[i++] = bb; indices[i++] = c; indices[i++] = d;
+                        }
+                    blockCount[b] = i - blockStart[b];
+                }
+
+            return indices;
+        }
     }
 }
