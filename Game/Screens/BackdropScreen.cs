@@ -822,6 +822,20 @@ namespace BS3D.Screens
         }
 
         /// <summary>
+        /// Puts the flight back on the top of its wide turn, where it stands, and holds it there until let go: the benchmark's
+        /// swarm (#988) is watched from outside, and a pass at the map already under way would fly the lens through the storm.
+        /// A cut, which the swarm's change of scene covers.
+        /// </summary>
+        internal void HoldOnWideTurn(bool hold)
+        {
+            HoldWideLeg = hold;
+            if (!hold) return;
+
+            _flightClock = 0f;
+            RollCycle();
+        }
+
+        /// <summary>
         /// Releases the flight where <paramref name="lens"/> already stands: the bearing is put on the one it
         /// is at, so a camera flown onto the orbit moves straight <i>out</i> from the arena rather than
         /// swinging around it. Without this the ease would be a chord to wherever the front end was last left
@@ -1226,6 +1240,10 @@ namespace BS3D.Screens
 
             BallDrawFrame ballFrame = Game.Balls.BeginFrame(Game.Camera);
             ballFrame.AddMap(_previewMap, _previewOffset);
+
+            //The benchmark's swarm (#988), while its finale runs: into the same frame, so it is drawn, shadowed and paid for
+            //as the game's own balls are
+            Game.BenchmarkSwarm?.Collect(ballFrame, (float)gameTime.ElapsedGameTime.TotalSeconds);
 
             //The gun of a session kept for Continue (#650): the rounds in its bore go into the frame like any other
             //ball, before BeginSceneDraw, whose shadow pass reads the buckets. Null with no session, and then there

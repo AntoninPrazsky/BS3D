@@ -62,6 +62,12 @@ namespace BS3D
         /// <summary>A key or a button the benchmark's play reads as the end of the benchmark (#1018): the page stops, as its skip key stops a tour.</summary>
         internal void StopBenchmarkPlay() => _benchmarkPage?.StopFromPlay();
 
+        /// <summary>
+        /// The benchmark's swarm while its finale runs (#988), null otherwise: the front end's draw puts its balls into the
+        /// frame beside the preview's (<see cref="BackdropScreen.Draw"/>). Cleared with the benchmark's end, whatever ended it.
+        /// </summary>
+        internal BenchmarkSwarm BenchmarkSwarm { get; set; }
+
         /// <summary>Where the benchmark's play stands (#1018), for the page that measures it from above the stack.</summary>
         internal GameplayScreen.BenchmarkStage BenchmarkStage => _gameplayScreen?.BenchmarkPlay ?? GameplayScreen.BenchmarkStage.None;
 
@@ -103,6 +109,7 @@ namespace BS3D
         {
             if (!_benchmarking) return;
             _benchmarking = false;
+            BenchmarkSwarm = null;
             SetScene(_sceneBeforeBenchmark);
             SetSkyDome(_domeBeforeBenchmark);
             _screens?.Find<BackdropScreen>()?.RollPreviewMap();

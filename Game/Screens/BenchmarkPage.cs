@@ -60,7 +60,7 @@ namespace BS3D.Screens
         private const float SETTLE_SECONDS = 1.5f;
         private const int SEED = 988;
 
-        private enum Phase { Idle, Settling, Touring, Play, Physics, Done }
+        private enum Phase { Idle, Settling, Touring, Play, Swarm, Physics, Done }
 
         private Phase _phase = Phase.Idle;
         private int _segment;
@@ -80,6 +80,14 @@ namespace BS3D.Screens
         private readonly int[] _hdrRead = new int[SEGMENTS.Length], _hdrNonFinite = new int[SEGMENTS.Length];
         private readonly float[] _hdrBrightest = new float[SEGMENTS.Length];
         private bool _probed, _skipNext;
+
+        //The finale (BenchmarkSwarm): a storm of the game's balls grown until the frame drops under 60 FPS, in a scene whose own
+        //cost is small and fixed, so what grows is the balls'. Its figures are kept once it ends, and the storm let go
+        private static readonly SceneKind SWARM_SCENE = SceneKind.Space;
+        private BenchmarkSwarm _swarm;
+        private bool _swarmMeasured, _swarmCapped;
+        private int _swarmHeld, _swarmBrokeAt, _swarmSteps;
+        private float _swarmHeldMedian, _swarmBrokenMedian;
 
         //The physics segment (PhysicsBench): stepped a frame's slice at a time so the window keeps answering on a slow machine;
         //measured is false until every step is taken
@@ -122,7 +130,7 @@ namespace BS3D.Screens
 
         public BenchmarkPage(BS3DGame game) : base(game) => _skipHint = new PlayHud(game);
 
-        private bool Running => _phase is Phase.Settling or Phase.Touring or Phase.Play or Phase.Physics;
+        private bool Running => _phase is Phase.Settling or Phase.Touring or Phase.Play or Phase.Swarm or Phase.Physics;
 
         internal override bool StandsAside => Running;
 
@@ -142,7 +150,7 @@ namespace BS3D.Screens
             else
             {
                 column.Widgets.Add(Paragraph(string.Create(CultureInfo.InvariantCulture,
-                    $"Flies through {TOURS} of the most demanding scenes at your quality ({Game.QualityLabel}), with the frame rate unlocked, then plays the biggest level: the city's opening flight to the cannon, and the cannon firing by itself. It measures every frame, then times the physics. About two minutes. The skip key stops it."),
+                    $"Flies through {TOURS} of the most demanding scenes at your quality ({Game.QualityLabel}), with the frame rate unlocked, then plays the biggest level: the city's opening flight to the cannon, and the cannon firing by itself. Then a storm of balls grows until your computer can no longer draw it at 60 FPS. It measures every frame, then times the physics. About two and a half minutes. The skip key stops it."),
                     ProseMeasure));
                 if (!Game.SceneryShown && !BS3DGame.PotatoPath)
                     column.Widgets.Add(Paragraph("The scenery is off in your settings: the benchmark shows it, so that it has something to measure.", ProseMeasure));
@@ -202,6 +210,21 @@ namespace BS3D.Screens
                     Margin = ScaledThickness(0, 6, 0, 6),
                 });
             }
+
+            //The swarm: how many of the game's balls this machine draws at 60 FPS, a figure two machines compare by
+            if (_swarmMeasured)
+                column.Widgets.Add(new Label
+                {
+                    Text = _swarmCapped
+                        ? string.Create(CultureInfo.InvariantCulture, $"Swarm: more than {_swarmHeld:N0} balls at 60 FPS (the most it asks)")
+                        : _swarmHeld > 0
+                            ? string.Create(CultureInfo.InvariantCulture, $"Swarm: {_swarmHeld:N0} balls at 60 FPS")
+                            : string.Create(CultureInfo.InvariantCulture, $"Swarm: fewer than {BenchmarkSwarm.START_BALLS:N0} balls at 60 FPS"),
+                    Font = FontBody,
+                    TextColor = BS3DGame.MENU_TEXT,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = ScaledThickness(0, 6, 0, 6),
+                });
 
             //The physics: a step's time and the share of every frame it takes, which no quality tier changes
             if (_physicsMeasured)
@@ -326,6 +349,7 @@ namespace BS3D.Screens
             if (Running) return;
             _segment = 0;
             _measured = 0;
+            _swarmMeasured = false;
             _physicsMeasured = false;
             _complete = false;
             _resultId = Guid.Empty;
@@ -376,6 +400,12 @@ namespace BS3D.Screens
             float milliseconds = (float)((now - _lastTick) * 1000.0 / Stopwatch.Frequency);
             _lastTick = now;
             _phaseSeconds += milliseconds / 1000f;
+
+            if (_phase == Phase.Swarm)
+            {
+                StepSwarm(milliseconds);
+                return;
+            }
 
             if (_phase == Phase.Settling)
             {
@@ -498,11 +528,67 @@ namespace BS3D.Screens
             Log(_segment);
         }
 
-        //The play is over: the session goes, this page comes back over the main menu, and the physics runs
+        //The play is over: the session goes, this page comes back over the main menu, and the swarm runs
         private void LeavePlay()
         {
             Game.EndBenchmarkPlay();
+            BeginSwarm();
+        }
+
+        //The finale: the storm's places worked out, its scene put up and the front end's camera held on its wide turn, so the
+        //run's every frame looks at the storm from outside it; the ramp starts once the scene's first frames have gone
+        private void BeginSwarm()
+        {
+            _phase = Phase.Swarm;
+            Game.SetScene(SWARM_SCENE);
+            _swarm = new BenchmarkSwarm();
+            _swarm.Prepare();
+            Game.BenchmarkSwarm = _swarm;
+            Game.Backdrop?.HoldOnWideTurn(true);
+            BeginPart("SWARM", SEGMENTS.Length + 1, "60 FPS", BenchmarkSwarm.BUDGET_MILLISECONDS);
+            _phaseSeconds = 0f;
+            _lastTick = Stopwatch.GetTimestamp();
+            Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                $"[bench] swarm in {SceneRenderer.SceneName(SWARM_SCENE)}: from {BenchmarkSwarm.START_BALLS} balls, x{BenchmarkSwarm.GROWTH} every {BenchmarkSwarm.STEP_SECONDS} s while the median frame holds {BenchmarkSwarm.BUDGET_MILLISECONDS:0.00} ms"));
+        }
+
+        //One frame of the finale: the scene's first frames apart, then the ramp; when it is over its figures are kept and
+        //the physics runs
+        private void StepSwarm(float milliseconds)
+        {
+            if (_phaseSeconds < SETTLE_SECONDS)
+            {
+                Tally(milliseconds, milliseconds / 1000f, apart: true);
+                return;
+            }
+
+            Tally(milliseconds, milliseconds / 1000f, apart: false);
+            if (!_swarm.Tick(milliseconds) || !_swarm.Done) return;
+
+            _swarmMeasured = true;
+            _swarmHeld = _swarm.Held;
+            _swarmHeldMedian = _swarm.HeldMedian;
+            _swarmBrokeAt = _swarm.Capped ? 0 : _swarm.Balls;
+            _swarmBrokenMedian = _swarm.BrokenMedian;
+            _swarmSteps = _swarm.Steps;
+            _swarmCapped = _swarm.Capped;
+            ReleaseSwarm();
+            Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                $"[bench] swarm: held {_swarmHeld} balls (median {_swarmHeldMedian:0.00} ms)")
+                + (_swarmCapped ? ", the most it asks"
+                    : string.Create(CultureInfo.InvariantCulture, $", broke at {_swarmBrokeAt} ({_swarmBrokenMedian:0.00} ms)"))
+                + string.Create(CultureInfo.InvariantCulture, $" after {_swarmSteps} steps"));
             BeginPhysics();
+        }
+
+        //The storm let go: out of the frame, its places dropped, and the front end's camera free to fly in again
+        private void ReleaseSwarm()
+        {
+            if (_swarm == null) return;
+
+            _swarm = null;
+            Game.BenchmarkSwarm = null;
+            Game.Backdrop?.HoldOnWideTurn(false);
         }
 
         /// <summary>
@@ -534,7 +620,7 @@ namespace BS3D.Screens
                 _physics = new PhysicsBench(new BallsMap(level.Map), SceneWind.For(level.Scene ?? SceneKind.City, null));
                 _physicsBalls = _physics.Balls;
                 _phase = Phase.Physics;
-                BeginPart("PHYSICS", SEGMENTS.Length + 1, "real time", PhysicsBench.STEP_BUDGET_MILLISECONDS);
+                BeginPart("PHYSICS", SEGMENTS.Length + 2, "real time", PhysicsBench.STEP_BUDGET_MILLISECONDS);
                 Console.WriteLine($"[bench] physics {PhysicsBench.LEVEL}: {_physicsBalls} balls, {Environment.ProcessorCount} threads");
             }
             catch (Exception e)
@@ -580,6 +666,7 @@ namespace BS3D.Screens
         //to its end, so a run stopped after one scene never overwrites a whole one
         private void Finish(bool complete)
         {
+            ReleaseSwarm();
             _phase = Phase.Done;
             //A run begun at the play (benchmarkplay) lacks its tours: shown, never saved or sent
             complete &= !_playOnly;
@@ -631,6 +718,22 @@ namespace BS3D.Screens
                     ["warmupWorstMs"] = Math.Round(_physicsWarmup.Worst, 3),
                     ["warmupMedianMs"] = Math.Round(_physicsWarmup.Median, 4),
                 };
+            JsonObject swarm = null;
+            if (_swarmMeasured)
+                swarm = new JsonObject
+                {
+                    ["scene"] = SceneRenderer.SceneName(SWARM_SCENE),
+                    ["budgetMs"] = Math.Round(BenchmarkSwarm.BUDGET_MILLISECONDS, 3),
+                    ["startBalls"] = BenchmarkSwarm.START_BALLS,
+                    ["growth"] = BenchmarkSwarm.GROWTH,
+                    ["stepSeconds"] = BenchmarkSwarm.STEP_SECONDS,
+                    ["held"] = _swarmHeld,
+                    ["heldMedianMs"] = Math.Round(_swarmHeldMedian, 3),
+                    ["brokeAt"] = _swarmBrokeAt,
+                    ["brokenMedianMs"] = Math.Round(_swarmBrokenMedian, 3),
+                    ["steps"] = _swarmSteps,
+                    ["capped"] = _swarmCapped,
+                };
             QualityLevel recommended = BenchmarkVerdict.Recommend(Game.Quality, _results, Math.Min(_measured, TOURS), out _);
             Console.WriteLine($"[bench] recommends {recommended} (ran at {Game.Quality}){(complete ? "" : $", stopped after {_measured} of {SEGMENTS.Length} parts: not saved or sent")}");
             if (complete)
@@ -642,6 +745,7 @@ namespace BS3D.Screens
                     ["recommended"] = recommended.ToString(),
                     ["system"] = system,
                     ["segments"] = segments,
+                    ["swarm"] = swarm,
                     ["physics"] = physics,
                 };
                 Game.SaveBenchmark(result);
@@ -679,6 +783,7 @@ namespace BS3D.Screens
             BackdropScreen backdrop = Manager?.Find<BackdropScreen>();
             if (backdrop != null && backdrop.TourRunning && !backdrop.TrySkipTour()) return;
             DisposePhysics();
+            ReleaseSwarm();
             Console.WriteLine("[bench] stopped");
             if (_measured > 0) Finish(complete: false);
             else
@@ -694,7 +799,7 @@ namespace BS3D.Screens
         private void BeginPart(string title, int part, string budgetCaption, float budget)
         {
             _partTitle = title;
-            _partStep = string.Create(CultureInfo.InvariantCulture, $"{part} / {SEGMENTS.Length + 1}");
+            _partStep = string.Create(CultureInfo.InvariantCulture, $"{part} / {SEGMENTS.Length + 2}");
             _partBudgetCaption = budgetCaption;
             _partBudget = budget;
             _trace.Clear();
@@ -721,6 +826,8 @@ namespace BS3D.Screens
             _readoutUnit.Clear();
             if (physics) _readoutUnit.Append("a step, ").Append(_physicsBalls).Append(" balls");
             else if (apart) _readoutUnit.Append("warming up");
+            else if (_phase == Phase.Swarm && _swarm != null && mean > 0f)
+                _readoutUnit.Append(_swarm.Balls).Append(CultureInfo.InvariantCulture, $" balls, {1000f / mean:0} FPS");
             else if (mean > 0f) _readoutUnit.Append(CultureInfo.InvariantCulture, $"{1000f / mean:0} FPS");
             _readoutSum = _readoutSeconds = 0f;
             _readoutFrames = 0;
@@ -757,8 +864,8 @@ namespace BS3D.Screens
             int readoutTop = titleTop + _titleFont.LineHeight + gap;
             int graphTop = readoutTop + _readoutFont.LineHeight + gap;
             int graphHeight = Scaled(GRAPH_HEIGHT);
-            bool physics = _phase == Phase.Physics;
-            int bottom = graphTop + graphHeight + (physics ? gap + Scaled(PROGRESS_HEIGHT) : 0) + pad;
+            bool physics = _phase == Phase.Physics, swarm = _phase == Phase.Swarm && _swarm != null;
+            int bottom = graphTop + graphHeight + (physics || swarm ? gap + Scaled(PROGRESS_HEIGHT) : 0) + pad;
 
             SpriteBatch batch = Game.OverlayBatch;
             Texture2D texel = Game.Texel;
@@ -802,11 +909,16 @@ namespace BS3D.Screens
             batch.DrawString(_captionFont, _partBudgetCaption,
                 new Vector2(left + inner - MathF.Round(captionSize.X), lineY - MathF.Round(captionSize.Y) - line), PlayHud.HUD_ACCENT);
 
-            if (physics && _physics != null)
+            //How far through its steps the physics is; how far the storm has grown towards the most it asks, on the ramp's own
+            //(logarithmic) scale, so each step moves the bar alike
+            float progress = physics && _physics != null ? _physics.Progress
+                : swarm ? MathF.Log((float)_swarm.Balls / BenchmarkSwarm.START_BALLS) / MathF.Log((float)BenchmarkSwarm.MAX_BALLS / BenchmarkSwarm.START_BALLS)
+                : -1f;
+            if (progress >= 0f)
             {
                 int progressTop = graphTop + graphHeight + gap, progressHeight = Scaled(PROGRESS_HEIGHT);
                 batch.Draw(texel, new Rectangle(left, progressTop, inner, progressHeight), BS3DGame.MENU_TEXT * 0.12f);
-                batch.Draw(texel, new Rectangle(left, progressTop, (int)MathF.Round(inner * _physics.Progress), progressHeight),
+                batch.Draw(texel, new Rectangle(left, progressTop, (int)MathF.Round(inner * Math.Clamp(progress, 0f, 1f)), progressHeight),
                     BS3DGame.MENU_TEXT_NOTE);
             }
             batch.End();
