@@ -666,8 +666,6 @@ namespace BS3D.Effects
         {
             if (_tier <= 0) return;
 
-            bool glass = _translucent[_tier];
-
             Matrix view = camera.View;
             Vector3 right = new(view.M11, view.M21, view.M31);
             Vector3 up = new(view.M12, view.M22, view.M32);
@@ -716,11 +714,28 @@ namespace BS3D.Effects
             //without writing depth, so drawn after the stones it lays its glass over the ones on the far side —
             //they are seen THROUGH the cup, which is what jewellery set on crystal looks like. On the metal
             //tiers the order is free, since every surface of theirs writes depth.
+            DrawTier(camera, _tier, world);
+
+            _world = world;
+            _worldScale = scale;
+        }
+
+        /// <summary>
+        /// Draws one tier's cup, its ornament and its body, at <paramref name="world"/> (a world matrix for the cup's own
+        /// mesh, its foot at the origin): <see cref="Draw"/>'s presentation, and the Top Players' podium (#827), which stands
+        /// the three metals at once, each on its own step. States its own states, as <see cref="Draw"/> explains.
+        /// </summary>
+        internal void DrawTier(ICamera camera, int tier, in Matrix world)
+        {
+            if (tier < 1 || tier > TIERS) return;
+
+            bool glass = _translucent[tier];
+
             _device.BlendState = BlendState.Opaque;
             _device.DepthStencilState = DepthStencilState.Default;
             _device.RasterizerState = RasterizerState.CullCounterClockwise;
 
-            foreach (OrnamentSet set in _ornaments[_tier])
+            foreach (OrnamentSet set in _ornaments[tier])
             {
                 for (int i = 0; i < set.Local.Length; i++)
                     set.Instances[i] = new ModelInstance(set.Local[i] * world, new Vector4(0f, 0f, 0f, 1f));
@@ -731,10 +746,7 @@ namespace BS3D.Effects
             _device.BlendState = glass ? BlendState.AlphaBlend : BlendState.Opaque;
             _device.DepthStencilState = glass ? DepthStencilState.DepthRead : DepthStencilState.Default;
 
-            _renderers[_tier].Draw(camera, world, _materials[_tier]);
-
-            _world = world;
-            _worldScale = scale;
+            _renderers[tier].Draw(camera, world, _materials[tier]);
         }
 
         private float _worldScale;

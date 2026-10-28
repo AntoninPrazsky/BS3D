@@ -260,6 +260,10 @@ namespace BS3D
         //Null means the argument was absent; empty means the page as it chooses.
         internal string HighScores { get; private set; }
 
+        //Testing only: open Top Players at boot (#827), this month's ("topplayers") or all time's ("topplayers=all"). Null
+        //means the argument was absent.
+        internal string TopPlayers { get; private set; }
+
         //Testing only: open the Help screen at boot, and "help=<n>" on its nth page (#427). Null means
         //the argument was absent; the number is 1-based because that is what the page prints about itself.
         internal int? Help { get; private set; }
@@ -728,6 +732,9 @@ namespace BS3D
             //page is a pager, so "a shot of it" means nothing without saying which chapter
             Row.Flag("highscores", o => o.HighScores = string.Empty),
             Row.Text("highscores", (o, v) => o.HighScores = v),
+            //"topplayers" opens Top Players at boot (#827), "topplayers=all" on the all-time ranking
+            Row.Flag("topplayers", o => o.TopPlayers = string.Empty),
+            Row.Text("topplayers", (o, v) => o.TopPlayers = v),
             //"help" opens the Help screen and "help=<n>" opens it on that tab (#427; the tabs' order since #857,
             //1 = Controls) - the same reasoning one turn further: the tabs are not in the pad's walk, so a scripted
             //walk cannot reach one at all, and menucursor='s rb/lb presses are the click path through them.

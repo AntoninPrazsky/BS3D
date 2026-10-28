@@ -166,6 +166,8 @@ namespace BS3D.Online
         private readonly ConcurrentQueue<BoardReply> _boardReplies = new();
         private readonly ConcurrentQueue<SummaryRequest> _summaryRequests = new();
         private readonly ConcurrentQueue<SummaryReply> _summaryReplies = new();
+        private readonly ConcurrentQueue<RankingRequest> _rankingRequests = new();
+        private readonly ConcurrentQueue<RankingReply> _rankingReplies = new();
         private readonly SemaphoreSlim _wake = new(0);
         private readonly CancellationTokenSource _stop = new();
 
@@ -383,6 +385,21 @@ namespace BS3D.Online
         /// <summary>The next summary the worker fetched, if any. Allocates nothing when there is none.</summary>
         internal bool TryTakeSummary(out SummaryReply reply) => _summaryReplies.TryDequeue(out reply);
 
+        /// <summary>
+        /// Asks for a page of the players' ranking (#827) - <c>GET /v1/ranking</c>, no token, like a board. Only for an enabled
+        /// client. The answer comes back through <see cref="TryTakeRanking"/> under the request's ticket.
+        /// </summary>
+        internal void RequestRanking(RankingRequest request)
+        {
+            if (!Enabled) return;
+
+            _rankingRequests.Enqueue(request);
+            _wake.Release();
+        }
+
+        /// <summary>The next ranking page the worker fetched, if any. Allocates nothing when there is none.</summary>
+        internal bool TryTakeRanking(out RankingReply reply) => _rankingReplies.TryDequeue(out reply);
+
         /// <summary>The next answer the worker has for the frame, if any. Allocates nothing when there is none.</summary>
         internal bool TryTakeAnswer(out OnlineAnswer answer) => _answers.TryDequeue(out answer);
 
@@ -558,6 +575,9 @@ namespace BS3D.Online
 
                         while (_summaryRequests.TryDequeue(out SummaryRequest summary))
                             _summaryReplies.Enqueue(await FetchSummaryAsync(summary, stop));
+
+                        while (_rankingRequests.TryDequeue(out RankingRequest ranking))
+                            _rankingReplies.Enqueue(await FetchRankingAsync(ranking, stop));
 
                         await DrainAsync(outbox, stop);
                     }
@@ -1011,6 +1031,85 @@ namespace BS3D.Online
 
         /// <summary>The most boards a summary may carry into the frame: several times the campaign, every version of it.</summary>
         internal const int MaxSummaryBoards = 2000;
+
+        /// <summary>
+        /// A page of the players' ranking (#827), failing as a board does: a reply with its reason, never an exception. A 404
+        /// or 405 is a service without the ranking (older than BS3D-API v0.1.35), which the page tells apart from no answer.
+        /// </summary>
+        private async Task<RankingReply> FetchRankingAsync(RankingRequest r, CancellationToken stop)
+        {
+            using CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(stop);
+            deadline.CancelAfter(RequestTimeout);
+
+            QuietStats();
+
+            try
+            {
+                string query = FormattableString.Invariant(
+                    $"v1/ranking?period={(r.AllTime ? "all" : "month")}&rules={r.Rules}&limit={r.Limit}&offset={r.Offset}")
+                    + (r.Player is Guid p ? $"&player={p}" : "");
+
+                using HttpResponseMessage response = await _http.GetAsync(new Uri(Server, query), deadline.Token);
+                string text = await response.Content.ReadAsStringAsync(deadline.Token);
+                int status = (int)response.StatusCode;
+
+                if (status == (int)HttpStatusCode.NotFound || status == (int)HttpStatusCode.MethodNotAllowed)
+                    return new RankingReply(r.Ticket, null, $"{status} {response.ReasonPhrase}", NotOffered: true);
+
+                if (!response.IsSuccessStatusCode)
+                    return new RankingReply(r.Ticket, null, $"{status} {response.ReasonPhrase}", NotOffered: false);
+
+                RankingPageBody page = response.Content.Headers.ContentType?.MediaType == "application/json"
+                    ? JsonSerializer.Deserialize<RankingPageBody>(text, RequestJson)
+                    : null;
+
+                return page != null
+                    ? new RankingReply(r.Ticket, SanitizeRanking(page, r.Limit), null, NotOffered: false)
+                    : new RankingReply(r.Ticket, null, "not the service's answer", NotOffered: false);
+            }
+            catch (OperationCanceledException) when (!stop.IsCancellationRequested)
+            {
+                return new RankingReply(r.Ticket, null, $"nothing within {RequestTimeout.TotalSeconds:0} s", NotOffered: false);
+            }
+            catch (Exception e) when (!stop.IsCancellationRequested)
+            {
+                return new RankingReply(r.Ticket, null, $"{e.GetType().Name}: {e.Message}", NotOffered: false);
+            }
+        }
+
+        /// <summary>
+        /// A ranking page made safe for the frame (#827), on <see cref="SanitizeBoard"/>'s terms: no null entry, no more entries
+        /// than were asked for, no negative rank, count or figure, names cleaned and cut.
+        /// </summary>
+        internal static RankingPageBody SanitizeRanking(RankingPageBody page, int limit)
+        {
+            page.Entries ??= new List<RankingEntryBody>();
+            page.Entries.RemoveAll(entry => entry == null);
+            if (limit > 0 && page.Entries.Count > limit) page.Entries.RemoveRange(limit, page.Entries.Count - limit);
+
+            foreach (RankingEntryBody entry in page.Entries)
+            {
+                entry.Rank = Math.Max(0, entry.Rank);
+                entry.Levels = Math.Max(0, entry.Levels);
+                entry.Stars = Math.Max(0, entry.Stars);
+                entry.Score = Math.Max(0, entry.Score);
+                entry.Name = CleanText(entry.Name, Nickname.MaxLength);
+            }
+
+            page.Total = Math.Max(0, page.Total);
+            page.Period = CleanText(page.Period, 16);
+            page.Month = CleanText(page.Month, 16);
+
+            if (page.Me != null)
+            {
+                page.Me.Rank = Math.Max(0, page.Me.Rank);
+                page.Me.Levels = Math.Max(0, page.Me.Levels);
+                page.Me.Stars = Math.Max(0, page.Me.Stars);
+                page.Me.Score = Math.Max(0, page.Me.Score);
+            }
+
+            return page;
+        }
 
         /// <summary>
         /// The service's form of the name it was sent, <paramref name="sent"/>, written back only when it is a

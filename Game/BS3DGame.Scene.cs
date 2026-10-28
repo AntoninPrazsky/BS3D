@@ -532,6 +532,9 @@ namespace BS3D
             //airless sky, the cavern's dim one) cannot take the reward down with it.
             foreach (InstancedModelRenderer renderer in _trophy.Renderers) _rig.ApplyToPresented(renderer);
 
+            //And the winners' podium the same cups stand on (#827), presented as they are
+            foreach (InstancedModelRenderer renderer in _winners.Renderers) _rig.ApplyToPresented(renderer);
+
             //The muzzle collar stays out of the rig - it states the round's colour under every dome - but how
             //hard it pushes that colour follows the sky (CannonRig.SetCollarSky, #478)
             _cannonRig.SetCollarSky(_rig.SkyAmbient);

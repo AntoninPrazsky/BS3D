@@ -34,6 +34,10 @@ namespace BS3D.Screens
         /// <summary>The figure as the player reads it — grouped in threes, no decimals, no currency.</summary>
         internal static string Of(int value) => value.ToString("N0", GROUPED_BY_SPACE);
 
+        /// <inheritdoc cref="Of(int)"/>
+        /// <remarks>A total over every level (#827), which the service sums without a cap of its own.</remarks>
+        internal static string Of(long value) => value.ToString("N0", GROUPED_BY_SPACE);
+
         private static NumberFormatInfo BuildFormat()
         {
             NumberFormatInfo format = (NumberFormatInfo)CultureInfo.InvariantCulture.NumberFormat.Clone();

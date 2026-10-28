@@ -164,6 +164,7 @@ namespace BS3D
 
         //Testing only: High Scores at boot (highscores=<chapter>[:all], #685). Null for none.
         private string _highScores;
+        private string _topPlayers;
 
         //Which Help page to open at boot, 1-based, or null for "not asked" (#427)
         private int? _help;
@@ -246,6 +247,7 @@ namespace BS3D
             _board = launch.Board;
             _boardPage = launch.BoardPage;
             _highScores = launch.HighScores;
+            _topPlayers = launch.TopPlayers;
             _help = launch.Help;
             _scenes = launch.ScenePicker;
             _tour = launch.Tour;
@@ -262,7 +264,7 @@ namespace BS3D
                 : new Queue<string>(launch.MenuCursorPresses.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 
             Drives = _celebrate || _confetti || _play || _result || _pick != null || _about != null || _extras || _benchmark || _continue || _jukebox != null || _settings
-                || _board != null || _highScores != null || _help != null || _scenes || _tour || _toMenuAt != null || _actions != null || _noteAt != null || _quitAt != null
+                || _board != null || _highScores != null || _topPlayers != null || _help != null || _scenes || _tour || _toMenuAt != null || _actions != null || _noteAt != null || _quitAt != null
                 || _menuCursorAt != null;
         }
 
@@ -483,6 +485,14 @@ namespace BS3D
 
                 if (int.TryParse(parts[0], out int chapter)) game.OpenHighScoresAt(chapter, parts.Length > 1 && parts[1] == "all");
                 else game.OpenHighScores();
+            }
+
+            //Top Players (#827), past the title card for the same reason, on the period asked for
+            if (_topPlayers != null && !game.IsSplashUp)
+            {
+                bool allTime = _topPlayers == "all";
+                _topPlayers = null;
+                game.OpenTopPlayersAt(allTime);
             }
 
             //And the Help screen, on whichever of its pages was asked for (#427)
