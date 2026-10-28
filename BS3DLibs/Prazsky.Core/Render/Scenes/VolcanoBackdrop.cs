@@ -24,13 +24,10 @@ namespace Prazsky.Core.Render
         private readonly Effect _volcanoEffect;
         private VertexBuffer _volcanoVertexBuffer; //not readonly: a tier's crossing rebuilds it (EnsureVolcanoGrid, #540)
 
-        //The grid's quads in blocks (TerrainGridCache.BlockIndices), the backdrop's own over the cache's vertices, so only the
-        //blocks the lens sees are drawn (#1032): the grid closes round the camera, and every vertex of it ran the land's
-        //figures and three heights (#748) whether it was in front of the lens or behind it
-        private IndexBuffer _volcanoBlockIndices;
-        private int[] _blockStart, _blockCount;
-        private int _blocksPerSide;
-        private const int TERRAIN_BLOCK = 32;
+        //The grid in blocks (TerrainGridCache.Order.Blocks), so only the blocks the lens sees are drawn (#1032): the grid closes
+        //round the camera, and every vertex of it ran the land's figures and three heights (#748) whether it was in front of
+        //the lens or behind it
+        private TerrainGridCache.Grid _volcanoGrid;
         private readonly BoundingFrustum _terrainFrustum = new(Matrix.Identity);
 
         //The mountain's density and extent: the flank carries a summit against the sky, so it wants the
@@ -479,51 +476,13 @@ namespace Prazsky.Core.Render
             if (_volcanoVertexBuffer != null && _volcanoGridN == n) return;
 
             //Given back rather than disposed: the grid cache owns it, and at full detail another scene draws the same one
-            if (_volcanoVertexBuffer != null) Services.ReleaseGridMesh(_volcanoGridN, VOLCANO_EXTENT);
-            Services.AcquireGridMesh(n, VOLCANO_EXTENT, out _volcanoVertexBuffer, out _, out _);
+            if (_volcanoGrid != null) Services.ReleaseBlockedGrid(_volcanoGridN, VOLCANO_EXTENT);
+            _volcanoGrid = Services.AcquireBlockedGrid(n, VOLCANO_EXTENT);
+            _volcanoVertexBuffer = _volcanoGrid.Vertices;
             _volcanoGridN = n;
-
-            _volcanoBlockIndices?.Dispose();
-            int[] blocked = TerrainGridCache.BlockIndices(n, TERRAIN_BLOCK, out _blocksPerSide, out _blockStart, out _blockCount);
-            _volcanoBlockIndices = new IndexBuffer(_graphicsDevice, IndexElementSize.ThirtyTwoBits, blocked.Length, BufferUsage.WriteOnly);
-            _volcanoBlockIndices.SetData(blocked);
         }
 
         private int _volcanoGridN;
-
-        //Each run of neighbouring blocks whose box the lens' frustum touches, in one draw. A block's box spans the grid's cell
-        //range round the origin and every height the flank, the cone or the land can reach, with room to spare
-        private void DrawSeenBlocks(Prazsky.Core.Camera.ICamera camera, float originX, float originZ, float cell)
-        {
-            _terrainFrustum.Matrix = camera.View * camera.Projection;
-
-            VolcanoCountryConfig country = _volcanoConfig.Country;
-            float low = _volcanoConfig.LevelY - 60f;
-            float high = _volcanoConfig.LevelY + MathF.Max(_volcanoConfig.ConeHeight,
-                country.LandRise + country.RidgeHeight + country.DormantHeight) + 100f;
-            float half = VOLCANO_EXTENT * 0.5f, span = TERRAIN_BLOCK * cell;
-
-            int runStart = -1, runEnd = 0;
-            for (int bz = 0; bz < _blocksPerSide; bz++)
-                for (int bx = 0; bx < _blocksPerSide; bx++)
-                {
-                    int b = bz * _blocksPerSide + bx;
-                    float x0 = originX - half + bx * span, z0 = originZ - half + bz * span;
-                    var box = new BoundingBox(new Vector3(x0, low, z0), new Vector3(x0 + span, high, z0 + span));
-                    if (_terrainFrustum.Contains(box) != ContainmentType.Disjoint)
-                    {
-                        if (runStart < 0) runStart = _blockStart[b];
-                        runEnd = _blockStart[b] + _blockCount[b];
-                    }
-                    else if (runStart >= 0)
-                    {
-                        _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, runStart, (runEnd - runStart) / 3);
-                        runStart = -1;
-                    }
-                }
-
-            if (runStart >= 0) _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, runStart, (runEnd - runStart) / 3);
-        }
 
         /// <summary>The flank, then the fountains, the plume and the blaze over it.</summary>
         public override void Draw(in SceneFrame frame)
@@ -596,9 +555,16 @@ namespace Prazsky.Core.Render
 
             Services.FarField.Begin(_volcanoEffect, frame, VOLCANO_EXTENT);
             _graphicsDevice.SetVertexBuffer(_volcanoVertexBuffer);
-            _graphicsDevice.Indices = _volcanoBlockIndices;
+            _graphicsDevice.Indices = _volcanoGrid.Indices;
             _volcanoEffect.CurrentTechnique.Passes[0].Apply();
-            DrawSeenBlocks(frame.Camera, originX, originZ, cell);
+
+            //A block's box from the field's level less 60 to the highest the cone or the land reaches, with room
+            _terrainFrustum.Matrix = frame.Camera.View * frame.Camera.Projection;
+            VolcanoCountryConfig country = _volcanoConfig.Country;
+            float low = _volcanoConfig.LevelY - 60f;
+            float high = _volcanoConfig.LevelY + MathF.Max(_volcanoConfig.ConeHeight,
+                country.LandRise + country.RidgeHeight + country.DormantHeight) + 100f;
+            TerrainGridCache.DrawSeenBlocks(_graphicsDevice, _volcanoGrid, _terrainFrustum, originX, originZ, VOLCANO_EXTENT, low, high);
             Services.FarField.DrawRing(_volcanoEffect, new Vector2(originX, originZ), VOLCANO_EXTENT);
 
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
@@ -773,8 +739,6 @@ namespace Prazsky.Core.Render
             _planting = null;
             _country?.Dispose();
             _country = null;
-            _volcanoBlockIndices?.Dispose();
-            _volcanoBlockIndices = null;
         }
     }
 }

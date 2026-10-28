@@ -344,7 +344,7 @@ namespace Prazsky.Core.Render
         /// The flat lattice grid of <paramref name="n"/> vertices a side over <paramref name="extent"/> that a
         /// terrain scene displaces, from <see cref="TerrainGridCache"/> (#589): scenes asking for the same pair
         /// share one pair of buffers, which the cache owns — a holder gives its grid back with
-        /// <see cref="TerrainGridCache.Release"/> and never disposes it. The indices are 32-bit; the cache's
+        /// <see cref="TerrainGridCache.Release(int, float, bool)"/> and never disposes it. The indices are 32-bit; the cache's
         /// builder carries the note on why a grid over 255 a side must never have 16-bit ones. <paramref name="nearFirst"/>
         /// asks for its quads in rings from the centre out, a separate grid (#781, <see cref="TerrainGridCache"/>).
         /// </summary>
@@ -359,10 +359,20 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Gives back one reference to the grid <see cref="AcquireGridMesh"/> handed out for the pair
-        /// (<see cref="TerrainGridCache.Release"/>): what a scene that retakes its grid at another density does with
+        /// (<see cref="TerrainGridCache.Release(int, float, bool)"/>): what a scene that retakes its grid at another density does with
         /// the old one, rather than disposing a pair of buffers another scene may be drawing.
         /// </summary>
         public void ReleaseGridMesh(int n, float extent, bool nearFirst = false) => _gridCache.Release(n, extent, nearFirst);
+
+        /// <summary>
+        /// The same grid with its quads in blocks and the blocks' table (#1035, <see cref="TerrainGridCache.Order.Blocks"/>), for a
+        /// pass that draws only what its lens sees (<see cref="TerrainGridCache.DrawSeenBlocks"/>). Shared and owned as
+        /// <see cref="AcquireGridMesh"/>'s are; given back with <see cref="ReleaseBlockedGrid"/>.
+        /// </summary>
+        public TerrainGridCache.Grid AcquireBlockedGrid(int n, float extent) => _gridCache.Acquire(n, extent, TerrainGridCache.Order.Blocks);
+
+        /// <summary>Gives back one reference to the grid <see cref="AcquireBlockedGrid"/> handed out for the pair.</summary>
+        public void ReleaseBlockedGrid(int n, float extent) => _gridCache.Release(n, extent, TerrainGridCache.Order.Blocks);
 
         /// <summary>
         /// A static buffer of <paramref name="count"/> camera-facing quads, each carrying a fixed random point
