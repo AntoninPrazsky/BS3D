@@ -43,15 +43,15 @@ namespace Prazsky.Core.Render
     /// The meadow's separately drawn layers, for <see cref="SceneRenderer.MeadowLayers"/> (#1028): the field (the camera grid
     /// and its far ring), the brook's and the pond's cut (the patch and the bed), the planting and the water.
     /// </summary>
+    [System.Flags]
+    public enum MeadowLayer { None = 0, Field = 1, Cut = 2, Plants = 4, Water = 8, FarRing = 16, All = Field | Cut | Plants | Water | FarRing }
+
     /// <summary>
     /// The mountain's separately drawn layers, for <see cref="SceneRenderer.MountainLayers"/> (#1035): the range (the camera
     /// grid), its far ring, the bank's planting and the falling snow.
     /// </summary>
     [System.Flags]
     public enum MountainLayer { None = 0, Range = 1, FarRing = 2, Berm = 4, Snow = 8, All = Range | FarRing | Berm | Snow }
-
-    [System.Flags]
-    public enum MeadowLayer { None = 0, Field = 1, Cut = 2, Plants = 4, Water = 8, FarRing = 16, All = Field | Cut | Plants | Water | FarRing }
 
     /// <summary>
     /// The per-frame inputs a scene needs that are not its own static tuning: the camera, the sun direction,

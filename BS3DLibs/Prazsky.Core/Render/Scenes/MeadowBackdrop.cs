@@ -151,8 +151,9 @@ namespace Prazsky.Core.Render
         /// </summary>
         public override void Draw(in SceneFrame frame)
         {
+            _meadowPass.DrawsGrid = (Layers & MeadowLayer.Field) != 0;
             _meadowPass.DrawsFarRing = (Layers & MeadowLayer.FarRing) != 0;
-            if ((Layers & MeadowLayer.Field) != 0) _meadowPass.Draw(frame, Services.TerrainHoleRadius);
+            if ((Layers & (MeadowLayer.Field | MeadowLayer.FarRing)) != 0) _meadowPass.Draw(frame, Services.TerrainHoleRadius);
             if ((Layers & MeadowLayer.Cut) != 0) DrawCut(frame.Camera);
             if ((Layers & MeadowLayer.Plants) != 0) DrawPlanting(frame);
         }
