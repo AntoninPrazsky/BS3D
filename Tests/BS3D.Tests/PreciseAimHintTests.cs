@@ -83,6 +83,24 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void TwoShotsInTheAirAreEachJudgedByTheirOwnLean()
+        {
+            var hint = new PreciseAimHint();
+            hint.NoteShotFired(leaned: false);
+            hint.NoteShotResolved(scored: false);
+            hint.NoteShotFired(leaned: false);
+            hint.NoteShotResolved(scored: false);
+
+            //A leaned shot, then one from the hip fired before the first lands: the first's miss starts the count again, the
+            //second's is the first of a new run - never the third of the old one
+            hint.NoteShotFired(leaned: true);
+            hint.NoteShotFired(leaned: false);
+            Assert.False(hint.NoteShotResolved(scored: false));
+            Assert.False(hint.NoteShotResolved(scored: false));
+            Assert.Equal(1, hint.MissesInARow);
+        }
+
+        [Fact]
         public void ALevelStartsTheCountAgain()
         {
             var hint = new PreciseAimHint();

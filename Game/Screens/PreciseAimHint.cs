@@ -21,13 +21,25 @@ namespace BS3D.Screens
         public const float LEANED_BLEND = 0.5f;
 
         private int _misses;
-        private bool _lastShotLeaned;
+
+        //Whether each shot still in the air left from the lean, oldest first: shots resolve in the order they were fired,
+        //so two in the air at once are each judged by their own lean. A ring of a fixed size, so nothing is allocated; a
+        //shot fired past it (more in the air than any hand fires) is judged as not leaned
+        private const int IN_FLIGHT = 16;
+        private readonly bool[] _leaned = new bool[IN_FLIGHT];
+        private int _oldest, _inFlight;
 
         /// <summary>The unscored shots in a row fired outside the lean, for the log line.</summary>
         public int MissesInARow => _misses;
 
         /// <summary>A shot has left the barrel; <paramref name="leaned"/> says it was fired from precise aim.</summary>
-        public void NoteShotFired(bool leaned) => _lastShotLeaned = leaned;
+        public void NoteShotFired(bool leaned)
+        {
+            if (_inFlight == IN_FLIGHT) return;
+
+            _leaned[(_oldest + _inFlight) % IN_FLIGHT] = leaned;
+            _inFlight++;
+        }
 
         /// <summary>
         /// The shot last fired has resolved, <paramref name="scored"/> or dropping nothing. Returns whether the hint is due:
@@ -35,7 +47,15 @@ namespace BS3D.Screens
         /// </summary>
         public bool NoteShotResolved(bool scored)
         {
-            if (scored || _lastShotLeaned)
+            bool leaned = false;
+            if (_inFlight > 0)
+            {
+                leaned = _leaned[_oldest];
+                _oldest = (_oldest + 1) % IN_FLIGHT;
+                _inFlight--;
+            }
+
+            if (scored || leaned)
             {
                 _misses = 0;
                 return false;
@@ -51,7 +71,7 @@ namespace BS3D.Screens
         public void BeginLevel()
         {
             _misses = 0;
-            _lastShotLeaned = false;
+            _oldest = _inFlight = 0;
         }
     }
 }
