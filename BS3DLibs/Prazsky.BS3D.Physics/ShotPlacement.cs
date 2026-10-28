@@ -262,11 +262,13 @@ namespace Prazsky.BS3D.Physics
         }
 
         /// <summary>
-        /// How long a flight the curved solver will follow before giving up, in seconds. A shot crosses the
-        /// arena in about an eighth of a second, so half a second is four times the longest real flight and is
-        /// there to bound the loop rather than to be reached.
+        /// How far a flight the curved solver will follow before giving up, in world units. A shot crosses the
+        /// arena in about 25 units, so this is four times the longest real flight and is there to bound the loop
+        /// rather than to be reached. A distance and not a time: a slower shot (the Game's <c>shotspeed=</c>
+        /// trial, #1007) is followed as far as the shipped one, where half a second at 50 units a second stopped
+        /// the ghost short of a cluster the shot itself reached. At 200 units a second it is the half second it was.
         /// </summary>
-        private const float MAX_FLIGHT_SECONDS = 0.5f;
+        private const float MAX_FLIGHT_DISTANCE = 100f;
 
         /// <summary>
         /// The step the curved solver integrates at, in seconds — <b>the simulation's own</b>
@@ -351,6 +353,9 @@ namespace Prazsky.BS3D.Physics
             float speedSquared = velocity.LengthSquared();
             if (speedSquared < Constants.THOUSANDTH) return false;
 
+            //The flight's budget in seconds at the speed it leaves at (MAX_FLIGHT_DISTANCE's reason)
+            float maxFlightSeconds = MAX_FLIGHT_DISTANCE / MathF.Sqrt(speedSquared);
+
             System.Numerics.Vector3 position = origin.ToNumerics();
             System.Numerics.Vector3 shotVelocity = velocity.ToNumerics();
             float flown = 0f;
@@ -362,7 +367,7 @@ namespace Prazsky.BS3D.Physics
             System.Numerics.Vector3 near = default, far = default;
             if (stepped) ClusterBounds(balls, radiusSum, out near, out far);
 
-            while (flown < MAX_FLIGHT_SECONDS)
+            while (flown < maxFlightSeconds)
             {
                 float speed = shotVelocity.Length();
                 if (speed < Constants.THOUSANDTH) return false;
@@ -391,7 +396,7 @@ namespace Prazsky.BS3D.Physics
                     //Outside every well the acceleration is exactly zero, so this whole run is one straight
                     //segment and jumping it loses nothing. Bounded by the flight budget so a shot aimed into
                     //empty sky terminates on the same rule everything else here does.
-                    float remaining = speed * (MAX_FLIGHT_SECONDS - flown);
+                    float remaining = speed * (maxFlightSeconds - flown);
                     float segment = MathF.Min(toField, remaining);
 
                     if (TryFindFirstHitOnSegment(balls, position.ToXna(), heading.ToXna(), segment, radiusSum,

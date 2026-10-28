@@ -143,7 +143,10 @@ if ($NoRun) { exit 0 }
 
 if ($GameArgs) {
     Write-Host ('Starting the Game with: ' + ($GameArgs -join ' '))
-    Start-Process -FilePath $exe -WorkingDirectory (Split-Path -Parent $exe) -ArgumentList $GameArgs
+    # Windows PowerShell joins the list with spaces and quotes nothing, so a word with a space in it (a userdata= path)
+    # would reach the Game as two: such a word is quoted here
+    $quoted = $GameArgs | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }
+    Start-Process -FilePath $exe -WorkingDirectory (Split-Path -Parent $exe) -ArgumentList $quoted
 } else {
     Write-Host 'Starting the Game.'
     Start-Process -FilePath $exe -WorkingDirectory (Split-Path -Parent $exe)

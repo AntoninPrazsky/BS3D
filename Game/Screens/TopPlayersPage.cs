@@ -51,7 +51,7 @@ namespace BS3D.Screens
 
         private bool _allTime;
         private int _offset;
-        private int _ticket = -1, _podiumTicket = -1;
+        private int _ticket = -1;
         private RankingReply _reply;
 
         //The podium's three, off the first page of the period they were asked for; how many there are; and whether the player
@@ -67,7 +67,8 @@ namespace BS3D.Screens
         private Widget _podiumArea;
         private bool _builtTall;
 
-        public TopPlayersPage(BS3DGame game) : base(game) { }
+        public TopPlayersPage(BS3DGame game) : base(game) =>
+            _measureName = text => (int)System.MathF.Ceiling(_measureFont.MeasureString(text).X);
 
         /// <summary>Opens on a period: the <c>topplayers</c> argument's (#827).</summary>
         internal void Pin(bool allTime)
@@ -185,13 +186,6 @@ namespace BS3D.Screens
                 changed = true;
             }
 
-            if (_podiumTicket >= 0 && Game.Online.TryTakeRanking(_podiumTicket, out RankingReply first))
-            {
-                _podiumTicket = -1;
-                TakePodium(first);
-                changed = true;
-            }
-
             if (changed) Refresh();
         }
 
@@ -223,10 +217,9 @@ namespace BS3D.Screens
             _reply = null;
             _ticket = Game.Online.RequestRanking(_allTime, _offset, ROWS);
 
-            //The podium is the first page's: asked for when the page shown is a later one and the period's three are not in
-            //(a cached first page comes back on the next frame without asking the service)
-            if (_offset > 0 && _podiumAllTime != _allTime) _podiumTicket = Game.Online.RequestRanking(_allTime, 0, ROWS);
-            if (_podiumAllTime != _allTime && _offset == 0) _podiumCount = 0;
+            //The podium is the first page's, and a later page is only reached through the first (a period's change goes back to
+            //it), so a new period clears it until its first page is in
+            if (_podiumAllTime != _allTime) _podiumCount = 0;
 
             Refresh();
         }
@@ -330,10 +323,20 @@ namespace BS3D.Screens
                 if (entry == null || !Game.Winners.TryNameAnchor(place, out Vector2 anchor, out float room, out float panel)) continue;
 
                 //Sized to the panel and rounded to a whole pixel, so the face's cache holds one size while the window does
-                var font = Game.ReadingFontAt(System.MathF.Round(System.MathF.Max(panel * NAME_SHARE, Scaled(NAME_FONT_FLOOR))));
+                float pixels = System.MathF.Round(System.MathF.Max(panel * NAME_SHARE, Scaled(NAME_FONT_FLOOR)));
+                SpriteFontBase font = Game.ReadingFontAt(pixels);
 
-                string name = BoardLayout.Ellipsize(entry.Name, (int)room, text => (int)System.MathF.Ceiling(font.MeasureString(text).X)) ?? string.Empty;
-                Vector2 size = font.MeasureString(name);
+                //Cut to the step and measured once for this name, room and size, not every frame (BestPractices.md, §3)
+                ref ShownName shown = ref _shownNames[place - 1];
+                if (!ReferenceEquals(shown.Source, entry.Name) || shown.Room != (int)room || shown.Pixels != pixels)
+                {
+                    _measureFont = font;
+                    string cut = BoardLayout.Ellipsize(entry.Name, (int)room, _measureName) ?? string.Empty;
+                    shown = new ShownName(entry.Name, (int)room, pixels, cut, font.MeasureString(cut));
+                }
+
+                string name = shown.Text;
+                Vector2 size = shown.Size;
                 Vector2 at = new(System.MathF.Round(anchor.X - size.X * 0.5f), System.MathF.Round(anchor.Y - size.Y * 0.5f));
                 Color colour = place == _podiumYou ? BS3DGame.BoardYouColor : BS3DGame.MENU_TEXT;
 
@@ -343,6 +346,15 @@ namespace BS3D.Screens
             }
             batch.End();
         }
+
+        //A podium name as it was last cut and measured: the nickname it came from, the room and size it was cut for, the text
+        //and its size
+        private readonly record struct ShownName(string Source, int Room, float Pixels, string Text, Vector2 Size);
+        private readonly ShownName[] _shownNames = new ShownName[3];
+
+        //The measure Ellipsize cuts a name by, bound once, and the face it measures in, set before each cut
+        private SpriteFontBase _measureFont;
+        private System.Func<string, int> _measureName;
 
         private static Rectangle OnDesktop(Widget widget)
         {
