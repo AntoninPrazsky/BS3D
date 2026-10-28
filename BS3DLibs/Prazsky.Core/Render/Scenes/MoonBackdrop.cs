@@ -26,9 +26,9 @@ namespace Prazsky.Core.Render
         //shared Services.FullScreenQuad — the opposite interleave is a measured 8× frame blow-up; see
         //Draw's doc.
         private readonly Effect _moonEffect;
-        private readonly VertexBuffer _moonVertexBuffer;
-        private readonly IndexBuffer _moonIndexBuffer;
-        private readonly int _moonIndexCount;
+        //In blocks, drawn only where the lens looks (#1035's review): the grid the mountains and the volcano take, one copy
+        private readonly TerrainGridCache.Grid _moonGrid;
+        private readonly BoundingFrustum _moonFrustum = new(Matrix.Identity);
 
         //Two techniques over one effect, resolved once — CurrentTechnique is assigned twice per frame here,
         //which is why the by-name lookup must not be paid per draw.
@@ -70,7 +70,7 @@ namespace Prazsky.Core.Render
             //grid like the desert's under a sky-replacing star-and-Earth pass on space's quad, two
             //techniques in one effect. Nothing on it moves, so there is no time parameter to cache.
             _moonEffect = content.Load<Effect>("Shaders/Moon");
-            Services.AcquireGridMesh(MOON_GRID_N, MOON_EXTENT, out _moonVertexBuffer, out _moonIndexBuffer, out _moonIndexCount);
+            _moonGrid = Services.AcquireBlockedGrid(MOON_GRID_N, MOON_EXTENT);
 
             _moonSkyTechnique = _moonEffect.Techniques["MoonSky"];
             _moonTerrainTechnique = _moonEffect.Techniques["MoonTerrain"];
@@ -237,11 +237,13 @@ namespace Prazsky.Core.Render
                 _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _bank.PrimitiveCount);
             }
 
-            _graphicsDevice.SetVertexBuffer(_moonVertexBuffer);
-            _graphicsDevice.Indices = _moonIndexBuffer;
+            _graphicsDevice.SetVertexBuffer(_moonGrid.Vertices);
+            _graphicsDevice.Indices = _moonGrid.Indices;
             _moonEffect.CurrentTechnique = _moonTerrainTechnique;
             _moonEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _moonIndexCount / 3);
+            _moonFrustum.Matrix = frame.Camera.View * frame.Camera.Projection;
+            TerrainGridCache.DrawSeenBlocks(_graphicsDevice, _moonGrid, _moonFrustum, originX, originZ, MOON_EXTENT,
+                TerrainPass.BLOCK_LOW_Y, TerrainPass.BLOCK_HIGH_Y);
 
             //The rocks, before the sky so the sky's depth test rejects what they cover too. Lit as the terrain is lit, not
             //from a dome (there is none): the config's sun, the tiny floor and the earthshine overhead, and the sunlit
