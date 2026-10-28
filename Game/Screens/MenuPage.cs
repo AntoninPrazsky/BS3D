@@ -7,6 +7,7 @@ using Myra.Graphics2D.UI;
 using Prazsky.BS3D.Scoring;
 using Prazsky.Core.Screens;
 using System;
+using System.Collections.Generic;
 using Label = Myra.Graphics2D.UI.Label;
 
 namespace BS3D.Screens
@@ -467,6 +468,11 @@ namespace BS3D.Screens
         //FontStashSharp sizes a font by
         private const float ANTON_CAP_OF_LINE = 1760f / (2409f + 674f);
 
+        //The two faces' ascents as fractions of their lines, off their own tables (Inter: ascent 1984 + descent 494): where
+        //each face's baseline stands under the top of its line, for a label of one face beside a line of the other
+        private const float ANTON_ASCENT_OF_LINE = 2409f / (2409f + 674f);
+        private const float INTER_ASCENT_OF_LINE = 1984f / (1984f + 494f);
+
         protected Button FrontEndEntry(string text, Action onClick) => Game.FrontEndEntry(text, onClick);
 
         protected Button FrontEndEntry(string text, Action onClick, out Label label) =>
@@ -546,6 +552,74 @@ namespace BS3D.Screens
         /// </summary>
         protected Label Aside(string text, int width) =>
             Prose(text, width, BS3DGame.MENU_TEXT_DIM, Game.ProseLeading, new Thickness(0, 0, 0, ParagraphGap));
+
+        /// <summary>
+        /// A list of labelled facts (#1034), such as the online privacy list: each label in the display face's capitals at
+        /// the rows' size, flush right in a column as wide as the widest label, and what it says set as prose in the column
+        /// beside it, which takes the rest of <paramref name="width"/>. The owner's verdict on the run-in lead-ins it
+        /// replaced (#996) was Help's: a heading too small for its text, sitting oddly at the left, and a list short of the
+        /// page's width. A column of labels adds no line, as a heading on a line of its own would, and the 45 to 75
+        /// characters rule holds for the text's column, not the whole width. Each label stands on its text's first baseline.
+        /// </summary>
+        /// <param name="color">The text's grey: <see cref="BS3DGame.MENU_TEXT_DIM"/> for an aside. The labels are the loud white.</param>
+        protected Grid FactList(IReadOnlyList<(string Label, string Text)> facts, int width, Color color)
+        {
+            int gap = Scaled(FACT_COLUMN_GAP);
+
+            //Measured as drawn: plain capitals, no commands, so the face's own measure is the label's width
+            int labelWidth = 0;
+            foreach ((string label, _) in facts)
+                labelWidth = Math.Max(labelWidth, (int)MathF.Ceiling(FontBody.MeasureString(label.ToUpperInvariant()).X));
+
+            int textWidth = width - labelWidth - gap;
+
+            //The text dropped by the difference of the two faces' ascents, so its first line's baseline is the label's
+            int drop = Math.Max(0, (int)MathF.Round(FontBody.LineHeight * ANTON_ASCENT_OF_LINE
+                - FontSmall.LineHeight * INTER_ASCENT_OF_LINE));
+
+            Grid list = new()
+            {
+                ColumnSpacing = gap,
+                RowSpacing = Scaled(FACT_ROW_GAP),
+                Width = width,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
+            };
+            list.ColumnsProportions.Add(new Proportion(ProportionType.Pixels, labelWidth));
+            list.ColumnsProportions.Add(new Proportion(ProportionType.Pixels, textWidth));
+
+            for (int i = 0; i < facts.Count; i++)
+            {
+                list.RowsProportions.Add(new Proportion(ProportionType.Auto));
+
+                Label label = new()
+                {
+                    Text = facts[i].Label.ToUpperInvariant(),
+                    Font = FontBody,
+                    TextColor = BS3DGame.MENU_TEXT,
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    VerticalAlignment = VerticalAlignment.Top,
+                };
+                Grid.SetRow(label, i);
+                list.Widgets.Add(label);
+
+                Label text = Prose(facts[i].Text, textWidth, color, ProseLeading, new Thickness(0, drop, 0, 0));
+                text.VerticalAlignment = VerticalAlignment.Top;
+                Grid.SetColumn(text, 1);
+                Grid.SetRow(text, i);
+                list.Widgets.Add(text);
+            }
+
+            return list;
+        }
+
+        //Between a fact list's labels and its text, in design units: Help's gap after a control's name (#997)
+        private const int FACT_COLUMN_GAP = 40;
+
+        //Between two facts, in design units: with the text's drop to the label's baseline, a third of a prose line more
+        //than the leading, so a fact of several lines reads as ended before the next label. Settings' ONLINE is the tallest
+        //page, and twice this (24) left its plate 7 px inside a 1600x900 window
+        private const int FACT_ROW_GAP = 12;
 
         /// <summary>
         /// The prose label <see cref="Paragraph(string, int)"/> and <see cref="Aside"/> are made of, for a page that places it otherwise:

@@ -20,8 +20,8 @@ namespace BS3D.Screens
     /// <para>
     /// <b>Four pages behind one menu entry (#807)</b>, the owner's "nobody reads that much text": the two columns of #463 had
     /// grown to some 160 words of running text plus the privacy sentence, in one face, one colour, with nothing to say where
-    /// to start. About opens on what the game is, with the privacy line; then what it is built on and what it was made
-    /// with; and <b>the player last</b>, the owner's ruling (2026-10-12): it is a small easter egg, waiting at the end for
+    /// to start. About opens on what the game is; then what online scores send (#1034), what it is built on and what it
+    /// was made with; and <b>the player last</b>, the owner's ruling (2026-10-12): it is a small easter egg, waiting at the end for
     /// whoever turns that far. <b>What each page holds, in what order, is <see cref="AboutCopy.Pages"/></b>, and this page
     /// sets every block it is handed (<see cref="BuildBody"/>), so the test that holds the words to the typesetting rules,
     /// the credits to the full list and the player to the last page reads what is drawn.
@@ -267,9 +267,12 @@ namespace BS3D.Screens
                         body.Widgets.Add(Paragraph(block.Text, ProseMeasure));
                         break;
 
-                    //The Settings page's own list, from the one place both read it (#548, #868)
+                    //The Settings page's own list, from the one place both read it (#548, #868), set as Settings sets it (#1034):
+                    //an aside's grey and the space under it, its labels in a column of their own
                     case AboutCopy.BlockKind.Privacy:
-                        body.Widgets.Add(Aside(Game.Online.PrivacyList(LeadIn), ProseMeasure));
+                        Grid privacy = FactList(Game.Online.PrivacyList(), ProseMeasure, BS3DGame.MENU_TEXT_DIM);
+                        privacy.Margin = new Thickness(0, 0, 0, ParagraphGap);
+                        body.Widgets.Add(privacy);
                         break;
 
                     case AboutCopy.BlockKind.Logos:

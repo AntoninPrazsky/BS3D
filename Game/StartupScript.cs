@@ -134,8 +134,8 @@ namespace BS3D
 
         /// <summary>
         /// <c>about</c> / <c>about=play</c> / <c>about=&lt;n&gt;</c>: put the About page up at boot, with <c>play</c> start its
-        /// player on the first piece (#443), and with a number open it on that page, 1-based (#807: it is four pages, and a
-        /// script cannot press the arrow that turns one; <c>about=2:play</c> takes both). <c>play</c> with no number opens
+        /// player on the first piece (#443), and with a number open it on that page, 1-based (#807: it is five pages since
+        /// #1034, and a script cannot press the arrow that turns one; <c>about=2:play</c> takes both). <c>play</c> with no number opens
         /// the player's own page, the last (<c>AboutPage.PlayerPage</c>); neither opens page one. Null for neither. The page
         /// is two presses away for someone at the machine and none on a locked desktop — <c>pick</c>'s wall — and its
         /// visualizer is only worth a shot while a piece is actually sounding, which takes a third press nobody is there to

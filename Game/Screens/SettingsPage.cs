@@ -100,6 +100,9 @@ namespace BS3D.Screens
         private CheckRow _fullscreenCheck, _adaptiveQualityCheck, _sceneryCheck, _fpsCheck, _aberrationCheck, _grainCheck, _motionBlurCheck, _tenBitCheck;
         private CheckRow _tutorialCheck, _introLogoCheck, _dropCinematicCheck, _unlockAllCheck;
 
+        //Online scores (#1034): a box since the owner asked for one, its third state the reason beside it (ShowCallToAction)
+        private CheckRow _onlineCheck;
+
         /// <summary>
         /// A two-state row's checkbox (#816): its tick, and the dim word beside the box when the tier or the build holds
         /// the row where it is, whatever it is set to ("(tier)", "(locked)"), the box dimmed with it. The tick says what the
@@ -130,8 +133,28 @@ namespace BS3D.Screens
                 Note.Text = heldBy == null ? string.Empty : $"({heldBy})";
                 Note.Visible = heldBy != null;
             }
+
+            /// <summary>
+            /// The Online row (#1034), the one box that is a call to action (#687): off, it is empty and red, never dimmed
+            /// as a held row is, because ticking it is what the page is asking for; on with nowhere to send, it is ticked
+            /// with <paramref name="problem"/> beside it in the same red. Written here so the reason has the one place
+            /// a held row's has.
+            /// </summary>
+            public void ShowCallToAction(bool on, string problem)
+            {
+                Glyph.Checked = on;
+                Glyph.Tint = on ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_ALERT;
+                Note.Text = problem == null ? string.Empty : $"({problem})";
+                Note.TextColor = BS3DGame.MENU_TEXT_ALERT;
+                Note.Visible = problem != null;
+            }
         }
-        private Label _onlineValue, _nicknameValue, _removeValue, _onlineNote;
+        private Label _nicknameValue, _removeValue, _onlineNote;
+
+        //Under the online rows (#1034): the place the note stands in, as tall as the tallest thing it can say, and the two
+        //things it shows - the privacy list, or a line of prose while that is more use (OnlineNote)
+        private Panel _noteArea;
+        private Grid _privacyList;
 
         //What the note was last set to say, before its lines were chosen (Refresh)
         private string _noteSource;
@@ -466,8 +489,9 @@ namespace BS3D.Screens
             Grid grid = NewGroupGrid();
 
             //Opt-in (#548): off until the player turns it on, and turning it on the first time asks for the nickname
-            //the boards will show. Off keeps the identity, so on again later is the same player.
-            AddRow(grid, 0, "Online scores", OnOnline, out _onlineValue);
+            //the boards will show. Off keeps the identity, so on again later is the same player. A box since #1034, the
+            //last two-state row to keep its words: "No server", the third state that kept them, is the reason beside it
+            AddCheckRow(grid, 0, "Online scores", OnOnline, out _onlineCheck);
 
             //Typed, not cycled — see the class remarks
             AddRow(grid, 1, "Nickname", OnNickname, out _nicknameValue, typingRow: true);
@@ -476,11 +500,18 @@ namespace BS3D.Screens
             //has said yes — OnlineSession.RemoveScores
             AddRow(grid, 2, "Remove scores", OnRemove, out _removeValue);
 
-            //What is sent and what is kept, in the About page's own words (one sentence, one source) — or, while it
-            //is more use, what the player is doing: typing, or a removal's outcome. Its width is the rows' own up to the
-            //prose measure, and its height the tallest thing it can say, both set in BuildTree once the caption column is
-            //known (SizeOnlineNote). Set as prose (#806): the prose leading, the lines chosen by SpaceWrap.
+            //What is sent and what is kept, the About page's own list (one source) — or, while it is more use, what the
+            //player is doing: typing, or a removal's outcome. The area is the page's width and the height of the tallest
+            //thing it can say, set in BuildTree once the page's width is known (SizeOnlineNote), which also puts the list
+            //in. The prose is set as prose (#806): the prose leading, the lines chosen by SpaceWrap. The gap above in true
+            //pixels: ScaledThickness makes each zero side a pixel, and the list is cut to the area's width exactly
             grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
+            _noteArea = new Panel
+            {
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(0, Scaled(GROUP_HEADING_GAP), 0, 0),
+            };
             _onlineNote = new Label
             {
                 Font = FontSmall,
@@ -489,12 +520,12 @@ namespace BS3D.Screens
                 VerticalSpacing = ProseLeading,
                 HorizontalAlignment = HorizontalAlignment.Left,
                 VerticalAlignment = VerticalAlignment.Top,
-                Margin = ScaledThickness(0, GROUP_HEADING_GAP, 0, 0),
             };
-            Grid.SetColumn(_onlineNote, 0);
-            Grid.SetColumnSpan(_onlineNote, 2);
-            Grid.SetRow(_onlineNote, 3);
-            grid.Widgets.Add(_onlineNote);
+            _noteArea.Widgets.Add(_onlineNote);
+            Grid.SetColumn(_noteArea, 0);
+            Grid.SetColumnSpan(_noteArea, 2);
+            Grid.SetRow(_noteArea, 3);
+            grid.Widgets.Add(_noteArea);
 
             return grid;
         }
@@ -765,23 +796,25 @@ namespace BS3D.Screens
 
             //What is left for the player to do is red (#687, BS3DGame.MENU_TEXT_ALERT): the boards off, and on with
             //nowhere to send - a local build whose settings name no server, or one the client refused. A release
-            //always has OnlineScores.DefaultServer, so a player meets the second only on a server they typed in
+            //always has OnlineScores.DefaultServer, so a player meets the second only on a server they typed in. The box
+            //shows the switch alone, so turning it on the first time leaves it empty until a name is kept (#1034)
             bool online = Game.Online.IsOn;
             bool noServer = online && Game.Online.Nickname != null && !Game.Online.Enabled;
-            _onlineValue.Text = !online ? "Off" : noServer ? "No server" : "On";
-            _onlineValue.TextColor = !online || noServer ? BS3DGame.MENU_TEXT_ALERT : BS3DGame.MENU_TEXT;
+            _onlineCheck.ShowCallToAction(online, noServer ? "no server" : null);
             ShowNickname();
             _removeValue.Text = Game.Online.Removal == OnlineRemovalState.Removing ? "Removing…"
                 : _removeArmed ? "Sure?"
                 : Game.Online.Nickname == null ? "Nothing" : "Remove";
             //Broken into lines only when what it says changes: a typed key refreshes the page, and the note's lines are a few
-            //hundred measures (SpaceWrap)
+            //hundred measures (SpaceWrap). Null is the privacy list, set once with the tree
             string note = OnlineNote();
             if (note != _noteSource)
             {
                 _noteSource = note;
-                SetProse(_onlineNote, note);
+                if (note != null) SetProse(_onlineNote, note);
             }
+            _onlineNote.Visible = note != null;
+            _privacyList.Visible = note == null;
             //The instruction while typing is the thing to read on the page, so it is not set as an aside (#687)
             _onlineNote.TextColor = _typing ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM;
 
@@ -832,7 +865,7 @@ namespace BS3D.Screens
 
         /// <summary>
         /// What the line under the online rows says, most pressing first: what typing needs, a refusal of the name,
-        /// how a removal went, that nothing can be sent — and otherwise the sentence saying what is sent and kept.
+        /// how a removal went, that nothing can be sent — and otherwise null, for the list of what is sent and kept.
         /// </summary>
         private string OnlineNote()
         {
@@ -865,10 +898,10 @@ namespace BS3D.Screens
             if (Game.Online.IsOn && !Game.Online.Enabled && Game.Online.Nickname != null)
                 return NO_SERVER_NOTE;
 
-            return Game.Online.PrivacyList(LeadIn);
+            return null;
         }
 
-        //The note's longer texts, named so SizeOnlineNote can measure them beside the privacy sentence. The rest (a
+        //The note's longer texts, named so SizeOnlineNote can measure them beside the privacy list. The rest (a
         //refusal, a removal under way or failed) are a line or two as the score server words its reasons today; a reason
         //the server sent at length would be cut, since what it says cannot be measured ahead of it.
         private static readonly string TYPING_NOTE = "Press Enter to keep the name, or Esc to cancel. Moving to another row keeps it too. "
@@ -881,19 +914,30 @@ namespace BS3D.Screens
             "No score server: this build has none to send to, so nothing is sent. A release sends to the game’s own server.";
 
         /// <summary>
-        /// The note's width, and a height that holds the tallest thing it can say (#769), so what it says can change
-        /// without the rows above it moving and none of it is ever cut. Measured, as the label will lay it out, rather
-        /// than counted: the height was nine of the face's <c>LineHeight</c>s, but the drawn pitch is more than that and
-        /// Myra counts the note's top margin inside an explicit height, so eight lines showed, and once #716 lengthened
-        /// the privacy sentence its last clause ("Remove scores deletes it all.") was cut after "Remove" (photographed
-        /// at 1920x1080). Every text goes through <see cref="SpaceWrap"/> first, exactly as <see cref="Refresh"/> sets it
-        /// (<see cref="MenuPage.ProseHeight"/>). As wide as the page up to the prose measure (#806): the page is about 1590
-        /// units across, 71 characters of the small face, and a paragraph is set no wider than 67.
+        /// The note's area: the page's width, and a height that holds the tallest thing it can say (#769), so what it says
+        /// can change without the rows above it moving and none of it is ever cut. Measured, as each will be laid out,
+        /// rather than counted: the height was nine of the face's <c>LineHeight</c>s, but the drawn pitch is more than that
+        /// and Myra counts a top margin inside an explicit height, so eight lines showed, and once #716 lengthened the
+        /// privacy sentence its last clause was cut after "Remove" (photographed at 1920x1080). Every text goes through
+        /// <see cref="SpaceWrap"/> first, exactly as <see cref="Refresh"/> sets it (<see cref="MenuPage.ProseHeight"/>).
+        /// <para>
+        /// The privacy list across the whole page (#1034: the owner found it short of the width), its text's column well
+        /// inside the 45 to 75 characters; the prose notes as wide as the page up to the prose measure (#806). The list
+        /// is built here because its columns need the page's width, and set once: what it says changes only with the
+        /// settings' server, which a run does not change.
+        /// </para>
         /// </summary>
         private void SizeOnlineNote(int pageWidth)
         {
             _onlineNote.Width = Math.Min(pageWidth, ProseMeasure);
-            _onlineNote.Height = ProseHeight(_onlineNote, Game.Online.PrivacyList(LeadIn), TYPING_NOTE, REMOVED_HERE_NOTE, NO_SERVER_NOTE);
+            _privacyList = FactList(Game.Online.PrivacyList(), pageWidth, BS3DGame.MENU_TEXT_DIM);
+            _noteArea.Widgets.Add(_privacyList);
+
+            int tallest = Math.Max(ProseHeight(_onlineNote, TYPING_NOTE, REMOVED_HERE_NOTE, NO_SERVER_NOTE),
+                _privacyList.Measure(new Point(pageWidth, int.MaxValue / 2)).Y);
+
+            _noteArea.Width = pageWidth;
+            _noteArea.Height = _noteArea.Margin.Top + tallest;
 
             //A new tree's note is empty, whatever the last one said
             _noteSource = null;
