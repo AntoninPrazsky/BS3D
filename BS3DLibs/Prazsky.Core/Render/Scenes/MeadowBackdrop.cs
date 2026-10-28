@@ -151,10 +151,17 @@ namespace Prazsky.Core.Render
         /// </summary>
         public override void Draw(in SceneFrame frame)
         {
-            _meadowPass.Draw(frame, Services.TerrainHoleRadius);
-            DrawCut(frame.Camera);
-            DrawPlanting(frame);
+            _meadowPass.DrawsFarRing = (Layers & MeadowLayer.FarRing) != 0;
+            if ((Layers & MeadowLayer.Field) != 0) _meadowPass.Draw(frame, Services.TerrainHoleRadius);
+            if ((Layers & MeadowLayer.Cut) != 0) DrawCut(frame.Camera);
+            if ((Layers & MeadowLayer.Plants) != 0) DrawPlanting(frame);
         }
+
+        /// <summary>
+        /// The layers drawn (#1028): a measurement dial (<see cref="SceneRenderer.MeadowLayers"/>, the Testbed's <c>meadow=</c>),
+        /// <see cref="MeadowLayer.All"/> for every other caller. Each layer is drawn or not on the next frame; nothing carries.
+        /// </summary>
+        public MeadowLayer Layers { get; set; } = MeadowLayer.All;
 
         /// <summary>
         /// The brook's groove and the pond's crater (#892), into the hole the camera grid left for them: the pass has set
@@ -186,7 +193,7 @@ namespace Prazsky.Core.Render
         /// </summary>
         public override void DrawGrounded(in SceneFrame frame)
         {
-            if (_patch == null) return;
+            if (_patch == null || (Layers & MeadowLayer.Water) == 0) return;
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;

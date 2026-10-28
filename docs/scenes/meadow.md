@@ -168,3 +168,5 @@ The desktop's `Low` figures above move by hundredths; the reference APU's move b
 - **−0.61, the brook from its spring** (#979: the patch a fifth as long).
 
 The stone's, the relief's and the straw's (#971) share went with the plant programs (#1028): Amphora's `Low` reads 16.22 ms beside v0.4.0's 15.18 in one session.
+
+What `Low` draws, taken apart with the Testbed's `meadow=` dial at `Low`'s settings (one process, `campos=0,-4,30 camtarget=0,6,-60`, 36 and 40 cycles): of an 11.9 ms frame the field is **3.1–3.2 ms**, the planting 0.68, the cut 0.48, the water 0.04, and the far ring nothing (without it the sky behind costs 0.08 more). The field's cost is the grass program on the grid itself, so what is left of Amphora's step can only come out of what `Low` shows of the grass.

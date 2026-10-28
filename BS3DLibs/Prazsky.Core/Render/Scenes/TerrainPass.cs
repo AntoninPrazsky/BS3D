@@ -108,6 +108,9 @@ namespace Prazsky.Core.Render
             _gridCell?.SetValue(_cell);
         }
 
+        /// <summary>Whether the far ring is drawn: a measurement dial (the meadow's <c>meadow=</c> layers, #1028), true for every other caller.</summary>
+        public bool DrawsFarRing { get; set; } = true;
+
         /// <summary>
         /// Draws the grid round the camera and the far ring past it, the island's footprint cut out to
         /// <paramref name="holeRadius"/>. Leaves the blend state alpha and the rasterizer culling
@@ -143,7 +146,7 @@ namespace Prazsky.Core.Render
             _graphicsDevice.Indices = _indexBuffer;
             Effect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _indexCount / 3);
-            _farField.DrawRing(Effect, new Vector2(originX, originZ), _extent);
+            if (DrawsFarRing) _farField.DrawRing(Effect, new Vector2(originX, originZ), _extent);
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;

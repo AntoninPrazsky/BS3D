@@ -36,6 +36,13 @@ namespace Prazsky.Core.Render
     }
 
     /// <summary>
+    /// The meadow's separately drawn layers, for <see cref="SceneRenderer.MeadowLayers"/> (#1028): the field (the camera grid
+    /// and its far ring), the brook's and the pond's cut (the patch and the bed), the planting and the water.
+    /// </summary>
+    [System.Flags]
+    public enum MeadowLayer { None = 0, Field = 1, Cut = 2, Plants = 4, Water = 8, FarRing = 16, All = Field | Cut | Plants | Water | FarRing }
+
+    /// <summary>
     /// The per-frame inputs a scene needs that are not its own static tuning: the camera, the sun direction,
     /// the sky palette in <b>linear</b> radiance (zenith and horizon), the sun's own radiance already tinted
     /// by the dome (for the sea glint and the warm cast on the terrain), the wall-clock time its motion runs
@@ -448,6 +455,16 @@ namespace Prazsky.Core.Render
         {
             get => _cavern.Layers;
             set => _cavern.Layers = value;
+        }
+
+        /// <summary>
+        /// The meadow's layers (#1028), the same kind of measurement dial: the Testbed's <c>meadow=</c> sets it, every other
+        /// caller leaves it at <see cref="MeadowLayer.All"/>.
+        /// </summary>
+        public MeadowLayer MeadowLayers
+        {
+            get => _meadow.Layers;
+            set => _meadow.Layers = value;
         }
 
         #region The sun's shadow map (#469, in every terrain scene since #471)
