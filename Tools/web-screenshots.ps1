@@ -1,6 +1,7 @@
 <#
 .SYNOPSIS
-    Takes the website's gallery: one in-game picture per level, written to Web/src/img/shots/<level>-1600.jpg and -800.jpg.
+    Takes the website's big picture: the game as it is played, HUD and all, written to Web/src/img/shots/<level>-1600.jpg and
+    -800.jpg. The gallery under it is Tools/web-gallery.ps1's (#922): moments in motion from stated cameras, with no HUD.
 
 .DESCRIPTION
     The page at bs3d.winphonew.eu shows the game as the newest release plays it (#815), so its pictures are retaken
@@ -18,8 +19,8 @@
     The game's window opens for about fifteen seconds a level and takes the focus, so do not type while it runs.
 
 .PARAMETER Levels
-    The levels to photograph, by name; each brings its own scene. Meander is the page's big picture and the rest its
-    gallery (Web/src/_data/gallery.json), so a change here is a change there.
+    The levels to photograph, by name; each brings its own scene. Meander is the page's big picture. A gallery level
+    taken here comes out in this plain view, not the gallery's own (Tools/web-gallery.ps1).
 
 .PARAMETER Seed
     The session's seed, which decides the magazine's deal (the queue in the corner is part of the picture).
@@ -32,10 +33,10 @@
 
 .EXAMPLE
     .\Tools\web-screenshots.ps1
-    .\Tools\web-screenshots.ps1 -Levels Reel,Vortex
+    .\Tools\web-screenshots.ps1 -Levels Meander,Reel
 #>
 param(
-    [string[]]$Levels = @('Meander', 'Cannonball', 'Elephant', 'Minaret', 'Helix', 'Umbrella', 'Vortex', 'Juggler', 'Reel'),
+    [string[]]$Levels = @('Meander'),
     [int]$Seed = 917045606,
     [double]$Seconds = 9,
     [ValidateRange(1, 100)][int]$Quality = 84

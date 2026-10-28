@@ -1,10 +1,18 @@
 [
-  { "file": "cannonball", "level": "Cannonball", "chapter": "The Meadow", "caption": "Where the campaign starts" },
-  { "file": "elephant", "level": "Elephant", "chapter": "The Gallery", "caption": "Pictures on the savanna" },
-  { "file": "minaret", "level": "Minaret", "chapter": "The Coil", "caption": "Vultures over the desert" },
-  { "file": "helix", "level": "Helix", "chapter": "The Tower", "caption": "Snow over the mountains" },
-  { "file": "umbrella", "level": "Umbrella", "chapter": "The Silhouettes", "caption": "Under the northern lights" },
-  { "file": "vortex", "level": "Vortex", "chapter": "The Nebula", "caption": "Deep space" },
-  { "file": "juggler", "level": "Juggler", "chapter": "The Big Top", "caption": "In the circus tent" },
-  { "file": "reel", "level": "Reel", "chapter": "The Arcade", "caption": "A neon city at night" }
+  { "file": "cannonball", "level": "Cannonball", "chapter": "The Meadow", "caption": "Where the campaign starts",
+    "shot": { "from": 19.8666, "campos": "5,-4.5,24", "camtarget": "0,2,0", "fov": 58 } },
+  { "file": "elephant", "level": "Elephant", "chapter": "The Gallery", "caption": "Pictures on the savanna",
+    "shot": { "from": 7.8, "campos": "24,-2,25", "camtarget": "0,0,1", "fov": 50 } },
+  { "file": "minaret", "level": "Minaret", "chapter": "The Coil", "caption": "Vultures over the desert",
+    "shot": { "from": 13.4666, "campos": "-6,-5,27", "camtarget": "0,3,0", "fov": 70 } },
+  { "file": "helix", "level": "Helix", "chapter": "The Tower", "caption": "Snow over the mountains",
+    "shot": { "from": 9.2666, "campos": "20,-2,22", "camtarget": "0,3,1", "fov": 55 } },
+  { "file": "umbrella", "level": "Umbrella", "chapter": "The Silhouettes", "caption": "Under the northern lights",
+    "shot": { "from": 17.2666, "campos": "6,-5,27", "camtarget": "0,3,0", "fov": 70 } },
+  { "file": "vortex", "level": "Vortex", "chapter": "The Nebula", "caption": "Deep space",
+    "shot": { "from": 10.1333, "campos": "24,0,26", "camtarget": "0,4,0", "fov": 58 } },
+  { "file": "juggler", "level": "Juggler", "chapter": "The Big Top", "caption": "In the circus tent",
+    "shot": { "from": 17.6666, "campos": "6,-5,27", "camtarget": "0,3,0", "fov": 70 } },
+  { "file": "reel", "level": "Reel", "chapter": "The Arcade", "caption": "A neon city at night",
+    "shot": { "from": 17.6666, "campos": "-6,-5,27", "camtarget": "0,3,0", "fov": 70 } }
 ]
