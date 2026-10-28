@@ -20,6 +20,16 @@ Pravidla:
 
 ---
 
+## 2026-10-28 — #400 #1036 #1012 #987 #751 #752 průchod 16, přezdívky, nápověda míření — desktop (RDT-PC), Claude Code (bs3d-13)
+- Hotovo: tři čtenáři (Sonnet) prošli 15 merge bez vlastního review. Opraveno:
+  - #1036: filtr přezdívek četl zakázané slovo přes mezeru mezi slovy („Jane Grey“ → „negr“). Opraveno ve hře `fb77325b` i v BS3D-API `a662387`. **Vydání a nasazení API zbývá.**
+  - #1012: nápověda přesného míření se za tutoriálovými kapitolami neozbrojila hráči, který kartu nechal vypršet (`4c1f5884`).
+  - Tři zastaralé komentáře (`edb20df6`).
+- Ostatní:
+  - #751 a #752 zavřeny: majitelovo OK z 25. 10. se na ně nepřepsalo.
+  - #987: rešerše Logitech LED SDK 9.00 je na issue (licence, API, G513 neověřena).
+- Otevřené: k #1006 je na issue podezření, že zaostřený pohled se kymácí v horní zarážce (pocit, `FollowAim` z `AimDirection`).
+
 ## 2026-10-28 — #1034 Online scores jako zaškrtávátko, seznam soukromí ve dvou sloupcích — desktop (RDT-PC), Claude Code (bs3d-13)
 - Hotovo: řádek Online scores je zaškrtávátko (`CheckRow.ShowCallToAction`): vypnuté má prázdný červený box, bez serveru je zaškrtnuté s červeným „(no server)“. Seznam soukromí je dvojice popisek–text (`MenuPage.FactList`): popisky jsou písmem Anton ve velikosti řádků a zarovnané doprava, text vede do konce šířky stránky.
 - About má kvůli tomu pátou stránku PRIVACY (druhou). Pod odstavcem o hře by seznam vytlačil Back z okna 1600x900.
