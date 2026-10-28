@@ -812,6 +812,13 @@ namespace BS3D.Screens
         internal int Step => _step;
 
         /// <summary>
+        /// The lesson whose card is up and still asking - arriving or shown, not praising or leaving - while the player's hand is on
+        /// the keyboard and mouse, or null. The keyboard's lights blink the keys it asks for (#987, <c>KeyLightModel.KeysFor</c>).
+        /// </summary>
+        internal Lesson? AskingLesson =>
+            _card != null && _device == Device.KeyboardMouse && (_phase == Phase.Arriving || _phase == Phase.Shown) ? _card.Lesson : null;
+
+        /// <summary>
         /// True once per completed action or finished step, on the frame it happened — the session plays the chime and kicks
         /// the praise word's spring off it (the whole card's, for a card turning to its second step, which has no praise
         /// row), and the read clears it.

@@ -97,6 +97,7 @@ namespace BS3D.Screens
         private Label _progressValue;
 
         //The rows with two states, On and Off, as checkboxes (#816)
+        private CheckRow _keyboardLightsCheck;
         private CheckRow _fullscreenCheck, _adaptiveQualityCheck, _sceneryCheck, _fpsCheck, _aberrationCheck, _grainCheck, _motionBlurCheck, _tenBitCheck;
         private CheckRow _tutorialCheck, _introLogoCheck, _dropCinematicCheck, _unlockAllCheck;
 
@@ -477,6 +478,10 @@ namespace BS3D.Screens
             //player with a pad in hand looks for vibration.
             AddRow(grid, 2, "Rumble", Game.CycleRumbleStrength, out _rumbleValue);
 
+            //The keyboard's lights (#987): with the hands, like the pad's motors, because a backlit keyboard is the other thing in
+            //them that answers the game. The reason beside it says when Windows lists no keyboard to light
+            AddCheckRow(grid, 3, "Keyboard lights", Game.ToggleKeyboardLighting, out _keyboardLightsCheck);
+
             return grid;
         }
 
@@ -785,6 +790,7 @@ namespace BS3D.Screens
             _musicValue.Text = FormatVolume(Game.MusicVolume);
             _ambienceValue.Text = FormatVolume(Game.AmbienceVolume);
             _rumbleValue.Text = FormatVolume(Game.RumbleStrength);
+            _keyboardLightsCheck.Show(Game.IsKeyboardLightingEnabled, Game.IsKeyboardLightingEnabled && !BS3D.Platform.KeyboardLights.HasKeyboard ? "none found" : null);
             //As a percentage of the shipped feel, the volume rows' own idiom, and exact at every rung — the
             //ladder is written so that it is (0.75 is "75 %", where a multiplier would have to print "0.8×"
             //and lie, or "0.75×" and read as arithmetic).

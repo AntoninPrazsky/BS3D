@@ -66,6 +66,9 @@ namespace BS3D
         /// <summary>The pad's row (#378), on the volumes' ladder.</summary>
         internal float RumbleStrength { get => _file.RumbleStrength; set => _file.RumbleStrength = value; }
 
+        /// <summary>The keyboard's lights (#987).</summary>
+        internal bool KeyboardLighting { get => _file.KeyboardLighting; set => _file.KeyboardLighting = value; }
+
         internal bool Aberration { get => _file.Aberration; set => _file.Aberration = value; }
 
         internal bool Grain { get => _file.Grain; set => _file.Grain = value; }
