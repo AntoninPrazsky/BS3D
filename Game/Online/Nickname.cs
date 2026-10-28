@@ -143,13 +143,14 @@ namespace BS3D.Online
 
         /// <summary>
         /// Vulgar and hateful words no part of a name may hold (#1020: "KuloMrd" on the boards, the owner: "Mrd must be a
-        /// forbidden word"), matched in the name folded (<see cref="Fold"/>): diacritics off, lower case, separators out, and
-        /// the digits that stand for letters read as those letters, so "KuloMrd", "k_u_r_v_a" and "kurv4" are all caught.
+        /// forbidden word"), matched in each word of the name folded (<see cref="Fold"/>, <see cref="HasDeniedWord"/>): diacritics
+        /// off, lower case, and the digits that stand for letters read as those letters, and runs of one- and two-letter words
+        /// joined, so "KuloMrd", "k_u_r_v_a" and "kurv4" are all caught and "Jane Grey" is not.
         /// <b>The service's copy is BS3D-API's <c>Nicknames.DeniedWords</c>, the authority</b>: change both in step.
         /// </summary>
         internal static readonly string[] DeniedWords =
         {
-            "mrd", "kurv", "kokot", "curak", "prdel", "hovn", "srac", "jebat", "jeban", "jebn", "zasran", "buzna", "buzerant",
+            "mrd", "kurv", "kurw", "kokot", "curak", "prdel", "hovn", "srac", "jebat", "jeban", "jebn", "zasran", "buzna", "buzerant",
             "negr", "kreten", "hajzl", "sukat", "picus", "picovin", "debil",
             "fuck", "shit", "cunt", "nigg", "fagg", "bitch", "whore", "slut", "porn", "nazi", "hitler", "penis", "vagin",
             "asshole", "bastard", "retard", "wanker", "dildo", "pussy", "motherf", "cocksuck", "blowjob",
@@ -167,12 +168,33 @@ namespace BS3D.Online
             "fick", "cum", "tit", "tits", "boob", "boobs",
         };
 
-        /// <summary>Whether <paramref name="name"/> holds a denied word anywhere, or a denied part as one of its parts.</summary>
+        /// <summary>
+        /// Whether <paramref name="name"/> holds a denied word inside one of its words, or a denied part as one of its parts.
+        /// <para>
+        /// A word is looked for in each of the name's words on its own (what spaces, <c>_</c> and <c>-</c> divide) and in
+        /// each run of words of one or two characters joined, so "k_u_r_v_a", "Ne Gr" and "Mr D" are caught (#1036). Folded
+        /// whole with the separators out, a word ran across the gap between two ordinary ones: "Jane Grey" read "negr",
+        /// "Mr Darcy" "mrd", "Hans Lutz" "slut".
+        /// </para>
+        /// </summary>
         internal static bool HasDeniedWord(string name)
         {
-            string folded = Fold(name, digitsAsLetters: true);
-            foreach (string word in DeniedWords)
-                if (folded.Contains(word, StringComparison.Ordinal)) return true;
+            string[] words = name.Split(WORD_SEPARATORS, StringSplitOptions.RemoveEmptyEntries);
+            StringBuilder shortRun = new();
+            foreach (string word in words)
+            {
+                if (HoldsDeniedWord(word)) return true;
+
+                if (word.Length <= 2)
+                {
+                    shortRun.Append(word);
+                    continue;
+                }
+
+                if (shortRun.Length > 0 && HoldsDeniedWord(shortRun.ToString())) return true;
+                shortRun.Clear();
+            }
+            if (shortRun.Length > 0 && HoldsDeniedWord(shortRun.ToString())) return true;
 
             int start = 0;
             for (int i = 1; i <= name.Length; i++)
@@ -185,6 +207,19 @@ namespace BS3D.Online
                 while (start < name.Length && !char.IsLetter(name[start])) start++;
                 i = start;
             }
+            return false;
+        }
+
+        //What divides a name into the words a denied word is looked for in (HasDeniedWord)
+        private static readonly char[] WORD_SEPARATORS = { ' ', '_', '-' };
+
+        /// <summary>Whether one stretch of a name, folded with the digits read as letters, holds a denied word.</summary>
+        private static bool HoldsDeniedWord(string stretch)
+        {
+            string folded = Fold(stretch, digitsAsLetters: true);
+            foreach (string word in DeniedWords)
+                if (folded.Contains(word, StringComparison.Ordinal)) return true;
+
             return false;
         }
 
