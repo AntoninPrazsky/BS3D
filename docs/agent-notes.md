@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-28 — #1032 #1028 sopka a louka na Low — notebook (ThinkPad), Claude Code (github-4d)
+- Hotovo #1032: krok #748 na `Low` tvoří vertex shader terénu (`LandAt` a tři výšky na vrchol), ne pixely krajiny (plochá krajina ani zjednodušené detaily nepomohly). Mřížka se teď kreslí po blocích jen tam, kam kamera vidí. Caldera 16,34 → 16,00 ms (`Low`), na `Medium` −0,47. Snímky shodné.
+- Hotovo #1028: v Testbedu číselník `meadow=`. Pole stojí 3,1 ms, vzdálený prstenec nic. Amphora je 16,14 ms, na hraně rozpočtu. Rozhoduje majitel (`owner-decision`).
+- ⚠ `CloudSunlight` od #748 v programu rostlin louce ani savaně nic nestojí (+0,01).
+- Otevřené: Caldera na `Medium` 38,6 ms (v tabulce #1026 33,6), nerozloženo. #1029 čeká na `verdict-eye`.
+
 ## 2026-10-27 — #1029 skála jeskyně na Low, oprava testu hudby — notebook (ThinkPad), Claude Code (github-4d)
 - Hotovo: v Testbedu číselník `cavern=`. Na `Low` tvoří skalní plášť 10,69 ms ze 17,25. `RockReduced` má teď 3 oktávy reliéfu místo 5 a barevná pole o jedné oktávě. Spring na `Low` 16,80 → 15,31 ms (v0.4.0 15,74), Chest −1,51. Blízká skála přijde o nejjemnější zrno.
 - Hotovo: po #915 byl main červený, protože `MusicDecodeHeadroomTests` počítal s přesahem nahrávky `mirage-musicbox`. Nový přípravek je `puppet-triphop` (478c6f8a).
