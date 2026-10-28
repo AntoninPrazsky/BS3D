@@ -42,7 +42,7 @@ namespace Prazsky.Core.Render
         internal enum Order { Rows, NearFirst, Blocks }
 
         /// <summary>How many quads a side a block of a <see cref="Order.Blocks"/> grid holds.</summary>
-        public const int BLOCK_QUADS = 32;
+        public const int BLOCK_QUADS = 16;
 
         /// <summary>
         /// One shared grid: the two buffers and the index count a draw takes, and for a grid in blocks its vertices a side and
