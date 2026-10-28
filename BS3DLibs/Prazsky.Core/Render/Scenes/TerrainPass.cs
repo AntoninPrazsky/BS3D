@@ -44,6 +44,15 @@ namespace Prazsky.Core.Render
         private VertexBuffer _vertexBuffer;
         private IndexBuffer _indexBuffer;
         private int _indexCount;
+
+        //A grid in row order is taken in blocks instead and drawn only where the lens looks (#1035): the grid closes round the
+        //camera, and its vertex program ran on every vertex of it. Null for a near-first grid, which keeps its rings (#781)
+        private TerrainGridCache.Grid _blocks;
+        private readonly BoundingFrustum _frustum = new(Matrix.Identity);
+
+        //Every height a scene's vertex program lifts its ground to, and far more: a block's box spans them, so only the lens'
+        //sides, near plane and far plane decide what is drawn (#1035)
+        private const float BLOCK_LOW_Y = -1000f, BLOCK_HIGH_Y = 3000f;
         private int _gridN;
         private readonly float _extent;
         private readonly bool _nearFirst;
@@ -73,7 +82,7 @@ namespace Prazsky.Core.Render
             _gridN = gridN;
             _nearFirst = nearFirst;
 
-            services.AcquireGridMesh(gridN, extent, out _vertexBuffer, out _indexBuffer, out _indexCount, nearFirst);
+            Take(gridN);
 
             _originXZ = effect.Parameters["OriginXZ"];
             _islandHoleRadius = effect.Parameters["IslandHoleRadius"];
@@ -101,11 +110,28 @@ namespace Prazsky.Core.Render
             if (_gridN == gridN) return;
 
             //Given back rather than disposed: the grid cache owns it, and at full detail another scene draws the same one
-            _services.ReleaseGridMesh(_gridN, _extent, _nearFirst);
-            _services.AcquireGridMesh(gridN, _extent, out _vertexBuffer, out _indexBuffer, out _indexCount, _nearFirst);
+            if (_blocks != null) _services.ReleaseBlockedGrid(_gridN, _extent);
+            else _services.ReleaseGridMesh(_gridN, _extent, _nearFirst);
+            Take(gridN);
             _gridN = gridN;
             _cell = _extent / (gridN - 1);
             _gridCell?.SetValue(_cell);
+        }
+
+        //The grid of gridN a side from the cache: in blocks for a row-order grid, the near-first one as it was
+        private void Take(int gridN)
+        {
+            if (_nearFirst)
+            {
+                _blocks = null;
+                _services.AcquireGridMesh(gridN, _extent, out _vertexBuffer, out _indexBuffer, out _indexCount, nearFirst: true);
+                return;
+            }
+
+            _blocks = _services.AcquireBlockedGrid(gridN, _extent);
+            _vertexBuffer = _blocks.Vertices;
+            _indexBuffer = _blocks.Indices;
+            _indexCount = _blocks.IndexCount;
         }
 
         /// <summary>Whether the far ring is drawn: a measurement dial (the meadow's <c>meadow=</c> layers, #1028), true for every other caller.</summary>
@@ -145,7 +171,12 @@ namespace Prazsky.Core.Render
             _graphicsDevice.SetVertexBuffer(_vertexBuffer);
             _graphicsDevice.Indices = _indexBuffer;
             Effect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _indexCount / 3);
+            if (_blocks != null)
+            {
+                _frustum.Matrix = frame.Camera.View * frame.Camera.Projection;
+                TerrainGridCache.DrawSeenBlocks(_graphicsDevice, _blocks, _frustum, originX, originZ, _extent, BLOCK_LOW_Y, BLOCK_HIGH_Y);
+            }
+            else _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _indexCount / 3);
             if (DrawsFarRing) _farField.DrawRing(Effect, new Vector2(originX, originZ), _extent);
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;

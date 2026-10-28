@@ -648,7 +648,11 @@ float4 MountainSurface(MountainVertexOutput input, float4 strata, uniform bool f
             + StrataLedges(bed, strata.y, baseNormal, footprint3);
     }
     else
-        relief = RockRelief(worldPosition.xz, footprint, fullDetail ? 4 : 3) * (1.0 - 0.6 * saturate(baseNormal.y));
+    {
+        //The reduced program (Low, and the far ring past the grid on every tier) takes one octave (#1035): on the reference APU
+        //the range was the one chapter over Low's budget, and its relief was 0.96 ms of the frame between three octaves and one
+        relief = RockRelief(worldPosition.xz, footprint, fullDetail ? 4 : 1) * (1.0 - 0.6 * saturate(baseNormal.y));
+    }
     float3 rockNormal = PerturbNormalFromHeight(baseNormal, worldPosition, relief);
 
     //Snow lies where the surface is BOTH up-facing (flats/shoulders keep it, cliffs shed it) AND high enough

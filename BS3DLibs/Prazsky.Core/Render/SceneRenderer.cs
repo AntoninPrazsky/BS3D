@@ -39,6 +39,13 @@ namespace Prazsky.Core.Render
     /// The meadow's separately drawn layers, for <see cref="SceneRenderer.MeadowLayers"/> (#1028): the field (the camera grid
     /// and its far ring), the brook's and the pond's cut (the patch and the bed), the planting and the water.
     /// </summary>
+    /// <summary>
+    /// The mountain's separately drawn layers, for <see cref="SceneRenderer.MountainLayers"/> (#1035): the range (the camera
+    /// grid), its far ring, the bank's planting and the falling snow.
+    /// </summary>
+    [System.Flags]
+    public enum MountainLayer { None = 0, Range = 1, FarRing = 2, Berm = 4, Snow = 8, All = Range | FarRing | Berm | Snow }
+
     [System.Flags]
     public enum MeadowLayer { None = 0, Field = 1, Cut = 2, Plants = 4, Water = 8, FarRing = 16, All = Field | Cut | Plants | Water | FarRing }
 
@@ -465,6 +472,16 @@ namespace Prazsky.Core.Render
         {
             get => _meadow.Layers;
             set => _meadow.Layers = value;
+        }
+
+        /// <summary>
+        /// The mountain's layers (#1035), the same kind of measurement dial: the Testbed's <c>mountain=</c> sets it, every other
+        /// caller leaves it at <see cref="MountainLayer.All"/>.
+        /// </summary>
+        public MountainLayer MountainLayers
+        {
+            get => _mountain.Layers;
+            set => _mountain.Layers = value;
         }
 
         #region The sun's shadow map (#469, in every terrain scene since #471)

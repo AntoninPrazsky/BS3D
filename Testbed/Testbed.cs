@@ -1389,7 +1389,7 @@ namespace Testbed
         /// or a setter whose whole effect lands in the same frame.
         /// </summary>
         private static readonly string[] ALTERNATION_DIALS =
-            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow" };
+            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain" };
 
         /// <summary>
         /// Prints the sweep's plan before the first window, and names anything it will not switch. A pin that
@@ -1532,6 +1532,11 @@ namespace Testbed
                     //The meadow's layers (#1028): "meadow=all/-plants"
                     case "meadow":
                         _sceneRenderer.MeadowLayers = TestOptions.ParseMeadowLayers(pin.Value);
+                        break;
+
+                    //The mountain's layers (#1035): "mountain=all/-range"
+                    case "mountain":
+                        _sceneRenderer.MountainLayers = TestOptions.ParseMountainLayers(pin.Value);
                         break;
 
                     //On/off like the switch it mirrors: "nopost=1" is the argument, "nopost=0" the authored look
