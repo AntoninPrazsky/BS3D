@@ -966,7 +966,9 @@ float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool 
     float earth = cut * (1.0 - smoothstep(0.5, 0.78, baseNormal.y));
     float bare = max(max(earth, under), shore);
 
-    float relief = GrassRelief(worldPosition.xz, footprint, gust) * (1.0 - flowerCover) * (1.0 - 0.8 * verge) * (1.0 - 0.6 * bare);
+    //The reduced program (Low, and the far ring past the grid) gives the blades' relief up (#1028): on the reference APU it was
+    //0.67 ms of Low's frame at the play camera and 0.96 by the brook, and the owner gave the grass's detail at Low up for it
+    float relief = (detail ? GrassRelief(worldPosition.xz, footprint, gust) : 0.0) * (1.0 - flowerCover) * (1.0 - 0.8 * verge) * (1.0 - 0.6 * bare);
     float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, relief + flowerRelief);
 
     //Grass color, varied in broad patches so the field is not one flat green
@@ -1109,19 +1111,20 @@ float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool 
     [branch]
     if (cut > 0.0 && (earth > 0.0 || -carve.y < 0.45))
     {
-        float layers = sin(worldPosition.y * 11.0 + 2.0 * GradientNoise2(worldPosition.xz * 0.5)) * 0.5 + 0.5;
-        float clods = GradientNoise2(worldPosition.xz * 3.1 + worldPosition.y * 2.3);
+        //The reduced program's banks are plain (#1028): no layers, clods or pebbles, 0.23 ms by the brook on the APU at Low
+        float layers = detail ? sin(worldPosition.y * 11.0 + 2.0 * GradientNoise2(worldPosition.xz * 0.5)) * 0.5 + 0.5 : 0.5;
+        float clods = detail ? GradientNoise2(worldPosition.xz * 3.1 + worldPosition.y * 2.3) : 0.0;
         float3 earthColor = lerp(CUT_EARTH_DARK, CUT_EARTH, saturate(0.65 * layers + 0.35 + 0.3 * clods));
         float3 siltColor = POND_SHALLOW_BED * (0.85 + 0.3 * clods);
         [branch]
-        if (carve.w > 0.0 && under > 0.0)
+        if (detail && carve.w > 0.0 && under > 0.0)
             siltColor = lerp(siltColor, BrookPebbles(worldPosition.xz, footprint, clods), carve.w);
         grass = lerp(grass, earthColor, max(earth, shore));
         //The margin's gravel, up to a ragged line under the step's foot: small pale pebbles packed in darker grit, their
         //grain faded to its mean where a pebble is under a pixel or two (the field's footprint, taken before any branch)
         float gravel = shore * (1.0 - smoothstep(0.1, 0.16, -carve.y + 0.05 * clods));
         float grain = saturate(2.0 - footprint * 40.0);
-        float pebbles = max(GradientNoise2(worldPosition.xz * 14.0), 0.85 * GradientNoise2(worldPosition.xz * 23.0 + 5.3));
+        float pebbles = detail ? max(GradientNoise2(worldPosition.xz * 14.0), 0.85 * GradientNoise2(worldPosition.xz * 23.0 + 5.3)) : 0.15;
         float3 gravelColor = lerp(GRAVEL_DARK, GRAVEL, lerp(0.6, 0.25 + 0.75 * smoothstep(0.0, 0.3, pebbles), grain));
         grass = lerp(grass, gravelColor * (0.85 + 0.3 * clods), gravel);
         grass = lerp(grass, siltColor, under);
@@ -1183,7 +1186,8 @@ float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool 
 }
 
 //Two programs from one body (#281), the forest's pattern. "Meadow" is the authored field; "MeadowReduced" is the
-//same field without the two near-field terms that cost the most — the clump patches and the blade strokes —
+//same field without the near-field terms that cost the most — the clump patches, the blade strokes and, since #1028, the
+//blades' relief, with the cut's banks plain —
 //and keeps everything that is arithmetic on values already computed (the tips, the dry patches, the velvet and
 //the glow). SceneRenderer.SceneDetail picks; the Game's Low tier takes the reduced one. Each comes twice since #892:
 //over the camera grid (and the far ring, which takes "MeadowReduced"), with the hole the cut is drawn in, and over the
