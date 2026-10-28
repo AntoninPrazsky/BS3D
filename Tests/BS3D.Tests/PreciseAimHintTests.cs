@@ -5,83 +5,95 @@ using Xunit;
 namespace BS3D.Tests
 {
     /// <summary>
-    /// The precise-aim hint (#1012), the owner's ruling: a shot fired outside precise aim that drops nothing shows the
-    /// player that they can aim precisely, and the hint comes back if they used the lean only for a moment or have not used
-    /// it for a long time; a player who leans is never told. And the card: armed on any level the session asks, once a
-    /// level, never written to the save, behind a card already up, done by holding the button.
+    /// The precise-aim hint (#1012), the owner's rule of 2026-10-28: when a shot makes no match more than twice, show the
+    /// hint to aim with the right button - the third unscored shot in a row fired outside precise aim shows it, and every
+    /// third after it while the misses go on. And the card: armed on any level the session asks, as often as it is due,
+    /// never written to the save, behind a card already up, done by holding the button.
     /// </summary>
     public class PreciseAimHintTests
     {
-        //Shots fired outside the lean, each followed by the session's question after it dropped nothing
-        private static int ShotsUntilDue(PreciseAimHint hint, int most)
+        //Shots fired outside the lean that drop nothing, until the hint is due; the session shows it when it is
+        private static int MissesUntilDue(PreciseAimHint hint, int most)
         {
             for (int shot = 1; shot <= most; shot++)
             {
                 hint.NoteShotFired(leaned: false);
-                if (hint.DueAfterUnscoredShot) return shot;
+                if (hint.NoteShotResolved(scored: false))
+                {
+                    hint.NoteShown();
+                    return shot;
+                }
             }
 
             return -1;
         }
 
-        //A hold of the button for so many seconds at 120 frames a second, then let go
-        private static void Hold(PreciseAimHint hint, float seconds)
+        [Fact]
+        public void TheThirdMissInARowShowsIt()
         {
-            for (int i = 0; i < (int)(seconds * 120f); i++) hint.NoteLean(true, 1f / 120f);
-            hint.NoteLean(false, 1f / 120f);
+            //"More than twice": not on the first or the second, on the third
+            Assert.Equal(3, PreciseAimHint.MISSES_IN_A_ROW);
+            Assert.Equal(PreciseAimHint.MISSES_IN_A_ROW, MissesUntilDue(new PreciseAimHint(), 100));
         }
 
         [Fact]
-        public void APlayerWhoHasNeverLeanedIsToldOnTheFirstShotThatDropsNothing()
+        public void ItComesBackEveryThirdMissWhileTheMissesGoOn()
         {
             var hint = new PreciseAimHint();
-            Assert.Equal(1, ShotsUntilDue(hint, 100));
+
+            for (int showing = 0; showing < 10; showing++)
+                Assert.Equal(PreciseAimHint.MISSES_IN_A_ROW, MissesUntilDue(hint, 100));
         }
 
         [Fact]
-        public void AShotFiredFromTheLeanNeverCallsForIt()
-        {
-            var hint = new PreciseAimHint();
-            hint.NoteShotFired(leaned: true);
-            Assert.False(hint.DueAfterUnscoredShot);
-        }
-
-        [Fact]
-        public void APlayerWhoLeansIsNotTold()
+        public void AMatchStartsTheCountAgain()
         {
             var hint = new PreciseAimHint();
 
-            //A real look down the barrel every twenty shots, well inside the long stretch
             for (int round = 0; round < 10; round++)
             {
-                Hold(hint, PreciseAimHint.REAL_LEAN_SECONDS + 0.2f);
-                Assert.Equal(-1, ShotsUntilDue(hint, PreciseAimHint.LONG_SHOTS - 5));
+                hint.NoteShotFired(leaned: false);
+                Assert.False(hint.NoteShotResolved(scored: false));
+                hint.NoteShotFired(leaned: false);
+                Assert.False(hint.NoteShotResolved(scored: false));
+                hint.NoteShotFired(leaned: false);
+                Assert.False(hint.NoteShotResolved(scored: true));
             }
         }
 
         [Fact]
-        public void LeaningOnlyForAMomentBringsItBackAfterTheGap()
+        public void AMissFromTheLeanStartsTheCountAgainAndNeverCallsForIt()
         {
             var hint = new PreciseAimHint();
-            Assert.Equal(1, ShotsUntilDue(hint, 100));
-            hint.NoteShown();
 
-            //Taps of the button, never a real look: shown again once the gap has passed, not sooner
-            for (int i = 0; i < 20; i++) Hold(hint, PreciseAimHint.REAL_LEAN_SECONDS * 0.3f);
-            Assert.Equal(PreciseAimHint.MIN_SHOTS_BETWEEN, ShotsUntilDue(hint, 100));
+            for (int shot = 0; shot < 20; shot++)
+            {
+                hint.NoteShotFired(leaned: true);
+                Assert.False(hint.NoteShotResolved(scored: false));
+            }
+
+            //Two misses outside, one from the lean: the next outside miss is the first of a new run
+            hint.NoteShotFired(leaned: false);
+            hint.NoteShotResolved(scored: false);
+            hint.NoteShotFired(leaned: false);
+            hint.NoteShotResolved(scored: false);
+            hint.NoteShotFired(leaned: true);
+            hint.NoteShotResolved(scored: false);
+            Assert.Equal(PreciseAimHint.MISSES_IN_A_ROW, MissesUntilDue(hint, 100));
         }
 
         [Fact]
-        public void NotLeaningForALongTimeBringsItBack()
+        public void ALevelStartsTheCountAgain()
         {
             var hint = new PreciseAimHint();
-            Assert.Equal(1, ShotsUntilDue(hint, 100));
-            hint.NoteShown();
+            hint.NoteShotFired(leaned: false);
+            hint.NoteShotResolved(scored: false);
+            hint.NoteShotFired(leaned: false);
+            hint.NoteShotResolved(scored: false);
 
-            //A real lean right after the hint: the next one waits the long stretch, counted from the lean
-            Hold(hint, PreciseAimHint.REAL_LEAN_SECONDS + 0.2f);
-            Assert.Equal(PreciseAimHint.LONG_SHOTS, ShotsUntilDue(hint, 100));
-            Assert.Equal(PreciseAimHint.LONG_SHOTS, hint.ShotsSinceRealLean);
+            hint.BeginLevel();
+            Assert.Equal(0, hint.MissesInARow);
+            Assert.Equal(PreciseAimHint.MISSES_IN_A_ROW, MissesUntilDue(hint, 100));
         }
 
         //A save as a set of keys, and a tutorial over it that counts what it writes
@@ -111,37 +123,39 @@ namespace BS3D.Tests
             Assert.True(tutorial.IsArmed(Tutorial.Lesson.AimHint));
         }
 
+        private const string HINT_CAPTION = "Hold to aim precisely";
+
         [Fact]
-        public void TheCardShowsOnceALevelAndIsNeverWrittenToTheSave()
+        public void TheCardComesBackOnTheSameLevelAndIsNeverWrittenToTheSave()
         {
             var written = new List<string>();
             var tutorial = Over(new HashSet<string>(), written);
+            tutorial.BeginLevel(-1, 0, 0, ceilingStep: null, aimHintArmed: true);
 
-            for (int level = 0; level < 3; level++)
+            for (int showing = 0; showing < 3; showing++)
             {
-                tutorial.BeginLevel(-1, 0, 0, ceilingStep: null, aimHintArmed: true);
-                tutorial.Trigger(Tutorial.Lesson.AimHint);
+                Assert.True(tutorial.Trigger(Tutorial.Lesson.AimHint));
                 Run(tutorial, 1f);
-                Assert.Equal("Hold to look down the barrel", tutorial.Caption);
+                Assert.Equal(HINT_CAPTION, tutorial.Caption);
 
-                //Unheld, it goes once it has been read, and a second miss on the level cannot fire it again
+                //Up already: a second call while it stands puts up nothing more
+                Assert.False(tutorial.Trigger(Tutorial.Lesson.AimHint));
+
+                //Unheld, it goes once it has been read, and stays armed for the next run of misses on the same level
                 Run(tutorial, 9f);
                 Assert.Null(tutorial.Caption);
-                Assert.False(tutorial.IsArmed(Tutorial.Lesson.AimHint));
-                tutorial.Trigger(Tutorial.Lesson.AimHint);
-                Run(tutorial, 2f);
-                Assert.Null(tutorial.Caption);
+                Assert.True(tutorial.IsArmed(Tutorial.Lesson.AimHint));
             }
 
-            //Held, it is done and praised - and still not written, so it comes back on the next level that arms it
-            tutorial.BeginLevel(-1, 0, 0, ceilingStep: null, aimHintArmed: true);
-            tutorial.Trigger(Tutorial.Lesson.AimHint);
+            //Held, it is done and praised - and still not written, so it comes back
+            Assert.True(tutorial.Trigger(Tutorial.Lesson.AimHint));
             Run(tutorial, 2f, holding: true);
             Assert.True(tutorial.Praising || tutorial.Caption == null);
+            Run(tutorial, 3f);
 
             Assert.DoesNotContain("aimhint", written);
-            tutorial.BeginLevel(-1, 0, 0, ceilingStep: null, aimHintArmed: true);
             Assert.True(tutorial.IsArmed(Tutorial.Lesson.AimHint));
+            Assert.True(tutorial.Trigger(Tutorial.Lesson.AimHint));
         }
 
         [Fact]
@@ -168,7 +182,7 @@ namespace BS3D.Tests
                 Run(tutorial, 0.1f);
                 if (tutorial.Caption != null && (seen.Count == 0 || seen[^1] != tutorial.Caption)) seen.Add(tutorial.Caption);
             }
-            Assert.Contains("Hold to look down the barrel", seen);
+            Assert.Contains(HINT_CAPTION, seen);
         }
     }
 }

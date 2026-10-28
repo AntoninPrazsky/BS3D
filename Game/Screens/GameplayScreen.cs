@@ -226,9 +226,9 @@ namespace BS3D.Screens
         private readonly FireHint _fireHint = new();
 
         /// <summary>
-        /// When the precise-aim hint is due (#1012): told every frame whether the lean is held, and of every shot fired and
-        /// every shot that drops nothing; the card itself is the tutorial's (<see cref="Tutorial.Lesson.AimHint"/>). Kept for
-        /// the screen's life, so across levels.
+        /// When the precise-aim hint is due (#1012): told of every shot fired, from the lean or not, and of how every shot
+        /// resolved; the card itself is the tutorial's (<see cref="Tutorial.Lesson.AimHint"/>). Its run of misses starts again
+        /// with each level.
         /// </summary>
         private readonly PreciseAimHint _aimHint = new();
 
