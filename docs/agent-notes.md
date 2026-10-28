@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-28 — #1037 sopka na Medium — notebook (ThinkPad), Claude Code (github-4d)
+- Hotovo: `Medium` kreslí `VolcanoMedium`, tedy autorský pixelový program svahu na geometrii z `Low` (hrubší mřížka a redukovaný vertex program). Ve hře Caldera 38,00 → 31,93 ms a Paroxysm 36,00 → 29,95, Colossus beze změny. `Low` a `High` jsou na snímcích stejné. `volcano=` má vrstvy `Planting` a `Country`.
+- ⚠ #748 stál `Medium` 5,9 ms, třikrát víc než `Low`. Krajina nahradila oblohu, takže přibyly pixely terénu (8,8 ms škáluje s rozlišením, předtím 6,0), a vertex program běžel na plné mřížce. Ploché stínování krajiny ušetřilo jen 0,5 ms.
+- ⚠ Vrstva `Plume` (sloup a pára fumarol) stojí 1,80 ms na `Low` a 3,38 na `Medium`. Doc dřív tvrdil, že nic.
+- Otevřené: `verdict-eye` (#1037), rezerva sopky na `Low` (Caldera 16,00 ms) přes kouř.
+
 ## 2026-10-28 — #922 galerie webu v pohybu — desktop (RDT-PC), Claude Code (bs3d-13)
 - Hotovo: osm snímků galerie jsou okamžiky z benchmarkového dema z nastavených kamer, bez HUD, na Ultra v 2560×1440 (merge `15f1f7b1`). Nový `Tools/web-gallery.ps1` je bere podle `shot` v `gallery.json`. `web-screenshots.ps1` ve výchozím stavu bere jen Meander. Dva běhy daly všech 16 JPEG bajtově stejně.
 - ⚠ Hra bere `fov=` užší, než by sedělo na svislé zorné pole: shluk visí od ostrova až k desce asi na y = 12. Kamery s cílem kolem y = 0 ho uřízly. Začni z jednoho širokého snímku zdálky.
