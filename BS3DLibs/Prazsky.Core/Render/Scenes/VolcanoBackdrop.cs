@@ -627,7 +627,7 @@ namespace Prazsky.Core.Render
             _graphicsDevice.Indices = _fountainIndexBuffer;
 
             //The fumaroles' steam first: nearer the ground and fainter than the plume, alpha-blended the same way
-            if (_steamQuads > 0 && _steamVertexBuffer != null && (Layers & VolcanoLayer.Plume) != 0)
+            if (_steamQuads > 0 && _steamVertexBuffer != null && (Layers & VolcanoLayer.Steam) != 0)
             {
                 _graphicsDevice.BlendState = BlendState.AlphaBlend;
                 _graphicsDevice.SetVertexBuffer(_steamVertexBuffer);

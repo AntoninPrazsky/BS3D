@@ -12,8 +12,8 @@ namespace Prazsky.Core.Render
     [System.Flags]
     public enum VolcanoLayer
     {
-        None = 0, Terrain = 1, Plume = 2, Jets = 4, Glow = 8, Ash = 16, Planting = 32, Country = 64,
-        All = Terrain | Plume | Jets | Glow | Ash | Planting | Country
+        None = 0, Terrain = 1, Plume = 2, Jets = 4, Glow = 8, Ash = 16, Planting = 32, Country = 64, Steam = 128,
+        All = Terrain | Plume | Jets | Glow | Ash | Planting | Country | Steam
     }
 
     /// <summary>
