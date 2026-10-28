@@ -1,5 +1,6 @@
 using BS3D.Lighting;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using Windows.Devices.Enumeration;
 using Windows.Devices.Lights;
@@ -35,17 +36,20 @@ namespace BS3D.Platform
     internal static class KeyboardLights
     {
         //How often the whole board is sent again although nothing changed, in case Windows dropped a write while another app
-        //had the lamps (a focus change the game did not see as one, Dynamic Lighting turned off and on)
-        private const int RESEND_MILLISECONDS = 2000;
+        //had the lamps (the first frames after the window comes back, Dynamic Lighting turned off and on). A board sent whole
+        //allocates 96 bytes on the worker (measured), so twice a second costs nothing
+        private const int RESEND_MILLISECONDS = 500;
 
         private static readonly object _lock = new();
         private static DeviceWatcher _watcher;
         private static Thread _worker;
         private static readonly AutoResetEvent _wake = new(false);
 
-        //Written by the watcher's thread and the worker under _lock; read by the frame (Layout) without it
+        //Written by the watcher's thread and the worker under _lock; read by the frame without it (Layout, NoneFound)
         private static volatile KeyLightLayout _layout;
-        private static string _deviceId;
+        private static volatile string _deviceId;
+        private static volatile bool _enumerated;
+        private static readonly List<string> _known = new();
         private static LampArray _lamps;
         private static TimeSpan _interval = TimeSpan.FromMilliseconds(33);
 
@@ -63,8 +67,12 @@ namespace BS3D.Platform
         /// <summary>The keyboard's lamps, or null while none is open: the frame composes for this one.</summary>
         internal static KeyLightLayout Layout => _layout;
 
-        /// <summary>Whether a keyboard is lit: the Settings row says so when none is.</summary>
-        internal static bool HasKeyboard => _layout != null;
+        /// <summary>
+        /// Whether Windows has listed its LampArrays and none is a keyboard: the Settings row says so. False while it is still
+        /// looking, and false while a keyboard is known but closed (the switch off), so the row never reads "none found" over a
+        /// keyboard that is there.
+        /// </summary>
+        internal static bool NoneFound => _enumerated && _deviceId == null;
 
         /// <summary>Starts looking for a keyboard, once. Any failure (no Dynamic Lighting, an older Windows) leaves it dark.</summary>
         internal static void Start()
@@ -79,6 +87,7 @@ namespace BS3D.Platform
                 _watcher.Removed += (_, update) => Lost(update.Id);
                 _watcher.EnumerationCompleted += (_, _) =>
                 {
+                    _enumerated = true;
                     if (_deviceId == null) Console.WriteLine("[lights] No backlit keyboard (Windows Dynamic Lighting lists none)");
                 };
                 _watcher.Start();
@@ -117,24 +126,47 @@ namespace BS3D.Platform
             }
         }
 
-        //The watcher's thread: the first LampArray that is a keyboard becomes the one lit
+        //The watcher's thread: every keyboard is remembered, and the first one becomes the one lit. Another one is lit when
+        //that one goes away (Lost)
         private static void Found(string id, string name)
         {
             try
             {
                 LampArray lamps = LampArray.FromIdAsync(id).AsTask().GetAwaiter().GetResult();
-                if (lamps == null || lamps.LampArrayKind != LampArrayKind.Keyboard) return;
+                if (lamps == null) return;
+                if (lamps.LampArrayKind != LampArrayKind.Keyboard)
+                {
+                    Release(lamps);
+                    return;
+                }
 
                 string said = $"[lights] Keyboard '{name}' ({lamps.HardwareVendorId:X4}:{lamps.HardwareProductId:X4}): {lamps.LampCount} lamps, "
                     + $"{lamps.MinUpdateInterval.TotalMilliseconds:0} ms between updates, keys by name {lamps.SupportsVirtualKeys}";
 
                 lock (_lock)
                 {
-                    if (_deviceId != null) { Release(lamps); return; }
+                    if (!_known.Contains(id)) _known.Add(id);
 
-                    _deviceId = id;
-                    Open(lamps);
-                    if (!_wanted) Close();
+                    if (_deviceId != null)
+                    {
+                        Release(lamps);
+                        said += ", not lit (another keyboard is)";
+                    }
+                    else
+                    {
+                        try
+                        {
+                            Open(lamps);
+                        }
+                        catch
+                        {
+                            Release(lamps);
+                            throw;
+                        }
+
+                        _deviceId = id;
+                        if (!_wanted) Close();
+                    }
                 }
                 Console.WriteLine(said);
             }
@@ -148,19 +180,22 @@ namespace BS3D.Platform
         {
             lock (_lock)
             {
+                _known.Remove(id);
                 if (id != _deviceId) return;
 
-                _deviceId = null;
+                //The next keyboard Windows listed takes over: the worker opens it, as it opens one after the switch
                 Close();
+                _deviceId = _known.Count > 0 ? _known[0] : null;
             }
-            Console.WriteLine("[lights] The keyboard went away");
+            Console.WriteLine(_deviceId == null ? "[lights] The keyboard went away" : "[lights] The keyboard went away; the next one is lit");
+            _wake.Set();
         }
 
-        //Under _lock: the device opened, its layout read once and the buffers sized to it
+        //Under _lock: the device opened, its layout read once and the buffers sized to it. Everything is read before anything
+        //is kept, so a device that throws half way leaves nothing behind (the caller releases it)
         private static void Open(LampArray lamps)
         {
-            _lamps = lamps;
-            _interval = lamps.MinUpdateInterval > TimeSpan.Zero ? lamps.MinUpdateInterval : TimeSpan.FromMilliseconds(33);
+            TimeSpan interval = lamps.MinUpdateInterval > TimeSpan.Zero ? lamps.MinUpdateInterval : TimeSpan.FromMilliseconds(33);
 
             int count = lamps.LampCount;
             float width = Math.Max(lamps.BoundingBox.X, 1e-3f);
@@ -171,13 +206,16 @@ namespace BS3D.Platform
             for (int key = 0; key < KeyLightModel.KEY_COUNT; key++)
                 keyLamps[key] = lamps.SupportsVirtualKeys ? lamps.GetIndicesForKey(VirtualKeyOf((LitKey)key)) : Array.Empty<int>();
 
+            var indices = new int[count];
+            for (int i = 0; i < count; i++) indices[i] = i;
+
+            _lamps = lamps;
+            _interval = interval;
             _pending = new XnaVector3[count];
             _working = new XnaVector3[count];
             _colours = new Windows.UI.Color[count];
             _sent = new Windows.UI.Color[count];
-            _indices = new int[count];
-            for (int i = 0; i < count; i++) _indices[i] = i;
-
+            _indices = indices;
             _hasPending = false;
             _resend = true;
             _layout = new KeyLightLayout(x, keyLamps);
@@ -250,7 +288,17 @@ namespace BS3D.Platform
                         if (!_wanted && _lamps != null) Close();
                         if (_wanted && _lamps == null && _deviceId != null
                             && LampArray.FromIdAsync(_deviceId).AsTask().GetAwaiter().GetResult() is LampArray reopened)
-                            Open(reopened);
+                        {
+                            try
+                            {
+                                Open(reopened);
+                            }
+                            catch
+                            {
+                                Release(reopened);
+                                throw;
+                            }
+                        }
 
                         lamps = _lamps;
                         if (lamps == null || !_hasPending) continue;

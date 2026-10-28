@@ -43,19 +43,26 @@ namespace BS3D
             KeyLightInput input = new() { Clock = _wallClock };
             KeyLightMode mode = KeyLightMode.Idle;
 
-            //Play is the level on the stack with no pause over it; the result page over it is the ending, read off the record
-            //the page was built from
-            if (_gameplayScreen is { IsBuilt: true } play && _screens.Contains<GameplayScreen>() && !_screens.Contains<PausePage>())
+            //The ending is the result page's own figures (a page the `result` argument stages too), or, before that page, the
+            //record a level that has ended keeps (the campaign's finale stands in front of the page). Play is the level itself on
+            //top: a pause or the note page over it is the menus' board
+            if (_screens.Contains<ResultPage>())
             {
-                if (!_screens.Contains<ResultPage>())
-                {
-                    mode = KeyLightMode.Playing;
-                    play.FillKeyLights(ref input, _lightQueue);
-                }
-                else if (play.KeyLightEnding(out bool cleared, out int stars))
+                LevelResult result = _resultPage.Result;
+                mode = result.Cleared ? KeyLightMode.Won : KeyLightMode.Lost;
+                input.Stars = result.Stars;
+            }
+            else if (_gameplayScreen is { IsBuilt: true } play && _screens.Contains<GameplayScreen>() && !_screens.Contains<PausePage>())
+            {
+                if (play.KeyLightEnding(out bool cleared, out int stars))
                 {
                     mode = cleared ? KeyLightMode.Won : KeyLightMode.Lost;
                     input.Stars = stars;
+                }
+                else if (_screens.Active is GameplayScreen)
+                {
+                    mode = KeyLightMode.Playing;
+                    play.FillKeyLights(ref input, _lightQueue);
                 }
             }
 
