@@ -20,6 +20,16 @@ Pravidla:
 
 ---
 
+## 2026-10-28 — #987 podsvícená klávesnice, verdikty 27. a 28. 10. — desktop (RDT-PC), Claude Code (bs3d-13)
+- Hotovo: klávesnice svítí přes Windows `LampArray` (Dynamic Lighting), bez Logitech SDK, DLL a EULA (merge `355de3eb`, opravy z recenze `5696e5b8`).
+  - Při hraní: barva nabité koule, Space naplno, fronta na F1–F4.
+  - Karta tutoriálu: klávesy, o které žádá, blikají.
+  - Výhra: duha, pak barva poháru. Prohra: červená.
+  - Settings > CONTROLS > Keyboard lights. G513 hlásí 104 lamp a 33 ms.
+- majitel: OK na všechno na obou stránkách verdiktů (#909–#916, #748, #1030, #1035, #922, #1034). U #917 vyhrálo popisné zadání 3 ze 4, Britney jen u sunny.
+- ⚠ Windows pouští lampy jen oknu v popředí, takže běh bez fokusu nic nerozsvítí. `IsEnabled = false` klávesnici nevrací, vrací ji až uvolnění COM odkazu. `IsAvailable` je až v SDK 22000.
+- Otevřené: `verdict-eye` u #987 (rozsvícení nikdo neviděl); #917, zda „sunny“ nahradit verzí B.
+
 ## 2026-10-28 — #922 galerie webu v pohybu — desktop (RDT-PC), Claude Code (bs3d-13)
 - Hotovo: osm snímků galerie jsou okamžiky z benchmarkového dema z nastavených kamer, bez HUD, na Ultra v 2560×1440 (merge `15f1f7b1`). Nový `Tools/web-gallery.ps1` je bere podle `shot` v `gallery.json`. `web-screenshots.ps1` ve výchozím stavu bere jen Meander. Dva běhy daly všech 16 JPEG bajtově stejně.
 - ⚠ Hra bere `fov=` užší, než by sedělo na svislé zorné pole: shluk visí od ostrova až k desce asi na y = 12. Kamery s cílem kolem y = 0 ho uřízly. Začni z jednoho širokého snímku zdálky.
