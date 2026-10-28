@@ -553,9 +553,9 @@ struct RiverSample
     float ConeR;    //distance from the cone's axis, which the summit's own heat is a function of
 };
 
-//The nearest river at a world point. A loop over a UNIFORM count (uniform flow control, no divergence) with
-//no gradient operation inside it, which is what lets the whole thing run unbranched: everything the pixel
-//needs from the rivers comes out of this one call, on the flow and off it alike.
+//The nearest river at a world point. A loop over a UNIFORM count with no gradient operation inside it: everything the
+//pixel needs from the rivers comes out of this one call, on the flow and off it alike. The one branch inside skips a
+//flow the pixel is past the reach of, which diverges only along a flow's edge (a flow is a band on the screen).
 RiverSample SampleRivers(float2 p, float footprint, uniform bool fullDetail)
 {
     float2 d = p - ConeCenterXZ;
@@ -571,12 +571,26 @@ RiverSample SampleRivers(float2 p, float footprint, uniform bool fullDetail)
     best.Reach = ConeRadius;
     best.ConeR = r;
 
+    //As far across as any flow reaches: its widest half-width (the sine and the summit's narrowing below never pass 1.2
+    //and 1 of RiverWidth) times its halo, or plus the footprint's feather where that is wider (#1038)
+    float edge = footprint * 0.5;
+    float reach = RiverWidth * 1.2 * max(HaloWidth, 1.0) + edge;
+
     for (int i = 0; i < RiverCount; i++)
     {
         //A flow wanders on the way down rather than running true - the wander is a function of the RADIUS,
         //so it bends the river's course and does not merely wobble its edges.
         float wander = RiverWander * sin(r * 0.017 + i * 2.13) * saturate(r / ConeRadius);
         float across = AngleDelta(bearing, RiverBearing[i] + wander) * r;
+
+        //A pixel past a flow's reach takes nothing from it: its mask and its halo are 0 there, and it cannot be the
+        //nearest flow of a pixel some flow covers, whose across is inside that flow's reach. Its coordinates are read
+        //only where the mask is (FlowRadiance), so skipping it changes no pixel; most of the cone is far from every
+        //flow, and the front, the width and the smoothsteps below were the bulk of Low's flank program (#1038).
+        //A data branch with no gradient operation inside, the footprint taken by the caller
+        [branch]
+        if (abs(across) >= reach)
+            continue;
 
         //The front: the flow thins and stops somewhere down the flank, each river at its own reach, with a
         //noisy edge so it ends in a lobed front rather than on a circle.
@@ -588,7 +602,6 @@ RiverSample SampleRivers(float2 p, float footprint, uniform bool fullDetail)
         //flows between them paved the whole upper cone - which no reference drew.
         float halfWidth = RiverWidth * (0.75 + 0.45 * sin(r * 0.026 + i * 1.7))
             * lerp(0.4, 1.0, smoothstep(CraterRadius, ConeRadius * 0.55, r));
-        float edge = footprint * 0.5;
         float mask = (1.0 - smoothstep(halfWidth * 0.55 - edge, halfWidth + edge, abs(across))) * front;
 
         //The heated BAND either side of the flow. HaloWidth is a multiple of the river's own half-width, and
