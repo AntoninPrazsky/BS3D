@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-10-28 — #985 blog: loga studií, která nikdy neexistovala — desktop (RDT-PC), Claude Code (bs3d-13)
+- Hotovo: článek `Web/src/blog/logos-of-studios-that-never-existed.md` (merge `94ff8d86`), devět obrázků a náhled. Publikace je na majiteli (`Web\publish.ps1`).
+- Změřeno: Qwen3-VL-8B prošel všech 1891 souborů v `AI\sd\out`, 86 jeho ANO u renderů jsem prošel okem. 34 značek, všechny od kleinu (34 z 704), Z-Image 0 z 974. Všechny pochází ze zadání se slovem „game“ (34 ze 140), u fotografií 0 z 544. U „realistic 2026 graphics“ 7 z 8 (v rozích letopočty).
+- ⚠ Qwen hlásí i to, oč se žádalo (loga, piktogramy), a nápisy na předmětech ve scéně. Každé ANO je potřeba zkontrolovat okem. Dva paralelní požadavky LM Studio nezrychlí, řadí je za sebe.
+- ⚠ Headless Edge má minimální šířku okna. Šířka telefonu se ověřuje v iframu 360 px.
+- Otevřené: nic. Čísla jsou na issue.
+
 ## 2026-10-28 — #400 #1036 #1012 #987 #751 #752 průchod 16, přezdívky, nápověda míření — desktop (RDT-PC), Claude Code (bs3d-13)
 - Hotovo: tři čtenáři (Sonnet) prošli 15 merge bez vlastního review. Opraveno:
   - #1036: filtr přezdívek četl zakázané slovo přes mezeru mezi slovy („Jane Grey“ → „negr“). Opraveno ve hře `fb77325b` i v BS3D-API `a662387`. **Vydání a nasazení API zbývá.**
