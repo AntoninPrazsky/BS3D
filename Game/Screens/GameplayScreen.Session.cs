@@ -122,12 +122,15 @@ namespace BS3D.Screens
 
             //The benchmark's play (#1018) is taught nothing: no card is queued, so none is shown and no lesson is written.
             //The precise-aim hint (#1012) is armed on every other level once the lean's own card has been taught: it reminds
-            //of that card, so it never comes before it. The dead weight's card (#1023) on every other level until it is taught
+            //of that card, so it never comes before it. And past the ladder's two chapters whether or not it was: the card
+            //is recorded only when the button is held, so a player who let it time out every time - the one the hint is for -
+            //never had it armed once the ladder stopped offering the card. The dead weight's card (#1023) on every other level
+            //until it is taught
             if (_run.Benchmark) _tutorial.BeginLevel(-1, 0, 0, null, retry: retry);
             else
                 _tutorial.BeginLevel(tutorialLevel ? chapter : -1, levelInChapter, chapterLength, LevelCeilingStep(index),
                     swapOffered: _run.SwapOffered, retry: retry, kindsOnMap: _kindsOnMap, brakeOffered: _run.BrakeOffered,
-                    cutOffered: _run.CutOffered, aimHintArmed: _tutorial.HasBeenTaught(Tutorial.Lesson.LeanIn),
+                    cutOffered: _run.CutOffered, aimHintArmed: _tutorial.HasBeenTaught(Tutorial.Lesson.LeanIn) || !tutorialLevel,
                     deadWeightArmed: true);
 
             //The first five levels carry the "fire" chip for a player who stops (#925), on the level's own count from zero
