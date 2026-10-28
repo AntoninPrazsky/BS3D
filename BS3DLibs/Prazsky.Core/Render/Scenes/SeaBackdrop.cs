@@ -158,6 +158,7 @@ namespace Prazsky.Core.Render
             _seaEffect.Parameters["ShallowBias"].SetValue(_seaConfig.ShallowBias);
             _seaEffect.Parameters["WaveAmplitude"].SetValue(_seaConfig.WaveAmplitude);
             _seaEffect.Parameters["WaveSteepness"].SetValue(_seaConfig.WaveSteepness);
+            _seaPass.SidewaysReach = SwayReach(_seaConfig.WaveSteepness, _seaConfig.WaveAmplitude);
             _seaEffect.Parameters["WaveSpeed"].SetValue(_seaConfig.WaveSpeed);
             _seaEffect.Parameters["WaveFadeStart"].SetValue(_seaConfig.WaveFadeStart);
             _seaEffect.Parameters["WaveFadeEnd"].SetValue(_seaConfig.WaveFadeEnd);
@@ -263,6 +264,16 @@ namespace Prazsky.Core.Render
 
         //The swell's reach in its own amplitude (SeaIntroShots.CREST_REACH, kept in step by hand)
         private const float SWELL_REACH = 4.2f;
+
+        /// <summary>
+        /// The farthest <c>Sea.fx</c>'s waves move a vertex sideways, world units: each wave's pinch is
+        /// <c>WaveSteepness × WAVE_STEEP_WEIGHT × WaveAmplitude × WAVE_AMP[i]</c>, so their sum bounds it (the sea 1.99, the
+        /// lagoon 1.04). The grid's blocks are culled to the lens with their boxes grown by it (<see cref="TerrainPass.SidewaysReach"/>).
+        /// </summary>
+        internal static float SwayReach(float steepness, float amplitude) => steepness * WAVE_STEEP_WEIGHT * amplitude * WAVE_AMP_SUM;
+
+        //Sea.fx's WAVE_STEEP_WEIGHT and the sum of its WAVE_AMP table, kept in step by hand
+        private const float WAVE_STEEP_WEIGHT = 0.70f, WAVE_AMP_SUM = 4.9978f;
 
         /// <summary>
         /// Draws the sea's blown spray and spindrift: the static billboard buffer animated in the shader, in a
