@@ -20,7 +20,13 @@ Pravidla:
 
 ---
 
-## 2026-10-28 — #1038 sopka na Low: proudy a sloup kouře — notebook (ThinkPad), Claude Code (github-4d)
+## 2026-10-28 — #1012 #1006 #1039 #1007 #988 #827 dávka poznámek majitele — desktop (RDT-PC), Claude Code (bs3d-83)
+- Hotovo: #1012 nápověda na 3. minutí v řadě bez přesného míření, i opakovaně v levelu. #1006 zaostření později (4 s) a dál. #1039 menu v Neon City létalo 6 jednotek ve věžích (úzké okno), drží se v mýtině. #1007 `shotspeed=` na zkoušku. #988 finále „swarm“ (desktop 88 728 koulí při 60 FPS). #827 Top Players s pódiem.
+- Majitel: #1023 a #875 OK, #1015 čas nikdy do skóre (zavřeno). #827 odparkováno.
+- ⚠ Starý dial nápovědy umlčel nápovědu každému, kdo občas drží RMB, tedy i majiteli.
+- ⚠ Stránka otevřená znovu přes menu nemá v `BeginSwarm` ještě `Manager`: na pozadí sahat přes `Game.Backdrop`.
+- ⚠ Review (9d4923f4): náhled střely měl limit 0,5 s letu, takže pomalý `shotspeed=` ztrácel ghost. Teď je limit 100 jednotek.
+- Otevřené: #1040 kanon v menu (nezačato), #988 Pi segmenty, verdikty #1006/#1012 (hands), #827 (eye).: proudy a sloup kouře — notebook (ThinkPad), Claude Code (github-4d)
 - Hotovo: pixel dál od proudu, než sahá jeho lem, proud přeskočí (všechny úrovně, žádný pixel se nemění). Ve hře Caldera 15,67 → 14,99 ms na `Low` a 31,94 → 29,81 na `Medium`, Paroxysm −0,73 a −2,16. `Low` kreslí polovinu sloupce kouře s dorovnanou hustotou a hrudky z hodnotového šumu (Caldera −0,16, změna vzhledu). `volcano=` má vrstvu `Steam`.
 - ⚠ Herní kamera vidí kužel zblízka a sloup kouře je skoro celý nad snímkem. Pohled Testbedu `campos=0,-4,30` sloup přecenil desetkrát. Hledat úspory z herní pózy: `campos=0,-4,30.4 camtarget=0,4,0 fov=43`.
 - Otevřené: `verdict-eye` (#1038, sloup na `Low`).
